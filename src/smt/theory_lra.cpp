@@ -719,21 +719,7 @@ class theory_lra::imp {
             report_equality_of_fixed_vars(vi, vi_equal);
         m_new_def = true;
     }
-    
-    void internalize_eq(theory_var v1, theory_var v2) {  
-        app_ref term(m.mk_fresh_const("eq", a.mk_real()), m);
-        scoped_internalize_state st(*this);
-        st.vars().push_back(v1);
-        st.vars().push_back(v2);        
-        st.coeffs().push_back(rational::one());
-        st.coeffs().push_back(rational::minus_one());
-        theory_var z = internalize_linearized_def(term, st);      
-        lpvar vi = register_theory_var_in_lar_solver(z);
-        add_def_constraint_and_equality(vi, lp::LE, rational::zero());
-        add_def_constraint_and_equality(vi, lp::GE, rational::zero());
-        TRACE("arith", 
-              tout << "v" << v1 << " = " << "v" << v2 << ": " << pp(v1) << " = " << pp(v2) << "\n");
-    }
+
 
     void del_bounds(unsigned old_size) {
         for (unsigned i = m_bounds_trail.size(); i-- > old_size; ) {

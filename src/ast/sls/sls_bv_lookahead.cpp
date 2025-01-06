@@ -370,11 +370,8 @@ namespace sls {
             auto v1 = m_ev.get_bool_value(y);
             return (is_true == (v0 == v1)) ? 1 : 0;
         }
-        if (m.is_ite(a, x, y, z)) {
-            auto v0 = m_ev.get_bool_value(x);
-            return v0 ? new_score(y, is_true) : new_score(z, is_true);
-        }
-
+        if (m.is_ite(a, x, y, z)) 
+            return m_ev.get_bool_value(x) ? new_score(y, is_true) : new_score(z, is_true);        
         if (is_true && m.is_eq(a, x, y) && bv.is_bv(x)) {
             auto const& vx = wval(x);
             auto const& vy = wval(y);
@@ -387,10 +384,9 @@ namespace sls {
             //verbose_stream() << "hamming distance " << mk_bounded_pp(a, m) << " " << d << "\n";
             return d;
         }
-        else if (!is_true && m.is_eq(a, x, y) && bv.is_bv(x)) {
-            return 0;
-        }
-        else if (bv.is_ule(a, x, y)) {
+        if (!is_true && m.is_eq(a, x, y) && bv.is_bv(x)) 
+            return 0;        
+        if (bv.is_ule(a, x, y)) {
             auto const& vx = wval(x);
             auto const& vy = wval(y);
 
@@ -417,7 +413,7 @@ namespace sls {
             double dbl = n.get_double();
             return (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
         }
-        else if (bv.is_sle(a, x, y)) {
+        if (bv.is_sle(a, x, y)) {
             auto const& vx = wval(x);
             auto const& vy = wval(y);
             // x += 2^bw-1
@@ -445,7 +441,7 @@ namespace sls {
             double dbl = n.get_double();
             return (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
         }
-        else if (is_true && m.is_distinct(a) && bv.is_bv(to_app(a)->get_arg(0))) {
+        if (is_true && m.is_distinct(a) && bv.is_bv(to_app(a)->get_arg(0))) {
             double np = 0, nd = 0;
             for (unsigned i = 0; i < to_app(a)->get_num_args(); ++i) {
                 auto const& vi = wval(to_app(a)->get_arg(i));
@@ -651,8 +647,6 @@ namespace sls {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto e = m_update_stack[depth][i];
                 TRACE("bv_verbose", tout << "update " << mk_bounded_pp(e, m) << "\n";);
-                VERIFY(m.is_bool(e) || bv.is_bv(e));
-
 
                 if (t == e)
                     ;
@@ -744,8 +738,6 @@ namespace sls {
     }
 
     void bv_lookahead::insert_update_stack(expr* e) {
-        if (!bv.is_bv(e) && !m.is_bool(e))
-            return;
         unsigned depth = get_depth(e);
         m_update_stack.reserve(depth + 1);
         if (!m_in_update_stack.is_marked(e) && is_app(e)) {
