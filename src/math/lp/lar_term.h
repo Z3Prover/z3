@@ -36,7 +36,7 @@ public:
     lpvar j() const { return m_j; }
     void set_j(unsigned j) { 
         m_j = j;
-    }
+        }
     void add_monomial(const mpq& c, unsigned j) {
         if (c.is_zero())
             return;
@@ -275,10 +275,7 @@ public:
         const_iterator(u_map<mpq>::iterator it) : m_it(it) {}
         bool operator==(const const_iterator &other) const { return m_it == other.m_it; }
         bool operator!=(const const_iterator &other) const { return !(*this == other); }
-          // Return a pointer to the same object returned by operator*.
-        const ival* operator->() const {
-            return &(**this); 
-        }
+        
     };
    
     bool is_normalized() const {
