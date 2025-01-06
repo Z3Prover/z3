@@ -54,6 +54,7 @@ namespace sls {
         updt_params(ctx.get_params());
         if (!m_config.use_lookahead_bv)
             return;
+        flet<bool> _set_use_tmp(m_ev.m_use_tmp_bool_value, true);
         initialize_bool_values();
         rescore();
         m_config.max_moves = m_stats.m_moves + m_config.max_moves_base;
@@ -88,6 +89,7 @@ namespace sls {
     }
 
     void bv_lookahead::initialize_bool_values() {
+        m_ev.restore_bool_values(0);
         for (auto t : ctx.subterms()) {
             if (bv.is_bv(t)) {
                 auto& v = m_ev.eval(to_app(t));
@@ -106,14 +108,12 @@ namespace sls {
     * Flip truth values of root literals if they are updated.
     */
     void bv_lookahead::finalize_bool_values() {
-        if (false && !m_config.use_top_level_assertions)
-            return;
-        for (auto lit : ctx.root_literals()) {
-            auto a = ctx.atom(lit.var());
-            auto v0 = ctx.is_true(lit.var());
-            auto v1 = m_ev.get_bool_value(a);
-            if (v0 != v1)
-                ctx.flip(lit.var());
+        for (unsigned v = ctx.num_bool_vars(); v-- > 0; ) {
+            auto a = ctx.atom(v);
+            if (!a)
+                continue;
+            if (m_ev.get_bool_value(a) != ctx.is_true(v))
+                ctx.flip(v);
         }
     }
 
@@ -197,6 +197,7 @@ namespace sls {
         expr* e = nullptr;
         if (m_config.ucb) {
             double max = -1.0;
+            TRACE("bv", tout << "select\n");
             for (auto a : get_root_assertions()) {
                 auto const& vars = m_ev.terms.uninterp_occurs(a);
                 //verbose_stream() << mk_bounded_pp(a, m) << " " << assertion_is_true(a) << " num vars " << vars.size() << "\n";
@@ -206,6 +207,7 @@ namespace sls {
                 if (vars.empty())
                     continue;
                 auto score = old_score(a);
+                TRACE("bv", tout << "score " << score << "  " << mk_bounded_pp(a, m) << "\n");
                 auto q = score
                     + m_config.ucb_constant * sqrt(log((double)m_touched) / get_touched(a))
                     + m_config.ucb_noise * ctx.rand(512);
@@ -428,6 +430,7 @@ namespace sls {
             rational n = m_ev.m_tmp3.get_value(vx.nw);
             n /= rational(rational::power_of_two(vx.bw));
             double dbl = n.get_double();
+            verbose_stream() << mk_bounded_pp(a, m) << " x:" <<vx << " y:" << vy << " " << dbl << "\n";
             return (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
         }
         else if (is_true && m.is_distinct(a) && bv.is_bv(to_app(a)->get_arg(0))) {
@@ -518,7 +521,6 @@ namespace sls {
         auto score = lookahead_update(u, new_value);
         ++m_stats.m_lookaheads;
         //verbose_stream() << "lookahead set " << mk_bounded_pp(u, m) << " := " << new_value << " score: " << score << " best score: " << m_best_score << "\n";
-        //verbose_stream() << mk_bounded_pp(u, m) << " := " << new_value << " score: " << score << "\n";
         if (score > m_best_score) {
             m_best_score = score;
             m_best_expr = u;

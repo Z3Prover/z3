@@ -156,9 +156,9 @@ namespace sls {
             }
             else if (m.is_ite(e, c, th, el)) {
                 todo.push_back(c);
-                if (ctx.is_true(c))
+                //if (ctx.is_true(c))
                     todo.push_back(th);
-                else
+                //else
                     todo.push_back(el);
             }
             else if (is_uninterp(e) && (m.is_bool(e) || bv.is_bv(e))) 

@@ -307,7 +307,8 @@ namespace sls {
             SASSERT(bv.is_bv(e->get_arg(1)));
             auto& val_th = wval(e->get_arg(1));
             auto& val_el = wval(e->get_arg(2));
-            if (bval0(e->get_arg(0)))
+            bool b = m_use_tmp_bool_value ? get_bool_value(e->get_arg(0)) : bval0(e->get_arg(0));
+            if (b)
                 val.set(val_th.bits());
             else
                 val.set(val_el.bits());

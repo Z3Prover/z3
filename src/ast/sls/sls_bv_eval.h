@@ -177,6 +177,8 @@ namespace sls {
 
         bool is_fixed0(expr* e) const { return m_is_fixed.get(e->get_id(), false); }
         
+        // control whether if-then-else is eavaluated based on SAT solver or temporary values.
+        bool m_use_tmp_bool_value = false;
         sls::bv_valuation& eval(app* e) const;
 
         void set_random(app* e);
