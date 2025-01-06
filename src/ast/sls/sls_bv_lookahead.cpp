@@ -97,7 +97,7 @@ namespace sls {
             }
             else if (m.is_bool(t)) {
                 auto b = m_ev.bval1(t);
-                m_ev.set_bool_value(t, b);
+                m_ev.set_bool_value_no_log(t, b);
             }
         }
         m_ev.commit_bool_values();
@@ -472,7 +472,6 @@ namespace sls {
     double bv_lookahead::lookahead_update(expr* t, bvect const& new_value) {
         SASSERT(bv.is_bv(t) || m.is_bool(t));
         SASSERT(is_uninterp(t));
-        SASSERT(m_restore.empty());
         double score = m_top_score;
 
         unsigned restore_point = m_ev.bool_value_restore_point();
@@ -486,16 +485,16 @@ namespace sls {
             insert_update(t);
         }
         else if (m.is_bool(t)) 
-            m_ev.set_bool_value(t, !m_ev.get_bool_value(t));        
+            m_ev.set_bool_value_no_log(t, !m_ev.get_bool_value(t));        
 
         // TRACE("bv_verbose", tout << "lookahead update " << mk_bounded_pp(t, m) << " := " << new_value << "\n";);
 
         for (unsigned depth = m_min_depth; depth <= m_max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
-                auto a = m_update_stack[depth][i];
+                auto const& [a, is_bv] = m_update_stack[depth][i];
                 TRACE("bv_verbose", tout << "update " << mk_bounded_pp(a, m) << " depth: " << depth  << "\n";);
                 if (t != a) {
-                    if (bv.is_bv(a))
+                    if (is_bv)
                         m_ev.eval(a);
                     insert_update(a);
                 }
@@ -505,7 +504,6 @@ namespace sls {
                 }
             }
         }
-        restore_lookahead();
         m_ev.restore_bool_values(restore_point);
 
         TRACE("bv_verbose", tout << "lookahead update " << mk_bounded_pp(t, m) << " := " << new_value << " score: " << score << " " << m_best_score << "\n");
@@ -514,15 +512,23 @@ namespace sls {
     }
 
     void bv_lookahead::populate_update_stack(expr* t) {
+        SASSERT(m_bv_restore.empty());
         insert_update_stack(t);
         m_min_depth = m_max_depth = get_depth(t);
         for (unsigned depth = m_max_depth; depth <= m_max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
-                auto a = m_update_stack[depth][i];
+                auto [a, is_bv] = m_update_stack[depth][i];
                 for (auto p : ctx.parents(a)) {
                     insert_update_stack(p);
                     m_max_depth = std::max(m_max_depth, get_depth(p));
                 }
+                if (is_bv) {
+                    wval(a).save_value();
+                    SASSERT(!m_bv_restore.contains(a));
+                    m_bv_restore.push_back(a);
+                }
+                else  
+                    m_bool_restore.push_back({ a, m_ev.get_bool_value(a) });                
             }
         }
     }
@@ -531,6 +537,14 @@ namespace sls {
         for (unsigned i = m_min_depth; i <= m_max_depth; ++i)
             m_update_stack[i].reset();
         m_in_update_stack.reset();
+        for (auto e : m_bv_restore) {
+            wval(e).restore_value();
+            TRACE("sls_verbose", tout << "restore value " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");
+        }
+        for (auto const& [e, b]: m_bool_restore)
+            m_ev.set_bool_value_no_log(e, b);
+        m_bv_restore.reset();
+        m_bool_restore.reset();
     }
 
     void bv_lookahead::try_set(expr* u, bvect const& new_value) {
@@ -646,7 +660,7 @@ namespace sls {
             VERIFY(wval(t).commit_eval_check_tabu());
         }
         else {
-            m_ev.set_bool_value(t, !m_ev.get_bool_value(t));
+            m_ev.set_bool_value_log(t, !m_ev.get_bool_value(t));
             if (!m_config.use_top_level_assertions) {
                 auto v = ctx.atom2bool_var(t);
                 if (v != sat::null_bool_var)
@@ -659,17 +673,17 @@ namespace sls {
         unsigned restore_point = m_ev.bool_value_restore_point();
         for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
-                auto e = m_update_stack[depth][i];
+                auto [e, is_bv] = m_update_stack[depth][i];
                 TRACE("bv_verbose", tout << "update " << mk_bounded_pp(e, m) << "\n";);
 
                 if (t == e)
                     ;
-                else if (bv.is_bv(e)) {
+                else if (is_bv) {
                     m_ev.eval(e); // updates wval(e).eval
                     wval(e).commit_eval_ignore_tabu();
                 }
-                else if (m.is_bool(e)) {
-
+                else {
+                    SASSERT(is_bool(e));    
                     auto v1 = m_ev.bval1(e);
 
                     CTRACE("bv_verbose", m_ev.get_bool_value(e) != v1, tout << "updated truth value " << mk_bounded_pp(e, m) << " := " << v1 << "\n";);
@@ -700,7 +714,7 @@ namespace sls {
                             }
                         }
                     }
-                    m_ev.set_bool_value(e, v1);
+                    m_ev.set_bool_value_log(e, v1);
                 }
 
                 for (auto p : ctx.parents(e)) {
@@ -739,33 +753,23 @@ namespace sls {
         TRACE("sls_verbose", tout << "insert update " << mk_bounded_pp(e, m) << "\n");
         if (bv.is_bv(e)) {
             auto& v = wval(e);
-            v.save_value();
             v.commit_eval_ignore_tabu();
-            SASSERT(!m_restore.contains(e));
-            m_restore.push_back(e);
         }
         else if (m.is_bool(e)) {
             auto v1 = m_ev.bval1(to_app(e));
-            m_ev.set_bool_value(to_app(e), v1);
+            m_ev.set_bool_value_no_log(to_app(e), v1);
         }
-
     }
 
     void bv_lookahead::insert_update_stack(expr* e) {
+        if (!bv.is_bv(e) && !m.is_bool(e))
+            return;
         unsigned depth = get_depth(e);
         m_update_stack.reserve(depth + 1);
         if (!m_in_update_stack.is_marked(e) && is_app(e)) {
             m_in_update_stack.mark(e);
-            m_update_stack[depth].push_back(to_app(e));
+            m_update_stack[depth].push_back({ to_app(e), bv.is_bv(e) });
         }
-    }
-
-    void bv_lookahead::restore_lookahead() {
-        for (auto e : m_restore) {
-            wval(e).restore_value();
-            TRACE("sls_verbose", tout << "restore value " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");            
-        }
-        m_restore.reset();
     }
 
     sls::bv_valuation& bv_lookahead::wval(expr* e) const {

@@ -193,7 +193,8 @@ namespace sls {
         bool bval1(expr* e) const;
 
         unsigned bool_value_restore_point() const { return m_tmp_bool_value_updates.size(); }
-        void set_bool_value(expr* e, bool val);
+        void set_bool_value_log(expr* e, bool val);
+        void set_bool_value_no_log(expr* e, bool val);
         void restore_bool_values(unsigned restore_point);
         void commit_bool_values() { m_tmp_bool_value_updates.reset(); }
         bool get_bool_value(expr* e) const;

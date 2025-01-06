@@ -73,8 +73,9 @@ namespace sls {
         config m_config;
         stats m_stats;
         bvect m_v_saved, m_v_updated;
-        ptr_vector<expr> m_restore;
-        vector<ptr_vector<app>> m_update_stack;
+        ptr_vector<expr> m_bv_restore;
+        svector<std::pair<expr*, bool>> m_bool_restore;
+        vector<vector<std::pair<app*, bool>>> m_update_stack;
         expr_mark m_in_update_stack;
         double m_best_score = 0, m_top_score = 0;
         bvect m_best_value;
@@ -95,7 +96,6 @@ namespace sls {
         void clear_update_stack();
         void insert_update_stack(expr* e);
         void insert_update(expr* e);        
-        void restore_lookahead();
 
         bool_info& get_bool_info(expr* e);
         double lookahead_update(expr* u, bvect const& new_value);

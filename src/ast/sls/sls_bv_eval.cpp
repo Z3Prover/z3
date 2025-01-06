@@ -199,12 +199,17 @@ namespace sls {
         return false;
     }
 
-    void bv_eval::set_bool_value(expr* e, bool val) {
+    void bv_eval::set_bool_value_log(expr* e, bool val) {
         auto id = e->get_id();
         auto old_val = m_tmp_bool_values.get(id, l_undef);
         m_tmp_bool_values.setx(id, to_lbool(val), l_undef);
         m_tmp_bool_value_updates.push_back({ id, old_val });
         //TRACE("bv", tout << mk_bounded_pp(e, m) << " := " << val << " old: " << old_val << "\n");
+    }
+
+    void bv_eval::set_bool_value_no_log(expr* e, bool val) {
+        auto id = e->get_id();
+        m_tmp_bool_values.setx(id, to_lbool(val), l_undef);
     }
 
     bool bv_eval::get_bool_value(expr* e) const {
