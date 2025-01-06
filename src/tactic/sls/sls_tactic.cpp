@@ -251,8 +251,9 @@ static tactic * mk_preamble(ast_manager & m, params_ref const & p) {
                              mk_bv_size_reduction_tactic(m),
                              using_params(mk_simplify_tactic(m), simp2_p)),
                         using_params(mk_simplify_tactic(m), hoist_p),
-                        mk_max_bv_sharing_tactic(m),
-                        mk_nnf_tactic(m, p));
+                        mk_max_bv_sharing_tactic(m)//,
+    //                    mk_nnf_tactic(m, p)
+    );
 }
 
 tactic * mk_qfbv_sls_tactic(ast_manager & m, params_ref const & p) {

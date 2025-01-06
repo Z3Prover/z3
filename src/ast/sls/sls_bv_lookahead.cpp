@@ -81,7 +81,7 @@ namespace sls {
                 continue;
 
             // bail out if no progress, and try random update
-            if (apply_random_update(get_candidate_uninterp()))
+            if (apply_random_update(m_config.walksat_repick?get_candidate_uninterp():vars))
                 recalibrate_weights();
         }
         m_config.max_moves_base += 100;
@@ -379,18 +379,24 @@ namespace sls {
             auto const& vx = wval(x);
             auto const& vy = wval(y);
 
-            if (is_true)
+            if (is_true) {
+                if (vx.bits() <= vy.bits())
+                    return 1.0;
                 // x > y as unsigned.
                 // x - y > 0
                 // score = (x - y) / 2^bw
                 vx.set_sub(m_ev.m_tmp, vx.bits(), vy.bits());
+            }
             else {
+                if (!(vx.bits() <= vy.bits()))
+                    return 1.0;
                 // x <= y as unsigned.
                 // y - x >= 0
                 // score = (y - x + 1) / 2^bw
                 vx.set_sub(m_ev.m_tmp, vy.bits(), vx.bits());
                 vx.add1(m_ev.m_tmp);
             }
+
             rational n = m_ev.m_tmp.get_value(vx.nw);
             n /= rational(rational::power_of_two(vx.bw));
             double dbl = n.get_double();
@@ -407,13 +413,15 @@ namespace sls {
             m_ev.m_tmp2.set(vx.bw - 1, !m_ev.m_tmp2.get(vx.bw - 1));
 
             if (is_true) {
-                // x >s y
-                // x' - y' > 0
+                if (m_ev.m_tmp2 <= m_ev.m_tmp)
+                    return 1.0;
+                // otherwise x' > y'                
                 vx.set_sub(m_ev.m_tmp3, m_ev.m_tmp2, m_ev.m_tmp);
             }
             else {
-                // x <=s y
-                // y' - x' >= 0
+                if (!(m_ev.m_tmp2 <= m_ev.m_tmp))
+                    return 1.0;
+                // x' <= y'
                 vx.set_sub(m_ev.m_tmp3, m_ev.m_tmp, m_ev.m_tmp2);
                 vx.add1(m_ev.m_tmp3);
             }
@@ -642,7 +650,7 @@ namespace sls {
 
                     auto v1 = m_ev.bval1(e);
 
-                    CTRACE("bv", m_ev.get_bool_value(e) != v1, tout << "updated truth value " << mk_bounded_pp(e, m) << " := " << v1 << "\n";);
+                    CTRACE("bv_verbose", m_ev.get_bool_value(e) != v1, tout << "updated truth value " << mk_bounded_pp(e, m) << " := " << v1 << "\n";);
 
                     if (m_config.use_top_level_assertions) {
                         if (m_ev.get_bool_value(e) == v1)
@@ -681,7 +689,6 @@ namespace sls {
                 if (is_root(e)) {
                     double score = new_score(e);
                     m_top_score += get_weight(e) * (score - old_score(e));
-                    //verbose_stream() << "set score " << mk_bounded_pp(e, m) << " := " << score << "\n";
                     set_score(e, score);
                 }
             }

@@ -688,8 +688,7 @@ public:
             else
                 res = (m_mpz_manager.is_one(r)) ? 1.0 : 0.0;
         }            
-        else if (m_manager.is_and(n)) {
-            SASSERT(!negated);
+        else if (m_manager.is_and(n) && !negated) {
             /* Andreas: Seems to have no effect. But maybe you want to try it again at some point.
             double sum = 0.0;
             for (unsigned i = 0; i < a->get_num_args(); i++)
@@ -697,25 +696,37 @@ public:
             res = sum / (double) a->get_num_args(); */
             double min = 1.0;
             for (auto arg : *to_app(n)) 
-                min = std::min(get_score(arg), min);
+                min = std::min(score(arg), min);
             
             res = min;
         }
-        else if (m_manager.is_or(n)) {
-            SASSERT(!negated);
+        else if (m_manager.is_and(n) && negated) {
+            double r = 0.0;
+            for (auto arg : *to_app(n))
+                r = std::max(score(arg), r);
+            res = 1.0 - r;
+        }
+        else if (m_manager.is_or(n) && !negated) {
             double max = 0.0;
             for (auto arg : *to_app(n))
                 max = std::max(get_score(arg), max);
             res = max;
         }
+        else if (m_manager.is_or(n) && negated) {
+            double r = 1.0;
+            for (auto arg : *to_app(n))
+                r = std::min(get_score(arg), r);
+            res = 1.0 - r;
+        }
         else if (m_manager.is_ite(n)) {
-            SASSERT(!negated);
             app * a = to_app(n);
             SASSERT(a->get_num_args() == 3);
             const mpz & cond = get_value(a->get_arg(0));
             double s_t = get_score(a->get_arg(1));
             double s_f = get_score(a->get_arg(2));
             res = (m_mpz_manager.is_one(cond)) ? s_t : s_f;
+            if (negated)
+                res = 1.0 - res;
         }
         else if (m_manager.is_eq(n) || m_manager.is_iff(n)) {                
             app * a = to_app(n);
@@ -843,15 +854,10 @@ public:
             m_mpz_manager.del(y);                
         }
         else if (m_manager.is_not(n)) {                
-            SASSERT(!negated);
             app * a = to_app(n);
             SASSERT(a->get_num_args() == 1);
             expr * child = a->get_arg(0);
-            // Precondition: Assertion set is in NNF.
-            // Also: careful about the unsat assertion scaling further down.
-            if (m_manager.is_and(child) || m_manager.is_or(child)) 
-                NOT_IMPLEMENTED_YET();
-            res = score_bool(child, true);
+            res = score_bool(child, !negated);
         }
         else if (m_manager.is_distinct(n)) {
             app * a = to_app(n);
