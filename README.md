@@ -5,7 +5,7 @@ It is licensed under the [MIT license](LICENSE.txt).
 
 If you are not familiar with Z3, you can start [here](https://github.com/Z3Prover/z3/wiki#background).
 
-Pre-built binaries for stable and nightly releases are available from [here](https://github.com/Z3Prover/z3/releases).
+Pre-built binaries for stable and nightly releases are available [here](https://github.com/Z3Prover/z3/releases).
 
 Z3 can be built using [Visual Studio][1], a [Makefile][2] or using [CMake][3]. It provides
 [bindings for several programming languages][4]. 
@@ -13,8 +13,6 @@ Z3 can be built using [Visual Studio][1], a [Makefile][2] or using [CMake][3]. I
 See the [release notes](RELEASE_NOTES.md) for notes on various stable releases of Z3.
 
 [![Try the online Z3 Guide](z3guide.jpeg)](https://microsoft.github.io/z3guide/)
-
-
 
 ## Build status
 
@@ -31,7 +29,7 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 
 ## Building Z3 on Windows using Visual Studio Command Prompt
 
-32-bit builds, start with:
+For 32-bit builds, start with:
 
 ```bash
 python scripts/mk_make.py
@@ -43,14 +41,14 @@ or instead, for a 64-bit build:
 python scripts/mk_make.py -x
 ```
 
-then:
+then run:
 
 ```bash
 cd build
 nmake
 ```
 
-Z3 uses C++20. The recommended version of Visual Studio is therefore VS2019. 
+Z3 uses C++20. The recommended version of Visual Studio is therefore VS2019 or later. 
 
 ## Building Z3 using make and GCC/Clang
 
@@ -63,8 +61,8 @@ make
 sudo make install
 ```
 
-Note by default ``g++`` is used as the C++ compiler if it is available. If you
-would prefer to use Clang change the ``mk_make.py`` invocation to:
+Note by default ``g++`` is used as C++ compiler if it is available. If you
+prefer to use Clang, change the ``mk_make.py`` invocation to:
 
 ```bash
 CXX=clang++ CC=clang python scripts/mk_make.py
@@ -73,20 +71,19 @@ CXX=clang++ CC=clang python scripts/mk_make.py
 Note that Clang < 3.7 does not support OpenMP.
 
 You can also build Z3 for Windows using Cygwin and the Mingw-w64 cross-compiler.
-To configure that case correctly, make sure to use Cygwin's own python and not
-some Windows installation of Python.
+In that case, make sure to use Cygwin's own Python and not some Windows installation of Python.
 
-For a 64 bit build (from Cygwin64), configure Z3's sources with
+For a 64-bit build (from Cygwin64), configure Z3's sources with
 ```bash
 CXX=x86_64-w64-mingw32-g++ CC=x86_64-w64-mingw32-gcc AR=x86_64-w64-mingw32-ar python scripts/mk_make.py
 ```
-A 32 bit build should work similarly (but is untested); the same is true for 32/64 bit builds from within Cygwin32.
+A 32-bit build should work similarly (but is untested); the same is true for 32/64 bit builds from within Cygwin32.
 
-By default, it will install z3 executable at ``PREFIX/bin``, libraries at
-``PREFIX/lib``, and include files at ``PREFIX/include``, where ``PREFIX``
+By default, it will install z3 executables at ``PREFIX/bin``, libraries at
+``PREFIX/lib``, and include files at ``PREFIX/include``, where the ``PREFIX``
 installation prefix is inferred by the ``mk_make.py`` script. It is usually
 ``/usr`` for most Linux distros, and ``/usr/local`` for FreeBSD and macOS. Use
-the ``--prefix=`` command line option to change the install prefix. For example:
+the ``--prefix=`` command-line option to change the install prefix. For example:
 
 ```bash
 python scripts/mk_make.py --prefix=/home/leo
@@ -101,7 +98,7 @@ To uninstall Z3, use
 sudo make uninstall
 ```
 
-To clean Z3 you can delete the build directory and run the ``mk_make.py`` script again.
+To clean Z3, you can delete the build directory and run the ``mk_make.py`` script again.
 
 ## Building Z3 using CMake
 
@@ -111,9 +108,7 @@ except for building OCaml bindings.
 
 ## Building Z3 using vcpkg
 
-vcpkg is a full platform package manager, you can easily install libzmq with vcpkg.
- 
-Execute:
+vcpkg is a full platform package manager. To install Z3 with vcpkg, execute:
 
 ```bash
 git clone https://github.com/microsoft/vcpkg.git
@@ -123,10 +118,11 @@ git clone https://github.com/microsoft/vcpkg.git
 ```
 
 ## Dependencies
-Z3 itself has few dependencies. It uses C++ runtime libraries, including pthreads for multi-threading.
+
+Z3 itself has only few dependencies. It uses C++ runtime libraries, including pthreads for multi-threading.
 It is optionally possible to use GMP for multi-precision integers, but Z3 contains its own self-contained 
-multi-precision functionality. Python is required to build Z3. To build Java, .Net, OCaml, 
-Julia APIs requires installing relevant tool chains.
+multi-precision functionality. Python is required to build Z3. Building Java, .NET, OCaml and 
+Julia APIs requires installing relevant toolchains.
 
 ## Z3 bindings
 
@@ -134,10 +130,9 @@ Z3 has bindings for various programming languages.
 
 ### ``.NET``
 
-You can install a nuget package for the latest release Z3 from [nuget.org](https://www.nuget.org/packages/Microsoft.Z3/).
+You can install a NuGet package for the latest release Z3 from [nuget.org](https://www.nuget.org/packages/Microsoft.Z3/).
 
 Use the ``--dotnet`` command line flag with ``mk_make.py`` to enable building these.
-
 
 See [``examples/dotnet``](examples/dotnet) for examples.
 
@@ -176,8 +171,8 @@ You can install the Python wrapper for Z3 for the latest release from pypi using
 Use the ``--python`` command line flag with ``mk_make.py`` to enable building these.
 
 Note that it is required on certain platforms that the Python package directory
-(``site-packages`` on most distributions and ``dist-packages`` on Debian based
-distributions) live under the install prefix. If you use a non standard prefix
+(``site-packages`` on most distributions and ``dist-packages`` on Debian-based
+distributions) live under the install prefix. If you use a non-standard prefix
 you can use the ``--pypkgdir`` option to change the Python package directory
 used for installation. For example:
 
@@ -185,12 +180,12 @@ used for installation. For example:
 python scripts/mk_make.py --prefix=/home/leo --python --pypkgdir=/home/leo/lib/python-2.7/site-packages
 ```
 
-If you do need to install to a non standard prefix a better approach is to use
+If you do need to install to a non-standard prefix, a better approach is to use
 a [Python virtual environment](https://virtualenv.readthedocs.org/en/latest/)
 and install Z3 there. Python packages also work for Python3.
 Under Windows, recall to build inside the Visual C++ native command build environment.
-Note that the ``build/python/z3`` directory should be accessible from where python is used with Z3 
-and it depends on ``libz3.dll`` to be in the path.
+Note that the ``build/python/z3`` directory should be accessible from where Python is used with Z3 
+and it requires ``libz3.dll`` to be in the path.
 
 ```bash
 virtualenv venv
@@ -212,14 +207,14 @@ See [``examples/python``](examples/python) for examples.
 
 The Julia package [Z3.jl](https://github.com/ahumenberger/Z3.jl) wraps the C API of Z3. A previous version of it wrapped the C++ API: Information about updating and building the Julia bindings can be found in [src/api/julia](src/api/julia).
 
-### ``Web Assembly`` / ``TypeScript`` / ``JavaScript``
+### ``WebAssembly`` / ``TypeScript`` / ``JavaScript``
 
 A WebAssembly build with associated TypeScript typings is published on npm as [z3-solver](https://www.npmjs.com/package/z3-solver). Information about building these bindings can be found in [src/api/js](src/api/js).
 
 ### Smalltalk (``Pharo`` / ``Smalltalk/X``)
 
-Project [MachineArithmetic](https://github.com/shingarov/MachineArithmetic) provides Smalltalk interface
-to Z3's C API. For more information, see [MachineArithmetic/README.md](https://github.com/shingarov/MachineArithmetic/blob/pure-z3/MachineArithmetic/README.md)
+Project [MachineArithmetic](https://github.com/shingarov/MachineArithmetic) provides a Smalltalk interface
+to Z3's C API. For more information, see [MachineArithmetic/README.md](https://github.com/shingarov/MachineArithmetic/blob/pure-z3/MachineArithmetic/README.md).
 
 ## System Overview
 
