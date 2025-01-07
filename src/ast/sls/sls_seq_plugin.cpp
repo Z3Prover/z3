@@ -1676,7 +1676,7 @@ namespace sls {
             if (!is_str_update) {
                 i = m_int_updates.size();
                 do {
-                    lim -= m_str_updates[--i].m_score;
+                    lim -= m_int_updates[--i].m_score;
                 } while (lim >= 0 && i > 0);
             }
             
