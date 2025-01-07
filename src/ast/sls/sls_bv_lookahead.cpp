@@ -683,7 +683,7 @@ namespace sls {
                     wval(e).commit_eval_ignore_tabu();
                 }
                 else {
-                    SASSERT(is_bool(e));    
+                    SASSERT(m.is_bool(e));    
                     auto v1 = m_ev.bval1(e);
 
                     CTRACE("bv_verbose", m_ev.get_bool_value(e) != v1, tout << "updated truth value " << mk_bounded_pp(e, m) << " := " << v1 << "\n";);
