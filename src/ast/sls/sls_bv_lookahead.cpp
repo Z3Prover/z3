@@ -126,7 +126,7 @@ namespace sls {
         m_best_score = m_top_score;
         unsigned sz = vars.size();
         unsigned start = ctx.rand();
-        for (unsigned i = 0; i < std::min(sz, 10u); ++i)
+        for (unsigned i = 0; i < std::min(sz, 20u); ++i)
             add_updates(vars[(start + i) % sz]);
         CTRACE("bv", !m_best_expr, tout << "no guided move\n";);
         return apply_update(m_last_atom, m_best_expr, m_best_value, move_type::guided_t);
