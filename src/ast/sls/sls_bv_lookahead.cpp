@@ -482,7 +482,7 @@ namespace sls {
             if (!wval(t).can_set(new_value))
                 return -1000000;
             wval(t).eval = new_value;
-            insert_update(t);
+            insert_update(t, true);
         }
         else if (m.is_bool(t)) 
             m_ev.set_bool_value_no_log(t, !m_ev.get_bool_value(t));        
@@ -496,7 +496,7 @@ namespace sls {
                 if (t != a) {
                     if (is_bv)
                         m_ev.eval(a);
-                    insert_update(a);
+                    insert_update(a, is_bv);
                 }
                 if (is_root(a)) {
                     //verbose_stream() << "scores " << mk_bounded_pp(a, m) << " old: " << old_score(a) << " new: " << new_score(a) << "\n";
@@ -749,13 +749,15 @@ namespace sls {
         return m_stats.m_random_flips % 100 == 0;
     }
 
-    void bv_lookahead::insert_update(expr* e) {
+    void bv_lookahead::insert_update(expr* e, bool is_bv) {
         TRACE("sls_verbose", tout << "insert update " << mk_bounded_pp(e, m) << "\n");
-        if (bv.is_bv(e)) {
+        if (is_bv) {
+            SASSERT(bv.is_bv(e));
             auto& v = wval(e);
             v.commit_eval_ignore_tabu();
         }
-        else if (m.is_bool(e)) {
+        else  {
+            SASSERT(m.is_bool(e));
             auto v1 = m_ev.bval1(to_app(e));
             m_ev.set_bool_value_no_log(to_app(e), v1);
         }

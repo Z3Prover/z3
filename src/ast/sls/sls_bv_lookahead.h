@@ -95,7 +95,7 @@ namespace sls {
         void populate_update_stack(expr* e);
         void clear_update_stack();
         void insert_update_stack(expr* e);
-        void insert_update(expr* e);        
+        void insert_update(expr* e, bool is_bv);        
 
         bool_info& get_bool_info(expr* e);
         double lookahead_update(expr* u, bvect const& new_value);
