@@ -2066,7 +2066,13 @@ namespace sls {
                     return append_char(r0, r, s);
                 }
             }
-            NOT_IMPLEMENTED_YET();
+            expr* r2;
+            do {
+                r2 = to_app(r)->get_arg(ctx.rand(to_app(r)->get_num_args()));
+            } while (r2 == r0);
+            r = r2;
+            // Just take one that is not a self loop (there is always such one element)
+            return append_char(r0, r, s);
         }
         if (m.is_ite(r, c, th, el)) {
             unsigned low = 0, high = UINT_MAX;
