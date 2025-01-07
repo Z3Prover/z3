@@ -98,6 +98,7 @@ namespace sls {
             else if (m.is_bool(t)) {
                 auto b = m_ev.bval1(t);
                 m_ev.set_bool_value_no_log(t, b);
+
             }
         }
         m_ev.commit_bool_values();
@@ -126,7 +127,7 @@ namespace sls {
         m_best_score = m_top_score;
         unsigned sz = vars.size();
         unsigned start = ctx.rand();
-        for (unsigned i = 0; i < std::min(sz, 20u); ++i)
+        for (unsigned i = 0; i < sz; ++i)
             add_updates(vars[(start + i) % sz]);
         CTRACE("bv", !m_best_expr, tout << "no guided move\n";);
         return apply_update(m_last_atom, m_best_expr, m_best_value, move_type::guided_t);
@@ -408,10 +409,11 @@ namespace sls {
                 vx.add1(m_ev.m_tmp);
             }
 
-            rational n = m_ev.m_tmp.get_value(vx.nw);
-            n /= rational(rational::power_of_two(vx.bw));
-            double dbl = n.get_double();
-            return (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
+            double delta = 0;
+            for (unsigned i = 0; i < vx.bw; ++i)
+                if (m_ev.m_tmp.get(i))
+                    ++delta;
+            return 1.0 - (delta / (double)vx.bw);
         }
         if (bv.is_sle(a, x, y)) {
             auto const& vx = wval(x);
@@ -436,10 +438,11 @@ namespace sls {
                 vx.set_sub(m_ev.m_tmp3, m_ev.m_tmp, m_ev.m_tmp2);
                 vx.add1(m_ev.m_tmp3);
             }
-            rational n = m_ev.m_tmp3.get_value(vx.nw);
-            n /= rational(rational::power_of_two(vx.bw));
-            double dbl = n.get_double();
-            return (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
+            double delta = 0;
+            for (unsigned i = 0; i < vx.bw; ++i)
+                if (m_ev.m_tmp3.get(i))
+                    ++delta;
+            return 1.0 - (delta / (double)vx.bw);
         }
         if (is_true && m.is_distinct(a) && bv.is_bv(to_app(a)->get_arg(0))) {
             double np = 0, nd = 0;
@@ -493,15 +496,18 @@ namespace sls {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto const& [a, is_bv] = m_update_stack[depth][i];
                 TRACE("bv_verbose", tout << "update " << mk_bounded_pp(a, m) << " depth: " << depth  << "\n";);
+                bool before;
+                if (m.is_bool(a))
+                    before = m_ev.get_bool_value(a);
+
                 if (t != a) {
                     if (is_bv)
                         m_ev.eval(a);
                     insert_update(a, is_bv);
                 }
-                if (is_root(a)) {
-                    //verbose_stream() << "scores " << mk_bounded_pp(a, m) << " old: " << old_score(a) << " new: " << new_score(a) << "\n";
-                    score += get_weight(a) * (new_score(a) - old_score(a));
-                }
+
+                if (is_root(a)) 
+                    score += get_weight(a) * (new_score(a) - old_score(a));                
             }
         }
         m_ev.restore_bool_values(restore_point);
@@ -552,7 +558,6 @@ namespace sls {
             return;
         auto score = lookahead_update(u, new_value);
         ++m_stats.m_lookaheads;
-        //verbose_stream() << "lookahead set " << mk_bounded_pp(u, m) << " := " << new_value << " score: " << score << " best score: " << m_best_score << "\n";
         if (score > m_best_score) {
             m_best_score = score;
             m_best_expr = u;
@@ -675,7 +680,7 @@ namespace sls {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto [e, is_bv] = m_update_stack[depth][i];
                 TRACE("bv_verbose", tout << "update " << mk_bounded_pp(e, m) << "\n";);
-
+                bool old_truth = false;
                 if (t == e)
                     ;
                 else if (is_bv) {
@@ -683,10 +688,12 @@ namespace sls {
                     wval(e).commit_eval_ignore_tabu();
                 }
                 else {
+                    old_truth = m_ev.get_bool_value(e);
                     SASSERT(m.is_bool(e));    
                     auto v1 = m_ev.bval1(e);
 
                     CTRACE("bv_verbose", m_ev.get_bool_value(e) != v1, tout << "updated truth value " << mk_bounded_pp(e, m) << " := " << v1 << "\n";);
+
 
                     if (m_config.use_top_level_assertions) {
                         if (m_ev.get_bool_value(e) == v1)
