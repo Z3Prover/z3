@@ -594,6 +594,7 @@ public:
         info get_info(expr* r) const;
         std::string to_str(expr* r) const;
         std::string to_strh(expr* r) const;
+        bool is_ground(expr* r) const { return get_info(r).interpreted; }
 
         expr_ref mk_ite_simplify(expr* c, expr* t, expr* e)
         {

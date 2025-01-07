@@ -21,6 +21,7 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/pb_decl_plugin.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "ast/converters/expr_inverter.h"
 
 class basic_expr_inverter : public iexpr_inverter {
@@ -825,8 +826,9 @@ public:
 
 class seq_expr_inverter : public iexpr_inverter {
     seq_util seq;
+    seq_rewriter rw;
 public:
-    seq_expr_inverter(ast_manager& m) : iexpr_inverter(m), seq(m) {}
+    seq_expr_inverter(ast_manager& m) : iexpr_inverter(m), seq(m), rw(m) {}
     
     family_id get_fid() const override { return seq.get_family_id(); }
 
@@ -878,7 +880,42 @@ public:
                 return true;
             }
             return false;
+        case OP_SEQ_IN_RE:
+            if (uncnstr(args[0]) && seq.re.is_ground(args[1])) {
+#if 0
+                // requires auxiliary functions
+                // is_empty
+                // find_member
+                expr* r = args[1];
+                expr_ref not_r(seq.re.mk_complement(r), m);
+                lbool emp_r = rw.is_empty(r);
+
+                if (emp_r == l_undef)
+                    return false;
+                if (emp_r == l_true) {
+                    r = m.mk_false();
+                    return true;
+                }
+                lbool emp_not_r = rw.is_empty(not_r);
+                if (emp_not_r == l_true) {
+                    r = m.mk_true();
+                    return true;
+                }
+                if (emp_not_r == l_false) {
+                    mk_fresh_uncnstr_var_for(f, r);
+                    expr_ref witness1 = rw.find_member(r);
+                    expr_ref witness2 = rw.find_member(not_r);
+                    if (!witness1 || !witness2)
+                        return false;
+                    if (m_mc) 
+                        add_def(args[0], m.mk_ite(r, witness1, witness2));                    
+                    return true;
+                }
+#endif
+            }
+            return false;
         default:
+            verbose_stream() << mk_pp(f, m) << "\n";
             return false;                
             
         }
