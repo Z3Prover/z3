@@ -881,36 +881,28 @@ public:
             }
             return false;
         case OP_SEQ_IN_RE:
-            if (uncnstr(args[0]) && seq.re.is_ground(args[1])) {
+            if (uncnstr(args[0]) && seq.re.is_ground(args[1]) && seq.is_string(args[0]->get_sort())) {
 #if 0
+                //
                 // requires auxiliary functions
-                // is_empty
-                // find_member
-                expr* r = args[1];
-                expr_ref not_r(seq.re.mk_complement(r), m);
-                lbool emp_r = rw.is_empty(r);
-
-                if (emp_r == l_undef)
+                // some_string_in_re.
+                // A preliminary implementation exists in sls_seq_plugin.cpp
+                // it should be moved to seq_rewriter and made agnostic to m_chars.
+                // maybe use backtracking for better covereage: when some_string_in_re
+                // fails it doesn't necessarily mean that the regex is empty.
+                //
+                zstring s1, s2;
+                expr* re = args[1];
+                expr_ref not_re(seq.re.mk_complement(re), m);
+                if (!rw.some_string_in_re(re, s1) || !rw.some_string_in_re(not_re, s2))
                     return false;
-                if (emp_r == l_true) {
-                    r = m.mk_false();
-                    return true;
-                }
-                lbool emp_not_r = rw.is_empty(not_r);
-                if (emp_not_r == l_true) {
-                    r = m.mk_true();
-                    return true;
-                }
-                if (emp_not_r == l_false) {
-                    mk_fresh_uncnstr_var_for(f, r);
-                    expr_ref witness1 = rw.find_member(r);
-                    expr_ref witness2 = rw.find_member(not_r);
-                    if (!witness1 || !witness2)
-                        return false;
-                    if (m_mc) 
-                        add_def(args[0], m.mk_ite(r, witness1, witness2));                    
-                    return true;
-                }
+
+                mk_fresh_uncnstr_var_for(f, r);
+                expr_ref witness1 = expr_ref(seq.str.mk_string(s1), m);
+                expr_ref witness2 = expr_ref(seq.str.mk_string(s2), m);
+                if (m_mc)
+                    add_def(args[0], m.mk_ite(r, witness1, witness2));
+                return true;
 #endif
             }
             return false;

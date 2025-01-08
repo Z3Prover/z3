@@ -6145,3 +6145,106 @@ void seq_rewriter::op_cache::cleanup() {
         STRACE("seq_verbose", tout << "Derivative op cache reset" << std::endl;);
     }
 }
+
+bool seq_rewriter::some_string_in_re(expr* r, zstring& s) {
+    sort* rs;
+    (void)rs;
+    SASSERT(re().is_re(r, rs) && m_util.is_string(rs));
+    expr_mark visited;
+    unsigned_vector str;
+    expr_ref_vector pinned(m());
+    if (!some_string_in_re(pinned, visited, r, str))
+        return false;
+    s = zstring(str.size(), str.data());
+    return true;
+}
+
+bool seq_rewriter::some_string_in_re(expr_ref_vector& pinned, expr_mark& visited, expr* r, unsigned_vector& str) {
+    if (visited.is_marked(r))
+        return false;
+    if (re().is_empty(r))
+        return false;
+    auto info = re().get_info(r);
+    if (info.nullable == l_true)
+        return true;
+    visited.mark(r);
+    pinned.push_back(r);
+    if (re().is_union(r)) 
+        return any_of(*to_app(r), [&](expr* arg) { return some_string_in_re(pinned, visited, arg, str); });
+    
+    expr_ref r2 = mk_derivative(r);
+    buffer<std::pair<unsigned, unsigned>> exclude;
+    return append_char(pinned, visited, exclude, r2, str);
+}
+
+bool seq_rewriter::append_char(expr_ref_vector& pinned, expr_mark& visited, buffer<std::pair<unsigned, unsigned>>& exclude, expr* r, unsigned_vector& str) {
+    expr* c, * th, * el;
+    if (re().is_empty(r))
+        return false;
+    if (re().is_union(r))
+        return any_of(*to_app(r), [&](expr* arg) { return append_char(pinned, visited, exclude, arg, str); });
+    if (m().is_ite(r, c, th, el)) {
+        unsigned low = 0, high = zstring::unicode_max_char();
+        if (get_bounds(c, low, high)) {
+            SASSERT(low <= high);
+            unsigned sz = str.size();
+            str.push_back(low);           // TODO: check that low is not in exclude
+            if (some_string_in_re(pinned, visited, th, str))
+                return true;
+            str.shrink(sz);
+        }
+        if (re().is_empty(el))
+            return false;
+        exclude.push_back({ low, high });
+        if (append_char(pinned, visited, exclude, el, str))
+            return true;
+        exclude.pop_back();
+    }
+
+    if (is_ground(r)) {
+        for (auto [l, h] : exclude)
+            verbose_stream() << "exclude " << l << " " << h << "\n";
+        str.push_back('a');
+        if (some_string_in_re(pinned, visited, r, str))
+            return true;
+        str.pop_back();
+        return false;
+    }
+
+    verbose_stream() << "todo append_char " << mk_pp(r, m()) << "\n";
+    // TODO: select characters from m_chars[ctx.rand(m_chars.size())]);
+    str.push_back('a');
+    return false;
+}
+
+
+bool seq_rewriter::get_bounds(expr* e, unsigned& low, unsigned& high) {
+    low = 0; 
+    high = zstring::unicode_max_char();
+    ptr_buffer<expr> todo;
+    todo.push_back(e);
+    expr* x, * y;
+    unsigned ch = 0;
+    while (!todo.empty()) {
+        e = todo.back();
+        todo.pop_back();
+        if (m().is_and(e)) 
+            todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());  
+        else if (m_util.is_char_le(e, x, y) && m_util.is_const_char(x, ch) && is_var(y))
+            low = std::max(ch, low);
+        else if (m_util.is_char_le(e, x, y) && m_util.is_const_char(y, ch) && is_var(x))
+            high = std::min(ch, high);
+        else if (m().is_eq(e, x, y) && is_var(x) && m_util.is_const_char(y, ch)) {
+            low = std::max(ch, low);
+            high = std::min(ch, high);
+        }
+        else if (m().is_eq(e, x, y) && is_var(y) && m_util.is_const_char(x, ch)) {
+            low = std::max(ch, low);
+            high = std::min(ch, high);
+        }
+        else
+            return false;
+    }
+    return low <= high;
+}
+

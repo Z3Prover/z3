@@ -353,6 +353,11 @@ class seq_rewriter {
 
     void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
 
+    bool get_bounds(expr* e, unsigned& low, unsigned& high);
+    bool append_char(expr_ref_vector& pinned, expr_mark& visited, buffer<std::pair<unsigned, unsigned>>& exclude, expr* r, unsigned_vector& str);
+    bool some_string_in_re(expr_ref_vector& pinned, expr_mark& visited, expr* r, unsigned_vector& str);
+
+
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m), m_autil(m), m_br(m, p), m_re2aut(m), m_op_cache(m), m_es(m), 
@@ -432,5 +437,12 @@ public:
     expr_ref mk_regex_union_normalize(expr* r1, expr* r2);
     /* Apply simplifications to the intersection to keep it normalized (r1 and r2 are not normalized)*/
     expr_ref mk_regex_inter_normalize(expr* r1, expr* r2);
+
+    /*
+    * Extract some string that is a member of r. 
+    * Return true if a valid string was extracted.
+    * Return false when giving up or the regular expression is empty.
+    */
+    bool some_string_in_re(expr* r, zstring& s);
 };
 
