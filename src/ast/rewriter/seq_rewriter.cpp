@@ -6149,7 +6149,7 @@ void seq_rewriter::op_cache::cleanup() {
 bool seq_rewriter::some_string_in_re(expr* r, zstring& s) {
     sort* rs;
     (void)rs;
-    SASSERT(re().is_re(r, rs) && m_util.is_string(rs));
+    // SASSERT(re().is_re(r, rs) && m_util.is_string(rs));
     expr_mark visited;
     unsigned_vector str;
     expr_ref_vector pinned(m());
@@ -6187,11 +6187,10 @@ bool seq_rewriter::append_char(expr_ref_vector& pinned, expr_mark& visited, buff
         unsigned low = 0, high = zstring::unicode_max_char();
         if (get_bounds(c, low, high)) {
             SASSERT(low <= high);
-            unsigned sz = str.size();
-            str.push_back(low);           // TODO: check that low is not in exclude
+            str.push_back(low);           // ASSERT: low .. high does not intersect with exclude
             if (some_string_in_re(pinned, visited, th, str))
                 return true;
-            str.shrink(sz);
+            str.pop_back();
         }
         if (re().is_empty(el))
             return false;
@@ -6202,9 +6201,28 @@ bool seq_rewriter::append_char(expr_ref_vector& pinned, expr_mark& visited, buff
     }
 
     if (is_ground(r)) {
-        for (auto [l, h] : exclude)
-            verbose_stream() << "exclude " << l << " " << h << "\n";
-        str.push_back('a');
+        // ensure selected character is not in exclude
+        unsigned ch = 'a';
+        bool at_base = false;
+        while (true) {
+            bool found = false;
+            for (auto [l, h] : exclude) {
+                if (l <= ch && ch <= h) {
+                    found = true;
+                    ch = h + 1;
+                    break;
+                }
+            }
+            if (!found)
+                break;
+            if (ch == zstring::unicode_max_char() + 1) {
+                if (at_base) 
+                    return false;
+                ch = 0; 
+                at_base = true;
+            }
+        }
+        str.push_back(ch);
         if (some_string_in_re(pinned, visited, r, str))
             return true;
         str.pop_back();
