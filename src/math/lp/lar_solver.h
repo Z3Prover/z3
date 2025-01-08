@@ -311,6 +311,7 @@ public:
 
     inline void restore_x() { m_mpq_lar_core_solver.m_r_x = m_backup_x; }
 
+    std::function<void(lpvar)> m_fixed_var_eh;
     template <typename T>
     void explain_implied_bound(const implied_bound& ib, lp_bound_propagator<T>& bp) {
         u_dependency* dep = ib.explain_implied();
