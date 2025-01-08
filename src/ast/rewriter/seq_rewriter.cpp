@@ -6153,6 +6153,7 @@ bool seq_rewriter::some_string_in_re(expr* r, zstring& s) {
     expr_mark visited;
     unsigned_vector str;
     expr_ref_vector pinned(m());
+
     if (!some_string_in_re(pinned, visited, r, str))
         return false;
     s = zstring(str.size(), str.data());
@@ -6198,29 +6199,29 @@ bool seq_rewriter::append_char(expr_ref_vector& pinned, expr_mark& visited, buff
         if (append_char(pinned, visited, exclude, el, str))
             return true;
         exclude.pop_back();
+        return false;
     }
 
     if (is_ground(r)) {
         // ensure selected character is not in exclude
         unsigned ch = 'a';
-        bool at_base = false;
+        bool wrapped = false;
         while (true) {
             bool found = false;
             for (auto [l, h] : exclude) {
                 if (l <= ch && ch <= h) {
                     found = true;
                     ch = h + 1;
-                    break;
                 }
             }
             if (!found)
                 break;
-            if (ch == zstring::unicode_max_char() + 1) {
-                if (at_base) 
-                    return false;
-                ch = 0; 
-                at_base = true;
-            }
+            if (ch != zstring::unicode_max_char() + 1)
+                continue;
+            if (wrapped) 
+                return false;
+            ch = 0; 
+            wrapped = true;            
         }
         str.push_back(ch);
         if (some_string_in_re(pinned, visited, r, str))

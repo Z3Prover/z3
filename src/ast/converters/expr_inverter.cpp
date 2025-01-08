@@ -882,15 +882,7 @@ public:
             return false;
         case OP_SEQ_IN_RE:
             if (uncnstr(args[0]) && seq.re.is_ground(args[1]) && seq.is_string(args[0]->get_sort())) {
-#if 0
-                //
-                // requires auxiliary functions
-                // some_string_in_re.
-                // A preliminary implementation exists in sls_seq_plugin.cpp
-                // it should be moved to seq_rewriter and made agnostic to m_chars.
-                // maybe use backtracking for better covereage: when some_string_in_re
-                // fails it doesn't necessarily mean that the regex is empty.
-                //
+#if 1
                 zstring s1, s2;
                 expr* re = args[1];
                 expr_ref not_re(seq.re.mk_complement(re), m);
