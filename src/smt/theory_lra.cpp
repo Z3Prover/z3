@@ -272,9 +272,8 @@ class theory_lra::imp {
                     continue;
                 if (a.is_numeral(x) || a.is_numeral(y))
                     continue;
-                if (x == n->get_expr()) {
-                    std::swap(x, y);
-                }
+                if (x == n->get_expr()) 
+                    std::swap(x, y);                
                 if (y != n->get_expr())
                     continue;
 
@@ -282,7 +281,6 @@ class theory_lra::imp {
                 continue;
 
                 expr_ref k(a.mk_numeral(get_value(v), a.is_int(y)), m);
-                expr_ref eq(a.mk_eq(y, k), m);
                 literal eq1 = th.mk_eq(y, k, false);
                 literal eq2 = th.mk_eq(e, a.mk_mul(x, k), false);
                 ctx().mk_th_axiom(get_id(), ~eq1, eq2);
