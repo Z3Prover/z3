@@ -254,7 +254,7 @@ class theory_lra::imp {
         return add_const(0, is_int ? m_zero_var : m_rzero_var, is_int);
     }
 
-    svector<theory_var> m_fixed_vars;
+    std_vector<theory_var> m_fixed_vars;
     unsigned       m_fixed_vars_head = 0;
 
     bool propagate_fixed_vars() {
@@ -277,11 +277,8 @@ class theory_lra::imp {
                 }
                 if (y != n->get_expr())
                     continue;
-
-                // comment out to enable propagation:
-                continue;
-
-                expr_ref k(a.mk_numeral(get_value(v), a.is_int(y)), m);
+                
+                expr_ref k(a.mk_numeral(lp().get_lower_bound(get_lpvar(v)).x, a.is_int(y)), m);
                 expr_ref eq(a.mk_eq(y, k), m);
                 literal eq1 = th.mk_eq(y, k, false);
                 literal eq2 = th.mk_eq(e, a.mk_mul(x, k), false);

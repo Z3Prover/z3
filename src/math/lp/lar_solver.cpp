@@ -1957,11 +1957,16 @@ namespace lp {
         else
             update_column_type_and_bound_with_no_ub(j, kind, rs, dep);
 
-        if (!was_fixed && column_is_fixed(j) && m_fixed_var_eh)
-            m_fixed_var_eh(j);
+        
+        if (column_is_fixed(j)) {
+            unsigned k;
+            register_in_fixed_var_table(j, k);
+            if (!was_fixed  && m_fixed_var_eh)
+                m_fixed_var_eh(j);
 
-        if (is_base(j) && column_is_fixed(j)) 
-            m_fixed_base_var_set.insert(j);
+            if (is_base(j)) 
+                m_fixed_base_var_set.insert(j);
+        }
         
 
         TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j) ? "feas" : "non-feas") << ", and " << (this->column_is_bounded(j) ? "bounded" : "non-bounded") << std::endl;);
