@@ -6160,82 +6160,111 @@ bool seq_rewriter::some_string_in_re(expr* r, zstring& s) {
     return true;
 }
 
-bool seq_rewriter::some_string_in_re(expr_ref_vector& pinned, expr_mark& visited, expr* r, unsigned_vector& str) {
-    if (visited.is_marked(r))
-        return false;
-    if (re().is_empty(r))
-        return false;
-    auto info = re().get_info(r);
-    if (info.nullable == l_true)
-        return true;
-    visited.mark(r);
-    pinned.push_back(r);
-    if (re().is_union(r)) 
-        return any_of(*to_app(r), [&](expr* arg) { return some_string_in_re(pinned, visited, arg, str); });
-    
-    expr_ref r2 = mk_derivative(r);
+struct re_eval_pos {
+    expr* e;
+    unsigned str_len;
     buffer<std::pair<unsigned, unsigned>> exclude;
-    return append_char(pinned, visited, exclude, r2, str);
-}
+    bool needs_derivation;
+};
 
-bool seq_rewriter::append_char(expr_ref_vector& pinned, expr_mark& visited, buffer<std::pair<unsigned, unsigned>>& exclude, expr* r, unsigned_vector& str) {
-    expr* c, * th, * el;
-    if (re().is_empty(r))
-        return false;
-    if (re().is_union(r))
-        return any_of(*to_app(r), [&](expr* arg) { return append_char(pinned, visited, exclude, arg, str); });
-    if (m().is_ite(r, c, th, el)) {
-        unsigned low = 0, high = zstring::unicode_max_char();
-        if (get_bounds(c, low, high)) {
-            SASSERT(low <= high);
-            str.push_back(low);           // ASSERT: low .. high does not intersect with exclude
-            if (some_string_in_re(pinned, visited, th, str))
-                return true;
-            str.pop_back();
-        }
-        if (re().is_empty(el))
-            return false;
-        exclude.push_back({ low, high });
-        if (append_char(pinned, visited, exclude, el, str))
-            return true;
-        exclude.pop_back();
-        return false;
-    }
-
-    if (is_ground(r)) {
-        // ensure selected character is not in exclude
-        unsigned ch = 'a';
-        bool wrapped = false;
-        while (true) {
-            bool found = false;
-            for (auto [l, h] : exclude) {
-                if (l <= ch && ch <= h) {
-                    found = true;
-                    ch = h + 1;
-                }
-            }
-            if (!found)
-                break;
-            if (ch != zstring::unicode_max_char() + 1)
+bool seq_rewriter::some_string_in_re(expr_ref_vector& pinned, expr_mark& visited, expr* r, unsigned_vector& str) {
+    SASSERT(str.empty());
+    vector<re_eval_pos> todo;
+    todo.push_back({ r, 0, {}, true });
+    while (!todo.empty()) {
+        re_eval_pos current = todo.back();
+        todo.pop_back();
+        r = current.e;
+        str.resize(current.str_len);
+        if (current.needs_derivation) {
+            SASSERT(current.exclude.empty());
+            // We are looking for the next character => generate derivation
+            if (visited.is_marked(r))
                 continue;
-            if (wrapped) 
-                return false;
-            ch = 0; 
-            wrapped = true;            
+            if (re().is_empty(r))
+                continue;
+            auto info = re().get_info(r);
+            if (info.nullable == l_true)
+                return true;
+            visited.mark(r);
+            pinned.push_back(r);
+            if (re().is_union(r)) {
+                for (expr* arg : *to_app(r)) {
+                    todo.push_back({ arg, str.size(), {}, true });
+                }
+                continue;
+            }
+
+            r = mk_derivative(r);
         }
-        str.push_back(ch);
-        if (some_string_in_re(pinned, visited, r, str))
-            return true;
-        str.pop_back();
+        // otw. we are still in the process of deciding case of the derivation to take
+
+        buffer<std::pair<unsigned, unsigned>> exclude = std::move(current.exclude);
+
+        expr* c, * th, * el;
+        if (re().is_empty(r))
+            continue;
+        if (re().is_union(r)) {
+            for (expr* arg : *to_app(r)) {
+                todo.push_back({ arg, str.size(), exclude, false });
+            }
+            continue;
+        }
+        if (m().is_ite(r, c, th, el)) {
+            unsigned low = 0, high = zstring::unicode_max_char();
+            bool hasBounds = get_bounds(c, low, high);
+            if (!re().is_empty(el)) {
+                exclude.push_back({ low, high });
+                todo.push_back({ el, str.size(), std::move(exclude), false });
+            }
+            if (hasBounds) {
+                // I want this case to be processed first => push it last
+                // reason: current string is only pruned
+                SASSERT(low <= high);
+                str.push_back(low);           // ASSERT: low .. high does not intersect with exclude
+                todo.push_back({ th, str.size(), {}, true });
+            }
+            continue;
+        }
+
+        if (is_ground(r)) {
+            // ensure selected character is not in exclude
+            unsigned ch = 'a';
+            bool wrapped = false;
+            bool failed = false;
+            while (true) {
+                bool found = false;
+                for (auto [l, h] : exclude) {
+                    if (l <= ch && ch <= h) {
+                        found = true;
+                        ch = h + 1;
+                    }
+                }
+                if (!found)
+                    break;
+                if (ch != zstring::unicode_max_char() + 1)
+                    continue;
+                if (wrapped) {
+                    failed = true;
+                    break;
+                }
+                ch = 0;
+                wrapped = true;
+            }
+            if (failed)
+                continue;
+            str.push_back(ch);
+            todo.push_back({ r, str.size(), {}, true });
+            continue;
+        }
+
+        verbose_stream() << "todo append_char " << mk_pp(r, m()) << "\n";
+        // TODO: select characters from m_chars[ctx.rand(m_chars.size())]);
+        UNREACHABLE();
         return false;
     }
-
-    verbose_stream() << "todo append_char " << mk_pp(r, m()) << "\n";
-    // TODO: select characters from m_chars[ctx.rand(m_chars.size())]);
-    str.push_back('a');
     return false;
 }
-
 
 bool seq_rewriter::get_bounds(expr* e, unsigned& low, unsigned& high) {
     low = 0; 

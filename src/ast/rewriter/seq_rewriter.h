@@ -354,9 +354,7 @@ class seq_rewriter {
     void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
 
     bool get_bounds(expr* e, unsigned& low, unsigned& high);
-    bool append_char(expr_ref_vector& pinned, expr_mark& visited, buffer<std::pair<unsigned, unsigned>>& exclude, expr* r, unsigned_vector& str);
     bool some_string_in_re(expr_ref_vector& pinned, expr_mark& visited, expr* r, unsigned_vector& str);
-
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
