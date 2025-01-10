@@ -2316,6 +2316,491 @@ namespace sls {
     void arith_base<num_t>::reset_statistics() {
         m_stats.m_num_steps = 0;
     }
+
+    // global lookahead mode
+    // 
+
+    template<typename num_t>
+    arith_base<num_t>::bool_info& arith_base<num_t>::get_bool_info(expr* e) {        
+        m_bool_info.reserve(e->get_id() + 1, { m_config.paws_init, 0, 1, l_undef });
+        return m_bool_info[e->get_id()];
+    }
+
+    template<typename num_t>
+    bool arith_base<num_t>::get_bool_value_rec(expr* e) {        
+        if (!is_app(e))
+            return ctx.get_value(e) == l_true;
+
+        if (is_uninterp(e))
+            return ctx.get_value(e) == l_true;
+
+        app* a = to_app(e);
+        if (a->get_family_id() == basic_family_id) {
+            bool r = get_basic_bool_value(a);
+            get_bool_info(e).value = to_lbool(r);
+            return r;
+        }
+
+        auto v = ctx.atom2bool_var(e);
+        if (v == sat::null_bool_var)
+            return false;
+        auto const* ineq = get_ineq(v);
+        if (!ineq)
+            return false;
+        auto r = ineq->is_true() == ctx.is_true(v);
+        get_bool_info(e).value = to_lbool(r);
+        return r;
+    }    
+
+    template<typename num_t>
+    bool arith_base<num_t>::get_bool_value(expr* e) {
+        auto& info = get_bool_info(e);
+        if (info.value != l_undef)
+            return info.value == l_true;
+
+        auto r = get_bool_value_rec(e);
+        info.value = to_lbool(r);
+        return r;
+    }
+
+
+    template<typename num_t>
+    bool arith_base<num_t>::get_basic_bool_value(app* e) {
+        switch (e->get_decl_kind()) {
+        case OP_TRUE:
+            return true;
+        case OP_FALSE:
+            return false;
+        case OP_NOT:
+            return !get_bool_value(e->get_arg(0));
+        case OP_AND:
+            return all_of(*e, [&](expr* arg) { return get_bool_value(arg); });
+        case OP_OR:
+            return any_of(*e, [&](expr* arg) { return get_bool_value(arg); });
+        case OP_XOR:
+            return xor_of(*e, [&](expr* arg) { return get_bool_value(arg); });
+        case OP_IMPLIES:
+            return !get_bool_value(e->get_arg(0)) || get_bool_value(e->get_arg(1));
+        case OP_EQ:
+            if (m.is_bool(e->get_arg(0)))
+                return get_bool_value(e->get_arg(0)) == get_bool_value(e->get_arg(1));
+            NOT_IMPLEMENTED_YET();
+        case OP_DISTINCT:
+            NOT_IMPLEMENTED_YET();
+        default:
+            NOT_IMPLEMENTED_YET();
+        }
+        return false;
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::initialize_bool_assignment() {
+        for (auto t : ctx.subterms()) 
+            if (m.is_bool(t))
+                get_bool_value(t);        
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::finalize_bool_assignment() {
+        for (unsigned v = ctx.num_bool_vars(); v-- > 0; ) {
+            auto a = ctx.atom(v);
+            if (!a)
+                continue;
+            if (get_bool_value(a) != ctx.is_true(v))
+                ctx.flip(v);
+        }
+    }
+
+    template<typename num_t>
+    double arith_base<num_t>::new_score(expr* e) {
+        return new_score(e, true);
+    }
+
+    template<typename num_t>
+    double arith_base<num_t>::new_score(expr* a, bool is_true) {
+        bool is_true_new = get_bool_value(a);
+
+        //verbose_stream() << "compute score " << mk_bounded_pp(a, m) << " is-true " << is_true << " is-true-new " << is_true_new << "\n";
+        if (is_true == is_true_new)
+            return 1;
+        if (is_uninterp(a))
+            return 0;
+        if (m.is_true(a))
+            return is_true ? 1 : 0;
+        if (m.is_false(a))
+            return is_true ? 0 : 1;
+        expr* x, * y, * z;
+        if (m.is_not(a, x))
+            return new_score(x, !is_true);
+        if ((m.is_and(a) && is_true) || (m.is_or(a) && !is_true)) {
+            double score = 1;
+            for (auto arg : *to_app(a))
+                score = std::min(score, new_score(arg, is_true));
+            return score;
+        }
+        if ((m.is_and(a) && !is_true) || (m.is_or(a) && is_true)) {
+            double score = 0;
+            for (auto arg : *to_app(a))
+                score = std::max(score, new_score(arg, is_true));
+            return score;
+        }
+        if (m.is_iff(a, x, y)) {
+            auto v0 = get_bool_value(x);
+            auto v1 = get_bool_value(y);
+            return (is_true == (v0 == v1)) ? 1 : 0;
+        }
+        if (m.is_ite(a, x, y, z))
+            return get_bool_value(x) ? new_score(y, is_true) : new_score(z, is_true);
+
+
+        auto v = ctx.atom2bool_var(a);
+        if (v == sat::null_bool_var)
+            return 0;
+        auto const* ineq = get_ineq(v);
+        if (!ineq)
+            return 0;
+
+        auto const& args = ineq->m_args_value;
+        auto const& coeff = ineq->m_coeff;
+        auto value = args + coeff;
+
+        switch (ineq->m_op) {
+        case ineq_kind::LE: 
+            if (is_true) {
+                if (value <= 0)
+                    return 1.0;
+            }
+            else {
+                if (value > 0)
+                    return 1.0;
+                value = -value + 1;               
+            }
+            break;
+        case ineq_kind::LT:
+            if (is_true) {
+                if (value < 0)
+                    return 1.0;
+            }
+            else {
+                if (value >= 0)
+                    return 1.0;
+                value = -value;
+            }
+            break;
+        case ineq_kind::EQ:
+            if (is_true) {
+                if (value == 0)
+                    return 1.0;
+                if (value < 0)
+                    value = -value;
+            }
+            else {
+                if (value != 0)
+                    return 1.0;
+                return 0.0;
+            }
+            break;
+        }        
+
+        SASSERT(value > 0);
+        unsigned max_value = 10000;
+        if (value > max_value)
+            return 1.0;
+        auto d = value.get_double();
+        return 1.0 - ((d * d) / ((double)max_value * (double)max_value));
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::rescore() {
+        m_top_score = 0;
+        m_is_root.reset();
+        for (auto a : ctx.input_assertions()) {
+            double score = new_score(a);
+            set_score(a, score);
+            m_top_score += score;
+            m_is_root.mark(a);
+        }
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::recalibrate_weights() {
+        for (auto a : ctx.input_assertions()) {
+            if (ctx.rand(2047) < m_config.paws_sp) {
+                if (get_bool_value(a))
+                    dec_weight(a);
+            }
+            else if (!get_bool_value(a))
+                inc_weight(a);
+        }        
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::insert_update_stack_rec(expr* t) {
+        m_min_depth = m_max_depth = get_depth(t);
+        insert_update_stack(t);
+        for (unsigned depth = m_max_depth; depth <= m_max_depth; ++depth) {
+            for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
+                auto a = m_update_stack[depth][i];
+                for (auto p : ctx.parents(a)) {
+                    insert_update_stack(p);
+                    m_max_depth = std::max(m_max_depth, get_depth(p));
+                }
+            }
+        }
+    }
+    template<typename num_t>
+    double arith_base<num_t>::lookahead(expr* t) {
+        SASSERT(a.is_int_real(t) || m.is_bool(t));
+        double score = m_top_score;
+        for (unsigned depth = m_min_depth; depth <= m_max_depth; ++depth) {
+            for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
+                auto* a = m_update_stack[depth][i];
+                TRACE("bv_verbose", tout << "update " << mk_bounded_pp(a, m) << " depth: " << depth << "\n";);
+                if (t != a)
+                    set_bool_value(a, get_bool_value_rec(a));
+                if (m_is_root.is_marked(a))
+                    score += get_weight(a) * (new_score(a) - old_score(a));
+            }
+        }
+        return score;
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::insert_update_stack(expr* t) {
+        if (!m.is_bool(t))
+            return;
+        unsigned depth = get_depth(t);
+        m_update_stack.reserve(depth + 1);
+        if (!m_in_update_stack.is_marked(t) && is_app(t)) {
+            m_in_update_stack.mark(t);
+            m_update_stack[depth].push_back(to_app(t));
+        }
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::clear_update_stack() {
+        lookahead(nullptr);
+        m_in_update_stack.reset();
+        for (unsigned i = m_min_depth; i <= m_max_depth; ++i)
+            m_update_stack[i].reset();        
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::lookahead_num(var_t v, num_t const& new_value) {       
+        num_t old_value = value(v);
+        if (!update(v, new_value))
+            return;
+
+        expr* e = m_vars[v].m_expr;
+        auto score = lookahead(e);
+        if (score > m_best_score) {
+            m_best_score = score;
+            m_best_value = new_value;
+            m_best_expr = e;
+        }
+        VERIFY(update(v, old_value));
+        lookahead(e);
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::lookahead_bool(expr* e) {
+        bool b = get_bool_value(e);
+        set_bool_value(e, !b);
+        auto score = lookahead(e);
+        if (score > m_best_score) {
+            m_best_score = score;            
+            m_best_expr = e;
+        }
+        set_bool_value(e, b);        
+    }
+
+    // for every variable e, for every atom containing e
+    // add lookahead for e.
+    // m_fixable_atoms contains atoms that can be fixed.
+    // m_fixable_vars  contains variables that can be updated.
+    template<typename num_t>
+    void arith_base<num_t>::add_lookahead(expr* e) {
+        if (m.is_bool(e)) {
+            auto bv = ctx.atom2bool_var(e);
+            if (m_fixable_atoms.contains(bv))
+                lookahead_bool(e);                      
+        }
+        else if (a.is_int_real(e)) {
+            auto v = mk_term(e);
+            auto& vi = m_vars[v];
+            for (auto [coeff, bv] : vi.m_ineqs) {
+                if (!m_fixable_atoms.contains(bv))
+                    continue;
+                auto a = ctx.atom(bv);
+                if (!a)
+                    continue;
+                auto* ineq = get_ineq(bv);
+                if (!ineq)
+                    continue;
+                num_t na, nb;
+                for (auto const& [x, nl] : ineq->m_nonlinear) {
+                    if (!m_fixable_vars.contains(x))
+                        continue;                                           
+                    if (is_fixed(x))
+                        continue;
+                    if (is_linear(x, nl, nb))
+                        find_linear_moves(*ineq, x, nb, ineq->m_args_value);
+                    else if (is_quadratic(x, nl, na, nb))
+                        find_quadratic_moves(*ineq, x, na, nb, ineq->m_args_value);
+                    else
+                        ;
+                }
+                m_fixable_atoms.remove(bv);
+            }
+        }
+    }
+
+    //
+    // e is a formula that is false, 
+    // assemble candidates that can flip the formula to true.
+    // candidate expressions may be either numeric or boolean variables.
+    //
+    template<typename num_t>
+    void arith_base<num_t>::add_fixable(expr* e) {
+        m_fixable_exprs.reset();
+        m_fixable_atoms.reset();
+        m_fixable_vars.reset();
+        expr_mark visited;
+        buffer<std::pair<expr*, lbool>> todo;
+        expr* x, * y, * z;
+        todo.push_back({ e, l_true });
+        while (!todo.empty()) {
+            auto [e, is_true] = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(e))
+                continue;
+            visited.mark(e);
+            if (is_true == l_true && get_bool_value(e))
+                continue;
+            if (is_true == l_false && !get_bool_value(e))
+                continue;
+            if (m.is_not(e, e)) 
+                todo.push_back({ e, ~is_true });            
+            else if (m.is_and(e) || m.is_or(e)) {
+                for (auto arg : *to_app(e))
+                    todo.push_back({ arg, is_true });
+            }
+            else if (m.is_implies(e, x, y)) {
+                todo.push_back({ x, ~is_true });
+                todo.push_back({ y, is_true });
+            }
+            else if (m.is_iff(e, x, y)) {
+                todo.push_back({ x, l_undef });
+                todo.push_back({ y, l_undef });
+            }
+            else if (m.is_ite(e, x, y, z)) {
+                todo.push_back({ x, l_undef });
+                todo.push_back({ y, is_true });
+                todo.push_back({ z, ~is_true });
+            }
+            else {
+                auto bv = ctx.atom2bool_var(e);
+                if (bv == sat::null_bool_var)
+                    continue;
+                if (is_uninterp(e)) {
+                    if (!m_fixable_atoms.contains(bv)) {
+                        m_fixable_atoms.insert(bv);
+                        m_fixable_exprs.push_back(e);
+                    }
+                    continue;
+                }
+                auto* ineq = get_ineq(bv);
+                if (!ineq)
+                    continue;
+                m_fixable_atoms.insert(bv);
+                for (auto& [v, occ] : ineq->m_nonlinear) {
+                    if (m_fixable_vars.contains(v))
+                        continue;
+                    m_fixable_vars.insert(v);
+                    m_fixable_exprs.push_back(m_vars[v].m_expr);
+                }
+            }
+        }
+    }
+
+    template<typename num_t>
+    bool arith_base<num_t>::apply_move(expr* t, bool randomize) {
+        add_fixable(t);
+        auto& vars = m_fixable_exprs;
+        if (vars.empty())
+            return false;
+        m_best_expr = nullptr;
+        m_best_score = m_top_score;
+        unsigned sz = vars.size();
+        unsigned start = ctx.rand();
+        m_updates.reset();
+        insert_update_stack_rec(t);
+        for (unsigned i = 0; i < sz; ++i)
+            add_lookahead(vars[(start + i) % sz]);
+
+        if (randomize) {
+            if (m_updates.empty())
+                return false;
+            auto& [v, new_value, score] = m_updates[ctx.rand() % m_updates.size()];
+            m_best_expr = m_vars[v].m_expr;
+        }
+        else {
+            for (auto const& [v, new_value, score] : m_updates)
+                lookahead_num(v, new_value);            
+        }
+        if (m_best_expr)
+            m_top_score = lookahead(m_best_expr);
+
+        clear_update_stack();
+        
+        CTRACE("bv", !m_best_expr, tout << "no guided move\n";);
+        return !!m_best_expr;
+    }
+
+    template<typename num_t>
+    void  arith_base<num_t>::global_search() {
+        initialize_bool_assignment();
+        rescore();
+        m_config.max_moves = m_stats.m_moves + m_config.max_moves_base;
+        TRACE("bv", tout << "search " << m_stats.m_moves << " " << m_config.max_moves << "\n";);
+        IF_VERBOSE(1, verbose_stream() << "lookahead-search moves:" << m_stats.m_moves << " max-moves:" << m_config.max_moves << "\n");
+
+        while (m.inc() && m_stats.m_moves < m_config.max_moves) {
+            m_stats.m_moves++;
+            check_restart();
+
+            auto t = get_candidate_unsat();
+
+            if (!t)
+                break;
+
+            if (apply_move(t, false))
+                continue;
+
+            if (apply_move(t, true)) 
+                recalibrate_weights();
+        }
+        m_config.max_moves_base += 100;
+        finalize_bool_assignment();
+    }
+
+    template<typename num_t>
+    expr* arith_base<num_t>::get_candidate_unsat() {
+        unsigned n = 0;
+        expr* r = nullptr;
+        for (auto a : ctx.input_assertions()) {
+            if (!get_bool_value(a) && (ctx.rand() % (++n)) == 0)
+                r = a;                           
+        }
+        return r;
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::check_restart() {
+
+
+    }
+
 }
 
 template class sls::arith_base<checked_int64<true>>;

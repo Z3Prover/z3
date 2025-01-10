@@ -257,12 +257,8 @@ namespace sls {
             return !get_bool_value(e->get_arg(0)) || get_bool_value(e->get_arg(1));
         case OP_ITE:
             return get_bool_value(e->get_arg(0)) ? get_bool_value(e->get_arg(1)) : get_bool_value(e->get_arg(2));
-        case OP_XOR: {
-            bool r = false;
-            for (expr* arg : *e)
-                r ^= get_bool_value(arg);
-            return r;
-        }
+        case OP_XOR: 
+            return xor_of(*e, [&](expr* arg) { return get_bool_value(arg); });                    
         case OP_TRUE:
             return true;
         case OP_FALSE:

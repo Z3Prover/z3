@@ -42,10 +42,16 @@ namespace sls {
             unsigned t = 45;
             unsigned max_no_improve = 500000;
             double sp = 0.0003;
+            unsigned paws_init = 40;
+            unsigned paws_sp = 52;
+            bool paws = true;
+            unsigned max_moves = 500;
+            unsigned max_moves_base = 500;
         };
 
         struct stats {
             unsigned m_num_steps = 0;
+            unsigned m_moves = 0;
         };
 
     public:
@@ -274,6 +280,56 @@ namespace sls {
         std::ostream& display(std::ostream& out, var_t v) const;
         std::ostream& display(std::ostream& out, add_def const& ad) const;
         std::ostream& display(std::ostream& out, mul_def const& md) const;
+
+
+
+        // for global lookahead search mode
+        void global_search();
+        struct bool_info {
+            unsigned weight = 0;
+            double   score = 0;
+            unsigned touched = 0;
+            lbool    value = l_undef;
+        };
+        vector<ptr_vector<app>> m_update_stack;
+        expr_mark m_in_update_stack;
+        svector<bool_info> m_bool_info;
+        double m_best_score = 0, m_top_score = 0;
+        unsigned m_min_depth = 0, m_max_depth = 0;
+        num_t m_best_value;
+        expr* m_best_expr = nullptr, * m_last_atom = nullptr;
+        expr_mark m_is_root;
+        sat::bool_var_set m_fixable_atoms;
+        uint_set          m_fixable_vars;
+        ptr_vector<expr>  m_fixable_exprs;
+        bool_info& get_bool_info(expr* e);
+        bool get_bool_value(expr* e);
+        bool get_bool_value_rec(expr* e);
+        void set_bool_value(expr* e, bool v) { get_bool_info(e).value = to_lbool(v); }
+        bool get_basic_bool_value(app* e);
+        void initialize_bool_assignment();
+        void finalize_bool_assignment();
+        double old_score(expr* e) { return get_bool_info(e).score; }
+        double new_score(expr* e);
+        double new_score(expr* e, bool is_true);
+        void set_score(expr* e, double s) { get_bool_info(e).score = s; }
+
+        void rescore();
+        void recalibrate_weights();
+        void inc_weight(expr* e) { ++get_bool_info(e).weight;  }
+        void dec_weight(expr* e) { auto& i = get_bool_info(e); i.weight = i.weight > m_config.paws_init ? i.weight - 1 : m_config.paws_init; }
+        unsigned get_weight(expr* e) { return get_bool_info(e).weight; }
+        void insert_update_stack(expr* t);
+        void insert_update_stack_rec(expr* t);
+        void clear_update_stack();
+        void lookahead_num(var_t v, num_t const& value);
+        void lookahead_bool(expr* e);
+        double lookahead(expr* e);
+        void add_lookahead(expr* e);
+        void add_fixable(expr* e);
+        bool apply_move(expr* f, bool randomize);
+        expr* get_candidate_unsat();
+        void check_restart();
     public:
         arith_base(context& ctx);
         ~arith_base() override {}        

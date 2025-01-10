@@ -58,6 +58,7 @@ public:
     static checked_int64 minus_one() { return ci(-1);}
 
     int64_t get_int64() const { return m_value; }
+    double get_double() const { return (double)m_value; }
     rational to_rational() const { return r64(m_value); }
 
     checked_int64 abs() const { 

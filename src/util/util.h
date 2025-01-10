@@ -389,6 +389,14 @@ bool all_of(S const& set, T const& p) {
     return true;
 }
 
+template<typename S, typename T>
+bool xor_of(S const& set, T const& p) {
+    bool r = false;
+    for (auto const& s : set)
+        r ^= p(s);
+    return r;
+}
+
 template<typename S, typename R>
 R find(S const& set, std::function<bool(R)> p) {
     for (auto const& s : set)

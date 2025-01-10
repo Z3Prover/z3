@@ -496,9 +496,6 @@ namespace sls {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto const& [a, is_bv] = m_update_stack[depth][i];
                 TRACE("bv_verbose", tout << "update " << mk_bounded_pp(a, m) << " depth: " << depth  << "\n";);
-                bool before;
-                if (m.is_bool(a))
-                    before = m_ev.get_bool_value(a);
 
                 if (t != a) {
                     if (is_bv)
