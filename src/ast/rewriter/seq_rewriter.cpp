@@ -6152,25 +6152,24 @@ bool seq_rewriter::some_string_in_re(expr* r, zstring& s) {
     // SASSERT(re().is_re(r, rs) && m_util.is_string(rs));
     expr_mark visited;
     unsigned_vector str;
-    expr_ref_vector pinned(m());
 
-    if (!some_string_in_re(pinned, visited, r, str))
+    if (!some_string_in_re(visited, r, str))
         return false;
     s = zstring(str.size(), str.data());
     return true;
 }
 
 struct re_eval_pos {
-    expr* e;
+    expr_ref e; // use reference to avoid gc
     unsigned str_len;
     buffer<std::pair<unsigned, unsigned>> exclude;
     bool needs_derivation;
 };
 
-bool seq_rewriter::some_string_in_re(expr_ref_vector& pinned, expr_mark& visited, expr* r, unsigned_vector& str) {
+bool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vector& str) {
     SASSERT(str.empty());
     vector<re_eval_pos> todo;
-    todo.push_back({ r, 0, {}, true });
+    todo.push_back({ expr_ref(r, m()), 0, {}, true });
     while (!todo.empty()) {
         re_eval_pos current = todo.back();
         todo.pop_back();
@@ -6187,10 +6186,9 @@ bool seq_rewriter::some_string_in_re(expr_ref_vector& pinned, expr_mark& visited
             if (info.nullable == l_true)
                 return true;
             visited.mark(r);
-            pinned.push_back(r);
             if (re().is_union(r)) {
                 for (expr* arg : *to_app(r)) {
-                    todo.push_back({ arg, str.size(), {}, true });
+                    todo.push_back({ expr_ref(arg, m()), str.size(), {}, true });
                 }
                 continue;
             }
@@ -6206,7 +6204,7 @@ bool seq_rewriter::some_string_in_re(expr_ref_vector& pinned, expr_mark& visited
             continue;
         if (re().is_union(r)) {
             for (expr* arg : *to_app(r)) {
-                todo.push_back({ arg, str.size(), exclude, false });
+                todo.push_back({ expr_ref(arg, m()), str.size(), exclude, false });
             }
             continue;
         }
@@ -6215,14 +6213,14 @@ bool seq_rewriter::some_string_in_re(expr_ref_vector& pinned, expr_mark& visited
             bool hasBounds = get_bounds(c, low, high);
             if (!re().is_empty(el)) {
                 exclude.push_back({ low, high });
-                todo.push_back({ el, str.size(), std::move(exclude), false });
+                todo.push_back({ expr_ref(el, m()), str.size(), std::move(exclude), false });
             }
             if (hasBounds) {
                 // I want this case to be processed first => push it last
                 // reason: current string is only pruned
                 SASSERT(low <= high);
                 str.push_back(low);           // ASSERT: low .. high does not intersect with exclude
-                todo.push_back({ th, str.size(), {}, true });
+                todo.push_back({ expr_ref(th, m()), str.size(), {}, true });
             }
             continue;
         }
@@ -6254,14 +6252,11 @@ bool seq_rewriter::some_string_in_re(expr_ref_vector& pinned, expr_mark& visited
             if (failed)
                 continue;
             str.push_back(ch);
-            todo.push_back({ r, str.size(), {}, true });
+            todo.push_back({ expr_ref(r, m()), str.size(), {}, true });
             continue;
         }
 
-        verbose_stream() << "todo append_char " << mk_pp(r, m()) << "\n";
-        // TODO: select characters from m_chars[ctx.rand(m_chars.size())]);
         UNREACHABLE();
-        return false;
     }
     return false;
 }
