@@ -304,9 +304,9 @@ namespace sls {
    
     void bv_lookahead::updt_params(params_ref const& _p) {
         sls_params p(_p);
-        if (m_config.updated)
+        if (m_config.config_initialized)
             return;
-        m_config.updated = true;
+        m_config.config_initialized = true;
         m_config.walksat = p.walksat();
         m_config.walksat_repick = p.walksat_repick();
         m_config.paws_sp = p.paws_sp();

@@ -72,6 +72,10 @@ namespace sls {
         APPLY_BOTH(initialize());
     }
 
+    void arith_plugin::start_propagation() {
+        WITH_FALLBACK(start_propagation());
+    }
+
     void arith_plugin::propagate_literal(sat::literal lit) {
         WITH_FALLBACK(propagate_literal(lit));
     }

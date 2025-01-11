@@ -32,6 +32,7 @@ namespace sls {
         ~arith_plugin() override {}
         void register_term(expr* e) override;
         expr_ref get_value(expr* e) override;
+        void start_propagation() override;
         bool is_fixed(expr* e, expr_ref& value) override;
         void initialize() override;
         void propagate_literal(sat::literal lit) override;

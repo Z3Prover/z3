@@ -26,7 +26,7 @@ namespace sls {
     class bv_lookahead {
 
         struct config {
-            bool   updated = false;
+            bool   config_initialized = false;
             double cb = 2.85;
             unsigned paws_init = 40;
             unsigned paws_sp = 52;
@@ -181,10 +181,10 @@ namespace sls {
 
         void finalize_bool_values();
 
+        void updt_params(params_ref const& p);
+
     public:
         bv_lookahead(bv_eval& ev);
-
-        void updt_params(params_ref const& p);
 
         void start_propagation();
 
