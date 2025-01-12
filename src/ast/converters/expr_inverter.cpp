@@ -882,14 +882,13 @@ public:
             return false;
         case OP_SEQ_IN_RE:
             if (uncnstr(args[0]) && seq.re.is_ground(args[1]) && seq.is_string(args[0]->get_sort())) {
-#if 1
                 zstring s1;
                 expr* re = args[1];
-                if (!rw.some_string_in_re(re, s1))
+                if (l_true != rw.some_string_in_re(re, s1))
                     return false;
                 zstring s2;
                 expr_ref not_re(seq.re.mk_complement(re), m);
-                if (!rw.some_string_in_re(not_re, s2))
+                if (l_true != rw.some_string_in_re(not_re, s2))
                     return false;
 
                 mk_fresh_uncnstr_var_for(f, r);
@@ -898,7 +897,6 @@ public:
                 if (m_mc)
                     add_def(args[0], m.mk_ite(r, witness1, witness2));
                 return true;
-#endif
             }
             return false;
         default:

@@ -354,7 +354,7 @@ class seq_rewriter {
     void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
 
     bool get_bounds(expr* e, unsigned& low, unsigned& high);
-    bool some_string_in_re(expr_mark& visited, expr* r, unsigned_vector& str);
+    lbool some_string_in_re(expr_mark& visited, expr* r, unsigned_vector& str);
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
@@ -441,6 +441,6 @@ public:
     * Return true if a valid string was extracted.
     * Return false when giving up or the regular expression is empty.
     */
-    bool some_string_in_re(expr* r, zstring& s);
+    lbool some_string_in_re(expr* r, zstring& s);
 };
 

@@ -9,7 +9,7 @@ Abstract:
 
     Basic rewriting rules for sequences constraints.
 
-Author:
+Authors:
 
     Nikolaj Bjorner (nbjorner) 2015-12-5
     Murphy Berzish 2017-02-21
@@ -6146,17 +6146,17 @@ void seq_rewriter::op_cache::cleanup() {
     }
 }
 
-bool seq_rewriter::some_string_in_re(expr* r, zstring& s) {
+lbool seq_rewriter::some_string_in_re(expr* r, zstring& s) {
     sort* rs;
     (void)rs;
     // SASSERT(re().is_re(r, rs) && m_util.is_string(rs));
     expr_mark visited;
     unsigned_vector str;
 
-    if (!some_string_in_re(visited, r, str))
-        return false;
-    s = zstring(str.size(), str.data());
-    return true;
+    auto result = some_string_in_re(visited, r, str);
+    if (result == l_true)
+        s = zstring(str.size(), str.data());
+    return result;
 }
 
 struct re_eval_pos {
@@ -6166,7 +6166,7 @@ struct re_eval_pos {
     bool needs_derivation;
 };
 
-bool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vector& str) {
+lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vector& str) {
     SASSERT(str.empty());
     vector<re_eval_pos> todo;
     todo.push_back({ expr_ref(r, m()), 0, {}, true });
@@ -6184,7 +6184,7 @@ bool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vecto
                 continue;
             auto info = re().get_info(r);
             if (info.nullable == l_true)
-                return true;
+                return l_true;
             visited.mark(r);
             if (re().is_union(r)) {
                 for (expr* arg : *to_app(r)) {
@@ -6210,12 +6210,13 @@ bool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vecto
         }
         if (m().is_ite(r, c, th, el)) {
             unsigned low = 0, high = zstring::unicode_max_char();
-            bool hasBounds = get_bounds(c, low, high);
+            bool has_bounds = get_bounds(c, low, high);
             if (!re().is_empty(el)) {
-                exclude.push_back({ low, high });
+                if (has_bounds)
+                    exclude.push_back({ low, high });
                 todo.push_back({ expr_ref(el, m()), str.size(), std::move(exclude), false });
             }
-            if (hasBounds) {
+            if (has_bounds) {
                 // I want this case to be processed first => push it last
                 // reason: current string is only pruned
                 SASSERT(low <= high);
@@ -6256,9 +6257,9 @@ bool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vecto
             continue;
         }
 
-        UNREACHABLE();
+        return l_undef;
     }
-    return false;
+    return l_false;
 }
 
 bool seq_rewriter::get_bounds(expr* e, unsigned& low, unsigned& high) {

@@ -1847,7 +1847,7 @@ namespace sls {
 
         {
             zstring s1;
-            if (ctx.is_true(e) && rw.some_string_in_re(y, s1)) {
+            if (ctx.is_true(e) && l_true == rw.some_string_in_re(y, s1)) {
                 m_str_updates.push_back({ x, s1, 1 });
                 return apply_update();
             }
