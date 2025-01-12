@@ -414,6 +414,7 @@ public:
     void push_back(ref & r, value const & v) {
         if (r.m_ref == nullptr)
             mk(r);
+        SASSERT(r.m_ref);
         if (r.root()) {
             if (r.unshared()) {
                 rpush_back(r.m_ref, v);
