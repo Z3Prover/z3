@@ -2097,6 +2097,7 @@ namespace lp {
         switch (kind) {
             case LT:
                 y_of_bound = -1;
+                Z3_fallthrough;
             case LE: {
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
                 if (up < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
@@ -2213,6 +2214,7 @@ namespace lp {
             } break;
             case GT:
                 y_of_bound = 1;
+                Z3_fallthrough;
             case GE: {
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;

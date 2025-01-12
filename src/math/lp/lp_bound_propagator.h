@@ -28,7 +28,7 @@ class lp_bound_propagator {
     // works for rows of the form x - y + sum of fixed = 0    
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_row2index_neg;
 
-    const vector<column_type>*                         m_column_types;
+    const vector<column_type>*                         m_column_types = nullptr;
     // returns true iff there is only one non-fixed column in the row
     bool only_one_nfixed(unsigned r, unsigned& x) {
         x = UINT_MAX;

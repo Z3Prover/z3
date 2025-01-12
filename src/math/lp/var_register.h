@@ -23,8 +23,8 @@ namespace lp  {
 
 
 class ext_var_info {
-    unsigned m_external_j;
-    bool m_is_integer;
+    unsigned m_external_j = 0;
+    bool m_is_integer = false;
     std::string m_name;
 public:
     ext_var_info() = default;
