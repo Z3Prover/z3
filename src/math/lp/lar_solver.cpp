@@ -699,7 +699,7 @@ namespace lp {
             return;
         
         lar_term t;
-        auto const& col = m_columns[j];
+        //auto const& col = m_columns[j];
         auto const& r = basic2row(j);
         for (auto const& c : r) {
             if (c.var() != j)       

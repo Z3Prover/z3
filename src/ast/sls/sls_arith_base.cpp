@@ -724,7 +724,6 @@ namespace sls {
 
         for (auto idx : vi.m_adds) {
             auto const& ad = m_adds[idx];
-            auto w = ad.m_var;
             num_t sum(ad.m_coeff);
             for (auto const& [coeff, w] : ad.m_args)
                 sum += coeff * value(w);
@@ -2265,7 +2264,7 @@ namespace sls {
             return value(v) == (value(od.m_arg2) == 0 ? num_t(0) : mod(value(od.m_arg1), value(od.m_arg2)));
         }
         case arith_op_kind::OP_POWER: {
-            auto od = m_ops[vi.m_def_idx];
+            //auto od = m_ops[vi.m_def_idx];
             NOT_IMPLEMENTED_YET();
             break;
         }
@@ -2333,7 +2332,6 @@ namespace sls {
                 display(out, ad) << "\n";
             }
         };
-        auto& out = verbose_stream();
         for (var_t v = 0; v < m_vars.size(); ++v) {
             if (!eval_is_correct(v)) {
                 report_error(verbose_stream(), v);

@@ -1433,12 +1433,10 @@ namespace smt {
             return nullptr;
         case 1: {
             literal unit = lits[0];
-            expr* atom = m_bool_var2expr[unit.var()];
             if (j && !j->in_region())
                 m_justifications.push_back(j);
             assign(unit, j);
             inc_ref(unit);
-            // m_units_to_reassert.push_back({ expr_ref(atom, m), unit.sign(), is_relevant(unit) });
             return nullptr;
         }
         case 2:
