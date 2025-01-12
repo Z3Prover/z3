@@ -694,7 +694,7 @@ namespace sls {
         hashtable<zstring, zstring_hash_proc, default_eq<zstring>> set;
         set.insert(zstring(""));
         for (unsigned i = 0; i < val_other.length(); ++i) {
-            for (unsigned j = val_other.length() - i; j-- > 0; ) {
+            for (unsigned j = 1; j <= val_other.length() - i; ++j) {
                 zstring sub = val_other.extract(i, j);
                 if (set.contains(sub))
                     break;
