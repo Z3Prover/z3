@@ -2131,7 +2131,7 @@ public:
     }
     
     bool can_propagate_core() {
-        return m_asserted_atoms.size() > m_asserted_qhead || m_new_def;
+        return m_asserted_atoms.size() > m_asserted_qhead || m_new_def || lp().has_changed_columns();
     }
 
     bool propagate() {

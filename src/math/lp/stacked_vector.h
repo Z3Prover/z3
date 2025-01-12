@@ -25,7 +25,7 @@ template < typename B> class stacked_vector {
     struct log_entry { 
         unsigned m_i; unsigned m_ts; B b;
         log_entry(unsigned i, unsigned t, B const& b): m_i(i), m_ts(t), b(b) {}
-        log_entry():m_i(UINT_MAX), m_ts(0) {}
+        log_entry():m_i(UINT_MAX), m_ts(0), b() {}
     };
     svector<unsigned> m_stack_of_vector_sizes;
     svector<unsigned> m_stack_of_change_sizes;

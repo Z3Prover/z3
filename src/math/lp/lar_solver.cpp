@@ -1800,10 +1800,12 @@ namespace lp {
         switch (k) {
         case LT:
             k = LE;
+            Z3_fallthrough;
         case LE:
             return floor(bound);
         case GT:
             k = GE;
+            Z3_fallthrough;
         case GE:
             return ceil(bound);
         case EQ:
@@ -2028,6 +2030,7 @@ namespace lp {
         switch (kind) {
             case LT:
                 y_of_bound = -1;
+                Z3_fallthrough;
             case LE: {
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
                 if (up < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
@@ -2043,6 +2046,7 @@ namespace lp {
             }
             case GT:
                 y_of_bound = 1;
+                Z3_fallthrough;
             case GE: {
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
                 if (low > m_mpq_lar_core_solver.m_r_upper_bounds[j]) {
@@ -2145,6 +2149,7 @@ namespace lp {
         switch (kind) {
         case LT:
             y_of_bound = -1;
+            Z3_fallthrough;
         case LE:
         {
             auto up = numeric_pair<mpq>(right_side, y_of_bound);
@@ -2156,6 +2161,7 @@ namespace lp {
         break;
         case GT:
             y_of_bound = 1;
+            Z3_fallthrough;
         case GE:
         {
             auto low = numeric_pair<mpq>(right_side, y_of_bound);
@@ -2198,6 +2204,7 @@ namespace lp {
         switch (kind) {
             case LT:
                 y_of_bound = -1;
+                Z3_fallthrough;
             case LE: {
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
                 m_mpq_lar_core_solver.m_r_upper_bounds[j] = up;
