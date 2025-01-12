@@ -2371,7 +2371,7 @@ namespace sls {
     // 
 
     template<typename num_t>
-    arith_base<num_t>::bool_info& arith_base<num_t>::get_bool_info(expr* e) {   
+    typename arith_base<num_t>::bool_info& arith_base<num_t>::get_bool_info(expr* e) {   
         m_bool_info.reserve(e->get_id() + 1, bool_info(m_config.paws_init));
         return m_bool_info[e->get_id()];
     }
