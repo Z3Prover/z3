@@ -883,10 +883,13 @@ public:
         case OP_SEQ_IN_RE:
             if (uncnstr(args[0]) && seq.re.is_ground(args[1]) && seq.is_string(args[0]->get_sort())) {
 #if 1
-                zstring s1, s2;
+                zstring s1;
                 expr* re = args[1];
+                if (!rw.some_string_in_re(re, s1))
+                    return false;
+                zstring s2;
                 expr_ref not_re(seq.re.mk_complement(re), m);
-                if (!rw.some_string_in_re(re, s1) || !rw.some_string_in_re(not_re, s2))
+                if (!rw.some_string_in_re(not_re, s2))
                     return false;
 
                 mk_fresh_uncnstr_var_for(f, r);

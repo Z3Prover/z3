@@ -1847,7 +1847,7 @@ namespace sls {
 
         {
             zstring s1;
-            if (ctx.is_true(e) && some_string_in_re(y, s1)) {
+            if (ctx.is_true(e) && rw.some_string_in_re(y, s1)) {
                 m_str_updates.push_back({ x, s1, 1 });
                 return apply_update();
             }
@@ -2000,93 +2000,5 @@ namespace sls {
             zstring prefix2 = prefix + zstring(ch);
             choose(r2, k - 1, prefix2, result);
         }        
-    }
-
-    //
-    // Find some string that is a member of regex
-    //
-    bool seq_plugin::some_string_in_re(expr* _r, zstring& s) {
-        expr_ref r(_r, m);
-        seq_rewriter rw(m);
-        while (true) {
-            if (seq.re.is_empty(r))
-                return false;
-            auto info = seq.re.get_info(r);
-            if (info.nullable == l_true)
-                return true;
-            expr_ref r2 = rw.mk_derivative(r);
-            if (!append_char(r, r2, s))
-                return false;
-            r = r2;
-        }
-    }
-
-    bool seq_plugin::get_bounds(expr* e, unsigned& low, unsigned& high) {
-        // TODO: remove recursion (though it is probably not deep anyway)
-        expr* x, * y;
-        unsigned ch = 0;
-        if (m.is_and(e, x, y)) {
-            if (!get_bounds(x, low, high))
-                return false;
-            return get_bounds(y, low, high);
-        }
-        if (m.is_eq(e, x, y)) {
-            if ((is_var(x) && seq.is_const_char(y, ch)) || (is_var(y) && seq.is_const_char(x, ch))) {
-                if (ch < low || ch > high)
-                    return false;
-                low = high = ch;
-                return true;
-            }
-            return false;
-        }
-        if (seq.is_char_le(e, x, y)) {
-            if (seq.is_const_char(x, ch)) {
-                low = std::max(ch, low);
-                return high >= low;
-            }
-            if (seq.is_const_char(y, ch)) {
-                high = std::min(ch, high);
-                return high >= low;
-            }
-            return false;
-        }
-        return false;
-    }
-
-    bool seq_plugin::append_char(expr* r0, expr_ref& r, zstring& s) {
-        expr* c, * th, * el;
-        if (seq.re.is_union(r)) {
-            auto info0 = seq.re.get_info(r0);
-            for (expr* r1 : *to_app(r)) {
-                auto info1 = seq.re.get_info(r1);
-                if (r0 == r1)
-                    continue;
-                if (info1.min_length < info0.min_length) {
-                    r = r1;
-                    return append_char(r0, r, s);
-                }
-            }
-            expr* r2;
-            do {
-                r2 = to_app(r)->get_arg(ctx.rand(to_app(r)->get_num_args()));
-            } while (r2 == r0);
-            r = r2;
-            // Just take one that is not a self loop (there is always such one element)
-            return append_char(r0, r, s);
-        }
-        if (m.is_ite(r, c, th, el)) {
-            unsigned low = 0, high = UINT_MAX;
-            if (get_bounds(c, low, high)) {
-                SASSERT(low <= high);
-                s += zstring(low);
-                r = th;
-                return true;
-            }
-            verbose_stream() << "nyi append_char " << mk_bounded_pp(r, m) << "\n";
-            NOT_IMPLEMENTED_YET();
-            return false;
-        }
-        s += zstring(m_chars[ctx.rand(m_chars.size())]);
-        return true;
     }
 }
