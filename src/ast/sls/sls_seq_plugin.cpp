@@ -379,7 +379,8 @@ namespace sls {
                     ev.val0.svalue = str;
                     return ev.val0.svalue;
                 }
-                NOT_IMPLEMENTED_YET();                
+                NOT_IMPLEMENTED_YET();  
+                return ev.val0.svalue;
             }
             case OP_SEQ_EMPTY: {
                 ev.val0.svalue = zstring();
@@ -626,8 +627,8 @@ namespace sls {
         IF_VERBOSE(3, verbose_stream() << is_true << ": " << mk_bounded_pp(e, m, 3) << "\n");
         if (ctx.is_true(e)) {
             // equality
-            if (false && ctx.rand(2) != 0 && repair_down_str_eq_edit_distance_incremental(e))
-                return true;
+            //if (false && ctx.rand(2) != 0 && repair_down_str_eq_edit_distance_incremental(e))
+            //    return true;
             if (ctx.rand(2) != 0 && repair_down_str_eq_edit_distance(e))
                 return true;
             if (ctx.rand(2) != 0 && repair_down_str_eq_unify(e))
@@ -693,7 +694,7 @@ namespace sls {
         hashtable<zstring, zstring_hash_proc, default_eq<zstring>> set;
         set.insert(zstring(""));
         for (unsigned i = 0; i < val_other.length(); ++i) {
-            for (unsigned j = val_other.length(); j > 0; ++j) {
+            for (unsigned j = val_other.length(); j-- > 0; ) {
                 zstring sub = val_other.extract(i, j);
                 if (set.contains(sub))
                     break;
@@ -1890,7 +1891,9 @@ namespace sls {
                 if (min_length < UINT_MAX && s.length() < str.length()) {
                     // reward small lengths
                     // penalize size differences (unless min_length decreases)
-                    score = 1 << (current_min_length - min_length);
+                    // TODO: fix this. this is pow(2.0, min_length - current_min_length) for double precision
+                    // but heuristic could be reconsidered
+                    score = 1 << (current_min_length - min_length); 
                     score /= ((double)abs((int)s.length() - (int)str.length()) + 1);
                 }
                 IF_VERBOSE(3, verbose_stream() << "prefix " << score << " " << min_length << ": " << str << "\n");

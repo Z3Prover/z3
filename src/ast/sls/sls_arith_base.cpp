@@ -2372,8 +2372,10 @@ namespace sls {
 
     template<typename num_t>
     typename arith_base<num_t>::bool_info& arith_base<num_t>::get_bool_info(expr* e) {   
-        m_bool_info.reserve(e->get_id() + 1, bool_info(m_config.paws_init));
-        return m_bool_info[e->get_id()];
+        unsigned id = e->get_id();
+        if (id >= m_bool_info.size())
+            m_bool_info.reserve(id + 1, bool_info(m_config.paws_init));
+        return m_bool_info[id];
     }
 
     template<typename num_t>
@@ -2648,10 +2650,6 @@ namespace sls {
     void arith_base<num_t>::lookahead_num(var_t v, num_t const& delta) {       
         num_t old_value = value(v);
 
-        if (!update_num(v, delta))
-            return;
-
-        num_t new_value = old_value + delta;
         expr* e = m_vars[v].m_expr;
         if (m_last_expr != e) {
             if (m_last_expr)
@@ -2660,6 +2658,14 @@ namespace sls {
             insert_update_stack_rec(e);
             m_last_expr = e;
         }
+        else if (m_last_delta == delta)
+            return;
+        m_last_delta = delta;
+
+        num_t new_value = old_value + delta;
+
+        if (!update_num(v, delta))
+            return;
         auto score = lookahead(e, false);
         TRACE("arith_verbose", tout << "lookahead " << v << " " << mk_bounded_pp(e, m) << " := " << delta + old_value << " " << score << " (" << m_best_score << ")\n";);
         if (score > m_best_score) {
@@ -2844,7 +2850,7 @@ namespace sls {
                 add_lookahead(info, vars[(start + i) % sz]);
             if (m_updates.empty())
                 return false;
-            std::stable_sort(m_updates.begin(), m_updates.end(), [](auto const& a, auto const& b) { return a.m_var < b.m_var; });
+            std::stable_sort(m_updates.begin(), m_updates.end(), [](auto const& a, auto const& b) { return a.m_var < b.m_var || (a.m_var == b.m_var && a.m_delta < b.m_delta); });
             m_last_expr = nullptr;
             sz = m_updates.size();
             for (unsigned i = 0; i < sz; ++i) {
