@@ -2578,6 +2578,7 @@ namespace sls {
             return 0.0;
         auto d = value.get_double();
         double score = 1.0 - ((d * d) / ((double)max_value * (double)max_value));
+        //score = 1.0 - d / max_value;
         return score;
     }
 
@@ -2855,7 +2856,10 @@ namespace sls {
             unsigned idx = ctx.rand() % m_updates.size();
             auto& [v, delta, score] = m_updates[idx];
             m_best_expr = m_vars[v].m_expr;
-            m_best_value = value(v) + delta;
+            if (false && !m_vars[v].m_finite_domain.empty())
+                m_best_value = m_vars[v].m_finite_domain[ctx.rand() % m_vars[v].m_finite_domain.size()];
+            else
+                m_best_value = value(v) + delta;
             break;
         }
         case arith_move_type::hillclimb: {
@@ -2881,7 +2885,10 @@ namespace sls {
             m_best_expr = e;
             if (a.is_int_real(e)) {
                 var_t v = mk_term(e);
-                if (ctx.rand(2) == 0)
+                auto& vi = m_vars[v];
+                if (!vi.m_finite_domain.empty()) 
+                    m_best_value = vi.m_finite_domain[ctx.rand() % vi.m_finite_domain.size()];                
+                else if (ctx.rand(2) == 0)
                     m_best_value = value(v) + 1;
                 else
                     m_best_value = value(v) - 1;
