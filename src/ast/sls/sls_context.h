@@ -175,6 +175,7 @@ namespace sls {
         bool is_true(sat::bool_var v) const { return s.is_true(sat::literal(v, false)); }
         expr* atom(sat::bool_var v) { return m_atoms.get(v, nullptr); }
         expr* term(unsigned id) const { return m_allterms.get(id); }
+        void add_new_term(expr* e) { register_terms(e); }
         sat::bool_var atom2bool_var(expr* e) const { return m_atom2bool_var.get(e->get_id(), sat::null_bool_var); }
         sat::literal mk_literal(expr* e);
         void add_input_assertion(expr* f) { add_assertion(f, true); }

@@ -110,7 +110,8 @@ namespace sls {
     template<typename num_t>
     arith_base<num_t>::arith_base(context& ctx) :
         plugin(ctx),
-        a(m) {
+        a(m),
+        m_new_terms(m) {
         m_fid = a.get_family_id();
     }
 
@@ -807,14 +808,18 @@ namespace sls {
         }
         else if (a.is_mul(e, x, y) && a.is_add(y, z, u)) {
             expr_ref t(a.mk_mul(x, z), m);
+            m_new_terms.push_back(t);
             add_args(term, t, coeff);
             t = a.mk_mul(x, u);
+            m_new_terms.push_back(t);
             add_args(term, t, coeff);
         }
         else if (a.is_mul(e, x, y) && a.is_add(x, z, u)) {
             expr_ref t(a.mk_mul(y, z), m);
+            m_new_terms.push_back(t);
             add_args(term, t, coeff);
             t = a.mk_mul(y, u);
+            m_new_terms.push_back(t);
             add_args(term, t, coeff);
         }
         else if (a.is_mul(e)) {
@@ -1006,7 +1011,14 @@ namespace sls {
         else {
             SASSERT(!a.is_arith_expr(e));
         }
-        
+        add_new_terms();        
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::add_new_terms() {
+        for (unsigned i = 0; i < m_new_terms.size(); ++i)
+            ctx.add_new_term(m_new_terms.get(i));
+        m_new_terms.reset();
     }
 
     template<typename num_t>
@@ -1968,6 +1980,7 @@ namespace sls {
             for (auto arg : *e)
                 if (a.is_int_real(arg))
                     mk_term(arg);
+        add_new_terms();
     }
 
     template<typename num_t>

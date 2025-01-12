@@ -191,6 +191,7 @@ namespace sls {
         vector<mul_def>              m_muls;
         vector<add_def>              m_adds;
         vector<op_def>               m_ops;
+        expr_ref_vector              m_new_terms;
         unsigned_vector              m_expr2var;
         svector<double>              m_probs;
         bool                         m_dscore_mode = false;
@@ -281,6 +282,7 @@ namespace sls {
         void add_args(linear_term& term, expr* e, num_t const& sign);
         ineq& new_ineq(ineq_kind op, num_t const& bound);
         void init_ineq(sat::bool_var bv, ineq& i);
+        void add_new_terms();
         num_t divide(var_t v, num_t const& delta, num_t const& coeff);
         num_t divide_floor(var_t v, num_t const& a, num_t const& b);
         num_t divide_ceil(var_t v, num_t const& a, num_t const& b);
