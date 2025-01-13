@@ -2479,6 +2479,20 @@ namespace sls {
             if (get_bool_value(a) != ctx.is_true(v))
                 ctx.flip(v);
         }
+#if 0
+        for (auto idx : ctx.unsat()) {
+            auto const& cl = ctx.get_clause(idx);
+            verbose_stream() << "clause " << cl << "\n";
+            for (auto lit : cl) {
+                auto a = ctx.atom(lit.var());
+                if (a)
+                    verbose_stream() << lit << " " << mk_bounded_pp(a, m) << " " << get_bool_value(a) << " " << ctx.is_true(lit) << "\n";
+                else
+                    verbose_stream() << lit << " " << ctx.is_true(lit) << "\n";
+            }
+        }
+#endif
+
     }
 
     template<typename num_t>
@@ -2938,24 +2952,22 @@ namespace sls {
         rescore();
         m_config.max_moves = m_stats.m_moves + m_config.max_moves_base;
         TRACE("arith", tout << "search " << m_stats.m_moves << " " << m_config.max_moves << "\n";);
-        IF_VERBOSE(1, verbose_stream() << "lookahead-search moves:" << m_stats.m_moves << " max-moves:" << m_config.max_moves << "\n");
+        IF_VERBOSE(3, verbose_stream() << "lookahead-search moves:" << m_stats.m_moves << " max-moves:" << m_config.max_moves << "\n");
         TRACE("arith", display(tout));
-        bool loop_again = true;
 
         while (m.inc() && m_stats.m_moves < m_config.max_moves) {
-            loop_again = false;
             m_stats.m_moves++;
             check_restart();
 
             auto t = get_candidate_unsat();
 
-            if (!t)
+            if (!t) 
                 break;
-
+            
             auto& vars = get_fixable_exprs(t);
 
             if (vars.empty()) 
-                return;            
+                break;            
 
             if (ctx.rand(2047) < m_config.wp && apply_move(t, vars, arith_move_type::random_inc_dec))
                 continue;
@@ -2965,9 +2977,8 @@ namespace sls {
 
             if (apply_move(t, vars, arith_move_type::random_update))
                 recalibrate_weights();
-            loop_again = true;
         }
-        if (loop_again)
+        if (m_stats.m_moves >= m_config.max_moves)
             m_config.max_moves_base += 100;
         finalize_bool_assignment();
     }

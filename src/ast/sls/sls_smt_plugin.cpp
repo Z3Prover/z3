@@ -55,6 +55,7 @@ namespace sls {
         m_ddfw = alloc(sat::ddfw);
         m_ddfw->set_plugin(this);
         m_ddfw->updt_params(ctx.get_params());
+        m_context.updt_params(ctx.get_params());
 
         for (auto const& clause : clauses) {
             m_ddfw->add(clause.size(), clause.data());
@@ -72,7 +73,7 @@ namespace sls {
         }
 
         for (auto fml : fmls) 
-            m_context.add_constraint(m_smt2sls_tr(fml));     
+            m_context.add_input_assertion(m_smt2sls_tr(fml));     
 
         for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
             expr* e = ctx.bool_var2expr(v);
@@ -99,7 +100,7 @@ namespace sls {
         if (!m_ddfw)
             return;
         m_result = m_ddfw->check(0, nullptr);
-        IF_VERBOSE(1, verbose_stream() << "sls-result " << m_result << "\n");
+        IF_VERBOSE(2, verbose_stream() << "sls-result " << m_result << "\n");
         for (auto v : m_shared_bool_vars) {
             auto w = m_smt_bool_var2sls_bool_var[v];
             m_rewards[v] = m_ddfw->get_reward_avg(w);
@@ -127,6 +128,7 @@ namespace sls {
         SASSERT(m_completed);
         mdl = nullptr;
         m_ddfw->collect_statistics(st);
+        m_context.collect_statistics(st);
         if (m_result == l_true && m_sls_model) {
             ast_translation tr(m_sls, m);
             mdl = m_sls_model->translate(tr);

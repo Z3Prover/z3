@@ -123,7 +123,6 @@ namespace sls {
 
             propagate_boolean_assignment();
 
-
             // verbose_stream() << "propagate " << unsat().size() << " " << m_new_constraint << "\n";
 
             if (m_new_constraint || !unsat().empty())
