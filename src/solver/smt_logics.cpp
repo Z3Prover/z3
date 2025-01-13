@@ -65,6 +65,7 @@ bool smt_logics::logic_has_arith(symbol const & s) {
         s == "QF_UFNIA" ||
         s == "QF_UFNIRA" ||
         s == "QF_BVRE" ||
+        s == "QF_SNIA" ||
         s == "ALIA" ||
         s == "AUFLIA" ||
         s == "AUFLIRA" ||
@@ -136,11 +137,11 @@ bool smt_logics::logic_has_array(symbol const & s) {
 }
 
 bool smt_logics::logic_has_seq(symbol const & s) {
-    return s == "QF_BVRE" || s == "QF_S" || s == "QF_SLIA" || logic_is_all(s);
+    return s == "QF_BVRE" || logic_has_str(s);
 }
 
 bool smt_logics::logic_has_str(symbol const & s) {
-    return s == "QF_S" || s == "QF_SLIA" || logic_is_all(s);
+    return s == "QF_S" || s == "QF_SLIA" || s == "QF_SNIA" || logic_is_all(s);
 }
 
 bool smt_logics::logic_has_fpa(symbol const & s) {
