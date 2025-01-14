@@ -29,6 +29,7 @@ namespace sls {
 
     enum arith_move_type {
         hillclimb,
+        hillclimb_plateau,
         random_update,
         random_inc_dec
     };
@@ -66,6 +67,7 @@ namespace sls {
             unsigned restart_next = 1000;
             unsigned restart_init = 1000;
             bool     arith_use_lookahead = false;
+            bool     allow_plateau = false;
         };
 
         struct stats {
@@ -331,7 +333,10 @@ namespace sls {
         expr_mark m_is_root;
         unsigned m_touched = 1;
         sat::bool_var_set m_fixed_atoms;
+        uint64_t m_tabu_set = 0;
 
+        bool in_tabu_set(expr* e, num_t const& n);
+        void insert_tabu_set(expr* e, num_t const& n);
         bool_info& get_bool_info(expr* e);
         bool get_bool_value(expr* e);
         bool get_bool_value_rec(expr* e);

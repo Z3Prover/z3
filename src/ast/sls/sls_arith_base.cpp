@@ -2698,13 +2698,32 @@ namespace sls {
         auto score = lookahead(e, false);
         TRACE("arith_verbose", tout << "lookahead " << v << " " << mk_bounded_pp(e, m) << " := " << delta + old_value << " " << score << " (" << m_best_score << ")\n";);
         if (score > m_best_score) {
+            m_tabu_set = 0;
             m_best_score = score;
             m_best_value = new_value;
             m_best_expr = e;
         }
+        else if (m_config.allow_plateau && score == m_best_score && !in_tabu_set(e, new_value)) {
+            m_best_score = score;
+            m_best_expr = e;
+            m_best_value = new_value;
+            insert_tabu_set(e, num_t(1));
+        }
 
         // revert back to old value
         update_args_value(v, old_value);
+    }
+
+    template<typename num_t>
+    bool arith_base<num_t>::in_tabu_set(expr* e, num_t const& n) {
+        uint64_t h = hash_u_u(e->get_id(), n.hash());
+        return (m_tabu_set & (1ull << (h & 64ull))) != 0;
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::insert_tabu_set(expr* e, num_t const& n) {
+        uint64_t h = hash_u_u(e->get_id(), n.hash());
+        m_tabu_set |= (1ull << (h & 64ull));
     }
 
     template<typename num_t>
@@ -2713,8 +2732,14 @@ namespace sls {
         set_bool_value(e, !b);
         auto score = lookahead(e, false);
         if (score > m_best_score) {
+            m_tabu_set = 0;
             m_best_score = score;            
             m_best_expr = e;
+        }
+        else if (m_config.allow_plateau && score == m_best_score &&  !in_tabu_set(e, num_t(1))) {
+            m_best_score = score;
+            m_best_expr = e;
+            insert_tabu_set(e, num_t(1));
         }
         set_bool_value(e, b);   
         lookahead(e, false);
@@ -2877,6 +2902,7 @@ namespace sls {
                 m_best_value = value(v) + delta;
             break;
         }
+        case arith_move_type::hillclimb_plateau:
         case arith_move_type::hillclimb: {
             for (unsigned i = 0; i < sz; ++i)
                 add_lookahead(info, vars[(start + i) % sz]);
@@ -2885,6 +2911,7 @@ namespace sls {
             std::stable_sort(m_updates.begin(), m_updates.end(), [](auto const& a, auto const& b) { return a.m_var < b.m_var || (a.m_var == b.m_var && a.m_delta < b.m_delta); });
             m_last_expr = nullptr;
             sz = m_updates.size();
+            flet<bool> _allow_plateau(m_config.allow_plateau, t == arith_move_type::hillclimb_plateau);
             for (unsigned i = 0; i < sz; ++i) {
                 auto const& [v, delta, score] = m_updates[(start + i) % m_updates.size()];
                 lookahead_num(v, delta);
