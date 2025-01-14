@@ -2321,6 +2321,8 @@ namespace smt {
                         });
                         literal l(v, sign);
                         cls->set_literal(j, l);
+                        if (cls->get_kind() == CLS_TH_LEMMA)
+                            mark_as_relevant(l);
                     }
                     SASSERT(ilvl <= m_scope_lvl);
                     int w1_idx = select_watch_lit(cls, 0);
@@ -2349,6 +2351,10 @@ namespace smt {
                     SASSERT(!cls->reinternalize_atoms());
                     literal l1 = cls->get_literal(0);
                     literal l2 = cls->get_literal(1);
+                    if (cls->get_kind() == CLS_TH_LEMMA) {
+                        mark_as_relevant(l1);
+                        mark_as_relevant(l2);
+                    }
                     if (get_assignment(l1) == l_false && is_empty_clause(cls)) {
                         set_conflict(b_justification(cls));
                         keep = true;

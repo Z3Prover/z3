@@ -425,6 +425,9 @@ namespace smt {
         lits.push_back(mk_eq(n1, n2));
         clause_del_eh * del_eh = alloc(dyn_ack_clause_del_eh, *this);
 
+        for (auto lit : lits) 
+            m_context.mark_as_relevant(lit);        
+
         justification * js = nullptr;
         if (m.proofs_enabled())
             js = alloc(dyn_ack_cc_justification, n1, n2);
@@ -484,6 +487,9 @@ namespace smt {
                        m.mk_eq(n2, r),
                        m.mk_eq(n1, n2));
         }
+        ctx.mark_as_relevant(eq1);
+        ctx.mark_as_relevant(eq2);
+        ctx.mark_as_relevant(eq3);
         clause * cls = ctx.mk_clause(lits.size(), lits.data(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);
