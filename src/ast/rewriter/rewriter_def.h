@@ -105,7 +105,7 @@ bool rewriter_tpl<Config>::process_const(app * t0) {
             return true;
         }
         m_r = t;
-        // fall through
+        Z3_fallthrough;      
     case BR_DONE:
         result_stack().push_back(m_r.get());
         if (ProofGen) {

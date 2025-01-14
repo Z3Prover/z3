@@ -26,18 +26,18 @@ namespace nla {
 class cross_nested {
     
     // fields
-    nex *                                             m_e;
+    nex *                                             m_e = nullptr;
     std::function<bool (const nex*)>                  m_call_on_result;
     std::function<bool (unsigned)>                    m_var_is_fixed;
     std::function<unsigned ()>                        m_random;    
-    bool                                              m_done;
+    bool                                              m_done = false;
     ptr_vector<nex>                                   m_b_split_vec;
-    int                                               m_reported;
-    bool                                              m_random_bit;
+    int                                               m_reported = 0;
+    bool                                              m_random_bit = false;
     std::function<nex_scalar*()>                      m_mk_scalar;
     nex_creator&                                      m_nex_creator;
 #ifdef Z3DEBUG
-    nex* m_e_clone;
+    nex* m_e_clone = nullptr;
 #endif
 public:
     

@@ -52,7 +52,7 @@ public:
         }
     }
 
-    stacked_value() = default;
+    stacked_value(): m_value() { }
     stacked_value(const T& m) {
         m_value = m;
     }

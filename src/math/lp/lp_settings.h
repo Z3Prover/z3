@@ -224,7 +224,7 @@ public:
     unsigned         limit_on_rows_for_hnf_cutter = 75;
     unsigned         limit_on_columns_for_hnf_cutter = 150;
 private:
-    unsigned         m_nlsat_delay;
+    unsigned         m_nlsat_delay = 0;
     bool             m_enable_hnf = true;
     bool             m_print_external_var_name = false;
     bool             m_propagate_eqs = false;
