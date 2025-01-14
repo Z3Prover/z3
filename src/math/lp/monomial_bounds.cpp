@@ -18,7 +18,7 @@ namespace nla {
         common(c), 
         dep(c->m_intervals.get_dep_intervals()) {
     
-        std::function<void(lpvar v)> fixed_eh = [&](lpvar v) {
+        std::function<void(lpvar v)> fixed_eh = [c, this](lpvar v) {
             c->trail().push(push_back_vector(m_fixed_var_trail));
             m_fixed_var_trail.push_back(v);
         };
@@ -63,8 +63,8 @@ namespace nla {
         lp::mpq coeff(1);
         for (auto w : m) {
             if (c().var_is_fixed(w)) {
-                d = lra.join_deps(d, lra.join_deps(lra.get_column_lower_bound_witness(w), lra.get_column_upper_bound_witness(w)));
-                coeff += lra.get_column_value(w).x;
+                d =  lra.join_deps(d, lra.get_bound_constraint_witnesses_for_column(w));
+                coeff *= lra.get_lower_bound(w).x;
             }
         }
         vector<std::pair<lp::mpq, lpvar>> coeffs;
