@@ -69,7 +69,7 @@ namespace nla {
         }
         vector<std::pair<lp::mpq, lpvar>> coeffs;
         coeffs.push_back({coeff, free_var});
-        coeffs.push_back({mpq(-1), v});
+        coeffs.push_back({mpq(-1), m.var()});
         lpvar j = lra.add_term(coeffs, UINT_MAX);
         lra.update_column_type_and_bound(j, llc::EQ, mpq(0), d);
     }
