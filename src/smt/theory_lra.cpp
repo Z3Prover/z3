@@ -254,45 +254,6 @@ class theory_lra::imp {
         return add_const(0, is_int ? m_zero_var : m_rzero_var, is_int);
     }
 
-    svector<theory_var> m_fixed_vars;
-    unsigned       m_fixed_vars_head = 0;
-
-    bool propagate_fixed_vars() {
-        if (m_fixed_vars_head == m_fixed_vars.size())
-            return false;
-        ctx().push_trail(value_trail(m_fixed_vars_head));
-        bool propagated = false;
-        while (m_fixed_vars_head < m_fixed_vars.size()) {
-            theory_var v = m_fixed_vars[m_fixed_vars_head++];
-            enode* n = th.get_enode(v);
-            for (enode* p : n->get_parents()) {
-                expr* e = p->get_expr();
-                expr* x, * y;
-                if (!a.is_mul(e, x, y))
-                    continue;
-                if (a.is_numeral(x) || a.is_numeral(y))
-                    continue;
-                if (x == n->get_expr()) 
-                    std::swap(x, y);                
-                if (y != n->get_expr())
-                    continue;
-
-                // comment out to enable propagation:
-                continue;
-
-                expr_ref k(a.mk_numeral(get_value(v), a.is_int(y)), m);
-                literal eq1 = th.mk_eq(y, k, false);
-                literal eq2 = th.mk_eq(e, a.mk_mul(x, k), false);
-                ctx().mk_th_axiom(get_id(), ~eq1, eq2);
-
-                // v2 could perform propagation directly
-                // v3 could consider multiplication of more than two variables.
-                // such as e := x * y * z. If both x, y become fixed we have e = z * value(x) * value(y)
-//                verbose_stream() << mk_bounded_pp(e, m) << " - " << mk_bounded_pp(n->get_expr(), m) << "\n";
-            }
-        }
-        return propagated;
-    }
     void ensure_nla() {
         if (!m_nla) {
             m_nla = alloc(nla::solver, *m_solver.get(), ctx().get_params(), m.limit());
@@ -913,18 +874,6 @@ public:
         lp().settings().int_run_gcd_test() = ctx().get_fparams().m_arith_gcd_test;
         lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
         m_lia = alloc(lp::int_solver, *m_solver.get());
-
-        std::function<void(lpvar)> new_fixed = [&](lpvar v) {
-            theory_var u = lp().local_to_external(v);
-            if (u == null_theory_var)
-                return;
-            expr* var = th.get_expr(u);
-            if (a.is_numeral(var))
-                return;
-            m_fixed_vars.push_back(u);
-            ctx().push_trail(push_back_vector(m_fixed_vars));
-        };
-        lp().m_fixed_var_eh = new_fixed;
     }
         
     void internalize_is_int(app * n) {
@@ -2135,7 +2084,7 @@ public:
     }
 
     bool propagate() {
-        return process_atoms() && propagate_core() && propagate_fixed_vars();
+        return process_atoms() && propagate_core();
     }
 
     bool propagate_core() {

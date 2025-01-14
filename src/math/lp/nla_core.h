@@ -100,10 +100,14 @@ class core {
     nra::solver              m_nra;
     bool                     m_cautious_patching = true;
     lpvar                    m_patched_var = 0;
-    monic const*             m_patched_monic = nullptr;      
+    monic const*             m_patched_monic = nullptr; 
+
+
 
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
     void add_bounds();
+
+
 
 public:    
     // constructor

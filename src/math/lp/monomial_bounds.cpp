@@ -16,7 +16,15 @@ namespace nla {
 
     monomial_bounds::monomial_bounds(core* c):
         common(c), 
-        dep(c->m_intervals.get_dep_intervals()) {}
+        dep(c->m_intervals.get_dep_intervals()) {
+    
+        std::function<void(lpvar v)> fixed_eh = [&](lpvar v) {
+            c->trail().push(push_back_vector(m_fixed_var_trail));
+            m_fixed_var_trail.push_back(v);
+        };
+// uncomment to enable:
+//        c->lra.m_fixed_var_eh = fixed_eh;
+    }
 
     void monomial_bounds::propagate() {
         for (lpvar v : c().m_to_refine) {
@@ -24,6 +32,46 @@ namespace nla {
             if (add_lemma()) 
                 break;
         }
+        propagate_fixed_vars();
+    }
+
+    void monomial_bounds::propagate_fixed_vars() {
+        if (m_fixed_var_qhead == m_fixed_var_trail.size())
+            return;
+        c().trail().push(value_trail(m_fixed_var_qhead));
+        while (m_fixed_var_qhead < m_fixed_var_trail.size()) 
+            propagate_fixed_var(m_fixed_var_trail[m_fixed_var_qhead++]);        
+    }
+
+    void monomial_bounds::propagate_fixed_var(lpvar v) {
+        SASSERT(c().var_is_fixed(v));
+        TRACE("nla_solver", tout << "propagate fixed var: " << c().var_str(v) << "\n";);
+        for (auto const& m : c().emons().get_use_list(v)) 
+            propagate_fixed_var(m, v);
+    }
+
+    void monomial_bounds::propagate_fixed_var(monic const& m, lpvar v) {
+        unsigned num_free = 0;
+        lpvar free_var = null_lpvar;
+        for (auto w : m)
+            if (!c().var_is_fixed(w))
+                ++num_free, free_var = w;
+        if (num_free != 1)
+            return;
+        u_dependency* d = nullptr;
+        auto& lra = c().lra;
+        lp::mpq coeff(1);
+        for (auto w : m) {
+            if (c().var_is_fixed(w)) {
+                d = lra.join_deps(d, lra.join_deps(lra.get_column_lower_bound_witness(w), lra.get_column_upper_bound_witness(w)));
+                coeff += lra.get_column_value(w).x;
+            }
+        }
+        vector<std::pair<lp::mpq, lpvar>> coeffs;
+        coeffs.push_back({coeff, free_var});
+        coeffs.push_back({mpq(-1), v});
+        lpvar j = lra.add_term(coeffs, UINT_MAX);
+        lra.update_column_type_and_bound(j, llc::EQ, mpq(0), d);
     }
 
     bool monomial_bounds::is_too_big(mpq const& q) const {
