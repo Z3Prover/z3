@@ -1469,7 +1469,7 @@ namespace smt {
         unsigned display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent = false_literal, symbol const& logic = symbol::null) const;
         void display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents,
                                           unsigned num_antecedent_eqs, enode_pair const * antecedent_eqs,
-                                          literal consequent = false_literal, symbol const& logic = symbol::null) const;
+                                          literal consequent = false_literal, symbol const& logic = symbol::null, enode* x = nullptr, enode* y = nullptr) const;
 
         unsigned display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
                                           unsigned num_antecedent_eqs, enode_pair const * antecedent_eqs,

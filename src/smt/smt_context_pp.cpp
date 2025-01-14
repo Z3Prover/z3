@@ -456,6 +456,7 @@ namespace smt {
             literal2expr(~consequent, n);
             fmls.push_back(std::move(n));
         }
+
         if (logic != symbol::null) out << "(set-logic " << logic << ")\n";
         visitor.collect(fmls);
         visitor.display_decls(out);
@@ -475,7 +476,7 @@ namespace smt {
 
     void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents,
                                                unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
-                                               literal consequent, symbol const& logic) const {
+                                               literal consequent, symbol const& logic, enode* x, enode* y) const {
         ast_pp_util visitor(m);
         expr_ref_vector fmls(m);
         visitor.collect(fmls);
@@ -489,6 +490,10 @@ namespace smt {
             enode_pair const & p = eq_antecedents[i];
             n = m.mk_eq(p.first->get_expr(), p.second->get_expr());
             fmls.push_back(n);
+        }
+        if (x && y) {
+            expr_ref eq(m.mk_eq(x->get_expr(), y->get_expr()), m);
+            fmls.push_back(m.mk_not(eq));
         }
         if (consequent != false_literal) {
             literal2expr(~consequent, n);

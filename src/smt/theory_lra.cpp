@@ -2396,7 +2396,9 @@ public:
 
     void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, vector<parameter> const& ps) {
         if (params().m_arith_validate)
-            VERIFY(validate_assign(lit, core, eqs));
+            VERIFY(validate_assign(lit));
+        if (params().m_arith_dump_lemmas)
+            dump_assign_lemma(lit);
         if (core.size() < small_lemma_size() && eqs.empty()) {
             m_core2.reset();
             for (auto const& c : core) {
@@ -3433,7 +3435,9 @@ public:
 
 
         if (params().m_arith_validate)
-            VERIFY(validate_conflict(m_core, m_eqs));
+            VERIFY(validate_conflict());
+        if (params().m_arith_dump_lemmas)
+            dump_conflict();
         if (is_conflict) {
             ctx().set_conflict(
                 ctx().mk_justification(
@@ -3747,8 +3751,25 @@ public:
         }
     };
 
+    void dump_assign_lemma(literal lit) {
+        m_core.push_back(~lit);
+        ctx().display_lemma_as_smt_problem(std::cout, m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), lit);
+        m_core.pop_back();
+        std::cout << "(reset)\n";
+    }
 
-    bool validate_conflict(literal_vector const& core, svector<enode_pair> const& eqs) {
+    void dump_conflict() {
+        ctx().display_lemma_as_smt_problem(std::cout, m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data());
+        std::cout << "(reset)\n";
+    }
+
+    void dump_eq(enode* x, enode* y) {
+        ctx().display_lemma_as_smt_problem(std::cout, m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), false_literal, symbol::null, x, y);
+        std::cout << "(reset)\n";
+    }
+ 
+
+    bool validate_conflict() {
         if (params().m_arith_mode != arith_solver_id::AS_NEW_ARITH) return true;
 
         VERIFY(!m_core.empty() || !m_eqs.empty());
@@ -3758,11 +3779,11 @@ public:
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(1000, &eh);
         bool result = l_true != nctx.check();
-        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, core.size(), core.data(), eqs.size(), eqs.data(), false_literal););        
+        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), false_literal););        
         return result;
     }
 
-    bool validate_assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs) {
+    bool validate_assign(literal lit) {
         if (params().m_arith_mode != arith_solver_id::AS_NEW_ARITH) return true;
         scoped_arith_mode _sa(ctx().get_fparams());
         context nctx(m, ctx().get_fparams(), ctx().get_params());
@@ -3772,7 +3793,7 @@ public:
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(1000, &eh);
         bool result = l_true != nctx.check();
-        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, core.size(), core.data(), eqs.size(), eqs.data(), lit);
+        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), lit);
                display(tout););   
         return result;
     }
