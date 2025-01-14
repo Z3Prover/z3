@@ -72,7 +72,7 @@ private:
         unsigned size() const { SASSERT(kind() == ROOT); return m_size; }
         cell * next() const { SASSERT(kind() != ROOT); return m_next; }
         value const & elem() const { SASSERT(kind() == SET || kind() == PUSH_BACK); return m_elem; }
-        cell(enum ckind k):m_ref_count(1), m_kind(k), m_size(0), m_values(nullptr) {}
+        cell(enum ckind k):m_ref_count(1), m_kind(k), m_size(0), m_elem(), m_values(nullptr) {}
     };
 
     value_manager &  m_vmanager;
