@@ -80,6 +80,7 @@ namespace sls {
         virtual void add_clause(unsigned n, sat::literal const* lits) = 0;
         virtual void force_restart() = 0;
         virtual std::ostream& display(std::ostream& out) = 0;
+        virtual reslimit& rlimit() = 0;
     };
     
     class context {
@@ -187,6 +188,7 @@ namespace sls {
         indexed_uint_set const& unsat() const { return s.unsat(); }
         unsigned rand() { return m_rand(); }
         unsigned rand(unsigned n) { return m_rand(n); }
+        reslimit& rlimit() { return s.rlimit(); }
         sat::literal_vector const& root_literals() const { return m_root_literals; }
         sat::literal_vector const& unit_literals() const { return m_unit_literals; }
         expr_ref_vector const& input_assertions() const { return m_input_assertions; }

@@ -47,6 +47,7 @@ namespace sls {
     void smt_plugin::check(expr_ref_vector const& fmls, vector <sat::literal_vector> const& clauses) {
         SASSERT(!m_ddfw);
         // set up state for local search theory_sls here
+
         m_result = l_undef;
         m_completed = false;
         m_units.reset();
@@ -109,9 +110,14 @@ namespace sls {
     }
 
     void smt_plugin::bounded_run(unsigned max_iterations) {
+        verbose_stream() << "bounded run " << max_iterations << "\n";
         m_ddfw->rlimit().reset_count();
         m_ddfw->rlimit().push(max_iterations);
-        run();
+        {
+            scoped_limits _sl(m.limit());
+            _sl.push_child(&m_ddfw->rlimit());
+            run();
+        }
         m_ddfw->rlimit().pop();
     }
     

@@ -133,6 +133,8 @@ namespace sls {
 
         void on_rescale() override {}
 
+        reslimit& rlimit() override { return m_ddfw->rlimit(); }
+
         void smt_phase_to_sls();
         void smt_values_to_sls();
         void smt_units_to_sls();

@@ -93,6 +93,7 @@ namespace sls {
         indexed_uint_set const& unsat() const override { return m_ddfw.unsat_set(); }
         sat::bool_var add_var() override { m_dirty = true;  return m_ddfw.add_var(); }  
         void add_input_assertion(expr* f) { m_context.add_input_assertion(f); }
+        reslimit& rlimit() { return m_ddfw.rlimit(); }
 
         void force_restart() override { m_ddfw.force_restart(); }
 

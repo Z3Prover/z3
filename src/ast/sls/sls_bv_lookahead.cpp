@@ -61,7 +61,7 @@ namespace sls {
         TRACE("bv", tout << "search " << m_stats.m_moves << " " << m_config.max_moves << "\n";);
         IF_VERBOSE(1, verbose_stream() << "lookahead-search moves:" << m_stats.m_moves << " max-moves:" << m_config.max_moves << "\n");
 
-        while (m.inc() && m_stats.m_moves < m_config.max_moves) {
+        while (ctx.rlimit().inc() && m_stats.m_moves < m_config.max_moves) {
             m_stats.m_moves++;
             check_restart();
 

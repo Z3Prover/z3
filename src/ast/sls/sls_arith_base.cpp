@@ -2637,6 +2637,7 @@ namespace sls {
     }
     template<typename num_t>
     double arith_base<num_t>::lookahead(expr* t, bool update_score) {
+        ctx.rlimit().inc();
         SASSERT(a.is_int_real(t) || m.is_bool(t));
         double score = m_top_score;
         for (unsigned depth = m_min_depth; depth <= m_max_depth; ++depth) {
@@ -2955,7 +2956,7 @@ namespace sls {
         IF_VERBOSE(3, verbose_stream() << "lookahead-search moves:" << m_stats.m_moves << " max-moves:" << m_config.max_moves << "\n");
         TRACE("arith", display(tout));
 
-        while (m.inc() && m_stats.m_moves < m_config.max_moves) {
+        while (ctx.rlimit().inc() && m_stats.m_moves < m_config.max_moves) {
             m_stats.m_moves++;
             check_restart();
 
@@ -3015,7 +3016,7 @@ namespace sls {
         }
 
         m_last_atom = e;
-        CTRACE("arith", !e, "no candidate\n";);
+        CTRACE("arith", !e, tout << "no unsatisfiable candidate\n";);
         CTRACE("arith", e, 
             tout << "select " << mk_bounded_pp(e, m) << " ";
             for (auto v : get_fixable_exprs(e)) 
