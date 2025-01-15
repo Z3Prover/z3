@@ -2707,7 +2707,8 @@ namespace sls {
             m_best_score = score;
             m_best_expr = e;
             m_best_value = new_value;
-            insert_tabu_set(e, num_t(1));
+            insert_tabu_set(e, new_value);
+            //verbose_stream() << "plateau " << mk_bounded_pp(e, m) << " := " << m_best_value << "\n";
         }
 
         // revert back to old value
@@ -2717,13 +2718,13 @@ namespace sls {
     template<typename num_t>
     bool arith_base<num_t>::in_tabu_set(expr* e, num_t const& n) {
         uint64_t h = hash_u_u(e->get_id(), n.hash());
-        return (m_tabu_set & (1ull << (h & 64ull))) != 0;
+        return (m_tabu_set & (1ull << (h & 63ull))) != 0;
     }
 
     template<typename num_t>
     void arith_base<num_t>::insert_tabu_set(expr* e, num_t const& n) {
         uint64_t h = hash_u_u(e->get_id(), n.hash());
-        m_tabu_set |= (1ull << (h & 64ull));
+        m_tabu_set |= (1ull << (h & 63ull));
     }
 
     template<typename num_t>
@@ -2900,6 +2901,7 @@ namespace sls {
                 m_best_value = m_vars[v].m_finite_domain[ctx.rand() % m_vars[v].m_finite_domain.size()];
             else
                 m_best_value = value(v) + delta;
+            m_tabu_set = 0;
             break;
         }
         case arith_move_type::hillclimb_plateau:
@@ -2911,7 +2913,7 @@ namespace sls {
             std::stable_sort(m_updates.begin(), m_updates.end(), [](auto const& a, auto const& b) { return a.m_var < b.m_var || (a.m_var == b.m_var && a.m_delta < b.m_delta); });
             m_last_expr = nullptr;
             sz = m_updates.size();
-            flet<bool> _allow_plateau(m_config.allow_plateau, t == arith_move_type::hillclimb_plateau);
+            flet<bool> _allow_plateau(m_config.allow_plateau, m_config.allow_plateau || t == arith_move_type::hillclimb_plateau);
             for (unsigned i = 0; i < sz; ++i) {
                 auto const& [v, delta, score] = m_updates[(start + i) % m_updates.size()];
                 lookahead_num(v, delta);
@@ -2935,6 +2937,7 @@ namespace sls {
                 else
                     m_best_value = value(v) - 1;
             }
+            m_tabu_set = 0;
             break;
         }
         }
@@ -3181,6 +3184,7 @@ namespace sls {
         //m_config.max_moves_base = p.max_moves_base();
         //m_config.max_moves = p.max_moves();
         m_config.arith_use_lookahead = p.arith_use_lookahead();
+        m_config.allow_plateau = p.arith_allow_plateau();
         m_config.config_initialized = true;
     }
 
