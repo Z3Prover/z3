@@ -922,6 +922,7 @@ namespace sls {
             val = abs(value(vx));
             break;
         default:
+            throw default_exception("unsupported for sls " + mk_pp(e, m));
             NOT_IMPLEMENTED_YET();
             break;
         }
@@ -999,11 +1000,11 @@ namespace sls {
         }
         else if (is_distinct(e)) {
             verbose_stream() << "distinct " << mk_pp(e, m) << "\n";
+            throw default_exception("unsupported for sls " + mk_pp(e, m));
         }
-        else if (a.is_is_int(e, x))
-        {
-            NOT_IMPLEMENTED_YET();
-        }
+        else if (a.is_is_int(e, x))        
+            throw default_exception("unsupported for sls " + mk_pp(e, m));
+        
 #if 0
         else if (a.is_idivides(e, x, y))
             NOT_IMPLEMENTED_YET();
@@ -2278,7 +2279,7 @@ namespace sls {
         }
         case arith_op_kind::OP_POWER: {
             //auto od = m_ops[vi.m_def_idx];
-            NOT_IMPLEMENTED_YET();
+            throw default_exception("unsupported " + mk_pp(vi.m_expr, m));
             break;
         }
         case arith_op_kind::OP_IDIV: {
@@ -2294,13 +2295,13 @@ namespace sls {
             return value(v) == abs(value(od.m_arg1));
         }
         case arith_op_kind::OP_TO_INT: {
+            throw default_exception("unsupported " + mk_pp(vi.m_expr, m));
             // auto od = m_ops[vi.m_def_idx];
-            NOT_IMPLEMENTED_YET();
             break;
         }
         case arith_op_kind::OP_TO_REAL: {
+            throw default_exception("unsupported " + mk_pp(vi.m_expr, m));
             // auto od = m_ops[vi.m_def_idx];
-            NOT_IMPLEMENTED_YET();
             break;
         }
         default: {
@@ -2973,6 +2974,7 @@ namespace sls {
         case arith_move_type::random_update: out << "random-update"; break;
         case arith_move_type::hillclimb: out << "hillclimb"; break;
         case arith_move_type::random_inc_dec: out << "random-inc-dec"; break;
+        case arith_move_type::hillclimb_plateau: out << "hillclimb-plateau"; break;
         }
         return out;
     }
@@ -3190,7 +3192,7 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::start_propagation() {
-        updt_params();
+        updt_params();        
         if (m_config.arith_use_lookahead)
             global_search();
     }

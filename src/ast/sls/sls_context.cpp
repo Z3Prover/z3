@@ -74,8 +74,10 @@ namespace sls {
             register_plugin(alloc(datatype_plugin, *this));
         else if (fid == seq_util(m).get_family_id())
             register_plugin(alloc(seq_plugin, *this));
-        else
+        else {
             verbose_stream() << "did not find plugin for " << fid << "\n";
+            throw default_exception("no plugin for family id " + m.get_family_name(fid).str());
+        }
     }
 
     scoped_ptr<euf::egraph>& context::egraph() {
@@ -241,7 +243,7 @@ namespace sls {
 
     family_id context::get_fid(expr* e) const {
         if (!is_app(e))
-            return user_sort_family_id;
+            throw default_exception("no plugin for " + mk_pp(e, m));
         family_id fid = to_app(e)->get_family_id();
         if (m.is_eq(e))
             fid = to_app(e)->get_arg(0)->get_sort()->get_family_id();   
