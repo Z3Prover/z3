@@ -45,6 +45,7 @@ namespace sat {
     }
 
     bool integrity_checker::check_clause(clause const & c) const {
+        CTRACE("sat_bug", c.was_removed(), s.display(tout << "c: " << c.id() << ": " << c << "\n"));
         SASSERT(!c.was_removed());
         for (unsigned i = 0; i < c.size(); i++) {
             VERIFY(c[i].var() <= s.num_vars());

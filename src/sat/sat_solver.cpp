@@ -89,7 +89,7 @@ namespace sat {
 
     solver::~solver() {
         m_ext = nullptr;
-        SASSERT(m_config.m_num_threads > 1 || m_trim || check_invariant());
+        SASSERT(m_config.m_num_threads > 1 || m_trim || rlimit().is_canceled() || check_invariant());
         CTRACE("sat", !m_clauses.empty(), tout << "Delete clauses\n";);
         del_clauses(m_clauses);
         CTRACE("sat", !m_learned.empty(), tout << "Delete learned\n";);
@@ -3872,6 +3872,8 @@ namespace sat {
     // -----------------------
     bool solver::check_invariant() const {
         if (!m_rlimit.inc()) return true;
+        if (m_simplifier.need_cleanup())
+            return true;
         integrity_checker checker(*this);
         VERIFY(checker());
         VERIFY(!m_ext || m_ext->validate());

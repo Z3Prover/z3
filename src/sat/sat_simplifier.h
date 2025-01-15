@@ -247,6 +247,8 @@ namespace sat {
 
         bool is_marked(literal l) const { return m_visited[l.index()] != 0; }
 
+        bool need_cleanup() const { return m_need_cleanup; }
+
     };
 };
 
