@@ -520,6 +520,8 @@ namespace smt {
                   m_context->is_relevant(q) &&
                   m_context->get_assignment(q) == l_true &&
                   (!m_context->get_fparams().m_ematching || !m.is_lambda_def(q)))) {
+                if (!m_qm->mbqi_enabled(q))
+                    ++num_failures;
                 continue;
             }
 
@@ -528,7 +530,7 @@ namespace smt {
                   tout << m_context->get_assignment(q) << "\n";);
 
             if (m_params.m_mbqi_trace && q->get_qid() != symbol::null) {
-                verbose_stream() << "(smt.mbqi :checking " << q->get_qid() << ")\n";
+                IF_VERBOSE(1, verbose_stream() << "(smt.mbqi :checking " << q->get_qid() << ")\n");
             }
             found_relevant = true;
             if (!check(q)) {
