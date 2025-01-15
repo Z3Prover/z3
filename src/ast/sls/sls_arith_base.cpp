@@ -773,6 +773,19 @@ namespace sls {
     }
 
     template<>
+    rational arith_base<rational>::to_num(rational const& r) {
+        return r;
+    }
+
+    template<>
+    checked_int64<true> arith_base<checked_int64<true>>::to_num(rational const& r) {
+        if (!r.is_int64())
+            throw overflow_exception();
+        checked_int64<true> i = r.get_int64();
+        return i;        
+    }
+
+    template<>
     expr_ref arith_base<rational>::from_num(sort* s, rational const& n) {
         return expr_ref(a.mk_numeral(n, s), m);
     }
@@ -886,9 +899,8 @@ namespace sls {
             add_arg(term, coeff, mk_op(arith_op_kind::OP_TO_INT, e, x, x));
         else if (a.is_to_real(e, x))
             add_arg(term, coeff, mk_op(arith_op_kind::OP_TO_REAL, e, x, x));       
-        else if (a.is_arith_expr(e)) {
-            NOT_IMPLEMENTED_YET();
-        }
+        else if (a.is_arith_expr(e)) 
+            throw default_exception("unsupported for sls " + mk_pp(e, m));        
         else 
             add_arg(term, coeff, mk_var(e));
     }
@@ -921,9 +933,16 @@ namespace sls {
         case arith_op_kind::OP_ABS:
             val = abs(value(vx));
             break;
+        case arith_op_kind::OP_TO_INT: {
+            rational r = floor(value(vx).to_rational());
+            val = to_num(r);
+            break;
+        }
+        case arith_op_kind::OP_TO_REAL: 
+            val = value(vx);
+            break;        
         default:
             throw default_exception("unsupported for sls " + mk_pp(e, m));
-            NOT_IMPLEMENTED_YET();
             break;
         }
         m_ops.push_back({v, k, vx, vy});
@@ -1175,8 +1194,16 @@ namespace sls {
         case OP_ABS:
             result = abs(value(m_ops[vi.m_def_idx].m_arg1));
             break;
+        case OP_TO_REAL:
+            result = value(m_ops[vi.m_def_idx].m_arg1);
+            break;
+        case OP_TO_INT: {
+            rational r = value(m_ops[vi.m_def_idx].m_arg1).to_rational();
+            result = to_num(floor(r));
+            break;
+        }
         default:
-            NOT_IMPLEMENTED_YET();
+            throw default_exception("no repair " + mk_pp(vi.m_expr, m));
         }
         return result;
     }
@@ -1235,7 +1262,7 @@ namespace sls {
         case arith_op_kind::OP_TO_REAL:
             return repair_to_real(m_ops[vi.m_def_idx]);
         default:
-            NOT_IMPLEMENTED_YET();
+            throw default_exception("no repair " + mk_pp(e, m));
         }
         return true;
     }
@@ -1354,6 +1381,11 @@ namespace sls {
             case LAST_ARITH_OP:
             case OP_ADD: 
             case OP_MUL: 
+            case OP_DIV:
+            case OP_TO_INT:
+            case OP_TO_REAL:
+            case OP_IDIV:
+            case OP_REM:
                 break;
             case OP_MOD: {
                 auto v2 = m_ops[vi.m_def_idx].m_arg2;
@@ -1364,20 +1396,12 @@ namespace sls {
                 }
                 break;
             }
-            case OP_DIV:
-                break;
-            case OP_IDIV:
-                break;
-            case OP_REM:
-                break;
             case OP_ABS:
                 add_ge(v, num_t(0));
                 break;
             default:
-                NOT_IMPLEMENTED_YET();
-
+                throw default_exception("repair is not supported for " + mk_pp(e, m));
             }
-            // TBD: can also do with other operators.
         }
     }
 
@@ -2295,14 +2319,16 @@ namespace sls {
             return value(v) == abs(value(od.m_arg1));
         }
         case arith_op_kind::OP_TO_INT: {
-            throw default_exception("unsupported " + mk_pp(vi.m_expr, m));
-            // auto od = m_ops[vi.m_def_idx];
-            break;
+            auto od = m_ops[vi.m_def_idx];
+            auto val = value(od.m_var);
+            auto v1 = value(od.m_arg1);
+            return val - 1 < v1 && v1 <= val;
         }
         case arith_op_kind::OP_TO_REAL: {
-            throw default_exception("unsupported " + mk_pp(vi.m_expr, m));
-            // auto od = m_ops[vi.m_def_idx];
-            break;
+            auto od = m_ops[vi.m_def_idx];
+            auto val = value(od.m_var);
+            auto v1 = value(od.m_arg1);
+            return val == v1;
         }
         default: {
             NOT_IMPLEMENTED_YET();
@@ -2644,7 +2670,7 @@ namespace sls {
         for (unsigned depth = m_min_depth; depth <= m_max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto* a = m_update_stack[depth][i];
-                TRACE("bv_verbose", tout << "update " << mk_bounded_pp(a, m) << " depth: " << depth << "\n";);
+                TRACE("arith_verbose", tout << "update " << mk_bounded_pp(a, m) << " depth: " << depth << "\n";);
                 if (t != a)
                     set_bool_value(a, get_bool_value_rec(a));
                 if (m_is_root.is_marked(a)) {
@@ -2732,6 +2758,7 @@ namespace sls {
     void arith_base<num_t>::lookahead_bool(expr* e) {
         bool b = get_bool_value(e);
         set_bool_value(e, !b);
+        insert_update_stack_rec(e);
         auto score = lookahead(e, false);
         if (score > m_best_score) {
             m_tabu_set = 0;
@@ -2745,6 +2772,8 @@ namespace sls {
         }
         set_bool_value(e, b);   
         lookahead(e, false);
+        clear_update_stack();
+        m_last_expr = nullptr;
     }
 
     // for every variable e, for every atom containing e

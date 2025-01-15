@@ -295,6 +295,7 @@ namespace sls {
 
         num_t value(var_t v) const { return m_vars[v].value(); }
         bool is_num(expr* e, num_t& i);
+        num_t to_num(rational const& r);
         expr_ref from_num(sort* s, num_t const& n);
         void check_ineqs();
         void init_bool_var(sat::bool_var bv);
