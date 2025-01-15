@@ -11,6 +11,7 @@ namespace bv {
     class my_sat_solver_context : public sls::sat_solver_context {
         vector<sat::clause_info> m_clauses;
         indexed_uint_set s;
+        reslimit m_limit;
     public:
         my_sat_solver_context() {}
 
@@ -31,6 +32,7 @@ namespace bv {
         // void reset_statistics() override {}
         void force_restart() override {}
         std::ostream& display(std::ostream& out)  override { return out; }
+        reslimit& rlimit() override { return m_limit; }
     };
 
     class sls_test {
