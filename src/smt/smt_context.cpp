@@ -4787,7 +4787,9 @@ namespace smt {
 
     void context::add_rec_funs_to_model() {
         model_params p;
-        if (m_model && p.user_functions())
+        auto smtlib2_compliant = gparams::get_value("smtlib2_compliant");
+        
+        if (m_model && p.user_functions() && smtlib2_compliant != "true")
             m_model->add_rec_funs();
     }
 
