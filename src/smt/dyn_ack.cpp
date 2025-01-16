@@ -431,6 +431,7 @@ namespace smt {
         justification * js = nullptr;
         if (m.proofs_enabled())
             js = alloc(dyn_ack_cc_justification, n1, n2);
+        verbose_stream() << "dynack-clause\n";
         clause * cls = m_context.mk_clause(lits.size(), lits.data(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);
@@ -490,6 +491,7 @@ namespace smt {
         ctx.mark_as_relevant(eq1);
         ctx.mark_as_relevant(eq2);
         ctx.mark_as_relevant(eq3);
+        verbose_stream() << "dynack-transitivity\n";
         clause * cls = ctx.mk_clause(lits.size(), lits.data(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);

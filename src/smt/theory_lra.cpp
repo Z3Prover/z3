@@ -3438,6 +3438,7 @@ public:
             VERIFY(validate_conflict());
         if (params().m_arith_dump_lemmas)
             dump_conflict();
+
         if (is_conflict) {
             ctx().set_conflict(
                 ctx().mk_justification(
@@ -3751,19 +3752,22 @@ public:
         }
     };
 
+    unsigned m_num_dumped_lemmas = 0;
+
     void dump_assign_lemma(literal lit) {
-        m_core.push_back(~lit);
+        std::cout << "; assign lemma " << (m_num_dumped_lemmas++) << "\n";
         ctx().display_lemma_as_smt_problem(std::cout, m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), lit);
-        m_core.pop_back();
         std::cout << "(reset)\n";
     }
 
     void dump_conflict() {
+        std::cout << "; conflict " << (m_num_dumped_lemmas++) << "\n";
         ctx().display_lemma_as_smt_problem(std::cout, m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data());
         std::cout << "(reset)\n";
     }
 
     void dump_eq(enode* x, enode* y) {
+        std::cout << "; equality propagation " << (m_num_dumped_lemmas++) << "\n";
         ctx().display_lemma_as_smt_problem(std::cout, m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), false_literal, symbol::null, x, y);
         std::cout << "(reset)\n";
     }

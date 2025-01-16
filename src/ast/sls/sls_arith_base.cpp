@@ -2476,7 +2476,10 @@ namespace sls {
             return ctx.get_value(e->get_arg(0)) == ctx.get_value(e->get_arg(1));            
         case OP_DISTINCT:
             return false;
+        case OP_ITE:
+            return get_bool_value(e->get_arg(0)) ? get_bool_value(e->get_arg(1)) : get_bool_value(e->get_arg(2));
         default:
+            verbose_stream() << mk_pp(e, m) << "\n";
             NOT_IMPLEMENTED_YET();
         }
         return false;
