@@ -490,6 +490,7 @@ namespace smt {
         ctx.mark_as_relevant(eq1);
         ctx.mark_as_relevant(eq2);
         ctx.mark_as_relevant(eq3);
+        clause* cls = ctx.mk_clause(lits.size(), lits.data(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);
             return;
