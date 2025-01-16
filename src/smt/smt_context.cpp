@@ -3517,6 +3517,7 @@ namespace smt {
             r = l_undef;
         if (r == l_undef && m_internal_completed == l_true && has_sls_model()) {
             m_last_search_failure = OK;
+            m_conflict = null_b_justification;
             r = l_true;
         }
         m_internal_completed = l_false;
