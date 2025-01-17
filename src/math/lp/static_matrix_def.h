@@ -193,31 +193,6 @@ template <typename T, typename X> unsigned static_matrix<T, X>::lowest_row_in_co
     return ret;
 }
 
-template <typename T, typename X> void static_matrix<T, X>::forget_last_columns(unsigned how_many_to_forget) {
-    SASSERT(m_columns.size() >= how_many_to_forget);
-    unsigned j = column_count() - 1;
-    for (; how_many_to_forget-- > 0; ) {
-        remove_last_column(j --);
-    }
-}
-
-template <typename T, typename X> void static_matrix<T, X>::remove_last_column(unsigned j) {
-    column_strip & col = m_columns.back();
-    for (auto & it : col) {
-        auto & row = m_rows[it.var()];
-        unsigned offset = row.size() - 1;
-        for (auto row_it = row.rbegin(); row_it != row.rend(); row_it ++) {
-            if (row_it.var() == j) {
-                row.erase(row.begin() + offset);
-                break;
-            }
-            offset--;
-        }
-    }
-    m_columns.pop_back();
-    m_work_vector_of_row_offsets.pop_back();
-}
-
 template <typename T, typename X> void static_matrix<T, X>::set(unsigned row, unsigned col, T const & val) {
     if (numeric_traits<T>::is_zero(val)) return;
     SASSERT(row < row_count() && col < column_count());

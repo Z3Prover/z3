@@ -285,17 +285,29 @@ namespace lp {
         struct undo_add_term : public trail {
             imp& m_s;
             const lar_term* m_t;
-            undo_add_term(imp& s, const lar_term *t): m_s(s), m_t(t) {   
-                TRACE("dioph_eq", m_s.print_lar_term_L(*t, tout); tout << "t->j()=" << t->j() << std::endl;);
+            unsigned m_l_column_count;
+            unsigned m_row_count;
+            unsigned m_e_column_count;
+            undo_add_term(imp& s, const lar_term *t): 
+            m_s(s), 
+            m_t(t), 
+            m_l_column_count(m_s.m_l_matrix.column_count()), 
+            m_row_count(m_s.m_l_matrix.row_count()), 
+            m_e_column_count(m_s.m_e_matrix.column_count()) {   
+                TRACE("dioph_eq", m_s.print_lar_term_L(*t, tout); tout << "t->j()=" << t->j() << std::endl;);                
             }
             void undo () {
+                SASSERT(m_s.entries_are_ok());
                 TRACE("dioph_eq", m_s.lra.print_term(*m_t, tout); tout << ", m_t->j() =" << m_t->j() << std::endl;);
                 if (!contains(m_s.m_active_terms, m_t)) {
                     for (int i = m_s.m_added_terms.size() - 1; i >= 0; --i) {
                         if (m_s.m_added_terms[i] != m_t) continue;
                         // the address is the same
-                        if (i != m_s.m_added_terms.size() -1) m_s.m_added_terms[i] = m_s.m_added_terms.back();
+                        if (i != m_s.m_added_terms.size() -1) 
+                            m_s.m_added_terms[i] = m_s.m_added_terms.back();
                         m_s.m_added_terms.pop_back();
+                        SASSERT(m_s.m_l_matrix.row_count() == m_row_count && m_s.m_l_matrix.column_count() == m_l_column_count
+                                && m_s.m_e_matrix.column_count() == m_e_column_count);
                         return; // all is done since the term has not made it to entries, etc
                     }
                 }
@@ -307,18 +319,22 @@ namespace lp {
                     if (it->second.size() == 0) {
                         m_s.m_columns_to_terms.erase(it);
                     }
-                        
                 }
+                SASSERT(std::find(m_s.m_added_terms.begin(), m_s.m_added_terms.end(), m_t) == m_s.m_added_terms.end());
+                SASSERT(contains(m_s.m_active_terms, m_t));
+                m_s.m_active_terms.erase(m_t);
+                std::cout << ++ lp_settings::ddd << std::endl;
                 TRACE("dioph_eq", 
                       tout << "the deleted term column in m_l_matrix" << std::endl;
                       for  (auto p: m_s.m_l_matrix.column(m_t->j())) {
-                          tout << p.coeff()<< ", row " << p.var() << std::endl;
+                          tout << "p.coeff():" << p.coeff()<< ", row " << p.var() << std::endl;
                       }
-                      tout << "m_l_matrix has " << m_s.m_l_matrix.column_count() << std::endl;
-                      tout << "and" << m_s.m_l_matrix.row_count() << " rows" << std::endl;
+                      tout << "m_l_matrix has " << m_s.m_l_matrix.column_count() << " columns"<< std::endl;
+                      tout << "and " << m_s.m_l_matrix.row_count() << " rows" << std::endl;
+                      m_s.print_lar_term_L(*m_t, tout); tout << "; m_t->j()=" << m_t->j() << std::endl;
                     );
-                NOT_IMPLEMENTED_YET();
-             }
+                m_s.shrink_L_to_size(m_row_count, m_l_column_count, m_e_column_count, m_t);
+            }
         };
 
 
@@ -334,6 +350,105 @@ namespace lp {
                 m_imp.add_changed_column(m_j);
             }
         };
+
+        
+        void remove_last_entry() {
+            unsigned ei = m_entries.size() - 1;
+        
+            if (m_entries.back().m_entry_status == entry_status::F) {
+                remove_entry_index(this->m_f, ei);        
+            } else {
+                remove_entry_index(this->m_s, ei);        
+            }
+       }
+        void shrink_L_to_size(unsigned row_count, unsigned l_column_count, unsigned e_column_count, const lar_term* t) {
+            while (row_count < m_l_matrix.row_count()) {
+                shrink_L_one_size(t);
+            }
+            SASSERT(entries_are_ok());
+            SASSERT(l_column_count == m_l_matrix.column_count() && e_column_count == m_e_matrix.column_count());
+        }
+        
+        void remove_last_row_column_in_matrix(static_matrix<mpq, mpq>& m) {
+                auto & last_row = m.m_rows.back();
+                for (unsigned k = last_row.size(); k-- > 0;) {                
+                    m.remove_element(last_row, last_row[k]);
+                }
+                SASSERT(m.m_columns.back().size() == 0);
+                m.m_rows.pop_back();                
+                m.m_columns.pop_back();
+        }
+      
+        void shrink_L_one_size(const lar_term*t) {
+            unsigned j = m_l_matrix.column_count() - 1;  // the last column
+            unsigned i = m_l_matrix.row_count() - 1; // the last row
+            auto last_col = m_l_matrix.column(j);
+            TRACE("dioph_eq", tout << "the last entry: i:" << i <<std::endl;
+             print_entry(i, tout);
+             tout << "t->j()="<< t->j() << " is mapped to " << lar_solver_to_local(t->j()) << std::endl;
+             );
+            SASSERT(t->j() == j);
+            
+            bool row_i_found = false;
+            // prepare for pivoting 
+
+            std_vector<unsigned> entries_to_change;
+            
+            for (const auto p : last_col ) {       
+                entries_to_change.push_back(p.var());         ;
+                if (p.var() == i) {                    
+                    row_i_found = true;                    
+                }                                
+            }
+            SASSERT(row_i_found);
+        
+            for (unsigned ei : entries_to_change) 
+                move_entry_from_s_to_f(ei);
+
+            // find the coefficient before the term variable, k, in the last row of m_e_matrix
+            unsigned k = lar_solver_to_local(j);
+            auto &last_e_row = m_e_matrix.m_rows.back();
+            mpq alpha;
+            for (const auto p: last_e_row) {
+                if (p.var() == k) {
+                    alpha = p.coeff();
+                    break;
+                }
+            }
+            this->m_e_matrix.divide_row(i, alpha);
+            this->m_l_matrix.divide_row(i, alpha);
+            this->m_entries[i].m_c /= alpha;
+            SASSERT(entry_invariant(i));
+            eliminate_var_in_f(i, k, 1);
+            TRACE("dioph_eq", tout << "last row before removal\n" ;
+            print_entry(m_entries.size() -1, tout) << std::endl);
+            remove_last_row_column_in_matrix(m_l_matrix);
+            remove_last_row_column_in_matrix(m_e_matrix);
+            m_entries.pop_back();
+            remove_entry_index(m_f, i);
+            remove_entry_index(m_s, i);
+            auto it = std::find_if(m_fresh_definitions.begin(), m_fresh_definitions.end(), [i](auto const& fe) {
+               return fe.m_origin == i;
+            });
+            if (it != m_fresh_definitions.end()) 
+                m_fresh_definitions.erase(it);
+            for (unsigned k = 0; k < m_k2s.size() ; k++) {
+                if (m_k2s[k] == i) {
+                    m_k2s[k] = -1;
+                }
+            } 
+
+            m_var_register.shrink(m_e_matrix.column_count());
+        }
+            
+        
+        void remove_entry_index(std::list<unsigned> & l, unsigned ei) {
+            auto it = std::find(l.begin(), l.end(), ei);
+            if (it != l.end())
+                l.erase(it);
+        }
+
+
 
         std::unordered_set<unsigned> m_changed_columns;
         // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
@@ -377,8 +492,8 @@ namespace lp {
 
        public:
         imp(int_solver& lia, lar_solver& lra) : lia(lia), lra(lra) {
-            lra.register_add_term_delegate([this](const lar_term*t){add_term_delegate(t);});
-            lra.register_update_column_bound_delegate([this](unsigned j) {update_column_bound_delegate(j);});
+            lra.m_add_term_callback=[this](const lar_term*t){add_term_delegate(t);};
+            lra.m_update_column_bound_callback = [this](unsigned j){update_column_bound_delegate(j);};
         }
         term_o get_term_from_entry(unsigned i) const {
             term_o t;
@@ -428,6 +543,7 @@ namespace lp {
             m_l_matrix.add_new_element(entry_index, t.j(), mpq(1));
 // fill E-entry
             m_e_matrix.add_row();
+            
             SASSERT(m_e_matrix.row_count() == m_entries.size());
 
             for (const auto& p : t.ext_coeffs()) {
@@ -552,6 +668,7 @@ namespace lp {
                 }
             }
             for (unsigned ei: entries_to_recalculate) {
+                SASSERT(std::find(m_f.begin(), m_f.end(), ei) == m_f.end());
                 m_f.push_back(ei);
                 m_entries[ei].m_entry_status = entry_status::F;
             }
@@ -560,7 +677,7 @@ namespace lp {
         bool entries_are_ok() {
             for (unsigned ei = 0; ei < m_entries.size();  ei++) {
                 if (entry_invariant(ei) == false) {
-                    TRACE("dioph_eq", tout << "bad entry:"; print_entry(ei, tout););
+                    TRACE("dioph_deb_eq", tout << "bad entry:"; print_entry(ei, tout););
                     return false;
                 }
             }
@@ -1446,10 +1563,10 @@ namespace lp {
         std::ostream& print_e_row(unsigned i, std::ostream& out) {
             return print_term_o(get_term_from_entry(i), out);
         }
-        // j is the variable to eliminate, it appears in row e.m_e_matrix with
-        // a coefficient equal to +-1
+        // j is the variable to eliminate, it appears in row ei of m_e_matrix with
+        // a coefficient equal to j_sign which is +-1 
         void eliminate_var_in_f(unsigned ei, unsigned j, int j_sign) {
-            entry& e = m_entries[ei];
+            const auto & e = m_entries[ei];
             TRACE("dioph_eq", tout << "eliminate var:" << j << " by using:";
                   print_entry(ei, tout) << std::endl;);
             auto& column = m_e_matrix.m_columns[j];
@@ -1515,7 +1632,7 @@ namespace lp {
                 term_to_lar_solver(remove_fresh_vars(get_term_from_entry(ei))) ==
                 fix_vars(open_ml(m_l_matrix.m_rows[ei]));
 
-            CTRACE( "dioph_eq", !ret,
+            CTRACE( "dioph_deb_eq", !ret,
                     {
                         tout << "get_term_from_entry(" << ei << "):";
                         print_term_o(get_term_from_entry(ei), tout) << std::endl;
@@ -1685,6 +1802,18 @@ namespace lp {
             }
             out << "}\n";
             return out;
+        }
+
+        void move_entry_from_s_to_f(unsigned ei) {
+            if (m_entries[ei].m_entry_status == entry_status::F) return;
+            m_entries[ei].m_entry_status = entry_status::F;
+            for (unsigned l = 0; l < m_k2s.size(); l++) {
+                if (m_k2s[l] == ei) {
+                    m_k2s[l] = -1;
+                }
+            }
+            m_s.remove(ei);
+            m_f.push_back(ei);            
         }
 
         // k is the index of the variable that is being substituted
