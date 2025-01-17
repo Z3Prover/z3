@@ -149,10 +149,6 @@ public:
 
     void add_columns_up_to(unsigned j) { while (j >= column_count()) add_column(); }
 
-    void forget_last_columns(unsigned how_many_to_forget);
-
-    void remove_last_column(unsigned j);
-
     void remove_element(std_vector<row_cell<T>> & row, row_cell<T> & elem_to_remove);
     
     void multiply_column(unsigned column, T const & alpha) {

@@ -1599,13 +1599,7 @@ namespace lp {
     bool lar_solver::external_is_used(unsigned v) const {
         return m_var_register.external_is_used(v);
     }
-    void lar_solver::register_add_term_delegate(const std::function<void(const lar_term*)>& f) {
-        this->m_add_term_callbacks.push_back(f);
-    }
-    void lar_solver::register_update_column_bound_delegate(const std::function<void(unsigned)>& f) {
-        this->m_update_column_bound_callbacks.push_back(f);
-    }
-
+    
     void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int) {
         register_new_external_var(ext_j, is_int);
         m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
@@ -1702,8 +1696,8 @@ namespace lp {
         lp_assert(m_var_register.size() == A_r().column_count());
         if (m_need_register_terms) 
             register_normalized_term(*t, A_r().column_count() - 1);
-        for (const auto & f: m_add_term_callbacks)
-            f(t);    
+        if (m_add_term_callback)
+            m_add_term_callback(t);    
         return ret;
     }
 
@@ -1990,9 +1984,8 @@ namespace lp {
         
 
         TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j) ? "feas" : "non-feas") << ", and " << (this->column_is_bounded(j) ? "bounded" : "non-bounded") << std::endl;);
-        for (const auto &f: m_update_column_bound_callbacks) {
-            f(j);
-        }
+        if (m_update_column_bound_callback)
+            m_update_column_bound_callback(j);
     }
 
     void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {

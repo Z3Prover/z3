@@ -36,7 +36,7 @@ public:
     lpvar j() const { return m_j; }
     void set_j(unsigned j) { 
         m_j = j;
-        }
+    }
     void add_monomial(const mpq& c, unsigned j) {
         if (c.is_zero())
             return;
