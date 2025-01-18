@@ -88,6 +88,11 @@ else:
     LIBRARY_FILE = "libz3.so"
     EXECUTABLE_FILE = "z3"
 
+# check if cmake is available, and pull it in via PyPI if necessary
+SETUP_REQUIRES = []
+if not shutil.which("cmake"):
+    SETUP_REQUIRES += ["cmake"]
+
 def rmtree(tree):
     if os.path.exists(tree):
         shutil.rmtree(tree, ignore_errors=False)
@@ -327,6 +332,7 @@ setup(
     license='MIT License',
     keywords=['z3', 'smt', 'sat', 'prover', 'theorem'],
     packages=['z3'],
+    setup_requires = SETUP_REQUIRES,
     install_requires = ["importlib-resources; python_version < '3.9'"],
     include_package_data=True,
     package_data={
