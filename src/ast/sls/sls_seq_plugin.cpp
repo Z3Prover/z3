@@ -554,7 +554,7 @@ namespace sls {
         for (unsigned i = val_x.length(); i < len_u; ++i) {
             val_x_new += !m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : 'a';
         }
-        VERIFY(update(x, val_x_new));
+        return update(x, val_x_new);
     }
 
     void seq_plugin::repair_up_str_stoi(app* e) {
@@ -1822,7 +1822,7 @@ namespace sls {
         expr_ref r(_r, m);
         for (unsigned i = 0; i < s.length(); ++i) {
             expr_ref ch(seq.str.mk_char(s[i]), m);
-            expr_ref r1 = rw.mk_derivative(ch, r, UINT_MAX);
+            expr_ref r1 = rw.mk_derivative(ch, r);
             if (seq.re.is_empty(r1))
                 return false;   
             r = r1;
@@ -1862,7 +1862,7 @@ namespace sls {
             zstring prefix = s.extract(0, i);
             choose(d_r, 2, prefix, lookaheads);
             expr_ref ch(seq.str.mk_char(s[i]), m);
-            d_r = rw.mk_derivative(ch, d_r, UINT_MAX);
+            d_r = rw.mk_derivative(ch, d_r);
         }
         unsigned current_min_length = UINT_MAX;
         if (!seq.re.is_empty(d_r)) {
@@ -1998,7 +1998,7 @@ namespace sls {
         chars.shrink((unsigned)(it - chars.begin()));
         for (auto ch : chars) {
             expr_ref c(seq.str.mk_char(ch), m);
-            expr_ref r2 = rw.mk_derivative(c, r, UINT_MAX);
+            expr_ref r2 = rw.mk_derivative(c, r);
             zstring prefix2 = prefix + zstring(ch);
             choose(r2, k - 1, prefix2, result);
         }        
