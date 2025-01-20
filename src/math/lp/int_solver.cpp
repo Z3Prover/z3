@@ -34,7 +34,6 @@ namespace lp {
         int_solver&         lia;
         lar_solver&         lra;
         lar_core_solver&    lrac;
-        dioph_eq            m_dio;  
         unsigned            m_number_of_calls = 0;
         lar_term            m_t;  // the term to return in the cut
         bool                m_upper;           // cut is an upper bound
@@ -43,13 +42,14 @@ namespace lp {
         hnf_cutter          m_hnf_cutter;
         unsigned            m_hnf_cut_period;
         unsigned            m_dioph_eq_period;
+        dioph_eq            m_dio;  
         int_gcd_test        m_gcd;
 
         bool column_is_int_inf(unsigned j) const {
             return lra.column_is_int(j) && (!lia.value_is_int(j));
         }
 
-        imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_gcd(lia), m_dio(lia) {
+        imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_dio(lia), m_gcd(lia) {
             m_hnf_cut_period = settings().hnf_cut_period();
             m_dioph_eq_period = settings().m_dioph_eq_period;
         } 
