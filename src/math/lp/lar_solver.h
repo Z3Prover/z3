@@ -408,7 +408,8 @@ public:
     
     public:
     std::function<void (const lar_term*)> m_add_term_callback;
-    std::function<void (unsigned)> m_update_column_bound_callback;    
+    std::function<void (const lar_term*)> m_remove_term_callback;
+    std::function<void (unsigned)> m_update_column_bound_callback;  
     bool external_is_used(unsigned) const;
     void pop(unsigned k);
     unsigned num_scopes() const { return m_trail.get_num_scopes(); }
