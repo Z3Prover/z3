@@ -289,7 +289,7 @@ namespace lp {
             if (!contains(m_active_terms, t)) {
                 for (int i = m_added_terms.size() - 1; i >= 0; --i) {
                     if (m_added_terms[i] != t) continue;
-                    if (i != m_added_terms.size() -1) 
+                    if ((unsigned)i != m_added_terms.size() -1) 
                         m_added_terms[i] = m_added_terms.back();
                     m_added_terms.pop_back();
                     break; // all is done since the term has not made it to m_active_terms
@@ -350,7 +350,7 @@ namespace lp {
             make_sure_j_is_in_the_last_row_of_l_matrix();
             const auto &last_e_row = m_l_matrix.m_rows.back();
             mpq alpha;
-            for (const auto p: last_e_row) {
+            for (const auto& p: last_e_row) {
                 if (p.var() == j) {
                     alpha = p.coeff();
                     break;
@@ -396,7 +396,7 @@ namespace lp {
             unsigned j = m_l_matrix.column_count() - 1;
             const auto &last_e_row = m_l_matrix.m_rows.back();
             mpq alpha;
-            for (const auto p: last_e_row) {
+            for (const auto& p: last_e_row) {
                 if (p.var() == j) {
                     return;
                 }
