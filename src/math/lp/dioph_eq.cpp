@@ -9,7 +9,7 @@
 #include "math/lp/int_solver.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/lp_utils.h"
-#include "math/lp/var_register_dio.h"
+#include "math/lp/var_register.h"
 /*
    Following paper: "A Practical Approach to Satisfiability  Modulo Linear
    Integer Arithmetic" by Alberto Griggio(griggio@fbk.eu).
@@ -213,7 +213,7 @@ namespace lp {
             entry_status m_entry_status;
         };
 
-        var_register_dio m_var_register;
+        var_register m_var_register;
         std_vector<entry> m_entries;
         // the terms are stored in m_A and m_c
         static_matrix<mpq, mpq> m_e_matrix;  // the rows of the matrix are the terms,
