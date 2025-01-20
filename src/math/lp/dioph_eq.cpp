@@ -1652,8 +1652,8 @@ namespace lp {
             const auto& row = m_e_matrix.m_rows[ei];
             auto it = std::find_if (row.begin(), row.end(), [j](const auto& p) {return p.var() == j;} );
             if (it == row.end()) return false;
-            return it->coeff() == mpq(1)&& j_sign == 1 ||
-                   it->coeff() == mpq(-1) && j_sign == -1;
+            return (it->coeff() == mpq(1) && j_sign == 1) ||
+                   (it->coeff() == mpq(-1) && j_sign == -1);
         }
         // j is the variable to eliminate, it appears in row ei of m_e_matrix with
         // a coefficient equal to j_sign which is +-1 
