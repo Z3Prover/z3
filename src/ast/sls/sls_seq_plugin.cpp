@@ -158,10 +158,10 @@ namespace sls {
                 // set e to length of x or
                 // set x to a string of length e
 
-                if (r == 0 || sx.length() == 0) {
-                    verbose_stream() << "todo-create lemma: len(x) = 0 <=> x = \"\"\n";
-                    // create a lemma: len(x) = 0 => x = ""
-                }
+                if (r == 0 || sx.length() == 0)
+                    // create lemma: len(x) = 0 <=> x = ""
+                    ctx.add_constraint(m.mk_eq(m.mk_eq(e, a.mk_int(0)), m.mk_eq(x, seq.str.mk_string(""))));
+
                 if (ctx.rand(2) == 0 && update(e, rational(sx.length())))
                     return false;
                 // TODO: Why from the beginning? We can take any subsequence of given length
@@ -544,18 +544,17 @@ namespace sls {
         len_u = r.get_unsigned();
         if (len_u == val_x.length())
             return true;
-        if (len_u < val_x.length()) {       
-            for (unsigned i = 0; i + len_u < val_x.length(); ++i)
+        if (len_u < val_x.length()) {
+            for (unsigned i = 0; i + len_u < val_x.length(); ++i) {
                 m_str_updates.push_back({ x, val_x.extract(i, len_u), 1 });
+            }
+            return apply_update();
         }
-        zstring ch = !m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a");
-        zstring val_x_new = val_x + ch;
-        m_str_updates.push_back({ x, val_x_new, 1 });
-        zstring val_x_new2 = ch + val_x;
-        if (val_x_new != val_x_new2)
-            m_str_updates.push_back({ x, val_x_new2, 1 });
-
-        return apply_update();
+        zstring val_x_new = val_x;
+        for (unsigned i = val_x.length(); i < len_u; ++i) {
+            val_x_new += !m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : 'a';
+        }
+        VERIFY(update(x, val_x_new));
     }
 
     void seq_plugin::repair_up_str_stoi(app* e) {
@@ -1823,7 +1822,7 @@ namespace sls {
         expr_ref r(_r, m);
         for (unsigned i = 0; i < s.length(); ++i) {
             expr_ref ch(seq.str.mk_char(s[i]), m);
-            expr_ref r1 = rw.mk_derivative(ch, r);
+            expr_ref r1 = rw.mk_derivative(ch, r, UINT_MAX);
             if (seq.re.is_empty(r1))
                 return false;   
             r = r1;
@@ -1863,7 +1862,7 @@ namespace sls {
             zstring prefix = s.extract(0, i);
             choose(d_r, 2, prefix, lookaheads);
             expr_ref ch(seq.str.mk_char(s[i]), m);
-            d_r = rw.mk_derivative(ch, d_r);            
+            d_r = rw.mk_derivative(ch, d_r, UINT_MAX);
         }
         unsigned current_min_length = UINT_MAX;
         if (!seq.re.is_empty(d_r)) {
@@ -1999,7 +1998,7 @@ namespace sls {
         chars.shrink((unsigned)(it - chars.begin()));
         for (auto ch : chars) {
             expr_ref c(seq.str.mk_char(ch), m);
-            expr_ref r2 = rw.mk_derivative(c, r);
+            expr_ref r2 = rw.mk_derivative(c, r, UINT_MAX);
             zstring prefix2 = prefix + zstring(ch);
             choose(r2, k - 1, prefix2, result);
         }        
