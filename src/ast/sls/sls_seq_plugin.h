@@ -149,6 +149,8 @@ namespace sls {
 
         bool is_in_re(zstring const& s, expr* r);
 
+        bool is_num_string(zstring const& s); // Checks if s \in [0-9]+ (i.e., str.to_int is not -1)
+
         // access evaluation
         bool is_seq_predicate(expr* e);
 

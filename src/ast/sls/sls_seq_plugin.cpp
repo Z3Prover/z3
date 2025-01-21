@@ -148,6 +148,7 @@ namespace sls {
         for (expr* e : ctx.subterms()) {
             expr* x, * y, * z = nullptr;
             rational r;
+            // std::cout << "Checking "<< mk_pp(e, m) << std::endl;
             // coherence between string / integer functions is delayed
             // so we check and enforce it here.
             if (seq.str.is_length(e, x) && seq.is_string(x->get_sort())) {
@@ -196,8 +197,27 @@ namespace sls {
                     update(e, rational(sx.indexofu(sy, val_z.get_unsigned())));
                 return false;
             }
-            // last-index-of
-            // str-to-int
+            if (seq.str.is_last_index(e, x, y) && seq.is_string(x->get_sort())) {
+                // TODO
+                SASSERT(false);
+            }
+            if (seq.str.is_stoi(e, x) && seq.is_string(x->get_sort())) {
+                auto sx = strval0(x);
+                rational val_e;
+                VERIFY(a.is_numeral(ctx.get_value(e), val_e));
+                // std::cout << "stoi: \"" << sx << "\" -> " << val_e << std::endl;
+                if (!is_num_string(sx)) {
+                    if (val_e == -1)
+                        continue;
+                    update(e, rational(-1));
+                    return false;
+                }
+                rational val_x(sx.encode().c_str());
+                if (val_e == val_x)
+                    continue;
+                update(e, val_x);
+                return false;
+            }
         }
         return true;
     }
@@ -538,9 +558,11 @@ namespace sls {
         rational r;
         unsigned len_u;
         VERIFY(a.is_numeral(len, r));
+        // std::cout << "repair-str-len: " << mk_pp(e, m) << ": " << r << "" << std::endl;
         if (!r.is_unsigned())
             return false;
         zstring val_x = strval0(x);
+        // std::cout << "Arg: \"" << val_x << "\"" << std::endl;
         len_u = r.get_unsigned();
         if (len_u == val_x.length())
             return true;
@@ -562,14 +584,18 @@ namespace sls {
         VERIFY(seq.str.is_stoi(e, x));
 
         rational val_e;
-        rational val_x(strval0(x).encode().c_str());
         VERIFY(a.is_numeral(ctx.get_value(e), val_e));
-        if (val_e.is_unsigned() && val_e == val_x)
+        // std::cout << "repair-up-str-stoi " << mk_pp(e, m) << ": " << val_e << "; Arg: \""<< strval0(x) << "\"" << std::endl;
+        if (!is_num_string(strval0(x))) {
+            if (val_e == -1)
+                return;
+            update(e, rational(-1));
             return;
-        if (val_x < 0)
-            update(e, rational(0));
-        else
-            update(e, val_x);
+        }
+        rational val_x(strval0(x).encode().c_str());
+        if (val_e == val_x)
+            return;
+        update(e, val_x);
     }
 
     void seq_plugin::repair_up_str_itos(app* e) {
@@ -1283,7 +1309,20 @@ namespace sls {
         rational r;
         VERIFY(seq.str.is_stoi(e, x));
         VERIFY(a.is_numeral(ctx.get_value(e), r) && r.is_int());
-        if (r < 0)
+        // std::cout << "repair-down " << mk_pp(e, m) << ": \"" << strval0(x) << "\" -> " << r << std::endl;
+        // It might be satisfied already (not checked before, as the value is of integer sort)
+        if (!is_num_string(strval0(x))) {
+            if (r == -1)
+                return true;
+        }
+        else {
+            if (r == rational(strval0(x).encode().c_str()))
+                return true;
+        }
+        if (r == -1)
+            // TODO: Add some random character somewhere or make it empty
+            return false;
+        if (r < -1)
             return false;
         zstring r_val(r.to_string());
         m_str_updates.push_back({ x, r_val, 1 });
@@ -1294,9 +1333,11 @@ namespace sls {
         expr* x, * y;
         VERIFY(seq.str.is_at(e, x, y));
         zstring se = strval0(e);
+        // std::cout << "repair-str-at: " << mk_pp(e, m) << ": \"" << se << "\"" << std::endl;
         if (se.length() > 1)
             return false;
         zstring sx = strval0(x);
+        // std::cout << "Arg: " << sx << std::endl;
         unsigned lenx = sx.length();
         expr_ref idx = ctx.get_value(y);
         rational r;
@@ -1824,6 +1865,14 @@ namespace sls {
             return get_eval(e).is_value;
         return m.is_value(e);
     }    
+
+    bool seq_plugin::is_num_string(const zstring& s) {
+        bool is_valid = s.length() > 0;
+        for (unsigned i = 0; is_valid && i < s.length(); ++i) {
+            is_valid = s[i] >= '0' && s[i] <= '9';
+        }
+        return is_valid;
+    }
 
     // Regular expressions
 
