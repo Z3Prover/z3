@@ -687,7 +687,7 @@ namespace sls {
         else if (m_str_update_strategy == EDIT_SUBSTR)
             add_substr_edit_updates(w, val, val_other, chars);
         else {
-            if (diff < 3)
+            if (val.length() / 3 >= diff - 1)
                 add_char_edit_updates(w, val, val_other, chars);
             else
                 add_substr_edit_updates(w, val, val_other, chars);
