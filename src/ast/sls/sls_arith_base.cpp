@@ -110,8 +110,8 @@ namespace sls {
     template<typename num_t>
     arith_base<num_t>::arith_base(context& ctx) :
         plugin(ctx),
-        a(m),
         m_new_terms(m),
+        a(m),
         m_clausal_sls(*this) {
         m_fid = a.get_family_id();
     }
@@ -1421,12 +1421,16 @@ namespace sls {
             auto& ui = m_vars[u];
             for (auto const& idx : ui.m_muls) {
                 auto& [x, monomial] = m_muls[idx];
-                if (all_of(todo, [x](var_t v) { return x != v; }))
+                bool found = false;
+                for (auto u : todo) found |= u == x;
+                if (!found)
                     todo.push_back(x);
             }
             for (auto const& idx : ui.m_adds) {
                 auto x = m_adds[idx].m_var;
-                if (all_of(todo, [x](var_t v) { return x != v; }))
+                bool found = false;
+                for (auto u : todo) found |= u == x;
+                if (!found)
                     todo.push_back(x);
             }
             for (auto const& [coeff, bv] : ui.m_linear_occurs)
