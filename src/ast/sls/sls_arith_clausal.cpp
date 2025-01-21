@@ -119,7 +119,6 @@ namespace sls {
         tout << "\n";);
 
         for (auto v : ctx.unsat_vars()) {
-
             auto* ineq = a.get_ineq(v);
             if (!ineq)
                 continue;
@@ -140,6 +139,45 @@ namespace sls {
         a.m_updates.reset();
         a.m_fixed_atoms.reset();
 
+        unsigned sz = a.m_bool_var_atoms.size();
+        bool is_big = sz > 45u;
+        sat::bool_var bv;
+
+        auto occurs_negative = [&](sat::bool_var bv) {
+            if (ctx.unsat_vars().contains(bv))
+                return false;
+            auto* ineq = a.get_ineq(bv);
+            if (!ineq)
+                return false;
+            sat::literal lit(bv, !ineq->is_true());
+            auto const& ul = ctx.get_use_list(~lit);
+            return ul.begin() != ul.end();
+        };
+
+        unsigned idx = 0;
+        //unsigned num_sampled = 0;
+        for (unsigned i = std::min(sz, 45u); i-- > 0;) {
+            if (is_big) {
+                idx = ctx.rand(sz);
+                bv = a.m_bool_var_atoms[idx];
+            }
+            else
+                bv = a.m_bool_var_atoms[i];
+
+            if (occurs_negative(bv)) {
+                auto e = ctx.atom(bv);
+                auto& i = a.get_bool_info(e);
+                a.add_lookahead(i, bv);
+                //++num_sampled;
+            }
+
+            if (is_big) {
+                --sz;
+                a.m_bool_var_atoms.swap_elems(idx, sz);
+            }
+        }
+
+#if 0
         for (auto bv : a.m_bool_var_atoms) {
             if (ctx.unsat_vars().contains(bv))
                 continue;
@@ -150,13 +188,14 @@ namespace sls {
             auto const& ul = ctx.get_use_list(~lit);
             if (ul.begin() == ul.end())
                 continue;
-            auto v = lit.var();
             // literal is false in some clause but none of the clauses where it occurs false are unsat.
 
-            auto e = ctx.atom(v);
+            auto e = ctx.atom(bv);
             auto& i = a.get_bool_info(e);
-            a.add_lookahead(i, v);
+            
+            a.add_lookahead(i, bv);
         }
+#endif
     }
 
     template<typename num_t>
@@ -244,7 +283,8 @@ namespace sls {
     template<typename num_t>
     double arith_clausal<num_t>::get_score(var_t v, num_t const& delta) {
         auto& vi = a.m_vars[v];
-        VERIFY(a.update_num(v, delta));
+        if (!a.update_num(v, delta))
+            return -1;
         double score = 0;
         for (auto ci : vi.m_clauses_of) {
             auto const& c = ctx.get_clause(ci);
@@ -273,8 +313,10 @@ namespace sls {
             else if (c.m_num_trues == 0 && num_true > 0) 
                 score += c.m_weight;            
         }
+
         // revert the update
-        VERIFY(a.update_num(v, -delta));
+        a.update_args_value(v, vi.value() - delta);
+        
         return score;
     }
 

@@ -354,6 +354,15 @@ public:
         return m_elems[index];
     }
 
+    void swap_elems(unsigned i, unsigned j) {
+        if (i == j)
+            return;
+        SASSERT(i < m_size && j < m_size);
+        unsigned x = m_elems[i], y = m_elems[j];
+        m_elems[i] = y; m_elems[j] = x;
+        m_index[x] = j; m_index[y] = i;
+    }
+
     bool contains(unsigned x) const { return x < m_index.size() && m_index[x] < m_size && m_elems[m_index[x]] == x; }
     void reset() { m_size = 0; }
     bool empty() const { return m_size == 0; }    
