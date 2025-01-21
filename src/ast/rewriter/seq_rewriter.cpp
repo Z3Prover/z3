@@ -4559,11 +4559,17 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
             expr_ref new_r = mk_derivative(m_util.mk_char(ch), r);
             r = new_r;
         }
-        if (re().get_info(r).nullable)
+
+        switch (re().get_info(r).nullable) {
+        case l_true:
             result = m().mk_true();
-        else
+            return BR_DONE;
+        case l_false:
             result = m().mk_false();
-        return BR_DONE;
+            return BR_DONE;
+        default:
+            break;
+        }
     }
 
     expr_ref b_s(m());
