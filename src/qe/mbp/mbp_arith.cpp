@@ -39,7 +39,6 @@ namespace mbp {
         bool              m_check_purified = true;  // check that variables are properly pure 
         bool              m_apply_projection = false;
 
-
         imp(ast_manager& m) :
             m(m), a(m) {}
 
@@ -275,10 +274,6 @@ namespace mbp {
                 extract_coefficients(mbo, eval, ts0, tids, coeffs);
                 mbo.add_divides(coeffs, c0, mul1);
             }
-            else if (a.is_to_real(t))
-                throw default_exception("mbp to-real");
-            else if (a.is_to_int(t))
-                throw default_exception("mbp to-int");
             else {
                 TRACE("qe", tout << "insert mul " << mk_pp(t, m) << "\n");
                 insert_mul(t, mul, ts);
