@@ -72,7 +72,7 @@ namespace sls {
             register_plugin(alloc(array_plugin, *this));
         else if (fid == datatype_util(m).get_family_id())
             register_plugin(alloc(datatype_plugin, *this));
-        else if (fid == seq_util(m).get_family_id())
+        else if (fid == seq_util(m).get_family_id() || fid == seq_util(m).get_char_family_id())
             register_plugin(alloc(seq_plugin, *this));
         else
             verbose_stream() << "did not find plugin for " << fid << "\n";

@@ -116,7 +116,7 @@ namespace sls {
     {
         m_fid = seq.get_family_id();
         sls_params p(c.get_params());
-        m_str_update_strategy = p.str_update_strategy() == 0 ? EDIT_CHAR : EDIT_SUBSTR;
+        m_str_update_strategy = (edit_distance_strategy)p.str_update_strategy();
     }
     
     void seq_plugin::propagate_literal(sat::literal lit) {
@@ -681,11 +681,17 @@ namespace sls {
         return d[n][m];
     }
 
-    void seq_plugin::add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
+    void seq_plugin::add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars, unsigned diff) {
         if (m_str_update_strategy == EDIT_CHAR)
             add_char_edit_updates(w, val, val_other, chars);
-        else
+        else if (m_str_update_strategy == EDIT_SUBSTR)
             add_substr_edit_updates(w, val, val_other, chars);
+        else {
+            if (diff < 3)
+                add_char_edit_updates(w, val, val_other, chars);
+            else
+                add_substr_edit_updates(w, val, val_other, chars);
+        }
     }
 
     void seq_plugin::add_substr_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
@@ -1012,6 +1018,9 @@ namespace sls {
                 b_chars.insert(ch);
             b += strval0(y);
         }
+
+        // std::cout << "Repair down " << mk_pp(eq, m) << ": \"" << a << "\" = \"" << b << "\"" << std::endl;
+
         if (a == b)
             return update(eq->get_arg(0), a) && update(eq->get_arg(1), b);    
 
@@ -1019,8 +1028,8 @@ namespace sls {
 
         //verbose_stream() << "solve: " << diff << " " << a << " " << b << "\n";
 
-        add_edit_updates(L, a, b, b_chars);
-        add_edit_updates(R, b, a, a_chars);
+        add_edit_updates(L, a, b, b_chars, diff);
+        add_edit_updates(R, b, a, a_chars, diff);
 
         for (auto& [x, s, score] : m_str_updates) {
             a.reset();
@@ -1577,9 +1586,9 @@ namespace sls {
         for (auto ch : value0) 
             chars.insert(ch);
 
-        add_edit_updates(es, value, value0, chars);
-
         unsigned diff = edit_distance(value, value0);
+        add_edit_updates(es, value, value0, chars, diff);
+
         for (auto& [x, s, score] : m_str_updates) {
             value.reset();
             for (auto z : es) {

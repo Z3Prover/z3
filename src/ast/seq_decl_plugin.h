@@ -636,6 +636,7 @@ public:
     }
 
     family_id get_family_id() const { return m_fid; }
+    family_id get_char_family_id() const { return ch.get_family_id(); }
 };
 
 inline std::ostream& operator<<(std::ostream& out, seq_util::rex::pp const & p) { return p.display(out); }
