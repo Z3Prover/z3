@@ -1416,6 +1416,7 @@ namespace sls {
         buffer<var_t> todo;
         todo.push_back(v);
         auto& vi = m_vars[v];
+        m_tmp_set.reset();
         for (unsigned i = 0; i < todo.size(); ++i) {
             var_t u = todo[i];
             auto& ui = m_vars[u];
@@ -1434,8 +1435,10 @@ namespace sls {
                     todo.push_back(x);
             }
             for (auto const& [coeff, bv] : ui.m_linear_occurs)
-                vi.m_bool_vars_of.insert(bv);
+                m_tmp_set.insert(bv);
         }
+        for (auto bv : m_tmp_set)
+            vi.m_bool_vars_of.push_back(bv);
     }
 
     template<typename num_t>
