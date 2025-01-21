@@ -36,11 +36,10 @@ namespace sat {
     class local_search_plugin {
     public:
         virtual ~local_search_plugin() {}
-        //virtual void init_search() = 0;
-        //virtual void finish_search() = 0;
         virtual void on_rescale() = 0;
         virtual lbool on_save_model() = 0;
         virtual void on_restart() = 0;
+        virtual bool is_external(sat::bool_var v) = 0;
     };
     
     class ddfw {
@@ -140,14 +139,26 @@ namespace sat {
 
         unsigned select_max_same_sign(unsigned cf_idx);
 
+        unsigned m_num_external_in_unsat_vars = 0;
+
         inline void inc_make(literal lit) { 
             bool_var v = lit.var(); 
-            if (make_count(v)++ == 0) m_unsat_vars.insert_fresh(v); 
+            if (make_count(v)++ == 0) {
+                m_unsat_vars.insert_fresh(v);
+                if (m_plugin && m_plugin->is_external(v))
+                    ++m_num_external_in_unsat_vars;
+            }
         }
 
         inline void dec_make(literal lit) { 
             bool_var v = lit.var(); 
-            if (--make_count(v) == 0) m_unsat_vars.remove(v); 
+            if (--make_count(v) == 0) {
+                if (m_unsat_vars.contains(v)) {
+                    m_unsat_vars.remove(v);
+                    if (m_plugin && m_plugin->is_external(v))
+                        --m_num_external_in_unsat_vars;
+                }
+            }
         }
 
         inline void inc_reward(literal lit, double w) { m_vars[lit.var()].m_reward += w; }
@@ -164,13 +175,12 @@ namespace sat {
 
         bool apply_flip(bool_var v, double reward);
 
-
         void save_best_values();
         void save_model();
         void save_priorities();
 
         // shift activity
-        void shift_weights();
+
         inline double calculate_transfer_weight(double w);
 
         // reinitialize weights activity
@@ -203,6 +213,8 @@ namespace sat {
 
         bool_var_set m_rotate_tabu;
         bool_var_vector m_new_tabu_vars;
+
+        bool m_in_bool_flip = false;
 
     public:
 
@@ -241,6 +253,10 @@ namespace sat {
 
         indexed_uint_set const& unsat_set() const { return m_unsat; }
 
+        indexed_uint_set const& unsat_vars() const { return m_unsat_vars; }
+
+        unsigned num_external_in_unsat_vars() const { return m_num_external_in_unsat_vars; }
+
         vector<clause_info> const& clauses() const { return m_clauses; }
 
         clause_info& get_clause_info(unsigned idx) { return m_clauses[idx]; }
@@ -250,6 +266,10 @@ namespace sat {
         void remove_assumptions();
 
         void flip(bool_var v);
+
+        sat::bool_var bool_flip();
+
+        void shift_weights();
 
         inline double reward(bool_var v) const { return m_vars[v].m_reward; }
 

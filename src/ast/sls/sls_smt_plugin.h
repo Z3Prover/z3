@@ -124,11 +124,21 @@ namespace sls {
                 m_ddfw->reinit();
         }
 
+        void shift_weights() override { m_ddfw->shift_weights(); }
+
         lbool on_save_model() override;
 
         void on_model(model_ref& mdl) override {
             IF_VERBOSE(2, verbose_stream() << "on-model " << "\n");
             m_sls_model = mdl;
+        }
+
+        sat::bool_var bool_flip() override {
+            return m_ddfw->bool_flip();
+        }
+
+        bool is_external(sat::bool_var v) override {
+            return m_context.is_external(v);
         }
 
         void on_rescale() override {}
@@ -160,6 +170,8 @@ namespace sls {
         }
         unsigned num_vars() const override { return m_ddfw->num_vars(); }
         indexed_uint_set const& unsat() const override { return m_ddfw->unsat_set(); }
+        indexed_uint_set const& unsat_vars() const override { return m_ddfw->unsat_vars(); }
+        unsigned num_external_in_unsat_vars() const override { return m_ddfw->num_external_in_unsat_vars(); }
         sat::bool_var add_var() override { 
             return m_ddfw->add_var(); 
         }

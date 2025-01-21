@@ -112,6 +112,18 @@ namespace sls {
             if (p)
                 p->on_restart();
     }
+
+    bool context::is_external(sat::bool_var v) {
+        auto a = atom(v);
+        if (!a)
+            return false;
+        family_id fid = get_fid(a);
+        if (fid == basic_family_id)
+            return false;
+        auto p = m_plugins.get(fid, nullptr);
+        CTRACE("sls_verbose", p != nullptr, tout << "external " << mk_bounded_pp(a, m) << "\n");
+        return p != nullptr;     
+    }
     
     lbool context::check() {
         //
@@ -438,6 +450,7 @@ namespace sls {
 
     sat::literal context::mk_literal(expr* e) {
         expr_ref _e(e, m);
+        SASSERT(!m_input_assertions.contains(e));
         sat::literal lit;
         bool neg = false;
         expr* a, * b, * c;
@@ -528,8 +541,11 @@ namespace sls {
         for (unsigned i = 0; i < m_atoms.size(); ++i)
             if (m_atoms.get(i))
                 register_terms(m_atoms.get(i));
-        for (auto e : m_input_assertions)
-            register_terms(e);
+        {
+            flet<bool> _is_input_assertion(m_is_input_assertion, true);
+            for (auto e : m_input_assertions)
+                register_terms(e);
+        }
         for (auto p : m_plugins)
             if (p)
                 p->initialize();
@@ -564,7 +580,7 @@ namespace sls {
                         m_parents.reserve(arg->get_id() + 1);
                         m_parents[arg->get_id()].push_back(e);
                     }
-                    if (m.is_bool(e))
+                    if (m.is_bool(e) && !m_is_input_assertion)
                         mk_literal(e);
                     visit(e);
                 }
@@ -628,7 +644,6 @@ namespace sls {
         m_relevant.reset();
         m_visited.reset();
         m_root_literals.reset();
-
 
         for (auto const& clause : s.clauses()) {
             bool has_relevant = false;

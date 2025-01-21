@@ -22,6 +22,7 @@ Author:
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/sls/sls_context.h"
+#include "ast/sls/sls_arith_clausal.h"
 
 namespace sls {
 
@@ -35,6 +36,8 @@ namespace sls {
     };
 
     std::ostream& operator<<(std::ostream& out, arith_move_type mt);
+
+    static const unsigned null_arith_var = UINT_MAX;
 
     // local search portion for arithmetic
     template<typename num_t>
@@ -66,13 +69,13 @@ namespace sls {
             unsigned restart_base = 1000;
             unsigned restart_next = 1000;
             unsigned restart_init = 1000;
-            bool     arith_use_lookahead = false;
+            bool     use_lookahead = false;
+            bool     use_clausal_lookahead = false;
             bool     allow_plateau = false;
         };
 
         struct stats {
-            unsigned m_num_steps = 0;
-            unsigned m_moves = 0;
+            unsigned m_steps = 0;
             unsigned m_restarts = 0;
         };
 
@@ -116,6 +119,8 @@ namespace sls {
             arith_op_kind m_op = arith_op_kind::LAST_ARITH_OP;
             unsigned     m_def_idx = UINT_MAX;
             vector<std::pair<num_t, sat::bool_var>> m_linear_occurs;
+            indexed_uint_set m_bool_vars_of;
+            indexed_uint_set m_clauses_of;
             unsigned_vector m_muls;
             unsigned_vector m_adds;
             optional<bound> m_lo, m_hi;
@@ -153,6 +158,9 @@ namespace sls {
                     m_tabu_pos = tabu_step, m_last_pos = step;
                 else
                     m_tabu_neg = tabu_step, m_last_neg = step;
+            }
+            unsigned last_step(num_t const& delta) const {
+                return delta > 0 ? m_last_pos : m_last_neg;
             }
             void out_of_range() {
                 ++m_num_out_of_range;
@@ -204,7 +212,10 @@ namespace sls {
         bool                         m_use_tabu = true;
         unsigned                     m_updates_max_size = 45;
         arith_util                   a;
+        friend class arith_clausal<num_t>;
+        arith_clausal<num_t>         m_clausal_sls;
         svector<double>              m_prob_break;
+        indexed_uint_set             m_bool_var_atoms;
 
         void invariant();
         void invariant(ineq const& i);
@@ -277,6 +288,7 @@ namespace sls {
         double compute_score(var_t x, num_t const& delta);
         void save_best_values();
 
+        void initialize_bool_vars_of(var_t v);
         var_t mk_var(expr* e);
         var_t mk_term(expr* e);
         var_t mk_op(arith_op_kind k, expr* e, expr* x, expr* y);
@@ -318,7 +330,7 @@ namespace sls {
             double   score = 0;
             unsigned touched = 1;
             lbool    value = l_undef;
-            sat::bool_var_set fixable_atoms;
+            indexed_uint_set fixable_atoms;
             uint_set          fixable_vars;
             ptr_vector<expr>  fixable_exprs;
             bool_info(unsigned w) : weight(w) {}
@@ -335,6 +347,7 @@ namespace sls {
         unsigned m_touched = 1;
         sat::bool_var_set m_fixed_atoms;
         uint64_t m_tabu_set = 0;
+        unsigned m_global_search_count = 0;
 
         bool in_tabu_set(expr* e, num_t const& n);
         void insert_tabu_set(expr* e, num_t const& n);
@@ -344,6 +357,7 @@ namespace sls {
         void set_bool_value(expr* e, bool v) { get_bool_info(e).value = to_lbool(v); }
         bool get_basic_bool_value(app* e);
         void initialize_bool_assignment();
+
         void finalize_bool_assignment();
         double old_score(expr* e) { return get_bool_info(e).score; }
         double new_score(expr* e);
@@ -366,6 +380,7 @@ namespace sls {
         void lookahead_bool(expr* e);
         double lookahead(expr* e, bool update_score);
         void add_lookahead(bool_info& i, expr* e);
+        void add_lookahead(bool_info& i, sat::bool_var bv);
         ptr_vector<expr> const& get_fixable_exprs(expr* e);
         bool apply_move(expr* f, ptr_vector<expr> const& vars, arith_move_type t);
         expr* get_candidate_unsat();

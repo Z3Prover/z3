@@ -67,8 +67,12 @@ namespace sls {
             return r;
         }
 
-        void on_model(model_ref& mdl) override {           
+        void on_model(model_ref& mdl) override {
             m_model = mdl;
+        }
+
+        bool is_external(sat::bool_var v) override {
+            return m_context.is_external(v);
         }
 
         void register_atom(sat::bool_var v, expr* e) {
@@ -85,15 +89,19 @@ namespace sls {
         sat::clause_info const& get_clause(unsigned idx) const override { return m_ddfw.get_clause_info(idx); }
         ptr_iterator<unsigned> get_use_list(sat::literal lit) override { return m_ddfw.use_list(lit); }
         void flip(sat::bool_var v) override { if (m_dirty) m_ddfw.reinit(), m_dirty = false;  m_ddfw.flip(v); }
+        sat::bool_var bool_flip() override { if (m_dirty) m_ddfw.reinit(), m_dirty = false; return m_ddfw.bool_flip(); }
         bool try_rotate(sat::bool_var v, sat::bool_var_set& rotated, unsigned& budget) override { if (m_dirty) m_ddfw.reinit(), m_dirty = false; return m_ddfw.try_rotate(v, rotated, budget); }
         double reward(sat::bool_var v) override { return m_ddfw.reward(v); }
         double get_weigth(unsigned clause_idx) override { return m_ddfw.get_clause_info(clause_idx).m_weight; }
         bool is_true(sat::literal lit) override { return m_ddfw.get_value(lit.var()) != lit.sign(); }
         unsigned num_vars() const override { return m_ddfw.num_vars(); }
         indexed_uint_set const& unsat() const override { return m_ddfw.unsat_set(); }
+        indexed_uint_set const& unsat_vars() const override { return m_ddfw.unsat_vars(); }
+        unsigned num_external_in_unsat_vars() const override { return m_ddfw.num_external_in_unsat_vars(); }
         sat::bool_var add_var() override { m_dirty = true;  return m_ddfw.add_var(); }  
         void add_input_assertion(expr* f) { m_context.add_input_assertion(f); }
         reslimit& rlimit() { return m_ddfw.rlimit(); }
+        void shift_weights() override { m_ddfw.shift_weights(); }
 
         void force_restart() override { m_ddfw.force_restart(); }
 

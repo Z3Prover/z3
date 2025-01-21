@@ -99,6 +99,16 @@ namespace sat {
         m_last_flips = m_flips;
     }
 
+    sat::bool_var ddfw::bool_flip() {
+        flet<bool> _in_bool_flip(m_in_bool_flip, true);
+        double reward = 0;
+        bool_var v = pick_var(reward);
+        if (apply_flip(v, reward))
+            return v;
+        shift_weights();
+        return sat::null_bool_var;
+    }
+
     bool ddfw::do_flip() {
         double reward = 0;
         bool_var v = pick_var(reward);
@@ -125,7 +135,9 @@ namespace sat {
         bool_var v0 = null_bool_var;
         for (bool_var v : m_unsat_vars) {
             r = reward(v);
-            if (r > 0.0)    
+            if (m_in_bool_flip && m_plugin->is_external(v))
+                ;
+            else if (r > 0.0)    
                 sum_pos += score(r);            
             else if (r == 0.0 && sum_pos == 0 && (m_rand() % (n++)) == 0) 
                 v0 = v;            
@@ -134,6 +146,8 @@ namespace sat {
             double lim_pos = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_pos;                
             for (bool_var v : m_unsat_vars) {
                 r = reward(v);
+                if (m_in_bool_flip && m_plugin->is_external(v))
+                    continue;
                 if (r > 0) {
                     lim_pos -= score(r);
                     if (lim_pos <= 0) 
@@ -146,6 +160,8 @@ namespace sat {
             return v0;
         if (m_unsat_vars.empty())
             return null_bool_var;
+        if (m_in_bool_flip)
+            return false;
         return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
     }
 
@@ -332,6 +348,7 @@ namespace sat {
             m_vars[v].m_reward = 0;
         }        
         m_unsat_vars.reset();
+        m_num_external_in_unsat_vars = 0;
         m_unsat.reset();
         unsigned sz = m_clauses.size();
         for (unsigned i = 0; i < sz; ++i) {
@@ -400,7 +417,7 @@ namespace sat {
         for (unsigned i = 0; i < num_vars(); ++i) 
             m_model[i] = to_lbool(value(i));
         save_priorities();
-        if (m_plugin)
+        if (m_plugin && !m_in_bool_flip)
             m_last_result = m_plugin->on_save_model();   
     }
 

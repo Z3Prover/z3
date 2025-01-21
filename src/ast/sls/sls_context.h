@@ -69,12 +69,16 @@ namespace sls {
         virtual sat::clause_info const& get_clause(unsigned idx) const = 0;
         virtual ptr_iterator<unsigned> get_use_list(sat::literal lit) = 0;
         virtual void flip(sat::bool_var v) = 0;
+        virtual sat::bool_var bool_flip() = 0;
         virtual bool try_rotate(sat::bool_var v, sat::bool_var_set& rotated, unsigned& budget) = 0;
         virtual double reward(sat::bool_var v) = 0;
         virtual double get_weigth(unsigned clause_idx) = 0;
         virtual bool is_true(sat::literal lit) = 0;
         virtual unsigned num_vars() const = 0;
         virtual indexed_uint_set const& unsat() const = 0;
+        virtual indexed_uint_set const& unsat_vars() const = 0;
+        virtual void shift_weights() = 0;
+        virtual unsigned num_external_in_unsat_vars() const = 0;
         virtual void on_model(model_ref& mdl) = 0;
         virtual sat::bool_var add_var() = 0;
         virtual void add_clause(unsigned n, sat::literal const* lits) = 0;
@@ -136,6 +140,7 @@ namespace sls {
 
         void init();
         expr_ref_vector m_todo;
+        bool m_is_input_assertion = false;
         void register_terms(expr* e);
         void register_term(expr* e);
 
@@ -162,6 +167,7 @@ namespace sls {
         void register_atom(sat::bool_var v, expr* e);
         lbool check();       
 
+        bool is_external(sat::bool_var v);
         void on_restart();
         void updt_params(params_ref const& p);
         params_ref const& get_params() const { return m_params;  }
@@ -183,9 +189,13 @@ namespace sls {
         void add_theory_axiom(expr* f) { add_assertion(f, false); }
         void add_clause(sat::literal_vector const& lits);
         void flip(sat::bool_var v) { s.flip(v); }
+        sat::bool_var bool_flip() { return s.bool_flip(); }
+        void shift_weights() { s.shift_weights(); }
         bool try_rotate(sat::bool_var v, sat::bool_var_set& rotated, unsigned& budget) { return s.try_rotate(v, rotated, budget); }
         double reward(sat::bool_var v) { return s.reward(v); }
         indexed_uint_set const& unsat() const { return s.unsat(); }
+        indexed_uint_set const& unsat_vars() const { return s.unsat_vars(); }
+        unsigned num_external_in_unsat_vars() const { return s.num_external_in_unsat_vars(); }
         unsigned rand() { return m_rand(); }
         unsigned rand(unsigned n) { return m_rand(n); }
         reslimit& rlimit() { return s.rlimit(); }
