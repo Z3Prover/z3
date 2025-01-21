@@ -18,7 +18,7 @@
    lar_term is just a sum of monomials
     -- entry : has a dependency lar_term, keeping the history of the entry
    updates, the rational constant of the corresponding term_o, and the entry
-   status that is in {F,S, NO_S_NO_F}. The entry status is used for efficiency
+   status that is in {F,S, FRESH}. The entry status is used for efficiency
     reasons. It allows quickly check if an entry belongs to F, S, or neither.
     dioph_eq::imp main fields are
     -- lra: pointer to lar_solver.
@@ -204,7 +204,7 @@ namespace lp {
         //
         enum class entry_status { F,
                                   S,
-                                  NO_S_NO_F
+                                  FRESH
         };
         struct entry {
             //lar_term m_l; the term is taken from matrix m_l_matrix of the index entry
@@ -600,6 +600,7 @@ namespace lp {
                 m_l_matrix.multiply_row(ei, denom);
                 m_e_matrix.multiply_row(ei, denom);
             }
+            move_entry_from_s_to_f(ei);
             SASSERT(entry_invariant(ei));
         }
 
@@ -680,8 +681,7 @@ namespace lp {
              for(unsigned k : entries_to_recalculate) {
                 if (k >= m_entries.size())
                     continue;;
-                recalculate_entry(k);
-                move_entry_from_s_to_f(k);
+                recalculate_entry(k);             
                 if (m_e_matrix.m_columns.back().size() == 0) {
                     m_e_matrix.m_columns.pop_back();
                     m_var_register.shrink(m_e_matrix.column_count());
@@ -747,16 +747,24 @@ namespace lp {
                 }
                 else it++;
             }
+
             for (unsigned k = 0; k < m_k2s.size(); k++) {
                 if (m_k2s[k] != UINT_MAX && contains(entries_to_recalculate, m_k2s[k])) {
                     m_k2s[k] = -1;
                 }
             }
+            
             for (unsigned ei: entries_to_recalculate) {
                 SASSERT(std::find(m_f.begin(), m_f.end(), ei) == m_f.end());
+                SASSERT(!is_substituted(ei));
                 m_f.push_back(ei);
                 m_entries[ei].m_entry_status = entry_status::F;
             }
+        }
+
+       // returns true if a variable j is substituted
+        bool is_substituted(unsigned j) const {
+            return std::find(m_k2s.begin(), m_k2s.end(), j) != m_k2s.end();
         }
 
         bool entries_are_ok() {
@@ -903,7 +911,7 @@ namespace lp {
             if (m_indexed_work_vector[k].is_zero())
                 return;
             const entry& e = entry_for_subs(k);
-            SASSERT(e.m_entry_status == entry_status::S);
+            SASSERT(e.m_entry_status != entry_status::F);
             TRACE("dioph_eq", tout << "k:" << k << ", in ";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "subs with e:";
@@ -1721,6 +1729,12 @@ namespace lp {
         }
 
         bool entry_invariant(unsigned ei) const {
+            const auto & e= m_entries[ei];
+            if ((e.m_entry_status == entry_status::F && is_substituted(ei)) || 
+                (e.m_entry_status != entry_status::F && !is_substituted(ei)))
+                return false;
+             
+
             for (const auto &p: m_e_matrix.m_rows[ei]) {
                 if (!p.coeff().is_int()) {
                     return false;
@@ -1842,7 +1856,7 @@ namespace lp {
             e.m_c = r;
             m_e_matrix.add_new_element(h, xt, ahk);
 
-            m_entries.push_back({q, entry_status::NO_S_NO_F});
+            m_entries.push_back({q, entry_status::FRESH});
             m_e_matrix.add_new_element(fresh_row, xt, -mpq(1));
             m_e_matrix.add_new_element(fresh_row, k, mpq(1));
             for (unsigned i : m_indexed_work_vector.m_index) {
