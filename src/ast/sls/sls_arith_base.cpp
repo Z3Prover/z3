@@ -2882,6 +2882,8 @@ namespace sls {
         expr_mark visited;
         ptr_buffer<expr> todo;
 
+        m_tmp_set.reset();
+
         todo.push_back(e); 
         while (!todo.empty()) {
             auto e = todo.back();
@@ -2899,7 +2901,7 @@ namespace sls {
                     continue;
                 if (is_uninterp(e)) {
                     if (!i.fixable_atoms.contains(bv)) {
-                        i.fixable_atoms.insert(bv);
+                        i.fixable_atoms.push_back(bv);
                         i.fixable_exprs.push_back(e);
                     }
                     continue;
@@ -2907,7 +2909,7 @@ namespace sls {
                 auto* ineq = get_ineq(bv);
                 if (!ineq)
                     continue;
-                i.fixable_atoms.insert(bv);
+                i.fixable_atoms.push_back(bv);
                 buffer<var_t> vars;
                 
                 for (auto& [v, occ] : ineq->m_nonlinear) 
@@ -2915,7 +2917,7 @@ namespace sls {
                 
                 for (unsigned j = 0; j < vars.size(); ++j) {
                     auto v = vars[j];
-                    if (i.fixable_vars.contains(v))
+                    if (m_tmp_set.contains(v))
                         continue;
                     
                     if (is_add(v)) {
@@ -2928,11 +2930,13 @@ namespace sls {
                     }
                     else {
                         i.fixable_exprs.push_back(m_vars[v].m_expr);
-                        i.fixable_vars.insert(v);
+                        m_tmp_set.insert(v);
                     }
                 }
             }
         }
+        for (auto v : m_tmp_set)
+            i.fixable_vars.push_back(v);
         return i.fixable_exprs;
     }
 

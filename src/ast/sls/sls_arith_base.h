@@ -330,9 +330,9 @@ namespace sls {
             double   score = 0;
             unsigned touched = 1;
             lbool    value = l_undef;
-            indexed_uint_set fixable_atoms;
-            uint_set          fixable_vars;
-            ptr_vector<expr>  fixable_exprs;
+            sat::bool_var_vector fixable_atoms;
+            svector<var_t>       fixable_vars;
+            ptr_vector<expr>     fixable_exprs;
             bool_info(unsigned w) : weight(w) {}
         };
 
