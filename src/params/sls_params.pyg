@@ -31,5 +31,5 @@ def_module_params('sls',
                         ('bv_use_top_level_assertions', BOOL, True, 'use top-level assertions for BV lookahead solver'),
                         ('bv_use_lookahead', BOOL, True, 'use lookahead solver for BV'),
                         ('bv_allow_rotation', BOOL, True, 'allow model rotation when repairing literal assignment'),
-                        ('str_update_strategy', UINT, 1, 'string update candidate selection: 0 - single character based update, 1 - subsequence based update')
+                        ('str_update_strategy', UINT, 2, 'string update candidate selection: 0 - single character based update, 1 - subsequence based update, 2 - combined')
               ))

@@ -116,7 +116,7 @@ namespace sls {
     {
         m_fid = seq.get_family_id();
         sls_params p(c.get_params());
-        m_str_update_strategy = p.str_update_strategy() == 0 ? EDIT_CHAR : EDIT_SUBSTR;
+        m_str_update_strategy = (edit_distance_strategy)p.str_update_strategy();
     }
     
     void seq_plugin::propagate_literal(sat::literal lit) {
@@ -148,6 +148,7 @@ namespace sls {
         for (expr* e : ctx.subterms()) {
             expr* x, * y, * z = nullptr;
             rational r;
+            // std::cout << "Checking "<< mk_pp(e, m) << std::endl;
             // coherence between string / integer functions is delayed
             // so we check and enforce it here.
             if (seq.str.is_length(e, x) && seq.is_string(x->get_sort())) {
@@ -158,10 +159,10 @@ namespace sls {
                 // set e to length of x or
                 // set x to a string of length e
 
-                if (r == 0 || sx.length() == 0) {
-                    verbose_stream() << "todo-create lemma: len(x) = 0 <=> x = \"\"\n";
-                    // create a lemma: len(x) = 0 => x = ""
-                }
+                if (r == 0 || sx.length() == 0)
+                    // create lemma: len(x) = 0 <=> x = ""
+                    ctx.add_constraint(m.mk_eq(m.mk_eq(e, a.mk_int(0)), m.mk_eq(x, seq.str.mk_string(""))));
+
                 if (ctx.rand(2) == 0 && update(e, rational(sx.length())))
                     return false;
                 // TODO: Why from the beginning? We can take any subsequence of given length
@@ -196,8 +197,27 @@ namespace sls {
                     update(e, rational(sx.indexofu(sy, val_z.get_unsigned())));
                 return false;
             }
-            // last-index-of
-            // str-to-int
+            if (seq.str.is_last_index(e, x, y) && seq.is_string(x->get_sort())) {
+                // TODO
+                SASSERT(false);
+            }
+            if (seq.str.is_stoi(e, x) && seq.is_string(x->get_sort())) {
+                auto sx = strval0(x);
+                rational val_e;
+                VERIFY(a.is_numeral(ctx.get_value(e), val_e));
+                // std::cout << "stoi: \"" << sx << "\" -> " << val_e << std::endl;
+                if (!is_num_string(sx)) {
+                    if (val_e == -1)
+                        continue;
+                    update(e, rational(-1));
+                    return false;
+                }
+                rational val_x(sx.encode().c_str());
+                if (val_e == val_x)
+                    continue;
+                update(e, val_x);
+                return false;
+            }
         }
         return true;
     }
@@ -538,24 +558,25 @@ namespace sls {
         rational r;
         unsigned len_u;
         VERIFY(a.is_numeral(len, r));
+        // std::cout << "repair-str-len: " << mk_pp(e, m) << ": " << r << "" << std::endl;
         if (!r.is_unsigned())
             return false;
         zstring val_x = strval0(x);
+        // std::cout << "Arg: \"" << val_x << "\"" << std::endl;
         len_u = r.get_unsigned();
         if (len_u == val_x.length())
             return true;
-        if (len_u < val_x.length()) {       
-            for (unsigned i = 0; i + len_u < val_x.length(); ++i)
+        if (len_u < val_x.length()) {
+            for (unsigned i = 0; i + len_u < val_x.length(); ++i) {
                 m_str_updates.push_back({ x, val_x.extract(i, len_u), 1 });
+            }
+            return apply_update();
         }
-        zstring ch = !m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a");
-        zstring val_x_new = val_x + ch;
-        m_str_updates.push_back({ x, val_x_new, 1 });
-        zstring val_x_new2 = ch + val_x;
-        if (val_x_new != val_x_new2)
-            m_str_updates.push_back({ x, val_x_new2, 1 });
-
-        return apply_update();
+        zstring val_x_new = val_x;
+        for (unsigned i = val_x.length(); i < len_u; ++i) {
+            val_x_new += !m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : 'a';
+        }
+        return update(x, val_x_new);
     }
 
     void seq_plugin::repair_up_str_stoi(app* e) {
@@ -563,14 +584,18 @@ namespace sls {
         VERIFY(seq.str.is_stoi(e, x));
 
         rational val_e;
-        rational val_x(strval0(x).encode().c_str());
         VERIFY(a.is_numeral(ctx.get_value(e), val_e));
-        if (val_e.is_unsigned() && val_e == val_x)
+        // std::cout << "repair-up-str-stoi " << mk_pp(e, m) << ": " << val_e << "; Arg: \""<< strval0(x) << "\"" << std::endl;
+        if (!is_num_string(strval0(x))) {
+            if (val_e == -1)
+                return;
+            update(e, rational(-1));
             return;
-        if (val_x < 0)
-            update(e, rational(0));
-        else
-            update(e, val_x);
+        }
+        rational val_x(strval0(x).encode().c_str());
+        if (val_e == val_x)
+            return;
+        update(e, val_x);
     }
 
     void seq_plugin::repair_up_str_itos(app* e) {
@@ -682,11 +707,17 @@ namespace sls {
         return d[n][m];
     }
 
-    void seq_plugin::add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
+    void seq_plugin::add_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars, unsigned diff) {
         if (m_str_update_strategy == EDIT_CHAR)
             add_char_edit_updates(w, val, val_other, chars);
-        else
+        else if (m_str_update_strategy == EDIT_SUBSTR)
             add_substr_edit_updates(w, val, val_other, chars);
+        else {
+            if (val.length() / 3 >= diff - 1)
+                add_char_edit_updates(w, val, val_other, chars);
+            else
+                add_substr_edit_updates(w, val, val_other, chars);
+        }
     }
 
     void seq_plugin::add_substr_edit_updates(ptr_vector<expr> const& w, zstring const& val, zstring const& val_other, uint_set const& chars) {
@@ -1013,6 +1044,9 @@ namespace sls {
                 b_chars.insert(ch);
             b += strval0(y);
         }
+
+        // std::cout << "Repair down " << mk_pp(eq, m) << ": \"" << a << "\" = \"" << b << "\"" << std::endl;
+
         if (a == b)
             return update(eq->get_arg(0), a) && update(eq->get_arg(1), b);    
 
@@ -1020,8 +1054,8 @@ namespace sls {
 
         //verbose_stream() << "solve: " << diff << " " << a << " " << b << "\n";
 
-        add_edit_updates(L, a, b, b_chars);
-        add_edit_updates(R, b, a, a_chars);
+        add_edit_updates(L, a, b, b_chars, diff);
+        add_edit_updates(R, b, a, a_chars, diff);
 
         for (auto& [x, s, score] : m_str_updates) {
             a.reset();
@@ -1275,7 +1309,20 @@ namespace sls {
         rational r;
         VERIFY(seq.str.is_stoi(e, x));
         VERIFY(a.is_numeral(ctx.get_value(e), r) && r.is_int());
-        if (r < 0)
+        // std::cout << "repair-down " << mk_pp(e, m) << ": \"" << strval0(x) << "\" -> " << r << std::endl;
+        // It might be satisfied already (not checked before, as the value is of integer sort)
+        if (!is_num_string(strval0(x))) {
+            if (r == -1)
+                return true;
+        }
+        else {
+            if (r == rational(strval0(x).encode().c_str()))
+                return true;
+        }
+        if (r == -1)
+            // TODO: Add some random character somewhere or make it empty
+            return false;
+        if (r < -1)
             return false;
         zstring r_val(r.to_string());
         m_str_updates.push_back({ x, r_val, 1 });
@@ -1286,9 +1333,11 @@ namespace sls {
         expr* x, * y;
         VERIFY(seq.str.is_at(e, x, y));
         zstring se = strval0(e);
+        // std::cout << "repair-str-at: " << mk_pp(e, m) << ": \"" << se << "\"" << std::endl;
         if (se.length() > 1)
             return false;
         zstring sx = strval0(x);
+        // std::cout << "Arg: " << sx << std::endl;
         unsigned lenx = sx.length();
         expr_ref idx = ctx.get_value(y);
         rational r;
@@ -1578,9 +1627,9 @@ namespace sls {
         for (auto ch : value0) 
             chars.insert(ch);
 
-        add_edit_updates(es, value, value0, chars);
-
         unsigned diff = edit_distance(value, value0);
+        add_edit_updates(es, value, value0, chars, diff);
+
         for (auto& [x, s, score] : m_str_updates) {
             value.reset();
             for (auto z : es) {
@@ -1817,6 +1866,14 @@ namespace sls {
         return m.is_value(e);
     }    
 
+    bool seq_plugin::is_num_string(const zstring& s) {
+        bool is_valid = s.length() > 0;
+        for (unsigned i = 0; is_valid && i < s.length(); ++i) {
+            is_valid = s[i] >= '0' && s[i] <= '9';
+        }
+        return is_valid;
+    }
+
     // Regular expressions
 
     bool seq_plugin::is_in_re(zstring const& s, expr* _r) {
@@ -1863,7 +1920,7 @@ namespace sls {
             zstring prefix = s.extract(0, i);
             choose(d_r, 2, prefix, lookaheads);
             expr_ref ch(seq.str.mk_char(s[i]), m);
-            d_r = rw.mk_derivative(ch, d_r);            
+            d_r = rw.mk_derivative(ch, d_r);
         }
         unsigned current_min_length = UINT_MAX;
         if (!seq.re.is_empty(d_r)) {
