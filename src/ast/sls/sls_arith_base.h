@@ -120,7 +120,6 @@ namespace sls {
             unsigned     m_def_idx = UINT_MAX;
             vector<std::pair<num_t, sat::bool_var>> m_linear_occurs;
             indexed_uint_set m_bool_vars_of;
-            indexed_uint_set m_clauses_of;
             unsigned_vector m_muls;
             unsigned_vector m_adds;
             optional<bound> m_lo, m_hi;

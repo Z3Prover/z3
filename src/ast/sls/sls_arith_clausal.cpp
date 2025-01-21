@@ -286,32 +286,38 @@ namespace sls {
         if (!a.update_num(v, delta))
             return -1;
         double score = 0;
-        for (auto ci : vi.m_clauses_of) {
-            auto const& c = ctx.get_clause(ci);
-            unsigned num_true = 0;
-            for (auto lit : c) {
-                auto bv = lit.var();
-                auto ineq = a.get_ineq(bv);
-                if (ineq) {
-                    if (ineq->is_true() != lit.sign())
-                        ++num_true;
+        for (auto bv : vi.m_bool_vars_of) {
+            for (auto lit : { sat::literal(bv, false), sat::literal(bv, true) }) {
+                for (auto ci : ctx.get_use_list(lit)) {
+                    auto const& c = ctx.get_clause(ci);
+                    unsigned num_true = 0;
+                    for (auto lit : c) {
+                        auto bv = lit.var();
+                        auto ineq = a.get_ineq(bv);
+                        if (ineq) {
+                            if (ineq->is_true() != lit.sign())
+                                ++num_true;
+                        }
+                        else if (ctx.is_true(lit))
+                            ++num_true;
+                    }
+
+                    CTRACE("arith_verbose", c.m_num_trues != num_true && (c.m_num_trues == 0 || num_true == 0),
+                        tout << "clause: " << c
+                        << " v" << v << " += " << delta
+                        << " new-true lits: " << num_true
+                        << " old-true lits: " << c.m_num_trues
+                        << " w: " << c.m_weight << "\n";
+                    for (auto lit : c)
+                        if (a.get_ineq(lit.var()))
+                            tout << lit << " " << *a.get_ineq(lit.var()) << "\n";);
+                    if (c.m_num_trues > 0 && num_true == 0)
+                        score -= c.m_weight;
+                    else if (c.m_num_trues == 0 && num_true > 0)
+                        score += c.m_weight;
                 }
-                else if (ctx.is_true(lit))
-                    ++num_true;
             }
-            CTRACE("arith_verbose", c.m_num_trues != num_true && (c.m_num_trues == 0 || num_true == 0),
-                tout << "clause: " << c
-                << " v" << v << " += " << delta
-                << " new-true lits: " << num_true
-                << " old-true lits: " << c.m_num_trues
-                << " w: " << c.m_weight << "\n";
-            for (auto lit : c) 
-                if (a.get_ineq(lit.var()))
-                    tout << lit << " " << *a.get_ineq(lit.var()) << "\n";);
-            if (c.m_num_trues > 0 && num_true == 0) 
-                score -= c.m_weight;            
-            else if (c.m_num_trues == 0 && num_true > 0) 
-                score += c.m_weight;            
+            
         }
 
         // revert the update
@@ -336,7 +342,6 @@ namespace sls {
             else
                 vi.set_value(num_t(0));
             vi.m_bool_vars_of.reset();
-            vi.m_clauses_of.reset();
         }
         initialize();
     }

@@ -1436,13 +1436,6 @@ namespace sls {
             for (auto const& [coeff, bv] : ui.m_linear_occurs)
                 vi.m_bool_vars_of.insert(bv);
         }
-        ;
-        for (auto bv : vi.m_bool_vars_of) {
-            for (auto i : ctx.get_use_list(sat::literal(bv, true)))
-                vi.m_clauses_of.insert(i);
-            for (auto i : ctx.get_use_list(sat::literal(bv, false)))
-                vi.m_clauses_of.insert(i);
-        }
     }
 
     template<typename num_t>
