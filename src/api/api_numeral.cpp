@@ -235,9 +235,7 @@ extern "C" {
                 }
             }
             else if (mk_c(c)->fpautil().is_numeral(to_expr(a), tmp)) {
-                std::ostringstream buffer;
-                fu.fm().display_smt2(buffer, tmp, false);
-                return mk_c(c)->mk_external_string(std::move(buffer).str());
+                return mk_c(c)->mk_external_string(fu.fm().to_rational_string(tmp));
             }
             else {
                 SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
