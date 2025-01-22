@@ -214,7 +214,9 @@ namespace sat {
         bool_var_set m_rotate_tabu;
         bool_var_vector m_new_tabu_vars;
 
-        bool m_in_bool_flip = false;
+        void flip(bool_var v);
+        bool m_in_external_flip = false;
+
 
     public:
 
@@ -265,9 +267,8 @@ namespace sat {
 
         void remove_assumptions();
 
-        void flip(bool_var v);
-
-        sat::bool_var bool_flip();
+        void external_flip(sat::bool_var v);
+        sat::bool_var external_flip();
 
         void shift_weights();
 

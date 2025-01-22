@@ -238,6 +238,7 @@ namespace sls {
         m_last_delta = delta;
         if (!a.can_update_num(v, delta))
             return;
+        ctx.rlimit().inc();
         auto score = get_score(v, delta);
         auto& vi = a.m_vars[v];        
         num_t abs_value = abs(vi.value() + delta);

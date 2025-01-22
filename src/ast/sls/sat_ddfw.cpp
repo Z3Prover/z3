@@ -99,8 +99,8 @@ namespace sat {
         m_last_flips = m_flips;
     }
 
-    sat::bool_var ddfw::bool_flip() {
-        flet<bool> _in_bool_flip(m_in_bool_flip, true);
+    sat::bool_var ddfw::external_flip() {
+        flet<bool> _in_external_flip(m_in_external_flip, true);
         double reward = 0;
         bool_var v = pick_var(reward);
         if (apply_flip(v, reward))
@@ -135,7 +135,7 @@ namespace sat {
         bool_var v0 = null_bool_var;
         for (bool_var v : m_unsat_vars) {
             r = reward(v);
-            if (m_in_bool_flip && m_plugin->is_external(v))
+            if (m_in_external_flip && m_plugin->is_external(v))
                 ;
             else if (r > 0.0)    
                 sum_pos += score(r);            
@@ -146,7 +146,7 @@ namespace sat {
             double lim_pos = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_pos;                
             for (bool_var v : m_unsat_vars) {
                 r = reward(v);
-                if (m_in_bool_flip && m_plugin->is_external(v))
+                if (m_in_external_flip && m_plugin->is_external(v))
                     continue;
                 if (r > 0) {
                     lim_pos -= score(r);
@@ -160,7 +160,7 @@ namespace sat {
             return v0;
         if (m_unsat_vars.empty())
             return null_bool_var;
-        if (m_in_bool_flip)
+        if (m_in_external_flip)
             return false;
         return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
     }
@@ -256,6 +256,11 @@ namespace sat {
         m_use_list_index.push_back(m_flat_use_list.size());
         init_clause_data();
         return true;
+    }
+
+    void ddfw::external_flip(bool_var v) {
+        flet<bool> _external_flip(m_in_external_flip, true);
+        flip(v);
     }
 
     void ddfw::flip(bool_var v) {
@@ -417,7 +422,7 @@ namespace sat {
         for (unsigned i = 0; i < num_vars(); ++i) 
             m_model[i] = to_lbool(value(i));
         save_priorities();
-        if (m_plugin && !m_in_bool_flip)
+        if (m_plugin && !m_in_external_flip)
             m_last_result = m_plugin->on_save_model();   
     }
 
