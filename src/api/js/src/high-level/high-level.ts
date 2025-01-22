@@ -1909,6 +1909,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             case Z3_parameter_kind.Z3_PARAMETER_FUNC_DECL:
               result.push(new FuncDeclImpl(check(Z3.get_decl_func_decl_parameter(contextPtr, this.ptr, i))));
               break;
+            case Z3_parameter_kind.Z3_PARAMETER_INTERNAL:
+              break;
+            case Z3_parameter_kind.Z3_PARAMETER_ZSTRING:
+              break;
             default:
               assertExhaustive(kind);
           }
