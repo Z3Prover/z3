@@ -19,7 +19,7 @@ namespace bv {
         sat::clause_info const& get_clause(unsigned idx) const override { return m_clauses[idx]; }
         ptr_iterator<unsigned> get_use_list(sat::literal lit) override { return ptr_iterator<unsigned>(nullptr, nullptr); }
         void flip(sat::bool_var v) override {  }
-        sat::bool_var bool_flip() override { return sat::null_bool_var; }
+        sat::bool_var external_flip() override { return sat::null_bool_var; }
         double reward(sat::bool_var v) override { return 0; }
         double get_weigth(unsigned clause_idx) override { return 0; }
         bool is_true(sat::literal lit) override { return true; }
