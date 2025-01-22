@@ -119,6 +119,8 @@ typedef enum
    - Z3_PARAMETER_SORT is used for sort parameters.
    - Z3_PARAMETER_AST is used for expression parameters.
    - Z3_PARAMETER_FUNC_DECL is used for function declaration parameters.
+   - Z3_PARAMETER_INTERNAL is used for parameters that are private to Z3. They cannot be accessed.
+   - Z3_PARAMETER_ZSTRING is used for string parameters. 
 */
 typedef enum
 {
@@ -128,7 +130,9 @@ typedef enum
     Z3_PARAMETER_SYMBOL,
     Z3_PARAMETER_SORT,
     Z3_PARAMETER_AST,
-    Z3_PARAMETER_FUNC_DECL
+    Z3_PARAMETER_FUNC_DECL,
+    Z3_PARAMETER_INTERNAL,
+    Z3_PARAMETER_ZSTRING
 } Z3_parameter_kind;
 
 /**

@@ -500,25 +500,25 @@ extern "C" {
             return Z3_PARAMETER_INT;
         }
         parameter const& p = to_func_decl(d)->get_parameters()[idx];
-        if (p.is_int()) {
-            return Z3_PARAMETER_INT;
-        }
-        if (p.is_double()) {
-            return Z3_PARAMETER_DOUBLE;
-        }
-        if (p.is_symbol()) {
-            return Z3_PARAMETER_SYMBOL;
-        }
-        if (p.is_rational()) {
-            return Z3_PARAMETER_RATIONAL;
-        }
-        if (p.is_ast() && is_sort(p.get_ast())) {
-            return Z3_PARAMETER_SORT;
-        }
-        if (p.is_ast() && is_expr(p.get_ast())) {
-            return Z3_PARAMETER_AST;
-        }
-        SASSERT(p.is_ast() && is_func_decl(p.get_ast()));
+        if (p.is_int()) 
+            return Z3_PARAMETER_INT;        
+        if (p.is_double()) 
+            return Z3_PARAMETER_DOUBLE;        
+        if (p.is_symbol()) 
+            return Z3_PARAMETER_SYMBOL;        
+        if (p.is_rational()) 
+            return Z3_PARAMETER_RATIONAL;        
+        if (p.is_ast() && is_sort(p.get_ast())) 
+            return Z3_PARAMETER_SORT;        
+        if (p.is_ast() && is_expr(p.get_ast())) 
+            return Z3_PARAMETER_AST;   
+        if (p.is_ast() && is_func_decl(p.get_ast()))
+            return Z3_PARAMETER_FUNC_DECL;
+        if (p.is_zstring())
+            return Z3_PARAMETER_ZSTRING;
+        if (p.is_external())
+            return Z3_PARAMETER_INTERNAL;
+        throw default_exception("an attempt was made to access an unknown parameter kind");
         return Z3_PARAMETER_FUNC_DECL;
         Z3_CATCH_RETURN(Z3_PARAMETER_INT);
     }

@@ -834,6 +834,10 @@ class FuncDeclRef(AstRef):
                 result[i] = ExprRef(Z3_get_decl_ast_parameter(self.ctx_ref(), self.ast, i), ctx)
             elif k == Z3_PARAMETER_FUNC_DECL:
                 result[i] = FuncDeclRef(Z3_get_decl_func_decl_parameter(self.ctx_ref(), self.ast, i), ctx)
+            elif k == Z3_PARAMETER_INTERNAL:
+                result[i] = "internal parameter"
+            elif k == Z3_PARAMETER_ZSTRING:
+                result[i] = "internal string"
             else:
                 assert(False)
         return result
