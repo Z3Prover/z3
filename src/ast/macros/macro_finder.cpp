@@ -346,8 +346,8 @@ bool macro_finder::expand_macros(unsigned num, justified_expr const * fmls, vect
           m_macro_manager.display(tout););
     bool found_new_macro = false;
     for (unsigned i = 0; i < num; i++) {
-        expr * n       = fmls[i].get_fml();
-        proof * pr     = m.proofs_enabled() ? fmls[i].get_proof() : nullptr;
+        expr * n       = fmls[i].fml();
+        proof * pr     = m.proofs_enabled() ? fmls[i].pr() : nullptr;
         expr_ref new_n(m), def(m);
         proof_ref new_pr(m);
         expr_dependency_ref new_dep(m);
