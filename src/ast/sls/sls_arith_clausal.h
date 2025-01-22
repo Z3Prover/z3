@@ -54,7 +54,7 @@ namespace sls {
         bool update_outer_best_solution();
         bool update_inner_best_solution();
         bool update_best_solution();
-        void move_arith_variable();
+        var_t move_arith_variable();
         var_t critical_move_on_updates(move_t mt);
         var_t random_move_on_updates();
         void add_lookahead_on_unsat_vars();

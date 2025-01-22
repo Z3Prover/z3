@@ -36,7 +36,6 @@ namespace sls {
 
     template<typename num_t>
     void arith_clausal<num_t>::search() {
-        num_t delta;
 
         initialize();
 
@@ -52,6 +51,8 @@ namespace sls {
             unsigned vars_in_unsat = ctx.unsat_vars().size();
             unsigned ext_in_unsat = ctx.num_external_in_unsat_vars();
             unsigned bool_in_unsat =  vars_in_unsat - ext_in_unsat;
+            sat::bool_var bv = sat::null_bool_var;
+            var_t v = null_arith_var;
             bool time_up_bool  = m_no_improve_bool  * vars_in_unsat >  5 * bool_in_unsat;
             bool time_up_arith = m_no_improve_arith * vars_in_unsat > 20 * ext_in_unsat;
             if ((m_bool_mode && bool_in_unsat < vars_in_unsat && time_up_bool) || bool_in_unsat == 0)
@@ -59,27 +60,33 @@ namespace sls {
             else if ((!m_bool_mode && bool_in_unsat > 0 && time_up_arith) || vars_in_unsat == bool_in_unsat)
                 enter_bool_mode();
             if (m_bool_mode) {
-                sat::bool_var v = ctx.bool_flip(); 
-                TRACE("arith", tout << "bool flip v:" << v << "\n";
-                tout << "unsat-vars " << vars_in_unsat << "\n";
-                tout << "bools: " << bool_in_unsat << " timeup-bool " << time_up_bool << "\n";
-                tout << "no-improve bool: " << m_no_improve_bool << "\n";
-                tout << "ext: " << ext_in_unsat << " timeup-arith " << time_up_arith << "\n";);
-                
+                bv = ctx.bool_flip();                 
                 m_no_improve_bool = update_outer_best_solution() ? 0 : m_no_improve_bool + 1;
             }
             else {
-                move_arith_variable();                
+                v = move_arith_variable();                
                 m_no_improve_arith = update_inner_best_solution() ? 0 : m_no_improve_arith + 1;
             }
             m_no_improve = update_best_solution() ? 0 : m_no_improve + 1;
+
+            TRACE("arith", 
+                if (bv != sat::null_bool_var) tout << "bool flip " << bv << "\n";
+                else if (v != null_arith_var) tout << "arith flip v" << v << "\n";
+                else tout << "no flip\n";
+                tout << "unsat-vars " << vars_in_unsat << "\n";
+                tout << "bools: " << bool_in_unsat << " timeup-bool " << time_up_bool << "\n";
+                tout << "no-improve bool: " << m_no_improve_bool << "\n";
+                tout << "no-improve arith: " << m_no_improve_arith << "\n";
+                tout << "ext: " << ext_in_unsat << " timeup-arith " << time_up_arith << "\n";
+                );
         }
+
         if (a.m_stats.m_steps >= a.m_config.max_moves)
             a.m_config.max_moves_base += 100;
     }
 
     template<typename num_t>
-    void arith_clausal<num_t>::move_arith_variable() {
+    var_t arith_clausal<num_t>::move_arith_variable() {
 
         var_t v = null_arith_var;
 
@@ -107,6 +114,8 @@ namespace sls {
             add_lookahead_on_unsat_vars();
             v = random_move_on_updates();
         }
+
+        return v;
     }
 
     template<typename num_t>
