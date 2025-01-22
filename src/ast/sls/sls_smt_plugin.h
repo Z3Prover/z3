@@ -133,8 +133,8 @@ namespace sls {
             m_sls_model = mdl;
         }
 
-        sat::bool_var bool_flip() override {
-            return m_ddfw->bool_flip();
+        sat::bool_var external_flip() override {
+            return m_ddfw->external_flip();
         }
 
         bool is_external(sat::bool_var v) override {
@@ -158,7 +158,7 @@ namespace sls {
         sat::clause_info const& get_clause(unsigned idx) const override { return m_ddfw->get_clause_info(idx); }
         ptr_iterator<unsigned> get_use_list(sat::literal lit) override { return m_ddfw->use_list(lit); }
         void flip(sat::bool_var v) override { 
-            m_ddfw->flip(v);
+            m_ddfw->external_flip(v);
         }
         bool try_rotate(sat::bool_var v, sat::bool_var_set& rotated, unsigned& budget) override {
             return m_ddfw->try_rotate(v, rotated, budget);

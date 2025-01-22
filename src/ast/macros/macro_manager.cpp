@@ -177,7 +177,7 @@ void macro_manager::mark_forbidden(unsigned n, justified_expr const * exprs) {
     expr_mark visited;
     macro_manager_ns::proc p(m_forbidden_set, m_forbidden);
     for (unsigned i = 0; i < n; i++)
-        for_each_expr(p, visited, exprs[i].get_fml());
+        for_each_expr(p, visited, exprs[i].fml());
 }
 
 

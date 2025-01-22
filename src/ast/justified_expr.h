@@ -20,12 +20,12 @@ public:
     justified_expr& operator=(justified_expr const& other) {
         SASSERT(&m == &other.m);
         if (this != &other) {
-            m.inc_ref(other.get_fml());
-            m.inc_ref(other.get_proof());
+            m.inc_ref(other.fml());
+            m.inc_ref(other.pr());
             m.dec_ref(m_fml);
             m.dec_ref(m_proof);
-            m_fml = other.get_fml();
-            m_proof = other.get_proof();
+            m_fml = other.fml();
+            m_proof = other.pr();
         }
         return *this;
     }
@@ -53,7 +53,7 @@ public:
         m_proof = nullptr;
     }
     
-    expr* get_fml() const { return m_fml; }
+    expr* fml() const { return m_fml; }
 
-    proof* get_proof() const { return m_proof; }        
+    proof* pr() const { return m_proof; }        
 };
