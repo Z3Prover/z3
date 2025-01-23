@@ -223,7 +223,7 @@ namespace sls {
             lookahead(u.m_var, u.m_delta);
 
 //        verbose_stream() << a.m_updates.size() << " " << m_num_lookaheads << " lookaheads\n";
-        ctx.rlimit().inc(1 + m_num_lookaheads/10);
+        ctx.rlimit().inc(1 + m_num_lookaheads);
         critical_move(m_best_var, m_best_delta, mt);        
         return m_best_var;
     }
