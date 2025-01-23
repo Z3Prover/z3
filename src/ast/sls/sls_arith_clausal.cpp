@@ -222,7 +222,7 @@ namespace sls {
         for (auto const& u : a.m_updates)
             lookahead(u.m_var, u.m_delta);
 
-//        verbose_stream() << a.m_updates.size() << " " << m_num_lookaheads << " lookaheads\n";
+        // verbose_stream() << a.m_updates.size() << " " << m_num_lookaheads << " lookaheads\n";
         ctx.rlimit().inc(1 + m_num_lookaheads);
         critical_move(m_best_var, m_best_delta, mt);        
         return m_best_var;
@@ -300,9 +300,16 @@ namespace sls {
         if (!a.update_num(v, delta))
             return -1;
         double score = 0;
+        m_tmp_nat_set.reset();
+        m_tmp_nat_set.assure_domain(ctx.clauses().size() + 1);
         for (auto bv : vi.m_bool_vars_of) {
             for (auto lit : { sat::literal(bv, false), sat::literal(bv, true) }) {
-                for (auto ci : ctx.get_use_list(lit)) {
+                for (auto ci : ctx.get_use_list(lit)) {                    
+                    if (m_tmp_nat_set.contains(ci)) {
+                        continue;
+                    }
+                    m_tmp_nat_set.insert(ci);
+
                     auto const& c = ctx.get_clause(ci);
                     unsigned num_true = 0;
                     for (auto lit : c) {

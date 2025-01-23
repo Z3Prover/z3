@@ -19,9 +19,11 @@ Author:
 
 #include "util/checked_int64.h"
 #include "util/optional.h"
+#include "util/nat_set.h"
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/sls/sls_context.h"
+
 
 namespace sls {
     
@@ -77,6 +79,8 @@ namespace sls {
         var_t    m_best_var = UINT_MAX;
         unsigned m_best_last_step = 0;
         unsigned m_num_lookaheads = 0;
+
+        nat_set  m_tmp_nat_set;
 
         // avoid checking the same updates twice
         var_t m_last_var = UINT_MAX;
