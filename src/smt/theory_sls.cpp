@@ -243,7 +243,6 @@ namespace smt {
             verbose_stream() << "\n";
         }
 #endif
-
         for (auto const& cl : m_shared_clauses)
             if (all_of(cl, [this](sat::literal lit) { return ctx.get_assignment(lit) != l_true; }))
                 return false;

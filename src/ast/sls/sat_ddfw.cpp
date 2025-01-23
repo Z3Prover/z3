@@ -232,7 +232,7 @@ namespace sat {
         m_reinit_next = m_config.m_reinit_base;
 
         m_restart_count = 0;
-        m_restart_next = m_config.m_restart_base*2;
+        m_restart_next = m_config.m_restart_base;
 
         m_min_sz = m_clauses.size();
         m_flips = 0;

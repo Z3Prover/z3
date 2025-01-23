@@ -211,7 +211,7 @@ namespace sls {
             m_sat_phase[v] = ctx.get_best_phase(v);
     }
 
-    bool smt_plugin::export_to_sls() {
+    bool smt_plugin::export_to_sls() {        
         bool updated = false;
         if (m_has_units) {            
             std::lock_guard<std::mutex> lock(m_mutex);
@@ -275,7 +275,7 @@ namespace sls {
     void smt_plugin::sls_phase_to_smt() {
         if (!m_has_new_sls_phase)
             return;
-        IF_VERBOSE(2, verbose_stream() << "SLS -> SMT phase " << m_min_unsat_size << "\n");
+        IF_VERBOSE(2, verbose_stream() << "SLS -> SMT phase. unsat size: " << m_min_unsat_size << "\n");
         for (auto v : m_shared_bool_vars) 
             ctx.force_phase(sat::literal(v, !m_sls_phase[v]));
         m_has_new_sls_phase = false;
