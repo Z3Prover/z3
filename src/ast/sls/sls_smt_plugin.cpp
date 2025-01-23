@@ -254,13 +254,14 @@ namespace sls {
     }
 
     void smt_plugin::smt_values_to_sls() {
+#if 0
         if (m_value_smt2sls_delay < m_value_smt2sls_delay_threshold) {
             m_value_smt2sls_delay++;
             return;
         }
-        verbose_stream() << m_value_smt2sls_delay << " " << m_value_smt2sls_delay_threshold << "\n";
         m_value_smt2sls_delay_threshold += m_value_smt2sls_delay_threshold/3;
         m_value_smt2sls_delay = 0;
+#endif
         IF_VERBOSE(2, verbose_stream() << "SMT -> SLS values\n");
         for (auto const& [t, t_sync] : m_smt2sync_uninterp) {
             expr_ref val_t(m);
