@@ -218,8 +218,12 @@ namespace sls {
         m_best_delta = 0;
         m_best_abs_value = num_t(-1);
         m_best_last_step = UINT_MAX;
+        m_num_lookaheads = 0;
         for (auto const& u : a.m_updates)
             lookahead(u.m_var, u.m_delta);
+
+//        verbose_stream() << a.m_updates.size() << " " << m_num_lookaheads << " lookaheads\n";
+        ctx.rlimit().inc(1 + m_num_lookaheads/10);
         critical_move(m_best_var, m_best_delta, mt);        
         return m_best_var;
     }
@@ -247,11 +251,11 @@ namespace sls {
         m_last_delta = delta;
         if (!a.can_update_num(v, delta))
             return;
-        ctx.rlimit().inc();
         auto score = get_score(v, delta);
         auto& vi = a.m_vars[v];        
         num_t abs_value = abs(vi.value() + delta);
         unsigned last_step = vi.last_step(delta);
+        ++m_num_lookaheads;
         if (score < a.m_best_score)
             return;
         if (score > a.m_best_score ||
@@ -338,10 +342,21 @@ namespace sls {
 
     template<typename num_t>
     void arith_clausal<num_t>::check_restart() {
+
         if (m_no_improve <= 500000)
             return;
+#if 0
+        if (a.m_stats.m_steps < a.m_config.restart_next)
+            return;
+
         
-        IF_VERBOSE(2, verbose_stream() << "restart sls-arith\n");
+        ++a.m_stats.m_restarts;
+        a.m_config.restart_next = std::max(a.m_config.restart_next, a.m_stats.m_steps);
+        
+        a.m_config.restart_next += (2 * a.m_stats.m_restarts * a.m_config.restart_base)/3;
+#endif    
+        
+        IF_VERBOSE(2, verbose_stream() << "restart sls-arith " << a.m_config.restart_next << "\n");
         TRACE("arith", tout << "restart\n";);
         // reset values of (arithmetical) variables at bounds.
         for (auto& vi : a.m_vars) {

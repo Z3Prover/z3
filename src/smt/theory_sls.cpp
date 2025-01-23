@@ -209,6 +209,7 @@ namespace smt {
             m_smt_plugin->smt_units_to_sls();
             ++m_stats.m_num_restart_sls;
             bounded_run(m_restart_ls_steps);
+            inc_restart_ls_steps();
             if (m_smt_plugin)
                 m_smt_plugin->sls_activity_to_smt();
         }
@@ -235,6 +236,14 @@ namespace smt {
     }
 
     bool theory_sls::shared_clauses_are_true() const {
+#if 0
+        for (auto const& cl : m_shared_clauses) {
+            for (auto lit : cl)
+                verbose_stream() << lit << " : " << ctx.get_assignment(lit);
+            verbose_stream() << "\n";
+        }
+#endif
+
         for (auto const& cl : m_shared_clauses)
             if (all_of(cl, [this](sat::literal lit) { return ctx.get_assignment(lit) != l_true; }))
                 return false;

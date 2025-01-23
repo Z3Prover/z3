@@ -76,6 +76,7 @@ namespace sls {
         num_t    m_best_delta;
         var_t    m_best_var = UINT_MAX;
         unsigned m_best_last_step = 0;
+        unsigned m_num_lookaheads = 0;
 
         // avoid checking the same updates twice
         var_t m_last_var = UINT_MAX;

@@ -63,6 +63,9 @@ namespace sls {
         std::thread m_thread;
         std::mutex  m_mutex;
 
+        unsigned m_value_smt2sls_delay = 0;
+        unsigned m_value_smt2sls_delay_threshold = 50;
+
         sat::literal_vector m_units;
         model_ref m_sls_model;
 

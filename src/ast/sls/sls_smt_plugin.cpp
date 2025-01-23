@@ -101,7 +101,7 @@ namespace sls {
         if (!m_ddfw)
             return;
         m_result = m_ddfw->check(0, nullptr);
-        IF_VERBOSE(2, verbose_stream() << "sls-result " << m_result << "\n");
+        IF_VERBOSE(3, verbose_stream() << "sls-result " << m_result << "\n");
         for (auto v : m_shared_bool_vars) {
             auto w = m_smt_bool_var2sls_bool_var[v];
             m_rewards[v] = m_ddfw->get_reward_avg(w);
@@ -110,7 +110,7 @@ namespace sls {
     }
 
     void smt_plugin::bounded_run(unsigned max_iterations) {
-        verbose_stream() << "bounded run " << max_iterations << "\n";
+        IF_VERBOSE(3, verbose_stream() << "(sls-bounded :" << max_iterations << ")\n");
         m_ddfw->rlimit().reset_count();
         m_ddfw->rlimit().push(max_iterations);
         {
@@ -229,6 +229,7 @@ namespace sls {
     }
     
     void smt_plugin::export_phase_to_sls() {
+#if 0
         IF_VERBOSE(2, verbose_stream() << "SMT -> SLS phase\n");
         for (auto v : m_shared_bool_vars) {
             auto w = m_smt_bool_var2sls_bool_var[v];
@@ -236,9 +237,11 @@ namespace sls {
                 flip(w);            
             m_ddfw->bias(w) = m_sat_phase[v] ? 1 : -1;
         }
+#endif
     }
 
     void smt_plugin::smt_phase_to_sls() {
+#if 0
         IF_VERBOSE(2, verbose_stream() << "SMT -> SLS phase\n");
         for (auto v : m_shared_bool_vars) {
             auto w = m_smt_bool_var2sls_bool_var[v];
@@ -247,9 +250,17 @@ namespace sls {
                 flip(w);            
             m_ddfw->bias(w) = phase ? 1 : -1;
         }
+#endif
     }
 
     void smt_plugin::smt_values_to_sls() {
+        if (m_value_smt2sls_delay < m_value_smt2sls_delay_threshold) {
+            m_value_smt2sls_delay++;
+            return;
+        }
+        verbose_stream() << m_value_smt2sls_delay << " " << m_value_smt2sls_delay_threshold << "\n";
+        m_value_smt2sls_delay_threshold += m_value_smt2sls_delay_threshold/3;
+        m_value_smt2sls_delay = 0;
         IF_VERBOSE(2, verbose_stream() << "SMT -> SLS values\n");
         for (auto const& [t, t_sync] : m_smt2sync_uninterp) {
             expr_ref val_t(m);

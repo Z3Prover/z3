@@ -81,14 +81,14 @@ namespace sat {
     void ddfw::log() {
         double sec = m_stopwatch.get_current_seconds();        
         double kflips_per_sec = sec > 0 ? (m_flips - m_last_flips) / (1000.0 * sec) : 0.0;
-        if (m_last_flips == 0) {
-            IF_VERBOSE(1, verbose_stream() << "(sat.ddfw :unsat :models :kflips/sec  :flips  :restarts  :reinits  :unsat_vars  :shifts";
+        if (m_logs++ % 30 == 0) {
+            IF_VERBOSE(2, verbose_stream() << "(sat.ddfw :unsat :models :kflips/sec   :flips :restarts   :reinits  :unsat_vars  :shifts";
                        verbose_stream() << ")\n");
         }
-        IF_VERBOSE(1, verbose_stream() << "(sat.ddfw " 
+        IF_VERBOSE(2, verbose_stream() << "(sat.ddfw " 
                    << std::setw(07) << m_min_sz 
                    << std::setw(07) << m_models.size()
-                   << std::setw(10) << kflips_per_sec
+                   << std::setw(11) << std::fixed << std::setprecision(4) << kflips_per_sec
                    << std::setw(10) << m_flips 
                    << std::setw(10) << m_restart_count
                    << std::setw(11) << m_reinit_count
@@ -214,6 +214,10 @@ namespace sat {
     }
 
     void ddfw::init(unsigned sz, literal const* assumptions) {
+        if (sz == 0 && m_initialized) {            
+            m_stopwatch.start();
+            return;
+        }
         m_assumptions.reset();
         m_assumptions.append(sz, assumptions);
         add_assumptions();
@@ -235,6 +239,8 @@ namespace sat {
         m_last_flips = 0;
         m_shifts = 0;
         m_stopwatch.start();
+        if (sz == 0)        
+            m_initialized = true;
     }
 
     void ddfw::reinit() {
@@ -423,7 +429,7 @@ namespace sat {
             m_model[i] = to_lbool(value(i));
         save_priorities();
         if (m_plugin && !m_in_external_flip)
-            m_last_result = m_plugin->on_save_model();   
+            m_last_result = m_plugin->on_save_model();
     }
 
     void ddfw::save_best_values() {

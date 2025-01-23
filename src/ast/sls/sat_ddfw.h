@@ -99,6 +99,7 @@ namespace sat {
         unsigned         m_restart_count = 0, m_reinit_count = 0;
         uint64_t         m_restart_next = 0, m_reinit_next = 0;
         uint64_t         m_flips = 0, m_last_flips = 0, m_shifts = 0;
+        unsigned         m_logs = 0;
         unsigned         m_min_sz = UINT_MAX;
         u_map<unsigned>  m_models;
         stopwatch        m_stopwatch;
@@ -168,7 +169,7 @@ namespace sat {
         void check_with_plugin();
         void check_without_plugin();
 
-        // flip activity
+        // flip 
         bool do_flip();
 
         bool_var pick_var(double& reward);     
@@ -216,6 +217,7 @@ namespace sat {
 
         void flip(bool_var v);
         bool m_in_external_flip = false;
+        bool m_initialized = false;
 
 
     public:
