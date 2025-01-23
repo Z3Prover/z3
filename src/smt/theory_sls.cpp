@@ -169,10 +169,14 @@ namespace smt {
     }
 
     void theory_sls::run_guided_sls() {
+        m_smt_plugin->smt_values_to_sls();
+        if (m_parallel_mode) 
+            return;
+        
         ++m_stats.m_num_guided_sls;
         m_smt_plugin->smt_phase_to_sls();
         m_smt_plugin->smt_units_to_sls();
-        m_smt_plugin->smt_values_to_sls();
+
         bounded_run(m_final_check_ls_steps);
         dec_final_check_ls_steps();
         if (m_smt_plugin) {
@@ -225,7 +229,7 @@ namespace smt {
     }
 
     final_check_status theory_sls::final_check_eh() {
-        if (m_parallel_mode || !m_smt_plugin)
+        if (!m_smt_plugin)
             return FC_DONE;
         ++m_after_resolve_decide_count;
         if (m_after_resolve_decide_gap > m_after_resolve_decide_count)

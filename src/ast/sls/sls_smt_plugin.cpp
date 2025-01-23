@@ -33,6 +33,7 @@ namespace sls {
         m_smt2sls_tr(m, m_sls),
         m_sls2sync_tr(m_sls, m_sync),
         m_sls2smt_tr(m_sls, m),
+        m_sync2sls_tr(m_sync, m_sls),
         m_sync_uninterp(m_sync),
         m_sls_uninterp(m_sls),
         m_sync_values(m_sync),
@@ -47,7 +48,7 @@ namespace sls {
     void smt_plugin::check(expr_ref_vector const& fmls, vector <sat::literal_vector> const& clauses) {
         SASSERT(!m_ddfw);
         // set up state for local search theory_sls here
-
+        
         m_result = l_undef;
         m_completed = false;
         m_units.reset();
@@ -225,6 +226,12 @@ namespace sls {
             m_has_new_sat_phase = false;
             updated = true;
         }
+        if (m_has_new_smt_values) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            export_values_to_sls();
+            m_has_new_smt_values = false;
+            updated = true;
+        }
         return updated;
     }
     
@@ -238,6 +245,18 @@ namespace sls {
             m_ddfw->bias(w) = m_sat_phase[v] ? 1 : -1;
         }
 #endif
+    }
+
+    void smt_plugin::export_values_to_sls() {
+        IF_VERBOSE(2, verbose_stream() << "SMT -> SLS values\n");
+        for (auto [var, value] : m_sync_var_values) {
+            expr_ref var1(m_sls), value1(m_sls);
+            var1 = m_sync2sls_tr(var.get());
+            value1 = m_sync2sls_tr(value.get());
+            if (!var1 || !value1)
+                continue;
+            m_context.set_value(var1, value1);
+        }
     }
 
     void smt_plugin::smt_phase_to_sls() {
@@ -254,6 +273,21 @@ namespace sls {
     }
 
     void smt_plugin::smt_values_to_sls() {
+
+        if (ctx.parallel_mode()) {
+            std::scoped_lock lock(m_mutex);
+            m_sync_var_values.reset();
+            for (auto const& [t, t_sync] : m_smt2sync_uninterp) {
+                expr_ref val_t(m);
+                if (!ctx.get_smt_value(t, val_t))
+                    continue;
+                auto t_sls = expr_ref(m_smt2sls_tr(t), m_sls);
+                auto val_sls = expr_ref(m_smt2sls_tr(val_t.get()), m_sls);
+                m_sync_var_values.push_back({ t_sls, val_sls });
+            }
+            m_has_new_smt_values = true;
+            return;
+        }
 #if 0
         if (m_value_smt2sls_delay < m_value_smt2sls_delay_threshold) {
             m_value_smt2sls_delay++;
@@ -267,7 +301,7 @@ namespace sls {
             expr_ref val_t(m);
             if (!ctx.get_smt_value(t, val_t))
                 continue;
-            expr* t_sls = m_smt2sls_tr(t);
+            auto t_sls = expr_ref(m_smt2sls_tr(t), m_sls);
             auto val_sls = expr_ref(m_smt2sls_tr(val_t.get()), m_sls);            
             m_context.set_value(t_sls, val_sls);
         }

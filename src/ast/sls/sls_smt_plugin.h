@@ -53,7 +53,7 @@ namespace sls {
         ast_manager& m;
         ast_manager  m_sls;
         ast_manager  m_sync;
-        ast_translation m_smt2sync_tr, m_smt2sls_tr, m_sls2sync_tr, m_sls2smt_tr;
+        ast_translation m_smt2sync_tr, m_smt2sls_tr, m_sls2sync_tr, m_sls2smt_tr, m_sync2sls_tr;
         expr_ref_vector m_sync_uninterp, m_sls_uninterp; 
         expr_ref_vector m_sync_values;
         sat::ddfw* m_ddfw = nullptr;
@@ -73,11 +73,13 @@ namespace sls {
         unsigned m_min_unsat_size = UINT_MAX;
         obj_map<expr, expr*> m_sls2sync_uninterp; // hashtable from sls-uninterp to sync uninterp
         obj_map<expr, expr*> m_smt2sync_uninterp; // hashtable from external uninterp to sync uninterp
+        vector<std::pair<expr_ref, expr_ref>> m_sync_var_values;
         std::atomic<bool> m_has_new_sls_values = false;
         uint_set m_shared_bool_vars, m_shared_terms;
         svector<bool> m_sat_phase;
         std::atomic<bool> m_has_new_sat_phase = false;
         std::atomic<bool> m_has_new_sls_phase = false;
+        std::atomic<bool> m_has_new_smt_values = false;
         svector<bool> m_sls_phase;
         svector<double> m_rewards;
         svector<sat::bool_var> m_smt_bool_var2sls_bool_var, m_sls_bool_var2smt_bool_var;
@@ -91,6 +93,7 @@ namespace sls {
 
         void import_phase_from_smt();
         void import_values_from_sls();
+        void export_values_to_sls();
         void export_values_from_sls();
         void export_phase_from_sls();
         void import_activity_from_sls();
