@@ -63,7 +63,7 @@ namespace lp {
             return m_rev_map.find(b)->second;
         }
 
-        unsigned size() const {return m_map.size();}
+        unsigned size() const {return static_cast<unsigned>(m_map.size());}
         
         void erase_val(unsigned b) {
             SASSERT(contains(m_rev_map, b) && contains(m_map, m_rev_map[b]));
@@ -340,7 +340,7 @@ namespace lp {
             TRACE("d_undo", tout << "t:"<< t<<", t->j():"<< t->j() << std::endl;);
             TRACE("dioph_eq", lra.print_term(*t, tout); tout << ", t->j() =" << t->j() << std::endl;);
             if (!contains(m_active_terms, t)) {
-                for (int i = m_added_terms.size() - 1; i >= 0; --i) {
+                for (int i = static_cast<int>(m_added_terms.size() - 1); i >= 0; --i) {
                     if (m_added_terms[i] != t) continue;
                     if ((unsigned)i != m_added_terms.size() -1) 
                         m_added_terms[i] = m_added_terms.back();
@@ -388,7 +388,7 @@ namespace lp {
         };
         
         void remove_last_entry() {
-            unsigned ei = m_entries.size() - 1;
+            unsigned ei = static_cast<unsigned>(m_entries.size() - 1);
         
             if (m_k2s.has_val(ei)) {
                 remove_from_S(ei);
@@ -487,7 +487,7 @@ namespace lp {
         
         void remove_last_row_in_matrix(static_matrix<mpq, mpq>& m) {
             auto & last_row = m.m_rows.back();
-            for (unsigned k = last_row.size(); k-- > 0;) {                
+            for (unsigned k = static_cast<unsigned>(last_row.size()); k-- > 0;) {                
                 m.remove_element(last_row, last_row[k]);
             }
             m.m_rows.pop_back();                                
@@ -609,6 +609,7 @@ namespace lp {
             SASSERT(entry_invariant(entry_index));
         }
         void subs_entry(unsigned ei) {
+            if (ei >= m_entries.size()) return;
             std::queue<unsigned> q;
             for (const auto& p: m_e_matrix.m_rows[ei]) {
                 if (can_substitute(p.var()))
@@ -754,9 +755,9 @@ namespace lp {
                 fresh_entries_to_remove.pop_back();
                 const fresh_definition & fd = m_fresh_definitions[xt];
                 TRACE("d_once", print_entry(fd.m_ei, tout) << std::endl; tout << "xt:" << xt << std::endl;);
-                unsigned last_ei = m_entries.size() - 1;
+                unsigned last_ei = static_cast<unsigned>(m_entries.size() - 1);
                 if (fd.m_ei != last_ei) { // not the last entry
-                    transpose_entries(fd.m_ei, m_entries.size() -1 );
+                    transpose_entries(fd.m_ei, static_cast<unsigned>(m_entries.size() - 1));
                     // we are not going to recalculate fd.m_ei
                     // but we might need to recalculate last_ei, which becomes fd.m_ei
                     if (contains(entries_to_recalculate, last_ei )) {
@@ -1786,7 +1787,7 @@ namespace lp {
                     pivot_col_cell_index;
             }
 
-            unsigned cell_to_process = column.size() - 1;
+            unsigned cell_to_process = static_cast<unsigned>(column.size() - 1);
             while (cell_to_process > 0) {
                 auto& c = column[cell_to_process];
                 if (belongs_to_s(c.var())) {
