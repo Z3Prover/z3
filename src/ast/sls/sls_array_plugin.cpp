@@ -115,7 +115,8 @@ namespace sls {
         }
         else {
             g.merge(nmap, nsel, nullptr);
-            VERIFY(g.propagate());
+            g.propagate();
+            VERIFY(!g.inconsistent());
         }
     }
 
@@ -143,8 +144,9 @@ namespace sls {
         if (are_distinct(nsel, val))
             add_store_axiom1(n->get_app());
         else {
-            g.merge(nsel, val, nullptr);
-            VERIFY(g.propagate());
+            g.merge(nsel, val, nullptr);            
+            g.propagate();
+            VERIFY(!g.inconsistent());
         }
     }
 
@@ -161,7 +163,8 @@ namespace sls {
             add_store_axiom2(sto->get_app(), sel->get_app());
         else {
             g.merge(nsel, sel, nullptr);
-            VERIFY(g.propagate());
+            g.propagate();
+            VERIFY(!g.inconsistent());
         }
     }
 
@@ -178,7 +181,8 @@ namespace sls {
             add_store_axiom2(sto->get_app(), sel->get_app());
         else {
             g.merge(nsel, sel, nullptr);
-            VERIFY(g.propagate());
+            g.propagate();
+            VERIFY(!g.inconsistent());
         }
     }
 
@@ -196,7 +200,8 @@ namespace sls {
         }
         else {
             g.merge(nsel, sel, nullptr);
-            VERIFY(g.propagate());
+            g.propagate();
+            VERIFY(!g.inconsistent());
         }
     }
 
@@ -265,18 +270,19 @@ namespace sls {
             if (a.is_array(t))
                 continue;
             auto v = ctx.get_value(t);
-            IF_VERBOSE(3, verbose_stream() << "init " << mk_bounded_pp(t, m) << " := " << mk_bounded_pp(v, m) << "\n");
+            IF_VERBOSE(3, verbose_stream() << "init " << mk_bounded_pp(t, m) << " := " << mk_bounded_pp(v, m) << " " << g.inconsistent() << "\n");
             n2 = g.find(v);
             n2 = n2 ? n2: g.mk(v, 0, 0, nullptr);
-            g.merge(n1, n2, nullptr);
+            g.merge(n1, n2, nullptr);            
         }
         for (auto lit : ctx.root_literals()) {
             if (!ctx.is_true(lit) || lit.sign())
                 continue;
             auto e = ctx.atom(lit.var());
-            expr* x, * y;
+            expr* x = nullptr, * y = nullptr;
             if (e && m.is_eq(e, x, y))
                 g.merge(g.find(x), g.find(y), nullptr);
+
         }
 
         IF_VERBOSE(3, display(verbose_stream()));
@@ -297,7 +303,6 @@ namespace sls {
                 kv[n].insert(select_args(p), val);
             }
         }
-        display(verbose_stream());
     }
 
     expr_ref array_plugin::get_value(expr* e)  { 
