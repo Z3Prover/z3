@@ -64,6 +64,7 @@ namespace sls {
         void critical_move(var_t v, num_t const& delta, move_t mt);
         void lookahead(var_t v, num_t const& delta);
         double get_score(var_t v, num_t const& delta);
+        void add_lookahead(sat::bool_var bv);
         
 
         unsigned m_no_improve_bool = 0;

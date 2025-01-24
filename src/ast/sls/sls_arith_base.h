@@ -122,8 +122,7 @@ namespace sls {
             vector<std::pair<num_t, sat::bool_var>> m_linear_occurs;
             sat::bool_var_vector m_bool_vars_of;
             unsigned_vector m_clauses_of;
-            unsigned_vector m_muls;
-            unsigned_vector m_adds;
+            unsigned_vector m_muls, m_adds, m_ops;
             optional<bound> m_lo, m_hi;
             vector<num_t> m_finite_domain;
 
@@ -277,6 +276,7 @@ namespace sls {
 
         bool is_mul(var_t v) const { return m_vars[v].m_op == arith_op_kind::OP_MUL; }
         bool is_add(var_t v) const { return m_vars[v].m_op == arith_op_kind::OP_ADD; }
+        bool is_op(var_t v) const { return m_vars[v].m_op != arith_op_kind::LAST_ARITH_OP && m_vars[v].m_op != arith_op_kind::OP_MUL && m_vars[v].m_op != arith_op_kind::OP_ADD; }
         mul_def const& get_mul(var_t v) const { SASSERT(is_mul(v));  return m_muls[m_vars[v].m_def_idx]; }
         add_def const& get_add(var_t v) const { SASSERT(is_add(v));  return m_adds[m_vars[v].m_def_idx]; }
 
@@ -385,7 +385,6 @@ namespace sls {
         double lookahead(expr* e, bool update_score);
         void add_lookahead(bool_info& i, expr* e);
         void add_lookahead(bool_info& i, sat::bool_var bv);
-        void add_lookahead(sat::bool_var bv);
         ptr_vector<expr> const& get_fixable_exprs(expr* e);
         bool apply_move(expr* f, ptr_vector<expr> const& vars, arith_move_type t);
         expr* get_candidate_unsat();

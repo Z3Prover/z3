@@ -543,7 +543,7 @@ namespace sls {
     bool arith_base<num_t>::find_lin_moves(sat::literal lit) {
         m_updates.reset();
         auto* ineq = get_ineq(lit.var());
-        num_t a, b;
+        num_t a(0), b(0);
         if (!ineq)
             return false;
         if (!ineq->m_is_linear) {
@@ -947,6 +947,9 @@ namespace sls {
         m_vars[v].m_def_idx = idx;
         m_vars[v].m_op = k;
         m_vars[v].set_value(val);
+        m_vars[vx].m_ops.push_back(v);
+        if (vy != vx)
+            m_vars[vy].m_ops.push_back(v);
         return v;
     }
 
@@ -1854,7 +1857,7 @@ namespace sls {
         for (auto const& [x, nl] : ineq->m_nonlinear) {
             if (is_fixed(x))
                 continue;
-            if (is_add(x) || is_mul(x))
+            if (is_add(x) || is_mul(x) || is_op(x))
                 ;
             else if (is_linear(x, nl, b))
                 find_linear_moves(*ineq, x, b);
@@ -1905,7 +1908,7 @@ namespace sls {
     bool arith_base<num_t>::find_reset_moves(sat::literal lit) {
         m_updates.reset();
         auto* ineq = get_ineq(lit.var());        
-        num_t a, b;
+        num_t a(0), b(0);
         if (!ineq)
             return false;
         for (auto const& [x, nl] : ineq->m_nonlinear) 
@@ -2853,25 +2856,6 @@ namespace sls {
         m_fixed_atoms.insert(bv);
     }
 
-    template<typename num_t>
-    void arith_base<num_t>::add_lookahead(sat::bool_var bv) {
-        auto* ineq = get_ineq(bv);
-        if (!ineq)
-            return;
-        num_t na, nb;
-        for (auto const& [x, nl] : ineq->m_nonlinear) {
-            if (is_fixed(x))
-                continue;
-            if (is_add(x) || is_mul(x))
-                ;
-            else if (is_linear(x, nl, nb))
-                find_linear_moves(*ineq, x, nb);
-            else if (is_quadratic(x, nl, na, nb))
-                find_quadratic_moves(*ineq, x, na, nb, ineq->m_args_value);
-            else
-                ;
-        }
-    }
 
     // for every variable e, for every atom containing e
     // add lookahead for e.
@@ -3211,8 +3195,8 @@ namespace sls {
         for (auto const& idx : vi.m_muls) {
             auto& [x, monomial] = m_muls[idx];
             num_t new_prod(1);
-            for (auto [w, p] : monomial) 
-                new_prod *= power_of(v == w ? new_value : value(w), p);            
+            for (auto [w, p] : monomial)
+                new_prod *= power_of(value(w), p);
             update_args_value(x, new_prod);
         }
 
@@ -3220,10 +3204,12 @@ namespace sls {
             auto& ad = m_adds[idx];
             num_t new_sum(ad.m_coeff);
             for (auto [c, w] : ad.m_args)
-                new_sum += c * (v == w ? new_value : value(w));
+                new_sum += c * value(w);
             update_args_value(ad.m_var, new_sum);
         }
 
+        for (auto const& x : vi.m_ops) 
+            update_args_value(x, value1(x));        
 
         for (auto const& [coeff, bv] : vi.m_linear_occurs) {
             auto& ineq = *get_ineq(bv);

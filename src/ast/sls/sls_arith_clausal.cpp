@@ -127,8 +127,28 @@ namespace sls {
         tout << "\n";);
 
         for (auto v : ctx.unsat_vars()) 
-            a.add_lookahead(v);
+            add_lookahead(v);
         
+    }
+
+    template<typename num_t>
+    void arith_clausal<num_t>::add_lookahead(sat::bool_var bv) {
+        auto* ineq = a.get_ineq(bv);
+        if (!ineq)
+            return;
+        num_t na, nb;
+        for (auto const& [x, nl] : ineq->m_nonlinear) {
+            if (a.is_fixed(x))
+                continue;
+            if (a.is_add(x) || a.is_mul(x) || a.is_op(x))
+                ;
+            else if (a.is_linear(x, nl, nb))
+                a.find_linear_moves(*ineq, x, nb);
+            else if (a.is_quadratic(x, nl, na, nb))
+                a.find_quadratic_moves(*ineq, x, na, nb, ineq->m_args_value);
+            else
+                ;
+        }
     }
 
     /**
@@ -162,7 +182,7 @@ namespace sls {
                 --sz;
                 a.m_bool_var_atoms.swap_elems(idx, sz);
                 if (occurs_negative(bv))
-                    a.add_lookahead(bv);
+                    add_lookahead(bv);
                 else
                     ++i;
             }
@@ -171,7 +191,7 @@ namespace sls {
             for (unsigned i = 0; i < sz; ++i) {
                 bv = a.m_bool_var_atoms[i];
                 if (occurs_negative(bv))
-                    a.add_lookahead(bv);
+                    add_lookahead(bv);
             }
         }
     }
