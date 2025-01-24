@@ -13,30 +13,12 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2023-02-07
 
+Notes:
+
     Uses quadratic solver method from nia_ls in hybrid-smt
     (with a bug fix for when order of roots are swapped)
     Other features from nia_ls are also used as a starting point, 
     such as tabu and fallbacks.
-
-Todo:
-
-- add fairness for which variable to flip and direction (by age fifo).
-  - maintain age per variable, per sign
-
-- include more general tabu measure
-  - 
-
-- random walk when there is no applicable update
-  - repair_down can fail repeatedely. Then allow a mode to reset arguments similar to 
-    repair of literals.
-
-- avoid overflow for nested products
-
-Done:
-- add tabu for flipping variable back to the same value.
-  - remember last variable/delta and block -delta = last_delta && last_variable = current_variable
-- include measures for bounded updates
-  - per variable maintain increasing range 
 
 --*/
 
@@ -1439,6 +1421,20 @@ namespace sls {
         }
         for (auto bv : m_tmp_set)
             vi.m_bool_vars_of.push_back(bv);
+
+        m_tmp_nat_set.reset();
+        m_tmp_nat_set.assure_domain(ctx.clauses().size() + 1);
+
+        for (auto bv : vi.m_bool_vars_of) {
+            for (auto lit : { sat::literal(bv, false), sat::literal(bv, true) }) {
+                for (auto ci : ctx.get_use_list(lit)) {
+                    if (m_tmp_nat_set.contains(ci))
+                        continue;
+                    m_tmp_nat_set.insert(ci);
+                    vi.m_clauses_of.push_back(ci);
+                }
+            }
+        }
     }
 
     template<typename num_t>
@@ -2435,6 +2431,7 @@ namespace sls {
     template<typename num_t>
     void arith_base<num_t>::collect_statistics(statistics& st) const {
         st.update("sls-arith-steps", m_stats.m_steps);
+        st.update("sls-arith-propagations", m_stats.m_propagations);
     }
 
     template<typename num_t>
@@ -2836,6 +2833,24 @@ namespace sls {
                 ;
         }
         m_fixed_atoms.insert(bv);
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::add_lookahead(sat::bool_var bv) {
+        auto* ineq = get_ineq(bv);
+        if (!ineq)
+            return;
+        num_t na, nb;
+        for (auto const& [x, nl] : ineq->m_nonlinear) {
+            if (is_fixed(x))
+                continue;
+            if (is_linear(x, nl, nb))
+                find_linear_moves(*ineq, x, nb);
+            else if (is_quadratic(x, nl, na, nb))
+                find_quadratic_moves(*ineq, x, na, nb, ineq->m_args_value);
+            else
+                ;
+        }
     }
 
     // for every variable e, for every atom containing e
@@ -3254,6 +3269,7 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::start_propagation() {
+        ++m_stats.m_propagations;
         updt_params();    
         if (m_config.use_clausal_lookahead)
             m_clausal_sls.search();

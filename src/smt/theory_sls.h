@@ -73,6 +73,8 @@ namespace smt {
         unsigned m_after_resolve_decide_count = 0;
         unsigned m_resolve_count = 0;
         unsigned m_resolve_gap = 0;
+        unsigned m_max_propagation_scope = 0;
+        unsigned m_propagation_scope = 0;
         mutable bool     m_init_search = false;
         mutable ::statistics m_st;
         vector<sat::literal_vector> m_shared_clauses;
@@ -94,6 +96,8 @@ namespace smt {
 
         void run_guided_sls();
         void finalize() const;
+
+        void update_propagation_scope();
 
     public:
         theory_sls(context& ctx);

@@ -80,8 +80,6 @@ namespace sls {
         unsigned m_best_last_step = 0;
         unsigned m_num_lookaheads = 0;
 
-        nat_set  m_tmp_nat_set;
-
         // avoid checking the same updates twice
         var_t m_last_var = UINT_MAX;
         num_t m_last_delta;

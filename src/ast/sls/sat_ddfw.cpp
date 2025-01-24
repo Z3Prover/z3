@@ -428,6 +428,8 @@ namespace sat {
         for (unsigned i = 0; i < num_vars(); ++i) 
             m_model[i] = to_lbool(value(i));
         save_priorities();
+        if (m_plugin && !m_in_external_flip && m_restart_count == 0)
+            m_plugin->on_restart(); // import values if there are any updated ones.
         if (m_plugin && !m_in_external_flip)
             m_last_result = m_plugin->on_save_model();
     }

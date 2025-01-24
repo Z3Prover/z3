@@ -81,7 +81,7 @@ namespace sls {
     }
 
     expr_ref basic_plugin::eval_ite(app* e) {
-        expr* c, * th, * el;
+        expr* c = nullptr, * th = nullptr, * el = nullptr;
         VERIFY(m.is_ite(e, c, th, el));
         if (bval0(c))
             return ctx.get_value(th);

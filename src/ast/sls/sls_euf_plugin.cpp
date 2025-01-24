@@ -197,8 +197,6 @@ namespace sls {
             g.mk(m.mk_true(), 0, 0, nullptr);
         if (!g.find(m.mk_false()))
             g.mk(m.mk_false(), 0, 0, nullptr);
-
-        // merge all equalities
         // check for conflict with disequalities during propagation
         if (merge_eqs) {
             TRACE("euf", tout << "root literals " << ctx.root_literals() << "\n");
@@ -279,7 +277,7 @@ namespace sls {
     void euf_plugin::validate_model() {
         auto& g = *m_g;
         for (auto lit : ctx.root_literals()) {
-                euf::enode* a, * b;
+                euf::enode* a = nullptr, * b = nullptr;
                 if (!ctx.is_true(lit))
                     continue;
                 auto e = ctx.atom(lit.var());

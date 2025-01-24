@@ -103,13 +103,14 @@ namespace smt {
             m_smt_plugin->check(fmls, clauses);
             m_smt_plugin->get_shared_clauses(m_shared_clauses);
         }
-        else if (!m_parallel_mode) 
-            propagate_local_search();
-        else if (m_smt_plugin->completed()) {
+        else if (m_parallel_mode && m_smt_plugin->completed()) {
             m_smt_plugin->finalize(m_model, m_st);
             m_smt_plugin = nullptr;
             m_init_search = false;
         }
+        else 
+            propagate_local_search();
+        
     }    
 
     void theory_sls::pop_scope_eh(unsigned n) {
@@ -152,17 +153,29 @@ namespace smt {
         }    
     }
 
+    void theory_sls::update_propagation_scope() {
+        if (m_propagation_scope > ctx.get_scope_level() && m_propagation_scope == m_max_propagation_scope) {
+            m_smt_plugin->smt_values_to_sls();
+        }
+        m_propagation_scope = ctx.get_scope_level();
+        m_max_propagation_scope = std::max(m_max_propagation_scope, m_propagation_scope);
+    }
+
     void theory_sls::propagate_local_search() {
         if (!m_has_unassigned_clause_after_resolve)
             return;
-        if (m_parallel_mode || !m_smt_plugin)
+        if (!m_smt_plugin)
             return;
         ++m_after_resolve_decide_count;
-        if (100 + m_after_resolve_decide_gap > m_after_resolve_decide_count)
+        if (100 + m_after_resolve_decide_gap > m_after_resolve_decide_count) {
+            //update_propagation_scope();
             return;
+        }
         m_after_resolve_decide_gap *= 2;
-        if (!shared_clauses_are_true())
+        if (!shared_clauses_are_true()) {
+            update_propagation_scope();
             return;
+        }
         m_resolve_count = 0;
         m_has_unassigned_clause_after_resolve = false;
         run_guided_sls();

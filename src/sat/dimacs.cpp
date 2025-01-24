@@ -132,7 +132,7 @@ static bool parse_dimacs_core(Buffer & in, std::ostream& err, sat::solver & solv
             }
         }
     }
-    catch (dimacs::lex_error) {
+    catch (dimacs::lex_error& ) {
         return false;
     }
     return true;
@@ -280,7 +280,7 @@ namespace dimacs {
             }    
             return true;
         }
-        catch (lex_error) {
+        catch (dimacs::lex_error&) {
             return false;
         }
     }

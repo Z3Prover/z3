@@ -77,6 +77,7 @@ namespace sls {
         struct stats {
             unsigned m_steps = 0;
             unsigned m_restarts = 0;
+            unsigned m_propagations = 0;
         };
 
     public:
@@ -120,6 +121,7 @@ namespace sls {
             unsigned     m_def_idx = UINT_MAX;
             vector<std::pair<num_t, sat::bool_var>> m_linear_occurs;
             sat::bool_var_vector m_bool_vars_of;
+            unsigned_vector m_clauses_of;
             unsigned_vector m_muls;
             unsigned_vector m_adds;
             optional<bound> m_lo, m_hi;
@@ -216,6 +218,7 @@ namespace sls {
         svector<double>              m_prob_break;
         indexed_uint_set             m_bool_var_atoms;
         indexed_uint_set             m_tmp_set;
+        nat_set  m_tmp_nat_set;
 
         void invariant();
         void invariant(ineq const& i);
@@ -381,6 +384,7 @@ namespace sls {
         double lookahead(expr* e, bool update_score);
         void add_lookahead(bool_info& i, expr* e);
         void add_lookahead(bool_info& i, sat::bool_var bv);
+        void add_lookahead(sat::bool_var bv);
         ptr_vector<expr> const& get_fixable_exprs(expr* e);
         bool apply_move(expr* f, ptr_vector<expr> const& vars, arith_move_type t);
         expr* get_candidate_unsat();

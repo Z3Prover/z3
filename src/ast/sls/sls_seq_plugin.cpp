@@ -276,7 +276,7 @@ namespace sls {
     ptr_vector<expr> const& seq_plugin::lhs(expr* eq) {
         auto& ev = get_eval(eq);
         if (ev.lhs.empty()) {
-            expr* x, * y;
+            expr* x = nullptr, * y = nullptr;
             VERIFY(m.is_eq(eq, x, y));
             seq.str.get_concat(x, ev.lhs);
             seq.str.get_concat(y, ev.rhs);
@@ -332,7 +332,7 @@ namespace sls {
     }
 
     bool seq_plugin::bval1_seq(app* e) {
-        expr* a, *b;
+        expr* a = nullptr, *b = nullptr;
         SASSERT(e->get_family_id() == seq.get_family_id());
         switch (e->get_decl_kind()) {
         case OP_SEQ_CONTAINS: 
@@ -433,7 +433,7 @@ namespace sls {
                 }
             }
             case OP_SEQ_AT: {
-                expr* x, * offset;
+                expr* x = nullptr, * offset = nullptr;
                 VERIFY(seq.str.is_at(e, x, offset));
                 zstring r = strval0(x);
                 expr_ref offset_e = ctx.get_value(offset);
@@ -613,14 +613,14 @@ namespace sls {
     }
 
     void seq_plugin::repair_up_str_length(app* e) {
-        expr* x;
+        expr* x = nullptr;
         VERIFY(seq.str.is_length(e, x));
         zstring val_x = strval0(x);
         update(e, rational(val_x.length()));
     }
 
     void seq_plugin::repair_up_str_indexof(app* e) {
-        expr* x, * y, * z = nullptr;
+        expr* x = nullptr, * y = nullptr, * z = nullptr;
         VERIFY(seq.str.is_index(e, x, y, z) || seq.str.is_index(e, x, y));
         zstring val_x = strval0(x);
         zstring val_y = strval0(y);
@@ -801,6 +801,7 @@ namespace sls {
                 index -= len_x;
             }
         }
+#if 0
         unsigned last_diff = 0;
         for (unsigned i = 1; i <= val.length() && i <= val_other.length(); ++i) {
             if (val[val.length() - i] != val_other[val_other.length() - i]) {
@@ -809,7 +810,7 @@ namespace sls {
             }
         }
 
-#if 0
+
         if (last_diff != 0) {
             unsigned index = last_diff;
             for (auto x : w) {
@@ -1273,7 +1274,7 @@ namespace sls {
     }
 
     bool seq_plugin::repair_down_str_replace(app* e) {
-        expr* x, * y, * z;
+        expr* x = nullptr, * y = nullptr, * z = nullptr;
         VERIFY(seq.str.is_replace(e, x, y, z));
         zstring r = strval0(e);
         if (r == strval1(e))
@@ -1293,7 +1294,7 @@ namespace sls {
     }
 
     bool seq_plugin::repair_down_str_itos(app* e) {
-        expr* x;
+        expr* x = nullptr;
         VERIFY(seq.str.is_itos(e, x));
         zstring se = strval0(e);
         rational r(se.encode().c_str());
@@ -1305,7 +1306,7 @@ namespace sls {
     }
 
     bool seq_plugin::repair_down_str_stoi(app* e) {
-        expr* x;
+        expr* x = nullptr;
         rational r;
         VERIFY(seq.str.is_stoi(e, x));
         VERIFY(a.is_numeral(ctx.get_value(e), r) && r.is_int());
@@ -1330,7 +1331,7 @@ namespace sls {
     }
 
     bool seq_plugin::repair_down_str_at(app* e) {
-        expr* x, * y;
+        expr* x = nullptr, * y = nullptr;
         VERIFY(seq.str.is_at(e, x, y));
         zstring se = strval0(e);
         // std::cout << "repair-str-at: " << mk_pp(e, m) << ": \"" << se << "\"" << std::endl;
@@ -1387,7 +1388,7 @@ namespace sls {
     }
 
     bool seq_plugin::repair_down_str_indexof(app* e) {
-        expr* x, * y, * offset = nullptr;
+        expr* x = nullptr, * y = nullptr, * offset = nullptr;
         VERIFY(seq.str.is_index(e, x, y, offset) || seq.str.is_index(e, x, y));
         rational value;
         VERIFY(a.is_numeral(ctx.get_value(e), value) && value.is_int());        
@@ -1437,7 +1438,7 @@ namespace sls {
     }
 
     bool seq_plugin::repair_down_str_prefixof(app* e) {
-        expr* a, * b;
+        expr* a = nullptr, * b = nullptr;
         VERIFY(seq.str.is_prefix(e, a, b));
         zstring sa = strval0(a);
         zstring sb = strval0(b);
@@ -1475,7 +1476,7 @@ namespace sls {
     }
 
     bool seq_plugin::repair_down_str_suffixof(app* e) {
-        expr* a, * b;
+        expr* a = nullptr, * b = nullptr;
         VERIFY(seq.str.is_suffix(e, a, b));
         zstring sa = strval0(a);
         zstring sb = strval0(b);
@@ -1513,7 +1514,7 @@ namespace sls {
     }
 
     bool seq_plugin::repair_down_str_contains(expr* e) {
-        expr* a, *b;
+        expr* a = nullptr, *b = nullptr;
         VERIFY(seq.str.is_contains(e, a, b));
         zstring sa = strval0(a);
         zstring sb = strval0(b);
@@ -1568,7 +1569,7 @@ namespace sls {
     }
 
     bool seq_plugin::repair_down_str_extract(app* e) {
-        expr* x, * offset, * len;
+        expr* x = nullptr, * offset = nullptr, * len = nullptr;
         VERIFY(seq.str.is_extract(e, x, offset, len));
         SASSERT(strval0(e) != strval1(e));
         zstring v = strval0(e);
@@ -1832,7 +1833,7 @@ namespace sls {
                 auto& ev = get_eval(t);
                 ev.max_length = 1;
             }
-            expr* x, * offset, * len;
+            expr* x = nullptr, * offset = nullptr, * len = nullptr;
             rational len_r;
             if (seq.str.is_extract(t, x, offset, len) && a.is_numeral(len, len_r)) {
                 auto& ev = get_eval(t);
@@ -1855,7 +1856,6 @@ namespace sls {
         auto e = ctx.atom(lit.var());
         if (!is_seq_predicate(e))
             return;
-        auto a = to_app(e);
         if (bval1(e) == lit.sign())
             ctx.flip(lit.var());
     }
@@ -1890,7 +1890,7 @@ namespace sls {
     }
 
     bool seq_plugin::repair_down_in_re(app* e) {
-        expr* x, * y;
+        expr* x = nullptr, * y = nullptr;
         VERIFY(seq.str.is_in_re(e, x, y));
         auto info = seq.re.get_info(y);
         if (!info.interpreted)

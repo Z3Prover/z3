@@ -212,7 +212,7 @@ namespace sls {
             m_sat_phase[v] = ctx.get_best_phase(v);
     }
 
-    bool smt_plugin::export_to_sls() {        
+    bool smt_plugin::export_to_sls() {     
         bool updated = false;
         if (m_has_units) {            
             std::lock_guard<std::mutex> lock(m_mutex);

@@ -986,7 +986,7 @@ namespace sls {
     }
 
     void bv_eval::fold_oper(bvect& out, app* t, unsigned i, std::function<void(bvect&, bvval const&)> const& f) {
-        auto i2 = i == 0 ? 1 : 0;
+        unsigned i2 = i == 0 ? 1 : 0;
         auto const& c = wval(t->get_arg(i2));
         for (unsigned j = 0; j < c.nw; ++j)
             out[j] = c.bits()[j];
@@ -1242,8 +1242,6 @@ namespace sls {
     bool bv_eval::try_repair_sdiv(bvect const& e, bvval& a, bvval& b, unsigned i) {
 
         bool sign_a = a.sign();
-        bool sign_b = b.sign();
-        bool sign_e = e.get(a.bw - 1);
 
         // y = 0, x >= 0 -> -1
         if (i == 0 && b.is_zero() && a.is_ones(e) && a.try_set(m_zero))

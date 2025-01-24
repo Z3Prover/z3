@@ -676,7 +676,6 @@ namespace sls {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto [e, is_bv] = m_update_stack[depth][i];
                 TRACE("bv_verbose", tout << "update " << mk_bounded_pp(e, m) << "\n";);
-                bool old_truth = false;
                 if (t == e)
                     ;
                 else if (is_bv) {
@@ -684,7 +683,6 @@ namespace sls {
                     wval(e).commit_eval_ignore_tabu();
                 }
                 else {
-                    old_truth = m_ev.get_bool_value(e);
                     SASSERT(m.is_bool(e));    
                     auto v1 = m_ev.bval1(e);
 

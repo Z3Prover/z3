@@ -396,13 +396,12 @@ double sls_engine::find_best_move_mc(ptr_vector<func_decl> & to_evaluate, double
 // main search loop
 lbool sls_engine::search() {
     lbool res = l_undef;
-    double score = 0.0, old_score = 0.0;
+    double score = 0.0;
     unsigned new_const = (unsigned)-1, new_bit;
     mpz new_value;
     move_type move;
 
     score = rescore();
-    unsigned sz = m_assertions.size();
 
     while (check_restart(m_stats.m_moves)) {
         if (!m_manager.inc())
@@ -435,7 +434,6 @@ lbool sls_engine::search() {
             continue;
         }
 
-        old_score = score;
         new_const = (unsigned)-1;
 
         // find best increasing move
