@@ -698,7 +698,9 @@ namespace lp {
                 m_l_matrix.multiply_row(ei, denom);
                 m_e_matrix.multiply_row(ei, denom);
             }
-            
+            if (belongs_to_s(ei)) {
+                remove_from_S(ei);
+            }
             SASSERT(entry_invariant(ei));
         }
 
