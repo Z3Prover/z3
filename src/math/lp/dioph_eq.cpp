@@ -391,7 +391,7 @@ namespace lp {
             unsigned ei = m_entries.size() - 1;
         
             if (m_k2s.has_val(ei)) {
-                m_k2s.erase_val(ei);        
+                remove_from_S(ei);
             }
             m_entries.pop_back();
         }
@@ -478,7 +478,7 @@ namespace lp {
 
 
             if (m_k2s.has_val(i)) {
-                m_k2s.erase_val(i);
+                remove_from_S(i);
             }
             
             m_entries.pop_back();            
@@ -711,7 +711,6 @@ namespace lp {
             std::unordered_set<unsigned> entries_to_recalculate;
             std::unordered_set<unsigned> changed_terms; // a term is signified by the term column, like j in lra.get_term(j)
             std_vector<unsigned> fresh_entries_to_remove;
-            
             for (unsigned j : m_changed_columns) {  
                 const auto it = m_columns_to_terms.find(j);
                 if (it != m_columns_to_terms.end())                
@@ -776,7 +775,8 @@ namespace lp {
             }
             for(unsigned ei : entries_to_recalculate) {
                 if (ei < m_e_matrix.row_count())
-                    move_entry_from_s_to_f(ei); 
+                    if (belongs_to_s(ei))
+                        remove_from_S(ei); 
             }
              
             for(unsigned ei : entries_to_recalculate) {
@@ -792,7 +792,7 @@ namespace lp {
                 }
             }
             
-            eliminate_substituted();
+            eliminate_substituted(entries_to_recalculate);
             SASSERT(entries_are_ok());
             m_changed_columns.clear();
         }
@@ -811,13 +811,9 @@ namespace lp {
             return it->coeff();
         }
 
-        void eliminate_substituted() {
-            for (const auto &p: m_k2s.m_map) {
-                unsigned j = p.first;
-                unsigned ei = p.second;
-                int j_sign = get_sign_in_e_row(ei, j);
-                eliminate_var_in_f(ei, j, j_sign);
-            }
+        void eliminate_substituted(std::unordered_set<unsigned> entries_to_recalculate) {
+            for (unsigned ei: entries_to_recalculate)
+                subs_entry(ei);
         }
 
         void transpose_entries(unsigned i, unsigned k) {
@@ -1827,7 +1823,6 @@ namespace lp {
                 const auto &row = m_e_matrix.m_rows[ei];
                 for (const auto& p : row) {
                     if (p.var() == j) {
-                        std::cout << "not eliminated from row " << ei << std::endl;
                         return false;
                     }
                 }
@@ -1991,8 +1986,7 @@ namespace lp {
             }
 
             m_l_matrix.add_row();
-            
-            m_k2s.add(k, fresh_row);
+            move_entry_from_f_to_s(k, fresh_row);
             fresh_definition fd(-1, -1);
                 
             m_fresh_definitions.resize(xt + 1, fd);
@@ -2042,7 +2036,7 @@ namespace lp {
             return !m_k2s.has_val(ei);
         }
         
-        void move_entry_from_s_to_f(unsigned ei) {
+        void remove_from_S(unsigned ei) {
             m_k2s.erase_val(ei);
         }
 
