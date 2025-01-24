@@ -756,6 +756,21 @@ namespace sls {
     }
 
     template<>
+    void arith_base<rational>::check_real(expr*) {}
+
+    template<>
+    void arith_base<checked_int64<true>>::check_real(expr* e) {
+        if (a.is_real(e))
+            throw overflow_exception();
+    }
+
+    template<typename num_t>
+    void arith_base<num_t>::check_real(expr* e) {
+        UNREACHABLE();
+    }
+
+
+    template<>
     rational arith_base<rational>::to_num(rational const& r) {
         return r;
     }
@@ -1475,9 +1490,9 @@ namespace sls {
             case ineq_kind::LE:
                 if (lit.sign()) {
                     if (c == -1) // -x + c >= 0 <=> c >= x
-                        add_le(v, ineq->m_coeff);
+                        add_lt(v, ineq->m_coeff);
                     else if (c == 1) // x + c >= 0 <=> x >= -c
-                        add_ge(v, -ineq->m_coeff);
+                        add_gt(v, -ineq->m_coeff);
                     else
                         verbose_stream() << "INITIALIZE " << lit << " " << *ineq << "\n";
                 }
@@ -1839,7 +1854,9 @@ namespace sls {
         for (auto const& [x, nl] : ineq->m_nonlinear) {
             if (is_fixed(x))
                 continue;
-            if (is_linear(x, nl, b))
+            if (is_add(x) || is_mul(x))
+                ;
+            else if (is_linear(x, nl, b))
                 find_linear_moves(*ineq, x, b);
             else if (is_quadratic(x, nl, a, b))
                 find_quadratic_moves(*ineq, x, a, b, ineq->m_args_value);
@@ -2033,6 +2050,7 @@ namespace sls {
         auto v = ctx.atom2bool_var(e);
         if (v != sat::null_bool_var)
             init_bool_var(v);
+        check_real(e);
         if (!a.is_arith_expr(e) && !m.is_eq(e) && !m.is_distinct(e))
             for (auto arg : *e)
                 if (a.is_int_real(arg))
@@ -2844,7 +2862,9 @@ namespace sls {
         for (auto const& [x, nl] : ineq->m_nonlinear) {
             if (is_fixed(x))
                 continue;
-            if (is_linear(x, nl, nb))
+            if (is_add(x) || is_mul(x))
+                ;
+            else if (is_linear(x, nl, nb))
                 find_linear_moves(*ineq, x, nb);
             else if (is_quadratic(x, nl, na, nb))
                 find_quadratic_moves(*ineq, x, na, nb, ineq->m_args_value);
@@ -3184,6 +3204,9 @@ namespace sls {
     template<typename num_t>
     void arith_base<num_t>::update_args_value(var_t v, num_t const& new_value) {
         auto& vi = m_vars[v];
+        auto old_value = value(v);
+        IF_VERBOSE(5, verbose_stream() << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
+        vi.set_value(new_value);
 
         for (auto const& idx : vi.m_muls) {
             auto& [x, monomial] = m_muls[idx];
@@ -3201,13 +3224,11 @@ namespace sls {
             update_args_value(ad.m_var, new_sum);
         }
 
-        auto old_value = value(v);
+
         for (auto const& [coeff, bv] : vi.m_linear_occurs) {
             auto& ineq = *get_ineq(bv);
             ineq.m_args_value += coeff * (new_value - old_value);
         }
-        IF_VERBOSE(5, verbose_stream() << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
-        vi.set_value(new_value);
     }
 
     template<typename num_t>
