@@ -51,7 +51,7 @@ void indexed_vector<T>::clear() {
 }
 template <typename T>
 void indexed_vector<T>::clear_all() {
-    unsigned i = m_data.size();
+    unsigned i = static_cast<unsigned>(m_data.size());
     while (i--)  m_data[i] = numeric_traits<T>::zero();
     m_index.resize(0);
 }

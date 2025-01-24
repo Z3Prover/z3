@@ -80,7 +80,7 @@ public:
 
     void resize(unsigned data_size);
     unsigned data_size() const {
-        return m_data.size();
+        return static_cast<unsigned>(m_data.size());
     }
 
     unsigned size() const {
