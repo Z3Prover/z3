@@ -4,6 +4,7 @@ z3_add_component(ast_sls
     sat_ddfw.cpp
     sls_arith_base.cpp
     sls_arith_clausal.cpp
+    sls_arith_lookahead.cpp
     sls_arith_plugin.cpp
     sls_array_plugin.cpp
     sls_basic_plugin.cpp

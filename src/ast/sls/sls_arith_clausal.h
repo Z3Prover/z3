@@ -80,6 +80,7 @@ namespace sls {
         var_t    m_best_var = UINT_MAX;
         unsigned m_best_last_step = 0;
         unsigned m_num_lookaheads = 0;
+        double   m_best_score = 0;
 
         // avoid checking the same updates twice
         var_t m_last_var = UINT_MAX;

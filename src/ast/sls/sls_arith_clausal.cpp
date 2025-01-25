@@ -91,7 +91,7 @@ namespace sls {
         var_t v = null_arith_var;
 
         {
-            a.m_best_score = 1;
+            m_best_score = 1;
             flet<bool> _use_tabu(a.m_use_tabu, true);
             if (v == null_arith_var) {
                 add_lookahead_on_unsat_vars();
@@ -109,7 +109,7 @@ namespace sls {
             ctx.shift_weights();
 
         if (v == null_arith_var) {
-            a.m_best_score = -1;
+            m_best_score = -1;
             flet<bool> _use_tabu(a.m_use_tabu, false);
             add_lookahead_on_unsat_vars();
             v = random_move_on_updates();
@@ -245,13 +245,13 @@ namespace sls {
         num_t abs_value = abs(vi.value() + delta);
         unsigned last_step = vi.last_step(delta);
         ++m_num_lookaheads;
-        if (score < a.m_best_score)
+        if (score < m_best_score)
             return;
-        if (score > a.m_best_score ||
+        if (score > m_best_score ||
             (m_best_abs_value == -1) ||
             (abs_value < m_best_abs_value) ||
             (abs_value == m_best_abs_value && last_step < m_best_last_step)) {
-            a.m_best_score = score;
+            m_best_score = score;
             m_best_var = v;
             m_best_delta = delta;
             m_best_last_step = last_step;
@@ -357,7 +357,6 @@ namespace sls {
 
     template<typename num_t>
     void arith_clausal<num_t>::initialize() {
-        a.initialize_bool_assignment();
         for (sat::bool_var v = 0; v < ctx.num_bool_vars(); ++v)
             a.init_bool_var_assignment(v);   
         
