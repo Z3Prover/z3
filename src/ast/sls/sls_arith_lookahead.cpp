@@ -12,6 +12,7 @@ Author:
 
 --*/
 
+#include <cmath>
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/sls/sls_arith_lookahead.h"
