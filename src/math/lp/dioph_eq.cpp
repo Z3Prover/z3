@@ -842,7 +842,7 @@ namespace lp {
         }
         
         // returns true if a variable j is substituted
-        bool is_substituted(unsigned j) const {
+        bool can_substitute(unsigned j) const {
             return m_k2s.has_key(j);
         }        
 
@@ -894,11 +894,10 @@ namespace lp {
             }
             
             SASSERT(is_in_sync());            
-            
             m_added_terms.clear();
             SASSERT(entries_are_ok());
         }
-
+        
         template <typename K>
         mpq gcd_of_coeffs(const K& k) {
             mpq g(0);
@@ -1013,7 +1012,7 @@ namespace lp {
             if (m_indexed_work_vector[k].is_zero())
                 return;
             const entry& e = entry_for_subs(k);
-            SASSERT(is_substituted(k));
+            SASSERT(can_substitute(k));
             TRACE("dioph_eq", tout << "k:" << k << ", in ";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "subs with e:";
@@ -2000,6 +1999,7 @@ namespace lp {
                   print_entry(fresh_row, tout) << std::endl;);
             SASSERT(entry_invariant(h));
             SASSERT(entry_invariant(fresh_row));
+            SASSERT(is_fresh_var(xt));
             eliminate_var_in_f(fresh_row, k, 1);
         }
 
@@ -2105,9 +2105,6 @@ namespace lp {
 
         bool is_fresh_var(unsigned j) const {
             return m_var_register.local_to_external(j) == UINT_MAX;
-        }
-        bool can_substitute(unsigned k) {
-            return m_k2s.has_key(k);
         }
         
     };
