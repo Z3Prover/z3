@@ -266,7 +266,7 @@ namespace sls {
         a.m_last_delta = delta;
         a.m_last_var = v;
         TRACE("arith", tout << mt << " v" << v << " " << mk_bounded_pp(a.m_vars[v].m_expr, a.m) 
-                            << " += " << delta << " score:" << a.m_best_score << "\n");
+                            << " += " << delta << " score:" << m_best_score << "\n");
         a.m_vars[v].set_step(a.m_stats.m_steps, a.m_stats.m_steps + 3 + ctx.rand(10), delta);
         VERIFY(a.update_num(v, delta));
         for (auto bv : a.m_vars[v].m_bool_vars_of) 

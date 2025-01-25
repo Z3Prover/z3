@@ -574,9 +574,9 @@ namespace sls {
         }
                 
         CTRACE("arith", !m_best_expr, tout << "no move " << t << "\n";);
-        CTRACE("arith", m_best_expr && a.is_int_real(m_best_expr), {
-            var_t v = mk_term(m_best_expr);
-            tout << t << " v" << v << " " << mk_bounded_pp(m_best_expr, m) << " := " << value(v) << " " << m_top_score << "\n";
+        CTRACE("arith", m_best_expr && autil.is_int_real(m_best_expr), {
+            var_t v = a.mk_term(m_best_expr);
+            tout << t << " v" << v << " " << mk_bounded_pp(m_best_expr, m) << " := " << a.value(v) << " " << m_top_score << "\n";
             });
         return !!m_best_expr;
     }
@@ -676,7 +676,7 @@ namespace sls {
         a.m_config.max_moves = a.m_stats.m_steps + a.m_config.max_moves_base;
         TRACE("arith", tout << "search " << a.m_stats.m_steps << " " << a.m_config.max_moves << "\n";);
         IF_VERBOSE(3, verbose_stream() << "lookahead-search steps:" << a.m_stats.m_steps << " max-moves:" << a.m_config.max_moves << "\n");
-        TRACE("arith", display(tout));
+        TRACE("arith", a.display(tout));
 
         while (ctx.rlimit().inc() && a.m_stats.m_steps < a.m_config.max_moves) {
             a.m_stats.m_steps++;
