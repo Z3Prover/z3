@@ -251,7 +251,7 @@ namespace sls {
     template<typename num_t>
     double arith_lookahead<num_t>::lookahead(expr* t, bool update_score) {
         ctx.rlimit().inc();
-        SASSERT(a.is_int_real(t) || m.is_bool(t));
+        SASSERT(autil.is_int_real(t) || m.is_bool(t));
         double score = m_top_score;
         for (unsigned depth = m_min_depth; depth <= m_max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
