@@ -255,12 +255,14 @@ namespace sat {
         m_use_list_clauses = m_clauses.size();
         m_use_list_index.reset();
         m_flat_use_list.reset();
+        m_use_list.reserve(2 * num_vars());
         for (auto const& ul : m_use_list) {
             m_use_list_index.push_back(m_flat_use_list.size());
             m_flat_use_list.append(ul);
         }
         m_use_list_index.push_back(m_flat_use_list.size());
         init_clause_data();
+        SASSERT(2 * num_vars() + 1 == m_use_list_index.size());
         return true;
     }
 

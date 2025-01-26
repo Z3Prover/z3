@@ -450,7 +450,7 @@ namespace sls {
 
     sat::literal context::mk_literal(expr* e) {
         expr_ref _e(e, m);
-        SASSERT(!m_input_assertions.contains(e));
+
         sat::literal lit;
         bool neg = false;
         expr* a, * b, * c;
@@ -459,6 +459,7 @@ namespace sls {
         auto v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);
         if (v != sat::null_bool_var) 
             return sat::literal(v, neg);
+        SASSERT(!m_input_assertions.contains(e));
         sat::literal_vector clause;
         lit = mk_literal();
         register_atom(lit.var(), e);

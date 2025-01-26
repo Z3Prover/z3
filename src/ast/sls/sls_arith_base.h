@@ -295,7 +295,8 @@ namespace sls {
         double compute_score(var_t x, num_t const& delta);
         void save_best_values();
 
-        void initialize_bool_vars_of(var_t v);
+        void initialize_of_bool_var(sat::bool_var v);
+        void initialize_clauses_of(sat::bool_var v, unsigned cl);
         var_t mk_var(expr* e);
         var_t mk_term(expr* e);
         var_t mk_op(arith_op_kind k, expr* e, expr* x, expr* y);

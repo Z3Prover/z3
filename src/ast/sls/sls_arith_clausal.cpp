@@ -275,8 +275,8 @@ namespace sls {
         DEBUG_CODE(
             for (sat::bool_var bv = 0; bv < ctx.num_bool_vars(); ++bv) {
                 if (a.get_ineq(bv) && a.get_ineq(bv)->is_true() != ctx.is_true(bv)) {
-                    TRACE("arith", tout << bv << " " << *a.get_ineq(bv) << "\n";
-                    tout << a.m_vars[v].m_bool_vars_of << "\n");
+                    TRACE("arith", tout << "bv:" << bv << " " << *a.get_ineq(bv) << ctx.is_true(bv) << "\n";
+                    tout << "bool vars: " << a.m_vars[v].m_bool_vars_of << "\n");
                 }
                 VERIFY(!a.get_ineq(bv) || a.get_ineq(bv)->is_true() == ctx.is_true(bv));
             });
@@ -349,7 +349,6 @@ namespace sls {
                 vi.set_value(vi.m_hi->value);
             else
                 vi.set_value(num_t(0));
-            vi.m_bool_vars_of.reset();
         }
         initialize();
     }
@@ -365,6 +364,14 @@ namespace sls {
         m_no_improve = 0;
         m_no_improve_bool = 0;
         m_no_improve_arith = 0;
+        for (; m_num_clauses < ctx.clauses().size(); ++m_num_clauses) {
+            auto const& c = ctx.get_clause(m_num_clauses);
+            for (auto lit : c) {
+                auto bv = lit.var();
+                if (a.get_ineq(bv))
+                    a.initialize_clauses_of(bv, m_num_clauses);
+            }
+        }
     }    
    
 

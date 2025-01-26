@@ -1145,6 +1145,8 @@ namespace sls {
         else {
             SASSERT(!a.is_arith_expr(e));
         }
+        initialize_of_bool_var(bv);
+
         add_new_terms();        
     }
 
@@ -1527,52 +1529,72 @@ namespace sls {
                 throw default_exception("repair is not supported for " + mk_pp(e, m));
             }
         }
-        for (unsigned v = 0; v < m_vars.size(); ++v)
-            initialize_bool_vars_of(v);
     }
 
     template<typename num_t>
-    void arith_base<num_t>::initialize_bool_vars_of(var_t v) {
-        if (!m_vars[v].m_bool_vars_of.empty())
+    void arith_base<num_t>::initialize_of_bool_var(sat::bool_var bv) {
+        auto* ineq = get_ineq(bv);
+        if (!ineq)
             return;
         buffer<var_t> todo;
-        todo.push_back(v);
-        auto& vi = m_vars[v];
+        for (auto const& [coeff, v] : ineq->m_args)
+            todo.push_back(v);
         m_tmp_set.reset();
         for (unsigned i = 0; i < todo.size(); ++i) {
             var_t u = todo[i];
             auto& ui = m_vars[u];
-            for (auto const& idx : ui.m_muls) {
-                auto& [x, monomial] = m_muls[idx];
-                bool found = false;
-                for (auto u : todo) found |= u == x;
-                if (!found)
-                    todo.push_back(x);
+            if (m_tmp_set.contains(u))
+                continue;
+            m_tmp_set.insert(u);
+            ui.m_bool_vars_of.push_back(bv);            
+            if (is_add(u)) {
+                auto const& ad = get_add(u);
+                for (auto const& [c, w] : ad.m_args)
+                    todo.push_back(w);
             }
-            for (auto const& idx : ui.m_adds) {
-                auto x = m_adds[idx].m_var;
-                bool found = false;
-                for (auto u : todo) found |= u == x;
-                if (!found)
-                    todo.push_back(x);
+            if (is_mul(u)) {
+                auto const& [w, monomial] = get_mul(u);
+                for (auto [w, p] : monomial)
+                    todo.push_back(w);
             }
-            for (auto const& [coeff, bv] : ui.m_linear_occurs)
-                m_tmp_set.insert(bv);
+            if (is_op(u)) {
+                auto const& op = m_ops[ui.m_def_idx];
+                todo.push_back(op.m_arg1);
+                todo.push_back(op.m_arg2);
+            }
         }
-        for (auto bv : m_tmp_set)
-            vi.m_bool_vars_of.push_back(bv);
+    }
 
-        m_tmp_nat_set.reset();
-        m_tmp_nat_set.assure_domain(ctx.clauses().size() + 1);
-
-        for (auto bv : vi.m_bool_vars_of) {
-            for (auto lit : { sat::literal(bv, false), sat::literal(bv, true) }) {
-                for (auto ci : ctx.get_use_list(lit)) {
-                    if (m_tmp_nat_set.contains(ci))
-                        continue;
-                    m_tmp_nat_set.insert(ci);
-                    vi.m_clauses_of.push_back(ci);
-                }
+    template<typename num_t> 
+    void arith_base<num_t>::initialize_clauses_of(sat::bool_var bv, unsigned ci) {
+        auto* ineq = get_ineq(bv);
+        if (!ineq)
+            return;
+        buffer<var_t> todo;
+        for (auto const& [coeff, v] : ineq->m_args)
+            todo.push_back(v);
+        m_tmp_set.reset();
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            var_t u = todo[i];
+            auto& ui = m_vars[u];
+            if (m_tmp_set.contains(u))
+                continue;
+            m_tmp_set.insert(u);
+            ui.m_clauses_of.push_back(ci);
+            if (is_add(u)) {
+                auto const& ad = get_add(u);
+                for (auto const& [c, w] : ad.m_args)
+                    todo.push_back(w);
+            }
+            if (is_mul(u)) {
+                auto const& [w, monomial] = get_mul(u);
+                for (auto [w, p] : monomial)
+                    todo.push_back(w);
+            }
+            if (is_op(u)) {
+                auto const& op = m_ops[ui.m_def_idx];
+                todo.push_back(op.m_arg1);
+                todo.push_back(op.m_arg2);
             }
         }
     }
