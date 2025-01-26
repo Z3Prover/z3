@@ -160,6 +160,11 @@ unsigned read_smtlib2_commands(char const * file_name) {
     signal(SIGINT, on_ctrl_c);
     cmd_context ctx;
 
+    // Fail safe when used from the command line - if there's an error exit(1).
+    // We don't want to do this when used as a library because it would kill
+    // the entire process.
+    ctx.set_exit_on_error(true);
+
     ctx.set_solver_factory(mk_smt_strategic_solver_factory());
     install_dl_cmds(ctx);
     install_dbg_cmds(ctx);
