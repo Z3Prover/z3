@@ -48,6 +48,7 @@ typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_O
 static char const * g_input_file          = nullptr;
 static char const * g_drat_input_file     = nullptr;
 static bool         g_standard_input      = false;
+static bool         g_repl                = false;
 static input_kind   g_input_kind          = IN_UNSPECIFIED;
 bool                g_display_statistics  = false;
 bool                g_display_model       = false;
@@ -85,6 +86,7 @@ void display_usage() {
     std::cout << "  -lp         use parser for a modest subset of CPLEX LP input format.\n";
     std::cout << "  -log        use parser for Z3 log input format.\n";
     std::cout << "  -in         read formula from standard input.\n";
+    std::cout << "  -repl       read formula from standard input and continue on errors.\n";
     std::cout << "  -model      display model for satisfiable SMT.\n";
     std::cout << "\nMiscellaneous:\n";
     std::cout << "  -h, -?      prints this message.\n";
@@ -198,6 +200,10 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             }
             else if (strcmp(opt_name, "in") == 0) {
                 g_standard_input = true;
+            }
+            else if (strcmp(opt_name, "repl") == 0) {
+                g_standard_input = true;
+                g_repl = true;
             }
             else if (strcmp(opt_name, "dimacs") == 0) {
                 g_input_kind = IN_DIMACS;
