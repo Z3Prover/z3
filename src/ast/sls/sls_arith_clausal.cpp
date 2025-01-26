@@ -137,12 +137,11 @@ namespace sls {
         if (!ineq)
             return;
         num_t na, nb;
+        flet<bool> _allow_recursive_delta(a.m_allow_recursive_delta, true);
         for (auto const& [x, nl] : ineq->m_nonlinear) {
             if (a.is_fixed(x))
                 continue;
-            if (a.is_add(x) || a.is_mul(x) || a.is_op(x))
-                ;
-            else if (a.is_linear(x, nl, nb))
+            if (a.is_linear(x, nl, nb))
                 a.find_linear_moves(*ineq, x, nb);
             else if (a.is_quadratic(x, nl, na, nb))
                 a.find_quadratic_moves(*ineq, x, na, nb, ineq->m_args_value);
@@ -229,13 +228,13 @@ namespace sls {
         return v;
     }
 
-
     template<typename num_t>
     void arith_clausal<num_t>::lookahead(var_t v, num_t const& delta) {
         if (v == m_last_var && delta == m_last_delta)
             return;
         if (delta == 0)
             return;
+
         m_last_var = v;
         m_last_delta = delta;
         if (!a.can_update_num(v, delta))

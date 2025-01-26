@@ -114,12 +114,15 @@ namespace sls {
             vector<std::pair<num_t, sat::bool_var>> m_linear_occurs;
             sat::bool_var_vector m_bool_vars_of;
             unsigned_vector m_clauses_of;
-            unsigned_vector m_muls, m_adds, m_ops;
+            unsigned_vector m_muls, m_adds, m_ops, m_ifs;
             optional<bound> m_lo, m_hi;
             vector<num_t> m_finite_domain;
 
             num_t const& value() const { return m_value; }
             void set_value(num_t const& v) { m_value = v; }
+
+            bool is_arith_op() const { return m_def_idx < UINT_MAX - 1; }
+            bool is_if_op() const { return m_def_idx == UINT_MAX - 1; }
 
             num_t const& best_value() const { return m_best_value; }
             void set_best_value(num_t const& v) { m_best_value = v; }
@@ -202,6 +205,7 @@ namespace sls {
         sat::literal                 m_last_literal = sat::null_literal;
         num_t                        m_last_delta { 0 };
         bool                         m_use_tabu = true;
+        bool                         m_allow_recursive_delta = false;
         unsigned                     m_updates_max_size = 45;
         arith_util                   a;
         friend class arith_clausal<num_t>;
@@ -241,6 +245,11 @@ namespace sls {
         num_t mul_value_without(var_t m, var_t x);
 
         void add_update(var_t v, num_t delta);
+        void add_update(op_def const& od, num_t const& delta);
+        void add_update_mod(op_def const& od, num_t const& delta);
+        void add_update_add(add_def const& ad, num_t const& delta);
+        void add_update_mul(mul_def const& md, num_t const& delta);
+        void add_update_idiv(op_def const& od, num_t const& delta);
         bool is_permitted_update(var_t v, num_t const& delta, num_t& delta_out);
 
 
@@ -270,7 +279,8 @@ namespace sls {
 
         bool is_mul(var_t v) const { return m_vars[v].m_op == arith_op_kind::OP_MUL; }
         bool is_add(var_t v) const { return m_vars[v].m_op == arith_op_kind::OP_ADD; }
-        bool is_op(var_t v) const { return m_vars[v].m_op != arith_op_kind::LAST_ARITH_OP && m_vars[v].m_op != arith_op_kind::OP_MUL && m_vars[v].m_op != arith_op_kind::OP_ADD; }
+        bool is_op(var_t v) const { return 0 <= m_vars[v].m_op && m_vars[v].m_op < arith_op_kind::LAST_ARITH_OP && m_vars[v].m_op != arith_op_kind::OP_MUL && m_vars[v].m_op != arith_op_kind::OP_ADD; }
+        bool is_if(var_t v) const { return m.is_ite(m_vars[v].m_expr); }
         mul_def const& get_mul(var_t v) const { SASSERT(is_mul(v));  return m_muls[m_vars[v].m_def_idx]; }
         add_def const& get_add(var_t v) const { SASSERT(is_add(v));  return m_adds[m_vars[v].m_def_idx]; }
 
