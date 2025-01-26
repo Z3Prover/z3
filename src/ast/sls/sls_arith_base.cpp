@@ -631,7 +631,7 @@ namespace sls {
             num_t new_value = value(v) + delta;
 
 
-            if (update(v, new_value)) {
+            if (update_checked(v, new_value)) {
                 m_last_delta = delta;
                 m_stats.m_steps++;
                 m_vars[v].set_step(m_stats.m_steps, m_stats.m_steps + 3 + ctx.rand(10), delta);
@@ -740,7 +740,7 @@ namespace sls {
     }
 
     template<typename num_t>
-    bool arith_base<num_t>::update(var_t v, num_t const& new_value) {
+    bool arith_base<num_t>::update_checked(var_t v, num_t const& new_value) {
         auto& vi = m_vars[v];
         expr* e = vi.m_expr;
         auto old_value = vi.value();
@@ -782,6 +782,7 @@ namespace sls {
             
         }
         IF_VERBOSE(5, verbose_stream() << "repair: v" << v << " := " << old_value << " -> " << new_value << "\n");
+        TRACE("arith", tout << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
         vi.set_value(new_value);
         ctx.new_value_eh(e);
         m_last_var = v;
@@ -810,9 +811,8 @@ namespace sls {
                 verbose_stream() << "overflow\n";
                 return false;
             }
-            if (value(w) != prod && !update(w, prod))
-                return false;
-            
+            if (value(w) != prod && !update_checked(w, prod))
+                return false;            
         }
 
         for (auto idx : vi.m_adds) {
@@ -820,9 +820,15 @@ namespace sls {
             num_t sum(ad.m_coeff);
             for (auto const& [coeff, w] : ad.m_args)
                 sum += coeff * value(w);
-            if (!update(ad.m_var, sum)) 
+            if (!update_checked(ad.m_var, sum)) 
                 return false;
         }
+
+        for (auto const& x : vi.m_ops)
+            update_checked(x, value1(x));
+
+        for (auto const& x : vi.m_ifs)
+            update_checked(x, value1(x));
 
         return true;
     }
@@ -1057,6 +1063,7 @@ namespace sls {
         m_vars[v].m_op = k;
         m_vars[v].set_value(val);
         m_vars[vx].m_ops.push_back(v);
+        TRACE("arith", display(tout << "initialize op ", v) << " " << value(vx) << " " << value(vy) << "\n");
         if (vy != vx)
             m_vars[vy].m_ops.push_back(v);
         return v;
@@ -1354,7 +1361,7 @@ namespace sls {
         if (!vi.is_arith_op())
             return;
         auto new_value = value1(v);
-        if (!update(v, new_value))
+        if (!update_checked(v, new_value))
             ctx.new_value_eh(e);
     }
 
@@ -1564,6 +1571,13 @@ namespace sls {
                 todo.push_back(op.m_arg1);
                 todo.push_back(op.m_arg2);
             }
+            if (m_vars[u].is_if_op()) {
+                auto const& ui = m_vars[u];
+                expr* c = nullptr, * th = nullptr, * el = nullptr;
+                VERIFY(m.is_ite(ui.m_expr, c, th, el));
+                todo.push_back(mk_var(th));
+                todo.push_back(mk_var(el));
+            }
         }
     }
 
@@ -1738,7 +1752,7 @@ namespace sls {
         if (apply_update())
             return eval_is_correct(v);
 
-        return update(v, sum);
+        return update_checked(v, sum);
     }
 
     template<typename num_t>
@@ -1789,7 +1803,7 @@ namespace sls {
         if (apply_update())
             return eval_is_correct(v);
 
-        return update(v, product); 
+        return update_checked(v, product); 
     }    
 
     template<typename num_t>
@@ -1797,13 +1811,13 @@ namespace sls {
         auto v1 = value(od.m_arg1);
         auto v2 = value(od.m_arg2);
         if (v2 == 0) 
-            return update(od.m_var, num_t(0));
+            return update_checked(od.m_var, num_t(0));
         
 
         IF_VERBOSE(0, verbose_stream() << "todo repair rem");
         // bail
         v1 %= v2;
-        return update(od.m_var, v1);
+        return update_checked(od.m_var, v1);
     }
 
     template<typename num_t>
@@ -1811,11 +1825,11 @@ namespace sls {
         auto val = value(od.m_var);
         auto v1 = value(od.m_arg1);
         if (val < 0)
-            return update(od.m_var, abs(v1));
+            return update_checked(od.m_var, abs(v1));
         else if (ctx.rand(2) == 0)
-            return update(od.m_arg1, val);
+            return update_checked(od.m_arg1, val);
         else
-            return update(od.m_arg1, -val);        
+            return update_checked(od.m_arg1, -val);        
     }
 
     template<typename num_t>
@@ -1824,15 +1838,15 @@ namespace sls {
         auto v1 = value(od.m_arg1);
         if (val - 1 < v1 && v1 <= val)
             return true;
-        return update(od.m_arg1, val);        
+        return update_checked(od.m_arg1, val);        
     }
 
     template<typename num_t>
     bool arith_base<num_t>::repair_to_real(op_def const& od) {
         if (ctx.rand(20) == 0)
-            return update(od.m_var, value(od.m_arg1));
+            return update_checked(od.m_var, value(od.m_arg1));
         else 
-            return update(od.m_arg1, value(od.m_arg1));
+            return update_checked(od.m_arg1, value(od.m_arg1));
     }
 
     template<typename num_t>
@@ -1840,7 +1854,7 @@ namespace sls {
         auto v1 = value(od.m_arg1);
         auto v2 = value(od.m_arg2);
         if (v1 == 0 && v2 == 0) {
-            return update(od.m_var, num_t(0));
+            return update_checked(od.m_var, num_t(0));
         }
         IF_VERBOSE(0, verbose_stream() << "todo repair ^");
         NOT_IMPLEMENTED_YET();
@@ -1870,9 +1884,9 @@ namespace sls {
             default:
                 break;
             }
-            return update(od.m_arg1, v1);
+            return update_checked(od.m_arg1, v1);
         }
-        return update(od.m_var, v2 == 0 ? num_t(0) : mod(v1, v2));
+        return update_checked(od.m_var, v2 == 0 ? num_t(0) : mod(v1, v2));
     }
 
     template<typename num_t>
@@ -1890,7 +1904,7 @@ namespace sls {
 
         IF_VERBOSE(3, verbose_stream() << "revert repair-down " << val << " = " << v1 << " div " << v2 << "\n");
         // bail
-        return update(od.m_var, v2 == 0 ? num_t(0) : div(v1, v2));
+        return update_checked(od.m_var, v2 == 0 ? num_t(0) : div(v1, v2));
     }   
     
     template<typename num_t>
@@ -1908,29 +1922,29 @@ namespace sls {
 
         IF_VERBOSE(3, verbose_stream() << "revert repair-down " << val << " = " << v1 << "/" << v2 << "\n");
         // bail
-        return update(od.m_var, v2 == 0 ? num_t(0) : v1 / v2);
+        return update_checked(od.m_var, v2 == 0 ? num_t(0) : v1 / v2);
     }
 
     template<typename num_t>
     bool arith_base<num_t>::repair_div_idiv(op_def const& od, num_t const& val, num_t const& v1, num_t const& v2) {
         if (val == 1) {
             if (v2 != 0 && ctx.rand(2) == 0)
-                return update(od.m_arg1, v2);
+                return update_checked(od.m_arg1, v2);
             if (v1 != 0 && ctx.rand(2) == 0)
-                return update(od.m_arg2, v1);
+                return update_checked(od.m_arg2, v1);
         }
         if (val == 0) {
             SASSERT(v2 != 0);
             if (ctx.rand(2) == 0)
-                return update(od.m_arg1, num_t(0));
+                return update_checked(od.m_arg1, num_t(0));
             if (ctx.rand(2) == 0)
-                return update(od.m_arg2, num_t(0));
+                return update_checked(od.m_arg2, num_t(0));
         }
         if (val == -1) {
             if (v2 != 0 && ctx.rand(2) == 0)
-                return update(od.m_arg1, -v2);
+                return update_checked(od.m_arg1, -v2);
             if (v1 != 0 && ctx.rand(2) == 0)
-                return update(od.m_arg2, -v1);
+                return update_checked(od.m_arg2, -v1);
         }
         return false;
     }
@@ -2262,9 +2276,9 @@ namespace sls {
                     if (new_value == value(v2))
                         new_value += num_t(1);
                     if (!is_fixed(v2))
-                        update(v2, new_value);
+                        update_checked(v2, new_value);
                     else if (!is_fixed(v1))
-                        update(v1, new_value);
+                        update_checked(v1, new_value);
                 }
             }
     }
@@ -2288,7 +2302,7 @@ namespace sls {
         }
         if (n == value(w))
             return true;
-         bool r = update(w, n);   
+         bool r = update_checked(w, n);   
 
          if (!r) {
              TRACE("arith", tout << "set value failed " << mk_pp(e, m) << " := " << mk_pp(v, m) << "\n";
@@ -2653,7 +2667,7 @@ namespace sls {
         auto& vi = m_vars[v];
         auto old_value = vi.value();
         num_t new_value = old_value + delta;
-        update_args_value(v, new_value);
+        update_unchecked(v, new_value);
         return true;
     }
     
@@ -2691,10 +2705,11 @@ namespace sls {
     }
 
     template<typename num_t>
-    void arith_base<num_t>::update_args_value(var_t v, num_t const& new_value) {
+    void arith_base<num_t>::update_unchecked(var_t v, num_t const& new_value) {
         auto& vi = m_vars[v];
         auto old_value = value(v);
         IF_VERBOSE(5, verbose_stream() << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
+        TRACE("arith", tout << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
         vi.set_value(new_value);
         ctx.new_value_eh(vi.m_expr);
 
@@ -2708,7 +2723,7 @@ namespace sls {
             num_t new_prod(1);
             for (auto [w, p] : monomial)
                 new_prod *= power_of(value(w), p);
-            update_args_value(x, new_prod);
+            update_unchecked(x, new_prod);
         }
 
         for (auto const& idx : vi.m_adds) {
@@ -2716,16 +2731,15 @@ namespace sls {
             num_t new_sum(ad.m_coeff);
             for (auto [c, w] : ad.m_args)
                 new_sum += c * value(w);
-            update_args_value(ad.m_var, new_sum);
+            update_unchecked(ad.m_var, new_sum);
         }
 
         for (auto const& x : vi.m_ops) 
-            update_args_value(x, value1(x));        
+            update_unchecked(x, value1(x));
 
         for (auto const& x : vi.m_ifs)
-            update_args_value(x, value1(x));
+            update_unchecked(x, value1(x));
         
-
     }
 
    

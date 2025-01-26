@@ -275,10 +275,11 @@ namespace sls {
         DEBUG_CODE(
             for (sat::bool_var bv = 0; bv < ctx.num_bool_vars(); ++bv) {
                 if (a.get_ineq(bv) && a.get_ineq(bv)->is_true() != ctx.is_true(bv)) {
-                    TRACE("arith", tout << "bv:" << bv << " " << *a.get_ineq(bv) << ctx.is_true(bv) << "\n";
+                    TRACE("arith", tout << "bv:" << bv << " " << *a.get_ineq(bv) << " " << (ctx.is_true(bv)?"T":"F") << "\n";
                     tout << "v" << v << " bool vars: " << a.m_vars[v].m_bool_vars_of << "\n";
                     tout << mk_bounded_pp(a.m_vars[v].m_expr, a.m) << "\n";
-                        tout << mk_bounded_pp(ctx.atom(bv), a.m) << "\n");
+                    tout << mk_bounded_pp(ctx.atom(bv), a.m) << "\n";
+                    ctx.display(tout););
                 }
                 VERIFY(!a.get_ineq(bv) || a.get_ineq(bv)->is_true() == ctx.is_true(bv));
             });
@@ -287,6 +288,7 @@ namespace sls {
     template<typename num_t>
     double arith_clausal<num_t>::get_score(var_t v, num_t const& delta) {
         auto& vi = a.m_vars[v];
+        TRACE("arith", tout << "get-score v" << v << " += " << delta << "\n";);
         if (!a.update_num(v, delta))
             return -1;
         double score = 0;
@@ -321,7 +323,8 @@ namespace sls {
 
         // verbose_stream() << num_clauses << " " << num_dup << "\n";
         // revert the update
-        a.update_args_value(v, vi.value() - delta);        
+        TRACE("arith", tout << "revert update v" << v << " -= " << delta << "\n";);
+        a.update_unchecked(v, vi.value() - delta);        
         return score;
     }
 
@@ -359,6 +362,16 @@ namespace sls {
     void arith_clausal<num_t>::initialize() {
         for (sat::bool_var v = 0; v < ctx.num_bool_vars(); ++v)
             a.init_bool_var_assignment(v);   
+
+        DEBUG_CODE(
+            for (sat::bool_var bv = 0; bv < ctx.num_bool_vars(); ++bv) {
+                if (a.get_ineq(bv) && a.get_ineq(bv)->is_true() != ctx.is_true(bv)) {
+                    TRACE("arith", tout << "bv:" << bv << " " << *a.get_ineq(bv) << ctx.is_true(bv) << "\n";
+                    tout << mk_bounded_pp(ctx.atom(bv), a.m) << "\n";
+                    ctx.display(tout););
+                }
+                VERIFY(!a.get_ineq(bv) || a.get_ineq(bv)->is_true() == ctx.is_true(bv));
+            });
         
         m_best_found_cost_bool = ctx.unsat().size();
         m_best_found_cost_arith = ctx.unsat().size();

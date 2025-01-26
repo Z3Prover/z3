@@ -325,7 +325,7 @@ namespace sls {
         }
 
         // revert back to old value
-        a.update_args_value(v, old_value);
+        a.update_unchecked(v, old_value);
     }
 
     template<typename num_t>

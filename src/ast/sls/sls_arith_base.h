@@ -295,7 +295,8 @@ namespace sls {
         add_def const& get_add(var_t v) const { SASSERT(is_add(v));  return m_adds[m_vars[v].m_def_idx]; }
         op_def const& get_op(var_t v) const { SASSERT(is_op(v));  return m_ops[m_vars[v].m_def_idx]; }
 
-        bool update(var_t v, num_t const& new_value);
+        bool update_checked(var_t v, num_t const& new_value);
+        void update_unchecked(var_t v, num_t const& new_value);
         bool apply_update();
         bool find_nl_moves(sat::literal lit);
         bool find_lin_moves(sat::literal lit);
@@ -342,7 +343,7 @@ namespace sls {
         std::ostream& display(std::ostream& out, add_def const& ad) const;
         std::ostream& display(std::ostream& out, mul_def const& md) const;
 
-        void update_args_value(var_t v, num_t const& new_value);
+
         bool can_update_num(var_t v, num_t const& delta);
         bool update_num(var_t v, num_t const& delta);
     public:
