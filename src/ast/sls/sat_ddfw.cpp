@@ -161,7 +161,7 @@ namespace sat {
         if (m_unsat_vars.empty())
             return null_bool_var;
         if (m_in_external_flip)
-            return false;
+            return null_bool_var;
         return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
     }
 

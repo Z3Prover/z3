@@ -276,7 +276,9 @@ namespace sls {
             for (sat::bool_var bv = 0; bv < ctx.num_bool_vars(); ++bv) {
                 if (a.get_ineq(bv) && a.get_ineq(bv)->is_true() != ctx.is_true(bv)) {
                     TRACE("arith", tout << "bv:" << bv << " " << *a.get_ineq(bv) << ctx.is_true(bv) << "\n";
-                    tout << "bool vars: " << a.m_vars[v].m_bool_vars_of << "\n");
+                    tout << "v" << v << " bool vars: " << a.m_vars[v].m_bool_vars_of << "\n";
+                    tout << mk_bounded_pp(a.m_vars[v].m_expr, a.m) << "\n";
+                        tout << mk_bounded_pp(ctx.atom(bv), a.m) << "\n");
                 }
                 VERIFY(!a.get_ineq(bv) || a.get_ineq(bv)->is_true() == ctx.is_true(bv));
             });
