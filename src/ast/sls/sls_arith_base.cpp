@@ -444,7 +444,7 @@ namespace sls {
         auto old_value = value(v);
         auto new_value = old_value + delta;
         if (!vi.in_range(new_value)) {
-            TRACE("arith", tout << "out of range: v" << v << " " << old_value << " " << delta << " " << new_value << "\n";);
+            TRACE("arith", display(tout, v) << "out of range: v" << v << " " << old_value << " " << delta << " " << new_value << "\n";);
             return false;
         }
 
@@ -746,10 +746,14 @@ namespace sls {
         auto old_value = vi.value();
         if (old_value == new_value)
             return true;                   
-        if (!vi.in_range(new_value))
+        if (!vi.in_range(new_value)) {
+            TRACE("arith", display(tout << "out of range " << new_value << ": ", v) << "\n"; );
             return false;
-        if (!in_bounds(v, new_value) && in_bounds(v, old_value))
+        }
+        if (!in_bounds(v, new_value) && in_bounds(v, old_value)) {
+            TRACE("arith", tout << "out of bounds: v" << v << " " << old_value << " " << new_value << "\n";);
             return false;
+        }
 
         // check for overflow
         try {
@@ -1873,20 +1877,62 @@ namespace sls {
 
     template<typename num_t>
     bool arith_base<num_t>::repair_idiv(op_def const& od) {
+
+        auto val = value(od.m_var);
         auto v1 = value(od.m_arg1);
         auto v2 = value(od.m_arg2);
-        IF_VERBOSE(0, verbose_stream() << "TODO repair div");
+        if (v2 == 0 && val == 0)
+            return true;
+        if (v2 != 0 && val == div(v1, v2))
+            return true;
+        if (repair_div_idiv(od, val, v1, v2))
+            return true;
+
+        IF_VERBOSE(1, verbose_stream() << "revert repair-down " << val << " = " << v1 << " div " << v2 << "\n");
         // bail
         return update(od.m_var, v2 == 0 ? num_t(0) : div(v1, v2));
-    }
+    }   
     
     template<typename num_t>
     bool arith_base<num_t>::repair_div(op_def const& od) {
+        auto val = value(od.m_var);
         auto v1 = value(od.m_arg1);
         auto v2 = value(od.m_arg2);
-        IF_VERBOSE(0, verbose_stream() << "TODO repair /");
+        if (v2 == 0 && val == 0)
+            return true;
+        if (v2 != 0 && val == v1 / v2)
+            return true;
+
+        if (repair_div_idiv(od, val, v1, v2))
+            return true;
+
+        IF_VERBOSE(1, verbose_stream() << "revert repair-down " << val << " = " << v1 << "/" << v2 << "\n");
         // bail
         return update(od.m_var, v2 == 0 ? num_t(0) : v1 / v2);
+    }
+
+    template<typename num_t>
+    bool arith_base<num_t>::repair_div_idiv(op_def const& od, num_t const& val, num_t const& v1, num_t const& v2) {
+        if (val == 1) {
+            if (v2 != 0 && ctx.rand(2) == 0)
+                return update(od.m_arg1, v2);
+            if (v1 != 0 && ctx.rand(2) == 0)
+                return update(od.m_arg2, v1);
+        }
+        if (val == 0) {
+            SASSERT(v2 != 0);
+            if (ctx.rand(2) == 0)
+                return update(od.m_arg1, num_t(0));
+            if (ctx.rand(2) == 0)
+                return update(od.m_arg2, num_t(0));
+        }
+        if (val == -1) {
+            if (v2 != 0 && ctx.rand(2) == 0)
+                return update(od.m_arg1, -v2);
+            if (v1 != 0 && ctx.rand(2) == 0)
+                return update(od.m_arg2, -v1);
+        }
+        return false;
     }
 
     template<typename num_t>
@@ -2245,6 +2291,8 @@ namespace sls {
          bool r = update(w, n);   
 
          if (!r) {
+             TRACE("arith", tout << "set value failed " << mk_pp(e, m) << " := " << mk_pp(v, m) << "\n";
+             display(tout, w) << " := " << value(w) << "\n";);
              IF_VERBOSE(3,
                  verbose_stream() << "set value failed " << mk_pp(e, m) << " := " << mk_pp(v, m) << "\n";
                 display(verbose_stream(), w) << " := " << value(w) << "\n");
@@ -2368,15 +2416,20 @@ namespace sls {
         return out;
     }
 
+    template<>
+    bool arith_base<rational>::var_info::is_big_num() const { return true; }
+
     template<typename num_t>
-    std::ostream& arith_base<num_t>::display(std::ostream& out, var_t v) const {
-        auto const& vi = m_vars[v];
-        auto const& lo = vi.m_lo;
-        auto const& hi = vi.m_hi;
-        out << "v" << v << " := " << vi.value() << " ";
+    bool arith_base<num_t>::var_info::is_big_num() const { return false; }
+
+    template<typename num_t>
+    std::ostream& arith_base<num_t>::var_info::display_range(std::ostream& out) const {
+        auto const& lo = m_lo;
+        auto const& hi = m_hi;
+
         if (lo || hi) {
             if (lo)
-                out << (lo->is_strict ? "(": "[") << lo->value;
+                out << (lo->is_strict ? "(" : "[") << lo->value;
             else
                 out << "(";
             out << " ";
@@ -2386,6 +2439,14 @@ namespace sls {
                 out << ")";
             out << " ";
         }
+        return out;
+    }
+
+    template<typename num_t>
+    std::ostream& arith_base<num_t>::display(std::ostream& out, var_t v) const {
+        auto const& vi = m_vars[v];
+        out << "v" << v << " := " << vi.value() << " ";
+        vi.display_range(out);
         out << mk_bounded_pp(vi.m_expr, m) << " ";
         if (is_add(v)) 
             display(out << "add: ", get_add(v)) << " ";

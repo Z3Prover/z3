@@ -127,20 +127,27 @@ namespace sls {
             num_t const& best_value() const { return m_best_value; }
             void set_best_value(num_t const& v) { m_best_value = v; }
 
+            bool is_big_num() const;
+
             bool in_range(num_t const& n) {
                 if (-m_range < n && n < m_range)
                     return true;
                 bool result = false;
+#if 0
+                if (m_lo && m_lo->value > n)
+                    return false;
+                if (m_hi && m_hi->value < n)
+                    return false;
+#endif
                 if (m_lo)
                     result = n < m_lo->value + m_range;
                 if (!result && m_hi)
                     result = n > m_hi->value - m_range;
-#if 0
-                if (!result) 
-                    out_of_range();
-                else 
-                    ++m_num_in_range;
-#endif
+                if (!result && m_lo && m_hi)
+                    result = m_hi->value - m_lo->value > 2 * m_range;
+                if (!result && is_big_num() && !m_lo && !m_hi) 
+                    result = true;
+                
                 return result;                
             }
             unsigned m_tabu_pos = 0, m_tabu_neg = 0;
@@ -166,6 +173,8 @@ namespace sls {
                 m_num_out_of_range = 0;
                 m_num_in_range = 0;
             }
+
+            std::ostream& display_range(std::ostream& out) const;
         };
 
         struct mul_def {
@@ -232,6 +241,7 @@ namespace sls {
         bool repair_mod(op_def const& od);
         bool repair_idiv(op_def const& od);
         bool repair_div(op_def const& od);
+        bool repair_div_idiv(op_def const& od, num_t const& val, num_t const& v1, num_t const& v2);
         bool repair_rem(op_def const& od);
         bool repair_power(op_def const& od);
         bool repair_abs(op_def const& od);
