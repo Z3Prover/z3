@@ -73,8 +73,8 @@ namespace sls {
                 if (bv != sat::null_bool_var) tout << "bool flip " << bv << "\n";
                 else if (v != null_arith_var) tout << "arith flip v" << v << "\n";
                 else tout << "no flip\n";
-                tout << "unsat-vars " << vars_in_unsat << "\n";
-                tout << "bools: " << bool_in_unsat << " timeup-bool " << time_up_bool << "\n";
+                tout << "unsat-vars " << ctx.unsat_vars().size() << "\n";
+                tout << "bools: " << (ctx.unsat_vars().size() - ctx.num_external_in_unsat_vars()) << " timeup-bool " << time_up_bool << "\n";
                 tout << "no-improve bool: " << m_no_improve_bool << "\n";
                 tout << "no-improve arith: " << m_no_improve_arith << "\n";
                 tout << "ext: " << ext_in_unsat << " timeup-arith " << time_up_arith << "\n";

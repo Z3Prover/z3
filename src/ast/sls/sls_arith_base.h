@@ -283,6 +283,7 @@ namespace sls {
         bool is_if(var_t v) const { return m.is_ite(m_vars[v].m_expr); }
         mul_def const& get_mul(var_t v) const { SASSERT(is_mul(v));  return m_muls[m_vars[v].m_def_idx]; }
         add_def const& get_add(var_t v) const { SASSERT(is_add(v));  return m_adds[m_vars[v].m_def_idx]; }
+        op_def const& get_op(var_t v) const { SASSERT(is_op(v));  return m_ops[m_vars[v].m_def_idx]; }
 
         bool update(var_t v, num_t const& new_value);
         bool apply_update();
@@ -295,8 +296,9 @@ namespace sls {
         double compute_score(var_t x, num_t const& delta);
         void save_best_values();
 
-        void initialize_of_bool_var(sat::bool_var v);
-        void initialize_clauses_of(sat::bool_var v, unsigned cl);
+        void initialize_vars_of(sat::bool_var bv);
+        void initialize_of_bool_var(sat::bool_var bv);
+        void initialize_clauses_of(sat::bool_var bv, unsigned cl);
         var_t mk_var(expr* e);
         var_t mk_term(expr* e);
         var_t mk_op(arith_op_kind k, expr* e, expr* x, expr* y);
