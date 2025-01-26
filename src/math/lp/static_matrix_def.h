@@ -153,16 +153,44 @@ column_cell& c, unsigned pivot_col, int pivot_sign) {
     }
 }
 
-// constructor that copies columns of the basis from A
-template <typename T, typename X>
-static_matrix<T, X>::static_matrix(static_matrix const &A, unsigned * /* basis */) :
-    m_work_vector_of_row_offsets(A.column_count(), numeric_traits<T>::zero()) {
-    unsigned m = A.row_count();
-    init_row_columns(m, m);
-    for (; m-- > 0; ) 
-        for (auto & col : A.m_columns[m]) 
-            set(col.var(), m, A.get_column_cell(col));
+ 
+template<typename T, typename X>
+template<typename TTerm>
+void static_matrix<T, X>::pivot_term_to_row_given_cell(TTerm const & term, column_cell&c, unsigned pivot_col, int j_sign) {
+    unsigned ii = c.var();
+    T alpha = - get_val(c) * j_sign;
+    SASSERT(!is_zero(alpha));
+    auto & rowii = m_rows[ii];
+    remove_element(rowii, rowii[c.offset()]);
+    scan_row_strip_to_work_vector(rowii);
+    unsigned prev_size_ii = rowii.size();
+    // run over the pivot row and update row ii
+    for (const auto & iv : term) {
+        unsigned j = iv.var();
+        if (j == pivot_col) continue;
+        SASSERT(!is_zero(iv.coeff()));
+        int j_offs = m_work_vector_of_row_offsets[j];
+        if (j_offs == -1) { // it is a new element
+            T alv = alpha * iv.coeff();
+            add_new_element(ii, j, alv);
+        }
+        else {
+            addmul(rowii[j_offs].coeff(), iv.coeff(), alpha);
+        }
+    }
+    // clean the work vector
+    for (unsigned k = 0; k < prev_size_ii; k++) {
+        m_work_vector_of_row_offsets[rowii[k].var()] = -1;
+    }
+
+    // remove zeroes
+    for (unsigned k = rowii.size(); k-- > 0;  ) {
+        if (is_zero(rowii[k].coeff()))
+            remove_element(rowii, rowii[k]);
+    }
+
 }
+
 
 template <typename T, typename X> void static_matrix<T, X>::clear() {
     m_work_vector_of_row_offsets.clear();
