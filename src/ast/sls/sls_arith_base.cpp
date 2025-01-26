@@ -1888,7 +1888,7 @@ namespace sls {
         if (repair_div_idiv(od, val, v1, v2))
             return true;
 
-        IF_VERBOSE(1, verbose_stream() << "revert repair-down " << val << " = " << v1 << " div " << v2 << "\n");
+        IF_VERBOSE(3, verbose_stream() << "revert repair-down " << val << " = " << v1 << " div " << v2 << "\n");
         // bail
         return update(od.m_var, v2 == 0 ? num_t(0) : div(v1, v2));
     }   
@@ -1906,7 +1906,7 @@ namespace sls {
         if (repair_div_idiv(od, val, v1, v2))
             return true;
 
-        IF_VERBOSE(1, verbose_stream() << "revert repair-down " << val << " = " << v1 << "/" << v2 << "\n");
+        IF_VERBOSE(3, verbose_stream() << "revert repair-down " << val << " = " << v1 << "/" << v2 << "\n");
         // bail
         return update(od.m_var, v2 == 0 ? num_t(0) : v1 / v2);
     }
