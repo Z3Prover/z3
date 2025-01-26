@@ -117,14 +117,11 @@ public:
 
         // constructor with no parameters
     static_matrix() = default;
-
     // constructor
     static_matrix(unsigned m, unsigned n): m_work_vector_of_row_offsets(n, -1)  {
         init_row_columns(m, n);
     }
-    // constructor that copies columns of the basis from A
-    static_matrix(static_matrix const &A, unsigned * basis);
-
+    
     void clear();
 
     void init_vector_of_row_offsets();
@@ -229,8 +226,6 @@ public:
     virtual void set_number_of_columns(unsigned /*n*/) { }
 #endif
 
-    T get_max_val_in_row(unsigned /* i */) const { UNREACHABLE();   }
-
     T get_balance() const;
 
     T get_row_balance(unsigned row) const;
@@ -295,7 +290,8 @@ public:
         }
         return ret;
     }
-
+    template <typename TTerm>
+    void pivot_term_to_row_given_cell(TTerm const & term, column_cell&c, unsigned j, int j_sign);
     // pivot row i to row ii
     bool pivot_row_to_row_given_cell(unsigned i, column_cell& c, unsigned j);
     void pivot_row_to_row_given_cell_with_sign(unsigned piv_row_index, column_cell& c, unsigned j, int j_sign);

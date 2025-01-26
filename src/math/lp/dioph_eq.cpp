@@ -117,6 +117,39 @@ namespace lp {
         }
     };
     
+    template<typename T>
+    class bij_map {
+        // We store T indexed by 'b' in an std::unordered_map, and use bijection to map from 'a' to 'b'.
+
+        bijection m_bij;
+        std::unordered_map<unsigned, T> m_data;
+
+    public:
+        // Adds a->b in m_bij, associates val with b.
+        void add(unsigned a, unsigned b, const T& val) {
+            // You might have some method in bijection such as 'insert(a, b)'
+            // or possibly you'd do:
+            // m_bij.add_key_val(a, b);
+            // For example:
+            m_bij.add(a, b);
+            m_data[b] = val;
+        }
+
+        bool has_key(unsigned j) const { return m_bij.has_key(j); }
+
+        // Get the data by 'a', look up b in m_bij, then read from m_data
+        const T& get_by_key(unsigned a) const {
+            unsigned b = m_bij[a]; // relies on operator[](unsigned) from bijection
+            return get_by_val(b);
+        }
+
+        // Get the data by 'b' directly
+        const T& get_by_val(unsigned b) const {
+            auto it = m_data.find(b);
+            SASSERT(it != m_data.end());
+            return it->second;
+        }
+    };
     class dioph_eq::imp {
         // This class represents a term with an added constant number c, in form sum
         // {x_i*a_i} + c.
@@ -289,13 +322,25 @@ namespace lp {
         lar_term m_tmp_l;
 
         bijection m_k2s;
-        struct fresh_definition {
-            unsigned m_ei;
-            unsigned m_origin;
-            fresh_definition(unsigned i, unsigned o) : m_ei(i), m_origin(o) {}
+        // it seems it is only needed for debug
+        struct fresh_def{
+            unsigned m_xt;
+            lar_term m_term;
+            fresh_def() {}
+            fresh_def(unsigned xt, const lar_term& t) :m_xt(xt), m_term(t) {}
         };
-        std_vector<fresh_definition> m_fresh_definitions;
+        bij_map<fresh_def> m_fresh_k2xt_terms;
+        indexed_uint_set m_changed_rows;
+        indexed_uint_set m_changed_columns;
+        // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
+        std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_terms;  
 
+        // m_row2fresh_defs[i] is the set of all k
+        // such that pairs (k, m_fresh_k2xt_terms[k]) is a fresh definition introduced for row i.
+        // When row i is changed all entries depending on m_fresh_k2xt_terms[k].m_xt should be recalculated,
+        // and the corresponding fresh definitions disregarded. These definitions should not be persisted in Release mode.
+        std::unordered_map<unsigned, std_vector<unsigned>> m_row2fresh_defs;
+        
         unsigned m_conflict_index = -1;  // m_entries[m_conflict_index] gives the conflict
         unsigned m_max_number_of_iterations = 100;
         unsigned m_number_of_iterations;
@@ -470,12 +515,7 @@ namespace lp {
             }
             m_var_register.shrink(m_e_matrix.column_count());
 
-            auto it = std::find_if(m_fresh_definitions.begin(), m_fresh_definitions.end(), [i](auto const& fe) {
-                return fe.m_origin == i;
-            });
-            if (it != m_fresh_definitions.end())
-                *it = fresh_definition(-1, -1); 
-
+            SASSERT(m_row2fresh_defs.find(i) == m_row2fresh_defs.end());
 
             if (m_k2s.has_val(i)) {
                 remove_from_S(i);
@@ -498,10 +538,7 @@ namespace lp {
             if (it != l.end())
                 l.erase(it);
         }
-        
-        std::unordered_set<unsigned> m_changed_columns;
-        // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
-        std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_terms;  
+
         void add_changed_column(unsigned j) {
             TRACE("dioph_eq", lra.print_column_info(j, tout););
             m_changed_columns.insert(j);
@@ -711,7 +748,6 @@ namespace lp {
                     delete_column(j);
                 }
             }
-            std::unordered_set<unsigned> entries_to_recalculate;
             std::unordered_set<unsigned> changed_terms; // a term is signified by the term column, like j in lra.get_term(j)
             std_vector<unsigned> fresh_entries_to_remove;
             for (unsigned j : m_changed_columns) {  
@@ -723,66 +759,34 @@ namespace lp {
                 if (!m_var_register.external_is_used(j)) 
                     continue;
                 for (const auto& p : m_e_matrix.column(this->lar_solver_to_local(j))) {
-                    entries_to_recalculate.insert(p.var());
+                    m_changed_rows.insert(p.var());
                 }
             }
             for (unsigned j : changed_terms) {
                 for (const auto & cs: m_l_matrix.column(j)) {
-                    entries_to_recalculate.insert(cs.var());
+                    m_changed_rows.insert(cs.var());
                 }
             }
 
-            TRACE("dioph_eq", tout << "entries_to_recalculate:"; for (unsigned j : entries_to_recalculate) {tout << " " << j;});
-            for (unsigned j = 0; j < m_fresh_definitions.size(); j++) {
-                const fresh_definition& fd  = m_fresh_definitions[j];
-                if (fd.m_ei == UINT_MAX) continue;
-                if (contains(entries_to_recalculate, fd.m_origin)) {
-                    fresh_entries_to_remove.push_back(j);
-                    continue;
+            // find more entries to recalculate
+            std_vector<unsigned> more_changed_rows;
+            for (unsigned ei : m_changed_rows) {
+                auto it = m_row2fresh_defs.find(ei);
+                if (it == m_row2fresh_defs.end()) continue;
+                for (unsigned k : it->second) {
+                    unsigned xt = m_fresh_k2xt_terms.get_by_key(k).m_xt;
+                    SASSERT(var_is_fresh(xt));
+                    for (const auto &p :m_e_matrix.m_columns[xt]) {
+                        more_changed_rows.push_back(p.var());
+                    }                        
                 }
             }
 
-            TRACE("dioph_eq", tout << "found " << fresh_entries_to_remove.size() << " fresh entries to remove\n";
-                  tout << "m_changed_columns:\n";
-                  std::vector<unsigned> v(m_changed_columns.begin(), m_changed_columns.end());
-                  std::sort(v.begin(), v.end());
-                  for (unsigned j : v) {
-                      tout << j << " ";
-                  }
-                  tout << std::endl;
-                ); 
-            while (fresh_entries_to_remove.size()) {
-//                 enable_trace("d_once");
-                unsigned xt = fresh_entries_to_remove.back();
-                fresh_entries_to_remove.pop_back();
-                const fresh_definition & fd = m_fresh_definitions[xt];
-                TRACE("d_once", print_entry(fd.m_ei, tout) << std::endl; tout << "xt:" << xt << std::endl;);
-                unsigned last_ei = static_cast<unsigned>(m_entries.size() - 1);
-                if (fd.m_ei != last_ei) { // not the last entry
-                    transpose_entries(fd.m_ei, static_cast<unsigned>(m_entries.size() - 1));
-                    // we are not going to recalculate fd.m_ei
-                    // but we might need to recalculate last_ei, which becomes fd.m_ei
-                    if (contains(entries_to_recalculate, last_ei )) {
-                        entries_to_recalculate.erase(last_ei),
-                            entries_to_recalculate.insert(fd.m_ei);
-                    }
-                }
-                for (const auto p: m_e_matrix.m_columns[xt]) {
-                    entries_to_recalculate.insert(p.var());
-                }
-                    
-                m_fresh_definitions[xt] = fresh_definition(-1,-1);
-                remove_last_entry();
-                remove_last_row_in_matrix(m_l_matrix);
-                remove_last_row_in_matrix(m_e_matrix);
-            }
-            for(unsigned ei : entries_to_recalculate) {
-                if (ei < m_e_matrix.row_count())
-                    if (belongs_to_s(ei))
-                        remove_from_S(ei); 
+            for (unsigned ei : more_changed_rows) {
+                m_changed_rows.insert(ei);
             }
              
-            for(unsigned ei : entries_to_recalculate) {
+            for(unsigned ei : m_changed_rows) {
                 if (ei >= m_e_matrix.row_count())
                     continue;;
                 recalculate_entry(ei);             
@@ -795,9 +799,11 @@ namespace lp {
                 }
             }
             
-            eliminate_substituted(entries_to_recalculate);
+            eliminate_substituted_in_changed_rows();
+            m_changed_columns.reset();
+            SASSERT(m_changed_columns.size() == 0);
+            m_changed_rows.reset();
             SASSERT(entries_are_ok());
-            m_changed_columns.clear();
         }
 
         int get_sign_in_e_row(unsigned ei, unsigned j) const {
@@ -814,8 +820,8 @@ namespace lp {
             return it->coeff();
         }
 
-        void eliminate_substituted(std::unordered_set<unsigned> entries_to_recalculate) {
-            for (unsigned ei: entries_to_recalculate)
+        void eliminate_substituted_in_changed_rows() {
+            for (unsigned ei: m_changed_rows)
                 subs_entry(ei);
         }
 
@@ -843,7 +849,7 @@ namespace lp {
         
         // returns true if a variable j is substituted
         bool can_substitute(unsigned j) const {
-            return m_k2s.has_key(j);
+            return m_k2s.has_key(j) || m_fresh_k2xt_terms.has_key(j);
         }        
 
         bool entries_are_ok() {
@@ -919,7 +925,7 @@ namespace lp {
 
         bool has_fresh_var(unsigned row_index) const {
             for (const auto& p : m_e_matrix.m_rows[row_index]) {
-                if (is_fresh_var(p.var()))
+                if (var_is_fresh(p.var()))
                     return true;
             }
             return false;
@@ -1037,7 +1043,7 @@ namespace lp {
                     continue;
                 m_indexed_work_vector.add_value_at_index(j, p.coeff() * coeff);
                 // do we need to add j to the queue?
-                if (!is_fresh_var(j) && !m_indexed_work_vector[j].is_zero() &&
+                if (!var_is_fresh(j) && !m_indexed_work_vector[j].is_zero() &&
                     can_substitute(j))
                     q.push(j);
             }
@@ -1819,6 +1825,33 @@ namespace lp {
             }
             SASSERT(is_eliminated_from_f(j));
         }
+        // j is the variable to eliminate, or substitude, it appears in term t with 
+        // a coefficient equal to j_sign which is +-1 , matrix m_l_matrix is not changed since it is a substitution of a fresh variable
+        void eliminate_var_in_f_with_term(const lar_term& t, unsigned j, int j_sign) {
+            SASSERT(abs(t.get_coeff(j)).is_one());
+            TRACE("dioph_eq", tout << "eliminate var:" << j << " by using:";
+                  print_lar_term_L(t, tout) << std::endl;);
+            auto& column = m_e_matrix.m_columns[j];
+
+            int cell_to_process = static_cast<int>(column.size() - 1);
+            while (cell_to_process >= 0) {
+                auto& c = column[cell_to_process];
+                if (belongs_to_s(c.var())) {
+                    cell_to_process--;
+                    continue;
+                }
+
+                mpq coeff = m_e_matrix.get_val(c);
+                unsigned i = c.var();
+                TRACE("dioph_eq", tout << "before pivot entry :"; print_entry(i, tout) << std::endl;);
+                m_e_matrix.pivot_term_to_row_given_cell(t, c, j, j_sign);
+                TRACE("dioph_eq", tout << "after pivoting c_row:";
+                      print_entry(i, tout););
+                SASSERT(entry_invariant(i));
+                cell_to_process--;
+            }
+            SASSERT(is_eliminated_from_f(j));
+        }
         bool is_eliminated_from_f(unsigned j) const {
             for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
                 if (!belongs_to_f(ei)) continue;
@@ -1883,25 +1916,28 @@ namespace lp {
             term_o t = tt;
             std::queue<unsigned> q;
             for (const auto& p : t) {
-                if (is_fresh_var(p.j())) {
+                if (var_is_fresh(p.j())) {
                     q.push(p.j());
                 }
             }
             while (!q.empty()) {
-                unsigned xt = pop_front(q);
-                term_o fresh_t = get_term_from_entry(m_fresh_definitions[xt].m_ei);
+                unsigned k = pop_front(q);
+                const auto & fd = m_fresh_k2xt_terms.get_by_key(k);
+                const lar_term& fresh_t = fd.m_term;
+                TRACE("dioph_eq", print_lar_term_L(fresh_t, tout););
+                unsigned xt = fd.m_xt;
                 SASSERT(fresh_t.get_coeff(xt).is_minus_one());
-                fresh_t.erase_var(xt);
                 if (!t.contains(xt))
                     continue;
                 mpq xt_coeff = t.get_coeff(xt);
-                t.erase_var(xt);
                 t += xt_coeff * fresh_t;
+                SASSERT(t.contains(xt) == false);
                 for (const auto& p : t) {
-                    if (is_fresh_var(p.j())) {
+                    if (var_is_fresh(p.j())) {
                         q.push(p.j());
                     }
                 }
+                
             }
             return t;
         }
@@ -1951,56 +1987,35 @@ namespace lp {
 
         // k is the variable to substitute
         void fresh_var_step(unsigned h, unsigned k, const mpq& ahk) {
-            move_row_to_work_vector(h);  // it clears the row, and puts the term in the work vector
-            
             // step 7 from the paper
             // xt is the fresh variable
             unsigned xt = add_var(UINT_MAX);
-            unsigned fresh_row = m_e_matrix.row_count();
-            m_e_matrix.add_row();  // for the fresh variable definition
             while (xt >= m_e_matrix.column_count())
                 m_e_matrix.add_column();
-            // Add a new row for the fresh variable definition
+            // Create a term the fresh variable definition: it seems needed in Debug only
             /* Let eh = sum(ai*xi) + c. For each i != k, let ai = qi*ahk + ri, and
                let c = c_q * ahk + c_r. eh = ahk*(x_k + sum{qi*xi|i != k} + c_q) +
                sum {ri*xi|i!= k} + c_r. Then -xt + x_k + sum {qi*x_i)| i != k} + c_q
                will be the fresh row eh = ahk*xt +  sum {ri*x_i | i != k} + c_r  is
                the row m_e_matrix[e.m_row_index]
             */
-            auto& e = m_entries[h];
             mpq q, r;
-            q = machine_div_rem(e.m_c, ahk, r);
-            e.m_c = r;
-            m_e_matrix.add_new_element(h, xt, ahk);
-
-            m_entries.push_back({q});
-            m_e_matrix.add_new_element(fresh_row, xt, -mpq(1));
-            m_e_matrix.add_new_element(fresh_row, k, mpq(1));
-            for (unsigned i : m_indexed_work_vector.m_index) {
-                mpq ai = m_indexed_work_vector[i];
-                if (i == k)
+            lar_term fresh_t; // fresh term
+            fresh_t.add_monomial(-mpq(1), xt);
+            fresh_t.add_monomial(mpq(1), k);
+            for (const auto& i : m_e_matrix.m_rows[h]) {
+                const mpq &ai = i.coeff();
+                if (i.var() == k)
                     continue;
                 q = machine_div_rem(ai, ahk, r);
-                if (!r.is_zero())
-                    m_e_matrix.add_new_element(h, i, r);
                 if (!q.is_zero())
-                    m_e_matrix.add_new_element(fresh_row, i, q);
+                    fresh_t.add_monomial(q, i.var());
             }
 
-            m_l_matrix.add_row();
-            move_entry_from_f_to_s(k, fresh_row);
-            fresh_definition fd(-1, -1);
-                
-            m_fresh_definitions.resize(xt + 1, fd);
-            m_fresh_definitions[xt] = fresh_definition(fresh_row, h);
-            TRACE("dioph_eq", tout << "changed entry:";
-                  print_entry(h, tout) << std::endl;
-                  tout << "added entry for fresh var:\n";
-                  print_entry(fresh_row, tout) << std::endl;);
-            SASSERT(entry_invariant(h));
-            SASSERT(entry_invariant(fresh_row));
-            SASSERT(is_fresh_var(xt));
-            eliminate_var_in_f(fresh_row, k, 1);
+            fresh_def fd(xt, fresh_t);
+            m_fresh_k2xt_terms.add(k, xt, fd);
+            SASSERT(var_is_fresh(xt));
+            eliminate_var_in_f_with_term(fresh_t, k, 1);
         }
 
         std::ostream& print_entry(unsigned i, std::ostream& out,
@@ -2103,7 +2118,7 @@ namespace lp {
             TRACE("dioph_eq", lra.print_expl(tout, ex););
         }
 
-        bool is_fresh_var(unsigned j) const {
+        bool var_is_fresh(unsigned j) const {
             return m_var_register.local_to_external(j) == UINT_MAX;
         }
         
