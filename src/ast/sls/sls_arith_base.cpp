@@ -1571,8 +1571,8 @@ namespace sls {
                 todo.push_back(op.m_arg1);
                 todo.push_back(op.m_arg2);
             }
-            if (m_vars[u].is_if_op()) {
-                auto const& ui = m_vars[u];
+            auto const& ui = m_vars[u];
+            if (ui.is_if_op()) {
                 expr* c = nullptr, * th = nullptr, * el = nullptr;
                 VERIFY(m.is_ite(ui.m_expr, c, th, el));
                 todo.push_back(mk_var(th));

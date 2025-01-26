@@ -105,11 +105,6 @@ namespace sls {
                 m_smt_plugin->add_unit(lit);
             }
         }
-#if 0
-        if (ctx.has_new_best_phase())
-            m_smt_plugin->import_phase_from_smt();
-
-#endif
 
         m_smt_plugin->import_from_sls();
     }

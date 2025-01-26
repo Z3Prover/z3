@@ -97,6 +97,7 @@ namespace sat {
         uint64_t         m_last_flips_for_shift = 0;
         unsigned         m_num_non_binary_clauses = 0;
         unsigned         m_restart_count = 0, m_reinit_count = 0;
+        unsigned         m_model_save_count = 0;
         uint64_t         m_restart_next = 0, m_reinit_next = 0;
         uint64_t         m_flips = 0, m_last_flips = 0, m_shifts = 0;
         unsigned         m_logs = 0;
