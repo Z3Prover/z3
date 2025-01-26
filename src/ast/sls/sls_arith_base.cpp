@@ -2245,7 +2245,7 @@ namespace sls {
          bool r = update(w, n);   
 
          if (!r) {
-             IF_VERBOSE(2,
+             IF_VERBOSE(3,
                  verbose_stream() << "set value failed " << mk_pp(e, m) << " := " << mk_pp(v, m) << "\n";
                 display(verbose_stream(), w) << " := " << value(w) << "\n");
          }
