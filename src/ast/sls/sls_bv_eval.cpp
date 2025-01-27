@@ -315,7 +315,7 @@ namespace sls {
                 val.set(val_el.bits());
             return;
         }
-        if (e->get_family_id() == null_family_id) {
+        if (e->get_family_id() != bv.get_fid()) {
             val.set(wval(e).bits());
             return;
         }
