@@ -135,6 +135,18 @@ namespace lp {
             m_data[b] = val;
         }
 
+        unsigned get_second_of_key(unsigned a) const {
+            return m_bij[a];
+        }
+
+        void erase_by_second_key(unsigned b) {
+            SASSERT(m_bij.has_val(b));
+            m_bij.erase_val(b);
+            auto it = m_data.find(b);
+            SASSERT(it != m_data.end());
+            m_data.erase(it);
+        }
+        
         bool has_key(unsigned j) const { return m_bij.has_key(j); }
 
         // Get the data by 'a', look up b in m_bij, then read from m_data
@@ -322,24 +334,18 @@ namespace lp {
         lar_term m_tmp_l;
 
         bijection m_k2s;
-        // it seems it is only needed for debug
-        struct fresh_def{
-            unsigned m_xt;
-            lar_term m_term;
-            fresh_def() {}
-            fresh_def(unsigned xt, const lar_term& t) :m_xt(xt), m_term(t) {}
-        };
-        bij_map<fresh_def> m_fresh_k2xt_terms;
-        indexed_uint_set m_changed_rows;
-        indexed_uint_set m_changed_columns;
-        // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
-        std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_terms;  
-
+        bij_map<lar_term> m_fresh_k2xt_terms;
         // m_row2fresh_defs[i] is the set of all k
         // such that pairs (k, m_fresh_k2xt_terms[k]) is a fresh definition introduced for row i.
         // When row i is changed all entries depending on m_fresh_k2xt_terms[k].m_xt should be recalculated,
         // and the corresponding fresh definitions disregarded. These definitions should not be persisted in Release mode.
         std::unordered_map<unsigned, std_vector<unsigned>> m_row2fresh_defs;
+
+        indexed_uint_set m_changed_rows;
+        indexed_uint_set m_changed_columns;
+        // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
+        std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_terms;  
+
         
         unsigned m_conflict_index = -1;  // m_entries[m_conflict_index] gives the conflict
         unsigned m_max_number_of_iterations = 100;
@@ -647,6 +653,7 @@ namespace lp {
         }
         void subs_entry(unsigned ei) {
             if (ei >= m_entries.size()) return;
+            // q is the queue of variables that can be substituted in ei
             std::queue<unsigned> q;
             for (const auto& p: m_e_matrix.m_rows[ei]) {
                 if (can_substitute(p.var()))
@@ -657,6 +664,34 @@ namespace lp {
             SASSERT(entry_invariant(ei));
         }
 
+        void substitute_on_q_with_entry_in_S(std::queue<unsigned> & q, unsigned ei, unsigned j, const mpq & alpha, std::unordered_set<unsigned> & in_queue) {
+            unsigned ei_to_sub = m_k2s[j];
+            int sign_j = get_sign_in_e_row(ei_to_sub, j);
+            // we need to eliminate alpha*j in ei's row
+            add_two_entries(-mpq(sign_j)*alpha, ei_to_sub, ei);
+            for (const auto& p: m_e_matrix.m_rows[ei]) {
+                unsigned jj = p.var();
+                if (can_substitute(jj) && !contains(in_queue, jj)) {
+                    q.push(jj);
+                    in_queue.insert(jj);
+                }
+            }
+        }
+        void substitute_with_fresh_def(std::queue<unsigned> & q, unsigned ei, unsigned j, const mpq & alpha, std::unordered_set<unsigned> & in_queue) {
+            const lar_term& sub_term = m_fresh_k2xt_terms.get_by_key(j);
+            SASSERT(sub_term.get_coeff(j).is_one());
+            // we need to eliminate alpha*j in ei's row
+            add_term_to_entry(- alpha, sub_term, ei);
+            for (const auto& p: m_e_matrix.m_rows[ei]) {
+                unsigned jj = p.var();
+                if (can_substitute(jj) && !contains(in_queue, jj)) {
+                    q.push(jj);
+                    in_queue.insert(jj);
+                }
+            }
+        }
+
+        // q is the queue of variables that can be substituted in ei
         void substitute_on_q(std::queue<unsigned> & q, unsigned ei) {
              // Track queued items
             std::unordered_set<unsigned> in_queue;
@@ -673,18 +708,24 @@ namespace lp {
                 in_queue.erase(j);
                 mpq alpha = get_coeff_in_e_row(ei, j);
                 if (alpha.is_zero()) continue;
-                unsigned ei_to_sub = m_k2s[j];
-                int sign_j = get_sign_in_e_row(ei_to_sub, j);
-                // we need to eliminate alpha*j in ei's row
-                add_two_entries(-mpq(sign_j)*alpha, ei_to_sub, ei);
-                for (const auto& p: m_e_matrix.m_rows[ei]) {
-                    unsigned jj = p.var();
-                    if (can_substitute(jj) && !contains(in_queue, jj)) {
-                        q.push(jj);
-                        in_queue.insert(jj);
-                    }
+                if (m_k2s.has_key(j)) {
+                    substitute_on_q_with_entry_in_S(q, ei, j, alpha, in_queue);
+                } else  {
+                    substitute_with_fresh_def(q, ei, j, alpha,in_queue);
                 }
             }
+        }
+        bool term_is_in_range(const lar_term& t) const {
+            for (const auto & p: t) {
+                if (p.var() >= m_e_matrix.column_count())
+                    return false;
+            }
+            return true;
+        }
+        // adds the term multiplied by coeff to m_e_matrix row i
+        void add_term_to_entry(const mpq& coeff, const lar_term& t, unsigned i ) {
+            SASSERT(term_is_in_range(t));
+            m_e_matrix.add_term_to_row(coeff, t, i);
         }
 
         // adds entry i0 multiplied by coeff to entry i1
@@ -741,15 +782,7 @@ namespace lp {
             SASSERT(entry_invariant(ei));
         }
 
-        
-        void process_changed_columns() {
-            for (unsigned j : m_changed_columns) {
-                if (j >= this->lra.column_count()) {
-                    delete_column(j);
-                }
-            }
-            std::unordered_set<unsigned> changed_terms; // a term is signified by the term column, like j in lra.get_term(j)
-            std_vector<unsigned> fresh_entries_to_remove;
+        void find_changed_terms_and_more_changed_rows(std::unordered_set<unsigned> & changed_terms) {
             for (unsigned j : m_changed_columns) {  
                 const auto it = m_columns_to_terms.find(j);
                 if (it != m_columns_to_terms.end())                
@@ -759,9 +792,30 @@ namespace lp {
                 if (!m_var_register.external_is_used(j)) 
                     continue;
                 for (const auto& p : m_e_matrix.column(this->lar_solver_to_local(j))) {
-                    m_changed_rows.insert(p.var());
+                    m_changed_rows.insert(p.var()); // TODO: is it necessary?
                 }
             }
+        }
+
+        void remove_irrelevant_fresh_defs() {
+            for (unsigned ei : m_changed_rows) {
+                auto it = m_row2fresh_defs.find(ei);
+                if (it == m_row2fresh_defs.end()) continue;
+                for (unsigned xt: it->second) {
+                    m_fresh_k2xt_terms.erase_by_second_key(xt);
+                }
+                m_row2fresh_defs.erase(it);
+            }
+        }
+        
+        void process_changed_columns() {
+            for (unsigned j : m_changed_columns) {
+                if (j >= this->lra.column_count()) {
+                    delete_column(j);
+                }
+            }
+            std::unordered_set<unsigned> changed_terms; // a term is signified by the term column, like j in lra.get_term(j)
+            find_changed_terms_and_more_changed_rows(changed_terms);
             for (unsigned j : changed_terms) {
                 for (const auto & cs: m_l_matrix.column(j)) {
                     m_changed_rows.insert(cs.var());
@@ -773,8 +827,7 @@ namespace lp {
             for (unsigned ei : m_changed_rows) {
                 auto it = m_row2fresh_defs.find(ei);
                 if (it == m_row2fresh_defs.end()) continue;
-                for (unsigned k : it->second) {
-                    unsigned xt = m_fresh_k2xt_terms.get_by_key(k).m_xt;
+                for (unsigned xt : it->second) {
                     SASSERT(var_is_fresh(xt));
                     for (const auto &p :m_e_matrix.m_columns[xt]) {
                         more_changed_rows.push_back(p.var());
@@ -785,7 +838,10 @@ namespace lp {
             for (unsigned ei : more_changed_rows) {
                 m_changed_rows.insert(ei);
             }
-             
+
+            remove_irrelevant_fresh_defs();
+
+            
             for(unsigned ei : m_changed_rows) {
                 if (ei >= m_e_matrix.row_count())
                     continue;;
@@ -1009,16 +1065,37 @@ namespace lp {
             t.c() = -c.rhs();
         }
 
-        // We look at term e.m_e: it is in form (+-)x_k + sum {a_i*x_i} + c = 0.
-        // We substitute x_k in t by (+-)coeff*(sum {a_i*x_i} + c), where coeff is
-        // the coefficient of x_k in t.
+        
+        void subs_front_in_indexed_vector_by_fresh(unsigned k, std::queue<unsigned> &q) {
+            const lar_term& e = m_fresh_k2xt_terms.get_by_key(k);
+            TRACE("dioph_eq", tout << "k:" << k << ", in ";
+                  print_term_o(create_term_from_ind_c(), tout) << std::endl;
+                  tout << "subs with e:";
+                  print_lar_term_L(e, tout) << std::endl;);
+            mpq coeff = - m_indexed_work_vector[k];    // need to copy since it will be zeroed
+            m_indexed_work_vector.erase(k);  // m_indexed_work_vector[k] = 0;
 
-        void subs_front_in_indexed_vector(std::queue<unsigned>& q) {
-            unsigned k = pop_front(q);
-            if (m_indexed_work_vector[k].is_zero())
-                return;
+            SASSERT(e.get_coeff(k).is_one());
+
+            for (const auto& p : e) {
+                unsigned j = p.var();
+                if (j == k)
+                    continue;
+                m_indexed_work_vector.add_value_at_index(j, p.coeff()*coeff);
+                // do we need to add j to the queue?
+                if (!var_is_fresh(j) && !m_indexed_work_vector[j].is_zero() &&
+                    can_substitute(j))
+                    q.push(j);
+            }
+            // there is no change in m_l_matrix
+            TRACE("dioph_eq", tout << "after subs k:" << k << "\n";
+                  print_term_o(create_term_from_ind_c(), tout) << std::endl;
+                  tout << "m_tmp_l:{"; print_lar_term_L(m_tmp_l, tout);
+                  tout << "}, opened:"; print_ml(m_tmp_l, tout) << std::endl;);
+        }
+        
+        void subs_front_in_indexed_vector_by_S(unsigned k, std::queue<unsigned> &q) {
             const entry& e = entry_for_subs(k);
-            SASSERT(can_substitute(k));
             TRACE("dioph_eq", tout << "k:" << k << ", in ";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "subs with e:";
@@ -1054,6 +1131,26 @@ namespace lp {
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "m_tmp_l:{"; print_lar_term_L(m_tmp_l, tout);
                   tout << "}, opened:"; print_ml(m_tmp_l, tout) << std::endl;);
+        }
+
+        bool is_substituted_by_fresh(unsigned k) const {
+            return m_fresh_k2xt_terms.has_key(k);
+        }
+        // The term giving the substitution is in form (+-)x_k + sum {a_i*x_i} + c = 0.
+        // We substitute x_k in t by (+-)coeff*(sum {a_i*x_i} + c), where coeff is
+        // the coefficient of x_k in t.
+        void subs_front_in_indexed_vector(std::queue<unsigned>& q) {
+            unsigned k = pop_front(q);
+            if (m_indexed_work_vector[k].is_zero())
+                return;
+            // we might substitute with a term from S or a fresh term
+            
+            SASSERT(can_substitute(k));
+            if (is_substituted_by_fresh(k)) {
+                subs_front_in_indexed_vector_by_fresh(k, q);
+            } else {
+                subs_front_in_indexed_vector_by_S(k, q);
+            }
         }
 
         lar_term l_term_from_row(unsigned k) const {
@@ -1188,7 +1285,11 @@ namespace lp {
                   tout << "m_tmp_l:";
                   print_lar_term_L(m_tmp_l, tout) << std::endl;);
             subs_indexed_vector_with_S(q);
-
+            // if(
+            //     fix_vars(term_to_tighten + open_ml(m_tmp_l)) !=
+            //     term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c())))
+            //     enable_trace("dioph_eq");
+            
             TRACE("dioph_eq", tout << "after subs\n";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "term_to_tighten:";
@@ -1199,8 +1300,14 @@ namespace lp {
                   tout << "term_to_tighten + open_ml:";
                   print_term_o(term_to_tighten + open_ml(m_tmp_l), tout)
                   << std::endl;
-                  tout << "ls:"; print_term_o(fix_vars(term_to_tighten + open_ml(m_tmp_l)),tout) << std::endl;
-                  tout << "rs:"; print_term_o(term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c())), tout ) << std::endl;
+                  term_o ls = fix_vars(term_to_tighten + open_ml(m_tmp_l));
+                  tout << "ls:"; print_term_o(ls,tout) << std::endl;
+                  term_o rs = term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c()));
+                  tout << "rs:"; print_term_o(rs, tout ) << std::endl;
+                  term_o diff = ls - rs;
+                  if (!diff.is_empty()) {
+                      tout << "diff:"; print_term_o(diff, tout ) << std::endl;                      
+                  }
 
                 );
             SASSERT(
@@ -1426,9 +1533,9 @@ namespace lp {
         lia_move fix_var(unsigned j) {
             SASSERT(is_fixed(local_to_lar_solver(j)));
             /* 
-               We only can get a conflict when j is substituted, and the entry m_k2s[j], the entry defining the substitution  becomes infeaseable, that is the gcd of the monomial coeffitients does not dive the free coefficient. In other cases the gcd of the monomials will remain to be 1.
+               We only can get a conflict when j is substituted, and the entry m_k2s[j], the entry defining the substitution  becomes infeaseable, that is the gcd of the monomial coeffitients does not divide the free coefficient. In other cases the gcd of the monomials will remain to be 1.
             */
-            if (can_substitute(j)) {
+            if (m_k2s.has_key(j)) { // j is substituted but using an entry
                 TRACE("dio_br",
                       tout << "fixed j:" << j <<", was substited by "; print_entry(m_k2s[j], tout););
                 if (check_fixing(j) == lia_move::conflict) {
@@ -1921,11 +2028,9 @@ namespace lp {
                 }
             }
             while (!q.empty()) {
-                unsigned k = pop_front(q);
-                const auto & fd = m_fresh_k2xt_terms.get_by_key(k);
-                const lar_term& fresh_t = fd.m_term;
+                unsigned xt = pop_front(q); // xt is a fresh var
+                const lar_term& fresh_t = m_fresh_k2xt_terms.get_by_val(xt);
                 TRACE("dioph_eq", print_lar_term_L(fresh_t, tout););
-                unsigned xt = fd.m_xt;
                 SASSERT(fresh_t.get_coeff(xt).is_minus_one());
                 if (!t.contains(xt))
                     continue;
@@ -1985,6 +2090,17 @@ namespace lp {
             clear_e_row(ei);
         }
 
+        // The idea is to remove this fresh definition when the row h changes.
+        // The row can change if it depends on the term that is deleted, or on a variable that becomes fixed/unfixed        
+        void register_var_in_fresh_defs(unsigned h, unsigned fr_j) {
+            auto it = m_row2fresh_defs.find(h);
+            if (it == m_row2fresh_defs.end()) {
+                m_row2fresh_defs[h].push_back(fr_j);
+            } else {
+                it->second.push_back(fr_j);
+            }
+        }
+        
         // k is the variable to substitute
         void fresh_var_step(unsigned h, unsigned k, const mpq& ahk) {
             // step 7 from the paper
@@ -2012,9 +2128,9 @@ namespace lp {
                     fresh_t.add_monomial(q, i.var());
             }
 
-            fresh_def fd(xt, fresh_t);
-            m_fresh_k2xt_terms.add(k, xt, fd);
+            m_fresh_k2xt_terms.add(k, xt, fresh_t);
             SASSERT(var_is_fresh(xt));
+            register_var_in_fresh_defs(h, xt);
             eliminate_var_in_f_with_term(fresh_t, k, 1);
         }
 
