@@ -413,10 +413,8 @@ namespace sls {
 
 
                 if (j > 0 && k > 0) {
-                    for (unsigned i = 0; i < std::min(k, j); ++i) {
-                        SASSERT(!v.get_bit(i));
-                        v.set_fixed_bit(i, false);
-                    }
+                    for (unsigned i = 0; i < std::min(k, j); ++i)                         
+                        v.set_fixed_bit(i, v.get_bit(i));                    
                 }
                 // lower zj + jk bits are 0
                 if (zk > 0 || zj > 0) {

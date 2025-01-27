@@ -70,6 +70,13 @@ namespace sls {
         bool are_distinct(euf::enode* a, euf::enode* b);
         bool eq_args(euf::enode* sto, euf::enode* sel);
         euf::enode* mk_select(euf::egraph& g, euf::enode* b, euf::enode* sel);
+
+        void resolve_conflict();
+        size_t* to_ptr(sat::literal l) { return reinterpret_cast<size_t*>((size_t)(l.index() << 4)); };
+        size_t* to_ptr(expr* t) { return reinterpret_cast<size_t*>((reinterpret_cast<size_t>(t) << 4) + 1); }
+        bool is_literal(size_t* p) { return (reinterpret_cast<size_t>(p) & 1) == 0; }
+        sat::literal to_literal(size_t* p) { return sat::to_literal(static_cast<unsigned>(reinterpret_cast<size_t>(p) >> 4)); };
+        expr* to_expr(size_t* p) { return reinterpret_cast<expr*>(reinterpret_cast<size_t>(p) >> 4); }
         
     public:
         array_plugin(context& ctx);

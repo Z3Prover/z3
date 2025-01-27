@@ -108,7 +108,7 @@ namespace sls {
 
     bool basic_plugin::bval0(expr* e) const {
         SASSERT(m.is_bool(e));     
-        return ctx.is_true(ctx.mk_literal(e));
+        return ctx.is_true(e);
     }
 
     bool basic_plugin::try_repair(app* e, unsigned i) {

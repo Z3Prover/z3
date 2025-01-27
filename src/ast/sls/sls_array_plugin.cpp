@@ -36,7 +36,36 @@ namespace sls {
         m_kv = nullptr;
         init_egraph(*m_g);
         saturate(*m_g);
-        return true;
+#if 0
+        if (m_g->inconsistent()) {
+            resolve_conflict();
+            return false;
+        }
+        return !m_g->inconsistent();   
+#endif
+    }
+
+
+    void array_plugin::resolve_conflict() {
+        auto& g = *m_g;
+        SASSERT(g.inconsistent());
+        unsigned n = 0;
+        sat::literal_vector lits;
+        ptr_vector<size_t> explain;
+        g.begin_explain();
+        g.explain<size_t>(explain, nullptr);
+        g.end_explain();
+
+        verbose_stream() << "conflict\n";
+        for (auto p : explain) {
+            if (is_literal(p)) {
+                sat::literal l = to_literal(p);
+                verbose_stream() << l << " " << mk_bounded_pp(ctx.atom(l.var()), m) << " " << ctx.is_unit(l) << "\n";
+            }
+            else {
+                verbose_stream() << mk_bounded_pp(to_expr(p), m) << " == " << mk_bounded_pp(ctx.get_value(to_expr(p)), m) << "\n";
+            }
+        }
     }
 
     // b ~ a[i -> v]
@@ -45,9 +74,9 @@ namespace sls {
 
     void array_plugin::saturate(euf::egraph& g) {
         unsigned sz = 0;
-        while (sz < g.nodes().size()) {
+        while (sz < g.nodes().size() && !g.inconsistent()) {
             sz = g.nodes().size();
-            for (unsigned i = 0; i < sz; ++i) {
+            for (unsigned i = 0; i < sz && !g.inconsistent(); ++i) {
                 auto n = g.nodes()[i];
                 if (a.is_store(n->get_expr()))
                     saturate_store(g, n);
@@ -58,7 +87,7 @@ namespace sls {
                 
             }
         }
-        IF_VERBOSE(2, display(verbose_stream() << "saturated\n"));
+        IF_VERBOSE(10, display(verbose_stream() << "saturated\n"));
     }
 
     void array_plugin::saturate_store(euf::egraph& g, euf::enode* n) {
@@ -91,6 +120,8 @@ namespace sls {
     }
 
     void array_plugin::add_map_axiom(euf::egraph& g, euf::enode * n, euf::enode* sel) {
+        if (g.inconsistent())
+            return;
         func_decl* f = nullptr;
         SASSERT(a.is_map(n->get_expr()));
         VERIFY(a.is_map(n->get_decl(), f));
@@ -109,15 +140,14 @@ namespace sls {
             nmap = g.mk(f_map, 0, eargs.size(), eargs.data()); 
         if (nmap->get_root() == nsel->get_root())
             return;
-        if (are_distinct(nsel, nmap)) {
-            expr_ref eq(m.mk_eq(nmap->get_expr(), nsel->get_expr()), m);
-            ctx.add_theory_axiom(eq);
-        }
-        else {
+        if (!are_distinct(nsel, nmap)) {
             g.merge(nmap, nsel, nullptr);
             g.propagate();
-            VERIFY(!g.inconsistent());
+            if (!g.inconsistent())
+                return;
         }
+        expr_ref eq(m.mk_eq(nmap->get_expr(), nsel->get_expr()), m);
+        ctx.add_theory_axiom(eq);
     }
 
     euf::enode* array_plugin::mk_select(euf::egraph& g, euf::enode* b, euf::enode* sel) {
@@ -138,20 +168,25 @@ namespace sls {
 
     // ensure a[i->v][i] = v exists in the e-graph
     void array_plugin::force_store_axiom1(euf::egraph& g, euf::enode* n) {
+        if (g.inconsistent())
+            return;
         SASSERT(a.is_store(n->get_expr()));
         auto val = n->get_arg(n->num_args() - 1);
         auto nsel = mk_select(g, n, n);
-        if (are_distinct(nsel, val))
-            add_store_axiom1(n->get_app());
-        else {
-            g.merge(nsel, val, nullptr);            
+        VERIFY(!g.inconsistent());
+        if (!are_distinct(nsel, val)) {
+            g.merge(nsel, val, nullptr);
             g.propagate();
-            VERIFY(!g.inconsistent());
+            if (!g.inconsistent())
+                return;
         }
+        add_store_axiom1(n->get_app());
     }
 
     // i /~ j, b ~ a[i->v], b[j] occurs -> a[j] = b[j] 
     void array_plugin::force_store_axiom2_down(euf::egraph& g, euf::enode* sto, euf::enode* sel) {
+        if (g.inconsistent())
+            return;
         SASSERT(a.is_store(sto->get_expr()));
         SASSERT(a.is_select(sel->get_expr()));
         if (sel->get_arg(0)->get_root() != sto->get_root())
@@ -159,17 +194,19 @@ namespace sls {
         if (eq_args(sto, sel))
             return; 
         auto nsel = mk_select(g, sto->get_arg(0), sel);
-        if (are_distinct(nsel, sel))
-            add_store_axiom2(sto->get_app(), sel->get_app());
-        else {
+        if (!are_distinct(nsel, sel)) {
             g.merge(nsel, sel, nullptr);
             g.propagate();
-            VERIFY(!g.inconsistent());
+            if (!g.inconsistent())
+                return;
         }
+        add_store_axiom2(sto->get_app(), sel->get_app());
     }
 
     // a ~ b, i /~ j, b[j] occurs -> a[i -> v][j] = b[j] 
     void array_plugin::force_store_axiom2_up(euf::egraph& g, euf::enode* sto, euf::enode* sel) {
+        if (g.inconsistent())
+            return;
         SASSERT(a.is_store(sto->get_expr()));
         SASSERT(a.is_select(sel->get_expr()));
         if (sel->get_arg(0)->get_root() != sto->get_arg(0)->get_root())
@@ -177,32 +214,33 @@ namespace sls {
         if (eq_args(sto, sel))
             return;
         auto nsel = mk_select(g, sto, sel);
-        if (are_distinct(nsel, sel))
-            add_store_axiom2(sto->get_app(), sel->get_app());
-        else {
+        if (!are_distinct(nsel, sel)) {
             g.merge(nsel, sel, nullptr);
             g.propagate();
-            VERIFY(!g.inconsistent());
+            if (!g.inconsistent())
+                return;
         }
+        add_store_axiom2(sto->get_app(), sel->get_app());
     }
 
     // const(v) ~ b, b[j] occurs -> v = (const v)[j]
     void array_plugin::force_const_axiom(euf::egraph& g, euf::enode* cn, euf::enode* sel) {
+        if (g.inconsistent())
+            return;
         SASSERT(a.is_const(cn->get_expr()));
         SASSERT(a.is_select(sel->get_expr()));
         if (sel->get_arg(0)->get_root() != cn->get_root())
             return;
         auto val = cn->get_arg(0);
         auto nsel = mk_select(g, cn, sel);
-        if (are_distinct(nsel, sel)) {
-            expr_ref eq(m.mk_eq(val->get_expr(), nsel->get_expr()), m);
-            ctx.add_theory_axiom(eq);
-        }
-        else {
+        if (!are_distinct(nsel, sel)) {
             g.merge(nsel, sel, nullptr);
             g.propagate();
-            VERIFY(!g.inconsistent());
+            if (!g.inconsistent())
+                return;
         }
+        expr_ref eq(m.mk_eq(val->get_expr(), nsel->get_expr()), m);
+        ctx.add_theory_axiom(eq);
     }
 
     bool array_plugin::are_distinct(euf::enode* a, euf::enode* b) {
@@ -273,7 +311,7 @@ namespace sls {
             IF_VERBOSE(3, verbose_stream() << "init " << mk_bounded_pp(t, m) << " := " << mk_bounded_pp(v, m) << " " << g.inconsistent() << "\n");
             n2 = g.find(v);
             n2 = n2 ? n2: g.mk(v, 0, 0, nullptr);
-            g.merge(n1, n2, nullptr);            
+            g.merge(n1, n2, to_ptr(t));            
         }
         for (auto lit : ctx.root_literals()) {
             if (!ctx.is_true(lit) || lit.sign())
@@ -281,7 +319,7 @@ namespace sls {
             auto e = ctx.atom(lit.var());
             expr* x = nullptr, * y = nullptr;
             if (e && m.is_eq(e, x, y))
-                g.merge(g.find(x), g.find(y), nullptr);
+                g.merge(g.find(x), g.find(y), to_ptr(lit));
 
         }
 

@@ -288,9 +288,20 @@ namespace sls {
         SASSERT(m.is_bool(e));
         auto v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);
         if (v != sat::null_bool_var)
-            return m.is_true(m_plugins[basic_family_id]->get_value(e));
-        else
             return is_true(v);
+        if (m.is_and(e))
+            return all_of(*to_app(e), [&](expr* arg) { return is_true(arg); });
+        if (m.is_or(e))
+            return any_of(*to_app(e), [&](expr* arg) { return is_true(arg); });
+        if (m.is_not(e))
+            return !is_true(to_app(e)->get_arg(0));
+        if (m.is_implies(e))
+            return !is_true(to_app(e)->get_arg(0)) || is_true(to_app(e)->get_arg(1));
+        if (m.is_iff(e))
+            return is_true(to_app(e)->get_arg(0)) == is_true(to_app(e)->get_arg(1));
+        if (m.is_ite(e))
+            return is_true(to_app(e)->get_arg(0)) ? is_true(to_app(e)->get_arg(1)) : is_true(to_app(e)->get_arg(2));
+        return is_true(mk_literal(e));          
     }
 
     bool context::is_fixed(expr* e) {
