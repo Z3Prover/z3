@@ -40,9 +40,9 @@ namespace sls {
         if (m_g->inconsistent()) {
             resolve_conflict();
             return false;
-        }
-        return !m_g->inconsistent();   
+        }         
 #endif
+        return !m_g->inconsistent();
     }
 
 
