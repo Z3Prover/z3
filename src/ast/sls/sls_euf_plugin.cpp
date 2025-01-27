@@ -90,7 +90,7 @@ namespace sls {
         g.explain<size_t>(explain, nullptr);
         g.end_explain();
         double reward = -1;
-        TRACE("enf",
+        TRACE("euf",
             for (auto p : explain) {
                 sat::literal l = to_literal(p);
                 tout << l << " " << mk_pp(ctx.atom(l.var()), m) << " " << ctx.is_unit(l) << "\n";

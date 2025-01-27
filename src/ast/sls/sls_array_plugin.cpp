@@ -24,6 +24,7 @@ namespace sls {
         
     array_plugin::array_plugin(context& ctx):
         plugin(ctx),
+        euf(ctx.euf()),
         a(m)
     {
         m_fid = a.get_family_id();
@@ -36,36 +37,67 @@ namespace sls {
         m_kv = nullptr;
         init_egraph(*m_g);
         saturate(*m_g);
-#if 0
         if (m_g->inconsistent()) {
             resolve_conflict();
             return false;
         }         
-#endif
         return !m_g->inconsistent();
     }
 
 
     void array_plugin::resolve_conflict() {
+        ++m_stats.m_num_conflicts;
         auto& g = *m_g;
         SASSERT(g.inconsistent());
-        unsigned n = 0;
-        sat::literal_vector lits;
         ptr_vector<size_t> explain;
         g.begin_explain();
         g.explain<size_t>(explain, nullptr);
         g.end_explain();
 
-        verbose_stream() << "conflict\n";
+        IF_VERBOSE(3, verbose_stream() << "array conflict\n");
+        bool has_missing_axiom = false;
         for (auto p : explain) {
-            if (is_literal(p)) {
-                sat::literal l = to_literal(p);
-                verbose_stream() << l << " " << mk_bounded_pp(ctx.atom(l.var()), m) << " " << ctx.is_unit(l) << "\n";
-            }
-            else {
-                verbose_stream() << mk_bounded_pp(to_expr(p), m) << " == " << mk_bounded_pp(ctx.get_value(to_expr(p)), m) << "\n";
+            if (is_index(p)) {
+                has_missing_axiom = true;
+                unsigned idx = to_index(p);
+                auto [t, sto, sel] = m_delayed_axioms[idx];
+                switch (t) {
+                case store_axiom1:
+                    add_store_axiom1(sto->get_app());
+                    break;
+                case store_axiom2_down:
+                case store_axiom2_up:
+                    add_store_axiom2(sto->get_app(), sel->get_app());
+                    break;
+                case map_axiom:            
+                case const_axiom:
+                    add_eq_axiom(sto, sel);
+                    break;
+                default:
+                    UNREACHABLE();
+                    break;
+                }
             }
         }
+        if (has_missing_axiom)
+            return;
+
+        sat::literal_vector lits;
+        for (auto p : explain) {
+            if (is_enode(p)) {
+                auto n = to_enode(p);
+                auto v = ctx.get_value(n->get_expr());
+                lits.push_back(~ctx.mk_literal(m.mk_eq(n->get_expr(), v)));
+                if (a.is_store(n->get_expr()))
+                    add_store_axiom1(n->get_app());
+            }
+            else if (is_literal(p)) {
+                sat::literal l = to_literal(p);
+                lits.push_back(~l);
+            }          
+        }
+        IF_VERBOSE(3, verbose_stream() << "add conflict clause\n");
+        ctx.add_clause(lits);
     }
 
     // b ~ a[i -> v]
@@ -141,13 +173,12 @@ namespace sls {
         if (nmap->get_root() == nsel->get_root())
             return;
         if (!are_distinct(nsel, nmap)) {
-            g.merge(nmap, nsel, nullptr);
+            g.merge(nmap, nsel, to_ptr(map_axiom_index(nmap, nsel)));
             g.propagate();
             if (!g.inconsistent())
                 return;
         }
-        expr_ref eq(m.mk_eq(nmap->get_expr(), nsel->get_expr()), m);
-        ctx.add_theory_axiom(eq);
+        add_eq_axiom(nmap, nsel);
     }
 
     euf::enode* array_plugin::mk_select(euf::egraph& g, euf::enode* b, euf::enode* sel) {
@@ -175,10 +206,10 @@ namespace sls {
         auto nsel = mk_select(g, n, n);
         VERIFY(!g.inconsistent());
         if (!are_distinct(nsel, val)) {
-            g.merge(nsel, val, nullptr);
+            g.merge(nsel, val, to_ptr(store_axiom1_index(n)));
             g.propagate();
             if (!g.inconsistent())
-                return;
+                return;            
         }
         add_store_axiom1(n->get_app());
     }
@@ -195,7 +226,7 @@ namespace sls {
             return; 
         auto nsel = mk_select(g, sto->get_arg(0), sel);
         if (!are_distinct(nsel, sel)) {
-            g.merge(nsel, sel, nullptr);
+            g.merge(nsel, sel, to_ptr(store_axiom2_down_index(sto, sel)));
             g.propagate();
             if (!g.inconsistent())
                 return;
@@ -215,7 +246,7 @@ namespace sls {
             return;
         auto nsel = mk_select(g, sto, sel);
         if (!are_distinct(nsel, sel)) {
-            g.merge(nsel, sel, nullptr);
+            g.merge(nsel, sel, to_ptr(store_axiom2_up_index(sto, sel)));
             g.propagate();
             if (!g.inconsistent())
                 return;
@@ -234,13 +265,13 @@ namespace sls {
         auto val = cn->get_arg(0);
         auto nsel = mk_select(g, cn, sel);
         if (!are_distinct(nsel, sel)) {
-            g.merge(nsel, sel, nullptr);
+            g.merge(nsel, sel, to_ptr(const_axiom_index(val, nsel)));
             g.propagate();
             if (!g.inconsistent())
                 return;
         }
-        expr_ref eq(m.mk_eq(val->get_expr(), nsel->get_expr()), m);
-        ctx.add_theory_axiom(eq);
+        ++m_stats.m_num_axioms;
+        add_eq_axiom(val, nsel);
     }
 
     bool array_plugin::are_distinct(euf::enode* a, euf::enode* b) {
@@ -270,6 +301,7 @@ namespace sls {
         expr_ref sel(a.mk_select(args), m);
         expr_ref eq(m.mk_eq(sel, to_app(sto)->get_arg(sto->get_num_args() - 1)), m);
         IF_VERBOSE(3, verbose_stream() << "add store axiom 1 " << mk_bounded_pp(sto, m) << "\n");
+        ++m_stats.m_num_axioms;
         ctx.add_theory_axiom(eq);
     }
     
@@ -291,6 +323,7 @@ namespace sls {
         for (unsigned i = 1; i < sel->get_num_args() - 1; ++i) 
             ors.push_back(m.mk_eq(sel->get_arg(i), sto->get_arg(i)));     
         IF_VERBOSE(3, verbose_stream() << "add store axiom 2 " << mk_bounded_pp(sto, m) << " " << mk_bounded_pp(sel, m) << "\n");
+        ++m_stats.m_num_axioms;
         ctx.add_theory_axiom(m.mk_or(ors));
     }
 
@@ -307,11 +340,13 @@ namespace sls {
             n1 = n1 ? n1 : g.mk(t, 0, args.size(), args.data());
             if (a.is_array(t))
                 continue;
+            if (m.is_bool(t))
+                continue;
             auto v = ctx.get_value(t);
             IF_VERBOSE(3, verbose_stream() << "init " << mk_bounded_pp(t, m) << " := " << mk_bounded_pp(v, m) << " " << g.inconsistent() << "\n");
             n2 = g.find(v);
             n2 = n2 ? n2: g.mk(v, 0, 0, nullptr);
-            g.merge(n1, n2, to_ptr(t));            
+            g.merge(n1, n2, to_ptr(n1));            
         }
         for (auto lit : ctx.root_literals()) {
             if (!ctx.is_true(lit) || lit.sign())
@@ -319,9 +354,10 @@ namespace sls {
             auto e = ctx.atom(lit.var());
             expr* x = nullptr, * y = nullptr;
             if (e && m.is_eq(e, x, y))
-                g.merge(g.find(x), g.find(y), to_ptr(lit));
+                g.merge(g.find(x), g.find(y), nullptr);
 
         }
+        g.propagate();
 
         IF_VERBOSE(3, display(verbose_stream()));
         
@@ -387,5 +423,10 @@ namespace sls {
             }
         }
         return out;
+    }
+
+    void array_plugin::collect_statistics(statistics& st) const {
+        st.update("sls-array-conflicts", m_stats.m_num_conflicts);
+        st.update("sls-array-axioms", m_stats.m_num_axioms);
     }
 }

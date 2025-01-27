@@ -315,11 +315,9 @@ namespace sls {
         auto p = m_plugins.get(fid, nullptr);
         if (p) 
             return p->get_value(e);  
-        if (m.is_bool(e)) {
-            sat::bool_var v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);
-            if (v != sat::null_bool_var)
-                return expr_ref(m.mk_bool_val(is_true(v)), m);
-        }
+        if (m.is_bool(e)) 
+            return expr_ref(m.mk_bool_val(is_true(e)), m);
+        
         verbose_stream() << fid << " " << m.get_family_name(fid) << " " << mk_pp(e, m) << "\n";
         UNREACHABLE();
         return expr_ref(e, m);
