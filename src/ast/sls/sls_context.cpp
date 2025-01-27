@@ -160,6 +160,8 @@ namespace sls {
         for (expr* e : subterms()) {
             if (!is_app(e))
                 continue;
+            if (!is_relevant(e))
+                continue;
             auto f = to_app(e)->get_decl();
             if (!include_func_interp(f))
                 continue;
@@ -177,6 +179,10 @@ namespace sls {
             SASSERT(f->get_arity() == args.size());
             if (!fi->get_entry(args.data()))
                 fi->insert_new_entry(args.data(), v);
+            else if (fi->get_entry(args.data())->get_result() != v) {
+                IF_VERBOSE(0, verbose_stream() << "conflict: " << mk_pp(e, m) << " " << v << " " << mk_pp(fi->get_entry(args.data())->get_result(), m) << "\n");
+                throw default_exception("conflicting assignment");
+            }
         }
                 
         s.on_model(mdl);
