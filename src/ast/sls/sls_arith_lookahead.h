@@ -61,7 +61,7 @@ namespace sls {
 
         vector<ptr_vector<app>> m_update_stack;
         expr_mark m_in_update_stack;
-        svector<bool_info> m_bool_info;
+        scoped_ptr_vector<bool_info> m_bool_info;
         double m_best_score = 0, m_top_score = 0;
         unsigned m_min_depth = 0, m_max_depth = 0;
         num_t m_best_value;

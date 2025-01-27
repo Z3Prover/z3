@@ -31,8 +31,10 @@ namespace sls {
     typename arith_lookahead<num_t>::bool_info& arith_lookahead<num_t>::get_bool_info(expr* e) {   
         unsigned id = e->get_id();
         if (id >= m_bool_info.size())
-            m_bool_info.reserve(id + 1, bool_info(a.m_config.paws_init));
-        return m_bool_info[id];
+            m_bool_info.reserve(id + 1);
+        if (!m_bool_info[id])
+            m_bool_info.set(id, alloc(bool_info, a.m_config.paws_init));
+        return *m_bool_info[id];
     }
 
     template<typename num_t>
