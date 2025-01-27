@@ -3871,7 +3871,8 @@ namespace sat {
     //
     // -----------------------
     bool solver::check_invariant() const {
-        if (!m_rlimit.inc()) return true;
+        if (!m_rlimit.inc()) 
+            return true;
         if (m_simplifier.need_cleanup())
             return true;
         integrity_checker checker(*this);

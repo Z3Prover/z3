@@ -66,7 +66,7 @@ namespace sat {
         svector<bin_clause>    m_sub_bin_todo;
         unsigned               m_last_sub_trail_sz; // size of the trail since last cleanup
         bool_var_set           m_elim_todo;
-        bool                   m_need_cleanup;
+        bool                   m_need_cleanup = false;
         tmp_clause             m_dummy;
 
         // simplifier extra variable fields.
