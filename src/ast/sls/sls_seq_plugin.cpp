@@ -658,10 +658,12 @@ namespace sls {
                 return true;
             if (ctx.rand(2) != 0 && repair_down_str_eq_unify(e))
                 return true;
-            if (!is_value(x))
+            if (!is_value(x) && strval0(x) != strval1(y))
                 m_str_updates.push_back({ x, strval1(y), 1 });
-            if (!is_value(y))
+            if (!is_value(y) && strval0(y) != strval1(x))
                 m_str_updates.push_back({ y, strval1(x), 1 });
+            if (m_str_updates.empty() && repair_down_str_eq_edit_distance(e))
+                return true;
         }
         else {
             // disequality
@@ -669,15 +671,19 @@ namespace sls {
                 zstring ch(m_chars[ctx.rand(m_chars.size())]);
                 m_str_updates.push_back({ x, strval1(y) + ch, 1 });
                 m_str_updates.push_back({ x, ch + strval1(y), 1 });
-                m_str_updates.push_back({ x, ch, 1 });
-                m_str_updates.push_back({ x, zstring(), 1 });
+                if (strval0(x) != ch)
+                    m_str_updates.push_back({ x, ch, 1 });
+                if (!strval0(x).empty())
+                    m_str_updates.push_back({ x, zstring(), 1 });
             }
             if (!is_value(y) && !m_chars.empty()) {
                 zstring ch(m_chars[ctx.rand(m_chars.size())]);
                 m_str_updates.push_back({ y, strval1(x) + ch, 1 });
                 m_str_updates.push_back({ y, ch + strval1(x), 1 });
-                m_str_updates.push_back({ x, ch, 1 });
-                m_str_updates.push_back({ x, zstring(), 1});
+                if (strval0(y) != ch)
+                    m_str_updates.push_back({ y, ch, 1 });
+                if (!strval0(y).empty())
+                    m_str_updates.push_back({ y, zstring(), 1});
             }
         }
         return apply_update();
