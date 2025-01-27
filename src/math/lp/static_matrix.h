@@ -292,7 +292,11 @@ public:
     }
     template <typename TTerm>
     void pivot_term_to_row_given_cell(TTerm const & term, column_cell&c, unsigned j, int j_sign);
-    // pivot row i to row ii
+    template <typename TTerm>
+    void add_term_to_row(const mpq& coeff, TTerm const & term, unsigned i);
+
+
+// pivot row i to row ii
     bool pivot_row_to_row_given_cell(unsigned i, column_cell& c, unsigned j);
     void pivot_row_to_row_given_cell_with_sign(unsigned piv_row_index, column_cell& c, unsigned j, int j_sign);
     void transpose_rows(unsigned i, unsigned ii) {
