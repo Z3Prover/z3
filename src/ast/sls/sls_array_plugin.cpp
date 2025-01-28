@@ -33,8 +33,8 @@ namespace sls {
     bool array_plugin::is_sat() {
         if (!m_has_arrays)
             return true;
-        m_g = alloc(euf::egraph, m);
         m_kv = nullptr;
+        m_g = alloc(euf::egraph, m);
         init_egraph(*m_g);
         saturate(*m_g);
         if (m_g->inconsistent()) {
@@ -382,6 +382,7 @@ namespace sls {
     expr_ref array_plugin::get_value(expr* e)  { 
         SASSERT(a.is_array(e));
         if (!m_g) {
+            m_kv = nullptr;
             m_g = alloc(euf::egraph, m);
             init_egraph(*m_g);
             flet<bool> _strong(m_add_conflicts, false);
@@ -395,7 +396,8 @@ namespace sls {
         auto& kv = *m_kv;
         auto n = m_g->find(e)->get_root();
         expr_ref r(n->get_expr(), m), key(m);
-        expr_mark visited;        
+        expr_mark visited;  
+        SASSERT(kv.contains(n));
         for (auto [k, v] : kv[n]) {
             ptr_vector<expr> args;
             key = ctx.get_value(k.sel->get_arg(1)->get_expr());
