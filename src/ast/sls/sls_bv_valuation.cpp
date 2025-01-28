@@ -94,7 +94,8 @@ namespace sls {
         rational p(1), r(0);
         for (unsigned i = 0; i < nw; ++i) {
             r += p * rational((*this)[i]);
-            p *= rational::power_of_two(8 * sizeof(digit_t));
+            if (i + 1 < nw)
+                p *= rational::power_of_two(8 * sizeof(digit_t));
         }
         return r;
     }
