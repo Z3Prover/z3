@@ -516,14 +516,15 @@ namespace sls {
 
     void bv_lookahead::populate_update_stack(expr* t) {
         SASSERT(m_bv_restore.empty());
-        insert_update_stack(t);
+        if (!insert_update_stack(t))
+            return;
         m_min_depth = m_max_depth = get_depth(t);
         for (unsigned depth = m_max_depth; depth <= m_max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto [a, is_bv] = m_update_stack[depth][i];
                 for (auto p : ctx.parents(a)) {
-                    insert_update_stack(p);
-                    m_max_depth = std::max(m_max_depth, get_depth(p));
+                    if (insert_update_stack(p))
+                        m_max_depth = std::max(m_max_depth, get_depth(p));
                 }
                 if (is_bv) {
                     wval(a).save_value();
@@ -581,7 +582,7 @@ namespace sls {
             try_flip(u);
             clear_update_stack();
             return;
-        }
+        }       
         SASSERT(bv.is_bv(u));
         auto& v = wval(u);
         while (m_v_saved.size() < v.bits().size()) {
@@ -669,7 +670,7 @@ namespace sls {
             }
         }
 
-        insert_update_stack(t);
+        VERIFY(insert_update_stack(t));
         unsigned max_depth = get_depth(t);
         unsigned restore_point = m_ev.bool_value_restore_point();
         for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
@@ -719,8 +720,8 @@ namespace sls {
                 }
 
                 for (auto p : ctx.parents(e)) {
-                    insert_update_stack(p);
-                    max_depth = std::max(max_depth, get_depth(p));
+                    if (insert_update_stack(p))
+                        max_depth = std::max(max_depth, get_depth(p));
                 }
         
                 if (is_root(e)) {
@@ -764,15 +765,16 @@ namespace sls {
         }
     }
 
-    void bv_lookahead::insert_update_stack(expr* e) {
+    bool bv_lookahead::insert_update_stack(expr* e) {
         if (!bv.is_bv(e) && !m.is_bool(e))
-            return;
+            return false;
         unsigned depth = get_depth(e);
         m_update_stack.reserve(depth + 1);
         if (!m_in_update_stack.is_marked(e) && is_app(e)) {
             m_in_update_stack.mark(e);
             m_update_stack[depth].push_back({ to_app(e), bv.is_bv(e) });
         }
+        return true;
     }
 
     sls::bv_valuation& bv_lookahead::wval(expr* e) const {
