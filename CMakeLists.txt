@@ -300,6 +300,16 @@ list(APPEND Z3_DEPENDENT_LIBS Threads::Threads)
 ################################################################################
 include(${PROJECT_SOURCE_DIR}/cmake/compiler_warnings.cmake)
 
+
+################################################################################
+# Address sanitization
+################################################################################
+option(Z3_ADDRESS_SANITIZE "Set address sanitization." OFF)
+
+if (Z3_ADDRESS_SANITIZE)
+  z3_add_cxx_flag("-fsanitize=address" REQUIRED)
+endif()
+
 ################################################################################
 # Save Clang optimization records
 ################################################################################
