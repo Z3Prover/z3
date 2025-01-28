@@ -159,6 +159,8 @@ namespace sls {
 
 
         sat::literal mk_literal();
+
+        void validate_model(model& mdl);
         
     public:
         context(ast_manager& m, sat_solver_context& s);
@@ -221,7 +223,7 @@ namespace sls {
         bool is_true(expr* e);
         bool is_fixed(expr* e);        
         bool is_relevant(expr* e);  
-        void add_constraint(expr* e);
+        bool add_constraint(expr* e);
         ptr_vector<expr> const& subterms();        
         ast_manager& get_manager() { return m; }
         std::ostream& display(std::ostream& out) const;

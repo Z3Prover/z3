@@ -166,6 +166,7 @@ namespace sls {
             args.push_back(nsel->get_expr());
         }
         expr_ref f_map(m.mk_app(f, args), m);
+        ctx.add_new_term(f_map);
         auto nsel = mk_select(g, n, sel);
         auto nmap = g.find(f_map);
         if (!nmap) 
@@ -193,6 +194,7 @@ namespace sls {
             args.push_back(idx->get_expr());
         }
         expr_ref esel(a.mk_select(args), m);
+        ctx.add_new_term(esel);
         auto n = g.find(esel);
         return n ? n : g.mk(esel, 0, eargs.size(), eargs.data());
     }
@@ -373,6 +375,11 @@ namespace sls {
                     continue;
                 if (p->get_arg(0)->get_root() != n->get_root())
                     continue;
+#if 1
+                bool is_relevant = any_of(euf::enode_class(p), [&](euf::enode* k) { return ctx.is_relevant(k->get_expr()); });
+                if (!is_relevant)
+                    continue;
+#endif
                 auto val = p->get_root();
                 kv[n].insert(select_args(p), val);
             }

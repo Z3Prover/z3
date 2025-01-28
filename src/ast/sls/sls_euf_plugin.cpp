@@ -52,11 +52,18 @@ namespace sls {
     void euf_plugin::register_term(expr* e) {
         if (!is_app(e))
             return;
-        if (!is_uninterp(e))
-            return;
         app* a = to_app(e);
         if (a->get_num_args() == 0)
             return;
+        if (!is_uninterp(e)) {
+            return;
+            family_id fid = a->get_family_id();
+            if (fid == basic_family_id)
+                return;
+            if (all_of(*a, [&](expr* arg) { return !is_app(arg) || fid == to_app(arg)->get_family_id(); }))
+                return;            
+        }
+
         auto f = a->get_decl();
         if (!m_app.contains(f))
             m_app.insert(f, ptr_vector<app>());
@@ -341,8 +348,8 @@ namespace sls {
                         verbose_stream() << ctx.get_value(t->get_arg(i)) << " == " << ctx.get_value(u->get_arg(i)) << "\n";
 #endif
                     expr_ref fml(m.mk_or(ors), m);
-                    ctx.add_constraint(fml);
-                    new_constraint = true;
+                    if (ctx.add_constraint(fml))
+                        new_constraint = true;
                     
                 }
                 else
@@ -368,8 +375,8 @@ namespace sls {
                 }
                 // distinct(a, b, c) or a = b or a = c or b = c
                 eqs.push_back(e);
-                ctx.add_constraint(m.mk_or(eqs));
-                new_constraint = true;
+                if (ctx.add_constraint(m.mk_or(eqs)))
+                    new_constraint = true;
             done_distinct:
                 ;
             }

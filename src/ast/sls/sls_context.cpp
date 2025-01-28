@@ -143,6 +143,7 @@ namespace sls {
                 return l_undef;
 
             if (all_of(m_plugins, [&](auto* p) { return !p || p->is_sat(); })) {
+                VERIFY(unsat().empty() || !m_new_constraint);
                 values2model();
                 return l_true;
             }
@@ -184,10 +185,28 @@ namespace sls {
                 throw default_exception("conflicting assignment");
             }
         }
+
+        validate_model(*mdl);
                 
         s.on_model(mdl);
         // verbose_stream() << *mdl << "\n";
         TRACE("sls", display(tout));
+    }
+
+    void context::validate_model(model& mdl) {
+        model_evaluator ev(mdl);
+        for (sat::literal lit : root_literals()) {
+            auto a = atom(lit.var());
+            if (!a)
+                continue;
+            auto eval_a = ev(a);
+            bool bad_model = (m.is_true(eval_a) && lit.sign()) || (m.is_false(eval_a) && !lit.sign());
+
+            if (bad_model) {             
+                IF_VERBOSE(0, verbose_stream() << lit << " " << a->get_id() << " " << mk_bounded_pp(a, m) << " " << eval_a << "\n");
+                throw default_exception("failed to create a well-formed model");
+            }
+        }
     }
     
     void context::propagate_boolean_assignment() {
@@ -286,7 +305,7 @@ namespace sls {
 
     bool context::is_true(expr* e) {
         SASSERT(m.is_bool(e));
-        auto v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);
+        auto v = m_atom2bool_var.get(e->get_id(), sat::null_bool_var);       
         if (v != sat::null_bool_var)
             return is_true(v);
         if (m.is_and(e))
@@ -342,8 +361,10 @@ namespace sls {
         if (m_visited.contains(id))
             return false;
         m_visited.insert(id);
-        if (m_parents.size() <= id)
-            verbose_stream() << "not in map " << mk_bounded_pp(e, m) << "\n";
+        if (m_parents.size() <= id) // expressions can be temporary created in E-graph but not registered 
+        {
+            return false;
+        }
         for (auto p : m_parents[id]) {
             if (is_relevant(p)) {
                 m_relevant.insert(id);
@@ -353,18 +374,20 @@ namespace sls {
         return false;
     }
 
-    void context::add_constraint(expr* e) {        
+    bool context::add_constraint(expr* e) {        
         if (m_constraint_ids.contains(e->get_id()))
-            return;
+            return false;
         m_constraint_ids.insert(e->get_id());
         m_constraint_trail.push_back(e);
         add_assertion(e, false);     
         m_new_constraint = true;
         IF_VERBOSE(3, verbose_stream() << "add constraint " << mk_bounded_pp(e, m) << "\n");
         ++m_stats.m_num_constraints;
+        return true;
     }
 
     void context::add_assertion(expr* f, bool is_input)  {
+        m_new_constraint = true;
         expr_ref _e(f, m);
         expr* g, * h, * k;
         sat::literal_vector clause;
@@ -676,7 +699,7 @@ namespace sls {
                     has_relevant = true;
                     break;
                 }
-                if (m_rand() % ++n == 0)
+                if (m_rand(++n) == 0)
                     selected_lit = lit;
             }               
             if (!has_relevant && selected_lit != sat::null_literal) {
