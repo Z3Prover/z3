@@ -94,7 +94,7 @@ namespace sls {
         unsigned m_max_depth = 0, m_min_depth = 0;
         void populate_update_stack(expr* e);
         void clear_update_stack();
-        void insert_update_stack(expr* e);
+        bool insert_update_stack(expr* e);
         void insert_update(expr* e, bool is_bv);        
 
         bool_info& get_bool_info(expr* e);
