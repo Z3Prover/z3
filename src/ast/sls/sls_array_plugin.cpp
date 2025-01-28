@@ -394,11 +394,16 @@ namespace sls {
         // TODO: adapt to handle "const" arrays and multi-dimensional arrays.
         auto& kv = *m_kv;
         auto n = m_g->find(e)->get_root();
-        expr_ref r(n->get_expr(), m);
+        expr_ref r(n->get_expr(), m), key(m);
+        expr_mark visited;        
         for (auto [k, v] : kv[n]) {
             ptr_vector<expr> args;
+            key = ctx.get_value(k.sel->get_arg(1)->get_expr());
+            if (visited.is_marked(key))
+                continue;
+            visited.mark(key);
             args.push_back(r);
-            args.push_back(k.sel->get_arg(1)->get_expr());
+            args.push_back(key);
             args.push_back(v->get_expr());
             r = a.mk_store(args);
         }

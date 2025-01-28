@@ -89,7 +89,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_fpau(m),
         m_dt(m),
         m_pinned(m) {
-        bool flat = true;
+        bool flat = false;
         m_b_rw.set_flat_and_or(flat);
         m_a_rw.set_flat(flat);
         m_bv_rw.set_flat(flat);
