@@ -504,8 +504,8 @@ namespace sls {
                 add_update(mk_term(e), delta_out);
         }
         else {
-            if (!is_uninterp(vi.m_expr) && m_allow_recursive_delta)
-                verbose_stream() << mk_bounded_pp(vi.m_expr, m) << " += " << delta_out << "\n";
+            IF_VERBOSE(3, if (!is_uninterp(vi.m_expr) && m_allow_recursive_delta)
+                verbose_stream() << mk_bounded_pp(vi.m_expr, m) << " += " << delta_out << "\n");
             m_updates.push_back({ v, delta_out, 0 });
         }
     }
@@ -1027,7 +1027,7 @@ namespace sls {
         num_t val;
         switch (k) {
         case arith_op_kind::OP_MOD:
-            val = value(vy) == 0 ? num_t(0) : mod(value(v), value(vy));
+            val = value(vy) == 0 ? num_t(0) : mod(value(vx), value(vy));
             break;
         case arith_op_kind::OP_REM:
             if (value(vy) == 0)
@@ -1063,7 +1063,7 @@ namespace sls {
         m_vars[v].m_op = k;
         m_vars[v].set_value(val);
         m_vars[vx].m_ops.push_back(v);
-        TRACE("arith", display(tout << "initialize op ", v) << " " << value(vx) << " " << value(vy) << "\n");
+        TRACE("arith", display(tout << "initialize op ", v) << " " << value(vx) << " op " << value(vy) << "\n");
         if (vy != vx)
             m_vars[vy].m_ops.push_back(v);
         return v;
@@ -1374,7 +1374,7 @@ namespace sls {
         if (!vi.is_arith_op())
             return false;
         flet<bool> _tabu(m_use_tabu, false);
-        TRACE("sls", tout << "repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
+        TRACE("sls_verbose", tout << "repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
         switch (vi.m_op) {
         case arith_op_kind::LAST_ARITH_OP:
             break;
@@ -2524,7 +2524,7 @@ namespace sls {
         if (!vi.is_arith_op())
             return true;
         IF_VERBOSE(10, verbose_stream() << vi.m_op << " repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
-        TRACE("sls", tout << "repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
+        TRACE("sls_verbose", tout << "repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
         switch (vi.m_op) {
         case arith_op_kind::LAST_ARITH_OP:
             break;
