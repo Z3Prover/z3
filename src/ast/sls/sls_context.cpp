@@ -142,6 +142,10 @@ namespace sls {
             if (m_new_constraint || !unsat().empty())
                 return l_undef;
 
+            // check if root literals got flipped. is-sat assumes root literals are true
+            if (any_of(root_literals(), [&](sat::literal lit) { return !is_true(lit); })) 
+                continue;            
+
             if (all_of(m_plugins, [&](auto* p) { return !p || p->is_sat(); })) {
                 VERIFY(unsat().empty() || !m_new_constraint);
                 values2model();
