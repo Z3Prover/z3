@@ -3512,6 +3512,7 @@ namespace smt {
         TRACE("after_search", display(tout << "result: " << r << "\n");
               m_case_split_queue->display(tout << "case splits\n");
               );
+        m_search_finalized = true;
         display_profile(verbose_stream());
         if (r == l_true && get_cancel_flag()) 
             r = l_undef;
@@ -3638,6 +3639,7 @@ namespace smt {
             return check(0, nullptr, reset_cancel);
         }
         else {
+            search_completion sc(*this);
             TRACE("before_search", display(tout););
             return check_finalize(search());
         }
@@ -3685,6 +3687,7 @@ namespace smt {
         if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(at_base_level());
         setup_context(false);
+        search_completion sc(*this);
         if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {            
             expr_ref_vector asms(m, num_assumptions, assumptions);
             parallel p(*this);
@@ -3716,6 +3719,7 @@ namespace smt {
         TRACE("before_search", display(tout););
         setup_context(false);
         lbool r = l_undef;
+        search_completion sc(*this);
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(cube);
@@ -4728,11 +4732,13 @@ namespace smt {
     }
 
     void context::get_model(model_ref & mdl) {
-        if (inconsistent()) 
+        if (inconsistent())
             mdl = nullptr;
-        else if (m_model.get()) 
+        else if (m_model.get())
             mdl = m_model.get();
         else if (!m.inc())
+            mdl = nullptr;
+        else if (!m_search_finalized)
             mdl = nullptr;
         else {
             mk_proto_model();

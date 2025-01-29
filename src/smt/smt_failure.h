@@ -30,7 +30,7 @@ namespace smt {
         CANCELED,      //!< External cancel flag was set
         NUM_CONFLICTS, //!< Maximum number of conflicts was reached
         THEORY,        //!< Theory is incomplete
-        RESOURCE_LIMIT,
+        RESOURCE_LIMIT,       
         LAMBDAS,       //!< Logical context contains lambdas.
         QUANTIFIERS    //!< Logical context contains universal quantifiers.
     };

@@ -1575,6 +1575,13 @@ namespace smt {
         bool already_internalized_theory_core(theory * th, expr_ref_vector const & s) const;
 #endif
         bool check_preamble(bool reset_cancel);
+
+        struct search_completion {
+            context& ctx;
+            search_completion(context& ctx) : ctx(ctx) { ctx.m_search_finalized = false; }
+            ~search_completion() { if (!ctx.m_search_finalized) ctx.m_last_search_failure = CANCELED; }
+        };
+        bool m_search_finalized = true;
         lbool check_finalize(lbool r);
 
         // -----------------------------------
