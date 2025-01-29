@@ -25,6 +25,7 @@ Author:
 #include "ast/sls/sls_seq_plugin.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
 #include "smt/params/smt_params_helper.hpp"
 
 namespace sls {
@@ -208,6 +209,10 @@ namespace sls {
 
             if (bad_model) {             
                 IF_VERBOSE(0, verbose_stream() << lit << " " << a->get_id() << " " << mk_bounded_pp(a, m) << " " << eval_a << "\n");
+                TRACE("sls", s.display(tout << lit << " " << a->get_id() << " " << mk_bounded_pp(a, m) << " " << eval_a << "\n");
+                for (expr* t : subterms::all(expr_ref(a, m))) 
+                    tout << "#" << t->get_id() << ": " << mk_bounded_pp(t, m) << " := " << ev(t) << "\n";
+                );
                 throw default_exception("failed to create a well-formed model");
             }
         }

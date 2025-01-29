@@ -300,6 +300,16 @@ template<bool CHECK>
 inline checked_int64<CHECK> div(checked_int64<CHECK> const& a, checked_int64<CHECK> const& b) {
     checked_int64<CHECK> result(a);
     result /= b;
+    if (a < 0) {
+        checked_int64<CHECK> r(a);
+        r %= b;
+        if (r != 0) {
+            if (b < 0)
+                result += 1;
+            else
+                result -= 1;
+        }
+    }
     return result;
 }
 
