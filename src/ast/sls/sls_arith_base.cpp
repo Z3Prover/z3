@@ -586,6 +586,8 @@ namespace sls {
                 if (mx == 0)
                     continue;
                 auto valmx = divide(x, val, mx);
+                if (p > 1 && !is_int(x))
+                    continue;
                 auto r = root_of(p, valmx);
                 add_update(x, r - value(x));
                 if (p % 2 == 0)
@@ -1786,7 +1788,9 @@ namespace sls {
                 // val / mx = x^p
                 if (mx == 0)
                     continue;
-                auto valmx = divide(x, val, mx);
+                if (p > 1 && !is_int(x))
+                    continue;
+                auto valmx = divide(x, val, mx);               
                 auto r = root_of(p, valmx);
                 add_update(x, r - value(x));
                 if (p % 2 == 0) 

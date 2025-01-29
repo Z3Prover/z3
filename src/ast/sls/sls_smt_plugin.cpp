@@ -101,7 +101,13 @@ namespace sls {
     void smt_plugin::run() {
         if (!m_ddfw)
             return;
-        m_result = m_ddfw->check(0, nullptr);
+        try {
+            m_result = m_ddfw->check(0, nullptr);
+        }
+        catch (std::exception& ex) {
+            IF_VERBOSE(0, verbose_stream() << "sls-exception " << ex.what() << "\n");
+            m_result = l_undef;
+        }
         IF_VERBOSE(3, verbose_stream() << "sls-result " << m_result << "\n");
         for (auto v : m_shared_bool_vars) {
             auto w = m_smt_bool_var2sls_bool_var[v];
