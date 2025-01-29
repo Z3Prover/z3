@@ -94,6 +94,7 @@ namespace sls {
         bool set_value(expr* e, expr* v) override { return false; }
         void repair_literal(sat::literal lit) override {}
         bool include_func_interp(func_decl* f) const override;
+        bool check_ackerman(func_decl* f) const override;
 
         bool repair_down(app* e) override;
         void repair_up(app* e) override;

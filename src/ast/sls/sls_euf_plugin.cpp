@@ -53,17 +53,8 @@ namespace sls {
         if (!is_app(e))
             return;
         app* a = to_app(e);
-        if (a->get_num_args() == 0)
-            return;
-        if (!is_uninterp(e)) {
-            return;
-            family_id fid = a->get_family_id();
-            if (fid == basic_family_id)
-                return;
-            if (all_of(*a, [&](expr* arg) { return !is_app(arg) || fid == to_app(arg)->get_family_id(); }))
-                return;            
-        }
-
+        if (!ctx.check_ackerman(a)) 
+            return;               
         auto f = a->get_decl();
         if (!m_app.contains(f))
             m_app.insert(f, ptr_vector<app>());

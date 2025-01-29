@@ -58,6 +58,7 @@ namespace sls {
         virtual void collect_statistics(statistics& st) const = 0;
         virtual void reset_statistics() = 0;
         virtual bool include_func_interp(func_decl* f) const { return false; }
+        virtual bool check_ackerman(func_decl* f) const { return false; }
     };
 
     using clause = ptr_iterator<sat::literal>;
@@ -224,6 +225,7 @@ namespace sls {
         bool is_fixed(expr* e);        
         bool is_relevant(expr* e);  
         bool add_constraint(expr* e);
+        bool check_ackerman(app* e) const;
         ptr_vector<expr> const& subterms();        
         ast_manager& get_manager() { return m; }
         std::ostream& display(std::ostream& out) const;

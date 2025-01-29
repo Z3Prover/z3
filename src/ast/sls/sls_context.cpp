@@ -337,6 +337,17 @@ namespace sls {
         return false;
     }
 
+    bool context::check_ackerman(app* e) const {
+        if (e->get_num_args() == 0)
+            return false;
+        auto f = e->get_decl();
+        if (is_uninterp(f))
+            return true;
+        auto fid = f->get_family_id();
+        auto p = m_plugins.get(fid, nullptr);        
+        return !p || p->check_ackerman(f);
+    }
+
     expr_ref context::get_value(expr* e) {
         sort* s = e->get_sort();
         auto fid = s->get_family_id();

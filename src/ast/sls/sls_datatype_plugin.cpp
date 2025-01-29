@@ -570,6 +570,21 @@ namespace sls {
         return false; 
     }
 
+    bool datatype_plugin::check_ackerman(func_decl* f) const {
+        if (dt.is_accessor(f))
+            return true;
+        if (dt.is_constructor(f)) {
+            for (unsigned i = 0; i < f->get_arity(); ++i) {
+                if (f->get_range() != f->get_domain(i))
+                    return true;
+            }
+            return false;
+        }
+        if (dt.get_constructor_is(f))
+            return false;
+        return true;
+    }
+
     std::ostream& datatype_plugin::display(std::ostream& out) const {
         for (auto a : m_axioms)
             out << mk_bounded_pp(a, m, 3) << "\n";
