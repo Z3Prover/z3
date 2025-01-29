@@ -281,9 +281,9 @@ namespace sls {
                 expr_ref val_t(m);
                 if (!ctx.get_smt_value(t, val_t))
                     continue;
-                auto t_sls = expr_ref(m_smt2sls_tr(t), m_sls);
-                auto val_sls = expr_ref(m_smt2sls_tr(val_t.get()), m_sls);
-                m_sync_var_values.push_back({ t_sls, val_sls });
+                auto t_sync_ref = expr_ref(t_sync, m_sync);
+                auto val_sync = expr_ref(m_smt2sync_tr(val_t.get()), m_sync);
+                m_sync_var_values.push_back({ t_sync_ref, val_sync });
             }
             m_has_new_smt_values = true;
             return;
