@@ -335,10 +335,10 @@ namespace lp {
 
         bijection m_k2s;
         bij_map<lar_term> m_fresh_k2xt_terms;
-        // m_row2fresh_defs[i] is the set of all k
-        // such that pairs (k, m_fresh_k2xt_terms[k]) is a fresh definition introduced for row i.
-        // When row i is changed all entries depending on m_fresh_k2xt_terms[k].m_xt should be recalculated,
-        // and the corresponding fresh definitions disregarded. These definitions should not be persisted in Release mode.
+        // m_row2fresh_defs[i] is the set of all fresh variables xt
+        // such that pairs (xt, m_fresh_k2xt_terms[xt]) is a fresh definition introduced for row i
+        // When row i is changed all entries depending on m_fresh_k2xt_terms[xt] should be recalculated,
+        // and the corresponding fresh definitions removed. 
         std::unordered_map<unsigned, std_vector<unsigned>> m_row2fresh_defs;
 
         indexed_uint_set m_changed_rows;
@@ -448,6 +448,7 @@ namespace lp {
         }
 
         void eliminate_last_term_column() {
+            // change only the rows in m_l_matrix, and update m_e_matrix lazily
             unsigned j = m_l_matrix.column_count() - 1;
             make_sure_j_is_in_the_last_row_of_l_matrix();
             const auto &last_e_row = m_l_matrix.m_rows.back();
@@ -460,7 +461,6 @@ namespace lp {
             }
             unsigned last_row_index= m_l_matrix.row_count() - 1;
             m_l_matrix.divide_row(last_row_index, alpha); // divide the last row by alpha
-            std_vector<unsigned> rows_to_change;
 
             auto &column = m_l_matrix.m_columns[j];
             int pivot_col_cell_index = -1;
@@ -486,12 +486,8 @@ namespace lp {
                 auto & c = column.back();
                 SASSERT(c.var() != last_row_index);
                 m_l_matrix.pivot_row_to_row_given_cell(last_row_index, c, j);
-                rows_to_change.push_back(c.var());
-            }
-
-            for (unsigned i : rows_to_change) {
-                recalculate_entry(i);
-            }
+                m_changed_rows.insert(c.var());
+            }            
         }
         
         void make_sure_j_is_in_the_last_row_of_l_matrix() {
@@ -521,7 +517,7 @@ namespace lp {
             }
             m_var_register.shrink(m_e_matrix.column_count());
 
-            SASSERT(m_row2fresh_defs.find(i) == m_row2fresh_defs.end());
+            remove_irrelevant_fresh_defs_for_row(i);
 
             if (m_k2s.has_val(i)) {
                 remove_from_S(i);
@@ -744,7 +740,10 @@ namespace lp {
         } 
 
         void delete_column(unsigned j) {
-            NOT_IMPLEMENTED_YET();
+            SASSERT(j >= m_e_matrix.column_count());
+            SASSERT(m_k2s.has_key(j) == false);
+            SASSERT(m_k2s.has_val(j) == false);
+            SASSERT(m_columns_to_terms.find(j) == m_columns_to_terms.end());
         }
 
         void clear_e_row(unsigned ei) {
@@ -794,17 +793,22 @@ namespace lp {
                 for (const auto& p : m_e_matrix.column(this->lar_solver_to_local(j))) {
                     m_changed_rows.insert(p.var()); // TODO: is it necessary?
                 }
+                
             }
         }
 
+        void remove_irrelevant_fresh_defs_for_row(unsigned ei) {
+            auto it = m_row2fresh_defs.find(ei);
+            if (it == m_row2fresh_defs.end()) return;
+            for (unsigned xt: it->second) {
+                m_fresh_k2xt_terms.erase_by_second_key(xt);
+            }
+            m_row2fresh_defs.erase(it);
+        }
+        
         void remove_irrelevant_fresh_defs() {
             for (unsigned ei : m_changed_rows) {
-                auto it = m_row2fresh_defs.find(ei);
-                if (it == m_row2fresh_defs.end()) continue;
-                for (unsigned xt: it->second) {
-                    m_fresh_k2xt_terms.erase_by_second_key(xt);
-                }
-                m_row2fresh_defs.erase(it);
+                remove_irrelevant_fresh_defs_for_row(ei);
             }
         }
         
@@ -928,8 +932,8 @@ namespace lp {
                             }
                             
                             std::cout << std::endl;
-                            std::cout << "the other entry:";
-                            print_entry(m_k2s[p.var()],std::cout)  << std::endl;
+                            std::cout << "column " << p.var() << " is subst by entry:";
+                            print_entry(m_k2s[p.var()],std::cout)  << std::endl;                            
                             return false;
                         }
                     }
@@ -2091,7 +2095,8 @@ namespace lp {
         }
 
         // The idea is to remove this fresh definition when the row h changes.
-        // The row can change if it depends on the term that is deleted, or on a variable that becomes fixed/unfixed        
+        // The row can change if it depends on the term that is deleted, or on a variable that becomes fixed/unfixed
+        // fr_j is a fresh variable
         void register_var_in_fresh_defs(unsigned h, unsigned fr_j) {
             auto it = m_row2fresh_defs.find(h);
             if (it == m_row2fresh_defs.end()) {
