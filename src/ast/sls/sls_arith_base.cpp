@@ -769,7 +769,6 @@ namespace sls {
             }
         }
         catch (overflow_exception const&) {
-            verbose_stream() << "overflow1\n";
             return false;
         }
 
@@ -812,7 +811,6 @@ namespace sls {
                     prod *= power_of(value(w), p);
             }
             catch (overflow_exception const&) {
-                verbose_stream() << "overflow\n";
                 return false;
             }
             if (value(w) != prod && !update_checked(w, prod))
@@ -1487,7 +1485,6 @@ namespace sls {
                             hi_valid = false;
                     }
                     catch (overflow_exception&) {
-                        verbose_stream() << "overflow3\n";
                         hi_valid = false;
                     }
                 }
