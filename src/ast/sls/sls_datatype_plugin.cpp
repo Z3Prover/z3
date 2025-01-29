@@ -274,7 +274,7 @@ namespace sls {
     }
 
     expr_ref datatype_plugin::get_value(expr* e) {
-        if (!dt.is_datatype(e))
+        if (!dt.is_datatype(e) || !g)
             return expr_ref(m);
         if (m_axiomatic_mode) {
             init_values();
@@ -325,7 +325,7 @@ namespace sls {
             bool has_null = false;
             for (auto arg : euf::enode_args(con)) {
                 if (dt.is_datatype(arg->get_sort())) {
-                    auto val_arg = m_values.get(arg->get_root_id());
+                    auto val_arg = m_values.get(arg->get_root_id(), nullptr);
                     if (!val_arg)
                         has_null = true;
                     leaf2root.insert_if_not_there(arg->get_root(), euf::enode_vector()).push_back(n);
