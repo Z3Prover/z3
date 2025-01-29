@@ -923,6 +923,7 @@ namespace lp {
                     const auto & row = m_e_matrix.m_rows[ei];
                     for (const auto& p :  row) {
                         if (m_k2s.has_key(p.var())) {
+                            /*
                             std::cout << "entry:" << ei << " belongs to f but depends on column " << p.var() << std::endl;
                             std::cout << "m_var_register.local_to_external(p.var()):" << m_var_register.local_to_external(p.var()) << std::endl;
                             print_entry(ei, std::cout);
@@ -933,7 +934,8 @@ namespace lp {
                             
                             std::cout << std::endl;
                             std::cout << "column " << p.var() << " is subst by entry:";
-                            print_entry(m_k2s[p.var()],std::cout)  << std::endl;                            
+                            print_entry(m_k2s[p.var()],std::cout)  << std::endl;
+                            */
                             return false;
                         }
                     }
@@ -2190,6 +2192,9 @@ namespace lp {
         // returns true if an equlity was rewritten and false otherwise
         bool rewrite_eqs() {            
             unsigned h = -1;
+            unsigned n = 0; // number of choices for a fresh variable
+            mpq the_smallest_ahk;
+            unsigned kh, kh_sign;
             for (unsigned ei=0; ei < m_e_matrix.row_count(); ei++) {
                 if (belongs_to_s(ei)) continue;
                 if (m_e_matrix.m_rows[ei].size() == 0) {
@@ -2200,23 +2205,31 @@ namespace lp {
                         return false;
                     }
                 }
-                h = ei;
-                break;
-            }
-            if (h == UINT_MAX)
-                return false;
-            auto [ahk, k, k_sign] = find_minimal_abs_coeff(h);
-            TRACE("dioph_eq", tout << "eh:"; print_entry(h, tout);
-                  tout << "ahk:" << ahk << ", k:" << k << ", k_sign:" << k_sign
-                  << std::endl;);
+                auto [ahk, k, k_sign] = find_minimal_abs_coeff(ei);
+                if (ahk.is_one()) {
+                    TRACE("dioph_eq", tout << "push to S:\n"; print_entry(ei, tout););
+                    move_entry_from_f_to_s(k, ei);
+                    eliminate_var_in_f(ei, k, k_sign);
+                    return true;
+                }
 
-            if (ahk.is_one()) {
-                TRACE("dioph_eq", tout << "push to S:\n"; print_entry(h, tout););
-                move_entry_from_f_to_s(k, h);
-                eliminate_var_in_f(h, k, k_sign);
-            } else {
-                fresh_var_step(h, k, ahk * mpq(k_sign));
+                if (n == 0 || the_smallest_ahk > ahk) {
+                    n = 1;
+                    the_smallest_ahk = ahk;
+                    h = ei;
+                    kh = k;
+                    kh_sign = k_sign;
+                    continue;
+                }
+                if (the_smallest_ahk == ahk && lra.settings().random_next() % (++n) == 0) {
+                    h = ei;
+                    kh = k;
+                    kh_sign = k_sign;
+                }
             }
+            if (h == UINT_MAX) return false;
+            SASSERT(!the_smallest_ahk.is_one());
+            fresh_var_step(h, kh, the_smallest_ahk * mpq(kh_sign));
             return true;
         }
 
