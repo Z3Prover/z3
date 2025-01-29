@@ -204,7 +204,7 @@ namespace sls {
     template<typename num_t>
     static num_t sqrt(num_t d) {
         if (d <= 1)
-            return d;
+            return d;        
         auto sq = 2*sqrt(div(d, num_t(4))) + 1;
         if (sq * sq <= d)
             return sq;
@@ -217,6 +217,8 @@ namespace sls {
     template<typename num_t>
     void arith_base<num_t>::find_quadratic_moves(ineq const& ineq, var_t x, num_t const& a, num_t const& b, num_t const& sum) {
         num_t c, d;
+        if (!is_int(x)) // sqrt is not defined for non-integers
+            return;
         try {
             c = sum - a * value(x) * value(x) - b * value(x);
             d = b * b - 4 * a * c;
