@@ -457,12 +457,35 @@ namespace sls {
                 ev.val1.svalue = r.replace(s, t);
                 return ev.val1.svalue;
             }
+            case OP_SEQ_REPLACE_ALL: {
+                expr* x, * y, * z;
+                VERIFY(seq.str.is_replace_all(e, x, y, z));
+                zstring s1 = strval0(x);
+                zstring s2 = strval0(y);
+                zstring c = strval0(z);
+                
+                if (s1.length() < s2.length()) 
+                    ev.val1.svalue = s1;
+                else {
+                    zstring r;
+                    for (unsigned i = 0; i < s1.length(); ++i) {
+                        if (s1.length() >= s2.length() + i && 
+                            s2 == s1.extract(i, s2.length())) {
+                            r += c;
+                            i += s2.length() - 1;
+                        }
+                        else 
+                            r += zstring(s1[i]);
+                    }
+                    ev.val1.svalue = r;
+                }
+                return ev.val1.svalue;                                                
+            }
             case OP_SEQ_NTH:
             case OP_SEQ_NTH_I:
             case OP_SEQ_NTH_U:
             case OP_SEQ_REPLACE_RE_ALL:
             case OP_SEQ_REPLACE_RE:
-            case OP_SEQ_REPLACE_ALL:
             case OP_SEQ_MAP:
             case OP_SEQ_MAPI:
             case OP_SEQ_FOLDL:
