@@ -1457,8 +1457,8 @@ namespace lp {
         }
 
         lia_move process_f() {
-            unsigned empty_rows = 0;
-            while (m_k2s.size() + empty_rows < m_e_matrix.row_count()) {
+            bool  progress = true;
+            while (progress) {
                 if (!normalize_by_gcd()) {
                     if (m_report_branch) {
                         lra.stats().m_dio_cut_from_proofs++;
@@ -1469,7 +1469,7 @@ namespace lp {
                     }
                     return lia_move::conflict;
                 }
-                empty_rows = rewrite_eqs();
+                progress = rewrite_eqs();
                 if (m_conflict_index != UINT_MAX) {
                     lra.stats().m_dio_rewrite_conflicts++;
                     return lia_move::conflict;
@@ -1797,12 +1797,13 @@ namespace lp {
             return true;
         }
         bool is_in_sync() const {
-            unsigned n_local_columns = m_e_matrix.column_count();
-            for (unsigned j = 0; j < n_local_columns; j++) {
+            for (unsigned j = 0; j < m_e_matrix.column_count(); j++) {
                 unsigned external_j = m_var_register.local_to_external(j);
                 if (external_j == UINT_MAX) continue;
-                if (external_j >=  lra.column_count())
+                if (external_j >=  lra.column_count() && m_e_matrix.m_columns[j].size()) {
+                    // It is OK to have an empty column in m_e_matrix.
                     return false;
+                }
             }
             
             return columns_to_terms_is_correct();
@@ -2186,26 +2187,24 @@ namespace lp {
         }
 
         // this is the step 6 or 7 of the algorithm
-        // returns the number of empty rows
-        unsigned rewrite_eqs() {            
+        // returns true if an equlity was rewritten and false otherwise
+        bool rewrite_eqs() {            
             unsigned h = -1;
-            unsigned empty_rows = 0;
             for (unsigned ei=0; ei < m_e_matrix.row_count(); ei++) {
                 if (belongs_to_s(ei)) continue;
                 if (m_e_matrix.m_rows[ei].size() == 0) {
                     if (m_entries[ei].m_c.is_zero()) {                        
-                        empty_rows++;
                         continue;
                     } else {
                         m_conflict_index = ei;
-                        return empty_rows;
+                        return false;
                     }
                 }
                 h = ei;
                 break;
             }
             if (h == UINT_MAX)
-                return empty_rows;
+                return false;
             auto [ahk, k, k_sign] = find_minimal_abs_coeff(h);
             TRACE("dioph_eq", tout << "eh:"; print_entry(h, tout);
                   tout << "ahk:" << ahk << ", k:" << k << ", k_sign:" << k_sign
@@ -2218,7 +2217,7 @@ namespace lp {
             } else {
                 fresh_var_step(h, k, ahk * mpq(k_sign));
             }
-            return empty_rows;
+            return true;
         }
 
     public:
