@@ -580,7 +580,7 @@ namespace sls {
             }
             return false;
         }
-        if (dt.get_constructor_is(f))
+        if (dt.is_is(f))
             return false;
         return true;
     }
@@ -895,16 +895,19 @@ namespace sls {
         if (!is_app(e) || to_app(e)->get_family_id() != m_fid)
             return ctx.get_value(e);
         auto w = eval1(e);
-        m_eval.set(e->get_id(), w);
+        m_eval.setx(e->get_id(), w);
         return w;
     }
 
     expr_ref datatype_plugin::eval_accessor(func_decl* f, expr* t) {
         auto& t2val = m_eval_accessor[f];
         if (!t2val.contains(t)) {
+            if (!m_model)
+                m_model = alloc(model, m);
             auto val = m_model->get_some_value(f->get_range());
             m.inc_ref(t);
             m.inc_ref(val);
+            t2val.insert(t, val);
         }
         return expr_ref(t2val[t], m);
     }
@@ -962,7 +965,7 @@ namespace sls {
 
     void datatype_plugin::set_eval0(expr* e, expr* value) {
         if (dt.is_datatype(e->get_sort()))
-            m_eval[e->get_id()] = value;
+            m_eval.setx(e->get_id(), value);
         else
             ctx.set_value(e, value);
     }
