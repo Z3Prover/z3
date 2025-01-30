@@ -387,7 +387,7 @@ namespace lp {
             }
         };
 
-        void remove_term_callback(const lar_term *t) { 
+        void undo_add_term_method(const lar_term *t) {
             TRACE("d_undo", tout << "t:"<< t<<", t->j():"<< t->j() << std::endl;);
             TRACE("dioph_eq", lra.print_term(*t, tout); tout << ", t->j() =" << t->j() << std::endl;);
             if (!contains(m_active_terms, t)) {
@@ -422,8 +422,18 @@ namespace lp {
                   tout << "and " << m_l_matrix.row_count() << " rows" << std::endl;
                   print_lar_term_L(*t, tout); tout << "; t->j()=" << t->j() << std::endl;
                 );
-            shrink_L_to_sizes();
+            shrink_matrices();
         }
+        
+        struct undo_add_term : public trail {
+            imp& m_s;
+            const lar_term* m_t;
+            undo_add_term(imp& s, const lar_term *t):  m_s(s),   m_t(t) {}
+
+            void undo() {
+                m_s.undo_add_term_method(m_t);
+            }
+        };
       
         struct undo_fixed_column : public trail {
             imp& m_imp;
@@ -504,7 +514,7 @@ namespace lp {
             m_l_matrix.add_rows(mpq(1), i, m_l_matrix.row_count() - 1);
         }
 
-        void shrink_L_to_sizes() {
+        void shrink_matrices() {
             unsigned i = m_l_matrix.row_count() - 1;            
             eliminate_last_term_column();
             remove_last_row_in_matrix(m_l_matrix);
@@ -564,7 +574,9 @@ namespace lp {
                 TRACE("dioph_eq", tout << "not all vars are integrall\n";);
                 return;
             }
-            m_added_terms.push_back(t);    
+            m_added_terms.push_back(t);
+            auto undo = undo_add_term(*this, t);
+            lra.trail().push(undo);
         }
 
         void update_column_bound_callback(unsigned j) {
@@ -578,7 +590,6 @@ namespace lp {
     public:
         imp(int_solver& lia, lar_solver& lra) : lia(lia), lra(lra) {
             lra.m_add_term_callback=[this](const lar_term*t){add_term_callback(t);};
-            lra.m_remove_term_callback = [this](const lar_term*t){remove_term_callback(t);};
             lra.m_update_column_bound_callback = [this](unsigned j){update_column_bound_callback(j);};
         }
         term_o get_term_from_entry(unsigned i) const {

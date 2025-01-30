@@ -1558,11 +1558,8 @@ namespace lp {
             if (col.term() != nullptr) {
                 if (s.m_need_register_terms)
                     s.deregister_normalized_term(*col.term());
-                if (s.m_remove_term_callback) 
-                    s.m_remove_term_callback(col.term());
                 delete col.term();
                 s.m_terms.pop_back();
-                
             }
             s.remove_last_column_from_tableau();            
             s.m_columns.pop_back();
