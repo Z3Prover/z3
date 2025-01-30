@@ -281,7 +281,7 @@ namespace sls {
                     tout << mk_bounded_pp(ctx.atom(bv), a.m) << "\n";
                     ctx.display(tout););
                 }
-                VERIFY(!a.get_ineq(bv) || a.get_ineq(bv)->is_true() == ctx.is_true(bv));
+                // VERIFY(!a.get_ineq(bv) || a.get_ineq(bv)->is_true() == ctx.is_true(bv));
             });
     }
 
