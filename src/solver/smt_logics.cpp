@@ -103,6 +103,7 @@ bool smt_logics::logic_has_bv(symbol const & s) {
         s == "QF_UFBV" ||
         s == "QF_ABV" ||
         s == "QF_AUFBV" ||
+        s == "QF_UFBVDT" ||
         s == "QF_BVRE" ||
         s == "QF_FPBV" ||
         s == "FP" ||
@@ -149,7 +150,7 @@ bool smt_logics::logic_has_fpa(symbol const & s) {
 }
 
 bool smt_logics::logic_has_uf(symbol const & s) {
-    return s == "QF_UF" || s == "UF" || s == "QF_UFDT" || s == "SMTFD";
+    return s == "QF_UF" || s == "UF" || s == "QF_UFDT" || s == "QF_UFBVDT" || s == "SMTFD";
 }
 
 bool smt_logics::logic_has_horn(symbol const& s) {
@@ -161,6 +162,6 @@ bool smt_logics::logic_has_pb(symbol const& s) {
 }
 
 bool smt_logics::logic_has_datatype(symbol const& s) {
-    return s == "QF_FD" || s == "QF_UFDT" || logic_is_all(s) || s == "QF_DT" || logic_has_horn(s);
+    return s == "QF_FD" || s == "QF_UFDT" || s == "QF_UFBVDT" || logic_is_all(s) || s == "QF_DT" || logic_has_horn(s);
 }
 

@@ -1075,10 +1075,9 @@ namespace sls {
             b += strval0(y);
         }
 
-        // std::cout << "Repair down " << mk_pp(eq, m) << ": \"" << a << "\" = \"" << b << "\"" << std::endl;
-
         if (a == b)
-            return update(eq->get_arg(0), a) && update(eq->get_arg(1), b);    
+            return true;
+        // return update(eq->get_arg(0), a) && update(eq->get_arg(1), b);
 
         unsigned diff = edit_distance(a, b);     
 
@@ -1473,7 +1472,6 @@ namespace sls {
         zstring sb = strval0(b);
         unsigned lena = sa.length();
         unsigned lenb = sb.length();
-        verbose_stream() << "repair prefixof " << mk_bounded_pp(e, m) << "\n";
         if (ctx.is_true(e)) {
             unsigned n = std::min(lena, lenb);
             if (!is_value(a)) {                
