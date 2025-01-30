@@ -1940,7 +1940,8 @@ namespace lp {
             SASSERT(is_eliminated_from_f(j));
         }
         // j is the variable to eliminate, or substitude, it appears in term t with 
-        // a coefficient equal to j_sign which is +-1 , matrix m_l_matrix is not changed since it is a substitution of a fresh variable
+        // a coefficient equal to j_sign which is +-1 ,
+        // matrix m_l_matrix is not changed since it is a substitution of a fresh variable
         void eliminate_var_in_f_with_term(const lar_term& t, unsigned j, int j_sign) {
             SASSERT(abs(t.get_coeff(j)).is_one());
             TRACE("dioph_eq", tout << "eliminate var:" << j << " by using:";
@@ -1956,16 +1957,16 @@ namespace lp {
                 }
 
                 mpq coeff = m_e_matrix.get_val(c);
-                unsigned i = c.var();
-                TRACE("dioph_eq", tout << "before pivot entry :"; print_entry(i, tout) << std::endl;);
+                TRACE("dioph_eq", tout << "before pivot entry :"; print_entry(c.var(), tout) << std::endl;);
                 m_e_matrix.pivot_term_to_row_given_cell(t, c, j, j_sign);
                 TRACE("dioph_eq", tout << "after pivoting c_row:";
-                      print_entry(i, tout););
-                SASSERT(entry_invariant(i));
+                      print_entry(c.var(), tout););
+                SASSERT(entry_invariant(c.var()));
                 cell_to_process--;
             }
             SASSERT(is_eliminated_from_f(j));
         }
+
         bool is_eliminated_from_f(unsigned j) const {
             for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
                 if (!belongs_to_f(ei)) continue;
@@ -1978,6 +1979,7 @@ namespace lp {
             }
             return true;
         }
+
         term_o term_to_lar_solver(const term_o& eterm) const {
             term_o ret;
             for (const auto& p : eterm) {
