@@ -277,6 +277,15 @@ namespace sls {
         if (!dt.is_datatype(e) || !g)
             return expr_ref(m);
         if (m_axiomatic_mode) {
+
+            init_values();
+            TRACE("dt", tout << "get value " << mk_bounded_pp(e, m) << " " << m_values.size() << " " << g->find(e)->get_root_id() << "\n";);
+            for (auto n : euf::enode_class(g->find(e))) {
+                auto id = n->get_id();
+                if (m_values.get(id, nullptr))
+                    return expr_ref(m_values.get(id), m);
+            }
+            m_values.reset();
             init_values();
             return expr_ref(m_values.get(g->find(e)->get_root_id()), m);
         }
@@ -696,9 +705,9 @@ namespace sls {
         }
         for (unsigned j = 0; j < accs.size(); ++j) {
             if (i == j)
-                args[i] = v0;
+                args.push_back(v0);
             else
-                args[j] = m_model->get_some_value(accs[j]->get_range());
+                args.push_back(m_model->get_some_value(accs[j]->get_range()));
         }
         expr* new_val_t = m.mk_app(c, args);
         set_eval0(t, new_val_t);

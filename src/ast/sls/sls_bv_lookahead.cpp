@@ -390,7 +390,8 @@ namespace sls {
         if (bv.is_ule(a, x, y)) {
             auto const& vx = wval(x);
             auto const& vy = wval(y);
-
+            m_ev.m_tmp.set_bw(vx.bw);
+            m_ev.m_tmp2.set_bw(vx.bw);
             if (is_true) {
                 if (vx.bits() <= vy.bits())
                     return 1.0;
@@ -420,6 +421,8 @@ namespace sls {
             auto const& vy = wval(y);
             // x += 2^bw-1
             // y += 2^bw-1
+            m_ev.m_tmp.set_bw(vx.bw);
+            m_ev.m_tmp2.set_bw(vx.bw);
             vy.bits().copy_to(vy.nw, m_ev.m_tmp);
             vx.bits().copy_to(vx.nw, m_ev.m_tmp2);
             m_ev.m_tmp.set(vy.bw - 1, !m_ev.m_tmp.get(vy.bw - 1));

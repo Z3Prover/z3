@@ -666,7 +666,6 @@ namespace sls {
 
     void bv_valuation::tighten_range() {
         
-        // verbose_stream() << "tighten " << m_lo << " " << m_hi << " " << m_bits << "\n";
         if (!has_range())
             return;     
 
@@ -683,7 +682,7 @@ namespace sls {
         if (!has_range())
             return;
 
-        if (!in_range(m_bits)) {
+        if (!in_range(m_bits) || !in_range(m_fixed_values)) {
             if (!can_set(m_lo))
                 return;
             m_lo.copy_to(nw, m_fixed_values);
@@ -698,7 +697,6 @@ namespace sls {
                 if (hi() < rational::power_of_two(i))
                     m_is_fixed.set(i, true);
         
-        // verbose_stream() << "post tighten " << m_lo << " " << m_hi << " " << m_bits << "\n";
         SASSERT(well_formed());
     }
 
