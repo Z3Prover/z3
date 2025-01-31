@@ -343,7 +343,7 @@ namespace sls {
                 m_ddfw->add(1, &sls_lit);
             }
             else {
-                IF_VERBOSE(0, verbose_stream() << "value restriction " << lit << " "
+                IF_VERBOSE(4, verbose_stream() << "value restriction " << lit << " "
                            << mk_bounded_pp(ctx.bool_var2expr(lit.var()), m) << "\n");
             }
         }                
