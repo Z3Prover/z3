@@ -84,6 +84,9 @@ namespace sls {
         void init_egraph(euf::egraph& g);
         void init_kv(euf::egraph& g, kv& kv);
         void saturate(euf::egraph& g);
+        bool saturate_extensionality(euf::egraph& g);
+        void collect_shared(euf::egraph& g, euf::enode_vector& shared);
+        bool is_shared_arg(euf::enode* r);
         void saturate_store(euf::egraph& g, euf::enode* n);
         void saturate_const(euf::egraph& g, euf::enode* n);
         void saturate_map(euf::egraph& g, euf::enode* n);
@@ -94,6 +97,7 @@ namespace sls {
         void add_map_axiom(euf::egraph& g, euf::enode* n, euf::enode* sel);
         void add_store_axiom1(app* sto);
         void add_store_axiom2(app* sto, app* sel);
+        bool add_extensionality_axiom(expr* a, expr* b);
         bool are_distinct(euf::enode* a, euf::enode* b);
         bool eq_args(euf::enode* sto, euf::enode* sel);
         euf::enode* mk_select(euf::egraph& g, euf::enode* b, euf::enode* sel);

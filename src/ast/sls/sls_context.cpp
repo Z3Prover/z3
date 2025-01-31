@@ -148,7 +148,8 @@ namespace sls {
                 continue;            
 
             if (all_of(m_plugins, [&](auto* p) { return !p || p->is_sat(); })) {
-                VERIFY(unsat().empty() || !m_new_constraint);
+                if (!unsat().empty() || m_new_constraint)
+                    continue;
                 values2model();
                 return l_true;
             }
