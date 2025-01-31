@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
@@ -151,6 +152,7 @@ public:
         if (lo > 0) {
             xs.push_back(a.mk_int(lo));
         }
+        verbose_stream() << "bounded " << lo << " " << hi << "\n";
         for (unsigned i = lo; i < hi; ++i) {
             checkpoint();
 
@@ -260,6 +262,7 @@ public:
     expr* mk_ge(unsigned sz, rational const* weights, expr* const* args, rational const& w) {
         if (sz == 0) {
             return w.is_pos()?m.mk_false():m.mk_true();
+            return w.is_pos() ? m.mk_false() : m.mk_true();
         }
         if (sz == 1 && weights[0].is_one() && w.is_one()) {
             return args[0];
@@ -276,44 +279,47 @@ public:
 
     bool get_pb_sum(expr* x, rational const& mul, expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
         expr_ref_vector conds(m);
-        return get_sum(x, mul, conds, args, coeffs, coeff);
+        return get_sum(0, x, mul, conds, args, coeffs, coeff);
     }
 
-    bool get_sum(expr* x, rational const& mul, expr_ref_vector& conds, expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
+    bool get_sum(unsigned nesting, expr* x, rational const& mul, expr_ref_vector& conds, expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
         checkpoint();
 
         expr *y, *z, *u;
         rational r, q;
-        if (!is_app(x)) return false;
+        if (!is_app(x)) 
+            return false;
+        if (nesting > 8)
+            return false;
         app* f = to_app(x);
         bool ok = true;
         if (a.is_add(x)) {
             for (unsigned i = 0; ok && i < f->get_num_args(); ++i) {
-                ok = get_sum(f->get_arg(i), mul, conds, args, coeffs, coeff);
+                ok = get_sum(nesting, f->get_arg(i), mul, conds, args, coeffs, coeff);
             }
         }
         else if (a.is_sub(x, y, z)) {
-            ok = get_sum(y, mul, conds, args, coeffs, coeff);
-            ok = ok && get_sum(z, -mul, conds, args, coeffs, coeff);
+            ok = get_sum(nesting, y, mul, conds, args, coeffs, coeff);
+            ok = ok && get_sum(nesting, z, -mul, conds, args, coeffs, coeff);
         }
         else if (a.is_uminus(x, y)) {
-            ok = get_sum(y, -mul, conds, args, coeffs, coeff);
+            ok = get_sum(nesting, y, -mul, conds, args, coeffs, coeff);
         }
         else if (a.is_mul(x, y, z) && is_numeral(y, r)) {
-            ok = get_sum(z, r*mul, conds, args, coeffs, coeff);
+            ok = get_sum(nesting, z, r*mul, conds, args, coeffs, coeff);
         }
         else if (a.is_mul(x, z, y) && is_numeral(y, r)) {
-            ok = get_sum(z, r*mul, conds, args, coeffs, coeff);
+            ok = get_sum(nesting, z, r*mul, conds, args, coeffs, coeff);
         }
         else if (a.is_to_real(x, y)) {
-            ok = get_sum(y, mul, conds, args, coeffs, coeff);
+            ok = get_sum(nesting, y, mul, conds, args, coeffs, coeff);
         }
         else if (m.is_ite(x, y, z, u)) {
             conds.push_back(y);
-            ok = get_sum(z, mul, conds, args, coeffs, coeff);
+            ok = get_sum(nesting + 1, z, mul, conds, args, coeffs, coeff);
             conds.pop_back();
             conds.push_back(m.mk_not(y));
-            ok &= get_sum(u, mul, conds, args, coeffs, coeff);
+            ok &= get_sum(nesting + 1, u, mul, conds, args, coeffs, coeff);
             conds.pop_back();
         }
         else if (is_numeral(x, r)) {
