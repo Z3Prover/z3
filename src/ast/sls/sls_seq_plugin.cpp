@@ -170,7 +170,7 @@ namespace sls {
                     return false;
                 if (update(e, rational(sx.length())))
                     return false;
-                if (r > sx.length() && update(x, sx + (!m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a"))))
+                if (r > sx.length() && update(x, sx + zstring(random_char())))
                     return false;
                 // This case seems to imply unsat
                 verbose_stream() << "The input might be unsat\n"; // example to trigger: (assert (and (>= (str.len X) 2) (= (str.substr X 0 1) "")))
@@ -199,7 +199,7 @@ namespace sls {
             }
             if (seq.str.is_last_index(e, x, y) && seq.is_string(x->get_sort())) {
                 // TODO
-                SASSERT(false);
+                NOT_IMPLEMENTED_YET();
             }
             if (seq.str.is_stoi(e, x) && seq.is_string(x->get_sort())) {
                 auto sx = strval0(x);
@@ -591,13 +591,13 @@ namespace sls {
             return true;
         if (len_u < val_x.length()) {
             for (unsigned i = 0; i + len_u < val_x.length(); ++i) {
-                m_str_updates.push_back({ x, val_x.extract(i, len_u), 1 });
+                add_str_update(x, val_x, val_x.extract(i, len_u), 1);
             }
             return apply_update();
         }
         zstring val_x_new = val_x;
         for (unsigned i = val_x.length(); i < len_u; ++i) {
-            val_x_new += !m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : 'a';
+            val_x_new += zstring(random_char());
         }
         return update(x, val_x_new);
     }
@@ -681,32 +681,28 @@ namespace sls {
                 return true;
             if (ctx.rand(2) != 0 && repair_down_str_eq_unify(e))
                 return true;
-            if (!is_value(x) && strval0(x) != strval1(y))
-                m_str_updates.push_back({ x, strval1(y), 1 });
-            if (!is_value(y) && strval0(y) != strval1(x))
-                m_str_updates.push_back({ y, strval1(x), 1 });
+            if (!is_value(x))
+                add_str_update(x, strval0(x), strval1(y), 1);
+            if (!is_value(y))
+                add_str_update(y, strval0(y), strval1(x), 1);
             if (m_str_updates.empty() && repair_down_str_eq_edit_distance(e))
                 return true;
         }
         else {
             // disequality
             if (!is_value(x) && !m_chars.empty()) {
-                zstring ch(m_chars[ctx.rand(m_chars.size())]);
-                m_str_updates.push_back({ x, strval1(y) + ch, 1 });
-                m_str_updates.push_back({ x, ch + strval1(y), 1 });
-                if (strval0(x) != ch)
-                    m_str_updates.push_back({ x, ch, 1 });
-                if (!strval0(x).empty())
-                    m_str_updates.push_back({ x, zstring(), 1 });
+                zstring ch(random_char());
+                add_str_update(x, strval0(x), strval1(y) + ch, 1);
+                add_str_update(x, strval0(x), ch + strval1(y), 1);
+                add_str_update(x, strval0(x), ch, 1);
+                add_str_update(x, strval0(x), zstring(), 1);
             }
             if (!is_value(y) && !m_chars.empty()) {
-                zstring ch(m_chars[ctx.rand(m_chars.size())]);
-                m_str_updates.push_back({ y, strval1(x) + ch, 1 });
-                m_str_updates.push_back({ y, ch + strval1(x), 1 });
-                if (strval0(y) != ch)
-                    m_str_updates.push_back({ y, ch, 1 });
-                if (!strval0(y).empty())
-                    m_str_updates.push_back({ y, zstring(), 1});
+                zstring ch(random_char());
+                add_str_update(y, strval0(y), strval1(x) + ch, 1);
+                add_str_update(y, strval0(y), ch + strval1(x), 1);
+                add_str_update(y, strval0(y), ch, 1);
+                add_str_update(y, strval0(y), zstring(), 1);
             }
         }
         return apply_update();
@@ -769,7 +765,7 @@ namespace sls {
             for (auto& seq : set) {
                 if (seq == a)
                     continue;
-                m_str_updates.push_back({ x, seq, 1 });
+                add_str_update(x, a, seq, 1);
             }
         }
     }
@@ -780,29 +776,29 @@ namespace sls {
                 continue;
             zstring const & a = strval0(x);
             for (auto ch : chars)
-                m_str_updates.push_back({ x, a + zstring(ch), 1 });
+                add_str_update(x, a, a + zstring(ch), 1);
             for (auto ch : chars)
-                m_str_updates.push_back({ x, zstring(ch) + a, 1 });
+                add_str_update(x, a, zstring(ch) + a, 1);
             if (!a.empty()) {
                 zstring b = a.extract(0, a.length() - 1);
                 unsigned remC = a[a.length() - 1];
-                m_str_updates.push_back({ x, b, 1 }); // truncate a
+                add_str_update(x, a, b, 1); // truncate a
                 for (auto ch : chars) {
                     if (ch == remC)
                         // We would end up with the initial string
                         // => this "no-op" could be spuriously considered a solution (also it does not help)
                         continue;
-                    m_str_updates.push_back({ x, b + zstring(ch), 1 }); // replace last character in a by ch
+                    add_str_update(x, a, b + zstring(ch), 1); // replace last character in a by ch
                 }
                 if (a.length() > 1) {
                     // Otw. we just get the same set of candidates another time
                     b = a.extract(1, a.length() - 1);
                     remC = a[0];
-                    m_str_updates.push_back({ x, b, 1 }); // truncate a
+                    add_str_update(x, a, b, 1); // truncate a
                     for (auto ch : chars) {
                         if (ch == remC)
                             continue;
-                        m_str_updates.push_back({ x, zstring(ch) + b, 1 }); // replace first character in a by ch
+                        add_str_update(x, a, zstring(ch) + b, 1); // replace first character in a by ch
                     }
                 }
             }
@@ -824,7 +820,7 @@ namespace sls {
                         break;
                     auto new_val = val_x.extract(0, first_diff) + zstring(val_other[first_diff]) + val_x.extract(first_diff + 1, val_x.length());
                     if (val_x != new_val)
-                        m_str_updates.push_back({ x, new_val, 1 });
+                        add_str_update(x, val_x, new_val, 1);
                     break;
                 }
                 index -= len_x;
@@ -849,7 +845,7 @@ namespace sls {
                     if (is_value(x))
                         break;
                     auto new_val = val_x.extract(0, len_x - last_diff) + zstring(val_other[val_other.length() - last_diff]) + val_x.extract(len_x - last_diff + 1, len_x);
-                    m_str_updates.push_back({ x, new_val, 1 });
+                    add_str_update(x, val_x, new_val, 1);
                     break;
                 }
                 index -= len_x;
@@ -941,20 +937,33 @@ namespace sls {
         return u[n][m];
     }
 
-    int seq_plugin::add_str_update(expr* e, zstring const& val, double score) {
-        zstring new_v = trunc_pad_to_fit(get_eval(e).min_length, get_eval(e).max_length, val);
+    int seq_plugin::add_str_update(expr* e, zstring const& currVal, zstring const& val, double score) {
+        eval& ev = get_eval(e);
+        zstring new_v = trunc_pad_to_fit(ev.min_length, ev.max_length, val);
+        if (new_v == currVal) {
+            if (new_v.length() > ev.min_length)
+                // Remove a character
+                new_v = trunc_pad_to_fit(new_v.length() - 1, new_v);
+            else if (new_v.length() < ev.max_length)
+                // Add a random character
+                new_v = trunc_pad_to_fit(new_v.length() + 1, new_v);
+            else
+                // We fail
+                return 0;
+        }
+
         m_str_updates.push_back({ e, new_v, score });
         return new_v.length() == val.length() ? 0 : (new_v.length() > val.length() ? 1 : -1);
     }
 
-    zstring seq_plugin::trunc_pad_to_fit(unsigned min_length, unsigned max_length, zstring const& s) {
+    zstring seq_plugin::trunc_pad_to_fit(unsigned min_length, unsigned max_length, zstring const& s) const {
         if (s.length() > max_length)
             return s.extract(0, max_length);
         if (s.length() >= min_length)
             return s;
         zstring r = s;
         while (r.length() < min_length)
-            r += !m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a");
+            r += zstring(random_char());
         return r;
     }
 
@@ -1003,7 +1012,7 @@ namespace sls {
                     i -= value.length();
                 else {
                     if (!is_value(x))
-                        m_str_updates.push_back({ x, value.extract(0, i) + value.extract(i + 1, value.length()), 1 });
+                        add_str_update(x, value, value.extract(0, i) + value.extract(i + 1, value.length()), 1);
                     break;
                 }
             }
@@ -1018,7 +1027,7 @@ namespace sls {
                     continue;
                 }
                 if (!is_value(x))
-                    m_str_updates.push_back({ x, value.extract(0, j) + zstring(ch) + value.extract(j, value.length()), 1 });
+                    add_str_update(x, value, value.extract(0, j) + zstring(ch) + value.extract(j, value.length()), 1);
                 if (j < value.length())
                     break;
             }
@@ -1031,7 +1040,7 @@ namespace sls {
                     j -= value.length();
                 else {
                     if (!is_value(x))
-                        m_str_updates.push_back({ x, value.extract(0, j) + zstring(ch) + value.extract(j + 1, value.length()), 1 });
+                        add_str_update(x, value, value.extract(0, j) + zstring(ch) + value.extract(j + 1, value.length()), 1);
                     break;
                 }
             }
@@ -1075,10 +1084,9 @@ namespace sls {
             b += strval0(y);
         }
 
-        // std::cout << "Repair down " << mk_pp(eq, m) << ": \"" << a << "\" = \"" << b << "\"" << std::endl;
-
         if (a == b)
-            return update(eq->get_arg(0), a) && update(eq->get_arg(1), b);    
+            return true;
+        // return update(eq->get_arg(0), a) && update(eq->get_arg(1), b);
 
         unsigned diff = edit_distance(a, b);     
 
@@ -1143,9 +1151,9 @@ namespace sls {
             if (vi.length() == i && vj.length() == j) {
                 score *= 2;
                 if (nj + 1 < R.size() && !strval0(R[nj + 1]).empty())
-                    m_str_updates.push_back({ xi, vi + zstring(strval0(R[nj + 1])[0]), score });
+                    add_str_update(xi, vi, vi + zstring(strval0(R[nj + 1])[0]), score);
                 if (ni + 1 < L.size() && !strval0(L[ni + 1]).empty())
-                    m_str_updates.push_back({ yj, vj + zstring(strval0(L[ni + 1])[0]), score });
+                    add_str_update(yj, vj, vj + zstring(strval0(L[ni + 1])[0]), score);
                 i = 0;
                 j = 0;
                 ++ni;
@@ -1155,7 +1163,7 @@ namespace sls {
             if (vi.length() == i) {
                 // xi -> vi + vj[j]
                 SASSERT(j < vj.length());
-                m_str_updates.push_back({ xi, vi + zstring(vj[j]), score});
+                add_str_update(xi, vi, vi + zstring(vj[j]), score);
                 score *= 2;
                 i = 0;
                 ++ni;
@@ -1164,7 +1172,7 @@ namespace sls {
             if (vj.length() == j) {
                 // yj -> vj + vi[i]
                 SASSERT(i < vi.length());
-                m_str_updates.push_back({ yj, vj + zstring(vi[i]), score });
+                add_str_update(yj, vj, vj + zstring(vi[i]), score);
                 score *= 2;
                 j = 0;
                 ++nj;
@@ -1184,22 +1192,22 @@ namespace sls {
                 continue;
             }
             if (!is_value(xi)) {
-                m_str_updates.push_back({ xi, vi.extract(0, i), score });
-                m_str_updates.push_back({ xi, vi.extract(0, i) + zstring(vj[j]), score});
+                add_str_update(xi, vi, vi.extract(0, i), score);
+                add_str_update(xi, vi, vi.extract(0, i) + zstring(vj[j]), score);
             }
             if (!is_value(yj)) {
-                m_str_updates.push_back({ yj, vj.extract(0, j), score });
-                m_str_updates.push_back({ yj, vj.extract(0, j) + zstring(vi[i]), score });
+                add_str_update(yj, vj, vj.extract(0, j), score);
+                add_str_update(yj, vj, vj.extract(0, j) + zstring(vi[i]), score);
             }
             break;
         }
         for (; ni < L.size(); ++ni) 
             if (!is_value(L[ni]) && !strval0(L[ni]).empty())
-                m_str_updates.push_back({ L[ni], zstring(), 1 });
+                add_str_update(L[ni], strval0(L[ni]), zstring(), 1);
         
         for (; nj < R.size(); ++nj)
             if (!is_value(R[nj]) && !strval0(R[nj]).empty())
-                m_str_updates.push_back({ R[nj], zstring(), 1 });
+                add_str_update(R[nj], strval0(R[nj]), zstring(), 1);
 
         return apply_update();
     }
@@ -1309,11 +1317,11 @@ namespace sls {
         if (r == strval1(e))
             return true;
         if (!is_value(x))
-            m_str_updates.push_back({ x, r, 1 });
+            add_str_update(x, strval0(x), r, 1);
         if (!is_value(y))
-            m_str_updates.push_back({ y, zstring(), 1});
+            add_str_update(y, strval0(y), zstring(), 1);
         if (!is_value(z))
-            m_str_updates.push_back({ z, zstring(), 1 });
+            add_str_update(z, strval0(z), zstring(), 1);
 
         // TODO some more possible ways, also deal with y, z if they are not values.
         // apply reverse substitution of r to replace z by y, update x to this value
@@ -1355,7 +1363,7 @@ namespace sls {
         if (r < -1)
             return false;
         zstring r_val(r.to_string());
-        m_str_updates.push_back({ x, r_val, 1 });
+        add_str_update(x, strval0(x), r_val, 1);
         return apply_update();        
     }
 
@@ -1376,9 +1384,9 @@ namespace sls {
         if (se.length() == 0) {
             // index should be out of bounds of a.
             if (!is_value(x)) {
-                m_str_updates.push_back({ x, zstring(), 1 });
+                add_str_update(x, sx, zstring(), 1);
                 if (lenx > r && r >= 0) 
-                    m_str_updates.push_back({ x, sx.extract(0, r.get_unsigned()), 1 });
+                    add_str_update(x, sx, sx.extract(0, r.get_unsigned()), 1);
             }
             if (!m.is_value(y)) {
                 m_int_updates.push_back({ y, rational(lenx), 1 });
@@ -1394,16 +1402,16 @@ namespace sls {
                     // insert or replace the desired character
                     zstring p = sx.extract(0, r.get_unsigned()) + se;
                     zstring new_x = p + sx.extract(r.get_unsigned() + 1, lenx - (r.get_unsigned() + 1));
-                    m_str_updates.push_back({ x, new_x, 1 });
+                    add_str_update(x, sx, new_x, 1);
                     new_x = p + sx.extract(r.get_unsigned(), lenx - r.get_unsigned());
-                    m_str_updates.push_back({ x, new_x, 1 });
+                    add_str_update(x, sx, new_x, 1);
                 }
                 else {
                     zstring new_x = sx;
                     while (new_x.length() < r)
-                        new_x += zstring(!m_chars.empty() ? m_chars[ctx.rand(m_chars.size())] : zstring("a"));
+                        new_x += zstring(random_char());
                     new_x = trunc_pad_to_fit(get_eval(x).min_length, get_eval(x).max_length, new_x + se);
-                    m_str_updates.push_back({ x, new_x, 1 });
+                    add_str_update(x, sx, new_x, 1);
                 }
             }
             if (!m.is_value(y)) {
@@ -1434,9 +1442,8 @@ namespace sls {
 
         // set to not a member:
         if (value == -1) {
-            m_str_updates.push_back({ y, zstring(m_chars[ctx.rand(m_chars.size())]), 1 });
-            if (lenx > 0)
-                m_str_updates.push_back({ x, zstring(), 1 });
+            add_str_update(y, sy, zstring(random_char()), 1);
+            add_str_update(x, sx, zstring(), 1);
         }
         // change x:
         // insert y into x at offset
@@ -1445,7 +1452,7 @@ namespace sls {
             zstring prefix = sx.extract(0, offs);
             for (unsigned i = 0; i <= leny && offs + i < lenx; ++i) {
                 zstring suffix = sx.extract(offs + i, lenx);
-                m_str_updates.push_back({ x, prefix + sy + suffix, 1 });
+                add_str_update(x, sx, prefix + sy + suffix, 1);
             }
         }
 
@@ -1454,7 +1461,7 @@ namespace sls {
         if (offset_r.is_unsigned() && 0 <= value && offset_u + value < lenx) {
             unsigned offs = offset_u + value.get_unsigned();
             for (unsigned i = offs; i < lenx; ++i) 
-                m_str_updates.push_back({ y, sx.extract(offs, i - offs + 1), 1 });
+                add_str_update(y, sy, sx.extract(offs, i - offs + 1), 1);
         }
 
         // change offset:
@@ -1473,32 +1480,31 @@ namespace sls {
         zstring sb = strval0(b);
         unsigned lena = sa.length();
         unsigned lenb = sb.length();
-        verbose_stream() << "repair prefixof " << mk_bounded_pp(e, m) << "\n";
         if (ctx.is_true(e)) {
             unsigned n = std::min(lena, lenb);
             if (!is_value(a)) {                
                 for (unsigned i = 0; i < n; ++i)
-                    m_str_updates.push_back({ a, sb.extract(0, i), 1 });
+                    add_str_update(a, sa, sb.extract(0, i), 1);
             }
             if (!is_value(b)) {
                 zstring new_b = sa + sb.extract(sa.length(), lenb);
-                m_str_updates.push_back({ b, new_b, 1 });
-                m_str_updates.push_back({ b, sa, 1 });
+                add_str_update(b, sb, new_b, 1);
+                add_str_update(b, sb, sa, 1);
             }
         }
         else {
             SASSERT(lena <= lenb);
             if (!is_value(a)) {
-                zstring ch = zstring(m_chars[ctx.rand(m_chars.size())]);
-                m_str_updates.push_back({ a, sa + ch, 1 });
-                m_str_updates.push_back({ a, ch + sa, 1 });
-                m_str_updates.push_back({ a, sb + ch, 1 });
-                m_str_updates.push_back({ a, ch + sb, 1 });
+                zstring ch = zstring(random_char());
+                add_str_update(a, sa, sa + ch, 1);
+                add_str_update(a, sa, ch + sa, 1);
+                add_str_update(a, sa, sb + ch, 1);
+                add_str_update(a, sa, ch + sb, 1);
             }
             if (!is_value(b)) {
-                zstring ch = zstring(m_chars[ctx.rand(m_chars.size())]);
-                m_str_updates.push_back({ b, ch + sb, 1 });
-                m_str_updates.push_back({ b, zstring(), 1});
+                zstring ch = zstring(random_char());
+                add_str_update(b, sb, ch + sb, 1);
+                add_str_update(b, sb, zstring(), 1);
             }
         }
         return apply_update();
@@ -1516,27 +1522,27 @@ namespace sls {
             unsigned n = std::min(lena, lenb);
             if (!is_value(a)) {
                 for (unsigned i = 0; i < n; ++i)
-                    m_str_updates.push_back({ a, sb.extract(lenb - i, i), 1 });
+                    add_str_update(a, sa, sb.extract(lenb - i, i), 1);
             }
             if (!is_value(b)) {
                 zstring new_b = sb.extract(0, lenb - n) + sa;
-                m_str_updates.push_back({ b, new_b, 1 });
-                m_str_updates.push_back({ b, sa, 1 });
+                add_str_update(b, sb, new_b, 1);
+                add_str_update(b, sb, sa, 1);
             }
         }
         else {
             SASSERT(lena <= lenb);
             if (!is_value(a)) {
-                zstring ch = zstring(m_chars[ctx.rand(m_chars.size())]);
-                m_str_updates.push_back({ a, ch + sa, 1 });
-                m_str_updates.push_back({ a, sa + ch, 1 });
-                m_str_updates.push_back({ a, ch + sb, 1 });
-                m_str_updates.push_back({ a, sb + ch, 1 });
+                zstring ch = zstring(random_char());
+                add_str_update(a, sa, ch + sa, 1);
+                add_str_update(a, sa, sa + ch, 1);
+                add_str_update(a, sa, ch + sb, 1);
+                add_str_update(a, sa, sb + ch, 1);
             }
             if (!is_value(b)) {
-                zstring ch = zstring(m_chars[ctx.rand(m_chars.size())]);
-                m_str_updates.push_back({ b, sb + ch, 1 });
-                m_str_updates.push_back({ b, zstring(), 1 });
+                zstring ch = zstring(random_char());
+                add_str_update(b, sb, sb + ch, 1);
+                add_str_update(b, sb, zstring(), 1);
             }
         }
         return apply_update();
@@ -1551,6 +1557,8 @@ namespace sls {
         unsigned lenb = sb.length();
 
         verbose_stream() << "repair contains " << mk_bounded_pp(e, m) << "\n";
+        verbose_stream() << mk_pp(a, m) << ": \"" << sa << "\"\n";
+        verbose_stream() << mk_pp(b, m) << ": \"" << sb << "\"\n";
 
         if (ctx.is_true(e)) {            
             // add b to a in front
@@ -1560,18 +1568,18 @@ namespace sls {
             // reduce size of b
 
             if (!is_value(a)) {
-                m_str_updates.push_back({ a, sb + sa, 1 });
-                m_str_updates.push_back({ a, sa + sb, 1 });
+                add_str_update(a, sa, sb + sa, 1);
+                add_str_update(a, sa, sa + sb, 1);
                 if (lena > 2) {
                     unsigned mid = ctx.rand(lena-2) + 1;
                     zstring sa1 = sa.extract(0, mid);
                     zstring sa2 = sa.extract(mid, lena - mid); 
-                    m_str_updates.push_back({ a, sa1 + sb + sa2, 1});
+                    add_str_update(a, sa, sa1 + sb + sa2, 1);
                 }
             }
             if (!is_value(b) && lenb > 0) {
-                m_str_updates.push_back({ b, sb.extract(0, lenb - 1), 1});
-                m_str_updates.push_back({ b, sb.extract(1, lenb - 1), 1});
+                add_str_update(b, sb, sb.extract(0, lenb - 1), 1);
+                add_str_update(b, sb, sb.extract(1, lenb - 1), 1);
             }
         }
         else {
@@ -1585,13 +1593,11 @@ namespace sls {
                 if (idx > 0)
                     su = sa.extract(0, idx);
                 su = su + sa.extract(idx + sb.length(), sa.length() - idx - sb.length());            
-                m_str_updates.push_back({ a, su, 1});
+                add_str_update(a, sa, su, 1);
             }
             if (!m_chars.empty() && !is_value(b)) {
-                zstring sb1 = sb + zstring(m_chars[ctx.rand(m_chars.size())]);
-                zstring sb2 = zstring(m_chars[ctx.rand(m_chars.size())]) + sb;
-                m_str_updates.push_back({ b, sb1, 1});
-                m_str_updates.push_back({ b, sb2, 1});
+                add_str_update(b, sb, sb + zstring(random_char()), 1);
+                add_str_update(b, sb, zstring(random_char()) + sb, 1);
             }
         }
         return apply_update();
@@ -1629,7 +1635,7 @@ namespace sls {
         }
 
         if (has_empty)
-            m_str_updates.push_back({ e, zstring(), 1 });
+            add_str_update(e, v, zstring(), 1);
 
         zstring prefix = r.extract(0, offset_u);
         zstring suffix = r.extract(offset_u + len_u, r.length());
@@ -1638,7 +1644,7 @@ namespace sls {
         new_r = trunc_pad_to_fit(get_eval(x).min_length, get_eval(x).max_length, new_r);
 
         if (new_r != r)
-            m_str_updates.push_back({ x, new_r, 1 });
+            add_str_update(x, r, new_r, 1);
 
         return apply_update();
     }
@@ -1903,6 +1909,11 @@ namespace sls {
         return is_valid;
     }
 
+
+    unsigned seq_plugin::random_char() const {
+        return m_chars.empty() ? 'a' : m_chars[ctx.rand(m_chars.size())];
+    }
+
     // Regular expressions
 
     bool seq_plugin::is_in_re(zstring const& s, expr* _r) {
@@ -1935,7 +1946,7 @@ namespace sls {
         {
             zstring s1;
             if (ctx.is_true(e) && l_true == rw.some_string_in_re(y, s1)) {
-                m_str_updates.push_back({ x, s1, 1 });
+                add_str_update(x, s, s1, 1);
                 return apply_update();
             }
         }
@@ -1983,12 +1994,12 @@ namespace sls {
                     score /= ((double)abs((int)s.length() - (int)str.length()) + 1);
                 }
                 IF_VERBOSE(3, verbose_stream() << "prefix " << score << " " << min_length << ": " << str << "\n");
-                m_str_updates.push_back({ x, str, score });
+                add_str_update(x, s, str, score);
             }
         }
         else {
             for (auto& [str, min_length] : lookaheads)
-                m_str_updates.push_back({ x, str + zstring(m_chars[ctx.rand(m_chars.size())]), 1});
+                add_str_update(x, s, str + zstring(random_char()), 1);
         }
         return apply_update();
     }
@@ -2059,11 +2070,11 @@ namespace sls {
         }
         else if (seq.re.is_full_seq(r)) {
             if (!m_chars.empty())
-                chars.push_back(m_chars[ctx.rand(m_chars.size())]);
+                chars.push_back(random_char());
         }
         else if (seq.re.is_full_char(r)) {
             if (!m_chars.empty())
-                chars.push_back(m_chars[ctx.rand(m_chars.size())]);
+                chars.push_back(random_char());
         }
         else if (seq.re.is_loop(r))             
             next_char(to_app(r)->get_arg(0), chars);       
