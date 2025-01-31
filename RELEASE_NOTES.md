@@ -14,6 +14,7 @@ Versoin 4.14.0
 ==============
 - [SLS modulo theories](https://microsoft.github.io/z3guide/programming/Local%20Search/) engine v1 release.
 - API for accessing term [depth and groundness](https://github.com/Z3Prover/z3/pull/7479).
+- Two fixes to relevancy propagation thanks to Can Cebeci. Two instacnes where literals lemmas and axioms were not marked relevant and therefore not propagated to other theories. Theory lemmas are replayed during backjumping and have are now by default marked relevant. 
 - A new API for solving LRA variables modulo constraints.
 - Performance and bug fixes.
 
