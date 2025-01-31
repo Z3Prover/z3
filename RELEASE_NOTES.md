@@ -10,6 +10,13 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
+Versoin 4.14.0
+==============
+- [SLS modulo theories](https://microsoft.github.io/z3guide/programming/Local%20Search/) engine v1 release.
+- API for accessing term [depth and groundness](https://github.com/Z3Prover/z3/pull/7479).
+- A new API for solving LRA variables modulo constraints.
+- Performance and bug fixes.
+
 Version 4.13.4
 ==============
 - several updates to emscripten including #7473
