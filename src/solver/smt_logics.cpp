@@ -30,83 +30,38 @@ bool smt_logics::supported_logic(symbol const & s) {
 
 bool smt_logics::logic_has_reals_only(symbol const& s) {
     return
-        s == "QF_RDL" ||
-        s == "QF_LRA" ||
-        s == "UFLRA" ||
-        s == "LRA" ||
-        s == "RDL" ||
-        s == "NRA" ||
-        s == "QF_NRA" ||
-        s == "QF_UFNRA" ||
-        s == "QF_UFLRA";
+        s.str().find("LRA") != std::string::npos ||
+        s.str().find("LRA") != std::string::npos ||
+        s.str().find("NRA") != std::string::npos ||
+        s.str().find("RDL") != std::string::npos;
 }
 
 bool smt_logics::logic_has_arith(symbol const & s) {
     return
-        s == "QF_LRA" ||
-        s == "QF_LIA" ||
-        s == "QF_RDL" ||
-        s == "QF_IDL" ||
-        s == "QF_AUFLIA" ||
-        s == "QF_ALIA" ||
-        s == "QF_AUFLIRA" ||
-        s == "QF_AUFNIA" ||
-        s == "QF_AUFNIRA" ||
-        s == "QF_ANIA" ||
-        s == "QF_LIRA" ||
-        s == "QF_UFLIA" ||
-        s == "QF_UFLRA" ||
-        s == "QF_UFIDL" ||
-        s == "QF_UFRDL" ||
-        s == "QF_NIA" ||
-        s == "QF_NRA" ||
-        s == "QF_NIRA" ||
-        s == "QF_UFNRA" ||
-        s == "QF_UFNIA" ||
-        s == "QF_UFNIRA" ||
+        s.str().find("LRA") != std::string::npos ||
+        s.str().find("LIRA") != std::string::npos ||
+        s.str().find("LIA") != std::string::npos ||
+        s.str().find("LRA") != std::string::npos ||
+        s.str().find("NRA") != std::string::npos ||
+        s.str().find("NIRA") != std::string::npos ||
+        s.str().find("NIA") != std::string::npos ||
+        s.str().find("IDL") != std::string::npos ||
+        s.str().find("RDL") != std::string::npos ||
         s == "QF_BVRE" ||
-        s == "QF_SNIA" ||
-        s == "ALIA" ||
-        s == "AUFLIA" ||
-        s == "AUFLIRA" ||
-        s == "AUFNIA" ||
-        s == "AUFNIRA" ||
-        s == "UFLIA" ||
-        s == "UFLRA" ||
-        s == "UFNRA" ||
-        s == "UFNIRA" ||
-        s == "NIA" ||
-        s == "NRA" ||
-        s == "UFNIA" ||
-        s == "LIA" ||
-        s == "LRA" ||
-        s == "UFIDL" ||
         s == "QF_FP" ||
         s == "FP" ||
         s == "QF_FPBV" ||
         s == "QF_BVFP" ||
         s == "QF_S" ||
-        s == "QF_SLIA" ||
         logic_is_all(s) ||
         s == "QF_FD" ||
-        s == "HORN" ||
-        s == "QF_FPLRA";
+        s == "HORN";
 }
 
 bool smt_logics::logic_has_bv(symbol const & s) {
     return
-        s == "UFBV" ||
-        s == "AUFBV" ||
-        s == "ABV" ||
-        s == "BV" ||
-        s == "QF_BV" ||
-        s == "QF_UFBV" ||
-        s == "QF_ABV" ||
-        s == "QF_AUFBV" ||
-        s == "QF_BVRE" ||
-        s == "QF_FPBV" ||
+        s.str().find("BV") != std::string::npos ||
         s == "FP" ||
-        s == "QF_BVFP" ||
         logic_is_all(s) ||
         s == "QF_FD" ||
         s == "SMTFD" ||
@@ -115,13 +70,7 @@ bool smt_logics::logic_has_bv(symbol const & s) {
 
 bool smt_logics::logic_has_array(symbol const & s) {
     return
-        s == "QF_AX" ||
-        s == "QF_AUFLIA" ||
-        s == "QF_ANIA" ||
-        s == "QF_ALIA" ||
-        s == "QF_AUFLIRA" ||
-        s == "QF_AUFNIA" ||
-        s == "QF_AUFNIRA" ||
+        s.str().find("QF_A") != std::string::npos ||        
         s == "ALIA" ||
         s == "AUFLIA" ||
         s == "AUFLIRA" ||
@@ -130,8 +79,6 @@ bool smt_logics::logic_has_array(symbol const & s) {
         s == "AUFBV" ||
         s == "ABV" ||
         logic_is_all(s) ||
-        s == "QF_ABV" ||
-        s == "QF_AUFBV" ||
         s == "SMTFD" ||
         s == "HORN";
 }
@@ -149,7 +96,9 @@ bool smt_logics::logic_has_fpa(symbol const & s) {
 }
 
 bool smt_logics::logic_has_uf(symbol const & s) {
-    return s == "QF_UF" || s == "UF" || s == "QF_UFDT" || s == "SMTFD";
+    return 
+        s.str().find("UF") != std::string::npos ||
+        s == "SMTFD";
 }
 
 bool smt_logics::logic_has_horn(symbol const& s) {
@@ -161,6 +110,10 @@ bool smt_logics::logic_has_pb(symbol const& s) {
 }
 
 bool smt_logics::logic_has_datatype(symbol const& s) {
-    return s == "QF_FD" || s == "QF_UFDT" || logic_is_all(s) || s == "QF_DT" || logic_has_horn(s);
+    return 
+        s.str().find("DT") != std::string::npos ||
+        s == "QF_FD" ||
+        logic_is_all(s) ||
+        logic_has_horn(s);
 }
 
