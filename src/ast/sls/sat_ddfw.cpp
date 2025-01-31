@@ -558,6 +558,7 @@ namespace sat {
     void ddfw::shift_weights() {
         ++m_shifts;
         bool shifted = false;
+        flatten_use_list();
         for (unsigned to_idx : m_unsat) {
             SASSERT(!m_clauses[to_idx].is_true());
             unsigned from_idx = select_max_same_sign(to_idx);
