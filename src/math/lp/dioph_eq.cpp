@@ -48,6 +48,16 @@ namespace lp {
         return t.find(j) != t.end();
     }
 
+    struct iv {
+        mpq m_coeff;
+        unsigned m_j;
+        lpvar var() const { return m_j; }
+        const mpq & coeff() const { return m_coeff; }
+        mpq & coeff() { return m_coeff; }
+        iv() {}
+        iv(const mpq& v, unsigned j) : m_coeff(v), m_j(j) {}
+    };
+    
     struct bijection {
         std::unordered_map<unsigned, unsigned> m_map;
         std::unordered_map<unsigned, unsigned> m_rev_map;
@@ -72,11 +82,11 @@ namespace lp {
             m_map.erase(key);
         }
         bool has_val(unsigned b) const {
-            return contains(m_rev_map, b);
+            return m_rev_map.find(b) != m_rev_map.end();
         }
 
         bool has_key(unsigned a) const {
-            return contains(m_map, a);
+            return m_map.find(a) != m_map.end();
         }
         
         void transpose_val(unsigned b0, unsigned b1) {
@@ -148,7 +158,7 @@ namespace lp {
         }
         
         bool has_key(unsigned j) const { return m_bij.has_key(j); }
-
+        bool has_second_key(unsigned j) const { return m_bij.has_val(j);}
         // Get the data by 'a', look up b in m_bij, then read from m_data
         const T& get_by_key(unsigned a) const {
             unsigned b = m_bij[a]; // relies on operator[](unsigned) from bijection
@@ -188,23 +198,6 @@ namespace lp {
                 return m_c;
             }
             term_o() : m_c(0) {}
-            void substitute_var_with_term(const term_o& t, unsigned col_to_subs) {
-                mpq a = get_coeff(
-                    col_to_subs);  // need to copy it becase the pointer value can be
-                // changed during the next loop
-                const mpq& coeff = t.get_coeff(col_to_subs);
-                SASSERT(coeff.is_one() || coeff.is_minus_one());
-                if (coeff.is_one()) {
-                    a = -a;
-                }
-                for (auto p : t) {
-                    if (p.j() == col_to_subs)
-                        continue;
-                    this->add_monomial(a * p.coeff(), p.j());
-                }
-                this->c() += a * t.c();
-                this->m_coeffs.erase(col_to_subs);
-            }
 
             friend term_o operator*(const mpq& k, const term_o& term) {
                 term_o r;
@@ -260,6 +253,17 @@ namespace lp {
                 [](int j) -> std::string { return "x" + std::to_string(j); }, out);
         }
 
+
+        // used for debug only        
+        std::ostream& print_lar_term_L(const std_vector<iv>& t, std::ostream& out) const {
+            vector<std::pair<mpq, unsigned>> tp;
+            for (const auto & p : t) {
+                tp.push_back(std::make_pair(p.coeff(), p.var()));
+            }
+            return print_linear_combination_customized(
+                tp, [](int j) -> std::string { return "x" + std::to_string(j); }, out);
+        }
+        
         std::ostream& print_term_o(term_o const& term, std::ostream& out) const {
             if (term.size() == 0 && term.c().is_zero()) {
                 out << "0";
@@ -331,8 +335,104 @@ namespace lp {
         // iterate over all rows from 0 to m_e_matrix.row_count() - 1 and return those i such !m_k2s.has_val(i)
         // set S - iterate over bijection m_k2s
         mpq m_c;                  // the constant of the equation
-        lar_term m_tmp_l;
+        struct term_with_index {            
+            // The invariant is that m_index[m_data[k].var()] = k, for each 0 <= k < m_data.size(),
+            // and m_index[j] = -1, or m_tmp[m_index[j]].var() = j, for every 0 <= j < m_index.size().
+            // For example m_data = [(coeff, 5), (coeff, 3)]
+            // then m_index = [-1,-1, -1, 1, -1, 0, -1, ....].
+            std_vector<iv>  m_data;
+            std_vector<int> m_index;
+            // used for debug only
+            lar_term to_term() const {
+                lar_term r;
+                for (const auto& p: m_data) {
+                    r.add_monomial(p.coeff(), p.var());                    
+                }
+                return r;
+            }
+            void add(const mpq& a, unsigned j) {
+                SASSERT(!a.is_zero());
+                // Expand m_index if needed
+                if (j >= m_index.size()) {
+                    m_index.resize(j + 1, -1);
+                }
+                
+                int idx = m_index[j];
+                if (idx == -1) {
+                    // Insert a new monomial { a, j } into m_data
+                    m_data.push_back({ a, j });
+                    m_index[j] = static_cast<int>(m_data.size() - 1);
+                } else {
+                    // Accumulate the coefficient
+                    m_data[idx].coeff() += a;
+                    // If the coefficient becomes zero, remove the entry
+                    if (m_data[idx].coeff().is_zero()) {
+                        int last = static_cast<int>(m_data.size() - 1);
+                        // Swap with the last element for efficient removal
+                        if (idx != last) {
+                            auto tmp = m_data[last];
+                            m_data[idx] = tmp;
+                            m_index[tmp.var()] = idx;
+                        }
+                        m_data.pop_back();
+                        m_index[j] = -1;
+                    }
+                }
+                SASSERT(invariant());
+            }
+            
+            bool invariant() const {
+                // 1. For each j in [0..m_index.size()), if m_index[j] = -1, ensure no m_data[k].var() == j
+                //    otherwise verify m_data[m_index[j]].var() == j
+                for (unsigned j = 0; j < m_index.size(); j++) {
+                    int idx = m_index[j];
+                    if (idx == -1) {
+                        // Check that j is not in m_data
+                        for (unsigned k = 0; k < m_data.size(); ++k) {
+                            if (m_data[k].var() == j) {
+                                return false;
+                            }
+                        }
+                    } 
+                    else {
+                        // Check that var() in m_data[idx] matches j
+                        if (idx < 0 || static_cast<unsigned>(idx) >= m_data.size()) {
+                            return false;
+                        }
+                        if (m_data[idx].var() != j || m_data[idx].coeff().is_zero()) {
+                            return false;
+                        }
+                    }                    
+                }
+                // 2. For each item in m_data, check that m_index[m_data[k].var()] == k
+                //    and that the coeff() is non-zero
+                for (unsigned k = 0; k < m_data.size(); ++k) {
+                    unsigned var = m_data[k].var();
+                    if (var >= m_index.size()) {
+                        return false;
+                    }
+                        if (m_index[var] != static_cast<int>(k)) {
+                            return false;
+                        }
+                        if (m_data[k].coeff().is_zero()) {
+                            return false;
+                        }
+                }
 
+                return true;
+            }
+            void clear() {
+                for (const auto& p: m_data) {
+                    m_index[p.var()] = -1;                    
+                }
+                m_data.clear();
+                SASSERT(invariant());
+            }
+
+        };
+
+        term_with_index m_term_with_index;
+        
         bijection m_k2s;
         bij_map<lar_term> m_fresh_k2xt_terms;
         // m_row2fresh_defs[i] is the set of all fresh variables xt
@@ -981,6 +1081,7 @@ namespace lp {
         mpq gcd_of_coeffs(const K& k) {
             mpq g(0);
             for (const auto& p : k) {
+                SASSERT(p.coeff().is_int());
                 if (g.is_zero())
                     g = abs(p.coeff());
                 else
@@ -1107,8 +1208,14 @@ namespace lp {
             // there is no change in m_l_matrix
             TRACE("dioph_eq", tout << "after subs k:" << k << "\n";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
-                  tout << "m_tmp_l:{"; print_lar_term_L(m_tmp_l, tout);
-                  tout << "}, opened:"; print_ml(m_tmp_l, tout) << std::endl;);
+                  tout << "m_term_with_index:{"; print_lar_term_L(m_term_with_index.m_data, tout);
+                  tout << "}, opened:"; print_ml(m_term_with_index.to_term(), tout) << std::endl;);
+        }
+
+        void add_l_row_to_term_with_index(const mpq& coeff, unsigned ei) {
+            for (const auto & p: m_l_matrix.m_rows[ei]) {
+                m_term_with_index.add(coeff * p.coeff(), p.var());
+            }
         }
         
         void subs_front_in_indexed_vector_by_S(unsigned k, std::queue<unsigned> &q) {
@@ -1142,12 +1249,11 @@ namespace lp {
                     q.push(j);
             }
             m_c += coeff * e.m_c;
-            
-            m_tmp_l += coeff * l_term_from_row(sub_index(k)); // improve later
+            add_l_row_to_term_with_index(coeff, sub_index(k));
             TRACE("dioph_eq", tout << "after subs k:" << k << "\n";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
-                  tout << "m_tmp_l:{"; print_lar_term_L(m_tmp_l, tout);
-                  tout << "}, opened:"; print_ml(m_tmp_l, tout) << std::endl;);
+                  tout << "m_term_with_index:{"; print_lar_term_L(m_term_with_index.to_term(), tout);
+                  tout << "}, opened:"; print_ml(m_term_with_index.to_term(), tout) << std::endl;);
         }
 
         bool is_substituted_by_fresh(unsigned k) const {
@@ -1263,7 +1369,7 @@ namespace lp {
             m_indexed_work_vector.clear();
             m_indexed_work_vector.resize(m_e_matrix.column_count());
             m_c = 0;
-            m_tmp_l = lar_term();
+            m_term_with_index.clear();
             for (const auto& p : lar_t) {
                 SASSERT(p.coeff().is_int());
                 if (is_fixed(p.j()))
@@ -1300,24 +1406,24 @@ namespace lp {
                   tout << "from ind:";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "m_tmp_l:";
-                  print_lar_term_L(m_tmp_l, tout) << std::endl;);
+                  print_lar_term_L(m_term_with_index.to_term(), tout) << std::endl;);
             subs_indexed_vector_with_S(q);
             // if(
             //     fix_vars(term_to_tighten + open_ml(m_tmp_l)) !=
             //     term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c())))
             //     enable_trace("dioph_eq");
             
-            TRACE("dioph_eq", tout << "after subs\n";
+            TRACE("dioph_eq_deb", tout << "after subs\n";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "term_to_tighten:";
                   print_lar_term_L(term_to_tighten, tout) << std::endl;
-                  tout << "m_tmp_l:"; print_lar_term_L(m_tmp_l, tout) << std::endl;
+                  tout << "m_tmp_l:"; print_lar_term_L(m_term_with_index.to_term(), tout) << std::endl;
                   tout << "open_ml:";
-                  print_lar_term_L(open_ml(m_tmp_l), tout) << std::endl;
+                  print_lar_term_L(open_ml(m_term_with_index.to_term()), tout) << std::endl;
                   tout << "term_to_tighten + open_ml:";
-                  print_term_o(term_to_tighten + open_ml(m_tmp_l), tout)
+                  print_term_o(term_to_tighten + open_ml(m_term_with_index.to_term()), tout)
                   << std::endl;
-                  term_o ls = fix_vars(term_to_tighten + open_ml(m_tmp_l));
+                  term_o ls = fix_vars(term_to_tighten + open_ml(m_term_with_index.to_term()));
                   tout << "ls:"; print_term_o(ls,tout) << std::endl;
                   term_o rs = term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c()));
                   tout << "rs:"; print_term_o(rs, tout ) << std::endl;
@@ -1325,16 +1431,16 @@ namespace lp {
                   if (!diff.is_empty()) {
                       tout << "diff:"; print_term_o(diff, tout ) << std::endl;                      
                   }
-
                 );
+
             SASSERT(
-                fix_vars(term_to_tighten + open_ml(m_tmp_l)) ==
+                fix_vars(term_to_tighten + open_ml(m_term_with_index.to_term())) ==
                 term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c())));
             mpq g = gcd_of_coeffs(m_indexed_work_vector);
             TRACE("dioph_eq", tout << "after process_q_with_S\nt:";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "g:" << g << std::endl;
-                  /*tout << "dep:"; print_dep(tout, m_tmp_l) << std::endl;*/);
+                  /*tout << "dep:"; print_dep(tout, m_term_with_index.m_data) << std::endl;*/);
 
             if (g.is_one())
                 return false;
@@ -1364,7 +1470,7 @@ namespace lp {
                 if (m_c > rs || (is_strict && m_c == rs)) {
                     u_dependency* dep =
                         lra.mk_join(explain_fixed(lra.get_term(j)),
-                                    explain_fixed_in_meta_term(m_tmp_l));
+                                    explain_fixed_in_meta_term(m_term_with_index.m_data));
                     dep = lra.mk_join(
                         dep, lra.get_bound_constraint_witnesses_for_column(j));
                     for (constraint_index ci : lra.flatten(dep)) {
@@ -1377,7 +1483,7 @@ namespace lp {
                 if (m_c < rs || (is_strict && m_c == rs)) {
                     u_dependency* dep =
                         lra.mk_join(explain_fixed(lra.get_term(j)),
-                                    explain_fixed_in_meta_term(m_tmp_l));
+                                    explain_fixed_in_meta_term(m_term_with_index.m_data));
                     dep = lra.mk_join(
                         dep, lra.get_bound_constraint_witnesses_for_column(j));
                     for (constraint_index ci : lra.flatten(dep)) {
@@ -1432,7 +1538,7 @@ namespace lp {
             lconstraint_kind kind =
                 upper ? lconstraint_kind::LE : lconstraint_kind::GE;
             u_dependency* dep = prev_dep;
-            dep = lra.mk_join(dep, explain_fixed_in_meta_term(m_tmp_l));
+            dep = lra.mk_join(dep, explain_fixed_in_meta_term(m_term_with_index.m_data));
             u_dependency* j_bound_dep = upper
                 ? lra.get_column_upper_bound_witness(j)
                 : lra.get_column_lower_bound_witness(j);
@@ -1969,10 +2075,11 @@ namespace lp {
 
                 mpq coeff = m_e_matrix.get_val(c);
                 TRACE("dioph_eq", tout << "before pivot entry :"; print_entry(c.var(), tout) << std::endl;);
+                unsigned c_row = c.var();
                 m_e_matrix.pivot_term_to_row_given_cell(t, c, j, j_sign);
                 TRACE("dioph_eq", tout << "after pivoting c_row:";
-                      print_entry(c.var(), tout););
-                SASSERT(entry_invariant(c.var()));
+                      print_entry(c_row, tout););
+                SASSERT(entry_invariant(c_row));
                 cell_to_process--;
             }
             SASSERT(is_eliminated_from_f(j));
@@ -2207,7 +2314,8 @@ namespace lp {
             unsigned h = -1;
             unsigned n = 0; // number of choices for a fresh variable
             mpq the_smallest_ahk;
-            unsigned kh, kh_sign;
+            unsigned kh;
+            int kh_sign;
             for (unsigned ei=0; ei < m_e_matrix.row_count(); ei++) {
                 if (belongs_to_s(ei)) continue;
                 if (m_e_matrix.m_rows[ei].size() == 0) {
@@ -2240,7 +2348,7 @@ namespace lp {
                     kh_sign = k_sign;
                 }
             }
-            if (h == UINT_MAX) return false;
+            if (h == -1) return false;
             SASSERT(!the_smallest_ahk.is_one());
             fresh_var_step(h, kh, the_smallest_ahk * mpq(kh_sign));
             return true;
@@ -2265,7 +2373,9 @@ namespace lp {
         }
 
         bool var_is_fresh(unsigned j) const {
-            return m_var_register.local_to_external(j) == UINT_MAX;
+            bool ret = m_fresh_k2xt_terms.has_second_key(j);
+            SASSERT(!ret || m_var_register.local_to_external(j) == UINT_MAX);
+            return ret;
         }
         
     };
