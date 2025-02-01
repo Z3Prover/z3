@@ -261,7 +261,6 @@ public:
 
     expr* mk_ge(unsigned sz, rational const* weights, expr* const* args, rational const& w) {
         if (sz == 0) {
-            return w.is_pos()?m.mk_false():m.mk_true();
             return w.is_pos() ? m.mk_false() : m.mk_true();
         }
         if (sz == 1 && weights[0].is_one() && w.is_one()) {
