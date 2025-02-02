@@ -2399,7 +2399,7 @@ public:
             VERIFY(validate_assign(lit));
         if (params().m_arith_dump_lemmas)
             dump_assign_lemma(lit);
-        if (core.size() < small_lemma_size() && eqs.empty()) {
+        if (false && core.size() < small_lemma_size() && eqs.empty()) {
             m_core2.reset();
             for (auto const& c : core) {
                 m_core2.push_back(~c);
