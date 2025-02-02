@@ -202,9 +202,6 @@ namespace opt {
         for (unsigned i = 0; i < obj_index; ++i) 
             commit_assignment(i);
 
-//        m_s->maximize_objective(obj_index, bound);
-//        m_s->assert_expr(bound);
-
         unsigned steps = 0;
         unsigned step_incs = 0;
         rational delta_per_step(1);
@@ -216,9 +213,10 @@ namespace opt {
             SASSERT(delta_per_step.is_pos());
             is_sat = m_s->check_sat(0, nullptr);
             TRACE("opt", tout << "check " << is_sat << "\n";
-                  tout << "last bound: " << last_bound << "\n";
+                  tout << "last bound: " << last_bound << " bound " << bound << "\n";
                   tout << "lower: " << m_lower[obj_index] << "\n";
                   tout << "upper: " << m_upper[obj_index] << "\n";
+                  if (is_sat == l_true) m_s->display(tout);
                   );
             if (is_sat == l_true) {                
                 m_s->maximize_objective(obj_index, bound);

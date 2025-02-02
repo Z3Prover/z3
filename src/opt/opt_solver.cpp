@@ -241,6 +241,7 @@ namespace opt {
         smt::theory_var v = m_objective_vars[i];
         bool has_shared = false;
         m_last_model = nullptr;
+        blocker = nullptr;
         //
         // compute an optimization hint.
         // The hint is valid if there are no shared symbols (a pure LP).
@@ -256,6 +257,7 @@ namespace opt {
         if (!m_models[i]) 
             m_models.set(i, m_last_model.get());
 
+        TRACE("opt", tout << "maximize " << i << " " << val << " " << m_objective_values[i] << " " << blocker << "\n";);
         if (val > m_objective_values[i]) {
             m_objective_values[i] = val;
         }

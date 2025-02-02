@@ -3858,12 +3858,21 @@ public:
             vi = get_lpvar(v);
             
             st = lp().maximize_term(vi, term_max);
+
             if (has_int() && lp().has_inf_int()) {
                 st = lp::lp_status::FEASIBLE;
                 lp().restore_x();
             }
             if (m_nla && (st == lp::lp_status::OPTIMAL || st == lp::lp_status::UNBOUNDED)) {
-                st = lp::lp_status::FEASIBLE;
+                switch (check_nla()) {
+                case FC_DONE:
+                    st = lp::lp_status::FEASIBLE;
+                    break;
+                case FC_GIVEUP:
+                case FC_CONTINUE:
+                    st = lp::lp_status::UNBOUNDED;
+                    break;
+                }                
                 lp().restore_x();
             }                
         }
