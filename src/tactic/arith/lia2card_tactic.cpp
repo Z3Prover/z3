@@ -25,6 +25,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/ast_pp_util.h"
 #include "tactic/tactical.h"
+#include "params/tactic_params.hpp"
 #include "ast/simplifiers/bound_manager.h"
 #include "ast/converters/generic_model_converter.h"
 
@@ -116,7 +117,8 @@ public:
     mutable ptr_vector<expr>*        m_todo;
     bounds_map                       m_bounds;
     bool                             m_compile_equality;
-    unsigned                         m_max_ub;
+    unsigned                         m_max_range = 101;
+    unsigned                         m_max_ite_nesting = 1;
     ref<generic_model_converter>     m_mc;
 
     lia2card_tactic(ast_manager & _m, params_ref const & p):
@@ -126,7 +128,7 @@ public:
         m_pb(m),
         m_todo(alloc(ptr_vector<expr>)),
         m_compile_equality(true) {
-        m_max_ub = 100;
+        updt_params(p);
     }
 
     ~lia2card_tactic() override {
@@ -137,7 +139,11 @@ public:
 
     void updt_params(params_ref const & p) override {
         m_params.append(p);
+        tactic_params tp(p);
+
         m_compile_equality = m_params.get_bool("compile_equality", true);
+        m_max_range = tp.lia2card_max_range();
+        m_max_ite_nesting = tp.lia2card_max_ite_nesting();
     }
 
     expr_ref mk_bounded(expr_ref_vector& axioms, app* x, unsigned lo, unsigned hi) {
@@ -152,7 +158,6 @@ public:
         if (lo > 0) {
             xs.push_back(a.mk_int(lo));
         }
-        verbose_stream() << "bounded " << lo << " " << hi << "\n";
         for (unsigned i = lo; i < hi; ++i) {
             checkpoint();
 
@@ -193,7 +198,7 @@ public:
             if (a.is_int(x) &&
                 is_uninterp_const(x) &&
                 bounds.has_lower(x, lo, s1) && !s1 && lo.is_unsigned() &&
-                bounds.has_upper(x, hi, s2) && !s2 && hi.is_unsigned() && hi.get_unsigned() - lo.get_unsigned() <= m_max_ub) {
+                bounds.has_upper(x, hi, s2) && !s2 && hi.is_unsigned() && hi.get_unsigned() - lo.get_unsigned() <= m_max_range) {
                 expr_ref b = mk_bounded(axioms, to_app(x), lo.get_unsigned(), hi.get_unsigned());
                 rep.insert(x, b);
                 m_bounds.insert(x, bound(lo.get_unsigned(), hi.get_unsigned(), b));
@@ -288,11 +293,14 @@ public:
         rational r, q;
         if (!is_app(x)) 
             return false;
-        if (nesting > 8)
+        if (nesting > m_max_ite_nesting && !is_numeral(x, r))
             return false;
         app* f = to_app(x);
         bool ok = true;
-        if (a.is_add(x)) {
+        if (is_numeral(x, r)) {
+            insert_arg(mul * r, conds, m.mk_true(), args, coeffs, coeff);
+        }
+        else if (a.is_add(x)) {
             for (unsigned i = 0; ok && i < f->get_num_args(); ++i) {
                 ok = get_sum(nesting, f->get_arg(i), mul, conds, args, coeffs, coeff);
             }
@@ -320,9 +328,6 @@ public:
             conds.push_back(m.mk_not(y));
             ok &= get_sum(nesting + 1, u, mul, conds, args, coeffs, coeff);
             conds.pop_back();
-        }
-        else if (is_numeral(x, r)) {
-            insert_arg(mul*r, conds, m.mk_true(), args, coeffs, coeff);
         }
         else {
             TRACE("pb", tout << "Can't handle " << mk_pp(x, m) << "\n";);
