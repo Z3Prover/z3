@@ -1151,7 +1151,7 @@ namespace lp {
             }
             // c_g is not integral
             if (lra.stats().m_dio_calls %
-                lra.settings().dio_cut_from_proof_period() ==
+                lra.settings().dio_branch_from_proof_period() ==
                 0 &&
                 !has_fresh_var(ei))
                 prepare_lia_branch_report(ei, e, g, c_g);
@@ -1414,7 +1414,7 @@ namespace lp {
             //     term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c())))
             //     enable_trace("dioph_eq");
             
-            TRACE("dioph_eq_deb", tout << "after subs\n";
+            TRACE("dioph_eq_deb_subs", tout << "after subs\n";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "term_to_tighten:";
                   print_lar_term_L(term_to_tighten, tout) << std::endl;
@@ -1581,7 +1581,7 @@ namespace lp {
             while (progress) {
                 if (!normalize_by_gcd()) {
                     if (m_report_branch) {
-                        lra.stats().m_dio_cut_from_proofs++;
+                        lra.stats().m_dio_branch_from_proofs++;
                         m_report_branch = false;
                         return lia_move::branch;
                     } else {
@@ -1898,6 +1898,18 @@ namespace lp {
                     return false;
                 } 
                 if (it->second != p.second) {                    
+                    TRACE("dioph_eq_deb", tout << "m_columns_to_terms[" << j << "] has to be ";
+                        tout << "{";
+                          for(unsigned lll : p.second) {
+                              tout << lll << ", ";
+                          }
+                          tout << "}, \nbut it is {";
+                          for (unsigned lll : it->second) {
+                              tout << lll << ", ";
+                          };
+                          tout << "}" << std::endl;
+                         
+                    );
                     return false;
                 }
             }
