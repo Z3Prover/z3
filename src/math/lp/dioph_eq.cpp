@@ -16,17 +16,18 @@
   Data structures are:
   -- term_o: inherits lar_term and differs from it by having a constant, while
   lar_term is just a sum of monomials
-  -- entry : has a dependency lar_term, keeping the history of the entry
-  updates, the rational constant of the corresponding term_o, and the entry
-  status that is in {F,S, FRESH}. The entry status is used for efficiency
-  reasons. It allows quickly check if an entry belongs to F, S, or neither.
-  dioph_eq::imp main fields are
   -- lra: pointer to lar_solver.
   -- lia: point to int_solver.
-  -- m_entries: it keeps all "entry" objects.
+  -- m_sum_of_fixed: it keeps the contribution of the fixed variables to the row
   -- m_e_matrix: i-th row of this matrix keeps the term corresponding to
-  m_entries[i]. The actual term corresponding to m_entry[i] is the sum of the 
-  matrix i-th row and the constant m_entry[].m_c. 
+  -- m_l_matrix: the m_l_matrix[i] produces m_e_matrix[i] by using the terms definitions of lar_solver
+  -- m_k2s: when the variable k is substituted in the row s of m_e_matrix, the pair (k,s) is added to m_k2s.
+     m_k2s is a one to one mapping.
+  -- m_fresh_k2xt_terms: when a fresh definitions is created for a variable k, then the triple
+       (k,xt,t) is added to m_fresh_k2xt_terms, where xt is the fresh variable, and xt t it the term defining the substitution: something like k - xt + 5z + 6y = 0. 
+     The set of pairs (k, xt) is a one to one mapping
+     m_fresh_definitions[i]: is the list of all xt that were defined for row m_e_matrix[i]
+     
   The mapping between the columns of lar_solver and m_e_matrix is controlled by m_var_register. 
   local_to_lar_solver(lar_solver_to_local(j)) == j. If local_to_lar_solver(j) == -1 
   then j is a fresh variable, that is such that got introduced when normalizing a term like 3x-6y + 5z +11 = 0,
@@ -314,14 +315,8 @@ namespace lp {
             return out;
         }
 
-        // consider to move m_c to an m_e_matrix column
-        struct entry {
-            mpq m_c;  // the constant of the term, the term is taken from the row of
-            entry(const mpq & c) : m_c(c) {}
-        };
-
+        std_vector<mpq> m_sum_of_fixed;
         var_register m_var_register;
-        std_vector<entry> m_entries;
         // the terms are stored in m_A and m_c
         static_matrix<mpq, mpq> m_e_matrix;  // the rows of the matrix are the terms,
         static_matrix<mpq, mpq> m_l_matrix;  // the rows of the matrix are the l_terms providing the certificate to the entries modulo the constant part: look an entry_invariant that assures that the each two rows are in sync.
@@ -447,7 +442,7 @@ namespace lp {
         std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_terms;  
 
         
-        unsigned m_conflict_index = -1;  // m_entries[m_conflict_index] gives the conflict
+        unsigned m_conflict_index = -1;  // the row index of the conflict
         unsigned m_max_number_of_iterations = 100;
         unsigned m_number_of_iterations;
         struct branch {
@@ -549,12 +544,12 @@ namespace lp {
         };
         
         void remove_last_entry() {
-            unsigned ei = static_cast<unsigned>(m_entries.size() - 1);
+            unsigned ei = static_cast<unsigned>(m_e_matrix.row_count() - 1);
         
             if (m_k2s.has_val(ei)) {
                 remove_from_S(ei);
             }
-            m_entries.pop_back();
+            m_sum_of_fixed.pop_back();
         }
 
         void eliminate_last_term_column() {
@@ -633,7 +628,7 @@ namespace lp {
                 remove_from_S(i);
             }
             
-            m_entries.pop_back();            
+            m_sum_of_fixed.pop_back();            
         }
         
         
@@ -697,7 +692,7 @@ namespace lp {
             for (const auto& p : m_e_matrix.m_rows[i]) {
                 t.add_monomial(p.coeff(), p.var());
             }
-            t.c() = m_entries[i].m_c;
+            t.c() = m_sum_of_fixed[i];
             return t;
         }
 
@@ -729,10 +724,9 @@ namespace lp {
         // the term has form sum(a_i*x_i) - t.j() = 0,
         void fill_entry(const lar_term& t) {
             TRACE("dioph_eq", print_lar_term_L(t, tout) << std::endl;);
-            entry te = { mpq(0)};
-            unsigned entry_index = (unsigned) m_entries.size();
-            m_entries.push_back(te);
-            entry& e = m_entries.back();
+            unsigned entry_index = (unsigned) m_e_matrix.row_count();
+            m_sum_of_fixed.push_back(mpq(0));
+            mpq & e = m_sum_of_fixed.back();
             SASSERT(m_l_matrix.row_count() == m_e_matrix.row_count());
 // fill m_l_matrix row
             m_l_matrix.add_row();
@@ -742,12 +736,12 @@ namespace lp {
 // fill E-entry
             m_e_matrix.add_row();
             
-            SASSERT(m_e_matrix.row_count() == m_entries.size());
+            SASSERT(m_e_matrix.row_count() == m_e_matrix.row_count());
 
             for (const auto& p : t.ext_coeffs()) {
                 SASSERT(p.coeff().is_int());
                 if (is_fixed(p.var()))
-                    e.m_c += p.coeff() * lia.lower_bound(p.var()).x;
+                    e += p.coeff() * lia.lower_bound(p.var()).x;
                 else {
                     unsigned lj = add_var(p.var());
                     m_e_matrix.add_columns_up_to(lj);
@@ -759,7 +753,7 @@ namespace lp {
             SASSERT(entry_invariant(entry_index));
         }
         void subs_entry(unsigned ei) {
-            if (ei >= m_entries.size()) return;
+            if (ei >= m_e_matrix.row_count()) return;
             // q is the queue of variables that can be substituted in ei
             std::queue<unsigned> q;
             for (const auto& p: m_e_matrix.m_rows[ei]) {
@@ -839,7 +833,7 @@ namespace lp {
         void add_two_entries(const mpq& coeff, unsigned i0, unsigned i1 ) {
             m_e_matrix.add_rows(coeff, i0, i1);
             m_l_matrix.add_rows(coeff, i0, i1);
-            m_entries[i1].m_c += coeff* m_entries[i0].m_c;
+            m_sum_of_fixed[i1] += coeff* m_sum_of_fixed[i0];
         }
 
         bool all_vars_are_int(const lar_term& term) const {
@@ -868,7 +862,7 @@ namespace lp {
         
         void recalculate_entry(unsigned ei) {
             TRACE("dioph_eq", print_entry(ei, tout) << std::endl;);
-            mpq &c = m_entries[ei].m_c;
+            mpq &c = m_sum_of_fixed[ei];
             c = mpq(0);
             open_l_term_to_work_vector(ei, c);
             clear_e_row(ei);
@@ -1000,7 +994,7 @@ namespace lp {
             SASSERT(i != k);
             m_l_matrix.transpose_rows(i, k);
             m_e_matrix.transpose_rows(i, k);
-            std::swap(m_entries[i], m_entries[k]);
+            std::swap(m_sum_of_fixed[i], m_sum_of_fixed[k]);
             m_k2s.transpose_val(i, k);            
 
             NOT_IMPLEMENTED_YET();
@@ -1024,7 +1018,7 @@ namespace lp {
         }        
 
         bool entries_are_ok() {
-            for (unsigned ei = 0; ei < m_entries.size();  ei++) {
+            for (unsigned ei = 0; ei < m_e_matrix.row_count();  ei++) {
                 if (entry_invariant(ei) == false) {
                     TRACE("dioph_deb_eq", tout << "bad entry:"; print_entry(ei, tout););
                     return false;
@@ -1092,7 +1086,7 @@ namespace lp {
             return g;
         }
 
-        std::ostream& print_dep(std::ostream& out, u_dependency* dep) {
+        std::ostream& print_deps(std::ostream& out, u_dependency* dep) {
             explanation ex(lra.flatten(dep));
             return lra.print_expl(out, ex);
         }
@@ -1105,7 +1099,7 @@ namespace lp {
             return false;
         }
 
-        void prepare_lia_branch_report(unsigned ei, const entry& e, const mpq& g,
+        void prepare_lia_branch_report(unsigned ei, const mpq& e, const mpq& g,
                                        const mpq new_c) {
             /* We have ep.m_e/g = 0, or sum((coff_i/g)*x_i) + new_c = 0,
                or sum((coeff_i/g)*x_i) = -new_c, where new_c is not an integer
@@ -1129,20 +1123,20 @@ namespace lp {
         // The function returns true if and only if there is no conflict. In the case of a conflict a branch 
         // can be returned as well.
         bool normalize_e_by_gcd(unsigned ei) {
-            entry& e = m_entries[ei];
+            mpq & e = m_sum_of_fixed[ei];
             TRACE("dioph_eq", print_entry(ei, tout) << std::endl;);
             mpq g = gcd_of_coeffs(m_e_matrix.m_rows[ei]);
             if (g.is_zero() || g.is_one()) {
-                SASSERT(g.is_one() || e.m_c.is_zero());
+                SASSERT(g.is_one() || e.is_zero());
                 return true;
             }
             TRACE("dioph_eq", tout << "g:" << g << std::endl;);
-            mpq c_g = e.m_c / g;
+            mpq c_g = e / g;
             if (c_g.is_int()) {
                 for (auto& p : m_e_matrix.m_rows[ei]) {
                     p.coeff() /= g;
                 }
-                m_entries[ei].m_c = c_g;
+                m_sum_of_fixed[ei] = c_g;
                 // e.m_l *= (1 / g);
                 for (auto& p : m_l_matrix.m_rows[ei]) {
                     p.coeff() /= g;
@@ -1219,7 +1213,7 @@ namespace lp {
         }
         
         void subs_front_in_indexed_vector_by_S(unsigned k, std::queue<unsigned> &q) {
-            const entry& e = entry_for_subs(k);
+            const mpq& e = m_sum_of_fixed[m_k2s[k]];
             TRACE("dioph_eq", tout << "k:" << k << ", in ";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "subs with e:";
@@ -1248,7 +1242,7 @@ namespace lp {
                     can_substitute(j))
                     q.push(j);
             }
-            m_c += coeff * e.m_c;
+            m_c += coeff * e;
             add_l_row_to_term_with_index(coeff, sub_index(k));
             TRACE("dioph_eq", tout << "after subs k:" << k << "\n";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
@@ -1312,10 +1306,6 @@ namespace lp {
             }
             return ret;
         }
-        const entry& entry_for_subs(unsigned k) const {
-            return m_entries[m_k2s[k]];
-        }
-
         
         const unsigned sub_index(unsigned k) const {
             return m_k2s[k];
@@ -1440,7 +1430,7 @@ namespace lp {
             TRACE("dioph_eq", tout << "after process_q_with_S\nt:";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "g:" << g << std::endl;
-                  /*tout << "dep:"; print_dep(tout, m_term_with_index.m_data) << std::endl;*/);
+                  /*tout << "dep:"; print_deps(tout, m_term_with_index.m_data) << std::endl;*/);
 
             if (g.is_one())
                 return false;
@@ -1548,7 +1538,7 @@ namespace lp {
                 lra.mk_join(dep, lra.get_bound_constraint_witnesses_for_column(j));
             TRACE("dioph_eq", tout << "jterm:";
                   print_lar_term_L(lra.get_term(j), tout) << "\ndep:";
-                  print_dep(tout, dep) << std::endl;);
+                  print_deps(tout, dep) << std::endl;);
             lra.update_column_type_and_bound(j, kind, bound, dep);
             lp_status st = lra.find_feasible_solution();
             if ((int)st >= (int)lp::lp_status::FEASIBLE) {
@@ -1631,13 +1621,13 @@ namespace lp {
             // do not change entry here
             unsigned ei = m_k2s[j]; // entry index
             mpq g  = mpq(0); // gcd
-            mpq c = m_entries[ei].m_c;
+            mpq c = m_sum_of_fixed[ei];
             for (const auto& p : m_e_matrix.m_rows[m_k2s[j]]) {
                 if (p.var() == j) {
                     const mpq & j_coeff = p.coeff();
                     SASSERT(j_coeff.is_one() || j_coeff.is_minus_one());
                     c += j_coeff * lra.get_lower_bound(local_to_lar_solver(j)).x;
-                    TRACE("dio_br", tout << "the value of the vixed var is:" <<  lra.get_lower_bound(local_to_lar_solver(j)).x<<", m_entries[" << ei << "].m_c:" << m_entries[ei].m_c << ", new free coeff c:" << c << std::endl;);
+                    TRACE("dio_br", tout << "the value of the vixed var is:" <<  lra.get_lower_bound(local_to_lar_solver(j)).x<<", m_sum_of_fixed[" << ei << "]:" << m_sum_of_fixed[ei] << ", new free coeff c:" << c << std::endl;);
                     continue;
                 } 
                 if (g.is_zero()) {
@@ -2003,7 +1993,7 @@ namespace lp {
         // a coefficient equal to j_sign which is +-1 
         void eliminate_var_in_f(unsigned ei, unsigned j, int j_sign) {
             SASSERT(belongs_to_s(ei));
-            const auto & e = m_entries[ei];
+            const auto & e = m_sum_of_fixed[ei];
             SASSERT(j_sign_is_correct(ei, j, j_sign));
             TRACE("dioph_eq", tout << "eliminate var:" << j << " by using:";
                   print_entry(ei, tout) << std::endl;);
@@ -2038,9 +2028,9 @@ namespace lp {
                 unsigned i = c.var();
                 TRACE("dioph_eq", tout << "before pivot entry :";
                       print_entry(i, tout) << std::endl;);
-                m_entries[i].m_c -= j_sign * coeff * e.m_c;
+                m_sum_of_fixed[i] -= j_sign * coeff * e;
                 m_e_matrix.pivot_row_to_row_given_cell_with_sign(ei, c, j, j_sign);
-                //m_entries[i].m_l -= j_sign * coeff * e.m_l;
+                //m_sum_of_fixed[i].m_l -= j_sign * coeff * e.m_l;
                 m_l_matrix.add_rows( -j_sign*coeff, ei, i);
                 TRACE("dioph_eq", tout << "after pivoting c_row:";
                       print_entry(i, tout););
@@ -2264,26 +2254,22 @@ namespace lp {
 
         std::ostream& print_entry(unsigned i, std::ostream& out,
                                   bool print_dep = false) {
-            out << "m_entries[" << i << "]:";
-            return print_entry(i, m_entries[i], out, print_dep);
-        }
-
-        std::ostream& print_entry(unsigned ei, const entry& e, std::ostream& out,
-                                  bool need_print_dep = true) {
+            out << "m_sum_of_fixed[" << i << "]:";
             out << "{\n";
-            print_term_o(get_term_from_entry(ei), out << "\tm_e:") << ",\n";
+            print_term_o(get_term_from_entry(i), out << "\tm_e:") << ",\n";
             // out << "\tstatus:" << (int)e.m_entry_status;
-            if (need_print_dep) {
+            if (print_dep) {
+                auto l_term = l_term_from_row(i);
                 out << "\tm_l:{";
-                print_lar_term_L(l_term_from_row(ei), out) << "}, ";
-                print_ml(l_term_from_row(ei), out) << std::endl;
+                print_lar_term_L(l_term, out) << "}, ";
+                print_ml(l_term, out) << std::endl;
                 out << "expl of fixed in m_l:{\n";
-                print_dep(out, explain_fixed_in_meta_term(l_term_from_row(ei)));
+                print_deps(out, explain_fixed_in_meta_term(l_term));
                 out << "}\n";
             }
-            if (belongs_to_f(ei)) { out << "in F\n"; }
+            if (belongs_to_f(i)) { out << "in F\n"; }
             else {
-                unsigned j = m_k2s.get_key(ei);
+                unsigned j = m_k2s.get_key(i);
                 if (local_to_lar_solver(j) == UINT_MAX) {
                     out << "FRESH\n";
                 } else {
@@ -2319,7 +2305,7 @@ namespace lp {
             for (unsigned ei=0; ei < m_e_matrix.row_count(); ei++) {
                 if (belongs_to_s(ei)) continue;
                 if (m_e_matrix.m_rows[ei].size() == 0) {
-                    if (m_entries[ei].m_c.is_zero()) {                        
+                    if (m_sum_of_fixed[ei].is_zero()) {                        
                         continue;
                     } else {
                         m_conflict_index = ei;
