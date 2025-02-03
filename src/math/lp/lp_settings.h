@@ -133,7 +133,7 @@ struct statistics {
     unsigned m_dio_tighten_conflicts = 0;
     unsigned m_dio_branch_iterations= 0;
     unsigned m_dio_branching_depth = 0;
-    unsigned m_dio_cut_from_proofs = 0;
+    unsigned m_dio_branch_from_proofs = 0;
     unsigned m_dio_branching_infeasibles = 0;
     unsigned m_dio_rewrite_conflicts = 0;
     unsigned m_dio_branching_sats = 0;
@@ -174,7 +174,7 @@ struct statistics {
         st.update("arith-dio-tighten-conflicts", m_dio_tighten_conflicts);
         st.update("arith-dio-branch-iterations", m_dio_branch_iterations);
         st.update("arith-dio-branch-depths", m_dio_branching_depth);
-        st.update("arith-dio-cut-from-proofs", m_dio_cut_from_proofs);
+        st.update("arith-dio-branch-from-proofs", m_dio_branch_from_proofs);
         st.update("arith-dio-branching-infeasibles", m_dio_branching_infeasibles);
         st.update("arith-dio-rewrite-conflicts", m_dio_rewrite_conflicts);
         st.update("arith-dio-branching-sats", m_dio_branching_sats);
@@ -249,8 +249,9 @@ private:
     bool             m_print_external_var_name = false;
     bool             m_propagate_eqs = false;
     bool             m_dio_eqs = false;
-    bool             m_dio_cuts = false;
-    unsigned         m_dio_cut_from_proof_period = 2;
+    bool             m_dio_enable_gomory_cuts = true;
+    bool             m_dio_enable_hnf_cuts = true;
+    unsigned         m_dio_branch_from_proof_period = 100; // report rarely
 
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }
@@ -260,8 +261,9 @@ public:
     unsigned random_next() { return m_rand(); }
     unsigned random_next(unsigned u ) { return m_rand(u); }
     bool dio_eqs() { return m_dio_eqs; }
-    bool dio_cuts() { return m_dio_eqs && m_dio_cuts; }
-    unsigned dio_cut_from_proof_period() { return m_dio_cut_from_proof_period; }
+    bool dio_enable_gomory_cuts() { return m_dio_eqs && m_dio_enable_gomory_cuts; }
+    bool dio_enable_hnf_cuts() { return m_dio_eqs && m_dio_enable_hnf_cuts; }
+    unsigned dio_branch_from_proof_period() { return m_dio_branch_from_proof_period; }
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
     
     bool bound_progation() const { 
