@@ -671,6 +671,7 @@ namespace lp {
                 return;
             }
             m_added_terms.push_back(t);
+            m_changed_terms.insert(t->j());
             auto undo = undo_add_term(*this, t);
             lra.trail().push(undo);
         }
