@@ -438,6 +438,7 @@ namespace lp {
 
         indexed_uint_set m_changed_rows;
         indexed_uint_set m_changed_columns;
+        indexed_uint_set m_changed_terms; // a term is defined by its column j, as in lar_solver.get_term(j)
         // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
         std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_terms;  
 
@@ -886,12 +887,12 @@ namespace lp {
             SASSERT(entry_invariant(ei));
         }
 
-        void find_changed_terms_and_more_changed_rows(std::unordered_set<unsigned> & changed_terms) {
+        void find_changed_terms_and_more_changed_rows() {
             for (unsigned j : m_changed_columns) {  
                 const auto it = m_columns_to_terms.find(j);
                 if (it != m_columns_to_terms.end())                
                     for (unsigned k : it->second) {
-                        changed_terms.insert(k);
+                        m_changed_terms.insert(k);
                     }
                 if (!m_var_register.external_is_used(j)) 
                     continue;
@@ -923,9 +924,8 @@ namespace lp {
                     delete_column(j);
                 }
             }
-            std::unordered_set<unsigned> changed_terms; // a term is signified by the term column, like j in lra.get_term(j)
-            find_changed_terms_and_more_changed_rows(changed_terms);
-            for (unsigned j : changed_terms) {
+            find_changed_terms_and_more_changed_rows();
+            for (unsigned j : m_changed_terms) {
                 for (const auto & cs: m_l_matrix.column(j)) {
                     m_changed_rows.insert(cs.var());
                 }
@@ -1324,16 +1324,24 @@ namespace lp {
         }
 
         lia_move tighten_terms_with_S() {
-            for (unsigned j = 0; j < lra.column_count(); j++) {
+            std_vector<unsigned> cleanup;
+            lia_move ret = lia_move::undef;
+            for (unsigned j : m_changed_terms) {
+                cleanup.push_back(j);
                 if (!lra.column_has_term(j) || lra.column_is_free(j) ||
-                    is_fixed(j) || !lia.column_is_int(j))
+                    is_fixed(j) || !lia.column_is_int(j)) {
                     continue;
+                }
 
-                if (tighten_bounds_for_term_column(j))
-                    return lia_move::conflict;
+                if (tighten_bounds_for_term_column(j)) { 
+                    ret = lia_move::conflict;
+                    break;
+                }
             }
-
-            return lia_move::undef;
+            for (unsigned j: cleanup) {
+                m_changed_terms.remove(j);
+            }
+            return ret;
         }
 
         std::ostream& print_queue(std::queue<unsigned> q, std::ostream& out) {
