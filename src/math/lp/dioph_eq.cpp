@@ -926,6 +926,7 @@ namespace lp {
             }
             find_changed_terms_and_more_changed_rows();
             for (unsigned j : m_changed_terms) {
+                if (j >= m_l_matrix.column_count()) continue;
                 for (const auto & cs: m_l_matrix.column(j)) {
                     m_changed_rows.insert(cs.var());
                 }
@@ -1328,6 +1329,7 @@ namespace lp {
             lia_move ret = lia_move::undef;
             for (unsigned j : m_changed_terms) {
                 cleanup.push_back(j);
+                if (j >= lra.column_count()) continue;
                 if (!lra.column_has_term(j) || lra.column_is_free(j) ||
                     is_fixed(j) || !lia.column_is_int(j)) {
                     continue;
