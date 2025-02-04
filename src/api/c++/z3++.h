@@ -4305,15 +4305,18 @@ namespace z3 {
         context*   c;
         std::vector<z3::context*> subcontexts;
 
+        unsigned   m_callbackNesting = 0;
         Z3_solver_callback cb { nullptr };
 
         struct scoped_cb {
             user_propagator_base& p;
             scoped_cb(void* _p, Z3_solver_callback cb):p(*static_cast<user_propagator_base*>(_p)) {
                 p.cb = cb;
+                p.m_callbackNesting++;
             }
             ~scoped_cb() {
-                p.cb = nullptr;
+                if (--p.m_callbackNesting == 0)
+                    p.cb = nullptr;
             }
         };
 
