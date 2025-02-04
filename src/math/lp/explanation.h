@@ -26,10 +26,10 @@ class explanation {
     typedef vector<std::pair<unsigned, mpq>> pair_vec;
     typedef    hashtable<unsigned, u_hash, u_eq>  ci_set;
     // Only one of the fields below is used. The first call adding an entry decides which one it is.
-public:
     vector<std::pair<constraint_index, mpq>> m_vector;
     ci_set  m_set;   
-    explanation() {}
+public:
+    explanation() = default;
     
     template <typename T>
     explanation(const T& t) {
