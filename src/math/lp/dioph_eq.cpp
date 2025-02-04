@@ -843,7 +843,8 @@ namespace lp {
                 if (!lia.column_is_int(p.var()))
                     return false;
             }
-            return true;
+            return lia.column_is_int(term.j());
+            
         } 
 
         void delete_column(unsigned j) {
@@ -1470,9 +1471,9 @@ namespace lp {
             if (lra.has_upper_bound(j, b_dep, rs, is_strict)) {
                 if (m_c > rs || (is_strict && m_c == rs)) {
                     u_dependency* dep =
-                        lra.mk_join(explain_fixed(lra.get_term(j)),
+                        lra.join_deps(explain_fixed(lra.get_term(j)),
                                     explain_fixed_in_meta_term(m_term_with_index.m_data));
-                    dep = lra.mk_join(
+                    dep = lra.join_deps(
                         dep, lra.get_bound_constraint_witnesses_for_column(j));
                     for (constraint_index ci : lra.flatten(dep)) {
                         m_infeas_explanation.push_back(ci);
@@ -1483,9 +1484,9 @@ namespace lp {
             if (lra.has_lower_bound(j, b_dep, rs, is_strict)) {
                 if (m_c < rs || (is_strict && m_c == rs)) {
                     u_dependency* dep =
-                        lra.mk_join(explain_fixed(lra.get_term(j)),
+                        lra.join_deps(explain_fixed(lra.get_term(j)),
                                     explain_fixed_in_meta_term(m_term_with_index.m_data));
-                    dep = lra.mk_join(
+                    dep = lra.join_deps(
                         dep, lra.get_bound_constraint_witnesses_for_column(j));
                     for (constraint_index ci : lra.flatten(dep)) {
                         m_infeas_explanation.push_back(ci);
@@ -1539,14 +1540,14 @@ namespace lp {
             lconstraint_kind kind =
                 upper ? lconstraint_kind::LE : lconstraint_kind::GE;
             u_dependency* dep = prev_dep;
-            dep = lra.mk_join(dep, explain_fixed_in_meta_term(m_term_with_index.m_data));
+            dep = lra.join_deps(dep, explain_fixed_in_meta_term(m_term_with_index.m_data));
             u_dependency* j_bound_dep = upper
                 ? lra.get_column_upper_bound_witness(j)
                 : lra.get_column_lower_bound_witness(j);
-            dep = lra.mk_join(dep, j_bound_dep);
-            dep = lra.mk_join(dep, explain_fixed(lra.get_term(j)));
+            dep = lra.join_deps(dep, j_bound_dep);
+            dep = lra.join_deps(dep, explain_fixed(lra.get_term(j)));
             dep =
-                lra.mk_join(dep, lra.get_bound_constraint_witnesses_for_column(j));
+                lra.join_deps(dep, lra.get_bound_constraint_witnesses_for_column(j));
             TRACE("dioph_eq", tout << "jterm:";
                   print_lar_term_L(lra.get_term(j), tout) << "\ndep:";
                   print_deps(tout, dep) << std::endl;);
@@ -1570,7 +1571,7 @@ namespace lp {
                 if (is_fixed(p.j())) {
                     u_dependency* bound_dep =
                         lra.get_bound_constraint_witnesses_for_column(p.j());
-                    dep = lra.mk_join(dep, bound_dep);
+                    dep = lra.join_deps(dep, bound_dep);
                 }
             }
             return dep;
