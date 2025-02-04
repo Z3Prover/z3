@@ -4315,7 +4315,7 @@ namespace z3 {
                 p.m_callbackNesting++;
             }
             ~scoped_cb() {
-                if (p.m_callbackNesting-- == 0)
+                if (--p.m_callbackNesting == 0)
                     p.cb = nullptr;
             }
         };
