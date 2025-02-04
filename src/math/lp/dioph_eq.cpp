@@ -1075,7 +1075,12 @@ namespace lp {
         }
         
         template <typename K>
-        mpq gcd_of_coeffs(const K& k) {
+        mpq gcd_of_coeffs(const K& k, bool check_for_one) {
+            if (check_for_one)
+                for (const auto& p : k) 
+                    if (p.coeff().is_one() || p.coeff().is_minus_one())
+                        return mpq(1);
+            
             mpq g(0);
             for (const auto& p : k) {
                 SASSERT(p.coeff().is_int());
@@ -1125,10 +1130,10 @@ namespace lp {
         // If there is no conflict the entry is divided, normalized, by gcd.
         // The function returns true if and only if there is no conflict. In the case of a conflict a branch 
         // can be returned as well.
-        bool normalize_e_by_gcd(unsigned ei) {
+        bool normalize_e_by_gcd(unsigned ei, mpq& g) {
             mpq & e = m_sum_of_fixed[ei];
             TRACE("dioph_eq", print_entry(ei, tout) << std::endl;);
-            mpq g = gcd_of_coeffs(m_e_matrix.m_rows[ei]);
+            g = gcd_of_coeffs(m_e_matrix.m_rows[ei], false);
             if (g.is_zero() || g.is_one()) {
                 SASSERT(g.is_one() || e.is_zero());
                 return true;
@@ -1159,20 +1164,6 @@ namespace lp {
             return false;
         }
         
-        // iterate over F: return true if no conflict is found and false otherwise
-        bool normalize_by_gcd() {
-            for (unsigned l = 0; l < m_e_matrix.row_count(); l++) {
-                if (!belongs_to_f(l)) continue;
-                if (!normalize_e_by_gcd(l)) {
-                    SASSERT(entry_invariant(l));
-                    m_conflict_index = l;
-                    return false;
-                }
-                SASSERT(entry_invariant(l));
-            }
-            return true;
-        }
-
         void init_term_from_constraint(term_o& t, const lar_base_constraint& c) {
             for (const auto& p : c.coeffs()) {
                 t.add_monomial(p.first, p.second);
@@ -1438,7 +1429,7 @@ namespace lp {
             SASSERT(
                 fix_vars(term_to_tighten + open_ml(m_term_with_index.to_term())) ==
                 term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c())));
-            mpq g = gcd_of_coeffs(m_indexed_work_vector);
+            mpq g = gcd_of_coeffs(m_indexed_work_vector, true);
             TRACE("dioph_eq", tout << "after process_q_with_S\nt:";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "g:" << g << std::endl;
@@ -1578,23 +1569,10 @@ namespace lp {
         }
 
         lia_move process_f() {
-            bool  progress = true;
-            while (progress) {
-                if (!normalize_by_gcd()) {
-                    if (m_report_branch) {
-                        lra.stats().m_dio_branch_from_proofs++;
-                        m_report_branch = false;
-                        return lia_move::branch;
-                    } else {
-                        lra.stats().m_dio_normalize_conflicts++;
-                    }
-                    return lia_move::conflict;
-                }
-                progress = rewrite_eqs();
-                if (m_conflict_index != UINT_MAX) {
-                    lra.stats().m_dio_rewrite_conflicts++;
-                    return lia_move::conflict;
-                }
+            while (rewrite_eqs()) {}
+            if (m_conflict_index != UINT_MAX) {
+                lra.stats().m_dio_rewrite_conflicts++;
+                return lia_move::conflict;
             }
             return lia_move::undef;
         }
@@ -1956,7 +1934,7 @@ namespace lp {
                 return ret;
             }
             SASSERT(ret == lia_move::undef);
-            m_max_number_of_iterations = std::max((unsigned)5, (unsigned)m_max_number_of_iterations/2);
+            m_max_number_of_iterations = (unsigned)m_max_number_of_iterations/2;
             
             return lia_move::undef;
         }
@@ -2336,12 +2314,27 @@ namespace lp {
                         return false;
                     }
                 }
+                
                 auto [ahk, k, k_sign] = find_minimal_abs_coeff(ei);
                 if (ahk.is_one()) {
                     TRACE("dioph_eq", tout << "push to S:\n"; print_entry(ei, tout););
                     move_entry_from_f_to_s(k, ei);
                     eliminate_var_in_f(ei, k, k_sign);
                     return true;
+                }
+                mpq gcd;
+                if (!normalize_e_by_gcd(ei, gcd)) {
+                    m_conflict_index = ei;
+                    return false;
+                }
+                if (!gcd.is_one()){
+                    ahk /= gcd;
+                    if (ahk.is_one()) {
+                        TRACE("dioph_eq", tout << "push to S:\n"; print_entry(ei, tout););
+                        move_entry_from_f_to_s(k, ei);
+                        eliminate_var_in_f(ei, k, k_sign);
+                        return true;
+                    }
                 }
 
                 if (n == 0 || the_smallest_ahk > ahk) {
@@ -2358,7 +2351,7 @@ namespace lp {
                     kh_sign = k_sign;
                 }
             }
-            if (h == -1) return false;
+            if (h == UINT_MAX) return false;
             SASSERT(!the_smallest_ahk.is_one());
             fresh_var_step(h, kh, the_smallest_ahk * mpq(kh_sign));
             return true;
