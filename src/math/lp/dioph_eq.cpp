@@ -1733,6 +1733,7 @@ namespace lp {
                     if (m_branch_stack.size() == 0) {
                         lra.stats().m_dio_branching_infeasibles++;
                         transfer_explanations_from_closed_branches();
+                        lra.stats().m_dio_branching_conflicts++;
                         return lia_move::conflict;
                     }
                     need_create_branch = false;
@@ -1761,6 +1762,7 @@ namespace lp {
                     if (m_branch_stack.size() == 0) {
                         lra.stats().m_dio_branching_infeasibles++;
                         transfer_explanations_from_closed_branches();
+                        lra.stats().m_dio_branching_conflicts++;
                         return lia_move::conflict;
                     }
                     TRACE("dio_br", tout << lp_status_to_string(lra.get_status()) << std::endl;
