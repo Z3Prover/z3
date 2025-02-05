@@ -137,6 +137,7 @@ struct statistics {
     unsigned m_dio_branching_infeasibles = 0;
     unsigned m_dio_rewrite_conflicts = 0;
     unsigned m_dio_branching_sats = 0;
+    unsigned m_dio_branching_conflicts = 0;
     ::statistics m_st = {};
 
     void reset() {
@@ -179,6 +180,7 @@ struct statistics {
         st.update("arith-dio-rewrite-conflicts", m_dio_rewrite_conflicts);
         st.update("arith-dio-branching-sats", m_dio_branching_sats);
         st.update("arith-dio-branching-depth", m_dio_branching_depth);
+        st.update("arith-dio-branching-conflicts", m_dio_branching_conflicts);
         st.copy(m_st);
     }
 };
