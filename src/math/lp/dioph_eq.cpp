@@ -530,6 +530,32 @@ namespace lp {
                 m_s.undo_add_term_method(m_t);
             }
         };
+
+        struct protected_queue {
+            std::queue<unsigned> m_q;
+            indexed_uint_set m_in_q;
+            bool empty() const {
+                return m_q.empty();
+            }
+
+            unsigned size() const {
+                return m_q.size();
+            }
+            
+            void push(unsigned j) {
+                if (m_in_q.contains(j)) return;
+                m_in_q.insert(j);
+                m_q.push(j);
+            }
+
+            unsigned pop_front() {
+                unsigned j = m_q.front();
+                m_q.pop();
+                SASSERT(m_in_q.contains(j));
+                m_in_q.remove(j);
+                return j;
+            }
+        };
       
         struct undo_fixed_column : public trail {
             imp& m_imp;
@@ -757,7 +783,7 @@ namespace lp {
         void subs_entry(unsigned ei) {
             if (ei >= m_e_matrix.row_count()) return;
             // q is the queue of variables that can be substituted in ei
-            std::queue<unsigned> q;
+            protected_queue q;
             for (const auto& p: m_e_matrix.m_rows[ei]) {
                 if (can_substitute(p.var()))
                    q.push(p.var());
@@ -767,54 +793,39 @@ namespace lp {
             SASSERT(entry_invariant(ei));
         }
 
-        void substitute_on_q_with_entry_in_S(std::queue<unsigned> & q, unsigned ei, unsigned j, const mpq & alpha, std::unordered_set<unsigned> & in_queue) {
+        void substitute_on_q_with_entry_in_S(protected_queue& q, unsigned ei, unsigned j, const mpq & alpha) {
             unsigned ei_to_sub = m_k2s[j];
             int sign_j = get_sign_in_e_row(ei_to_sub, j);
             // we need to eliminate alpha*j in ei's row
             add_two_entries(-mpq(sign_j)*alpha, ei_to_sub, ei);
             for (const auto& p: m_e_matrix.m_rows[ei]) {
                 unsigned jj = p.var();
-                if (can_substitute(jj) && !contains(in_queue, jj)) {
+                if (can_substitute(jj))
                     q.push(jj);
-                    in_queue.insert(jj);
-                }
             }
         }
-        void substitute_with_fresh_def(std::queue<unsigned> & q, unsigned ei, unsigned j, const mpq & alpha, std::unordered_set<unsigned> & in_queue) {
+        void substitute_with_fresh_def(protected_queue& q, unsigned ei, unsigned j, const mpq & alpha) {
             const lar_term& sub_term = m_fresh_k2xt_terms.get_by_key(j);
             SASSERT(sub_term.get_coeff(j).is_one());
             // we need to eliminate alpha*j in ei's row
             add_term_to_entry(- alpha, sub_term, ei);
             for (const auto& p: m_e_matrix.m_rows[ei]) {
                 unsigned jj = p.var();
-                if (can_substitute(jj) && !contains(in_queue, jj)) {
+                if (can_substitute(jj))
                     q.push(jj);
-                    in_queue.insert(jj);
-                }
             }
         }
 
         // q is the queue of variables that can be substituted in ei
-        void substitute_on_q(std::queue<unsigned> & q, unsigned ei) {
-             // Track queued items
-            std::unordered_set<unsigned> in_queue;
-            // Initialize with the current queue contents
-            {
-                std::queue<unsigned> tmp = q;
-                while (!tmp.empty()) {
-                    in_queue.insert(tmp.front());
-                    tmp.pop();
-                }
-            }
+        void substitute_on_q(protected_queue & q, unsigned ei) {
             while (!q.empty()) {
-                unsigned j = pop_front(q);
-                in_queue.erase(j);
+                unsigned j = q.pop_front();
                 mpq alpha = get_coeff_in_e_row(ei, j);
                 if (alpha.is_zero()) continue;
                 if (m_k2s.has_key(j)) {
-                    substitute_on_q_with_entry_in_S(q, ei, j, alpha, in_queue);
+                    substitute_on_q_with_entry_in_S(q, ei, j, alpha);
                 } else  {
-                    substitute_with_fresh_def(q, ei, j, alpha,in_queue);
+                    substitute_with_fresh_def(q, ei, j, alpha);
                 }
             }
         }
@@ -1172,7 +1183,7 @@ namespace lp {
         }
 
         
-        void subs_front_in_indexed_vector_by_fresh(unsigned k, std::queue<unsigned> &q) {
+        void subs_front_in_indexed_vector_by_fresh(unsigned k, protected_queue &q) {
             const lar_term& e = m_fresh_k2xt_terms.get_by_key(k);
             TRACE("dioph_eq", tout << "k:" << k << ", in ";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
@@ -1206,7 +1217,7 @@ namespace lp {
             }
         }
         
-        void subs_front_in_indexed_vector_by_S(unsigned k, std::queue<unsigned> &q) {
+        void subs_front_in_indexed_vector_by_S(unsigned k, protected_queue& q) {
             const mpq& e = m_sum_of_fixed[m_k2s[k]];
             TRACE("dioph_eq", tout << "k:" << k << ", in ";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
@@ -1250,8 +1261,8 @@ namespace lp {
         // The term giving the substitution is in form (+-)x_k + sum {a_i*x_i} + c = 0.
         // We substitute x_k in t by (+-)coeff*(sum {a_i*x_i} + c), where coeff is
         // the coefficient of x_k in t.
-        void subs_front_in_indexed_vector(std::queue<unsigned>& q) {
-            unsigned k = pop_front(q);
+        void subs_front_in_indexed_vector(protected_queue& q) {
+            unsigned k = q.pop_front();
             if (m_indexed_work_vector[k].is_zero())
                 return;
             // we might substitute with a term from S or a fresh term
@@ -1306,13 +1317,13 @@ namespace lp {
         }
 
         template <typename T>
-        T pop_front(std::queue<T>& q) const {
+        T pop_front_of_queue(std::queue<T>& q) const {
             T value = q.front();
             q.pop();
             return value;
         }
 
-        void subs_indexed_vector_with_S(std::queue<unsigned>& q) {
+        void subs_indexed_vector_with_S_and_fresh(protected_queue& q) {
             while (!q.empty())
                 subs_front_in_indexed_vector(q);
         }
@@ -1382,7 +1393,7 @@ namespace lp {
             term_o term_to_tighten = lra.get_term(j);  // copy the term aside
             if (!all_vars_are_int(term_to_tighten))
                 return false;
-            std::queue<unsigned> q;
+            protected_queue q;
             for (const auto& p : term_to_tighten) {
                 if (!lra.column_is_fixed(p.j()) &&
                     can_substitute(lar_solver_to_local(p.j())))
@@ -1400,7 +1411,7 @@ namespace lp {
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "m_tmp_l:";
                   print_lar_term_L(m_term_with_index.to_term(), tout) << std::endl;);
-            subs_indexed_vector_with_S(q);
+            subs_indexed_vector_with_S_and_fresh(q);
             // if(
             //     fix_vars(term_to_tighten + open_ml(m_tmp_l)) !=
             //     term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c())))
@@ -2142,14 +2153,14 @@ namespace lp {
 
         term_o remove_fresh_vars(const term_o& tt) const {
             term_o t = tt;
-            std::queue<unsigned> q;
+            protected_queue q;
             for (const auto& p : t) {
                 if (var_is_fresh(p.j())) {
                     q.push(p.j());
                 }
             }
             while (!q.empty()) {
-                unsigned xt = pop_front(q); // xt is a fresh var
+                unsigned xt = q.pop_front(); // xt is a fresh var
                 const lar_term& fresh_t = m_fresh_k2xt_terms.get_by_val(xt);
                 TRACE("dioph_eq", print_lar_term_L(fresh_t, tout););
                 SASSERT(fresh_t.get_coeff(xt).is_minus_one());
