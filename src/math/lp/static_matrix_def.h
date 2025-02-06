@@ -166,6 +166,7 @@ namespace lp {
             SASSERT(!is_zero(iv.coeff()));
             int j_offs = m_work_vector_of_row_offsets[j];
             if (j_offs == -1) { // it is a new element
+                add_columns_up_to(j);
                 T alv = alpha * iv.coeff();
                 add_new_element(ii, j, alv);
             }

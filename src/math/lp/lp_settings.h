@@ -253,7 +253,7 @@ private:
     bool             m_dio_eqs = false;
     bool             m_dio_enable_gomory_cuts = true;
     bool             m_dio_enable_hnf_cuts = true;
-    unsigned         m_dio_branch_from_proof_period = 100; // report rarely
+    unsigned         m_dio_branching_period = 100; //  do branching rarere
 
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }
@@ -263,9 +263,9 @@ public:
     unsigned random_next() { return m_rand(); }
     unsigned random_next(unsigned u ) { return m_rand(u); }
     bool dio_eqs() { return m_dio_eqs; }
-    bool dio_enable_gomory_cuts() { return m_dio_eqs && m_dio_enable_gomory_cuts; }
-    bool dio_enable_hnf_cuts() { return m_dio_eqs && m_dio_enable_hnf_cuts; }
-    unsigned dio_branch_from_proof_period() { return m_dio_branch_from_proof_period; }
+    bool dio_enable_gomory_cuts() const { return m_dio_eqs && m_dio_enable_gomory_cuts; }
+    bool dio_enable_hnf_cuts() const { return m_dio_eqs && m_dio_enable_hnf_cuts; }
+    unsigned dio_branching_period() const { return m_dio_branching_period; }
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
     
     bool bound_progation() const { 
