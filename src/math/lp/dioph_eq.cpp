@@ -27,7 +27,7 @@
        (k,xt,t) is added to m_fresh_k2xt_terms, where xt is the fresh variable, and t it the term defining the substitution: something like k - xt + 5z + 6y = 0. 
      The set of pairs (k, xt) is a one to one mapping
      m_row2fresh_defs[i]: is the list of all xt that were defined for row m_e_matrix[i].
-         Invariant: Every xt in m_row2resh[i] must have a corresponding entry in m_fresh_k2xt_terms
+         Invariant: Every xt in m_row2fresh[i] must have a corresponding entry in m_fresh_k2xt_terms
      
   The mapping between the columns of lar_solver and m_e_matrix is controlled by m_var_register. 
   local_to_lar_solver(lar_solver_to_local(j)) == j. If local_to_lar_solver(j) == -1 
