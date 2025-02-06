@@ -77,9 +77,12 @@ namespace lp {
         unsigned size() const {return static_cast<unsigned>(m_map.size());}
         
         void erase_val(unsigned b) {
-            SASSERT(contains(m_rev_map, b) && contains(m_map, m_rev_map[b]));
-            unsigned key = m_rev_map[b];
-            m_rev_map.erase(b);
+            VERIFY(contains(m_rev_map, b) && contains(m_map, m_rev_map[b]));
+            auto it = m_rev_map.find(b);
+            if (it == m_rev_map.end()) return;
+            unsigned key = it->second;
+            m_rev_map.erase(it);
+            VERIFY(has_key(key));
             m_map.erase(key);
         }
         bool has_val(unsigned b) const {
@@ -123,7 +126,7 @@ namespace lp {
         }
         unsigned operator[](unsigned i) const {
             auto it = m_map.find(i);
-            SASSERT(it != m_map.end());
+            VERIFY(it != m_map.end());
             return it->second;
         }
     };
@@ -151,10 +154,10 @@ namespace lp {
         }
 
         void erase_by_second_key(unsigned b) {
-            SASSERT(m_bij.has_val(b));
+            VERIFY(m_bij.has_val(b));
             m_bij.erase_val(b);
             auto it = m_data.find(b);
-            SASSERT(it != m_data.end());
+            VERIFY(it != m_data.end());
             m_data.erase(it);
         }
         
@@ -169,7 +172,7 @@ namespace lp {
         // Get the data by 'b' directly
         const T& get_by_val(unsigned b) const {
             auto it = m_data.find(b);
-            SASSERT(it != m_data.end());
+            VERIFY(it != m_data.end());
             return it->second;
         }
     };
@@ -351,7 +354,7 @@ namespace lp {
            
             const mpq& operator[](unsigned j) const {
                 SASSERT(j >= 0 && j < m_index.size());
-                SASSERT(m_index[j] >= 0 && m_index[j] < m_data.size());
+                SASSERT(m_index[j] >= 0 && m_index[j] < (int)m_data.size());
                 return m_data[m_index[j]].coeff();
             }
 
@@ -470,8 +473,8 @@ namespace lp {
 
         
         unsigned m_conflict_index = -1;  // the row index of the conflict
-        unsigned m_max_number_of_iterations = 100;
-        unsigned m_number_of_iterations;
+        unsigned m_max_of_branching_iterations = 0;
+        unsigned m_number_of_branching_calls;
         struct branch {
             unsigned m_j = UINT_MAX;
             mpq m_rs;
@@ -1084,7 +1087,7 @@ namespace lp {
             m_conflict_index = -1;
             m_infeas_explanation.clear();
             lia.get_term().clear();
-            m_number_of_iterations = 0;
+            m_number_of_branching_calls = 0;
             m_branch_stack.clear();
             m_lra_level = 0;
                
@@ -1182,11 +1185,6 @@ namespace lp {
                 return true;
             }
             // c_g is not integral
-            if (lra.stats().m_dio_calls %
-                lra.settings().dio_branch_from_proof_period() ==
-                0 &&
-                !has_fresh_var(ei))
-                prepare_lia_branch_report(ei, e, g, c_g);
             return false;
         }
         
@@ -1738,8 +1736,8 @@ namespace lp {
         lia_move branching_on_undef() {
             m_explanation_of_branches.clear();
             bool need_create_branch = true;
-            m_number_of_iterations = 0;
-            while (++m_number_of_iterations < m_max_number_of_iterations) {
+            m_number_of_branching_calls = 0;
+            while (++m_number_of_branching_calls < m_max_of_branching_iterations) {
                 lra.stats().m_dio_branch_iterations++;
                 if (need_create_branch) {
                     if (!push_branch()) {
@@ -1954,12 +1952,14 @@ namespace lp {
             if (ret == lia_move::branch || ret == lia_move::conflict)
                 return ret;
             SASSERT(ret == lia_move::undef);
-            ret = branching_on_undef();
+            if (lra.stats().m_dio_calls % lra.settings().dio_branching_period() == 0) {
+                ret = branching_on_undef();
+            }
             if (ret == lia_move::sat || ret == lia_move::conflict) {
                 return ret;
             }
             SASSERT(ret == lia_move::undef);
-            m_max_number_of_iterations = (unsigned)m_max_number_of_iterations/2;
+            m_max_of_branching_iterations = (unsigned)m_max_of_branching_iterations/2;
             
             return lia_move::undef;
         }
@@ -1979,8 +1979,7 @@ namespace lp {
             mpq t;
             for (const auto& p : m_e_matrix.m_rows[ei]) {
                 t = abs(p.coeff());
-                if (first || t < ahk ||
-                    (t == ahk && p.var() < k)) {  // the last condition is for debug
+                if (first || t < ahk) {
                     ahk = t;
                     k_sign = p.coeff().is_pos() ? 1 : -1;
                     k = p.var();
@@ -2092,11 +2091,10 @@ namespace lp {
 
                 mpq coeff = m_e_matrix.get_val(c);
                 TRACE("dioph_eq", tout << "before pivot entry :"; print_entry(c.var(), tout) << std::endl;);
-                unsigned c_row = c.var();
                 m_e_matrix.pivot_term_to_row_given_cell(t, c, j, j_sign);
                 TRACE("dioph_eq", tout << "after pivoting c_row:";
-                      print_entry(c_row, tout););
-                SASSERT(entry_invariant(c_row));
+                      print_entry(c.var(), tout););
+                SASSERT(entry_invariant(c.var()));
                 cell_to_process--;
             }
             SASSERT(is_eliminated_from_f(j));
