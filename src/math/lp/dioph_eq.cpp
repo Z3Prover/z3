@@ -323,7 +323,6 @@ namespace lp {
         int_solver& lia;
         lar_solver& lra;
         explanation m_infeas_explanation;
-        indexed_vector<mpq> m_indexed_work_vector;
         bool m_report_branch = false;
 
         // set F
@@ -344,6 +343,32 @@ namespace lp {
                     r.add_monomial(p.coeff(), p.var());                    
                 }
                 return r;
+            }
+           
+            bool has(unsigned k) const {
+                return k < m_index.size() && m_index[k] >= 0;
+            }
+           
+            const mpq& operator[](unsigned j) const {
+                SASSERT(j >= 0 && j < m_index.size());
+                SASSERT(m_index[j] >= 0 && m_index[j] < m_data.size());
+                return m_data[m_index[j]].coeff();
+            }
+
+            void erase(unsigned k) {
+                if (k >= m_index.size() || m_index[k] == -1)
+                    return;
+        
+                unsigned idx = m_index[k];
+                // If not last element, move last element to idx position
+                if (idx != m_data.size() - 1) {
+                    m_data[idx] = m_data.back();
+                    m_index[m_data[idx].var()] = idx;
+                }
+    
+                m_data.pop_back();
+                m_index[k] = -1;
+                SASSERT(invariant());
             }
             void add(const mpq& a, unsigned j) {
                 SASSERT(!a.is_zero());
@@ -426,7 +451,8 @@ namespace lp {
 
         };
 
-        term_with_index m_term_with_index;
+        term_with_index m_l_terms_workspace;
+        term_with_index m_substitution_workspace;
         
         bijection m_k2s;
         bij_map<lar_term> m_fresh_k2xt_terms;
@@ -881,7 +907,7 @@ namespace lp {
             open_l_term_to_work_vector(ei, c);
             clear_e_row(ei);
             mpq denom(1);
-            for (const auto & p: m_indexed_work_vector) {
+            for (const auto & p: m_substitution_workspace.m_data) {
                 unsigned lj = add_var(p.var());
                 m_e_matrix.add_columns_up_to(lj);
                 m_e_matrix.add_new_element(ei, lj, p.coeff());
@@ -1189,8 +1215,8 @@ namespace lp {
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "subs with e:";
                   print_lar_term_L(e, tout) << std::endl;);
-            mpq coeff = - m_indexed_work_vector[k];    // need to copy since it will be zeroed
-            m_indexed_work_vector.erase(k);  // m_indexed_work_vector[k] = 0;
+            mpq coeff = - m_substitution_workspace[k];    // need to copy since it will be zeroed
+            m_substitution_workspace.erase(k);  // m_work_vector_1[k] = 0;
 
             SASSERT(e.get_coeff(k).is_one());
 
@@ -1198,22 +1224,21 @@ namespace lp {
                 unsigned j = p.var();
                 if (j == k)
                     continue;
-                m_indexed_work_vector.add_value_at_index(j, p.coeff()*coeff);
+                m_substitution_workspace.add(p.coeff()*coeff, j);
                 // do we need to add j to the queue?
-                if (!var_is_fresh(j) && !m_indexed_work_vector[j].is_zero() &&
-                    can_substitute(j))
+                if (!var_is_fresh(j) && m_substitution_workspace.has(j) && can_substitute(j))
                     q.push(j);
             }
             // there is no change in m_l_matrix
             TRACE("dioph_eq", tout << "after subs k:" << k << "\n";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
-                  tout << "m_term_with_index:{"; print_lar_term_L(m_term_with_index.m_data, tout);
-                  tout << "}, opened:"; print_ml(m_term_with_index.to_term(), tout) << std::endl;);
+                  tout << "m_term_with_index:{"; print_lar_term_L(m_l_terms_workspace.m_data, tout);
+                  tout << "}, opened:"; print_ml(m_l_terms_workspace.to_term(), tout) << std::endl;);
         }
 
         void add_l_row_to_term_with_index(const mpq& coeff, unsigned ei) {
             for (const auto & p: m_l_matrix.m_rows[ei]) {
-                m_term_with_index.add(coeff * p.coeff(), p.var());
+                m_l_terms_workspace.add(coeff * p.coeff(), p.var());
             }
         }
         
@@ -1223,8 +1248,8 @@ namespace lp {
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "subs with e:";
                   print_entry(m_k2s[k], tout) << std::endl;);
-            mpq coeff = m_indexed_work_vector[k];    // need to copy since it will be zeroed
-            m_indexed_work_vector.erase(k);  // m_indexed_work_vector[k] = 0;
+            mpq coeff = m_substitution_workspace[k];    // need to copy since it will be zeroed
+            m_substitution_workspace.erase(k);  // m_work_vector_1[k] = 0;
 
             const auto& e_row = m_e_matrix.m_rows[m_k2s[k]];
             auto it = std::find_if(e_row.begin(), e_row.end(),
@@ -1241,9 +1266,9 @@ namespace lp {
                 unsigned j = p.var();
                 if (j == k)
                     continue;
-                m_indexed_work_vector.add_value_at_index(j, p.coeff() * coeff);
+                m_substitution_workspace.add(p.coeff() * coeff, j);
                 // do we need to add j to the queue?
-                if (!var_is_fresh(j) && !m_indexed_work_vector[j].is_zero() &&
+                if (!var_is_fresh(j) && m_substitution_workspace.has(j) &&
                     can_substitute(j))
                     q.push(j);
             }
@@ -1251,8 +1276,8 @@ namespace lp {
             add_l_row_to_term_with_index(coeff, sub_index(k));
             TRACE("dioph_eq", tout << "after subs k:" << k << "\n";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
-                  tout << "m_term_with_index:{"; print_lar_term_L(m_term_with_index.to_term(), tout);
-                  tout << "}, opened:"; print_ml(m_term_with_index.to_term(), tout) << std::endl;);
+                  tout << "m_term_with_index:{"; print_lar_term_L(m_l_terms_workspace.to_term(), tout);
+                  tout << "}, opened:"; print_ml(m_l_terms_workspace.to_term(), tout) << std::endl;);
         }
 
         bool is_substituted_by_fresh(unsigned k) const {
@@ -1263,7 +1288,7 @@ namespace lp {
         // the coefficient of x_k in t.
         void subs_front_in_indexed_vector(protected_queue& q) {
             unsigned k = q.pop_front();
-            if (m_indexed_work_vector[k].is_zero())
+            if (!m_substitution_workspace.has(k))
                 return;
             // we might substitute with a term from S or a fresh term
             
@@ -1362,25 +1387,23 @@ namespace lp {
 
         term_o create_term_from_ind_c() {
             term_o t;
-            for (const auto& p : m_indexed_work_vector) {
+            for (const auto& p : m_substitution_workspace.m_data) {
                 t.add_monomial(p.coeff(), p.var());
             }
             t.c() = m_c;
             return t;
         }
 
-        void fill_indexed_work_vector_from_term(const lar_term& lar_t) {
-            m_indexed_work_vector.clear();
-            m_indexed_work_vector.resize(m_e_matrix.column_count());
+        void init_substitutions(const lar_term& lar_t) {
+            m_substitution_workspace.clear();
             m_c = 0;
-            m_term_with_index.clear();
+            m_l_terms_workspace.clear();
             for (const auto& p : lar_t) {
                 SASSERT(p.coeff().is_int());
                 if (is_fixed(p.j()))
                     m_c += p.coeff() * lia.lower_bound(p.j()).x;
                 else
-                    m_indexed_work_vector.set_value(p.coeff(),
-                                                    lar_solver_to_local(p.j()));
+                    m_substitution_workspace.add(p.coeff(), lar_solver_to_local(p.j()));
             }
         }
         unsigned lar_solver_to_local(unsigned j) const {
@@ -1404,13 +1427,13 @@ namespace lp {
             }
             TRACE("dioph_eq", tout << "j:" << j << ", t: ";
                   print_lar_term_L(term_to_tighten, tout) << std::endl;);
-            fill_indexed_work_vector_from_term(term_to_tighten);
+            init_substitutions(term_to_tighten);
             TRACE("dioph_eq", tout << "t orig:";
                   print_lar_term_L(term_to_tighten, tout) << std::endl;
                   tout << "from ind:";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "m_tmp_l:";
-                  print_lar_term_L(m_term_with_index.to_term(), tout) << std::endl;);
+                  print_lar_term_L(m_l_terms_workspace.to_term(), tout) << std::endl;);
             subs_indexed_vector_with_S_and_fresh(q);
             // if(
             //     fix_vars(term_to_tighten + open_ml(m_tmp_l)) !=
@@ -1421,13 +1444,13 @@ namespace lp {
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "term_to_tighten:";
                   print_lar_term_L(term_to_tighten, tout) << std::endl;
-                  tout << "m_tmp_l:"; print_lar_term_L(m_term_with_index.to_term(), tout) << std::endl;
+                  tout << "m_tmp_l:"; print_lar_term_L(m_l_terms_workspace.to_term(), tout) << std::endl;
                   tout << "open_ml:";
-                  print_lar_term_L(open_ml(m_term_with_index.to_term()), tout) << std::endl;
+                  print_lar_term_L(open_ml(m_l_terms_workspace.to_term()), tout) << std::endl;
                   tout << "term_to_tighten + open_ml:";
-                  print_term_o(term_to_tighten + open_ml(m_term_with_index.to_term()), tout)
+                  print_term_o(term_to_tighten + open_ml(m_l_terms_workspace.to_term()), tout)
                   << std::endl;
-                  term_o ls = fix_vars(term_to_tighten + open_ml(m_term_with_index.to_term()));
+                  term_o ls = fix_vars(term_to_tighten + open_ml(m_l_terms_workspace.to_term()));
                   tout << "ls:"; print_term_o(ls,tout) << std::endl;
                   term_o rs = term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c()));
                   tout << "rs:"; print_term_o(rs, tout ) << std::endl;
@@ -1438,9 +1461,9 @@ namespace lp {
                 );
 
             SASSERT(
-                fix_vars(term_to_tighten + open_ml(m_term_with_index.to_term())) ==
+                fix_vars(term_to_tighten + open_ml(m_l_terms_workspace.to_term())) ==
                 term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c())));
-            mpq g = gcd_of_coeffs(m_indexed_work_vector, true);
+            mpq g = gcd_of_coeffs(m_substitution_workspace.m_data, true);
             TRACE("dioph_eq", tout << "after process_q_with_S\nt:";
                   print_term_o(create_term_from_ind_c(), tout) << std::endl;
                   tout << "g:" << g << std::endl;
@@ -1474,7 +1497,7 @@ namespace lp {
                 if (m_c > rs || (is_strict && m_c == rs)) {
                     u_dependency* dep =
                         lra.join_deps(explain_fixed(lra.get_term(j)),
-                                    explain_fixed_in_meta_term(m_term_with_index.m_data));
+                                    explain_fixed_in_meta_term(m_l_terms_workspace.m_data));
                     dep = lra.join_deps(
                         dep, lra.get_bound_constraint_witnesses_for_column(j));
                     for (constraint_index ci : lra.flatten(dep)) {
@@ -1487,7 +1510,7 @@ namespace lp {
                 if (m_c < rs || (is_strict && m_c == rs)) {
                     u_dependency* dep =
                         lra.join_deps(explain_fixed(lra.get_term(j)),
-                                    explain_fixed_in_meta_term(m_term_with_index.m_data));
+                                    explain_fixed_in_meta_term(m_l_terms_workspace.m_data));
                     dep = lra.join_deps(
                         dep, lra.get_bound_constraint_witnesses_for_column(j));
                     for (constraint_index ci : lra.flatten(dep)) {
@@ -1497,7 +1520,7 @@ namespace lp {
             }
         }
 
-        // m_indexed_work_vector contains the coefficients of the term
+        // m_work_vector_1 contains the coefficients of the term
         // m_c contains the constant term
         // m_tmp_l is the linear combination of the equations that removes the
         // substituted variables.
@@ -1542,7 +1565,7 @@ namespace lp {
             lconstraint_kind kind =
                 upper ? lconstraint_kind::LE : lconstraint_kind::GE;
             u_dependency* dep = prev_dep;
-            dep = lra.join_deps(dep, explain_fixed_in_meta_term(m_term_with_index.m_data));
+            dep = lra.join_deps(dep, explain_fixed_in_meta_term(m_l_terms_workspace.m_data));
             u_dependency* j_bound_dep = upper
                 ? lra.get_column_upper_bound_witness(j)
                 : lra.get_column_lower_bound_witness(j);
@@ -2192,21 +2215,15 @@ namespace lp {
             return r;
         }
 
-        void make_space_in_work_vector(unsigned j) {
-            if (j >= m_indexed_work_vector.data_size())
-                m_indexed_work_vector.resize(j + 1);
-        }
-
         void open_l_term_to_work_vector(unsigned ei, mpq& c) {
-            m_indexed_work_vector.clear();
+            m_substitution_workspace.clear();
             for (const auto & p: m_l_matrix.m_rows[ei]) {
                 const lar_term& t = lra.get_term(p.var());
                 for (const auto & q: t.ext_coeffs()) {
                     if (is_fixed(q.var())) {
                         c += p.coeff()*q.coeff()*lia.lower_bound(q.var()).x;
                     } else { 
-                        make_space_in_work_vector(q.var());
-                        m_indexed_work_vector.add_value_at_index(q.var(), p.coeff() * q.coeff());
+                        m_substitution_workspace.add(p.coeff() * q.coeff(), q.var());
                     }
                 }
             } 
@@ -2214,11 +2231,10 @@ namespace lp {
         
         // it clears the row, and puts the term in the work vector
         void move_row_to_work_vector(unsigned ei) {
-            m_indexed_work_vector.clear();
-            m_indexed_work_vector.resize(m_e_matrix.column_count());
+            m_substitution_workspace.clear();
             auto& row = m_e_matrix.m_rows[ei];
             for (const auto& cell : row)
-                m_indexed_work_vector.set_value(cell.coeff(), cell.var());
+                m_substitution_workspace.add(cell.coeff(), cell.var());
             clear_e_row(ei);
         }
 
