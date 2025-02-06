@@ -24,9 +24,10 @@
   -- m_k2s: when the variable k is substituted in the row s of m_e_matrix, the pair (k,s) is added to m_k2s.
      m_k2s is a one to one mapping.
   -- m_fresh_k2xt_terms: when a fresh definitions is created for a variable k, then the triple
-       (k,xt,t) is added to m_fresh_k2xt_terms, where xt is the fresh variable, and xt t it the term defining the substitution: something like k - xt + 5z + 6y = 0. 
+       (k,xt,t) is added to m_fresh_k2xt_terms, where xt is the fresh variable, and t it the term defining the substitution: something like k - xt + 5z + 6y = 0. 
      The set of pairs (k, xt) is a one to one mapping
-     m_fresh_definitions[i]: is the list of all xt that were defined for row m_e_matrix[i]
+     m_row2fresh_defs[i]: is the list of all xt that were defined for row m_e_matrix[i].
+         Invariant: Every xt in m_row2resh[i] must have a corresponding entry in m_fresh_k2xt_terms
      
   The mapping between the columns of lar_solver and m_e_matrix is controlled by m_var_register. 
   local_to_lar_solver(lar_solver_to_local(j)) == j. If local_to_lar_solver(j) == -1 
@@ -1940,6 +1941,16 @@ namespace lp {
                 }
             }
             
+            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++ ) {
+                auto it = m_row2fresh_defs.find(ei);
+                if (it != m_row2fresh_defs.end()) {
+                    for (unsigned xt: it->second)  {
+                        if (!m_fresh_k2xt_terms.has_second_key(xt))
+                            return false;
+                    } 
+                }
+            }
+
             return columns_to_terms_is_correct();
         }
 
@@ -2158,6 +2169,7 @@ namespace lp {
                         print_term_o(fix_vars(open_ml(m_l_matrix.m_rows[ei])), tout) << std::endl;
                     }
                 );
+            
             return ret;
         }
 
