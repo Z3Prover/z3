@@ -883,14 +883,7 @@ namespace lp {
             return lia.column_is_int(term.j());
             
         } 
-
-        void delete_column(unsigned j) {
-            SASSERT(j >= m_e_matrix.column_count());
-            SASSERT(m_k2s.has_key(j) == false);
-            SASSERT(m_k2s.has_val(j) == false);
-            SASSERT(m_columns_to_terms.find(j) == m_columns_to_terms.end());
-        }
-
+        
         void clear_e_row(unsigned ei) {
             auto & row = m_e_matrix.m_rows[ei];
             while (row.size() > 0) {
@@ -958,11 +951,7 @@ namespace lp {
         }
         
         void process_changed_columns() {
-            for (unsigned j : m_changed_columns) {
-                if (j >= this->lra.column_count()) {
-                    delete_column(j);
-                }
-            }
+            
             find_changed_terms_and_more_changed_rows();
             for (unsigned j : m_changed_terms) {
                 if (j >= m_l_matrix.column_count()) continue;
