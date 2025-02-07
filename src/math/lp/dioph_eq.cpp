@@ -1339,26 +1339,56 @@ namespace lp {
                 subs_front_in_indexed_vector(q);
         }
 
+        unsigned term_weight(const lar_term& t) const {
+            unsigned weight = 0;
+            for (const auto& p : t) {
+                // Get index j from coefficient
+                unsigned j = p.var();
+        
+                // Look up j in columns_to_terms map
+                auto it = m_columns_to_terms.find(j);
+                if (it != m_columns_to_terms.end())
+                    weight += static_cast<unsigned>(it->second.size());
+            }
+            return weight;
+        }
+
         lia_move tighten_terms_with_S() {
+            // Copy changed terms to another vector for sorting
+            std_vector<unsigned> sorted_changed_terms;
             std_vector<unsigned> cleanup;
-            lia_move ret = lia_move::undef;
             for (unsigned j : m_changed_terms) {
-                cleanup.push_back(j);
-                if (j >= lra.column_count()) continue;
-                if (!lra.column_has_term(j) || lra.column_is_free(j) ||
+                if ( 
+                    j >= lra.column_count() ||
+                    !lra.column_has_term(j) ||
+                    lra.column_is_free(j) ||
                     is_fixed(j) || !lia.column_is_int(j)) {
-                    continue;
-                }
+                        cleanup.push_back(j);
+                        continue;
+                    }
+                sorted_changed_terms.push_back(j);
+            }
+            // Sort by term_weight descending
+            std::sort(sorted_changed_terms.begin(), sorted_changed_terms.end(),
+                      [this](unsigned j1, unsigned j2) {
+                          return term_weight(lra.get_term(j1)) > term_weight(lra.get_term(j2));
+                      });
+
+            lia_move r = lia_move::undef;
+            // Process sorted terms
+            for (unsigned j : sorted_changed_terms) {
+                m_changed_terms.remove(j); 
+                
 
                 if (tighten_bounds_for_term_column(j)) {
-                    ret = lia_move::conflict;
+                    r = lia_move::conflict;
                     break;
                 }
             }
             for (unsigned j : cleanup) {
                 m_changed_terms.remove(j);
             }
-            return ret;
+            return r;
         }
 
         std::ostream& print_queue(std::queue<unsigned> q, std::ostream& out) {
