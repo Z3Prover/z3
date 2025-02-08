@@ -1348,7 +1348,7 @@ namespace lp {
                 // Look up j in columns_to_terms map
                 auto it = m_columns_to_terms.find(j);
                 if (it != m_columns_to_terms.end())
-                    weight += static_cast<unsigned>(it->second.size());
+                    weight = std::max(weight, static_cast<unsigned>(it->second.size()));
             }
             return weight;
         }
@@ -1371,7 +1371,7 @@ namespace lp {
             // Sort by term_weight descending
             std::sort(sorted_changed_terms.begin(), sorted_changed_terms.end(),
                       [this](unsigned j1, unsigned j2) {
-                          return term_weight(lra.get_term(j1)) > term_weight(lra.get_term(j2));
+                          return term_weight(lra.get_term(j1)) > term_weight(lra.get_term(j2) );
                       });
 
             lia_move r = lia_move::undef;
@@ -1603,8 +1603,8 @@ namespace lp {
         }
 
         lia_move process_f() {
-            while (rewrite_eqs()) {
-            }
+            while (rewrite_eqs()) {}
+            
             if (m_conflict_index != UINT_MAX) {
                 lra.stats().m_dio_rewrite_conflicts++;
                 return lia_move::conflict;
