@@ -2058,7 +2058,7 @@ namespace lp {
                 SASSERT(c.var() != ei && entry_invariant(c.var()));
                 mpq coeff = m_e_matrix.get_val(c);
                 unsigned i = c.var();
-                TRACE("dioph_eq", tout << "before pivot entry :";
+                TRACE("dioph_eq", tout << "before pivot entry:";
                       print_entry(i, tout) << std::endl;);
                 m_sum_of_fixed[i] -= j_sign * coeff * e;
                 m_e_matrix.pivot_row_to_row_given_cell_with_sign(ei, c, j, j_sign);
