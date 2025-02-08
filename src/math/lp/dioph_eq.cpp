@@ -1999,13 +1999,8 @@ namespace lp {
             }
         }
 
-
-        unsigned find_markovich_number(unsigned k) {
-            unsigned r = 0;
-            for (const auto & p: m_e_matrix.m_columns[k]) {
-                r += m_e_matrix.m_rows[p.var()].size();
-            }
-            return r;
+        unsigned find_markovich_number(unsigned k, unsigned h) {
+            return m_e_matrix.m_columns[k].size() * m_e_matrix.m_rows[h].size(); 
         }
         
         std::tuple<mpq, unsigned, int, unsigned> find_minimal_abs_coeff(unsigned ei) {
@@ -2026,8 +2021,9 @@ namespace lp {
                 }
             }
 
-            return std::make_tuple(ahk, k, k_sign, find_markovich_number(k));
+            return std::make_tuple(ahk, k, k_sign, find_markovich_number(k, ei));
         }
+
 
         term_o get_term_to_subst(const term_o& eh, unsigned k, int k_sign) {
             term_o t;
