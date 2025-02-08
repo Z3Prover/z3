@@ -1602,8 +1602,30 @@ namespace lp {
             return dep;
         }
 
+        void fill_f_vector(std_vector<unsigned> & f_vector) {
+            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
+                if (belongs_to_s(ei)) continue;
+                if (m_e_matrix.m_rows[ei].size() == 0) {
+                    if (m_sum_of_fixed[ei].is_zero()) {
+                        continue;
+                    } else {
+                        m_conflict_index = ei;
+                        return;
+                    }
+                }
+                f_vector.push_back(ei);
+            }
+        }
+        
         lia_move process_f() {
-            while (rewrite_eqs()) {}
+            std_vector<unsigned> f_vector;
+            fill_f_vector(f_vector);
+            if (m_conflict_index != UINT_MAX) {
+                lra.stats().m_dio_rewrite_conflicts++;
+                return lia_move::conflict;
+            }
+            
+            while (rewrite_eqs(f_vector)) {}
             
             if (m_conflict_index != UINT_MAX) {
                 lra.stats().m_dio_rewrite_conflicts++;
@@ -1977,7 +1999,16 @@ namespace lp {
             }
         }
 
-        std::tuple<mpq, unsigned, int> find_minimal_abs_coeff(unsigned ei) const {
+
+        unsigned find_markovich_number(unsigned k) {
+            unsigned r = 0;
+            for (const auto & p: m_e_matrix.m_columns[k]) {
+                r += m_e_matrix.m_rows[p.var()].size();
+            }
+            return r;
+        }
+        
+        std::tuple<mpq, unsigned, int, unsigned> find_minimal_abs_coeff(unsigned ei) {
             bool first = true;
             mpq ahk;
             unsigned k;
@@ -1995,7 +2026,7 @@ namespace lp {
                 }
             }
 
-            return std::make_tuple(ahk, k, k_sign);
+            return std::make_tuple(ahk, k, k_sign, find_markovich_number(k));
         }
 
         term_o get_term_to_subst(const term_o& eh, unsigned k, int k_sign) {
@@ -2322,14 +2353,19 @@ namespace lp {
 
         // this is the step 6 or 7 of the algorithm
         // returns true if an equlity was rewritten and false otherwise
-        bool rewrite_eqs() {
+        bool rewrite_eqs(std_vector<unsigned>& f_vector) {
+            if (f_vector.size() == 0)
+                return false;
             unsigned h = -1;
             unsigned n = 0;  // number of choices for a fresh variable
             mpq the_smallest_ahk;
             unsigned kh;
             int kh_sign;
-            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
-                if (belongs_to_s(ei)) continue;
+            unsigned h_markovich_number;
+            unsigned ih; // f_vector[ih] = h
+            for (unsigned i = 0; i < f_vector.size(); i++) {
+                unsigned ei = f_vector[i];
+                SASSERT (belongs_to_f(ei));
                 if (m_e_matrix.m_rows[ei].size() == 0) {
                     if (m_sum_of_fixed[ei].is_zero()) {
                         continue;
@@ -2339,45 +2375,45 @@ namespace lp {
                     }
                 }
 
-                auto [ahk, k, k_sign] = find_minimal_abs_coeff(ei);
-                if (ahk.is_one()) {
-                    TRACE("dioph_eq", tout << "push to S:\n"; print_entry(ei, tout););
-                    move_entry_from_f_to_s(k, ei);
-                    eliminate_var_in_f(ei, k, k_sign);
-                    return true;
-                }
+                auto [ahk, k, k_sign, markovich_number] = find_minimal_abs_coeff(ei);
                 mpq gcd;
                 if (!normalize_e_by_gcd(ei, gcd)) {
                     m_conflict_index = ei;
                     return false;
                 }
-                if (!gcd.is_one()) {
+                if (!gcd.is_one()) 
                     ahk /= gcd;
-                    if (ahk.is_one()) {
-                        TRACE("dioph_eq", tout << "push to S:\n"; print_entry(ei, tout););
-                        move_entry_from_f_to_s(k, ei);
-                        eliminate_var_in_f(ei, k, k_sign);
-                        return true;
-                    }
-                }
 
                 if (n == 0 || the_smallest_ahk > ahk) {
+                    ih = i;
                     n = 1;
                     the_smallest_ahk = ahk;
                     h = ei;
                     kh = k;
                     kh_sign = k_sign;
+                    h_markovich_number = markovich_number;
                     continue;
                 }
-                if (the_smallest_ahk == ahk && lra.settings().random_next() % (++n) == 0) {
+                if (the_smallest_ahk == ahk && h_markovich_number > markovich_number) {
+                    ih = i;
                     h = ei;
                     kh = k;
                     kh_sign = k_sign;
+                    h_markovich_number = markovich_number;
                 }
             }
             if (h == UINT_MAX) return false;
-            SASSERT(!the_smallest_ahk.is_one());
-            fresh_var_step(h, kh, the_smallest_ahk * mpq(kh_sign));
+            SASSERT(h == f_vector[ih]);
+            if (the_smallest_ahk.is_one()) {
+                TRACE("dioph_eq", tout << "push to S:\n"; print_entry(h, tout););
+                move_entry_from_f_to_s(kh, h);
+                eliminate_var_in_f(h, kh, kh_sign);
+                if (ih != f_vector.size() - 1) {
+                    f_vector[ih] = f_vector.back();
+                }
+                f_vector.pop_back();
+            } else                     
+                fresh_var_step(h, kh, the_smallest_ahk * mpq(kh_sign));
             return true;
         }
 
