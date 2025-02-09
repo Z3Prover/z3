@@ -1999,8 +1999,8 @@ namespace lp {
             }
         }
 
-        unsigned find_markovich_number(unsigned k, unsigned h) {
-            return m_e_matrix.m_columns[k].size() * m_e_matrix.m_rows[h].size(); 
+        unsigned get_markovich_number(unsigned k, unsigned h) {
+            return (m_e_matrix.m_columns[k].size() - 1) * (m_e_matrix.m_rows[h].size() - 1); 
         }
         
         std::tuple<mpq, unsigned, int, unsigned> find_minimal_abs_coeff(unsigned ei) {
@@ -2021,7 +2021,7 @@ namespace lp {
                 }
             }
 
-            return std::make_tuple(ahk, k, k_sign, find_markovich_number(k, ei));
+            return std::make_tuple(ahk, k, k_sign, get_markovich_number(k, ei));
         }
 
 
@@ -2354,7 +2354,7 @@ namespace lp {
                 return false;
             unsigned h = -1;
             unsigned n = 0;  // number of choices for a fresh variable
-            mpq the_smallest_ahk;
+            mpq min_ahk;
             unsigned kh;
             int kh_sign;
             unsigned h_markovich_number;
@@ -2380,27 +2380,29 @@ namespace lp {
                 if (!gcd.is_one()) 
                     ahk /= gcd;
 
-                if (n == 0 || the_smallest_ahk > ahk) {
+                if (n == 0 || min_ahk > ahk) {
                     ih = i;
                     n = 1;
-                    the_smallest_ahk = ahk;
+                    min_ahk = ahk;
                     h = ei;
                     kh = k;
                     kh_sign = k_sign;
                     h_markovich_number = markovich_number;
                     continue;
                 }
-                if (the_smallest_ahk == ahk && h_markovich_number > markovich_number) {
+                if (min_ahk == ahk && h_markovich_number > markovich_number) {
                     ih = i;
                     h = ei;
                     kh = k;
                     kh_sign = k_sign;
                     h_markovich_number = markovich_number;
                 }
+                if (min_ahk.is_one() && h_markovich_number == 0)
+                    break;
             }
             if (h == UINT_MAX) return false;
             SASSERT(h == f_vector[ih]);
-            if (the_smallest_ahk.is_one()) {
+            if (min_ahk.is_one()) {
                 TRACE("dioph_eq", tout << "push to S:\n"; print_entry(h, tout););
                 move_entry_from_f_to_s(kh, h);
                 eliminate_var_in_f(h, kh, kh_sign);
@@ -2409,7 +2411,7 @@ namespace lp {
                 }
                 f_vector.pop_back();
             } else                     
-                fresh_var_step(h, kh, the_smallest_ahk * mpq(kh_sign));
+                fresh_var_step(h, kh, min_ahk * mpq(kh_sign));
             return true;
         }
 
