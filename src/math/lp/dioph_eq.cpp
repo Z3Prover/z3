@@ -1354,25 +1354,41 @@ namespace lp {
         }
 
         lia_move tighten_terms_with_S() {
+            // Copy changed terms to another vector for sorting
+            std_vector<unsigned> sorted_changed_terms;
             std_vector<unsigned> cleanup;
-            lia_move ret = lia_move::undef;
             for (unsigned j : m_changed_terms) {
-                cleanup.push_back(j);
-                if (j >= lra.column_count()) continue;
-                if (!lra.column_has_term(j) || lra.column_is_free(j) ||
+                if ( 
+                    j >= lra.column_count() ||
+                    !lra.column_has_term(j) ||
+                    lra.column_is_free(j) ||
                     is_fixed(j) || !lia.column_is_int(j)) {
-                    continue;
-                }
+                        cleanup.push_back(j);
+                        continue;
+                    }
+                sorted_changed_terms.push_back(j);
+            }
+            // Sort by term_weight descending
+            std::sort(sorted_changed_terms.begin(), sorted_changed_terms.end(),
+                      [this](unsigned j1, unsigned j2) {
+                          return term_weight(lra.get_term(j1)) > term_weight(lra.get_term(j2) );
+                      });
 
-                if (tighten_bounds_for_term_column(j)) { 
-                    ret = lia_move::conflict;
+            lia_move r = lia_move::undef;
+            // Process sorted terms
+            for (unsigned j : sorted_changed_terms) {
+                m_changed_terms.remove(j); 
+                
+
+                if (tighten_bounds_for_term_column(j)) {
+                    r = lia_move::conflict;
                     break;
                 }
             }
-            for (unsigned j: cleanup) {
+            for (unsigned j : cleanup) {
                 m_changed_terms.remove(j);
             }
-            return ret;
+            return r;
         }
 
         std::ostream& print_queue(std::queue<unsigned> q, std::ostream& out) {
@@ -1983,8 +1999,8 @@ namespace lp {
             }
         }
 
-        unsigned markovich_number(unsigned k, unsigned h) {
-            return (unsigned) m_e_matrix.m_columns[k].size() * m_e_matrix.m_rows[h].size(); 
+        unsigned find_markovich_number(unsigned k, unsigned h) {
+            return m_e_matrix.m_columns[k].size() * m_e_matrix.m_rows[h].size(); 
         }
         
         std::tuple<mpq, unsigned, int, unsigned> find_minimal_abs_coeff(unsigned ei) {
@@ -2005,7 +2021,7 @@ namespace lp {
                 }
             }
 
-            return std::make_tuple(ahk, k, k_sign, markovich_number(k, ei));
+            return std::make_tuple(ahk, k, k_sign, find_markovich_number(k, ei));
         }
 
 
