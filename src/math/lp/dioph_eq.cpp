@@ -2306,7 +2306,7 @@ namespace lp {
 
         std::ostream& print_entry(unsigned i, std::ostream& out,
                                   bool print_dep = false) {
-            out << "m_sum_of_fixed[" << i << "]:";
+            out << "entry " << i << ":";
             out << "{\n";
             print_term_o(get_term_from_entry(i), out << "\tm_e:") << ",\n";
             // out << "\tstatus:" << (int)e.m_entry_status;
