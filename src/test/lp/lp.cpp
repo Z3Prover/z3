@@ -1704,7 +1704,9 @@ void test_dio() {
     //lp_assert(solver.get_status() == lp_status::OPTIMAL);
     enable_trace("dioph_eq");
     enable_trace("dioph_eq_fresh");
+#ifdef Z3DEBUG     
     auto r = i_solver.dio_test();
+#endif    
     
 }
 #ifdef Z3DEBUG
