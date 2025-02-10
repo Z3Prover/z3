@@ -22,12 +22,12 @@
   -- m_e_matrix: i-th row of this matrix keeps the term corresponding to
   -- m_l_matrix: the m_l_matrix[i] produces m_e_matrix[i] by using the terms definitions of lar_solver
   -- m_k2s: when the variable k is substituted in the row s of m_e_matrix, the pair (k,s) is added to m_k2s.
-     m_k2s is a one to one mapping.
+  m_k2s is a one to one mapping.
   -- m_fresh_k2xt_terms: when a fresh definitions is created for a variable k, then the triple
-       (k,xt,t) is added to m_fresh_k2xt_terms, where xt is the fresh variable, and t it the term defining the substitution: something like k - xt + 5z + 6y = 0.
-     The set of pairs (k, xt) is a one to one mapping
-     m_row2fresh_defs[i]: is the list of all xt that were defined for row m_e_matrix[i].
-         Invariant: Every xt in m_row2fresh[i] must have a corresponding entry in m_fresh_k2xt_terms
+  (k,xt,t) is added to m_fresh_k2xt_terms, where xt is the fresh variable, and t it the term defining the substitution: something like k - xt + 5z + 6y = 0.
+  The set of pairs (k, xt) is a one to one mapping
+  m_row2fresh_defs[i]: is the list of all xt that were defined for row m_e_matrix[i].
+  Invariant: Every xt in m_row2fresh[i] must have a corresponding entry in m_fresh_k2xt_terms
 
   The mapping between the columns of lar_solver and m_e_matrix is controlled by m_var_register.
   local_to_lar_solver(lar_solver_to_local(j)) == j. If local_to_lar_solver(j) == -1
@@ -182,7 +182,7 @@ namespace lp {
         class term_o : public lar_term {
             mpq m_c;
 
-           public:
+        public:
             term_o clone() const {
                 term_o ret;
                 for (const auto& p : *this) {
@@ -289,9 +289,11 @@ namespace lp {
             for (auto& [val, j] : sorted_term) {
                 if (first) {
                     first = false;
-                } else if (is_pos(val)) {
+                }
+                else if (is_pos(val)) {
                     out << " + ";
-                } else {
+                }
+                else {
                     out << " - ";
                     val = -val;
                 }
@@ -384,7 +386,8 @@ namespace lp {
                     // Insert a new monomial { a, j } into m_data
                     m_data.push_back({a, j});
                     m_index[j] = static_cast<int>(m_data.size() - 1);
-                } else {
+                }
+                else {
                     // Accumulate the coefficient
                     m_data[idx].coeff() += a;
                     // If the coefficient becomes zero, remove the entry
@@ -415,7 +418,8 @@ namespace lp {
                                 return false;
                             }
                         }
-                    } else {
+                    }
+                    else {
                         // Check that var() in m_data[idx] matches j
                         if (idx < 0 || static_cast<unsigned>(idx) >= m_data.size()) {
                             return false;
@@ -494,16 +498,16 @@ namespace lp {
             double score() const {
                 double avm_lefts =
                     m_ii_after_left.size()
-                        ? static_cast<double>(std::accumulate(
-                              m_ii_after_left.begin(), m_ii_after_left.end(), 0)) /
-                              m_ii_after_left.size()
-                        : std::numeric_limits<double>::infinity();
+                    ? static_cast<double>(std::accumulate(
+                                              m_ii_after_left.begin(), m_ii_after_left.end(), 0)) /
+                    m_ii_after_left.size()
+                    : std::numeric_limits<double>::infinity();
                 double avm_rights = m_ii_after_right.size()
-                                        ? static_cast<double>(std::accumulate(
+                    ? static_cast<double>(std::accumulate(
                                               m_ii_after_right.begin(),
                                               m_ii_after_right.end(), 0)) /
-                                              m_ii_after_right.size()
-                                        : std::numeric_limits<double>::infinity();
+                    m_ii_after_right.size()
+                    : std::numeric_limits<double>::infinity();
                 return std::min(avm_lefts, avm_rights);
             }
         };
@@ -726,7 +730,7 @@ namespace lp {
             lra.trail().push(undo);
         }
 
-       public:
+    public:
         imp(int_solver& lia, lar_solver& lra) : lia(lia), lra(lra) {
             lra.m_add_term_callback = [this](const lar_term* t) { add_term_callback(t); };
             lra.m_update_column_bound_callback = [this](unsigned j) { update_column_bound_callback(j); };
@@ -757,7 +761,8 @@ namespace lp {
 
                 if (it != m_columns_to_terms.end()) {
                     it->second.insert(t.j());
-                } else {
+                }
+                else {
                     std::unordered_set<unsigned> s;
                     s.insert(t.j());
                     m_columns_to_terms[p.var()] = s;
@@ -840,7 +845,8 @@ namespace lp {
                 if (alpha.is_zero()) continue;
                 if (m_k2s.has_key(j)) {
                     substitute_on_q_with_entry_in_S(q, ei, j, alpha);
-                } else {
+                }
+                else {
                     substitute_with_fresh_def(q, ei, j, alpha);
                 }
             }
@@ -1034,15 +1040,15 @@ namespace lp {
             /*
             // transpose fresh definitions
             for (auto & fd: m_fresh_definitions) {
-                if (fd.m_ei == i)
-                    fd.m_ei = k;
-                else if (fd.m_ei == k)
-                    fd.m_ei = i;
+            if (fd.m_ei == i)
+            fd.m_ei = k;
+            else if (fd.m_ei == k)
+            fd.m_ei = i;
 
-                if (fd.m_origin == i)
-                    fd.m_origin = k;
+            if (fd.m_origin == i)
+            fd.m_origin = k;
 
-                    }*/
+            }*/
         }
 
         // returns true if a variable j is substituted
@@ -1062,17 +1068,17 @@ namespace lp {
                     for (const auto& p : row) {
                         if (m_k2s.has_key(p.var())) {
                             /*
-                            std::cout << "entry:" << ei << " belongs to f but depends on column " << p.var() << std::endl;
-                            std::cout << "m_var_register.local_to_external(p.var()):" << m_var_register.local_to_external(p.var()) << std::endl;
-                            print_entry(ei, std::cout);
-                            std::cout << "column " << p.var() << " of m_e_matrix:";
-                            for (const auto & c : m_e_matrix.m_columns[p.var()]) {
-                                std::cout << "row:" << c.var() << ", ";
-                            }
+                              std::cout << "entry:" << ei << " belongs to f but depends on column " << p.var() << std::endl;
+                              std::cout << "m_var_register.local_to_external(p.var()):" << m_var_register.local_to_external(p.var()) << std::endl;
+                              print_entry(ei, std::cout);
+                              std::cout << "column " << p.var() << " of m_e_matrix:";
+                              for (const auto & c : m_e_matrix.m_columns[p.var()]) {
+                              std::cout << "row:" << c.var() << ", ";
+                              }
 
-                            std::cout << std::endl;
-                            std::cout << "column " << p.var() << " is subst by entry:";
-                            print_entry(m_k2s[p.var()],std::cout)  << std::endl;
+                              std::cout << std::endl;
+                              std::cout << "column " << p.var() << " is subst by entry:";
+                              print_entry(m_k2s[p.var()],std::cout)  << std::endl;
                             */
                             return false;
                         }
@@ -1151,8 +1157,8 @@ namespace lp {
             lia.is_upper() = true;
             m_report_branch = true;
             TRACE("dioph_eq", tout << "prepare branch:"; print_lar_term_L(t, tout)
-                                                         << " <= " << lia.offset()
-                                                         << std::endl;);
+                  << " <= " << lia.offset()
+                  << std::endl;);
         }
 
         // A conflict is reported when the gcd of the monomial coefficients does not divide the free coefficent.
@@ -1281,7 +1287,8 @@ namespace lp {
             SASSERT(can_substitute(k));
             if (is_substituted_by_fresh(k)) {
                 subs_front_in_indexed_vector_by_fresh(k, q);
-            } else {
+            }
+            else {
                 subs_front_in_indexed_vector_by_S(k, q);
             }
         }
@@ -1316,7 +1323,8 @@ namespace lp {
             for (const auto& p : t) {
                 if (is_fixed(p.var())) {
                     ret.c() += p.coeff() * this->lra.get_lower_bound(p.var()).x;
-                } else {
+                }
+                else {
                     ret.add_monomial(p.coeff(), p.var());
                 }
             }
@@ -1363,9 +1371,9 @@ namespace lp {
                     !lra.column_has_term(j) ||
                     lra.column_is_free(j) ||
                     is_fixed(j) || !lia.column_is_int(j)) {
-                        cleanup.push_back(j);
-                        continue;
-                    }
+                    cleanup.push_back(j);
+                    continue;
+                }
                 sorted_changed_terms.push_back(j);
             }
             // Sort by term_weight descending
@@ -1457,7 +1465,7 @@ namespace lp {
             //     enable_trace("dioph_eq");
 
             TRACE("dioph_eq_deb_subs", tout << "after subs\n"; print_term_o(create_term_from_ind_c(), tout) << std::endl; tout << "term_to_tighten:"; print_lar_term_L(term_to_tighten, tout) << std::endl; tout << "m_tmp_l:"; print_lar_term_L(m_l_terms_workspace.to_term(), tout) << std::endl; tout << "open_ml:"; print_lar_term_L(open_ml(m_l_terms_workspace.to_term()), tout) << std::endl; tout << "term_to_tighten + open_ml:"; print_term_o(term_to_tighten + open_ml(m_l_terms_workspace.to_term()), tout) << std::endl; term_o ls = fix_vars(term_to_tighten + open_ml(m_l_terms_workspace.to_term())); tout << "ls:"; print_term_o(ls, tout) << std::endl; term_o rs = term_to_lar_solver(remove_fresh_vars(create_term_from_ind_c())); tout << "rs:"; print_term_o(rs, tout) << std::endl; term_o diff = ls - rs; if (!diff.is_empty()) {
-                      tout << "diff:"; print_term_o(diff, tout ) << std::endl; });
+                    tout << "diff:"; print_term_o(diff, tout ) << std::endl; });
 
             SASSERT(
                 fix_vars(term_to_tighten + open_ml(m_l_terms_workspace.to_term())) ==
@@ -1476,7 +1484,7 @@ namespace lp {
             }
             // g is not trivial, trying to tighten the bounds
             return tighten_bounds_for_non_trivial_gcd(g, j, true) ||
-                   tighten_bounds_for_non_trivial_gcd(g, j, false);
+                tighten_bounds_for_non_trivial_gcd(g, j, false);
         }
 
         void get_expl_from_meta_term(const lar_term& t, explanation& ex) {
@@ -1533,7 +1541,7 @@ namespace lp {
 
             if (lra.has_bound_of_type(j, b_dep, rs, is_strict, is_upper)) {
                 TRACE("dioph_eq", tout << "current upper bound for x:" << j << ":"
-                                       << rs << std::endl;);
+                      << rs << std::endl;);
                 rs = (rs - m_c) / g;
                 TRACE("dioph_eq", tout << "(rs - m_c) / g:" << rs << std::endl;);
                 if (!rs.is_int()) {
@@ -1557,7 +1565,7 @@ namespace lp {
             mpq bound = g * (upper ? floor(ub) : ceil(ub)) + m_c;
             TRACE("dioph_eq", tout << "is upper:" << upper << std::endl;
                   tout << "new " << (upper ? "upper" : "lower")
-                       << " bound:" << bound << std::endl;);
+                  << " bound:" << bound << std::endl;);
 
             SASSERT((upper && bound < lra.get_upper_bound(j).x) ||
                     (!upper && bound > lra.get_lower_bound(j).x));
@@ -1566,8 +1574,8 @@ namespace lp {
             u_dependency* dep = prev_dep;
             dep = lra.join_deps(dep, explain_fixed_in_meta_term(m_l_terms_workspace.m_data));
             u_dependency* j_bound_dep = upper
-                                            ? lra.get_column_upper_bound_witness(j)
-                                            : lra.get_column_lower_bound_witness(j);
+                ? lra.get_column_upper_bound_witness(j)
+                : lra.get_column_lower_bound_witness(j);
             dep = lra.join_deps(dep, j_bound_dep);
             dep = lra.join_deps(dep, explain_fixed(lra.get_term(j)));
             dep =
@@ -1608,7 +1616,8 @@ namespace lp {
                 if (m_e_matrix.m_rows[ei].size() == 0) {
                     if (m_sum_of_fixed[ei].is_zero()) {
                         continue;
-                    } else {
+                    }
+                    else {
                         m_conflict_index = ei;
                         return;
                     }
@@ -1679,7 +1688,8 @@ namespace lp {
                 }
                 if (g.is_zero()) {
                     g = abs(p.coeff());
-                } else {
+                }
+                else {
                     g = gcd(g, p.coeff());
                 }
                 if (g.is_one()) return lia_move::undef;
@@ -1693,7 +1703,7 @@ namespace lp {
         lia_move fix_var(unsigned j) {
             SASSERT(is_fixed(local_to_lar_solver(j)));
             /*
-               We only can get a conflict when j is substituted, and the entry m_k2s[j], the entry defining the substitution  becomes infeaseable, that is the gcd of the monomial coeffitients does not divide the free coefficient. In other cases the gcd of the monomials will remain to be 1.
+              We only can get a conflict when j is substituted, and the entry m_k2s[j], the entry defining the substitution  becomes infeaseable, that is the gcd of the monomial coeffitients does not divide the free coefficient. In other cases the gcd of the monomials will remain to be 1.
             */
             if (m_k2s.has_key(j)) {  // j is substituted but using an entry
                 TRACE("dio_br",
@@ -1730,7 +1740,8 @@ namespace lp {
         lia_move add_var_bound_for_branch(const branch& b) {
             if (b.m_left) {
                 lra.add_var_bound(b.m_j, lconstraint_kind::LE, b.m_rs);
-            } else {
+            }
+            else {
                 lra.add_var_bound(b.m_j, lconstraint_kind::GE, b.m_rs + mpq(1));
             }
             TRACE("dio_br", lra.print_column_info(b.m_j, tout) << "add bound" << std::endl;);
@@ -1812,7 +1823,8 @@ namespace lp {
                     // got to create a new branch
                     update_branch_stats(m_branch_stack.back(), n_of_ii);
                     need_create_branch = true;
-                } else {
+                }
+                else {
                     if (st == lp_status::CANCELLED) return lia_move::undef;
                     collect_evidence();
                     undo_explored_branches();
@@ -1856,7 +1868,8 @@ namespace lp {
 
             if (b.m_left) {
                 m_branch_stats[b.m_j].m_ii_after_left.push_back(n_of_ii);
-            } else {
+            }
+            else {
                 m_branch_stats[b.m_j].m_ii_after_right.push_back(n_of_ii);
             }
         }
@@ -1896,7 +1909,7 @@ namespace lp {
             br.m_rs = floor(lra.get_column_value(bj).x);
 
             TRACE("dio_br", tout << "score:" << score << "; br.m_j:" << br.m_j << ","
-                                 << (br.m_left ? "left" : "right") << ", br.m_rs:" << br.m_rs << std::endl;);
+                  << (br.m_left ? "left" : "right") << ", br.m_rs:" << br.m_rs << std::endl;);
             return br;
         }
 
@@ -1913,7 +1926,8 @@ namespace lp {
                         std::unordered_set<unsigned> s;
                         s.insert(t->j());
                         c2t[j] = s;
-                    } else {
+                    }
+                    else {
                         it->second.insert(t->j());
                     }
                 }
@@ -1929,7 +1943,7 @@ namespace lp {
                 if (it->second != p.second) {
                     TRACE("dioph_eq_deb", tout << "m_columns_to_terms[" << j << "] has to be "; tout << "{"; for (unsigned lll : p.second) { tout << lll << ", "; } tout << "}, \nbut it is {"; for (unsigned lll : it->second) { tout << lll << ", "; }; tout << "}" << std::endl;
 
-                    );
+                        );
                     return false;
                 }
             }
@@ -1971,7 +1985,7 @@ namespace lp {
             return columns_to_terms_is_correct();
         }
 
-       public:
+    public:
         lia_move check() {
             lra.stats().m_dio_calls++;
             TRACE("dioph_eq", tout << lra.stats().m_dio_calls << std::endl;);
@@ -1992,7 +2006,7 @@ namespace lp {
             return lia_move::undef;
         }
 
-       private:
+    private:
         void add_operator(lar_term& t, const mpq& k, const lar_term& l) {
             for (const auto& p : l) {
                 t.add_monomial(k * p.coeff(), p.j());
@@ -2046,7 +2060,7 @@ namespace lp {
             auto it = std::find_if(row.begin(), row.end(), [j](const auto& p) { return p.var() == j; });
             if (it == row.end()) return false;
             return (it->coeff() == mpq(1) && j_sign == 1) ||
-                   (it->coeff() == mpq(-1) && j_sign == -1);
+                (it->coeff() == mpq(-1) && j_sign == -1);
         }
         // j is the variable to eliminate, or substitude, it appears in row ei of m_e_matrix with
         // a coefficient equal to j_sign which is +-1
@@ -2096,7 +2110,7 @@ namespace lp {
                 CTRACE(
                     "dioph_eq", !entry_invariant(i), tout << "invariant delta:"; {
                         print_term_o(get_term_from_entry(ei) -
-                                         fix_vars(open_ml(m_l_matrix.m_rows[ei])),
+                                     fix_vars(open_ml(m_l_matrix.m_rows[ei])),
                                      tout)
                             << std::endl;
                     });
@@ -2137,11 +2151,8 @@ namespace lp {
             for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
                 if (!belongs_to_f(ei)) continue;
                 const auto& row = m_e_matrix.m_rows[ei];
-                for (const auto& p : row) {
-                    if (p.var() == j) {
-                        return false;
-                    }
-                }
+                bool eliminated_in_row = all_of(row, [j](auto & p) { return p.var() != j; });
+                if (!eliminated_in_row) return false;
             }
             return true;
         }
@@ -2243,7 +2254,8 @@ namespace lp {
                 for (const auto& q : t.ext_coeffs()) {
                     if (is_fixed(q.var())) {
                         c += p.coeff() * q.coeff() * lia.lower_bound(q.var()).x;
-                    } else {
+                    }
+                    else {
                         m_substitution_workspace.add(p.coeff() * q.coeff(), q.var());
                     }
                 }
@@ -2266,7 +2278,8 @@ namespace lp {
             auto it = m_row2fresh_defs.find(h);
             if (it == m_row2fresh_defs.end()) {
                 m_row2fresh_defs[h].push_back(fr_j);
-            } else {
+            }
+            else {
                 it->second.push_back(fr_j);
             }
         }
@@ -2321,11 +2334,13 @@ namespace lp {
             }
             if (belongs_to_f(i)) {
                 out << "in F\n";
-            } else {
+            }
+            else {
                 unsigned j = m_k2s.get_key(i);
                 if (local_to_lar_solver(j) == UINT_MAX) {
                     out << "FRESH\n";
-                } else {
+                }
+                else {
                     out << "in S\n";
                 }
             }
@@ -2352,12 +2367,11 @@ namespace lp {
         bool rewrite_eqs(std_vector<unsigned>& f_vector) {
             if (f_vector.size() == 0)
                 return false;
-            unsigned h = -1;
+            unsigned h = -1, kh = 0; // the initial value of kh does not matter, assign to remove the warning
             unsigned n = 0;  // number of choices for a fresh variable
             mpq min_ahk;
-            unsigned kh;
-            int kh_sign;
-            unsigned h_markovich_number;
+            int kh_sign = 0; // the initial values of kh_sign and h_markovich_number do not matter, assign to remove the warning
+            unsigned h_markovich_number = 0;
             unsigned ih; // f_vector[ih] = h
             for (unsigned i = 0; i < f_vector.size(); i++) {
                 unsigned ei = f_vector[i];
@@ -2365,7 +2379,8 @@ namespace lp {
                 if (m_e_matrix.m_rows[ei].size() == 0) {
                     if (m_sum_of_fixed[ei].is_zero()) {
                         continue;
-                    } else {
+                    }
+                    else {
                         m_conflict_index = ei;
                         return false;
                     }
@@ -2410,12 +2425,13 @@ namespace lp {
                     f_vector[ih] = f_vector.back();
                 }
                 f_vector.pop_back();
-            } else                     
+            }
+            else                     
                 fresh_var_step(h, kh, min_ahk * mpq(kh_sign));
             return true;
         }
 
-       public:
+    public:
         void explain(explanation& ex) {
             if (m_conflict_index == UINT_MAX) {
                 for (auto ci : m_infeas_explanation) {
