@@ -476,7 +476,8 @@ public:
 
     void display_smt2(std::ostream & out, char const* module, param_descrs& descrs) const {
         for (params::entry const& e : m_entries) {
-            if (!descrs.contains(e.first)) continue;
+            if (!descrs.contains(e.first)) 
+                continue;
             out << "(set-option :";
             out << module << ".";        
             out << e.first;
@@ -504,6 +505,7 @@ public:
                 break;
             }
             out << ")\n";
+            out << "; " << descrs.get_descr(e.first) << "\n";
         }
     }
 

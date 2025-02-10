@@ -1902,6 +1902,11 @@ void cmd_context::display_model(model_ref& mdl) {
     }
 }
 
+void cmd_context::display_parameters(std::ostream& out) {
+    if (m_solver)
+        m_solver->display_parameters(out);
+}
+
 void cmd_context::add_declared_functions(model& mdl) {
     model_params p;
     if (!p.user_functions())

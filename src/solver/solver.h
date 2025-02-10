@@ -82,6 +82,11 @@ public:
     virtual void collect_param_descrs(param_descrs & r);
 
     /**
+    * \brief display parameters
+    */
+    std::ostream& display_parameters(std::ostream& out);
+
+    /**
        \brief Push a parameter state. It is restored upon pop.
        Only a single scope of push is supported.
     */

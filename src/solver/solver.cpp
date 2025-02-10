@@ -225,6 +225,18 @@ void solver::collect_param_descrs(param_descrs & r) {
     insert_ctrl_c(r);
 }
 
+std::ostream& solver::display_parameters(std::ostream& out) {
+    //
+    // this is a partial patch. 
+    // The modules should be present in 'p'.
+    // if p has smt parameters that are updated, they may be visible.
+    // parameters within sub-solvers will / may not be visible at this level.
+    //
+    auto const& p = get_params();
+    gparams::display_updated_parameters(out, p);
+    return out;
+}
+
 void solver::reset_params(params_ref const & p) {
     m_params.append(p);
     solver_params sp(m_params);
