@@ -497,7 +497,7 @@ namespace sls {
         else if (is_op(v) && m_allow_recursive_delta) 
             add_update(get_op(v), delta_out);        
         else if (vi.is_if_op() && m_allow_recursive_delta) {
-            expr* c, * t, * e;
+            expr* c = nullptr, * t = nullptr, * e = nullptr;
             VERIFY(m.is_ite(vi.m_expr, c, t, e));
             bool cond = ctx.is_true(c);
             if (cond)
@@ -540,7 +540,6 @@ namespace sls {
         num_t arg2 = value(od.m_arg2);
 
         if (arg2 != 0) {
-            num_t val = div(arg1, arg2);
             if (arg2 > 0)
                 add_update(od.m_arg1, delta * arg2);
             else if (arg2 < 0)
@@ -550,7 +549,6 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::add_update_mod(op_def const& od, num_t const& delta) {
-        num_t val = value(od.m_var);
         num_t arg1 = value(od.m_arg1);
         num_t arg2 = value(od.m_arg2);
         if (arg1 + delta >= 0 && arg1 + delta < arg2)

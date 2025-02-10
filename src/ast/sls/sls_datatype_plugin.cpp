@@ -310,6 +310,7 @@ namespace sls {
                 out << g->bpp(sib) << " ";
             out << " <- " << mk_bounded_pp(m_values.get(n->get_id()), m) << "\n";
         };
+        (void)trace_assignment;
         deps.topological_sort();
         expr_ref_vector args(m);
         euf::enode_vector leaves, worklist;
@@ -943,7 +944,7 @@ namespace sls {
         for (expr* b : m_occurs[f]) {
             if (b == e)
                 continue;
-            expr* a;
+            expr* a = nullptr;
             VERIFY(dt.is_accessor(b, a));
             auto v_a = eval0(a);
             if (v_a.get() == t) {
