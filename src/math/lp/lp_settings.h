@@ -251,7 +251,7 @@ private:
     bool             m_print_external_var_name = false;
     bool             m_propagate_eqs = false;
     bool             m_dio_eqs = false;
-    bool             m_dio_enable_gomory_cuts = true;
+    bool             m_dio_enable_gomory_cuts = false;
     bool             m_dio_enable_hnf_cuts = true;
     unsigned         m_dio_branching_period = 100; //  do branching rarere
 

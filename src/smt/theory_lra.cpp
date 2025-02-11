@@ -1911,7 +1911,6 @@ public:
             if (ctx().get_fparams().m_arith_ignore_int) 
                 return FC_GIVEUP;
             TRACE("arith", tout << "cut\n";);
-            ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
             reset_evidence();
             for (auto ev : m_explanation) {

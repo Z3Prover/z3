@@ -105,7 +105,7 @@ namespace lp_api {
         unsigned m_bound_propagations2;
         unsigned m_assert_diseq;
         unsigned m_assert_eq;
-        unsigned m_gomory_cuts;
+        unsigned m_cuts;
         unsigned m_assume_eqs;
         unsigned m_branch;
         unsigned m_bv_axioms;
@@ -126,7 +126,7 @@ namespace lp_api {
             st.update("arith-bound-propagations-cheap", m_bound_propagations2);
             st.update("arith-diseq", m_assert_diseq);
             st.update("arith-eq",    m_assert_eq);
-            st.update("arith-gomory-cuts", m_gomory_cuts);
+            st.update("arith-cuts", m_cuts);
             st.update("arith-assume-eqs", m_assume_eqs);
             st.update("arith-branch", m_branch);
             st.update("arith-bv-axioms", m_bv_axioms);
