@@ -60,7 +60,8 @@ namespace sls {
             else if ((!m_bool_mode && bool_in_unsat > 0 && time_up_arith) || vars_in_unsat == bool_in_unsat)
                 enter_bool_mode();
             if (m_bool_mode) {
-                bv = ctx.bool_flip();                 
+                bv = ctx.bool_flip();        
+
                 m_no_improve_bool = update_outer_best_solution() ? 0 : m_no_improve_bool + 1;
             }
             else {
@@ -69,6 +70,8 @@ namespace sls {
             }
             m_no_improve = update_best_solution() ? 0 : m_no_improve + 1;
 
+            (void)bv;
+            (void)v;
             TRACE("arith", 
                 if (bv != sat::null_bool_var) tout << "bool flip " << bv << "\n";
                 else if (v != null_arith_var) tout << "arith flip v" << v << "\n";

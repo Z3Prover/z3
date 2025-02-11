@@ -345,14 +345,12 @@ void proto_model::compress() {
 void proto_model::complete_partial_func(func_decl * f, bool use_fresh) {
     func_interp * fi = get_func_interp(f);
     if (fi && fi->is_partial()) {
-        expr * else_value;
-        if (use_fresh) {
+        expr * else_value = nullptr;
+        if (use_fresh)
             else_value = get_fresh_value(f->get_range());
-        }
-        else {
+        if (!else_value)
             else_value = fi->get_max_occ_result();
-        }
-        if (else_value == nullptr)
+        if (!else_value)
             else_value = get_some_value(f->get_range());
         fi->set_else(else_value);
     }

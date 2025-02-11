@@ -506,6 +506,7 @@ public:
     void display_assertions();
     void display_statistics(bool show_total_time = false, double total_time = 0.0);
     void display_dimacs();
+    void display_parameters(std::ostream& out);
     void reset(bool finalize = false);
     void assert_expr(expr * t);
     void assert_expr(symbol const & name, expr * t);

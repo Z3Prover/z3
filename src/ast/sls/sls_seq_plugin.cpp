@@ -575,7 +575,7 @@ namespace sls {
     }
 
     bool seq_plugin::repair_down_str_length(app* e) {
-        expr* x;
+        expr* x = nullptr;
         VERIFY(seq.str.is_length(e, x));
         expr_ref len = ctx.get_value(e);
         rational r;
@@ -603,7 +603,7 @@ namespace sls {
     }
 
     void seq_plugin::repair_up_str_stoi(app* e) {
-        expr* x;
+        expr* x = nullptr;
         VERIFY(seq.str.is_stoi(e, x));
 
         rational val_e;
@@ -622,7 +622,7 @@ namespace sls {
     }
 
     void seq_plugin::repair_up_str_itos(app* e) {
-        expr* x;
+        expr* x = nullptr;
         VERIFY(seq.str.is_itos(e, x));
         rational val_x;
         VERIFY(a.is_numeral(ctx.get_value(x), val_x));
@@ -670,7 +670,7 @@ namespace sls {
 
     bool seq_plugin::repair_down_str_eq(app* e) {
         bool is_true = ctx.is_true(e);
-        expr* x, * y;
+        expr* x = nullptr, * y = nullptr;
         VERIFY(m.is_eq(e, x, y));
         IF_VERBOSE(3, verbose_stream() << is_true << ": " << mk_bounded_pp(e, m, 3) << "\n");
         if (ctx.is_true(e)) {
@@ -1830,7 +1830,7 @@ namespace sls {
         expr_ref val(m);
         for (auto lit : ctx.unit_literals()) {
             auto e = ctx.atom(lit.var());
-            expr* x, * y, * z;
+            expr* x = nullptr, * y = nullptr, * z = nullptr;
             rational r;
             if (!lit.sign() && (a.is_le(e, x, y) || a.is_ge(e, y, x))) {
                 if (a.is_numeral(x, r) && r.is_unsigned() && seq.str.is_length(y, z)) {
@@ -2029,7 +2029,7 @@ namespace sls {
             if (m.is_eq(x, ))
         }
 #endif
-        expr* x, * y;
+        expr* x = nullptr, * y = nullptr;
         zstring s;
         if (seq.re.is_concat(r, x, y)) {
             auto info = seq.re.get_info(x);

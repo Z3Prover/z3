@@ -412,7 +412,7 @@ public:
         }
     }
 
-    std::string get_value(params_ref const & ps, std::string const & p) {
+    std::string get_value(params_ref const& ps, std::string const& p) {
         symbol sp(p.c_str());
         std::ostringstream buffer;
         ps.display(buffer, sp);
@@ -428,6 +428,19 @@ public:
         if (r == nullptr)
             return "default";
         return r;
+    }
+
+    void display_updated_parameters(std::ostream& out, params_ref const& p) {
+        param_descrs* d = nullptr;
+        for (auto const& [k, v] : m_module_params) {
+            if (!get_module_param_descr(k, d))
+                continue;
+            params_ref* ps = nullptr;
+            if (!m_module_params.find(k, ps))
+                continue;
+            ps->display_smt2(out, k, *d);
+            p.display_smt2(out, k, *d);
+        }
     }
 
     std::string get_value(char const * name) {
@@ -690,4 +703,8 @@ void gparams::finalize() {
 std::string& gparams::g_buffer() {
     SASSERT(g_imp);
     return g_imp->m_buffer;
+}
+
+void gparams::display_updated_parameters(std::ostream& out, params_ref const& p) {
+    g_imp->display_updated_parameters(out, p);
 }
