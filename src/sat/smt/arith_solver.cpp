@@ -1192,7 +1192,7 @@ namespace arith {
         }
         case lp::lia_move::cut: {
             TRACE("arith", tout << "cut\n";);
-            ++m_stats.m_gomory_cuts;
+            ++m_stats.m_cuts;
             // m_explanation implies term <= k
             reset_evidence();
             for (auto ev : m_explanation)
