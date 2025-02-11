@@ -339,22 +339,20 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
         ctx.mark_as_relevant(lit);
 
         m_lits.push_back(lit);
-        if (ctx.get_fparams().m_up_persist_clauses)
-            ctx.mk_th_axiom(get_id(), m_lits);
-        else
-            ctx.mk_th_lemma(get_id(), m_lits);
 
         if (ctx.get_fparams().m_up_persist_clauses) {
-            ctx.mk_th_axiom(get_id(), m_lits);
             expr_ref_vector clause(m);
-            for (auto lit : m_lits)
-                clause.push_back(ctx.literal2expr(lit));
+            for (auto l : m_lits)
+                clause.push_back(ctx.literal2expr(l));
             m_clauses_to_replay.push_back(clause);
-            if (m_replay_qhead + 1 < m_clauses_to_replay.size()) 
+            if (m_replay_qhead + 1 < m_clauses_to_replay.size())
                 std::swap(m_clauses_to_replay[m_replay_qhead], m_clauses_to_replay[m_clauses_to_replay.size()-1]);
             ctx.push_trail(value_trail<unsigned>(m_replay_qhead));
             ++m_replay_qhead;
+            ctx.mk_th_axiom(get_id(), m_lits);
         }
+        else
+            ctx.mk_th_lemma(get_id(), m_lits);
     }
     TRACE("user_propagate", ctx.display(tout););
     

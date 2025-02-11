@@ -1142,10 +1142,13 @@ namespace smt {
         for (unsigned i = 0; i < num_lits; i++) {
             literal curr = lits[i];
             lbool   val  = get_assignment(curr);
-            switch(val) {
+            switch (val) {
             case l_false:
                 TRACE("simplify_aux_clause_literals", display_literal_verbose(tout << get_assign_level(curr) << " " << get_scope_level() << " " << curr << ":", curr); tout << "\n"; );
-                simp_lits.push_back(~curr);
+                if (curr != prev) {
+                    prev = curr;
+                    simp_lits.push_back(~curr);
+                }
                 break; // ignore literal                
                 // fall through
             case l_undef:
