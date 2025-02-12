@@ -30,7 +30,10 @@ async function invokeLLMUpdate(code, inputFile) {
     let userMessage = `Please modify the original code to ensure that it enforces the following:
       - do not use pointer arithmetic.
       - do not introduce uses of std::vector.
-      - only make replacements that are compatible with the ones listed below.
+      - do not remove comments from the code.
+      - do not replace for loops over unsigned by for loops over 'auto'.
+      - keep comments in the same place. Please.
+      - only make replacements that are compatible with the ones listed next:
       - add white space between operators:
         For example:
              i=0 
