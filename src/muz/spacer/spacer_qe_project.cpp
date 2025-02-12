@@ -2070,7 +2070,8 @@ namespace spacer_qe {
          * update sub with val consts for sel terms
          */
         void ackermann (ptr_vector<app> const& sel_terms) {
-            if (sel_terms.empty ()) return;
+            if (sel_terms.empty ())
+                return;
 
             expr* v = sel_terms.get (0)->get_arg (0); // array variable
             sort* v_sort = v->get_sort ();
@@ -2118,10 +2119,19 @@ namespace spacer_qe {
             // sort reprs by their value and add a chain of strict inequalities
 
             unsigned num_reprs = m_idx_reprs.size () - start;
-            if (num_reprs == 0) return;
+            if (num_reprs == 0)
+                return;
 
-            SASSERT ((m_ari_u.is_real (idx_sort) || m_ari_u.is_int (idx_sort))
-                        && "Unsupported index sort: neither real nor int");
+            if (!m_ari_u.is_real(idx_sort) && !m_ari_u.is_int(idx_sort)) {
+                expr_ref_vector args(m);
+                for (unsigned i = start; i < m_idx_reprs.size(); ++i) 
+                    args.push_back(m_idx_reprs.get(i));
+                for (unsigned i = 0; i < args.size(); ++i)
+                    for (unsigned j = i + 1; j < args.size(); ++j)
+                        m_idx_lits.push_back(m.mk_not(m.mk_eq(args.get(i), args.get(j))));
+                return;
+            }
+
 
             // using insertion sort
             unsigned end = start + num_reprs;
@@ -2173,13 +2183,11 @@ namespace spacer_qe {
             collect_selects (fml);
 
             // model based ackermannization
-            sel_map::iterator begin = m_sel_terms.begin (),
-                              end = m_sel_terms.end ();
-            for (sel_map::iterator it = begin; it != end; it++) {
+            for (auto const& [key, value] : m_sel_terms) {
                 TRACE ("qe",
-                        tout << "ackermann for var: " << mk_pp (it->m_key, m) << "\n";
-                      );
-                ackermann (*(it->m_value));
+                       tout << "ackermann for var: " << mk_pp (key, m) << "\n";
+                       );
+                ackermann (*value);                
             }
 
             TRACE ("qe",
