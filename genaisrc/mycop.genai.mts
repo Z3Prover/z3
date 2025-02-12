@@ -47,12 +47,29 @@ async function invokeLLMUpdate(code, inputFile) {
         For example:
               { break; }
         by 
-              break;              
+              break;    
+        for example replace:
+            else { 
+               result = 0; 
+            }
+        by
+            else 
+                result = 0; 
+        for example replace:
+            if (a) { 
+                result = 0; 
+            }
+        by 
+            if (a) 
+                result = 0;  
+      - start else statements on a new line.       
       - replaces uses of for loops using begin(), end() iterator patterns by C++21 style for loops
         For example replace 
             for (auto it = x.begin(), end = x.end(); it != end; ++it) 
         by
-            for (auto & e : x) 
+            for (auto e : x) 
+        or 
+            for (auto const& e : x)
 
         For example, replace
             for (unsigned i = 0; i < a->get_num_args(); ++i) {
