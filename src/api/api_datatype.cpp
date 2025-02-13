@@ -604,7 +604,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_datatype_update_field(
+    Z3_ast Z3_API Z3_datatype_update_field(
         Z3_context c,  Z3_func_decl f, Z3_ast t, Z3_ast v) {
         Z3_TRY;
         LOG_Z3_datatype_update_field(c, f, t, v);

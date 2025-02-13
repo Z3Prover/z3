@@ -282,15 +282,15 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_mk_set_member(Z3_context c, Z3_ast elem, Z3_ast set) {
+    Z3_ast Z3_API Z3_mk_set_member(Z3_context c, Z3_ast elem, Z3_ast set) {
         return Z3_mk_select(c, set, elem);
     }
 
-    Z3_ast Z3_mk_set_add(Z3_context c, Z3_ast set, Z3_ast elem) {
+    Z3_ast Z3_API Z3_mk_set_add(Z3_context c, Z3_ast set, Z3_ast elem) {
         return Z3_mk_store(c, set, elem, Z3_mk_true(c));
     }
 
-    Z3_ast Z3_mk_set_del(Z3_context c, Z3_ast set, Z3_ast elem) {
+    Z3_ast Z3_API Z3_mk_set_del(Z3_context c, Z3_ast set, Z3_ast elem) {
         return Z3_mk_store(c, set, elem, Z3_mk_false(c));
     }
 

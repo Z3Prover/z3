@@ -518,7 +518,7 @@ extern "C" {
         }
     }
 
-    Z3_API char const * Z3_get_error_msg(Z3_context c, Z3_error_code err) {
+    Z3_string Z3_API Z3_get_error_msg(Z3_context c, Z3_error_code err) {
         LOG_Z3_get_error_msg(c, err);
         return _get_error_msg(c, err);
     }
