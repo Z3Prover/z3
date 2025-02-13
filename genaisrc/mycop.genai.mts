@@ -1,33 +1,21 @@
 
 script({
     title: "Invoke LLM code update",
+    files: "src/muz/spacer/spacer_qe_project.cpp"
 })
 
 
-async function runCodePrompt(role, message, code) {
+async function invokeLLMUpdate(code) {
     const answer = await runPrompt(
         (_) => {
-            _.def("ROLE", role);
-            _.def("REQUEST", message);
-            _.def("CODE", code);   
-            _.$`Your role is <ROLE>.
-            The request is given by <REQUEST> 
-            original code:
-            <CODE>.`
-        }
-    )
-    console.log(answer.text);
-    return answer.text;
-}
-
-async function invokeLLMUpdate(code, inputFile) {
-    
-    let role = `You are a highly experienced compiler engineer with over 20 years of expertise, 
+            _.def("CODE", code);
+            _.$`
+            You are a highly experienced compiler engineer with over 20 years of expertise, 
         specializing in C and C++ programming. Your deep knowledge of best coding practices 
         and software engineering principles enables you to produce robust, efficient, and 
-        maintainable code in any scenario.`;
+        maintainable code in any scenario.
 
-    let userMessage = `Please modify the original code to ensure that it enforces the following:
+        Please modify the original code in <CODE> to ensure that it enforces the following:
       - do not use pointer arithmetic.
       - do not introduce uses of std::vector.
       - do not remove comments from the code.
@@ -80,17 +68,21 @@ async function invokeLLMUpdate(code, inputFile) {
             for (auto arg : *a) {
                 ...
             }
-    `;
-
-    return runCodePrompt(role, userMessage, code);
+    `
+        }, {
+            system: [],
+            systemSafety: false
+        }
+    )
+    console.log(answer.text);
+    return answer.text;
 }
 
 
 const inputFile = env.files[0];
 const file = await workspace.readText(inputFile);
-const answer = await invokeLLMUpdate(file.content, inputFile);
+const answer = await invokeLLMUpdate(file.content);
 // Extract the code from the answer by removing ```cpp and ```:
 let code = answer.replace(/```cpp/g, "").replace(/```/g, "");
 const outputFile = inputFile.filename + ".patch";
 await workspace.writeText(outputFile, code);
-
