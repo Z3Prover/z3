@@ -369,7 +369,7 @@ extern "C" {
         Z3_CATCH_RETURN(-1);
     }
 
-    Z3_API char const * Z3_get_symbol_string(Z3_context c, Z3_symbol s) {
+    Z3_string Z3_API Z3_get_symbol_string(Z3_context c, Z3_symbol s) {
         Z3_TRY;
         LOG_Z3_get_symbol_string(c, s);
         RESET_ERROR_CODE();
@@ -714,7 +714,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_sort_kind Z3_get_sort_kind(Z3_context c, Z3_sort t) {
+    Z3_sort_kind Z3_API Z3_get_sort_kind(Z3_context c, Z3_sort t) {
         LOG_Z3_get_sort_kind(c, t);
         RESET_ERROR_CODE();
         CHECK_VALID_AST(t, Z3_UNKNOWN_SORT);
@@ -1019,7 +1019,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_API char const * Z3_ast_to_string(Z3_context c, Z3_ast a) {
+    Z3_string Z3_API Z3_ast_to_string(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_ast_to_string(c, a);
         RESET_ERROR_CODE();
@@ -1045,11 +1045,11 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_API char const * Z3_sort_to_string(Z3_context c, Z3_sort s) {
+    Z3_string Z3_API Z3_sort_to_string(Z3_context c, Z3_sort s) {
         return Z3_ast_to_string(c, reinterpret_cast<Z3_ast>(s));
     }
 
-    Z3_API char const * Z3_func_decl_to_string(Z3_context c, Z3_func_decl f) {
+    Z3_string Z3_API Z3_func_decl_to_string(Z3_context c, Z3_func_decl f) {
         return Z3_ast_to_string(c, reinterpret_cast<Z3_ast>(f));
     }
 
