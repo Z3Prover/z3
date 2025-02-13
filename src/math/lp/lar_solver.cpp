@@ -1371,7 +1371,7 @@ namespace lp {
         lp_assert(A_r().row_count() == i + 1 && A_r().column_count() == j + 1);
         auto& last_column = A_r().m_columns[j];
         int non_zero_column_cell_index = -1;
-        for (unsigned k = last_column.size(); k-- > 0;) {
+        for (unsigned k = static_cast<unsigned>(last_column.size()); k-- > 0;) {
             auto& cc = last_column[k];
             if (cc.var() == i)
                 return;
@@ -1395,7 +1395,7 @@ namespace lp {
         auto& last_row = A_r().m_rows[i];
         mpq& cost_j = m_mpq_lar_core_solver.m_r_solver.m_costs[j];
         bool cost_is_nz = !is_zero(cost_j);
-        for (unsigned k = last_row.size(); k-- > 0;) {
+        for (unsigned k = static_cast<unsigned>(last_row.size()); k-- > 0;) {
             auto& rc = last_row[k];
             if (cost_is_nz) {
                 m_mpq_lar_core_solver.m_r_solver.m_d[rc.var()] += cost_j * rc.coeff();

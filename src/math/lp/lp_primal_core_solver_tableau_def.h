@@ -201,7 +201,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     unsigned row_min_nz = this->m_n() + 1;
     m_leaving_candidates.clear();
     auto & col = this->m_A.m_columns[entering];
-    unsigned col_size = col.size();
+    unsigned col_size = static_cast<unsigned>(col.size());
     for (;k < col_size && unlimited; k++) {
         const column_cell & c = col[k];
         unsigned i = c.var();
@@ -211,7 +211,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         limit_theta_on_basis_column(j, - ed * m_sign_of_entering_delta, t, unlimited);
         if (!unlimited) {
             m_leaving_candidates.push_back(j);
-            row_min_nz = this->m_A.m_rows[i].size();
+            row_min_nz = static_cast<unsigned>(this->m_A.m_rows[i].size());
         }
     }
     if (unlimited) {
@@ -230,7 +230,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         unlimited = true;
         limit_theta_on_basis_column(j, -ed * m_sign_of_entering_delta, ratio, unlimited);
         if (unlimited) continue;
-        unsigned i_nz = this->m_A.m_rows[i].size();
+        unsigned i_nz = static_cast<unsigned>(this->m_A.m_rows[i].size());
         if (ratio < t) {
             t = ratio;
             m_leaving_candidates.clear();
@@ -239,7 +239,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         } else if (ratio == t && i_nz < row_min_nz) {
             m_leaving_candidates.clear();
             m_leaving_candidates.push_back(j);
-            row_min_nz = this->m_A.m_rows[i].size();
+            row_min_nz = static_cast<unsigned>(this->m_A.m_rows[i].size());
         } else if (ratio == t && i_nz == row_min_nz) {
             m_leaving_candidates.push_back(j);
         }

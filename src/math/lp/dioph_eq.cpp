@@ -2014,7 +2014,10 @@ namespace lp {
         }
 
         unsigned get_markovich_number(unsigned k, unsigned h) {
-            return (m_e_matrix.m_columns[k].size() - 1) * (m_e_matrix.m_rows[h].size() - 1); 
+            size_t col_size = m_e_matrix.m_columns[k].size(); 
+            size_t row_size = m_e_matrix.m_rows[h].size();
+            // Subtract 1 from sizes once and multiply
+            return static_cast<unsigned>((col_size - 1) * (row_size - 1));
         }
         
         std::tuple<mpq, unsigned, int, unsigned> find_minimal_abs_coeff(unsigned ei) {

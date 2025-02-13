@@ -208,10 +208,10 @@ namespace lp {
                         continue;
                 }
                 unsigned not_free = get_num_of_not_free_basic_dependent_vars(j, min_non_free_so_far, bj);
-                unsigned col_sz = this->m_A.m_columns[j].size();
+                unsigned col_sz = static_cast<unsigned>(this->m_A.m_columns[j].size());
                 if (not_free < min_non_free_so_far || (not_free == min_non_free_so_far && col_sz < best_col_sz)) {
                     min_non_free_so_far = not_free;
-                    best_col_sz = this->m_A.m_columns[j].size();
+                    best_col_sz = static_cast<unsigned>(this->m_A.m_columns[j].size());
                     choice = k;
                     nchoices = 1;
                 } 

@@ -347,7 +347,7 @@ public:
 
     void init_non_basic_part_of_basis_heading() {
         this->m_nbasis.clear();
-        for (int j = m_basis_heading.size(); j--;){
+        for (unsigned j = static_cast<unsigned>(m_basis_heading.size()); j--;){
             if (m_basis_heading[j] < 0) {
                 m_nbasis.push_back(j);
                 // the index of column j in m_nbasis is (- basis_heading[j] - 1)

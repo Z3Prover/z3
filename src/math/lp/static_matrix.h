@@ -2,9 +2,7 @@
 Copyright (c) 2017 Microsoft Corporation
 
 Author:
-
     Lev Nachmanson (levnach)
-
 --*/
 
 #pragma once
@@ -204,7 +202,7 @@ public:
     T get_elem(unsigned i, unsigned j) const;
 
 
-    unsigned number_of_non_zeroes_in_column(unsigned j) const { return m_columns[j].size(); }
+    unsigned number_of_non_zeroes_in_column(unsigned j) const { return static_cast<unsigned>(m_columns[j].size()); }
 
     unsigned number_of_non_zeroes_in_row(unsigned i) const { return m_rows[i].size(); }
 
@@ -257,7 +255,7 @@ public:
             if (m_stack.empty()) break;
             unsigned m = m_stack.top().m_m;
             while (m < row_count()) {
-                unsigned i = m_rows.size() -1 ;
+                unsigned i = static_cast<unsigned>(m_rows.size() -1);
                 auto & row = m_rows[i];
                 pop_row_columns(row);
                 m_rows.pop_back(); // delete the last row

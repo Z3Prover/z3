@@ -225,7 +225,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
 divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col) {
     int pivot_index = -1;
     auto & row = m_A.m_rows[pivot_row];
-    unsigned size = row.size();
+    unsigned size = static_cast<unsigned>(row.size());
     for (unsigned j = 0; j < size; j++) {
         auto & c = row[j];
         if (c.var() == pivot_col) {

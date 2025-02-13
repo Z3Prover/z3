@@ -57,7 +57,7 @@ namespace lp {
         auto & rowii = m_rows[ii];
         remove_element(rowii, rowii[c.offset()]);
         scan_row_strip_to_work_vector(rowii);
-        unsigned prev_size_ii = rowii.size();
+        unsigned prev_size_ii = static_cast<unsigned>(rowii.size());
         // run over the pivot row and update row ii
         for (const auto & iv : m_rows[i]) {
             unsigned j = iv.var();
@@ -78,7 +78,7 @@ namespace lp {
         }
 
         // remove zeroes
-        for (unsigned k = rowii.size(); k-- > 0;  ) {
+        for (unsigned k = static_cast<unsigned>(rowii.size()); k-- > 0;  ) {
             if (is_zero(rowii[k].coeff()))
                 remove_element(rowii, rowii[k]);
         }
@@ -90,7 +90,7 @@ namespace lp {
         lp_assert(i < row_count() && k < row_count() && i != k);
         auto & rowk = m_rows[k];
         scan_row_strip_to_work_vector(rowk);
-        unsigned prev_size_k = rowk.size();
+        unsigned prev_size_k = static_cast<unsigned>(rowk.size());
         // run over the pivot row and update row k
         for (const auto & iv : m_rows[i]) {
             unsigned j = iv.var();
@@ -109,7 +109,7 @@ namespace lp {
         }
 
         // remove zeroes
-        for (unsigned k = rowk.size(); k-- > 0;  ) {
+        for (unsigned k = static_cast<unsigned>(rowk.size()); k-- > 0;  ) {
             if (is_zero(rowk[k].coeff()))
                 remove_element(rowk, rowk[k]);
         }
@@ -126,7 +126,7 @@ namespace lp {
         auto & rowii = m_rows[ii];
         remove_element(rowii, rowii[c.offset()]);
         scan_row_strip_to_work_vector(rowii);
-        unsigned prev_size_ii = rowii.size();
+        unsigned prev_size_ii = static_cast<unsigned>(rowii.size());
         // run over the pivot row and update row ii
         for (const auto & iv : m_rows[piv_row_index]) {
             unsigned j = iv.var();
@@ -147,7 +147,7 @@ namespace lp {
         }
 
         // remove zeroes
-        for (unsigned k = rowii.size(); k-- > 0;  ) {
+        for (unsigned k = static_cast<unsigned>(rowii.size()); k-- > 0;  ) {
             if (is_zero(rowii[k].coeff()))
                 remove_element(rowii, rowii[k]);
         }
@@ -159,7 +159,7 @@ namespace lp {
     void static_matrix<T, X>::add_term_to_row(const mpq& alpha, TTerm const & term, unsigned ii) {
         auto & rowii = m_rows[ii];
         scan_row_strip_to_work_vector(rowii);
-        unsigned prev_size_ii = rowii.size();
+        unsigned prev_size_ii = static_cast<unsigned>(rowii.size());
         // run over the term and update row ii
         for (const auto & iv : term) {
             unsigned j = iv.var();
@@ -180,7 +180,7 @@ namespace lp {
         }
 
         // remove zeroes
-        for (unsigned k = rowii.size(); k-- > 0;  ) {
+        for (unsigned k = static_cast<unsigned>(rowii.size()); k-- > 0;  ) {
             if (is_zero(rowii[k].coeff()))
                 remove_element(rowii, rowii[k]);
         }
@@ -195,7 +195,7 @@ namespace lp {
         auto & rowii = m_rows[ii];
         remove_element(rowii, rowii[c.offset()]);
         scan_row_strip_to_work_vector(rowii);
-        unsigned prev_size_ii = rowii.size();
+        unsigned prev_size_ii = static_cast<unsigned>(rowii.size());
         // run over the pivot row and update row ii
         for (const auto & iv : term) {
             unsigned j = iv.var();
@@ -216,7 +216,7 @@ namespace lp {
         }
 
         // remove zeroes
-        for (unsigned k = rowii.size(); k-- > 0;  ) {
+        for (unsigned k = static_cast<unsigned>(rowii.size()); k-- > 0;  ) {
             if (is_zero(rowii[k].coeff()))
                 remove_element(rowii, rowii[k]);
         }
@@ -257,8 +257,8 @@ namespace lp {
         if (numeric_traits<T>::is_zero(val)) return;
         SASSERT(row < row_count() && col < column_count());
         auto & r = m_rows[row];
-        unsigned offs_in_cols = m_columns[col].size();
-        m_columns[col].push_back(make_column_cell(row, r.size()));
+        unsigned offs_in_cols = static_cast<unsigned>(m_columns[col].size());
+        m_columns[col].push_back(make_column_cell(row, static_cast<unsigned>(r.size())));
         r.push_back(make_row_cell(col, offs_in_cols, val));
     }
 
@@ -479,8 +479,8 @@ namespace lp {
     void static_matrix<T, X>::add_new_element(unsigned row, unsigned col, const T& val) {
         auto & row_vals = m_rows[row];
         auto & col_vals = m_columns[col];
-        unsigned row_el_offs = row_vals.size();
-        unsigned col_el_offs = col_vals.size();
+        unsigned row_el_offs = static_cast<unsigned>(row_vals.size());
+        unsigned col_el_offs = static_cast<unsigned>(col_vals.size());
         row_vals.push_back(row_cell<T>(col, col_el_offs, val));
         col_vals.push_back(column_cell(row, row_el_offs));
     }
