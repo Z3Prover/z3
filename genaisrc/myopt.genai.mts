@@ -30,5 +30,5 @@ const file = await workspace.readText(inputFile);
 const answer = await invokeLLMUpdate(file.content);
 // Extract the code from the answer by removing ```cpp and ```:
 let code = answer.replace(/```cpp/g, "").replace(/```/g, "");
-const outputFile = inputFile.filename + ".patch";
+const outputFile = inputFile.filename + ".opt";
 await workspace.writeText(outputFile, code);
