@@ -3111,6 +3111,16 @@ interface MD {
         frontmatter: any,
         format?: "yaml" | "json"
     ): string
+
+    /**
+     * Attempts to chunk markdown in text section in a way that does not splitting the heading structure.
+     * @param text
+     * @param options
+     */
+    chunk(
+        text: string | WorkspaceFile,
+        options?: { maxTokens?: number; model?: string }
+    ): Promise<TextChunk[]>
 }
 
 interface JSONL {
