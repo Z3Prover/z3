@@ -1,9 +1,7 @@
 script({
-    title: "Invoke LLM code update",
+    title: "Extract functions from files using treesitter",
     files: "src/muz/spacer/spacer_qe_project.cpp"
 })
-
-// return function names and source code of the functions 
 
 function get_functions(captures : QueryCapture[], code : string) {
     return captures.map(({ name, node }) => ({
