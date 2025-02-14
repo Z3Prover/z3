@@ -74,7 +74,11 @@ export async function mergeModifiedFunction(code: string, funs: { code: string, 
     return code;
 }
 
-async function canCompileCode(inputFile: WorkspaceFile, new_code: string) {
+class ShellOutputRef {
+    shellOutput: ShellOutput;
+}
+
+async function canCompileCode(inputFile: WorkspaceFile, new_code: string, result: ShellOutputRef) {
 
     //
     // move input file to a temp file
@@ -88,15 +92,47 @@ async function canCompileCode(inputFile: WorkspaceFile, new_code: string) {
     let old_code = inputFile.content;
     await workspace.writeText(tempFile, old_code);
     await workspace.writeText(inputFile.filename, new_code);
-    let result = await host.exec(`cmd /k "C:\Program\ Files/Microsoft\ Visual\ Studio/2022/Enterprise/Common7/Tools/VsDevCmd.bat" -arch=x64 & ninja`, { cwd: "build" });
+    result.shellOutput = await host.exec(`cmd /k "C:/Program\ Files/Microsoft\ Visual\ Studio/2022/Enterprise/Common7/Tools/VsDevCmd.bat" -arch=x64 & ninja`, { cwd: "build" });
     await workspace.writeText(inputFile.filename, old_code);
-    if (result.exitCode == 0) {
+    console.log(result.shellOutput.stdout);
+    console.log(result.shellOutput.stderr);
+    let has_failed = result.shellOutput.stdout.search("failed");
+    if (has_failed != -1) {
+        console.log("Failed to compile");
+        return false;
+    }
+    if (result.shellOutput.exitCode == 0) {
         await workspace.writeText(tempFile, new_code);
         return true;
     }
-    console.log(result.stderr);
     return false;
+}
 
+async function llmFixCompilerErrors(inputFile: WorkspaceFile, new_code: string, result: ShellOutput) {
+    let answer = await runPrompt(
+        (_) => {
+            _.def("CODE", new_code);
+            _.def("OUTPUT", result.stderr + result.stdout);
+            _.$`You are a highly experienced compiler engineer with over 20 years of expertise, 
+        specializing in C and C++ programming. Your deep knowledge of best coding practices 
+        and software engineering principles enables you to produce robust, efficient, and 
+        maintainable code in any scenario.
+
+        Please modify the original code in <CODE> to ensure that it compiles without any errors.
+        The compiler produced the output <OUTPUT> when building <CODE>.
+        `
+        }, {
+        system: [],
+        systemSafety: false
+    }
+    );
+    let new_code_input = answer.text;
+    let match_new_code = new_code_input.match(/```cpp([\s\S]*?)```/);
+    if (!match_new_code) {
+        console.log("Invalid new code");
+        return new_code;
+    }
+    return match_new_code[1];
 }
 
 export async function mergeCompileFunction(inputFile: WorkspaceFile, code: string, funs: { code: string, name: string }[], new_code_input: string) {
@@ -106,28 +142,36 @@ export async function mergeCompileFunction(inputFile: WorkspaceFile, code: strin
         return code;
     }
     let new_code = match_new_code[1];
+    let retry_count = 0;
 
-    let name = function_name_from_code(new_code);
-    let fun = funs.find(f => f.name == name);
+    while (retry_count < 2) {
+        let name = function_name_from_code(new_code);
+        let fun = funs.find(f => f.name == name);
 
-    if (!fun) {
-        console.log(`Function name '${name}' not found`);
-        console.log("Available functions: ");
-        for (const fun of funs)
-            console.log("'" + fun.name + "'");
-        console.log(new_code);
-        return code;
+        if (!fun) {
+            console.log(`Function name '${name}' not found`);
+            console.log("Available functions: ");
+            for (const fun of funs)
+                console.log("'" + fun.name + "'");
+            console.log(new_code);
+            return code;
+        }
+        console.log("Updated function: " + name);
+        let modified_code = code.replace(fun.code, new_code);
+        if (code == modified_code) {
+            console.log("No change in function: " + name);
+            return code;
+        }
+        let result = new ShellOutputRef();
+        let canCompile = await canCompileCode(inputFile, modified_code, result);
+        console.log("Can compile: " + canCompile);
+        if (canCompile)
+            return modified_code;
+        if (retry_count > 0)
+            break;
+        retry_count++;
+        new_code = await llmFixCompilerErrors(inputFile, new_code, result.shellOutput);
     }
-    console.log("Updated function: " + name);
-    let modified_code = code.replace(fun.code, new_code);
-    if (code == modified_code) {
-        console.log("No change in function: " + name);
-        return code;
-    }
-    let canCompile = await canCompileCode(inputFile, modified_code);
-    console.log("Can compile: " + canCompile);
-    if (canCompile)
-        return modified_code;
     return code;
 }
 
@@ -153,7 +197,13 @@ export async function invokeLLMOpt(code: string) {
         and software engineering principles enables you to produce robust, efficient, and 
         maintainable code in any scenario.
 
-        Please modify the original code in <CODE> to ensure that it uses best practices for optimal code execution.'    `
+        Please modify the original code in <CODE> to ensure that it uses best practices for optimal code execution.
+        
+        - do not use assert. Instead use SASSERT.
+        - do not change function signatures.
+        - do not use std::vector.
+        - do not add new comments.
+        - do not split functions into multiple functions.`
         }, {
         system: [],
         systemSafety: false
