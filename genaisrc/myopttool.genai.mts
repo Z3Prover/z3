@@ -15,4 +15,4 @@ for (const fun of funs) {
         new_code = await mergeCompileFunction(inputFile, new_code, funs, answer);
 }
 
-await workspace.writeText(inputFile.filename + "opt.cpp", new_code);
+await workspace.writeText(inputFile.filename + ".opt.cpp", new_code);

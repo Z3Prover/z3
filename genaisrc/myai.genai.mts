@@ -64,7 +64,7 @@ async function parseOptFunctions(inputFile: WorkspaceFile) {
 
 import * as fs from 'fs';
 
-export async function mergeModifiedFunction(code :string, funs : { code: string, name: string }[], new_code : string) {
+export async function mergeModifiedFunction(code: string, funs: { code: string, name: string }[], new_code: string) {
     let name = function_name_from_code(new_code);
     let fun = funs.find(f => f.name === name);
     if (fun) {
@@ -74,30 +74,32 @@ export async function mergeModifiedFunction(code :string, funs : { code: string,
     return code;
 }
 
-async function canCompileCode(inputFile : WorkspaceFile, code : string) {
+async function canCompileCode(inputFile: WorkspaceFile, new_code: string) {
 
+    //
     // move input file to a temp file
     // move code to the inputFile.filename
     // invoke ninja in the build directory: ninja -b build
     // move the temp file back to the original file
     // return true iff it succeeded
+    //
 
     let tempFile = inputFile.filename + ".tmp";
-    let original_content = inputFile.content;
-    await workspace.writeText(tempFile, inputFile.content);
-    await workspace.writeText(inputFile.filename, code);
+    let old_code = inputFile.content;
+    await workspace.writeText(tempFile, old_code);
+    await workspace.writeText(inputFile.filename, new_code);
     let result = await host.exec(`cmd /k "C:\Program\ Files/Microsoft\ Visual\ Studio/2022/Enterprise/Common7/Tools/VsDevCmd.bat" -arch=x64 & ninja`, { cwd: "build" });
-
-    // await fs.delete(tempFile);
-    if (result.exitCode !== 0) {
-        await workspace.writeText(inputFile.filename, original_content);
-        console.log(result.stderr);
-        return false;
+    await workspace.writeText(inputFile.filename, old_code);
+    if (result.exitCode == 0) {
+        await workspace.writeText(tempFile, new_code);
+        return true;
     }
-    return true;
+    console.log(result.stderr);
+    return false;
+
 }
 
-export async function mergeCompileFunction(inputFile : WorkspaceFile, code : string, funs : { code: string, name: string }[], new_code_input : string) {
+export async function mergeCompileFunction(inputFile: WorkspaceFile, code: string, funs: { code: string, name: string }[], new_code_input: string) {
     let match_new_code = new_code_input.match(/```cpp([\s\S]*?)```/);
     if (!match_new_code) {
         console.log("Invalid new code");
@@ -110,8 +112,10 @@ export async function mergeCompileFunction(inputFile : WorkspaceFile, code : str
 
     if (!fun) {
         console.log(`Function name '${name}' not found`);
-        for (const fun of funs) 
+        console.log("Available functions: ");
+        for (const fun of funs)
             console.log("'" + fun.name + "'");
+        console.log(new_code);
         return code;
     }
     console.log("Updated function: " + name);
@@ -122,15 +126,15 @@ export async function mergeCompileFunction(inputFile : WorkspaceFile, code : str
     }
     let canCompile = await canCompileCode(inputFile, modified_code);
     console.log("Can compile: " + canCompile);
-    if (canCompile) 
+    if (canCompile)
         return modified_code;
     return code;
 }
 
 export async function mergeFunctionsFromList(inputCode: string, funs: { code: string, name: string }[], modifiedFunctionList: string[]) {
     let code = inputCode;
-    for (const new_code of modifiedFunctionList) 
-        code = await mergeModifiedFunction(code, funs, new_code);    
+    for (const new_code of modifiedFunctionList)
+        code = await mergeModifiedFunction(code, funs, new_code);
     return code;
 }
 
@@ -140,7 +144,7 @@ export async function mergeFunctions(inputFile: WorkspaceFile) {
     return mergeFunctionsFromList(inputFile.content, funs, modifiedFunctionList);
 }
 
-export async function invokeLLMOpt(code : string) {
+export async function invokeLLMOpt(code: string) {
     const answer = await runPrompt(
         (_) => {
             _.def("CODE", code);
