@@ -1018,8 +1018,7 @@ void term_graph::to_lits(expr_ref_vector &lits, bool all_equalities,
 void term_graph::to_lits_qe_lite(expr_ref_vector &lits,
                                  std::function<bool(expr *)> *non_core) {
     DEBUG_CODE(for (auto t : m_terms) SASSERT(t->get_repr()););
-    DEBUG_CODE(for (auto t
-                    : m_terms)
+    DEBUG_CODE(for (auto t : m_terms)
                    SASSERT(!t->is_cgr() || t->get_repr()->is_cgr()););
     is_non_core not_in_core(non_core);
     check_pred contains_nc(not_in_core, m, false);

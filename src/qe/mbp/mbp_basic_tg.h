@@ -27,7 +27,7 @@ class mbp_basic_tg : public mbp_tg_plugin {
     struct impl;
     impl *m_impl;
 
-  public:
+public:
     mbp_basic_tg(ast_manager &man, mbp::term_graph &tg, model &mdl,
                  obj_hashtable<app> &vars_set, expr_sparse_mark &seen);
     // iterate through all terms in m_tg and apply all basic MBP rules once

@@ -32,10 +32,10 @@ Notes:
 #include "util/plugin_manager.h"
 
 namespace mbp {
-namespace is_ground_ns {
-struct proc;
-struct found;
-} // namespace is_ground_ns
+    namespace is_ground_ns {
+        struct proc;
+        struct found;
+    } // namespace is_ground_ns
 class term;
 
 class term_graph {
@@ -246,16 +246,16 @@ private:
     bool makes_cycle(term *t);
 };
 
-namespace is_ground_ns {
-struct found {};
-struct proc {
-    term_graph::is_variable_proc &m_is_var;
-    proc(term_graph::is_variable_proc &is_var) : m_is_var(is_var) {}
-    void operator()(var *n) const {}
-    void operator()(app const *n) const {
-        if (m_is_var.contains(n->get_decl())) throw found();
-    }
-    void operator()(quantifier *n) const {}
-};
-} // namespace is_ground_ns
+    namespace is_ground_ns {
+        struct found {};
+        struct proc {
+            term_graph::is_variable_proc &m_is_var;
+            proc(term_graph::is_variable_proc &is_var) : m_is_var(is_var) {}
+            void operator()(var *n) const {}
+            void operator()(app const *n) const {
+                if (m_is_var.contains(n->get_decl())) throw found();
+            }
+            void operator()(quantifier *n) const {}
+        };
+    } // namespace is_ground_ns
 } // namespace mbp

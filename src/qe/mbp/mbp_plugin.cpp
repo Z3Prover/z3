@@ -205,7 +205,7 @@ namespace mbp {
             else
                 extract_bools(eval, fmls, i, fml, true);
         }
-        TRACE("qe", tout << fmls << "\n";);
+        TRACE("qe", tout << "fmls: " << fmls << "\n";);
     }
 
     void project_plugin::extract_bools(model_evaluator& eval, expr_ref_vector& fmls, unsigned idx, expr* fml, bool is_true) {

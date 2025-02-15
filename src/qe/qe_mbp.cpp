@@ -37,6 +37,7 @@ Revision History:
 #include "qe/lite/qel.h"
 #include "qe/mbp/mbp_arith.h"
 #include "qe/mbp/mbp_arrays.h"
+#include "qe/mbp/mbp_euf.h"
 #include "qe/mbp/mbp_qel.h"
 #include "qe/mbp/mbp_datatypes.h"
 
@@ -352,6 +353,7 @@ public:
         add_plugin(alloc(mbp::arith_project_plugin, m));
         add_plugin(alloc(mbp::datatype_project_plugin, m));
         add_plugin(alloc(mbp::array_project_plugin, m));
+        add_plugin(alloc(mbp::euf_project_plugin, m));
         updt_params(p);
     }
 
@@ -392,17 +394,17 @@ public:
             flatten_and(fml, fmls);
         }
         else {
-        extract_literals(model, vars, fmls);
-        bool change = true;
-        while (change && !vars.empty()) {
-            change = solve(model, vars, fmls);
-            for (auto* p : m_plugins) {
-                if (p && p->solve(model, vars, fmls)) {
-                    change = true;
+            extract_literals(model, vars, fmls);
+            bool change = true;
+            while (change && !vars.empty()) {
+                change = solve(model, vars, fmls);
+                for (auto* p : m_plugins) {
+                    if (p && p->solve(model, vars, fmls)) {
+                        change = true;
+                    }
                 }
             }
         }
-    }
     }
 
     bool validate_model(model& model, expr_ref_vector const& fmls) {
@@ -419,24 +421,27 @@ public:
         return any_of(subterms::all(e), [&](expr* c) { return seq.is_char(c) || seq.is_seq(c); });
     }
     void operator()(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls, vector<mbp::def>* defs = nullptr) {
-            //don't use mbp_qel on some theories where model evaluation is
-            //incomplete This is not a limitation of qel. Fix this either by
-            //making mbp choices less dependent on the model evaluation methods
-            //or fix theory rewriters to make terms evaluation complete
-            if (m_use_qel && !has_unsupported_th(fmls) && !defs) {
-                bool dsub = m_dont_sub;
-                m_dont_sub = !force_elim;
-                expr_ref fml(m);
-                fml = mk_and(fmls);
-                spacer_qel(vars, model, fml);
-                fmls.reset();
-                flatten_and(fml, fmls);
-                m_dont_sub = dsub;
-            }
-            else {
-                mbp(force_elim, vars, model, fmls, defs);
-            }
+        //don't use mbp_qel on some theories where model evaluation is
+        //incomplete This is not a limitation of qel. Fix this either by
+        //making mbp choices less dependent on the model evaluation methods
+        //or fix theory rewriters to make terms evaluation complete
+        if (m_use_qel && !has_unsupported_th(fmls) && !defs) {
+            bool dsub = m_dont_sub;
+            m_dont_sub = !force_elim;
+            expr_ref fml(m);
+            fml = mk_and(fmls);
+            spacer_qel(vars, model, fml);
+            fmls.reset();
+            flatten_and(fml, fmls);
+            m_dont_sub = dsub;
+            TRACE("qe", tout << "spacer-qel " << vars << " " << fml << "\n");
         }
+        else {
+            mbp(force_elim, vars, model, fmls, defs);
+            TRACE("qe", tout << "mbp " << vars << " " << fmls << "\n";
+                  if (defs) { tout << "defs: "; for (auto const& d : *defs) tout << d << "\n"; tout << "\n";});
+        }
+    }
 
     void mbp(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls, vector<mbp::def>* defs) {
         SASSERT(validate_model(model, fmls));
@@ -444,9 +449,12 @@ public:
         app_ref var(m);
         expr_ref_vector unused_fmls(m);
         bool progress = true;
-        preprocess_solve(model, vars, fmls);
+        TRACE("qe", tout << "eliminate vars: " << vars << "fmls: " << fmls << "\n");
+        if (!defs)
+            preprocess_solve(model, vars, fmls);
         filter_variables(model, vars, fmls, unused_fmls);
         project_bools(model, vars, fmls);
+        TRACE("qe", tout << "eliminate vars: " << vars << "\nfmls: " << fmls << "\nunused: " << unused_fmls <<"\n");
         while (progress && !vars.empty() && !fmls.empty() && m.limit().inc()) {
             app_ref_vector new_vars(m);
             progress = false;
@@ -455,10 +463,12 @@ public:
                     unsigned sz = defs->size();
                     p->project(model, vars, fmls, *defs);
                     progress |= sz < defs->size();
+                    TRACE("qe", tout << "after project " << m.get_family_name(p->get_family_id()) << ": " << vars << "\n");
                 }
                 else if (p)
                     (*p)(model, vars, fmls);
             }
+            TRACE("qe", tout << "projecting " << vars << "\n");
             while (!vars.empty() && !fmls.empty() && !defs && m.limit().inc()) {
                 var = vars.back();
                 vars.pop_back();
@@ -491,16 +501,17 @@ public:
             if (!m.limit().inc())
                 return;
             vars.append(new_vars);
-            if (progress) {
+            if (progress && !defs) 
                 preprocess_solve(model, vars, fmls);
-            }
+            TRACE("qe", tout << "looping " << vars << "\n");
+            
         }
         if (fmls.empty()) {
             vars.reset();
         }
         fmls.append(unused_fmls);
         SASSERT(validate_model(model, fmls));
-        TRACE("qe", tout << vars << " " << fmls << "\n";);
+        TRACE("qe", tout << "vars: " << vars << "\nfmls: " << fmls << "\n";);
     }
 
     void do_qe_lite(app_ref_vector& vars, expr_ref& fml) {
@@ -529,16 +540,16 @@ public:
         fml = mk_and(fmls);
     }
 
-  void qel_project(app_ref_vector &vars, model &mdl, expr_ref &fml, bool reduce_all_selects) {
-      flatten_and(fml);
-      mbp::mbp_qel mbptg(m, m_params);
-      mbptg(vars, fml, mdl);
-      if (reduce_all_selects) rewrite_read_over_write(fml, mdl, fml);
-      m_rw(fml);
-      TRACE("qe", tout << "After mbp_tg:\n"
-            << fml << " models " << mdl.is_true(fml) << "\n"
-            << "Vars: " << vars << "\n";);
-  }
+    void qel_project(app_ref_vector &vars, model &mdl, expr_ref &fml, bool reduce_all_selects) {
+        flatten_and(fml);
+        mbp::mbp_qel mbptg(m, m_params);
+        mbptg(vars, fml, mdl);
+        if (reduce_all_selects) rewrite_read_over_write(fml, mdl, fml);
+        m_rw(fml);
+        TRACE("qe", tout << "After mbp_tg:\n"
+              << fml << " models " << mdl.is_true(fml) << "\n"
+              << "Vars: " << vars << "\n";);
+    }
 
     void spacer_qel(app_ref_vector& vars, model& mdl, expr_ref& fml) {
         TRACE("qe", tout << "Before projection:\n" << fml << "\n" << "Vars: " << vars << "\n";);
@@ -600,12 +611,11 @@ public:
     }
 
     void spacer(app_ref_vector& vars, model& mdl, expr_ref& fml) {
-        if (m_use_qel) {
+        TRACE("qe", tout << "spacer " << m_use_qel << " " << fml << " " << vars << "\n");
+        if (m_use_qel) 
             spacer_qel(vars, mdl, fml);
-        }
-        else {
+        else 
             spacer_qe_lite(vars, mdl, fml);
-        }
     }
 
     void spacer_qe_lite(app_ref_vector& vars, model& mdl, expr_ref& fml) {

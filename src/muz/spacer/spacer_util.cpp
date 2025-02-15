@@ -152,6 +152,7 @@ void qe_project_z3(ast_manager &m, app_ref_vector &vars, expr_ref &fml,
     params_ref p;
     p.set_bool("reduce_all_selects", reduce_all_selects);
     p.set_bool("dont_sub", dont_sub);
+    TRACE("qe", tout << "qe-project-z3\n");
 
     qe::mbproj mbp(m, p);
     mbp.spacer(vars, mdl, fml);
@@ -167,8 +168,7 @@ void qe_project_spacer(ast_manager &m, app_ref_vector &vars, expr_ref &fml,
                        bool dont_sub) {
     th_rewriter rw(m);
     TRACE("spacer_mbp", tout << "Before projection:\n"; tout << fml << "\n";
-          tout << "Vars:\n"
-               << vars;);
+          tout << "Vars:" << vars << "\n";);
 
     {
         // Ensure that top-level AND of fml is flat
@@ -182,6 +182,7 @@ void qe_project_spacer(ast_manager &m, app_ref_vector &vars, expr_ref &fml,
 
     app_ref_vector arith_vars(m);
     app_ref_vector array_vars(m);
+    app_ref_vector other_vars(m);
     array_util arr_u(m);
     arith_util ari_u(m);
     expr_safe_replace bool_sub(m);
@@ -194,8 +195,7 @@ void qe_project_spacer(ast_manager &m, app_ref_vector &vars, expr_ref &fml,
         rw(fml);
 
         TRACE("spacer_mbp", tout << "After qe_lite:\n";
-              tout << mk_pp(fml, m) << "\n"; tout << "Vars:\n"
-                                                  << vars;);
+              tout << mk_pp(fml, m) << "\nVars:" << vars << "\n";);
 
         SASSERT(!m.is_false(fml));
 
@@ -206,12 +206,13 @@ void qe_project_spacer(ast_manager &m, app_ref_vector &vars, expr_ref &fml,
                 // using model completion
                 model::scoped_model_completion _sc_(mdl, true);
                 bool_sub.insert(v, mdl(v));
-            } else if (arr_u.is_array(v)) {
-                array_vars.push_back(v);
-            } else {
-                SASSERT(ari_u.is_int(v) || ari_u.is_real(v));
-                arith_vars.push_back(v);
             }
+            else if (arr_u.is_array(v)) 
+                array_vars.push_back(v);
+            else if (ari_u.is_int(v) || ari_u.is_real(v)) 
+                arith_vars.push_back(v);
+            else
+                other_vars.push_back(v);
         }
 
         // substitute Booleans
@@ -220,8 +221,7 @@ void qe_project_spacer(ast_manager &m, app_ref_vector &vars, expr_ref &fml,
             // -- bool_sub is not simplifying
             rw(fml);
             SASSERT(!m.is_false(fml));
-            TRACE("spacer_mbp", tout << "Projected Booleans:\n"
-                                     << fml << "\n";);
+            TRACE("spacer_mbp", tout << "Projected Booleans:\n" << fml << "\n";);
             bool_sub.reset();
         }
 
@@ -230,7 +230,7 @@ void qe_project_spacer(ast_manager &m, app_ref_vector &vars, expr_ref &fml,
         vars.reset();
 
         // project arrays
-        {
+        if (!array_vars.empty()) {
             scoped_no_proof _sp(m);
             // -- local rewriter that is aware of current proof mode
             th_rewriter srw(m);
@@ -243,14 +243,15 @@ void qe_project_spacer(ast_manager &m, app_ref_vector &vars, expr_ref &fml,
 
         TRACE("spacer_mbp", tout << "extended model:\n"; model_pp(tout, mdl);
               tout << "Auxiliary variables of index and value sorts:\n";
-              tout << vars;);
+              tout << vars << "\n";);
 
-        if (vars.empty()) { break; }
+        if (vars.empty())
+            break;        
     }
 
     // project reals and ints
     if (!arith_vars.empty()) {
-        TRACE("spacer_mbp", tout << "Arith vars:\n" << arith_vars;);
+        TRACE("spacer_mbp", tout << "Arith vars:" << arith_vars << "\n";);
 
         if (use_native_mbp) {
             qe::mbproj mbp(m);
@@ -260,19 +261,19 @@ void qe_project_spacer(ast_manager &m, app_ref_vector &vars, expr_ref &fml,
             mbp(true, arith_vars, mdl, fmls);
             fml = mk_and(fmls);
             SASSERT(arith_vars.empty());
-        } else {
+        }
+        else {
             scoped_no_proof _sp(m);
             spacer_qe::arith_project(mdl, arith_vars, fml);
         }
 
-        TRACE("spacer_mbp", tout << "Projected arith vars:\n"
-                                 << fml << "\n";
-              tout << "Remaining arith vars:\n"
-                   << arith_vars << "\n";);
+        TRACE("spacer_mbp", tout << "Projected arith vars: "<< fml << "\n";
+              tout << "Remaining arith vars:" << arith_vars << "\n";);
         SASSERT(!m.is_false(fml));
     }
 
-    if (!arith_vars.empty()) { mbqi_project(mdl, arith_vars, fml); }
+    if (!arith_vars.empty())
+        mbqi_project(mdl, arith_vars, fml); 
 
     // substitute any remaining arith vars
     if (!dont_sub && !arith_vars.empty()) {
@@ -289,26 +290,30 @@ void qe_project_spacer(ast_manager &m, app_ref_vector &vars, expr_ref &fml,
                SASSERT(mev.is_true(fml)););
 
     vars.reset();
-    if (dont_sub && !arith_vars.empty()) { vars.append(arith_vars); }
+    vars.append(other_vars);
+    if (dont_sub && !arith_vars.empty())
+        vars.append(arith_vars);
+    TRACE("qe", tout << "after projection: " << fml << ": " << vars << "\n");
 }
 
 static expr *apply_accessor(ast_manager &m, ptr_vector<func_decl> const &acc,
                             unsigned j, func_decl *f, expr *c) {
-    if (is_app(c) && to_app(c)->get_decl() == f) {
+    if (is_app(c) && to_app(c)->get_decl() == f) 
         return to_app(c)->get_arg(j);
-    } else {
+    else 
         return m.mk_app(acc[j], c);
-    }
 }
 
 void qe_project(ast_manager &m, app_ref_vector &vars, expr_ref &fml, model &mdl,
                 bool reduce_all_selects, bool use_native_mbp, bool dont_sub) {
-    if (use_native_mbp)
-        qe_project_z3(m, vars, fml, mdl, reduce_all_selects, use_native_mbp,
-                      dont_sub);
-    else
+    if (!use_native_mbp) 
         qe_project_spacer(m, vars, fml, mdl, reduce_all_selects, use_native_mbp,
                           dont_sub);
+
+    if (!vars.empty())
+        qe_project_z3(m, vars, fml, mdl, reduce_all_selects, use_native_mbp,
+                      dont_sub);        
+
 }
 
 void expand_literals(ast_manager &m, expr_ref_vector &conjs) {
@@ -329,12 +334,14 @@ void expand_literals(ast_manager &m, expr_ref_vector &conjs) {
             conjs[i] = arith.mk_le(e1, e2);
             if (i + 1 == conjs.size()) {
                 conjs.push_back(arith.mk_ge(e1, e2));
-            } else {
+            }
+            else {
                 conjs.push_back(conjs[i + 1].get());
                 conjs[i + 1] = arith.mk_ge(e1, e2);
             }
             ++i;
-        } else if ((m.is_eq(e, c, val) && is_app(val) &&
+        }
+        else if ((m.is_eq(e, c, val) && is_app(val) &&
                     dt.is_constructor(to_app(val))) ||
                    (m.is_eq(e, val, c) && is_app(val) &&
                     dt.is_constructor(to_app(val)))) {
@@ -346,8 +353,9 @@ void expand_literals(ast_manager &m, expr_ref_vector &conjs) {
                 conjs.push_back(m.mk_eq(apply_accessor(m, acc, j, f, c),
                                         to_app(val)->get_arg(j)));
             }
-        } else if ((m.is_eq(e, c, val) && bv.is_numeral(val, r, bv_size)) ||
-                   (m.is_eq(e, val, c) && bv.is_numeral(val, r, bv_size))) {
+        }
+        else if ((m.is_eq(e, c, val) && bv.is_numeral(val, r, bv_size)) ||
+                 (m.is_eq(e, val, c) && bv.is_numeral(val, r, bv_size))) {
             rational two(2);
             for (unsigned j = 0; j < bv_size; ++j) {
                 parameter p(j);
@@ -355,11 +363,10 @@ void expand_literals(ast_manager &m, expr_ref_vector &conjs) {
                                   bv.mk_extract(j, j, c));
                 if ((r % two).is_zero()) { e = m.mk_not(e); }
                 r = div(r, two);
-                if (j == 0) {
+                if (j == 0) 
                     conjs[i] = e;
-                } else {
+                else 
                     conjs.push_back(e);
-                }
             }
         }
     }
