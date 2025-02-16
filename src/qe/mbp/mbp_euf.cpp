@@ -128,8 +128,6 @@ namespace mbp {
                     m_parents.insert_if_not_there(arg, {}).push_back(t);
             }
         }
-        for (auto [key, value] : m_reps)
-            verbose_stream() << mk_pp(key, m) << " -> " << mk_pp(value, m) << "\n";
         unsigned j = 0;
         bool solved = false;
         for (app* v : vars) {
@@ -204,7 +202,6 @@ namespace mbp {
         for (auto e : partition) {
             if (a == e)
                 continue;
-            verbose_stream() << "Unify " << mk_pp(a, m) << " with " << mk_pp(e, m) << "\n";
             if (!same_decl(a, e))
                 continue;
             app* b = to_app(e);
