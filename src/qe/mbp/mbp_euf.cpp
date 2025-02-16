@@ -214,7 +214,8 @@ namespace mbp {
                 expr* x = a->get_arg(i);
                 expr* y = b->get_arg(i);
                 todo.push_back({x, y});
-            }            
+            }
+            bool failed = false;
             while (!todo.empty()) {
                 auto [x, y] = todo.back();
                 todo.pop_back();
@@ -223,8 +224,10 @@ namespace mbp {
                 SASSERT(ry);
                 if (rx == ry) 
                     continue;
-                if (rx)
-                    break; // fail
+                if (rx) {
+                    failed = true;
+                    break;
+                }
                 if (m_parents[x].size() > 1)
                     // a crude safey hatch to preserve models
                     // we could require that every parent of x
@@ -233,16 +236,20 @@ namespace mbp {
                     break;
                 expr* s = nullptr;
                 if (soln.find(x, s)) {
-                    if (s != ry)
+                    if (s != ry) {
+                        failed = true;
                         break;
+                    }
                     continue;
                 }
                 if (is_var(x)) {
                     soln.insert(x, ry);
                     continue;
                 }
-                if (!same_decl(x, y))
+                if (!same_decl(x, y)) {
+                    failed = true;
                     break;
+                }
                 app* ax = to_app(x);
                 app* ay = to_app(y);
                 for (unsigned i = 0; i < ax->get_num_args(); ++i) 
@@ -257,7 +264,7 @@ namespace mbp {
                   );
 
 
-            if (todo.empty() && !soln.empty()) {
+            if (!failed && todo.empty() && !soln.empty()) {
                 for (auto [key, value] : soln) {
                     vars.erase(to_app(key));
                     defs.push_back( { expr_ref(key, m), expr_ref(value, m) });
