@@ -1086,7 +1086,7 @@ class term_graph::projector {
     u_map<expr *> m_root2rep;
     th_rewriter m_rewriter;
 
-    model_ref m_model;
+    model* m_model = nullptr;
     expr_ref_vector m_pinned; // tracks expr in the maps
 
     expr *mk_pure(term const &t) {
@@ -1454,7 +1454,7 @@ class term_graph::projector {
         m_term2app.reset();
         m_root2rep.reset();
         m_pinned.reset();
-        m_model.reset();
+        m_model = nullptr;
     }
 
     expr_ref_vector project() {

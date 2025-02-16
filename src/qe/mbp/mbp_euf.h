@@ -13,6 +13,7 @@ Copyright (c) 2025 Microsoft Corporation
 namespace mbp {
 
     class euf_project_plugin : public project_plugin {
+        void solve_eqs(model& model, app_ref_vector& vars, expr_ref_vector& lits, vector<def>& defs);
     public:
         euf_project_plugin(ast_manager& m);
         ~euf_project_plugin() override;

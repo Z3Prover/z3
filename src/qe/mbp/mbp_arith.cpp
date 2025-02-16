@@ -471,7 +471,7 @@ namespace mbp {
                     t = a.mk_idiv(t, a.mk_numeral(d.m_div, is_int));
                 else if (!d.m_div.is_one() && !is_int)
                     t = a.mk_div(t, a.mk_numeral(d.m_div, is_int));
-                result.push_back(def(expr_ref(x, m), t));
+                result.push_back({ expr_ref(x, m), t });
             }
         }
 
