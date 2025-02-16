@@ -1542,7 +1542,7 @@ void theory_seq::add_length(expr* l) {
 void theory_seq::init_length_limit_for_contains(expr* c) {
     if (ctx.is_searching())
         return;
-    expr* x, *y;
+    expr* x = nullptr, *y = nullptr;
     VERIFY(m_util.str.is_contains(c, x, y));
     unsigned min_y = m_util.str.min_length(y);
     if (min_y > 0) {

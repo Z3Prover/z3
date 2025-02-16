@@ -367,7 +367,7 @@ namespace q {
             TRACE("euf", tout << "replaced model value " << term << "\nfrom\n" << val << "\n");
             rep.insert(v, term);
             if (ctx.use_drat())
-                m_defs.push_back(mbp::def(expr_ref(v, m), term));
+                m_defs.push_back({expr_ref(v, m), term});
             eqs.push_back(m.mk_eq(v, val));
         }
         rep(fmls);
@@ -569,7 +569,7 @@ namespace q {
                     for (unsigned i = 0; i < binding.size(); ++i) {
                         expr_ref v(qb.vars.get(i), m);
                         expr_ref t(binding.get(i), m);
-                        m_defs.push_back(mbp::def(v, t));
+                        m_defs.push_back({v, t});                        
                     }
                 }
                 add_instantiation(q, body);

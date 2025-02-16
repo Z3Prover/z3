@@ -1937,7 +1937,6 @@ class array_project_selects_util {
                 todo.pop_back();
                 continue;
             }
-            unsigned num_args = a->get_num_args();
             bool all_done = true;
             for (auto arg : *a) {
                 if (!done.is_marked(arg) && is_app(arg)) {
@@ -1945,13 +1944,13 @@ class array_project_selects_util {
                     all_done = false;
                 }
             }
-            if (!all_done) continue;
+            if (!all_done)
+                continue;
             todo.pop_back();
             if (m_arr_u.is_select(a)) {
                 expr *arr = a->get_arg(0);
                 if (m_arr_test.is_marked(arr)) {
                     ptr_vector<app> *lst = m_sel_terms.find(to_app(arr));
-                    ;
                     lst->push_back(a);
                 }
             }

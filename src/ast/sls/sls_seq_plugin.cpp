@@ -414,7 +414,7 @@ namespace sls {
                 return ev.val1.svalue;
             }
             case OP_SEQ_EXTRACT: {
-                expr* x, * offset, * len;
+                expr* x = nullptr, * offset = nullptr, * len = nullptr;
                 VERIFY(seq.str.is_extract(e, x, offset, len));
                 zstring r = strval0(x);
                 expr_ref offset_e = ctx.get_value(offset);
@@ -449,7 +449,7 @@ namespace sls {
                 }
             }
             case OP_SEQ_REPLACE: {
-                expr* x, * y, * z;
+                expr* x = nullptr, * y = nullptr, * z = nullptr;
                 VERIFY(seq.str.is_replace(e, x, y, z));
                 zstring r = strval0(x);
                 zstring s = strval0(y);
@@ -458,7 +458,7 @@ namespace sls {
                 return ev.val1.svalue;
             }
             case OP_SEQ_REPLACE_ALL: {
-                expr* x, * y, * z;
+                expr* x = nullptr, * y = nullptr, * z = nullptr;
                 VERIFY(seq.str.is_replace_all(e, x, y, z));
                 zstring s1 = strval0(x);
                 zstring s2 = strval0(y);

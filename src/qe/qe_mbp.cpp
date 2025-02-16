@@ -487,7 +487,7 @@ public:
                 val = model(var);
                 sub.insert(var, val);
                 if (defs)
-                    defs->push_back(mbp::def(expr_ref(var, m), val));
+                    defs->push_back({expr_ref(var, m), val});
                 unsigned j = 0;
                 for (expr* f : fmls) {
                     sub(f, tmp);

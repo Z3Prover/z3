@@ -2472,7 +2472,7 @@ namespace qe {
             for_each_expr(p, fml);
             return false;
         }
-        catch (found) {
+        catch (found const&) {
             return true;
         }
     }

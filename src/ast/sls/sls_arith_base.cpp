@@ -536,9 +536,7 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::add_update_idiv(op_def const& od, num_t const& delta) {
-        num_t arg1 = value(od.m_arg1);
         num_t arg2 = value(od.m_arg2);
-
         if (arg2 != 0) {
             if (arg2 > 0)
                 add_update(od.m_arg1, delta * arg2);
