@@ -167,7 +167,7 @@ class term {
     };
     class_props m_class_props;
 
-  public:
+public:
     term(expr_ref const &v, u_map<term *> &app2term)
         : m_expr(v), m_root(this), m_repr(nullptr), m_next(this), m_mark(false),
           m_mark2(false), m_interpreted(false),
@@ -190,7 +190,7 @@ class term {
     class parents {
         term const &t;
 
-      public:
+    public:
         parents(term const &_t) : t(_t) {}
         parents(term const *_t) : t(*_t) {}
         ptr_vector<term>::const_iterator begin() const {
@@ -204,7 +204,7 @@ class term {
     class children {
         term const &t;
 
-      public:
+    public:
         children(term const &_t) : t(_t) {}
         children(term const *_t) : t(*_t) {}
         ptr_vector<term>::const_iterator begin() const {
@@ -577,8 +577,9 @@ term *term_graph::internalize_term(expr *t) {
     }
     merge_flush();
     SASSERT(res);
-    if (m.is_not(t) && is_app(to_app(t)->get_arg(0)) && is_partial_eq(to_app(to_app(t)->get_arg(0)))) {
-        term* p = get_term(to_app(t)->get_arg(0));
+    expr* arg = nullptr;
+    if (m.is_not(t, arg) && is_app(arg) && is_partial_eq(to_app(arg))) {
+        term* p = get_term(arg);
         SASSERT(p);
         p->set_npeq_child();
     }
@@ -879,8 +880,7 @@ void term_graph::pick_repr_class(term *t) {
 void term_graph::pick_repr() {
     // invalidates cache
     m_term2app.reset();
-    DEBUG_CODE(for (term *t
-                    : m_terms)
+    DEBUG_CODE(for (term *t : m_terms)
                    SASSERT(t->deg() == 0 || !t->all_children_ground() ||
                            t->is_cgr()););
     for (term *t : m_terms) t->reset_repr();
@@ -1090,25 +1090,27 @@ class term_graph::projector {
     expr_ref_vector m_pinned; // tracks expr in the maps
 
     expr *mk_pure(term const &t) {
-        TRACE("qe", t.display(tout););
+        TRACE("qe", t.display(tout));
         expr *e = nullptr;
-        if (find_term2app(t, e)) return e;
+        if (find_term2app(t, e))
+            return e;
         e = t.get_expr();
-        if (!is_app(e)) return nullptr;
+        if (!is_app(e))
+            return nullptr;
         app *a = ::to_app(e);
         expr_ref_buffer kids(m);
         for (term *ch : term::children(t)) {
             // prefer a node that resembles current child,
             // otherwise, pick a root representative, if present.
-            if (find_term2app(*ch, e)) { kids.push_back(e); }
-            else if (m_root2rep.find(ch->get_root().get_id(), e)) {
+            if (find_term2app(*ch, e))
+                kids.push_back(e); 
+            else if (m_root2rep.find(ch->get_root().get_id(), e)) 
                 kids.push_back(e);
-            }
-            else { return nullptr; }
+            else
+                return nullptr; 
             TRACE("qe_verbose", tout << *ch << " -> " << mk_pp(e, m) << "\n";);
         }
-        expr_ref pure =
-            m_rewriter.mk_app(a->get_decl(), kids.size(), kids.data());
+        expr_ref pure = m_rewriter.mk_app(a->get_decl(), kids.size(), kids.data());
         m_pinned.push_back(pure);
         add_term2app(t, pure);
         return pure;
@@ -1164,7 +1166,7 @@ class term_graph::projector {
         m_tg.reset_marks();
     }
 
-    bool find_app(term &t, expr *&res) {
+    bool find_app(term const &t, expr *&res) {
         return find_term2app(t, res) ||
                m_root2rep.find(t.get_root().get_id(), res);
     }
@@ -1177,9 +1179,9 @@ class term_graph::projector {
 
     void mk_lits(expr_ref_vector &res) {
         expr *e = nullptr;
-        for (auto *lit : m_tg.m_lits) {
-            if (!m.is_eq(lit) && find_app(lit, e)) res.push_back(e);
-        }
+        for (auto *lit : m_tg.m_lits) 
+            if (!m.is_eq(lit) && find_app(lit, e))
+                res.push_back(e);
         TRACE("qe", tout << "literals: " << res << "\n";);
     }
 
@@ -1219,12 +1221,12 @@ class term_graph::projector {
     }
 
     void remove_duplicates(expr_ref_vector &v) {
-        obj_hashtable<expr> seen;
+        expr_fast_mark1 seen;
         unsigned j = 0;
         for (expr *e : v) {
-            if (!seen.contains(e)) {
+            if (!seen.is_marked(e)) {
                 v[j++] = e;
-                seen.insert(e);
+                seen.mark(e);
             }
         }
         v.shrink(j);
@@ -1425,7 +1427,7 @@ class term_graph::projector {
         return out;
     }
 
-  public:
+public:
     projector(term_graph &tg)
         : m_tg(tg), m(m_tg.m), m_rewriter(m), m_pinned(m) {}
 
@@ -1439,9 +1441,9 @@ class term_graph::projector {
         return m_term2app.find(t.get_id(), r);
     }
 
-    expr *find_term2app(term const &t) {
+    expr* rep_of(term const &t) {
         expr *r = nullptr;
-        find_term2app(t, r);
+        find_app(t, r);
         return r;
     }
 
@@ -1709,11 +1711,11 @@ void term_graph::add_model_based_terms(model &mdl,
     m_projector->purify();
 }
 
-expr *term_graph::rep_of(expr *e) {
+expr* term_graph::rep_of(expr *e) {
     SASSERT(m_projector);
     term *t = get_term(e);
     SASSERT(t && "only get representatives");
-    return m_projector->find_term2app(*t);
+    return m_projector->rep_of(*t);    
 }
 
 expr_ref_vector term_graph::dcert(model &mdl, expr_ref_vector const &lits) {
@@ -1834,15 +1836,14 @@ void term_graph::cground_percolate_up(term *t) {
 }
 
 void term_graph::cground_percolate_up(ptr_vector<term> &todo) {
-    term *t;
-
     while (!todo.empty()) {
-        t = todo.back();
+        term* t = todo.back();
         todo.pop_back();
         t->set_cgr(true);
         t->set_class_gr(true);
         for (auto p : term::parents(t->get_root()))
-            if (!p->is_cgr() && p->all_children_ground()) todo.push_back(p);
+            if (!p->is_cgr() && p->all_children_ground())
+                todo.push_back(p);
     }
 }
 
@@ -1852,12 +1853,11 @@ void term_graph::compute_cground() {
         t->set_class_gr(false);
     }
     ptr_vector<term> todo;
-    for (auto t : m_terms) {
-        if (t->is_gr()) { todo.push_back(t); }
-    }
+    for (auto t : m_terms) 
+        if (t->is_gr())
+            todo.push_back(t); 
     cground_percolate_up(todo);
-    DEBUG_CODE(for (auto t
-                    : m_terms) {
+    DEBUG_CODE(for (auto t : m_terms) {
         bool isclsg = true;
         for (auto c : term::children(t)) isclsg &= c->is_class_gr();
         SASSERT(t->deg() == 0 || !isclsg || t->is_cgr());
