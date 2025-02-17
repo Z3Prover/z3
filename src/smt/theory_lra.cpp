@@ -3642,7 +3642,7 @@ public:
         term = a.mk_numeral(lp().get_value(j), a.is_int(n->get_expr()));
         reset_evidence();
         add_explain(j);
-        guard = extract_explain();
+        guard = mk_and(extract_explain());
     }
 
     void add_explain(unsigned j) {
@@ -3650,7 +3650,7 @@ public:
         set_evidence(d, m_core, m_eqs);
     }
 
-    expr_ref extract_explain() {
+    expr_ref_vector extract_explain() {
         expr_ref_vector es(m);
         for (auto [l, r] : m_eqs)
             es.push_back(a.mk_eq(l->get_expr(), r->get_expr()));
@@ -3665,32 +3665,34 @@ public:
             es[j++] = es.get(i);
         }
         es.shrink(j);
-        return mk_and(es);
+        return es;
     }
 
     void solve_term(enode* n, lp::lar_term & lt, expr_ref& term, expr_ref& guard) {
         bool is_int = a.is_int(n->get_expr());
         bool all_int = is_int;
         lp::lar_term t;
-        rational coeff(0);
+        rational coeff(0), lc(1);
         expr_ref_vector guards(m);
         reset_evidence();
+        // extract coeff
         for (auto const& cv : lt) {
+            all_int &= lp().column_is_int(cv.j());
             if (lp().column_is_fixed(cv.j())) {
                 coeff += lp().get_value(cv.j()) * cv.coeff();
                 add_explain(cv.j());
             }
-            else
+            else {
                 t.add_monomial(cv.coeff(), cv.j());
+                lc = lcm(denominator(cv.coeff()), lc);
+            }
         }
-        guards.push_back(extract_explain());
-        rational lc = denominator(coeff);
-        for (auto const& cv : t) {
-            lc = lcm(denominator(cv.coeff()), lc);
-            all_int &= lp().column_is_int(cv.j());
-        }
+        // extract lc
+        lc = lcm(lc, denominator(coeff));
+        
+        guards.append(extract_explain());
         if (lc != 1)
-            t *= lc, coeff *= lc;        
+            t *= lc, coeff *= lc;
         term = mk_term(t, is_int);
         if (coeff != 0)
             term = a.mk_add(term, a.mk_numeral(coeff, is_int));
@@ -3699,12 +3701,15 @@ public:
             guard = mk_and(guards);
             return;
         }
-        expr_ref lce(a.mk_numeral(lc, true), m);
+        expr_ref lce(a.mk_numeral(lc, is_int), m);
         if (all_int) 
             guards.push_back(m.mk_eq(a.mk_mod(term, lce), a.mk_int(0)));
         else if (is_int) 
             guards.push_back(a.mk_is_int(a.mk_div(term, lce)));
-        term = a.mk_idiv(term, lce);   
+        if (is_int)
+            term = a.mk_idiv(term, lce);
+        else
+            term = a.mk_div(term, lce);
         guard = mk_and(guards);
     }
 

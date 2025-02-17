@@ -684,6 +684,7 @@ namespace lp {
             return;
         tabu.insert(j);
         IF_VERBOSE(10, verbose_stream() << "solve for " << j << " base " << is_base(j) << " " << column_is_fixed(j) << "\n");
+        TRACE("arith", tout << "solve for " << j << " base " << is_base(j) << " " << column_is_fixed(j) << "\n");
         if (column_is_fixed(j)) 
             return;
         
@@ -711,7 +712,6 @@ namespace lp {
         lp::impq lo, hi;
         bool lo_valid = true, hi_valid = true;
         for (auto const& v : t) {
-
             if (v.coeff().is_pos()) {
                 if (lo_valid && column_has_lower_bound(v.j()))
                     lo += column_lower_bound(v.j()) * v.coeff();
@@ -756,7 +756,8 @@ namespace lp {
             update_column_type_and_bound(j, hi.y == 0 ? lconstraint_kind::LE : lconstraint_kind::LT, hi.x, dep);
         }
 
-        if (!column_is_fixed(j)) 
+        TRACE("arith", print_term(t, tout << "j" << j << " := ") << "\n");
+        if (!column_is_fixed(j))             
             sols.push_back({j, t});
     }
 
