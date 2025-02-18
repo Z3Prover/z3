@@ -4,16 +4,12 @@ Version 4.next
 ================
 - Planned features
   - sat.euf 
-    - a new CDCL core for SMT queries. It extends the SAT engine with theory solver plugins.
-      the current state is unstable. It lacks efficient ematching.
-  - polysat
-    - native word level bit-vector solving.
-  - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
+    - CDCL core for SMT queries. It extends the SAT engine with theory solver plugins.
+  - add global incremental pre-processing for the legacy core.
 
 Version 4.14.1
 ==============
 - Improved integer cut algorithms for linear integer arithmetic.
-
 
 Version 4.14.0
 ==============
