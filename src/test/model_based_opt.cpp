@@ -219,9 +219,10 @@ static void test4() {
     std::cout << "u: " << mbo.get_value(u) << "\n";
 }
 
-static void display_project(vector<opt::model_based_opt::def> const& defs) {
+static void display_project(vector<opt::model_based_opt::def_ref> const& defs) {
     for (auto const& d : defs) {
-        std::cout << d << "\n";
+        if (d)
+            std::cout << *d << "\n";
     }
 }
 
@@ -393,21 +394,23 @@ static void test11() {
 }
 
 static void test12() {
-    opt::model_based_opt::def d1, d2, d3, d4;
+    opt::model_based_opt::def_ref d1(nullptr), d2(nullptr), d3(nullptr), d4(nullptr);
     typedef opt::model_based_opt::var var;
-    d1.m_vars.push_back(var(1, rational(4)));
-    d1.m_vars.push_back(var(2, rational(3)));
-    d1.m_vars.push_back(var(3, rational(5)));
-    d1.m_coeff = rational(8);
-    d1.m_div = rational(7);
-    std::cout << d1 << "\n";
-    d2.m_vars.push_back(var(3, rational(2)));
-    d2.m_vars.push_back(var(4, rational(2)));
-    d2.m_div = rational(3);
-    d2.m_coeff = rational(5);
-    std::cout << d2 << "\n";
-    d1.substitute(2, d2);
-    std::cout << d1 << "\n";
+    d1 = alloc(opt::model_based_opt::var_def, var(1, rational(4)));
+    d1 = *d1 + *alloc(opt::model_based_opt::var_def, var(2, rational(3)));
+    d1 = *d1 + *alloc(opt::model_based_opt::var_def, var(3, rational(5)));
+    d1 = *d1 + rational(8);
+    d1 = *d1 / rational(7);
+    std::cout << *d1 << "\n";
+    d2 = alloc(opt::model_based_opt::var_def, var(3, rational(2)));
+    d2 = *d2 + *alloc(opt::model_based_opt::var_def, var(4, rational(2)));
+    d2 = *d2 + rational(5);
+    d2 = *d2 / rational(3);
+    d2 = *d2 / rational(3);
+
+    std::cout << *d2 << "\n";
+    d1 = d1->substitute(2, *d2);
+    std::cout << *d1 << "\n";
 }
 
 // test with mix of upper and lower bounds
