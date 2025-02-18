@@ -258,7 +258,7 @@ namespace mbp {
                 rational c0 = add_def(t1, mul1, coeffs);
                 tids.insert(t, mbo.add_div(coeffs, c0, mul1));
             }
-            else if (a.is_mod(t, t1, t2) && is_numeral(t2, mul1) && !mul1.is_zero()) {
+            else if (a.is_mod(t, t1, t2) && is_numeral(t2, mul1) && mul1 > 0) {
                 rational r;
                 val = eval(t);
                 if (!a.is_numeral(val, r)) {
@@ -417,7 +417,7 @@ namespace mbp {
             TRACE("qe", tout << "remaining vars: " << vars << "\n";
             for (unsigned v : real_vars) tout << "v" << v << " " << mk_pp(index2expr[v], m) << "\n";
             mbo.display(tout););
-            vector<opt::model_based_opt::def> defs = mbo.project(real_vars.size(), real_vars.data(), compute_def);
+            vector<opt::model_based_opt::def_ref> defs = mbo.project(real_vars.size(), real_vars.data(), compute_def);
 
 
             vector<row> rows;
@@ -431,7 +431,7 @@ namespace mbp {
             }
             rows2fmls(def_vars, rows, index2expr, fmls);
             TRACE("qe", mbo.display(tout << "mbo result\n");
-            for (auto const& d : defs) tout << "def: " << d << "\n";
+            for (auto const& d : defs) if (d) tout << "def: " << *d << "\n";
             tout << fmls << "\n";);
 
             if (compute_def)
@@ -448,29 +448,45 @@ namespace mbp {
             return true;
         }
 
-        void optdefs2mbpdef(u_map<row> const& def_vars, vector<opt::model_based_opt::def> const& defs, ptr_vector<expr> const& index2expr, unsigned_vector const& real_vars, vector<def>& result) {
+        expr_ref from_def(u_map<row> const& def_vars, opt::model_based_opt::def const& d, bool is_int, ptr_vector<expr> const& index2expr) {
+            if (d.is_add()) {
+                return expr_ref(
+                    a.mk_add(from_def(def_vars, *d.to_add().x, is_int, index2expr),
+                             from_def(def_vars, *d.to_add().y, is_int, index2expr)), m); 
+
+            }
+            if (d.is_mul()) {
+                return expr_ref(
+                    a.mk_mul(from_def(def_vars, *d.to_mul().x, is_int, index2expr),
+                        from_def(def_vars, *d.to_mul().y, is_int, index2expr)), m);
+            }
+            if (d.is_const()) 
+                return expr_ref(a.mk_numeral(d.to_const().c, is_int), m);
+            if (d.is_var()) {
+                auto t = id2expr(def_vars, index2expr, d.to_var().v.m_id);
+                if (d.to_var().v.m_coeff != 1)
+                    t = a.mk_mul(a.mk_numeral(d.to_var().v.m_coeff, is_int), t);
+                return expr_ref(t, m);
+            }
+            if (d.is_div()) {
+                auto t = from_def(def_vars, *d.to_div().x, is_int, index2expr);
+                if (is_int)
+                    t = a.mk_idiv(t, a.mk_numeral(d.to_div().m_div, is_int));
+                else
+                    t = a.mk_div(t, a.mk_numeral(d.to_div().m_div, is_int));
+                return expr_ref(t, m);
+            }
+            UNREACHABLE();
+            return expr_ref(nullptr, m);
+        }
+
+        void optdefs2mbpdef(u_map<row> const& def_vars, vector<opt::model_based_opt::def_ref> const& defs, ptr_vector<expr> const& index2expr, unsigned_vector const& real_vars, vector<def>& result) {
             SASSERT(defs.size() == real_vars.size());
             for (unsigned i = 0; i < defs.size(); ++i) {
                 auto const& d = defs[i];
                 expr* x = index2expr[real_vars[i]];
                 bool is_int = a.is_int(x);
-                expr_ref_vector ts(m);
-                expr_ref t(m);
-                for (var const& v : d.m_vars) {
-                    t = id2expr(def_vars, index2expr, v.m_id);
-                    if (v.m_coeff != 1)
-                        t = a.mk_mul(a.mk_numeral(v.m_coeff, a.is_int(t)), t);
-                    ts.push_back(t);
-                }
-                if (!d.m_coeff.is_zero())
-                    ts.push_back(a.mk_numeral(d.m_coeff, is_int));
-                if (ts.empty())
-                    ts.push_back(a.mk_numeral(rational(0), is_int));
-                t = mk_add(ts);
-                if (!d.m_div.is_one() && is_int)
-                    t = a.mk_idiv(t, a.mk_numeral(d.m_div, is_int));
-                else if (!d.m_div.is_one() && !is_int)
-                    t = a.mk_div(t, a.mk_numeral(d.m_div, is_int));
+                auto t = from_def(def_vars, *d, is_int, index2expr);
                 result.push_back({ expr_ref(x, m), t });
             }
         }

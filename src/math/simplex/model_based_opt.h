@@ -23,6 +23,7 @@ Revision History:
 #include "util/util.h"
 #include "util/rational.h"
 #include "util/inf_eps_rational.h"
+#include <variant>
 
 namespace opt {
    
@@ -58,6 +59,7 @@ namespace opt {
             bool operator!=(var const& other) const {
                 return !(*this == other);
             }
+            var operator*(rational const& c) const { return var(m_id, m_coeff * c); }
         };
         struct row {
             vector<var> m_vars;               // variables with coefficients
@@ -74,20 +76,94 @@ namespace opt {
             rational get_coefficient(unsigned x) const;
         };
 
-        // A definition is a linear term of the form (vars + coeff) / div 
+        // A definition is a linear term of the form (vars + coeff) / div
+        struct add_def;
+        struct mul_def;
+        struct div_def;
+        struct const_def;
+        struct var_def;
+        struct const_def;
+        enum def_t { add_t, mul_t, div_t, const_t, var_t};
         struct def {
             def() = default;
-            def(row const& r, unsigned x);
-            vector<var> m_vars;
-            rational    m_coeff;
-            rational    m_div{1};
-            def operator+(def const& other) const;
-            def operator/(unsigned n) const { return *this / rational(n); }
-            def operator/(rational const& n) const;
-            def operator*(rational const& n) const;
-            def operator+(rational const& n) const;
-            void substitute(unsigned v, def const& other);
-            void normalize();
+            static def* from_row(row const& r, unsigned x);           
+            def_t m_type;
+            unsigned m_ref_count = 0;
+            bool is_add() const { return m_type == add_t; }
+            bool is_mul() const { return m_type == mul_t; }
+            bool is_div() const { return m_type == div_t; }
+            bool is_const() const { return m_type == const_t; }
+            bool is_var() const { return m_type == var_t; }
+            void inc_ref() { ++m_ref_count; }
+            void dec_ref();
+            add_def& to_add();
+            mul_def& to_mul();
+            div_def& to_div();
+            const_def& to_const();
+            var_def& to_var();
+            add_def const& to_add() const;
+            mul_def const& to_mul() const;
+            div_def const& to_div() const;
+            const_def const& to_const() const;
+            var_def const& to_var() const;
+            def* operator+(def& other);
+            def* operator*(def& other);
+            def* operator/(unsigned n) { return *this / rational(n); }
+            def* operator/(rational const& n);
+            def* operator*(rational const& n);
+            def* operator+(rational const& n);
+            def* substitute(unsigned v, def& other);
+        };
+        class def_ref {
+            def* m_def = nullptr;
+        public:
+            def_ref(def* d) {
+                if (d) d->inc_ref();
+                m_def = d;
+            }
+            def_ref& operator=(def* d) {
+                if (d) d->inc_ref();
+                if (m_def) m_def->dec_ref();
+                m_def = d;
+                return *this;
+            }
+
+            def_ref& operator=(def_ref const& d) {
+                if (&d == this) 
+                    return *this;
+                if (d.m_def) d.m_def->inc_ref();
+                if (m_def) m_def->dec_ref();
+                m_def = d.m_def;
+                return *this;
+            }
+
+            def& operator*() { return *m_def; }
+            def* operator->() { return m_def; }
+            def const& operator*() const { return *m_def; }
+            operator bool() const { return !!m_def; }
+
+            ~def_ref() { if (m_def) m_def->dec_ref(); };
+        };
+        struct add_def : public def {
+            def* x, *y;
+            add_def(def* x, def* y) : x(x), y(y) { m_type = add_t;  x->inc_ref(); y->inc_ref(); }
+        };
+        struct mul_def : public def {
+            def* x, *y;
+            mul_def(def* x, def* y) : x(x), y(y) { m_type = mul_t;  x->inc_ref(); y->inc_ref(); }
+        };
+        struct div_def : public def {
+            def* x;
+            rational m_div{ 1 };
+            div_def(def* x, rational const& d) : x(x), m_div(d) { m_type = div_t; x->inc_ref(); }
+        };
+        struct var_def : public def {
+            var v;
+            var_def(var const& v) : v(v) { m_type = var_t; }
+        };
+        struct const_def : public def {
+            rational c;
+            const_def(rational const& c) : c(c) { m_type = const_t; }
         };
 
     private:
@@ -101,9 +177,9 @@ namespace opt {
         unsigned_vector         m_lub, m_glb, m_divides, m_mod, m_div;
         unsigned_vector         m_above, m_below;
         unsigned_vector         m_retired_rows;
-        vector<model_based_opt::def> m_result;
+        vector<model_based_opt::def_ref> m_result;
 
-        void eliminate(unsigned v, def const& d);
+        void eliminate(unsigned v, def& d);
         
         bool invariant();
         bool invariant(unsigned index, row const& r);
@@ -164,13 +240,13 @@ namespace opt {
 
         void update_value(unsigned x, rational const& val);
 
-        def project(unsigned var, bool compute_def);
+        def_ref project(unsigned var, bool compute_def);
 
-        def solve_for(unsigned row_id, unsigned x, bool compute_def);
+        def_ref solve_for(unsigned row_id, unsigned x, bool compute_def);
 
-        def solve_divides(unsigned x, unsigned_vector const& divide_rows, bool compute_def);
+        def_ref solve_divides(unsigned x, unsigned_vector const& divide_rows, bool compute_def);
 
-        def solve_mod_div(unsigned x, unsigned_vector const& mod_rows, unsigned_vector const& divide_rows, bool compute_def);
+        def_ref solve_mod_div(unsigned x, unsigned_vector const& mod_rows, unsigned_vector const& divide_rows, bool compute_def);
 
         bool is_int(unsigned x) const { return m_var2is_int[x]; }
 
@@ -219,7 +295,7 @@ namespace opt {
         // 
         // Project set of variables from inequalities.
         //
-        vector<def> project(unsigned num_vars, unsigned const* vars, bool compute_def);
+        vector<def_ref> project(unsigned num_vars, unsigned const* vars, bool compute_def);
 
         //
         // Extract current rows (after projection).
