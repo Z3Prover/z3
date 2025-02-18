@@ -10,7 +10,12 @@ Version 4.next
     - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
-Versoin 4.14.0
+Version 4.14.1
+==============
+- Improved integer cut algorithms for linear integer arithmetic.
+
+
+Version 4.14.0
 ==============
 - [SLS modulo theories](https://microsoft.github.io/z3guide/programming/Local%20Search/) engine v1 release.
 - API for accessing term [depth and groundness](https://github.com/Z3Prover/z3/pull/7479).
