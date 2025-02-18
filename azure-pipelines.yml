@@ -17,9 +17,10 @@ variables:
 # Disabled pending clang dependencies for std::unordered_map
 
 jobs:
-
+  
 - job: "LinuxPythonDebug"
   displayName: "Ubuntu build - python make - debug"
+  timeoutInMinutes: 90  
   pool:
     vmImage: "ubuntu-latest"
   strategy:
@@ -45,6 +46,7 @@ jobs:
 
 - job: "ManylinuxPythonBuildAmd64"
   displayName: "Python bindings (manylinux Centos AMD64) build"
+  timeoutInMinutes: 90  
   pool:
     vmImage: "ubuntu-latest"
   container: "quay.io/pypa/manylinux2014_x86_64:latest"
@@ -56,6 +58,7 @@ jobs:
   - script: "pip install ./src/api/python/wheelhouse/*.whl && python - <src/api/python/z3test.py z3 && python - <src/api/python/z3test.py z3num"
 
 - job: ManyLinuxPythonBuildArm64
+  timeoutInMinutes: 90
   displayName: "Python bindings (manylinux Centos ARM64 cross) build"
   variables:
     name: ManyLinux
@@ -78,6 +81,7 @@ jobs:
 
 - job: "UbuntuOCaml"
   displayName: "Ubuntu with OCaml"
+  timeoutInMinutes: 90  
   pool:
     vmImage: "Ubuntu-latest"
   steps:
@@ -101,6 +105,7 @@ jobs:
 
 - job: "UbuntuOCamlStatic"
   displayName: "Ubuntu with OCaml on z3-static"
+  timeoutInMinutes: 90  
   pool:
     vmImage: "Ubuntu-latest"
   steps:
@@ -133,6 +138,7 @@ jobs:
 
 - job: "LinuxMSan"
   displayName: "Ubuntu build - cmake"
+  timeoutInMinutes: 90
   condition: eq(0,1) 
   pool:
     vmImage: "ubuntu-latest"
@@ -167,6 +173,7 @@ jobs:
   
 - job: "UbuntuCMake"
   displayName: "Ubuntu build - cmake"
+  timeoutInMinutes: 90
   pool:
     vmImage: "ubuntu-latest"
   strategy:
@@ -220,6 +227,7 @@ jobs:
          
 - job: "MacOSPython"
   displayName: "MacOS build"
+  timeoutInMinutes: 90  
   pool:
     vmImage: "macOS-latest"
   steps:
@@ -241,6 +249,7 @@ jobs:
 
 - job: "MacOSCMake"
   displayName: "MacOS build with CMake"
+  timeoutInMinutes: 90  
   pool:
     vmImage: "macOS-latest"
   steps:
@@ -264,6 +273,7 @@ jobs:
 
 - job: "MacOSOCaml"
   displayName: "MacOS build with OCaml"
+  timeoutInMinutes: 90  
   condition: eq(0,1) 
   pool:
     vmImage: "macOS-latest"
