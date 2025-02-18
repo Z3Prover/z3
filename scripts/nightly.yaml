@@ -11,6 +11,7 @@ stages:
   jobs:
   - job: MacBuild
     displayName: "Mac Build"
+    timeoutInMinutes: 90
     pool:
       vmImage: "macOS-13"
     steps:
@@ -53,6 +54,7 @@ stages:
 
   - job: UbuntuBuild
     displayName: "Ubuntu build"
+    timeoutInMinutes: 90    
     pool:
       vmImage: "ubuntu-latest"
     steps:
@@ -82,6 +84,7 @@ stages:
 
   - job: UbuntuArm64
     displayName: "Ubuntu ARM64 build"
+    timeoutInMinutes: 90    
     pool:
       vmImage: "ubuntu-latest"
     steps:
@@ -105,6 +108,7 @@ stages:
 
   - job: UbuntuDoc
     displayName: "Ubuntu Doc build"
+    timeoutInMinutes: 90    
     pool:
       vmImage: "ubuntu-latest"
     steps:
@@ -142,6 +146,7 @@ stages:
 
   - job: "ManylinuxPythonBuildAmd64"
     displayName: "Python bindings (manylinux Centos AMD64) build"
+    timeoutInMinutes: 90    
     pool:
       vmImage: "ubuntu-latest"
     container: "quay.io/pypa/manylinux2014_x86_64:latest"
@@ -163,6 +168,7 @@ stages:
 
   - job: ManyLinuxPythonBuildArm64
     displayName: "Python bindings (manylinux Centos ARM64 cross) build"
+    timeoutInMinutes: 90    
     variables:
       name: ManyLinux
       python: "/opt/python/cp37-cp37m/bin/python"
