@@ -44,14 +44,15 @@ struct mbp_array_tg::impl {
     obj_pair_hashtable<expr, expr> m_seenp;
 
     // apply rules that split on model
-    bool m_use_mdl;
+    bool m_use_mdl = false;
 
     // m_has_store.is_marked(t) if t has a subterm store(v) where v is a
     // variable to be eliminated
     ast_mark m_has_stores;
     // variables required for applying rules
     vector<expr_ref_vector> indices;
-    expr_ref_vector terms, rdTerms;
+    expr_ref_vector terms;
+    app_ref_vector rdTerms;
 
     bool has_var(expr *t) { return contains_vars(t, m_vars_set, m); }
 
@@ -157,7 +158,7 @@ struct mbp_array_tg::impl {
     impl(ast_manager &man, mbp::term_graph &tg, model &mdl,
          obj_hashtable<app> &vars_set, expr_sparse_mark &seen)
         : m(man), m_array_util(m), m_tg(tg), m_mdl(mdl), m_vars_set(vars_set),
-          m_new_vars(m), m_seen(seen), m_use_mdl(false), terms(m), rdTerms(m) {}
+          m_new_vars(m), m_seen(seen), terms(m), rdTerms(m) {}
 
     // create a peq where write terms are preferred  on the left hand side
     peq mk_wr_peq(expr *e1, expr *e2) {
@@ -186,9 +187,9 @@ struct mbp_array_tg::impl {
     //                        !(select(y, j) = elem)
     void elimwreq(peq p, bool is_neg) {
         expr* a = nullptr, *j = nullptr, *elem = nullptr;
-        VERIFY(is_arr_write(p.lhs(), a, j, elem));
+        VERIFY(is_arr_write(p.lhs(), a, j, elem)); // TDOO: make this work with multi-arity arrays
         TRACE("mbp_tg",
-              tout << "applying elimwreq on " << expr_ref(p.mk_peq(), m) << " is neg: " << is_neg;);
+              tout << "applying elimwreq on " << expr_ref(p.mk_peq(), m) << " is neg: " << is_neg << "\n");
         vector<expr_ref_vector> indices;
         bool in = false;
         p.get_diff_indices(indices);
@@ -201,7 +202,8 @@ struct mbp_array_tg::impl {
                     // save for later
                     eq_index = i;
                     break;
-                } else
+                } 
+                else
                     deq.push_back(i);
             }
         }
@@ -216,7 +218,8 @@ struct mbp_array_tg::impl {
             m_tg.add_eq(p_new.mk_peq(), p.mk_peq());
             return;
         }
-        for (expr *d : deq) { m_tg.add_deq(j, d); }
+        for (expr *d : deq) 
+            m_tg.add_deq(j, d); 
         expr_ref_vector setOne(m);
         setOne.push_back(j);
         indices.push_back(setOne);
@@ -226,9 +229,11 @@ struct mbp_array_tg::impl {
             m_tg.add_lit(p_new.mk_peq());
             m_tg.add_eq(rd, elem);
             m_tg.add_eq(p.mk_peq(), p_new.mk_peq());
-        } else {
+        } 
+        else {
             expr_ref rd_eq(m.mk_eq(rd, elem), m);
-            if (m_mdl.is_false(rd_eq)) { m_tg.add_deq(rd, elem); }
+            if (m_mdl.is_false(rd_eq)) 
+                m_tg.add_deq(rd, elem); 
             else {
                 expr_ref npeq(mk_not(p_new.mk_peq()), m);
                 m_tg.add_lit(npeq);
@@ -293,23 +298,22 @@ struct mbp_array_tg::impl {
     // iterate through all terms in m_tg and apply all array MBP rules once
     // returns true if any rules were applied
     bool apply() {
-        TRACE("mbp_tg", tout << "Iterating over terms of tg";);
+        TRACE("mbp_tg", tout << "Iterating over terms of tg\n");
         indices.reset();
         rdTerms.reset();
         m_new_vars.reset();
         expr_ref e(m), rdEq(m), rdDeq(m);
-        expr *nt, *term;
+        expr *nt = nullptr;
         bool progress = false, is_neg = false;
 
         // Not resetting terms because get_terms calls resize on terms
         m_tg.get_terms(terms, false);
-        for (unsigned i = 0; i < terms.size(); i++) {
-            term = terms.get(i);
+        for (expr* term : terms) {
             if (m_seen.is_marked(term))
                 continue;
             if (m_tg.is_cgr(term))
                 continue;
-            TRACE("mbp_tg", tout << "processing " << expr_ref(term, m););
+            TRACE("mbp_tg", tout << "processing " << expr_ref(term, m) << "\n");
             expr* a, *b;
             if (is_implicit_peq(term, a, b) || is_neg_peq(term, a, b)) {
                 // rewrite array eq as peq
@@ -337,7 +341,6 @@ struct mbp_array_tg::impl {
                 if (!m_array_util.is_store(p.lhs()) && has_var(p.lhs()) && !is_neg) {
                     // TODO: don't apply this rule if vars in p.lhs() also
                     // appear in p.rhs()
-
                     mark_seen(p.lhs());
                     mark_seen(nt);
                     mark_seen(term);
@@ -357,6 +360,7 @@ struct mbp_array_tg::impl {
                     continue;
                 }
             }
+            TRACE("mbp_tg", tout << "not applying any rules on " << expr_ref(nt, m) << " " << is_rd_wr(nt) << " " << m_use_mdl << "\n";);
             if (m_use_mdl && is_rd_wr(nt)) {
                 mark_seen(term);
                 progress = true;
@@ -368,23 +372,22 @@ struct mbp_array_tg::impl {
         // iterate over term graph again to collect read terms
         // irrespective of whether they have been marked or not
         rdTerms.reset();
-        for (unsigned i = 0; i < terms.size(); i++) {
-            term = terms.get(i);
+        for (auto term : terms) {
             if (m_array_util.is_select(term) &&
                 has_var(to_app(term)->get_arg(0))) {
-                rdTerms.push_back(term);
+                rdTerms.push_back(to_app(term));
                 if (is_seen(term)) continue;
                 add_rdVar(term);
                 mark_seen(term);
             }
         }
         if (!m_use_mdl) 
-            return progress;
+            return progress;        
         for (unsigned i = 0; i < rdTerms.size(); i++) {
-            app* e1 = to_app(rdTerms.get(i));
+            app* e1 = rdTerms.get(i);
             expr* a1 = e1->get_arg(0);
             for (unsigned j = i + 1; j < rdTerms.size(); j++) {
-                app* e2 = to_app(rdTerms.get(j));
+                app* e2 = rdTerms.get(j);
                 expr* a2 = e2->get_arg(0);
                 if (!is_seen(e1, e2) && a1 == e2) {
                     mark_seen(e1, e2);
