@@ -100,7 +100,7 @@ namespace sls {
         unsigned num_external_in_unsat_vars() const override { return m_ddfw.num_external_in_unsat_vars(); }
         sat::bool_var add_var() override { m_dirty = true;  return m_ddfw.add_var(); }  
         void add_input_assertion(expr* f) { m_context.add_input_assertion(f); }
-        reslimit& rlimit() { return m_ddfw.rlimit(); }
+        reslimit& rlimit() override { return m_ddfw.rlimit(); }
         void shift_weights() override { m_ddfw.shift_weights(); }
 
         void force_restart() override { m_ddfw.force_restart(); }
