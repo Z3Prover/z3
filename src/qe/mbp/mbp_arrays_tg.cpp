@@ -401,9 +401,13 @@ struct mbp_array_tg::impl {
             if (m_array_util.is_select(term) &&
                 has_var(to_app(term)->get_arg(0))) {
                 rdTerms.push_back(to_app(term));
-                if (is_seen(term)) continue;
+                if (is_seen(term)) 
+                    continue;
                 add_rdVar(term);
-                mark_seen(term);
+                // select-store axioms are only introduced during m_use_mdl
+                // so don't mark select-store terms if m_use_mdl is false
+                if (m_use_mdl || !m_array_util.is_store(to_app(term)->get_arg(0)))
+                    mark_seen(term);
             }
         }
         if (!m_use_mdl) 
