@@ -13,14 +13,12 @@ Author:
 
     Hari Govind V K (hgvk94) 2023-03-07
 
-Revision History:
-
 --*/
 
-#include "qe/mbp/mbp_arrays_tg.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/array_peq.h"
 #include "qe/mbp/mbp_qel_util.h"
+#include "qe/mbp/mbp_arrays_tg.h"
 #include "util/obj_hashtable.h"
 #include "util/obj_pair_hashtable.h"
 
@@ -83,8 +81,10 @@ struct mbp_array_tg::impl {
     // Returns true if e has a subterm store(v) where v is a variable to be
     // eliminated. Recurses on subexpressions of ee
     bool has_stores(expr *e) {
-        if (m_has_stores.is_marked(e)) return true;
-        if (!is_app(e)) return false;
+        if (m_has_stores.is_marked(e)) 
+            return true;
+        if (!is_app(e)) 
+            return false;
         if (m_array_util.is_store(e) && is_var(to_app(e)->get_arg(0))) {
             m_has_stores.mark(e, true);
             return true;
@@ -94,7 +94,7 @@ struct mbp_array_tg::impl {
             return true;
         }
         //recurse
-        for(auto c : *(to_app(e))) {
+        for (auto c : *(to_app(e))) {
             if (has_stores(c)) {
                 m_has_stores.mark(e, true);
                 return true;
@@ -166,56 +166,73 @@ struct mbp_array_tg::impl {
     }
 
     // rewrite          store(x, j, elem) \peq_{indices} y
-    // into either      j = i && x \peq_{indices} y        (for some i in
-    // indices) or               &&_{i \in indices} j \neq i &&
+    // into either      j = i && x \peq_{indices} y  (for some i in indices) 
+    // or               &&_{i \in indices} j \neq i &&
     //                        x \peq_{indices, j} y &&
     //                        select(y, j) = elem
     // rewrite negation !(store(x, j, elem) \peq_{indices} y) into
-    // into either      j = i && !(x \peq_{indices} y)        (for some i in
-    // indices) or               &&_{i \in indices} j \neq i &&
+    // into either      j = i && !(x \peq_{indices} y)        (for some i in indices) 
+    // or               &&_{i \in indices} j \neq i &&
     //                        !(x \peq_{indices, j} y) &&
-    // or              &&_{i \in indices} j \neq i &&
+    // or               &&_{i \in indices} j \neq i &&
     //                        !(select(y, j) = elem)
     void elimwreq(peq p, bool is_neg) {
-        expr* a = nullptr, *j = nullptr, *elem = nullptr;
-        VERIFY(is_arr_write(p.lhs(), a, j, elem)); // TDOO: make this work with multi-arity arrays
+       
+        SASSERT(m_array_util.is_store(p.lhs()));
+        expr* a = to_app(p.lhs())->get_arg(0);
+        auto  js = array_store_indices(to_app(p.lhs()));
+        auto  elem = array_store_elem(to_app(p.lhs()));
+       
         TRACE("mbp_tg",
               tout << "applying elimwreq on " << expr_ref(p.mk_peq(), m) << " is neg: " << is_neg << "\n");
         vector<expr_ref_vector> indices;
         bool in = false;
-        p.get_diff_indices(indices);
-        expr_ref eq_index(m);
-        expr_ref_vector deq(m);
+        p.get_diff_indices(indices);        
+        unsigned eq_index = UINT_MAX, idx = 0;
+        svector<std::pair<expr*, expr*>> deq;
         for (expr_ref_vector &e : indices) {
-            for (expr *i : e) {
-                if (m_mdl.are_equal(j, i)) {
-                    in = true;
-                    // save for later
-                    eq_index = i;
-                    break;
-                } 
-                else
-                    deq.push_back(i);
+            auto jit = js.begin();
+            bool is_eq = true;
+            for (expr* i : e) {
+                if (!m_mdl.are_equal(*jit, i)) {
+                    if (is_eq)
+                        deq.push_back({ *jit, i });
+                    is_eq = false;
+                }
+                ++jit;
             }
+            if (is_eq) {
+                in = true;
+                eq_index = idx;
+                break;
+            }          
         }
         if (in) {
-            SASSERT(m_mdl.are_equal(j, eq_index));
-            peq p_new =
-                mk_wr_peq(a, p.rhs(), indices);
-            m_tg.add_eq(j, eq_index);
+            peq p_new = mk_wr_peq(a, p.rhs(), indices);
+            auto jit = js.begin();
+            for (expr* i : indices[eq_index]) {
+                m_tg.add_eq(*jit, i);
+                ++jit;
+            }
             expr_ref p_new_expr(m);
             p_new_expr = is_neg ? m.mk_not(p_new.mk_peq()) : p_new.mk_peq();
             m_tg.add_lit(p_new_expr);
             m_tg.add_eq(p_new.mk_peq(), p.mk_peq());
             return;
         }
-        for (expr *d : deq) 
-            m_tg.add_deq(j, d); 
+        for (auto [i, j] : deq) 
+            m_tg.add_deq(i, j);
+        
         expr_ref_vector setOne(m);
-        setOne.push_back(j);
+        for (auto j : js)
+            setOne.push_back(j);
         indices.push_back(setOne);
         peq p_new = mk_wr_peq(a, p.rhs(), indices);
-        expr_ref rd(m_array_util.mk_select(p.rhs(), j), m);
+        ptr_buffer<expr> args;
+        args.push_back(p.rhs());
+        for (auto j : js)
+            args.push_back(j);
+        expr_ref rd(m_array_util.mk_select(args), m);
         if (!is_neg) {
             m_tg.add_lit(p_new.mk_peq());
             m_tg.add_eq(rd, elem);
@@ -273,8 +290,7 @@ struct mbp_array_tg::impl {
     }
 
     // rewrite select(store(a, i, k), j) into either select(a, j) or k
-    void elimrdwr(expr *_term) {
-        app* term = to_app(_term);
+    void elimrdwr(app *term) {
         TRACE("mbp_tg", tout << "applying elimrdwr on " << expr_ref(term, m););
         auto rd_indices = array_select_indices(term);
         auto store_term = to_app(term->get_arg(0));
@@ -370,11 +386,10 @@ struct mbp_array_tg::impl {
                     continue;
                 }
             }
-            TRACE("mbp_tg", tout << "not applying any rules on " << expr_ref(nt, m) << " " << is_rd_wr(nt) << " " << m_use_mdl << "\n";);
             if (m_use_mdl && is_rd_wr(nt)) {
                 mark_seen(term);
                 progress = true;
-                elimrdwr(nt);
+                elimrdwr(to_app(nt));
                 continue;
             }
         }
