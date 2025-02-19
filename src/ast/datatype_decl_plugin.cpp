@@ -1264,7 +1264,6 @@ namespace datatype {
             unsigned start2 = rand();
             for (; j < num_args; j++) {
                 unsigned i = (start2 + j) % num_args;
-                verbose_stream() << i << " " << start << " " << j << " tid: " << ty->get_id() << " " << num_args << "\n";
                 sort * T_i = autil.get_array_range_rec(c->get_domain(i));
                 TRACE("util_bug", tout << "c: " << i << " " << sort_ref(T_i, m) << "\n";);
                 if (!is_datatype(T_i)) {
