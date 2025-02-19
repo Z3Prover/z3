@@ -737,6 +737,7 @@ public:
         else {
             if (opt != symbol(":?"))
                ctx.print_unsupported(opt, m_line, m_pos);
+            ctx.regular_stream() << "; Suppported get-info parameters:\n";
             ctx.regular_stream() << "; (get-info :reason-unknown)\n";
             ctx.regular_stream() << "; (get-info :status)\n";
             ctx.regular_stream() << "; (get-info :version)\n";
