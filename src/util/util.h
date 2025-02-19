@@ -388,6 +388,14 @@ bool all_of(S const& set, T const& p) {
             return false;
     return true;
 }
+template<typename S, typename T>
+void filter(S& v, T const& p) {
+    unsigned i = 0;
+    for (auto const& e: v)
+        if (p(e))
+            v[i++] = e;
+    v.shrink(i);
+}
 
 template<typename S, typename T>
 bool xor_of(S const& set, T const& p) {

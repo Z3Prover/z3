@@ -85,7 +85,7 @@ app_ref mk_peq(expr *e0, expr *e1, vector<expr_ref_vector> const &indices,
 
 bool is_partial_eq(const func_decl *f);
 
-bool is_partial_eq(const app *a);
+bool is_partial_eq(const expr *a);
 
 inline bool is_peq(const func_decl *f) { return is_partial_eq(f); }
-inline bool is_peq(const app *a) { return is_partial_eq(a); }
+inline bool is_peq(const expr *a) { return is_partial_eq(a); }

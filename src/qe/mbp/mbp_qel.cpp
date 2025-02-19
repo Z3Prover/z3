@@ -178,10 +178,9 @@ public:
                tout << "\n";);
 
         std::function<bool(expr *)> non_core = [&](expr *e) {
-            if (is_app(e) && is_partial_eq(to_app(e)))
+            if (is_partial_eq(e))
                 return true;
-            if (m.is_ite(e) || m.is_or(e) || m.is_implies(e) ||
-                m.is_distinct(e))
+            if (m.is_ite(e) || m.is_or(e) || m.is_implies(e) || m.is_distinct(e))
                 return true;
             return red_vars.is_marked(e);
         };
@@ -208,7 +207,7 @@ public:
 
         std::function<bool(expr *)> substituted = [&](expr *e) {
             return
-                (is_app(e) && is_partial_eq(to_app(e))) ||
+                is_partial_eq(e) ||
                 m.is_ite(e) ||
                 red_vars.is_marked(e) ||
                 s_vars.is_marked(e);

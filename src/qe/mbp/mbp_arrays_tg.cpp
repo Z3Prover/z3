@@ -63,7 +63,7 @@ struct mbp_array_tg::impl {
     bool is_var(expr *t) { return is_uninterp_const(t) && has_var(t); }
 
     bool is_wr_on_rhs(expr *e) {
-        return is_app(e) && is_partial_eq(to_app(e)) &&
+        return is_partial_eq(e) &&
                is_wr_on_rhs(to_app(e)->get_arg(0), to_app(e)->get_arg(1));
     }
 
@@ -325,7 +325,7 @@ struct mbp_array_tg::impl {
             }
             nt = term;
             is_neg = m.is_not(term, nt);
-            if (is_app(nt) && is_partial_eq(to_app(nt))) {
+            if (is_partial_eq(nt)) {
                 peq p(to_app(nt), m);
                 if (m_use_mdl && is_arr_write(p.lhs())) {
                     mark_seen(nt);

@@ -25,9 +25,9 @@ bool is_partial_eq(const func_decl *f) {
     return f->get_name() == PARTIAL_EQ;
 }
 
-bool is_partial_eq(const app *a) {
+bool is_partial_eq(const expr *a) {
     SASSERT(a);
-    return is_partial_eq(a->get_decl());
+    return is_app(a) && is_partial_eq(to_app(a)->get_decl());
 }
 
 app_ref mk_peq(expr *e0, expr *e1, vector<expr_ref_vector> const &indices,

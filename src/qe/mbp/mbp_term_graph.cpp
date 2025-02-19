@@ -32,7 +32,6 @@ Notes:
 #include "ast/occurs.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "model/model_evaluator.h"
-#include "qe/mbp/mbp_arrays.h"
 #include "util/bit_vector.h"
 #include "util/obj_pair_hashtable.h"
 #include "util/uint_set.h"
@@ -184,7 +183,7 @@ public:
             t->get_root().m_parents.push_back(this);
             m_children.push_back(t);
         }
-        m_is_peq = is_partial_eq(to_app(m_expr));
+        m_is_peq = is_partial_eq(m_expr);
     }
 
     class parents {
@@ -578,7 +577,7 @@ term *term_graph::internalize_term(expr *t) {
     merge_flush();
     SASSERT(res);
     expr* arg = nullptr;
-    if (m.is_not(t, arg) && is_app(arg) && is_partial_eq(to_app(arg))) {
+    if (m.is_not(t, arg) && is_partial_eq(arg)) {
         term* p = get_term(arg);
         SASSERT(p);
         p->set_npeq_child();
@@ -1017,18 +1016,19 @@ void term_graph::to_lits(expr_ref_vector &lits, bool all_equalities,
 // assumes that representatives have already been picked
 void term_graph::to_lits_qe_lite(expr_ref_vector &lits,
                                  std::function<bool(expr *)> *non_core) {
-    DEBUG_CODE(for (auto t : m_terms) SASSERT(t->get_repr()););
-    DEBUG_CODE(for (auto t : m_terms)
-                   SASSERT(!t->is_cgr() || t->get_repr()->is_cgr()););
+    SASSERT(all_of(m_terms, [](term* t) { return !!t->get_repr(); }));
+    SASSERT(all_of(m_terms, [](term* t) { return !t->is_cgr() || t->get_repr()->is_cgr(); }));
     is_non_core not_in_core(non_core);
     check_pred contains_nc(not_in_core, m, false);
     // literals other than eq, neq, distinct
     for (expr *a : m_lits) {
-        if (!is_internalized(a)) continue;
-        if (m_explicit_eq && get_term(a)->is_eq_or_neq()) continue;
-        expr_ref r(m);
-        r = mk_app(a);
-        if (non_core == nullptr || !contains_nc(r)) lits.push_back(r);
+        if (!is_internalized(a)) 
+            continue;
+        if (m_explicit_eq && get_term(a)->is_eq_or_neq()) 
+            continue;
+        expr_ref r(mk_app(a), m);        
+        if (non_core == nullptr || !contains_nc(r)) 
+            lits.push_back(r);
     }
 
     // equalities
@@ -1054,7 +1054,8 @@ void term_graph::to_lits_qe_lite(expr_ref_vector &lits,
             d = mk_app(*(c->get_repr()));
             if (non_core == nullptr || !contains_nc(d)) args.push_back(d);
         }
-        if (args.size() < 2) continue;
+        if (args.size() < 2) 
+            continue;
         if (args.size() == 2)
             distinct = mk_neq(m, args.get(0), args.get(1));
         else
@@ -1600,32 +1601,20 @@ public:
 //  modifies `vars` to keep the variables that could not be eliminated
 void term_graph::qel(app_ref_vector &vars, expr_ref &fml,
                      std::function<bool(expr *)> *non_core) {
-    unsigned i = 0;
-    for (auto v : vars) {
-        if (is_internalized(v)) { vars[i++] = v; }
-    }
-    vars.shrink(i);
+
+    filter(vars, [this](auto v) { return is_internalized(v); });
     pick_repr();
     refine_repr();
 
     expr_ref_vector lits(m);
     to_lits_qe_lite(lits, non_core);
-    if (lits.size() == 0)
-        fml = m.mk_true();
-    else if (lits.size() == 1)
-        fml = lits[0].get();
-    else
-        fml = m.mk_and(lits);
+    fml = mk_and(lits);
 
     // Remove all variables that are do not appear in the formula
     expr_sparse_mark mark;
     mark_all_sub_expr marker(mark);
     quick_for_each_expr(marker, fml);
-    i = 0;
-    for (auto v : vars) {
-        if (mark.is_marked(v)) vars[i++] = v;
-    }
-    vars.shrink(i);
+    filter(vars, [&mark](auto v) { return mark.is_marked(v); });
 }
 
 void term_graph::set_vars(func_decl_ref_vector const &decls, bool exclude) {
