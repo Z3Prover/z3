@@ -67,15 +67,11 @@ struct mbp_array_tg::impl {
     }
 
     bool is_wr_on_rhs(expr *lhs, expr *rhs) {
-        return (is_arr_write(rhs) && !is_arr_write(lhs));
+        return is_arr_write(rhs) && !is_arr_write(lhs);
     }
 
     bool is_arr_write(expr *t) {
-        return m_array_util.is_store1(t) && has_var(to_app(t));
-    }
-
-    bool is_arr_write(expr *t, expr*& a, expr*& i, expr*& v) {
-        return m_array_util.is_store1(t, a, i, v) && has_var(to_app(t));
+        return m_array_util.is_store(t) && has_var(to_app(t));
     }
 
     // Returns true if e has a subterm store(v) where v is a variable to be
