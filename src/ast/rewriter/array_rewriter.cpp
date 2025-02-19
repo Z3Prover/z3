@@ -266,15 +266,7 @@ br_status array_rewriter::mk_select_same_store(unsigned num_args, expr * const *
                 continue;
 
             case l_undef:
-                // check if loading from subsequent arrays yields the same value
-                if (first) {
-                    result = to_app(arg0)->get_arg(num_args);
-                    first  = false;
-                }
-                else if (result != to_app(arg0)->get_arg(num_args))
-                    return BR_FAILED;
-                arg0 = to_app(arg0)->get_arg(0);
-                continue;
+                return BR_FAILED;
             }
         }
 
