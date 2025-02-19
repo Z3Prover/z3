@@ -108,19 +108,10 @@ struct mbp_array_tg::impl {
     // Note that select may take more than two arguments in general.
     //
     bool is_rd_wr(expr *t) {
-        expr* a, *idx;
-        return m_array_util.is_select1(t, a, idx) &&
-            m_array_util.is_store(a) &&
-            has_stores(a);        
-    }
-
-    bool is_rd_wr(expr* t, expr*& wr_ind, expr*& rd_ind, expr*& b, expr*& v) {
-        if (!is_rd_wr(t))
-            return false;
-        expr* a = nullptr;
-        VERIFY(m_array_util.is_select1(t, a, rd_ind));
-        VERIFY(m_array_util.is_store1(a, b, wr_ind, v));
-        return true;
+        expr* a;
+        return 
+            m_array_util.is_select(t) &&
+            (a = to_app(t)->get_arg(0), m_array_util.is_store(a) && has_stores(a));   
     }
 
     bool is_implicit_peq(expr *e) {
@@ -282,17 +273,36 @@ struct mbp_array_tg::impl {
     }
 
     // rewrite select(store(a, i, k), j) into either select(a, j) or k
-    void elimrdwr(expr *term) {
+    void elimrdwr(expr *_term) {
+        app* term = to_app(_term);
         TRACE("mbp_tg", tout << "applying elimrdwr on " << expr_ref(term, m););
-        expr* wr_ind = nullptr, *rd_ind = nullptr, *b = nullptr, *v = nullptr;
-        VERIFY(is_rd_wr(term, wr_ind, rd_ind, b, v));
-        if (m_mdl.are_equal(wr_ind, rd_ind)) 
-            m_tg.add_eq(wr_ind, rd_ind);
-        else {
-            m_tg.add_deq(wr_ind, rd_ind);
-            v = m_array_util.mk_select(b, rd_ind);
+        auto rd_indices = array_select_indices(term);
+        auto store_term = to_app(term->get_arg(0));
+        auto wr_indices = array_store_indices(store_term);
+        auto store_elem = array_store_elem(store_term);
+        auto store_array = store_term->get_arg(0);
+        bool all_eq = true;
+        for (auto rd_idx : rd_indices) {
+            auto wr_idx = *wr_indices;
+            if (m_mdl.are_equal(rd_idx, wr_idx))
+                m_tg.add_eq(rd_idx, wr_idx);
+            else {
+                m_tg.add_deq(rd_idx, wr_idx);
+                all_eq = false;
+            }
+            ++wr_indices;
         }
-        m_tg.add_eq(term, v);
+        expr* v;
+        if (all_eq)
+            v = store_elem;
+        else {
+            ptr_buffer<expr> args;
+            args.push_back(store_array);
+            for (auto rd_idx : rd_indices)
+                args.push_back(rd_idx);
+            v = m_array_util.mk_select(args);
+        }
+        m_tg.add_eq(term, v);        
     }
 
     // iterate through all terms in m_tg and apply all array MBP rules once
