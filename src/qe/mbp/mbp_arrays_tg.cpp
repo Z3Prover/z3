@@ -378,24 +378,26 @@ struct mbp_array_tg::impl {
                 mark_seen(term);
             }
         }
-        if (!m_use_mdl) return progress;
-        expr *e1, *e2, *a1, *a2, *i1, *i2;
+        if (!m_use_mdl) 
+            return progress;
         for (unsigned i = 0; i < rdTerms.size(); i++) {
-            e1 = rdTerms.get(i);
-            a1 = to_app(e1)->get_arg(0);
-            i1 = to_app(e1)->get_arg(1);
+            app* e1 = to_app(rdTerms.get(i));
+            expr* a1 = e1->get_arg(0);
             for (unsigned j = i + 1; j < rdTerms.size(); j++) {
-                e2 = rdTerms.get(j);
-                a2 = to_app(e2)->get_arg(0);
-                i2 = to_app(e2)->get_arg(1);
-                if (!is_seen(e1, e2) && a1->get_id() == a2->get_id()) {
+                app* e2 = to_app(rdTerms.get(j));
+                expr* a2 = e2->get_arg(0);
+                if (!is_seen(e1, e2) && a1 == e2) {
                     mark_seen(e1, e2);
                     progress = true;
-                    if (m_mdl.are_equal(i1, i2)) {
-                        m_tg.add_eq(i1, i2);
-                    } else {
-                        SASSERT(!m_mdl.are_equal(i1, i2));
-                        m_tg.add_deq(i1, i2);
+                    for (unsigned k = 1; k < e1->get_num_args(); ++k) {
+                        expr* i1 = e1->get_arg(k);
+                        expr* i2 = e2->get_arg(k);
+                        if (m_mdl.are_equal(i1, i2)) 
+                            m_tg.add_eq(i1, i2);                        
+                        else {
+                            SASSERT(!m_mdl.are_equal(i1, i2));
+                            m_tg.add_deq(i1, i2);
+                        }
                     }
                     continue;
                 }
