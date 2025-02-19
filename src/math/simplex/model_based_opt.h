@@ -82,7 +82,6 @@ namespace opt {
         struct div_def;
         struct const_def;
         struct var_def;
-        struct const_def;
         enum def_t { add_t, mul_t, div_t, const_t, var_t};
         struct def {
             def() = default;
