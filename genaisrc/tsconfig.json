@@ -16,6 +16,7 @@
     "include": [
         "*.mjs",
         "*.mts",
+        "src/*.mts",
         "./genaiscript.d.ts"
     ]
 }

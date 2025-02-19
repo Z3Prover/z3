@@ -407,6 +407,11 @@ interface ModelOptions extends ModelConnectionOptions, ModelTemplateOptions {
     temperature?: number
 
     /**
+     * Enables fallback tools mode
+     */
+    fallbackTools?: boolean
+
+    /**
      * Some reasoning model support a reasoning effort parameter.
      */
     reasoningEffort?: "high" | "medium" | "low"
@@ -3511,7 +3516,7 @@ type ImportTemplateArgumentType =
 
 interface ChatTurnGenerationContext {
     importTemplate(
-        files: string | string[],
+        files: ElementOrArray<string | WorkspaceFile>,
         arguments?: Record<string, ImportTemplateArgumentType>,
         options?: ImportTemplateOptions
     ): void
@@ -4801,7 +4806,7 @@ declare function system(options: PromptSystemArgs): void
  * @param arguments
  */
 declare function importTemplate(
-    files: string | string[],
+    files: ElementOrArray<string | WorkspaceFile>,
     arguments?: Record<string, ImportTemplateArgumentType>,
     options?: ImportTemplateOptions
 ): void

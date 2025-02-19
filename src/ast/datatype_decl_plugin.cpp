@@ -1239,13 +1239,32 @@ namespace datatype {
               tout << "constructors: " << constructors.size() << "\n";
               for (func_decl* f : constructors) tout << func_decl_ref(f, m) << "\n";
               );
-        unsigned min_depth = INT_MAX;
-        for (func_decl * c : constructors) {
+        unsigned min_depth = UINT_MAX;
+        random_gen rand(ty->get_id());
+        unsigned start = rand();
+        for (unsigned cj = 0; cj < constructors.size(); ++cj) {
+            func_decl* c = constructors[(start + cj) % constructors.size()];
+            if (all_of(*c, [&](sort* s) { return !is_datatype(s); })) {
+                TRACE("util_bug", tout << "non_rec_constructor c: " << func_decl_ref(c, m) << "\n";);
+                result.first = c;
+                result.second = 1;
+                plugin().add_ast(result.first);
+                plugin().add_ast(ty);
+                plugin().m_datatype2nonrec_constructor.insert(ty, result);
+                return result;
+            }
+        }
+
+        for (unsigned cj = 0; cj < constructors.size(); ++cj) {
+            func_decl* c = constructors[(start + cj) % constructors.size()];
             TRACE("util_bug", tout << "non_rec_constructor c: " << func_decl_ref(c, m) << "\n";);
             unsigned num_args = c->get_arity();
-            unsigned i = 0;
+            unsigned j = 0;
             unsigned max_depth = 0;
-            for (; i < num_args; i++) {
+            unsigned start2 = rand();
+            for (; j < num_args; j++) {
+                unsigned i = (start2 + j) % num_args;
+                verbose_stream() << i << " " << start << " " << j << " tid: " << ty->get_id() << " " << num_args << "\n";
                 sort * T_i = autil.get_array_range_rec(c->get_domain(i));
                 TRACE("util_bug", tout << "c: " << i << " " << sort_ref(T_i, m) << "\n";);
                 if (!is_datatype(T_i)) {
@@ -1265,7 +1284,7 @@ namespace datatype {
                 TRACE("util_bug", tout << "nested_c: " << nested_c.first->get_name() << "\n";);
                 max_depth = std::max(nested_c.second + 1, max_depth);
             }
-            if (i == num_args && max_depth < min_depth) {
+            if (j == num_args && max_depth < min_depth) {
                 result.first = c;
                 result.second = max_depth;
                 min_depth = max_depth;
