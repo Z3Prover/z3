@@ -33,6 +33,18 @@ inline sort* get_array_domain(sort const * s, unsigned idx) {
     return to_sort(s->get_parameter(idx).get_ast());
 }
 
+inline expr_container array_select_indices(app* e) {
+    return expr_container(e->get_args() + 1, e->get_args() + e->get_num_args());
+}
+
+inline expr_container array_store_indices(app* e) {
+    return expr_container(e->get_args() + 1, e->get_args() + e->get_num_args() - 1);
+}
+
+inline expr* array_store_elem(app* e) {
+    return e->get_arg(e->get_num_args() - 1);
+}
+
 enum array_sort_kind {
     ARRAY_SORT,
     _SET_SORT

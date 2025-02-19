@@ -126,6 +126,9 @@ public:
         init(vars, fml, mdl);
         // Apply MBP rules till saturation
 
+        TRACE("mbp_tg",
+            tout << "mbp tg " << m_tg.get_lits() << "\nand vars " << vars << "\n";);
+
         // First, apply rules without splitting on model
         saturate(vars);
 
@@ -135,18 +138,15 @@ public:
         saturate(vars);
 
         TRACE("mbp_tg",
-              tout << "mbp tg " << m_tg.get_lits() << " and vars " << vars;);
+              tout << "mbp tg " << m_tg.get_lits() << " and vars " << vars << "\n";);
         TRACE("mbp_tg_verbose", obj_hashtable<app> vars_tmp;
               collect_uninterp_consts(mk_and(m_tg.get_lits()), vars_tmp);
-              for (auto a
-                   : vars_tmp) tout
-              << mk_pp(a->get_decl(), m) << "\n";
-              for (auto b
-                   : m_tg.get_lits()) tout
-              << expr_ref(b, m) << "\n";
-              for (auto a
-                   : vars) tout
-              << expr_ref(a, m) << " ";);
+              for (auto a : vars_tmp) 
+                  tout << mk_pp(a->get_decl(), m) << "\n";
+              for (auto b : m_tg.get_lits()) 
+                  tout << expr_ref(b, m) << "\n";
+              for (auto a : vars) tout << expr_ref(a, m) << " ";
+              tout << "\n");
 
         // 1. Apply qe_lite to remove all c-ground variables
         // 2. Collect all core variables in the output (variables used as array
@@ -171,11 +171,10 @@ public:
         };
         expr_sparse_mark red_vars;
         for (auto v : vars)
-            if (is_red(v)) red_vars.mark(v);
+            if (is_red(v)) 
+                red_vars.mark(v);
         CTRACE("mbp_tg", !core_vars.empty(), tout << "vars not redundant ";
-               for (auto v
-                    : core_vars) tout
-               << " " << app_ref(v, m);
+               for (auto v : core_vars) tout << " " << app_ref(v, m);
                tout << "\n";);
 
         std::function<bool(expr *)> non_core = [&](expr *e) {

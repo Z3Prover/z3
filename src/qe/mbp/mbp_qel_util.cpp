@@ -80,23 +80,25 @@ struct proc {
     obj_hashtable<app> &m_vars;
     array_util m_array_util;
     datatype_util m_dt_util;
+    bool is_accessor(expr* e) const {
+        return is_app(e) && m_dt_util.is_accessor(to_app(e)->get_decl());
+    }
     proc(obj_hashtable<app> &vars, ast_manager &man)
         : m(man), m_vars(vars), m_array_util(m), m_dt_util(m) {}
     void operator()(expr *n) const {}
     void operator()(app *n) {
         if (m_array_util.is_select(n)) {
-            expr *idx = n->get_arg(1);
-            if (is_app(idx) && m_dt_util.is_accessor(to_app(idx)->get_decl()))
-                return;
-            collect_uninterp_consts(idx, m_vars);
-        } else if (m_array_util.is_store(n)) {
-            expr *idx = n->get_arg(1), *elem = n->get_arg(2);
-            if (!(is_app(idx) &&
-                  m_dt_util.is_accessor(to_app(idx)->get_decl())))
-                collect_uninterp_consts(idx, m_vars);
-            if (!(is_app(elem) &&
-                  m_dt_util.is_accessor(to_app(elem)->get_decl())))
+            for (expr* arg : array_select_indices(n)) 
+                if (!is_accessor(arg))
+                    collect_uninterp_consts(arg, m_vars);            
+        } 
+        else if (m_array_util.is_store(n)) {
+            expr* elem = array_store_elem(n);
+            if (!is_accessor(elem))
                 collect_uninterp_consts(elem, m_vars);
+            for (expr* idx : array_store_indices(n)) 
+                if (!is_accessor(idx))
+                    collect_uninterp_consts(idx, m_vars);            
         }
     }
 };
