@@ -700,8 +700,6 @@ public:
     expr_container(expr* const* pos, expr* const* end) :m_pos(pos), m_end(end) {}
     expr_container& operator++() { ++m_pos; return *this; }
     expr_container operator++(int) { expr_container tmp = *this; ++(*this); return tmp; }
-    bool operator==(expr_container const& it) const { return m_pos == it.m_pos; }
-    bool operator!=(expr_container const& it) const { return m_pos != it.m_pos; }
     expr* operator*() const { return *m_pos; }
     expr* const* begin() const { return m_pos; }
     expr* const* end() const { return m_end; }
