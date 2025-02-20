@@ -75,7 +75,7 @@ struct mbp_dt_tg::impl {
     void rm_select(expr *term) {
         SASSERT(is_app(term) &&
                 m_dt_util.is_accessor(to_app(term)->get_decl()) &&
-                is_var(to_app(term)->get_arg(0)));
+                has_var(to_app(term)->get_arg(0)));
         TRACE("mbp_tg", tout << "applying rm_select on " << expr_ref(term, m););
         expr *v = to_app(term)->get_arg(0);
         expr_ref sel(m);
@@ -162,7 +162,7 @@ struct mbp_dt_tg::impl {
             if (m_tg.is_cgr(term)) continue;
             if (is_app(term) &&
                 m_dt_util.is_accessor(to_app(term)->get_decl()) &&
-                is_var(to_app(term)->get_arg(0))) {
+                has_var(to_app(term)->get_arg(0))) {
                 mark_seen(term);
                 progress = true;
                 rm_select(term);
