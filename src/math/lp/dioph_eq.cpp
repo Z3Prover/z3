@@ -246,7 +246,22 @@ namespace lp {
         std::ostream& print_S(std::ostream& out) {
             out << "S:\n";
             for (const auto& p : m_k2s.m_map) {
-                print_entry(p.second, out);
+                print_entry(p.second, out, false, false);
+            }
+            return out;
+        }
+
+        std::ostream& print_bounds(std::ostream& out) {
+            out << "bounds:\n";
+            for (unsigned v = 0; v < m_var_register.size(); ++v) {
+                unsigned j = m_var_register.local_to_external(v);
+                out << "j" << j << ": ";
+                if (lra.column_has_lower_bound(j))
+                    out << lra.column_lower_bound(j).x << " <= ";
+                out << "x" << v;
+                if (lra.column_has_upper_bound(j))
+                    out << " <= " << lra.column_upper_bound(j).x;
+                out << "\n";
             }
             return out;
         }
@@ -1384,21 +1399,25 @@ namespace lp {
 
             lia_move r = lia_move::undef;
             // Process sorted terms
+            TRACE("dio", 
+                  tout << "changed terms:"; for (auto j : sorted_changed_terms) tout << j << " "; tout << std::endl;
+                  print_S(tout);
+                  print_bounds(tout);
+            );
             for (unsigned j : sorted_changed_terms) {
-                m_changed_terms.remove(j); 
-                
-
+                m_changed_terms.remove(j);                 
                 if (tighten_bounds_for_term_column(j)) {
+                    TRACE("dio", tout << "tighten j:" << j << std::endl;);
                     r = lia_move::conflict;
                     break;
                 }
             }
-            for (unsigned j : cleanup) {
-                m_changed_terms.remove(j);
-            }
+            for (unsigned j : cleanup) 
+                m_changed_terms.remove(j);            
             return r;
         }
 
+        #if 0
         std::ostream& print_queue(std::queue<unsigned> q, std::ostream& out) {
             out << "qu: ";
             while (!q.empty()) {
@@ -1408,6 +1427,7 @@ namespace lp {
             out << std::endl;
             return out;
         }
+        #endif
 
         term_o create_term_from_ind_c() {
             term_o t;
@@ -2321,10 +2341,13 @@ namespace lp {
         }
 
         std::ostream& print_entry(unsigned i, std::ostream& out,
-                                  bool print_dep = false) {
-            out << "entry " << i << ":";
+                                  bool print_dep = false, bool print_in_S = true) {
+            unsigned j = m_k2s.has_val(i) ? m_k2s.get_key(i) : UINT_MAX;
+            out << "entry " << i << ": ";
+            if (j != UINT_MAX) 
+                out << "x" << j << " ";               
             out << "{\n";
-            print_term_o(get_term_from_entry(i), out << "\tm_e:") << ",\n";
+            print_term_o(get_term_from_entry(i), out << "\t") << ",\n";
             // out << "\tstatus:" << (int)e.m_entry_status;
             if (print_dep) {
                 auto l_term = l_term_from_row(i);
@@ -2339,11 +2362,10 @@ namespace lp {
                 out << "in F\n";
             }
             else {
-                unsigned j = m_k2s.get_key(i);
                 if (local_to_lar_solver(j) == UINT_MAX) {
                     out << "FRESH\n";
                 }
-                else {
+                else if (print_in_S) {
                     out << "in S\n";
                 }
             }
