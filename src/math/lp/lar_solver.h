@@ -690,7 +690,6 @@ public:
     void set_status(lp_status s);
     lp_status solve();
     void fill_explanation_from_crossed_bounds_column(explanation& evidence) const;
-    bool term_is_used_as_row(unsigned term) const;
     bool tighten_term_bounds_by_delta(lpvar j, const impq&);
     lar_solver();
     void track_touched_rows(bool v);

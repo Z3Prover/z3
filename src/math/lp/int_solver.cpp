@@ -174,10 +174,8 @@ namespace lp {
 
             if (r == lia_move::conflict) {
                 m_dio.explain(*this->m_ex);
-                m_dioph_eq_period = settings().m_dioph_eq_period;
                 return lia_move::conflict;
             } else if (r == lia_move::branch)  {
-                m_dioph_eq_period = settings().m_dioph_eq_period;
                 return lia_move::branch;
             } 
             return r;

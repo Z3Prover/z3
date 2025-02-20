@@ -253,7 +253,8 @@ private:
     bool             m_dio_eqs = false;
     bool             m_dio_enable_gomory_cuts = false;
     bool             m_dio_enable_hnf_cuts = true;
-    unsigned         m_dio_branching_period = 100; //  do branching rarere
+    unsigned         m_dio_branching_period = 100; //  do branching rarely
+    unsigned         m_dio_report_branch_with_term_tigthening_period = 4; // report the branch with term tigthening every 2 iterations
 
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }
@@ -267,7 +268,7 @@ public:
     bool dio_enable_hnf_cuts() const { return m_dio_eqs && m_dio_enable_hnf_cuts; }
     unsigned dio_branching_period() const { return m_dio_branching_period; }
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
-    
+    unsigned dio_report_branch_with_term_tigthening_period() const { return m_dio_report_branch_with_term_tigthening_period; }
     bool bound_progation() const { 
         return m_bound_propagation;
     }
