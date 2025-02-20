@@ -72,11 +72,11 @@ struct mbp_dt_tg::impl {
 
     // rewrite head(x) with y
     // and x with list(y, z)
-    void rm_select(expr *term) {
+    void rm_accessor(expr *term) {
         SASSERT(is_app(term) &&
                 m_dt_util.is_accessor(to_app(term)->get_decl()) &&
-                is_var(to_app(term)->get_arg(0)));
-        TRACE("mbp_tg", tout << "applying rm_select on " << expr_ref(term, m););
+                has_var(to_app(term)->get_arg(0)));
+        TRACE("mbp_tg", tout << "applying rm_accessor on " << expr_ref(term, m););
         expr *v = to_app(term)->get_arg(0);
         expr_ref sel(m);
         app_ref u(m);
@@ -162,10 +162,10 @@ struct mbp_dt_tg::impl {
             if (m_tg.is_cgr(term)) continue;
             if (is_app(term) &&
                 m_dt_util.is_accessor(to_app(term)->get_decl()) &&
-                is_var(to_app(term)->get_arg(0))) {
+                has_var(to_app(term)->get_arg(0))) {
                 mark_seen(term);
                 progress = true;
-                rm_select(term);
+                rm_accessor(term);
                 continue;
             }
             if (is_constructor_app(term, cons, rhs)) {
