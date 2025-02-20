@@ -254,7 +254,7 @@ namespace lp {
             out << "bounds:\n";
             for (unsigned v = 0; v < m_var_register.size(); ++v) {
                 unsigned j = m_var_register.local_to_external(v);
-                out << "j" << j << ": ";
+                out << "j" << j << ":= " << lra.get_column_value(j) << ": ";
                 if (lra.column_has_lower_bound(j))
                     out << lra.column_lower_bound(j).x << " <= ";
                 out << "x" << v;
