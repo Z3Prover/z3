@@ -185,7 +185,6 @@ class lar_solver : public column_namer {
         return bound_analyzer_on_row<row_strip<mpq>, lp_bound_propagator<T>>::analyze_row(
             A_r().m_rows[row_index],
             zero_of_type<numeric_pair<mpq>>(),
-            row_index,
             bp);
     }
 

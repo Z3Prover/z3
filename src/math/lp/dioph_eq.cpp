@@ -485,6 +485,7 @@ namespace lp {
         indexed_uint_set m_changed_rows;
         indexed_uint_set m_changed_columns;
         indexed_uint_set m_changed_terms;  // a term is defined by its column j, as in lar_solver.get_term(j)
+        indexed_uint_set m_tightened_columns; // the column that got tightened by the tigthening phase, 
         // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
         std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_terms;
 
@@ -1361,6 +1362,7 @@ namespace lp {
             // Copy changed terms to another vector for sorting
             std_vector<unsigned> sorted_changed_terms;
             std_vector<unsigned> cleanup;
+            m_tightened_columns.reset();
             for (unsigned j : m_changed_terms) {
                 if ( 
                     j >= lra.column_count() ||
@@ -1620,8 +1622,11 @@ namespace lp {
             }
         }
 
+        lia_move propagate_bounds_on_tightened_columns() {
+            return lia_move::undef;
+        }
         // m_espace contains the coefficients of the term
-        // m_c contains the constant term
+        // m_c contains the fixed part of the term
         // m_tmp_l is the linear combination of the equations that removes the
         // substituted variables.
         // returns true iff the conflict is found
@@ -1642,6 +1647,7 @@ namespace lp {
                         return lia_move::conflict;
                 }
             }
+            std::cout << "new tbs:" << m_tightened_columns.size() << "\n";
             return lia_move::undef;
         }
 
@@ -1649,7 +1655,7 @@ namespace lp {
         bool tighten_bound_kind(const mpq& g, unsigned j, const mpq& ub, bool upper,
                                 u_dependency* prev_dep) {
             // ub = (upper_bound(j) - m_c)/g.
-            // we have x[j] = t = g*t_+ m_c <= upper_bound(j), then
+            // we have xj = t = g*t_+ m_c <= upper_bound(j), then
             // t_ <= floor((upper_bound(j) - m_c)/g) = floor(ub)
             //
             // so xj = g*t_+m_c <= g*floor(ub) + m_c is new upper bound
@@ -1679,6 +1685,7 @@ namespace lp {
             lra.update_column_type_and_bound(j, kind, bound, dep);
             lp_status st = lra.find_feasible_solution();
             if ((int)st >= (int)lp::lp_status::FEASIBLE) {
+                m_tightened_columns.insert(j);
                 return false;
             }
             if (st == lp_status::CANCELLED) return false;

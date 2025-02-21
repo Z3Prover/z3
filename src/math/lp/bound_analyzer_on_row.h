@@ -32,7 +32,6 @@ template <typename C, typename B> // C plays a role of a container, B - lp_bound
 class bound_analyzer_on_row {
     const C&                           m_row;
     B &                                m_bp;
-    unsigned                           m_row_index;
     int                                m_column_of_u; // index of an unlimited from above monoid
     // -1 means that such a value is not found, -2 means that at least two of such monoids were found
     int                                m_column_of_l; // index of an unlimited from below monoid
@@ -43,12 +42,10 @@ public :
     bound_analyzer_on_row(
         const C & it,
         const numeric_pair<mpq>& rs,
-        unsigned row_or_term_index,
         B & bp)
         :
         m_row(it),
         m_bp(bp),
-        m_row_index(row_or_term_index),
         m_column_of_u(-1),
         m_column_of_l(-1),
         m_rs(rs)
@@ -57,9 +54,8 @@ public :
     
     static unsigned analyze_row(const C & row,
                             const numeric_pair<mpq>& rs,
-                            unsigned row_or_term_index,
                             B & bp) {
-        bound_analyzer_on_row a(row, rs, row_or_term_index, bp);
+        bound_analyzer_on_row a(row, rs, bp);
         return a.analyze();
     }
 
@@ -281,16 +277,16 @@ private:
 
     void limit_j(unsigned bound_j, const mpq& u, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict)
     {
-        unsigned row_index = this->m_row_index;
         auto* lar = &m_bp.lp();
-        auto explain = [bound_j, coeff_before_j_is_pos, is_lower_bound, strict, row_index, lar]() {
+        const auto& row = this->m_row;
+        auto explain = [row, bound_j, coeff_before_j_is_pos, is_lower_bound, strict, lar]() {
             (void) strict;
-            TRACE("bound_analyzer", tout << "explain_bound_on_var_on_coeff, bound_j = " << bound_j << ", coeff_before_j_is_pos = " << coeff_before_j_is_pos << ", is_lower_bound = " << is_lower_bound << ", strict = " << strict << ", row_index = " << row_index << "\n";);
+            TRACE("bound_analyzer", tout << "explain_bound_on_var_on_coeff, bound_j = " << bound_j << ", coeff_before_j_is_pos = " << coeff_before_j_is_pos << ", is_lower_bound = " << is_lower_bound << ", strict = " << strict << "\n";);
             int bound_sign = (is_lower_bound ? 1 : -1);
             int j_sign = (coeff_before_j_is_pos ? 1 : -1) * bound_sign;
 
             u_dependency* ret = nullptr;
-            for (auto const& r : lar->get_row(row_index)) {
+            for (auto const& r : row) {
                 unsigned j = r.var();
                 if (j == bound_j)
                     continue;
