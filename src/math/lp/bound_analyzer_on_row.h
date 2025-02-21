@@ -42,7 +42,6 @@ public :
     // constructor
     bound_analyzer_on_row(
         const C & it,
-        unsigned  bj, // basis column for the row
         const numeric_pair<mpq>& rs,
         unsigned row_or_term_index,
         B & bp)
@@ -57,11 +56,10 @@ public :
 
     
     static unsigned analyze_row(const C & row,
-                            unsigned bj, // basis column for the row
                             const numeric_pair<mpq>& rs,
                             unsigned row_or_term_index,
                             B & bp) {
-        bound_analyzer_on_row a(row, bj, rs, row_or_term_index, bp);
+        bound_analyzer_on_row a(row, rs, row_or_term_index, bp);
         return a.analyze();
     }
 
