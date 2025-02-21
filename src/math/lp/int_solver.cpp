@@ -241,30 +241,32 @@ namespace lp {
 
             auto refine_bound = [&](implied_bound const& ib) {
                 unsigned j = ib.m_j;
-                auto const& bound = ib.m_bound;
-                if (!lra.column_is_int(j))  // for now, ignore non-integers.
-                    return l_undef;
+                rational bound = ib.m_bound;
                 if (ib.m_is_lower_bound) {
+                    if (lra.column_is_int(j))
+                        bound = ceil(bound);
                     if (lra.column_has_lower_bound(j) && lra.column_lower_bound(j) >= bound)
                         return l_undef;
                     auto d = ib.explain_implied();
-                    if (lra.column_has_upper_bound(j) && lra.column_upper_bound(j) < ceil(bound)) {
+                    if (lra.column_has_upper_bound(j) && lra.column_upper_bound(j) < bound) {
                         set_conflict(j, d, lra.get_column_upper_bound_witness(j));
                         return l_false;
                     }
 
-                    lra.update_column_type_and_bound(j, lconstraint_kind::GE, ceil(bound), d);
+                    lra.update_column_type_and_bound(j, ib.m_strict ? lconstraint_kind::GT : lconstraint_kind::GE, bound, d);
                     ++num_refined_bounds;
                 } else {
+                    if (lra.column_is_int(j))
+                        bound = floor(bound);
                     if (lra.column_has_upper_bound(j) && lra.column_upper_bound(j) <= bound)
                         return l_undef;
                     auto d = ib.explain_implied();
-                    if (lra.column_has_lower_bound(j) && lra.column_lower_bound(j) > floor(bound)) {                        
+                    if (lra.column_has_lower_bound(j) && lra.column_lower_bound(j) > bound) {                        
                         set_conflict(j, d, lra.get_column_lower_bound_witness(j));
                         return l_false;
                     }
 
-                    lra.update_column_type_and_bound(j, lconstraint_kind::LE, floor(bound), d);
+                    lra.update_column_type_and_bound(j, ib.m_strict ? lconstraint_kind::LT : lconstraint_kind::LE, bound, d);
                     ++num_refined_bounds;
                 }
                 return l_true;
@@ -284,7 +286,6 @@ namespace lp {
                 ibounds.clear();
             }
 
-            verbose_stream() << num_refined_bounds << "\n";
             return num_refined_bounds > 0 ? lia_move::continue_with_check : lia_move::undef;
         }
 
