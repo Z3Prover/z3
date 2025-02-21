@@ -273,7 +273,6 @@ namespace lp {
             for (unsigned row_index = 0; row_index < lra.row_count(); ++row_index) {
                 auto nb = bound_analyzer_on_row<row_strip<mpq>, lp_bound_propagator<bound_consumer>>::analyze_row(
                     lra.A_r().m_rows[row_index],
-                    null_ci,
                     zero_of_type<numeric_pair<mpq>>(),
                     row_index,
                     bp);
