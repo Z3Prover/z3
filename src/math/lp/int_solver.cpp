@@ -30,7 +30,7 @@ namespace lp {
     };
     
     class int_solver::imp {
-        public:
+    public:
         int_solver&         lia;
         lar_solver&         lra;
         lar_core_solver&    lrac;
@@ -196,6 +196,8 @@ namespace lp {
             return lia.settings().dio_eqs() && m_number_of_calls % m_dioph_eq_period == 0;
         }
 
+        // HNF
+
         bool should_hnf_cut() {
             return (!settings().dio_eqs() || settings().dio_enable_hnf_cuts())
                 && settings().enable_hnf() && m_number_of_calls % settings().hnf_cut_period() == 0;
@@ -208,6 +210,83 @@ namespace lp {
             else 
                 m_hnf_cut_period = settings().hnf_cut_period();
             return r;
+        }
+
+        // Tighten bounds
+        // expose at level of lar_solver so it can be invoked by theory_lra after back-jumping 
+        // consider multi-round bound tightnening as well and deal with divergence issues.
+        lia_move tighten_bounds() {
+
+            struct bound_consumer {
+                imp& i;
+                bound_consumer(imp& i) : i(i) {}
+                lar_solver& lp() { return i.lra; }
+                bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational& bval) const { return true; }
+                bool add_eq(lpvar u, lpvar v, lp::explanation const& e, bool is_fixed) { return false; }
+            };
+            bound_consumer bc(*this);
+            std_vector<implied_bound> ibounds;
+            lp_bound_propagator<bound_consumer> bp(bc, ibounds);
+            bp.init();
+
+            unsigned num_refined_bounds = 0;
+
+            auto set_conflict = [&](unsigned j, u_dependency * d1, u_dependency * d2) {
+                ++settings().stats().m_bounds_tightening_conflicts;
+                for (auto e : lra.flatten(d1))
+                    m_ex->push_back(e);
+                for (auto e : lra.flatten(d2))
+                    m_ex->push_back(e);
+            };
+
+            auto refine_bound = [&](implied_bound const& ib) {
+                unsigned j = ib.m_j;
+                auto const& bound = ib.m_bound;
+                if (!lra.column_is_int(j))  // for now, ignore non-integers.
+                    return l_undef;
+                if (ib.m_is_lower_bound) {
+                    if (lra.column_has_lower_bound(j) && lra.column_lower_bound(j) >= bound)
+                        return l_undef;
+                    auto d = ib.explain_implied();
+                    if (lra.column_has_upper_bound(j) && lra.column_upper_bound(j) < ceil(bound)) {
+                        set_conflict(j, d, lra.get_column_upper_bound_witness(j));
+                        return l_false;
+                    }
+
+                    lra.update_column_type_and_bound(j, lconstraint_kind::GE, ceil(bound), d);
+                    ++num_refined_bounds;
+                } else {
+                    if (lra.column_has_upper_bound(j) && lra.column_upper_bound(j) <= bound)
+                        return l_undef;
+                    auto d = ib.explain_implied();
+                    if (lra.column_has_lower_bound(j) && lra.column_lower_bound(j) > floor(bound)) {                        
+                        set_conflict(j, d, lra.get_column_lower_bound_witness(j));
+                        return l_false;
+                    }
+
+                    lra.update_column_type_and_bound(j, lconstraint_kind::LE, floor(bound), d);
+                    ++num_refined_bounds;
+                }
+                return l_true;
+            };
+
+            for (unsigned row_index = 0; row_index < lra.row_count(); ++row_index) {
+                auto nb = bound_analyzer_on_row<row_strip<mpq>, lp_bound_propagator<bound_consumer>>::analyze_row(
+                    lra.A_r().m_rows[row_index],
+                    null_ci,
+                    zero_of_type<numeric_pair<mpq>>(),
+                    row_index,
+                    bp);
+
+                settings().stats().m_bounds_tightenings += static_cast<unsigned>(ibounds.size());
+                for (auto const& ib : ibounds)
+                    if (l_false == refine_bound(ib))
+                        return lia_move::conflict;
+                ibounds.clear();
+            }
+
+            verbose_stream() << num_refined_bounds << "\n";
+            return num_refined_bounds > 0 ? lia_move::continue_with_check : lia_move::undef;
         }
 
         
@@ -236,6 +315,7 @@ namespace lp {
             if (r == lia_move::undef) r = patch_basic_columns();
             if (r == lia_move::undef && should_find_cube()) r = int_cube(lia)();
             if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
+            // if (r == lia_move::undef) r = tighten_bounds();
             if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
             if (r == lia_move::undef && should_gomory_cut()) r = gomory(lia).get_gomory_cuts(2);
             if (r == lia_move::undef && should_solve_dioph_eq()) r = solve_dioph_eq();
