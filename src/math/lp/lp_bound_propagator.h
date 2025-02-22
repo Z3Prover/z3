@@ -44,26 +44,6 @@ class lp_bound_propagator {
 public:
     const lar_solver& lp() const { return m_imp.lp(); }
     lar_solver& lp() { return m_imp.lp(); }
-    bool upper_bound_is_available(unsigned j) const {
-        switch (get_column_type(j)) {
-        case column_type::fixed:
-        case column_type::boxed:
-        case column_type::upper_bound:
-            return true;
-        default:
-            return false;
-        }
-    }
-    bool lower_bound_is_available(unsigned j) const {
-        switch (get_column_type(j)) {
-        case column_type::fixed:
-        case column_type::boxed:
-        case column_type::lower_bound:
-            return true;
-        default:
-            return false;
-        }
-    }
 private:
     void try_add_equation_with_internal_fixed_tables(unsigned r1) {
         unsigned v1, v2;
@@ -144,7 +124,6 @@ public:
     bool column_is_fixed(lpvar j) const {
         return (*m_column_types)[j] == column_type::fixed && get_lower_bound(j).y.is_zero();
     }
-
 
     void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, std::function<u_dependency* ()> explain_bound) {
         lconstraint_kind kind = is_low ? GE : LE;

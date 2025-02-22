@@ -1623,7 +1623,17 @@ namespace lp {
         }
 
         lia_move propagate_bounds_on_tightened_columns() {
+            for (unsigned j : m_tightened_columns) {
+                const auto& t = lra.get_term(j);
+//                SASSERT(get_term_value(t).x = lra.get_column_value(j).x);
+                bound_analyzer_on_row<lar_term, dioph_eq::imp>::analyze_row(t, lra.get_column_value(j), *this);
+            }
             return lia_move::undef;
+            
+        }
+
+        void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, std::function<u_dependency* ()> explain_bound) {
+            NOT_IMPLEMENTED_YET();
         }
         // m_espace contains the coefficients of the term
         // m_c contains the fixed part of the term
@@ -1647,7 +1657,7 @@ namespace lp {
                         return lia_move::conflict;
                 }
             }
-            std::cout << "new tbs:" << m_tightened_columns.size() << "\n";
+            
             return lia_move::undef;
         }
 
@@ -2559,6 +2569,10 @@ namespace lp {
             SASSERT(!ret || m_var_register.local_to_external(j) == UINT_MAX);
             return ret;
         }
+        // needed for the template bound_analyzer_on_row.h
+        const lar_solver& lp() const { return lra; }
+        lar_solver& lp() {return lra;}
+
     };
     // Constructor definition
     dioph_eq::dioph_eq(int_solver& lia) {
