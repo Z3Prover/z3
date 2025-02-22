@@ -1622,18 +1622,51 @@ namespace lp {
             }
         }
 
+        struct prop_bound {
+            mpq m_bound;
+            unsigned m_j;
+            bool m_is_low;
+            bool m_strict;
+            u_dependency* m_dep;
+            prop_bound(const mpq& b, unsigned j, bool is_low, bool strict, u_dependency* dep): m_bound(b), m_j(j), m_is_low(is_low), m_strict(strict), m_dep(dep) {}
+        };
+        std_vector<prop_bound> m_prop_bounds;
         lia_move propagate_bounds_on_tightened_columns() {
+            m_prop_bounds.clear();
             for (unsigned j : m_tightened_columns) {
-                const auto& t = lra.get_term(j);
-//                SASSERT(get_term_value(t).x = lra.get_column_value(j).x);
-                bound_analyzer_on_row<lar_term, dioph_eq::imp>::analyze_row(t, lra.get_column_value(j), *this);
+                auto t = lra.get_term(j);
+                t.add_monomial(mpq(-1), j);
+                bound_analyzer_on_row<lar_term, dioph_eq::imp>::analyze_row(t, impq(0), *this);
             }
-            return lia_move::undef;
+            for (const auto & pb: m_prop_bounds) {                
+                lconstraint_kind kind = get_bound_kind(!pb.m_is_low, pb.m_strict);            
+                lra.update_column_type_and_bound(pb.m_j, kind, pb.m_bound, pb.m_dep);
+            }
+            lp_status st = lra.find_feasible_solution();
+            if ((int)st >= (int)lp::lp_status::FEASIBLE) {
+                return lia_move::undef;
+            }
+            if (st == lp_status::CANCELLED) {
+                return lia_move::undef;
+            }
+            SASSERT(st == lp_status::INFEASIBLE);
+            lra.get_infeasibility_explanation(m_infeas_explanation);
+            return lia_move::conflict;
             
         }
 
-        void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, std::function<u_dependency* ()> explain_bound) {
-            NOT_IMPLEMENTED_YET();
+        lconstraint_kind get_bound_kind(bool upper, bool is_strict) {
+            if (upper) {
+                return is_strict ? lp::LT : lp::LE; 
+            }
+            else {
+                return is_strict ? lp::GT : lp::GE;
+            }
+        }
+        
+        void add_bound(mpq const& bound, unsigned j, bool is_low, bool strict, std::function<u_dependency* ()> explain_bound) {
+            m_prop_bounds.push_back({bound, j, is_low, strict, explain_bound()});
+
         }
         // m_espace contains the coefficients of the term
         // m_c contains the fixed part of the term
@@ -1762,6 +1795,14 @@ namespace lp {
             if (ret == lia_move::conflict) {
                 lra.stats().m_dio_tighten_conflicts++;
                 return lia_move::conflict;
+            }
+            if (lra.settings().get_cancel_flag())
+                return lia_move::undef;
+
+            if (ret == lia_move::undef) {    
+                ret = propagate_bounds_on_tightened_columns();
+                if (ret == lia_move::conflict)
+                    lra.stats().m_dio_bound_propagation_conflicts++;
             }
             return ret;
         }
@@ -2546,6 +2587,12 @@ namespace lp {
             return true;
         }
 
+        bool var_is_fresh(unsigned j) const {
+            bool ret = m_fresh_k2xt_terms.has_second_key(j);
+            SASSERT(!ret || m_var_register.local_to_external(j) == UINT_MAX);
+            return ret;
+        }
+
     public:
         void explain(explanation& ex) {
             if (m_conflict_index == UINT_MAX) {
@@ -2564,11 +2611,6 @@ namespace lp {
             TRACE("dioph_eq", lra.print_expl(tout, ex););
         }
 
-        bool var_is_fresh(unsigned j) const {
-            bool ret = m_fresh_k2xt_terms.has_second_key(j);
-            SASSERT(!ret || m_var_register.local_to_external(j) == UINT_MAX);
-            return ret;
-        }
         // needed for the template bound_analyzer_on_row.h
         const lar_solver& lp() const { return lra; }
         lar_solver& lp() {return lra;}

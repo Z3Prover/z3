@@ -318,6 +318,7 @@ namespace lp {
             if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
             if (r == lia_move::undef && should_gomory_cut()) r = gomory(lia).get_gomory_cuts(2);
             if (r == lia_move::undef && should_solve_dioph_eq()) r = solve_dioph_eq();
+            if (r == lia_move::undef) lra.remove_fixed_vars_from_base();
             if (r == lia_move::undef) r = int_branch(lia)();
             if (settings().get_cancel_flag()) r = lia_move::undef;        
             return r;
