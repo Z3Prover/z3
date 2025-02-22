@@ -10,4 +10,4 @@ const headerFile = env.files[0];
 const cppFile = env.files[1];
 let answer = await invokeLLMClassInvariant(headerFile.content, cppFile.content);
 
-await workspace.writeText(headerFile.filename + ".spec.h", answer);
+await workspace.writeText(headerFile.filename + ".spec.md", answer);
