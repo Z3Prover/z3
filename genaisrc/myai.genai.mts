@@ -228,6 +228,8 @@ export async function invokeLLMClassInvariant(header : string, code : string) {
         Create only code for the class invariant methods and optionally auxiliary helper functions.
 
         In addition, for each method, provide pre and post conditions.
+        A precondition is an assertion that must be true before the method is called.
+        Similarly, a postcondition is an assertion that must be true after the method is called.
         Include the well_formed() method in the pre and post conditions if it should be included.      
         `        
         }, {

@@ -129,9 +129,9 @@ void peq::mk_peq(app_ref &result) {
         ptr_vector<expr> args;
         args.push_back(m_lhs);
         args.push_back(m_rhs);
-        for (unsigned i = 0; i < m_num_indices; i++) {
-            args.push_back(m_diff_indices.get(i));
-        }
+        for (auto idx : m_diff_indices) 
+            args.push_back(idx);
+        
         m_peq = m.mk_app(m_decl, args.size(), args.data());
     }
     result = m_peq;
@@ -144,13 +144,11 @@ void peq::mk_eq(app_ref_vector &aux_consts, app_ref &result,
         if (!stores_on_rhs) { std::swap(lhs, rhs); }
         // lhs = (...(store (store rhs i0 v0) i1 v1)...)
         sort *val_sort = get_array_range(lhs->get_sort());
-        expr_ref_vector::iterator end = m_diff_indices.end();
-        for (expr_ref_vector::iterator it = m_diff_indices.begin(); it != end;
-             it++) {
+        for (auto it : m_diff_indices) {
             app *val = m.mk_fresh_const("diff", val_sort);
             ptr_vector<expr> store_args;
             store_args.push_back(rhs);
-            store_args.push_back(*it);
+            store_args.push_back(it);
             store_args.push_back(val);
             rhs = m_arr_u.mk_store(store_args);
             aux_consts.push_back(val);
@@ -333,19 +331,19 @@ class arith_project_util {
         m_strict.reset();
         m_eq.reset();
 
-        for (unsigned i = 0; i < lits.size(); ++i) {
+        for (auto lit : lits) {
             rational c(0), d(0);
             expr_ref t(m);
             bool is_strict = false;
             bool is_eq = false;
             bool is_diseq = false;
-            if (!(*m_var)(lits.get(i))) {
-                new_lits.push_back(lits.get(i));
+            if (!(*m_var)(lit)) {
+                new_lits.push_back(lit);
                 continue;
             }
-            if (is_linear(lits.get(i), c, t, d, is_strict, is_eq, is_diseq)) {
+            if (is_linear(lit, c, t, d, is_strict, is_eq, is_diseq)) {
                 if (c.is_zero()) {
-                    m_rw(lits.get(i), t);
+                    m_rw(lit, t);
                     new_lits.push_back(t);
                 } 
                 else if (is_eq) {
@@ -354,12 +352,13 @@ class arith_project_util {
                         eq_term = mk_mul(-(rational::one() / c), t);
                         use_eq = true;
                     }
-                    m_lits.push_back(lits.get(i));
+                    m_lits.push_back(lit);
                     m_coeffs.push_back(c);
                     m_terms.push_back(t);
                     m_strict.push_back(false);
                     m_eq.push_back(true);
-                } else {
+                } 
+                else {
                     if (is_diseq) {
                         // c*x + t != 0
                         // find out whether c*x + t < 0, or c*x + t > 0
@@ -376,7 +375,7 @@ class arith_project_util {
                         }
                         is_strict = true;
                     }
-                    m_lits.push_back(lits.get(i));
+                    m_lits.push_back(lit);
                     m_coeffs.push_back(c);
                     m_terms.push_back(t);
                     m_strict.push_back(is_strict);
@@ -390,7 +389,7 @@ class arith_project_util {
             } 
             else
                 return false;
-        }
+        }       
         if (use_eq) {
             TRACE("qe", tout << "Using equality term: " << mk_pp(eq_term, m)
                              << "\n";);
@@ -488,7 +487,8 @@ class arith_project_util {
                     m_strict.push_back(false);
                     m_eq.push_back(true);
                     m_divs.push_back(d);
-                } else {
+                } 
+                else {
                     TRACE("qe", tout << "not an equality term\n";);
                     if (is_diseq) {
                         // c*x + t != 0
@@ -513,18 +513,18 @@ class arith_project_util {
                             (!is_strict &&
                              r <= rational::zero())) { // literal true in the
                                                        // model
-                            if (c.is_pos()) {
+                            if (c.is_pos()) 
                                 ++num_pos;
-                            } else {
-                                ++num_neg;
-                            }
+                            else 
+                                ++num_neg;                            
                         }
                     }
                 }
                 TRACE("qe", tout << "c: " << c << "\n";
                       tout << "t: " << mk_pp(t, m) << "\n";
                       tout << "d: " << d << "\n";);
-            } else
+            } 
+            else
                 return false;
         }
 
@@ -573,13 +573,14 @@ class arith_project_util {
                 map.insert(m_var->x(), eq_term, nullptr);
                 TRACE("qe", tout << "Using equality term: " << mk_pp(eq_term, m)
                                  << "\n";);
-            } else {
+            } 
+            else {
                 // find substitution term for (lcm_coeffs * x)
-                if (m_coeffs[eq_idx].is_pos()) {
+                if (m_coeffs[eq_idx].is_pos()) 
                     x_term_val = a.mk_uminus(m_terms.get(eq_idx));
-                } else {
+                else 
                     x_term_val = m_terms.get(eq_idx);
-                }
+                
                 m_rw(x_term_val);
                 TRACE("qe", tout << "Using equality literal: "
                                  << mk_pp(m_lits.get(eq_idx), m) << "\n";
