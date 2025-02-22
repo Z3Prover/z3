@@ -211,3 +211,29 @@ export async function invokeLLMOpt(code: string) {
     );
     return answer.text;
 }
+
+export async function invokeLLMClassInvariant(header : string, code : string) {
+    const answer = await runPrompt(
+        (_) => {
+            _.def("HEADER", header);
+            _.def("CODE", code);
+            _.$`You are a highly experienced compiler engineer with over 20 years of expertise, 
+        specializing in C and C++ programming. Your deep knowledge of best coding practices 
+        and software engineering principles enables you to produce robust, efficient, and 
+        maintainable code in any scenario.
+
+        Please create class invariant methods for the classes used in <CODE>.
+        The signature of the class invariant methods should be 'bool well_formed()'.
+        If the code already has class invariant methods, please do not add new ones.
+        Create only code for the class invariant methods and optionally auxiliary helper functions.
+
+        In addition, for each method, provide pre and post conditions.
+        Include the well_formed() method in the pre and post conditions if it should be included.      
+        `        
+        }, {
+        system: [],
+        systemSafety: false
+    }
+    );
+    return answer.text;
+}
