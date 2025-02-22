@@ -254,7 +254,7 @@ namespace lp {
             out << "bounds:\n";
             for (unsigned v = 0; v < m_var_register.size(); ++v) {
                 unsigned j = m_var_register.local_to_external(v);
-                out << "j" << j << ":= " << lra.get_column_value(j) << ": ";
+                out << "j" << j << ":= " << lra.get_column_value(j).x << ": ";
                 if (lra.column_has_lower_bound(j))
                     out << lra.column_lower_bound(j).x << " <= ";
                 out << "x" << v;
@@ -1383,7 +1383,8 @@ namespace lp {
             lia_move r = lia_move::undef;
             // Process sorted terms
             TRACE("dio", 
-                  tout << "changed terms:"; for (auto j : sorted_changed_terms) tout << j << " "; tout << std::endl;
+                  tout << "changed terms:";
+                  for (auto j : sorted_changed_terms) lra.print_term(lra.get_term(j), tout) << " - x" <<j << " = 0" << std::endl;
                   print_S(tout);
                   print_bounds(tout);
             );
@@ -1395,6 +1396,14 @@ namespace lp {
                     break;
                 }                
             }
+            // Process sorted terms
+            TRACE("dio", 
+                  tout << "after tighten_terms_with_S():\n";
+                  print_S(tout);
+                  for (auto j : sorted_changed_terms) tout << j << " "; tout << std::endl;
+                  print_bounds(tout);
+            );
+            
             for (unsigned j : cleanup) {
                 m_changed_terms.remove(j);
             }
@@ -1632,27 +1641,27 @@ namespace lp {
         };
         std_vector<prop_bound> m_prop_bounds;
         lia_move propagate_bounds_on_tightened_columns() {
-            m_prop_bounds.clear();
             for (unsigned j : m_tightened_columns) {
+                m_prop_bounds.clear();
                 auto t = lra.get_term(j);
                 t.add_monomial(mpq(-1), j);
                 bound_analyzer_on_row<lar_term, dioph_eq::imp>::analyze_row(t, impq(0), *this);
+                for (const auto & pb: m_prop_bounds) {                
+                    lconstraint_kind kind = get_bound_kind(!pb.m_is_low, pb.m_strict);            
+                    lra.update_column_type_and_bound(pb.m_j, kind, pb.m_bound, pb.m_dep);
+                }
+                lp_status st = lra.find_feasible_solution();
+                if ((int)st >= (int)lp::lp_status::FEASIBLE) {
+                    continue;
+                }
+                if (st == lp_status::CANCELLED) {
+                    return lia_move::undef;
+                }
+                SASSERT(st == lp_status::INFEASIBLE);
+                lra.get_infeasibility_explanation(m_infeas_explanation);
+                return lia_move::conflict;
             }
-            for (const auto & pb: m_prop_bounds) {                
-                lconstraint_kind kind = get_bound_kind(!pb.m_is_low, pb.m_strict);            
-                lra.update_column_type_and_bound(pb.m_j, kind, pb.m_bound, pb.m_dep);
-            }
-            lp_status st = lra.find_feasible_solution();
-            if ((int)st >= (int)lp::lp_status::FEASIBLE) {
-                return lia_move::undef;
-            }
-            if (st == lp_status::CANCELLED) {
-                return lia_move::undef;
-            }
-            SASSERT(st == lp_status::INFEASIBLE);
-            lra.get_infeasibility_explanation(m_infeas_explanation);
-            return lia_move::conflict;
-            
+            return lia_move::undef;
         }
 
         lconstraint_kind get_bound_kind(bool upper, bool is_strict) {
