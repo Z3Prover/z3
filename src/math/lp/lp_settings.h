@@ -258,7 +258,7 @@ private:
     bool             m_dio_enable_gomory_cuts = false;
     bool             m_dio_enable_hnf_cuts = true;
     unsigned         m_dio_branching_period = 100; //  do branching rarely
-    unsigned         m_dio_report_branch_with_term_tigthening_period = 4; // report the branch with term tigthening every 2 iterations
+    unsigned         m_dio_report_branch_with_term_tigthening_period = 10000000; // period of reporting the branch with term tigthening
 
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }

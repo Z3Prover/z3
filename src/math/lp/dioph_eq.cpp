@@ -1647,7 +1647,6 @@ namespace lp {
                         return lia_move::conflict;
                 }
             }
-            std::cout << "new tbs:" << m_tightened_columns.size() << "\n";
             return lia_move::undef;
         }
 
