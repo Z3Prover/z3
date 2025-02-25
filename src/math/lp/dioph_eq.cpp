@@ -1480,9 +1480,7 @@ namespace lp {
         lia_move tighten_bounds_for_term_column(unsigned j) {
             term_o term_to_tighten = lra.get_term(j);  // copy the term aside
             
-            SASSERT(get_extended_term_value(term_to_tighten).is_zero());
-            if (!all_vars_are_int(term_to_tighten))
-                return lia_move::undef;
+            SASSERT(get_extended_term_value(term_to_tighten).is_zero() && all_vars_are_int(term_to_tighten));
             // q is the queue of variables that can be substituted in term_to_tighten
             protected_queue q;
             TRACE("dio", tout << "j:" << j << ", t: "; print_lar_term_L(term_to_tighten, tout) << std::endl;);
@@ -1706,7 +1704,8 @@ namespace lp {
             SASSERT(!g.is_zero());
 
             if (lra.has_bound_of_type(j, b_dep, rs, is_strict, is_upper)) {
-                TRACE("dio", tout << "current upper bound for x" << j << ":"
+                TRACE("dio", 
+                    tout << "current " << (is_upper? "upper":"lower") << " bound for x" << j << ":"
                       << rs << std::endl;);
                 rs = (rs - m_c) / g;
                 TRACE("dio", tout << "(rs - m_c) / g:" << rs << std::endl;);
