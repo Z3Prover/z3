@@ -201,7 +201,8 @@ struct mbp_array_tg::impl {
                 in = true;
                 eq_index = idx;
                 break;
-            }          
+            }  
+            ++idx;
         }
         if (in) {
             peq p_new = mk_wr_peq(a, p.rhs(), indices);
