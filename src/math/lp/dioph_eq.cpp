@@ -1377,15 +1377,11 @@ namespace lp {
             std_vector<unsigned> cleanup;
             m_tightened_columns.reset();
             for (unsigned j : m_changed_terms) {
-                if ( 
-                    j >= lra.column_count() ||
+                if (j >= lra.column_count() ||
                     !lra.column_has_term(j) ||
                     lra.column_is_free(j) ||
-                    is_fixed(j) ||
-                    !lia.column_is_int(j)
-                    ||
-                    !term_has_int_inv_vars(j)
-                    ) {
+                    !lia.column_is_int(j) ||
+                    !term_has_int_inv_vars(j)) {
                     cleanup.push_back(j);
                     continue;
                 }
