@@ -1156,6 +1156,12 @@ namespace lp {
             return lra.print_expl(out, ex);
         }
 
+        bool var_is_fresh(unsigned j) const {
+            bool ret = m_fresh_k2xt_terms.has_second_key(j);
+            SASSERT(!ret || m_var_register.local_to_external(j) == UINT_MAX);
+            return ret;
+        }
+
         bool has_fresh_var(unsigned row_index) const {
             for (const auto& p : m_e_matrix.m_rows[row_index]) {
                 if (var_is_fresh(p.var()))
@@ -1363,7 +1369,7 @@ namespace lp {
             return weight;
         }
 
-        bool term_has_int_inv_vars(unsigned j) const {
+        bool term_has_int_inf_vars(unsigned j) const {
             for (const auto & p: lra.get_term(j)) {
                 if (lia.column_is_int_inf(p.var()))
                     return true;
@@ -1381,7 +1387,7 @@ namespace lp {
                     !lra.column_has_term(j) ||
                     lra.column_is_free(j) ||
                     !lia.column_is_int(j) ||
-                    !term_has_int_inv_vars(j)) {
+                    !term_has_int_inf_vars(j)) {
                     cleanup.push_back(j);
                     continue;
                 }
@@ -1396,8 +1402,7 @@ namespace lp {
             lia_move r = lia_move::undef;
             // Process sorted terms
             TRACE("dio", 
-                  tout << "changed terms:";
-                  for (auto j : sorted_changed_terms) lra.print_term(lra.get_term(j), tout) << " - x" <<j << " = 0" << std::endl;
+                  tout << "changed terms:"; for (auto j : sorted_changed_terms) tout << j << " "; tout << std::endl;
                   print_S(tout);
                   print_bounds(tout);
             );
@@ -1409,14 +1414,6 @@ namespace lp {
                     break;
                 }                
             }
-            // Process sorted terms
-            TRACE("dio", 
-                  tout << "after tighten_terms_with_S():\n";
-                  print_S(tout);
-                  for (auto j : sorted_changed_terms) tout << j << " "; tout << std::endl;
-                  print_bounds(tout);
-            );
-            
             for (unsigned j : cleanup) {
                 m_changed_terms.remove(j);
             }
@@ -1495,7 +1492,7 @@ namespace lp {
                 term_to_lar_solver(remove_fresh_vars(create_term_from_subst_space())));
 
             mpq g = gcd_of_coeffs(m_espace.m_data, true);
-            TRACE("dio", tout << "after process_q_with_S\nt:";  print_term_o(create_term_from_subst_space(), tout) << std::endl; tout << "g:" << g << std::endl;);
+            TRACE("dioph_eq", tout << "after process_q_with_S\nt:";  print_term_o(create_term_from_subst_space(), tout) << std::endl; tout << "g:" << g << std::endl;);
 
             if (g.is_one())
                 return lia_move::undef;
@@ -1590,8 +1587,7 @@ namespace lp {
             lia.offset() = floor(rs);
             lia.is_upper() = true;
             m_report_branch = true;
-            enable_trace("dio");
-            TRACE("dio", tout << "prepare branch, t:";
+            TRACE("dioph_eq", tout << "prepare branch, t:";
                   print_lar_term_L(t, tout)
                   << " <= " << lia.offset()
                   << std::endl;
@@ -1641,51 +1637,8 @@ namespace lp {
             }
         }
 
-        struct prop_bound {
-            mpq m_bound;
-            unsigned m_j;
-            bool m_is_low;
-            bool m_strict;
-            u_dependency* m_dep;
-            prop_bound(const mpq& b, unsigned j, bool is_low, bool strict, u_dependency* dep): m_bound(b), m_j(j), m_is_low(is_low), m_strict(strict), m_dep(dep) {}
-        };
-        std_vector<prop_bound> m_prop_bounds;
         lia_move propagate_bounds_on_tightened_columns() {
-            for (unsigned j : m_tightened_columns) {
-                m_prop_bounds.clear();
-                auto t = lra.get_term(j);
-                t.add_monomial(mpq(-1), j);
-                bound_analyzer_on_row<lar_term, dioph_eq::imp>::analyze_row(t, impq(0), *this);
-                for (const auto & pb: m_prop_bounds) {                
-                    lconstraint_kind kind = get_bound_kind(!pb.m_is_low, pb.m_strict);            
-                    lra.update_column_type_and_bound(pb.m_j, kind, pb.m_bound, pb.m_dep);
-                }
-                lp_status st = lra.find_feasible_solution();
-                if ((int)st >= (int)lp::lp_status::FEASIBLE) {
-                    continue;
-                }
-                if (st == lp_status::CANCELLED) {
-                    return lia_move::undef;
-                }
-                SASSERT(st == lp_status::INFEASIBLE);
-                lra.get_infeasibility_explanation(m_infeas_explanation);
-                return lia_move::conflict;
-            }
             return lia_move::undef;
-        }
-
-        lconstraint_kind get_bound_kind(bool upper, bool is_strict) {
-            if (upper) {
-                return is_strict ? lp::LT : lp::LE; 
-            }
-            else {
-                return is_strict ? lp::GT : lp::GE;
-            }
-        }
-        
-        void add_bound(mpq const& bound, unsigned j, bool is_low, bool strict, std::function<u_dependency* ()> explain_bound) {
-            m_prop_bounds.push_back({bound, j, is_low, strict, explain_bound()});
-
         }
         // m_espace contains the coefficients of the term
         // m_c contains the fixed part of the term
@@ -1810,14 +1763,6 @@ namespace lp {
             if (ret == lia_move::conflict) {
                 lra.stats().m_dio_tighten_conflicts++;
                 return lia_move::conflict;
-            }
-            if (lra.settings().get_cancel_flag())
-                return lia_move::undef;
-
-            if (ret == lia_move::undef) {    
-                ret = propagate_bounds_on_tightened_columns();
-                if (ret == lia_move::conflict)
-                    lra.stats().m_dio_bound_propagation_conflicts++;
             }
             return ret;
         }
@@ -2589,7 +2534,7 @@ namespace lp {
             if (h == UINT_MAX) return false;
             SASSERT(h == f_vector[ih]);
             if (min_ahk.is_one()) {
-                TRACE("dio", tout << "push to S:\n"; print_entry(h, tout););
+                TRACE("dioph_eq", tout << "push to S:\n"; print_entry(h, tout););
                 move_entry_from_f_to_s(kh, h);
                 eliminate_var_in_f(h, kh, kh_sign);
                 if (ih != f_vector.size() - 1) {
@@ -2600,12 +2545,6 @@ namespace lp {
             else                     
                 fresh_var_step(h, kh, min_ahk * mpq(kh_sign));
             return true;
-        }
-
-        bool var_is_fresh(unsigned j) const {
-            bool ret = m_fresh_k2xt_terms.has_second_key(j);
-            SASSERT(!ret || m_var_register.local_to_external(j) == UINT_MAX);
-            return ret;
         }
 
     public:

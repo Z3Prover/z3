@@ -138,7 +138,6 @@ struct statistics {
     unsigned m_dio_rewrite_conflicts = 0;
     unsigned m_dio_branching_sats = 0;
     unsigned m_dio_branching_conflicts = 0;
-    unsigned m_dio_bound_propagation_conflicts = 0;
     unsigned m_bounds_tightening_conflicts = 0;
     unsigned m_bounds_tightenings = 0;
     ::statistics m_st = {};
@@ -186,7 +185,6 @@ struct statistics {
         st.update("arith-dio-branching-conflicts", m_dio_branching_conflicts);
         st.update("arith-bounds-tightening-conflicts", m_bounds_tightening_conflicts);
         st.update("arith-bounds-tightenings", m_bounds_tightenings);
-        st.update("arith-dio-propagation-conflicts", m_dio_bound_propagation_conflicts);
         st.copy(m_st);
     }
 };
@@ -260,7 +258,7 @@ private:
     bool             m_dio_enable_gomory_cuts = false;
     bool             m_dio_enable_hnf_cuts = true;
     unsigned         m_dio_branching_period = 100; //  do branching rarely
-    unsigned         m_dio_report_branch_with_term_tigthening_period = 10000000;
+    unsigned         m_dio_report_branch_with_term_tigthening_period = 10000000; // period of reporting the branch with term tigthening
 
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }
