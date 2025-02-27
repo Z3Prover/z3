@@ -2206,16 +2206,10 @@ void array_project(model &mdl, app_ref_vector &arr_vars, expr_ref &fml,
                    app_ref_vector &aux_vars, bool reduce_all_selects) {
     // 1. project array equalities
     array_project_eqs(mdl, arr_vars, fml, aux_vars);
-    TRACE(
-        "qe", ast_manager &m = fml.get_manager();
-        tout << "Projected array eqs:\n"
-             << mk_pp(fml, m) << "\n";
-        tout << "Remaining array vars:\n"; for (unsigned i = 0;
-                                                i < arr_vars.size(); i++) {
-            tout << mk_pp(arr_vars.get(i), m) << "\n";
-        } tout << "Aux vars:\n";
-        for (unsigned i = 0; i < aux_vars.size();
-             i++) { tout << mk_pp(aux_vars.get(i), m) << "\n"; });
+    TRACE("qe",
+        tout << "Projected array eqs:\n" << fml << "\n";
+        tout << "Remaining array vars:\n" << arr_vars;
+        tout << "Aux vars:\n" << aux_vars;);
 
     // 2. reduce selects
     if (reduce_all_selects) {
@@ -2223,19 +2217,16 @@ void array_project(model &mdl, app_ref_vector &arr_vars, expr_ref &fml,
     } else {
         reduce_array_selects(mdl, arr_vars, fml);
     }
-    TRACE("qe", ast_manager &m = fml.get_manager(); tout << "Reduced selects:\n"
-                                                         << mk_pp(fml, m)
-                                                         << "\n";);
+    TRACE("qe", tout << "Reduced selects:\n" << fml << "\n";);
 
     // 3. project selects using model based ackermannization
     array_project_selects(mdl, arr_vars, fml, aux_vars);
     TRACE(
-        "qe", ast_manager &m = fml.get_manager();
-        tout << "Projected array selects:\n"
-             << mk_pp(fml, m) << "\n";
-        tout << "All aux vars:\n";
-        for (unsigned i = 0; i < aux_vars.size();
-             i++) { tout << mk_pp(aux_vars.get(i), m) << "\n"; });
+        "qe", 
+        tout << "Projected array selects:\n";
+        tout << fml << "\n";
+        tout << "All aux vars:\n" << aux_vars;);
+
 }
 
 } // namespace spacer_qe
