@@ -22,19 +22,21 @@ class lar_core_solver  {
     vector<numeric_pair<mpq>> m_right_sides_dummy;
     vector<mpq> m_costs_dummy;
     stacked_value<simplex_strategy_enum> m_stacked_simplex_strategy;
+    vector<impq> m_r_x;  // the solution
+    vector<impq> m_backup_x;
 
 public:
     
     stacked_vector<column_type> m_column_types;
     // r - solver fields, for rational numbers
-    vector<numeric_pair<mpq>> m_r_x; // the solution
+
     stacked_vector<numeric_pair<mpq>> m_r_lower_bounds;
     stacked_vector<numeric_pair<mpq>> m_r_upper_bounds;
     static_matrix<mpq, numeric_pair<mpq>> m_r_A;
     stacked_vector<unsigned> m_r_pushed_basis;
     vector<unsigned>         m_r_basis;
     vector<unsigned>         m_r_nbasis;
-    std_vector<int>              m_r_heading;
+    std_vector<int>          m_r_heading;
     
 
     lp_primal_core_solver<mpq, numeric_pair<mpq>> m_r_solver; // solver in rational numbers
@@ -71,9 +73,24 @@ public:
         
         m_r_solver.print_column_bound_info(m_r_solver.m_basis[row_index], out);        
     }
-    
-    
+
+
     void prefix_r();
+    
+    // access to x:
+
+    void backup_x() { m_backup_x = m_r_x; }
+
+    void restore_x() {
+        m_r_x.reserve(m_m());
+        for (unsigned i = 0; i < std::min(m_m(), m_backup_x.size()); ++i)
+            m_r_x[i] = m_backup_x[i];
+    }
+
+    vector<impq> const& r_x() const { return m_r_x; }
+    impq& r_x(unsigned j) { return m_r_x[j]; }
+    impq const& r_x(unsigned j) const { return m_r_x[j]; }
+    void resize_x(unsigned n) { m_r_x.resize(n); }
 
     unsigned m_m() const { return m_r_A.row_count();  }
 

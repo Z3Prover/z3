@@ -340,7 +340,7 @@ namespace lp {
 
         bool current_solution_is_inf_on_cut() const {
             SASSERT(cut_indices_are_columns());
-            const auto & x = lrac.m_r_x;
+            const auto & x = lrac.r_x();
             impq v = m_t.apply(x);
             mpq sign = m_upper ? one_of_type<mpq>()  : -one_of_type<mpq>();
             CTRACE("current_solution_is_inf_on_cut", v * sign <= impq(m_k) * sign,
@@ -682,7 +682,7 @@ namespace lp {
     }
 
     const impq & int_solver::get_value(unsigned j) const {
-        return lrac.m_r_x[j];
+        return lrac.r_x(j);
     }
 
     std::ostream& int_solver::display_column(std::ostream & out, unsigned j) const {
