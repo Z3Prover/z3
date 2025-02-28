@@ -312,7 +312,7 @@ public:
     std::function<void(lpvar)> m_fixed_var_eh;
     template <typename T>
     void explain_implied_bound(const implied_bound& ib, lp_bound_propagator<T>& bp) {
-        u_dependency* dep = ib.explain_implied();
+        u_dependency* dep = ib.dep();
         for (auto ci : flatten(dep))
             bp.consume(mpq(1), ci); // TODO: flatten should provide the coefficients
         /*

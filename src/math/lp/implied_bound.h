@@ -33,11 +33,11 @@ class implied_bound {
     bool m_is_lower_bound;
     bool m_strict;
     private:
-    std::function<u_dependency*()> m_explain_bound = nullptr;
+    u_dependency* m_dep = nullptr;
     public:
     // s is expected to be the pointer to lp_bound_propagator.
-    u_dependency* explain_implied() const { return m_explain_bound(); }
-    void set_explain(std::function<u_dependency*()> f) { m_explain_bound = f; }
+    u_dependency* dep() const { return m_dep; }
+    void set_dep(u_dependency* dep) { m_dep = dep; }
     lconstraint_kind kind() const {
         lconstraint_kind k = m_is_lower_bound? GE : LE;
         if (m_strict)
@@ -49,12 +49,12 @@ class implied_bound {
                   unsigned j,
                   bool is_lower_bound,
                   bool is_strict,
-                  std::function<u_dependency*()> get_dep):
+                  u_dependency* dep):
         m_bound(a),
         m_j(j),
         m_is_lower_bound(is_lower_bound),
         m_strict(is_strict),
-        m_explain_bound(get_dep) {
+        m_dep(dep) {
     }
 };
 }

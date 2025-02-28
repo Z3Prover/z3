@@ -227,8 +227,8 @@ namespace lp {
 
         unsigned m_bounds_refine_depth = 0;
        
-        void add_bound(mpq const& bound, unsigned j, bool is_low, bool strict, const std::function<u_dependency* ()>& explain_bound) {
-            m_prop_bounds.push_back({bound, j, is_low, strict, explain_bound()});
+        void add_bound(mpq const& bound, unsigned j, bool is_low, bool strict, u_dependency* dep) {
+            m_prop_bounds.push_back({bound, j, is_low, strict, dep});
         }        
 
         lconstraint_kind get_bound_kind(bool upper, bool is_strict) {
@@ -280,7 +280,7 @@ namespace lp {
             return lia_move::undef;
         }
         bool should_tighten_bounds() {
-            return m_number_of_calls % 4 == 0;
+            return false && m_number_of_calls % 4 == 0;
         }
      // needed for the template bound_analyzer_on_row.h
         const lar_solver& lp() const { return lra; }

@@ -245,19 +245,8 @@ namespace lp {
         std::ostream& print_S(std::ostream& out) {
             out << "S:\n";
             for (const auto& p : m_k2s.m_map) {
-                print_entry(p.second, out, false, false);
+                print_entry(p.second, out, false, false, true);
             }
-            return out;
-        }
-
-        std::ostream& print_column_bounds(std::ostream& out, unsigned j) {
-            out << "j" << j << ":= " << lra.get_column_value(j).x << ": ";
-            if (lra.column_has_lower_bound(j))
-                out << lra.column_lower_bound(j).x << " <= ";
-            out << "x" << j;
-            if (lra.column_has_upper_bound(j))
-                out << " <= " << lra.column_upper_bound(j).x;
-            out << "\n";
             return out;
         }
             
@@ -265,7 +254,7 @@ namespace lp {
             out << "bounds:\n";
             for (unsigned v = 0; v < m_var_register.size(); ++v) {
                 unsigned j = m_var_register.local_to_external(v);
-                print_column_bounds(out, j);
+                lra.print_column_info(j, out);
             }
             return out;
         }
@@ -1446,12 +1435,9 @@ namespace lp {
             m_c = mpq(0);
             m_lspace.clear();
             SASSERT(get_extended_term_value(lar_t).is_zero());
-            TRACE("dio", tout << "t:";print_lar_term_L(lar_t, tout) << std::endl; tout << "value:" << get_extended_term_value(lar_t) << std::endl;);
             for (const auto& p : lar_t) {
-                SASSERT(p.coeff().is_int());
                 if (is_fixed(p.j())) {
                     m_c += p.coeff() * lia.lower_bound(p.j()).x;
-                    SASSERT(lia.lower_bound(p.j()).x == lra.get_column_value(p.j()).x); 
                 }
                 else {
                     unsigned lj = lar_solver_to_local(p.j());
@@ -1460,9 +1446,6 @@ namespace lp {
                         q.push(lar_solver_to_local(p.j()));
                 }
             }
-            TRACE("dio", tout << "m_espace:"; print_term_o(create_term_from_subst_space(), tout) << std::endl;
-                  tout << "m_c:" << m_c << std::endl;
-                  tout << "get_value_of_subs_space:" << get_value_of_espace() << std::endl;);
         }
         unsigned lar_solver_to_local(unsigned j) const {
             return m_var_register.external_to_local(j);
@@ -1637,7 +1620,136 @@ namespace lp {
             }
         }
 
+        struct prop_bound {
+            mpq m_bound;
+            unsigned m_j;
+            bool m_is_low;
+            bool m_strict;
+            u_dependency* m_dep;
+        };
+
+        std_vector<prop_bound> m_prop_bounds;
+
+
+        void add_bound(mpq const& bound, unsigned j, bool is_low, bool strict, u_dependency* dep) {
+            m_prop_bounds.push_back({bound, j, is_low, strict, dep});
+        }
+
+        lconstraint_kind get_bound_kind(const prop_bound& pb) const {
+            if (!pb.m_is_low) {
+                return pb.m_strict ? lp::LT : lp::LE; 
+            }
+            else {
+                return pb.m_strict ? lp::GT : lp::GE;
+            }
+        }
+
+        bool cut(const prop_bound& pb) const {            
+            const auto & v = lra.get_column_value(pb.m_j);
+            switch (get_bound_kind(pb)) {
+            case LT:
+                return v >= pb.m_bound;
+            case LE:
+                return v > pb.m_bound;
+            case GT:
+                return v <= pb.m_bound;
+            case GE:
+                return v < pb.m_bound;
+            default:
+                UNREACHABLE();
+            }
+            return false;
+        }
+
+        std::ostream& print_int_inf_vars(std::ostream& out) const {
+            out << "Integer infeasible variables:\n";
+            for (unsigned j = 0; j < lra.column_count(); j++) {
+                if (!lia.column_is_int_inf(j)) continue;
+                out << "x" << j << " = " << lra.get_column_value(j).x << " bounds:\n";
+                if (lra.column_has_lower_bound(j))
+                    out << lra.get_lower_bound(j).x << " <= ";
+                else 
+                    out << "-oo" << " <= ";
+
+                out << "x" << j;
+                if (lra.column_has_upper_bound(j)) 
+                    out << " <= " << lra.get_upper_bound(j).x;
+                else 
+                    out << " <= " << "oo";    
+                out << "\n";
+                
+            }
+            return out;
+        }
+
+        // return true iff lar_solvre is feasible or cancelled
+        bool create_cut(const prop_bound& pb) {
+            lra.update_column_type_and_bound(pb.m_j, get_bound_kind(pb), pb.m_bound, pb.m_dep);
+            auto st = lra.find_feasible_solution();
+            if ((int)st >= (int)(lp_status::FEASIBLE) || !lia.settings().get_cancel_flag())
+                return true;
+            if (st == lp_status::INFEASIBLE) {
+                lra.get_infeasibility_explanation(m_infeas_explanation);
+                return false;
+            }
+            return true;
+        }
+
+        bool row_has_int_inf(unsigned ei) {
+            for (const auto& p: m_e_matrix.m_rows[ei]) {
+                unsigned j = local_to_lar_solver(p.var());
+                if (lia.column_is_int_inf(j))
+                    return true;
+            }
+            return false;
+        }
+        int prop_calls = 0;
+        lia_move tighten_S_row(unsigned ei) {
+            if (!row_has_int_inf(ei)) return lia_move::undef;
+            // SASSERT(entry_invariant(ei));
+            m_espace.clear();
+            for (const auto& p: m_e_matrix.m_rows[ei]) {
+                m_espace.add(p.coeff(), p.var());
+            }
+            remove_fresh_from_espace();
+            std_vector<iv> row_in_lar_solver_indices;
+            for (const auto & p: m_espace.m_data) {
+                row_in_lar_solver_indices.push_back({p.coeff(), local_to_lar_solver(p.var())});
+            }
+            m_prop_bounds.clear();
+            bound_analyzer_on_row<std_vector<iv>, dioph_eq::imp>::analyze_row(row_in_lar_solver_indices, impq(- m_sum_of_fixed[ei]), *this);
+            for (auto& pb: m_prop_bounds) {
+                if (lra.settings().get_cancel_flag())
+                    return lia_move::undef;
+
+                if (cut(pb) && lia.column_is_int_inf(pb.m_j)) {
+                    pb.m_dep = lra.join_deps(pb.m_dep, explain_fixed_in_meta_term(m_l_matrix.m_rows[ei])); // todo; not efficient
+                    TRACE("dio", tout << "cut on variable x" << pb.m_j << ", with " << (pb.m_is_low? "lower": "upper") << " bound:" << pb.m_bound << "\n"; tout << "row " << ei << " in lar indices:\n";
+                          print_lar_term_L(row_in_lar_solver_indices, tout) << " + " << m_sum_of_fixed[ei] << "\n";
+                          tout << "bounds:\n";
+                          for (const auto& p: row_in_lar_solver_indices)
+                              lra.print_column_info(p.var(), tout););
+                    if (!create_cut(pb))
+                        return lia_move::conflict;                    
+                }
+            }
+            return lia_move::undef;
+        }
+        
         lia_move propagate_bounds_on_tightened_columns() {
+            TRACE("dio", print_int_inf_vars(tout); print_S(tout););
+            std::unordered_set<unsigned> rows;
+            for (unsigned tcol : m_tightened_columns) {
+                for (const auto& p: m_e_matrix.m_columns[lar_solver_to_local(tcol)] ) {
+                    if (lra.settings().get_cancel_flag())
+                        return lia_move::undef;
+                    if (contains(rows, p.var())) continue;
+                    rows.insert(p.var());
+                    lia_move r = tighten_S_row(p.var());
+                    if (r == lia_move::conflict)
+                        return r;                        
+                }
+            }
             return lia_move::undef;
         }
         // m_espace contains the coefficients of the term
@@ -1751,6 +1863,9 @@ namespace lp {
                 lra.stats().m_dio_rewrite_conflicts++;
                 return lia_move::conflict;
             }
+            TRACE("dio", print_int_inf_vars(tout) << "\n"; 
+                 print_S(tout));
+
             return lia_move::undef;
         }
 
@@ -1763,7 +1878,14 @@ namespace lp {
             if (ret == lia_move::conflict) {
                 lra.stats().m_dio_tighten_conflicts++;
                 return lia_move::conflict;
+            }           
+            if (ret == lia_move::undef) {
+                TRACE("dio", print_int_inf_vars(tout); print_S(tout););
+                ret = propagate_bounds_on_tightened_columns();
+                if (ret == lia_move::conflict)
+                    lra.stats().m_dio_bound_propagation_conflicts++;
             }
+
             return ret;
         }
 
@@ -1920,7 +2042,7 @@ namespace lp {
                     lra_pop();
                     continue;
                 }
-                auto st = lra.find_feasible_solution();
+                auto st = lra.find_feasible_solution();                
                 TRACE("dio_br", tout << "st:" << lp_status_to_string(st) << std::endl;);
                 if ((int)st >= (int)(lp_status::FEASIBLE)) {
                     // have a feasible solution
@@ -2285,17 +2407,13 @@ namespace lp {
         }
 
         bool entry_invariant(unsigned ei) const {
-            if (belongs_to_s(ei)) {
-                auto it = m_k2s.m_rev_map.find(ei);
-                SASSERT(it != m_k2s.m_rev_map.end());
-                unsigned j = it->second;
-                get_sign_in_e_row(ei, j);
-            }
-
             for (const auto& p : m_e_matrix.m_rows[ei]) {
                 if (!p.coeff().is_int()) {
                     return false;
                 }
+                unsigned j = local_to_lar_solver(p.var());
+                if (is_fixed(j))
+                    return false;
             }
 
             bool ret =
@@ -2432,12 +2550,13 @@ namespace lp {
         }
 
         std::ostream& print_entry(unsigned i, std::ostream& out,
-                                  bool print_dep = false, bool print_in_S = true) {
+                                  bool print_dep = false, bool print_in_S = true, bool print_column_info = false) {
             unsigned j = m_k2s.has_val(i) ? m_k2s.get_key(i) : UINT_MAX;
             out << "entry " << i << ": ";
             if (j != UINT_MAX) 
                 out << "x" << j << " ";               
             out << "{\n";
+            
             print_term_o(get_term_from_entry(i), out << "\t") << ",\n";
             // out << "\tstatus:" << (int)e.m_entry_status;
             if (print_dep) {
@@ -2453,11 +2572,13 @@ namespace lp {
                 out << "in F\n";
             }
             else {
-                if (local_to_lar_solver(j) == UINT_MAX) {
-                    out << "FRESH\n";
-                }
-                else if (print_in_S) {
+                if (print_in_S) {
                     out << "in S\n";
+                }
+            }
+            if (print_column_info) {
+                for (const auto& p : get_term_from_entry(i)) {
+                    lra.print_column_info(local_to_lar_solver(p.var()), out) << "\n";
                 }
             }
             out << "}\n";
