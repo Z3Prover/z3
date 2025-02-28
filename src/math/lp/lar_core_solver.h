@@ -82,9 +82,8 @@ public:
     void backup_x() { m_backup_x = m_r_x; }
 
     void restore_x() {
+        m_r_x = m_backup_x;
         m_r_x.reserve(m_m());
-        for (unsigned i = 0; i < std::min(m_m(), m_backup_x.size()); ++i)
-            m_r_x[i] = m_backup_x[i];
     }
 
     vector<impq> const& r_x() const { return m_r_x; }

@@ -199,10 +199,11 @@ export async function invokeLLMOpt(code: string) {
 
         Please modify the original code in <CODE> to ensure that it uses best practices for optimal code execution.
         
+        - do use for loops of the form for (auto const& x : container) { ... } instead of for (it = container.begin(); it != container.end(); ++it) { ... }.
         - do not use assert. Instead use SASSERT.
         - do not change function signatures.
         - do not use std::vector.
-        - do not add new comments.
+        - do not add new comments.        
         - do not split functions into multiple functions.`
         }, {
         system: [],
