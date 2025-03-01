@@ -78,7 +78,7 @@ def unpack(packages, symbols, arch):
                 files = ["Microsoft.Z3.dll", "Microsoft.Z3.pdb", "Microsoft.Z3.xml"]                
                 for b in files:
                     file1 = f"{package_dir}/bin/{b}"
-                    file2 = os.path.join(file,"netstandard2.0")
+                    file2 = os.path.join(file1,"netstandard2.0")
                     if os.path.exists(file1):
                         zip_ref.extract(file1, f"{tmp}")
                         replace(f"{tmp}/{package_dir}/bin/{b}", f"out/lib/netstandard2.0/{b}")
