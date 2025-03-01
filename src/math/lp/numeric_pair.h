@@ -239,6 +239,8 @@ struct numeric_pair {
     void neg() { x.neg(); y.neg(); }
     
     std::string to_string() const {
+        if (y.is_zero())
+            return T_to_string(x);
         return std::string("(") + T_to_string(x) + ", "  + T_to_string(y) + ")";
     }
 

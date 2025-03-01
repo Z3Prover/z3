@@ -156,19 +156,19 @@ class lar_solver : public column_namer {
     void add_constraint_to_validate(lar_solver& ls, constraint_index ci);
     bool m_validate_blocker = false;
     void update_column_type_and_bound_check_on_equal(unsigned j, const mpq& right_side, constraint_index ci, unsigned&);
-    void update_column_type_and_bound(unsigned j, const mpq& right_side, constraint_index ci);
+    bool update_column_type_and_bound(unsigned j, const mpq& right_side, constraint_index ci);
  public:   
     bool validate_blocker() const { return m_validate_blocker; }
     bool & validate_blocker() { return m_validate_blocker; }   
-	void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    bool update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
  private:
     void require_nbasis_sort() { m_mpq_lar_core_solver.m_r_solver.m_nbasis_sort_counter = 0; }   
-    void update_column_type_and_bound_with_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_column_type_and_bound_with_no_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_bound_with_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_bound_with_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_bound_with_no_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    bool update_column_type_and_bound_with_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    bool update_column_type_and_bound_with_no_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    bool update_bound_with_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    bool update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    bool update_bound_with_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    bool update_bound_with_no_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void register_in_fixed_var_table(unsigned, unsigned&);
     void remove_non_fixed_from_fixed_var_table();
     constraint_index add_var_bound_on_constraint_for_term(lpvar j, lconstraint_kind kind, const mpq& right_side);
@@ -614,11 +614,12 @@ public:
     }
     inline bool column_has_term(lpvar j) const { return m_columns[j].term() != nullptr; }
 
-    std::ostream& print_column_info(unsigned j, std::ostream& out) const {
+    std::ostream& print_column_info(unsigned j, std::ostream& out, bool print_expl = false) const {
         m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
         if (column_has_term(j)) 
             print_term_as_indices(get_term(j), out) << "\n";       
-        display_column_explanation(out, j);
+        if (print_expl)
+            display_column_explanation(out, j);
         return out;
     }
 
@@ -627,10 +628,18 @@ public:
         svector<unsigned> vs1, vs2;
         m_dependencies.linearize(ul.lower_bound_witness(), vs1);
         m_dependencies.linearize(ul.upper_bound_witness(), vs2);
-        if (!vs1.empty())
-            out << "lo: " << vs1;
-        if (!vs2.empty())
-            out << "hi: " << vs2;
+        if (!vs1.empty()) {
+            out << " lo:\n";
+            for (unsigned ci : vs1) {
+                display_constraint(out, ci) << "\n";
+            }
+        }
+        if (!vs2.empty()) {
+            out << " hi:\n";
+            for (unsigned ci : vs2) {
+                display_constraint(out, ci) << "\n";
+            }
+        }     
         if (!vs1.empty() || !vs2.empty())
             out << "\n";
         return out;
