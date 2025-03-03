@@ -489,6 +489,15 @@ namespace lp {
         unsigned m_conflict_index = -1;  // the row index of the conflict
         unsigned m_max_of_branching_iterations = 0;
         unsigned m_number_of_branching_calls;
+        struct prop_bound {
+            mpq m_bound;
+            unsigned m_j;
+            bool m_is_low;
+            bool m_strict;
+            u_dependency* m_dep;
+        };
+
+        std_vector<prop_bound> m_prop_bounds;
         struct branch {
             unsigned m_j = UINT_MAX;
             mpq m_rs;
@@ -1462,6 +1471,13 @@ namespace lp {
             return m_var_register.external_to_local(j);
         }
 
+        std::ostream& print_prop_bound(const prop_bound & b, std::ostream& out) {
+            out << "low:" << b.m_is_low << ", bound:" << b.m_bound << "\n";
+            out << "deps:\n";
+            lra.print_explanation(out, lra.flatten(b.m_dep));
+            return out;
+        }
+
         // we have m_espace and m_lspace filled with an lra_term and the variables are substituted by S and fresh
         lia_move tighten_bounds_for_term_column_bp(unsigned j) {
             remove_fresh_from_espace();
@@ -1475,16 +1491,30 @@ namespace lp {
                       lra.print_column_info(p.var(), tout);
                   }
                 );
+
             m_prop_bounds.clear();
-            bound_analyzer_on_row<std_vector<iv>, dioph_eq::imp>::analyze_row(m_espace.m_data, impq(- m_c), *this);
+            lar_term t = lra.get_term(j) + lar_term(open_ml(m_lspace));
+            bound_analyzer_on_row<lar_term, dioph_eq::imp>::analyze_row(t, impq(0), *this);
+            TRACE("dio", tout << "fully opened:\n"; print_lar_term_L(t, tout) << "\n";);
+            
+                                    
+            // m_prop_bounds.clear();
+            // bound_analyzer_on_row<term_with_index, dioph_eq::imp>::analyze_row(m_espace, impq(- m_c), *this);
+            // TRACE("dio", tout << "optimized:\n";
+            //       for (auto& pb: m_prop_bounds) {
+            //           print_prop_bound(pb, tout);
+            //       });
+        
             lia_move r =  lia_move::undef;
-            u_dependency * dep  = explain_fixed_in_meta_term(m_lspace.m_data); // not efficient : todo
-            dep = lra.join_deps(explain_fixed(lra.get_term(j)), dep);
-            if (is_fixed(j)) dep = lra.join_deps(dep, lra.get_bound_constraint_witnesses_for_column(j));
+            // u_dependency * dep  = explain_fixed_in_meta_term(m_lspace.m_data); // not efficient : todo
+            //     dep = lra.join_deps(explain_fixed(lra.get_term(j)), dep);
+            // if (is_fixed(j)) dep = lra.join_deps(dep, lra.get_bound_constraint_witnesses_for_column(j));
             for (auto& pb: m_prop_bounds) {
-                pb.m_dep = lra.join_deps(pb.m_dep, dep);
+                //  pb.m_dep = lra.join_deps(pb.m_dep, dep);                
                 if (update_bound(pb)) {
-                    TRACE("dio", tout << "change after update_bound pb.m_j:" << pb.m_j << "\n";);
+                    TRACE("dio",
+                          tout << "change after update_bound pb.m_j:" << pb.m_j << "\n";
+                          lra.print_explanation(tout, lra.flatten(pb.m_dep)));
                     auto st = lra.find_feasible_solution();
                     if (st == lp_status::INFEASIBLE) {
                         lra.get_infeasibility_explanation(m_infeas_explanation);
@@ -1677,17 +1707,6 @@ namespace lp {
             }
         }
 
-        struct prop_bound {
-            mpq m_bound;
-            unsigned m_j;
-            bool m_is_low;
-            bool m_strict;
-            u_dependency* m_dep;
-        };
-
-        std_vector<prop_bound> m_prop_bounds;
-
-
         void add_bound(mpq const& bound, unsigned j, bool is_low, bool strict, u_dependency* dep) {
             m_prop_bounds.push_back({bound, j, is_low, strict, dep});
         }
@@ -1741,9 +1760,11 @@ namespace lp {
 
         // return true iff the column bound has been changed
         bool update_bound(const prop_bound& pb) {            
-            TRACE("dio", tout << "pb: " << "x" << pb.m_j << ", low:" << pb.m_is_low << " , strict:" << pb.m_strict << " , bound:" << pb.m_bound << "\n"; lra.print_column_info(pb.m_j, tout, true););
+            TRACE("dio_bound", tout << "pb: " << "x" << pb.m_j << ", low:" << pb.m_is_low << " , strict:" << pb.m_strict << " , bound:" << pb.m_bound << "\n"; lra.print_column_info(pb.m_j, tout, true););
             bool r = lra.update_column_type_and_bound(pb.m_j, get_bound_kind(pb), pb.m_bound, pb.m_dep);
-            TRACE("dio", tout << "after: "; lra.print_column_info(pb.m_j, tout);tout <<"return " << r << "\n";);
+            CTRACE("dio", r, tout << "change in lar_solver: "; tout << "was updating with " << (pb.m_is_low? "lower" : "upper") << " bound " << pb.m_bound << "\n";
+                   tout << "the column became:\n";
+                   lra.print_column_info(pb.m_j, tout);tout <<"return " << r << "\n";);
             return r;
         }
         

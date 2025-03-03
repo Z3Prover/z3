@@ -2513,6 +2513,7 @@ namespace lp {
         u_dependency* bdep = lower_bound? ul.lower_bound_witness() : ul.upper_bound_witness();
         SASSERT(bdep != nullptr);
         m_crossed_bounds_deps = m_dependencies.mk_join(bdep, dep);
+        TRACE("dio", tout << "crossed_bound_deps:\n";  print_explanation(tout, flatten(m_crossed_bounds_deps)) << "\n";);
     }
 
     void lar_solver::collect_more_rows_for_lp_propagation(){
