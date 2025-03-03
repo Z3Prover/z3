@@ -77,8 +77,9 @@ def unpack(packages, symbols, arch):
                     replace(f"{tmp}/{package_dir}/bin/libz3.pdb", f"out/runtimes/{dst}/native/libz3.pdb") 
                 files = ["Microsoft.Z3.dll", "Microsoft.Z3.pdb", "Microsoft.Z3.xml"]                
                 for b in files:
-                    file1 = f"{package_dir}/bin/{b}"
-                    file2 = os.path.join(file1,"netstandard2.0")
+                    dir = os.path.join(tmp, package_dir, "bin")
+                    file1 = os.path_join(dir, b)
+                    file2 = os.path.join(dir, "netstandard2.0", b)
                     if os.path.exists(file1):
                         zip_ref.extract(file1, f"{tmp}")
                         replace(f"{tmp}/{package_dir}/bin/{b}", f"out/lib/netstandard2.0/{b}")
@@ -87,6 +88,8 @@ def unpack(packages, symbols, arch):
                         replace(f"{tmp}/{package_dir}/bin/netstandard2.0/{b}", f"out/lib/netstandard2.0/{b}")
                     else:
                         print(f"Could not find file path {file1} nor {file2}")
+                        print(os.listdir(dir))
+                        print(os.listdir(tmp))                        
 
 
 def mk_targets(source_root):
