@@ -81,13 +81,21 @@ def unpack(packages, symbols, arch):
                     tmp_bin_dir = os.path.join(tmp_package_dir, "bin")
                     file1 = os.path.join(tmp_bin_dir, b)
                     file2 = os.path.join(tmp_bin_dir, "netstandard2.0", b)
-                    if os.path.exists(file1):
+                    found_path = False
+                    # check that file1 exists in zip_ref:
+                    try:
                         zip_ref.extract(file1, f"{tmp}")
                         replace(f"{tmp}/{package_dir}/bin/{b}", f"out/lib/netstandard2.0/{b}")
-                    elif os.path.exists(file2):
+                        found_path = True
+                    except:
+                        pass
+                    try:
                         zip_ref.extract(file2, f"{tmp}")
                         replace(f"{tmp}/{package_dir}/bin/netstandard2.0/{b}", f"out/lib/netstandard2.0/{b}")
-                    else:
+                        found_path = True
+                    except:
+                        pass
+                    if not found_path:
                         print(f"Could not find file path {file1} nor {file2}")
                         print(tmp, os.listdir(tmp))
                         print(tmp_package_dir, os.listdir(tmp_package_dir))
