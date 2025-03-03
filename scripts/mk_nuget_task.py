@@ -78,7 +78,7 @@ def unpack(packages, symbols, arch):
                 files = ["Microsoft.Z3.dll", "Microsoft.Z3.pdb", "Microsoft.Z3.xml"]                
                 for b in files:
                     dir = os.path.join(tmp, package_dir, "bin")
-                    file1 = os.path_join(dir, b)
+                    file1 = os.path.join(dir, b)
                     file2 = os.path.join(dir, "netstandard2.0", b)
                     if os.path.exists(file1):
                         zip_ref.extract(file1, f"{tmp}")
