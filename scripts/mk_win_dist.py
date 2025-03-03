@@ -33,7 +33,7 @@ GIT_HASH=False
 PYTHON_ENABLED=True
 X86ONLY=False
 X64ONLY=False
-MAKEJOBS=getenv("MAKEJOBS", "24")
+MAKEJOBS=getenv("MAKEJOBS", "1")
 
 def set_verbose(flag):
     global VERBOSE
@@ -132,7 +132,10 @@ def check_build_dir(path):
 # Create a build directory using mk_make.py
 def mk_build_dir(path, x64):
     if not check_build_dir(path) or FORCE_MK:
-        parallel = '--parallel=' + MAKEJOBS
+        if MAKEJOBS != "1":
+            parallel = '--parallel=' + MAKEJOBS
+        else:
+            parallel = ""
         opts = ["python", os.path.join('scripts', 'mk_make.py'), parallel, "-b", path]
         if DOTNET_CORE_ENABLED:
             opts.append('--dotnet')
