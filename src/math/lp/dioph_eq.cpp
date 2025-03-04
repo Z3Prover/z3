@@ -480,7 +480,7 @@ namespace lp {
         std::unordered_map<unsigned, std_vector<unsigned>> m_row2fresh_defs;
 
         indexed_uint_set m_changed_rows;
-        indexed_uint_set m_changed_columns;
+        indexed_uint_set m_new_fixed_columns;
         indexed_uint_set m_changed_terms;  // a term is defined by its column j, as in lar_solver.get_term(j)
         indexed_uint_set m_tightened_columns; // the column that got tightened by the tigthening phase, 
         // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
@@ -718,7 +718,7 @@ namespace lp {
 
         void add_changed_column(unsigned j) {
             TRACE("dioph_eq", lra.print_column_info(j, tout););
-            m_changed_columns.insert(j);
+            m_new_fixed_columns.insert(j);
         }
         std_vector<const lar_term*> m_added_terms;
         std::unordered_set<const lar_term*> m_active_terms;
@@ -748,7 +748,7 @@ namespace lp {
         void update_column_bound_callback(unsigned j) {
             if (!lra.column_is_int(j) || !lra.column_is_fixed(j))
                 return;
-            m_changed_columns.insert(j);
+            m_new_fixed_columns.insert(j);
             auto undo = undo_fixed_column(*this, j);
             lra.trail().push(undo);
         }
@@ -937,7 +937,7 @@ namespace lp {
         }
 
         void find_changed_terms_and_more_changed_rows() {
-            for (unsigned j : m_changed_columns) {
+            for (unsigned j : m_new_fixed_columns) {
                 const auto it = m_columns_to_terms.find(j);
                 if (it != m_columns_to_terms.end())
                     for (unsigned k : it->second) {
@@ -1027,8 +1027,8 @@ namespace lp {
             remove_irrelevant_fresh_defs();
 
             eliminate_substituted_in_changed_rows();
-            m_changed_columns.reset();
-            SASSERT(m_changed_columns.size() == 0);
+            m_new_fixed_columns.reset();
+            SASSERT(m_new_fixed_columns.size() == 0);
             m_changed_rows.reset();
             SASSERT(entries_are_ok());
         }
@@ -1478,7 +1478,7 @@ namespace lp {
             lra.print_explanation(out, lra.flatten(b.m_dep));
             return out;
         }
-// h is the entry that has been moved to S
+       // h is the entry that is ready to be moved to S
         lia_move tighten_bounds(unsigned h) {
             protected_queue q;
             copy_row_to_espace_in_lar_indices(h);
@@ -2626,6 +2626,26 @@ namespace lp {
             m_k2s.add(k, h);
         }
 
+        void update_entries_with_new_fixed(std_vector<unsigned> & f_vector) {
+            std::vector<unsigned> deb_upd;
+            for (unsigned j : m_new_fixed_columns) {
+                SASSERT(is_fixed(j));
+                j = lar_solver_to_local(j);
+                for (auto & c : m_e_matrix.m_columns[j]) {
+                    unsigned ei = c.var();                    
+                    m_sum_of_fixed[ei] += lra.get_lower_bound(j).x;
+                    unsigned offset_in_row = c.offset();
+                    m_e_matrix.remove_element(ei, m_e_matrix.m_rows[ei][offset_in_row]);
+                
+                    if (belongs_to_s(ei)) {
+                        remove_from_S(ei);
+                        f_vector.push_back(ei);
+                    }
+                }
+            }
+            SASSERT(entries_are_ok());
+        }
+        
         // this is the step 6 or 7 of the algorithm
         // returns true if an equlity was rewritten and false otherwise
         bool rewrite_eqs(std_vector<unsigned>& f_vector) {
@@ -2683,16 +2703,13 @@ namespace lp {
             SASSERT(h == f_vector[ih]);
             if (min_ahk.is_one()) {
                 TRACE("dioph_eq", tout << "push to S:\n"; print_entry(h, tout););
-                SASSERT(m_changed_columns.size() == 0);
+                SASSERT(m_new_fixed_columns.size() == 0);
                 if (tighten_bounds(h) == lia_move::conflict){
-                    if (m_changed_columns.size()) {  // need to process this entry, and the entries containing the new fixed, again
-                        std::cout << "m_changed_columns: " << m_changed_columns.size() << "\n";
-                        NOT_IMPLEMENTED_YET();
-                    }
                     return false;
                 }
-                if (m_changed_columns.size()) {  // need to process this entry, and the entries containing the new fixed, again
-                    NOT_IMPLEMENTED_YET();
+                if (m_new_fixed_columns.size()) {  // Need to update all entries containing the new fixed columns.
+                    // The previous calculations in the loop might be invalid
+                    update_entries_with_new_fixed(f_vector);
                     return true;
                 }
                 move_entry_from_f_to_s(kh, h);

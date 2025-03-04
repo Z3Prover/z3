@@ -145,6 +145,11 @@ public:
     void add_columns_up_to(unsigned j) { while (j >= column_count()) add_column(); }
 
     void remove_element(std_vector<row_cell<T>> & row, row_cell<T> & elem_to_remove);
+
+    void remove_element(unsigned ei, row_cell<T> & elem_to_remove) {
+        remove_element(m_rows[ei], elem_to_remove);
+    }
+    
     
     void multiply_column(unsigned column, T const & alpha) {
         for (auto & t : m_columns[column]) {
