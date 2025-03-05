@@ -2634,7 +2634,7 @@ namespace lp {
                 for (const auto& p : m_e_matrix[i] ) {
                     if (var_is_fresh(p.var())) {
                         has_fresh = true;
-                        tout << "has fresh var:" << p.var() << "\n";
+                        out << "has fresh var:" << p.var() << "\n";
                         break;
                     }
                 }
