@@ -176,6 +176,7 @@ namespace lp {
         }
     };
     class dioph_eq::imp {
+        int deb_count = 0;
         // This class represents a term with an added constant number c, in form sum
         // {x_i*a_i} + c.
         class term_o : public lar_term {
@@ -252,9 +253,8 @@ namespace lp {
             
         std::ostream& print_bounds(std::ostream& out) {
             out << "bounds:\n";
-            for (unsigned v = 0; v < m_var_register.size(); ++v) {
-                unsigned j = m_var_register.local_to_external(v);
-                lra.print_column_info(j, out);
+            for (unsigned v = 0; v < lra.column_count(); ++v) {
+                lra.print_column_info(v, out);
             }
             return out;
         }
@@ -1080,9 +1080,10 @@ namespace lp {
         }
 
         bool entries_are_ok() {
+            if (lra.settings().get_cancel_flag()) return true;
             for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
                 if (entry_invariant(ei) == false) {
-                    TRACE("dioph_deb_eq", tout << "bad entry:"; print_entry(ei, tout););
+                    TRACE("dio", tout << "bad entry:"; print_entry(ei, tout););
                     return false;
                 }
                 if (belongs_to_f(ei)) {
@@ -1478,15 +1479,27 @@ namespace lp {
             lra.print_explanation(out, lra.flatten(b.m_dep));
             return out;
         }
+        
        // h is the entry that is ready to be moved to S
         lia_move tighten_bounds(unsigned h) {
+            SASSERT(entry_invariant(h));
             protected_queue q;
-            copy_row_to_espace_in_lar_indices(h);
-            
+            copy_row_to_espace(h);
+            remove_fresh_from_espace();
+           
+            // change m_espace indices from local to lar_solver: have to restore for clear to work
+            for (auto & p: m_espace.m_data) {
+                SASSERT(!var_is_fresh(p.m_j));
+                p.m_j = local_to_lar_solver(p.m_j);
+                
+            }
             TRACE("dio", tout << "bp on entry:"; print_entry(h, tout) << std::endl;);
 
             m_prop_bounds.clear();
             bound_analyzer_on_row<term_with_index, dioph_eq::imp>::analyze_row(m_espace, impq(-m_sum_of_fixed[h]), *this);
+            //restore m_espace to local variables
+            for (auto & p: m_espace.m_data) p.m_j = lar_solver_to_local(p.m_j);
+
             TRACE("dio", tout << "prop_bounds:\n";
                   for (auto& pb: m_prop_bounds) {
                       print_prop_bound(pb, tout);
@@ -1508,8 +1521,7 @@ namespace lp {
             auto st = lra.find_feasible_solution();
             if (st == lp_status::INFEASIBLE) {
                 lra.get_infeasibility_explanation(m_infeas_explanation);
-                TRACE("dio", tout << "inf explanation:\n"; lra.print_explanation(tout, m_infeas_explanation););                      
-                return lia_move::conflict;
+                TRACE("dio", tout << "inf explanation:\n"; lra.print_explanation(tout, m_infeas_explanation););                                    return lia_move::conflict;
             }
             TRACE("dio", tout << "lra is feasible\n";);                        
             
@@ -1870,12 +1882,22 @@ namespace lp {
                 lra.stats().m_dio_rewrite_conflicts++;
                 return lia_move::conflict;
             }
-            
-            while (rewrite_eqs(f_vector)) {}
-            
-            if (m_conflict_index != UINT_MAX) {
-                lra.stats().m_dio_rewrite_conflicts++;
-                return lia_move::conflict;
+            lia_move r;
+            do {
+                r = rewrite_eqs(f_vector);
+                if (lra.settings().get_cancel_flag()) return lia_move::undef;
+                if (r == lia_move::continue_with_check) {
+                    continue;
+                }
+                break;
+            } while (true);
+            if (r == lia_move::conflict) {
+                if (m_conflict_index != UINT_MAX) {
+                    lra.stats().m_dio_rewrite_conflicts++;
+                } else {
+                    lra.stats().m_dio_bound_propagation_conflicts++;
+                }
+                return lia_move::conflict;                
             }
             TRACE("dio", print_int_inf_vars(tout) << "\n"; 
                   print_S(tout));
@@ -2412,10 +2434,14 @@ namespace lp {
         }
 
         bool entry_invariant(unsigned ei) const {
+            if (lra.settings().get_cancel_flag())
+                return true;
             for (const auto& p : m_e_matrix.m_rows[ei]) {
                 if (!p.coeff().is_int()) {
                     return false;
                 }
+                if (var_is_fresh(p.var()))
+                    continue;
                 unsigned j = local_to_lar_solver(p.var());
                 if (is_fixed(j))
                     return false;
@@ -2424,8 +2450,9 @@ namespace lp {
             bool ret =
                 term_to_lar_solver(remove_fresh_vars(get_term_from_entry(ei))) ==
                 fix_vars(open_ml(m_l_matrix.m_rows[ei]));
-
-            CTRACE("dioph_deb_eq", !ret,
+            if (!ret) {
+                enable_trace("dio");
+                CTRACE("dio", !ret,
                    {
                        tout << "get_term_from_entry(" << ei << "):";
                        print_term_o(get_term_from_entry(ei), tout) << std::endl;
@@ -2439,7 +2466,7 @@ namespace lp {
                        tout << "rs:";
                        print_term_o(fix_vars(open_ml(m_l_matrix.m_rows[ei])), tout) << std::endl;
                    });
-
+            }
             return ret;
         }
 
@@ -2454,7 +2481,7 @@ namespace lp {
             while (!q.empty()) {
                 unsigned xt = q.pop_front();  // xt is a fresh var
                 const lar_term& fresh_t = m_fresh_k2xt_terms.get_by_val(xt).first;
-                TRACE("dio", print_lar_term_L(fresh_t, tout););
+                TRACE("dio_remove_fresh", print_lar_term_L(fresh_t, tout););
                 SASSERT(fresh_t.get_coeff(xt).is_minus_one());
                 if (!t.contains(xt))
                     continue;
@@ -2513,12 +2540,11 @@ namespace lp {
             }
         }
 
-        // it clears the row, and puts the term in the work vector
-        void copy_row_to_espace_in_lar_indices(unsigned ei) {
+        void copy_row_to_espace(unsigned ei) {
             m_espace.clear();
             auto& row = m_e_matrix.m_rows[ei];
             for (const auto& cell : row)
-                m_espace.add(cell.coeff(), local_to_lar_solver(cell.var()));
+                m_espace.add(cell.coeff(), cell.var());
         }
 
         // it clears the row, and puts the term in the work vector
@@ -2604,8 +2630,18 @@ namespace lp {
                 }
             }
             if (print_column_info) {
-                for (const auto& p : get_term_from_entry(i)) {
-                    lra.print_column_info(local_to_lar_solver(p.var()), out) << "\n";
+                bool has_fresh;
+                for (const auto& p : m_e_matrix[i] ) {
+                    if (var_is_fresh(p.var())) {
+                        has_fresh = true;
+                        tout << "has fresh var:" << p.var() << "\n";
+                        break;
+                    }
+                }
+                if (!has_fresh) {
+                    for (const auto& p : get_term_from_entry(i)) {
+                        lra.print_column_info(local_to_lar_solver(p.var()), out) << "\n";
+                    }
                 }
             }
             out << "}\n";
@@ -2630,27 +2666,38 @@ namespace lp {
             std::vector<unsigned> deb_upd;
             for (unsigned j : m_new_fixed_columns) {
                 SASSERT(is_fixed(j));
-                j = lar_solver_to_local(j);
-                for (auto & c : m_e_matrix.m_columns[j]) {
-                    unsigned ei = c.var();                    
-                    m_sum_of_fixed[ei] += lra.get_lower_bound(j).x;
-                    unsigned offset_in_row = c.offset();
-                    m_e_matrix.remove_element(ei, m_e_matrix.m_rows[ei][offset_in_row]);
-                
+                unsigned lj = lar_solver_to_local(j);
+                auto & lj_col = m_e_matrix.m_columns[lj];
+                while (lj_col.size()) {
+                    auto & c = lj_col.back();
+                    unsigned ei = c.var();
+                    TRACE("dio", tout << "entry was:"; print_entry(ei, tout) << "\n");
+                    deb_upd.push_back(ei);
+                    auto& row_el = m_e_matrix.m_rows[ei][c.offset()];
+                    m_sum_of_fixed[ei] += row_el.coeff() * lra.get_lower_bound(j).x;                   
+                    m_e_matrix.remove_element(ei, row_el);
+                    TRACE("dio", tout << "entry became:"; print_entry(ei, tout) << "\n");
+                     
                     if (belongs_to_s(ei)) {
                         remove_from_S(ei);
                         f_vector.push_back(ei);
                     }
+                    if (m_e_matrix.m_rows[ei].size() == 0 && !m_sum_of_fixed[ei].is_zero()) {
+                        m_conflict_index = ei; // have to continue to finish the update                        
+                    }
                 }
             }
-            SASSERT(entries_are_ok());
+            m_new_fixed_columns.reset();
+            for (unsigned ei: deb_upd) {                
+                SASSERT(entry_invariant(ei));
+            }
         }
         
         // this is the step 6 or 7 of the algorithm
-        // returns true if an equlity was rewritten and false otherwise
-        bool rewrite_eqs(std_vector<unsigned>& f_vector) {
+        // returns lia_move::continue_with_check of the progress has been made, lia_move::undef if done, and lia_move::conflict if a conflict ha been found
+        lia_move rewrite_eqs(std_vector<unsigned>& f_vector) {
             if (f_vector.size() == 0)
-                return false;
+                return lia_move::undef;
             unsigned h = -1, kh = 0; // the initial value of kh does not matter, assign to remove the warning
             unsigned n = 0;  // number of choices for a fresh variable
             mpq min_ahk;
@@ -2666,7 +2713,7 @@ namespace lp {
                     }
                     else {
                         m_conflict_index = ei;
-                        return false;
+                        return lia_move::conflict;
                     }
                 }
 
@@ -2674,7 +2721,7 @@ namespace lp {
                 mpq gcd;
                 if (!normalize_e_by_gcd(ei, gcd)) {
                     m_conflict_index = ei;
-                    return false;
+                    return lia_move::conflict;
                 }
                 if (!gcd.is_one()) 
                     ahk /= gcd;
@@ -2699,18 +2746,20 @@ namespace lp {
                 if (min_ahk.is_one() && h_markovich_number == 0)
                     break;
             }
-            if (h == UINT_MAX) return false;
+            if (h == UINT_MAX) return lia_move::undef;
             SASSERT(h == f_vector[ih]);
             if (min_ahk.is_one()) {
                 TRACE("dioph_eq", tout << "push to S:\n"; print_entry(h, tout););
                 SASSERT(m_new_fixed_columns.size() == 0);
                 if (tighten_bounds(h) == lia_move::conflict){
-                    return false;
+                    return lia_move::conflict;
                 }
                 if (m_new_fixed_columns.size()) {  // Need to update all entries containing the new fixed columns.
                     // The previous calculations in the loop might be invalid
                     update_entries_with_new_fixed(f_vector);
-                    return true;
+                    if (m_conflict_index != static_cast<unsigned>(-1))
+                        return lia_move::conflict;
+                    return lia_move::continue_with_check;
                 }
                 move_entry_from_f_to_s(kh, h);
                 eliminate_var_in_f(h, kh, kh_sign);
@@ -2719,9 +2768,11 @@ namespace lp {
                 }
                 f_vector.pop_back();
             }
-            else                     
+            else  {                   
                 fresh_var_step(h, kh, min_ahk * mpq(kh_sign));
-            return true;
+            }
+            
+            return lia_move::continue_with_check;
         }
 
     public:
