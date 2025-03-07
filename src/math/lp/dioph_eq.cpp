@@ -2649,7 +2649,7 @@ namespace lp {
                 }
             }
             if (print_column_info) {
-                bool has_fresh;
+                bool has_fresh = false;
                 for (const auto& p : m_e_matrix[i] ) {
                     if (var_is_fresh(p.var())) {
                         has_fresh = true;
