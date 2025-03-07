@@ -140,7 +140,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         else {
             expr * _n = to_expr(n);
             parameter p(to_sort(int_s));
-            ast* a = mk_c(c)->m().mk_app(mk_c(c)->get_bv_fid(), OP_BV2INT, 1, &p, 1, &_n);
+            ast* a = mk_c(c)->m().mk_app(mk_c(c)->get_bv_fid(), OP_UBV2INT, 1, &p, 1, &_n);
             mk_c(c)->save_ast_trail(a);
             check_sorts(c, a);
             RETURN_Z3(of_ast(a));

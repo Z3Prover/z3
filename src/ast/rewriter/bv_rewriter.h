@@ -128,7 +128,8 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     br_status mk_bv_urem_i(expr * arg1, expr * arg2, expr_ref & result) { return mk_bv_urem_core(arg1, arg2, true, result); }
     br_status mk_bv_smod_i(expr * arg1, expr * arg2, expr_ref & result) { return mk_bv_smod_core(arg1, arg2, true, result); }
     br_status mk_int2bv(unsigned bv_size, expr * arg, expr_ref & result);
-    br_status mk_bv2int(expr * arg, expr_ref & result);
+    br_status mk_ubv2int(expr * arg, expr_ref & result);
+    br_status mk_sbv2int(expr* arg, expr_ref& result);
     br_status mk_bv_redor(expr * arg, expr_ref & result);
     br_status mk_bv_redand(expr * arg, expr_ref & result);
     br_status mk_bv_comp(expr * arg1, expr * arg2, expr_ref & result);
@@ -244,10 +245,10 @@ public:
     MK_BV_BINARY(mk_bv_sub);
 
 
-    expr_ref mk_bv2int(expr* a) {
+    expr_ref mk_ubv2int(expr* a) {
         expr_ref result(m);
-        if (BR_FAILED == mk_bv2int(a, result)) 
-            result = m_util.mk_bv2int(a);
+        if (BR_FAILED == mk_ubv2int(a, result)) 
+            result = m_util.mk_ubv2int(a);
         return result;        
     }
 

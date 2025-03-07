@@ -693,7 +693,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     }
 
     br_status extended_bv_eq(expr* a, expr* b, expr_ref& result) {
-        if (m_bv_util.is_bv2int(a) || m_bv_util.is_bv2int(b))
+        if (m_bv_util.is_ubv2int(a) || m_bv_util.is_ubv2int(b))
             return m_bv_rw.mk_eq_bv2int(a, b, result);
         return BR_FAILED;        
     }

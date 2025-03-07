@@ -146,7 +146,7 @@ void bv2real_util::mk_sbv2real(expr* e, expr_ref& result) {
     rational r;
     unsigned bv_size = m_bv.get_bv_size(e);
     rational bsize = power(rational(2), bv_size);
-    expr_ref bvr(a().mk_to_real(m_bv.mk_bv2int(e)), m());
+    expr_ref bvr(a().mk_to_real(m_bv.mk_ubv2int(e)), m());
     expr_ref c(m_bv.mk_sle(m_bv.mk_numeral(rational(0), bv_size), e), m());
     result = m().mk_ite(c, bvr, a().mk_sub(bvr, a().mk_numeral(bsize, false)));
 }

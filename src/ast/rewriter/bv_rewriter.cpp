@@ -197,9 +197,12 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
     case OP_EXT_ROTATE_RIGHT:
         SASSERT(num_args == 2);
         return mk_bv_ext_rotate_right(args[0], args[1], result);
-    case OP_BV2INT:
+    case OP_UBV2INT:
         SASSERT(num_args == 1);
-        return mk_bv2int(args[0], result);
+        return mk_ubv2int(args[0], result);
+    case OP_SBV2INT:
+        SASSERT(num_args == 1);
+        return mk_sbv2int(args[0], result);
     case OP_INT2BV:
         SASSERT(num_args == 1);
         return mk_int2bv(m_util.get_bv_size(f->get_range()), args[0], result);
@@ -1480,20 +1483,20 @@ br_status bv_rewriter::mk_int2bv(unsigned bv_size, expr * arg, expr_ref & result
         return BR_DONE;
     }
 
-    // int2bv (bv2int x) --> x
-    if (m_util.is_bv2int(arg, x) && bv_size == get_bv_size(x)) {
+    // int2bv (ubv2int x) --> x
+    if (m_util.is_ubv2int(arg, x) && bv_size == get_bv_size(x)) {
         result = x;
         return BR_DONE;
     }
 
-    // int2bv (bv2int x) --> 0000x
-    if (m_util.is_bv2int(arg, x) && bv_size > get_bv_size(x)) {
+    // int2bv (ubv2int x) --> 0000x
+    if (m_util.is_ubv2int(arg, x) && bv_size > get_bv_size(x)) {
         mk_zero_extend(bv_size - get_bv_size(x), x, result);
         return BR_REWRITE1;
     }
 
-    // int2bv (bv2int x) --> x[sz-1:0]
-    if (m_util.is_bv2int(arg, x) && bv_size < get_bv_size(x)) {
+    // int2bv (ubv2int x) --> x[sz-1:0]
+    if (m_util.is_ubv2int(arg, x) && bv_size < get_bv_size(x)) {
         result = m_mk_extract(bv_size - 1, 0, x);
         return BR_REWRITE1;
     }
@@ -1520,7 +1523,13 @@ br_status bv_rewriter::mk_int2bv(unsigned bv_size, expr * arg, expr_ref & result
     return BR_FAILED;
 }
 
-br_status bv_rewriter::mk_bv2int(expr * arg, expr_ref & result) {
+br_status bv_rewriter::mk_sbv2int(expr* arg, expr_ref& result) {
+    result = m_util.mk_sbv2int_as_ubv2int(arg);
+
+    return BR_REWRITE2;
+}
+
+br_status bv_rewriter::mk_ubv2int(expr * arg, expr_ref & result) {
     numeral v;
     unsigned sz;
     if (is_numeral(arg, v, sz)) {
@@ -1536,7 +1545,7 @@ br_status bv_rewriter::mk_bv2int(expr * arg, expr_ref & result) {
         
         unsigned num_args = to_app(arg)->get_num_args();
         for (expr* x : *to_app(arg)) {
-            args.push_back(m_util.mk_bv2int(x));
+            args.push_back(m_util.mk_ubv2int(x));
         }
         unsigned sz = get_bv_size(to_app(arg)->get_arg(num_args-1));
         for (unsigned i = num_args - 1; i > 0; ) {
@@ -1552,13 +1561,13 @@ br_status bv_rewriter::mk_bv2int(expr * arg, expr_ref & result) {
     }
     if (is_mul_no_overflow(arg)) {
         expr_ref_vector args(m);
-        for (expr* x : *to_app(arg)) args.push_back(m_util.mk_bv2int(x));
+        for (expr* x : *to_app(arg)) args.push_back(m_util.mk_ubv2int(x));
         result = m_autil.mk_mul(args.size(), args.data());
         return BR_REWRITE2;
     }
     if (is_add_no_overflow(arg)) {
         expr_ref_vector args(m);
-        for (expr* x : *to_app(arg)) args.push_back(m_util.mk_bv2int(x));
+        for (expr* x : *to_app(arg)) args.push_back(m_util.mk_ubv2int(x));
         result = m_autil.mk_add(args.size(), args.data());
         return BR_REWRITE2;
     }
@@ -2805,7 +2814,7 @@ br_status bv_rewriter::mk_eq_bv2int(expr* lhs, expr* rhs, expr_ref& result) {
     if (m_autil.is_numeral(lhs))
         std::swap(lhs, rhs);
    
-    if (m_autil.is_numeral(rhs, r) && m_util.is_bv2int(lhs, x)) {
+    if (m_autil.is_numeral(rhs, r) && m_util.is_ubv2int(lhs, x)) {
         unsigned bv_size = m_util.get_bv_size(x);
         if (0 <= r && r < rational::power_of_two(bv_size)) 
             result = m.mk_eq(m_util.mk_numeral(r, bv_size), x);
@@ -2813,8 +2822,8 @@ br_status bv_rewriter::mk_eq_bv2int(expr* lhs, expr* rhs, expr_ref& result) {
             result = m.mk_false();        
         return BR_REWRITE1;
     }
-    if (m_util.is_bv2int(lhs, x) &&
-        m_util.is_bv2int(rhs, y)) {
+    if (m_util.is_ubv2int(lhs, x) &&
+        m_util.is_ubv2int(rhs, y)) {
         auto szx = m_util.get_bv_size(x);
         auto szy = m_util.get_bv_size(y);
         if (szx < szy)

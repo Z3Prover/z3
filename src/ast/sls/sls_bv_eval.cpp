@@ -693,7 +693,8 @@ namespace sls {
             NOT_IMPLEMENTED_YET();
             break;
         case OP_BIT2BOOL:
-        case OP_BV2INT:
+        case OP_UBV2INT:
+        case OP_SBV2INT:
         case OP_BNEG_OVFL:
         case OP_BSADD_OVFL:
         case OP_BUADD_OVFL:
@@ -824,7 +825,8 @@ namespace sls {
             return false;
         case OP_BIT1:
             return false;
-        case OP_BV2INT:
+        case OP_UBV2INT:
+        case OP_SBV2INT:
             return false;
         case OP_INT2BV:
             return try_repair_int2bv(assign_value(e), e->get_arg(0));          

@@ -131,7 +131,7 @@ class nla2bv_tactic : public tactic {
             for (auto const& kv : p2) {
                 expr* v = kv.m_value;
                 unsigned num_bits = m_bv.get_bv_size(v);
-                expr* w = m_bv.mk_bv2int(m_bv.mk_bv_shl(m_bv.mk_numeral(1, num_bits), v));
+                expr* w = m_bv.mk_ubv2int(m_bv.mk_bv_shl(m_bv.mk_numeral(1, num_bits), v));
                 m_trail.push_back(w);
                 m_subst.insert(kv.m_key, w);
                 TRACE("nla2bv", tout << mk_ismt2_pp(kv.m_key, m_manager) << " " << mk_ismt2_pp(w, m_manager) << "\n";);
@@ -235,7 +235,7 @@ class nla2bv_tactic : public tactic {
             bv_sort = m_bv.mk_sort(num_bits);
             s_bv = m_manager.mk_fresh_const(n->get_decl()->get_name(), bv_sort);
             m_fmc->hide(s_bv);
-            s_bv = m_bv.mk_bv2int(s_bv);
+            s_bv = m_bv.mk_ubv2int(s_bv);
             if (low) {
                 if (!(*low).is_zero()) {
                     //    low <= s_bv 

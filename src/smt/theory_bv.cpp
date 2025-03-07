@@ -612,7 +612,7 @@ namespace smt {
         // n = bv2int(k) = ite(bit2bool(k[sz-1],2^{sz-1},0) + ... + ite(bit2bool(k[0],1,0))
         // 
         SASSERT(ctx.e_internalized(n));
-        SASSERT(m_util.is_bv2int(n));
+        SASSERT(m_util.is_ubv2int(n));
         TRACE("bv2int_bug", tout << "bv2int:\n" << mk_pp(n, m) << "\n";);
         sort * int_sort = n->get_sort();
         app * k = to_app(n->get_arg(0));
@@ -693,7 +693,7 @@ namespace smt {
         expr* n_expr = n;
         expr* e = n->get_arg(0);
         expr_ref lhs(m), rhs(m);
-        lhs = m.mk_app(get_id(), OP_BV2INT, 1, &param, 1, &n_expr);
+        lhs = m.mk_app(get_id(), OP_UBV2INT, 1, &param, 1, &n_expr);
         unsigned sz = m_util.get_bv_size(n);
         numeral mod = power(numeral(2), sz);
         rhs = m_autil.mk_mod(e, m_autil.mk_numeral(mod, true));
@@ -940,11 +940,13 @@ namespace smt {
                 internalize_int2bv(term); 
             }
             return params().m_bv_enable_int2bv2int;
-        case OP_BV2INT:         
+        case OP_UBV2INT:         
             if (params().m_bv_enable_int2bv2int) {
                 internalize_bv2int(term); 
             }
             return params().m_bv_enable_int2bv2int;
+        case OP_SBV2INT:
+            throw default_exception("sbv_to_int should have been removed by pre-processing");
         case OP_BSREM:        return false;
         case OP_BUREM:        return false;
         case OP_BSMOD:        return false;
@@ -1393,7 +1395,7 @@ namespace smt {
                 }
             }
         }
-        else if (params().m_bv_enable_int2bv2int && m_util.is_bv2int(n)) {
+        else if (params().m_bv_enable_int2bv2int && m_util.is_ubv2int(n)) {
             ctx.mark_as_relevant(n->get_arg(0));
             assert_bv2int_axiom(n);
         }
@@ -1537,7 +1539,7 @@ namespace smt {
             }
             else {
                 for (enode* bv2int : *n1) {
-                    if (m_util.is_bv2int(bv2int->get_expr())) 
+                    if (m_util.is_ubv2int(bv2int->get_expr())) 
                         propagate_bv2int(bv2int);
                 }
             }

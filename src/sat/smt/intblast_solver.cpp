@@ -382,7 +382,7 @@ namespace intblast {
             for (auto sib : euf::enode_class(n)) {
                 if (sib == n)
                     continue;
-                if (!bv.is_bv2int(sib->get_expr()))
+                if (!bv.is_ubv2int(sib->get_expr()))
                     continue;
                 if (sib->get_arg(0)->get_root() == r1)
                     continue;
@@ -401,7 +401,7 @@ namespace intblast {
         for (auto e : m_translator.int2bv()) {
             auto n = expr2enode(e);
             auto x = n->get_arg(0)->get_expr();
-            auto bv2int = bv.mk_bv2int(e);
+            auto bv2int = bv.mk_ubv2int(e);
             ctx.internalize(bv2int);
             auto N = rational::power_of_two(bv.get_bv_size(e));
             auto xModN = a.mk_mod(x, a.mk_int(N));
@@ -490,7 +490,7 @@ namespace intblast {
             rw.mk_app(n->get_decl(), args.size(), args.data(), value);
         }
         else {
-            expr_ref bv2int(bv.mk_bv2int(n->get_expr()), m);
+            expr_ref bv2int(bv.mk_ubv2int(n->get_expr()), m);
             euf::enode* b2i = ctx.get_enode(bv2int);
             SASSERT(b2i);
             VERIFY(b2i);
@@ -513,7 +513,7 @@ namespace intblast {
                 continue;
             auto t = m_translator.translated(e);
             
-            expr_ref ei(bv.mk_bv2int(e), m);
+            expr_ref ei(bv.mk_ubv2int(e), m);
             expr_ref ti(a.mk_mod(t, a.mk_int(rational::power_of_two(bv.get_bv_size(e)))), m);
             auto ev = mdl(ei);
             auto tv = mdl(ti);

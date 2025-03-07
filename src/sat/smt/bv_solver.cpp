@@ -231,7 +231,7 @@ namespace bv {
         }
         else {
             for (euf::enode* bv2int : euf::enode_class(n1)) {                
-                if (bv.is_bv2int(bv2int->get_expr()))
+                if (bv.is_ubv2int(bv2int->get_expr()))
                     propagate_bv2int(bv2int);
             }
         }

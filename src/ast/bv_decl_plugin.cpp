@@ -143,7 +143,8 @@ void bv_decl_plugin::finalize() {
     DEC_REF(m_ext_rotate_right);
 
     DEC_REF(m_int2bv);
-    DEC_REF(m_bv2int);
+    DEC_REF(m_ubv2int);
+    DEC_REF(m_sbv2int);
     for (auto& ds : m_bit2bool)
         DEC_REF(ds);
     DEC_REF(m_mkbv);
@@ -228,13 +229,13 @@ func_decl * bv_decl_plugin::mk_int2bv(unsigned bv_size, unsigned num_parameters,
     force_ptr_array_size(m_int2bv, bv_size + 1);
 
     if (arity != 1) {
-        m_manager->raise_exception("expecting one argument to int2bv");
+        m_manager->raise_exception("expecting one argument to int_to_bv");
         return nullptr;
     }
 
     if (m_int2bv[bv_size] == 0) {
         sort * s = get_bv_sort(bv_size);
-        m_int2bv[bv_size] = m_manager->mk_func_decl(symbol("int2bv"), domain[0], s,
+        m_int2bv[bv_size] = m_manager->mk_func_decl(symbol("int_to_bv"), domain[0], s,
                                                     func_decl_info(m_family_id, OP_INT2BV, num_parameters, parameters));
         m_manager->inc_ref(m_int2bv[bv_size]);
     }
@@ -242,22 +243,40 @@ func_decl * bv_decl_plugin::mk_int2bv(unsigned bv_size, unsigned num_parameters,
     return m_int2bv[bv_size];
 }
 
-func_decl * bv_decl_plugin::mk_bv2int(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
+func_decl * bv_decl_plugin::mk_ubv2int(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
                                     unsigned arity, sort * const * domain) {
-    force_ptr_array_size(m_bv2int, bv_size + 1);
+    force_ptr_array_size(m_ubv2int, bv_size + 1);
 
     if (arity != 1) {
-        m_manager->raise_exception("expecting one argument to bv2int");
+        m_manager->raise_exception("expecting one argument to ubv_to_int");
         return nullptr;
     }
 
-    if (m_bv2int[bv_size] == 0) {
-        m_bv2int[bv_size] = m_manager->mk_func_decl(symbol("bv2int"), domain[0], m_int_sort,
-                                                    func_decl_info(m_family_id, OP_BV2INT));
-        m_manager->inc_ref(m_bv2int[bv_size]);
+    if (m_ubv2int[bv_size] == 0) {
+        m_ubv2int[bv_size] = m_manager->mk_func_decl(symbol("ubv_to_int"), domain[0], m_int_sort,
+                                                     func_decl_info(m_family_id, OP_UBV2INT));
+        m_manager->inc_ref(m_ubv2int[bv_size]);
     }
 
-    return m_bv2int[bv_size];
+    return m_ubv2int[bv_size];
+}
+
+func_decl * bv_decl_plugin::mk_sbv2int(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
+                                    unsigned arity, sort * const * domain) {
+    force_ptr_array_size(m_sbv2int, bv_size + 1);
+
+    if (arity != 1) {
+        m_manager->raise_exception("expecting one argument to sbv_to_int");
+        return nullptr;
+    }
+
+    if (m_sbv2int[bv_size] == 0) {
+        m_sbv2int[bv_size] = m_manager->mk_func_decl(symbol("sbv_to_int"), domain[0], m_int_sort,
+                                                    func_decl_info(m_family_id, OP_SBV2INT));
+        m_manager->inc_ref(m_sbv2int[bv_size]);
+    }
+
+    return m_sbv2int[bv_size];
 }
 
 func_decl * bv_decl_plugin::mk_unary_pred(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size) {
@@ -552,8 +571,10 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         return mk_bit2bool(bv_size, num_parameters, parameters, arity, domain);
     case OP_INT2BV:
         return mk_int2bv(bv_size, num_parameters, parameters, arity, domain);
-    case OP_BV2INT:
-        return mk_bv2int(bv_size, num_parameters, parameters, arity, domain);
+    case OP_UBV2INT:
+        return mk_ubv2int(bv_size, num_parameters, parameters, arity, domain);
+    case OP_SBV2INT:
+        return mk_sbv2int(bv_size, num_parameters, parameters, arity, domain);
     case OP_CONCAT:
         if (!get_concat_size(arity, domain, r_size))
             m_manager->raise_exception("invalid concat application");
@@ -780,8 +801,11 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
         op_names.push_back(builtin_name("ext_rotate_left",OP_EXT_ROTATE_LEFT));
         op_names.push_back(builtin_name("ext_rotate_right",OP_EXT_ROTATE_RIGHT));
         op_names.push_back(builtin_name("int2bv",OP_INT2BV));
-        op_names.push_back(builtin_name("bv2int",OP_BV2INT));
-        op_names.push_back(builtin_name("bv2nat",OP_BV2INT));
+        op_names.push_back(builtin_name("int_to_bv",OP_INT2BV));
+        op_names.push_back(builtin_name("bv2int",OP_UBV2INT));
+        op_names.push_back(builtin_name("bv2nat",OP_UBV2INT));
+        op_names.push_back(builtin_name("ubv_to_int",OP_UBV2INT));
+        op_names.push_back(builtin_name("sbv_to_int",OP_SBV2INT));
         op_names.push_back(builtin_name("mkbv",OP_MKBV));
     }
 }
@@ -878,10 +902,8 @@ bool bv_recognizers::is_repeat(expr const * e, expr*& arg, unsigned& n) const {
 }
 
 
-bool bv_recognizers::is_bv2int(expr const* e, expr*& r) const {
-    if (!is_bv2int(e)) return false;
-    r = to_app(e)->get_arg(0);
-    return true;
+bool bv_recognizers::is_ubv2int(expr const* e, expr*& r) const {
+    return is_ubv2int(e) && (r = to_app(e)->get_arg(0), true);
 }
 
 bool bv_recognizers::is_bit2bool(expr* e, expr*& bv, unsigned& idx) const {
@@ -934,10 +956,28 @@ unsigned bv_util::get_int2bv_size(parameter const& p) {
     return static_cast<unsigned>(sz);
 }
 
-app * bv_util::mk_bv2int(expr* e) const {
+app * bv_util::mk_ubv2int(expr* e) const {
     sort* s = m_manager.mk_sort(m_manager.mk_family_id("arith"), INT_SORT);
     parameter p(s);
-    return m_manager.mk_app(get_fid(), OP_BV2INT, 1, &p, 1, &e);
+    return m_manager.mk_app(get_fid(), OP_UBV2INT, 1, &p, 1, &e);
+}
+
+app * bv_util::mk_sbv2int(expr* e) const {
+    sort* s = m_manager.mk_sort(m_manager.mk_family_id("arith"), INT_SORT);
+    parameter p(s);
+    return m_manager.mk_app(get_fid(), OP_SBV2INT, 1, &p, 1, &e);
+}
+
+app* bv_util::mk_sbv2int_as_ubv2int(expr* e) {
+    // if e <_s 0 then ubv2int(e) - 2^n else ubv2int(e)
+    app* r = mk_ubv2int(e);
+    arith_util autil(m_manager);
+    unsigned sz = get_bv_size(e);
+    expr_ref zero(mk_numeral(rational::zero(), sz), m_manager);
+    r = m_manager.mk_ite(mk_slt(e, zero),
+        autil.mk_sub(r, autil.mk_numeral(rational::power_of_two(sz), true)),
+        r);
+    return r;
 }
 
 app* bv_util::mk_int2bv(unsigned sz, expr* e) const {

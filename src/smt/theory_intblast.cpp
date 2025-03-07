@@ -45,7 +45,7 @@ namespace smt {
             for (auto sib : *n) {
                 if (sib == n)
                     continue;
-                if (!bv.is_bv2int(sib->get_expr()))
+                if (!bv.is_ubv2int(sib->get_expr()))
                     continue;
                 if (sib->get_arg(0)->get_root() == r1)
                     continue;
@@ -64,7 +64,7 @@ namespace smt {
         for (auto e : m_translator.int2bv()) {
             auto n = ctx.get_enode(e);
             auto x = n->get_arg(0)->get_expr();
-            auto bv2int = bv.mk_bv2int(e);
+            auto bv2int = bv.mk_ubv2int(e);
             ctx.internalize(bv2int, false);
             auto N = rational::power_of_two(bv.get_bv_size(e));
             auto xModN = a.mk_mod(x, a.mk_int(N));

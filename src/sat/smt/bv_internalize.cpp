@@ -139,7 +139,7 @@ namespace bv {
         SASSERT(!n || !n->is_attached_to(get_id()));
         bool suppress_args = !reflect() 
             && !m.is_considered_uninterpreted(a->get_decl())
-            && !bv.is_int2bv(e) && !bv.is_bv2int(e);
+            && !bv.is_int2bv(e) && !bv.is_ubv2int(e);
         if (!n)
             n = mk_enode(e, suppress_args);
 
@@ -219,7 +219,8 @@ namespace bv {
         case OP_REPEAT:           internalize_repeat(a); break;
         case OP_MKBV:             internalize_mkbv(a); break;
         case OP_INT2BV:           internalize_int2bv(a); break;
-        case OP_BV2INT:           internalize_bv2int(a); break;
+        case OP_UBV2INT:          internalize_bv2int(a); break;
+        case OP_SBV2INT:          throw default_exception("sbv_to_int is not handled. Pre-processing should have removed it");
         case OP_BUDIV:            internalize_int(bv.mk_bv_udiv_i, bv.mk_bv_udiv0); break;
         case OP_BSDIV:            internalize_int(bv.mk_bv_sdiv_i, bv.mk_bv_sdiv0); break;
         case OP_BSREM:            internalize_int(bv.mk_bv_srem_i, bv.mk_bv_srem0); break;
@@ -415,7 +416,7 @@ namespace bv {
 
     void solver::assert_bv2int_axiom(app* n) {
         expr* k = nullptr;        
-        VERIFY(bv.is_bv2int(n, k));
+        VERIFY(bv.is_ubv2int(n, k));
         SASSERT(bv.is_bv_sort(k->get_sort()));
         expr_ref_vector k_bits(m);
         euf::enode* k_enode = expr2enode(k);
@@ -461,7 +462,7 @@ namespace bv {
         VERIFY(bv.is_int2bv(n, e));      
         euf::enode* n_enode = expr2enode(n);
         expr_ref lhs(m), rhs(m);
-        lhs = bv.mk_bv2int(n);
+        lhs = bv.mk_ubv2int(n);
         unsigned sz = bv.get_bv_size(n);
         numeral mod = power(numeral(2), sz);
         rhs = m_autil.mk_mod(e, m_autil.mk_int(mod));

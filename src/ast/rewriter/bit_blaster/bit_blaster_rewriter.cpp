@@ -548,7 +548,8 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
             case OP_BIT2BOOL:
             case OP_MKBV:
             case OP_INT2BV:
-            case OP_BV2INT:
+            case OP_UBV2INT:
+            case OP_SBV2INT:
                 return BR_FAILED;
             default:                
                 TRACE("bit_blaster", tout << "non-supported operator: " << f->get_name() << "\n";

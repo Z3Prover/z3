@@ -46,7 +46,7 @@ void bit2int::operator()(expr * n, expr_ref & result, proof_ref& p) {
 
 unsigned bit2int::get_b2i_size(expr* n) {
     expr* arg = nullptr;
-    VERIFY(m_bv_util.is_bv2int(n, arg));
+    VERIFY(m_bv_util.is_ubv2int(n, arg));
     return m_bv_util.get_bv_size(arg);
 }
 
@@ -83,7 +83,7 @@ bool bit2int::extract_bv(expr* n, unsigned& sz, bool& sign, expr_ref& bv) {
     numeral k;
     bool is_int;
     expr* r = nullptr;
-    if (m_bv_util.is_bv2int(n, r)) {
+    if (m_bv_util.is_ubv2int(n, r)) {
         bv = r;
         sz = m_bv_util.get_bv_size(bv);
         sign = false;
@@ -123,7 +123,7 @@ bool bit2int::mk_add(expr* e1, expr* e2, expr_ref& result) {
         tmp2 = m_rewriter.mk_zero_extend(1, tmp2);
         SASSERT(m_bv_util.get_bv_size(tmp1) == m_bv_util.get_bv_size(tmp2));
         tmp3 = m_rewriter.mk_bv_add(tmp1, tmp2);
-        result = m_rewriter.mk_bv2int(tmp3);
+        result = m_rewriter.mk_ubv2int(tmp3);
         return true;
     }
     return false;
@@ -168,7 +168,7 @@ bool bit2int::mk_mul(expr* e1, expr* e2, expr_ref& result) {
 
         SASSERT(m_bv_util.get_bv_size(tmp1) == m_bv_util.get_bv_size(tmp2));
         tmp3 = m_rewriter.mk_bv_mul(tmp1, tmp2);
-        result = m_rewriter.mk_bv2int(tmp3);
+        result = m_rewriter.mk_ubv2int(tmp3);
         if (sign1 != sign2) {
             result = m_arith_util.mk_uminus(result);
         }
@@ -183,13 +183,13 @@ bool bit2int::is_bv_poly(expr* n, expr_ref& pos, expr_ref& neg) {
     numeral k;
     bool is_int;
     todo.push_back(n);
-    neg = pos = m_rewriter.mk_bv2int(m_bit0);
+    neg = pos = m_rewriter.mk_ubv2int(m_bit0);
         
     while (!todo.empty()) {
         n = todo.back();
         todo.pop_back();
         expr* arg1 = nullptr, *arg2 = nullptr;
-        if (m_bv_util.is_bv2int(n)) {
+        if (m_bv_util.is_ubv2int(n)) {
             VERIFY(mk_add(n, pos, pos));
         }
         else if (m_arith_util.is_numeral(n, k, is_int) && is_int) {
@@ -208,16 +208,16 @@ bool bit2int::is_bv_poly(expr* n, expr_ref& pos, expr_ref& neg) {
         }
         else if (m_arith_util.is_mul(n, arg1, arg2) &&
                  m_arith_util.is_numeral(arg1, k, is_int) && is_int && k.is_minus_one() &&
-                 m_bv_util.is_bv2int(arg2)) {
+                 m_bv_util.is_ubv2int(arg2)) {
             VERIFY(mk_add(arg2, neg, neg));
         }
         else if (m_arith_util.is_mul(n, arg1, arg2) &&
                  m_arith_util.is_numeral(arg2, k, is_int) && is_int && k.is_minus_one() &&
-                 m_bv_util.is_bv2int(arg1)) {
+                 m_bv_util.is_ubv2int(arg1)) {
             VERIFY(mk_add(arg1, neg, neg));
         }
         else if (m_arith_util.is_uminus(n, arg1) &&
-                 m_bv_util.is_bv2int(arg1)) {
+                 m_bv_util.is_ubv2int(arg1)) {
             VERIFY(mk_add(arg1, neg, neg));
         }
         else {
@@ -251,7 +251,7 @@ void bit2int::visit(app* n) {
         m_arith_util.is_lt(n) || m.is_eq(n);
     expr_ref result(m);
     for (unsigned i = 0; !has_b2i && i < num_args; ++i) {
-        has_b2i = m_bv_util.is_bv2int(args[i]);
+        has_b2i = m_bv_util.is_ubv2int(args[i]);
     }
     if (!has_b2i) {
         result = m.mk_app(f, num_args, args);
@@ -367,7 +367,7 @@ void bit2int::visit(app* n) {
             tmp2 = e2bv;
             align_sizes(tmp1, tmp2);
             tmp3 = m_rewriter.mk_bv_urem(tmp1, tmp2);
-            result = m_rewriter.mk_bv2int(tmp3);
+            result = m_rewriter.mk_ubv2int(tmp3);
             cache_result(n, result);
             return;
         }
@@ -393,7 +393,7 @@ void bit2int::visit(app* n) {
         tmp2 = e2bv;
         align_sizes(tmp1, tmp2);
         tmp3 = m_rewriter.mk_bv_urem(tmp1, tmp2);
-        result = m_rewriter.mk_bv2int(tmp3);
+        result = m_rewriter.mk_ubv2int(tmp3);
 
         cache_result(n, result);
     }

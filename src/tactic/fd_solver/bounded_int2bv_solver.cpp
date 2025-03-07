@@ -190,7 +190,7 @@ public:
         for (auto const& kv : m_int2bv) {
             rational offset;
             VERIFY (m_bv2offset.find(kv.m_value, offset));
-            expr_ref value(m_bv.mk_bv2int(m.mk_const(kv.m_value)), m);
+            expr_ref value(m_bv.mk_ubv2int(m.mk_const(kv.m_value)), m);
             if (!offset.is_zero()) {
                 value = m_arith.mk_add(value, m_arith.mk_numeral(offset, true));
             }
@@ -293,7 +293,7 @@ private:
                     VERIFY(m_bv2offset.find(fbv, offset));
                 }
                 expr_ref t(m.mk_const(fbv), m);
-                t = m_bv.mk_bv2int(t);
+                t = m_bv.mk_ubv2int(t);
                 if (!offset.is_zero()) {
                     t = m_arith.mk_add(t, m_arith.mk_numeral(offset, true));
                 }

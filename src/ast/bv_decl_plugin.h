@@ -109,7 +109,8 @@ enum bv_op_kind {
     OP_BIT2BOOL, // predicate
     OP_MKBV,     // bools to bv
     OP_INT2BV,
-    OP_BV2INT,
+    OP_UBV2INT,
+    OP_SBV2INT,
 
     OP_CARRY,
     OP_XOR3,
@@ -225,7 +226,8 @@ protected:
     ptr_vector<func_decl>  m_ext_rotate_left;
     ptr_vector<func_decl>  m_ext_rotate_right;
 
-    ptr_vector<func_decl>  m_bv2int;
+    ptr_vector<func_decl>  m_ubv2int;
+    ptr_vector<func_decl>  m_sbv2int;
     ptr_vector<func_decl>  m_int2bv;
     vector<ptr_vector<func_decl> > m_bit2bool;
     ptr_vector<func_decl>  m_mkbv;
@@ -250,7 +252,9 @@ protected:
     bool get_extract_size(unsigned num_parameters, parameter const * parameters,
                           unsigned arity, sort * const * domain, int & result);
 
-    func_decl * mk_bv2int(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
+    func_decl * mk_ubv2int(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
+                          unsigned arity, sort * const * domain);
+    func_decl * mk_sbv2int(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
                           unsigned arity, sort * const * domain);
 
     func_decl * mk_int2bv(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
@@ -337,7 +341,8 @@ public:
     unsigned get_extract_low(expr const * n) const { SASSERT(is_extract(n)); return get_extract_low(to_app(n)->get_decl()); }
     bool is_extract(expr const * e, unsigned & low, unsigned & high, expr * & b) const;
     bool is_repeat(expr const * e, expr*& arg, unsigned& n) const;
-    bool is_bv2int(expr const * e, expr * & r) const;
+    bool is_ubv2int(expr const * e, expr * & r) const;
+    bool is_sbv2int(expr const * e, expr * & r) const;
     bool is_bv_add(expr const * e) const { return is_app_of(e, get_fid(), OP_BADD); }
     bool is_bv_sub(expr const * e) const { return is_app_of(e, get_fid(), OP_BSUB); }
     bool is_bv_mul(expr const * e) const { return is_app_of(e, get_fid(), OP_BMUL); }
@@ -378,7 +383,8 @@ public:
     bool is_uge(expr const * e) const { return is_app_of(e, get_fid(), OP_UGEQ); }
     bool is_sge(expr const * e) const { return is_app_of(e, get_fid(), OP_SGEQ); }
     bool is_bit2bool(expr const * e) const { return is_app_of(e, get_fid(), OP_BIT2BOOL); }
-    bool is_bv2int(expr const* e) const { return is_app_of(e, get_fid(), OP_BV2INT); }
+    bool is_ubv2int(expr const* e) const { return is_app_of(e, get_fid(), OP_UBV2INT); }
+    bool is_sbv2int(expr const* e) const { return is_app_of(e, get_fid(), OP_SBV2INT); }
     bool is_int2bv(expr const* e) const { return is_app_of(e, get_fid(), OP_INT2BV); }
     bool is_mkbv(expr const * e) const { return is_app_of(e, get_fid(), OP_MKBV); }
     bool is_bv_ashr(expr const * e) const { return is_app_of(e, get_fid(), OP_BASHR); }
@@ -549,7 +555,9 @@ public:
     app * mk_bv_ashr(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_BASHR, arg1, arg2); }
     app * mk_bv_lshr(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_BLSHR, arg1, arg2); }
 
-    app * mk_bv2int(expr* e) const;
+    app * mk_ubv2int(expr* e) const;
+    app * mk_sbv2int(expr* e) const;
+    app * mk_sbv2int_as_ubv2int(expr* e);
     app * mk_int2bv(unsigned sz, expr* e) const;
 
     app* mk_bv_rotate_left(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_EXT_ROTATE_LEFT, arg1, arg2); }

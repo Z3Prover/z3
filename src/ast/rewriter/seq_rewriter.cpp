@@ -2639,7 +2639,7 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     }
     if (str().is_ubv2s(a, b)) {
         bv_util bv(m());
-        result = bv.mk_bv2int(b);
+        result = bv.mk_ubv2int(b);
         return BR_DONE;
     }
     

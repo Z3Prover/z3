@@ -729,7 +729,7 @@ namespace qe {
             sort* s = m_bv.mk_sort(sz);
             z_bv = m.mk_fresh_const("z", s);
             expr_ref tmp(m);
-            z = m_bv.mk_bv2int(z_bv);
+            z = m_bv.mk_ubv2int(z_bv);
         }
 
         bool solve(conj_enum& conjs, expr* fml) {

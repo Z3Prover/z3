@@ -1257,7 +1257,8 @@ extern "C" {
             case OP_EXT_ROTATE_LEFT:  return Z3_OP_EXT_ROTATE_LEFT;
             case OP_EXT_ROTATE_RIGHT: return Z3_OP_EXT_ROTATE_RIGHT;
             case OP_INT2BV:    return Z3_OP_INT2BV;
-            case OP_BV2INT:    return Z3_OP_BV2INT;
+            case OP_UBV2INT:    return Z3_OP_BV2INT;
+            case OP_SBV2INT:    return Z3_OP_SBV2INT;
             case OP_CARRY:     return Z3_OP_CARRY;
             case OP_XOR3:      return Z3_OP_XOR3;
             case OP_BIT2BOOL: return Z3_OP_BIT2BOOL;

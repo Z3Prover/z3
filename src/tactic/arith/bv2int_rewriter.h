@@ -84,9 +84,9 @@ private:
     br_status mk_sub(expr* s, expr* t, expr_ref& result);
     br_status mk_uminus(expr* e, expr_ref & result); 
 
-    bool      is_bv2int(expr* e, expr_ref& s);
+    bool      is_ubv2int(expr* e, expr_ref& s);
     bool      is_sbv2int(expr* e, expr_ref& s);
-    bool      is_bv2int_diff(expr* e, expr_ref& s, expr_ref& t);
+    bool      is_ubv2int_diff(expr* e, expr_ref& s, expr_ref& t);
     bool      is_zero(expr* e);
     bool      is_shl1(expr* e, expr_ref& s);
 

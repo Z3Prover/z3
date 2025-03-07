@@ -147,12 +147,12 @@ br_status bv2int_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
 
 br_status bv2int_rewriter::mk_le(expr * s, expr * t, expr_ref & result) {
     expr_ref s1(m()), t1(m()), s2(m()), t2(m());
-    if (is_bv2int(s, s1) && is_bv2int(t, t1)) {
+    if (is_ubv2int(s, s1) && is_ubv2int(t, t1)) {
         align_sizes(s1, t1, false);
         result = m_bv.mk_ule(s1, t1);
         return BR_DONE;
     }
-    if (is_bv2int_diff(s, s1, s2) && is_bv2int_diff(t, t1, t2)) {
+    if (is_ubv2int_diff(s, s1, s2) && is_ubv2int_diff(t, t1, t2)) {
         //     s1 - s2 <= t1 - t2
         // <=>
         //     s1 + t2 <= t1 + s2
@@ -187,9 +187,9 @@ br_status bv2int_rewriter::mk_gt(expr * arg1, expr * arg2, expr_ref & result) {
 
 br_status bv2int_rewriter::mk_ite(expr* c, expr* s, expr* t, expr_ref& result) {
     expr_ref s1(m()), t1(m());
-    if (is_bv2int(s, s1) && is_bv2int(t, t1)) {
+    if (is_ubv2int(s, s1) && is_ubv2int(t, t1)) {
         align_sizes(s1, t1, false);
-        result = m_bv.mk_bv2int(m().mk_ite(c, s1, t1));
+        result = m_bv.mk_ubv2int(m().mk_ite(c, s1, t1));
         return BR_DONE;
     }
 
@@ -203,12 +203,12 @@ br_status bv2int_rewriter::mk_ite(expr* c, expr* s, expr* t, expr_ref& result) {
 
 br_status bv2int_rewriter::mk_eq(expr * s, expr * t, expr_ref & result) {
     expr_ref s1(m()), t1(m()), s2(m()), t2(m());
-    if (is_bv2int(s, s1) && is_bv2int(t, t1)) {
+    if (is_ubv2int(s, s1) && is_ubv2int(t, t1)) {
         align_sizes(s1, t1, false);
         result = m().mk_eq(s1, t1);
         return BR_DONE;
     }
-    if (is_bv2int_diff(s, s1, s2) && is_bv2int_diff(t, t1, t2)) {
+    if (is_ubv2int_diff(s, s1, s2) && is_ubv2int_diff(t, t1, t2)) {
         s1 = mk_bv_add(s1, t2, false);
         t1 = mk_bv_add(s2, t1, false);        
         align_sizes(s1, t1, false);
@@ -234,9 +234,9 @@ br_status bv2int_rewriter::mk_mod(expr * s, expr * t, expr_ref & result) {
     rational r;
     if (!m_arith.is_numeral(t, r) || !r.is_pos())
         return BR_FAILED;
-    if (is_bv2int(s, s1) && is_bv2int(t, t1)) {
+    if (is_ubv2int(s, s1) && is_ubv2int(t, t1)) {
         align_sizes(s1, t1, false);
-        result = m_bv.mk_bv2int(m_bv.mk_bv_urem(s1, t1));
+        result = m_bv.mk_ubv2int(m_bv.mk_bv_urem(s1, t1));
         TRACE("bv2int_rewriter", tout << result << "\n";);
         return BR_DONE;
     }
@@ -244,14 +244,14 @@ br_status bv2int_rewriter::mk_mod(expr * s, expr * t, expr_ref & result) {
     //
     // (s1 - s2) mod t1 = (s1 + (t1 - (s2 mod t1))) mod t1
     //
-    if (is_bv2int_diff(s, s1, s2) && is_bv2int(t, t1)) {
+    if (is_ubv2int_diff(s, s1, s2) && is_ubv2int(t, t1)) {
         expr_ref u1(m());
         align_sizes(s2, t1, false);
         u1 = m_bv.mk_bv_urem(s2, t1);
         u1 = m_bv.mk_bv_sub(t1, u1);
         u1 = mk_bv_add(s1, u1, false);
         align_sizes(u1, t1, false);
-        result = m_bv.mk_bv2int(m_bv.mk_bv_urem(u1, t1));
+        result = m_bv.mk_ubv2int(m_bv.mk_bv_urem(u1, t1));
         TRACE("bv2int_rewriter", tout << result << "\n";);
         return BR_DONE;
     }
@@ -275,8 +275,8 @@ br_status bv2int_rewriter::mk_rem(expr * arg1, expr * arg2, expr_ref & result) {
 
 br_status bv2int_rewriter::mk_uminus(expr * s, expr_ref & result) {
     expr_ref s1(m()), s2(m());
-    if (is_bv2int_diff(s, s1, s2)) {
-        result = m_arith.mk_sub(m_bv.mk_bv2int(s2), m_bv.mk_bv2int(s1));
+    if (is_ubv2int_diff(s, s1, s2)) {
+        result = m_arith.mk_sub(m_bv.mk_ubv2int(s2), m_bv.mk_ubv2int(s1));
         return BR_DONE;
     }
     if (is_sbv2int(s, s1)) {
@@ -341,17 +341,17 @@ expr* bv2int_rewriter::mk_bv_add(expr* s, expr* t, bool is_signed) {
 
 br_status bv2int_rewriter::mk_add(expr* s, expr* t, expr_ref& result) {
     expr_ref s1(m()), t1(m()), s2(m()), t2(m());
-    if (is_bv2int(s, s1) && is_bv2int(t, t1)) {
-        result = m_bv.mk_bv2int(mk_bv_add(s1, t1, false));
+    if (is_ubv2int(s, s1) && is_ubv2int(t, t1)) {
+        result = m_bv.mk_ubv2int(mk_bv_add(s1, t1, false));
         return BR_DONE;
     }
-    if (is_bv2int_diff(s, s1, s2) && is_bv2int_diff(t, t1, t2)) {
+    if (is_ubv2int_diff(s, s1, s2) && is_ubv2int_diff(t, t1, t2)) {
         //     s1 - s2 + t1 - t2
         // =
         //     s1 + t1 - (s2 + t2)
         //
-        t1 = m_bv.mk_bv2int(mk_bv_add(s1, t1, false));
-        t2 = m_bv.mk_bv2int(mk_bv_add(s2, t2, false));
+        t1 = m_bv.mk_ubv2int(mk_bv_add(s1, t1, false));
+        t2 = m_bv.mk_ubv2int(mk_bv_add(s2, t2, false));
         result = m_arith.mk_sub(t1, t2); 
         return BR_DONE;
     }
@@ -420,23 +420,23 @@ expr* bv2int_rewriter::mk_bv_mul(expr* s, expr* t, bool is_signed) {
 
 br_status bv2int_rewriter::mk_mul(expr* s, expr* t, expr_ref& result) {
     expr_ref s1(m()), s2(m()), t1(m()), t2(m());
-    if ((is_shl1(s, s1) && is_bv2int(t, t1)) ||
-        (is_shl1(t, s1) && is_bv2int(s, t1))) {
+    if ((is_shl1(s, s1) && is_ubv2int(t, t1)) ||
+        (is_shl1(t, s1) && is_ubv2int(s, t1))) {
         unsigned n = m_bv.get_bv_size(s1);
         unsigned m = m_bv.get_bv_size(t1);
         s1 = mk_extend(m, s1, false);
         t1 = mk_extend(n, t1, false);
-        result = m_bv.mk_bv2int(m_bv.mk_bv_shl(t1, s1));
+        result = m_bv.mk_ubv2int(m_bv.mk_bv_shl(t1, s1));
         return BR_DONE;
     }
-    if (is_bv2int(s, s1) && is_bv2int(t, t1)) {
-        result = m_bv.mk_bv2int(mk_bv_mul(s1, t1, false));
+    if (is_ubv2int(s, s1) && is_ubv2int(t, t1)) {
+        result = m_bv.mk_ubv2int(mk_bv_mul(s1, t1, false));
         return BR_DONE;
     }
-    if ((is_bv2int(s, s1) && is_bv2int_diff(t, t1, t2)) ||
-        (is_bv2int(t, s1) && is_bv2int_diff(s, t1, t2))) {
-        t1 = m_bv.mk_bv2int(mk_bv_mul(s1, t1, false));
-        t2 = m_bv.mk_bv2int(mk_bv_mul(s1, t2, false));
+    if ((is_ubv2int(s, s1) && is_ubv2int_diff(t, t1, t2)) ||
+        (is_ubv2int(t, s1) && is_ubv2int_diff(s, t1, t2))) {
+        t1 = m_bv.mk_ubv2int(mk_bv_mul(s1, t1, false));
+        t2 = m_bv.mk_ubv2int(mk_bv_mul(s1, t2, false));
         result = m_arith.mk_sub(t1, t2);
         return BR_DONE;
     }
@@ -459,13 +459,13 @@ br_status bv2int_rewriter::mk_sub(unsigned num_args, expr * const* args, expr_re
 
 br_status bv2int_rewriter::mk_sub(expr* s, expr* t, expr_ref& result) {
     expr_ref s1(m()), t1(m()), s2(m()), t2(m());
-    if (is_bv2int_diff(s, s1, s2) && is_bv2int_diff(t, t1, t2)) {
+    if (is_ubv2int_diff(s, s1, s2) && is_ubv2int_diff(t, t1, t2)) {
         //     s1 - s2 - (t1 - t2)
         // =
         //     s1 + t2 - (t1 + s2)
         //
-        s1 = m_bv.mk_bv2int(mk_bv_add(s1, t2, false));
-        s2 = m_bv.mk_bv2int(mk_bv_add(s2, t1, false));
+        s1 = m_bv.mk_ubv2int(mk_bv_add(s1, t2, false));
+        s2 = m_bv.mk_ubv2int(mk_bv_add(s2, t1, false));
         result = m_arith.mk_sub(s1, s2); 
         return BR_DONE;
     }
@@ -479,10 +479,10 @@ br_status bv2int_rewriter::mk_sub(expr* s, expr* t, expr_ref& result) {
     return BR_FAILED;
 }
 
-bool bv2int_rewriter::is_bv2int(expr* n, expr_ref& s) {
+bool bv2int_rewriter::is_ubv2int(expr* n, expr_ref& s) {
     rational k;
     bool is_int;
-    if (m_bv.is_bv2int(n)) {
+    if (m_bv.is_ubv2int(n)) {
         s = to_app(n)->get_arg(0);
         return true;
     }
@@ -498,7 +498,7 @@ bool bv2int_rewriter::is_shl1(expr* n, expr_ref& s) {
     expr* s1, *s2;
     rational r;
     unsigned bv_size;
-    if(m_bv.is_bv2int(n, s2) && 
+    if(m_bv.is_ubv2int(n, s2) && 
         m_bv.is_bv_shl(s2, s1, s2) && 
         m_bv.is_numeral(s1, r, bv_size) && 
         r.is_one()) {
@@ -508,8 +508,8 @@ bool bv2int_rewriter::is_shl1(expr* n, expr_ref& s) {
     return false;
 }
 
-bool bv2int_rewriter::is_bv2int_diff(expr* n, expr_ref& s, expr_ref& t) {
-    if (is_bv2int(n, s)) {
+bool bv2int_rewriter::is_ubv2int_diff(expr* n, expr_ref& s, expr_ref& t) {
+    if (is_ubv2int(n, s)) {
         t = m_bv.mk_numeral(0, 1);
         return true;
     }
@@ -528,13 +528,13 @@ bool bv2int_rewriter::is_bv2int_diff(expr* n, expr_ref& s, expr_ref& t) {
     // 
     expr *e1, *e2;
     if (m_arith.is_sub(n, e1, e2) &&
-        is_bv2int(e1, s) &&
-        is_bv2int(e2, t)) {
+        is_ubv2int(e1, s) &&
+        is_ubv2int(e2, t)) {
         return true;
     }   
     if (m_arith.is_add(n, e1, e2) &&
         m_arith.is_numeral(e1, k, is_int) && is_int && k.is_neg() &&
-        is_bv2int(e2, s)) {
+        is_ubv2int(e2, s)) {
         k.neg();
         unsigned sz = k.get_num_bits();
         t = m_bv.mk_numeral(k, m_bv.mk_sort(sz));
@@ -542,7 +542,7 @@ bool bv2int_rewriter::is_bv2int_diff(expr* n, expr_ref& s, expr_ref& t) {
     }
     if (m_arith.is_add(n, e1, e2) &&
         m_arith.is_numeral(e2, k, is_int) && is_int && k.is_neg() &&
-        is_bv2int(e1, s)) {
+        is_ubv2int(e1, s)) {
         k.neg();
         unsigned sz = k.get_num_bits();
         t = m_bv.mk_numeral(k, m_bv.mk_sort(sz));
@@ -552,12 +552,12 @@ bool bv2int_rewriter::is_bv2int_diff(expr* n, expr_ref& s, expr_ref& t) {
 }
 
 bool bv2int_rewriter::is_sbv2int(expr* n, expr_ref& s) {
-    if (is_bv2int(n, s)) {
+    if (is_ubv2int(n, s)) {
         s = m_bv.mk_zero_extend(1, s);
         return true;
     }
     expr_ref u1(m()), u2(m());
-    if (is_bv2int_diff(n, u1, u2)) {
+    if (is_ubv2int_diff(n, u1, u2)) {
         align_sizes(u1, u2, false);
         u1 = mk_extend(1, u1, false);
         u2 = mk_extend(1, u2, false);
@@ -577,7 +577,7 @@ bool bv2int_rewriter::is_sbv2int(expr* n, expr_ref& s) {
         lo == hi && lo == m_bv.get_bv_size(c3) - 1 && 
         m_arith.is_sub(t, t1, t2) &&
         e1 == t1 &&
-        m_bv.is_bv2int(e1, e2) &&
+        m_bv.is_ubv2int(e1, e2) &&
         m_bv.is_extract(e2, lo1, hi1, e3) &&
         lo1 == 0 && hi1 == hi-1 &&
         m_arith.is_numeral(t2, k, is_int) && is_int &&
@@ -590,7 +590,7 @@ bool bv2int_rewriter::is_sbv2int(expr* n, expr_ref& s) {
 #if 0
     // bv2int(b[0:n-2]) - ite(bv1 == b[n-1:n-1], 2^{n-1}, 0)
     if (m().is_sub(n, e1, e2) &&
-        m_bv.is_bv2int(e1, e3) &&
+        m_bv.is_ubv2int(e1, e3) &&
         m_bv.is_extract(e3, lo, hi, e4) &&
         lo == 0 && hi == m_bv.get_bv_size(e4) - 2 &&
         m().is_ite(e2, t1, t2, t3) &&
@@ -612,7 +612,7 @@ expr* bv2int_rewriter::mk_sbv2int(expr* b) {
     expr* bv1 = m_bv.mk_numeral(1, 1);
     unsigned n = m_bv.get_bv_size(b);
     expr* c = m().mk_eq(bv1, m_bv.mk_extract(n-1, n-1, b));
-    expr* e = m_bv.mk_bv2int(m_bv.mk_extract(n-2, 0, b));
+    expr* e = m_bv.mk_ubv2int(m_bv.mk_extract(n-2, 0, b));
     expr* t = m_arith.mk_sub(e, m_arith.mk_numeral(power(rational(2), n-1), true));
     return m().mk_ite(c, t, e);
 } 

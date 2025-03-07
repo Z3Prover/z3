@@ -514,7 +514,8 @@ namespace sls {
         case OP_BV_NUM:
         case OP_BIT0:
         case OP_BIT1:
-        case OP_BV2INT:
+        case OP_UBV2INT:
+        case OP_SBV2INT:
         case OP_BNEG_OVFL:
         case OP_BSADD_OVFL:
         case OP_BUADD_OVFL:

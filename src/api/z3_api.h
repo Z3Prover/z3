@@ -367,13 +367,11 @@ typedef enum
 
    - Z3_OP_EXT_ROTATE_RIGHT (extended) Right rotation. Similar to Z3_OP_ROTATE_RIGHT, but it is a binary operator instead of a parametric one.
 
-   - Z3_OP_INT2BV Coerce integer to bit-vector. NB. This function
-       is not supported by the decision procedures. Only the most
-       rudimentary simplification rules are applied to this function.
+   - Z3_OP_INT2BV Coerce integer to bit-vector. 
 
-   - Z3_OP_BV2INT Coerce bit-vector to integer. NB. This function
-       is not supported by the decision procedures. Only the most
-       rudimentary simplification rules are applied to this function.
+   - Z3_OP_BV2INT Coerce bit-vector to integer. 
+
+   - Z3_OP_SBV2INT Coerce signed bit-vector to integer. 
 
    - Z3_OP_CARRY Compute the carry bit in a full-adder.
        The meaning is given by the equivalence
@@ -1106,6 +1104,7 @@ typedef enum {
     Z3_OP_BIT2BOOL,
     Z3_OP_INT2BV,
     Z3_OP_BV2INT,
+    Z3_OP_SBV2INT,
     Z3_OP_CARRY,
     Z3_OP_XOR3,
 
