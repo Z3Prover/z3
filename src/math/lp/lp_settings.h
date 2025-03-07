@@ -279,7 +279,7 @@ public:
         return m_bound_propagation;
     }
 
-    bool dump_bounds_as_lemmas() { return m_dump_bound_lemmas; }
+    bool dump_bound_lemmas() { return m_dump_bound_lemmas; }
     
     bool& bound_propagation() { return m_bound_propagation; }
     

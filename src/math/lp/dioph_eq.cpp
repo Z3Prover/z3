@@ -176,7 +176,8 @@ namespace lp {
         }
     };
     class dioph_eq::imp {
-        int deb_count = 0;
+        int m_n_of_lemmas = 0;
+        
         // This class represents a term with an added constant number c, in form sum
         // {x_i*a_i} + c.
         class term_o : public lar_term {
@@ -1490,7 +1491,6 @@ namespace lp {
         
        // h is the entry that is ready to be moved to S
         lia_move tighten_bounds(unsigned h) {
-            TRACE("dio", tout <<"deb_count:" << ++deb_count << "\n";);
             SASSERT(entry_invariant(h));
             protected_queue q;
             copy_row_to_espace(h);
@@ -1777,6 +1777,7 @@ namespace lp {
             return out;
         }
 
+        
         // return true iff the column bound has been changed
         bool update_bound(const prop_bound& pb) {            
             TRACE("dio", tout << "pb: " << "x" << pb.m_j << ", low:" << pb.m_is_low << " , strict:" << pb.m_strict << " , bound:" << pb.m_bound << "\n"; lra.print_column_info(pb.m_j, tout, true););
@@ -1784,6 +1785,10 @@ namespace lp {
             CTRACE("dio", r, tout << "change in lar_solver: "; tout << "was updating with " << (pb.m_is_low? "lower" : "upper") << " bound " << pb.m_bound << "\n";
                    tout << "the column became:\n";
                    lra.print_column_info(pb.m_j, tout);tout <<"return " << r << "\n";);
+            if (lra.settings().dump_bound_lemmas()) {
+                std::string lemma_name = "lemma" + std::to_string(m_n_of_lemmas++); 
+                lra.write_bound_lemma_to_file(pb.m_j, pb.m_is_low, lemma_name, std::string( __FILE__)+ ","+ std::to_string(__LINE__));
+            }
             return r;
         }
         

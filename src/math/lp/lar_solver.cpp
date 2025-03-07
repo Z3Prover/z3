@@ -2504,7 +2504,7 @@ namespace lp {
     // Otherwise the new asserted lower bound is is greater than the existing upper bound.
     // dep is the reason for the new bound
 
-    void lar_solver::write_bound_lemma_to_file(unsigned j, bool is_low, const std::string & file_name) const {
+    void lar_solver::write_bound_lemma_to_file(unsigned j, bool is_low, const std::string & file_name, const std::string& location) const {
         std::ofstream file(file_name);
         if (!file.is_open()) {
             // Handle file open error
@@ -2512,7 +2512,7 @@ namespace lp {
             return;
         }
     
-        write_bound_lemma(j, is_low, file);
+        write_bound_lemma(j, is_low, location, file);
         file.close();
     
         if (file.fail()) {
@@ -2566,7 +2566,7 @@ namespace lp {
         }
     }
 
-    void lar_solver::write_bound_lemma(unsigned j, bool is_low, std::ostream & out) const {
+    void lar_solver::write_bound_lemma(unsigned j, bool is_low, const std::string& location, std::ostream & out) const {
         // Get the bound value and dependency
         mpq bound_val;
         bool is_strict = false;
@@ -2586,10 +2586,9 @@ namespace lp {
         }
     
         // Start SMT2 file
-        out << "(set-info :source |\n";
-        out << "   Z3 bound lemma for " << (is_low ? "lower" : "upper") << " bound of variable " << j << "\n";
-        out << "   bound value: " << bound_val << (is_strict ? (is_low ? " < " : " > ") : (is_low ? " <= " : " >= ")) << "x" << j << "\n";
-        out << "|)\n\n";
+        out << "(set-info : \"generated at " << location;
+        out << " for " << (is_low ? "lower" : "upper") << " bound of variable " << j << ",";
+        out << " bound value: " << bound_val << (is_strict ? (is_low ? " < " : " > ") : (is_low ? " <= " : " >= ")) << "x" << j << "\")\n";
     
         // Collect all variables used in dependencies
         std::unordered_set<unsigned> vars_used;
