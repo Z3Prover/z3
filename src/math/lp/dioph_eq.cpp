@@ -1528,7 +1528,8 @@ namespace lp {
             auto st = lra.find_feasible_solution();
             if (st == lp_status::INFEASIBLE) {
                 lra.get_infeasibility_explanation(m_infeas_explanation);
-                TRACE("dio", tout << "inf explanation:\n"; lra.print_explanation(tout, m_infeas_explanation););                                    return lia_move::conflict;
+                TRACE("dio", tout << "inf explanation:\n"; lra.print_explanation(tout, m_infeas_explanation););
+                return lia_move::conflict;
             }
             TRACE("dio", tout << "lra is feasible\n";);                        
             return lia_move::undef;
