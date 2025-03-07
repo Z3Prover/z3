@@ -133,9 +133,11 @@ namespace opt {
                     // only try to improve delta_index. 
                     bound = m_s->mk_ge(delta_index, m_lower[delta_index] + inf_eps(delta_per_step));
                 }
-                TRACE("opt", tout << "index: " << delta_index << " delta: " << delta_per_step << " : " << bound << "\n";);
+                TRACE("opt", tout << mk_pp(m_objs.get(delta_index), m) << " index: " << delta_index << " delta: " << delta_per_step << " : " << bound << "\n";);
                 if (bound == last_bound) {
                     is_sat = l_false;
+                    if (!m_lower[delta_index].is_finite() && !m_upper[delta_index].is_finite())
+                        m_lower[delta_index] = m_upper[delta_index];
                 }
                 else {
                     m_s->assert_expr(bound);                
@@ -155,7 +157,8 @@ namespace opt {
             else if (is_sat == l_false) {
                 // we are done with this delta_index.
                 m_upper[delta_index] = m_lower[delta_index];
-                if (num_scopes > 0) m_s->pop(num_scopes); 
+                if (num_scopes > 0)
+                    m_s->pop(num_scopes); 
                 num_scopes = 0;
                 last_bound = nullptr;
                 bool all_tight = true;
