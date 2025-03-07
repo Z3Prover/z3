@@ -2504,6 +2504,24 @@ namespace lp {
     // Otherwise the new asserted lower bound is is greater than the existing upper bound.
     // dep is the reason for the new bound
 
+    void lar_solver::write_bound_lemma_to_file(unsigned j, bool is_low, const std::string & file_name) const {
+        std::ofstream file(file_name);
+        if (!file.is_open()) {
+            // Handle file open error
+            std::cerr << "Failed to open file: " << file_name << std::endl;
+            return;
+        }
+    
+        write_bound_lemma(j, is_low, file);
+        file.close();
+    
+        if (file.fail()) {
+            std::cerr << "Error occurred while writing to file: " << file_name << std::endl;
+        } else {
+            std::cout << "Bound lemma written to " << file_name << std::endl;
+        }
+    }
+
     void lar_solver::set_crossed_bounds_column_and_deps(unsigned j, bool lower_bound, u_dependency* dep) {
         if (m_crossed_bounds_column != null_lpvar) return; // already set
         SASSERT(m_crossed_bounds_deps == nullptr);
@@ -2534,6 +2552,146 @@ namespace lp {
         return out;
     }
 
+    
+
+
+        // Helper function to format constants in SMT2 format
+    std::string format_smt2_constant(const mpq& val) {
+        if (val.is_neg()) {
+            // Negative constant - use unary minus operator
+            return std::string("(- ") + abs(val).to_string() + ")";
+        } else {
+            // Positive or zero constant - write directly
+            return val.to_string();
+        }
+    }
+
+    void lar_solver::write_bound_lemma(unsigned j, bool is_low, std::ostream & out) const {
+        // Get the bound value and dependency
+        mpq bound_val;
+        bool is_strict = false;
+        u_dependency* bound_dep = nullptr;
+    
+        // Get the appropriate bound info
+        if (is_low) {
+            if (!has_lower_bound(j, bound_dep, bound_val, is_strict)) {
+                out << "; Error: Variable " << j << " has no lower bound\n";
+                return;
+            }
+        } else {
+            if (!has_upper_bound(j, bound_dep, bound_val, is_strict)) {
+                out << "; Error: Variable " << j << " has no upper bound\n";
+                return;
+            }
+        }
+    
+        // Start SMT2 file
+        out << "(set-info :source |\n";
+        out << "   Z3 bound lemma for " << (is_low ? "lower" : "upper") << " bound of variable " << j << "\n";
+        out << "   bound value: " << bound_val << (is_strict ? (is_low ? " < " : " > ") : (is_low ? " <= " : " >= ")) << "x" << j << "\n";
+        out << "|)\n\n";
+    
+        // Collect all variables used in dependencies
+        std::unordered_set<unsigned> vars_used;
+        vars_used.insert(j);
+        bool is_int = column_is_int(j);
+        // Linearize the dependencies
+        svector<constraint_index> deps;
+        m_dependencies.linearize(bound_dep, deps);
+    
+        // Collect variables from constraints
+        for (auto ci : deps) {
+            const auto& c = m_constraints[ci];
+            for (const auto& p : c.coeffs()) {
+                vars_used.insert(p.second);
+                if (!column_is_int(p.second))
+                    is_int = false;
+            }
+        }
+            
+        if (is_int) {
+            out << "(set-logic QF_LIA)\n\n";
+        }
+    
+        // Declare variables
+        out << "; Variable declarations\n";
+        for (unsigned var : vars_used) {
+            out << "(declare-const x" << var << " " << (column_is_int(var) ? "Int" : "Real") << ")\n";
+        }
+        out << "\n";
+    
+        // Add assertions for the dependencies
+        out << "; Bound dependencies\n";
+    
+        for (auto ci : deps) {
+            const auto& c = m_constraints[ci];
+            out << "(assert ";
+        
+            // Handle the constraint type and expression
+            auto k = c.kind();
+        
+            // Handle empty constraint (just constant)
+            SASSERT(c.coeffs().size());
+        
+            // Normal constraint with variables
+            switch (k) {
+            case LE: out << "(<= "; break;
+            case LT: out << "(< "; break;
+            case GE: out << "(>= "; break;
+            case GT: out << "(> "; break;
+            case EQ: out << "(= "; break;
+            default: out << "(unknown-constraint-type "; break;
+            }
+        
+            // Left-hand side (variables)
+            if (c.coeffs().size() == 1) {
+                // Single variable
+                auto p = *c.coeffs().begin();
+                if (p.first.is_one()) {
+                    out << "x" << p.second << " ";
+                } else {
+                    out << "(* " << format_smt2_constant(p.first) << " x" << p.second << ") ";
+                }
+            } else {
+                // Multiple variables - create a sum
+                out << "(+ ";
+                for (auto const& p : c.coeffs()) {
+                    if (p.first.is_one()) {
+                        out << "x" << p.second << " ";
+                    } else {
+                        out << "(* " << format_smt2_constant(p.first) << " x" << p.second << ") ";
+                    }
+                }
+                out << ") ";
+            }
+        
+            // Right-hand side (constant)
+            out << format_smt2_constant(c.rhs());
+            out << "))\n";
+        }
+        out << "\n";
+    
+        // Now add the assertion that contradicts the bound
+        out << "; Negation of the derived bound\n";
+        if (is_low) {
+            if (is_strict) {
+                out << "(assert (<= x" << j << " " << format_smt2_constant(bound_val) << "))\n";
+            } else {
+                out << "(assert (< x" << j << " " << format_smt2_constant(bound_val) << "))\n";
+            }
+        } else {
+            if (is_strict) {
+                out << "(assert (>= x" << j << " " << format_smt2_constant(bound_val) << "))\n";
+            } else {
+                out << "(assert (> x" << j << " " << format_smt2_constant(bound_val) << "))\n";
+            }
+        }
+        out << "\n";
+    
+        // Check sat and get model if available
+        out << "(check-sat)\n";
+        out << "(exit)\n";
+    }
 } // namespace lp
 
 

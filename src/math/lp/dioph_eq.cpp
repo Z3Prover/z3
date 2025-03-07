@@ -233,6 +233,11 @@ namespace lp {
                 t += mpq(-1) * b;
                 return t.c() == mpq(0) && t.size() == 0;
             }
+
+            friend bool operator!=(const term_o& a, const term_o& b) {
+                return ! (a  == b);
+            }
+
 #endif
             term_o& operator+=(const term_o& t) {
                 for (const auto& p : t) {
@@ -1358,8 +1363,9 @@ namespace lp {
                 enable_trace("dio");
                 TRACE("dio", tout << "ls:"; print_term_o(ls, tout) << "\n";
                       tout << "rs:"; print_term_o(rs, tout) << "\n";);
+                return false;
             }
-            return ls == rs;
+            return true;
         }
         
         void subs_with_S_and_fresh(protected_queue& q) {
