@@ -2551,14 +2551,14 @@ namespace lp {
             return print_lar_term_L(opened_ml, out);
         }
 
-        // collect only fixed variables 
+        // collect only fixed variables in a term 
         template <typename T>
         term_with_index open_fixed_from_ml(const T& ml) const {
             term_with_index r;
             for (const auto& v : ml) {
                 for (const auto & p : lra.get_term(v.var()).ext_coeffs()) {
                     if (lra.column_is_fixed(p.var()))
-                        r.add(v.coeff()*p.coeff(), p.var());
+                        r.add(v.coeff() * p.coeff(), p.var());
                 }
             }
             return r;
