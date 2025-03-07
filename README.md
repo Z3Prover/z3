@@ -1,7 +1,7 @@
 # Z3
 
 Z3 is a theorem prover from Microsoft Research. 
-It is licensed under the [MIT license](LICENSE.txt).
+It is licensed under the [MIT license](LICENSE.txt). Windows builds include Visual C++ Runtime Redistributables, which are licensed under [these terms](https://visualstudio.microsoft.com/license-terms/mlt031719/).
 
 If you are not familiar with Z3, you can start [here](https://github.com/Z3Prover/z3/wiki#background).
 
