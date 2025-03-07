@@ -3452,10 +3452,11 @@ public:
             set_evidence(ev.ci(), m_core, m_eqs);
 
 
-        if (params().m_arith_validate)
-            VERIFY(validate_conflict());
         if (params().m_arith_dump_lemmas)
             dump_conflict();
+
+        if (params().m_arith_validate)
+            VERIFY(validate_conflict());
 
         if (is_conflict) {
             ctx().set_conflict(

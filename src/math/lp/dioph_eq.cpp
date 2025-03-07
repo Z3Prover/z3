@@ -1489,7 +1489,7 @@ namespace lp {
             protected_queue q;
             copy_row_to_espace(h);
             remove_fresh_from_espace();
-           
+          
             // change m_espace indices from local to lar_solver: have to restore for clear to work
             for (auto & p: m_espace.m_data) {
                 SASSERT(!var_is_fresh(p.m_j));
@@ -1506,12 +1506,7 @@ namespace lp {
                 TRACE("dio", tout <<"no new bounds\n";);
                 return lia_move::undef;
             }
-            TRACE("dio", tout << "prop_bounds:\n";
-                  for (auto& pb: m_prop_bounds) {
-                      print_prop_bound(pb, tout);
-                  });
-            if (m_prop_bounds.size() == 0)
-                return lia_move::undef;
+            TRACE("dio", tout << "prop_bounds:\n"; for (auto& pb: m_prop_bounds) print_prop_bound(pb, tout););
             u_dependency * dep  = explain_fixed_in_meta_term(m_l_matrix.m_rows[h]);
             bool change = false;
             for (auto& pb: m_prop_bounds) {
@@ -1639,10 +1634,11 @@ namespace lp {
             }
             return ret;
         }
-        impq get_term_value(const lar_term& t) const {
-            impq ret;
+
+        mpq get_term_value(const term_o& t) const {
+            mpq ret = t.c();
             for (const auto& p : t) {
-                ret += p.coeff() * lra.get_column_value(p.j());
+                ret += p.coeff() * lra.get_column_value(p.var()).x;
             }
             return ret;
         }
@@ -2466,6 +2462,7 @@ namespace lp {
         bool entry_invariant(unsigned ei) const {
             if (lra.settings().get_cancel_flag())
                 return true;
+            
             for (const auto& p : m_e_matrix.m_rows[ei]) {
                 if (!p.coeff().is_int()) {
                     return false;
@@ -2480,9 +2477,13 @@ namespace lp {
                 }
             }
 
-            bool ret =
-                term_to_lar_solver(remove_fresh_vars(get_term_from_entry(ei))) ==
-                fix_vars(open_ml(m_l_matrix.m_rows[ei]));
+            term_o ls = term_to_lar_solver(remove_fresh_vars(get_term_from_entry(ei)));
+            mpq ls_val = get_term_value(ls);
+            if (!ls_val.is_zero()) {
+                std::cout << "ls_val is not zero\n";
+                return false;
+            }
+            bool ret = ls == fix_vars(open_ml(m_l_matrix.m_rows[ei]));
             if (!ret) {
                 enable_trace("dio");
                 CTRACE("dio", !ret,
