@@ -1821,7 +1821,7 @@ namespace lp {
                 rs = (rs - m_c) / g;
                 TRACE("dio", tout << "((rs - m_c) / g):" << rs << std::endl;);
                 if (!rs.is_int()) {
-                    if (tighten_bound_kind(g, j, rs, is_upper, b_dep))
+                    if (tighten_bound_kind(g, j, rs, is_upper))
                         return lia_move::conflict;
                 } else {
                     TRACE("dio", tout << "no improvement in the bound\n";);
@@ -1832,8 +1832,7 @@ namespace lp {
         }
 
         // returns true only on a conflict
-        bool tighten_bound_kind(const mpq& g, unsigned j, const mpq& ub, bool upper,
-                                u_dependency* prev_dep) {
+        bool tighten_bound_kind(const mpq& g, unsigned j, const mpq& ub, bool upper) {
             // ub = (upper_bound(j) - m_c)/g.
             // we have xj = t = g*t_+ m_c <= upper_bound(j), then
             // t_ <= floor((upper_bound(j) - m_c)/g) = floor(ub)
@@ -1849,7 +1848,7 @@ namespace lp {
             SASSERT((upper && bound < lra.get_upper_bound(j).x) ||
                     (!upper && bound > lra.get_lower_bound(j).x));
             lconstraint_kind kind = upper ? lconstraint_kind::LE : lconstraint_kind::GE;
-            u_dependency* dep = prev_dep;
+            u_dependency* dep = lra.get_bound_constraint_witnesses_for_column(j);
             dep = lra.join_deps(dep, explain_fixed_in_meta_term(m_lspace.m_data));
             u_dependency* j_bound_dep = upper ? lra.get_column_upper_bound_witness(j) : lra.get_column_lower_bound_witness(j);
             dep = lra.join_deps(dep, j_bound_dep);
@@ -1858,6 +1857,11 @@ namespace lp {
                   print_lar_term_L(lra.get_term(j), tout) << "\ndep:";
                   print_deps(tout, dep) << std::endl;);
             lra.update_column_type_and_bound(j, kind, bound, dep);
+            if (lra.settings().dump_bound_lemmas()) {
+                std::string lemma_name = "lemma" + std::to_string(m_n_of_lemmas++); 
+                lra.write_bound_lemma_to_file(j, !upper, lemma_name, std::string( __FILE__)+ ","+ std::to_string(__LINE__));
+            }
+
             lp_status st = lra.find_feasible_solution();
             if ((int)st >= (int)lp::lp_status::FEASIBLE) {
                 m_tightened_columns.insert(j);
@@ -2554,7 +2558,7 @@ namespace lp {
             for (const auto& v : ml) {
                 for (const auto & p : lra.get_term(v.var()).ext_coeffs()) {
                     if (lra.column_is_fixed(p.var()))
-                        r.add(p.coeff(), p.var());
+                        r.add(v.coeff()*p.coeff(), p.var());
                 }
             }
             return r;
