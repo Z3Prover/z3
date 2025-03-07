@@ -1902,7 +1902,9 @@ namespace lp {
             lia_move r;
             do {
                 r = rewrite_eqs(f_vector);
-                if (lra.settings().get_cancel_flag()) return lia_move::undef;
+                if (lra.settings().get_cancel_flag()) {
+                    return lia_move::undef;
+                }
                 if (r == lia_move::conflict || r == lia_move::undef) {
                     break;
                 }
@@ -1913,7 +1915,8 @@ namespace lp {
             if (r == lia_move::conflict) {
                 if (m_conflict_index != UINT_MAX) {
                     lra.stats().m_dio_rewrite_conflicts++;
-                } else {
+                } 
+                else {
                     lra.stats().m_dio_bound_propagation_conflicts++;
                 }
                 return lia_move::conflict;                
