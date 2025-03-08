@@ -1848,10 +1848,8 @@ namespace lp {
             SASSERT((upper && bound < lra.get_upper_bound(j).x) ||
                     (!upper && bound > lra.get_lower_bound(j).x));
             lconstraint_kind kind = upper ? lconstraint_kind::LE : lconstraint_kind::GE;
-            u_dependency* dep = lra.get_bound_constraint_witnesses_for_column(j);
+            u_dependency* dep = upper ? lra.get_column_upper_bound_witness(j) : lra.get_column_lower_bound_witness(j);
             dep = lra.join_deps(dep, explain_fixed_in_meta_term(m_lspace.m_data));
-            u_dependency* j_bound_dep = upper ? lra.get_column_upper_bound_witness(j) : lra.get_column_lower_bound_witness(j);
-            dep = lra.join_deps(dep, j_bound_dep);
             dep = lra.join_deps(dep, explain_fixed(lra.get_term(j)));
             TRACE("dio", tout << "jterm:";
                   print_lar_term_L(lra.get_term(j), tout) << "\ndep:";

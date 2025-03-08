@@ -2584,20 +2584,20 @@ namespace lp {
                 return;
             }
         }
-    
-        // Start SMT2 file
+            // Start SMT2 file
         out << "(set-info : \"generated at " << location;
         out << " for " << (is_low ? "lower" : "upper") << " bound of variable " << j << ",";
         out << " bound value: " << bound_val << (is_strict ? (is_low ? " < " : " > ") : (is_low ? " <= " : " >= ")) << "x" << j << "\")\n";
-    
+        
         // Collect all variables used in dependencies
         std::unordered_set<unsigned> vars_used;
         vars_used.insert(j);
         bool is_int = column_is_int(j);
+        
         // Linearize the dependencies
         svector<constraint_index> deps;
         m_dependencies.linearize(bound_dep, deps);
-    
+        
         // Collect variables from constraints
         for (auto ci : deps) {
             const auto& c = m_constraints[ci];
@@ -2607,31 +2607,75 @@ namespace lp {
                     is_int = false;
             }
         }
-            
+        
+        // Collect variables from terms
+        std::unordered_set<unsigned> term_variables;
+        for (unsigned var : vars_used) {
+            if (column_has_term(var)) {
+                const lar_term& term = get_term(var);
+                for (const auto& p : term) {
+                    term_variables.insert(p.j());
+                    if (!column_is_int(p.j()))
+                        is_int = false;
+                }
+            }
+        }
+        // Add term variables to vars_used
+        vars_used.insert(term_variables.begin(), term_variables.end());
+                
         if (is_int) {
             out << "(set-logic QF_LIA)\n\n";
         }
-    
+        
         // Declare variables
         out << "; Variable declarations\n";
         for (unsigned var : vars_used) {
             out << "(declare-const x" << var << " " << (column_is_int(var) ? "Int" : "Real") << ")\n";
         }
         out << "\n";
-    
+        
+        // Define term relationships
+        out << "; Term definitions\n";
+        for (unsigned var : vars_used) {
+            if (column_has_term(var)) {
+                const lar_term& term = get_term(var);
+                out << "(assert (= x" << var << " ";
+                    
+                if (term.size() == 0) {
+                    out << "0";
+                } else {
+                    if (term.size() > 1) out << "(+ ";
+                        
+                    bool first = true;
+                    for (const auto& p : term) {
+                        if (first) first = false;
+                        else out << " ";
+                            
+                        if (p.coeff().is_one()) {
+                            out << "x" << p.j();
+                        } else {
+                            out << "(* " << format_smt2_constant(p.coeff()) << " x" << p.j() << ")";
+                        }
+                    }
+                        
+                    if (term.size() > 1) out << ")";
+                }
+                    
+                out << "))\n";
+            }
+        }
+        out << "\n";
+        
         // Add assertions for the dependencies
         out << "; Bound dependencies\n";
-    
+        
         for (auto ci : deps) {
             const auto& c = m_constraints[ci];
             out << "(assert ";
-        
+            
             // Handle the constraint type and expression
             auto k = c.kind();
-        
-            // Handle empty constraint (just constant)
-            SASSERT(c.coeffs().size());
-        
+            
             // Normal constraint with variables
             switch (k) {
             case LE: out << "(<= "; break;
@@ -2641,7 +2685,7 @@ namespace lp {
             case EQ: out << "(= "; break;
             default: out << "(unknown-constraint-type "; break;
             }
-        
+            
             // Left-hand side (variables)
             if (c.coeffs().size() == 1) {
                 // Single variable
@@ -2663,13 +2707,13 @@ namespace lp {
                 }
                 out << ") ";
             }
-        
+            
             // Right-hand side (constant)
             out << format_smt2_constant(c.rhs());
             out << "))\n";
         }
         out << "\n";
-    
+        
         // Now add the assertion that contradicts the bound
         out << "; Negation of the derived bound\n";
         if (is_low) {
@@ -2686,11 +2730,11 @@ namespace lp {
             }
         }
         out << "\n";
-    
+        
         // Check sat and get model if available
         out << "(check-sat)\n";
         out << "(exit)\n";
-    }
+        }
 } // namespace lp
 
 
