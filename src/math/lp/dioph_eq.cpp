@@ -1354,11 +1354,12 @@ namespace lp {
             return value;
         }
 
-        bool subs_invariant(const lar_term &term_to_tighten) const {
+        bool subs_invariant(unsigned j) const {
             term_o ls = fix_vars(term_to_lar_solver(remove_fresh_vars(create_term_from_espace())));
             term_o t0 = m_lspace.to_term();
             term_o t1 = open_ml(t0);
-            term_o rs = fix_vars(term_o(term_to_tighten) + t1);
+            t1.add_monomial(mpq(1), j);
+            term_o rs = fix_vars(t1);
             if (ls != rs) {
                 std::cout << "enabling trace dio\n";
                 enable_trace("dio");
@@ -1460,10 +1461,14 @@ namespace lp {
             return t;
         }
 
+        // We will have lar_t, and let j is lar_t.j(), the term column. 
+        // In the m_espace we have lar_t. The result of open_ml((1*j)) is lar_t - (1, j).
+        // So we have "equality" m_espace = open(m_lspace) + (1*lar_t.j. 
         void init_substitutions(const lar_term& lar_t, protected_queue& q) {
             m_espace.clear();
             m_c = mpq(0);
             m_lspace.clear();
+            m_lspace.add(mpq(1), lar_t.j());
             SASSERT(get_extended_term_value(lar_t).is_zero());
             for (const auto& p : lar_t) {
                 if (is_fixed(p.j())) {
@@ -1476,6 +1481,7 @@ namespace lp {
                         q.push(lj);
                 }
             }
+            SASSERT(subs_invariant(lar_t.j()));
         }
 
         unsigned lar_solver_to_local(unsigned j) const {
@@ -1578,7 +1584,7 @@ namespace lp {
                   print_lar_term_L(m_lspace.to_term(), tout) << std::endl;);
             subs_with_S_and_fresh(q);
             process_fixed_in_espace();
-            SASSERT(subs_invariant(term_to_tighten));
+            SASSERT(subs_invariant(j));
             mpq g = gcd_of_coeffs(m_espace.m_data, true);
             TRACE("dio", tout << "after process_q_with_S\nt:";  print_term_o(create_term_from_espace(), tout) << std::endl; tout << "g:" << g << std::endl;);
 
@@ -1849,8 +1855,14 @@ namespace lp {
                     (!upper && bound > lra.get_lower_bound(j).x));
             lconstraint_kind kind = upper ? lconstraint_kind::LE : lconstraint_kind::GE;
             u_dependency* dep = upper ? lra.get_column_upper_bound_witness(j) : lra.get_column_lower_bound_witness(j);
-            dep = lra.join_deps(dep, explain_fixed_in_meta_term(m_lspace.m_data));
-            dep = lra.join_deps(dep, explain_fixed(lra.get_term(j)));
+            auto rs = open_fixed_from_ml(m_lspace);
+            // the right side is off by 1*j from m_espace
+            if (is_fixed(j))
+                rs.add(mpq(1), j);
+            for (const auto& p: rs) {
+                SASSERT(is_fixed(p.var()));
+                dep = lra.join_deps(dep, lra.get_bound_constraint_witnesses_for_column(p.var()));         
+            }
             TRACE("dio", tout << "jterm:";
                   print_lar_term_L(lra.get_term(j), tout) << "\ndep:";
                   print_deps(tout, dep) << std::endl;);
@@ -2322,7 +2334,7 @@ namespace lp {
         std::tuple<mpq, unsigned, int, unsigned> find_minimal_abs_coeff(unsigned ei) {
             bool first = true;
             mpq ahk;
-            unsigned k;
+            unsigned k = -1;
             int k_sign;
             mpq t;
             for (const auto& p : m_e_matrix.m_rows[ei]) {
