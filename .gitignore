@@ -109,3 +109,6 @@ CMakeSettings.json
 dbg/**
 *.wsp
 CppProperties.json
+# Bazel generated files
+bazel-*
+*.lock
