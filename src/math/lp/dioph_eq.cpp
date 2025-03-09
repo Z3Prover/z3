@@ -1151,12 +1151,16 @@ namespace lp {
             return ret;
         }
 
-        bool has_fresh_var(unsigned row_index) const {
-            for (const auto& p : m_e_matrix.m_rows[row_index]) {
+        template <typename T>
+        bool has_fresh_var(const T& t) const {
+            for (const auto& p : t) {
                 if (var_is_fresh(p.var()))
                     return true;
             }
             return false;
+        }
+        bool has_fresh_var(unsigned row_index) const {
+            return has_fresh_var(m_e_matrix[row_index]);
         }
 
         // A conflict is reported when the gcd of the monomial coefficients does not divide the free coefficent.
@@ -1495,23 +1499,15 @@ namespace lp {
             return out;
         }
         
-       // h is the entry that is ready to be moved to S
-        lia_move tighten_bounds(unsigned h) {
-            SASSERT(entry_invariant(h));
-            protected_queue q;
-            copy_row_to_espace(h);
-            remove_fresh_from_espace();
-          
+        template <typename T>        
+        lia_move propagate_bounds_on_espace(const mpq& sum_of_fixed, const T& meta_term) {
             // change m_espace indices from local to lar_solver: have to restore for clear to work
+            if (has_fresh_var(m_espace)) return lia_move::undef;
             for (auto & p: m_espace.m_data) {
-                SASSERT(!var_is_fresh(p.m_j));
-                p.m_j = local_to_lar_solver(p.m_j);
-                
+                p.m_j = local_to_lar_solver(p.m_j);        
             }
-            TRACE("dio", tout << "bp on entry:"; print_entry(h, tout) << std::endl;);
-
             m_prop_bounds.clear();
-            bound_analyzer_on_row<term_with_index, dioph_eq::imp>::analyze_row(m_espace, impq(-m_sum_of_fixed[h]), *this);
+            bound_analyzer_on_row<term_with_index, dioph_eq::imp>::analyze_row(m_espace, impq(-sum_of_fixed), *this);
             //restore m_espace to local variables
             for (auto & p: m_espace.m_data) p.m_j = lar_solver_to_local(p.m_j);
             if (m_prop_bounds.size() == 0) {
@@ -1519,7 +1515,7 @@ namespace lp {
                 return lia_move::undef;
             }
             TRACE("dio", tout << "prop_bounds:\n"; for (auto& pb: m_prop_bounds) print_prop_bound(pb, tout););
-            u_dependency * dep  = explain_fixed_in_meta_term(m_l_matrix.m_rows[h]);
+            u_dependency * dep  = explain_fixed_in_meta_term(meta_term);
             bool change = false;
             for (auto& pb: m_prop_bounds) {
                 pb.m_dep = lra.join_deps(pb.m_dep, dep);                
@@ -1540,6 +1536,15 @@ namespace lp {
             }
             TRACE("dio", tout << "lra is feasible\n";);                        
             return lia_move::undef;
+        }
+
+        // h is the entry that is ready to be moved to S
+        lia_move tighten_bounds_on_entry(unsigned h) {
+            SASSERT(entry_invariant(h));
+            protected_queue q;
+            copy_row_to_espace(h);
+            remove_fresh_from_espace();
+            return propagate_bounds_on_espace(m_sum_of_fixed[h], m_l_matrix[h]);
         }
 
 
@@ -1572,7 +1577,6 @@ namespace lp {
                       lra.print_column_info(p.var(), tout);
                   }
                 );
-            
             init_substitutions(term_to_tighten, q);
             if (q.empty()) // todo: maybe still go ahead and process it?
                 return lia_move::undef;
@@ -1608,7 +1612,15 @@ namespace lp {
             if (tighten_bounds_for_non_trivial_gcd(g, j, false) != lia_move::undef) {
                 return lia_move::conflict;
             }
-            return lia_move::undef;
+
+            // try more bound progagation
+            if (is_fixed(j)) {
+                m_c -= lra.get_lower_bound(j).x;
+            }
+            else {
+                m_espace.add(-mpq(1), lar_solver_to_local(j));
+            }
+            return propagate_bounds_on_espace(m_c, m_lspace);
         }
 
         bool should_report_branch() const {
@@ -2774,7 +2786,7 @@ namespace lp {
             if (min_ahk.is_one()) {
                 TRACE("dioph_eq", tout << "push to S:\n"; print_entry(h, tout););
                 SASSERT(m_new_fixed_columns.size() == 0);
-                if (tighten_bounds(h) == lia_move::conflict){
+                if (tighten_bounds_on_entry(h) == lia_move::conflict){
                     TRACE("dio", tout << "conflict\n";);
                     return lia_move::conflict;
                 }
