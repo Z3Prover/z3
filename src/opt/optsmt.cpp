@@ -109,6 +109,7 @@ namespace opt {
         rational delta_per_step(1);
         unsigned num_scopes = 0;
         unsigned delta_index = 0;    // index of objective to speed up.
+        bool has_bound = false;      // is the current objective bounded by a constraint.
 
         while (m.inc()) {
             SASSERT(delta_per_step.is_int());
@@ -116,6 +117,8 @@ namespace opt {
             is_sat = m_s->check_sat(0, nullptr);
             if (is_sat == l_true) { 
                 bound = update_lower();
+                if (!m.is_true(bound))
+                    has_bound = true;
                 if (!can_increment_delta(lower, delta_index)) {
                     delta_per_step = 1;
                 }
@@ -133,10 +136,12 @@ namespace opt {
                     // only try to improve delta_index. 
                     bound = m_s->mk_ge(delta_index, m_lower[delta_index] + inf_eps(delta_per_step));
                 }
-                TRACE("opt", tout << mk_pp(m_objs.get(delta_index), m) << " index: " << delta_index << " delta: " << delta_per_step << " : " << bound << "\n";);
+                TRACE("opt", tout << mk_pp(m_objs.get(delta_index), m) << " index: " << delta_index
+                      << " delta: " << delta_per_step << " bound: " << bound
+                      << " " << m_lower[delta_index] << " " << m_upper[delta_index] << "\n");
                 if (bound == last_bound) {
                     is_sat = l_false;
-                    if (!m_lower[delta_index].is_finite() && !m_upper[delta_index].is_finite())
+                    if ((!has_bound || !m_lower[delta_index].is_finite()) && !m_upper[delta_index].is_finite())
                         m_lower[delta_index] = m_upper[delta_index];
                 }
                 else {
@@ -171,9 +176,11 @@ namespace opt {
                 steps = 0;
                 step_incs = 0;
                 ++delta_index;
+                has_bound = false;
             }
             else {
-                if (num_scopes > 0) m_s->pop(num_scopes);        
+                if (num_scopes > 0)
+                    m_s->pop(num_scopes);        
                 num_scopes = 0;
                 break;
             }
