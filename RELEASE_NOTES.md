@@ -7,9 +7,15 @@ Version 4.next
     - CDCL core for SMT queries. It extends the SAT engine with theory solver plugins.
   - add global incremental pre-processing for the legacy core.
 
-Version 4.14.1
+
+Version 4.14.2
 ==============
 - Improved integer cut algorithms for linear integer arithmetic.
+
+Version 4.14.1
+==============
+- Add ubv_to_int, sbv_to_int, int_to_bv to SMTLIB2 API.
+- Fix nuget package regression omitting Microsoft.Z3.* files
 
 Version 4.14.0
 ==============
