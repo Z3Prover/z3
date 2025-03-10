@@ -249,8 +249,8 @@ namespace lp {
 
         std::ostream& print_S(std::ostream& out) {
             out << "S:\n";
-            for (const auto& p : m_k2s.m_map) {
-                print_entry(p.second, out, false, false, true);
+            for (unsigned ei = 0 ; ei < m_e_matrix.row_count(); ei++) {
+                print_entry(ei, out, false, false, true);
             }
             return out;
         }
@@ -2539,7 +2539,7 @@ namespace lp {
                 if (!has_fresh) {
                     for (const auto& p : get_term_from_entry(i)) {
                         out << "\tlocal(x" << p.var() << ")";
-                        lra.print_column_info(local_to_lar_solver(p.var()), out) << "\n";
+                        lra.print_column_info(local_to_lar_solver(p.var()), out);
                     }
                 }
             }
