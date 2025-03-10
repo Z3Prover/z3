@@ -188,7 +188,7 @@ namespace lp {
         }
 
         bool should_gomory_cut() {
-            return (!settings().dio_eqs() || settings().dio_enable_gomory_cuts())
+            return (!all_columns_are_integral() ||(!settings().dio_eqs() || settings().dio_enable_gomory_cuts()))
                 && m_number_of_calls % settings().m_int_gomory_cut_period == 0;
         }
 

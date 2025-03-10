@@ -259,7 +259,7 @@ private:
     bool             m_dio_enable_hnf_cuts = true;
     unsigned         m_dio_branching_period = 100; //  do branching rarely
     unsigned         m_dio_report_branch_with_term_tigthening_period = 10000000; // period of reporting the branch with term tigthening
-
+    bool             m_dump_bound_lemmas = false;
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }
     bool propagate_eqs() const { return m_propagate_eqs;}
@@ -277,6 +277,8 @@ public:
         return m_bound_propagation;
     }
 
+    bool dump_bound_lemmas() { return m_dump_bound_lemmas; }
+    
     bool& bound_propagation() { return m_bound_propagation; }
     
     lp_settings() : m_default_resource_limit(*this),

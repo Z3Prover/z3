@@ -436,7 +436,7 @@ public:
         return out;
     }
 
-    std::ostream& print_column_info(unsigned j, std::ostream & out) const {
+    std::ostream& print_column_info(unsigned j, std::ostream & out, const std::string& var_prefix = "x") const {
         if (j >= m_lower_bounds.size()) {
             out << "[" << j << "] is not present\n";
             return out;
@@ -445,7 +445,7 @@ public:
         std::stringstream strm;
         strm << m_x[j];
         std::string j_val = strm.str();
-        out << "[" << j << "] " << std::setw(6) << " := " << j_val;
+        out << var_prefix << j << " = " << std::setw(6) << j_val;
         if (m_basis_heading[j] >= 0)
             out << " base ";
         else 
