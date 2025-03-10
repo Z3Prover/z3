@@ -454,7 +454,7 @@ stages:
   - job: Python
     displayName: "Python packaging"
     pool:
-      vmImage: "ubuntu-latest"
+      vmImage: "ubuntu-24.04"
     steps:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
