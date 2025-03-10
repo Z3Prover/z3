@@ -44,6 +44,26 @@ class lp_bound_propagator {
 public:
     const lar_solver& lp() const { return m_imp.lp(); }
     lar_solver& lp() { return m_imp.lp(); }
+    bool upper_bound_is_available(unsigned j) const {
+        switch (get_column_type(j)) {
+        case column_type::fixed:
+        case column_type::boxed:
+        case column_type::upper_bound:
+            return true;
+        default:
+            return false;
+        }
+    }
+    bool lower_bound_is_available(unsigned j) const {
+        switch (get_column_type(j)) {
+        case column_type::fixed:
+        case column_type::boxed:
+        case column_type::lower_bound:
+            return true;
+        default:
+            return false;
+        }
+    }
 private:
     void try_add_equation_with_internal_fixed_tables(unsigned r1) {
         unsigned v1, v2;
@@ -125,7 +145,8 @@ public:
         return (*m_column_types)[j] == column_type::fixed && get_lower_bound(j).y.is_zero();
     }
 
-    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, u_dependency* dep) {
+
+    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, std::function<u_dependency* ()> explain_bound) {
         lconstraint_kind kind = is_low ? GE : LE;
         if (strict)
             kind = static_cast<lconstraint_kind>(kind / 2);
@@ -140,12 +161,12 @@ public:
 
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
-                    found_bound.set_dep(dep);
+                    found_bound.set_explain(explain_bound);
                     TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
                 }
             } else {
                 m_improved_lower_bounds.insert(j, static_cast<unsigned>(m_ibounds.size()));
-                m_ibounds.push_back(implied_bound(v, j, is_low, strict, dep));
+                m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound));
                 TRACE("add_bound", lp().print_implied_bound(m_ibounds.back(), tout););
             }
         } else {  // the upper bound case
@@ -156,12 +177,12 @@ public:
 
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
-                    found_bound.set_dep(dep);
+                    found_bound.set_explain(explain_bound);
                     TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
                 }
             } else {
                 m_improved_upper_bounds.insert(j, static_cast<unsigned>(m_ibounds.size()));
-                m_ibounds.push_back(implied_bound(v, j, is_low, strict, dep));
+                m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound));
                 TRACE("add_bound", lp().print_implied_bound(m_ibounds.back(), tout););
             }
         }

@@ -105,7 +105,7 @@ class lar_solver : public column_namer {
     indexed_vector<mpq> m_column_buffer;
     std::unordered_map<lar_term, std::pair<mpq, unsigned>, term_hasher, term_comparer>
         m_normalized_terms_to_columns;
-    vector<impq> m_backup_x;
+
     stacked_vector<unsigned> m_usage_in_terms;
     // ((x[j], is_int(j))->j)  for fixed j, used in equalities propagation
     // maps values to integral fixed vars
@@ -139,6 +139,8 @@ class lar_solver : public column_namer {
     bool compare_values(impq const& lhs, lconstraint_kind k, const mpq& rhs);
 
     inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.reset(); }
+
+    struct scoped_backup;
  public:
     const auto& columns_with_changed_bounds() const { return m_columns_with_changed_bounds; }
     void insert_to_columns_with_changed_bounds(unsigned j);
@@ -156,19 +158,19 @@ class lar_solver : public column_namer {
     void add_constraint_to_validate(lar_solver& ls, constraint_index ci);
     bool m_validate_blocker = false;
     void update_column_type_and_bound_check_on_equal(unsigned j, const mpq& right_side, constraint_index ci, unsigned&);
-    bool update_column_type_and_bound(unsigned j, const mpq& right_side, constraint_index ci);
+    void update_column_type_and_bound(unsigned j, const mpq& right_side, constraint_index ci);
  public:   
     bool validate_blocker() const { return m_validate_blocker; }
     bool & validate_blocker() { return m_validate_blocker; }   
-    bool update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+	void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
  private:
     void require_nbasis_sort() { m_mpq_lar_core_solver.m_r_solver.m_nbasis_sort_counter = 0; }   
-    bool update_column_type_and_bound_with_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    bool update_column_type_and_bound_with_no_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    bool update_bound_with_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    bool update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    bool update_bound_with_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    bool update_bound_with_no_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_column_type_and_bound_with_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_column_type_and_bound_with_no_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_bound_with_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_bound_with_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_bound_with_no_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void register_in_fixed_var_table(unsigned, unsigned&);
     void remove_non_fixed_from_fixed_var_table();
     constraint_index add_var_bound_on_constraint_for_term(lpvar j, lconstraint_kind kind, const mpq& right_side);
@@ -305,14 +307,12 @@ public:
 
     void get_infeasibility_explanation(explanation&) const;
 
-    inline void backup_x() { m_backup_x = m_mpq_lar_core_solver.m_r_x; }
 
-    inline void restore_x() { m_mpq_lar_core_solver.m_r_x = m_backup_x; }
 
     std::function<void(lpvar)> m_fixed_var_eh;
     template <typename T>
     void explain_implied_bound(const implied_bound& ib, lp_bound_propagator<T>& bp) {
-        u_dependency* dep = ib.dep();
+        u_dependency* dep = ib.explain_implied();
         for (auto ci : flatten(dep))
             bp.consume(mpq(1), ci); // TODO: flatten should provide the coefficients
         /*
@@ -454,7 +454,7 @@ public:
                                             const impq& new_val,
                                             const ChangeReport& after) {
         lp_assert(!is_base(j));
-        auto& x = m_mpq_lar_core_solver.m_r_x[j];
+        auto& x = m_mpq_lar_core_solver.r_x(j);
         auto delta = new_val - x;
         x = new_val;
         after(j);
@@ -539,6 +539,9 @@ public:
     lp_settings& settings();
     lp_settings const& settings() const;
     statistics& stats();
+
+    void backup_x() { m_mpq_lar_core_solver.backup_x(); }
+    void restore_x() { m_mpq_lar_core_solver.restore_x(); }
 
     void updt_params(params_ref const& p);
     column_type get_column_type(unsigned j) const { return m_mpq_lar_core_solver.m_column_types()[j]; }
@@ -702,13 +705,13 @@ public:
     void track_touched_rows(bool v);
     bool touched_rows_are_tracked() const;
     ~lar_solver() override;
-    const vector<impq>& r_x() const { return m_mpq_lar_core_solver.m_r_x; }
+    const vector<impq>& r_x() const { return m_mpq_lar_core_solver.r_x(); }
     bool column_is_int(unsigned j) const;
-    inline bool column_value_is_int(unsigned j) const { return m_mpq_lar_core_solver.m_r_x[j].is_int(); }
+    inline bool column_value_is_int(unsigned j) const { return m_mpq_lar_core_solver.r_x(j).is_int(); }
     inline static_matrix<mpq, impq>& A_r() { return m_mpq_lar_core_solver.m_r_A; }
     inline const static_matrix<mpq, impq>& A_r() const { return m_mpq_lar_core_solver.m_r_A; }
     // columns
-    const impq& get_column_value(lpvar j) const { return m_mpq_lar_core_solver.m_r_x[j]; }
+    const impq& get_column_value(lpvar j) const { return m_mpq_lar_core_solver.r_x(j); }
     inline lpvar external_to_local(unsigned j) const {
         lpvar local_j;
         if (m_var_register.external_is_used(j, local_j)) {

@@ -275,22 +275,27 @@ namespace lp {
 
         void limit_j(unsigned bound_j, const mpq& u, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict) {
             auto* lar = &m_bp.lp();
-            int bound_sign = (is_lower_bound ? 1 : -1);
-            int j_sign = (coeff_before_j_is_pos ? 1 : -1) * bound_sign;
-                
-            u_dependency* dep = nullptr;
-            for (auto const& r : m_row) {
-                unsigned j = r.var();
-                if (j == bound_j)
-                    continue;
-                mpq const& a = r.coeff();
-                int a_sign = is_pos(a) ? 1 : -1;
-                int sign = j_sign * a_sign;
-                u_dependency* witness = sign > 0 ? lar->get_column_upper_bound_witness(j) : lar->get_column_lower_bound_witness(j);
-                dep = lar->join_deps(dep, witness);
-            }
-                
-            m_bp.add_bound(u, bound_j, is_lower_bound, strict, dep);
+            const auto& row = this->m_row;
+            auto explain = [row, bound_j, coeff_before_j_is_pos, is_lower_bound, strict, lar]() {
+                (void) strict;
+                TRACE("bound_analyzer", tout << "explain_bound_on_var_on_coeff, bound_j = " << bound_j << ", coeff_before_j_is_pos = " << coeff_before_j_is_pos << ", is_lower_bound = " << is_lower_bound << ", strict = " << strict << "\n";);
+                int bound_sign = (is_lower_bound ? 1 : -1);
+                int j_sign = (coeff_before_j_is_pos ? 1 : -1) * bound_sign;
+
+                u_dependency* ret = nullptr;
+                for (auto const& r : row) {
+                    unsigned j = r.var();
+                    if (j == bound_j)
+                        continue;
+                    mpq const& a = r.coeff();
+                    int a_sign = is_pos(a) ? 1 : -1;
+                    int sign = j_sign * a_sign;
+                    u_dependency* witness = sign > 0 ? lar->get_column_upper_bound_witness(j) : lar->get_column_lower_bound_witness(j);
+                    ret = lar->join_deps(ret, witness);
+                }
+                return ret;
+            };
+            m_bp.add_bound(u, bound_j, is_lower_bound, strict, explain);
         }
 
         void advance_u(unsigned j) {

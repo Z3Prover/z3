@@ -76,7 +76,7 @@ void lar_core_solver::fill_not_improvable_zero_sum() {
 
 unsigned lar_core_solver::get_number_of_non_ints() const {
     unsigned n = 0;
-    for (auto & x : m_r_solver.m_x) 
+    for (auto & x : r_x()) 
         if (!x.is_int())
             n++;    
     return n;
