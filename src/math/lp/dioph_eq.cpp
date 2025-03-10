@@ -1418,7 +1418,6 @@ namespace lp {
             );
             for (unsigned j : sorted_changed_terms) {
                 m_changed_terms.remove(j); 
-                
                 r = tighten_bounds_for_term_column(j);
                 if (r != lia_move::undef) {
                     break;
@@ -1489,12 +1488,13 @@ namespace lp {
                 m_espace.erase(j);
             }
         }
-        // j is the index of the column representing a term
-        // return true if a conflict was found.
-/*
-  Let us say we have a constraint x + y  <= 8, and after the substitutions with S and fresh variables
-  we have x+y = 7t - 1 <= 8, where t is a term. Then we have 7t <= 9, or t <= 9/7, or we can enforce t <= floor(9/7) = 1.
-  Then x + y = 7*1 - 1 <= 6: the bound is strenthgened
+        /* j is the index of the column representing a term
+         Return lia_move::conflict if a conflict was found, lia_move::continue_with_check if j became a fixed variable, and undef
+         otherwise
+         Let us say we have a constraint x + y  <= 8, and after the substitutions with S and fresh variables
+         we have x+y = 7t - 1 <= 8, where t is a term. Then we have 7t <= 9, or t <= 9/7, or we can enforce t <= floor(9/7) = 1.
+         Then x + y = 7*1 - 1 <= 6: the bound is strenthgened. The constraint in this example comes from the upper bound on j, where
+         j is the slack variable in x+y + j = 0.
 */
         lia_move tighten_bounds_for_term_column(unsigned j) {
             term_o term_to_tighten = lra.get_term(j);  // copy the term aside
@@ -1542,6 +1542,9 @@ namespace lp {
             }
             if (tighten_bounds_for_non_trivial_gcd(g, j, false) != lia_move::undef) {
                 return lia_move::conflict;
+            }
+            if (m_new_fixed_columns.contains(j)) {
+                return lia_move::continue_with_check;
             }
             return lia_move::undef;
         }
@@ -1788,8 +1791,7 @@ namespace lp {
                 if (r == lia_move::conflict || r == lia_move::undef) {
                     break;
                 }
-                if(m_new_fixed_columns.size())
-                    return lia_move::undef; // we have recalculate some S and F entries
+                SASSERT(m_new_fixed_columns.size() == 0);
             } while (f_vector.size());
 
             if (r == lia_move::conflict) {
@@ -2152,24 +2154,16 @@ namespace lp {
             do {
                 init(f_vector);
                 ret = process_f_and_tighten_terms(f_vector);
-                if (ret == lia_move::branch || ret == lia_move::conflict)
-                    return ret;
-                if (ret == lia_move::continue_with_check) continue;
-                break;
-            } while(m_new_fixed_columns.size() > 0 || f_vector.size() > 0);
-            if (ret == lia_move::branch || ret == lia_move::conflict) {
+            } while(ret == lia_move::continue_with_check);
+
+            if (ret != lia_move::undef) {
                 return ret;
             } 
-            SASSERT(ret == lia_move::undef);
             if (lra.stats().m_dio_calls % lra.settings().dio_branching_period() == 0) {
                 ret = branching_on_undef();
             }
-            if (ret == lia_move::sat || ret == lia_move::conflict) {
-                return ret;
-            }
-            SASSERT(ret == lia_move::undef);
             m_max_of_branching_iterations = (unsigned)m_max_of_branching_iterations / 2;
-            return lia_move::undef;
+            return ret;
         }
 
     private:
