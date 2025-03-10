@@ -617,11 +617,12 @@ public:
     }
     inline bool column_has_term(lpvar j) const { return m_columns[j].term() != nullptr; }
 
-    std::ostream& print_column_info(unsigned j, std::ostream& out) const {
+    std::ostream& print_column_info(unsigned j, std::ostream& out, bool print_expl = false) const {
         m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
         if (column_has_term(j)) 
             print_term_as_indices(get_term(j), out) << "\n";       
-        display_column_explanation(out, j);
+        if (print_expl)
+            display_column_explanation(out, j);
         return out;
     }
 
@@ -630,10 +631,18 @@ public:
         svector<unsigned> vs1, vs2;
         m_dependencies.linearize(ul.lower_bound_witness(), vs1);
         m_dependencies.linearize(ul.upper_bound_witness(), vs2);
-        if (!vs1.empty())
-            out << "lo: " << vs1;
-        if (!vs2.empty())
-            out << "hi: " << vs2;
+        if (!vs1.empty()) {
+            out << " lo:\n";
+            for (unsigned ci : vs1) {
+                display_constraint(out, ci) << "\n";
+            }
+        }
+        if (!vs2.empty()) {
+            out << " hi:\n";
+            for (unsigned ci : vs2) {
+                display_constraint(out, ci) << "\n";
+            }
+        }     
         if (!vs1.empty() || !vs2.empty())
             out << "\n";
         return out;
@@ -716,6 +725,11 @@ public:
             return 0;
         return m_usage_in_terms[j];
     }
+
+    void write_bound_lemma_to_file(unsigned j, bool is_low, const std::string & file_name, const std::string & location) const;
+
+    void write_bound_lemma(unsigned j, bool is_low, const std::string & location, std::ostream & out) const;
+
     std::function<void (const indexed_uint_set& columns_with_changed_bound)> m_find_monics_with_changed_bounds_func = nullptr;
     friend int_solver;
     friend int_branch;

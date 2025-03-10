@@ -93,16 +93,9 @@ public:
         operator T () const { return m_matrix.get_elem(m_row, m_col); }
     };
 
-    class ref_row {
-        const static_matrix & m_matrix;
-        unsigned        m_row;
-    public:
-        ref_row(const static_matrix & m, unsigned row): m_matrix(m), m_row(row) {}
-        T operator[](unsigned col) const { return m_matrix.get_elem(m_row, col); }
-    };
-
 public:
-
+    const auto & operator[](unsigned i) const { return m_rows[i]; }
+    
     const T & get_val(const column_cell & c) const {
         return m_rows[c.var()][c.offset()].coeff();
     }
@@ -145,6 +138,11 @@ public:
     void add_columns_up_to(unsigned j) { while (j >= column_count()) add_column(); }
 
     void remove_element(std_vector<row_cell<T>> & row, row_cell<T> & elem_to_remove);
+
+    void remove_element(unsigned ei, row_cell<T> & elem_to_remove) {
+        remove_element(m_rows[ei], elem_to_remove);
+    }
+    
     
     void multiply_column(unsigned column, T const & alpha) {
         for (auto & t : m_columns[column]) {
@@ -452,7 +450,6 @@ public:
         return column_container(j, *this);
     }
 
-    ref_row operator[](unsigned i) const { return ref_row(*this, i);}
     typedef T coefftype;
     typedef X argtype;
 };
