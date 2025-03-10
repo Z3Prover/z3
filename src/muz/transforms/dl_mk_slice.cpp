@@ -318,11 +318,7 @@ namespace datalog {
             }
             TRACE("dl", model_smt2_pp(tout, m, *md, 0); );
             model_ref old_model = alloc(model, m);
-            obj_map<func_decl, func_decl*>::iterator it  = m_slice2old.begin();
-            obj_map<func_decl, func_decl*>::iterator end = m_slice2old.end();
-            for (; it != end; ++it) {
-                func_decl* old_p = it->m_value;
-                func_decl* new_p = it->m_key;
+            for (auto [new_p, old_p] : m_slice2old) {
                 bit_vector const& is_sliced = m_sliceable.find(old_p);
                 SASSERT(is_sliced.size() == old_p->get_arity());
                 SASSERT(is_sliced.size() > new_p->get_arity());
@@ -473,12 +469,12 @@ namespace datalog {
                 TRACE("dl", tout << "is_eq: " << mk_pp(e, m) << " " << (m_solved_vars[v].get()?"solved":"new") << "\n";);
                 add_var(v);
                 if (!m_solved_vars[v].get()) { 
-                    TRACE("dl", tout << v << " is solved\n";);
+                    TRACE("dl", tout << "#" << v << " is solved\n";);
                     add_free_vars(parameter_vars, rhs);
                     m_solved_vars[v] = rhs;
                 }
                 else {
-                    TRACE("dl", tout << v << " is used\n";);
+                    TRACE("dl", tout << "#" << v << " is used\n";);
                     // variables can only be solved once.
                     add_free_vars(used_vars, e);
                     add_free_vars(used_vars, m_solved_vars[v].get());
@@ -527,7 +523,8 @@ namespace datalog {
         // Check if sliceable variables are either solved 
         // or are used to solve output sliceable variables, or
         // don't occur in interpreted tail.
-        // 
+        //
+        TRACE("dl", tout << "num vars " << num_vars() << "\n");
         for (unsigned i = 0; i < num_vars(); ++i) {
             if (!m_var_is_sliceable[i]) {
                 continue;
@@ -538,18 +535,18 @@ namespace datalog {
             }
             bool is_input = m_input[i];
             bool is_output = m_output[i];
+            TRACE("dl", tout << "#"<< i << " " << is_input << " " << is_output << " solved: " << mk_pp(m_solved_vars.get(i), m) << "\n");
             if (is_input && is_output) {
-                if (m_solved_vars[i].get()) {
+                if (m_solved_vars.get(i)) 
                     m_var_is_sliceable[i] = false;
-                }
-                if (parameter_vars.contains(i)) {
+                if (parameter_vars.contains(i)) 
                     m_var_is_sliceable[i] = false;
-                }
             }
             else if (is_output) {
-                if (parameter_vars.contains(i)) {
+                if (parameter_vars.contains(i)) 
                     m_var_is_sliceable[i] = false;
-                }
+                if (m_solved_vars.get(i) && !is_var(m_solved_vars.get(i))) 
+                    m_var_is_sliceable[i] = false;
             }
             else if (is_input) {
                 // I can be a parameter var, but not in used_vars.               
