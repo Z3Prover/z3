@@ -484,7 +484,9 @@ namespace lp {
         std::unordered_map<unsigned, std_vector<unsigned>> m_row2fresh_defs;
 
         indexed_uint_set m_changed_rows;
-        indexed_uint_set m_new_fixed_columns;
+        // m_changed_columns are the columns that just became fixed, or those that just stopped being fixed.
+        // If such a column appears in an entry it has to be recalculated.
+        indexed_uint_set m_changed_columns;
         indexed_uint_set m_changed_terms;  // a term is defined by its column j, as in lar_solver.get_term(j)
         indexed_uint_set m_tightened_columns; // the column that got tightened by the tigthening phase, 
         // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
@@ -721,7 +723,7 @@ namespace lp {
 
         void add_changed_column(unsigned j) {
             TRACE("dio", lra.print_column_info(j, tout););
-            m_new_fixed_columns.insert(j);
+            m_changed_columns.insert(j);
         }
         std_vector<const lar_term*> m_added_terms;
         std::unordered_set<const lar_term*> m_active_terms;
@@ -751,7 +753,7 @@ namespace lp {
         void update_column_bound_callback(unsigned j) {
             if (!lra.column_is_int(j) || !lra.column_is_fixed(j))
                 return;
-            m_new_fixed_columns.insert(j);
+            m_changed_columns.insert(j);
             auto undo = undo_fixed_column(*this, j);
             lra.trail().push(undo);
         }
@@ -932,7 +934,7 @@ namespace lp {
         }
 
         void find_changed_terms_and_more_changed_rows() {
-            for (unsigned j : m_new_fixed_columns) {
+            for (unsigned j : m_changed_columns) {
                 const auto it = m_columns_to_terms.find(j);
                 if (it != m_columns_to_terms.end())
                     for (unsigned k : it->second) {
@@ -1025,8 +1027,8 @@ namespace lp {
             remove_irrelevant_fresh_defs();
 
             eliminate_substituted_in_changed_rows();
-            m_new_fixed_columns.reset();
-            SASSERT(m_new_fixed_columns.size() == 0);
+            m_changed_columns.reset();
+            SASSERT(m_changed_columns.size() == 0);
             m_changed_rows.reset();
             SASSERT(entries_are_ok());
         }
@@ -1500,7 +1502,7 @@ namespace lp {
             if (tighten_bounds_for_non_trivial_gcd(g, j, false) != lia_move::undef) {
                 return lia_move::conflict;
             }
-            if (m_new_fixed_columns.contains(j)) {
+            if (m_changed_columns.contains(j)) {
                 return lia_move::continue_with_check;
             }
             return lia_move::undef;
@@ -1743,7 +1745,7 @@ namespace lp {
                 if (r == lia_move::conflict || r == lia_move::undef) {
                     break;
                 }
-                SASSERT(m_new_fixed_columns.size() == 0);
+                SASSERT(m_changed_columns.size() == 0);
             } while (f_vector.size());
 
             if (r == lia_move::conflict) {

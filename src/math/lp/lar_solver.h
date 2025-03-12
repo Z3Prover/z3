@@ -726,8 +726,6 @@ public:
         return m_usage_in_terms[j];
     }
 
-    void write_bound_lemma_to_file(unsigned j, bool is_low, const std::string & file_name, const std::string & location) const;
-
     void write_bound_lemma(unsigned j, bool is_low, const std::string & location, std::ostream & out) const;
 
     std::function<void (const indexed_uint_set& columns_with_changed_bound)> m_find_monics_with_changed_bounds_func = nullptr;

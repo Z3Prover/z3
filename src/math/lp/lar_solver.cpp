@@ -1997,6 +1997,15 @@ namespace lp {
         TRACE("lar_solver_feas", tout << "j = " << j << " became " << (this->column_is_feasible(j) ? "feas" : "non-feas") << ", and " << (this->column_is_bounded(j) ? "bounded" : "non-bounded") << std::endl;);
         if (m_update_column_bound_callback)
             m_update_column_bound_callback(j);
+
+        if (settings().dump_bound_lemmas()) {
+            if (kind == LE)
+                write_bound_lemma(j, false, __func__, std::cout);
+            else if (kind == GE)
+                write_bound_lemma(j, true, __func__, std::cout);
+            else
+                NOT_IMPLEMENTED_YET();
+        }
     }
 
     void lar_solver::insert_to_columns_with_changed_bounds(unsigned j) {
@@ -2509,24 +2518,6 @@ namespace lp {
     // Otherwise the new asserted lower bound is is greater than the existing upper bound.
     // dep is the reason for the new bound
 
-    void lar_solver::write_bound_lemma_to_file(unsigned j, bool is_low, const std::string & file_name, const std::string& location) const {
-        std::ofstream file(file_name);
-        if (!file.is_open()) {
-            // Handle file open error
-            std::cerr << "Failed to open file: " << file_name << std::endl;
-            return;
-        }
-    
-        write_bound_lemma(j, is_low, location, file);
-        file.close();
-    
-        if (file.fail()) {
-            std::cerr << "Error occurred while writing to file: " << file_name << std::endl;
-        } else {
-            std::cout << "Bound lemma written to " << file_name << std::endl;
-        }
-    }
-
     void lar_solver::set_crossed_bounds_column_and_deps(unsigned j, bool lower_bound, u_dependency* dep) {
         if (m_crossed_bounds_column != null_lpvar) return; // already set
         SASSERT(m_crossed_bounds_deps == nullptr);
@@ -2556,9 +2547,6 @@ namespace lp {
         }
         return out;
     }
-
-    
-
 
         // Helper function to format constants in SMT2 format
     std::string format_smt2_constant(const mpq& val) {
