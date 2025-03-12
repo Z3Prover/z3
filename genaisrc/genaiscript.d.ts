@@ -1,3 +1,7 @@
+/**
+ * GenAIScript Ambient Type Definition File
+ * @version 1.114.2
+ */
 type OptionsOrString<TOptions extends string> = (string & {}) | TOptions
 
 type ElementOrArray<T> = T | T[]
@@ -81,7 +85,7 @@ interface PromptLike extends PromptDefinition, PromptToolsDefinition {
     /**
      * Resolved system ids
      */
-    resolvedSystem?: string[]
+    resolvedSystem?: SystemPromptInstance[]
 
     /**
      * Infered input schema for parameters
@@ -160,6 +164,12 @@ type SystemPromptId = OptionsOrString<
     | "system.vision_ask_images"
     | "system.zero_shot_cot"
 >
+
+type SystemPromptInstance = {
+    id: SystemPromptId
+    parameters?: Record<string, string | boolean | number | object | any>
+    vars?: Record<string, string | boolean | number | object | any>
+}
 
 type SystemToolId = OptionsOrString<
     | "agent_data"
@@ -272,19 +282,24 @@ type ModelType = OptionsOrString<
     | "openai:gpt-4o"
     | "openai:gpt-4o-mini"
     | "openai:gpt-3.5-turbo"
+    | "openai:o3-mini"
+    | "openai:o3-mini:low"
+    | "openai:o3-mini:medium"
+    | "openai:o3-mini:high"
     | "openai:o1"
     | "openai:o1-mini"
     | "openai:o1-preview"
-    | "github:o3-mini"
     | "github:gpt-4o"
     | "github:gpt-4o-mini"
     | "github:o1"
     | "github:o1-mini"
     | "github:o1-preview"
     | "github:o3-mini"
+    | "github:o3-mini:low"
     | "github:AI21-Jamba-1.5-Large"
     | "github:AI21-Jamba-1-5-Mini"
-    | "github:DeepSeek-R1"
+    | "github:deepseek-v3"
+    | "github:deepseek-r1"
     | "github:Phi-4"
     | "azure:gpt-4o"
     | "azure:gpt-4o-mini"
@@ -292,6 +307,20 @@ type ModelType = OptionsOrString<
     | "azure:o1-mini"
     | "azure:o1-preview"
     | "azure:o3-mini"
+    | "azure:o3-mini:low"
+    | "azure:o3-mini:medium"
+    | "azure:o3-mini:high"
+    | "azure_ai_inference:gpt-4o"
+    | "azure_ai_inference:gpt-4o-mini"
+    | "azure_ai_inference:o1"
+    | "azure_ai_inference:o1-mini"
+    | "azure_ai_inference:o1-preview"
+    | "azure_ai_inference:o3-mini"
+    | "azure_ai_inference:o3-mini:low"
+    | "azure_ai_inference:o3-mini:medium"
+    | "azure_ai_inference:o3-mini:high"
+    | "azure_ai_inference:deepSseek-v3"
+    | "azure_ai_inference:deepseek-r1"
     | "ollama:marco-o1"
     | "ollama:tulu3"
     | "ollama:athene-v2"
@@ -305,12 +334,24 @@ type ModelType = OptionsOrString<
     | "ollama:deepseek-r1:7b"
     | "ollama:olmo2:7b"
     | "ollama:command-r7b:7b"
+    | "anthropic:claude-3-7-sonnet-latest"
+    | "anthropic:claude-3-7-sonnet-latest:low"
+    | "anthropic:claude-3-7-sonnet-latest:medium"
+    | "anthropic:claude-3-7-sonnet-latest:high"
+    | "anthropic:claude-3-7-sonnet-20250219"
+    | "anthropic:claude-3-5-sonnet-latest"
     | "anthropic:claude-3-5-sonnet-20240620"
     | "anthropic:claude-3-opus-20240229"
     | "anthropic:claude-3-sonnet-20240229"
     | "anthropic:claude-3-haiku-20240307"
     | "anthropic:claude-2.1"
-    | "anthropic:claude-instant-1.2"
+    | "anthropic_bedrock:anthropic.claude-3-7-sonnet-20250219-v1:0"
+    | "anthropic_bedrock:anthropic.claude-3-7-sonnet-20250219-v1:0:low"
+    | "anthropic_bedrock:anthropic.claude-3-7-sonnet-20250219-v1:0:medium"
+    | "anthropic_bedrock:anthropic.claude-3-7-sonnet-20250219-v1:0:high"
+    | "anthropic_bedrock:anthropic.claude-3-5-haiku-20241022-v1:0"
+    | "anthropic_bedrock:anthropic.claude-3-5-sonnet-20241022-v2:0"
+    | "anthropic_bedrock:anthropic.claude-3-5-sonnet-20240620-v1:0"
     | "anthropic_bedrock:anthropic.claude-3-opus-20240229-v1:0"
     | "anthropic_bedrock:anthropic.claude-3-sonnet-20240229-v1:0"
     | "anthropic_bedrock:anthropic.claude-3-haiku-20240307-v1:0"
@@ -337,6 +378,23 @@ type ModelType = OptionsOrString<
     | "deepseek:deepseek-chat"
     | "transformers:onnx-community/Qwen2.5-0.5B-Instruct:q4"
     | "transformers:HuggingFaceTB/SmolLM2-1.7B-Instruct:q4f16"
+    | "echo"
+    | "none"
+>
+
+type EmbeddingsModelType = OptionsOrString<
+    "openai:text-embedding-3-small",
+    "openai:text-embedding-3-large",
+    "openai:text-embedding-ada-002",
+    "github:text-embedding-3-small",
+    "github:text-embedding-3-large",
+    "azure:text-embedding-3-small",
+    "azure:text-embedding-3-large",
+    "azure_ai_inference:text-embedding-3-small",
+    "azure_ai_inference:text-embedding-3-large",
+    "ollama:nomic-embed-text",
+    "google:text-embedding-004",
+    "huggingface:nomic-ai/nomic-embed-text-v1.5"
 >
 
 type ModelSmallType = OptionsOrString<
@@ -354,6 +412,10 @@ type ModelVisionType = OptionsOrString<
 
 type ModelTranscriptionType = OptionsOrString<
     "openai:whisper-1" | "whisperasr:default"
+>
+
+type ModelImageGenerationType = OptionsOrString<
+    "openai:dall-e-2" | "openai:dall-e-3"
 >
 
 type ModelProviderType = OptionsOrString<
@@ -376,6 +438,8 @@ type ModelProviderType = OptionsOrString<
     | "litellm"
     | "github_copilot_chat"
     | "deepseek"
+    | "whisperasr"
+    | "echo"
 >
 
 interface ModelConnectionOptions {
@@ -385,7 +449,7 @@ interface ModelConnectionOptions {
     model?: ModelType
 }
 
-interface ModelAliasesOptions {
+interface ModelAliasesOptions extends ModelConnectionOptions {
     /**
      * Configure the `small` model alias.
      */
@@ -395,7 +459,14 @@ interface ModelAliasesOptions {
      * Configure the `vision` model alias.
      */
     visionModel?: ModelVisionType
+
+    /**
+     * A list of model aliases to use.
+     */
+    modelAliases?: Record<string, string>
 }
+
+type ReasoningEffortType = "high" | "medium" | "low"
 
 interface ModelOptions extends ModelConnectionOptions, ModelTemplateOptions {
     /**
@@ -412,9 +483,10 @@ interface ModelOptions extends ModelConnectionOptions, ModelTemplateOptions {
     fallbackTools?: boolean
 
     /**
-     * Some reasoning model support a reasoning effort parameter.
+     * OpenAI o* reasoning models support a reasoning effort parameter.
+     * For Clause, these are mapped to thinking budget tokens
      */
-    reasoningEffort?: "high" | "medium" | "low"
+    reasoningEffort?: ReasoningEffortType
 
     /**
      * A list of keywords that should be found in the output.
@@ -492,14 +564,7 @@ interface EmbeddingsModelConnectionOptions {
     /**
      * LLM model to use for embeddings.
      */
-    embeddingsModel?: OptionsOrString<
-        "openai:text-embedding-3-small",
-        "openai:text-embedding-3-large",
-        "openai:text-embedding-ada-002",
-        "github:text-embedding-3-small",
-        "github:text-embedding-3-large",
-        "ollama:nomic-embed-text"
-    >
+    embeddingsModel?: EmbeddingsModelType
 }
 
 interface EmbeddingsModelOptions extends EmbeddingsModelConnectionOptions {}
@@ -508,7 +573,7 @@ interface PromptSystemOptions {
     /**
      * List of system script ids used by the prompt.
      */
-    system?: ElementOrArray<SystemPromptId>
+    system?: ElementOrArray<SystemPromptId | SystemPromptInstance>
 
     /**
      * List of tools used by the prompt.
@@ -609,11 +674,11 @@ interface PromptTest {
     /**
      * List of files to apply the test to.
      */
-    files?: string | string[]
+    files?: ElementOrArray<string>
     /**
      * List of in-memory files to apply the test to.
      */
-    workspaceFiles?: WorkspaceFile | WorkspaceFile[]
+    workspaceFiles?: ElementOrArray<WorkspaceFile>
     /**
      * Extra set of variables for this scenario
      */
@@ -621,23 +686,23 @@ interface PromptTest {
     /**
      * LLM output matches a given rubric, using a Language Model to grade output.
      */
-    rubrics?: string | string[]
+    rubrics?: ElementOrArray<string>
     /**
      * LLM output adheres to the given facts, using Factuality method from OpenAI evaluation.
      */
-    facts?: string | string[]
+    facts?: ElementOrArray<string>
     /**
      * List of keywords that should be contained in the LLM output.
      */
-    keywords?: string | string[]
+    keywords?: ElementOrArray<string>
     /**
      * List of keywords that should not be contained in the LLM output.
      */
-    forbidden?: string | string[]
+    forbidden?: ElementOrArray<string>
     /**
      * Additional deterministic assertions.
      */
-    asserts?: PromptAssertion | PromptAssertion[]
+    asserts?: ElementOrArray<PromptAssertion>
 
     /**
      * Determines what kind of output is sent back to the test engine. Default is "text".
@@ -780,6 +845,7 @@ interface PromptScript
         PromptSystemOptions,
         EmbeddingsModelOptions,
         ContentSafetyOptions,
+        GitIgnoreFilterOptions,
         ScriptRuntimeOptions {
     /**
      * Which provider to prefer when picking a model.
@@ -811,6 +877,11 @@ interface PromptScript
      * Tests to validate this script.
      */
     tests?: ElementOrArray<string | PromptTest>
+
+    /**
+     * Models to use with tests
+     */
+    testModels?: ElementOrArray<ModelType | ModelAliasesOptions>
 
     /**
      * LLM vulnerability checks
@@ -1141,7 +1212,7 @@ interface WorkspaceFileCache<K, V> {
     values(): Promise<V[]>
 }
 
-interface WorkspaceGrepOptions {
+interface WorkspaceGrepOptions extends FilterGitFilesOptions {
     /**
      * List of paths to
      */
@@ -1151,7 +1222,7 @@ interface WorkspaceGrepOptions {
      */
     glob?: ElementOrArray<string>
     /**
-     * Set to false to skip read text content. True by default
+     * Read file content. default is true.
      */
     readText?: boolean
 }
@@ -1165,9 +1236,17 @@ interface INIParseOptions {
     defaultValue?: any
 }
 
-interface FindFilesOptions {
+interface FilterGitFilesOptions {
+    /**
+     * Ignore workspace .gitignore instructions
+     */
+    applyGitIgnore?: false | undefined
+}
+
+interface FindFilesOptions extends FilterGitFilesOptions {
     /** Glob patterns to ignore */
     ignore?: ElementOrArray<string>
+
     /**
      * Set to false to skip read text content. True by default
      */
@@ -1189,21 +1268,21 @@ interface WorkspaceFileSystem {
      * @param glob
      */
     findFiles(
-        glob: string,
+        glob: ElementOrArray<string>,
         options?: FindFilesOptions
     ): Promise<WorkspaceFile[]>
 
     /**
      * Performs a grep search over the files in the workspace
-     * @param query
+     * @param pattern
      * @param globs
      */
     grep(
-        query: string | RegExp,
+        pattern: string | RegExp,
         options?: WorkspaceGrepOptions
     ): Promise<WorkspaceGrepResult>
     grep(
-        query: string | RegExp,
+        pattern: string | RegExp,
         glob: string,
         options?: Omit<WorkspaceGrepOptions, "path" | "glob">
     ): Promise<WorkspaceGrepResult>
@@ -1495,7 +1574,14 @@ interface RangeOptions {
     lineEnd?: number
 }
 
-interface FileFilterOptions {
+interface GitIgnoreFilterOptions {
+    /**
+     * Disable filtering files based on the `.gitignore` file.
+     */
+    ignoreGitIgnore?: true | undefined
+}
+
+interface FileFilterOptions extends GitIgnoreFilterOptions {
     /**
      * Filename filter based on file suffix. Case insensitive.
      */
@@ -1649,6 +1735,7 @@ interface JSONSchemaDescripted {
 interface JSONSchemaString extends JSONSchemaDescripted {
     type: "string"
     uiType?: "textarea"
+    uiSuggestions?: string[]
     enum?: string[]
     default?: string
     pattern?: string
@@ -1665,6 +1752,7 @@ interface JSONSchemaNumber extends JSONSchemaDescripted {
 
 interface JSONSchemaBoolean extends JSONSchemaDescripted {
     type: "boolean"
+    uiType?: "runOption"
     default?: boolean
 }
 
@@ -1743,7 +1831,6 @@ interface RunPromptResult {
     frames?: DataFrame[]
     json?: any
     error?: SerializedError
-    genVars?: Record<string, string>
     schemas?: Record<string, JSONSchema>
     finishReason:
         | "stop"
@@ -2099,6 +2186,18 @@ interface PDFPage {
     figures?: PDFPageImage[]
 }
 
+interface DocxParseOptions {
+    /**
+     * Desired output format
+     */
+    format?: "markdown" | "text" | "html"
+
+    /**
+     * If true, the transcription will be cached.
+     */
+    cache?: boolean | string
+}
+
 interface Parsers {
     /**
      * Parses text as a JSON5 payload
@@ -2183,8 +2282,8 @@ interface Parsers {
      */
     DOCX(
         content: string | WorkspaceFile,
-        options?: { format: "markdown" | "text" | "html" }
-    ): Promise<{ file: WorkspaceFile } | undefined>
+        options?: DocxParseOptions
+    ): Promise<{ file?: WorkspaceFile; error?: string }>
 
     /**
      * Parses a CSV file or text
@@ -2349,67 +2448,19 @@ interface Parsers {
      * @param text
      * @param language
      */
-    unfence(text: string, language: string): string
+    unfence(text: string, language?: ElementOrArray<string>): string
 
     /**
      * Erase <think>...</think> tags
      * @param text
      */
     unthink(text: string): string
-}
 
-interface AICIGenOptions {
     /**
-     * Make sure the generated text is one of the options.
+     * Remove left indentation
+     * @param text
      */
-    options?: string[]
-    /**
-     * Make sure the generated text matches given regular expression.
-     */
-    regex?: string | RegExp
-    /**
-     * Make sure the generated text matches given yacc-like grammar.
-     */
-    yacc?: string
-    /**
-     * Make sure the generated text is a substring of the given string.
-     */
-    substring?: string
-    /**
-     * Used together with `substring` - treat the substring as ending the substring
-     * (typically '"' or similar).
-     */
-    substringEnd?: string
-    /**
-     * Store result of the generation (as bytes) into a shared variable.
-     */
-    storeVar?: string
-    /**
-     * Stop generation when the string is generated (the result includes the string and any following bytes (from the same token)).
-     */
-    stopAt?: string
-    /**
-     * Stop generation when the given number of tokens have been generated.
-     */
-    maxTokens?: number
-}
-
-interface AICINode {
-    type: "aici"
-    name: "gen"
-}
-
-interface AICIGenNode extends AICINode {
-    name: "gen"
-    options: AICIGenOptions
-}
-
-interface AICI {
-    /**
-     * Generate a string that matches given constraints.
-     * If the tokens do not map cleanly into strings, it will contain Unicode replacement characters.
-     */
-    gen(options: AICIGenOptions): AICIGenNode
+    dedent(templ: TemplateStringsArray | string, ...values: unknown[]): string
 }
 
 interface YAML {
@@ -2604,9 +2655,24 @@ interface Git {
         repository: string,
         options?: {
             /**
-             * Brnach to clone
+             * Branch to clone
              */
             branch?: string
+
+            /**
+             * Do not reuse previous clone
+             */
+            force?: boolean
+
+            /**
+             * Runs install command after cloning
+             */
+            install?: boolean
+
+            /**
+             * Number of commits to fetch
+             */
+            depth?: number
         }
     ): Promise<Git>
 
@@ -3124,7 +3190,7 @@ interface MD {
      */
     chunk(
         text: string | WorkspaceFile,
-        options?: { maxTokens?: number; model?: string }
+        options?: { maxTokens?: number; model?: string; pageSeparator?: string }
     ): Promise<TextChunk[]>
 }
 
@@ -3262,6 +3328,11 @@ interface VectorSearchOptions extends EmbeddingsModelOptions {
      * Minimum similarity score
      */
     minScore?: number
+
+    /**
+     * Cache identifier for the embeddings
+     */
+    cache?: string
 }
 
 interface FuzzSearchOptions {
@@ -3304,6 +3375,10 @@ interface FuzzSearchOptions {
      * Maximum number of results to return
      */
     topK?: number
+    /**
+     * Minimum score
+     */
+    minScore?: number
 }
 
 interface Retrieval {
@@ -3467,6 +3542,11 @@ interface ImportTemplateOptions {
      * Ignore unknown arguments
      */
     allowExtraArguments?: boolean
+
+    /**
+     * Template engine syntax
+     */
+    format?: "mustache" | "jinja"
 }
 
 type PromptCacheControlType = "ephemeral"
@@ -3514,6 +3594,11 @@ type ImportTemplateArgumentType =
     | Awaitable<string | number | boolean>
     | (() => Awaitable<string | number | boolean>)
 
+/**
+ * Represents the context for generating a chat turn in a prompt template.
+ * Provides methods for importing templates, writing text, adding assistant responses,
+ * creating template strings, fencing code blocks, defining variables, and logging.
+ */
 interface ChatTurnGenerationContext {
     importTemplate(
         files: ElementOrArray<string | WorkspaceFile>,
@@ -3567,9 +3652,21 @@ interface DefToolOptions {
      * Maximum number of tokens per tool content response
      */
     maxTokens?: number
+
+    /**
+     * Suffix to identify the variant instantiation of the tool
+     */
+    variant?: string
+
+    /**
+     * Updated description for the variant
+     */
+    variantDescription?: string
 }
 
-interface DefAgentOptions extends Omit<PromptGeneratorOptions, "label"> {
+interface DefAgentOptions
+    extends Omit<PromptGeneratorOptions, "label">,
+        DefToolOptions {
     /**
      * Excludes agent conversation from agent memory
      */
@@ -3610,6 +3707,19 @@ type BufferLike =
     | ReadableStream
 
 type TranscriptionModelType = OptionsOrString<"openai:whisper-1">
+
+interface ImageGenerationOptions {
+    model?: OptionsOrString<ModelImageGenerationType>
+    quality?: "hd"
+    size?: OptionsOrString<
+        "256x256",
+        "512x512",
+        "1024x1024",
+        "1024x1792",
+        "1792x1024"
+    >
+    style?: OptionsOrString<"vivid", "natural">
+}
 
 interface TranscriptionOptions {
     /**
@@ -3728,6 +3838,7 @@ interface SpeechResult {
 }
 
 interface ChatGenerationContext extends ChatTurnGenerationContext {
+    env: ExpansionVariables
     defSchema(
         name: string,
         schema: JSONSchema | ZodTypeLike,
@@ -3782,6 +3893,10 @@ interface ChatGenerationContext extends ChatTurnGenerationContext {
         options?: TranscriptionOptions
     ): Promise<TranscriptionResult>
     speak(text: string, options?: SpeechOptions): Promise<SpeechResult>
+    generateImage(
+        prompt: string,
+        options?: ImageGenerationOptions
+    ): Promise<{ image: WorkspaceFile; revisedPrompt?: string }>
 }
 
 interface GenerationOutput {
@@ -3814,11 +3929,6 @@ interface GenerationOutput {
      * A map of file updates
      */
     fileEdits: Record<string, FileUpdate>
-
-    /**
-     * Generated variables, typically from AICI.gen
-     */
-    genVars: Record<string, string>
 
     /**
      * Generated annotations
@@ -3956,13 +4066,18 @@ interface ShellOptions {
      * trace label
      */
     label?: string
+
+    /**
+     * Ignore exit code errors
+     */
+    ignoreError?: boolean
 }
 
 interface ShellOutput {
     stdout?: string
     stderr?: string
     exitCode: number
-    failed: boolean
+    failed?: boolean
 }
 
 interface BrowserOptions {
@@ -3988,7 +4103,29 @@ interface BrowserOptions {
     env?: Record<string, string>
 }
 
-interface BrowseSessionOptions extends BrowserOptions, TimeoutOptions {
+interface BrowseGotoOptions extends TimeoutOptions {
+    /**
+     * Referer header value. If provided it will take preference over the referer header value set by
+     * [page.setExtraHTTPHeaders(headers)](https://playwright.dev/docs/api/class-page#page-set-extra-http-headers).
+     */
+    referer?: string
+
+    /**
+     * When to consider operation succeeded, defaults to `load`. Events can be either:
+     * - `'domcontentloaded'` - consider operation to be finished when the `DOMContentLoaded` event is fired.
+     * - `'load'` - consider operation to be finished when the `load` event is fired.
+     * - `'networkidle'` - **DISCOURAGED** consider operation to be finished when there are no network connections for
+     *   at least `500` ms. Don't use this method for testing, rely on web assertions to assess readiness instead.
+     * - `'commit'` - consider operation to be finished when network response is received and the document started
+     *   loading.
+     */
+    waitUntil?: "load" | "domcontentloaded" | "networkidle" | "commit"
+}
+
+interface BrowseSessionOptions
+    extends BrowserOptions,
+        BrowseGotoOptions,
+        TimeoutOptions {
     /**
      * Creates a new context for the browser session
      */
@@ -4308,11 +4445,51 @@ interface BrowseResponse {
 
 interface BrowserJSHandle {}
 
+interface BrowserElementHandle {}
+
 interface BrowserVideo {
     /**
      * Returns the video path once the page is closed.
      */
     path(): Promise<string>
+}
+
+interface BrowserLocatorOptions {
+    /**
+     * Narrows down the results of the method to those which contain elements matching this relative locator. For example,
+     * `article` that has `text=Playwright` matches `<article><div>Playwright</div></article>`.
+     *
+     * Inner locator **must be relative** to the outer locator and is queried starting with the outer locator match, not
+     * the document root. For example, you can find `content` that has `div` in
+     * `<article><content><div>Playwright</div></content></article>`. However, looking for `content` that has `article
+     * div` will fail, because the inner locator must be relative and should not use any elements outside the `content`.
+     *
+     * Note that outer and inner locators must belong to the same frame. Inner locator must not contain
+     * [FrameLocator](https://playwright.dev/docs/api/class-framelocator)s.
+     */
+    has?: BrowserLocator
+
+    /**
+     * Matches elements that do not contain an element that matches an inner locator. Inner locator is queried against the
+     * outer one. For example, `article` that does not have `div` matches `<article><span>Playwright</span></article>`.
+     *
+     * Note that outer and inner locators must belong to the same frame. Inner locator must not contain
+     * [FrameLocator](https://playwright.dev/docs/api/class-framelocator)s.
+     */
+    hasNot?: BrowserLocator
+
+    /**
+     * Matches elements that do not contain specified text somewhere inside, possibly in a child or a descendant element.
+     * When passed a [string], matching is case-insensitive and searches for a substring.
+     */
+    hasNotText?: string | RegExp
+
+    /**
+     * Matches elements containing specified text somewhere inside, possibly in a child or a descendant element. When
+     * passed a [string], matching is case-insensitive and searches for a substring. For example, `"Playwright"` matches
+     * `<article><div>Playwright</div></article>`.
+     */
+    hasText?: string | RegExp
 }
 
 /**
@@ -4339,9 +4516,7 @@ interface BrowserPage extends BrowserLocatorSelector {
      */
     goto(
         url: string,
-        options?: {
-            waitUntil?: "load" | "domcontentloaded" | "networkidle" | "commit"
-        } & TimeoutOptions
+        options?: BrowseGotoOptions
     ): Promise<null | BrowseResponse>
 
     /**
@@ -4361,7 +4536,7 @@ interface BrowserPage extends BrowserLocatorSelector {
      * @param selector A selector to use when resolving DOM element.
      * @link https://playwright.dev/docs/locators
      */
-    locator(selector: string): BrowserLocator
+    locator(selector: string, options?: BrowserLocatorOptions): BrowserLocator
 
     /**
      * Closes the browser page, context and other resources.
@@ -4392,6 +4567,58 @@ interface BrowserPage extends BrowserLocatorSelector {
      * Video object associated with this page, if `recordVideo` option is enabled.
      */
     video(): BrowserVideo | null
+
+    /**
+     * Adds a `<script>` tag into the page with the desired url or content. Returns the added tag when the script's onload
+     * fires or when the script content was injected into frame.
+     * @param options
+     */
+    addScriptTag(options?: {
+        /**
+         * Raw JavaScript content to be injected into frame.
+         */
+        content?: string
+
+        /**
+         * Path to the JavaScript file to be injected into frame. If `path` is a relative path, then it is resolved relative
+         * to the current working directory.
+         */
+        path?: string
+
+        /**
+         * Script type. Use 'module' in order to load a JavaScript ES6 module. See
+         * [script](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script) for more details.
+         */
+        type?: string
+
+        /**
+         * URL of a script to be added.
+         */
+        url?: string
+    }): Promise<BrowserElementHandle>
+
+    /**
+     * Adds a `<link rel="stylesheet">` tag into the page with the desired url or a `<style type="text/css">` tag with the
+     * content. Returns the added tag when the stylesheet's onload fires or when the CSS content was injected into frame.
+     * @param options
+     */
+    addStyleTag(options?: {
+        /**
+         * Raw CSS content to be injected into frame.
+         */
+        content?: string
+
+        /**
+         * Path to the CSS file to be injected into frame. If `path` is a relative path, then it is resolved relative to the
+         * current working directory.
+         */
+        path?: string
+
+        /**
+         * URL of the `<link>` tag.
+         */
+        url?: string
+    }): Promise<BrowserElementHandle>
 }
 
 interface ShellSelectOptions {}
@@ -4433,7 +4660,7 @@ interface UserInterfaceHost {
      * @param url
      * @param options
      */
-    browse(url: string, options?: BrowseSessionOptions): Promise<BrowserPage>
+    browse(url?: string, options?: BrowseSessionOptions): Promise<BrowserPage>
 
     /**
      * Asks the user to select between options
@@ -4770,7 +4997,6 @@ interface ContainerHost extends ShellHost {
 interface PromptContext extends ChatGenerationContext {
     script(options: PromptArgs): void
     system(options: PromptSystemArgs): void
-    env: ExpansionVariables
     path: Path
     parsers: Parsers
     retrieval: Retrieval
@@ -4991,11 +5217,6 @@ declare var JSON5: JSON5
 declare var JSONSchema: JSONSchemaUtilities
 
 /**
- * AICI operations
- */
-declare var AICI: AICI
-
-/**
  * Access to current LLM chat session information
  */
 declare var host: PromptHost
@@ -5133,3 +5354,13 @@ declare function speak(
     text: string,
     options?: SpeechOptions
 ): Promise<SpeechResult>
+
+/**
+ * Generate an image and return the workspace file.
+ * @param prompt
+ * @param options
+ */
+declare function generateImage(
+    prompt: string,
+    options?: ImageGenerationOptions
+): Promise<{ image: WorkspaceFile; revisedPrompt?: string }>

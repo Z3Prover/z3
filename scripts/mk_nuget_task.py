@@ -1,7 +1,6 @@
 # 
 # Copyright (c) 2018 Microsoft Corporation
 #
-
 # 1. copy over dlls
 # 2. copy over libz3.dll for the different architectures
 # 3. copy over Microsoft.Z3.dll from suitable distribution

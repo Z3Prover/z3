@@ -20,6 +20,7 @@ Author:
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
 #include "ast/simplifiers/extract_eqs.h"
 #include "ast/simplifiers/bound_manager.h"
 #include "params/tactic_params.hpp"
@@ -79,6 +80,66 @@ namespace euf {
             tactic_params tp(p);
             m_ite_solver = p.get_bool("ite_solver", tp.solve_eqs_ite_solver());
         }
+    };
+
+    class bv_extract_eq : public extract_eq {
+        ast_manager&       m;
+        bv_util            bv;
+        bool               m_enabled = true;
+
+        
+        void solve_add(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
+            if (!bv.is_bv_add(x))
+                return;
+            expr_ref term(m);
+            unsigned i = 0;
+            auto mk_term = [&](unsigned i) {
+                term = y;
+                unsigned j = 0;
+                for (expr* arg2 : *to_app(x)) {
+                    if (i != j)
+                        term = bv.mk_bv_sub(term, arg2);
+                    ++j;
+                }
+            };
+            for (expr* arg : *to_app(x)) {
+                if (is_uninterp_const(arg)) {
+                    mk_term(i);
+                    eqs.push_back(dependent_eq(orig, to_app(arg), term, d));
+                }
+                ++i;
+            }
+        }
+
+        void solve_eq(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
+            solve_add(orig, x, y, d, eqs);
+        }
+
+        
+    public:
+        bv_extract_eq(ast_manager& m) : m(m), bv(m) {}
+
+        void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) override {
+            if (!m_enabled)
+                return;
+            auto [f, p, d] = e();
+            expr* x, * y;
+            if (m.is_eq(f, x, y) && bv.is_bv(x)) {
+                solve_eq(f, x, y, d, eqs);
+                solve_eq(f, y, x, d, eqs);
+            }
+
+        }
+
+        void pre_process(dependent_expr_state& fmls) override {
+            if (!m_enabled)
+                return;
+        }
+
+        void updt_params(params_ref const& p) override {
+
+        }
+        
     };
 
     class arith_extract_eq : public extract_eq {
@@ -311,5 +372,6 @@ break;
     void register_extract_eqs(ast_manager& m, scoped_ptr_vector<extract_eq>& ex) {
         ex.push_back(alloc(arith_extract_eq, m));
         ex.push_back(alloc(basic_extract_eq, m));
+        ex.push_back(alloc(bv_extract_eq, m));
     }
 }
