@@ -306,7 +306,7 @@ namespace euf {
 
     void solve_eqs::save_subst(vector<dependent_expr> const& old_fmls) {
         if (!m_subst->empty())   
-            m_fmls.model_trail().push(m_subst.detach(), old_fmls);                
+            m_fmls.model_trail().push(m_subst.detach(), old_fmls, false);                
     }
 
     void solve_eqs::filter_unsafe_vars() {

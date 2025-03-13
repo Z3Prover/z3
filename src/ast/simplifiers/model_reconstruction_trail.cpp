@@ -75,7 +75,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
         // loose entries that intersect with free vars are deleted from the trail
         // and their removed formulas are added to the resulting constraints.
 
-        if (t->is_loose() && !t->is_def() && t->is_subst()) {
+        if (t->is_loose_subst()) {                
             for (auto const& [k, v] : t->m_subst->sub()) {
                 add_vars(v, free_vars);
                 st.add(dependent_expr(m, m.mk_eq(k, v), nullptr, nullptr));
@@ -83,6 +83,17 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
             t->m_active = false;
             continue;
         }
+        
+        if (t->is_loose_constraint()) {                
+            for (auto r : t->m_removed) {
+                add_vars(r, free_vars);
+                TRACE("simplifier", tout << "replay removed " << r << "\n");
+                st.add(r);
+            }
+            t->m_active = false;
+            continue;
+        }
+
 
         bool all_const = true;
         for (auto const& [d, def, dep] : t->m_defs) 

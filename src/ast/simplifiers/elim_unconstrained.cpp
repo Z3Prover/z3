@@ -411,13 +411,14 @@ void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<
         case generic_model_converter::instruction::HIDE:
             break;
         case generic_model_converter::instruction::ADD:
-            new_def = entry.m_def;
-            (*rp)(new_def);           
-            sub->insert(m.mk_const(entry.m_f), new_def, nullptr, nullptr);
+            //            new_def = entry.m_def;
+            // (*rp)(new_def);
+            new_def = m.mk_const(entry.m_f);
+            sub->insert(new_def, new_def, nullptr, nullptr);
             break;
         }
     }
-    trail.push(sub.detach(), old_fmls);
+    trail.push(sub.detach(), old_fmls, true);
 }
 
 void elim_unconstrained::reduce() {

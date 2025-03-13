@@ -36,30 +36,37 @@ class dependent_expr_state;
 class model_reconstruction_trail {
 
     struct entry {
+        enum entry_t { loose_subst, loose_constraints, hide, defined};
+
+        entry_t                       m_ty;
         scoped_ptr<expr_substitution> m_subst;
         vector<dependent_expr>        m_removed;
         func_decl_ref                 m_decl;
         vector<std::tuple<func_decl_ref, expr_ref, expr_dependency_ref>> m_defs;
         bool                          m_active = true;
 
-        entry(ast_manager& m, expr_substitution* s, vector<dependent_expr> const& rem) :
-            m_subst(s), m_removed(rem), m_decl(m) {}
+        entry(ast_manager& m, expr_substitution* s, vector<dependent_expr> const& rem, bool replay_constraints) :
+            m_ty(replay_constraints ? loose_constraints : loose_subst), m_subst(s), m_removed(rem), m_decl(m) {}
 
-        entry(ast_manager& m, func_decl* h) : m_decl(h, m) {}
+        entry(ast_manager& m, func_decl* h) : m_ty(hide), m_decl(h, m) {}
 
         entry(ast_manager& m, func_decl* f, expr* def, expr_dependency* dep, vector<dependent_expr> const& rem) :
+            m_ty(defined), 
             m_removed(rem),
             m_decl(m){
             m_defs.push_back({ func_decl_ref(f, m), expr_ref(def, m), expr_dependency_ref(dep, m) });
         }
 
         entry(ast_manager& m, vector<std::tuple<func_decl_ref, expr_ref, expr_dependency_ref>> const& defs, vector<dependent_expr> const& rem) :
+            m_ty(defined), 
             m_removed(rem),
             m_decl(m),
             m_defs(defs) {
         }
 
         bool is_loose() const { return !m_removed.empty(); }
+        bool is_loose_subst() const { return m_ty == loose_subst; }
+        bool is_loose_constraint() const { return m_ty == loose_constraints; }
 
         bool intersects(ast_mark const& free_vars) const {
             if (is_hide())
@@ -141,8 +148,8 @@ public:
     /**
     * add a new substitution to the trail
     */
-    void push(expr_substitution* s, vector<dependent_expr> const& removed) {
-        m_trail.push_back(alloc(entry, m, s, removed));
+    void push(expr_substitution* s, vector<dependent_expr> const& removed, bool replay_constraints) {
+        m_trail.push_back(alloc(entry, m, s, removed, replay_constraints));
         m_trail_stack.push(push_back_vector(m_trail));     
         for (auto& [k, v] : s->sub())
             add_model_var(to_app(k)->get_decl());
