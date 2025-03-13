@@ -1028,8 +1028,8 @@ namespace lp {
 
             eliminate_substituted_in_changed_rows();
             m_changed_columns.reset();
-            SASSERT(m_changed_columns.size() == 0);
             m_changed_rows.reset();
+            //  do not clean up m_changed_terms as they are used in tighten_terms_with_S()
             SASSERT(entries_are_ok());
         }
 
@@ -1372,7 +1372,7 @@ namespace lp {
                 if (j >= lra.column_count() ||
                     !lra.column_has_term(j) ||
                     lra.column_is_free(j) ||
-                    is_fixed(j) || !lia.column_is_int(j)) {
+                    !lia.column_is_int(j)) {
                     cleanup.push_back(j);
                     continue;
                 }
