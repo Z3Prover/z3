@@ -431,8 +431,7 @@ class implicant_picker {
 
         expr *na = nullptr, *f1 = nullptr, *f2 = nullptr, *f3 = nullptr;
 
-        SASSERT(!m.is_false(a));
-        if (m.is_true(a)) {
+        if (m.is_true(a)|| m.is_false(a)) {
             // noop
         } else if (a->get_family_id() != m.get_basic_family_id()) {
             add_literal(a, out);
