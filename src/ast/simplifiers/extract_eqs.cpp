@@ -92,7 +92,6 @@ namespace euf {
             if (!bv.is_bv_add(x))
                 return;
             expr_ref term(m);
-            unsigned i = 0;
             auto mk_term = [&](unsigned i) {
                 term = y;
                 unsigned j = 0;
@@ -102,17 +101,40 @@ namespace euf {
                     ++j;
                 }
             };
+            expr* u = nullptr, *z = nullptr;
+            rational r;
+            unsigned i = 0;
             for (expr* arg : *to_app(x)) {
                 if (is_uninterp_const(arg)) {
                     mk_term(i);
                     eqs.push_back(dependent_eq(orig, to_app(arg), term, d));
                 }
+                else if (bv.is_bv_mul(arg, u, z) && bv.is_numeral(u, r) && is_uninterp_const(z) && r.is_odd()) {
+                    mk_term(i);
+                    unsigned sz = bv.get_bv_size(z);
+                    rational inv_r;
+                    VERIFY(r.mult_inverse(sz, inv_r));
+                    term = bv.mk_bv_mul(bv.mk_numeral(inv_r, sz), term);
+                    eqs.push_back(dependent_eq(orig, to_app(z), term, d));
+                }
                 ++i;
+            }
+        }
+
+        void solve_mul(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
+            expr* u = nullptr, *z = nullptr;
+            rational r, inv_r;
+            if (bv.is_bv_mul(x, u, z) && bv.is_numeral(u, r) && is_uninterp_const(z) && r.is_odd()) {
+                unsigned sz = bv.get_bv_size(z);
+                VERIFY(r.mult_inverse(sz, inv_r));
+                auto term = expr_ref(bv.mk_bv_mul(bv.mk_numeral(inv_r, sz), y), m);
+                eqs.push_back(dependent_eq(orig, to_app(z), term, d));                
             }
         }
 
         void solve_eq(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
             solve_add(orig, x, y, d, eqs);
+            solve_mul(orig, x, y, d, eqs);
         }
 
         
@@ -132,12 +154,9 @@ namespace euf {
         }
 
         void pre_process(dependent_expr_state& fmls) override {
-            if (!m_enabled)
-                return;
         }
 
         void updt_params(params_ref const& p) override {
-
         }
         
     };
