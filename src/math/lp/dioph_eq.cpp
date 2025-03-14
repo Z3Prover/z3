@@ -488,12 +488,8 @@ namespace lp {
         // m_changed_columns are the columns that just became fixed, or those that just stopped being fixed.
         // If such a column appears in an entry it has to be recalculated.
         indexed_uint_set m_changed_columns;
-        enum class term_status{
-            no_change,
-            change, // need to find changed rows depending on the term
-            bound_change  // need to tighten the term              
-        };
-        std_vector<term_status> m_changed_terms;
+        indexed_uint_set m_changed_terms; // represented by term columns
+        indexed_uint_set m_terms_to_tighten; // represented by term columns
         indexed_uint_set m_tightened_columns; // the column that got tightened by the tigthening phase, 
         // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
         std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_terms;
@@ -759,9 +755,7 @@ namespace lp {
 
         void mark_term_change(unsigned j) {
             TRACE("dio", tout << "marked term change j:" << j << std::endl;);
-            if (j >= m_changed_terms.size())                
-                m_changed_terms.resize(j + 1, term_status::no_change);
-            m_changed_terms[j] = term_status::change;
+            m_changed_terms.insert(j);
         }
         
         void update_column_bound_callback(unsigned j) {
@@ -999,13 +993,8 @@ namespace lp {
 
         void process_changed_columns(std_vector<unsigned> &f_vector) {
             find_changed_terms_and_more_changed_rows();
-            for (unsigned j = 0; j < m_changed_terms.size(); j++) {
-                term_status t = m_changed_terms[j];
-                if (t != term_status::change) {
-                    TRACE("dio", tout << "went on continue\n";);
-                    continue;
-                }
-                m_changed_terms[j] = term_status::bound_change; // prepare for tightening
+            for (unsigned j: m_changed_terms) {
+                m_terms_to_tighten.insert(j);
                 if (j < m_l_matrix.column_count()) {
                     for (const auto& cs : m_l_matrix.column(j)) {
                         m_changed_rows.insert(cs.var());
@@ -1051,7 +1040,7 @@ namespace lp {
             eliminate_substituted_in_changed_rows();
             m_changed_columns.reset();
             m_changed_rows.reset();
-            //  do not clean up m_changed_terms as they are used in tighten_terms_with_S()
+            m_changed_terms.reset();
             SASSERT(entries_are_ok());
         }
 
@@ -1388,14 +1377,14 @@ namespace lp {
         lia_move tighten_terms_with_S() {
             // Copy changed terms to another vector for sorting
             std_vector<unsigned> sorted_changed_terms;
+            std_vector<unsigned> processed_terms;
             m_tightened_columns.reset();
-            for (unsigned j = 0; j < m_changed_terms.size(); j++) {
-                if (m_changed_terms[j] == term_status::no_change) continue;
+            for (unsigned j: m_terms_to_tighten) {
                 if (j >= lra.column_count() ||
                     !lra.column_has_term(j) ||
                     lra.column_is_free(j) ||
                     !lia.column_is_int(j)) {
-                    unmark_changed_term(j);
+                    processed_terms.push_back(j);
                     continue;
                 }
                 sorted_changed_terms.push_back(j);
@@ -1414,17 +1403,16 @@ namespace lp {
                   // print_bounds(tout);
             );
             for (unsigned j : sorted_changed_terms) {
-                unmark_changed_term(j); 
+                m_terms_to_tighten.remove(j);
                 r = tighten_bounds_for_term_column(j);
                 if (r != lia_move::undef) {
                     break;
                 }                
             }
+            for (unsigned j :processed_terms) {
+                m_terms_to_tighten.remove(j);
+            }
             return r;
-        }
-
-        void unmark_changed_term(unsigned j) {
-            m_changed_terms[j] = term_status::no_change;
         }
 
         term_o create_term_from_espace() const {
@@ -1438,7 +1426,7 @@ namespace lp {
 
         // We will have lar_t, and let j is lar_t.j(), the term column. 
         // In the m_espace we have lar_t. The result of open_ml((1*j)) is lar_t - (1, j).
-        // So we have "equality" m_espace = open(m_lspace) + (1*lar_t.j. 
+        // So we have "equality" m_espace = open(m_lspace) + (1*lar_t.j()) 
         void init_substitutions(const lar_term& lar_t, protected_queue& q) {
             m_espace.clear();
             m_c = mpq(0);
