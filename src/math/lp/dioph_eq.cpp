@@ -331,6 +331,7 @@ namespace lp {
             return out;
         }
 
+        bool m_has_non_integral_term = false;
         std_vector<mpq> m_sum_of_fixed;
         var_register m_var_register;
         // the terms are stored in m_A and m_c
@@ -740,6 +741,7 @@ namespace lp {
             TRACE("dio", tout << "term column t->j():" << j << std::endl; lra.print_term(*t, tout) << std::endl;);
             if (!lra.column_is_int(j)) {
                 TRACE("dio", tout << "ignored a non-integral column" << std::endl;);
+                m_has_non_integral_term = true;
                 return;
             }
 
@@ -2622,7 +2624,9 @@ namespace lp {
         // needed for the template bound_analyzer_on_row.h
         const lar_solver& lp() const { return lra; }
         lar_solver& lp() {return lra;}
-
+        bool has_non_integral_term() const {
+            return m_has_non_integral_term;
+        }
     };
     // Constructor definition
     dioph_eq::dioph_eq(int_solver& lia) {
@@ -2639,5 +2643,10 @@ namespace lp {
     void dioph_eq::explain(lp::explanation& ex) {
         m_imp->explain(ex);
     }
+
+    bool dioph_eq::has_non_integral_term() const {
+        return m_imp->has_non_integral_term();
+    }
+    
 
 }  // namespace lp
