@@ -30,5 +30,6 @@ namespace lp {
         ~dioph_eq();
         lia_move check();
         void explain(lp::explanation&);
+        bool has_non_integral_term() const;
     };
 }
