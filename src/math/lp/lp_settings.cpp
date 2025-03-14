@@ -34,6 +34,7 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     m_nlsat_delay = p.arith_nl_delay();
     m_dio_eqs = p.arith_lp_dio_eqs();
     m_dio_enable_gomory_cuts = p.arith_lp_dio_cuts_enable_gomory();
+    m_dio_enable_hnf_cuts = p.arith_lp_dio_cuts_enable_hnf();
     m_dio_branching_period = p.arith_lp_dio_branching_period();
     m_dump_bound_lemmas = p.arith_dump_bound_lemmas();
 }
