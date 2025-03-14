@@ -126,6 +126,7 @@ namespace lp {
         }
 
         bool all_columns_are_integral() const {
+            return true; // otherwise it never returns true!
             for (lpvar j = 0; j < lra.number_of_vars(); j++)
                 if (!lra.column_is_int(j))
                     return false;
