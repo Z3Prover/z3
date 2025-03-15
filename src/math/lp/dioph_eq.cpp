@@ -1408,7 +1408,7 @@ namespace lp {
                 sorted_changed_terms.push_back(j);
             }
 
-            bool sort_by_weight = false;
+            bool sort_by_weight = true;
             if (sort_by_weight) 
                 // Sort by term_weight descending
                 std::sort(sorted_changed_terms.begin(), sorted_changed_terms.end(),
