@@ -1408,39 +1408,12 @@ namespace lp {
                 sorted_changed_terms.push_back(j);
             }
 
-            bool sort_by_weight = true;
-            if (sort_by_weight) 
-                // Sort by term_weight descending
-                std::sort(sorted_changed_terms.begin(), sorted_changed_terms.end(),
-                          [this](unsigned j1, unsigned j2) {
-                              return term_weight(lra.get_term(j1)) > term_weight(lra.get_term(j2) );
-                          });
-            else {
-                std::sort(sorted_changed_terms.begin(), sorted_changed_terms.end(),
-                          [this](unsigned j1, unsigned j2) {
-                              // First check if both columns are boxed
-                              bool j1_is_boxed = lia.is_boxed(j1);
-                              bool j2_is_boxed = lia.is_boxed(j2);
+            // Sort by term_weight descending
+            std::sort(sorted_changed_terms.begin(), sorted_changed_terms.end(),
+                      [this](unsigned j1, unsigned j2) {
+                          return term_weight(lra.get_term(j1)) > term_weight(lra.get_term(j2) );
+                      });
         
-                              // If one is boxed and the other isn't, prefer the boxed one
-                              if (j1_is_boxed && !j2_is_boxed) 
-                                  return true;
-                              if (!j1_is_boxed && j2_is_boxed)
-                                  return false;
-        
-                              // If both are boxed, compare spans (prefer smaller spans)
-                              if (j1_is_boxed && j2_is_boxed) {
-                                  mpq span1 = lra.bound_span_x(j1);
-                                  mpq span2 = lra.bound_span_x(j2);
-                                  if (span1 != span2)
-                                      return span1 < span2;
-                              }
-        
-                              // Fall back to weight comparison
-                              return term_weight(lra.get_term(j1)) > term_weight(lra.get_term(j2));
-                          });
-            }
-
             lia_move r = lia_move::undef;
             // Process sorted terms
             TRACE("dio", 
