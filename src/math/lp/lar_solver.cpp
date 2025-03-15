@@ -2547,7 +2547,30 @@ namespace lp {
         }
         return out;
     }
-
+    std::string lar_solver::get_bounds_string(unsigned j) const {
+        mpq lb, ub;
+        bool is_strict_lower = false, is_strict_upper = false;
+        u_dependency* dep = nullptr;
+        bool has_lower = has_lower_bound(j, dep, lb, is_strict_lower);
+        bool has_upper = has_upper_bound(j, dep, ub, is_strict_upper);
+    
+        std::ostringstream oss;
+    
+        if (!has_lower && !has_upper) {
+            oss << "(-oo, oo)";
+        } 
+        else if (has_lower && !has_upper) {
+            oss << (is_strict_lower ? "(" : "[") << lb << ", oo)";
+        }
+        else if (!has_lower && has_upper) {
+            oss << "(-oo, " << ub << (is_strict_upper ? ")" : "]");
+        }
+        else { // has both bounds
+            oss << (is_strict_lower ? "(" : "[") << lb << ", " << ub << (is_strict_upper ? ")" : "]");
+        }
+    
+        return oss.str();
+    }
         // Helper function to format constants in SMT2 format
     std::string format_smt2_constant(const mpq& val) {
         if (val.is_neg()) {
