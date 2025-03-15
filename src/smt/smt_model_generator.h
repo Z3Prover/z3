@@ -76,12 +76,14 @@ namespace smt {
        \brief Stub for extra fresh value.
     */
     struct extra_fresh_value {
+        expr*    m_src;
         sort *   m_sort;
         unsigned m_idx;
-        expr *   m_value;
+        expr *   m_value = nullptr;
     public:
-        extra_fresh_value(sort * s, unsigned idx):m_sort(s), m_idx(idx), m_value(nullptr) {}
+        extra_fresh_value(expr * src, sort* s, unsigned idx):m_src(src), m_sort(s), m_idx(idx) {}
         sort * get_sort() const { return m_sort; }
+        expr* get_src() const { return m_src; }
         unsigned get_idx() const { return m_idx; }
         void set_value(expr * n) { SASSERT(!m_value); m_value = n; }
         expr * get_value() const { return m_value; }
@@ -220,7 +222,7 @@ namespace smt {
         void set_context(context * c) { SASSERT(m_context == 0); m_context = c; }
 
         void register_factory(value_factory * f);
-        extra_fresh_value * mk_extra_fresh_value(sort * s);
+        extra_fresh_value * mk_extra_fresh_value(expr * src, sort* s);
         model_value_proc * mk_model_value(enode* r);
         expr * get_some_value(sort * s);
         proto_model & get_model() { SASSERT(m_model); return *m_model; }

@@ -998,7 +998,7 @@ namespace smt {
 
                     TRACE("array", tout << pp(n, m) << " " << mk_pp(range, m) << " " << range->is_infinite() << "\n";);
                     if (range->is_infinite())
-                        else_val = TAG(void*, mg.mk_extra_fresh_value(range), 1);
+                        else_val = TAG(void*, mg.mk_extra_fresh_value(n->get_expr(), range), 1);
                     else
                         else_val = TAG(void*, mg.get_some_value(range), 0);
                     m_else_values[r] = else_val;

@@ -34,7 +34,7 @@ namespace smt {
     }
 
     std::ostream& operator<<(std::ostream& out, model_value_dependency const& src) {
-        if (src.is_fresh_value()) return out << "fresh!" << src.get_value()->get_idx();
+        if (src.is_fresh_value()) return out << "fresh!" << src.get_value()->get_idx() << "#" << src.get_value()->get_src()->get_id();
         else return out << "#" << src.get_enode()->get_owner_id();
     }
 
@@ -115,8 +115,11 @@ namespace smt {
                             SASSERT(proc);
                         }
                         else {
-                            TRACE("model", tout << "creating fresh value for #" << mk_pp(r->get_expr(), m) << "\n";);
-                            proc = alloc(fresh_value_proc, mk_extra_fresh_value(r->get_sort()));
+                            TRACE("model", tout << "creating fresh value for #" 
+                                << r->get_expr_id() << " " 
+                                << mk_bounded_pp(r->get_expr(), m) << " " 
+                                << mk_pp(r->get_sort(), m) << "\n";);
+                            proc = alloc(fresh_value_proc, mk_extra_fresh_value(r->get_expr(), r->get_sort()));
                         }
                     }
                     else {
@@ -181,6 +184,11 @@ namespace smt {
             if (already_traversed.contains(s))
                 return true;
             bool visited = true;
+            TRACE("mg_top_sort", tout << "fresh value of sort " << mk_pp(s, m) << "\n";
+            for (enode* r : roots)
+                if (r->get_sort() == s)
+                    tout << mk_pp(r->get_expr(), m) << "\n";
+                );
             for (enode * r : roots) {
                 if (r->get_sort() != s)
                     continue;
@@ -305,14 +313,21 @@ namespace smt {
                   }
                   else {
                       enode * n = curr.get_enode();
+                      sort* s = n->get_sort();
                       SASSERT(n->get_root() == n);
-                      tout << mk_pp(n->get_expr(), m) << "\n";
-                      sort * s = n->get_sort();
                       tout << curr << " " << mk_pp(s, m);
-                      tout << " is_fresh: " << root2proc[n]->is_fresh() << "\n";
+                      tout << mk_bounded_pp(n->get_expr(), m) << " ";
+                      tout << " is_fresh: " << root2proc[n]->is_fresh() << " - deps: ";
+                      dependencies.reset();
+                      model_value_proc* proc = root2proc[n];
+                      SASSERT(proc);
+                      proc->get_dependencies(dependencies);
+                      for (auto const& d : dependencies)
+                          tout << d << " ";
+                      tout << "\n";
                   }
               }
-              m_context->display(tout);
+              // m_context->display(tout);
               );
 
 
@@ -340,10 +355,16 @@ namespace smt {
                     proc->get_dependencies(dependencies);
                     for (model_value_dependency const& d : dependencies) {
                         if (d.is_fresh_value()) {
-                            CTRACE("mg_top_sort", !d.get_value()->get_value(), 
-                                   tout << "#" << n->get_owner_id() << " " << mk_pp(n->get_expr(), m) << " -> " << d << "\n";);
-                            SASSERT(d.get_value()->get_value());
-                            dependency_values.push_back(d.get_value()->get_value());
+                            expr* val = d.get_value()->get_value();
+                            CTRACE("mg_top_sort", !val,
+                                tout << "#" << n->get_owner_id() << " " <<
+                                mk_pp(n->get_expr(), m) << " -> " << d << "\n";);
+                            // there is a cyclic dependency for default(A), where A
+                            // is an array of a datatype with the datatype using A.
+                            if (!val)
+                                val = m_model->get_some_value(d.get_value()->get_sort());
+                            SASSERT(val);
+                            dependency_values.push_back(val);
                         }
                         else {
                             enode * child = d.get_enode();
@@ -446,8 +467,8 @@ namespace smt {
         }
     }
 
-    extra_fresh_value * model_generator::mk_extra_fresh_value(sort * s) {        
-        extra_fresh_value * r = alloc(extra_fresh_value, s, m_fresh_idx);
+    extra_fresh_value * model_generator::mk_extra_fresh_value(expr * src, sort* s) {        
+        extra_fresh_value * r = alloc(extra_fresh_value, src, s, m_fresh_idx);
         m_fresh_idx++;
         m_extra_fresh_values.push_back(r);
         return r;
