@@ -1198,7 +1198,7 @@ namespace lp {
             return false;
         }
 
-        void subs_qfront_by_fresh(unsigned k, protected_queue& q) {
+        lia_move subs_qfront_by_fresh(unsigned k, protected_queue& q, unsigned j) {
             const lar_term& e = m_fresh_k2xt_terms.get_by_key(k).first;
             TRACE("dioph_eq", tout << "k:" << k << ", in ";
                   print_term_o(create_term_from_espace(), tout) << std::endl;
@@ -1218,11 +1218,13 @@ namespace lp {
                 if (m_espace.has(j) && can_substitute(j))
                     q.push(j);
             }
+
             // there is no change in m_l_matrix
             TRACE("dioph_eq", tout << "after subs k:" << k << "\n";
                   print_term_o(create_term_from_espace(), tout) << std::endl;
                   tout << "m_lspace:{"; print_lar_term_L(m_lspace.m_data, tout);
                   tout << "}, opened:"; print_ml(m_lspace.to_term(), tout) << std::endl;);
+             return tighten_on_espace(j);
         }
 
         void add_l_row_to_term_with_index(const mpq& coeff, unsigned ei) {
@@ -1231,7 +1233,7 @@ namespace lp {
             }
         }
 
-        void subs_qfront_by_S(unsigned k, protected_queue& q) {
+        lia_move subs_qfront_by_S(unsigned k, protected_queue& q, unsigned j) {
             const mpq& e = m_sum_of_fixed[m_k2s[k]];
             TRACE("dio", tout << "k:" << k << ", in ";
                   print_term_o(create_term_from_espace(), tout) << std::endl;
@@ -1266,6 +1268,8 @@ namespace lp {
                   print_term_o(create_term_from_espace(), tout) << std::endl;
                   tout << "m_lspace:{"; print_lar_term_L(m_lspace.to_term(), tout);
                   tout << "}, opened:"; print_ml(m_lspace.to_term(), tout) << std::endl;);
+
+            return tighten_on_espace(j);
         }
 
         bool is_substituted_by_fresh(unsigned k) const {
@@ -1274,19 +1278,27 @@ namespace lp {
         // The term giving the substitution is in form (+-)x_k + sum {a_i*x_i} + c = 0.
         // We substitute x_k in t by (+-)coeff*(sum {a_i*x_i} + c), where coeff is
         // the coefficient of x_k in t.
-        void subs_front_with_S_and_fresh(protected_queue& q) {
+        lia_move subs_front_with_S_and_fresh(protected_queue& q, unsigned j) {
+            process_fixed_in_espace();
+            auto r = tighten_on_espace(j);
+            if (r == lia_move::conflict) return lia_move::conflict;
             unsigned k = q.pop_front();
             if (!m_espace.has(k))
-                return;            
+                return lia_move::undef;            
             // we might substitute with a term from S or a fresh term
 
             SASSERT(can_substitute(k));
+            lia_move ret;
             if (is_substituted_by_fresh(k)) {
-                subs_qfront_by_fresh(k, q);
+                ret = subs_qfront_by_fresh(k, q, j);
             }
             else {
-                subs_qfront_by_S(k, q);
+                ret = subs_qfront_by_S(k, q, j);
             }
+            if (ret == lia_move::conflict) 
+                return lia_move::conflict;
+            if (r == lia_move::continue_with_check) return r;
+            return ret;
         }
 
         lar_term l_term_from_row(unsigned k) const {
@@ -1355,9 +1367,15 @@ namespace lp {
             return true;
         }
         
-        void subs_with_S_and_fresh(protected_queue& q) {
-            while (!q.empty())
-                subs_front_with_S_and_fresh(q);
+        lia_move subs_with_S_and_fresh(protected_queue& q, unsigned j) {
+            lia_move r = lia_move::undef;
+            while (!q.empty()) {
+                lia_move ret = subs_front_with_S_and_fresh(q, j);
+                if (ret == lia_move::conflict) return lia_move::conflict;
+                if (ret == lia_move::continue_with_check)
+                    r = ret;
+            }
+            return r;
         }
 
         unsigned term_weight(const lar_term& t) const {
@@ -1427,7 +1445,7 @@ namespace lp {
             // Process sorted terms
             TRACE("dio", 
                   tout << "changed terms:"; for (auto j : sorted_changed_terms) tout << j << " "; tout << std::endl;
-                  //  print_S(tout);
+                  print_S(tout);
                   // print_bounds(tout);
             );
             for (unsigned j : sorted_changed_terms) {
@@ -1490,37 +1508,12 @@ namespace lp {
                 m_espace.erase(j);
             }
         }
-        /* j is the index of the column representing a term
-         Return lia_move::conflict if a conflict was found, lia_move::continue_with_check if j became a fixed variable, and undef
-         otherwise
-         When we have a constraint x + y  <= 8 then after the substitutions with S and fresh variables
-         we might have x + y = 7t - 1 <= 8, where t is a term. Then 7t <= 9, or t <= 9/7, and we can enforce t <= floor(9/7) = 1.
-         Then x + y = 7*1 - 1 <= 6: the bound is strenthgened. The constraint in this example comes from the upper bound on j, where
-         j is the slack variable in x + y - j = 0.
-        */
-        lia_move tighten_bounds_for_term_column(unsigned j) {
-            // q is the queue of variables that can be substituted in term_to_tighten
-            protected_queue q;
-            TRACE("dio", tout << "j:" << j << " , intitial term t: "; print_lar_term_L(lra.get_term(j), tout) << std::endl;
-                  for( const auto& p : lra.get_term(j)) {
-                      lra.print_column_info(p.var(), tout);
-                  }
-                );
-            init_substitutions(lra.get_term(j), q);
-            if (q.empty()) // todo: maybe still go ahead and process it?
-                return lia_move::undef;
-         
-            TRACE("dio", tout << "t:";
-                  tout << "m_espace:";
-                  print_term_o(create_term_from_espace(), tout) << std::endl;
-                  tout << "m_lspace:";
-                  print_lar_term_L(m_lspace.to_term(), tout) << std::endl;);
-            subs_with_S_and_fresh(q);
-            process_fixed_in_espace();
-            SASSERT(subs_invariant(j));
+
+
+        lia_move tighten_on_espace(unsigned j) {
             mpq g = gcd_of_coeffs(m_espace.m_data, true);
             TRACE("dio", tout << "after process_q_with_S\nt:";  print_term_o(create_term_from_espace(), tout) << std::endl; tout << "g:" << g << std::endl;);
-
+            
             if (g.is_one())
                 return lia_move::undef;
             if (g.is_zero()) {
@@ -1545,6 +1538,40 @@ namespace lp {
                 return lia_move::continue_with_check;
             }
             return lia_move::undef;
+
+        }
+        
+        /* j is the index of the column representing a term
+         Return lia_move::conflict if a conflict was found, lia_move::continue_with_check if j became a fixed variable, and undef
+         otherwise
+         When we have a constraint x + y  <= 8 then after the substitutions with S and fresh variables
+         we might have x + y = 7t - 1 <= 8, where t is a term. Then 7t <= 9, or t <= 9/7, and we can enforce t <= floor(9/7) = 1.
+         Then x + y = 7*1 - 1 <= 6: the bound is strenthgened. The constraint in this example comes from the upper bound on j, where
+         j is the slack variable in x + y - j = 0.
+        */
+        lia_move tighten_bounds_for_term_column(unsigned j) {
+            // q is the queue of variables that can be substituted in term_to_tighten
+            protected_queue q;
+            TRACE("dio", tout << "j:" << j << " , intitial term t: "; print_lar_term_L(lra.get_term(j), tout) << std::endl;
+                  for( const auto& p : lra.get_term(j).ext_coeffs()) {
+                      lra.print_column_info(p.var(), tout);
+                  }
+                );
+            init_substitutions(lra.get_term(j), q);
+         
+            TRACE("dio", tout << "t:";
+                  tout << "m_espace:";
+                  print_term_o(create_term_from_espace(), tout) << std::endl;
+                  tout << "in lar_solver indices:\n";
+                  print_term_o(term_to_lar_solver(create_term_from_espace()), tout) << "\n";
+                  tout << "m_lspace:";
+                  print_lar_term_L(m_lspace.to_term(), tout) << std::endl;);
+            if (subs_with_S_and_fresh(q, j) == lia_move::conflict)
+                return lia_move::conflict;
+                
+            process_fixed_in_espace();
+            SASSERT(subs_invariant(j));
+            return tighten_on_espace(j);
         }
 
         bool should_report_branch() const {
@@ -2492,7 +2519,7 @@ namespace lp {
                 out << "x" << j << " ";               
             out << "{\n";
             
-            print_term_o(get_term_from_entry(i), out << "\t") << ",\n";
+            print_term_o(get_term_from_entry(i), out << "\t") << " = 0\n";
             if (print_dep) {
                 auto l_term = l_term_from_row(i);
                 out << "\tm_l:{";
@@ -2515,15 +2542,15 @@ namespace lp {
                 for (const auto& p : m_e_matrix[i] ) {
                     if (var_is_fresh(p.var())) {
                         has_fresh = true;
-                        out << "has fresh var:" << p.var() << "\n";
                         break;
                     }
                 }
                 if (!has_fresh) {
                     for (const auto& p : get_term_from_entry(i)) {
-                        out << "\tlocal(x" << p.var() << ")";
-                        lra.print_column_info(local_to_lar_solver(p.var()), out);
-                    }
+                        out << "\tx" << p.var() << ": " << lra.get_bounds_string(local_to_lar_solver(p.var())) << "\n";
+                    }                    
+                } else {
+                    out << "\thas fresh vars\n";
                 }
             }
             out << "}\n";
