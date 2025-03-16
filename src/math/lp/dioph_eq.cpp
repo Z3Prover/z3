@@ -496,7 +496,7 @@ namespace lp {
 
         unsigned m_conflict_index = UINT_MAX;  // the row index of the conflict
         void reset_conflict() { m_conflict_index = UINT_MAX; }
-        bool has_conflict() const { return m_conflict_index == UINT_MAX; }
+        bool has_conflict() const { return m_conflict_index != UINT_MAX; }
         void set_rewrite_conflict(unsigned idx) { SASSERT(idx != UINT_MAX); m_conflict_index = idx; lra.stats().m_dio_rewrite_conflicts++; }
         unsigned m_max_of_branching_iterations = 0;
         unsigned m_number_of_branching_calls;
