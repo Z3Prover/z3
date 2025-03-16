@@ -1,6 +1,6 @@
 /**
  * GenAIScript Ambient Type Definition File
- * @version 1.114.2
+ * @version 1.115.0
  */
 type OptionsOrString<TOptions extends string> = (string & {}) | TOptions
 
@@ -108,6 +108,7 @@ type SystemPromptId = OptionsOrString<
     | "system.annotations"
     | "system.assistant"
     | "system.changelog"
+    | "system.cooperation"
     | "system.diagrams"
     | "system.diff"
     | "system.english"
@@ -1936,6 +1937,10 @@ interface ParsePDFOptions {
      * Disable caching with cache: false
      */
     cache?: boolean
+    /**
+     * Force system fonts use
+     */
+    useSystemFonts?: boolean
 }
 
 interface HTMLToTextOptions {
@@ -3319,7 +3324,23 @@ interface HighlightOptions {
     maxLength?: number
 }
 
-interface VectorSearchOptions extends EmbeddingsModelOptions {
+interface WorkspaceFileIndex {
+    list: () => Promise<WorkspaceFile[]>
+    upsert: (file: ElementOrArray<WorkspaceFile>) => Promise<void>
+    query: (
+        query: string,
+        options?: { topK?: number; minScore?: number }
+    ) => Promise<WorkspaceFileWithScore[]>
+}
+
+interface VectorIndexOptions extends EmbeddingsModelOptions {
+    version?: number
+    deleteIfExists?: boolean
+    chunkSize?: number
+    chunkOverlap?: number
+}
+
+interface VectorSearchOptions extends VectorIndexOptions {
     /**
      * Maximum number of embeddings to use
      */
@@ -3328,11 +3349,6 @@ interface VectorSearchOptions extends EmbeddingsModelOptions {
      * Minimum similarity score
      */
     minScore?: number
-
-    /**
-     * Cache identifier for the embeddings
-     */
-    cache?: string
 }
 
 interface FuzzSearchOptions {
@@ -3406,6 +3422,12 @@ interface Retrieval {
         files: (string | WorkspaceFile) | (string | WorkspaceFile)[],
         options?: VectorSearchOptions
     ): Promise<WorkspaceFile[]>
+
+    /**
+     * Loads or creates a file index using a vector index
+     * @param options
+     */
+    index(id: string, options?: VectorIndexOptions): Promise<WorkspaceFileIndex>
 
     /**
      * Performs a fuzzy search over the files

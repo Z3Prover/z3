@@ -158,8 +158,8 @@ struct gomory_test {
             TRACE("gomory_cut_detail", tout << "pol.size() > 1" << std::endl;);
             lcm_den = lcm(lcm_den, denominator(k));
             TRACE("gomory_cut_detail", tout << "k: " << k << " lcm_den: " << lcm_den << "\n";
-                  for (unsigned i = 0; i < pol.size(); i++) {
-                      tout << pol[i].first << " " << pol[i].second << "\n";
+                  for (const auto& p : pol) {
+                      tout << p.first << " " << p.second << "\n";
                   }
                   tout << "k: " << k << "\n";);
             lp_assert(lcm_den.is_pos());
@@ -172,8 +172,8 @@ struct gomory_test {
                 k *= lcm_den;
             }
             TRACE("gomory_cut_detail", tout << "after *lcm\n";
-                  for (unsigned i = 0; i < pol.size(); i++) {
-                      tout << pol[i].first << " * v" << pol[i].second << "\n";
+                  for (const auto& p : pol) {
+                      tout << p.first << " * v" << p.second << "\n";
                   }
                   tout << "k: " << k << "\n";);
             
@@ -210,7 +210,7 @@ struct gomory_test {
         bool some_int_columns = false;
         mpq f_0  = fractional_part(get_value(inf_col));
         mpq one_min_f_0 = 1 - f_0;
-        for ( auto pp : row) {
+        for (const auto& pp : row) {
             a = pp.first;
             x_j = pp.second;
             if (x_j == inf_col)
