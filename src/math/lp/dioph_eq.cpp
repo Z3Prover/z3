@@ -494,7 +494,10 @@ namespace lp {
         // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
         std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_terms;
 
-        unsigned m_conflict_index = -1;  // the row index of the conflict
+        unsigned m_conflict_index = UINT_MAX;  // the row index of the conflict
+        void reset_conflict() { m_conflict_index = UINT_MAX; }
+        bool has_conflict() const { return m_conflict_index == UINT_MAX; }
+        void set_rewrite_conflict(unsigned idx) { SASSERT(idx != UINT_MAX); m_conflict_index = idx; lra.stats().m_dio_rewrite_conflicts++; }
         unsigned m_max_of_branching_iterations = 0;
         unsigned m_number_of_branching_calls;
         struct branch {
@@ -1102,12 +1105,12 @@ namespace lp {
 
         void init(std_vector<unsigned> & f_vector) {
             m_report_branch = false;
-            m_conflict_index = -1;
             m_infeas_explanation.clear();
             lia.get_term().clear();
             m_number_of_branching_calls = 0;
             m_branch_stack.clear();
             m_lra_level = 0;
+            reset_conflict();
 
             process_changed_columns(f_vector);
             for (const lar_term* t : m_added_terms) {
@@ -1757,7 +1760,7 @@ namespace lp {
                         continue;
                     }
                     else {
-                        m_conflict_index = ei;
+                        set_rewrite_conflict(ei);
                         return;
                     }
                 }
@@ -1766,10 +1769,8 @@ namespace lp {
         }
         
         lia_move process_f(std_vector<unsigned>& f_vector) {
-            if (m_conflict_index != UINT_MAX) {
-                lra.stats().m_dio_rewrite_conflicts++;
+            if (has_conflict())
                 return lia_move::conflict;
-            }
             lia_move r;
             do {
                 r = rewrite_eqs(f_vector);
@@ -1782,9 +1783,6 @@ namespace lp {
             while (f_vector.size());
 
             if (r == lia_move::conflict) {
-                if (m_conflict_index != UINT_MAX) {
-                    lra.stats().m_dio_rewrite_conflicts++;
-                } 
                 return lia_move::conflict;                
             }
             TRACE("dio_s", print_S(tout));
@@ -2559,7 +2557,7 @@ namespace lp {
                         continue;
                     }
                     else {
-                        m_conflict_index = ei;
+                        set_rewrite_conflict(ei);
                         return lia_move::conflict;
                     }
                 }
@@ -2567,7 +2565,7 @@ namespace lp {
                 auto [ahk, k, k_sign, markovich_number] = find_minimal_abs_coeff(ei);
                 mpq gcd;
                 if (!normalize_e_by_gcd(ei, gcd)) {
-                    m_conflict_index = ei;
+                    set_rewrite_conflict(ei);
                     return lia_move::conflict;
                 }
                 if (!gcd.is_one()) 
@@ -2616,7 +2614,7 @@ namespace lp {
 
     public:
         void explain(explanation& ex) {
-            if (m_conflict_index == UINT_MAX) {
+            if (!has_conflict()) {
                 for (auto ci : m_infeas_explanation) {
                     ex.push_back(ci.ci());
                 }
