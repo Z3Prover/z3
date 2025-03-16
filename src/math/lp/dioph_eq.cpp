@@ -1397,7 +1397,7 @@ namespace lp {
             std_vector<unsigned> sorted_changed_terms;
             std_vector<unsigned> processed_terms;
             m_tightened_columns.reset();
-            for (unsigned j: m_terms_to_tighten) {
+            for (unsigned j: m_terms_to_tighten) {                
                 if (j >= lra.column_count() ||
                     !lra.column_has_term(j) ||
                     lra.column_is_free(j) ||
@@ -1423,14 +1423,19 @@ namespace lp {
             );
             for (unsigned j : sorted_changed_terms) {
                 m_terms_to_tighten.remove(j);
-                r = tighten_bounds_for_term_column(j);
-                if (r != lia_move::undef) {
+                auto r0 = tighten_bounds_for_term_column(j);
+                if (r0 == lia_move::conflict) {
+                    r = r0;
                     break;
-                }                
+                }
+                else if (r0 == lia_move::continue_with_check)
+                    r = r0;
+                else if (r0 == lia_move::branch && r == lia_move::undef)
+                    r = r0;
             }
-            for (unsigned j :processed_terms) {
+            for (unsigned j : processed_terms) 
                 m_terms_to_tighten.remove(j);
-            }
+            TRACE("dio", tout << r << "\n");
             return r;
         }
 
@@ -1802,10 +1807,10 @@ namespace lp {
             lia_move ret = process_f(f_vector);
             if (ret != lia_move::undef)
                 return ret;
-            TRACE("dio", print_S(tout););
             ret = tighten_terms_with_S();
             if (ret == lia_move::conflict) 
                 lra.stats().m_dio_tighten_conflicts++;
+            TRACE("dio", print_S(tout););
             return ret;
         }
 
