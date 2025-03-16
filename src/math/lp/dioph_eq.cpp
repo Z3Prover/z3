@@ -1247,6 +1247,7 @@ namespace lp {
                                    [k](const auto& c) {
                                        return c.var() == k;
                                    });
+            SASSERT(it != e_row.end());
             const mpq& k_coeff_in_e = it->coeff();
             bool is_one = k_coeff_in_e.is_one();
             SASSERT(is_one || k_coeff_in_e.is_minus_one());
@@ -1281,7 +1282,8 @@ namespace lp {
         lia_move subs_front_with_S_and_fresh(protected_queue& q, unsigned j) {
             process_fixed_in_espace();
             auto r = tighten_on_espace(j);
-            if (r == lia_move::conflict) return lia_move::conflict;
+            if (r == lia_move::conflict)
+                return lia_move::conflict;
             unsigned k = q.pop_front();
             if (!m_espace.has(k))
                 return lia_move::undef;            
@@ -1289,16 +1291,11 @@ namespace lp {
 
             SASSERT(can_substitute(k));
             lia_move ret;
-            if (is_substituted_by_fresh(k)) {
+            if (is_substituted_by_fresh(k)) 
                 ret = subs_qfront_by_fresh(k, q, j);
-            }
-            else {
+            else 
                 ret = subs_qfront_by_S(k, q, j);
-            }
-            if (ret == lia_move::conflict) 
-                return lia_move::conflict;
-            if (r == lia_move::continue_with_check) return r;
-            return ret;
+            return join(ret, r);
         }
 
         lar_term l_term_from_row(unsigned k) const {
@@ -1369,11 +1366,9 @@ namespace lp {
         
         lia_move subs_with_S_and_fresh(protected_queue& q, unsigned j) {
             lia_move r = lia_move::undef;
-            while (!q.empty()) {
+            while (!q.empty() && r != lia_move::conflict) {
                 lia_move ret = subs_front_with_S_and_fresh(q, j);
-                if (ret == lia_move::conflict) return lia_move::conflict;
-                if (ret == lia_move::continue_with_check)
-                    r = ret;
+                r = join(ret, r);
             }
             return r;
         }
@@ -1423,15 +1418,10 @@ namespace lp {
             );
             for (unsigned j : sorted_changed_terms) {
                 m_terms_to_tighten.remove(j);
-                auto r0 = tighten_bounds_for_term_column(j);
-                if (r0 == lia_move::conflict) {
-                    r = r0;
+                auto ret = tighten_bounds_for_term_column(j);
+                r = join(ret, r);
+                if (r == lia_move::conflict)
                     break;
-                }
-                else if (r0 == lia_move::continue_with_check)
-                    r = r0;
-                else if (r0 == lia_move::branch && r == lia_move::undef)
-                    r = r0;
             }
             for (unsigned j : processed_terms) 
                 m_terms_to_tighten.remove(j);
@@ -1783,14 +1773,13 @@ namespace lp {
             lia_move r;
             do {
                 r = rewrite_eqs(f_vector);
-                if (lra.settings().get_cancel_flag()) {
+                if (lra.settings().get_cancel_flag()) 
                     return lia_move::undef;
-                }
-                if (r == lia_move::conflict || r == lia_move::undef) {
+                if (r == lia_move::conflict || r == lia_move::undef) 
                     break;
-                }
                 SASSERT(m_changed_columns.size() == 0);
-            } while (f_vector.size());
+            }
+            while (f_vector.size());
 
             if (r == lia_move::conflict) {
                 if (m_conflict_index != UINT_MAX) {
