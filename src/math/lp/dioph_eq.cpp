@@ -2520,7 +2520,8 @@ namespace lp {
                 }
                 if (!has_fresh) {
                     for (const auto& p : get_term_from_entry(i)) {
-                        out << "\tx" << p.var() << ": " << lra.get_bounds_string(local_to_lar_solver(p.var())) << "\n";
+                        auto j = local_to_lar_solver(p.var());
+                        out << "\tx" << p.var() << " := " << lra.get_column_value(j) << " " << lra.get_bounds_string(j) << "\n";
                     }                    
                 } else {
                     out << "\thas fresh vars\n";
