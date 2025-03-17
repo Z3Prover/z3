@@ -1878,12 +1878,10 @@ namespace lp {
         }
 
         lia_move add_var_bound_for_branch(const branch& b) {
-            if (b.m_left) {
+            if (b.m_left) 
                 lra.add_var_bound(b.m_j, lconstraint_kind::LE, b.m_rs);
-            }
-            else {
+            else 
                 lra.add_var_bound(b.m_j, lconstraint_kind::GE, b.m_rs + mpq(1));
-            }
             TRACE("dio_br", lra.print_column_info(b.m_j, tout) << "add bound" << std::endl;);
             if (lra.column_is_fixed(b.m_j)) {
                 unsigned local_bj;
@@ -1951,7 +1949,9 @@ namespace lp {
                 }
                 auto st = lra.find_feasible_solution();                
                 TRACE("dio_br", tout << "st:" << lp_status_to_string(st) << std::endl;);
-                if ((int)st >= (int)(lp_status::FEASIBLE)) {
+                if (st == lp_status::CANCELLED)
+                    return lia_move::undef;
+                else if ((int)st >= (int)(lp_status::FEASIBLE)) {
                     // have a feasible solution
                     unsigned n_of_ii = get_number_of_int_inf();
                     TRACE("dio_br", tout << "n_of_ii:" << n_of_ii << "\n";);
@@ -1965,7 +1965,6 @@ namespace lp {
                     need_create_branch = true;
                 }
                 else {
-                    if (st == lp_status::CANCELLED) return lia_move::undef;
                     collect_evidence();
                     undo_explored_branches();
                     if (m_branch_stack.size() == 0) {
@@ -2002,16 +2001,13 @@ namespace lp {
 
         void update_branch_stats(const branch& b, unsigned n_of_ii) {
             // Ensure the branch stats vector is large enough
-            if (b.m_j >= m_branch_stats.size()) {
+            if (b.m_j >= m_branch_stats.size()) 
                 m_branch_stats.resize(b.m_j + 1);
-            }
 
-            if (b.m_left) {
+            if (b.m_left) 
                 m_branch_stats[b.m_j].m_ii_after_left.push_back(n_of_ii);
-            }
-            else {
+            else 
                 m_branch_stats[b.m_j].m_ii_after_right.push_back(n_of_ii);
-            }
         }
 
         branch create_branch() {
@@ -2208,13 +2204,10 @@ namespace lp {
                     pivot_col_cell_index;
             }
 
-            unsigned cell_to_process = static_cast<unsigned>(column.size() - 1);
-            while (cell_to_process > 0) {
+            for (auto cell_to_process = column.size(); cell_to_process-- > 0; ) {
                 auto& c = column[cell_to_process];
-                if (belongs_to_s(c.var())) {
-                    cell_to_process--;
+                if (belongs_to_s(c.var())) 
                     continue;
-                }
 
                 SASSERT(c.var() != ei && entry_invariant(c.var()));
                 mpq coeff = m_e_matrix.get_val(c);
@@ -2235,7 +2228,6 @@ namespace lp {
                             << std::endl;
                     });
                 SASSERT(entry_invariant(i));
-                cell_to_process--;
             }
             SASSERT(is_eliminated_from_f(j));
         }
@@ -2248,13 +2240,10 @@ namespace lp {
                   print_lar_term_L(t, tout) << std::endl;);
             auto& column = m_e_matrix.m_columns[j];
 
-            int cell_to_process = static_cast<int>(column.size() - 1);
-            while (cell_to_process >= 0) {
+            for (auto cell_to_process = column.size(); cell_to_process-- > 0; ) {
                 auto& c = column[cell_to_process];
-                if (belongs_to_s(c.var())) {
-                    cell_to_process--;
+                if (belongs_to_s(c.var())) 
                     continue;
-                }
 
                 mpq coeff = m_e_matrix.get_val(c);
                 TRACE("dio", tout << "before pivot entry :"; print_entry(c.var(), tout) << std::endl;);
@@ -2262,17 +2251,18 @@ namespace lp {
                 TRACE("dio", tout << "after pivoting c_row:";
                       print_entry(c.var(), tout););
                 SASSERT(entry_invariant(c.var()));
-                cell_to_process--;
             }
             SASSERT(is_eliminated_from_f(j));
         }
 
         bool is_eliminated_from_f(unsigned j) const {
             for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
-                if (!belongs_to_f(ei)) continue;
+                if (!belongs_to_f(ei))
+                    continue;
                 const auto& row = m_e_matrix.m_rows[ei];
                 bool eliminated_in_row = all_of(row, [j](auto & p) { return p.var() != j; });
-                if (!eliminated_in_row) return false;
+                if (!eliminated_in_row)
+                    return false;
             }
             return true;
         }
