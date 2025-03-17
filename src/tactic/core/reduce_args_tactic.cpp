@@ -425,14 +425,13 @@ class reduce_args_tactic : public tactic {
         reduce_args_ctx ctx(m);
         reduce_args_rw rw(*this, decl2args, ctx.m_decl2arg2funcs);
         
-        unsigned sz = g.size();
-        for (unsigned i = 0; i < sz; i++) {
+        unsigned idx = 0;
+        for (auto [f, dep, pr] : g) {
             if (g.inconsistent())
                 break;
-            expr * f = g.form(i);
             expr_ref new_f(m);
             rw(f, new_f);
-            g.update(i, new_f);
+            g.update(idx++, new_f);
         }
 
         report_tactic_progress(":reduced-funcs", decl2args.size());

@@ -127,26 +127,21 @@ class blast_term_ite_tactic : public tactic {
         
         void operator()(goal_ref const & g, goal_ref_buffer & result) {
             tactic_report report("blast-term-ite", *g);
-            bool produce_proofs = g->proofs_enabled();
-
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
-            unsigned   size = g->size();
             unsigned   num_fresh = 0;
-            for (unsigned idx = 0; idx < size; idx++) {
-                expr * curr = g->form(idx);
+            unsigned idx = 0;
+            for (auto [curr, dep, pr] : *g) {
                 if (m_rw.m_cfg.m_max_inflation < UINT_MAX) {
                     m_rw.m_cfg.m_init_term_size = get_num_exprs(curr);
                     num_fresh += m_rw.m_cfg.m_num_fresh;
                     m_rw.m_cfg.m_num_fresh = 0;
                 }
                 m_rw(curr, new_curr, new_pr);
-                if (produce_proofs) {
-                    proof * pr = g->pr(idx);
-                    new_pr     = m.mk_modus_ponens(pr, new_pr);
-                }
-                g->update(idx, new_curr, new_pr, g->dep(idx));
+                new_pr = m.mk_modus_ponens(pr, new_pr);                
+                g->update(idx++, new_curr, new_pr, dep);
             }
+            
             report_tactic_progress(":blast-term-ite-consts", m_rw.m_cfg.m_num_fresh + num_fresh);
             g->inc_depth();
             result.push_back(g.get());

@@ -852,10 +852,10 @@ class tseitin_cnf_tactic : public tactic {
             else
                 m_mc = nullptr;
 
-            unsigned size = g->size();
-            for (unsigned idx = 0; idx < size; idx++) {
-                process(g->form(idx), g->dep(idx));
-                g->update(idx, m.mk_true(), nullptr, nullptr); // to save memory
+            unsigned idx = 0;
+            for (auto [f, dep, pr] : *g) {
+                process(f, dep);
+                g->update(idx++, m.mk_true(), nullptr, nullptr);
             }
 
             SASSERT(!m_produce_unsat_cores || m_clauses.size() == m_deps.size());
