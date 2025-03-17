@@ -111,15 +111,13 @@ namespace lp {
             }
             // Only b0 exists
             else if (has_b0) {
-                unsigned a0 = m_rev_map.at(b0);
-
+                unsigned a0 = m_rev_map.at(b0);                
                 erase_val(b0);
                 add(a0, b1);
             }
             // Only b1 exists
             else if (has_b1) {
-                unsigned a1 = m_rev_map.at(b1);
-
+                unsigned a1 = m_rev_map.at(b1);                
                 erase_val(b1);
                 add(a1, b0);
             }
@@ -2479,14 +2477,11 @@ namespace lp {
                 print_deps(out, explain_fixed_in_meta_term(l_term));
                 out << "}\n";
             }
-            if (belongs_to_f(i)) {
+            if (belongs_to_f(i)) 
                 out << "in F\n";
-            }
-            else {
-                if (print_in_S) {
-                    out << "in S\n";
-                }
-            }
+            else if (print_in_S) 
+                out << "in S\n";
+            
             if (print_column_info) {
                 bool has_fresh = false;
                 for (const auto& p : m_e_matrix[i] ) {
@@ -2500,7 +2495,8 @@ namespace lp {
                         auto j = local_to_lar_solver(p.var());
                         out << "\tx" << p.var() << " := " << lra.get_column_value(j) << " " << lra.get_bounds_string(j) << "\n";
                     }                    
-                } else {
+                }
+                else {
                     out << "\thas fresh vars\n";
                 }
             }
@@ -2585,9 +2581,7 @@ namespace lp {
                 TRACE("dioph_eq", tout << "push to S:\n"; print_entry(h, tout););
                 move_entry_from_f_to_s(kh, h);
                 eliminate_var_in_f(h, kh, kh_sign);
-                if (ih != f_vector.size() - 1) {
-                    f_vector[ih] = f_vector.back();
-                }
+                f_vector[ih] = f_vector.back();                
                 f_vector.pop_back();
             }
             else  {                   
