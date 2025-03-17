@@ -1,0 +1,75 @@
+name: Bazel Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+
+    strategy:
+      matrix:
+        # We only test on the oldest version we want to support and latest.
+        # We trust that things also work for versions in the middle.
+        os: [ubuntu-22.04, ubuntu-latest]
+        # See Bazelisk README for legal values.
+        bazel_version: [7.x, latest]
+      # Don't abort other runs when one of them fails, to ease debugging.
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      # This tells Bazelisk (installed as `bazel`) to use specified version.
+      # https://github.com/bazelbuild/bazelisk?tab=readme-ov-file#how-does-bazelisk-know-which-bazel-version-to-run
+      USE_BAZEL_VERSION: ${{ matrix.bazel_version }}
+      CACHE_KEY: bazel-${{ matrix.bazel_version }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Mount bazel cache
+      uses: actions/cache/restore@v4
+      with:
+        path: "~/.cache/bazel"
+        key: ${{ env.CACHE_KEY }}-${{ hashFiles('**/*.bazel*', '**/*.bzl') }}
+        restore-keys: |
+          ${{ env.CACHE_KEY }}
+
+    - name: Save start time
+      uses: josStorer/get-current-time@v2
+      id: start-time
+      with:
+        format: X  # https://momentjs.com/docs/#/displaying/format/
+
+    - run: bazel build //...
+
+    - name: Save end time
+      # Needed to save cache regardless of build failures.
+      if: always()
+      uses: josStorer/get-current-time@v2
+      id: end-time
+      with:
+        format: X  # https://momentjs.com/docs/#/displaying/format/
+
+    - name: Calculate build duration
+      # Needed to save cache regardless of build failures.
+      if: always()
+      run: |
+        START=${{ steps.start-time.outputs.formattedTime }}
+        END=${{ steps.end-time.outputs.formattedTime }}
+        DURATION=$(( $END - $START ))
+        echo "duration=$DURATION" | tee "$GITHUB_ENV"
+
+    - name: Compress cache
+      # Needed to save cache regardless of build failures.
+      if: always()
+      run: rm -rf $(bazel info repository_cache)
+
+    - name: Save bazel cache
+      uses: actions/cache/save@v4
+      # Create new cache entry if on master branch or build takes >3mins.
+      if: always() && (github.ref_name == 'master' || env.duration > 180)
+      with:
+        path: "~/.cache/bazel"
+        key: ${{ env.CACHE_KEY }}-${{ hashFiles('**/*.bazel*', '**/*.bzl') }}-${{ github.run_id }}
