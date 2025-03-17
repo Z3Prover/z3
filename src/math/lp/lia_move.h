@@ -28,7 +28,6 @@ namespace lp {
         conflict,
         continue_with_check,
         undef,
-        unsat,
         cancelled
     };
     inline std::string lia_move_to_string(lia_move m) {
@@ -45,8 +44,8 @@ namespace lp {
             return "continue_with_check";
         case lia_move::undef:
             return "undef";
-        case lia_move::unsat:
-            return "unsat";
+        case lia_move::cancelled:
+            return "cancelled";
         default:
             UNREACHABLE();
         };
@@ -62,8 +61,6 @@ namespace lp {
             return r1;
         if (r1 == lia_move::conflict || r2 == lia_move::conflict)
             return lia_move::conflict;
-        if (r1 == lia_move::unsat || r2 == lia_move::unsat)
-            return lia_move::unsat;
         if (r1 == lia_move::cancelled || r2 == lia_move::cancelled)
             return lia_move::cancelled;
         if (r1 == lia_move::sat || r2 == lia_move::sat)
