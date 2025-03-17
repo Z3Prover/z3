@@ -322,9 +322,11 @@ class seq_rewriter {
     bool reduce_non_overlap(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_by_length(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
+    bool reduce_extract(expr* l, expr* r, expr_ref_vector& res);
     bool has_var(expr_ref_vector const& es);
     bool reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
-    bool reduce_eq_empty(expr* l, expr* r, expr_ref& result);    
+    bool reduce_eq_empty(expr* l, expr* r, expr_ref& result);
+    bool reduce_arith_eq(expr* l, expr* r, expr_ref_vector& constraints);
     std::pair<bool, unsigned> min_length(expr_ref_vector const& es);
     std::pair<bool, unsigned> min_length(expr* e);
     std::pair<bool, unsigned> min_length(unsigned sz, expr* const* es);

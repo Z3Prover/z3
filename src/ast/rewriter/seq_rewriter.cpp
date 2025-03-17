@@ -1265,10 +1265,23 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     if (str().is_extract(a, a1, b1, c1) &&
         m_autil.is_numeral(b1, r1) && r1.is_unsigned() &&
         m_autil.is_numeral(c1, r2) && r2.is_unsigned() &&
-        constantPos && constantLen &&
-        r1 == 0 && r2 >= pos + len) {        
-        result = str().mk_substr(a1, b, c);
-        return BR_REWRITE1;            
+        constantPos && constantLen) {
+        if (r1 == 0 && r2 >= pos + len) {        
+            result = str().mk_substr(a1, b, c);
+            return BR_REWRITE1;
+        }
+        // pos2 <= len1
+        // 0 <= pos1
+        // extract(extract(x, pos1, len1), pos2, len2)
+        // =
+        // extract(x, pos1 + pos2, min(len1 - pos2, len2))
+        //
+        if (r1 >= 0 && pos <= r2) {
+            r2 = std::min(r2 - pos, len);
+            r1 += pos;
+            result = str().mk_substr(a1, m_autil.mk_numeral(r1, true), m_autil.mk_numeral(r2, true));
+            return BR_REWRITE1;
+        }
     }
 
     if (str().is_extract(a, a1, b1, c1) && 
@@ -4677,8 +4690,7 @@ bool seq_rewriter::has_fixed_length_constraint(expr* a, unsigned& len) {
     return minl == maxl;
 }
 
-bool seq_rewriter::lift_str_from_to_re_ite(expr* r, expr_ref& result)
-{
+bool seq_rewriter::lift_str_from_to_re_ite(expr* r, expr_ref& result) {
     expr* cond = nullptr, * then_r = nullptr, * else_r = nullptr;
     expr_ref then_s(m());
     expr_ref else_s(m());
@@ -5421,6 +5433,20 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     if (reduce_eq_empty(l, r, result)) 
         return BR_REWRITE_FULL;
 
+#if 0
+    if (reduce_arith_eq(l, r, res) || reduce_arith_eq(r, l, res)) {
+        result = mk_and(res);
+        TRACE("seq_verbose", tout << result << "\n";);
+        return BR_REWRITE3;        
+    }
+
+    if (reduce_extract(l, r, res)) {
+        result = mk_and(res);
+        TRACE("seq_verbose", tout << result << "\n";);
+        return BR_REWRITE3;        
+    }
+#endif
+
     if (!reduce_eq(l, r, new_eqs, changed)) {
         result = m().mk_false();
         TRACE("seq_verbose", tout << result << "\n";);
@@ -5652,6 +5678,18 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_pair_vector& new_eqs, bo
         TRACE("seq", tout << mk_bounded_pp(l, m()) << " != " << mk_bounded_pp(r, m()) << "\n";);
         return false;
     }
+}
+
+bool seq_rewriter::reduce_arith_eq(expr* l, expr* r, expr_ref_vector& res) {
+    expr* s = nullptr, *sub = nullptr, *idx = nullptr;
+    rational i, n;
+    if (str().is_index(l, s, sub, idx) && m_autil.is_numeral(idx, i) && m_autil.is_numeral(r, n)) {
+        if (n == 0 && i == 0) {
+            res.push_back(str().mk_prefix(sub, s));
+            return true;
+        }
+    }
+    return false;
 }
 
 void seq_rewriter::add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& eqs) {
@@ -6089,6 +6127,31 @@ bool seq_rewriter::reduce_value_clash(expr_ref_vector& ls, expr_ref_vector& rs, 
             return true;
     return false;
 }
+
+bool seq_rewriter::reduce_extract(expr* l, expr* r, expr_ref_vector& res) {
+    expr* sub = nullptr, *p = nullptr, *ln = nullptr;
+    m_es.reset();
+    str().get_concat(r, m_es);
+    rational pos, len;
+    if (str().is_extract(l, sub, p, ln) &&
+        m_autil.is_numeral(p, pos) && m_autil.is_numeral(ln, len) &&
+        0 <= pos &&
+        0 <= len && 
+        all_of(m_es, [&](expr* e) { return str().is_unit(e); })) {
+
+        if (len == m_es.size()) {
+            expr_ref_vector result(m());
+            for (unsigned i = 0; i < pos.get_unsigned(); ++i) 
+                result.push_back(str().mk_unit(str().mk_nth_i(sub, m_autil.mk_int(i))));
+            result.append(m_es);
+            res.push_back(str().mk_prefix(str().mk_concat(result, sub->get_sort()), sub));
+            return true;
+        }
+        
+    }
+    return false;
+}
+
 
 bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs) {
 
