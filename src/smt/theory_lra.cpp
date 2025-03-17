@@ -1172,11 +1172,14 @@ public:
     void mk_ite_axiom(expr* n) {
         return;
         expr* c = nullptr, *t = nullptr, *e = nullptr;
+        rational b1, b2;
         VERIFY(m.is_ite(n, c, t, e));
-        literal e1 = th.mk_eq(n, t, false);
-        literal e2 = th.mk_eq(n, e, false);
-        scoped_trace_stream sts(th, e1, e2);
-        mk_axiom(e1, e2);
+        if (!a.is_numeral(t, b1) || !a.is_numeral(e, b2))
+            return;
+        auto v = mk_var(n);
+        auto vi = register_theory_var_in_lar_solver(v);
+        add_def_constraint_and_equality(vi, lp::GE, std::min(b1, b2)); 
+        add_def_constraint_and_equality(vi, lp::LE, std::max(b1, b2)); 
     }
 
     // is_int(x) <=> to_real(to_int(x)) = x
