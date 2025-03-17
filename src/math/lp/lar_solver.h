@@ -618,11 +618,12 @@ public:
     inline bool column_has_term(lpvar j) const { return m_columns[j].term() != nullptr; }
 
     std::ostream& print_column_info(unsigned j, std::ostream& out, bool print_expl = false) const {
-        m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+        m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out, false);
         if (column_has_term(j)) 
-            print_term_as_indices(get_term(j), out) << "\n";       
+            print_term_as_indices(get_term(j), out << "   := ") << " ";
+        out << "\n";
         if (print_expl)
-            display_column_explanation(out, j);
+            display_column_explanation(out, j);        
         return out;
     }
 

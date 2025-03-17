@@ -436,7 +436,7 @@ public:
         return out;
     }
 
-    std::ostream& print_column_info(unsigned j, std::ostream & out, const std::string& var_prefix = "x") const {
+    std::ostream& print_column_info(unsigned j, std::ostream & out, bool print_nl = false, const std::string& var_prefix = "j") const {
         if (j >= m_lower_bounds.size()) {
             out << "[" << j << "] is not present\n";
             return out;
@@ -446,12 +446,15 @@ public:
         strm << m_x[j];
         std::string j_val = strm.str();
         out << var_prefix << j << " = " << std::setw(6) << j_val;
-        if (m_basis_heading[j] >= 0)
-            out << " base ";
-        else 
-            out << "      ";
-        for (auto k = j_val.size(); k < 15; ++k)
+        if (j < 10)
+            out << "  ";
+        else if (j < 100)
             out << " ";
+
+        if (m_basis_heading[j] >= 0)
+            out << " base    ";
+        else 
+            out << "         ";
         switch (m_column_types[j]) {
         case column_type::fixed:
         case column_type::boxed:
@@ -469,7 +472,11 @@ public:
         default:
             UNREACHABLE();
         }
-        return out << "\n";
+        if (print_nl)
+            out << "\n";
+        else
+            out << "\t";
+        return out;
     }
 
     bool column_is_fixed(unsigned j) const { return this->m_column_types[j] == column_type::fixed; }

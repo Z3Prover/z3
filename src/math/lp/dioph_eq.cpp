@@ -541,10 +541,10 @@ namespace lp {
             TRACE("d_undo", tout << "t:" << t << ", t->j():" << t->j() << std::endl;);
             TRACE("dioph_eq", lra.print_term(*t, tout); tout << ", t->j() =" << t->j() << std::endl;);
             if (!contains(m_active_terms, t)) {
-                for (int i = static_cast<int>(m_added_terms.size() - 1); i >= 0; --i) {
-                    if (m_added_terms[i] != t) continue;
-                    if ((unsigned)i != m_added_terms.size() - 1)
-                        m_added_terms[i] = m_added_terms.back();
+                for (auto i = m_added_terms.size(); i-- > 0; ) {
+                    if (m_added_terms[i] != t)
+                        continue;
+                    m_added_terms[i] = m_added_terms.back();
                     m_added_terms.pop_back();
                     break;  // all is done since the term has not made it to m_active_terms
                 }
@@ -679,15 +679,13 @@ namespace lp {
         void make_sure_j_is_in_the_last_row_of_l_matrix() {
             unsigned j = m_l_matrix.column_count() - 1;
             const auto& last_e_row = m_l_matrix.m_rows.back();
-            mpq alpha;
-            for (const auto& p : last_e_row) {
-                if (p.var() == j) {
-                    return;
-                }
-            }
-            SASSERT(m_l_matrix.m_columns.back().size());
+            if (any_of(last_e_row, [j](auto const& p) { return p.var() == j; }))
+                return;
+            SASSERT(m_l_matrix.m_columns.back().size() > 0);            
             unsigned i = m_l_matrix.m_columns[j][0].var();
             m_l_matrix.add_rows(mpq(1), i, m_l_matrix.row_count() - 1);
+            // what is the post-condition? Is 'j' used in the post-condition or is it 'i'?
+            // SASSERT(any_of(m_l_matrix.m_rows.back(), [i](auto const& p) { return p.var() == i; }));
         }
 
         void shrink_matrices() {
@@ -705,9 +703,8 @@ namespace lp {
 
             remove_irrelevant_fresh_defs_for_row(i);
 
-            if (m_k2s.has_val(i)) {
+            if (m_k2s.has_val(i)) 
                 remove_from_S(i);
-            }
 
             m_sum_of_fixed.pop_back();
         }
@@ -760,7 +757,7 @@ namespace lp {
             TRACE("dio", tout << "marked term change j:" << j << std::endl;);
             m_changed_terms.insert(j);
         }
-        
+
         void update_column_bound_callback(unsigned j) {
             if (!lra.column_is_int(j) || !lra.column_is_fixed(j))
                 return;
@@ -1158,12 +1155,9 @@ namespace lp {
 
         template <typename T>
         bool has_fresh_var(const T& t) const {
-            for (const auto& p : t) {
-                if (var_is_fresh(p.var()))
-                    return true;
-            }
-            return false;
+            return any_of(t, [&](auto const& p) { return var_is_fresh(p.var()); });
         }
+        
         bool has_fresh_var(unsigned row_index) const {
             return has_fresh_var(m_e_matrix[row_index]);
         }
@@ -1417,6 +1411,7 @@ namespace lp {
             TRACE("dio", 
                   tout << "changed terms:"; for (auto j : sorted_changed_terms) tout << j << " "; tout << std::endl;
                   print_S(tout);
+                  // lra.display(tout);
                   // print_bounds(tout);
             );
             for (unsigned j : sorted_changed_terms) {
