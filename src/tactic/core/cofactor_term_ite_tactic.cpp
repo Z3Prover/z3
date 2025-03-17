@@ -29,14 +29,13 @@ class cofactor_term_ite_tactic : public tactic {
 
     void process(goal & g) {
         ast_manager & m = g.m();
-        unsigned sz = g.size();
-        for (unsigned i = 0; i < sz; i++) {
+        unsigned idx = 0;
+        for (auto [f, dep, pr] : g) {
             if (g.inconsistent())
                 break;
-            expr * f = g.form(i);
             expr_ref new_f(m);
             m_elim_ite(f, new_f);
-            g.update(i, new_f, nullptr, g.dep(i));
+            g.update(idx++, new_f, nullptr, dep);            
         }
     }
 

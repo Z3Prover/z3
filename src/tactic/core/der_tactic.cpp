@@ -34,21 +34,16 @@ class der_tactic : public tactic {
         }
         
         void operator()(goal & g) {
-            bool proofs_enabled = g.proofs_enabled();
             tactic_report report("der", g);
             expr_ref   new_curr(m());
             proof_ref  new_pr(m());
-            unsigned size = g.size();
-            for (unsigned idx = 0; idx < size; idx++) {
+            unsigned idx = 0;
+            for (auto [curr, dep, pr] : g) {
                 if (g.inconsistent())
                     break;
-                expr * curr = g.form(idx);
                 m_r(curr, new_curr, new_pr);
-                if (proofs_enabled) {
-                    proof * pr = g.pr(idx);
-                    new_pr     = m().mk_modus_ponens(pr, new_pr);
-                }
-                g.update(idx, new_curr, new_pr, g.dep(idx));
+                new_pr = m().mk_modus_ponens(pr, new_pr);                
+                g.update(idx++, new_curr, new_pr, dep);
             }
             g.elim_redundancies();
         }

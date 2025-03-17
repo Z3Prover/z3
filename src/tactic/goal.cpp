@@ -486,22 +486,21 @@ void goal::shrink(unsigned j) {
 /**
    \brief Eliminate true formulas.
 */
-void goal::elim_true() {
-    unsigned sz = size();
-    unsigned j = 0;
-    for (unsigned i = 0; i < sz; i++) {
-        expr * f = form(i);
-        if (m().is_true(f))
-            continue;
-        if (i == j) {
-            j++;
+void goal::elim_true() {    
+    unsigned i = 0, j = 0;
+    for (auto [f, dep, pr] : *this) {
+        if (m().is_true(f)) {
+            ++i;
             continue;
         }
-        m().set(m_forms, j, f);
-        m().set(m_proofs, j, m().get(m_proofs, i));
-        if (unsat_core_enabled())
-            m().set(m_dependencies, j, m().get(m_dependencies, i));
-        j++;
+        if (i != j) {
+            m().set(m_forms, j, f);
+            m().set(m_proofs, j, pr);
+            if (unsat_core_enabled())
+                m().set(m_dependencies, j, dep);
+        }
+        ++i;
+        ++j;
     }
     shrink(j);
 }
@@ -539,7 +538,7 @@ void goal::elim_redundancies() {
     expr_ref_fast_mark1 neg_lits(m());
     expr_ref_fast_mark2 pos_lits(m());
     unsigned sz = size();
-    unsigned j  = 0;
+    unsigned j = 0;
     for (unsigned i = 0; i < sz; i++) {
         expr * f = form(i);
         if (m().is_true(f))

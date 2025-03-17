@@ -256,22 +256,19 @@ public:
     void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
         tactic_report report("elim-small-bv", *g);
-        bool produce_proofs = g->proofs_enabled();
         fail_if_proof_generation("elim-small-bv", g);
         fail_if_unsat_core_generation("elim-small-bv", g);
         m_rw.cfg().m_produce_models = g->models_enabled();
 
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
-        unsigned   size = g->size();
-        for (unsigned idx = 0; !g->inconsistent() && idx < size; idx++) {
-            expr * curr = g->form(idx);
+        unsigned idx = 0;
+        for (auto [curr, dep, pr] : *g) {
+            if (g->inconsistent())
+                break;
             m_rw(curr, new_curr, new_pr);
-            if (produce_proofs) {
-                proof * pr = g->pr(idx);
-                new_pr = m.mk_modus_ponens(pr, new_pr);
-            }
-            g->update(idx, new_curr, new_pr, g->dep(idx));
+            new_pr = m.mk_modus_ponens(pr, new_pr);            
+            g->update(idx++, new_curr, new_pr, dep);
         }
         g->add(m_rw.m_cfg.m_mc.get());
 

@@ -165,6 +165,41 @@ public:
     bool is_cnf() const;
 
     goal * translate(ast_translation & translator) const;
+
+    class iterator {
+    public:
+        using value_type = std::tuple<expr*, expr_dependency*, proof*>;
+        using reference = value_type&;
+        using pointer = value_type*;
+        using difference_type = std::ptrdiff_t;
+        using iterator_category = std::forward_iterator_tag;
+
+        iterator(goal const* g, unsigned idx) : m_goal(g), m_idx(idx) {}
+
+        value_type operator*() const {
+            return std::make_tuple(m_goal->form(m_idx), m_goal->dep(m_idx), m_goal->pr(m_idx));
+        }
+
+        iterator& operator++() {
+            ++m_idx;
+            return *this;
+        }
+
+        bool operator==(const iterator& other) const {
+            return m_goal == other.m_goal && m_idx == other.m_idx;
+        }
+
+        bool operator!=(const iterator& other) const {
+            return !(*this == other);
+        }
+
+    private:
+        goal const* m_goal;
+        unsigned m_idx;
+    };
+
+    iterator begin() const { return iterator(this, 0); }
+    iterator end() const { return iterator(this, size()); }
 };
 
 std::ostream & operator<<(std::ostream & out, goal::precision p);
