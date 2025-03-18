@@ -60,10 +60,23 @@ namespace lp {
         iv(const mpq& v, unsigned j) : m_coeff(v), m_j(j) {}
     };
 
-    struct bijection {
+    class bijection {
         std::unordered_map<unsigned, unsigned> m_map;
         std::unordered_map<unsigned, unsigned> m_rev_map;
+    public:
+        auto map_begin() const { return m_map.begin(); }
+        auto map_end() const { return m_map.end(); }
+    
+        // Iterator helper
+        struct map_it {
+            const bijection& m_bij;
+            auto begin() const { return m_bij.map_begin(); }
+            auto end() const { return m_bij.map_end(); }
+        };
 
+        
+        // Add a method to get iterators over the key->val map (complementing key_val)
+        map_it key_val_pairs() const { return {*this}; }
         void add(unsigned a, unsigned b) {
             SASSERT(!contains(m_map, a) && !contains(m_rev_map, b));
             m_map[a] = b;
@@ -968,8 +981,8 @@ namespace lp {
         void remove_irrelevant_fresh_defs() {
             std_vector<unsigned> xt_to_remove;
             std_vector<unsigned> rows_to_remove_the_defs_from;
-            for (const auto& p : m_fresh_k2xt_terms.m_bij.m_rev_map) {
-                unsigned xt = p.first;
+            for (const auto& p : m_fresh_k2xt_terms.m_bij.key_val_pairs()) {
+                unsigned xt = p.second;
                 if (xt >= m_e_matrix.column_count()) {
                     xt_to_remove.push_back(xt);
                     rows_to_remove_the_defs_from.push_back(m_fresh_k2xt_terms.get_by_val(xt).second);
