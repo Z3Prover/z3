@@ -19,7 +19,7 @@ Tactic Documentation:
 
 ### Short Description:
 
-The tactic performs algebraic simplifcations on formulas
+The tactic performs algebraic simplifications on formulas
 
 ### Long Description
 
