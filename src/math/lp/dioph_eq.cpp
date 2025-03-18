@@ -501,7 +501,6 @@ namespace lp {
         indexed_uint_set m_changed_columns;
         indexed_uint_set m_changed_terms; // represented by term columns
         indexed_uint_set m_terms_to_tighten; // represented by term columns
-        indexed_uint_set m_tightened_columns; // the column that got tightened by the tigthening phase, 
         // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
         std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_terms;
 
@@ -1399,7 +1398,6 @@ namespace lp {
             // Copy changed terms to another vector for sorting
             std_vector<unsigned> sorted_changed_terms;
             std_vector<unsigned> processed_terms;
-            m_tightened_columns.reset();
             for (unsigned j: m_terms_to_tighten) {                
                 if (j >= lra.column_count() ||
                     !lra.column_has_term(j) ||
@@ -1733,7 +1731,6 @@ namespace lp {
 
             lp_status st = lra.find_feasible_solution();
             if ((int)st >= (int)lp::lp_status::FEASIBLE) {
-                m_tightened_columns.insert(j);
                 return false;
             }
             if (st == lp_status::CANCELLED) return false;
