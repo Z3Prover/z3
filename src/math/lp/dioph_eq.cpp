@@ -769,7 +769,11 @@ namespace lp {
         }
 
         void update_column_bound_callback(unsigned j) {
-            if (!lra.column_is_int(j) || !lra.column_is_fixed(j))
+            if (!lra.column_is_int(j))
+                return;
+            if (lra.column_has_term(j))
+                m_terms_to_tighten.insert(j); // the boundary of the term has changed: we can be successful to tighten this term   
+            if (!lra.column_is_fixed(j))
                 return;
             TRACE("dio", tout << "j:" << j << "\n"; lra.print_column_info(j, tout););
             m_changed_columns.insert(j);
