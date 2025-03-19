@@ -70,14 +70,8 @@ bool smt_logics::logic_has_bv(symbol const & s) {
 
 bool smt_logics::logic_has_array(symbol const & s) {
     return
-        s.str().find("QF_A") != std::string::npos ||        
-        s == "ALIA" ||
-        s == "AUFLIA" ||
-        s == "AUFLIRA" ||
-        s == "AUFNIA" ||
-        s == "AUFNIRA" ||
-        s == "AUFBV" ||
-        s == "ABV" ||
+        s.str().starts_with("QF_A") ||   
+        s.str().starts_with("A") ||   
         logic_is_all(s) ||
         s == "SMTFD" ||
         s == "HORN";
