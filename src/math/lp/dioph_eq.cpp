@@ -1488,7 +1488,44 @@ namespace lp {
             }
         }
 
+        mpq gcd_of_fixed_vars_coeffs(unsigned j) const {
+            for (const auto& p : lra.get_term(j))
+                if (is_fixed(p.var()) && (p.coeff().is_one() || p.coeff().is_minus_one()))
+                    return mpq(1);
 
+            mpq g(0);
+            for (const auto& p : lra.get_term(j)) {
+                if (!is_fixed(p.var()))
+                    continue;
+                SASSERT(p.coeff().is_int());
+                if (g.is_zero())
+                    g = abs(p.coeff());
+                else
+                    g = gcd(g, p.coeff());
+                if (g.is_one())
+                    break;
+            }
+            return g;
+
+        }
+
+
+        // here g is the common gcd of the m_espace coefficients and the fixed var coeffs gcd
+        // we can ignore the sum of the fixed
+        lia_move tighten_bounds_for_common_gcd(const mpq& g, unsigned j) {
+            if (tighten_one_bound_for_common_gcd(g, j, true) != lia_move::undef) {
+                return lia_move::conflict;
+            }
+            if (tighten_one_bound_for_common_gcd(g, j, false) != lia_move::undef) {
+                return lia_move::conflict;
+            }
+            if (m_changed_columns.contains(j)) {
+                return lia_move::continue_with_check;
+            }
+            return lia_move::undef;
+
+        }
+        
         lia_move tighten_on_espace(unsigned j) {
             mpq g = gcd_of_coeffs(m_espace.m_data, true);
             TRACE("dio", tout << "after process_q_with_S\nt:";  print_term_o(create_term_from_espace(), tout) << std::endl; tout << "g:" << g << std::endl;);
@@ -1506,6 +1543,11 @@ namespace lp {
                 lra.settings().stats().m_dio_branch_from_proofs++;
                 return lia_move::branch;
             }
+            
+            mpq fg = gcd(gcd_of_fixed_vars_coeffs(j), g);
+            
+            if (!fg.is_one() && tighten_bounds_for_common_gcd(fg, j) == lia_move::conflict)
+                return lia_move::conflict;
             // g is not trivial, trying to tighten the bounds
             if (tighten_bounds_for_non_trivial_gcd(g, j, true) != lia_move::undef) {
                 return lia_move::conflict;
@@ -1674,6 +1716,35 @@ namespace lp {
             }
         }
 
+       // m_espace contains the coefficients of the term
+        // m_c contains the fixed part of the term
+        // m_tmp_l is the linear combination of the equations that removes the
+        // substituted variables.
+        // g is the common gcd
+        // returns true iff the conflict is found
+        lia_move tighten_one_bound_for_common_gcd(const mpq& g, unsigned j,
+                                                    bool is_upper) {
+            mpq rs;
+            bool is_strict;
+            u_dependency* b_dep = nullptr;
+            SASSERT(!g.is_zero() && !g.is_one());
+
+            if (lra.has_bound_of_type(j, b_dep, rs, is_strict, is_upper)) {
+                TRACE("dio", 
+                      tout << "current " << (is_upper? "upper":"lower") << " bound for x" << j << ":"
+                      << rs << std::endl;);
+                rs = rs / g;
+                TRACE("dio", tout << "rs / g:" << rs << std::endl;);
+                if (!rs.is_int()) {
+                    if (tighten_bound_kind_for_common_gcd(g, j, rs, is_upper))
+                        return lia_move::conflict;
+                } else {
+                    TRACE("dio", tout << "no improvement in the bound\n";);
+                }
+            }
+            return lia_move::undef;
+        }
+
         
         // m_espace contains the coefficients of the term
         // m_c contains the fixed part of the term
@@ -1702,7 +1773,54 @@ namespace lp {
             }
             return lia_move::undef;
         }
-        // returns true only on a conflict
+                // returns true only on a conflict
+        bool tighten_bound_kind_for_common_gcd(const mpq& g, unsigned j, const mpq& ub, bool upper) {
+            // ub = upper_bound(j)/g.
+            // we have xj = t = g*t_<= upper_bound(j), then
+            // t_ <= floor((upper_bound(j))/g) = floor(ub)
+            //
+            // so xj = g*t_ <= g*flooris new upper bound
+            // <= can be replaced with >= for lower bounds, with ceil instead of
+            // floor
+            mpq bound = g * (upper ? floor(ub) : ceil(ub));
+            TRACE("dio", tout << "is upper:" << upper << std::endl;
+                  tout << "new " << (upper ? "upper" : "lower")
+                  << " bound:" << bound << std::endl;);
+
+            SASSERT((upper && bound < lra.get_upper_bound(j).x) ||
+                    (!upper && bound > lra.get_lower_bound(j).x));
+            lconstraint_kind kind = upper ? lconstraint_kind::LE : lconstraint_kind::GE;
+            u_dependency* dep = upper ? lra.get_column_upper_bound_witness(j) : lra.get_column_lower_bound_witness(j);
+            auto rs = open_fixed_from_ml(m_lspace);
+            //rs -= fixed subterm of lra.get_term(j)
+            for (const auto& p: lra.get_term(j)) {
+                if (is_fixed(p.var()))
+                    rs.add(-p.coeff(), p.var());
+            }
+
+            // the right side is off by 1*j from m_espace
+            if (is_fixed(j))
+                rs.add(mpq(1), j);            
+            for (const auto& p: rs) {
+                SASSERT(is_fixed(p.var()));
+                dep = lra.join_deps(dep, lra.get_bound_constraint_witnesses_for_column(p.var()));         
+            }
+            TRACE("dio", tout << "jterm:";
+                  print_lar_term_L(lra.get_term(j), tout) << "\ndep:";
+                  print_deps(tout, dep) << std::endl;);
+            lra.update_column_type_and_bound(j, kind, bound, dep);
+
+            lp_status st = lra.find_feasible_solution();
+            if ((int)st >= (int)lp::lp_status::FEASIBLE) {
+                return false;
+            }
+            if (st == lp_status::CANCELLED) return false;
+            lra.get_infeasibility_explanation(m_infeas_explanation);
+            return true;
+        }
+
+
+// returns true only on a conflict
         bool tighten_bound_kind(const mpq& g, unsigned j, const mpq& ub, bool upper) {
             // ub = (upper_bound(j) - m_c)/g.
             // we have xj = t = g*t_+ m_c <= upper_bound(j), then
