@@ -171,6 +171,28 @@ namespace lp {
             }
         }
 
+        // total := - sum_{a_j > 0} a_j * ub(x_j) - sum_{a_j < 0} a_j * lb(x_j)
+        //
+        // for each a_j* x_j in row,
+        // bound := total / a_j + ub(x_j) = (total + (a_j * ub(x_j))) / a_j if a_j > 0
+        // bound := total / a_j + lb(x_j) = (total + (a_j * lb(x_j))) / a_j if a_j < 0
+
+        // example
+        // 3x + 2y + z = 0
+        // x <= 1, y <= 2, z <= 1
+        // total = - (3*1 + 2*2 + 1) = -8
+        // bound := -8/1 + 1 = -7
+        // => z >= -7
+
+        // If all variables are integer (or if x_j is integer).
+        // let K = lcm(a_j)
+        // 
+        // totalK = K*total
+        // sum without x_j: bound := totalK + K * a_j * ub(x_j)
+        // K*a_j x >= bound
+        // x >= ceil(bound / K*a_j) = ceil ((total + a_j * ub(x_j)) / a_j) = ceil ((total / a_j) + ub(x_j))
+        // 
+        
         void limit_all_monoids_from_below() {
             int strict = 0;
             m_total = m_rs.x;
