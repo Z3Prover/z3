@@ -63,9 +63,10 @@ namespace lp {
     class bijection {
         std::unordered_map<unsigned, unsigned> m_map;
         std::unordered_map<unsigned, unsigned> m_rev_map;
-    public:
         auto map_begin() const { return m_map.begin(); }
         auto map_end() const { return m_map.end(); }
+    public:
+
     
         // Iterator helper
         struct map_it {
@@ -1707,14 +1708,13 @@ namespace lp {
             }
         }
 
-       // m_espace contains the coefficients of the term
+        // m_espace contains the coefficients of the term
         // m_c contains the fixed part of the term
         // m_tmp_l is the linear combination of the equations that removes the
         // substituted variables.
         // g is the common gcd
         // returns true iff the conflict is found
-        lia_move tighten_one_bound_for_common_gcd(const mpq& g, unsigned j,
-                                                    bool is_upper) {
+        lia_move tighten_one_bound_for_common_gcd(const mpq& g, unsigned j, bool is_upper) {
             mpq rs;
             bool is_strict;
             u_dependency* b_dep = nullptr;
@@ -1723,15 +1723,11 @@ namespace lp {
             if (lra.has_bound_of_type(j, b_dep, rs, is_strict, is_upper)) {
                 TRACE("dio", 
                       tout << "current " << (is_upper? "upper":"lower") << " bound for x" << j << ":"
-                      << rs << std::endl;);
+                           << rs << " rs/ g" << rs / g <<  std::endl;);
                 rs = rs / g;
-                TRACE("dio", tout << "rs / g:" << rs << std::endl;);
-                if (!rs.is_int()) {
-                    if (tighten_bound_kind_for_common_gcd(g, j, rs, is_upper))
-                        return lia_move::conflict;
-                } else {
-                    TRACE("dio", tout << "no improvement in the bound\n";);
-                }
+                CTRACE("dio", rs.is_int(), tout << "no improvement in the bound\n";);
+                if (!rs.is_int() && tighten_bound_kind_for_common_gcd(g, j, rs, is_upper))
+                    return lia_move::conflict;                                  
             }
             return lia_move::undef;
         }
@@ -1764,7 +1760,8 @@ namespace lp {
             }
             return lia_move::undef;
         }
-                // returns true only on a conflict
+
+        // returns true only on a conflict
         bool tighten_bound_kind_for_common_gcd(const mpq& g, unsigned j, const mpq& ub, bool upper) {
             // ub = upper_bound(j)/g.
             // we have xj = t = g*t_<= upper_bound(j), then
@@ -1802,10 +1799,10 @@ namespace lp {
             lra.update_column_type_and_bound(j, kind, bound, dep);
 
             lp_status st = lra.find_feasible_solution();
-            if ((int)st >= (int)lp::lp_status::FEASIBLE) {
+            if (st == lp_status::CANCELLED)
                 return false;
-            }
-            if (st == lp_status::CANCELLED) return false;
+            if ((int)st >= (int)lp::lp_status::FEASIBLE) 
+                return false;            
             lra.get_infeasibility_explanation(m_infeas_explanation);
             return true;
         }
