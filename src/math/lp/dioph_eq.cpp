@@ -1806,7 +1806,7 @@ namespace lp {
                 dep = lra.join_deps(dep, lra.get_bound_constraint_witnesses_for_column(p.var()));         
             }
             TRACE("dio", tout << "jterm:";
-                  print_lar_term_L(lra.get_term(j), tout) << "\ndep:";
+                  print_lar_term_L(lra.get_term(j), tout) << "\ndeps:\n";
                   print_deps(tout, dep) << std::endl;);
             lra.update_column_type_and_bound(j, kind, bound, dep);
 
