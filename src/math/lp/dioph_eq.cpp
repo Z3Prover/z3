@@ -1801,12 +1801,12 @@ namespace lp {
             lp_status st = lra.find_feasible_solution();
             if (st == lp_status::CANCELLED)
                 return false;
-            if ((int)st >= (int)lp::lp_status::FEASIBLE) 
+            if (lp::is_sat(st))
                 return false;            
             lra.get_infeasibility_explanation(m_infeas_explanation);
             return true;
         }
-
+        
 
 // returns true only on a conflict
         bool tighten_bound_kind(const mpq& g, unsigned j, const mpq& ub, bool upper) {
@@ -1840,10 +1840,8 @@ namespace lp {
             lra.update_column_type_and_bound(j, kind, bound, dep);
 
             lp_status st = lra.find_feasible_solution();
-            if ((int)st >= (int)lp::lp_status::FEASIBLE) {
+            if (is_sat(st) || st == lp::lp_status::CANCELLED)
                 return false;
-            }
-            if (st == lp_status::CANCELLED) return false;
             lra.get_infeasibility_explanation(m_infeas_explanation);
             return true;
         }
@@ -2069,7 +2067,7 @@ namespace lp {
                 TRACE("dio_br", tout << "st:" << lp_status_to_string(st) << std::endl;);
                 if (st == lp_status::CANCELLED)
                     return lia_move::undef;
-                else if ((int)st >= (int)(lp_status::FEASIBLE)) {
+                else if (lp::is_sat(st)) {
                     // have a feasible solution
                     unsigned n_of_ii = get_number_of_int_inf();
                     TRACE("dio_br", tout << "n_of_ii:" << n_of_ii << "\n";);

@@ -74,11 +74,14 @@ enum class lp_status {
     OPTIMAL
 };
 
+inline bool is_sat(lp_status st) {
+    return st == lp_status::FEASIBLE || st == lp_status::OPTIMAL;
+}
+
 // when the ratio of the vector length to domain size to is greater than the return value we switch to solve_By_for_T_indexed_only
 template <typename X>
 unsigned ratio_of_index_size_to_all_size() {
-        return 10;
-    
+    return 10;
 }
 
 const char* lp_status_to_string(lp_status status);
