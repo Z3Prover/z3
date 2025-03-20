@@ -1513,17 +1513,12 @@ namespace lp {
         // here g is the common gcd of the m_espace coefficients and the fixed var coeffs gcd
         // we can ignore the sum of the fixed
         lia_move tighten_bounds_for_common_gcd(const mpq& g, unsigned j) {
-            if (tighten_one_bound_for_common_gcd(g, j, true) != lia_move::undef) {
-                return lia_move::conflict;
-            }
-            if (tighten_one_bound_for_common_gcd(g, j, false) != lia_move::undef) {
-                return lia_move::conflict;
-            }
-            if (m_changed_columns.contains(j)) {
-                return lia_move::continue_with_check;
-            }
-            return lia_move::undef;
-
+            auto r = tighten_one_bound_for_common_gcd(g, j, true);
+            if (r == lia_move::undef)
+                r = tighten_one_bound_for_common_gcd(g, j, false);
+            if (r == lia_move::undef && m_changed_columns.contains(j))
+                r = lia_move::continue_with_check;
+            return r;
         }
         
         lia_move tighten_on_espace(unsigned j) {
@@ -1534,9 +1529,8 @@ namespace lp {
                 return lia_move::undef;
             if (g.is_zero()) {
                 handle_constant_term(j);
-                if (!m_infeas_explanation.empty()) {
-                    return lia_move::conflict;
-                }
+                if (!m_infeas_explanation.empty()) 
+                    return lia_move::conflict;                
                 return lia_move::undef;
             }
             if (create_branch_report(j, g)) {
@@ -1546,20 +1540,17 @@ namespace lp {
             
             mpq fg = gcd(gcd_of_fixed_vars_coeffs(j), g);
             
-            if (!fg.is_one() && tighten_bounds_for_common_gcd(fg, j) == lia_move::conflict)
-                return lia_move::conflict;
+            auto r = lia_move::undef;
+            if (!fg.is_one())
+                r = tighten_bounds_for_common_gcd(fg, j);
             // g is not trivial, trying to tighten the bounds
-            if (tighten_bounds_for_non_trivial_gcd(g, j, true) != lia_move::undef) {
-                return lia_move::conflict;
-            }
-            if (tighten_bounds_for_non_trivial_gcd(g, j, false) != lia_move::undef) {
-                return lia_move::conflict;
-            }
-            if (m_changed_columns.contains(j)) {
-                return lia_move::continue_with_check;
-            }
-            return lia_move::undef;
-
+            if (r == lia_move::undef)
+                r = tighten_bounds_for_non_trivial_gcd(g, j, true);
+            if (r == lia_move::undef)
+                r = tighten_bounds_for_non_trivial_gcd(g, j, false);
+            if (r == lia_move::undef && m_changed_columns.contains(j))
+                r = lia_move::continue_with_check;            
+            return r;
         }
         
         /* j is the index of the column representing a term
