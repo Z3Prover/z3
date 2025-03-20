@@ -345,7 +345,6 @@ namespace lp {
 
         bool m_has_non_integral_term = false;
         std_vector<mpq> m_sum_of_fixed;
-        var_register m_var_register;
         // the terms are stored in m_A and m_c
         static_matrix<mpq, mpq> m_e_matrix;  // the rows of the matrix are the terms,
         static_matrix<mpq, mpq> m_l_matrix;  // the rows of the matrix are the l_terms providing the certificate to the entries modulo the constant part: look an entry_invariant that assures that the each two rows are in sync.
@@ -710,8 +709,7 @@ namespace lp {
             while (m_e_matrix.column_count() && m_e_matrix.m_columns.back().size() == 0) {
                 m_e_matrix.m_columns.pop_back();
             }
-            m_var_register.shrink(m_e_matrix.column_count());
-
+            
             remove_irrelevant_fresh_defs_for_row(i);
 
             if (m_k2s.has_val(i)) 
@@ -795,15 +793,6 @@ namespace lp {
             return t;
         }
 
-        // adds variable j of lar_solver to the local diophantine handler
-        unsigned add_var(unsigned j) {
-            return this->m_var_register.add_var(j, true);
-        }
-
-        unsigned local_to_lar_solver(unsigned j) const {
-            return m_var_register.local_to_external(j);
-        }
-
         void register_columns_to_term(const lar_term& t) {
             TRACE("dio_reg", tout << "register term:"; lra.print_term(t, tout); tout << ", t.j()=" << t.j() << std::endl;);
             for (const auto& p : t.ext_coeffs()) {
@@ -840,9 +829,8 @@ namespace lp {
                 if (is_fixed(p.var()))
                     fixed_sum += p.coeff() * lia.lower_bound(p.var()).x;
                 else {
-                    unsigned lj = add_var(p.var());
-                    m_e_matrix.add_columns_up_to(lj);
-                    m_e_matrix.add_new_element(entry_index, lj, p.coeff());
+                    m_e_matrix.add_columns_up_to(p.var());
+                    m_e_matrix.add_new_element(entry_index, p.var(), p.coeff());
                 }
             }
             subs_entry(entry_index);
@@ -939,7 +927,7 @@ namespace lp {
             clear_e_row(ei);
             mpq denom(1);
             for (const auto& p : m_espace.m_data) {
-                unsigned lj = add_var(p.var());
+                unsigned lj = p.var();
                 m_e_matrix.add_columns_up_to(lj);
                 m_e_matrix.add_new_element(ei, lj, p.coeff());
                 if (!denominator(p.coeff()).is_one()) {
@@ -964,9 +952,9 @@ namespace lp {
                     for (unsigned k : it->second) {
                         mark_term_change(k);
                     }
-                if (!m_var_register.external_is_used(j))
+                if (j >= m_e_matrix.column_count())
                     continue;
-                for (const auto& p : m_e_matrix.column(this->lar_solver_to_local(j))) {
+                for (const auto& p : m_e_matrix.column(j)) {
                     m_changed_rows.insert(p.var());
                 }
             }
@@ -1043,7 +1031,6 @@ namespace lp {
                 
                 if (m_e_matrix.m_columns.back().size() == 0) {
                     m_e_matrix.m_columns.pop_back();
-                    m_var_register.shrink(m_e_matrix.column_count());
                 }
                 if (m_l_matrix.m_columns.back().size() == 0) {
                     m_l_matrix.m_columns.pop_back();
@@ -1097,7 +1084,6 @@ namespace lp {
                         if (m_k2s.has_key(p.var())) {
                             TRACE("dio",
                               tout << "entry:" << ei << " belongs to f but depends on column " << p.var() << std::endl;
-                              tout << "m_var_register.local_to_external(p.var()):" << m_var_register.local_to_external(p.var()) << std::endl;
                               print_entry(ei, tout);
                               tout << "column " << p.var() << " of m_e_matrix:";
                               for (const auto & c : m_e_matrix.m_columns[p.var()]) {
@@ -1163,9 +1149,7 @@ namespace lp {
         }
 
         bool var_is_fresh(unsigned j) const {
-            bool ret = m_fresh_k2xt_terms.has_second_key(j);
-            SASSERT(!ret || m_var_register.local_to_external(j) == UINT_MAX);
-            return ret;
+            return m_fresh_k2xt_terms.has_second_key(j);
         }
 
         template <typename T>
@@ -1361,7 +1345,7 @@ namespace lp {
         }
 
         bool subs_invariant(unsigned j) const {
-            term_o ls = fix_vars(term_to_lar_solver(remove_fresh_vars(create_term_from_espace())));
+            term_o ls = fix_vars(remove_fresh_vars(create_term_from_espace()));
             term_o t0 = m_lspace.to_term();
             term_o t1 = open_ml(t0);
             t1.add_monomial(mpq(1), j);
@@ -1464,7 +1448,7 @@ namespace lp {
                     m_c += p.coeff() * lia.lower_bound(p.j()).x;
                 }
                 else {
-                    unsigned lj = lar_solver_to_local(p.j());
+                    unsigned lj = p.j();
                     m_espace.add(p.coeff(), lj);;
                     if (can_substitute(lj))
                         q.push(lj);
@@ -1473,54 +1457,18 @@ namespace lp {
             SASSERT(subs_invariant(lar_t.j()));
         }
 
-        unsigned lar_solver_to_local(unsigned j) const {
-            return m_var_register.external_to_local(j);
-        }
-
         void process_fixed_in_espace() {
             std_vector<unsigned> fixed_vars;
             for (const auto & p: m_espace) {
-                if (!var_is_fresh(p.var()) && is_fixed(local_to_lar_solver(p.var())))
+                if (!var_is_fresh(p.var()) && is_fixed(p.var()))
                     fixed_vars.push_back(p.var());
             }
             for (unsigned j : fixed_vars) {
-                m_c += m_espace[j] * lra.get_lower_bound(local_to_lar_solver(j)).x;
+                m_c += m_espace[j] * lra.get_lower_bound(j).x;
                 m_espace.erase(j);
             }
         }
 
-        mpq gcd_of_fixed_vars_coeffs(unsigned j) const {
-            for (const auto& p : lra.get_term(j))
-                if (is_fixed(p.var()) && (p.coeff().is_one() || p.coeff().is_minus_one()))
-                    return mpq(1);
-
-            mpq g(0);
-            for (const auto& p : lra.get_term(j)) {
-                if (!is_fixed(p.var()))
-                    continue;
-                SASSERT(p.coeff().is_int());
-                if (g.is_zero())
-                    g = abs(p.coeff());
-                else
-                    g = gcd(g, p.coeff());
-                if (g.is_one())
-                    break;
-            }
-            return g;
-
-        }
-
-
-        // here g is the common gcd of the m_espace coefficients and the fixed var coeffs gcd
-        // we can ignore the sum of the fixed
-        lia_move tighten_bounds_for_common_gcd(const mpq& g, unsigned j) {
-            auto r = tighten_one_bound_for_common_gcd(g, j, true);
-            if (r == lia_move::undef)
-                r = tighten_one_bound_for_common_gcd(g, j, false);
-            if (r == lia_move::undef && m_changed_columns.contains(j))
-                r = lia_move::continue_with_check;
-            return r;
-        }
         
         lia_move tighten_on_espace(unsigned j) {
             mpq g = gcd_of_coeffs(m_espace.m_data, true);
@@ -1538,15 +1486,8 @@ namespace lp {
                 lra.settings().stats().m_dio_branch_from_proofs++;
                 return lia_move::branch;
             }
-            
-            mpq fg = gcd(gcd_of_fixed_vars_coeffs(j), g);
-            
-            auto r = lia_move::undef;
-            if (!fg.is_one())
-                r = tighten_bounds_for_common_gcd(fg, j);
             // g is not trivial, trying to tighten the bounds
-            if (r == lia_move::undef)
-                r = tighten_bounds_for_non_trivial_gcd(g, j, true);
+            auto r = tighten_bounds_for_non_trivial_gcd(g, j, true);
             if (r == lia_move::undef)
                 r = tighten_bounds_for_non_trivial_gcd(g, j, false);
             if (r == lia_move::undef && m_changed_columns.contains(j))
@@ -1576,7 +1517,7 @@ namespace lp {
                   tout << "m_espace:";
                   print_term_o(create_term_from_espace(), tout) << std::endl;
                   tout << "in lar_solver indices:\n";
-                  print_term_o(term_to_lar_solver(create_term_from_espace()), tout) << "\n";
+                  print_term_o(create_term_from_espace(), tout) << "\n";
                   tout << "m_lspace:";
                   print_lar_term_L(m_lspace.to_term(), tout) << std::endl;);
             if (subs_with_S_and_fresh(q, j) == lia_move::conflict)
@@ -1634,8 +1575,8 @@ namespace lp {
         mpq get_value_of_espace() const {
             mpq r;
             for (const auto & p : m_espace.m_data) {
-                r += p.coeff()*lra.get_column_value(local_to_lar_solver(p.var())).x;
-                SASSERT(lra.get_column_value(local_to_lar_solver(p.var())).y.is_zero());
+                r += p.coeff()*lra.get_column_value(p.var()).x;
+                SASSERT(lra.get_column_value(p.var()).y.is_zero());
             }
             return r;
         }
@@ -1653,7 +1594,7 @@ namespace lp {
             lar_term& t = lia.get_term();
             t.clear();
             for (const auto& p : m_espace.m_data) {
-                t.add_monomial(p.coeff() / g, local_to_lar_solver(p.var()));
+                t.add_monomial(p.coeff() / g, p.var());
             }
             lia.offset() = floor(rs);
             lia.is_upper() = true;
@@ -1708,30 +1649,6 @@ namespace lp {
             }
         }
 
-        // m_espace contains the coefficients of the term
-        // m_c contains the fixed part of the term
-        // m_tmp_l is the linear combination of the equations that removes the
-        // substituted variables.
-        // g is the common gcd
-        // returns true iff the conflict is found
-        lia_move tighten_one_bound_for_common_gcd(const mpq& g, unsigned j, bool is_upper) {
-            mpq rs;
-            bool is_strict;
-            u_dependency* b_dep = nullptr;
-            SASSERT(!g.is_zero() && !g.is_one());
-
-            if (lra.has_bound_of_type(j, b_dep, rs, is_strict, is_upper)) {
-                TRACE("dio", 
-                      tout << "current " << (is_upper? "upper":"lower") << " bound for x" << j << ":"
-                           << rs << " rs/ g" << rs / g <<  std::endl;);
-                rs = rs / g;
-                CTRACE("dio", rs.is_int(), tout << "no improvement in the bound\n";);
-                if (!rs.is_int() && tighten_bound_kind_for_common_gcd(g, j, rs, is_upper))
-                    return lia_move::conflict;                                  
-            }
-            return lia_move::undef;
-        }
-
         
         // m_espace contains the coefficients of the term
         // m_c contains the fixed part of the term
@@ -1761,53 +1678,6 @@ namespace lp {
             return lia_move::undef;
         }
 
-        // returns true only on a conflict
-        bool tighten_bound_kind_for_common_gcd(const mpq& g, unsigned j, const mpq& ub, bool upper) {
-            // ub = upper_bound(j)/g.
-            // we have xj = t = g*t_<= upper_bound(j), then
-            // t_ <= floor((upper_bound(j))/g) = floor(ub)
-            //
-            // so xj = g*t_ <= g*flooris new upper bound
-            // <= can be replaced with >= for lower bounds, with ceil instead of
-            // floor
-            mpq bound = g * (upper ? floor(ub) : ceil(ub));
-            TRACE("dio", tout << "is upper:" << upper << std::endl;
-                  tout << "new " << (upper ? "upper" : "lower")
-                  << " bound:" << bound << std::endl;);
-
-            SASSERT((upper && bound < lra.get_upper_bound(j).x) ||
-                    (!upper && bound > lra.get_lower_bound(j).x));
-            lconstraint_kind kind = upper ? lconstraint_kind::LE : lconstraint_kind::GE;
-            u_dependency* dep = upper ? lra.get_column_upper_bound_witness(j) : lra.get_column_lower_bound_witness(j);
-            auto rs = open_fixed_from_ml(m_lspace);
-            //rs -= fixed subterm of lra.get_term(j)
-            for (const auto& p: lra.get_term(j)) {
-                if (is_fixed(p.var()))
-                    rs.add(-p.coeff(), p.var());
-            }
-
-            // the right side is off by 1*j from m_espace
-            if (is_fixed(j))
-                rs.add(mpq(1), j);            
-            for (const auto& p: rs) {
-                SASSERT(is_fixed(p.var()));
-                dep = lra.join_deps(dep, lra.get_bound_constraint_witnesses_for_column(p.var()));         
-            }
-            TRACE("dio", tout << "jterm:";
-                  print_lar_term_L(lra.get_term(j), tout) << "\ndeps:\n";
-                  print_deps(tout, dep) << std::endl;);
-            lra.update_column_type_and_bound(j, kind, bound, dep);
-
-            lp_status st = lra.find_feasible_solution();
-            if (st == lp_status::CANCELLED)
-                return false;
-            if (lp::is_sat(st))
-                return false;            
-            lra.get_infeasibility_explanation(m_infeas_explanation);
-            return true;
-        }
-        
-
 // returns true only on a conflict
         bool tighten_bound_kind(const mpq& g, unsigned j, const mpq& ub, bool upper) {
             // ub = (upper_bound(j) - m_c)/g.
@@ -1832,11 +1702,16 @@ namespace lp {
                 rs.add(mpq(1), j);
             for (const auto& p: rs) {
                 SASSERT(is_fixed(p.var()));
+                if ((p.coeff() / g).is_int())
+                    continue; // explain todo!!!
+                    
                 dep = lra.join_deps(dep, lra.get_bound_constraint_witnesses_for_column(p.var()));         
             }
             TRACE("dio", tout << "jterm:";
                   print_lar_term_L(lra.get_term(j), tout) << "\ndep:";
                   print_deps(tout, dep) << std::endl;);
+            if (lra.settings().get_cancel_flag())
+                return false;
             lra.update_column_type_and_bound(j, kind, bound, dep);
 
             lp_status st = lra.find_feasible_solution();
@@ -1938,8 +1813,8 @@ namespace lp {
                 if (p.var() == j) {
                     const mpq& j_coeff = p.coeff();
                     SASSERT(j_coeff.is_one() || j_coeff.is_minus_one());
-                    c += j_coeff * lra.get_lower_bound(local_to_lar_solver(j)).x;
-                    TRACE("dio_br", tout << "the value of the vixed var is:" << lra.get_lower_bound(local_to_lar_solver(j)).x << ", m_sum_of_fixed[" << ei << "]:" << m_sum_of_fixed[ei] << ", new free coeff c:" << c << std::endl;);
+                    c += j_coeff * lra.get_lower_bound(j).x;
+                    TRACE("dio_br", tout << "the value of the vixed var is:" << lra.get_lower_bound(j).x << ", m_sum_of_fixed[" << ei << "]:" << m_sum_of_fixed[ei] << ", new free coeff c:" << c << std::endl;);
                     continue;
                 }
                 if (g.is_zero()) {
@@ -1957,7 +1832,7 @@ namespace lp {
         }
         // here j is a local variable
         lia_move fix_var(unsigned j) {
-            SASSERT(is_fixed(local_to_lar_solver(j)));
+            SASSERT(is_fixed(j));
             /*
               We only can get a conflict when j is substituted, and the entry m_k2s[j], the entry defining the substitution  becomes infeaseable, that is the gcd of the monomial coeffitients does not divide the free coefficient. In other cases the gcd of the monomials will remain to be 1.
             */
@@ -2000,11 +1875,10 @@ namespace lp {
                 lra.add_var_bound(b.m_j, lconstraint_kind::GE, b.m_rs + mpq(1));
             TRACE("dio_br", lra.print_column_info(b.m_j, tout) << "add bound" << std::endl;);
             if (lra.column_is_fixed(b.m_j)) {
-                unsigned local_bj;
-                if (!m_var_register.external_is_used(b.m_j, local_bj))
+                if (b.m_j >= m_e_matrix.column_count())
                     return lia_move::undef;
 
-                if (fix_var(local_bj) == lia_move::conflict) {
+                if (fix_var(b.m_j) == lia_move::conflict) {
                     TRACE("dio_br", tout << "conflict in fix_var" << std::endl;);
                     return lia_move::conflict;
                 }
@@ -2216,9 +2090,8 @@ namespace lp {
         }
         bool is_in_sync() const {
             for (unsigned j = 0; j < m_e_matrix.column_count(); j++) {
-                unsigned external_j = m_var_register.local_to_external(j);
-                if (external_j == UINT_MAX) continue;
-                if (external_j >= lra.column_count() && m_e_matrix.m_columns[j].size()) {
+                if (var_is_fresh(j)) continue;
+                if (j >= lra.column_count() && m_e_matrix.m_columns[j].size()) {
                     // It is OK to have an empty column in m_e_matrix.
                     return false;
                 }
@@ -2383,15 +2256,6 @@ namespace lp {
             return true;
         }
 
-        term_o term_to_lar_solver(const term_o& eterm) const {
-            term_o ret;
-            for (const auto& p : eterm) {
-                ret.add_monomial(p.coeff(), local_to_lar_solver(p.var()));
-            }
-            ret.c() = eterm.c();
-            return ret;
-        }
-
         bool belongs_to_s(unsigned ei) const {
             return m_k2s.has_val(ei);
         }
@@ -2406,7 +2270,7 @@ namespace lp {
                 }
                 if (var_is_fresh(p.var()))
                     continue;
-                unsigned j = local_to_lar_solver(p.var());
+                unsigned j = p.var();
                 if (is_fixed(j)) {
                     enable_trace("dio");                    
                     TRACE("dio", tout << "x" << j << "(local: " << "x" << p.var() << ") should not be fixed\nbad entry:"; print_entry(ei, tout) << "\n";);
@@ -2414,7 +2278,7 @@ namespace lp {
                 }
             }
 
-            term_o ls = term_to_lar_solver(remove_fresh_vars(get_term_from_entry(ei)));
+            term_o ls = remove_fresh_vars(get_term_from_entry(ei));
             mpq ls_val = get_term_value(ls);
             if (!ls_val.is_zero()) {
                 std::cout << "ls_val is not zero\n";
@@ -2548,9 +2412,8 @@ namespace lp {
         void fresh_var_step(unsigned h, unsigned k, const mpq& ahk) {
             // step 7 from the paper
             // xt is the fresh variable
-            unsigned xt = add_var(UINT_MAX);
-            while (xt >= m_e_matrix.column_count())
-                m_e_matrix.add_column();
+            unsigned xt = m_e_matrix.column_count();
+            m_e_matrix.add_column();
             // Create a term the fresh variable definition: it seems needed in Debug only
             /* Let eh = sum(ai*xi) + c. For each i != k, let ai = qi*ahk + ri, and
                let c = c_q * ahk + c_r. eh = ahk*(x_k + sum{qi*xi|i != k} + c_q) +
@@ -2610,7 +2473,7 @@ namespace lp {
                 }
                 if (!has_fresh) {
                     for (const auto& p : get_term_from_entry(i)) {
-                        auto j = local_to_lar_solver(p.var());
+                        auto j = p.var();
                         out << "\tx" << p.var() << " := " << lra.get_column_value(j) << " " << lra.get_bounds_string(j) << "\n";
                     }                    
                 }
