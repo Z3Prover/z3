@@ -506,7 +506,7 @@ namespace lp {
 
         unsigned m_conflict_index = UINT_MAX;  // the row index of the conflict
         void reset_conflict() { m_conflict_index = UINT_MAX; }
-        bool has_conflict() const { return m_conflict_index != UINT_MAX; }
+        bool has_conflict_index() const { return m_conflict_index != UINT_MAX; }
         void set_rewrite_conflict(unsigned idx) { SASSERT(idx != UINT_MAX); m_conflict_index = idx; lra.stats().m_dio_rewrite_conflicts++; }
         unsigned m_max_of_branching_iterations = 0;
         unsigned m_number_of_branching_calls;
@@ -1658,7 +1658,7 @@ namespace lp {
         lia_move tighten_bounds_for_non_trivial_gcd(const mpq& g, unsigned j,
                                                     bool is_upper) {
             mpq rs;
-            bool is_strict;
+            bool is_strict = false;
             u_dependency* b_dep = nullptr;
             SASSERT(!g.is_zero());
 
@@ -1679,10 +1679,14 @@ namespace lp {
             return lia_move::undef;
         }
 
-       // returns true only on a conflict
+        // returns true only on a conflict
         bool tighten_bound_kind(const mpq& g, unsigned j, const mpq& rs, const mpq& rs_mod_g, bool upper) {
+            // Assume:
+            // rs_mod_g := (rs - m_c) % g
+            // rs_mod_g != 0
+            // 
             // In case of an upper bound we have 
-            // xj = t = g*t_+ m_c <= rs, also, by definition fo rs_mod_g, for some integer k holds rs - m_c = k*g + rs_mod_g.
+            // xj = t = g*t_+ m_c <= rs, also, by definition of rs_mod_g, for some integer k holds rs - m_c = k*g + rs_mod_g.
             // Then g*t_ <= rs - mc = k*g + rs_mod_g => g*t_ <= k*g = rs - m_c  - rs_mod_g.
             // Adding m_c to both parts gets us
             // xj = g*t_ + m_c <= rs - rs_mod_g
@@ -1696,8 +1700,7 @@ namespace lp {
             
             mpq bound = upper ? rs - rs_mod_g : rs + g - rs_mod_g;
             TRACE("dio", tout << "is upper:" << upper << std::endl;
-                  tout << "new " << (upper ? "upper" : "lower")
-                  << " bound:" << bound << std::endl;);
+                  tout << "new " << (upper ? "upper" : "lower") << " bound:" << bound << std::endl;);
 
             SASSERT((upper && bound < lra.get_upper_bound(j).x) ||
                     (!upper && bound > lra.get_lower_bound(j).x));
@@ -1710,8 +1713,8 @@ namespace lp {
             for (const auto& p: fixed_part_of_the_term) {
                 SASSERT(is_fixed(p.var()));                
                 if ((p.coeff() % g).is_zero()) {
-                    // we can skip thise dependency,
-                    // because the monomial p.coeff()*p.var() is null by modulo g, and it does not matter that p.var() is fixed.
+                    // we can skip this dependency
+                    // because the monomial p.coeff()*p.var() is 0 modulo g, and it does not matter that p.var() is fixed.
                     // We could have added  p.coeff()*p.var() to t_, substructed the value of  p.coeff()*p.var() from m_c and
                     // still get the same result.
                     TRACE("dio", tout << "skipped dep:\n"; print_deps(tout, lra.get_bound_constraint_witnesses_for_column(p.var())););
@@ -1767,7 +1770,7 @@ namespace lp {
         }
         
         lia_move process_f(std_vector<unsigned>& f_vector) {
-            if (has_conflict())
+            if (has_conflict_index())
                 return lia_move::conflict;
             lia_move r;
             do {
@@ -2156,7 +2159,7 @@ namespace lp {
             bool first = true;
             mpq ahk;
             unsigned k = -1;
-            int k_sign;
+            int k_sign = 0;
             mpq t;
             for (const auto& p : m_e_matrix.m_rows[ei]) {
                 t = abs(p.coeff());
@@ -2586,19 +2589,17 @@ namespace lp {
         }
 
     public:
+
         void explain(explanation& ex) {
-            if (!has_conflict()) {
-                for (auto ci : m_infeas_explanation) {
-                    ex.push_back(ci.ci());
-                }
-                TRACE("dio", lra.print_expl(tout, ex););
-                return;
-            }
             SASSERT(ex.empty());
-            TRACE("dio", tout << "conflict:";
-                  print_entry(m_conflict_index, tout, true) << std::endl;);
-            for (auto ci : lra.flatten(explain_fixed_in_meta_term(m_l_matrix.m_rows[m_conflict_index]))) {
-                ex.push_back(ci);
+            if (has_conflict_index()) {
+                TRACE("dio", print_entry(m_conflict_index, tout << "conflict:", true) << std::endl;);
+                for (auto ci : lra.flatten(explain_fixed_in_meta_term(m_l_matrix.m_rows[m_conflict_index])))
+                    ex.push_back(ci);
+            } 
+            else {
+                for (auto ci : m_infeas_explanation) 
+                    ex.push_back(ci.ci());                
             }
             TRACE("dio", lra.print_expl(tout, ex););
         }
