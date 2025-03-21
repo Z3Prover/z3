@@ -1666,10 +1666,11 @@ namespace lp {
                 TRACE("dio", 
                       tout << "current " << (is_upper? "upper":"lower") << " bound for x" << j << ":"
                       << rs << std::endl;);
-                rs = (rs - m_c) / g;
-                TRACE("dio", tout << "((rs - m_c) / g):" << rs << std::endl;);
-                if (!rs.is_int()) {
-                    if (tighten_bound_kind(g, j, rs, is_upper))
+                mpq rs_mod_g = (rs - m_c) % g;
+                SASSERT(!rs_mod_g.is_neg() && rs_mod_g.is_int());
+                TRACE("dio", tout << "(rs - m_c) % g:" << rs_mod_g << std::endl;);
+                if (!rs_mod_g.is_zero()) {
+                    if (tighten_bound_kind(g, j, rs, rs_mod_g, is_upper))
                         return lia_move::conflict;
                 } else {
                     TRACE("dio", tout << "no improvement in the bound\n";);
@@ -1678,16 +1679,22 @@ namespace lp {
             return lia_move::undef;
         }
 
-// returns true only on a conflict
-        bool tighten_bound_kind(const mpq& g, unsigned j, const mpq& ub, bool upper) {
-            // ub = (upper_bound(j) - m_c)/g.
-            // we have xj = t = g*t_+ m_c <= upper_bound(j), then
-            // t_ <= floor((upper_bound(j) - m_c)/g) = floor(ub)
-            //
-            // so xj = g*t_+m_c <= g*floor(ub) + m_c is new upper bound
-            // <= can be replaced with >= for lower bounds, with ceil instead of
-            // floor
-            mpq bound = g * (upper ? floor(ub) : ceil(ub)) + m_c;
+       // returns true only on a conflict
+        bool tighten_bound_kind(const mpq& g, unsigned j, const mpq& rs, const mpq& rs_mod_g, bool upper) {
+            // In case of an upper bound we have 
+            // xj = t = g*t_+ m_c <= rs, also, by definition fo rs_mod_g, for some integer k holds rs - m_c = k*g + rs_mod_g.
+            // Then g*t_ <= rs - mc = k*g + rs_mod_g => g*t_ <= k*g = rs - m_c  - rs_mod_g.
+            // Adding m_c to both parts gets us
+            // xj = g*t_ + m_c <= rs - rs_mod_g
+
+            // In case of a lower bound we have 
+            // xj = t = g*t_+ m_c >= rs, also, by definition fo rs_mod_g, for some integer k holds rs - m_c = k*g + rs_mod_g.
+            // Then g*t_ >= rs - mc = k*g + rs_mod_g => g*t_ >= k*g = rs - m_c + g - rs_mod_g.
+            // Adding m_c to both parts gets us
+            // xj = g*t_ + m_c >= rs + g - rs_mod_g 
+
+            
+            mpq bound = upper ? rs - rs_mod_g : rs + g - rs_mod_g;
             TRACE("dio", tout << "is upper:" << upper << std::endl;
                   tout << "new " << (upper ? "upper" : "lower")
                   << " bound:" << bound << std::endl;);
@@ -1696,15 +1703,20 @@ namespace lp {
                     (!upper && bound > lra.get_lower_bound(j).x));
             lconstraint_kind kind = upper ? lconstraint_kind::LE : lconstraint_kind::GE;
             u_dependency* dep = upper ? lra.get_column_upper_bound_witness(j) : lra.get_column_lower_bound_witness(j);
-            auto rs = open_fixed_from_ml(m_lspace);
+            auto fixed_part_of_the_term = open_fixed_from_ml(m_lspace);
             // the right side is off by 1*j from m_espace
             if (is_fixed(j))
-                rs.add(mpq(1), j);
-            for (const auto& p: rs) {
-                SASSERT(is_fixed(p.var()));
-                if ((p.coeff() / g).is_int())
-                    continue; // explain todo!!!
-                    
+                fixed_part_of_the_term.add(mpq(1), j);
+            for (const auto& p: fixed_part_of_the_term) {
+                SASSERT(is_fixed(p.var()));                
+                if ((p.coeff() % g).is_zero()) {
+                    // we can skip thise dependency,
+                    // because the monomial p.coeff()*p.var() is null by modulo g, and it does not matter that p.var() is fixed.
+                    // We could have added  p.coeff()*p.var() to t_, substructed the value of  p.coeff()*p.var() from m_c and
+                    // still get the same result.
+                    TRACE("dio", tout << "skipped dep:\n"; print_deps(tout, lra.get_bound_constraint_witnesses_for_column(p.var())););
+                    continue;
+                }
                 dep = lra.join_deps(dep, lra.get_bound_constraint_witnesses_for_column(p.var()));         
             }
             TRACE("dio", tout << "jterm:";
