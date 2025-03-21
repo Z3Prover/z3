@@ -2131,14 +2131,15 @@ namespace lp {
             do {
                 init(f_vector);
                 ret = process_f_and_tighten_terms(f_vector);
-            } while(ret == lia_move::continue_with_check);
-
-            if (ret != lia_move::undef) {
-                return ret;
             } 
-            if (lra.stats().m_dio_calls % lra.settings().dio_branching_period() == 0) {
+            while (ret == lia_move::continue_with_check);
+
+            if (ret != lia_move::undef) 
+                return ret;
+            
+            if (lra.stats().m_dio_calls % lra.settings().dio_branching_period() == 0) 
                 ret = branching_on_undef();
-            }
+            
             m_max_of_branching_iterations = (unsigned)m_max_of_branching_iterations / 2;
             return ret;
         }
