@@ -1203,7 +1203,7 @@ namespace lp {
                     p.coeff() /= g;
                 }
                 m_sum_of_fixed[ei] = c_g;
-                // e.m_l *= (1 / g);
+                // e.m_l /= g
                 for (auto& p : m_l_matrix.m_rows[ei]) {
                     p.coeff() /= g;
                 }
