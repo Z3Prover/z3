@@ -132,7 +132,6 @@ struct statistics {
     unsigned m_offset_eqs = 0;
     unsigned m_fixed_eqs = 0;
     unsigned m_dio_calls = 0;
-    unsigned m_dio_normalize_conflicts = 0;
     unsigned m_dio_tighten_conflicts = 0;
     unsigned m_dio_branch_iterations= 0;
     unsigned m_dio_branching_depth = 0;
@@ -176,7 +175,6 @@ struct statistics {
         st.update("arith-nra-calls", m_nra_calls);   
         st.update("arith-bounds-improvements", m_nla_bounds_improvements);
         st.update("arith-dio-calls", m_dio_calls);
-        st.update("arith-dio-normalize-conflicts", m_dio_normalize_conflicts);
         st.update("arith-dio-tighten-conflicts", m_dio_tighten_conflicts);
         st.update("arith-dio-branch-iterations", m_dio_branch_iterations);
         st.update("arith-dio-branch-depths", m_dio_branching_depth);
