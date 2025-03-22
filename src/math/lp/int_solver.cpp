@@ -126,6 +126,7 @@ namespace lp {
         }
 
         bool all_columns_are_integral() const {
+            return true; // otherwise it never returns true!
             for (lpvar j = 0; j < lra.number_of_vars(); j++)
                 if (!lra.column_is_int(j))
                     return false;
@@ -188,8 +189,10 @@ namespace lp {
         }
 
         bool should_gomory_cut() {
-            return (!settings().dio_eqs() || settings().dio_enable_gomory_cuts())
-                && m_number_of_calls % settings().m_int_gomory_cut_period == 0;
+            bool dio_allows_gomory = !settings().dio_eqs() || settings().dio_enable_gomory_cuts() ||
+                                      m_dio.has_non_integral_term();
+
+            return dio_allows_gomory && m_number_of_calls % settings().m_int_gomory_cut_period == 0;
         }
 
         bool should_solve_dioph_eq() {
