@@ -243,7 +243,7 @@ elim_unconstrained::node& elim_unconstrained::get_node(expr* t) {
                 node& ch = get_node(arg);
                 SASSERT(ch.is_root());
                 ch.add_parent(*n);
-                if (is_uninterp_const(arg))
+                if (is_uninterp_const(arg) && m_heap.contains(arg->get_id()))
                     m_heap.increased(arg->get_id());
             }
         }
