@@ -216,10 +216,8 @@ class fix_dl_var_tactic : public tactic {
             try {
                 expr_fast_mark1 visited;
                 flet<expr_fast_mark1*> _visited(m_visited, &visited);
-                unsigned sz = g.size();
-                for (unsigned i = 0; i < sz; i++) {
-                    process(g.form(i));
-                }
+                for (auto [f, d, p] : g)
+                    process(f);
                 return most_occs();
             }
             catch (const failed &) {
@@ -268,15 +266,13 @@ class fix_dl_var_tactic : public tactic {
                 
                 expr_ref   new_curr(m);
                 proof_ref  new_pr(m);
-                unsigned size = g->size();
-                for (unsigned idx = 0; !g->inconsistent() && idx < size; idx++) {
-                    expr * curr = g->form(idx);
+                unsigned idx = 0;
+                for (auto [curr, d, p] : *g) {
+                    if (g->inconsistent())
+                        break;
                     m_rw(curr, new_curr, new_pr);
-                    if (produce_proofs) {
-                        proof * pr = g->pr(idx);
-                        new_pr     = m.mk_modus_ponens(pr, new_pr);
-                    }
-                    g->update(idx, new_curr, new_pr, g->dep(idx));
+                    new_pr = m.mk_modus_ponens(p, new_pr);
+                    g->update(idx++, new_curr, new_pr, d);
                 }
                 g->inc_depth();
             }

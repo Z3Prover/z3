@@ -169,10 +169,8 @@ class degree_shift_tactic : public tactic {
         void collect(goal const & g) {
             m_var2degree.reset();
             expr_fast_mark1 visited;
-            unsigned sz = g.size();
-            for (unsigned i = 0; i < sz; i++) {
-                collect(g.form(i), visited);
-            }
+            for (auto [f, d, p] : g)
+                collect(f, visited);
             
             TRACE("degree_shift", display_candidates(tout););
         }
