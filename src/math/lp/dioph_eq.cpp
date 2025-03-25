@@ -1718,26 +1718,40 @@ namespace lp {
         // returns true only on a conflict
         bool tighten_bound_kind(const mpq& g, unsigned j, const mpq& rs, const mpq& rs_g, bool upper) {
             /*
-            Variable j corresponds to term t = lra.get_term(j). 
-            At this point we substituted some variables of t with the equivalent terms in S and the equivalent expressions containing fresh variables: t = sum{a_i * x_i: i in K} + sum{b_i * x_i: i in P }, where P and K are disjoint sets, a_i % g = 0 for each i in K, and x_i is a fixed variable for each i in P. 
-            In the notations of the program:
-                m_espace corresponds to sum{a_i * x_i: i in K}, 
-                m_c is the value of sum{b_i * x_i: i in P}, 
-                open_ml(m_lspace) gives sum{a_i*x_i: i in K} + {b_i * x_i: i in P}.
-            We can rewrite t = g*t_ + m_c, where t_ = sum{(a_i/g)*x_i: i in K}.
-            Let us suppose that upper is true and rs is an upper bound of variable j, or t = g*t_ + m_c <= rs.  
-            Parameter rs_g is defined as (rs - m_c) % g. Notice that rs_g does not change when m_c changes by a multiple of g. We also know that rs_g > 0. For some integer k we have rs - m_c = k*g + rs_g.
-            Starting with g*t_ + m_c <= rs, we proceed to g*t_ <= rs - m_c = k*g + rs_g. We can discard rs_g on the right: g*t_ <= k*g = rs - m_c  - rs_g. Adding m_c to both sides gives us g*t_ + m_c <= rs - rs_g, or t <= rs - rs_g.
+              Variable j corresponds to term t = lra.get_term(j). 
+              At this point we substituted some variables of t with the equivalent terms 
+              in S and the equivalent expressions containing fresh variables: 
+              t = sum{a_i * x_i: i in K} + sum{b_i * x_i: i in P }, where P and K are 
+              disjoint sets, a_i % g = 0 for each i in K, and x_i is a fixed variable 
+              for each i in P. 
 
-            In case of a lower bound we have 
-            t = g*t_+ m_c >= rs
-            Then g*t_ >= rs - m_c = k*g + rs_g => g*t_ >= k*g + g.
-            Adding m_c to both sides gets us
-            g*t_ + m_c >= k*g + g + m_c = rs - m_c - rs_g + g + m_c =  rs + (g - rs_g).  
+              In the notations of the program:
+              m_espace corresponds to sum{a_i * x_i: i in K}, 
+              m_c is the value of sum{b_i * x_i: i in P}, 
+              open_ml(m_lspace) gives sum{a_i*x_i: i in K} + sum{b_i * x_i: i in P}.
 
-            Each fixed variable i in P such that b_i is divisible by g can be moved from P to K.
-            Then we apply all arguments above, and get the same result, since m_c changes by a multiple of g.
-             */
+              We can rewrite t = g*t_ + m_c, where t_ = sum{(a_i/g)*x_i: i in K}.
+              Let us suppose that upper is true and rs is an upper bound of variable j, 
+              or t = g*t_ + m_c <= rs.  
+
+              Parameter rs_g is defined as (rs - m_c) % g. Notice that rs_g does not change 
+              when m_c changes by a multiple of g. We also know that rs_g > 0. 
+              For some integer k we have rs - m_c = k*g + rs_g.
+
+              Starting with g*t_ + m_c <= rs, we proceed to g*t_ <= rs - m_c = k*g + rs_g. 
+              We can discard rs_g on the right: g*t_ <= k*g = rs - m_c - rs_g. 
+              Adding m_c to both sides gives us g*t_ + m_c <= rs - rs_g, or t <= rs - rs_g.
+
+              In case of a lower bound we have 
+              t = g*t_+ m_c >= rs
+              Then g*t_ >= rs - m_c = k*g + rs_g => g*t_ >= k*g + g.
+              Adding m_c to both sides gets us
+              g*t_ + m_c >= k*g + g + m_c = rs - m_c - rs_g + g + m_c = rs + (g - rs_g).  
+
+              Each fixed variable i in P such that b_i is divisible by g can be moved from P to K.
+              Then we apply all arguments above, and get the same result, since m_c changes 
+              by a multiple of g.
+            */
 
             
             mpq bound = upper ? rs - rs_g : rs + g - rs_g;
