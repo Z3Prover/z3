@@ -61,6 +61,7 @@ class bool_rewriter {
     unsigned       m_local_ctx_limit;
     unsigned       m_local_ctx_cost;
     bool           m_elim_ite;
+    bool           m_elim_ite_value_tree;
     ptr_vector<expr> m_todo1, m_todo2;
     unsigned_vector m_counts1, m_counts2;
 
@@ -82,6 +83,8 @@ class bool_rewriter {
     br_status try_ite_value(app * ite, app * val, expr_ref & result);
 
     void push_new_arg(expr* arg, expr_ref_vector& new_args, expr_fast_mark1& neg_lits, expr_fast_mark2& pos_lits);
+
+    expr_ref simplify_eq_ite(expr* value, expr* ite);
 
 public:
     bool_rewriter(ast_manager & m, params_ref const & p = params_ref()):m_manager(m), m_local_ctx_cost(0) { 

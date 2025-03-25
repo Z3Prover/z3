@@ -34,6 +34,7 @@ void bool_rewriter::updt_params(params_ref const & _p) {
     m_blast_distinct       = p.blast_distinct();
     m_blast_distinct_threshold = p.blast_distinct_threshold();
     m_ite_extra_rules      = p.ite_extra_rules();
+    m_elim_ite_value_tree    = p.elim_ite_value_tree();
 }
 
 void bool_rewriter::get_param_descrs(param_descrs & r) {
@@ -680,7 +681,82 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
         return BR_REWRITE2;
     }
 
+    if (m_elim_ite_value_tree) {
+        result = simplify_eq_ite(val, ite);
+        if (result) 
+            return BR_REWRITE_FULL;        
+    }
+
     return BR_FAILED;
+}
+
+expr_ref bool_rewriter::simplify_eq_ite(expr* value, expr* ite) {
+    SASSERT(m().is_value(value));
+    SASSERT(m().is_ite(ite));
+    expr* c = nullptr, * t = nullptr, * e = nullptr;
+    ptr_buffer<expr> todo;
+    ptr_vector<expr> values;
+    expr_ref_vector pinned(m());
+    expr_ref r(m());
+    todo.push_back(ite);
+    while (!todo.empty()) {
+        expr* arg = todo.back();
+        if (m().is_value(arg)) {
+            todo.pop_back();
+            if (m().are_equal(arg, value)) {
+                values.setx(arg->get_id(), m().mk_true(), nullptr);
+                continue;
+            }
+            if (m().are_distinct(arg, value)) {
+                values.setx(arg->get_id(), m().mk_false(), nullptr);
+                continue;
+            }
+            return expr_ref(nullptr, m());
+        }
+        if (m().is_ite(arg, c, t, e)) {
+            unsigned sz = todo.size();
+            if (!values.get(t->get_id(), nullptr)) 
+                todo.push_back(t);
+            
+            if (!values.get(e->get_id(), nullptr)) 
+                todo.push_back(e);
+            
+            if (sz < todo.size())
+                continue;
+            todo.pop_back();
+            if (m().is_true(values[t->get_id()])) {
+                r = m().mk_or(c, values[e->get_id()]);
+                values.setx(arg->get_id(), r, nullptr);
+                pinned.push_back(r);
+                continue;
+            }
+            if (m().is_false(values[t->get_id()])) {
+                r = m().mk_and(m().mk_not(c), values[e->get_id()]);
+                values.setx(arg->get_id(), r, nullptr);
+                pinned.push_back(r);
+                continue;
+            }     
+            if (m().is_false(values[e->get_id()])) {
+                r = m().mk_and(c, values[t->get_id()]);
+                values.setx(arg->get_id(), r, nullptr);
+                pinned.push_back(r);
+                continue;
+            }
+            if (m().is_true(values[e->get_id()])) {
+                r = m().mk_or(m().mk_not(c), values[t->get_id()]);
+                values.setx(arg->get_id(), r, nullptr);
+                pinned.push_back(r);
+                continue;
+            }
+            r = m().mk_ite(c, values[t->get_id()], values[e->get_id()]);
+            values.setx(arg->get_id(), r, nullptr);
+            pinned.push_back(r);
+            continue;
+        }
+        IF_VERBOSE(10, verbose_stream() << "bail " << mk_bounded_pp(arg, m()) << "\n");
+        return expr_ref(nullptr, m());
+    }
+    return expr_ref(values[ite->get_id()], m());
 }
 
 
