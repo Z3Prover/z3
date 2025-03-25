@@ -1693,20 +1693,20 @@ namespace lp {
                 TRACE("dio", 
                       tout << "current " << (is_upper? "upper":"lower") << " bound for x" << j << ":"
                       << rs << std::endl;);
-                mpq rs_mod_g = (rs - m_c) % g;
-                if (rs_mod_g.is_neg()) {
-                    rs_mod_g += g;
+                mpq rs_g = (rs - m_c) % g;
+                if (rs_g.is_neg()) {
+                    rs_g += g;
                 }
-                if (! (!rs_mod_g.is_neg() && rs_mod_g.is_int())) {
+                if (! (!rs_g.is_neg() && rs_g.is_int())) {
                     std::cout << "rs:" << rs << "\n";
                     std::cout << "m_c:" << m_c << "\n";
                     std::cout << "g:" << g << "\n";
-                    std::cout << "rs_mod_g:" << rs_mod_g << "\n";
+                    std::cout << "rs_g:" << rs_g << "\n";
                 }
-                SASSERT(rs_mod_g.is_int());
-                TRACE("dio", tout << "(rs - m_c) % g:" << rs_mod_g << std::endl;);
-                if (!rs_mod_g.is_zero()) {
-                    if (tighten_bound_kind(g, j, rs, rs_mod_g, is_upper))
+                SASSERT(rs_g.is_int());
+                TRACE("dio", tout << "(rs - m_c) % g:" << rs_g << std::endl;);
+                if (!rs_g.is_zero()) {
+                    if (tighten_bound_kind(g, j, rs, rs_g, is_upper))
                         return lia_move::conflict;
                 } else {
                     TRACE("dio", tout << "no improvement in the bound\n";);
@@ -1716,25 +1716,31 @@ namespace lp {
         }
 
         // returns true only on a conflict
-        bool tighten_bound_kind(const mpq& g, unsigned j, const mpq& rs, const mpq& rs_mod_g, bool upper) {
-            // Assume:
-            // rs_mod_g := (rs - m_c) % g
-            // rs_mod_g != 0
-            // 
-            // In case of an upper bound we have 
-            // xj = t = g*t_+ m_c <= rs, also, by definition of rs_mod_g, for some integer k holds rs - m_c = k*g + rs_mod_g.
-            // Then g*t_ <= rs - mc = k*g + rs_mod_g => g*t_ <= k*g = rs - m_c  - rs_mod_g.
-            // Adding m_c to both parts gets us
-            // xj = g*t_ + m_c <= rs - rs_mod_g
+        bool tighten_bound_kind(const mpq& g, unsigned j, const mpq& rs, const mpq& rs_g, bool upper) {
+            /*
+            Variable j corresponds to term t = lra.get_term(j). 
+            At this point we substituted some variables of t with the equivalent terms in S and the equivalent expressions containing fresh variables: t = sum{a_i * x_i: i in K} + sum{b_i * x_i: i in P }, where P and K are disjoint sets, a_i % g = 0 for each i in K, and x_i is a fixed variable for each i in P. 
+            In the notations of the program:
+                m_espace corresponds to sum{a_i * x_i: i in K}, 
+                m_c is the value of sum{b_i * x_i: i in P}, 
+                open_ml(m_lspace) gives sum{a_i*x_i: i in K} + {b_i * x_i: i in P}.
+            We can rewrite t = g*t_ + m_c, where t_ = sum{(a_i/g)*x_i: i in K}.
+            Let us suppose that upper is true and rs is an upper bound of variable j, or t = g*t_ + m_c <= rs.  
+            Parameter rs_g is defined as (rs - m_c) % g. Notice that rs_g does not change when m_c changes by a multiple of g. We also know that rs_g > 0. For some integer k we have rs - m_c = k*g + rs_g.
+            Starting with g*t_ + m_c <= rs, we proceed to g*t_ <= rs - m_c = k*g + rs_g. We can discard rs_g on the right: g*t_ <= k*g = rs - m_c  - rs_g. Adding m_c to both sides gives us g*t_ + m_c <= rs - rs_g, or t <= rs - rs_g.
 
-            // In case of a lower bound we have 
-            // xj = t = g*t_+ m_c >= rs, also, by definition fo rs_mod_g, for some integer k holds rs - m_c = k*g + rs_mod_g.
-            // Then g*t_ >= rs - mc = k*g + rs_mod_g => g*t_ >= k*g = rs - m_c + g - rs_mod_g.
-            // Adding m_c to both parts gets us
-            // xj = g*t_ + m_c >= rs + g - rs_mod_g 
+            In case of a lower bound we have 
+            t = g*t_+ m_c >= rs
+            Then g*t_ >= rs - m_c = k*g + rs_g => g*t_ >= k*g + g.
+            Adding m_c to both sides gets us
+            g*t_ + m_c >= k*g + g + m_c = rs - m_c - rs_g + g + m_c =  rs + (g - rs_g).  
+
+            Each fixed variable i in P such that b_i is divisible by g can be moved from P to K.
+            Then we apply all arguments above, and get the same result, since m_c changes by a multiple of g.
+             */
 
             
-            mpq bound = upper ? rs - rs_mod_g : rs + g - rs_mod_g;
+            mpq bound = upper ? rs - rs_g : rs + g - rs_g;
             TRACE("dio", tout << "is upper:" << upper << std::endl;
                   tout << "new " << (upper ? "upper" : "lower") << " bound:" << bound << std::endl;);
 
@@ -1755,7 +1761,7 @@ namespace lp {
                 if (p.coeff().is_int() && (p.coeff() % g).is_zero()) {
                     // we can skip this dependency
                     // because the monomial p.coeff()*p.var() is 0 modulo g, and it does not matter that p.var() is fixed.
-                    // We could have added  p.coeff()*p.var() to t_, substructed the value of  p.coeff()*p.var() from m_c and
+                    // We could have added  p.coeff()*p.var() to g*t_, substructed the value of  p.coeff()*p.var() from m_c and
                     // still get the same result.
                     TRACE("dio", tout << "skipped dep:\n"; print_deps(tout, lra.get_bound_constraint_witnesses_for_column(p.var())););
                     continue;
