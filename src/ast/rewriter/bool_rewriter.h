@@ -63,7 +63,9 @@ class bool_rewriter {
     bool           m_elim_ite;
     bool           m_elim_ite_value_tree;
     ptr_vector<expr> m_todo1, m_todo2;
-    unsigned_vector m_counts1, m_counts2;
+    unsigned_vector m_counts1, m_counts2, m_indices;
+    ptr_vector<expr> m_values;
+    expr_ref_vector m_pinned;
 
     br_status mk_flat_and_core(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_flat_or_core(unsigned num_args, expr * const * args, expr_ref & result);
@@ -87,7 +89,7 @@ class bool_rewriter {
     expr_ref simplify_eq_ite(expr* value, expr* ite);
 
 public:
-    bool_rewriter(ast_manager & m, params_ref const & p = params_ref()):m_manager(m), m_local_ctx_cost(0) { 
+    bool_rewriter(ast_manager & m, params_ref const & p = params_ref()):m_manager(m), m_local_ctx_cost(0), m_pinned(m) { 
         updt_params(p); 
     }
     ast_manager & m() const { return m_manager; }

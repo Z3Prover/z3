@@ -694,69 +694,80 @@ expr_ref bool_rewriter::simplify_eq_ite(expr* value, expr* ite) {
     SASSERT(m().is_value(value));
     SASSERT(m().is_ite(ite));
     expr* c = nullptr, * t = nullptr, * e = nullptr;
-    ptr_buffer<expr> todo;
-    ptr_vector<expr> values;
-    expr_ref_vector pinned(m());
     expr_ref r(m());
+    auto& todo = m_todo1;
+    todo.reset();
+    auto& values = m_values;
+    auto& pinned = m_pinned;
+    auto& indices = m_indices;
+    expr* result = nullptr;
+    SASSERT(indices.empty());
+
     todo.push_back(ite);
     while (!todo.empty()) {
         expr* arg = todo.back();
+        unsigned id = arg->get_id();
         if (m().is_value(arg)) {
-            todo.pop_back();
             if (m().are_equal(arg, value)) {
-                values.setx(arg->get_id(), m().mk_true(), nullptr);
+                todo.pop_back();
+                values.setx(id, m().mk_true(), nullptr);
+                indices.push_back(id);
                 continue;
             }
             if (m().are_distinct(arg, value)) {
-                values.setx(arg->get_id(), m().mk_false(), nullptr);
+                todo.pop_back();
+                values.setx(id, m().mk_false(), nullptr);
+                indices.push_back(id);
                 continue;
             }
-            return expr_ref(nullptr, m());
+            goto bail;
         }
         if (m().is_ite(arg, c, t, e)) {
             unsigned sz = todo.size();
-            if (!values.get(t->get_id(), nullptr)) 
-                todo.push_back(t);
-            
-            if (!values.get(e->get_id(), nullptr)) 
-                todo.push_back(e);
-            
+            auto th = values.get(t->get_id(), nullptr);
+            auto el = values.get(e->get_id(), nullptr);
+            if (!th) 
+                todo.push_back(t);            
+            if (!el) 
+                todo.push_back(e);            
             if (sz < todo.size())
                 continue;
+
+            if (m().is_false(th) && m().is_false(el))
+                r = m().mk_false();
+            else if (m().is_true(th) && m().is_true(el))
+                r = m().mk_true();
+            else if (m().is_true(th) && m().is_false(el))
+                r = c;
+            else if (m().is_false(th) && m().is_true(el))
+                r = m().mk_not(c);
+            else if (m().is_true(th)) 
+                r = m().mk_or(c, el);            
+            else if (m().is_false(th)) 
+                r = m().mk_and(m().mk_not(c), el);            
+            else if (m().is_false(el)) 
+                r = m().mk_and(c, th);
+            else if (m().is_true(el)) 
+                r = m().mk_or(m().mk_not(c), th);
+            else 
+                r = m().mk_ite(c, th, el);
+            
             todo.pop_back();
-            if (m().is_true(values[t->get_id()])) {
-                r = m().mk_or(c, values[e->get_id()]);
-                values.setx(arg->get_id(), r, nullptr);
-                pinned.push_back(r);
-                continue;
-            }
-            if (m().is_false(values[t->get_id()])) {
-                r = m().mk_and(m().mk_not(c), values[e->get_id()]);
-                values.setx(arg->get_id(), r, nullptr);
-                pinned.push_back(r);
-                continue;
-            }     
-            if (m().is_false(values[e->get_id()])) {
-                r = m().mk_and(c, values[t->get_id()]);
-                values.setx(arg->get_id(), r, nullptr);
-                pinned.push_back(r);
-                continue;
-            }
-            if (m().is_true(values[e->get_id()])) {
-                r = m().mk_or(m().mk_not(c), values[t->get_id()]);
-                values.setx(arg->get_id(), r, nullptr);
-                pinned.push_back(r);
-                continue;
-            }
-            r = m().mk_ite(c, values[t->get_id()], values[e->get_id()]);
-            values.setx(arg->get_id(), r, nullptr);
+            values.setx(id, r, nullptr);
+            indices.push_back(id);
             pinned.push_back(r);
             continue;
         }
         IF_VERBOSE(10, verbose_stream() << "bail " << mk_bounded_pp(arg, m()) << "\n");
-        return expr_ref(nullptr, m());
+        goto bail;
     }
-    return expr_ref(values[ite->get_id()], m());
+bail:
+    if (todo.empty())
+        result = values[ite->get_id()];
+    for (auto idx : indices)
+        values[idx] = nullptr;
+    indices.reset();
+    return expr_ref(result, m());
 }
 
 
