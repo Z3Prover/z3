@@ -690,84 +690,36 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
     return BR_FAILED;
 }
 
+// check that all leaves are disjoint.
 expr_ref bool_rewriter::simplify_eq_ite(expr* value, expr* ite) {
     SASSERT(m().is_value(value));
     SASSERT(m().is_ite(ite));
     expr* c = nullptr, * t = nullptr, * e = nullptr;
-    expr_ref r(m());
     auto& todo = m_todo1;
     todo.reset();
-    auto& values = m_values;
-    auto& pinned = m_pinned;
-    auto& indices = m_indices;
-    expr* result = nullptr;
-    SASSERT(indices.empty());
-
     todo.push_back(ite);
+    bool is_disjoint = true;
     while (!todo.empty()) {
         expr* arg = todo.back();
-        unsigned id = arg->get_id();
-        if (m().is_value(arg)) {
-            if (m().are_equal(arg, value)) {
-                todo.pop_back();
-                values.setx(id, m().mk_true(), nullptr);
-                indices.push_back(id);
-                continue;
-            }
-            if (m().are_distinct(arg, value)) {
-                todo.pop_back();
-                values.setx(id, m().mk_false(), nullptr);
-                indices.push_back(id);
-                continue;
-            }
-            goto bail;
-        }
+        todo.pop_back();
+        if (m_marked.is_marked(arg))
+            continue;
+        m_marked.mark(arg, true);
+        if (m().is_value(arg) && m().are_distinct(arg, value))
+            continue;
         if (m().is_ite(arg, c, t, e)) {
-            unsigned sz = todo.size();
-            auto th = values.get(t->get_id(), nullptr);
-            auto el = values.get(e->get_id(), nullptr);
-            if (!th) 
-                todo.push_back(t);            
-            if (!el) 
-                todo.push_back(e);            
-            if (sz < todo.size())
-                continue;
-
-            if (m().is_false(th) && m().is_false(el))
-                r = m().mk_false();
-            else if (m().is_true(th) && m().is_true(el))
-                r = m().mk_true();
-            else if (m().is_true(th) && m().is_false(el))
-                r = c;
-            else if (m().is_false(th) && m().is_true(el))
-                r = m().mk_not(c);
-            else if (m().is_true(th)) 
-                r = m().mk_or(c, el);            
-            else if (m().is_false(th)) 
-                r = m().mk_and(m().mk_not(c), el);            
-            else if (m().is_false(el)) 
-                r = m().mk_and(c, th);
-            else if (m().is_true(el)) 
-                r = m().mk_or(m().mk_not(c), th);
-            else 
-                r = m().mk_ite(c, th, el);
-            
-            todo.pop_back();
-            values.setx(id, r, nullptr);
-            indices.push_back(id);
-            pinned.push_back(r);
+            if (!m_marked.is_marked(t)) 
+                todo.push_back(t);
+            if (!m_marked.is_marked(e))
+            todo.push_back(e);
             continue;
         }
-        IF_VERBOSE(10, verbose_stream() << "bail " << mk_bounded_pp(arg, m()) << "\n");
-        goto bail;
+        is_disjoint = false;
+        break;
     }
-bail:
-    if (todo.empty())
-        result = values[ite->get_id()];
-    for (auto idx : indices)
-        values[idx] = nullptr;
-    indices.reset();
-    return expr_ref(result, m());
+    m_marked.reset();
+    todo.reset();
+    return expr_ref(is_disjoint ? m().mk_false() : nullptr, m());    
 }
 
 
