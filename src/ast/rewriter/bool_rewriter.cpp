@@ -711,7 +711,7 @@ expr_ref bool_rewriter::simplify_eq_ite(expr* value, expr* ite) {
             if (!m_marked.is_marked(t)) 
                 todo.push_back(t);
             if (!m_marked.is_marked(e))
-            todo.push_back(e);
+                todo.push_back(e);
             continue;
         }
         is_disjoint = false;
