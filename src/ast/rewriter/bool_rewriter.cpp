@@ -34,7 +34,6 @@ void bool_rewriter::updt_params(params_ref const & _p) {
     m_blast_distinct       = p.blast_distinct();
     m_blast_distinct_threshold = p.blast_distinct_threshold();
     m_ite_extra_rules      = p.ite_extra_rules();
-    m_elim_ite_value_tree    = p.elim_ite_value_tree();
 }
 
 void bool_rewriter::get_param_descrs(param_descrs & r) {
@@ -681,11 +680,9 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
         return BR_REWRITE2;
     }
 
-    if (m_elim_ite_value_tree) {
-        result = simplify_eq_ite(val, ite);
-        if (result) 
-            return BR_REWRITE_FULL;        
-    }
+    result = simplify_eq_ite(val, ite);
+    if (result) 
+        return BR_REWRITE_FULL;            
 
     return BR_FAILED;
 }
