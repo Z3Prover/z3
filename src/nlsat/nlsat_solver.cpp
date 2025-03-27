@@ -3736,7 +3736,7 @@ namespace nlsat {
                 }
             }
 
-            out << "Resolve[Exists[{";
+            out << "Resolve[ForAll[{";
             bool first = true;
             for (var x = 0; x < num_vars(); x++) {
                 if (used_vars[x]) {
