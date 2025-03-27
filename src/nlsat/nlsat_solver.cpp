@@ -463,7 +463,8 @@ namespace nlsat {
                 return max;
             }
             else {
-                return m_pm.degree(to_root_atom(a)->p(), a->max_var());
+                return m_pm.degree(to_root_atom(a)->p(), a->max_var());
+
             }
         }
 
@@ -528,8 +529,8 @@ namespace nlsat {
             SASSERT(m_is_int.size() == m_inv_perm.size());
         }
 
-        bool_vector m_found_vars;
-        void vars(literal l, var_vector& vs) {                
+        mutable bool_vector m_found_vars;
+        void vars(literal l, var_vector& vs) const {                
             vs.reset();
             atom * a = m_atoms[l.var()];
             if (a == nullptr) {
@@ -3719,26 +3720,46 @@ namespace nlsat {
         // Display generated lemma in Mathematica format.
         // Mathematica must reduce lemma to True (modulo resource constraints).
         std::ostream& display_mathematica_lemma(std::ostream & out, unsigned num, literal const * ls, bool include_assignment = false) const {
-            out << "Resolve[ForAll[{";
-            // var definition
-            for (unsigned i = 0; i < num_vars(); i++) {
-                if (i > 0)
-                    out << ", ";
-                out << "x" << i;
+            bool_vector used_vars(num_vars(), false);
+            var_vector vars;
+            for (unsigned i = 0; i < num; i++) {
+                vars.reset();
+                this->vars(ls[i], vars);
+                for (var v : vars)
+                    used_vars[v] = true;
+            }
+
+            if (include_assignment) {
+                for (var x = 0; x < num_vars(); x++) {
+                    if (m_assignment.is_assigned(x))
+                        used_vars[x] = true;
+                }
+            }
+
+            out << "Resolve[Exists[{";
+            bool first = true;
+            for (var x = 0; x < num_vars(); x++) {
+                if (used_vars[x]) {
+                    if (!first) out << ", ";
+                    first = false;
+                    m_display_var(out, x);
+                }
             }
             out << "}, ";
+
             if (include_assignment) {
                 out << "!(";
                 if (!display_mathematica_assignment(out))
                     out << "0 < 1"; // nothing was printed
                 out << ") || ";
             }
+
             for (unsigned i = 0; i < num; i++) {
                 if (i > 0)
                     out << " || ";
                 display_mathematica(out, ls[i]);
             }
-            out << "], Reals]\n"; // end of exists
+            out << "], Reals]";
             return out;
         }
         
