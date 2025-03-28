@@ -4498,6 +4498,17 @@ extern "C" {
     bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, uint64_t* r);
 
     /**
+        \brief Return the arity (number of dimensions) of the given array sort.
+
+        \pre Z3_get_sort_kind(s) == Z3_ARRAY_SORT
+
+        \sa Z3_get_array_sort_domain_n
+
+        def_API('Z3_get_array_arity', UINT, (_in(CONTEXT), _in(SORT)))
+    */
+    unsigned Z3_API Z3_get_array_arity(Z3_context c, Z3_sort s);
+
+    /**
        \brief Return the domain of the given array sort.
        In the case of a multi-dimensional array, this function returns the sort of the first dimension.
 

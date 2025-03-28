@@ -300,6 +300,19 @@ extern "C" {
             to_sort(t)->get_decl_kind() == ARRAY_SORT;
     }
 
+    unsigned Z3_API Z3_get_array_arity(Z3_context c, Z3_sort s) {
+        Z3_TRY;
+        LOG_Z3_get_array_arity(c, s);
+        RESET_ERROR_CODE();
+        sort * a = to_sort(s);
+        if (Z3_get_sort_kind(c, s) != Z3_ARRAY_SORT) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "sort should be an array");
+            return 0;
+        }
+        return get_array_arity(a);
+        Z3_CATCH_RETURN(0);
+    }
+
     Z3_sort Z3_API Z3_get_array_sort_domain(Z3_context c, Z3_sort t) {
         Z3_TRY;
         LOG_Z3_get_array_sort_domain(c, t);
