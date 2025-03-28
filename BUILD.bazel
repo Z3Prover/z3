@@ -1,0 +1,37 @@
+load("@rules_foreign_cc//foreign_cc:defs.bzl", "configure_make")
+load("@rules_license//rules:license.bzl", "license")
+
+package(default_applicable_licenses = [":license"])
+
+license(
+    name = "license",
+    license_kinds = ["@rules_license//licenses/spdx:MIT"],
+    license_text = "LICENSE.txt",
+)
+
+exports_files(["LICENSE.txt"])
+
+filegroup(
+    name = "all_files",
+    srcs = glob(["**"]),
+)
+
+configure_make(
+    name = "z3",
+    args = [
+        "--directory build",
+        "-j8",
+    ],
+    configure_in_place = True,
+    env = {
+        # See https://github.com/bazelbuild/rules_foreign_cc/issues/239.
+        "CFLAGS": "-Dredacted=0",
+        "CXXFLAGS": "-Dredacted=0",
+        "PYTHON": "python3",
+    },
+    lib_source = ":all_files",
+    out_binaries = ["z3"],
+    out_shared_libs = ["libz3.so"],
+    targets = ["install"],
+    visibility = ["//visibility:public"],
+)

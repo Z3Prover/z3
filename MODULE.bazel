@@ -1,0 +1,19 @@
+module(
+    name = "z3",
+    version = "4.14.0",
+    bazel_compatibility = [">=7.0.0"],
+)
+
+bazel_dep(name = "rules_foreign_cc", version = "0.14.0")
+bazel_dep(name = "rules_license", version = "1.0.0")
+
+# Enables formatting all Bazel files (.bazel, .bzl) by running:
+# ```bash
+# bazel run -- \
+#   @buildifier_prebuilt//:buildifier --lint=fix -r $(bazel info workspace)
+# ```
+bazel_dep(
+    name = "buildifier_prebuilt",
+    version = "8.0.1",
+    dev_dependency = True,
+)
