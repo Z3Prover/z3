@@ -5109,6 +5109,8 @@ extern "C" {
 
        Return \c true if the numeral value fits in 64 bit numerals, \c false otherwise.
 
+       Equivalent to \c Z3_get_numeral_rational_int64 except that for unsupported expression arguments \c Z3_get_numeral_small signals an error while \c Z3_get_numeral_rational_int64 returns \c false.
+
        \pre Z3_get_ast_kind(a) == Z3_NUMERAL_AST
 
        def_API('Z3_get_numeral_small', BOOL, (_in(CONTEXT), _in(AST), _out(INT64), _out(INT64)))

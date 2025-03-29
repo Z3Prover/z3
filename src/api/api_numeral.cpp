@@ -318,6 +318,10 @@ extern "C" {
         LOG_Z3_get_numeral_small(c, a, num, den);
         RESET_ERROR_CODE();
         CHECK_IS_EXPR(a, false);
+        if (!num || !den) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            return false;
+        }
         rational r;
         bool ok = Z3_get_numeral_rational(c, a, r);
         if (ok) {
