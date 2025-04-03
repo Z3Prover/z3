@@ -596,34 +596,63 @@ namespace lp {
         };
 
         struct protected_queue {
-            std::queue<unsigned> m_q;
-            indexed_uint_set m_in_q;
+            std::list<unsigned> m_q;
+            std::unordered_map<unsigned, std::list<unsigned>::iterator> m_positions;
+
             bool empty() const {
                 return m_q.empty();
             }
 
             unsigned size() const {
-                return (unsigned)m_q.size();
+                return static_cast<unsigned>(m_q.size());
             }
 
             void push(unsigned j) {
-                if (m_in_q.contains(j)) return;
-                m_in_q.insert(j);
-                m_q.push(j);
+                if (m_positions.find(j) != m_positions.end()) return;
+                m_q.push_back(j);
+                m_positions[j] = std::prev(m_q.end());
             }
 
             unsigned pop_front() {
                 unsigned j = m_q.front();
-                m_q.pop();
-                SASSERT(m_in_q.contains(j));
-                m_in_q.remove(j);
+                m_q.pop_front();
+                m_positions.erase(j);
                 return j;
             }
 
+            void remove(unsigned j) {
+                auto it = m_positions.find(j);
+                if (it != m_positions.end()) {
+                    m_q.erase(it->second);
+                    m_positions.erase(it);
+                }
+                if (!invariant()) {
+                    throw std::runtime_error("Invariant violation in protected_queue");
+                }
+            }
+
+            bool contains(unsigned j) const {
+                return m_positions.find(j) != m_positions.end();
+            }
+
             void reset() {
-                while (!m_q.empty())
-                    m_q.pop();
-                m_in_q.reset();
+                m_q.clear();
+                m_positions.clear();
+            }
+            // Invariant method to ensure m_q and m_positions are aligned
+            bool invariant() const {
+                if (m_q.size() != m_positions.size())
+                    return false;
+
+                for (auto it = m_q.begin(); it != m_q.end(); ++it) {
+                    auto pos_it = m_positions.find(*it);
+                    if (pos_it == m_positions.end())
+                        return false;
+                    if (pos_it->second != it)
+                        return false;
+                }
+
+                return true;
             }
         };
 
@@ -750,6 +779,12 @@ namespace lp {
         std_vector<variable_branch_stats> m_branch_stats;
         std_vector<branch> m_branch_stack;
         std_vector<constraint_index> m_explanation_of_branches;
+        bool term_has_big_number(const lar_term* t) const {
+            for (const auto& p : *t)
+                if (p.coeff().is_big())
+                    return true;
+            return false;
+        }
         void add_term_callback(const lar_term* t) {
             unsigned j = t->j();
             TRACE("dio", tout << "term column t->j():" << j << std::endl; lra.print_term(*t, tout) << std::endl;);
@@ -761,8 +796,9 @@ namespace lp {
 
             CTRACE("dio", !lra.column_has_term(j), tout << "added term that is not associated with a column yet" << std::endl;);
 
-            if (!lia.column_is_int(t->j())) {
-                TRACE("dio", tout << "not all vars are integrall\n";);
+            if (term_has_big_number(t)) {
+                TRACE("dio", tout << "term_has_big_number\n";);
+                m_has_non_integral_term = true;
                 return;
             }
             m_added_terms.push_back(t);
@@ -779,9 +815,11 @@ namespace lp {
         void update_column_bound_callback(unsigned j) {
             if (!lra.column_is_int(j))
                 return;
-            if (lra.column_has_term(j))
+            if (lra.column_has_term(j) && !term_has_big_number(&lra.get_term(j)))
                 m_terms_to_tighten.insert(j); // the boundary of the term has changed: we can be successful to tighten this term   
             if (!lra.column_is_fixed(j))
+                return;
+            if (lra.get_lower_bound(j).x.is_big())
                 return;
             TRACE("dio", tout << "j:" << j << "\n"; lra.print_column_info(j, tout););
             m_changed_columns.insert(j);
@@ -1016,6 +1054,7 @@ namespace lp {
         void process_changed_columns(std_vector<unsigned> &f_vector) {
             find_changed_terms_and_more_changed_rows();
             for (unsigned j: m_changed_terms) {
+                SASSERT(!term_has_big_number(&lra.get_term(j)));
                 m_terms_to_tighten.insert(j);
                 if (j < m_l_matrix.column_count()) {
                     for (const auto& cs : m_l_matrix.column(j)) {
@@ -1295,6 +1334,52 @@ namespace lp {
         bool is_substituted_by_fresh(unsigned k) const {
             return m_fresh_k2xt_terms.has_key(k);
         }
+
+        // find a variable in q, not neccessarily at the beginning of the queue, that when substituted would create the minimal
+        // number of non-zeroes
+        unsigned find_var_to_substitute_on_espace(protected_queue& q) {
+            // go over all q elements j
+            // say j is substituted by entry ei = m_k2s[j]
+            // count the number of variables i in m_e_matrix[ei] that m_espace does not contain i,
+            // and choose ei where this number is minimal
+            
+            unsigned best_var = UINT_MAX;
+            size_t min_new_vars = std::numeric_limits<size_t>::max();
+            unsigned num_candidates = 0;
+
+            for (unsigned j : q.m_q) {
+                size_t new_vars = 0;
+                if (!m_espace.has(j)) continue;
+                if (m_k2s.has_key(j)) {
+                    unsigned ei = m_k2s[j]; // entry index for substitution
+                    for (const auto& p : m_e_matrix.m_rows[ei])
+                        if (p.var() != j && !m_espace.has(p.var()))
+                            ++new_vars;
+                }
+                else if (m_fresh_k2xt_terms.has_key(j)) {
+                    const lar_term& fresh_term = m_fresh_k2xt_terms.get_by_key(j).first;
+                    for (const auto& p : fresh_term)
+                        if (p.var() != j && !m_espace.has(p.var()))
+                            ++new_vars;
+                }
+                if (new_vars < min_new_vars) {
+                    min_new_vars = new_vars;
+                    best_var = j;
+                    num_candidates = 1;
+                }
+                else if (new_vars == min_new_vars) {
+                    ++num_candidates;
+                    if ((lra.settings().random_next() % num_candidates) == 0)
+                        best_var = j;
+                }
+            }
+
+            if (best_var != UINT_MAX)
+                q.remove(best_var);
+
+            return best_var;
+        }
+        
         // The term giving the substitution is in form (+-)x_k + sum {a_i*x_i} + c = 0.
         // We substitute x_k in t by (+-)coeff*(sum {a_i*x_i} + c), where coeff is
         // the coefficient of x_k in t.
@@ -1303,11 +1388,11 @@ namespace lp {
             auto r = tighten_on_espace(j);
             if (r == lia_move::conflict)
                 return lia_move::conflict;
-            unsigned k = q.pop_front();
-            if (!m_espace.has(k))
-                return lia_move::undef;            
+            unsigned k = find_var_to_substitute_on_espace(q);
+            if (k == UINT_MAX)
+                return lia_move::undef;
+            SASSERT(m_espace.has(k));
             // we might substitute with a term from S or a fresh term
-
             SASSERT(can_substitute(k));
             lia_move ret;
             if (is_substituted_by_fresh(k)) 
@@ -2203,6 +2288,7 @@ namespace lp {
     public:
         lia_move check() {
             lra.stats().m_dio_calls++;
+            std::cout << "check" << std::endl;
             TRACE("dio", tout << lra.stats().m_dio_calls << std::endl;);
             std_vector<unsigned> f_vector;
             lia_move ret;
