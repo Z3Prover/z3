@@ -43,6 +43,8 @@ z3_add_component(lp
     polynomial
     nlsat
     smt_params
+  PYG_FILES
+    lp_params_helper.pyg
 )
 
 include_directories(${src_SOURCE_DIR})
