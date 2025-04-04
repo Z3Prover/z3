@@ -1,6 +1,6 @@
 {
   "name": "dtk-z3-solver-deno-v2",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "keywords": [
     "Z3",
     "theorem",
@@ -10,10 +10,10 @@
     "smt",
     "satisfiability modulo theories"
   ],
-  "homepage": "https://github.com/Z3Prover/z3/tree/master/src/api/js",
+  "homepage": "https://github.com/dtk/z3-customized/tree/master/src/api/js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Z3Prover/z3.git"
+    "url": "git+https://github.com/dtk/z3-customized"
   },
   "engines": {
     "node": ">=16"
