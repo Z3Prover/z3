@@ -188,8 +188,7 @@ namespace lp {
 
         bool should_gomory_cut() {
             bool dio_allows_gomory = !settings().dio_eqs() || settings().dio_enable_gomory_cuts() ||
-                                      m_dio.has_non_integral_term();
-            std::cout << "should_gomory_cut:" << dio_allows_gomory << std::endl;
+                                      m_dio.some_terms_are_ignored();
             return dio_allows_gomory && m_number_of_calls % settings().m_int_gomory_cut_period == 0;
         }
 
