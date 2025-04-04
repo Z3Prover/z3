@@ -11341,7 +11341,7 @@ def SeqMap(f, s):
 
 def SeqMapI(f, i, s):
     """Map function 'f' over sequence 's' at index 'i'"""
-    ctx = _get_ctx(f, s)
+    ctx = _get_ctx2(f, s)
     s = _coerce_seq(s, ctx)
     if not is_expr(i):
         i = _py2expr(i)
