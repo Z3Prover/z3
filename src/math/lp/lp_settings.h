@@ -261,6 +261,8 @@ private:
     unsigned         m_dio_branching_period = 100; //  do branching rarely
     unsigned         m_dio_report_branch_with_term_tigthening_period = 10000000; // period of reporting the branch with term tigthening
     bool             m_dump_bound_lemmas = false;
+    bool             m_dio_ignore_big_nums = false;
+
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }
     bool propagate_eqs() const { return m_propagate_eqs;}
@@ -272,6 +274,7 @@ public:
     bool dio_enable_gomory_cuts() const { return m_dio_eqs && m_dio_enable_gomory_cuts; }
     bool dio_enable_hnf_cuts() const { return m_dio_eqs && m_dio_enable_hnf_cuts; }
     unsigned dio_branching_period() const { return m_dio_branching_period; }
+    bool dio_ignore_big_nums() const { return m_dio_ignore_big_nums; }
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
     unsigned dio_report_branch_with_term_tigthening_period() const { return m_dio_report_branch_with_term_tigthening_period; }
     bool bound_progation() const { 

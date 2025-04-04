@@ -343,7 +343,7 @@ namespace lp {
             return out;
         }
 
-        bool m_has_non_integral_term = false;
+        bool m_some_terms_are_ignored = false;
         std_vector<mpq> m_sum_of_fixed;
         // we have to use m_var_register because of the fresh variables: otherwise they clash with the existing lar_solver column indices
         var_register m_var_register;
@@ -779,26 +779,29 @@ namespace lp {
         std_vector<variable_branch_stats> m_branch_stats;
         std_vector<branch> m_branch_stack;
         std_vector<constraint_index> m_explanation_of_branches;
-        bool term_has_big_number(const lar_term* t) const {
-            for (const auto& p : *t)
+        bool term_has_big_number(const lar_term& t) const {
+            for (const auto& p : t)
                 if (p.coeff().is_big())
                     return true;
             return false;
         }
+
+        bool ignore_big_nums() const { return lra.settings().dio_ignore_big_nums(); }
+        
         void add_term_callback(const lar_term* t) {
             unsigned j = t->j();
             TRACE("dio", tout << "term column t->j():" << j << std::endl; lra.print_term(*t, tout) << std::endl;);
             if (!lra.column_is_int(j)) {
                 TRACE("dio", tout << "ignored a non-integral column" << std::endl;);
-                m_has_non_integral_term = true;
+                m_some_terms_are_ignored = true;
                 return;
             }
 
             CTRACE("dio", !lra.column_has_term(j), tout << "added term that is not associated with a column yet" << std::endl;);
 
-            if (term_has_big_number(t)) {
+            if (ignore_big_nums() && term_has_big_number(*t)) {
                 TRACE("dio", tout << "term_has_big_number\n";);
-                m_has_non_integral_term = true;
+                m_some_terms_are_ignored = true;
                 return;
             }
             m_added_terms.push_back(t);
@@ -815,11 +818,12 @@ namespace lp {
         void update_column_bound_callback(unsigned j) {
             if (!lra.column_is_int(j))
                 return;
-            if (lra.column_has_term(j) && !term_has_big_number(&lra.get_term(j)))
+            if (lra.column_has_term(j) &&
+                ignore_big_nums() && !term_has_big_number(lra.get_term(j)))
                 m_terms_to_tighten.insert(j); // the boundary of the term has changed: we can be successful to tighten this term   
             if (!lra.column_is_fixed(j))
                 return;
-            if (lra.get_lower_bound(j).x.is_big())
+            if (ignore_big_nums() && lra.get_lower_bound(j).x.is_big())
                 return;
             TRACE("dio", tout << "j:" << j << "\n"; lra.print_column_info(j, tout););
             m_changed_columns.insert(j);
@@ -1054,7 +1058,9 @@ namespace lp {
         void process_changed_columns(std_vector<unsigned> &f_vector) {
             find_changed_terms_and_more_changed_rows();
             for (unsigned j: m_changed_terms) {
-                SASSERT(!term_has_big_number(&lra.get_term(j)));
+                if (j >= lra.column_count())
+                    continue;
+                SASSERT(!ignore_big_nums() || !term_has_big_number(lra.get_term(j)));
                 m_terms_to_tighten.insert(j);
                 if (j < m_l_matrix.column_count()) {
                     for (const auto& cs : m_l_matrix.column(j)) {
@@ -1346,10 +1352,13 @@ namespace lp {
             unsigned best_var = UINT_MAX;
             size_t min_new_vars = std::numeric_limits<size_t>::max();
             unsigned num_candidates = 0;
-
+            std::vector<unsigned> to_remove;
             for (unsigned j : q.m_q) {
                 size_t new_vars = 0;
-                if (!m_espace.has(j)) continue;
+                if (!m_espace.has(j)) {
+                    to_remove.push_back(j);
+                    continue;
+                }
                 if (m_k2s.has_key(j)) {
                     unsigned ei = m_k2s[j]; // entry index for substitution
                     for (const auto& p : m_e_matrix.m_rows[ei])
@@ -1377,6 +1386,10 @@ namespace lp {
             if (best_var != UINT_MAX)
                 q.remove(best_var);
 
+            for (unsigned j: to_remove)
+                q.remove(j);
+            
+            
             return best_var;
         }
         
@@ -1544,8 +1557,9 @@ namespace lp {
 
         // We will have lar_t, and let j is lar_t.j(), the term column. 
         // In the m_espace we have lar_t. The result of open_ml((1*j)) is lar_t - (1, j).
-        // So we have "equality" m_espace = open(m_lspace) + (1*lar_t.j()) 
-        void init_substitutions(const lar_term& lar_t, protected_queue& q) {
+        // So we have "equality" m_espace = open(m_lspace) + (1*lar_t.j())
+        // return false iff seen a big number and dio_ignore_big_nums() is true
+        bool init_substitutions(const lar_term& lar_t, protected_queue& q) {
             m_espace.clear();
             m_c = mpq(0);
             m_lspace.clear();
@@ -1553,16 +1567,21 @@ namespace lp {
             SASSERT(get_extended_term_value(lar_t).is_zero());
             for (const auto& p : lar_t) {
                 if (is_fixed(p.j())) {
-                    m_c += p.coeff() * lia.lower_bound(p.j()).x;
+                    const mpq& b = lia.lower_bound(p.j()).x;
+                    if (ignore_big_nums() && b.is_big())
+                        return false;
+                    m_c += p.coeff() * b;
                 }
                 else {
                     unsigned lj = lar_solver_to_local(p.j());
+                    SASSERT(!p.coeff().is_big());
                     m_espace.add(p.coeff(), lj);;
                     if (can_substitute(lj))
                         q.push(lj);
                 }
             }
             SASSERT(subs_invariant(lar_t.j()));
+            return true;
         }
 
         unsigned lar_solver_to_local(unsigned j) const {
@@ -1584,8 +1603,6 @@ namespace lp {
         
         lia_move tighten_on_espace(unsigned j) {
             mpq g = gcd_of_coeffs(m_espace.m_data, true);
-            TRACE("dio", tout << "after process_q_with_S\nt:";  print_term_o(create_term_from_espace(), tout) << std::endl; tout << "g:" << g << std::endl;);
-            
             if (g.is_one())
                 return lia_move::undef;
             if (g.is_zero()) {
@@ -1623,7 +1640,8 @@ namespace lp {
                       lra.print_column_info(p.var(), tout);
                   }
                 );
-            init_substitutions(lra.get_term(j), q);
+            if (!init_substitutions(lra.get_term(j), q))
+                return lia_move::undef;
          
             TRACE("dio", tout << "t:";
                   tout << "m_espace:";
@@ -2218,6 +2236,8 @@ namespace lp {
             for (unsigned k = 0; k < lra.terms().size(); k++) {
                 const lar_term* t = lra.terms()[k];
                 if (!lia.column_is_int(t->j())) continue;
+                if (ignore_big_nums() && term_has_big_number(*t))
+                    continue;
                 SASSERT(t->j() != UINT_MAX);
                 for (const auto& p : (*t).ext_coeffs()) {
                     unsigned j = p.var();
@@ -2288,7 +2308,6 @@ namespace lp {
     public:
         lia_move check() {
             lra.stats().m_dio_calls++;
-            std::cout << "check" << std::endl;
             TRACE("dio", tout << lra.stats().m_dio_calls << std::endl;);
             std_vector<unsigned> f_vector;
             lia_move ret;
@@ -2778,8 +2797,8 @@ namespace lp {
         // needed for the template bound_analyzer_on_row.h
         const lar_solver& lp() const { return lra; }
         lar_solver& lp() {return lra;}
-        bool has_non_integral_term() const {
-            return m_has_non_integral_term;
+        bool some_terms_are_ignored() const {
+            return m_some_terms_are_ignored;
         }
     };
     // Constructor definition
@@ -2798,8 +2817,8 @@ namespace lp {
         m_imp->explain(ex);
     }
 
-    bool dioph_eq::has_non_integral_term() const {
-        return m_imp->has_non_integral_term();
+    bool dioph_eq::some_terms_are_ignored() const {
+        return m_imp->some_terms_are_ignored();
     }
     
 
