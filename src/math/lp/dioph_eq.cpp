@@ -343,6 +343,9 @@ namespace lp {
             return out;
         }
 
+        // the maximal size of the term to try to tighten the bounds:
+        // if the size of the term is large than the chances are that the GCD of the coefficients is one
+        unsigned m_tighten_size_max = 10;
         bool m_some_terms_are_ignored = false;
         std_vector<mpq> m_sum_of_fixed;
         // we have to use m_var_register because of the fresh variables: otherwise they clash with the existing lar_solver column indices
@@ -360,8 +363,9 @@ namespace lp {
         // set S - iterate over bijection m_k2s
         mpq m_c;  // the constant of the equation
         struct term_with_index {
-            // The invariant is that m_index[m_data[k].var()] = k, for each 0 <= k < m_data.size(),
-            // and m_index[j] = -1, or m_tmp[m_index[j]].var() = j, for every 0 <= j < m_index.size().
+            // The invariant is
+            // 1)  m_index[m_data[k].var()] = k, for each 0 <= k < m_data.size(), and
+            // 2)  m_index[j] = -1, or m_data[m_index[j]].var() = j, for every 0 <= j < m_index.size().
             // For example m_data = [(coeff, 5), (coeff, 3)]
             // then m_index = [-1,-1, -1, 1, -1, 0, -1, ....].
             std_vector<iv> m_data;
@@ -375,6 +379,8 @@ namespace lp {
                 return r;
             }
 
+            auto size() const { return m_data.size(); }
+            
             bool has(unsigned k) const {
                 return k < m_index.size() && m_index[k] >= 0;
             }
@@ -626,9 +632,7 @@ namespace lp {
                     m_q.erase(it->second);
                     m_positions.erase(it);
                 }
-                if (!invariant()) {
-                    throw std::runtime_error("Invariant violation in protected_queue");
-                }
+                SASSERT(invariant());
             }
 
             bool contains(unsigned j) const {
@@ -780,9 +784,12 @@ namespace lp {
         std_vector<branch> m_branch_stack;
         std_vector<constraint_index> m_explanation_of_branches;
         bool term_has_big_number(const lar_term& t) const {
-            for (const auto& p : t)
+            for (const auto& p : t) {
                 if (p.coeff().is_big())
                     return true;
+                if (is_fixed(p.var()) && lra.get_lower_bound(p.var()).x.is_big())
+                    return true;
+            }
             return false;
         }
 
@@ -896,7 +903,7 @@ namespace lp {
             }
             subs_entry(entry_index);
             SASSERT(entry_invariant(entry_index));
-            TRACE("dio", print_entry(entry_index, tout) << std::endl;);
+            TRACE("dio_entry", print_entry(entry_index, tout) << std::endl;);
         }
         void subs_entry(unsigned ei) {
             if (ei >= m_e_matrix.row_count()) return;
@@ -1483,7 +1490,7 @@ namespace lp {
         
         lia_move subs_with_S_and_fresh(protected_queue& q, unsigned j) {
             lia_move r = lia_move::undef;
-            while (!q.empty() && r != lia_move::conflict) {
+            while (!q.empty() && r != lia_move::conflict && m_espace.size() <= m_tighten_size_max) {
                 lia_move ret = subs_front_with_S_and_fresh(q, j);
                 r = join(ret, r);
             }
@@ -1535,6 +1542,8 @@ namespace lp {
             );
             for (unsigned j : sorted_changed_terms) {
                 m_terms_to_tighten.remove(j);
+                if (ignore_big_nums() && term_has_big_number(lra.get_term(j)))
+                    continue;
                 auto ret = tighten_bounds_for_term_column(j);
                 r = join(ret, r);
                 if (r == lia_move::conflict)
