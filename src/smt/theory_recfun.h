@@ -82,7 +82,7 @@ namespace smt {
         void set_depth_rec(unsigned d, expr* e);
         
         literal mk_eq_lit(expr* l, expr* r);
-        bool is_standard_order(recfun::vars const& vars) const { 
+        bool is_decreasing_order(recfun::vars const& vars) const { 
             return vars.empty() || vars[vars.size()-1]->get_idx() == 0;
         }
     protected:
