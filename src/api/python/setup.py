@@ -303,6 +303,7 @@ class bdist_wheel(_bdist_wheel):
                 # linux tags cannot be deployed - they must be auditwheel'd to pick the right compatibility tag based on imported libc symbol versions
                 ("linux", "x86_64"): "linux_x86_64",
                 ("linux", "aarch64"): "linux_aarch64",
+                ('linux', "riscv64"): "linux_riscv64",
                 # windows arm64 is not supported by pypi yet
                 ("win", "x64"): "win_amd64",
                 ("win", "x86"): "win32",
