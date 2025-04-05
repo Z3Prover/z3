@@ -1533,7 +1533,7 @@ def RealVar(idx: int, ctx=None) -> ExprRef:
     """
     return Var(idx, RealSort(ctx))
 
-def RealVarVector(n: int, ctx= None) -> list[ExprRef]:
+def RealVarVector(n: int, ctx= None):
     """
     Create a list of Real free variables.
     The variables have ids: 0, 1, ..., n-1
