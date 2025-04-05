@@ -129,7 +129,7 @@ def append_log(s):
     Z3_append_log(s)
 
 
-def to_symbol(s : int | str, ctx = None):
+def to_symbol(s, ctx = None):
     """Convert an integer or string into a Z3 symbol."""
     if _is_int(s):
         return Z3_mk_int_symbol(_get_ctx(ctx).ref(), s)
@@ -312,7 +312,7 @@ def set_option(*args, **kws):
     return set_param(*args, **kws)
 
 
-def get_param(name : str) -> str:
+def get_param(name):
     """Return the value of a Z3 global (or module) parameter
 
     >>> get_param('nlsat.reorder')
