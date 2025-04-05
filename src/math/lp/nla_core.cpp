@@ -1556,6 +1556,8 @@ lbool core::check() {
     }
 
     if (no_effect() && params().arith_nl_nra()) {
+        scoped_limits sl(m_reslim);
+        sl.push_child(&m_nra_lim);
         ret = m_nra.check();
         lp_settings().stats().m_nra_calls++;
     }
