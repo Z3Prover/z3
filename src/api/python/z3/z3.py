@@ -265,14 +265,14 @@ def main_ctx() -> Context:
     return _main_ctx
 
 
-def _get_ctx(ctx : Context | None) -> Context:
+def _get_ctx(ctx) -> Context:
     if ctx is None:
         return main_ctx()
     else:
         return ctx
 
 
-def get_ctx(ctx : Context | None) -> Context:
+def get_ctx(ctx) -> Context:
     return _get_ctx(ctx)
 
 
@@ -704,7 +704,7 @@ def _sort(ctx : Context, a : Any) -> SortRef:
     return _to_sort_ref(Z3_get_sort(ctx.ref(), a), ctx)
 
 
-def DeclareSort(name, ctx : Context | None = None) -> SortRef:
+def DeclareSort(name, ctx= None) -> SortRef:
     """Create a new uninterpreted sort named `name`.
 
     If `ctx=None`, then the new sort is declared in the global Z3Py context.
@@ -1523,7 +1523,7 @@ def Var(idx : int, s : SortRef) -> ExprRef:
     return _to_expr_ref(Z3_mk_bound(s.ctx_ref(), idx, s.ast), s.ctx)
 
 
-def RealVar(idx: int, ctx: Context | None = None) -> ExprRef:
+def RealVar(idx: int, ctx=None) -> ExprRef:
     """
     Create a real free variable. Free variables are used to create quantified formulas.
     They are also used to create polynomials.
@@ -1533,7 +1533,7 @@ def RealVar(idx: int, ctx: Context | None = None) -> ExprRef:
     """
     return Var(idx, RealSort(ctx))
 
-def RealVarVector(n: int, ctx: Context | None = None) -> list[ExprRef]:
+def RealVarVector(n: int, ctx= None) -> list[ExprRef]:
     """
     Create a list of Real free variables.
     The variables have ids: 0, 1, ..., n-1
