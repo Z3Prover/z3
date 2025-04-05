@@ -60,10 +60,7 @@ from collections.abc import Callable
 from typing import (
     Any,
     Iterable,
-    Sequence,
-    TypeVar,
-    Self,
-    Union,
+    Sequence
 )
 
 
