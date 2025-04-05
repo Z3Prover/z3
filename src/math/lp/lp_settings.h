@@ -261,7 +261,7 @@ private:
     unsigned         m_dio_report_branch_with_term_tigthening_period = 10000000; // period of reporting the branch with term tigthening
     bool             m_dump_bound_lemmas = false;
     bool             m_dio_ignore_big_nums = false;
-    unsigned         m_dio_calls_period = 1;
+    unsigned         m_dio_calls_period = 4;
 
 public:
     unsigned dio_calls_period() const { return m_dio_calls_period; }
