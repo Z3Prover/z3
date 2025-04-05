@@ -61,7 +61,6 @@ from typing import (
     Any,
     Iterable,
     Sequence,
-    TypeGuard,
     TypeVar,
     Self,
     Union,
@@ -464,7 +463,7 @@ class AstRef(Z3PPObject):
         return None
 
 
-def is_ast(a : Any) -> TypeGuard[AstRef]:
+def is_ast(a : Any) -> bool:
     """Return `True` if `a` is an AST node.
 
     >>> is_ast(10)
@@ -660,7 +659,7 @@ class SortRef(AstRef):
         return AstRef.__hash__(self)
 
 
-def is_sort(s : Any) -> TypeGuard[SortRef]:
+def is_sort(s : Any) -> bool:
     """Return `True` if `s` is a Z3 sort.
 
     >>> is_sort(IntSort())
@@ -1641,7 +1640,7 @@ class BoolRef(ExprRef):
     
 
     
-def is_bool(a : Any) -> TypeGuard[BoolRef]:
+def is_bool(a : Any) -> bool:
     """Return `True` if `a` is a Z3 Boolean expression.
 
     >>> p = Bool('p')
@@ -1659,7 +1658,7 @@ def is_bool(a : Any) -> TypeGuard[BoolRef]:
     return isinstance(a, BoolRef)
 
 
-def is_true(a : Any) -> TypeGuard[BoolRef]:
+def is_true(a : Any) -> bool:
     """Return `True` if `a` is the Z3 true expression.
 
     >>> p = Bool('p')
@@ -1677,7 +1676,7 @@ def is_true(a : Any) -> TypeGuard[BoolRef]:
     return is_app_of(a, Z3_OP_TRUE)
 
 
-def is_false(a : Any) -> TypeGuard[BoolRef]:
+def is_false(a : Any) -> bool:
     """Return `True` if `a` is the Z3 false expression.
 
     >>> p = Bool('p')
@@ -1691,7 +1690,7 @@ def is_false(a : Any) -> TypeGuard[BoolRef]:
     return is_app_of(a, Z3_OP_FALSE)
 
 
-def is_and(a : Any) -> TypeGuard[BoolRef]:
+def is_and(a : Any) -> bool:
     """Return `True` if `a` is a Z3 and expression.
 
     >>> p, q = Bools('p q')
@@ -1703,7 +1702,7 @@ def is_and(a : Any) -> TypeGuard[BoolRef]:
     return is_app_of(a, Z3_OP_AND)
 
 
-def is_or(a : Any) -> TypeGuard[BoolRef]:
+def is_or(a : Any) -> bool:
     """Return `True` if `a` is a Z3 or expression.
 
     >>> p, q = Bools('p q')
@@ -1715,7 +1714,7 @@ def is_or(a : Any) -> TypeGuard[BoolRef]:
     return is_app_of(a, Z3_OP_OR)
 
 
-def is_implies(a : Any) -> TypeGuard[BoolRef]:
+def is_implies(a : Any) -> bool:
     """Return `True` if `a` is a Z3 implication expression.
 
     >>> p, q = Bools('p q')
@@ -1727,7 +1726,7 @@ def is_implies(a : Any) -> TypeGuard[BoolRef]:
     return is_app_of(a, Z3_OP_IMPLIES)
 
 
-def is_not(a : Any) -> TypeGuard[BoolRef]:
+def is_not(a : Any) -> bool:
     """Return `True` if `a` is a Z3 not expression.
 
     >>> p = Bool('p')
@@ -1739,7 +1738,7 @@ def is_not(a : Any) -> TypeGuard[BoolRef]:
     return is_app_of(a, Z3_OP_NOT)
 
 
-def is_eq(a : Any) -> TypeGuard[BoolRef]:
+def is_eq(a : Any) -> bool:
     """Return `True` if `a` is a Z3 equality expression.
 
     >>> x, y = Ints('x y')
@@ -1749,7 +1748,7 @@ def is_eq(a : Any) -> TypeGuard[BoolRef]:
     return is_app_of(a, Z3_OP_EQ)
 
 
-def is_distinct(a : Any) -> TypeGuard[BoolRef]:
+def is_distinct(a : Any) -> bool:
     """Return `True` if `a` is a Z3 distinct expression.
 
     >>> x, y, z = Ints('x y z')
@@ -2444,7 +2443,7 @@ class ArithSortRef(SortRef):
                 _z3_assert(False, msg % self)
 
 
-def is_arith_sort(s : Any) -> TypeGuard[ArithSortRef]:
+def is_arith_sort(s : Any) -> bool:
     """Return `True` if s is an arithmetical sort (type).
 
     >>> is_arith_sort(IntSort())
@@ -2766,7 +2765,7 @@ def is_arith(a):
     return isinstance(a, ArithRef)
 
 
-def is_int(a) -> TypeGuard[ArithRef]:
+def is_int(a) -> bool:
     """Return `True` if `a` is an integer expression.
 
     >>> x = Int('x')
@@ -2872,7 +2871,7 @@ def is_algebraic_value(a):
     return is_arith(a) and a.is_real() and _is_algebraic(a.ctx, a.as_ast())
 
 
-def is_add(a : Any) -> TypeGuard[ArithRef]:
+def is_add(a : Any) -> bool:
     """Return `True` if `a` is an expression of the form b + c.
 
     >>> x, y = Ints('x y')
@@ -2884,7 +2883,7 @@ def is_add(a : Any) -> TypeGuard[ArithRef]:
     return is_app_of(a, Z3_OP_ADD)
 
 
-def is_mul(a : Any) -> TypeGuard[ArithRef]:
+def is_mul(a : Any) -> bool:
     """Return `True` if `a` is an expression of the form b * c.
 
     >>> x, y = Ints('x y')
@@ -2896,7 +2895,7 @@ def is_mul(a : Any) -> TypeGuard[ArithRef]:
     return is_app_of(a, Z3_OP_MUL)
 
 
-def is_sub(a : Any) -> TypeGuard[ArithRef]:
+def is_sub(a : Any) -> bool:
     """Return `True` if `a` is an expression of the form b - c.
 
     >>> x, y = Ints('x y')
@@ -2908,7 +2907,7 @@ def is_sub(a : Any) -> TypeGuard[ArithRef]:
     return is_app_of(a, Z3_OP_SUB)
 
 
-def is_div(a : Any) -> TypeGuard[ArithRef]:
+def is_div(a : Any) -> bool:
     """Return `True` if `a` is an expression of the form b / c.
 
     >>> x, y = Reals('x y')
@@ -2925,7 +2924,7 @@ def is_div(a : Any) -> TypeGuard[ArithRef]:
     return is_app_of(a, Z3_OP_DIV)
 
 
-def is_idiv(a : Any) -> TypeGuard[ArithRef]:
+def is_idiv(a : Any) -> bool:
     """Return `True` if `a` is an expression of the form b div c.
 
     >>> x, y = Ints('x y')
@@ -2937,7 +2936,7 @@ def is_idiv(a : Any) -> TypeGuard[ArithRef]:
     return is_app_of(a, Z3_OP_IDIV)
 
 
-def is_mod(a : Any) -> TypeGuard[ArithRef]:
+def is_mod(a : Any) -> bool:
     """Return `True` if `a` is an expression of the form b % c.
 
     >>> x, y = Ints('x y')
@@ -2949,7 +2948,7 @@ def is_mod(a : Any) -> TypeGuard[ArithRef]:
     return is_app_of(a, Z3_OP_MOD)
 
 
-def is_le(a : Any) -> TypeGuard[ArithRef]:
+def is_le(a : Any) -> bool:
     """Return `True` if `a` is an expression of the form b <= c.
 
     >>> x, y = Ints('x y')
@@ -2961,7 +2960,7 @@ def is_le(a : Any) -> TypeGuard[ArithRef]:
     return is_app_of(a, Z3_OP_LE)
 
 
-def is_lt(a : Any) -> TypeGuard[ArithRef]:
+def is_lt(a : Any) -> bool:
     """Return `True` if `a` is an expression of the form b < c.
 
     >>> x, y = Ints('x y')
@@ -2973,7 +2972,7 @@ def is_lt(a : Any) -> TypeGuard[ArithRef]:
     return is_app_of(a, Z3_OP_LT)
 
 
-def is_ge(a : Any) -> TypeGuard[ArithRef]:
+def is_ge(a : Any) -> bool:
     """Return `True` if `a` is an expression of the form b >= c.
 
     >>> x, y = Ints('x y')
@@ -2985,7 +2984,7 @@ def is_ge(a : Any) -> TypeGuard[ArithRef]:
     return is_app_of(a, Z3_OP_GE)
 
 
-def is_gt(a : Any) -> TypeGuard[ArithRef]:
+def is_gt(a : Any) -> bool:
     """Return `True` if `a` is an expression of the form b > c.
 
     >>> x, y = Ints('x y')
@@ -3009,7 +3008,7 @@ def is_is_int(a : Any) -> bool:
     return is_app_of(a, Z3_OP_IS_INT)
 
 
-def is_to_real(a : Any) -> TypeGuard[ArithRef]:
+def is_to_real(a : Any) -> bool:
     """Return `True` if `a` is an expression of the form ToReal(b).
 
     >>> x = Int('x')
@@ -3024,7 +3023,7 @@ def is_to_real(a : Any) -> TypeGuard[ArithRef]:
     return is_app_of(a, Z3_OP_TO_REAL)
 
 
-def is_to_int(a : Any) -> TypeGuard[ArithRef]:
+def is_to_int(a : Any) -> bool:
     """Return `True` if `a` is an expression of the form ToInt(b).
 
     >>> x = Real('x')
@@ -4700,7 +4699,7 @@ def is_array_sort(a):
     return Z3_get_sort_kind(a.ctx.ref(), Z3_get_sort(a.ctx.ref(), a.ast)) == Z3_ARRAY_SORT
 
 
-def is_array(a : Any) -> TypeGuard[ArrayRef]:
+def is_array(a : Any) -> bool:
     """Return `True` if `a` is a Z3 array expression.
 
     >>> a = Array('a', IntSort(), IntSort())
@@ -11151,7 +11150,7 @@ def is_seq(a):
     return isinstance(a, SeqRef)
 
 
-def is_string(a: Any) -> TypeGuard[SeqRef]:
+def is_string(a: Any) -> bool:
     """Return `True` if `a` is a Z3 string expression.
     >>> print (is_string(StringVal("ab")))
     True
@@ -11159,7 +11158,7 @@ def is_string(a: Any) -> TypeGuard[SeqRef]:
     return isinstance(a, SeqRef) and a.is_string()
 
 
-def is_string_value(a: Any) -> TypeGuard[SeqRef]:
+def is_string_value(a: Any) -> bool:
     """return 'True' if 'a' is a Z3 string constant expression.
     >>> print (is_string_value(StringVal("a")))
     True
