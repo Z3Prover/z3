@@ -7,5 +7,6 @@ def_module_params(module_name='lp',
                           ('dio_cuts_enable_gomory', BOOL, False, 'enable Gomory cuts together with Diophantine cuts, only relevant when dioph_eq is true'),
                           ('dio_cuts_enable_hnf', BOOL, True, 'enable hnf cuts together with Diophantine cuts, only relevant when dioph_eq is true'),
                           ('dio_ignore_big_nums', BOOL, True, 'Ignore the terms with big numbers in the Diophantine handler, only relevant when dioph_eq is true'),
+                          ('dio_calls_period', UINT, 1, 'Period of calling the Diophantine handler in the final_check()'),
                          ))
                          
