@@ -1,6 +1,6 @@
 /**
  * GenAIScript Ambient Type Definition File
- * @version 1.115.0
+ * @version 1.125.2
  */
 type OptionsOrString<TOptions extends string> = (string & {}) | TOptions
 
@@ -101,16 +101,20 @@ type SystemPromptId = OptionsOrString<
     | "system.agent_git"
     | "system.agent_github"
     | "system.agent_interpreter"
+    | "system.agent_mcp"
     | "system.agent_planner"
     | "system.agent_user_input"
     | "system.agent_video"
     | "system.agent_web"
+    | "system.agent_z3"
     | "system.annotations"
     | "system.assistant"
+    | "system.chain_of_draft"
     | "system.changelog"
     | "system.cooperation"
     | "system.diagrams"
     | "system.diff"
+    | "system.do_not_explain"
     | "system.english"
     | "system.explanations"
     | "system.files"
@@ -129,6 +133,7 @@ type SystemPromptId = OptionsOrString<
     | "system.github_issues"
     | "system.github_pulls"
     | "system.math"
+    | "system.mcp"
     | "system.md_find_files"
     | "system.md_frontmatter"
     | "system.meta_prompt"
@@ -156,6 +161,8 @@ type SystemPromptId = OptionsOrString<
     | "system.schema"
     | "system.tasks"
     | "system.technical"
+    | "system.think"
+    | "system.today"
     | "system.tool_calls"
     | "system.tools"
     | "system.transcribe"
@@ -163,6 +170,7 @@ type SystemPromptId = OptionsOrString<
     | "system.user_input"
     | "system.video"
     | "system.vision_ask_images"
+    | "system.z3"
     | "system.zero_shot_cot"
 >
 
@@ -183,6 +191,7 @@ type SystemToolId = OptionsOrString<
     | "agent_user_input"
     | "agent_video"
     | "agent_web"
+    | "agent_z3"
     | "fs_ask_file"
     | "fs_data_query"
     | "fs_diff_files"
@@ -219,6 +228,7 @@ type SystemToolId = OptionsOrString<
     | "retrieval_fuzz_search"
     | "retrieval_vector_search"
     | "retrieval_web_search"
+    | "think"
     | "transcribe"
     | "user_input_confirm"
     | "user_input_select"
@@ -228,6 +238,7 @@ type SystemToolId = OptionsOrString<
     | "video_extract_frames"
     | "video_probe"
     | "vision_ask_images"
+    | "z3"
 >
 
 type FileMergeHandler = (
@@ -302,6 +313,19 @@ type ModelType = OptionsOrString<
     | "github:deepseek-v3"
     | "github:deepseek-r1"
     | "github:Phi-4"
+    | "github_copilot_chat:current"
+    | "github_copilot_chat:gpt-3.5-turbo",
+    | "github_copilot_chat:gpt-4o-mini"
+    | "github_copilot_chat:gpt-4o-2024-11-20"
+    | "github_copilot_chat:gpt-4"
+    | "github_copilot_chat:o1"
+    | "github_copilot_chat:o1:low"
+    | "github_copilot_chat:o1:medium"
+    | "github_copilot_chat:o1:high"
+    | "github_copilot_chat:o3-mini"
+    | "github_copilot_chat:o3-mini:low"
+    | "github_copilot_chat:o3-mini:medium"
+    | "github_copilot_chat:o3-mini:high"
     | "azure:gpt-4o"
     | "azure:gpt-4o-mini"
     | "azure:o1"
@@ -322,6 +346,7 @@ type ModelType = OptionsOrString<
     | "azure_ai_inference:o3-mini:high"
     | "azure_ai_inference:deepSseek-v3"
     | "azure_ai_inference:deepseek-r1"
+    | "ollama:gemma3:4b"
     | "ollama:marco-o1"
     | "ollama:tulu3"
     | "ollama:athene-v2"
@@ -379,23 +404,26 @@ type ModelType = OptionsOrString<
     | "deepseek:deepseek-chat"
     | "transformers:onnx-community/Qwen2.5-0.5B-Instruct:q4"
     | "transformers:HuggingFaceTB/SmolLM2-1.7B-Instruct:q4f16"
+    | "llamafile"
+    | "sglang"
+    | "vllm"
     | "echo"
     | "none"
 >
 
 type EmbeddingsModelType = OptionsOrString<
-    "openai:text-embedding-3-small",
-    "openai:text-embedding-3-large",
-    "openai:text-embedding-ada-002",
-    "github:text-embedding-3-small",
-    "github:text-embedding-3-large",
-    "azure:text-embedding-3-small",
-    "azure:text-embedding-3-large",
-    "azure_ai_inference:text-embedding-3-small",
-    "azure_ai_inference:text-embedding-3-large",
-    "ollama:nomic-embed-text",
-    "google:text-embedding-004",
-    "huggingface:nomic-ai/nomic-embed-text-v1.5"
+    | "openai:text-embedding-3-small"
+    | "openai:text-embedding-3-large"
+    | "openai:text-embedding-ada-002"
+    | "github:text-embedding-3-small"
+    | "github:text-embedding-3-large"
+    | "azure:text-embedding-3-small"
+    | "azure:text-embedding-3-large"
+    | "azure_ai_inference:text-embedding-3-small"
+    | "azure_ai_inference:text-embedding-3-large"
+    | "ollama:nomic-embed-text"
+    | "google:text-embedding-004"
+    | "huggingface:nomic-ai/nomic-embed-text-v1.5"
 >
 
 type ModelSmallType = OptionsOrString<
@@ -409,10 +437,6 @@ type ModelSmallType = OptionsOrString<
 
 type ModelVisionType = OptionsOrString<
     "openai:gpt-4o" | "github:gpt-4o" | "azure:gpt-4o" | "azure:gpt-4o-mini"
->
-
-type ModelTranscriptionType = OptionsOrString<
-    "openai:whisper-1" | "whisperasr:default"
 >
 
 type ModelImageGenerationType = OptionsOrString<
@@ -435,6 +459,8 @@ type ModelProviderType = OptionsOrString<
     | "ollama"
     | "lmstudio"
     | "jan"
+    | "sglang"
+    | "vllm"
     | "llamafile"
     | "litellm"
     | "github_copilot_chat"
@@ -561,14 +587,12 @@ interface ModelOptions extends ModelConnectionOptions, ModelTemplateOptions {
     modelConcurrency?: Record<string, number>
 }
 
-interface EmbeddingsModelConnectionOptions {
+interface EmbeddingsModelOptions extends EmbeddingsModelConnectionOptions {
     /**
      * LLM model to use for embeddings.
      */
     embeddingsModel?: EmbeddingsModelType
 }
-
-interface EmbeddingsModelOptions extends EmbeddingsModelConnectionOptions {}
 
 interface PromptSystemOptions {
     /**
@@ -585,6 +609,16 @@ interface PromptSystemOptions {
      * List of system to exclude from the prompt.
      */
     excludedSystem?: ElementOrArray<SystemPromptId>
+
+    /**
+     * MCP server configuration. The tools will be injected into the prompt.
+     */
+    mcpServers?: McpServersConfig
+
+    /**
+     * MCP agent configuration. Each mcp server will be wrapped with an agent.
+     */
+    mcpAgentServers?: McpAgentServersConfig
 }
 
 interface ScriptRuntimeOptions extends LineNumberingOptions {
@@ -867,7 +901,7 @@ interface PromptScript
     /**
      * A comma separated list of file extensions to accept.
      */
-    accept?: string
+    accept?: OptionsOrString<".md,.mdx" | "none">
 
     /**
      * Extra variable values that can be used to configure system prompts.
@@ -985,6 +1019,15 @@ interface OutputTrace extends ToolCallTrace {
      * @param rows
      */
     table(rows: object[]): void
+
+    /**
+     * Computes and renders diff between two files.
+     */
+    diff(
+        left: string | WorkspaceFile,
+        right: string | WorkspaceFile,
+        options?: { context?: number }
+    ): void
 
     /**
      * Logs a result item with a boolean value and a message.
@@ -1191,6 +1234,10 @@ type ToolCallOutput =
 
 interface WorkspaceFileCache<K, V> {
     /**
+     * Name of the cache
+     */
+    name: string
+    /**
      * Gets the value associated with the key, or undefined if there is none.
      * @param key
      */
@@ -1203,14 +1250,24 @@ interface WorkspaceFileCache<K, V> {
     set(key: K, value: V): Promise<void>
 
     /**
-     * List of keys
-     */
-    keys(): Promise<K[]>
-
-    /**
      * List the values in the cache.
      */
     values(): Promise<V[]>
+
+    /**
+     * Gets the sha of the key
+     * @param key
+     */
+    getSha(key: K): Promise<string>
+
+    /**
+     * Gets an existing value or updates it with the updater function.
+     */
+    getOrUpdate(
+        key: K,
+        updater: () => Promise<V>,
+        validator?: (val: V) => boolean
+    ): Promise<{ key: string; value: V; cached?: boolean }>
 }
 
 interface WorkspaceGrepOptions extends FilterGitFilesOptions {
@@ -1233,7 +1290,7 @@ interface WorkspaceGrepResult {
     matches: WorkspaceFile[]
 }
 
-interface INIParseOptions {
+interface INIParseOptions extends JSONSchemaValidationOptions {
     defaultValue?: any
 }
 
@@ -1260,6 +1317,11 @@ interface FileStats {
      */
     size: number
     mode: number
+}
+
+interface JSONSchemaValidationOptions {
+    schema?: JSONSchema
+    throwOnValidationError?: boolean
 }
 
 interface WorkspaceFileSystem {
@@ -1304,13 +1366,19 @@ interface WorkspaceFileSystem {
      * Reads the content of a file and parses to JSON, using the JSON5 parser.
      * @param path
      */
-    readJSON(path: string | Awaitable<WorkspaceFile>): Promise<any>
+    readJSON(
+        path: string | Awaitable<WorkspaceFile>,
+        options?: JSONSchemaValidationOptions
+    ): Promise<any>
 
     /**
      * Reads the content of a file and parses to YAML.
      * @param path
      */
-    readYAML(path: string | Awaitable<WorkspaceFile>): Promise<any>
+    readYAML(
+        path: string | Awaitable<WorkspaceFile>,
+        options?: JSONSchemaValidationOptions
+    ): Promise<any>
 
     /**
      * Reads the content of a file and parses to XML, using the XML parser.
@@ -1344,7 +1412,10 @@ interface WorkspaceFileSystem {
      */
     readData(
         path: string | Awaitable<WorkspaceFile>,
-        options?: CSVParseOptions & INIParseOptions & XMLParseOptions
+        options?: CSVParseOptions &
+            INIParseOptions &
+            XMLParseOptions &
+            JSONSchemaValidationOptions
     ): Promise<any>
 
     /**
@@ -1362,6 +1433,12 @@ interface WorkspaceFileSystem {
         bytes: BufferLike,
         options?: { scope?: "workspace" | "run" }
     ): Promise<string>
+
+    /**
+     * Writes one or more files to the workspace
+     * @param file a in-memory file or list of files
+     */
+    writeFiles(file: ElementOrArray<WorkspaceFile>): Promise<void>
 
     /**
      * Copies a file between two paths
@@ -1404,10 +1481,177 @@ interface AgenticToolProviderCallback {
     functions: Iterable<AgenticToolCallback>
 }
 
+interface ChatContentPartText {
+    /**
+     * The text content.
+     */
+    text: string
+
+    /**
+     * The type of the content part.
+     */
+    type: "text"
+}
+
+interface ChatContentPartImage {
+    image_url: {
+        /**
+         * Either a URL of the image or the base64 encoded image data.
+         */
+        url: string
+
+        /**
+         * Specifies the detail level of the image. Learn more in the
+         * [Vision guide](https://platform.openai.com/docs/guides/vision#low-or-high-fidelity-image-understanding).
+         */
+        detail?: "auto" | "low" | "high"
+    }
+
+    /**
+     * The type of the content part.
+     */
+    type: "image_url"
+}
+
+interface ChatContentPartRefusal {
+    /**
+     * The refusal message generated by the model.
+     */
+    refusal: string
+
+    /**
+     * The type of the content part.
+     */
+    type: "refusal"
+}
+
+interface ChatSystemMessage {
+    /**
+     * The contents of the system message.
+     */
+    content: string | ChatContentPartText[]
+
+    /**
+     * The role of the messages author, in this case `system`.
+     */
+    role: "system"
+
+    /**
+     * An optional name for the participant. Provides the model information to
+     * differentiate between participants of the same role.
+     */
+    name?: string
+}
+
+interface ChatToolMessage {
+    /**
+     * The contents of the tool message.
+     */
+    content: string | ChatContentPartText[]
+
+    /**
+     * The role of the messages author, in this case `tool`.
+     */
+    role: "tool"
+
+    /**
+     * Tool call that this message is responding to.
+     */
+    tool_call_id: string
+}
+
+interface ChatMessageToolCall {
+    /**
+     * The ID of the tool call.
+     */
+    id: string
+
+    /**
+     * The function that the model called.
+     */
+    function: {
+        /**
+         * The arguments to call the function with, as generated by the model in JSON
+         * format. Note that the model does not always generate valid JSON, and may
+         * hallucinate parameters not defined by your function schema. Validate the
+         * arguments in your code before calling your function.
+         */
+        arguments: string
+
+        /**
+         * The name of the function to call.
+         */
+        name: string
+    }
+
+    /**
+     * The type of the tool. Currently, only `function` is supported.
+     */
+    type: "function"
+}
+
+interface ChatAssistantMessage {
+    /**
+     * The role of the messages author, in this case `assistant`.
+     */
+    role: "assistant"
+
+    /**
+     * The contents of the assistant message. Required unless `tool_calls` or
+     * `function_call` is specified.
+     */
+    content?: string | (ChatContentPartText | ChatContentPartRefusal)[]
+
+    /**
+     * An optional name for the participant. Provides the model information to
+     * differentiate between participants of the same role.
+     */
+    name?: string
+
+    /**
+     * The refusal message by the assistant.
+     */
+    refusal?: string | null
+
+    /**
+     * The tool calls generated by the model, such as function calls.
+     */
+    tool_calls?: ChatMessageToolCall[]
+
+    /**
+     * The reasoning of the model
+     */
+    reasoning?: string
+}
+
+interface ChatUserMessage {
+    /**
+     * The contents of the user message.
+     */
+    content: string | (ChatContentPartText | ChatContentPartImage)[]
+
+    /**
+     * The role of the messages author, in this case `user`.
+     */
+    role: "user"
+
+    /**
+     * An optional name for the participant. Provides the model information to
+     * differentiate between participants of the same role.
+     */
+    name?: string
+}
+
+type ChatMessage =
+    | ChatSystemMessage
+    | ChatUserMessage
+    | ChatAssistantMessage
+    | ChatToolMessage
+
 type ChatParticipantHandler = (
     context: ChatTurnGenerationContext,
-    messages: ChatCompletionMessageParam[]
-) => Awaitable<{ messages?: ChatCompletionMessageParam[] } | undefined | void>
+    messages: ChatMessage[]
+) => Awaitable<{ messages?: ChatMessage[] } | undefined | void>
 
 interface ChatParticipantOptions {
     label?: string
@@ -1461,6 +1705,10 @@ interface ExpansionVariables {
          * When running in GitHub Copilot Chat, the current terminal content
          */
         "copilot.terminalSelection"?: string
+        /**
+         * Selected model identifier in GitHub Copilot Chat
+         */
+        "copilot.model"?: string
     }
 
     /**
@@ -1482,6 +1730,11 @@ interface ExpansionVariables {
      * Resolved metadata
      */
     meta: PromptDefinition & ModelConnectionOptions
+
+    /**
+     * The script debugger logger
+     */
+    dbg: DebugLogger
 }
 
 type MakeOptional<T, P extends keyof T> = Partial<Pick<T, P>> & Omit<T, P>
@@ -1594,7 +1847,7 @@ interface FileFilterOptions extends GitIgnoreFilterOptions {
     glob?: ElementOrArray<string>
 }
 
-interface ContentSafetyOptions {
+interface ContentSafetyOptions extends SecretDetectionOptions {
     /**
      * Runs the default content safety validator
      * to prevent prompt injection.
@@ -1605,7 +1858,9 @@ interface ContentSafetyOptions {
      * Policy to inject builtin system prompts. See to `false` prevent automatically injecting.
      */
     systemSafety?: "default" | boolean
+}
 
+interface SecretDetectionOptions {
     /**
      * Policy to disable secret scanning when communicating with the LLM.
      * Set to `false` to disable.
@@ -1640,11 +1895,7 @@ interface DefDiffOptions
         FenceFormatOptions,
         LineNumberingOptions {}
 
-interface DefImagesOptions {
-    /**
-     * A "low" detail image is always downsampled to 512x512 pixels.
-     */
-    detail?: "high" | "low"
+interface ImageTransformOptions {
     /**
      * Crops the image to the specified region.
      */
@@ -1677,6 +1928,18 @@ interface DefImagesOptions {
      * Flips the image horizontally and/or vertically.
      */
     flip?: { horizontal?: boolean; vertical?: boolean }
+
+    /**
+     * Output mime
+     */
+    mime?: "image/jpeg" | "image/png"
+}
+
+interface DefImagesOptions extends ImageTransformOptions {
+    /**
+     * A "low" detail image is always downsampled to 512x512 pixels.
+     */
+    detail?: "high" | "low"
     /**
      * Selects the first N elements from the data
      */
@@ -1722,7 +1985,7 @@ interface JSONSchemaAnyOf {
     anyOf: JSONSchemaType[]
 }
 
-interface JSONSchemaDescripted {
+interface JSONSchemaDescribed {
     /**
      * A short description of the property
      */
@@ -1733,7 +1996,7 @@ interface JSONSchemaDescripted {
     description?: string
 }
 
-interface JSONSchemaString extends JSONSchemaDescripted {
+interface JSONSchemaString extends JSONSchemaDescribed {
     type: "string"
     uiType?: "textarea"
     uiSuggestions?: string[]
@@ -1742,7 +2005,7 @@ interface JSONSchemaString extends JSONSchemaDescripted {
     pattern?: string
 }
 
-interface JSONSchemaNumber extends JSONSchemaDescripted {
+interface JSONSchemaNumber extends JSONSchemaDescribed {
     type: "number" | "integer"
     default?: number
     minimum?: number
@@ -1751,13 +2014,13 @@ interface JSONSchemaNumber extends JSONSchemaDescripted {
     exclusiveMaximum?: number
 }
 
-interface JSONSchemaBoolean extends JSONSchemaDescripted {
+interface JSONSchemaBoolean extends JSONSchemaDescribed {
     type: "boolean"
     uiType?: "runOption"
     default?: boolean
 }
 
-interface JSONSchemaObject extends JSONSchemaDescripted {
+interface JSONSchemaObject extends JSONSchemaDescribed {
     $schema?: string
     type: "object"
     properties?: {
@@ -1769,7 +2032,7 @@ interface JSONSchemaObject extends JSONSchemaDescripted {
     default?: object
 }
 
-interface JSONSchemaArray extends JSONSchemaDescripted {
+interface JSONSchemaArray extends JSONSchemaDescribed {
     $schema?: string
     type: "array"
     items?: JSONSchemaType
@@ -1823,6 +2086,31 @@ interface Logprob {
     topLogprobs?: { token: string; logprob: number }[]
 }
 
+interface RunPromptUsage {
+    /**
+     * Estimated cost in $ of the generation
+     */
+    cost?: number
+    /**
+     * Estimated duration of the generation
+     * including multiple rounds with tools
+     */
+    duration?: number
+    /**
+     * Number of tokens in the generated completion.
+     */
+    completion: number
+
+    /**
+     * Number of tokens in the prompt.
+     */
+    prompt: number
+    /**
+     * Total number of tokens used in the request (prompt + completion).
+     */
+    total: number
+}
+
 interface RunPromptResult {
     messages: ChatCompletionMessageParam[]
     text: string
@@ -1840,15 +2128,15 @@ interface RunPromptResult {
         | "content_filter"
         | "cancel"
         | "fail"
-    usages?: ChatCompletionUsages
     fileEdits?: Record<string, FileUpdate>
     edits?: Edits[]
     changelogs?: ChangeLog[]
     model?: ModelType
-    choices?: LogProb[]
+    choices?: Logprob[]
     logprobs?: Logprob[]
     perplexity?: number
     uncertainty?: number
+    usage?: RunPromptUsage
 }
 
 /**
@@ -1899,6 +2187,19 @@ interface Path {
      * @param path
      */
     isAbsolute(path: string): boolean
+
+    /**
+     * Change the extension of a path
+     * @param path
+     * @param ext
+     */
+    changeext(path: string, ext: string): string
+
+    /**
+     * Converts a file://... to a path
+     * @param fileUrl
+     */
+    resolveFileURL(fileUrl: string): string
 }
 
 interface Fenced {
@@ -1910,7 +2211,7 @@ interface Fenced {
     validation?: FileEditValidation
 }
 
-interface XMLParseOptions {
+interface XMLParseOptions extends JSONSchemaValidationOptions {
     allowBooleanAttributes?: boolean
     ignoreAttributes?: boolean
     ignoreDeclaration?: boolean
@@ -1981,7 +2282,7 @@ interface Tokenizer {
     decode: TokenDecoder
 }
 
-interface CSVParseOptions {
+interface CSVParseOptions extends JSONSchemaValidationOptions {
     delimiter?: string
     headers?: string[]
     repair?: boolean
@@ -2203,13 +2504,20 @@ interface DocxParseOptions {
     cache?: boolean | string
 }
 
+interface EncodeIDsOptions {
+    matcher?: RegExp
+    prefix?: string
+    open?: string
+    close?: string
+}
+
 interface Parsers {
     /**
      * Parses text as a JSON5 payload
      */
     JSON5(
         content: string | WorkspaceFile,
-        options?: { defaultValue?: any }
+        options?: { defaultValue?: any } & JSONSchemaValidationOptions
     ): any | undefined
 
     /**
@@ -2229,7 +2537,7 @@ interface Parsers {
      */
     YAML(
         content: string | WorkspaceFile,
-        options?: { defaultValue?: any }
+        options?: { defaultValue?: any } & JSONSchemaValidationOptions
     ): any | undefined
 
     /**
@@ -2238,7 +2546,7 @@ interface Parsers {
      */
     TOML(
         content: string | WorkspaceFile,
-        options?: { defaultValue?: any }
+        options?: { defaultValue?: any } & JSONSchemaValidationOptions
     ): any | undefined
 
     /**
@@ -2248,7 +2556,10 @@ interface Parsers {
      */
     frontmatter(
         content: string | WorkspaceFile,
-        options?: { defaultValue?: any; format: "yaml" | "json" | "toml" }
+        options?: {
+            defaultValue?: any
+            format: "yaml" | "json" | "toml"
+        } & JSONSchemaValidationOptions
     ): any | undefined
 
     /**
@@ -2331,6 +2642,12 @@ interface Parsers {
         content: string | WorkspaceFile,
         options?: { defaultValue?: any } & XMLParseOptions
     ): any | undefined
+
+    /**
+     * Parses .vtt or .srt transcription files
+     * @param content
+     */
+    transcription(content: string | WorkspaceFile): TranscriptionSegment[]
 
     /**
      * Convert HTML to text
@@ -2422,8 +2739,8 @@ interface Parsers {
      * Computes a diff between two files
      */
     diff(
-        left: WorkspaceFile,
-        right: WorkspaceFile,
+        left: string | WorkspaceFile,
+        right: string | WorkspaceFile,
         options?: DefDiffOptions
     ): string
 
@@ -2466,9 +2783,30 @@ interface Parsers {
      * @param text
      */
     dedent(templ: TemplateStringsArray | string, ...values: unknown[]): string
+
+    /**
+     * Encodes ids in a text and returns the function to decode them
+     * @param text
+     * @param options
+     */
+    encodeIDs(
+        text: string,
+        options?: EncodeIDsOptions
+    ): {
+        encoded: string
+        text: string
+        decode: (text: string) => string
+        matcher: RegExp
+        ids: Record<string, string>
+    }
 }
 
 interface YAML {
+    /**
+     * Parses a YAML string into a JavaScript object using JSON5.
+     */
+    (strings: TemplateStringsArray, ...values: any[]): any
+
     /**
      * Converts an object to its YAML representation
      * @param obj
@@ -2478,6 +2816,90 @@ interface YAML {
      * Parses a YAML string to object
      */
     parse(text: string | WorkspaceFile): any
+}
+
+interface DiffFile {
+    chunks: DiffChunk[]
+    deletions: number
+    additions: number
+    from?: string
+    to?: string
+    oldMode?: string
+    newMode?: string
+    index?: string[]
+    deleted?: true
+    new?: true
+}
+
+interface DiffChunk {
+    content: string
+    changes: DiffChange[]
+    oldStart: number
+    oldLines: number
+    newStart: number
+    newLines: number
+}
+
+interface DiffNormalChange {
+    type: "normal"
+    ln1: number
+    ln2: number
+    normal: true
+    content: string
+}
+
+interface DiffAddChange {
+    type: "add"
+    add: true
+    ln: number
+    content: string
+}
+
+interface DiffDeleteChange {
+    type: "del"
+    del: true
+    ln: number
+    content: string
+}
+
+type DiffChangeType = "normal" | "add" | "del"
+
+type DiffChange = DiffNormalChange | DiffAddChange | DiffDeleteChange
+
+interface DIFF {
+    /**
+     * Parses a diff string into a structured object
+     * @param input
+     */
+    parse(input: string): DiffFile[]
+
+    /**
+     * Given a filename and line number (0-based), finds the chunk in the diff
+     * @param file
+     * @param range line index or range [start, end] inclusive
+     * @param diff
+     */
+    findChunk(
+        file: string,
+        range: number | [number, number] | number[],
+        diff: ElementOrArray<DiffFile>
+    ): { file?: DiffFile; chunk?: DiffChunk } | undefined
+
+    /**
+     * Creates a two file path
+     * @param left
+     * @param right
+     * @param options
+     */
+    createPatch(
+        left: string | WorkspaceFile,
+        right: string | WorkspaceFile,
+        options?: {
+            context?: number
+            ignoreCase?: boolean
+            ignoreWhitespace?: boolean
+        }
+    ): string
 }
 
 interface XML {
@@ -2625,6 +3047,7 @@ interface Git {
         paths?: ElementOrArray<string>
         excludedPaths?: ElementOrArray<string>
         unified?: number
+        nameOnly?: boolean
         algorithm?: "patience" | "minimal" | "histogram" | "myers"
         ignoreSpaceChange?: boolean
         extras?: string[]
@@ -2632,6 +3055,10 @@ interface Git {
          * Modifies the diff to be in a more LLM friendly format
          */
         llmify?: boolean
+        /**
+         * Maximum of tokens before returning a name-only diff
+         */
+        maxTokensFullDiff?: number
     }): Promise<string>
 
     /**
@@ -2836,6 +3263,13 @@ interface Ffmpeg {
         ) => Awaitable<string>,
         options?: FFmpegCommandOptions
     ): Promise<string[]>
+}
+
+interface TranscriptionSegment {
+    id?: string
+    start: number
+    end?: number
+    text: string
 }
 
 interface GitHubOptions {
@@ -3197,6 +3631,19 @@ interface MD {
         text: string | WorkspaceFile,
         options?: { maxTokens?: number; model?: string; pageSeparator?: string }
     ): Promise<TextChunk[]>
+
+    /**
+     * Pretty prints object to markdown
+     * @param value
+     */
+    stringify(
+        value: any,
+        options?: {
+            quoteValues?: boolean
+            headings?: number
+            headingLevel?: number
+        }
+    ): string
 }
 
 interface JSONL {
@@ -3325,19 +3772,47 @@ interface HighlightOptions {
 }
 
 interface WorkspaceFileIndex {
-    list: () => Promise<WorkspaceFile[]>
-    upsert: (file: ElementOrArray<WorkspaceFile>) => Promise<void>
-    query: (
+    /**
+     * Gets the index name
+     */
+    name: string
+    /**
+     * Uploads or merges files into the index
+     */
+    insertOrUpdate: (file: ElementOrArray<WorkspaceFile>) => Promise<void>
+    /**
+     * Searches the index
+     */
+    search: (
         query: string,
         options?: { topK?: number; minScore?: number }
     ) => Promise<WorkspaceFileWithScore[]>
 }
 
 interface VectorIndexOptions extends EmbeddingsModelOptions {
+    /**
+     * Type of database implementation.
+     * - `local` uses a local database using embeddingsModel
+     * - `azure_ai_search` uses Azure AI Search
+     */
+    type?: "local" | "azure_ai_search"
     version?: number
     deleteIfExists?: boolean
     chunkSize?: number
     chunkOverlap?: number
+
+    /**
+     * Embeddings vector size
+     */
+    vectorSize?: number
+    /**
+     * Override default embeddings cache name
+     */
+    cacheName?: string
+    /**
+     * Cache salt to invalidate cache entries
+     */
+    cacheSalt?: string
 }
 
 interface VectorSearchOptions extends VectorIndexOptions {
@@ -3349,6 +3824,10 @@ interface VectorSearchOptions extends VectorIndexOptions {
      * Minimum similarity score
      */
     minScore?: number
+    /**
+     * Index to use
+     */
+    indexName?: string
 }
 
 interface FuzzSearchOptions {
@@ -3706,7 +4185,7 @@ type ChatAgentHandler = (
 ) => Awaitable<unknown>
 
 interface McpServerConfig {
-    command: string
+    command: OptionsOrString<"npx" | "uv">
     args: string[]
     params?: string[]
     version?: string
@@ -3716,6 +4195,20 @@ interface McpServerConfig {
 }
 
 type McpServersConfig = Record<string, Omit<McpServerConfig, "id" | "options">>
+
+interface McpAgentServerConfig extends McpServerConfig {
+    description: string
+    instructions?: string
+    /**
+     * Maximum number of tokens per tool content response
+     */
+    maxTokens?: number
+}
+
+type McpAgentServersConfig = Record<
+    string,
+    Omit<McpAgentServerConfig, "id" | "options">
+>
 
 type ZodTypeLike = { _def: any; safeParse: any; refine: any }
 
@@ -3728,19 +4221,17 @@ type BufferLike =
     | Uint8Array
     | ReadableStream
 
-type TranscriptionModelType = OptionsOrString<"openai:whisper-1">
+type TranscriptionModelType = OptionsOrString<
+    "openai:whisper-1" | "openai:gpt-4o-transcribe" | "whisperasr:default"
+>
 
-interface ImageGenerationOptions {
+interface ImageGenerationOptions extends ImageTransformOptions {
     model?: OptionsOrString<ModelImageGenerationType>
     quality?: "hd"
     size?: OptionsOrString<
-        "256x256",
-        "512x512",
-        "1024x1024",
-        "1024x1792",
-        "1792x1024"
+        "256x256" | "512x512" | "1024x1024" | "1024x1792" | "1792x1024"
     >
-    style?: OptionsOrString<"vivid", "natural">
+    style?: OptionsOrString<"vivid" | "natural">
 }
 
 interface TranscriptionOptions {
@@ -3795,42 +4286,32 @@ interface TranscriptionResult {
     /**
      * Individual segments
      */
-    segments?: {
-        /**
-         * The start time of the segment
-         */
-        start: number
-        /**
-         * The transcribed text.
-         */
-        text: string
+    segments?: (TranscriptionSegment & {
         /**
          * Seek offset of the segment
          */
         seek?: number
         /**
-         * End time in seconds
-         */
-        end?: number
-        /**
          * Temperature used for the generation of the segment
          */
         temperature?: number
-    }[]
+    })[]
 }
 
-type SpeechModelType = OptionsOrString<"openai:tts-1-hd" | "openai:tts-1">
+type SpeechModelType = OptionsOrString<
+    "openai:tts-1-hd" | "openai:tts-1" | "openai:gpt-4o-mini-tts"
+>
 
 type SpeechVoiceType = OptionsOrString<
-    "alloy",
-    "ash",
-    "coral",
-    "echo",
-    "fable",
-    "onyx",
-    "nova",
-    "sage",
-    "shimmer"
+    | "alloy"
+    | "ash"
+    | "coral"
+    | "echo"
+    | "fable"
+    | "onyx"
+    | "nova"
+    | "sage"
+    | "shimmer"
 >
 
 interface SpeechOptions {
@@ -3846,6 +4327,11 @@ interface SpeechOptions {
      * If true, the transcription will be cached.
      */
     cache?: boolean | string
+
+    /**
+     * Control the voice of your generated audio with additional instructions. Does not work with tts-1 or tts-1-hd.
+     */
+    instructions?: string
 }
 
 interface SpeechResult {
@@ -3966,6 +4452,11 @@ interface GenerationOutput {
      * Output as JSON if parsable
      */
     json?: any
+
+    /**
+     * Usage stats
+     */
+    usage: ChatCompletionStats
 }
 
 type Point = {
@@ -4077,9 +4568,242 @@ interface QueryCapture {
     node: SyntaxNode
 }
 
+interface SgEdit {
+    /** The start position of the edit */
+    startPos: number
+    /** The end position of the edit */
+    endPos: number
+    /** The text to be inserted */
+    insertedText: string
+}
+interface SgPos {
+    /** line number starting from 0 */
+    line: number
+    /** column number starting from 0 */
+    column: number
+    /** byte offset of the position */
+    index: number
+}
+interface SgRange {
+    /** starting position of the range */
+    start: SgPos
+    /** ending position of the range */
+    end: SgPos
+}
+interface SgMatcher {
+    /** The rule object, see https://ast-grep.github.io/reference/rule.html */
+    rule: SgRule
+    /** See https://ast-grep.github.io/guide/rule-config.html#constraints */
+    constraints?: Record<string, SgRule>
+}
+type SgStrictness = "cst" | "smart" | "ast" | "relaxed" | "signature"
+interface SgPatternObject {
+    context: string
+    selector?: NamedKinds<M> // only named node types
+    strictness?: SgStrictness
+}
+type SgPatternStyle = string | SgPatternObject
+interface SgRule {
+    /** A pattern string or a pattern object. */
+    pattern?: SgPatternStyle
+    /** The kind name of the node to match. You can look up code's kind names in playground. */
+    kind?: string
+    /** The exact range of the node in the source code. */
+    range?: SgRange
+    /** A Rust regular expression to match the node's text. https://docs.rs/regex/latest/regex/#syntax */
+    regex?: string
+    /**
+     * `nthChild` accepts number, string or object.
+     * It specifies the position in nodes' sibling list. */
+    nthChild?: string | number
+
+    // relational
+    /**
+     * `inside` accepts a relational rule object.
+     * the target node must appear inside of another node matching the `inside` sub-rule. */
+    inside?: SgRelation
+    /**
+     * `has` accepts a relational rule object.
+     * the target node must has a descendant node matching the `has` sub-rule. */
+    has?: SgRelation
+    /**
+     * `precedes` accepts a relational rule object.
+     * the target node must appear before another node matching the `precedes` sub-rule. */
+    precedes?: SgRelation
+    /**
+     * `follows` accepts a relational rule object.
+     * the target node must appear after another node matching the `follows` sub-rule. */
+    follows?: SgRelation
+    // composite
+    /**
+     * A list of sub rules and matches a node if all of sub rules match.
+     * The meta variables of the matched node contain all variables from the sub-rules. */
+    all?: Array<SgRule>
+    /**
+     * A list of sub rules and matches a node if any of sub rules match.
+     * The meta variables of the matched node only contain those of the matched sub-rule. */
+    any?: Array<SgRule>
+    /** A single sub-rule and matches a node if the sub rule does not match. */
+    not?: SgRule
+    /** A utility rule id and matches a node if the utility rule matches. */
+    matches?: string
+}
+interface SgRelation extends SgRule {
+    /**
+     * Specify how relational rule will stop relative to the target node.
+     */
+    stopBy?: "neighbor" | "end" | SgRule
+    /** Specify the tree-sitter field in parent node. Only available in has/inside rule. */
+    field?: string
+}
+
+/**
+ * A asp-grep node, SgNode, is an immutable node in the abstract syntax tree.
+ */
+interface SgNode {
+    id(): number
+    range(): SgRange
+    isLeaf(): boolean
+    isNamed(): boolean
+    isNamedLeaf(): boolean
+    text(): string
+    matches(m: string | number): boolean
+    inside(m: string | number): boolean
+    has(m: string | number): boolean
+    precedes(m: string | number): boolean
+    follows(m: string | number): boolean
+    kind(): any
+    is(kind: string): boolean
+    getMatch(mv: string): SgNode | null
+    getMultipleMatches(m: string): Array<SgNode>
+    getTransformed(m: string): string | null
+    getRoot(): SgRoot
+    children(): Array<SgNode>
+    find(matcher: string | number | SgMatcher): SgNode | null
+    findAll(matcher: string | number | SgMatcher): Array<SgNode>
+    field(name: string): SgNode | null
+    fieldChildren(name: string): SgNode[]
+    parent(): SgNode | null
+    child(nth: number): SgNode | null
+    child(nth: number): SgNode | null
+    ancestors(): Array<SgNode>
+    next(): SgNode | null
+    nextAll(): Array<SgNode>
+    prev(): SgNode | null
+    prevAll(): Array<SgNode>
+    replace(text: string): SgEdit
+    commitEdits(edits: Array<SgEdit>): string
+}
+
+interface SgRoot {
+    /** Returns the root SgNode of the ast-grep instance. */
+    root(): SgNode
+    /**
+     * Returns the path of the file if it is discovered by ast-grep's `findInFiles`.
+     * Returns `"anonymous"` if the instance is created by `lang.parse(source)`.
+     */
+    filename(): string
+}
+
+type SgLang = OptionsOrString<
+    | "html"
+    | "js"
+    | "ts"
+    | "tsx"
+    | "css"
+    | "c"
+    | "sql"
+    | "angular"
+    | "csharp"
+    | "python"
+>
+
+interface SgChangeSet {
+    count: number
+    replace(node: SgNode, text: string): SgEdit
+    commit(): WorkspaceFile[]
+}
+
+interface SgSearchOptions extends Omit<FindFilesOptions, "readText"> {
+    /**
+     * Restrict matches that are part of the diff.
+     */
+    diff?: string | ElementOrArray<DiffFile>
+}
+
+interface Sg {
+    /**
+     * Create a change set
+     */
+    changeset(): SgChangeSet
+    parse(file: WorkspaceFile, options: { lang?: SgLang }): Promise<SgRoot>
+    search(
+        lang: SgLang,
+        glob: ElementOrArray<string>,
+        matcher: string | SgMatcher,
+        options?: SgSearchOptions
+    ): Promise<{
+        /**
+         * Number of files found
+         */
+        files: number
+        /**
+         * Each individual file matches as a node
+         */
+        matches: SgNode[]
+    }>
+}
+
+interface DebugLogger {
+    /**
+     * Creates a debug logging function. Debug uses printf-style formatting. Below are the officially supported formatters:
+     * - `%O`	Pretty-print an Object on multiple lines.
+     * - `%o`	Pretty-print an Object all on a single line.
+     * - `%s`	String.
+     * - `%d`	Number (both integer and float).
+     * - `%j`	JSON. Replaced with the string '[Circular]' if the argument contains circular references.
+     * - `%%`	Single percent sign ('%'). This does not consume an argument.
+     * @param category
+     * @see https://www.npmjs.com/package/debug
+     */
+    (formatter: any, ...args: any[]): void
+    /**
+     * Indicates if this logger is enabled
+     */
+    enabled: boolean
+    /**
+     * The namespace of the logger provided when calling 'host.logger'
+     */
+    namespace: string
+}
+
+interface LoggerHost {
+    /**
+     * Creates a debug logging function. Debug uses printf-style formatting. Below are the officially supported formatters:
+     * - `%O`	Pretty-print an Object on multiple lines.
+     * - `%o`	Pretty-print an Object all on a single line.
+     * - `%s`	String.
+     * - `%d`	Number (both integer and float).
+     * - `%j`	JSON. Replaced with the string '[Circular]' if the argument contains circular references.
+     * - `%%`	Single percent sign ('%'). This does not consume an argument.
+     * @param category
+     * @see https://www.npmjs.com/package/debug
+     */
+    logger(category: string): DebugLogger
+}
+
+interface SgHost {
+    /**
+     * Gets an ast-grep instance
+     */
+    astGrep(): Promise<Sg>
+}
+
 interface ShellOptions {
     cwd?: string
+
     stdin?: string
+
     /**
      * Process timeout in  milliseconds, default is 60s
      */
@@ -4093,6 +4817,16 @@ interface ShellOptions {
      * Ignore exit code errors
      */
     ignoreError?: boolean
+
+    /**
+     * Additional environment variables to set for the process.
+     */
+    env?: Record<string, string>
+
+    /**
+     * Inject the content of 'env' exclusively
+     */
+    isolateEnv?: boolean
 }
 
 interface ShellOutput {
@@ -4186,6 +4920,11 @@ interface BrowseSessionOptions
               width: number
               height: number
           }
+
+    /**
+     * CDP connection string
+     */
+    connectOverCDP?: string
 }
 
 interface TimeoutOptions {
@@ -4674,6 +5413,76 @@ interface ShellHost {
     ): Promise<ShellOutput>
 }
 
+interface McpResourceReference {
+    name?: string
+    description?: string
+    uri: string
+    mimeType?: string
+}
+
+interface McpClient extends AsyncDisposable {
+    /**
+     * Configuration of the server
+     */
+    readonly config: McpServerConfig
+
+    /**
+     * Pings the server
+     */
+    ping(): Promise<void>
+    /**
+     * List all available MCP tools
+     */
+    listTools(): Promise<ToolCallback[]>
+
+    /**
+     * List resources available in the server
+     */
+    listResources(): Promise<McpResourceReference[]>
+
+    /**
+     * Reads the resource content
+     */
+    readResource(uri: string): Promise<WorkspaceFile[]>
+
+    /**
+     * Closes clients and server.
+     */
+    dispose(): Promise<void>
+}
+
+interface McpHost {
+    /**
+     * Starts a Model Context Protocol server and returns a client.
+     */
+    mcpServer(config: McpServerConfig): Promise<McpClient>
+}
+
+interface ResourceReference {
+    uri: string // Unique identifier for the resource
+    name: string // Human-readable name
+    description?: string // Optional description
+    mimeType?: string // Optional MIME type
+}
+
+interface ResourceHost {
+    /**
+     * Publishes a resource that will be exposed through the MCP server protocol.
+     * @param content
+     */
+    publishResource(
+        name: string,
+        content: BufferLike,
+        options?: Partial<Pick<ResourceReference, "description" | "mimeType">> &
+            SecretDetectionOptions
+    ): Promise<string>
+
+    /**
+     * List available resource references
+     */
+    resources(): Promise<ResourceReference[]>
+}
+
 interface UserInterfaceHost {
     /**
      * Starts a headless browser and navigates to the page.
@@ -4853,8 +5662,12 @@ interface PythonProxy {
 
 interface PromptHost
     extends ShellHost,
+        LoggerHost,
+        McpHost,
+        ResourceHost,
         UserInterfaceHost,
         LanguageModelHost,
+        SgHost,
         ContentSafetyHost {
     /**
      * A fetch wrapper with proxy, retry and timeout handling.
@@ -5116,6 +5929,7 @@ declare function def(
 /**
  * Declares a file that is expected to be generated by the LLM
  * @param pattern file name or glob-like path
+ * @param description description of the file, used by the model to choose when and how to call the function
  * @param options expectations about the generated file content
  */
 declare function defFileOutput(
@@ -5237,6 +6051,11 @@ declare var JSON5: JSON5
  * JSON Schema utilities
  */
 declare var JSONSchema: JSONSchemaUtilities
+
+/**
+ * Diff utilities
+ */
+declare var DIFF: DIFF
 
 /**
  * Access to current LLM chat session information
