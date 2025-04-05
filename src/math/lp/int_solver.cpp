@@ -41,7 +41,6 @@ namespace lp {
         mpq                 m_k;               // the right side of the cut
         hnf_cutter          m_hnf_cutter;
         unsigned            m_hnf_cut_period;
-        unsigned            m_dioph_eq_period;
         dioph_eq            m_dio;  
         int_gcd_test        m_gcd;
 
@@ -51,7 +50,6 @@ namespace lp {
 
         imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_dio(lia), m_gcd(lia) {
             m_hnf_cut_period = settings().hnf_cut_period();
-            m_dioph_eq_period = settings().m_dioph_eq_period;
         } 
 
         bool has_lower(unsigned j) const {
@@ -193,7 +191,7 @@ namespace lp {
         }
 
         bool should_solve_dioph_eq() {
-            return lia.settings().dio_eqs() && m_number_of_calls % m_dioph_eq_period == 0;
+            return lia.settings().dio_eqs() && (m_number_of_calls % settings().dio_calls_period() == 0);
         }
 
         // HNF

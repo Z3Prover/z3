@@ -2333,6 +2333,8 @@ namespace lp {
                 ret = branching_on_undef();
             
             m_max_of_branching_iterations = (unsigned)m_max_of_branching_iterations / 2;
+            if (ret == lia_move::undef)
+                lra.settings().dio_calls_period() *= 2;
             return ret;
         }
 

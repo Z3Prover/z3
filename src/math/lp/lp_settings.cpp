@@ -39,4 +39,5 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     m_dio_enable_hnf_cuts = lp_p.dio_cuts_enable_hnf();
     m_dio_branching_period = lp_p.dio_branching_period();m_dump_bound_lemmas = p.arith_dump_bound_lemmas();
     m_dio_ignore_big_nums = lp_p.dio_ignore_big_nums();
+    m_dio_calls_period = lp_p.dio_calls_period();
 }

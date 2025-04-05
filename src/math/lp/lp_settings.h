@@ -243,7 +243,6 @@ public:
     unsigned         column_number_threshold_for_using_lu_in_lar_solver = 4000;
     unsigned         m_int_gomory_cut_period = 4;
     unsigned         m_int_find_cube_period = 4;
-    unsigned         m_dioph_eq_period = 1;
 private:
     unsigned         m_hnf_cut_period = 4;
     bool             m_int_run_gcd_test = true;
@@ -262,8 +261,11 @@ private:
     unsigned         m_dio_report_branch_with_term_tigthening_period = 10000000; // period of reporting the branch with term tigthening
     bool             m_dump_bound_lemmas = false;
     bool             m_dio_ignore_big_nums = false;
+    unsigned         m_dio_calls_period = 1;
 
 public:
+    unsigned dio_calls_period() const { return m_dio_calls_period; }
+    unsigned & dio_calls_period() { return m_dio_calls_period; }
     bool print_external_var_name() const { return m_print_external_var_name; }
     bool propagate_eqs() const { return m_propagate_eqs;}
     unsigned hnf_cut_period() const { return m_hnf_cut_period; }
