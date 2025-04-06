@@ -34,15 +34,13 @@ public:
     cancel_eh(T & o): m_obj(o) {}
     ~cancel_eh() override { if (m_canceled) m_obj.dec_cancel(); if (m_auto_cancel) m_obj.auto_cancel(); }
     void operator()(event_handler_caller_t caller_id) override {
-        if (caller_id != CTRL_C_EH_CALLER)
-            signal_lock();
+        signal_lock();
         if (!m_canceled) {
             m_caller_id = caller_id;
             m_canceled = true;
             m_obj.inc_cancel(); 
         }
-        if (caller_id != CTRL_C_EH_CALLER)
-            signal_unlock();
+        signal_unlock();
     }
     bool canceled() {
         bool ret;

@@ -26,13 +26,14 @@ Revision History:
 #define USE_SIGNAL
 #endif
 
-static std::mutex context_lock;
+static std::recursive_mutex context_lock;
 static std::vector<scoped_ctrl_c *> active_contexts;
 #ifdef USE_SIGNAL
 static void (*old_handler)(int);
 #else
 static sigset_t context_old_set;
 static struct sigaction old_sigaction;
+static unsigned signal_lock_depth = 0;
 #endif
 static bool signal_handled = false;
 
@@ -46,7 +47,9 @@ void signal_lock(void) {
     if (sigprocmask(SIG_BLOCK, &set, &old_set))
         abort();
     context_lock.lock();
-    context_old_set = old_set;
+    signal_lock_depth++;
+    if (signal_lock_depth == 1)
+        context_old_set = old_set;
 #endif
 }
 
@@ -54,10 +57,15 @@ void signal_unlock(void) {
 #ifdef USE_SIGNAL
     context_lock.unlock();
 #else
+    bool restore;
     sigset_t old_set = context_old_set;
+    signal_lock_depth--;
+    restore = !signal_lock_depth;
     context_lock.unlock();
-    if (sigprocmask(SIG_SETMASK, &old_set, NULL))
-        abort();
+    if (restore) {
+        if (sigprocmask(SIG_SETMASK, &old_set, NULL))
+            abort();
+    }
 #endif
 }
 
