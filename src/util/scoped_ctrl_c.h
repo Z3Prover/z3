@@ -21,6 +21,9 @@ Revision History:
 #include "util/event_handler.h"
 #include "util/util.h"
 
+void signal_lock(void);
+void signal_unlock(void);
+
 struct scoped_ctrl_c {
     event_handler & m_cancel_eh;
     bool m_first;

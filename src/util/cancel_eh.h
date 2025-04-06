@@ -18,28 +18,46 @@ Revision History:
 --*/
 #pragma once
 
+#include <atomic>
 #include "util/event_handler.h"
+#include "util/scoped_ctrl_c.h"
 
 /**
    \brief Generic event handler for invoking cancel method.
 */
 template<typename T>
 class cancel_eh : public event_handler {
-    bool m_canceled = false;
+    std::atomic<bool> m_canceled = false;
     bool m_auto_cancel = false;
     T & m_obj;
 public:
     cancel_eh(T & o): m_obj(o) {}
     ~cancel_eh() override { if (m_canceled) m_obj.dec_cancel(); if (m_auto_cancel) m_obj.auto_cancel(); }
     void operator()(event_handler_caller_t caller_id) override {
+        if (caller_id != CTRL_C_EH_CALLER)
+            signal_lock();
         if (!m_canceled) {
             m_caller_id = caller_id;
             m_canceled = true;
             m_obj.inc_cancel(); 
         }
+        if (caller_id != CTRL_C_EH_CALLER)
+            signal_unlock();
     }
-    bool canceled() const { return m_canceled; }
-    void reset() { m_canceled = false; }
+    bool canceled() {
+        bool ret;
+        if (!m_canceled)
+            return false;
+        signal_lock();
+        ret = m_canceled;
+        signal_unlock();
+        return ret;
+    }
+    void reset() {
+        signal_lock();
+        m_canceled = false;
+        signal_unlock();
+    }
     T& t() { return m_obj; }
     void set_auto_cancel() { m_auto_cancel = true; }
 };

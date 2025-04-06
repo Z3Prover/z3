@@ -36,7 +36,7 @@ static struct sigaction old_sigaction;
 #endif
 static bool signal_handled = false;
 
-static void signal_lock(void) {
+void signal_lock(void) {
 #ifdef USE_SIGNAL
     context_lock.lock();
 #else
@@ -50,7 +50,7 @@ static void signal_lock(void) {
 #endif
 }
 
-static void signal_unlock(void) {
+void signal_unlock(void) {
 #ifdef USE_SIGNAL
     context_lock.unlock();
 #else
