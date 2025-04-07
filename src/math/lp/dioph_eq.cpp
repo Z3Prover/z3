@@ -1065,9 +1065,11 @@ namespace lp {
         void process_changed_columns(std_vector<unsigned> &f_vector) {
             find_changed_terms_and_more_changed_rows();
             for (unsigned j: m_changed_terms) {
-                if (j >= lra.column_count())
+                if (j >= lra.column_count() ||
+                    !lra.column_has_term(j) ||
+                    (ignore_big_nums() && term_has_big_number(lra.get_term(j)))
+                    )
                     continue;
-                SASSERT(!ignore_big_nums() || !term_has_big_number(lra.get_term(j)));
                 m_terms_to_tighten.insert(j);
                 if (j < m_l_matrix.column_count()) {
                     for (const auto& cs : m_l_matrix.column(j)) {
