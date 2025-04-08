@@ -1646,7 +1646,7 @@ namespace lp {
         lia_move tighten_bounds_for_term_column(unsigned j) {
             // q is the queue of variables that can be substituted in term_to_tighten
             protected_queue q;
-            TRACE("dio", tout << "j:" << j << " , intitial term t: "; print_lar_term_L(lra.get_term(j), tout) << std::endl;
+            TRACE("dio", tout << "j:" << j << " , initial term t: "; print_lar_term_L(lra.get_term(j), tout) << std::endl;
                   for( const auto& p : lra.get_term(j).ext_coeffs()) {
                       lra.print_column_info(p.var(), tout);
                   }
