@@ -504,9 +504,9 @@ namespace lp {
         std::unordered_map<unsigned, std_vector<unsigned>> m_row2fresh_defs;
 
         indexed_uint_set m_changed_rows;
-        // m_changed_columns are the columns that just became fixed, or those that just stopped being fixed.
+        // m_changed_f_columns are the columns that just became fixed, or those that just stopped being fixed.
         // If such a column appears in an entry it has to be recalculated.
-        indexed_uint_set m_changed_columns;
+        indexed_uint_set m_changed_f_columns;
         indexed_uint_set m_changed_terms; // represented by term columns
         indexed_uint_set m_terms_to_tighten; // represented by term columns
         // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
@@ -776,7 +776,7 @@ namespace lp {
 
         void add_changed_column(unsigned j) {
             TRACE("dio", lra.print_column_info(j, tout););
-            m_changed_columns.insert(j);
+            m_changed_f_columns.insert(j);
         }
         std_vector<const lar_term*> m_added_terms;
         std::unordered_set<const lar_term*> m_active_terms;
@@ -833,7 +833,7 @@ namespace lp {
             if (ignore_big_nums() && lra.get_lower_bound(j).x.is_big())
                 return;
             TRACE("dio", tout << "j:" << j << "\n"; lra.print_column_info(j, tout););
-            m_changed_columns.insert(j);
+            m_changed_f_columns.insert(j);
             lra.trail().push(undo_fixed_column(*this, j));
         }
 
@@ -1014,7 +1014,7 @@ namespace lp {
         }
 
         void find_changed_terms_and_more_changed_rows() {
-            for (unsigned j : m_changed_columns) {
+            for (unsigned j : m_changed_f_columns) {
                 const auto it = m_columns_to_terms.find(j);
                 if (it != m_columns_to_terms.end())
                     for (unsigned k : it->second) {
@@ -1114,7 +1114,7 @@ namespace lp {
             remove_irrelevant_fresh_defs();
 
             eliminate_substituted_in_changed_rows();
-            m_changed_columns.reset();
+            m_changed_f_columns.reset();
             m_changed_rows.reset();
             m_changed_terms.reset();
             SASSERT(entries_are_ok());
@@ -1630,7 +1630,7 @@ namespace lp {
             auto r = tighten_bounds_for_non_trivial_gcd(g, j, true);
             if (r == lia_move::undef)
                 r = tighten_bounds_for_non_trivial_gcd(g, j, false);
-            if (r == lia_move::undef && m_changed_columns.contains(j))
+            if (r == lia_move::undef && m_changed_f_columns.contains(j))
                 r = lia_move::continue_with_check;            
             return r;
         }
@@ -1801,30 +1801,23 @@ namespace lp {
             mpq rs;
             bool is_strict = false;
             u_dependency* b_dep = nullptr;
-            SASSERT(!g.is_zero());
+            SASSERT(!g.is_zero() && !g.is_one());
 
             if (lra.has_bound_of_type(j, b_dep, rs, is_strict, is_upper)) {
-                TRACE("dio", 
-                      tout << "current " << (is_upper? "upper":"lower") << " bound for x" << j << ":"
-                      << rs << std::endl;);
+                TRACE("dio", tout << "x" << j << (is_upper? " <= ":" >= ") << rs << std::endl;);
                 mpq rs_g = (rs - m_c) % g;
-                if (rs_g.is_neg()) {
+                if (rs_g.is_neg())
                     rs_g += g;
-                }
-                if (! (!rs_g.is_neg() && rs_g.is_int())) {
-                    std::cout << "rs:" << rs << "\n";
-                    std::cout << "m_c:" << m_c << "\n";
-                    std::cout << "g:" << g << "\n";
-                    std::cout << "rs_g:" << rs_g << "\n";
-                }
-                SASSERT(rs_g.is_int());
+                
+                SASSERT(rs_g.is_int() && !rs_g.is_neg());
+
                 TRACE("dio", tout << "(rs - m_c) % g:" << rs_g << std::endl;);
                 if (!rs_g.is_zero()) {
                     if (tighten_bound_kind(g, j, rs, rs_g, is_upper))
                         return lia_move::conflict;
-                } else {
-                    TRACE("dio", tout << "no improvement in the bound\n";);
                 }
+                else 
+                    TRACE("dio", tout << "rs_g is zero: no improvement in the bound\n";);
             }
             return lia_move::undef;
         }
@@ -1887,10 +1880,7 @@ namespace lp {
             for (const auto& p: fixed_part_of_the_term) {
                 SASSERT(is_fixed(p.var()));                
                 if (p.coeff().is_int() && (p.coeff() % g).is_zero()) {
-                    // we can skip this dependency
-                    // because the monomial p.coeff()*p.var() is 0 modulo g, and it does not matter that p.var() is fixed.
-                    // We could have added  p.coeff()*p.var() to g*t_, substructed the value of  p.coeff()*p.var() from m_c and
-                    // still get the same result.
+                    // we can skip this dependency as explained above
                     TRACE("dio", tout << "skipped dep:\n"; print_deps(tout, lra.get_bound_constraint_witnesses_for_column(p.var())););
                     continue;
                 }
@@ -1966,7 +1956,7 @@ namespace lp {
                     return lia_move::undef;
                 if (r == lia_move::conflict || r == lia_move::undef) 
                     break;
-                SASSERT(m_changed_columns.size() == 0);
+                SASSERT(m_changed_f_columns.size() == 0);
             }
             while (f_vector.size());
 
