@@ -34,11 +34,12 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     report_frequency = p.arith_rep_freq();
     m_simplex_strategy = static_cast<lp::simplex_strategy_enum>(p.arith_simplex_strategy());
     m_nlsat_delay = p.arith_nl_delay();
-    m_dio_eqs = lp_p.dio_eqs();
+    m_dio = lp_p.dio();
     m_dio_enable_gomory_cuts = lp_p.dio_cuts_enable_gomory();
     m_dio_enable_hnf_cuts = lp_p.dio_cuts_enable_hnf();
     m_dio_branching_period = lp_p.dio_branching_period();
     m_dump_bound_lemmas = p.arith_dump_bound_lemmas();
     m_dio_ignore_big_nums = lp_p.dio_ignore_big_nums();
     m_dio_calls_period = lp_p.dio_calls_period();
+    m_dio_run_gcd = lp_p.dio_run_gcd();
 }
