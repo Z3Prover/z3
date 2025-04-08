@@ -218,8 +218,12 @@ public:
     void updt_params(params_ref const& p);
     bool enable_hnf() const { return m_enable_hnf; }
     unsigned nlsat_delay() const { return m_nlsat_delay; }
-    bool int_run_gcd_test() const { return m_int_run_gcd_test; }
-    bool& int_run_gcd_test() { return m_int_run_gcd_test; }
+    bool int_run_gcd_test() const {
+        if (!m_dio)
+            return m_int_run_gcd_test;
+        return m_dio_run_gcd;
+    }
+    void set_run_gcd_test(bool v) { m_int_run_gcd_test = v; }
     unsigned      reps_in_scaler = 20;
     int           c_partial_pivoting = 10; // this is the constant c from page 410
     unsigned      depth_of_rook_search = 4;
@@ -254,7 +258,7 @@ private:
     bool             m_enable_hnf = true;
     bool             m_print_external_var_name = false;
     bool             m_propagate_eqs = false;
-    bool             m_dio_eqs = false;
+    bool             m_dio = false;
     bool             m_dio_enable_gomory_cuts = false;
     bool             m_dio_enable_hnf_cuts = true;
     unsigned         m_dio_branching_period = 100; //  do branching rarely
@@ -262,7 +266,7 @@ private:
     bool             m_dump_bound_lemmas = false;
     bool             m_dio_ignore_big_nums = false;
     unsigned         m_dio_calls_period = 4;
-
+    bool             m_dio_run_gcd = true;
 public:
     unsigned dio_calls_period() const { return m_dio_calls_period; }
     unsigned & dio_calls_period() { return m_dio_calls_period; }
@@ -272,9 +276,10 @@ public:
     void set_hnf_cut_period(unsigned period) { m_hnf_cut_period = period;  }
     unsigned random_next() { return m_rand(); }
     unsigned random_next(unsigned u ) { return m_rand(u); }
-    bool dio_eqs() { return m_dio_eqs; }
-    bool dio_enable_gomory_cuts() const { return m_dio_eqs && m_dio_enable_gomory_cuts; }
-    bool dio_enable_hnf_cuts() const { return m_dio_eqs && m_dio_enable_hnf_cuts; }
+    bool dio() { return m_dio; }
+    bool dio_enable_gomory_cuts() const { return m_dio && m_dio_enable_gomory_cuts; }
+    bool dio_run_gcd() const { return m_dio && m_dio_run_gcd; }
+    bool dio_enable_hnf_cuts() const { return m_dio && m_dio_enable_hnf_cuts; }
     unsigned dio_branching_period() const { return m_dio_branching_period; }
     bool dio_ignore_big_nums() const { return m_dio_ignore_big_nums; }
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
