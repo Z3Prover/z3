@@ -1543,10 +1543,13 @@ namespace lp {
                   // print_bounds(tout);
             );
             for (unsigned j : sorted_changed_terms) {
-                m_terms_to_tighten.remove(j);
-                if (ignore_big_nums() && term_has_big_number(lra.get_term(j)))
+                if (ignore_big_nums() && term_has_big_number(lra.get_term(j))) {
+                    m_terms_to_tighten.remove(j);
                     continue;
+                }
                 auto ret = tighten_bounds_for_term_column(j);
+                m_terms_to_tighten.remove(j);
+                                
                 r = join(ret, r);
                 if (r == lia_move::conflict)
                     break;
@@ -1892,7 +1895,6 @@ namespace lp {
             if (lra.settings().get_cancel_flag())
                 return false;
             lra.update_column_type_and_bound(j, kind, bound, dep);
-
             lp_status st = lra.find_feasible_solution();
             if (is_sat(st) || st == lp::lp_status::CANCELLED)
                 return false;
