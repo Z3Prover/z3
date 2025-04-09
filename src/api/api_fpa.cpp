@@ -896,7 +896,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    bool Z3_API Z3_fpa_get_numeral_sign(Z3_context c, Z3_ast t, int * sgn) {
+    bool Z3_API Z3_fpa_get_numeral_sign(Z3_context c, Z3_ast t, bool * sgn) {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_sign(c, t, sgn);
         RESET_ERROR_CODE();
