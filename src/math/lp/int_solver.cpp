@@ -223,7 +223,7 @@ namespace lp {
         
             lia_move r = lia_move::undef;
 
-            if (m_gcd.should_apply())
+            if (m_gcd.should_apply() || (settings().dio() && m_dio.some_terms_are_ignored()))
                 r = m_gcd();
 
             check_return_helper pc(lra);
