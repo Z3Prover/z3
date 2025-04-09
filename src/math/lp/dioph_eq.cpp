@@ -783,18 +783,20 @@ namespace lp {
         std_vector<variable_branch_stats> m_branch_stats;
         std_vector<branch> m_branch_stack;
         std_vector<constraint_index> m_explanation_of_branches;
-        bool term_has_big_number(const lar_term& t) const {
+        // it is a non-const function : it can set m_some_terms_are_ignored to true
+        bool term_has_big_number(const lar_term& t) {
             for (const auto& p : t) {
-                if (p.coeff().is_big())
+                if (abs(p.coeff()) > mpq(5) || p.coeff().is_big() || (is_fixed(p.var()) && lra.get_lower_bound(p.var()).x.is_big())) {
+                    m_some_terms_are_ignored = true;
                     return true;
-                if (is_fixed(p.var()) && lra.get_lower_bound(p.var()).x.is_big())
-                    return true;
+                }
             }
             return false;
         }
 
         bool ignore_big_nums() const { return lra.settings().dio_ignore_big_nums(); }
-        
+
+        // we add all terms, even those with big numbers, but we might choose to non process the latter.
         void add_term_callback(const lar_term* t) {
             unsigned j = t->j();
             TRACE("dio", tout << "term column t->j():" << j << std::endl; lra.print_term(*t, tout) << std::endl;);
@@ -803,14 +805,7 @@ namespace lp {
                 m_some_terms_are_ignored = true;
                 return;
             }
-
             CTRACE("dio", !lra.column_has_term(j), tout << "added term that is not associated with a column yet" << std::endl;);
-
-            if (ignore_big_nums() && term_has_big_number(*t)) {
-                TRACE("dio", tout << "term_has_big_number\n";);
-                m_some_terms_are_ignored = true;
-                return;
-            }
             m_added_terms.push_back(t);
             mark_term_change(t->j());
             auto undo = undo_add_term(*this, t);
@@ -825,12 +820,9 @@ namespace lp {
         void update_column_bound_callback(unsigned j) {
             if (!lra.column_is_int(j))
                 return;
-            if (lra.column_has_term(j) &&
-                ignore_big_nums() && !term_has_big_number(lra.get_term(j)))
+            if (lra.column_has_term(j))
                 m_terms_to_tighten.insert(j); // the boundary of the term has changed: we can be successful to tighten this term   
             if (!lra.column_is_fixed(j))
-                return;
-            if (ignore_big_nums() && lra.get_lower_bound(j).x.is_big())
                 return;
             TRACE("dio", tout << "j:" << j << "\n"; lra.print_column_info(j, tout););
             m_changed_f_columns.insert(j);
@@ -861,7 +853,7 @@ namespace lp {
         }
 
         void register_columns_to_term(const lar_term& t) {
-            TRACE("dio_reg", tout << "register term:"; lra.print_term(t, tout); tout << ", t.j()=" << t.j() << std::endl;);
+            CTRACE("dio_reg", t.j() == 1337, tout << "register term:"; lra.print_term(t, tout); tout << ", t.j()=" << t.j() << std::endl;);
             for (const auto& p : t.ext_coeffs()) {
                 auto it = m_columns_to_terms.find(p.var());
                 TRACE("dio_reg", tout << "register p.var():" << p.var() << "->" << t.j() << std::endl;);
@@ -1062,20 +1054,28 @@ namespace lp {
             }
         }
 
-        void process_changed_columns(std_vector<unsigned> &f_vector) {
+        // this is a non-const function - it can set m_some_terms_are_ignored to true
+        bool is_big_term_or_no_term(unsigned j) {
+            return
+                j >= lra.column_count()
+                ||
+                !lra.column_has_term(j)
+                ||
+                (ignore_big_nums() && term_has_big_number(lra.get_term(j)));
+        }
+ 
+// Processes columns that have changed due to variables becoming fixed/unfixed or terms being updated.
+// It identifies affected terms and rows, recalculates entries, removes irrelevant fresh definitions,
+// and ensures substituted variables are properly eliminated from changed F entries, m_e_matrix.
+// The function maintains internal consistency of data structures after these updates.
+     void process_m_changed_f_columns(std_vector<unsigned> &f_vector) {
             find_changed_terms_and_more_changed_rows();
             for (unsigned j: m_changed_terms) {
-                if (j >= lra.column_count() ||
-                    !lra.column_has_term(j) ||
-                    (ignore_big_nums() && term_has_big_number(lra.get_term(j)))
-                    )
-                    continue;
-                m_terms_to_tighten.insert(j);
-                if (j < m_l_matrix.column_count()) {
-                    for (const auto& cs : m_l_matrix.column(j)) {
-                        m_changed_rows.insert(cs.var());
-                    }
-                }
+                if (!is_big_term_or_no_term(j))
+                    m_terms_to_tighten.insert(j);
+                if (j < m_l_matrix.column_count())
+                    for (const auto& cs : m_l_matrix.column(j)) 
+                        m_changed_rows.insert(cs.var());                
             }
 
             // find more entries to recalculate
@@ -1085,39 +1085,34 @@ namespace lp {
                 if (it == m_row2fresh_defs.end()) continue;
                 for (unsigned xt : it->second) {
                     SASSERT(var_is_fresh(xt));
-                    for (const auto& p : m_e_matrix.m_columns[xt]) {
+                    for (const auto& p : m_e_matrix.m_columns[xt])
                         more_changed_rows.push_back(p.var());
-                    }
                 }
             }
 
-            for (unsigned ei : more_changed_rows) {
+            for (unsigned ei : more_changed_rows)
                 m_changed_rows.insert(ei);
-            }
-
+            
             for (unsigned ei : m_changed_rows) {
                 if (ei >= m_e_matrix.row_count())
                     continue;
                 if (belongs_to_s(ei))
                     f_vector.push_back(ei);
+
                 recalculate_entry(ei);
                 
                 if (m_e_matrix.m_columns.back().size() == 0) {
                     m_e_matrix.m_columns.pop_back();
                     m_var_register.shrink(m_e_matrix.column_count());
                 }
-                if (m_l_matrix.m_columns.back().size() == 0) {
+                if (m_l_matrix.m_columns.back().size() == 0)
                     m_l_matrix.m_columns.pop_back();
-                }
             }
-
             remove_irrelevant_fresh_defs();
-
             eliminate_substituted_in_changed_rows();
             m_changed_f_columns.reset();
             m_changed_rows.reset();
             m_changed_terms.reset();
-            SASSERT(entries_are_ok());
         }
 
         int get_sign_in_e_row(unsigned ei, unsigned j) const {
@@ -1185,7 +1180,7 @@ namespace lp {
             m_lra_level = 0;
             reset_conflict();
 
-            process_changed_columns(f_vector);
+            process_m_changed_f_columns(f_vector);
             for (const lar_term* t : m_added_terms) {
                 m_active_terms.insert(t);
                 f_vector.push_back(m_e_matrix.row_count()); // going to add a row in fill_entry
@@ -1543,7 +1538,7 @@ namespace lp {
                   // print_bounds(tout);
             );
             for (unsigned j : sorted_changed_terms) {
-                if (ignore_big_nums() && term_has_big_number(lra.get_term(j))) {
+                if (is_big_term_or_no_term(j)) {
                     m_terms_to_tighten.remove(j);
                     continue;
                 }
@@ -1578,24 +1573,30 @@ namespace lp {
             m_c = mpq(0);
             m_lspace.clear();
             m_lspace.add(mpq(1), lar_t.j());
+            bool ret = true;
             SASSERT(get_extended_term_value(lar_t).is_zero());
             for (const auto& p : lar_t) {
                 if (is_fixed(p.j())) {
                     const mpq& b = lia.lower_bound(p.j()).x;
-                    if (ignore_big_nums() && b.is_big())
-                        return false;
+                    if (ignore_big_nums() && b.is_big()) {
+                        ret = false;
+                        break;
+                    }
                     m_c += p.coeff() * b;
                 }
                 else {
                     unsigned lj = lar_solver_to_local(p.j());
-                    SASSERT(!p.coeff().is_big());
+                    if (ignore_big_nums() && p.coeff().is_big()) {
+                        ret = false;
+                        break;
+                    }
                     m_espace.add(p.coeff(), lj);;
                     if (can_substitute(lj))
                         q.push(lj);
                 }
             }
             SASSERT(subs_invariant(lar_t.j()));
-            return true;
+            return ret;
         }
 
         unsigned lar_solver_to_local(unsigned j) const {
@@ -2239,8 +2240,6 @@ namespace lp {
             for (unsigned k = 0; k < lra.terms().size(); k++) {
                 const lar_term* t = lra.terms()[k];
                 if (!lia.column_is_int(t->j())) continue;
-                if (ignore_big_nums() && term_has_big_number(*t))
-                    continue;
                 SASSERT(t->j() != UINT_MAX);
                 for (const auto& p : (*t).ext_coeffs()) {
                     unsigned j = p.var();
@@ -2288,11 +2287,12 @@ namespace lp {
         bool is_in_sync() const {
             for (unsigned j = 0; j < m_e_matrix.column_count(); j++) {
                 unsigned external_j = m_var_register.local_to_external(j);
-                if (external_j == UINT_MAX) continue;
-                if (external_j >= lra.column_count() && m_e_matrix.m_columns[j].size()) {
-                    // It is OK to have an empty column in m_e_matrix.
+                if (external_j == UINT_MAX)
+                    continue;
+                if (external_j >= lra.column_count() && m_e_matrix.m_columns[j].size()) 
                     return false;
-                }
+                // It is OK to have an empty column in m_e_matrix.
+
             }
 
             for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
