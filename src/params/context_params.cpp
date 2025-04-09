@@ -157,6 +157,7 @@ void context_params::updt_params(params_ref const & p) {
 void context_params::collect_param_descrs(param_descrs & d) {
     insert_rlimit(d);
     insert_timeout(d);
+    insert_ctrl_c(d);
     d.insert("well_sorted_check", CPK_BOOL, "type checker", "false");
     d.insert("type_check", CPK_BOOL, "type checker (alias for well_sorted_check)", "true");
     d.insert("auto_config", CPK_BOOL, "use heuristics to automatically select solver and configure it", "true");
