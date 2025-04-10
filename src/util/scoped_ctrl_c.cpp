@@ -12,46 +12,133 @@ Abstract:
 Author:
 
     Leonardo de Moura (leonardo) 2011-04-27.
+    Mikulas Patocka 2025-04-05. (rewritten to be thread safe)
 
 Revision History:
 
 --*/
-#include<signal.h>
+#include <signal.h>
+#include <cstring>
+#include <mutex>
 #include "util/scoped_ctrl_c.h"
 
-static scoped_ctrl_c * g_obj = nullptr;
+#ifdef _WINDOWS
+#define USE_SIGNAL
+#endif
 
-static void on_ctrl_c(int) {
-    if (g_obj->m_first) {
-        g_obj->m_cancel_eh(CTRL_C_EH_CALLER);
-        if (g_obj->m_once) {
-            g_obj->m_first = false;
-            signal(SIGINT, on_ctrl_c); // re-install the handler
-        }
+static std::recursive_mutex context_lock;
+static std::vector<scoped_ctrl_c *> active_contexts;
+#ifdef USE_SIGNAL
+static void (*old_handler)(int);
+#else
+static sigset_t context_old_set;
+static struct sigaction old_sigaction;
+static unsigned signal_lock_depth = 0;
+#endif
+static bool signal_handled = false;
+
+void signal_lock(void) {
+#ifdef USE_SIGNAL
+    context_lock.lock();
+#else
+    sigset_t set, old_set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+    if (sigprocmask(SIG_BLOCK, &set, &old_set))
+        abort();
+    context_lock.lock();
+    signal_lock_depth++;
+    if (signal_lock_depth == 1)
+        context_old_set = old_set;
+#endif
+}
+
+void signal_unlock(void) {
+#ifdef USE_SIGNAL
+    context_lock.unlock();
+#else
+    bool restore;
+    sigset_t old_set = context_old_set;
+    signal_lock_depth--;
+    restore = !signal_lock_depth;
+    context_lock.unlock();
+    if (restore) {
+        if (sigprocmask(SIG_SETMASK, &old_set, NULL))
+            abort();
     }
-    else {
-        signal(SIGINT, g_obj->m_old_handler); 
-        raise(SIGINT);
+#endif
+}
+
+static void test_and_unhandle(void) {
+    if (!signal_handled)
+        return;
+    for (auto a : active_contexts) {
+        if (a->m_first)
+            return;
     }
+#ifdef USE_SIGNAL
+    signal(SIGINT, old_handler);
+#else
+    if (sigaction(SIGINT, &old_sigaction, NULL))
+        abort();
+#endif
+    signal_handled = false;
+}
+
+static void on_sigint(int) {
+    signal_lock();
+#ifdef USE_SIGNAL
+    if (signal_handled)
+        signal(SIGINT, on_sigint);
+#endif
+    for (auto a : active_contexts) {
+        if (a->m_first)
+            a->m_cancel_eh(CTRL_C_EH_CALLER);
+        if (a->m_once)
+            a->m_first = false;
+    }
+    test_and_unhandle();
+    signal_unlock();
 }
 
 scoped_ctrl_c::scoped_ctrl_c(event_handler & eh, bool once, bool enabled):
-    m_cancel_eh(eh), 
+    m_cancel_eh(eh),
     m_first(true),
     m_once(once),
-    m_enabled(enabled),
-    m_old_scoped_ctrl_c(g_obj) {
+    m_enabled(enabled) {
     if (m_enabled) {
-        g_obj = this;
-        m_old_handler = signal(SIGINT, on_ctrl_c); 
+        signal_lock();
+        active_contexts.push_back(this);
+        if (!signal_handled) {
+#ifdef USE_SIGNAL
+            old_handler = signal(SIGINT, on_sigint);
+#else
+            struct sigaction sa;
+            memset(&sa, 0, sizeof(struct sigaction));
+            sa.sa_handler = on_sigint;
+            sigemptyset(&sa.sa_mask);
+            sa.sa_flags = SA_RESTART;
+            if (sigaction(SIGINT, &sa, &old_sigaction))
+                abort();
+#endif
+            signal_handled = true;
+        }
+        signal_unlock();
     }
 }
 
-scoped_ctrl_c::~scoped_ctrl_c() { 
+scoped_ctrl_c::~scoped_ctrl_c() {
     if (m_enabled) {
-        g_obj = m_old_scoped_ctrl_c;
-        if (m_old_handler != SIG_ERR) {
-            signal(SIGINT, m_old_handler);
+        signal_lock();
+        for (auto it = active_contexts.begin(); it != active_contexts.end(); it++) {
+            if (*it == this) {
+                active_contexts.erase(it);
+                goto found;
+            }
         }
+        abort();
+found:
+        test_and_unhandle();
+        signal_unlock();
     }
 }
