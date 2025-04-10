@@ -786,7 +786,7 @@ namespace lp {
         // it is a non-const function : it can set m_some_terms_are_ignored to true
         bool term_has_big_number(const lar_term& t) {
             for (const auto& p : t) {
-                if (abs(p.coeff()) > mpq(5) || p.coeff().is_big() || (is_fixed(p.var()) && lra.get_lower_bound(p.var()).x.is_big())) {
+                if (p.coeff().is_big() || (is_fixed(p.var()) && lra.get_lower_bound(p.var()).x.is_big())) {
                     m_some_terms_are_ignored = true;
                     return true;
                 }
