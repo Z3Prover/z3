@@ -1185,6 +1185,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_solver_set_initial_value(c, s, var, value);
         RESET_ERROR_CODE();
+        init_solver(c, s);
         if (to_expr(var)->get_sort() != to_expr(value)->get_sort()) {
             SET_ERROR_CODE(Z3_INVALID_USAGE, "variable and value should have same sort");
             return;
