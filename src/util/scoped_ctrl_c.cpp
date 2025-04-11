@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include<signal.h>
 #include "util/scoped_ctrl_c.h"
+#include "util/gparams.h"
 
 static scoped_ctrl_c * g_obj = nullptr;
 
@@ -41,6 +42,8 @@ scoped_ctrl_c::scoped_ctrl_c(event_handler & eh, bool once, bool enabled):
     m_once(once),
     m_enabled(enabled),
     m_old_scoped_ctrl_c(g_obj) {
+    if (gparams::get_value("ctrl_c") == "false")
+        m_enabled = false;
     if (m_enabled) {
         g_obj = this;
         m_old_handler = signal(SIGINT, on_ctrl_c); 
