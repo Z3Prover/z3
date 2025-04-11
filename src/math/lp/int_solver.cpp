@@ -41,7 +41,6 @@ namespace lp {
         mpq                 m_k;               // the right side of the cut
         hnf_cutter          m_hnf_cutter;
         unsigned            m_hnf_cut_period;
-        unsigned            m_dioph_eq_period;
         dioph_eq            m_dio;  
         int_gcd_test        m_gcd;
 
@@ -51,7 +50,6 @@ namespace lp {
 
         imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_dio(lia), m_gcd(lia) {
             m_hnf_cut_period = settings().hnf_cut_period();
-            m_dioph_eq_period = settings().m_dioph_eq_period;
         } 
 
         bool has_lower(unsigned j) const {
@@ -187,20 +185,19 @@ namespace lp {
         }
 
         bool should_gomory_cut() {
-            bool dio_allows_gomory = !settings().dio_eqs() || settings().dio_enable_gomory_cuts() ||
-                                      m_dio.has_non_integral_term();
-
+            bool dio_allows_gomory = !settings().dio() || settings().dio_enable_gomory_cuts() ||
+                                      m_dio.some_terms_are_ignored();
             return dio_allows_gomory && m_number_of_calls % settings().m_int_gomory_cut_period == 0;
         }
 
         bool should_solve_dioph_eq() {
-            return lia.settings().dio_eqs() && m_number_of_calls % m_dioph_eq_period == 0;
+            return lia.settings().dio() && (m_number_of_calls % settings().dio_calls_period() == 0);
         }
 
         // HNF
 
         bool should_hnf_cut() {
-            return (!settings().dio_eqs() || settings().dio_enable_hnf_cuts())
+            return (!settings().dio() || settings().dio_enable_hnf_cuts())
                 && settings().enable_hnf() && m_number_of_calls % settings().hnf_cut_period() == 0;
         }
         
@@ -226,7 +223,7 @@ namespace lp {
         
             lia_move r = lia_move::undef;
 
-            if (m_gcd.should_apply())
+            if (m_gcd.should_apply() || (settings().dio() && m_dio.some_terms_are_ignored()))
                 r = m_gcd();
 
             check_return_helper pc(lra);

@@ -35,7 +35,7 @@ namespace arith {
         lp().updt_params(ctx.s().params());
         lp().settings().set_resource_limit(m_resource_limit);
         lp().settings().bound_propagation() = bound_prop_mode::BP_NONE != propagation_mode();
-        lp().settings().int_run_gcd_test() = get_config().m_arith_gcd_test;
+        lp().settings().set_run_gcd_test(get_config().m_arith_gcd_test);
         lp().settings().set_random_seed(get_config().m_random_seed);
         
         m_lia = alloc(lp::int_solver, *m_solver.get());

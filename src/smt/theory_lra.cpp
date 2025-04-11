@@ -871,7 +871,7 @@ public:
         unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
         lp().set_cut_strategy(branch_cut_ratio);
         
-        lp().settings().int_run_gcd_test() = ctx().get_fparams().m_arith_gcd_test;
+        lp().settings().set_run_gcd_test(ctx().get_fparams().m_arith_gcd_test);
         lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
         m_lia = alloc(lp::int_solver, *m_solver.get());
     }
