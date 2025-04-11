@@ -120,10 +120,9 @@ scoped_timer::~scoped_timer() {
 
 void scoped_timer::initialize() {
 #ifndef _WINDOWS
-    static bool pthread_atfork_set = false;
-    if (!pthread_atfork_set) {
+    static std::atomic<bool> pthread_atfork_set = false;
+    if (!pthread_atfork_set.exchange(true)) {
         pthread_atfork(finalize, nullptr, nullptr);
-        pthread_atfork_set = true;
     }
 #endif
 }
