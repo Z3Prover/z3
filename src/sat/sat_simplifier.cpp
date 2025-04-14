@@ -21,7 +21,6 @@ Revision History:
 #include "sat/sat_simplifier.h"
 #include "sat/sat_simplifier_params.hpp"
 #include "sat/sat_solver.h"
-#include "sat/sat_elim_vars.h"
 #include "sat/sat_integrity_checker.h"
 #include "util/stopwatch.h"
 #include "util/trace.h"
@@ -111,9 +110,6 @@ namespace sat {
     bool simplifier::cce_enabled()  const { return bce_enabled_base() && (m_cce || m_acce); }
     bool simplifier::abce_enabled() const { return bce_enabled_base() && m_abce; }
     bool simplifier::bca_enabled()  const { return bce_enabled_base() && m_bca; }
-    bool simplifier::elim_vars_bdd_enabled() const { 
-        return !m_incremental_mode && !s.tracking_assumptions() && m_elim_vars_bdd && m_num_calls >= m_elim_vars_bdd_delay && single_threaded(); 
-    }
     bool simplifier::elim_vars_enabled() const { 
         return !m_incremental_mode && !s.tracking_assumptions() && m_elim_vars && single_threaded(); 
     }    
@@ -2076,24 +2072,19 @@ namespace sat {
     };
 
     void simplifier::elim_vars() {
-        if (!elim_vars_enabled()) return;
+        if (!elim_vars_enabled()) 
+            return;
         elim_var_report rpt(*this);
         bool_var_vector vars;
         order_vars_for_elim(vars);
-        sat::elim_vars elim_bdd(*this);
         for (bool_var v : vars) {
             checkpoint();
             if (m_elim_counter < 0) 
                 break;
-            if (is_external(v)) {
-                // skip
-            }
-            else if (try_eliminate(v)) {
-                m_num_elim_vars++;
-            }
-            else if (elim_vars_bdd_enabled() && elim_bdd(v)) { 
-                m_num_elim_vars++;
-            }
+            if (is_external(v))
+                ; // skip            
+            else if (try_eliminate(v)) 
+                m_num_elim_vars++;            
         }
 
         m_pos_cls.finalize();
@@ -2126,8 +2117,6 @@ namespace sat {
         m_subsumption             = p.subsumption();
         m_subsumption_limit       = p.subsumption_limit();
         m_elim_vars               = p.elim_vars();
-        m_elim_vars_bdd           = false && p.elim_vars_bdd(); // buggy?
-        m_elim_vars_bdd_delay     = p.elim_vars_bdd_delay();
         m_incremental_mode        = s.get_config().m_incremental && !p.override_incremental();
     }
 
