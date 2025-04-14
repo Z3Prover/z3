@@ -125,7 +125,6 @@ namespace sls {
         random_gen m_rand;
         bool m_initialized = false;
         bool m_new_constraint = false;
-        bool m_dirty = false;
         expr_ref_vector m_input_assertions;
         expr_ref_vector m_allterms;
         ptr_vector<expr> m_subterms;

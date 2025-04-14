@@ -21,7 +21,6 @@ namespace sls {
 
     bv_fixed::bv_fixed(bv_eval& ev, bv_terms& terms, sls::context& ctx) :
         ev(ev),
-        terms(terms),
         m(ev.m),
         bv(ev.bv),
         ctx(ctx)

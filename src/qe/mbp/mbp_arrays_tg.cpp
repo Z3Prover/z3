@@ -414,7 +414,6 @@ struct mbp_array_tg::impl {
             expr* a1 = e1->get_arg(0);
             for (unsigned j = i + 1; j < rdTerms.size(); j++) {
                 app* e2 = rdTerms.get(j);
-                expr* a2 = e2->get_arg(0);
                 if (!is_seen(e1, e2) && a1 == e2) {
                     mark_seen(e1, e2);
                     progress = true;

@@ -29,7 +29,6 @@ namespace sls {
     
     class bv_fixed {
         bv_eval&        ev;
-        bv_terms&       terms;
         ast_manager&    m;
         bv_util&        bv;
         sls::context&   ctx;
