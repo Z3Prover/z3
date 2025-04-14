@@ -276,7 +276,7 @@ namespace smt {
         graph r_graph;
         for (enode* n : ctx.enodes_of(f)) {
             literal lit = ctx.enode2literal(n);
-            if (l_true == ctx.get_assignment(lit)) {
+            if (l_true == ctx.get_assignment(lit) && ctx.is_relevant(lit)) {
                 expr* e = ctx.bool_var2expr(lit.var());
                 expr* arg1 = to_app(e)->get_arg(0);
                 expr* arg2 = to_app(e)->get_arg(1);
@@ -284,12 +284,14 @@ namespace smt {
                 enode* tcn = ensure_enode(tc_app);
                 if (ctx.get_assignment(tcn) != l_true) {
                     literal consequent = ctx.get_literal(tc_app);
+                    ctx.mark_as_relevant(consequent);
                     justification* j = ctx.mk_justification(theory_propagation_justification(get_id(), ctx, 1, &lit, consequent));
                     TRACE("special_relations", tout << "propagate: " << tc_app << "\n";);
                     ctx.assign(consequent, j);
                     new_assertion = true;
                 }
                 else {
+                    TRACE("special_relations", tout << "add edge " << tc_app << " relevant: " << ctx.is_relevant(tcn) << "\n");
                     theory_var v1 = get_representative(get_th_var(arg1));
                     theory_var v2 = get_representative(get_th_var(arg2));
                     r_graph.init_var(v1);
@@ -333,6 +335,7 @@ namespace smt {
                 expr_ref f_app(m.mk_app(f, arg1, arg2), m);   
                 ensure_enode(f_app);
                 literal f_lit = ctx.get_literal(f_app);
+                ctx.mark_as_relevant(f_lit);
                 switch (ctx.get_assignment(f_lit)) {
                 case l_true:
                     SASSERT(new_assertion);
@@ -369,8 +372,12 @@ namespace smt {
                     while (r.is_next(nxt)) {
                         expr* left  = to_app(nxt)->get_arg(0);
                         expr* right = to_app(nxt)->get_arg(1);
-                        ctx.assign(~mk_eq(next, left,  false), nullptr);
-                        ctx.assign(~mk_eq(next, right, false), nullptr);
+                        literal eq1 = mk_eq(next, left,  false);
+                        literal eq2 = mk_eq(next, right, false);
+                        ctx.mark_as_relevant(eq1);
+                        ctx.mark_as_relevant(eq2);
+                        ctx.assign(~eq1, nullptr);
+                        ctx.assign(~eq2, nullptr);
                         nxt = left;
                     }
                     ctx.set_true_first_flag(ctx.get_literal(next_b).var());
@@ -600,6 +607,7 @@ namespace smt {
             r.m_explanation.reset();
             unsigned timestamp = r.m_graph.get_timestamp();
             bool found_path = a.v1() == a.v2() || r.m_graph.find_shortest_reachable_path(a.v1(), a.v2(), timestamp, r);
+            TRACE("special_relations", tout << "check " << a.v1() << " -> " << a.v2() << " found_path: " << found_path << "\n");
             if (found_path) {
                 TRACE("special_relations", tout << "check po conflict\n";);
                 r.m_explanation.push_back(a.explanation());
