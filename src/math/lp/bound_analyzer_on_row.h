@@ -92,12 +92,12 @@ namespace lp {
         }
 
         const impq & ub(unsigned j) const {
-            lp_assert(upper_bound_is_available(j));
+            SASSERT(upper_bound_is_available(j));
             return get_upper_bound(j);
         }
 
         const impq & lb(unsigned j) const {
-            lp_assert(lower_bound_is_available(j));
+            SASSERT(lower_bound_is_available(j));
             return get_lower_bound(j);
         }
 
@@ -287,7 +287,7 @@ namespace lp {
         //     mpq a; unsigned j;
         //     while (it->next(a, j)) {
         //         if (be.m_j == j) continue;
-        //         lp_assert(bound_is_available(j, is_neg(a) ? lower_bound : !lower_bound));
+        //         SASSERT(bound_is_available(j, is_neg(a) ? lower_bound : !lower_bound));
         //         be.m_vector_of_bound_signatures.emplace_back(a, j, numeric_traits<impq>::
         //                                                      is_neg(a)? lower_bound: !lower_bound);
         //     }

@@ -72,7 +72,7 @@ struct gomory_test {
             expl.add_pair(column_lower_bound_constraint(x_j), new_a);
         }
         else {
-            lp_assert(at_upper(x_j));
+            SASSERT(at_upper(x_j));
             if (a.is_pos()) {
                 new_a =   a / f_0; 
                 new_a.neg(); // the upper terms are inverted.
@@ -88,9 +88,9 @@ struct gomory_test {
     }
     
     void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term & t, explanation& expl, mpq & lcm_den, const mpq& f_0, const mpq& one_minus_f_0) {
-        lp_assert(is_integer(x_j));
-        lp_assert(!a.is_int());
-             lp_assert(f_0 > zero_of_type<mpq>() && f_0 < one_of_type<mpq>());
+        SASSERT(is_integer(x_j));
+        SASSERT(!a.is_int());
+             SASSERT(f_0 > zero_of_type<mpq>() && f_0 < one_of_type<mpq>());
         mpq f_j =  fractional_part(a);
         TRACE("gomory_cut_detail", 
               tout << a << " x_j = " << x_j << ", k = " << k << "\n";
@@ -99,7 +99,7 @@ struct gomory_test {
               tout << "1 - f_0: " << one_minus_f_0 << "\n";
               tout << "at_low(" << x_j << ") = " << at_low(x_j) << std::endl;
               );
-        lp_assert (!f_j.is_zero());
+        SASSERT (!f_j.is_zero());
         mpq new_a;
         if (at_low(x_j)) {
             if (f_j <= one_minus_f_0) {
@@ -112,7 +112,7 @@ struct gomory_test {
             expl.add_pair(column_lower_bound_constraint(x_j), new_a);
         }
         else {
-            lp_assert(at_upper(x_j));
+            SASSERT(at_upper(x_j));
             if (f_j <= f_0) {
                 new_a = f_j / f_0;
             }
@@ -134,13 +134,13 @@ struct gomory_test {
     }
 
     void adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k, mpq &lcm_den) {
-        lp_assert(!t.is_empty());
+        SASSERT(!t.is_empty());
         auto pol = t.coeffs_as_vector();
         t.clear();
         if (pol.size() == 1) {
             TRACE("gomory_cut_detail", tout << "pol.size() is 1" << std::endl;);
             unsigned v = pol[0].second;
-            lp_assert(is_integer(v));
+            SASSERT(is_integer(v));
             const mpq& a = pol[0].first;
             k /= a;
             if (a.is_pos()) { // we have av >= k
@@ -162,7 +162,7 @@ struct gomory_test {
                       tout << pol[i].first << " " << pol[i].second << "\n";
                   }
                   tout << "k: " << k << "\n";);
-            lp_assert(lcm_den.is_pos());
+            SASSERT(lcm_den.is_pos());
             if (!lcm_den.is_one()) {
                 // normalize coefficients of integer parameters to be integers.
                 for (auto & pi: pol) {
@@ -183,7 +183,7 @@ struct gomory_test {
             k.neg();
         }
         TRACE("gomory_cut_detail", tout << "k = " << k << std::endl;);
-        lp_assert(k.is_int());
+        SASSERT(k.is_int());
     }
 
     void print_term(lar_term & t, std::ostream & out) {

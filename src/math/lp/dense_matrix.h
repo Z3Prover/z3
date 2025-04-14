@@ -47,7 +47,7 @@ public:
     dense_matrix(unsigned m, unsigned n);
 
     dense_matrix operator*=(matrix<T, X> const & a) {
-        lp_assert(column_count() == a.row_count());
+        SASSERT(column_count() == a.row_count());
         dense_matrix c(row_count(), a.column_count());
         for (unsigned i = 0; i < row_count(); i++) {
             for (unsigned j = 0; j < a.column_count(); j++) {

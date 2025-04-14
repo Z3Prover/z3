@@ -50,7 +50,7 @@ namespace lp {
         lra.pop();
         lra.round_to_integer_solution();
         lra.set_status(lp_status::FEASIBLE);
-        lp_assert(lia.settings().get_cancel_flag() || lia.is_feasible());
+        SASSERT(lia.settings().get_cancel_flag() || lia.is_feasible());
         TRACE("cube", tout << "success";);
         lia.settings().stats().m_cube_success++;
         return lia_move::sat;
@@ -78,7 +78,7 @@ namespace lp {
 
     void int_cube::find_feasible_solution() {
         lra.find_feasible_solution();
-        lp_assert(lp_status::OPTIMAL == lra.get_status() || lp_status::FEASIBLE == lra.get_status());
+        SASSERT(lp_status::OPTIMAL == lra.get_status() || lp_status::FEASIBLE == lra.get_status());
     }
 
     impq int_cube::get_cube_delta_for_term(const lar_term& t) const {

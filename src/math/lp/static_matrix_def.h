@@ -87,7 +87,7 @@ namespace lp {
 
     
     template <typename T, typename X> void static_matrix<T, X>::add_rows(const mpq& alpha, unsigned i, unsigned k) {
-        lp_assert(i < row_count() && k < row_count() && i != k);
+        SASSERT(i < row_count() && k < row_count() && i != k);
         auto & rowk = m_rows[k];
         scan_row_strip_to_work_vector(rowk);
         unsigned prev_size_k = static_cast<unsigned>(rowk.size());

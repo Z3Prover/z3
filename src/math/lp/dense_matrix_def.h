@@ -175,7 +175,7 @@ template <typename T, typename X> void dense_matrix<T, X>::multiply_row_by_const
 
 template <typename T, typename X>
 dense_matrix<T, X> operator* (matrix<T, X> & a, matrix<T, X> & b){
-    lp_assert(a.column_count() == b.row_count());
+    SASSERT(a.column_count() == b.row_count());
     dense_matrix<T, X> ret(a.row_count(), b.column_count());
     for (unsigned i = 0; i < ret.m_m; i++)
         for (unsigned j = 0; j< ret.m_n; j++) {

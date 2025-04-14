@@ -78,31 +78,31 @@ void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq
         k -= one_of_type<mpq>();
     }
 
-    lp_assert(v == k * a_over_d + r);
+    SASSERT(v == k * a_over_d + r);
 
     if (is_pos(b)) {
         v = r - a_over_d; //   v -= (k + 1) * a_over_d;
-        lp_assert(- a_over_d < v && v <= zero_of_type<mpq>());
+        SASSERT(- a_over_d < v && v <= zero_of_type<mpq>());
 
         if (is_pos(a)) {
             u += (k + 1) * (b / d);
-            lp_assert( one_of_type<mpq>() <= u && u <= abs(b)/d);
+            SASSERT( one_of_type<mpq>() <= u && u <= abs(b)/d);
         } else {
             u -= (k + 1) * (b / d);
-            lp_assert( one_of_type<mpq>() <= -u && -u <= abs(b)/d);
+            SASSERT( one_of_type<mpq>() <= -u && -u <= abs(b)/d);
         }
     } else {
         v = r; // v -= k * a_over_d;
-        lp_assert(- a_over_d < -v && -v <= zero_of_type<mpq>());
+        SASSERT(- a_over_d < -v && -v <= zero_of_type<mpq>());
         if (is_pos(a)) {
             u += k * (b / d);
-            lp_assert( one_of_type<mpq>() <= u && u <= abs(b)/d);
+            SASSERT( one_of_type<mpq>() <= u && u <= abs(b)/d);
         } else {
             u -= k * (b / d);
-            lp_assert( one_of_type<mpq>() <= -u && -u <= abs(b)/d);
+            SASSERT( one_of_type<mpq>() <= -u && -u <= abs(b)/d);
         }
     }
-    lp_assert(d == u * a + v * b);
+    SASSERT(d == u * a + v * b);
 }
 
 
@@ -127,7 +127,7 @@ bool prepare_pivot_for_lower_triangle(M &m, unsigned r) {
 
 template <typename M> 
 void pivot_column_non_fractional(M &m, unsigned r, bool & overflow, const mpq & big_number) {
-    lp_assert(!is_zero(m[r][r]));
+    SASSERT(!is_zero(m[r][r]));
     for (unsigned j = r + 1; j < m.column_count(); j++) {
         for (unsigned i = r + 1; i  < m.row_count(); i++) {            
             if (
@@ -137,7 +137,7 @@ void pivot_column_non_fractional(M &m, unsigned r, bool & overflow, const mpq & 
                 overflow = true;
                 return;
             }
-            lp_assert(is_integer(m[i][j]));
+            SASSERT(is_integer(m[i][j]));
         }
     }
 }
@@ -154,7 +154,7 @@ unsigned to_lower_triangle_non_fractional(M &m, bool & overflow, const mpq& big_
         if (overflow)
             return 0;
     }
-    lp_assert(i == m.row_count());
+    SASSERT(i == m.row_count());
     return i; 
 }
 
@@ -168,7 +168,7 @@ mpq gcd_of_row_starting_from_diagonal(const M& m, unsigned i) {
         if (!is_zero(t))
             g = abs(t);
     }
-    lp_assert(!is_zero(g));
+    SASSERT(!is_zero(g));
     for (; j < m.column_count(); j++) {
         const auto & t = m[i][j];
         if (!is_zero(t))
@@ -249,7 +249,7 @@ class hnf {
     }
     
     void buffer_p_col_i_plus_q_col_j_W_modulo(const mpq & p, const mpq & q) {
-        lp_assert(zeros_in_column_W_above(m_i));
+        SASSERT(zeros_in_column_W_above(m_i));
         for (unsigned k = m_i; k < m_m; k++) {
             m_buffer[k] =  mod_R_balanced(mod_R_balanced(p * m_W[k][m_i]) + mod_R_balanced(q * m_W[k][m_j]));
         }
@@ -262,7 +262,7 @@ class hnf {
     }
 
     void pivot_column_i_to_column_j_H(mpq u, unsigned i, mpq v, unsigned j) {
-        lp_assert(is_zero(u * m_H[i][i] + v * m_H[i][j]));
+        SASSERT(is_zero(u * m_H[i][i] + v * m_H[i][j]));
         m_H[i][j] = zero_of_type<mpq>();
         for (unsigned k = i + 1; k < m_m; k ++)
             m_H[k][j] = u * m_H[k][i] + v * m_H[k][j];
@@ -270,7 +270,7 @@ class hnf {
     }
 #endif
     void pivot_column_i_to_column_j_W_modulo(mpq u, mpq v)  {
-        lp_assert(is_zero((u * m_W[m_i][m_i] + v * m_W[m_i][m_j]) % m_R));
+        SASSERT(is_zero((u * m_W[m_i][m_i] + v * m_W[m_i][m_j]) % m_R));
         m_W[m_i][m_j] = zero_of_type<mpq>();
         for (unsigned k = m_i + 1; k < m_m; k ++)
             m_W[k][m_j] = mod_R_balanced(mod_R_balanced(u * m_W[k][m_i]) + mod_R_balanced(v * m_W[k][m_j]));
@@ -364,14 +364,14 @@ class hnf {
     }
 
     void replace_column_j_by_j_minus_u_col_i_H(unsigned i, unsigned j, const mpq & u) {
-        lp_assert(j < i);
+        SASSERT(j < i);
         for (unsigned k = i; k < m_m; k++) {
             m_H[k][j] -= u * m_H[k][i];
         }
     }
     void replace_column_j_by_j_minus_u_col_i_U(unsigned i, unsigned j, const mpq & u) {
         
-        lp_assert(j < i);
+        SASSERT(j < i);
         for (unsigned k = 0; k < m_n; k++) {
             m_U[k][j] -= u * m_U[k][i];
         }
@@ -405,7 +405,7 @@ class hnf {
             process_row_column(i, j);
         }
         if (i >= m_n) {
-            lp_assert(m_H == m_A_orig * m_U);
+            SASSERT(m_H == m_A_orig * m_U);
             return;
         }
         if (is_neg(m_H[i][i]))
@@ -427,7 +427,7 @@ class hnf {
 
         m_U_reverse = m_U;
         
-        lp_assert(m_H == m_A_orig * m_U);
+        SASSERT(m_H == m_A_orig * m_U);
     }
 
     bool row_is_correct_form(unsigned i) const {
@@ -489,7 +489,7 @@ private:
     }
 
     void replace_column_j_by_j_minus_u_col_i_W(unsigned j, const mpq & u) {
-        lp_assert(j < m_i);
+        SASSERT(j < m_i);
         for (unsigned k = m_i; k < m_m; k++) {
             m_W[k][j] -= u * m_W[k][m_i];
             //  m_W[k][j] = mod_R_balanced(m_W[k][j]);
@@ -546,7 +546,7 @@ private:
         if (is_zero(mii))
             mii = d;
 
-        lp_assert(is_pos(mii));
+        SASSERT(is_pos(mii));
 
          // adjust column m_i
         for (unsigned k = m_i + 1; k < m_m; k++) {
@@ -554,7 +554,7 @@ private:
             m_W[k][m_i] = mod_R_balanced(m_W[k][m_i]);
         }
 
-        lp_assert(is_pos(mii));
+        SASSERT(is_pos(mii));
         for (unsigned j = 0; j < m_i; j++) {
             const mpq & mij = m_W[m_i][j];
             if (!is_pos(mij) && - mij < mii)
@@ -575,9 +575,9 @@ private:
     void calculate_by_modulo() {
         for (m_i = 0; m_i < m_m; m_i ++) {
             process_row_modulo();
-            lp_assert(is_pos(m_W[m_i][m_i]));
+            SASSERT(is_pos(m_W[m_i][m_i]));
             m_R /= m_W[m_i][m_i];
-            lp_assert(is_integer(m_R));
+            SASSERT(is_integer(m_R));
             m_half_R = floor(m_R / 2);
         }
     }
@@ -609,7 +609,7 @@ public:
                tout << "A = "; m_A_orig.print(tout, 4); tout << std::endl;
                tout << "H = "; m_H.print(tout, 4);  tout << std::endl;
                tout << "W = "; m_W.print(tout, 4);  tout << std::endl;);
-        lp_assert (m_H == m_W);
+        SASSERT (m_H == m_W);
 #endif
     }
 

@@ -376,7 +376,7 @@ inline void print_blanks(int n, std::ostream & out) {
 // after a push of the last element we ensure that the vector increases
 // we also suppose that before the last push the vector was increasing
 inline void ensure_increasing(vector<unsigned> & v) {
-    lp_assert(v.size() > 0);
+    SASSERT(v.size() > 0);
     unsigned j = v.size() - 1;
     for (; j > 0; j-- )
         if (v[j] <= v[j - 1]) {
@@ -392,7 +392,7 @@ inline void ensure_increasing(vector<unsigned> & v) {
 inline static bool is_rational(const impq & n) { return is_zero(n.y); }
 
 inline static mpq fractional_part(const impq & n) {
-    lp_assert(is_rational(n));
+    SASSERT(is_rational(n));
     return n.x - floor(n.x);
 }
 inline static mpq fractional_part(const mpq & n) {

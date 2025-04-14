@@ -99,7 +99,7 @@ namespace lp  {
             if (is_integer(b[i]))
                 continue;
             if (n == 0) {
-                lp_assert(ret == -1);
+                SASSERT(ret == -1);
                 n = 1;
                 ret = i;
             }
@@ -202,7 +202,7 @@ branch y_i >= ceil(y0_i) is impossible.
         hnf<general_matrix> h(m_A, d);        
         vector<mpq> b = create_b(basis_rows);
 #ifdef Z3DEBUG
-        lp_assert(m_A * x0 == b);
+        SASSERT(m_A * x0 == b);
 #endif
 
         find_h_minus_1_b(h.W(), b);
@@ -274,7 +274,7 @@ branch y_i >= ceil(y0_i) is impossible.
                       for (auto ci : lra.flatten(dep))
                           lra.constraints().display(tout, ci);                  
                   );
-            lp_assert(lia.current_solution_is_inf_on_cut());
+            SASSERT(lia.current_solution_is_inf_on_cut());
             lia.settings().stats().m_hnf_cuts++;
             lia.expl()->clear();        
             for (u_dependency* dep : constraints_for_explanation()) 

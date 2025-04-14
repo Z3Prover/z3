@@ -43,7 +43,7 @@ public:
 
     template <typename T>  
     void pop_tail(vector<T> & v, unsigned k) {
-        lp_assert(v.size() >= k);
+        SASSERT(v.size() >= k);
         v.shrink(v.size() - k);
     }
 
@@ -53,8 +53,8 @@ public:
     }
 
     void pop_scope(unsigned k) {
-        lp_assert(m_stack_of_vector_sizes.size() >= k);
-        lp_assert(k > 0);
+        SASSERT(m_stack_of_vector_sizes.size() >= k);
+        SASSERT(k > 0);
         m_vector.shrink(peek_size(k));
         unsigned new_st_size = m_stack_of_vector_sizes.size() - k;
         m_stack_of_vector_sizes.shrink(new_st_size);
@@ -65,7 +65,7 @@ public:
     }
 
     unsigned peek_size(unsigned k) const {
-        lp_assert(k > 0 && k <= m_stack_of_vector_sizes.size());
+        SASSERT(k > 0 && k <= m_stack_of_vector_sizes.size());
         return m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k];
     }
 };

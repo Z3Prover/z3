@@ -91,7 +91,7 @@ public:
 
     unsigned external_to_local(unsigned j) const {
         auto it = m_external_to_local.find(j);
-        lp_assert(it != m_external_to_local.end());
+        SASSERT(it != m_external_to_local.end());
         return it->second;
     }
 

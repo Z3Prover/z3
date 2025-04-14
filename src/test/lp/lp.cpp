@@ -384,7 +384,7 @@ vector<int> allocate_basis_heading(
 
 void init_basic_part_of_basis_heading(vector<unsigned> &basis,
                                       vector<int> &basis_heading) {
-    lp_assert(basis_heading.size() >= basis.size());
+    SASSERT(basis_heading.size() >= basis.size());
     unsigned m = basis.size();
     for (unsigned i = 0; i < m; i++) {
         unsigned column = basis[i];
@@ -577,7 +577,7 @@ void test_stacked_unsigned() {
     v = 3;
     v = 4;
     v.pop();
-    lp_assert(v == 2);
+    SASSERT(v == 2);
     v++;
     v++;
     std::cout << "before push v=" << v << std::endl;
@@ -587,7 +587,7 @@ void test_stacked_unsigned() {
     v += 1;
     std::cout << "v = " << v << std::endl;
     v.pop(2);
-    lp_assert(v == 4);
+    SASSERT(v == 4);
     const unsigned &rr = v;
     std::cout << rr << std::endl;
 }
@@ -751,22 +751,23 @@ void test_numeric_pair() {
     numeric_pair<lp::mpq> c(0.1, 0.5);
     a += 2 * c;
     a -= c;
-    lp_assert(a == b + c);
+    SASSERT(a == b + c);
     numeric_pair<lp::mpq> d = a * 2;
     std::cout << a << std::endl;
-    lp_assert(b == b);
-    lp_assert(b < a);
-    lp_assert(b <= a);
-    lp_assert(a > b);
-    lp_assert(a != b);
-    lp_assert(a >= b);
-    lp_assert(-a < b);
-    lp_assert(a < 2 * b);
-    lp_assert(b + b > a);
-    lp_assert(lp::mpq(2.1) * b + b > a);
-    lp_assert(-b * lp::mpq(2.1) - b < lp::mpq(0.99) * a);
+    SASSERT(b == b);
+    SASSERT(b < a);
+    SASSERT(b <= a);
+    SASSERT(a > b);
+    SASSERT(a != b);
+    SASSERT(a >= b);
+    SASSERT(-a < b);
+    SASSERT(a < 2 * b);
+    SASSERT(b + b > a);
+    SASSERT(lp::mpq(2.1) * b + b > a);
+    SASSERT(-b * lp::mpq(2.1) - b < lp::mpq(0.99) * a);
     std::cout << -b * lp::mpq(2.1) - b << std::endl;
-    lp_assert(-b * (lp::mpq(2.1) + 1) == -b * lp::mpq(2.1) - b);
+    SASSERT(-b * (lp::mpq(2.1) + 1) == -b * lp::mpq(2.1) - b);
+    std::cout << -b * (lp::mpq(2.1) + 1) << std::endl;
 }
 
 void get_matrix_dimensions(std::ifstream &f, unsigned &m, unsigned &n) {
@@ -829,7 +830,7 @@ void test_term() {
                   << t.second.get_double() << ",";
     }
 
-    std::cout << "\ntableu after cube\n";
+    std::cout << "\ntableau after cube\n";
     solver.pp(std::cout).print();
     std::cout << "Ax_is_correct = " << solver.ax_is_correct() << "\n";
 }
@@ -854,7 +855,7 @@ void test_evidence_for_total_inf_simple(argument_parser &args_parser) {
     auto status = solver.solve();
     std::cout << lp_status_to_string(status) << std::endl;
     std::unordered_map<lpvar, mpq> model;
-    lp_assert(solver.get_status() == lp_status::INFEASIBLE);
+    SASSERT(solver.get_status() == lp_status::INFEASIBLE);
 }
 void test_bound_propagation_one_small_sample1() {
     /*
@@ -1060,8 +1061,8 @@ void test_total_case_l() {
     // ls.solve();
     // my_bound_propagator bp(ls);
     // ls.propagate_bounds_for_touched_rows(bp);
-    // lp_assert(ev.size() == 4);
-    // lp_assert(contains_j_kind(x, GE, - one_of_type<mpq>(), ev));
+    // SASSERT(ev.size() == 4);
+    // SASSERT(contains_j_kind(x, GE, - one_of_type<mpq>(), ev));
 }
 void test_bound_propagation() {
     test_total_case_u();
@@ -1077,14 +1078,14 @@ void test_int_set() {
     indexed_uint_set s;
     s.insert(1);
     s.insert(2);
-    lp_assert(s.contains(2));
-    lp_assert(s.size() == 2);
+    SASSERT(s.contains(2));
+    SASSERT(s.size() == 2);
     s.remove(2);
-    lp_assert(s.size() == 1);
+    SASSERT(s.size() == 1);
     s.insert(3);
     s.insert(2);
     s.reset();
-    lp_assert(s.size() == 0);
+    SASSERT(s.size() == 0);
     std::cout << "done test_int_set\n";
 }
 
@@ -1192,13 +1193,13 @@ void get_random_interval(bool &neg_inf, bool &pos_inf, int &x, int &y) {
         pos_inf = false;
         if (!neg_inf) {
             y = x + my_random() % (101 - x);
-            lp_assert(y >= x);
+            SASSERT(y >= x);
         } else {
             y = my_random() % 100;
         }
     }
-    lp_assert((neg_inf || (0 <= x && x <= 100)) &&
-              (pos_inf || (0 <= y && y <= 100)));
+    SASSERT((neg_inf || (0 <= x && x <= 100)) &&
+            (pos_inf || (0 <= y && y <= 100)));
 }
 
 void test_gomory_cut_0() {
@@ -1628,7 +1629,7 @@ void test_maximize_term() {
     solver.add_var_bound(term_x_min_y, LE, zero_of_type<mpq>());
     solver.add_var_bound(term_2x_pl_2y, LE, mpq(5));
     solver.find_feasible_solution();
-    lp_assert(solver.get_status() == lp_status::OPTIMAL);
+    SASSERT(solver.get_status() == lp_status::OPTIMAL);
     std::cout << solver.constraints();
     std::unordered_map<lpvar, mpq> model;
     solver.get_model(model);
@@ -1671,7 +1672,8 @@ void test_dio() {
     lpvar fx_7 = solver.add_var(_fx_7, true);
     lpvar fx_17 = solver.add_var(_fx_17, true);
     vector<std::pair<mpq, lpvar>> term_ls;
-    /* 3x1 + 3x2 + 14x3 − 7 */
+    /* 3x1 + 3x2 +```cpp
+    14x3 − 7 */
     term_ls.push_back(std::pair<mpq, lpvar>(mpq(3), x1));
     term_ls.push_back(std::pair<mpq, lpvar>(mpq(3), x2));
     term_ls.push_back(std::pair<mpq, lpvar>(mpq(14), x3));
@@ -1701,7 +1703,7 @@ void test_dio() {
     solver.add_var_bound(t1, LE, mpq(0));
     solver.add_var_bound(t1, GE, mpq(0));
 //    solver.find_feasible_solution();
-    //lp_assert(solver.get_status() == lp_status::OPTIMAL);
+    //SASSERT(solver.get_status() == lp_status::OPTIMAL);
     enable_trace("dioph_eq");
     enable_trace("dioph_eq_fresh");
 #ifdef Z3DEBUG     
@@ -1908,13 +1910,13 @@ void asserts_on_patching(const rational &x, const rational &alpha) {
     auto a2 = denominator(alpha);
     auto x1 = numerator(x);
     auto x2 = denominator(x);
-    lp_assert(a1.is_pos());
-    lp_assert(abs(a1) < abs(a2));
-    lp_assert(coprime(a1, a2));
-    lp_assert(x1.is_pos());
-    lp_assert(x1 < x2);
-    lp_assert(coprime(x1, x2));
-    lp_assert((a2 / x2).is_int());
+    SASSERT(a1.is_pos());
+    SASSERT(abs(a1) < abs(a2));
+    SASSERT(coprime(a1, a2));
+    SASSERT(x1.is_pos());
+    SASSERT(x1 < x2);
+    SASSERT(coprime(x1, x2));
+    SASSERT((a2 / x2).is_int());
 }
 void get_patching_deltas(const rational &x, const rational &alpha, rational &delta_0, rational &delta_1) {
     std::cout << "get_patching_deltas(" << x << ", " << alpha << ")" << std::endl;
@@ -1922,7 +1924,7 @@ void get_patching_deltas(const rational &x, const rational &alpha, rational &del
     auto a2 = denominator(alpha);
     auto x1 = numerator(x);
     auto x2 = denominator(x);
-    lp_assert(divides(x2, a2));
+    SASSERT(divides(x2, a2));
     // delta has to be integral.
     // We need to find delta such that x1/x2 + (a1/a2)*delta is integral.
     // Then a2*x1/x2 + a1*delta is integral, that means that t = a2/x2 is integral.
@@ -1936,17 +1938,17 @@ void get_patching_deltas(const rational &x, const rational &alpha, rational &del
     // We know that a2 and a1 are coprime, and x2 divides a2, so x2 and a1 are coprime.
     rational u, v;
     auto g = gcd(a1, x2, u, v);
-    lp_assert(g.is_one() && u.is_int() && v.is_int() && g == u * a1 + v * x2);
+    SASSERT(g.is_one() && u.is_int() && v.is_int() && g == u * a1 + v * x2);
     std::cout << "u = " << u << ", v = " << v << std::endl;
     std::cout << "x= " << (x1 / x2) << std::endl;
     std::cout << "x + (a1 / a2) * (-u * t) * x1 = " << x + (a1 / a2) * (-u * t) * x1 << std::endl;
-    lp_assert((x + (a1 / a2) * (-u * t) * x1).is_int());
+    SASSERT((x + (a1 / a2) * (-u * t) * x1).is_int());
     // 1 = (u- l*x2 ) * a1 + (v + l*a1)*x2, for every integer l.
     rational d = u * t * x1;
     delta_0 = mod(d, a2);
-    lp_assert(delta_0 > 0);
+    SASSERT(delta_0 > 0);
     delta_1 = delta_0 - a2;
-    lp_assert(delta_1 < 0);
+    SASSERT(delta_1 < 0);
     std::cout << "delta_0 = " << delta_0 << std::endl;
     std::cout << "delta_1 = " << delta_1 << std::endl;
 }
@@ -1974,10 +1976,10 @@ void test_patching_alpha(const rational &x, const rational &alpha) {
     rational delta_0, delta_1;
     get_patching_deltas(x, alpha, delta_0, delta_1);
 
-    lp_assert(delta_0 * delta_1 < 0);
+    SASSERT(delta_0 * delta_1 < 0);
 
-    lp_assert((x - alpha * delta_0).is_int());
-    lp_assert((x - alpha * delta_1).is_int());
+    SASSERT((x - alpha * delta_0).is_int());
+    SASSERT((x - alpha * delta_1).is_int());
     try_find_smaller_delta(x, alpha, delta_0, delta_1);
     // std::cout << "delta_minus = " << delta_minus << ", delta_1 = " << delta_1 << "\n";
     // std::cout << "x + alpha*delta_minus = " << x + alpha * delta_minus << "\n";
@@ -1988,7 +1990,7 @@ void find_a1_x1_x2_and_fix_a2(int &x1, int &x2, int &a1, int &a2) {
     x2 = (rand() % a2) + (int)(a2 / 3);
     auto g = gcd(rational(a2), rational(x2));
     a2 *= (x2 / numerator(g).get_int32());
-    lp_assert(rational(a2, x2).is_int());
+    SASSERT(rational(a2, x2).is_int());
     do {
         x1 = rand() % (unsigned)x2 + 1;
     } while (!coprime(x1, x2));
@@ -1997,6 +1999,7 @@ void find_a1_x1_x2_and_fix_a2(int &x1, int &x2, int &a1, int &a2) {
         a1 = rand() % (unsigned)a2 + 1;
     } while (!coprime(a1, a2));
 }
+
 
 void test_patching() {
     srand(1);

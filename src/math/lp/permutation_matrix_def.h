@@ -60,7 +60,7 @@ template <typename T, typename X> void permutation_matrix<T, X>::print(std::ostr
 
 template <typename T, typename X> void permutation_matrix<T, X>::transpose_from_left(unsigned i, unsigned j) {
     // the result will be this = (i,j)*this
-    lp_assert(i < size() && j < size() && i != j);
+    SASSERT(i < size() && j < size() && i != j);
     auto pi = m_rev[i];
     auto pj = m_rev[j];
     set_val(pi, j);
@@ -69,7 +69,7 @@ template <typename T, typename X> void permutation_matrix<T, X>::transpose_from_
 
 template <typename T, typename X> void permutation_matrix<T, X>::transpose_from_right(unsigned i, unsigned j) {
     // the result will be this = this * (i,j)
-    lp_assert(i < size() && j < size() && i != j);
+    SASSERT(i < size() && j < size() && i != j);
     auto pi = m_permutation[i];
     auto pj = m_permutation[j];
     set_val(i, pj);
