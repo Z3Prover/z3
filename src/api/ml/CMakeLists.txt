@@ -56,14 +56,6 @@ add_custom_command(
   VERBATIM
 )
 
-add_custom_command(
-  OUTPUT  ${z3ml_bin}/z3.ml
-          ${z3ml_bin}/z3.mli
-  COMMAND "${CMAKE_COMMAND}" "-E" "copy" "${z3ml_src}/z3.ml" "${z3ml_bin}/z3.ml"
-  COMMAND "${CMAKE_COMMAND}" "-E" "copy" "${z3ml_src}/z3.mli" "${z3ml_bin}/z3.mli"
-  DEPENDS ${z3ml_src}/z3.ml
-          ${z3ml_src}/z3.mli
-  COMMENT "Copying z3.ml and z3.mli to build area")
 
 set(z3ml_common_flags  "-package" "zarith"
                        "-I" "${z3ml_bin}")
@@ -132,16 +124,19 @@ add_custom_command(
   OUTPUT ${z3ml_bin}/z3.cmi
          ${z3ml_bin}/z3.cmo
          ${z3ml_bin}/z3.cmx
-  COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
-          "-c" "${z3ml_bin}/z3.mli"
-  COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
-          "-c" "${z3ml_bin}/z3.ml"
-  COMMAND "${OCAMLFIND}" "ocamlopt" ${z3ml_common_flags}
-          "-c" "${z3ml_bin}/z3.ml" 
+COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
+  "-o" "${z3ml_bin}/z3.cmi"
+  "-c" "${z3ml_src}/z3.mli"
+COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
+  "-o" "${z3ml_bin}/z3.cmo"
+  "-c" "${z3ml_src}/z3.ml"
+COMMAND "${OCAMLFIND}" "ocamlopt" ${z3ml_common_flags}
+  "-o" "${z3ml_bin}/z3.cmx"
+  "-c" "${z3ml_src}/z3.ml" 
   DEPENDS ${z3ml_bin}/z3enums.cmo
           ${z3ml_bin}/z3native.cmo
-          ${z3ml_bin}/z3.ml
-          ${z3ml_bin}/z3.mli
+          ${z3ml_src}/z3.ml
+          ${z3ml_src}/z3.mli
   COMMENT "Building z3.cmo"
   VERBATIM)
 
