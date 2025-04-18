@@ -115,6 +115,7 @@ class param_descrs {
 public:
     param_descrs();
     ~param_descrs();
+    param_descrs& operator=(param_descrs const&) = delete;
     void copy(param_descrs & other);
     void insert(char const * name, param_kind k, char const * descr, char const * def = nullptr, char const* module = nullptr);
     void insert(symbol const & name, param_kind k, char const * descr, char const * def = nullptr, char const* module = nullptr);
