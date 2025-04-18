@@ -60,6 +60,15 @@ add_custom_command(
 set(z3ml_common_flags  "-package" "zarith"
                        "-I" "${z3ml_bin}")
 
+                       # add_custom_command(
+#   OUTPUT  ${z3ml_bin}/z3.ml
+#           ${z3ml_bin}/z3.mli
+#   COMMAND "${CMAKE_COMMAND}" "-E" "copy" "${z3ml_src}/z3.ml" "${z3ml_bin}/z3.ml"
+#   COMMAND "${CMAKE_COMMAND}" "-E" "copy" "${z3ml_src}/z3.mli" "${z3ml_bin}/z3.mli"
+#   DEPENDS ${z3ml_src}/z3.ml
+#           ${z3ml_src}/z3.mli
+#   COMMENT "Copying z3.ml and z3.mli to build area")
+
 # z3native_stubs.c depends on nothing
 execute_process(
   COMMAND ${OCAMLFIND} ocamlc "-where"
@@ -77,6 +86,9 @@ add_custom_command(
   DEPENDS ${z3ml_bin}/z3native_stubs.c
   COMMENT "Building z3native_stubs.o"
   VERBATIM)
+
+message(STATUS "PATH: $ENV{PATH}")
+message(STATUS "OCAMLFIND: $ENV{OCAMLFIND}")
 
 # z3enum.ml depends on nothing
 add_custom_command(
@@ -124,6 +136,12 @@ add_custom_command(
   OUTPUT ${z3ml_bin}/z3.cmi
          ${z3ml_bin}/z3.cmo
          ${z3ml_bin}/z3.cmx
+ # COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
+  #         "-c" "${z3ml_bin}/z3.mli"
+  # COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
+  #         "-c" "${z3ml_bin}/z3.ml"
+  # COMMAND "${OCAMLFIND}" "ocamlopt" ${z3ml_common_flags}
+  #         "-c" "${z3ml_bin}/z3.ml" 
 COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
   "-o" "${z3ml_bin}/z3.cmi"
   "-c" "${z3ml_src}/z3.mli"
@@ -135,6 +153,8 @@ COMMAND "${OCAMLFIND}" "ocamlopt" ${z3ml_common_flags}
   "-c" "${z3ml_src}/z3.ml" 
   DEPENDS ${z3ml_bin}/z3enums.cmo
           ${z3ml_bin}/z3native.cmo
+          # ${z3ml_bin}/z3.ml
+          # ${z3ml_bin}/z3.mli
           ${z3ml_src}/z3.ml
           ${z3ml_src}/z3.mli
   COMMENT "Building z3.cmo"
@@ -211,64 +231,34 @@ add_custom_command(
 ###############################################################################
 # Example
 ###############################################################################
- 
 
 execute_process(
   COMMAND ${OCAMLFIND} query zarith
   OUTPUT_VARIABLE ocaml_pkg_zarith_path
   OUTPUT_STRIP_TRAILING_WHITESPACE)
+  
+# Always define patch_z3ml_dylib for dependency consistency
+if(APPLE)
+  add_custom_command(
+    OUTPUT ${z3ml_bin}/patched_dllz3ml
+    COMMAND install_name_tool -id "@loader_path/libz3.dylib" "${CMAKE_BINARY_DIR}/libz3.dylib"
+    COMMAND install_name_tool -change libz3.dylib "@loader_path/libz3.dylib" "${z3ml_bin}/dllz3ml.so"
+    COMMAND touch ${z3ml_bin}/patched_dllz3ml
+    DEPENDS ${z3ml_bin}/dllz3ml.so
+    COMMENT "Patch macOS dynamic lib loader path"
+    VERBATIM
+  )
+else()
+  add_custom_command(
+    OUTPUT ${z3ml_bin}/patched_dllz3ml
+    COMMAND ${CMAKE_COMMAND} -E touch ${z3ml_bin}/patched_dllz3ml
+    COMMENT "Dummy patch target for non-macOS"
+    VERBATIM
+  )
+endif()
 
-
-set(z3ml_example_src ${PROJECT_SOURCE_DIR}/examples/ml/ml_example.ml)
-
-add_custom_command(
-  OUTPUT ${z3ml_bin}/ml_example${bc_ext}
-         ${z3ml_bin}/ml_example.bc.log
-  COMMAND "${OCAMLFIND}" "ocamlc"
-    "-o" "${z3ml_bin}/ml_example${bc_ext}"
-    "-package" "zarith"
-    "-I" "${z3ml_bin}"
-    "-dllpath" "${z3ml_bin}"
-    "-I" ${ocaml_stublibs_path}
-    "-dllpath" ${ocaml_stublibs_path}
-    "${ocaml_pkg_zarith_path}/zarith.cma"
-    "${z3ml_bin}/z3ml.cma"
-    ${z3ml_example_src}
-  COMMAND 
-    "ocamlrun" "${z3ml_bin}/ml_example${bc_ext}"
-    ">" "${z3ml_bin}/ml_example.bc.log"
-  DEPENDS
-    ${z3ml_bin}/z3ml.cma
-    ${z3ml_bin}/dllz3ml.so
-    ${z3ml_example_src}
-  COMMENT "Testing build and run ml_example bytecode"
-  VERBATIM)
-
-add_custom_command(
-  OUTPUT ${z3ml_bin}/ml_example${exe_ext}
-         ${z3ml_bin}/ml_example.log
-  COMMAND "${OCAMLFIND}" "ocamlopt"
-    "-o" "${z3ml_bin}/ml_example${exe_ext}"
-    "-package" "zarith"
-    "-linkpkg"
-    "-I" "${z3ml_bin}"
-    "${z3ml_bin}/z3ml.cmxa"
-    "${z3ml_example_src}"
-  COMMAND "${z3ml_bin}/ml_example${exe_ext}"
-    ">" "${z3ml_bin}/ml_example.log"
-  DEPENDS
-    ${z3ml_bin}/z3ml.cmxa
-    ${z3ml_bin}/dllz3ml.so
-    ${z3ml_example_src}
-  COMMENT "Testing build and run ml_example natively"
-  VERBATIM)
-
-add_custom_target(build_ocaml_example
-  ALL
-  DEPENDS
-    ${z3ml_bin}/ml_example${bc_ext}
-    ${z3ml_bin}/ml_example${exe_ext}
-)
+add_custom_target(patch_z3ml_dylib ALL
+  DEPENDS ${z3ml_bin}/patched_dllz3ml)
 
 add_custom_target(build_z3_ocaml_bindings
   ALL
@@ -278,7 +268,40 @@ add_custom_target(build_z3_ocaml_bindings
     ${z3ml_bin}/z3ml.cmxs
     ${z3ml_bin}/dllz3ml.so
     ${z3ml_bin}/libz3ml.a
-    build_ocaml_example
+    patch_z3ml_dylib
+)
+
+# test
+
+set(z3ml_example_src ${PROJECT_SOURCE_DIR}/examples/ml/ml_example.ml)
+
+add_custom_command(
+  TARGET build_z3_ocaml_bindings POST_BUILD
+  COMMAND "${OCAMLFIND}" ocamlc
+    -o "${z3ml_bin}/ml_example.byte"
+    -package zarith
+    -linkpkg
+    -I "${z3ml_bin}"
+    -dllpath "${z3ml_bin}"
+    "${z3ml_bin}/z3ml.cma"
+    "${z3ml_example_src}"
+  COMMAND ocamlrun "${z3ml_bin}/ml_example.byte" > "${z3ml_bin}/ml_example.bc.log"
+  COMMENT "Run OCaml bytecode example"
+  VERBATIM
+)
+
+add_custom_command(
+  TARGET build_z3_ocaml_bindings POST_BUILD
+  COMMAND "${OCAMLFIND}" ocamlopt
+    -o "${z3ml_bin}/ml_example"
+    -package zarith
+    -linkpkg
+    -I "${z3ml_bin}"
+    "${z3ml_bin}/z3ml.cmxa"
+    "${z3ml_example_src}"
+  COMMAND "${z3ml_bin}/ml_example" > "${z3ml_bin}/ml_example.log"
+  COMMENT "Run OCaml native example"
+  VERBATIM
 )
 
 ###############################################################################

@@ -63,7 +63,7 @@ jobs:
           ocamlc -version
           ccache -z  # reset stats
           cd build
-          ninja -j$(nproc) build_z3_ocaml_bindings
+          ninja build_z3_ocaml_bindings
           ccache -s  # show stats
 
       - name: Compile ml_example.byte

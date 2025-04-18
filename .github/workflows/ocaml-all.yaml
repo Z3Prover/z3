@@ -1,0 +1,243 @@
+name: OCaml Binding CI (Ubuntu + macOS)
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  no-matrix:
+    name: No matrix job
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup OCaml (no matrix)
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5.3.0
+          opam-disable-sandboxing: true
+
+      - name: Debug PATH and ENV (no matrix)
+        run: |
+          echo "GITHUB_ENV:"
+          cat $GITHUB_ENV || echo "❌ Not found"
+
+          echo ""
+          echo "GITHUB_PATH:"
+          cat $GITHUB_PATH || echo "❌ Not found"
+
+          echo "PATH:"
+          echo "$PATH" | tr ':' '\n'
+          echo ""
+          echo "which ocamlc:"
+          which ocamlc || echo "❌ Not found"
+          echo ""
+          echo "OPAM_SWITCH_PREFIX: $OPAM_SWITCH_PREFIX"
+
+  build-test:
+    strategy:
+      matrix:
+        # ubuntu-latest,
+        os: [ macos-latest]
+        ocaml-version: ["5"]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Cache ccache (shared across runs)
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      # Cache opam (compiler + packages)
+      - name: Cache opam
+        uses: actions/cache@v4
+        with:
+          path: ~/.opam
+          key: ${{ runner.os }}-opam-${{ matrix.ocaml-version }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-opam-${{ matrix.ocaml-version }}-
+
+      # Setup OCaml via action
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-version }}
+          opam-disable-sandboxing: true
+          
+      - name: Debug after setup-ocaml
+        run: |
+          echo "GITHUB_ENV:"
+          cat $GITHUB_ENV || echo "❌ Not found"
+
+          echo ""
+          echo "GITHUB_PATH:"
+          cat $GITHUB_PATH || echo "❌ Not found"
+
+          echo "PATH after setup:"
+          echo "$PATH" | tr ':' '\n'
+      
+          echo ""
+          echo "which ocamlfind:"
+          which ocamlfind || echo "❌ Not found"
+      
+          echo ""
+          echo "OPAM_SWITCH_PREFIX: $OPAM_SWITCH_PREFIX"
+
+      # Platform-specific dependencies
+      - name: Install system dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bubblewrap m4 libgmp-dev pkg-config ninja-build ccache
+
+      - name: Install system dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install gmp pkg-config ninja ccache
+
+      - name: Install required opam packages
+        run: opam install -y ocamlfind zarith
+
+      - name: 🔍 Debug ocamlfind + ocamlc.opt issue
+        run: |
+          set -e  # fail on error
+
+          eval $(opam env)
+      
+          echo "🔎 ocamlc: $(which ocamlc)"
+          echo "🔎 ocamlopt: $(which ocamlopt)"
+          echo "🔎 ocamlfind: $(which ocamlfind)"
+          echo "🔎 All ocamlfind on path:"
+          which -a ocamlfind
+      
+          echo ""
+          echo "📄 Writing test.ml"
+          echo 'let () = print_endline "Hello from OCaml"' > test.ml
+      
+          echo ""
+          echo "🧪 ocamlc compile"
+          ocamlc test.ml -o test_bytecode
+      
+          echo ""
+          echo "🧪 ocamlopt compile"
+          ocamlopt test.ml -o test_native
+      
+          echo ""
+          echo "🧪 ocamlfind ocamlc compile"
+          ocamlfind ocamlc -package zarith -linkpkg test.ml -o test_bytecode_find
+      
+          echo ""
+          echo "🧪 ocamlfind ocamlopt compile"
+          ocamlfind ocamlopt -package zarith -linkpkg test.ml -o test_native_find
+      
+          # echo ""
+          # echo "🧪 FULLPATH ocamlfind ocamlc compile"
+          # /home/runner/work/z3/z3/_opam/bin/ocamlfind ocamlc -package zarith -linkpkg test.ml -o test_bytecode_full
+      
+          # echo ""
+          # echo "🧪 FULLPATH ocamlfind ocamlopt compile"
+          # /home/runner/work/z3/z3/_opam/bin/ocamlfind ocamlopt -package zarith -linkpkg test.ml -o test_native_full
+      
+          echo ""
+          echo "✅ All compiles passed."
+
+      - name: 🧪 Debug OPAM + GITHUB_PATH setup
+        run: |
+          echo "🔍 PATH at this step:"
+          echo "$PATH" | tr ':' '\n'
+      
+          echo ""
+          echo "📁 Listing \$GITHUB_PATH file (if exists):"
+          if [ -f "$GITHUB_PATH" ]; then
+            cat "$GITHUB_PATH"
+          else
+            echo "❌ GITHUB_PATH file does not exist at $GITHUB_PATH"
+          fi
+      
+          echo ""
+          echo "📦 OPAM_SWITCH_PREFIX = $OPAM_SWITCH_PREFIX"
+          echo ""
+          echo "📂 Listing contents of \$OPAM_SWITCH_PREFIX/bin:"
+          ls -al "$OPAM_SWITCH_PREFIX/bin" || echo "❌ Directory does not exist"
+      
+          echo ""
+          echo "🔍 Check if PATH includes _opam/bin:"
+          echo "$PATH" | grep "_opam/bin" || echo "❌ _opam/bin NOT in PATH"
+      
+          echo ""
+          echo "✅ Done."
+        
+      # Configure
+      - name: Configure with CMake
+        env:
+          RUNNER_OS: ${{ runner.os }}
+          CC: ${{ matrix.os == 'macos-latest' && 'ccache clang' || 'ccache gcc' }}
+          CXX: ${{ matrix.os == 'macos-latest' && 'ccache clang++' || 'ccache g++' }}
+        run: |
+          mkdir -p build
+          cd build
+          eval $(opam env)
+          echo "CC: $CC"
+          echo "CXX: $CXX"
+          echo "OCAMLFIND: $(which ocamlfind)"
+          echo "OCAMLC:     $(which ocamlc)"
+          echo "OCAMLOPT:     $(which ocamlopt)"
+          echo "OCAML_VERSION: $(ocamlc -version)"
+          echo "OCAMLLIB: $OCAMLLIB"
+          env | grep OCAML
+          cmake .. \
+            -G Ninja \
+            -DZ3_BUILD_LIBZ3_SHARED=ON \
+            -DZ3_BUILD_OCAML_BINDINGS=ON \
+            -DZ3_BUILD_JAVA_BINDINGS=OFF \
+            -DZ3_BUILD_PYTHON_BINDINGS=OFF \
+            -DZ3_BUILD_CLI=OFF \
+            -DZ3_BUILD_TEST_EXECUTABLES=OFF \
+            -DCMAKE_VERBOSE_MAKEFILE=TRUE
+
+      - name: Build Z3 and OCaml bindings
+        run: |
+          ccache -z || true
+          eval $(opam env)
+          cd build
+          ninja build_z3_ocaml_bindings
+          ccache -s || true
+
+      - name: Compile ml_example.byte
+        run: |
+          eval $(opam env)
+          ocamlfind ocamlc -o ml_example.byte \
+            -package zarith \
+            -linkpkg \
+            -I build/src/api/ml \
+            -dllpath build/src/api/ml \
+            build/src/api/ml/z3ml.cma \
+            examples/ml/ml_example.ml
+
+      - name: Run ml_example.byte
+        run: |
+          eval $(opam env)
+          ocamlrun ./ml_example.byte
+
+      - name: Compile ml_example (native)
+        run: |
+          eval $(opam env)
+          ocamlfind ocamlopt -o ml_example \
+            -package zarith \
+            -linkpkg \
+            -I build/src/api/ml \
+            build/src/api/ml/z3ml.cmxa \
+            examples/ml/ml_example.ml
+
+      - name: Run ml_example (native)
+        run: ./ml_example
