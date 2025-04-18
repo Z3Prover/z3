@@ -218,6 +218,9 @@ execute_process(
   OUTPUT_VARIABLE ocaml_pkg_zarith_path
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+
+set(z3ml_example_src ${PROJECT_SOURCE_DIR}/examples/ml/ml_example.ml)
+
 add_custom_command(
   OUTPUT ${z3ml_bin}/ml_example${bc_ext}
          ${z3ml_bin}/ml_example.bc.log
@@ -230,14 +233,14 @@ add_custom_command(
     "-dllpath" ${ocaml_stublibs_path}
     "${ocaml_pkg_zarith_path}/zarith.cma"
     "${z3ml_bin}/z3ml.cma"
-    "${z3ml_src}/ml_example.ml"
+    ${z3ml_example_src}
   COMMAND 
     "ocamlrun" "${z3ml_bin}/ml_example${bc_ext}"
     ">" "${z3ml_bin}/ml_example.bc.log"
   DEPENDS
     ${z3ml_bin}/z3ml.cma
     ${z3ml_bin}/dllz3ml.so
-    ${z3ml_src}/ml_example.ml
+    ${z3ml_example_src}
   COMMENT "Testing build and run ml_example bytecode"
   VERBATIM)
 
@@ -250,13 +253,13 @@ add_custom_command(
     "-linkpkg"
     "-I" "${z3ml_bin}"
     "${z3ml_bin}/z3ml.cmxa"
-    "${z3ml_src}/ml_example.ml"
+    "${z3ml_example_src}"
   COMMAND "${z3ml_bin}/ml_example${exe_ext}"
     ">" "${z3ml_bin}/ml_example.log"
   DEPENDS
     ${z3ml_bin}/z3ml.cmxa
     ${z3ml_bin}/dllz3ml.so
-    ${z3ml_src}/ml_example.ml
+    ${z3ml_example_src}
   COMMENT "Testing build and run ml_example natively"
   VERBATIM)
 
