@@ -356,7 +356,6 @@ namespace lp {
         int_solver& lia;
         lar_solver& lra;
         explanation m_infeas_explanation;
-        bool m_report_branch = false;
 
         // set F
         // iterate over all rows from 0 to m_e_matrix.row_count() - 1 and return those i such !m_k2s.has_val(i)
@@ -522,44 +521,6 @@ namespace lp {
             m_normalize_conflict_gcd = gcd;
             lra.stats().m_dio_rewrite_conflicts++;
         }
-        unsigned m_max_of_branching_iterations = 0;
-        unsigned m_number_of_branching_calls;
-        struct branch {
-            unsigned m_j = UINT_MAX;
-            mpq m_rs;
-            // if m_left is true, then the branch is interpreted
-            // as x[j] <= m_rs
-            // otherwise x[j] >= m_rs
-            bool m_left;
-            bool m_fully_explored = false;
-            void flip() {
-                SASSERT(m_fully_explored == false);
-                m_left = !m_left;
-                m_fully_explored = true;
-            }
-        };
-        struct variable_branch_stats {
-            std::vector<unsigned> m_ii_after_left;
-            // g_right[i] - the rumber of int infeasible after taking the i-ith
-            // right branch
-            std::vector<unsigned> m_ii_after_right;
-
-            double score() const {
-                double avm_lefts =
-                    m_ii_after_left.size()
-                    ? static_cast<double>(std::accumulate(
-                                              m_ii_after_left.begin(), m_ii_after_left.end(), 0)) /
-                    m_ii_after_left.size()
-                    : std::numeric_limits<double>::infinity();
-                double avm_rights = m_ii_after_right.size()
-                    ? static_cast<double>(std::accumulate(
-                                              m_ii_after_right.begin(),
-                                              m_ii_after_right.end(), 0)) /
-                    m_ii_after_right.size()
-                    : std::numeric_limits<double>::infinity();
-                return std::min(avm_lefts, avm_rights);
-            }
-        };
 
         void undo_add_term_method(const lar_term* t) {
             TRACE("d_undo", tout << "t:" << t << ", t->j():" << t->j() << std::endl;);
@@ -780,9 +741,6 @@ namespace lp {
         }
         std_vector<const lar_term*> m_added_terms;
         std::unordered_set<const lar_term*> m_active_terms;
-        std_vector<variable_branch_stats> m_branch_stats;
-        std_vector<branch> m_branch_stack;
-        std_vector<constraint_index> m_explanation_of_branches;
         // it is a non-const function : it can set m_some_terms_are_ignored to true
         bool term_has_big_number(const lar_term& t) {
             for (const auto& p : t) {
@@ -1172,12 +1130,8 @@ namespace lp {
         }
 
         void init(std_vector<unsigned> & f_vector) {
-            m_report_branch = false;
             m_infeas_explanation.clear();
             lia.get_term().clear();
-            m_number_of_branching_calls = 0;
-            m_branch_stack.clear();
-            m_lra_level = 0;
             reset_conflict();
 
             process_m_changed_f_columns(f_vector);
@@ -1235,8 +1189,7 @@ namespace lp {
 
         // A conflict is reported when the gcd of the monomial coefficients does not divide the free coefficent.
         // If there is no conflict the entry is divided, normalized, by gcd.
-        // The function returns true if and only if there is no conflict. In the case of a conflict a branch
-        // can be returned as well.
+        // The function returns true if and only if there is no conflict.
         bool normalize_e_by_gcd(unsigned ei, mpq& g) {
             mpq& e = m_sum_of_fixed[ei];
             TRACE("dioph_eq", print_entry(ei, tout) << std::endl;);
@@ -1626,10 +1579,6 @@ namespace lp {
                     return lia_move::conflict;                
                 return lia_move::undef;
             }
-            if (create_branch_report(j, g)) {
-                lra.settings().stats().m_dio_branch_from_proofs++;
-                return lia_move::branch;
-            }
             // g is not trivial, trying to tighten the bounds
             auto r = tighten_bounds_for_non_trivial_gcd(g, j, true);
             if (r == lia_move::undef)
@@ -1671,10 +1620,6 @@ namespace lp {
             process_fixed_in_espace();
             SASSERT(subs_invariant(j));
             return tighten_on_espace(j);
-        }
-
-        bool should_report_branch() const {
-            return (lra.settings().stats().m_dio_calls% lra.settings().dio_report_branch_with_term_tigthening_period()) == 0;
         }
 
         void remove_fresh_from_espace() {
@@ -1726,34 +1671,6 @@ namespace lp {
             return r;
         }
 
-        bool create_branch_report(unsigned j, const mpq& g) {
-            if (!should_report_branch()) return false;
-            if (!lia.at_bound(j)) return false;
-            
-            mpq rs = (lra.get_column_value(j).x - m_c) / g;
-            if (rs.is_int()) return false;
-            m_report_branch = true;
-            remove_fresh_from_espace();
-            SASSERT(get_value_of_espace() + m_c == lra.get_column_value(j).x && lra.get_column_value(j).x.is_int());
-            
-            lar_term& t = lia.get_term();
-            t.clear();
-            for (const auto& p : m_espace.m_data) {
-                t.add_monomial(p.coeff() / g, local_to_lar_solver(p.var()));
-            }
-            lia.offset() = floor(rs);
-            lia.is_upper() = true;
-            m_report_branch = true;
-            TRACE("dioph_eq", tout << "prepare branch, t:";
-                  print_lar_term_L(t, tout)
-                  << " <= " << lia.offset()
-                  << std::endl;
-                  tout << "current value of t:" << get_term_value(t) << std::endl;
-                );
-            
-            SASSERT(get_value_of_espace() / g > lia.offset() );
-            return true;
-        }
         void get_expl_from_meta_term(const lar_term& t, explanation& ex, const mpq & gcd) {
             u_dependency* dep = explain_fixed_in_meta_term(t, gcd);
             for (constraint_index ci : lra.flatten(dep))
@@ -1982,23 +1899,6 @@ namespace lp {
             return ret;
         }
 
-        void collect_evidence() {
-            lra.get_infeasibility_explanation(m_infeas_explanation);
-            for (const auto& p : m_infeas_explanation) {
-                m_explanation_of_branches.push_back(p.ci());
-            }
-        }
-
-        // returns true if the left and the right branches were explored
-        void undo_explored_branches() {
-            TRACE("dio_br", tout << "m_branch_stack.size():" << m_branch_stack.size() << std::endl;);
-            while (m_branch_stack.size() && m_branch_stack.back().m_fully_explored) {
-                m_branch_stack.pop_back();
-                lra_pop();
-            }
-            TRACE("dio_br", tout << "after pop:m_branch_stack.size():" << m_branch_stack.size() << std::endl;);
-        }
-
         lia_move check_fixing(unsigned j) const {
             // do not change entry here
             unsigned ei = m_k2s[j];  // entry index
@@ -2036,138 +1936,9 @@ namespace lp {
                       tout << "fixed j:" << j << ", was substited by ";
                       print_entry(m_k2s[j], tout););
                 if (check_fixing(j) == lia_move::conflict) {
-                    for (auto ci : lra.flatten(explain_fixed_in_meta_term(m_l_matrix.m_rows[m_k2s[j]], mpq(0)))) {
-                        m_explanation_of_branches.push_back(ci);
-                    }
                     return lia_move::conflict;
                 }
             }
-            return lia_move::undef;
-        }
-
-        void undo_branching() {
-            while (m_lra_level--) {
-                lra.pop();
-            }
-            lra.find_feasible_solution();
-            SASSERT(lra.get_status() == lp_status::CANCELLED || lra.is_feasible());
-        }
-        // Returns true if a branch is created, and false if not.
-        // The latter case can happen if we have a sat.
-        bool push_branch() {
-            branch br = create_branch();
-            if (br.m_j == UINT_MAX)
-                return false;
-            m_branch_stack.push_back(br);
-            lra.stats().m_dio_branching_depth = std::max(lra.stats().m_dio_branching_depth, (unsigned)m_branch_stack.size());
-            return true;
-        }
-
-        lia_move add_var_bound_for_branch(const branch& b) {
-            if (b.m_left) 
-                lra.add_var_bound(b.m_j, lconstraint_kind::LE, b.m_rs);
-            else 
-                lra.add_var_bound(b.m_j, lconstraint_kind::GE, b.m_rs + mpq(1));
-            TRACE("dio_br", lra.print_column_info(b.m_j, tout) << "add bound" << std::endl;);
-            if (lra.column_is_fixed(b.m_j)) {
-                unsigned local_bj;
-                if (!m_var_register.external_is_used(b.m_j, local_bj))
-                    return lia_move::undef;
-
-                if (fix_var(local_bj) == lia_move::conflict) {
-                    TRACE("dio_br", tout << "conflict in fix_var" << std::endl;);
-                    return lia_move::conflict;
-                }
-            }
-            return lia_move::undef;
-        }
-
-        unsigned m_lra_level = 0;
-        void lra_push() {
-            m_lra_level++;
-            lra.push();
-            SASSERT(m_lra_level == m_branch_stack.size());
-        }
-        void lra_pop() {
-            m_lra_level--;
-            SASSERT(m_lra_level != UINT_MAX);
-            lra.pop();
-            lra.find_feasible_solution();
-            SASSERT(lra.get_status() == lp_status::CANCELLED || lra.is_feasible());
-        }
-
-        void transfer_explanations_from_closed_branches() {
-            m_infeas_explanation.clear();
-            for (auto ci : m_explanation_of_branches) {
-                if (this->lra.constraints().valid_index(ci))
-                    m_infeas_explanation.push_back(ci);
-            }
-        }
-
-        lia_move branching_on_undef() {
-            m_explanation_of_branches.clear();
-            bool need_create_branch = true;
-            m_number_of_branching_calls = 0;
-            while (++m_number_of_branching_calls < m_max_of_branching_iterations) {
-                lra.stats().m_dio_branch_iterations++;
-                if (need_create_branch) {
-                    if (!push_branch()) {
-                        undo_branching();
-                        lra.stats().m_dio_branching_sats++;
-                        return lia_move::sat;
-                    }
-                    need_create_branch = false;
-                }
-                lra_push();  // exploring a new branch
-
-                if (add_var_bound_for_branch(m_branch_stack.back()) == lia_move::conflict) {
-                    undo_explored_branches();
-                    if (m_branch_stack.size() == 0) {
-                        lra.stats().m_dio_branching_infeasibles++;
-                        transfer_explanations_from_closed_branches();
-                        lra.stats().m_dio_branching_conflicts++;
-                        return lia_move::conflict;
-                    }
-                    need_create_branch = false;
-                    m_branch_stack.back().flip();
-                    lra_pop();
-                    continue;
-                }
-                auto st = lra.find_feasible_solution();                
-                TRACE("dio_br", tout << "st:" << lp_status_to_string(st) << std::endl;);
-                if (st == lp_status::CANCELLED)
-                    return lia_move::undef;
-                else if (lp::is_sat(st)) {
-                    // have a feasible solution
-                    unsigned n_of_ii = get_number_of_int_inf();
-                    TRACE("dio_br", tout << "n_of_ii:" << n_of_ii << "\n";);
-                    if (n_of_ii == 0) {
-                        undo_branching();
-                        lra.stats().m_dio_branching_sats++;
-                        return lia_move::sat;
-                    }
-                    // got to create a new branch
-                    update_branch_stats(m_branch_stack.back(), n_of_ii);
-                    need_create_branch = true;
-                }
-                else {
-                    collect_evidence();
-                    undo_explored_branches();
-                    if (m_branch_stack.size() == 0) {
-                        lra.stats().m_dio_branching_infeasibles++;
-                        transfer_explanations_from_closed_branches();
-                        lra.stats().m_dio_branching_conflicts++;
-                        return lia_move::conflict;
-                    }
-                    TRACE("dio_br", tout << lp_status_to_string(lra.get_status()) << std::endl;
-                          tout << "explanation:\n"; lra.print_expl(tout, m_infeas_explanation););
-
-                    need_create_branch = false;
-                    lra_pop();
-                    m_branch_stack.back().flip();
-                }
-            }
-            undo_branching();
             return lia_move::undef;
         }
 
@@ -2179,61 +1950,6 @@ namespace lp {
                 });
         }
 
-        double get_branch_score(unsigned j) {
-            if (j >= m_branch_stats.size())
-                m_branch_stats.resize(j + 1);
-            return m_branch_stats[j].score();
-        }
-
-        void update_branch_stats(const branch& b, unsigned n_of_ii) {
-            // Ensure the branch stats vector is large enough
-            if (b.m_j >= m_branch_stats.size()) 
-                m_branch_stats.resize(b.m_j + 1);
-
-            if (b.m_left) 
-                m_branch_stats[b.m_j].m_ii_after_left.push_back(n_of_ii);
-            else 
-                m_branch_stats[b.m_j].m_ii_after_right.push_back(n_of_ii);
-        }
-
-        branch create_branch() {
-            unsigned bj = UINT_MAX;
-            double score = std::numeric_limits<double>::infinity();
-            // looking for the minimal score
-            unsigned n = 0;
-            for (unsigned j : lra.r_basis()) {
-                if (!lia.column_is_int_inf(j))
-                    continue;
-                double sc = get_branch_score(j);
-                if (sc < score ||
-                    (sc == score && lra.settings().random_next() % (++n) == 0)) {
-                    score = sc;
-                    bj = j;
-                }
-            }
-            branch br;
-            if (bj == UINT_MAX) {  // it the case when we cannot create a branch
-                SASSERT(
-                    lra.settings().get_cancel_flag() ||
-                    (lra.is_feasible() && [&]() {
-                        for (unsigned j = 0; j < lra.column_count(); ++j) {
-                            if (lia.column_is_int_inf(j)) {
-                                return false;
-                            }
-                        }
-                        return true;
-                    }()));
-                return br;  // to signal that we have no ii variables
-            }
-
-            br.m_j = bj;
-            br.m_left = (lra.settings().random_next() % 2 == 0);
-            br.m_rs = floor(lra.get_column_value(bj).x);
-
-            TRACE("dio_br", tout << "score:" << score << "; br.m_j:" << br.m_j << ","
-                  << (br.m_left ? "left" : "right") << ", br.m_rs:" << br.m_rs << std::endl;);
-            return br;
-        }
 
         bool columns_to_terms_is_correct() const {
             std::unordered_map<unsigned, std::unordered_set<unsigned>> c2t;
@@ -2322,11 +2038,6 @@ namespace lp {
 
             if (ret != lia_move::undef) 
                 return ret;
-            
-            if (lra.stats().m_dio_calls % lra.settings().dio_branching_period() == 0) 
-                ret = branching_on_undef();
-            
-            m_max_of_branching_iterations = (unsigned)m_max_of_branching_iterations / 2;
             if (ret == lia_move::undef)
                 lra.settings().dio_calls_period() *= 2;
             return ret;

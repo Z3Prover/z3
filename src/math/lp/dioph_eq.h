@@ -11,8 +11,9 @@ Abstract:
     by Alberto Griggio(griggio@fbk.eu)
 
 Author:
+    Nikolaj Bjorner (nbjorner)
     Lev Nachmanson (levnach)
-
+    
 Revision History:
 --*/
 #pragma once
