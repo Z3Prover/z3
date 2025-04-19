@@ -179,7 +179,7 @@ lp_primal_core_solver<T, X>::get_bound_on_variable_and_update_leaving_precisely(
 template <typename T, typename X>   void lp_primal_core_solver<T, X>::check_Ax_equal_b() {
     dense_matrix<T, X> d(this->m_A);
     T * ls = d.apply_from_left_with_different_dims(this->m_x);
-    lp_assert(vectors_are_equal<T>(ls, this->m_b, this->m_m()));
+    SASSERT(vectors_are_equal<T>(ls, this->m_b, this->m_m()));
     delete [] ls;
 }
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::check_the_bounds() {
@@ -189,8 +189,8 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::check_the
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::check_bound(unsigned i) {
-    lp_assert (!(this->column_has_lower_bound(i) && (numeric_traits<T>::zero() > this->m_x[i])));
-    lp_assert (!(this->column_has_upper_bound(i) && (this->m_upper_bounds[i] < this->m_x[i])));
+    SASSERT (!(this->column_has_lower_bound(i) && (numeric_traits<T>::zero() > this->m_x[i])));
+    SASSERT (!(this->column_has_upper_bound(i) && (this->m_upper_bounds[i] < this->m_x[i])));
 }
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::check_correctness() {
@@ -231,7 +231,7 @@ template <typename T, typename X>  unsigned lp_primal_core_solver<T, X>::get_num
 // calling it stage1 is too cryptic
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::find_feasible_solution() {
     this->m_look_for_feasible_solution_only = true;
-    lp_assert(this->non_basic_columns_are_set_correctly());
+    SASSERT(this->non_basic_columns_are_set_correctly());
     this->set_status(lp_status::UNKNOWN);
     solve();
 }

@@ -21,6 +21,7 @@ Revision History:
 #include <cstring>
 #include <mutex>
 #include "util/scoped_ctrl_c.h"
+#include "util/gparams.h"
 
 #ifdef _WINDOWS
 #define USE_SIGNAL
@@ -105,7 +106,10 @@ scoped_ctrl_c::scoped_ctrl_c(event_handler & eh, bool once, bool enabled):
     m_cancel_eh(eh),
     m_first(true),
     m_once(once),
-    m_enabled(enabled) {
+    m_enabled(enabled),
+    m_old_scoped_ctrl_c(g_obj) {
+    if (gparams::get_value("ctrl_c") == "false")
+        m_enabled = false;
     if (m_enabled) {
         signal_lock();
         active_contexts.push_back(this);

@@ -24,7 +24,6 @@ Author:
 namespace sls {
 
     bv_terms::bv_terms(sls::context& ctx):
-        ctx(ctx),
         m(ctx.get_manager()), 
         bv(m),
         m_axioms(m) {}

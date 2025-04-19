@@ -245,7 +245,6 @@ class fix_dl_var_tactic : public tactic {
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
             tactic_report report("fix-dl-var", *g);
-            bool produce_proofs = g->proofs_enabled();
             m_produce_models    = g->models_enabled();
             TRACE("fix_dl_var", g->display(tout););
 

@@ -54,7 +54,7 @@ import io
 import math
 import copy
 if sys.version_info.major >= 3:
-    from typing import Iterable
+    from typing import Iterable, Iterator
 
 from collections.abc import Callable
 from typing import (
@@ -155,6 +155,8 @@ def _get_args(args):
             return args[0]
         elif len(args) == 1 and (isinstance(args[0], set) or isinstance(args[0], AstVector)):
             return [arg for arg in args[0]]
+        elif len(args) == 1 and isinstance(args[0], Iterator):
+            return list(args[0])
         else:
             return args
     except TypeError:  # len is not necessarily defined when args is not a sequence (use reflection?)

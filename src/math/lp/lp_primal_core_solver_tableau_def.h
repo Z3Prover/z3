@@ -30,7 +30,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::one_iteratio
     else {
         advance_on_entering_tableau(entering);
     }
-    lp_assert(this->inf_heap_is_correct());
+    SASSERT(this->inf_heap_is_correct());
 }
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_entering_tableau(int entering) {
@@ -116,7 +116,7 @@ unsigned lp_primal_core_solver<T, X>::solve() {
            UNREACHABLE();
             break;
         case lp_status::UNBOUNDED:
-            lp_assert (this->current_x_is_feasible());            
+            SASSERT (this->current_x_is_feasible());            
             break;
 
         case lp_status::UNSTABLE:
@@ -143,7 +143,7 @@ unsigned lp_primal_core_solver<T, X>::solve() {
              !(this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
 	);
 	
-    lp_assert(
+    SASSERT(
               this->get_status() == lp_status::CANCELLED
               ||
               this->current_x_is_feasible() == false
@@ -153,12 +153,12 @@ unsigned lp_primal_core_solver<T, X>::solve() {
 
 }
 template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_entering_and_leaving_tableau(int entering, int leaving, X & t) {
-    lp_assert(leaving >= 0 && entering >= 0);
-    lp_assert((this->m_settings.simplex_strategy() ==
+    SASSERT(leaving >= 0 && entering >= 0);
+    SASSERT((this->m_settings.simplex_strategy() ==
                 simplex_strategy_enum::tableau_rows) ||
                 m_non_basis_list.back() == static_cast<unsigned>(entering));
-    lp_assert(!is_neg(t));
-    lp_assert(entering != leaving || !is_zero(t)); // otherwise nothing changes
+    SASSERT(!is_neg(t));
+    SASSERT(entering != leaving || !is_zero(t)); // otherwise nothing changes
     if (entering == leaving) {
         advance_on_entering_equal_leaving_tableau(entering, t);
         return;
@@ -206,7 +206,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         const column_cell & c = col[k];
         unsigned i = c.var();
         const T & ed = this->m_A.get_val(c);
-        lp_assert(!numeric_traits<T>::is_zero(ed));
+        SASSERT(!numeric_traits<T>::is_zero(ed));
         unsigned j = this->m_basis[i];
         limit_theta_on_basis_column(j, - ed * m_sign_of_entering_delta, t, unlimited);
         if (!unlimited) {
@@ -225,7 +225,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         const column_cell & c = col[k];
         unsigned i = c.var();
         const T & ed = this->m_A.get_val(c);
-         lp_assert(!numeric_traits<T>::is_zero(ed));
+         SASSERT(!numeric_traits<T>::is_zero(ed));
         unsigned j = this->m_basis[i];
         unlimited = true;
         limit_theta_on_basis_column(j, -ed * m_sign_of_entering_delta, ratio, unlimited);
@@ -254,9 +254,9 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     return m_leaving_candidates[k];
 }
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tableau() {
-        lp_assert(basis_columns_are_set_correctly());
+        SASSERT(basis_columns_are_set_correctly());
         this->iters_with_no_cost_growing() = 0;
-		lp_assert(this->inf_heap_is_correct());
+		SASSERT(this->inf_heap_is_correct());
         if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
             return;
         if (this->m_settings.backup_costs)
@@ -264,13 +264,13 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tab
         
         if (this->m_settings.simplex_strategy() == simplex_strategy_enum::tableau_rows)
             init_tableau_rows();
-        lp_assert(this->reduced_costs_are_correct_tableau());
-        lp_assert(!this->need_to_pivot_to_basis_tableau());
+        SASSERT(this->reduced_costs_are_correct_tableau());
+        SASSERT(!this->need_to_pivot_to_basis_tableau());
 }
 
 template <typename T, typename X> bool lp_primal_core_solver<T, X>::
 update_basis_and_x_tableau(int entering, int leaving, X const & tt) {
-    lp_assert(entering != leaving);
+    SASSERT(entering != leaving);
     update_x_tableau(entering, tt);
     this->pivot_column_tableau(entering, this->m_basis_heading[leaving]);
     this->change_basis(entering, leaving);

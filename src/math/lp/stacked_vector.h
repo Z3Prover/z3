@@ -38,7 +38,7 @@ public:
         unsigned m_i;
     public:
         ref(stacked_vector<B> &m, unsigned key): m_vec(m), m_i(key) {
-            lp_assert(key < m.size());
+            SASSERT(key < m.size());
         }
         ref & operator=(const B & b) {
             m_vec.emplace_replace(m_i, b);
@@ -81,7 +81,7 @@ public:
         unsigned m_i;
     public:
         ref_const(const stacked_vector<B> &m, unsigned key) :m_vec(m), m_i(key) {
-            lp_assert(key < m.size());
+            SASSERT(key < m.size());
         } 
         operator const B&() const {
             return m_vec.m_vector[m_i];
@@ -120,7 +120,7 @@ public:
 
     /*
       const B & operator[](unsigned a) const {
-      lp_assert(a < m_vector.size());
+      SASSERT(a < m_vector.size());
       return m_vector[a];
       }
     */    
@@ -139,7 +139,7 @@ public:
 
     template <typename T>  
     void pop_tail(svector<T> & v, unsigned k) {
-        lp_assert(v.size() >= k);
+        SASSERT(v.size() >= k);
         v.resize(v.size() - k);
     }
 
@@ -149,8 +149,8 @@ public:
     }
     
     void pop(unsigned k) {
-        lp_assert(m_stack_of_vector_sizes.size() >= k);
-        lp_assert(k > 0);
+        SASSERT(m_stack_of_vector_sizes.size() >= k);
+        SASSERT(k > 0);
         m_vector.resize(m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k]);
         m_last_update.resize(m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k]);
         pop_tail(m_stack_of_vector_sizes, k);
@@ -179,7 +179,7 @@ public:
     }
 
     unsigned peek_size(unsigned k) const {
-        lp_assert(k > 0 && k <= m_stack_of_vector_sizes.size());
+        SASSERT(k > 0 && k <= m_stack_of_vector_sizes.size());
         return m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k];
     }
 

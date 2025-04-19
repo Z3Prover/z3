@@ -38,7 +38,7 @@ struct lpvar_lt {
 typedef heap<lpvar_lt> lpvar_heap;
 template <typename T, typename X>
 X dot_product(const vector<T> & a, const vector<X> & b) {
-    lp_assert(a.size() == b.size());
+    SASSERT(a.size() == b.size());
     auto r = zero_of_type<X>();
     for (unsigned i = 0; i < a.size(); i++) {
         r += a[i] * b[i];
@@ -180,7 +180,7 @@ public:
         unsigned m = m_A.row_count();
         for (unsigned i = 0; i < m; i++) {
             unsigned bj = m_basis[i];
-            lp_assert(m_A.m_columns[bj].size() > 0);
+            SASSERT(m_A.m_columns[bj].size() > 0);
             if (m_A.m_columns[bj].size() > 1)
                 return true;
             for (const auto & c : m_A.m_columns[bj]) {
@@ -293,11 +293,11 @@ public:
 
     bool make_column_feasible(unsigned j, numeric_pair<mpq> & delta) {
         bool ret = false;
-        lp_assert(m_basis_heading[j] < 0);
+        SASSERT(m_basis_heading[j] < 0);
         const auto & x = m_x[j];
         switch (m_column_types[j]) {
         case column_type::fixed:
-            lp_assert(m_lower_bounds[j] == m_upper_bounds[j]);
+            SASSERT(m_lower_bounds[j] == m_upper_bounds[j]);
             if (x != m_lower_bounds[j]) {
                 delta = m_lower_bounds[j] - x;
                 ret = true;
@@ -365,7 +365,7 @@ public:
 
     void change_basis_unconditionally(unsigned entering, unsigned leaving) {
         TRACE("lar_solver", tout << "entering = " << entering << ", leaving = " << leaving << "\n";);
-        lp_assert(m_basis_heading[entering] < 0);
+        SASSERT(m_basis_heading[entering] < 0);
         int place_in_non_basis = -1 - m_basis_heading[entering];
         if (static_cast<unsigned>(place_in_non_basis) >= m_nbasis.size()) {
               // entering variable in not in m_nbasis, we need to put it back;
@@ -385,8 +385,8 @@ public:
     
     void change_basis(unsigned entering, unsigned leaving) {
         TRACE("lar_solver", tout << "entering = " << entering << ", leaving = " << leaving << "\n";);
-        lp_assert(m_basis_heading[entering] < 0);
-		lp_assert(m_basis_heading[leaving] >= 0);
+        SASSERT(m_basis_heading[entering] < 0);
+		SASSERT(m_basis_heading[leaving] >= 0);
         
         int place_in_basis =  m_basis_heading[leaving];
         int place_in_non_basis = - m_basis_heading[entering] - 1;
@@ -573,14 +573,14 @@ public:
 	        m_inf_heap.insert(j);
             TRACE("lar_solver_inf_heap", tout << "insert into inf_heap j = " << j << "\n";);
         }
-        lp_assert(!column_is_feasible(j));
+        SASSERT(!column_is_feasible(j));
     }
     void remove_column_from_inf_heap(unsigned j) {
 		if (m_inf_heap.contains(j)) {
             TRACE("lar_solver_inf_heap", tout << "erase from heap j = " << j << "\n";);
         	m_inf_heap.erase(j);
         }
-        lp_assert(column_is_feasible(j));
+        SASSERT(column_is_feasible(j));
     }
 
     void clear_inf_heap() {
@@ -589,10 +589,10 @@ public:
     }
     
     bool costs_on_nbasis_are_zeros() const {
-        lp_assert(this->basis_heading_is_correct());
+        SASSERT(this->basis_heading_is_correct());
         for (unsigned j = 0; j < this->m_n(); j++) {
             if (this->m_basis_heading[j] < 0)
-                lp_assert(is_zero(this->m_costs[j]));
+                SASSERT(is_zero(this->m_costs[j]));
         }
         return true;
     }

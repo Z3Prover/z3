@@ -1,0 +1,13 @@
+def_module_params(module_name='lp',
+                  class_name='lp_params_helper',
+                  description='linear programming parameters',
+                  export=True,
+                  params=(('dio', BOOL, True, 'use Diophantine equalities'),
+                          ('dio_branching_period', UINT, 100, 'Period of calling branching on undef in Diophantine handler'),
+                          ('dio_cuts_enable_gomory', BOOL, False, 'enable Gomory cuts together with Diophantine cuts, only relevant when dioph_eq is true'),
+                          ('dio_cuts_enable_hnf', BOOL, True, 'enable hnf cuts together with Diophantine cuts, only relevant when dioph_eq is true'),
+                          ('dio_ignore_big_nums', BOOL, True, 'Ignore the terms with big numbers in the Diophantine handler, only relevant when dioph_eq is true'),
+                          ('dio_calls_period', UINT, 4, 'Period of calling the Diophantine handler in the final_check()'),
+                          ('dio_run_gcd', BOOL, False, 'Run the GCD heuristic if dio is on, if dio is disabled the option is not used'),                          
+                         ))
+                         

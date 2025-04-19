@@ -58,7 +58,7 @@ public class Optimize extends Z3Object {
     /**
      * Assert a constraint (or multiple) into the optimize solver.
      **/
-    public void Assert(Expr<BoolSort> ... constraints)
+    public void Assert(Expr<BoolSort>... constraints)
     {
         getContext().checkContextMatch(constraints);
         for (Expr<BoolSort> a : constraints)
@@ -70,7 +70,7 @@ public class Optimize extends Z3Object {
     /**
      * Alias for Assert.
      **/
-    public void Add(Expr<BoolSort> ... constraints)
+    public void Add(Expr<BoolSort>... constraints)
     {
         Assert(constraints);
     }

@@ -326,7 +326,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print_g
         if (m_squash_blanks && string_is_trivial(s))
             continue;
         int number_of_blanks = width - static_cast<unsigned>(s.size());
-        lp_assert(number_of_blanks >= 0);
+        SASSERT(number_of_blanks >= 0);
         m_out << signs[col] << ' ';
         print_blanks_local(number_of_blanks, m_out);
         m_out << s << ' ';
@@ -335,7 +335,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print_g
 
     string rs = T_to_string(rst);
     int nb = m_rs_width - static_cast<int>(rs.size());
-    lp_assert(nb >= 0);
+    SASSERT(nb >= 0);
     print_blanks_local(nb + 1, m_out);
     m_out << rs << std::endl;
 }

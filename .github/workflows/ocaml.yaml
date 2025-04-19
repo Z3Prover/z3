@@ -1,0 +1,99 @@
+name: OCaml Binding CI (Ubuntu)
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  build-test-ocaml:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.ref }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            opam bubblewrap m4 \
+            libgmp-dev pkg-config \
+            ninja-build ccache
+
+      - name: Init opam (no sandbox, no default switch)
+        run: |
+          opam init --bare --no-setup --disable-sandboxing
+          opam switch create 5.3.0
+          eval $(opam env)
+          opam install -y ocamlfind zarith
+          eval $(opam env)
+
+      - name: Configure with CMake
+        run: |
+          eval $(opam env)
+          export CC="ccache gcc"
+          export CXX="ccache g++"
+          mkdir -p build
+          cd build
+          cmake .. \
+            -G Ninja \
+            -DZ3_BUILD_LIBZ3_SHARED=ON \
+            -DZ3_BUILD_OCAML_BINDINGS=ON \
+            -DZ3_BUILD_JAVA_BINDINGS=OFF \
+            -DZ3_BUILD_PYTHON_BINDINGS=OFF \
+            -DZ3_BUILD_CLI=OFF \
+            -DZ3_BUILD_TEST_EXECUTABLES=OFF \
+            -DCMAKE_VERBOSE_MAKEFILE=TRUE
+
+      - name: Build Z3 and OCaml bindings
+        run: |
+          eval $(opam env)
+          export CC="ccache gcc"
+          export CXX="ccache g++"
+          ocamlc -version
+          ccache -z  # reset stats
+          cd build
+          ninja build_z3_ocaml_bindings
+          ccache -s  # show stats
+
+      - name: Compile ml_example.byte
+        run: |
+          eval $(opam env)
+          ocamlc -version
+          ocamlfind ocamlc -o ml_example.byte \
+            -package zarith \
+            -linkpkg \
+            -I build/src/api/ml \
+            -dllpath build/src/api/ml \
+            build/src/api/ml/z3ml.cma \
+            examples/ml/ml_example.ml
+
+      - name: Run ml_example.byte
+        run: |
+          eval $(opam env)
+          ocamlrun ./ml_example.byte
+
+      - name: Compile ml_example (native)
+        run: |
+          eval $(opam env)
+          ocamlopt -version
+          ocamlfind ocamlopt -o ml_example \
+            -package zarith \
+            -linkpkg \
+            -I build/src/api/ml \
+            build/src/api/ml/z3ml.cmxa \
+            examples/ml/ml_example.ml
+
+      - name: Run ml_example (native)
+        run: |
+          ./ml_example

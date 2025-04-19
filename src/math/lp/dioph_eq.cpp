@@ -343,7 +343,10 @@ namespace lp {
             return out;
         }
 
-        bool m_has_non_integral_term = false;
+        // the maximal size of the term to try to tighten the bounds:
+        // if the size of the term is large than the chances are that the GCD of the coefficients is one
+        unsigned m_tighten_size_max = 10;
+        bool m_some_terms_are_ignored = false;
         std_vector<mpq> m_sum_of_fixed;
         // we have to use m_var_register because of the fresh variables: otherwise they clash with the existing lar_solver column indices
         var_register m_var_register;
@@ -353,15 +356,15 @@ namespace lp {
         int_solver& lia;
         lar_solver& lra;
         explanation m_infeas_explanation;
-        bool m_report_branch = false;
 
         // set F
         // iterate over all rows from 0 to m_e_matrix.row_count() - 1 and return those i such !m_k2s.has_val(i)
         // set S - iterate over bijection m_k2s
         mpq m_c;  // the constant of the equation
         struct term_with_index {
-            // The invariant is that m_index[m_data[k].var()] = k, for each 0 <= k < m_data.size(),
-            // and m_index[j] = -1, or m_tmp[m_index[j]].var() = j, for every 0 <= j < m_index.size().
+            // The invariant is
+            // 1)  m_index[m_data[k].var()] = k, for each 0 <= k < m_data.size(), and
+            // 2)  m_index[j] = -1, or m_data[m_index[j]].var() = j, for every 0 <= j < m_index.size().
             // For example m_data = [(coeff, 5), (coeff, 3)]
             // then m_index = [-1,-1, -1, 1, -1, 0, -1, ....].
             std_vector<iv> m_data;
@@ -375,6 +378,8 @@ namespace lp {
                 return r;
             }
 
+            auto size() const { return m_data.size(); }
+            
             bool has(unsigned k) const {
                 return k < m_index.size() && m_index[k] >= 0;
             }
@@ -498,9 +503,9 @@ namespace lp {
         std::unordered_map<unsigned, std_vector<unsigned>> m_row2fresh_defs;
 
         indexed_uint_set m_changed_rows;
-        // m_changed_columns are the columns that just became fixed, or those that just stopped being fixed.
+        // m_changed_f_columns are the columns that just became fixed, or those that just stopped being fixed.
         // If such a column appears in an entry it has to be recalculated.
-        indexed_uint_set m_changed_columns;
+        indexed_uint_set m_changed_f_columns;
         indexed_uint_set m_changed_terms; // represented by term columns
         indexed_uint_set m_terms_to_tighten; // represented by term columns
         // m_column_to_terms[j] is the set of all k such lra.get_term(k) depends on j
@@ -516,44 +521,6 @@ namespace lp {
             m_normalize_conflict_gcd = gcd;
             lra.stats().m_dio_rewrite_conflicts++;
         }
-        unsigned m_max_of_branching_iterations = 0;
-        unsigned m_number_of_branching_calls;
-        struct branch {
-            unsigned m_j = UINT_MAX;
-            mpq m_rs;
-            // if m_left is true, then the branch is interpreted
-            // as x[j] <= m_rs
-            // otherwise x[j] >= m_rs
-            bool m_left;
-            bool m_fully_explored = false;
-            void flip() {
-                SASSERT(m_fully_explored == false);
-                m_left = !m_left;
-                m_fully_explored = true;
-            }
-        };
-        struct variable_branch_stats {
-            std::vector<unsigned> m_ii_after_left;
-            // g_right[i] - the rumber of int infeasible after taking the i-ith
-            // right branch
-            std::vector<unsigned> m_ii_after_right;
-
-            double score() const {
-                double avm_lefts =
-                    m_ii_after_left.size()
-                    ? static_cast<double>(std::accumulate(
-                                              m_ii_after_left.begin(), m_ii_after_left.end(), 0)) /
-                    m_ii_after_left.size()
-                    : std::numeric_limits<double>::infinity();
-                double avm_rights = m_ii_after_right.size()
-                    ? static_cast<double>(std::accumulate(
-                                              m_ii_after_right.begin(),
-                                              m_ii_after_right.end(), 0)) /
-                    m_ii_after_right.size()
-                    : std::numeric_limits<double>::infinity();
-                return std::min(avm_lefts, avm_rights);
-            }
-        };
 
         void undo_add_term_method(const lar_term* t) {
             TRACE("d_undo", tout << "t:" << t << ", t->j():" << t->j() << std::endl;);
@@ -596,34 +563,61 @@ namespace lp {
         };
 
         struct protected_queue {
-            std::queue<unsigned> m_q;
-            indexed_uint_set m_in_q;
+            std::list<unsigned> m_q;
+            std::unordered_map<unsigned, std::list<unsigned>::iterator> m_positions;
+
             bool empty() const {
                 return m_q.empty();
             }
 
             unsigned size() const {
-                return (unsigned)m_q.size();
+                return static_cast<unsigned>(m_q.size());
             }
 
             void push(unsigned j) {
-                if (m_in_q.contains(j)) return;
-                m_in_q.insert(j);
-                m_q.push(j);
+                if (m_positions.find(j) != m_positions.end()) return;
+                m_q.push_back(j);
+                m_positions[j] = std::prev(m_q.end());
             }
 
             unsigned pop_front() {
                 unsigned j = m_q.front();
-                m_q.pop();
-                SASSERT(m_in_q.contains(j));
-                m_in_q.remove(j);
+                m_q.pop_front();
+                m_positions.erase(j);
                 return j;
             }
 
+            void remove(unsigned j) {
+                auto it = m_positions.find(j);
+                if (it != m_positions.end()) {
+                    m_q.erase(it->second);
+                    m_positions.erase(it);
+                }
+                SASSERT(invariant());
+            }
+
+            bool contains(unsigned j) const {
+                return m_positions.find(j) != m_positions.end();
+            }
+
             void reset() {
-                while (!m_q.empty())
-                    m_q.pop();
-                m_in_q.reset();
+                m_q.clear();
+                m_positions.clear();
+            }
+            // Invariant method to ensure m_q and m_positions are aligned
+            bool invariant() const {
+                if (m_q.size() != m_positions.size())
+                    return false;
+
+                for (auto it = m_q.begin(); it != m_q.end(); ++it) {
+                    auto pos_it = m_positions.find(*it);
+                    if (pos_it == m_positions.end())
+                        return false;
+                    if (pos_it->second != it)
+                        return false;
+                }
+
+                return true;
             }
         };
 
@@ -743,28 +737,33 @@ namespace lp {
 
         void add_changed_column(unsigned j) {
             TRACE("dio", lra.print_column_info(j, tout););
-            m_changed_columns.insert(j);
+            m_changed_f_columns.insert(j);
         }
         std_vector<const lar_term*> m_added_terms;
         std::unordered_set<const lar_term*> m_active_terms;
-        std_vector<variable_branch_stats> m_branch_stats;
-        std_vector<branch> m_branch_stack;
-        std_vector<constraint_index> m_explanation_of_branches;
+        // it is a non-const function : it can set m_some_terms_are_ignored to true
+        bool term_has_big_number(const lar_term& t) {
+            for (const auto& p : t) {
+                if (p.coeff().is_big() || (is_fixed(p.var()) && lra.get_lower_bound(p.var()).x.is_big())) {
+                    m_some_terms_are_ignored = true;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool ignore_big_nums() const { return lra.settings().dio_ignore_big_nums(); }
+
+        // we add all terms, even those with big numbers, but we might choose to non process the latter.
         void add_term_callback(const lar_term* t) {
             unsigned j = t->j();
             TRACE("dio", tout << "term column t->j():" << j << std::endl; lra.print_term(*t, tout) << std::endl;);
             if (!lra.column_is_int(j)) {
                 TRACE("dio", tout << "ignored a non-integral column" << std::endl;);
-                m_has_non_integral_term = true;
+                m_some_terms_are_ignored = true;
                 return;
             }
-
             CTRACE("dio", !lra.column_has_term(j), tout << "added term that is not associated with a column yet" << std::endl;);
-
-            if (!lia.column_is_int(t->j())) {
-                TRACE("dio", tout << "not all vars are integrall\n";);
-                return;
-            }
             m_added_terms.push_back(t);
             mark_term_change(t->j());
             auto undo = undo_add_term(*this, t);
@@ -784,7 +783,7 @@ namespace lp {
             if (!lra.column_is_fixed(j))
                 return;
             TRACE("dio", tout << "j:" << j << "\n"; lra.print_column_info(j, tout););
-            m_changed_columns.insert(j);
+            m_changed_f_columns.insert(j);
             lra.trail().push(undo_fixed_column(*this, j));
         }
 
@@ -812,7 +811,7 @@ namespace lp {
         }
 
         void register_columns_to_term(const lar_term& t) {
-            TRACE("dio_reg", tout << "register term:"; lra.print_term(t, tout); tout << ", t.j()=" << t.j() << std::endl;);
+            CTRACE("dio_reg", t.j() == 1337, tout << "register term:"; lra.print_term(t, tout); tout << ", t.j()=" << t.j() << std::endl;);
             for (const auto& p : t.ext_coeffs()) {
                 auto it = m_columns_to_terms.find(p.var());
                 TRACE("dio_reg", tout << "register p.var():" << p.var() << "->" << t.j() << std::endl;);
@@ -854,7 +853,7 @@ namespace lp {
             }
             subs_entry(entry_index);
             SASSERT(entry_invariant(entry_index));
-            TRACE("dio", print_entry(entry_index, tout) << std::endl;);
+            TRACE("dio_entry", print_entry(entry_index, tout) << std::endl;);
         }
         void subs_entry(unsigned ei) {
             if (ei >= m_e_matrix.row_count()) return;
@@ -965,7 +964,7 @@ namespace lp {
         }
 
         void find_changed_terms_and_more_changed_rows() {
-            for (unsigned j : m_changed_columns) {
+            for (unsigned j : m_changed_f_columns) {
                 const auto it = m_columns_to_terms.find(j);
                 if (it != m_columns_to_terms.end())
                     for (unsigned k : it->second) {
@@ -1013,15 +1012,28 @@ namespace lp {
             }
         }
 
-        void process_changed_columns(std_vector<unsigned> &f_vector) {
+        // this is a non-const function - it can set m_some_terms_are_ignored to true
+        bool is_big_term_or_no_term(unsigned j) {
+            return
+                j >= lra.column_count()
+                ||
+                !lra.column_has_term(j)
+                ||
+                (ignore_big_nums() && term_has_big_number(lra.get_term(j)));
+        }
+ 
+// Processes columns that have changed due to variables becoming fixed/unfixed or terms being updated.
+// It identifies affected terms and rows, recalculates entries, removes irrelevant fresh definitions,
+// and ensures substituted variables are properly eliminated from changed F entries, m_e_matrix.
+// The function maintains internal consistency of data structures after these updates.
+     void process_m_changed_f_columns(std_vector<unsigned> &f_vector) {
             find_changed_terms_and_more_changed_rows();
             for (unsigned j: m_changed_terms) {
-                m_terms_to_tighten.insert(j);
-                if (j < m_l_matrix.column_count()) {
-                    for (const auto& cs : m_l_matrix.column(j)) {
-                        m_changed_rows.insert(cs.var());
-                    }
-                }
+                if (!is_big_term_or_no_term(j))
+                    m_terms_to_tighten.insert(j);
+                if (j < m_l_matrix.column_count())
+                    for (const auto& cs : m_l_matrix.column(j)) 
+                        m_changed_rows.insert(cs.var());                
             }
 
             // find more entries to recalculate
@@ -1031,39 +1043,34 @@ namespace lp {
                 if (it == m_row2fresh_defs.end()) continue;
                 for (unsigned xt : it->second) {
                     SASSERT(var_is_fresh(xt));
-                    for (const auto& p : m_e_matrix.m_columns[xt]) {
+                    for (const auto& p : m_e_matrix.m_columns[xt])
                         more_changed_rows.push_back(p.var());
-                    }
                 }
             }
 
-            for (unsigned ei : more_changed_rows) {
+            for (unsigned ei : more_changed_rows)
                 m_changed_rows.insert(ei);
-            }
-
+            
             for (unsigned ei : m_changed_rows) {
                 if (ei >= m_e_matrix.row_count())
                     continue;
                 if (belongs_to_s(ei))
                     f_vector.push_back(ei);
+
                 recalculate_entry(ei);
                 
                 if (m_e_matrix.m_columns.back().size() == 0) {
                     m_e_matrix.m_columns.pop_back();
                     m_var_register.shrink(m_e_matrix.column_count());
                 }
-                if (m_l_matrix.m_columns.back().size() == 0) {
+                if (m_l_matrix.m_columns.back().size() == 0)
                     m_l_matrix.m_columns.pop_back();
-                }
             }
-
             remove_irrelevant_fresh_defs();
-
             eliminate_substituted_in_changed_rows();
-            m_changed_columns.reset();
+            m_changed_f_columns.reset();
             m_changed_rows.reset();
             m_changed_terms.reset();
-            SASSERT(entries_are_ok());
         }
 
         int get_sign_in_e_row(unsigned ei, unsigned j) const {
@@ -1123,15 +1130,11 @@ namespace lp {
         }
 
         void init(std_vector<unsigned> & f_vector) {
-            m_report_branch = false;
             m_infeas_explanation.clear();
             lia.get_term().clear();
-            m_number_of_branching_calls = 0;
-            m_branch_stack.clear();
-            m_lra_level = 0;
             reset_conflict();
 
-            process_changed_columns(f_vector);
+            process_m_changed_f_columns(f_vector);
             for (const lar_term* t : m_added_terms) {
                 m_active_terms.insert(t);
                 f_vector.push_back(m_e_matrix.row_count()); // going to add a row in fill_entry
@@ -1186,8 +1189,7 @@ namespace lp {
 
         // A conflict is reported when the gcd of the monomial coefficients does not divide the free coefficent.
         // If there is no conflict the entry is divided, normalized, by gcd.
-        // The function returns true if and only if there is no conflict. In the case of a conflict a branch
-        // can be returned as well.
+        // The function returns true if and only if there is no conflict.
         bool normalize_e_by_gcd(unsigned ei, mpq& g) {
             mpq& e = m_sum_of_fixed[ei];
             TRACE("dioph_eq", print_entry(ei, tout) << std::endl;);
@@ -1295,6 +1297,59 @@ namespace lp {
         bool is_substituted_by_fresh(unsigned k) const {
             return m_fresh_k2xt_terms.has_key(k);
         }
+
+        // find a variable in q, not neccessarily at the beginning of the queue, that when substituted would create the minimal
+        // number of non-zeroes
+        unsigned find_var_to_substitute_on_espace(protected_queue& q) {
+            // go over all q elements j
+            // say j is substituted by entry ei = m_k2s[j]
+            // count the number of variables i in m_e_matrix[ei] that m_espace does not contain i,
+            // and choose ei where this number is minimal
+            
+            unsigned best_var = UINT_MAX;
+            size_t min_new_vars = std::numeric_limits<size_t>::max();
+            unsigned num_candidates = 0;
+            std::vector<unsigned> to_remove;
+            for (unsigned j : q.m_q) {
+                size_t new_vars = 0;
+                if (!m_espace.has(j)) {
+                    to_remove.push_back(j);
+                    continue;
+                }
+                if (m_k2s.has_key(j)) {
+                    unsigned ei = m_k2s[j]; // entry index for substitution
+                    for (const auto& p : m_e_matrix.m_rows[ei])
+                        if (p.var() != j && !m_espace.has(p.var()))
+                            ++new_vars;
+                }
+                else if (m_fresh_k2xt_terms.has_key(j)) {
+                    const lar_term& fresh_term = m_fresh_k2xt_terms.get_by_key(j).first;
+                    for (const auto& p : fresh_term)
+                        if (p.var() != j && !m_espace.has(p.var()))
+                            ++new_vars;
+                }
+                if (new_vars < min_new_vars) {
+                    min_new_vars = new_vars;
+                    best_var = j;
+                    num_candidates = 1;
+                }
+                else if (new_vars == min_new_vars) {
+                    ++num_candidates;
+                    if ((lra.settings().random_next() % num_candidates) == 0)
+                        best_var = j;
+                }
+            }
+
+            if (best_var != UINT_MAX)
+                q.remove(best_var);
+
+            for (unsigned j: to_remove)
+                q.remove(j);
+            
+            
+            return best_var;
+        }
+        
         // The term giving the substitution is in form (+-)x_k + sum {a_i*x_i} + c = 0.
         // We substitute x_k in t by (+-)coeff*(sum {a_i*x_i} + c), where coeff is
         // the coefficient of x_k in t.
@@ -1303,11 +1358,11 @@ namespace lp {
             auto r = tighten_on_espace(j);
             if (r == lia_move::conflict)
                 return lia_move::conflict;
-            unsigned k = q.pop_front();
-            if (!m_espace.has(k))
-                return lia_move::undef;            
+            unsigned k = find_var_to_substitute_on_espace(q);
+            if (k == UINT_MAX)
+                return lia_move::undef;
+            SASSERT(m_espace.has(k));
             // we might substitute with a term from S or a fresh term
-
             SASSERT(can_substitute(k));
             lia_move ret;
             if (is_substituted_by_fresh(k)) 
@@ -1385,7 +1440,7 @@ namespace lp {
         
         lia_move subs_with_S_and_fresh(protected_queue& q, unsigned j) {
             lia_move r = lia_move::undef;
-            while (!q.empty() && r != lia_move::conflict) {
+            while (!q.empty() && r != lia_move::conflict && m_espace.size() <= m_tighten_size_max) {
                 lia_move ret = subs_front_with_S_and_fresh(q, j);
                 r = join(ret, r);
             }
@@ -1436,8 +1491,13 @@ namespace lp {
                   // print_bounds(tout);
             );
             for (unsigned j : sorted_changed_terms) {
-                m_terms_to_tighten.remove(j);
+                if (is_big_term_or_no_term(j)) {
+                    m_terms_to_tighten.remove(j);
+                    continue;
+                }
                 auto ret = tighten_bounds_for_term_column(j);
+                m_terms_to_tighten.remove(j);
+                                
                 r = join(ret, r);
                 if (r == lia_move::conflict)
                     break;
@@ -1459,25 +1519,37 @@ namespace lp {
 
         // We will have lar_t, and let j is lar_t.j(), the term column. 
         // In the m_espace we have lar_t. The result of open_ml((1*j)) is lar_t - (1, j).
-        // So we have "equality" m_espace = open(m_lspace) + (1*lar_t.j()) 
-        void init_substitutions(const lar_term& lar_t, protected_queue& q) {
+        // So we have "equality" m_espace = open(m_lspace) + (1*lar_t.j())
+        // return false iff seen a big number and dio_ignore_big_nums() is true
+        bool init_substitutions(const lar_term& lar_t, protected_queue& q) {
             m_espace.clear();
             m_c = mpq(0);
             m_lspace.clear();
             m_lspace.add(mpq(1), lar_t.j());
+            bool ret = true;
             SASSERT(get_extended_term_value(lar_t).is_zero());
             for (const auto& p : lar_t) {
                 if (is_fixed(p.j())) {
-                    m_c += p.coeff() * lia.lower_bound(p.j()).x;
+                    const mpq& b = lia.lower_bound(p.j()).x;
+                    if (ignore_big_nums() && b.is_big()) {
+                        ret = false;
+                        break;
+                    }
+                    m_c += p.coeff() * b;
                 }
                 else {
                     unsigned lj = lar_solver_to_local(p.j());
+                    if (ignore_big_nums() && p.coeff().is_big()) {
+                        ret = false;
+                        break;
+                    }
                     m_espace.add(p.coeff(), lj);;
                     if (can_substitute(lj))
                         q.push(lj);
                 }
             }
             SASSERT(subs_invariant(lar_t.j()));
+            return ret;
         }
 
         unsigned lar_solver_to_local(unsigned j) const {
@@ -1499,8 +1571,6 @@ namespace lp {
         
         lia_move tighten_on_espace(unsigned j) {
             mpq g = gcd_of_coeffs(m_espace.m_data, true);
-            TRACE("dio", tout << "after process_q_with_S\nt:";  print_term_o(create_term_from_espace(), tout) << std::endl; tout << "g:" << g << std::endl;);
-            
             if (g.is_one())
                 return lia_move::undef;
             if (g.is_zero()) {
@@ -1509,15 +1579,11 @@ namespace lp {
                     return lia_move::conflict;                
                 return lia_move::undef;
             }
-            if (create_branch_report(j, g)) {
-                lra.settings().stats().m_dio_branch_from_proofs++;
-                return lia_move::branch;
-            }
             // g is not trivial, trying to tighten the bounds
             auto r = tighten_bounds_for_non_trivial_gcd(g, j, true);
             if (r == lia_move::undef)
                 r = tighten_bounds_for_non_trivial_gcd(g, j, false);
-            if (r == lia_move::undef && m_changed_columns.contains(j))
+            if (r == lia_move::undef && m_changed_f_columns.contains(j))
                 r = lia_move::continue_with_check;            
             return r;
         }
@@ -1533,12 +1599,13 @@ namespace lp {
         lia_move tighten_bounds_for_term_column(unsigned j) {
             // q is the queue of variables that can be substituted in term_to_tighten
             protected_queue q;
-            TRACE("dio", tout << "j:" << j << " , intitial term t: "; print_lar_term_L(lra.get_term(j), tout) << std::endl;
+            TRACE("dio", tout << "j:" << j << " , initial term t: "; print_lar_term_L(lra.get_term(j), tout) << std::endl;
                   for( const auto& p : lra.get_term(j).ext_coeffs()) {
                       lra.print_column_info(p.var(), tout);
                   }
                 );
-            init_substitutions(lra.get_term(j), q);
+            if (!init_substitutions(lra.get_term(j), q))
+                return lia_move::undef;
          
             TRACE("dio", tout << "t:";
                   tout << "m_espace:";
@@ -1553,10 +1620,6 @@ namespace lp {
             process_fixed_in_espace();
             SASSERT(subs_invariant(j));
             return tighten_on_espace(j);
-        }
-
-        bool should_report_branch() const {
-            return (lra.settings().stats().m_dio_calls% lra.settings().dio_report_branch_with_term_tigthening_period()) == 0;
         }
 
         void remove_fresh_from_espace() {
@@ -1608,34 +1671,6 @@ namespace lp {
             return r;
         }
 
-        bool create_branch_report(unsigned j, const mpq& g) {
-            if (!should_report_branch()) return false;
-            if (!lia.at_bound(j)) return false;
-            
-            mpq rs = (lra.get_column_value(j).x - m_c) / g;
-            if (rs.is_int()) return false;
-            m_report_branch = true;
-            remove_fresh_from_espace();
-            SASSERT(get_value_of_espace() + m_c == lra.get_column_value(j).x && lra.get_column_value(j).x.is_int());
-            
-            lar_term& t = lia.get_term();
-            t.clear();
-            for (const auto& p : m_espace.m_data) {
-                t.add_monomial(p.coeff() / g, local_to_lar_solver(p.var()));
-            }
-            lia.offset() = floor(rs);
-            lia.is_upper() = true;
-            m_report_branch = true;
-            TRACE("dioph_eq", tout << "prepare branch, t:";
-                  print_lar_term_L(t, tout)
-                  << " <= " << lia.offset()
-                  << std::endl;
-                  tout << "current value of t:" << get_term_value(t) << std::endl;
-                );
-            
-            SASSERT(get_value_of_espace() / g > lia.offset() );
-            return true;
-        }
         void get_expl_from_meta_term(const lar_term& t, explanation& ex, const mpq & gcd) {
             u_dependency* dep = explain_fixed_in_meta_term(t, gcd);
             for (constraint_index ci : lra.flatten(dep))
@@ -1687,30 +1722,23 @@ namespace lp {
             mpq rs;
             bool is_strict = false;
             u_dependency* b_dep = nullptr;
-            SASSERT(!g.is_zero());
+            SASSERT(!g.is_zero() && !g.is_one());
 
             if (lra.has_bound_of_type(j, b_dep, rs, is_strict, is_upper)) {
-                TRACE("dio", 
-                      tout << "current " << (is_upper? "upper":"lower") << " bound for x" << j << ":"
-                      << rs << std::endl;);
+                TRACE("dio", tout << "x" << j << (is_upper? " <= ":" >= ") << rs << std::endl;);
                 mpq rs_g = (rs - m_c) % g;
-                if (rs_g.is_neg()) {
+                if (rs_g.is_neg())
                     rs_g += g;
-                }
-                if (! (!rs_g.is_neg() && rs_g.is_int())) {
-                    std::cout << "rs:" << rs << "\n";
-                    std::cout << "m_c:" << m_c << "\n";
-                    std::cout << "g:" << g << "\n";
-                    std::cout << "rs_g:" << rs_g << "\n";
-                }
-                SASSERT(rs_g.is_int());
+                
+                SASSERT(rs_g.is_int() && !rs_g.is_neg());
+
                 TRACE("dio", tout << "(rs - m_c) % g:" << rs_g << std::endl;);
                 if (!rs_g.is_zero()) {
                     if (tighten_bound_kind(g, j, rs, rs_g, is_upper))
                         return lia_move::conflict;
-                } else {
-                    TRACE("dio", tout << "no improvement in the bound\n";);
                 }
+                else 
+                    TRACE("dio", tout << "rs_g is zero: no improvement in the bound\n";);
             }
             return lia_move::undef;
         }
@@ -1773,10 +1801,7 @@ namespace lp {
             for (const auto& p: fixed_part_of_the_term) {
                 SASSERT(is_fixed(p.var()));                
                 if (p.coeff().is_int() && (p.coeff() % g).is_zero()) {
-                    // we can skip this dependency
-                    // because the monomial p.coeff()*p.var() is 0 modulo g, and it does not matter that p.var() is fixed.
-                    // We could have added  p.coeff()*p.var() to g*t_, substructed the value of  p.coeff()*p.var() from m_c and
-                    // still get the same result.
+                    // we can skip this dependency as explained above
                     TRACE("dio", tout << "skipped dep:\n"; print_deps(tout, lra.get_bound_constraint_witnesses_for_column(p.var())););
                     continue;
                 }
@@ -1788,7 +1813,6 @@ namespace lp {
             if (lra.settings().get_cancel_flag())
                 return false;
             lra.update_column_type_and_bound(j, kind, bound, dep);
-
             lp_status st = lra.find_feasible_solution();
             if (is_sat(st) || st == lp::lp_status::CANCELLED)
                 return false;
@@ -1852,7 +1876,7 @@ namespace lp {
                     return lia_move::undef;
                 if (r == lia_move::conflict || r == lia_move::undef) 
                     break;
-                SASSERT(m_changed_columns.size() == 0);
+                SASSERT(m_changed_f_columns.size() == 0);
             }
             while (f_vector.size());
 
@@ -1873,23 +1897,6 @@ namespace lp {
                 lra.stats().m_dio_tighten_conflicts++;
             TRACE("dio", print_S(tout););
             return ret;
-        }
-
-        void collect_evidence() {
-            lra.get_infeasibility_explanation(m_infeas_explanation);
-            for (const auto& p : m_infeas_explanation) {
-                m_explanation_of_branches.push_back(p.ci());
-            }
-        }
-
-        // returns true if the left and the right branches were explored
-        void undo_explored_branches() {
-            TRACE("dio_br", tout << "m_branch_stack.size():" << m_branch_stack.size() << std::endl;);
-            while (m_branch_stack.size() && m_branch_stack.back().m_fully_explored) {
-                m_branch_stack.pop_back();
-                lra_pop();
-            }
-            TRACE("dio_br", tout << "after pop:m_branch_stack.size():" << m_branch_stack.size() << std::endl;);
         }
 
         lia_move check_fixing(unsigned j) const {
@@ -1929,138 +1936,9 @@ namespace lp {
                       tout << "fixed j:" << j << ", was substited by ";
                       print_entry(m_k2s[j], tout););
                 if (check_fixing(j) == lia_move::conflict) {
-                    for (auto ci : lra.flatten(explain_fixed_in_meta_term(m_l_matrix.m_rows[m_k2s[j]], mpq(0)))) {
-                        m_explanation_of_branches.push_back(ci);
-                    }
                     return lia_move::conflict;
                 }
             }
-            return lia_move::undef;
-        }
-
-        void undo_branching() {
-            while (m_lra_level--) {
-                lra.pop();
-            }
-            lra.find_feasible_solution();
-            SASSERT(lra.get_status() == lp_status::CANCELLED || lra.is_feasible());
-        }
-        // Returns true if a branch is created, and false if not.
-        // The latter case can happen if we have a sat.
-        bool push_branch() {
-            branch br = create_branch();
-            if (br.m_j == UINT_MAX)
-                return false;
-            m_branch_stack.push_back(br);
-            lra.stats().m_dio_branching_depth = std::max(lra.stats().m_dio_branching_depth, (unsigned)m_branch_stack.size());
-            return true;
-        }
-
-        lia_move add_var_bound_for_branch(const branch& b) {
-            if (b.m_left) 
-                lra.add_var_bound(b.m_j, lconstraint_kind::LE, b.m_rs);
-            else 
-                lra.add_var_bound(b.m_j, lconstraint_kind::GE, b.m_rs + mpq(1));
-            TRACE("dio_br", lra.print_column_info(b.m_j, tout) << "add bound" << std::endl;);
-            if (lra.column_is_fixed(b.m_j)) {
-                unsigned local_bj;
-                if (!m_var_register.external_is_used(b.m_j, local_bj))
-                    return lia_move::undef;
-
-                if (fix_var(local_bj) == lia_move::conflict) {
-                    TRACE("dio_br", tout << "conflict in fix_var" << std::endl;);
-                    return lia_move::conflict;
-                }
-            }
-            return lia_move::undef;
-        }
-
-        unsigned m_lra_level = 0;
-        void lra_push() {
-            m_lra_level++;
-            lra.push();
-            SASSERT(m_lra_level == m_branch_stack.size());
-        }
-        void lra_pop() {
-            m_lra_level--;
-            SASSERT(m_lra_level != UINT_MAX);
-            lra.pop();
-            lra.find_feasible_solution();
-            SASSERT(lra.get_status() == lp_status::CANCELLED || lra.is_feasible());
-        }
-
-        void transfer_explanations_from_closed_branches() {
-            m_infeas_explanation.clear();
-            for (auto ci : m_explanation_of_branches) {
-                if (this->lra.constraints().valid_index(ci))
-                    m_infeas_explanation.push_back(ci);
-            }
-        }
-
-        lia_move branching_on_undef() {
-            m_explanation_of_branches.clear();
-            bool need_create_branch = true;
-            m_number_of_branching_calls = 0;
-            while (++m_number_of_branching_calls < m_max_of_branching_iterations) {
-                lra.stats().m_dio_branch_iterations++;
-                if (need_create_branch) {
-                    if (!push_branch()) {
-                        undo_branching();
-                        lra.stats().m_dio_branching_sats++;
-                        return lia_move::sat;
-                    }
-                    need_create_branch = false;
-                }
-                lra_push();  // exploring a new branch
-
-                if (add_var_bound_for_branch(m_branch_stack.back()) == lia_move::conflict) {
-                    undo_explored_branches();
-                    if (m_branch_stack.size() == 0) {
-                        lra.stats().m_dio_branching_infeasibles++;
-                        transfer_explanations_from_closed_branches();
-                        lra.stats().m_dio_branching_conflicts++;
-                        return lia_move::conflict;
-                    }
-                    need_create_branch = false;
-                    m_branch_stack.back().flip();
-                    lra_pop();
-                    continue;
-                }
-                auto st = lra.find_feasible_solution();                
-                TRACE("dio_br", tout << "st:" << lp_status_to_string(st) << std::endl;);
-                if (st == lp_status::CANCELLED)
-                    return lia_move::undef;
-                else if (lp::is_sat(st)) {
-                    // have a feasible solution
-                    unsigned n_of_ii = get_number_of_int_inf();
-                    TRACE("dio_br", tout << "n_of_ii:" << n_of_ii << "\n";);
-                    if (n_of_ii == 0) {
-                        undo_branching();
-                        lra.stats().m_dio_branching_sats++;
-                        return lia_move::sat;
-                    }
-                    // got to create a new branch
-                    update_branch_stats(m_branch_stack.back(), n_of_ii);
-                    need_create_branch = true;
-                }
-                else {
-                    collect_evidence();
-                    undo_explored_branches();
-                    if (m_branch_stack.size() == 0) {
-                        lra.stats().m_dio_branching_infeasibles++;
-                        transfer_explanations_from_closed_branches();
-                        lra.stats().m_dio_branching_conflicts++;
-                        return lia_move::conflict;
-                    }
-                    TRACE("dio_br", tout << lp_status_to_string(lra.get_status()) << std::endl;
-                          tout << "explanation:\n"; lra.print_expl(tout, m_infeas_explanation););
-
-                    need_create_branch = false;
-                    lra_pop();
-                    m_branch_stack.back().flip();
-                }
-            }
-            undo_branching();
             return lia_move::undef;
         }
 
@@ -2072,61 +1950,6 @@ namespace lp {
                 });
         }
 
-        double get_branch_score(unsigned j) {
-            if (j >= m_branch_stats.size())
-                m_branch_stats.resize(j + 1);
-            return m_branch_stats[j].score();
-        }
-
-        void update_branch_stats(const branch& b, unsigned n_of_ii) {
-            // Ensure the branch stats vector is large enough
-            if (b.m_j >= m_branch_stats.size()) 
-                m_branch_stats.resize(b.m_j + 1);
-
-            if (b.m_left) 
-                m_branch_stats[b.m_j].m_ii_after_left.push_back(n_of_ii);
-            else 
-                m_branch_stats[b.m_j].m_ii_after_right.push_back(n_of_ii);
-        }
-
-        branch create_branch() {
-            unsigned bj = UINT_MAX;
-            double score = std::numeric_limits<double>::infinity();
-            // looking for the minimal score
-            unsigned n = 0;
-            for (unsigned j : lra.r_basis()) {
-                if (!lia.column_is_int_inf(j))
-                    continue;
-                double sc = get_branch_score(j);
-                if (sc < score ||
-                    (sc == score && lra.settings().random_next() % (++n) == 0)) {
-                    score = sc;
-                    bj = j;
-                }
-            }
-            branch br;
-            if (bj == UINT_MAX) {  // it the case when we cannot create a branch
-                SASSERT(
-                    lra.settings().get_cancel_flag() ||
-                    (lra.is_feasible() && [&]() {
-                        for (unsigned j = 0; j < lra.column_count(); ++j) {
-                            if (lia.column_is_int_inf(j)) {
-                                return false;
-                            }
-                        }
-                        return true;
-                    }()));
-                return br;  // to signal that we have no ii variables
-            }
-
-            br.m_j = bj;
-            br.m_left = (lra.settings().random_next() % 2 == 0);
-            br.m_rs = floor(lra.get_column_value(bj).x);
-
-            TRACE("dio_br", tout << "score:" << score << "; br.m_j:" << br.m_j << ","
-                  << (br.m_left ? "left" : "right") << ", br.m_rs:" << br.m_rs << std::endl;);
-            return br;
-        }
 
         bool columns_to_terms_is_correct() const {
             std::unordered_map<unsigned, std::unordered_set<unsigned>> c2t;
@@ -2180,11 +2003,12 @@ namespace lp {
         bool is_in_sync() const {
             for (unsigned j = 0; j < m_e_matrix.column_count(); j++) {
                 unsigned external_j = m_var_register.local_to_external(j);
-                if (external_j == UINT_MAX) continue;
-                if (external_j >= lra.column_count() && m_e_matrix.m_columns[j].size()) {
-                    // It is OK to have an empty column in m_e_matrix.
+                if (external_j == UINT_MAX)
+                    continue;
+                if (external_j >= lra.column_count() && m_e_matrix.m_columns[j].size()) 
                     return false;
-                }
+                // It is OK to have an empty column in m_e_matrix.
+
             }
 
             for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
@@ -2214,11 +2038,8 @@ namespace lp {
 
             if (ret != lia_move::undef) 
                 return ret;
-            
-            if (lra.stats().m_dio_calls % lra.settings().dio_branching_period() == 0) 
-                ret = branching_on_undef();
-            
-            m_max_of_branching_iterations = (unsigned)m_max_of_branching_iterations / 2;
+            if (ret == lia_move::undef)
+                lra.settings().dio_calls_period() *= 2;
             return ret;
         }
 
@@ -2692,8 +2513,8 @@ namespace lp {
         // needed for the template bound_analyzer_on_row.h
         const lar_solver& lp() const { return lra; }
         lar_solver& lp() {return lra;}
-        bool has_non_integral_term() const {
-            return m_has_non_integral_term;
+        bool some_terms_are_ignored() const {
+            return m_some_terms_are_ignored;
         }
     };
     // Constructor definition
@@ -2712,8 +2533,8 @@ namespace lp {
         m_imp->explain(ex);
     }
 
-    bool dioph_eq::has_non_integral_term() const {
-        return m_imp->has_non_integral_term();
+    bool dioph_eq::some_terms_are_ignored() const {
+        return m_imp->some_terms_are_ignored();
     }
     
 

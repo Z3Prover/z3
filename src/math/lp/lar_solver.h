@@ -335,7 +335,7 @@ public:
                 int sign = j_sign * a_sign;
                 const column& ul = m_columns[j];
                 auto* witness = sign > 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
-                lp_assert(witness);
+                SASSERT(witness);
                 for (auto ci : flatten(witness))
                     bp.consume(a, ci);
             }
@@ -453,7 +453,7 @@ public:
     void set_value_for_nbasic_column_report(unsigned j,
                                             const impq& new_val,
                                             const ChangeReport& after) {
-        lp_assert(!is_base(j));
+        SASSERT(!is_base(j));
         auto& x = m_mpq_lar_core_solver.r_x(j);
         auto delta = new_val - x;
         x = new_val;

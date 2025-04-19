@@ -1,0 +1,125 @@
+name: OCaml Binding CI (Ubuntu + macOS)
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  build-test:
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest]
+        ocaml-version: ["5"]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Cache ccache (shared across runs)
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      # Cache opam (compiler + packages)
+      - name: Cache opam
+        uses: actions/cache@v4
+        with:
+          path: ~/.opam
+          key: ${{ runner.os }}-opam-${{ matrix.ocaml-version }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-opam-${{ matrix.ocaml-version }}-
+
+      # Setup OCaml via action
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-version }}
+          opam-disable-sandboxing: true
+          
+      # Platform-specific dependencies
+      - name: Install system dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bubblewrap m4 libgmp-dev pkg-config ninja-build ccache
+
+      - name: Install system dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install gmp pkg-config ninja ccache
+
+      - name: Install required opam packages
+        run: opam install -y ocamlfind zarith
+
+      # Configure
+      - name: Configure with CMake
+        env:
+          RUNNER_OS: ${{ runner.os }}
+          CC: ${{ matrix.os == 'macos-latest' && 'ccache clang' || 'ccache gcc' }}
+          CXX: ${{ matrix.os == 'macos-latest' && 'ccache clang++' || 'ccache g++' }}
+        run: |
+          mkdir -p build
+          cd build
+          eval $(opam env)
+          echo "CC: $CC"
+          echo "CXX: $CXX"
+          echo "OCAMLFIND: $(which ocamlfind)"
+          echo "OCAMLC:     $(which ocamlc)"
+          echo "OCAMLOPT:     $(which ocamlopt)"
+          echo "OCAML_VERSION: $(ocamlc -version)"
+          echo "OCAMLLIB: $OCAMLLIB"
+          env | grep OCAML
+          cmake .. \
+            -G Ninja \
+            -DZ3_BUILD_LIBZ3_SHARED=ON \
+            -DZ3_BUILD_OCAML_BINDINGS=ON \
+            -DZ3_BUILD_JAVA_BINDINGS=OFF \
+            -DZ3_BUILD_PYTHON_BINDINGS=OFF \
+            -DZ3_BUILD_CLI=OFF \
+            -DZ3_BUILD_TEST_EXECUTABLES=OFF \
+            -DCMAKE_VERBOSE_MAKEFILE=TRUE
+
+      - name: Build Z3 and OCaml bindings
+        run: |
+          ccache -z || true
+          eval $(opam env)
+          cd build
+          ninja build_z3_ocaml_bindings
+          ccache -s || true
+
+      - name: Compile ml_example.byte
+        run: |
+          eval $(opam env)
+          ocamlfind ocamlc -o ml_example.byte \
+            -package zarith \
+            -linkpkg \
+            -I build/src/api/ml \
+            -dllpath build/src/api/ml \
+            build/src/api/ml/z3ml.cma \
+            examples/ml/ml_example.ml
+
+      - name: Run ml_example.byte
+        run: |
+          eval $(opam env)
+          ocamlrun ./ml_example.byte
+
+      - name: Compile ml_example (native)
+        run: |
+          eval $(opam env)
+          ocamlfind ocamlopt -o ml_example \
+            -package zarith \
+            -linkpkg \
+            -I build/src/api/ml \
+            build/src/api/ml/z3ml.cmxa \
+            examples/ml/ml_example.ml
+
+      - name: Run ml_example (native)
+        run: ./ml_example

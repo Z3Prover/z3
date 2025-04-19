@@ -39,7 +39,7 @@ void indexed_vector<T>::resize(unsigned data_size) {
 template <typename T>
 void indexed_vector<T>::set_value(const T& value, unsigned index) {
     m_data[index] = value;
-    lp_assert(std::find(m_index.begin(), m_index.end(), index) == m_index.end());
+    SASSERT(std::find(m_index.begin(), m_index.end(), index) == m_index.end());
     m_index.push_back(index);
 }
 

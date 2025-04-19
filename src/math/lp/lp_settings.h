@@ -218,8 +218,12 @@ public:
     void updt_params(params_ref const& p);
     bool enable_hnf() const { return m_enable_hnf; }
     unsigned nlsat_delay() const { return m_nlsat_delay; }
-    bool int_run_gcd_test() const { return m_int_run_gcd_test; }
-    bool& int_run_gcd_test() { return m_int_run_gcd_test; }
+    bool int_run_gcd_test() const {
+        if (!m_dio)
+            return m_int_run_gcd_test;
+        return m_dio_run_gcd;
+    }
+    void set_run_gcd_test(bool v) { m_int_run_gcd_test = v; }
     unsigned      reps_in_scaler = 20;
     int           c_partial_pivoting = 10; // this is the constant c from page 410
     unsigned      depth_of_rook_search = 4;
@@ -243,7 +247,6 @@ public:
     unsigned         column_number_threshold_for_using_lu_in_lar_solver = 4000;
     unsigned         m_int_gomory_cut_period = 4;
     unsigned         m_int_find_cube_period = 4;
-    unsigned         m_dioph_eq_period = 1;
 private:
     unsigned         m_hnf_cut_period = 4;
     bool             m_int_run_gcd_test = true;
@@ -255,23 +258,30 @@ private:
     bool             m_enable_hnf = true;
     bool             m_print_external_var_name = false;
     bool             m_propagate_eqs = false;
-    bool             m_dio_eqs = false;
+    bool             m_dio = false;
     bool             m_dio_enable_gomory_cuts = false;
     bool             m_dio_enable_hnf_cuts = true;
     unsigned         m_dio_branching_period = 100; //  do branching rarely
     unsigned         m_dio_report_branch_with_term_tigthening_period = 10000000; // period of reporting the branch with term tigthening
     bool             m_dump_bound_lemmas = false;
+    bool             m_dio_ignore_big_nums = false;
+    unsigned         m_dio_calls_period = 4;
+    bool             m_dio_run_gcd = true;
 public:
+    unsigned dio_calls_period() const { return m_dio_calls_period; }
+    unsigned & dio_calls_period() { return m_dio_calls_period; }
     bool print_external_var_name() const { return m_print_external_var_name; }
     bool propagate_eqs() const { return m_propagate_eqs;}
     unsigned hnf_cut_period() const { return m_hnf_cut_period; }
     void set_hnf_cut_period(unsigned period) { m_hnf_cut_period = period;  }
     unsigned random_next() { return m_rand(); }
     unsigned random_next(unsigned u ) { return m_rand(u); }
-    bool dio_eqs() { return m_dio_eqs; }
-    bool dio_enable_gomory_cuts() const { return m_dio_eqs && m_dio_enable_gomory_cuts; }
-    bool dio_enable_hnf_cuts() const { return m_dio_eqs && m_dio_enable_hnf_cuts; }
+    bool dio() { return m_dio; }
+    bool dio_enable_gomory_cuts() const { return m_dio && m_dio_enable_gomory_cuts; }
+    bool dio_run_gcd() const { return m_dio && m_dio_run_gcd; }
+    bool dio_enable_hnf_cuts() const { return m_dio && m_dio_enable_hnf_cuts; }
     unsigned dio_branching_period() const { return m_dio_branching_period; }
+    bool dio_ignore_big_nums() const { return m_dio_ignore_big_nums; }
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
     unsigned dio_report_branch_with_term_tigthening_period() const { return m_dio_report_branch_with_term_tigthening_period; }
     bool bound_progation() const { 
@@ -376,7 +386,7 @@ inline void print_blanks(int n, std::ostream & out) {
 // after a push of the last element we ensure that the vector increases
 // we also suppose that before the last push the vector was increasing
 inline void ensure_increasing(vector<unsigned> & v) {
-    lp_assert(v.size() > 0);
+    SASSERT(v.size() > 0);
     unsigned j = v.size() - 1;
     for (; j > 0; j-- )
         if (v[j] <= v[j - 1]) {
@@ -392,7 +402,7 @@ inline void ensure_increasing(vector<unsigned> & v) {
 inline static bool is_rational(const impq & n) { return is_zero(n.y); }
 
 inline static mpq fractional_part(const impq & n) {
-    lp_assert(is_rational(n));
+    SASSERT(is_rational(n));
     return n.x - floor(n.x);
 }
 inline static mpq fractional_part(const mpq & n) {

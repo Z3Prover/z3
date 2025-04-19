@@ -60,7 +60,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_tracing_basis_changes(false),
     m_touched_rows(nullptr),
     m_look_for_feasible_solution_only(false) {
-    lp_assert(bounds_for_boxed_are_set_correctly());    
+    SASSERT(bounds_for_boxed_are_set_correctly());    
     init();
     init_basis_heading_and_non_basic_columns_vector();
 }
@@ -68,7 +68,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 allocate_basis_heading() { // the rest of initialization will be handled by the factorization class
     init_basis_heading_and_non_basic_columns_vector();
-    lp_assert(basis_heading_is_correct());
+    SASSERT(basis_heading_is_correct());
 }
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 init() {    
@@ -267,7 +267,7 @@ pivot_column_tableau(unsigned j, unsigned piv_row_index) {
         return false;
         
     if (pivot_col_cell_index != 0) {
-        lp_assert(column.size() > 1);
+        SASSERT(column.size() > 1);
         // swap the pivot column cell with the head cell
         auto c = column[0];
         column[0]  = column[pivot_col_cell_index];
@@ -278,7 +278,7 @@ pivot_column_tableau(unsigned j, unsigned piv_row_index) {
     }
     while (column.size() > 1) {
         auto & c = column.back();
-        lp_assert(c.var() != piv_row_index);
+        SASSERT(c.var() != piv_row_index);
         if(! m_A.pivot_row_to_row_given_cell(piv_row_index, c, j)) {
             return false;
         }
@@ -324,7 +324,7 @@ non_basis_is_correctly_represented_in_heading(std::list<unsigned>* non_basis_lis
     
     for (unsigned j = 0; j < m_A.column_count(); j++) 
         if (m_basis_heading[j] >= 0)
-            lp_assert(static_cast<unsigned>(m_basis_heading[j]) < m_A.row_count() && m_basis[m_basis_heading[j]] == j);
+            SASSERT(static_cast<unsigned>(m_basis_heading[j]) < m_A.row_count() && m_basis[m_basis_heading[j]] == j);
 
     if (non_basis_list == nullptr) return true;
 	
@@ -361,9 +361,9 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
     if ( m_A.column_count() > 10 )  // for the performance reason
         return true;
     
-    lp_assert(m_basis_heading.size() == m_A.column_count());
-    lp_assert(m_basis.size() == m_A.row_count());
-    lp_assert(m_nbasis.size() <= m_A.column_count() - m_A.row_count()); // for the dual the size of non basis can be smaller
+    SASSERT(m_basis_heading.size() == m_A.column_count());
+    SASSERT(m_basis.size() == m_A.row_count());
+    SASSERT(m_nbasis.size() <= m_A.column_count() - m_A.row_count()); // for the dual the size of non basis can be smaller
 
     if (!basis_has_no_doubles()) 
         return false;
@@ -391,8 +391,8 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::transpose_row
 }
 // entering is the new base column, leaving - the column leaving the basis
 template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_general(unsigned entering, unsigned leaving, indexed_vector<T> & w) {
-    lp_assert(m_basis_heading[entering] < 0);
-    lp_assert(m_basis_heading[leaving] >= 0);
+    SASSERT(m_basis_heading[entering] < 0);
+    SASSERT(m_basis_heading[leaving] >= 0);
     unsigned row_index = m_basis_heading[leaving];
     // the tableau case
     if (!pivot_column_tableau(entering, row_index))

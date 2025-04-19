@@ -58,7 +58,7 @@ struct create_cut {
     }
 
     void int_case_in_gomory_cut(unsigned j) {
-        lp_assert(is_int(j) && m_fj.is_pos());
+        SASSERT(is_int(j) && m_fj.is_pos());
         TRACE("gomory_cut_detail", 
               tout << " k = " << m_k;
               tout << ", fj: " << m_fj << ", ";
@@ -68,15 +68,15 @@ struct create_cut {
         if (at_lower(j)) {
             // here we have the product of new_a*(xj - lb(j)), so new_a*lb(j) is added to m_k
             new_a = m_fj <= m_one_minus_f ? m_fj / m_one_minus_f : ((1 - m_fj) / m_f);
-            lp_assert(new_a.is_pos());
+            SASSERT(new_a.is_pos());
             m_k.addmul(new_a, lower_bound(j).x);   
             push_explanation(column_lower_bound_constraint(j));         
         }
         else {
-            lp_assert(at_upper(j));
+            SASSERT(at_upper(j));
             // here we have the expression  new_a*(xj - ub), so new_a*ub(j) is added to m_k
             new_a = - (m_fj <= m_f ? m_fj / m_f  : ((1 - m_fj) / m_one_minus_f));
-            lp_assert(new_a.is_neg());
+            SASSERT(new_a.is_neg());
             m_k.addmul(new_a, upper_bound(j).x);
             push_explanation(column_upper_bound_constraint(j));
         }        
@@ -111,7 +111,7 @@ struct create_cut {
             push_explanation(column_lower_bound_constraint(j));
         }
         else {
-            lp_assert(at_upper(j));
+            SASSERT(at_upper(j));
             if (a.is_pos()) {
                 // the delta is works again m_f
                 new_a =  - a / m_f;
@@ -134,7 +134,7 @@ struct create_cut {
     }
 
     lia_move report_conflict_from_gomory_cut() {
-        lp_assert(m_k.is_pos());
+        SASSERT(m_k.is_pos());
         // conflict 0 >= k where k is positive
         return lia_move::conflict;
     }
@@ -204,7 +204,7 @@ struct create_cut {
             else if (at_lower(j)) 
                 dump_lower_bound_expl(out, j);
             else {
-                lp_assert(at_upper(j));
+                SASSERT(at_upper(j));
                 dump_upper_bound_expl(out, j);
             }
         }
@@ -259,7 +259,7 @@ public:
         m_found_big = false;
         TRACE("gomory_cut_detail", tout << "m_f: " << m_f << ", ";
               tout << "1 - m_f: " << 1 - m_f << ", get_value(m_inf_col).x - m_f = " << get_value(m_inf_col).x - m_f << "\n";);
-        lp_assert(m_f.is_pos() && (get_value(m_inf_col).x - m_f).is_int());  
+        SASSERT(m_f.is_pos() && (get_value(m_inf_col).x - m_f).is_int());  
         auto set_polarity_for_int = [&](const mpq & a, lpvar j) {
             if (a.is_pos()) {
                 if (at_lower(j))

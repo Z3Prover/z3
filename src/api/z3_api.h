@@ -4589,6 +4589,13 @@ extern "C" {
     Z3_func_decl Z3_API Z3_get_tuple_sort_field_decl(Z3_context c, Z3_sort t, unsigned i);
 
     /**
+       \brief Check if \c s is a recursive datatype sort.
+
+       def_API('Z3_is_recursive_datatype_sort', BOOL, (_in(CONTEXT), _in(SORT)))
+     */
+    bool Z3_API Z3_is_recursive_datatype_sort(Z3_context c, Z3_sort s);
+
+    /**
         \brief Return number of constructors for datatype.
 
         \pre Z3_get_sort_kind(t) == Z3_DATATYPE_SORT

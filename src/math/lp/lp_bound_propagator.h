@@ -81,11 +81,11 @@ private:
         if (v1 == v2)
             return;
 #if Z3DEBUG
-        lp_assert(val(v1) == val(v2));
+        SASSERT(val(v1) == val(v2));
         unsigned debv1, debv2;
-        lp_assert(only_one_nfixed(r1, debv1) && only_one_nfixed(r2, debv2));
-        lp_assert(debv1 == v1 && debv2 == v2);
-        lp_assert(ival(v1).y == ival(v2).y);
+        SASSERT(only_one_nfixed(r1, debv1) && only_one_nfixed(r2, debv2));
+        SASSERT(debv1 == v1 && debv2 == v2);
+        SASSERT(ival(v1).y == ival(v2).y);
 #endif
         explanation ex;
         explain_fixed_in_row(r1, ex);
@@ -214,8 +214,8 @@ public:
     }
 
     bool add_eq_on_columns(const explanation& exp, lpvar je, lpvar ke, bool is_fixed) {
-        lp_assert(je != ke && is_int(je) == is_int(ke));
-        lp_assert(ival(je) == ival(ke));
+        SASSERT(je != ke && is_int(je) == is_int(ke));
+        SASSERT(ival(je) == ival(ke));
 
         TRACE("eq",
               tout << "reported idx " << je << ", " << ke << "\n";
@@ -315,7 +315,7 @@ public:
                 continue;
             if (++nf > 2)
                 return nf;
-            lp_assert(is_not_set(y));
+            SASSERT(is_not_set(y));
             y = j;
             if (c.coeff().is_one()) {
                 y_sign = 1;
@@ -332,8 +332,8 @@ public:
     }
 
     void try_add_equation_with_lp_fixed_tables(unsigned row_index, unsigned v_j) {
-        lp_assert(lp().get_base_column_in_row(row_index) == v_j);
-        lp_assert(num_of_non_fixed_in_row(row_index) == 1 || column_is_fixed(v_j));
+        SASSERT(lp().get_base_column_in_row(row_index) == v_j);
+        SASSERT(num_of_non_fixed_in_row(row_index) == 1 || column_is_fixed(v_j));
         if (column_is_fixed(v_j)) {
             return;
         }
@@ -366,7 +366,7 @@ public:
         if (nf == 0 || nf > 2)
             return;
         if (nf == 1) {
-            lp_assert(is_not_set(y));
+            SASSERT(is_not_set(y));
             try_add_equation_with_lp_fixed_tables(row_index, x);
             return;
         }
@@ -374,8 +374,8 @@ public:
             // the coefficient before y is not 1 or -1
             return;
         }
-        lp_assert(y_sign == -1 || y_sign == 1);
-        lp_assert(lp().is_base(y) == false);
+        SASSERT(y_sign == -1 || y_sign == 1);
+        SASSERT(lp().is_base(y) == false);
         auto& table = y_sign == 1 ? m_row2index_pos : m_row2index_neg;
         table.insert(val(x), row_index);        
         TRACE("eq", tout << "y = " << y << "\n";);    
@@ -391,8 +391,8 @@ public:
             if (nf != 2 || y_sign == 0)
                 continue;
 
-            lp_assert(y_nb == y);
-            lp_assert(y_sign == 1 || y_sign == -1);
+            SASSERT(y_nb == y);
+            SASSERT(y_sign == 1 || y_sign == -1);
             auto& table = y_sign == 1 ? m_row2index_pos : m_row2index_neg;
             const auto& v = val(x);
             unsigned found_i;;

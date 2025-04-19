@@ -48,7 +48,6 @@ struct scoped_timer_state {
 
 static std::vector<scoped_timer_state*> available_workers;
 static std::mutex workers;
-static atomic<unsigned> num_workers(0);
 
 static void thread_func(scoped_timer_state *s) {
     workers.lock();
@@ -94,7 +93,6 @@ scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
         // start new thead
         workers.unlock();
         s = new scoped_timer_state;
-        ++num_workers;
         init_state(ms, eh);
         s->m_thread = std::thread(thread_func, s);
     }
@@ -131,25 +129,19 @@ void scoped_timer::initialize() {
 }
 
 void scoped_timer::finalize() {
-    unsigned deleted = 0;
-    while (deleted < num_workers) {
-        workers.lock();
-        for (auto w : available_workers) {
-            w->work = EXITING;
-            w->cv.notify_one();
-        }
-        decltype(available_workers) cleanup_workers;
-        std::swap(available_workers, cleanup_workers);
-        workers.unlock();
-
-        for (auto w : cleanup_workers) {
-            ++deleted;
-            w->m_thread.join();
-            delete w;
-        }
+    workers.lock();
+    for (auto w : available_workers) {
+        w->work = EXITING;
+        w->cv.notify_one();
     }
-    num_workers = 0;
-    available_workers.clear();
+    decltype(available_workers) cleanup_workers;
+    std::swap(available_workers, cleanup_workers);
+    workers.unlock();
+
+    for (auto w : cleanup_workers) {
+        w->m_thread.join();
+        delete w;
+    }
 }
 
 void scoped_timer::init_state(unsigned ms, event_handler * eh) {

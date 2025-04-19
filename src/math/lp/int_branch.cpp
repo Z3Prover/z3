@@ -33,7 +33,7 @@ lia_move int_branch::create_branch_on_column(int j) {
     TRACE("check_main_int", tout << "branching" << std::endl;);
     lia.get_term().clear();
 
-    lp_assert(j != -1);
+    SASSERT(j != -1);
     lia.get_term().add_monomial(mpq(1), j);
     if (lia.is_free(j)) {
         lia.is_upper() = lia.settings().random_next() % 2;

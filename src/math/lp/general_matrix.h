@@ -98,16 +98,16 @@ public:
     void clear() { m_data.clear(); }
 
     bool row_is_initialized_correctly(const vector<mpq>& row) {
-        lp_assert(row.size() == column_count());
+        SASSERT(row.size() == column_count());
         for (unsigned j = 0; j < row.size(); j ++)
-            lp_assert(is_zero(row[j]));
+            SASSERT(is_zero(row[j]));
         return true;
     }
     
     template <typename T>
     void init_row_from_container(int i, const T & c, std::function<unsigned (unsigned)> column_fix, const mpq& sign) {
         auto & row = m_data[adjust_row(i)];
-        lp_assert(row_is_initialized_correctly(row));
+        SASSERT(row_is_initialized_correctly(row));
         for (lp::lar_term::ival p : c) {
             unsigned j = adjust_column(column_fix(p.j()));
             row[j] = sign * p.coeff();
@@ -115,7 +115,7 @@ public:
     }
     
     general_matrix operator*(const general_matrix & m) const {
-        lp_assert(m.row_count() == column_count());
+        SASSERT(m.row_count() == column_count());
         general_matrix ret(row_count(), m.column_count());
         for (unsigned i = 0; i < row_count(); i ++) {
              for (unsigned j = 0; j < m.column_count(); j++) {
@@ -158,7 +158,7 @@ public:
     
     vector<mpq> operator*(const vector<mpq> & x) const {
         vector<mpq> r;
-        lp_assert(x.size() == column_count());
+        SASSERT(x.size() == column_count());
         for (unsigned i = 0; i < row_count(); i++) {
             mpq v(0);
             for (unsigned j = 0; j < column_count(); j++) {
@@ -171,12 +171,12 @@ public:
 
     
     void transpose_rows(unsigned i, unsigned l) {
-        lp_assert(i != l);
+        SASSERT(i != l);
         m_row_permutation.transpose_from_right(i, l);
     }
     
     void transpose_columns(unsigned j, unsigned k) {
-        lp_assert(j != k);
+        SASSERT(j != k);
         m_column_permutation.transpose_from_left(j, k);
     }
     
@@ -210,7 +210,7 @@ public:
 
     // used for debug only
     general_matrix take_first_n_columns(unsigned n) const {
-        lp_assert(n <= column_count());
+        SASSERT(n <= column_count());
         if (n == column_count())
             return *this;
         general_matrix ret(row_count(), n);

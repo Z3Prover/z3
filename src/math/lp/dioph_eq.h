@@ -11,8 +11,9 @@ Abstract:
     by Alberto Griggio(griggio@fbk.eu)
 
 Author:
+    Nikolaj Bjorner (nbjorner)
     Lev Nachmanson (levnach)
-
+    
 Revision History:
 --*/
 #pragma once
@@ -30,6 +31,6 @@ namespace lp {
         ~dioph_eq();
         lia_move check();
         void explain(lp::explanation&);
-        bool has_non_integral_term() const;
+        bool some_terms_are_ignored() const;
     };
 }

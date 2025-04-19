@@ -41,7 +41,6 @@ namespace lp {
         mpq                 m_k;               // the right side of the cut
         hnf_cutter          m_hnf_cutter;
         unsigned            m_hnf_cut_period;
-        unsigned            m_dioph_eq_period;
         dioph_eq            m_dio;  
         int_gcd_test        m_gcd;
 
@@ -51,7 +50,6 @@ namespace lp {
 
         imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_dio(lia), m_gcd(lia) {
             m_hnf_cut_period = settings().hnf_cut_period();
-            m_dioph_eq_period = settings().m_dioph_eq_period;
         } 
 
         bool has_lower(unsigned j) const {
@@ -113,7 +111,7 @@ namespace lp {
                 }
                 // if bj == v, then, because we are patching the lra.get_value(v),
                 // we just need to assert that the lra.get_value(v) would be integral.
-                lp_assert(bj != v || lra.from_model_in_impq_to_mpq(new_val).is_int());
+                SASSERT(bj != v || lra.from_model_in_impq_to_mpq(new_val).is_int());
             }
         
             lra.set_value_for_nbasic_column(j, lia.get_value(j) + impq(delta));
@@ -142,8 +140,8 @@ namespace lp {
                 return false;
             mpq a = fractional_part(c.coeff());
             mpq r = fractional_part(lra.get_value(v));
-            lp_assert(0 < r && r < 1);
-            lp_assert(0 < a && a < 1);
+            SASSERT(0 < r && r < 1);
+            SASSERT(0 < a && a < 1);
             mpq delta_plus, delta_minus;
             if (!get_patching_deltas(r, a, delta_plus, delta_minus))
                 return false;
@@ -159,7 +157,7 @@ namespace lp {
         lia_move patch_basic_columns() {
             lia.settings().stats().m_patches++;
             lra.remove_fixed_vars_from_base();
-            lp_assert(lia.is_feasible());
+            SASSERT(lia.is_feasible());
             for (unsigned j : lra.r_basis()) 
                 if (!lra.get_value(j).is_int() && lra.column_is_int(j) && !lia.is_fixed(j))
                     patch_basic_column(j);
@@ -187,20 +185,19 @@ namespace lp {
         }
 
         bool should_gomory_cut() {
-            bool dio_allows_gomory = !settings().dio_eqs() || settings().dio_enable_gomory_cuts() ||
-                                      m_dio.has_non_integral_term();
-
+            bool dio_allows_gomory = !settings().dio() || settings().dio_enable_gomory_cuts() ||
+                                      m_dio.some_terms_are_ignored();
             return dio_allows_gomory && m_number_of_calls % settings().m_int_gomory_cut_period == 0;
         }
 
         bool should_solve_dioph_eq() {
-            return lia.settings().dio_eqs() && m_number_of_calls % m_dioph_eq_period == 0;
+            return lia.settings().dio() && (m_number_of_calls % settings().dio_calls_period() == 0);
         }
 
         // HNF
 
         bool should_hnf_cut() {
-            return (!settings().dio_eqs() || settings().dio_enable_hnf_cuts())
+            return (!settings().dio() || settings().dio_enable_hnf_cuts())
                 && settings().enable_hnf() && m_number_of_calls % settings().hnf_cut_period() == 0;
         }
         
@@ -226,7 +223,7 @@ namespace lp {
         
             lia_move r = lia_move::undef;
 
-            if (m_gcd.should_apply())
+            if (m_gcd.should_apply() || (settings().dio() && m_dio.some_terms_are_ignored()))
                 r = m_gcd();
 
             check_return_helper pc(lra);
@@ -405,16 +402,16 @@ namespace lp {
         // coprime. We can find u and v such that u*a1 + v*x2 = 1.
         rational u, v;
         gcd(a1, x2, u, v);
-        lp_assert(gcd(a1, x2, u, v).is_one());
-        lp_assert((x + (a1 / a2) * (-u * t) * x1).is_int());
+        SASSERT(gcd(a1, x2, u, v).is_one());
+        SASSERT((x + (a1 / a2) * (-u * t) * x1).is_int());
         // 1 = (u- l*x2 ) * a1 + (v + l*a1)*x2, for every integer l.
         rational d = u * t * x1;
         // We can prove that x+alpha*d is integral,
         // and any other delta, satisfying x+alpha*delta, is equal to d modulo a2.
         delta_plus = mod(d, a2);
-        lp_assert(delta_plus > 0);
+        SASSERT(delta_plus > 0);
         delta_minus = delta_plus - a2;
-        lp_assert(delta_minus < 0);
+        SASSERT(delta_minus < 0);
 
         return true;
     }
@@ -551,7 +548,7 @@ namespace lp {
             const mpq & a = c.coeff();
             unsigned i = lrac.m_r_basis[row_index];
             impq const & xi = get_value(i);
-            lp_assert(lrac.m_r_solver.column_is_feasible(i));
+            SASSERT(lrac.m_r_solver.column_is_feasible(i));
             if (column_is_int(i) && !a.is_int() && xi.is_int()) 
                 m = lcm(m, denominator(a));
         
@@ -591,7 +588,7 @@ namespace lp {
 
 
     bool int_solver::is_feasible() const {
-        lp_assert(
+        SASSERT(
             lrac.m_r_solver.calc_current_x_is_feasible_include_non_basis() ==
             lrac.m_r_solver.current_x_is_feasible());
         return lrac.m_r_solver.current_x_is_feasible();
