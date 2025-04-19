@@ -53,6 +53,7 @@ public:
         mc(ast_manager& m);
         // flush model converter from SAT solver to this structure.
         void flush_smc(sat::solver& s, atom2bool_var const& map);
+        using model_converter::operator();
         void operator()(sat::model& m);
         void operator()(model_ref& md) override;
         void operator()(expr_ref& fml) override; 
