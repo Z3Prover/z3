@@ -7,40 +7,10 @@ on:
     branches: [ "**" ]
 
 jobs:
-  no-matrix:
-    name: No matrix job
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup OCaml (no matrix)
-        uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: 5.3.0
-          opam-disable-sandboxing: true
-
-      - name: Debug PATH and ENV (no matrix)
-        run: |
-          echo "GITHUB_ENV:"
-          cat $GITHUB_ENV || echo "❌ Not found"
-
-          echo ""
-          echo "GITHUB_PATH:"
-          cat $GITHUB_PATH || echo "❌ Not found"
-
-          echo "PATH:"
-          echo "$PATH" | tr ':' '\n'
-          echo ""
-          echo "which ocamlc:"
-          which ocamlc || echo "❌ Not found"
-          echo ""
-          echo "OPAM_SWITCH_PREFIX: $OPAM_SWITCH_PREFIX"
-
   build-test:
     strategy:
       matrix:
-        # ubuntu-latest,
-        os: [ macos-latest]
+        os: [ ubuntu-latest, macos-latest]
         ocaml-version: ["5"]
       fail-fast: false
     runs-on: ${{ matrix.os }}
@@ -73,25 +43,6 @@ jobs:
           ocaml-compiler: ${{ matrix.ocaml-version }}
           opam-disable-sandboxing: true
           
-      - name: Debug after setup-ocaml
-        run: |
-          echo "GITHUB_ENV:"
-          cat $GITHUB_ENV || echo "❌ Not found"
-
-          echo ""
-          echo "GITHUB_PATH:"
-          cat $GITHUB_PATH || echo "❌ Not found"
-
-          echo "PATH after setup:"
-          echo "$PATH" | tr ':' '\n'
-      
-          echo ""
-          echo "which ocamlfind:"
-          which ocamlfind || echo "❌ Not found"
-      
-          echo ""
-          echo "OPAM_SWITCH_PREFIX: $OPAM_SWITCH_PREFIX"
-
       # Platform-specific dependencies
       - name: Install system dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
@@ -108,75 +59,6 @@ jobs:
       - name: Install required opam packages
         run: opam install -y ocamlfind zarith
 
-      - name: 🔍 Debug ocamlfind + ocamlc.opt issue
-        run: |
-          set -e  # fail on error
-
-          eval $(opam env)
-      
-          echo "🔎 ocamlc: $(which ocamlc)"
-          echo "🔎 ocamlopt: $(which ocamlopt)"
-          echo "🔎 ocamlfind: $(which ocamlfind)"
-          echo "🔎 All ocamlfind on path:"
-          which -a ocamlfind
-      
-          echo ""
-          echo "📄 Writing test.ml"
-          echo 'let () = print_endline "Hello from OCaml"' > test.ml
-      
-          echo ""
-          echo "🧪 ocamlc compile"
-          ocamlc test.ml -o test_bytecode
-      
-          echo ""
-          echo "🧪 ocamlopt compile"
-          ocamlopt test.ml -o test_native
-      
-          echo ""
-          echo "🧪 ocamlfind ocamlc compile"
-          ocamlfind ocamlc -package zarith -linkpkg test.ml -o test_bytecode_find
-      
-          echo ""
-          echo "🧪 ocamlfind ocamlopt compile"
-          ocamlfind ocamlopt -package zarith -linkpkg test.ml -o test_native_find
-      
-          # echo ""
-          # echo "🧪 FULLPATH ocamlfind ocamlc compile"
-          # /home/runner/work/z3/z3/_opam/bin/ocamlfind ocamlc -package zarith -linkpkg test.ml -o test_bytecode_full
-      
-          # echo ""
-          # echo "🧪 FULLPATH ocamlfind ocamlopt compile"
-          # /home/runner/work/z3/z3/_opam/bin/ocamlfind ocamlopt -package zarith -linkpkg test.ml -o test_native_full
-      
-          echo ""
-          echo "✅ All compiles passed."
-
-      - name: 🧪 Debug OPAM + GITHUB_PATH setup
-        run: |
-          echo "🔍 PATH at this step:"
-          echo "$PATH" | tr ':' '\n'
-      
-          echo ""
-          echo "📁 Listing \$GITHUB_PATH file (if exists):"
-          if [ -f "$GITHUB_PATH" ]; then
-            cat "$GITHUB_PATH"
-          else
-            echo "❌ GITHUB_PATH file does not exist at $GITHUB_PATH"
-          fi
-      
-          echo ""
-          echo "📦 OPAM_SWITCH_PREFIX = $OPAM_SWITCH_PREFIX"
-          echo ""
-          echo "📂 Listing contents of \$OPAM_SWITCH_PREFIX/bin:"
-          ls -al "$OPAM_SWITCH_PREFIX/bin" || echo "❌ Directory does not exist"
-      
-          echo ""
-          echo "🔍 Check if PATH includes _opam/bin:"
-          echo "$PATH" | grep "_opam/bin" || echo "❌ _opam/bin NOT in PATH"
-      
-          echo ""
-          echo "✅ Done."
-        
       # Configure
       - name: Configure with CMake
         env:

@@ -168,13 +168,13 @@ execute_process(
 
 set(ocaml_stublibs_path "${ocaml_destdir_path}/stublibs")
 
-set(c_lib_deps "-lz3" "-lstdc++" "-lpthread")
+set(c_lib_deps "-cclib" "-lz3" "-lstdc++" "-lpthread")
 if (Z3_USE_LIB_GMP)
   list(APPEND c_lib_deps "-lgmp")
 endif()
 
 if( APPLE )
-  set(ocaml_rpath "@executable_path/../libz3${so_ext}")
+  # set(ocaml_rpath "@executable_path/../libz3${so_ext}")
 elseif( UNIX )
   set(ocaml_rpath "\\$ORIGIN/../libz3${so_ext}")
 endif()
@@ -241,11 +241,12 @@ execute_process(
 if(APPLE)
   add_custom_command(
     OUTPUT ${z3ml_bin}/patched_dllz3ml
-    COMMAND install_name_tool -id "@loader_path/libz3.dylib" "${CMAKE_BINARY_DIR}/libz3.dylib"
-    COMMAND install_name_tool -change libz3.dylib "@loader_path/libz3.dylib" "${z3ml_bin}/dllz3ml.so"
+    COMMAND install_name_tool -id "@rpath/libz3.dylib" "${CMAKE_BINARY_DIR}/libz3.dylib"
+    COMMAND install_name_tool -change libz3.dylib "@rpath/libz3.dylib" "${z3ml_bin}/dllz3ml.so"
+    COMMAND install_name_tool -add_rpath "@loader_path/../../../" "${z3ml_bin}/dllz3ml.so"
     COMMAND touch ${z3ml_bin}/patched_dllz3ml
     DEPENDS ${z3ml_bin}/dllz3ml.so
-    COMMENT "Patch macOS dynamic lib loader path"
+    COMMENT "Patch install name and reference for macOS"
     VERBATIM
   )
 else()
