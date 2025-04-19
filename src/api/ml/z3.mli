@@ -3714,30 +3714,8 @@ end
     (set_global_param "pp.decimal" "true")
     will set the parameter "decimal" in the module "pp" to true.
 
-    Legal parameters are:
-        auto_config (bool) (default: true)
-        debug_ref_count (bool) (default: false)
-        dot_proof_file (string) (default: proof.dot)
-        dump_models (bool) (default: false)
-        encoding (string) (default: unicode)
-        memory_high_watermark (unsigned int) (default: 0)
-        memory_high_watermark_mb (unsigned int) (default: 0)
-        memory_max_alloc_count (unsigned int) (default: 0)
-        memory_max_size (unsigned int) (default: 0)
-        model (bool) (default: true)
-        model_validate (bool) (default: false)
-        proof (bool) (default: false)
-        rlimit (unsigned int) (default: 0)
-        smtlib2_compliant (bool) (default: false)
-        stats (bool) (default: false)
-        timeout (unsigned int) (default: 4294967295)
-        trace (bool) (default: false)
-        trace_file_name (string) (default: z3.log)
-        type_check (bool) (default: true)
-        unsat_core (bool) (default: false)
-        verbose (unsigned int) (default: 0)
-        warning (bool) (default: true)
-        well_sorted_check (bool) (default: false)
+    Legal parameters are provided by running "z3 -p" or by consulting https://microsoft.github.io/z3guide/programming/Parameters.
+
 *)
 val set_global_param : string -> string -> unit
 
