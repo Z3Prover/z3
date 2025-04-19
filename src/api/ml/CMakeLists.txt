@@ -168,7 +168,7 @@ execute_process(
 
 set(ocaml_stublibs_path "${ocaml_destdir_path}/stublibs")
 
-set(c_lib_deps "-cclib" "-lz3" "-lstdc++" "-lpthread")
+set(c_lib_deps "-L${libz3_path}" "-lz3" "-lstdc++" "-lpthread")
 if (Z3_USE_LIB_GMP)
   list(APPEND c_lib_deps "-lgmp")
 endif()
@@ -177,8 +177,8 @@ if( APPLE )
   # set(ocaml_rpath "@executable_path/../libz3${so_ext}")
 elseif( UNIX )
   set(ocaml_rpath "\\$ORIGIN/../libz3${so_ext}")
+  list(APPEND c_lib_deps "-dllpath" ${ocaml_rpath})
 endif()
-list(APPEND c_lib_deps "-dllpath" ${ocaml_rpath})
 
 # We may not directly use CMake's BUILD_RPATH or INSTALL_RPATH since they don't set 
 # the ocaml stub libraries as a normal library target.
@@ -187,7 +187,6 @@ set(ocamlmklib_flags "-o" "z3ml"
                      "-ocamlcflags" "-bin-annot"
                      "-package" "zarith"
                      ${c_lib_deps}
-                     "-L${libz3_path}"
                      "-dllpath" "${libz3_path}"
                      "-L${ocaml_stublibs_path}"
                      "-dllpath" "${ocaml_stublibs_path}"
@@ -241,9 +240,8 @@ execute_process(
 if(APPLE)
   add_custom_command(
     OUTPUT ${z3ml_bin}/patched_dllz3ml
-    COMMAND install_name_tool -id "@rpath/libz3.dylib" "${CMAKE_BINARY_DIR}/libz3.dylib"
-    COMMAND install_name_tool -change libz3.dylib "@rpath/libz3.dylib" "${z3ml_bin}/dllz3ml.so"
-    COMMAND install_name_tool -add_rpath "@loader_path/../../../" "${z3ml_bin}/dllz3ml.so"
+    COMMAND install_name_tool -id "$<TARGET_FILE:libz3>" "$<TARGET_FILE:libz3>"
+    COMMAND install_name_tool -change "@rpath/libz3.${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.dylib" "$<TARGET_FILE:libz3>" "${z3ml_bin}/dllz3ml.so"
     COMMAND touch ${z3ml_bin}/patched_dllz3ml
     DEPENDS ${z3ml_bin}/dllz3ml.so
     COMMENT "Patch install name and reference for macOS"
