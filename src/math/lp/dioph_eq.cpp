@@ -2038,8 +2038,13 @@ namespace lp {
 
             if (ret != lia_move::undef) 
                 return ret;
-            if (ret == lia_move::undef)
+            if (ret == lia_move::undef) {
                 lra.settings().dio_calls_period() *= 2;
+                if (lra.settings().dio_calls_period() >= 16) {
+                    lra.settings().dio_enable_gomory_cuts() = true;
+                    lra.settings().set_run_gcd_test(true);
+                }
+            }
             return ret;
         }
 
