@@ -80,113 +80,175 @@ namespace nla {
     
     lbool powers::check(lpvar r, lpvar x, lpvar y, vector<lemma>& lemmas) {
         TRACE("nla", tout << r << " == " << x << "^" << y << "\n");
-        core& c = m_core;        
+        core& c = m_core;
         if (x == null_lpvar || y == null_lpvar || r == null_lpvar)
             return l_undef;
-        if (c.lra.column_has_term(x) || c.lra.column_has_term(y) || c.lra.column_has_term(r))
-            return l_undef;
-
-        if (c.use_nra_model()) 
-            return l_undef;
-
-        auto xval = c.val(x);
-        auto yval = c.val(y);
-        auto rval = c.val(r);
+        // if (c.lra.column_has_term(x) || c.lra.column_has_term(y) || c.lra.column_has_term(r))
+        //     return l_undef;
 
         lemmas.reset();
 
-        if (xval != 0 && yval == 0 && rval != 1) {
+        auto x_exp_0 = [&]() {
             new_lemma lemma(c, "x != 0 => x^0 = 1");
             lemma |= ineq(x, llc::EQ, rational::zero());
             lemma |= ineq(y, llc::NE, rational::zero());
             lemma |= ineq(r, llc::EQ, rational::one());
             return l_false;
-        }
+        };
 
-        if (xval == 0 && yval != 0 && rval != 0) {
+        auto zero_exp_y = [&]() {
             new_lemma lemma(c, "y != 0 => 0^y = 0");
             lemma |= ineq(x, llc::NE, rational::zero());
             lemma |= ineq(y, llc::EQ, rational::zero());
             lemma |= ineq(r, llc::EQ, rational::zero());
             return l_false;
-        }
+        };
 
-        if (xval > 0 && rval <= 0) {
+        auto x_gt_0 = [&]() {
             new_lemma lemma(c, "x > 0 => x^y > 0");
             lemma |= ineq(x, llc::LE, rational::zero());
             lemma |= ineq(r, llc::GT, rational::zero());
             return l_false;
-        }
+        };
 
-        if (xval > 1 && yval < 0 && rval >= 1) {
+        auto y_lt_1 = [&]() {
             new_lemma lemma(c, "x > 1, y < 0 => x^y < 1");
             lemma |= ineq(x, llc::LE, rational::one());
             lemma |= ineq(y, llc::GE, rational::zero());
             lemma |= ineq(r, llc::LT, rational::one());
             return l_false;
-        }
+        };
 
-        if (xval > 1 && yval > 0 && rval <= 1) {
+        auto y_gt_1 = [&]() {
             new_lemma lemma(c, "x > 1, y > 0 => x^y > 1");
             lemma |= ineq(x, llc::LE, rational::one());
             lemma |= ineq(y, llc::LE, rational::zero());
             lemma |= ineq(r, llc::GT, rational::one());
             return l_false;
-        }
+        };
 
-        if (xval >= 3 && yval != 0 && rval <= yval + 1) {
+        auto x_ge_3 = [&]() {
             new_lemma lemma(c, "x >= 3, y != 0 => x^y > ln(x)y + 1");
             lemma |= ineq(x, llc::LT, rational(3));
             lemma |= ineq(y, llc::EQ, rational::zero());
             lemma |= ineq(lp::lar_term(r, rational::minus_one(), y), llc::GT, rational::one());
             return l_false;
+        };
+
+        bool use_rational = !c.use_nra_model();
+        rational xval, yval, rval;
+        if (use_rational) {
+            xval = c.val(x);
+            yval = c.val(y);
+            rval = c.val(r);
+        } 
+        else {
+            auto& am = c.m_nra.am();
+            if (am.is_rational(c.m_nra.value(x)) &&
+                am.is_rational(c.m_nra.value(y)) &&
+                am.is_rational(c.m_nra.value(r))) {
+                am.to_rational(c.m_nra.value(x), xval);
+                am.to_rational(c.m_nra.value(y), yval);
+                am.to_rational(c.m_nra.value(r), rval);
+                use_rational = true;
+            }
         }
 
-        if (xval > 0 && yval.is_unsigned()) {
-            auto r2val = power(xval, yval.get_unsigned());
-            if (rval == r2val)
-                return l_true;
-            if (c.random() % 2 == 0) {
-                new_lemma lemma(c, "x == x0, y == y0 => r = x0^y0");
-                lemma |= ineq(x, llc::NE, xval);
-                lemma |= ineq(y, llc::NE, yval);
-                lemma |= ineq(r, llc::EQ, r2val);
-                return l_false;
+        if (use_rational) {
+            auto xval = c.val(x);
+            auto yval = c.val(y);
+            auto rval = c.val(r);
+            if (xval != 0 && yval == 0 && rval != 1)
+                return x_exp_0();
+            else if (xval == 0 && yval != 0 && rval != 0)
+                return zero_exp_y();
+            else if (xval > 0 && rval <= 0)
+                return x_gt_0();
+            else if (xval > 1 && yval < 0 && rval >= 1)
+                return y_lt_1();
+            else if (xval > 1 && yval > 0 && rval <= 1)
+                return y_gt_1();
+            else if (xval >= 3 && yval != 0 && rval <= yval + 1)
+                return x_ge_3();
+            else if (xval > 0 && yval.is_unsigned()) {
+                auto r2val = power(xval, yval.get_unsigned());
+                if (rval == r2val)
+                    return l_true;
+                if (c.random() % 2 == 0) {
+                    new_lemma lemma(c, "x == x0, y == y0 => r = x0^y0");
+                    lemma |= ineq(x, llc::NE, xval);
+                    lemma |= ineq(y, llc::NE, yval);
+                    lemma |= ineq(r, llc::EQ, r2val);
+                    return l_false;
+                }
+                if (yval > 0 && r2val > rval) {
+                    new_lemma lemma(c, "x >= x0 > 0, y >= y0 > 0 => r >= x0^y0");
+                    lemma |= ineq(x, llc::LT, xval);
+                    lemma |= ineq(y, llc::LT, yval);
+                    lemma |= ineq(r, llc::GE, r2val);
+                    return l_false;
+                }
+                if (r2val < rval) {
+                    new_lemma lemma(c, "0 < x <= x0, y <= y0 => r <= x0^y0");
+                    lemma |= ineq(x, llc::LE, rational::zero());
+                    lemma |= ineq(x, llc::GT, xval);
+                    lemma |= ineq(y, llc::GT, yval);
+                    lemma |= ineq(r, llc::LE, r2val);
+                    return l_false;
+                }
             }
-            if (yval > 0 && r2val > rval) {
-                new_lemma lemma(c, "x >= x0 > 0, y >= y0 > 0 => r >= x0^y0");
-                lemma |= ineq(x, llc::LT, xval);
-                lemma |= ineq(y, llc::LT, yval);
-                lemma |= ineq(r, llc::GE, r2val);
-                return l_false;
-            }
-            if (r2val < rval) {
-                new_lemma lemma(c, "0 < x <= x0, y <= y0 => r <= x0^y0");
-                lemma |= ineq(x, llc::LE, rational::zero());
-                lemma |= ineq(x, llc::GT, xval);
-                lemma |= ineq(y, llc::GT, yval);
-                lemma |= ineq(r, llc::LE, r2val);
-                return l_false;
+            if (xval > 0 && yval > 0 && !yval.is_int()) {
+                auto ynum = numerator(yval);
+                auto yden = denominator(yval);
+                //   r = x^{yn/yd}
+                // <=>
+                //   r^yd = x^yn
+                if (ynum.is_unsigned() && yden.is_unsigned()) {
+                    auto ryd = power(rval, yden.get_unsigned());
+                    auto xyn = power(xval, ynum.get_unsigned());
+                    if (ryd == xyn)
+                        return l_true;
+                }
             }
         }
-        if (xval > 0 && yval > 0 && !yval.is_int()) {
-            auto ynum = numerator(yval);
-            auto yden = denominator(yval);
-            if (!ynum.is_unsigned())
-                return l_undef;
-            if (!yden.is_unsigned())
-                return l_undef;
-            //   r = x^{yn/yd}
-            // <=>
-            //   r^yd = x^yn
-            auto ryd = power(rval, yden.get_unsigned());
-            auto xyn = power(xval, ynum.get_unsigned());
-            if (ryd == xyn)
-                return l_true;
-        }
+
+        if (!use_rational) {
+            auto& am = c.m_nra.am();
+            scoped_anum xval(am), yval(am), rval(am);
+            am.set(xval, c.m_nra.value(x));
+            am.set(yval, c.m_nra.value(y));
+            am.set(rval, c.m_nra.value(r));
+            if (xval != 0 && yval == 0 && rval != 1)
+                return x_exp_0();
+            else if (xval == 0 && yval != 0 && rval != 0)
+                return zero_exp_y();
+            else if (xval > 0 && rval <= 0)
+                return x_gt_0();
+            else if (xval > 1 && yval < 0 && rval >= 1)
+                return y_lt_1();
+            else if (xval > 1 && yval > 0 && rval <= 1)
+                return y_gt_1();
+            else if (xval >= 3 && yval != 0 && rval <= yval + 1)
+                return x_ge_3();
+            else if (xval > 0 && yval > 0 && am.is_rational(yval)) {
+                rational yr;
+                am.to_rational(yval, yr);
+                auto ynum = numerator(yr);
+                auto yden = denominator(yr);
+                //   r = x^{yn/yd}
+                // <=>
+                //   r^yd = x^yn
+                if (ynum.is_unsigned() && yden.is_unsigned()) {
+                    am.set(rval, power(rval, yden.get_unsigned()));
+                    am.set(xval, power(xval, ynum.get_unsigned()));
+                    if (rval == xval)
+                        return l_true;
+                }
+            }
+        } 
 
         return l_undef;
-
     }
+
     
 }

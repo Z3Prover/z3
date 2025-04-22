@@ -1099,6 +1099,14 @@ public:
             expr_ref zero(a.mk_real(0), m);
             mk_axiom(~mk_literal(a.mk_le(p, zero)));
         }
+        if (a.is_extended_numeral(y, r) && r > 0) {
+            // r is 1/n then x >= 0 => x = p^n
+            if (numerator(r) == 1 && denominator(r) > 1) {
+                expr_ref x_ge_0(a.mk_ge(x, a.mk_real(0)), m);
+                expr_ref x_eq_pn(a.mk_eq(x, a.mk_power(p, a.mk_real(denominator(r)))), m);
+                mk_axiom(~mk_literal(x_ge_0), mk_literal(x_eq_pn));
+            }
+        }
         bool can_be_underspecified = false;
         if (a.is_numeral(x, r) && r == 0 && (!a.is_numeral(y, r) || r == 0))
             can_be_underspecified = true;
