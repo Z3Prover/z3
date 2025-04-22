@@ -75,7 +75,7 @@ public:
 };
 
 
-#if _DEBUG
+#if Z3DEBUG
 
 #define alloc(T,...) new (memory::allocate(__FILE__,__LINE__,#T, sizeof(T))) T(__VA_ARGS__)
 #define dealloc(_ptr_) deallocf(__FILE__,__LINE__,_ptr_)
