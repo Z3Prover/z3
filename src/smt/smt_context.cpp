@@ -3014,7 +3014,7 @@ namespace smt {
         bool was_consistent = !inconsistent();
         try {
             internalize_assertions(); // internalize assertions before invoking m_asserted_formulas.push_scope
-        } catch (cancel_exception&) {
+        } catch (oom_exception&) {
             throw default_exception("Resource limits hit in push");
         }
         if (!m.inc())
@@ -3629,7 +3629,7 @@ namespace smt {
 
         try {
             internalize_assertions();
-        } catch (cancel_exception&) {
+        } catch (oom_exception&) {
             return l_undef;
         }
         expr_ref_vector theory_assumptions(m);
@@ -3702,7 +3702,7 @@ namespace smt {
                 add_theory_assumptions(asms);
                 TRACE("unsat_core_bug", tout << asms << '\n';);
                 init_assumptions(asms);
-            } catch (cancel_exception&) {
+            } catch (oom_exception&) {
                 return l_undef;
             }
             TRACE("before_search", display(tout););
@@ -3729,7 +3729,7 @@ namespace smt {
                 // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
                 for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
                 init_assumptions(asms);
-            } catch (cancel_exception&) {
+            } catch (oom_exception&) {
                 return l_undef;
             }
             for (auto const& clause : clauses) init_clause(clause);

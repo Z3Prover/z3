@@ -354,7 +354,7 @@ namespace smt {
     */
     void context::internalize(expr * n, bool gate_ctx) {
         if (memory::above_high_watermark())
-            throw cancel_exception();
+            throw oom_exception();
         internalize_deep(n);
         internalize_rec(n, gate_ctx);
     }
