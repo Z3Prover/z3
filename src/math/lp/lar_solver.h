@@ -32,7 +32,6 @@
 #include "math/lp/lar_constraints.h"
 #include "math/lp/lar_core_solver.h"
 #include "math/lp/lp_bound_propagator.h"
-#include "math/lp/lp_primal_core_solver.h"
 #include "math/lp/lp_types.h"
 #include "math/lp/nra_solver.h"
 #include "math/lp/numeric_pair.h"
@@ -524,7 +523,7 @@ public:
     }
 
     inline mpq bound_span_x(lpvar j) const {
-        return m_mpq_lar_core_solver.m_r_solver.m_upper_bounds[j].x - m_mpq_lar_core_solver.m_r_solver.m_lower_bounds[j].x;
+        return get_upper_bound(j).x - get_lower_bound(j).x;
     }
     
     bool has_lower_bound(lpvar var, u_dependency*& ci, mpq& value, bool& is_strict) const;

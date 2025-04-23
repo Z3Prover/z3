@@ -9,7 +9,6 @@ Author:
 #include "util/vector.h"
 #include <string>
 #include <utility>
-#include "math/lp/lp_core_solver_base.h"
 #include <algorithm>
 #include "math/lp/indexed_vector.h"
 #include "math/lp/lp_primal_core_solver.h"
