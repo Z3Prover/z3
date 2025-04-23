@@ -155,9 +155,6 @@ namespace nla {
         }
 
         if (use_rational) {
-            auto xval = c.val(x);
-            auto yval = c.val(y);
-            auto rval = c.val(r);
             if (xval != 0 && yval == 0 && rval != 1)
                 return x_exp_0();
             else if (xval == 0 && yval != 0 && rval != 0)
