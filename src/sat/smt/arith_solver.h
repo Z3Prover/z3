@@ -312,6 +312,7 @@ namespace arith {
         void mk_is_int_axiom(expr* n);
         void mk_idiv_mod_axioms(expr* p, expr* q);
         void mk_rem_axiom(expr* dividend, expr* divisor);
+        void mk_power_axiom(expr* t, expr* n, expr* p);
         void mk_bound_axioms(api_bound& b);
         void mk_bound_axiom(api_bound& b1, api_bound& b2);
         void mk_power0_axioms(app* t, app* n);
