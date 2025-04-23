@@ -44,9 +44,10 @@ class column {
 public:
     lar_term*  term() const { return m_term; }
  
-    u_dependency*& lower_bound_witness() { return m_lower_bound_witness; }
+    void set_lower_bound_witness(u_dependency* d) { m_lower_bound_witness = d; }
+    void set_upper_bound_witness(u_dependency* d) { m_upper_bound_witness = d; }
+
     u_dependency* lower_bound_witness() const { return m_lower_bound_witness; }
-    u_dependency*& upper_bound_witness() { return m_upper_bound_witness; }
     u_dependency* upper_bound_witness() const { return m_upper_bound_witness; }
 
     column() {}

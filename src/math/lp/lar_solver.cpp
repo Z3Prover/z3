@@ -576,14 +576,14 @@ namespace lp {
 
     void lar_solver::set_upper_bound_witness(lpvar j, u_dependency* dep, impq const& high) {
         m_trail.push(vector_value_trail(m_columns, j));
-        m_columns[j].upper_bound_witness() = dep;
+        m_columns[j].set_upper_bound_witness(dep);
         m_mpq_lar_core_solver.m_r_upper_bounds[j] = high;
         insert_to_columns_with_changed_bounds(j);
     }
 
     void lar_solver::set_lower_bound_witness(lpvar j, u_dependency* dep, impq const& low) {
         m_trail.push(vector_value_trail(m_columns, j));
-        m_columns[j].lower_bound_witness() = dep;
+        m_columns[j].set_lower_bound_witness(dep);
         m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
         insert_to_columns_with_changed_bounds(j);
     }
@@ -2072,12 +2072,11 @@ namespace lp {
                 Z3_fallthrough;
             case LE: {
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
-                if (up < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+                if (up < get_lower_bound(j)) {
                     set_crossed_bounds_column_and_deps(j, true, dep);
                 }
                 else {
-                    impq const& old_up = m_mpq_lar_core_solver.m_r_upper_bounds[j];
-                    if (up >= old_up)
+                    if (up >= get_upper_bound(j))
                         return;
                     set_upper_bound_witness(j, dep, up);
                 }
@@ -2088,23 +2087,22 @@ namespace lp {
                 Z3_fallthrough;
             case GE: {
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
-                if (low > m_mpq_lar_core_solver.m_r_upper_bounds[j]) {
+                if (low > get_upper_bound(j)) {
                     set_crossed_bounds_column_and_deps(j, false, dep);
                 } 
                 else {
-                    impq const& old_low = m_mpq_lar_core_solver.m_r_lower_bounds[j]; 
-                    if (low < old_low)
+                    if (low < get_lower_bound(j))
                         return;                    
                     set_lower_bound_witness(j, dep, low);
-                    m_mpq_lar_core_solver.m_column_types[j] = (low == m_mpq_lar_core_solver.m_r_upper_bounds[j] ? column_type::fixed : column_type::boxed);
+                    m_mpq_lar_core_solver.m_column_types[j] = (low == get_upper_bound(j) ? column_type::fixed : column_type::boxed);
                 }
                 break;                
             } 
             case EQ: {
                 auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
-                if (v > m_mpq_lar_core_solver.m_r_upper_bounds[j])
+                if (v > get_upper_bound(j))
                     set_crossed_bounds_column_and_deps(j, false, dep);                
-                else if (v < m_mpq_lar_core_solver.m_r_lower_bounds[j]) 
+                else if (v < get_lower_bound(j)) 
                     set_crossed_bounds_column_and_deps(j, true, dep);                
                 else {
                     set_upper_bound_witness(j, dep, v);
@@ -2116,8 +2114,8 @@ namespace lp {
             default:
                 UNREACHABLE();
         }
-        numeric_pair<mpq> const& lo = m_mpq_lar_core_solver.m_r_lower_bounds[j];
-        numeric_pair<mpq> const& hi = m_mpq_lar_core_solver.m_r_upper_bounds[j];
+        numeric_pair<mpq> const& lo = get_lower_bound(j);
+        numeric_pair<mpq> const& hi = get_upper_bound(j);
         if (lo == hi)
             m_mpq_lar_core_solver.m_column_types[j] = column_type::fixed;
     }
@@ -2133,12 +2131,12 @@ namespace lp {
                 Z3_fallthrough;
             case LE: {
                 auto up = numeric_pair<mpq>(right_side, y_of_bound);
-                if (up < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+                if (up < get_lower_bound(j)) {
                     set_crossed_bounds_column_and_deps(j, true, dep);
                 }
                 else {
                     set_upper_bound_witness(j, dep, up);
-                    m_mpq_lar_core_solver.m_column_types[j] = (up == m_mpq_lar_core_solver.m_r_lower_bounds[j] ? column_type::fixed : column_type::boxed);
+                    m_mpq_lar_core_solver.m_column_types[j] = (up == get_lower_bound(j) ? column_type::fixed : column_type::boxed);
                 }
                 break;
             } 
@@ -2146,7 +2144,7 @@ namespace lp {
                 y_of_bound = 1;
             case GE: {
                 auto low = numeric_pair<mpq>(right_side, y_of_bound);
-                if (low < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+                if (low < get_lower_bound(j)) {
                     return;
                 }
                 set_lower_bound_witness(j, dep, low);
@@ -2154,7 +2152,7 @@ namespace lp {
             } 
             case EQ: {
                 auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
-                if (v < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+                if (v < get_lower_bound(j)) {
                     set_crossed_bounds_column_and_deps(j, true, dep);
                 } 
                 else {
@@ -2181,7 +2179,7 @@ namespace lp {
         case LE:
         {
             auto up = numeric_pair<mpq>(right_side, y_of_bound);
-            if (up >= m_mpq_lar_core_solver.m_r_upper_bounds[j]) 
+            if (up >= get_upper_bound(j)) 
                 return;
             set_upper_bound_witness(j, dep, up);
         }
@@ -2192,19 +2190,19 @@ namespace lp {
         case GE:
         {
             auto low = numeric_pair<mpq>(right_side, y_of_bound);
-            if (low > m_mpq_lar_core_solver.m_r_upper_bounds[j]) {
+            if (low > get_upper_bound(j)) {
                 set_crossed_bounds_column_and_deps(j, false, dep);
             }
             else {
                 set_lower_bound_witness(j, dep, low);
-                m_mpq_lar_core_solver.m_column_types[j] = (low == m_mpq_lar_core_solver.m_r_upper_bounds[j] ? column_type::fixed : column_type::boxed);
+                m_mpq_lar_core_solver.m_column_types[j] = (low == get_upper_bound(j) ? column_type::fixed : column_type::boxed);
             }
         }
         break;
         case EQ:
         {
             auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
-            if (v > m_mpq_lar_core_solver.m_r_upper_bounds[j]) {
+            if (v > get_upper_bound(j)) {
                 set_crossed_bounds_column_and_deps(j, false, dep);
             }
             else {
@@ -2265,11 +2263,10 @@ namespace lp {
 
         impq ivalue(value);
         auto& lcs = m_mpq_lar_core_solver;
-        auto& slv = m_mpq_lar_core_solver.m_r_solver;
 
-        if (slv.column_has_upper_bound(j) && lcs.m_r_upper_bounds()[j] < ivalue)
+        if (column_has_upper_bound(j) && lcs.m_r_upper_bounds()[j] < ivalue)
             return false;
-        if (slv.column_has_lower_bound(j) && lcs.m_r_lower_bounds()[j] > ivalue)
+        if (column_has_lower_bound(j) && lcs.m_r_lower_bounds()[j] > ivalue)
             return false;
         
         set_value_for_nbasic_column(j, ivalue);
@@ -2279,27 +2276,26 @@ namespace lp {
 
     bool lar_solver::tighten_term_bounds_by_delta(lpvar j, const impq& delta) {
         SASSERT(column_has_term(j));
-        auto& slv = m_mpq_lar_core_solver.m_r_solver;
         TRACE("cube", tout << "delta = " << delta << std::endl;
               m_int_solver->display_column(tout, j); );
-        if (slv.column_has_upper_bound(j) && slv.column_has_lower_bound(j)) {
-            if (slv.m_upper_bounds[j] - delta < slv.m_lower_bounds[j] + delta) {
+        if (column_has_upper_bound(j) && column_has_lower_bound(j)) {
+            if (get_upper_bound(j) - delta < get_lower_bound(j) + delta) {
                 TRACE("cube", tout << "cannot tighten, delta = " << delta;);
                 return false;
             }
         }
         TRACE("cube", tout << "can tighten";);
-        if (slv.column_has_upper_bound(j)) {
-            if (!is_zero(delta.y) || !is_zero(slv.m_upper_bounds[j].y))
-                add_var_bound(j, lconstraint_kind::LT, slv.m_upper_bounds[j].x - delta.x);
+        if (column_has_upper_bound(j)) {
+            if (!is_zero(delta.y) || !is_zero(get_upper_bound(j).y))
+                add_var_bound(j, lconstraint_kind::LT, get_upper_bound(j).x - delta.x);
             else
-                add_var_bound(j, lconstraint_kind::LE, slv.m_upper_bounds[j].x - delta.x);
+                add_var_bound(j, lconstraint_kind::LE, get_upper_bound(j).x - delta.x);
         }
-        if (slv.column_has_lower_bound(j)) {
-            if (!is_zero(delta.y) || !is_zero(slv.m_lower_bounds[j].y))
-                add_var_bound(j, lconstraint_kind::GT, slv.m_lower_bounds[j].x + delta.x);
+        if (column_has_lower_bound(j)) {
+            if (!is_zero(delta.y) || !is_zero(get_lower_bound(j).y))
+                add_var_bound(j, lconstraint_kind::GT, get_lower_bound(j).x + delta.x);
             else
-                add_var_bound(j, lconstraint_kind::GE, slv.m_lower_bounds[j].x + delta.x);
+                add_var_bound(j, lconstraint_kind::GE, get_lower_bound(j).x + delta.x);
         }
         return true;
     }
