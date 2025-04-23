@@ -421,14 +421,14 @@ namespace lp {
         auto& val = lcs.r_x(j);
         switch (lcs.m_column_types()[j]) {
         case column_type::boxed: {
-            const auto& l = lcs.m_r_lower_bounds()[j];
-            if (val == l || val == lcs.m_r_upper_bounds()[j]) return false;
+            const auto& l = lcs.m_r_lower_bounds[j];
+            if (val == l || val == lcs.m_r_upper_bounds[j]) return false;
             set_value_for_nbasic_column(j, l);
             return true;
         }
                                         
         case column_type::lower_bound: {
-            const auto& l = lcs.m_r_lower_bounds()[j];
+            const auto& l = lcs.m_r_lower_bounds[j];
             if (val != l) {
                 set_value_for_nbasic_column(j, l);
                 return true;
@@ -437,7 +437,7 @@ namespace lp {
         }
         case column_type::fixed:
         case column_type::upper_bound: {
-            const auto & u = lcs.m_r_upper_bounds()[j];
+            const auto & u = lcs.m_r_upper_bounds[j];
             if (val != u) {
                 set_value_for_nbasic_column(j, u);
                 return true;
@@ -574,15 +574,31 @@ namespace lp {
         A_r().pop(k);
     }
 
+    struct lar_solver::column_update_trail : public trail {
+        lar_solver& s;
+        column_update_trail(lar_solver& s) : s(s) {}
+        void undo() override {
+            auto& [is_upper, j, bound, column] = s.m_column_updates.back();
+            if (is_upper)
+                s.m_mpq_lar_core_solver.m_r_upper_bounds[j] = bound;
+            else
+                s.m_mpq_lar_core_solver.m_r_lower_bounds[j] = bound;
+            s.m_columns[j] = column;
+            s.m_column_updates.pop_back();
+        }
+    };
+
     void lar_solver::set_upper_bound_witness(lpvar j, u_dependency* dep, impq const& high) {
-        m_trail.push(vector_value_trail(m_columns, j));
+        m_column_updates.push_back({true, j, get_upper_bound(j), m_columns[j]});
+        m_trail.push(column_update_trail(*this));
         m_columns[j].set_upper_bound_witness(dep);
         m_mpq_lar_core_solver.m_r_upper_bounds[j] = high;
         insert_to_columns_with_changed_bounds(j);
     }
 
     void lar_solver::set_lower_bound_witness(lpvar j, u_dependency* dep, impq const& low) {
-        m_trail.push(vector_value_trail(m_columns, j));
+        m_column_updates.push_back({false, j, get_lower_bound(j), m_columns[j]});
+        m_trail.push(column_update_trail(*this));
         m_columns[j].set_lower_bound_witness(dep);
         m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
         insert_to_columns_with_changed_bounds(j);
@@ -1084,7 +1100,7 @@ namespace lp {
         const column& ul = m_columns[var];
         dep = ul.lower_bound_witness();
         if (dep != nullptr) {
-            auto& p = m_mpq_lar_core_solver.m_r_lower_bounds()[var];
+            auto& p = m_mpq_lar_core_solver.m_r_lower_bounds[var];
             value = p.x;
             is_strict = p.y.is_pos();
             return true;
@@ -1103,7 +1119,7 @@ namespace lp {
         const column& ul = m_columns[var];
         dep = ul.upper_bound_witness();
         if (dep != nullptr) {
-            auto& p = m_mpq_lar_core_solver.m_r_upper_bounds()[var];
+            auto& p = m_mpq_lar_core_solver.m_r_upper_bounds[var];
             value = p.x;
             is_strict = p.y.is_neg();
             return true;
@@ -1625,8 +1641,8 @@ namespace lp {
         //        SASSERT(m_mpq_lar_core_solver.m_r_lower_bounds.size() == j && m_mpq_lar_core_solver.m_r_upper_bounds.size() == j);  // restore later
         m_mpq_lar_core_solver.resize_x(j + 1);
         auto& rslv = m_mpq_lar_core_solver.m_r_solver;
-        m_mpq_lar_core_solver.m_r_lower_bounds.increase_size_by_one();
-        m_mpq_lar_core_solver.m_r_upper_bounds.increase_size_by_one();
+        m_mpq_lar_core_solver.m_r_lower_bounds.reserve(j + 1);
+        m_mpq_lar_core_solver.m_r_upper_bounds.reserve(j + 1);
         rslv.inf_heap_increase_size_by_one();
         rslv.m_costs.resize(j + 1);
         rslv.m_d.resize(j + 1);
@@ -2264,9 +2280,9 @@ namespace lp {
         impq ivalue(value);
         auto& lcs = m_mpq_lar_core_solver;
 
-        if (column_has_upper_bound(j) && lcs.m_r_upper_bounds()[j] < ivalue)
+        if (column_has_upper_bound(j) && lcs.m_r_upper_bounds[j] < ivalue)
             return false;
-        if (column_has_lower_bound(j) && lcs.m_r_lower_bounds()[j] > ivalue)
+        if (column_has_lower_bound(j) && lcs.m_r_lower_bounds[j] > ivalue)
             return false;
         
         set_value_for_nbasic_column(j, ivalue);

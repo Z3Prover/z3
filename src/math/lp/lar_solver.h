@@ -73,6 +73,14 @@ class lar_solver : public column_namer {
         }
     };
 
+    struct column_update {
+        bool is_upper;
+        unsigned j;
+        impq bound;
+        column column;
+    };
+    struct column_update_trail;
+
     //////////////////// fields //////////////////////////
     trail_stack m_trail;
     lp_settings m_settings;
@@ -86,6 +94,8 @@ class lar_solver : public column_namer {
     bool m_need_register_terms = false;
     var_register m_var_register;
     svector<column> m_columns;
+    vector<column_update> m_column_updates;
+    
     constraint_set m_constraints;
     // the set of column indices j such that bounds have changed for j
     indexed_uint_set m_columns_with_changed_bounds;

@@ -437,7 +437,7 @@ public:
     }
 
     std::ostream& print_column_info(unsigned j, std::ostream & out, bool print_nl = false, const std::string& var_prefix = "j") const {
-        if (j >= m_lower_bounds.size()) {
+        if (j >= m_column_types.size()) {
             out << "[" << j << "] is not present\n";
             return out;
         }

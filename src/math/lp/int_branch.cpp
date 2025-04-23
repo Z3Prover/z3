@@ -75,7 +75,7 @@ int int_branch::find_inf_int_base_column() {
         if (!lia.column_is_int_inf(j))
             continue;
         usage = lra.usage_in_terms(j);
-        if (lia.is_boxed(j) &&  (range = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(2*usage)) <= small_value) {
+        if (lia.is_boxed(j) &&  (range = lcs.m_r_upper_bounds[j].x - lcs.m_r_lower_bounds[j].x - rational(2*usage)) <= small_value) {
             result = j;
             k++;            
             n = 1;
@@ -98,7 +98,7 @@ int int_branch::find_inf_int_base_column() {
             continue;
         SASSERT(!lia.is_fixed(j));
         usage = lra.usage_in_terms(j);
-        new_range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x - rational(2*usage);
+        new_range  = lcs.m_r_upper_bounds[j].x - lcs.m_r_lower_bounds[j].x - rational(2*usage);
         if (new_range < range) {
             n = 1;
             result = j;

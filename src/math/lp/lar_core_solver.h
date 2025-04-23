@@ -29,8 +29,8 @@ public:
     stacked_vector<column_type> m_column_types;
     // r - solver fields, for rational numbers
 
-    stacked_vector<numeric_pair<mpq>> m_r_lower_bounds;
-    stacked_vector<numeric_pair<mpq>> m_r_upper_bounds;
+    vector<numeric_pair<mpq>> m_r_lower_bounds;
+    vector<numeric_pair<mpq>> m_r_upper_bounds;
     static_matrix<mpq, numeric_pair<mpq>> m_r_A;
     stacked_vector<unsigned> m_r_pushed_basis;
     vector<unsigned>         m_r_basis;
@@ -121,15 +121,11 @@ public:
         m_stacked_simplex_strategy = settings().simplex_strategy();
         m_stacked_simplex_strategy.push();
         m_column_types.push();
-        // rational
-        m_r_lower_bounds.push();
-        m_r_upper_bounds.push();        
+        // rational     
     }
 
     void pop(unsigned k) {
         // rationals
-        m_r_lower_bounds.pop(k);
-        m_r_upper_bounds.pop(k);
         m_column_types.pop(k);
         
         m_r_x.resize(m_r_A.column_count());

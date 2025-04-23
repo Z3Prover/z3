@@ -27,8 +27,8 @@ lar_core_solver::lar_core_solver(
                m_r_heading,
                m_costs_dummy,
                m_column_types(),
-               m_r_lower_bounds(),
-               m_r_upper_bounds(),
+               m_r_lower_bounds,
+               m_r_upper_bounds,
                settings,
                column_names) {
 }    
