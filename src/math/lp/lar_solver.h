@@ -202,8 +202,8 @@ class lar_solver : public column_namer {
     
     void pop_core_solver_params();
     void pop_core_solver_params(unsigned k);
-    void set_upper_bound_witness(lpvar j, u_dependency* ci);
-    void set_lower_bound_witness(lpvar j, u_dependency* ci);
+    void set_upper_bound_witness(lpvar j, u_dependency* ci, impq const& high);
+    void set_lower_bound_witness(lpvar j, u_dependency* ci, impq const& low);
     void substitute_terms_in_linear_expression(const vector<std::pair<mpq, lpvar>>& left_side_with_terms,
                                                vector<std::pair<mpq, lpvar>>& left_side) const;
 
