@@ -74,10 +74,10 @@ class lar_solver : public column_namer {
     };
 
     struct column_update {
-        bool is_upper;
-        unsigned j;
-        impq bound;
-        column column;
+        bool m_is_upper;
+        unsigned m_j;
+        impq m_bound;
+        column m_column;
     };
     struct column_update_trail;
 
