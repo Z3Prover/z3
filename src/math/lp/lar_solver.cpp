@@ -1183,7 +1183,8 @@ namespace lp {
             slack += coeff * (adj_sign < 0 ? get_upper_bound(j) : get_lower_bound(j));
         }
 
-        bool is_pos = slack.is_pos();
+        #define get_sign(_x_) (_x_.is_pos() ? 1 : (_x_.is_neg() ? -1 : 0))
+        int sign = get_sign(slack);
         #endif
 
         for (auto& [coeff, j] : inf_row) {
@@ -1199,7 +1200,7 @@ namespace lp {
                 if (ul.previous_upper() != UINT_MAX) {
                     auto const& [_is_upper, _j, _bound, _column] = m_column_updates[ul.previous_upper()];
                     auto new_slack = slack + coeff * (_bound - get_upper_bound(j));
-                    if (is_pos == new_slack.is_pos()) {
+                    if (sign == get_sign(new_slack)) {
                         //verbose_stream() << "can weaken j" << j << " " << coeff << " " << get_upper_bound(j) << " " << _bound << "\n";
                         slack = new_slack;
                         bound_constr_i = _column.upper_bound_witness();
@@ -1210,7 +1211,7 @@ namespace lp {
                 if (ul.previous_lower() != UINT_MAX) {
                     auto const& [_is_upper, _j, _bound, _column] = m_column_updates[ul.previous_lower()];
                     auto new_slack = slack + coeff * (_bound - get_lower_bound(j));
-                    if (is_pos == new_slack.is_pos()) {
+                    if (sign == get_sign(new_slack)) {
                         //verbose_stream() << "can weaken j" << j << " " << coeff << " " << get_lower_bound(j) << " " << _bound << "\n";
                         slack = new_slack;
                         bound_constr_i = _column.lower_bound_witness();
