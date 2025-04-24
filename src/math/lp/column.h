@@ -40,6 +40,8 @@ class lar_term; // forward definition
 class column {
     u_dependency* m_lower_bound_witness = nullptr;
     u_dependency* m_upper_bound_witness = nullptr;
+    unsigned m_previous_lower = UINT_MAX;
+    unsigned m_previous_upper = UINT_MAX;
     lar_term*     m_term = nullptr;
 public:
     lar_term*  term() const { return m_term; }
@@ -49,6 +51,12 @@ public:
 
     u_dependency* lower_bound_witness() const { return m_lower_bound_witness; }
     u_dependency* upper_bound_witness() const { return m_upper_bound_witness; }
+
+    unsigned previous_lower() const { return m_previous_lower; }
+    unsigned previous_upper() const { return m_previous_upper; }
+
+    void set_previous_lower(unsigned j) { m_previous_lower = j; }
+    void set_previous_upper(unsigned j) { m_previous_upper = j; }
 
     column() {}
 

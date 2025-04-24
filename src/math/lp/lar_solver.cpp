@@ -589,17 +589,23 @@ namespace lp {
     };
 
     void lar_solver::set_upper_bound_witness(lpvar j, u_dependency* dep, impq const& high) {
+        bool has_upper = m_columns[j].upper_bound_witness() != nullptr;
         m_column_updates.push_back({true, j, get_upper_bound(j), m_columns[j]});
         m_trail.push(column_update_trail(*this));
         m_columns[j].set_upper_bound_witness(dep);
+        if (has_upper)
+            m_columns[j].set_previous_upper(m_column_updates.size() - 1);
         m_mpq_lar_core_solver.m_r_upper_bounds[j] = high;
         insert_to_columns_with_changed_bounds(j);
     }
 
     void lar_solver::set_lower_bound_witness(lpvar j, u_dependency* dep, impq const& low) {
+        bool has_lower = m_columns[j].lower_bound_witness() != nullptr;
         m_column_updates.push_back({false, j, get_lower_bound(j), m_columns[j]});
         m_trail.push(column_update_trail(*this));
         m_columns[j].set_lower_bound_witness(dep);
+        if (has_lower)
+            m_columns[j].set_previous_lower(m_column_updates.size() - 1);
         m_mpq_lar_core_solver.m_r_lower_bounds[j] = low;
         insert_to_columns_with_changed_bounds(j);
     }
@@ -1169,11 +1175,50 @@ namespace lp {
         const vector<std::pair<mpq, unsigned>>& inf_row,
         int inf_sign) const {
 
+        #if 0
+        impq slack(0);
+
         for (auto& [coeff, j] : inf_row) {
             int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
-            const column& ul = m_columns[j];
+            slack += coeff * (adj_sign < 0 ? get_upper_bound(j) : get_lower_bound(j));
+        }
 
-            u_dependency* bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
+        bool is_pos = slack.is_pos();
+        #endif
+
+        for (auto& [coeff, j] : inf_row) {
+            int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
+            bool is_upper = adj_sign < 0;
+            const column& ul = m_columns[j];
+            u_dependency* bound_constr_i = is_upper ? ul.upper_bound_witness() : ul.lower_bound_witness();
+
+            #if 0
+            if (false)
+                ;
+            else if(is_upper) {
+                if (ul.previous_upper() != UINT_MAX) {
+                    auto const& [_is_upper, _j, _bound, _column] = m_column_updates[ul.previous_upper()];
+                    auto new_slack = slack + coeff * (_bound - get_upper_bound(j));
+                    if (is_pos == new_slack.is_pos()) {
+                        //verbose_stream() << "can weaken j" << j << " " << coeff << " " << get_upper_bound(j) << " " << _bound << "\n";
+                        slack = new_slack;
+                        bound_constr_i = _column.upper_bound_witness();
+                    }
+                }
+            } 
+            else {
+                if (ul.previous_lower() != UINT_MAX) {
+                    auto const& [_is_upper, _j, _bound, _column] = m_column_updates[ul.previous_lower()];
+                    auto new_slack = slack + coeff * (_bound - get_lower_bound(j));
+                    if (is_pos == new_slack.is_pos()) {
+                        //verbose_stream() << "can weaken j" << j << " " << coeff << " " << get_lower_bound(j) << " " << _bound << "\n";
+                        slack = new_slack;
+                        bound_constr_i = _column.lower_bound_witness();
+                    }
+                }            
+            }
+            #endif
+
             svector<constraint_index> deps;
             m_dependencies.linearize(bound_constr_i, deps);
             for (auto d : deps) {
