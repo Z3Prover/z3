@@ -3051,7 +3051,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     expr_ref sign_bit(m), exp_too_large(m), sig_4(m), exp_2(m), rest(m);
     expr_ref is_neg(m), x_abs(m), neg_x(m);
     sign_bit = m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, x);
-    rest = m_bv_util.mk_extract(bv_sz - 2, 0, x);
+    rest = m_bv_util.mk_extract(bv_sz == 1 ? 0 : (bv_sz - 2), 0, x);
     dbg_decouple("fpa2bv_to_fp_signed_rest", rest);
     is_neg = m.mk_eq(sign_bit, bv1_1);
     neg_x = m_bv_util.mk_bv_neg(x); // overflow ok, x_abs is now unsigned.
