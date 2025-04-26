@@ -99,7 +99,12 @@ class lazy_tactic : public tactic {
     params_ref p;
     std::function<tactic* (ast_manager& m, params_ref const& p)> m_mk_tactic;
     tactic* m_tactic = nullptr;
-    void ensure_tactic() { if (!m_tactic) m_tactic = m_mk_tactic(m, p); }
+    void ensure_tactic() {
+        if (!m_tactic) {
+            m_tactic = m_mk_tactic(m, p);
+            m_tactic->updt_params(p);
+        }
+    }
 public:
     lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic* (ast_manager&, params_ref const&)> mk_tactic) : m(m), p(p), m_mk_tactic(mk_tactic) {}
     ~lazy_tactic() override { dealloc(m_tactic); }
