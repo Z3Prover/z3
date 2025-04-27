@@ -1115,6 +1115,8 @@ private:
         }
 
         TRACE("sat", m_solver.display(tout););
+        if (m_sat_mc)
+            m_sat_mc->flush_smc(m_solver, m_map);
         if (m_sat_mc) {
             (*m_sat_mc)(mdl);
         }
@@ -1123,6 +1125,7 @@ private:
             TRACE("sat", m_mcs.back()->display(tout););
             (*m_mcs.back())(mdl);
         }
+
         TRACE("sat", model_smt2_pp(tout, m, *mdl, 0););        
 
         if (!gparams::get_ref().get_bool("model_validate", false)) {
