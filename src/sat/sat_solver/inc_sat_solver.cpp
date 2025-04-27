@@ -137,7 +137,10 @@ public:
         for (unsigned h : m_fmls_head_lim) result->m_fmls_head_lim.push_back(h);
         for (expr* f : m_internalized_fmls) result->m_internalized_fmls.push_back(tr(f));
         if (m_mcs.back()) result->m_mcs.push_back(m_mcs.back()->translate(tr));
-        if (m_sat_mc) result->m_sat_mc = dynamic_cast<sat2goal::mc*>(m_sat_mc->translate(tr));
+        if (m_sat_mc) {
+            m_sat_mc->flush_smc(m_solver, m_map);
+            result->m_sat_mc = dynamic_cast<sat2goal::mc*>(m_sat_mc->translate(tr));
+        }
         result->m_has_uninterpreted = m_has_uninterpreted;
         // copy m_bb_rewriter?
         result->m_internalized_converted = m_internalized_converted;
