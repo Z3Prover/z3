@@ -283,7 +283,7 @@ namespace sat {
         m_stats.m_mk_var++;
         bool_var v = m_justification.size();
         
-        if (!m_free_vars.empty()) {
+        if (!m_free_vars.empty() && false) {
             v = m_free_vars.back();
             m_free_vars.pop_back();
             m_active_vars.push_back(v);

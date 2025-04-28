@@ -37,15 +37,25 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
 
         // check if there is an argument that is a constructor
         // such that the recursive function can be partially evaluated.
+        // at most one kind of accessor is allowed to prevent recursive
+        // patterns that reconstruct the argument indirectly.
+        // This can be relaxed to omitting at least one accessor, and probably other patterns.
         if (!safe_to_subst && !has_quantifiers(r)) {
             datatype::util u(m);
             auto is_decreasing = [&](unsigned i) {
                 bool is_dec = true;
                 unsigned idx = num_args - i - 1;
-                for (auto t : subterms::all(expr_ref(r, m)))
-                    if (is_app(t) && any_of(*to_app(t), [&](expr* e) { return is_var(e) && to_var(e)->get_idx() == idx; }))
+                func_decl* dec_fun = nullptr;
+                for (auto t : subterms::all(expr_ref(r, m))) {
+                    if (is_app(t) && any_of(*to_app(t), [&](expr* e) { return is_var(e) && to_var(e)->get_idx() == idx; })) {
                         if (!u.is_accessor(t) && !u.is_is(t) && !u.is_recognizer(t))
+                            is_dec = false;                       
+                        else if (u.is_accessor(t) && dec_fun && to_app(t)->get_decl() != dec_fun)
                             is_dec = false;
+                        else if (u.is_accessor(t))                        
+                            dec_fun = to_app(t)->get_decl();
+                    }
+                }
                 return is_dec;
             };
             for (unsigned i = 0; i < num_args; ++i) {
