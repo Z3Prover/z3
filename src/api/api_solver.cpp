@@ -995,9 +995,11 @@ extern "C" {
         _terms.reset();
         _guards.reset();
         for (solver::solution const& s : solutions) {
+            if (!s.term)
+                continue;
             _vars.push_back(s.var);
             _terms.push_back(s.term);
-            _guards.push_back(s.guard);
+            _guards.push_back(s.guard ? s.guard : m.mk_true());
         }
         Z3_CATCH;
     }

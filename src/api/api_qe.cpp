@@ -95,10 +95,11 @@ extern "C"
 
         obj_map<ast, ast*> &map_z3 = to_ast_map_ref(map);
 
-        for (auto& kv : emap) {
-            m.inc_ref(kv.m_key);
-            m.inc_ref(kv.m_value);
-            map_z3.insert(kv.m_key, kv.m_value);
+        for (auto& [k,v] : emap) {
+            SASSERT(v);
+            m.inc_ref(k);
+            m.inc_ref(v);
+            map_z3.insert(k, v);
         }
 
         return of_expr (result);
