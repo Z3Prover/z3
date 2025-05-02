@@ -1175,7 +1175,7 @@ namespace lp {
         const vector<std::pair<mpq, unsigned>>& inf_row,
         int inf_sign) const {
 
-        #if 0
+        #if 1
         impq slack(0);
 
         for (auto& [coeff, j] : inf_row) {
@@ -1185,6 +1185,7 @@ namespace lp {
 
         #define get_sign(_x_) (_x_.is_pos() ? 1 : (_x_.is_neg() ? -1 : 0))
         int sign = get_sign(slack);
+        
         #endif
 
         for (auto& [coeff, j] : inf_row) {
@@ -1193,15 +1194,13 @@ namespace lp {
             const column& ul = m_columns[j];
             u_dependency* bound_constr_i = is_upper ? ul.upper_bound_witness() : ul.lower_bound_witness();
 
-            #if 0
-            if (false)
-                ;
-            else if(is_upper) {
+            #if 1
+            if(is_upper) {
                 if (ul.previous_upper() != UINT_MAX) {
                     auto const& [_is_upper, _j, _bound, _column] = m_column_updates[ul.previous_upper()];
                     auto new_slack = slack + coeff * (_bound - get_upper_bound(j));
                     if (sign == get_sign(new_slack)) {
-                        //verbose_stream() << "can weaken j" << j << " " << coeff << " " << get_upper_bound(j) << " " << _bound << "\n";
+                        // verbose_stream() << "can weaken j" << j << " " << coeff << " " << get_upper_bound(j) << " " << _bound << "\n";
                         slack = new_slack;
                         bound_constr_i = _column.upper_bound_witness();
                     }
@@ -1212,7 +1211,7 @@ namespace lp {
                     auto const& [_is_upper, _j, _bound, _column] = m_column_updates[ul.previous_lower()];
                     auto new_slack = slack + coeff * (_bound - get_lower_bound(j));
                     if (sign == get_sign(new_slack)) {
-                        //verbose_stream() << "can weaken j" << j << " " << coeff << " " << get_lower_bound(j) << " " << _bound << "\n";
+                        //                verbose_stream() << "can weaken j" << j << " " << coeff << " " << get_lower_bound(j) << " " << _bound << "\n";
                         slack = new_slack;
                         bound_constr_i = _column.lower_bound_witness();
                     }

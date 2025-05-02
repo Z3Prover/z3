@@ -56,6 +56,7 @@ class int_solver {
    
     lp_settings& settings();
     const lp_settings& settings() const;
+public:
     bool at_bound(unsigned j) const;
     bool has_lower(unsigned j) const;
     bool has_upper(unsigned j) const;
