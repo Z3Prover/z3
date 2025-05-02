@@ -291,6 +291,12 @@ namespace lp {
                 tp, [](int j) -> std::string { return "x" + std::to_string(j); }, out);
         }
 
+        std::ostream& print_espace(std::ostream & out) const {
+            out << "m_espace:";
+            print_term_o(create_term_from_espace(), out) << std::endl;
+            return out;
+        }
+        
         std::ostream& print_term_o(term_o const& term, std::ostream& out) const {
             if (term.size() == 0 && term.c().is_zero()) {
                 out << "0";
@@ -376,6 +382,28 @@ namespace lp {
                     r.add_monomial(p.coeff(), p.var());
                 }
                 return r;
+            }
+             // Deep‑copy this term_with_index into 'target'
+            void copy(term_with_index& target) const {
+                if (&target == this)
+                    return;
+                // Clear target's data and index
+                target.clear();
+                // Copy monomial data verbatim.
+                target.m_data = m_data;
+
+                // Re‑create a compact m_index that tracks only the used variables.
+                unsigned max_var = 0;
+                for (auto const& iv : m_data)
+                    max_var = std::max(max_var, iv.var());
+
+                target.m_index.assign(max_var + 1, -1);
+                for (unsigned idx = 0; idx < m_data.size(); ++idx)
+                    target.m_index[m_data[idx].var()] = static_cast<int>(idx);
+
+#if Z3DEBUG
+                SASSERT(target.invariant());
+#endif
             }
 
             auto size() const { return m_data.size(); }
@@ -493,7 +521,8 @@ namespace lp {
         term_with_index m_lspace;
         // m_espace is for operations on m_e_matrix rows
         term_with_index m_espace;
-
+        term_with_index m_espace_backup;
+        
         bijection m_k2s;
         bij_map<std::pair<lar_term, unsigned>> m_fresh_k2xt_terms;
         // m_row2fresh_defs[i] is the set of all fresh variables xt
@@ -512,7 +541,7 @@ namespace lp {
         std::unordered_map<unsigned, std::unordered_set<unsigned>> m_columns_to_terms;
 
         unsigned m_normalize_conflict_index = UINT_MAX;  // the row index of the conflict
-        mpq      m_normalize_conflict_gcd; // the gcd of the coefficients the m_e_matrix[m_normalize_conflict_gcd].
+        mpq      m_normalize_conflict_gcd; // the gcd of the coefficients of m_e_matrix[m_normalize_conflict_gcd].
         void reset_conflict() { m_normalize_conflict_index = UINT_MAX; }
         bool has_conflict_index() const { return m_normalize_conflict_index != UINT_MAX; }
         void set_rewrite_conflict(unsigned idx, const mpq& gcd) {
@@ -524,7 +553,7 @@ namespace lp {
 
         void undo_add_term_method(const lar_term* t) {
             TRACE("d_undo", tout << "t:" << t << ", t->j():" << t->j() << std::endl;);
-            TRACE("dioph_eq", lra.print_term(*t, tout); tout << ", t->j() =" << t->j() << std::endl;);
+            TRACE("dio", lra.print_term(*t, tout); tout << ", t->j() =" << t->j() << std::endl;);
             if (!contains(m_active_terms, t)) {
                 for (auto i = m_added_terms.size(); i-- > 0; ) {
                     if (m_added_terms[i] != t)
@@ -548,7 +577,7 @@ namespace lp {
             SASSERT(std::find(m_added_terms.begin(), m_added_terms.end(), t) == m_added_terms.end());
             SASSERT(contains(m_active_terms, t));
             m_active_terms.erase(t);
-            TRACE("dioph_eq", tout << "the deleted term column in m_l_matrix" << std::endl; for (auto p : m_l_matrix.column(t->j())) { tout << "p.coeff():" << p.coeff() << ", row " << p.var() << std::endl; } tout << "m_l_matrix has " << m_l_matrix.column_count() << " columns" << std::endl; tout << "and " << m_l_matrix.row_count() << " rows" << std::endl; print_lar_term_L(*t, tout); tout << "; t->j()=" << t->j() << std::endl;);
+            TRACE("dio", tout << "the deleted term column in m_l_matrix" << std::endl; for (auto p : m_l_matrix.column(t->j())) { tout << "p.coeff():" << p.coeff() << ", row " << p.var() << std::endl; } tout << "m_l_matrix has " << m_l_matrix.column_count() << " columns" << std::endl; tout << "and " << m_l_matrix.row_count() << " rows" << std::endl; print_lar_term_L(*t, tout); tout << "; t->j()=" << t->j() << std::endl;);
             shrink_matrices();
         }
 
@@ -884,7 +913,7 @@ namespace lp {
         }
         void substitute_with_fresh_def(unsigned ei, unsigned j, const mpq& alpha) {
             const lar_term& sub_term = m_fresh_k2xt_terms.get_by_key(j).first;
-            TRACE("dioph_eq", print_lar_term_L(sub_term, tout) << std::endl;);
+            TRACE("dio", print_lar_term_L(sub_term, tout) << std::endl;);
             SASSERT(sub_term.get_coeff(j).is_one());
             // we need to eliminate alpha*j in ei's row
             add_term_to_entry(-alpha, sub_term, ei);
@@ -1192,13 +1221,13 @@ namespace lp {
         // The function returns true if and only if there is no conflict.
         bool normalize_e_by_gcd(unsigned ei, mpq& g) {
             mpq& e = m_sum_of_fixed[ei];
-            TRACE("dioph_eq", print_entry(ei, tout) << std::endl;);
+            TRACE("dio", print_entry(ei, tout) << std::endl;);
             g = gcd_of_coeffs(m_e_matrix.m_rows[ei], false);
             if (g.is_zero() || g.is_one()) {
                 SASSERT(g.is_one() || e.is_zero());
                 return true;
             }
-            TRACE("dioph_eq", tout << "g:" << g << std::endl;);
+            TRACE("dio", tout << "g:" << g << std::endl;);
             mpq c_g = e / g;
             if (c_g.is_int()) {
                 for (auto& p : m_e_matrix.m_rows[ei]) {
@@ -1210,7 +1239,7 @@ namespace lp {
                     p.coeff() /= g;
                 }
 
-                TRACE("dioph_eq", tout << "ep_m_e:";
+                TRACE("dio", tout << "ep_m_e:";
                       print_entry(ei, tout) << std::endl;);
                 SASSERT(entry_invariant(ei));
                 return true;
@@ -1221,7 +1250,7 @@ namespace lp {
 
         lia_move subs_qfront_by_fresh(unsigned k, protected_queue& q, unsigned j) {
             const lar_term& e = m_fresh_k2xt_terms.get_by_key(k).first;
-            TRACE("dioph_eq", tout << "k:" << k << ", in ";
+            TRACE("dio", tout << "k:" << k << ", in ";
                   print_term_o(create_term_from_espace(), tout) << std::endl;
                   tout << "subs with e:";
                   print_lar_term_L(e, tout) << std::endl;);
@@ -1241,7 +1270,7 @@ namespace lp {
             }
 
             // there is no change in m_l_matrix
-            TRACE("dioph_eq", tout << "after subs k:" << k << "\n";
+            TRACE("dio", tout << "after subs k:" << k << "\n";
                   print_term_o(create_term_from_espace(), tout) << std::endl;
                   tout << "m_lspace:{"; print_lar_term_L(m_lspace.m_data, tout);
                   tout << "}, opened:"; print_ml(m_lspace.to_term(), tout) << std::endl;);
@@ -1568,18 +1597,182 @@ namespace lp {
             }
         }
 
+
+        // returns false if all coefficients are +-1 and true otherwise
+        mpq find_second_smallest_coeff_in_espace() {
+            mpq a; // first smallest
+            mpq b; // second smallest
+            for (const auto & [c, v]: m_espace) {
+                if (var_is_fresh(v))
+                    return mpq(1);
+                mpq ac = abs(c);
+                if (a.is_zero())
+                    a = ac; // first smallest init
+                else if (ac < a) {
+                    b = a; // init b
+                    a = ac; // first smallest improved
+                }
+                else if (ac < b) {                    
+                    b = ac; // second smallest improved
+                }
+            }
+            return b;
+        }
+        
+        lia_move try_improve_gcd_on_espace(unsigned term_j) {
+            mpq second_smallest_coeff = find_second_smallest_coeff_in_espace();
+            TRACE("dio", tout << "second_smallest_coeff:" << second_smallest_coeff << std::endl;);
+            if (abs(second_smallest_coeff) <= mpq(1)) {
+                //can we improve here?
+                return lia_move::undef;
+            }
+            auto r = try_make_gcd(second_smallest_coeff, true, term_j);
+            if (r == lia_move::undef) {
+                r = try_make_gcd(second_smallest_coeff, false, term_j);
+            }
+            return r;
+        }
+
+        struct restore_espace {
+            term_with_index & m_original;
+            term_with_index & m_backup;
+            restore_espace(term_with_index & orig, term_with_index & backup): m_original(orig), m_backup(backup) {
+                m_original.copy(m_backup); 
+            }
+            ~restore_espace() {
+                m_backup.copy(m_original);
+            }
+        };
+
+        // g is a candidate for new gcd        
+        lia_move try_make_gcd(const mpq& g, bool upper_bound, unsigned term_j) {
+            restore_espace re(m_espace, m_espace_backup);
+            if ((upper_bound && !lra.column_has_upper_bound(term_j)) ||
+                (!upper_bound && !lra.column_has_lower_bound(term_j)))
+                return lia_move::undef;
+            mpq new_bound = upper_bound? lra.get_upper_bound(term_j).x: lra.get_lower_bound(term_j).x;
+            TRACE("dio", tout << "upper_bound:" << upper_bound << ", new_bound:" << new_bound << std::endl;);
+            for (const auto &[c, v] : m_espace) {
+                if (abs(c) == g) continue;
+                if (upper_bound) {
+                    if (!supplement_to_g_upper(c, v, g, new_bound, term_j))
+                        return lia_move::undef;
+                } else {
+                    if (!supplement_to_g_lower(c, v, g, new_bound, term_j))
+                        return lia_move::undef;
+                }
+            }
+            TRACE("dio", print_espace(tout); tout << "g:" << g << std::endl;);
+            SASSERT(gcd_of_coeffs(m_espace.m_data, true) == g);
+            mpq rs_g = new_bound % g;
+            if (rs_g.is_neg())
+                rs_g += g;
+            SASSERT(!rs_g.is_neg());
+            new_bound -= rs_g;
+            TRACE("dio", tout << "new_bound:" << new_bound << std::endl;);
+            if (upper_bound) {
+                if (new_bound < lra.get_upper_bound(term_j).x) {
+                    NOT_IMPLEMENTED_YET();
+                }
+            } else {
+                if (new_bound > lra.get_lower_bound(term_j).x) {
+                    NOT_IMPLEMENTED_YET();
+                }
+            }
+            
+            return lia_move::undef;
+        }
+
+        // new_bound initially is set to the original lower bound of term_j
+        bool supplement_to_g_lower(const mpq& c, unsigned lj, const mpq & g, mpq& new_bound, unsigned term_j) {
+            restore_espace re(m_espace, m_espace_backup);
+            auto r = c % g;
+            TRACE("dio", tout << "lj:" << lj << ", g:"<< g << ", new_bound:" << new_bound << ", r:" << r << std::endl;);
+            if (r.is_zero())
+                return true; // the coefficient is divisible by g
+            if (r.is_neg())
+                r += g;
+            SASSERT((c - r) % g == 0 && r < g && r.is_pos());
+            unsigned j = local_to_lar_solver(lj);
+            if (lra.column_is_free(j)) return false;
+            if (lra.column_is_bounded(j)) {
+                const auto& ub = lra.get_upper_bound(j).x;
+                const auto& lb = lra.get_lower_bound(j).x;
+                TRACE("dio", tout << "lb:" << lb<< ", ub:" << ub << "\n";);
+                /*
+                  If lb >= 0 then we can substract  r*xj from term_j and be sure that the new term does not get bigger, from the other side it cannot diminish by more than r*bu.
+                  In this case we need to update new_bound -= r*ub.
+
+              
+                */
+                if (!lb.is_neg()) {
+                    m_espace.add(-r, lj);
+                    new_bound -= r * ub;
+                    TRACE("dio", print_espace(tout) << "\n"; tout << "new_bound:" << new_bound << std::endl;);
+                      
+                } else {
+                    NOT_IMPLEMENTED_YET();
+                }
+            }
+            NOT_IMPLEMENTED_YET();
+            
+            SASSERT(r.is_pos());
+            // m_espace  <= new_bound
+            r = g - r;
+            TRACE("dio", tout << "r:" << r << std::endl;);
+            // m_espace:4x2 + 2x3 + x4 - 256 >= lb
+            // We have something like: c = 1, lj = 4,g = 2, then r = 1.
+            // If we know that 0 >= x[j] >= k and
+            // then term = m_espace >= m_espace+ r*x_lj  >= bound +  r*k
+            m_espace.add(r, lj);
+            new_bound += r*lra.get_upper_bound(j).x;
+            TRACE("dio", print_espace(tout); tout << "new_bound:" << new_bound << std::endl; );
+           
+            return true;
+        }
+
+        void backup_espace() {
+            m_espace.copy(m_espace_backup);
+        }
+
+        // new_bound is initially let to the original upper bound of term_j
+        bool supplement_to_g_upper(const mpq& c, unsigned lj, const mpq & g, mpq& new_bound, unsigned term_j) {
+            auto r = c % g;
+            TRACE("dio", tout << "r:" << r << std::endl;);
+            if (r.is_zero())
+                return true; // the coefficient is divisible by g
+            if (r.is_neg())
+                r += g;
+            SASSERT(r.is_pos());
+            unsigned j = local_to_lar_solver(lj);
+            // m_espace  <= new_bound
+            r = g - r;
+            TRACE("dio", tout << "r:" << r << std::endl;);
+            if (!lra.column_is_bounded(j)) return false;
+            // m_espace:4x2 + 2x3 + x4 - 256
+            // We have something like: c = 1, lj = 4,g = 2, then r = 1.
+            // If we know that 0 <= x[j] <= k and
+            // then term = m_espace <= m_espace+ r*x_lj  <= new_bound + r*k
+            m_espace.add(r, lj);
+            new_bound += r*lra.get_upper_bound(j).x;
+            TRACE("dio", print_espace(tout); tout << "new_bound:" << new_bound << std::endl; );
+            
+            return true;
+        }
         
         lia_move tighten_on_espace(unsigned j) {
             mpq g = gcd_of_coeffs(m_espace.m_data, true);
-            if (g.is_one())
+            if (g.is_one()) {
                 return lia_move::undef;
+                return try_improve_gcd_on_espace(j);
+            }
             if (g.is_zero()) {
                 handle_constant_term(j);
                 if (!m_infeas_explanation.empty()) 
                     return lia_move::conflict;                
                 return lia_move::undef;
             }
-            // g is not trivial, trying to tighten the bounds
+            // g is non-trivial, trying to tighten the bounds
             auto r = tighten_bounds_for_non_trivial_gcd(g, j, true);
             if (r == lia_move::undef)
                 r = tighten_bounds_for_non_trivial_gcd(g, j, false);
@@ -2486,7 +2679,7 @@ namespace lp {
             }
             SASSERT(h == f_vector[ih]);
             if (min_ahk.is_one()) {
-                TRACE("dioph_eq", tout << "push to S:\n"; print_entry(h, tout););
+                TRACE("dio", tout << "push to S:\n"; print_entry(h, tout););
                 move_entry_from_f_to_s(kh, h);
                 eliminate_var_in_f(h, kh, kh_sign);
                 f_vector[ih] = f_vector.back();                
