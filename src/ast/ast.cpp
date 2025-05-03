@@ -1420,6 +1420,7 @@ ast_manager::~ast_manager() {
                 mark.mark(to_quantifier(n)->get_expr(), true);
                 mark_array_ref(mark, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
                 mark_array_ref(mark, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
+                mark.mark(to_quantifier(n)->get_sort(), true);
                 break;
             }
         }
