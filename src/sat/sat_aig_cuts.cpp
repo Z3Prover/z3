@@ -788,7 +788,7 @@ namespace sat {
                 }
             }
         }
-        IF_VERBOSE(0, verbose_stream() << "#don't cares " << dont_cares << "\n");
+        IF_VERBOSE(2, verbose_stream() << "#don't cares " << dont_cares << "\n");
     }
 
     struct aig_cuts::validator {
