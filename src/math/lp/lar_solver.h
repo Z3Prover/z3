@@ -47,7 +47,7 @@ namespace lp {
 
 class int_branch;
 class int_solver;
-
+struct imp;
     
 class lar_solver : public column_namer {
     struct term_hasher {
@@ -73,13 +73,7 @@ class lar_solver : public column_namer {
         }
     };
 
-    struct column_update {
-        bool m_is_upper;
-        unsigned m_j;
-        impq m_bound;
-        column m_column;
-    };
-    struct column_update_trail;
+
 
     //////////////////// fields //////////////////////////
     trail_stack m_trail;
@@ -94,7 +88,6 @@ class lar_solver : public column_namer {
     bool m_need_register_terms = false;
     var_register m_var_register;
     svector<column> m_columns;
-    vector<column_update> m_column_updates;
     
     constraint_set m_constraints;
     // the set of column indices j such that bounds have changed for j
@@ -123,6 +116,7 @@ class lar_solver : public column_namer {
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_fixed_var_table_real;
     // the set of fixed variables which are also base variables
     indexed_uint_set                                   m_fixed_base_var_set;
+    imp* m_imp;
     // end of fields
 
     ////////////////// nested structs /////////////////////////
@@ -742,5 +736,7 @@ public:
     std::function<void (const indexed_uint_set& columns_with_changed_bound)> m_find_monics_with_changed_bounds_func = nullptr;
     friend int_solver;
     friend int_branch;
+    friend imp;
+
 };
 }  // namespace lp
