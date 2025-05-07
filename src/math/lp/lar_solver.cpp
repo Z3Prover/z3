@@ -16,7 +16,6 @@ namespace lp {
     };
     
     struct imp {
-
         lar_solver &lra;
         var_register m_var_register;
         svector<column> m_columns;
@@ -1721,14 +1720,6 @@ namespace lp {
 
     bool lar_solver::column_is_free(unsigned j) const {
         return m_mpq_lar_core_solver.column_is_free(j);
-    }
-
-    // below is the initialization functionality of lar_solver
-
-    lpvar lar_solver::add_named_var(unsigned ext_j, bool is_int, const std::string& name) {
-        lpvar j = add_var(ext_j, is_int);
-        m_imp->m_var_register.set_name(j, name);
-        return j;
     }
 
     struct lar_solver::undo_add_column : public trail {
