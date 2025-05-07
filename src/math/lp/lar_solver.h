@@ -47,9 +47,9 @@ namespace lp {
 
 class int_branch;
 class int_solver;
-struct imp;
     
 class lar_solver : public column_namer {
+    struct imp;
     struct term_hasher {
         std::size_t operator()(const lar_term& t) const {
             using std::hash;
