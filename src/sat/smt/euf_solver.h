@@ -305,7 +305,7 @@ namespace euf {
         // accessors
         
         sat::sat_internalizer& get_si() { return si; }
-        ast_manager& get_manager() { return m; }
+        ast_manager& get_manager() override { return m; }
         enode* get_enode(expr* e) const { return m_egraph.find(e); }
         enode* bool_var2enode(sat::bool_var b) const {
             expr* e = m_bool_var2expr.get(b, nullptr);
@@ -315,8 +315,8 @@ namespace euf {
         sat::literal enode2literal(enode* n) const { return sat::literal(n->bool_var(), false); }
         lbool value(enode* n) const { return s().value(enode2literal(n)); }
         smt_params const& get_config() const { return m_config; }
-        region& get_region() { return m_trail.get_region(); }
-        egraph& get_egraph() { return m_egraph; }
+        region& get_region() override { return m_trail.get_region(); }
+        egraph& get_egraph() override { return m_egraph; }
         th_solver* fid2solver(family_id fid) const { return m_id2solver.get(fid, nullptr); }
 
         template <typename C>
@@ -496,7 +496,7 @@ namespace euf {
         void add_aux(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_aux(2, lits); } 
         void add_aux(sat::literal a, sat::literal b, sat::literal c) { sat::literal lits[3] = { a, b, c }; add_aux(3, lits); }
         void mark_relevant(sat::literal lit) { m_relevancy.mark_relevant(lit); }
-        bool is_relevant(enode* n) const { return m_relevancy.is_relevant(n); }
+        bool is_relevant(enode* n) const override { return m_relevancy.is_relevant(n); }
         bool is_relevant(bool_var v) const;
         bool is_relevant(sat::literal lit) const { return is_relevant(lit.var()); }
         void relevant_eh(euf::enode* n);
