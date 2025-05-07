@@ -22,7 +22,23 @@ Author:
 #include <functional>
 
 namespace euf {
-    class solver;
+
+    class mam_solver {
+    public:
+        virtual ~mam_solver() = default;
+        virtual trail_stack& get_trail() = 0;
+        virtual region& get_region() = 0;
+        virtual ast_manager& get_manager() = 0;
+        virtual egraph& get_egraph() = 0;
+        virtual bool is_relevant(euf::enode* n) const = 0;
+        virtual bool resource_limits_exceeded() const = 0;
+    };
+
+    class on_binding_callback {
+    public:
+        virtual ~on_binding_callback() = default;
+        virtual void on_binding(quantifier* q, app* pat, euf::enode* const* binding, unsigned max_generation, unsigned min_gen, unsigned max_gen) = 0;
+    };
 };
 
 namespace q {
@@ -43,7 +59,7 @@ namespace q {
 
     public:
 
-        static mam * mk(euf::solver& ctx, ematch& em);
+        static mam * mk(euf::mam_solver& ctx, euf::on_binding_callback& em);
         
         virtual ~mam() = default;
         

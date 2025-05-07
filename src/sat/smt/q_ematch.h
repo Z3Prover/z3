@@ -22,7 +22,7 @@ Author:
 #include "ast/normal_forms/nnf.h"
 #include "solver/solver.h"
 #include "sat/smt/sat_th.h"
-#include "sat/smt/q_mam.h"
+#include "ast/euf/euf_mam.h"
 #include "sat/smt/q_clause.h"
 #include "sat/smt/q_queue.h"
 #include "sat/smt/q_eval.h"
@@ -35,7 +35,7 @@ namespace q {
 
     class solver;
 
-    class ematch {
+    class ematch : public euf::on_binding_callback {
         struct stats {
             unsigned m_num_instantiations;
             unsigned m_num_propagations;
@@ -149,7 +149,7 @@ namespace q {
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing);
 
         // callback from mam
-        void on_binding(quantifier* q, app* pat, euf::enode* const* binding, unsigned max_generation, unsigned min_gen, unsigned max_gen);
+        void on_binding(quantifier* q, app* pat, euf::enode* const* binding, unsigned max_generation, unsigned min_gen, unsigned max_gen) override;
 
         // callbacks from queue
         lbool evaluate(euf::enode* const* binding, clause& c) { m_evidence.reset();  return m_eval(binding, c, m_evidence); }

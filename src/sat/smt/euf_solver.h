@@ -21,6 +21,7 @@ Author:
 #include "ast/ast_translation.h"
 #include "ast/ast_util.h"
 #include "ast/euf/euf_egraph.h"
+#include "ast/euf/euf_mam.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/converters/model_converter.h"
 #include "sat/sat_extension.h"
@@ -83,7 +84,7 @@ namespace euf {
         expr* get_hint(euf::solver& s) const override;
     };
 
-    class solver : public sat::extension, public th_internalizer, public th_decompile, public sat::clause_eh {
+    class solver : public sat::extension, public th_internalizer, public th_decompile, public sat::clause_eh, public mam_solver {
         typedef top_sort<euf::enode> deps_t;
         friend class ackerman;
         friend class eq_proof_hint;
@@ -331,6 +332,7 @@ namespace euf {
             push(push_back_trail< V, false>(vec));
         }
         trail_stack& get_trail_stack() { return m_trail; }
+        trail_stack& get_trail() override { return m_trail; }
 
         void updt_params(params_ref const& p);
         void set_solver(sat::solver* s) override { m_solver = s; use_drat(); }
@@ -398,7 +400,7 @@ namespace euf {
         bool is_blocked(literal l, ext_constraint_idx) override;
         bool check_model(sat::model const& m) const override;
         void gc_vars(unsigned num_vars) override;
-        bool resource_limits_exceeded() const { return false; } // TODO
+        bool resource_limits_exceeded() const override { return false; } // TODO
 
 
         // proof

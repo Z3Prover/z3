@@ -29,6 +29,7 @@ Done:
 --*/
 
 #include "ast/ast_util.h"
+#include "ast/euf/euf_mam.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/normal_forms/pull_quant.h"
@@ -36,7 +37,7 @@ Done:
 #include "sat/smt/sat_th.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/q_solver.h"
-#include "sat/smt/q_mam.h"
+
 #include "sat/smt/q_ematch.h"
 
 
