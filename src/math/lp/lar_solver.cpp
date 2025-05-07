@@ -16,6 +16,7 @@ namespace lp {
     };
     
     struct imp {
+
         lar_solver &lra;
         var_register m_var_register;
         svector<column> m_columns;
