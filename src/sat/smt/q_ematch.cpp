@@ -76,7 +76,7 @@ namespace q {
             if (!ctx.relevancy_enabled())
                 ctx.get_egraph().set_on_make(_on_make);
         }
-        m_mam = mam::mk(ctx, *this);
+        m_mam = euf::mam::mk(ctx, *this);
     }
 
     void ematch::relevant_eh(euf::enode* n) {
@@ -85,7 +85,7 @@ namespace q {
     }
 
     void ematch::ensure_ground_enodes(expr* e) {
-        mam::ground_subterms(e, m_ground);
+        euf::mam::ground_subterms(e, m_ground);
         for (expr* g : m_ground) 
             m_qs.e_internalize(g);
     }
@@ -557,7 +557,7 @@ namespace q {
      * Attach ground subterms of patterns so they appear shared.
      */
     void ematch::attach_ground_pattern_terms(expr* pat) {
-        mam::ground_subterms(pat, m_ground);
+        euf::mam::ground_subterms(pat, m_ground);
         for (expr* g : m_ground) { 
             euf::enode* n = ctx.get_egraph().find(g);
             if (!n->is_attached_to(m_qs.get_id())) 
@@ -602,7 +602,7 @@ namespace q {
             if (!unary && j >= num_eager_multi_patterns) {
                 TRACE("q", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m) << "\n";);
                 if (!m_lazy_mam)
-                    m_lazy_mam = mam::mk(ctx, *this);
+                    m_lazy_mam = euf::mam::mk(ctx, *this);
                 m_lazy_mam->add_pattern(q, mp);
             }
             else 

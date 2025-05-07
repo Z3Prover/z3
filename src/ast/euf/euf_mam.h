@@ -39,15 +39,10 @@ namespace euf {
         virtual ~on_binding_callback() = default;
         virtual void on_binding(quantifier* q, app* pat, euf::enode* const* binding, unsigned max_generation, unsigned min_gen, unsigned max_gen) = 0;
     };
-};
-
-namespace q {
 
     typedef euf::enode enode;
     typedef euf::egraph egraph;
     typedef euf::enode_vector enode_vector;
-
-    class ematch;
 
     /**
        \brief Matching Abstract Machine (MAM)

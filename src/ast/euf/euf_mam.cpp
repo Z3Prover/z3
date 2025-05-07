@@ -60,7 +60,7 @@ Revision History:
 
 #define IS_CGR_SUPPORT true
 
-namespace q {
+namespace euf {
     // ------------------------------------
     //
     // Trail
@@ -3885,31 +3885,32 @@ namespace q {
         }
     };
 
-    void mam::ground_subterms(expr* e, ptr_vector<app>& ground) {
-        ground.reset();
-        expr_fast_mark1 mark;
-        ptr_buffer<app> todo;
-        if (is_app(e))
-            todo.push_back(to_app(e));
-        while (!todo.empty()) {
-            app * n = todo.back();
-            todo.pop_back();
-            if (mark.is_marked(n))
-                continue;
-            mark.mark(n);
-            if (n->is_ground()) 
-                ground.push_back(n);
-            else {
-                for (expr* arg : *n) 
-                    if (is_app(arg))
-                        todo.push_back(to_app(arg));
-            }
-        }
-    }
-
-    mam* mam::mk(euf::mam_solver& ctx, euf::on_binding_callback& em) {
-        return alloc(mam_impl, ctx, em, true);
-    }
 
 }
 
+
+void euf::mam::ground_subterms(expr* e, ptr_vector<app>& ground) {
+    ground.reset();
+    expr_fast_mark1 mark;
+    ptr_buffer<app> todo;
+    if (is_app(e))
+        todo.push_back(to_app(e));
+    while (!todo.empty()) {
+        app* n = todo.back();
+        todo.pop_back();
+        if (mark.is_marked(n))
+            continue;
+        mark.mark(n);
+        if (n->is_ground())
+            ground.push_back(n);
+        else {
+            for (expr* arg : *n)
+                if (is_app(arg))
+                    todo.push_back(to_app(arg));
+        }
+    }
+}
+
+euf::mam* euf::mam::mk(euf::mam_solver& ctx, euf::on_binding_callback& em) {
+    return alloc(mam_impl, ctx, em, true);
+}

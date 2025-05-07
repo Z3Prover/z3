@@ -75,7 +75,7 @@ namespace q {
         queue                         m_inst_queue;
         svector<prop>                 m_prop_queue;
         pattern_inference_rw          m_infer_patterns;
-        scoped_ptr<q::mam>            m_mam, m_lazy_mam;
+        scoped_ptr<euf::mam>          m_mam, m_lazy_mam;
         ptr_vector<clause>            m_clauses;
         obj_map<quantifier, unsigned> m_q2clauses;
         vector<unsigned_vector>       m_watch;     // expr_id -> clause-index*
