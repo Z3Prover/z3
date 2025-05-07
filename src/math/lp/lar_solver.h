@@ -296,8 +296,6 @@ public:
         set_column_value(j, v);
     }
 
-    lpvar add_named_var(unsigned ext_j, bool is_integer, const std::string&);
-
     lp_status maximize_term(unsigned j_or_term, impq& term_max);
 
     inline core_solver_pretty_printer<lp::mpq, lp::impq> pp(std::ostream& out) const {
