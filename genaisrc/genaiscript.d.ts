@@ -1,6 +1,6 @@
 /**
  * GenAIScript Ambient Type Definition File
- * @version 1.125.2
+ * @version 1.134.2
  */
 type OptionsOrString<TOptions extends string> = (string & {}) | TOptions
 
@@ -20,6 +20,10 @@ interface Diagnostic {
     range: CharRange
     severity: DiagnosticSeverity
     message: string
+    /**
+     * suggested fix
+     */
+    suggestion?: string
     /**
      * error or warning code
      */
@@ -65,7 +69,7 @@ interface PromptDefinition {
     defTools?: { id: string; description: string; kind: "tool" | "agent" }[]
 }
 
-interface PromptLike extends PromptDefinition, PromptToolsDefinition {
+interface PromptLike extends PromptDefinition {
     /**
      * File where the prompt comes from (if any).
      */
@@ -88,7 +92,7 @@ interface PromptLike extends PromptDefinition, PromptToolsDefinition {
     resolvedSystem?: SystemPromptInstance[]
 
     /**
-     * Infered input schema for parameters
+     * Inferred input schema for parameters
      */
     inputSchema?: JSONSchemaObject
 }
@@ -117,6 +121,7 @@ type SystemPromptId = OptionsOrString<
     | "system.do_not_explain"
     | "system.english"
     | "system.explanations"
+    | "system.fetch"
     | "system.files"
     | "system.files_schema"
     | "system.fs_ask_file"
@@ -192,6 +197,7 @@ type SystemToolId = OptionsOrString<
     | "agent_video"
     | "agent_web"
     | "agent_z3"
+    | "fetch"
     | "fs_ask_file"
     | "fs_data_query"
     | "fs_diff_files"
@@ -291,6 +297,9 @@ type ModelType = OptionsOrString<
     | "vision_small"
     | "reasoning"
     | "reasoning_small"
+    | "openai:gpt-4.1"
+    | "openai:gpt-4.1-mini"
+    | "openai:gpt-4.1-nano"
     | "openai:gpt-4o"
     | "openai:gpt-4o-mini"
     | "openai:gpt-3.5-turbo"
@@ -301,6 +310,7 @@ type ModelType = OptionsOrString<
     | "openai:o1"
     | "openai:o1-mini"
     | "openai:o1-preview"
+    | "github:gpt-4.1"
     | "github:gpt-4o"
     | "github:gpt-4o-mini"
     | "github:o1"
@@ -308,13 +318,14 @@ type ModelType = OptionsOrString<
     | "github:o1-preview"
     | "github:o3-mini"
     | "github:o3-mini:low"
+    | "github:mai-ds-r1"
     | "github:AI21-Jamba-1.5-Large"
     | "github:AI21-Jamba-1-5-Mini"
     | "github:deepseek-v3"
     | "github:deepseek-r1"
     | "github:Phi-4"
     | "github_copilot_chat:current"
-    | "github_copilot_chat:gpt-3.5-turbo",
+    | "github_copilot_chat:gpt-3.5-turbo"
     | "github_copilot_chat:gpt-4o-mini"
     | "github_copilot_chat:gpt-4o-2024-11-20"
     | "github_copilot_chat:gpt-4"
@@ -335,6 +346,7 @@ type ModelType = OptionsOrString<
     | "azure:o3-mini:low"
     | "azure:o3-mini:medium"
     | "azure:o3-mini:high"
+    | "azure_ai_inference:gpt-4.1"
     | "azure_ai_inference:gpt-4o"
     | "azure_ai_inference:gpt-4o-mini"
     | "azure_ai_inference:o1"
@@ -344,7 +356,7 @@ type ModelType = OptionsOrString<
     | "azure_ai_inference:o3-mini:low"
     | "azure_ai_inference:o3-mini:medium"
     | "azure_ai_inference:o3-mini:high"
-    | "azure_ai_inference:deepSseek-v3"
+    | "azure_ai_inference:deepSeek-v3"
     | "azure_ai_inference:deepseek-r1"
     | "ollama:gemma3:4b"
     | "ollama:marco-o1"
@@ -440,7 +452,7 @@ type ModelVisionType = OptionsOrString<
 >
 
 type ModelImageGenerationType = OptionsOrString<
-    "openai:dall-e-2" | "openai:dall-e-3"
+    "openai:gpt-image-1" | "openai:dall-e-2" | "openai:dall-e-3"
 >
 
 type ModelProviderType = OptionsOrString<
@@ -494,6 +506,17 @@ interface ModelAliasesOptions extends ModelConnectionOptions {
 }
 
 type ReasoningEffortType = "high" | "medium" | "low"
+
+type ChatToolChoice =
+    | "none"
+    | "auto"
+    | "required"
+    | {
+          /**
+           * The name of the function to call.
+           */
+          name: string
+      }
 
 interface ModelOptions extends ModelConnectionOptions, ModelTemplateOptions {
     /**
@@ -562,6 +585,11 @@ interface ModelOptions extends ModelConnectionOptions, ModelTemplateOptions {
     maxTokens?: number
 
     /**
+     * Tool selection strategy. Default is 'auto'.
+     */
+    toolChoice?: ChatToolChoice
+
+    /**
      * Maximum number of tool calls to make.
      */
     maxToolCalls?: number
@@ -587,14 +615,14 @@ interface ModelOptions extends ModelConnectionOptions, ModelTemplateOptions {
     modelConcurrency?: Record<string, number>
 }
 
-interface EmbeddingsModelOptions extends EmbeddingsModelConnectionOptions {
+interface EmbeddingsModelOptions {
     /**
      * LLM model to use for embeddings.
      */
     embeddingsModel?: EmbeddingsModelType
 }
 
-interface PromptSystemOptions {
+interface PromptSystemOptions extends PromptSystemSafetyOptions {
     /**
      * List of system script ids used by the prompt.
      */
@@ -763,7 +791,7 @@ interface PromptRedteam {
     purpose: string
 
     /**
-     * Redteam identifer used for reporting purposes
+     * Redteam identifier used for reporting purposes
      */
     label?: string
 
@@ -850,10 +878,6 @@ interface PromptRedteam {
     >
 }
 
-interface ContentSafetyOptions {
-    contentSafety?: ContentSafetyProvider
-}
-
 /**
  * Different ways to render a fence block.
  */
@@ -873,6 +897,31 @@ interface ModelTemplateOptions extends FenceFormatOptions {
     flexTokens?: number
 }
 
+interface McpToolAnnotations {
+    /**
+     * Annotations for MCP tools
+     * @link https://modelcontextprotocol.io/docs/concepts/tools#available-tool-annotations
+     */
+    annotations?: {
+        /**
+         * If true, indicates the tool does not modify its environment
+         */
+        readOnlyHint?: boolean
+        /**
+         * If true, the tool may perform destructive updates (only meaningful when readOnlyHint is false)
+         */
+        destructiveHint?: boolean
+        /**
+         * If true, calling the tool repeatedly with the same arguments has no additional effect (only meaningful when readOnlyHint is false)
+         */
+        idempotentHint?: boolean
+        /**
+         * If true, the tool may interact with an “open world” of external entities
+         */
+        openWorldHint?: boolean
+    }
+}
+
 interface PromptScript
     extends PromptLike,
         ModelOptions,
@@ -880,8 +929,10 @@ interface PromptScript
         PromptSystemOptions,
         EmbeddingsModelOptions,
         ContentSafetyOptions,
+        SecretDetectionOptions,
         GitIgnoreFilterOptions,
-        ScriptRuntimeOptions {
+        ScriptRuntimeOptions,
+        McpToolAnnotations {
     /**
      * Which provider to prefer when picking a model.
      */
@@ -1012,7 +1063,7 @@ interface OutputTrace extends ToolCallTrace {
      * @param url - The URL of the image.
      * @param caption - The optional caption for the image.
      */
-    image(url: string, caption?: string): void
+    image(url: BufferLike, caption?: string): Promise<void>
 
     /**
      * Logs a markdown table
@@ -1045,7 +1096,7 @@ interface OutputTrace extends ToolCallTrace {
     startTraceDetails(
         title: string,
         options?: { expanded?: boolean }
-    ): MarkdownTrace
+    ): OutputTrace
 
     /**
      * Appends content to the trace.
@@ -1135,6 +1186,12 @@ interface OutputTrace extends ToolCallTrace {
      * @param msg - The note message to log.
      */
     note(msg: string): void
+
+    /**
+     * Logs an error object
+     * @param err
+     */
+    error(message: string, error?: unknown): void
 }
 
 /**
@@ -1419,6 +1476,13 @@ interface WorkspaceFileSystem {
     ): Promise<any>
 
     /**
+     * Appends text to a file as text to the file system. Creates the file if needed.
+     * @param path
+     * @param content
+     */
+    appendText(path: string, content: string): Promise<void>
+
+    /**
      * Writes a file as text to the file system
      * @param path
      * @param content
@@ -1431,7 +1495,13 @@ interface WorkspaceFileSystem {
      */
     writeCached(
         bytes: BufferLike,
-        options?: { scope?: "workspace" | "run" }
+        options?: {
+            scope?: "workspace" | "run"
+            /**
+             * Filename extension
+             */
+            ext?: string
+        }
     ): Promise<string>
 
     /**
@@ -1466,19 +1536,10 @@ interface ToolCallContext {
 interface ToolCallback {
     spec: ToolDefinition
     options?: DefToolOptions
+    generator?: ChatGenerationContext
     impl: (
         args: { context: ToolCallContext } & Record<string, any>
     ) => Awaitable<ToolCallOutput>
-}
-
-type AgenticToolCallback = Omit<ToolCallback, "spec"> & {
-    spec: Omit<ToolDefinition, "parameters"> & {
-        parameters: Record<string, any>
-    }
-}
-
-interface AgenticToolProviderCallback {
-    functions: Iterable<AgenticToolCallback>
 }
 
 interface ChatContentPartText {
@@ -1513,6 +1574,50 @@ interface ChatContentPartImage {
     type: "image_url"
 }
 
+interface ChatContentPartInputAudio {
+    input_audio: {
+        /**
+         * Base64 encoded audio data.
+         */
+        data: string
+
+        /**
+         * The format of the encoded audio data. Currently supports "wav" and "mp3".
+         */
+        format: "wav" | "mp3"
+    }
+
+    /**
+     * The type of the content part. Always `input_audio`.
+     */
+    type: "input_audio"
+}
+
+interface ChatContentPartFile {
+    file: {
+        /**
+         * The base64 encoded file data, used when passing the file to the model as a
+         * string.
+         */
+        file_data?: string
+
+        /**
+         * The ID of an uploaded file to use as input.
+         */
+        file_id?: string
+
+        /**
+         * The name of the file, used when passing the file to the model as a string.
+         */
+        filename?: string
+    }
+
+    /**
+     * The type of the content part. Always `file`.
+     */
+    type: "file"
+}
+
 interface ChatContentPartRefusal {
     /**
      * The refusal message generated by the model.
@@ -1541,6 +1646,15 @@ interface ChatSystemMessage {
      * differentiate between participants of the same role.
      */
     name?: string
+}
+
+/**
+ * @deprecated
+ */
+interface ChatFunctionMessage {
+    content: string
+    name: string
+    role: "function"
 }
 
 interface ChatToolMessage {
@@ -1624,11 +1738,17 @@ interface ChatAssistantMessage {
     reasoning?: string
 }
 
+type ChatContentPart =
+    | ChatContentPartText
+    | ChatContentPartImage
+    | ChatContentPartInputAudio
+    | ChatContentPartFile
+
 interface ChatUserMessage {
     /**
      * The contents of the user message.
      */
-    content: string | (ChatContentPartText | ChatContentPartImage)[]
+    content: string | ChatContentPart[]
 
     /**
      * The role of the messages author, in this case `user`.
@@ -1647,10 +1767,22 @@ type ChatMessage =
     | ChatUserMessage
     | ChatAssistantMessage
     | ChatToolMessage
+    | ChatFunctionMessage
 
 type ChatParticipantHandler = (
+    /**
+     * Prompt generation context to create a new message in the conversation
+     */
     context: ChatTurnGenerationContext,
-    messages: ChatMessage[]
+    /**
+     * Chat conversation messages
+     */
+    messages: ChatMessage[],
+    /**
+     * The last assistant text, without
+     * reasoning sections.
+     */
+    assistantText: string
 ) => Awaitable<{ messages?: ChatMessage[] } | undefined | void>
 
 interface ChatParticipantOptions {
@@ -1709,6 +1841,10 @@ interface ExpansionVariables {
          * Selected model identifier in GitHub Copilot Chat
          */
         "copilot.model"?: string
+        /**
+         * selected text in active text editor
+         */
+        "editor.selectedText"?: string
     }
 
     /**
@@ -1847,13 +1983,19 @@ interface FileFilterOptions extends GitIgnoreFilterOptions {
     glob?: ElementOrArray<string>
 }
 
-interface ContentSafetyOptions extends SecretDetectionOptions {
+interface ContentSafetyOptions {
+    /**
+     * Configure the content safety provider.
+     */
+    contentSafety?: ContentSafetyProvider
     /**
      * Runs the default content safety validator
      * to prevent prompt injection.
      */
     detectPromptInjection?: "always" | "available" | boolean
+}
 
+interface PromptSystemSafetyOptions {
     /**
      * Policy to inject builtin system prompts. See to `false` prevent automatically injecting.
      */
@@ -1921,9 +2063,10 @@ interface ImageTransformOptions {
      */
     maxHeight?: number
     /**
-     * Removes colour from the image using ITU Rec 709 luminance values
+     * Removes colors from the image using ITU Rec 709 luminance values
      */
     greyscale?: boolean
+
     /**
      * Flips the image horizontally and/or vertically.
      */
@@ -1983,6 +2126,7 @@ type JSONSchemaType = JSONSchemaSimpleType | JSONSchemaAnyOf | null
 
 interface JSONSchemaAnyOf {
     anyOf: JSONSchemaType[]
+    uiGroup?: string
 }
 
 interface JSONSchemaDescribed {
@@ -1994,6 +2138,11 @@ interface JSONSchemaDescribed {
      * A clear description of the property.
      */
     description?: string
+
+    /**
+     * Moves the field to a sub-group in the form, potentially collapsed
+     */
+    uiGroup?: string
 }
 
 interface JSONSchemaString extends JSONSchemaDescribed {
@@ -2112,7 +2261,7 @@ interface RunPromptUsage {
 }
 
 interface RunPromptResult {
-    messages: ChatCompletionMessageParam[]
+    messages: ChatMessage[]
     text: string
     reasoning?: string
     annotations?: Diagnostic[]
@@ -2130,7 +2279,7 @@ interface RunPromptResult {
         | "fail"
     fileEdits?: Record<string, FileUpdate>
     edits?: Edits[]
-    changelogs?: ChangeLog[]
+    changelogs?: string[]
     model?: ModelType
     choices?: Logprob[]
     logprobs?: Logprob[]
@@ -2200,6 +2349,12 @@ interface Path {
      * @param fileUrl
      */
     resolveFileURL(fileUrl: string): string
+
+    /**
+     * Sanitize a string to be safe for use as a filename by removing directory paths and invalid characters.
+     * @param path file path
+     */
+    sanitize(path: string): string
 }
 
 interface Fenced {
@@ -2799,6 +2954,12 @@ interface Parsers {
         matcher: RegExp
         ids: Record<string, string>
     }
+
+    /**
+     * Parses a prompty file
+     * @param file
+     */
+    prompty(file: WorkspaceFile): Promise<PromptyDocument>
 }
 
 interface YAML {
@@ -2816,6 +2977,77 @@ interface YAML {
      * Parses a YAML string to object
      */
     parse(text: string | WorkspaceFile): any
+}
+
+interface Z3Solver {
+    /**
+     * Runs Z3 on a given SMT string
+     * @param smt
+     */
+    run(smt: string): Promise<string>
+
+    /**
+     * Native underlying Z3 api
+     */
+    api(): any
+}
+
+interface Z3SolverHost {
+    /**
+     * Loads the Z3 solver from the host
+     */
+    z3(): Promise<Z3Solver>
+}
+
+interface PromptyFrontmatter {
+    name?: string
+    description?: string
+    version?: string
+    authors?: string[]
+    tags?: string[]
+    sample?: Record<string, any> | string
+    inputs?: Record<
+        string,
+        | JSONSchemaArray
+        | JSONSchemaNumber
+        | JSONSchemaBoolean
+        | JSONSchemaString
+        | JSONSchemaObject
+        | { type: "list" }
+    >
+    outputs?: JSONSchemaObject
+    model?: {
+        api?: "chat" | "completion"
+        configuration?: {
+            type?: string
+            name?: string
+            organization?: string
+            api_version?: string
+            azure_deployment: string
+            azure_endpoint: string
+        }
+        parameters?: {
+            response_format?: { type: "json_object" | "json_schema" }
+            max_tokens?: number
+            temperature?: number
+            top_p?: number
+            n?: number
+            seed?: number
+            stream?: boolean // ignored
+            tools?: unknown[] // ignored
+        }
+    }
+
+    // unofficial
+    files?: string | string[]
+    tests?: PromptTest | PromptTest[]
+}
+
+interface PromptyDocument {
+    meta: PromptArgs
+    frontmatter: PromptyFrontmatter
+    content: string
+    messages: ChatMessage[]
 }
 
 interface DiffFile {
@@ -2927,7 +3159,11 @@ interface JSONSchemaUtilities {
 
 interface HTMLTableToJSONOptions {
     useFirstRowForHeadings?: boolean
-    headers?: HeaderRows
+    headers?: {
+        from?: number
+        to: number
+        concatWith: string
+    }
     stripHtmlFromHeadings?: boolean
     stripHtmlFromCells?: boolean
     stripHtml?: boolean | null
@@ -3078,6 +3314,13 @@ interface Git {
     }): Promise<GitCommit[]>
 
     /**
+     * Run git blame on a file, line
+     * @param filename
+     * @param line
+     */
+    blame(filename: string, line: number): Promise<string>
+
+    /**
      * Create a shallow git clone
      * @param repository URL of the remote repository
      * @param options various clone options
@@ -3129,7 +3372,7 @@ interface FfmpegCommandBuilder {
     audioFrequency(freq: number): FfmpegCommandBuilder
     audioQuality(quality: number): FfmpegCommandBuilder
     audioFilters(
-        filters: string | string[] | AudioVideoFilter[]
+        filters: string | string[] /*| AudioVideoFilter[]*/
     ): FfmpegCommandBuilder
     toFormat(format: string): FfmpegCommandBuilder
 
@@ -3338,6 +3581,11 @@ interface GitHubIssue {
     assignee?: GitHubUser
 }
 
+interface GitHubRef {
+    ref: string
+    url: string
+}
+
 interface GitHubReactions {
     url: string
     total_count: number
@@ -3412,6 +3660,13 @@ interface GitHubRelease {
     body?: string
 }
 
+interface GitHubGist {
+    id: string
+    description?: string
+    created_at?: string
+    files: WorkspaceFile[]
+}
+
 interface GitHub {
     /**
      * Gets connection information for octokit
@@ -3476,6 +3731,17 @@ interface GitHub {
             mentioned?: string
         } & GitHubPaginationOptions
     ): Promise<GitHubIssue[]>
+
+    /**
+     * Lists gists for a given user
+     */
+    listGists(): Promise<GitHubGist[]>
+
+    /**
+     * Gets the files of a gist
+     * @param gist_id
+     */
+    getGist(gist_id: string): Promise<GitHubGist | undefined>
 
     /**
      * Gets the details of a GitHub issue
@@ -3578,9 +3844,22 @@ interface GitHub {
             glob?: string
             downloadContent?: boolean
             maxDownloadSize?: number
-            type?: (typeof GitHubFile)["type"]
+            type?: GitHubFile["type"]
         }
     ): Promise<GitHubFile[]>
+
+    /**
+     * Uploads a file to an orphaned branch in the repository and returns the raw url
+     * Uploads a single copy of the file using hash as the name.
+     * @param file file or data to upload
+     * @param options
+     */
+    uploadAsset(
+        file: BufferLike,
+        options?: {
+            branchName?: string
+        }
+    ): Promise<string>
 
     /**
      * Gets the underlying Octokit client
@@ -3742,6 +4021,11 @@ interface CSV {
  * Provide service for responsible.
  */
 interface ContentSafety {
+    /**
+     * Service identifier
+     */
+    id: string
+
     /**
      * Scans text for the risk of a User input attack on a Large Language Model.
      * If not supported, the method is not defined.
@@ -4008,7 +4292,8 @@ type PromptGenerator = (ctx: ChatGenerationContext) => Awaitable<unknown>
 interface PromptGeneratorOptions
     extends ModelOptions,
         PromptSystemOptions,
-        ContentSafetyOptions {
+        ContentSafetyOptions,
+        SecretDetectionOptions {
     /**
      * Label for trace
      */
@@ -4049,8 +4334,6 @@ interface ImportTemplateOptions {
      */
     format?: "mustache" | "jinja"
 }
-
-type PromptCacheControlType = "ephemeral"
 
 interface PromptTemplateString {
     /**
@@ -4124,6 +4407,10 @@ interface ChatTurnGenerationContext {
             | RunPromptResult,
         options?: DefOptions
     ): string
+    defImages(
+        files: ElementOrArray<BufferLike>,
+        options?: DefImagesOptions
+    ): void
     defData(
         name: string,
         data: Awaitable<object[] | object>,
@@ -4148,7 +4435,7 @@ interface RunPromptResultPromiseWithOptions extends Promise<RunPromptResult> {
     options(values?: PromptGeneratorOptions): RunPromptResultPromiseWithOptions
 }
 
-interface DefToolOptions {
+interface DefToolOptions extends ContentSafetyOptions {
     /**
      * Maximum number of tokens per tool content response
      */
@@ -4163,6 +4450,20 @@ interface DefToolOptions {
      * Updated description for the variant
      */
     variantDescription?: string
+
+    /**
+     * Intent of the tool that will be used for LLM judge validation of the output.
+     * `description` uses the tool description as the intent.
+     * If the intent is a function, it must build a LLM-as-Judge prompt that emits OK/ERR categories.
+     */
+    intent?:
+        | OptionsOrString<"description">
+        | ((options: {
+              tool: ToolDefinition
+              args: any
+              result: string
+              generator: ChatGenerationContext
+          }) => Awaitable<void>)
 }
 
 interface DefAgentOptions
@@ -4184,14 +4485,66 @@ type ChatAgentHandler = (
     args: ChatFunctionArgs
 ) => Awaitable<unknown>
 
-interface McpServerConfig {
-    command: OptionsOrString<"npx" | "uv">
+interface McpToolSpecification {
+    /**
+     * Tool identifier
+     */
+    id: string
+    /**
+     * The high level intent of the tool, which can be used for LLM judge validation.
+     * `description` uses the tool description as the intent.
+     */
+    intent?: DefToolOptions["intent"]
+}
+
+interface McpServerConfig extends ContentSafetyOptions {
+    /**
+     * The executable to run to start the server.
+     */
+    command: OptionsOrString<"npx" | "uv" | "dotnet" | "docker" | "cargo">
+    /**
+     * Command line arguments to pass to the executable.
+     */
     args: string[]
-    params?: string[]
+    /**
+     * The server version
+     */
     version?: string
+    /**
+     * The environment to use when spawning the process.
+     *
+     * If not specified, the result of getDefaultEnvironment() will be used.
+     */
+    env?: Record<string, string>
+    /**
+     * The working directory to use when spawning the process.
+     *
+     * If not specified, the current working directory will be inherited.
+     */
+    cwd?: string
 
     id: string
     options?: DefToolOptions
+
+    /**
+     * A list of allowed tools and their specifications. This filtering is applied
+     * before computing the sha signature.
+     */
+    tools?: ElementOrArray<string | McpToolSpecification>
+
+    /**
+     * The sha signature of the tools returned by the server.
+     * If set, the tools will be validated against this sha.
+     * This is used to ensure that the tools are not modified by the server.
+     */
+    toolsSha?: string
+
+    /**
+     * Validates that each tool has responses related to their description.
+     */
+    intent?: DefToolOptions["intent"]
+
+    generator?: ChatGenerationContext
 }
 
 type McpServersConfig = Record<string, Omit<McpServerConfig, "id" | "options">>
@@ -4227,11 +4580,41 @@ type TranscriptionModelType = OptionsOrString<
 
 interface ImageGenerationOptions extends ImageTransformOptions {
     model?: OptionsOrString<ModelImageGenerationType>
-    quality?: "hd"
+    /**
+     * The quality of the image that will be generated.
+     * auto (default value) will automatically select the best quality for the given model.
+     * high, medium and low are supported for gpt-image-1.
+     * high is supported for dall-e-3.
+     * dall-e-2 ignores this flag
+     */
+    quality?: "auto" | "low" | "medium" | "high"
+    /**
+     * Image size.
+     * For gpt-image-1: 1024x1024, 1536x1024 (landscape), 1024x1536 (portrait), or auto (default value)
+     * For dall-e: 256x256, 512x512, or 1024x1024 for dall-e-2, and one of 1024x1024, 1792x1024.
+     */
     size?: OptionsOrString<
-        "256x256" | "512x512" | "1024x1024" | "1024x1792" | "1792x1024"
+        | "auto"
+        | "landscape"
+        | "portrait"
+        | "square"
+        | "1536x1024"
+        | "1024x1536"
+        | "256x256"
+        | "512x512"
+        | "1024x1024"
+        | "1024x1792"
+        | "1792x1024"
     >
+    /**
+     * Only used for DALL-E 3
+     */
     style?: OptionsOrString<"vivid" | "natural">
+
+    /**
+     * For gpt-image-1 only, the type of image format to generate.
+     */
+    outputFormat?: "png" | "jpeg" | "webp"
 }
 
 interface TranscriptionOptions {
@@ -4312,6 +4695,8 @@ type SpeechVoiceType = OptionsOrString<
     | "nova"
     | "sage"
     | "shimmer"
+    | "verse"
+    | "ballad"
 >
 
 interface SpeechOptions {
@@ -4352,16 +4737,8 @@ interface ChatGenerationContext extends ChatTurnGenerationContext {
         schema: JSONSchema | ZodTypeLike,
         options?: DefSchemaOptions
     ): string
-    defImages(
-        files: ElementOrArray<BufferLike>,
-        options?: DefImagesOptions
-    ): void
     defTool(
-        tool:
-            | ToolCallback
-            | AgenticToolCallback
-            | AgenticToolProviderCallback
-            | McpServersConfig,
+        tool: Omit<ToolCallback, "generator"> | McpServersConfig,
         options?: DefToolOptions
     ): void
     defTool(
@@ -4411,7 +4788,7 @@ interface GenerationOutput {
     /**
      * full chat history
      */
-    messages: ChatCompletionMessageParam[]
+    messages: ChatMessage[]
 
     /**
      * LLM output.
@@ -4456,7 +4833,7 @@ interface GenerationOutput {
     /**
      * Usage stats
      */
-    usage: ChatCompletionStats
+    usage?: RunPromptUsage
 }
 
 type Point = {
@@ -4582,7 +4959,7 @@ interface SgPos {
     /** column number starting from 0 */
     column: number
     /** byte offset of the position */
-    index: number
+    index?: number
 }
 interface SgRange {
     /** starting position of the range */
@@ -4599,7 +4976,7 @@ interface SgMatcher {
 type SgStrictness = "cst" | "smart" | "ast" | "relaxed" | "signature"
 interface SgPatternObject {
     context: string
-    selector?: NamedKinds<M> // only named node types
+    selector?: string //NamedKinds<M> // only named node types
     strictness?: SgStrictness
 }
 type SgPatternStyle = string | SgPatternObject
@@ -4708,7 +5085,9 @@ interface SgRoot {
 type SgLang = OptionsOrString<
     | "html"
     | "js"
+    | "javascript"
     | "ts"
+    | "typescript"
     | "tsx"
     | "css"
     | "c"
@@ -4716,6 +5095,13 @@ type SgLang = OptionsOrString<
     | "angular"
     | "csharp"
     | "python"
+    | "rust"
+    | "elixir"
+    | "haskell"
+    | "go"
+    | "dart"
+    | "swift"
+    | "scala"
 >
 
 interface SgChangeSet {
@@ -5050,7 +5436,7 @@ interface BrowserLocatorSelector {
             name?: string
             selected?: boolean
         } & TimeoutOptions
-    ): Locator
+    ): BrowserLocator
 
     /**
      * Allows locating input elements by the text of the associated <label> or aria-labelledby element, or by the aria-label attribute.
@@ -5060,7 +5446,7 @@ interface BrowserLocatorSelector {
     getByLabel(
         name: string,
         options?: { exact?: boolean } & TimeoutOptions
-    ): Locator
+    ): BrowserLocator
 
     /**
      * Allows locating elements that contain given text.
@@ -5070,10 +5456,10 @@ interface BrowserLocatorSelector {
     getByText(
         text: string,
         options?: { exact?: boolean } & TimeoutOptions
-    ): Locator
+    ): BrowserLocator
 
     /** Locate element by the test id. */
-    getByTestId(testId: string, options?: TimeoutOptions): Locator
+    getByTestId(testId: string, options?: TimeoutOptions): BrowserLocator
 }
 
 /**
@@ -5173,7 +5559,7 @@ interface BrowserLocator extends BrowserLocatorSelector {
             hasNotText?: string | RegExp
             hasText?: string | RegExp
         } & TimeoutOptions
-    ): Locator
+    ): BrowserLocator
 }
 
 /**
@@ -5500,7 +5886,7 @@ interface UserInterfaceHost {
      */
     select(
         message: string,
-        options: (string | ShellSelectChoice)[],
+        choices: (string | ShellSelectChoice)[],
         options?: ShellSelectOptions
     ): Promise<string>
 
@@ -5592,8 +5978,25 @@ interface PromiseQueue {
 }
 
 interface LanguageModelReference {
-    provider: string
-    model: string
+    provider: ModelProviderType
+    model: ModelType
+}
+
+interface LanguageModelInfo {
+    id: ModelType
+    details?: string
+    url?: string
+    version?: string
+    /**
+     * Base model name
+     */
+    family?: string
+}
+
+interface LanguageModelProviderInfo {
+    id: ModelProviderType
+    error?: string
+    models: LanguageModelInfo[]
 }
 
 interface LanguageModelHost {
@@ -5601,7 +6004,14 @@ interface LanguageModelHost {
      * Resolve a language model alias to a provider and model based on the current configuration
      * @param modelId
      */
-    resolveLanguageModel(modelId?: string): Promise<LanguageModelReference>
+    resolveLanguageModel(modelId?: ModelType): Promise<LanguageModelReference>
+
+    /**
+     * Returns the status of the model provider and list of models if available
+     */
+    resolveLanguageModelProvider(
+        provider: ModelProviderType
+    ): Promise<LanguageModelProviderInfo>
 }
 
 type ContentSafetyProvider = "azure"
@@ -5621,7 +6031,9 @@ type FetchOptions = RequestInit & {
     maxDelay?: number // Maximum delay between retries
 }
 
-type FetchTextOptions = Omit<FetchOptions, "body" | "signal" | "window">
+type FetchTextOptions = Omit<FetchOptions, "body" | "signal" | "window"> & {
+    convert?: "markdown" | "text" | "tables"
+}
 
 interface PythonRuntimeOptions {
     cache?: string
@@ -5653,7 +6065,7 @@ interface PythonProxy {
      */
     get<T>(name: string): T
     /**
-     * Copyies a value into the python object
+     * Copy a value into the python object
      * @param name
      * @param value
      */
@@ -5668,6 +6080,7 @@ interface PromptHost
         UserInterfaceHost,
         LanguageModelHost,
         SgHost,
+        Z3SolverHost,
         ContentSafetyHost {
     /**
      * A fetch wrapper with proxy, retry and timeout handling.
@@ -5795,7 +6208,11 @@ interface ContainerHost extends ShellHost {
      * @param fromHost glob matching files
      * @param toContainer directory in the container
      */
-    copyTo(fromHost: string | string[], toContainer: string): Promise<string[]>
+    copyTo(
+        fromHost: string | string[],
+        toContainer: string,
+        options?: Omit<FindFilesOptions, "readText">
+    ): Promise<string[]>
 
     /**
      * List files in a directory in the container
@@ -5852,7 +6269,7 @@ declare var console: PromptGenerationConsole
 
 /**
  * Setup prompt title and other parameters.
- * Exactly one call should be present on top of .genai.js file.
+ * Exactly one call should be present on top of .genai.mts file.
  */
 declare function script(options: PromptArgs): void
 
@@ -5947,11 +6364,7 @@ declare function defFileOutput(
  * @param fn callback invoked when the LLM requests to run this function
  */
 declare function defTool(
-    tool:
-        | ToolCallback
-        | AgenticToolCallback
-        | AgenticToolProviderCallback
-        | McpServersConfig,
+    tool: Omit<ToolCallback, "generator"> | McpServersConfig,
     options?: DefToolOptions
 ): void
 declare function defTool(

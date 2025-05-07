@@ -66,6 +66,7 @@ z3_add_component(api
     ${full_path_generated_files}
   COMPONENT_DEPENDENCIES
     opt
+    euf
     portfolio
     realclosure
     extra_cmds
