@@ -15,7 +15,7 @@ namespace lp {
         column m_column;
     };
     
-    struct imp {
+    struct lar_solver::imp {
         lar_solver &lra;
         var_register m_var_register;
         svector<column> m_columns;
@@ -51,7 +51,6 @@ namespace lp {
         };
     };
 
-    imp* m_imp;
     lp_settings& lar_solver::settings() { return m_settings; }
 
     lp_settings const& lar_solver::settings() const { return m_settings; }
@@ -188,7 +187,7 @@ namespace lp {
         m_status = s; 
     }
     const u_dependency* lar_solver::crossed_bounds_deps() const { return m_imp->m_crossed_bounds_deps;}
-    u_dependency*& crossed_bounds_deps() { return m_imp->m_crossed_bounds_deps;}
+    u_dependency*& lar_solver::crossed_bounds_deps() { return m_imp->m_crossed_bounds_deps;}
     lpvar lar_solver::crossed_bounds_column() const { return m_imp->m_crossed_bounds_column; }
     lpvar& lar_solver::crossed_bounds_column() { return m_imp->m_crossed_bounds_column; } 
     lpvar lar_solver::local_to_external(lpvar idx) const { return m_imp->m_var_register.local_to_external(idx); }
