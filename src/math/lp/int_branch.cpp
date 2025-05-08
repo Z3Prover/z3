@@ -62,7 +62,7 @@ int int_branch::find_inf_int_base_column() {
     mpq new_range;
     mpq small_value(1024);
     unsigned n = 0;
-    lar_core_solver & lcs = lra.m_mpq_lar_core_solver;
+    lar_core_solver & lcs = lra.get_core_solver();
     unsigned prev_usage = 0; // to quiet down the compiler
     unsigned k = 0;
     unsigned usage;

@@ -420,7 +420,7 @@ namespace lp {
     
     int_solver::int_solver(lar_solver& lar_slv) :
         lra(lar_slv),
-        lrac(lra.m_mpq_lar_core_solver) {
+        lrac(lra.get_core_solver()) {
         m_imp = alloc(imp, *this);
         lra.set_int_solver(this);
     }
