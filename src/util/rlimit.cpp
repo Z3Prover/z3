@@ -19,16 +19,12 @@ Revision History:
 #include "util/rlimit.h"
 #include "util/common_msgs.h"
 #include "util/mutex.h"
-
-
-static DECLARE_MUTEX(g_rlimit_mux);
+#include "util/scoped_ctrl_c.h"
 
 void initialize_rlimit() {
-    ALLOC_MUTEX(g_rlimit_mux);
 }
 
 void finalize_rlimit() {
-    DEALLOC_MUTEX(g_rlimit_mux);
 }
 
 reslimit::reslimit() {
@@ -77,50 +73,57 @@ char const* reslimit::get_cancel_msg() const {
 }
 
 void reslimit::push_child(reslimit* r) {
-    lock_guard lock(*g_rlimit_mux);
+    signal_lock();
     m_children.push_back(r);    
+    signal_unlock();
 }
 
 void reslimit::pop_child() {
-    lock_guard lock(*g_rlimit_mux);
+    signal_lock();
     m_count += m_children.back()->m_count;
     m_children.back()->m_count = 0;
     m_children.pop_back();    
+    signal_unlock();
 }
 
 void reslimit::pop_child(reslimit* r) {
-    lock_guard lock(*g_rlimit_mux);
+    signal_lock();
     for (unsigned i = 0; i < m_children.size(); ++i) {
         if (m_children[i] == r) {
             m_count += r->m_count;
             r->m_count = 0;
             m_children.erase(m_children.begin() + i);
-            return;
+            break;
         }
     }
+    signal_unlock();
 }
 
 
 void reslimit::cancel() {
-    lock_guard lock(*g_rlimit_mux);
+    signal_lock();
     set_cancel(m_cancel+1);    
+    signal_unlock();
 }
 
 void reslimit::reset_cancel() {
-    lock_guard lock(*g_rlimit_mux);
+    signal_lock();
     set_cancel(0);    
+    signal_unlock();
 }
 
 void reslimit::inc_cancel() {
-    lock_guard lock(*g_rlimit_mux);
+    signal_lock();
     set_cancel(m_cancel + 1);
+    signal_unlock();
 }
 
 void reslimit::dec_cancel() {
-    lock_guard lock(*g_rlimit_mux);
+    signal_lock();
     if (m_cancel > 0) {
         set_cancel(m_cancel-1);
     }
+    signal_unlock();
 }
 
 void reslimit::set_cancel(unsigned f) {
@@ -151,8 +154,9 @@ void reslimit::push_timeout(unsigned ms) {
 }
 
 void reslimit::inc_cancel(unsigned k) {
-    lock_guard lock(*g_rlimit_mux);
+    signal_lock();
     set_cancel(m_cancel + k);        
+    signal_unlock();
 }
 
 void reslimit::auto_cancel() {
