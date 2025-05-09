@@ -296,6 +296,7 @@ public:
         lar_term t;
     };
 
+    lpvar add_named_var(unsigned ext_j, bool is_integer, const std::string&);
     void solve_for(unsigned_vector const& js, vector<solution>& sol);
     void check_fixed(unsigned j);
     void solve_for(unsigned j, uint_set& tabu, vector<solution>& sol);

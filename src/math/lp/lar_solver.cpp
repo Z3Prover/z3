@@ -1289,6 +1289,11 @@ namespace lp {
 #endif
         return true;
     }
+    lpvar lar_solver::add_named_var(unsigned ext_j, bool is_int, const std::string& name) {
+        lpvar j = add_var(ext_j, is_int);
+        m_imp->m_var_register.set_name(j, name);
+        return j;
+    }
 
     bool lar_solver::inf_explanation_is_correct() const {
 #ifdef Z3DEBUG
@@ -1415,33 +1420,25 @@ namespace lp {
 
             #if 1
             if(is_upper) {
-                unsigned current_update_index = ul.previous_upper();
-                while (current_update_index != UINT_MAX) {                  
-                    auto const& [_is_upper, _j, _bound, _column] = m_imp->m_column_updates[current_update_index];
+                if (ul.previous_upper() != UINT_MAX) {                  
+                    auto const& [_is_upper, _j, _bound, _column] = m_imp->m_column_updates[ul.previous_upper()];
                     auto new_slack = slack + coeff * (_bound - get_upper_bound(j));
                     if (sign == get_sign(new_slack)) {
                         //verbose_stream() << "can weaken upper j" << j << " " << coeff << " " << get_upper_bound(j) << " " << _bound << "\n";
                         slack = new_slack;
                         bound_constr_i = _column.upper_bound_witness();
-                        current_update_index = _column.previous_upper(); // Move to the next previous bound in the list
-                    } else 
-                        break; // Stop if weakening is not possible with this previous bound
-                    
+                    }                    
                 }
             }
             else {
-                unsigned prev_l = ul.previous_lower();
-                while (prev_l != UINT_MAX) {                
-                    auto const& [_is_upper, _j, _bound, _column] = m_imp->m_column_updates[prev_l];
+                if (ul.previous_lower() != UINT_MAX) {                
+                    auto const& [_is_upper, _j, _bound, _column] = m_imp->m_column_updates[ul.previous_lower()];
                     auto new_slack = slack + coeff * (_bound - get_lower_bound(j));
                     if (sign == get_sign(new_slack)) {
                         //verbose_stream() << "can weaken lower j" << j << " " << coeff << " " << get_lower_bound(j) << " " << _bound << "\n";
                         slack = new_slack;
                         bound_constr_i = _column.lower_bound_witness();
-                        prev_l = _column.previous_lower();
                     }
-                    else
-                        break;
                 }
             }
             #endif
