@@ -13,7 +13,9 @@ Version 4.15.0
 - Improved integer cut algorithms for linear integer arithmetic.
   It integrates diophantine equation solving with stronger cuts.
 - C and OCaml API for accessing numerics, thanks to Josh Berdine
+- A minimal mcp server in src/api/z3mcp.py that can run locally.
 - Bug fixes.
+
 
 Version 4.14.1
 ==============
