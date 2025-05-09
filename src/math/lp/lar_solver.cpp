@@ -139,7 +139,41 @@ namespace lp {
                 return solver.get_status() == lp_status::INFEASIBLE;
             }
         }
-    };
+        void require_nbasis_sort() { m_mpq_lar_core_solver.m_r_solver.m_nbasis_sort_counter = 0; }   
+        void register_in_fixed_var_table(unsigned j, unsigned& equal_to_j) {
+            SASSERT(lra.column_is_fixed(j));
+            equal_to_j = null_lpvar;
+            const impq& bound = lra.get_lower_bound(j);
+            if (!bound.y.is_zero())
+                return;
+            
+            const mpq& key = bound.x;
+            unsigned k;
+            bool j_is_int = lra.column_is_int(j);
+            if (j_is_int) {
+                if (!m_fixed_var_table_int.find(key, k)) {
+                    m_fixed_var_table_int.insert(key, j);
+                    return;
+                }
+            }
+            else { // j is not integral column        
+                if (!m_fixed_var_table_real.find(key, k)) {
+                m_fixed_var_table_real.insert(key, j);
+                return;
+            }
+            }
+
+            CTRACE("arith", !lra.column_is_fixed(k), lra.print_terms(tout););
+            // SASSERT(column_is_fixed(k));
+            if (j != k && lra.column_is_fixed(k)) {
+                SASSERT(lra.column_is_int(j) == lra.column_is_int(k));
+                equal_to_j = k;
+                TRACE("lar_solver", tout << "found equal column k = " << k <<
+                      ", external = " << equal_to_j << "\n";);
+            }
+        }
+        
+    }; // imp
     unsigned_vector& lar_solver::row_bounds_to_replay() { return m_imp->m_row_bounds_to_replay; }
 
     trail_stack& lar_solver::trail() { return m_imp->m_trail; }
@@ -211,8 +245,6 @@ namespace lp {
 
     indexed_uint_set& lar_solver::basic_columns_with_changed_cost() { return m_imp->m_basic_columns_with_changed_cost; }
     
-    void lar_solver::require_nbasis_sort() { m_imp->m_mpq_lar_core_solver.m_r_solver.m_nbasis_sort_counter = 0; }   
-
     mpq lar_solver::bound_span_x(lpvar j) const {
         SASSERT(column_has_upper_bound(j) && column_has_lower_bound(j));
         return get_upper_bound(j).x - get_lower_bound(j).x;
@@ -533,7 +565,7 @@ namespace lp {
         m_imp->m_usage_in_terms.pop(k);
         m_imp->m_dependencies.pop_scope(k);
         // init the nbasis sorting
-		require_nbasis_sort();
+        m_imp->require_nbasis_sort();
         set_status(lp_status::UNKNOWN);
     }
 
@@ -759,7 +791,7 @@ namespace lp {
         TRACE("lar_solver", print_term(term, tout << "maximize: ") << "\n"
                                                                    << constraints() << ", strategy = " << (int)settings().simplex_strategy() << "\n";);
         if (settings().simplex_strategy() != simplex_strategy_enum::tableau_costs)
-            require_nbasis_sort();
+            m_imp->require_nbasis_sort();
         flet f(settings().simplex_strategy(), simplex_strategy_enum::tableau_costs);
         prepare_costs_for_r_solver(term);
         ret = maximize_term_on_tableau(term, term_max);
@@ -1962,7 +1994,7 @@ namespace lp {
         else {
             get_core_solver().m_r_heading.push_back(-static_cast<int>(get_core_solver().m_r_nbasis.size()) - 1);
             get_core_solver().m_r_nbasis.push_back(j);
-            require_nbasis_sort();
+            m_imp->require_nbasis_sort();
         }
     }
 
@@ -2099,38 +2131,6 @@ namespace lp {
         remove_non_fixed_from_table(m_imp->m_fixed_var_table_real);
     }
 
-    void lar_solver::register_in_fixed_var_table(unsigned j, unsigned& equal_to_j) {
-        SASSERT(column_is_fixed(j));
-        equal_to_j = null_lpvar;
-        const impq& bound = get_lower_bound(j);
-        if (!bound.y.is_zero())
-            return;
-
-        const mpq& key = bound.x;
-        unsigned k;
-        bool j_is_int = column_is_int(j);
-        if (j_is_int) {
-            if (!m_imp->m_fixed_var_table_int.find(key, k)) {
-                m_imp->m_fixed_var_table_int.insert(key, j);
-                return;
-            }
-        }
-        else { // j is not integral column        
-            if (!m_imp->m_fixed_var_table_real.find(key, k)) {
-                m_imp->m_fixed_var_table_real.insert(key, j);
-                return;
-            }
-        }
-
-        CTRACE("arith", !column_is_fixed(k), print_terms(tout););
-        // SASSERT(column_is_fixed(k));
-        if (j != k && column_is_fixed(k)) {
-            SASSERT(column_is_int(j) == column_is_int(k));
-            equal_to_j = k;
-            TRACE("lar_solver", tout << "found equal column k = " << k <<
-                ", external = " << equal_to_j << "\n";);
-        }
-    }
 
     void lar_solver::activate_check_on_equal(constraint_index ci, unsigned& equal_column) {
         auto const& c = m_imp->m_constraints[ci];
@@ -2318,7 +2318,7 @@ namespace lp {
         update_column_type_and_bound(j, right_side, constr_index);
         equal_to_j = null_lpvar;
         if (column_is_fixed(j)) {
-            register_in_fixed_var_table(j, equal_to_j);
+            m_imp->register_in_fixed_var_table(j, equal_to_j);
         }
     }
 
