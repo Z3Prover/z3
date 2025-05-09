@@ -1476,26 +1476,33 @@ namespace lp {
         const vector<std::pair<mpq, unsigned>>& inf_row,
         int inf_sign) const {
 
-        #if 1
         impq slack(0);
 
+        std_vector<unsigned> indices;
         for (auto& [coeff, j] : inf_row) {
             int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
             slack += coeff * (adj_sign < 0 ? get_upper_bound(j) : get_lower_bound(j));
+            indices.push_back(indices.size());
         }
 
         #define get_sign(_x_) (_x_.is_pos() ? 1 : (_x_.is_neg() ? -1 : 0))
         int sign = get_sign(slack);
         
-        #endif
+        for (unsigned j = indices.size(); j-- > 0; ) {
+            unsigned k = m_imp->m_settings.random_next(j+1);
+            if (k != j)
+                std::swap(indices[j], indices[k]);
+        }
 
-        for (auto& [coeff, j] : inf_row) {
+        for (unsigned k : indices) {
+            const auto& p = inf_row[k];
+            unsigned j = p.second;
+            const mpq& coeff = p.first;
             int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
             bool is_upper = adj_sign < 0;
             const column& ul = m_imp->m_columns[j];
             u_dependency* bound_constr_i = is_upper ? ul.upper_bound_witness() : ul.lower_bound_witness();
 
-            #if 1
             if(is_upper) {
                 if (ul.previous_upper() != UINT_MAX) {                  
                     auto const& [_is_upper, _j, _bound, _column] = m_imp->m_column_updates[ul.previous_upper()];
@@ -1518,8 +1525,7 @@ namespace lp {
                     }
                 }
             }
-            #endif
-
+        
             svector<constraint_index> deps;
             dep_manager().linearize(bound_constr_i, deps);
             for (auto d : deps) {
