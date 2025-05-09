@@ -109,3 +109,5 @@ CMakeSettings.json
 dbg/**
 *.wsp
 CppProperties.json
+genaisrc/genblogpost.genai.mts
+*.mts
