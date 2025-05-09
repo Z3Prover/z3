@@ -54,7 +54,6 @@ class lar_solver : public column_namer {
 
     ////////////////// methods ////////////////////////////////
 
-    static bool valid_index(unsigned j) { return static_cast<int>(j) >= 0; }
     bool row_has_a_big_num(unsigned i) const;
     // init region
     void register_new_external_var(unsigned ext_v, bool is_int);
@@ -95,16 +94,14 @@ class lar_solver : public column_namer {
  public:   
     bool validate_blocker() const { return m_validate_blocker; }
     bool & validate_blocker() { return m_validate_blocker; }   
-	void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
  private:
-    void require_nbasis_sort();
     void update_column_type_and_bound_with_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_column_type_and_bound_with_no_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_bound_with_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_bound_with_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
     void update_bound_with_no_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void register_in_fixed_var_table(unsigned, unsigned&);
     void remove_non_fixed_from_fixed_var_table();
     constraint_index add_var_bound_on_constraint_for_term(lpvar j, lconstraint_kind kind, const mpq& right_side);
     void set_crossed_bounds_column_and_deps(unsigned j, bool lower_bound, u_dependency* dep);
