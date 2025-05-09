@@ -50,33 +50,7 @@ class int_solver;
     
 class lar_solver : public column_namer {
     struct imp;
-    struct term_hasher {
-        std::size_t operator()(const lar_term& t) const {
-            using std::hash;
-            using std::size_t;
-            using std::string;
-            size_t seed = 0;
-            int i = 0;
-            for (const auto p : t) {
-                hash_combine(seed, (unsigned)p.j());
-                hash_combine(seed, p.coeff());
-                if (i++ > 10)
-                    break;
-            }
-            return seed;
-        }
-    };
-
-    struct term_comparer {
-        bool operator()(const lar_term& a, const lar_term& b) const {
-            return a == b;
-        }
-    };
-     // the struct imp of PIMPL
     imp* m_imp;
-
-    ////////////////// nested structs /////////////////////////
-    struct undo_add_column;
 
     ////////////////// methods ////////////////////////////////
 
@@ -158,9 +132,6 @@ class lar_solver : public column_namer {
     void prepare_costs_for_r_solver(const lar_term& term);
     bool maximize_term_on_feasible_r_solver(lar_term& term, impq& term_max, vector<std::pair<mpq,lpvar>>* max_coeffs);
     u_dependency* get_dependencies_of_maximum(const vector<std::pair<mpq,lpvar>>& max_coeffs);
-    
-    void pop_core_solver_params();
-    void pop_core_solver_params(unsigned k);
     void set_upper_bound_witness(lpvar j, u_dependency* ci, impq const& high);
     void set_lower_bound_witness(lpvar j, u_dependency* ci, impq const& low);
     void substitute_terms_in_linear_expression(const vector<std::pair<mpq, lpvar>>& left_side_with_terms,

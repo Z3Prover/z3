@@ -16,6 +16,30 @@ namespace lp {
     };
     
     struct lar_solver::imp {
+        struct undo_add_column;
+        struct term_hasher {
+            std::size_t operator()(const lar_term& t) const {
+                using std::hash;
+                using std::size_t;
+                using std::string;
+                size_t seed = 0;
+                int i = 0;
+                for (const auto p : t) {
+                    hash_combine(seed, (unsigned)p.j());
+                    hash_combine(seed, p.coeff());
+                    if (i++ > 10)
+                        break;
+                }
+                return seed;
+            }
+        };
+
+        struct term_comparer {
+            bool operator()(const lar_term& a, const lar_term& b) const {
+                return a == b;
+            }
+        };
+
         lar_solver &lra;
         var_register m_var_register;
         svector<column> m_columns;
@@ -43,7 +67,7 @@ namespace lp {
         unsigned_vector m_inf_index_copy;
         vector<lar_term*> m_terms;
         indexed_vector<mpq> m_column_buffer;
-        std::unordered_map<lar_term, std::pair<mpq, unsigned>, lar_solver::term_hasher, lar_solver::term_comparer>
+        std::unordered_map<lar_term, std::pair<mpq, unsigned>, term_hasher, term_comparer>
         m_normalized_terms_to_columns;
 
         stacked_vector<unsigned> m_usage_in_terms;
@@ -54,6 +78,8 @@ namespace lp {
         mutable std::unordered_set<impq> m_set_of_different_pairs;
         mutable std::unordered_set<mpq> m_set_of_different_singles;
         mutable mpq m_delta;
+
+        bool m_validate_blocker = false;
 
         
         void set_r_upper_bound(unsigned j, const impq& b) {
@@ -85,6 +111,34 @@ namespace lp {
                 m_imp.m_column_updates.pop_back();
             }
         };
+
+        bool validate_bound(lpvar j, lconstraint_kind kind, const mpq& rs, u_dependency* dep) {
+            if (m_validate_blocker) return true;
+            
+            lar_solver solver;
+            solver.m_validate_blocker = true;
+            TRACE("lar_solver_validate", tout << lra.get_variable_name(j) << " " << lconstraint_kind_string(kind) << " " << rs << std::endl;);
+            lra.add_dep_constraints_to_solver(solver, dep);
+            if (solver.external_to_local(j) == null_lpvar) {
+                return false; // we have to mention j in the dep
+            }
+            if (kind != EQ) {
+                lra.add_bound_negation_to_solver(solver, j, kind, rs);
+                solver.find_feasible_solution();
+                return solver.get_status() == lp_status::INFEASIBLE;
+            }
+            else {
+                solver.push();
+                lra.add_bound_negation_to_solver(solver, j, LE, rs);
+                solver.find_feasible_solution();
+                if (solver.get_status() != lp_status::INFEASIBLE)
+                    return false;
+                solver.pop();
+                lra.add_bound_negation_to_solver(solver, j, GE, rs);
+                solver.find_feasible_solution();
+                return solver.get_status() == lp_status::INFEASIBLE;
+            }
+        }
     };
     unsigned_vector& lar_solver::row_bounds_to_replay() { return m_imp->m_row_bounds_to_replay; }
 
@@ -798,15 +852,6 @@ namespace lp {
         return lp_status::FEASIBLE;
     }
 
-    void lar_solver::pop_core_solver_params() {
-        pop_core_solver_params(1);
-    }
-
-    void lar_solver::pop_core_solver_params(unsigned k) {
-        A_r().pop(k);
-    }
-
-    
     void lar_solver::set_upper_bound_witness(lpvar j, u_dependency* dep, impq const& high) {
         bool has_upper = m_imp->m_columns[j].upper_bound_witness() != nullptr;
         m_imp->m_column_updates.push_back({true, j, get_upper_bound(j), m_imp->m_columns[j]});
@@ -1838,7 +1883,7 @@ namespace lp {
         return get_core_solver().column_is_free(j);
     }
 
-    struct lar_solver::undo_add_column : public trail {
+    struct lar_solver::imp::undo_add_column : public trail {
         lar_solver& s;
         undo_add_column(lar_solver& s) : s(s) {}
         void undo() override {
@@ -1867,7 +1912,7 @@ namespace lp {
         SASSERT(m_imp->m_columns.size() == A_r().column_count());
         local_j = A_r().column_count();
         m_imp->m_columns.push_back(column());
-        trail().push(undo_add_column(*this));
+        trail().push(imp::undo_add_column(*this));
         while (m_imp->m_usage_in_terms.size() <= local_j) 
             m_imp->m_usage_in_terms.push_back(0);
         add_non_basic_var_to_core_fields(ext_j, is_int);
@@ -1999,7 +2044,7 @@ namespace lp {
         column ul(term);
         term->set_j(j); // point from the term to the column
         m_imp->m_columns.push_back(ul);
-        m_imp->m_trail.push(undo_add_column(*this));
+        m_imp->m_trail.push(imp::undo_add_column(*this));
         add_basic_var_to_core_fields();
          
         A_r().fill_last_row_with_pivoting(*term,
@@ -2167,31 +2212,7 @@ namespace lp {
 
 
     bool lar_solver::validate_bound(lpvar j, lconstraint_kind kind, const mpq& rs, u_dependency* dep) {
-        if (m_validate_blocker) return true;
-        
-        lar_solver solver;
-        solver.m_validate_blocker = true;
-        TRACE("lar_solver_validate", tout << "j = " << j << " " << lconstraint_kind_string(kind) << " " << rs << std::endl;);
-        add_dep_constraints_to_solver(solver, dep);
-        if (solver.external_to_local(j) == null_lpvar) {
-            return false; // we have to mention j in the dep
-        }
-        if (kind != EQ) {
-            add_bound_negation_to_solver(solver, j, kind, rs);
-            solver.find_feasible_solution();
-            return solver.get_status() == lp_status::INFEASIBLE;
-        }
-        else {
-            solver.push();
-            add_bound_negation_to_solver(solver, j, LE, rs);
-            solver.find_feasible_solution();
-            if (solver.get_status() != lp_status::INFEASIBLE)
-                return false;
-            solver.pop();
-            add_bound_negation_to_solver(solver, j, GE, rs);
-            solver.find_feasible_solution();
-            return solver.get_status() == lp_status::INFEASIBLE;
-        }
+        return m_imp->validate_bound(j, kind, rs, dep);
     }
 
     void lar_solver::add_dep_constraints_to_solver(lar_solver& ls, u_dependency* dep) {
