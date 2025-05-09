@@ -395,11 +395,11 @@ namespace lp {
     mpq lar_solver::from_model_in_impq_to_mpq(const impq& v) const { return v.x + m_imp->m_delta * v.y; }
 
     
-    inline const impq& lar_solver::get_upper_bound(lpvar j) const {
+    const impq& lar_solver::get_upper_bound(lpvar j) const {
         return get_core_solver().m_r_solver.m_upper_bounds[j];
     }
 
-    inline const impq& lar_solver::get_lower_bound(lpvar j) const {
+    const impq& lar_solver::get_lower_bound(lpvar j) const {
         return get_core_solver().m_r_solver.m_lower_bounds[j];
     }
 
