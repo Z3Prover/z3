@@ -8,9 +8,12 @@ Version 4.next
   - add global incremental pre-processing for the legacy core.
 
 
-Version 4.14.2
+Version 4.15.0
 ==============
 - Improved integer cut algorithms for linear integer arithmetic.
+  It integrates diophantine equation solving with stronger cuts.
+- C and OCaml API for accessing numerics, thanks to Josh Berdine
+- Bug fixes.
 
 Version 4.14.1
 ==============
