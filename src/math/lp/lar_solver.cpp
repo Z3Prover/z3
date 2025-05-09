@@ -1475,7 +1475,7 @@ namespace lp {
         explanation& exp,
         const vector<std::pair<mpq, unsigned>>& inf_row,
         int inf_sign) const {
-
+#if 0
         impq slack(0);
 
         std_vector<unsigned> indices;
@@ -1493,16 +1493,17 @@ namespace lp {
             if (k != j)
                 std::swap(indices[j], indices[k]);
         }
-
-        for (unsigned k : indices) {
-            const auto& p = inf_row[k];
-            unsigned j = p.second;
-            const mpq& coeff = p.first;
+#endif
+        for (auto& [coeff, j]: inf_row) {
+//        for (unsigned k : indices) {            
+            //          const auto& p = inf_row[k];
+//            unsigned j = p.second;
+            //          const mpq& coeff = p.first;
             int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
             bool is_upper = adj_sign < 0;
             const column& ul = m_imp->m_columns[j];
             u_dependency* bound_constr_i = is_upper ? ul.upper_bound_witness() : ul.lower_bound_witness();
-
+#if 0
             if(is_upper) {
                 if (ul.previous_upper() != UINT_MAX) {                  
                     auto const& [_is_upper, _j, _bound, _column] = m_imp->m_column_updates[ul.previous_upper()];
@@ -1525,7 +1526,7 @@ namespace lp {
                     }
                 }
             }
-        
+#endif   
             svector<constraint_index> deps;
             dep_manager().linearize(bound_constr_i, deps);
             for (auto d : deps) {
