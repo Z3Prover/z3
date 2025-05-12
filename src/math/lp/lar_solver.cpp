@@ -172,7 +172,23 @@ namespace lp {
                       ", external = " << equal_to_j << "\n";);
             }
         }
-        
+        void get_infeasibility_explanation_for_inf_sign(
+            explanation& exp,
+            const vector<std::pair<mpq, unsigned>>& inf_row,
+            int inf_sign) const {
+            for (auto& [coeff, j]: inf_row) {
+                int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
+                const column& ul = m_columns[j];
+
+                u_dependency* bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
+                svector<constraint_index> deps;
+                m_dependencies.linearize(bound_constr_i, deps);
+                for (auto d : deps) {
+                    SASSERT(m_constraints.valid_index(d));
+                    exp.add_pair(d, coeff);
+                }
+            }
+        }        
     }; // imp
     unsigned_vector& lar_solver::row_bounds_to_replay() { return m_imp->m_row_bounds_to_replay; }
 
@@ -1467,73 +1483,8 @@ namespace lp {
         // the infeasibility sign
         int inf_sign;
         auto inf_row = get_core_solver().get_infeasibility_info(inf_sign);
-        get_infeasibility_explanation_for_inf_sign(exp, inf_row, inf_sign);
+        m_imp->get_infeasibility_explanation_for_inf_sign(exp, inf_row, inf_sign);
         SASSERT(explanation_is_correct(exp));
-    }
-
-    void lar_solver::get_infeasibility_explanation_for_inf_sign(
-        explanation& exp,
-        const vector<std::pair<mpq, unsigned>>& inf_row,
-        int inf_sign) const {
-#if 0
-        impq slack(0);
-
-        std_vector<unsigned> indices;
-        for (auto& [coeff, j] : inf_row) {
-            int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
-            slack += coeff * (adj_sign < 0 ? get_upper_bound(j) : get_lower_bound(j));
-            indices.push_back(indices.size());
-        }
-
-        #define get_sign(_x_) (_x_.is_pos() ? 1 : (_x_.is_neg() ? -1 : 0))
-        int sign = get_sign(slack);
-        
-        for (unsigned j = indices.size(); j-- > 0; ) {
-            unsigned k = m_imp->m_settings.random_next(j+1);
-            if (k != j)
-                std::swap(indices[j], indices[k]);
-        }
-#endif
-        for (auto& [coeff, j]: inf_row) {
-//        for (unsigned k : indices) {            
-            //          const auto& p = inf_row[k];
-//            unsigned j = p.second;
-            //          const mpq& coeff = p.first;
-            int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
-            bool is_upper = adj_sign < 0;
-            const column& ul = m_imp->m_columns[j];
-            u_dependency* bound_constr_i = is_upper ? ul.upper_bound_witness() : ul.lower_bound_witness();
-#if 0
-            if(is_upper) {
-                if (ul.previous_upper() != UINT_MAX) {                  
-                    auto const& [_is_upper, _j, _bound, _column] = m_imp->m_column_updates[ul.previous_upper()];
-                    auto new_slack = slack + coeff * (_bound - get_upper_bound(j));
-                    if (sign == get_sign(new_slack)) {
-                        //verbose_stream() << "can weaken upper j" << j << " " << coeff << " " << get_upper_bound(j) << " " << _bound << "\n";
-                        slack = new_slack;
-                        bound_constr_i = _column.upper_bound_witness();
-                    }                    
-                }
-            }
-            else {
-                if (ul.previous_lower() != UINT_MAX) {                
-                    auto const& [_is_upper, _j, _bound, _column] = m_imp->m_column_updates[ul.previous_lower()];
-                    auto new_slack = slack + coeff * (_bound - get_lower_bound(j));
-                    if (sign == get_sign(new_slack)) {
-                        //verbose_stream() << "can weaken lower j" << j << " " << coeff << " " << get_lower_bound(j) << " " << _bound << "\n";
-                        slack = new_slack;
-                        bound_constr_i = _column.lower_bound_witness();
-                    }
-                }
-            }
-#endif   
-            svector<constraint_index> deps;
-            dep_manager().linearize(bound_constr_i, deps);
-            for (auto d : deps) {
-                SASSERT(m_imp->m_constraints.valid_index(d));
-                exp.add_pair(d, coeff);
-            }
-        }
     }
 
     // (x, y) != (x', y') => (x + delta*y) != (x' + delta*y')

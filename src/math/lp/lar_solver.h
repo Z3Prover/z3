@@ -155,10 +155,6 @@ class lar_solver : public column_namer {
     bool explanation_is_correct(explanation&) const;
     bool inf_explanation_is_correct() const;
     mpq sum_of_right_sides_of_explanation(explanation&) const;
-    void get_infeasibility_explanation_for_inf_sign(
-        explanation& exp,
-        const vector<std::pair<mpq, unsigned>>& inf_row,
-        int inf_sign) const;
     mpq get_left_side_val(const lar_base_constraint& cns, const std::unordered_map<lpvar, mpq>& var_map) const;
     void fill_var_set_for_random_update(unsigned sz, lpvar const* vars, vector<unsigned>& column_list);
     bool column_represents_row_in_tableau(unsigned j);
