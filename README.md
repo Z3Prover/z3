@@ -7,8 +7,9 @@ If you are not familiar with Z3, you can start [here](https://github.com/Z3Prove
 
 Pre-built binaries for stable and nightly releases are available [here](https://github.com/Z3Prover/z3/releases).
 
-Z3 can be built using [Visual Studio][1], a [Makefile][2] or using [CMake][3]. It provides
-[bindings for several programming languages][4]. 
+Z3 can be built using [Visual Studio][1], a [Makefile][2], using [CMake][3],
+using [vcpkg][4], or using [Bazel][5].
+It provides [bindings for several programming languages][6].
 
 See the [release notes](RELEASE_NOTES.md) for notes on various stable releases of Z3.
 
@@ -23,7 +24,9 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 [1]: #building-z3-on-windows-using-visual-studio-command-prompt
 [2]: #building-z3-using-make-and-gccclang
 [3]: #building-z3-using-cmake
-[4]: #z3-bindings
+[4]: #building-z3-using-vcpkg
+[5]: #building-z3-using-bazel
+[6]: #z3-bindings
 
 ## Building Z3 on Windows using Visual Studio Command Prompt
 
@@ -113,6 +116,14 @@ git clone https://github.com/microsoft/vcpkg.git
 ./bootstrap-vcpkg.bat # For powershell
 ./bootstrap-vcpkg.sh # For bash
 ./vcpkg install z3
+```
+
+## Building Z3 using Bazel
+
+Z3 can be built using [Bazel](https://bazel.build/). This is known to work on
+Ubuntu with Clang (but may work elsewhere with other compilers):
+```
+bazel build //...
 ```
 
 ## Dependencies
