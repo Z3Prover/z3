@@ -521,7 +521,6 @@ namespace lp {
         term_with_index m_lspace;
         // m_espace is for operations on m_e_matrix rows
         term_with_index m_espace;
-        term_with_index m_espace_backup;
         
         bijection m_k2s;
         bij_map<std::pair<lar_term, unsigned>> m_fresh_k2xt_terms;
@@ -1619,153 +1618,10 @@ namespace lp {
             return b;
         }
         
-        lia_move try_improve_gcd_on_espace(unsigned term_j) {
-            mpq second_smallest_coeff = find_second_smallest_coeff_in_espace();
-            TRACE("dio", tout << "second_smallest_coeff:" << second_smallest_coeff << std::endl;);
-            if (abs(second_smallest_coeff) <= mpq(1)) {
-                //can we improve here?
-                return lia_move::undef;
-            }
-            auto r = try_make_gcd(second_smallest_coeff, true, term_j);
-            if (r == lia_move::undef) {
-                r = try_make_gcd(second_smallest_coeff, false, term_j);
-            }
-            return r;
-        }
-
-        struct restore_espace {
-            term_with_index & m_original;
-            term_with_index & m_backup;
-            restore_espace(term_with_index & orig, term_with_index & backup): m_original(orig), m_backup(backup) {
-                m_original.copy(m_backup); 
-            }
-            ~restore_espace() {
-                m_backup.copy(m_original);
-            }
-        };
-
-        // g is a candidate for new gcd        
-        lia_move try_make_gcd(const mpq& g, bool upper_bound, unsigned term_j) {
-            restore_espace re(m_espace, m_espace_backup);
-            if ((upper_bound && !lra.column_has_upper_bound(term_j)) ||
-                (!upper_bound && !lra.column_has_lower_bound(term_j)))
-                return lia_move::undef;
-            mpq new_bound = upper_bound? lra.get_upper_bound(term_j).x: lra.get_lower_bound(term_j).x;
-            TRACE("dio", tout << "upper_bound:" << upper_bound << ", new_bound:" << new_bound << std::endl;);
-            for (const auto &[c, v] : m_espace) {
-                if (abs(c) == g) continue;
-                if (upper_bound) {
-                    if (!supplement_to_g_upper(c, v, g, new_bound, term_j))
-                        return lia_move::undef;
-                } else {
-                    if (!supplement_to_g_lower(c, v, g, new_bound, term_j))
-                        return lia_move::undef;
-                }
-            }
-            TRACE("dio", print_espace(tout); tout << "g:" << g << std::endl;);
-            SASSERT(gcd_of_coeffs(m_espace.m_data, true) == g);
-            mpq rs_g = new_bound % g;
-            if (rs_g.is_neg())
-                rs_g += g;
-            SASSERT(!rs_g.is_neg());
-            new_bound -= rs_g;
-            TRACE("dio", tout << "new_bound:" << new_bound << std::endl;);
-            if (upper_bound) {
-                if (new_bound < lra.get_upper_bound(term_j).x) {
-                    NOT_IMPLEMENTED_YET();
-                }
-            } else {
-                if (new_bound > lra.get_lower_bound(term_j).x) {
-                    NOT_IMPLEMENTED_YET();
-                }
-            }
-            
-            return lia_move::undef;
-        }
-
-        // new_bound initially is set to the original lower bound of term_j
-        bool supplement_to_g_lower(const mpq& c, unsigned lj, const mpq & g, mpq& new_bound, unsigned term_j) {
-            restore_espace re(m_espace, m_espace_backup);
-            auto r = c % g;
-            TRACE("dio", tout << "lj:" << lj << ", g:"<< g << ", new_bound:" << new_bound << ", r:" << r << std::endl;);
-            if (r.is_zero())
-                return true; // the coefficient is divisible by g
-            if (r.is_neg())
-                r += g;
-            SASSERT((c - r) % g == 0 && r < g && r.is_pos());
-            unsigned j = local_to_lar_solver(lj);
-            if (lra.column_is_free(j)) return false;
-            if (lra.column_is_bounded(j)) {
-                const auto& ub = lra.get_upper_bound(j).x;
-                const auto& lb = lra.get_lower_bound(j).x;
-                TRACE("dio", tout << "lb:" << lb<< ", ub:" << ub << "\n";);
-                /*
-                  If lb >= 0 then we can substract  r*xj from term_j and be sure that the new term does not get bigger, from the other side it cannot diminish by more than r*bu.
-                  In this case we need to update new_bound -= r*ub.
-
-              
-                */
-                if (!lb.is_neg()) {
-                    m_espace.add(-r, lj);
-                    new_bound -= r * ub;
-                    TRACE("dio", print_espace(tout) << "\n"; tout << "new_bound:" << new_bound << std::endl;);
-                      
-                } else {
-                    NOT_IMPLEMENTED_YET();
-                }
-            }
-            NOT_IMPLEMENTED_YET();
-            
-            SASSERT(r.is_pos());
-            // m_espace  <= new_bound
-            r = g - r;
-            TRACE("dio", tout << "r:" << r << std::endl;);
-            // m_espace:4x2 + 2x3 + x4 - 256 >= lb
-            // We have something like: c = 1, lj = 4,g = 2, then r = 1.
-            // If we know that 0 >= x[j] >= k and
-            // then term = m_espace >= m_espace+ r*x_lj  >= bound +  r*k
-            m_espace.add(r, lj);
-            new_bound += r*lra.get_upper_bound(j).x;
-            TRACE("dio", print_espace(tout); tout << "new_bound:" << new_bound << std::endl; );
-           
-            return true;
-        }
-
-        void backup_espace() {
-            m_espace.copy(m_espace_backup);
-        }
-
-        // new_bound is initially let to the original upper bound of term_j
-        bool supplement_to_g_upper(const mpq& c, unsigned lj, const mpq & g, mpq& new_bound, unsigned term_j) {
-            auto r = c % g;
-            TRACE("dio", tout << "r:" << r << std::endl;);
-            if (r.is_zero())
-                return true; // the coefficient is divisible by g
-            if (r.is_neg())
-                r += g;
-            SASSERT(r.is_pos());
-            unsigned j = local_to_lar_solver(lj);
-            // m_espace  <= new_bound
-            r = g - r;
-            TRACE("dio", tout << "r:" << r << std::endl;);
-            if (!lra.column_is_bounded(j)) return false;
-            // m_espace:4x2 + 2x3 + x4 - 256
-            // We have something like: c = 1, lj = 4,g = 2, then r = 1.
-            // If we know that 0 <= x[j] <= k and
-            // then term = m_espace <= m_espace+ r*x_lj  <= new_bound + r*k
-            m_espace.add(r, lj);
-            new_bound += r*lra.get_upper_bound(j).x;
-            TRACE("dio", print_espace(tout); tout << "new_bound:" << new_bound << std::endl; );
-            
-            return true;
-        }
-        
         lia_move tighten_on_espace(unsigned j) {
             mpq g = gcd_of_coeffs(m_espace.m_data, true);
-            if (g.is_one()) {
+            if (g.is_one())
                 return lia_move::undef;
-                return try_improve_gcd_on_espace(j);
-            }
             if (g.is_zero()) {
                 handle_constant_term(j);
                 if (!m_infeas_explanation.empty()) 
