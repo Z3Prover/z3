@@ -147,7 +147,7 @@ typedef unsigned int flex_uint32_t;
 
 /* Size of default input buffer. */
 #ifndef YY_BUF_SIZE
-#define YY_BUF_SIZE 16384
+#define YY_BUF_SIZE 8*16384
 #endif
 
 /* The state buf must be large enough to hold one state per character in the main buffer.
@@ -648,7 +648,7 @@ static int yy_prev_more_offset = 0;
 	yyleng -= (yy_more_offset); \
 	}
 #ifndef YYLMAX
-#define YYLMAX 8192
+#define YYLMAX 2*8*8192
 #endif
 
 char yytext[YYLMAX];
@@ -1877,6 +1877,7 @@ static int yy_get_next_buffer (void)
 		while ( num_to_read <= 0 )
 			{ /* Not enough room in the buffer - grow it. */
 
+            printf("%zu %d %zu\n", YY_CURRENT_BUFFER_LVALUE->yy_buf_size, number_to_move, num_to_read);
 			YY_FATAL_ERROR(
 "input buffer overflow, can't enlarge buffer because scanner uses REJECT" );
 

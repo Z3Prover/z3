@@ -2311,10 +2311,10 @@ static void display_smt2(std::ostream& out) {
         asms.push_back(fmls.m_formulas[i]);
 
     for (size_t i = 0; i < asms.size(); ++i) {
-        z3::expr fml = asms[i];
+        z3::expr fml = asms[(unsigned)i];
         if (fml.is_and()) {
             z3::expr arg0 = fml.arg(0);
-            asms.set(i, arg0);
+            asms.set((unsigned)i, arg0);
             for (unsigned j = 1; j < fml.num_args(); ++j)
                 asms.push_back(fml.arg(j));
             --i;
@@ -2323,7 +2323,7 @@ static void display_smt2(std::ostream& out) {
     
     Z3_ast* assumptions = new Z3_ast[asms.size()];
     for (size_t i = 0; i < asms.size(); ++i) 
-        assumptions[i] = asms[i];        
+        assumptions[i] = asms[(unsigned)i];        
     Z3_set_ast_print_mode(ctx, Z3_PRINT_SMTLIB_FULL);
     Z3_string s = 
         Z3_benchmark_to_smtlib_string(
