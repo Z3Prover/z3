@@ -441,3 +441,16 @@ relevant `*_WARNINGS_AS_ERRORS` list defined in
 
 Additional warnings should only be added here if the warnings has no false
 positives.
+
+### Building TPTP with CMAKE
+
+
+Build instructions:
+
+1. cd z3
+2. mkdir release
+3. cd release
+4. cmake3 -DZ3_BUILD_LIBZ3_SHARED=FALSE -DCMAKE_BUILD_TYPE=RelWithDebInfo -G "Unix Makefiles" ../
+5. make
+6. make z3_tptp5
+7. cp examples/tptp_build_dir/z3_tptp5 ../../bin/z3_tptp
