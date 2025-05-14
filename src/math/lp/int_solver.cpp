@@ -43,13 +43,15 @@ namespace lp {
         unsigned            m_hnf_cut_period;
         dioph_eq            m_dio;  
         int_gcd_test        m_gcd;
-
+        unsigned            m_initial_dio_calls_period;
+        
         bool column_is_int_inf(unsigned j) const {
             return lra.column_is_int(j) && (!lia.value_is_int(j));
         }
 
         imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_dio(lia), m_gcd(lia) {
             m_hnf_cut_period = settings().hnf_cut_period();
+            m_initial_dio_calls_period = settings().dio_calls_period();
         } 
 
         bool has_lower(unsigned j) const {
@@ -173,8 +175,18 @@ namespace lp {
 
             if (r == lia_move::conflict) {
                 m_dio.explain(*this->m_ex);
+                lia.settings().dio_calls_period() = m_initial_dio_calls_period;
+                lia.settings().dio_enable_gomory_cuts() = false;
+                lia.settings().set_run_gcd_test(false);
                 return lia_move::conflict;
-            } 
+            }
+            if (r == lia_move::undef) {
+                lia.settings().dio_calls_period() *= 2;
+                if (lra.settings().dio_calls_period() >= 16) {
+                    lia.settings().dio_enable_gomory_cuts() = true;
+                    lia.settings().set_run_gcd_test(true);
+                }
+            }
             return r;
         }
 
