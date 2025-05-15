@@ -1,0 +1,11 @@
+# Use Bzlmod (`MODULE.bazel`) instead of `WORKSPACE.bazel`.
+common --enable_bzlmod
+common --noenable_workspace
+
+# Use C++20.
+build --cxxopt=-std=c++20
+build --host_cxxopt=-std=c++20
+
+# Use Clang.
+build --action_env=CC=clang
+build --action_env=CXX=clang++

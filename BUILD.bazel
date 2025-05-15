@@ -1,0 +1,26 @@
+load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
+load("@rules_license//rules:license.bzl", "license")
+
+package(default_applicable_licenses = [":license"])
+
+license(
+    name = "license",
+    license_kinds = ["@rules_license//licenses/spdx:MIT"],
+    license_text = "LICENSE.txt",
+)
+
+exports_files(["LICENSE.txt"])
+
+filegroup(
+    name = "all_files",
+    srcs = glob(["**"]),
+)
+
+cmake(
+    name = "z3",
+    generate_args = ["-G Ninja"],
+    lib_source = ":all_files",
+    out_binaries = ["z3"],
+    out_shared_libs = ["libz3.so"],
+    visibility = ["//visibility:public"],
+)
