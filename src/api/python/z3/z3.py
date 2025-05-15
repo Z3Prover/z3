@@ -7394,11 +7394,6 @@ class Solver(Z3PPObject):
         b = _py2expr(b, self.ctx)
         return _to_expr_ref(Z3_solver_congruence_explain(self.ctx.ref(), self.solver, a.ast, b.ast), self.ctx)
 
-    def solve_for1(self, t):
-        """Retrieve a solution for t relative to linear equations maintained in the current state.
-        The function primarily works for SimpleSolver and when there is a solution using linear arithmetic."""
-        t = _py2expr(t, self.ctx)
-        return _to_expr_ref(Z3_solver_solve_for1(self.ctx.ref(), self.solver, t.ast), self.ctx)
 
     def solve_for(self, ts):
         """Retrieve a solution for t relative to linear equations maintained in the current state."""
