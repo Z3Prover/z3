@@ -3185,15 +3185,13 @@ namespace smt {
             TRACE("theory_case_split", tout << "assigned literal " << l.index() << " is a theory case split literal" << std::endl;);
             // now find the sets of literals which contain l
             vector<literal_vector> const& case_split_sets = m_literal2casesplitsets[l.index()];
-            for (vector<literal_vector>::const_iterator it = case_split_sets.begin(); it != case_split_sets.end(); ++it) {
-                literal_vector case_split_set = *it;
+            for (const auto& case_split_set : case_split_sets) {
                 TRACE("theory_case_split", tout << "found case split set { ";
-                      for(literal_vector::iterator set_it = case_split_set.begin(); set_it != case_split_set.end(); ++set_it) {
-                          tout << set_it->index() << " ";
+                      for (const auto& set_elem : case_split_set) {
+                          tout << set_elem.index() << " ";
                       }
                       tout << "}" << std::endl;);
-                for(literal_vector::iterator set_it = case_split_set.begin(); set_it != case_split_set.end(); ++set_it) {
-                    literal l2 = *set_it;
+                for (const auto& l2 : case_split_set) {
                     if (l2 != l) {
                         b_justification js(l);
                         TRACE("theory_case_split", tout << "case split literal "; smt::display(tout, l2, m, m_bool_var2expr.data()); tout << std::endl;);

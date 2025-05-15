@@ -652,8 +652,8 @@ namespace datalog {
         void init_ctx(rule_set& rules) {
             m_inner_ctx.reset();
             func_decl_set const& predicates = m_ctx.get_predicates();
-            for (func_decl_set::iterator fit = predicates.begin(); fit != predicates.end(); ++fit) {
-                m_inner_ctx.register_predicate(*fit, false);
+            for (auto* fit : predicates) {
+                m_inner_ctx.register_predicate(fit, false);
             }
             m_inner_ctx.ensure_opened();
             m_inner_ctx.replace_rules(rules);

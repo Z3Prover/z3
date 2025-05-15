@@ -30,7 +30,7 @@ class cofactor_term_ite_tactic : public tactic {
     void process(goal & g) {
         ast_manager & m = g.m();
         unsigned idx = 0;
-        for (auto [f, dep, pr] : g) {
+        for (const auto& [f, dep, pr] : g) {
             if (g.inconsistent())
                 break;
             expr_ref new_f(m);

@@ -488,7 +488,7 @@ void goal::shrink(unsigned j) {
 */
 void goal::elim_true() {    
     unsigned i = 0, j = 0;
-    for (auto [f, dep, pr] : *this) {
+    for (const auto& [f, dep, pr] : *this) {
         if (m().is_true(f)) {
             ++i;
             continue;

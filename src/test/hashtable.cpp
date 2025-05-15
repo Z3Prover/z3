@@ -83,18 +83,14 @@ static void tst2() {
         }
     }
     { 
-        safe_int_set::iterator it  = h2.begin();
-        safe_int_set::iterator end = h2.end();
-        for(; it != end; ++it) {
-            ENSURE(contains(h1, *it));
+        for (const auto& elem : h2) {
+            ENSURE(contains(h1, elem));
         }
     }
     {
-        int_set::iterator it = h1.begin();
-        int_set::iterator end = h1.end();
         int n = 0;
-        for (; it != end; ++it) {
-            ENSURE(contains(h1, *it));
+        for (const auto& elem : h1) {
+            ENSURE(contains(h1, elem));
             n++;
         }
         ENSURE(n == h1.size());
@@ -202,7 +198,7 @@ void test_hashtable_iterators() {
     ht.insert(3);
     
     int count = 0;
-    for(auto it = ht.begin(); it != ht.end(); ++it) {
+    for (const auto& elem : ht) {
         ++count;
     }
     VERIFY(count == 3);

@@ -853,7 +853,7 @@ class tseitin_cnf_tactic : public tactic {
                 m_mc = nullptr;
 
             unsigned idx = 0;
-            for (auto [f, dep, pr] : *g) {
+            for (const auto& [f, dep, pr] : *g) {
                 process(f, dep);
                 g->update(idx++, m.mk_true(), nullptr, nullptr);
             }
