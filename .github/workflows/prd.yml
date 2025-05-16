@@ -1,0 +1,25 @@
+name: genai pull request description
+on:
+    pull_request:
+        types: [ready_for_review, review_requested]
+concurrency:
+    group: genai-pr-review-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+permissions:
+    contents: read # permission to read the repository
+    pull-requests: write # permission to write a comment
+    models: read # permission to use github models
+jobs:
+    describe:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+            - name: fetch base branch
+              run: git fetch origin ${{ github.event.pull_request.base.ref }}
+            - name: genaiscript prd
+              run: npx --yes genaiscript run prd --vars base=origin/${{ github.event.pull_request.base.ref }} --pull-request-description --out-trace $GITHUB_STEP_SUMMARY
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
