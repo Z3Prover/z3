@@ -34,4 +34,4 @@ This description will be used as the pull request description.
 - use gitmojis to make the description more engaging
 - focus on the most important changes
 - do not try to fix issues, only describe the changes
-- ignore comments about imports (like added, remove, changed, etc.)
+- ignore comments about imports (like added, remove, changed, etc.)`
