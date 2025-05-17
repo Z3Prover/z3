@@ -156,10 +156,13 @@ public:
         auto simplifier_factory = sexpr2simplifier(ctx, m_simplifier);
         ctx.init_manager();
         auto* s = ctx.get_solver();
+        if (!s)
+            return;
         if (s->get_num_assertions() > 0) 
             throw cmd_exception("set-simplifier cannot be invoked if there are already assertions");
-        if (s)
-            ctx.set_solver(mk_simplifier_solver(s, &simplifier_factory));        
+        if (s->get_scope_level() > 0)
+            throw cmd_exception("set-simplifier cannot be invoked above base scope level");
+        ctx.set_solver(mk_simplifier_solver(s, &simplifier_factory));        
     }
 };
 
