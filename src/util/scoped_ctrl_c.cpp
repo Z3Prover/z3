@@ -106,8 +106,7 @@ scoped_ctrl_c::scoped_ctrl_c(event_handler & eh, bool once, bool enabled):
     m_cancel_eh(eh),
     m_first(true),
     m_once(once),
-    m_enabled(enabled),
-    m_old_scoped_ctrl_c(g_obj) {
+    m_enabled(enabled) {
     if (gparams::get_value("ctrl_c") == "false")
         m_enabled = false;
     if (m_enabled) {
