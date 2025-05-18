@@ -1,7 +1,7 @@
 name: genai pull request description
 on:
     pull_request:
-        types: [ready_for_review, review_requested]
+        types: [ready_for_review, review_requested, openend]
 concurrency:
     group: genai-pr-review-${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true
