@@ -38,6 +38,7 @@ Notes:
 #include "solver/solver.h"
 #include "solver/check_logic.h"
 #include "solver/progress_callback.h"
+#include "solver/simplifier_solver.h"
 #include "cmd_context/pdecl.h"
 #include "cmd_context/tactic_manager.h"
 #include "params/context_params.h"
@@ -282,6 +283,7 @@ protected:
     std::vector<std::string>     m_assertion_strings;
     ptr_vector<expr>             m_assertion_names; // named assertions are represented using boolean variables.
     scoped_ptr<var_subst>        m_std_subst, m_rev_subst;
+    simplifier_factory           m_simplifier_factory;
 
     struct scope {
         unsigned m_func_decls_stack_lim;
@@ -429,6 +431,7 @@ public:
     void set_initial_value(expr* var, expr* value);
 
     void set_solver_factory(solver_factory * s);
+    void set_simplifier_factory(simplifier_factory& sf) { m_simplifier_factory = sf; }
     void set_check_sat_result(check_sat_result * r) { m_check_sat_result = r; }
     check_sat_result * get_check_sat_result() const { return m_check_sat_result.get(); }
     check_sat_state cs_state() const;
