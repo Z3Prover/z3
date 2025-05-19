@@ -1493,7 +1493,8 @@ void cmd_context::insert_aux_pdecl(pdecl * p) {
     m_aux_pdecls.push_back(p);
 }
 
-void cmd_context::reset(bool finalize) {    
+void cmd_context::reset(bool finalize) {
+    m_simplifier_factory = nullptr;
     m_logic = symbol::null;
     m_check_sat_result = nullptr;
     m_numeral_as_real = false;
@@ -2260,6 +2261,8 @@ void cmd_context::mk_solver() {
     m_params.get_solver_params(p, proofs_enabled, models_enabled, unsat_core_enabled);
     m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
     m_solver = mk_slice_solver(m_solver.get());
+    if (m_simplifier_factory) 
+        m_solver = mk_simplifier_solver(m_solver.get(), &m_simplifier_factory);
 }
 
 
