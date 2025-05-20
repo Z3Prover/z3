@@ -88,6 +88,7 @@ namespace smt {
         lbool                  m_next_split_phase = l_undef;
         vector<expr_ref_vector> m_clauses_to_replay;
         unsigned                m_replay_qhead = 0;
+        obj_hashtable<expr>   m_add_expr_fresh;
 
         expr* var2expr(theory_var v) { return m_var2expr.get(v); }
         theory_var expr2var(expr* e) { check_defined(e); return m_expr2var[e->get_id()]; }
@@ -107,7 +108,6 @@ namespace smt {
 
     public:
         theory_user_propagator(context& ctx);
-        
         ~theory_user_propagator() override;
 
         /*

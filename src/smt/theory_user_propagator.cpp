@@ -51,14 +51,18 @@ void theory_user_propagator::add_expr(expr* term, bool ensure_enode) {
     expr* e = term;
     ctx.get_rewriter()(e, r);
     TRACE("user_propagate", tout << "add " << mk_bounded_pp(e, m) << "\n");
-    if (r != e) {
+    if (!is_ground(r)) {
+        if (m_add_expr_fresh.contains(term))
+            return;
+        m_add_expr_fresh.insert(term);
+        ctx.push_trail(insert_obj_trail(m_add_expr_fresh, term));
         r = m.mk_fresh_const("aux-expr", e->get_sort());
         expr_ref eq(m.mk_eq(r, e), m);
         ctx.assert_expr(eq);
         ctx.internalize_assertions();
-        e = r;
         ctx.mark_as_relevant(eq.get());
     }
+    e = r;
     enode* n = ensure_enode ? this->ensure_enode(e) : ctx.get_enode(e);
     if (is_attached_to_var(n))
         return;
