@@ -48,23 +48,33 @@ void theory_user_propagator::force_push() {
 void theory_user_propagator::add_expr(expr* term, bool ensure_enode) {
     force_push();
     expr_ref r(m);
-    ctx.get_rewriter()(term, r);
-    TRACE("user_propagate", tout << "add " << mk_bounded_pp(term, m) << "\n");
-    enode* n = ensure_enode ? this->ensure_enode(r) : ctx.get_enode(r);
+    expr* e = term;
+    ctx.get_rewriter()(e, r);
+    TRACE("user_propagate", tout << "add " << mk_bounded_pp(e, m) << "\n");
+    if (r != e) {
+        r = m.mk_fresh_const("aux-expr", e->get_sort());
+        expr_ref eq(m.mk_eq(r, e), m);
+        ctx.assert_expr(eq);
+        ctx.internalize_assertions();
+        e = r;
+        ctx.mark_as_relevant(eq.get());
+    }
+    enode* n = ensure_enode ? this->ensure_enode(e) : ctx.get_enode(e);
     if (is_attached_to_var(n))
         return;
 
     theory_var v = mk_var(n);
     m_var2expr.reserve(v + 1);
-    m_var2expr[v] = r;
-    m_expr2var.setx(r->get_id(), v, null_theory_var);
+    expr_ref t(term, m);
+    m_var2expr[v] = t;
+    m_expr2var.setx(t->get_id(), v, null_theory_var);
 
-    if (m.is_bool(r) && !ctx.b_internalized(r)) {
-        bool_var bv = ctx.mk_bool_var(r);
+    if (m.is_bool(e) && !ctx.b_internalized(e)) {
+        bool_var bv = ctx.mk_bool_var(e);
         ctx.set_var_theory(bv, get_id());
         ctx.set_enode_flag(bv, true);
     }
-    SASSERT(!m.is_bool(r) || ctx.b_internalized(r));
+    SASSERT(!m.is_bool(e) || ctx.b_internalized(e));
 
     ctx.attach_th_var(n, this, v);
     literal_vector explain;
