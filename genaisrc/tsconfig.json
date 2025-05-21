@@ -1,9 +1,9 @@
 {
     "compilerOptions": {
         "lib": [
-            "ES2022"
+            "ES2024"
         ],
-        "target": "ES2023",
+        "target": "ES2024",
         "module": "NodeNext",
         "moduleDetection": "force",
         "moduleResolution": "nodenext",
@@ -11,11 +11,14 @@
         "allowJs": true,
         "skipLibCheck": true,
         "noEmit": true,
-        "allowImportingTsExtensions": true
+        "allowImportingTsExtensions": true,
+        "verbatimModuleSyntax": true,
+        "resolveJsonModule": true,
+        "erasableSyntaxOnly": true
     },
     "include": [
-        "*.mjs",
-        "*.mts",
+        "**/*.mjs",
+        "**/*.mts",
         "./genaiscript.d.ts"
     ]
 }
