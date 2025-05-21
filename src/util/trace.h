@@ -20,6 +20,7 @@ Revision History:
 #pragma once
 
 #include<fstream>
+#include "util/trace_tags.h"
 
 #ifdef SINGLE_THREAD
 # define is_threaded() false
@@ -81,6 +82,7 @@ static inline void finalize_trace() {}
 #define STRACEBODY(CODE) CODE; tout.flush()
 
 #define TRACE(TAG, CODE) TRACE_CODE(if (is_trace_enabled(TAG)) { THREAD_LOCK(TRACEBODY(TAG, CODE)); })
+#define TRACE_NEW(TAG, CODE) TRACE_CODE(if (is_trace_enabled(to_string(TAG))) { THREAD_LOCK(TRACEBODY(to_string(TAG), CODE)); })
 
 #define STRACE(TAG, CODE) TRACE_CODE(if (is_trace_enabled(TAG)) { THREAD_LOCK(STRACEBODY(CODE)); })
 
