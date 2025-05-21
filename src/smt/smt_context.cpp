@@ -1702,7 +1702,7 @@ namespace smt {
      */
     bool context::propagate() {
         TRACE("propagate", tout << "propagating... " << m_qhead << ":" << m_assigned_literals.size() << "\n";);
-        TRACE_NEW(TraceTag::propagate, tout << "propagating... " << m_qhead << ":" << m_assigned_literals.size() << "\n";);
+        TRACE_NEW(propagate, tout << "propagating... " << m_qhead << ":" << m_assigned_literals.size() << "\n";);
         while (true) {
             if (inconsistent())
                 return false;
