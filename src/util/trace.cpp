@@ -74,6 +74,11 @@ bool is_trace_enabled(const char * tag) {
         (g_enabled_trace_tags && get_enabled_trace_tags().contains(tag));
 }
 
+bool is_trace_enabled(TraceTag tag) {
+    return g_enable_all_trace_tags || 
+        (g_enabled_trace_tags && get_enabled_trace_tags().contains(to_string(tag)));
+}
+
 void close_trace() {
     tout.close();
 }
