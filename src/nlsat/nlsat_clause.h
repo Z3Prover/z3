@@ -64,7 +64,7 @@ namespace nlsat {
         assumption_set assumptions() const { return m_assumptions; }
     };
 
-    typedef ptr_vector<clause> clause_vector;
+    typedef std_vector<clause*> clause_vector;
 
 };
 

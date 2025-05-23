@@ -94,7 +94,7 @@ namespace nlsat {
         void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; }
     };
 
-    typedef ptr_vector<atom> atom_vector;
+    typedef std_vector<atom*> atom_vector;
 
     class ineq_atom : public atom {
         friend class solver;

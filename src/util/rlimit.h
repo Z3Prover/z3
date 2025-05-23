@@ -79,8 +79,14 @@ public:
     void set_timeout(unsigned ms) { push_timeout(ms);  }
 #endif
     bool suspended() const { return m_suspend; }
-    inline bool not_canceled() { 
-        return m_suspend || (m_cancel == 0 && m_count <= m_limit && !is_timeout()); 
+    inline bool not_canceled() {
+	    return true;
+        bool ret = m_suspend || (m_cancel == 0 && m_count <= m_limit && !is_timeout());
+        if (!ret) {
+//            std::cout << "cancelled\n";
+            return !ret;
+        }
+        return ret; 
     }
     inline bool is_canceled()  { return !not_canceled(); }
     char const* get_cancel_msg() const;
