@@ -78,7 +78,7 @@ namespace nlsat {
 
     struct solver::imp {
 
-        std_vector<std::pair<std::string, int>> m_known_values;
+        std_vector<std::pair<std::string, int>> m_debug_known_sat_values;
         struct dconfig {
             typedef imp                      value_manager;
             typedef small_object_allocator   allocator;
@@ -342,7 +342,7 @@ namespace nlsat {
             m_lemma(s),
             m_lazy_clause(s),
             m_lemma_assumptions(m_asm) {
-            m_known_values = {
+            m_debug_known_sat_values = {
                 {"k!0", 6},
                 {"k!1", 6},
                 { "k!2", 6},
@@ -397,7 +397,7 @@ namespace nlsat {
             reset_statistics();
             mk_true_bvar();
             m_lemma_count = 0;
-            for (auto const & kv : m_known_values) {
+            for (auto const & kv : m_debug_known_sat_values) {
                 anum val;
                 // Convert kv.second to an anum using m_am
                 m_am.set(val, kv.second);
