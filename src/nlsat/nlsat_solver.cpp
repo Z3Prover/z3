@@ -79,6 +79,7 @@ namespace nlsat {
     struct solver::imp {
 
         std_vector<std::pair<std::string, int>> m_debug_known_sat_values;
+        
         struct dconfig {
             typedef imp                      value_manager;
             typedef small_object_allocator   allocator;
@@ -93,11 +94,8 @@ namespace nlsat {
         
 
         typedef polynomial::cache cache;
-        typedef ptr_vector<interval_set> interval_set_vector;
+        typedef std_vector<interval_set*> interval_set_vector;
         
-        // debug support
-        std_vector<anum>        m_debug_var_anums;
-        // end debug support
         ctx&                    m_ctx;
         solver&                 m_solver;
         reslimit&               m_rlimit;
@@ -244,10 +242,10 @@ namespace nlsat {
         };
         // statistics
         stats                  m_stats;
-        scoped_anum_vector     m_debug_known_anum_vector;
+        scoped_anum_vector     m_debug_known_sat_anum_vector;
 
-        const anum& get_known_anum_value(unsigned j) const {
-            return m_debug_known_anum_vector[m_perm[j]];
+        const anum& get_known_sat_anum_value(unsigned j) const {
+            return m_debug_known_sat_anum_vector[m_perm[j]];
         }
 
         bool debug_check_literal(literal l) {
@@ -338,7 +336,7 @@ namespace nlsat {
             m_display_assumption(nullptr),
             m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator, nlsat_params(c.m_params).cell_sample()),
             m_scope_lvl(0),
-            m_debug_known_anum_vector(m_am),
+            m_debug_known_sat_anum_vector(m_am),
             m_lemma(s),
             m_lazy_clause(s),
             m_lemma_assumptions(m_asm) {
@@ -401,7 +399,7 @@ namespace nlsat {
                 anum val;
                 // Convert kv.second to an anum using m_am
                 m_am.set(val, kv.second);
-                m_debug_known_anum_vector.push_back(val);
+                m_debug_known_sat_anum_vector.push_back(val);
             }
         }
         
@@ -2019,48 +2017,9 @@ namespace nlsat {
             CTRACE("nlsat_model", r == l_true, tout << "model\n"; display_assignment(tout););
             CTRACE("nlsat", r == l_false, display(tout << "unsat\n"););
             SASSERT(r != l_true || check_satisfied(m_clauses));
-            // std::cout << "debug_init_all_from_known_vars\n";
-            // enable_trace("nlsat");
-            // debug_init_all_from_known_vars();
-            // std::cout << "done\n";
             return r;
         }
 
-        void debug_init_all_from_known_vars() {
-            m_assignment.reset();
-
-            // Assign known values from m_debug_known_anum_vector
-            for (var x = 0; x < num_vars(); ++x) {
-                m_assignment.set(x, get_known_anum_value(x));
-            }
-
-            // Evaluate each literal in m_clauses
-            for (clause* cls : m_clauses) {
-                for (literal lit : *cls) {
-                    bool_var b = lit.var();
-                    atom* a = m_atoms[b];
-
-                    if (a == nullptr) {
-                        // Pure boolean literal encountered, throw exception
-                        continue;
-                    }
-
-                    bool eval_result;
-                    if (a->is_ineq_atom()) {
-                        eval_result = m_evaluator.eval(to_ineq_atom(a), lit.sign());
-                    } else {
-                        eval_result = m_evaluator.eval(to_root_atom(a), lit.sign());
-                    }
-
-                    lbool val = to_lbool(eval_result);
-                    if (lit.sign())
-                        val = ~val;
-                    
-                    m_bvalues[b] = val;
-                }
-            }
-            SASSERT(check_satisfied(m_clauses));
-        }
         
 
         void init_search() {
