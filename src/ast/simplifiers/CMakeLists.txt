@@ -36,6 +36,7 @@ z3_add_component(simplifiers
     elim_term_ite.h
     pull_nested_quantifiers.h
     push_ite.h
+    randomizer.h
     refine_inj_axiom.h
     rewriter_simplifier.h
 )
