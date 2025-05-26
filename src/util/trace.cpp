@@ -59,6 +59,18 @@ void finalize_trace() {
 
 void enable_trace(const char * tag) {
     get_enabled_trace_tags().insert(tag);
+    int count = 0;
+    TraceTag tag_str = find_trace_tag_by_string(tag);
+    if(tag_str == TraceTag::Count) {
+        return;
+    }
+    const TraceTag* tags = get_tags_by_class(tag_str, count);
+    for (int i = 0; i < count; ++i) {
+        const char* tag_str = tracetag_to_string(tags[i]);
+        if (!get_enabled_trace_tags().contains(tag_str)) {
+            get_enabled_trace_tags().insert(tag_str);
+        }
+    }
 }
 
 void enable_all_trace(bool flag) {
@@ -69,14 +81,9 @@ void disable_trace(const char * tag) {
     get_enabled_trace_tags().erase(tag);
 }
 
-bool is_trace_enabled(const char * tag) {
-    return g_enable_all_trace_tags || 
-        (g_enabled_trace_tags && get_enabled_trace_tags().contains(tag));
-}
-
 bool is_trace_enabled(TraceTag tag) {
     return g_enable_all_trace_tags || 
-        (g_enabled_trace_tags && get_enabled_trace_tags().contains(to_string(tag)));
+        (g_enabled_trace_tags && get_enabled_trace_tags().contains(tracetag_to_string(tag)));
 }
 
 void close_trace() {

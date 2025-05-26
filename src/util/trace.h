@@ -20,7 +20,7 @@ Revision History:
 #pragma once
 
 #include<fstream>
-#include "util/trace_tags.h"
+#include "trace_tags.h"
 
 #ifdef SINGLE_THREAD
 # define is_threaded() false
@@ -56,7 +56,6 @@ extern std::ofstream tout;
 void enable_trace(const char * tag);
 void enable_all_trace(bool flag);
 void disable_trace(const char * tag);
-bool is_trace_enabled(const char * tag);
 bool is_trace_enabled(TraceTag tag);
 void close_trace();
 void open_trace();
@@ -71,23 +70,18 @@ void finalize_trace();
 static inline void enable_trace(const char * tag) {}
 static inline void enable_all_trace(bool flag) {}
 static inline void disable_trace(const char * tag) {}
-static inline bool is_trace_enabled(const char * tag) { return false; }
 static inline bool is_trace_enabled(TraceTag tag) { return false; }
 static inline void close_trace() {}
 static inline void open_trace() {}
 static inline void finalize_trace() {}
 #endif
 
-#define TRACEH(TAG)  tout << "-------- [" << TAG << "] " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"
+#define TRACEH(TAG)  tout << "-------- [" << tracetag_to_string(TraceTag::TAG) << "] " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"
 #define TRACEEND tout << "------------------------------------------------\n"
 #define TRACEBODY(TAG, CODE) TRACEH(TAG); CODE; TRACEEND; tout.flush()
 #define STRACEBODY(CODE) CODE; tout.flush()
 
-#define TRACE(TAG, CODE) TRACE_CODE(if (is_trace_enabled(TAG)) { THREAD_LOCK(TRACEBODY(TAG, CODE)); })
-#define TRACE_NEW(TAG, CODE) TRACE_CODE(if (is_trace_enabled(TraceTag::TAG)) { THREAD_LOCK(TRACEBODY(to_string(TraceTag::TAG), CODE)); })
-
-#define STRACE(TAG, CODE) TRACE_CODE(if (is_trace_enabled(TAG)) { THREAD_LOCK(STRACEBODY(CODE)); })
-
-#define SCTRACE(TAG, COND, CODE) TRACE_CODE(if (is_trace_enabled(TAG) && (COND)) { THREAD_LOCK(STRACEBODY(CODE)); })
-
-#define CTRACE(TAG, COND, CODE) TRACE_CODE(if (is_trace_enabled(TAG) && (COND)) { THREAD_LOCK(TRACEBODY(TAG, CODE)); })
+#define TRACE(TAG, CODE) TRACE_CODE(if (is_trace_enabled(TraceTag::TAG)) { THREAD_LOCK(TRACEBODY(TAG, CODE)); })
+#define STRACE(TAG, CODE) TRACE_CODE(if (is_trace_enabled(TraceTag::TAG)) { THREAD_LOCK(STRACEBODY(CODE)); })
+#define SCTRACE(TAG, COND, CODE) TRACE_CODE(if (is_trace_enabled(TraceTag::TAG) && (COND)) { THREAD_LOCK(STRACEBODY(CODE)); })
+#define CTRACE(TAG, COND, CODE) TRACE_CODE(if (is_trace_enabled(TraceTag::TAG) && (COND)) { THREAD_LOCK(TRACEBODY(TAG, CODE)); })
