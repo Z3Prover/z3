@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstring>
+
 enum class TraceTag {
 #define X(tag, class, desc) tag,
 #include "trace_tags.def"
