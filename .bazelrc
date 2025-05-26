@@ -2,6 +2,13 @@
 common --enable_bzlmod
 common --noenable_workspace
 
+# Specifies...
+#   --config=windows on Windows hosts
+#   --config=linux on Linux hosts
+#   --config=macos on macOS hosts
+# NOTE: We assume our host and target platforms are identical.
+common --enable_platform_specific_config
+
 # Use C++20.
 build --cxxopt=-std=c++20
 build --host_cxxopt=-std=c++20
