@@ -83,7 +83,7 @@ bool pred_transformer::legacy_frames::propagate_to_next_level(unsigned src_level
     unsigned tgt_level = next_level(src_level);
     m_pt.ensure_level(next_level(tgt_level));
 
-    TRACE("spacer",
+    TRACE(spacer,
           tout << "propagating " << src_level << " to " << tgt_level;
           tout << " for relation " << m_pt.head()->get_name() << "\n";);
 
@@ -95,25 +95,25 @@ bool pred_transformer::legacy_frames::propagate_to_next_level(unsigned src_level
         SASSERT(stored_lvl >= src_level);
         unsigned solver_level = 0;
         if (stored_lvl > src_level) {
-            TRACE("spacer", tout << "at level: " << stored_lvl << " " << mk_pp(curr, m) << "\n";);
+            TRACE(spacer, tout << "at level: " << stored_lvl << " " << mk_pp(curr, m) << "\n";);
             src[i] = src.back();
             src.pop_back();
         } else if (m_pt.is_invariant(tgt_level, curr, solver_level)) {
             // -- might invalidate src reference
             add_lemma(curr, solver_level);
-            TRACE("spacer", tout << "is invariant: " << pp_level(solver_level) << " " << mk_pp(curr, m) << "\n";);
+            TRACE(spacer, tout << "is invariant: " << pp_level(solver_level) << " " << mk_pp(curr, m) << "\n";);
             // shadow higher-level src
             expr_ref_vector &src = m_levels[src_level];
             src[i] = src.back();
             src.pop_back();
             ++m_pt.m_stats.m_num_propagations;
         } else {
-            TRACE("spacer", tout << "not propagated: " << mk_pp(curr, m) << "\n";);
+            TRACE(spacer, tout << "not propagated: " << mk_pp(curr, m) << "\n";);
             ++i;
         }
     }
 
-    CTRACE("spacer", m_levels[src_level].empty(),
+    CTRACE(spacer, m_levels[src_level].empty(),
            tout << "Fully propagated level "
            << src_level << " of " << m_pt.head()->get_name() << "\n";);
 
@@ -144,7 +144,7 @@ bool pred_transformer::legacy_frames::add_lemma(expr * lemma, unsigned lvl)
 
 void  pred_transformer::legacy_frames::propagate_to_infinity(unsigned level)
 {
-    TRACE("spacer", tout << "propagating to oo from lvl " << level
+    TRACE(spacer, tout << "propagating to oo from lvl " << level
           << " of " << m_pt.m_head->get_name() << "\n";);
 
     if (m_levels.empty()) { return; }

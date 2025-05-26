@@ -88,7 +88,7 @@ namespace datalog {
                 }
                 // Create quantifier wrapper around body.
 
-                TRACE("dl", tout << body << "\n";);
+                TRACE(dl, tout << body << "\n";);
                 // 1. replace variables by the compound terms from
                 //    the original predicate.
                 expr_safe_replace rep(m);
@@ -98,7 +98,7 @@ namespace datalog {
                 rep(body);
                 rep.reset();
 
-                TRACE("dl", tout << body << "\n";);
+                TRACE(dl, tout << body << "\n";);
                 // 2. replace bound variables by constants.
                 expr_ref_vector consts(m), bound(m), _free(m);
                 svector<symbol> names;
@@ -119,12 +119,12 @@ namespace datalog {
                 rep(body);
                 rep.reset();
 
-                TRACE("dl", tout << body << "\n";);
+                TRACE(dl, tout << body << "\n";);
                 // 3. abstract and quantify those variables that should be bound.
                 body = expr_abstract(bound, body);
                 body = m.mk_forall(names.size(), bound_sorts.data(), names.data(), body);
 
-                TRACE("dl", tout << body << "\n";);
+                TRACE(dl, tout << body << "\n";);
                 // 4. replace remaining constants by variables.
                 unsigned j = 0;
                 for (expr* f : _free) {
@@ -133,7 +133,7 @@ namespace datalog {
                 rep(body);
 
                 new_model->register_decl(q, body);
-                TRACE("dl", tout << body << "\n";);
+                TRACE(dl, tout << body << "\n";);
             }
             old_model = new_model;
         }
@@ -234,7 +234,7 @@ namespace datalog {
             }
             args.push_back(arg);
         }
-        TRACE("dl",
+        TRACE(dl,
               tout << mk_pp(new_p, m) << "\n";
               for (unsigned i = 0; i < args.size(); ++i) {
                   tout << mk_pp(args[i].get(), m) << "\n";
@@ -329,7 +329,7 @@ namespace datalog {
         for (unsigned i = 0; i < sz; ++i) {
             tail.reset();
             rule & r = *source.get_rule(i);
-            TRACE("dl", r.display(m_ctx, tout); );
+            TRACE(dl, r.display(m_ctx, tout); );
             unsigned cnt = vc.get_max_rule_var(r)+1;
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned tsz = r.get_tail_size();
@@ -343,7 +343,7 @@ namespace datalog {
             fml = m.mk_implies(m.mk_and(tail.size(), tail.data()), head);
             proof_ref pr(m);
             rm.mk_rule(fml, pr, *result, r.name());
-            TRACE("dl", result->last()->display(m_ctx, tout););
+            TRACE(dl, result->last()->display(m_ctx, tout););
         }
 
         // proof converter: proofs are not necessarily preserved using this transformation.

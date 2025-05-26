@@ -438,7 +438,7 @@ namespace sat {
         void set_min(literal v, literal u) { m_dfs[v.index()].m_min = u; }
         void set_rank(literal v, unsigned r) { m_dfs[v.index()].m_rank = r; }
         void set_height(literal v, unsigned h) { m_dfs[v.index()].m_height = h; }
-        void set_parent(literal v, literal p) { TRACE("scc", tout << v << " <- " << p << "\n";); m_dfs[v.index()].m_parent = p; }
+        void set_parent(literal v, literal p) { TRACE(scc, tout << v << " <- " << p << "\n";); m_dfs[v.index()].m_parent = p; }
         void set_vcomp(literal v, literal u) { m_dfs[v.index()].m_vcomp = u; }
         void get_scc(literal v);
         void activate_scc(literal l);
@@ -532,7 +532,7 @@ namespace sat {
 
         unsigned do_double(literal l, unsigned& base);
         unsigned double_look(literal l, unsigned& base);
-        void set_conflict() { TRACE("sat", tout << "conflict\n";); m_inconsistent = true; }
+        void set_conflict() { TRACE(sat, tout << "conflict\n";); m_inconsistent = true; }
         bool inconsistent() const { return m_inconsistent; }
 
         unsigned scope_lvl() const { return m_trail_lim.size(); }

@@ -44,9 +44,9 @@ static void tst1() {
 //     ast_ref<var_ast> v3 (m.mk_var(1), m);
 //     ENSURE(v1 != v2);
 //     ENSURE(v1 == v3);
-//     TRACE("ast", tout << "resetting v1\n";);
+//     TRACE(ast, tout << "resetting v1\n";);
 //     v1.reset();
-//     TRACE("ast", tout << "overwriting v3\n";);
+//     TRACE(ast, tout << "overwriting v3\n";);
 //     v3 = v2;
 
 //     ast_ref<type_decl_ast> t1(m.mk_type_decl(symbol("int"), 0), m);
@@ -83,7 +83,7 @@ static void tst3() {
 //     ast_manager m;
 //     ast_ref<> n(m.mk_var(1), m);
 //     n = m.mk_var(1);
-//     TRACE("ast", tout << n->get_id() << "\n";);
+//     TRACE(ast, tout << n->get_id() << "\n";);
 }
 
 static void tst4() {
@@ -142,12 +142,12 @@ struct foo {
 };
 
 void tst_ast() {
-    TRACE("ast", 
+    TRACE(ast, 
           tout << "sizeof(ast):  " << sizeof(ast) << "\n";
           tout << "sizeof(expr): " << sizeof(expr) << "\n";
           tout << "sizeof(app): " << sizeof(app) << "\n";
           );
-    TRACE("ast", tout << "sizeof(foo): " << sizeof(foo) << "\n";);
+    TRACE(ast, tout << "sizeof(foo): " << sizeof(foo) << "\n";);
     tst1();
     tst2();
     tst3();

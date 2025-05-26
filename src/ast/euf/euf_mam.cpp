@@ -951,7 +951,7 @@ namespace euf {
             for (unsigned reg : m_todo) {
                 expr *  p    = m_registers[reg];
                 SASSERT(!is_quantifier(p));
-                TRACE("mam", tout << "lin: " << reg << " " << get_check_mark(reg) << " " << is_var(p) << "\n";);
+                TRACE(mam, tout << "lin: " << reg << " " << get_check_mark(reg) << " " << is_var(p) << "\n";);
                 if (is_var(p)) {
                     unsigned var_id = to_var(p)->get_idx();
                     if (m_vars[var_id] != -1)
@@ -1298,7 +1298,7 @@ namespace euf {
                         return nullptr; // it is unlikely we will find a compatible node
                 }
                 if (curr_compatibility > max_compatibility) {
-                    TRACE("mam", tout << "better child " << best_child << " -> " << curr_child << "\n";);
+                    TRACE(mam, tout << "better child " << best_child << " -> " << curr_child << "\n";);
                     best_child         = curr_child;
                     max_compatibility  = curr_compatibility;
                 }
@@ -1507,16 +1507,16 @@ namespace euf {
             for (;;) {
                 m_compatible.reset();
                 m_incompatible.reset();
-                TRACE("mam_compiler_detail", tout << "processing head: " << *head << "\n";);
+                TRACE(mam_compiler_detail, tout << "processing head: " << *head << "\n";);
                 instruction * curr = head->m_next;
                 instruction * last = head;
                 while (curr != nullptr && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
-                    TRACE("mam_compiler_detail", tout << "processing instr: " << *curr << "\n";);
+                    TRACE(mam_compiler_detail, tout << "processing instr: " << *curr << "\n";);
                     switch (curr->m_opcode) {
                     case BIND1: case BIND2: case BIND3: case BIND4: case BIND5: case BIND6: case BINDN: {
                         bind* bnd = static_cast<bind*>(curr);
                         if (is_compatible(bnd)) {
-                            TRACE("mam_compiler_detail", tout << "compatible\n";);
+                            TRACE(mam_compiler_detail, tout << "compatible\n";);
                             unsigned ireg     = bnd->m_ireg;
                             SASSERT(m_todo.contains(ireg));
                             m_todo.erase(ireg);
@@ -1531,7 +1531,7 @@ namespace euf {
                             }
                         }
                         else {
-                            TRACE("mam_compiler_detail", tout << "incompatible\n";);
+                            TRACE(mam_compiler_detail, tout << "incompatible\n";);
                             m_incompatible.push_back(curr);
                         }
                         break;
@@ -1539,7 +1539,7 @@ namespace euf {
                     case CHECK: {
                         check* chk = static_cast<check*>(curr);
                         if (is_compatible(chk)) {
-                            TRACE("mam_compiler_detail", tout << "compatible\n";);
+                            TRACE(mam_compiler_detail, tout << "compatible\n";);
                             unsigned reg = chk->m_reg;
                             SASSERT(m_todo.contains(reg));
                             m_todo.erase(reg);
@@ -1547,7 +1547,7 @@ namespace euf {
                             m_compatible.push_back(curr);
                         }
                         else if (m_use_filters && is_semi_compatible(chk)) {
-                            TRACE("mam_compiler_detail", tout << "semi compatible\n";);
+                            TRACE(mam_compiler_detail, tout << "semi compatible\n";);
                             unsigned reg = chk->m_reg;
                             enode *   n1 = chk->m_enode;
                             // n1->has_lbl_hash may be false, even
@@ -1575,14 +1575,14 @@ namespace euf {
                             m_incompatible.push_back(curr);
                         }
                         else {
-                            TRACE("mam_compiler_detail", tout << "incompatible " << chk->m_reg << "\n";);
+                            TRACE(mam_compiler_detail, tout << "incompatible " << chk->m_reg << "\n";);
                             m_incompatible.push_back(curr);
                         }
                         break;
                     }
                     case COMPARE:
                         if (is_compatible(static_cast<compare*>(curr))) {
-                            TRACE("mam_compiler_detail", tout << "compatible\n";);
+                            TRACE(mam_compiler_detail, tout << "compatible\n";);
                             unsigned reg1   = static_cast<compare*>(curr)->m_reg1;
                             unsigned reg2   = static_cast<compare*>(curr)->m_reg2;
                             SASSERT(m_todo.contains(reg2));
@@ -1598,7 +1598,7 @@ namespace euf {
                             m_compatible.push_back(curr);
                         }
                         else {
-                            TRACE("mam_compiler_detail", tout << "incompatible\n";);
+                            TRACE(mam_compiler_detail, tout << "incompatible\n";);
                             m_incompatible.push_back(curr);
                         }
                         break;
@@ -1619,8 +1619,8 @@ namespace euf {
                         SASSERT(m_use_filters);
                         if (is_compatible(flt)) {
                             unsigned reg = flt->m_reg;
-                            TRACE("mam_compiler_detail", tout << "compatible " << reg << "\n";);
-                            CTRACE("mam_compiler_bug", !m_todo.contains(reg), {
+                            TRACE(mam_compiler_detail, tout << "compatible " << reg << "\n";);
+                            CTRACE(mam_compiler_bug, !m_todo.contains(reg), {
                                     for (unsigned t : m_todo) { tout << t << " "; }
                                     tout << "\nregisters:\n";
                                     unsigned i = 0;
@@ -1637,8 +1637,8 @@ namespace euf {
                         }
                         else if (is_semi_compatible(flt)) {
                             unsigned reg = flt->m_reg;
-                            TRACE("mam_compiler_detail", tout << "semi compatible " << reg << "\n";);
-                            CTRACE("mam_compiler_bug", !m_todo.contains(reg), {
+                            TRACE(mam_compiler_detail, tout << "semi compatible " << reg << "\n";);
+                            CTRACE(mam_compiler_bug, !m_todo.contains(reg), {
                                     for (unsigned t : m_todo) { tout << t << " "; }
                                     tout << "\nregisters:\n";
                                     unsigned i = 0;
@@ -1648,7 +1648,7 @@ namespace euf {
                                 });
                             SASSERT(m_todo.contains(reg));
                             unsigned  h  = get_pat_lbl_hash(reg);
-                            TRACE("mam_lbl_bug",
+                            TRACE(mam_lbl_bug,
                                   tout << "curr_set: " << flt->m_lbl_set << "\n";
                                   tout << "new hash: " << h << "\n";);
                             set_check_mark(reg, CHECK_SET);
@@ -1667,13 +1667,13 @@ namespace euf {
                             }
                         }
                         else {
-                            TRACE("mam_compiler_detail", tout << "incompatible\n";);
+                            TRACE(mam_compiler_detail, tout << "incompatible\n";);
                             m_incompatible.push_back(curr);
                         }
                         break;
                     }
                     default:
-                        TRACE("mam_compiler_detail", tout << "incompatible\n";);
+                        TRACE(mam_compiler_detail, tout << "incompatible\n";);
                         m_incompatible.push_back(curr);
                         break;
                     }
@@ -1681,7 +1681,7 @@ namespace euf {
                     curr = curr->m_next;
                 }
 
-                TRACE("mam_compiler", tout << *head << " " << head << "\n";
+                TRACE(mam_compiler, tout << *head << " " << head << "\n";
                       tout << "m_compatible.size(): " << m_compatible.size() << "\n";
                       tout << "m_incompatible.size(): " << m_incompatible.size() << "\n";);
 
@@ -1691,7 +1691,7 @@ namespace euf {
                     SASSERT(curr->m_opcode == CHOOSE);
                     choose * first_child = static_cast<choose *>(curr);
                     choose * best_child = find_best_child(first_child);
-                    TRACE("mam", tout << "best child " << best_child << "\n";);
+                    TRACE(mam, tout << "best child " << best_child << "\n";);
                     if (best_child == nullptr) {
                         // There is no compatible child
                         // Suppose the sequence is:
@@ -1776,7 +1776,7 @@ namespace euf {
             init(r, qa, mp, first_idx);
             linearise(r->m_root, first_idx);
             r->m_num_choices  = m_num_choices;
-            TRACE("mam_compiler", tout << "new tree for:\n" << mk_pp(mp, m) << "\n" << *r;);
+            TRACE(mam_compiler, tout << "new tree for:\n" << mk_pp(mp, m) << "\n" << *r;);
             return r;
         }
 
@@ -1794,21 +1794,21 @@ namespace euf {
                 return;
             }
             m_is_tmp_tree = is_tmp_tree;
-            TRACE("mam_compiler", tout << "updating tree with:\n" << mk_pp(mp, m) << "\n";);
-            TRACE("mam_bug", tout << "before insertion\n" << *tree << "\n";);
+            TRACE(mam_compiler, tout << "updating tree with:\n" << mk_pp(mp, m) << "\n";);
+            TRACE(mam_bug, tout << "before insertion\n" << *tree << "\n";);
             if (!is_tmp_tree)
                 m_ct_manager.save_num_regs(tree);
             init(tree, qa, mp, first_idx);
             m_num_choices = tree->m_num_choices;
             insert(tree->m_root, first_idx);
-            TRACE("mam_bug",
+            TRACE(mam_bug,
                   tout << "m_num_choices: " << m_num_choices << "\n";);
             if (m_num_choices > tree->m_num_choices) {
                 if (!is_tmp_tree)
                     m_ct_manager.save_num_choices(tree);
                 tree->m_num_choices = m_num_choices;
             }
-            TRACE("mam_bug",
+            TRACE(mam_bug,
                   tout << "m_num_choices: " << m_num_choices << "\n";
                   tout << "new tree:\n" << *tree;
                   tout << "todo ";
@@ -1999,7 +1999,7 @@ namespace euf {
         }
 
         void init(code_tree * t) {
-            TRACE("mam_bug", tout << "preparing to match tree:\n" << *t << "\n";);
+            TRACE(mam_bug, tout << "preparing to match tree:\n" << *t << "\n";);
             m_registers.reserve(t->get_num_regs(), nullptr);
             m_bindings.reserve(t->get_num_regs(),  nullptr);
             if (m_backtrack_stack.size() < t->get_num_choices())
@@ -2010,14 +2010,14 @@ namespace euf {
         void execute(code_tree * t) {
             if (!t->has_candidates())
                 return;
-            TRACE("trigger_bug", tout << "execute for code tree:\n"; t->display(tout););
+            TRACE(trigger_bug, tout << "execute for code tree:\n"; t->display(tout););
             init(t);
             t->save_qhead(ctx);
             enode* app;
             if (t->filter_candidates()) {                
                 code_tree::scoped_unmark _unmark(t);
                 while ((app = t->next_candidate()) && !ctx.resource_limits_exceeded()) {
-                    TRACE("trigger_bug", tout << "candidate\n" << ctx.get_egraph().bpp(app) << "\n";);
+                    TRACE(trigger_bug, tout << "candidate\n" << ctx.get_egraph().bpp(app) << "\n";);
                     if (!app->is_marked3() && app->is_cgr()) {
                         execute_core(t, app);                       
                         app->mark3();
@@ -2026,7 +2026,7 @@ namespace euf {
             }
             else {
                 while ((app = t->next_candidate()) && !ctx.resource_limits_exceeded()) {
-                    TRACE("trigger_bug", tout << "candidate\n" << ctx.get_egraph().bpp(app) << "\n";);
+                    TRACE(trigger_bug, tout << "candidate\n" << ctx.get_egraph().bpp(app) << "\n";);
                     if (app->is_cgr()) 
                         execute_core(t, app);                                              
                 }
@@ -2175,7 +2175,7 @@ namespace euf {
         bp.m_instr                = c;
         bp.m_old_max_generation   = m_max_generation;
         if (best_v == nullptr) {
-            TRACE("mam_bug", tout << "m_top: " << m_top << ", m_backtrack_stack.size(): " << m_backtrack_stack.size() << "\n";
+            TRACE(mam_bug, tout << "m_top: " << m_top << ", m_backtrack_stack.size(): " << m_backtrack_stack.size() << "\n";
                   tout << *c << "\n";);
             bp.m_to_recycle           = nullptr;
             bp.m_it                   = ctx.get_egraph().enodes_of(lbl).begin();
@@ -2255,7 +2255,7 @@ namespace euf {
     }
 
     bool interpreter::execute_core(code_tree * t, enode * n) {
-        TRACE("trigger_bug", tout << "interpreter::execute_core\n"; t->display(tout); tout << "\nenode\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";);
+        TRACE(trigger_bug, tout << "interpreter::execute_core\n"; t->display(tout); tout << "\nenode\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";);
         unsigned since_last_check = 0;
 
 #ifdef _PROFILE_MAM
@@ -2269,7 +2269,7 @@ namespace euf {
         t->inc_counter();
 #endif
         // It doesn't make sense to process an irrelevant enode.
-        TRACE("mam_execute_core", tout << "EXEC " << t->get_root_lbl()->get_name() << "\n";);
+        TRACE(mam_execute_core, tout << "EXEC " << t->get_root_lbl()->get_name() << "\n";);
         if (!ctx.is_relevant(n))
             return false;
         SASSERT(ctx.is_relevant(n));
@@ -2286,7 +2286,7 @@ namespace euf {
 
     main_loop:
 
-        TRACE("mam_int", display_pc_info(tout););
+        TRACE(mam_int, display_pc_info(tout););
 #ifdef _PROFILE_MAM
         const_cast<instruction*>(m_pc)->m_counter++;
 #endif
@@ -2425,7 +2425,7 @@ namespace euf {
                  m_app  = get_first_f_app(static_cast<const bind *>(m_pc)->m_label, static_cast<const bind *>(m_pc)->m_num_args, m_n1); \
                  if (!m_app)                                                                                            \
                      goto backtrack;                                                                                    \
-                 TRACE("mam_int", tout << "bind candidate: " << mk_pp(m_app->get_expr(), m) << "\n";);     \
+                 TRACE(mam_int, tout << "bind candidate: " << mk_pp(m_app->get_expr(), m) << "\n";);     \
                  m_backtrack_stack[m_top].m_instr              = m_pc;                                                  \
                  m_backtrack_stack[m_top].m_old_max_generation = m_curr_max_generation;                                 \
                  m_backtrack_stack[m_top].m_curr               = m_app;                                                 \
@@ -2624,7 +2624,7 @@ namespace euf {
             if (m_app == nullptr)
                 goto backtrack;
             m_pattern_instances.push_back(m_app);
-            TRACE("mam_int", tout << "continue candidate:\n" << mk_ll_pp(m_app->get_expr(), m););
+            TRACE(mam_int, tout << "continue candidate:\n" << mk_ll_pp(m_app->get_expr(), m););
             for (unsigned i = 0; i < m_num_args; i++)
                 m_registers[m_oreg+i] = m_app->get_arg(i);
             m_pc = m_pc->m_next;
@@ -2643,9 +2643,9 @@ namespace euf {
         goto main_loop;
 
     backtrack:
-        TRACE("mam_int", tout << "backtracking.\n";);
+        TRACE(mam_int, tout << "backtracking.\n";);
         if (m_top == 0) {
-            TRACE("mam_int", tout << "no more alternatives.\n";);
+            TRACE(mam_int, tout << "no more alternatives.\n";);
 #ifdef _PROFILE_MAM
             t->get_watch().stop();
 #endif
@@ -2655,7 +2655,7 @@ namespace euf {
         m_max_generation     = bp.m_old_max_generation;
 
 
-        TRACE("mam_int", tout << "backtrack top: " << bp.m_instr << " " << *(bp.m_instr) << "\n";);
+        TRACE(mam_int, tout << "backtrack top: " << bp.m_instr << " " << *(bp.m_instr) << "\n";);
 #ifdef _PROFILE_MAM
         if (bp.m_instr->m_opcode != CHOOSE) // CHOOSE has a different status. It is a control flow backtracking.
             const_cast<instruction*>(bp.m_instr)->m_counter++;
@@ -2682,7 +2682,7 @@ namespace euf {
         switch (bp.m_instr->m_opcode) {
         case CHOOSE:
             m_pc = static_cast<const choose*>(bp.m_instr)->m_alt;
-            TRACE("mam_int", tout << "alt: " << m_pc << "\n";);
+            TRACE(mam_int, tout << "alt: " << m_pc << "\n";);
             SASSERT(m_pc != 0);
             m_top--;
             goto main_loop;
@@ -2695,7 +2695,7 @@ namespace euf {
                            goto backtrack;                                                                                      \
                        }                                                                                                        \
                        bp.m_curr = m_app;                                                                                       \
-                       TRACE("mam_int", tout << "bind next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););      \
+                       TRACE(mam_int, tout << "bind next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););      \
                        m_oreg    = m_b->m_oreg
 
             BBIND_COMMON();
@@ -2775,7 +2775,7 @@ namespace euf {
                     m_pattern_instances.push_back(m_app);
                     // continue succeeded
                     update_max_generation(m_app, nullptr); // null indicates a top-level match
-                    TRACE("mam_int", tout << "continue next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););
+                    TRACE(mam_int, tout << "continue next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););
                     m_num_args = c->m_num_args;
                     m_oreg     = c->m_oreg;
                     for (unsigned i = 0; i < m_num_args; i++)
@@ -2884,7 +2884,7 @@ namespace euf {
                 m_trees[lbl_id]->get_patterns().push_back(std::make_pair(qa, mp));
                 ctx.get_trail().push(push_back_trail<std::pair<quantifier*, app*>, false>(m_trees[lbl_id]->get_patterns()));
             });
-            TRACE("trigger_bug", tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););
+            TRACE(trigger_bug, tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););
         }
 
         void reset() {
@@ -3093,7 +3093,7 @@ namespace euf {
         void add_candidate(code_tree * t, enode * app) {
             if (!t)
                 return;
-            TRACE("q", tout << "candidate " << ctx.get_egraph().bpp(app) << "\n";);
+            TRACE(q, tout << "candidate " << ctx.get_egraph().bpp(app) << "\n";);
             if (!t->has_candidates()) {
                 ctx.get_trail().push(push_back_trail<code_tree*, false>(m_to_match));
                 m_to_match.push_back(t);
@@ -3126,8 +3126,8 @@ namespace euf {
         void update_clbls(func_decl * lbl) {
             unsigned lbl_id = lbl->get_small_id();
             m_is_clbl.reserve(lbl_id+1, false);
-            TRACE("trigger_bug", tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
-            TRACE("mam_bug", tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
+            TRACE(trigger_bug, tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
+            TRACE(mam_bug, tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
             if (m_is_clbl[lbl_id])
                 return;
             ctx.get_trail().push(set_bitvector_trail(m_is_clbl, lbl_id));
@@ -3136,7 +3136,7 @@ namespace euf {
             for (enode* app : m_egraph.enodes_of(lbl)) {
                 if (ctx.is_relevant(app)) {
                     update_lbls(app, h);
-                    TRACE("mam_bug", tout << "updating labels of: #" << app->get_expr_id() << "\n";
+                    TRACE(mam_bug, tout << "updating labels of: #" << app->get_expr_id() << "\n";
                           tout << "new_elem: " << h << "\n";
                           tout << "lbls:     " << app->get_lbls() << "\n";
                           tout << "r.lbls:   " << app->get_root()->get_lbls() << "\n";);
@@ -3152,10 +3152,10 @@ namespace euf {
                 if (!r_plbls.may_contain(elem)) {
                     ctx.get_trail().push(mam_value_trail<approx_set>(r_plbls));
                     r_plbls.insert(elem);
-                    TRACE("trigger_bug", tout << "updating plabels of:\n" << mk_ismt2_pp(c->get_root()->get_expr(), m) << "\n";
+                    TRACE(trigger_bug, tout << "updating plabels of:\n" << mk_ismt2_pp(c->get_root()->get_expr(), m) << "\n";
                           tout << "new_elem: " << static_cast<unsigned>(elem) << "\n";
                           tout << "plbls:    " << c->get_root()->get_plbls() << "\n";);
-                    TRACE("mam_bug", tout << "updating plabels of: #" << c->get_root()->get_expr_id() << "\n";
+                    TRACE(mam_bug, tout << "updating plabels of: #" << c->get_root()->get_expr_id() << "\n";
                           tout << "new_elem: " << static_cast<unsigned>(elem) << "\n";
                           tout << "plbls:    " << c->get_root()->get_plbls() << "\n";);
 
@@ -3166,9 +3166,9 @@ namespace euf {
         void update_plbls(func_decl * lbl) {
             unsigned lbl_id = lbl->get_small_id();
             m_is_plbl.reserve(lbl_id+1, false);
-            TRACE("trigger_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << ", lbl_id: " << lbl_id << "\n";
+            TRACE(trigger_bug, tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << ", lbl_id: " << lbl_id << "\n";
                   tout << "mam: " << this << "\n";);
-            TRACE("mam_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << "\n";);
+            TRACE(mam_bug, tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << "\n";);
             if (m_is_plbl[lbl_id])
                 return;
             ctx.get_trail().push(set_bitvector_trail(m_is_plbl, lbl_id));
@@ -3282,7 +3282,7 @@ namespace euf {
                 ctx.get_trail().push(set_ptr_trail<path_tree>(m_pc[h1][h2]));
                 m_pc[h1][h2] = mk_path_tree(p, qa, mp);
             }
-            TRACE("mam_path_tree_updt",
+            TRACE(mam_path_tree_updt,
                   tout << "updated path tree:\n";
                   m_pc[h1][h2]->display(tout, 2););
         }
@@ -3320,7 +3320,7 @@ namespace euf {
                     m_pp[h1][h2].second = mk_path_tree(p2, qa, mp);
                 }
             }
-            TRACE("mam_path_tree_updt",
+            TRACE(mam_path_tree_updt,
                   tout << "updated path tree:\n";
                   SASSERT(h1 <= h2);
                   m_pp[h1][h2].first->display(tout, 2);
@@ -3386,7 +3386,7 @@ namespace euf {
                     update_plbls(plbl);
                     if (!n->has_lbl_hash())
                         m_egraph.set_lbl_hash(n);
-                    TRACE("mam_bug",
+                    TRACE(mam_bug,
                           tout << "updating pc labels " << plbl->get_name() << " " <<
                           static_cast<unsigned>(n->get_lbl_hash()) << "\n";
                           tout << "#" << n->get_expr_id() << " " << n->get_root()->get_lbls() << "\n";
@@ -3396,7 +3396,7 @@ namespace euf {
                 }
 
                 func_decl * clbl = to_app(child)->get_decl();
-                TRACE("mam_bug", tout << "updating pc labels " << plbl->get_name() << " " << clbl->get_name() << "\n";);
+                TRACE(mam_bug, tout << "updating pc labels " << plbl->get_name() << " " << clbl->get_name() << "\n";);
                 update_plbls(plbl);
                 update_clbls(clbl);
                 update_pc(m_lbl_hasher(plbl), m_lbl_hasher(clbl), new_path, qa, mp);
@@ -3408,7 +3408,7 @@ namespace euf {
            \brief Update inverted path index.
         */
         void update_filters(quantifier * qa, app * mp) {
-            TRACE("mam_bug", tout << "updating filters using:\n" << mk_pp(mp, m) << "\n";);
+            TRACE(mam_bug, tout << "updating filters using:\n" << mk_pp(mp, m) << "\n";);
             unsigned num_vars = qa->get_num_decls();
             if (num_vars >= m_var_paths.size())
                 m_var_paths.resize(num_vars+1);
@@ -3460,7 +3460,7 @@ namespace euf {
            \brief Collect new E-matching candidates using the inverted path index t.
         */
         void collect_parents(enode * r, path_tree * t) {
-            TRACE("mam", tout << ctx.get_egraph().bpp(r) << " " << t << "\n";);
+            TRACE(mam, tout << ctx.get_egraph().bpp(r) << " " << t << "\n";);
             if (t == nullptr)
                 return;
 #ifdef _PROFILE_PATH_TREE
@@ -3481,7 +3481,7 @@ namespace euf {
 #ifdef _PROFILE_PATH_TREE
                 t->m_counter++;
 #endif
-                TRACE("mam_path_tree",
+                TRACE(mam_path_tree,
                       tout << "processing:\n";
                       t->display(tout, 2););
                 enode_vector * v    = t->m_todo;
@@ -3526,7 +3526,7 @@ namespace euf {
                         std::cout << "Avg2. " << static_cast<double>(total_sz2)/static_cast<double>(counter2) << ", Max2. " << max_sz2 << "\n";
 #endif
 
-                    TRACE("mam_path_tree", tout << "processing: #" << curr_child->get_expr_id() << "\n";);
+                    TRACE(mam_path_tree, tout << "processing: #" << curr_child->get_expr_id() << "\n";);
                     for (enode* curr_parent : euf::enode_parents(curr_child)) {
 #ifdef _PROFILE_PATH_TREE
                         if (curr_parent->is_equality())
@@ -3541,8 +3541,8 @@ namespace euf {
                         bool is_flat_assoc         = lbl->is_flat_associative();
                         enode * curr_parent_root   = curr_parent->get_root();
                         enode * curr_parent_cg     = curr_parent->get_cg();
-                        TRACE("mam_path_tree", tout << "processing parent:\n" << mk_pp(curr_parent->get_expr(), m) << "\n";);
-                        TRACE("mam_path_tree", tout << "parent is marked: " << curr_parent->is_marked1() << "\n";);
+                        TRACE(mam_path_tree, tout << "processing parent:\n" << mk_pp(curr_parent->get_expr(), m) << "\n";);
+                        TRACE(mam_path_tree, tout << "parent is marked: " << curr_parent->is_marked1() << "\n";);
                         if (filter.may_contain(m_lbl_hasher(lbl)) &&
                             !curr_parent->is_marked1() &&
                             (curr_parent_cg == curr_parent || !is_eq(curr_parent_cg, curr_parent_root)) &&
@@ -3572,7 +3572,7 @@ namespace euf {
                                          is_eq(curr_tree->m_ground_arg, curr_parent->get_arg(curr_tree->m_ground_arg_idx))
                                          )) {
                                         if (curr_tree->m_code) {
-                                            TRACE("mam_path_tree", tout << "found candidate " << expr_ref(curr_parent->get_expr(), m) << "\n";);
+                                            TRACE(mam_path_tree, tout << "found candidate " << expr_ref(curr_parent->get_expr(), m) << "\n";);
                                             add_candidate(curr_tree->m_code, curr_parent);
                                         }
                                         if (curr_tree->m_first_child) {
@@ -3621,8 +3621,8 @@ namespace euf {
         void process_pp(enode * r1, enode * r2) {
             approx_set & plbls1 = r1->get_plbls();
             approx_set & plbls2 = r2->get_plbls();
-            TRACE("incremental_matcher", tout << "pp: plbls1: " << plbls1 << ", plbls2: " << plbls2 << "\n";);
-            TRACE("mam_info", tout << "pp: " << plbls1.size() * plbls2.size() << "\n";);
+            TRACE(incremental_matcher, tout << "pp: plbls1: " << plbls1 << ", plbls2: " << plbls2 << "\n";);
+            TRACE(mam_info, tout << "pp: " << plbls1.size() * plbls2.size() << "\n";);
             if (!plbls1.empty() && !plbls2.empty()) {
                 for (unsigned plbl1 : plbls1) {
                     if (!m.inc()) {
@@ -3682,7 +3682,7 @@ namespace euf {
                 return;
             ctx.get_trail().push(value_trail<unsigned>(m_new_patterns_qhead));
 
-            TRACE("mam_new_pat", tout << "matching new patterns:\n";);
+            TRACE(mam_new_pat, tout << "matching new patterns:\n";);
             m_tmp_trees_to_delete.reset();
             for (; m_new_patterns_qhead < m_new_patterns.size(); ++m_new_patterns_qhead) {
                 if (!m.inc()) 
@@ -3741,8 +3741,8 @@ namespace euf {
 
         void add_pattern(quantifier * qa, app * mp) override {
             SASSERT(m.is_pattern(mp));
-            TRACE("trigger_bug", tout << "adding pattern\n" << mk_ismt2_pp(qa, m) << "\n" << mk_ismt2_pp(mp, m) << "\n";);
-            TRACE("mam_bug", tout << "adding pattern\n" << mk_pp(qa, m) << "\n" << mk_pp(mp, m) << "\n";);
+            TRACE(trigger_bug, tout << "adding pattern\n" << mk_ismt2_pp(qa, m) << "\n" << mk_ismt2_pp(mp, m) << "\n";);
+            TRACE(mam_bug, tout << "adding pattern\n" << mk_pp(qa, m) << "\n" << mk_pp(mp, m) << "\n";);
             // Z3 checks if a pattern is ground or not before solving.
             // Ground patterns are discarded.
             // However, the simplifier may turn a non-ground pattern into a ground one.
@@ -3786,7 +3786,7 @@ namespace euf {
         }
 
         void propagate() override {
-            TRACE("trigger_bug", tout << "match\n"; display(tout););
+            TRACE(trigger_bug, tout << "match\n"; display(tout););
             propagate_to_match();
             propagate_new_patterns();
         }
@@ -3805,14 +3805,14 @@ namespace euf {
         }
 
         bool check_missing_instances() override {
-            TRACE("missing_instance", tout << "checking for missing instances...\n";);
+            TRACE(missing_instance, tout << "checking for missing instances...\n";);
             flet<bool> l(m_check_missing_instances, true);
             rematch(false);
             return true;
         }
 
         void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation) override {
-            TRACE("trigger_bug", tout << "found match " << mk_pp(qa, m) << "\n";);
+            TRACE(trigger_bug, tout << "found match " << mk_pp(qa, m) << "\n";);
             unsigned min_gen = 0, max_gen = 0;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);
             m_ematch.on_binding(qa, pat, bindings, max_generation, min_gen, max_gen);
@@ -3822,23 +3822,23 @@ namespace euf {
         // If lazy == true, then n is not added to the list of 
         // candidate enodes for matching. That is, the method just updates the lbls.
         void add_node(enode * n, bool lazy) override {
-            TRACE("trigger_bug", tout << "relevant_eh:\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";
+            TRACE(trigger_bug, tout << "relevant_eh:\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";
                   tout << "mam: " << this << "\n";);
-            TRACE("mam", tout << "relevant_eh: #" << n->get_expr_id() << "\n";);
+            TRACE(mam, tout << "relevant_eh: #" << n->get_expr_id() << "\n";);
             if (n->has_lbl_hash())
                 update_lbls(n, n->get_lbl_hash());
 
             if (n->num_args() > 0) {
                 func_decl * lbl = n->get_decl();
                 unsigned h      = m_lbl_hasher(lbl);
-                TRACE("trigger_bug", tout << "lbl: " << lbl->get_name() << " is_clbl(lbl): " << is_clbl(lbl)
+                TRACE(trigger_bug, tout << "lbl: " << lbl->get_name() << " is_clbl(lbl): " << is_clbl(lbl)
                       << ", is_plbl(lbl): " << is_plbl(lbl) << ", h: " << h << "\n";
                       tout << "lbl_id: " << lbl->get_small_id() << "\n";);
                 if (is_clbl(lbl))
                     update_lbls(n, h);
                 if (is_plbl(lbl))
                     update_children_plbls(n, h);
-                TRACE("mam_bug", tout << "adding relevant candidate:\n" << mk_ll_pp(n->get_expr(), m) << "\n";);
+                TRACE(mam_bug, tout << "adding relevant candidate:\n" << mk_ll_pp(n->get_expr(), m) << "\n";);
                 if (!lazy)
                     add_candidate(n);
             }
@@ -3852,9 +3852,9 @@ namespace euf {
             flet<enode *> l1(m_other, other);
             flet<enode *> l2(m_root, root);
 
-            TRACE("mam", tout << "on_merge: #" << other->get_expr_id() << " #" << root->get_expr_id() << "\n";);
-            TRACE("mam_inc_bug_detail", m_egraph.display(tout););
-            TRACE("mam_inc_bug",
+            TRACE(mam, tout << "on_merge: #" << other->get_expr_id() << " #" << root->get_expr_id() << "\n";);
+            TRACE(mam_inc_bug_detail, m_egraph.display(tout););
+            TRACE(mam_inc_bug,
                   tout << "before:\n#" << other->get_expr_id() << " #" << root->get_expr_id() << "\n";
                   tout << "other.lbls:  " << other->get_lbls() << "\n";
                   tout << "root.lbls:  " << root->get_lbls() << "\n";
@@ -3874,7 +3874,7 @@ namespace euf {
             ctx.get_trail().push(mam_value_trail<approx_set>(root_plbls));
             root_lbls  |= other_lbls;
             root_plbls |= other_plbls;
-            TRACE("mam_inc_bug",
+            TRACE(mam_inc_bug,
                   tout << "after:\n";
                   tout << "other.lbls:  " << other->get_lbls() << "\n";
                   tout << "root.lbls:  " << root->get_lbls() << "\n";

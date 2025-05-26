@@ -40,7 +40,7 @@ void bit_vector::resize(unsigned new_size, bool val) {
         return;
     }
  
-    TRACE("bit_vector", tout << "expanding: " << new_size << " capacity: " << m_capacity << " num words: " 
+    TRACE(bit_vector, tout << "expanding: " << new_size << " capacity: " << m_capacity << " num words: " 
           << num_words(new_size) << "\n";);
 
     if (num_words(new_size) > m_capacity) {
@@ -64,7 +64,7 @@ void bit_vector::resize(unsigned new_size, bool val) {
         cval    = 0;
     }
 
-    TRACE("bit_vector",
+    TRACE(bit_vector,
           tout << "num_bits: " << m_num_bits << "\n";
           tout << "bwidx:    " << bwidx << "\n";
           tout << "ewidx:    " << ewidx << "\n";

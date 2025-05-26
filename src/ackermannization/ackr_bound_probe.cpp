@@ -69,7 +69,7 @@ public:
         }
         p.prune_non_select();
         double total = ackr_helper::calculate_lemma_bound(p.m_fun2terms, p.m_sel2terms);
-        TRACE("ackermannize", tout << "total=" << total << std::endl;);
+        TRACE(ackermannize, tout << "total=" << total << std::endl;);
         return result(total);
     }
 

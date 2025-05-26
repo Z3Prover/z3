@@ -424,7 +424,7 @@ public:
 
         calculate_expr_distances(as);
 
-        TRACE("sls", tout << "Initial model:" << std::endl; show_model(tout); );
+        TRACE(sls, tout << "Initial model:" << std::endl; show_model(tout); );
 
         if (m_track_unsat)
         {
@@ -617,7 +617,7 @@ public:
     }    
 
     void randomize(ptr_vector<expr> const & as) {
-        TRACE("sls_verbose", tout << "Abandoned model:" << std::endl; show_model(tout); );
+        TRACE(sls_verbose, tout << "Abandoned model:" << std::endl; show_model(tout); );
 
         for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
             func_decl * fd = it->m_key;
@@ -627,11 +627,11 @@ public:
             m_mpz_manager.del(temp);
         }
 
-        TRACE("sls", tout << "Randomized model:" << std::endl; show_model(tout); );
+        TRACE(sls, tout << "Randomized model:" << std::endl; show_model(tout); );
     }              
 
     void reset(ptr_vector<expr> const & as) {
-        TRACE("sls_verbose", tout << "Abandoned model:" << std::endl; show_model(tout); );
+        TRACE(sls_verbose, tout << "Abandoned model:" << std::endl; show_model(tout); );
 
         for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
             set_value(it->m_value, m_zero);
@@ -677,7 +677,7 @@ public:
     }
 
     double score_bool(expr * n, bool negated = false) {
-        TRACE("sls_score", tout << ((negated)?"NEG ":"") << "BOOL: " << mk_ismt2_pp(n, m_manager) << std::endl; );
+        TRACE(sls_score, tout << ((negated)?"NEG ":"") << "BOOL: " << mk_ismt2_pp(n, m_manager) << std::endl; );
 
         double res = 0.0;
             
@@ -738,12 +738,12 @@ public:
             
             if (negated) {                    
                 res = (m_mpz_manager.eq(v0, v1)) ? 0.0 : 1.0;
-                TRACE("sls_score", tout << "V0 = " << m_mpz_manager.to_string(v0) << " ; V1 = " << 
+                TRACE(sls_score, tout << "V0 = " << m_mpz_manager.to_string(v0) << " ; V1 = " << 
                                         m_mpz_manager.to_string(v1) << std::endl; );
             }
             else if (m_manager.is_bool(arg0)) {
                 res = m_mpz_manager.eq(v0, v1) ? 1.0 : 0.0;
-                TRACE("sls_score", tout << "V0 = " << m_mpz_manager.to_string(v0) << " ; V1 = " << 
+                TRACE(sls_score, tout << "V0 = " << m_mpz_manager.to_string(v0) << " ; V1 = " << 
                                         m_mpz_manager.to_string(v1) << std::endl; );
             }
             else if (m_bv_util.is_bv(arg0)) {
@@ -759,7 +759,7 @@ public:
                     m_mpz_manager.machine_div(diff, m_two, diff);
                 }
                 res = 1.0 - (hamming_distance / (double) bv_sz);
-                TRACE("sls_score", tout << "V0 = " << m_mpz_manager.to_string(v0) << " ; V1 = " << 
+                TRACE(sls_score, tout << "V0 = " << m_mpz_manager.to_string(v0) << " ; V1 = " << 
                                         m_mpz_manager.to_string(v1) << " ; HD = " << hamming_distance << 
                                         " ; SZ = " << bv_sz << std::endl; );                    
                 m_mpz_manager.del(diff);
@@ -804,7 +804,7 @@ public:
                     m_mpz_manager.del(diff);
                 }
             }
-            TRACE("sls_score", tout << "x = " << m_mpz_manager.to_string(x) << " ; y = " << 
+            TRACE(sls_score, tout << "x = " << m_mpz_manager.to_string(x) << " ; y = " << 
                                     m_mpz_manager.to_string(y) << " ; SZ = " << bv_sz << std::endl; );
         }
         else if (m_bv_util.is_bv_sle(n)) { // x <= y
@@ -831,7 +831,7 @@ public:
                     res = (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
                     m_mpz_manager.del(diff);
                 }
-                TRACE("sls_score", tout << "x = " << m_mpz_manager.to_string(x) << " ; y = " << 
+                TRACE(sls_score, tout << "x = " << m_mpz_manager.to_string(x) << " ; y = " << 
                                         m_mpz_manager.to_string(y) << " ; SZ = " << bv_sz << std::endl; );
             }
             else {
@@ -847,7 +847,7 @@ public:
                     res = (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
                     m_mpz_manager.del(diff);
                 }
-                TRACE("sls_score", tout << "x = " << m_mpz_manager.to_string(x) << " ; y = " << 
+                TRACE(sls_score, tout << "x = " << m_mpz_manager.to_string(x) << " ; y = " << 
                                         m_mpz_manager.to_string(y) << " ; SZ = " << bv_sz << std::endl; );
             }
             m_mpz_manager.del(x);
@@ -887,7 +887,7 @@ public:
         if (afid == m_bv_util.get_family_id())
             if (res < 1.0) res *= m_scale_unsat;
 
-        TRACE("sls_score", tout << "SCORE = " << res << std::endl; );
+        TRACE(sls_score, tout << "SCORE = " << res << std::endl; );
         return res;
     }
     
@@ -964,7 +964,7 @@ public:
                 if (!m_temp_constants.contains(fd))
                     m_temp_constants.push_back(fd);            
         }
-        TRACE("sls", tout << "candidates ";  for (auto f : m_temp_constants) tout << f->get_name() << " "; tout << std::endl;);
+        TRACE(sls, tout << "candidates ";  for (auto f : m_temp_constants) tout << f->get_name() << " "; tout << std::endl;);
         return m_temp_constants;
     }
 
@@ -976,7 +976,7 @@ public:
             if (!m_temp_constants.contains(fd))
                 m_temp_constants.push_back(fd);
         
-        TRACE("sls", tout << "candidates " << mk_bounded_pp(e, m_manager) << " ";
+        TRACE(sls, tout << "candidates " << mk_bounded_pp(e, m_manager) << " ";
         for (auto f : m_temp_constants) tout << f->get_name() << " "; tout << std::endl;);
 
         return m_temp_constants;

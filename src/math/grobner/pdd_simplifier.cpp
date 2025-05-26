@@ -71,7 +71,7 @@ namespace dd {
                     simplify_exlin() ||
                     false)) {
                 DEBUG_CODE(s.invariant(););
-                TRACE("dd.solver", s.display(tout););
+                TRACE(dd_solver, s.display(tout););
             }
         }
         catch (pdd_manager::mem_out) {
@@ -88,7 +88,7 @@ namespace dd {
     };
 
     bool simplifier::simplify_linear_step(bool binary) {
-        TRACE("dd.solver", tout << "binary " << binary << "\n";);
+        TRACE(dd_solver, tout << "binary " << binary << "\n";);
         IF_VERBOSE(3, verbose_stream() << "binary " << binary << "\n");
         equation_vector linear;
         for (equation* e : s.m_to_simplify) {
@@ -132,7 +132,7 @@ namespace dd {
                 continue;            
             unsigned v = src->poly().var();
             equation_vector const& uses = use_list[v];
-            TRACE("dd.solver", 
+            TRACE(dd_solver, 
                   s.display(tout << "uses of: ", *src) << "\n";
                   for (equation* e : uses) s.display(tout, *e) << "\n";);
             bool changed_leading_term;
@@ -184,7 +184,7 @@ namespace dd {
        since px = ry
      */
     bool simplifier::simplify_cc_step() {
-        TRACE("dd.solver", tout << "cc\n";);
+        TRACE(dd_solver, tout << "cc\n";);
         IF_VERBOSE(3, verbose_stream() << "cc\n");
         u_map<equation*> los;
         bool reduced = false;
@@ -215,7 +215,7 @@ namespace dd {
        \brief remove ax+b from p if x occurs as a leaf in p and a is a constant.
     */
     bool simplifier::simplify_leaf_step() {
-        TRACE("dd.solver", tout << "leaf\n";);
+        TRACE(dd_solver, tout << "leaf\n";);
         IF_VERBOSE(3, verbose_stream() << "leaf\n");
         use_list_t use_list = get_use_list();
         equation_vector leaves;
@@ -257,7 +257,7 @@ namespace dd {
        \brief treat equations as processed if top variable occurs only once.
     */
     bool simplifier::simplify_elim_pure_step() {
-        TRACE("dd.solver", tout << "pure\n";);
+        TRACE(dd_solver, tout << "pure\n";);
         IF_VERBOSE(3, verbose_stream() << "pure\n");
         use_list_t use_list = get_use_list();   
         solver::scoped_update sc(s.m_to_simplify);
@@ -426,7 +426,7 @@ namespace dd {
         unsigned modest_num_eqs = std::max(eqs.size(), 500u);
         unsigned max_xlin_eqs = modest_num_eqs;
         unsigned max_degree = 5;
-        TRACE("dd.solver", tout << "augment " << nv << "\n";
+        TRACE(dd_solver, tout << "augment " << nv << "\n";
               for (auto const& o : orbits) tout << o.num_elems() << "\n";);
         vector<pdd> n_eqs;
         unsigned start = rand();
@@ -475,7 +475,7 @@ namespace dd {
     end_of_new_eqs:
         s.m_config.m_random_seed = rand();
         eqs.append(n_eqs);
-        TRACE("dd.solver", for (pdd const& p : eqs) tout << p << "\n";);
+        TRACE(dd_solver, for (pdd const& p : eqs) tout << p << "\n";);
     }
 
     void simplifier::simplify_exlin(vector<uint_set> const& orbits, vector<pdd> const& eqs, vector<pdd>& simp_eqs) {
@@ -570,12 +570,12 @@ namespace dd {
             }
         }
 
-        TRACE("dd.solver", tout << bm << "\n";);
+        TRACE(dd_solver, tout << bm << "\n";);
         IF_VERBOSE(10, verbose_stream() << "bit-matrix solving\n");
 
         bm.solve();
 
-        TRACE("dd.solver", tout << bm << "\n";);
+        TRACE(dd_solver, tout << bm << "\n";);
         IF_VERBOSE(10, verbose_stream() << "bit-matrix solved\n");
 
         for (auto const& r : bm) {
@@ -603,7 +603,7 @@ namespace dd {
                     }
                 }
                 if (!p.is_zero()) {
-                    TRACE("dd.solver", tout << "new linear: " << p << "\n";);
+                    TRACE(dd_solver, tout << "new linear: " << p << "\n";);
                     simp_eqs.push_back(p);
                 }
             }

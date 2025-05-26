@@ -198,7 +198,7 @@ class fm_tactic : public tactic {
         void get_units(obj_map<expr, bool>& units) override { units.reset(); }
 
         void operator()(model_ref & md) override {
-            TRACE("fm_mc", model_v2_pp(tout, *md); display(tout););
+            TRACE(fm_mc, model_v2_pp(tout, *md); display(tout););
             model::scoped_model_completion _sc(*md, true);
             //model_evaluator ev(*(md.get()));
             //ev.set_model_completion(true);
@@ -218,23 +218,23 @@ class fm_tactic : public tactic {
                 rational val;
                 expr_ref val_e(m), val_upper_e(m), val_lower_e(m);
                 bool has_lower = false, has_upper = false;
-                TRACE("fm_mc", tout << "processing " << x->get_name() << "\n";);
+                TRACE(fm_mc, tout << "processing " << x->get_name() << "\n";);
                 for (expr* cl : m_clauses[i]) {
                     if (!m.inc()) 
                         throw tactic_exception(m.limit().get_cancel_msg());
                     switch (process(x, cl, u, *md, val, val_e)) {
                     case NONE: 
-                        TRACE("fm_mc", tout << "no bound for:\n" << mk_ismt2_pp(cl, m) << "\n";);
+                        TRACE(fm_mc, tout << "no bound for:\n" << mk_ismt2_pp(cl, m) << "\n";);
                         break;
                     case LOWER: 
-                        TRACE("fm_mc", tout << "lower bound: " << val << " for:\n" << mk_ismt2_pp(cl, m) << "\n";);
+                        TRACE(fm_mc, tout << "lower bound: " << val << " for:\n" << mk_ismt2_pp(cl, m) << "\n";);
                         if (val_e)
                             val_lower_e = val_lower_e != nullptr ? mk_max(val_lower_e, val_e) : val_e;
                         else if (!has_lower || val > lower) 
                             lower = val, has_lower = true;
                         break;
                     case UPPER: 
-                        TRACE("fm_mc", tout << "upper bound: " << val << " for:\n" << mk_ismt2_pp(cl, m) << "\n";);
+                        TRACE(fm_mc, tout << "upper bound: " << val << " for:\n" << mk_ismt2_pp(cl, m) << "\n";);
                         if (val_e)
                             val_upper_e = val_upper_e != nullptr ? mk_min(val_upper_e, val_e) : val_e;
                         else if (!has_upper || val < upper) 
@@ -285,10 +285,10 @@ class fm_tactic : public tactic {
                     else
                         x_val = u.mk_numeral(rational(0), false);
                 }
-                TRACE("fm_mc", tout << x->get_name() << " --> " << mk_ismt2_pp(x_val, m) << "\n";);
+                TRACE(fm_mc, tout << x->get_name() << " --> " << mk_ismt2_pp(x_val, m) << "\n";);
                 md->register_decl(x, x_val);
             }
-            TRACE("fm_mc", model_v2_pp(tout, *md););
+            TRACE(fm_mc, model_v2_pp(tout, *md););
         }
 
 
@@ -519,7 +519,7 @@ class fm_tactic : public tactic {
         bool is_linear_ineq(expr * t) const {
             m.is_not(t, t);
             expr * lhs, * rhs;
-            TRACE("is_occ_bug", tout << mk_pp(t, m) << "\n";);
+            TRACE(is_occ_bug, tout << mk_pp(t, m) << "\n";);
             if (m_util.is_le(t, lhs, rhs) || m_util.is_ge(t, lhs, rhs)) {
                 if (!m_util.is_numeral(rhs))
                     return false;
@@ -595,7 +595,7 @@ class fm_tactic : public tactic {
             cnstr->m_xs         = reinterpret_cast<var*>(mem_xs);
             cnstr->m_as         = reinterpret_cast<rational*>(mem_as);
             for (unsigned i = 0; i < num_vars; i++) {
-                TRACE("mk_constraint_bug", tout << "xs[" << i << "]: " << xs[i] << "\n";);
+                TRACE(mk_constraint_bug, tout << "xs[" << i << "]: " << xs[i] << "\n";);
                 cnstr->m_xs[i] = xs[i];
                 new (cnstr->m_as + i) rational(as[i]);
             }
@@ -787,7 +787,7 @@ class fm_tactic : public tactic {
                 if (c2->m_dead)
                     continue;
                 if (subsumes(c, *c2)) {
-                    TRACE("fm_subsumption", display(tout, c); tout << "\nsubsumed:\n"; display(tout, *c2); tout << "\n";);
+                    TRACE(fm_subsumption, display(tout, c); tout << "\nsubsumed:\n"; display(tout, *c2); tout << "\n";);
                     c2->m_dead = true;
                     continue;
                 }
@@ -858,7 +858,7 @@ class fm_tactic : public tactic {
                 expr * f = g.form(i);
                 if (is_occ(f))
                     continue;
-                TRACE("is_occ_bug", tout << "not OCC:\n" << mk_ismt2_pp(f, m) << "\n";);
+                TRACE(is_occ_bug, tout << "not OCC:\n" << mk_ismt2_pp(f, m) << "\n";);
                 quick_for_each_expr(proc, visited, f);
             }
         }
@@ -1009,7 +1009,7 @@ class fm_tactic : public tactic {
                 x = mk_var(t);
             SASSERT(m_expr2var.contains(t));
             SASSERT(m_var2expr.get(x) == t);
-            TRACE("to_var_bug", tout << mk_ismt2_pp(t, m) << " --> " << x << "\n";);
+            TRACE(to_var_bug, tout << mk_ismt2_pp(t, m) << " --> " << x << "\n";);
             return x;
         }
         
@@ -1108,7 +1108,7 @@ class fm_tactic : public tactic {
                 }
             }
             
-            TRACE("to_var_bug", tout << "before mk_constraint: "; for (unsigned i = 0; i < xs.size(); i++) tout << " " << xs[i]; tout << "\n";);
+            TRACE(to_var_bug, tout << "before mk_constraint: "; for (unsigned i = 0; i < xs.size(); i++) tout << " " << xs[i]; tout << "\n";);
             
             constraint * new_c = mk_constraint(lits.size(),
                                                lits.data(),
@@ -1119,7 +1119,7 @@ class fm_tactic : public tactic {
                                                strict,
                                                dep);
             
-            TRACE("to_var_bug", tout << "add_constraint: "; display(tout, *new_c); tout << "\n";);
+            TRACE(to_var_bug, tout << "add_constraint: "; display(tout, *new_c); tout << "\n";);
             VERIFY(register_constraint(new_c));
         }
         
@@ -1132,7 +1132,7 @@ class fm_tactic : public tactic {
             if (is_false(*c)) {
                 del_constraint(c);
                 m_inconsistent = true;
-                TRACE("add_constraint_bug", tout << "is false "; display(tout, *c); tout << "\n";);
+                TRACE(add_constraint_bug, tout << "is false "; display(tout, *c); tout << "\n";);
                 return false;
             }
             
@@ -1155,7 +1155,7 @@ class fm_tactic : public tactic {
                 return true;
             }
             else {
-                TRACE("add_constraint_bug", tout << "all variables are forbidden "; display(tout, *c); tout << "\n";);
+                TRACE(add_constraint_bug, tout << "all variables are forbidden "; display(tout, *c); tout << "\n";);
                 m_new_goal->assert_expr(to_expr(*c), nullptr, c->m_dep);
                 del_constraint(c);
                 return false;
@@ -1211,7 +1211,7 @@ class fm_tactic : public tactic {
             }
             // x_cost_lt is not a total order on variables
             std::stable_sort(x_cost_vector.begin(), x_cost_vector.end(), x_cost_lt(m_is_int));
-            TRACE("fm",
+            TRACE(fm,
                   for (auto const& [v,c] : x_cost_vector) 
                       tout << "(" << mk_ismt2_pp(m_var2expr.get(v), m) << " " << c << ") ";
                   tout << "\n";);
@@ -1390,7 +1390,7 @@ class fm_tactic : public tactic {
             
             if (new_xs.empty() && (new_c.is_pos() || (!new_strict && new_c.is_zero()))) {
                 // literal is true
-                TRACE("fm", tout << "resolution " << x << " consequent literal is always true: \n";
+                TRACE(fm, tout << "resolution " << x << " consequent literal is always true: \n";
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
@@ -1434,7 +1434,7 @@ class fm_tactic : public tactic {
             }
             
             if (tautology) {
-                TRACE("fm", tout << "resolution " << x << " tautology: \n";
+                TRACE(fm, tout << "resolution " << x << " tautology: \n";
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
@@ -1444,7 +1444,7 @@ class fm_tactic : public tactic {
             expr_dependency * new_dep = m.mk_join(l.m_dep, u.m_dep);
             
             if (new_lits.empty() && new_xs.empty() && (new_c.is_neg() || (new_strict && new_c.is_zero()))) {
-                TRACE("fm", tout << "resolution " << x << " inconsistent: \n";
+                TRACE(fm, tout << "resolution " << x << " inconsistent: \n";
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
@@ -1462,7 +1462,7 @@ class fm_tactic : public tactic {
                                                    new_strict,
                                                    new_dep);
 
-            TRACE("fm", tout << "resolution " << x << "\n";
+            TRACE(fm, tout << "resolution " << x << "\n";
                   display(tout, l);
                   tout << "\n";
                   display(tout, u);
@@ -1485,7 +1485,7 @@ class fm_tactic : public tactic {
             if (l.empty() || u.empty()) {
                 // easy case
                 mark_constraints_dead(x);
-                TRACE("fm", tout << "variables was eliminated (trivial case)\n";);
+                TRACE(fm, tout << "variables was eliminated (trivial case)\n";);
                 return true;
             }
             
@@ -1503,7 +1503,7 @@ class fm_tactic : public tactic {
             
             m_counter += num_lowers * num_uppers;
             
-            TRACE("fm_bug", tout << "eliminating " << mk_ismt2_pp(m_var2expr.get(x), m) << "\nlowers:\n";
+            TRACE(fm_bug, tout << "eliminating " << mk_ismt2_pp(m_var2expr.get(x), m) << "\nlowers:\n";
                   display_constraints(tout, l); tout << "uppers:\n"; display_constraints(tout, u););
             
             unsigned num_old_cnstrs = num_uppers + num_lowers;
@@ -1513,7 +1513,7 @@ class fm_tactic : public tactic {
             for (unsigned i = 0; i < num_lowers; i++) {
                 for (unsigned j = 0; j < num_uppers; j++) {
                     if (m_inconsistent || num_new_cnstrs > limit) {
-                        TRACE("fm", tout << "too many new constraints: " << num_new_cnstrs << "\n";);
+                        TRACE(fm, tout << "too many new constraints: " << num_new_cnstrs << "\n";);
                         del_constraints(new_constraints.size(), new_constraints.data());
                         return false;
                     }
@@ -1538,7 +1538,7 @@ class fm_tactic : public tactic {
                 backward_subsumption(*c);
                 register_constraint(c);
             }
-            TRACE("fm", tout << "variables was eliminated old: " << num_old_cnstrs << " new_constraints: " << sz << "\n";);
+            TRACE(fm, tout << "variables was eliminated old: " << num_old_cnstrs << " new_constraints: " << sz << "\n";);
             return true;
         }
         
@@ -1548,7 +1548,7 @@ class fm_tactic : public tactic {
                     if (!c->m_dead) {
                         c->m_dead = true;
                         expr * new_f = to_expr(*c);
-                        TRACE("fm_bug", tout << "asserting...\n" << mk_ismt2_pp(new_f, m) << "\nnew_dep: " << c->m_dep << "\n";);
+                        TRACE(fm_bug, tout << "asserting...\n" << mk_ismt2_pp(new_f, m) << "\nnew_dep: " << c->m_dep << "\n";);
                         m_new_goal->assert_expr(new_f, nullptr, c->m_dep);
                     }
                 }
@@ -1589,7 +1589,7 @@ class fm_tactic : public tactic {
                 m_new_goal->assert_expr(m.mk_false(), nullptr, m_inconsistent_core);
             }
             else {
-                TRACE("fm", display(tout););
+                TRACE(fm, display(tout););
                 
                 subsume();
                 var_vector candidates;
@@ -1623,7 +1623,7 @@ class fm_tactic : public tactic {
             }
             reset_constraints();
             result.push_back(m_new_goal.get());
-            TRACE("fm", m_new_goal->display(tout););
+            TRACE(fm, m_new_goal->display(tout););
         }
         
         void display_constraints(std::ostream & out, constraints const & cs) const {

@@ -351,7 +351,7 @@ public:
     //
     void compress() {
         SASSERT(!m_delta.empty());
-        TRACE("seq", display(tout););
+        TRACE(seq, display(tout););
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             for (unsigned j = 0; j < m_delta[i].size(); ++j) {
                 move const& mv = m_delta[i][j];
@@ -443,7 +443,7 @@ public:
                         }
                     }
                     else {
-                        TRACE("seq", tout << "epsilon not removed " << out_degree(src) << " " << is_final_state(src) << " " << is_final_state(dst) << "\n";);
+                        TRACE(seq, tout << "epsilon not removed " << out_degree(src) << " " << is_final_state(src) << " " << is_final_state(dst) << "\n";);
                         continue;
                     }                    
                     remove(src, dst, nullptr);
@@ -464,7 +464,7 @@ public:
             }
         }
         sinkify_dead_states();
-        TRACE("seq", display(tout););
+        TRACE(seq, display(tout););
     }
 
     bool is_sequence(unsigned& length) const {
@@ -624,11 +624,11 @@ private:
             }
             to_remove.reset();
         }
-        TRACE("seq", tout << "remove: " << dead_states << "\n"; 
+        TRACE(seq, tout << "remove: " << dead_states << "\n"; 
               tout << "final: " << m_final_states << "\n";
               );
         for (unsigned s : dead_states) {
-            CTRACE("seq", !m_delta[s].empty(), tout << "live state " << s << "\n";); 
+            CTRACE(seq, !m_delta[s].empty(), tout << "live state " << s << "\n";); 
             m_delta[s].reset();
         }
     }

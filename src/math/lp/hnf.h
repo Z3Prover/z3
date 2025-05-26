@@ -196,7 +196,7 @@ mpq determinant_of_rectangular_matrix(const M& m, svector<unsigned> & basis_rows
     for (unsigned i = 0; i < rank; i++) {
         basis_rows.push_back(m_copy.adjust_row(i));
     }
-    TRACE("hnf_calc", tout << "basis_rows = "; print_vector(basis_rows, tout); m_copy.print(tout, "m_copy = "););
+    TRACE(hnf_calc, tout << "basis_rows = "; print_vector(basis_rows, tout); m_copy.print(tout, "m_copy = "););
     return gcd_of_row_starting_from_diagonal(m_copy, rank - 1);
 }
 } // end of namespace hnf_calc
@@ -229,7 +229,7 @@ class hnf {
     mpq mod_R(const mpq & a) const {
        mpq t = a % m_R;
        t = is_neg(t) ? t + m_R : t;       
-       CTRACE("hnf", is_neg(t), tout << "a=" << a << ", m_R= " << m_R << std::endl;);
+       CTRACE(hnf, is_neg(t), tout << "a=" << a << ", m_R= " << m_R << std::endl;);
        return t;
            
     }
@@ -464,14 +464,14 @@ class hnf {
 
     bool is_correct_final() const {
         if (!is_correct()) {
-            TRACE("hnf_calc",
+            TRACE(hnf_calc,
                   tout << "m_H =            "; m_H.print(tout, 17);
                   tout << "\nm_A_orig * m_U = ";  (m_A_orig * m_U).print(tout, 17);
                   tout << "is_correct() does not hold" << std::endl;);
             return false;
         }
         if (!is_correct_form()) {
-            TRACE("hnf_calc", tout << "is_correct_form() does not hold" << std::endl;);
+            TRACE(hnf_calc, tout << "is_correct_form() does not hold" << std::endl;);
             return false;
         }
         return true;
@@ -605,7 +605,7 @@ public:
 #endif
         calculate_by_modulo();
 #ifdef Z3DEBUG
-        CTRACE("hnf_calc", m_H != m_W,
+        CTRACE(hnf_calc, m_H != m_W,
                tout << "A = "; m_A_orig.print(tout, 4); tout << std::endl;
                tout << "H = "; m_H.print(tout, 4);  tout << std::endl;
                tout << "W = "; m_W.print(tout, 4);  tout << std::endl;);

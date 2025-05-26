@@ -233,7 +233,7 @@ public:
     }
 
     void get_powers_from_mul(std::unordered_map<lpvar, unsigned> & r) const {
-        TRACE("nla_cn_details", tout << "powers of " << *this << "\n";);
+        TRACE(nla_cn_details, tout << "powers of " << *this << "\n";);
         r.clear();
         for (const auto & c : *this) {
             if (c.e()->is_var()) {
@@ -242,7 +242,7 @@ public:
                 r[j] = c.pow();
             }
         }
-        TRACE("nla_cn_details", tout << "powers of " << *this << "\n"; print_vector(r, tout)<< "\n";);
+        TRACE(nla_cn_details, tout << "powers of " << *this << "\n"; print_vector(r, tout)<< "\n";);
     }
 
     unsigned get_degree() const override {
@@ -288,18 +288,18 @@ public:
     unsigned size() const override { return m_children.size(); }
 
     bool is_linear() const override {
-        TRACE("nex_details", tout << *this << "\n";);
+        TRACE(nex_details, tout << *this << "\n";);
         for (auto  e : *this) {
             if (!e->is_linear())
                 return false;
         }
-        TRACE("nex_details", tout << "linear\n";); 
+        TRACE(nex_details, tout << "linear\n";); 
         return true;
     }
 
     // we need a linear combination of at least two variables
     bool is_a_linear_term() const {
-        TRACE("nex_details", tout << *this << "\n";);
+        TRACE(nex_details, tout << *this << "\n";);
         unsigned number_of_non_scalars = 0;
         for (auto  e : *this) {
             int d = e->get_degree();
@@ -307,7 +307,7 @@ public:
             if (d > 1) return false;            
             number_of_non_scalars++;
         }
-        TRACE("nex_details", tout << (number_of_non_scalars > 1?"linear":"non-linear") << "\n";); 
+        TRACE(nex_details, tout << (number_of_non_scalars > 1?"linear":"non-linear") << "\n";); 
         return number_of_non_scalars > 1;
     }
     
@@ -405,7 +405,7 @@ inline rational get_nex_val(const nex* e, std::function<rational (unsigned)> var
     case expr_type::VAR:
         return var_val(e->to_var().var());
     default:
-        TRACE("nla_cn_details", tout << e->type() << "\n";);
+        TRACE(nla_cn_details, tout << e->type() << "\n";);
         SASSERT(false);
         return rational();
     }
@@ -430,7 +430,7 @@ inline std::unordered_set<lpvar> get_vars_of_expr(const nex *e ) {
         r.insert(e->to_var().var());
         return r;
     default:
-        TRACE("nla_cn_details", tout << e->type() << "\n";);
+        TRACE(nla_cn_details, tout << e->type() << "\n";);
         SASSERT(false);
         return r;
     }

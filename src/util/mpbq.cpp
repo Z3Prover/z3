@@ -163,7 +163,7 @@ void mpbq_manager::add(mpbq const & a, mpz const & b, mpbq & r) {
     normalize(r);
 #ifdef MPBQ_DEBUG
     rational _r = to_rational(r);
-    TRACE("mpbq_bug", tout << "add a: " << _a << ", b: " << _b << ", r: " << _r << ", expected: " << (_a + _b) << "\n";);
+    TRACE(mpbq_bug, tout << "add a: " << _a << ", b: " << _b << ", r: " << _r << ", expected: " << (_a + _b) << "\n";);
     SASSERT(_a + _b == _r);
 #endif 
 }
@@ -191,7 +191,7 @@ void mpbq_manager::sub(mpbq const & a, mpbq const & b, mpbq & r) {
     normalize(r);
 #ifdef MPBQ_DEBUG
     rational _r = to_rational(r);
-    TRACE("mpbq_bug", tout << "sub a: " << _a << ", b: " << _b << ", r: " << _r << ", expected: " << (_a - _b) << "\n";);
+    TRACE(mpbq_bug, tout << "sub a: " << _a << ", b: " << _b << ", r: " << _r << ", expected: " << (_a - _b) << "\n";);
     SASSERT(_a - _b == _r);
 #endif 
 }
@@ -750,7 +750,7 @@ bool mpbq_manager::select_small(mpbq const & lower, mpbq const & upper, mpbq & r
 
 
 void mpbq_manager::select_small_core(unsynch_mpq_manager & qm, mpq const & lower, mpbq const & upper, mpbq & r) {
-    TRACE("select_small", tout << "lower (q): " << qm.to_string(lower) << ", upper (bq): " << to_string(upper) << "\n";);
+    TRACE(select_small, tout << "lower (q): " << qm.to_string(lower) << ", upper (bq): " << to_string(upper) << "\n";);
     SASSERT(gt(upper, lower));
     mpz & aux = m_select_small_tmp;
     if (select_integer(qm, lower, upper, aux)) {

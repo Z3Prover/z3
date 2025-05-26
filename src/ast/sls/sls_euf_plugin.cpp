@@ -88,14 +88,14 @@ namespace sls {
         g.explain<size_t>(explain, nullptr);
         g.end_explain();
         double reward = -1;
-        TRACE("euf",
+        TRACE(euf,
             for (auto p : explain) {
                 sat::literal l = to_literal(p);
                 tout << l << " " << mk_pp(ctx.atom(l.var()), m) << " " << ctx.is_unit(l) << "\n";
             });
         for (auto p : explain) {
             sat::literal l = to_literal(p);
-            CTRACE("euf", !ctx.is_true(l), tout << "not true " << l << "\n"; ctx.display(tout););
+            CTRACE(euf, !ctx.is_true(l), tout << "not true " << l << "\n"; ctx.display(tout););
             SASSERT(ctx.is_true(l));
 
             if (ctx.is_unit(l))
@@ -133,7 +133,7 @@ namespace sls {
             return;
 
         auto block = [&](euf::enode* a, euf::enode* b) {
-            TRACE("euf", tout << "block " << m_g->bpp(a) << " != " << m_g->bpp(b) << "\n");
+            TRACE(euf, tout << "block " << m_g->bpp(a) << " != " << m_g->bpp(b) << "\n");
             if (a->get_root() != b->get_root())
                 return;
             ptr_vector<size_t> explain;
@@ -197,7 +197,7 @@ namespace sls {
             g.mk(m.mk_false(), 0, 0, nullptr);
         // check for conflict with disequalities during propagation
         if (merge_eqs) {
-            TRACE("euf", tout << "root literals " << ctx.root_literals() << "\n");
+            TRACE(euf, tout << "root literals " << ctx.root_literals() << "\n");
             for (auto lit : ctx.root_literals()) {
                 if (!ctx.is_true(lit))
                     lit.neg();

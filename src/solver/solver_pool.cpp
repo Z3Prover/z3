@@ -287,7 +287,7 @@ private:
                         lbool last_status, double last_time) {
         std::string file_name = mk_file_name();
         std::ofstream out(file_name);
-        STRACE("spacer.ind_gen", tout << "Dumping benchmark to " << file_name << "\n";);
+        STRACE(spacer_ind_gen, tout << "Dumping benchmark to " << file_name << "\n";);
         if (!out) {
             IF_VERBOSE(0, verbose_stream() << "could not open file " << file_name << " for output\n");
             return;

@@ -74,7 +74,7 @@ template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis(unsigned j) const {
     const T& dj = this->m_d[j];
     if (dj.is_zero()) return false;
-    TRACE("lar_solver", tout << "d[" << j <<"] = " << dj << "\n";); 
+    TRACE(lar_solver, tout << "d[" << j <<"] = " << dj << "\n";); 
     SASSERT(correctly_moved_to_bounds(j));
     switch (this->m_column_types[j]) {
     case column_type::fixed:  break;

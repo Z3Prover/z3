@@ -703,7 +703,7 @@ namespace nlsat {
                 poly* po = a.p(i);
                 m_pm.substitute(po, x, qq, p, pr);
                 change |= pr != po;
-                TRACE("nlsat", tout << pr << "\n";);
+                TRACE(nlsat, tout << pr << "\n";);
                 if (m_pm.is_zero(pr)) {
                     ps.reset();
                     even.reset();

@@ -144,7 +144,7 @@ class injectivity_tactic : public tactic {
             for (unsigned i = 0; i < goal->size(); ++i) {
                 func_decl *f, *g;
                 if (!is_axiom(goal->form(i), f, g)) continue;
-                TRACE("injectivity", tout << "Marking " << f->get_name() << " as injective" << std::endl;);
+                TRACE(injectivity, tout << "Marking " << f->get_name() << " as injective" << std::endl;);
                 inj_map.insert(f, g);
                 // TODO: Record that g is f's pseudoinverse
             }
@@ -194,7 +194,7 @@ class injectivity_tactic : public tactic {
                 return BR_FAILED;
 
             SASSERT(a->get_arg(0)->get_sort() == b->get_arg(0)->get_sort());
-            TRACE("injectivity", tout << "Rewriting (= " << mk_ismt2_pp(args[0], m()) <<
+            TRACE(injectivity, tout << "Rewriting (= " << mk_ismt2_pp(args[0], m()) <<
                                               " " << mk_ismt2_pp(args[1], m()) << ")" << std::endl;);
             result = m().mk_eq(a->get_arg(0), b->get_arg(0));
             result_pr = nullptr;
@@ -223,7 +223,7 @@ public:
     injectivity_tactic(ast_manager & m, params_ref const & p):
         m_params(p),
         m_manager(m) {
-        TRACE("injectivity", tout << "constructed new tactic" << std::endl;);
+        TRACE(injectivity, tout << "constructed new tactic" << std::endl;);
         m_map = alloc(InjHelper, m);
         m_finder = alloc(finder, m, *m_map, p);
         m_eq = alloc(rewriter_eq, m, *m_map, p);

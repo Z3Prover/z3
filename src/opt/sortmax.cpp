@@ -76,7 +76,7 @@ namespace opt {
                 trace_bounds("sortmax");
                 s().assert_expr(out[first]);
                 is_sat = s().check_sat(0, nullptr);
-                TRACE("opt", tout << is_sat << "\n"; s().display(tout); tout << "\n";);
+                TRACE(opt, tout << is_sat << "\n"; s().display(tout); tout << "\n";);
                 if (!m.inc()) {
                     is_sat = l_undef;
                 }
@@ -87,7 +87,7 @@ namespace opt {
                     for (; first < out.size() && is_true(out[first]); ++first) { 
                         s().assert_expr(out[first]);
                     }
-                    TRACE("opt", model_smt2_pp(tout, m, *m_model.get(), 0););
+                    TRACE(opt, model_smt2_pp(tout, m, *m_model.get(), 0););
                     m_upper = m_lower + rational(out.size() - first);
                     (*m_filter)(m_model);
                 }
@@ -96,7 +96,7 @@ namespace opt {
                 is_sat = l_true;
                 m_lower = m_upper;
             }
-            TRACE("opt", tout << "min cost: " << m_upper << "\n";);
+            TRACE(opt, tout << "min cost: " << m_upper << "\n";);
             return is_sat;
         }
 

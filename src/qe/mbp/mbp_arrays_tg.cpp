@@ -179,7 +179,7 @@ struct mbp_array_tg::impl {
         auto  js = array_store_indices(to_app(p.lhs()));
         auto  elem = array_store_elem(to_app(p.lhs()));
        
-        TRACE("mbp_tg",
+        TRACE(mbp_tg,
               tout << "applying elimwreq on " << expr_ref(p.mk_peq(), m) << " is neg: " << is_neg << "\n");
         vector<expr_ref_vector> indices;
         bool in = false;
@@ -251,7 +251,7 @@ struct mbp_array_tg::impl {
     void add_rdVar(expr *rd) {
         // do not assign new variable if rd is already equal to a value
         if (m_tg.has_val_in_class(rd)) return;
-        TRACE("mbp_tg", tout << "applying add_rdVar on " << expr_ref(rd, m););
+        TRACE(mbp_tg, tout << "applying add_rdVar on " << expr_ref(rd, m););
         app_ref u = new_var(to_app(rd)->get_sort(), m);
         m_new_vars.push_back(u);
         m_tg.add_var(u);
@@ -262,7 +262,7 @@ struct mbp_array_tg::impl {
     // given a \peq_{indices} t, where a is a variable, merge equivalence class
     // of a with store(t, indices, elems) where elems are fresh constants
     void elimeq(peq p) {
-        TRACE("mbp_tg",
+        TRACE(mbp_tg,
               tout << "applying elimeq on " << expr_ref(p.mk_peq(), m););
         app_ref_vector aux_consts(m);
         expr_ref eq(m);
@@ -283,12 +283,12 @@ struct mbp_array_tg::impl {
         }
         m_tg.add_lit(eq);
         m_tg.add_eq(p.mk_peq(), m.mk_true());
-        TRACE("mbp_tg", tout << "added lit  " << eq;);
+        TRACE(mbp_tg, tout << "added lit  " << eq;);
     }
 
     // rewrite select(store(a, i, k), j) into either select(a, j) or k
     void elimrdwr(app *term) {
-        TRACE("mbp_tg", tout << "applying elimrdwr on " << expr_ref(term, m););
+        TRACE(mbp_tg, tout << "applying elimrdwr on " << expr_ref(term, m););
         auto rd_indices = array_select_indices(term);
         auto store_term = to_app(term->get_arg(0));
         auto wr_indices = array_store_indices(store_term);
@@ -321,7 +321,7 @@ struct mbp_array_tg::impl {
     // iterate through all terms in m_tg and apply all array MBP rules once
     // returns true if any rules were applied
     bool apply() {
-        TRACE("mbp_tg", tout << "Iterating over terms of tg\n");
+        TRACE(mbp_tg, tout << "Iterating over terms of tg\n");
         indices.reset();
         rdTerms.reset();
         m_new_vars.reset();
@@ -336,7 +336,7 @@ struct mbp_array_tg::impl {
                 continue;
             if (m_tg.is_cgr(term))
                 continue;
-            TRACE("mbp_tg", tout << "processing " << expr_ref(term, m) << "\n");
+            TRACE(mbp_tg, tout << "processing " << expr_ref(term, m) << "\n");
             expr* a, *b;
             if (is_implicit_peq(term, a, b) || is_neg_peq(term, a, b)) {
                 // rewrite array eq as peq

@@ -84,7 +84,7 @@ class lia2card_tactic : public tactic {
             else {
                 return BR_FAILED;
             }
-            TRACE("pbsum", tout << expr_ref(m.mk_app(f, sz, es), m) << " ==>\n" <<  result << "\n";);
+            TRACE(pbsum, tout << expr_ref(m.mk_app(f, sz, es), m) << " ==>\n" <<  result << "\n";);
 
             return BR_DONE;
         }
@@ -202,7 +202,7 @@ public:
                 expr_ref b = mk_bounded(axioms, to_app(x), lo.get_unsigned(), hi.get_unsigned());
                 rep.insert(x, b);
                 m_bounds.insert(x, bound(lo.get_unsigned(), hi.get_unsigned(), b));
-                TRACE("pb", tout << "add bound " << lo << " " << hi << ": " << mk_pp(x, m) << "\n";);
+                TRACE(pb, tout << "add bound " << lo << " " << hi << ": " << mk_pp(x, m) << "\n";);
             }
         }
         for (unsigned i = 0; !g->inconsistent() && i < g->size(); i++) {
@@ -330,7 +330,7 @@ public:
             conds.pop_back();
         }
         else {
-            TRACE("pb", tout << "Can't handle " << mk_pp(x, m) << "\n";);
+            TRACE(pb, tout << "Can't handle " << mk_pp(x, m) << "\n";);
             ok = false;
         }
         return ok;

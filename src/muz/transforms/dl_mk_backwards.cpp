@@ -69,7 +69,7 @@ namespace datalog {
                 result->add_rule(new_rule);
             }
         }
-        TRACE("dl", result->display(tout););
+        TRACE(dl, result->display(tout););
         return result.detach();
     }
 

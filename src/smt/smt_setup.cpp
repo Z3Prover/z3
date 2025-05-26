@@ -52,14 +52,14 @@ namespace smt {
     }
 
     void setup::operator()(config_mode cm) {
-        TRACE("internalize", tout << "setup " << &m_context << "\n";);
+        TRACE(internalize, tout << "setup " << &m_context << "\n";);
         SASSERT(m_context.get_scope_level() == 0);
         SASSERT(!m_already_configured);
         // if (m_params.m_mbqi && m_params.m_model_compact) {
         //    warning_msg("ignoring MODEL_COMPACT=true because it cannot be used with MBQI=true");
         //    m_params.m_model_compact = false;
         // }
-        TRACE("setup", tout << "configuring logical context, logic: " << m_logic << " " << cm << "\n";);
+        TRACE(setup, tout << "configuring logical context, logic: " << m_logic << " " << cm << "\n";);
         
         m_already_configured = true;
         
@@ -142,7 +142,7 @@ namespace smt {
     void setup::setup_auto_config() {
         static_features    st(m_manager);
         IF_VERBOSE(100, verbose_stream() << "(smt.configuring)\n";);
-        TRACE("setup", tout << "setup, logic: " << m_logic << "\n";);
+        TRACE(setup, tout << "setup, logic: " << m_logic << "\n";);
         // HACK: do not collect features for QF_BV and QF_AUFBV... since they do not use them...
         if (m_logic == "QF_BV") {
             setup_QF_BV();
@@ -155,7 +155,7 @@ namespace smt {
             ptr_vector<expr> fmls;
             m_context.get_asserted_formulas(fmls);
             st.collect(fmls.size(), fmls.data());
-            TRACE("setup", st.display_primitive(tout););
+            TRACE(setup, st.display_primitive(tout););
             IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
             if (m_logic == "QF_UF") 
                 setup_QF_UF(st);
@@ -234,7 +234,7 @@ namespace smt {
     void setup::setup_QF_UF(static_features const & st) {        
         check_no_arithmetic(st, "QF_UF");
         setup_QF_UF();
-        TRACE("setup",
+        TRACE(setup,
               tout << "st.m_num_theories: " << st.m_num_theories << "\n";
               tout << "st.m_num_uninterpreted_functions: " << st.m_num_uninterpreted_functions << "\n";);
     }
@@ -268,7 +268,7 @@ namespace smt {
             throw default_exception("Benchmark is not in QF_RDL (real difference logic).");
         if (st.m_has_int)
             throw default_exception("Benchmark has integer variables but it is marked as QF_RDL (real difference logic).");
-        TRACE("setup", tout << "setup_QF_RDL(st)\n";);
+        TRACE(setup, tout << "setup_QF_RDL(st)\n";);
         check_no_uninterpreted_functions(st, "QF_RDL");
         m_params.m_relevancy_lvl       = 0;
         m_params.m_arith_eq2ineq       = true;
@@ -294,11 +294,11 @@ namespace smt {
             if (m_params.m_arith_auto_config_simplex || st.m_num_uninterpreted_constants > 4 * st.m_num_bool_constants 
                 || st.m_num_ite_terms > 0 /* theory_rdl and theory_frdl do not support ite-terms */) {
                 // if (!st.m_has_rational && !m_params.m_model && st.arith_k_sum_is_small()) {
-                //   TRACE("rdl_bug", tout << "using theory_smi_arith\n";);
+                //   TRACE(rdl_bug, tout << "using theory_smi_arith\n";);
                 //    m_context.register_plugin(alloc(smt::theory_smi_arith, m_context));
                 // }
                 // else {
-                TRACE("rdl_bug", tout << "using theory_mi_arith\n";);
+                TRACE(rdl_bug, tout << "using theory_mi_arith\n";);
                 //setup_lra_arith();
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
                 // }
@@ -316,7 +316,7 @@ namespace smt {
     }
 
     void setup::setup_QF_IDL() {
-        TRACE("setup", tout << "setup_QF_IDL()\n";);
+        TRACE(setup, tout << "setup_QF_IDL()\n";);
         m_params.setup_QF_IDL();
         setup_lra_arith();
     }
@@ -326,9 +326,9 @@ namespace smt {
             throw default_exception("Benchmark is not in QF_IDL (integer difference logic).");
         if (st.m_has_real)
             throw default_exception("Benchmark has real variables but it is marked as QF_IDL (integer difference logic).");
-        TRACE("setup", tout << "setup QF_IDL, m_arith_k_sum: " << st.m_arith_k_sum << " m_num_diff_terms: " << st.m_num_arith_terms << "\n";
+        TRACE(setup, tout << "setup QF_IDL, m_arith_k_sum: " << st.m_arith_k_sum << " m_num_diff_terms: " << st.m_num_arith_terms << "\n";
               st.display_primitive(tout););
-        TRACE("setup", tout << "setup_QF_IDL(st)\n";);
+        TRACE(setup, tout << "setup_QF_IDL(st)\n";);
         check_no_uninterpreted_functions(st, "QF_IDL");
         m_params.m_relevancy_lvl       = 0;
         m_params.m_arith_eq2ineq       = true;
@@ -351,7 +351,7 @@ namespace smt {
             m_params.m_random_initial_activity = IA_RANDOM;
         }
 
-        TRACE("setup", 
+        TRACE(setup, 
               tout << "RELEVANCY: " << m_params.m_relevancy_lvl << "\n";
               tout << "ARITH_EQ_BOUNDS: " << m_params.m_arith_eq_bounds << "\n";);
 
@@ -359,7 +359,7 @@ namespace smt {
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
         }
         else if (!m_params.m_arith_auto_config_simplex && st.is_dense()) {
-            TRACE("setup", tout << "using dense diff logic...\n";);
+            TRACE(setup, tout << "using dense diff logic...\n";);
             m_params.m_phase_selection = PS_CACHING_CONSERVATIVE;
             if (st.arith_k_sum_is_small())
                 m_context.register_plugin(alloc(smt::theory_dense_si, m_context));
@@ -369,24 +369,24 @@ namespace smt {
         }
         else {
             // if (st.arith_k_sum_is_small()) {
-            //    TRACE("setup", tout << "using small integer simplex...\n";
+            //    TRACE(setup, tout << "using small integer simplex...\n";
             //    m_context.register_plugin(alloc(smt::theory_si_arith, m_context));
             // }
             // else {
-            TRACE("setup", tout << "using big integer simplex...\n";);
+            TRACE(setup, tout << "using big integer simplex...\n";);
             m_context.register_plugin(alloc(smt::theory_i_arith, m_context));
             // }
         }
     }
 
     void setup::setup_QF_UFIDL() {
-        TRACE("setup", tout << "setup_QF_UFIDL()\n";);
+        TRACE(setup, tout << "setup_QF_UFIDL()\n";);
         m_params.setup_QF_UFIDL();
         setup_lra_arith();
     }
 
     void setup::setup_QF_UFIDL(static_features & st) {
-        TRACE("setup", tout << "setup_QF_UFIDL(st)\n";);
+        TRACE(setup, tout << "setup_QF_UFIDL(st)\n";);
         if (st.m_has_real)
             throw default_exception("Benchmark has real variables but it is marked as QF_UFIDL (uninterpreted functions and difference logic).");
         m_params.m_relevancy_lvl    = 0;
@@ -425,7 +425,7 @@ namespace smt {
     }
 
     void setup::setup_QF_LRA() {
-        TRACE("setup", tout << "setup_QF_LRA()\n";);
+        TRACE(setup, tout << "setup_QF_LRA()\n";);
         m_params.setup_QF_LRA();
         setup_lra_arith();
     }
@@ -441,14 +441,14 @@ namespace smt {
     }
 
     void setup::setup_QF_LIA() {
-        TRACE("setup", tout << "setup_QF_LIA(st)\n";);
+        TRACE(setup, tout << "setup_QF_LIA(st)\n";);
         m_params.setup_QF_LIA();
         setup_lra_arith();
     }
 
     void setup::setup_QF_LIA(static_features const & st) {
         check_no_uninterpreted_functions(st, "QF_LIA");
-        TRACE("setup", tout << "QF_LIA setup\n";);
+        TRACE(setup, tout << "QF_LIA setup\n";);
         m_params.setup_QF_LIA(st);
         setup_lra_arith();
     }
@@ -472,7 +472,7 @@ namespace smt {
     }
 
     void setup::setup_QF_BV() {
-        TRACE("setup", tout << "qf-bv\n";);
+        TRACE(setup, tout << "qf-bv\n";);
         m_params.setup_QF_BV();
         setup_bv();
     }
@@ -484,7 +484,7 @@ namespace smt {
     }
 
     void setup::setup_QF_AX() {
-        TRACE("setup", tout << "QF_AX\n";);
+        TRACE(setup, tout << "QF_AX\n";);
         m_params.setup_QF_AX();
         setup_arrays();
     }
@@ -495,7 +495,7 @@ namespace smt {
     }
 
     void setup::setup_QF_AUFLIA() {
-        TRACE("QF_AUFLIA", tout << "no static features\n";);
+        TRACE(QF_AUFLIA, tout << "no static features\n";);
         m_params.setup_QF_AUFLIA();
         setup_i_arith();
         setup_arrays();
@@ -508,9 +508,9 @@ namespace smt {
     }
 
     void setup::setup_AUFLIA(bool simple_array) {
-        TRACE("setup", tout << "AUFLIA\n";);
+        TRACE(setup, tout << "AUFLIA\n";);
         m_params.setup_AUFLIA(simple_array);
-        TRACE("setup", tout << "max_eager_multipatterns: " << m_params.m_qi_max_eager_multipatterns << "\n";);
+        TRACE(setup, tout << "max_eager_multipatterns: " << m_params.m_qi_max_eager_multipatterns << "\n";);
         m_context.register_plugin(alloc(smt::theory_i_arith, m_context));
         setup_arrays();
     }
@@ -523,7 +523,7 @@ namespace smt {
     }
 
     void setup::setup_AUFLIRA(bool simple_array) {
-        TRACE("setup", tout << "AUFLIRA\n";);
+        TRACE(setup, tout << "AUFLIRA\n";);
         m_params.setup_AUFLIRA(simple_array);
         setup_mi_arith();
         setup_arrays(); 
@@ -732,12 +732,12 @@ namespace smt {
     }
 
     void setup::setup_datatypes() {
-        TRACE("datatype", tout << "registering theory datatype...\n";);
+        TRACE(datatype, tout << "registering theory datatype...\n";);
         m_context.register_plugin(alloc(theory_datatype, m_context));
     }
 
     void setup::setup_recfuns() {
-        TRACE("recfun", tout << "registering theory recfun...\n";);
+        TRACE(recfun, tout << "registering theory recfun...\n";);
         theory_recfun * th = alloc(theory_recfun, m_context);
         m_context.register_plugin(th);
     }
@@ -815,7 +815,7 @@ namespace smt {
         ptr_vector<expr> fmls;
         m_context.get_asserted_formulas(fmls);
         st.collect(fmls.size(), fmls.data());
-        TRACE("setup", tout << "setup_unknown\n";);
+        TRACE(setup, tout << "setup_unknown\n";);
         setup_arith();
         setup_arrays();
         setup_bv();
@@ -839,7 +839,7 @@ namespace smt {
     }
 
     void setup::setup_unknown(static_features & st) {
-        TRACE("setup", tout << "setup_unknown\n";);
+        TRACE(setup, tout << "setup_unknown\n";);
         if (st.m_num_quantifiers > 0) {
             if (st.m_has_real)
                 setup_AUFLIRA(false);
@@ -856,7 +856,7 @@ namespace smt {
             return;
         }
 
-        TRACE("setup",
+        TRACE(setup,
               tout << "num non UF theories: " << st.num_non_uf_theories() << "\n";
               tout << "num theories: " << st.num_theories() << "\n";
               tout << "is_diff_logic: " << is_diff_logic(st) << "\n";

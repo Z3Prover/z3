@@ -334,7 +334,7 @@ bool mpfx_manager::eq(mpfx const & a, mpfx const & b) const {
 }
 
 bool mpfx_manager::lt(mpfx const & a, mpfx const & b) const {
-    STRACE("mpfx_trace", tout << "[mpfx] ("; display(tout, a); tout << " < "; display(tout, b); tout << ") == ";);
+    STRACE(mpfx_trace, tout << "[mpfx] ("; display(tout, a); tout << " < "; display(tout, b); tout << ") == ";);
     bool r;
     if (is_zero(a)) {
         r = !is_zero(b) && !is_neg(b);
@@ -353,7 +353,7 @@ bool mpfx_manager::lt(mpfx const & a, mpfx const & b) const {
             r = is_pos(b) && ::lt(m_total_sz, words(a), words(b));
         }
     }
-    STRACE("mpfx_trace", tout << "(" << r << " == 1)\n";);
+    STRACE(mpfx_trace, tout << "(" << r << " == 1)\n";);
     return r;
 }
 
@@ -370,7 +370,7 @@ void mpfx_manager::add_sub(bool is_sub, mpfx const & a, mpfx const & b, mpfx & c
         return;
     }
 
-    TRACE("mpfx", tout << (is_sub ? "sub" : "add") << "("; display(tout, a); tout << ", "; display(tout, b); tout << ")\n";);
+    TRACE(mpfx, tout << (is_sub ? "sub" : "add") << "("; display(tout, a); tout << ", "; display(tout, b); tout << ")\n";);
 
     allocate_if_needed(c);
 
@@ -405,24 +405,24 @@ void mpfx_manager::add_sub(bool is_sub, mpfx const & a, mpfx const & b, mpfx & c
         }
         SASSERT(borrow == 0);
     }
-    TRACE("mpfx", tout << "result: "; display(tout, c); tout << "\n";);
+    TRACE(mpfx, tout << "result: "; display(tout, c); tout << "\n";);
     SASSERT(check(c));
 }
 
 void mpfx_manager::add(mpfx const & a, mpfx const & b, mpfx & c) {
-    STRACE("mpfx_trace", tout << "[mpfx] "; display(tout, a); tout << " + "; display(tout, b); tout << " == ";);
+    STRACE(mpfx_trace, tout << "[mpfx] "; display(tout, a); tout << " + "; display(tout, b); tout << " == ";);
     add_sub(false, a, b, c);
-    STRACE("mpfx_trace", display(tout, c); tout << "\n";);  
+    STRACE(mpfx_trace, display(tout, c); tout << "\n";);  
 }
 
 void mpfx_manager::sub(mpfx const & a, mpfx const & b, mpfx & c) {
-    STRACE("mpfx_trace", tout << "[mpfx] "; display(tout, a); tout << " - "; display(tout, b); tout << " == ";);
+    STRACE(mpfx_trace, tout << "[mpfx] "; display(tout, a); tout << " - "; display(tout, b); tout << " == ";);
     add_sub(true, a, b, c);
-    STRACE("mpfx_trace", display(tout, c); tout << "\n";);  
+    STRACE(mpfx_trace, display(tout, c); tout << "\n";);  
 }
 
 void mpfx_manager::mul(mpfx const & a, mpfx const & b, mpfx & c) {
-    STRACE("mpfx_trace", tout << "[mpfx] ("; display(tout, a); tout << ") * ("; display(tout, b); tout << ") " << (m_to_plus_inf ? "<=" : ">=") << " ";);
+    STRACE(mpfx_trace, tout << "[mpfx] ("; display(tout, a); tout << ") * ("; display(tout, b); tout << ") " << (m_to_plus_inf ? "<=" : ">=") << " ";);
     if (is_zero(a) || is_zero(b)) {
         reset(c);
     }
@@ -445,14 +445,14 @@ void mpfx_manager::mul(mpfx const & a, mpfx const & b, mpfx & c) {
         for (unsigned i = 0; i < m_total_sz; i++)
             w_c[i] = _r[i];
     }
-    STRACE("mpfx_trace", display(tout, c); tout << "\n";);  
+    STRACE(mpfx_trace, display(tout, c); tout << "\n";);  
     SASSERT(check(c));
 }
 
 void mpfx_manager::div(mpfx const & a, mpfx const & b, mpfx & c) {
     if (is_zero(b)) 
         throw div0_exception();
-    STRACE("mpfx_trace", tout << "[mpfx] ("; display(tout, a); tout << ") / ("; display(tout, b); tout << ") " << (m_to_plus_inf ? "<=" : ">=") << " ";);
+    STRACE(mpfx_trace, tout << "[mpfx] ("; display(tout, a); tout << ") / ("; display(tout, b); tout << ") " << (m_to_plus_inf ? "<=" : ">=") << " ";);
     if (is_zero(a)) {
         reset(c);
     }
@@ -519,12 +519,12 @@ void mpfx_manager::div(mpfx const & a, mpfx const & b, mpfx & c) {
             }
         }
     }
-    STRACE("mpfx_trace", display(tout, c); tout << "\n";);  
+    STRACE(mpfx_trace, display(tout, c); tout << "\n";);  
     SASSERT(check(c));
 }
 
 void mpfx_manager::div2k(mpfx & a, unsigned k) {
-    STRACE("mpfx_trace", tout << "[mpfx] ("; display(tout, a); tout << ") / (2^" << k << ") " << (m_to_plus_inf ? "<=" : ">=") << " ";);
+    STRACE(mpfx_trace, tout << "[mpfx] ("; display(tout, a); tout << ") / (2^" << k << ") " << (m_to_plus_inf ? "<=" : ">=") << " ";);
     if (!is_zero(a) && k > 0) {
         unsigned * w = words(a);
         bool _inc = ((a.m_sign == 1) != m_to_plus_inf) && has_one_at_first_k_bits(m_total_sz, w, k);
@@ -537,7 +537,7 @@ void mpfx_manager::div2k(mpfx & a, unsigned k) {
             reset(a);
         }
     }
-    STRACE("mpfx_trace", display(tout, a); tout << "\n";);  
+    STRACE(mpfx_trace, display(tout, a); tout << "\n";);  
     SASSERT(check(a));
 }
 
@@ -561,7 +561,7 @@ void mpfx_manager::set_plus_epsilon(mpfx & n) {
 }
 
 void mpfx_manager::floor(mpfx & n) {
-    STRACE("mpfx_trace", tout << "[mpfx] Floor["; display(tout, n); tout << "] == ";);
+    STRACE(mpfx_trace, tout << "[mpfx] Floor["; display(tout, n); tout << "] == ";);
     unsigned * w = words(n);
     if (is_neg(n)) {
         bool is_int = true;
@@ -581,11 +581,11 @@ void mpfx_manager::floor(mpfx & n) {
     if (::is_zero(m_int_part_sz, w + m_frac_part_sz))
         reset(n);
     SASSERT(check(n));
-    STRACE("mpfx_trace", display(tout, n); tout << "\n";);  
+    STRACE(mpfx_trace, display(tout, n); tout << "\n";);  
 }
 
 void mpfx_manager::ceil(mpfx & n) {
-    STRACE("mpfx_trace", tout << "[mpfx] Ceiling["; display(tout, n); tout << "] == ";);
+    STRACE(mpfx_trace, tout << "[mpfx] Ceiling["; display(tout, n); tout << "] == ";);
     unsigned * w = words(n);
     if (is_pos(n)) {
         bool is_int = true;
@@ -605,7 +605,7 @@ void mpfx_manager::ceil(mpfx & n) {
     if (::is_zero(m_int_part_sz, w + m_frac_part_sz))
         reset(n);
     SASSERT(check(n));
-    STRACE("mpfx_trace", display(tout, n); tout << "\n";);  
+    STRACE(mpfx_trace, display(tout, n); tout << "\n";);  
 }
 
 void mpfx_manager::power(mpfx const & a, unsigned p, mpfx & b) {
@@ -649,8 +649,8 @@ void mpfx_manager::power(mpfx const & a, unsigned p, mpfx & b) {
             mask = mask << 1;
         }
     }
-    STRACE("mpfx_trace", tout << "[mpfx] ("; display(tout, _a); tout << ") ^ " << _p << (m_to_plus_inf ? "<=" : ">="); display(tout, b); tout << "\n";);
-    TRACE("mpfx_power", display_raw(tout, b); tout << "\n";);
+    STRACE(mpfx_trace, tout << "[mpfx] ("; display(tout, _a); tout << ") ^ " << _p << (m_to_plus_inf ? "<=" : ">="); display(tout, b); tout << "\n";);
+    TRACE(mpfx_power, display_raw(tout, b); tout << "\n";);
     SASSERT(check(b));
 }
 

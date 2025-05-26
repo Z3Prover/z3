@@ -63,7 +63,7 @@ namespace smt {
         // PARAM-TODO smt_params ---> params_ref
         m_model = alloc(proto_model, m); // , m_context->get_fparams());
         for (theory* th : m_context->theories()) {
-            TRACE("model_generator_bug", tout << "init_model for theory: " << th->get_name() << "\n";);
+            TRACE(model_generator_bug, tout << "init_model for theory: " << th->get_name() << "\n";);
             th->init_model(*this);
         }
     }
@@ -97,7 +97,7 @@ namespace smt {
                 sort * s      = r->get_sort();
                 model_value_proc * proc = nullptr;
                 if (m.is_bool(s)) {
-                    CTRACE("model", m_context->get_assignment(r) == l_undef, 
+                    CTRACE(model, m_context->get_assignment(r) == l_undef, 
                            tout << mk_pp(r->get_expr(), m) << "\n";);
                     if (m_context->get_assignment(r) == l_true)
                         proc = alloc(expr_wrapper_proc, m.mk_true());
@@ -115,7 +115,7 @@ namespace smt {
                             SASSERT(proc);
                         }
                         else {
-                            TRACE("model", tout << "creating fresh value for #" 
+                            TRACE(model, tout << "creating fresh value for #" 
                                 << r->get_expr_id() << " " 
                                 << mk_bounded_pp(r->get_expr(), m) << " " 
                                 << mk_pp(r->get_sort(), m) << "\n";);
@@ -140,7 +140,7 @@ namespace smt {
         if (!m.is_model_value(n)) {
             sort * s = r->get_sort();
             n = m_model->get_fresh_value(s);
-            CTRACE("model", n == 0, 
+            CTRACE(model, n == 0, 
                    tout << mk_pp(r->get_expr(), m) << "\nsort:\n" << mk_pp(s, m) << "\n";
                    tout << "is_finite: " << m_model->is_finite(s) << "\n";);
         }
@@ -184,7 +184,7 @@ namespace smt {
             if (already_traversed.contains(s))
                 return true;
             bool visited = true;
-            TRACE("mg_top_sort", tout << "fresh value of sort " << mk_pp(s, m) << "\n";
+            TRACE(mg_top_sort, tout << "fresh value of sort " << mk_pp(s, m) << "\n";
             for (enode* r : roots)
                 if (r->get_sort() == s)
                     tout << mk_pp(r->get_expr(), m) << "\n";
@@ -195,9 +195,9 @@ namespace smt {
                 SASSERT(r == r->get_root());
                 if (root2proc[r]->is_fresh()) 
                     continue; // r is associated with a fresh value...
-                TRACE("mg_top_sort", tout << "fresh!" << src.get_value()->get_idx() << " -> #" << r->get_owner_id() << " " << mk_pp(r->get_sort(), m) << "\n";);
+                TRACE(mg_top_sort, tout << "fresh!" << src.get_value()->get_idx() << " -> #" << r->get_owner_id() << " " << mk_pp(r->get_sort(), m) << "\n";);
                 visit_child(source(r), colors, todo, visited);
-                TRACE("mg_top_sort", tout << "visited: " << visited << ", todo.size(): " << todo.size() << "\n";);
+                TRACE(mg_top_sort, tout << "visited: " << visited << ", todo.size(): " << todo.size() << "\n";);
             }
             already_traversed.insert(s);
             return visited;
@@ -214,7 +214,7 @@ namespace smt {
         for (model_value_dependency const& dep : dependencies) {
             visit_child(dep, colors, todo, visited);
         }
-        TRACE("mg_top_sort",
+        TRACE(mg_top_sort,
               tout << "src: " << src << " ";
               tout << mk_pp(n->get_expr(), m) << "\n";
               for (model_value_dependency const& dep : dependencies) {
@@ -231,7 +231,7 @@ namespace smt {
                                          obj_hashtable<sort> & already_traversed, 
                                          svector<source> & todo,
                                          svector<source> & sorted_sources) {
-        TRACE("mg_top_sort", tout << "process source, is_fresh: " << src.is_fresh_value() << " ";
+        TRACE(mg_top_sort, tout << "process source, is_fresh: " << src.is_fresh_value() << " ";
               tout << src << ", todo.size(): " << todo.size() << "\n";);
         int color     = get_color(colors, src);
         SASSERT(color != Grey);
@@ -241,7 +241,7 @@ namespace smt {
         todo.push_back(src);
         while (!todo.empty()) {
             source curr = todo.back();
-            TRACE("mg_top_sort", tout << "current source, is_fresh: " << curr.is_fresh_value() << " ";
+            TRACE(mg_top_sort, tout << "current source, is_fresh: " << curr.is_fresh_value() << " ";
                   tout << curr << ", todo.size(): " << todo.size() << "\n";);
             switch (get_color(colors, curr)) {
             case White:
@@ -251,7 +251,7 @@ namespace smt {
             case Grey:
                 // SASSERT(visit_children(curr, roots, root2proc, colors, already_traversed, todo));
                 set_color(colors, curr, Black);
-                TRACE("mg_top_sort", tout << "append " << curr << "\n";);
+                TRACE(mg_top_sort, tout << "append " << curr << "\n";);
                 sorted_sources.push_back(curr);
                 break;
             case Black:
@@ -261,7 +261,7 @@ namespace smt {
                 UNREACHABLE();
             }
         }
-        TRACE("mg_top_sort", tout << "END process_source, todo.size(): " << todo.size() << "\n";);
+        TRACE(mg_top_sort, tout << "END process_source, todo.size(): " << todo.size() << "\n";);
     }
 
     /**
@@ -306,7 +306,7 @@ namespace smt {
         expr_ref_vector dependency_values(m);
         mk_value_procs(root2proc, roots, procs);
         top_sort_sources(roots, root2proc, sources);
-        TRACE("sorted_sources",
+        TRACE(sorted_sources,
               for (source const& curr : sources) {
                   if (curr.is_fresh_value()) {
                       tout << curr << " " << mk_pp(curr.get_value()->get_sort(), m) << "\n";
@@ -334,16 +334,16 @@ namespace smt {
         for (source const& curr : sources) {
             if (curr.is_fresh_value()) {
                 sort * s = curr.get_value()->get_sort();
-                TRACE("model_fresh_bug", tout << curr << " : " << mk_pp(s, m) << " " << curr.get_value()->get_value() << "\n";);
+                TRACE(model_fresh_bug, tout << curr << " : " << mk_pp(s, m) << " " << curr.get_value()->get_value() << "\n";);
                 expr * val = m_model->get_fresh_value(s);
-                TRACE("model_fresh_bug", tout << curr << " := #" << (val == nullptr ? UINT_MAX : val->get_id()) << "\n";);
+                TRACE(model_fresh_bug, tout << curr << " := #" << (val == nullptr ? UINT_MAX : val->get_id()) << "\n";);
                 m_asts.push_back(val);
                 curr.get_value()->set_value(val);
             }
             else {
                 enode * n = curr.get_enode();
                 SASSERT(n->get_root() == n);
-                TRACE("mg_top_sort", tout << curr << "\n";);
+                TRACE(mg_top_sort, tout << curr << "\n";);
                 app* val = nullptr;
                 if (m.is_value(n->get_expr()))
                     val = to_app(n->get_expr());
@@ -356,7 +356,7 @@ namespace smt {
                     for (model_value_dependency const& d : dependencies) {
                         if (d.is_fresh_value()) {
                             expr* val = d.get_value()->get_value();
-                            CTRACE("mg_top_sort", !val,
+                            CTRACE(mg_top_sort, !val,
                                 tout << "#" << n->get_owner_id() << " " <<
                                 mk_pp(n->get_expr(), m) << " -> " << d << "\n";);
                             // there is a cyclic dependency for default(A), where A
@@ -368,7 +368,7 @@ namespace smt {
                         }
                         else {
                             enode * child = d.get_enode();
-                            TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_expr(), m) << "): " 
+                            TRACE(mg_top_sort, tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_expr(), m) << "): " 
                                   << mk_pp(child->get_expr(), m) << " " << mk_pp(child->get_root()->get_expr(), m) << "\n";);
                             child = child->get_root();
                             dependency_values.push_back(m_root2value[child]);
@@ -385,7 +385,7 @@ namespace smt {
         for (enode * n : m_context->enodes()) {
             if (is_uninterp_const(n->get_expr()) && m_context->is_relevant(n)) {
                 func_decl * d = n->get_expr()->get_decl();
-                TRACE("mg_top_sort", tout << d->get_name() << " " << (m_hidden_ufs.contains(d)?"hidden":"visible") << "\n";);
+                TRACE(mg_top_sort, tout << d->get_name() << " " << (m_hidden_ufs.contains(d)?"hidden":"visible") << "\n";);
                 if (m_hidden_ufs.contains(d)) continue;
                 expr * val    = get_value(n);
                 m_model->register_decl(d, val);
@@ -450,7 +450,7 @@ namespace smt {
                 SASSERT(m_model->has_interpretation(f));
                 SASSERT(m_model->get_func_interp(f) == fi);
                 // The entry must be new because n->get_cg() == n
-                TRACE("model", 
+                TRACE(model, 
                       tout << "insert new entry for:\n" << mk_ismt2_pp(n->get_expr(), m) << "\nargs: ";
                       for (unsigned i = 0; i < num_args; i++) {
                           tout << "#" << n->get_arg(i)->get_owner_id() << " ";
@@ -506,20 +506,20 @@ namespace smt {
 
     void model_generator::register_macros() {
         unsigned num = m_context->get_num_macros();
-        TRACE("model", tout << "num. macros: " << num << "\n";);
+        TRACE(model, tout << "num. macros: " << num << "\n";);
         expr_ref v(m);
         for (unsigned i = 0; i < num; i++) {
             func_decl * f    = m_context->get_macro_interpretation(i, v);
             func_interp * fi = alloc(func_interp, m, f->get_arity());
             fi->set_else(v);
-            TRACE("model", tout << f->get_name() << "\n" << mk_pp(v, m) << "\n";);
+            TRACE(model, tout << f->get_name() << "\n" << mk_pp(v, m) << "\n";);
             m_model->register_decl(f, fi);
         }
     }
 
     proto_model * model_generator::mk_model() {
         SASSERT(!m_model);
-        TRACE("model_verbose", m_context->display(tout););
+        TRACE(model_verbose, m_context->display(tout););
         init_model();
         register_existing_model_values();
         mk_bool_model();
@@ -527,7 +527,7 @@ namespace smt {
         mk_func_interps();
         finalize_theory_models();
         register_macros();
-        TRACE("model", model_v2_pp(tout, *m_model, true););        
+        TRACE(model, model_v2_pp(tout, *m_model, true););        
         return m_model.get();
     }
     

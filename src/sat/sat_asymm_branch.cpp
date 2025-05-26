@@ -168,7 +168,7 @@ namespace sat {
             return;
         }
         CASSERT("asymm_branch", s.check_invariant());
-        TRACE("asymm_branch_detail", s.display(tout););
+        TRACE(asymm_branch_detail, s.display(tout););
         report rpt(*this);
         bool_vector saved_phase(s.m_phase);
         flet<bool> _is_probing(s.m_is_probing, true);
@@ -343,7 +343,7 @@ namespace sat {
             return false;
         }
         SASSERT(!s.inconsistent());
-        TRACE("asymm_branch_detail", tout << "assigning: " << l << "\n";);
+        TRACE(asymm_branch_detail, tout << "assigning: " << l << "\n";);
         s.assign_scoped(l);
         s.propagate_core(false); // must not use propagate(), since check_missed_propagation may fail for c
         return s.inconsistent();
@@ -403,7 +403,7 @@ namespace sat {
             s.set_conflict();
             return false;
         case 1:
-            TRACE("asymm_branch", tout << "produced unit clause: " << c[0] << "\n";);
+            TRACE(asymm_branch, tout << "produced unit clause: " << c[0] << "\n";);
             s.assign_unit(c[0]);
             s.propagate_core(false); 
             scoped_d.del_clause();
@@ -433,7 +433,7 @@ namespace sat {
     }
 
     bool asymm_branch::process(clause & c) {
-        TRACE("asymm_branch_detail", tout << "processing: " << c << "\n";);
+        TRACE(asymm_branch_detail, tout << "processing: " << c << "\n";);
         SASSERT(s.scope_lvl() == 0);
         SASSERT(!s.inconsistent());
 

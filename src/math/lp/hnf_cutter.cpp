@@ -251,7 +251,7 @@ branch y_i >= ceil(y0_i) is impossible.
         if (!init_terms_for_hnf_cut()) 
             return lia_move::undef;
         lia.settings().stats().m_hnf_cutter_calls++;
-        TRACE("hnf_cut", tout << "settings().stats().m_hnf_cutter_calls = " << lia.settings().stats().m_hnf_cutter_calls << "\n";
+        TRACE(hnf_cut, tout << "settings().stats().m_hnf_cutter_calls = " << lia.settings().stats().m_hnf_cutter_calls << "\n";
               for (u_dependency* d : constraints_for_explanation()) 
                   for (auto ci : lra.flatten(d))
                       lra.constraints().display(tout, ci);
@@ -267,7 +267,7 @@ branch y_i >= ceil(y0_i) is impossible.
                                  );
         
         if (r == lia_move::cut) {      
-            TRACE("hnf_cut",
+            TRACE(hnf_cut,
                   lra.print_term(lia.get_term(), tout << "cut:"); 
                   tout << " <= " << lia.offset() << std::endl;
                   for (auto* dep : constraints_for_explanation()) 

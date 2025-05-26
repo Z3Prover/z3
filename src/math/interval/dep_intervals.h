@@ -222,7 +222,7 @@ public:
         else {
             m_imanager.power(a, n, b);
         }
-        TRACE("dep_intervals", tout << "power of "; display(tout, a) << " = ";
+        TRACE(dep_intervals, tout << "power of "; display(tout, a) << " = ";
               display(tout, b) << "\n"; );
     }
 
@@ -317,7 +317,7 @@ public:
         if (!separated_from_zero_on_lower(i)) {
             return false;
         }
-        TRACE("dep_intervals", display(tout, i););
+        TRACE(dep_intervals, display(tout, i););
         dep = m_dep_manager.mk_join(dep, i.m_lower_dep);
         T expl;
         linearize(dep, expl);
@@ -328,7 +328,7 @@ public:
     bool check_interval_for_conflict_on_zero_upper(const interval& i, u_dependency* dep, std::function<void (const T&)> f) {
         if (!separated_from_zero_on_upper(i))
             return false;
-        TRACE("dep_intervals", display(tout, i););
+        TRACE(dep_intervals, display(tout, i););
         dep = m_dep_manager.mk_join(dep, i.m_upper_dep);
         T expl;
         linearize(dep, expl);

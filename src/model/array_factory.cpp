@@ -61,7 +61,7 @@ void array_factory::get_some_args_for(sort * s, ptr_buffer<expr> & args) {
 }
 
 expr * array_factory::get_some_value(sort * s) {
-    TRACE("array_factory", tout << mk_pp(s, m_manager) << "\n";);
+    TRACE(array_factory, tout << mk_pp(s, m_manager) << "\n";);
     value_set * set = nullptr;
     if (m_sort2value_set.find(s, set) && !set->empty())
         return *(set->begin());
@@ -72,7 +72,7 @@ expr * array_factory::get_some_value(sort * s) {
 }
 
 bool array_factory::mk_two_diff_values_for(sort * s) {
-    TRACE("array_factory", tout << mk_pp(s, m_manager) << "\n";);
+    TRACE(array_factory, tout << mk_pp(s, m_manager) << "\n";);
     DEBUG_CODE({
         value_set * set = 0;
         SASSERT(!m_sort2value_set.find(s, set) || set->size() <= 1);
@@ -101,7 +101,7 @@ bool array_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
     value_set * set = nullptr;
     if (!m_sort2value_set.find(s, set) || set->size() < 2) {
         if (!mk_two_diff_values_for(s)) {
-            TRACE("array_factory_bug", tout << "could not create diff values: " << mk_pp(s, m_manager) << "\n";);
+            TRACE(array_factory_bug, tout << "could not create diff values: " << mk_pp(s, m_manager) << "\n";);
             return false;
         }
     }
@@ -113,7 +113,7 @@ bool array_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
     v1 = *it;
     ++it;
     v2 = *it;
-    TRACE("array_factory", tout << v1 << " " << v2 << "\n";);
+    TRACE(array_factory, tout << v1 << " " << v2 << "\n";);
     return true;    
 }
 
@@ -147,7 +147,7 @@ expr * array_factory::get_fresh_value(sort * s) {
         }
     }
 
-    TRACE("array_factory_bug", tout << "array fresh value: using fresh index, range: " << mk_pp(range, m_manager) << "\n";);
+    TRACE(array_factory_bug, tout << "array fresh value: using fresh index, range: " << mk_pp(range, m_manager) << "\n";);
     expr_ref v1(m_manager), v2(m_manager), w1(m_manager), w2(m_manager);
     if (m_model.get_some_values(range, v1, v2)) {
         // Claim: A is fresh if A[i1] = v1 and A[i2] = v2 where i1 and i2 are fresh values,
@@ -157,7 +157,7 @@ expr * array_factory::get_fresh_value(sort * s) {
         // Then A[i1] == A'[i1] and A[i2] == A'[i2]. Since, i1 and i2 are fresh,
         // A' does not have an entry for i1 or i2, So A'[i1] == A'[i2] == A'.m_else.
         // Thus, A[i1] == A[i2] which is a contradiction since v1 != v2 and A[i1] = v1 and A[i2] = v2. 
-        TRACE("array_factory_bug", tout << "v1: " << mk_pp(v1, m_manager) << " v2: " << mk_pp(v2, m_manager) << "\n";);
+        TRACE(array_factory_bug, tout << "v1: " << mk_pp(v1, m_manager) << " v2: " << mk_pp(v2, m_manager) << "\n";);
         ptr_buffer<expr> args1;
         ptr_buffer<expr> args2;
         bool found = false;
@@ -196,7 +196,7 @@ expr * array_factory::get_fresh_value(sort * s) {
     // need to be used.
     
     // failed to create a fresh array value
-    TRACE("array_factory_bug", tout << "failed to build fresh array value\n";);
+    TRACE(array_factory_bug, tout << "failed to build fresh array value\n";);
     return nullptr;
 }
 

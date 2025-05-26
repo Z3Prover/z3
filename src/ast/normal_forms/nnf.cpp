@@ -80,7 +80,7 @@ class skolemizer {
 
     void process(quantifier * q, expr_ref & r, proof_ref & p) {
         if (q->get_kind() == lambda_k) {
-            TRACE("nnf", tout << expr_ref(q, m) << "\n";);
+            TRACE(nnf, tout << expr_ref(q, m) << "\n";);
             r = q;
             p = nullptr;
             return;
@@ -99,7 +99,7 @@ class skolemizer {
             }
         }
 
-        TRACE("skolemizer", tout << "skid: " << q->get_skid() << "\n";);
+        TRACE(skolemizer, tout << "skid: " << q->get_skid() << "\n";);
         
         expr_ref_vector substitution(m);
         unsigned num_decls = q->get_num_decls();
@@ -301,7 +301,7 @@ struct nnf::imp {
         else
             throw nnf_params_exception("invalid NNF mode");
 
-        TRACE("nnf", tout << "nnf-mode: " << m_mode << " " << mode_sym << "\n" << _p << "\n";);
+        TRACE(nnf, tout << "nnf-mode: " << m_mode << " " << mode_sym << "\n" << _p << "\n";);
 
         m_ignore_labels    = p.ignore_labels();
         m_max_memory       = megabytes_to_bytes(p.max_memory());
@@ -706,7 +706,7 @@ struct nnf::imp {
     }
 
     bool process_app(app * t, frame & fr) {
-        TRACE("nnf", tout << mk_ismt2_pp(t, m) << "\n";);
+        TRACE(nnf, tout << mk_ismt2_pp(t, m) << "\n";);
         SASSERT(m.is_bool(t));
         if (t->get_family_id() == m.get_basic_family_id()) {
             switch (static_cast<basic_op_kind>(t->get_decl_kind())) {
@@ -740,7 +740,7 @@ struct nnf::imp {
     }
 
     bool process_quantifier(quantifier * q, frame & fr) {
-        TRACE("nnf", tout << expr_ref(q, m) << "\n";);
+        TRACE(nnf, tout << expr_ref(q, m) << "\n";);
         expr_ref  r(m);
         proof_ref pr(m);
         if (fr.m_i == 0) {
@@ -843,7 +843,7 @@ struct nnf::imp {
     }
 
     void process(expr * t, expr_ref & result, proof_ref & result_pr) {
-        TRACE("nnf", tout << "processing:\n" << mk_ismt2_pp(t, m) << "\n";);
+        TRACE(nnf, tout << "processing:\n" << mk_ismt2_pp(t, m) << "\n";);
         SASSERT(m.is_bool(t));
 
         if (visit(t, true /* positive polarity */, false /* not nested in quantifier */)) {
@@ -909,7 +909,7 @@ struct nnf::imp {
 
 
 nnf::nnf(ast_manager & m, defined_names & n, params_ref const & p) {
-    TRACE("nnf", tout << "nnf constructor: " << p << "\n";);
+    TRACE(nnf, tout << "nnf constructor: " << p << "\n";);
     m_imp = alloc(imp, m, n, p);
 }
 
@@ -919,7 +919,7 @@ nnf::~nnf() {
 
 void nnf::operator()(expr * n, expr_ref_vector & new_defs, proof_ref_vector & new_def_proofs, expr_ref & r,  proof_ref & p) {
     m_imp->operator()(n, new_defs, new_def_proofs, r, p);
-    TRACE("nnf_result", tout << expr_ref(n, r.get_manager()) << "\nNNF result:\n" << new_defs << "\n" << r << "\n";);
+    TRACE(nnf_result, tout << expr_ref(n, r.get_manager()) << "\nNNF result:\n" << new_defs << "\n" << r << "\n";);
 }
 
 void nnf::updt_params(params_ref const & p) {

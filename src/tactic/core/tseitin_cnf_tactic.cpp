@@ -159,7 +159,7 @@ class tseitin_cnf_tactic : public tactic {
                 mk_lit(n, sign, r);
                 return;
             default:
-                TRACE("tseitin_cnf_bug", tout << f->get_name() << "\n";);
+                TRACE(tseitin_cnf_bug, tout << f->get_name() << "\n";);
                 UNREACHABLE();
                 return;
             }
@@ -839,7 +839,7 @@ class tseitin_cnf_tactic : public tactic {
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled(); 
 
-            TRACE("tseitin_cnf", g->display(tout););
+            TRACE(tseitin_cnf, g->display(tout););
 
             m_occs(*g);
             reset_cache();

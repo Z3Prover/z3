@@ -86,7 +86,7 @@ expr *choose_rep(expr_equiv_class::eq_class &clazz, ast_manager &m) {
             }
         }
     }
-    TRACE("equiv",
+    TRACE(equiv,
           tout << "Rep: " << mk_pp(rep, m) << "\n";
           for (expr *el : clazz)
               tout << mk_pp(el, m) << "\n";

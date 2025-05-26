@@ -40,7 +40,7 @@ public:
     nnf_tactic(params_ref const & p):
         m_params(p),
         m_nnf(nullptr) {
-        TRACE("nnf", tout << "nnf_tactic constructor: " << p << "\n";);
+        TRACE(nnf, tout << "nnf_tactic constructor: " << p << "\n";);
     }
 
     tactic * translate(ast_manager & m) override {
@@ -54,7 +54,7 @@ public:
     void collect_param_descrs(param_descrs & r) override { nnf::get_param_descrs(r); }
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
-        TRACE("nnf", tout << "params: " << m_params << "\n"; g->display(tout););
+        TRACE(nnf, tout << "params: " << m_params << "\n"; g->display(tout););
         tactic_report report("nnf", *g);
         bool produce_proofs = g->proofs_enabled();
 
@@ -108,6 +108,6 @@ tactic * mk_snf_tactic(ast_manager & m, params_ref const & p) {
 tactic * mk_nnf_tactic(ast_manager & m, params_ref const & p) {
     params_ref new_p(p);
     new_p.set_sym("mode", symbol("full"));
-    TRACE("nnf", tout << "mk_nnf: " << new_p << "\n";);
+    TRACE(nnf, tout << "mk_nnf: " << new_p << "\n";);
     return using_params(mk_snf_tactic(m, p), new_p);
 }

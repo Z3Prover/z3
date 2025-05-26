@@ -53,7 +53,7 @@ void model_core::register_decl(func_decl * d, expr * v) {
         register_decl(d, fi);
         return;
     }
-    TRACE("model", tout << "register " << d->get_name() << "\n";
+    TRACE(model, tout << "register " << d->get_name() << "\n";
           if (v) tout << mk_pp(v, m) << "\n";
           );
     i_expr v0(0, nullptr);
@@ -81,7 +81,7 @@ void model_core::register_decl(func_decl * d, func_interp * fi) {
 }
 
 func_interp* model_core::update_func_interp(func_decl* d, func_interp* fi) {
-    TRACE("model_verbose", tout << "register " << d->get_name() << "\n";);
+    TRACE(model_verbose, tout << "register " << d->get_name() << "\n";);
 
     SASSERT(d->get_arity() > 0);
     SASSERT(&fi->m() == &m);

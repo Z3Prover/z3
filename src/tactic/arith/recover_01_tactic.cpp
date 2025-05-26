@@ -300,7 +300,7 @@ class recover_01_tactic : public tactic {
             else
                 x_def = m_util.mk_add(def_args);
         
-            TRACE("recover_01", tout << x->get_name() << " --> " << mk_ismt2_pp(x_def, m) << "\n";);
+            TRACE(recover_01, tout << x->get_name() << " --> " << mk_ismt2_pp(x_def, m) << "\n";);
             subst->insert(m.mk_const(x), x_def);
             if (m_produce_models) {
                 gmc->add(x, x_def);
@@ -373,7 +373,7 @@ class recover_01_tactic : public tactic {
                 new_goal->update(idx, new_curr);
             }
             result.push_back(new_goal.get());
-            TRACE("recover_01", new_goal->display(tout); if (new_goal->mc()) new_goal->mc()->display(tout););
+            TRACE(recover_01, new_goal->display(tout); if (new_goal->mc()) new_goal->mc()->display(tout););
             SASSERT(new_goal->is_well_formed());
         }
         

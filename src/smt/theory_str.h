@@ -76,7 +76,7 @@ public:
             expr* v0 = get_fresh_value(seq);
             return u.re.mk_to_re(v0);
         }
-        TRACE("t_str", tout << "unexpected sort in get_fresh_value(): " << mk_pp(s, m_manager) << std::endl;);
+        TRACE(t_str, tout << "unexpected sort in get_fresh_value(): " << mk_pp(s, m_manager) << std::endl;);
         UNREACHABLE(); return nullptr;
     }
     void register_value(expr * n) override { /* Ignore */ }
@@ -93,15 +93,15 @@ public:
     binary_search_trail(obj_map<expr, ptr_vector<expr> > & target, expr * entry) :
         target(target), entry(entry) {}
     void undo() override {
-        TRACE("t_str_binary_search", tout << "in binary_search_trail::undo()" << std::endl;);
+        TRACE(t_str_binary_search, tout << "in binary_search_trail::undo()" << std::endl;);
         if (target.contains(entry)) {
             if (!target[entry].empty()) {
                 target[entry].pop_back();
             } else {
-                TRACE("t_str_binary_search", tout << "WARNING: attempt to remove length tester from an empty stack" << std::endl;);
+                TRACE(t_str_binary_search, tout << "WARNING: attempt to remove length tester from an empty stack" << std::endl;);
             }
         } else {
-            TRACE("t_str_binary_search", tout << "WARNING: attempt to access length tester map via invalid key" << std::endl;);
+            TRACE(t_str_binary_search, tout << "WARNING: attempt to access length tester map via invalid key" << std::endl;);
         }
     }
 };

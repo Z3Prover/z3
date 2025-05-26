@@ -135,7 +135,7 @@ public:
     }
 
     void unmerge_eh(unsigned i, unsigned j) {
-        TRACE("nla_solver", tout << "unmerged " << i << " and " << j << "\n";);
+        TRACE(nla_solver, tout << "unmerged " << i << " and " << j << "\n";);
     }
     
     void merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {}

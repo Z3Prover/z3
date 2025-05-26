@@ -30,7 +30,7 @@ lia_move int_branch::operator()() {
 }
 
 lia_move int_branch::create_branch_on_column(int j) {
-    TRACE("check_main_int", tout << "branching" << std::endl;);
+    TRACE(check_main_int, tout << "branching" << std::endl;);
     lia.get_term().clear();
 
     SASSERT(j != -1);
@@ -44,7 +44,7 @@ lia_move int_branch::create_branch_on_column(int j) {
         lia.offset() = lia.is_upper()? floor(lia.get_value(j)) : ceil(lia.get_value(j));        
     }
         
-    TRACE("int_solver",
+    TRACE(int_solver,
           lia.display_column(tout << "branching v" << j << " = " << lia.get_value(j) << "\n", j);
           tout << "k = " << lia.offset() << std::endl;);
     return lia_move::branch;        

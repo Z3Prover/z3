@@ -136,7 +136,7 @@ struct has_nlmul {
     has_nlmul(ast_manager& m):m(m), a(m) {}
     
     void throw_found(expr* e) {
-        TRACE("probe", tout << expr_ref(e, m) << ": " << sort_ref(e->get_sort(), m) << "\n";);
+        TRACE(probe, tout << expr_ref(e, m) << ": " << sort_ref(e->get_sort(), m) << "\n";);
         throw found();
     }
 
@@ -438,7 +438,7 @@ struct is_non_nira_functor {
     is_non_nira_functor(ast_manager & _m, bool _int, bool _real, bool _quant, bool linear):m(_m), u(m), m_int(_int), m_real(_real), m_quant(_quant), m_linear(linear) {}
 
     void throw_found(expr* e) {
-        TRACE("probe", tout << expr_ref(e, m) << ": " << sort_ref(e->get_sort(), m) << "\n";);
+        TRACE(probe, tout << expr_ref(e, m) << ": " << sort_ref(e->get_sort(), m) << "\n";);
         throw found();
     }
 
@@ -615,13 +615,13 @@ struct is_non_qfufnra_functor {
                 return;
             case OP_IDIV: case OP_DIV: case OP_REM: case OP_MOD:
                 if (!u.is_numeral(n->get_arg(1))) {
-                    TRACE("arith", tout << "non-linear " << expr_ref(n, m) << "\n";);
+                    TRACE(arith, tout << "non-linear " << expr_ref(n, m) << "\n";);
                     throw_found();
                 }
                 return;
             case OP_POWER: 
                 if (!u.is_numeral(n->get_arg(1))) {
-                    TRACE("arith", tout << "non-linear " << expr_ref(n, m) << "\n";);
+                    TRACE(arith, tout << "non-linear " << expr_ref(n, m) << "\n";);
                     throw_found();
                 }
                 m_has_nonlinear = true;
@@ -632,7 +632,7 @@ struct is_non_qfufnra_functor {
                 throw_found();
                 return;
             default:
-                TRACE("arith", tout << "non-linear " << expr_ref(n, m) << "\n";);
+                TRACE(arith, tout << "non-linear " << expr_ref(n, m) << "\n";);
                 throw_found();
             }
         } 

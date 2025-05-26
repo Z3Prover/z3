@@ -92,7 +92,7 @@ namespace datalog {
             
             table_base * tres = (*m_tfun)(tr1.get_table(), tr2.get_table());
 
-            TRACE("dl_table_relation", tout << "# join => "; tres->display(tout););
+            TRACE(dl_table_relation, tout << "# join => "; tres->display(tout););
             if(&tres->get_plugin()!=&plugin.m_table_plugin) {
                 IF_VERBOSE(1, verbose_stream() << "new type returned\n";);
                 //Operation returned a table of different type than the one which is associated with
@@ -154,7 +154,7 @@ namespace datalog {
             
             table_base * tres = (*m_tfun)(tr.get_table());
 
-            TRACE("dl_table_relation", tout << "# transform => "; tres->display(tout););
+            TRACE(dl_table_relation, tout << "# transform => "; tres->display(tout););
             if(&tres->get_plugin()!=&plugin.m_table_plugin) {
                 //Transformation returned a table of different type than the one which is associated with this plugin.
                 //We need to get a correct table_relation_plugin and create the relation using it.
@@ -262,7 +262,7 @@ namespace datalog {
                     tgt.add_fact(rfact);
                 }
             }
-            TRACE("dl_table_relation", tout << "# universal union => "; tgt.display(tout););
+            TRACE(dl_table_relation, tout << "# universal union => "; tgt.display(tout););
         }
     };
 
@@ -282,7 +282,7 @@ namespace datalog {
             
             (*m_tfun)(tr_tgt.get_table(), tr_src.get_table(), tr_delta ? &tr_delta->get_table() : nullptr);
 
-            TRACE("dl_table_relation", tout << "# union => "; tr_tgt.get_table().display(tout););
+            TRACE(dl_table_relation, tout << "# union => "; tr_tgt.get_table().display(tout););
         }
     };
 
@@ -315,7 +315,7 @@ namespace datalog {
             SASSERT(r.from_table());
             table_relation & tr = static_cast<table_relation &>(r);            
             (*m_tfun)(tr.get_table());
-            TRACE("dl_table_relation", tout << "# mutator => "; tr.get_table().display(tout););
+            TRACE(dl_table_relation, tout << "# mutator => "; tr.get_table().display(tout););
         }
     };
 
@@ -385,7 +385,7 @@ namespace datalog {
             const table_relation & tr_src = static_cast<const table_relation &>(src);
             
             (*m_tfun)(tr.get_table(), tr_src.get_table());
-            TRACE("dl_table_relation", tout << "# negation_filter => "; tr.get_table().display(tout););
+            TRACE(dl_table_relation, tout << "# negation_filter => "; tr.get_table().display(tout););
         }
     };
 
@@ -437,7 +437,7 @@ namespace datalog {
         table_fact vals;
         get_manager().relation_fact_to_table(get_signature(), f, vals);
         get_table().add_fact(vals);
-        TRACE("dl_table_relation", tout << "# add fact => "; get_table().display(tout););
+        TRACE(dl_table_relation, tout << "# add fact => "; get_table().display(tout););
     }
 
     bool table_relation::contains_fact(const relation_fact & f) const {

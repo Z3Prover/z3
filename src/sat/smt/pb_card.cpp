@@ -124,7 +124,7 @@ namespace pb {
             if (!is_watched(s, root)) watch_literal(s, root);
             if (!is_pure() && !is_watched(s, ~root)) watch_literal(s, ~root);
         }
-        TRACE("ba", display(tout << "init watch: ", s, true););
+        TRACE(ba, display(tout << "init watch: ", s, true););
         SASSERT(root == sat::null_literal || s.value(root) == l_true);
         unsigned j = 0, sz = c.size(), bound = c.k();
         // put the non-false literals into the head.

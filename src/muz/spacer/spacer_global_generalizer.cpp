@@ -289,7 +289,7 @@ void lemma_global_generalizer::subsumer::skolemize_for_quic3(
         sub.insert(c, sk);
     }
     sub(f.get(), f);
-    TRACE("subsume", tout << "skolemized into " << f << "\n";);
+    TRACE(subsume, tout << "skolemized into " << f << "\n";);
     m_col_names.reset();
 }
 
@@ -349,7 +349,7 @@ bool lemma_global_generalizer::subsumer::is_handled(const lemma_cluster &lc) {
     // TODO: put restriction on Arrays, non linear arithmetic etc
     if (!bv_clus) return true;
     if (!all_same_sz(m, lc.get_lemmas()[0].get_sub(), sz)) {
-        TRACE("subsume",
+        TRACE(subsume,
               tout << "cannot compute cvx cls of different size variables\n";);
         return false;
     }
@@ -376,7 +376,7 @@ bool lemma_global_generalizer::subsumer::subsume(const lemma_cluster &lc,
     bool is_syntactic = cvx_closure.has_implicit();
     if (is_syntactic) { m_st.m_num_syn_cls++; }
 
-    CTRACE("subsume_verb", is_syntactic,
+    CTRACE(subsume_verb, is_syntactic,
            tout << "Convex closure introduced new variables. Implicit part of "
                    "closure is: "
                 << mk_and(cvx_closure.get_implicit()) << "\n";);
@@ -461,7 +461,7 @@ bool lemma_global_generalizer::subsumer::over_approximate(expr_ref_vector &a,
         tagged_a.push_back(m.mk_implies(tags.back(), lit));
     }
 
-    TRACE("subsume_verb", tout << "weakening " << mk_and(a)
+    TRACE(subsume_verb, tout << "weakening " << mk_and(a)
                                << " to over approximate " << b << "\n";);
     solver::scoped_push _sp(*m_solver);
     m_solver->assert_expr(b);
@@ -496,13 +496,13 @@ bool lemma_global_generalizer::subsumer::over_approximate(expr_ref_vector &a,
 
     if (a.empty()) {
         // could not find an over approximation
-        TRACE("subsume",
+        TRACE(subsume,
               tout << "mbp did not over-approximate convex closure\n";);
         m_st.m_num_no_ovr_approx++;
         return false;
     }
 
-    TRACE("subsume",
+    TRACE(subsume,
           tout << "over approximate produced " << mk_and(a) << "\n";);
     return true;
 }
@@ -549,13 +549,13 @@ bool lemma_global_generalizer::do_conjecture(pob_ref &n, lemma_ref &lemma,
     if (conj.empty()) {
         // If the pob cannot be abstracted, stop using generalization on
         // it
-        TRACE("global", tout << "stop local generalization on pob " << n_post
+        TRACE(global, tout << "stop local generalization on pob " << n_post
                              << " id is " << n_post->get_id() << "\n";);
         n->disable_local_gen();
         return false;
     } else if (!is_filtered) {
         // The literal to be abstracted is not in the pob
-        TRACE("global", tout << "Conjecture failed:\n"
+        TRACE(global, tout << "Conjecture failed:\n"
                              << lit << "\n"
                              << n_post << "\n"
                              << "conj:" << conj << "\n";);
@@ -581,7 +581,7 @@ bool lemma_global_generalizer::do_conjecture(pob_ref &n, lemma_ref &lemma,
     n->set_expand_bnd();
     n->set_gas(gas);
     n->disable_local_gen();
-    TRACE("global", tout << "set conjecture " << mk_pp(n->get_data()->post(), m)
+    TRACE(global, tout << "set conjecture " << mk_pp(n->get_data()->post(), m)
                          << " at level " << n->get_data()->level() << "\n";);
     return true;
 }
@@ -601,7 +601,7 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
     if (cluster->get_gas() == 0) {
         m_st.m_num_cls_ofg++;
         pob->disable_local_gen();
-        TRACE("global", tout << "stop local generalization on pob "
+        TRACE(global, tout << "stop local generalization on pob "
                              << mk_pp(pob->post(), m) << " id is "
                              << pob->post()->get_id() << "\n";);
         return;
@@ -617,7 +617,7 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
 
     const expr_ref &pat = lc.get_pattern();
 
-    TRACE("global", {
+    TRACE(global, {
         tout << "Global generalization of:\n"
              << mk_and(lemma->get_cube()) << "\n"
              << "at lvl: " << lemma->level() << "\n"
@@ -635,7 +635,7 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
     if (has_nonlinear_var_mul(pat, m)) {
         m_st.m_num_non_lin++;
 
-        TRACE("global",
+        TRACE(global,
               tout << "Found non linear pattern. Marked to concretize \n";);
         // not constructing the concrete pob here since we need a model for
         // n->post()
@@ -650,7 +650,7 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
     expr_ref lit(m);
     if (find_unique_mono_var_lit(pat, lit)) {
         // Create a conjecture by dropping literal from pob.
-        TRACE("global", tout << "Conjecture with pattern\n"
+        TRACE(global, tout << "Conjecture with pattern\n"
                              << mk_pp(pat, m) << "\n"
                              << "with gas " << cluster->get_gas() << "\n";);
         unsigned gas = cluster->get_pob_gas();
@@ -703,7 +703,7 @@ void lemma_global_generalizer::generalize(lemma_ref &lemma) {
         pob->disable_local_gen();
         cluster->dec_gas();
 
-        TRACE("global", tout << "Create subsume pob at level " << new_lvl
+        TRACE(global, tout << "Create subsume pob at level " << new_lvl
                              << "\n"
                              << mk_and(new_post) << "\n";);
     }
@@ -730,7 +730,7 @@ pob *lemma_global_generalizer::mk_concretize_pob(pob &n, model_ref &model) {
         pob *new_pob = n.pt().mk_pob(n.parent(), n.level(), n.depth(),
                                      mk_and(new_post), n.get_binding());
 
-        TRACE("concretize", tout << "pob:\n"
+        TRACE(concretize, tout << "pob:\n"
                                  << mk_pp(n.post(), m)
                                  << " is concretized into:\n"
                                  << mk_pp(new_pob->post(), m) << "\n";);
@@ -751,7 +751,7 @@ pob *lemma_global_generalizer::mk_subsume_pob(pob &n) {
         return nullptr;
     }
 
-    TRACE("global", tout << "mk_subsume_pob at level " << data->level()
+    TRACE(global, tout << "mk_subsume_pob at level " << data->level()
                          << " with post state:\n"
                          << mk_pp(data->post(), m) << "\n";);
     f = n.pt().mk_pob(data->parent(), data->level(), data->depth(),

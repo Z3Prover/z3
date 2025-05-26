@@ -42,7 +42,7 @@ namespace euf {
                 for (enode* arg : enode_args(p)) {
                     found |= arg->get_root() == this;
                 }
-                CTRACE("euf", !found, tout  << g.bpp(p) << " does not have a child with root: " << g.bpp(this) << "\n";);
+                CTRACE(euf, !found, tout  << g.bpp(p) << " does not have a child with root: " << g.bpp(this) << "\n";);
                 VERIFY(found);
             }
             for (enode* c : enode_class(this)) {
@@ -55,7 +55,7 @@ namespace euf {
                     for (enode* q : enode_parents(this)) {
                         found |= p->congruent(q);
                     }
-                    CTRACE("euf", !found, tout << "parent " << g.bpp(p) << " of " << g.bpp(c) << " is not congruent to a parent of " << g.bpp(this) << "\n";);
+                    CTRACE(euf, !found, tout << "parent " << g.bpp(p) << " of " << g.bpp(c) << " is not congruent to a parent of " << g.bpp(this) << "\n";);
                     VERIFY(found);
                 }
             }

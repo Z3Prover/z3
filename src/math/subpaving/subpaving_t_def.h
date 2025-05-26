@@ -243,7 +243,7 @@ public:
 
         this->mk_decided_bound(x, mid, false, m_left_open, left);
         this->mk_decided_bound(x, mid, true, !m_left_open, right);
-        TRACE("subpaving_int_split",
+        TRACE(subpaving_int_split,
               tout << "LEFT:\n"; this->ctx()->display_bounds(tout, left);
               tout << "\nRIGHT:\n"; this->ctx()->display_bounds(tout, right););
     }
@@ -562,9 +562,9 @@ typename context_t<C>::bound * context_t<C>::mk_bound(var x, numeral const & val
     r->m_prev      = n->trail_stack();
     r->m_jst       = jst;
     n->push(r);
-    TRACE("subpaving_mk_bound", tout << "mk_bound: "; display(tout, r); tout << "\ntimestamp: " << r->m_timestamp << "\n";);
+    TRACE(subpaving_mk_bound, tout << "mk_bound: "; display(tout, r); tout << "\ntimestamp: " << r->m_timestamp << "\n";);
     if (conflicting_bounds(x, n)) {
-        TRACE("subpaving_mk_bound", tout << "conflict\n"; display_bounds(tout, n););
+        TRACE(subpaving_mk_bound, tout << "conflict\n"; display_bounds(tout, n););
         set_conflict(x, n);
     }
     m_timestamp++;
@@ -671,7 +671,7 @@ template<typename C>
 bool context_t<C>::is_int(polynomial const * p) const {
     for (unsigned i = 0; i < p->size(); i++) {
         if (!is_int(p->x(i)) || !nm().is_int(p->a(i))) {
-            TRACE("subpaving_is_int", tout << "polynomial is not integer due to monomial at i: " << i << "\n"; tout.flush();
+            TRACE(subpaving_is_int, tout << "polynomial is not integer due to monomial at i: " << i << "\n"; tout.flush();
                   display(tout, p->x(i)); tout << " "; nm().display(tout, p->a(i)); tout << "\n";);
             return false;
         }
@@ -761,7 +761,7 @@ var context_t<C>::mk_sum(numeral const & c, unsigned sz, numeral const * as, var
         var x = p->m_xs[i];
         nm().swap(m_num_buffer[x], *curr);
     }
-    TRACE("subpaving_mk_sum", tout << "new variable is integer: " << is_int(p) << "\n";);
+    TRACE(subpaving_mk_sum, tout << "new variable is integer: " << is_int(p) << "\n";);
     var new_var      = mk_var(is_int(p));
     for (unsigned i = 0; i < sz; i++) {
         var x = p->m_xs[i];
@@ -785,7 +785,7 @@ typename context_t<C>::ineq * context_t<C>::mk_ineq(var x, numeral const & k, bo
 
 template<typename C>
 void context_t<C>::inc_ref(ineq * a) {
-    TRACE("subpaving_ref_count", tout << "inc-ref: " << a << " " << a->m_ref_count << "\n";);
+    TRACE(subpaving_ref_count, tout << "inc-ref: " << a << " " << a->m_ref_count << "\n";);
     if (a)
         a->m_ref_count++;
 }
@@ -793,7 +793,7 @@ void context_t<C>::inc_ref(ineq * a) {
 template<typename C>
 void context_t<C>::dec_ref(ineq * a) {
     if (a) {
-        TRACE("subpaving_ref_count",
+        TRACE(subpaving_ref_count,
               tout << "dec-ref: " << a << " " << a->m_ref_count << "\n";
               a->display(tout, nm());
               tout << "\n";);
@@ -840,7 +840,7 @@ void context_t<C>::add_clause_core(unsigned sz, ineq * const * atoms, bool lemma
     else if (watch) {
         m_lemmas.push_back(c);
     }
-    TRACE("subpaving_clause", tout << "new clause:\n"; display(tout, c); tout << "\n";);
+    TRACE(subpaving_clause, tout << "new clause:\n"; display(tout, c); tout << "\n";);
 }
 
 template<typename C>
@@ -865,7 +865,7 @@ void context_t<C>::del_clause(clause * c) {
 
 template<typename C>
 void context_t<C>::add_unit_clause(ineq * a, bool axiom) {
-    TRACE("subpaving", a->display(tout, nm(), *m_display_proc); tout << "\n";);
+    TRACE(subpaving, a->display(tout, nm(), *m_display_proc); tout << "\n";);
     inc_ref(a);
     m_unit_clauses.push_back(TAG(ineq*, a, axiom));
 }
@@ -1171,7 +1171,7 @@ void context_t<C>::set_conflict(var x, node * n) {
 template<typename C>
 bool context_t<C>::may_propagate(bound * b, constraint * c, node * n) {
     SASSERT(b != 0 && c != 0);
-    TRACE("may_propagate_bug", display(tout, b); tout << " | "; display(tout, c); tout << "\nresult: " << (b->timestamp() > c->timestamp()) << ", " << b->timestamp() << ", " << c->timestamp() << "\n";);
+    TRACE(may_propagate_bug, display(tout, b); tout << " | "; display(tout, c); tout << "\nresult: " << (b->timestamp() > c->timestamp()) << ", " << b->timestamp() << ", " << c->timestamp() << "\n";);
     return b->timestamp() >= c->timestamp();
 }
 
@@ -1209,7 +1209,7 @@ bool context_t<C>::relevant_new_bound(var x, numeral const & k, bool lower, bool
         bound * curr_upper = n->upper(x);
         SASSERT(curr_lower == 0 || curr_lower->x() == x);
         SASSERT(curr_upper == 0 || curr_upper->x() == x);
-        TRACE("subpaving_relevant_bound",
+        TRACE(subpaving_relevant_bound,
               display(tout, x); tout << " " << (lower ? ">" : "<") << (open ? "" : "=") << " "; nm().display(tout, k); tout << "\n";
               tout << "existing bounds:\n";
               if (curr_lower) { display(tout, curr_lower); tout << "\n"; }
@@ -1217,18 +1217,18 @@ bool context_t<C>::relevant_new_bound(var x, numeral const & k, bool lower, bool
         if (lower) {
             // If new bound triggers a conflict, then it is relevant.
             if (curr_upper && (nm().gt(k, curr_upper->value()) || ((open || curr_upper->is_open()) && nm().eq(k, curr_upper->value())))) {
-                TRACE("subpaving_relevant_bound", tout << "relevant because triggers conflict.\n";);
+                TRACE(subpaving_relevant_bound, tout << "relevant because triggers conflict.\n";);
                 return true;
             }
             // If m_epsilon is zero, then bound is relevant only if it improves existing bound.
             if (m_zero_epsilon && curr_lower != nullptr && (nm().lt(k, curr_lower->value()) || ((curr_lower->is_open() || !open) && nm().eq(k, curr_lower->value())))) {
                 // new lower bound does not improve existing bound
-                TRACE("subpaving_relevant_bound", tout << "irrelevant because does not improve existing bound.\n";);
+                TRACE(subpaving_relevant_bound, tout << "irrelevant because does not improve existing bound.\n";);
                 return false;
             }
             if (curr_upper == nullptr && nm().lt(m_max_bound, k)) {
                 // new lower bound exceeds the :max-bound threshold
-                TRACE("subpaving_relevant_bound", tout << "irrelevant because exceeds :max-bound threshold.\n";);
+                TRACE(subpaving_relevant_bound, tout << "irrelevant because exceeds :max-bound threshold.\n";);
                 return false;
             }
             if (!m_zero_epsilon && curr_lower != nullptr) {
@@ -1252,13 +1252,13 @@ bool context_t<C>::relevant_new_bound(var x, numeral const & k, bool lower, bool
                     nm().set(delta, min);
                 nm().mul(delta, m_epsilon, delta);
                 nm().add(curr_lower->value(), delta, delta);
-                TRACE("subpaving_relevant_bound_bug",
+                TRACE(subpaving_relevant_bound_bug,
                       tout << "k: "; nm().display(tout, k);
                       tout << ", delta: "; nm().display(tout, delta); tout << "\n";
                       tout << "curr_lower: "; nm().display(tout, curr_lower->value());
                       tout << ", min: "; nm().display(tout, min); tout << "\n";);
                 if (nm().le(k, delta)) {
-                    TRACE("subpaving_relevant_bound", tout << "irrelevant because does not improve existing bound to at least ";
+                    TRACE(subpaving_relevant_bound, tout << "irrelevant because does not improve existing bound to at least ";
                           nm().display(tout, delta); tout << "\n";);
                     return false;
                 }
@@ -1267,18 +1267,18 @@ bool context_t<C>::relevant_new_bound(var x, numeral const & k, bool lower, bool
         else {
             // If new bound triggers a conflict, then it is relevant.
             if (curr_lower && (nm().gt(curr_lower->value(), k) || ((open || curr_lower->is_open()) && nm().eq(k, curr_lower->value())))) {
-                TRACE("subpaving_relevant_bound", tout << "relevant because triggers conflict.\n";);
+                TRACE(subpaving_relevant_bound, tout << "relevant because triggers conflict.\n";);
                 return true;
             }
             // If m_epsilon is zero, then bound is relevant only if it improves existing bound.
             if (m_zero_epsilon && curr_upper != nullptr && (nm().lt(curr_upper->value(), k) || ((curr_upper->is_open() || !open) && nm().eq(k, curr_upper->value())))) {
                 // new upper bound does not improve existing bound
-                TRACE("subpaving_relevant_bound", tout << "irrelevant because does not improve existing bound.\n";);
+                TRACE(subpaving_relevant_bound, tout << "irrelevant because does not improve existing bound.\n";);
                 return false;
             }
             if (curr_lower == nullptr && nm().lt(k, m_minus_max_bound)) {
                 // new upper bound exceeds the -:max-bound threshold
-                TRACE("subpaving_relevant_bound", tout << "irrelevant because exceeds -:max-bound threshold.\n";);
+                TRACE(subpaving_relevant_bound, tout << "irrelevant because exceeds -:max-bound threshold.\n";);
                 return false;
             }
             if (!m_zero_epsilon && curr_upper != nullptr) {
@@ -1303,13 +1303,13 @@ bool context_t<C>::relevant_new_bound(var x, numeral const & k, bool lower, bool
                 nm().mul(delta, m_epsilon, delta);
                 nm().sub(curr_upper->value(), delta, delta);
                 if (nm().ge(k, delta)) {
-                    TRACE("subpaving_relevant_bound", tout << "irrelevant because does not improve existing bound to at least ";
+                    TRACE(subpaving_relevant_bound, tout << "irrelevant because does not improve existing bound to at least ";
                           nm().display(tout, delta); tout << "\n";);
                     return false;
                 }
             }
         }
-        TRACE("subpaving_relevant_bound", tout << "new bound is relevant\n";);
+        TRACE(subpaving_relevant_bound, tout << "new bound is relevant\n";);
         return true;
     }
     catch (const typename C::exception &) {
@@ -1375,7 +1375,7 @@ lbool context_t<C>::value(ineq * t, node * n) {
 
 template<typename C>
 void context_t<C>::propagate_clause(clause * c, node * n) {
-    TRACE("propagate_clause", tout << "propagate using:\n"; display(tout, c); tout << "\n";);
+    TRACE(propagate_clause, tout << "propagate using:\n"; display(tout, c); tout << "\n";);
     m_num_visited++;
     c->set_visited(m_timestamp);
     unsigned sz = c->size();
@@ -1399,7 +1399,7 @@ void context_t<C>::propagate_clause(clause * c, node * n) {
         j = 0;
     }
     ineq * a = (*c)[j];
-    TRACE("propagate_clause", tout << "propagating inequality: "; display(tout, a); tout << "\n";);
+    TRACE(propagate_clause, tout << "propagating inequality: "; display(tout, a); tout << "\n";);
     propagate_bound(a->x(), a->value(), a->is_lower(), a->is_open(), n, justification(c));
     // A clause can propagate only once.
     // So, we can safely set its timestamp again to avoid another useless visit.
@@ -1440,12 +1440,12 @@ void context_t<C>::propagate_polynomial(var x, node * n, var y) {
             }
             else {
                 nm().set(a, p->a(i));
-                TRACE("propagate_polynomial_bug", tout << "a: "; nm().display(tout, a); tout << "\n";);
+                TRACE(propagate_polynomial_bug, tout << "a: "; nm().display(tout, a); tout << "\n";);
             }
         }
-        TRACE("propagate_polynomial_bug", tout << "r before mul 1/a: "; im().display(tout, r); tout << "\n";);
+        TRACE(propagate_polynomial_bug, tout << "r before mul 1/a: "; im().display(tout, r); tout << "\n";);
         im().div(r, a, r);
-        TRACE("propagate_polynomial_bug", tout << "r after mul 1/a:  "; im().display(tout, r); tout << "\n";);
+        TRACE(propagate_polynomial_bug, tout << "r after mul 1/a:  "; im().display(tout, r); tout << "\n";);
         // r contains the deduced bounds for y.
     }
     // r contains the deduced bounds for y.
@@ -1466,8 +1466,8 @@ void context_t<C>::propagate_polynomial(var x, node * n, var y) {
 
 template<typename C>
 void context_t<C>::propagate_polynomial(var x, node * n) {
-    TRACE("propagate_polynomial", tout << "propagate_polynomial: "; display(tout, x); tout << "\n";);
-    TRACE("propagate_polynomial_detail", display_bounds(tout, n););
+    TRACE(propagate_polynomial, tout << "propagate_polynomial: "; display(tout, x); tout << "\n";);
+    TRACE(propagate_polynomial_detail, display_bounds(tout, n););
     SASSERT(is_polynomial(x));
     polynomial * p = get_polynomial(x);
     p->set_visited(m_timestamp);
@@ -1483,7 +1483,7 @@ void context_t<C>::propagate_polynomial(var x, node * n) {
             unbounded_var = y;
         }
     }
-    TRACE("propagate_polynomial", tout << "unbounded_var: "; display(tout, unbounded_var); tout << "\n";);
+    TRACE(propagate_polynomial, tout << "unbounded_var: "; display(tout, unbounded_var); tout << "\n";);
 
     if (unbounded_var != null_var) {
         propagate_polynomial(x, n, unbounded_var);
@@ -1500,7 +1500,7 @@ void context_t<C>::propagate_polynomial(var x, node * n) {
 
 template<typename C>
 void context_t<C>::propagate_monomial(var x, node * n) {
-    TRACE("propagate_monomial", tout << "propagate_monomial: "; display(tout, x); tout << "\n";);
+    TRACE(propagate_monomial, tout << "propagate_monomial: "; display(tout, x); tout << "\n";);
     SASSERT(is_monomial(x));
     SASSERT(!inconsistent(n));
     monomial * m = get_monomial(x);
@@ -1524,7 +1524,7 @@ void context_t<C>::propagate_monomial(var x, node * n) {
             found_unbounded = true;
         }
     }
-    TRACE("propagate_monomial", tout << "found_zero: " << found_zero << ", found_unbounded: " << found_unbounded << "\n";);
+    TRACE(propagate_monomial, tout << "found_zero: " << found_zero << ", found_unbounded: " << found_unbounded << "\n";);
     if (found_zero) {
         if (!is_zero(x, n)) {
             // x must be zero
@@ -1602,7 +1602,7 @@ void context_t<C>::propagate_monomial_upward(var x, node * n) {
 
 template<typename C>
 void context_t<C>::propagate_monomial_downward(var x, node * n, unsigned j) {
-    TRACE("propagate_monomial", tout << "propagate_monomial_downward: "; display(tout, x); tout << ", j: " << j << "\n";
+    TRACE(propagate_monomial, tout << "propagate_monomial_downward: "; display(tout, x); tout << ", j: " << j << "\n";
           display(tout, get_monomial(x)); tout << "\n";);
     SASSERT(is_monomial(x));
     monomial * m = get_monomial(x);
@@ -1711,7 +1711,7 @@ void context_t<C>::propagate_def(var x, node * n) {
 template<typename C>
 void context_t<C>::propagate(node * n, bound * b) {
     var x = b->x();
-    TRACE("subpaving_propagate", tout << "propagate: "; display(tout, b); tout << ", timestamp: " << b->timestamp() << "\n";);
+    TRACE(subpaving_propagate, tout << "propagate: "; display(tout, b); tout << ", timestamp: " << b->timestamp() << "\n";);
     typename watch_list::const_iterator it  = m_wlist[x].begin();
     typename watch_list::const_iterator end = m_wlist[x].end();
     for (; it != end; ++it) {
@@ -1787,14 +1787,14 @@ void context_t<C>::assert_units(node * n) {
         checkpoint();
         ineq * a = UNTAG(ineq*, *it);
         bool axiom = GET_TAG(*it) != 0;
-        TRACE("subpaving_init", tout << "asserting: "; display(tout, a); tout << ", axiom: " << axiom << "\n";);
+        TRACE(subpaving_init, tout << "asserting: "; display(tout, a); tout << ", axiom: " << axiom << "\n";);
         if (a->x() == null_var)
             continue;
         propagate_bound(a->x(), a->value(), a->is_lower(), a->is_open(), n, justification(axiom));
         if (inconsistent(n))
             break;
     }
-    TRACE("subpaving_init", tout << "bounds after init\n"; display_bounds(tout, n););
+    TRACE(subpaving_init, tout << "bounds after init\n"; display_bounds(tout, n););
 }
 
 template<typename C>
@@ -1806,11 +1806,11 @@ void context_t<C>::init() {
     m_root      = mk_node();
     SASSERT(m_leaf_head == m_root);
     SASSERT(m_leaf_tail == m_root);
-    TRACE("subpaving_init", display_constraints(tout););
+    TRACE(subpaving_init, display_constraints(tout););
     assert_units(m_root);
     propagate_all_definitions(m_root);
     propagate(m_root);
-    TRACE("subpaving_init", tout << "root bounds after propagation\n"; display_bounds(tout, m_root););
+    TRACE(subpaving_init, tout << "root bounds after propagation\n"; display_bounds(tout, m_root););
     SASSERT(check_invariant());
 }
 
@@ -1818,8 +1818,8 @@ template<typename C>
 void context_t<C>::operator()() {
     if (m_root == nullptr)
         init();
-    TRACE("subpaving_stats", statistics st; collect_statistics(st); tout << "statistics:\n"; st.display_smt2(tout););
-    TRACE("subpaving_main", display_params(tout););
+    TRACE(subpaving_stats, statistics st; collect_statistics(st); tout << "statistics:\n"; st.display_smt2(tout););
+    TRACE(subpaving_main, display_params(tout););
     while (m_leaf_head != nullptr) {
         checkpoint();
         SASSERT(m_queue.empty());
@@ -1828,32 +1828,32 @@ void context_t<C>::operator()() {
         node * n = (*m_node_selector)(m_leaf_head, m_leaf_tail);
         if (n == nullptr)
             break;
-        TRACE("subpaving_main", tout << "selected node: #" << n->id() << ", depth: " << n->depth() << "\n";);
+        TRACE(subpaving_main, tout << "selected node: #" << n->id() << ", depth: " << n->depth() << "\n";);
         remove_from_leaf_dlist(n);
         if (n != m_root) {
             add_recent_bounds(n);
             propagate(n);
         }
-        TRACE("subpaving_main", tout << "node #" << n->id() << " after propagation\n";
+        TRACE(subpaving_main, tout << "node #" << n->id() << " after propagation\n";
               display_bounds(tout, n););
         if (n->inconsistent()) {
-            TRACE("subpaving_main", tout << "node #" << n->id() << " is inconsistent.\n";);
+            TRACE(subpaving_main, tout << "node #" << n->id() << " is inconsistent.\n";);
             // TODO: conflict resolution
             continue;
         }
         if (n->depth() >= m_max_depth) {
-            TRACE("subpaving_main", tout << "maximum depth reached, skipping node #" << n->id() << "\n";);
+            TRACE(subpaving_main, tout << "maximum depth reached, skipping node #" << n->id() << "\n";);
             continue;
         }
         var x = (*m_var_selector)(n);
-        TRACE("subpaving_main", tout << "splitting variable: "; display(tout, x); tout << "\n";);
+        TRACE(subpaving_main, tout << "splitting variable: "; display(tout, x); tout << "\n";);
         if (x != null_var) {
             (*m_node_splitter)(n, x);
             m_num_splits++;
             // remove inconsistent children
         }
     }
-    TRACE("subpaving_stats", statistics st; collect_statistics(st); tout << "statistics:\n"; st.display_smt2(tout););
+    TRACE(subpaving_stats, statistics st; collect_statistics(st); tout << "statistics:\n"; st.display_smt2(tout););
 }
 
 template<typename C>

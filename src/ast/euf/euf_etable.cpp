@@ -237,7 +237,7 @@ namespace euf {
             UNTAG(table*, t)->erase(n);
             break;
         }
-        CTRACE("euf", contains_ptr(n), display(tout));
+        CTRACE(euf, contains_ptr(n), display(tout));
         SASSERT(!contains_ptr(n));
     }
 

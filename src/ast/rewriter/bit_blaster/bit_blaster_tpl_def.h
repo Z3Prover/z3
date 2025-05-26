@@ -425,7 +425,7 @@ void bit_blaster_tpl<Cfg>::mk_udiv_urem(unsigned sz, expr * const * a_bits, expr
         for (unsigned i = 0; i < sz; i++) {
             SASSERT(q_bits.get(i) != 0);
         }});
-    TRACE("bit_blaster",
+    TRACE(bit_blaster,
           tout << "a: ";
           for (unsigned i = 0; i < sz; ++i) tout << mk_pp(a_bits[i], m()) << " ";              
           tout << "\nb: ";
@@ -777,7 +777,7 @@ void bit_blaster_tpl<Cfg>::mk_eq(unsigned sz, expr * const * a_bits, expr * cons
 
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_rotate_left(unsigned sz, expr * const * a_bits, unsigned n, expr_ref_vector & out_bits) {
-    TRACE("bit_blaster", tout << n << ": " << sz << " ";
+    TRACE(bit_blaster, tout << n << ": " << sz << " ";
           for (unsigned i = 0; i < sz; ++i) {
               tout << mk_pp(a_bits[i], m()) << " ";
           }

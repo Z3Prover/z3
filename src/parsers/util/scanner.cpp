@@ -264,7 +264,7 @@ scanner::token scanner::read_string(char delimiter, token result) {
 }
 
 scanner::token scanner::read_bv_literal() {
-    TRACE("scanner", tout << "read_bv_literal\n";);
+    TRACE(scanner, tout << "read_bv_literal\n";);
     if (m_bv_token) {
         int ch = read_char();
         if (ch == 'x') {
@@ -287,7 +287,7 @@ scanner::token scanner::read_bv_literal() {
                 else {
                     unread_char();
                     m_state = m_bv_size == 0 ? ERROR_TOKEN : BV_TOKEN;
-                    TRACE("scanner", tout << m_state << ", bv-size: " << m_bv_size << ", INT_TOKEN: " << INT_TOKEN
+                    TRACE(scanner, tout << m_state << ", bv-size: " << m_bv_size << ", INT_TOKEN: " << INT_TOKEN
                           << ", BV_TOKEN: " << BV_TOKEN << "\n";);
                     return m_state;
                 }

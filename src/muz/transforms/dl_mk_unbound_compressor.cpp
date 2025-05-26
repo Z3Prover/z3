@@ -78,7 +78,7 @@ namespace datalog {
 
         m_todo.push_back(ci);
         m_map.insert(ci, cpred);
-        TRACE("dl", tout << "inserting: " << pred->get_name() << " " << arg_index << " for " << cpred->get_name() << "\n";);
+        TRACE(dl, tout << "inserting: " << pred->get_name() << " " << arg_index << " for " << cpred->get_name() << "\n";);
     }
 
     void mk_unbound_compressor::detect_tasks(rule_set const& source, unsigned rule_index) {
@@ -103,7 +103,7 @@ namespace datalog {
             if (is_var(arg, var_idx) && 
                 !tail_vars.contains(var_idx) && 
                 (1 == rm.get_counter().get(var_idx))) {
-                TRACE("dl", r->display(m_context, tout << "Compress: "););
+                TRACE(dl, r->display(m_context, tout << "Compress: "););
                 add_task(head_pred, i);
                 break;
                 //we compress out the unbound arguments one by one
@@ -164,7 +164,7 @@ namespace datalog {
             m_head_occurrence_ctr.dec(m_rules.get(rule_index)->get_decl());
             unsigned new_size = m_rules.size() - 1;
             rule* last_rule = m_rules.get(new_size);
-            TRACE("dl", tout << "remove\n"; r->display(m_context, tout); 
+            TRACE(dl, tout << "remove\n"; r->display(m_context, tout); 
                   tout << "shift\n"; last_rule->display(m_context, tout););
             if (rule_index < new_size) {
                 m_rules.set(rule_index, last_rule);
@@ -177,7 +177,7 @@ namespace datalog {
             new_rule->set_accounting_parent_object(m_context, r);
 
             m_head_occurrence_ctr.dec(m_rules.get(rule_index)->get_decl());
-            TRACE("dl", tout << "remove\n"; r->display(m_context, tout); 
+            TRACE(dl, tout << "remove\n"; r->display(m_context, tout); 
                   tout << "set\n"; new_rule->display(m_context, tout););
             m_rules.set(rule_index, new_rule);
             m_head_occurrence_ctr.inc(m_rules.get(rule_index)->get_decl());
@@ -192,7 +192,7 @@ namespace datalog {
         app * orig_dtail = r->get_tail(tail_index); //dtail ~ decompressed tail
         c_info ci(orig_dtail->get_decl(), arg_index);
 
-        TRACE("dl", tout << "retrieving: " << ci.first->get_name() << " " << ci.second << "\n";);
+        TRACE(dl, tout << "retrieving: " << ci.first->get_name() << " " << ci.second << "\n";);
 
         func_decl * dtail_pred = m_map.find(ci);
         ptr_vector<expr> dtail_args;
@@ -247,7 +247,7 @@ namespace datalog {
         rule_ref new_rule = mk_decompression_rule(r, tail_index, arg_index);
         unsigned new_rule_index = m_rules.size();
         m_rules.push_back(new_rule);
-        TRACE("dl", r->display(m_context, tout); new_rule->display(m_context, tout); );
+        TRACE(dl, r->display(m_context, tout); new_rule->display(m_context, tout); );
         m_context.get_rule_manager().mk_rule_rewrite_proof(*r, *new_rule.get());
         m_head_occurrence_ctr.inc(new_rule->get_decl());
         detect_tasks(source, new_rule_index);
@@ -257,7 +257,7 @@ namespace datalog {
     void mk_unbound_compressor::replace_by_decompression_rule(rule_set const& source, unsigned rule_index, unsigned tail_index, unsigned arg_index) {
         rule * r = m_rules.get(rule_index);
         rule_ref new_rule = mk_decompression_rule(r, tail_index, arg_index);
-        TRACE("dl", tout << "remove\n"; r->display(m_context, tout); tout << "set\n"; new_rule->display(m_context, tout););
+        TRACE(dl, tout << "remove\n"; r->display(m_context, tout); tout << "set\n"; new_rule->display(m_context, tout););
         m_rules.set(rule_index, new_rule);
         // we don't update the m_head_occurrence_ctr because the head predicate doesn't change
         detect_tasks(source, rule_index);

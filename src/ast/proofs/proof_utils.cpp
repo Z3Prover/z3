@@ -469,7 +469,7 @@ public:
         tmp = pr;
         elim(pr);
         reset();
-        CTRACE("proof_utils", contains_hypothesis(pr),
+        CTRACE(proof_utils, contains_hypothesis(pr),
             tout << "Contains hypothesis:\n";
             tout << mk_ismt2_pp(tmp, m) << "\n====>\n";
             tout << mk_ismt2_pp(pr, m) << "\n";);
@@ -569,7 +569,7 @@ public:
             m_hypmap.insert(result, new_hyps);
             // might push 0 into m_hyprefs. No reason for that
             m_hyprefs.push_back(new_hyps);
-            TRACE("proof_utils",            
+            TRACE(proof_utils,            
                     tout << "New lemma: " << mk_pp(m.get_fact(p), m) 
                       << "\n==>\n" 
                       << mk_pp(m.get_fact(result), m) << "\n";
@@ -743,7 +743,7 @@ void proof_utils::reduce_hypotheses(proof_ref& pr) {
     ast_manager& m = pr.get_manager();
     class reduce_hypotheses0 reduce(m);
     reduce(pr);
-    CTRACE("proof_utils", !is_closed(m, pr), tout << mk_pp(pr, m) << "\n";);
+    CTRACE(proof_utils, !is_closed(m, pr), tout << mk_pp(pr, m) << "\n";);
 }
 
 class proof_is_closed {
@@ -985,7 +985,7 @@ private:
         }
         quantifier* q = to_quantifier(fml);
         if (q->get_num_decls() != sub.size()) {
-            TRACE("proof_utils", tout << "quantifier has different number of variables than substitution";
+            TRACE(proof_utils, tout << "quantifier has different number of variables than substitution";
                   tout << mk_pp(q, m) << "\n";
                   tout << sub.size() << "\n";);
             return;

@@ -394,8 +394,8 @@ namespace lp {
         const X &new_val_for_leaving = get_val_for_leaving(leaving);
         X theta = (this->m_x[leaving] - new_val_for_leaving) / a_ent;
         this->m_x[leaving] = new_val_for_leaving;
-        TRACE("lar_solver_feas", tout << "entering = " << entering << ", leaving = " << leaving << ", new_val_for_leaving = " << new_val_for_leaving << ", theta = " << theta << "\n";);
-        TRACE("lar_solver_feas", tout << "leaving = " << leaving
+        TRACE(lar_solver_feas, tout << "entering = " << entering << ", leaving = " << leaving << ", new_val_for_leaving = " << new_val_for_leaving << ", theta = " << theta << "\n";);
+        TRACE(lar_solver_feas, tout << "leaving = " << leaving
                                  << " removed from inf_heap()\n";);
         // this will remove the leaving from the heap
         this->inf_heap().erase_min();

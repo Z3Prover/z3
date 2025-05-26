@@ -192,7 +192,7 @@ void pob_queue::reset() {
 
 void pob_queue::push(pob &n) {
     if (!n.is_in_queue()) {
-        TRACE("pob_queue",
+        TRACE(pob_queue,
               tout << "pob_queue::push(" << n.post()->get_id() << ")\n";);
         n.set_in_queue(true);
         m_data.push (&n);
@@ -245,7 +245,7 @@ void derivation::exist_skolemize(expr* fml, app_ref_vector& vars, expr_ref& res)
             vars[j++] = vars.get(i);
     vars.shrink(j);
     
-    TRACE("spacer", tout << "Skolemizing: " << vars << "\n";
+    TRACE(spacer, tout << "Skolemizing: " << vars << "\n";
           tout << "from " << mk_pp(fml, m) << "\n";);
 
     expr_safe_replace sub(m);
@@ -257,7 +257,7 @@ void derivation::exist_skolemize(expr* fml, app_ref_vector& vars, expr_ref& res)
 }
 
 pob *derivation::create_next_child(model &mdl) {
-    timeit _timer (is_trace_enabled("spacer_timeit"),
+    timeit _timer (is_trace_enabled(TraceTag::spacer_timeit),
                    "spacer::derivation::create_next_child",
                    verbose_stream ());
 
@@ -279,14 +279,14 @@ pob *derivation::create_next_child(model &mdl) {
     summaries.reset ();
 
     if (!vars.empty()) {
-        timeit _timer1 (is_trace_enabled("spacer_timeit"),
+        timeit _timer1 (is_trace_enabled(TraceTag::spacer_timeit),
                         "create_next_child::qproject1",
                         verbose_stream ());
         vars.append(m_evars);
         m_evars.reset();
         pt().mbp(vars, m_trans, mdl,
                  true, pt().get_context().use_ground_pob());
-        CTRACE("spacer", !vars.empty(),
+        CTRACE(spacer, !vars.empty(),
                tout << "Failed to eliminate: " << vars << "\n";);
         m_evars.append (vars);
         vars.reset();
@@ -310,14 +310,14 @@ pob *derivation::create_next_child(model &mdl) {
     summaries.reset ();
 
     if (!vars.empty()) {
-        timeit _timer2(is_trace_enabled("spacer_timeit"),
+        timeit _timer2(is_trace_enabled(TraceTag::spacer_timeit),
                        "create_next_child::qproject2",
                        verbose_stream ());
         // include m_evars in case they can eliminated now as well
         vars.append(m_evars);
         pt().mbp(vars, post, mdl,
                  true, pt().get_context().use_ground_pob());
-        CTRACE("spacer", !vars.empty(),
+        CTRACE(spacer, !vars.empty(),
                tout << "Failed to eliminate: " << vars << "\n";);
         //qe::reduce_array_selects (*mev.get_model (), post);
     }
@@ -421,7 +421,7 @@ pob *derivation::create_next_child ()
             this->pt().mbp(vars, m_trans, *mdl,
                            true, this->pt().get_context().use_ground_pob());
             // keep track of implicitly quantified variables
-            CTRACE("spacer", !vars.empty(),
+            CTRACE(spacer, !vars.empty(),
                    tout << "Failed to eliminate: " << vars << "\n";);
             m_evars.append (vars);
             vars.reset();
@@ -652,7 +652,7 @@ void lemma::add_binding(app_ref_vector const &binding) {
     if (!has_binding(binding)) {
         m_bindings.append(binding);
 
-        TRACE("spacer",
+        TRACE(spacer,
               tout << "new binding: ";
               for (unsigned i = 0; i < binding.size(); i++)
                   tout << mk_pp(binding.get(i), m) <<  " ";
@@ -961,7 +961,7 @@ void pred_transformer::add_lemma_core(lemma* lemma, bool ground_only)
     SASSERT(!lemma->is_background());
     unsigned lvl = lemma->level();
     expr* l = lemma->get_expr();
-    CTRACE("spacer", !spacer::is_clause(m, l),
+    CTRACE(spacer, !spacer::is_clause(m, l),
            tout << "Lemma not a clause: " << mk_pp(l, m) << "\n";);
     SASSERT(!lemma->is_ground() || spacer::is_clause(m, l));
     SASSERT(!is_quantifier(l) || spacer::is_clause(m, to_quantifier(l)->get_expr()));
@@ -1018,7 +1018,7 @@ void pred_transformer::add_lemma_from_child (pred_transformer& child,
         }
         SASSERT (!inst.empty ());
         for (unsigned j = 0; j < inst.size(); ++j) {
-            TRACE("spacer_detail", tout << "child property: "
+            TRACE(spacer_detail, tout << "child property: "
                   << mk_pp(inst.get (j), m) << "\n";);
             if (is_infty_level(lvl)) {
                 m_solver->assert_expr(inst.get(j));
@@ -1044,12 +1044,12 @@ app_ref pred_transformer::mk_fresh_rf_tag ()
 
 void pred_transformer::add_rf (reach_fact *rf, bool force)
 {
-    timeit _timer (is_trace_enabled("spacer_timeit"),
+    timeit _timer (is_trace_enabled(TraceTag::spacer_timeit),
                    "spacer::pred_transformer::add_rf",
                    verbose_stream ());
 
     if (!rf) return;
-    TRACE("spacer", tout << "add_rf: " << head()->get_name() << " "
+    TRACE(spacer, tout << "add_rf: " << head()->get_name() << " "
                          << (rf->is_init() ? "INIT " : "")
                          << mk_pp(rf->get(), m) << "\n";);
 
@@ -1081,7 +1081,7 @@ void pred_transformer::add_rf (reach_fact *rf, bool force)
     if (last_tag) {fml = m.mk_or(m.mk_not(last_tag), rf->get(), rf->tag());}
     else {fml = m.mk_or(rf->get(), rf->tag());}
     m_reach_solver->assert_expr (fml);
-    TRACE ("spacer", tout << "updating reach ctx: " << fml << "\n";);
+    TRACE(spacer, tout << "updating reach ctx: " << fml << "\n";);
 
     // update solvers of other pred_transformers
     // XXX wrap rf into a lemma to fit the API
@@ -1208,7 +1208,7 @@ expr_ref pred_transformer::get_origin_summary (model &mdl,
 
     for (auto* s : summary) {
         if (!is_quantifier(s) && !mdl.is_true(s)) {
-            TRACE("spacer", tout << "Summary not true in the model: " << mk_pp(s, m) << "\n";);
+            TRACE(spacer, tout << "Summary not true in the model: " << mk_pp(s, m) << "\n";);
             return expr_ref(m);
         }
     }
@@ -1233,7 +1233,7 @@ void pred_transformer::add_cover(unsigned level, expr* property, bool bg)
     scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m, false);
     rep->set_substitution(&sub);
     (*rep)(result);
-    TRACE("spacer", tout << "cover:\n" << mk_pp(result, m) << "\n";);
+    TRACE(spacer, tout << "cover:\n" << mk_pp(result, m) << "\n";);
 
     // add the property.
     expr_ref_vector lemmas(m);
@@ -1260,14 +1260,14 @@ void pred_transformer::get_pred_bg_invs(expr_ref_vector& out) {
             func_decl* pre = preds[i];
             pred_transformer &pt = ctx.get_pred_transformer(pre);
             const lemma_ref_vector &invs = pt.get_bg_invs();
-            CTRACE("spacer", !invs.empty(),
+            CTRACE(spacer, !invs.empty(),
                    tout << "add-bg-invariant: " << mk_pp (pre, m) << "\n";);
             for (auto inv : invs) {
                 // tag -> inv1 ...  tag -> invn
                 tmp1 = m.mk_implies(tag, inv->get_expr());
                 pm.formula_n2o(tmp1, tmp2, i);
                 out.push_back(tmp2);
-                TRACE("spacer", tout << tmp2 << "\n";);
+                TRACE(spacer, tout << tmp2 << "\n";);
             }
         }
     }
@@ -1329,7 +1329,7 @@ bool pred_transformer::is_qblocked (pob &n) {
     //     solver->get_itp_core(core);
     //     expr_ref c(m);
     //     c = mk_and(core);
-    //     STRACE("spacer_progress", tout << "core: " << mk_epp(c,m) << "\n";);
+    //     STRACE(spacer_progress, tout << "core: " << mk_epp(c,m) << "\n";);
     // }
     return res == l_false;
 }
@@ -1353,11 +1353,11 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
                                      bool_vector& reach_pred_used,
                                      unsigned& num_reuse_reach, bool use_iuc)
 {
-    TRACE("spacer",
+    TRACE(spacer,
           tout << "is-reachable: " << head()->get_name() << " level: "
           << n.level() << " depth: " << n.depth () << "\n";
           tout << mk_pp(n.post(), m) << "\n";);
-    timeit _timer (is_trace_enabled("spacer_timeit"),
+    timeit _timer (is_trace_enabled(TraceTag::spacer_timeit),
                    "spacer::pred_transformer::is_reachable",
                    verbose_stream ());
 
@@ -1404,7 +1404,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
         }
     }
 
-    CTRACE("spacer", !reach_assumps.empty(),
+    CTRACE(spacer, !reach_assumps.empty(),
         tout << "reach assumptions\n" << reach_assumps << "\n";);
 
     // check local reachability;
@@ -1414,27 +1414,27 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
     lbool is_sat = m_solver->check_assumptions (post, reach_assumps,
                                                m_transition_clause, 1, &bg, 0);
 
-    CTRACE("spacer", !reach_assumps.empty(),
+    CTRACE(spacer, !reach_assumps.empty(),
         tout << "reach assumptions\n" << reach_assumps << "\n";);
 
     if (is_sat == l_true || is_sat == l_undef) {
         if (core) { core->reset(); }
         if (model && model->get()) {
             r = find_rule(**model, is_concrete, reach_pred_used, num_reuse_reach);
-            TRACE("spacer", 
+            TRACE(spacer, 
                   tout << "reachable is_sat: " << is_sat << " "
                   << r << " is_concrete " << is_concrete << " rused: " << reach_pred_used << "\n";);
-            CTRACE("spacer", r,
+            CTRACE(spacer, r,
                    ctx.get_datalog_context().get_rule_manager().display_smt2(*r, tout);
                    tout << "\n";);
-            TRACE("spacer_sat", tout << "model is:\n" << **model << "\n";);
+            TRACE(spacer_sat, tout << "model is:\n" << **model << "\n";);
         }
 
         return is_sat;
     }
     if (is_sat == l_false) {
         SASSERT (reach_assumps.empty ());
-        TRACE ("spacer", tout << "unreachable with lemmas\n";
+        TRACE(spacer, tout << "unreachable with lemmas\n";
                if (core) tout << "Core:\n" << *core << "\n";);
         uses_level = m_solver->uses_level();
         return l_false;
@@ -1562,7 +1562,7 @@ bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& state,
         state.append(core);
         uses_level = m_solver->uses_level();
     }
-    TRACE ("core_array_eq",
+    TRACE(core_array_eq,
            tout << "check_inductive: "
            << "states: " << mk_pp (states, m)
            << " is: " << res << "\n"
@@ -1600,7 +1600,7 @@ void pred_transformer::initialize(decl2rel const& pts)
 
     m_solver->assert_expr (m_transition);
     m_solver->assert_expr (m_init, 0);
-    TRACE("spacer",
+    TRACE(spacer,
           tout << "Initial state: " << mk_pp(m_init, m) << "\n";
           tout << "Transition:    " << mk_pp(m_transition,  m) << "\n";);
     SASSERT(is_app(m_init));
@@ -1713,10 +1713,10 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
         blast_term_ite(trans, ctx.blast_term_ite_inflation());
         rw(trans);
     }
-    TRACE("spacer_init_rule", tout << mk_pp(trans, m) << "\n";);
+    TRACE(spacer_init_rule, tout << mk_pp(trans, m) << "\n";);
 
     // no (universal) quantifiers in recursive rules
-    CTRACE("spacer", ut_size > 0 && !is_ground(trans),
+    CTRACE(spacer, ut_size > 0 && !is_ground(trans),
            tout << "Warning: quantifier in recursive rule: " << trans << "\n";);
 
     if (ut_size > 0 && !is_ground(trans)) {
@@ -1733,7 +1733,7 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
         ptr.set_reps(var_reprs);
     }
 
-    // TRACE("spacer",
+    // TRACE(spacer,
     //       tout << rule.get_decl()->get_name() << "\n";
     //       tout << var_reprs << "\n";);
 }
@@ -1981,7 +1981,7 @@ void pred_transformer::update_solver_with_rfs(prop_solver *solver,
 /// pred_transformer::frames
 bool pred_transformer::frames::add_lemma(lemma *new_lemma)
 {
-    TRACE("spacer", tout << "add-lemma: " << pp_level(new_lemma->level()) << " "
+    TRACE(spacer, tout << "add-lemma: " << pp_level(new_lemma->level()) << " "
           << m_pt.head()->get_name() << " "
           << mk_pp(new_lemma->get_expr(), m_pt.get_ast_manager()) << "\n";);
 
@@ -1991,7 +1991,7 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
         for (auto &l : m_bg_invs) {
             if (l->get_expr() == new_lemma->get_expr()) return false;
         }
-        TRACE("spacer", tout << "add-external-lemma: "
+        TRACE(spacer, tout << "add-external-lemma: "
               << pp_level(new_lemma->level()) << " "
               << m_pt.head()->get_name() << " "
               << mk_pp(new_lemma->get_expr(), m_pt.get_ast_manager()) << "\n";);
@@ -2018,7 +2018,7 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
             }
             // if the lemma is at a higher level, skip it,
             if (old_lemma->level() >= new_lemma->level()) {
-                TRACE("spacer", tout << "Already at a higher level: "
+                TRACE(spacer, tout << "Already at a higher level: "
                       << pp_level(old_lemma->level()) << "\n";);
                 // but, since the instances might be new, assert the
                 // instances that have been copied into m_lemmas[i]
@@ -2389,7 +2389,7 @@ void context::updt_params() {
 
 void context::reset()
 {
-    TRACE("spacer", tout << "\n";);
+    TRACE(spacer, tout << "\n";);
     m_pob_queue.reset();
     for (auto &entry: m_rels) {dealloc(entry.m_value);}
     m_rels.reset();
@@ -2407,7 +2407,7 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
     for (auto dit = rules.begin_grouped_rules(),
              dend = rules.end_grouped_rules(); dit != dend; ++dit) {
         func_decl* pred = dit->m_key;
-        TRACE("spacer", tout << mk_pp(pred, m) << "\n";);
+        TRACE(spacer, tout << mk_pp(pred, m) << "\n";);
         SASSERT(!rels.contains(pred));
         auto* pt = rels.insert_if_not_there(pred, alloc(pred_transformer, *this,
                                                         get_manager(), pred));
@@ -2434,7 +2434,7 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
         func_decl* pred = entry.m_key;
         pred_transformer* pt = entry.m_value, *pt_user = nullptr;
         for (auto dep : rules.get_dependencies().get_deps(pred)) {
-            TRACE("spacer", tout << mk_pp(pred, m) << " " << mk_pp(dep, m) << "\n";);
+            TRACE(spacer, tout << mk_pp(pred, m) << " " << mk_pp(dep, m) << "\n";);
             rels.find(dep, pt_user);
             pt_user->add_use(pt);
         }
@@ -2444,7 +2444,7 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
     for (auto &entry : rels) {
         pred_transformer* rel = entry.m_value;
         rel->initialize(rels);
-        TRACE("spacer", rel->display(tout); );
+        TRACE(spacer, rel->display(tout); );
     }
 
     // initialize reach facts
@@ -2570,12 +2570,12 @@ bool context::validate() {
         var_subst vs(m, false);
         for (auto& kv : m_rels) {
             ptr_vector<datalog::rule> const& rules = kv.m_value->rules();
-            TRACE ("spacer", tout << "PT: " << kv.m_value->head ()->get_name ().str ()
+            TRACE(spacer, tout << "PT: " << kv.m_value->head ()->get_name ().str ()
                    << "\n";);
             for (auto* rp : rules) {
                 datalog::rule& r = *rp;
 
-                TRACE ("spacer",
+                TRACE(spacer,
                        get_datalog_context ().
                        get_rule_manager ().
                        display_smt2(r, tout) << "\n";);
@@ -2618,7 +2618,7 @@ bool context::validate() {
                 }
             }
         }
-        TRACE ("spacer", tout << "Validation Succeeded\n";);
+        TRACE(spacer, tout << "Validation Succeeded\n";);
         break;
     }
     default:
@@ -2853,7 +2853,7 @@ unsigned context::get_cex_depth()
         fact = facts.get (curr - cex_depth); // discount the number of markers
         // get rule justifying the derivation of fact at pt
         r = &fact->get_rule ();
-        TRACE ("spacer",
+        TRACE(spacer,
                tout << "next rule: " << r->name ().str () << "\n";
             );
         // add child facts and pts
@@ -2894,7 +2894,7 @@ void context::get_rules_along_trace(datalog::rule_ref_vector& rules)
     fact = m_query->get_last_rf ();
     r = &fact->get_rule ();
     rules.push_back (const_cast<datalog::rule *> (r));
-    TRACE ("spacer",
+    TRACE(spacer,
            tout << "Initial rule: " << r->name().str() << "\n";
         );
 
@@ -2922,7 +2922,7 @@ void context::get_rules_along_trace(datalog::rule_ref_vector& rules)
         // get rule justifying the derivation of fact at pt
         r = &fact->get_rule ();
         rules.push_back (const_cast<datalog::rule *> (r));
-        TRACE ("spacer",
+        TRACE(spacer,
                tout << "next rule: " << r->name ().str () << "\n";
             );
         // add child facts and pts
@@ -3016,7 +3016,7 @@ expr_ref context::get_ground_sat_answer() const {
         cex.push_back(m.get_fact(pf));
     }
     
-    TRACE ("spacer", tout << "ground cex\n" << cex << "\n";);
+    TRACE(spacer, tout << "ground cex\n" << cex << "\n";);
 
     return mk_and(cex);
 }
@@ -3083,7 +3083,7 @@ void context::log_enter_level(unsigned lvl) {
     if (m_trace_stream) { *m_trace_stream << "\n* LEVEL " << lvl << "\n\n"; }
 
     IF_VERBOSE(1, verbose_stream() << "Entering level " << lvl << "\n";);
-    STRACE("spacer_progress", tout << "\n* LEVEL " << lvl << "\n";);
+    STRACE(spacer_progress, tout << "\n* LEVEL " << lvl << "\n";);
 
     IF_VERBOSE(
         1, if (m_params.print_statistics()) {
@@ -3095,7 +3095,7 @@ void context::log_enter_level(unsigned lvl) {
 
 void context::log_propagate() {
     if (m_trace_stream) *m_trace_stream << "Propagating\n\n";
-    STRACE("spacer_progress", tout << "Propagating\n";);
+    STRACE(spacer_progress, tout << "Propagating\n";);
     IF_VERBOSE(1, verbose_stream() << "Propagating: " << std::flush;);
 }
 
@@ -3113,7 +3113,7 @@ void context::log_expand_pob(pob &n) {
                         << mk_epp(n.post(), m) << "\n\n";
     }
 
-    TRACE("spacer", tout << "expand-pob: " << n.pt().head()->get_name()
+    TRACE(spacer, tout << "expand-pob: " << n.pt().head()->get_name()
                          << (n.is_conjecture() ? " CONJ" : "")
                          << (n.is_subsume() ? " SUBS" : "")
                          << " level: " << n.level()
@@ -3122,7 +3122,7 @@ void context::log_expand_pob(pob &n) {
                          << " gas: " << n.get_gas() << "\n"
                          << mk_pp(n.post(), m) << "\n";);
 
-    STRACE("spacer_progress",
+    STRACE(spacer_progress,
            tout << "** expand-pob: " << n.pt().head()->get_name()
                 << (n.is_conjecture() ? " CONJ" : "")
                 << (n.is_subsume() ? " SUBS" : "")
@@ -3151,10 +3151,10 @@ void context::log_add_lemma(pred_transformer &pt, lemma &new_lemma) {
         *m_trace_stream << "\n";
     }
 
-    TRACE("spacer", tout << "add-lemma-core: " << pp_level(lvl) << " "
+    TRACE(spacer, tout << "add-lemma-core: " << pp_level(lvl) << " "
                          << pt.head()->get_name() << " " << mk_pp(fml, m) << "\n";);
 
-    STRACE("spacer_progress",
+    STRACE(spacer_progress,
            tout << "** add-lemma: " << pp_level(lvl) << " "
            << pt.head()->get_name() << " " << mk_epp(fml, m)
            << "\n";
@@ -3260,13 +3260,13 @@ bool context::check_reachability ()
             SASSERT(m_pob_queue.size() == old_sz);
             // re-queue all pobs introduced by global gen and any pobs that can be blocked at a higher level
             for (auto pob : new_pobs) {
-                TRACE("gg", tout << "pob: is_may_pob " << pob->is_may_pob()
+                TRACE(gg, tout << "pob: is_may_pob " << pob->is_may_pob()
                       << " with post:\n"
                       << mk_pp(pob->post(), m) 
                       << "\n";);
                 //if ((pob->is_may_pob() && pob->post() != node->post()) || is_requeue(*pob)) {
                 if (is_requeue(*pob)) {
-                  TRACE("gg",
+                  TRACE(gg,
                         tout << "Adding back blocked pob at level "
                              << pob->level()
                              << " and depth " << pob->depth() << "\n");
@@ -3311,7 +3311,7 @@ bool context::is_reachable(pob &n)
     // XXX Should convert is_reachable() to accept pob_ref as argument
     pob_ref nref(&n);
 
-    TRACE ("spacer",
+    TRACE(spacer,
            tout << "is-reachable: " << n.pt().head()->get_name()
            << " level: " << n.level()
            << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
@@ -3436,7 +3436,7 @@ bool pred_transformer::mk_mdl_rf_consistent(const datalog::rule *r,
                 atleast_one_true = true;
         }
         if (used_rfs.size() > 0 && !atleast_one_true) {
-            TRACE("spacer_detail",
+            TRACE(spacer_detail,
                   tout << "model does not satisfy any reachable fact\n";);
             return false;
         }
@@ -3467,7 +3467,7 @@ bool context::mk_mdl_rf_consistent(model &mdl) {
                 atleast_one_true = true;
         }
         if (used_rfs.size() > 0 && !atleast_one_true) {
-            TRACE("spacer_detail",
+            TRACE(spacer_detail,
                   tout << "model does not satisfy any reachable fact\n";);
             return false;
         }
@@ -3540,12 +3540,12 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
       }
 
       if (/* XXX noop */ n.pt().is_qblocked(n)) {
-          STRACE("spacer_progress",
+          STRACE(spacer_progress,
                 tout << "This pob can be blocked by instantiation\n";);
       }
 
       if ((n.is_may_pob()) && n.get_gas() == 0) {
-          TRACE("global", tout << "Cant prove may pob. Collapsing "
+          TRACE(global, tout << "Cant prove may pob. Collapsing "
                               << mk_pp(n.post(), m) << "\n";);
           m_stats.m_num_pob_ofg++;
           return l_undef;
@@ -3555,7 +3555,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
       // TODO: if push_pob is enabled, avoid calling is_blocked twice
       if (m_gg_concretize && n.is_concretize_enabled() &&
           !n.pt().is_blocked(n, uses_level, &model)) {
-        TRACE("global",
+        TRACE(global,
               tout << "Concretizing: " << mk_pp(n.post(), m) << "\n"
               << "\t" << n.get_gas() << " attempts left\n";);
 
@@ -3596,7 +3596,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         // must-reachable
         if (is_concrete) {
             // -- update must summary
-            CTRACE("spacer_sat", r,
+            CTRACE(spacer_sat, r,
                    tout << "Concrete reachable with a rule:\n";
                    get_datalog_context().get_rule_manager().display_smt2(*r, tout) << "\n";
                    );
@@ -3634,11 +3634,11 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             if(n.is_conjecture())
                 m_stats.m_num_conj_failed++;
 
-            CTRACE("global", n.is_conjecture(),
+            CTRACE(global, n.is_conjecture(),
                    tout << "Failed to block conjecture "
                    << n.post()->get_id() << "\n";);
 
-            CTRACE("global", n.is_subsume(),
+            CTRACE(global, n.is_subsume(),
                    tout << "Failed to block subsume generalization "
                         << mk_pp(n.post(), m) << "\n";);
 
@@ -3667,19 +3667,19 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
           // Recursion bounded by weakness (atmost 10 right now)
           return expand_pob(n, out);
         }
-        TRACE("spacer", tout << "unknown state: " << mk_and(cube) << "\n";);
+        TRACE(spacer, tout << "unknown state: " << mk_and(cube) << "\n";);
         throw unknown_exception();
     }
     case l_false: {
         // n is unreachable, create a new lemma
-        timeit _timer (is_trace_enabled("spacer_timeit"),
+        timeit _timer (is_trace_enabled(TraceTag::spacer_timeit),
                        "spacer::expand_pob::false",
                        verbose_stream ());
 
         // -- only update expanded level when new lemmas are generated at it.
         if (n.level() < m_expanded_lvl) { m_expanded_lvl = n.level(); }
 
-        TRACE("spacer", tout << "cube:\n" << cube << "\n";);
+        TRACE(spacer, tout << "cube:\n" << cube << "\n";);
 
         if(n.is_conjecture()) m_stats.m_num_conj_success++;
         if(n.is_subsume()) m_stats.m_num_subsume_pob_blckd++;
@@ -3706,7 +3706,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             n.get_post_simplified(pob_cube);
 
             lemma_pob = alloc(class lemma, nref, pob_cube, n.level());
-            TRACE("global", tout << "Disabled local gen on pob (id: "
+            TRACE(global, tout << "Disabled local gen on pob (id: "
                                  << n.post()->get_id() << ")\n"
                                  << mk_pp(n.post(), m) << "\n"
                                  << "Lemma:\n"
@@ -3717,7 +3717,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             lemma_pob = alloc(class lemma, nref, cube, uses_level);
         }
 
-        CTRACE("global", n.is_conjecture() || n.is_subsume(),
+        CTRACE(global, n.is_conjecture() || n.is_subsume(),
                tout << "Blocked "
                     << (n.is_conjecture() ? "conjecture " : "subsume ") << n.post()->get_id()
                     << " at level " << n.level()
@@ -3726,7 +3726,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         DEBUG_CODE(lemma_sanity_checker sanity_checker(*this);
                    sanity_checker(lemma_pob););
 
-        TRACE("spacer",
+        TRACE(spacer,
               tout << "invariant state: "
                    << (is_infty_level(lemma_pob->level()) ? "(inductive)" : "")
                    << mk_pp(lemma_pob->get_expr(), m) << "\n";);
@@ -3764,7 +3764,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 out.push_back(new_pob);
                 m_stats.m_num_subsume_pobs++;
 
-                TRACE("global_verbose",
+                TRACE(global_verbose,
                       tout << "New subsume pob\n" << mk_pp(new_pob->post(), m) << "\n"
                            << "gas:" << new_pob->get_gas() << "\n";);
             } else if (pob* new_pob = m_gg_conjecture ? m_global_gen->mk_conjecture_pob(n) : nullptr) {
@@ -3773,7 +3773,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 out.push_back(new_pob);
                 m_stats.m_num_conj++;
 
-                TRACE("global",
+                TRACE(global,
                       tout << "New conjecture pob\n" << mk_pp(new_pob->post(), m) << "\n";);
               }
         }
@@ -3836,7 +3836,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             n.bump_weakness();
             return expand_pob(n, out);
         }
-        TRACE("spacer", tout << "unknown state: " << mk_and(cube) << "\n";);
+        TRACE(spacer, tout << "unknown state: " << mk_and(cube) << "\n";);
         throw unknown_exception();
     }
     UNREACHABLE();
@@ -3878,7 +3878,7 @@ bool context::propagate(unsigned min_prop_lvl,
                     verbose_stream () << lvl << " " << std::flush;);
 
         checkpoint();
-        CTRACE ("spacer", lvl > max_prop_lvl && lvl == max_prop_lvl + 1,
+        CTRACE(spacer, lvl > max_prop_lvl && lvl == max_prop_lvl + 1,
                 tout << "In full propagation\n";);
 
         bool all_propagated = true;
@@ -3919,7 +3919,7 @@ bool context::propagate(unsigned min_prop_lvl,
 reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
 {
     SASSERT(&n.pt() == this);
-    timeit _timer1 (is_trace_enabled("spacer_timeit"),
+    timeit _timer1 (is_trace_enabled(TraceTag::spacer_timeit),
                     "mk_rf",
                     verbose_stream ());
     expr_ref res(m);
@@ -3964,20 +3964,20 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
     }
 
 
-    TRACE ("spacer",
+    TRACE(spacer,
            tout << "Reach fact, before QE:\n";
            tout << res << "\n";
            tout << "Vars:\n" << vars << "\n";);        
 
     {
-        timeit _timer1 (is_trace_enabled("spacer_timeit"),
+        timeit _timer1 (is_trace_enabled(TraceTag::spacer_timeit),
                         "mk_rf::qe_project",
                         verbose_stream ());
         mbp(vars, res, mdl, false, true /* force or skolemize */);
     }
 
 
-    TRACE ("spacer",
+    TRACE(spacer,
            tout << "Reach fact, after QE project:\n";
            tout << res << "\n";
            tout << "Vars:\n" << vars << "\n";
@@ -4005,7 +4005,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     scoped_watch _w_ (m_create_children_watch);
     pred_transformer& pt = n.pt();
 
-    TRACE("spacer",
+    TRACE(spacer,
           tout << "Model:\n";
           model_smt2_pp(tout, m, mdl, 0);
           tout << "\n";
@@ -4042,7 +4042,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     //qe::reduce_array_selects (*mev.get_model (), phi1);
     SASSERT (!m_ground_pob || vars.empty ());
 
-    TRACE ("spacer",
+    TRACE(spacer,
            tout << "Implicant:\n";
            tout << lits << "\n";
            tout << "After MBP:\n" << phi << "\n";
@@ -4230,7 +4230,7 @@ bool context::check_invariant(unsigned lvl, func_decl* fn)
     expr_ref fml(m.mk_and(conj.size(), conj.data()), m);
     ctx->assert_expr(fml);
     lbool result = ctx->check_sat(0, nullptr);
-    TRACE("spacer", tout << "Check invariant level: " << lvl << " " << result
+    TRACE(spacer, tout << "Check invariant level: " << lvl << " " << result
           << "\n" << mk_pp(fml, m) << "\n";);
     return result == l_false;
 }

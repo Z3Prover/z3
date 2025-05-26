@@ -201,7 +201,7 @@ namespace datalog {
     }
 
     void relation_manager::register_relation_plugin_impl(relation_plugin * plugin) {
-        TRACE("dl", tout << "register: " << plugin->get_name() << "\n";);
+        TRACE(dl, tout << "register: " << plugin->get_name() << "\n";);
         m_relation_plugins.push_back(plugin);
         plugin->initialize(get_next_relation_fid(*plugin));
         if (plugin->get_name() == get_context().default_relation()) {
@@ -336,7 +336,7 @@ namespace datalog {
 
         //If there is no plugin to handle the signature, we just create an empty product relation and
         //stuff will be added to it by later operations.
-        TRACE("dl", s.output(get_context().get_manager(), tout << "empty product relation"); tout << "\n";);
+        TRACE(dl, s.output(get_context().get_manager(), tout << "empty product relation"); tout << "\n";);
         return product_relation_plugin::get_plugin(*this).mk_empty(s);
     }
 
@@ -532,7 +532,7 @@ namespace datalog {
     class relation_manager::empty_signature_relation_join_fn : public relation_join_fn {
     public:
         relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
-            TRACE("dl", tout << r1.get_plugin().get_name() << " " << r2.get_plugin().get_name() << "\n";);
+            TRACE(dl, tout << r1.get_plugin().get_name() << " " << r2.get_plugin().get_name() << "\n";);
             if(r1.get_signature().empty()) {
                 if(r1.empty()) {
                     return r2.get_manager().mk_empty_relation(r2.get_signature(), r2.get_kind());
@@ -739,7 +739,7 @@ namespace datalog {
         if(!res && delta && &tgt.get_plugin()!=&delta->get_plugin() && &src.get_plugin()!=&delta->get_plugin()) {
             res = delta->get_plugin().mk_union_fn(tgt, src, delta);
         }
-        // TRACE("dl", tout << src.get_plugin().get_name() << " " << tgt.get_plugin().get_name() << " " << (res?"created":"not created") << "\n";); 
+        // TRACE(dl, tout << src.get_plugin().get_name() << " " << tgt.get_plugin().get_name() << " " << (res?"created":"not created") << "\n";); 
         return res;
     }
 
@@ -781,7 +781,7 @@ namespace datalog {
             : m_filter(filter), m_project(project) {}
 
         relation_base * operator()(const relation_base & t1) override {
-            TRACE("dl", tout << t1.get_plugin().get_name() << "\n";);
+            TRACE(dl, tout << t1.get_plugin().get_name() << "\n";);
             scoped_rel<relation_base> aux = t1.clone();
             (*m_filter)(*aux);
             relation_base * res = (*m_project)(*aux);
@@ -818,7 +818,7 @@ namespace datalog {
 
         void operator()(relation_base & tgt, const relation_base & intersected_obj) override {
             scoped_rel<relation_base> filtered_rel = (*m_join_fun)(tgt, intersected_obj);
-            TRACE("dl", 
+            TRACE(dl, 
                   tgt.display(tout << "tgt:\n"); 
                   intersected_obj.display(tout << "intersected:\n");
                   filtered_rel->display(tout << "filtered:\n");
@@ -828,9 +828,9 @@ namespace datalog {
                 tgt.swap(*filtered_rel);
             }
             tgt.reset();
-            TRACE("dl", tgt.display(tout << "target reset:\n"); );
+            TRACE(dl, tgt.display(tout << "target reset:\n"); );
             (*m_union_fun)(tgt, *filtered_rel);
-            TRACE("dl", tgt.display(tout << "intersected target:\n"); );
+            TRACE(dl, tgt.display(tout << "intersected target:\n"); );
         }
 
     };
@@ -838,7 +838,7 @@ namespace datalog {
     relation_intersection_filter_fn * relation_manager::try_mk_default_filter_by_intersection_fn(
             const relation_base & tgt, const relation_base & src, unsigned joined_col_cnt, 
             const unsigned * tgt_cols, const unsigned * src_cols) {
-        TRACE("dl_verbose", tout << tgt.get_plugin().get_name() << "\n";);
+        TRACE(dl_verbose, tout << tgt.get_plugin().get_name() << "\n";);
         unsigned_vector join_removed_cols;
         add_sequence(tgt.get_signature().size(), src.get_signature().size(), join_removed_cols);
         scoped_rel<relation_join_fn> join_fun = mk_join_project_fn(tgt, src, joined_col_cnt, tgt_cols, src_cols,
@@ -866,7 +866,7 @@ namespace datalog {
 
     relation_intersection_filter_fn * relation_manager::mk_filter_by_intersection_fn(const relation_base & t, 
             const relation_base & src, unsigned joined_col_cnt, const unsigned * t_cols, const unsigned * src_cols) {
-        TRACE("dl_verbose", tout << t.get_plugin().get_name() << "\n";);
+        TRACE(dl_verbose, tout << t.get_plugin().get_name() << "\n";);
         relation_intersection_filter_fn * res = t.get_plugin().mk_filter_by_intersection_fn(t, src, joined_col_cnt, 
             t_cols, src_cols);
         if(!res && &t.get_plugin()!=&src.get_plugin()) {
@@ -880,7 +880,7 @@ namespace datalog {
 
     relation_intersection_filter_fn * relation_manager::mk_filter_by_intersection_fn(const relation_base & tgt, 
             const relation_base & src) {
-        TRACE("dl_verbose", tout << tgt.get_plugin().get_name() << "\n";);
+        TRACE(dl_verbose, tout << tgt.get_plugin().get_name() << "\n";);
         SASSERT(tgt.get_signature()==src.get_signature());
         unsigned sz = tgt.get_signature().size();
         unsigned_vector cols;
@@ -892,7 +892,7 @@ namespace datalog {
     relation_intersection_filter_fn * relation_manager::mk_filter_by_negation_fn(const relation_base & t, 
             const relation_base & negated_obj, unsigned joined_col_cnt, 
             const unsigned * t_cols, const unsigned * negated_cols) { 
-        TRACE("dl", tout << t.get_plugin().get_name() << "\n";);
+        TRACE(dl, tout << t.get_plugin().get_name() << "\n";);
         relation_intersection_filter_fn * res = t.get_plugin().mk_filter_by_negation_fn(t, negated_obj, joined_col_cnt, 
             t_cols, negated_cols);
         if(!res && &t.get_plugin()!=&negated_obj.get_plugin()) {
@@ -1552,7 +1552,7 @@ namespace datalog {
             : m_filter(filter), m_project(project) {}
 
         table_base * operator()(const table_base & t1) override {
-            TRACE("dl", tout << t1.get_plugin().get_name() << "\n";);
+            TRACE(dl, tout << t1.get_plugin().get_name() << "\n";);
             scoped_rel<table_base> aux = t1.clone();
             (*m_filter)(*aux);
             return (*m_project)(*aux);

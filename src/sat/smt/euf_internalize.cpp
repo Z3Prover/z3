@@ -63,7 +63,7 @@ namespace euf {
                 SASSERT(n->bool_var() != sat::null_bool_var);
                 return literal(n->bool_var(), sign);
             }
-            TRACE("euf", tout << "non-bool\n";);
+            TRACE(euf, tout << "non-bool\n";);
             return sat::null_literal;
         }
         if (si.is_bool_op(e)) {
@@ -171,7 +171,7 @@ namespace euf {
             lit = lit2;
         }
 
-        TRACE("euf", tout << "attach b" << v << " " << mk_bounded_pp(e, m) << "\n";);
+        TRACE(euf, tout << "attach b" << v << " " << mk_bounded_pp(e, m) << "\n";);
         m_bool_var2expr.reserve(v + 1, nullptr);
         if (m_bool_var2expr[v] && m_egraph.find(e)) {
             if (m_egraph.find(e)->bool_var() != v) {
@@ -190,7 +190,7 @@ namespace euf {
         enode* n = m_egraph.find(e);
         if (!n) 
             n = mk_enode(e, 0, nullptr);
-        CTRACE("euf", n->bool_var() != sat::null_bool_var && n->bool_var() != v, display(tout << bpp(n) << " " << n->bool_var() << " vs " << v << "\n"));
+        CTRACE(euf, n->bool_var() != sat::null_bool_var && n->bool_var() != v, display(tout << bpp(n) << " " << n->bool_var() << " vs " << v << "\n"));
         SASSERT(n->bool_var() == sat::null_bool_var || n->bool_var() == v);
         m_egraph.set_bool_var(n, v);
         if (si.is_bool_op(e)) 

@@ -84,7 +84,7 @@ void bv2int_rewriter_ctx::collect_power2(goal const& s) {
         expr* logx = m.mk_fresh_const("log2_v", bv.mk_sort(log2));
         logx = bv.mk_zero_extend(num_bits - log2, logx);
         m_trail.push_back(logx);
-        TRACE("bv2int_rewriter", tout << mk_pp(v, m) << " |-> " << mk_pp(logx, m) << "\n";);
+        TRACE(bv2int_rewriter, tout << mk_pp(v, m) << " |-> " << mk_pp(logx, m) << "\n";);
         m_power2.insert(v, logx);
     }
 }
@@ -237,7 +237,7 @@ br_status bv2int_rewriter::mk_mod(expr * s, expr * t, expr_ref & result) {
     if (is_ubv2int(s, s1) && is_ubv2int(t, t1)) {
         align_sizes(s1, t1, false);
         result = m_bv.mk_ubv2int(m_bv.mk_bv_urem(s1, t1));
-        TRACE("bv2int_rewriter", tout << result << "\n";);
+        TRACE(bv2int_rewriter, tout << result << "\n";);
         return BR_DONE;
     }
 
@@ -252,7 +252,7 @@ br_status bv2int_rewriter::mk_mod(expr * s, expr * t, expr_ref & result) {
         u1 = mk_bv_add(s1, u1, false);
         align_sizes(u1, t1, false);
         result = m_bv.mk_ubv2int(m_bv.mk_bv_urem(u1, t1));
-        TRACE("bv2int_rewriter", tout << result << "\n";);
+        TRACE(bv2int_rewriter, tout << result << "\n";);
         return BR_DONE;
     }
     

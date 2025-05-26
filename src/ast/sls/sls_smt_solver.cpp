@@ -54,12 +54,12 @@ namespace sls {
             if (m_on_save_model)
                 return r;
             flet<bool> _on_save_model(m_on_save_model, true);
-            CTRACE("sls", unsat().empty(), display(tout));
+            CTRACE(sls, unsat().empty(), display(tout));
             while (unsat().empty()) {
                 r = m_context.check();
                 if (!m_new_constraint)
                     break;
-                TRACE("sls", display(tout));
+                TRACE(sls, display(tout));
                 //m_ddfw.simplify();
                 m_ddfw.reinit();
                 m_new_constraint = false;

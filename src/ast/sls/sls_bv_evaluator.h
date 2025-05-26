@@ -494,7 +494,7 @@ public:
             NOT_IMPLEMENTED_YET();
         }        
 
-        TRACE("sls_eval", tout << "(" << fd->get_name();
+        TRACE(sls_eval, tout << "(" << fd->get_name();
                             for (unsigned i = 0; i < n_args; i++)
                                 tout << " " << m_mpz_manager.to_string(m_tracker.get_value(args[i]));
                             tout << ") ---> " <<  m_mpz_manager.to_string(result);
@@ -525,7 +525,7 @@ public:
             evaluator(q, temp);
             mpz check_res;
             m_tracker.value2mpz(temp, check_res);
-            CTRACE("sls", !m_mpz_manager.eq(check_res, result), 
+            CTRACE(sls, !m_mpz_manager.eq(check_res, result), 
                             tout << "EVAL BUG: IS " << m_mpz_manager.to_string(result) << 
                             " SHOULD BE " << m_mpz_manager.to_string(check_res) << std::endl; );
             SASSERT(m_mpz_manager.eq(check_res, result));
@@ -654,7 +654,7 @@ public:
     }
 
     void serious_update(func_decl * fd, const mpz & new_value) {
-        TRACE("sls", tout << "set: " << fd->get_name() << " to " << m_mpz_manager.to_string(new_value) << std::endl;);
+        TRACE(sls, tout << "set: " << fd->get_name() << " to " << m_mpz_manager.to_string(new_value) << std::endl;);
         m_tracker.set_value(fd, new_value);
         expr * ep = m_tracker.get_entry_point(fd);
         unsigned cur_depth = m_tracker.get_distance(ep);
@@ -808,7 +808,7 @@ public:
 
         m_mpz_manager.del(temp);
 
-        TRACE("sls",    tout << "Randomization candidate: " << unsat_constants[r]->get_name() << std::endl;
+        TRACE(sls,    tout << "Randomization candidate: " << unsat_constants[r]->get_name() << std::endl;
                         tout << "Locally randomized model: " << std::endl; 
                         m_tracker.show_model(tout); );
 

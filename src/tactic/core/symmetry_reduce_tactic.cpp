@@ -148,7 +148,7 @@ public:
                     g.assert_expr(mem); 
                     num_sym_break_preds++;
 
-                    TRACE("symmetry_reduce", tout << "member predicate: " << mem << "\n";);
+                    TRACE(symmetry_reduce, tout << "member predicate: " << mem << "\n";);
                     
                     fml = m.mk_and(fml.get(), mem);
                     normalize(fml);
@@ -191,7 +191,7 @@ private:
             if (!is_const) 
                 continue;
             P.push_back(v);
-            TRACE("symmetry_reduce", for (app * a : v) tout << mk_pp(a, m) << " "; tout << "\n";);            
+            TRACE(symmetry_reduce, for (app * a : v) tout << mk_pp(a, m) << " "; tout << "\n";);            
         }
     }
 
@@ -402,7 +402,7 @@ private:
 
         SASSERT(p.size() >= 2);
         bool result = check_swap(fml, p[0], p[1]) && check_cycle(fml, p);
-        TRACE("symmetry_reduce", 
+        TRACE(symmetry_reduce, 
               if (result) {
                   tout << "Symmetric: ";
               }
@@ -520,7 +520,7 @@ private:
         unsigned weight = 0, weight1 = 0;
         VERIFY(occs.find(t, weight));
         unsigned cts_delta = compute_cts_delta(t, cts, consts);
-        TRACE("symmetry_reduce", tout << mk_pp(t, m) << " " << weight << " " << cts_delta << "\n";);
+        TRACE(symmetry_reduce, tout << mk_pp(t, m) << " " << weight << " " << cts_delta << "\n";);
         for (unsigned i = 1; i < T.size(); ++i) {
             app* t1 = T[i];
             VERIFY(occs.find(t1, weight1));
@@ -528,7 +528,7 @@ private:
                 continue;
             }
             unsigned cts_delta1 = compute_cts_delta(t1, cts, consts);
-            TRACE("symmetry_reduce", tout << mk_pp(t1, m) << " " << weight1 << " " << cts_delta1 << "\n";);
+            TRACE(symmetry_reduce, tout << mk_pp(t1, m) << " " << weight1 << " " << cts_delta1 << "\n";);
             if ((t->get_num_args() == t1->get_num_args() && (weight1 > weight || cts_delta1 < cts_delta)) || 
                 t->get_num_args() > t1->get_num_args()) {
                 cts_delta = cts_delta1;
@@ -556,7 +556,7 @@ private:
     void compute_used_in(app* t, term_set& cts, term_set const& consts) {
         member_of mem(consts, cts);
         for_each_expr(mem, t);
-        TRACE("symmetry_reduce",
+        TRACE(symmetry_reduce,
               tout << "Term: " << mk_pp(t, m) << "\n";
               tout << "Support set: ";
               for (unsigned i = 0; i < consts.size(); ++i) {

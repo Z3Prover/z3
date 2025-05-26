@@ -38,9 +38,9 @@ static void sort_args(expr * & l1, expr * & l2, expr * & l3) {
 
 
 void bit_blaster_cfg::mk_xor3(expr * l1, expr * l2, expr * l3, expr_ref & r) {
-    TRACE("xor3", tout << "#" << l1->get_id() << " #" << l2->get_id() << " #" << l3->get_id(););
+    TRACE(xor3, tout << "#" << l1->get_id() << " #" << l2->get_id() << " #" << l3->get_id(););
     sort_args(l1, l2, l3);
-    TRACE("xor3_sorted", tout << "#" << l1->get_id() << " #" << l2->get_id() << " #" << l3->get_id(););
+    TRACE(xor3_sorted, tout << "#" << l1->get_id() << " #" << l2->get_id() << " #" << l3->get_id(););
     if (m_params.m_bb_ext_gates) {
         if (l1 == l2)
             r = l3;
@@ -77,9 +77,9 @@ void bit_blaster_cfg::mk_xor3(expr * l1, expr * l2, expr * l3, expr_ref & r) {
 }
 
 void bit_blaster_cfg::mk_carry(expr * l1, expr * l2, expr * l3, expr_ref & r) {
-    TRACE("carry", tout << "#" << l1->get_id() << " #" << l2->get_id() << " #" << l3->get_id(););
+    TRACE(carry, tout << "#" << l1->get_id() << " #" << l2->get_id() << " #" << l3->get_id(););
     sort_args(l1, l2, l3);
-    TRACE("carry_sorted", tout << "#" << l1->get_id() << " #" << l2->get_id() << " #" << l3->get_id(););
+    TRACE(carry_sorted, tout << "#" << l1->get_id() << " #" << l2->get_id() << " #" << l3->get_id(););
     if (m_params.m_bb_ext_gates) {
         if ((m().is_false(l1) && m().is_false(l2)) ||
             (m().is_false(l1) && m().is_false(l3)) ||

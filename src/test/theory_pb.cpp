@@ -138,7 +138,7 @@ void tst_theory_pb() {
             unsigned k = populate_literals(i, lits);        
             std::cout << "k:" << k << " " << N << "\n";
             std::cout.flush();
-            TRACE("pb", tout << "k " << k << ": " << lits << "\n";);
+            TRACE(pb, tout << "k " << k << ": " << lits << "\n";);
 
             {
                 smt::context ctx(m, params);
@@ -146,7 +146,7 @@ void tst_theory_pb() {
                 smt::literal l = smt::theory_pb::assert_ge(ctx, k+1, lits.size(), lits.data());
                 if (l != smt::false_literal) {
                     ctx.assign(l, nullptr, false);
-                    TRACE("pb", tout << "assign: " << l << "\n";
+                    TRACE(pb, tout << "assign: " << l << "\n";
                           ctx.display(tout););
                     VERIFY(l_false == ctx.check());
                 }
@@ -158,7 +158,7 @@ void tst_theory_pb() {
                 smt::literal l = smt::theory_pb::assert_ge(ctx, k, lits.size(), lits.data());
                 ENSURE(l != smt::false_literal);
                 ctx.assign(l, nullptr, false);
-                TRACE("pb", ctx.display(tout););
+                TRACE(pb, ctx.display(tout););
                 VERIFY(l_true == ctx.check());
                 ctx.pop(1);
             }

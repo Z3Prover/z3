@@ -59,7 +59,7 @@ class bit_blaster_tactic : public tactic {
             
             tactic_report report("bit-blast", *g);
             
-            TRACE("before_bit_blaster", g->display(tout););
+            TRACE(before_bit_blaster, g->display(tout););
             m_num_steps = 0;
             
             m_rewriter->start_rewrite();
@@ -79,7 +79,7 @@ class bit_blaster_tactic : public tactic {
                 }
                 if (curr != new_curr) {
                     change = true;                    
-                    TRACE("bit_blaster", tout << mk_pp(curr, m()) << " -> " << new_curr << "\n";);
+                    TRACE(bit_blaster, tout << mk_pp(curr, m()) << " -> " << new_curr << "\n";);
                     g->update(idx, new_curr, new_pr, g->dep(idx));
                 }
             }
@@ -92,7 +92,7 @@ class bit_blaster_tactic : public tactic {
             }
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("after_bit_blaster", g->display(tout); if (g->mc()) g->mc()->display(tout); tout << "\n";);
+            TRACE(after_bit_blaster, g->display(tout); if (g->mc()) g->mc()->display(tout); tout << "\n";);
             m_rewriter->cleanup();
         }
         

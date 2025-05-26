@@ -30,7 +30,7 @@ void special_relations_tactic::collect_feature(goal const& g, unsigned idx,
     unsigned index = 0;
     app_ref_vector patterns(m);
     bool is_match = m_pm.match_quantifier_index(to_quantifier(f), patterns, index);
-    TRACE("special_relations", tout << "check " << is_match << " " << mk_pp(f, m) << "\n";
+    TRACE(special_relations, tout << "check " << is_match << " " << mk_pp(f, m) << "\n";
           if (is_match) tout << patterns << " " << index << "\n";);
     if (is_match) {
         p = to_app(patterns.get(0)->get_arg(0))->get_decl();
@@ -113,7 +113,7 @@ void special_relations_tactic::initialize() {
     q = m.mk_forall(2, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_total);   
 
-    TRACE("special_relations", m_pm.display(tout););
+    TRACE(special_relations, m_pm.display(tout););
 }
 
 void special_relations_tactic::register_pattern(unsigned index, sr_property p) {
@@ -154,7 +154,7 @@ void special_relations_tactic::operator()(goal_ref const & g, goal_ref_buffer & 
             to_delete.append(kv.m_value.m_goal_indices);
             break;
         default:
-            TRACE("special_relations", tout << "unprocessed feature " << feature << "\n";);
+            TRACE(special_relations, tout << "unprocessed feature " << feature << "\n";);
             break;
         }
     }

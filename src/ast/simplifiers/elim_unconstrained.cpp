@@ -159,7 +159,7 @@ void elim_unconstrained::eliminate() {
         SASSERT(!m_heap.contains(p.term()->get_id()));
         
         app* t = to_app(e);
-        TRACE("elim_unconstrained", tout << "eliminating " << mk_bounded_pp(t, m) << "\n";);
+        TRACE(elim_unconstrained, tout << "eliminating " << mk_bounded_pp(t, m) << "\n";);
         unsigned sz = m_args.size();
         for (expr* arg : *to_app(t))
             m_args.push_back(reconstruct_term(root(arg)));
@@ -180,7 +180,7 @@ void elim_unconstrained::eliminate() {
         IF_VERBOSE(4, verbose_stream() << "replace " << mk_bounded_pp(t, m) << " / " << mk_bounded_pp(rr, m) << " -> " << mk_bounded_pp(r, m) << "\n");
 
         
-        TRACE("elim_unconstrained", tout << mk_bounded_pp(t, m) << " / " << mk_bounded_pp(rr, m) << " -> " << mk_bounded_pp(r, m) << "\n");
+        TRACE(elim_unconstrained, tout << mk_bounded_pp(t, m) << " / " << mk_bounded_pp(rr, m) << " -> " << mk_bounded_pp(r, m) << "\n");
         SASSERT(r->get_sort() == t->get_sort());
         m_stats.m_num_eliminated++;
         node& rn = root(r);
@@ -382,7 +382,7 @@ void elim_unconstrained::assert_normalized(vector<dependent_expr>& old_fmls) {
         if (f == g)
             continue;
         old_fmls.push_back(m_fmls[i]);
-        TRACE("elim_unconstrained", tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
+        TRACE(elim_unconstrained, tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
         m_fmls.update(i, dependent_expr(m, g, nullptr, d));
     }
 }

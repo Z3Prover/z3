@@ -62,7 +62,7 @@ class simplex_arith_kernel_plugin : public spacer_arith_kernel::plugin {
             }
             qmat.add_var(row_id, rational::one().to_mpq(), n_cols);
         }
-        TRACE("gg", qmat.display(tout););
+        TRACE(gg, qmat.display(tout););
 
         qmatrix kern(m);
         simplex::sparse_matrix_ops::kernel_ffe<simplex::mpq_ext>(qmat, kern,
@@ -79,7 +79,7 @@ class simplex_arith_kernel_plugin : public spacer_arith_kernel::plugin {
             out.add_row(vec);
         }
 
-        TRACE("gg", {
+        TRACE(gg, {
             tout << "Computed kernel\n";
             qmat.display(tout);
             tout << "\n";

@@ -82,7 +82,7 @@ void ctx_propagate_assertions::assert_eq_core(expr * t, app * val) {
         return;
     }
 
-    CTRACE("assert_eq_bug", m_assertions.contains(t),
+    CTRACE(assert_eq_bug, m_assertions.contains(t),
            tout << "t:\n" << mk_ismt2_pp(t, m) << "\nval:\n" << mk_ismt2_pp(val, m) << "\n";
            expr * old_val = 0;
            m_assertions.find(t, old_val);
@@ -180,7 +180,7 @@ struct ctx_simplify_tactic::imp {
         dealloc(m_simp);
         DEBUG_CODE({
             for (unsigned i = 0; i < m_cache.size(); i++) {
-                CTRACE("ctx_simplify_tactic_bug", m_cache[i].m_from,
+                CTRACE(ctx_simplify_tactic_bug, m_cache[i].m_from,
                        tout << "i: " << i << "\n" << mk_ismt2_pp(m_cache[i].m_from, m) << "\n";
                        tout << "m_result: " << m_cache[i].m_result << "\n";
                        if (m_cache[i].m_result) tout << "lvl: " << m_cache[i].m_result->m_lvl << "\n";);
@@ -205,7 +205,7 @@ struct ctx_simplify_tactic::imp {
     }
 
     bool shared(expr * t) const {
-        TRACE("ctx_simplify_tactic_bug", tout << mk_pp(t, m) << "\n";);
+        TRACE(ctx_simplify_tactic_bug, tout << mk_pp(t, m) << "\n";);
         return t->get_ref_count() > 1 && m_occs.get_num_occs(t) > 1;
     }
 
@@ -226,7 +226,7 @@ struct ctx_simplify_tactic::imp {
 
     void cache_core(expr * from, expr * to) {
         unsigned id = from->get_id();
-        TRACE("ctx_simplify_tactic_cache", tout << "caching " << id << " @ " << scope_level() << "\n" << mk_ismt2_pp(from, m) << "\n--->\n" << mk_ismt2_pp(to, m) << "\n";);
+        TRACE(ctx_simplify_tactic_cache, tout << "caching " << id << " @ " << scope_level() << "\n" << mk_ismt2_pp(from, m) << "\n--->\n" << mk_ismt2_pp(to, m) << "\n";);
         m_cache.reserve(id+1);
         cache_cell & cell = m_cache[id];
         void * mem = m_allocator.allocate(sizeof(cached_result));
@@ -271,7 +271,7 @@ struct ctx_simplify_tactic::imp {
             m.dec_ref(cell.m_result->m_to);
             cached_result * to_delete = cell.m_result;
             SASSERT(to_delete->m_lvl == lvl);
-            TRACE("ctx_simplify_tactic_cache", tout << "uncaching: " << to_delete->m_lvl << "\n" <<
+            TRACE(ctx_simplify_tactic_cache, tout << "uncaching: " << to_delete->m_lvl << "\n" <<
                   mk_ismt2_pp(key, m) << "\n--->\n" << mk_ismt2_pp(to_delete->m_to, m) << "\nrestoring:\n";
                   if (to_delete->m_next) tout << mk_ismt2_pp(to_delete->m_next->m_to, m); else tout << "<null>";
                   tout << "\n";);
@@ -327,7 +327,7 @@ struct ctx_simplify_tactic::imp {
             return;
         }
         checkpoint();
-        TRACE("ctx_simplify_tactic_detail", tout << "processing: " << mk_bounded_pp(t, m) << "\n";);
+        TRACE(ctx_simplify_tactic_detail, tout << "processing: " << mk_bounded_pp(t, m) << "\n";);
         if (is_cached(t, r) || m_simp->simplify(t, r)) {
             SASSERT(r.get() != 0);
             return;
@@ -344,7 +344,7 @@ struct ctx_simplify_tactic::imp {
             simplify_app(to_app(t), r);
         m_depth--;
         SASSERT(r.get() != 0);
-        TRACE("ctx_simplify_tactic_detail", tout << "result:\n" << mk_bounded_pp(t, m) << "\n---->\n" << mk_bounded_pp(r, m) << "\n";);
+        TRACE(ctx_simplify_tactic_detail, tout << "result:\n" << mk_bounded_pp(t, m) << "\n---->\n" << mk_bounded_pp(r, m) << "\n";);
     }
 
     template<bool OR>
@@ -462,7 +462,7 @@ struct ctx_simplify_tactic::imp {
             }
             else {
                 expr * args[3] = { new_c.get(), new_t.get(), new_e.get() };
-                TRACE("ctx_simplify_tactic_ite_bug",
+                TRACE(ctx_simplify_tactic_ite_bug,
                       tout << "mk_ite\n" << mk_ismt2_pp(new_c.get(), m) << "\n" << mk_ismt2_pp(new_t.get(), m)
                       << "\n" << mk_ismt2_pp(new_e.get(), m) << "\n";);
                 m_mk_app(ite->get_decl(), 3, args, r);
@@ -483,7 +483,7 @@ struct ctx_simplify_tactic::imp {
             expr * arg = t->get_arg(i);
             expr_ref new_arg(m);
             simplify(arg, new_arg);
-            CTRACE("ctx_simplify_tactic_bug", new_arg.get() == 0, tout << mk_ismt2_pp(arg, m) << "\n";);
+            CTRACE(ctx_simplify_tactic_bug, new_arg.get() == 0, tout << mk_ismt2_pp(arg, m) << "\n";);
             SASSERT(new_arg);
             if (new_arg != arg)
                 modified = true;
@@ -551,14 +551,14 @@ struct ctx_simplify_tactic::imp {
     }
 
     void process(expr * s, expr_ref & r) {
-        TRACE("ctx_simplify_tactic", tout << "simplifying:\n" << mk_ismt2_pp(s, m) << "\n";);
+        TRACE(ctx_simplify_tactic, tout << "simplifying:\n" << mk_ismt2_pp(s, m) << "\n";);
         SASSERT(scope_level() == 0);
         m_depth = 0;
         simplify(s, r);
         SASSERT(scope_level() == 0);
         SASSERT(m_depth == 0);
         SASSERT(r.get() != 0);
-        TRACE("ctx_simplify_tactic", tout << "result\n" << mk_ismt2_pp(r, m) << " :num-steps " << m_num_steps << "\n";
+        TRACE(ctx_simplify_tactic, tout << "result\n" << mk_ismt2_pp(r, m) << " :num-steps " << m_num_steps << "\n";
               tout << "old size: " << expr_size(s) << " new size: " << expr_size(r) << "\n";);
         if (m_bail_on_blowup && expr_size(s) < expr_size(r)) {
             r = s;

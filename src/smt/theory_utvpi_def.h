@@ -98,7 +98,7 @@ namespace smt {
     template<typename Ext>
     theory_var theory_utvpi<Ext>::mk_var(enode* n) {
         th_var v = theory::mk_var(n);
-        TRACE("utvpi", tout << v << " " << mk_pp(n->get_expr(), m) << "\n";);
+        TRACE(utvpi, tout << v << " " << mk_pp(n->get_expr(), m) << "\n";);
         m_graph.init_var(to_var(v));
         m_graph.init_var(neg(to_var(v)));
         ctx.attach_th_var(n, this, v);
@@ -176,7 +176,7 @@ namespace smt {
             t2 = a.mk_numeral(k, s2->get_sort());
             eq = m.mk_eq(s2.get(), t2.get());
             
-            TRACE("utvpi", tout << v1 << " .. " << v2 << "\n" << eq << "\n";);
+            TRACE(utvpi, tout << v1 << " .. " << v2 << "\n" << eq << "\n";);
             
             VERIFY (internalize_atom(eq.get(), false));
             
@@ -204,7 +204,7 @@ namespace smt {
         inc_conflicts();
         literal_vector const& lits = m_nc_functor.get_lits();
         IF_VERBOSE(20, ctx.display_literals_smt2(verbose_stream() << "conflict:\n", lits));
-        TRACE("utvpi", ctx.display_literals_smt2(tout << "conflict:\n", lits););        
+        TRACE(utvpi, ctx.display_literals_smt2(tout << "conflict:\n", lits););        
         
         vector<parameter> params;
         if (m.proofs_enabled()) {
@@ -231,7 +231,7 @@ namespace smt {
         std::stringstream msg;
         msg << "found non utvpi logic expression:\n" << mk_pp(n, m) << '\n';
         auto str = msg.str();
-        TRACE("utvpi", tout << str;);
+        TRACE(utvpi, tout << str;);
         warning_msg("%s", str.c_str());
         ctx.push_trail(value_trail<bool>(m_non_utvpi_exprs));
         m_non_utvpi_exprs = true;        
@@ -340,7 +340,7 @@ namespace smt {
         edge_id neg = add_ineq(coeffs, w2, ~l);
         m_atoms.push_back(atom(bv, pos, neg));
         
-        TRACE("utvpi", 
+        TRACE(utvpi, 
               tout << mk_pp(n, m) << "\n";
               m_graph.display_edge(tout << "pos: ", pos); 
               m_graph.display_edge(tout << "neg: ", neg); 
@@ -354,7 +354,7 @@ namespace smt {
         if (!m_consistent)
             return false;
         bool result = !ctx.inconsistent() && null_theory_var != mk_term(term);
-        CTRACE("utvpi", !result, tout << "Did not internalize " << mk_pp(term, m) << "\n";);
+        CTRACE(utvpi, !result, tout << "Did not internalize " << mk_pp(term, m) << "\n";);
         return result;
     }
 
@@ -504,7 +504,7 @@ namespace smt {
 
     template<typename Ext>
     bool theory_utvpi<Ext>::propagate_atom(atom const& a) {
-        TRACE("utvpi", a.display(*this, tout); tout << "\n";);       
+        TRACE(utvpi, a.display(*this, tout); tout << "\n";);       
         int edge_id = a.get_asserted_edge();
         if (!enable_edge(edge_id)) {
             m_graph.traverse_neg_cycle2(m_params.m_arith_stronger_lemmas, m_nc_functor);
@@ -516,7 +516,7 @@ namespace smt {
     
     template<typename Ext>
     theory_var theory_utvpi<Ext>::mk_term(app* n) {
-        TRACE("utvpi", tout << mk_pp(n, m) << "\n";);
+        TRACE(utvpi, tout << mk_pp(n, m) << "\n";);
         
         bool cl = m_test.linearize(n);
         if (!cl) {
@@ -640,7 +640,7 @@ namespace smt {
             SASSERT(v2 != null_theory_var);
             SASSERT(pos2 || terms[1].second.is_minus_one());
         }            
-        TRACE("utvpi", tout << (pos1?"$":"-$") << v1;
+        TRACE(utvpi, tout << (pos1?"$":"-$") << v1;
               if (terms.size() == 2) tout << (pos2?" + $":" - $") << v2;
               tout << " + " << weight << " <= 0\n";);
         edge_id id = m_graph.get_num_edges();
@@ -757,7 +757,7 @@ namespace smt {
                 }
             }
 
-            TRACE("utvpi", 
+            TRACE(utvpi, 
                   tout << "Disparity: " << v1 << " - " << v2 << "\n";
                   tout << "decrement: " << zero_v << "\n";
                   display(tout);
@@ -770,7 +770,7 @@ namespace smt {
                     todo.push_back(k);
                 }
             }    
-            TRACE("utvpi", display(tout););
+            TRACE(utvpi, display(tout););
             SASSERT(m_graph.is_feasible_dbg());     
         }
         DEBUG_CODE(
@@ -831,7 +831,7 @@ namespace smt {
                 break;
             }
             (void)ok;
-            CTRACE("utvpi", !ok, 
+            CTRACE(utvpi, !ok, 
                    tout << "validation failed:\n";
                    tout << "Assignment: " << assign << "\n";
                    tout << mk_pp(e, m) << "\n";
@@ -840,7 +840,7 @@ namespace smt {
                    display(tout);
                    m_graph.display_agl(tout);
                    );
-            // CTRACE("utvpi",  ok, tout << "validation success: " << mk_pp(e, m) << "\n";);
+            // CTRACE(utvpi,  ok, tout << "validation success: " << mk_pp(e, m) << "\n";);
             SASSERT(ok);
         }
     }
@@ -857,7 +857,7 @@ namespace smt {
         if (m.is_eq(e, e1, e2)) {
             return eval_num(e1) == eval_num(e2);
         }
-        TRACE("utvpi", tout << "expression not handled: " << mk_pp(e, m) << "\n";);
+        TRACE(utvpi, tout << "expression not handled: " << mk_pp(e, m) << "\n";);
         return false;
     }
 
@@ -890,7 +890,7 @@ namespace smt {
         if (is_uninterp_const(e)) {
             return mk_value(mk_var(e), a.is_int(e));
         }
-        TRACE("utvpi", tout << "expression not handled: " << mk_pp(e, m) << "\n";);
+        TRACE(utvpi, tout << "expression not handled: " << mk_pp(e, m) << "\n";);
         UNREACHABLE();
         return rational(0);
     }
@@ -905,7 +905,7 @@ namespace smt {
         rational num = val.get_rational() + (m_delta * val.get_infinitesimal().to_rational());
         num = num/rational(2);
         SASSERT(!is_int || num.is_int());
-        TRACE("utvpi", 
+        TRACE(utvpi, 
               expr* n = get_enode(v)->get_expr();
               tout << mk_pp(n, m) << " |-> (" << val1 << " - " << val2 << ")/2 = " << num << "\n";);
 
@@ -917,7 +917,7 @@ namespace smt {
         theory_var v = n->get_th_var(get_id());
         bool is_int = a.is_int(n->get_expr());
         rational num = mk_value(v, is_int);
-        TRACE("utvpi", tout << mk_pp(n->get_expr(), m) << " |-> " << num << "\n";);
+        TRACE(utvpi, tout << mk_pp(n->get_expr(), m) << " |-> " << num << "\n";);
         return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, is_int));
     }
 

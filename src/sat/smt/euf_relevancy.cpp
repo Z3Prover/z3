@@ -73,7 +73,7 @@ namespace euf {
         if (!m_enabled)
             return;
         flush();
-        TRACE("relevancy", tout << "root " << sat::literal_vector(n, lits) << "\n");
+        TRACE(relevancy, tout << "root " << sat::literal_vector(n, lits) << "\n");
         sat::literal true_lit = sat::null_literal;
         for (unsigned i = 0; i < n; ++i) {
             if (ctx.s().value(lits[i]) == l_true) {
@@ -102,7 +102,7 @@ namespace euf {
         if (!m_enabled)
             return;
         flush();
-        TRACE("relevancy", tout << "def " << sat::literal_vector(n, lits) << "\n");
+        TRACE(relevancy, tout << "def " << sat::literal_vector(n, lits) << "\n");
         for (unsigned i = 0; i < n; ++i) {
             if (ctx.s().value(lits[i]) == l_false && is_relevant(lits[i])) {
                 add_root(n, lits);
@@ -163,7 +163,7 @@ namespace euf {
     }
 
     void relevancy::asserted(sat::literal lit) {
-        TRACE("relevancy", tout << "asserted " << lit << " relevant " << is_relevant(lit) << "\n");
+        TRACE(relevancy, tout << "asserted " << lit << " relevant " << is_relevant(lit) << "\n");
         if (!m_enabled)
             return;
         flush();
@@ -210,7 +210,7 @@ namespace euf {
     }
 
     void relevancy::merge(euf::enode* root, euf::enode* other) {
-        TRACE("relevancy", tout << "merge #" << ctx.bpp(root) << " " << is_relevant(root) << " #" << ctx.bpp(other) << " " << is_relevant(other) << "\n");
+        TRACE(relevancy, tout << "merge #" << ctx.bpp(root) << " " << is_relevant(root) << " #" << ctx.bpp(other) << " " << is_relevant(other) << "\n");
         if (is_relevant(root))
             mark_relevant(other);
         else if (is_relevant(other))
@@ -223,13 +223,13 @@ namespace euf {
         flush();
         if (is_relevant(n))
             return;
-        TRACE("relevancy", tout << "mark #" << ctx.bpp(n) << "\n");
+        TRACE(relevancy, tout << "mark #" << ctx.bpp(n) << "\n");
         m_trail.push_back(std::make_pair(update::add_queue, 0));
         m_queue.push_back(std::make_pair(sat::null_literal, n));
     }
 
     void relevancy::mark_relevant(sat::literal lit) {
-        TRACE("relevancy", tout << "mark " << lit << " " << is_relevant(lit) << " " << ctx.s().value(lit) << " lim: " << m_lim.size() << "\n");
+        TRACE(relevancy, tout << "mark " << lit << " " << is_relevant(lit) << " " << ctx.s().value(lit) << " lim: " << m_lim.size() << "\n");
         if (!m_enabled)
             return;
         flush();
@@ -250,7 +250,7 @@ namespace euf {
 
     void relevancy::propagate_relevant(sat::literal lit) {
         SASSERT(m_num_scopes == 0);
-        TRACE("relevancy", tout << "propagate " << lit << " lim: " << m_lim.size() << "\n");
+        TRACE(relevancy, tout << "propagate " << lit << " lim: " << m_lim.size() << "\n");
         SASSERT(ctx.s().value(lit) == l_true);
         SASSERT(is_relevant(lit));
         euf::enode* n = ctx.bool_var2enode(lit.var());
@@ -276,7 +276,7 @@ namespace euf {
                 m_roots[idx] = true;
             }
         next:
-            TRACE("relevancy", tout << "propagate " << lit << " " << true_lit << " " << m_roots[idx] << "\n");
+            TRACE(relevancy, tout << "propagate " << lit << " " << true_lit << " " << m_roots[idx] << "\n");
             ;
         }
     }
@@ -286,7 +286,7 @@ namespace euf {
         while (!m_todo.empty()) {
             n = m_todo.back();
             m_todo.pop_back();
-            TRACE("relevancy", tout << "propagate #" << ctx.bpp(n) << " lim: " << m_lim.size() << "\n");
+            TRACE(relevancy, tout << "propagate #" << ctx.bpp(n) << " lim: " << m_lim.size() << "\n");
             if (n->is_relevant())
                 continue;
             m_stack.push_back(n);

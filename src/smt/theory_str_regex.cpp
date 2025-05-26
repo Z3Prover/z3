@@ -50,20 +50,20 @@ namespace smt {
             expr * re = nullptr;
             u.str.is_in_re(str_in_re, str, re);
             if (!ctx.b_internalized(str_in_re)) {
-                TRACE("str", tout << "regex term " << mk_pp(str_in_re, m) << " not internalized; fixing and continuing" << std::endl;);
+                TRACE(str, tout << "regex term " << mk_pp(str_in_re, m) << " not internalized; fixing and continuing" << std::endl;);
                 ctx.internalize(str_in_re, false);
                 finalCheckProgressIndicator = true;
                 continue;
             }
             lbool current_assignment = ctx.get_assignment(str_in_re);
-            TRACE("str", tout << "regex term: " << mk_pp(str, m) << " in " << mk_pp(re, m) << " : " << current_assignment << std::endl;);
+            TRACE(str, tout << "regex term: " << mk_pp(str, m) << " in " << mk_pp(re, m) << " : " << current_assignment << std::endl;);
             if (current_assignment == l_undef) {
                 continue;
             }
 
             if (!regex_terms_with_length_constraints.contains(str_in_re)) {
                 if (current_assignment == l_true && check_regex_length_linearity(re)) {
-                    TRACE("str", tout << "regex length constraints expected to be linear -- generating and asserting them" << std::endl;);
+                    TRACE(str, tout << "regex length constraints expected to be linear -- generating and asserting them" << std::endl;);
 
                     if (regex_term_to_length_constraint.contains(str_in_re)) {
                         // use existing length constraint
@@ -87,7 +87,7 @@ namespace smt {
                         expr_ref top_level_length_constraint(m.mk_implies(premise, _top_level_length_constraint), m);
                         th_rewriter rw(m);
                         rw(top_level_length_constraint);
-                        TRACE("str", tout << "top-level length constraint: " << mk_pp(top_level_length_constraint, m) << std::endl;);
+                        TRACE(str, tout << "top-level length constraint: " << mk_pp(top_level_length_constraint, m) << std::endl;);
                         // assert and track length constraint
                         assert_axiom(top_level_length_constraint);
                         for(auto v : extra_length_vars) {
@@ -110,10 +110,10 @@ namespace smt {
 
             rational exact_length_value;
             if (get_len_value(str, exact_length_value)) {
-                TRACE("str", tout << "exact length of " << mk_pp(str, m) << " is " << exact_length_value << std::endl;);
+                TRACE(str, tout << "exact length of " << mk_pp(str, m) << " is " << exact_length_value << std::endl;);
 
                 if (regex_terms_with_path_constraints.contains(str_in_re)) {
-                    TRACE("str", tout << "term " << mk_pp(str_in_re, m) << " already has path constraints set up" << std::endl;);
+                    TRACE(str, tout << "term " << mk_pp(str_in_re, m) << " already has path constraints set up" << std::endl;);
                     continue;
                 }
 
@@ -163,7 +163,7 @@ namespace smt {
                         }
 
                         if (zero_solution) {
-                            TRACE("str", tout << "zero-length solution OK -- asserting empty path constraint" << std::endl;);
+                            TRACE(str, tout << "zero-length solution OK -- asserting empty path constraint" << std::endl;);
                             expr_ref_vector lhs_terms(m);
                             if (current_assignment == l_true) {
                                 lhs_terms.push_back(str_in_re);
@@ -177,7 +177,7 @@ namespace smt {
                             regex_terms_with_path_constraints.insert(str_in_re);
                             m_trail_stack.push(insert_obj_trail<expr>(regex_terms_with_path_constraints, str_in_re));
                         } else {
-                            TRACE("str", tout << "zero-length solution not admitted by this automaton -- asserting conflict clause" << std::endl;);
+                            TRACE(str, tout << "zero-length solution not admitted by this automaton -- asserting conflict clause" << std::endl;);
                             expr_ref_vector lhs_terms(m);
                             if (current_assignment == l_true) {
                                 lhs_terms.push_back(str_in_re);
@@ -199,11 +199,11 @@ namespace smt {
                     // no automata available, or else all bounds assumptions are invalid
                     unsigned expected_complexity = estimate_regex_complexity(re);
                     if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold) {
-                        CTRACE("str", regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold,
+                        CTRACE(str, regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold,
                                 tout << "failed automaton threshold reached for " << mk_pp(str_in_re, m) << " -- automatically constructing full automaton" << std::endl;);
                         eautomaton * aut = m_mk_aut(re);
                         if (aut == nullptr) {
-                            TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                            TRACE(str, tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
                             return false;
                         }
                         aut->compress();
@@ -213,7 +213,7 @@ namespace smt {
                             regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
                         }
                         regex_automaton_assumptions[re].push_back(new_aut);
-                        TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
+                        TRACE(str, tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
                         find_automaton_initial_bounds(str_in_re, aut);
                     } else {
                         regex_inc_counter(regex_fail_count, str_in_re);
@@ -226,8 +226,8 @@ namespace smt {
             rational upper_bound_value;
             bool lower_bound_exists = lower_bound(str_len, lower_bound_value);
             bool upper_bound_exists = upper_bound(str_len, upper_bound_value);
-            CTRACE("str", lower_bound_exists, tout << "lower bound of " << mk_pp(str, m) << " is " << lower_bound_value << std::endl;);
-            CTRACE("str", upper_bound_exists, tout << "upper bound of " << mk_pp(str, m) << " is " << upper_bound_value << std::endl;);
+            CTRACE(str, lower_bound_exists, tout << "lower bound of " << mk_pp(str, m) << " is " << lower_bound_value << std::endl;);
+            CTRACE(str, upper_bound_exists, tout << "upper bound of " << mk_pp(str, m) << " is " << upper_bound_value << std::endl;);
 
             bool new_lower_bound_info = true;
             bool new_upper_bound_info = true;
@@ -284,13 +284,13 @@ namespace smt {
                         }
                     }
                     if (!last_ub.is_minus_one() || !need_assumption) {
-                        CTRACE("str", !need_assumption, tout << "using automaton with full length information" << std::endl;);
-                        CTRACE("str", need_assumption, tout << "using automaton with assumed upper bound of " << last_ub << std::endl;);
+                        CTRACE(str, !need_assumption, tout << "using automaton with full length information" << std::endl;);
+                        CTRACE(str, need_assumption, tout << "using automaton with assumed upper bound of " << last_ub << std::endl;);
 
                         rational refined_upper_bound;
                         bool solution_at_upper_bound = refine_automaton_upper_bound(last_assumption.get_automaton(),
                                 upper_bound_value, refined_upper_bound);
-                        TRACE("str", tout << "refined upper bound is " << refined_upper_bound <<
+                        TRACE(str, tout << "refined upper bound is " << refined_upper_bound <<
                                 (solution_at_upper_bound?", solution at upper bound":", no solution at upper bound") << std::endl;);
 
                         expr_ref_vector lhs(m);
@@ -341,7 +341,7 @@ namespace smt {
                     if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || failureThresholdExceeded) {
                         eautomaton * aut = m_mk_aut(re);
                         if (aut == nullptr) {
-                            TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                            TRACE(str, tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
                             return false;
                         }
                         aut->compress();
@@ -351,7 +351,7 @@ namespace smt {
                             regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
                         }
                         regex_automaton_assumptions[re].push_back(new_aut);
-                        TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
+                        TRACE(str, tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
                         find_automaton_initial_bounds(str_in_re, aut);
                     } else {
                         regex_inc_counter(regex_fail_count, str_in_re);
@@ -392,12 +392,12 @@ namespace smt {
                             }
                         }
                         if (!last_lb.is_zero() || !need_assumption) {
-                            CTRACE("str", !need_assumption, tout << "using automaton with full length information" << std::endl;);
-                            CTRACE("str", need_assumption, tout << "using automaton with assumed lower bound of " << last_lb << std::endl;);
+                            CTRACE(str, !need_assumption, tout << "using automaton with full length information" << std::endl;);
+                            CTRACE(str, need_assumption, tout << "using automaton with assumed lower bound of " << last_lb << std::endl;);
                             rational refined_lower_bound;
                             bool solution_at_lower_bound = refine_automaton_lower_bound(last_assumption.get_automaton(),
                                     lower_bound_value, refined_lower_bound);
-                            TRACE("str", tout << "refined lower bound is " << refined_lower_bound <<
+                            TRACE(str, tout << "refined lower bound is " << refined_lower_bound <<
                                     (solution_at_lower_bound?", solution at lower bound":", no solution at lower bound") << std::endl;);
 
                             expr_ref_vector lhs(m);
@@ -451,7 +451,7 @@ namespace smt {
                         if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || failureThresholdExceeded) {
                             eautomaton * aut = m_mk_aut(re);
                             if (aut == nullptr) {
-                                TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                                TRACE(str, tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
                                 return false;
                             }
                             aut->compress();
@@ -461,7 +461,7 @@ namespace smt {
                                 regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
                             }
                             regex_automaton_assumptions[re].push_back(new_aut);
-                            TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
+                            TRACE(str, tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
                             find_automaton_initial_bounds(str_in_re, aut);
                         } else {
                             // TODO check negation?
@@ -487,7 +487,7 @@ namespace smt {
                                 || failureThresholdExceeded) {
                             eautomaton * aut = m_mk_aut(re);
                             if (aut == nullptr) {
-                                TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                                TRACE(str, tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
                                 return false;
                             }
                             aut->compress();
@@ -497,7 +497,7 @@ namespace smt {
                                 regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
                             }
                             regex_automaton_assumptions[re].push_back(new_aut);
-                            TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
+                            TRACE(str, tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
                             find_automaton_initial_bounds(str_in_re, aut);
                         } else {
                             regex_inc_counter(regex_fail_count, str_in_re);
@@ -579,9 +579,9 @@ namespace smt {
             } // foreach(term in str_in_re_terms)
 
             eautomaton * aut_inter = nullptr;
-            CTRACE("str", !intersect_constraints.empty(), tout << "check intersection of automata constraints for " << mk_pp(str, m) << std::endl;);
+            CTRACE(str, !intersect_constraints.empty(), tout << "check intersection of automata constraints for " << mk_pp(str, m) << std::endl;);
             for (auto aut : intersect_constraints) {
-                TRACE("str",
+                TRACE(str,
                       {
                           unsigned v = regex_get_counter(regex_length_attempt_count, aut.get_regex_term());
                           tout << "length attempt count of " << mk_pp(aut.get_regex_term(), m) << " is " << v
@@ -593,7 +593,7 @@ namespace smt {
                     if (aut_inter != nullptr) {
                         intersectionDifficulty = estimate_automata_intersection_difficulty(aut_inter, aut.get_automaton());
                     }
-                    TRACE("str", tout << "intersection difficulty is " << intersectionDifficulty << std::endl;);
+                    TRACE(str, tout << "intersection difficulty is " << intersectionDifficulty << std::endl;);
                     if (intersectionDifficulty <= m_params.m_RegexAutomata_IntersectionDifficultyThreshold
                             || regex_get_counter(regex_intersection_fail_count, aut.get_regex_term()) >= m_params.m_RegexAutomata_FailedIntersectionThreshold) {
 
@@ -616,7 +616,7 @@ namespace smt {
                             expr_ref rc(u.re.mk_complement(aut.get_regex_term()), m);
                             eautomaton * aut_c = m_mk_aut(rc);
                             if (aut_c == nullptr) {
-                                TRACE("str", tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
+                                TRACE(str, tout << "ERROR: symbolic automaton construction failed, likely due to non-constant term in regex" << std::endl;);
                                 return false;
                             }
                             regex_automata.push_back(aut_c);
@@ -642,7 +642,7 @@ namespace smt {
             if (aut_inter != nullptr) {
                 aut_inter->compress();
             }
-            TRACE("str", tout << "intersected " << used_intersect_constraints.size() << " constraints" << std::endl;);
+            TRACE(str, tout << "intersected " << used_intersect_constraints.size() << " constraints" << std::endl;);
 
             expr_ref_vector conflict_terms(m);
             expr_ref conflict_lhs(m);
@@ -667,7 +667,7 @@ namespace smt {
                 }
             }
             conflict_lhs = mk_and(conflict_terms);
-            TRACE("str", tout << "conflict lhs: " << mk_pp(conflict_lhs, m) << std::endl;);
+            TRACE(str, tout << "conflict lhs: " << mk_pp(conflict_lhs, m) << std::endl;);
 
             if (used_intersect_constraints.size() > 1 && aut_inter != nullptr) {
                 // check whether the intersection is only the empty string
@@ -677,7 +677,7 @@ namespace smt {
                     // if there are no moves from the initial state,
                     // the only solution is the empty string
                     if (aut_inter->get_moves_from(initial_state).empty()) {
-                        TRACE("str", tout << "product automaton only accepts empty string" << std::endl;);
+                        TRACE(str, tout << "product automaton only accepts empty string" << std::endl;);
                         expr_ref rhs1(ctx.mk_eq_atom(str, mk_string("")), m);
                         expr_ref rhs2(ctx.mk_eq_atom(mk_strlen(str), m_autil.mk_numeral(rational::zero(), true)), m);
                         expr_ref rhs(m.mk_and(rhs1, rhs2), m);
@@ -687,7 +687,7 @@ namespace smt {
             }
 
             if (aut_inter != nullptr && aut_inter->is_empty()) {
-                TRACE("str", tout << "product automaton is empty; asserting conflict clause" << std::endl;);
+                TRACE(str, tout << "product automaton is empty; asserting conflict clause" << std::endl;);
                 expr_ref conflict_clause(m.mk_not(mk_and(conflict_terms)), m);
                 assert_axiom(conflict_clause);
                 add_persisted_axiom(conflict_clause);
@@ -736,7 +736,7 @@ namespace smt {
         } else if (u.re.is_full_char(re) || u.re.is_full_seq(re)) {
             return 1;
         } else {
-            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
+            TRACE(str, tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
             return 1;
         }
     }
@@ -776,7 +776,7 @@ namespace smt {
         } else if (u.re.is_full_char(re) || u.re.is_full_seq(re)) {
             return 1;
         } else {
-            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
+            TRACE(str, tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
             return 1;
         }
     }
@@ -822,7 +822,7 @@ namespace smt {
         } else if (u.re.is_loop(re, sub1, lo, hi) || u.re.is_loop(re, sub1, lo)) {
             return check_regex_length_linearity_helper(sub1, already_star);
         } else {
-            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
+            TRACE(str, tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
             return false;
         }
     }
@@ -898,7 +898,7 @@ namespace smt {
                 }
             }
         } else {
-            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
+            TRACE(str, tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
             lens.reset();
         }
     }
@@ -965,7 +965,7 @@ namespace smt {
                 expr_ref retval(m_autil.mk_ge(lenVar, m_autil.mk_numeral(rational::zero(), true)), m);
                 return retval;
             } else {
-                TRACE("str", tout << "subterm lengths:";
+                TRACE(str, tout << "subterm lengths:";
                 for(integer_set::iterator it = subterm_lens.begin(); it != subterm_lens.end(); ++it) {
                     tout << " " << *it;
                 }
@@ -1023,7 +1023,7 @@ namespace smt {
             expr_ref retval(m_autil.mk_ge(lenVar, m_autil.mk_numeral(rational::zero(), true)), m);
             return retval;
         } else {
-            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, m) << std::endl;);
+            TRACE(str, tout << "WARNING: unknown regex term " << mk_pp(re, m) << std::endl;);
             expr_ref retval(m_autil.mk_ge(lenVar, m_autil.mk_numeral(rational::zero(), true)), m);
             return retval;
         }
@@ -1284,12 +1284,12 @@ namespace smt {
 
         if (u.is_const_char(cond, char_val)) {
             SASSERT(char_val < 256);
-            TRACE("str", tout << "rewrite character constant " << char_val << std::endl;);
+            TRACE(str, tout << "rewrite character constant " << char_val << std::endl;);
             zstring str_const(char_val);
             retval = u.str.mk_string(str_const);
             return retval;
         } else if (is_var(cond)) {
-            TRACE("str", tout << "substitute var" << std::endl;);
+            TRACE(str, tout << "substitute var" << std::endl;);
             retval = ch_var;
             return retval;
         } else if (m.is_eq(cond, lhs, rhs)) {
@@ -1301,7 +1301,7 @@ namespace smt {
             retval = ctx.mk_eq_atom(new_lhs, new_rhs);
             return retval;
         } else if (m.is_bool(cond)) {
-            TRACE("str", tout << "rewrite boolean term " << mk_pp(cond, m) << std::endl;);
+            TRACE(str, tout << "rewrite boolean term " << mk_pp(cond, m) << std::endl;);
             app * a_cond = to_app(cond);
             expr_ref_vector rewritten_args(m);
             for (unsigned i = 0; i < a_cond->get_num_args(); ++i) {
@@ -1311,10 +1311,10 @@ namespace smt {
                 rewritten_args.push_back(new_arg);
             }
             retval = m.mk_app(a_cond->get_decl(), rewritten_args.data());
-            TRACE("str", tout << "final rewritten term is " << mk_pp(retval, m) << std::endl;);
+            TRACE(str, tout << "final rewritten term is " << mk_pp(retval, m) << std::endl;);
             return retval;
         } else {
-            TRACE("str", tout << "ERROR: unrecognized automaton path constraint " << mk_pp(cond, m) << ", cannot translate" << std::endl;);
+            TRACE(str, tout << "ERROR: unrecognized automaton path constraint " << mk_pp(cond, m) << ", cannot translate" << std::endl;);
             retval = nullptr;
             return retval;
         }
@@ -1432,7 +1432,7 @@ namespace smt {
                         unsigned lo_val, hi_val;
 
                         if (u.is_const_char(range_lo, lo_val) && u.is_const_char(range_hi, hi_val)) {
-                            TRACE("str", tout << "make range predicate from " << lo_val << " to " << hi_val << std::endl;);
+                            TRACE(str, tout << "make range predicate from " << lo_val << " to " << hi_val << std::endl;);
                             expr_ref cond_rhs(m);
                             expr_ref_vector cond_rhs_terms(m);
                             for (unsigned i = lo_val; i <= hi_val; ++i) {
@@ -1446,7 +1446,7 @@ namespace smt {
                             cond = mk_and(m, 2, args);
                             aut_path_add_next(next, trail, mv.dst(), cond);
                         } else {
-                            TRACE("str", tout << "warning: non-bitvectors in automaton range predicate" << std::endl;);
+                            TRACE(str, tout << "warning: non-bitvectors in automaton range predicate" << std::endl;);
                             UNREACHABLE();
                         }
                     } else if (mv.t()->is_pred()) {
@@ -1482,7 +1482,7 @@ namespace smt {
             }
         }
         expr_ref result(mk_or(ors));
-        TRACE("str", tout << "regex path constraint: " << mk_pp(result, m) << "\n";);
+        TRACE(str, tout << "regex path constraint: " << mk_pp(result, m) << "\n";);
 
         expr_ref concat_rhs(m);
         if (pathChars.size() == 1) {

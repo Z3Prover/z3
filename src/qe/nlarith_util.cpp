@@ -124,7 +124,7 @@ namespace nlarith {
             }
 
             if (!get_polys(contains_x, num_lits, lits, polys, comps, &branch_conds, nullptr)) {
-                TRACE("nlarith", 
+                TRACE(nlarith, 
                       tout << "could not extract polynomials " << mk_pp(x, m()) << "\n";
                       for (unsigned i = 0; i < num_lits; ++i) {
                           tout << mk_pp(lits[i], m()) << " ";
@@ -137,7 +137,7 @@ namespace nlarith {
                 return false;                
             }
             if (!m_enable_linear && is_linear(polys)) {
-                TRACE("nlarith", tout << "this is a linear problem " << mk_pp(x,m()) << "\n"; display(tout, polys););
+                TRACE(nlarith, tout << "this is a linear problem " << mk_pp(x,m()) << "\n"; display(tout, polys););
                 return false;
             }
             unsigned idx;
@@ -152,7 +152,7 @@ namespace nlarith {
                 }
             }
             inf_branch(polys, comps, branch_conds);
-            TRACE("nlarith", 
+            TRACE(nlarith, 
                   for (unsigned i = 0; i < num_lits; ++i) {
                       tout << mk_pp(lits[i], m()) << " ";
                   }
@@ -229,7 +229,7 @@ namespace nlarith {
                 }
             }
 
-            TRACE("nlarith",
+            TRACE(nlarith,
                   tout << "Non-linear variables: ";
                   for (unsigned i = 0; i < nl_vars.size(); ++i) {
                       tout << mk_pp(nl_vars[i], m()) << " ";
@@ -522,12 +522,12 @@ namespace nlarith {
                 apply_subst(sub, comps[j],  polys[j], t1); 
                 es.push_back(m().mk_implies(bc.preds(j), t1));
                 subst.push_back(t1);
-                TRACE("nlarith_verbose", 
+                TRACE(nlarith_verbose, 
                       display(tout << "inf", polys[j]); 
                       display(tout, comps[j]); 
                       tout << " 0 [-oo] --> " << mk_pp(t1.get(), m()) << "\n";);
             }
-            TRACE("nlarith", tout << "inf-branch\n";);
+            TRACE(nlarith, tout << "inf-branch\n";);
             bc.add_branch(mk_and(es.size(), es.data()), m().mk_true(), subst, mk_inf(bc), z(), z(), z());
         }
 
@@ -545,7 +545,7 @@ namespace nlarith {
             if (b != z()) {
                 sqrt_form e0(*this, mk_uminus(c), 0,   z(), b);
                 // a_i = 0 /\ b_i != 0 /\ phi[e_i/x]
-                TRACE("nlarith", display(tout << "a_i != 0 & b_i != 0 & hi[e_i / x]", p);tout<<"\n";);
+                TRACE(nlarith, display(tout << "a_i != 0 & b_i != 0 & hi[e_i / x]", p);tout<<"\n";);
                 scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m(), false);
                 expr_substitution sub(m());
                 sub.insert(a, z());
@@ -565,7 +565,7 @@ namespace nlarith {
 
             if (i == j && a != z()) {
                 // a != 0 & phi[-b/(2a)/x]
-                TRACE("nlarith", display(tout << "a != 0 & phi[-b/2a / x]", p);tout<<"\n";);
+                TRACE(nlarith, display(tout << "a != 0 & phi[-b/2a / x]", p);tout<<"\n";);
                 app* a2 = mk_mul(num(2), a);
                 sqrt_form e1(*this, mk_uminus(b), 0, z(), a2);
                 es.reset();
@@ -594,7 +594,7 @@ namespace nlarith {
             d = mk_sub(mk_mul(b,b), mk_mul(num(4), a, c));
             a2 = mk_mul(a, num(2));            
 
-            TRACE("nlarith", 
+            TRACE(nlarith, 
                   display(tout, p); tout << "\n";
                   tout << "a:" << mk_pp(a, m()) << "\n";
                   tout << "b:" << mk_pp(b,m())  << "\n";
@@ -644,9 +644,9 @@ namespace nlarith {
                 }
                 branch = mk_and(es.size(), es.data());
                 bc.add_branch(branch, cond, subst, mk_def(cmp, abc_poly(*this, a, b, c), e1), a, b, c);
-                TRACE("nlarith", tout << mk_pp(branch,m()) << "\n";);
+                TRACE(nlarith, tout << mk_pp(branch,m()) << "\n";);
 
-                TRACE("nlarith", 
+                TRACE(nlarith, 
                       tout << "0 <= " << mk_pp(d,m()) << "\n";
                       tout << mk_pp(mk_ge(d), m()) << "\n";);
 
@@ -659,7 +659,7 @@ namespace nlarith {
                 }
                 branch = mk_and(es.size(), es.data());
                 bc.add_branch(branch, cond, subst, mk_def(cmp, abc_poly(*this, a, b, c), e2), a, b, c);
-                TRACE("nlarith", tout << mk_pp(branch,m()) << "\n";);
+                TRACE(nlarith, tout << mk_pp(branch,m()) << "\n";);
             }
         }        
 
@@ -675,7 +675,7 @@ namespace nlarith {
             else {
                 apply_subst(sub, c, p, r); 
             }
-            TRACE("nlarith_verbose", 
+            TRACE(nlarith_verbose, 
                   display(tout, p); 
                   display(tout, c); 
                   e.display(tout << " 0 "); 
@@ -700,7 +700,7 @@ namespace nlarith {
         bool is_degree_two_plus(polys const& ps) {
             for (unsigned i = 0; i < ps.size(); ++i) {
                 if (ps[i].size() > 3) {
-                    TRACE("nlarith", tout << "not second-degree: ";
+                    TRACE(nlarith, tout << "not second-degree: ";
                       display(tout, ps[i]); tout <<"\n"; );
                     return true;
                 }
@@ -796,7 +796,7 @@ namespace nlarith {
                 if (literals) {
                     literals->push_back(to_app(lits[i]));
                 }
-                TRACE("nlarith_verbose", 
+                TRACE(nlarith_verbose, 
                       tout << mk_pp(lits[i], m()) << " -> ";
                       display(tout, p); tout << "\n"; );
             }            
@@ -904,7 +904,7 @@ namespace nlarith {
                 mk_uminus(result);
                 return true;
             default:
-                TRACE("nlarith", tout << "Cannot decompose " << mk_pp(f, m()) << "\n" << mk_pp(e, m()) << "\n";);
+                TRACE(nlarith, tout << "Cannot decompose " << mk_pp(f, m()) << "\n" << mk_pp(e, m()) << "\n";);
                 return false;
             }
         }
@@ -951,7 +951,7 @@ namespace nlarith {
                 }
                 result.push_back(t);
             }
-            TRACE("nlarith_verbose", display(tout, r); display(tout <<" * ", other); display(tout << " = ", result); tout <<"\n";);
+            TRACE(nlarith_verbose, display(tout, r); display(tout <<" * ", other); display(tout << " = ", result); tout <<"\n";);
             r.reset();
             r.append(result.size(), result.data());
         }
@@ -1316,7 +1316,7 @@ namespace nlarith {
                 dr = mk_mul(d, dr);
                 ar = tmp1;
             }
-            TRACE("nlarith_verbose", 
+            TRACE(nlarith_verbose, 
                   display(tout, p);
                   s.display(tout << " ");
                   tout << " " << mk_pp(ar, m()) << " " << mk_pp(br, m()) << " " << mk_pp(dr, m()) << "\n";);
@@ -1453,7 +1453,7 @@ namespace nlarith {
             mk_sub(q1, u);
             for (unsigned i = 0; i < q1.size(); ++i) {
                 if (z() != q1[i].get()) {
-                    TRACE("nlarith", display(tout, q1););
+                    TRACE(nlarith, display(tout, q1););
                     return false;
                 }
             }

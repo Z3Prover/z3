@@ -63,7 +63,7 @@ static unsigned to_int(model_core & mdl, expr_ref_vector & out) {
 #define ENSURE_INT(mdl, out, expected) \
     do { \
         unsigned actual = to_int(mdl, out); \
-        TRACE("bit_blaster", \
+        TRACE(bit_blaster, \
             display(tout, out); \
             tout << "expected=" << (expected) << ", actual=" << actual << "\n"; \
         ); \
@@ -193,9 +193,9 @@ void tst_le(ast_manager & m, unsigned sz) {
 //     bool t = true;
 //     bit_blaster blaster(m, t);
 //     blaster.mk_ule(sz, a.c_ptr(), b.c_ptr(), out); 
-//     TRACE("bit_blaster", tout << mk_pp(out, m) << "\n";);
+//     TRACE(bit_blaster, tout << mk_pp(out, m) << "\n";);
 //     blaster.mk_sle(sz, a.c_ptr(), b.c_ptr(), out);
-//     TRACE("bit_blaster", tout << mk_pp(out, m) << "\n";);
+//     TRACE(bit_blaster, tout << mk_pp(out, m) << "\n";);
 }
 
 void tst_eqs(ast_manager & m, unsigned sz) {
@@ -206,7 +206,7 @@ void tst_eqs(ast_manager & m, unsigned sz) {
 //     bool t = true;
 //     bit_blaster blaster(m, t);
 //     blaster.mk_eqs(sz, a.c_ptr(), b); 
-//     TRACE("bit_blaster", display(tout, b, false););
+//     TRACE(bit_blaster, display(tout, b, false););
 }
 
 void tst_sh(ast_manager & m, unsigned sz) {
@@ -218,13 +218,13 @@ void tst_sh(ast_manager & m, unsigned sz) {
 //     bool t = true;
 //     bit_blaster blaster(m, t);
 //     blaster.mk_shl(sz, a.c_ptr(), b.c_ptr(), c);
-//     TRACE("bit_blaster", tout << "shl\n"; display(tout, c););
+//     TRACE(bit_blaster, tout << "shl\n"; display(tout, c););
 //     c.reset();
 //     blaster.mk_lshr(sz, a.c_ptr(), b.c_ptr(), c);
-//     TRACE("bit_blaster", tout << "lshr\n"; display(tout, c););
+//     TRACE(bit_blaster, tout << "lshr\n"; display(tout, c););
 //     c.reset();
 //     blaster.mk_ashr(sz, a.c_ptr(), b.c_ptr(), c);
-//     TRACE("bit_blaster", tout << "ashr " << c.size() << "\n"; display(tout, c, false););
+//     TRACE(bit_blaster, tout << "ashr " << c.size() << "\n"; display(tout, c, false););
 }
 
 void tst_bit_blaster() {

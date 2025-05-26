@@ -40,7 +40,7 @@ int mpn_manager::compare(mpn_digit const * a, unsigned lnga,
             res = -1;
     }
 
-    TRACE("mpn", tout << ((res == 1) ? " > " : (res == -1) ? " < " : " == "); );
+    TRACE(mpn, tout << ((res == 1) ? " > " : (res == -1) ? " < " : " == "); );
     
     trace_nl(b, lngb);
     return res;
@@ -173,7 +173,7 @@ bool mpn_manager::div(mpn_digit const * numer, unsigned lnum,
         div_unnormalize(u, v, d, rem);    
     }
 
-    // TRACE("mpn_dbg", display_raw(tout, quot, lnum - lden + 1); tout << ", ";
+    // TRACE(mpn_dbg, display_raw(tout, quot, lnum - lden + 1); tout << ", ";
     //                  display_raw(tout, rem, lden); tout << std::endl; );
     trace_nl(quot, lnum-lden+1);
 
@@ -189,7 +189,7 @@ bool mpn_manager::div(mpn_digit const * numer, unsigned lnum,
     for (unsigned i = 0; i < lnum && ok; i++)
         if (temp[i] != numer[i]) ok = false;
     if (temp[lnum] != 0) ok = false;
-    CTRACE("mpn_dbg", !ok, tout << "DIV BUG: quot * denom + rem = "; display_raw(tout, temp.data(), lnum+1); tout << std::endl; );
+    CTRACE(mpn_dbg, !ok, tout << "DIV BUG: quot * denom + rem = "; display_raw(tout, temp.data(), lnum+1); tout << std::endl; );
     SASSERT(ok);
 #endif
 
@@ -230,7 +230,7 @@ unsigned mpn_manager::div_normalize(mpn_digit const * numer, unsigned lnum,
         d = 0;
     }
 
-    TRACE("mpn_norm", tout << "Normalized: n_numer="; display_raw(tout, n_numer.data(), n_numer.size()); 
+    TRACE(mpn_norm, tout << "Normalized: n_numer="; display_raw(tout, n_numer.data(), n_numer.size()); 
                       tout << " n_denom="; display_raw(tout, n_denom.data(), n_denom.size()); tout << std::endl; );
     return d;
 }
@@ -269,7 +269,7 @@ bool mpn_manager::div_1(mpn_sbuffer & numer, mpn_digit const denom,
             quot[j-1]--;
             numer[j] = numer[j-1] + denom;
         }
-        TRACE("mpn_div1", 
+        TRACE(mpn_div1, 
               mpn_double_digit r_hat = temp % (mpn_double_digit) denom;
               tout << "j=" << j << " q_hat=" << q_hat << " r_hat=" << r_hat;
               tout << " ms=" << ms;
@@ -323,7 +323,7 @@ bool mpn_manager::div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
             for (unsigned i = 0; i < n+1; i++)
                 numer[j+i] = ab[i];
         }
-        TRACE("mpn_div", tout << "q_hat=" << q_hat << " r_hat=" << r_hat;
+        TRACE(mpn_div, tout << "q_hat=" << q_hat << " r_hat=" << r_hat;
                          tout << " ms="; display_raw(tout, ms.data(), n);
                          tout << " new numer="; display_raw(tout, numer.data(), m+n+1);
                          tout << " borrow=" << borrow;
@@ -335,7 +335,7 @@ bool mpn_manager::div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
 
 char * mpn_manager::to_string(mpn_digit const * a, unsigned lng, char * buf, unsigned lbuf) const {
     SASSERT(buf && lbuf > 0);    
-    TRACE("mpn_to_string", tout << "[mpn] to_string "; display_raw(tout, a, lng); tout << " == "; );
+    TRACE(mpn_to_string, tout << "[mpn] to_string "; display_raw(tout, a, lng); tout << " == "; );
 
     if (lng == 1) {
 #ifdef _WINDOWS
@@ -368,7 +368,7 @@ char * mpn_manager::to_string(mpn_digit const * a, unsigned lng, char * buf, uns
             std::swap(buf[i], buf[j-i]);
     }
 
-    TRACE("mpn_to_string", tout << buf << std::endl; );
+    TRACE(mpn_to_string, tout << buf << std::endl; );
 
     return buf;
 }
@@ -384,7 +384,7 @@ void mpn_manager::trace(mpn_digit const * a, unsigned lnga,
                         const char * op) const {
 #ifdef Z3DEBUG
     char char_buf[4096];
-    TRACE("mpn", tout << "[mpn] " << to_string(a, lnga, char_buf, sizeof(char_buf));
+    TRACE(mpn, tout << "[mpn] " << to_string(a, lnga, char_buf, sizeof(char_buf));
                  tout << " " << op << " " << to_string(b, lngb, char_buf, sizeof(char_buf));
                  tout << " == "; );
 #endif
@@ -393,13 +393,13 @@ void mpn_manager::trace(mpn_digit const * a, unsigned lnga,
 void mpn_manager::trace(mpn_digit const * a, unsigned lnga) const {
 #ifdef Z3DEBUG
     char char_buf[4096];
-    TRACE("mpn", tout << to_string(a, lnga, char_buf, sizeof(char_buf)); );
+    TRACE(mpn, tout << to_string(a, lnga, char_buf, sizeof(char_buf)); );
 #endif
 }
 
 void mpn_manager::trace_nl(mpn_digit const * a, unsigned lnga) const {
 #ifdef Z3DEBUG
     char char_buf[4096];
-    TRACE("mpn", tout << to_string(a, lnga, char_buf, sizeof(char_buf)) << std::endl; );
+    TRACE(mpn, tout << to_string(a, lnga, char_buf, sizeof(char_buf)) << std::endl; );
 #endif
 }

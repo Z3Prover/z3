@@ -307,7 +307,7 @@ namespace smt {
      * 2. Assign values to characters that haven't been assigned.
      */
     bool theory_char::final_check() {   
-        TRACE("seq", tout << "final check " << get_num_vars() << "\n";);
+        TRACE(seq, tout << "final check " << get_num_vars() << "\n";);
         m_var2value.reset();
         m_var2value.resize(get_num_vars(), UINT_MAX);
         m_value2var.reset();
@@ -318,7 +318,7 @@ namespace smt {
         for (unsigned v = get_num_vars(); v-- > 0; ) {
             expr* e = get_expr(v);
             if (seq.is_char(e) && m_var2value[v] == UINT_MAX && get_char_value(v, c)) {
-                CTRACE("seq_verbose", seq.is_char(e), tout << mk_pp(e, m) << " root: " << get_enode(v)->is_root() << " is_value: " << get_char_value(v, c) << "\n";);
+                CTRACE(seq_verbose, seq.is_char(e), tout << mk_pp(e, m) << " root: " << get_enode(v)->is_root() << " is_value: " << get_char_value(v, c) << "\n";);
                 enode* r = get_enode(v)->get_root();
                 m_value2var.reserve(c + 1, null_theory_var);
                 theory_var u = m_value2var[c];
@@ -358,7 +358,7 @@ namespace smt {
                         return false;
                     }                    
                 }
-                TRACE("seq", tout << "fresh: " << mk_pp(e, m) << " := " << c << "\n";);
+                TRACE(seq, tout << "fresh: " << mk_pp(e, m) << " := " << c << "\n";);
                 for (enode* n : *get_enode(v)) 
                     m_var2value[n->get_th_var(get_id())] = c;
                 m_value2var.reserve(c + 1, null_theory_var);
@@ -370,7 +370,7 @@ namespace smt {
     }
 
     void theory_char::enforce_bits() {
-        TRACE("seq", tout << "enforce bits\n";);
+        TRACE(seq, tout << "enforce bits\n";);
         for (unsigned v = get_num_vars(); v-- > 0; ) {
             expr* e = get_expr(v);
             if (seq.is_char(e) && get_enode(v)->is_root() && !has_bits(v))
@@ -379,7 +379,7 @@ namespace smt {
     }
 
     void theory_char::enforce_value_bound(theory_var v) {
-        TRACE("seq", tout << "enforce bound " << v << "\n";);
+        TRACE(seq, tout << "enforce bound " << v << "\n";);
         enode* n = ensure_enode(seq.mk_char(seq.max_char()));
         theory_var w = n->get_th_var(get_id());                    
         SASSERT(has_bits(w));
@@ -395,7 +395,7 @@ namespace smt {
     void theory_char::enforce_ackerman(theory_var v, theory_var w) {
         if (v > w) 
             std::swap(v, w);
-        TRACE("seq", tout << "enforce ackerman " << v << " " << w << "\n";);
+        TRACE(seq, tout << "enforce ackerman " << v << " " << w << "\n";);
         literal eq = mk_literal(m.mk_eq(get_expr(v), get_expr(w)));
         ctx.mark_as_relevant(eq);
         literal_vector lits;

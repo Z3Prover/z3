@@ -133,7 +133,7 @@ namespace opt {
             model_ref mdl;
             s().get_model(mdl);            
             if (mdl) {
-                TRACE("opt", tout << *mdl << "\n";);
+                TRACE(opt, tout << *mdl << "\n";);
                 for (auto & soft : m_soft) {
                     if (!mdl->is_true(soft.s)) {
                         update_bounds();

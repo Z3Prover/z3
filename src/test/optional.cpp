@@ -28,7 +28,7 @@ static void tst1() {
     v = 10;
     ENSURE(v);
     ENSURE(*v == 10);
-    TRACE("optional", tout << sizeof(v) << "\n";);
+    TRACE(optional, tout << sizeof(v) << "\n";);
 }
 
 struct OptFoo {
@@ -36,11 +36,11 @@ struct OptFoo {
     int m_y;
 
     OptFoo(int x, int y):m_x(x), m_y(y) {
-    TRACE("optional", tout << "OptFoo created: " << m_x << " : " << m_y << "\n";);
+    TRACE(optional, tout << "OptFoo created: " << m_x << " : " << m_y << "\n";);
     }
 
     ~OptFoo() {
-    TRACE("optional", tout << "OptFoo deleted: " << m_x << " : " << m_y << "\n";);
+    TRACE(optional, tout << "OptFoo deleted: " << m_x << " : " << m_y << "\n";);
     }
 };
 
@@ -53,7 +53,7 @@ static void tst2() {
     v = OptFoo(200, 300);
     ENSURE(v->m_x == 200);
     ENSURE(v->m_y == 300);
-    TRACE("optional", tout << sizeof(v) << "\n";);
+    TRACE(optional, tout << sizeof(v) << "\n";);
 }
 
 static void tst3() {
@@ -63,7 +63,7 @@ static void tst3() {
     v = &x;
     ENSURE(v);
     ENSURE(*v == &x);
-    TRACE("optional", tout << sizeof(v) << "\n";);
+    TRACE(optional, tout << sizeof(v) << "\n";);
     ENSURE(*(*v) == 10);
 }
 

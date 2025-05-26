@@ -26,7 +26,7 @@ namespace lp {
 
     lia_move int_cube::operator()() {
         lia.settings().stats().m_cube_calls++;
-        TRACE("cube",
+        TRACE(cube,
               for (unsigned j = 0; j < lra.number_of_vars(); j++)
                   lia.display_column(tout, j);
               tout << lra.constraints();
@@ -41,7 +41,7 @@ namespace lp {
         
         lp_status st = lra.find_feasible_solution();
         if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
-            TRACE("cube", tout << "cannot find a feasible solution";);
+            TRACE(cube, tout << "cannot find a feasible solution";);
             lra.pop();
             lra.move_non_basic_columns_to_bounds();
             // it can happen that we found an integer solution here
@@ -51,7 +51,7 @@ namespace lp {
         lra.round_to_integer_solution();
         lra.set_status(lp_status::FEASIBLE);
         SASSERT(lia.settings().get_cancel_flag() || lia.is_feasible());
-        TRACE("cube", tout << "success";);
+        TRACE(cube, tout << "success";);
         lia.settings().stats().m_cube_success++;
         return lia_move::sat;
     }
@@ -61,7 +61,7 @@ namespace lp {
             return true;
         const lar_term& t = lra.get_term(i);
         impq delta = get_cube_delta_for_term(t);
-        TRACE("cube", lra.print_term_as_indices(t, tout); tout << ", delta = " << delta << "\n";);
+        TRACE(cube, lra.print_term_as_indices(t, tout); tout << ", delta = " << delta << "\n";);
         if (is_zero(delta))
             return true;
         return lra.tighten_term_bounds_by_delta(i, delta);
@@ -70,7 +70,7 @@ namespace lp {
     bool int_cube::tighten_terms_for_cube() {
         for (const lar_term* t: lra.terms())
             if (!tighten_term_for_cube(t->j())) {
-                TRACE("cube", tout << "cannot tighten";);
+                TRACE(cube, tout << "cannot tighten";);
                 return false;
             }
         return true;

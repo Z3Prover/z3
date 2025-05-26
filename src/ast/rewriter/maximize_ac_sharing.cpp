@@ -46,18 +46,18 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
         _args.append(num_args, args);
     }
 
-    TRACE("ac_sharing_detail", tout << "before-reuse: num_args: " << num_args << "\n";);
+    TRACE(ac_sharing_detail, tout << "before-reuse: num_args: " << num_args << "\n";);
 
 #define MAX_NUM_ARGS_FOR_OPT 128
 
     // Try to reuse already created circuits.
-    TRACE("ac_sharing_detail", tout << "args: "; for (unsigned i = 0; i < num_args; i++) tout << mk_pp(_args[i], m) << "\n";);
+    TRACE(ac_sharing_detail, tout << "args: "; for (unsigned i = 0; i < num_args; i++) tout << mk_pp(_args[i], m) << "\n";);
     try_to_reuse:
     if (num_args > 1 && num_args < MAX_NUM_ARGS_FOR_OPT) {
         for (unsigned i = 0; i + 1 < num_args; i++) {
             for (unsigned j = i + 1; j < num_args; j++) {
                 if (contains(f, _args[i], _args[j])) {
-                    TRACE("ac_sharing_detail", tout << "reusing args: " << i << " " << j << "\n";);
+                    TRACE(ac_sharing_detail, tout << "reusing args: " << i << " " << j << "\n";);
                     _args[i] = m.mk_app(f, _args[i], _args[j]);
                     SASSERT(num_args > 1);
                     for (unsigned w = j; w + 1 < num_args; w++) {
@@ -73,7 +73,7 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
     
     // Create "tree-like circuit"
     while (true) {
-        TRACE("ac_sharing_detail", tout << "tree-loop: num_args: " << num_args << "\n";);
+        TRACE(ac_sharing_detail, tout << "tree-loop: num_args: " << num_args << "\n";);
         unsigned j  = 0;
         for (unsigned i = 0; i < num_args; i += 2, j++) {
             if (i == num_args - 1) {
@@ -92,7 +92,7 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
             else {
                 result = m.mk_app(f, numeral, _args[0]);
             }
-            TRACE("ac_sharing_detail", tout << "result: " << result << "\n";);
+            TRACE(ac_sharing_detail, tout << "result: " << result << "\n";);
             return BR_DONE;
         }
     }

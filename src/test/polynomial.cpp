@@ -255,9 +255,9 @@ static void tst9() {
     q  = x2 - (((x0^3) - 1)*(x1^2) - 1);
     std::cout << "q: " << q << "\n";
     polynomial_ref r2(m);
-    TRACE("polynomial", tout << "QUASI_RESULTANT: q, sqrt2.....\n";);
+    TRACE(polynomial, tout << "QUASI_RESULTANT: q, sqrt2.....\n";);
     r2  = quasi_resultant(q, sqrt2, 0);
-    // TRACE("polynomial", tout << "QUASI_RESULTANT: sqrt2, q.....\n";);
+    // TRACE(polynomial, tout << "QUASI_RESULTANT: sqrt2, q.....\n";);
     // std::cout << "r2: " << r2 << "\n";
     // r2  = quasi_resultant(sqrt2, q, 0);
     // std::cout << "r2: " << r2 << "\n";
@@ -1340,7 +1340,7 @@ static void tst_mm() {
 
 static void tst_eval(polynomial_ref const & p, polynomial::var x0, rational v0, polynomial::var x1, rational v1, polynomial::var x2, rational v2,
                      rational expected) {
-    TRACE("eval_bug", tout << "tst_eval, " << p << "\n";);
+    TRACE(eval_bug, tout << "tst_eval, " << p << "\n";);
     std::cout << "p: " << p << "\nx" << x0 << " -> " << v0 << "\nx" << x1 << " -> " << v1 << "\nx" << x2 << " -> " << v2 << "\n";
     unsynch_mpq_manager qm;
     polynomial::simple_var2value<unsynch_mpq_manager> x2v(qm);

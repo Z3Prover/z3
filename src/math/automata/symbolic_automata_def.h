@@ -297,7 +297,7 @@ symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_accepta
     unsigned_vector new_final_states;                // new final states
     unsigned p_state_id = 0;                         // next state identifier
 
-    TRACE("seq", tout << "mk-deterministic " << flip_acceptance << " " << set << " " << a.is_final_configuration(set) << "\n";);    
+    TRACE(seq, tout << "mk-deterministic " << flip_acceptance << " " << set << " " << a.is_final_configuration(set) << "\n";);    
     // adds non-final states of a to final if flipping and final otherwise
     unsigned_vector init_states;
     a.get_epsilon_closure(a.init(), init_states);    
@@ -347,7 +347,7 @@ symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_accepta
             
             bool is_new = !s2id.contains(set);
             if (is_new) {
-                TRACE("seq", tout << "mk-deterministic " << flip_acceptance << " " << set << " " << a.is_final_configuration(set) << "\n";);    
+                TRACE(seq, tout << "mk-deterministic " << flip_acceptance << " " << set << " " << a.is_final_configuration(set) << "\n";);    
                 if (a.is_final_configuration(set) != flip_acceptance) {
                     new_final_states.push_back(p_state_id);
                 }

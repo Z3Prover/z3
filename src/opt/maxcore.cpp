@@ -193,7 +193,7 @@ public:
     }
 
     void add_soft(expr* e, rational const& w) {
-        TRACE("opt", tout << mk_pp(e, m) << " |-> " << w << "\n";);
+        TRACE(opt, tout << mk_pp(e, m) << " |-> " << w << "\n";);
         expr_ref asum(m), fml(m);
         app_ref cls(m);
         rational weight(0);
@@ -219,7 +219,7 @@ public:
         m_asm2weight.insert(e, w);
         m_asms.push_back(e);
         m_trail.push_back(e);
-        TRACE("opt", tout << "insert: " << mk_pp(e, m) << " : " << w << "\n";
+        TRACE(opt, tout << "insert: " << mk_pp(e, m) << " : " << w << "\n";
               tout << m_asms << " " << "\n"; );
     }
 
@@ -235,7 +235,7 @@ public:
         improve_model();
         if (is_sat != l_true) return is_sat;
         while (m_lower < m_upper) {
-            TRACE("opt_verbose",
+            TRACE(opt_verbose,
                   s().display(tout << m_asms << "\n") << "\n";
                   display(tout););
             is_sat = check_sat_hill_climb(m_asms);
@@ -244,7 +244,7 @@ public:
             }
             switch (is_sat) {
             case l_true:
-                CTRACE("opt", m_model->is_false(m_asms),
+                CTRACE(opt, m_model->is_false(m_asms),
                        tout << *m_model << "assumptions: ";
                        for (expr* a : m_asms) tout << mk_pp(a, m) << " -> " << (*m_model)(a) << " ";
                        tout << "\n";);
@@ -344,7 +344,7 @@ public:
         if (r == l_true) {
             model_ref mdl;
             s().get_model(mdl);
-            TRACE("opt", tout << *mdl;);
+            TRACE(opt, tout << *mdl;);
             if (mdl.get()) {
                 update_assignment(mdl);
             }
@@ -407,7 +407,7 @@ public:
             }
             if (core.empty()) {
                 IF_VERBOSE(100, verbose_stream() << "(opt.maxres core is empty)\n";);
-                TRACE("opt", tout << "empty core\n";);
+                TRACE(opt, tout << "empty core\n";);
                 cores.reset();
                 m_lower = m_upper;
                 return l_true;
@@ -429,7 +429,7 @@ public:
             is_sat = check_sat_hill_climb(m_asms);
         }
 
-        TRACE("opt",
+        TRACE(opt,
               tout << "sat: " << is_sat << " num cores: " << cores.size() << "\n";
               for (auto const& c : cores) display_vec(tout, c.m_core);
               tout << "num assumptions: " << m_asms.size() << "\n";);
@@ -452,7 +452,7 @@ public:
                 cs.push_back(a);
             }
         }
-        TRACE("opt", display_vec(tout << "new correction set: ", cs););
+        TRACE(opt, display_vec(tout << "new correction set: ", cs););
     }
 
     struct compare_asm {
@@ -490,7 +490,7 @@ public:
     void process_sat(exprs const& corr_set) {
         ++m_stats.m_num_cs;
         expr_ref fml(m), tmp(m);
-        TRACE("opt", display_vec(tout << "corr_set: ", corr_set););
+        TRACE(opt, display_vec(tout << "corr_set: ", corr_set););
         remove_soft(corr_set, m_asms);
         rational w = split_core(corr_set);
         cs_max_resolve(corr_set, w);
@@ -558,7 +558,7 @@ public:
         IF_VERBOSE(3, verbose_stream() << "(maxres cs model valid: " << (m_csmodel.get() != nullptr) << " cs size:" << m_correction_set_size << " core: " << core.size() << ")\n";);
         expr_ref fml(m);
         SASSERT(!core.empty());
-        TRACE("opt", display_vec(tout << "minimized core: ", core););
+        TRACE(opt, display_vec(tout << "minimized core: ", core););
         IF_VERBOSE(10, display_vec(verbose_stream() << "core: ", core););
         switch (m_st) {
         case strategy_t::s_primal_binary:
@@ -594,7 +594,7 @@ public:
             exprs cs;
             get_current_correction_set(m_csmodel.get(), cs);
             m_correction_set_size = cs.size();
-            TRACE("opt", tout << "cs " << m_correction_set_size << " " << core.size() << "\n";);
+            TRACE(opt, tout << "cs " << m_correction_set_size << " " << core.size() << "\n";);
             if (m_correction_set_size >= core.size())
                 return;
             rational w(0);
@@ -895,7 +895,7 @@ public:
     // cs is a correction set (a complement of a (maximal) satisfying assignment).
     void cs_max_resolve(exprs const& cs, rational const& w) {
         if (cs.empty()) return;
-        TRACE("opt", display_vec(tout << "correction set: ", cs););
+        TRACE(opt, display_vec(tout << "correction set: ", cs););
         expr_ref fml(m), asum(m);
         app_ref cls(m), d(m), dd(m);
         m_B.reset();
@@ -991,12 +991,12 @@ public:
             m_correction_set_size = correction_set_size;
         }
 
-        TRACE("opt_verbose", tout << *mdl;);
+        TRACE(opt_verbose, tout << *mdl;);
 
         rational upper = cost(*mdl);
 
         if (upper > m_upper) {
-            TRACE("opt", tout << "new upper: " << upper << " vs existing upper: " << m_upper << "\n";);
+            TRACE(opt, tout << "new upper: " << upper << " vs existing upper: " << m_upper << "\n";);
             return;
         }
 
@@ -1007,7 +1007,7 @@ public:
         m_model = mdl;
         m_c.model_updated(mdl.get());
 
-        TRACE("opt", tout << "updated upper: " << upper << "\n";);
+        TRACE(opt, tout << "updated upper: " << upper << "\n";);
 
         for (soft& s : m_soft)
             s.set_value(m_model->is_true(s.s));
@@ -1033,18 +1033,18 @@ public:
             weights.push_back(s.weight);
         }
         fml = u.mk_lt(nsoft.size(), weights.data(), nsoft.data(), m_upper);
-        TRACE("opt", tout << "block upper bound " << fml << "\n";);;
+        TRACE(opt, tout << "block upper bound " << fml << "\n";);;
         add(fml);
     }
 
     void remove_soft(exprs const& core, expr_ref_vector& asms) {
-        TRACE("opt", tout << "before remove: " << asms << "\n";);
+        TRACE(opt, tout << "before remove: " << asms << "\n";);
         unsigned j = 0;
         for (expr* a : asms)
             if (!core.contains(a))
                 asms[j++] = a;
         asms.shrink(j);
-        TRACE("opt", tout << "after remove: " << asms << "\n";);
+        TRACE(opt, tout << "after remove: " << asms << "\n";);
     }
 
     void updt_params(params_ref& _p) override {
@@ -1088,7 +1088,7 @@ public:
         if (m_found_feasible_optimum) {
             add(m_defs);
             add(m_asms);
-            TRACE("opt", tout << "Committing feasible solution\ndefs:" << m_defs << "\nasms:" << m_asms << "\n");
+            TRACE(opt, tout << "Committing feasible solution\ndefs:" << m_defs << "\nasms:" << m_asms << "\n");
         }
         // else: there is only a single assignment to these soft constraints.
     }
@@ -1101,7 +1101,7 @@ public:
         _solver->assert_expr(core);
         lbool is_sat = _solver->check_sat(0, nullptr);
         IF_VERBOSE(0, verbose_stream() << "core status (l_false:) " << is_sat << " core size " << core.size() << "\n");
-        CTRACE("opt", is_sat != l_false,
+        CTRACE(opt, is_sat != l_false,
                for (expr* c : core) tout << "core: " << mk_pp(c, m) << "\n";
                _solver->display(tout);
                tout << "other solver\n";

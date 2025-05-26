@@ -136,7 +136,7 @@ namespace sls {
 
     void datatype_plugin::add_edge(expr* child, expr* parent, expr* cond) {
         m_parents.insert_if_not_there(child, vector<parent_t>()).push_back({parent, expr_ref(cond, m)});
-        TRACE("dt", tout << mk_bounded_pp(child, m) << " <- " << mk_bounded_pp(parent, m) << " " << mk_bounded_pp(cond, m) << "\n");
+        TRACE(dt, tout << mk_bounded_pp(child, m) << " <- " << mk_bounded_pp(parent, m) << " " << mk_bounded_pp(cond, m) << "\n");
     }
 
     void datatype_plugin::add_path_axioms() {
@@ -164,7 +164,7 @@ namespace sls {
             }
             if (children[0]->get_sort() == parent->get_sort()) {
                 lits.push_back(~ctx.mk_literal(m.mk_eq(children[0], parent)));
-                TRACE("dt", for (auto lit : lits) tout << (lit.sign() ? "~": "") << mk_pp(ctx.atom(lit.var()), m) << "\n";);
+                TRACE(dt, for (auto lit : lits) tout << (lit.sign() ? "~": "") << mk_pp(ctx.atom(lit.var()), m) << "\n";);
                 ctx.add_clause(lits);
                 lits.pop_back();
             }
@@ -260,7 +260,7 @@ namespace sls {
         }
         //collect_path_axioms();
 
-        TRACE("dt", for (auto a : m_axioms) tout << mk_pp(a, m) << "\n";);
+        TRACE(dt, for (auto a : m_axioms) tout << mk_pp(a, m) << "\n";);
 
         for (auto a : m_axioms)
             ctx.add_constraint(a);
@@ -279,7 +279,7 @@ namespace sls {
         if (m_axiomatic_mode) {
 
             init_values();
-            TRACE("dt", tout << "get value " << mk_bounded_pp(e, m) << " " << m_values.size() << " " << g->find(e)->get_root_id() << "\n";);
+            TRACE(dt, tout << "get value " << mk_bounded_pp(e, m) << " " << m_values.size() << " " << g->find(e)->get_root_id() << "\n";);
             for (auto n : euf::enode_class(g->find(e))) {
                 auto id = n->get_id();
                 if (m_values.get(id, nullptr))
@@ -295,7 +295,7 @@ namespace sls {
     void datatype_plugin::init_values() {
         if (!m_values.empty())
             return;
-        TRACE("dt", g->display(tout));
+        TRACE(dt, g->display(tout));
         m_model = alloc(model, m);
         // retrieve e-graph from sls_euf_solver: add bridge in sls_context to share e-graph
         SASSERT(g);
@@ -347,11 +347,11 @@ namespace sls {
             if (!has_null) {                
                 m_values.setx(id, m.mk_app(f, args));
                 m_model->register_value(m_values.get(id));
-                TRACE("dt", tout << "Set interpretation "; trace_assignment(tout, n););
+                TRACE(dt, tout << "Set interpretation "; trace_assignment(tout, n););
             }
         }
 
-        TRACE("dt",
+        TRACE(dt,
             for (euf::enode* n : deps.top_sorted()) {
                 tout << g->bpp(n) << ": ";
                 tout << g->bpp(get_constructor(n)) << " :: ";
@@ -394,7 +394,7 @@ namespace sls {
                 worklist.push_back(p);
                 SASSERT(all_of(args, [&](expr* e) { return e != nullptr; }));
                 m_values.setx(p->get_id(), m.mk_app(f, args));
-                TRACE("dt", tout << "Patched interpretation "; trace_assignment(tout, p););
+                TRACE(dt, tout << "Patched interpretation "; trace_assignment(tout, p););
                 m_model->register_value(m_values.get(p->get_id()));
             }
             return all_processed;
@@ -420,7 +420,7 @@ namespace sls {
             SASSERT(v);
             unsigned id = n->get_id();
             m_values.setx(id, v);
-            TRACE("dt", tout << "Fresh interpretation "; trace_assignment(tout, n););
+            TRACE(dt, tout << "Fresh interpretation "; trace_assignment(tout, n););
             worklist.reset();
             worklist.push_back(n);
             while (process_worklist(worklist))
@@ -432,7 +432,7 @@ namespace sls {
         if (!dt.is_datatype(n->get_expr()))
             return;
         euf::enode* con = get_constructor(n);
-        TRACE("dt", tout << g->bpp(n) << " con: " << g->bpp(con) << "\n";);
+        TRACE(dt, tout << g->bpp(n) << " con: " << g->bpp(con) << "\n";);
         if (!con)
             dep.insert(n, nullptr);
         else if (con->num_args() == 0)

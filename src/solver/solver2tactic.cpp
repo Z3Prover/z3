@@ -107,7 +107,7 @@ public:
         extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
         ref<solver> local_solver = m_solver->translate(m, m_params);
         local_solver->assert_expr(clauses);
-        TRACE("solver2tactic", tout << "clauses asserted\n";);
+        TRACE(solver2tactic, tout << "clauses asserted\n";);
         lbool r;
         try {
             r = local_solver->check_sat(assumptions.size(), assumptions.data()); 
@@ -116,7 +116,7 @@ public:
             local_solver->collect_statistics(m_st);
             throw;
         }
-        TRACE("solver2tactic", tout << "check sat result " << r << "\n";);
+        TRACE(solver2tactic, tout << "check sat result " << r << "\n";);
         proof* pr = local_solver->get_proof();
         if (pr) in->set(proof2proof_converter(m, pr));
         local_solver->collect_statistics(m_st);

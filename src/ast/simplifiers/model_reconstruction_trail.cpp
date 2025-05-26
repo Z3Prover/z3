@@ -24,7 +24,7 @@ void model_reconstruction_trail::add_vars(expr* e, ast_mark& free_vars) {
     for (expr* t : subterms::all(expr_ref(e, m))) {
         if (is_app(t) && is_uninterp(t)) {            
             func_decl* f = to_app(t)->get_decl();
-            TRACE("simplifier", tout << "add var " << f->get_name() << "\n");
+            TRACE(simplifier, tout << "add var " << f->get_name() << "\n");
             free_vars.mark(f, true);
             if (m_model_vars.is_marked(f))
                 m_intersects_with_model = true;
@@ -51,7 +51,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
     for (expr* a : assumptions)
         add_vars(a, free_vars);
 
-    TRACE("simplifier",
+    TRACE(simplifier,
         tout << "intersects " << m_intersects_with_model << "\n";
         for (unsigned i = qhead; i < st.qtail(); ++i)
             tout << mk_bounded_pp(st[i].fml(), m) << "\n";
@@ -61,7 +61,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
         return;
 
     for (auto& t : m_trail) {
-        TRACE("simplifier", tout << " active " << t->m_active << " hide " << t->is_hide() << " intersects " << t->intersects(free_vars) << " loose " << t->is_loose() << "\n");
+        TRACE(simplifier, tout << " active " << t->m_active << " hide " << t->is_hide() << " intersects " << t->intersects(free_vars) << " loose " << t->is_loose() << "\n");
         if (!t->m_active)
             continue;
 
@@ -87,7 +87,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
         if (t->is_loose_constraint()) {                
             for (auto r : t->m_removed) {
                 add_vars(r, free_vars);
-                TRACE("simplifier", tout << "replay removed " << r << "\n");
+                TRACE(simplifier, tout << "replay removed " << r << "\n");
                 st.add(r);
             }
             t->m_active = false;
@@ -102,7 +102,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
         if (t->is_loose() && (!t->is_def() || !all_const || t->is_subst())) {
             for (auto r : t->m_removed) {
                 add_vars(r, free_vars);
-                TRACE("simplifier", tout << "replay removed " << r << "\n");
+                TRACE(simplifier, tout << "replay removed " << r << "\n");
                 st.add(r);
             }
             m_trail_stack.push(value_trail(t->m_active));
@@ -119,7 +119,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
                     args.push_back(m.mk_var(i, d->get_domain(i)));
                 head = m.mk_app(d, args);
                 mrp.insert(head, def, dep);
-                TRACE("simplifier", tout << mk_pp(d, m) << " " << mk_pp(def,m) << " " << "\n");
+                TRACE(simplifier, tout << mk_pp(d, m) << " " << mk_pp(def,m) << " " << "\n");
                 dependent_expr de(m, def, nullptr, dep);
                 add_vars(de, free_vars);
             }
@@ -129,7 +129,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
                 expr_ref g(m);
                 expr_dependency_ref dep2(m);
                 mrp(f, dep1, g, dep2);
-                CTRACE("simplifier", f != g, tout << "updated " << mk_pp(g, m) << "\n");
+                CTRACE(simplifier, f != g, tout << "updated " << mk_pp(g, m) << "\n");
                 if (f != g)
                     st.update(i, dependent_expr(m, g, nullptr, dep2));
             }
@@ -175,7 +175,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
                     dep1 = m.mk_join(dep_exprs.size(), dep_exprs.data());                
             }
             dependent_expr d(m, g, nullptr, m.mk_join(dep1, dep2));
-            CTRACE("simplifier", f != g, tout << "updated " << mk_pp(g, m) << "\n");
+            CTRACE(simplifier, f != g, tout << "updated " << mk_pp(g, m) << "\n");
             add_vars(d, free_vars);
             st.update(i, d);
         }
@@ -189,7 +189,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
         }        
     }
 
-    TRACE("simplifier", st.display(tout));
+    TRACE(simplifier, st.display(tout));
 }
 
 /**
@@ -218,7 +218,7 @@ void model_reconstruction_trail::append(generic_model_converter& mc) {
                 mc.add(v, def);
         }
     }
-    TRACE("simplifier", display(tout); mc.display(tout));
+    TRACE(simplifier, display(tout); mc.display(tout));
 }
 
 

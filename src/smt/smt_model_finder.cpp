@@ -93,7 +93,7 @@ namespace smt {
                 SASSERT(m_elems.contains(n));
                 SASSERT(m_inv.empty());
                 m_elems.erase(n);
-                TRACE("model_finder", tout << mk_pp(n, m) << "\n";);
+                TRACE(model_finder, tout << mk_pp(n, m) << "\n";);
                 m.dec_ref(n);
             }
 
@@ -126,7 +126,7 @@ namespace smt {
                     unsigned gen = kv.m_value;
                     expr* t_val = ev.eval(t, true);
                     if (!t_val) break;
-                    TRACE("model_finder", tout << mk_pp(t, m) << " " << mk_pp(t_val, m) << "\n";);
+                    TRACE(model_finder, tout << mk_pp(t, m) << " " << mk_pp(t_val, m) << "\n";);
 
                     expr* old_t = nullptr;
                     if (m_inv.find(t_val, old_t)) {
@@ -568,7 +568,7 @@ namespace smt {
                             expr* n = kv.m_key;
                             expr* n_val = eval(n, true);
                             if (should_cleanup(n_val)) {
-                                TRACE("model_finder", tout << "cleanup " << s << " " << mk_pp(n, m) << " " << mk_pp(n_val, m) << "\n";);
+                                TRACE(model_finder, tout << "cleanup " << s << " " << mk_pp(n, m) << " " << mk_pp(n_val, m) << "\n";);
                                 to_delete.push_back(n);
                             }
                         }
@@ -595,11 +595,11 @@ namespace smt {
                 expr_ref tmp(m);
                 if (!m_model->eval(n, tmp, model_completion)) {
                     r = nullptr;
-                    TRACE("model_finder", tout << "eval\n" << mk_pp(n, m) << "\n-----> null\n";);
+                    TRACE(model_finder, tout << "eval\n" << mk_pp(n, m) << "\n-----> null\n";);
                 }
                 else {
                     r = tmp;
-                    TRACE("model_finder", tout << "eval\n" << mk_pp(n, m) << "\n----->\n" << mk_pp(r, m) << "\n";);
+                    TRACE(model_finder, tout << "eval\n" << mk_pp(n, m) << "\n----->\n" << mk_pp(r, m) << "\n";);
                 }
                 m_eval_cache[model_completion].insert(n, r);
                 m_eval_cache_range.push_back(r);
@@ -679,7 +679,7 @@ namespace smt {
                 m_model->register_aux_decl(r->get_decl());
                 m_sort2k.insert(s, r);
                 m_ks.push_back(r);
-                TRACE("model_finder", tout << sort_ref(s, m) << " := " << "\n";);
+                TRACE(model_finder, tout << sort_ref(s, m) << " := " << "\n";);
                 return r;
             }
 
@@ -702,7 +702,7 @@ namespace smt {
                     return nullptr;
                 m_model->register_decl(k_decl, r);
                 SASSERT(m_model->get_const_interp(k_decl) == r);
-                TRACE("model_finder", tout << mk_pp(r, m) << "\n";);
+                TRACE(model_finder, tout << mk_pp(r, m) << "\n";);
                 return r;
             }
 
@@ -712,7 +712,7 @@ namespace smt {
                It invokes get_k_interp that may fail.
             */
             bool assert_k_diseq_exceptions(app* k, ptr_vector<expr> const& exceptions) {
-                TRACE("assert_k_diseq_exceptions", tout << "assert_k_diseq_exceptions, " << "k: " << mk_pp(k, m) << "\nexceptions:\n";
+                TRACE(assert_k_diseq_exceptions, tout << "assert_k_diseq_exceptions, " << "k: " << mk_pp(k, m) << "\nexceptions:\n";
                 for (expr* e : exceptions) tout << mk_pp(e, m) << "\n";);
                 expr* k_interp = get_k_interp(k);
                 if (k_interp == nullptr)
@@ -730,7 +730,7 @@ namespace smt {
             }
 
             void set_projection_else(node* n) {
-                TRACE("model_finder", n->display(tout, m););
+                TRACE(model_finder, n->display(tout, m););
                 SASSERT(n->is_root());
                 SASSERT(!n->is_mono_proj());
                 instantiation_set const* s = n->get_instantiation_set();
@@ -747,7 +747,7 @@ namespace smt {
                         return;
                     }
                     sort* s = n->get_sort();
-                    TRACE("model_finder", tout << "trying to create k for " << mk_pp(s, m) << ", is_infinite: " << is_infinite(s) << "\n";);
+                    TRACE(model_finder, tout << "trying to create k for " << mk_pp(s, m) << ", is_infinite: " << is_infinite(s) << "\n";);
                     if (is_infinite(s)) {
                         app* k = get_k_for(s);
                         if (assert_k_diseq_exceptions(k, exceptions)) {
@@ -780,7 +780,7 @@ namespace smt {
                     for (expr* e : exceptions) {
                         arith_rw.mk_sub(e, one, e_minus_1);
                         arith_rw.mk_add(e, one, e_plus_1);
-                        TRACE("mf_simp_bug", tout << "e:\n" << mk_ismt2_pp(e, m) << "\none:\n" << mk_ismt2_pp(one, m) << "\n";);
+                        TRACE(mf_simp_bug, tout << "e:\n" << mk_ismt2_pp(e, m) << "\none:\n" << mk_ismt2_pp(one, m) << "\n";);
                         // Note: exceptions come from quantifiers bodies. So, they have generation 0.
                         n->insert(e_plus_1, 0);
                         n->insert(e_minus_1, 0);
@@ -792,7 +792,7 @@ namespace smt {
                     for (expr* e : exceptions) {
                         bv_rw.mk_add(e, one, e_plus_1);
                         bv_rw.mk_sub(e, one, e_minus_1);
-                        TRACE("mf_simp_bug", tout << "e:\n" << mk_ismt2_pp(e, m) << "\none:\n" << mk_ismt2_pp(one, m) << "\n";);
+                        TRACE(mf_simp_bug, tout << "e:\n" << mk_ismt2_pp(e, m) << "\none:\n" << mk_ismt2_pp(one, m) << "\n";);
                         // Note: exceptions come from quantifiers bodies. So, they have generation 0.
                         n->insert(e_plus_1, 0);
                         n->insert(e_minus_1, 0);
@@ -819,7 +819,7 @@ namespace smt {
                         already_found.insert(t_val);
                     }
                 }
-                TRACE("model_finder_bug", tout << "values for the instantiation_set of @" << n->get_id() << "\n";
+                TRACE(model_finder_bug, tout << "values for the instantiation_set of @" << n->get_id() << "\n";
                 for (expr* v : values) {
                     tout << mk_pp(v, m) << "\n";
                 });
@@ -900,7 +900,7 @@ namespace smt {
                 func_decl* p = m.mk_fresh_func_decl(1, &s, s);
                 m_model->register_aux_decl(p, rpi);
                 n->set_proj(p);
-                TRACE("model_finder", n->display(tout << p->get_name() << "\n", m););
+                TRACE(model_finder, n->display(tout << p->get_name() << "\n", m););
             }
 
             void mk_simple_proj(node* n) {
@@ -920,7 +920,7 @@ namespace smt {
                     pi->insert_new_entry(&v, v);
                 
                 n->set_proj(p);
-                TRACE("model_finder", n->display(tout << p->get_name() << "\n", m););
+                TRACE(model_finder, n->display(tout << p->get_name() << "\n", m););
             }
 
             void mk_projections() {
@@ -943,7 +943,7 @@ namespace smt {
                         func_interp* fi = m_model->get_func_interp(f);
                         if (fi == nullptr) {
                             fi = alloc(func_interp, m, f->get_arity());
-                            TRACE("model_finder", tout << "register " << f->get_name() << "\n";);
+                            TRACE(model_finder, tout << "register " << f->get_name() << "\n";);
                             m_model->register_decl(f, fi);
                             SASSERT(fi->is_partial());
                         }
@@ -980,7 +980,7 @@ namespace smt {
                 for (node* n : m_root_nodes) {
                     SASSERT(n->is_root());
                     instantiation_set const* s = n->get_instantiation_set();
-                    TRACE("model_finder", s->display(tout););
+                    TRACE(model_finder, s->display(tout););
                     obj_map<expr, unsigned> const& elems = s->get_elems();
                     if (elems.empty()) {
                         // The method get_some_value cannot be used if n->get_sort() is an uninterpreted sort or is a sort built using uninterpreted sorts
@@ -1010,7 +1010,7 @@ namespace smt {
                         sort2elems.insert(s, e);
                     }
                     n->insert(e, 0);
-                    TRACE("model_finder", tout << "fresh constant: " << mk_pp(e, m) << "\n";);
+                    TRACE(model_finder, tout << "fresh constant: " << mk_pp(e, m) << "\n";);
                 }
             }
 
@@ -1085,7 +1085,7 @@ namespace smt {
                         func_decl* f_aux = m.mk_fresh_func_decl(f->get_name(), symbol::null, arity, f->get_domain(), f->get_range());
                         func_interp* new_fi = alloc(func_interp, m, arity);
                         new_fi->set_else(m.mk_app(f_aux, args.size(), args.data()));
-                        TRACE("model_finder", tout << "Setting new interpretation for " << f->get_name() << "\n" <<
+                        TRACE(model_finder, tout << "Setting new interpretation for " << f->get_name() << "\n" <<
                             mk_pp(new_fi->get_else(), m) << "\n";
                         tout << "old interpretation: " << mk_pp(fi->get_interp(), m) << "\n";);
                         m_model->reregister_decl(f, new_fi, f_aux);
@@ -1121,7 +1121,7 @@ namespace smt {
                 mk_projections();
                 mk_inverses();
                 complete_partial_funcs(partial_funcs);
-                TRACE("model_finder", tout << "after auf_solver fixing the model\n";
+                TRACE(model_finder, tout << "after auf_solver fixing the model\n";
                       display_nodes(tout);
                       tout << "NEW MODEL:\n";
                       model_pp(tout, *m_model););
@@ -1197,7 +1197,7 @@ namespace smt {
             void process_auf(quantifier* q, auf_solver& s, context* ctx) override {
                 node* n1 = s.get_A_f_i(m_f, m_arg_i);
                 node* n2 = s.get_uvar(q, m_var_j);
-                CTRACE("model_finder", n1->get_sort() != n2->get_sort(),
+                CTRACE(model_finder, n1->get_sort() != n2->get_sort(),
                        tout << "sort bug:\n" << mk_ismt2_pp(q->get_expr(), m) << "\n" << mk_ismt2_pp(q, m) << "\n";
                        tout << "decl(0): " << q->get_decl_name(0) << "\n";
                        tout << "f: " << m_f->get_name() << " i: " << m_arg_i << "\n";
@@ -1414,7 +1414,7 @@ namespace smt {
             app* get_array() const { return to_app(m_select->get_arg(0)); }
 
             func_decl* get_array_func_decl(app* ground_array, auf_solver& s) {
-                TRACE("model_evaluator", tout << expr_ref(ground_array, m) << "\n";);
+                TRACE(model_evaluator, tout << expr_ref(ground_array, m) << "\n";);
                 expr* ground_array_interp = s.eval(ground_array, false);
                 if (ground_array_interp && m_array.is_as_array(ground_array_interp))
                     return m_array.get_as_array_func_decl(ground_array_interp);
@@ -1442,7 +1442,7 @@ namespace smt {
             void process_auf(quantifier* q, auf_solver& s, context* ctx) override {
                 ptr_buffer<enode> arrays;
                 get_auf_arrays(get_array(), ctx, arrays);
-                TRACE("select_var",
+                TRACE(select_var,
                     tout << "enodes matching: "; display(tout); tout << "\n";
                 for (enode* n : arrays) {
                     tout << "#" << n->get_expr_id() << "\n" << mk_pp(n->get_expr(), m) << "\n";
@@ -1683,7 +1683,7 @@ namespace smt {
                     }
                 }
                 m_qinfo_vect.push_back(q.detach());
-                TRACE("model_finder", tout << "new quantifier qinfo: "; qi->display(tout); tout << "\n";);
+                TRACE(model_finder, tout << "new quantifier qinfo: "; qi->display(tout); tout << "\n";);
             }
 
         public:
@@ -1707,7 +1707,7 @@ namespace smt {
                 m_mf(mf),
                 m_q(q, m),
                 m_uvar_inst_sets(nullptr) {
-                CTRACE("model_finder_bug", has_quantifiers(m_flat_q->get_expr()),
+                CTRACE(model_finder_bug, has_quantifiers(m_flat_q->get_expr()),
                     tout << mk_pp(q, m) << "\n" << mk_pp(m_flat_q, m) << "\n";);
             }
 
@@ -1812,7 +1812,7 @@ namespace smt {
 
             bool is_var_plus_ground(expr* n, var*& v, expr_ref& t) {
                 bool inv;
-                TRACE("is_var_plus_ground", tout << mk_pp(n, m) << "\n";
+                TRACE(is_var_plus_ground, tout << mk_pp(n, m) << "\n";
                 tout << "is_var_plus_ground: " << is_var_plus_ground(n, inv, v, t) << "\n";
                 tout << "inv: " << inv << "\n";);
                 return is_var_plus_ground(n, inv, v, t) && !inv;
@@ -1856,17 +1856,17 @@ namespace smt {
 
             bool is_var_and_ground(expr* lhs, expr* rhs, var*& v, expr_ref& t, bool& inv) {
                 inv = false; // true if invert the sign
-                TRACE("is_var_and_ground", tout << "is_var_and_ground: " << mk_ismt2_pp(lhs, m) << " " << mk_ismt2_pp(rhs, m) << "\n";);
+                TRACE(is_var_and_ground, tout << "is_var_and_ground: " << mk_ismt2_pp(lhs, m) << " " << mk_ismt2_pp(rhs, m) << "\n";);
                 if (is_var(lhs) && is_ground(rhs)) {
                     v = to_var(lhs);
                     t = rhs;
-                    TRACE("is_var_and_ground", tout << "var and ground\n";);
+                    TRACE(is_var_and_ground, tout << "var and ground\n";);
                     return true;
                 }
                 else if (is_var(rhs) && is_ground(lhs)) {
                     v = to_var(rhs);
                     t = lhs;
-                    TRACE("is_var_and_ground", tout << "ground and var\n";);
+                    TRACE(is_var_and_ground, tout << "ground and var\n";);
                     return true;
                 }
                 else {
@@ -1945,7 +1945,7 @@ namespace smt {
                     return false;
                 if (sign) {
                     bool r = is_le_ge(atom) && is_var_and_ground(to_app(atom)->get_arg(0), to_app(atom)->get_arg(1), v, t);
-                    CTRACE("is_x_gle_t", r, tout << "is_x_gle_t: " << mk_ismt2_pp(atom, m) << "\n--->\n"
+                    CTRACE(is_x_gle_t, r, tout << "is_x_gle_t: " << mk_ismt2_pp(atom, m) << "\n--->\n"
                         << mk_ismt2_pp(v, m) << " " << mk_ismt2_pp(t, m) << "\n";
                     tout << "sign: " << sign << "\n";);
                     return r;
@@ -1965,7 +1965,7 @@ namespace smt {
                                 mk_add(tmp, one, t);
                             else
                                 mk_sub(tmp, one, t);
-                            TRACE("is_x_gle_t", tout << "is_x_gle_t: " << mk_ismt2_pp(atom, m) << "\n--->\n"
+                            TRACE(is_x_gle_t, tout << "is_x_gle_t: " << mk_ismt2_pp(atom, m) << "\n--->\n"
                                 << mk_ismt2_pp(v, m) << " " << mk_ismt2_pp(t, m) << "\n";
                             tout << "sign: " << sign << "\n";);
                             return true;
@@ -2114,7 +2114,7 @@ namespace smt {
             }
 
             void process_literal(expr* atom, bool sign) {
-                CTRACE("model_finder_bug", is_ground(atom), tout << mk_pp(atom, m) << "\n";);
+                CTRACE(model_finder_bug, is_ground(atom), tout << mk_pp(atom, m) << "\n";);
                 SASSERT(!is_ground(atom));
                 SASSERT(m.is_bool(atom));
 
@@ -2348,12 +2348,12 @@ namespace smt {
     }
 
     void model_finder::register_quantifier(quantifier* q) {
-        TRACE("model_finder", tout << "registering:\n" << q->get_id() << ": " << q << " " << &m_q2info << " " << mk_pp(q, m) << "\n";);
+        TRACE(model_finder, tout << "registering:\n" << q->get_id() << ": " << q << " " << &m_q2info << " " << mk_pp(q, m) << "\n";);
         quantifier_info* new_info = alloc(quantifier_info, *this, m, q);
         m_q2info.insert(q, new_info);
         m_quantifiers.push_back(q);
         m_analyzer->operator()(new_info);
-        TRACE("model_finder", tout << "after analyzer:\n"; new_info->display(tout););
+        TRACE(model_finder, tout << "after analyzer:\n"; new_info->display(tout););
     }
 
     void model_finder::push_scope() {
@@ -2420,7 +2420,7 @@ namespace smt {
             qi->populate_inst_sets(*(m_auf_solver.get()), m_context);
         }
         m_auf_solver->fix_model(m_new_constraints);
-        TRACE("model_finder",
+        TRACE(model_finder,
             for (quantifier* q : qs) {
                 quantifier_info* qi = get_quantifier_info(q);
                 quantifier* fq = qi->get_flat_q();
@@ -2436,20 +2436,20 @@ namespace smt {
     void model_finder::process_simple_macros(ptr_vector<quantifier>& qs, ptr_vector<quantifier>& residue, proto_model* mdl) {
         simple_macro_solver sms(m, *this);
         sms(*mdl, qs, residue);
-        TRACE("model_finder", tout << "model after processing simple macros:\n"; model_pp(tout, *mdl););
+        TRACE(model_finder, tout << "model after processing simple macros:\n"; model_pp(tout, *mdl););
     }
 
     void model_finder::process_hint_macros(ptr_vector<quantifier>& qs, ptr_vector<quantifier>& residue, proto_model* mdl) {
         hint_macro_solver hms(m, *this);
         hms(*mdl, qs, residue);
-        TRACE("model_finder", tout << "model after processing simple macros:\n"; model_pp(tout, *mdl););
+        TRACE(model_finder, tout << "model after processing simple macros:\n"; model_pp(tout, *mdl););
     }
 
     void model_finder::process_non_auf_macros(ptr_vector<quantifier>& qs, ptr_vector<quantifier>& residue, proto_model* mdl) {
         non_auf_macro_solver nas(m, *this, m_dependencies);
         nas.set_mbqi_force_template(m_context->get_fparams().m_mbqi_force_template);
         nas(*mdl, qs, residue);
-        TRACE("model_finder", tout << "model after processing non auf macros:\n"; model_pp(tout, *mdl););
+        TRACE(model_finder, tout << "model after processing non auf macros:\n"; model_pp(tout, *mdl););
     }
 
     /**
@@ -2473,7 +2473,7 @@ namespace smt {
         collect_relevant_quantifiers(qs);
         if (qs.empty())
             return;
-        TRACE("model_finder", tout << "trying to satisfy quantifiers, given model:\n"; model_pp(tout, *m););
+        TRACE(model_finder, tout << "trying to satisfy quantifiers, given model:\n"; model_pp(tout, *m););
         cleanup_quantifier_infos(qs);
         m_dependencies.reset();
 
@@ -2498,7 +2498,7 @@ namespace smt {
         quantifier* flat_q = get_flat_quantifier(q);
         SASSERT(flat_q->get_num_decls() >= q->get_num_decls());
         mf::instantiation_set const* r = m_auf_solver->get_uvar_inst_set(flat_q, flat_q->get_num_decls() - q->get_num_decls() + i);
-        TRACE("model_finder", tout << "q: #" << q->get_id() << "\n" << mk_pp(q, m) << "\nflat_q: " << mk_pp(flat_q, m)
+        TRACE(model_finder, tout << "q: #" << q->get_id() << "\n" << mk_pp(q, m) << "\nflat_q: " << mk_pp(flat_q, m)
             << "\ni: " << i << " " << flat_q->get_num_decls() - q->get_num_decls() + i << "\n";);
         if (r != nullptr)
             return r;
@@ -2563,7 +2563,7 @@ namespace smt {
             }
             expr_ref new_cnstr(m);
             new_cnstr = m.mk_or(eqs.size(), eqs.data());
-            TRACE("model_finder", tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
+            TRACE(model_finder, tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
             aux_ctx->assert_expr(new_cnstr);
             asserted_something = true;
         }
@@ -2575,7 +2575,7 @@ namespace smt {
         if (sz > 0) {
             for (unsigned i = 0; i < sz; i++) {
                 expr* c = m_new_constraints.get(i);
-                TRACE("model_finder_bug_detail", tout << "asserting new constraint: " << mk_pp(c, m) << "\n";);
+                TRACE(model_finder_bug_detail, tout << "asserting new constraint: " << mk_pp(c, m) << "\n";);
                 m_context->internalize(c, true);
                 literal l(m_context->get_literal(c));
                 m_context->mark_as_relevant(l);

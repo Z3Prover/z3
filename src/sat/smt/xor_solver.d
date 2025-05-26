@@ -31,7 +31,7 @@ namespace sat {
     lbool ba_solver::add_assign(xr& x, literal alit) {
         // literal is assigned     
         unsigned sz = x.size();
-        TRACE("ba", tout << "assign: "  << ~alit << "@" << lvl(~alit) << " " << x << "\n"; display(tout, x, true); );
+        TRACE(ba, tout << "assign: "  << ~alit << "@" << lvl(~alit) << " " << x << "\n"; display(tout, x, true); );
 
         VERIFY(x.lit() == null_literal);
         SASSERT(value(alit) != l_undef);
@@ -47,7 +47,7 @@ namespace sat {
                 // alit gets unwatched by propagate_core because we return l_undef
                 x.watch_literal(*this, lit);
                 x.watch_literal(*this, ~lit);
-                TRACE("ba", tout << "swap in: " << lit << " " << x << "\n";);
+                TRACE(ba, tout << "swap in: " << lit << " " << x << "\n";);
                 return l_undef;
             }
         }
@@ -188,7 +188,7 @@ namespace sat {
         unsigned level = lvl(l);
         bool_var v = l.var();
         SASSERT(js.get_kind() == justification::EXT_JUSTIFICATION);
-        TRACE("ba", tout << l << ": " << js << "\n"; 
+        TRACE(ba, tout << l << ": " << js << "\n"; 
               for (unsigned i = 0; i <= index; ++i) tout << s().m_trail[i] << " "; tout << "\n";
               s().display_units(tout);
               );
@@ -196,10 +196,10 @@ namespace sat {
 
         unsigned num_marks = 0;
         while (true) {
-            TRACE("ba", tout << "process: " << l << " " << js << "\n";);
+            TRACE(ba, tout << "process: " << l << " " << js << "\n";);
             if (js.get_kind() == justification::EXT_JUSTIFICATION) {
                 constraint& c = index2constraint(js.get_ext_justification_idx());
-                TRACE("ba", tout << c << "\n";);
+                TRACE(ba, tout << c << "\n";);
                 if (!c.is_xr()) {
                     r.push_back(l);
                 }
@@ -213,7 +213,7 @@ namespace sat {
                         literal lit(value(x[i]) == l_true ? x[i] : ~x[i]);
                         inc_parity(lit.var());
                         if (lvl(lit) == level) {
-                            TRACE("ba", tout << "mark: " << lit << "\n";);
+                            TRACE(ba, tout << "mark: " << lit << "\n";);
                             ++num_marks;
                         }
                         else {
@@ -259,7 +259,7 @@ namespace sat {
             reset_parity(lit.var());
         }
         m_parity_trail.reset();
-        TRACE("ba", tout << r << "\n";);
+        TRACE(ba, tout << r << "\n";);
     }
 
     void ba_solver::pre_simplify() {
@@ -290,7 +290,7 @@ namespace sat {
 
     void ba_solver::get_antecedents(literal l, xr const& x, literal_vector& r) {
         if (x.lit() != null_literal) r.push_back(x.lit());
-        // TRACE("ba", display(tout << l << " ", x, true););
+        // TRACE(ba, display(tout << l << " ", x, true););
         SASSERT(x.lit() == null_literal || value(x.lit()) == l_true);
         SASSERT(x[0].var() == l.var() || x[1].var() == l.var());
         if (x[0].var() == l.var()) {

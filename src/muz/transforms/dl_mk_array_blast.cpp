@@ -216,7 +216,7 @@ namespace datalog {
             for (; it2 != end; ++it2) {
                 app* a2 = it2->m_key;
                 var* v2 = it2->m_value;
-                TRACE("dl", tout << mk_pp(a1, m) << " " << mk_pp(a2, m) << "\n";);
+                TRACE(dl, tout << mk_pp(a1, m) << " " << mk_pp(a2, m) << "\n";);
                 if (get_select(a1) != get_select(a2)) {
                     continue;
                 }
@@ -260,7 +260,7 @@ namespace datalog {
                 uint_set rhs_vars = rm.collect_vars(y);
                 lhs &= rhs_vars;
                 if (!lhs.empty()) {
-                    TRACE("dl", tout << "unusable equality " << mk_pp(e, m) << "\n";);
+                    TRACE(dl, tout << "unusable equality " << mk_pp(e, m) << "\n";);
                     new_conjs.push_back(e);
                 }
                 else {
@@ -284,7 +284,7 @@ namespace datalog {
         m_rewriter(body);
         sub(head);
         m_rewriter(head);
-        TRACE("dl", tout << body << " => " << head << "\n";);
+        TRACE(dl, tout << body << " => " << head << "\n";);
         change = ackermanize(r, body, head);
         if (!change) {
             rules.add_rule(&r);
@@ -294,7 +294,7 @@ namespace datalog {
         fml2 = m.mk_implies(body, head);
         proof_ref p(m);
         rule_set new_rules(m_ctx);
-        TRACE("dl", tout << fml2 << "\n";);
+        TRACE(dl, tout << fml2 << "\n";);
         rm.mk_rule(fml2, p, new_rules, r.name());
         
 
@@ -309,7 +309,7 @@ namespace datalog {
             }
             rules.add_rule(new_rule.get());
             rm.mk_rule_rewrite_proof(r, *new_rule.get());
-            TRACE("dl", new_rule->display(m_ctx, tout << "new rule\n"););
+            TRACE(dl, new_rule->display(m_ctx, tout << "new rule\n"););
         }
         return true;
     }

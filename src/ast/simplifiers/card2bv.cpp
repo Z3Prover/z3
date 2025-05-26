@@ -34,7 +34,7 @@ void card2bv::reduce() {
         rw1(f, new_f1);        
         rw2(false, new_f1, new_f2, new_pr);        
         if (new_f2 != f) {
-            TRACE("card2bv", tout << "Rewriting " << new_f1 << "\n" << new_f2 << "\n");
+            TRACE(card2bv, tout << "Rewriting " << new_f1 << "\n" << new_f2 << "\n");
             m_fmls.update(idx, dependent_expr(m, new_f2, mp(p, new_pr), d));
             ++m_stats.m_num_rewrites;
         }

@@ -368,7 +368,7 @@ struct expr2polynomial::imp {
                 checkpoint();
                 frame & fr = m_frame_stack.back();
                 app * a = fr.m_curr;
-                TRACE("expr2polynomial", tout << "processing: " << fr.m_idx << "\n" << mk_ismt2_pp(a, m()) << "\n";);
+                TRACE(expr2polynomial, tout << "processing: " << fr.m_idx << "\n" << mk_ismt2_pp(a, m()) << "\n";);
                 unsigned num_args = a->get_num_args();
                 while (fr.m_idx < num_args) {
                     expr * arg = a->get_arg(fr.m_idx);

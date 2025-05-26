@@ -97,7 +97,7 @@ void inductive_property::to_model(model_ref& md) const {
         expr_ref q = expr_abstract(sig_vars, prop);
         md->register_decl(ri.m_pred, q);
     }
-    TRACE("spacer", tout << *md;);
+    TRACE(spacer, tout << *md;);
     apply(const_cast<model_converter_ref&>(m_mc), md);
 }
 

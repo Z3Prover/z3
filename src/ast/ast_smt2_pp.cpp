@@ -702,7 +702,7 @@ class smt2_printer {
             ((f_info.m_depth >= m_pp_max_depth) ||
              ((f_info.m_weight >= m_pp_min_alias_size || is_quantifier(t)) && m_soccs.is_shared(t)))) {
             symbol a = next_alias();
-            TRACE("smt2_pp", tout << "a: " << a << " depth: " << f_info.m_depth << ", weight: " << f_info.m_weight
+            TRACE(smt2_pp, tout << "a: " << a << " depth: " << f_info.m_depth << ", weight: " << f_info.m_weight
                   << ", lvl: " << f_info.m_lvl << " t: #" << t->get_id() << "\n" << mk_ll_pp(t, m())
                   << ", is-shared: " << m_soccs.is_shared(t) << "\n";);
             register_alias(t, f, f_info.m_lvl, a);
@@ -800,7 +800,7 @@ class smt2_printer {
         unsigned sz     = m_aliased_exprs.size();
         SASSERT(old_sz <= sz);
         num_lets = sz - old_sz;
-        TRACE("pp_let", tout << "old_sz: " << old_sz << ", sz: " << sz << "\n";);
+        TRACE(pp_let, tout << "old_sz: " << old_sz << ", sz: " << sz << "\n";);
         if (old_sz == sz)
             return f;
         vector<ptr_vector<format> > decls;
@@ -812,7 +812,7 @@ class smt2_printer {
             ptr_vector<format> & lvl_decls = decls[lvl];
             lvl_decls.push_back(mk_seq1<format**, f2f>(m(), f_def, f_def+1, f2f(), f_name.str()));
         }
-        TRACE("pp_let", tout << "decls.size(): " << decls.size() << "\n";);
+        TRACE(pp_let, tout << "decls.size(): " << decls.size() << "\n";);
         ptr_buffer<format> buf;
         unsigned num_op = 0;
         for (ptr_vector<format> & lvl_decls : decls) {
@@ -824,7 +824,7 @@ class smt2_printer {
             buf.push_back(mk_string(m(), "(let "));
             buf.push_back(mk_indent(m(), 5, mk_seq5(m(), lvl_decls.begin(), lvl_decls.end(), f2f())));
         }
-        TRACE("pp_let", tout << "num_op: " << num_op << "\n";);
+        TRACE(pp_let, tout << "num_op: " << num_op << "\n";);
         if (num_op == 0)
             return f;
         buf.push_back(mk_indent(m(), SMALL_INDENT, mk_compose(m(), mk_line_break(m()), f)));
@@ -841,7 +841,7 @@ class smt2_printer {
     void begin_scope() {
         SASSERT(m_aliased_exprs.size() == m_aliased_pps.size());
         SASSERT(m_aliased_exprs.size() == m_aliased_lvls_names.size());
-        TRACE("pp_scope", tout << "[begin-scope] sz: " << m_aliased_exprs.size() << ", m_root: " << m_root << "\n";);
+        TRACE(pp_scope, tout << "[begin-scope] sz: " << m_aliased_exprs.size() << ", m_root: " << m_root << "\n";);
         m_scopes.push_back(scope(m_aliased_exprs.size(), m_next_alias_idx, m_root));
         unsigned lvl = m_scopes.size();
         while (lvl >= m_expr2alias_stack.size())
@@ -851,7 +851,7 @@ class smt2_printer {
     }
 
     void end_scope() {
-        TRACE("pp_scope", tout << "[end-scope] before sz: " << m_aliased_exprs.size() << ", m_root: " << m_root << "\n";);
+        TRACE(pp_scope, tout << "[end-scope] before sz: " << m_aliased_exprs.size() << ", m_root: " << m_root << "\n";);
         m_expr2alias->reset();
         scope & s = m_scopes.back();
         unsigned old_sz = s.m_aliased_exprs_lim;
@@ -864,7 +864,7 @@ class smt2_printer {
         m_aliased_exprs.shrink(old_sz);
         m_aliased_pps.shrink(old_sz);
         m_aliased_lvls_names.shrink(old_sz);
-        TRACE("pp_scope", tout << "[end-scope] after sz: " << m_aliased_exprs.size() << ", m_root: " << m_root << "\n";);
+        TRACE(pp_scope, tout << "[end-scope] after sz: " << m_aliased_exprs.size() << ", m_root: " << m_root << "\n";);
     }
 
     void register_var_names(quantifier * q) {

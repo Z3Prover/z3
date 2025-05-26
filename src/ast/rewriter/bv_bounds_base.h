@@ -125,7 +125,7 @@ namespace bv {
                 if (sign && !b.negate(b))
                     return false;
 
-                TRACE("bv", tout << (sign?"(not ":"") << mk_pp(t, m) << (sign ? ")" : "") << ": " << mk_pp(t1, m) << " in " << b << "\n";);
+                TRACE(bv, tout << (sign?"(not ":"") << mk_pp(t, m) << (sign ? ")" : "") << ": " << mk_pp(t1, m) << " in " << b << "\n";);
                 map::obj_map_entry* e = m_bound.find_core(t1);
                 if (e) {
                     interval& old = e->get_data().m_value;
@@ -202,7 +202,7 @@ namespace bv {
 
             if (simplified) {
                 result = m.mk_app(to_app(t)->get_decl(), m_args);
-                TRACE("bv", tout << mk_pp(t, m) << " -> " << result << "\n");
+                TRACE(bv, tout << mk_pp(t, m) << " -> " << result << "\n");
                 return true;
             }
 
@@ -255,10 +255,10 @@ namespace bv {
             else if (false && intr != b) 
                 result = mk_bound(t1, intr.lo(), intr.hi());
             else {
-                TRACE("bv", tout << mk_pp(t, m) << " b: " << b << " ctx: " << ctx << " intr " << intr << "\n");
+                TRACE(bv, tout << mk_pp(t, m) << " b: " << b << " ctx: " << ctx << " intr " << intr << "\n");
             }
 
-            CTRACE("bv", result, tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << result << "\n";);
+            CTRACE(bv, result, tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << result << "\n";);
             if (sign && result)
                 result = m.mk_not(result);
             return result != nullptr;
@@ -325,7 +325,7 @@ namespace bv {
         }
 
         void pop_core(unsigned num_scopes) {
-            TRACE("bv", tout << "pop: " << num_scopes << "\n";);
+            TRACE(bv, tout << "pop: " << num_scopes << "\n";);
             if (m_scopes.empty())
                 return;
             unsigned target = m_scopes.size() - num_scopes;

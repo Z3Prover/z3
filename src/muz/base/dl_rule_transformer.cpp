@@ -71,7 +71,7 @@ namespace datalog {
 
         bool modified = false;
 
-        TRACE("dl_rule_transf", 
+        TRACE(dl_rule_transf, 
             tout<<"init:\n";
             rules.display(tout);
         );
@@ -107,7 +107,7 @@ namespace datalog {
             new_rules->ensure_closed();
 
             IF_VERBOSE(1, verbose_stream() << new_rules->get_num_rules() << " rules " << sec << "s)\n";);
-            TRACE("dl_rule_transf", 
+            TRACE(dl_rule_transf, 
                 tout << typeid(p).name()<<":\n";
                 new_rules->display(tout);
             );

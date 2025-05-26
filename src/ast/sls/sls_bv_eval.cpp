@@ -204,7 +204,7 @@ namespace sls {
         auto old_val = m_tmp_bool_values.get(id, l_undef);
         m_tmp_bool_values.setx(id, to_lbool(val), l_undef);
         m_tmp_bool_value_updates.push_back({ id, old_val });
-        //TRACE("bv", tout << mk_bounded_pp(e, m) << " := " << val << " old: " << old_val << "\n");
+        //TRACE(bv, tout << mk_bounded_pp(e, m) << " := " << val << " old: " << old_val << "\n");
     }
 
     void bv_eval::set_bool_value_no_log(expr* e, bool val) {
@@ -216,7 +216,7 @@ namespace sls {
         SASSERT(m.is_bool(e));
         auto id = e->get_id();
         auto val = m_tmp_bool_values.get(id, l_undef);
-        //TRACE("bv", tout << mk_bounded_pp(e, m) << " == " << val << "\n");
+        //TRACE(bv, tout << mk_bounded_pp(e, m) << " == " << val << "\n");
         if (val != l_undef)
             return val == l_true;     
         bool b;
@@ -227,12 +227,12 @@ namespace sls {
             b = bval1(e);
         m_tmp_bool_values.setx(id, to_lbool(b), l_undef);
         m_tmp_bool_value_updates.push_back({ id, l_undef });
-        //TRACE("bv", tout << mk_bounded_pp(e, m) << " := " << b << " old: " << val << "\n");
+        //TRACE(bv, tout << mk_bounded_pp(e, m) << " := " << b << " old: " << val << "\n");
         return b;
     }
 
     void bv_eval::restore_bool_values(unsigned r) { 
-        //TRACE("bv", tout << "restore " << m_tmp_bool_value_updates.size() - r << "\n";);
+        //TRACE(bv, tout << "restore " << m_tmp_bool_value_updates.size() - r << "\n";);
         for (auto i = m_tmp_bool_value_updates.size(); i-- > r; ) {
             auto& [id, val] = m_tmp_bool_value_updates[i];
             m_tmp_bool_values.set(id, val);

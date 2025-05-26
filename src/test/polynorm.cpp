@@ -135,7 +135,7 @@ private:
 #endif
         }
 
-        TRACE("polynorm",
+        TRACE(polynorm,
               tout << mk_pp(coefficient, m) << "\n";
               for (unsigned i = 0; i < factors.size(); ++i) {
                   tout << mk_pp(factors[i].get(), m) << " * " << mk_pp(coefficients[i].get(), m) << "\n";

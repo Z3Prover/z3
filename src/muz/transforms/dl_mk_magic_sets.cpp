@@ -195,7 +195,7 @@ namespace datalog {
             }
             app * mag_head = create_magic_literal(tail[i]);
             rule * r = m_context.get_rule_manager().mk(mag_head, i+1, new_tail.data(), negations.data());
-            TRACE("dl", r->display(m_context,tout); );
+            TRACE(dl, r->display(m_context,tout); );
             result.add_rule(r);
         }
     }

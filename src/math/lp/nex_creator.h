@@ -133,7 +133,7 @@ public:
 
     void add_to_allocated(nex* r) {
         m_allocated.push_back(r);
-        CTRACE("grobner_stats_d", m_allocated.size() % 1000 == 0, tout << "m_allocated.size() = " << m_allocated.size() << "\n";);
+        CTRACE(grobner_stats_d, m_allocated.size() % 1000 == 0, tout << "m_allocated.size() = " << m_allocated.size() << "\n";);
     }
 
     // NSB: we can use region allocation, but still need to invoke destructor 
@@ -142,7 +142,7 @@ public:
         for (unsigned j = sz; j < m_allocated.size(); j++)
             dealloc(m_allocated[j]);
         m_allocated.resize(sz);
-        TRACE("grobner_stats_d", tout << "m_allocated.size() = " << m_allocated.size() << "\n";);
+        TRACE(grobner_stats_d, tout << "m_allocated.size() = " << m_allocated.size() << "\n";);
     }
 
     void clear() {

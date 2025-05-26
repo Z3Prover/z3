@@ -68,7 +68,7 @@ public:
     }
         
     void reduce() override {
-        TRACE("simplifier", tout << m_fmls);
+        TRACE(simplifier, tout << m_fmls);
         for (auto* s : m_simplifiers) {
             if (m_fmls.inconsistent())
                 break;
@@ -84,7 +84,7 @@ public:
             catch (rewriter_exception &) {
                 break;
             }
-            TRACE("simplifier", tout << s->name() << "\n" << m_fmls);
+            TRACE(simplifier, tout << s->name() << "\n" << m_fmls);
             if (m_bail_on_no_change && !m_fmls.updated())
                 break;
         }      

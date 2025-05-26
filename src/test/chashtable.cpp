@@ -121,13 +121,13 @@ static void tst4(unsigned num, unsigned N) {
     for (unsigned i = 0; i < num; i++) {
         int v = rand() % N;
         if (rand() % 3 == 2) {
-            TRACE("chashtable", tout << "erase " << v << "\n";);
+            TRACE(chashtable, tout << "erase " << v << "\n";);
             s.erase(v);
             t.erase(v);
             ENSURE(!t.contains(v));
         }
         else {
-            TRACE("chashtable", tout << "insert " << v << "\n";);
+            TRACE(chashtable, tout << "insert " << v << "\n";);
             s.insert(v);
             t.insert(v);
             ENSURE(t.contains(v));

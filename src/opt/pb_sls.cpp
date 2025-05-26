@@ -344,7 +344,7 @@ namespace smt {
                 }
             }
             m_best_penalty = m_penalty;
-            TRACE("opt", display(tout););
+            TRACE(opt, display(tout););
         }
         
         literal flip() {
@@ -496,7 +496,7 @@ namespace smt {
                 }
             }                
 
-            TRACE("opt", tout << "flip: " << l << " num false: " << m_hard_false.num_elems() 
+            TRACE(opt, tout << "flip: " << l << " num false: " << m_hard_false.num_elems() 
                   << " penalty: " << m_penalty << " break count: " << break_count << "\n";);
             return break_count;
         }

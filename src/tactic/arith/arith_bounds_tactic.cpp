@@ -76,7 +76,7 @@ struct arith_bounds_tactic : public tactic {
         goal_ref s(g); // initialize result.
         obj_map<expr, info> lower, upper;
         expr* e1, *e2;
-        TRACE("arith_subsumption", s->display(tout); );
+        TRACE(arith_subsumption, s->display(tout); );
         for (unsigned i = 0; i < s->size(); ++i) {
             checkpoint();
             expr* lemma = s->form(i);
@@ -140,7 +140,7 @@ struct arith_bounds_tactic : public tactic {
         }
         s->elim_true();
         result.push_back(s.get());
-        TRACE("arith_subsumption", s->display(tout); );
+        TRACE(arith_subsumption, s->display(tout); );
     }
 
     void cleanup() override {}

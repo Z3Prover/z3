@@ -145,7 +145,7 @@ namespace sls {
         if (m_result == l_true && m_sls_model) {
             ast_translation tr(m_sls, m);
             mdl = m_sls_model->translate(tr);
-            TRACE("sls", tout << "model: " << *m_sls_model << "\n";);
+            TRACE(sls, tout << "model: " << *m_sls_model << "\n";);
             if (!canceled)
                 ctx.set_finished();
         }
@@ -430,7 +430,7 @@ namespace sls {
     }
 
     lbool smt_plugin::on_save_model()  {
-        TRACE("sls", display(tout));
+        TRACE(sls, display(tout));
         lbool r = l_true;
         while (unsat().empty()) {
             r = m_context.check();

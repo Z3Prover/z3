@@ -344,7 +344,7 @@ namespace datalog {
         if (!is_predicate(decl)) {
             m_pinned.push_back(decl);
             m_preds.insert(decl);
-            TRACE("dl", tout << mk_pp(decl, m) << "\n";);
+            TRACE(dl, tout << mk_pp(decl, m) << "\n";);
             if (named) {
                 m_preds_by_name.insert(decl->get_name(), decl);
             }
@@ -354,7 +354,7 @@ namespace datalog {
     void context::restrict_predicates(func_decl_set const& preds) {
         m_preds.reset();
         for (func_decl* p : preds) {
-            TRACE("dl", tout << mk_pp(p, m) << "\n";);
+            TRACE(dl, tout << mk_pp(p, m) << "\n";);
             m_preds.insert(p);
         }
     }
@@ -569,7 +569,7 @@ namespace datalog {
 
     void context::check_rules(rule_set& r) {
         m_rule_properties.set_generate_proof(generate_proof_trace());
-        TRACE("dl", m_rule_set.display(tout););
+        TRACE(dl, m_rule_set.display(tout););
         switch(get_engine()) {
         case DATALOG_ENGINE:
             m_rule_properties.collect(r);
@@ -715,13 +715,13 @@ namespace datalog {
 
     void context::transform_rules(rule_transformer& transf) {
         SASSERT(m_closed); //we must finish adding rules before we start transforming them
-        TRACE("dl", display_rules(tout););
+        TRACE(dl, display_rules(tout););
         if (transf(m_rule_set)) {
             //we have already ensured the negation is stratified and transformations
             //should not break the stratification
             m_rule_set.ensure_closed();
-            TRACE("dl", display_rules(tout););
-            TRACE("dl_verbose", display(tout););
+            TRACE(dl, display_rules(tout););
+            TRACE(dl_verbose, display(tout););
         }
     }
 
@@ -759,7 +759,7 @@ namespace datalog {
     }
 
     void context::assert_expr(expr* e) {
-        TRACE("dl", tout << mk_ismt2_pp(e, m) << "\n";);
+        TRACE(dl, tout << mk_ismt2_pp(e, m) << "\n";);
         m_background.push_back(e);
     }
 
@@ -808,7 +808,7 @@ namespace datalog {
     };
 
     void context::configure_engine(expr* q) {
-        TRACE("dl", tout << mk_pp(q, m) << " " << m_engine_type << "\n";);
+        TRACE(dl, tout << mk_pp(q, m) << " " << m_engine_type << "\n";);
         if (m_engine_type != LAST_ENGINE) {
             return;
         }
@@ -987,7 +987,7 @@ namespace datalog {
             const symbol& rule_name = r->name();
             names.push_back (rule_name);
 
-            TRACE ("dl",
+            TRACE(dl,
                    if (rule_name == symbol::null) {
                        tout << "Encountered unnamed rule: ";
                        r->display(*this, tout);

@@ -259,7 +259,7 @@ namespace sls {
         for (unsigned depth = m_min_depth; depth <= m_max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto* a = m_update_stack[depth][i];
-                TRACE("arith_verbose", tout << "update " << mk_bounded_pp(a, m) << " depth: " << depth << "\n";);
+                TRACE(arith_verbose, tout << "update " << mk_bounded_pp(a, m) << " depth: " << depth << "\n";);
                 if (t != a)
                     set_bool_value(a, get_bool_value_rec(a));
                 if (m_is_root.is_marked(a)) {
@@ -311,7 +311,7 @@ namespace sls {
         if (!a.update_num(v, delta))
             return;
         auto score = lookahead(e, false);
-        TRACE("arith_verbose", tout << "lookahead " << v << " " << mk_bounded_pp(e, m) << " := " << delta + old_value << " " << score << " (" << m_best_score << ")\n";);
+        TRACE(arith_verbose, tout << "lookahead " << v << " " << mk_bounded_pp(e, m) << " := " << delta + old_value << " " << score << " (" << m_best_score << ")\n";);
         if (score > m_best_score) {
             m_tabu_set = 0;
             m_best_score = score;
@@ -565,7 +565,7 @@ namespace sls {
             else {
                 var_t v = a.mk_term(m_best_expr);
                 if (!a.update_num(v, m_best_value - a.value(v))) {
-                    TRACE("arith",
+                    TRACE(arith,
                         tout << "could not move v" << v << " " << t << " " << mk_bounded_pp(m_best_expr, m) << " := " << a.value(v) << " " << m_top_score << "\n";
                         );
                     return false;
@@ -576,8 +576,8 @@ namespace sls {
             clear_update_stack();
         }
                 
-        CTRACE("arith", !m_best_expr, tout << "no move " << t << "\n";);
-        CTRACE("arith", m_best_expr && autil.is_int_real(m_best_expr), {
+        CTRACE(arith, !m_best_expr, tout << "no move " << t << "\n";);
+        CTRACE(arith, m_best_expr && autil.is_int_real(m_best_expr), {
             var_t v = a.mk_term(m_best_expr);
             tout << t << " v" << v << " " << mk_bounded_pp(m_best_expr, m) << " := " << a.value(v) << " " << m_top_score << "\n";
             });
@@ -677,9 +677,9 @@ namespace sls {
         initialize_bool_assignment();
         rescore();
         a.m_config.max_moves = a.m_stats.m_steps + a.m_config.max_moves_base;
-        TRACE("arith", tout << "search " << a.m_stats.m_steps << " " << a.m_config.max_moves << "\n";);
+        TRACE(arith, tout << "search " << a.m_stats.m_steps << " " << a.m_config.max_moves << "\n";);
         IF_VERBOSE(3, verbose_stream() << "lookahead-search steps:" << a.m_stats.m_steps << " max-moves:" << a.m_config.max_moves << "\n");
-        TRACE("arith", a.display(tout));
+        TRACE(arith, a.display(tout));
 
         while (ctx.rlimit().inc() && a.m_stats.m_steps < a.m_config.max_moves) {
             a.m_stats.m_steps++;
@@ -741,8 +741,8 @@ namespace sls {
         }
 
         m_last_atom = e;
-        CTRACE("arith", !e, tout << "no unsatisfiable candidate\n";);
-        CTRACE("arith", e, 
+        CTRACE(arith, !e, tout << "no unsatisfiable candidate\n";);
+        CTRACE(arith, e, 
             tout << "select " << mk_bounded_pp(e, m) << " ";
             for (auto v : get_fixable_exprs(e)) 
                 tout << mk_bounded_pp(v, m) << " ";        

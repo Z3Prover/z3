@@ -131,7 +131,7 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
     }
 
     if (dirty) {
-        TRACE("spacer",
+        TRACE(spacer,
                tout << "Generalized from:\n" << mk_and(lemma->get_cube())
                << "\ninto\n" << mk_and(cube) << "\n";);
 
@@ -164,10 +164,10 @@ void unsat_core_generalizer::operator()(lemma_ref &lemma)
     expr_ref_vector core(m);
     VERIFY(pt.is_invariant(lemma->level(), lemma.get(), uses_level, &core));
 
-    CTRACE("spacer", old_sz > core.size(),
+    CTRACE(spacer, old_sz > core.size(),
            tout << "unsat core reduced lemma from: "
            << old_sz << " to " << core.size() << "\n";);
-    CTRACE("spacer", old_level < uses_level,
+    CTRACE(spacer, old_level < uses_level,
            tout << "unsat core moved lemma up from: "
            << old_level << " to " << uses_level << "\n";);
     if (old_sz > core.size()) {
@@ -233,7 +233,7 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
     v = mk_and(core);
     for_each_expr(cap, v);
 
-    CTRACE("core_array_eq", symb.size() > 1 && symb.size() <= 8,
+    CTRACE(core_array_eq, symb.size() > 1 && symb.size() <= 8,
           tout << "found " << symb.size() << " array variables in: \n"
           << v << "\n";);
 
@@ -276,7 +276,7 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
             lbool res = sol->check_sat(0, nullptr);
 
             if (res == l_false) {
-                TRACE("core_array_eq",
+                TRACE(core_array_eq,
                       tout << "strengthened " << mk_pp(lits.get(i), m)
                       << " with " << mk_pp(mk_not(m, e), m) << "\n";);
                 lits[i] = mk_not(m, e);
@@ -289,7 +289,7 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
     // nothing changed
     if (!dirty) return;
 
-    TRACE("core_array_eq",
+    TRACE(core_array_eq,
            tout << "new possible core " << mk_and(lits) << "\n";);
 
 
@@ -297,16 +297,16 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
     // -- check if the generalized result is consistent with trans
     unsigned uses_level1;
     if (pt.check_inductive(lemma->level(), lits, uses_level1, lemma->weakness())) {
-        TRACE("core_array_eq", tout << "Inductive!\n";);
+        TRACE(core_array_eq, tout << "Inductive!\n";);
         lemma->update_cube(lemma->get_pob(), lits);
         lemma->set_level(uses_level1);
     }
     else
-    {TRACE("core_array_eq", tout << "Not-Inductive!\n";);}
+    {TRACE(core_array_eq, tout << "Not-Inductive!\n";);}
 }
 
 void lemma_eq_generalizer::operator() (lemma_ref &lemma) {
-    TRACE("core_eq", tout << "Transforming equivalence classes\n";);
+    TRACE(core_eq, tout << "Transforming equivalence classes\n";);
 
     if (lemma->get_cube().empty()) return;
 

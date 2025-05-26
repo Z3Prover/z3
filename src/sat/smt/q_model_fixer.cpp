@@ -70,7 +70,7 @@ namespace q {
         if (univ.empty())
             return;
 
-        TRACE("q", tout << "start: " << mdl << "\n";);
+        TRACE(q, tout << "start: " << mdl << "\n";);
         m_dependencies.reset();
         m_projection_data.reset();
         m_projection_pinned.reset();
@@ -96,7 +96,7 @@ namespace q {
             if (fi->is_partial())
                 fi->set_else(mdl.get_some_value(f->get_range()));
 	}
-        TRACE("q", tout << "end: " << mdl << "\n";);
+        TRACE(q, tout << "end: " << mdl << "\n";);
     }
 
     quantifier_macro_info* model_fixer::operator()(quantifier* q) {
@@ -252,7 +252,7 @@ namespace q {
     expr* model_fixer::invert_app(app* t, expr* value) {
         euf::enode* r = nullptr;
         auto& v2r = ctx.values2root();
-        TRACE("q",
+        TRACE(q,
               tout << "invert-app " << mk_pp(t, m) << " =\n" << mk_pp(value, m) << "\n";
               if (v2r.find(value, r)) 
                   tout << "inverse " << mk_pp(r->get_expr(), m) << "\n";
@@ -273,7 +273,7 @@ namespace q {
     */
 
     void model_fixer::invert_arg(app* t, unsigned i, expr* value, expr_ref_vector& lits) {
-        TRACE("q", tout << "invert-arg " << mk_pp(t, m) << " " << i << " " << mk_pp(value, m) << "\n";);
+        TRACE(q, tout << "invert-arg " << mk_pp(t, m) << " " << i << " " << mk_pp(value, m) << "\n";);
         auto const* md = get_projection_data(t->get_decl(), i);
         if (!md)
             return;
@@ -326,7 +326,7 @@ namespace q {
     * restrict arg_i of t := f(...,arg_i,...) to be one of terms from the ground instantiations of f.
     */
     expr_ref model_fixer::restrict_arg(app* t, unsigned i) {
-        TRACE("q", tout << "restrict-arg " << mk_pp(t, m) << " " << i << "\n";);
+        TRACE(q, tout << "restrict-arg " << mk_pp(t, m) << " " << i << "\n";);
         auto const* md = get_projection_data(t->get_decl(), i);
         if (!md)
             return expr_ref(m.mk_true(), m);

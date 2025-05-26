@@ -46,7 +46,7 @@ void for_each_ast(ForEachProc & proc, ast_mark & visited, ast * n, bool visit_pa
 
     while (!stack.empty()) {
         curr = stack.back();
-        TRACE("for_each_ast", tout << "visiting node: " << curr->get_id() << ", kind: " << get_ast_kind_name(curr->get_kind())
+        TRACE(for_each_ast, tout << "visiting node: " << curr->get_id() << ", kind: " << get_ast_kind_name(curr->get_kind())
               << ", stack size: " << stack.size() << "\n";);
 
         if (visited.is_marked(curr)) {

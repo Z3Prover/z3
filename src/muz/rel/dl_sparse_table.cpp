@@ -301,7 +301,7 @@ namespace datalog {
             store_offset ofs = m_keys.insert_or_get_reserve_content();
             index_map::entry * e = m_map.find_core(ofs);
             if (!e) {
-                TRACE("dl_table_relation", tout << "inserting\n";);
+                TRACE(dl_table_relation, tout << "inserting\n";);
                 e = m_map.insert_if_not_there3(ofs, offset_vector());
             }
             return e->get_data().m_value;
@@ -495,7 +495,7 @@ namespace datalog {
     }
 
     void sparse_table::write_into_reserve(const table_element* f) {
-        TRACE("dl_table_relation", tout << "\n";);
+        TRACE(dl_table_relation, tout << "\n";);
         m_data.ensure_reserve();
         char * reserve = m_data.get_reserve_ptr();
         unsigned col_cnt = m_column_layout.size();
@@ -650,7 +650,7 @@ namespace datalog {
         size_t t1idx = 0;
         size_t t1end = t1.m_data.after_last_offset();
 
-        TRACE("dl_table_relation", 
+        TRACE(dl_table_relation, 
               tout << "joined_col_cnt: " << joined_col_cnt << "\n";
               tout << "t1_entry_size:  " << t1_entry_size << "\n";
               tout << "t2_entry_size:  " << t2_entry_size << "\n";
@@ -693,7 +693,7 @@ namespace datalog {
         for (; t1idx != t1end; t1idx += t1_entry_size) {
             for (unsigned i = 0; i < joined_col_cnt; i++) {
                 table_element val = t1.m_column_layout.get(t1.get_at_offset(t1idx), t1_joined_cols[i]);
-                TRACE("dl_table_relation", tout << "val: " << val << " " << t1idx << " " << t1_joined_cols[i] << "\n";);
+                TRACE(dl_table_relation, tout << "val: " << val << " " << t1idx << " " << t1_joined_cols[i] << "\n";);
                 if (t1_key[i] != val) {
                     t1_key[i] = val;
                     key_modified = true;
@@ -844,7 +844,7 @@ namespace datalog {
                 sparse_table::self_agnostic_join_project(t1, t2, m_cols1.size(), m_cols1.data(), 
                     m_cols2.data(), m_removed_cols.data(), false, *res);
             }
-            TRACE("dl_table_relation", tb1.display(tout); tb2.display(tout); res->display(tout); );
+            TRACE(dl_table_relation, tb1.display(tout); tb2.display(tout); res->display(tout); );
             return res;
         }
     };

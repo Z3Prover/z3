@@ -97,7 +97,7 @@ namespace spacer {
         // XXX this assertion should be true so there is no need to check for it
         SASSERT (!m_ctx.is_closed (step));
         func_decl* d = step->get_decl();
-        TRACE("spacer.farkas",
+        TRACE(spacer_farkas,
               tout << "looking at: " << mk_pp(step, m) << "\n";);
         if (!m_ctx.is_closed(step) && is_farkas_lemma(m, step)) {
             // weaker check : d->get_num_parameters() >= m.get_num_parents(step) + 2
@@ -133,7 +133,7 @@ namespace spacer {
              */
             parameter const* params = d->get_parameters() + 2; // point to the first Farkas coefficient
 
-            TRACE("spacer.farkas",
+            TRACE(spacer_farkas,
                   tout << "Farkas input: "<< "\n";
                   for (unsigned i = 0; i < m.get_num_parents(step); ++i) {
                       proof * prem = m.get_parent(step, i);
@@ -209,7 +209,7 @@ namespace spacer {
             // AG: it will go into the core. However, it does not mean that this literal should/could not be added.
             m_ctx.set_closed(step, done);
             expr_ref res = compute_linear_combination(coeff_lits);
-            TRACE("spacer.farkas", tout << "Farkas core: " << res << "\n";);
+            TRACE(spacer_farkas, tout << "Farkas core: " << res << "\n";);
             m_ctx.add_lemma_to_core(res);
         }
     }
@@ -247,7 +247,7 @@ namespace spacer {
 
             parameter const* params = d->get_parameters() + 2; // point to the first Farkas coefficient
 
-            TRACE("spacer.farkas",
+            TRACE(spacer_farkas,
                   tout << "Farkas input: "<< "\n";
                   for (unsigned i = 0; i < m.get_num_parents(step); ++i) {
                       proof * prem = m.get_parent(step, i);

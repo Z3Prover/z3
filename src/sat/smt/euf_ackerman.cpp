@@ -124,7 +124,7 @@ namespace euf {
             return;
         if (!enable_cc(a, b))
             return;
-        TRACE("ack", tout << "conflict eh: " << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n";);
+        TRACE(ack, tout << "conflict eh: " << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n";);
         insert(a, b);
         gc();
     }
@@ -136,7 +136,7 @@ namespace euf {
             return;
         if (!enable_eq(a, b, c))
             return;
-        TRACE("ack", tout << mk_pp(a, m) << " " << mk_pp(b, m) << " " << mk_pp(c, m) << "\n";);
+        TRACE(ack, tout << mk_pp(a, m) << " " << mk_pp(b, m) << " " << mk_pp(c, m) << "\n";);
         insert(a, b, c);
         gc();
     }
@@ -144,7 +144,7 @@ namespace euf {
     void ackerman::used_cc_eh(app* a, app* b) {
         if (ctx.m_drating)
             return;
-        TRACE("ack", tout << "used cc: " << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n";);
+        TRACE(ack, tout << "used cc: " << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n";);
         SASSERT(a->get_decl() == b->get_decl());
         SASSERT(a->get_num_args() == b->get_num_args());
         if (!enable_cc(a, b))
@@ -191,7 +191,7 @@ namespace euf {
     void ackerman::add_cc(expr* _a, expr* _b) {     
         app* a = to_app(_a);
         app* b = to_app(_b);
-        TRACE("ack", tout << mk_pp(a, m) << " " << mk_pp(b, m) << "\n";);
+        TRACE(ack, tout << mk_pp(a, m) << " " << mk_pp(b, m) << "\n";);
         sat::literal_vector lits;
         unsigned sz = a->get_num_args();        
         
@@ -216,7 +216,7 @@ namespace euf {
         expr_ref eq1(ctx.mk_eq(a, c), m);
         expr_ref eq2(ctx.mk_eq(b, c), m);
         expr_ref eq3(ctx.mk_eq(a, b), m);
-        TRACE("ack", tout << mk_pp(a, m) << " " << mk_pp(b, m) << " " << mk_pp(c, m) << "\n";);
+        TRACE(ack, tout << mk_pp(a, m) << " " << mk_pp(b, m) << " " << mk_pp(c, m) << "\n";);
         lits[0] = ~ctx.mk_literal(eq1);
         lits[1] = ~ctx.mk_literal(eq2);
         lits[2] = ctx.mk_literal(eq3);

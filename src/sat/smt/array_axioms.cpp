@@ -34,7 +34,7 @@ namespace array {
     void solver::push_axiom(axiom_record const& r) { 
         unsigned idx = m_axiom_trail.size();
         m_axiom_trail.push_back(r); 
-        TRACE("array", display(tout, r) << " " << m_axioms.contains(idx) << "\n";);
+        TRACE(array, display(tout, r) << " " << m_axioms.contains(idx) << "\n";);
         if (m_axioms.contains(idx))
             m_axiom_trail.pop_back();
         else {
@@ -79,7 +79,7 @@ namespace array {
         expr* child = r.n->get_expr();
         SASSERT(can_beta_reduce(r.n));
             
-        TRACE("array", tout << "default-axiom: " << mk_bounded_pp(child, m, 2) << "\n";);
+        TRACE(array, tout << "default-axiom: " << mk_bounded_pp(child, m, 2) << "\n";);
         if (a.is_const(child))
             return assert_default_const_axiom(to_app(child));
         else if (a.is_store(child))
@@ -101,7 +101,7 @@ namespace array {
             r.select->get_arg(0)->get_root() != r.n->get_root() && 
             !r.is_delayed() && m_enable_delay;
 
-        TRACE("array", display(tout << "select-axiom: " << (should_delay ? "delay " : ""), r) << "\n";);
+        TRACE(array, display(tout << "select-axiom: " << (should_delay ? "delay " : ""), r) << "\n";);
 
         if (should_delay) {
             IF_VERBOSE(11, verbose_stream() << "delay: " << mk_bounded_pp(child, m) << " " << mk_bounded_pp(select, m) << "\n");
@@ -131,7 +131,7 @@ namespace array {
      *    n := store(a, i, v)
      */
     bool solver::assert_store_axiom(app* e) {
-        TRACE("array", tout << "store-axiom: " << mk_bounded_pp(e, m) << "\n";);
+        TRACE(array, tout << "store-axiom: " << mk_bounded_pp(e, m) << "\n";);
         ++m_stats.m_num_store_axiom;
         SASSERT(a.is_store(e));
         unsigned num_args = e->get_num_args();
@@ -182,7 +182,7 @@ namespace array {
 
         euf::enode* s1 = e_internalize(sel1);
         euf::enode* s2 = e_internalize(sel2);
-        TRACE("array", 
+        TRACE(array, 
               tout << "select-store " << ctx.bpp(s1) << " " << ctx.bpp(s1->get_root()) << "\n";
               tout << "select-store " << ctx.bpp(s2) << " " << ctx.bpp(s2->get_root()) << "\n";);
 
@@ -228,7 +228,7 @@ namespace array {
                 new_prop = true;
         }
         ++m_stats.m_num_select_store_axiom;
-        TRACE("array", tout << "select-stored " << new_prop << "\n";);
+        TRACE(array, tout << "select-stored " << new_prop << "\n";);
         return new_prop;
     }
 
@@ -270,7 +270,7 @@ namespace array {
         expr_ref sel2(a.mk_select(args2), m);
         literal lit1 = eq_internalize(e1, e2);
         literal lit2 = eq_internalize(sel1, sel2);
-        TRACE("array", tout << "extensionality-axiom: " << mk_bounded_pp(e1, m) << " == " << mk_bounded_pp(e2, m) << "\n" << lit1 << " " << ~lit2 << "\n";);
+        TRACE(array, tout << "extensionality-axiom: " << mk_bounded_pp(e1, m) << " == " << mk_bounded_pp(e2, m) << "\n" << lit1 << " " << ~lit2 << "\n";);
         return add_clause(lit1, ~lit2);
     }
 
@@ -465,7 +465,7 @@ namespace array {
         expr_ref alpha(a.mk_select(args), m);
         expr_ref beta(alpha);
         rewrite(beta);
-        TRACE("array", tout << alpha << " == " << beta << "\n";);
+        TRACE(array, tout << alpha << " == " << beta << "\n";);
         return ctx.propagate(e_internalize(alpha), e_internalize(beta), array_axiom());
     }
 
@@ -473,7 +473,7 @@ namespace array {
        \brief assert n1 = n2 => forall vars . (n1 vars) = (n2 vars)
      */
     bool solver::assert_congruent_axiom(expr* e1, expr* e2) {
-        TRACE("array", tout << "congruence-axiom: " << mk_bounded_pp(e1, m) << " " << mk_bounded_pp(e2, m) << "\n";);
+        TRACE(array, tout << "congruence-axiom: " << mk_bounded_pp(e1, m) << " " << mk_bounded_pp(e2, m) << "\n";);
         ++m_stats.m_num_congruence_axiom;
         sort* srt         = e1->get_sort();
         unsigned dimension = get_array_arity(srt);
@@ -638,20 +638,20 @@ namespace array {
             euf::enode * n = var2enode(i);            
             if (!is_array(n)) 
                 continue;
-            CTRACE("array", !ctx.is_relevant(n), tout << "not relevant: " << ctx.bpp(n) << "\n");
+            CTRACE(array, !ctx.is_relevant(n), tout << "not relevant: " << ctx.bpp(n) << "\n");
             if (!ctx.is_relevant(n))
                 continue;
             euf::enode * r = n->get_root();
             if (r->is_marked1()) 
                 continue;            
             // arrays used as indices in other arrays have to be treated as shared issue #3532, #3529
-            CTRACE("array", !ctx.is_shared(r) && !is_shared_arg(r), tout << "not shared: " << ctx.bpp(r) << "\n");
+            CTRACE(array, !ctx.is_shared(r) && !is_shared_arg(r), tout << "not shared: " << ctx.bpp(r) << "\n");
             if (ctx.is_shared(r) || is_shared_arg(r)) 
                 roots.push_back(r->get_th_var(get_id()));           
             r->mark1();
             to_unmark.push_back(r);            
         }
-        TRACE("array", tout << "collecting shared vars...\n"; for (auto v : roots) tout << ctx.bpp(var2enode(v)) << "\n";);
+        TRACE(array, tout << "collecting shared vars...\n"; for (auto v : roots) tout << ctx.bpp(var2enode(v)) << "\n";);
         for (auto* n : to_unmark)
             n->unmark1();
     }

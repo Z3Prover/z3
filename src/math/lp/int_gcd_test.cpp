@@ -60,7 +60,7 @@ namespace lp {
 
     lia_move int_gcd_test::operator()() {              
         lia.settings().stats().m_gcd_calls++;
-        TRACE("int_solver", tout << "gcd-test " << lia.settings().stats().m_gcd_calls << "\n";);
+        TRACE(int_solver, tout << "gcd-test " << lia.settings().stats().m_gcd_calls << "\n";);
         if (gcd_test()) {
             m_delay = m_next_gcd++;
             return lia_move::undef;
@@ -69,7 +69,7 @@ namespace lp {
             m_next_gcd = 0;
             m_delay = 0;
             lia.settings().stats().m_gcd_conflicts++;
-            TRACE("gcd_test", tout << "gcd conflict\n";);
+            TRACE(gcd_test, tout << "gcd conflict\n";);
             return lia_move::conflict;
         }
     }
@@ -147,7 +147,7 @@ namespace lp {
             }
             SASSERT(gcds.is_int());
             SASSERT(m_least_coeff.is_int());
-            TRACE("gcd_test_bug", tout << "coeff: " << a << ", gcds: " << gcds 
+            TRACE(gcd_test_bug, tout << "coeff: " << a << ", gcds: " << gcds 
                   << " least_coeff: " << m_least_coeff << " consts: " << m_consts << "\n";);
             
         }
@@ -160,7 +160,7 @@ namespace lp {
         }
         
         if (!(m_consts / gcds).is_int()) {
-            TRACE("gcd_test", tout << "row failed the GCD test:\n"; lia.display_row_info(tout, i););
+            TRACE(gcd_test, tout << "row failed the GCD test:\n"; lia.display_row_info(tout, i););
             fill_explanation_from_fixed_columns(A.m_rows[i]);
             return false;
         }
@@ -178,7 +178,7 @@ namespace lp {
     }
     
     bool int_gcd_test::ext_gcd_test(const row_strip<mpq> & row) {
-        TRACE("ext_gcd_test", tout << "row = "; lra.print_row(row, tout););
+        TRACE(ext_gcd_test, tout << "row = "; lra.print_row(row, tout););
         mpq gcds(0);
         mpq l(m_consts);
         mpq u(m_consts);
@@ -187,7 +187,7 @@ namespace lp {
         unsigned j;
         for (const auto & c : row) {
             j = c.var();
-            TRACE("ext_gcd_test", tout << "col = "; lra.print_column_info(j, tout););
+            TRACE(ext_gcd_test, tout << "col = "; lra.print_column_info(j, tout););
             const mpq & a = c.coeff();
             if (lra.column_is_fixed(j))
                 continue;
@@ -229,7 +229,7 @@ namespace lp {
         
         if (u1 < l1) {
             fill_explanation_from_fixed_columns(row);
-            TRACE("gcd_test", tout << "row failed the GCD test:\n"; lia.display_row(tout, row););
+            TRACE(gcd_test, tout << "row failed the GCD test:\n"; lia.display_row(tout, row););
             return false;
         }        
         return true;
@@ -279,7 +279,7 @@ namespace lp {
         offset = mod(offset, modulus);
         if (!least_sign && offset != 0)
             offset = modulus - offset;
-        TRACE("gcd_test", tout << least_idx << " modulus: " << modulus << " consts: " << m_consts << " sign " << least_sign << " offset: " << offset << "\n";);
+        TRACE(gcd_test, tout << least_idx << " modulus: " << modulus << " consts: " << m_consts << " sign " << least_sign << " offset: " << offset << "\n";);
 
         SASSERT(0 <= offset && offset < modulus);
         return insert_parity(least_idx, row, offset, modulus);

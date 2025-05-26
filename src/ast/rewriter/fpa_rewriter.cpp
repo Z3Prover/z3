@@ -143,7 +143,7 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
             mpf_exp = m_fm.unbias_exp(ebits, mpf_exp);
 
             m_fm.set(v, ebits, sbits, !mpzm.is_zero(z), mpf_exp, sig);
-            TRACE("fp_rewriter",
+            TRACE(fp_rewriter,
                   tout << "sgn: " << !mpzm.is_zero(z) << std::endl;
                   tout << "sig: " << mpzm.to_string(sig) << std::endl;
                   tout << "exp: " << mpf_exp << std::endl;
@@ -159,27 +159,27 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
 
         if (m_util.au().is_numeral(args[1], r1)) {
             // rm + real -> float
-            TRACE("fp_rewriter", tout << "r: " << r1 << std::endl;);
+            TRACE(fp_rewriter, tout << "r: " << r1 << std::endl;);
             scoped_mpf v(m_fm);
             m_fm.set(v, ebits, sbits, rmv, r1.to_mpq());
             result = m_util.mk_value(v);
-            // TRACE("fp_rewriter", tout << "result: " << result << std::endl; );
+            // TRACE(fp_rewriter, tout << "result: " << result << std::endl; );
             return BR_DONE;
         }
         else if (m_util.is_numeral(args[1], v)) {
             // rm + float -> float
-            TRACE("fp_rewriter", tout << "v: " << m_fm.to_string(v) << std::endl; );
+            TRACE(fp_rewriter, tout << "v: " << m_fm.to_string(v) << std::endl; );
             scoped_mpf vf(m_fm);
             m_fm.set(vf, ebits, sbits, rmv, v);
             result = m_util.mk_value(vf);
-            // TRACE("fp_rewriter", tout << "result: " << result << std::endl; );
+            // TRACE(fp_rewriter, tout << "result: " << result << std::endl; );
             return BR_DONE;
         }
         else if (m_util.bu().is_numeral(args[1], r1, bvs1)) {
             // rm + signed bv -> float
-            TRACE("fp_rewriter", tout << "r1: " << r1 << std::endl;);
+            TRACE(fp_rewriter, tout << "r1: " << r1 << std::endl;);
             r1 = m_util.bu().norm(r1, bvs1, true);
-            TRACE("fp_rewriter", tout << "r1 norm: " << r1 << std::endl;);
+            TRACE(fp_rewriter, tout << "r1 norm: " << r1 << std::endl;);
             m_fm.set(v, ebits, sbits, rmv, r1.to_mpq());
             result = m_util.mk_value(v);
             return BR_DONE;
@@ -195,7 +195,7 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
                 !m_util.au().is_numeral(args[2], r2))
                 return BR_FAILED;
 
-            TRACE("fp_rewriter", tout << "r1: " << r1 << ", r2: " << r2 << "\n";);
+            TRACE(fp_rewriter, tout << "r1: " << r1 << ", r2: " << r2 << "\n";);
             m_fm.set(v, ebits, sbits, rmv, r2.to_mpq().numerator(), r1.to_mpq());
             result = m_util.mk_value(v);
             return BR_DONE;
@@ -209,7 +209,7 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
                 !m_util.au().is_numeral(args[2], r2))
                 return BR_FAILED;
 
-            TRACE("fp_rewriter", tout << "r1: " << r1 << ", r2: " << r2 << "\n";);
+            TRACE(fp_rewriter, tout << "r1: " << r1 << ", r2: " << r2 << "\n";);
             m_fm.set(v, ebits, sbits, rmv, r1.to_mpq().numerator(), r2.to_mpq());
             result = m_util.mk_value(v);
             return BR_DONE;
@@ -226,7 +226,7 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
                             r1.is_one(),
                             m_fm.unbias_exp(bvs2, biased_exp),
                             r3.to_mpq().numerator());
-            TRACE("fp_rewriter", tout << "v = " << m_fm.to_string(v) << std::endl;);
+            TRACE(fp_rewriter, tout << "v = " << m_fm.to_string(v) << std::endl;);
             result = m_util.mk_value(v);
             return BR_DONE;
         }
@@ -700,7 +700,7 @@ br_status fpa_rewriter::mk_fp(expr * sgn, expr * exp, expr * sig, expr_ref & res
                         rsgn.is_one(),
                         m_fm.unbias_exp(bvsz_exp, biased_exp),
                         rsig.to_mpq().numerator());
-        TRACE("fp_rewriter", tout << "simplified (fp ...) to " << m_fm.to_string(v) << std::endl;);
+        TRACE(fp_rewriter, tout << "simplified (fp ...) to " << m_fm.to_string(v) << std::endl;);
         result = m_util.mk_value(v);
         return BR_DONE;
     }
@@ -765,11 +765,11 @@ br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_
 }
 
 br_status fpa_rewriter::mk_to_ieee_bv(func_decl * f, expr * arg, expr_ref & result) {
-    TRACE("fp_rewriter", tout << "to_ieee_bv of " << mk_ismt2_pp(arg, m()) << std::endl;);
+    TRACE(fp_rewriter, tout << "to_ieee_bv of " << mk_ismt2_pp(arg, m()) << std::endl;);
     scoped_mpf v(m_fm);
 
     if (m_util.is_numeral(arg, v)) {
-        TRACE("fp_rewriter", tout << "to_ieee_bv numeral: " << m_fm.to_string(v) << std::endl;);
+        TRACE(fp_rewriter, tout << "to_ieee_bv numeral: " << m_fm.to_string(v) << std::endl;);
         bv_util bu(m());
         const mpf & x = v.get();
 

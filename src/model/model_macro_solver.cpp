@@ -24,7 +24,7 @@ void base_macro_solver::set_else_interp(func_decl* f, expr* f_else) {
         m_model->register_decl(f, fi);
     }
     fi->set_else(f_else);
-    TRACE("model_finder", tout << f->get_name() << " " << mk_pp(f_else, m) << "\n";);
+    TRACE(model_finder, tout << f->get_name() << " " << mk_pp(f_else, m) << "\n";);
 }
 
 void base_macro_solver::operator()(model_core& m, ptr_vector<quantifier>& qs, ptr_vector<quantifier>& residue) {
@@ -67,7 +67,7 @@ bool simple_macro_solver::process(quantifier* q, ptr_vector<quantifier> const& q
             // does not satisfy the quantifier.
             // In all other cases the "else" of f will satisfy the quantifier.
             set_else_interp(f, f_else);
-            TRACE("model_finder", tout << "satisfying the quantifier using simple macro:\n";
+            TRACE(model_finder, tout << "satisfying the quantifier using simple macro:\n";
             m->display(tout); tout << "\n";);
             return true; // satisfied quantifier
         }
@@ -307,7 +307,7 @@ void hint_macro_solver::greedy(func_decl* f, unsigned depth) {
     if (depth >= GREEDY_MAX_DEPTH)
         return; // failed
 
-    TRACE("model_finder_hint",
+    TRACE(model_finder_hint,
         tout << "greedy depth: " << depth << ", f: " << f->get_name() << "\n";
     display_search_state(tout););
 
@@ -318,7 +318,7 @@ void hint_macro_solver::greedy(func_decl* f, unsigned depth) {
 
         m_satisfied.push_scope();
         m_residue.push_scope();
-        TRACE("model_finder", tout << f->get_name() << " " << mk_pp(def, m) << "\n";);
+        TRACE(model_finder, tout << f->get_name() << " " << mk_pp(def, m) << "\n";);
         m_fs.insert(f, def);
 
         if (update_satisfied_residue(f, def)) {
@@ -373,7 +373,7 @@ bool hint_macro_solver::is_acyclic(expr* def) {
 void hint_macro_solver::greedy(unsigned depth) {
     if (m_residue.empty()) {
         if (is_cyclic()) return;
-        TRACE("model_finder_hint",
+        TRACE(model_finder_hint,
             tout << "found subset that is satisfied by macros\n";
         display_search_state(tout););
         throw found_satisfied_subset();
@@ -381,7 +381,7 @@ void hint_macro_solver::greedy(unsigned depth) {
     func_decl_set candidates;
     get_candidates_from_residue(candidates);
 
-    TRACE("model_finder_hint", tout << "candidates from residue:\n";
+    TRACE(model_finder_hint, tout << "candidates from residue:\n";
     for (func_decl* f : candidates) {
         tout << f->get_name() << " ";
     }
@@ -444,7 +444,7 @@ bool hint_macro_solver::process(ptr_vector<quantifier> const& qs, ptr_vector<qua
         return false;
     }
     mk_q_f_defs(qcandidates);
-    TRACE("model_finder_hint", tout << "starting hint-solver search using:\n"; display_qcandidates(tout, qcandidates););
+    TRACE(model_finder_hint, tout << "starting hint-solver search using:\n"; display_qcandidates(tout, qcandidates););
     for (func_decl* f : m_candidates) {
         try {
             process(f);
@@ -469,11 +469,11 @@ The auf_solver is ineffective in these clauses.
 */
 
 bool non_auf_macro_solver::add_macro(func_decl* f, expr* f_else) {
-    TRACE("model_finder", tout << "trying to add macro for " << f->get_name() << "\n" << mk_pp(f_else, m) << "\n";);
+    TRACE(model_finder, tout << "trying to add macro for " << f->get_name() << "\n" << mk_pp(f_else, m) << "\n";);
     func_decl_set* s = m_dependencies.mk_func_decl_set();
     m_dependencies.collect_ng_func_decls(f_else, s);
     if (!m_dependencies.insert(f, s)) {
-        TRACE("model_finder", tout << "failed to add macro\n";);
+        TRACE(model_finder, tout << "failed to add macro\n";);
         return false; // cyclic dependency
     }
     set_else_interp(f, f_else);
@@ -510,7 +510,7 @@ void non_auf_macro_solver::collect_candidates(ptr_vector<quantifier> const& qs, 
         for (cond_macro* m : qi->macros()) {
             if (!m->is_hint()) {
                 func_decl* f = m->get_f();
-                TRACE("model_finder", tout << "considering macro for: " << f->get_name() << "\n";
+                TRACE(model_finder, tout << "considering macro for: " << f->get_name() << "\n";
                 m->display(tout); tout << "\n";);
                 if (m->is_unconditional() && (!qi->is_auf() || m->get_weight() >= m_mbqi_force_template)) {
                     full_macros.insert(f, std::make_pair(m, q));

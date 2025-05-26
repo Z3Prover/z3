@@ -160,7 +160,7 @@ struct solver::imp {
         for (unsigned i : m_term_set)
             add_term(i);
 
-        TRACE("nra", m_nlsat->display(tout));
+        TRACE(nra, m_nlsat->display(tout));
 
         smt_params_helper p(m_params);
         if (p.arith_nl_log()) {
@@ -194,7 +194,7 @@ struct solver::imp {
             }
         }
         m_nlsat->collect_statistics(st);
-        TRACE("nra",
+        TRACE(nra,
               m_nlsat->display(tout << r << "\n");
               display(tout);
               for (auto [j, x] : m_lp2nl) tout << "j" << j << " := x" << x << "\n";);
@@ -224,7 +224,7 @@ struct solver::imp {
             for (auto c : core) {
                 unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
                 ex.push_back(idx);
-                TRACE("nra", lra.display_constraint(tout << "ex: " << idx << ": ", idx) << "\n";);
+                TRACE(nra, lra.display_constraint(tout << "ex: " << idx << ": ", idx) << "\n";);
             }
             nla::new_lemma lemma(m_nla_core, __FUNCTION__);
             lemma &= ex;

@@ -155,7 +155,7 @@ void distribute_forall::operator()(expr * f, expr_ref & result) {
 
     result = get_cached(f);
     SASSERT(result!=0);
-    TRACE("distribute_forall", tout << mk_ll_pp(f, m_manager) << "======>\n"
+    TRACE(distribute_forall, tout << mk_ll_pp(f, m_manager) << "======>\n"
           << mk_ll_pp(result, m_manager););
 }
 

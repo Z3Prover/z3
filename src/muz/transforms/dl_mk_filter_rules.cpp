@@ -53,7 +53,7 @@ namespace datalog {
     */
     bool mk_filter_rules::is_candidate(app * pred) {
         if (!m_context.is_predicate(pred)) {
-            TRACE("mk_filter_rules", tout << mk_pp(pred, m) << "\nis not a candidate because it is interpreted.\n";);
+            TRACE(mk_filter_rules, tout << mk_pp(pred, m) << "\nis not a candidate because it is interpreted.\n";);
             return false;
         }
         var_idx_set used_vars;
@@ -111,7 +111,7 @@ namespace datalog {
         for (unsigned i = 0; i < sz; i++) {
             app * tail = r->get_tail(i);
             if (is_candidate(tail) && !r->is_neg_tail(i)) {
-                TRACE("mk_filter_rules", tout << "is_candidate: " << mk_pp(tail, m) << "\n";);
+                TRACE(mk_filter_rules, tout << "is_candidate: " << mk_pp(tail, m) << "\n";);
                 var_idx_set non_local_vars = rm.collect_rule_vars_ex(r, tail);
                 func_decl * filter_decl = mk_filter_decl(tail, non_local_vars);
                 ptr_buffer<expr> new_args;

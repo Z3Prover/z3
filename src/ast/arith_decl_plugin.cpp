@@ -39,14 +39,14 @@ struct arith_decl_plugin::algebraic_numbers_wrapper {
         unsigned idx = m_id_gen.mk();
         m_nums.reserve(idx+1);
         m_amanager.set(m_nums[idx], val);
-        TRACE("algebraic2expr", tout << "mk_id -> " << idx << "\n"; m_amanager.display(tout, val); tout << "\n";);
+        TRACE(algebraic2expr, tout << "mk_id -> " << idx << "\n"; m_amanager.display(tout, val); tout << "\n";);
         return idx;
     }
 
     void recycle_id(unsigned idx) {
         SASSERT(idx < m_nums.size());
         SASSERT(!m_amanager.is_zero(m_nums[idx]));
-        TRACE("algebraic2expr", tout << "recycling: " << idx << "\n";);
+        TRACE(algebraic2expr, tout << "recycling: " << idx << "\n";);
         m_id_gen.recycle(idx);
         m_amanager.del(m_nums[idx]);
     }
@@ -667,7 +667,7 @@ bool arith_decl_plugin::are_equal(app * a, app * b) const {
 }
 
 bool arith_decl_plugin::are_distinct(app * a, app * b) const {
-    TRACE("are_distinct_bug", tout << mk_ismt2_pp(a, *m_manager) << "\n" << mk_ismt2_pp(b, *m_manager) << "\n";);
+    TRACE(are_distinct_bug, tout << mk_ismt2_pp(a, *m_manager) << "\n" << mk_ismt2_pp(b, *m_manager) << "\n";);
     if (decl_plugin::are_distinct(a,b)) {
         return true;
     }

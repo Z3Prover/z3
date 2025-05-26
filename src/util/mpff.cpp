@@ -326,13 +326,13 @@ void mpff_manager::set(mpff & n, mpff const & v) {
 
 template<bool SYNCH>
 void mpff_manager::set_core(mpff & n, mpz_manager<SYNCH> & m, mpz const & v) {
-    TRACE("mpff", tout << "mpz->mpff\n"; m.display(tout, v); tout << "\n";);
+    TRACE(mpff, tout << "mpz->mpff\n"; m.display(tout, v); tout << "\n";);
     if (m.is_int64(v)) {
-        TRACE("mpff", tout << "is_int64 " << m.get_int64(v) << "\n";);
+        TRACE(mpff, tout << "is_int64 " << m.get_int64(v) << "\n";);
         set(n, m.get_int64(v));
     }
     else if (m.is_uint64(v)) {
-        TRACE("mpff", tout << "is_uint64\n";);
+        TRACE(mpff, tout << "is_uint64\n";);
         set(n, m.get_uint64(v));
     }
     else {
@@ -342,7 +342,7 @@ void mpff_manager::set_core(mpff & n, mpz_manager<SYNCH> & m, mpz const & v) {
         while (w.size() < m_precision) {
             w.push_back(0);
         }
-        TRACE("mpff", tout << "w words: "; for (unsigned i = 0; i < w.size(); i++) tout << w[i] << " "; tout << "\n";);
+        TRACE(mpff, tout << "w words: "; for (unsigned i = 0; i < w.size(); i++) tout << w[i] << " "; tout << "\n";);
         unsigned w_sz = w.size();
         SASSERT(w_sz >= m_precision);
         unsigned num_leading_zeros = nlz(w_sz, w.data());
@@ -368,7 +368,7 @@ void mpff_manager::set_core(mpff & n, mpz_manager<SYNCH> & m, mpz const & v) {
             // it is precise
         }
     }
-    TRACE("mpff", tout << "mpz->mpff result:\n"; display_raw(tout, n); tout << "\n";);
+    TRACE(mpff, tout << "mpz->mpff result:\n"; display_raw(tout, n); tout << "\n";);
     SASSERT(check(n));
 }
 
@@ -422,14 +422,14 @@ bool mpff_manager::eq(mpff const & a, mpff const & b) const {
 }
 
 bool mpff_manager::lt(mpff const & a, mpff const & b) const {
-    STRACE("mpff_trace", tout << "[mpff] ("; display(tout, a); tout << " < "; display(tout, b); tout << ") == ";);
+    STRACE(mpff_trace, tout << "[mpff] ("; display(tout, a); tout << " < "; display(tout, b); tout << ") == ";);
     if (is_zero(a)) {
         if (is_zero(b) || is_neg(b)) {
-            STRACE("mpff_trace", tout << "(1 == 0)\n";);
+            STRACE(mpff_trace, tout << "(1 == 0)\n";);
             return false;
         }
         else {
-            STRACE("mpff_trace", tout << "(1 == 1)\n";);
+            STRACE(mpff_trace, tout << "(1 == 1)\n";);
             SASSERT(is_pos(b));
             return true;
         }
@@ -437,12 +437,12 @@ bool mpff_manager::lt(mpff const & a, mpff const & b) const {
     if (is_zero(b)) {
         SASSERT(!is_zero(a));
         if (is_neg(a)) {
-            STRACE("mpff_trace", tout << "(1 == 1)\n";);
+            STRACE(mpff_trace, tout << "(1 == 1)\n";);
             return true;
         }
         else {
             SASSERT(is_pos(a));
-            STRACE("mpff_trace", tout << "(1 == 0)\n";);
+            STRACE(mpff_trace, tout << "(1 == 0)\n";);
             return false;
         }
     }
@@ -450,26 +450,26 @@ bool mpff_manager::lt(mpff const & a, mpff const & b) const {
     SASSERT(!is_zero(b));
     if (a.m_sign == 1) {
         if (b.m_sign == 0) {
-            STRACE("mpff_trace", tout << "(1 == 1)\n";);
+            STRACE(mpff_trace, tout << "(1 == 1)\n";);
             return true; // neg < pos
         }
         // case: neg neg 
         bool r = 
             b.m_exponent < a.m_exponent || 
             (a.m_exponent == b.m_exponent && ::lt(m_precision, sig(b), sig(a)));
-        STRACE("mpff_trace", tout << "(" << r << " == 1)\n";);
+        STRACE(mpff_trace, tout << "(" << r << " == 1)\n";);
         return r;
     }
     else {
         if (b.m_sign == 1) {
-            STRACE("mpff_trace", tout << "(1 == 0)\n";);
+            STRACE(mpff_trace, tout << "(1 == 0)\n";);
             return false; // pos < neg
         }
         // case: pos pos
         bool r =
             a.m_exponent < b.m_exponent ||
             (a.m_exponent == b.m_exponent && ::lt(m_precision, sig(a), sig(b)));
-        STRACE("mpff_trace", tout << "(" << r << " == 1)\n";);
+        STRACE(mpff_trace, tout << "(" << r << " == 1)\n";);
         return r;
     }
 }
@@ -647,7 +647,7 @@ void mpff_manager::add_sub(bool is_sub, mpff const & a, mpff const & b, mpff & c
         return;
     }
 
-    TRACE("mpff", tout << (is_sub ? "sub" : "add") << "("; display(tout, a); tout << ", "; display(tout, b); tout << ")\n";);
+    TRACE(mpff, tout << (is_sub ? "sub" : "add") << "("; display(tout, a); tout << ", "; display(tout, b); tout << ")\n";);
     
     // Remark: any result returned by sig(...) may be invalid after a call to allocate_if_needed()
     // So, we must invoke allocate_if_needed(c) before we invoke sig(a) and sig(b).
@@ -766,30 +766,30 @@ void mpff_manager::add_sub(bool is_sub, mpff const & a, mpff const & b, mpff & c
             c.m_exponent = exp_a;
         }
     }
-    TRACE("mpff", tout << "result: "; display(tout, c); tout << "\n";);
+    TRACE(mpff, tout << "result: "; display(tout, c); tout << "\n";);
     SASSERT(check(c));
 }
 
 void mpff_manager::add(mpff const & a, mpff const & b, mpff & c) {
-    STRACE("mpff_trace", tout << "[mpff] "; display(tout, a); tout << " + "; display(tout, b); tout << " " << (m_to_plus_inf ? "<=" : ">=") << " ";);
+    STRACE(mpff_trace, tout << "[mpff] "; display(tout, a); tout << " + "; display(tout, b); tout << " " << (m_to_plus_inf ? "<=" : ">=") << " ";);
     add_sub(false, a, b, c);
-    STRACE("mpff_trace", display(tout, c); tout << "\n";);  
+    STRACE(mpff_trace, display(tout, c); tout << "\n";);  
 }
 
 void mpff_manager::sub(mpff const & a, mpff const & b, mpff & c) {
-    STRACE("mpff_trace", tout << "[mpff] "; display(tout, a); tout << " - "; display(tout, b); tout << " " << (m_to_plus_inf ? "<=" : ">=") << " ";);
+    STRACE(mpff_trace, tout << "[mpff] "; display(tout, a); tout << " - "; display(tout, b); tout << " " << (m_to_plus_inf ? "<=" : ">=") << " ";);
     add_sub(true, a, b, c);
-    STRACE("mpff_trace", display(tout, c); tout << "\n";);  
+    STRACE(mpff_trace, display(tout, c); tout << "\n";);  
 }
 
 void mpff_manager::mul(mpff const & a, mpff const & b, mpff & c) {
-    STRACE("mpff_trace", tout << "[mpff] ("; display(tout, a); tout << ") * ("; display(tout, b); tout << ") " << (m_to_plus_inf ? "<=" : ">=") << " ";);
+    STRACE(mpff_trace, tout << "[mpff] ("; display(tout, a); tout << ") * ("; display(tout, b); tout << ") " << (m_to_plus_inf ? "<=" : ">=") << " ";);
     if (is_zero(a) || is_zero(b)) {
         reset(c);
     }
     else {
         allocate_if_needed(c);
-        TRACE("mpff", tout << "mul("; display(tout, a); tout << ", "; display(tout, b); tout << ")\n";);
+        TRACE(mpff, tout << "mul("; display(tout, a); tout << ", "; display(tout, b); tout << ")\n";);
         c.m_sign    = a.m_sign ^ b.m_sign;
         // use int64_t to make sure we do not have overflows
         int64_t exp_a = a.m_exponent;
@@ -801,7 +801,7 @@ void mpff_manager::mul(mpff const & a, mpff const & b, mpff & c) {
         // r has 2*m_precision_bits bits
         unsigned num_leading_zeros = nlz(m_precision*2, r);
         SASSERT(num_leading_zeros <= m_precision_bits);
-        TRACE("mpff", tout << "num_leading_zeros: " << num_leading_zeros << "\n";);
+        TRACE(mpff, tout << "num_leading_zeros: " << num_leading_zeros << "\n";);
         // We must shift right (m_precision_bits - num_leading_zeros)
         // If r does not have a 1 bit in the first (m_precision_bits - num_leading_zeros), then the result is precise.
         unsigned shift = m_precision_bits - num_leading_zeros;
@@ -812,7 +812,7 @@ void mpff_manager::mul(mpff const & a, mpff const & b, mpff & c) {
         //    1) !c.m_sign &&  m_to_plus_inf   
         //    2)  c.m_sign && !m_to_plus_inf   
         bool _inc_significand = ((c.m_sign == 1) != m_to_plus_inf) && has_one_at_first_k_bits(m_precision*2, r, shift);
-        TRACE("mpff", 
+        TRACE(mpff, 
               tout << "c.m_sign: " << c.m_sign << ", m_to_plus_inf: " << m_to_plus_inf 
               << "\nhas_one_at_first_k_bits: " << has_one_at_first_k_bits(m_precision*2, r, shift) << "\n";
               tout << "_inc_significand: " << _inc_significand << "\n";);
@@ -822,16 +822,16 @@ void mpff_manager::mul(mpff const & a, mpff const & b, mpff & c) {
         if (_inc_significand)
             inc_significand(s_c, exp_c);
         set_exponent(c, exp_c);
-        TRACE("mpff", tout << "result: "; display(tout, c); tout << "\n";);
+        TRACE(mpff, tout << "result: "; display(tout, c); tout << "\n";);
         SASSERT(check(c));
     }
-    STRACE("mpff_trace", display(tout, c); tout << "\n";);  
+    STRACE(mpff_trace, display(tout, c); tout << "\n";);  
 }
 
 void mpff_manager::div(mpff const & a, mpff const & b, mpff & c) {
     if (is_zero(b)) 
         throw div0_exception();
-    STRACE("mpff_trace", tout << "[mpff] ("; display(tout, a); tout << ") / ("; display(tout, b); tout << ") " << (m_to_plus_inf ? "<=" : ">=") << " ";);
+    STRACE(mpff_trace, tout << "[mpff] ("; display(tout, a); tout << ") / ("; display(tout, b); tout << ") " << (m_to_plus_inf ? "<=" : ">=") << " ";);
     if (is_zero(a)) {
         reset(c);
     }
@@ -872,7 +872,7 @@ void mpff_manager::div(mpff const & a, mpff const & b, mpff & c) {
                           sig(b), m_precision,
                           q, 
                           r);
-        TRACE("mpff_div", 
+        TRACE(mpff_div, 
               unsigned j = q_sz; 
               while (j > 0) { --j; tout << std::hex << std::setfill('0') << std::setw(2*sizeof(unsigned)) << q[j]; tout << " "; } 
               tout << std::dec << "\n";);
@@ -915,13 +915,13 @@ void mpff_manager::div(mpff const & a, mpff const & b, mpff & c) {
         set_exponent(c, exp_c);
         SASSERT(check(c));
     }
-    STRACE("mpff_trace", display(tout, c); tout << "\n";);  
+    STRACE(mpff_trace, display(tout, c); tout << "\n";);  
 }
 
 void mpff_manager::floor(mpff & n) {
     if (n.m_exponent >= 0)
         return; 
-    STRACE("mpff_trace", tout << "[mpff] Floor["; display(tout, n); tout << "] == ";);
+    STRACE(mpff_trace, tout << "[mpff] Floor["; display(tout, n); tout << "] == ";);
     if (n.m_exponent <= -static_cast<int>(m_precision_bits)) {
         // number is between (-1, 1)
         if (n.m_sign == 0)
@@ -951,13 +951,13 @@ void mpff_manager::floor(mpff & n) {
         }
     }
     SASSERT(check(n));
-    STRACE("mpff_trace", display(tout, n); tout << "\n";);  
+    STRACE(mpff_trace, display(tout, n); tout << "\n";);  
 }
 
 void mpff_manager::ceil(mpff & n) {
     if (n.m_exponent >= 0)
         return; 
-    STRACE("mpff_trace", tout << "[mpff] Ceiling["; display(tout, n); tout << "] == ";);
+    STRACE(mpff_trace, tout << "[mpff] Ceiling["; display(tout, n); tout << "] == ";);
     if (n.m_exponent <= -static_cast<int>(m_precision_bits)) {
         // number is between (-1, 1)
         if (n.m_sign == 0)
@@ -987,7 +987,7 @@ void mpff_manager::ceil(mpff & n) {
         }
     }
     SASSERT(check(n));
-    STRACE("mpff_trace", display(tout, n); tout << "\n";);  
+    STRACE(mpff_trace, display(tout, n); tout << "\n";);  
 }
 
 void mpff_manager::power(mpff const & a, unsigned p, mpff & b) {
@@ -1053,8 +1053,8 @@ void mpff_manager::power(mpff const & a, unsigned p, mpff & b) {
             }
         }
     }
-    STRACE("mpff_trace", tout << "[mpff] ("; display(tout, _a); tout << ") ^ " << _p << (m_to_plus_inf ? "<=" : ">="); display(tout, b); tout << "\n";);
-    TRACE("mpff_power", display_raw(tout, b); tout << "\n";);
+    STRACE(mpff_trace, tout << "[mpff] ("; display(tout, _a); tout << ") ^ " << _p << (m_to_plus_inf ? "<=" : ">="); display(tout, b); tout << "\n";);
+    TRACE(mpff_power, display_raw(tout, b); tout << "\n";);
     SASSERT(check(b));
 }
 
@@ -1124,7 +1124,7 @@ void mpff_manager::to_mpz(mpff const & n, synch_mpz_manager & m, mpz & t) {
 template<bool SYNCH>
 void mpff_manager::to_mpq_core(mpff const & n, mpq_manager<SYNCH> & m, mpq & t) {
     int exp = n.m_exponent;
-    TRACE("mpff_to_mpq", tout << "to_mpq: "; display(tout, n); tout << "\nexp: " << exp << "\n";);
+    TRACE(mpff_to_mpq, tout << "to_mpq: "; display(tout, n); tout << "\nexp: " << exp << "\n";);
     if (exp < 0 && exp > -static_cast<int>(m_precision_bits) && !has_one_at_first_k_bits(m_precision, sig(n), -n.m_exponent)) {
         to_buffer(0, n);
         unsigned * b = m_buffers[0].data();

@@ -263,18 +263,18 @@ namespace datalog {
             SASSERT(num.is_unsigned());
             level = num.get_unsigned();
             SASSERT(m.is_true(eval_q(md, b.m_query_pred, level)));
-            TRACE("bmc", model_smt2_pp(tout, m, *md, 0););
+            TRACE(bmc, model_smt2_pp(tout, m, *md, 0););
 
             rule_ref r0(rm), r1(rm), r2(rm);
             while (true) {
-                TRACE("bmc", tout << "Predicate: " << pred->get_name() << "\n";);
+                TRACE(bmc, tout << "Predicate: " << pred->get_name() << "\n";);
                 expr_ref_vector sub(m);
                 rule_vector const& rls = b.m_rules.get_predicate_rules(pred);
                 rule* r = nullptr;
                 unsigned i = 0;
                 for (; i < rls.size(); ++i) {
                     rule_i = m.mk_app(mk_q_rule(pred, i), mk_q_num(level).get());
-                    TRACE("bmc", rls[i]->display(b.m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " "););
+                    TRACE(bmc, rls[i]->display(b.m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " "););
                     if (m.is_true(eval_q(md, rule_i, level))) {
                         r = rls[i];
                         break;
@@ -490,7 +490,7 @@ namespace datalog {
             if (!m.inc()) {
                 return proof_ref(nullptr, m);
             }
-            TRACE("bmc", tout << "Predicate: " << pred->get_name() << "\n";);
+            TRACE(bmc, tout << "Predicate: " << pred->get_name() << "\n";);
             rule_manager& rm = b.m_ctx.get_rule_manager();
             expr_ref prop_r(m), prop_v(m), fml(m), prop_body(m), tmp(m), body(m);
             expr_ref_vector args(m);
@@ -503,7 +503,7 @@ namespace datalog {
             for (unsigned i = 0; i < rls.size(); ++i) {
                 func_decl_ref rule_i = mk_level_rule(pred, i, level);
                 prop_r = m.mk_app(rule_i, prop->get_num_args(), prop->get_args());
-                TRACE("bmc", rls[i]->display(b.m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " ");
+                TRACE(bmc, rls[i]->display(b.m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " ");
                       tout << (*md)(prop_r) << "\n";
                       tout << *md << "\n";
                       );
@@ -998,7 +998,7 @@ namespace datalog {
                 m_pinned.push_back(new_sorts[i].get());
             }
             if (!new_sorts.empty()) {
-                TRACE("bmc", dtu.display_datatype(new_sorts[0].get(), tout););
+                TRACE(bmc, dtu.display_datatype(new_sorts[0].get(), tout););
             }
             del_datatype_decls(dts.size(), dts.data());
 
@@ -1196,18 +1196,18 @@ namespace datalog {
             func_decl* pred = b.m_query_pred;
             SASSERT(m.is_true(md->get_const_interp(to_app(level_query)->get_decl())));
 
-            TRACE("bmc", model_smt2_pp(tout, m, *md, 0););
+            TRACE(bmc, model_smt2_pp(tout, m, *md, 0););
 
             rule_ref r0(rm), r1(rm), r2(rm);
             while (true) {
-                TRACE("bmc", tout << "Predicate: " << pred->get_name() << "\n";);
+                TRACE(bmc, tout << "Predicate: " << pred->get_name() << "\n";);
                 expr_ref_vector sub(m);
                 rule_vector const& rls = b.m_rules.get_predicate_rules(pred);
                 rule* r = nullptr;
                 unsigned i = 0;
                 for (; i < rls.size(); ++i) {
                     expr_ref rule_i = mk_level_rule(pred, i, level);
-                    TRACE("bmc", rls[i]->display(b.m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " "););
+                    TRACE(bmc, rls[i]->display(b.m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " "););
                     if (m.is_true(md->get_const_interp(to_app(rule_i)->get_decl()))) {
                         r = rls[i];
                         break;
@@ -1511,7 +1511,7 @@ namespace datalog {
     }
 
     void bmc::assert_expr(expr* e) {
-        TRACE("bmc", tout << mk_pp(e, m) << "\n";);
+        TRACE(bmc, tout << mk_pp(e, m) << "\n";);
         m_solver->assert_expr(e);
     }
 

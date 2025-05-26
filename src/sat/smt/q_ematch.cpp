@@ -157,7 +157,7 @@ namespace q {
         SASSERT(is_forall(r));
         for (expr* d : m_new_defs)
             m_qs.add_unit(m_qs.mk_literal(d));
-        CTRACE("q", r != q, tout << mk_pp(q, m) << " -->\n" << r << "\n" << m_new_defs << "\n";);
+        CTRACE(q, r != q, tout << mk_pp(q, m) << " -->\n" << r << "\n" << m_new_defs << "\n";);
         return quantifier_ref(to_quantifier(r), m);
     }
 
@@ -191,7 +191,7 @@ namespace q {
     };
 
     void ematch::on_merge(euf::enode* root, euf::enode* other) {
-        TRACE("q", tout << "on-merge " << ctx.bpp(root) << " " << ctx.bpp(other) << "\n";);
+        TRACE(q, tout << "on-merge " << ctx.bpp(root) << " " << ctx.bpp(other) << "\n";);
         SASSERT(root->get_root() == other->get_root());
         unsigned root_id = root->get_expr_id();
         unsigned other_id = other->get_expr_id();
@@ -331,7 +331,7 @@ namespace q {
         binding* b = alloc_binding(c, pat, _binding, max_generation, min_gen, max_gen);
         if (!b)
             return;
-        TRACE("q", b->display(ctx, tout << "on-binding " << mk_pp(q, m) << "\n") << "\n";);
+        TRACE(q, b->display(ctx, tout << "on-binding " << mk_pp(q, m) << "\n") << "\n";);
 
 
         if (propagate(false, _binding, max_generation, c, new_propagation))
@@ -576,7 +576,7 @@ namespace q {
     };
 
     void ematch::add(quantifier* _q) {
-        TRACE("q", tout << "add " << mk_pp(_q, m) << "\n");
+        TRACE(q, tout << "add " << mk_pp(_q, m) << "\n");
         scoped_ptr<clause> c = clausify(_q);
         quantifier* q = c->q();
         if (m_q2clauses.contains(q)) 
@@ -598,9 +598,9 @@ namespace q {
             app * mp = to_app(q->get_pattern(i));
             SASSERT(m.is_pattern(mp));
             bool unary = (mp->get_num_args() == 1);
-            TRACE("q", tout << "adding:\n" << expr_ref(mp, m) << "\n");
+            TRACE(q, tout << "adding:\n" << expr_ref(mp, m) << "\n");
             if (!unary && j >= num_eager_multi_patterns) {
-                TRACE("q", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m) << "\n";);
+                TRACE(q, tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m) << "\n";);
                 if (!m_lazy_mam)
                     m_lazy_mam = euf::mam::mk(ctx, *this);
                 m_lazy_mam->add_pattern(q, mp);
@@ -675,7 +675,7 @@ namespace q {
     }
 
     bool ematch::operator()() {
-        TRACE("q", m_mam->display(tout););
+        TRACE(q, m_mam->display(tout););
         if (propagate(false))
             return true;
         if (m_lazy_mam) 
@@ -692,11 +692,11 @@ namespace q {
         for (unsigned i = 0; i < m_clauses.size(); ++i)
             if (m_clauses[i]->m_bindings) {
                 IF_VERBOSE(0, verbose_stream() << "missed propagation " << i << "\n");
-                TRACE("q", display(tout << "missed propagation\n"));
+                TRACE(q, display(tout << "missed propagation\n"));
                 break;
             }
         
-        TRACE("q", tout << "no more propagation\n";);
+        TRACE(q, tout << "no more propagation\n";);
         return false;
     }
 

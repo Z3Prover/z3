@@ -172,7 +172,7 @@ class degree_shift_tactic : public tactic {
             for (auto [f, d, p] : g)
                 collect(f, visited);
             
-            TRACE("degree_shift", display_candidates(tout););
+            TRACE(degree_shift, display_candidates(tout););
         }
 
         void discard_non_candidates() {
@@ -257,7 +257,7 @@ class degree_shift_tactic : public tactic {
             g->inc_depth();
             g->add(mc.get());
             result.push_back(g.get());
-            TRACE("degree_shift", g->display(tout); if (mc) mc->display(tout););
+            TRACE(degree_shift, g->display(tout); if (mc) mc->display(tout););
         }
     };
     

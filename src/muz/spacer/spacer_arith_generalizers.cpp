@@ -120,7 +120,7 @@ void limit_num_generalizer::operator()(lemma_ref &lemma) {
                 // good
             } else {
                 failed = true;
-                TRACE("spacer.limnum", tout << "Failed to generalize: "
+                TRACE(spacer_limnum, tout << "Failed to generalize: "
                       << lemma->get_cube()
                       << "\ninto\n"
                       << cube << "\n";);
@@ -130,7 +130,7 @@ void limit_num_generalizer::operator()(lemma_ref &lemma) {
 
         // check that !cube & F & Tr ==> !cube'
         if (!failed && pt.check_inductive(lemma->level(), cube, uses_level, weakness)) {
-            TRACE("spacer",
+            TRACE(spacer,
                   tout << "Reduced fractions from:\n"
                   << lemma->get_cube() << "\n\nto\n"
                   << cube << "\n";);

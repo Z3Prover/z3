@@ -51,7 +51,7 @@ namespace simplex {
             m.mul(coeffs[m_base_vars[i]], mul, a);            
             m.set(b, m_vars[v].m_base_coeff);
             m.lcm(a, b, c);
-            TRACE("simplex",
+            TRACE(simplex,
                   m.display(tout << " a: ", a);
                   m.display(tout << " b v" << v << " : ", b);
                   m.display(tout << " c: ", c);
@@ -69,7 +69,7 @@ namespace simplex {
             M.mul(r, b);
             m.neg(a);
             M.add(r, a, row(m_vars[v].m_base2row));
-            TRACE("simplex", M.display_row(tout, r););
+            TRACE(simplex, M.display_row(tout, r););
         }
 
         scoped_numeral base_coeff(m);
@@ -87,7 +87,7 @@ namespace simplex {
             }
         }
         SASSERT(!m.is_zero(base_coeff));
-        TRACE("simplex", 
+        TRACE(simplex, 
               for (unsigned i = 0; i < num_vars; ++i) {
                   m.display(tout << "v" << vars[i] << " * ", coeffs[i]); tout << " ";
                   if (i + 1 < num_vars) tout << " + ";
@@ -132,7 +132,7 @@ namespace simplex {
     void simplex<Ext>::add_patch(var_t v) {
         SASSERT(is_base(v));
         if (outside_bounds(v)) {
-            TRACE("simplex", tout << "Add patch: v" << v << "\n";);
+            TRACE(simplex, tout << "Add patch: v" << v << "\n";);
             m_to_patch.insert(v);
         }
     }
@@ -151,7 +151,7 @@ namespace simplex {
 
     template<typename Ext>
     void simplex<Ext>::del_row(var_t var) {
-        TRACE("simplex", tout << var << "\n";);
+        TRACE(simplex, tout << var << "\n";);
         row r;
         if (is_base(var)) {
             r = row(m_vars[var].m_base2row);                                    
@@ -182,7 +182,7 @@ namespace simplex {
             SASSERT(!below_lower(old_base) && !above_upper(old_base));
         }
         del_row(r);
-        TRACE("simplex", display(tout););
+        TRACE(simplex, display(tout););
         SASSERT(well_formed());
     }
 
@@ -203,7 +203,7 @@ namespace simplex {
         var_info& vi = m_vars[var];
         em.set(vi.m_lower, b);
         vi.m_lower_valid = true;
-        TRACE("simplex", em.display(tout << "v" << var << " lower: ", b);
+        TRACE(simplex, em.display(tout << "v" << var << " lower: ", b);
               em.display(tout << " value: ", vi.m_value););
         SASSERT(!vi.m_upper_valid || em.le(b, vi.m_upper));
         if (!vi.m_is_base && em.lt(vi.m_value, b)) {
@@ -339,7 +339,7 @@ namespace simplex {
         m_bland = false;
         SASSERT(well_formed());
         while ((v = select_var_to_fix()) != null_var) {
-            TRACE("simplex", display(tout << "v" << v << "\n"););
+            TRACE(simplex, display(tout << "v" << v << "\n"););
             if (!m_limit.inc() || num_iterations > m_max_iterations) {
                 return l_undef;
             }
@@ -686,7 +686,7 @@ namespace simplex {
                 // optimal
                 return l_true;
             }
-            TRACE("simplex", tout << "x_i: v" << x_i << " x_j: v" << x_j << "\n";);
+            TRACE(simplex, tout << "x_i: v" << x_i << " x_j: v" << x_j << "\n";);
             var_info& vj = m_vars[x_j];
             if (x_i == null_var) {
                 if (inc_x_j && vj.m_upper_valid) {
@@ -714,10 +714,10 @@ namespace simplex {
             // 
 
             pivot(x_i, x_j, a_ij);
-            TRACE("simplex", display(tout << "after pivot\n"););
+            TRACE(simplex, display(tout << "after pivot\n"););
             move_to_bound(x_i, !inc_x_i);
             SASSERT(well_formed_row(row(m_vars[x_j].m_base2row)));
-            TRACE("simplex", display(tout););
+            TRACE(simplex, display(tout););
             SASSERT(is_feasible());
         }
         return l_true;
@@ -733,7 +733,7 @@ namespace simplex {
         else {
             em.sub(vi.m_upper, vi.m_value, delta);
         }
-        TRACE("simplex", tout << "move " << (to_lower?"to_lower":"to_upper") 
+        TRACE(simplex, tout << "move " << (to_lower?"to_lower":"to_upper") 
               << " v" << x << " delta: " << em.to_string(delta) << "\n";);
         col_iterator it = M.col_begin(x), end = M.col_end(x);
         for (; it != end && is_pos(delta); ++it) {
@@ -766,7 +766,7 @@ namespace simplex {
                 em.mul(delta2, base_coeff, delta2);
                 em.div(delta2, coeff, delta2);
                 em.abs(delta2);
-                TRACE("simplex", tout << "Delta for v" << s << " " << delta2 << "\n";);
+                TRACE(simplex, tout << "Delta for v" << s << " " << delta2 << "\n";);
                 if (delta2 < delta) {
                     delta = delta2;
                 }
@@ -805,7 +805,7 @@ namespace simplex {
             if (x == v) continue; 
             bool inc_x = m.is_pos(it->m_coeff) == m.is_pos(m_vars[v].m_base_coeff);
             if ((inc_x && at_upper(x)) || (!inc_x && at_lower(x))) {
-                TRACE("simplex", tout << "v" << x << " pos: " << inc_x 
+                TRACE(simplex, tout << "v" << x << " pos: " << inc_x 
                       << " at upper: " << at_upper(x) 
                       << " at lower: " << at_lower(x) << "\n";);
                 continue; // variable cannot be used for improving bounds.
@@ -826,7 +826,7 @@ namespace simplex {
                 ((is_zero(new_gain) && is_zero(gain) && (x_i == null_var || y < x_i)));
 
             if (better) {
-                TRACE("simplex", 
+                TRACE(simplex, 
                       em.display(tout << "gain:", gain); 
                       em.display(tout << " new gain:", new_gain);
                       tout << " base x_i: " << y << ", new base x_j: " << x << ", inc x_j: " << inc_x << "\n";);
@@ -871,7 +871,7 @@ namespace simplex {
             numeral const& a_ii = vi.m_base_coeff;
             bool sign_eq = (m.is_pos(a_ii) == m.is_pos(a_ij));
             bool inc_s =  sign_eq != inc_x_j;
-            TRACE("simplex", tout << "x_j: v" << x_j << ", base x_i: v" << s 
+            TRACE(simplex, tout << "x_j: v" << x_j << ", base x_i: v" << s 
                   << ", inc_x_i: " << inc_s 
                   << ", inc_x_j: " << inc_x_j 
                   << ", upper valid:" << vi.m_upper_valid 
@@ -896,7 +896,7 @@ namespace simplex {
                 gain = curr_gain;
                 new_a_ij = a_ij;
                 inc_x_i = inc_s;
-                TRACE("simplex", tout << "x_j v" << x_j << " x_i v" << x_i << " gain: ";
+                TRACE(simplex, tout << "x_j v" << x_j << " x_i v" << x_i << " gain: ";
                       tout << curr_gain << "\n";);
             }
         }
@@ -910,7 +910,7 @@ namespace simplex {
         if (m_left_basis.contains(v)) {
             num_repeated++;        
             if (num_repeated > m_blands_rule_threshold) {
-                TRACE("simplex", tout << "using blands rule, " << num_repeated << "\n";);
+                TRACE(simplex, tout << "using blands rule, " << num_repeated << "\n";);
                 // std::cerr << "BLANDS RULE...\n";
                 m_bland = true;
             }
@@ -1019,7 +1019,7 @@ namespace simplex {
         }
         if (!em.is_zero(sum)) {
             IF_VERBOSE(0, M.display_row(verbose_stream(), r););
-            TRACE("pb", display(tout << "non-well formed row\n"); M.display_row(tout << "row: ", r););
+            TRACE(pb, display(tout << "non-well formed row\n"); M.display_row(tout << "row: ", r););
             throw default_exception("non-well formed row");
         }
 

@@ -210,7 +210,7 @@ class horn_tactic : public tactic {
                     break;
                 default:
                     msg << "formula is not in Horn fragment: " << mk_pp(g->form(i), m) << "\n";
-                    TRACE("horn", tout << msg.str(););
+                    TRACE(horn, tout << msg.str(););
                     throw tactic_exception(msg.str());
                 }
             }
@@ -287,7 +287,7 @@ class horn_tactic : public tactic {
                     model_ref md = m_ctx.get_model();
                     model_converter_ref mc2 = model2model_converter(md.get());
                     mc = mc2.get();
-                    TRACE("dl", mc->display(tout << *md << "\n"););
+                    TRACE(dl, mc->display(tout << *md << "\n"););
                 }
                 break;
             }

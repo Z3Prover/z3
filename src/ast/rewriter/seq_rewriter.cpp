@@ -251,7 +251,7 @@ eautomaton* re2automaton::operator()(expr* e) {
     if (r) {        
         r->compress(); 
         bool_rewriter br(m);
-        TRACE("seq", display_expr1 disp(m); r->display(tout << mk_pp(e, m) << " -->\n", disp););
+        TRACE(seq, display_expr1 disp(m); r->display(tout << mk_pp(e, m) << " -->\n", disp););
     }
     return r;
 } 
@@ -302,7 +302,7 @@ eautomaton* re2automaton::re2aut(expr* e) {
         expr_ref _start(m), _stop(m);
         if (is_unit_char(e1, _start) &&
             is_unit_char(e2, _stop)) {
-            TRACE("seq", tout << "Range: " << _start << " " << _stop << "\n";);
+            TRACE(seq, tout << "Range: " << _start << " " << _stop << "\n";);
             a = alloc(eautomaton, sm, sym_expr::mk_range(_start, _stop));
             return a.detach();            
         }
@@ -360,11 +360,11 @@ eautomaton* re2automaton::re2aut(expr* e) {
     }
     else if (u.re.is_intersection(e, e1, e2) && m_sa && (a = re2aut(e1)) && (b = re2aut(e2))) {
         eautomaton* r = m_sa->mk_product(*a, *b);
-        TRACE("seq", display_expr1 disp(m); a->display(tout << "a:", disp); b->display(tout << "b:", disp); r->display(tout << "intersection:", disp););
+        TRACE(seq, display_expr1 disp(m); a->display(tout << "a:", disp); b->display(tout << "b:", disp); r->display(tout << "intersection:", disp););
         return r;
     }
     else {        
-        TRACE("seq", tout << "not handled " << mk_pp(e, m) << "\n";);
+        TRACE(seq, tout << "not handled " << mk_pp(e, m) << "\n";);
     }
     
     return nullptr;
@@ -763,7 +763,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     if (st == BR_FAILED) {
         st = lift_ites_throttled(f, num_args, args, result);
     }
-    CTRACE("seq_verbose", st != BR_FAILED, tout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";);
+    CTRACE(seq_verbose, st != BR_FAILED, tout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";);
     SASSERT(st == BR_FAILED || result->get_sort() == f->get_range());
     return st;
 }
@@ -777,7 +777,7 @@ br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
     if (m_util.is_const_char(e, ch) && m_coalesce_chars) {
         // convert to string constant
         zstring s(ch);
-        TRACE("seq_verbose", tout << "rewrite seq.unit of 8-bit value " << ch << " to string constant \"" << s<< "\"" << std::endl;);
+        TRACE(seq_verbose, tout << "rewrite seq.unit of 8-bit value " << ch << " to string constant \"" << s<< "\"" << std::endl;);
         result = str().mk_string(s);
         return BR_DONE;
     }
@@ -994,7 +994,7 @@ br_status seq_rewriter::lift_ites_throttled(func_decl* f, unsigned n, expr* cons
             new_args[i] = e;
             expr_ref arg2(m().mk_app(f, new_args), m());
             result = m().mk_ite(c, arg1, arg2);
-            TRACE("seq_verbose", tout << "lifting ite: " << mk_pp(result, m()) << std::endl;);
+            TRACE(seq_verbose, tout << "lifting ite: " << mk_pp(result, m()) << std::endl;);
             return BR_REWRITE2;
         }
     return BR_FAILED;
@@ -1137,7 +1137,7 @@ bool seq_rewriter::extract_push_offset(expr_ref_vector const& as, expr* b, expr*
             t1 = str().mk_concat(as.size() - i, as.data() + i, as[0]->get_sort());
             expr_ref t2 = mk_len(pos1, lens);
             result = str().mk_substr(t1, t2, c);
-            TRACE("seq", tout << result << "\n";);
+            TRACE(seq, tout << result << "\n";);
             return true;
         }
     }
@@ -1174,7 +1174,7 @@ bool seq_rewriter::extract_push_length(expr_ref_vector& as, expr* b, expr* c, ex
             result = str().mk_substr(t1, b, t2);
             as[i] = result;
             result = str().mk_concat(i + 1, as.data(), as[0]->get_sort());
-            TRACE("seq", tout << result << "\n";);
+            TRACE(seq, tout << result << "\n";);
             return true;
         }
     }
@@ -1186,7 +1186,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     zstring s;
     rational pos, len;
 
-    TRACE("seq_verbose", tout << mk_pp(a, m()) << " " << mk_pp(b, m()) << " " << mk_pp(c, m()) << "\n";);
+    TRACE(seq_verbose, tout << mk_pp(a, m()) << " " << mk_pp(b, m()) << " " << mk_pp(c, m()) << "\n";);
     bool constantBase = str().is_string(a, s);
     bool constantPos = m_autil.is_numeral(b, pos);
     bool constantLen = m_autil.is_numeral(c, len);
@@ -1453,7 +1453,7 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     str().get_concat_units(a, as);
     str().get_concat_units(b, bs);
     
-    TRACE("seq", tout << mk_pp(a, m()) << " contains " << mk_pp(b, m()) << "\n";);
+    TRACE(seq, tout << mk_pp(a, m()) << " contains " << mk_pp(b, m()) << "\n";);
    
     if (bs.empty()) {
         result = m().mk_true();
@@ -2253,14 +2253,14 @@ br_status seq_rewriter::mk_seq_replace_re(expr* a, expr* b, expr* c, expr_ref& r
 }
 
 br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
-    TRACE("seq", tout << mk_pp(a, m()) << " " << mk_pp(b, m()) << "\n";);
+    TRACE(seq, tout << mk_pp(a, m()) << " " << mk_pp(b, m()) << "\n";);
     zstring s1, s2;
     bool isc1 = str().is_string(a, s1);
     bool isc2 = str().is_string(b, s2);
     sort* sort_a = a->get_sort();
     if (isc1 && isc2) {
         result = m().mk_bool_val(s1.prefixof(s2));
-        TRACE("seq", tout << result << "\n";);
+        TRACE(seq, tout << result << "\n";);
         return BR_DONE;
     }
     if (str().is_empty(a)) {
@@ -2278,7 +2278,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
             if (s1.prefixof(s2)) {
                 if (a == a1) {
                     result = m().mk_true();
-                    TRACE("seq", tout << s1 << " " << s2 << " " << result << "\n";);
+                    TRACE(seq, tout << s1 << " " << s2 << " " << result << "\n";);
                     return BR_DONE;
                 }               
                 str().get_concat(a, as);
@@ -2288,12 +2288,12 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
                 bs[0] = str().mk_string(s2);
                 result = str().mk_prefix(str().mk_concat(as.size()-1, as.data()+1, sort_a),
                                               str().mk_concat(bs.size(), bs.data(), sort_a));
-                TRACE("seq", tout << s1 << " " << s2 << " " << result << "\n";);
+                TRACE(seq, tout << s1 << " " << s2 << " " << result << "\n";);
                 return BR_REWRITE_FULL;
             }
             else {
                 result = m().mk_false();
-                TRACE("seq", tout << s1 << " " << s2 << " " << result << "\n";);
+                TRACE(seq, tout << s1 << " " << s2 << " " << result << "\n";);
                 return BR_DONE;
             }
         }
@@ -2301,7 +2301,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
             if (s2.prefixof(s1)) {
                 if (b == b1) {
                     result = m().mk_false();
-                    TRACE("seq", tout << s1 << " " << s2 << " " << result << "\n";);
+                    TRACE(seq, tout << s1 << " " << s2 << " " << result << "\n";);
                     return BR_DONE;
                 }
                 str().get_concat(a, as);
@@ -2311,12 +2311,12 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
                 as[0] = str().mk_string(s1);
                 result = str().mk_prefix(str().mk_concat(as.size(), as.data(), sort_a),
                                               str().mk_concat(bs.size()-1, bs.data()+1, sort_a));
-                TRACE("seq", tout << s1 << " " << s2 << " " << result << "\n";);
+                TRACE(seq, tout << s1 << " " << s2 << " " << result << "\n";);
                 return BR_REWRITE_FULL;                
             }
             else {
                 result = m().mk_false();
-                TRACE("seq", tout << s1 << " " << s2 << " " << result << "\n";);
+                TRACE(seq, tout << s1 << " " << s2 << " " << result << "\n";);
                 return BR_DONE;
             }
         }        
@@ -2342,7 +2342,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     }
     if (i == as.size()) {
         result = mk_and(eqs);
-        TRACE("seq", tout << result << "\n";);
+        TRACE(seq, tout << result << "\n";);
         return BR_REWRITE3;
     }
     SASSERT(i < as.size());
@@ -2351,7 +2351,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
             eqs.push_back(str().mk_is_empty(as.get(j)));
         }
         result = mk_and(eqs);
-        TRACE("seq", tout << result << "\n";);
+        TRACE(seq, tout << result << "\n";);
         return BR_REWRITE3;
     }
     if (i > 0) {
@@ -2360,7 +2360,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
         b = str().mk_concat(bs.size() - i, bs.data() + i, sort_a); 
         eqs.push_back(str().mk_prefix(a, b));
         result = mk_and(eqs);
-        TRACE("seq", tout << result << "\n";);
+        TRACE(seq, tout << result << "\n";);
         return BR_REWRITE3;
     }
 
@@ -2420,7 +2420,7 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
     }
     if (i > sza) {
         result = mk_and(eqs);
-        TRACE("seq", tout << result << "\n";);
+        TRACE(seq, tout << result << "\n";);
         return BR_REWRITE3;
     }
     if (i > szb) {
@@ -2429,7 +2429,7 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
             eqs.push_back(str().mk_is_empty(aj));
         }
         result = mk_and(eqs);
-        TRACE("seq", tout << result << "\n";);
+        TRACE(seq, tout << result << "\n";);
         return BR_REWRITE3;
     }
 
@@ -2439,7 +2439,7 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
         b = str().mk_concat(szb - i + 1, bs.data(), sort_a);
         eqs.push_back(str().mk_suffix(a, b));
         result = mk_and(eqs);
-        TRACE("seq", tout << result << "\n";);
+        TRACE(seq, tout << result << "\n";);
         return BR_REWRITE3;
     }
 
@@ -2889,14 +2889,14 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
 }
 
 expr_ref seq_rewriter::is_nullable(expr* r) {
-    STRACE("seq_verbose", tout << "is_nullable: "
+    STRACE(seq_verbose, tout << "is_nullable: "
                                << mk_pp(r, m()) << std::endl;);
     expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr, nullptr), m());
     if (!result) {
         result = is_nullable_rec(r);
         m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, nullptr, result);        
     }
-    STRACE("seq_verbose", tout << "is_nullable result: "
+    STRACE(seq_verbose, tout << "is_nullable result: "
                                << result << std::endl;);
     return result;
 }
@@ -3144,12 +3144,12 @@ br_status seq_rewriter::mk_re_derivative(expr* ele, expr* r, expr_ref& result) {
 */
 bool seq_rewriter::check_deriv_normal_form(expr* r, int level) {
     if (level == 3) { // top level
-        STRACE("seq_verbose", tout
+        STRACE(seq_verbose, tout
             << "Checking derivative normal form invariant...";);
     }
     expr *r1 = nullptr, *r2 = nullptr, *p = nullptr, *s = nullptr;
     unsigned lo = 0, hi = 0;
-    STRACE("seq_verbose", tout << " (level " << level << ")";);
+    STRACE(seq_verbose, tout << " (level " << level << ")";);
     int new_level = 0;
     if (re().is_antimirov_union(r)) {
         SASSERT(level >= 2);
@@ -3193,7 +3193,7 @@ bool seq_rewriter::check_deriv_normal_form(expr* r, int level) {
         SASSERT(false);
     }
     if (level == 3) {
-        STRACE("seq_verbose", tout << " passed!" << std::endl;);
+        STRACE(seq_verbose, tout << " passed!" << std::endl;);
     }
     return true;
 }
@@ -3218,8 +3218,8 @@ expr_ref seq_rewriter::mk_antimirov_deriv(expr* e, expr* r, expr* path) {
     if (!result) {
         mk_antimirov_deriv_rec(e, r, path, result);
         m_op_cache.insert(OP_RE_DERIVATIVE, e, r, path, result);
-        STRACE("seq_regex", tout << "D(" << mk_pp(e, m()) << "," << mk_pp(r, m()) << "," << mk_pp(path, m()) << ")" << std::endl;);
-        STRACE("seq_regex", tout << "= " << mk_pp(result, m()) << std::endl;);
+        STRACE(seq_regex, tout << "D(" << mk_pp(e, m()) << "," << mk_pp(r, m()) << "," << mk_pp(path, m()) << ")" << std::endl;);
+        STRACE(seq_regex, tout << "= " << mk_pp(result, m()) << std::endl;);
     }
     return result;
 }
@@ -3851,7 +3851,7 @@ bool seq_rewriter::le_char(expr* ch1, expr* ch2) {
     - a and b are char <= constraints, or negations of char <= constraints
 */
 bool seq_rewriter::pred_implies(expr* a, expr* b) {
-    STRACE("seq_verbose", tout << "pred_implies: "
+    STRACE(seq_verbose, tout << "pred_implies: "
                                << "," << mk_pp(a, m())
                                << "," << mk_pp(b, m()) << std::endl;);
     expr *cha1 = nullptr, *cha2 = nullptr, *nota = nullptr,
@@ -3912,7 +3912,7 @@ bool seq_rewriter::ite_bdds_compatible(expr* a, expr* b) {
         - result is in normal form (check_deriv_normal_form)
 */
 expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
-    STRACE("seq_verbose", tout << "mk_der_op_rec: " << k
+    STRACE(seq_verbose, tout << "mk_der_op_rec: " << k
                                << "," << mk_pp(a, m())
                                << "," << mk_pp(b, m()) << std::endl;);
     expr* ca = nullptr, *a1 = nullptr, *a2 = nullptr;
@@ -4076,7 +4076,7 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
 }
 
 expr_ref seq_rewriter::mk_der_compl(expr* r) {
-    STRACE("seq_verbose", tout << "mk_der_compl: " << mk_pp(r, m())
+    STRACE(seq_verbose, tout << "mk_der_compl: " << mk_pp(r, m())
                                << std::endl;);
     expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr, nullptr), m());
     if (!result) {
@@ -4115,7 +4115,7 @@ expr_ref seq_rewriter::mk_der_compl(expr* r) {
     Postcondition: result is in BDD form
 */
 expr_ref seq_rewriter::mk_der_cond(expr* cond, expr* ele, sort* seq_sort) {
-    STRACE("seq_verbose", tout << "mk_der_cond: "
+    STRACE(seq_verbose, tout << "mk_der_cond: "
            <<  mk_pp(cond, m()) << ", " << mk_pp(ele, m()) << std::endl;);
     sort *ele_sort = nullptr;
     VERIFY(u().is_seq(seq_sort, ele_sort));
@@ -4160,7 +4160,7 @@ expr_ref seq_rewriter::mk_der_cond(expr* cond, expr* ele, sort* seq_sort) {
     else {
         result = re_predicate(cond, seq_sort);
     }
-    STRACE("seq_verbose", tout << "mk_der_cond result: "
+    STRACE(seq_verbose, tout << "mk_der_cond result: "
         <<  mk_pp(result, m()) << std::endl;);
     CASSERT("seq_regex", check_deriv_normal_form(result));
     return result;
@@ -4264,7 +4264,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         if (get_head_tail(r1, hd, tl)) {
             // head must be equal; if so, derivative is tail
             // Use mk_der_cond to normalize
-            STRACE("seq_verbose", tout << "deriv to_re" << std::endl;);
+            STRACE(seq_verbose, tout << "deriv to_re" << std::endl;);
             result = m().mk_eq(ele, hd);
             result = mk_der_cond(result, ele, seq_sort);
             expr_ref r1(re().mk_to_re(tl), m());
@@ -4305,7 +4305,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             expr_ref hd(m()), tl(m());
             if (get_head_tail_reversed(r2, hd, tl)) {
                 // Use mk_der_cond to normalize
-                STRACE("seq_verbose", tout << "deriv reverse to_re" << std::endl;);
+                STRACE(seq_verbose, tout << "deriv reverse to_re" << std::endl;);
                 result = m().mk_eq(ele, tl);
                 result = mk_der_cond(result, ele, seq_sort);
                 result = mk_der_concat(result, re().mk_reverse(re().mk_to_re(hd)));
@@ -4334,7 +4334,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
                 expr_ref ch1(m_util.mk_char(s1[0]), m());
                 expr_ref ch2(m_util.mk_char(s2[0]), m());
                 // Use mk_der_cond to normalize
-                STRACE("seq_verbose", tout << "deriv range zstring" << std::endl;);
+                STRACE(seq_verbose, tout << "deriv range zstring" << std::endl;);
                 expr_ref p1(u().mk_le(ch1, ele), m());
                 p1 = mk_der_cond(p1, ele, seq_sort);
                 expr_ref p2(u().mk_le(ele, ch2), m());
@@ -4350,7 +4350,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         if (str().is_unit(r1, e1) && str().is_unit(r2, e2)) {
             SASSERT(u().is_char(e1));
             // Use mk_der_cond to normalize
-            STRACE("seq_verbose", tout << "deriv range str" << std::endl;);
+            STRACE(seq_verbose, tout << "deriv range str" << std::endl;);
             expr_ref p1(u().mk_le(e1, ele), m());
             p1 = mk_der_cond(p1, ele, seq_sort);
             expr_ref p2(u().mk_le(ele, e2), m());
@@ -4367,7 +4367,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         expr* args[2] = { p, ele };
         result = array.mk_select(2, args);
         // Use mk_der_cond to normalize
-        STRACE("seq_verbose", tout << "deriv of_pred" << std::endl;);
+        STRACE(seq_verbose, tout << "deriv of_pred" << std::endl;);
         return mk_der_cond(result, ele, seq_sort);
     }
     // stuck cases: re.derivative, re variable,
@@ -4547,7 +4547,7 @@ This will help propagate cases like "abc"X in opt(to_re(X)) to equalities.
 */
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
 
-    STRACE("seq_verbose", tout << "mk_str_in_regexp: " << mk_pp(a, m())
+    STRACE(seq_verbose, tout << "mk_str_in_regexp: " << mk_pp(a, m())
                                << ", " << mk_pp(b, m()) << std::endl;);
 
     if (re().is_empty(b)) {
@@ -5423,7 +5423,7 @@ br_status seq_rewriter::mk_le_core(expr * l, expr * r, expr_ref & result) {
 }
 
 br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
-    TRACE("seq", tout << mk_pp(l, m()) << " == " << mk_pp(r, m()) << "\n");
+    TRACE(seq, tout << mk_pp(l, m()) << " == " << mk_pp(r, m()) << "\n");
     expr_ref_vector res(m());
     expr_ref_pair_vector new_eqs(m());
     if (m_util.is_re(l)) {
@@ -5436,20 +5436,20 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
 #if 0
     if (reduce_arith_eq(l, r, res) || reduce_arith_eq(r, l, res)) {
         result = mk_and(res);
-        TRACE("seq_verbose", tout << result << "\n";);
+        TRACE(seq_verbose, tout << result << "\n";);
         return BR_REWRITE3;        
     }
 
     if (reduce_extract(l, r, res)) {
         result = mk_and(res);
-        TRACE("seq_verbose", tout << result << "\n";);
+        TRACE(seq_verbose, tout << result << "\n";);
         return BR_REWRITE3;        
     }
 #endif
 
     if (!reduce_eq(l, r, new_eqs, changed)) {
         result = m().mk_false();
-        TRACE("seq_verbose", tout << result << "\n";);
+        TRACE(seq_verbose, tout << result << "\n";);
         return BR_DONE;
     }
     if (!changed) {
@@ -5459,7 +5459,7 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
         res.push_back(m().mk_eq(p.first, p.second));
     }
     result = mk_and(res);
-    TRACE("seq_verbose", tout << result << "\n";);
+    TRACE(seq_verbose, tout << result << "\n";);
     return BR_REWRITE3;
 }
 
@@ -5600,11 +5600,11 @@ bool seq_rewriter::reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_r
         }
         else if (str().is_string(l, s1) &&
                  str().is_string(r, s2)) {
-            TRACE("seq", tout << s1 << " - " << s2 << " " << s1.length() << " " << s2.length() << "\n";);
+            TRACE(seq, tout << s1 << " - " << s2 << " " << s1.length() << " " << s2.length() << "\n";);
             unsigned min_l = std::min(s1.length(), s2.length());
             for (unsigned i = 0; i < min_l; ++i) {
                 if (s1[i] != s2[i]) {
-                    TRACE("seq", tout << "different at position " << i << " " << s1[i] << " " << s2[i] << "\n";);
+                    TRACE(seq, tout << "different at position " << i << " " << s1[i] << " " << s2[i] << "\n";);
                     return false;
                 }
             }
@@ -5638,7 +5638,7 @@ bool seq_rewriter::reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_r
    - sets change to true if some simplification occurred
 */
 bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs, bool& change) {
-    TRACE("seq_verbose", tout << ls << "\n"; tout << rs << "\n";);
+    TRACE(seq_verbose, tout << ls << "\n"; tout << rs << "\n";);
     unsigned hash_l = ls.hash();
     unsigned hash_r = rs.hash();
     unsigned sz_eqs = eqs.size();
@@ -5675,7 +5675,7 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_pair_vector& new_eqs, bo
         return true;
     }
     else {
-        TRACE("seq", tout << mk_bounded_pp(l, m()) << " != " << mk_bounded_pp(r, m()) << "\n";);
+        TRACE(seq, tout << mk_bounded_pp(l, m()) << " != " << mk_bounded_pp(r, m()) << "\n";);
         return false;
     }
 }
@@ -5703,7 +5703,7 @@ void seq_rewriter::add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs
 bool seq_rewriter::reduce_contains(expr* a, expr* b, expr_ref_vector& disj) {
     m_lhs.reset();
     str().get_concat(a, m_lhs);
-    TRACE("seq", tout << expr_ref(a, m()) << " " << expr_ref(b, m()) << "\n";);
+    TRACE(seq, tout << expr_ref(a, m()) << " " << expr_ref(b, m()) << "\n";);
     sort* sort_a = a->get_sort();
     zstring s;
     for (unsigned i = 0; i < m_lhs.size(); ++i) {
@@ -6201,7 +6201,7 @@ bool seq_rewriter::reduce_subsequence(expr_ref_vector& ls, expr_ref_vector& rs, 
                       str().mk_concat(rs, srt));
         ls.reset();
         rs.reset();
-        TRACE("seq", tout << "subsequence " << eqs << "\n";);
+        TRACE(seq, tout << "subsequence " << eqs << "\n";);
     }
     return true;
 } 
@@ -6230,9 +6230,9 @@ void seq_rewriter::op_cache::cleanup() {
     if (m_table.size() >= m_max_cache_size) {
         m_trail.reset();
         m_table.reset();
-        STRACE("seq_regex", tout << "Op cache reset!" << std::endl;);
-        STRACE("seq_regex_brief", tout << "(OP CACHE RESET) ";);
-        STRACE("seq_verbose", tout << "Derivative op cache reset" << std::endl;);
+        STRACE(seq_regex, tout << "Op cache reset!" << std::endl;);
+        STRACE(seq_regex_brief, tout << "(OP CACHE RESET) ";);
+        STRACE(seq_verbose, tout << "Derivative op cache reset" << std::endl;);
     }
 }
 

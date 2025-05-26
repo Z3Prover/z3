@@ -163,7 +163,7 @@ public:
                 ps.push_back(pr);
             }
         }
-        TRACE("hnf",
+        TRACE(hnf,
             tout << mk_pp(n, m) << "\n==>\n" << result << "\n";);
     }
 
@@ -334,7 +334,7 @@ private:
         if (!contains_predicate(b)) {
             return;
         }
-        TRACE("hnf", tout << mk_pp(b, m) << "\n";);
+        TRACE(hnf, tout << mk_pp(b, m) << "\n";);
         if (m.is_or(b)) {
             is_disj = true;
             negate_args = false;
@@ -522,7 +522,7 @@ hnf::~hnf() {
     
 void hnf::operator()(expr * n, proof* p, expr_ref_vector & rs, proof_ref_vector& ps) {
     m_imp->operator()(n, p, rs, ps);    
-    TRACE("hnf", 
+    TRACE(hnf, 
           ast_manager& m = rs.get_manager();
           tout << mk_ismt2_pp(n, m) << "\nHNF result:\n";
           for (unsigned i = 0; i < rs.size(); ++i) {

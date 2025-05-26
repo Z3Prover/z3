@@ -95,7 +95,7 @@ bool model::eval_expr(expr * e, expr_ref & result, bool model_completion) {
     }
     catch (model_evaluator_exception & ex) {
         (void)ex;
-        TRACE("model_evaluator", tout << ex.what() << "\n";);
+        TRACE(model_evaluator, tout << ex.what() << "\n";);
         return false;
     }
 }
@@ -278,7 +278,7 @@ void model::compress(bool force_inline) {
         std::swap(m_decls, sorted_decls);
         if (removed.empty())
             break;
-        TRACE("model", tout << "remove\n"; for (func_decl* f : removed) tout << f->get_name() << "\n";);
+        TRACE(model, tout << "remove\n"; for (func_decl* f : removed) tout << f->get_name() << "\n";);
         remove_decls(m_func_decls, removed);
         remove_decls(m_const_decls, removed);
     }
@@ -443,7 +443,7 @@ bool model::can_inline_def(top_sort& ts, func_decl* f, bool force_inline) {
 expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition, bool force_inline) {
     if (!e) return expr_ref(nullptr, m);
 
-    TRACE("model", tout << "cleaning up:\n" << mk_pp(e, m) << "\n";);
+    TRACE(model, tout << "cleaning up:\n" << mk_pp(e, m) << "\n";);
 
     obj_map<expr, expr*> cache;
     expr_ref_vector trail(m);
@@ -488,7 +488,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition, 
                     fi = get_func_interp(f);
                     if (fi) {
                         new_t = fi->get_array_interp(f);
-                        TRACE("model", tout << "array interpretation:" << new_t << "\n";);
+                        TRACE(model, tout << "array interpretation:" << new_t << "\n";);
                     }
                 }
             }
@@ -516,7 +516,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition, 
             }
             
             if (t != new_t.get()) trail.push_back(new_t);
-            CTRACE("model", (t != new_t.get()), tout << mk_bounded_pp(t, m) << " " << new_t << "\n";);
+            CTRACE(model, (t != new_t.get()), tout << mk_bounded_pp(t, m) << " " << new_t << "\n";);
             todo.pop_back();
             cache.insert(t, new_t);
             break;
@@ -640,5 +640,5 @@ void model::add_rec_funs() {
         fi->set_else(bodyr);
         register_decl(f, fi);
     }
-    TRACE("model", tout << *this << "\n";);
+    TRACE(model, tout << *this << "\n";);
 }

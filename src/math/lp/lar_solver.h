@@ -349,7 +349,7 @@ public:
                 basic_columns_with_changed_cost().insert(bj);
             get_core_solver().m_r_solver.add_delta_to_x_and_track_feasibility(bj, -A_r().get_val(c) * delta);
             after(bj);
-            TRACE("change_x_del",
+            TRACE(change_x_del,
                   tout << "changed basis column " << bj << ", it is " << (get_core_solver().m_r_solver.column_is_feasible(bj) ? "feas" : "inf") << std::endl;);
         }
     }
@@ -371,7 +371,7 @@ public:
                       const Blocker& is_blocked,
                       const ChangeReport& change_report) {
         if (is_base(j))  {
-            TRACE("nla_solver", get_int_solver()->display_row_info(tout, row_of_basic_column(j)) << "\n";);
+            TRACE(nla_solver, get_int_solver()->display_row_info(tout, row_of_basic_column(j)) << "\n";);
             if (!remove_from_basis(j))
                return false;
         }
@@ -379,7 +379,7 @@ public:
         impq ival(val);
         if (is_blocked(j, ival))
             return false;
-        TRACE("nla_solver", tout << "j" << j << " not blocked\n";);
+        TRACE(nla_solver, tout << "j" << j << " not blocked\n";);
         impq delta = get_column_value(j) - ival;
         for (auto c : A_r().column(j)) {
             unsigned row_index = c.var();

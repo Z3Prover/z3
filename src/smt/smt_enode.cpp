@@ -59,7 +59,7 @@ namespace smt {
             if (update_children_parent)
                 arg->get_root()->m_parents.push_back(n);
         }
-        TRACE("mk_enode_detail", tout << "new enode suppress_args: " << n->m_suppress_args << "\n";);
+        TRACE(mk_enode_detail, tout << "new enode suppress_args: " << n->m_suppress_args << "\n";);
         SASSERT(n->m_suppress_args == suppress_args);
         return n;
     }

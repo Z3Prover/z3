@@ -93,11 +93,11 @@ static void tst1() {
     ENSURE(rational(3,4) >= rational(3,4));
     ENSURE(rational(3,4) >  rational(2,8));
     ENSURE(rational(3,4) <  rational(7,8));
-    TRACE("rational", tout << rational(3,4) << "\n";);
-    TRACE("rational", tout << rational(7,9) << "\n";);
-    TRACE("rational", tout << rational(-3,7) << "\n";);
-    TRACE("rational", tout << rational(5,8) << "\n";);
-    TRACE("rational", tout << rational(4,2) << "\n";);
+    TRACE(rational, tout << rational(3,4) << "\n";);
+    TRACE(rational, tout << rational(7,9) << "\n";);
+    TRACE(rational, tout << rational(-3,7) << "\n";);
+    TRACE(rational, tout << rational(5,8) << "\n";);
+    TRACE(rational, tout << rational(4,2) << "\n";);
     ENSURE(rational(3) + rational(2) == rational(5));
     ENSURE(rational(3) - rational(2) == rational(1));
     ENSURE(rational(3) * rational(2) == rational(6));
@@ -112,9 +112,9 @@ static void tst2() {
     rational r1("10000000000000000000000000000000000");
     rational r2("10000000000000000000000000000000000/3");
     rational r3("20000000000000000000000000000000000/6");
-    TRACE("rational", tout << r1 << std::endl;);
-    TRACE("rational", tout << r2 << std::endl;);
-    TRACE("rational", tout << r3 << std::endl;);
+    TRACE(rational, tout << r1 << std::endl;);
+    TRACE(rational, tout << r2 << std::endl;);
+    TRACE(rational, tout << r3 << std::endl;);
 
     ENSURE(r2 == r3);
     ENSURE(r1 != r2);
@@ -207,16 +207,16 @@ static void tst2() {
 
 void tst3() {
     rational n1 = power(rational(2), 32);
-    TRACE("rational", tout << "n1: " << n1 << "\n";);
+    TRACE(rational, tout << "n1: " << n1 << "\n";);
     rational n2 = div(n1, rational(2));
     rational n3 = div(rational(2), n2);
-    TRACE("rational", 
+    TRACE(rational, 
           tout << "n1: " << n1 << "\n";
           tout << "n2: " << n2 << "\n";
           tout << "n3: " << n3 << "\n";);
     rational n4 = n1 - rational(3);
     rational n5 = div(n4, rational(2));
-    TRACE("rational", 
+    TRACE(rational, 
           tout << "n4: " << n4 << "\n";
           tout << "n5: " << n5 << "\n";);
     ENSURE(n5 == rational("2147483646"));
@@ -224,7 +224,7 @@ void tst3() {
 
 void tst4() {
     rational n1("4294967293");
-    TRACE("rational", tout << "n1: " << n1 << "\n";);
+    TRACE(rational, tout << "n1: " << n1 << "\n";);
     rational n2 = div(n1, rational(2));
 }
 
@@ -233,9 +233,9 @@ void tst5() {
     n1.neg();
     rational n2("4294967295");
     n1 /= n2;
-    TRACE("rational", tout << n1 << " " << n2 << " " << n1.is_big() << " " << n2.is_big() << "\n";);
+    TRACE(rational, tout << n1 << " " << n2 << " " << n1.is_big() << " " << n2.is_big() << "\n";);
     n1 *= n2;
-    TRACE("rational", tout << "after: " << n1 << " " << n2 << "\n";);
+    TRACE(rational, tout << "after: " << n1 << " " << n2 << "\n";);
     ENSURE(n1.is_minus_one());
 }
 
@@ -305,7 +305,7 @@ static void tst7() {
         rational y;
         rational gcd;
         extended_gcd(n, p, gcd, x, y);
-        TRACE("gcd", tout << n << " " << p << ": " << gcd << " " << x << " " << y << "\n";);
+        TRACE(gcd, tout << n << " " << p << ": " << gcd << " " << x << " " << y << "\n";);
         ENSURE(!mod(n, rational(2)).is_one() || mod(n * x, p).is_one()); 
     }
 }
@@ -490,7 +490,7 @@ static void tst13() {
 
 
 void tst_rational() {
-    TRACE("rational", tout << "starting rational test...\n";);
+    TRACE(rational, tout << "starting rational test...\n";);
     std::cout << "sizeof(rational): " << sizeof(rational) << "\n";
     rational r1("10000000000000000000000000000000001");
     r1.hash();

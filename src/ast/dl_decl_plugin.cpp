@@ -211,7 +211,7 @@ namespace datalog {
         ast_manager& m = *m_manager;
         ptr_vector<sort> sorts;
         vector<parameter> ps;
-        TRACE("dl_decl_plugin", 
+        TRACE(dl_decl_plugin, 
                 tout << mk_pp(r, m) << " ";
                 for (unsigned i = 0; i < num_params; ++i) {
                     tout << params[i] << " ";
@@ -624,7 +624,7 @@ namespace datalog {
                 return nullptr;
             }
 
-        TRACE("dl_decl_plugin", tout << mk_pp(result, *m_manager) << "\n";);
+        TRACE(dl_decl_plugin, tout << mk_pp(result, *m_manager) << "\n";);
         return result;
     }
 

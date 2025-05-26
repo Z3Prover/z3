@@ -40,7 +40,7 @@ namespace smt {
 
     void theory_array::merge_eh(theory_var v1, theory_var v2, theory_var, theory_var) {
         // v1 is the new root
-        TRACE("array", 
+        TRACE(array, 
               tout << "merging v" << v1 << " v" << v2 << "\n"; display_var(tout, v1);
               tout << mk_pp(get_enode(v1)->get_expr(), m) << " <- " << mk_pp(get_enode(v2)->get_expr(), m) << "\n";);
         SASSERT(v1 == find(v1));
@@ -54,7 +54,7 @@ namespace smt {
             add_parent_store(v1, d2->m_parent_stores[i]);
         for (unsigned i = 0; i < d2->m_parent_selects.size(); ++i) 
             add_parent_select(v1, d2->m_parent_selects[i]);
-        TRACE("array", tout << "after merge\n"; display_var(tout, v1););
+        TRACE(array, tout << "after merge\n"; display_var(tout, v1););
     }
 
     void theory_array::unmerge_eh(theory_var v1, theory_var v2) {
@@ -67,7 +67,7 @@ namespace smt {
         SASSERT(r == static_cast<int>(m_var_data.size()));
         m_var_data.push_back(alloc(var_data));
         var_data * d  = m_var_data[r];
-        TRACE("array", tout << mk_bounded_pp(n->get_expr(), m) << "\nis_array: " << is_array_sort(n) << ", is_select: " << is_select(n) <<
+        TRACE(array, tout << mk_bounded_pp(n->get_expr(), m) << "\nis_array: " << is_array_sort(n) << ", is_select: " << is_select(n) <<
               ", is_store: " << is_store(n) << "\n";);
         d->m_is_array  = is_array_sort(n);
         if (d->m_is_array) 
@@ -88,7 +88,7 @@ namespace smt {
         v                = find(v);
         var_data * d     = m_var_data[v];
         d->m_parent_selects.push_back(s);
-        TRACE("array", tout << v << " " << mk_pp(s->get_expr(), m) << " " << mk_pp(get_enode(v)->get_expr(), m) << "\n";);
+        TRACE(array, tout << v << " " << mk_pp(s->get_expr(), m) << " " << mk_pp(get_enode(v)->get_expr(), m) << "\n";);
         m_trail_stack.push(push_back_trail<enode *, false>(d->m_parent_selects));
         for (enode* n : d->m_stores) 
             instantiate_axiom2a(s, n);
@@ -141,7 +141,7 @@ namespace smt {
                 add_weak_var(v);
                 return;
             }
-            TRACE("array", tout << "#" << v << "\n";);
+            TRACE(array, tout << "#" << v << "\n";);
             m_trail_stack.push(reset_flag_trail(d->m_prop_upward));
             d->m_prop_upward = true;
             if (!m_params.m_array_delay_exp_axiom) 
@@ -195,14 +195,14 @@ namespace smt {
     }
 
     void theory_array::instantiate_axiom1(enode * store) {
-        TRACE("array", tout << "axiom 1:\n" << mk_bounded_pp(store->get_expr(), m) << "\n";);
+        TRACE(array, tout << "axiom 1:\n" << mk_bounded_pp(store->get_expr(), m) << "\n";);
         SASSERT(is_store(store));
         m_stats.m_num_axiom1++;
         assert_store_axiom1(store);
     }
 
     void theory_array::instantiate_axiom2a(enode * select, enode * store) {
-        TRACE("array", tout << "axiom 2a: #" << select->get_owner_id() << " #" << store->get_owner_id() << "\n";);
+        TRACE(array, tout << "axiom 2a: #" << select->get_owner_id() << " #" << store->get_owner_id() << "\n";);
         SASSERT(is_select(select));
         SASSERT(is_store(store));
         if (assert_store_axiom2(store, select))
@@ -210,7 +210,7 @@ namespace smt {
     }
 
     bool theory_array::instantiate_axiom2b(enode * select, enode * store) {
-        TRACE("array_axiom2b", tout << "axiom 2b: #" << select->get_owner_id() << " #" << store->get_owner_id() << "\n";);
+        TRACE(array_axiom2b, tout << "axiom 2b: #" << select->get_owner_id() << " #" << store->get_owner_id() << "\n";);
         SASSERT(is_select(select));
         SASSERT(is_store(store));
         if (assert_store_axiom2(store, select)) {
@@ -221,7 +221,7 @@ namespace smt {
     }
 
     void theory_array::instantiate_extensionality(enode * a1, enode * a2) {
-        TRACE("array", tout << "extensionality: #" << a1->get_owner_id() << " #" << a2->get_owner_id() << "\n";);
+        TRACE(array, tout << "extensionality: #" << a1->get_owner_id() << " #" << a2->get_owner_id() << "\n";);
         SASSERT(is_array_sort(a1));
         SASSERT(is_array_sort(a2));
         if (m_params.m_array_extensional && assert_extensionality(a1, a2)) 
@@ -238,7 +238,7 @@ namespace smt {
     // 
     bool theory_array::internalize_term_core(app * n) {
        
-        TRACE("array_bug", tout << mk_bounded_pp(n, m) << "\n";);
+        TRACE(array_bug, tout << mk_bounded_pp(n, m) << "\n";);
         for (expr* arg : *n)
             ctx.internalize(arg, false);
         // force merge-tf by re-internalizing expression.
@@ -266,7 +266,7 @@ namespace smt {
                 found_unsupported_op(n);
             return false;
         }
-        TRACE("array_bug", tout << mk_bounded_pp(n, m) << "\n";);
+        TRACE(array_bug, tout << mk_bounded_pp(n, m) << "\n";);
         if (!internalize_term_core(n)) {
             return true;
         }
@@ -309,7 +309,7 @@ namespace smt {
         v1 = find(v1);
         v2 = find(v2);        
         var_data * d1 = m_var_data[v1];
-        TRACE("ext", tout << "extensionality: " << d1->m_is_array << "\n" 
+        TRACE(ext, tout << "extensionality: " << d1->m_is_array << "\n" 
               << mk_bounded_pp(get_enode(v1)->get_expr(), m, 5) << "\n" 
               << mk_bounded_pp(get_enode(v2)->get_expr(), m, 5) << "\n";);
         
@@ -323,7 +323,7 @@ namespace smt {
         if (laziness() == 0)
             return;
         if (m.is_ite(n)) {
-            TRACE("array", tout << "relevant ite " << mk_pp(n, m) << "\n";);
+            TRACE(array, tout << "relevant ite " << mk_pp(n, m) << "\n";);
         }
         if (!is_store(n) && !is_select(n))
             return;
@@ -394,7 +394,7 @@ namespace smt {
         bool should_giveup = m_found_unsupported_op || has_propagate_up_trail();
         if (r == FC_DONE && should_giveup && !ctx.get_fparams().m_array_fake_support) 
             r = FC_GIVEUP;
-        CTRACE("array", r != FC_DONE || m_found_unsupported_op, tout << r << "\n";);
+        CTRACE(array, r != FC_DONE || m_found_unsupported_op, tout << r << "\n";);
         return r;
     }
 

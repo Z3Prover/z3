@@ -174,7 +174,7 @@ namespace euf {
                 IF_VERBOSE(11, verbose_stream() << mk_bounded_pp(f, m, 3) << " -> " << mk_bounded_pp(g, m, 3) << "\n");
                 update_has_new_eq(g);
             }
-            CTRACE("euf_completion", g != f, tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
+            CTRACE(euf_completion, g != f, tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
         }
     }
 
@@ -407,7 +407,7 @@ namespace euf {
                     rep = k;
             m_reps.setx(n->get_id(), rep, nullptr);
 
-            TRACE("euf_completion", tout << "rep " << m_egraph.bpp(n) << " -> " << m_egraph.bpp(rep) << "\n";
+            TRACE(euf_completion, tout << "rep " << m_egraph.bpp(n) << " -> " << m_egraph.bpp(rep) << "\n";
                          for (enode* k : enode_class(n)) tout << m_egraph.bpp(k) << "\n";);
             m_todo.push_back(n->get_expr());
             for (enode* arg : enode_args(n)) {

@@ -178,7 +178,7 @@ namespace pb {
 
             // SASSERT(validate_watch(p, sat::null_literal));
 
-            TRACE("ba", display(tout << "init watch: ", s, true););
+            TRACE(ba, display(tout << "init watch: ", s, true););
 
 
             // slack is tight:
@@ -245,7 +245,7 @@ namespace pb {
             return false;
 
         unsigned sum = 0;
-        TRACE("ba", display(tout << "validate: " << alit << "\n", s, true););
+        TRACE(ba, display(tout << "validate: " << alit << "\n", s, true););
         for (wliteral wl : *this) {
             literal l = wl.second;
             lbool val = s.value(l);

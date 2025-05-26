@@ -271,7 +271,7 @@ namespace nlsat {
             return EQ;
         }
         bool update_interval_intersection(Domain_Interval &ia, const Domain_Interval &ib) {
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "ia: "; 
                 display(tout, am, ia);
                 tout << "\nib: ";
@@ -294,7 +294,7 @@ namespace nlsat {
             
             
             
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "after update: "; 
                 display(tout, am, ia);
                 tout << "\n";
@@ -306,7 +306,7 @@ namespace nlsat {
             return update_interval_intersection(vd.ori_val, di);
         }
         bool update_var_mag_domain_interval_by_ori(Var_Domain &vd, const Domain_Interval &di) {
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "vd mag val: "; 
                 display(tout, am, vd.mag_val);
                 tout << "\n";
@@ -381,7 +381,7 @@ namespace nlsat {
                     }
                 }
             }
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "mag di: "; 
                 display(tout, am, mag_di);
                 tout << "\n";
@@ -401,7 +401,7 @@ namespace nlsat {
             Domain_Interval now_di(am);
             scoped_anum num(am);
             calc_formula(num, a, b, c);
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "nsk: "; 
                 display(tout, nsk);
                 tout << '\n'; 
@@ -439,7 +439,7 @@ namespace nlsat {
             else {
                 UNREACHABLE();
             }
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "now_di: "; 
                 display(tout, am, now_di);
                 tout << "\n";
@@ -653,14 +653,14 @@ namespace nlsat {
                 else if (nsk == GT)
                     nsk = LE;
             }
-            TRACE("simple_checker", 
+            TRACE(simple_checker, 
                 tout << a << "x[" << x << "]^" << b << " + " << c << " ";
                 display(tout, nsk);
                 tout << " 0 \n";
             );
             if (!update_var_domain(nsk, a, x, b, c))
                 return false;
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "original: "; 
                 display(tout, am, vars_domain[x].ori_val);
                 tout << "\nmagnitude: ";
@@ -777,7 +777,7 @@ namespace nlsat {
             unsigned sz = as.size();
             for (unsigned i = 1; i < sz; ++i) {
                 sign_kind now = get_axb_sign(as[i], xs[i], bs[i]);
-                TRACE("simple_checker",
+                TRACE(simple_checker,
                     tout << "sta: ";
                     display(tout, sta);
                     tout << "\n";
@@ -802,14 +802,14 @@ namespace nlsat {
                     if (sta != now)
                         sta = GT;
                 }
-                TRACE("simple_checker",
+                TRACE(simple_checker,
                     tout << "after merge\n";
                     tout << "sta: ";
                     display(tout, sta);
                     tout << "\n";
                 );
             }
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "sta: ";
                 display(tout, sta);
                 tout << "\n";
@@ -979,7 +979,7 @@ else { // ( == 0) + (c > 0) -> > 0
         }
         bool process_axbsc_form(sign_kind nsk, unsigned cid, vector<scoped_anum> &as, vector<var> &xs, vector<unsigned> &bs, scoped_anum& c) {
             bool is_conflict(false);
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 for (unsigned i = 0, sz = as.size(); i < sz; ++i) {
                     if (i > 0)
                         tout << "+ ";
@@ -991,7 +991,7 @@ else { // ( == 0) + (c > 0) -> > 0
             );
             if (!check_is_sign_ineq_consistent(nsk, as, xs, bs, c, is_conflict))
                 return true;
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "is conflict: " << is_conflict << "\n"
             );
             if (is_conflict)
@@ -1026,7 +1026,7 @@ else { // ( == 0) + (c > 0) -> > 0
                 return true;
             }
             literal_special_kind[cid][lid] = AXBSC;
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "as size: " << as.size() << '\n';
             );
             while (as.size() > cnt)
@@ -1041,7 +1041,7 @@ else { // ( == 0) + (c > 0) -> > 0
                 else if (nsk == GT)
                     nsk = LE;
             }
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "ineq atom: " << '\n';
                 for (unsigned i = 0, sz = iat->size(); i < sz; ++i) {
                     pm.display(tout, iat->p(i));
@@ -1088,7 +1088,7 @@ else { // ( == 0) + (c > 0) -> > 0
                 if (!collect_domain_axbc_form(i, 0))
                     return false;
             }
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 for (unsigned i = 0; i < arith_var_num; ++i) {
                     tout << "====== arith[" << i << "] ======\n";
                     tout << "original value: ";
@@ -1136,7 +1136,7 @@ else { // ( == 0) + (c > 0) -> > 0
             }
         }
         void merge_mul_domain(Domain_Interval &pre, const Domain_Interval &now) {
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "dom: ";
                 display(tout, am, pre);
                 tout << "\n";
@@ -1163,7 +1163,7 @@ else { // ( == 0) + (c > 0) -> > 0
         }
 
         void get_monomial_domain(monomial *m, const scoped_anum &a, Domain_Interval &dom) {
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "monomial: ";
                 pm.display(tout, m);
                 tout << '\n';
@@ -1182,7 +1182,7 @@ else { // ( == 0) + (c > 0) -> > 0
                 var v = pm.get_var(m, i);
                 unsigned deg = pm.degree_of(m, v);
                 const Domain_Interval &di = ((deg & 1) == 0 ? vars_domain[v].mag_val : vars_domain[v].ori_val);
-                TRACE("simple_checker",
+                TRACE(simple_checker,
                     tout << "dom: ";
                     display(tout, am, dom);
                     tout << "\n";
@@ -1194,7 +1194,7 @@ else { // ( == 0) + (c > 0) -> > 0
                 for (unsigned j = 0; j < deg; ++j) {
                     merge_mul_domain(dom, di);
                 }
-                TRACE("simple_checker",
+                TRACE(simple_checker,
                     tout << "after merge mul: ";
                     display(tout, am, dom);
                     tout << "\n";
@@ -1222,12 +1222,12 @@ else { // ( == 0) + (c > 0) -> > 0
             am.set(a, pm.coeff(p, 0));
             Domain_Interval pre(am);
             get_monomial_domain(pm.get_monomial(p, 0), a, pre);
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "poly: ";
                 pm.display(tout, p);
                 tout << "\n";
             );
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "pre: ";
                 display(tout, am, pre);
                 tout << "\n";
@@ -1236,7 +1236,7 @@ else { // ( == 0) + (c > 0) -> > 0
                 am.set(a, pm.coeff(p, i));
                 Domain_Interval now(am);
                 get_monomial_domain(pm.get_monomial(p, i), a, now);
-                TRACE("simple_checker",
+                TRACE(simple_checker,
                     tout << "pre: ";
                     display(tout, am, pre);
                     tout << "\n";
@@ -1247,7 +1247,7 @@ else { // ( == 0) + (c > 0) -> > 0
                 if (now.m_lower.m_inf && now.m_upper.m_inf)
                     return NONE;
                 merge_add_domain(pre, now);
-                TRACE("simple_checker",
+                TRACE(simple_checker,
                     tout << "after merge: ";
                     display(tout, am, pre);
                     tout << "\n";
@@ -1327,7 +1327,7 @@ else { // ( == 0) + (c > 0) -> > 0
                 else if (ret != EQ)
                     ret = GT;
             }
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "ret sign: ";
                 display(tout, ret);
                 tout << "\n";
@@ -1393,7 +1393,7 @@ else { // ( == 0) + (c > 0) -> > 0
             }
         }
         bool check_ineq_atom_satisfiable(const ineq_atom *iat, bool s) {
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "s: " << s << "\n";
                 tout << "kd: " << iat->get_kind() << "\n";
             );
@@ -1406,7 +1406,7 @@ else { // ( == 0) + (c > 0) -> > 0
                 else
                     nsk = GE;
             }
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "ineq atom: " << '\n';
                 for (unsigned i = 0, sz = iat->size(); i < sz; ++i) {
                     pm.display(tout, iat->p(i));
@@ -1428,7 +1428,7 @@ else { // ( == 0) + (c > 0) -> > 0
                     (pre == EQ || pre == GE || pre == LE))
                     return true;
             }
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "pre: ";
                 display(tout, pre);
                 tout << ", nsk: ";
@@ -1461,7 +1461,7 @@ else { // ( == 0) + (c > 0) -> > 0
                 clauses_visited[cid].visited = true;
                 return true;
             }
-            // TRACE("sign",
+            // TRACE(sign,
             //     tout << "literal: " << lit << '\n';
             // );
             bool s = lit.sign();
@@ -1469,7 +1469,7 @@ else { // ( == 0) + (c > 0) -> > 0
         }
         bool check_clause_satisfiable(unsigned cid) {
             const clause *cla = clauses[cid];
-            TRACE("simple_checker",
+            TRACE(simple_checker,
                 tout << "clause size: " << cla->size() << '\n';
             );
             unsigned sz = cla->size();
@@ -1493,7 +1493,7 @@ else { // ( == 0) + (c > 0) -> > 0
                     literal lit = (*clauses[cid])[i];
                     lit.neg();
                     learned_unit.push_back(lit);
-                    TRACE("simple_checker_learned", 
+                    TRACE(simple_checker_learned, 
                         tout << "making new clauses!\n";
                         tout << "sign: " << lit.sign() << '\n';
                         if (atoms[lit.var()] != nullptr && atoms[lit.var()]->is_ineq_atom()) {
@@ -1536,7 +1536,7 @@ else { // ( == 0) + (c > 0) -> > 0
                 improved = false;
                 if (!check())
                     return false;
-                TRACE("simple_checker",
+                TRACE(simple_checker,
                 for (unsigned i = 0; i < arith_var_num; ++i) {
                     tout << "====== arith[" << i << "] ======\n";
                     tout << "original value: ";

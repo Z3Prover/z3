@@ -44,7 +44,7 @@ public:
     void operator()(expr* fml, app_ref_vector& vars, bool& is_fa, expr_ref& result, bool use_fresh, bool rewrite_ok) {
         quantifier_type qt = Q_none_pos;
         pull_quantifier(fml, qt, vars, result, use_fresh, rewrite_ok);
-        TRACE("qe_verbose", 
+        TRACE(qe_verbose, 
               tout << mk_pp(fml, m) << "\n";
               tout << mk_pp(result, m) << "\n";);
         SASSERT(is_positive(qt));
@@ -54,7 +54,7 @@ public:
     void pull_exists(expr* fml, app_ref_vector& vars, expr_ref& result, bool use_fresh, bool rewrite_ok) {
         quantifier_type qt = Q_exists_pos;
         pull_quantifier(fml, qt, vars, result, use_fresh, rewrite_ok);
-        TRACE("qe_verbose", 
+        TRACE(qe_verbose, 
               tout << mk_pp(fml, m) << "\n";
               tout << mk_pp(result, m) << "\n";);
     }
@@ -63,7 +63,7 @@ public:
         quantifier_type qt = is_forall?Q_forall_pos:Q_exists_pos;
         expr_ref result(m);
         pull_quantifier(fml, qt, vars, result, use_fresh, rewrite_ok);
-        TRACE("qe_verbose", 
+        TRACE(qe_verbose, 
               tout << mk_pp(fml, m) << "\n";
               tout << mk_pp(result, m) << "\n";);
         fml = std::move(result);

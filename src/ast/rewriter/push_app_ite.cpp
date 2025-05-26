@@ -48,7 +48,7 @@ bool push_app_ite_cfg::is_target(func_decl * decl, unsigned num_args, expr * con
             }
         }
     }
-    CTRACE("push_app_ite", found_ite, tout << "found target for push app ite:\n";
+    CTRACE(push_app_ite, found_ite, tout << "found target for push app ite:\n";
            tout << "conservative " << m_conservative << "\n";
            tout << decl->get_name();
            for (unsigned i = 0; i < num_args; i++) tout << " " << mk_pp(args[i], m);
@@ -75,7 +75,7 @@ br_status push_app_ite_cfg::reduce_app(func_decl * f, unsigned num, expr * const
     expr_ref e_new(m.mk_app(f, num, args_prime), m);
     args_prime[ite_arg_idx] = old;
     result = m.mk_ite(c, t_new, e_new);
-    TRACE("push_app_ite", tout << result << "\n";);
+    TRACE(push_app_ite, tout << result << "\n";);
     if (m.proofs_enabled()) {
         result_pr = m.mk_rewrite(m.mk_app(f, num, args), result);
     }

@@ -77,7 +77,7 @@ namespace nlsat {
         if (!i.m_lower_inf && !i.m_upper_inf) {
             auto s = am.compare(i.m_lower, i.m_upper);
             (void)s;
-            TRACE("nlsat_interval", tout << "lower: "; am.display_decimal(tout, i.m_lower); tout << ", upper: "; am.display_decimal(tout, i.m_upper);
+            TRACE(nlsat_interval, tout << "lower: "; am.display_decimal(tout, i.m_lower); tout << ", upper: "; am.display_decimal(tout, i.m_upper);
                   tout << "\ns: " << s << "\n";);
             SASSERT(s <= 0);
             SASSERT(!is_zero(s) || (!i.m_lower_open && !i.m_upper_open));
@@ -89,7 +89,7 @@ namespace nlsat {
         SASSERT(!curr.m_upper_inf);
         SASSERT(!next.m_lower_inf);
         sign s = am.compare(curr.m_upper, next.m_lower);
-        CTRACE("nlsat", s > 0, display(tout, am, curr); tout << "  "; display(tout, am, next); tout << "\n";);
+        CTRACE(nlsat, s > 0, display(tout, am, curr); tout << "  "; display(tout, am, next); tout << "\n";);
         SASSERT(s <= 0);
         SASSERT(!is_zero(s) || curr.m_upper_open || next.m_lower_open);        
         (void)s;
@@ -200,12 +200,12 @@ namespace nlsat {
 
     inline ::sign compare_upper_lower(anum_manager & am, interval const & i1, interval const & i2) {
         if (i1.m_upper_inf || i2.m_lower_inf) {
-            TRACE("nlsat_interval", nlsat::display(tout << "i1: ", am, i1); nlsat::display(tout << "i2: ", am, i2););
+            TRACE(nlsat_interval, nlsat::display(tout << "i1: ", am, i1); nlsat::display(tout << "i2: ", am, i2););
             return sign_pos;
         }
         SASSERT(!i1.m_upper_inf && !i2.m_lower_inf);
         auto s = am.compare(i1.m_upper, i2.m_lower);
-        TRACE("nlsat_interval", nlsat::display(tout << "i1: ", am, i1); nlsat::display(tout << " i2: ", am, i2); 
+        TRACE(nlsat_interval, nlsat::display(tout << "i1: ", am, i1); nlsat::display(tout << " i2: ", am, i2); 
               tout << " compare: " << s << "\n";);
         if (!::is_zero(s))
             return s;
@@ -274,7 +274,7 @@ namespace nlsat {
             enable_trace("algebraic");
         }
 #endif
-        TRACE("nlsat_interval", tout << "mk_union\ns1: "; display(tout, s1); tout << "\ns2: "; display(tout, s2); tout << "\n";);
+        TRACE(nlsat_interval, tout << "mk_union\ns1: "; display(tout, s1); tout << "\ns2: "; display(tout, s2); tout << "\n";);
         if (s1 == nullptr || s1 == s2)
             return const_cast<interval_set*>(s2);
         if (s2 == nullptr)
@@ -291,7 +291,7 @@ namespace nlsat {
         while (true) {
             if (i1 >= sz1) {
                 while (i2 < sz2) {
-                    TRACE("nlsat_interval", tout << "adding remaining intervals from s2: "; nlsat::display(tout, m_am, s2->m_intervals[i2]); tout << "\n";);
+                    TRACE(nlsat_interval, tout << "adding remaining intervals from s2: "; nlsat::display(tout, m_am, s2->m_intervals[i2]); tout << "\n";);
                     push_back(m_am, result, s2->m_intervals[i2]);
                     i2++;
                 }
@@ -299,7 +299,7 @@ namespace nlsat {
             }
             if (i2 >= sz2) {
                 while (i1 < sz1) {
-                    TRACE("nlsat_interval", tout << "adding remaining intervals from s1: "; nlsat::display(tout, m_am, s1->m_intervals[i1]); tout << "\n";);
+                    TRACE(nlsat_interval, tout << "adding remaining intervals from s1: "; nlsat::display(tout, m_am, s1->m_intervals[i1]); tout << "\n";);
                     push_back(m_am, result, s1->m_intervals[i1]);
                     i1++;
                 }
@@ -309,7 +309,7 @@ namespace nlsat {
             interval const & int2 = s2->m_intervals[i2];
             int l1_l2_sign = compare_lower_lower(m_am, int1, int2);
             int u1_u2_sign = compare_upper_upper(m_am, int1, int2);
-            TRACE("nlsat_interval", 
+            TRACE(nlsat_interval, 
                   tout << "i1: " << i1 << ", i2: " << i2 << "\n";
                   tout << "int1: "; nlsat::display(tout, m_am, int1); tout << "\n";
                   tout << "int2: "; nlsat::display(tout, m_am, int2); tout << "\n";);
@@ -322,7 +322,7 @@ namespace nlsat {
                     // 2) [     ]
                     //      [   ]
                     //
-                    TRACE("nlsat_interval", tout << "l1_l2_sign <= 0, u1_u2_sign == 0\n";);
+                    TRACE(nlsat_interval, tout << "l1_l2_sign <= 0, u1_u2_sign == 0\n";);
                     push_back(m_am, result, int1);
                     i1++;
                     i2++;
@@ -336,7 +336,7 @@ namespace nlsat {
                     // 2) [        ]
                     //      [   ]
                     i2++;
-                    TRACE("nlsat_interval", tout << "l1_l2_sign <= 0, u1_u2_sign > 0\n";);
+                    TRACE(nlsat_interval, tout << "l1_l2_sign <= 0, u1_u2_sign > 0\n";);
                     // i1 may consume other intervals of s2
                 }
                 else {
@@ -347,7 +347,7 @@ namespace nlsat {
                         // Cases:
                         // 1)   [      ]
                         //                [     ]
-                        TRACE("nlsat_interval", tout << "l1_l2_sign <= 0, u1_u2_sign < 0, u1_l2_sign < 0\n";);
+                        TRACE(nlsat_interval, tout << "l1_l2_sign <= 0, u1_u2_sign < 0, u1_l2_sign < 0\n";);
                         push_back(m_am, result, int1);
                         i1++;
                     }
@@ -355,7 +355,7 @@ namespace nlsat {
                         SASSERT(l1_l2_sign <= 0);
                         SASSERT(!int1.m_upper_open && !int2.m_lower_open);
                         SASSERT(!int2.m_lower_inf);
-                        TRACE("nlsat_interval", tout << "l1_l2_sign <= 0, u1_u2_sign < 0, u1_l2_sign == 0\n";);
+                        TRACE(nlsat_interval, tout << "l1_l2_sign <= 0, u1_u2_sign < 0, u1_l2_sign == 0\n";);
                         // Cases:
                         if (l1_l2_sign != 0) {
                             SASSERT(l1_l2_sign < 0);
@@ -380,7 +380,7 @@ namespace nlsat {
                         SASSERT(l1_l2_sign <= 0);
                         SASSERT(u1_u2_sign < 0);
                         SASSERT(u1_l2_sign > 0);
-                        TRACE("nlsat_interval", tout << "l1_l2_sign <= 0, u1_u2_sign < 0, u1_l2_sign > 0\n";);
+                        TRACE(nlsat_interval, tout << "l1_l2_sign <= 0, u1_u2_sign < 0, u1_l2_sign > 0\n";);
                         if (l1_l2_sign == 0) {
                             // Case:
                             // 1)   [      ]
@@ -406,7 +406,7 @@ namespace nlsat {
             else {
                 SASSERT(l1_l2_sign > 0);
                 if (u1_u2_sign == 0) {
-                    TRACE("nlsat_interval", tout << "l2 < l1 <= u1 = u2\n";);
+                    TRACE(nlsat_interval, tout << "l2 < l1 <= u1 = u2\n";);
                     // Case:
                     // 1)    [  ]
                     //    [     ]
@@ -416,7 +416,7 @@ namespace nlsat {
                     i2++;
                 }
                 else if (u1_u2_sign < 0) {
-                    TRACE("nlsat_interval", tout << "l2 < l1 <= u2 < u2\n";);
+                    TRACE(nlsat_interval, tout << "l2 < l1 <= u2 < u2\n";);
                     // Case:
                     // 1)   [   ]
                     //    [       ]
@@ -426,7 +426,7 @@ namespace nlsat {
                 else {
                     auto u2_l1_sign = compare_upper_lower(m_am, int2, int1);
                     if (u2_l1_sign < 0) {
-                        TRACE("nlsat_interval", tout << "l2 <= u2 < l1 <= u1\n";);
+                        TRACE(nlsat_interval, tout << "l2 <= u2 < l1 <= u1\n";);
                         // Case:
                         // 1)           [      ]
                         //     [     ]
@@ -434,7 +434,7 @@ namespace nlsat {
                         i2++;
                     }
                     else if (is_zero(u2_l1_sign)) {
-                        TRACE("nlsat_interval", tout << "l1_l2_sign > 0, u1_u2_sign > 0, u2_l1_sign == 0\n";);
+                        TRACE(nlsat_interval, tout << "l1_l2_sign > 0, u1_u2_sign > 0, u2_l1_sign == 0\n";);
                         SASSERT(!int1.m_lower_open && !int2.m_upper_open);
                         SASSERT(!int1.m_lower_inf);
                         // Case:
@@ -447,7 +447,7 @@ namespace nlsat {
                         i2++;
                     }
                     else {
-                        TRACE("nlsat_interval", tout << "l2 < l1 < u2 < u1\n";);
+                        TRACE(nlsat_interval, tout << "l2 < l1 < u2 < u1\n";);
                         SASSERT(l1_l2_sign > 0);
                         SASSERT(u1_u2_sign > 0);
                         SASSERT(u2_l1_sign > 0);
@@ -549,11 +549,11 @@ namespace nlsat {
         while (i1 < sz1 && i2 < sz2) {
             interval const & int1 = s1->m_intervals[i1];
             interval const & int2 = s2->m_intervals[i2];
-            TRACE("nlsat_interval", tout << "subset main loop, i1: " << i1 << ", i2: " << i2 << "\n";
+            TRACE(nlsat_interval, tout << "subset main loop, i1: " << i1 << ", i2: " << i2 << "\n";
                   tout << "int1: "; nlsat::display(tout, m_am, int1); tout << "\n";
                   tout << "int2: "; nlsat::display(tout, m_am, int2); tout << "\n";);
             if (compare_lower_lower(m_am, int1, int2) < 0) {
-                TRACE("nlsat_interval", tout << "done\n";);
+                TRACE(nlsat_interval, tout << "done\n";);
                 // interval [int1.lower1, int2.lower2] is not in s2
                 // s1: [ ...
                 // s2:    [ ...
@@ -561,11 +561,11 @@ namespace nlsat {
             }
             while (i2 < sz2) {
                 interval const & int2 = s2->m_intervals[i2];
-                TRACE("nlsat_interval", tout << "inner loop, i2: " << i2 << "\n";
+                TRACE(nlsat_interval, tout << "inner loop, i2: " << i2 << "\n";
                       tout << "int2: "; nlsat::display(tout, m_am, int2); tout << "\n";);
                 int u1_u2_sign = compare_upper_upper(m_am, int1, int2);
                 if (u1_u2_sign == 0) {
-                    TRACE("nlsat_interval", tout << "case 1, break\n";);
+                    TRACE(nlsat_interval, tout << "case 1, break\n";);
                     // consume both
                     // s1: ... ]
                     // s2: ... ]
@@ -574,7 +574,7 @@ namespace nlsat {
                     break;
                 }
                 else if (u1_u2_sign < 0) {
-                    TRACE("nlsat_interval", tout << "case 2, break\n";);
+                    TRACE(nlsat_interval, tout << "case 2, break\n";);
                     // consume only int1, int2 may cover other intervals of s1 
                     // s1:  ... ]
                     // s2:    ... ]
@@ -584,9 +584,9 @@ namespace nlsat {
                 else {
                     SASSERT(u1_u2_sign > 0);
                     int u2_l1_sign = compare_upper_lower(m_am, int2, int1);
-                    TRACE("nlsat_interval", tout << "subset, u2_l1_sign: " << u2_l1_sign << "\n";);
+                    TRACE(nlsat_interval, tout << "subset, u2_l1_sign: " << u2_l1_sign << "\n";);
                     if (u2_l1_sign < 0) {
-                        TRACE("nlsat_interval", tout << "case 3, break\n";);
+                        TRACE(nlsat_interval, tout << "case 3, break\n";);
                         // s1:           [ ...
                         // s2: [ ... ]  ...
                         i2++;
@@ -596,7 +596,7 @@ namespace nlsat {
                     // s1:      [ ...  ]
                     // s2: [ ...    ]
                     if (i2 == sz2 - 1) {
-                        TRACE("nlsat_interval", tout << "case 4, done\n";);
+                        TRACE(nlsat_interval, tout << "case 4, done\n";);
                         // s1:   ... ]
                         // s2: ...]
                         // the interval [int2.upper, int1.upper] is not in s2
@@ -604,13 +604,13 @@ namespace nlsat {
                     }
                     interval const & next2 = s2->m_intervals[i2+1];
                     if (!adjacent(m_am, int2, next2)) {
-                        TRACE("nlsat_interval", tout << "not adjacent, done\n";);
+                        TRACE(nlsat_interval, tout << "not adjacent, done\n";);
                         // s1:   ... ]
                         // s2: ... ]   [
                         // the interval [int2.upper, min(int1.upper, next2.lower)] is not in s2
                         return false;
                     }
-                    TRACE("nlsat_interval", tout << "continue..\n";);
+                    TRACE(nlsat_interval, tout << "continue..\n";);
                     // continue with adjacent interval of s2
                     // s1:    ...  ]
                     // s2:  ..][ ...

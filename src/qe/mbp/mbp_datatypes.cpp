@@ -43,7 +43,7 @@ namespace mbp {
         bool project1(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
             expr_ref val = model(var);
             SASSERT(is_app(val));
-            TRACE("qe", tout << mk_pp(var, m) << " := " << val << "\n";);
+            TRACE(qe, tout << mk_pp(var, m) << " := " << val << "\n";);
             m_val = to_app(val);
             if (!dt.is_constructor(m_val)) {
                 // assert: var does not occur in lits.
@@ -61,7 +61,7 @@ namespace mbp {
                 }
             }
             catch (const cant_project &) {
-                TRACE("qe", tout << "can't project:" << mk_pp(var, m) << "\n";);
+                TRACE(qe, tout << "can't project:" << mk_pp(var, m) << "\n";);
                 return false;
             }
             return true;
@@ -82,7 +82,7 @@ namespace mbp {
                 args.push_back(arg);
             }
             val = m.mk_app(f, args.size(), args.data());
-            TRACE("qe", tout << mk_pp(m_var->x(), m) << " |-> " << val << "\n";);
+            TRACE(qe, tout << mk_pp(m_var->x(), m) << " |-> " << val << "\n";);
             reduce(val, lits);
         }
 
@@ -110,7 +110,7 @@ namespace mbp {
             th_rewriter rw(m);
             expr_ref tmp(m);
             sub.insert(m_var->x(), val);
-            TRACE("qe", tout << mk_pp(m_var->x(), m) << " = " << mk_pp(val, m) << "\n";
+            TRACE(qe, tout << mk_pp(m_var->x(), m) << " = " << mk_pp(val, m) << "\n";
                   tout << lits << "\n";);
             for (unsigned i = 0; i < lits.size(); ++i) {                
                 sub(lits[i].get(), tmp);
@@ -211,7 +211,7 @@ namespace mbp {
                         reduced = true;
                     }
                 }
-                CTRACE("qe", reduced, tout << vars << "\n" << lits << "\n";);
+                CTRACE(qe, reduced, tout << vars << "\n" << lits << "\n";);
             }
             return reduced;
         }
@@ -274,10 +274,10 @@ namespace mbp {
                 if (has_v) {
                     has_var.mark(f);
                 }
-                TRACE("qe", tout << "contains: " << mk_pp(f, m) << " " << has_var.is_marked(f) << "\n";);
+                TRACE(qe, tout << "contains: " << mk_pp(f, m) << " " << has_var.is_marked(f) << "\n";);
                 visited.mark(f);
             }
-            TRACE("qe", tout << "contains: " << mk_pp(e, m) << " " << has_var.is_marked(e) << "\n";);
+            TRACE(qe, tout << "contains: " << mk_pp(e, m) << " " << has_var.is_marked(e) << "\n";);
             return has_var.is_marked(e);
         }
         

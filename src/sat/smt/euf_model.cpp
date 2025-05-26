@@ -48,7 +48,7 @@ namespace euf {
             else
                 value = factory.get_fresh_value(srt);
             (void)s;
-            TRACE("model", tout << s.bpp(r) << " := " << value << "\n";);
+            TRACE(model, tout << s.bpp(r) << " := " << value << "\n";);
             values.set(id, value);
             expr_ref_vector* vals = nullptr;
             if (!sort2values.find(srt, vals)) {
@@ -77,7 +77,7 @@ namespace euf {
     }
 
     void solver::update_model(model_ref& mdl, bool validate) {
-        TRACE("model", tout << "create model\n";);
+        TRACE(model, tout << "create model\n";);
         if (m_qmodel) {
             mdl = m_qmodel;
             return;
@@ -95,7 +95,7 @@ namespace euf {
         values2model(deps, mdl);
         for (auto* mb : m_solvers)
             mb->finalize_model(*mdl);
-        TRACE("model", tout << "created model " << *mdl << "\n";);
+        TRACE(model, tout << "created model " << *mdl << "\n";);
         if (validate)
             validate_model(*mdl);
     }
@@ -137,7 +137,7 @@ namespace euf {
         for (enode* n : fresh_values)
             n->unmark1();
         
-        TRACE("model",
+        TRACE(model,
               for (auto * t : deps.deps()) {
                   auto* v = deps.get_dep(t);
                   if (v) {
@@ -151,7 +151,7 @@ namespace euf {
 
     void solver::dependencies2values(user_sort& us, deps_t& deps, model_ref& mdl) {
         for (enode* n : deps.top_sorted()) {
-            TRACE("model", tout << bpp(n->get_root()) << "\n");
+            TRACE(model, tout << bpp(n->get_root()) << "\n");
             unsigned id = n->get_root_id();
             if (m_values.get(id, nullptr))
                 continue;
@@ -228,7 +228,7 @@ namespace euf {
             if (m.is_bool(e) && is_uninterp_const(e) && mdl->get_const_interp(f))
                 continue;
             expr* v = m_values.get(n->get_root_id());
-            CTRACE("euf", !v, tout << "no value for " << mk_pp(e, m) << "\n";);
+            CTRACE(euf, !v, tout << "no value for " << mk_pp(e, m) << "\n";);
             if (!v)
                 continue;
             unsigned arity = f->get_arity();
@@ -245,13 +245,13 @@ namespace euf {
                     enode* earg = get_enode(arg); 
                     expr* val = m_values.get(earg->get_root_id());
                     args.push_back(val);                
-                    CTRACE("euf", !val, tout << "no value for " << bpp(earg) << "\n" << bpp(n) << "\n"; display(tout););
+                    CTRACE(euf, !val, tout << "no value for " << bpp(earg) << "\n" << bpp(n) << "\n"; display(tout););
                     SASSERT(val);
                 }
                 SASSERT(args.size() == arity);
                 if (!fi->get_entry(args.data()))
                     fi->insert_new_entry(args.data(), v);
-                TRACE("euf", tout << bpp(n) << " " << f->get_name() << "\n";
+                TRACE(euf, tout << bpp(n) << " " << f->get_name() << "\n";
                       for (expr* arg : args) tout << mk_pp(arg, m) << " ";
                       tout << "\n -> " << mk_pp(v, m) << "\n";
 		      for (euf::enode* arg : euf::enode_args(n)) tout << bpp(arg) << " ";
@@ -279,7 +279,7 @@ namespace euf {
         for (enode* n : m_egraph.nodes())
             if (n->is_root() && m_values.get(n->get_expr_id()))
                 m_values2root.insert(m_values.get(n->get_expr_id()), n);
-        TRACE("model", 
+        TRACE(model, 
               for (auto const& kv : m_values2root) 
                   tout << mk_bounded_pp(kv.m_key, m) << "\n    -> " << bpp(kv.m_value) << "\n";);
         
@@ -337,7 +337,7 @@ namespace euf {
                 return;
         model_evaluator ev(mdl);
         ev.set_model_completion(true);
-        TRACE("model",
+        TRACE(model,
             for (enode* n : m_egraph.nodes()) {
                 if (!is_relevant(n))
                     continue;
@@ -365,8 +365,8 @@ namespace euf {
                 continue;
             if (!tt && !mdl.is_true(e))
                 continue;
-            CTRACE("euf", first, display_validation_failure(tout, mdl, n););
-            CTRACE("euf", first, display(tout));
+            CTRACE(euf, first, display_validation_failure(tout, mdl, n););
+            CTRACE(euf, first, display(tout));
             IF_VERBOSE(0, display_validation_failure(verbose_stream(), mdl, n););
             (void)first;
             first = false;

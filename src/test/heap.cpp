@@ -95,18 +95,18 @@ static void tst2() {
             // insert
             int val = heap_rand() % N;
             if (!h.contains(val)) {
-                TRACE("heap", tout << "inserting: " << val << "\n";);
+                TRACE(heap, tout << "inserting: " << val << "\n";);
                 h.insert(val);
-                TRACE("heap", dump_heap(h, tout););
+                TRACE(heap, dump_heap(h, tout););
                 ENSURE(h.contains(val));
             }
         }
         else if (cmd <= 6) {
             int val = heap_rand() % N;
             if (h.contains(val)) {
-                TRACE("heap", tout << "removing: " << val << "\n";);
+                TRACE(heap, tout << "removing: " << val << "\n";);
                 h.erase(val);
-                TRACE("heap", dump_heap(h, tout););
+                TRACE(heap, dump_heap(h, tout););
                 ENSURE(!h.contains(val));
             }
         }
@@ -118,11 +118,11 @@ static void tst2() {
             if (h.contains(val)) {
                 g_value[val] = new_v;
                 if (old_v < new_v) {
-                    TRACE("heap", tout << "value of: " << val << " increased old: " << old_v << " new: " << new_v << "\n";);
+                    TRACE(heap, tout << "value of: " << val << " increased old: " << old_v << " new: " << new_v << "\n";);
                     h.increased(val);
                 }
                 else {
-                    TRACE("heap", tout << "value of: " << val << " decreased old: " << old_v << " new: " << new_v << "\n";);
+                    TRACE(heap, tout << "value of: " << val << " decreased old: " << old_v << " new: " << new_v << "\n";);
                     h.decreased(val);
                 }
             }

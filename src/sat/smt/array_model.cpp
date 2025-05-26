@@ -129,7 +129,7 @@ namespace array {
             args.reset();
             for (unsigned i = 1; i < p->num_args(); ++i) {
                 if (!values.get(p->get_arg(i)->get_root_id())) {
-                    TRACE("array", tout << ctx.bpp(p->get_arg(i)) << "\n");
+                    TRACE(array, tout << ctx.bpp(p->get_arg(i)) << "\n");
                 }
                 SASSERT(values.get(p->get_arg(i)->get_root_id()));
             }
@@ -138,7 +138,7 @@ namespace array {
             fi->insert_entry(args.data(), value);
         }
         
-        TRACE("array", tout << "array-as-function " << ctx.bpp(n) << " := " << mk_pp(f, m) << "\n" << "default " << mk_pp(fi->get_else(), m) << "\n";);
+        TRACE(array, tout << "array-as-function " << ctx.bpp(n) << " := " << mk_pp(f, m) << "\n" << "default " << mk_pp(fi->get_else(), m) << "\n";);
         parameter p(f);
         values.set(n->get_expr_id(), m.mk_app(get_id(), OP_AS_ARRAY, 1, &p));
     }
@@ -282,7 +282,7 @@ namespace array {
                 theory_var w = get_th_var(n->get_arg(0));
                 SASSERT(w != euf::null_theory_var);
                 mg_merge(v, get_representative(w));                                
-                TRACE("array", tout << "merge: " << ctx.bpp(n) << " " << v << " " << w << "\n";);
+                TRACE(array, tout << "merge: " << ctx.bpp(n) << " " << v << " " << w << "\n";);
             }
             else if (a.is_default(e)) {
                 theory_var w = get_th_var(n->get_arg(0));
@@ -294,7 +294,7 @@ namespace array {
 
     void solver::set_default(theory_var v, euf::enode* n) {
         v = mg_find(v);
-        CTRACE("array", !m_defaults[v], tout << "set default: " << v << " " << ctx.bpp(n) << "\n";);
+        CTRACE(array, !m_defaults[v], tout << "set default: " << v << " " << ctx.bpp(n) << "\n";);
         if (!m_defaults[v]) 
             m_defaults[v] = n;
     }
@@ -343,7 +343,7 @@ namespace array {
             if (!m_defaults[u]) 
                 m_defaults[u] = m_defaults[v];
 
-            CTRACE("array", m_defaults[v], 
+            CTRACE(array, m_defaults[v], 
                    tout << ctx.bpp(m_defaults[v]->get_root()) << "\n";
                    tout << ctx.bpp(m_defaults[u]->get_root()) << "\n";
                   );

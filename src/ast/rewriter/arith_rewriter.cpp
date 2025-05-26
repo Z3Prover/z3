@@ -97,7 +97,7 @@ br_status arith_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     case OP_ARITH_LSHR: SASSERT(num_args == 2);  st = mk_lshr_core(f->get_parameter(0).get_int(), args[0], args[1], result); break;
     default: st = BR_FAILED; break;
     }
-    CTRACE("arith_rewriter", st != BR_FAILED, tout << st << ": " << mk_pp(f, m);
+    CTRACE(arith_rewriter, st != BR_FAILED, tout << st << ": " << mk_pp(f, m);
            for (unsigned i = 0; i < num_args; ++i) tout << mk_pp(args[i], m) << " ";
            tout << "\n==>\n" << mk_pp(result.get(), m) << "\n";
            if (is_app(result)) tout << "args: " << to_app(result)->get_num_args() << "\n";
@@ -646,7 +646,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         (is_zero(arg2) && is_reduce_power_target(arg1, kind == EQ)))
         return reduce_power(arg1, arg2, kind, result);
     br_status st = cancel_monomials(arg1, arg2, m_arith_ineq_lhs || m_arith_lhs, new_arg1, new_arg2);
-    TRACE("mk_le_bug", tout << "st: " << st << " " << new_arg1 << " " << new_arg2 << "\n";);
+    TRACE(mk_le_bug, tout << "st: " << st << " " << new_arg1 << " " << new_arg2 << "\n";);
     if (st != BR_FAILED) {
         arg1 = new_arg1;
         arg2 = new_arg2;
@@ -656,7 +656,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
     if (m_elim_to_real && elim_to_real(arg1, arg2, new_new_arg1, new_new_arg2)) {
         arg1 = new_new_arg1;
         arg2 = new_new_arg2;
-        CTRACE("elim_to_real", m_elim_to_real, tout << "after_elim_to_real\n" << mk_ismt2_pp(arg1, m) << "\n" << mk_ismt2_pp(arg2, m) << "\n";);
+        CTRACE(elim_to_real, m_elim_to_real, tout << "after_elim_to_real\n" << mk_ismt2_pp(arg1, m) << "\n" << mk_ismt2_pp(arg2, m) << "\n";);
         if (st == BR_FAILED)
             st = BR_DONE;
     }
@@ -697,10 +697,10 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         numeral g;
         unsigned num_consts = 0;
         get_coeffs_gcd(arg1, g, first, num_consts);
-        TRACE("arith_rewriter_gcd", tout << "[step1] g: " << g << ", num_consts: " << num_consts << "\n";);
+        TRACE(arith_rewriter_gcd, tout << "[step1] g: " << g << ", num_consts: " << num_consts << "\n";);
         if ((first || !g.is_one()) && num_consts <= 1)
             get_coeffs_gcd(arg2, g, first, num_consts);
-        TRACE("arith_rewriter_gcd", tout << "[step2] g: " << g << ", num_consts: " << num_consts << "\n";);
+        TRACE(arith_rewriter_gcd, tout << "[step2] g: " << g << ", num_consts: " << num_consts << "\n";);
         g = abs(g);
         if (!first && !g.is_one() && num_consts <= 1) {
             bool is_sat = div_polynomial(arg1, g, (kind == LE ? CT_CEIL : (kind == GE ? CT_FLOOR : CT_FALSE)), new_arg1);
@@ -1174,7 +1174,7 @@ br_status arith_rewriter::mk_div_core(expr * arg1, expr * arg2, expr_ref & resul
             v2 = rational(1);
             d  = arg2;
         }
-        TRACE("div_bug", tout << "v1: " << v1 << ", v2: " << v2 << "\n";);
+        TRACE(div_bug, tout << "v1: " << v1 << ", v2: " << v2 << "\n";);
         if (!v1.is_one() || !v2.is_one()) {
             v1 /= v2;
             result = m_util.mk_mul(m_util.mk_numeral(v1, false),
@@ -1238,7 +1238,7 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
         if (change) {
             result = m_util.mk_idiv(m.mk_app(to_app(arg1)->get_decl(), args.size(), args.data()), arg2);
             result = m_util.mk_add(m_util.mk_numeral(add, true), result);
-            TRACE("div_bug", tout << "mk_div result: " << result << "\n";);
+            TRACE(div_bug, tout << "mk_div result: " << result << "\n";);
             return BR_REWRITE3;
         }
     } 
@@ -1385,7 +1385,7 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
 
     // propagate mod inside only if there is something to reduce.
     if (is_num2 && is_int && v2.is_pos() && (is_add(arg1) || is_mul(arg1))) {
-        TRACE("mod_bug", tout << "mk_mod:\n" << mk_ismt2_pp(arg1, m) << "\n" << mk_ismt2_pp(arg2, m) << "\n";);
+        TRACE(mod_bug, tout << "mk_mod:\n" << mk_ismt2_pp(arg1, m) << "\n" << mk_ismt2_pp(arg2, m) << "\n";);
         expr_ref_buffer args(m);
         bool change = false;
         for (expr* arg : *to_app(arg1)) {
@@ -1408,7 +1408,7 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
         }
         if (change) {
             result = m_util.mk_mod(m.mk_app(to_app(arg1)->get_decl(), args.size(), args.data()), arg2);
-            TRACE("mod_bug", tout << "mk_mod result: " << mk_ismt2_pp(result, m) << "\n";);
+            TRACE(mod_bug, tout << "mk_mod result: " << mk_ismt2_pp(result, m) << "\n";);
             return BR_REWRITE3;
         }
     }
@@ -1482,7 +1482,7 @@ br_status arith_rewriter::mk_rem_core(expr * arg1, expr * arg2, expr_ref & resul
         result = m.mk_ite(m_util.mk_ge(arg2, m_util.mk_numeral(rational(0), true)),
                             mod,
                             m_util.mk_uminus(mod));
-        TRACE("elim_rem", tout << "result: " << mk_ismt2_pp(result, m) << "\n";);
+        TRACE(elim_rem, tout << "result: " << mk_ismt2_pp(result, m) << "\n";);
         return BR_REWRITE3;
     }
     return BR_FAILED;
@@ -1639,7 +1639,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     bool is_num_y    = m_util.is_numeral(arg2, y);
     auto ensure_real = [&](expr* e) { return m_util.is_int(e) ? m_util.mk_to_real(e) : e;  };
 
-    TRACE("arith", tout << mk_bounded_pp(arg1, m) << " " << mk_bounded_pp(arg2, m) << "\n";);
+    TRACE(arith, tout << mk_bounded_pp(arg1, m) << " " << mk_bounded_pp(arg2, m) << "\n";);
     if (is_num_x && x.is_one()) {
         result = m_util.mk_numeral(x, false);
         return BR_DONE;
@@ -1991,7 +1991,7 @@ bool arith_rewriter::is_pi_integer(expr * t) {
             a = c;
             b = d;
         }
-        TRACE("tan", tout << "is_pi_integer " << mk_ismt2_pp(t, m) << "\n";
+        TRACE(tan, tout << "is_pi_integer " << mk_ismt2_pp(t, m) << "\n";
               tout << "a: " << mk_ismt2_pp(a, m) << "\n";
               tout << "b: " << mk_ismt2_pp(b, m) << "\n";);
         return
@@ -2022,7 +2022,7 @@ app * arith_rewriter::mk_sqrt(rational const & k) {
 // Return 0 if failed.
 expr * arith_rewriter::mk_sin_value(rational const & k) {
     rational k_prime = mod(floor(k), rational(2)) + k - floor(k);
-    TRACE("sine", tout << "k: " << k << ", k_prime: " << k_prime << "\n";);
+    TRACE(sine, tout << "k: " << k << ", k_prime: " << k_prime << "\n";);
     SASSERT(k_prime >= rational(0) && k_prime < rational(2));
     bool     neg = false;
     if (k_prime >= rational(1)) {

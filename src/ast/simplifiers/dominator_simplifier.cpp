@@ -60,7 +60,7 @@ expr_ref dominator_simplifier::simplify_ite(app * ite) {
             r = new_t;
         }
         else {
-            TRACE("simplify", tout << new_c << "\n" << new_t << "\n" << new_e << "\n";);
+            TRACE(simplify, tout << new_c << "\n" << new_t << "\n" << new_e << "\n";);
             r = m.mk_ite(new_c, new_t, new_e);
         }        
     }
@@ -73,7 +73,7 @@ expr_ref dominator_simplifier::simplify_arg(expr * e) {
     expr_ref r(m);    
     r = get_cached(e);
     (*m_simplifier)(r);
-    CTRACE("simplify", e != r, tout << "depth: " << m_depth << " " << mk_pp(e, m) << " -> " << r << "\n";);
+    CTRACE(simplify, e != r, tout << "depth: " << m_depth << " " << mk_pp(e, m) << " -> " << r << "\n";);
     return r;
 }
 
@@ -125,10 +125,10 @@ expr_ref dominator_simplifier::simplify_rec(expr * e0) {
             r = e;
         }
     }
-    CTRACE("simplify", e0 != r, tout << "depth before: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
+    CTRACE(simplify, e0 != r, tout << "depth before: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
     (*m_simplifier)(r);
     cache(e0, r);
-    CTRACE("simplify", e0 != r, tout << "depth: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
+    CTRACE(simplify, e0 != r, tout << "depth: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
     --m_depth;
     m_subexpr_cache.reset();
     return r;
@@ -237,7 +237,7 @@ void dominator_simplifier::reduce() {
             if (!m.is_true(r) && !m.is_false(r) && !p && !assert_expr(r, false)) 
                 r = m.mk_false();
             
-            CTRACE("simplify", r != f, tout << r << " " << mk_pp(f, m) << "\n";);
+            CTRACE(simplify, r != f, tout << r << " " << mk_pp(f, m) << "\n";);
             change |= r != f;
             proof_ref new_pr(m);
             if (p) {
@@ -260,7 +260,7 @@ void dominator_simplifier::reduce() {
                 r = m.mk_false();
             
             change |= r != f;
-            CTRACE("simplify", r != f, tout << r << " " << mk_pp(f, m) << "\n";);
+            CTRACE(simplify, r != f, tout << r << " " << mk_pp(f, m) << "\n";);
             proof_ref new_pr(m);
             if (r) {
                 new_pr = m.mk_rewrite(f, r);

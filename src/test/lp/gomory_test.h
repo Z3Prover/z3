@@ -57,7 +57,7 @@ struct gomory_test {
     }
 
     void real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& pol, explanation & expl, const mpq& f_0, const mpq& one_minus_f_0) {
-        TRACE("gomory_cut_detail_real", tout << "real\n";);
+        TRACE(gomory_cut_detail_real, tout << "real\n";);
         mpq new_a;
         if (at_low(x_j)) {
             if (a.is_pos()) {
@@ -83,7 +83,7 @@ struct gomory_test {
             k.addmul(new_a, upper_bound(x_j).x); //  k += upper_bound(x_j).x * new_a; 
             expl.add_pair(column_upper_bound_constraint(x_j), new_a);
         }
-        TRACE("gomory_cut_detail_real", tout << a << "*v" << x_j << " k: " << k << "\n";);
+        TRACE(gomory_cut_detail_real, tout << a << "*v" << x_j << " k: " << k << "\n";);
         pol.add_monomial(new_a, x_j);
     }
     
@@ -92,7 +92,7 @@ struct gomory_test {
         SASSERT(!a.is_int());
              SASSERT(f_0 > zero_of_type<mpq>() && f_0 < one_of_type<mpq>());
         mpq f_j =  fractional_part(a);
-        TRACE("gomory_cut_detail", 
+        TRACE(gomory_cut_detail, 
               tout << a << " x_j = " << x_j << ", k = " << k << "\n";
               tout << "f_j: " << f_j << "\n";
               tout << "f_0: " << f_0 << "\n";
@@ -123,7 +123,7 @@ struct gomory_test {
             k.addmul(new_a, upper_bound(x_j).x);
             expl.add_pair(column_upper_bound_constraint(x_j), new_a);
         }
-        TRACE("gomory_cut_detail", tout << "new_a: " << new_a << " k: " << k << "\n";);
+        TRACE(gomory_cut_detail, tout << "new_a: " << new_a << " k: " << k << "\n";);
         t.add_monomial(new_a, x_j);
         lcm_den = lcm(lcm_den, denominator(new_a));
     }
@@ -138,7 +138,7 @@ struct gomory_test {
         auto pol = t.coeffs_as_vector();
         t.clear();
         if (pol.size() == 1) {
-            TRACE("gomory_cut_detail", tout << "pol.size() is 1" << std::endl;);
+            TRACE(gomory_cut_detail, tout << "pol.size() is 1" << std::endl;);
             unsigned v = pol[0].second;
             SASSERT(is_integer(v));
             const mpq& a = pol[0].first;
@@ -155,9 +155,9 @@ struct gomory_test {
                 t.add_monomial(mpq(1), v);
             }
         } else {
-            TRACE("gomory_cut_detail", tout << "pol.size() > 1" << std::endl;);
+            TRACE(gomory_cut_detail, tout << "pol.size() > 1" << std::endl;);
             lcm_den = lcm(lcm_den, denominator(k));
-            TRACE("gomory_cut_detail", tout << "k: " << k << " lcm_den: " << lcm_den << "\n";
+            TRACE(gomory_cut_detail, tout << "k: " << k << " lcm_den: " << lcm_den << "\n";
                   for (unsigned i = 0; i < pol.size(); i++) {
                       tout << pol[i].first << " " << pol[i].second << "\n";
                   }
@@ -171,7 +171,7 @@ struct gomory_test {
                 }
                 k *= lcm_den;
             }
-            TRACE("gomory_cut_detail", tout << "after *lcm\n";
+            TRACE(gomory_cut_detail, tout << "after *lcm\n";
                   for (unsigned i = 0; i < pol.size(); i++) {
                       tout << pol[i].first << " * v" << pol[i].second << "\n";
                   }
@@ -182,7 +182,7 @@ struct gomory_test {
                 t.add_monomial(-pi.first, pi.second);
             k.neg();
         }
-        TRACE("gomory_cut_detail", tout << "k = " << k << std::endl;);
+        TRACE(gomory_cut_detail, tout << "k = " << k << std::endl;);
         SASSERT(k.is_int());
     }
 
@@ -197,7 +197,7 @@ struct gomory_test {
         enable_trace("gomory_cut");
         enable_trace("gomory_cut_detail");
 
-        TRACE("gomory_cut",
+        TRACE(gomory_cut,
               tout << "applying cut at:\n"; print_row(tout, row); 
               tout << std::endl << "inf_col = " << inf_col << std::endl;
               );
@@ -231,7 +231,7 @@ struct gomory_test {
         if (some_int_columns)
             adjust_term_and_k_for_some_ints_case_gomory(t, k, lcm_den);
 
-        TRACE("gomory_cut", tout<<"new cut :"; print_term(t, tout); tout << " >= " << k << std::endl;);
+        TRACE(gomory_cut, tout<<"new cut :"; print_term(t, tout); tout << " >= " << k << std::endl;);
 
     }
 };

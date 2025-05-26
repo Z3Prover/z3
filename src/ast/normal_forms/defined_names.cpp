@@ -163,9 +163,9 @@ void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbo
                         def_conjunct,
                         1, qid, symbol::null,
                         1, patterns);
-        TRACE("mk_definition_bug", tout << "before elim_unused_vars:\n" << mk_ismt2_pp(q, m) << "\n";);
+        TRACE(mk_definition_bug, tout << "before elim_unused_vars:\n" << mk_ismt2_pp(q, m) << "\n";);
         result = elim_unused_vars(m, q, params_ref());
-        TRACE("mk_definition_bug", tout << "after elim_unused_vars:\n" << result << "\n";);
+        TRACE(mk_definition_bug, tout << "after elim_unused_vars:\n" << result << "\n";);
     }
 }
 
@@ -242,11 +242,11 @@ void defined_names::pos_impl::mk_definition(expr * e, app * n, sort_ref_buffer &
 }
 
 bool defined_names::impl::mk_name(expr * e, expr_ref & new_def, proof_ref & new_def_pr, app_ref & n, proof_ref & pr) {
-    TRACE("mk_definition_bug", tout << "making name for:\n" << mk_ismt2_pp(e, m) << "\n";);
+    TRACE(mk_definition_bug, tout << "making name for:\n" << mk_ismt2_pp(e, m) << "\n";);
 
     app *   n_ptr;
     if (m_expr2name.find(e, n_ptr)) {
-        TRACE("mk_definition_bug", tout << "name for expression is already cached..., returning false...\n";);
+        TRACE(mk_definition_bug, tout << "name for expression is already cached..., returning false...\n";);
         n = n_ptr;
         if (m.proofs_enabled()) {
             proof * pr_ptr = nullptr;
@@ -263,14 +263,14 @@ bool defined_names::impl::mk_name(expr * e, expr_ref & new_def, proof_ref & new_
         n = gen_name(e, var_sorts, var_names);
         cache_new_name(e, n);
 
-        TRACE("mk_definition_bug", tout << "name: " << mk_ismt2_pp(n, m) << "\n";);
+        TRACE(mk_definition_bug, tout << "name: " << mk_ismt2_pp(n, m) << "\n";);
         // variables are in reverse order in quantifiers
         std::reverse(var_sorts.data(), var_sorts.data() + var_sorts.size());
         std::reverse(var_names.data(), var_names.data() + var_names.size());
 
         mk_definition(e, n, var_sorts, var_names, new_def);
 
-        TRACE("mk_definition_bug", tout << "new_def:\n" << mk_ismt2_pp(new_def, m) << "\n";);
+        TRACE(mk_definition_bug, tout << "new_def:\n" << mk_ismt2_pp(new_def, m) << "\n";);
 
         if (m.proofs_enabled()) {
             new_def_pr = m.mk_def_intro(new_def);

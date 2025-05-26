@@ -64,12 +64,12 @@ struct mbp_basic_tg::impl {
         expr *c, *th, *el;
         expr_ref nterm(m);
         bool progress = false;
-        TRACE("mbp_tg", tout << "Iterating over terms of tg";);
+        TRACE(mbp_tg, tout << "Iterating over terms of tg";);
         // Not resetting terms because get_terms calls resize on terms
         m_tg.get_terms(terms, false);
         for (expr *term : terms) {
             if (is_seen(term)) continue;
-            TRACE("mbp_tg", tout << "Processing " << expr_ref(term, m) << "\n";);
+            TRACE(mbp_tg, tout << "Processing " << expr_ref(term, m) << "\n";);
             if (m.is_ite(term, c, th, el) && should_split(c)) {
                 mark_seen(term);
                 progress = true;

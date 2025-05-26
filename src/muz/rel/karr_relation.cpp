@@ -174,11 +174,11 @@ namespace datalog {
                     processed = false;
                 }
                 (void)processed;
-                TRACE("dl", tout << (processed?"+ ":"- ") << mk_pp(e, m) << "\n";
+                TRACE(dl, tout << (processed?"+ ":"- ") << mk_pp(e, m) << "\n";
                       if (processed) matrix::display_ineq(tout, row, M.b.back(), M.eq.back());
                       );
             }
-            TRACE("dl", display(tout););
+            TRACE(dl, display(tout););
         }
 
         void mk_join(karr_relation const& r1, karr_relation const& r2, 
@@ -259,7 +259,7 @@ namespace datalog {
             m_empty = false;
             m_fn = r.m_fn;
             
-            TRACE("dl", 
+            TRACE(dl, 
                   for (unsigned i = 0; i < cnt; ++i) {
                       tout << cols[i] << " ";
                   }
@@ -286,7 +286,7 @@ namespace datalog {
                 mk_rename(m_basis, col_cnt, cols);
             }
             m_fn = r.m_fn;
-            TRACE("dl", r.display(tout); display(tout););
+            TRACE(dl, r.display(tout); display(tout););
         }
 
         void mk_union(karr_relation const& src, karr_relation* delta) {
@@ -598,7 +598,7 @@ namespace datalog {
         catch (...) {
             is_sat = l_undef;
         }
-        TRACE("dl_verbose", m_hb.display(tout););
+        TRACE(dl_verbose, m_hb.display(tout););
         if (is_sat == l_false) {
             return false;
         }
@@ -655,7 +655,7 @@ namespace datalog {
         if (is_sat != l_true) {
             return;
         }
-        TRACE("dl_verbose", m_hb.display(tout););
+        TRACE(dl_verbose, m_hb.display(tout););
         SASSERT(is_sat == l_true);
         unsigned basis_size = m_hb.get_basis_size();
         for (unsigned i = 0; i < basis_size; ++i) {
@@ -678,7 +678,7 @@ namespace datalog {
 
             karr_relation& r = get(_r);
             karr_relation const& src = get(_src);
-            TRACE("dl", r.display(tout << "dst:\n"); src.display(tout  << "src:\n"););
+            TRACE(dl, r.display(tout << "dst:\n"); src.display(tout  << "src:\n"););
 
             if (_delta) {
                 karr_relation& d = get(*_delta);
@@ -687,7 +687,7 @@ namespace datalog {
             else {
                 r.mk_union(src, nullptr);
             }            
-            TRACE("dl", r.display(tout << "result:\n"););
+            TRACE(dl, r.display(tout << "result:\n"););
         }
     };
 
@@ -707,7 +707,7 @@ namespace datalog {
 
         void operator()(relation_base & _r) override {
             karr_relation & r = get(_r);
-            TRACE("dl", r.display(tout << "src:\n"););
+            TRACE(dl, r.display(tout << "src:\n"););
             r.get_ineqs();
             for (unsigned i = 1; i < m_identical_cols.size(); ++i) {
                 unsigned c1 = m_identical_cols[0];
@@ -721,7 +721,7 @@ namespace datalog {
                 r.m_ineqs.eq.push_back(true);
                 r.m_basis_valid = false;
             }
-            TRACE("dl", r.display(tout << "result:\n"););
+            TRACE(dl, r.display(tout << "result:\n"););
         }
     };
 
@@ -757,7 +757,7 @@ namespace datalog {
                 r.m_ineqs.eq.push_back(true);
                 r.m_basis_valid = false;
             }
-            TRACE("dl", tout << m_value << "\n"; r.display(tout););            
+            TRACE(dl, tout << m_value << "\n"; r.display(tout););            
         }
     };
 
@@ -779,7 +779,7 @@ namespace datalog {
 
         void operator()(relation_base& t) override {
             get(t).filter_interpreted(m_cond);
-            TRACE("dl", tout << mk_pp(m_cond, m_cond.get_manager()) << "\n"; t.display(tout););
+            TRACE(dl, tout << mk_pp(m_cond, m_cond.get_manager()) << "\n"; t.display(tout););
         }
     };
 

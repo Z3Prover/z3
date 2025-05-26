@@ -126,7 +126,7 @@ class reduce_args_simplifier : public dependent_expr_simplifier {
         for (auto i : indices())
             quick_for_each_expr(proc, visited, m_fmls[i].fml());
 
-        TRACE("reduce_args", tout << "non_candidates:\n"; for (func_decl* d : non_candidates) tout << d->get_name() << "\n";);
+        TRACE(reduce_args, tout << "non_candidates:\n"; for (func_decl* d : non_candidates) tout << d->get_name() << "\n";);
     }
 
     struct populate_decl2args_proc {
@@ -196,7 +196,7 @@ class reduce_args_simplifier : public dependent_expr_simplifier {
         for (func_decl* a : bad_decls)
             decl2args.erase(a);
 
-        TRACE("reduce_args", tout << "decl2args:" << std::endl;
+        TRACE(reduce_args, tout << "decl2args:" << std::endl;
               for (auto const& [k, v] : decl2args) {
                   tout << k->get_name() << ": ";
                   for (unsigned i = 0; i < v.size(); ++i)

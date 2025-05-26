@@ -81,13 +81,13 @@ namespace arith {
 
     void solver::found_unsupported(expr* n) {
         ctx.push(value_trail<expr*>(m_not_handled));
-        TRACE("arith", tout << "unsupported " << mk_pp(n, m) << "\n";);
+        TRACE(arith, tout << "unsupported " << mk_pp(n, m) << "\n";);
         m_not_handled = n;
     }
 
     void solver::found_underspecified(expr* n) {
         if (a.is_underspecified(n)) {
-            TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
+            TRACE(arith, tout << "Unhandled: " << mk_pp(n, m) << "\n";);
             ctx.push(push_back_vector(m_underspecified));
             m_underspecified.push_back(to_app(n));
         }
@@ -126,7 +126,7 @@ namespace arith {
         var = lp().add_var(v, is_int);
         add_def_constraint_and_equality(var, lp::GE, rational(c));
         add_def_constraint_and_equality(var, lp::LE, rational(c));
-        TRACE("arith", tout << "add " << cnst << ", var = " << var << "\n";);
+        TRACE(arith, tout << "add " << cnst << ", var = " << var << "\n";);
         return var;
     }
 
@@ -321,7 +321,7 @@ namespace arith {
     }
 
     bool solver::internalize_atom(expr* atom) {
-        TRACE("arith", tout << mk_pp(atom, m) << "\n";);
+        TRACE(arith, tout << mk_pp(atom, m) << "\n";);
         expr* n1, *n2;
         rational r;
         lp_api::bound_kind k;
@@ -378,7 +378,7 @@ namespace arith {
             return true;
         }
         else {
-            TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
+            TRACE(arith, tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
             found_unsupported(atom);
             return true;
         }
@@ -394,7 +394,7 @@ namespace arith {
         updt_unassigned_bounds(v, +1);
         m_bounds_trail.push_back(v);
         m_bool_var2bound.insert(bv, b);
-        TRACE("arith_verbose", tout << "Internalized " << lit << ": " << mk_pp(atom, m) << " " << *b << "\n";);
+        TRACE(arith_verbose, tout << "Internalized " << lit << ": " << mk_pp(atom, m) << " " << *b << "\n";);
         m_new_bounds.push_back(b);
         //add_use_lists(b);
         return true;
@@ -407,7 +407,7 @@ namespace arith {
     }
 
     theory_var solver::internalize_def(expr* term, scoped_internalize_state& st) {
-        TRACE("arith", tout << expr_ref(term, m) << "\n";);
+        TRACE(arith, tout << expr_ref(term, m) << "\n";);
         if (ctx.get_enode(term))
             return mk_evar(term);
 
@@ -432,7 +432,7 @@ namespace arith {
 
     void solver::internalize_args(app* t, bool force) {
         SASSERT(!m.is_bool(t));
-        TRACE("arith", tout << mk_pp(t, m) << " " << force << " " << reflect(t) << "\n";);
+        TRACE(arith, tout << mk_pp(t, m) << " " << force << " " << reflect(t) << "\n";);
         if (!force && !reflect(t))
             return;
         for (expr* arg : *t) 
@@ -497,7 +497,7 @@ namespace arith {
                 theory_var v = mk_evar(n);
                 vars.push_back(register_theory_var_in_lar_solver(v));
             }
-            TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n" << vars << "\n";);
+            TRACE(arith, tout << "v" << v << " := " << mk_pp(t, m) << "\n" << vars << "\n";);
             m_solver->register_existing_terms();
             ensure_nla();
             m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.data());
@@ -507,7 +507,7 @@ namespace arith {
 
     theory_var solver::internalize_linearized_def(expr* term, scoped_internalize_state& st) {
         theory_var v = mk_evar(term);
-        TRACE("arith", tout << mk_bounded_pp(term, m) << " v" << v << "\n";);
+        TRACE(arith, tout << mk_bounded_pp(term, m) << " v" << v << "\n";);
 
         if (is_unit_var(st) && v == st.vars()[0]) 
             return st.vars()[0];
@@ -524,7 +524,7 @@ namespace arith {
             else {
                 vi = lp().add_term(m_left_side, v);
                 SASSERT(lp().column_has_term(vi));
-                TRACE("arith_verbose", 
+                TRACE(arith_verbose, 
                       tout << "v" << v << " := " << mk_pp(term, m) 
                       << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
                       lp().print_term(lp().get_term(vi), tout) << "\n";);
@@ -566,7 +566,7 @@ namespace arith {
 
 
     enode* solver::mk_enode(expr* e) {
-        TRACE("arith", tout << expr_ref(e, m) << "\n";);
+        TRACE(arith, tout << expr_ref(e, m) << "\n";);
         enode* n = ctx.get_enode(e);
         if (n)
             return n;
@@ -588,7 +588,7 @@ namespace arith {
         if (e->is_attached_to(get_id()))
             return e->get_th_var(get_id());
         theory_var v = mk_var(e);
-        TRACE("arith_verbose", tout << "v" << v << " " << mk_pp(n, m) << "\n";);
+        TRACE(arith_verbose, tout << "v" << v << " " << mk_pp(n, m) << "\n";);
         SASSERT(m_bounds.size() <= static_cast<unsigned>(v) || m_bounds[v].empty());
         reserve_bounds(v);
         ctx.attach_th_var(e, this, v);

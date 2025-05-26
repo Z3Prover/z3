@@ -140,9 +140,9 @@ void sat2goal::mc::operator()(sat::model& md) {
 
 void sat2goal::mc::operator()(model_ref & md) {
     // apply externalized model converter
-    CTRACE("sat_mc", m_gmc, m_gmc->display(tout << "before sat_mc\n"); model_v2_pp(tout, *md););
+    CTRACE(sat_mc, m_gmc, m_gmc->display(tout << "before sat_mc\n"); model_v2_pp(tout, *md););
     if (m_gmc) (*m_gmc)(md);
-    CTRACE("sat_mc", m_gmc, m_gmc->display(tout << "after sat_mc\n"); model_v2_pp(tout, *md););
+    CTRACE(sat_mc, m_gmc, m_gmc->display(tout << "after sat_mc\n"); model_v2_pp(tout, *md););
 }
 
 
@@ -161,7 +161,7 @@ void sat2goal::mc::insert(sat::bool_var v, expr * atom, bool aux) {
         if (is_uninterp_const(atom))
             m_gmc->hide(to_app(atom)->get_decl());
     }
-    TRACE("sat_mc", tout << "insert " << v << "\n";);
+    TRACE(sat_mc, tout << "insert " << v << "\n";);
 }
 
 expr_ref sat2goal::mc::lit2expr(sat::literal l) {

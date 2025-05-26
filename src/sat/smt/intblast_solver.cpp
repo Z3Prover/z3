@@ -40,7 +40,7 @@ namespace intblast {
     euf::theory_var solver::mk_var(euf::enode* n) {
         auto r = euf::th_euf_solver::mk_var(n);
         ctx.attach_th_var(n, this, r);
-        TRACE("bv", tout << "mk-var: v" << r << " " << ctx.bpp(n) << "\n";);
+        TRACE(bv, tout << "mk-var: v" << r << " " << ctx.bpp(n) << "\n";);
         return r;
     }
 
@@ -52,7 +52,7 @@ namespace intblast {
         sat::literal lit = expr2literal(e);
         if (sign)
             lit.neg();
-        TRACE("bv", tout << mk_pp(e, m) << " -> " << literal2expr(lit) << "\n");
+        TRACE(bv, tout << mk_pp(e, m) << " -> " << literal2expr(lit) << "\n");
         return lit;
     }
 
@@ -365,7 +365,7 @@ namespace intblast {
         for (expr* e : todo)
             m_translator.translate_expr(e);
 
-        TRACE("bv",
+        TRACE(bv,
             for (expr* e : es)
                 tout << mk_pp(e, m) << "\n->\n" << mk_pp(m_translator.translated(e), m) << "\n";
         );
@@ -500,7 +500,7 @@ namespace intblast {
             value = bv.mk_numeral(r, bv.get_bv_size(n->get_expr()));
         }
         values.set(n->get_root_id(), value);
-        TRACE("model", tout << "add_value " << ctx.bpp(n) << " := " << value << "\n");
+        TRACE(model, tout << "add_value " << ctx.bpp(n) << " := " << value << "\n");
     }
 
     void solver::finalize_model(model& mdl) {

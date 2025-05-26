@@ -89,14 +89,14 @@ expr * proto_model::mk_some_interp_for(func_decl * d) {
 bool proto_model::eval(expr * e, expr_ref & result, bool model_completion) {
     m_eval.set_model_completion(model_completion);
     m_eval.set_expand_array_equalities(false);
-    TRACE("model_evaluator", model_v2_pp(tout, *this, true););
+    TRACE(model_evaluator, model_v2_pp(tout, *this, true););
     try {
         m_eval(e, result);
         return true;
     }
     catch (model_evaluator_exception & ex) {
         (void)ex;
-        TRACE("model_evaluator", tout << ex.what() << "\n";);
+        TRACE(model_evaluator, tout << ex.what() << "\n";);
         return false;
     }
 }
@@ -128,7 +128,7 @@ void proto_model::cleanup_func_interp(expr_ref_vector& trail, func_interp * fi, 
 }
 
 expr* proto_model::cleanup_expr(expr_ref_vector& trail, expr* fi_else, func_decl_set& found_aux_fs) {
-    TRACE("model_bug", tout << "cleaning up:\n" << mk_pp(fi_else, m) << "\n";);
+    TRACE(model_bug, tout << "cleaning up:\n" << mk_pp(fi_else, m) << "\n";);
     trail.reset();
     obj_map<expr, expr*> cache;
     ptr_buffer<expr, 128> todo;
@@ -170,7 +170,7 @@ expr* proto_model::cleanup_expr(expr_ref_vector& trail, expr* fi_else, func_decl
                 }
                 func_decl * f = t->get_decl();
                 if (m_aux_decls.contains(f)) {
-                    TRACE("model_bug", tout << f->get_name() << "\n";);
+                    TRACE(model_bug, tout << f->get_name() << "\n";);
                     found_aux_fs.insert(f);
                 }
                 new_t = m_rewrite.mk_app(f, args.size(), args.data());                
@@ -210,7 +210,7 @@ void proto_model::remove_aux_decls_not_in_set(ptr_vector<func_decl> & decls, fun
    by their interpretations.
 */
 void proto_model::cleanup() {
-    TRACE("model_bug", model_v2_pp(tout, *this););
+    TRACE(model_bug, model_v2_pp(tout, *this););
     func_decl_set found_aux_fs;
     expr_ref_vector trail(m);
     ptr_buffer<func_interp> finterps;
@@ -227,7 +227,7 @@ void proto_model::cleanup() {
             register_decl(d, r);
         }        
     }
-    // TRACE("model_bug", model_v2_pp(tout, *this););
+    // TRACE(model_bug, model_v2_pp(tout, *this););
     // remove auxiliary declarations that are not used.
     if (found_aux_fs.size() != m_aux_decls.size()) {
         remove_aux_decls_not_in_set(m_decls, found_aux_fs);
@@ -235,13 +235,13 @@ void proto_model::cleanup() {
 
         for (func_decl* faux : m_aux_decls) {
             if (!found_aux_fs.contains(faux)) {
-                TRACE("cleanup_bug", tout << "eliminating " << faux->get_name() << " " << faux->get_ref_count() << "\n";);
+                TRACE(cleanup_bug, tout << "eliminating " << faux->get_name() << " " << faux->get_ref_count() << "\n";);
                 unregister_decl(faux);
             }
         }
         m_aux_decls.swap(found_aux_fs);
     }
-    TRACE("model_bug", model_v2_pp(tout, *this););
+    TRACE(model_bug, model_v2_pp(tout, *this););
 }
 
 value_factory * proto_model::get_factory(family_id fid) {
@@ -371,7 +371,7 @@ void proto_model::complete_partial_funcs(bool use_fresh) {
 }
 
 model * proto_model::mk_model() {
-    TRACE("proto_model", model_v2_pp(tout << "mk_model\n", *this););
+    TRACE(proto_model, model_v2_pp(tout << "mk_model\n", *this););
     model * mdl = alloc(model, m);
 
     for (auto const& kv : m_interp) {
@@ -388,7 +388,7 @@ model * proto_model::mk_model() {
     unsigned sz = get_num_uninterpreted_sorts();
     for (unsigned i = 0; i < sz; i++) {
         sort * s = get_uninterpreted_sort(i);
-        TRACE("proto_model", tout << "copying uninterpreted sorts...\n" << mk_pp(s, m) << "\n";);
+        TRACE(proto_model, tout << "copying uninterpreted sorts...\n" << mk_pp(s, m) << "\n";);
         ptr_vector<expr> const& buf = get_universe(s);
         mdl->register_usort(s, buf.size(), buf.data());
     }

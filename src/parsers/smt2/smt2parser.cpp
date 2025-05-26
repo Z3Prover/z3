@@ -358,7 +358,7 @@ namespace smt2 {
                         return true;
                     SASSERT(m_num_open_paren >= 0);
                     while (m_num_open_paren > 0 || !curr_is_lparen()) {
-                        TRACE("sync", tout << "sync(): curr: " << curr() << "\n";
+                        TRACE(sync, tout << "sync(): curr: " << curr() << "\n";
                               tout << "m_num_open_paren: " << m_num_open_paren << ", line: " << m_scanner.get_line() << ", pos: "
                               << m_scanner.get_pos() << "\n";);
                         if (curr() == scanner::EOF_TOKEN) {
@@ -662,7 +662,7 @@ namespace smt2 {
             SASSERT(epos >= spos);
             unsigned num  = epos - spos;
             if (!d->has_var_params() && d->get_num_params() != num) {
-                TRACE("smt2parser", tout << "num: " << num << ", d->get_num_params(): " << d->get_num_params() << "\n";);
+                TRACE(smt2parser, tout << "num: " << num << ", d->get_num_params(): " << d->get_num_params() << "\n";);
                 throw parser_exception("invalid number of parameters to sort constructor");
             }
 
@@ -724,7 +724,7 @@ namespace smt2 {
             SASSERT(epos >= spos);
             unsigned num  = epos - spos;
             if (!d->has_var_params() && d->get_num_params() != num) {
-                TRACE("smt2parser", tout << "num: " << num << ", d->get_num_params(): " << d->get_num_params() << "\n";);
+                TRACE(smt2parser, tout << "num: " << num << ", d->get_num_params(): " << d->get_num_params() << "\n";);
                 throw parser_exception("invalid number of parameters to sort constructor");
             }
             sort * r = d->instantiate(pm(), num, sort_stack().data() + spos);
@@ -838,7 +838,7 @@ namespace smt2 {
                     r_str += curr_id().str();
                     symbol r_name(r_str);
                     next();
-                    TRACE("datatype_parser_bug", tout << ct_name << " " << r_name << "\n";);
+                    TRACE(datatype_parser_bug, tout << ct_name << " " << r_name << "\n";);
                     ct_decls.push_back(pm().mk_pconstructor_decl(m_sort_id2param_idx.size(), ct_name, r_name, 0, nullptr));
                 }
                 else {
@@ -949,7 +949,7 @@ namespace smt2 {
                     m_ctx.insert(d);
                 }
             }                
-            TRACE("declare_datatypes", tout << "i: " << i << " new_dt_decls.size(): " << sz << "\n";
+            TRACE(declare_datatypes, tout << "i: " << i << " new_dt_decls.size(): " << sz << "\n";
                   for (unsigned j = 0; j < new_dt_decls.size(); ++j) tout << new_dt_decls[j]->get_name() << "\n";);
             m_ctx.print_success();
             next();
@@ -1031,7 +1031,7 @@ namespace smt2 {
         }
 
         void name_expr(expr * n, symbol const & s) {
-            TRACE("name_expr", tout << "naming: " << s << " ->\n" << mk_pp(n, m()) << "\n";);
+            TRACE(name_expr, tout << "naming: " << s << " ->\n" << mk_pp(n, m()) << "\n";);
             if (!is_ground(n) && m_has_free_vars(n))
                 throw parser_exception("invalid named expression, expression contains free variables");
             m_ctx.insert(s, 0, nullptr, n);
@@ -1105,7 +1105,7 @@ namespace smt2 {
                 check_keyword("invalid attributed expression, keyword expected");
                 symbol id = curr_id();
                 fr->m_last_symbol = symbol::null;
-                TRACE("consume_attributes", tout << "id: " << id << ", expr_stack().size(): " << expr_stack().size() << "\n";);
+                TRACE(consume_attributes, tout << "id: " << id << ", expr_stack().size(): " << expr_stack().size() << "\n";);
                 if (id == m_named) {
                     next();                    
                     name_expr(expr_stack().back(), check_identifier_next("invalid attribute value, symbol expected"));
@@ -1196,7 +1196,7 @@ namespace smt2 {
         void parse_numeral(bool is_int) {
             SASSERT(!is_int || curr_is_int());
             SASSERT(is_int || curr_is_float());
-            TRACE("parse_numeral", tout << "curr(): " << curr() << ", curr_numeral(): " << curr_numeral() << ", is_int: " << is_int << "\n";);
+            TRACE(parse_numeral, tout << "curr(): " << curr() << ", curr_numeral(): " << curr_numeral() << ", is_int: " << is_int << "\n";);
             expr_stack().push_back(autil().mk_numeral(curr_numeral(), is_int && !m_ctx.numeral_as_real()));
             next();
         }
@@ -1204,7 +1204,7 @@ namespace smt2 {
         void parse_bv_numeral() {
             SASSERT(curr() == scanner::BV_TOKEN);
             expr_stack().push_back(butil().mk_numeral(curr_numeral(), m_scanner.get_bv_size()));
-            TRACE("parse_bv_numeral", tout << "new numeral: " << mk_pp(expr_stack().back(), m()) << "\n";);
+            TRACE(parse_bv_numeral, tout << "new numeral: " << mk_pp(expr_stack().back(), m()) << "\n";);
             next();
         }
 
@@ -1212,7 +1212,7 @@ namespace smt2 {
             SASSERT(curr() == scanner::STRING_TOKEN);
             zstring zs(m_scanner.get_string());
             expr_stack().push_back(sutil().str.mk_string(zs));
-            TRACE("smt2parser", tout << "new string: " << mk_pp(expr_stack().back(), m()) << "\n";);
+            TRACE(smt2parser, tout << "new string: " << mk_pp(expr_stack().back(), m()) << "\n";);
             next();
         }
 
@@ -1284,21 +1284,21 @@ namespace smt2 {
             unsigned num = 0;
             unsigned sym_spos = symbol_stack().size();
             unsigned sort_spos = sort_stack().size();
-            TRACE("parse_sorted_vars", tout << "[before] symbol_stack().size(): " << symbol_stack().size() << "\n";);
+            TRACE(parse_sorted_vars, tout << "[before] symbol_stack().size(): " << symbol_stack().size() << "\n";);
             check_lparen_next("invalid list of sorted variables, '(' expected");
             m_env.begin_scope();
             while (!curr_is_rparen()) {
                 check_lparen_next("invalid sorted variable, '(' expected");
                 check_identifier("invalid sorted variable, symbol expected");
                 symbol_stack().push_back(curr_id());
-                TRACE("parse_sorted_vars", tout << "push_back curr_id(): " << curr_id() << "\n";);
+                TRACE(parse_sorted_vars, tout << "push_back curr_id(): " << curr_id() << "\n";);
                 next();
                 parse_sort("invalid sorted variables");
                 check_rparen_next("invalid sorted variable, ')' expected");
                 num++;
             }
             next();
-            TRACE("parse_sorted_vars", tout << "[after] symbol_stack().size(): " << symbol_stack().size() << "\n";);
+            TRACE(parse_sorted_vars, tout << "[after] symbol_stack().size(): " << symbol_stack().size() << "\n";);
             symbol const * sym_it  = symbol_stack().data() + sym_spos;
             sort * const * sort_it = sort_stack().data() + sort_spos;
             m_num_bindings += num;
@@ -1307,7 +1307,7 @@ namespace smt2 {
                 --i;
                 var * v = m().mk_var(i, *sort_it);
                 expr_stack().push_back(v); // prevent v from being deleted
-                TRACE("parse_sorted_vars", tout << "registering " << *sym_it << " -> " << mk_pp(v, m()) << ", num: " << num << ", i: " << i << "\n";);
+                TRACE(parse_sorted_vars, tout << "registering " << *sym_it << " -> " << mk_pp(v, m()) << ", num: " << num << ", i: " << i << "\n";);
                 m_env.insert(*sym_it, local(v, m_num_bindings));
                 SASSERT(m_env.contains(*sym_it));
                 ++sort_it;
@@ -1325,7 +1325,7 @@ namespace smt2 {
         }
 
         void push_bang_frame(expr_frame * curr) {
-            TRACE("consume_attributes", tout << "begin bang, expr_stack.size(): " << expr_stack().size() << "\n";);
+            TRACE(consume_attributes, tout << "begin bang, expr_stack.size(): " << expr_stack().size() << "\n";);
             next();
             void * mem = m_stack.allocate(sizeof(attr_expr_frame));
             new (mem) attr_expr_frame(curr, symbol_stack().size(), expr_stack().size());
@@ -1421,7 +1421,7 @@ namespace smt2 {
         expr_ref compile_patterns(expr* t, expr_ref_vector const& patterns, expr_ref_vector const& cases) {
             expr_ref result(m());
             var_subst sub(m(), false);
-            TRACE("parse_expr", tout << "term\n" << expr_ref(t, m()) << "\npatterns\n" << patterns << "\ncases\n" << cases << "\n";);
+            TRACE(parse_expr, tout << "term\n" << expr_ref(t, m()) << "\npatterns\n" << patterns << "\ncases\n" << cases << "\n";);
             check_patterns(patterns, t->get_sort());
             for (unsigned i = patterns.size(); i > 0; ) {
                 --i;
@@ -1444,7 +1444,7 @@ namespace smt2 {
                     result = new_case;
                 }
             }
-            TRACE("parse_expr", tout << result << "\n";);
+            TRACE(parse_expr, tout << result << "\n";);
             return result;
         }
 
@@ -1663,7 +1663,7 @@ namespace smt2 {
 
         // return true if *s == [0-9]+
         bool is_bv_decimal(char const * s) {
-            TRACE("is_bv_num", tout << "is_bv_decimal: " << s << "\n";);
+            TRACE(is_bv_num, tout << "is_bv_decimal: " << s << "\n";);
             SASSERT('0' <= *s && *s <= '9');
             rational & n = m_last_bv_numeral;
             n = rational(*s - '0');
@@ -1802,11 +1802,11 @@ namespace smt2 {
         void parse_qualified_name() {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id_is_as() || curr_id_is_underscore());
-            TRACE("parse_qualified_name", tout << "parse_qualified_name() curr_id: " << curr_id() << "\n";);
+            TRACE(parse_qualified_name, tout << "parse_qualified_name() curr_id: " << curr_id() << "\n";);
             unsigned param_spos = m_param_stack.size();
             bool has_as;
             symbol r = parse_qualified_identifier_core(has_as);
-            TRACE("parse_qualified_name", tout << "parse_qualified_name() r: " << r << "\n";);
+            TRACE(parse_qualified_name, tout << "parse_qualified_name() r: " << r << "\n";);
             expr * t;
             local l;
             if (m_env.find(r, l)) {
@@ -1870,9 +1870,9 @@ namespace smt2 {
         void push_expr_frame(expr_frame * curr) {
             SASSERT(curr_is_lparen());
             next();
-            TRACE("push_expr_frame", tout << "push_expr_frame(), curr(): " << m_curr << "\n";);
+            TRACE(push_expr_frame, tout << "push_expr_frame(), curr(): " << m_curr << "\n";);
             if (curr_is_identifier()) {
-                TRACE("push_expr_frame", tout << "push_expr_frame(), curr_id(): " << curr_id() << "\n";);
+                TRACE(push_expr_frame, tout << "push_expr_frame(), curr_id(): " << curr_id() << "\n";);
                 if (curr_id_is_let()) {
                     push_let_frame();
                 }
@@ -1946,7 +1946,7 @@ namespace smt2 {
             m_param_stack.shrink(fr->m_param_spos);
             if (fr->m_as_sort)
                 sort_stack().pop_back();
-            TRACE("pop_app_frame", tout << "new term: " << mk_pp(t_ref, m()) << "\n";);
+            TRACE(pop_app_frame, tout << "new term: " << mk_pp(t_ref, m()) << "\n";);
             expr_stack().push_back(t_ref.get());
             m_stack.deallocate(fr);
             m_num_expr_frames--;
@@ -1968,13 +1968,13 @@ namespace smt2 {
                 for (; expr_it != expr_end; ++expr_it, ++sym_it) {
                     if (!(*expr_it))
                         throw parser_exception("invalid let expression");
-                    TRACE("let_frame", tout << "declaring: " << *sym_it << " " << mk_pp(*expr_it, m()) << "\n";);
+                    TRACE(let_frame, tout << "declaring: " << *sym_it << " " << mk_pp(*expr_it, m()) << "\n";);
                     m_env.insert(*sym_it, local(*expr_it, m_num_bindings));
                 }
             }
             else {
                 // the resultant expression is on the top of the stack
-                TRACE("let_frame", tout << "let result expr: " << mk_pp(expr_stack().back(), m()) << "\n";);
+                TRACE(let_frame, tout << "let result expr: " << mk_pp(expr_stack().back(), m()) << "\n";);
                 expr_ref r(m());
                 if (expr_stack().size() < fr->m_expr_spos + 1)
                     throw parser_exception("invalid let expression");
@@ -2019,9 +2019,9 @@ namespace smt2 {
             pattern_stack().shrink(end_pats);
             unsigned num_pats   = end_pats - begin_pats;
             unsigned num_nopats = nopattern_stack().size() - fr->m_nopat_spos;
-            TRACE("parse_quantifier", tout << "weight: " << fr->m_weight << "\n";);
-            TRACE("skid", tout << "fr->m_skid: " << fr->m_skid << "\n";);
-            TRACE("parse_quantifier", tout << "body:\n" << mk_pp(expr_stack().back(), m()) << "\n";);
+            TRACE(parse_quantifier, tout << "weight: " << fr->m_weight << "\n";);
+            TRACE(skid, tout << "fr->m_skid: " << fr->m_skid << "\n";);
+            TRACE(parse_quantifier, tout << "body:\n" << mk_pp(expr_stack().back(), m()) << "\n";);
             if (fr->m_qid == symbol::null)
                 fr->m_qid = symbol((unsigned)m_scanner.get_line());
             if (fr->m_kind != lambda_k && !m().is_bool(expr_stack().back()))
@@ -2037,8 +2037,8 @@ namespace smt2 {
                                       num_pats, pattern_stack().data() + fr->m_pat_spos,
                                       num_nopats, nopattern_stack().data() + fr->m_nopat_spos
                                       );
-            TRACE("mk_quantifier", tout << "id: " << new_q->get_id() << "\n" << mk_ismt2_pp(new_q, m()) << "\n";);
-            TRACE("skid", tout << "new_q->skid: " << new_q->get_skid() << "\n";);
+            TRACE(mk_quantifier, tout << "id: " << new_q->get_id() << "\n" << mk_ismt2_pp(new_q, m()) << "\n";);
+            TRACE(skid, tout << "new_q->skid: " << new_q->get_skid() << "\n";);
             expr_stack().shrink(fr->m_expr_spos);
             pattern_stack().shrink(fr->m_pat_spos);
             nopattern_stack().shrink(fr->m_nopat_spos);
@@ -2055,7 +2055,7 @@ namespace smt2 {
 
         void pop_attr_expr_frame(attr_expr_frame * fr) {
             process_last_symbol(fr);
-            TRACE("consume_attributes", tout << "pop_attr_expr_frame, expr_stack.size(): " << expr_stack().size() << "\n";);
+            TRACE(consume_attributes, tout << "pop_attr_expr_frame, expr_stack.size(): " << expr_stack().size() << "\n";);
             // the resultant expression is already on the top of the stack.
             if (expr_stack().size() != fr->m_expr_spos + 1)
                 throw parser_exception("invalid expression");
@@ -2117,7 +2117,7 @@ namespace smt2 {
         void parse_expr() {
             m_num_expr_frames = 0;
             do {
-                TRACE("parse_expr", tout << "curr(): " << curr() << ", m_num_expr_frames: " << m_num_expr_frames
+                TRACE(parse_expr, tout << "curr(): " << curr() << ", m_num_expr_frames: " << m_num_expr_frames
                       << ", expr_stack().size(): " << expr_stack().size() << "\n";);
                 if (curr_is_rparen()) {
                     if (m_num_expr_frames == 0)
@@ -2126,7 +2126,7 @@ namespace smt2 {
                 }
                 else {
                     pe_state st = parse_expr_state();
-                    TRACE("consume_attributes", tout << "parse_expr_state: " << st << ", expr_stack.size(): " << expr_stack().size() << "\n";);
+                    TRACE(consume_attributes, tout << "parse_expr_state: " << st << ", expr_stack.size(): " << expr_stack().size() << "\n";);
                     switch (st) {
                     case PES_EXPR:
                         switch (curr()) {
@@ -2526,7 +2526,7 @@ namespace smt2 {
             SASSERT(!sort_stack().empty());
             func_decl_ref c(m());
             c = m().mk_const_decl(id, sort_stack().back());
-            TRACE("declare_const", tout << "declaring " << id << " "; pm().display(tout, sort_stack().back()); tout << "\n";);
+            TRACE(declare_const, tout << "declaring " << id << " "; pm().display(tout, sort_stack().back()); tout << "\n";);
             SASSERT(c.get() != 0);
             sort_stack().pop_back();
             m_ctx.insert(c);
@@ -2573,7 +2573,7 @@ namespace smt2 {
             check_rparen("invalid pop command, ')' expected");
             m_ctx.print_success();
             next();
-            TRACE("after_pop", tout << "expr_stack.size: " << expr_stack().size() << "\n"; m_ctx.dump_assertions(tout););
+            TRACE(after_pop, tout << "expr_stack.size: " << expr_stack().size() << "\n"; m_ctx.dump_assertions(tout););
         }
 
         std::string m_assert_expr;
@@ -2598,7 +2598,7 @@ namespace smt2 {
             }
             expr * f = expr_stack().back();
             if (!f || !m().is_bool(f)) {
-                TRACE("smt2parser", tout << expr_ref(f, m()) << "\n";);
+                TRACE(smt2parser, tout << expr_ref(f, m()) << "\n";);
                 throw cmd_exception("invalid assert command, term is not Boolean");
             }
             if (f == m_last_named_expr.second) {
@@ -3228,7 +3228,7 @@ namespace smt2 {
                 found_errors = true;
                 if (!sync_after_error())
                     return false;
-                TRACE("parser_error", tout << "after sync: " << curr() << "\n";);
+                TRACE(parser_error, tout << "after sync: " << curr() << "\n";);
                 SASSERT(m_num_open_paren == 0);
             }
         }

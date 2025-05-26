@@ -106,7 +106,7 @@ void substitution_tree::linearize(svector<subst> & result) {
    If save_set_registers == true, then r_i's are stored in m_to_reset.
 */
 void substitution_tree::process_args(app * in, app * out) {
-    CTRACE("subst_tree_bug", in->get_num_args() != out->get_num_args(), tout << mk_ismt2_pp(in, m_manager) << "\n" 
+    CTRACE(subst_tree_bug, in->get_num_args() != out->get_num_args(), tout << mk_ismt2_pp(in, m_manager) << "\n" 
            << mk_ismt2_pp(out, m_manager) << "\n";);
     unsigned num = out->get_num_args();
     for (unsigned i = 0; i < num; i++) {
@@ -622,7 +622,7 @@ void substitution_tree::display(std::ostream & out, node * n, unsigned delta) co
 
 bool substitution_tree::backtrack() {
     while (!m_bstack.empty()) {
-        TRACE("st", tout << "backtracking...\n";);
+        TRACE(st, tout << "backtracking...\n";);
         m_subst->pop_scope();
 
         node * n = m_bstack.back();
@@ -636,9 +636,9 @@ bool substitution_tree::backtrack() {
 }
 
 inline expr_offset substitution_tree::find(expr_offset p) {
-    TRACE("substitution_tree_bug", tout << "find...\n";);
+    TRACE(substitution_tree_bug, tout << "find...\n";);
     while (is_var(p.get_expr())) {
-        TRACE("substitution_tree_bug", tout << mk_pp(p.get_expr(), m_manager) << " " << p.get_offset() << "\n";);
+        TRACE(substitution_tree_bug, tout << mk_pp(p.get_expr(), m_manager) << " " << p.get_offset() << "\n";);
         if (!m_subst->find(to_var(p.get_expr()), p.get_offset(), p))
             return p;
     }
@@ -647,7 +647,7 @@ inline expr_offset substitution_tree::find(expr_offset p) {
 
 template<substitution_tree::st_visit_mode Mode>
 bool substitution_tree::bind_var(var * v, unsigned offset, expr_offset const & p) {
-    TRACE("st", tout << "bind_var: " << mk_pp(v, m_manager) << " " << offset << "\n" << 
+    TRACE(st, tout << "bind_var: " << mk_pp(v, m_manager) << " " << offset << "\n" << 
           mk_pp(p.get_expr(), m_manager) << " " << p.get_offset() << "\n";);
     if (Mode == STV_INST && offset == m_st_offset) {
         SASSERT(!is_var(p.get_expr()) || p.get_offset() != m_reg_offset);
@@ -666,7 +666,7 @@ bool substitution_tree::bind_var(var * v, unsigned offset, expr_offset const & p
         return false;
     }
     m_subst->insert(v, offset, p);
-    TRACE("st_bug", tout << "substitution updated\n"; m_subst->display(tout););
+    TRACE(st_bug, tout << "substitution updated\n"; m_subst->display(tout););
     return true;
 }
 
@@ -687,7 +687,7 @@ bool substitution_tree::unify_match(expr_offset p1, expr_offset p2) {
             SASSERT(!is_quantifier(n2));
             bool v1 = is_var(n1);
             bool v2 = is_var(n2);
-            TRACE("st", 
+            TRACE(st, 
                   tout << "n1: " << mk_pp(n1, m_manager) << " " << p1.get_offset() << "\n";
                   tout << "n2: " << mk_pp(n2, m_manager) << " " << p2.get_offset() << "\n";);
             if (v1 && v2) {
@@ -758,7 +758,7 @@ bool substitution_tree::visit(svector<subst> const & sv) {
     svector<subst>::const_iterator end = sv.end();
     for (; it != end; ++it) {
         subst const & s = *it;
-        TRACE("st", tout << "processing subst:\n"; display(tout, s); tout << "\n";);
+        TRACE(st, tout << "processing subst:\n"; display(tout, s); tout << "\n";);
         var *  rin  = s.first;
         expr * out  = s.second; 
         expr_offset p1(rin, m_reg_offset);
@@ -778,9 +778,9 @@ bool substitution_tree::visit(expr * e, st_visitor & st, node * r) {
 
     while (true) {
         node * n = m_bstack.back();
-        TRACE("st", tout << "push scope...\n";);
+        TRACE(st, tout << "push scope...\n";);
         m_subst->push_scope();
-        TRACE("st", tout << "processing node:\n"; display(tout, n->m_subst); tout << "\n";);
+        TRACE(st, tout << "processing node:\n"; display(tout, n->m_subst); tout << "\n";);
         if (visit<Mode>(n->m_subst)) {
             if (n->m_leaf) {
                 // if searching for unifiers and the substitution is cyclic, then backtrack.
@@ -789,7 +789,7 @@ bool substitution_tree::visit(expr * e, st_visitor & st, node * r) {
                         break;
                 }
                 else {
-                    TRACE("st_bug", tout << "found match:\n"; m_subst->display(tout); tout << "m_subst: " << m_subst << "\n";);
+                    TRACE(st_bug, tout << "found match:\n"; m_subst->display(tout); tout << "m_subst: " << m_subst << "\n";);
                     if (!st(n->m_expr)) {
                         clear_stack();
                         return false;

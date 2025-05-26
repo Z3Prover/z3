@@ -99,7 +99,7 @@ expr_pattern_match::instantiate(expr* a, unsigned num_bound, subst& s, expr_ref&
     for (unsigned i = 0; i < num_bound; ++i) {
         b.insert(m_bound_dom[i], m_bound_rng[i]);
     }
-    TRACE("expr_pattern_match", tout << mk_pp(a, m_manager) << " " << num_bound << "\n";);
+    TRACE(expr_pattern_match, tout << mk_pp(a, m_manager) << " " << num_bound << "\n";);
     inst_proc proc(m_manager, s, b, m_regs);
     for_each_ast(proc, a);
     expr* v = nullptr;
@@ -270,13 +270,13 @@ expr_pattern_match::match(expr* a, unsigned init, subst& s)
             break;
         }
         case CHECK_BOUND:
-            TRACE("expr_pattern_match", tout << "check bound " << pc.m_num_bound << " " << pc.m_reg << "\n";);
+            TRACE(expr_pattern_match, tout << "check bound " << pc.m_num_bound << " " << pc.m_reg << "\n";);
             ok = m_bound_rng[pc.m_num_bound] == m_regs[pc.m_reg];
             break;            
         case BIND:
         case BIND_AC:
         case BIND_C: {
-            TRACE("expr_pattern_match", display(tout, pc);
+            TRACE(expr_pattern_match, display(tout, pc);
                   tout << mk_pp(m_regs[pc.m_reg],m_manager) << "\n";);
             app* app1 = to_app(pc.m_pat);
             a   = m_regs[pc.m_reg];
@@ -352,7 +352,7 @@ expr_pattern_match::match(expr* a, unsigned init, subst& s)
             pc = m_instrs[pc.m_next];
         }
         else {
-            TRACE("expr_pattern_match", tout << "backtrack\n";);
+            TRACE(expr_pattern_match, tout << "backtrack\n";);
             pc = m_instrs[0];
         }
     }

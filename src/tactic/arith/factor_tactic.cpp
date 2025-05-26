@@ -173,7 +173,7 @@ class factor_tactic : public tactic {
             scoped_mpz d2(m_qm);
             m_expr2poly.to_polynomial(lhs, p1, d1);
             m_expr2poly.to_polynomial(rhs, p2, d2);
-            TRACE("factor_tactic_bug",
+            TRACE(factor_tactic_bug,
                   tout << "lhs: " << mk_ismt2_pp(lhs, m) << "\n";
                   tout << "p1:  " << p1 << "\n";
                   tout << "d1:  " << d1 << "\n";
@@ -190,10 +190,10 @@ class factor_tactic : public tactic {
             if (is_const(p))
                 return BR_FAILED;
             polynomial::factors fs(m_pm);
-            TRACE("factor_tactic_bug", tout << "p: " << p << "\n";);
+            TRACE(factor_tactic_bug, tout << "p: " << p << "\n";);
             m_pm.factor(p, fs, m_fparams);
             SASSERT(fs.distinct_factors() > 0);
-            TRACE("factor_tactic_bug", tout << "factors:\n"; fs.display(tout); tout << "\n";);
+            TRACE(factor_tactic_bug, tout << "factors:\n"; fs.display(tout); tout << "\n";);
             if (fs.distinct_factors() == 1 && fs.get_degree(0) == 1)
                 return BR_FAILED;
             if (m.is_eq(f)) {

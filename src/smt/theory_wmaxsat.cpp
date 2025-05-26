@@ -67,7 +67,7 @@ namespace smt {
                 }
             }
         }
-        TRACE("opt",
+        TRACE(opt,
               tout << "cost save: ";
               for (unsigned i = 0; i < m_cost_save.size(); ++i) {
                   tout << m_cost_save[i] << " ";
@@ -102,7 +102,7 @@ namespace smt {
         m_normalize = true;
         bool_var bv = register_var(var, true);
         (void)bv;
-        TRACE("opt", tout << "inc: " << ctx.inconsistent() << " enable: v" << m_bool2var[bv] 
+        TRACE(opt, tout << "inc: " << ctx.inconsistent() << " enable: v" << m_bool2var[bv] 
               << " b" << bv << " " << mk_pp(var, get_manager()) << "\n" << wfml << "\n";);
         return var;
     }
@@ -112,7 +112,7 @@ namespace smt {
         bool_var bv = ctx.get_bool_var(var);
         theory_var tv = m_bool2var[bv];
         m_enabled[tv] = false;
-        TRACE("opt", tout << "disable: v" << tv << " b" << bv << " " << mk_pp(var, get_manager()) << "\n";);
+        TRACE(opt, tout << "disable: v" << tv << " b" << bv << " " << mk_pp(var, get_manager()) << "\n";);
     }
     
     bool_var theory_wmaxsat::register_var(app* var, bool attach) {
@@ -164,7 +164,7 @@ namespace smt {
             ctx.push_trail(push_back_vector<svector<theory_var> >(m_costs));
             ctx.push_trail(value_trail<bool>(m_assigned[tv]));
             m_zcost += w;
-            TRACE("opt", tout << "Assign v" << tv << " weight: " << w << " cost: " << m_zcost << " " << mk_pp(m_vars[m_bool2var[v]].get(), get_manager()) << "\n";);
+            TRACE(opt, tout << "Assign v" << tv << " weight: " << w << " cost: " << m_zcost << " " << mk_pp(m_vars[m_bool2var[v]].get(), get_manager()) << "\n";);
             m_costs.push_back(tv);
             m_assigned[tv] = true;
             if (m_zcost >= m_zmin_cost) {
@@ -178,7 +178,7 @@ namespace smt {
 
     final_check_status theory_wmaxsat::final_check_eh() {
         if (m_normalize) normalize();
-        TRACE("opt", tout << "cost: " << m_zcost << " min cost: " << m_zmin_cost << "\n";);
+        TRACE(opt, tout << "cost: " << m_zcost << " min cost: " << m_zmin_cost << "\n";);
         return FC_DONE;
     }
 
@@ -245,7 +245,7 @@ namespace smt {
             m_found_optimal = true;
             m_cost_save.reset();
             m_cost_save.append(m_costs);
-            TRACE("opt",
+            TRACE(opt,
                   tout << "costs: ";
                   for (unsigned i = 0; i < m_costs.size(); ++i) {
                       tout << pp(get_enode(m_costs[i]), get_manager()) << " ";
@@ -255,7 +255,7 @@ namespace smt {
                   );
         }
         expr_ref result(m.mk_or(disj.size(), disj.data()), m);
-        TRACE("opt",
+        TRACE(opt,
               tout << result << " weight: " << weight << "\n";
               tout << "cost: " << m_zcost << " min-cost: " << m_zmin_cost << "\n";);
         return result;
@@ -279,7 +279,7 @@ namespace smt {
             weight += m_zweights[costs[i]];
             lits.push_back(literal(m_var2bool[costs[i]]));
         }
-        TRACE("opt", ctx.display_literals_verbose(tout, lits); tout << "\n";);
+        TRACE(opt, ctx.display_literals_verbose(tout, lits); tout << "\n";);
         
         ctx.set_conflict(
             ctx.mk_justification(
@@ -324,7 +324,7 @@ namespace smt {
             bool_var w = m_var2bool[m_costs[i]];
             lits.push_back(literal(w));        
         }
-        TRACE("opt", 
+        TRACE(opt, 
               ctx.display_literals_verbose(tout, lits.size(), lits.data()); 
               ctx.display_literal_verbose(tout << " --> ", lit););
         

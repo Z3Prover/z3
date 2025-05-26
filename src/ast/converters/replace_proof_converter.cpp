@@ -66,11 +66,11 @@ proof_ref replace_proof_converter::operator()(ast_manager & m, unsigned num_sour
         replace.apply(e);
         f = m.mk_asserted(m.get_fact(p));
         replace.insert(f, e);
-        TRACE("proof_converter", tout << f->get_id() << " " << mk_pp(f, m) << 
+        TRACE(proof_converter, tout << f->get_id() << " " << mk_pp(f, m) << 
               "\n|-> " << mk_pp(e, m) << "\n";);
     }    
     replace.apply(tmp);
-    TRACE("proof_converter", tout << mk_pp(source[0], m) << "\n";
+    TRACE(proof_converter, tout << mk_pp(source[0], m) << "\n";
                              tout << mk_pp(tmp.get(), m) << "\n";);
     return proof_ref(to_app(tmp), m);
 }

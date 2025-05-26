@@ -47,9 +47,9 @@ namespace sat {
         report _report(*this);
         configure_solver(solver);
         clauses2anf(solver);
-        TRACE("anf_simplifier", solver.display(tout); s.display(tout););
+        TRACE(anf_simplifier, solver.display(tout); s.display(tout););
         solver.simplify();
-        TRACE("anf_simplifier", solver.display(tout););
+        TRACE(anf_simplifier, solver.display(tout););
         anf2clauses(solver);
         anf2phase(solver);
         save_statistics(solver);
@@ -85,7 +85,7 @@ namespace sat {
                 literal lit(p.var(), p.lo().is_zero());
                 s.assign_unit(lit);
                 ++m_stats.m_num_units;
-                TRACE("anf_simplifier", tout << "unit " << p << " : " << lit << "\n";);
+                TRACE(anf_simplifier, tout << "unit " << p << " : " << lit << "\n";);
             }
             else if (p.is_binary()) {
                 // equivalence
@@ -95,7 +95,7 @@ namespace sat {
                 literal y(p.lo().var(), p.lo().lo().is_one());
                 add_eq(x, y);
                 ++m_stats.m_num_eqs;
-                TRACE("anf_simplifier", tout << "equivalence " << p << " : " << x << " == " << y << "\n";);
+                TRACE(anf_simplifier, tout << "equivalence " << p << " : " << x << " == " << y << "\n";);
             }
         }
 
@@ -248,7 +248,7 @@ namespace sat {
             oclauses.shrink(j);
         }
 
-        TRACE("anf_simplifier", 
+        TRACE(anf_simplifier, 
               tout << "kept:\n";
               for (clause* cp : clauses) tout << *cp << "\n";
               for (auto b : bins) tout << b.first << " " << b.second << "\n";
@@ -390,7 +390,7 @@ namespace sat {
         auto& m = ps.get_manager();
         dd::pdd p = (lit2pdd(b.first) | lit2pdd(b.second)) ^ true;
         ps.add(p);
-        TRACE("anf_simplifier", tout << "bin: " << b.first << " " << b.second << " : " << p << "\n";);
+        TRACE(anf_simplifier, tout << "bin: " << b.first << " " << b.second << " : " << p << "\n";);
     }
 
     void anf_simplifier::add_clause(clause const& c, pdd_solver& ps) {
@@ -400,7 +400,7 @@ namespace sat {
         for (literal l : c) p |= lit2pdd(l);
         p = p ^ true;
         ps.add(p);
-        TRACE("anf_simplifier", tout << "clause: " << c << " : " << p << "\n";);
+        TRACE(anf_simplifier, tout << "clause: " << c << " : " << p << "\n";);
     }
 
     void anf_simplifier::add_xor(literal_vector const& x, pdd_solver& ps) {
@@ -408,7 +408,7 @@ namespace sat {
         dd::pdd p = m.one();
         for (literal l : x) p ^= lit2pdd(l);
         ps.add(p);
-        TRACE("anf_simplifier", tout << "xor: " << x << " : " << p << "\n";);
+        TRACE(anf_simplifier, tout << "xor: " << x << " : " << p << "\n";);
     }
 
     void anf_simplifier::add_aig(literal head, literal_vector const& ands, pdd_solver& ps) {
@@ -417,7 +417,7 @@ namespace sat {
         for (literal l : ands) q &= lit2pdd(l);
         dd::pdd p = lit2pdd(head) ^ q;
         ps.add(p);
-        TRACE("anf_simplifier", tout << "aig: " << head << " == " << ands << " poly : " << p << "\n";);
+        TRACE(anf_simplifier, tout << "aig: " << head << " == " << ands << " poly : " << p << "\n";);
     }
 
     void anf_simplifier::add_if(literal head, literal c, literal th, literal el, pdd_solver& ps) {
@@ -425,7 +425,7 @@ namespace sat {
         dd::pdd cond = lit2pdd(c);
         dd::pdd p = lit2pdd(head) ^ (cond & lit2pdd(th)) ^ (~cond & lit2pdd(el));        
         ps.add(p);
-        TRACE("anf_simplifier", tout << "ite: " << head << " == " << c << "?" << th << ":" << el << " poly : " << p << "\n";);
+        TRACE(anf_simplifier, tout << "ite: " << head << " == " << c << "?" << th << ":" << el << " poly : " << p << "\n";);
     }
 
     void anf_simplifier::save_statistics(pdd_solver& solver) {

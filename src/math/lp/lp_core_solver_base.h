@@ -55,7 +55,7 @@ private:
     lp_status m_status;
 public:
     bool current_x_is_feasible() const {
-        TRACE("feas_bug",
+        TRACE(feas_bug,
               if (!m_inf_heap.empty()) {
                   tout << "column " << *m_inf_heap.begin() << " is infeasible" << std::endl;
                   print_column_info(*m_inf_heap.begin(), tout);
@@ -211,7 +211,7 @@ public:
                     d -= this->m_costs[this->m_basis[cc.var()]] * this->m_A.get_val(cc);
                 }
                 if (m_d[j] != d) {
-                    TRACE("lar_solver", tout << "reduced costs are incorrect for column j = " << j << " should be " << d << " but we have m_d[j] = " << m_d[j] << std::endl;);
+                    TRACE(lar_solver, tout << "reduced costs are incorrect for column j = " << j << " should be " << d << " but we have m_d[j] = " << m_d[j] << std::endl;);
                     return false;
                 }
             }
@@ -364,7 +364,7 @@ public:
     }
 
     void change_basis_unconditionally(unsigned entering, unsigned leaving) {
-        TRACE("lar_solver", tout << "entering = " << entering << ", leaving = " << leaving << "\n";);
+        TRACE(lar_solver, tout << "entering = " << entering << ", leaving = " << leaving << "\n";);
         SASSERT(m_basis_heading[entering] < 0);
         int place_in_non_basis = -1 - m_basis_heading[entering];
         if (static_cast<unsigned>(place_in_non_basis) >= m_nbasis.size()) {
@@ -384,7 +384,7 @@ public:
     }
     
     void change_basis(unsigned entering, unsigned leaving) {
-        TRACE("lar_solver", tout << "entering = " << entering << ", leaving = " << leaving << "\n";);
+        TRACE(lar_solver, tout << "entering = " << entering << ", leaving = " << leaving << "\n";);
         SASSERT(m_basis_heading[entering] < 0);
 		SASSERT(m_basis_heading[leaving] >= 0);
         
@@ -410,7 +410,7 @@ public:
     bool non_basic_columns_are_set_correctly() const {
         for (unsigned j : this->m_nbasis)
             if (!column_is_feasible(j)) {
-                TRACE("lp_core", tout << "inf col "; print_column_info(j, tout) << "\n";);
+                TRACE(lp_core, tout << "inf col "; print_column_info(j, tout) << "\n";);
                 return false;
             }
         
@@ -545,20 +545,20 @@ public:
     }
 
     void add_delta_to_x_and_track_feasibility(unsigned j, const X & del) {
-        TRACE("lar_solver_feas", tout << "del = " << del << ", was x[" << j << "] = " << m_x[j] << "\n";);
+        TRACE(lar_solver_feas, tout << "del = " << del << ", was x[" << j << "] = " << m_x[j] << "\n";);
         m_x[j] += del;
-        TRACE("lar_solver_feas", tout << "became x[" << j << "] = " << m_x[j] << "\n";);
+        TRACE(lar_solver_feas, tout << "became x[" << j << "] = " << m_x[j] << "\n";);
         track_column_feasibility(j);
     }
 
     void update_x(unsigned j, const X & v) {
         m_x[j] = v;
-        TRACE("lar_solver_feas", tout << "not tracking feas j = " << j << ", v = " << v << (column_is_feasible(j)? " feas":" non-feas") << "\n";);
+        TRACE(lar_solver_feas, tout << "not tracking feas j = " << j << ", v = " << v << (column_is_feasible(j)? " feas":" non-feas") << "\n";);
     }
 
     void add_delta_to_x(unsigned j, const X& delta) {
         m_x[j] += delta;
-        TRACE("lar_solver_feas", tout << "not tracking feas j = " << j << " v = " << m_x[j] << " delta = " << delta << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
+        TRACE(lar_solver_feas, tout << "not tracking feas j = " << j << " v = " << m_x[j] << " delta = " << delta << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);
     }
         
     void track_column_feasibility(unsigned j) {
@@ -571,20 +571,20 @@ public:
 		if (!m_inf_heap.contains(j)) {
             m_inf_heap.reserve(j+1);
 	        m_inf_heap.insert(j);
-            TRACE("lar_solver_inf_heap", tout << "insert into inf_heap j = " << j << "\n";);
+            TRACE(lar_solver_inf_heap, tout << "insert into inf_heap j = " << j << "\n";);
         }
         SASSERT(!column_is_feasible(j));
     }
     void remove_column_from_inf_heap(unsigned j) {
 		if (m_inf_heap.contains(j)) {
-            TRACE("lar_solver_inf_heap", tout << "erase from heap j = " << j << "\n";);
+            TRACE(lar_solver_inf_heap, tout << "erase from heap j = " << j << "\n";);
         	m_inf_heap.erase(j);
         }
         SASSERT(column_is_feasible(j));
     }
 
     void clear_inf_heap() {
-        TRACE("lar_solver_feas",);
+        TRACE(lar_solver_feas,);
         m_inf_heap.clear();
     }
     

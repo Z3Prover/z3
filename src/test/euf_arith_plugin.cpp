@@ -38,12 +38,12 @@ static void test1() {
     expr_ref y(m.mk_const("y", I), m);
     auto* nx = get_node(g, a, a.mk_add(a.mk_add(y, y), a.mk_add(x, x)));
     auto* ny = get_node(g, a, a.mk_add(a.mk_add(y, x), x));
-    TRACE("plugin", tout << "before merge\n" << g << "\n");
+    TRACE(plugin, tout << "before merge\n" << g << "\n");
     g.merge(nx, ny, nullptr);
 
-    TRACE("plugin", tout << "before propagate\n" << g << "\n");
+    TRACE(plugin, tout << "before propagate\n" << g << "\n");
     g.propagate();
-    TRACE("plugin", tout << "after propagate\n" << g << "\n");
+    TRACE(plugin, tout << "after propagate\n" << g << "\n");
     g.merge(get_node(g, a, a.mk_add(x, a.mk_add(y, y))), get_node(g, a, a.mk_add(y, x)), nullptr);
     g.propagate();
     std::cout << g << "\n";
@@ -64,12 +64,12 @@ static void test2() {
     auto* nx = get_node(g, a, x);
     auto* ny = get_node(g, a, y);
     
-    TRACE("plugin", tout << "before merge\n" << g << "\n");
+    TRACE(plugin, tout << "before merge\n" << g << "\n");
     g.merge(nxy, nx, nullptr);
     g.merge(nyx, ny, nullptr);
-    TRACE("plugin", tout << "before propagate\n" << g << "\n");
+    TRACE(plugin, tout << "before propagate\n" << g << "\n");
     g.propagate();
-    TRACE("plugin", tout << "after propagate\n" << g << "\n");
+    TRACE(plugin, tout << "after propagate\n" << g << "\n");
     SASSERT(nx->get_root() == ny->get_root());
     g.merge(get_node(g, a, a.mk_add(x, a.mk_add(y, y))), get_node(g, a, a.mk_add(y, x)), nullptr);
     g.propagate();
@@ -92,9 +92,9 @@ static void test3() {
     auto* ny = get_node(g, a, y);
     g.merge(nxyy, nx, nullptr);
     g.merge(nyxx, ny, nullptr);
-    TRACE("plugin", tout << "before propagate\n" << g << "\n");
+    TRACE(plugin, tout << "before propagate\n" << g << "\n");
     g.propagate();
-    TRACE("plugin", tout << "after propagate\n" << g << "\n");
+    TRACE(plugin, tout << "after propagate\n" << g << "\n");
     std::cout << g << "\n";
 }
 

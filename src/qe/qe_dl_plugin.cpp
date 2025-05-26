@@ -209,14 +209,14 @@ namespace qe {
                 }
                 expr* e1, *e2;
                 if (!m.is_eq(e, e1, e2)) {
-                    TRACE("quant_elim", tout << "Cannot handle: " << mk_pp(e, m) << "\n";);
+                    TRACE(quant_elim, tout << "Cannot handle: " << mk_pp(e, m) << "\n";);
                     return false;
                 }
                 if (x == e2) {
                     std::swap(e1, e2);
                 }
                 if (contains_x(e2) || x != e1) {
-                    TRACE("quant_elim", tout << "Cannot handle: " << mk_pp(e, m) << "\n";);
+                    TRACE(quant_elim, tout << "Cannot handle: " << mk_pp(e, m) << "\n";);
                     return false;
                 }
                 if (is_pos) {

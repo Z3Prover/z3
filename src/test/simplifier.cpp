@@ -13,7 +13,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 static void ev_const(Z3_context ctx, Z3_ast e) {
     Z3_ast r = Z3_simplify(ctx, e);
-    TRACE("simplifier", 
+    TRACE(simplifier, 
           tout << Z3_ast_to_string(ctx, e) << " -> ";
           tout << Z3_ast_to_string(ctx, r) << "\n";);
     Z3_ast_kind k = Z3_get_ast_kind(ctx, r);
@@ -34,7 +34,7 @@ static void test_bv() {
 
     Z3_ast e = Z3_mk_eq(ctx, bit3_2, Z3_mk_sign_ext(ctx, 1, bit1_1));
     ENSURE(Z3_simplify(ctx, e) == Z3_mk_true(ctx));
-    TRACE("simplifier", tout << Z3_ast_to_string(ctx, e) << "\n";);
+    TRACE(simplifier, tout << Z3_ast_to_string(ctx, e) << "\n";);
 
     Z3_ast b12 = Z3_mk_numeral(ctx, "12", bv72);
     Z3_ast b13 = Z3_mk_numeral(ctx, "13", bv72);
@@ -149,8 +149,8 @@ static void test_bool() {
     Z3_ast b = Z3_simplify(ctx, Z3_mk_not(ctx, Z3_mk_iff(ctx, Z3_mk_false(ctx), Z3_mk_true(ctx))));
     ENSURE(Z3_mk_true(ctx) == a);
     ENSURE(Z3_mk_true(ctx) == b);
-    TRACE("simplifier", tout << Z3_ast_to_string(ctx, a) << "\n";);
-    TRACE("simplifier", tout << Z3_ast_to_string(ctx, b) << "\n";);
+    TRACE(simplifier, tout << Z3_ast_to_string(ctx, a) << "\n";);
+    TRACE(simplifier, tout << Z3_ast_to_string(ctx, b) << "\n";);
 
     Z3_del_config(cfg);
     Z3_del_context(ctx);
@@ -179,8 +179,8 @@ static void test_array() {
     Z3_ast rxy  = Z3_simplify(ctx, exy);
     (void)rxy;
 
-    TRACE("simplifier", tout << Z3_ast_to_string(ctx, rxy) << "\n";);
-    TRACE("simplifier", tout << Z3_ast_to_string(ctx, Z3_simplify(ctx, Z3_mk_eq(ctx, x2, x3))) << "\n";);
+    TRACE(simplifier, tout << Z3_ast_to_string(ctx, rxy) << "\n";);
+    TRACE(simplifier, tout << Z3_ast_to_string(ctx, Z3_simplify(ctx, Z3_mk_eq(ctx, x2, x3))) << "\n";);
     // ENSURE(rxy == Z3_mk_true(ctx));
     // ENSURE(Z3_simplify(ctx, Z3_mk_eq(ctx, x2, x3)) == Z3_mk_false(ctx));
     
@@ -189,7 +189,7 @@ static void test_array() {
             exy  = Z3_mk_eq(ctx, xs[i], xs[j]);
             rxy  = Z3_simplify(ctx, exy);
             
-            TRACE("simplifier", 
+            TRACE(simplifier, 
                   tout << Z3_ast_to_string(ctx, exy);
                   tout << " -> " << Z3_ast_to_string(ctx, rxy) << "\n";  
                   );
@@ -201,7 +201,7 @@ static void test_array() {
     (void)sel1;
     (void)sel2;
 
-    TRACE("simplifier", 
+    TRACE(simplifier, 
           tout << Z3_ast_to_string(ctx,  Z3_simplify(ctx, sel1)) << "\n";
           tout << Z3_ast_to_string(ctx,  Z3_simplify(ctx, sel2)) << "\n";
           );

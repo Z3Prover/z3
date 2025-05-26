@@ -129,7 +129,7 @@ namespace smt {
                 m_graph.add_edge(e.get_target(), e.get_source(), e.get_weight(), explanation());
             }
         }
-        TRACE("network_flow", {
+        TRACE(network_flow, {
             tout << "Difference logic optimization:" << std::endl;
             display_dual(tout);
             tout << "Minimum cost flow:" << std::endl;
@@ -143,7 +143,7 @@ namespace smt {
 
     template<typename Ext>
     void network_flow<Ext>::initialize() {
-        TRACE("network_flow", tout << "initialize...\n";);
+        TRACE(network_flow, tout << "initialize...\n";);
         // Create an artificial root node to construct initial spanning tree
         unsigned num_nodes = m_graph.get_num_nodes();
         unsigned num_edges = m_graph.get_num_edges();
@@ -180,7 +180,7 @@ namespace smt {
 
         m_tree->initialize(tree);
 
-        TRACE("network_flow", 
+        TRACE(network_flow, 
               tout << pp_vector("Potentials", m_potentials);
               tout << pp_vector("Flows", m_flows);
               tout << "Cost: " << get_cost() << "\n";
@@ -206,7 +206,7 @@ namespace smt {
             start = src;
         }
         SASSERT(m_tree->in_subtree_t2(start));
-        TRACE("network_flow", tout << "update_potentials of T_" << start << " with change = " << change << "...\n";);
+        TRACE(network_flow, tout << "update_potentials of T_" << start << " with change = " << change << "...\n";);
         svector<node> descendants;
         m_tree->get_descendants(start, descendants);
         SASSERT(descendants.size() >= 1);
@@ -214,7 +214,7 @@ namespace smt {
             node u = descendants[i];           
             m_potentials[u] += change;
         }
-        TRACE("network_flow", tout << pp_vector("Potentials", m_potentials););
+        TRACE(network_flow, tout << pp_vector("Potentials", m_potentials););
     }
 
     template<typename Ext>
@@ -230,7 +230,7 @@ namespace smt {
             edge_id e_id = path[i];
             m_flows[e_id] += against[i] ? - *m_delta : *m_delta;
         }
-        TRACE("network_flow", tout << pp_vector("Flows", m_flows););
+        TRACE(network_flow, tout << pp_vector("Flows", m_flows););
     }
     
     template<typename Ext>
@@ -288,7 +288,7 @@ namespace smt {
             bool bounded = choose_leaving_edge();
             if (!bounded) return UNBOUNDED;
             vector<edge>const& es = m_graph.get_all_edges();
-            TRACE("network_flow",
+            TRACE(network_flow,
                   {
                       edge const& e_in = es[m_enter_id];
                       edge const& e_out = es[m_leave_id];
@@ -310,7 +310,7 @@ namespace smt {
                 m_states[m_leave_id] = LOWER;
                 update_spanning_tree();
                 update_potentials();                
-                TRACE("network_flow", 
+                TRACE(network_flow, 
                       tout << "Spanning tree:\n"; 
                       display_spanning_tree(tout);
                       tout << "Cost: " << get_cost() << "\n";
@@ -319,14 +319,14 @@ namespace smt {
                 SASSERT(check_well_formed());
             }
         }
-        TRACE("network_flow", 
+        TRACE(network_flow, 
               tout << "Spanning tree:\n"; 
               display_spanning_tree(tout);
               tout << "Cost: " << get_cost() << "\n";
               display_primal(tout);
               );
         if (is_infeasible()) return INFEASIBLE;
-        TRACE("network_flow", tout << "Found optimal solution.\n";);
+        TRACE(network_flow, tout << "Found optimal solution.\n";);
         SASSERT(check_optimal());
         return OPTIMAL;
     }
@@ -418,7 +418,7 @@ namespace smt {
         for (unsigned i = 0; i < m_potentials.size(); ++i) {
             total_balance += m_balances[i] * m_potentials[i];
         }    
-        TRACE("network_flow", tout << "Total balance: " << total_balance << ", total cost: " << total_cost << std::endl;);
+        TRACE(network_flow, tout << "Total balance: " << total_balance << ", total cost: " << total_cost << std::endl;);
         return total_cost == total_balance;
     }
 

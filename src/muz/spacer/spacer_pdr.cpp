@@ -236,7 +236,7 @@ lbool context::gpdr_solve_core() {
     for (lvl = 0; lvl < max_level; ++lvl) {
         checkpoint();
         IF_VERBOSE(1,verbose_stream() << "GPDR Entering level "<< lvl << "\n";);
-        STRACE("spacer_progress", tout << "\n* LEVEL " << lvl << "\n";);
+        STRACE(spacer_progress, tout << "\n* LEVEL " << lvl << "\n";);
         m_expanded_lvl = infty_level();
         m_stats.m_max_query_lvl = lvl;
         if (gpdr_check_reachability(lvl, ms)) {return l_true;}
@@ -268,7 +268,7 @@ bool context::gpdr_check_reachability(unsigned lvl, model_search &ms) {
 
         // check reachable cache
         if (pt.is_must_reachable(node->pob()->post(), nullptr)) {
-            TRACE("spacer",
+            TRACE(spacer,
                   tout << "must-reachable: " << pt.head()->get_name() << " level: "
                   << node->level() << " depth: " << node->depth () << "\n";
                   tout << mk_pp(node->pob()->post(), m) << "\n";);
@@ -290,7 +290,7 @@ bool context::gpdr_check_reachability(unsigned lvl, model_search &ms) {
         case l_undef:
             SASSERT(!new_pobs.empty());
             for (auto pob : new_pobs) {
-                TRACE("spacer_pdr",
+                TRACE(spacer_pdr,
                       tout << "looking at pob at level " << pob->level() << " "
                       << mk_pp(pob->post(), m) << "\n";);
                 if (pob != node->pob())
@@ -358,7 +358,7 @@ bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
                     << (k->use_farkas_generalizer() ? "FAR " : "SUB ")
                     << k->post()->get_id();
                     verbose_stream().flush(););
-        TRACE ("spacer",
+        TRACE(spacer,
                tout << "create-pob: " << k->pt().head()->get_name()
                << " level: " << k->level()
                << " depth: " << k->depth ()

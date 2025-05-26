@@ -70,7 +70,7 @@ namespace sat {
                     }
                     if (l1 != r1 || l2 != r2) {
                         if (r1.index() < r2.index()) {
-                            TRACE("elim_eqs", tout << l1 << " " << l2 << " " << r1 << " " << r2 << "\n";);
+                            TRACE(elim_eqs, tout << l1 << " " << l2 << " " << r1 << " " << r2 << "\n";);
                             m_new_bin.push_back(bin(r1, r2, it->is_learned()));
                         }
                         continue;
@@ -101,7 +101,7 @@ namespace sat {
         clause_vector::iterator end = cs.end();
         for (; it != end; ++it) {
             clause & c     = *(*it);
-            TRACE("sats", tout << "processing: " << c << "\n";);
+            TRACE(sats, tout << "processing: " << c << "\n";);
             unsigned sz    = c.size();
             unsigned i;
             for (i = 0; i < sz; i++) {
@@ -135,10 +135,10 @@ namespace sat {
             }
             std::sort(c.begin(), c.end());
             for (literal l : c) VERIFY(l == norm(roots, l));
-            TRACE("sats", tout << "after normalization/sorting: " << c << "\n"; tout.flush(););
+            TRACE(sats, tout << "after normalization/sorting: " << c << "\n"; tout.flush(););
             DEBUG_CODE({
                     for (literal l : c) {
-                        CTRACE("sat", l != norm(roots, l), tout << l << " " << norm(roots, l) << "\n"; tout.flush(););
+                        CTRACE(sat, l != norm(roots, l), tout << l << " " << norm(roots, l) << "\n"; tout.flush(););
                         SASSERT(l == norm(roots, l));
                     } });
 
@@ -165,7 +165,7 @@ namespace sat {
                 c[j] = l;                
                 j++;
             }
-            TRACE("elim_eqs", tout << "after removing duplicates: " << c << " j: " << j << "\n";);
+            TRACE(elim_eqs, tout << "after removing duplicates: " << c << " j: " << j << "\n";);
 
             if (i < sz) {
                 drat_delete_clause();
@@ -233,7 +233,7 @@ namespace sat {
                 m_solver.m_cut_simplifier->set_root(v, r);
 
             bool set_root = m_solver.set_root(l, r);
-            TRACE("elim_eqs", tout << l << " " << r << "\n";);
+            TRACE(elim_eqs, tout << l << " " << r << "\n";);
             if (m_solver.is_assumption(v) || (m_solver.is_external(v) && (m_solver.is_incremental() || !set_root))) {
                 // cannot really eliminate v, since we have to notify extension of future assignments
                 if (m_solver.m_config.m_drat) {
@@ -245,7 +245,7 @@ namespace sat {
             }
             else {
                 model_converter::entry & e = mc.mk(model_converter::ELIM_VAR, v);
-                TRACE("save_elim", tout << "marking as deleted: " << v << " l: " << l << " r: " << r << "\n";);
+                TRACE(save_elim, tout << "marking as deleted: " << v << " l: " << l << " r: " << r << "\n";);
                 m_solver.set_eliminated(v, true);
                 mc.insert(e, ~l, r);
                 mc.insert(e,  l, ~r);
@@ -256,7 +256,7 @@ namespace sat {
 
     bool elim_eqs::check_clause(clause const& c, literal_vector const& roots) const {
         for (literal l : c) {
-            CTRACE("elim_eqs_bug", m_solver.was_eliminated(l.var()), tout << "lit: " << l << " " << norm(roots, l) << "\n";
+            CTRACE(elim_eqs_bug, m_solver.was_eliminated(l.var()), tout << "lit: " << l << " " << norm(roots, l) << "\n";
                    tout << c << "\n";);
             if (m_solver.was_eliminated(l.var())) {
                 IF_VERBOSE(0, verbose_stream() << c << " contains eliminated literal " << l << " " << norm(roots, l) << "\n";);
@@ -278,9 +278,9 @@ namespace sat {
     }
 
     void elim_eqs::operator()(literal_vector const & roots, bool_var_vector const & to_elim) {
-        TRACE("elim_eqs", tout << "before bin cleanup\n"; m_solver.display(tout););
+        TRACE(elim_eqs, tout << "before bin cleanup\n"; m_solver.display(tout););
         cleanup_bin_watches(roots);
-        TRACE("elim_eqs", tout << "after bin cleanup\n"; m_solver.display(tout););
+        TRACE(elim_eqs, tout << "after bin cleanup\n"; m_solver.display(tout););
         cleanup_clauses(roots, m_solver.m_clauses);
         if (m_solver.inconsistent()) return;
         cleanup_clauses(roots, m_solver.m_learned);
@@ -288,11 +288,11 @@ namespace sat {
         save_elim(roots, to_elim);
         m_solver.propagate(false);
         SASSERT(check_clauses(roots));
-        TRACE("elim_eqs", tout << "after full cleanup\n"; m_solver.display(tout););
+        TRACE(elim_eqs, tout << "after full cleanup\n"; m_solver.display(tout););
     }
 
     void elim_eqs::operator()(union_find<>& uf) {
-        TRACE("elim_eqs", tout << "before union-find bin\n";);
+        TRACE(elim_eqs, tout << "before union-find bin\n";);
         literal_vector roots(m_solver.num_vars(), null_literal);
         bool_var_vector to_elim;
         for (unsigned i = m_solver.num_vars(); i-- > 0; ) {
@@ -301,7 +301,7 @@ namespace sat {
             if (idx != l1.index()) {
                 roots[i] = to_literal(idx);
                 to_elim.push_back(i);
-                TRACE("elim_eqs", tout << "remove " << roots[i] << "\n";);
+                TRACE(elim_eqs, tout << "remove " << roots[i] << "\n";);
             }
             else {
                 roots[i] = l1;

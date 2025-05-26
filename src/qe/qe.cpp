@@ -148,7 +148,7 @@ namespace qe {
             rewriter.mk_and(conjs_mixed.size(), conjs_mixed.data(), fml_mixed);
             rewriter.mk_and(conjs_open.size(), conjs_open.data(), fml_open);
             
-            TRACE("qe",
+            TRACE(qe,
                   tout << "closed\n" << mk_ismt2_pp(fml_closed, m) << "\n";
                   tout << "open\n"   << mk_ismt2_pp(fml_open,   m) << "\n";
                   tout << "mixed\n"  << mk_ismt2_pp(fml_mixed,  m) << "\n";
@@ -182,7 +182,7 @@ namespace qe {
                 for (unsigned i = 0; i < num_args; ++i) {
                     if (contains_x(args[i])) {
                         contains_index.push_back(i);
-                        TRACE("qe_verbose", tout << "var " << v << " in " << i << "\n";);
+                        TRACE(qe_verbose, tout << "var " << v << " in " << i << "\n";);
                     }                
                 }
                 //
@@ -194,7 +194,7 @@ namespace qe {
                         partition.push_back(unsigned_vector());
                     }
                     partition.back().push_back(v);
-                    TRACE("qe_verbose", tout << "majority " << v << "\n";);
+                    TRACE(qe_verbose, tout << "majority " << v << "\n";);
                     continue;
                 }
                 // 
@@ -242,7 +242,7 @@ namespace qe {
             for (unsigned idx = 0; idx < non_shared_vars.size(); ++idx) {
                 unsigned x = non_shared_vars[idx];
                 unsigned r = non_shared_vars[uf.find(idx)];
-                TRACE("qe_verbose", tout << "x: " << x << " r: " << r << "\n";);
+                TRACE(qe_verbose, tout << "x: " << x << " r: " << r << "\n";);
                 bool found = false;
                 for (unsigned i = 0; !found && i < roots.size(); ++i) {
                     if (roots[i] == r) {
@@ -257,7 +257,7 @@ namespace qe {
                 }
             }            
             
-            TRACE("qe_verbose", 
+            TRACE(qe_verbose, 
                   for (unsigned i = 0; i < partition.size(); ++i) {
                       for (unsigned j = 0; j < partition[i].size(); ++j) {
                           tout << " " << mk_ismt2_pp(vars[partition[i][j]]->x(), m);;
@@ -327,12 +327,12 @@ namespace qe {
 
                 if (leqs.contains(tmp2)) {
                     eqs.push_back(tmp1);
-                    TRACE("qe", tout << "found:  " << mk_ismt2_pp(tmp1, m) << "\n";);
+                    TRACE(qe, tout << "found:  " << mk_ismt2_pp(tmp1, m) << "\n";);
                 }
                 else {
                     trail.push_back(tmp1);
                     leqs.insert(tmp1);
-                    TRACE("qe_verbose", tout << "insert: " << mk_ismt2_pp(tmp1, m) << "\n";);
+                    TRACE(qe_verbose, tout << "insert: " << mk_ismt2_pp(tmp1, m) << "\n";);
                 }
             }
             else {
@@ -466,7 +466,7 @@ namespace qe {
             else {
                 m_neg.insert(e, r);
             }
-            TRACE("nnf", 
+            TRACE(nnf, 
                   tout << mk_ismt2_pp(e, m) << " " << p << "\n";
                   tout << mk_ismt2_pp(r, m) << "\n";);
 
@@ -516,7 +516,7 @@ namespace qe {
                 m_rewriter.mk_and(r1, th, tmp1);
                 m_rewriter.mk_and(r2, el, tmp2);
                 m_rewriter.mk_or(tmp1, tmp2, tmp);  
-                TRACE("nnf", 
+                TRACE(nnf, 
                       tout << mk_ismt2_pp(a, m) << "\n";
                       tout << mk_ismt2_pp(tmp, m) << "\n";);
                 insert(a, p, tmp);
@@ -572,7 +572,7 @@ namespace qe {
         }
 
         bool get_nnf(expr_ref& fml, bool p0) {
-            TRACE("nnf", tout << mk_ismt2_pp(fml.get(), m) << "\n";);
+            TRACE(nnf, tout << mk_ismt2_pp(fml.get(), m) << "\n";);
             bool p = p0;
             unsigned sz = m_todo.size();
             expr_ref tmp(m);
@@ -855,7 +855,7 @@ namespace qe {
             m_nnf_core(fml);
             m_normalize_literals(fml);
             m_collect_atoms(fml, pos, neg);
-            TRACE("qe",
+            TRACE(qe,
                   ast_manager& m = fml.get_manager(); 
                   tout << mk_ismt2_pp(orig, m) << "\n-->\n" << mk_ismt2_pp(fml, m) << "\n";);
         }      
@@ -916,7 +916,7 @@ namespace qe {
         // - assigned formula, but unassigned variable for branching
         // - assigned variable and formula with 0 or more branches.
         // 
-#define CHECK_COND(_cond_) if (!(_cond_)) { TRACE("qe", tout << "violated: " << #_cond_ << "\n";); return false; }
+#define CHECK_COND(_cond_) if (!(_cond_)) { TRACE(qe, tout << "violated: " << #_cond_ << "\n";); return false; }
         bool invariant() const {
             CHECK_COND(assignment());
             CHECK_COND(m_children.empty() || fml());
@@ -979,7 +979,7 @@ namespace qe {
                 todo.pop_back();
                 if (st->m_children.empty() && st->fml() && 
                     st->m_vars.empty() && !st->has_var()) {
-                    TRACE("qe", st->display(tout << "appending leaf\n");); 
+                    TRACE(qe, st->display(tout << "appending leaf\n");); 
                     result.push_back(st->fml());
                 }
                 for (auto * ch : st->m_children)
@@ -1009,7 +1009,7 @@ namespace qe {
         }
 
         void reset() {
-            TRACE("qe",tout << "resetting\n";);
+            TRACE(qe,tout << "resetting\n";);
             for (auto* ch : m_children) dealloc(ch);
             m_pos.reset();
             m_neg.reset();
@@ -1037,7 +1037,7 @@ namespace qe {
         // app* const* free_vars() const { return m_vars.c_ptr(); }
         app_ref_vector const& free_vars() const { return m_vars; }
         app*        free_var(unsigned i) const { return m_vars[i]; }
-        void        reset_free_vars() { TRACE("qe", tout << m_vars << "\n";); m_vars.reset(); }
+        void        reset_free_vars() { TRACE(qe, tout << m_vars << "\n";); m_vars.reset(); }
 
         atom_set const& pos_atoms() const { return m_pos; }   
         atom_set const& neg_atoms() const { return m_neg; }    
@@ -1107,7 +1107,7 @@ namespace qe {
             st->init(fml);
             st->m_vars.append(m_vars.size(), m_vars.data());
             SASSERT(invariant());
-            TRACE("qe", display_node(tout); st->display_node(tout););
+            TRACE(qe, display_node(tout); st->display_node(tout););
             return st;
         }
 
@@ -1121,7 +1121,7 @@ namespace qe {
             m_branch_index.insert(branch_id, index);
             st->m_vars.append(m_vars.size(), m_vars.data());
             SASSERT(invariant());
-            TRACE("qe", display_node(tout); st->display_node(tout););
+            TRACE(qe, display_node(tout); st->display_node(tout););
             return st;
         }
 
@@ -1245,7 +1245,7 @@ namespace qe {
                 return true;
             }
         }
-        TRACE("qe_verbose", tout << "Not relevant: " << mk_ismt2_pp(e, m_s.get_manager()) << "\n";);
+        TRACE(qe_verbose, tout << "Not relevant: " << mk_ismt2_pp(e, m_s.get_manager()) << "\n";);
         return false;
     }
 
@@ -1285,14 +1285,14 @@ namespace qe {
 
     void i_solver_context::mk_atom(expr* e, bool p, expr_ref& result) {
         ast_manager& m = get_manager();
-        TRACE("qe_verbose", tout << mk_ismt2_pp(e, m) << "\n";);
+        TRACE(qe_verbose, tout << mk_ismt2_pp(e, m) << "\n";);
         for (unsigned i = 0; i < m_plugins.size(); ++i) {
             qe_solver_plugin* pl = m_plugins[i];
             if (pl && pl->mk_atom(e, p, result)) {
                 return;
             }
         }
-        TRACE("qe_verbose", tout << "No plugin for " << mk_ismt2_pp(e, m) << "\n";);
+        TRACE(qe_verbose, tout << "No plugin for " << mk_ismt2_pp(e, m) << "\n";);
         result = p?e:mk_not(m, e);
     }
 
@@ -1425,7 +1425,7 @@ namespace qe {
                 m_solver.assert_expr(f);
             }
             m_root.init(f);                       
-            TRACE("qe", 
+            TRACE(qe, 
                   for (unsigned i = 0; i < num_vars; ++i) tout << mk_ismt2_pp(vars[i], m) << "\n";
                   tout << mk_ismt2_pp(f, m) << "\n";);  
         
@@ -1474,7 +1474,7 @@ namespace qe {
                 defs->project(num_vars, vars);
             }
             
-            TRACE("qe", 
+            TRACE(qe, 
                   tout << "result:" << mk_ismt2_pp(fml, m) << "\n";
                   tout << "input: " << mk_ismt2_pp(m_fml, m) << "\n";
                   tout << "subformula: " << mk_ismt2_pp(m_subfml, m) << "\n";
@@ -1508,7 +1508,7 @@ namespace qe {
             scoped_ptr<model_evaluator> model_eval = alloc(model_evaluator, *model);
 
             while (m.inc()) {
-                TRACE("qe", model_v2_pp(tout, *model););
+                TRACE(qe, model_v2_pp(tout, *model););
                 while (can_propagate_assignment(*model_eval)) 
                     propagate_assignment(*model_eval);
                 VERIFY(CHOOSE_VAR == update_current(*model_eval, true));
@@ -1550,7 +1550,7 @@ namespace qe {
         void elim_var(unsigned idx, expr* _fml, expr* def) override {
             app* x = get_var(idx);
             expr_ref fml(_fml, m);
-            TRACE("qe", tout << mk_pp(x,m) << " " << mk_pp(def, m) << "\n";);
+            TRACE(qe, tout << mk_pp(x,m) << " " << mk_pp(def, m) << "\n";);
             m_current->set_var(x, rational(1));
             m_current = m_current->add_child(fml);
             m_current->add_def(x, def);
@@ -1573,7 +1573,7 @@ namespace qe {
                 bv = m.mk_fresh_const("b", m_bv.mk_sort(20));
                 m_trail.push_back(bv);                                    
             }
-            TRACE("qe", tout << "Add branch var: " << mk_ismt2_pp(x, m) << " " << mk_ismt2_pp(bv, m) << "\n";);
+            TRACE(qe, tout << "Add branch var: " << mk_ismt2_pp(x, m) << " " << mk_ismt2_pp(bv, m) << "\n";);
             m_var2branch.insert(x, bv);
         }
 
@@ -1593,7 +1593,7 @@ namespace qe {
             add_literal(l3);
             expr_ref fml(m);
             fml = m.mk_or(m_literals);
-            TRACE("qe", tout << fml << "\n";);
+            TRACE(qe, tout << fml << "\n";);
             m_solver.assert_expr(fml);
         }            
 
@@ -1685,7 +1685,7 @@ namespace qe {
                 nb = m_current->get_num_branches();
                 expr_ref fml(m_current->fml(), m);
                 if (!eval(model_eval, b, branch) || branch >= nb) {
-                    TRACE("qe", tout << "evaluation failed: setting branch to 0\n";);
+                    TRACE(qe, tout << "evaluation failed: setting branch to 0\n";);
                     branch = rational::zero();
                 }
                 SASSERT(!branch.is_neg());
@@ -1769,7 +1769,7 @@ namespace qe {
                         model_eval2.set_model_completion(true);
                         model_eval2(x, val);
                     }
-                    TRACE("qe", tout << mk_pp(x,m) << " " << mk_pp(val, m) << "\n";);
+                    TRACE(qe, tout << mk_pp(x,m) << " " << mk_pp(val, m) << "\n";);
                     m_current->add_def(x, val);
                 }
                 m_current->reset_free_vars();
@@ -1796,9 +1796,9 @@ namespace qe {
                     simplified = pl && pl->simplify(result);
                 }
             }
-            TRACE("qe_verbose", tout << "simp: " << mk_ismt2_pp(result.get(), m) << "\n";);
+            TRACE(qe_verbose, tout << "simp: " << mk_ismt2_pp(result.get(), m) << "\n";);
             m_nnf(result, pos, neg);
-            TRACE("qe", tout << "nnf: " << mk_ismt2_pp(result.get(), m) << "\n";);
+            TRACE(qe, tout << "nnf: " << mk_ismt2_pp(result.get(), m) << "\n";);
         }
 
         //
@@ -1888,7 +1888,7 @@ namespace qe {
         // all bound decisions have been made.
         // 
         void block_assignment() {                                
-            TRACE("qe_verbose", m_solver.display(tout););             
+            TRACE(qe_verbose, m_solver.display(tout););             
             add_constraint(true);
         }
 
@@ -1904,7 +1904,7 @@ namespace qe {
             }
 
             m_current->set_var(x, k);
-            TRACE("qe", tout << mk_pp(x, m) << " := " << k << "\n";);
+            TRACE(qe, tout << mk_pp(x, m) << " := " << k << "\n";);
             if (m_bv.is_bv(x)) {                
                 return;
             }
@@ -1945,7 +1945,7 @@ namespace qe {
                 vars.reset();
                 closed = closed && (r != l_undef);
             }        
-            TRACE("qe", tout << fml << " free: " << m_current->free_vars() << "\n";);
+            TRACE(qe, tout << fml << " free: " << m_current->free_vars() << "\n";);
             m_current->add_child(fml)->reset_free_vars();
             block_assignment(); 
         }
@@ -1979,7 +1979,7 @@ namespace qe {
                     plugin(x).get_num_branches(contains(x), fml, num_branches)) {
                     return true;
                 }
-                TRACE("qe", tout << "setting variable " << mk_pp(x, m) << " free\n";);
+                TRACE(qe, tout << "setting variable " << mk_pp(x, m) << " free\n";);
                 m_free_vars.push_back(x);
                 m_current->del_var(x);
             }
@@ -1994,7 +1994,7 @@ namespace qe {
             bool solved = true;
             while (solved) {
                 expr_ref fml(m_current->fml(), m);
-                TRACE("qe", tout << fml << "\n";);
+                TRACE(qe, tout << fml << "\n";);
                 conj_enum conjs(m, fml);
                 solved = false;
                 for (unsigned i = 0; !solved && i < m_plugins.size(); ++i) {
@@ -2132,7 +2132,7 @@ namespace qe {
             flet<bool> fl4(m_fparams.m_bv_enable_int2bv2int, true);
             flet<bool> fl5(m_fparams.m_array_canonize_simplify, true);
             flet<unsigned> fl6(m_fparams.m_relevancy_lvl, 0);
-            TRACE("qe", 
+            TRACE(qe, 
                   for (unsigned i = 0; i < num_vars; ++i) {
                       tout << mk_ismt2_pp(vars[i], m) << " ";
                   }
@@ -2148,7 +2148,7 @@ namespace qe {
             th->check(num_vars, vars, m_assumption, fml, get_first, free_vars, defs);
             
             push_context(th.detach());
-            TRACE("qe", 
+            TRACE(qe, 
                   for (unsigned i = 0; i < num_vars; ++i) {
                       tout << mk_ismt2_pp(vars[i], m) << " ";
                   }
@@ -2221,7 +2221,7 @@ namespace qe {
     }
 
     void expr_quant_elim::operator()(expr* assumption, expr* fml, expr_ref& result) {
-        TRACE("qe", 
+        TRACE(qe, 
               if (assumption) tout << "elim assumption\n" << mk_ismt2_pp(assumption, m) << "\n";
               tout << "elim input\n"  << mk_ismt2_pp(fml, m) << "\n";);
         expr_ref_vector bound(m);
@@ -2232,7 +2232,7 @@ namespace qe {
         m_trail.reset();
         m_visited.reset();
         abstract_expr(bound.size(), bound.data(), result);
-        TRACE("qe", tout << "elim result\n" << mk_ismt2_pp(result, m) << "\n";);
+        TRACE(qe, tout << "elim result\n" << mk_ismt2_pp(result, m) << "\n";);
     }
 
     void expr_quant_elim::updt_params(params_ref const& p) {
@@ -2380,7 +2380,7 @@ namespace qe {
     bool expr_quant_elim::solve_for_vars(unsigned num_vars, app* const* vars, expr* _fml, guarded_defs& defs) {
         app_ref_vector fvs(m);
         expr_ref fml(_fml, m);
-        TRACE("qe", tout << mk_pp(fml, m) << "\n";);
+        TRACE(qe, tout << mk_pp(fml, m) << "\n";);
         init_qe();  
         lbool is_sat = m_qe->eliminate_exists(num_vars, vars, fml, fvs, false, &defs);
         return is_sat != l_undef;
@@ -2512,7 +2512,7 @@ namespace qe {
                     qe_solver_plugin* p = m_plugins[i];
                     solved = p && p->solve(conjs, fml);
                 }                
-                TRACE("qe", 
+                TRACE(qe, 
                       tout << (solved?"solved":"not solved") << "\n";
                       if (solved) tout << mk_ismt2_pp(fml, m) << "\n";
                       tout << *m_vars << "\n";
@@ -2547,7 +2547,7 @@ namespace qe {
 
         // callback to replace variable at index 'idx' with definition 'def' and updated formula 'fml'
         void elim_var(unsigned idx, expr* fml, expr* def) override {
-            TRACE("qe", tout << idx << ": " << mk_pp(m_vars->get(idx), m) << " " << mk_pp(fml, m) << " " << m_contains.size() << "\n";);
+            TRACE(qe, tout << idx << ": " << mk_pp(m_vars->get(idx), m) << " " << mk_pp(fml, m) << " " << m_contains.size() << "\n";);
             *m_fml = fml;
             m_vars->set(idx, m_vars->get(m_vars->size()-1));
             m_vars->pop_back();
@@ -2558,7 +2558,7 @@ namespace qe {
 
         // callback to add new variable to branch.
         void add_var(app* x) override {
-            TRACE("qe", tout << "add var: " << mk_pp(x, m) << "\n";);
+            TRACE(qe, tout << "add var: " << mk_pp(x, m) << "\n";);
             m_vars->push_back(x);
             m_contains.push_back(alloc(contains_app, m, x));
         }
@@ -2583,7 +2583,7 @@ namespace qe {
             reset();
             m_fml = &fml;
             m_vars = &vars;
-            TRACE("qe", tout << "Vars: " << vars << "\n";);
+            TRACE(qe, tout << "Vars: " << vars << "\n";);
             for (auto* v  : vars) {
                 m_contains.push_back(alloc(contains_app, m, v));
             }
@@ -2619,10 +2619,10 @@ namespace qe {
             }
             // bool is_forall = old_q->is_forall();
             app_ref_vector vars(m);
-            TRACE("qe", tout << "simplifying" << mk_pp(new_body, m) << "\n";);
+            TRACE(qe, tout << "simplifying" << mk_pp(new_body, m) << "\n";);
             result = new_body;
             extract_vars(old_q, result, vars);
-            TRACE("qe", tout << "variables extracted" << mk_pp(result, m) << "\n";);
+            TRACE(qe, tout << "variables extracted" << mk_pp(result, m) << "\n";);
 
             if (is_forall(old_q)) {
                 result = mk_not(m, result);
@@ -2635,7 +2635,7 @@ namespace qe {
             var_shifter shift(m);
             shift(result, vars.size(), result);
             result = expr_abstract(vars, result);
-            TRACE("qe", tout << "abstracted" << mk_pp(result, m) << "\n";);
+            TRACE(qe, tout << "abstracted" << mk_pp(result, m) << "\n";);
             ptr_vector<sort> sorts;
             svector<symbol> names;
             for (app* v : vars) {

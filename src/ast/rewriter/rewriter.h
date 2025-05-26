@@ -106,7 +106,7 @@ protected:
     void end_scope();
     bool is_child_of_top_frame(expr * t) const;
     void set_new_child_flag(expr * old_t) {
-        CTRACE("rewriter_bug", !is_child_of_top_frame(old_t), display_stack(tout, 3););
+        CTRACE(rewriter_bug, !is_child_of_top_frame(old_t), display_stack(tout, 3););
         SASSERT(is_child_of_top_frame(old_t));
         if (!m_frame_stack.empty())
             m_frame_stack.back().m_new_child = true;

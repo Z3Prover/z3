@@ -165,12 +165,12 @@ namespace smt {
     bool model_checker::assert_neg_q_m(quantifier * q, expr_ref_vector & sks) {
         expr_ref tmp(m);
         
-        TRACE("model_checker", tout << "curr_model:\n"; model_pp(tout, *m_curr_model););
+        TRACE(model_checker, tout << "curr_model:\n"; model_pp(tout, *m_curr_model););
 
         if (!m_curr_model->eval(q->get_expr(), tmp, true)) {
             return false;
         }
-        TRACE("model_checker", tout << "q after applying interpretation:\n" << mk_ismt2_pp(tmp, m) << "\n";);
+        TRACE(model_checker, tout << "q after applying interpretation:\n" << mk_ismt2_pp(tmp, m) << "\n";);
         ptr_buffer<expr> subst_args;
         unsigned num_decls = q->get_num_decls();
         subst_args.resize(num_decls, nullptr);
@@ -189,14 +189,14 @@ namespace smt {
         expr_ref sk_body = s(tmp, subst_args.size(), subst_args.data());
         expr_ref r(m);
         r = m.mk_not(sk_body);
-        TRACE("model_checker", tout << "mk_neg_q_m:\n" << mk_ismt2_pp(r, m) << "\n";);
+        TRACE(model_checker, tout << "mk_neg_q_m:\n" << mk_ismt2_pp(r, m) << "\n";);
         m_aux_context->assert_expr(r);
         return true;
     }
 
     bool model_checker::add_instance(quantifier * q, model * cex, expr_ref_vector & sks, bool use_inv) {
         if (cex == nullptr || sks.empty()) {
-            TRACE("model_checker", tout << "no model is available\n";);
+            TRACE(model_checker, tout << "no model is available\n";);
             return false;
         }
         array_util autil(m);
@@ -212,22 +212,22 @@ namespace smt {
             func_decl * sk_d = to_app(sk)->get_decl();
             expr_ref sk_value(cex->get_some_const_interp(sk_d), m);
             if (!sk_value) {
-                TRACE("model_checker", tout << "Could not get value for " << sk_d->get_name() << "\n";);
+                TRACE(model_checker, tout << "Could not get value for " << sk_d->get_name() << "\n";);
                 return false; // get_some_value failed... giving up
             }
-            TRACE("model_checker", tout << "Got some value " << sk_value << "\n";);
+            TRACE(model_checker, tout << "Got some value " << sk_value << "\n";);
 
             if (use_inv) {
                 unsigned sk_term_gen = 0;
                 expr * sk_term = m_model_finder.get_inv(q, i, sk_value, sk_term_gen);
                 if (sk_term != nullptr) {
-                    TRACE("model_checker", tout << "Found inverse " << mk_pp(sk_term, m) << "\n";);
+                    TRACE(model_checker, tout << "Found inverse " << mk_pp(sk_term, m) << "\n";);
                     SASSERT(!m.is_model_value(sk_term));
                     max_generation = std::max(sk_term_gen, max_generation);
                     sk_value = sk_term;
                 }
                 else {
-                    TRACE("model_checker", tout << "no inverse value for " << sk_value << "\n";);
+                    TRACE(model_checker, tout << "no inverse value for " << sk_value << "\n";);
                     return false;
                 }
             }
@@ -235,7 +235,7 @@ namespace smt {
                 expr * sk_term = get_term_from_ctx(sk_value);
                 func_decl * f = nullptr;
                 if (sk_term != nullptr) {
-                    TRACE("model_checker", tout << "sk term " << mk_pp(sk_term, m) << "\n");
+                    TRACE(model_checker, tout << "sk term " << mk_pp(sk_term, m) << "\n");
                     sk_value = sk_term;
                 }
                 // last ditch: am I an array?
@@ -245,7 +245,7 @@ namespace smt {
 
             }
             if (contains_model_value(sk_value)) {
-                TRACE("model_checker", tout << "type compatible term " << mk_pp(sk_value, m) << "\n");
+                TRACE(model_checker, tout << "type compatible term " << mk_pp(sk_value, m) << "\n");
                 sk_value = get_type_compatible_term(sk_value);
             }
             func_decl * f = nullptr;
@@ -267,7 +267,7 @@ namespace smt {
             bindings.set(num_decls - i - 1, sk_value);
         }
 
-        TRACE("model_checker", tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\ndefs:\n" << defs << "\n";);
+        TRACE(model_checker, tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\ndefs:\n" << defs << "\n";);
         if (!defs.empty()) def = mk_and(defs);
         max_generation = std::max(m_qm->get_generation(q), max_generation);
         add_instance(q, bindings, max_generation, def.get());
@@ -313,14 +313,14 @@ namespace smt {
             func_decl * sk_d = to_app(sk)->get_decl();
             expr_ref sk_value(cex->get_some_const_interp(sk_d), m);
             if (!sk_value) {
-                TRACE("model_checker", tout << "no constant interpretation for " << mk_pp(sk, m) << "\n";);
+                TRACE(model_checker, tout << "no constant interpretation for " << mk_pp(sk, m) << "\n";);
                 return false; // get_some_value failed... aborting add_blocking_clause
             }
             diseqs.push_back(m.mk_not(m.mk_eq(sk, sk_value)));
         }
         expr_ref blocking_clause(m);
         blocking_clause = m.mk_or(diseqs.size(), diseqs.data());
-        TRACE("model_checker", tout << "blocking clause:\n" << mk_ismt2_pp(blocking_clause, m) << "\n";);
+        TRACE(model_checker, tout << "blocking clause:\n" << mk_ismt2_pp(blocking_clause, m) << "\n";);
         m_aux_context->assert_expr(blocking_clause);
         return true;
     }
@@ -347,17 +347,17 @@ namespace smt {
         scoped_ctx_push _push(m_aux_context.get());
 
         quantifier * flat_q = get_flat_quantifier(q);
-        TRACE("model_checker", tout << "model checking:\n" << expr_ref(flat_q->get_expr(), m) << "\n";);
+        TRACE(model_checker, tout << "model checking:\n" << expr_ref(flat_q->get_expr(), m) << "\n";);
         expr_ref_vector sks(m);
 
         if (!assert_neg_q_m(flat_q, sks))
             return false;
-        TRACE("model_checker", tout << "skolems:\n" << sks << "\n";);
+        TRACE(model_checker, tout << "skolems:\n" << sks << "\n";);
 
         flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
         lbool r = m_aux_context->check();
         
-        TRACE("model_checker", tout << "[complete] model-checker result: " << to_sat_str(r) << "\n";);
+        TRACE(model_checker, tout << "[complete] model-checker result: " << to_sat_str(r) << "\n";);
         if (r != l_true) {
             return is_safe_for_mbqi(q) && r == l_false; // quantifier is satisfied by m_curr_model
         }
@@ -373,7 +373,7 @@ namespace smt {
         while (true) {
             flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
             lbool r = m_aux_context->check();
-            TRACE("model_checker", tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
+            TRACE(model_checker, tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
             if (r != l_true)
                 break;
             model_ref cex;
@@ -384,7 +384,7 @@ namespace smt {
             }
             num_new_instances++;
             if (num_new_instances >= m_max_cexs || !add_blocking_clause(cex.get(), sks)) {
-                TRACE("model_checker", tout << "Add blocking clause failed new-instances: " << num_new_instances << " max-cex: " << m_max_cexs << "\n";);
+                TRACE(model_checker, tout << "Add blocking clause failed new-instances: " << num_new_instances << " max-cex: " << m_max_cexs << "\n";);
                 // add_blocking_clause failed... stop the search for new counter-examples...
                 break;
             }
@@ -392,7 +392,7 @@ namespace smt {
 
         if (num_new_instances == 0) {
             // failed to create instances when restricting to inst sets... then use result of the complete model check
-            TRACE("model_checker", tout << "using complete_cex result:\n"; model_pp(tout, *complete_cex););
+            TRACE(model_checker, tout << "using complete_cex result:\n"; model_pp(tout, *complete_cex););
             add_instance(q, complete_cex.get(), sks, false);
         }
 
@@ -455,7 +455,7 @@ namespace smt {
         m_curr_model = md;
         m_value2expr.reset();
 
-        TRACE("model_checker", tout << "MODEL_CHECKER INVOKED\n";
+        TRACE(model_checker, tout << "MODEL_CHECKER INVOKED\n";
         tout << "model:\n"; model_pp(tout, *m_curr_model););
 
         for (quantifier* q : *m_qm)
@@ -466,7 +466,7 @@ namespace smt {
 	
         md->compress();
 
-        TRACE("model_checker", tout << "MODEL_CHECKER INVOKED\n";
+        TRACE(model_checker, tout << "MODEL_CHECKER INVOKED\n";
               tout << "model:\n"; model_pp(tout, *m_curr_model););
         if (m_params.m_mbqi_trace) {
             verbose_stream() << "(smt.mbqi \"started\")\n";
@@ -482,8 +482,8 @@ namespace smt {
         if (found_relevant)
             m_iteration_idx++;
 
-        TRACE("model_checker", tout << "model after check:\n"; model_pp(tout, *md););
-        TRACE("model_checker", tout << "model checker result: " << (num_failures == 0) << "\n";);
+        TRACE(model_checker, tout << "model after check:\n"; model_pp(tout, *md););
+        TRACE(model_checker, tout << "model checker result: " << (num_failures == 0) << "\n";);
         m_max_cexs += m_params.m_mbqi_max_cexs;
 
         if (num_failures == 0 && !m_context->validate_model()) {
@@ -525,7 +525,7 @@ namespace smt {
                 continue;
             }
 
-            TRACE("model_checker",
+            TRACE(model_checker,
                   tout << "Check: " << mk_pp(q, m) << "\n";
                   tout << m_context->get_assignment(q) << "\n";);
 
@@ -537,7 +537,7 @@ namespace smt {
                 if (m_params.m_mbqi_trace || get_verbosity_level() >= 5) {
                     IF_VERBOSE(0, verbose_stream() << "(smt.mbqi :failed " << q->get_qid() << ")\n");
                 }
-                TRACE("model_checker", tout << "checking quantifier " << mk_pp(q, m) << " failed\n";);
+                TRACE(model_checker, tout << "checking quantifier " << mk_pp(q, m) << " failed\n";);
                 num_failures++;
             }
         }
@@ -555,7 +555,7 @@ namespace smt {
     }
 
     bool model_checker::has_new_instances() {
-        TRACE("model_checker", tout << "instances: " << m_new_instances.size() << "\n";);
+        TRACE(model_checker, tout << "instances: " << m_new_instances.size() << "\n";);
         return !m_new_instances.empty();
     }
 
@@ -569,7 +569,7 @@ namespace smt {
     }
 
     void model_checker::assert_new_instances() {
-        TRACE("model_checker_bug_detail", tout << "assert_new_instances, inconsistent: " << m_context->inconsistent() << "\n";);
+        TRACE(model_checker_bug_detail, tout << "assert_new_instances, inconsistent: " << m_context->inconsistent() << "\n";);
         ptr_buffer<enode> bindings;
         vector<std::tuple<enode *, enode *>> dummy;
         for (instance const& inst : m_new_instances) {
@@ -582,7 +582,7 @@ namespace smt {
                 for (unsigned i = 0; i < num_decls; i++) {
                     expr * b = m_pinned_exprs.get(offset + i);
                     if (!m_context->e_internalized(b)) {
-                        TRACE("model_checker", tout << "internalizing b:\n" << mk_pp(b, m) << "\n";);
+                        TRACE(model_checker, tout << "internalizing b:\n" << mk_pp(b, m) << "\n";);
                         m_context->internalize(b, false, gen);
                     }
                     bindings.push_back(m_context->get_enode(b));
@@ -604,12 +604,12 @@ namespace smt {
                     }
                 }
 
-                TRACE("model_checker_bug_detail", tout << "instantiating... q:\n" << mk_pp(q, m) << "\n";
+                TRACE(model_checker_bug_detail, tout << "instantiating... q:\n" << mk_pp(q, m) << "\n";
                       tout << "inconsistent: " << m_context->inconsistent() << "\n";
                       tout << "bindings:\n" << expr_ref_vector(m, num_decls, m_pinned_exprs.data() + offset) << "\n";
                       tout << "def " << mk_pp(inst.m_def, m) << "\n";);
                 m_context->add_instance(q, nullptr, num_decls, bindings.data(), inst.m_def, gen, gen, gen, dummy);
-                TRACE("model_checker_bug_detail", tout << "after instantiating, inconsistent: " << m_context->inconsistent() << "\n";);
+                TRACE(model_checker_bug_detail, tout << "after instantiating, inconsistent: " << m_context->inconsistent() << "\n";);
             }
         }
     }

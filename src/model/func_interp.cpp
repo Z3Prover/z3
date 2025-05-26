@@ -142,7 +142,7 @@ void func_interp::set_else(expr * e) {
 
     reset_interp_cache();
 
-    TRACE("func_interp", tout << "set_else: " << expr_ref(e, m()) << "\n";);
+    TRACE(func_interp, tout << "set_else: " << expr_ref(e, m()) << "\n";);
 
     ptr_vector<expr> args;
     while (e && is_fi_entry_expr(e, args)) {
@@ -196,7 +196,7 @@ void func_interp::insert_entry(expr * const * args, expr * r) {
 
 void func_interp::insert_new_entry(expr * const * args, expr * r) {
     reset_interp_cache();
-    CTRACE("func_interp_bug", get_entry(args) != 0,
+    CTRACE(func_interp_bug, get_entry(args) != 0,
            tout << "Old: " << mk_ismt2_pp(get_entry(args)->m_result, m()) << "\n";
            tout << "Args:";
            for (unsigned i = 0; i < m_arity; i++) {

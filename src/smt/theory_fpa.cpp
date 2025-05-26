@@ -61,7 +61,7 @@ namespace smt {
     }
 
     app * theory_fpa::fpa_value_proc::mk_value(model_generator & mg, expr_ref_vector const & values) {
-        TRACE("t_fpa_detail",
+        TRACE(t_fpa_detail,
               ast_manager & m = m_th.get_manager();
               for (unsigned i = 0; i < values.size(); i++)
                   tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
@@ -126,7 +126,7 @@ namespace smt {
         mpfm.set(f, m_ebits, m_sbits, mpzm.is_one(sgn_z), mpzm.get_int64(exp_u), sig_z);
         result = m_fu.mk_value(f);
 
-        TRACE("t_fpa", tout << "result: [" <<
+        TRACE(t_fpa, tout << "result: [" <<
                        mpzm.to_string(sgn_z) << "," <<
                        mpzm.to_string(exp_z) << "," <<
                        mpzm.to_string(sig_z) << "] --> " <<
@@ -138,7 +138,7 @@ namespace smt {
     app * theory_fpa::fpa_rm_value_proc::mk_value(model_generator & mg, expr_ref_vector const & values) {
         SASSERT(values.size() == 1);
 
-        TRACE("t_fpa_detail",
+        TRACE(t_fpa_detail,
               ast_manager & m = m_th.get_manager();
               for (unsigned i = 0; i < values.size(); i++)
               tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
@@ -160,7 +160,7 @@ namespace smt {
         default: result = m_fu.mk_round_toward_zero();
         }
 
-        TRACE("t_fpa", tout << "result: " << mk_ismt2_pp(result, m_th.get_manager()) << std::endl;);
+        TRACE(t_fpa, tout << "result: " << mk_ismt2_pp(result, m_th.get_manager()) << std::endl;);
 
         return result;
     }
@@ -170,18 +170,18 @@ namespace smt {
     {
         expr_ref res(m);
         expr * ccnv;
-        TRACE("t_fpa", tout << "converting " << mk_ismt2_pp(e, m) << std::endl;);
+        TRACE(t_fpa, tout << "converting " << mk_ismt2_pp(e, m) << std::endl;);
 
         if (m_conversions.find(e, ccnv)) {
             res = ccnv;
-            TRACE("t_fpa_detail", tout << "cached:" << std::endl;
+            TRACE(t_fpa_detail, tout << "cached:" << std::endl;
             tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
                 mk_ismt2_pp(res, m) << std::endl;);
         }
         else {
             res = m_rw.convert(m_th_rw, e);
 
-            TRACE("t_fpa_detail", tout << "converted; caching:" << std::endl;
+            TRACE(t_fpa_detail, tout << "converted; caching:" << std::endl;
                                   tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
                                           mk_ismt2_pp(res, m) << std::endl;);
 
@@ -210,14 +210,14 @@ namespace smt {
 
         m_th_rw(res);
 
-        CTRACE("t_fpa", !m.is_true(res), tout << "side condition: " << mk_ismt2_pp(res, m) << std::endl;);
+        CTRACE(t_fpa, !m.is_true(res), tout << "side condition: " << mk_ismt2_pp(res, m) << std::endl;);
         return res;
     }
 
     void theory_fpa::assert_cnstr(expr * e) {
         expr_ref _e(e, m);
         if (m.is_true(e)) return;
-        TRACE("t_fpa_detail", tout << "asserting " << mk_ismt2_pp(e, m) << "\n";);
+        TRACE(t_fpa_detail, tout << "asserting " << mk_ismt2_pp(e, m) << "\n";);
         if (m.has_trace_stream()) log_axiom_instantiation(e);
         ctx.internalize(e, false);
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
@@ -229,11 +229,11 @@ namespace smt {
     void theory_fpa::attach_new_th_var(enode * n) {
         theory_var v = mk_var(n);
         ctx.attach_th_var(n, this, v);
-        TRACE("t_fpa", tout << "new theory var: " << mk_ismt2_pp(n->get_expr(), m) << " := " << v << "\n";);
+        TRACE(t_fpa, tout << "new theory var: " << mk_ismt2_pp(n->get_expr(), m) << " := " << v << "\n";);
     }
 
     bool theory_fpa::internalize_atom(app * atom, bool gate_ctx) {
-        TRACE("t_fpa_internalize", tout << "internalizing atom: " << mk_ismt2_pp(atom, m) << std::endl;);
+        TRACE(t_fpa_internalize, tout << "internalizing atom: " << mk_ismt2_pp(atom, m) << std::endl;);
         SASSERT(atom->get_family_id() == get_family_id());
 
         if (ctx.b_internalized(atom))
@@ -254,7 +254,7 @@ namespace smt {
     }
 
     bool theory_fpa::internalize_term(app * term) {
-        TRACE("t_fpa_internalize", tout << "internalizing term: " << mk_ismt2_pp(term, m) << "\n";);
+        TRACE(t_fpa_internalize, tout << "internalizing term: " << mk_ismt2_pp(term, m) << "\n";);
         SASSERT(term->get_family_id() == get_family_id());
         SASSERT(!ctx.e_internalized(term));
 
@@ -294,7 +294,7 @@ namespace smt {
     }
 
     void theory_fpa::apply_sort_cnstr(enode * n, sort * s) {
-        TRACE("t_fpa", tout << "apply sort cnstr for: " << mk_ismt2_pp(n->get_expr(), m) << "\n";);
+        TRACE(t_fpa, tout << "apply sort cnstr for: " << mk_ismt2_pp(n->get_expr(), m) << "\n";);
         SASSERT(s->get_family_id() == get_family_id());
         SASSERT(m_fpa_util.is_float(s) || m_fpa_util.is_rm(s));
         SASSERT(m_fpa_util.is_float(n->get_expr()) || m_fpa_util.is_rm(n->get_expr()));
@@ -325,7 +325,7 @@ namespace smt {
         enode * e_x = get_enode(x);
         enode * e_y = get_enode(y);
 
-        TRACE("t_fpa", tout << "new eq: " << x << " = " << y << std::endl;
+        TRACE(t_fpa, tout << "new eq: " << x << " = " << y << std::endl;
                        tout << mk_ismt2_pp(e_x->get_expr(), m) << std::endl << " = " << std::endl <<
                                mk_ismt2_pp(e_y->get_expr(), m) << std::endl;);
 
@@ -340,7 +340,7 @@ namespace smt {
         expr_ref xc = convert(xe);
         expr_ref yc = convert(ye);
 
-        TRACE("t_fpa_detail", tout << "xc = " << mk_ismt2_pp(xc, m) << std::endl <<
+        TRACE(t_fpa_detail, tout << "xc = " << mk_ismt2_pp(xc, m) << std::endl <<
                                       "yc = " << mk_ismt2_pp(yc, m) << std::endl;);
 
         expr_ref c(m);
@@ -364,7 +364,7 @@ namespace smt {
         enode * e_x = get_enode(x);
         enode * e_y = get_enode(y);
 
-        TRACE("t_fpa", tout << "new diseq: " << x << " != " << y << std::endl;
+        TRACE(t_fpa, tout << "new diseq: " << x << " != " << y << std::endl;
                        tout << mk_ismt2_pp(e_x->get_expr(), m) << std::endl << " != " << std::endl <<
                            mk_ismt2_pp(e_y->get_expr(), m) << std::endl;);
 
@@ -413,14 +413,14 @@ namespace smt {
 
     void theory_fpa::pop_scope_eh(unsigned num_scopes) {
         m_trail_stack.pop_scope(num_scopes);
-        TRACE("t_fpa", tout << "pop " << num_scopes << "; now " << m_trail_stack.get_num_scopes() << "\n";);
+        TRACE(t_fpa, tout << "pop " << num_scopes << "; now " << m_trail_stack.get_num_scopes() << "\n";);
         theory::pop_scope_eh(num_scopes);
     }
 
     void theory_fpa::assign_eh(bool_var v, bool is_true) {
         expr * e = ctx.bool_var2expr(v);
 
-        TRACE("t_fpa", tout << "assign_eh for: " << v << " (" << is_true << "):\n" << mk_ismt2_pp(e, m) << "\n";);
+        TRACE(t_fpa, tout << "assign_eh for: " << v << " (" << is_true << "):\n" << mk_ismt2_pp(e, m) << "\n";);
 
         expr_ref converted = convert(e);
         converted = m.mk_and(converted, mk_side_conditions());
@@ -432,7 +432,7 @@ namespace smt {
     }
 
     void theory_fpa::relevant_eh(app * n) {
-        TRACE("t_fpa", tout << "relevant_eh for: " << mk_ismt2_pp(n, m) << "\n";);
+        TRACE(t_fpa, tout << "relevant_eh for: " << mk_ismt2_pp(n, m) << "\n";);
 
         mpf_manager & mpfm = m_fpa_util.fm();
 
@@ -465,7 +465,7 @@ namespace smt {
                 else {
                     expr_ref wu(m);
                     wu = m.mk_eq(m_converter.unwrap(wrapped, n->get_sort()), n);
-                    TRACE("t_fpa", tout << "w/u eq: " << std::endl << mk_ismt2_pp(wu, m) << std::endl;);
+                    TRACE(t_fpa, tout << "w/u eq: " << std::endl << mk_ismt2_pp(wu, m) << std::endl;);
                     assert_cnstr(wu);
                 }
             }
@@ -486,7 +486,7 @@ namespace smt {
     }
 
     void theory_fpa::reset_eh() {
-        TRACE("t_fpa", tout << "reset_eh\n";);
+        TRACE(t_fpa, tout << "reset_eh\n";);
         pop_scope_eh(m_trail_stack.get_num_scopes());
         m_converter.reset();
         m_rw.reset();
@@ -502,13 +502,13 @@ namespace smt {
     }
 
     final_check_status theory_fpa::final_check_eh() {
-        TRACE("t_fpa", tout << "final_check_eh\n";);
+        TRACE(t_fpa, tout << "final_check_eh\n";);
         SASSERT(m_converter.m_extra_assertions.empty());
         return FC_DONE;
     }
 
     void theory_fpa::init_model(model_generator & mg) {
-        TRACE("t_fpa", tout << "initializing model" << std::endl; display(tout););
+        TRACE(t_fpa, tout << "initializing model" << std::endl; display(tout););
         m_factory = alloc(fpa_value_factory, m, get_family_id());
         mg.register_factory(m_factory);
     }
@@ -537,7 +537,7 @@ namespace smt {
     }
 
     model_value_proc * theory_fpa::mk_value(enode * n, model_generator & mg) {
-        TRACE("t_fpa", tout << "mk_value for: " << mk_ismt2_pp(n->get_expr(), m) <<
+        TRACE(t_fpa, tout << "mk_value for: " << mk_ismt2_pp(n->get_expr(), m) <<
                             " (sort " << mk_ismt2_pp(n->get_expr()->get_sort(), m) << ")\n";);
 
         app_ref owner(m);
@@ -557,7 +557,7 @@ namespace smt {
         wrapped = m_converter.wrap(owner);
         SASSERT(m_bv_util.is_bv(wrapped));
 
-        CTRACE("t_fpa_detail", !ctx.e_internalized(wrapped),
+        CTRACE(t_fpa_detail, !ctx.e_internalized(wrapped),
                 tout << "Model dependency not internalized: " <<
                 mk_ismt2_pp(wrapped, m) <<
                 " (owner " << (!ctx.e_internalized(owner) ? "not" : "is") <<
@@ -575,7 +575,7 @@ namespace smt {
             vp->add_dependency(ctx.get_enode(a0));
             vp->add_dependency(ctx.get_enode(a1));
             vp->add_dependency(ctx.get_enode(a2));
-            TRACE("t_fpa_detail", tout << "Depends on: " <<
+            TRACE(t_fpa_detail, tout << "Depends on: " <<
                   mk_ismt2_pp(a0, m) << " eq. cls. #" << get_enode(a0)->get_root()->get_expr()->get_id() << std::endl <<
                   mk_ismt2_pp(a1, m) << " eq. cls. #" << get_enode(a1)->get_root()->get_expr()->get_id() << std::endl <<
                   mk_ismt2_pp(a2, m) << " eq. cls. #" << get_enode(a2)->get_root()->get_expr()->get_id() << std::endl;);
@@ -587,7 +587,7 @@ namespace smt {
             a0 = to_app(owner->get_arg(0));
             fpa_rm_value_proc * vp = alloc(fpa_rm_value_proc, this);
             vp->add_dependency(ctx.get_enode(a0));
-            TRACE("t_fpa_detail", tout << "Depends on: " <<
+            TRACE(t_fpa_detail, tout << "Depends on: " <<
                 mk_ismt2_pp(a0, m) << " eq. cls. #" << get_enode(a0)->get_root()->get_expr()->get_id() << std::endl;);
             res = vp;
         }
@@ -603,7 +603,7 @@ namespace smt {
                 fpa_value_proc * vp = alloc(fpa_value_proc, this, ebits, sbits);
                 enode * en = ctx.get_enode(wrapped);
                 vp->add_dependency(en);
-                TRACE("t_fpa_detail", tout << "Depends on: " << mk_ismt2_pp(wrapped, m) << " eq. cls. #" << en->get_root()->get_expr()->get_id() << std::endl;);
+                TRACE(t_fpa_detail, tout << "Depends on: " << mk_ismt2_pp(wrapped, m) << " eq. cls. #" << en->get_root()->get_expr()->get_id() << std::endl;);
                 res = vp;
             }
         }

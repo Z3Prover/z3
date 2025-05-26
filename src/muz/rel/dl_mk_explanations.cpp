@@ -482,12 +482,12 @@ namespace datalog {
     relation_mutator_fn * explanation_relation_plugin::mk_filter_interpreted_fn(const relation_base & r, 
             app * cond) {
         if (&r.get_plugin() != this) {
-            TRACE("dl", tout << "not same plugin\n";);
+            TRACE(dl, tout << "not same plugin\n";);
             return nullptr;
         }
         ast_manager & m = get_ast_manager();
         if (!m.is_eq(cond)) {
-            TRACE("dl", tout << "not equality " << mk_pp(cond, m) << "\n";);
+            TRACE(dl, tout << "not equality " << mk_pp(cond, m) << "\n";);
             return nullptr;
         }
         expr * arg1 = cond->get_arg(0);
@@ -498,13 +498,13 @@ namespace datalog {
         }
 
         if (!is_var(arg1) || !is_app(arg2)) {
-            TRACE("dl", tout << "not variable assignemnt\n";);
+            TRACE(dl, tout << "not variable assignemnt\n";);
             return nullptr;
         }
         var * col_var = to_var(arg1);
         app * new_rule = to_app(arg2);
         if (!get_context().get_decl_util().is_rule_sort(col_var->get_sort())) {
-            TRACE("dl", tout << "not rule sort\n";);
+            TRACE(dl, tout << "not rule sort\n";);
             return nullptr;
         }
         unsigned col_idx = col_var->get_idx();
@@ -839,7 +839,7 @@ namespace datalog {
         }
         func_decl_set predicates(m_context.get_predicates());
         for (func_decl* orig_decl : predicates) {
-            TRACE("dl", tout << mk_pp(orig_decl, m_manager) << "\n";);
+            TRACE(dl, tout << mk_pp(orig_decl, m_manager) << "\n";);
             func_decl * e_decl = get_e_decl(orig_decl);
 
             if (!rmgr.try_get_relation(orig_decl) &&
@@ -861,10 +861,10 @@ namespace datalog {
                 scoped_ptr<relation_join_fn> product_fun = rmgr.mk_join_fn(orig_rel, *m_e_fact_relation, 0, nullptr, nullptr);
                 SASSERT(product_fun);
                 scoped_rel<relation_base> aux_extended_rel = (*product_fun)(orig_rel, *m_e_fact_relation);
-                TRACE("dl", tout << aux_extended_rel << " " << aux_extended_rel->get_plugin().get_name() << "\n";
+                TRACE(dl, tout << aux_extended_rel << " " << aux_extended_rel->get_plugin().get_name() << "\n";
                       tout << e_rel.get_plugin().get_name() << "\n";);
                 scoped_ptr<relation_union_fn> union_fun = rmgr.mk_union_fn(e_rel, *aux_extended_rel);
-                TRACE("dl", tout << union_fun << "\n";);
+                TRACE(dl, tout << union_fun << "\n";);
                 SASSERT(union_fun);
                 (*union_fun)(e_rel, *aux_extended_rel);
             }

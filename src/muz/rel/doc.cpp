@@ -249,7 +249,7 @@ bool doc_manager::merge(doc& d, unsigned idx, subset_ints const& equalities,
     }
     while (idx != root);
 
-    TRACE("doc", tout << "num_x: " << num_x << " value: " << value << "\n";);
+    TRACE(doc, tout << "num_x: " << num_x << " value: " << value << "\n";);
     if (num_x == 0) {
         // nothing to do.
     }
@@ -365,7 +365,7 @@ doc* doc_manager::project(doc_manager& dstm, bit_vector const& to_delete, doc co
                 default: UNREACHABLE(); break;                    
                 }
             }
-            TRACE("doc",
+            TRACE(doc,
                   tout << "pos: ";
                   for (unsigned i = 0; i < pos.size(); ++i) {
                       tbvm().display(tout, pos[i]) << " ";
@@ -685,7 +685,7 @@ void doc_manager::check_equiv(ast_manager& m, expr* fml1, expr* fml2) {
     solver.assert_expr(fml);
     lbool res = solver.check();
     if (res != l_false) {        
-        TRACE("doc",
+        TRACE(doc,
               tout << mk_pp(fml1, m) << "\n";
               tout << mk_pp(fml2, m) << "\n";
               );

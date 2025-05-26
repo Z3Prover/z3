@@ -211,23 +211,23 @@ namespace smt {
 
             if (pat != nullptr) {
                 if (used_enodes.size() > 0) {
-                    STRACE("causality", tout << "New-Match: "<< static_cast<void*>(f););
-                    STRACE("triggers",  tout <<", Pat: "<< expr_ref(pat, m()););
-                    STRACE("causality", tout <<", Father:";);
+                    STRACE(causality, tout << "New-Match: "<< static_cast<void*>(f););
+                    STRACE(triggers,  tout <<", Pat: "<< expr_ref(pat, m()););
+                    STRACE(causality, tout <<", Father:";);
                 }
                 for (auto n : used_enodes) {
                     enode *orig = std::get<0>(n);
                     enode *substituted = std::get<1>(n);
                     (void) substituted;
                     if (orig == nullptr) {
-                        STRACE("causality", tout << " #" << substituted->get_owner_id(););
+                        STRACE(causality, tout << " #" << substituted->get_owner_id(););
                     }
                     else {
-                        STRACE("causality", tout << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";);
+                        STRACE(causality, tout << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";);
                     }
                 }
                 if (used_enodes.size() > 0) {
-                    STRACE("causality", tout << "\n";);
+                    STRACE(causality, tout << "\n";);
                 }
             }
         }
@@ -300,7 +300,7 @@ namespace smt {
             get_stat(q)->update_max_generation(max_generation);
             fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings, def);
             if (f) {
-                if (is_trace_enabled("causality")) {
+                if (is_trace_enabled(TraceTag::causality)) {
                     log_causality(f,pat,used_enodes);
                 }
                 if (has_trace_stream()) {
@@ -310,7 +310,7 @@ namespace smt {
                 m_num_instances++;
             }
 
-            CTRACE("bindings", f != nullptr, 
+            CTRACE(bindings, f != nullptr, 
                   tout << expr_ref(q, m()) << "\n";
                   for (unsigned i = 0; i < num_bindings; ++i) {
                       tout << expr_ref(bindings[i]->get_expr(), m()) << " [r " << bindings[i]->get_root()->get_owner_id() << "] ";
@@ -328,7 +328,7 @@ namespace smt {
             }
             m_qi_queue.init_search_eh();
             m_plugin->init_search_eh();
-            TRACE("smt_params", m_params.display(tout); );
+            TRACE(smt_params, m_params.display(tout); );
         }
 
         void assign_eh(quantifier * q) {
@@ -636,7 +636,7 @@ namespace smt {
            mbqi.id to be instantiated with MBQI. The default value is the
            empty string, so all quantifiers are instantiated. */
         void add(quantifier * q) override {
-            TRACE("model_finder", tout << "add " << q->get_id() << ": " << q << " " << m_fparams->m_mbqi << " " << mbqi_enabled(q) << "\n";);
+            TRACE(model_finder, tout << "add " << q->get_id() << ": " << q << " " << m_fparams->m_mbqi << " " << mbqi_enabled(q) << "\n";);
             if (m_fparams->m_mbqi && mbqi_enabled(q)) {
                 m_active = true;
                 m_model_finder->register_quantifier(q);
@@ -687,13 +687,13 @@ namespace smt {
                 SASSERT(m.is_pattern(mp));
                 bool unary = (mp->get_num_args() == 1);
                 if (!unary && j >= num_eager_multi_patterns) {
-                    TRACE("quantifier", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m) << "\n"
+                    TRACE(quantifier, tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m) << "\n"
                           << "j: " << j << " unary: " << unary << " m_params.m_qi_max_eager_multipatterns: " << m_fparams->m_qi_max_eager_multipatterns
                           << " num_eager_multi_patterns: " << num_eager_multi_patterns << "\n";);
                     m_lazy_mam->add_pattern(q, mp);
                 }
                 else {
-                    TRACE("quantifier", tout << "adding:\n" << expr_ref(mp, m) << "\n";);
+                    TRACE(quantifier, tout << "adding:\n" << expr_ref(mp, m) << "\n";);
                     m_mam->add_pattern(q, mp);
                 }
                 if (!unary)
@@ -726,7 +726,7 @@ namespace smt {
                 m_model_finder->restart_eh();
                 m_model_checker->restart_eh();
             }
-            TRACE("mam_stats", m_mam->display(tout););
+            TRACE(mam_stats, m_mam->display(tout););
         }
 
         bool is_shared(enode * n) const override {

@@ -86,7 +86,7 @@ public:
     // Return false if the matrix is singular
     bool solve(numeral * xs) {
         for (unsigned k = 0; k < n; k++) {
-            TRACE("linear_eq_solver", tout << "iteration " << k << "\n"; display(tout););
+            TRACE(linear_eq_solver, tout << "iteration " << k << "\n"; display(tout););
             // find pivot 
             unsigned i = k;
             for (; i < n; i++) {
@@ -120,7 +120,7 @@ public:
         unsigned k = n;
         while (k > 0) {
             --k;
-            TRACE("linear_eq_solver", tout << "iteration " << k << "\n"; display(tout););
+            TRACE(linear_eq_solver, tout << "iteration " << k << "\n"; display(tout););
             SASSERT(m.is_one(A[k][k]));
             // save result
             m.set(xs[k], b[k]);

@@ -26,12 +26,12 @@ namespace euf {
     }
 
     void plugin::push_merge(enode* a, enode* b, justification j) {
-        TRACE("euf", tout << "push-merge " << g.bpp(a) << " == " << g.bpp(b) << " " << j << "\n");
+        TRACE(euf, tout << "push-merge " << g.bpp(a) << " == " << g.bpp(b) << " " << j << "\n");
         g.push_merge(a, b, j);
     }
 
     void plugin::push_merge(enode* a, enode* b) {
-        TRACE("plugin", tout << g.bpp(a) << " == " << g.bpp(b) << "\n");
+        TRACE(plugin, tout << g.bpp(a) << " == " << g.bpp(b) << "\n");
         g.push_merge(a, b, justification::axiom(get_id()));
     }
 

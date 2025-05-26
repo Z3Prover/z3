@@ -687,7 +687,7 @@ void bv2int_translator::translate_eq(expr* e) {
         set_translated(e, m.mk_eq(umod(x, 0), a.mk_int(0)));
     }
     m_preds.push_back(e);
-    TRACE("bv", tout << mk_pp(e, m) << " " << mk_pp(translated(e), m) << "\n");
+    TRACE(bv, tout << mk_pp(e, m) << " " << mk_pp(translated(e), m) << "\n");
     ctx.push(push_back_vector(m_preds));
 
 }

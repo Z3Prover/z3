@@ -224,7 +224,7 @@ class test_doc_cls {
 
     void project(doc const& d, doc_manager& m2, const bit_vector& to_delete, doc_ref& result) {
         result = dm.project(m2, to_delete, d);
-        TRACE("doc",
+        TRACE(doc,
               for (unsigned i = 0; i < m_vars.size(); ++i) {
                   tout << (to_delete.get(i)?"0":"1");
               }
@@ -250,7 +250,7 @@ class test_doc_cls {
         doc_manager m2(num_bits);
         doc_ref result(m2);
         project(*d, m2, to_delete, result);
-        TRACE("doc",              
+        TRACE(doc,              
               dm.display(tout, *d) << "\n";
               m2.display(tout, *result) << "\n";);
         fml2 = to_formula(*result, m2);
@@ -342,7 +342,7 @@ class test_doc_cls {
         solver.assert_expr(fml);
         lbool res = solver.check();
         if (res != l_false) {
-            TRACE("doc",
+            TRACE(doc,
                   tout << mk_pp(fml1, m) << "\n";
                   tout << mk_pp(fml2, m) << "\n";
                   );
@@ -459,11 +459,11 @@ public:
             mk_rand_udoc(3, 3, d2);
             fml1 = to_formula(d1, dm);
             fml2 = to_formula(d2, dm);
-            TRACE("doc", 
+            TRACE(doc, 
                   d1.display(dm, tout) << "\n";
                   d2.display(dm, tout) << "\n";);
             d1.intersect(dm, d2);
-            TRACE("doc", d1.display(dm, tout) << "\n";);
+            TRACE(doc, d1.display(dm, tout) << "\n";);
             ENSURE(d1.well_formed(dm));
             fml3 = to_formula(d1, dm);
             fml1 = m.mk_and(fml1, fml2);

@@ -63,7 +63,7 @@ namespace mbp {
         for (expr* e1 : *alit) {
             expr* e2;
             val = model(e1);
-            TRACE("qe", tout << mk_pp(e1, m) << " |-> " << val << "\n";);
+            TRACE(qe, tout << mk_pp(e1, m) << " |-> " << val << "\n";);
             if (val2expr.find(val, e2)) {
                 return expr_ref(m.mk_eq(e1, e2), m);
             }
@@ -193,8 +193,8 @@ namespace mbp {
         expr_ref val(m);
         model_evaluator eval(model);
         eval.set_expand_array_equalities(true);
-        TRACE("qe", tout << fmls << "\n";);
-        DEBUG_CODE(for (expr* fml : fmls) { CTRACE("qe", m.is_false(eval(fml)), tout << mk_pp(fml, m) << " is false\n" << model;); SASSERT(!m.is_false(eval(fml))); });
+        TRACE(qe, tout << fmls << "\n";);
+        DEBUG_CODE(for (expr* fml : fmls) { CTRACE(qe, m.is_false(eval(fml)), tout << mk_pp(fml, m) << " is false\n" << model;); SASSERT(!m.is_false(eval(fml))); });
 
         for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* nfml, * fml = fmls.get(i);
@@ -205,11 +205,11 @@ namespace mbp {
             else
                 extract_bools(eval, fmls, i, fml, true);
         }
-        TRACE("qe", tout << "fmls: " << fmls << "\n";);
+        TRACE(qe, tout << "fmls: " << fmls << "\n";);
     }
 
     void project_plugin::extract_bools(model_evaluator& eval, expr_ref_vector& fmls, unsigned idx, expr* fml, bool is_true) {
-        TRACE("qe", tout << "extract bools: " << mk_pp(fml, m) << "\n";);
+        TRACE(qe, tout << "extract bools: " << mk_pp(fml, m) << "\n";);
         if (!is_app(fml))
             return;
         m_to_visit.reset();

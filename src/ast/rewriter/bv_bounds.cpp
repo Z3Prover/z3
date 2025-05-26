@@ -22,7 +22,7 @@ bv_bounds::~bv_bounds() {
 }
 
 bv_bounds::conv_res bv_bounds::record(app * v, numeral lo, numeral hi, bool negated, vector<ninterval>& nis) {
-    TRACE("bv_bounds", tout << "record0 " << mk_ismt2_pp(v, m_m) << ":" << (negated ? "~[" : "[") << lo << ";" << hi << "]" << std::endl;);
+    TRACE(bv_bounds, tout << "record0 " << mk_ismt2_pp(v, m_m) << ":" << (negated ? "~[" : "[") << lo << ";" << hi << "]" << std::endl;);
     const unsigned bv_sz = m_bv_util.get_bv_size(v);
     const numeral& one = numeral::one();
     SASSERT(numeral::zero() <= lo);
@@ -54,7 +54,7 @@ bv_bounds::conv_res bv_bounds::record(app * v, numeral lo, numeral hi, bool nega
     }
     if (lo_min) lo = vmin;
     if (hi_max) hi = vmax;
-    TRACE("bv_bounds", tout << "record1 " << mk_ismt2_pp(v, m_m) << ":" << (negated ? "~[" : "[") << lo << ";" << hi << "]" << std::endl;);
+    TRACE(bv_bounds, tout << "record1 " << mk_ismt2_pp(v, m_m) << ":" << (negated ? "~[" : "[") << lo << ";" << hi << "]" << std::endl;);
     if (lo > hi) return negated ? CONVERTED : UNSAT;
     if (lo_min && hi_max) return negated ? UNSAT : CONVERTED;
     nis.resize(nis.size() + 1);
@@ -100,7 +100,7 @@ bool bv_bounds::is_uleq(expr * e, expr * & v, numeral & c) {
 }
 
 bv_bounds::conv_res bv_bounds::convert(expr * e, vector<ninterval>& nis, bool negated) {
-    TRACE("bv_bounds", tout << "new constraint: " << (negated ? "~" : "" ) << mk_ismt2_pp(e, m_m) << std::endl;);
+    TRACE(bv_bounds, tout << "new constraint: " << (negated ? "~" : "" ) << mk_ismt2_pp(e, m_m) << std::endl;);
 
     if (m_m.is_not(e)) {
         negated = !negated;
@@ -281,9 +281,9 @@ br_status bv_bounds::rewrite(unsigned limit, func_decl * f, unsigned num, expr *
     expr_ref_vector nargs(m_m);
     bool has_singls = false;
     for (unsigned i = 0; i < num && m_okay; ++i) {
-        TRACE("bv_bounds", tout << "check red: " << mk_ismt2_pp(args[i], m_m) << std::endl;);
+        TRACE(bv_bounds, tout << "check red: " << mk_ismt2_pp(args[i], m_m) << std::endl;);
         if (ignore[i]) {
-            TRACE("bv_bounds", tout << "unprocessed" << std::endl;);
+            TRACE(bv_bounds, tout << "unprocessed" << std::endl;);
             nargs.push_back(args[i]);
             continue;
         }
@@ -299,13 +299,13 @@ br_status bv_bounds::rewrite(unsigned limit, func_decl * f, unsigned num, expr *
             const numeral& one = numeral::one();
             if (!has_lower) tl = numeral::zero();
             if (!has_upper) th = (numeral::power_of_two(bv_sz) - one);
-            TRACE("bv_bounds", tout << "bounds: " << mk_ismt2_pp(v, m_m) << "[" << tl << "-" << th << "]" << std::endl;);
+            TRACE(bv_bounds, tout << "bounds: " << mk_ismt2_pp(v, m_m) << "[" << tl << "-" << th << "]" << std::endl;);
             is_singl = tl == th;
             nis_head = lengths[count];
         }
         if (!redundant && !is_singl) nargs.push_back(args[i]);
         has_singls |= is_singl;
-        CTRACE("bv_bounds", redundant, tout << "redundant: " << mk_ismt2_pp(args[i], m_m) << std::endl;);
+        CTRACE(bv_bounds, redundant, tout << "redundant: " << mk_ismt2_pp(args[i], m_m) << std::endl;);
         ++count;
     }
 
@@ -330,7 +330,7 @@ br_status bv_bounds::rewrite(unsigned limit, func_decl * f, unsigned num, expr *
 }
 
 bool bv_bounds::add_constraint(expr* e) {
-    TRACE("bv_bounds", tout << "new constraint" << mk_ismt2_pp(e, m_m) << std::endl;);
+    TRACE(bv_bounds, tout << "new constraint" << mk_ismt2_pp(e, m_m) << std::endl;);
     if (!m_okay) return false;
 
     bool negated = false;
@@ -450,7 +450,7 @@ bool bv_bounds::add_constraint(expr* e) {
 }
 
 bool bv_bounds::add_bound_unsigned(app * v, const numeral& a, const numeral& b, bool negate) {
-    TRACE("bv_bounds", tout << "bound_unsigned " << mk_ismt2_pp(v, m_m) << ": " << (negate ? "~[" : "[") << a << ";" << b << "]" << std::endl;);
+    TRACE(bv_bounds, tout << "bound_unsigned " << mk_ismt2_pp(v, m_m) << ": " << (negate ? "~[" : "[") << a << ";" << b << "]" << std::endl;);
     const unsigned bv_sz = m_bv_util.get_bv_size(v);
     const numeral& zero = numeral::zero();
     const numeral& one = numeral::one();
@@ -473,7 +473,7 @@ bool bv_bounds::add_bound_unsigned(app * v, const numeral& a, const numeral& b, 
 }
 
 bv_bounds::conv_res bv_bounds::convert_signed(app * v, const numeral& a, const numeral& b, bool negate, vector<ninterval>& nis) {
-    TRACE("bv_bounds", tout << "convert_signed " << mk_ismt2_pp(v, m_m) << ":" << (negate ? "~[" : "[") << a << ";" << b << "]" << std::endl;);
+    TRACE(bv_bounds, tout << "convert_signed " << mk_ismt2_pp(v, m_m) << ":" << (negate ? "~[" : "[") << a << ";" << b << "]" << std::endl;);
     const unsigned bv_sz = m_bv_util.get_bv_size(v);
     SASSERT(a <= b);
     const numeral& zero = numeral::zero();
@@ -497,7 +497,7 @@ bv_bounds::conv_res bv_bounds::convert_signed(app * v, const numeral& a, const n
 }
 
 bool bv_bounds::add_bound_signed(app * v, const numeral& a, const numeral& b, bool negate) {
-    TRACE("bv_bounds", tout << "bound_signed " << mk_ismt2_pp(v, m_m) << ":" << (negate ? "~" : " ") << a << ";" << b << std::endl;);
+    TRACE(bv_bounds, tout << "bound_signed " << mk_ismt2_pp(v, m_m) << ":" << (negate ? "~" : " ") << a << ";" << b << std::endl;);
     const unsigned bv_sz = m_bv_util.get_bv_size(v);
     SASSERT(a <= b);
     const numeral& zero = numeral::zero();
@@ -521,7 +521,7 @@ bool bv_bounds::add_bound_signed(app * v, const numeral& a, const numeral& b, bo
 
 bool bv_bounds::bound_lo(app * v, const numeral& l) {
     SASSERT(in_range(v, l));
-    TRACE("bv_bounds", tout << "lower " << mk_ismt2_pp(v, m_m) << ":" << l << std::endl;);
+    TRACE(bv_bounds, tout << "lower " << mk_ismt2_pp(v, m_m) << ":" << l << std::endl;);
     // l <= v
     auto& value = m_unsigned_lowers.insert_if_not_there(v, l);
     if (!(value < l)) return m_okay;
@@ -532,7 +532,7 @@ bool bv_bounds::bound_lo(app * v, const numeral& l) {
 
 bool bv_bounds::bound_up(app * v, const numeral& u) {
     SASSERT(in_range(v, u));
-    TRACE("bv_bounds", tout << "upper " << mk_ismt2_pp(v, m_m) << ":" << u << std::endl;);
+    TRACE(bv_bounds, tout << "upper " << mk_ismt2_pp(v, m_m) << ":" << u << std::endl;);
     // v <= u
     auto& value = m_unsigned_uppers.insert_if_not_there(v, u);
     if (!(u < value)) return m_okay;
@@ -542,7 +542,7 @@ bool bv_bounds::bound_up(app * v, const numeral& u) {
 }
 
 bool bv_bounds::add_neg_bound(app * v, const numeral& a, const numeral& b) {
-    TRACE("bv_bounds", tout << "negative bound " << mk_ismt2_pp(v, m_m) << ":" << a << ";" << b << std::endl;);
+    TRACE(bv_bounds, tout << "negative bound " << mk_ismt2_pp(v, m_m) << ":" << a << ";" << b << std::endl;);
     bv_bounds::interval negative_interval(a, b);
     SASSERT(m_bv_util.is_bv(v));
     SASSERT(a >= numeral::zero());
@@ -597,15 +597,15 @@ struct interval_comp_t {
 
 
 void bv_bounds::record_singleton(app * v, numeral& singleton_value) {
-    TRACE("bv_bounds", tout << "singleton:" << mk_ismt2_pp(v, m_m) << ":" << singleton_value << std::endl;);
+    TRACE(bv_bounds, tout << "singleton:" << mk_ismt2_pp(v, m_m) << ":" << singleton_value << std::endl;);
     SASSERT(!m_singletons.find(v, singleton_value));
     m_singletons.insert(v, singleton_value);
 }
 
 bool bv_bounds::is_sat(app * v) {
-    TRACE("bv_bounds", tout << "is_sat " << mk_ismt2_pp(v, m_m) << std::endl;);
+    TRACE(bv_bounds, tout << "is_sat " << mk_ismt2_pp(v, m_m) << std::endl;);
     const bool rv = is_sat_core(v);
-    TRACE("bv_bounds", tout << "is_sat " << mk_ismt2_pp(v, m_m) << "\nres: " << rv << std::endl;);
+    TRACE(bv_bounds, tout << "is_sat " << mk_ismt2_pp(v, m_m) << "\nres: " << rv << std::endl;);
     return rv;
 }
 
@@ -620,7 +620,7 @@ bool bv_bounds::is_sat_core(app * v) {
     const numeral& one = numeral::one();
     if (!has_lower) lower = numeral::zero();
     if (!has_upper) upper = (numeral::power_of_two(bv_sz) - one);
-    TRACE("bv_bounds", tout << "is_sat bound:" << lower << "-" << upper << std::endl;);
+    TRACE(bv_bounds, tout << "is_sat bound:" << lower << "-" << upper << std::endl;);
     intervals * negative_intervals(nullptr);
     const bool has_neg_intervals = m_negative_intervals.find(v, negative_intervals);
     bool is_sat(false);
@@ -641,9 +641,9 @@ bool bv_bounds::is_sat_core(app * v) {
                 if (new_hi > upper) new_hi = upper;
                 is_sat = true;
             }
-            TRACE("bv_bounds", tout << "is_sat new_lo, new_hi:" << new_lo << "-" << new_hi << std::endl;);
+            TRACE(bv_bounds, tout << "is_sat new_lo, new_hi:" << new_lo << "-" << new_hi << std::endl;);
             ptr = negative_upper + one;
-            TRACE("bv_bounds", tout << "is_sat ptr, new_hi:" << ptr << "-" << new_hi << std::endl;);
+            TRACE(bv_bounds, tout << "is_sat ptr, new_hi:" << ptr << "-" << new_hi << std::endl;);
             if (ptr > upper) break;
         }
     }
@@ -655,7 +655,7 @@ bool bv_bounds::is_sat_core(app * v) {
     }
     if (new_hi < upper) bound_up(v, new_hi);
     if (new_lo > lower) bound_lo(v, new_lo);
-    TRACE("bv_bounds", tout << "is_sat new_lo, new_hi:" << new_lo << "-" << new_hi << std::endl;);
+    TRACE(bv_bounds, tout << "is_sat new_lo, new_hi:" << new_lo << "-" << new_hi << std::endl;);
 
     const bool is_singleton = is_sat && new_hi == new_lo;
     if (is_singleton) record_singleton(v, new_lo);

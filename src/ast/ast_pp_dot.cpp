@@ -81,7 +81,7 @@ private:
     }
     
     void pp_step(const proof * p) {
-        TRACE("pp_ast_dot_step", tout << " :kind " << p->get_kind() << " :num-args " << p->get_num_args() << "\n";);
+        TRACE(pp_ast_dot_step, tout << " :kind " << p->get_kind() << " :num-args " << p->get_num_args() << "\n";);
         if (m().has_fact(p)) {
             // print result
             expr* p_res = m().get_fact(p); // result of proof step

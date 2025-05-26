@@ -75,7 +75,7 @@ namespace datalog {
                 if (!f) continue;
                 expr_ref body(m);
                 unsigned arity_q = q->get_arity();
-                TRACE("dl",
+                TRACE(dl,
                       model_v2_pp(tout, *model);
                       tout << mk_pp(p, m) << "\n";
                       tout << mk_pp(q, m) << "\n";);
@@ -242,7 +242,7 @@ namespace datalog {
             m_context.get_rule_manager().to_formula(*r2.get(), fml1);
             m_blaster(fml1, fml2, pr);
             m_rewriter(fml2, fml3);
-            TRACE("dl", tout << fml << "\n-> " << fml1 << "\n-> " << fml2 << "\n-> " << fml3 << "\n";);
+            TRACE(dl, tout << fml << "\n-> " << fml1 << "\n-> " << fml2 << "\n-> " << fml3 << "\n";);
             if (fml3 != fml) {
                 fml = fml3;
                 return true;
@@ -281,9 +281,9 @@ namespace datalog {
             for (unsigned i = 0; !m_context.canceled() && i < sz; ++i) {
                 rule * r = source.get_rule(i);
                 rm.to_formula(*r, fml);
-                TRACE("dl", tout << fml << "\n";);
+                TRACE(dl, tout << fml << "\n";);
                 if (blast(r, fml)) {
-                    TRACE("dl", tout << "blasted: " << fml << "\n";);
+                    TRACE(dl, tout << "blasted: " << fml << "\n";);
                     proof_ref pr(m);
                     if (r->get_proof()) {
                         scoped_proof _sc(m);
@@ -317,7 +317,7 @@ namespace datalog {
                 }
                 m_context.add_model_converter(concat(bvmc, fmc));
             }
-            CTRACE("dl", result, result->display(tout););
+            CTRACE(dl, result, result->display(tout););
             return result.detach();
         }
     };

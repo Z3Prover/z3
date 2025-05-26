@@ -203,7 +203,7 @@ namespace opt {
         return true;
     }
 
-#define PASSERT(_e_) { CTRACE("qe", !(_e_), display(tout, r); display(tout);); SASSERT(_e_); }
+#define PASSERT(_e_) { CTRACE(qe, !(_e_), display(tout, r); display(tout);); SASSERT(_e_); }
 
     bool model_based_opt::invariant(unsigned index, row const& r) {
         vector<var> const& vars = r.m_vars;
@@ -250,7 +250,7 @@ namespace opt {
     inf_eps model_based_opt::maximize() {
         SASSERT(invariant());
         unsigned_vector bound_trail, bound_vars;
-        TRACE("opt", display(tout << "tableau\n"););
+        TRACE(opt, display(tout << "tableau\n"););
         while (!objective().m_vars.empty()) {
             var v = objective().m_vars.back();
             unsigned x = v.m_id;
@@ -259,7 +259,7 @@ namespace opt {
             rational bound_coeff;
             if (find_bound(x, bound_row_index, bound_coeff, coeff.is_pos())) {
                 SASSERT(!bound_coeff.is_zero());
-                TRACE("opt", display(tout << "update: " << v << " ", objective());
+                TRACE(opt, display(tout << "update: " << v << " ", objective());
                       for (unsigned above : m_above) {
                           display(tout << "resolve: ", m_rows[above]);
                       });
@@ -280,7 +280,7 @@ namespace opt {
                 bound_vars.push_back(x);
             }
             else {
-                TRACE("opt", display(tout << "unbound: " << v << " ", objective()););
+                TRACE(opt, display(tout << "unbound: " << v << " ", objective()););
                 update_values(bound_vars, bound_trail);
                 return inf_eps::infinity();
             }
@@ -364,7 +364,7 @@ namespace opt {
                     new_x_val += eps;
                 }
             }
-            TRACE("opt", display(tout << "v" << x 
+            TRACE(opt, display(tout << "v" << x 
                                  << " coeff_x: " << x_coeff 
                                  << " old_x_val: " << old_x_val
                                  << " new_x_val: " << new_x_val
@@ -558,7 +558,7 @@ namespace opt {
         if (m_rows[row_dst].m_alive) {
             rational a2 = get_coefficient(row_dst, x);
             if (is_int(x)) {
-                TRACE("opt", 
+                TRACE(opt, 
                       tout << "v" << x << ": " << a1 << " " << a2 << ":\n";
                       display(tout, m_rows[row_dst]);
                       display(tout, m_rows[row_src]););
@@ -569,7 +569,7 @@ namespace opt {
                     mul(row_dst, abs(a1));
                     mul_add(false, row_dst, -abs(a2), row_src);
                 }
-                TRACE("opt", display(tout << "result ", m_rows[row_dst]););
+                TRACE(opt, display(tout << "result ", m_rows[row_dst]););
                 normalize(row_dst);
             }
             else {
@@ -621,7 +621,7 @@ namespace opt {
 
 
         if (use_case1) {
-            TRACE("opt", tout << "slack: " << slack << " " << src_c << " " << dst_val << " " << dst_c << " " << src_val << "\n";);
+            TRACE(opt, tout << "slack: " << slack << " " << src_c << " " << dst_val << " " << dst_c << " " << src_val << "\n";);
             // dst <- abs_src_c*dst + abs_dst_c*src + slack
             mul(row_dst, abs_src_c);
             add(row_dst, slack);
@@ -696,7 +696,7 @@ namespace opt {
         //    exists z in [0 .. |b|-2] . |b| | (z + s) && a*n_sign(b)(s + z) + |b|t <= 0
         //
 
-        TRACE("qe", tout << "finite disjunction " << distance << " " << src_c << " " << dst_c << "\n";); 
+        TRACE(qe, tout << "finite disjunction " << distance << " " << src_c << " " << dst_c << "\n";); 
         vector<var> coeffs;
         if (abs_dst_c <= abs_src_c) {
             rational z = mod(dst_val, abs_dst_c);
@@ -1174,7 +1174,7 @@ namespace opt {
                 result = def::from_row(m_rows[lub_index], x);            
             else 
                 result = def::from_row(m_rows[glb_index], x);
-            TRACE("opt1", display(tout << "resolution result:", *result) << "\n");
+            TRACE(opt1, display(tout << "resolution result:", *result) << "\n");
         }
 
         // The number of matching lower and upper bounds is small.
@@ -1271,7 +1271,7 @@ namespace opt {
         def_ref result(nullptr);
         unsigned_vector div_rows(_div_rows), mod_rows(_mod_rows);
         SASSERT(!div_rows.empty() || !mod_rows.empty());
-        TRACE("opt", display(tout << "solve_div v" << x << "\n"));
+        TRACE(opt, display(tout << "solve_div v" << x << "\n"));
 
         rational K(1);
         for (unsigned ri : div_rows)
@@ -1494,11 +1494,11 @@ namespace opt {
 
             result = *(*y_def * K) + *z_def;
             m_var2value[x] = eval(*result);
-            TRACE("opt", tout << y << " := " << *y_def << "\n";
+            TRACE(opt, tout << y << " := " << *y_def << "\n";
                          tout << z << " := " << *z_def << "\n";
                          tout << x << " := " << *result << "\n");
         }
-        TRACE("opt", display(tout << "solve_div done v" << x << "\n"));
+        TRACE(opt, display(tout << "solve_div done v" << x << "\n"));
         return result;
     }
 
@@ -1527,7 +1527,7 @@ namespace opt {
             throw default_exception("modulo 0 is not defined");
         }
         if (D.is_neg()) D = abs(D);
-        TRACE("opt1", display(tout << "lcm: " << D << " x: v" << x << " tableau\n"););
+        TRACE(opt1, display(tout << "lcm: " << D << " x: v" << x << " tableau\n"););
         rational val_x = m_var2value[x];
         rational u = mod(val_x, D);
         SASSERT(u.is_nonneg() && u < D);
@@ -1536,7 +1536,7 @@ namespace opt {
             SASSERT(invariant(idx, m_rows[idx]));
             normalize(idx);
         }
-        TRACE("opt1", display(tout << "tableau after replace x under mod\n"););
+        TRACE(opt1, display(tout << "tableau after replace x under mod\n"););
         //
         // update inequalities such that u is added to t and
         // D is multiplied to coefficient of x.
@@ -1559,13 +1559,13 @@ namespace opt {
             visited.insert(row_id);
             normalize(row_id);            
         }
-        TRACE("opt1", display(tout << "tableau after replace v" << x << " := " << D << " * v" << y << "\n"););
+        TRACE(opt1, display(tout << "tableau after replace v" << x << " := " << D << " * v" << y << "\n"););
         def_ref result = project(y, compute_def);
         if (compute_def) {
             result = *(*result * D) + u;
             m_var2value[x] = eval(*result);
         }
-        TRACE("opt1", display(tout << "tableau after project v" << y << "\n"););
+        TRACE(opt1, display(tout << "tableau after project v" << y << "\n"););
 	
         return result;
     }
@@ -1631,7 +1631,7 @@ namespace opt {
     // 3 | -t  & 21 | (-ct + 3s) & a-t <= 3u
 
     model_based_opt::def_ref model_based_opt::solve_for(unsigned row_id1, unsigned x, bool compute_def) {
-        TRACE("opt", tout << "v" << x << " := " << eval(x) << "\n" << m_rows[row_id1] << "\n";
+        TRACE(opt, tout << "v" << x << " := " << eval(x) << "\n" << m_rows[row_id1] << "\n";
         display(tout));
         rational a = get_coefficient(row_id1, x), b;
         row& r1 = m_rows[row_id1];
@@ -1690,10 +1690,10 @@ namespace opt {
         if (compute_def) {
             result = def::from_row(m_rows[row_id1], x);
             m_var2value[x] = eval(*result);
-            TRACE("opt1", tout << "updated eval " << x << " := " << eval(x) << "\n";);
+            TRACE(opt1, tout << "updated eval " << x << " := " << eval(x) << "\n";);
         }
         retire_row(row_id1);
-        TRACE("opt", display(tout << "solved v" << x << "\n"));
+        TRACE(opt, display(tout << "solved v" << x << "\n"));
         return result;
     }
 
@@ -1709,7 +1709,7 @@ namespace opt {
             m_result.push_back(project(vars[i], compute_def));
             if (compute_def)
                 eliminate(vars[i], *(m_result.back()));
-            TRACE("opt", display(tout << "After projecting: v" << vars[i] << "\n"););
+            TRACE(opt, display(tout << "After projecting: v" << vars[i] << "\n"););
         }
         return m_result;
     }

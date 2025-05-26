@@ -164,7 +164,7 @@ namespace qe {
         }
         model_evaluator eval(*mdl);
         eval.set_model_completion(true);
-        TRACE("qe_assumptions", model_v2_pp(tout, *mdl););
+        TRACE(qe_assumptions, model_v2_pp(tout, *mdl););
 
         expr_ref val(m);
         for (unsigned i = 0; i <= level-1; ++i) {
@@ -204,7 +204,7 @@ namespace qe {
                 }
             }
         }
-        TRACE("qe_assumptions", tout << "level: " << level << "\n";
+        TRACE(qe_assumptions, tout << "level: " << level << "\n";
               model_v2_pp(tout, *mdl);
               display(tout, asms););
     }
@@ -251,13 +251,13 @@ namespace qe {
             
             mark.mark(a);
             if (m_lit2pred.find(a, p)) {
-                TRACE("qe", tout << mk_pp(a, m) << " " << mk_pp(p, m) << "\n";);
+                TRACE(qe, tout << mk_pp(a, m) << " " << mk_pp(p, m) << "\n";);
                 level.merge(m_elevel.find(p));
                 continue;
             }
             
             if (is_uninterp_const(a) && m.is_bool(a)) {
-                TRACE("qe", tout << mk_pp(a, m) << "\n";);
+                TRACE(qe, tout << mk_pp(a, m) << "\n";);
                 l = m_elevel.find(a);
                 level.merge(l);                
                 if (!m_pred2lit.contains(a)) {
@@ -277,7 +277,7 @@ namespace qe {
                 (!m.is_distinct(a) || a->get_num_args() == 0 || m.is_bool(a->get_arg(0)));
             
             if (!is_boolop && m.is_bool(a)) {
-                TRACE("qe", tout << mk_pp(a, m) << "\n";);
+                TRACE(qe, tout << mk_pp(a, m) << "\n";);
                 r = fresh_bool("p");
                 max_level l = compute_level(a);
                 add_pred(r, a);
@@ -356,7 +356,7 @@ namespace qe {
         app *b;
         expr *c, *d;
         max_level lvl2;
-        TRACE("qe", tout << mk_pp(a, m) << " " << lvl << "\n";);
+        TRACE(qe, tout << mk_pp(a, m) << " " << lvl << "\n";);
         if (m_asm2pred.find(a, b)) 
             q = b;        
         else if (m.is_not(a, c) && m_asm2pred.find(c, b)) 
@@ -384,7 +384,7 @@ namespace qe {
             fml = mk_abstract(fml);
             defs.push_back(m.mk_eq(p, fml));
             add_asm(p, a);
-            TRACE("qe", tout << mk_pp(a, m) << " |-> " << p << "\n";);
+            TRACE(qe, tout << mk_pp(a, m) << " |-> " << p << "\n";);
         }
         return q;
     }
@@ -515,7 +515,7 @@ namespace qe {
             val_b = model(b);
             if ((m.is_true(val_a) && m.is_false(val_b)) || 
                 (m.is_false(val_a) && m.is_true(val_b))) {
-                TRACE("qe", 
+                TRACE(qe, 
                       tout << model << "\n";
                       tout << mk_pp(a, m) << " := " << val_a << "\n";
                       tout << mk_pp(b, m) << " := " << val_b << "\n";
@@ -585,7 +585,7 @@ namespace qe {
         void get_core(expr_ref_vector& core) {
             core.reset();
             m_solver->get_unsat_core(core);
-            TRACE("qe_core", m_solver->display(tout << "core: " << core << "\n") << "\n";);
+            TRACE(qe_core, m_solver->display(tout << "core: " << core << "\n") << "\n";);
         }
     };
 
@@ -636,26 +636,26 @@ namespace qe {
             while (true) {
                 ++m_stats.m_num_rounds;
                 IF_VERBOSE(1, verbose_stream() << "(check-qsat level: " << m_level << " round: " << m_stats.m_num_rounds << ")\n";);
-                TRACE("qe",
+                TRACE(qe,
                       tout << "level: " << m_level << " round: " << m_stats.m_num_rounds << "\n");
                 check_cancel();
                 expr_ref_vector asms(m_asms);
                 m_pred_abs.get_assumptions(m_model.get(), asms);
                 if (m_model.get()) 
                     validate_assumptions(*m_model.get(), asms);
-                TRACE("qe", tout << asms << "\n";);
+                TRACE(qe, tout << asms << "\n";);
                 solver& s = get_kernel(m_level).s();
                 lbool res = s.check_sat(asms);
                 switch (res) {
                 case l_true:
                     s.get_model(m_model);
-                    CTRACE("qe", !m_model, tout << "no model\n");
+                    CTRACE(qe, !m_model, tout << "no model\n");
                     if (!m_model)
                         return l_undef;
                     SASSERT(validate_defs("check_sat"));
                     SASSERT(!m_model.get() || validate_assumptions(*m_model.get(), asms));
                     SASSERT(validate_model(asms));
-                    TRACE("qe", s.display(tout); display(tout << "\n", *m_model.get()); display(tout, asms); );
+                    TRACE(qe, s.display(tout); display(tout << "\n", *m_model.get()); display(tout, asms); );
                     if (m_level == 0) 
                         m_model_save = m_model;
                     push();
@@ -689,7 +689,7 @@ namespace qe {
                     }
                     break;
                 case l_undef:
-                    TRACE("qe", tout << "check-sat is undef\n");
+                    TRACE(qe, tout << "check-sat is undef\n");
                     return res;
                 }
             }
@@ -785,7 +785,7 @@ namespace qe {
             while (!vars.empty());
             SASSERT(m_vars.back().empty()); 
             initialize_levels();
-            TRACE("qe", tout << fml << "\n";);
+            TRACE(qe, tout << fml << "\n";);
         }
 
         void check_sort(sort* s) {
@@ -817,7 +817,7 @@ namespace qe {
         
         bool validate_defs(char const* msg) {
             if (m_model.get() && !m_pred_abs.validate_defs(*m_model.get())) {
-                TRACE("qe", 
+                TRACE(qe, 
                       tout << msg << "\n";
                       display(tout);
                       if (m_level > 0) {
@@ -843,7 +843,7 @@ namespace qe {
 
         bool minimize_core(expr_ref_vector& core, unsigned level) {
             expr_ref_vector core1(m), core2(m), dels(m);
-            TRACE("qe", tout << core.size() << "\n";);
+            TRACE(qe, tout << core.size() << "\n";);
             mus mus(get_kernel(level).s());
             for (expr* arg : core) {
                 app* a = to_app(arg);
@@ -857,12 +857,12 @@ namespace qe {
                     mus.add_assumption(a);
                 }
             }
-            TRACE("qe", tout << core1.size() << " " << core2.size() << "\n";);
+            TRACE(qe, tout << core1.size() << " " << core2.size() << "\n";);
             if (core1.size() > 8) {
                 if (l_true != mus.get_mus(core2)) {
                     return false;
                 }
-                TRACE("qe", tout << core1.size() << " -> " << core2.size() << "\n";);
+                TRACE(qe, tout << core1.size() << " -> " << core2.size() << "\n";);
                 core.reset();
                 core.append(core2);
             }
@@ -927,7 +927,7 @@ namespace qe {
                 
         bool project(expr_ref_vector& core) {
             get_core(core, m_level);
-            TRACE("qe", display(tout); display(tout << "core\n", core););
+            TRACE(qe, display(tout); display(tout << "core\n", core););
             SASSERT(m_level >= 2);
             expr_ref fml(m); 
             expr_ref_vector defs(m), core_save(m);
@@ -937,7 +937,7 @@ namespace qe {
             SASSERT(validate_project(mdl, core));
             mdl.set_inline();
             m_mbp(force_elim(), m_avars, mdl, core);
-            TRACE("qe", tout << "aux vars: " << m_avars << "\n";);
+            TRACE(qe, tout << "aux vars: " << m_avars << "\n";);
             for (app* v : m_avars) m_pred_abs.ensure_expr_level(v, m_level-1);
             m_free_vars.append(m_avars);
             fml = negate_core(core);
@@ -952,7 +952,7 @@ namespace qe {
             }
             else if (level.max() + 2 > m_level) {
                 // fishy - this can happen.
-                TRACE("qe", tout << "max-level: " << level.max() << " level: " << m_level << "\n");
+                TRACE(qe, tout << "max-level: " << level.max() << " level: " << m_level << "\n");
                 return false;
             }
             else {
@@ -964,13 +964,13 @@ namespace qe {
             }
             
             pop(num_scopes); 
-            TRACE("qe", tout << "backtrack: " << num_scopes << " new level: " << m_level << "\nproject:\n" << core << "\n|->\n" << fml << "\n";);
+            TRACE(qe, tout << "backtrack: " << num_scopes << " new level: " << m_level << "\nproject:\n" << core << "\n|->\n" << fml << "\n";);
             if (m_level == 0 && m_mode != qsat_sat) {
                 add_assumption(fml);
             }
             else {
                 fml = m_pred_abs.mk_abstract(fml);
-                TRACE("qe_block", tout << "Blocking fml at level: " << m_level << "\n" << fml << "\n";);
+                TRACE(qe_block, tout << "Blocking fml at level: " << m_level << "\n" << fml << "\n";);
                 get_kernel(m_level).assert_blocking_fml(fml);
             }
             SASSERT(!m_model.get());
@@ -1044,13 +1044,13 @@ namespace qe {
                     bool is_fa = ::is_forall(q);
                     tmp = q->get_expr();
                     extract_vars(q, tmp, vars);
-                    TRACE("qe", tout << vars << " " << mk_pp(q, m) << " " << tmp << "\n";);
+                    TRACE(qe, tout << vars << " " << mk_pp(q, m) << " " << tmp << "\n";);
                     tmp = elim_rec(tmp);
                     if (is_fa) {
                         tmp = ::push_not(tmp);
                     }
                     
-                    TRACE("qe", tout << "elim-rec " << tmp << "\n";);
+                    TRACE(qe, tout << "elim-rec " << tmp << "\n";);
                     tmp = elim(vars, tmp);
                     if (!tmp) {
                         visited.insert(e, e);
@@ -1061,7 +1061,7 @@ namespace qe {
                         tmp = ::push_not(tmp);
                     }
                     trail.push_back(tmp);
-                    TRACE("qe", tout << tmp << "\n";);
+                    TRACE(qe, tout << tmp << "\n";);
                     visited.insert(e, tmp);
                     todo.pop_back();
                     break;
@@ -1080,7 +1080,7 @@ namespace qe {
          */
         expr_ref elim(app_ref_vector& vars, expr* _fml) {
             expr_ref fml(_fml, m);
-            TRACE("qe", tout << vars << ": " << fml << "\n";);
+            TRACE(qe, tout << vars << ": " << fml << "\n";);
             expr_ref_vector defs(m);
             if (has_quantifiers(fml)) {
                 return expr_ref(m);
@@ -1098,7 +1098,7 @@ namespace qe {
             m_fa.assert_expr(mk_and(defs));
             m_ex.assert_expr(fml);
             m_fa.assert_expr(m.mk_not(fml));
-            TRACE("qe", tout << "ex: " << fml << "\n";);
+            TRACE(qe, tout << "ex: " << fml << "\n";);
             lbool is_sat = check_sat();
             
             unsigned j = 0;
@@ -1121,7 +1121,7 @@ namespace qe {
         bool validate_assumptions(model& mdl, expr_ref_vector const& core) {
             for (expr* c : core) {
                 if (!mdl.is_true(c)) {
-                    TRACE("qe", tout << "component of core is not true: " << mk_pp(c, m) << "\n";
+                    TRACE(qe, tout << "component of core is not true: " << mk_pp(c, m) << "\n";
                           tout << mdl << "\n";);
                     if (mdl.is_false(c)) {
                         return false;
@@ -1134,7 +1134,7 @@ namespace qe {
         bool validate_core(model& mdl, expr_ref_vector const& core) {
             return true;
 #if 0
-            TRACE("qe", tout << "Validate core\n";);
+            TRACE(qe, tout << "Validate core\n";);
             solver& s = get_kernel(m_level).s();
             expr_ref_vector fmls(m);
             fmls.append(core.size(), core.c_ptr());
@@ -1150,7 +1150,7 @@ namespace qe {
                 solver.assert_expr(fmls[i]);
             }
             lbool is_sat = solver.check();
-            CTRACE("qe", is_sat != l_false, 
+            CTRACE(qe, is_sat != l_false, 
                    tout << fmls << "\nare not unsat\n";);
             return (is_sat == l_false) || !m.inc();
         }
@@ -1158,7 +1158,7 @@ namespace qe {
         bool validate_model(expr_ref_vector const& asms) {
             return true;
 #if 0
-            TRACE("qe", tout << "Validate model\n";);
+            TRACE(qe, tout << "Validate model\n";);
             solver& s = get_kernel(m_level).s();
             expr_ref_vector fmls(m);
             s.get_assertions(fmls);
@@ -1172,7 +1172,7 @@ namespace qe {
             expr_ref val(m);
             for (unsigned i = 0; i < sz; ++i) {
                 if (!m_model->is_true(fmls[i]) && m.inc()) {
-                    TRACE("qe", tout << "Formula does not evaluate to true in model: " << mk_pp(fmls[i], m) << "\n";);
+                    TRACE(qe, tout << "Formula does not evaluate to true in model: " << mk_pp(fmls[i], m) << "\n";);
                     return false;
                 } 
             }               
@@ -1189,18 +1189,18 @@ namespace qe {
         bool validate_project(model& mdl, expr_ref_vector const& core) {
             return true;
 #if 0
-            TRACE("qe", tout << "Validate projection\n";);
+            TRACE(qe, tout << "Validate projection\n";);
             if (!validate_model(mdl, core.size(), core.c_ptr())) return false;
 
             expr_ref_vector proj(core);
             app_ref_vector vars(m_avars);
             m_mbp(false, vars, mdl, proj);
             if (!vars.empty()) {
-                TRACE("qe", tout << "Not validating partial projection\n";);
+                TRACE(qe, tout << "Not validating partial projection\n";);
                 return true;
             }
             if (!validate_model(mdl, proj.size(), proj.c_ptr())) {
-                TRACE("qe", tout << "Projection is false in model\n";);
+                TRACE(qe, tout << "Projection is false in model\n";);
                 return false;
             }
             if (!m.inc()) {
@@ -1209,7 +1209,7 @@ namespace qe {
             for (unsigned i = 0; i < m_avars.size(); ++i) {
                 contains_app cont(m, m_avars.get(i));
                 if (cont(proj)) {
-                    TRACE("qe", tout << "Projection contains free variable: " << mk_pp(m_avars.get(i), m) << "\n";);
+                    TRACE(qe, tout << "Projection contains free variable: " << mk_pp(m_avars.get(i), m) << "\n";);
                     return false;
                 }
             }
@@ -1229,7 +1229,7 @@ namespace qe {
             }
             fmls.push_back(m.mk_not(mk_and(proj)));
             if (!check_fmls(fmls)) {
-                TRACE("qe", tout << "implication check failed, could be due to turning != into >\n";);
+                TRACE(qe, tout << "implication check failed, could be due to turning != into >\n";);
             }
             return true;
 #endif
@@ -1288,7 +1288,7 @@ namespace qe {
             // fail if cores.  (TBD)
             // fail if proofs. (TBD)
             
-            TRACE("qe", tout << fml << "\n";);
+            TRACE(qe, tout << fml << "\n";);
 
             if (m_mode == qsat_qe_rec) {
                 fml = elim_rec(fml);
@@ -1313,7 +1313,7 @@ namespace qe {
             m_fa.assert_expr(mk_and(defs));
             m_ex.assert_expr(fml);
             m_fa.assert_expr(m.mk_not(fml));
-            TRACE("qe", tout << "ex: " << fml << "\n";);
+            TRACE(qe, tout << "ex: " << fml << "\n";);
             lbool is_sat = check_sat();
             switch (is_sat) {
             case l_false:
@@ -1421,7 +1421,7 @@ namespace qe {
         void maximize_core(expr_ref_vector const& core, model& mdl) {
             SASSERT(m_value);
             SASSERT(m_objective);
-            TRACE("qe", tout << "maximize: " << core << "\n";);
+            TRACE(qe, tout << "maximize: " << core << "\n";);
             m_was_sat |= !core.empty();
             expr_ref bound(m);
             *m_value = m_value_save;

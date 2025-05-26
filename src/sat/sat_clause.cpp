@@ -178,7 +178,7 @@ namespace sat {
         size_t size = clause::get_obj_size(num_lits);
         void * mem = m_allocator.allocate(size);
         clause * cls = new (mem) clause(m_id_gen.mk(), num_lits, lits, learned);
-        TRACE("sat_clause", tout << "alloc: " << cls->id() << " " << *cls << " " << (learned?"l":"a") << "\n";);
+        TRACE(sat_clause, tout << "alloc: " << cls->id() << " " << *cls << " " << (learned?"l":"a") << "\n";);
         SASSERT(!learned || cls->is_learned());
         return cls;
     }
@@ -196,7 +196,7 @@ namespace sat {
     }
 
     void clause_allocator::del_clause(clause * cls) {
-        TRACE("sat_clause", tout << "delete: " << cls->id() << " " << *cls << "\n";);
+        TRACE(sat_clause, tout << "delete: " << cls->id() << " " << *cls << "\n";);
         m_id_gen.recycle(cls->id());
         size_t size = clause::get_obj_size(cls->m_capacity);
         cls->~clause();

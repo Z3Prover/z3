@@ -82,7 +82,7 @@ class nla2bv_tactic : public tactic {
         void updt_params(params_ref const& p)  {} 
         
         void operator()(goal & g, model_converter_ref & mc) {
-            TRACE("nla2bv", g.display(tout);
+            TRACE(nla2bv, g.display(tout);
                   tout << "Muls: " << count_mul(g) << "\n";
                   );
             tactic_report report("nla->bv", g);
@@ -99,10 +99,10 @@ class nla2bv_tactic : public tactic {
                 return;
             }
             substitute_vars(g);
-            TRACE("nla2bv", g.display(tout << "substitute vars\n"));
+            TRACE(nla2bv, g.display(tout << "substitute vars\n"));
             reduce_bv2int(g);
             reduce_bv2real(g);
-            TRACE("nla2bv", g.display(tout << "after reduce\n"));
+            TRACE(nla2bv, g.display(tout << "after reduce\n"));
             mc = m_fmc.get();
             for (unsigned i = 0; i < m_vars.size(); ++i) 
                 m_fmc->add(m_vars.get(i), m_defs.get(i));
@@ -110,8 +110,8 @@ class nla2bv_tactic : public tactic {
                 m_fmc->hide(m_bv2real.get_aux_decl(i));
             }        
             IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(nla->bv :sat-preserving " << m_is_sat_preserving << ")\n";);
-            TRACE("nla2bv_verbose", g.display(tout));
-            TRACE("nla2bv", tout << "Muls: " << count_mul(g) << "\n");
+            TRACE(nla2bv_verbose, g.display(tout));
+            TRACE(nla2bv, tout << "Muls: " << count_mul(g) << "\n");
             g.inc_depth();
             if (!is_sat_preserving())
                 g.updt_prec(goal::UNDER);
@@ -134,7 +134,7 @@ class nla2bv_tactic : public tactic {
                 expr* w = m_bv.mk_ubv2int(m_bv.mk_bv_shl(m_bv.mk_numeral(1, num_bits), v));
                 m_trail.push_back(w);
                 m_subst.insert(kv.m_key, w);
-                TRACE("nla2bv", tout << mk_ismt2_pp(kv.m_key, m_manager) << " " << mk_ismt2_pp(w, m_manager) << "\n";);
+                TRACE(nla2bv, tout << mk_ismt2_pp(kv.m_key, m_manager) << " " << mk_ismt2_pp(w, m_manager) << "\n";);
             }
             // eliminate the variables that are power of two.
             substitute_vars(g);
@@ -174,7 +174,7 @@ class nla2bv_tactic : public tactic {
                 g.assert_expr(conditions[i]);
                 set_satisfiability_preserving(false);
             }
-            TRACE("nla2bv", 
+            TRACE(nla2bv, 
                   for (unsigned i = 0; i < sz; ++i) {
                       tout << mk_ismt2_pp(conditions[i], m_manager) << "\n";
                   });
@@ -229,7 +229,7 @@ class nla2bv_tactic : public tactic {
                 num_bits = log2(abs(*up - *low)+numeral(1));
             }
             else {
-                TRACE("nla2bv", tout << "no bounds for " << mk_ismt2_pp(n, m_manager) << "\n";);
+                TRACE(nla2bv, tout << "no bounds for " << mk_ismt2_pp(n, m_manager) << "\n";);
                 set_satisfiability_preserving(false);
             }
             bv_sort = m_bv.mk_sort(num_bits);
@@ -351,7 +351,7 @@ class nla2bv_tactic : public tactic {
                     m_no_arith = false;
                 }
                 else if (n->get_family_id() != m.get_basic_family_id()) {
-                    TRACE("nla2bv", tout << "Not supported: " << mk_ismt2_pp(n, m) << "\n";);
+                    TRACE(nla2bv, tout << "Not supported: " << mk_ismt2_pp(n, m) << "\n";);
                     m_in_supported_fragment = false;
                 }
                 m_imp.update_num_bits(n);

@@ -45,11 +45,11 @@ static void test1() {
     expr_ref yy(bv.mk_concat(y1, bv.mk_concat(y2, y3)), m);
     auto* nx = get_node(g, bv, xx);
     auto* ny = get_node(g, bv, yy);
-    TRACE("bv", tout << "before merge\n" << g << "\n");
+    TRACE(bv, tout << "before merge\n" << g << "\n");
     g.merge(nx, ny, nullptr);
-    TRACE("bv", tout << "before propagate\n" << g << "\n");
+    TRACE(bv, tout << "before propagate\n" << g << "\n");
     g.propagate();
-    TRACE("bv", tout << "after propagate\n" << g << "\n");
+    TRACE(bv, tout << "after propagate\n" << g << "\n");
     std::cout << g << "\n";
     SASSERT(nx->get_root() == ny->get_root());
 }
@@ -120,7 +120,7 @@ static void test4() {
     g.merge(get_node(g, bv, bv.mk_concat(a, x2)), get_node(g, bv, y), nullptr);
     g.merge(get_node(g, bv, x1), get_node(g, bv, a), nullptr);
     g.propagate();
-    TRACE("bv", tout << g << "\n");
+    TRACE(bv, tout << g << "\n");
     SASSERT(get_node(g, bv, bv.mk_extract(23, 8, x))->get_root() == get_node(g, bv, y)->get_root());
 }
 
@@ -138,11 +138,11 @@ static void test5() {
     expr_ref x2(bv.mk_extract(27, 0, x), m);
     auto* nx = get_node(g, bv, x1);
     auto* ny = get_node(g, bv, x2);
-    TRACE("bv", tout << "before merge\n" << g << "\n");
+    TRACE(bv, tout << "before merge\n" << g << "\n");
     g.merge(nx, ny, nullptr);
-    TRACE("bv", tout << "before propagate\n" << g << "\n");
+    TRACE(bv, tout << "before propagate\n" << g << "\n");
     g.propagate();
-    TRACE("bv", tout << "after propagate\n" << g << "\n");
+    TRACE(bv, tout << "after propagate\n" << g << "\n");
     std::cout << g << "\n";
 }
 
@@ -160,11 +160,11 @@ static void test6() {
     expr_ref x2(bv.mk_extract(28, 0, x), m);
     auto* nx = get_node(g, bv, x1);
     auto* ny = get_node(g, bv, x2);
-    TRACE("bv", tout << "before merge\n" << g << "\n");
+    TRACE(bv, tout << "before merge\n" << g << "\n");
     g.merge(nx, ny, nullptr);
-    TRACE("bv", tout << "before propagate\n" << g << "\n");
+    TRACE(bv, tout << "before propagate\n" << g << "\n");
     g.propagate();
-    TRACE("bv", tout << "after propagate\n" << g << "\n");
+    TRACE(bv, tout << "after propagate\n" << g << "\n");
     std::cout << g << "\n";
 }
 

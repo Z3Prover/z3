@@ -93,7 +93,7 @@ Z3_ast mk_max(Z3_context ctx, Z3_sort bv, bool is_signed) {
 
 void test_add(unsigned bvsize, bool is_signed) {
 
-    TRACE("no_overflow", tout << "test_add: bvsize = " << bvsize << ", is_signed = " << is_signed << "\n";);
+    TRACE(no_overflow, tout << "test_add: bvsize = " << bvsize << ", is_signed = " << is_signed << "\n";);
 
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -178,7 +178,7 @@ void test_add(unsigned bvsize, bool is_signed) {
 
 void test_sub(unsigned bvsize, bool is_signed) {
 
-    TRACE("no_overflow", tout << "test_sub: bvsize = " << bvsize << ", is_signed = " << is_signed << "\n";);
+    TRACE(no_overflow, tout << "test_sub: bvsize = " << bvsize << ", is_signed = " << is_signed << "\n";);
 
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -292,7 +292,7 @@ void test_sub(unsigned bvsize, bool is_signed) {
 
 void test_neg(unsigned bvsize) {
 
-    TRACE("no_overflow", tout << "test_neg: bvsize = " << bvsize << "\n";);
+    TRACE(no_overflow, tout << "test_neg: bvsize = " << bvsize << "\n";);
 
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -340,7 +340,7 @@ void test_neg(unsigned bvsize) {
 
 void test_mul(unsigned bvsize, bool is_signed) {
 
-    TRACE("no_overflow", tout << "test_mul: bvsize = " << bvsize << ", is_signed = " << is_signed << "\n";);
+    TRACE(no_overflow, tout << "test_mul: bvsize = " << bvsize << ", is_signed = " << is_signed << "\n";);
 
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -446,7 +446,7 @@ void test_mul(unsigned bvsize, bool is_signed) {
 
 void test_div(unsigned bvsize) {
 
-    TRACE("no_overflow", tout << "test_div: bvsize = " << bvsize << "\n";);
+    TRACE(no_overflow, tout << "test_div: bvsize = " << bvsize << "\n";);
 
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -571,7 +571,7 @@ Z3_ast Z3_API Z3_mk_bvmul_no_underflow_wrapper(Z3_context ctx, Z3_ast t1, Z3_ast
 
 void test_equiv(Equivalence_params params, unsigned bvsize, bool is_signed) {
 
-    TRACE("no_overflow", tout << "test_" << params.name << "_equiv: bvsize = " << bvsize << ", is_signed = " << is_signed << "\n";);
+    TRACE(no_overflow, tout << "test_" << params.name << "_equiv: bvsize = " << bvsize << ", is_signed = " << is_signed << "\n";);
 
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);

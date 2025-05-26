@@ -90,7 +90,7 @@ private:
         explanation ex;
         explain_fixed_in_row(r1, ex);
         explain_fixed_in_row(r2, ex);
-        TRACE("eq", print_row(tout, r1); print_row(tout, r2); tout << v1 << " == " << v2 << " = " << val(v1) << "\n");
+        TRACE(eq, print_row(tout, r1); print_row(tout, r2); tout << v1 << " == " << v2 << " = " << val(v1) << "\n");
         add_eq_on_columns(ex, v1, v2, true);
     }
 
@@ -162,12 +162,12 @@ public:
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
                     found_bound.set_explain(explain_bound);
-                    TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
+                    TRACE(add_bound, lp().print_implied_bound(found_bound, tout););
                 }
             } else {
                 m_improved_lower_bounds.insert(j, static_cast<unsigned>(m_ibounds.size()));
                 m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound));
-                TRACE("add_bound", lp().print_implied_bound(m_ibounds.back(), tout););
+                TRACE(add_bound, lp().print_implied_bound(m_ibounds.back(), tout););
             }
         } else {  // the upper bound case
             unsigned k;
@@ -178,12 +178,12 @@ public:
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
                     found_bound.set_explain(explain_bound);
-                    TRACE("add_bound", lp().print_implied_bound(found_bound, tout););
+                    TRACE(add_bound, lp().print_implied_bound(found_bound, tout););
                 }
             } else {
                 m_improved_upper_bounds.insert(j, static_cast<unsigned>(m_ibounds.size()));
                 m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound));
-                TRACE("add_bound", lp().print_implied_bound(m_ibounds.back(), tout););
+                TRACE(add_bound, lp().print_implied_bound(m_ibounds.back(), tout););
             }
         }
     }
@@ -217,7 +217,7 @@ public:
         SASSERT(je != ke && is_int(je) == is_int(ke));
         SASSERT(ival(je) == ival(ke));
 
-        TRACE("eq",
+        TRACE(eq,
               tout << "reported idx " << je << ", " << ke << "\n";
               lp().print_expl(tout, exp);
               tout << "theory_vars v" << lp().local_to_external(je) << " == v" << lp().local_to_external(ke) << "\n";);
@@ -247,7 +247,7 @@ public:
     }
 
     void explain_fixed_in_row(unsigned row, explanation& ex) {
-        TRACE("eq", tout << lp().get_row(row) << std::endl);
+        TRACE(eq, tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row))
             if (lp().column_is_fixed(c.var()))
                 lp().explain_fixed_column(c.var(), ex);
@@ -255,7 +255,7 @@ public:
 
     unsigned explain_fixed_in_row_and_get_base(unsigned row, explanation& ex) {
         unsigned base = UINT_MAX;
-        TRACE("eq", tout << lp().get_row(row) << std::endl);
+        TRACE(eq, tout << lp().get_row(row) << std::endl);
         for (const auto& c : lp().get_row(row)) {
             if (lp().column_is_fixed(c.var())) {
                 lp().explain_fixed_column(c.var(), ex);
@@ -342,7 +342,7 @@ public:
             try_add_equation_with_internal_fixed_tables(row_index);
             return;
         } 
-        TRACE("eq",
+        TRACE(eq,
               tout << "v_j = ";
               lp().print_column_info(v_j, tout) << std::endl;
               tout << "found j " << j << std::endl; lp().print_column_info(j, tout) << std::endl;
@@ -356,7 +356,7 @@ public:
 
     void cheap_eq_on_nbase(unsigned row_index) {
         reset_cheap_eq _reset(*this);
-        TRACE("eq", tout << "row_index = " << row_index << "\n";
+        TRACE(eq, tout << "row_index = " << row_index << "\n";
                     print_row(tout, row_index) << "\n";);
         if (!check_insert(m_visited_rows, row_index))
             return;
@@ -378,7 +378,7 @@ public:
         SASSERT(lp().is_base(y) == false);
         auto& table = y_sign == 1 ? m_row2index_pos : m_row2index_neg;
         table.insert(val(x), row_index);        
-        TRACE("eq", tout << "y = " << y << "\n";);    
+        TRACE(eq, tout << "y = " << y << "\n";);    
 
         for (const column_cell& c : lp().get_column(y)) {
             unsigned i = c.var();  // the running index of the row
@@ -406,7 +406,7 @@ public:
                     continue;
                 explain_fixed_in_row(found_i, ex);
                 explain_fixed_in_row(i, ex);
-                TRACE("eq", {
+                TRACE(eq, {
                     print_row(tout, i);
                     print_row(tout, found_i) << "\n";
                     lp().print_column_info(base_of_found, tout);

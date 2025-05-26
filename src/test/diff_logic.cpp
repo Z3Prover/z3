@@ -85,7 +85,7 @@ static void tst2() {
     ENSURE(g.enable_edge(g.add_edge(3, 0, rational(2), l4)));
     ENSURE(!g.enable_edge(g.add_edge(0, 1, rational(-1), l5)));
     ENSURE(!g.is_feasible_dbg());
-    TRACE("diff_logic", g.display(tout););
+    TRACE(diff_logic, g.display(tout););
     struct proc {
         bool_vector found;
         proc():
@@ -106,7 +106,7 @@ static void tst2() {
     ENSURE(p.found[6] == false);
     g.pop(1);
     ENSURE(g.is_feasible_dbg());
-    TRACE("diff_logic", g.display(tout););
+    TRACE(diff_logic, g.display(tout););
 }
 
 static int add_edge(dlg& g, dl_var src, dl_var dst, int weight, unsigned lit) {
@@ -138,7 +138,7 @@ static void tst3() {
     add_edge(g, 6, 10, 1, 610);
     add_edge(g, 8, 10, 1, 810);
     add_edge(g, 9, 10, 1, 910);
-    TRACE("diff_logic", g.display(tout););
+    TRACE(diff_logic, g.display(tout););
 
     int e38 = g.add_edge(3, 8, rational(3), smt::literal(38));
     std::cout << "Edge: " << e38 << "\n";

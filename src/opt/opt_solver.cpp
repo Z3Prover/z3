@@ -160,7 +160,7 @@ namespace opt {
     }
 
     lbool opt_solver::check_sat_core2(unsigned num_assumptions, expr * const * assumptions) {
-        TRACE("opt_verbose", {
+        TRACE(opt_verbose, {
             tout << "context size: " << m_context.size() << "\n";            
             for (unsigned i = 0; i < m_context.size(); ++i) {
                 tout << mk_pp(m_context.get_formula(i), m_context.m()) << "\n";
@@ -252,12 +252,12 @@ namespace opt {
         m_context.get_model(m_last_model);
         inf_eps val2;
         has_shared = true;
-        TRACE("opt", tout << (has_shared?"has shared":"non-shared") << " " << val << " " << blocker << "\n";
+        TRACE(opt, tout << (has_shared?"has shared":"non-shared") << " " << val << " " << blocker << "\n";
               if (m_last_model) tout << *m_last_model << "\n";);
         if (!m_models[i]) 
             m_models.set(i, m_last_model.get());
 
-        TRACE("opt", tout << "maximize " << i << " " << val << " " << m_objective_values[i] << " " << blocker << "\n";);
+        TRACE(opt, tout << "maximize " << i << " " << val << " " << m_objective_values[i] << " " << blocker << "\n";);
         if (val > m_objective_values[i]) {
             m_objective_values[i] = val;
         }
@@ -291,7 +291,7 @@ namespace opt {
             // skip model updates
         }
         else if (m_context.get_context().update_model(has_shared)) {
-            TRACE("opt", tout << "updated\n";);
+            TRACE(opt, tout << "updated\n";);
             m_last_model = nullptr;
             m_context.get_model(m_last_model);
             if (!m_last_model)
@@ -304,7 +304,7 @@ namespace opt {
         else if (!check_bound())
             return false;
         m_objective_values[i] = val;
-        TRACE("opt", { 
+        TRACE(opt, { 
                 tout << "objective:     " << mk_pp(m_objective_terms.get(i), m) << "\n";
                 tout << "maximal value: " << val << "\n"; 
                 tout << "new condition: " << blocker << "\n";
@@ -353,12 +353,12 @@ namespace opt {
         for (unsigned i = m_models.size(); i-- > 0; ) {
             auto* mdl = m_models[i];
             if (mdl) {
-                TRACE("opt", tout << "get " << i << "\n" << *mdl << "\n";);
+                TRACE(opt, tout << "get " << i << "\n" << *mdl << "\n";);
                 m = mdl;
                 return;
             }
         }        
-        TRACE("opt", tout << "get last\n";);
+        TRACE(opt, tout << "get last\n";);
         m = m_last_model.get();
     }
     
@@ -397,7 +397,7 @@ namespace opt {
         
     smt::theory_var opt_solver::add_objective(app* term) {
         smt::theory_var v = get_optimizer().add_objective(term);
-        TRACE("opt", tout << v << " " << mk_pp(term, m) << "\n";);
+        TRACE(opt, tout << v << " " << mk_pp(term, m) << "\n";);
         m_objective_vars.push_back(v);
         m_objective_values.push_back(inf_eps(rational::minus_one(), inf_rational()));
         m_objective_terms.push_back(term);
@@ -428,7 +428,7 @@ namespace opt {
         }
         smt::theory_opt& opt = get_optimizer();
         smt::theory_var v = m_objective_vars[var];
-        TRACE("opt", tout << "v" << var << " " << val << "\n";);
+        TRACE(opt, tout << "v" << var << " " << val << "\n";);
 
         if (typeid(smt::theory_inf_arith) == typeid(opt)) {
             smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 

@@ -83,13 +83,13 @@ unsigned lar_core_solver::get_number_of_non_ints() const {
 }
 
 void lar_core_solver::solve() {
-    TRACE("lar_solver", tout << m_r_solver.get_status() << "\n";);
+    TRACE(lar_solver, tout << m_r_solver.get_status() << "\n";);
     SASSERT(m_r_solver.non_basic_columns_are_set_correctly());
     SASSERT(m_r_solver.inf_heap_is_correct());
-	TRACE("find_feas_stats", tout << "infeasibles = " << m_r_solver.inf_heap_size() << ", int_infs = " << get_number_of_non_ints() << std::endl;);
+	TRACE(find_feas_stats, tout << "infeasibles = " << m_r_solver.inf_heap_size() << ", int_infs = " << get_number_of_non_ints() << std::endl;);
 	if (m_r_solver.current_x_is_feasible() && m_r_solver.m_look_for_feasible_solution_only) {
         m_r_solver.set_status(lp_status::OPTIMAL);
-        TRACE("lar_solver", tout << m_r_solver.get_status() << "\n";);
+        TRACE(lar_solver, tout << m_r_solver.get_status() << "\n";);
         return;
 	}
     ++m_r_solver.m_settings.stats().m_need_to_solve_inf;
@@ -118,7 +118,7 @@ void lar_core_solver::solve() {
     SASSERT(m_r_solver.non_basic_columns_are_set_correctly());
     SASSERT(m_r_solver.inf_heap_is_correct());
 
-  TRACE("lar_solver", tout << m_r_solver.get_status() << "\n";);
+  TRACE(lar_solver, tout << m_r_solver.get_status() << "\n";);
 }
 
 } // namespace lp

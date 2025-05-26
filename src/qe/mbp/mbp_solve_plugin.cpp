@@ -100,7 +100,7 @@ namespace mbp {
                     v = e;
                     a_val = rational(1)/a_val;
                     t = mk_term(is_int, a_val, sign, done);
-                    TRACE("qe", tout << mk_pp(e, m) << " := " << t << "\n";);
+                    TRACE(qe, tout << mk_pp(e, m) << " := " << t << "\n";);
                     return true;
                 }
                 else {

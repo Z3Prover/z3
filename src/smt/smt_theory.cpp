@@ -135,7 +135,7 @@ namespace smt {
         if (m.are_distinct(a, b))
             return false_literal;
         app_ref eq(ctx.mk_eq_atom(a, b), get_manager());
-        TRACE("mk_var_bug", tout << "mk_eq: " << eq->get_id() << " " << a->get_id() << " " << b->get_id() << "\n";
+        TRACE(mk_var_bug, tout << "mk_eq: " << eq->get_id() << " " << a->get_id() << " " << b->get_id() << "\n";
               tout << mk_ll_pp(a, get_manager()) << "\n" << mk_ll_pp(b, get_manager()););		
         ctx.internalize(eq, gate_ctx);
         return ctx.get_literal(eq);

@@ -53,7 +53,7 @@ br_status factor_rewriter::mk_eq(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
     if (!extract_factors()) {
-        TRACE("factor_rewriter", tout << mk_pp(arg1, m()) << " = " << mk_pp(arg2, m()) << "\n";);
+        TRACE(factor_rewriter, tout << mk_pp(arg1, m()) << " = " << mk_pp(arg2, m()) << "\n";);
         return BR_FAILED;
     }
     powers_t::iterator it = m_powers.begin(), end = m_powers.end();
@@ -74,7 +74,7 @@ br_status factor_rewriter::mk_le(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
     if (!extract_factors()) {
-        TRACE("factor_rewriter", tout << mk_pp(arg1, m()) << " <= " << mk_pp(arg2, m()) << "\n";);
+        TRACE(factor_rewriter, tout << mk_pp(arg1, m()) << " <= " << mk_pp(arg2, m()) << "\n";);
         return BR_FAILED;
     }
 
@@ -87,7 +87,7 @@ br_status factor_rewriter::mk_le(expr * arg1, expr * arg2, expr_ref & result) {
     mk_is_negative(neg, eqs);
     eqs.push_back(neg);
     result = m().mk_or(eqs.size(), eqs.data());
-    TRACE("factor_rewriter", 
+    TRACE(factor_rewriter, 
           tout << mk_pp(arg1, m()) << " <= " << mk_pp(arg2, m()) << "\n";
           tout << mk_pp(result.get(), m()) << "\n";);
     return BR_DONE;
@@ -101,7 +101,7 @@ br_status factor_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
     if (!extract_factors()) {
-        TRACE("factor_rewriter", tout << mk_pp(arg1, m()) << " < " << mk_pp(arg2, m()) << "\n";);
+        TRACE(factor_rewriter, tout << mk_pp(arg1, m()) << " < " << mk_pp(arg2, m()) << "\n";);
         return BR_FAILED;
     }
     // a^2 * b^3 * c < 0 -> 
@@ -116,7 +116,7 @@ br_status factor_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
     }
     eqs.push_back(neg);
     result = m().mk_and(eqs.size(), eqs.data());
-    TRACE("factor_rewriter", tout << mk_pp(result.get(), m()) << "\n";);
+    TRACE(factor_rewriter, tout << mk_pp(result.get(), m()) << "\n";);
     return BR_DONE;
 }
 
@@ -163,7 +163,7 @@ void factor_rewriter::mk_adds(expr* arg1, expr* arg2) {
         bool sign = m_adds[i].second;
         expr* _e   = m_adds[i].first;
 
-        TRACE("factor_rewriter", tout << i << " " << mk_pp(_e, m_manager) << "\n";);
+        TRACE(factor_rewriter, tout << i << " " << mk_pp(_e, m_manager) << "\n";);
 
         if (!is_app(_e)) {
             ++i;
@@ -195,7 +195,7 @@ void factor_rewriter::mk_adds(expr* arg1, expr* arg2) {
             ++i;
         }
     }
-    TRACE("factor_rewriter",
+    TRACE(factor_rewriter,
         for (unsigned i = 0; i < m_adds.size(); ++i) {
             if (!m_adds[i].second) tout << "-"; else tout << "+";
             tout << mk_pp(m_adds[i].first, m()) << " ";
@@ -216,7 +216,7 @@ void factor_rewriter::mk_muls() {
             --i;
         }
     }
-    TRACE("factor_rewriter", 
+    TRACE(factor_rewriter, 
         for (unsigned i = 0; i < m_muls.size(); ++i) {
             for (unsigned j = 0; j < m_muls[i].size(); ++j) {
                 tout << mk_pp(m_muls[i][j], m()) << " ";
@@ -329,7 +329,7 @@ bool factor_rewriter::extract_factors() {
         m_factors.push_back(a().mk_add(trail.size(), trail.data()));
         break;
     }
-    TRACE("factor_rewriter",
+    TRACE(factor_rewriter,
         for (unsigned i = 0; i < m_factors.size(); ++i) {
             tout << mk_pp(m_factors[i].get(), m()) << " ";
         }

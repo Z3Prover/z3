@@ -33,7 +33,7 @@ static void tst2() {
     int r = rand() % 10;
     b << r;
   }
-  TRACE("string_buffer", tout << b.c_str() << "\n";);
+  TRACE(string_buffer, tout << b.c_str() << "\n";);
   ENSURE(strlen(b.c_str()) == 10000);
 }
 

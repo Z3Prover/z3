@@ -548,7 +548,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         func_decl * f_prime = nullptr;
         expr_ref new_t(m()), new_e(m()), common(m());
         bool first;
-        TRACE("push_ite", tout << "unifying:\n" << mk_ismt2_pp(t, m()) << "\n" << mk_ismt2_pp(e, m()) << "\n";);
+        TRACE(push_ite, tout << "unifying:\n" << mk_ismt2_pp(t, m()) << "\n" << mk_ismt2_pp(e, m()) << "\n";);
         if (unify(t, e, f_prime, new_t, new_e, common, first)) {
             if (first)
                 result = m().mk_app(f_prime, common, m().mk_ite(c, new_t, new_e));
@@ -556,7 +556,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 result = m().mk_app(f_prime, m().mk_ite(c, new_t, new_e), common);
             return BR_DONE;
         }
-        TRACE("push_ite", tout << "failed\n";);
+        TRACE(push_ite, tout << "failed\n";);
         return BR_FAILED;
     }
 
@@ -632,7 +632,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         }
 
         if (st != BR_DONE && st != BR_FAILED) {
-            CTRACE("th_rewriter_step", st != BR_FAILED,
+            CTRACE(th_rewriter_step, st != BR_FAILED,
                    tout << f->get_name() << "\n";
                    for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
                    tout << "---------->\n" << mk_ismt2_pp(result, m()) << "\n";);
@@ -654,7 +654,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             st = m_ar_rw.mk_app_core(f,  num, args, result);
         }
 
-        CTRACE("th_rewriter_step", st != BR_FAILED,
+        CTRACE(th_rewriter_step, st != BR_FAILED,
                tout << f->get_name() << "\n";
                for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
                tout << "---------->\n" << mk_ismt2_pp(result, m()) << "\n";);
@@ -823,7 +823,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                                        new_patterns_buf.size(), new_patterns_buf.data(), new_no_patterns_buf.size(), new_no_patterns_buf.data(),
                                        new_body);
             m_pinned.reset();
-            TRACE("reduce_quantifier", tout << mk_ismt2_pp(old_q, m()) << "\n----->\n" << mk_ismt2_pp(q1, m()) << "\n";);
+            TRACE(reduce_quantifier, tout << mk_ismt2_pp(old_q, m()) << "\n----->\n" << mk_ismt2_pp(q1, m()) << "\n";);
             SASSERT(is_well_sorted(m(), q1));
             if (m().proofs_enabled() && q1 != old_q) {
                 p1 = m().mk_rewrite(old_q, q1);
@@ -841,7 +841,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             result_pr = m().mk_transitivity(p1, p2);
         }
 
-        TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << " " << result_pr << "\n" ;);
+        TRACE(reduce_quantifier, tout << "after elim_unused_vars:\n" << result << " " << result_pr << "\n" ;);
 
         proof_ref p2(m());
         expr_ref r(m());

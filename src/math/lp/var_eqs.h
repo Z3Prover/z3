@@ -116,7 +116,7 @@ public:
         unsigned max_i = std::max(v1.index(), v2.index()) + 2;
         m_eqs.reserve(max_i);
         while (m_uf.get_num_vars() <= max_i) m_uf.mk_var();
-        TRACE("nla_solver_mons", tout << v1 << " == " << v2 << " " << m_uf.find(v1.index()) << " == " << m_uf.find(v2.index()) << "\n";);
+        TRACE(nla_solver_mons, tout << v1 << " == " << v2 << " " << m_uf.find(v1.index()) << " == " << m_uf.find(v2.index()) << "\n";);
         m_trail.push_back(std::make_pair(v1, v2));
         m_uf.merge(v1.index(), v2.index());
         m_uf.merge((~v1).index(), (~v2).index());        

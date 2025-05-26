@@ -425,7 +425,7 @@ namespace nlsat {
             scoped_anum_vector & roots = m_tmp_values;
             roots.reset();
             m_am.isolate_roots(polynomial_ref(a->p(), m_pm), undef_var_assignment(m_assignment, a->x()), roots);
-            TRACE("nlsat_evaluator",
+            TRACE(nlsat_evaluator,
                   m_solver.display(tout << (neg?"!":""), *a); tout << "\n";
                   if (roots.empty()) {
                       tout << "No roots\n";
@@ -463,7 +463,7 @@ namespace nlsat {
                 svector<sign> & signs = m_add_signs_tmp;
                 roots.reset();
                 signs.reset();
-                TRACE("nlsat_evaluator", tout << "x: " << x << " max_var(p): " << m_pm.max_var(p) << "\n";);
+                TRACE(nlsat_evaluator, tout << "x: " << x << " max_var(p): " << m_pm.max_var(p) << "\n";);
                 // Note: I added undef_var_assignment in the following statement, to allow us to obtain the infeasible interval sets
                 // even when the maximal variable is assigned. I need this feature to minimize conflict cores.
                 m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(m_assignment, x), roots, signs);
@@ -477,7 +477,7 @@ namespace nlsat {
             unsigned num_ps = a->size();
             for (unsigned i = 0; i < num_ps; i++) {
                 ::sign curr_sign = t.sign_at(i, c);
-                TRACE("nlsat_evaluator_bug", tout << "sign of i: " << i << " at cell " << c << "\n"; 
+                TRACE(nlsat_evaluator_bug, tout << "sign of i: " << i << " at cell " << c << "\n"; 
                       m_pm.display(tout, a->p(i)); 
                       tout << "\nsign: " << curr_sign << "\n";);
                 if (a->is_even(i) && curr_sign < 0)
@@ -492,15 +492,15 @@ namespace nlsat {
         interval_set_ref infeasible_intervals(ineq_atom * a, bool neg, clause const* cls) {
             sign_table & table = m_sign_table_tmp;
             table.reset();
-            TRACE("nlsat_evaluator", m_solver.display(tout, *a) << "\n";);
+            TRACE(nlsat_evaluator, m_solver.display(tout, *a) << "\n";);
             unsigned num_ps = a->size();
             var x = a->max_var();
             for (unsigned i = 0; i < num_ps; i++) {
                 add(a->p(i), x, table);
-                TRACE("nlsat_evaluator_bug", tout << "table after:\n"; m_pm.display(tout, a->p(i)); tout << "\n"; table.display_raw(tout);); 
+                TRACE(nlsat_evaluator_bug, tout << "table after:\n"; m_pm.display(tout, a->p(i)); tout << "\n"; table.display_raw(tout);); 
                 
             }
-            TRACE("nlsat_evaluator", 
+            TRACE(nlsat_evaluator, 
                   tout << "sign table for:\n"; 
                   for (unsigned i = 0; i < num_ps; i++) { m_pm.display(tout, a->p(i)); tout << "\n"; }
                   table.display(tout););
@@ -518,7 +518,7 @@ namespace nlsat {
             
             unsigned num_cells = table.num_cells();
             for (unsigned c = 0; c < num_cells; c++) {
-                TRACE("nlsat_evaluator",
+                TRACE(nlsat_evaluator,
                       tout << "cell: " << c << "\n";
                       tout << "prev_sat: " << prev_sat << "\n";
                       tout << "prev_inf: " << prev_inf << "\n";
@@ -527,7 +527,7 @@ namespace nlsat {
                       tout << "processing cell: " << c << "\n";
                       tout << "interval_set so far:\n" << result << "\n";);
                 int sign = sign_at(a, table, c);
-                TRACE("nlsat_evaluator", tout << "sign: " << sign << "\n";);
+                TRACE(nlsat_evaluator, tout << "sign: " << sign << "\n";);
                 if (satisfied(sign, k, neg)) {
                     // current cell is satisfied
                     if (!prev_sat) {
@@ -571,13 +571,13 @@ namespace nlsat {
                             if (table.is_section(c)) {
                                 prev_open    = false;
                                 prev_root_id = table.get_root_id(c); 
-                                TRACE("nlsat_evaluator", tout << "updated prev_root_id: " << prev_root_id << " using cell: " << c << "\n";);
+                                TRACE(nlsat_evaluator, tout << "updated prev_root_id: " << prev_root_id << " using cell: " << c << "\n";);
                             }
                             else {
                                 SASSERT(table.is_section(c-1));
                                 prev_open    = true;
                                 prev_root_id = table.get_root_id(c-1);
-                                TRACE("nlsat_evaluator", tout << "updated prev_root_id: " << prev_root_id << " using cell: " << (c - 1) << "\n";);
+                                TRACE(nlsat_evaluator, tout << "updated prev_root_id: " << prev_root_id << " using cell: " << (c - 1) << "\n";);
                             }
                         }
                         prev_sat = false;
@@ -590,7 +590,7 @@ namespace nlsat {
                     } 
                 }
             }
-            TRACE("nlsat_evaluator", tout << "interval_set: " << result << "\n";);
+            TRACE(nlsat_evaluator, tout << "interval_set: " << result << "\n";);
             return result;
         }
 
@@ -661,7 +661,7 @@ namespace nlsat {
                     break;
                 }
             }
-            TRACE("nlsat_evaluator", tout << "interval_set: " << result << "\n";);
+            TRACE(nlsat_evaluator, tout << "interval_set: " << result << "\n";);
             return result;
         }
         

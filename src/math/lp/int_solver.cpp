@@ -268,7 +268,7 @@ namespace lp {
             const auto & x = lrac.r_x();
             impq v = m_t.apply(x);
             mpq sign = m_upper ? one_of_type<mpq>()  : -one_of_type<mpq>();
-            CTRACE("current_solution_is_inf_on_cut", v * sign <= impq(m_k) * sign,
+            CTRACE(current_solution_is_inf_on_cut, v * sign <= impq(m_k) * sign,
                    tout << "m_upper = " << m_upper << std::endl;
                    tout << "v = " << v << ", k = " << m_k << std::endl;
                    tout << "term:";lra.print_term(m_t, tout) << "\n";
@@ -316,11 +316,11 @@ namespace lp {
                 if (abs(value.x) < small_value ||
                     (lra.column_has_upper_bound(j) && small_value > upper_bound(j).x - value.x) ||
                     (has_lower(j) && small_value > value.x - lower_bound(j).x)) {
-                    TRACE("int_solver", tout << "small j" << j << "\n");
+                    TRACE(int_solver, tout << "small j" << j << "\n");
                     add_column(true, r_small_value, n_small_value, j);
                     continue;
                 }
-                TRACE("int_solver", tout << "any j" << j << "\n");
+                TRACE(int_solver, tout << "any j" << j << "\n");
                 add_column(usage >= prev_usage, r_any_value, n_any_value, j);
                 if (usage > prev_usage) 
                     prev_usage = usage;
@@ -529,7 +529,7 @@ namespace lp {
         if (lrac.m_r_heading[j] >= 0 || is_fixed(j)) // basic or fixed var
             return false;
 
-        TRACE("random_update", display_column(tout, j) << ", is_int = " << column_is_int(j) << "\n";);
+        TRACE(random_update, display_column(tout, j) << ", is_int = " << column_is_int(j) << "\n";);
         impq const & xj = get_value(j);
 
         inf_l = true;
@@ -545,7 +545,7 @@ namespace lp {
     
 
         const auto & A = lra.A_r();
-        TRACE("random_update", tout <<  "m = " << m << "\n";);
+        TRACE(random_update, tout <<  "m = " << m << "\n";);
 
         auto delta = [](mpq const& x, impq const& y, impq const& z) {
             if (x.is_one())
@@ -584,7 +584,7 @@ namespace lp {
         l += xj;
         u += xj;
 
-        TRACE("freedom_interval",
+        TRACE(freedom_interval,
               tout << "freedom variable for:\n";
               tout << lra.get_variable_name(j);
               tout << "[";
@@ -736,13 +736,13 @@ namespace lp {
         mpq r = a - b;
         if (!r.is_pos())
             return false;
-        TRACE("int_solver", tout << "a = " << a << ", b = " << b << ", r = " << r<< ", m = " << m << "\n";);
+        TRACE(int_solver, tout << "a = " << a << ", b = " << b << ", r = " << r<< ", m = " << m << "\n";);
         if (r < mpq(range))
             range = static_cast<unsigned>(r.get_uint64());
 
         mpq s = b + mpq(lra.settings().random_next() % (range + 1));
         impq new_val = x + m * impq(s);
-        TRACE("int_solver", tout << "new_val = " << new_val << "\n";);
+        TRACE(int_solver, tout << "new_val = " << new_val << "\n";);
         SASSERT(l <= new_val && new_val <= u);
         lra.set_value_for_nbasic_column(j, new_val);
         return true;

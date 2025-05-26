@@ -116,11 +116,11 @@ pretty_print(std::ostream & out) {
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 add_delta_to_entering(unsigned entering, const X& delta) {
     m_x[entering] += delta;  
-    TRACE("lar_solver_feas", tout << "not tracking feas entering = " << entering << " = " << m_x[entering] << (column_is_feasible(entering) ? " feas" : " non-feas") << "\n";); 
+    TRACE(lar_solver_feas, tout << "not tracking feas entering = " << entering << " = " << m_x[entering] << (column_is_feasible(entering) ? " feas" : " non-feas") << "\n";); 
     for (const auto & c : m_A.m_columns[entering]) {
         unsigned i = c.var();
         m_x[m_basis[i]] -= delta * m_A.get_val(c);
-        TRACE("lar_solver_feas", tout << "not tracking feas m_basis[i] = " << m_basis[i] << " = " << m_x[m_basis[i]] << (column_is_feasible(m_basis[i]) ? " feas" : " non-feas") << "\n";);
+        TRACE(lar_solver_feas, tout << "not tracking feas m_basis[i] = " << m_basis[i] << " = " << m_x[m_basis[i]] << (column_is_feasible(m_basis[i]) ? " feas" : " non-feas") << "\n";);
     }
 }
 
@@ -201,7 +201,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::calc_current_x
     unsigned j = this->m_n();
     while (j--) {
         if (!column_is_feasible(j)) {
-            TRACE("lar_solver", tout << "infeasible column: "; print_column_info(j, tout) << "\n";);
+            TRACE(lar_solver, tout << "infeasible column: "; print_column_info(j, tout) << "\n";);
             return false;
         }
     }
@@ -213,7 +213,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::inf_heap_is_co
         bool belongs_to_set = m_inf_heap.contains(j);
         bool is_feas = column_is_feasible(j);
         if (is_feas == belongs_to_set) {
-            TRACE("lp_core", tout << "incorrectly set column in inf set "; print_column_info(j, tout) << "\n";);
+            TRACE(lp_core, tout << "incorrectly set column in inf set "; print_column_info(j, tout) << "\n";);
             return false;
         }
     }
@@ -333,12 +333,12 @@ non_basis_is_correctly_represented_in_heading(std::list<unsigned>* non_basis_lis
         nbasis_set.insert(j);
     
     if (non_basis_list->size() != nbasis_set.size()) {
-        TRACE("lp_core", tout << "non_basis_list.size() = " << non_basis_list->size() << ", nbasis_set.size() = " << nbasis_set.size() << "\n";);
+        TRACE(lp_core, tout << "non_basis_list.size() = " << non_basis_list->size() << ", nbasis_set.size() = " << nbasis_set.size() << "\n";);
         return false;
     }
     for (auto it = non_basis_list->begin(); it != non_basis_list->end(); it++) {
         if (nbasis_set.find(*it) == nbasis_set.end()) {
-            TRACE("lp_core", tout << "column " << *it << " is in m_non_basis_list but not in m_nbasis\n";);
+            TRACE(lp_core, tout << "column " << *it << " is in m_non_basis_list but not in m_nbasis\n";);
             return false;
         }
     }
@@ -347,7 +347,7 @@ non_basis_is_correctly_represented_in_heading(std::list<unsigned>* non_basis_lis
     nbasis_set.clear();
     for (auto it = non_basis_list->begin(); it != non_basis_list->end(); it++) {
         if (nbasis_set.find(*it) != nbasis_set.end()) {
-            TRACE("lp_core", tout << "column " << *it << " is in m_non_basis_list twice\n";);
+            TRACE(lp_core, tout << "column " << *it << " is in m_non_basis_list twice\n";);
             return false;
         }
         nbasis_set.insert(*it);

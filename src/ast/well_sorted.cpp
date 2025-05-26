@@ -49,7 +49,7 @@ struct well_sorted_proc {
         func_decl * decl   = n->get_decl();
         if (num_args != decl->get_arity() && !decl->is_associative() && 
             !decl->is_right_associative() && !decl->is_left_associative()) {
-            TRACE("ws", tout << "unexpected number of arguments.\n" << mk_ismt2_pp(n, m_manager););
+            TRACE(ws, tout << "unexpected number of arguments.\n" << mk_ismt2_pp(n, m_manager););
             warning_msg("unexpected number of arguments.");
             m_error = true;
             return;
@@ -59,7 +59,7 @@ struct well_sorted_proc {
             sort * actual_sort   = n->get_arg(i)->get_sort();
             sort * expected_sort = decl->is_associative() ? decl->get_domain(0) : decl->get_domain(i);
             if (expected_sort != actual_sort) {
-                TRACE("tc", tout << "sort mismatch on argument #" << i << ".\n" << mk_ismt2_pp(n, m_manager);
+                TRACE(tc, tout << "sort mismatch on argument #" << i << ".\n" << mk_ismt2_pp(n, m_manager);
                       tout << "Sort mismatch for argument " << i+1 << " of " << mk_ismt2_pp(n, m_manager, false) << "\n";
                       tout << "Expected sort: " << mk_pp(expected_sort, m_manager) << "\n";
                       tout << "Actual sort:   " << mk_pp(actual_sort, m_manager) << "\n";

@@ -256,7 +256,7 @@ namespace mbp {
                     todo.push_back({ ax->get_arg(i), ay->get_arg(i) });
             }
 
-            TRACE("qe", tout << "unification attempt\n";
+            TRACE(qe, tout << "unification attempt\n";
                   for (auto [a, b] : todo)                 
                       tout << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n";
                   for (auto [key, value] : soln)

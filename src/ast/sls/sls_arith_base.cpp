@@ -378,7 +378,7 @@ namespace sls {
     template<typename num_t>
     void arith_base<num_t>::find_linear_moves(ineq const& ineq, var_t v, num_t const& coeff) {
         num_t const& sum = ineq.m_args_value;
-        TRACE("arith_verbose", tout << ineq << " " << v << " " << value(v) << "\n");
+        TRACE(arith_verbose, tout << ineq << " " << v << " " << value(v) << "\n");
         if (ineq.is_true()) {
             switch (ineq.m_op) {
             case ineq_kind::LE:
@@ -433,12 +433,12 @@ namespace sls {
         delta_out = delta;
 
         if (m_last_var == v && m_last_delta == -delta) {
-            TRACE("arith_verbose", tout << "flip back " << v << " " << delta << "\n";);
+            TRACE(arith_verbose, tout << "flip back " << v << " " << delta << "\n";);
             return false;
         }
 
         if (m_use_tabu && vi.is_tabu(m_stats.m_steps, delta)) {
-            TRACE("arith_verbose", tout << "tabu v" << v << " delta:" << delta << "\n");
+            TRACE(arith_verbose, tout << "tabu v" << v << " delta:" << delta << "\n");
             return false;
         }
         
@@ -446,7 +446,7 @@ namespace sls {
         auto old_value = value(v);
         auto new_value = old_value + delta;
         if (!vi.in_range(new_value)) {
-            TRACE("arith", display(tout, v) << "out of range: v" << v << " " << old_value << " " << delta << " " << new_value << "\n";);
+            TRACE(arith, display(tout, v) << "out of range: v" << v << " " << old_value << " " << delta << " " << new_value << "\n";);
             return false;
         }
 
@@ -747,11 +747,11 @@ namespace sls {
         if (old_value == new_value)
             return true;                   
         if (!vi.in_range(new_value)) {
-            TRACE("arith", display(tout << "out of range " << new_value << ": ", v) << "\n"; );
+            TRACE(arith, display(tout << "out of range " << new_value << ": ", v) << "\n"; );
             return false;
         }
         if (!in_bounds(v, new_value) && in_bounds(v, old_value)) {
-            TRACE("arith", tout << "out of bounds: v" << v << " " << old_value << " " << new_value << "\n";);
+            TRACE(arith, tout << "out of bounds: v" << v << " " << old_value << " " << new_value << "\n";);
             return false;
         }
 
@@ -781,7 +781,7 @@ namespace sls {
             
         }
         IF_VERBOSE(5, verbose_stream() << "repair: v" << v << " := " << old_value << " -> " << new_value << "\n");
-        TRACE("arith", tout << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
+        TRACE(arith, tout << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
         vi.set_value(new_value);
         ctx.new_value_eh(e);
         m_last_var = v;
@@ -1061,7 +1061,7 @@ namespace sls {
         m_vars[v].m_op = k;
         m_vars[v].set_value(val);
         m_vars[vx].m_ops.push_back(v);
-        TRACE("arith", display(tout << "initialize op ", v) << " " << value(vx) << " op " << value(vy) << "\n");
+        TRACE(arith, display(tout << "initialize op ", v) << " " << value(vx) << " op " << value(vy) << "\n");
         if (vy != vx)
             m_vars[vy].m_ops.push_back(v);
         return v;
@@ -1372,7 +1372,7 @@ namespace sls {
         if (!vi.is_arith_op())
             return false;
         flet<bool> _tabu(m_use_tabu, false);
-        TRACE("sls_verbose", tout << "repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
+        TRACE(sls_verbose, tout << "repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
         switch (vi.m_op) {
         case arith_op_kind::LAST_ARITH_OP:
             break;
@@ -2304,7 +2304,7 @@ namespace sls {
          bool r = update_checked(w, n);   
 
          if (!r) {
-             TRACE("arith", tout << "set value failed " << mk_pp(e, m) << " := " << mk_pp(v, m) << "\n";
+             TRACE(arith, tout << "set value failed " << mk_pp(e, m) << " := " << mk_pp(v, m) << "\n";
              display(tout, w) << " := " << value(w) << "\n";);
              IF_VERBOSE(3,
                  verbose_stream() << "set value failed " << mk_pp(e, m) << " := " << mk_pp(v, m) << "\n";
@@ -2523,7 +2523,7 @@ namespace sls {
         if (!vi.is_arith_op())
             return true;
         IF_VERBOSE(10, verbose_stream() << vi.m_op << " repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
-        TRACE("sls_verbose", tout << "repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
+        TRACE(sls_verbose, tout << "repair def " << mk_bounded_pp(vi.m_expr, m) << "\n");
         switch (vi.m_op) {
         case arith_op_kind::LAST_ARITH_OP:
             break;
@@ -2623,7 +2623,7 @@ namespace sls {
         for (var_t v = 0; v < m_vars.size(); ++v) {
             if (!eval_is_correct(v)) {
                 report_error(verbose_stream(), v);
-                TRACE("arith", report_error(tout, v));
+                TRACE(arith, report_error(tout, v));
                 UNREACHABLE();
             }
         }
@@ -2636,7 +2636,7 @@ namespace sls {
             val += c * value(v);
         if (val != i.m_args_value) {
             IF_VERBOSE(0, verbose_stream() << val << ": " << i << "\n"; display(verbose_stream()));
-            TRACE("arith", display(tout << val << ": " << i << "\n"));
+            TRACE(arith, display(tout << val << ": " << i << "\n"));
         }
         SASSERT(val == i.m_args_value);
         VERIFY(val == i.m_args_value);
@@ -2679,11 +2679,11 @@ namespace sls {
         if (old_value == new_value)
             return true;
         if (!vi.in_range(new_value)) {
-            TRACE("arith_verbose", tout << "Not in range v" << v << " " << new_value << "\n");
+            TRACE(arith_verbose, tout << "Not in range v" << v << " " << new_value << "\n");
             return false;
         }
         if (!in_bounds(v, new_value) && in_bounds(v, old_value)) {
-            TRACE("arith_verbose", tout << "out of bounds v" << v << " " << new_value << "\n");
+            TRACE(arith_verbose, tout << "out of bounds v" << v << " " << new_value << "\n");
             //verbose_stream() << "out of bounds v" << v << " " << new_value << "\n";
             return false;
         }
@@ -2708,7 +2708,7 @@ namespace sls {
         auto& vi = m_vars[v];
         auto old_value = value(v);
         IF_VERBOSE(5, verbose_stream() << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
-        TRACE("arith", tout << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
+        TRACE(arith, tout << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
         vi.set_value(new_value);
         ctx.new_value_eh(vi.m_expr);
 

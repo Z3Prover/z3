@@ -223,12 +223,12 @@ void memory::display_i_max_usage(std::ostream & os) {
 #if Z3DEBUG
 void memory::deallocate(char const * file, int line, void * p) {
     deallocate(p);
-    TRACE_CODE(if (!g_finalizing) TRACE("memory", tout << "dealloc " << std::hex << p << std::dec << " " << file << ":" << line << "\n";););
+    TRACE_CODE(if (!g_finalizing) TRACE(memory, tout << "dealloc " << std::hex << p << std::dec << " " << file << ":" << line << "\n";););
 }
 
 void * memory::allocate(char const* file, int line, char const* obj, size_t s) {
     void * r = allocate(s);
-    TRACE("memory", tout << "alloc " << std::hex << r << std::dec << " " << file << ":" << line << " " << obj << " " << s << "\n";);
+    TRACE(memory, tout << "alloc " << std::hex << r << std::dec << " " << file << ":" << line << " " << obj << " " << s << "\n";);
     return r;
 }
 #endif

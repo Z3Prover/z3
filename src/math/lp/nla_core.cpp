@@ -135,13 +135,13 @@ void core::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
 }
     
 void core::push() {
-    TRACE("nla_solver_verbose", tout << "\n";);
+    TRACE(nla_solver_verbose, tout << "\n";);
     m_emons.push();
 }
 
      
 void core::pop(unsigned n) {
-    TRACE("nla_solver_verbose", tout << "n = " << n << "\n";);
+    TRACE(nla_solver_verbose, tout << "n = " << n << "\n";);
     m_emons.pop(n);
     SASSERT(elists_are_consistent(false));
 }
@@ -166,7 +166,7 @@ bool core::check_monic(const monic& m) const {
         return true;
     
     bool ret = product_value(m) == lra.get_column_value(m.var()).x; 
-    CTRACE("nla_solver_check_monic", !ret, print_monic(m, tout) << '\n';);
+    CTRACE(nla_solver_check_monic, !ret, print_monic(m, tout) << '\n';);
     return ret;
 }
     
@@ -406,14 +406,14 @@ bool core::explain_by_equiv(const lp::lar_term& t, lp::explanation& e) const {
         return false;
             
     m_evars.explain(signed_var(i, false), signed_var(j, sign), e);
-    TRACE("nla_solver", tout << "explained :"; lra.print_term_as_indices(t, tout););
+    TRACE(nla_solver, tout << "explained :"; lra.print_term_as_indices(t, tout););
     return true;            
 }
 
 void core::mk_ineq_no_expl_check(new_lemma& lemma, lp::lar_term& t, llc cmp, const rational& rs) {
-    TRACE("nla_solver_details", lra.print_term_as_indices(t, tout << "t = "););
+    TRACE(nla_solver_details, lra.print_term_as_indices(t, tout << "t = "););
     lemma |= ineq(cmp, t, rs);
-    CTRACE("nla_solver", ineq_holds(ineq(cmp, t, rs)), print_ineq(ineq(cmp, t, rs), tout) << "\n";);
+    CTRACE(nla_solver, ineq_holds(ineq(cmp, t, rs)), print_ineq(ineq(cmp, t, rs), tout) << "\n";);
     SASSERT(!ineq_holds(ineq(cmp, t, rs)));
 }
 
@@ -433,7 +433,7 @@ void core::fill_explanation_and_lemma_sign(new_lemma& lemma, const monic& a, con
     SASSERT(sign == 1 || sign == -1);
     lemma &= a;
     lemma &= b;
-    TRACE("nla_solver", tout << "used constraints: " << lemma;);
+    TRACE(nla_solver, tout << "used constraints: " << lemma;);
     SASSERT(lemma.num_ineqs() == 0);
     lemma |= ineq(term(rational(1), a.var(), -sign, b.var()), llc::EQ, 0);
 }
@@ -447,7 +447,7 @@ svector<lpvar> core::reduce_monic_to_rooted(const svector<lpvar> & vars, rationa
     for (lpvar v : vars) {
         auto root = m_evars.find(v);
         s ^= root.sign();
-        TRACE("nla_solver_eq",
+        TRACE(nla_solver_eq,
               tout << pp(v) << " mapped to " << pp(root.var()) << "\n";);
         ret.push_back(root.var());
     }
@@ -524,7 +524,7 @@ bool core::sign_contradiction(const monic& m) const {
 
 /*
   unsigned_vector eq_vars(lpvar j) const {
-  TRACE("nla_solver_eq", tout << "j = " << pp(j) << "eqs = ";
+  TRACE(nla_solver_eq, tout << "j = " << pp(j) << "eqs = ";
   for(auto jj : m_evars.eq_vars(j)) tout << pp(jj) << " ";
   });
   return m_evars.eq_vars(j);
@@ -692,7 +692,7 @@ void core::collect_equivs() {
             continue;
         lpvar j = t->j();
         if (var_is_fixed_to_zero(j)) {
-            TRACE("nla_solver_mons", s.print_term_as_indices(*t, tout << "term = ") << "\n";);
+            TRACE(nla_solver_mons, s.print_term_as_indices(*t, tout << "term = ") << "\n";);
             add_equivalence_maybe(t, s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
         }
     }
@@ -809,7 +809,7 @@ void core::clear() {
 }
     
 void core::init_search() {
-    TRACE("nla_solver_mons", tout << "init\n";);
+    TRACE(nla_solver_mons, tout << "init\n";);
     SASSERT(m_emons.invariant());
     clear();
     init_vars_equivalence();
@@ -818,19 +818,19 @@ void core::init_search() {
 }
 
 void core::insert_to_refine(lpvar j) {
-    TRACE("lar_solver", tout << "j=" << j << '\n';);
+    TRACE(lar_solver, tout << "j=" << j << '\n';);
     m_to_refine.insert(j);
 }
 
 void core::erase_from_to_refine(lpvar j) {
-    TRACE("lar_solver", tout << "j=" << j << '\n';);
+    TRACE(lar_solver, tout << "j=" << j << '\n';);
     if (m_to_refine.contains(j))
         m_to_refine.remove(j);
 }
 
 
 void core::init_to_refine() {
-    TRACE("nla_solver_details", tout << "emons:" << pp_emons(*this, m_emons););
+    TRACE(nla_solver_details, tout << "emons:" << pp_emons(*this, m_emons););
     m_to_refine.reset();
     unsigned r = random(), sz = m_emons.number_of_monics();
     for (unsigned k = 0; k < sz; k++) {
@@ -839,7 +839,7 @@ void core::init_to_refine() {
             insert_to_refine(m.var());
     }
     
-    TRACE("nla_solver", 
+    TRACE(nla_solver, 
           tout << m_to_refine.size() << " mons to refine:\n";
           for (lpvar v : m_to_refine) tout << pp_mon(*this, m_emons[v]) << ":error = " <<
                                           (val(v) - mul_val(m_emons[v])).get_double() << "\n";);
@@ -872,19 +872,19 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
 // divides bc by c, so bc = b*c
 bool core::divide(const monic& bc, const factor& c, factor & b) const {
     svector<lpvar> c_rvars = sorted_rvars(c);
-    TRACE("nla_solver_div", tout << "c_rvars = "; print_product(c_rvars, tout); tout << "\nbc_rvars = "; print_product(bc.rvars(), tout););
+    TRACE(nla_solver_div, tout << "c_rvars = "; print_product(c_rvars, tout); tout << "\nbc_rvars = "; print_product(bc.rvars(), tout););
     if (!lp::is_proper_factor(c_rvars, bc.rvars()))
         return false;
             
     auto b_rvars = lp::vector_div(bc.rvars(), c_rvars);
-    TRACE("nla_solver_div", tout << "b_rvars = "; print_product(b_rvars, tout););
+    TRACE(nla_solver_div, tout << "b_rvars = "; print_product(b_rvars, tout););
     SASSERT(b_rvars.size() > 0);
     if (b_rvars.size() == 1) {
         b = factor(b_rvars[0], factor_type::VAR);
     } else {
         monic const* sv = m_emons.find_canonical(b_rvars);
         if (sv == nullptr) {
-            TRACE("nla_solver_div", tout << "not in rooted";);
+            TRACE(nla_solver_div, tout << "not in rooted";);
             return false;
         }
         b = factor(sv->var(), factor_type::MON);
@@ -894,7 +894,7 @@ bool core::divide(const monic& bc, const factor& c, factor & b) const {
     // Dividing by bc.rvars() we get canonize_sign(bc) = canonize_sign(b)*canonize_sign(c)
     // Currently, canonize_sign(b) is 1, we might need to adjust it
     b.sign() = canonize_sign(b) ^ canonize_sign(c) ^ canonize_sign(bc); 
-    TRACE("nla_solver", tout << "success div:" << pp(b) << "\n";);
+    TRACE(nla_solver, tout << "success div:" << pp(b) << "\n";);
     return true;
 }
 
@@ -959,7 +959,7 @@ void core::maybe_add_a_factor(lpvar i,
     } else {
         if (try_insert(i, found_rm)) {
             r.push_back(factor(i, factor_type::MON));
-            TRACE("nla_solver", tout << "inserting factor = "; print_factor_with_vars(factor(i, factor_type::MON), tout); );
+            TRACE(nla_solver, tout << "inserting factor = "; print_factor_with_vars(factor(i, factor_type::MON), tout); );
         }
     }
 }
@@ -994,7 +994,7 @@ bool core::find_bfc_to_refine_on_monic(const monic& m, factorization & bf) {
             auto b = f[1];
             if (var_val(m) != val(a) * val(b)) {
                 bf = f;
-                TRACE("nla_solver", tout << "found bf";
+                TRACE(nla_solver, tout << "found bf";
                       tout << ":m:" << pp_mon_with_vars(*this, m) << "\n";
                       tout << "bf:"; print_bfc(bf, tout););
                       
@@ -1023,7 +1023,7 @@ bool core::find_bfc_to_refine(const monic* & m, factorization & bf){
         }
                 
         if (find_bfc_to_refine_on_monic(*m, bf)) {
-            TRACE("nla_solver",
+            TRACE(nla_solver,
                   tout << "bf = "; print_factorization(bf, tout);
                   tout << "\nval(*m) = " << var_val(*m) << ", should be = (val(bf[0])=" << val(bf[0]) << ")*(val(bf[1]) = " << val(bf[1]) << ") = " << val(bf[0])*val(bf[1]) << "\n";);
             return true;
@@ -1046,7 +1046,7 @@ new_lemma::new_lemma(core& c, char const* name):name(name), c(c) {
 
 new_lemma& new_lemma::operator|=(ineq const& ineq) {
     if (!c.explain_ineq(*this, ineq.term(), ineq.cmp(), ineq.rs())) {
-        CTRACE("nla_solver", c.ineq_holds(ineq), c.print_ineq(ineq, tout) << "\n";);
+        CTRACE(nla_solver, c.ineq_holds(ineq), c.print_ineq(ineq, tout) << "\n";);
         SASSERT(!c.ineq_holds(ineq));
         current().push_back(ineq);
     }
@@ -1064,7 +1064,7 @@ new_lemma::~new_lemma() {
     }
     IF_VERBOSE(4, verbose_stream() << name << "\n");
     IF_VERBOSE(4, verbose_stream() << *this << "\n");
-    TRACE("nla_solver", tout << name << " " << (++i) << "\n" << *this; );
+    TRACE(nla_solver, tout << name << " " << (++i) << "\n" << *this; );
 }
 
 lemma& new_lemma::current() const {
@@ -1138,7 +1138,7 @@ new_lemma& new_lemma::explain_existing_lower_bound(lpvar j) {
     lp::explanation ex;
     c.lra.push_explanation(c.lra.get_column_lower_bound_witness(j), ex);
     *this &= ex;
-    TRACE("nla_solver", tout << j << ": " << *this << "\n";);
+    TRACE(nla_solver, tout << j << ": " << *this << "\n";);
     return *this;
 }
 
@@ -1236,7 +1236,7 @@ bool core::var_breaks_correct_monic_as_factor(lpvar j, const monic& m) const {
 
 bool core::var_breaks_correct_monic(lpvar j) const {
     if (is_monic_var(j) && !m_to_refine.contains(j)) {
-        TRACE("nla_solver", tout << "j = " << j << ", m  = "; print_monic(emon(j), tout) << "\n";);
+        TRACE(nla_solver, tout << "j = " << j << ", m  = "; print_monic(emon(j), tout) << "\n";);
         return true; // changing the value of a correct monic
     }
     
@@ -1297,30 +1297,30 @@ bool core::has_real(const monic& m) const {
 
 // returns true if the patching is blocking
 bool core::is_patch_blocked(lpvar u, const lp::impq& ival) const {
-    TRACE("nla_solver", tout << "u = " << u << '\n';);
+    TRACE(nla_solver, tout << "u = " << u << '\n';);
     if (m_cautious_patching &&
         (!lra.inside_bounds(u, ival) || (var_is_int(u) && ival.is_int() == false))) {
-        TRACE("nla_solver", tout << "u = " << u << " blocked, for feas or integr\n";);
+        TRACE(nla_solver, tout << "u = " << u << " blocked, for feas or integr\n";);
         return true; // block
     }
 
     if (u == m_patched_var) {
-        TRACE("nla_solver", tout << "u == m_patched_var, no block\n";);
+        TRACE(nla_solver, tout << "u == m_patched_var, no block\n";);
         
         return false; // do not block
     }
     // we can change only one variable in variables of m_patched_var
     if (m_patched_monic->contains_var(u) || u == var(*m_patched_monic)) {
-        TRACE("nla_solver", tout << "u = " << u << " blocked as contained\n";);
+        TRACE(nla_solver, tout << "u = " << u << " blocked as contained\n";);
         return true; // block
     }
     
     if (var_breaks_correct_monic(u)) {
-        TRACE("nla_solver", tout << "u = " << u << " blocked as used in a correct monomial\n";);
+        TRACE(nla_solver, tout << "u = " << u << " blocked as used in a correct monomial\n";);
         return true;
     }
     
-    TRACE("nla_solver", tout << "u = " << u << ", m_patched_m  = "; print_monic(*m_patched_monic, tout) <<
+    TRACE(nla_solver, tout << "u = " << u << ", m_patched_m  = "; print_monic(*m_patched_monic, tout) <<
           ", not blocked\n";);
     
     return false;
@@ -1343,7 +1343,7 @@ bool core::to_refine_is_correct() const {
         if (!is_monic_var(j)) continue;
         bool valid = check_monic(emon(j));
         if (valid == m_to_refine.contains(j)) {
-            TRACE("nla_solver", tout << "inconstency in m_to_refine : ";
+            TRACE(nla_solver, tout << "inconstency in m_to_refine : ";
                   print_monic(emon(j), tout) << "\n";
                   if (valid) tout << "should NOT be in to_refine\n";
                   else tout << "should be in to_refine\n";);
@@ -1356,7 +1356,7 @@ bool core::to_refine_is_correct() const {
 void core::patch_monomial(lpvar j) {    
     m_patched_monic =& (emon(j));
     m_patched_var = j;
-    TRACE("nla_solver", tout << "m = "; print_monic(*m_patched_monic, tout) << "\n";);
+    TRACE(nla_solver, tout << "m = "; print_monic(*m_patched_monic, tout) << "\n";);
     rational v = mul_val(*m_patched_monic);
     if (val(j) == v) {
         erase_from_to_refine(j);
@@ -1368,18 +1368,18 @@ void core::patch_monomial(lpvar j) {
     }
   
     // We could not patch j, now we try patching the factor variables.
-    TRACE("nla_solver", tout << " trying squares\n";);
+    TRACE(nla_solver, tout << " trying squares\n";);
     // handle perfect squares
     if ((*m_patched_monic).vars().size() == 2 && (*m_patched_monic).vars()[0] == (*m_patched_monic).vars()[1]) {        
         rational root;
         if (v.is_perfect_square(root)) {
             m_patched_var = (*m_patched_monic).vars()[0];
             if (!var_breaks_correct_monic(m_patched_var) && (try_to_patch(root) || try_to_patch(-root))) { 
-                TRACE("nla_solver", tout << "patched square\n";);
+                TRACE(nla_solver, tout << "patched square\n";);
                 return;
             }
         }
-        TRACE("nla_solver", tout << " cannot patch\n";);
+        TRACE(nla_solver, tout << " cannot patch\n";);
         return;
     }
 
@@ -1388,13 +1388,13 @@ void core::patch_monomial(lpvar j) {
     if (!v.is_zero()) {
         rational r = val(j) / v;
         SASSERT((*m_patched_monic).is_sorted());
-        TRACE("nla_solver", tout << "r = " << r << ", v = " << v << "\n";);
+        TRACE(nla_solver, tout << "r = " << r << ", v = " << v << "\n";);
         for (unsigned l = 0; l < (*m_patched_monic).size(); l++) {
             m_patched_var = (*m_patched_monic).vars()[l];
             if (!in_power((*m_patched_monic).vars(), l) &&
                 !var_breaks_correct_monic(m_patched_var) &&
                 try_to_patch(r * val(m_patched_var))) { // r * val(k) gives the right value of k
-                TRACE("nla_solver", tout << "patched  " << m_patched_var << "\n";);
+                TRACE(nla_solver, tout << "patched  " << m_patched_var << "\n";);
                 SASSERT(mul_val((*m_patched_monic)) == val(j));
                 erase_from_to_refine(j);
                 break;
@@ -1415,7 +1415,7 @@ void core::patch_monomials_on_to_refine() {
     for (unsigned i = 0; i < sz && !m_to_refine.empty(); i++) 
         patch_monomial(to_refine[(start + i) % sz]);
 
-    TRACE("nla_solver", tout << "sz = " << sz << ", m_to_refine = " << m_to_refine.size() <<
+    TRACE(nla_solver, tout << "sz = " << sz << ", m_to_refine = " << m_to_refine.size() <<
           (sz > m_to_refine.size()? " less" : " same" ) << "\n";);
 }
 
@@ -1471,7 +1471,7 @@ void core::add_bounds() {
 	    m_emons.set_bound_propagated(m);
             // split the free variable (j <= 0, or j > 0), and return
             m_literals.push_back(ineq(j, lp::lconstraint_kind::EQ, rational::zero()));
-            TRACE("nla_solver", print_ineq(m_literals.back(), tout) << "\n");                  
+            TRACE(nla_solver, print_ineq(m_literals.back(), tout) << "\n");                  
             ++lp_settings().stats().m_nla_add_bounds;
             return;
         }
@@ -1480,11 +1480,11 @@ void core::add_bounds() {
 
 lbool core::check() {
     lp_settings().stats().m_nla_calls++;
-    TRACE("nla_solver", tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
+    TRACE(nla_solver, tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
     lra.get_rid_of_inf_eps();
     if (!(lra.get_status() == lp::lp_status::OPTIMAL || 
           lra.get_status() == lp::lp_status::FEASIBLE)) {
-        TRACE("nla_solver", tout << "unknown because of the lra.m_status = " << lra.get_status() << "\n";);
+        TRACE(nla_solver, tout << "unknown because of the lra.m_status = " << lra.get_status() << "\n";);
         return l_undef;
     }
 
@@ -1567,9 +1567,9 @@ lbool core::check() {
 
     lp_settings().stats().m_nla_lemmas += m_lemmas.size();
     
-    TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << m_lemmas.size() << "\n";);
+    TRACE(nla_solver, tout << "ret = " << ret << ", lemmas count = " << m_lemmas.size() << "\n";);
     IF_VERBOSE(5, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
-    CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monics(tout););
+    CTRACE(nla_solver, ret == l_undef, tout << "Monomials\n"; print_monics(tout););
     return ret;
 }
 
@@ -1610,7 +1610,7 @@ lbool core::bounded_nlsat() {
 bool core::no_lemmas_hold() const {
     for (auto & l : m_lemmas) {
         if (lemma_holds(l)) {
-            TRACE("nla_solver", print_lemma(l, tout););
+            TRACE(nla_solver, print_lemma(l, tout););
             return false;
         }
     }

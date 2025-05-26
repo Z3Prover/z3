@@ -111,7 +111,7 @@ void value_sweep::propagate_values() {
                 m_args.push_back(get_value(arg));                                
             expr_ref new_value(m.mk_app(p->get_decl(), m_args), m);
             m_rewrite(new_value);
-            TRACE("value_sweep", tout << "propagate " << mk_pp(p, m) << " " << new_value << "\n";);
+            TRACE(value_sweep, tout << "propagate " << mk_pp(p, m) << " " << new_value << "\n";);
             set_value_core(p, new_value);
             m_queue.push_back(p);
         }

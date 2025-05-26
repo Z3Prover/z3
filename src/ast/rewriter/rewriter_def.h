@@ -34,7 +34,7 @@ void rewriter_tpl<Config>::process_var(var * v) {
             m_pr = nullptr;
         }
         set_new_child_flag(v);
-        TRACE("rewriter", tout << mk_ismt2_pp(v, m()) << " -> " << m_r << "\n";);
+        TRACE(rewriter, tout << mk_ismt2_pp(v, m()) << " -> " << m_r << "\n";);
         m_r = nullptr;
         return;
     }
@@ -45,7 +45,7 @@ void rewriter_tpl<Config>::process_var(var * v) {
     unsigned index = 0;
     expr * r;
     if (idx < m_bindings.size() && (index = m_bindings.size() - idx - 1, r = m_bindings[index])) {
-        CTRACE("rewriter", v->get_sort() != r->get_sort(),
+        CTRACE(rewriter, v->get_sort() != r->get_sort(),
                tout << expr_ref(v, m()) << ":" << sort_ref(v->get_sort(), m()) << " != " << expr_ref(r, m()) << ":" << sort_ref(r->get_sort(), m());
                tout << "index " << index << " bindings " << m_bindings.size() << "\n";
                display_bindings(tout););
@@ -60,13 +60,13 @@ void rewriter_tpl<Config>::process_var(var * v) {
                 expr_ref tmp(m());
                 m_shifter(r, shift_amount, tmp);
                 result_stack().push_back(tmp);
-                TRACE("rewriter", display_bindings(tout << "shift: " << shift_amount << " idx: " << idx << " --> " << tmp << "\n"););
+                TRACE(rewriter, display_bindings(tout << "shift: " << shift_amount << " idx: " << idx << " --> " << tmp << "\n"););
                 cache_shifted_result(r, shift_amount, tmp);                    
             }
         }
         else {
             result_stack().push_back(r);
-            TRACE("rewriter", tout << idx << " " << mk_ismt2_pp(r, m()) << "\n";);
+            TRACE(rewriter, tout << idx << " " << mk_ismt2_pp(r, m()) << "\n";);
         }
         set_new_child_flag(v);
     }
@@ -83,7 +83,7 @@ bool rewriter_tpl<Config>::process_const(app * t0) {
  retry:
     SASSERT(t->get_num_args() == 0);
     br_status st = m_cfg.reduce_app(t->get_decl(), 0, nullptr, m_r, m_pr);
-    TRACE("reduce_app",
+    TRACE(reduce_app,
           tout << "t0:" << mk_bounded_pp(t0, m()) << "\n";
           if (t != t0) tout << "t: " << mk_bounded_pp(t, m()) << "\n";
           tout << "st: " << st;
@@ -91,7 +91,7 @@ bool rewriter_tpl<Config>::process_const(app * t0) {
           tout << "\n";
           if (m_pr) tout << mk_bounded_pp(m_pr, m()) << "\n";
           );
-    CTRACE("reduce_app", 
+    CTRACE(reduce_app, 
            st != BR_FAILED && m_r->get_sort() != t->get_sort(),
            tout << mk_pp(t->get_sort(), m()) << ": " << mk_pp(t, m()) << "\n";
            tout << m_r->get_id() << " " << mk_pp(m_r->get_sort(), m()) << ": " << m_r << "\n";);
@@ -141,11 +141,11 @@ bool rewriter_tpl<Config>::process_const(app * t0) {
 template<typename Config>
 template<bool ProofGen>
 bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
-    TRACE("rewriter_visit", tout << "visiting\n" << mk_ismt2_pp(t, m()) << "\n";);
+    TRACE(rewriter_visit, tout << "visiting\n" << mk_ismt2_pp(t, m()) << "\n";);
     expr *  new_t = nullptr;
     proof * new_t_pr = nullptr;
     if (m_cfg.get_subst(t, new_t, new_t_pr)) {
-        TRACE("rewriter_subst", tout << "subst\n" << mk_ismt2_pp(t, m()) << "\n---->\n" << mk_ismt2_pp(new_t, m()) << "\n";);
+        TRACE(rewriter_subst, tout << "subst\n" << mk_ismt2_pp(t, m()) << "\n---->\n" << mk_ismt2_pp(new_t, m()) << "\n";);
         SASSERT(t->get_sort() == new_t->get_sort());
         result_stack().push_back(new_t);
         set_new_child_flag(t, new_t);
@@ -196,7 +196,7 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
         if (to_app(t)->get_num_args() == 0) {
             if (process_const<ProofGen>(to_app(t)))
                 return true;
-            TRACE("rewriter_const", tout << "process const: " << mk_bounded_pp(t, m()) << " -> " << mk_bounded_pp(m_r, m()) << "\n";);
+            TRACE(rewriter_const, tout << "process const: " << mk_bounded_pp(t, m()) << " -> " << mk_bounded_pp(m_r, m()) << "\n";);
             if (!is_blocked(t)) {
                 rewriter_tpl rw(m(), false, m_cfg);
                 for (auto* s : m_blocked)
@@ -243,14 +243,14 @@ bool rewriter_tpl<Config>::constant_fold(app * t, frame & fr) {
             result_stack().shrink(fr.m_spos);
             result_stack().push_back(arg);
             fr.m_state = REWRITE_BUILTIN;
-            TRACE("rewriter_step", tout << "step\n" << mk_ismt2_pp(t, m()) << "\n";);
+            TRACE(rewriter_step, tout << "step\n" << mk_ismt2_pp(t, m()) << "\n";);
             if (visit<false>(arg, fr.m_max_depth)) {
                 m_r = result_stack().back();
                 result_stack().pop_back();
                 result_stack().pop_back();
                 result_stack().push_back(m_r);
                 cache_result<false>(t, m_r, m_pr, fr.m_cache_result);
-                TRACE("rewriter_step", tout << "step 1\n" << mk_ismt2_pp(m_r, m()) << "\n";);
+                TRACE(rewriter_step, tout << "step 1\n" << mk_ismt2_pp(m_r, m()) << "\n";);
                 frame_stack().pop_back();
                 set_new_child_flag(t);
             }
@@ -315,7 +315,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
         }
         br_status st = m_cfg.reduce_app(f, new_num_args, new_args, m_r, m_pr2);       
         
-        CTRACE("reduce_app", true || st != BR_FAILED || new_t,
+        CTRACE(reduce_app, true || st != BR_FAILED || new_t,
                tout << mk_bounded_pp(t, m()) << "\n";
                tout << "st: " << st;
                if (m_r) tout << " --->\n" << mk_bounded_pp(m_r, m());
@@ -425,7 +425,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                 }
                 else {
                     fr.m_state = EXPAND_DEF;
-                    TRACE("get_macro", tout << "f: " << f->get_name() << ", def: \n" << mk_ismt2_pp(def, m()) << "\n";
+                    TRACE(get_macro, tout << "f: " << f->get_name() << ", def: \n" << mk_ismt2_pp(def, m()) << "\n";
                           tout << "Args num: " << num_args << "\n";
                           for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(new_args[i], m()) << "\n";);
                     unsigned sz = m_bindings.size();
@@ -436,7 +436,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                         m_shifts.push_back(sz);
                     }
                     result_stack().push_back(def);
-                    TRACE("get_macro", display_bindings(tout););
+                    TRACE(get_macro, display_bindings(tout););
                     begin_scope();
                     m_num_qvars += num_args;
                     m_root      = def;
@@ -453,7 +453,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                 }
             }
             else {
-                TRACE("rewriter_reuse", tout << "reusing:\n" << mk_ismt2_pp(t, m()) << "\n";);
+                TRACE(rewriter_reuse, tout << "reusing:\n" << mk_ismt2_pp(t, m()) << "\n";);
                 m_r = t;
             }
         }
@@ -557,7 +557,7 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     expr_ref_vector new_pats(m_manager, num_pats, q->get_patterns());
     expr_ref_vector new_no_pats(m_manager, num_no_pats, q->get_no_patterns());
     if (rewrite_patterns()) {
-        TRACE("reduce_quantifier_bug", tout << "rewrite patterns\n";);
+        TRACE(reduce_quantifier_bug, tout << "rewrite patterns\n";);
         expr * const * np  = it + 1;
         expr * const * nnp = np + num_pats;
         unsigned j = 0;
@@ -591,18 +591,18 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
         if (m_cfg.reduce_quantifier(new_q, new_body, new_pats.data(), new_no_pats.data(), m_r, pr2)) {
             m_pr = m().mk_transitivity(m_pr, pr2);
         }
-        TRACE("reduce_quantifier_bug",if (m_pr) tout << mk_ismt2_pp(m_pr, m()) << "\n"; else tout << "m_pr is_null\n";);
+        TRACE(reduce_quantifier_bug,if (m_pr) tout << mk_ismt2_pp(m_pr, m()) << "\n"; else tout << "m_pr is_null\n";);
         result_pr_stack().shrink(fr.m_spos);
         result_pr_stack().push_back(m_pr);
     }
     else {
-        TRACE("reduce_quantifier_bug", tout << mk_ismt2_pp(q, m()) << " " << mk_ismt2_pp(new_body, m()) << "\n";);
+        TRACE(reduce_quantifier_bug, tout << mk_ismt2_pp(q, m()) << " " << mk_ismt2_pp(new_body, m()) << "\n";);
         if (!m_cfg.reduce_quantifier(q, new_body, new_pats.data(), new_no_pats.data(), m_r, m_pr)) {
             if (fr.m_new_child) {
                 m_r = m().update_quantifier(q, num_pats, new_pats.data(), num_no_pats, new_no_pats.data(), new_body);
             }
             else {
-                TRACE("rewriter_reuse", tout << "reusing:\n" << mk_ismt2_pp(q, m()) << "\n";);
+                TRACE(rewriter_reuse, tout << "reusing:\n" << mk_ismt2_pp(q, m()) << "\n";);
                 m_r = q;
             }
         }
@@ -680,8 +680,8 @@ void rewriter_tpl<Config>::set_bindings(unsigned num_bindings, expr * const * bi
         m_bindings.push_back(bindings[i]);
         m_shifts.push_back(num_bindings);
     }
-    TRACE("rewriter", display_bindings(tout););
-    SCTRACE("bindings", is_trace_enabled("coming_from_quant"), display_bindings(tout););
+    TRACE(rewriter, display_bindings(tout););
+    SCTRACE(bindings, is_trace_enabled(TraceTag::coming_from_quant), display_bindings(tout););
 }
 
 template<typename Config>
@@ -694,8 +694,8 @@ void rewriter_tpl<Config>::set_inv_bindings(unsigned num_bindings, expr * const 
         m_bindings.push_back(bindings[i]);
         m_shifts.push_back(num_bindings);
     }
-    TRACE("rewriter", display_bindings(tout););
-    SCTRACE("bindings", is_trace_enabled("coming_from_quant"), display_bindings(tout););
+    TRACE(rewriter, display_bindings(tout););
+    SCTRACE(bindings, is_trace_enabled(TraceTag::coming_from_quant), display_bindings(tout););
 }
 
 template<typename Config>
@@ -741,7 +741,7 @@ void rewriter_tpl<Config>::main_loop(expr * t, expr_ref & result, proof_ref & re
     else {
         resume_core<ProofGen>(result, result_pr);
     }
-    TRACE("rewriter", tout << mk_ismt2_pp(t, m()) << "\n=>\n" << result << "\n";;);
+    TRACE(rewriter, tout << mk_ismt2_pp(t, m()) << "\n=>\n" << result << "\n";;);
 }
 
 /**
@@ -761,7 +761,7 @@ void rewriter_tpl<Config>::resume_core(expr_ref & result, proof_ref & result_pr)
         SASSERT(!ProofGen || result_stack().size() == result_pr_stack().size());
         frame & fr = frame_stack().back();
         expr * t   = fr.m_curr;
-        TRACE("rewriter_step", tout << "step\n" << mk_ismt2_pp(t, m()) << "\n";);
+        TRACE(rewriter_step, tout << "step\n" << mk_ismt2_pp(t, m()) << "\n";);
         m_num_steps++;
         check_max_steps();
         if (first_visit(fr) && fr.m_cache_result) {

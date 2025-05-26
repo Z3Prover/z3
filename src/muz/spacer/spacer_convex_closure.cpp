@@ -97,7 +97,7 @@ unsigned convex_closure::reduce() {
 
     bool has_kernel = m_kernel.compute_kernel();
     if (!has_kernel) {
-        TRACE("cvx_dbg",
+        TRACE(cvx_dbg,
               tout << "No linear dependencies between pattern vars\n";);
         return m_dim;
     }
@@ -164,7 +164,7 @@ void convex_closure::kernel2fmls(expr_ref_vector &out) {
     const spacer_matrix &kern = m_kernel.get_kernel();
     SASSERT(kern.num_rows() > 0);
 
-    TRACE("cvx_dbg", kern.display(tout););
+    TRACE(cvx_dbg, kern.display(tout););
     expr_ref eq(m);
     for (unsigned i = kern.num_rows(); i > 0; i--) {
         auto &row = kern.get_row(i - 1);
@@ -256,7 +256,7 @@ void convex_closure::cc2fmls(expr_ref_vector &out) {
 // TODO: improve efficiency
 bool convex_closure::infer_div_pred(const vector<rational> &data, rational &m,
                                     rational &d) {
-    TRACE("cvx_dbg_verb", {
+    TRACE(cvx_dbg_verb, {
         tout << "computing div constraints for ";
         for (rational r : data) tout << r << " ";
         tout << "\n";
@@ -285,7 +285,7 @@ bool convex_closure::infer_div_pred(const vector<rational> &data, rational &m,
     mod(data[0], m, d);
     SASSERT(d >= rational::zero());
 
-    TRACE("cvx_dbg_verb", tout << "div constraint generated. cf " << m
+    TRACE(cvx_dbg_verb, tout << "div constraint generated. cf " << m
                                << " and off " << d << "\n";);
     return true;
 }
@@ -300,7 +300,7 @@ bool convex_closure::compute() {
     if (rank < dims()) {
         m_st.m_num_reductions++;
         kernel2fmls(m_explicit_cc);
-        TRACE("cvx_dbg", tout << "Linear equalities true of the matrix "
+        TRACE(cvx_dbg, tout << "Linear equalities true of the matrix "
                               << mk_and(m_explicit_cc) << "\n";);
     }
 
@@ -311,7 +311,7 @@ bool convex_closure::compute() {
         return false;
     } else if (rank > 1) {
         if (m_enable_implicit) {
-            TRACE("subsume", tout << "Computing syntactic convex closure\n";);
+            TRACE(subsume, tout << "Computing syntactic convex closure\n";);
             cc2fmls(m_implicit_cc);
         } else {
             return false;

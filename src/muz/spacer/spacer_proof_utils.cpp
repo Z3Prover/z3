@@ -282,7 +282,7 @@ namespace spacer {
                                    parameter const *params) {
         if(num_params != parents.size() + 1) {
             //TODO: fix bug
-            TRACE("spacer.fkab", tout << "UNEXPECTED INPUT TO FUNCTION. Bailing out\n";);
+            TRACE(spacer_fkab, tout << "UNEXPECTED INPUT TO FUNCTION. Bailing out\n";);
             return proof_ref(m);
         }
         SASSERT(num_params == parents.size() + 1 /* one param is missing */);
@@ -294,7 +294,7 @@ namespace spacer {
         for (unsigned i = 1, sz = parents.size(); i < sz; ++i) {
             app *p = to_app(m.get_fact(parents.get(i)));
             rational const &r = params[i+1].get_rational();
-            TRACE("spacer.fkab", tout << "Adding to LCB: " << mk_pp(p, m) << "\n";);
+            TRACE(spacer_fkab, tout << "Adding to LCB: " << mk_pp(p, m) << "\n";);
             lcb.add_lit(p, r);
         }
 
@@ -305,30 +305,30 @@ namespace spacer {
         // XXX this might simplify a coefficient of a variable leading to unsoundness.
         // XXX For example, it will simplify 4*x >= 0 into x >= 0
         //rw(lit0);
-        TRACE("spacer.fkab",
+        TRACE(spacer_fkab,
               tout << "lit0 is: " << lit0 << "\n"
               << "LCB is: " << lcb() << "\n";);
 
         expr_ref var(m), val1(m), val2(m);
         val1 = get_coeff(lit0, var);
         val2 = get_coeff(lcb(), var);
-        TRACE("spacer.fkab",
+        TRACE(spacer_fkab,
               tout << "var: " << var
               << " val1: " << val1 << " val2: "  << val2 << "\n";);
 
         rational rat1, rat2, coeff0;
-        CTRACE("spacer.fkab", !(val1 && val2),
+        CTRACE(spacer_fkab, !(val1 && val2),
                tout << "Failed to match variables\n";);
         if (val1 && val2 &&
             a.is_numeral(val1, rat1) && a.is_numeral(val2, rat2)) {
             coeff0 = abs(rat2/rat1);
             coeff0 = coeff0 / lcb.lc();
-            TRACE("spacer.fkab", tout << "coeff0: " << coeff0 << "\n";);
+            TRACE(spacer_fkab, tout << "coeff0: " << coeff0 << "\n";);
         }
         else {
             IF_VERBOSE(1, verbose_stream()
                        << "\n\n\nFAILED TO FIND COEFFICIENT\n\n\n";);
-            TRACE("spacer.fkab", tout << "FAILED TO FIND COEFFICIENT\n";);
+            TRACE(spacer_fkab, tout << "FAILED TO FIND COEFFICIENT\n";);
             // failed to find a coefficient
             return proof_ref(m);
         }
@@ -350,7 +350,7 @@ namespace spacer {
                            v.size(), v.data());
 
         SASSERT(is_arith_lemma(m, pf));
-        TRACE("spacer.fkab", tout << mk_pp(pf, m) << "\n";);
+        TRACE(spacer_fkab, tout << mk_pp(pf, m) << "\n";);
 
         DEBUG_CODE(
             proof_checker pc(m);
@@ -403,7 +403,7 @@ namespace spacer {
                 func_decl *d = p->get_decl();
                 if (is_assign_bounds_lemma(m, p)) {
 
-                    TRACE("spacer.fkab", tout << mk_pp(p, m) << "\n";);
+                    TRACE(spacer_fkab, tout << mk_pp(p, m) << "\n";);
                     th_lemma = mk_fk_from_ab(m, hyps,
                                              d->get_num_parameters(),
                                              d->get_parameters());

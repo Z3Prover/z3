@@ -55,7 +55,7 @@ namespace arith {
                 lo = lo1, is_strict = is_strict1;
             found = true;
         }
-        CTRACE("arith_value", !found, tout << "value not found for " << mk_pp(e, m) << "\n";);
+        CTRACE(arith_value, !found, tout << "value not found for " << mk_pp(e, m) << "\n";);
         return found;
     }
 
@@ -74,7 +74,7 @@ namespace arith {
                 hi = hi1, is_strict = is_strict1;
             found = true;
         }
-        CTRACE("arith_value", !found, tout << "value not found for " << mk_pp(e, m) << "\n";);
+        CTRACE(arith_value, !found, tout << "value not found for " << mk_pp(e, m) << "\n";);
         return found;
     }
 
@@ -109,7 +109,7 @@ namespace arith {
             if (m_thr && m_thr->get_value(next, val)) return true;
             next = next->get_next();
         } while (next != n);
-        TRACE("arith_value", tout << "value not found for " << mk_pp(e, m_ctx->get_manager()) << "\n";);
+        TRACE(arith_value, tout << "value not found for " << mk_pp(e, m_ctx->get_manager()) << "\n";);
         return false;
     }
 

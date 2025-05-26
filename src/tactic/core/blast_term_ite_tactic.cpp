@@ -74,7 +74,7 @@ class blast_term_ite_tactic : public tactic {
             for (unsigned i = 0; i < num_args; ++i) {
                 expr* c, *t, *e;
                 if (!m.is_bool(args[i]) && m.is_ite(args[i], c, t, e)) {
-                    TRACE("blast_term_ite", result = m.mk_app(f, num_args, args); tout << result << "\n";);
+                    TRACE(blast_term_ite, result = m.mk_app(f, num_args, args); tout << result << "\n";);
                     expr_ref e1(m), e2(m);
                     ptr_vector<expr> args1(num_args, args);
                     args1[i] = t;

@@ -123,7 +123,7 @@ void prop_solver::assert_expr(expr * form)
     m_contexts[0]->assert_expr(form);
     m_contexts[1]->assert_expr(form);
     IF_VERBOSE(21, verbose_stream() << "$ asserted " << mk_pp(form, m) << "\n";);
-    TRACE("spacer", tout << "add_formula: " << mk_pp(form, m) << "\n";);
+    TRACE(spacer, tout << "add_formula: " << mk_pp(form, m) << "\n";);
 }
 
 void prop_solver::assert_expr(expr * form, unsigned level)
@@ -332,7 +332,7 @@ lbool prop_solver::internal_check_assumptions(expr_ref_vector &hard_atoms,
     }
 
     if (result == l_false && m_core && m.proofs_enabled() && !m_subset_based_core) {
-        TRACE("spacer", tout << "Using IUC core\n";);
+        TRACE(spacer, tout << "Using IUC core\n";);
         m_core->reset();
         m_ctx->get_iuc(*m_core);
     } else if (result == l_false && m_core) {
@@ -386,13 +386,13 @@ lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
     lbool res = internal_check_assumptions(hard, soft, clauses);
     if (!m_use_push_bg) { m_ctx->pop(1); }
 
-    TRACE("psolve_verbose",
+    TRACE(psolve_verbose,
           tout << "sat: " << mk_pp(mk_and(hard), m) << "\n"
           << mk_pp(mk_and(soft), m) << "\n";
           for (unsigned i = 0; i < num_bg; ++i)
           tout << "bg" << i << ": " << mk_pp(bg[i], m) << "\n";
           tout << "res: " << res << "\n";);
-    CTRACE("psolve", m_core,
+    CTRACE(psolve, m_core,
            tout << "core is: " << mk_pp(mk_and(*m_core), m) << "\n";);
 
     SASSERT(soft_sz >= soft.size());

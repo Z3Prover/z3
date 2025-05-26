@@ -51,7 +51,7 @@ class mpzzp_manager {
         if (even) {
             m().inc(m_lower);
         }
-        TRACE("mpzzp", tout << "lower: " << m_manager.to_string(m_lower) << ", upper: " << m_manager.to_string(m_upper) << "\n";);
+        TRACE(mpzzp, tout << "lower: " << m_manager.to_string(m_lower) << ", upper: " << m_manager.to_string(m_upper) << "\n";);
     }
 
     void p_normalize_core(mpz & x) {
@@ -171,11 +171,11 @@ public:
             SASSERT(!is_zero(a));
             // eulers theorem a^(p - 2), but gcd could be more efficient 
             // a*t1 + p*t2 = 1 => a*t1 = 1 (mod p) => t1 is the inverse (t3 == 1)
-            TRACE("mpzp_inv_bug", tout << "a: " << m().to_string(a) << ", p: " << m().to_string(m_p) << "\n";);
+            TRACE(mpzp_inv_bug, tout << "a: " << m().to_string(a) << ", p: " << m().to_string(m_p) << "\n";);
             p_normalize(a);
-            TRACE("mpzp_inv_bug", tout << "after normalization a: " << m().to_string(a) << "\n";);
+            TRACE(mpzp_inv_bug, tout << "after normalization a: " << m().to_string(a) << "\n";);
             m().gcd(a, m_p, m_inv_tmp1, m_inv_tmp2, m_inv_tmp3);
-            TRACE("mpzp_inv_bug", tout << "tmp1: " << m().to_string(m_inv_tmp1) << "\ntmp2: " << m().to_string(m_inv_tmp2) 
+            TRACE(mpzp_inv_bug, tout << "tmp1: " << m().to_string(m_inv_tmp1) << "\ntmp2: " << m().to_string(m_inv_tmp2) 
                   << "\ntmp3: " << m().to_string(m_inv_tmp3) << "\n";);
             p_normalize(m_inv_tmp1);
             m().swap(a, m_inv_tmp1);

@@ -68,7 +68,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, int value) {
     o.ebits = ebits;
     o.sbits = sbits;
 
-    TRACE("mpf_dbg", tout << "set: value = " << value << std::endl;);
+    TRACE(mpf_dbg, tout << "set: value = " << value << std::endl;);
     if (value == 0) {
         mk_pzero(ebits, sbits, o);
     }
@@ -97,7 +97,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, int value) {
             m_mpz_manager.machine_div2k(o.significand, 32-sbits);
     }
 
-    TRACE("mpf_dbg", tout << "set: res = " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "set: res = " << to_string(o) << std::endl;);
 }
 
 void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, int n, int d) {
@@ -116,7 +116,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, double value) {
     int64_t e =  ((raw & 0x7FF0000000000000ull) >> 52) - 1023;
     uint64_t s = raw & 0x000FFFFFFFFFFFFFull;
 
-    TRACE("mpf_dbg", tout << "set: " << value << " is: raw=" << raw << " (double)" <<
+    TRACE(mpf_dbg, tout << "set: " << value << " is: raw=" << raw << " (double)" <<
                           " sign=" << sign << " s=" << s << " e=" << e << std::endl;);
 
     SASSERT(-1023 <= e && e <= +1024);
@@ -139,7 +139,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, double value) {
     else if (sbits > 53)
         m_mpz_manager.mul2k(o.significand, sbits-53);
 
-    TRACE("mpf_dbg", tout << "set: res = " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "set: res = " << to_string(o) << std::endl;);
 }
 
 void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, float value) {
@@ -152,7 +152,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, float value) {
     signed int e = ((raw & 0x7F800000) >> 23) - 127;
     unsigned int s = raw & 0x007FFFFF;
 
-    TRACE("mpf_dbg", tout << "set: " << value << " is: raw=" << raw << " (float)" <<
+    TRACE(mpf_dbg, tout << "set: " << value << " is: raw=" << raw << " (float)" <<
                              " sign=" << sign << " s=" << s << " e=" << e << std::endl;);
 
     SASSERT(-127 <= e && e <= +128);
@@ -175,19 +175,19 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, float value) {
     else if (sbits > 24)
         m_mpz_manager.mul2k(o.significand, sbits-24);
 
-    TRACE("mpf_dbg", tout << "set: res = " << to_string_raw(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "set: res = " << to_string_raw(o) << std::endl;);
 }
 
 void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpq const & value) {
-    TRACE("mpf_dbg", tout << "set: " << m_mpq_manager.to_string(value) << " [" << ebits << "/" << sbits << "]"<< std::endl;);
+    TRACE(mpf_dbg, tout << "set: " << m_mpq_manager.to_string(value) << " [" << ebits << "/" << sbits << "]"<< std::endl;);
     scoped_mpz exp(m_mpz_manager);
     m_mpz_manager.set(exp, 0);
     set(o, ebits, sbits, rm, exp, value);
-    TRACE("mpf_dbg", tout << "set: res = " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "set: res = " << to_string(o) << std::endl;);
 }
 
 void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, char const * value) {
-    TRACE("mpf_dbg", tout << "set: " << value << " [" << ebits << "/" << sbits << "]"<< std::endl;);
+    TRACE(mpf_dbg, tout << "set: " << value << " [" << ebits << "/" << sbits << "]"<< std::endl;);
 
     o.ebits = ebits;
     o.sbits = sbits;
@@ -209,7 +209,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
     auto f = (e_pos != std::string_view::npos) ? std::string(v.substr(0, e_pos)) : std::string(v);
     auto e = (e_pos != std::string_view::npos) ? std::string(v.substr(e_pos+1)) : "0";
 
-    TRACE("mpf_dbg", tout << "sgn = " << sgn << " f = " << f << " e = " << e << std::endl;);
+    TRACE(mpf_dbg, tout << "sgn = " << sgn << " f = " << f << " e = " << e << std::endl;);
 
     scoped_mpq q(m_mpq_manager);
     m_mpq_manager.set(q, f.c_str());
@@ -220,12 +220,12 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
     set(o, ebits, sbits, rm, ex, q);
     o.sign = sgn;
 
-    TRACE("mpf_dbg", tout << "set: res = " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "set: res = " << to_string(o) << std::endl;);
 }
 
 void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpz const & exponent, mpq const & significand) {
     // Assumption: this represents significand * 2^exponent.
-    TRACE("mpf_dbg", tout << "set: sig = " << m_mpq_manager.to_string(significand) << " exp = " << m_mpz_manager.to_string(exponent) << std::endl;);
+    TRACE(mpf_dbg, tout << "set: sig = " << m_mpq_manager.to_string(significand) << " exp = " << m_mpz_manager.to_string(exponent) << std::endl;);
 
     o.ebits = ebits;
     o.sbits = sbits;
@@ -260,7 +260,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
             m_mpz_manager.add(exp, mpz(pp), exp);
         }
 
-        TRACE("mpf_dbg", tout << "Normalized: sig = " << m_mpq_manager.to_string(sig) <<
+        TRACE(mpf_dbg, tout << "Normalized: sig = " << m_mpq_manager.to_string(sig) <<
                                  " exp = " << m_mpz_manager.to_string(exp) << std::endl;);
 
         // Check that 1.0 <= sig < 2.0
@@ -279,7 +279,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         if (!m_mpq_manager.is_zero(sig) && m_mpz_manager.is_even(o.significand))
             m_mpz_manager.inc(o.significand);
 
-        TRACE("mpf_dbg", tout << "sig = " << m_mpz_manager.to_string(o.significand) <<
+        TRACE(mpf_dbg, tout << "sig = " << m_mpz_manager.to_string(o.significand) <<
                                  " exp = " << o.exponent << std::endl;);
 
         if (m_mpz_manager.is_small(exp)) {
@@ -290,7 +290,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
             mk_inf(ebits, sbits, o.sign, o);
     }
 
-    TRACE("mpf_dbg", tout << "set: res = " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "set: res = " << to_string(o) << std::endl;);
 }
 
 void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exponent, uint64_t significand) {
@@ -529,9 +529,9 @@ void mpf_manager::add_sub(mpf_rounding_mode rm, mpf const & x, mpf const & y, mp
         if (exp_delta > x.sbits+2)
             exp_delta = x.sbits+2;
 
-        TRACE("mpf_dbg", tout << "A  = " << to_string(a) << std::endl;);
-        TRACE("mpf_dbg", tout << "B  = " << to_string(b) << std::endl;);
-        TRACE("mpf_dbg", tout << "d  = " << exp_delta << std::endl;);
+        TRACE(mpf_dbg, tout << "A  = " << to_string(a) << std::endl;);
+        TRACE(mpf_dbg, tout << "B  = " << to_string(b) << std::endl;);
+        TRACE(mpf_dbg, tout << "d  = " << exp_delta << std::endl;);
 
         // Introduce 3 extra bits into both numbers.
         m_mpz_manager.mul2k(a.significand(), 3, a.significand());
@@ -542,32 +542,32 @@ void mpf_manager::add_sub(mpf_rounding_mode rm, mpf const & x, mpf const & y, mp
         scoped_mpz sticky_rem(m_mpz_manager);
         m_mpz_manager.machine_div_rem(b.significand(), m_powers2((int)exp_delta), b.significand(), sticky_rem);
 
-        TRACE("mpf_dbg", tout << "A' = " << m_mpz_manager.to_string(a.significand()) << std::endl;);
-        TRACE("mpf_dbg", tout << "B' = " << m_mpz_manager.to_string(b.significand()) << std::endl;);
+        TRACE(mpf_dbg, tout << "A' = " << m_mpz_manager.to_string(a.significand()) << std::endl;);
+        TRACE(mpf_dbg, tout << "B' = " << m_mpz_manager.to_string(b.significand()) << std::endl;);
 
         // Significand addition
         if (sgn(a) != sgn(b)) {
-            TRACE("mpf_dbg", tout << "SUBTRACTING" << std::endl;);
+            TRACE(mpf_dbg, tout << "SUBTRACTING" << std::endl;);
             m_mpz_manager.sub(a.significand(), b.significand(), o.significand);
             if (!sticky_rem.is_zero() && m_mpz_manager.is_even(o.significand))
                 m_mpz_manager.dec(o.significand);
         }
         else {
-            TRACE("mpf_dbg", tout << "ADDING" << std::endl;);
+            TRACE(mpf_dbg, tout << "ADDING" << std::endl;);
             m_mpz_manager.add(a.significand(), b.significand(), o.significand);
             if (!sticky_rem.is_zero() && m_mpz_manager.is_even(o.significand))
                 m_mpz_manager.inc(o.significand);
         }
 
-        TRACE("mpf_dbg", tout << "sum[-2:sbits+2] = " << m_mpz_manager.to_string(o.significand) << std::endl;);
+        TRACE(mpf_dbg, tout << "sum[-2:sbits+2] = " << m_mpz_manager.to_string(o.significand) << std::endl;);
 
         if (m_mpz_manager.is_zero(o.significand))
             mk_zero(o.ebits, o.sbits, rm == MPF_ROUND_TOWARD_NEGATIVE, o);
         else {
             bool neg = m_mpz_manager.is_neg(o.significand);
-            TRACE("mpf_dbg", tout << "NEG=" << neg << std::endl;);
+            TRACE(mpf_dbg, tout << "NEG=" << neg << std::endl;);
             m_mpz_manager.abs(o.significand);
-            TRACE("mpf_dbg", tout << "fs[-1:sbits+2] = " << m_mpz_manager.to_string(o.significand) << std::endl;);
+            TRACE(mpf_dbg, tout << "fs[-1:sbits+2] = " << m_mpz_manager.to_string(o.significand) << std::endl;);
             o.sign = ((!a.sign() &&  b.sign() &&  neg) ||
                       ( a.sign() && !b.sign() && !neg) ||
                       ( a.sign() &&  b.sign()));
@@ -578,13 +578,13 @@ void mpf_manager::add_sub(mpf_rounding_mode rm, mpf const & x, mpf const & y, mp
 }
 
 void mpf_manager::mul(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf & o) {
-    TRACE("mpf_mul_bug", tout << "rm: " << rm << "\n";
+    TRACE(mpf_mul_bug, tout << "rm: " << rm << "\n";
           tout << "X: " << to_string(x) << "\n";
           tout << "Y: " << to_string(y) << "\n";);
     SASSERT(x.sbits == y.sbits && x.ebits == y.ebits);
 
-    TRACE("mpf_dbg", tout << "X = " << to_string(x) << std::endl;);
-    TRACE("mpf_dbg", tout << "Y = " << to_string(y) << std::endl;);
+    TRACE(mpf_dbg, tout << "X = " << to_string(x) << std::endl;);
+    TRACE(mpf_dbg, tout << "Y = " << to_string(y) << std::endl;);
 
     if (is_nan(x))
         mk_nan(x.ebits, x.sbits, o);
@@ -628,17 +628,17 @@ void mpf_manager::mul(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf & 
         unpack(a, true);
         unpack(b, true);
 
-        TRACE("mpf_dbg", tout << "A = " << to_string(a) << std::endl;);
-        TRACE("mpf_dbg", tout << "B = " << to_string(b) << std::endl;);
+        TRACE(mpf_dbg, tout << "A = " << to_string(a) << std::endl;);
+        TRACE(mpf_dbg, tout << "B = " << to_string(b) << std::endl;);
 
         o.exponent = a.exponent() + b.exponent();
 
-        TRACE("mpf_dbg", tout << "A' = " << m_mpz_manager.to_string(a.significand()) << std::endl;);
-        TRACE("mpf_dbg", tout << "B' = " << m_mpz_manager.to_string(b.significand()) << std::endl;);
+        TRACE(mpf_dbg, tout << "A' = " << m_mpz_manager.to_string(a.significand()) << std::endl;);
+        TRACE(mpf_dbg, tout << "B' = " << m_mpz_manager.to_string(b.significand()) << std::endl;);
 
         m_mpz_manager.mul(a.significand(), b.significand(), o.significand);
 
-        TRACE("mpf_dbg", tout << "PRODUCT = " << to_string(o) << std::endl;);
+        TRACE(mpf_dbg, tout << "PRODUCT = " << to_string(o) << std::endl;);
 
         // Remove the extra bits, keeping a sticky bit.
         scoped_mpz sticky_rem(m_mpz_manager);
@@ -652,14 +652,14 @@ void mpf_manager::mul(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf & 
 
         round(rm, o);
     }
-    TRACE("mpf_mul_bug", tout << "result: " << to_string(o) << "\n";);
+    TRACE(mpf_mul_bug, tout << "result: " << to_string(o) << "\n";);
 }
 
 void mpf_manager::div(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf & o) {
     SASSERT(x.sbits == y.sbits && x.ebits == y.ebits);
 
-    TRACE("mpf_dbg", tout << "X = " << to_string(x) << std::endl;);
-    TRACE("mpf_dbg", tout << "Y = " << to_string(y) << std::endl;);
+    TRACE(mpf_dbg, tout << "X = " << to_string(x) << std::endl;);
+    TRACE(mpf_dbg, tout << "Y = " << to_string(y) << std::endl;);
 
     if (is_nan(x))
         mk_nan(x.ebits, x.sbits, o);
@@ -710,19 +710,19 @@ void mpf_manager::div(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf & 
         unpack(a, true);
         unpack(b, true);
 
-        TRACE("mpf_dbg", tout << "A = " << to_string(a) << std::endl;);
-        TRACE("mpf_dbg", tout << "B = " << to_string(b) << std::endl;);
+        TRACE(mpf_dbg, tout << "A = " << to_string(a) << std::endl;);
+        TRACE(mpf_dbg, tout << "B = " << to_string(b) << std::endl;);
 
         o.exponent = a.exponent() - b.exponent();
 
-        TRACE("mpf_dbg", tout << "A' = " << m_mpz_manager.to_string(a.significand()) << std::endl;);
-        TRACE("mpf_dbg", tout << "B' = " << m_mpz_manager.to_string(b.significand()) << std::endl;);
+        TRACE(mpf_dbg, tout << "A' = " << m_mpz_manager.to_string(a.significand()) << std::endl;);
+        TRACE(mpf_dbg, tout << "B' = " << m_mpz_manager.to_string(b.significand()) << std::endl;);
 
         unsigned extra_bits = x.sbits + 2;
         m_mpz_manager.mul2k(a.significand(), x.sbits + extra_bits);
         m_mpz_manager.machine_div(a.significand(), b.significand(), o.significand);
 
-        TRACE("mpf_dbg", tout << "QUOTIENT = " << to_string(o) << std::endl;);
+        TRACE(mpf_dbg, tout << "QUOTIENT = " << to_string(o) << std::endl;);
 
         // Remove the extra bits, keeping a sticky bit.
         scoped_mpz sticky_rem(m_mpz_manager);
@@ -730,7 +730,7 @@ void mpf_manager::div(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf & 
         if (!m_mpz_manager.is_zero(sticky_rem) && m_mpz_manager.is_even(o.significand))
             m_mpz_manager.inc(o.significand);
 
-        TRACE("mpf_dbg", tout << "QUOTIENT' = " << to_string(o) << std::endl;);
+        TRACE(mpf_dbg, tout << "QUOTIENT' = " << to_string(o) << std::endl;);
 
         round(rm, o);
     }
@@ -740,9 +740,9 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
     SASSERT(x.sbits == y.sbits && x.ebits == y.ebits &&
             x.sbits == z.sbits && x.ebits == z.ebits);
 
-    TRACE("mpf_dbg", tout << "X = " << to_string(x) << std::endl;);
-    TRACE("mpf_dbg", tout << "Y = " << to_string(y) << std::endl;);
-    TRACE("mpf_dbg", tout << "Z = " << to_string(z) << std::endl;);
+    TRACE(mpf_dbg, tout << "X = " << to_string(x) << std::endl;);
+    TRACE(mpf_dbg, tout << "Y = " << to_string(y) << std::endl;);
+    TRACE(mpf_dbg, tout << "Z = " << to_string(z) << std::endl;);
 
     if (is_nan(x) || is_nan(y) || is_nan(z))
         mk_nan(x.ebits, x.sbits, o);
@@ -801,7 +801,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         unpack(b, true);
         unpack(c, true);
 
-        TRACE("mpf_dbg", tout << "A = " << to_string(a) << std::endl;
+        TRACE(mpf_dbg, tout << "A = " << to_string(a) << std::endl;
                          tout << "B = " << to_string(b) << std::endl;
                          tout << "C = " << to_string(c) << std::endl;
                          tout << "A = " << to_string_binary(a, 1, 0) << std::endl;
@@ -818,7 +818,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         mr.set(x.ebits+2, 2*x.sbits-1, a.sign() != b.sign(), a.exponent() + b.exponent());
         m_mpz_manager.mul(a.significand(), b.significand(), mr.significand());
 
-        TRACE("mpf_dbg", tout << "M = " << to_string(mr) << std::endl;
+        TRACE(mpf_dbg, tout << "M = " << to_string(mr) << std::endl;
                          tout << "M = " << to_string_binary(mr, 1, 0) << std::endl;);
 
         // mul_res is [-1][0].[2*sbits - 2], i.e., >= 2^(2*sbits-2) and < 2^(2*sbits).
@@ -832,7 +832,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         mr.set(x.ebits + 2, 2 * x.sbits - 1 + 3, mr.sign(), mr.exponent(), mr.significand());
         m_mpz_manager.mul2k(mr.significand(), 3);
 
-        TRACE("mpf_dbg", tout << "C_= " << to_string(c) << std::endl;
+        TRACE(mpf_dbg, tout << "C_= " << to_string(c) << std::endl;
                          tout << "C_= " << to_string_binary(c, 1, 0) << std::endl;);
 
         SASSERT(m_mpz_manager.lt(c.significand(), m_powers2(2*x.sbits + 3)));
@@ -840,7 +840,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
                 m_mpz_manager.ge(c.significand(), m_powers2(2*x.sbits - 2 + 3)));
 
         if (exp(c) > exp(mr)) {
-            TRACE("mpf_dbg", tout << "Swap!" << std::endl;);
+            TRACE(mpf_dbg, tout << "Swap!" << std::endl;);
             mr.swap(c);
         }
 
@@ -855,20 +855,20 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
 
         scoped_mpz sticky_rem(m_mpz_manager);
         m_mpz_manager.machine_div_rem(c.significand(), m_powers2(exp_delta), c.significand(), sticky_rem);
-        TRACE("mpf_dbg", tout << "alignment shift by delta=" << exp_delta << " -> sig = " << m_mpz_manager.to_string(c.significand()) <<
+        TRACE(mpf_dbg, tout << "alignment shift by delta=" << exp_delta << " -> sig = " << m_mpz_manager.to_string(c.significand()) <<
                          " sticky_rem = " << m_mpz_manager.to_string(sticky_rem) << std::endl;);
         bool alignment_sticky = !m_mpz_manager.is_zero(sticky_rem);
 
-        TRACE("mpf_dbg", tout << "M'= " << m_mpz_manager.to_string(mr.significand()) << std::endl;
+        TRACE(mpf_dbg, tout << "M'= " << m_mpz_manager.to_string(mr.significand()) << std::endl;
                          tout << "M'= " << to_string_binary(mr, 1, 0) << std::endl; );
-        TRACE("mpf_dbg", tout << "C'= " << m_mpz_manager.to_string(c.significand()) << std::endl;
+        TRACE(mpf_dbg, tout << "C'= " << m_mpz_manager.to_string(c.significand()) << std::endl;
                          tout << "C'= " << to_string_binary(c, 1, 0) << std::endl; );
 
         // Significand addition
         scoped_mpf res(mr);
 
         if (sgn(mr) != sgn(c)) {
-            TRACE("mpf_dbg", tout << "SUBTRACTING" << std::endl;);
+            TRACE(mpf_dbg, tout << "SUBTRACTING" << std::endl;);
             m_mpz_manager.sub(mr.significand(), c.significand(), res.significand());
 
             if (alignment_sticky && m_mpz_manager.is_even(res.significand()))
@@ -880,14 +880,14 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
             }
         }
         else {
-            TRACE("mpf_dbg", tout << "ADDING" << std::endl;);
+            TRACE(mpf_dbg, tout << "ADDING" << std::endl;);
             m_mpz_manager.add(mr.significand(), c.significand(), res.significand());
 
             if (alignment_sticky && m_mpz_manager.is_even(res.significand()))
                 m_mpz_manager.inc(res.get().significand);
         }
 
-        TRACE("mpf_dbg", tout << "S'= " << m_mpz_manager.to_string(res.significand()) << std::endl;
+        TRACE(mpf_dbg, tout << "S'= " << m_mpz_manager.to_string(res.significand()) << std::endl;
                          tout << "S'= " << to_string_binary(res, 1, 0) << std::endl; );
 
         // Renormalize
@@ -899,7 +899,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
             res.get().exponent++;
             renorm_sticky = !m_mpz_manager.is_even(res.significand());
             m_mpz_manager.machine_div2k(res.significand(), 1);
-            TRACE("mpf_dbg", tout << "Add/Sub overflew into 4.xxx!" << std::endl;
+            TRACE(mpf_dbg, tout << "Add/Sub overflew into 4.xxx!" << std::endl;
                              tout << "S*= " << to_string_binary(res, 2, 0) << std::endl;);
         }
 
@@ -911,7 +911,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         res.get().exponent -= renorm_delta;
         m_mpz_manager.mul2k(res.significand(), renorm_delta);
 
-        TRACE("mpf_dbg", tout << "R*= " << to_string_binary(res, 2, 0) << " (renormalized, delta=" << renorm_delta << ")" << std::endl;);
+        TRACE(mpf_dbg, tout << "R*= " << to_string_binary(res, 2, 0) << " (renormalized, delta=" << renorm_delta << ")" << std::endl;);
 
         set(o, x.ebits, x.sbits, res.sign(), res.exponent(), mpz(0));
 
@@ -927,7 +927,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         if (renorm_sticky && m_mpz_manager.is_even(o.significand))
             m_mpz_manager.inc(o.significand);
 
-        TRACE("mpf_dbg", tout << "sum[-1:sbits+2] = " << m_mpz_manager.to_string(o.significand) << std::endl;
+        TRACE(mpf_dbg, tout << "sum[-1:sbits+2] = " << m_mpz_manager.to_string(o.significand) << std::endl;
                         tout << "R = " << to_string_binary(o, 1, 3) << std::endl;);
 
         unsigned max_size = o.sbits+4;
@@ -944,7 +944,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
             round(rm, o);
     }
 
-    TRACE("mpf_dbg", tout << "FMA = " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "FMA = " << to_string(o) << std::endl;);
 }
 
 void my_mpz_sqrt(unsynch_mpz_manager & m, unsigned sbits, bool odd_exp, mpz & in, mpz & o) {
@@ -965,18 +965,18 @@ void my_mpz_sqrt(unsynch_mpz_manager & m, unsigned sbits, bool odd_exp, mpz & in
         m.set(o, lower);
 
     while (m.neq(lower, upper)) {
-        STRACE("mpf_dbg", tout << "SIG = " << m.to_string(in) <<
+        STRACE(mpf_dbg, tout << "SIG = " << m.to_string(in) <<
                                     " LOWER = " << m.to_string(lower) <<
                                     " UPPER = " << m.to_string(upper) << std::endl;);
         m.sub(upper, lower, diff);
         if (m.is_one(diff)) {
             m.mul(lower, lower, product);
             if (m.eq(product, in)) {
-                STRACE("mpf_dbg", tout << "choosing lower" << std::endl;);
+                STRACE(mpf_dbg, tout << "choosing lower" << std::endl;);
                 m.set(o, lower);
             }
             else {
-                STRACE("mpf_dbg", tout << "choosing upper" << std::endl;);
+                STRACE(mpf_dbg, tout << "choosing upper" << std::endl;);
                 m.set(o, upper); // choosing upper is like a sticky bit here.
             }
             break;
@@ -986,7 +986,7 @@ void my_mpz_sqrt(unsynch_mpz_manager & m, unsigned sbits, bool odd_exp, mpz & in
         m.machine_div2k(mid, 1);
         m.mul(mid, mid, product);
 
-        STRACE("mpf_dbg", tout << "MID = " << m.to_string(mid) <<
+        STRACE(mpf_dbg, tout << "MID = " << m.to_string(mid) <<
                                   " PROD = " << m.to_string(product) << std::endl;);
 
         if (m.lt(product, in))
@@ -1004,7 +1004,7 @@ void my_mpz_sqrt(unsynch_mpz_manager & m, unsigned sbits, bool odd_exp, mpz & in
 void mpf_manager::sqrt(mpf_rounding_mode rm, mpf const & x, mpf & o) {
     SASSERT(x.ebits > 0 && x.sbits > 0);
 
-    TRACE("mpf_dbg", tout << "X = " << to_string(x) << std::endl;);
+    TRACE(mpf_dbg, tout << "X = " << to_string(x) << std::endl;);
 
     if (is_nan(x))
         mk_nan(x.ebits, x.sbits, o);
@@ -1023,7 +1023,7 @@ void mpf_manager::sqrt(mpf_rounding_mode rm, mpf const & x, mpf & o) {
         set(a, x);
         unpack(a, true);
 
-        TRACE("mpf_dbg", tout << "A = " << to_string(a) << std::endl;);
+        TRACE(mpf_dbg, tout << "A = " << to_string(a) << std::endl;);
 
         m_mpz_manager.mul2k(a.significand(), x.sbits + ((a.exponent() % 2)?6:7));
         if (!m_mpz_manager.root(a.significand(), 2, o.significand))
@@ -1032,7 +1032,7 @@ void mpf_manager::sqrt(mpf_rounding_mode rm, mpf const & x, mpf & o) {
             // We need a sticky bit in the last position here, so we fix that.
             if (m_mpz_manager.is_even(o.significand))
                 m_mpz_manager.dec(o.significand);
-            TRACE("mpf_dbg", tout << "dec'ed " << m_mpz_manager.to_string(o.significand) << std::endl;);
+            TRACE(mpf_dbg, tout << "dec'ed " << m_mpz_manager.to_string(o.significand) << std::endl;);
         }
         o.exponent = a.exponent() >> 1;
         if (a.exponent() % 2 == 0) o.exponent--;
@@ -1040,13 +1040,13 @@ void mpf_manager::sqrt(mpf_rounding_mode rm, mpf const & x, mpf & o) {
         round(rm, o);
     }
 
-    TRACE("mpf_dbg", tout << "SQRT = " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "SQRT = " << to_string(o) << std::endl;);
 }
 
 void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o) {
     SASSERT(x.ebits > 0 && x.sbits > 0);
 
-    TRACE("mpf_dbg", tout << "X = " << to_string(x) << std::endl;);
+    TRACE(mpf_dbg, tout << "X = " << to_string(x) << std::endl;);
 
     if (is_nan(x))
         mk_nan(x.ebits, x.sbits, o);
@@ -1072,7 +1072,7 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
         else {
             SASSERT(rm == MPF_ROUND_NEAREST_TEVEN || rm == MPF_ROUND_NEAREST_TAWAY);
             bool tie = m_mpz_manager.is_zero(x.significand) && x.exponent == -1;
-            TRACE("mpf_dbg", tout << "tie = " << tie << std::endl;);
+            TRACE(mpf_dbg, tout << "tie = " << tie << std::endl;);
             if (tie && rm == MPF_ROUND_NEAREST_TEVEN)
                 mk_zero(x.ebits, x.sbits, x.sign, o);
             else if (tie && rm == MPF_ROUND_NEAREST_TAWAY)
@@ -1096,7 +1096,7 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
         set(a, x);
         unpack(a, true); // A includes hidden bit
 
-        TRACE("mpf_dbg", tout << "A = " << to_string_raw(a) << std::endl;);
+        TRACE(mpf_dbg, tout << "A = " << to_string_raw(a) << std::endl;);
 
         SASSERT(m_mpz_manager.lt(a.significand(), m_powers2(x.sbits)));
         SASSERT(m_mpz_manager.ge(a.significand(), m_powers2(x.sbits - 1)));
@@ -1107,12 +1107,12 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
         unsigned shift = (o.sbits - 1) - ((unsigned)o.exponent);
         const mpz & shift_p = m_powers2(shift);
         const mpz & shiftm1_p = m_powers2(shift-1);
-        TRACE("mpf_dbg", tout << "shift=" << shift << std::endl;);
-        TRACE("mpf_dbg", tout << "shiftm1_p=" << m_mpz_manager.to_string(shiftm1_p) << std::endl;);
+        TRACE(mpf_dbg, tout << "shift=" << shift << std::endl;);
+        TRACE(mpf_dbg, tout << "shiftm1_p=" << m_mpz_manager.to_string(shiftm1_p) << std::endl;);
 
         scoped_mpz div(m_mpz_manager), rem(m_mpz_manager);
         m_mpz_manager.machine_div_rem(o.significand, shift_p, div, rem);
-        TRACE("mpf_dbg", tout << "div=" << m_mpz_manager.to_string(div) << " rem=" << m_mpz_manager.to_string(rem) << std::endl;);
+        TRACE(mpf_dbg, tout << "div=" << m_mpz_manager.to_string(div) << " rem=" << m_mpz_manager.to_string(rem) << std::endl;);
 
         switch (rm) {
         case MPF_ROUND_NEAREST_TEVEN:
@@ -1121,11 +1121,11 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
             bool less_than_tie = m_mpz_manager.lt(rem, shiftm1_p);
             bool more_than_tie = m_mpz_manager.gt(rem, shiftm1_p);
             (void)less_than_tie;
-            TRACE("mpf_dbg", tout << "tie= " << tie << "; <tie = " << less_than_tie << "; >tie = " << more_than_tie << std::endl;);
+            TRACE(mpf_dbg, tout << "tie= " << tie << "; <tie = " << less_than_tie << "; >tie = " << more_than_tie << std::endl;);
             if (tie) {
                 if ((rm == MPF_ROUND_NEAREST_TEVEN && m_mpz_manager.is_odd(div)) ||
                     (rm == MPF_ROUND_NEAREST_TAWAY)) {
-                    TRACE("mpf_dbg", tout << "div++ (1)" << std::endl;);
+                    TRACE(mpf_dbg, tout << "div++ (1)" << std::endl;);
                     m_mpz_manager.inc(div);
                 }
             }
@@ -1133,7 +1133,7 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
                 SASSERT(less_than_tie || more_than_tie);
                 if (more_than_tie) {
                     m_mpz_manager.inc(div);
-                    TRACE("mpf_dbg", tout << "div++ (2)" << std::endl;);
+                    TRACE(mpf_dbg, tout << "div++ (2)" << std::endl;);
                 }
             }
             break;
@@ -1163,7 +1163,7 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
         m_mpz_manager.sub(o.significand, m_powers2(o.sbits - 1), o.significand); // strip hidden bit
     }
 
-    TRACE("mpf_dbg", tout << "INTEGRAL = " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "INTEGRAL = " << to_string(o) << std::endl;);
 }
 
 void mpf_manager::to_mpz(mpf const & x, unsynch_mpz_manager & zm, mpz & o) {
@@ -1213,7 +1213,7 @@ void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o
         default: UNREACHABLE();
         }
         if (inc) m_mpz_manager.inc(z);
-        TRACE("mpf_dbg_sbv",
+        TRACE(mpf_dbg_sbv,
               tout << "SBV: (" << to_string(x) << ") == " << m_mpq_manager.to_string(z) << std::endl;
               tout << "sign=" << t.sign() << " last=" << last << " round=" << round <<
                   " sticky=" << sticky << " inc=" << inc << std::endl; );
@@ -1224,7 +1224,7 @@ void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o
     m_mpq_manager.set(o, z);
     if (x.sign) m_mpq_manager.neg(o);
 
-    TRACE("mpf_dbg", tout << "SBV = " << m_mpq_manager.to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "SBV = " << m_mpq_manager.to_string(o) << std::endl;);
 }
 
 void mpf_manager::to_ieee_bv_mpz(const mpf & x, scoped_mpz & o) {
@@ -1251,7 +1251,7 @@ void mpf_manager::to_ieee_bv_mpz(const mpf & x, scoped_mpz & o) {
         m_mpz_manager.add(o, sig(x), o);
     }
 
-    TRACE("mpf_dbg", tout << "IEEE_BV = " << m_mpz_manager.to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "IEEE_BV = " << m_mpz_manager.to_string(o) << std::endl;);
 }
 
 void mpf_manager::renormalize(unsigned ebits, unsigned sbits, mpf_exp_t & exp, mpz & sig) {
@@ -1281,7 +1281,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
     signed int D = (signed int)(exp_diff);
     mpf_exp_t N = sbits-1;
 
-    TRACE("mpf_dbg_rem", tout << "x=" << to_string(x) << std::endl;
+    TRACE(mpf_dbg_rem, tout << "x=" << to_string(x) << std::endl;
                          tout << "y=" << to_string(y) << std::endl;
                          tout << "d=" << D << std::endl;
                          tout << "partial=" << partial << std::endl;);
@@ -1300,7 +1300,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
     m_mpz_manager.machine_div_rem(x_sig_shifted, y.significand, x_div_y_sig_lrg, x_div_y_rem); // rem useful?
     // x/y is in x_diuv_y_sig_lrg and has sbits+3 extra bits.
 
-    TRACE("mpf_dbg_rem", tout << "X/Y_exp=" << x_div_y_exp << std::endl;
+    TRACE(mpf_dbg_rem, tout << "X/Y_exp=" << x_div_y_exp << std::endl;
                          tout << "X/Y_sig_lrg=" << m_mpz_manager.to_string(x_div_y_sig_lrg) << std::endl;
                          tout << "X/Y_rem=" << m_mpz_manager.to_string(x_div_y_rem) << std::endl;
                          tout << "X/Y~=" << to_string_hexfloat(x_div_y_sgn, x_div_y_exp, x_div_y_sig_lrg, ebits, sbits, sbits+3) << std::endl;);
@@ -1321,7 +1321,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
         const mpz & shiftm1_p = m_powers2(Q_shft-1);
         bool tie = m_mpz_manager.eq(Q_rem, shiftm1_p);
         bool more_than_tie = m_mpz_manager.gt(Q_rem, shiftm1_p);
-        TRACE("mpf_dbg_rem", tout << "tie= " << tie << "; >tie= " << more_than_tie << std::endl;);
+        TRACE(mpf_dbg_rem, tout << "tie= " << tie << "; >tie= " << more_than_tie << std::endl;);
         if ((tie && m_mpz_manager.is_odd(Q_sig)) || more_than_tie)
             m_mpz_manager.inc(Q_sig);
     }
@@ -1330,7 +1330,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
     renormalize(ebits, sbits, Q_exp, Q_sig);
 
     (void)Q_sgn;
-    TRACE("mpf_dbg_rem", tout << "Q_exp=" << Q_exp << std::endl;
+    TRACE(mpf_dbg_rem, tout << "Q_exp=" << Q_exp << std::endl;
                          tout << "Q_sig=" << m_mpz_manager.to_string(Q_sig) << std::endl;
                          tout << "Q=" << to_string_hexfloat(Q_sgn, Q_exp, Q_sig, ebits, sbits, 0) << std::endl;);
 
@@ -1351,7 +1351,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
     renormalize(ebits, 2*sbits-1, YQ_exp, YQ_sig); // YQ_sig has `sbits-1' extra bits.
 
     (void)YQ_sgn;
-    TRACE("mpf_dbg_rem", tout << "YQ_sgn=" << YQ_sgn << std::endl;
+    TRACE(mpf_dbg_rem, tout << "YQ_sgn=" << YQ_sgn << std::endl;
                          tout << "YQ_exp=" << YQ_exp << std::endl;
                          tout << "YQ_sig=" << m_mpz_manager.to_string(YQ_sig) << std::endl;
                          tout << "YQ=" << to_string_hexfloat(YQ_sgn, YQ_exp, YQ_sig, ebits, sbits, sbits-1) << std::endl;);
@@ -1364,7 +1364,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
     mpf_exp_t X_YQ_exp = x.exponent;
     scoped_mpz X_YQ_sig(m_mpz_manager);
     mpf_exp_t exp_delta = exp(x) - YQ_exp;
-    TRACE("mpf_dbg_rem", tout << "exp_delta=" << exp_delta << std::endl;);
+    TRACE(mpf_dbg_rem, tout << "exp_delta=" << exp_delta << std::endl;);
     SASSERT(INT_MIN < exp_delta && exp_delta <= INT_MAX);
     scoped_mpz minuend(m_mpz_manager), subtrahend(m_mpz_manager);
 
@@ -1393,11 +1393,11 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
         }
         if (!m_mpz_manager.is_zero(sticky_rem) && m_mpz_manager.is_even(subtrahend))
             m_mpz_manager.inc(subtrahend);
-        TRACE("mpf_dbg_rem", tout << "aligned subtrahend=" << m_mpz_manager.to_string(subtrahend) << std::endl;);
+        TRACE(mpf_dbg_rem, tout << "aligned subtrahend=" << m_mpz_manager.to_string(subtrahend) << std::endl;);
     }
 
     m_mpz_manager.sub(minuend, subtrahend, X_YQ_sig);
-    TRACE("mpf_dbg_rem", tout << "X_YQ_sig'=" << m_mpz_manager.to_string(X_YQ_sig) << std::endl;);
+    TRACE(mpf_dbg_rem, tout << "X_YQ_sig'=" << m_mpz_manager.to_string(X_YQ_sig) << std::endl;);
 
     bool neg = m_mpz_manager.is_neg(X_YQ_sig);
     if (neg) m_mpz_manager.neg(X_YQ_sig);
@@ -1409,7 +1409,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
     else {
         renormalize(ebits, 2*sbits-1, X_YQ_exp, X_YQ_sig);
 
-        TRACE("mpf_dbg_rem", tout << "minuend=" << m_mpz_manager.to_string(minuend) << std::endl;
+        TRACE(mpf_dbg_rem, tout << "minuend=" << m_mpz_manager.to_string(minuend) << std::endl;
                              tout << "subtrahend=" << m_mpz_manager.to_string(subtrahend) << std::endl;
                              tout << "X_YQ_sgn=" << X_YQ_sgn << std::endl;
                              tout << "X_YQ_exp=" << X_YQ_exp << std::endl;
@@ -1420,7 +1420,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
         SASSERT(m_mpz_manager.lt(X_YQ_sig, m_powers2(2*sbits-1)));
         scoped_mpz rnd_bits(m_mpz_manager);
         m_mpz_manager.machine_div_rem(X_YQ_sig, m_powers2(sbits-1), X_YQ_sig, rnd_bits);
-        TRACE("mpf_dbg_rem", tout << "final sticky=" << m_mpz_manager.to_string(rnd_bits) << std::endl; );
+        TRACE(mpf_dbg_rem, tout << "final sticky=" << m_mpz_manager.to_string(rnd_bits) << std::endl; );
 
         // Round to nearest, ties to even.
         if (m_mpz_manager.eq(rnd_bits, mpz(32))) { // tie.
@@ -1434,13 +1434,13 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
         set(x, ebits, sbits, X_YQ_sgn, X_YQ_exp, X_YQ_sig);
     }
 
-    TRACE("mpf_dbg_rem", tout << "partial remainder = " << to_string_hexfloat(x) << std::endl;);
+    TRACE(mpf_dbg_rem, tout << "partial remainder = " << to_string_hexfloat(x) << std::endl;);
 }
 
 void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
     SASSERT(x.sbits == y.sbits && x.ebits == y.ebits);
 
-    TRACE("mpf_dbg_rem", tout << "X = " << to_string(x) << "=" << to_string_hexfloat(x) << std::endl;
+    TRACE(mpf_dbg_rem, tout << "X = " << to_string(x) << "=" << to_string_hexfloat(x) << std::endl;
                          tout << "Y = " << to_string(y) << "=" << to_string_hexfloat(y) << std::endl;);
 
     if (is_nan(x) || is_nan(y))
@@ -1482,8 +1482,8 @@ void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
         round(MPF_ROUND_NEAREST_TEVEN, o);
     }
 
-    TRACE("mpf_dbg_rem", tout << "R = " << to_string(o) << "=" << to_string_hexfloat(o) << std::endl; );
-    TRACE("mpf_dbg", tout << "REMAINDER = " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg_rem, tout << "R = " << to_string(o) << "=" << to_string_hexfloat(o) << std::endl; );
+    TRACE(mpf_dbg, tout << "REMAINDER = " << to_string(o) << std::endl;);
 }
 
 void mpf_manager::maximum(mpf const & x, mpf const & y, mpf & o) {
@@ -1546,10 +1546,10 @@ std::string mpf_manager::to_string(mpf const & x) {
             m_mpz_manager.add(num, sig(x), num);
             m_mpz_manager.mul2k(denom, x.sbits-1, denom);
 
-            //TRACE("mpf_dbg", tout << "SIG=" << m_mpq_manager.to_string(sig(x)) << std::endl; );
-            //TRACE("mpf_dbg", tout << "NUM=" << m_mpq_manager.to_string(num) << std::endl;);
-            //TRACE("mpf_dbg", tout << "DEN=" << m_mpq_manager.to_string(denom) << std::endl;);
-            //TRACE("mpf_dbg", tout << "EXP=" << exponent << std::endl;);
+            //TRACE(mpf_dbg, tout << "SIG=" << m_mpq_manager.to_string(sig(x)) << std::endl; );
+            //TRACE(mpf_dbg, tout << "NUM=" << m_mpq_manager.to_string(num) << std::endl;);
+            //TRACE(mpf_dbg, tout << "DEN=" << m_mpq_manager.to_string(denom) << std::endl;);
+            //TRACE(mpf_dbg, tout << "EXP=" << exponent << std::endl;);
 
             scoped_mpq r(m_mpq_manager);
             m_mpq_manager.set(r, num);
@@ -1918,7 +1918,7 @@ void mpf_manager::mk_ninf(unsigned ebits, unsigned sbits, mpf & o) {
 }
 
 void mpf_manager::unpack(mpf & o, bool normalize) {
-    TRACE("mpf_dbg", tout << "unpack " << to_string(o) << ": ebits=" <<
+    TRACE(mpf_dbg, tout << "unpack " << to_string(o) << ": ebits=" <<
                              o.ebits << " sbits=" << o.sbits <<
                              " normalize=" << normalize <<
                              " has_top_exp=" << has_top_exp(o) << " (" << mk_top_exp(o.ebits) << ")" <<
@@ -1962,7 +1962,7 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
     // Assumptions: o.significand is of the form f[-1:0] . f[1:sbits-1] [round,extra,sticky],
     // i.e., it has 2 + (sbits-1) + 3 = sbits + 4 bits.
 
-    TRACE("mpf_dbg", tout << "RND: " << to_string(o) << std::endl;
+    TRACE(mpf_dbg, tout << "RND: " << to_string(o) << std::endl;
                      tout << to_string_binary(o, 1, 3) << std::endl;);
 
     DEBUG_CODE({
@@ -1995,7 +1995,7 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
     if (m_mpz_manager.lt(sigma, sigma_cap))
         m_mpz_manager.set(sigma, sigma_cap);
 
-    TRACE("mpf_dbg", tout << "e_min_norm = " << e_min << std::endl;
+    TRACE(mpf_dbg, tout << "e_min_norm = " << e_min << std::endl;
                      tout << "e_max_norm = " << e_max << std::endl;
                      tout << "beta = " << beta << ", (beta < e_min) = " << (beta < e_min) << std::endl;
                      tout << "LZ = " << lz << std::endl;
@@ -2004,7 +2004,7 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
 
     // Normalization shift
 
-    TRACE("mpf_dbg", tout << "Shift distance: " << m_mpz_manager.to_string(sigma) << " " << ((m_mpz_manager.is_nonneg(sigma))?"(LEFT)":"(RIGHT)") << std::endl;);
+    TRACE(mpf_dbg, tout << "Shift distance: " << m_mpz_manager.to_string(sigma) << " " << ((m_mpz_manager.is_nonneg(sigma))?"(LEFT)":"(RIGHT)") << std::endl;);
 
     if (m_mpz_manager.le(sigma, -1)) {
         // Right shift
@@ -2021,7 +2021,7 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
         m_mpz_manager.mul2k(o.significand, sigma_uint, o.significand);
     }
 
-    TRACE("mpf_dbg", tout << "Shifted: " << to_string(o) << std::endl;
+    TRACE(mpf_dbg, tout << "Shifted: " << to_string(o) << std::endl;
                      tout << to_string_binary(o, 1, 3) << std::endl;);
 
     // Significand rounding (sigrd)
@@ -2035,8 +2035,8 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
 
     bool last = !m_mpz_manager.is_even(o.significand);
 
-    TRACE("mpf_dbg", tout << "sign=" << o.sign << " last=" << last << " round=" << round << " sticky=" << sticky << std::endl;);
-    TRACE("mpf_dbg", tout << "before rounding decision: " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "sign=" << o.sign << " last=" << last << " round=" << round << " sticky=" << sticky << std::endl;);
+    TRACE(mpf_dbg, tout << "before rounding decision: " << to_string(o) << std::endl;);
 
     // The significand has the right size now, but we might have to increment it
     // depending on the sign, the last/round/sticky bits, and the rounding mode.
@@ -2050,11 +2050,11 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
     default: UNREACHABLE();
     }
 
-    TRACE("mpf_dbg", tout << "Rounding increment -> significand +" << (int)inc << std::endl;);
+    TRACE(mpf_dbg, tout << "Rounding increment -> significand +" << (int)inc << std::endl;);
     if (inc)
         m_mpz_manager.inc(o.significand);
 
-    TRACE("mpf_dbg", tout << "Rounded significand: " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "Rounded significand: " << to_string(o) << std::endl;);
 
     // Post normalization (post)
 
@@ -2065,16 +2065,16 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
     }
 
     bool SIGovf = o.exponent > e_max;
-    TRACE("mpf_dbg", tout << "Post-normalized: " << to_string(o) << std::endl;);
-    TRACE("mpf_dbg", tout << "SIGovf = " << SIGovf << std::endl;);
+    TRACE(mpf_dbg, tout << "Post-normalized: " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "SIGovf = " << SIGovf << std::endl;);
 
     // Exponent rounding (exprd)
 
     bool o_has_max_exp = (o.exponent > e_max);
     bool OVF2 = SIGovf && o_has_max_exp;
 
-    TRACE("mpf_dbg", tout << "OVF2 = " << OVF2 << std::endl;);
-    TRACE("mpf_dbg", tout << "o_has_max_exp = " << o_has_max_exp << std::endl;);
+    TRACE(mpf_dbg, tout << "OVF2 = " << OVF2 << std::endl;);
+    TRACE(mpf_dbg, tout << "o_has_max_exp = " << o_has_max_exp << std::endl;);
 
     if (OVF2)
         mk_round_inf(rm, o);
@@ -2082,21 +2082,21 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
         const mpz & p = m_powers2(o.sbits-1);
 
         if (m_mpz_manager.ge(o.significand, p)) {
-            TRACE("mpf_dbg", tout << "NORMAL: " << m_mpz_manager.to_string(o.significand) << std::endl;);
+            TRACE(mpf_dbg, tout << "NORMAL: " << m_mpz_manager.to_string(o.significand) << std::endl;);
             m_mpz_manager.sub(o.significand, p, o.significand); // Strips the hidden bit.
         }
         else {
-            TRACE("mpf_dbg", tout << "DENORMAL: " << m_mpz_manager.to_string(o.significand) << std::endl;);
+            TRACE(mpf_dbg, tout << "DENORMAL: " << m_mpz_manager.to_string(o.significand) << std::endl;);
             o.exponent = mk_bot_exp(o.ebits);
         }
     }
 
-    TRACE("mpf_dbg", tout << "ROUNDED = " << to_string(o) << std::endl;
+    TRACE(mpf_dbg, tout << "ROUNDED = " << to_string(o) << std::endl;
                      tout << to_string_binary(o, -1, 0) << " (hidden bit, unbiased exp)." << std::endl;);
 }
 
 void mpf_manager::round_sqrt(mpf_rounding_mode rm, mpf & o) {
-    TRACE("mpf_dbg", tout << "RND-SQRT: " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "RND-SQRT: " << to_string(o) << std::endl;);
 
     bool sticky = !m_mpz_manager.is_even(o.significand);
     m_mpz_manager.machine_div2k(o.significand, 1);
@@ -2118,14 +2118,14 @@ void mpf_manager::round_sqrt(mpf_rounding_mode rm, mpf & o) {
     default: UNREACHABLE();
     }
 
-    TRACE("mpf_dbg", tout << "last=" << last << " round=" << round << " sticky=" << sticky << " --> inc=" << inc << std::endl;);
+    TRACE(mpf_dbg, tout << "last=" << last << " round=" << round << " sticky=" << sticky << " --> inc=" << inc << std::endl;);
 
     if (inc)
         m_mpz_manager.inc(o.significand);
 
     m_mpz_manager.sub(o.significand, m_powers2(o.sbits-1), o.significand);
 
-    TRACE("mpf_dbg", tout << "ROUNDED = " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "ROUNDED = " << to_string(o) << std::endl;);
 }
 
 unsigned mpf_manager::prev_power_of_two(mpf const & a) {

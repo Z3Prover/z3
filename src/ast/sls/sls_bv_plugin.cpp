@@ -56,7 +56,7 @@ namespace sls {
         auto a = to_app(e);
 
         if (!m_eval.eval_is_correct(a)) {
-            TRACE("sls", tout << "incorrect eval " << lit << ": " << mk_bounded_pp(e, m) << "\n";);
+            TRACE(sls, tout << "incorrect eval " << lit << ": " << mk_bounded_pp(e, m) << "\n";);
             IF_VERBOSE(20, verbose_stream() << "repair " << lit << " " << mk_bounded_pp(e, m) << "\n");
             ctx.new_value_eh(e);
         }
@@ -84,7 +84,7 @@ namespace sls {
         bool is_sat = true;
         for (auto t : ctx.subterms())
             if (is_app(t) && bv.is_bv(t) && to_app(t)->get_family_id() == bv.get_fid() && !m_eval.eval_is_correct(to_app(t))) {
-                TRACE("sls", tout << "incorrect eval: " << mk_bounded_pp(t, m) << " " << m_eval.wval(t) << "\n";);
+                TRACE(sls, tout << "incorrect eval: " << mk_bounded_pp(t, m) << " " << m_eval.wval(t) << "\n";);
                 ctx.new_value_eh(t);
                 is_sat = false;
             }

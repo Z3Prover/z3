@@ -52,7 +52,7 @@ void tst_instantiate(ast_manager & m, expr * f) {
         for (unsigned i = 0; i < q->get_num_decls(); i++) 
             cnsts.push_back(m.mk_fresh_const("a", q->get_decl_sort(i)));
         expr_ref r = instantiate(m, q, cnsts.data());
-        TRACE("var_subst", tout << "quantifier:\n" << mk_pp(q, m) << "\nresult:\n" << mk_pp(r, m) << "\n";);
+        TRACE(var_subst, tout << "quantifier:\n" << mk_pp(q, m) << "\nresult:\n" << mk_pp(r, m) << "\n";);
     }
 }
 

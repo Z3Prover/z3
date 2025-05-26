@@ -107,7 +107,7 @@ bool bound_manager::is_numeral(expr* v, numeral& n, bool& is_int) {
 void bound_manager::operator()(expr * f, expr_dependency * d, proof* p) {
     if (p)
         return;
-    TRACE("bound_manager", tout << "processing:\n" << mk_ismt2_pp(f, m()) << "\n";);
+    TRACE(bound_manager, tout << "processing:\n" << mk_ismt2_pp(f, m()) << "\n";);
     expr * v;
     numeral n;
     if (is_disjunctive_bound(f, d))
@@ -142,7 +142,7 @@ void bound_manager::operator()(expr * f, expr_dependency * d, proof* p) {
         k = neg(k);
     if (is_int)
         norm(n, k);
-    TRACE("bound_manager", tout << "found bound for:\n" << mk_ismt2_pp(v, m()) << "\n";);
+    TRACE(bound_manager, tout << "found bound for:\n" << mk_ismt2_pp(v, m()) << "\n";);
     bool strict = is_strict(k);
     if (is_lower(k)) {
         insert_lower(v, strict, n, d);
@@ -244,7 +244,7 @@ bool bound_manager::is_disjunctive_bound(expr * f, expr_dependency * d) {
             return false;
         }
     }
-    TRACE("bound_manager", tout << "bounds: " << lo << " " << hi << "\n";);
+    TRACE(bound_manager, tout << "bounds: " << lo << " " << hi << "\n";);
     insert_lower(v, false, lo, d);
     insert_upper(v, false, hi, d);
     return true;

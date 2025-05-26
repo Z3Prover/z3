@@ -188,7 +188,7 @@ namespace datalog {
         m_neg.reset();
         unsigned index = extract_horn(fml, m_body, m_head);
         hoist_compound_predicates(index, m_head, m_body);
-        TRACE("dl_rule",
+        TRACE(dl_rule,
               tout << mk_pp(m_head, m) << " :- ";
               for (expr* b : m_body) 
                   tout << mk_pp(b, m) << " ";              
@@ -260,7 +260,7 @@ namespace datalog {
 
 
     func_decl* rule_manager::mk_query(expr* query, rule_set& rules) {
-        TRACE("dl", tout << mk_pp(query, m) << "\n";);
+        TRACE(dl, tout << mk_pp(query, m) << "\n";);
 
         ptr_vector<sort> vars;
         svector<symbol> names;
@@ -339,7 +339,7 @@ namespace datalog {
         if (!vars.empty()) {
             rule_expr = m.mk_forall(vars.size(), vars.data(), names.data(), impl);
         }
-        TRACE("dl", tout << rule_expr << "\n";);
+        TRACE(dl, tout << rule_expr << "\n";);
 
         scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_ENABLED:PGM_DISABLED);
         proof_ref pr(m);
@@ -399,7 +399,7 @@ namespace datalog {
             }
         }
         fml = m.mk_app(fml->get_decl(), m_args.size(), m_args.data());
-        TRACE("dl_rule", tout << mk_pp(fml.get(), m) << "\n";);
+        TRACE(dl_rule, tout << mk_pp(fml.get(), m) << "\n";);
     }
 
     class contains_predicate_proc {
@@ -636,7 +636,7 @@ namespace datalog {
             }
             tail_neg.resize(tail.size(), false);
             r = mk(r->get_head(), tail.size(), tail.data(), tail_neg.data(), r->name());
-            TRACE("dl", r->display(m_ctx, tout << "reduced rule\n"););
+            TRACE(dl, r->display(m_ctx, tout << "reduced rule\n"););
         }
     }
 
@@ -745,7 +745,7 @@ namespace datalog {
         quant_tail = m.mk_exists(q_var_cnt, qsorts.data(), qnames.data(), unbound_tail_pre_quant);
 
         if (try_quantifier_elimination) {
-            TRACE("dl_rule_unbound_fix_pre_qe",
+            TRACE(dl_rule_unbound_fix_pre_qe,
                 tout<<"rule: ";
                 r->display(m_ctx, tout);
                 tout<<"tail with unbound vars: "<<mk_pp(unbound_tail, m)<<"\n";
@@ -760,7 +760,7 @@ namespace datalog {
             fixed_tail = quant_tail;
         }
 
-        TRACE("dl_rule_unbound_fix",
+        TRACE(dl_rule_unbound_fix,
             tout<<"rule: ";
             r->display(m_ctx, tout);
             tout<<"tail with unbound vars: "<<mk_pp(unbound_tail, m)<<"\n";

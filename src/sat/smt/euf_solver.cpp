@@ -190,7 +190,7 @@ namespace euf {
     void solver::init_search() {   
         if (get_config().m_sls_enable)
             add_solver(alloc(sls::solver, *this));
-        TRACE("before_search", s().display(tout););
+        TRACE(before_search, s().display(tout););
         m_reason_unknown.clear();
         for (auto* s : m_solvers)
             s->init_search();
@@ -310,7 +310,7 @@ namespace euf {
         }
         m_egraph.end_explain();
 
-        CTRACE("euf", probing, tout << "explain " << l << " <- " << r << "\n");
+        CTRACE(euf, probing, tout << "explain " << l << " <- " << r << "\n");
         unsigned j = 0;
         for (auto lit : r)
             if (s().lvl(lit) > 0)
@@ -413,7 +413,7 @@ namespace euf {
                 lbool val = ante->value();
                 SASSERT(val != l_undef);
                 literal ante_lit(v, val == l_false);
-                TRACE("euf", tout << "explain " << bpp(n) << " by " << bpp(ante) << "\n");
+                TRACE(euf, tout << "explain " << bpp(n) << " by " << bpp(ante) << "\n");
                 m_explain.push_back(to_ptr(ante_lit));
             }
             break;
@@ -448,7 +448,7 @@ namespace euf {
         if (!m_relevancy.is_relevant(l))
             return;        
         expr* e = m_bool_var2expr.get(l.var(), nullptr);
-        TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
+        TRACE(euf, tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
         if (!e) 
             return;                
         euf::enode* n = m_egraph.find(e);
@@ -571,7 +571,7 @@ namespace euf {
         }
         unsigned lvl = s().scope_lvl();
         
-        CTRACE("euf", s().value(lit) != l_true, tout << lit << " " << s().value(lit) << "@" << lvl << " " << mk_bounded_pp(a, m) << " = " << mk_bounded_pp(b, m) << "\n";);
+        CTRACE(euf, s().value(lit) != l_true, tout << lit << " " << s().value(lit) << "@" << lvl << " " << mk_bounded_pp(a, m) << " = " << mk_bounded_pp(b, m) << "\n";);
         if (s().value(lit) == l_false && m_ackerman && a && b) 
             m_ackerman->cg_conflict_eh(a, b);
         switch (s().value(lit)) {
@@ -646,8 +646,8 @@ namespace euf {
 
     sat::check_result solver::check() { 
         ++m_stats.m_final_checks;
-        TRACE("euf", s().display(tout););
-        TRACE("final_check", s().display(tout););
+        TRACE(euf, s().display(tout););
+        TRACE(final_check, s().display(tout););
         bool give_up = false;
         bool cont = false;
 
@@ -658,7 +658,7 @@ namespace euf {
         auto apply_solver = [&](th_solver* e) {
             switch (e->check()) {
             case sat::check_result::CR_CONTINUE: cont = true; break;
-            case sat::check_result::CR_GIVEUP: m_reason_unknown = "incomplete theory " + e->name().str(); TRACE("euf", tout << "give up " << e->name() << "\n"); give_up = true; break;
+            case sat::check_result::CR_GIVEUP: m_reason_unknown = "incomplete theory " + e->name().str(); TRACE(euf, tout << "give up " << e->name() << "\n"); give_up = true; break;
             default: break;
             }
         };
@@ -688,7 +688,7 @@ namespace euf {
             return sat::check_result::CR_CONTINUE;
         if (cont)
             return sat::check_result::CR_CONTINUE;
-        TRACE("after_search", s().display(tout););
+        TRACE(after_search, s().display(tout););
         if (give_up)
             return sat::check_result::CR_GIVEUP;  
         if (m_qsolver && m_config.m_arith_ignore_int)
@@ -705,17 +705,17 @@ namespace euf {
             if (!m.is_bool(n->get_expr()) || !is_shared(n))
                 continue;
             if (n->value() == l_true && n->cgc_enabled() && !m.is_true(n->get_root()->get_expr())) {
-                TRACE("euf", tout << "merge " << bpp(n) << "\n");
+                TRACE(euf, tout << "merge " << bpp(n) << "\n");
                 m_egraph.merge(n, mk_true(), to_ptr(sat::literal(n->bool_var())));
                 merged = true;                    
             }
             if (n->value() == l_false && n->cgc_enabled() && !m.is_false(n->get_root()->get_expr())) {
-                TRACE("euf", tout << "merge " << bpp(n) << "\n");
+                TRACE(euf, tout << "merge " << bpp(n) << "\n");
                 m_egraph.merge(n, mk_false(), to_ptr(~sat::literal(n->bool_var())));
                 merged = true;
             }
         }
-        CTRACE("euf", merged, tout << "shared bools merged\n");
+        CTRACE(euf, merged, tout << "shared bools merged\n");
         return merged;
     }
 
@@ -747,7 +747,7 @@ namespace euf {
         m_var_trail.shrink(sc.m_var_lim);        
         m_scopes.shrink(m_scopes.size() - n);
         SASSERT(m_egraph.num_scopes() == m_scopes.size());
-        TRACE("euf_verbose", display(tout << "pop to: " << m_scopes.size() << "\n"););
+        TRACE(euf_verbose, display(tout << "pop to: " << m_scopes.size() << "\n"););
     }
 
     void solver::user_push() {
@@ -792,10 +792,10 @@ namespace euf {
         for (auto const& [e, generation, v] : m_reinit) 
             replay.m.insert(e, v);
     
-        TRACE("euf", for (auto const& kv : replay.m) tout << "b" << kv.m_value << "\n";);
+        TRACE(euf, for (auto const& kv : replay.m) tout << "b" << kv.m_value << "\n";);
         for (auto const& [e, generation, v] : m_reinit) {
             scoped_generation _sg(*this, generation);
-            TRACE("euf", tout << "replay: b" << v << " #" << e->get_id() << " " << mk_bounded_pp(e, m) << " " << si.is_bool_op(e) << "\n";);
+            TRACE(euf, tout << "replay: b" << v << " #" << e->get_id() << " " << mk_bounded_pp(e, m) << " " << si.is_bool_op(e) << "\n";);
             sat::literal lit;
             if (si.is_bool_op(e)) 
                 lit = literal(replay.m[e], false);
@@ -823,7 +823,7 @@ namespace euf {
             for (auto const& [e, generation, v] : m_reinit)
                 if (si.is_bool_op(e))
                     relevancy_reinit(e);
-        TRACE("euf", display(tout << "replay done\n"););
+        TRACE(euf, display(tout << "replay done\n"););
     }
 
     /**
@@ -832,7 +832,7 @@ namespace euf {
     * is not supported, we just disable relevancy.
     */
     void solver::relevancy_reinit(expr* e) {
-        TRACE("euf", tout << "internalize again " << mk_pp(e, m) << "\n";);
+        TRACE(euf, tout << "internalize again " << mk_pp(e, m) << "\n";);
         if (to_app(e)->get_family_id() != m.get_basic_family_id()) {
             disable_relevancy(e);
             return;
@@ -1040,7 +1040,7 @@ namespace euf {
             ok = false;
         
         (void)ok;
-        TRACE("euf", tout << ok << " " << l << " -> " << r << "\n";);
+        TRACE(euf, tout << ok << " " << l << " -> " << r << "\n";);
         // roots cannot be eliminated as long as the egraph contains the expressions.
         return false;
     }

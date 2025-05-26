@@ -136,11 +136,11 @@ namespace datalog {
             rule_ref new_rule(rm.mk(r.get_head(), tail.size(), tail.data(), nullptr, r.name(), false), rm);           
             rm.mk_rule_rewrite_proof(r, *new_rule.get());
             new_rules.add_rule(new_rule);
-            TRACE("dl", tout << "No term-ite after blast_term_ite\n";);
+            TRACE(dl, tout << "No term-ite after blast_term_ite\n";);
             return true;
         }
 
-        TRACE("dl", tout << "Rule has term-ite after blasting, starting elimination\n";);
+        TRACE(dl, tout << "Rule has term-ite after blasting, starting elimination\n";);
         body = ground(body);
         // elim ite
         tactic_ref elim_term_ite = mk_elim_term_ite_tactic(m);
@@ -170,7 +170,7 @@ namespace datalog {
         rw(body);
 
         fml2 = m.mk_implies(body, ground(r.get_head()));
-        CTRACE("dl", has_term_ite(fml2), tout << "Rule has term-ite after elimination. Giving up\n";);
+        CTRACE(dl, has_term_ite(fml2), tout << "Rule has term-ite after elimination. Giving up\n";);
         if (has_term_ite(fml2))
             return false;
         app_ref_vector consts(m);
@@ -183,7 +183,7 @@ namespace datalog {
         // NSB code review: breaks abstraction barrier: mk_rule could convert a single formula
         // into multiple rules
         rm.mk_rule_rewrite_proof(r, *new_rules.last());
-        TRACE("dl", tout << "New rule: " << fml2 << "\n";);
+        TRACE(dl, tout << "New rule: " << fml2 << "\n";);
         return true;
     }
 

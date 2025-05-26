@@ -512,22 +512,22 @@ namespace smt {
         */
         template<typename VarValueTable>
         bool assume_eqs(VarValueTable & table) {
-            TRACE("assume_eqs", tout << "starting...\n";);
+            TRACE(assume_eqs, tout << "starting...\n";);
             table.reset();
             bool result   = false;
             int num       = get_num_vars();
             for (theory_var v = 0; v < num; v++) {
                 enode * n        = get_enode(v);
                 theory_var other = null_theory_var;
-                TRACE("assume_eqs",
+                TRACE(assume_eqs,
                       tout << "#" << n->get_owner_id() << " is_relevant_and_shared: " << is_relevant_and_shared(n) << "\n";);
                 if (n != nullptr && is_relevant_and_shared(n)) {
                     other = table.insert_if_not_there(v);
                     if (other != v) {
                         enode * n2 = get_enode(other);
-                        TRACE("assume_eqs", tout << "value(#" << n->get_owner_id() << ") = value(#" << n2->get_owner_id() << ")\n";);
+                        TRACE(assume_eqs, tout << "value(#" << n->get_owner_id() << ") = value(#" << n2->get_owner_id() << ")\n";);
                         if (assume_eq(n, n2)) {
-                            TRACE("assume_eqs", tout << "new assumed eq\n";);
+                            TRACE(assume_eqs, tout << "new assumed eq\n";);
                             result = true;
                         }
                     }

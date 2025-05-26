@@ -65,7 +65,7 @@ lbool lackr::operator()() {
     if (rv == l_true) {
         m_solver->get_model(m_model);
     }
-    CTRACE("ackermannize", rv == l_true, model_smt2_pp(tout << "abstr_model(\n", m, *(m_model.get()), 2); tout << ")\n"; );
+    CTRACE(ackermannize, rv == l_true, model_smt2_pp(tout << "abstr_model(\n", m, *(m_model.get()), 2); tout << ")\n"; );
     return rv;
 }
 
@@ -103,7 +103,7 @@ bool lackr::init() {
 // Introduce ackermann lemma for the two given terms.
 //
 bool lackr::ackr(app * const t1, app * const t2) {
-    TRACE("ackermannize", tout << "ackr " << mk_ismt2_pp(t1, m, 2) << " , " << mk_ismt2_pp(t2, m, 2) << "\n";);
+    TRACE(ackermannize, tout << "ackr " << mk_ismt2_pp(t1, m, 2) << " , " << mk_ismt2_pp(t2, m, 2) << "\n";);
     const unsigned sz = t1->get_num_args();
     SASSERT(t2->get_num_args() == sz);
     expr_ref_vector eqs(m);
@@ -112,7 +112,7 @@ bool lackr::ackr(app * const t1, app * const t2) {
         expr * const arg2 = t2->get_arg(i);
         if (m.are_equal(arg1, arg2)) continue; // quickly skip syntactically equal
         if (m.are_distinct(arg1, arg2)){ // quickly abort if there are two distinct (e.g. numerals)                    
-            TRACE("ackermannize", tout << "never eq\n";);
+            TRACE(ackermannize, tout << "never eq\n";);
             return false;
         }
         eqs.push_back(m.mk_eq(arg1, arg2));
@@ -125,7 +125,7 @@ bool lackr::ackr(app * const t1, app * const t2) {
     expr_ref cg(m.mk_implies(lhs, rhs), m);
     expr_ref cga = m_info->abstract(cg); // constraint needs abstraction due to nested applications
     m_simp(cga);
-    TRACE("ackermannize", 
+    TRACE(ackermannize, 
           tout << "abstr1 " << mk_ismt2_pp(a1, m, 2) << "\n";
           tout << "abstr2 " << mk_ismt2_pp(a2, m, 2) << "\n";
           tout << "ackr constr lhs" << mk_ismt2_pp(lhs, m, 2) << "\n";
@@ -144,7 +144,7 @@ bool lackr::ackr(app * const t1, app * const t2) {
 // Introduce the ackermann lemma for each pair of terms.
 //
 void lackr::eager_enc() {
-    TRACE("ackermannize", tout << "#funs: " << m_fun2terms.size() << " #sels: " << m_sel2terms.size() << std::endl;);
+    TRACE(ackermannize, tout << "#funs: " << m_fun2terms.size() << " #sels: " << m_sel2terms.size() << std::endl;);
     for (auto const& [k,v] : m_fun2terms) {
         checkpoint();
         ackr(v);
@@ -227,7 +227,7 @@ void  lackr::push_abstraction() {
 lbool lackr::eager() {
     SASSERT(m_is_init);
     push_abstraction();
-    TRACE("ackermannize", tout << "run sat 0\n"; );
+    TRACE(ackermannize, tout << "run sat 0\n"; );
     lbool rv0 = m_solver->check_sat(0, nullptr);
     if (rv0 == l_false) {
         return l_false;
@@ -236,7 +236,7 @@ lbool lackr::eager() {
     expr_ref all = mk_and(m_ackrs);
     m_simp(all);
     m_solver->assert_expr(all);
-    TRACE("ackermannize", tout << "run sat all\n"; );
+    TRACE(ackermannize, tout << "run sat all\n"; );
     return m_solver->check_sat(0, nullptr);
 }
 
@@ -248,7 +248,7 @@ lbool lackr::lazy() {
     while (true) {
         m_st.m_it++;
         checkpoint();
-        TRACE("ackermannize", tout << "lazy check: " << m_st.m_it << "\n";);
+        TRACE(ackermannize, tout << "lazy check: " << m_st.m_it << "\n";);
         const lbool r = m_solver->check_sat(0, nullptr);
         if (r == l_undef) return l_undef; // give up
         if (r == l_false) return l_false; // abstraction unsat

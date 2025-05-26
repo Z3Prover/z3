@@ -43,9 +43,9 @@ public:
     void get_units(obj_map<expr, bool>& units) override { units.reset(); }
 
     void operator()(model_ref & md) override {
-        TRACE("ackermannize", tout << (fixed_model? "fixed" : "nonfixed") << "\n";);
-        CTRACE("ackermannize", md, tout << *md << "\n");
-        CTRACE("ackermannize", fixed_model, tout << *abstr_model << "\n");
+        TRACE(ackermannize, tout << (fixed_model? "fixed" : "nonfixed") << "\n";);
+        CTRACE(ackermannize, md, tout << *md << "\n");
+        CTRACE(ackermannize, fixed_model, tout << *abstr_model << "\n");
 
         model* new_model = alloc(model, m);
 
@@ -96,7 +96,7 @@ void ackr_model_converter::convert(model * source, model * destination) {
 }
 
 void ackr_model_converter::convert_constants(model * source, model * destination) {
-    TRACE("ackermannize", tout << "converting constants\n";);
+    TRACE(ackermannize, tout << "converting constants\n";);
     obj_map<func_decl, func_interp*> interpretations;
     obj_map<app, expr*> array_interpretations; 
     model_evaluator evaluator(*source);
@@ -107,7 +107,7 @@ void ackr_model_converter::convert_constants(model * source, model * destination
         func_decl * const c = source->get_constant(i);
         app * const term = info->find_term(c);
         expr * value = source->get_const_interp(c);
-        TRACE("ackermannize", tout << mk_ismt2_pp(c, m) << " " << mk_ismt2_pp(term, m) << "\n";);
+        TRACE(ackermannize, tout << mk_ismt2_pp(c, m) << " " << mk_ismt2_pp(term, m) << "\n";);
         if (!term) 
             destination->register_decl(c, value);
         else if (autil.is_select(term)) 
@@ -160,7 +160,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
 void ackr_model_converter::add_entry(model_evaluator & evaluator,
                                      app* term, expr* value,
                                      obj_map<func_decl, func_interp*>& interpretations) {
-    TRACE("ackermannize", tout << "add_entry"
+    TRACE(ackermannize, tout << "add_entry"
           << mk_ismt2_pp(term, m, 2)
           << "->"
           << mk_ismt2_pp(value, m, 2) << "\n";);
@@ -178,7 +178,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
         args.push_back(evaluator(info->abstract(arg)));
     }
     if (fi->get_entry(args.data()) == nullptr) {
-        TRACE("ackermannize",
+        TRACE(ackermannize,
               tout << mk_ismt2_pp(declaration, m) << " args: " << std::endl;
               for (expr* arg : args) {
                   tout << mk_ismt2_pp(arg, m) << std::endl;
@@ -187,7 +187,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
         fi->insert_new_entry(args.data(), value);
     }
     else {
-        TRACE("ackermannize", tout << "entry already present\n";);
+        TRACE(ackermannize, tout << "entry already present\n";);
     }
 
 }

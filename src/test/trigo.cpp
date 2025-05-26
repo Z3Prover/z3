@@ -110,7 +110,7 @@ static void tst_float_sine(std::ostream & out, unsigned N, unsigned k) {
     for (unsigned i = 0; i < N; i++) {
         unsigned n = 4 * (rand() % PREC);
         unsigned d = PREC;
-        TRACE("sine", tout << "next-val : " << n << "/" << d << "\n";);
+        TRACE(sine, tout << "next-val : " << n << "/" << d << "\n";);
         fm.set(a, EBITS, SBITS, MPF_ROUND_TOWARD_POSITIVE, n, d);
         if (rand() % 2 == 0)
             fm.neg(a);

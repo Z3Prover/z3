@@ -194,7 +194,7 @@ void static_features::update_core(expr * e) {
                     if (fid_arg == m_afid) {
                         m_num_arith_terms++;
                         rational k;
-                        TRACE("diff_term", tout << "diff_term: " << is_diff_term(arg, k) << "\n" << mk_pp(arg, m) << "\n";);
+                        TRACE(diff_term, tout << "diff_term: " << is_diff_term(arg, k) << "\n" << mk_pp(arg, m) << "\n";);
                         if (is_diff_term(arg, k)) {
                             m_num_diff_terms++;
                             acc_num(k);
@@ -236,7 +236,7 @@ void static_features::update_core(expr * e) {
     bool _is_le_ge = m_autil.is_le(e) || m_autil.is_ge(e);
     if (_is_le_ge) {
         m_num_arith_ineqs++;
-        TRACE("diff_atom", tout << "diff_atom: " << is_diff_atom(e) << "\n" << mk_pp(e, m) << "\n";);
+        TRACE(diff_atom, tout << "diff_atom: " << is_diff_atom(e) << "\n" << mk_pp(e, m) << "\n";);
         if (is_diff_atom(e))
             m_num_diff_ineqs++;
         if (!is_arith_expr(to_app(e)->get_arg(0)))
@@ -253,7 +253,7 @@ void static_features::update_core(expr * e) {
         if (is_numeral(to_app(e)->get_arg(1))) {
             acc_num(to_app(e)->get_arg(1));
             m_num_arith_eqs++;
-            TRACE("diff_atom", tout << "diff_atom: " << is_diff_atom(e) << "\n" << mk_pp(e, m) << "\n";);
+            TRACE(diff_atom, tout << "diff_atom: " << is_diff_atom(e) << "\n" << mk_pp(e, m) << "\n";);
             if (is_diff_atom(e))
                 m_num_diff_eqs++;
             if (!is_arith_expr(to_app(e)->get_arg(0)))
@@ -328,7 +328,7 @@ void static_features::update_core(expr * e) {
             }
         }
         if (m_arrayutil.is_array(e)) {
-            TRACE("sf_array", tout << mk_ismt2_pp(e, m) << "\n";);
+            TRACE(sf_array, tout << mk_ismt2_pp(e, m) << "\n";);
             sort * ty = to_app(e)->get_decl()->get_range();
             mark_theory(ty->get_family_id());
             unsigned n = ty->get_num_parameters();
@@ -356,7 +356,7 @@ void static_features::update_core(expr * e) {
                             SASSERT(!_is_le_ge);
                             m_num_arith_terms++;
                             rational k;
-                            TRACE("diff_term", tout << "diff_term: " << is_diff_term(arg, k) << "\n" << mk_pp(arg, m) << "\n";);
+                            TRACE(diff_term, tout << "diff_term: " << is_diff_term(arg, k) << "\n" << mk_pp(arg, m) << "\n";);
                             if (is_diff_term(arg, k)) {
                                 m_num_diff_terms++;
                                 acc_num(k);

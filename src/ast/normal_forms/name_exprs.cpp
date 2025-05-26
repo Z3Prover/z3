@@ -57,7 +57,7 @@ class name_exprs_core : public name_exprs {
         }
 
         bool get_subst(expr * s, expr * & t, proof * & t_pr) {
-            TRACE("name_exprs", tout << "get_subst:\n" << mk_ismt2_pp(s, m) << "\n";);
+            TRACE(name_exprs, tout << "get_subst:\n" << mk_ismt2_pp(s, m) << "\n";);
             if (m_pred(s)) {
                 gen_name_for_expr(s, t, t_pr);
                 return true;
@@ -81,7 +81,7 @@ public:
         m_cfg.m_def_exprs  = &new_defs;
         m_cfg.m_def_proofs = &new_def_proofs;
         m_rw(n, r, p);
-        TRACE("name_exprs", tout << mk_ismt2_pp(n, m_rw.m()) << "\n---->\n" << r << "\n";);
+        TRACE(name_exprs, tout << mk_ismt2_pp(n, m_rw.m()) << "\n---->\n" << r << "\n";);
     }
     
 
@@ -124,7 +124,7 @@ class name_nested_formulas : public name_exprs_core {
         pred(ast_manager & m):m(m), m_root(nullptr) {}
 
         bool operator()(expr * t) override {
-            TRACE("name_exprs", tout << "name_nested_formulas::pred:\n" << mk_ismt2_pp(t, m) << "\n";);
+            TRACE(name_exprs, tout << "name_nested_formulas::pred:\n" << mk_ismt2_pp(t, m) << "\n";);
             if (is_app(t)) 
                 return to_app(t)->get_family_id() == m.get_basic_family_id() && to_app(t)->get_num_args() > 0 && t != m_root;
             return m.is_label(t) || is_quantifier(t);
@@ -141,7 +141,7 @@ public:
 
     void operator()(expr * n, expr_ref_vector & new_defs, proof_ref_vector & new_def_proofs, expr_ref & r, proof_ref & p) override {
         m_pred.m_root = n;
-        TRACE("name_exprs", tout << "operator()\n";);
+        TRACE(name_exprs, tout << "operator()\n";);
         name_exprs_core::operator()(n, new_defs, new_def_proofs, r, p);
     }
 };

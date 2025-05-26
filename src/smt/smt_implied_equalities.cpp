@@ -98,7 +98,7 @@ namespace {
                     m_solver.assert_expr(m.mk_not(m.mk_eq(s, t)));
                     bool is_eq = l_false == m_solver.check_sat(0,nullptr);
                     m_solver.pop(1);
-                    TRACE("get_implied_equalities", tout << mk_pp(t, m) << " = " << mk_pp(s, m) << " " << (is_eq?"eq":"unrelated") << "\n";);
+                    TRACE(get_implied_equalities, tout << mk_pp(t, m) << " = " << mk_pp(s, m) << " " << (is_eq?"eq":"unrelated") << "\n";);
                     if (is_eq) {
                         m_uf.merge(terms[i].id, terms[j].id);
                         if (!non_values.contains(j)) {
@@ -126,7 +126,7 @@ namespace {
                     bool is_eq = l_false == m_solver.check_sat(0,nullptr);
                     m_solver.pop(1);
                     m_stats_timer.stop();
-                    TRACE("get_implied_equalities", tout << mk_pp(t, m) << " = " << mk_pp(s, m) << " " << (is_eq?"eq":"unrelated") << "\n";);
+                    TRACE(get_implied_equalities, tout << mk_pp(t, m) << " = " << mk_pp(s, m) << " " << (is_eq?"eq":"unrelated") << "\n";);
                     if (is_eq) {
                         m_uf.merge(terms[i].id, terms[j].id);
                         break;
@@ -200,10 +200,10 @@ namespace {
             for (unsigned i = 0; i < terms.size(); ++i) {
                 expr* t = terms[i].term;
                 vl = (*model)(t);
-                TRACE("get_implied_equalities", tout << mk_pp(t, m) << " |-> " << mk_pp(vl, m) << "\n";);
+                TRACE(get_implied_equalities, tout << mk_pp(t, m) << " |-> " << mk_pp(vl, m) << "\n";);
                 reduce_value(model, vl);
                 if (!m.is_value(vl)) {
-                    TRACE("get_implied_equalities", tout << "Not a value: " << mk_pp(vl, m) << "\n";);
+                    TRACE(get_implied_equalities, tout << "Not a value: " << mk_pp(vl, m) << "\n";);
                     non_values.insert(i);
                     continue;
                 }
@@ -217,7 +217,7 @@ namespace {
                     m_solver.assert_expr(m.mk_not(m.mk_eq(t, s)));
                     lbool is_sat = m_solver.check_sat(0,nullptr);
                     m_solver.pop(1);
-                    TRACE("get_implied_equalities", tout << mk_pp(t, m) << " = " << mk_pp(s, m) << " " << is_sat << "\n";);
+                    TRACE(get_implied_equalities, tout << mk_pp(t, m) << " = " << mk_pp(s, m) << " " << is_sat << "\n";);
                     if (is_sat == l_false) {
                         found = true;
                         m_uf.merge(terms[i].id, terms[vec[j]].id);
@@ -234,7 +234,7 @@ namespace {
 
 
             if (!non_values.empty()) {
-                TRACE("get_implied_equalities", model_smt2_pp(tout, m, *model, 0););
+                TRACE(get_implied_equalities, model_smt2_pp(tout, m, *model, 0););
                 get_implied_equalities_filter_basic(non_values, terms);
                 //get_implied_equalities_basic(terms);
             }
@@ -351,7 +351,7 @@ namespace {
                         class_ids[term_ids[i].id] = m_uf.find(term_ids[i].id);
                     }
                 }
-                TRACE("get_implied_equalities",
+                TRACE(get_implied_equalities,
                       for (unsigned i = 0; i < num_terms; ++i) {
                           tout << mk_pp(terms[i], m) << " |-> " << class_ids[i] << "\n";
                       });

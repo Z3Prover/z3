@@ -34,13 +34,13 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
     bool _maximize)
 {
     SASSERT(m_bv_util.is_bv(objective));
-    TRACE("sls_opt", tout << "objective: " << (_maximize?"maximize":"minimize") << " " <<
+    TRACE(sls_opt, tout << "objective: " << (_maximize?"maximize":"minimize") << " " <<
                             mk_ismt2_pp(objective, m()) << std::endl;);
     m_hard_tracker.initialize(m_assertions);
     setup_opt_tracker(objective, _maximize);
 
     if (initial_model.get() != nullptr) {
-        TRACE("sls_opt", tout << "Initial model provided: " << std::endl;
+        TRACE(sls_opt, tout << "Initial model provided: " << std::endl;
                         for (unsigned i = 0; i < initial_model->get_num_constants(); i++) {
                             func_decl * fd = initial_model->get_constant(i);
                             expr * val = initial_model->get_const_interp(fd);
@@ -53,7 +53,7 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
     optimization_result res(m_manager);
     lbool is_sat = m_hard_tracker.is_sat() ? l_true : l_undef;    
 
-    TRACE("sls_opt", tout << "initial model is sat? " << is_sat << std::endl;);
+    TRACE(sls_opt, tout << "initial model is sat? " << is_sat << std::endl;);
 
     for (m_stats.m_restarts = 0;
          m_stats.m_restarts < m_max_restarts;
@@ -95,7 +95,7 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
         is_sat = m_hard_tracker.is_sat() ? l_true : l_undef;
     }    
 
-    TRACE("sls_opt", tout << "sat: " << res.is_sat << "; optimum: " << mk_ismt2_pp(res.optimum, m()) << std::endl;);
+    TRACE(sls_opt, tout << "sat: " << res.is_sat << "; optimum: " << mk_ismt2_pp(res.optimum, m()) << std::endl;);
 
     return res;
 }
@@ -118,7 +118,7 @@ expr_ref bvsls_opt_engine::maximize()
 {
     SASSERT(m_hard_tracker.is_sat());
 
-    TRACE("sls_opt", tout << "Initial opt model:" << std::endl; m_obj_tracker.show_model(tout););    
+    TRACE(sls_opt, tout << "Initial opt model:" << std::endl; m_obj_tracker.show_model(tout););    
 
     mpz score, old_score, max_score, new_value;
     unsigned new_const = (unsigned)-1, new_bit = 0;
@@ -149,7 +149,7 @@ expr_ref bvsls_opt_engine::maximize()
                 save_model(score);
             if (!randomize_wrt_hard()) {
                 // Can't improve and can't randomize; can't do anything other than bail out.
-                TRACE("sls_opt", tout << "Got stuck; bailing out." << std::endl;);
+                TRACE(sls_opt, tout << "Got stuck; bailing out." << std::endl;);
                 IF_VERBOSE(10, verbose_stream() << "No local improvements possible." << std::endl;);
                 goto bailout;
             }            
@@ -157,7 +157,7 @@ expr_ref bvsls_opt_engine::maximize()
         }
         else {
             m_stats.m_moves++;
-            TRACE("sls_opt", tout << "New optimum: " << m_mpz_manager.to_string(score) << std::endl;);
+            TRACE(sls_opt, tout << "New optimum: " << m_mpz_manager.to_string(score) << std::endl;);
             IF_VERBOSE(10, verbose_stream() << "New optimum: " << m_mpz_manager.to_string(score) << std::endl;);
             func_decl * fd = consts[new_const];
             incremental_score(fd, new_value);
@@ -183,7 +183,7 @@ void bvsls_opt_engine::save_model(mpz const & score) {
         expr * val = obj_mdl->get_const_interp(fd);
         if (mdl->has_interpretation(fd)) {
             if (mdl->get_const_interp(fd) != val)
-                TRACE("sls_opt", tout << "model disagreement on " << fd->get_name() << ": " <<
+                TRACE(sls_opt, tout << "model disagreement on " << fd->get_name() << ": " <<
                 mk_ismt2_pp(val, m()) << " != " << mk_ismt2_pp(mdl->get_const_interp(fd), m()) << std::endl;);
             SASSERT(mdl->get_const_interp(fd) == val);
         }
@@ -215,7 +215,7 @@ bool bvsls_opt_engine::what_if(
         mpz cur_best(0);
         m_mpz_manager.set(cur_best, top_score());
 
-        TRACE("sls_whatif", tout << "WHAT IF " << fd->get_name() << " WERE " << m_mpz_manager.to_string(temp) <<
+        TRACE(sls_whatif, tout << "WHAT IF " << fd->get_name() << " WERE " << m_mpz_manager.to_string(temp) <<
               " --> " << r << "; score=" << m_mpz_manager.to_string(cur_best) << std::endl;);
 
         if (m_mpz_manager.gt(cur_best, best_score)) {
@@ -227,7 +227,7 @@ bool bvsls_opt_engine::what_if(
     }
     else
     {
-        TRACE("sls_whatif_failed", tout << "WHAT IF " << fd->get_name() << " WERE " << m_mpz_manager.to_string(temp) <<
+        TRACE(sls_whatif_failed, tout << "WHAT IF " << fd->get_name() << " WERE " << m_mpz_manager.to_string(temp) <<
               " --> unsatisfied hard constraints" << std::endl;);
     }
 
@@ -351,7 +351,7 @@ bool bvsls_opt_engine::randomize_wrt_hard() {
             m_evaluator.update(random_fd, random_val);
 
             if (m_hard_tracker.is_sat()) {
-                TRACE("sls_opt", tout << "Randomizing " << random_fd->get_name() << " to " <<
+                TRACE(sls_opt, tout << "Randomizing " << random_fd->get_name() << " to " <<
                                          m_mpz_manager.to_string(random_val) << std::endl;);                
                 m_obj_evaluator.update(random_fd, random_val);
                 return true;

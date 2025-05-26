@@ -769,12 +769,12 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
         expr* c2, * t2, * e2;
         if (m().is_ite(lhs) && m().is_value(rhs)) {
             r = try_ite_value(to_app(lhs), to_app(rhs), result);
-            CTRACE("try_ite_value", r != BR_FAILED,
+            CTRACE(try_ite_value, r != BR_FAILED,
                    tout << mk_bounded_pp(lhs, m()) << "\n" << mk_bounded_pp(rhs, m()) << "\n--->\n" << mk_bounded_pp(result, m()) << "\n";);
         }
         else if (m().is_ite(rhs) && m().is_value(lhs)) {
             r = try_ite_value(to_app(rhs), to_app(lhs), result);
-            CTRACE("try_ite_value", r != BR_FAILED,
+            CTRACE(try_ite_value, r != BR_FAILED,
                    tout << mk_bounded_pp(lhs, m()) << "\n" << mk_bounded_pp(rhs, m()) << "\n--->\n" << mk_bounded_pp(result, m()) << "\n";);
         }
         else if (m().is_ite(lhs, c1, t1, e1) && m().is_ite(rhs, c2, t2, e2) &&

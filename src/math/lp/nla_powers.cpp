@@ -79,7 +79,7 @@ am().set(rval, am_value(r));
 namespace nla {
     
     lbool powers::check(lpvar r, lpvar x, lpvar y, vector<lemma>& lemmas) {
-        TRACE("nla", tout << r << " == " << x << "^" << y << "\n");
+        TRACE(nla, tout << r << " == " << x << "^" << y << "\n");
         core& c = m_core;
         if (x == null_lpvar || y == null_lpvar || r == null_lpvar)
             return l_undef;

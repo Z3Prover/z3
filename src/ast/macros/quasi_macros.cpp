@@ -157,7 +157,7 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
     // Our definition of a quasi-macro:
     // Forall X. f[X] = T[X], where f[X] is a term starting with symbol f, f is uninterpreted,
     // f[X] contains all universally quantified variables, and f does not occur in T[X].
-    TRACE("quasi_macros", tout << "Checking for quasi macro: " << mk_pp(e, m) << std::endl;);
+    TRACE(quasi_macros, tout << "Checking for quasi macro: " << mk_pp(e, m) << std::endl;);
 
     if (is_forall(e)) {
         quantifier * q = to_quantifier(e);
@@ -273,7 +273,7 @@ bool quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
 }
 
 bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
-    TRACE("quasi_macros", tout << "Finding quasi-macros in: " << std::endl;
+    TRACE(quasi_macros, tout << "Finding quasi-macros in: " << std::endl;
                           for (unsigned i = 0 ; i < n ; i++)
                               tout << i << ": " << mk_pp(exprs[i], m) << std::endl; );
     bool res = false;
@@ -284,7 +284,7 @@ bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
     for (unsigned i = 0 ; i < n ; i++)
         find_occurrences(exprs[i]);
 
-    TRACE("quasi_macros",
+    TRACE(quasi_macros,
         tout << "Occurrences: " << std::endl;
         for (auto & kd : m_occurrences)
             tout << kd.m_key->get_name() << ": " << kd.m_value << std::endl; );
@@ -296,7 +296,7 @@ bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
         quantifier_ref macro(m);
         if (is_quasi_macro(exprs[i], a, t) && 
             quasi_macro_to_macro(to_quantifier(exprs[i]), a, t, macro)) {
-            TRACE("quasi_macros", tout << "Found quasi macro: " << mk_pp(exprs[i], m) << std::endl;
+            TRACE(quasi_macros, tout << "Found quasi macro: " << mk_pp(exprs[i], m) << std::endl;
                                   tout << "Macro: " << mk_pp(macro, m) << std::endl; );
             proof * pr = nullptr;
             if (m.proofs_enabled())
@@ -311,7 +311,7 @@ bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
 }
 
 bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
-    TRACE("quasi_macros", tout << "Finding quasi-macros in: " << std::endl;
+    TRACE(quasi_macros, tout << "Finding quasi-macros in: " << std::endl;
           for (unsigned i = 0; i < n; i++)
               tout << i << ": " << mk_pp(exprs[i].fml(), m) << std::endl; );
     bool res = false;
@@ -322,7 +322,7 @@ bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
     for (unsigned i = 0 ; i < n ; i++)
         find_occurrences(exprs[i].fml());
 
-    TRACE("quasi_macros", tout << "Occurrences: " << std::endl;
+    TRACE(quasi_macros, tout << "Occurrences: " << std::endl;
           for (auto kv : m_occurrences) 
               tout << kv.m_key->get_name() << ": " << kv.m_value << std::endl; );
 
@@ -333,7 +333,7 @@ bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
         quantifier_ref macro(m);
         if (is_quasi_macro(exprs[i].fml(), a, t) && 
             quasi_macro_to_macro(to_quantifier(exprs[i].fml()), a, t, macro)) {
-            TRACE("quasi_macros", tout << "Found quasi macro: " << mk_pp(exprs[i].fml(), m) << std::endl;
+            TRACE(quasi_macros, tout << "Found quasi macro: " << mk_pp(exprs[i].fml(), m) << std::endl;
                                   tout << "Macro: " << mk_pp(macro, m) << std::endl; );
             proof * pr = nullptr;
             if (m.proofs_enabled())
@@ -387,7 +387,7 @@ void quasi_macros::apply_macros(unsigned n, justified_expr const* fmls, vector<j
 }
 
 bool quasi_macros::operator()(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls) {
-    TRACE("quasi_macros", m_macro_manager.display(tout););
+    TRACE(quasi_macros, m_macro_manager.display(tout););
     if (find_macros(n, fmls)) {
         apply_macros(n, fmls, new_fmls);
         return true;

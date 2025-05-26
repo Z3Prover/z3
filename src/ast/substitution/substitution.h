@@ -132,7 +132,7 @@ public:
     // -----------------------------------
 
     void insert(unsigned v_idx, unsigned offset, expr_offset const & t) {
-        TRACE("subst_insert", tout << "inserting: #" << v_idx << ":" << offset << " --> " << mk_pp(t.get_expr(), m_manager)
+        TRACE(subst_insert, tout << "inserting: #" << v_idx << ":" << offset << " --> " << mk_pp(t.get_expr(), m_manager)
               << ":" << t.get_offset() << "\n";);
         m_vars.push_back(var_offset(v_idx, offset));
         m_refs.push_back(t.get_expr());

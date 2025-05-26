@@ -66,7 +66,7 @@ struct bit_blaster_model_converter : public model_converter {
                 bits.insert(to_app(bit)->get_decl());
             }
         }
-        TRACE("model_converter",
+        TRACE(model_converter,
               tout << "bits that should not be included in the model:\n";
               for (func_decl* f : bits) {
                   tout << f->get_name() << " ";
@@ -81,14 +81,14 @@ struct bit_blaster_model_converter : public model_converter {
             func_decl * f = old_model->get_constant(i);
             if (bits.contains(f))
                 continue;
-            TRACE("model_converter", tout << "non-bit: " << f->get_name() << "\n";);
+            TRACE(model_converter, tout << "non-bit: " << f->get_name() << "\n";);
             expr * fi     = old_model->get_const_interp(f);
             new_model->register_decl(f, fi);
         }
-        TRACE("model_converter", tout << "after copy non bits:\n"; model_pp(tout, *new_model););
+        TRACE(model_converter, tout << "after copy non bits:\n"; model_pp(tout, *new_model););
         new_model->copy_func_interps(*old_model);
         new_model->copy_usort_interps(*old_model);
-        TRACE("model_converter", tout << "after copying functions and sorts:\n"; model_pp(tout, *new_model););
+        TRACE(model_converter, tout << "after copying functions and sorts:\n"; model_pp(tout, *new_model););
     }
     
     void mk_bvs(model * old_model, model * new_model) {

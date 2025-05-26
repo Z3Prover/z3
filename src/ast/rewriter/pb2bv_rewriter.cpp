@@ -157,7 +157,7 @@ struct pb2bv_rewriter::imp {
             gcd_reduce<is_le>(m_coeffs, k);
             unsigned sz = m_args.size();
             expr * const* args = m_args.data();
-            TRACE("pb", 
+            TRACE(pb, 
                   for (unsigned i = 0; i < sz; ++i) {
                       tout << m_coeffs[i] << "*" << mk_pp(args[i], m) << " ";
                       if (i + 1 < sz && !m_coeffs[i+1].is_neg()) tout << "+ ";
@@ -283,7 +283,7 @@ struct pb2bv_rewriter::imp {
                 return false;
             }
             result = m.mk_not(bounded_addition(sz, args, k + 1));
-            TRACE("pb", tout << result << "\n";);
+            TRACE(pb, tout << result << "\n";);
             return true;
         }
 
@@ -301,7 +301,7 @@ struct pb2bv_rewriter::imp {
                 return false;
             }
             result = bounded_addition(sz, args, k);
-            TRACE("pb", tout << result << "\n";);
+            TRACE(pb, tout << result << "\n";);
             return true;
         }
 
@@ -449,7 +449,7 @@ struct pb2bv_rewriter::imp {
             rational cost(0);
             create_basis(m_coeffs, rational::zero(), cost);
             m_base = m_min_base;
-            TRACE("pb",
+            TRACE(pb,
                   tout << "Base: ";
                   for (unsigned i = 0; i < m_base.size(); ++i) {
                       tout << m_base[i] << " ";
@@ -465,7 +465,7 @@ struct pb2bv_rewriter::imp {
            \brief Check if 'out mod n >= lim'. 
          */
         expr_ref mod_ge(ptr_vector<expr> const& out, unsigned n, unsigned lim) {
-            TRACE("pb", for (unsigned i = 0; i < out.size(); ++i) tout << mk_pp(out[i], m) << " "; tout << "\n";
+            TRACE(pb, for (unsigned i = 0; i < out.size(); ++i) tout << mk_pp(out[i], m) << " "; tout << "\n";
                   tout << "n:" << n << " lim: " << lim << "\n";);
             if (lim == n) {
                 return expr_ref(m.mk_false(), m);
@@ -514,7 +514,7 @@ struct pb2bv_rewriter::imp {
                     }
                     coeffs[j] = div(coeffs[j], b_i);
                 }
-                TRACE("pb", tout << "Carry: " << carry << "\n";
+                TRACE(pb, tout << "Carry: " << carry << "\n";
                       for (auto c : coeffs) tout << c << " ";
                       tout << "\n";
                       );
@@ -525,7 +525,7 @@ struct pb2bv_rewriter::imp {
                 expr_ref ge = mod_ge(out, B, d_i);
                 result = mk_and(ge, result);
                 result = mk_or(gt, result);                
-                TRACE("pb", tout << "b: " << b_i << " d: " << d_i << " gt: " << gt << " ge: " << ge << " " << result << "\n";);
+                TRACE(pb, tout << "b: " << b_i << " d: " << d_i << " gt: " << gt << " ge: " << ge << " " << result << "\n";);
 
                 new_carry.reset();
                 for (unsigned j = B - 1; j < out.size(); j += B) {
@@ -534,7 +534,7 @@ struct pb2bv_rewriter::imp {
                 carry.reset();
                 carry.append(new_carry);
             }
-            TRACE("pb", tout << "bound: " << bound << " Carry: " << carry << " result: " << result << "\n";);
+            TRACE(pb, tout << "bound: " << bound << " Carry: " << carry << " result: " << result << "\n";);
             return true;
         }
 
@@ -685,7 +685,7 @@ struct pb2bv_rewriter::imp {
                 m_coeffs.push_back(pb.get_coeff(f, i));
                 m_args.push_back(args[i]);
             }
-            CTRACE("pb", k.is_neg(), tout << expr_ref(m.mk_app(f, sz, args), m) << "\n";);
+            CTRACE(pb, k.is_neg(), tout << expr_ref(m.mk_app(f, sz, args), m) << "\n";);
             SASSERT(!k.is_neg());
             switch (kind) {
             case OP_PB_GE:
@@ -923,7 +923,7 @@ struct pb2bv_rewriter::imp {
             else {
                 result = mk_bv(f, sz, args);
             }
-            TRACE("pb", tout << "full: " << full << " " << expr_ref(m.mk_app(f, sz, args), m) << " " << result << "\n";
+            TRACE(pb, tout << "full: " << full << " " << expr_ref(m.mk_app(f, sz, args), m) << " " << result << "\n";
                   );
             return true;
         }

@@ -39,7 +39,7 @@ namespace sls {
 
         initialize();
 
-        TRACE("arith", ctx.display_all(tout));
+        TRACE(arith, ctx.display_all(tout));
 
         a.m_config.max_moves = a.m_stats.m_steps + a.m_config.max_moves_base;
 
@@ -72,7 +72,7 @@ namespace sls {
 
             (void)bv;
             (void)v;
-            TRACE("arith", 
+            TRACE(arith, 
                 if (bv != sat::null_bool_var) tout << "bool flip " << bv << "\n";
                 else if (v != null_arith_var) tout << "arith flip v" << v << "\n";
                 else tout << "no flip\n";
@@ -124,7 +124,7 @@ namespace sls {
     template<typename num_t>
     void arith_clausal<num_t>::add_lookahead_on_unsat_vars() {
         a.m_updates.reset();
-        TRACE("arith_verbose", tout << "unsat-vars ";
+        TRACE(arith_verbose, tout << "unsat-vars ";
         for (auto v : ctx.unsat_vars())
             if (a.get_ineq(v)) tout << mk_bounded_pp(ctx.atom(v), a.m) << " ";
         tout << "\n";);
@@ -267,7 +267,7 @@ namespace sls {
             return;
         a.m_last_delta = delta;
         a.m_last_var = v;
-        TRACE("arith", tout << mt << " v" << v << " " << mk_bounded_pp(a.m_vars[v].m_expr, a.m) 
+        TRACE(arith, tout << mt << " v" << v << " " << mk_bounded_pp(a.m_vars[v].m_expr, a.m) 
                             << " += " << delta << " score:" << m_best_score << "\n");
         a.m_vars[v].set_step(a.m_stats.m_steps, a.m_stats.m_steps + 3 + ctx.rand(10), delta);
         VERIFY(a.update_num(v, delta));
@@ -278,7 +278,7 @@ namespace sls {
         DEBUG_CODE(
             for (sat::bool_var bv = 0; bv < ctx.num_bool_vars(); ++bv) {
                 if (a.get_ineq(bv) && a.get_ineq(bv)->is_true() != ctx.is_true(bv)) {
-                    TRACE("arith", tout << "bv:" << bv << " " << *a.get_ineq(bv) << " " << (ctx.is_true(bv)?"T":"F") << "\n";
+                    TRACE(arith, tout << "bv:" << bv << " " << *a.get_ineq(bv) << " " << (ctx.is_true(bv)?"T":"F") << "\n";
                     tout << "v" << v << " bool vars: " << a.m_vars[v].m_bool_vars_of << "\n";
                     tout << mk_bounded_pp(a.m_vars[v].m_expr, a.m) << "\n";
                     tout << mk_bounded_pp(ctx.atom(bv), a.m) << "\n";
@@ -291,7 +291,7 @@ namespace sls {
     template<typename num_t>
     double arith_clausal<num_t>::get_score(var_t v, num_t const& delta) {
         auto& vi = a.m_vars[v];
-        TRACE("arith", tout << "get-score v" << v << " += " << delta << "\n";);
+        TRACE(arith, tout << "get-score v" << v << " += " << delta << "\n";);
         if (!a.update_num(v, delta))
             return -1;
         double score = 0;
@@ -309,7 +309,7 @@ namespace sls {
                     ++num_true;
             }
 
-            CTRACE("arith_verbose", c.m_num_trues != num_true && (c.m_num_trues == 0 || num_true == 0),
+            CTRACE(arith_verbose, c.m_num_trues != num_true && (c.m_num_trues == 0 || num_true == 0),
                 tout << "clause: " << c
                 << " v" << v << " += " << delta
                 << " new-true lits: " << num_true
@@ -326,7 +326,7 @@ namespace sls {
 
         // verbose_stream() << num_clauses << " " << num_dup << "\n";
         // revert the update
-        TRACE("arith", tout << "revert update v" << v << " -= " << delta << "\n";);
+        TRACE(arith, tout << "revert update v" << v << " -= " << delta << "\n";);
         a.update_unchecked(v, vi.value() - delta);        
         return score;
     }
@@ -348,7 +348,7 @@ namespace sls {
 #endif    
         
         IF_VERBOSE(2, verbose_stream() << "restart sls-arith " << a.m_config.restart_next << "\n");
-        TRACE("arith", tout << "restart\n";);
+        TRACE(arith, tout << "restart\n";);
         // reset values of (arithmetical) variables at bounds.
         for (auto& vi : a.m_vars) {
             if (vi.m_lo && !vi.m_lo->is_strict && vi.m_lo->value > 0)
@@ -369,7 +369,7 @@ namespace sls {
         DEBUG_CODE(
             for (sat::bool_var bv = 0; bv < ctx.num_bool_vars(); ++bv) {
                 if (a.get_ineq(bv) && a.get_ineq(bv)->is_true() != ctx.is_true(bv)) {
-                    TRACE("arith", tout << "bv:" << bv << " " << *a.get_ineq(bv) << ctx.is_true(bv) << "\n";
+                    TRACE(arith, tout << "bv:" << bv << " " << *a.get_ineq(bv) << ctx.is_true(bv) << "\n";
                     tout << mk_bounded_pp(ctx.atom(bv), a.m) << "\n";
                     ctx.display(tout););
                 }
@@ -403,7 +403,7 @@ namespace sls {
 
     template<typename num_t>
     void arith_clausal<num_t>::enter_bool_mode() {
-        CTRACE("arith", !m_bool_mode, tout << "enter bool mode\n";);
+        CTRACE(arith, !m_bool_mode, tout << "enter bool mode\n";);
         m_best_found_cost_bool = ctx.unsat().size();
         if (!m_bool_mode) 
             m_no_improve_bool = 0; 
@@ -420,7 +420,7 @@ namespace sls {
 
     template<typename num_t>
     void arith_clausal<num_t>::enter_arith_mode() {
-        CTRACE("arith", m_bool_mode, tout << "enter arith mode\n";);
+        CTRACE(arith, m_bool_mode, tout << "enter arith mode\n";);
         m_best_found_cost_arith = ctx.unsat().size();
         if (m_bool_mode)
             m_no_improve_arith = 0;

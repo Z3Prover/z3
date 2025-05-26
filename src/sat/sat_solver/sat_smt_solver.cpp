@@ -172,7 +172,7 @@ public:
         expr_ref_vector assumptions(m);
         for (unsigned i = 0; i < sz; ++i)
             assumptions.push_back(ensure_literal(_assumptions[i]));
-        TRACE("sat", tout << assumptions << "\n";);
+        TRACE(sat, tout << assumptions << "\n";);
         lbool r = internalize_formulas(assumptions);
         if (r != l_true)
             return r;
@@ -501,7 +501,7 @@ public:
         if (is_internalized() && m_internalized_converted) {            
             if (m_sat_mc) m_sat_mc->flush_smc(m_solver, m_map);
             m_cached_mc = concat(solver::get_model_converter().get(), m_sat_mc.get());
-            TRACE("sat", m_cached_mc->display(tout););
+            TRACE(sat, m_cached_mc->display(tout););
             return m_cached_mc;
         }
         else {
@@ -521,7 +521,7 @@ public:
         s2g(m_solver, m_map, m_params, g, m_sat_mc);
         m_internalized_fmls.reset();
         g.get_formulas(m_internalized_fmls);
-        TRACE("sat", m_solver.display(tout); tout << m_internalized_fmls << "\n";);
+        TRACE(sat, m_solver.display(tout); tout << m_internalized_fmls << "\n";);
         m_internalized_converted = true;
     }
 
@@ -604,7 +604,7 @@ private:
         if (is_internalized() && assumptions.empty())
             return l_true;
 
-        TRACE("sat", tout << "qhead " << m_qhead << "\n");
+        TRACE(sat, tout << "qhead " << m_qhead << "\n");
 
         m_internalized_converted = false;
 
@@ -624,7 +624,7 @@ private:
             return;
         for (sat::literal c : m_solver.get_core()) 
             m_core.push_back(m_dep.lit2orig(c));
-        TRACE("sat",
+        TRACE(sat,
               tout << "core: " << m_solver.get_core() << "\n";
               tout << "core: " << m_core << "\n";
               m_solver.display(tout));
@@ -644,7 +644,7 @@ private:
     }
 
     void get_model_core(model_ref & mdl) override {
-        TRACE("sat", tout << "retrieve model " << (m_solver.model_is_current()?"present":"absent") << "\n";);
+        TRACE(sat, tout << "retrieve model " << (m_solver.model_is_current()?"present":"absent") << "\n";);
         mdl = nullptr;
         auto ext = get_euf();
         if (ext)
@@ -655,8 +655,8 @@ private:
             return;
         if (m_fmls.size() > m_qhead)
             return;
-        TRACE("sat", m_solver.display_model(tout););
-        CTRACE("sat", m_sat_mc, m_sat_mc->display(tout););
+        TRACE(sat, m_solver.display_model(tout););
+        CTRACE(sat, m_sat_mc, m_sat_mc->display(tout););
         sat::model ll_m = m_solver.get_model();
         mdl = alloc(model, m);
         if (m_sat_mc) 
@@ -680,12 +680,12 @@ private:
             }
         }
 
-        TRACE("sat", m_solver.display(tout););
+        TRACE(sat, m_solver.display(tout););
         if (m_sat_mc) 
             (*m_sat_mc)(mdl);
         m_goal2sat.update_model(mdl);
     
-        TRACE("sat", model_smt2_pp(tout, m, *mdl, 0););        
+        TRACE(sat, model_smt2_pp(tout, m, *mdl, 0););        
 
         if (gparams::get_ref().get_bool("model_validate", false)) {
             IF_VERBOSE(1, verbose_stream() << "Verifying solution\n";);
@@ -699,7 +699,7 @@ private:
                 eval(f, tmp);
                 if (m.limit().is_canceled())
                     return;
-                CTRACE("sat", !m.is_true(tmp),
+                CTRACE(sat, !m.is_true(tmp),
                        tout << "Evaluation failed: " << mk_pp(f, m) << " to " << tmp << "\n";
                        model_smt2_pp(tout, m, *(mdl.get()), 0););
                 if (m.is_false(tmp)) {

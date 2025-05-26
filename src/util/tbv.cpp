@@ -31,7 +31,7 @@ void tbv_manager::debug_alloc() {
 tbv_manager::~tbv_manager() {    
     DEBUG_CODE(
         for (auto t : allocated_tbvs)
-            TRACE("doc", tout << "dangling: " << t << "\n";););
+            TRACE(doc, tout << "dangling: " << t << "\n";););
 }
 
 void tbv_manager::reset() {
@@ -42,7 +42,7 @@ tbv* tbv_manager::allocate() {
     m.reset(*r);
     DEBUG_CODE(
         if (s_debug_alloc) {
-            TRACE("doc", tout << allocated_tbvs.size() << " " << r << "\n";);
+            TRACE(doc, tout << allocated_tbvs.size() << " " << r << "\n";);
         }
         allocated_tbvs.insert(r);
         );
@@ -174,7 +174,7 @@ void tbv_manager::deallocate(tbv* bv) {
             UNREACHABLE();
         }
         if (s_debug_alloc) {
-            TRACE("doc", tout << "deallocate: " << bv << "\n";);
+            TRACE(doc, tout << "deallocate: " << bv << "\n";);
         }
         allocated_tbvs.erase(bv););
 #endif

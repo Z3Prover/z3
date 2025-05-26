@@ -26,7 +26,7 @@ Notes:
 
 void expr2var::insert(expr * n, var v) {
     if (!is_uninterp_const(n)) {
-        TRACE("expr2var", tout << "interpreted:\n" << mk_ismt2_pp(n, m()) << "\n";);
+        TRACE(expr2var, tout << "interpreted:\n" << mk_ismt2_pp(n, m()) << "\n";);
         m_interpreted_vars = true;
     }
     unsigned idx = m_id2map.get(n->get_id(), UINT_MAX);
