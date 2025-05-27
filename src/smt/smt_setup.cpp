@@ -834,6 +834,13 @@ namespace smt {
     // there are some other cases where relevancy propagation is harmful.
     //
     void setup::setup_relevancy(static_features& st) {
+        // the case split queue has been constructed by now.
+        // it is not safe to disable relevancy if the case split stragegy is relevancy-dependent.
+        if (m_params.m_case_split_strategy == CS_RELEVANCY || 
+            m_params.m_case_split_strategy == CS_RELEVANCY_ACTIVITY || 
+            m_params.m_case_split_strategy == CS_RELEVANCY_GOAL)
+            return;
+
         if (st.m_has_bv && !st.m_has_fpa && st.m_num_quantifiers == 0)
              m_params.m_relevancy_lvl = 0;           
     }
