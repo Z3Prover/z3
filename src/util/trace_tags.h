@@ -53,6 +53,8 @@ inline constexpr int count_tags_in_class(TraceTag cls) {
     return count;
 }
 
+// TODO(#7663): Implement tag_class activation of all associated tags
+// TODO: Need to consider implementation approach and memory management
 // Return all tags that belong to the given class
 inline const TraceTag* get_tags_by_class(TraceTag cls, int& count) {
     count = count_tags_in_class(cls);
