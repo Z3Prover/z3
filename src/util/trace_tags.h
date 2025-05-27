@@ -3,7 +3,7 @@
 #include <cstring>
 
 enum class TraceTag {
-#define X(tag, class, desc) tag,
+#define X(tag, tag_class, desc) tag,
 #include "trace_tags.def"
 #undef X
     Count
@@ -12,7 +12,7 @@ enum class TraceTag {
 // Convert TraceTag to string
 inline const char* tracetag_to_string(TraceTag tag) {
     switch (tag) {
-#define X(tag, class, desc) case TraceTag::tag: return #tag;
+#define X(tag, tag_class, desc) case TraceTag::tag: return #tag;
 #include "trace_tags.def"
 #undef X
     default: return "Unknown";
@@ -22,7 +22,7 @@ inline const char* tracetag_to_string(TraceTag tag) {
 // Return description of TraceTag
 inline const char* get_trace_tag_doc(TraceTag tag) {
     switch (tag) {
-#define X(tag, class, desc) case TraceTag::tag: return desc;
+#define X(tag, tag_class, desc) case TraceTag::tag: return desc;
 #include "trace_tags.def"
 #undef X
     default: return "Unknown tag";
@@ -37,7 +37,7 @@ inline constexpr int trace_tag_count() {
 // Return all TraceTags as an array
 inline const TraceTag* all_trace_tags() {
     static TraceTag tags[] = {
-#define X(tag, class, desc) TraceTag::tag,
+#define X(tag, tag_class, desc) TraceTag::tag,
 #include "trace_tags.def"
 #undef X
     };
@@ -47,7 +47,7 @@ inline const TraceTag* all_trace_tags() {
 // Helper function to count tags in a class
 inline constexpr int count_tags_in_class(TraceTag cls) {
     int count = 0;
-    #define X(tag, class, desc) if (TraceTag::class == cls) count++;
+    #define X(tag, tag_class, desc) if (TraceTag::tag_class == cls) count++;
     #include "trace_tags.def"
     #undef X
     return count;
@@ -62,8 +62,8 @@ inline const TraceTag* get_tags_by_class(TraceTag cls, int& count) {
     class_tags = new TraceTag[count];
     int idx = 0;
     
-    #define X(tag, class, desc) \
-        if (TraceTag::class == cls) { \
+    #define X(tag, tag_class, desc) \
+        if (TraceTag::tag_class == cls) { \
             class_tags[idx++] = TraceTag::tag; \
         }
     #include "trace_tags.def"
@@ -74,8 +74,8 @@ inline const TraceTag* get_tags_by_class(TraceTag cls, int& count) {
 
 // Find TraceTag by string
 inline TraceTag find_trace_tag_by_string(const char* tag_str) {
-    #define X(tag, class, desc) if (strncmp(#tag, tag_str, strlen(#tag)) == 0) return TraceTag::tag;
+    #define X(tag, tag_class, desc) if (strncmp(#tag, tag_str, strlen(#tag)) == 0) return TraceTag::tag;
     #include "trace_tags.def"
     #undef X
-    return TraceTag::Count;  // 매칭되는 태그가 없는 경우
+    return TraceTag::Count;
 }
