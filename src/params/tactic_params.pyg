@@ -11,6 +11,7 @@ def_module_params('tactic',
                           ('propagate_values.max_rounds', UINT, 4, "maximal number of rounds to propagate values."),
                           ('lia2card.max_range', UINT, 100, "maximal range of integers to compilation into Booleans"),
                           ('lia2card.max_ite_nesting', UINT, 4, "maximal nesting depth for ite expressions to be compiled into PB constraints"),
+                          ('randomizer.seed', UINT, 0, "seed for randomizer pre-processor"),
                           ('default_tactic', SYMBOL, '', "overwrite default tactic in strategic solver"),
 
                      #     ('aig.per_assertion', BOOL, True, "process one assertion at a time"),

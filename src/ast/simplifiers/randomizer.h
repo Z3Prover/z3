@@ -22,6 +22,7 @@ Author:
 #include "ast/ast_pp.h"
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "util/obj_hashtable.h"
+#include "params/tactic_params.hpp"
 #include <algorithm>
 
 class randomizer_simplifier : public dependent_expr_simplifier {
@@ -40,13 +41,13 @@ class randomizer_simplifier : public dependent_expr_simplifier {
         std::string rand_name = f->get_name().str() + "_rand_" + std::to_string(m_rand());
         symbol new_sym(rand_name.c_str());
         r = m.mk_func_decl(new_sym, f->get_arity(), f->get_domain(), f->get_range());
-        m_rename.insert(f, r);
         m_ast_trail.push_back(r);
         m_ast_trail.push_back(f);
-        
+        m_rename.insert(f, r);
+
+        m_trail.push(push_back_vector(m_ast_trail));
+        m_trail.push(push_back_vector(m_ast_trail));
         m_trail.push(insert_obj_map(m_rename, f));
-        m_trail.push(push_back_vector(m_ast_trail));
-        m_trail.push(push_back_vector(m_ast_trail));
 
 
         m_args.reset();
@@ -115,7 +116,8 @@ class randomizer_simplifier : public dependent_expr_simplifier {
 public:
     randomizer_simplifier(ast_manager& m, params_ref const & p, dependent_expr_state& fmls)
         : dependent_expr_simplifier(m, fmls), m(m), m_ast_trail(m), m_new_exprs(m) {
-            // set m_rand reading from parameter?
+        tactic_params tp(p);
+        m_rand.set_seed(tp.randomizer_seed()); // set random seed from parameter
         }
 
     char const* name() const override { return "randomizer"; }
