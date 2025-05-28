@@ -255,8 +255,8 @@ namespace arith {
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(1000, &eh);
         bool result = l_true != vs->check_sat();
-        CTRACE("arith", !result, vs->display(tout));
-        CTRACE("arith", !result, s().display(tout));
+        CTRACE(arith, !result, vs->display(tout));
+        CTRACE(arith, !result, s().display(tout));
         SASSERT(result);
         return result;
     }

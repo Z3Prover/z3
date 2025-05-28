@@ -123,7 +123,7 @@ namespace mbp {
                     (m_arr_u.is_store (a) && (a->get_arg (0) == m_v))) {
                     m_has_stores_v.mark (a, true);
 
-                    TRACE ("qe",
+                    TRACE(qe,
                             tout << "has stores:\n";
                             tout << mk_pp (a, m) << "\n";
                           );
@@ -248,7 +248,7 @@ namespace mbp {
             app_ref p_exp = mk_peq (eq->get_arg (0), eq->get_arg (1), empty, m);
             bool subst_eq_found = false;
             while (true) {
-                TRACE ("qe", tout << "processing peq:\n" << p_exp << "\n";);
+                TRACE(qe, tout << "processing peq:\n" << p_exp << "\n";);
 
                 peq p (p_exp, m);
                 expr_ref lhs = p.lhs(), rhs = p.rhs();
@@ -294,7 +294,7 @@ namespace mbp {
                         }
                     }
                     if (idx_in_I) {
-                        TRACE ("qe",
+                        TRACE(qe,
                                 tout << "store index in diff indices:\n";
                                 tout << mk_pp (m_idx_lits_v.back (), m) << "\n";
                               );
@@ -302,7 +302,7 @@ namespace mbp {
                         // arr0 ==I arr1
                         p_exp = mk_peq (arr0, arr1, I, m);
 
-                        TRACE ("qe",
+                        TRACE(qe,
                                 tout << "new peq:\n";
                                 tout << mk_pp (p_exp, m) << "\n";
                               );
@@ -313,7 +313,7 @@ namespace mbp {
                         I.push_back (idxs);
                         p_exp = mk_peq (arr0, arr1, I, m);
 
-                        TRACE ("qe", tout << "new peq:\n" << p_exp << "\n"; );
+                        TRACE(qe, tout << "new peq:\n" << p_exp << "\n"; );
 
                         // arr1[idx] == x
                         ptr_vector<expr> sel_args;
@@ -323,7 +323,7 @@ namespace mbp {
                         expr_ref eq (m.mk_eq (arr1_idx, x), m);
                         m_aux_lits_v.push_back (eq);
 
-                        TRACE ("qe",
+                        TRACE(qe,
                                 tout << "new eq:\n";
                                 tout << mk_pp (eq, m) << "\n";
                               );
@@ -334,7 +334,7 @@ namespace mbp {
                 }
                 else if (lhs == m_v || rhs == m_v) {
                     subst_eq_found = true;
-                    TRACE ("qe",
+                    TRACE(qe,
                             tout << "subst eq found!\n";
                           );
                     break;
@@ -348,7 +348,7 @@ namespace mbp {
             if (subst_eq_found) {
                 factor_selects (p_exp);
 
-                TRACE ("qe",
+                TRACE(qe,
                         tout << "after factoring selects:\n";
                         tout << mk_pp (p_exp, m) << "\n";
                         for (unsigned i = m_aux_lits_v.size () - m_aux_vars.size (); i < m_aux_lits_v.size (); i++) {
@@ -366,7 +366,7 @@ namespace mbp {
                 convert_peq_to_eq (p_exp, eq, stores_on_rhs);
                 m_subst_term_v = eq->get_arg (1);
 
-                TRACE ("qe",
+                TRACE(qe,
                         tout << "subst term found:\n";
                         tout << mk_pp (m_subst_term_v, m) << "\n";
                       );
@@ -406,7 +406,7 @@ namespace mbp {
                 /* empty */ ;
             }
             if (store != m_v) {
-                TRACE("qe", tout << "not a store " << mk_pp(eq, m) << " " << lhs_has_v << " " << rhs_has_v << " " << mk_pp(m_v, m) << "\n";);
+                TRACE(qe, tout << "not a store " << mk_pp(eq, m) << " " << lhs_has_v << " " << rhs_has_v << " " << mk_pp(m_v, m) << "\n";);
                 return UINT_MAX;
             }
             return nd;
@@ -428,11 +428,11 @@ namespace mbp {
             svector<std::pair<unsigned, app*> > true_eqs;
 
             find_arr_eqs (fml, eqs);
-            TRACE ("qe", tout << "array equalities:\n" << eqs << "\n";);
+            TRACE(qe, tout << "array equalities:\n" << eqs << "\n";);
 
             // evaluate eqs in M
             for (app * eq : eqs) {
-                TRACE ("qe", tout << "array equality:\n" << mk_pp (eq, m) << "\n"; );
+                TRACE(qe, tout << "array equality:\n" << mk_pp (eq, m) << "\n"; );
 
                 if (m_mev->is_false(eq)) {
                     m_false_sub_v.insert (eq, m.mk_false());
@@ -506,13 +506,13 @@ namespace mbp {
                 reset_v ();
                 m_v = arr_vars.get (i);
                 if (!m_arr_u.is_array (m_v)) {
-                    TRACE ("qe",
+                    TRACE(qe,
                             tout << "not an array variable: " << m_v << "\n";
                           );
                     aux_vars.push_back (m_v);
                     continue;
                 }
-                TRACE ("qe", tout << "projecting equalities on variable: " << m_v << "\n"; );
+                TRACE(qe, tout << "projecting equalities on variable: " << m_v << "\n"; );
 
                 if (project (fml)) {
                     mk_result (fml);
@@ -521,11 +521,11 @@ namespace mbp {
                     if (!m_subst_term_v || contains_v (m_subst_term_v)) {
                         arr_vars[j++] = m_v;
                     }
-                    TRACE ("qe", tout << "after projection: \n" << fml << "\n";);
+                    TRACE(qe, tout << "after projection: \n" << fml << "\n";);
                 }
                 else {
                     IF_VERBOSE(2, verbose_stream() << "can't project:" << m_v << "\n";);
-                    TRACE ("qe", tout << "Failed to project: " << m_v << "\n";);
+                    TRACE(qe, tout << "Failed to project: " << m_v << "\n";);
                     arr_vars[j++] = m_v;
                 }
             }
@@ -705,7 +705,7 @@ namespace mbp {
             fml = mk_and(lits);
             // simplify all trivial expressions introduced
             m_rw (fml);
-            TRACE ("qe", tout << "after reducing selects:\n" << fml << "\n";);
+            TRACE(qe, tout << "after reducing selects:\n" << fml << "\n";);
         }
 
     public:
@@ -741,7 +741,7 @@ namespace mbp {
             }
             else {
                 IF_VERBOSE(2, verbose_stream() << "can't project arrays:" << "\n";);
-                TRACE ("qe", tout << "Failed to project arrays\n";);
+                TRACE(qe, tout << "Failed to project arrays\n";);
             }
         }
     };
@@ -888,7 +888,7 @@ namespace mbp {
             for (unsigned i = 0; i < arity && is_numeric; ++i) {
                 sort* srt = get_array_domain(v_sort, i);
                 if (!m_ari_u.is_real(srt) && !m_ari_u.is_int(srt) && !m_bv_u.is_bv_sort(srt)) {
-                    TRACE("qe", tout << "non-numeric index sort for Ackerman" << mk_pp(srt, m) << "\n";);
+                    TRACE(qe, tout << "non-numeric index sort for Ackerman" << mk_pp(srt, m) << "\n";);
                     is_numeric = false;
                 }
             }
@@ -973,7 +973,7 @@ namespace mbp {
             // substitute for sel terms
             m_sub (fml);
 
-            TRACE ("qe", tout << "after projection of selects:\n" << fml << "\n";);
+            TRACE(qe, tout << "after projection of selects:\n" << fml << "\n";);
         }
 
         /**
@@ -985,10 +985,10 @@ namespace mbp {
             collect_selects (fml);
             // model based ackermannization
             for (auto & kv : m_sel_terms) {
-                TRACE ("qe",tout << "ackermann for var: " << mk_pp (kv.m_key, m) << "\n";);
+                TRACE(qe,tout << "ackermann for var: " << mk_pp (kv.m_key, m) << "\n";);
                 ackermann (*(kv.m_value));
             }
-            TRACE ("qe", tout << "idx lits:\n" << m_idx_lits; );
+            TRACE(qe, tout << "idx lits:\n" << m_idx_lits; );
             return true;
         }
 
@@ -1028,7 +1028,7 @@ namespace mbp {
             }
             else {
                 IF_VERBOSE(2, verbose_stream() << "can't project arrays:" << "\n";);
-                TRACE ("qe", tout << "Failed to project arrays\n";);
+                TRACE(qe, tout << "Failed to project arrays\n";);
             }
 
             // dealloc
@@ -1239,7 +1239,7 @@ namespace mbp {
             collect_store_expressions(tg, lits);
             collect_index_expressions(tg, lits);
 
-            TRACE("qe",
+            TRACE(qe,
                   tout << "indices\n";
                   for (auto& kv : m_indices) {
                       tout << sort_ref(kv.m_key, m) << " |-> " << *kv.m_value << "\n";
@@ -1253,7 +1253,7 @@ namespace mbp {
             assert_extensionality(model, tg, lits);
             assert_store_select(model, tg, lits);
 
-            TRACE("qe", tout << lits << "\n";);
+            TRACE(qe, tout << lits << "\n";);
 
             for (auto& kv : m_indices) {
                 dealloc(kv.m_value);
@@ -1265,7 +1265,7 @@ namespace mbp {
             m_indices.reset();
             m_arrays.reset();
 
-            TRACE("qe", tout << "done: " << lits << "\n";);
+            TRACE(qe, tout << "done: " << lits << "\n";);
 
         }
 
@@ -1467,7 +1467,7 @@ namespace mbp {
         ast_manager& m = fml.get_manager();
         array_project_eqs_util pe (m);
         pe (mdl, arr_vars, fml, aux_vars);
-        TRACE ("qe",
+        TRACE(qe,
                tout << "Projected array eqs: " << fml << "\n";
                tout << "Remaining array vars: " << arr_vars << "\n";
                tout << "Aux vars: " << aux_vars << "\n";
@@ -1477,13 +1477,13 @@ namespace mbp {
         array_select_reducer rs (m);
         rs (mdl, arr_vars, fml, reduce_all_selects);
 
-        TRACE ("qe", tout << "Reduced selects:\n" << fml << "\n"; );
+        TRACE(qe, tout << "Reduced selects:\n" << fml << "\n"; );
 
         // 3. project selects using model based ackermannization
         array_project_selects_util ps (m);
         ps (mdl, arr_vars, fml, aux_vars);
 
-        TRACE ("qe",
+        TRACE(qe,
                tout << "Projected array selects: " << fml << "\n";
                tout << "All aux vars: " << aux_vars << "\n";
               );

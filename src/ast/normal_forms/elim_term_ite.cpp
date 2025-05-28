@@ -34,7 +34,7 @@ br_status elim_term_ite_cfg::reduce_app(func_decl* f, unsigned n, expr * const* 
     }
     result = new_r;
      
-    CTRACE("elim_term_ite_bug", new_def.get() == 0, tout << mk_ismt2_pp(r, m) << "\n";);
+    CTRACE(elim_term_ite_bug, new_def.get() == 0, tout << mk_ismt2_pp(r, m) << "\n";);
     m_new_defs.push_back(justified_expr(m, new_def, new_def_pr));
     return BR_DONE;
 }

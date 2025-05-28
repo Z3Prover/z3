@@ -93,10 +93,10 @@ namespace dd {
         if (done()) 
             return;        
         init_saturate();  
-        TRACE("dd.solver", display(tout););
+        TRACE(dd_solver, display(tout););
         try {
             while (!done() && step()) {
-                TRACE("dd.solver", display(tout););
+                TRACE(dd_solver, display(tout););
                 DEBUG_CODE(invariant(););
                 IF_VERBOSE(3, display_statistics(verbose_stream()));
             }
@@ -159,7 +159,7 @@ namespace dd {
         if (eq.poly().is_unary() && eq.poly().hi().val() < 0)
             eq = -eq.poly();
 
-        TRACE("dd.solver", display(tout << "simplification result: ", eq););
+        TRACE(dd_solver, display(tout << "simplification result: ", eq););
     }
 
     void solver::well_formed() {
@@ -229,7 +229,7 @@ namespace dd {
             m_too_complex = true;
             return false;
         }
-        TRACE("dd.solver", 
+        TRACE(dd_solver, 
               tout << "reduce: " << dst.poly() << "\n";
               tout << "using:  " << t << "\n";
               tout << "to:     " << r << "\n";);
@@ -246,7 +246,7 @@ namespace dd {
         pdd t = src.poly();
         pdd r = dst.poly().reduce(t);
         changed_leading_term = dst.state() == processed && m.different_leading_term(r, dst.poly());
-        TRACE("dd.solver", 
+        TRACE(dd_solver, 
               tout << "reduce: " << dst.poly() << "\n";
               tout << "using:  " << t << "\n";
               tout << "to:     " << r << "\n";);
@@ -261,7 +261,7 @@ namespace dd {
        let eq1: ab+q=0, and eq2: ac+e=0, then qc - eb = 0
     */
     void solver::superpose(equation const& eq1, equation const& eq2) {
-        TRACE("dd.solver_d", display(tout << "eq1=", eq1); display(tout << "eq2=", eq2););
+        TRACE(dd_solver_d, display(tout << "eq1=", eq1); display(tout << "eq2=", eq2););
         pdd r(m);
         if (m.try_spoly(eq1.poly(), eq2.poly(), r) && !r.is_zero()) {
             if (is_too_complex(r)) {
@@ -297,7 +297,7 @@ namespace dd {
         simplify_using(m_processed, eq);
         if (done()) 
             return false;
-        TRACE("dd.solver", display(tout << "eq = ", eq););
+        TRACE(dd_solver, display(tout << "eq = ", eq););
         superpose(eq);
         simplify_using(m_to_simplify, eq);
         if (done()) 

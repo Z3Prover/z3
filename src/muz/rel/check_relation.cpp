@@ -411,7 +411,7 @@ namespace datalog {
     }
 
     void check_relation_plugin::check_equiv(char const* objective, expr* fml1, expr* fml2) {
-        TRACE("doc", tout << mk_pp(fml1, m) << "\n";
+        TRACE(doc, tout << mk_pp(fml1, m) << "\n";
               tout << mk_pp(fml2, m) << "\n";);
         smt_params fp;
         smt::kernel solver(m, fp);
@@ -486,7 +486,7 @@ namespace datalog {
         union_fn(relation_union_fn* m): m_union(m) {}
 
         void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
-            TRACE("doc", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
+            TRACE(doc, _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             check_relation& r = get(_r);
             check_relation const& src = get(_src);
             check_relation* d = get(_delta);

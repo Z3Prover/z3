@@ -99,11 +99,11 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, u_depende
         else {
             c().insert_to_active_var_set(k);
             mf *= cn.mk_var(k);
-            CTRACE("nla_grobner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
+            CTRACE(nla_grobner, c().is_monic_var(k), c().print_var(k, tout) << "\n";);
         }
     }
     nex* e = mf.mk();
-    TRACE("nla_grobner", tout << *e;);
+    TRACE(nla_grobner, tout << *e;);
     return e;
 }
 
@@ -113,7 +113,7 @@ template <typename T> void common::create_sum_from_row(const T& row,
                                                        nex_creator::sum_factory& sum,
                                                        u_dependency*& dep) {
 
-    TRACE("nla_horner", tout << "row="; m_core.print_row(row, tout) << "\n";);
+    TRACE(nla_horner, tout << "row="; m_core.print_row(row, tout) << "\n";);
     SASSERT(row.size() > 1);
     sum.reset();
     for (const auto &p : row) {

@@ -68,14 +68,14 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpq * as, var * xs, b
         m.lcm(r, l, l);
     }
     
-    TRACE("linear_equation_mk", tout << "lcm: " << m.to_string(l) << "\n";);
+    TRACE(linear_equation_mk, tout << "lcm: " << m.to_string(l) << "\n";);
     
     // copy l * as to m_int_buffer.
     m_int_buffer.reset();
     for (unsigned i = 0; i < sz; i++) {
-        TRACE("linear_equation_mk", tout << "before as[" << i << "]: " << m.to_string(as[i]) << "\n";);
+        TRACE(linear_equation_mk, tout << "before as[" << i << "]: " << m.to_string(as[i]) << "\n";);
         m.mul(l, as[i], as[i]);
-        TRACE("linear_equation_mk", tout << "after as[" << i << "]: " << m.to_string(as[i]) << "\n";);
+        TRACE(linear_equation_mk, tout << "after as[" << i << "]: " << m.to_string(as[i]) << "\n";);
         SASSERT(m.is_int(as[i]));
         m_int_buffer.push_back(as[i].numerator());
     }
@@ -96,7 +96,7 @@ linear_equation * linear_equation_manager::mk_core(unsigned sz, mpz * as, var * 
         }
     });
 
-    TRACE("linear_equation_bug", for (unsigned i = 0; i < sz; i++) tout << m.to_string(as[i]) << "*x" << xs[i] << " "; tout << "\n";);
+    TRACE(linear_equation_bug, for (unsigned i = 0; i < sz; i++) tout << m.to_string(as[i]) << "*x" << xs[i] << " "; tout << "\n";);
     
     mpz g;
     m.set(g, as[0]);
@@ -118,7 +118,7 @@ linear_equation * linear_equation_manager::mk_core(unsigned sz, mpz * as, var * 
         }
     }
 
-    TRACE("linear_equation_bug", 
+    TRACE(linear_equation_bug, 
           tout << "g: " << m.to_string(g) << "\n";
           for (unsigned i = 0; i < sz; i++) tout << m.to_string(as[i]) << "*x" << xs[i] << " "; tout << "\n";);
 

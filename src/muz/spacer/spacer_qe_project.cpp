@@ -225,7 +225,7 @@ class arith_project_util {
         else if ((*m_var)(t)) {
             IF_VERBOSE(2, verbose_stream()
                               << "can't project:" << mk_pp(t, m) << "\n";);
-            TRACE("qe", tout << "Failed to project: " << mk_pp(t, m) << "\n";);
+            TRACE(qe, tout << "Failed to project: " << mk_pp(t, m) << "\n";);
             res = false;
         } 
         else if (mul.is_one()) {
@@ -303,7 +303,7 @@ class arith_project_util {
         } else {
             IF_VERBOSE(2, verbose_stream()
                               << "can't project:" << mk_pp(lit, m) << "\n";);
-            TRACE("qe",
+            TRACE(qe,
                   tout << "Failed to project: " << mk_pp(lit, m) << "\n";);
             return false;
         }
@@ -391,7 +391,7 @@ class arith_project_util {
                 return false;
         }       
         if (use_eq) {
-            TRACE("qe", tout << "Using equality term: " << mk_pp(eq_term, m)
+            TRACE(qe, tout << "Using equality term: " << mk_pp(eq_term, m)
                              << "\n";);
             // substitute eq_term for x everywhere
             for (unsigned i = 0; i < m_lits.size(); ++i) {
@@ -428,7 +428,7 @@ class arith_project_util {
                     new_lit = mk_lt(i, max_t);
                 }
                 lits.push_back(new_lit);
-                TRACE("qe", tout << "Old literal: " << mk_pp(m_lits.get(i), m)
+                TRACE(qe, tout << "Old literal: " << mk_pp(m_lits.get(i), m)
                                  << "\n";
                       tout << "New literal: " << mk_pp(new_lit, m) << "\n";);
             }
@@ -459,11 +459,11 @@ class arith_project_util {
             bool is_diseq = false;
             if (!(*m_var)(lits.get(i))) continue;
             if (is_linear(lits.get(i), c, t, d, is_strict, is_eq, is_diseq)) {
-                TRACE("qe",
+                TRACE(qe,
                       tout << "Literal: " << mk_pp(lits.get(i), m) << "\n";);
 
                 if (c.is_zero()) {
-                    TRACE("qe", tout << "independent of variable\n";);
+                    TRACE(qe, tout << "independent of variable\n";);
                     continue;
                 }
 
@@ -476,7 +476,7 @@ class arith_project_util {
                 VERIFY(a.is_numeral(val, r));
 
                 if (is_eq) {
-                    TRACE("qe", tout << "equality term\n";);
+                    TRACE(qe, tout << "equality term\n";);
                     // check if the equality is true in the mdl
                     if (eq_idx == lits.size() && r == rational::zero()) {
                         eq_idx = m_lits.size();
@@ -489,7 +489,7 @@ class arith_project_util {
                     m_divs.push_back(d);
                 } 
                 else {
-                    TRACE("qe", tout << "not an equality term\n";);
+                    TRACE(qe, tout << "not an equality term\n";);
                     if (is_diseq) {
                         // c*x + t != 0
                         // find out whether c*x + t < 0, or c*x + t > 0
@@ -520,7 +520,7 @@ class arith_project_util {
                         }
                     }
                 }
-                TRACE("qe", tout << "c: " << c << "\n";
+                TRACE(qe, tout << "c: " << c << "\n";
                       tout << "t: " << mk_pp(t, m) << "\n";
                       tout << "d: " << d << "\n";);
             } 
@@ -546,7 +546,7 @@ class arith_project_util {
                     m_divs[i] *= factor;
                     lcm_divs = lcm(lcm_divs, m_divs[i]);
                 }
-                TRACE("qe", tout << "normalized coeff: " << m_coeffs[i] << "\n";
+                TRACE(qe, tout << "normalized coeff: " << m_coeffs[i] << "\n";
                       tout << "normalized term: " << mk_pp(m_terms.get(i), m)
                            << "\n";
                       tout << "normalized div: " << m_divs[i] << "\n";);
@@ -555,7 +555,7 @@ class arith_project_util {
             // consider new divisibility literal (lcm_coeffs | (lcm_coeffs * x))
             lcm_divs = lcm(lcm_divs, lcm_coeffs);
 
-            TRACE("qe", tout << "lcm of coeffs: " << lcm_coeffs << "\n";
+            TRACE(qe, tout << "lcm of coeffs: " << lcm_coeffs << "\n";
                   tout << "lcm of divs: " << lcm_divs << "\n";);
         }
 
@@ -571,7 +571,7 @@ class arith_project_util {
                                  m);
                 m_rw(eq_term);
                 map.insert(m_var->x(), eq_term, nullptr);
-                TRACE("qe", tout << "Using equality term: " << mk_pp(eq_term, m)
+                TRACE(qe, tout << "Using equality term: " << mk_pp(eq_term, m)
                                  << "\n";);
             } 
             else {
@@ -582,7 +582,7 @@ class arith_project_util {
                     x_term_val = m_terms.get(eq_idx);
                 
                 m_rw(x_term_val);
-                TRACE("qe", tout << "Using equality literal: "
+                TRACE(qe, tout << "Using equality literal: "
                                  << mk_pp(m_lits.get(eq_idx), m) << "\n";
                       tout << "substitution for (lcm_coeffs * x): "
                            << mk_pp(x_term_val, m) << "\n";);
@@ -606,7 +606,7 @@ class arith_project_util {
 
         if (num_pos == 0 || num_neg == 0) {
             TRACE(
-                "qe",
+                qe,
                 if (num_pos == 0) {
                     tout << "virtual substitution with +infinity\n";
                 } else { tout << "virtual substitution with -infinity\n"; });
@@ -628,7 +628,7 @@ class arith_project_util {
                 VERIFY(a.is_numeral(var_val, var_val_num));
                 x_term_val = a.mk_numeral(
                     mod(lcm_coeffs * var_val_num, lcm_divs), a.mk_int());
-                TRACE("qe", tout << "Substitution for (lcm_coeffs * x): "
+                TRACE(qe, tout << "Substitution for (lcm_coeffs * x): "
                                  << mk_pp(x_term_val, m) << "\n";);
             }
             for (unsigned i = 0; i < m_lits.size(); i++) {
@@ -657,7 +657,7 @@ class arith_project_util {
                     new_lit = m.mk_true();
                 }
                 map.insert(m_lits.get(i), new_lit, nullptr);
-                TRACE("qe", tout << "Old literal: " << mk_pp(m_lits.get(i), m)
+                TRACE(qe, tout << "Old literal: " << mk_pp(m_lits.get(i), m)
                                  << "\n";
                       tout << "New literal: " << mk_pp(new_lit, m) << "\n";);
             }
@@ -669,7 +669,7 @@ class arith_project_util {
         unsigned max_t = find_max(mdl, use_pos);
 
         TRACE(
-            "qe",
+            qe,
             if (use_pos) {
                 tout << "virtual substitution with upper bound:\n";
             } else { tout << "virtual substitution with lower bound:\n"; } tout
@@ -696,7 +696,7 @@ class arith_project_util {
                     new_lit = m.mk_true();
                 }
                 map.insert(m_lits.get(i), new_lit, nullptr);
-                TRACE("qe", tout << "Old literal: " << mk_pp(m_lits.get(i), m)
+                TRACE(qe, tout << "Old literal: " << mk_pp(m_lits.get(i), m)
                                  << "\n";
                       tout << "New literal: " << mk_pp(new_lit, m) << "\n";);
             }
@@ -745,7 +745,7 @@ class arith_project_util {
             }
             m_rw(x_term_val);
 
-            TRACE("qe", tout << "substitution for (lcm_coeffs * x): "
+            TRACE(qe, tout << "substitution for (lcm_coeffs * x): "
                              << mk_pp(x_term_val, m) << "\n";);
 
             // obtain substitutions for all literals in map
@@ -1105,7 +1105,7 @@ class arith_project_util {
                 }
             }
             map.insert(m_lits.get(i), new_lit, nullptr);
-            TRACE("qe",
+            TRACE(qe,
                   tout << "Old literal: " << mk_pp(m_lits.get(i), m) << "\n";
                   tout << "New literal: " << mk_pp(new_lit, m) << "\n";);
         }
@@ -1121,7 +1121,7 @@ class arith_project_util {
             map.get(old_lit, new_lit, pr);
             if (new_lit) {
                 sub.insert(old_lit, new_lit);
-                TRACE("qe", tout << "old lit " << mk_pp(old_lit, m) << "\n";
+                TRACE(qe, tout << "old lit " << mk_pp(old_lit, m) << "\n";
                       tout << "new lit " << mk_pp(new_lit, m) << "\n";);
             }
         }
@@ -1131,7 +1131,7 @@ class arith_project_util {
         map.get(m_var->x(), x_term, pr);
         if (x_term) {
             sub.insert(m_var->x(), x_term);
-            TRACE("qe", tout << "substituting " << mk_pp(m_var->x(), m)
+            TRACE(qe, tout << "substituting " << mk_pp(m_var->x(), m)
                              << " by " << mk_pp(x_term, m) << "\n";);
         }
         scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m, false);
@@ -1159,7 +1159,7 @@ class arith_project_util {
                     verbose_stream() << "can't project:" << mk_pp(v, m) << "\n";
                 });
             TRACE(
-                "qe",
+                qe,
                 if (!fail) {
                     tout << "projected: " << mk_pp(v, m) << "\n";
                     for (unsigned i = 0; i < result.size(); ++i) {
@@ -1184,13 +1184,13 @@ class arith_project_util {
         app_ref_vector new_vars(m);
 
         // factor out mod terms by introducing new variables
-        TRACE("qe", tout << "before factoring out mod terms:" << "\n";
+        TRACE(qe, tout << "before factoring out mod terms:" << "\n";
               tout << mk_pp(fml, m) << "\n"; tout << "mdl:\n";
               model_pp(tout, mdl); tout << "\n";);
 
         factor_mod_terms(fml, vars, mdl);
 
-        TRACE("qe", tout << "after factoring out mod terms:" << "\n";
+        TRACE(qe, tout << "after factoring out mod terms:" << "\n";
               tout << mk_pp(fml, m) << "\n"; tout << "updated mdl:\n";
               model_pp(tout, mdl); tout << "\n";);
 
@@ -1198,7 +1198,7 @@ class arith_project_util {
         //          expr_map map (m);
         for (unsigned i = 0; i < vars.size(); ++i) {
             app *v = vars.get(i);
-            TRACE("qe",
+            TRACE(qe,
                   tout << "projecting variable: " << mk_pp(v, m) << "\n";);
             m_var = alloc(contains_app, m, v);
             map.reset();
@@ -1207,7 +1207,7 @@ class arith_project_util {
                 // factor out mod terms using div terms
                 expr_map mod_map(m);
                 mod2div(fml, mod_map);
-                TRACE("qe", tout << "after mod2div:" << "\n";
+                TRACE(qe, tout << "after mod2div:" << "\n";
                       tout << mk_pp(fml, m) << "\n";);
             }
             collect_lits(fml, lits);
@@ -1215,12 +1215,12 @@ class arith_project_util {
             if (project(mdl, lits, map, div_lit)) {
                 substitute(fml, lits, map);
                 if (div_lit) { fml = m.mk_and(fml, div_lit); }
-                TRACE("qe", tout << "projected: " << mk_pp(v, m) << " "
+                TRACE(qe, tout << "projected: " << mk_pp(v, m) << " "
                                  << mk_pp(fml, m) << "\n";);
             } else {
                 IF_VERBOSE(2, verbose_stream()
                                   << "can't project:" << mk_pp(v, m) << "\n";);
-                TRACE("qe",
+                TRACE(qe,
                       tout << "Failed to project: " << mk_pp(v, m) << "\n";);
                 new_vars.push_back(v);
             }
@@ -1296,7 +1296,7 @@ class array_project_eqs_util {
                 (m_arr_u.is_store(a) && (a->get_arg(0) == m_v))) {
                 m_has_stores_v.mark(a, true);
 
-                TRACE("qe", tout << "has stores:\n" << mk_pp(a, m) << "\n");
+                TRACE(qe, tout << "has stores:\n" << mk_pp(a, m) << "\n");
             }
 
             // check if a is a relevant array equality
@@ -1429,7 +1429,7 @@ class array_project_eqs_util {
         mk_peq(eq->get_arg(0), eq->get_arg(1), 0, nullptr, p_exp);
         bool subst_eq_found = false;
         while (true) {
-            TRACE("qe", tout << "processing peq:\n";
+            TRACE(qe, tout << "processing peq:\n";
                   tout << mk_pp(p_exp, m) << "\n";);
 
             peq p(p_exp, m);
@@ -1476,13 +1476,13 @@ class array_project_eqs_util {
                     }
                 }
                 if (idx_in_I) {
-                    TRACE("qe", tout << "store index in diff indices:\n";
+                    TRACE(qe, tout << "store index in diff indices:\n";
                           tout << mk_pp(m_idx_lits_v.back(), m) << "\n";);
 
                     // arr0 ==I arr1
                     mk_peq(arr0, arr1, I.size(), I.data(), p_exp);
 
-                    TRACE("qe", tout << "new peq:\n";
+                    TRACE(qe, tout << "new peq:\n";
                           tout << mk_pp(p_exp, m) << "\n";);
                 } else {
                     m_idx_lits_v.append(idx_diseq);
@@ -1490,7 +1490,7 @@ class array_project_eqs_util {
                     I.push_back(idx);
                     mk_peq(arr0, arr1, I.size(), I.data(), p_exp);
 
-                    TRACE("qe", tout << "new peq:\n";
+                    TRACE(qe, tout << "new peq:\n";
                           tout << mk_pp(p_exp, m) << "\n";);
 
                     // arr1[idx] == x
@@ -1502,14 +1502,14 @@ class array_project_eqs_util {
                     expr_ref eq(m.mk_eq(arr1_idx, x), m);
                     m_aux_lits_v.push_back(eq);
 
-                    TRACE("qe", tout << "new eq:\n";
+                    TRACE(qe, tout << "new eq:\n";
                           tout << mk_pp(eq, m) << "\n";);
                 }
             } else if (lhs == rhs) { // trivial peq (a ==I a)
                 break;
             } else if (lhs == m_v || rhs == m_v) {
                 subst_eq_found = true;
-                TRACE("qe", tout << "subst eq found!\n";);
+                TRACE(qe, tout << "subst eq found!\n";);
                 break;
             } else {
                 UNREACHABLE();
@@ -1521,7 +1521,7 @@ class array_project_eqs_util {
             factor_selects(p_exp);
 
             TRACE(
-                "qe", tout << "after factoring selects:\n";
+                qe, tout << "after factoring selects:\n";
                 tout << mk_pp(p_exp, m) << "\n";
                 for (unsigned i = m_aux_lits_v.size() - m_aux_vars.size();
                      i < m_aux_lits_v.size();
@@ -1535,7 +1535,7 @@ class array_project_eqs_util {
             convert_peq_to_eq(p_exp, eq, stores_on_rhs);
             m_subst_term_v = eq->get_arg(1);
 
-            TRACE("qe", tout << "subst term found:\n";
+            TRACE(qe, tout << "subst term found:\n";
                   tout << mk_pp(m_subst_term_v, m) << "\n";);
         }
     }
@@ -1551,13 +1551,13 @@ class array_project_eqs_util {
 
         find_arr_eqs(fml, eqs);
         TRACE(
-            "qe", tout << "array equalities:\n";
+            qe, tout << "array equalities:\n";
             for (unsigned i = 0; i < eqs.size();
                  i++) { tout << mk_pp(eqs.get(i), m) << "\n"; });
 
         // evaluate eqs in M
         for (unsigned i = 0; i < eqs.size(); i++) {
-            TRACE("qe", tout << "array equality:\n";
+            TRACE(qe, tout << "array equality:\n";
                   tout << mk_pp(eqs.get(i), m) << "\n";);
 
             expr *eq = eqs.get(i);
@@ -1630,7 +1630,7 @@ class array_project_eqs_util {
             if (j < i) {
                 true_eqs.set(j, eq);
                 nds.set(j, nd);
-                TRACE("qe", tout << "changing eq order!\n";);
+                TRACE(qe, tout << "changing eq order!\n";);
             }
         }
 
@@ -1685,12 +1685,12 @@ class array_project_eqs_util {
             reset_v();
             m_v = arr_vars.get(i);
             if (!m_arr_u.is_array(m_v)) {
-                TRACE("qe", tout << "not an array variable: " << mk_pp(m_v, m)
+                TRACE(qe, tout << "not an array variable: " << mk_pp(m_v, m)
                                  << "\n";);
                 aux_vars.push_back(m_v);
                 continue;
             }
-            TRACE("qe", tout << "projecting equalities on variable: "
+            TRACE(qe, tout << "projecting equalities on variable: "
                              << mk_pp(m_v, m) << "\n";);
 
             if (project(fml)) {
@@ -1700,12 +1700,12 @@ class array_project_eqs_util {
                 if (!m_subst_term_v || contains_v(m_subst_term_v)) {
                     rem_arr_vars.push_back(m_v);
                 }
-                TRACE("qe", tout << "after projection: \n";
+                TRACE(qe, tout << "after projection: \n";
                       tout << mk_pp(fml, m) << "\n";);
             } else {
                 IF_VERBOSE(2, verbose_stream() << "can't project:"
                                                << mk_pp(m_v, m) << "\n";);
-                TRACE("qe",
+                TRACE(qe,
                       tout << "Failed to project: " << mk_pp(m_v, m) << "\n";);
                 rem_arr_vars.push_back(m_v);
             }
@@ -1863,7 +1863,7 @@ class array_select_reducer {
         // simplify all trivial expressions introduced
         m_rw(fml);
 
-        TRACE("qe", tout << "after reducing selects:\n";
+        TRACE(qe, tout << "after reducing selects:\n";
               tout << mk_pp(fml, m) << "\n";);
     }
 
@@ -1891,7 +1891,7 @@ class array_select_reducer {
             mk_result(fml);
         } else {
             IF_VERBOSE(2, verbose_stream() << "can't project arrays:" << "\n";);
-            TRACE("qe", tout << "Failed to project arrays\n";);
+            TRACE(qe, tout << "Failed to project arrays\n";);
         }
     }
 };
@@ -2079,7 +2079,7 @@ class array_project_selects_util {
         // substitute for sel terms
         m_sub(fml);
 
-        TRACE("qe", tout << "after projection of selects:\n";
+        TRACE(qe, tout << "after projection of selects:\n";
               tout << mk_pp(fml, m) << "\n";);
     }
 
@@ -2093,13 +2093,13 @@ class array_project_selects_util {
 
         // model based ackermannization
         for (auto const &[key, value] : m_sel_terms) {
-            TRACE("qe",
+            TRACE(qe,
                   tout << "ackermann for var: " << mk_pp(key, m) << "\n";);
             ackermann(*value);
         }
 
         TRACE(
-            "qe", tout << "idx lits:\n";
+            qe, tout << "idx lits:\n";
             for (unsigned i = 0; i < m_idx_lits.size();
                  i++) { tout << mk_pp(m_idx_lits.get(i), m) << "\n"; });
 
@@ -2135,7 +2135,7 @@ class array_project_selects_util {
             arr_vars.reset();
         } else {
             IF_VERBOSE(2, verbose_stream() << "can't project arrays:" << "\n";);
-            TRACE("qe", tout << "Failed to project arrays\n";);
+            TRACE(qe, tout << "Failed to project arrays\n";);
         }
 
         // dealloc
@@ -2206,7 +2206,7 @@ void array_project(model &mdl, app_ref_vector &arr_vars, expr_ref &fml,
                    app_ref_vector &aux_vars, bool reduce_all_selects) {
     // 1. project array equalities
     array_project_eqs(mdl, arr_vars, fml, aux_vars);
-    TRACE("qe",
+    TRACE(qe,
         tout << "Projected array eqs:\n" << fml << "\n";
         tout << "Remaining array vars:\n" << arr_vars;
         tout << "Aux vars:\n" << aux_vars;);
@@ -2217,12 +2217,12 @@ void array_project(model &mdl, app_ref_vector &arr_vars, expr_ref &fml,
     } else {
         reduce_array_selects(mdl, arr_vars, fml);
     }
-    TRACE("qe", tout << "Reduced selects:\n" << fml << "\n";);
+    TRACE(qe, tout << "Reduced selects:\n" << fml << "\n";);
 
     // 3. project selects using model based ackermannization
     array_project_selects(mdl, arr_vars, fml, aux_vars);
     TRACE(
-        "qe", 
+        qe, 
         tout << "Projected array selects:\n";
         tout << fml << "\n";
         tout << "All aux vars:\n" << aux_vars;);

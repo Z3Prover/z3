@@ -26,7 +26,7 @@ Revision History:
 #include "ast/for_each_expr.h"
 #include "util/scoped_ptr_vector.h"
 
-#define TRACEFN(x) TRACE("recfun", tout << x << '\n';)
+#define TRACEFN(x) TRACE(recfun, tout << x << '\n';)
 #define VALIDATE_PARAM(m, _pred_) if (!(_pred_)) m.raise_exception("invalid parameter to recfun "  #_pred_);
 
 namespace recfun {

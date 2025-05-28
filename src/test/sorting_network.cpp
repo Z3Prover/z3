@@ -219,7 +219,7 @@ static void test_eq1(unsigned n, sorting_network_encoding enc) {
         model_ref model;
         solver.get_model(model);
         model_smt2_pp(std::cout, m, *model, 0);
-        TRACE("pb", model_smt2_pp(tout, m, *model, 0););
+        TRACE(pb, model_smt2_pp(tout, m, *model, 0););
     }
     ENSURE(l_false == res);
     ext.m_clauses.reset();
@@ -267,7 +267,7 @@ static void test_sorting_eq(unsigned n, unsigned k, sorting_network_encoding enc
     solver.assert_expr(in[k].get());
     res = solver.check();
     if (res == l_true) {
-        TRACE("pb",
+        TRACE(pb,
               unsigned sz = solver.size();
               for (unsigned i = 0; i < sz; ++i) {
                   tout << mk_pp(solver.get_formula(i), m) << "\n";
@@ -275,7 +275,7 @@ static void test_sorting_eq(unsigned n, unsigned k, sorting_network_encoding enc
         model_ref model;
         solver.get_model(model);
         model_smt2_pp(std::cout, m, *model, 0);
-        TRACE("pb", model_smt2_pp(tout, m, *model, 0););
+        TRACE(pb, model_smt2_pp(tout, m, *model, 0););
     }
     ENSURE(res == l_false);
     solver.pop(1);
@@ -324,7 +324,7 @@ static void test_sorting_le(unsigned n, unsigned k, sorting_network_encoding enc
     solver.assert_expr(in[k].get());
     res = solver.check();
     if (res == l_true) {
-        TRACE("pb",
+        TRACE(pb,
               unsigned sz = solver.size();
               for (unsigned i = 0; i < sz; ++i) {
                   tout << mk_pp(solver.get_formula(i), m) << "\n";
@@ -332,7 +332,7 @@ static void test_sorting_le(unsigned n, unsigned k, sorting_network_encoding enc
         model_ref model;
         solver.get_model(model);
         model_smt2_pp(std::cout, m, *model, 0);
-        TRACE("pb", model_smt2_pp(tout, m, *model, 0););
+        TRACE(pb, model_smt2_pp(tout, m, *model, 0););
     }
     ENSURE(res == l_false);
     solver.pop(1);
@@ -373,7 +373,7 @@ void test_sorting_ge(unsigned n, unsigned k, sorting_network_encoding enc) {
     solver.assert_expr(m.mk_not(in[n - k].get()));
     res = solver.check();
     if (res == l_true) {
-        TRACE("pb",
+        TRACE(pb,
               unsigned sz = solver.size();
               for (unsigned i = 0; i < sz; ++i) {
                   tout << mk_pp(solver.get_formula(i), m) << "\n";
@@ -381,7 +381,7 @@ void test_sorting_ge(unsigned n, unsigned k, sorting_network_encoding enc) {
         model_ref model;
         solver.get_model(model);
         model_smt2_pp(std::cout, m, *model, 0);
-        TRACE("pb", model_smt2_pp(tout, m, *model, 0););
+        TRACE(pb, model_smt2_pp(tout, m, *model, 0););
     }
     ENSURE(res == l_false);
     solver.pop(1);

@@ -41,7 +41,7 @@ class macro_finder_tactic : public tactic {
         void operator()(goal_ref const & g,
                         goal_ref_buffer & result) {
             tactic_report report("macro-finder", *g);
-            TRACE("macro-finder", g->display(tout););
+            TRACE(macro_finder, g->display(tout););
 
             recfun::util rec(m());
             if (!rec.get_rec_funs().empty()) {

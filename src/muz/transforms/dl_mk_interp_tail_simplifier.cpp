@@ -474,12 +474,12 @@ namespace datalog {
         if (!found_something) {
             return false;
         }
-        TRACE("dl_interp_tail_simplifier_propagation_pre",
+        TRACE(dl_interp_tail_simplifier_propagation_pre,
                 tout << "will propagate rule:\n";
                 r->display(m_context, tout);
             );
         m_rule_subst.get_result(res);
-        TRACE("dl_interp_tail_simplifier_propagation",
+        TRACE(dl_interp_tail_simplifier_propagation,
                 tout << "propagated equivalences of:\n";
                 r->display(m_context, tout);
                 tout << "into:\n";
@@ -539,7 +539,7 @@ namespace datalog {
         modified |= itail.get() != simp_res.get();
 
         if (m.is_false(simp_res)) {
-            TRACE("dl", r->display(m_context, tout << "rule is infeasible\n"););
+            TRACE(dl, r->display(m_context, tout << "rule is infeasible\n"););
             return false;
         }
         SASSERT(m.is_bool(simp_res));
@@ -574,7 +574,7 @@ namespace datalog {
             goto start;
         }
 
-        CTRACE("dl", (res != r0), r0->display(m_context, tout << "old:\n"); res->display(m_context, tout << "new:\n"););
+        CTRACE(dl, (res != r0), r0->display(m_context, tout << "old:\n"); res->display(m_context, tout << "new:\n"););
 
         return true;
     }
@@ -605,7 +605,7 @@ namespace datalog {
         scoped_ptr<rule_set> res = alloc(rule_set, m_context);
         if (transform_rules(source, *res)) {
             res->inherit_predicates(source);
-            TRACE("dl",
+            TRACE(dl,
                   source.display(tout);
                   res->display(tout););
         } 

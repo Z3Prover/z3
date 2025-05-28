@@ -395,7 +395,7 @@ namespace sat {
         unsigned trail_size() const { return m_trail.size(); }
         literal  scope_literal(unsigned n) const { return m_trail[m_scopes[n].m_trail_lim]; }
         void assign(literal l, justification j) {
-            TRACE("sat_assign", tout << l << " previous value: " << value(l) << " j: " << j << "\n";);
+            TRACE(sat_assign, tout << l << " previous value: " << value(l) << " j: " << j << "\n";);
             switch (value(l)) {
             case l_false: set_conflict(j, ~l); break;
             case l_undef: assign_core(l, j); break;
@@ -418,7 +418,7 @@ namespace sat {
         bool limit_reached() {
             if (!m_rlimit.inc()) {
                 m_model_is_current = false;
-                TRACE("sat", tout << "canceled\n";);
+                TRACE(sat, tout << "canceled\n";);
                 m_reason_unknown = "sat.canceled";
                 return true;
             }

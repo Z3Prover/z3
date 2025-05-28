@@ -73,7 +73,7 @@ void dl_interface::check_reset()
             }
         }
         if (!is_subsumed) {
-            TRACE("spacer", new_rules.get_rule(i)->display(m_ctx, tout << "Fresh rule "););
+            TRACE(spacer, new_rules.get_rule(i)->display(m_ctx, tout << "Fresh rule "););
             m_context->reset();
         }
     }
@@ -96,7 +96,7 @@ lbool dl_interface::query(expr * query)
 
     check_reset();
 
-    TRACE("spacer",
+    TRACE(spacer,
           tout << "query: " << mk_pp(query, m) << "\n";
           tout << "rules:\n";
           m_ctx.display_rules(tout);
@@ -184,7 +184,7 @@ lbool dl_interface::query_from_lvl(expr * query, unsigned lvl)
 
     check_reset();
 
-    TRACE("spacer",
+    TRACE(spacer,
     if (!m.is_true(bg_assertion)) {
     tout << "axioms:\n";
     tout << mk_pp(bg_assertion, m) << "\n";

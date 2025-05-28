@@ -56,7 +56,7 @@ struct bv_bound_chk_rewriter_cfg : public default_rewriter_cfg {
 
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         const br_status st = reduce_app_core(f, num, args, result, result_pr);
-        CTRACE("bv_bound_chk_step", st != BR_FAILED,
+        CTRACE(bv_bound_chk_step, st != BR_FAILED,
             tout << f->get_name() << "\n";
         for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
         tout << "---------->\n" << mk_ismt2_pp(result, m()) << "\n";);

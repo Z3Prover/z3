@@ -168,7 +168,7 @@ class diff_neq_tactic : public tactic {
             unsigned sz = g.size();
             for (unsigned i = 0; i < sz; i++) {
                 expr * f = g.form(i);
-                TRACE("diff_neq_tactic", tout << "processing: " << mk_ismt2_pp(f, m) << "\n";);
+                TRACE(diff_neq_tactic, tout << "processing: " << mk_ismt2_pp(f, m) << "\n";);
                 if (u.is_le(f, lhs, rhs))
                     process_le(lhs, rhs);
                 else if (u.is_ge(f, lhs, rhs))
@@ -290,14 +290,14 @@ class diff_neq_tactic : public tactic {
             while (m_stack.size() < nvars) {
                 if (!m.inc())
                     throw tactic_exception(m.limit().get_cancel_msg());
-                TRACE("diff_neq_tactic", display_model(tout););
+                TRACE(diff_neq_tactic, display_model(tout););
                 var x = m_stack.size();
                 if (extend_model(x))
                     continue;
                 if (!resolve_conflict())
                     return false;
             }
-            TRACE("diff_neq_tactic", display_model(tout););
+            TRACE(diff_neq_tactic, display_model(tout););
             return true;
         }
 
@@ -324,7 +324,7 @@ class diff_neq_tactic : public tactic {
                 return;
             }
             compile(*g);
-            TRACE("diff_neq_tactic", g->display(tout); display(tout););
+            TRACE(diff_neq_tactic, g->display(tout); display(tout););
             bool r = search();
             report_tactic_progress(":conflicts", m_num_conflicts);
             if (r) {

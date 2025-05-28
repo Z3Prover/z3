@@ -320,16 +320,16 @@ namespace datalog {
         }
         bool perform(execution_context & ctx) override {
             log_verbose(ctx);            
-            TRACE("dl", tout << "loop entered\n";);
+            TRACE(dl, tout << "loop entered\n";);
             unsigned count = 0;
             while (!control_is_empty(ctx)) {
                 IF_VERBOSE(10, verbose_stream() << "looping ... " << count++ << "\n";);
                 if (!m_body->perform(ctx)) {
-                    TRACE("dl", tout << "while loop terminated before completion\n";);
+                    TRACE(dl, tout << "while loop terminated before completion\n";);
                     return false;
                 }
             }
-            TRACE("dl", tout << "while loop exited\n";);
+            TRACE(dl, tout << "while loop exited\n";);
             return true;
         }
         void make_annotations(execution_context & ctx) override {
@@ -383,7 +383,7 @@ namespace datalog {
                 store_fn(r1, r2, fn);
             }
 
-            TRACE("dl",
+            TRACE(dl,
                 r1.get_signature().output(ctx.get_rel_context().get_manager(), tout);
                 tout<<":"<<r1.get_size_estimate_rows()<<" x ";
                 r2.get_signature().output(ctx.get_rel_context().get_manager(), tout);
@@ -391,7 +391,7 @@ namespace datalog {
 
             ctx.set_reg(m_res, (*fn)(r1, r2));
 
-            TRACE("dl", 
+            TRACE(dl, 
                 ctx.reg(m_res)->get_signature().output(ctx.get_rel_context().get_manager(), tout);
                 tout<<":"<<ctx.reg(m_res)->get_size_estimate_rows()<<"\n";);
 
@@ -531,7 +531,7 @@ namespace datalog {
 
             relation_mutator_fn * fn;
             relation_base & r = *ctx.reg(m_reg);
-            TRACE("dl_verbose", r.display(tout <<"pre-filter-interpreted:\n"););
+            TRACE(dl_verbose, r.display(tout <<"pre-filter-interpreted:\n"););
             if (!find_fn(r, fn)) {
                 fn = r.get_manager().mk_filter_interpreted_fn(r, m_cond);
                 if (!fn) {
@@ -546,7 +546,7 @@ namespace datalog {
             if (r.fast_empty()) {
                 ctx.make_empty(m_reg);
             }            
-            //TRACE("dl_verbose", r.display(tout <<"post-filter-interpreted:\n"););
+            //TRACE(dl_verbose, r.display(tout <<"post-filter-interpreted:\n"););
 
             return true;
         }
@@ -588,7 +588,7 @@ namespace datalog {
 
             relation_transformer_fn * fn;
             relation_base & reg = *ctx.reg(m_src);
-            TRACE("dl_verbose", reg.display(tout <<"pre-filter-interpreted-and-project:\n"););
+            TRACE(dl_verbose, reg.display(tout <<"pre-filter-interpreted-and-project:\n"););
             if (!find_fn(reg, fn)) {
                 fn = reg.get_manager().mk_filter_interpreted_and_project_fn(reg, m_cond, m_cols.size(), m_cols.data());
                 if (!fn) {
@@ -604,7 +604,7 @@ namespace datalog {
             if (ctx.reg(m_res)->fast_empty()) {
                 ctx.make_empty(m_res);
             }
-            // TRACE("dl_verbose", reg.display(tout << "post-filter-interpreted-and-project:\n"););
+            // TRACE(dl_verbose, reg.display(tout << "post-filter-interpreted-and-project:\n"););
             return true;
         }
 
@@ -640,7 +640,7 @@ namespace datalog {
         instr_union(reg_idx src, reg_idx tgt, reg_idx delta, bool widen)
             : m_src(src), m_tgt(tgt), m_delta(delta), m_widen(widen) {}
         bool perform(execution_context & ctx) override {
-            TRACE("dl", tout << "union " << m_src << " into " << m_tgt 
+            TRACE(dl, tout << "union " << m_src << " into " << m_tgt 
                   << " " << ctx.reg(m_src) << " " << ctx.reg(m_tgt) << "\n";);
             if (!ctx.reg(m_src)) {
                 return true;
@@ -699,11 +699,11 @@ namespace datalog {
             }
 
             SASSERT(r_src.get_signature().size() == r_tgt.get_signature().size());
-            TRACE("dl_verbose", r_tgt.display(tout <<"pre-union:"););
+            TRACE(dl_verbose, r_tgt.display(tout <<"pre-union:"););
 
             (*fn)(r_tgt, r_src, r_delta);
 
-            TRACE("dl_verbose", 
+            TRACE(dl_verbose, 
                 r_src.display(tout <<"src:");
                 r_tgt.display(tout <<"post-union:");
                 if (r_delta) {
@@ -841,9 +841,9 @@ namespace datalog {
                 }
                 store_fn(r1, r2, fn);
             }
-            TRACE("dl", tout<<r1.get_size_estimate_rows()<<" x "<<r2.get_size_estimate_rows()<<" jp->\n";);
+            TRACE(dl, tout<<r1.get_size_estimate_rows()<<" x "<<r2.get_size_estimate_rows()<<" jp->\n";);
             ctx.set_reg(m_res, (*fn)(r1, r2));
-            TRACE("dl",  tout<<ctx.reg(m_res)->get_size_estimate_rows()<<"\n";);
+            TRACE(dl,  tout<<ctx.reg(m_res)->get_size_estimate_rows()<<"\n";);
             if (ctx.reg(m_res)->fast_empty()) {
                 ctx.make_empty(m_res);
             }
@@ -893,7 +893,7 @@ namespace datalog {
             unsigned col, reg_idx result)
             : m_src(src), m_result(result), m_value(value, m), m_col(col) {
             // [Leo]: does not compile on gcc
-            // TRACE("dl", tout << "src:"  << m_src << " result: " << m_result << " value:" << m_value << " column:" << m_col << "\n";);
+            // TRACE(dl, tout << "src:"  << m_src << " result: " << m_result << " value:" << m_value << " column:" << m_col << "\n";);
         }
 
         bool perform(execution_context & ctx) override {
@@ -1140,7 +1140,7 @@ namespace datalog {
         for (instruction * instr : m_data) {
             crec.start(instr); //finish is performed by the next start() or by the destructor of crec
 
-            TRACE("dl", instr->display_head_impl(ctx, tout << "% ") << "\n";);
+            TRACE(dl, instr->display_head_impl(ctx, tout << "% ") << "\n";);
 
             if (ctx.should_terminate() || !instr->perform(ctx)) {
                 return false;

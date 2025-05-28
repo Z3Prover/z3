@@ -60,15 +60,15 @@ func_decls::func_decls(ast_manager & m, func_decl * f):
 }
 
 void func_decls::finalize(ast_manager & m) {
-    TRACE("cmd_context_detail", tout << "finalizing func_decls...\n";);
+    TRACE(cmd_context_detail, tout << "finalizing func_decls...\n";);
     if (GET_TAG(m_decls) == 0) {
         m.dec_ref(UNTAG(func_decl *, m_decls));
     }
     else {
-        TRACE("func_decls", tout << "finalize...\n";);
+        TRACE(func_decls, tout << "finalize...\n";);
         func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
         for (func_decl * f : *fs) {
-            TRACE("func_decls", tout << "dec_ref of " << f->get_name() << " ref_count: " << f->get_ref_count() << "\n";);
+            TRACE(func_decls, tout << "dec_ref of " << f->get_name() << " ref_count: " << f->get_ref_count() << "\n";);
             m.dec_ref(f);
         }
         dealloc(fs);
@@ -854,7 +854,7 @@ void cmd_context::init_manager_core(bool new_manager) {
     m_dt_eh = alloc(dt_eh, *this);
     m_pmanager->set_new_datatype_eh(m_dt_eh.get());
     if (!has_logic() && new_manager) {
-        TRACE("cmd_context", tout << "init manager " << m_logic << "\n";);
+        TRACE(cmd_context, tout << "init manager " << m_logic << "\n";);
         // add list type only if the logic is not specified.
         // it prevents clashes with builtin types.
         register_plist();
@@ -896,7 +896,7 @@ void cmd_context::init_external_manager() {
 }
 
 bool cmd_context::set_logic(symbol const & s) {
-    TRACE("cmd_context", tout << s << "\n";);
+    TRACE(cmd_context, tout << s << "\n";);
     if (has_logic())
         throw cmd_exception("the logic has already been set");
     if (has_assertions() && m_main_ctx)
@@ -946,13 +946,13 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
         throw cmd_exception(std::move(msg));
     }
     if (s != f->get_name()) {
-        TRACE("func_decl_alias", tout << "adding alias for: " << f->get_name() << ", alias: " << s << "\n";);
+        TRACE(func_decl_alias, tout << "adding alias for: " << f->get_name() << ", alias: " << s << "\n";);
         m_func_decl2alias.insert(f, s);
     }
     if (!m_global_decls) {
         m_func_decls_stack.push_back(sf_pair(s, f));
     }
-    TRACE("cmd_context", tout << "new function decl\n" << mk_pp(f, m()) << "\n";);
+    TRACE(cmd_context, tout << "new function decl\n" << mk_pp(f, m()) << "\n";);
 }
 
 void cmd_context::insert(symbol const & s, psort_decl * p) {
@@ -966,7 +966,7 @@ void cmd_context::insert(symbol const & s, psort_decl * p) {
     if (!m_global_decls) {
         m_psort_decls_stack.push_back(s);
     }
-    TRACE("cmd_context", tout << "new sort decl\n"; p->display(tout); tout << "\n";);
+    TRACE(cmd_context, tout << "new sort decl\n"; p->display(tout); tout << "\n";);
 }
 
 void cmd_context::insert(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
@@ -982,7 +982,7 @@ void cmd_context::insert(symbol const & s, unsigned arity, sort *const* domain, 
     if (contains_func_decl(s, arity, domain, t->get_sort())) {
         throw cmd_exception("invalid named expression, declaration already defined with this name ", s);
     }
-    TRACE("insert_macro", tout << "new macro " << arity << "\n" << mk_pp(t, m()) << "\n";);
+    TRACE(insert_macro, tout << "new macro " << arity << "\n" << mk_pp(t, m()) << "\n";);
     insert_macro(s, arity, domain, t);
     if (!m_global_decls) {
         m_macros_stack.push_back(s);
@@ -1055,7 +1055,7 @@ recfun::promise_def cmd_context::decl_rec_fun(const symbol &name, unsigned int a
 
 void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* rhs) {
 
-    TRACE("recfun", tout<< "define recfun " << f->get_name()  << " = " << mk_pp(rhs, m()) << "\n";);
+    TRACE(recfun, tout<< "define recfun " << f->get_name()  << " = " << mk_pp(rhs, m()) << "\n";);
 
     recfun::decl::plugin& p = get_recfun_plugin();
 
@@ -1251,7 +1251,7 @@ bool cmd_context::try_mk_macro_app(symbol const & s, unsigned num_args, expr * c
     expr_ref _t(m());
     expr_ref_vector coerced_args(m());
     if (macros_find(s, num_args, args, coerced_args, _t)) {
-        TRACE("macro_bug", tout << "well_sorted_check_enabled(): " << well_sorted_check_enabled() << "\n";
+        TRACE(macro_bug, tout << "well_sorted_check_enabled(): " << well_sorted_check_enabled() << "\n";
               tout << "s: " << s << "\n";
               tout << "body:\n" << mk_ismt2_pp(_t, m()) << "\n";
               tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(args[i]->get_sort(), m()) << "\n";);
@@ -1733,7 +1733,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         return;
     IF_VERBOSE(100, verbose_stream() << "(started \"check-sat\")" << std::endl;);
     init_manager();
-    TRACE("before_check_sat", dump_assertions(tout););
+    TRACE(before_check_sat, dump_assertions(tout););
     unsigned timeout = m_params.m_timeout;
     unsigned rlimit  = m_params.rlimit();
     scoped_watch sw(*this);
@@ -2131,11 +2131,11 @@ void cmd_context::validate_model() {
             if (is_ground(a)) {
                 r = nullptr;
                 evaluator(a, r);
-                TRACE("model_validate", tout << "checking\n" << mk_ismt2_pp(a, m()) << "\nresult: " << mk_ismt2_pp(r, m()) << "\n";);
+                TRACE(model_validate, tout << "checking\n" << mk_ismt2_pp(a, m()) << "\nresult: " << mk_ismt2_pp(r, m()) << "\n";);
                 if (m().is_true(r))
                     continue;
 
-                TRACE("model_validate", tout << *md << "\n";);
+                TRACE(model_validate, tout << *md << "\n";);
 
                 // The evaluator for array expressions is not complete
                 // If r contains as_array/store/map/const expressions, then we do not generate the error.
@@ -2155,7 +2155,7 @@ void cmd_context::validate_model() {
 
                 analyze_failure(seen, evaluator, a, true);
                 IF_VERBOSE(11, model_smt2_pp(verbose_stream(), *this, *md, 0););                
-                TRACE("model_validate", model_smt2_pp(tout, *this, *md, 0););
+                TRACE(model_validate, model_smt2_pp(tout, *this, *md, 0););
                 invalid_model |= m().is_false(r);
             }
         }
@@ -2365,7 +2365,7 @@ format_ns::format * cmd_context::pp(sort * s) const {
 }
 
 format_ns::format* cmd_context::try_pp(sort* s) const {
-    TRACE("cmd_context", tout << "pp(sort * s), s: " << mk_pp(s, m()) << "\n";);
+    TRACE(cmd_context, tout << "pp(sort * s), s: " << mk_pp(s, m()) << "\n";);
     return pm().pp(get_pp_env(), s);
 }
 
@@ -2470,15 +2470,15 @@ cmd_context::dt_eh::dt_eh(cmd_context & owner):
 }
 
 void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
-    TRACE("new_dt_eh", tout << "new datatype: "; m_owner.pm().display(tout, dt); tout << "\n";);
+    TRACE(new_dt_eh, tout << "new datatype: "; m_owner.pm().display(tout, dt); tout << "\n";);
     for (func_decl * c : *m_dt_util.get_datatype_constructors(dt)) {
-        TRACE("new_dt_eh", tout << "new constructor: " << c->get_name() << "\n";);
+        TRACE(new_dt_eh, tout << "new constructor: " << c->get_name() << "\n";);
         m_owner.insert(c);
         func_decl * r = m_dt_util.get_constructor_recognizer(c);
         m_owner.insert(r);
-        // TRACE("new_dt_eh", tout << "new recognizer: " << r->get_name() << "\n";);
+        // TRACE(new_dt_eh, tout << "new recognizer: " << r->get_name() << "\n";);
         for (func_decl * a : *m_dt_util.get_constructor_accessors(c)) {
-            TRACE("new_dt_eh", tout << "new accessor: " << a->get_name() << "\n";);
+            TRACE(new_dt_eh, tout << "new accessor: " << a->get_name() << "\n";);
             m_owner.insert(a);
         }
     }

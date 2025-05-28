@@ -247,7 +247,7 @@ namespace datalog {
             }
             m_context.add_model_converter(mc0);
         }
-        TRACE("dl",
+        TRACE(dl,
             tout << "original set size: "<<orig.get_num_rules()<<"\n"
                  << "reduced set size: "<<tgt.get_num_rules()<<"\n"; );
         return modified;

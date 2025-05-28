@@ -260,7 +260,7 @@ class lemma_inductive_generalizer : public lemma_generalizer {
 
         // if there is at least one generalization, update lemma
         if (num_gens > 0) {
-            TRACE("indgen",
+            TRACE(indgen,
                   tout << "Generalized " << num_gens << " literals\n";);
 
             // reuse m_core since it is not needed for anything else
@@ -269,7 +269,7 @@ class lemma_inductive_generalizer : public lemma_generalizer {
                 if (lit != m_true) m_core.push_back(lit);
             }
 
-            TRACE("indgen", tout << "Original: " << lemma->get_cube() << "\n"
+            TRACE(indgen, tout << "Original: " << lemma->get_cube() << "\n"
                                  << "Generalized: " << m_core << "\n";);
 
             lemma->update_cube(lemma->get_pob(), m_core);

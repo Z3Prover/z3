@@ -121,7 +121,7 @@ namespace datalog {
             for (; it != end; ++it) {
                 rm.to_formula(*it->m_value, fml);
                 m_pinned_exprs.push_back(fml);
-                TRACE("dl", 
+                TRACE(dl, 
                       tout << "orig: " << mk_pp(fml, m) << "\n";
                       it->m_value->display(m_ctx, tout << "new:\n"););                
                 m_sliceform2rule.insert(fml, it->m_key);                
@@ -146,7 +146,7 @@ namespace datalog {
                 else {
                     m_new_proof.insert(p, p);
                     m_todo.pop_back();
-                    TRACE("dl", tout << "unhandled proof term\n" << mk_pp(p, m) << "\n";);
+                    TRACE(dl, tout << "unhandled proof term\n" << mk_pp(p, m) << "\n";);
                 }
             }
             pr = m_new_proof.find(pr);
@@ -159,7 +159,7 @@ namespace datalog {
                 return false;   
             }
             if (!m_sliceform2rule.find(fact, r)) {
-                TRACE("dl", tout << "does not have fact\n" << mk_pp(fact, m) << "\n";);
+                TRACE(dl, tout << "does not have fact\n" << mk_pp(fact, m) << "\n";);
                 return false;
             }
             proof_ref new_p(m);
@@ -199,7 +199,7 @@ namespace datalog {
             proof* p0     = to_app(p->get_arg(0));
             proof* p0_new = m_new_proof.find(p0);            
             expr* fact0   = m.get_fact(p0);
-            TRACE("dl", tout << "fact0: " << mk_pp(fact0, m) << "\n";);
+            TRACE(dl, tout << "fact0: " << mk_pp(fact0, m) << "\n";);
             rule* orig0;
             if (!m_sliceform2rule.find(fact0, orig0)) {
                 return false;
@@ -212,7 +212,7 @@ namespace datalog {
                 proof* p1     = to_app(p->get_arg(i));
                 proof* p1_new = m_new_proof.find(p1);
                 expr* fact1   = m.get_fact(p1);
-                TRACE("dl", tout << "fact1: " << mk_pp(fact1, m) << "\n";);
+                TRACE(dl, tout << "fact1: " << mk_pp(fact1, m) << "\n";);
                 rule* orig1 = nullptr;
                 if (!m_sliceform2rule.find(fact1, orig1)) {
                     return false;
@@ -231,7 +231,7 @@ namespace datalog {
                     // size of substitutions may have grown...substs[j].resize(num_args[j]);
                 }
                 substs.push_back(m_unifier.get_rule_subst(*r2.get(), false));   
-                TRACE("dl", 
+                TRACE(dl, 
                     r1->display(m_ctx, tout << "rule1:");
                     r2->display(m_ctx, tout << "rule2:");
                     r3->display(m_ctx, tout << "res:"););
@@ -241,7 +241,7 @@ namespace datalog {
             proof* new_p = m.mk_hyper_resolve(premises.size(), premises.data(), concl, positions, substs);
             m_pinned_exprs.push_back(new_p);
             m_pinned_rules.push_back(r1.get());
-            TRACE("dl", 
+            TRACE(dl, 
                   tout << "orig: " << mk_pp(slice_concl, m) << "\n";
                   r1->display(m_ctx, tout << "new:"););
             m_sliceform2rule.insert(slice_concl, r1.get());
@@ -249,7 +249,7 @@ namespace datalog {
             m_renaming.insert(r1.get(), unsigned_vector());
             m_new_proof.insert(p, new_p);
             m_todo.pop_back();
-            TRACE("dl", tout << "translated:\n" << mk_pp(p, m) << "\nto\n" << mk_pp(new_p, m) << "\n";);
+            TRACE(dl, tout << "translated:\n" << mk_pp(p, m) << "\nto\n" << mk_pp(new_p, m) << "\n";);
             return true;
         }
 
@@ -316,7 +316,7 @@ namespace datalog {
             if (m_slice2old.empty()) {
                 return;
             }
-            TRACE("dl", model_smt2_pp(tout, m, *md, 0); );
+            TRACE(dl, model_smt2_pp(tout, m, *md, 0); );
             model_ref old_model = alloc(model, m);
             for (auto [new_p, old_p] : m_slice2old) {
                 bit_vector const& is_sliced = m_sliceable.find(old_p);
@@ -324,7 +324,7 @@ namespace datalog {
                 SASSERT(is_sliced.size() > new_p->get_arity());
                 func_interp* old_fi = alloc(func_interp, m, is_sliced.size());
 
-                TRACE("dl", tout << mk_pp(old_p, m) << " " << mk_pp(new_p, m) << "\n";
+                TRACE(dl, tout << mk_pp(old_p, m) << " " << mk_pp(new_p, m) << "\n";
                             for (unsigned j = 0; j < is_sliced.size(); ++j) {
                                 tout << (is_sliced.get(j)?"1":"0");
                             }
@@ -344,12 +344,12 @@ namespace datalog {
                     }                                      
                     func_interp* new_fi = md->get_func_interp(new_p);
                     if (!new_fi) {
-                        TRACE("dl", tout << new_p->get_name() << " has no value in the current model\n";);
+                        TRACE(dl, tout << new_p->get_name() << " has no value in the current model\n";);
                         dealloc(old_fi);
                         continue;
                     }
                     if (!new_fi->is_partial()) {
-                        TRACE("dl", tout << mk_pp(new_fi->get_else(), m) << "\n";);
+                        TRACE(dl, tout << mk_pp(new_fi->get_else(), m) << "\n";);
                         tmp = vs(new_fi->get_else(), subst.size(), subst.data());
                         old_fi->set_else(tmp);
                     }
@@ -391,7 +391,7 @@ namespace datalog {
                 }
             }   
             md = old_model;
-            TRACE("dl", model_smt2_pp(tout, m, *md, 0); );
+            TRACE(dl, model_smt2_pp(tout, m, *md, 0); );
         }
      
         model_converter * translate(ast_translation & translator) override {
@@ -466,15 +466,15 @@ namespace datalog {
             expr_ref rhs(m);
             unsigned v = 0;
             if (is_eq(e, v, rhs) && is_output(v) && m_var_is_sliceable[v]) {
-                TRACE("dl", tout << "is_eq: " << mk_pp(e, m) << " " << (m_solved_vars[v].get()?"solved":"new") << "\n";);
+                TRACE(dl, tout << "is_eq: " << mk_pp(e, m) << " " << (m_solved_vars[v].get()?"solved":"new") << "\n";);
                 add_var(v);
                 if (!m_solved_vars[v].get()) { 
-                    TRACE("dl", tout << "#" << v << " is solved\n";);
+                    TRACE(dl, tout << "#" << v << " is solved\n";);
                     add_free_vars(parameter_vars, rhs);
                     m_solved_vars[v] = rhs;
                 }
                 else {
-                    TRACE("dl", tout << "#" << v << " is used\n";);
+                    TRACE(dl, tout << "#" << v << " is used\n";);
                     // variables can only be solved once.
                     add_free_vars(used_vars, e);
                     add_free_vars(used_vars, m_solved_vars[v].get());
@@ -489,7 +489,7 @@ namespace datalog {
 
 
     bool mk_slice::prune_rule(rule& r) {
-        TRACE("dl", r.display(m_ctx, tout << "prune:\n"); );
+        TRACE(dl, r.display(m_ctx, tout << "prune:\n"); );
         bool change = false;
         init_vars(r);
         //
@@ -503,7 +503,7 @@ namespace datalog {
                 if (!is_var(p->get_arg(i)) && bv.get(i)) {
                     bv.unset(i);
                     change = true;                    
-                    TRACE("dl", tout << "argument " << i << " is not a variable " << p->get_decl()->get_name() << "\n";);
+                    TRACE(dl, tout << "argument " << i << " is not a variable " << p->get_decl()->get_name() << "\n";);
                 }
             }
         }   
@@ -524,7 +524,7 @@ namespace datalog {
         // or are used to solve output sliceable variables, or
         // don't occur in interpreted tail.
         //
-        TRACE("dl", tout << "num vars " << num_vars() << "\n");
+        TRACE(dl, tout << "num vars " << num_vars() << "\n");
         for (unsigned i = 0; i < num_vars(); ++i) {
             if (!m_var_is_sliceable[i]) {
                 continue;
@@ -535,7 +535,7 @@ namespace datalog {
             }
             bool is_input = m_input[i];
             bool is_output = m_output[i];
-            TRACE("dl", tout << "#"<< i << " " << is_input << " " << is_output << " solved: " << mk_pp(m_solved_vars.get(i), m) << "\n");
+            TRACE(dl, tout << "#"<< i << " " << is_input << " " << is_output << " solved: " << mk_pp(m_solved_vars.get(i), m) << "\n");
             if (is_input && is_output) {
                 if (m_solved_vars.get(i)) 
                     m_var_is_sliceable[i] = false;
@@ -646,7 +646,7 @@ namespace datalog {
         bit_vector& bv = get_predicate_slice(p);
         for (unsigned i = 0; i < p->get_num_args(); ++i) {
             if (is_neg_tail) {
-                TRACE("dl", tout << "negated " << i << " in " << p->get_decl()->get_name() << "\n";);
+                TRACE(dl, tout << "negated " << i << " in " << p->get_decl()->get_name() << "\n";);
                 bv.unset(i);
             }
             expr* arg = p->get_arg(i);
@@ -663,7 +663,7 @@ namespace datalog {
             }
             else {
                 SASSERT(m.is_value(arg));
-                TRACE("dl", tout << i << " in " << p->get_decl()->get_name() << " is a value, unable to slice\n";);
+                TRACE(dl, tout << i << " in " << p->get_decl()->get_name() << " is a value, unable to slice\n";);
                 bv.unset(i);
             }
         }
@@ -677,7 +677,7 @@ namespace datalog {
             if (is_var(arg) && !m_var_is_sliceable[to_var(arg)->get_idx()] && bv.get(i)) {
                 bv.unset(i);
                 change = true;
-                TRACE("dl", tout << "variable is unslicable " << mk_pp(arg, m) << " for index " << i << " in " << p->get_decl()->get_name() << "\n";);
+                TRACE(dl, tout << "variable is unslicable " << mk_pp(arg, m) << " for index " << i << " in " << p->get_decl()->get_name() << "\n";);
             }
         }
         return change;
@@ -798,7 +798,7 @@ namespace datalog {
 
             rm.fix_unbound_vars(new_rule, false);
 
-            TRACE("dl", r.display(m_ctx, tout << "replacing:\n"); new_rule->display(m_ctx, tout << "by:\n"););
+            TRACE(dl, r.display(m_ctx, tout << "replacing:\n"); new_rule->display(m_ctx, tout << "by:\n"););
             if (m_ctx.generate_proof_trace()) {
                 rm.mk_rule_asserted_proof(*new_rule.get());
             }
@@ -844,9 +844,9 @@ namespace datalog {
             // nothing could be sliced.
             return nullptr;
         }
-        TRACE("dl", display(tout););        
+        TRACE(dl, display(tout););        
         update_rules(src, *result);
-        TRACE("dl", result->display(tout););
+        TRACE(dl, result->display(tout););
         if (m_mc) {
             obj_map<func_decl, bit_vector>::iterator it = m_sliceable.begin(), end = m_sliceable.end();
             for (; it != end; ++it) {

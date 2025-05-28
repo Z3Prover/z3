@@ -46,7 +46,7 @@ class fpa2bv_tactic : public tactic {
             tactic_report report("fpa2bv", *g);
             m_rw.reset();
 
-            TRACE("fpa2bv", g->display(tout << "BEFORE: " << std::endl););
+            TRACE(fpa2bv, g->display(tout << "BEFORE: " << std::endl););
 
             if (g->inconsistent()) {
                 result.push_back(g.get());
@@ -98,7 +98,7 @@ class fpa2bv_tactic : public tactic {
                 result.back()->assert_expr(e, pr);
             }                
 
-            TRACE("fpa2bv", g->display(tout << "AFTER:\n");
+            TRACE(fpa2bv, g->display(tout << "AFTER:\n");
             if (g->mc()) g->mc()->display(tout); tout << std::endl; );
         }
     };

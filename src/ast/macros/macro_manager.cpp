@@ -114,11 +114,11 @@ void macro_manager::copy_to(macro_manager& dst) {
 }
 
 bool macro_manager::insert(func_decl * f, quantifier * q, proof * pr, expr_dependency* dep) {
-    TRACE("macro_insert", tout << "trying to create macro: " << f->get_name() << "\n" << mk_pp(q, m) << "\n";);
+    TRACE(macro_insert, tout << "trying to create macro: " << f->get_name() << "\n" << mk_pp(q, m) << "\n";);
 
     // if we already have a macro for f then return false;
     if (m_decls.contains(f)) {
-        TRACE("macro_insert", tout << "we already have a macro for: " << f->get_name() << "\n";);
+        TRACE(macro_insert, tout << "we already have a macro for: " << f->get_name() << "\n";);
         return false;
     }
 
@@ -145,7 +145,7 @@ bool macro_manager::insert(func_decl * f, quantifier * q, proof * pr, expr_depen
     m_macro_deps.push_back(dep);
     m_decl2macro_dep.insert(f, dep);
 
-    TRACE("macro_insert", tout << "A macro was successfully created for: " << f->get_name() << "\n";);
+    TRACE(macro_insert, tout << "A macro was successfully created for: " << f->get_name() << "\n";);
 
     // Nothing's forbidden anymore; if something's bad, we detected it earlier.
     // mark_forbidden(m->get_expr());
@@ -223,7 +223,7 @@ func_decl * macro_manager::get_macro_interpretation(unsigned i, expr_ref & inter
     expr_ref def(m);
     bool r;
     get_head_def(q, f, head, def, r);
-    TRACE("macro_bug",
+    TRACE(macro_bug,
           tout << f->get_name() << "\n" << mk_pp(head, m) << "\n" << mk_pp(q, m) << "\n";);
     m_util.mk_macro_interpretation(head, q->get_num_decls(), def, interp);
     return f;
@@ -290,7 +290,7 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
         app * n = to_app(_n);
         quantifier * q = nullptr;
         func_decl * d  = n->get_decl(), *d2 = nullptr;
-        TRACE("macro_manager", tout << "trying to expand:\n" << mk_pp(n, m) << "\nd:\n" << d->get_name() << "\n";);
+        TRACE(macro_manager, tout << "trying to expand:\n" << mk_pp(n, m) << "\nd:\n" << d->get_name() << "\n";);
         if (mm.m_decl2macro.find(d, q)) {            
             app * head = nullptr;
             expr_ref def(m);
@@ -298,7 +298,7 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
             mm.get_head_def(q, d, head, def, revert);
             unsigned num = n->get_num_args();
             SASSERT(head && def);
-            TRACE("macro_manager", tout << "expanding: " << mk_pp(n, m) << "\n" << mk_pp(head, m) << " " << mk_pp(def, m) << "\n";);
+            TRACE(macro_manager, tout << "expanding: " << mk_pp(n, m) << "\n" << mk_pp(head, m) << " " << mk_pp(def, m) << "\n";);
             ptr_buffer<expr> subst_args;
             subst_args.resize(num, 0);
             for (unsigned i = 0; i < num; i++) {
@@ -377,7 +377,7 @@ void macro_manager::expand_macros(expr * n, proof * pr, expr_dependency * dep, e
             macro_expander_rw proc(m, *this);
             proof_ref n_eq_r_pr(m);
             SASSERT(!old_pr || m.get_fact(old_pr) == old_n);
-            TRACE("macro_manager_bug", tout << "expand_macros:\n" << mk_pp(n, m) << "\n";);
+            TRACE(macro_manager_bug, tout << "expand_macros:\n" << mk_pp(n, m) << "\n";);
             proc(old_n, r, n_eq_r_pr);
             new_pr = m.mk_modus_ponens(old_pr, n_eq_r_pr);
             new_dep = m.mk_join(old_dep, proc.m_cfg.m_used_macro_dependencies); 

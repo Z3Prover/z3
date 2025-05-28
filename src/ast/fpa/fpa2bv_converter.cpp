@@ -52,7 +52,7 @@ fpa2bv_converter::~fpa2bv_converter() {
 void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
     if (is_float(a) && is_float(b)) {
 
-        TRACE("fpa2bv", tout << "mk_eq a=" << mk_ismt2_pp(a, m) << std::endl;
+        TRACE(fpa2bv, tout << "mk_eq a=" << mk_ismt2_pp(a, m) << std::endl;
                         tout << "mk_eq b=" << mk_ismt2_pp(b, m) << std::endl;);
 
         SASSERT(m_util.is_fp(a) && m_util.is_fp(b));
@@ -84,7 +84,7 @@ void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
     else if (is_rm(a) && is_rm(b)) {
         SASSERT(m_util.is_bv2rm(b) && m_util.is_bv2rm(a));
 
-        TRACE("fpa2bv", tout << "mk_eq_rm a=" << mk_ismt2_pp(a, m) << std::endl;
+        TRACE(fpa2bv, tout << "mk_eq_rm a=" << mk_ismt2_pp(a, m) << std::endl;
                         tout << "mk_eq_rm b=" << mk_ismt2_pp(b, m) << std::endl;);
 
         m_simp.mk_eq(to_app(a)->get_arg(0), to_app(b)->get_arg(0), result);
@@ -119,7 +119,7 @@ void fpa2bv_converter::mk_ite(expr * c, expr * t, expr * f, expr_ref & result) {
     else if (m_util.is_rm(t) && m_util.is_rm(f))
     {
         SASSERT(m_util.is_bv2rm(t) && m_util.is_bv2rm(f));
-        TRACE("fpa2bv", tout << "ite rm: t=" << mk_ismt2_pp(t, m) << " f=" << mk_ismt2_pp(f, m) << std::endl; );
+        TRACE(fpa2bv, tout << "ite rm: t=" << mk_ismt2_pp(t, m) << " f=" << mk_ismt2_pp(f, m) << std::endl; );
         m_simp.mk_ite(c, to_app(t)->get_arg(0), to_app(f)->get_arg(0), result);
         result = m_util.mk_bv2rm(result);
     }
@@ -179,7 +179,7 @@ void fpa2bv_converter::mk_numeral(sort * s, mpf const & v, expr_ref & result) {
         mk_bias(e, biased_exp);
 
         result = m_util.mk_fp(bv_sgn, biased_exp, bv_sig);
-        TRACE("fpa2bv_dbg", tout << "value of [" << sign << " " << m_mpz_manager.to_string(sig) << " " << exp << "] is "
+        TRACE(fpa2bv_dbg, tout << "value of [" << sign << " " << m_mpz_manager.to_string(sig) << " " << exp << "] is "
             << mk_ismt2_pp(result, m) << std::endl;);
     }
 }
@@ -265,7 +265,7 @@ expr_ref fpa2bv_converter::extra_quantify(expr * e)
     for (unsigned i = 0; i < nv; i++)
     {
         if (uv.contains(i)) {
-            TRACE("fpa2bv", tout << "uv[" << i << "] = " << mk_ismt2_pp(uv.get(i), m) << std::endl; );
+            TRACE(fpa2bv, tout << "uv[" << i << "] = " << mk_ismt2_pp(uv.get(i), m) << std::endl; );
             sort * s = uv.get(i);
             var * v = m.mk_var(i, s);
             new_decl_sorts.push_back(s);
@@ -277,14 +277,14 @@ expr_ref fpa2bv_converter::extra_quantify(expr * e)
     expr_ref res(m);
     var_subst vsubst(m);
     res = vsubst.operator()(e, nv, subst_map.data());
-    TRACE("fpa2bv", tout << "subst'd = " << mk_ismt2_pp(res, m) << std::endl; );
+    TRACE(fpa2bv, tout << "subst'd = " << mk_ismt2_pp(res, m) << std::endl; );
     res = m.mk_forall(nv, new_decl_sorts.data(), new_decl_names.data(), res);
     return res;
 }
 
 void fpa2bv_converter::mk_uf(func_decl * f, unsigned num, expr * const * args, expr_ref & result)
 {
-    TRACE("fpa2bv", tout << "UF: " << mk_ismt2_pp(f, m) << std::endl; );
+    TRACE(fpa2bv, tout << "UF: " << mk_ismt2_pp(f, m) << std::endl; );
 
     expr_ref fapp(m);
     sort_ref rng(m);
@@ -321,7 +321,7 @@ void fpa2bv_converter::mk_uf(func_decl * f, unsigned num, expr * const * args, e
     else
         result = fapp;
 
-    TRACE("fpa2bv", tout << "UF result: " << mk_ismt2_pp(result, m) << std::endl; );
+    TRACE(fpa2bv, tout << "UF result: " << mk_ismt2_pp(result, m) << std::endl; );
     SASSERT(is_well_sorted(m, result));
 }
 
@@ -500,7 +500,7 @@ void fpa2bv_converter::add_core(unsigned sbits, unsigned ebits,
     m_simp.mk_eq(c_sgn, d_sgn, eq_sgn);
 
     dbg_decouple("fpa2bv_add_eq_sgn", eq_sgn);
-    TRACE("fpa2bv_add_core", tout << "EQ_SGN = " << mk_ismt2_pp(eq_sgn, m) << std::endl; );
+    TRACE(fpa2bv_add_core, tout << "EQ_SGN = " << mk_ismt2_pp(eq_sgn, m) << std::endl; );
 
     // two extra bits for catching the overflow.
     c_sig = m_bv_util.mk_zero_extend(2, c_sig);
@@ -693,7 +693,7 @@ void fpa2bv_converter::mk_add(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
 
     SASSERT(is_well_sorted(m, result));
 
-    TRACE("fpa2bv_add", tout << "ADD = " << mk_ismt2_pp(result, m) << std::endl; );
+    TRACE(fpa2bv_add, tout << "ADD = " << mk_ismt2_pp(result, m) << std::endl; );
 }
 
 void fpa2bv_converter::mk_sub(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -875,7 +875,7 @@ void fpa2bv_converter::mk_mul(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
 
     SASSERT(is_well_sorted(m, result));
 
-    TRACE("fpa2bv_mul", tout << "MUL = " << mk_ismt2_pp(result, m) << std::endl; );
+    TRACE(fpa2bv_mul, tout << "MUL = " << mk_ismt2_pp(result, m) << std::endl; );
 }
 
 void fpa2bv_converter::mk_div(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -1044,7 +1044,7 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
 
     SASSERT(is_well_sorted(m, result));
 
-    TRACE("fpa2bv_div", tout << "DIV = " << mk_ismt2_pp(result, m) << std::endl; );
+    TRACE(fpa2bv_div, tout << "DIV = " << mk_ismt2_pp(result, m) << std::endl; );
 }
 
 void fpa2bv_converter::mk_rem(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -1056,7 +1056,7 @@ void fpa2bv_converter::mk_rem(func_decl * f, unsigned num, expr * const * args, 
 }
 
 void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & result) {
-    TRACE("fpa2bv_rem", tout << "X = " << mk_ismt2_pp(x, m) << std::endl;
+    TRACE(fpa2bv_rem, tout << "X = " << mk_ismt2_pp(x, m) << std::endl;
                         tout << "Y = " << mk_ismt2_pp(y, m) << std::endl;);
 
     expr_ref nan(m), nzero(m), pzero(m), ninf(m), pinf(m);
@@ -1276,7 +1276,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
 
     SASSERT(is_well_sorted(m, result));
 
-    TRACE("fpa2bv_rem", tout << "REM = " << mk_ismt2_pp(result, m) << std::endl; );
+    TRACE(fpa2bv_rem, tout << "REM = " << mk_ismt2_pp(result, m) << std::endl; );
 }
 
 void fpa2bv_converter::mk_abs(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -1811,7 +1811,7 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
 
     SASSERT(is_well_sorted(m, result));
 
-    TRACE("fpa2bv_fma_", tout << "FMA = " << mk_ismt2_pp(result, m) << std::endl; );
+    TRACE(fpa2bv_fma_, tout << "FMA = " << mk_ismt2_pp(result, m) << std::endl; );
 }
 
 void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -2225,7 +2225,7 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
 
     SASSERT(is_well_sorted(m, result));
 
-    TRACE("fpa2bv_round_to_integral", tout << "ROUND2INTEGRAL = " << mk_ismt2_pp(result, m) << std::endl; );
+    TRACE(fpa2bv_round_to_integral, tout << "ROUND2INTEGRAL = " << mk_ismt2_pp(result, m) << std::endl; );
 }
 
 void fpa2bv_converter::mk_float_eq(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -2237,7 +2237,7 @@ void fpa2bv_converter::mk_float_eq(func_decl * f, unsigned num, expr * const * a
 }
 
 void fpa2bv_converter::mk_float_eq(sort * s, expr_ref & x, expr_ref & y, expr_ref & result) {
-    TRACE("fpa2bv_float_eq", tout << "X = " << mk_ismt2_pp(x, m) << std::endl;
+    TRACE(fpa2bv_float_eq, tout << "X = " << mk_ismt2_pp(x, m) << std::endl;
                              tout << "Y = " << mk_ismt2_pp(y, m) << std::endl;);
 
     expr_ref c1(m), c2(m), x_is_nan(m), y_is_nan(m), x_is_zero(m), y_is_zero(m);
@@ -2267,7 +2267,7 @@ void fpa2bv_converter::mk_float_eq(sort * s, expr_ref & x, expr_ref & y, expr_re
     m_simp.mk_ite(c2, m.mk_true(), c3t4, c2else);
     m_simp.mk_ite(c1, m.mk_false(), c2else, result);
 
-    TRACE("fpa2bv_float_eq", tout << "FLOAT_EQ = " << mk_ismt2_pp(result, m) << std::endl; );
+    TRACE(fpa2bv_float_eq, tout << "FLOAT_EQ = " << mk_ismt2_pp(result, m) << std::endl; );
 }
 
 void fpa2bv_converter::mk_float_lt(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -2424,7 +2424,7 @@ void fpa2bv_converter::mk_is_negative(func_decl * f, unsigned num, expr * const 
     mk_is_neg(args[0], t2);
     nt1 = m.mk_not(t1);
     result = m.mk_and(nt1, t2);
-    TRACE("fpa2bv_is_negative", tout << "result = " << mk_ismt2_pp(result, m) << std::endl;);
+    TRACE(fpa2bv_is_negative, tout << "result = " << mk_ismt2_pp(result, m) << std::endl;);
 }
 
 void fpa2bv_converter::mk_is_positive(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -2437,7 +2437,7 @@ void fpa2bv_converter::mk_is_positive(func_decl * f, unsigned num, expr * const 
 }
 
 void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE("fpa2bv_to_fp", for (unsigned i=0; i < num; i++)
+    TRACE(fpa2bv_to_fp, for (unsigned i=0; i < num; i++)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl; );
 
     if (num == 1 &&
@@ -2675,7 +2675,7 @@ void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_r
 }
 
 void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result) {
-    TRACE("fpa2bv_to_fp_real", tout << "rm: " << mk_ismt2_pp(rm, m) << std::endl <<
+    TRACE(fpa2bv_to_fp_real, tout << "rm: " << mk_ismt2_pp(rm, m) << std::endl <<
         "x: " << mk_ismt2_pp(x, m) << std::endl;);
     SASSERT(m_util.is_float(s));
     SASSERT(au().is_real(x) || au().is_int(x));
@@ -2815,7 +2815,7 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         unsigned max_exp = m_mpz_manager.get_uint(max_exp_z);
         rational max_sig = m_mpf_manager.m_powers2.m1(sbits) / m_mpf_manager.m_powers2(sbits-1);
         max_real = max_sig * rational(m_mpf_manager.m_powers2(max_exp));
-        TRACE("fpa2bv_to_real", tout << "max exp: " << max_exp << " max real: " << max_real << std::endl;);
+        TRACE(fpa2bv_to_real, tout << "max exp: " << max_exp << " max real: " << max_real << std::endl;);
 
         expr_ref r_is_pinf(m), r_is_ninf(m);
         mk_is_pinf(result, r_is_pinf);
@@ -2909,7 +2909,7 @@ void fpa2bv_converter::mk_to_fp_real_int(func_decl * f, unsigned num, expr * con
 }
 
 void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE("fpa2bv_to_real", for (unsigned i = 0; i < num; i++)
+    TRACE(fpa2bv_to_real, for (unsigned i = 0; i < num; i++)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
     SASSERT(num == 1);
     SASSERT(f->get_num_parameters() == 0);
@@ -2989,7 +2989,7 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
     res = m.mk_ite(sgn_is_1, minus_res, res);
     dbg_decouple("fpa2bv_to_real_sig_times_exp2", res);
 
-    TRACE("fpa2bv_to_real", tout << "rsig = " << mk_ismt2_pp(rsig, m) << std::endl;
+    TRACE(fpa2bv_to_real, tout << "rsig = " << mk_ismt2_pp(rsig, m) << std::endl;
     tout << "exp2 = " << mk_ismt2_pp(exp2, m) << std::endl;);
 
     expr_ref unspec(m);
@@ -3002,7 +3002,7 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
 }
 
 void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE("fpa2bv_to_fp_signed", for (unsigned i = 0; i < num; i++)
+    TRACE(fpa2bv_to_fp_signed, for (unsigned i = 0; i < num; i++)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
 
     // This is a conversion from signed bitvector to float:
@@ -3107,7 +3107,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     // exp < bv_sz (+sign bit which is [0])
     unsigned exp_worst_case_sz = (unsigned)((log((double)bv_sz) / log((double)2)) + 1.0);
 
-    TRACE("fpa2bv_to_fp_signed", tout << "exp worst case sz: " << exp_worst_case_sz << std::endl;);
+    TRACE(fpa2bv_to_fp_signed, tout << "exp worst case sz: " << exp_worst_case_sz << std::endl;);
 
     if (exp_sz <= exp_worst_case_sz) {
         // exp_sz < exp_worst_case_sz and exp >= 0.
@@ -3145,7 +3145,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
 }
 
 void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE("fpa2bv_to_fp_unsigned", for (unsigned i = 0; i < num; i++)
+    TRACE(fpa2bv_to_fp_unsigned, for (unsigned i = 0; i < num; i++)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
 
     // This is a conversion from unsigned bitvector to float:
@@ -3289,7 +3289,7 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
     join_fp(x, sgn_e_s);
     m_simp.mk_ite(x_is_nan, unspec, sgn_e_s, result);
 
-    TRACE("fpa2bv_to_ieee_bv", tout << "result=" << mk_ismt2_pp(result, m) << std::endl;);
+    TRACE(fpa2bv_to_ieee_bv, tout << "result=" << mk_ismt2_pp(result, m) << std::endl;);
     SASSERT(is_well_sorted(m, result));
 }
 
@@ -3321,7 +3321,7 @@ void fpa2bv_converter::mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, ex
         m_extra_assertions.push_back(std::move(sig_is_non_zero));
     }
 
-    TRACE("fpa2bv_to_ieee_bv_unspecified", tout << "result=" << mk_ismt2_pp(result, m) << std::endl;);
+    TRACE(fpa2bv_to_ieee_bv_unspecified, tout << "result=" << mk_ismt2_pp(result, m) << std::endl;);
     SASSERT(is_well_sorted(m, result));
 }
 
@@ -3332,7 +3332,7 @@ void fpa2bv_converter::mk_to_ieee_bv_i(func_decl * f, unsigned num, expr * const
 }
 
 void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result) {
-    TRACE("fpa2bv_to_bv", for (unsigned i = 0; i < num; i++)
+    TRACE(fpa2bv_to_bv, for (unsigned i = 0; i < num; i++)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
 
     SASSERT(num == 2);
@@ -3502,13 +3502,13 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
 }
 
 void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE("fpa2bv_to_ubv", for (unsigned i = 0; i < num; i++)
+    TRACE(fpa2bv_to_ubv, for (unsigned i = 0; i < num; i++)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
     mk_to_bv(f, num, args, false, result);
 }
 
 void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE("fpa2bv_to_sbv", for (unsigned i = 0; i < num; i++)
+    TRACE(fpa2bv_to_sbv, for (unsigned i = 0; i < num; i++)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
     mk_to_bv(f, num, args, true, result);
 }
@@ -3549,7 +3549,7 @@ void fpa2bv_converter::mk_to_bv_unspecified(func_decl * f, unsigned num, expr * 
         result = m.mk_app(f_bv, rm_bv, nw);
     }
 
-    TRACE("fpa2bv_to_bv_unspecified", tout << "result=" << mk_ismt2_pp(result, m) << std::endl;);
+    TRACE(fpa2bv_to_bv_unspecified, tout << "result=" << mk_ismt2_pp(result, m) << std::endl;);
     SASSERT(is_well_sorted(m, result));
 }
 
@@ -3578,7 +3578,7 @@ void fpa2bv_converter::mk_fp(func_decl * f, unsigned num, expr * const * args, e
     SASSERT(m_util.get_sbits(f->get_range()) == m_bv_util.get_bv_size(args[2]) + 1);
     SASSERT(m_util.get_ebits(f->get_range()) == m_bv_util.get_bv_size(args[1]));
     result = m_util.mk_fp(args[0], args[1], args[2]);
-    TRACE("fpa2bv_mk_fp", tout << "mk_fp result = " << mk_ismt2_pp(result, m) << std::endl;);
+    TRACE(fpa2bv_mk_fp, tout << "mk_fp result = " << mk_ismt2_pp(result, m) << std::endl;);
 }
 
 void fpa2bv_converter::split_fp(expr * e, expr_ref & sgn, expr_ref & exp, expr_ref & sig) const {
@@ -3906,9 +3906,9 @@ void fpa2bv_converter::unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref
     SASSERT(m_bv_util.get_bv_size(sig) == sbits);
     SASSERT(m_bv_util.get_bv_size(exp) == ebits);
 
-    TRACE("fpa2bv_unpack", tout << "UNPACK SGN = " << mk_ismt2_pp(sgn, m) << std::endl; );
-    TRACE("fpa2bv_unpack", tout << "UNPACK SIG = " << mk_ismt2_pp(sig, m) << std::endl; );
-    TRACE("fpa2bv_unpack", tout << "UNPACK EXP = " << mk_ismt2_pp(exp, m) << std::endl; );
+    TRACE(fpa2bv_unpack, tout << "UNPACK SGN = " << mk_ismt2_pp(sgn, m) << std::endl; );
+    TRACE(fpa2bv_unpack, tout << "UNPACK SIG = " << mk_ismt2_pp(sig, m) << std::endl; );
+    TRACE(fpa2bv_unpack, tout << "UNPACK EXP = " << mk_ismt2_pp(exp, m) << std::endl; );
 }
 
 void fpa2bv_converter::mk_rounding_mode(decl_kind k, expr_ref & result)
@@ -4025,7 +4025,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     SASSERT(is_well_sorted(m, sig));
     SASSERT(is_well_sorted(m, exp));
 
-    TRACE("fpa2bv_dbg", tout << "RND: " << std::endl <<
+    TRACE(fpa2bv_dbg, tout << "RND: " << std::endl <<
         "ebits = " << ebits << std::endl <<
         "sbits = " << sbits << std::endl <<
         "sgn = " << mk_ismt2_pp(sgn, m) << std::endl <<
@@ -4048,7 +4048,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     mk_min_exp(ebits, e_min);
     mk_max_exp(ebits, e_max);
 
-    TRACE("fpa2bv_dbg", tout << "e_min = " << mk_ismt2_pp(e_min, m) << std::endl;
+    TRACE(fpa2bv_dbg, tout << "e_min = " << mk_ismt2_pp(e_min, m) << std::endl;
                         tout << "e_max = " << mk_ismt2_pp(e_max, m) << std::endl;);
 
     expr_ref OVF1(m), e_top_three(m), sigm1(m), e_eq_emax_and_sigm1(m), e_eq_emax(m);
@@ -4074,7 +4074,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
 
     dbg_decouple("fpa2bv_rnd_OVF1", OVF1);
 
-    TRACE("fpa2bv_dbg", tout << "OVF1 = " << mk_ismt2_pp(OVF1, m) << std::endl;);
+    TRACE(fpa2bv_dbg, tout << "OVF1 = " << mk_ismt2_pp(OVF1, m) << std::endl;);
     SASSERT(is_well_sorted(m, OVF1));
 
     expr_ref lz(m);
@@ -4082,7 +4082,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
 
     dbg_decouple("fpa2bv_rnd_lz", lz);
 
-    TRACE("fpa2bv_dbg", tout << "LZ = " << mk_ismt2_pp(lz, m) << std::endl;);
+    TRACE(fpa2bv_dbg, tout << "LZ = " << mk_ismt2_pp(lz, m) << std::endl;);
 
     expr_ref t(m);
     t = m_bv_util.mk_bv_add(exp, m_bv_util.mk_numeral(1, ebits+2));
@@ -4092,13 +4092,13 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     expr_ref TINY(m);
     TINY = m_bv_util.mk_sle(t, m_bv_util.mk_numeral(rational(-1), ebits+2));
     dbg_decouple("fpa2bv_rnd_TINY", TINY);
-    TRACE("fpa2bv_dbg", tout << "TINY = " << mk_ismt2_pp(TINY, m) << std::endl;);
+    TRACE(fpa2bv_dbg, tout << "TINY = " << mk_ismt2_pp(TINY, m) << std::endl;);
     SASSERT(is_well_sorted(m, TINY));
 
     expr_ref beta(m);
     beta = m_bv_util.mk_bv_add(m_bv_util.mk_bv_sub(exp, lz), m_bv_util.mk_numeral(1, ebits+2));
 
-    TRACE("fpa2bv_dbg", tout << "beta = " << mk_ismt2_pp(beta, m) << std::endl; );
+    TRACE(fpa2bv_dbg, tout << "beta = " << mk_ismt2_pp(beta, m) << std::endl; );
     SASSERT(is_well_sorted(m, beta));
 
     dbg_decouple("fpa2bv_rnd_beta", beta);
@@ -4112,7 +4112,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
 
     dbg_decouple("fpa2bv_rnd_sigma", sigma);
 
-    TRACE("fpa2bv_dbg", tout << "Shift distance: " << mk_ismt2_pp(sigma, m) << std::endl;);
+    TRACE(fpa2bv_dbg, tout << "Shift distance: " << mk_ismt2_pp(sigma, m) << std::endl;);
     SASSERT(is_well_sorted(m, sigma));
 
     // Normalization shift
@@ -4173,7 +4173,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     round = m_bv_util.mk_extract(1, 1, sig);
     last = m_bv_util.mk_extract(2, 2, sig);
 
-    TRACE("fpa2bv_dbg", tout << "sticky = " << mk_ismt2_pp(sticky, m) << std::endl;);
+    TRACE(fpa2bv_dbg, tout << "sticky = " << mk_ismt2_pp(sticky, m) << std::endl;);
 
     dbg_decouple("fpa2bv_rnd_sticky", sticky);
     dbg_decouple("fpa2bv_rnd_round", round);
@@ -4320,7 +4320,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
 
     result = m_util.mk_fp(res_sgn, res_exp, res_sig);
 
-    TRACE("fpa2bv_round", tout << "ROUND = " << mk_ismt2_pp(result, m) << std::endl; );
+    TRACE(fpa2bv_round, tout << "ROUND = " << mk_ismt2_pp(result, m) << std::endl; );
 }
 
 void fpa2bv_converter::reset() {
@@ -4347,7 +4347,7 @@ func_decl * fpa2bv_converter::mk_bv_uf(func_decl * f, sort * const * domain, sor
         m.inc_ref(f);
         m.inc_ref(res);
         m_uf2bvuf.insert(f, res);
-        TRACE("fpa2bv", tout << "New UF func_decl: " << res->get_id() << std::endl << mk_ismt2_pp(res, m) << std::endl;);
+        TRACE(fpa2bv, tout << "New UF func_decl: " << res->get_id() << std::endl << mk_ismt2_pp(res, m) << std::endl;);
     }
     return res;
 }
@@ -4472,7 +4472,7 @@ expr* fpa2bv_converter_wrapped::bv2rm_value(expr* b) {
     default: result = m_util.mk_round_toward_zero();
     }
 
-    TRACE("t_fpa", tout << "result: " << mk_ismt2_pp(result, m) << std::endl;);
+    TRACE(t_fpa, tout << "result: " << mk_ismt2_pp(result, m) << std::endl;);
     return result;
 }
 
@@ -4539,7 +4539,7 @@ expr* fpa2bv_converter_wrapped::bv2fpa_value(sort* s, expr* a, expr* b, expr* c)
     mpfm.set(f, ebits, sbits, mpzm.is_one(sgn_z), mpzm.get_int64(exp_u), sig_z);
     result = m_util.mk_value(f);
 
-    TRACE("t_fpa", tout << mk_pp(a, m) << " " << mk_pp(b, m) << " " << mk_pp(c, m) << " result: [" <<
+    TRACE(t_fpa, tout << mk_pp(a, m) << " " << mk_pp(b, m) << " " << mk_pp(c, m) << " result: [" <<
           mpzm.to_string(sgn_z) << "," <<
           mpzm.to_string(exp_z) << "," <<
           mpzm.to_string(sig_z) << "] --> " <<

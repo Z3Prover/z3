@@ -913,7 +913,7 @@ namespace {
             for (unsigned reg : m_todo) {
                 expr *  p    = m_registers[reg];
                 SASSERT(!is_quantifier(p));
-                TRACE("mam", tout << "lin: " << reg << " " << get_check_mark(reg) << " " << is_var(p) << "\n";);
+                TRACE(mam, tout << "lin: " << reg << " " << get_check_mark(reg) << " " << is_var(p) << "\n";);
                 if (is_var(p)) {
                     unsigned var_id = to_var(p)->get_idx();
                     if (m_vars[var_id] != -1)
@@ -1273,7 +1273,7 @@ namespace {
                         return nullptr; // it is unlikely we will find a compatible node
                 }
                 if (curr_compatibility > max_compatibility) {
-                    TRACE("mam", tout << "better child " << best_child << " -> " << curr_child << "\n";);
+                    TRACE(mam, tout << "better child " << best_child << " -> " << curr_child << "\n";);
                     best_child         = curr_child;
                     max_compatibility  = curr_compatibility;
                 }
@@ -1482,16 +1482,16 @@ namespace {
             for (;;) {
                 m_compatible.reset();
                 m_incompatible.reset();
-                TRACE("mam_compiler_detail", tout << "processing head: " << *head << "\n";);
+                TRACE(mam_compiler_detail, tout << "processing head: " << *head << "\n";);
                 instruction * curr = head->m_next;
                 instruction * last = head;
                 while (curr != nullptr && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
-                    TRACE("mam_compiler_detail", tout << "processing instr: " << *curr << "\n";);
+                    TRACE(mam_compiler_detail, tout << "processing instr: " << *curr << "\n";);
                     switch (curr->m_opcode) {
                     case BIND1: case BIND2: case BIND3: case BIND4: case BIND5: case BIND6: case BINDN: {
                         bind* bnd = static_cast<bind*>(curr);
                         if (is_compatible(bnd)) {
-                            TRACE("mam_compiler_detail", tout << "compatible\n";);
+                            TRACE(mam_compiler_detail, tout << "compatible\n";);
                             unsigned ireg     = bnd->m_ireg;
                             SASSERT(m_todo.contains(ireg));
                             m_todo.erase(ireg);
@@ -1506,7 +1506,7 @@ namespace {
                             }
                         }
                         else {
-                            TRACE("mam_compiler_detail", tout << "incompatible\n";);
+                            TRACE(mam_compiler_detail, tout << "incompatible\n";);
                             m_incompatible.push_back(curr);
                         }
                         break;
@@ -1514,7 +1514,7 @@ namespace {
                     case CHECK: {
                         check* chk = static_cast<check*>(curr);
                         if (is_compatible(chk)) {
-                            TRACE("mam_compiler_detail", tout << "compatible\n";);
+                            TRACE(mam_compiler_detail, tout << "compatible\n";);
                             unsigned reg = chk->m_reg;
                             SASSERT(m_todo.contains(reg));
                             m_todo.erase(reg);
@@ -1522,7 +1522,7 @@ namespace {
                             m_compatible.push_back(curr);
                         }
                         else if (m_use_filters && is_semi_compatible(chk)) {
-                            TRACE("mam_compiler_detail", tout << "semi compatible\n";);
+                            TRACE(mam_compiler_detail, tout << "semi compatible\n";);
                             unsigned reg = chk->m_reg;
                             enode *   n1 = chk->m_enode;
                             // n1->has_lbl_hash may be false, even
@@ -1550,14 +1550,14 @@ namespace {
                             m_incompatible.push_back(curr);
                         }
                         else {
-                            TRACE("mam_compiler_detail", tout << "incompatible " << chk->m_reg << "\n";);
+                            TRACE(mam_compiler_detail, tout << "incompatible " << chk->m_reg << "\n";);
                             m_incompatible.push_back(curr);
                         }
                         break;
                     }
                     case COMPARE:
                         if (is_compatible(static_cast<compare*>(curr))) {
-                            TRACE("mam_compiler_detail", tout << "compatible\n";);
+                            TRACE(mam_compiler_detail, tout << "compatible\n";);
                             unsigned reg1   = static_cast<compare*>(curr)->m_reg1;
                             unsigned reg2   = static_cast<compare*>(curr)->m_reg2;
                             SASSERT(m_todo.contains(reg2));
@@ -1573,7 +1573,7 @@ namespace {
                             m_compatible.push_back(curr);
                         }
                         else {
-                            TRACE("mam_compiler_detail", tout << "incompatible\n";);
+                            TRACE(mam_compiler_detail, tout << "incompatible\n";);
                             m_incompatible.push_back(curr);
                         }
                         break;
@@ -1594,8 +1594,8 @@ namespace {
                         SASSERT(m_use_filters);
                         if (is_compatible(flt)) {
                             unsigned reg = flt->m_reg;
-                            TRACE("mam_compiler_detail", tout << "compatible " << reg << "\n";);
-                            CTRACE("mam_compiler_bug", !m_todo.contains(reg), {
+                            TRACE(mam_compiler_detail, tout << "compatible " << reg << "\n";);
+                            CTRACE(mam_compiler_bug, !m_todo.contains(reg), {
                                     for (unsigned t : m_todo) { tout << t << " "; }
                                     tout << "\nregisters:\n";
                                     unsigned i = 0;
@@ -1612,8 +1612,8 @@ namespace {
                         }
                         else if (is_semi_compatible(flt)) {
                             unsigned reg = flt->m_reg;
-                            TRACE("mam_compiler_detail", tout << "semi compatible " << reg << "\n";);
-                            CTRACE("mam_compiler_bug", !m_todo.contains(reg), {
+                            TRACE(mam_compiler_detail, tout << "semi compatible " << reg << "\n";);
+                            CTRACE(mam_compiler_bug, !m_todo.contains(reg), {
                                     for (unsigned t : m_todo) { tout << t << " "; }
                                     tout << "\nregisters:\n";
                                     unsigned i = 0;
@@ -1623,7 +1623,7 @@ namespace {
                                 });
                             SASSERT(m_todo.contains(reg));
                             unsigned  h  = get_pat_lbl_hash(reg);
-                            TRACE("mam_lbl_bug",
+                            TRACE(mam_lbl_bug,
                                   tout << "curr_set: " << flt->m_lbl_set << "\n";
                                   tout << "new hash: " << h << "\n";);
                             set_check_mark(reg, CHECK_SET);
@@ -1642,13 +1642,13 @@ namespace {
                             }
                         }
                         else {
-                            TRACE("mam_compiler_detail", tout << "incompatible\n";);
+                            TRACE(mam_compiler_detail, tout << "incompatible\n";);
                             m_incompatible.push_back(curr);
                         }
                         break;
                     }
                     default:
-                        TRACE("mam_compiler_detail", tout << "incompatible\n";);
+                        TRACE(mam_compiler_detail, tout << "incompatible\n";);
                         m_incompatible.push_back(curr);
                         break;
                     }
@@ -1656,7 +1656,7 @@ namespace {
                     curr = curr->m_next;
                 }
 
-                TRACE("mam_compiler", tout << *head << " " << head << "\n";
+                TRACE(mam_compiler, tout << *head << " " << head << "\n";
                       tout << "m_compatible.size(): " << m_compatible.size() << "\n";
                       tout << "m_incompatible.size(): " << m_incompatible.size() << "\n";);
 
@@ -1668,7 +1668,7 @@ namespace {
                     SASSERT(curr->m_opcode == CHOOSE);
                     choose * first_child = static_cast<choose *>(curr);
                     choose * best_child = find_best_child(first_child);
-                    TRACE("mam", tout << "best child " << best_child << "\n";);
+                    TRACE(mam, tout << "best child " << best_child << "\n";);
                     if (best_child == nullptr) {
                         // There is no compatible child
                         // Suppose the sequence is:
@@ -1753,7 +1753,7 @@ namespace {
             init(r, qa, mp, first_idx);
             linearise(r->m_root, first_idx);
             r->m_num_choices  = m_num_choices;
-            TRACE("mam_compiler", tout << "new tree for:\n" << mk_pp(mp, m) << "\n" << *r;);
+            TRACE(mam_compiler, tout << "new tree for:\n" << mk_pp(mp, m) << "\n" << *r;);
             return r;
         }
 
@@ -1771,21 +1771,21 @@ namespace {
                 return;
             }
             m_is_tmp_tree = is_tmp_tree;
-            TRACE("mam_compiler", tout << "updating tree with:\n" << mk_pp(mp, m) << "\n";);
-            TRACE("mam_bug", tout << "before insertion\n" << *tree << "\n";);
+            TRACE(mam_compiler, tout << "updating tree with:\n" << mk_pp(mp, m) << "\n";);
+            TRACE(mam_bug, tout << "before insertion\n" << *tree << "\n";);
             if (!is_tmp_tree)
                 m_ct_manager.save_num_regs(tree);
             init(tree, qa, mp, first_idx);
             m_num_choices = tree->m_num_choices;
             insert(tree->m_root, first_idx);
-            TRACE("mam_bug",
+            TRACE(mam_bug,
                   tout << "m_num_choices: " << m_num_choices << "\n";);
             if (m_num_choices > tree->m_num_choices) {
                 if (!is_tmp_tree)
                     m_ct_manager.save_num_choices(tree);
                 tree->m_num_choices = m_num_choices;
             }
-            TRACE("mam_bug",
+            TRACE(mam_bug,
                   tout << "m_num_choices: " << m_num_choices << "\n";
                   tout << "new tree:\n" << *tree;
                   tout << "todo ";
@@ -1877,7 +1877,7 @@ namespace {
         void update_max_generation(enode * n, enode * prev) {
             m_max_generation = std::max(m_max_generation, n->get_generation());
 
-            if (m.has_trace_stream() || is_trace_enabled("causality"))
+            if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality))
                 m_used_enodes.push_back(std::make_tuple(prev, n));
         }
 
@@ -1996,7 +1996,7 @@ namespace {
         }
 
         void init(code_tree * t) {
-            TRACE("mam_bug", tout << "preparing to match tree:\n" << *t << "\n";);
+            TRACE(mam_bug, tout << "preparing to match tree:\n" << *t << "\n";);
             m_registers.reserve(t->get_num_regs(), nullptr);
             m_bindings.reserve(t->get_num_regs(),  nullptr);
             if (m_backtrack_stack.size() < t->get_num_choices())
@@ -2004,12 +2004,12 @@ namespace {
         }
 
         bool execute(code_tree * t) {
-            TRACE("trigger_bug", tout << "execute for code tree:\n"; t->display(tout););
+            TRACE(trigger_bug, tout << "execute for code tree:\n"; t->display(tout););
             init(t);
 #define CLEANUP  for (enode* app : t->get_candidates()) if (app->is_marked()) app->unset_mark();
             if (t->filter_candidates()) {
                 for (enode* app : t->get_candidates()) {
-                    TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
+                    TRACE(trigger_bug, tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
                     if (!app->is_marked() && app->is_cgr()) {
                         if (m_context.resource_limits_exceeded() || !execute_core(t, app)) {
                             CLEANUP;
@@ -2023,9 +2023,9 @@ namespace {
             }
             else {
                 for (enode* app : t->get_candidates()) {
-                    TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
+                    TRACE(trigger_bug, tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
                     if (app->is_cgr()) {
-                        TRACE("trigger_bug", tout << "is_cgr\n";);
+                        TRACE(trigger_bug, tout << "is_cgr\n";);
                         // scoped_suspend_rlimit susp(m.limit(), false);
                         if (m_context.resource_limits_exceeded() || !execute_core(t, app))
                             return false;
@@ -2188,7 +2188,7 @@ namespace {
         bp.m_old_max_generation   = m_max_generation;
         bp.m_old_used_enodes_size = m_used_enodes.size();
         if (best_v == nullptr) {
-            TRACE("mam_bug", tout << "m_top: " << m_top << ", m_backtrack_stack.size(): " << m_backtrack_stack.size() << "\n";
+            TRACE(mam_bug, tout << "m_top: " << m_top << ", m_backtrack_stack.size(): " << m_backtrack_stack.size() << "\n";
                   tout << *c << "\n";);
             bp.m_to_recycle           = nullptr;
             bp.m_it                   = m_context.begin_enodes_of(lbl);
@@ -2273,7 +2273,7 @@ namespace {
 #endif
 
     bool interpreter::execute_core(code_tree * t, enode * n) {
-        TRACE("trigger_bug", tout << "interpreter::execute_core\n"; t->display(tout); tout << "\nenode\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";);
+        TRACE(trigger_bug, tout << "interpreter::execute_core\n"; t->display(tout); tout << "\nenode\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";);
         unsigned since_last_check = 0;
 
 #ifdef _PROFILE_MAM
@@ -2287,7 +2287,7 @@ namespace {
         t->inc_counter();
 #endif
         // It doesn't make sense to process an irrelevant enode.
-        TRACE("mam_execute_core", tout << "EXEC " << t->get_root_lbl()->get_name() << "\n";);
+        TRACE(mam_execute_core, tout << "EXEC " << t->get_root_lbl()->get_name() << "\n";);
         SASSERT(m_context.is_relevant(n));
         m_pattern_instances.reset();
         m_min_top_generation.reset();
@@ -2295,7 +2295,7 @@ namespace {
         m_pattern_instances.push_back(n);
         m_max_generation = n->get_generation();
 
-        if (m.has_trace_stream() || is_trace_enabled("causality")) {
+        if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality)) {
             m_used_enodes.reset();
             m_used_enodes.push_back(std::make_tuple(nullptr, n)); // null indicates that n was matched against the trigger at the top-level
         }
@@ -2309,7 +2309,7 @@ namespace {
 
         if (!m_pc)
             goto backtrack;
-        TRACE("mam_int", display_pc_info(tout););
+        TRACE(mam_int, display_pc_info(tout););
         
 #ifdef _PROFILE_MAM
         const_cast<instruction*>(m_pc)->m_counter++;
@@ -2397,7 +2397,7 @@ namespace {
                 goto backtrack;
             
             // We will use the common root when instantiating the quantifier => log the necessary equalities
-            if (m.has_trace_stream() || is_trace_enabled("causality")) {
+            if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality)) {
                 m_used_enodes.push_back(std::make_tuple(m_n1, m_n1->get_root()));
                 m_used_enodes.push_back(std::make_tuple(m_n2, m_n2->get_root()));
             }
@@ -2417,7 +2417,7 @@ namespace {
                 goto backtrack;
 
             // we used the equality m_n1 = m_n2 for the match and need to make sure it ends up in the log
-            if (m.has_trace_stream() || is_trace_enabled("causality")) {
+            if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality)) {
                 m_used_enodes.push_back(std::make_tuple(m_n1, m_n2));
             }
 
@@ -2465,7 +2465,7 @@ namespace {
                  m_app  = get_first_f_app(static_cast<const bind *>(m_pc)->m_label, static_cast<const bind *>(m_pc)->m_num_args, m_n1); \
                  if (!m_app)                                                                                            \
                      goto backtrack;                                                                                    \
-                 TRACE("mam_int", tout << "bind candidate: " << mk_pp(m_app->get_expr(), m) << "\n";);     \
+                 TRACE(mam_int, tout << "bind candidate: " << mk_pp(m_app->get_expr(), m) << "\n";);     \
                  m_backtrack_stack[m_top].m_instr              = m_pc;                                                  \
                  m_backtrack_stack[m_top].m_old_max_generation = m_curr_max_generation;                                 \
                  m_backtrack_stack[m_top].m_old_used_enodes_size = m_curr_used_enodes_size;                             \
@@ -2603,7 +2603,7 @@ namespace {
             if (m_n1 == 0 || !m_context.is_relevant(m_n1))                                                                                                              \
                 goto backtrack;                                                                                                                                         \
             update_max_generation(m_n1, nullptr);                                                                                                                       \
-            if (m.has_trace_stream() || is_trace_enabled("causality")) {                                                                                                                     \
+            if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality)) {                                                                                                                     \
                 for (unsigned i = 0; i < static_cast<const get_cgr *>(m_pc)->m_num_args; ++i) {                                                                         \
                     m_used_enodes.push_back(std::make_tuple(m_n1->get_arg(i), m_n1->get_arg(i)->get_root()));                                                           \
                 }                                                                                                                                                       \
@@ -2615,7 +2615,7 @@ namespace {
 #define SET_VAR(IDX)                                                    \
             m_args[IDX] = m_registers[static_cast<const get_cgr *>(m_pc)->m_iregs[IDX]]; \
             if (m_use_filters && static_cast<const get_cgr *>(m_pc)->m_lbl_set.empty_intersection(m_args[IDX]->get_root()->get_plbls())) { \
-                TRACE("trigger_bug", tout << "m_args[IDX]->get_root():\n" << mk_ismt2_pp(m_args[IDX]->get_root()->get_expr(), m) << "\n"; \
+                TRACE(trigger_bug, tout << "m_args[IDX]->get_root():\n" << mk_ismt2_pp(m_args[IDX]->get_root()->get_expr(), m) << "\n"; \
                       tout << "cgr  set: "; static_cast<const get_cgr *>(m_pc)->m_lbl_set.display(tout); tout << "\n"; \
                       tout << "node set: "; m_args[IDX]->get_root()->get_plbls().display(tout); tout << "\n";); \
                 goto backtrack;                                         \
@@ -2679,7 +2679,7 @@ namespace {
             if (m_app == nullptr)
                 goto backtrack;
             m_pattern_instances.push_back(m_app);
-            TRACE("mam_int", tout << "continue candidate:\n" << mk_ll_pp(m_app->get_expr(), m););
+            TRACE(mam_int, tout << "continue candidate:\n" << mk_ll_pp(m_app->get_expr(), m););
             for (unsigned i = 0; i < m_num_args; i++)
                 m_registers[m_oreg+i] = m_app->get_arg(i);
             m_pc = m_pc->m_next;
@@ -2688,9 +2688,9 @@ namespace {
         }
 
     backtrack:
-        TRACE("mam_int", tout << "backtracking.\n";);
+        TRACE(mam_int, tout << "backtracking.\n";);
         if (m_top == 0) {
-            TRACE("mam_int", tout << "no more alternatives.\n";);
+            TRACE(mam_int, tout << "no more alternatives.\n";);
 #ifdef _PROFILE_MAM
             t->get_watch().stop();
 #endif
@@ -2699,10 +2699,10 @@ namespace {
         backtrack_point & bp = m_backtrack_stack[m_top - 1];
         m_max_generation     = bp.m_old_max_generation;
 
-        if (m.has_trace_stream() || is_trace_enabled("causality"))
+        if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality))
             m_used_enodes.shrink(bp.m_old_used_enodes_size);
 
-        TRACE("mam_int", tout << "backtrack top: " << bp.m_instr << " " << *(bp.m_instr) << "\n";);
+        TRACE(mam_int, tout << "backtrack top: " << bp.m_instr << " " << *(bp.m_instr) << "\n";);
 #ifdef _PROFILE_MAM
         if (bp.m_instr->m_opcode != CHOOSE) // CHOOSE has a different status. It is a control flow backtracking.
             const_cast<instruction*>(bp.m_instr)->m_counter++;
@@ -2729,7 +2729,7 @@ namespace {
         switch (bp.m_instr->m_opcode) {
         case CHOOSE:
             m_pc = static_cast<const choose*>(bp.m_instr)->m_alt;
-            TRACE("mam_int", tout << "alt: " << m_pc << "\n";);
+            TRACE(mam_int, tout << "alt: " << m_pc << "\n";);
             SASSERT(m_pc != 0);
             m_top--;
             goto main_loop;
@@ -2742,7 +2742,7 @@ namespace {
                            goto backtrack;                                                                                      \
                        }                                                                                                        \
                        bp.m_curr = m_app;                                                                                       \
-                       TRACE("mam_int", tout << "bind next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););      \
+                       TRACE(mam_int, tout << "bind next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););      \
                        m_oreg    = m_b->m_oreg
 
             BBIND_COMMON();
@@ -2822,7 +2822,7 @@ namespace {
                     m_pattern_instances.push_back(m_app);
                     // continue succeeded
                     update_max_generation(m_app, nullptr); // null indicates a top-level match
-                    TRACE("mam_int", tout << "continue next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););
+                    TRACE(mam_int, tout << "continue next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););
                     m_num_args = c->m_num_args;
                     m_oreg     = c->m_oreg;
                     for (unsigned i = 0; i < m_num_args; i++)
@@ -2929,7 +2929,7 @@ namespace {
             }
             DEBUG_CODE(m_trees[lbl_id]->get_patterns().push_back(mp);
                        m_trail_stack.push(push_back_trail<app*, false>(m_trees[lbl_id]->get_patterns())););
-            TRACE("trigger_bug", tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););
+            TRACE(trigger_bug, tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););
         }
 
         void reset() {
@@ -3155,7 +3155,7 @@ namespace {
 
         void add_candidate(code_tree * t, enode * app) {
             if (t != nullptr) {
-                TRACE("mam_candidate", tout << "adding candidate:\n" << mk_ll_pp(app->get_expr(), m););
+                TRACE(mam_candidate, tout << "adding candidate:\n" << mk_ll_pp(app->get_expr(), m););
                 if (!t->has_candidates())
                     m_to_match.push_back(t);
                 t->add_candidate(app);
@@ -3187,8 +3187,8 @@ namespace {
         void update_clbls(func_decl * lbl) {
             unsigned lbl_id = lbl->get_small_id();
             m_is_clbl.reserve(lbl_id+1, false);
-            TRACE("trigger_bug", tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
-            TRACE("mam_bug", tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
+            TRACE(trigger_bug, tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
+            TRACE(mam_bug, tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
             if (m_is_clbl[lbl_id])
                 return;
             m_trail_stack.push(set_bitvector_trail(m_is_clbl, lbl_id));
@@ -3197,7 +3197,7 @@ namespace {
             for (enode* app : m_context.enodes_of(lbl)) {
                 if (m_context.is_relevant(app)) {
                     update_lbls(app, h);
-                    TRACE("mam_bug", tout << "updating labels of: #" << app->get_owner_id() << "\n";
+                    TRACE(mam_bug, tout << "updating labels of: #" << app->get_owner_id() << "\n";
                           tout << "new_elem: " << h << "\n";
                           tout << "lbls:     " << app->get_lbls() << "\n";
                           tout << "r.lbls:   " << app->get_root()->get_lbls() << "\n";);
@@ -3213,10 +3213,10 @@ namespace {
                 if (!r_plbls.may_contain(elem)) {
                     m_trail_stack.push(value_trail<approx_set>(r_plbls));
                     r_plbls.insert(elem);
-                    TRACE("trigger_bug", tout << "updating plabels of:\n" << mk_ismt2_pp(c->get_root()->get_expr(), m) << "\n";
+                    TRACE(trigger_bug, tout << "updating plabels of:\n" << mk_ismt2_pp(c->get_root()->get_expr(), m) << "\n";
                           tout << "new_elem: " << static_cast<unsigned>(elem) << "\n";
                           tout << "plbls:    " << c->get_root()->get_plbls() << "\n";);
-                    TRACE("mam_bug", tout << "updating plabels of: #" << c->get_root()->get_owner_id() << "\n";
+                    TRACE(mam_bug, tout << "updating plabels of: #" << c->get_root()->get_owner_id() << "\n";
                           tout << "new_elem: " << static_cast<unsigned>(elem) << "\n";
                           tout << "plbls:    " << c->get_root()->get_plbls() << "\n";);
 
@@ -3227,9 +3227,9 @@ namespace {
         void update_plbls(func_decl * lbl) {
             unsigned lbl_id = lbl->get_small_id();
             m_is_plbl.reserve(lbl_id+1, false);
-            TRACE("trigger_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << ", lbl_id: " << lbl_id << "\n";
+            TRACE(trigger_bug, tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << ", lbl_id: " << lbl_id << "\n";
                   tout << "mam: " << this << "\n";);
-            TRACE("mam_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << "\n";);
+            TRACE(mam_bug, tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << "\n";);
             if (m_is_plbl[lbl_id])
                 return;
             m_trail_stack.push(set_bitvector_trail(m_is_plbl, lbl_id));
@@ -3343,7 +3343,7 @@ namespace {
                 m_trail_stack.push(set_ptr_trail<path_tree>(m_pc[h1][h2]));
                 m_pc[h1][h2] = mk_path_tree(p, qa, mp);
             }
-            TRACE("mam_path_tree_updt",
+            TRACE(mam_path_tree_updt,
                   tout << "updated path tree:\n";
                   m_pc[h1][h2]->display(tout, 2););
         }
@@ -3381,7 +3381,7 @@ namespace {
                     m_pp[h1][h2].second = mk_path_tree(p2, qa, mp);
                 }
             }
-            TRACE("mam_path_tree_updt",
+            TRACE(mam_path_tree_updt,
                   tout << "updated path tree:\n";
                   SASSERT(h1 <= h2);
                   m_pp[h1][h2].first->display(tout, 2);
@@ -3445,7 +3445,7 @@ namespace {
                     update_plbls(plbl);
                     if (!n->has_lbl_hash())
                         n->set_lbl_hash(m_context);
-                    TRACE("mam_bug",
+                    TRACE(mam_bug,
                           tout << "updating pc labels " << plbl->get_name() << " " <<
                           static_cast<unsigned>(n->get_lbl_hash()) << "\n";
                           tout << "#" << n->get_owner_id() << " " << n->get_root()->get_lbls() << "\n";
@@ -3455,7 +3455,7 @@ namespace {
                 }
 
                 func_decl * clbl = to_app(child)->get_decl();
-                TRACE("mam_bug", tout << "updating pc labels " << plbl->get_name() << " " << clbl->get_name() << "\n";);
+                TRACE(mam_bug, tout << "updating pc labels " << plbl->get_name() << " " << clbl->get_name() << "\n";);
                 update_plbls(plbl);
                 update_clbls(clbl);
                 update_pc(m_lbl_hasher(plbl), m_lbl_hasher(clbl), new_path, qa, mp);
@@ -3467,7 +3467,7 @@ namespace {
            \brief Update inverted path index.
         */
         void update_filters(quantifier * qa, app * mp) {
-            TRACE("mam_bug", tout << "updating filters using:\n" << mk_pp(mp, m) << "\n";);
+            TRACE(mam_bug, tout << "updating filters using:\n" << mk_pp(mp, m) << "\n";);
             unsigned num_vars = qa->get_num_decls();
             if (num_vars >= m_var_paths.size())
                 m_var_paths.resize(num_vars+1);
@@ -3539,7 +3539,7 @@ namespace {
 #ifdef _PROFILE_PATH_TREE
                 t->m_counter++;
 #endif
-                TRACE("mam_path_tree",
+                TRACE(mam_path_tree,
                       tout << "processing:\n";
                       t->display(tout, 2););
                 enode_vector * v    = t->m_todo;
@@ -3584,7 +3584,7 @@ namespace {
                         std::cout << "Avg2. " << static_cast<double>(total_sz2)/static_cast<double>(counter2) << ", Max2. " << max_sz2 << "\n";
 #endif
 
-                    TRACE("mam_path_tree", tout << "processing: #" << curr_child->get_owner_id() << "\n";);
+                    TRACE(mam_path_tree, tout << "processing: #" << curr_child->get_owner_id() << "\n";);
                     enode_vector::const_iterator it2  = curr_child->begin_parents();
                     enode_vector::const_iterator end2 = curr_child->end_parents();
                     for (; it2 != end2; ++it2) {
@@ -3602,8 +3602,8 @@ namespace {
                         bool is_flat_assoc         = lbl->is_flat_associative();
                         enode * curr_parent_root   = curr_parent->get_root();
                         enode * curr_parent_cg     = curr_parent->get_cg();
-                        TRACE("mam_path_tree", tout << "processing parent:\n" << mk_pp(curr_parent->get_expr(), m) << "\n";);
-                        TRACE("mam_path_tree", tout << "parent is marked: " << curr_parent->is_marked() << "\n";);
+                        TRACE(mam_path_tree, tout << "processing parent:\n" << mk_pp(curr_parent->get_expr(), m) << "\n";);
+                        TRACE(mam_path_tree, tout << "parent is marked: " << curr_parent->is_marked() << "\n";);
                         if (filter.may_contain(m_lbl_hasher(lbl)) &&
                             !curr_parent->is_marked() &&
                             (curr_parent_cg == curr_parent || !is_eq(curr_parent_cg, curr_parent_root)) &&
@@ -3631,7 +3631,7 @@ namespace {
                                          is_eq(curr_tree->m_ground_arg, curr_parent->get_arg(curr_tree->m_ground_arg_idx))
                                          )) {
                                         if (curr_tree->m_code) {
-                                            TRACE("mam_path_tree", tout << "found candidate " << expr_ref(curr_parent->get_expr(), m) << "\n";);
+                                            TRACE(mam_path_tree, tout << "found candidate " << expr_ref(curr_parent->get_expr(), m) << "\n";);
                                             add_candidate(curr_tree->m_code, curr_parent);
                                         }
                                         if (curr_tree->m_first_child) {
@@ -3680,8 +3680,8 @@ namespace {
         void process_pp(enode * r1, enode * r2) {
             approx_set & plbls1 = r1->get_plbls();
             approx_set & plbls2 = r2->get_plbls();
-            TRACE("incremental_matcher", tout << "pp: plbls1: " << plbls1 << ", plbls2: " << plbls2 << "\n";);
-            TRACE("mam_info", tout << "pp: " << plbls1.size() * plbls2.size() << "\n";);
+            TRACE(incremental_matcher, tout << "pp: plbls1: " << plbls1 << ", plbls2: " << plbls2 << "\n";);
+            TRACE(mam_info, tout << "pp: " << plbls1.size() * plbls2.size() << "\n";);
             if (!plbls1.empty() && !plbls2.empty()) {
                 for (unsigned plbl1 : plbls1) {
                     if (m_context.get_cancel_flag()) {
@@ -3735,7 +3735,7 @@ namespace {
         }
 
         void match_new_patterns() {
-            TRACE("mam_new_pat", tout << "matching new patterns:\n";);
+            TRACE(mam_new_pat, tout << "matching new patterns:\n";);
             m_tmp_trees_to_delete.reset();
             for (auto const& kv : m_new_patterns) {
                 if (m_context.get_cancel_flag()) {
@@ -3780,7 +3780,7 @@ namespace {
             unsigned num_patterns = mp->get_num_args();
             for (unsigned i = 0; i < num_patterns; i++) {
                 app * pat = to_app(mp->get_arg(i));
-                TRACE("mam_pat", tout << mk_ismt2_pp(qa, m) << "\npat:\n" << mk_ismt2_pp(pat, m) << "\n";);
+                TRACE(mam_pat, tout << mk_ismt2_pp(qa, m) << "\npat:\n" << mk_ismt2_pp(pat, m) << "\n";);
                 SASSERT(!pat->is_ground());
                 todo.push_back(pat);
             }
@@ -3827,8 +3827,8 @@ namespace {
 
         void add_pattern(quantifier * qa, app * mp) override {
             SASSERT(m.is_pattern(mp));
-            TRACE("trigger_bug", tout << "adding pattern\n" << mk_ismt2_pp(qa, m) << "\n" << mk_ismt2_pp(mp, m) << "\n";);
-            TRACE("mam_bug", tout << "adding pattern\n" << mk_pp(qa, m) << "\n" << mk_pp(mp, m) << "\n";);
+            TRACE(trigger_bug, tout << "adding pattern\n" << mk_ismt2_pp(qa, m) << "\n" << mk_ismt2_pp(mp, m) << "\n";);
+            TRACE(mam_bug, tout << "adding pattern\n" << mk_pp(qa, m) << "\n" << mk_pp(mp, m) << "\n";);
             // Z3 checks if a pattern is ground or not before solving.
             // Ground patterns are discarded.
             // However, the simplifier may turn a non-ground pattern into a ground one.
@@ -3886,7 +3886,7 @@ namespace {
         }
 
         void match() override {
-            TRACE("trigger_bug", tout << "match\n"; display(tout););
+            TRACE(trigger_bug, tout << "match\n"; display(tout););
             for (code_tree* t : m_to_match) {
                 SASSERT(t->has_candidates());
                 if (!m_interpreter.execute(t))
@@ -3919,7 +3919,7 @@ namespace {
 
 #ifdef Z3DEBUG
         bool check_missing_instances() override {
-            TRACE("missing_instance", tout << "checking for missing instances...\n";);
+            TRACE(missing_instance, tout << "checking for missing instances...\n";);
             flet<bool> l(m_check_missing_instances, true);
             rematch(false);
             return true;
@@ -3927,11 +3927,11 @@ namespace {
 #endif
 
         void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation, vector<std::tuple<enode *, enode *>> & used_enodes) override {
-            TRACE("trigger_bug", tout << "found match " << mk_pp(qa, m) << "\n";);
+            TRACE(trigger_bug, tout << "found match " << mk_pp(qa, m) << "\n";);
 #ifdef Z3DEBUG
             if (m_check_missing_instances) {
                 if (!m_context.slow_contains_instance(qa, num_bindings, bindings)) {
-                    TRACE("missing_instance",
+                    TRACE(missing_instance,
                           tout << "qa:\n" << mk_ll_pp(qa, m) << "\npat:\n" << mk_ll_pp(pat, m);
                           for (unsigned i = 0; i < num_bindings; i++)
                               tout << "#" << bindings[i]->get_expr_id() << "\n" << mk_ll_pp(bindings[i]->get_expr(), m) << "\n";
@@ -3958,23 +3958,23 @@ namespace {
         // This method is invoked when n becomes relevant.
         // If lazy == true, then n is not added to the list of candidate enodes for matching. That is, the method just updates the lbls.
         void relevant_eh(enode * n, bool lazy) override {
-            TRACE("trigger_bug", tout << "relevant_eh:\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";
+            TRACE(trigger_bug, tout << "relevant_eh:\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";
                   tout << "mam: " << this << "\n";);
-            TRACE("mam", tout << "relevant_eh: #" << enode_pp(n, m_context) << "\n";);
+            TRACE(mam, tout << "relevant_eh: #" << enode_pp(n, m_context) << "\n";);
             if (n->has_lbl_hash())
                 update_lbls(n, n->get_lbl_hash());
 
             if (n->get_num_args() > 0) {
                 func_decl * lbl = n->get_decl();
                 unsigned h      = m_lbl_hasher(lbl);
-                TRACE("trigger_bug", tout << "lbl: " << lbl->get_name() << " is_clbl(lbl): " << is_clbl(lbl)
+                TRACE(trigger_bug, tout << "lbl: " << lbl->get_name() << " is_clbl(lbl): " << is_clbl(lbl)
                       << ", is_plbl(lbl): " << is_plbl(lbl) << ", h: " << h << "\n";
                       tout << "lbl_id: " << lbl->get_small_id() << "\n";);
                 if (is_clbl(lbl))
                     update_lbls(n, h);
                 if (is_plbl(lbl))
                     update_children_plbls(n, h);
-                TRACE("mam_bug", tout << "adding relevant candidate:\n" << mk_ll_pp(n->get_expr(), m) << "\n";);
+                TRACE(mam_bug, tout << "adding relevant candidate:\n" << mk_ll_pp(n->get_expr(), m) << "\n";);
                 if (!lazy)
                     add_candidate(n);
             }
@@ -3988,9 +3988,9 @@ namespace {
             flet<enode *> l1(m_r1, r1);
             flet<enode *> l2(m_r2, r2);
 
-            TRACE("mam", tout << "add_eq_eh: #" << r1->get_owner_id() << " #" << r2->get_owner_id() << "\n";);
-            TRACE("mam_inc_bug_detail", m_context.display(tout););
-            TRACE("mam_inc_bug",
+            TRACE(mam, tout << "add_eq_eh: #" << r1->get_owner_id() << " #" << r2->get_owner_id() << "\n";);
+            TRACE(mam_inc_bug_detail, m_context.display(tout););
+            TRACE(mam_inc_bug,
                   tout << "before:\n#" << r1->get_owner_id() << " #" << r2->get_owner_id() << "\n";
                   tout << "r1.lbls:  " << r1->get_lbls() << "\n";
                   tout << "r2.lbls:  " << r2->get_lbls() << "\n";
@@ -4010,7 +4010,7 @@ namespace {
             m_trail_stack.push(value_trail<approx_set>(r2_plbls));
             r2_lbls  |= r1_lbls;
             r2_plbls |= r1_plbls;
-            TRACE("mam_inc_bug",
+            TRACE(mam_inc_bug,
                   tout << "after:\n";
                   tout << "r1.lbls:  " << r1->get_lbls() << "\n";
                   tout << "r2.lbls:  " << r2->get_lbls() << "\n";

@@ -65,7 +65,7 @@ sort * array_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
         }
     }
     sort * range = to_sort(parameters[num_parameters - 1].get_ast());
-    TRACE("array_decl_plugin_bug", tout << mk_pp(range, *m_manager) << "\n";);
+    TRACE(array_decl_plugin_bug, tout << mk_pp(range, *m_manager) << "\n";);
     if (!range->is_infinite() && !range->is_very_big() && (1 == range->get_num_elements().size())) {
         return m_manager->mk_sort(symbol(ARRAY_SORT_STR), sort_info(m_family_id, ARRAY_SORT, 1, 
                                                              num_parameters, parameters));
@@ -550,7 +550,7 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
             !parameters[0].is_ast() || 
             !is_func_decl(parameters[0].get_ast()) || 
             to_func_decl(parameters[0].get_ast())->get_arity() == 0) {
-            TRACE("array_bug",
+            TRACE(array_bug,
                   tout << "num_parameters: " << num_parameters << std::endl;
                   tout << "parameter.kind: " << parameters[0].is_int() << " " << parameters[0].is_ast() << " " << parameters[0].is_symbol() << "\n";
                   tout << "as-array-bug: " << to_func_decl(parameters[0].get_ast())->get_name() << " " << to_func_decl(parameters[0].get_ast())->get_arity() << std::endl;);

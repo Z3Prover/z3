@@ -182,7 +182,7 @@ namespace qe {
                 }
             }
             if (!found) {
-                TRACE("qe_verbose", 
+                TRACE(qe_verbose, 
                       tout 
                       << "Did not find: " 
                       << mk_pp(x, m) << " in " 
@@ -205,7 +205,7 @@ namespace qe {
             if (contains_x(rest)) {
                 return false;
             }
-            TRACE("qe_verbose", 
+            TRACE(qe_verbose, 
                   tout 
                   << mk_pp(p, m) << " = " 
                   << "(+ (* " << k << " "
@@ -463,7 +463,7 @@ namespace qe {
                 result = m.mk_not(m_arith.mk_le(mk_zero(e), e));
             }
             simplify(result);
-            TRACE("qe_verbose", tout << "mk_lt " << mk_pp(result, m) << "\n";);
+            TRACE(qe_verbose, tout << "mk_lt " << mk_pp(result, m) << "\n";);
         }
 
         // ax + t = 0
@@ -583,7 +583,7 @@ namespace qe {
                     mk_divides(abs_b, sz, b_divides_sz);
                     mk_and(b_divides_sz, asz_bt_le_0, tmp4);
                     mk_big_or(abs_b - numeral(2), x, tmp4, tmp2);                  
-                    TRACE("qe",
+                    TRACE(qe,
                           tout << "b | s + z: " << mk_pp(b_divides_sz, m) << "\n";
                           tout << "a(s+z) + bt <= 0: " << mk_pp(asz_bt_le_0, m) << "\n";
                           );                   
@@ -597,7 +597,7 @@ namespace qe {
                 // or exists z in [0 .. |b|-2] . |b| | (z + s) && a*n_sign(b)(s + z) + |b|t <= 0
             }
             
-            TRACE("qe", 
+            TRACE(qe, 
                   {
                       tout << (is_strict?"strict":"non-strict") << "\n";
                       bound(m, a, t, false).pp(tout, x);
@@ -714,7 +714,7 @@ namespace qe {
             else {
                 return false;
             }
-            TRACE("qe_verbose", tout << "Atom: " << mk_pp(result, m) << "\n";);
+            TRACE(qe_verbose, tout << "Atom: " << mk_pp(result, m) << "\n";);
             return true;
         }
 
@@ -772,12 +772,12 @@ namespace qe {
                     normalize_sum(tmp2);
                     if (leqs.contains(tmp2)) {
                         eqs.push_back(tmp1);
-                        TRACE("qe", tout << "found:  " << mk_pp(tmp1, m) << "\n";);
+                        TRACE(qe, tout << "found:  " << mk_pp(tmp1, m) << "\n";);
                     }
                     else {
                         trail.push_back(tmp1);
                         leqs.insert(tmp1);
-                        TRACE("qe_verbose", tout << "insert: " << mk_pp(tmp1, m) << "\n";);
+                        TRACE(qe_verbose, tout << "insert: " << mk_pp(tmp1, m) << "\n";);
                     }
                 }
             }
@@ -827,7 +827,7 @@ namespace qe {
         }
 
         void mk_big_or(numeral up, app* x, expr* body, expr_ref& result) {
-            TRACE("qe", tout << mk_pp(x, m) << " " << mk_pp(body, m) << "\n";);
+            TRACE(qe, tout << mk_pp(x, m) << " " << mk_pp(body, m) << "\n";);
             if (numeral(1) >= up) {
                 mk_big_or_blast(up, x, body, result);
             }
@@ -847,7 +847,7 @@ namespace qe {
                 ++index;
             }
             mk_or(ors.size(), ors.data(), result);
-            TRACE("qe", 
+            TRACE(qe, 
                   tout 
                   << "[0 " << up << "] " 
                   << mk_pp(x, m) << "\n" 
@@ -974,7 +974,7 @@ namespace qe {
                 tmp = m_arith.mk_add(p, tmp);
                 e = m_arith.mk_div(tmp, ke);
             }
-            TRACE("qe", 
+            TRACE(qe, 
                   tout << "is singular:\n" 
                   << mk_pp(p, m) << "\n"
                   << mk_pp(fml, m) << "\n"
@@ -984,7 +984,7 @@ namespace qe {
             expr_ref result(fml, m);
             m_replace.apply_substitution(x, e, result);
             simplify(result);
-            TRACE("qe", 
+            TRACE(qe, 
                   tout << "singular solved:\n" 
                   << mk_pp(result, m) << "\n";
                   );
@@ -1019,7 +1019,7 @@ namespace qe {
                 return false;
             }
 
-            TRACE("qe", tout << "is linear: " << mk_pp(p, m) << "\n";);
+            TRACE(qe, tout << "is linear: " << mk_pp(p, m) << "\n";);
             SASSERT(values.size() == num_vars + 1);
             SASSERT(num_vars > 0);
             
@@ -1059,7 +1059,7 @@ namespace qe {
             }
             p1 = m_arith.mk_add(p1, m_arith.mk_numeral(values[0], s));
             
-            TRACE("qe", 
+            TRACE(qe, 
                   tout << "is linear:\n" 
                   << mk_pp(fml, m) << "\n"
                   << mk_pp(p, m) << "\n"
@@ -1075,7 +1075,7 @@ namespace qe {
             m_replace.apply_substitution(x, p1, result);
             simplify(result);            
             m_ctx.elim_var(index-1, result, p1);
-            TRACE("qe", tout << "Reduced " << index-1 << " : " << result << "\n";);
+            TRACE(qe, tout << "Reduced " << index-1 << " : " << result << "\n";);
             return true;
         }        
 
@@ -1141,7 +1141,7 @@ namespace qe {
                     values[0] += k;
                 }
                 else {
-                    TRACE("qe_verbose", tout << "non-linear " << mk_pp(p, m) << "\n";);
+                    TRACE(qe_verbose, tout << "non-linear " << mk_pp(p, m) << "\n";);
                     return false;
                 }
             }
@@ -1200,7 +1200,7 @@ namespace qe {
             if (has_bound) {
                 m_mark.mark(a, true);
             }
-            TRACE("qe_verbose", 
+            TRACE(qe_verbose, 
                   ast_manager& m = m_util.get_manager();
                   app* x = contains_x.x();
                   tout << has_bound << " bound for " << mk_pp(x, m) << " within " << mk_pp(a, m) << "\n";);
@@ -1583,7 +1583,7 @@ public:
                 mk_non_resolve(bounds, false, is_lower, result);
                 m_util.simplify(result);
                 add_cache(x, fml, v, result, x_t.get_coeff(), x_t.get_term());
-                TRACE("qe", 
+                TRACE(qe, 
                         tout << vl << " " << mk_pp(x, m) << " infinite case\n";
                         tout << mk_pp(fml, m) << "\n";
                         tout << mk_pp(result, m) << "\n";);
@@ -1596,7 +1596,7 @@ public:
             SASSERT(index < t_size + e_size);
             if (is_strict) {
                 index -= e_size;
-                TRACE("qe_verbose", bounds.display(tout); );               
+                TRACE(qe_verbose, bounds.display(tout); );               
             }
             else if (m_util.is_real(x)) {
                 SASSERT(0 == (e_size & 0x1));
@@ -1630,7 +1630,7 @@ public:
             mk_resolve(bounds, x, x_t, false, is_eq, is_strict, is_lower, index, a, t, result);
             m_util.simplify(result);
             add_cache(x, fml, v, result, x_t.get_coeff(), x_t.get_term());
-            TRACE("qe", 
+            TRACE(qe, 
                   {
                       tout << vl << " " << mk_pp(bounds.atoms(is_strict, is_lower)[index],m) << "\n";
                       tout << mk_pp(fml, m) << "\n";
@@ -1658,12 +1658,12 @@ public:
                get_def(contains_x, vl.get_unsigned(), fml, *def);
             }
             VERIFY(get_cache(contains_x.x(), fml, vl.get_unsigned(), fml));
-            TRACE("qe", tout << mk_pp(contains_x.x(), m) << " " << vl << "\n" << mk_pp(fml, m) << "\n";);
+            TRACE(qe, tout << mk_pp(contains_x.x(), m) << " " << vl << "\n" << mk_pp(fml, m) << "\n";);
         } 
 
         bool project(contains_app& x, model_ref& model, expr_ref& fml) override {
             if (!update_bounds(x, fml)) {
-                TRACE("qe", tout << mk_pp(x.x(), m) << " failed to update bounds\n";);
+                TRACE(qe, tout << mk_pp(x.x(), m) << " failed to update bounds\n";);
                 return false;
             }
             if (m_util.m_arith.is_real(x.x())) {
@@ -1762,7 +1762,7 @@ public:
             x_t.set_coeff(bf.m_coeff);
 
             // x is of the form: x_t.get_coeff()*x' + x_t.get_term()
-            CTRACE("qe", x_t.get_term(), tout << x_t.get_coeff() << " " << mk_pp(x_t.get_term(), m) << "\n";);
+            CTRACE(qe, x_t.get_term(), tout << x_t.get_coeff() << " " << mk_pp(x_t.get_term(), m) << "\n";);
             //
             // a*x + t <= 0
             // a*(c*x' + s) + t <= 0
@@ -1788,14 +1788,14 @@ public:
                         // x := coeff * x' + s                        
                         // solve instead for
                         // a*coeff*x' + term + a*s <= 0
-                        TRACE("qe", tout << x_t.get_coeff() << "* " << mk_pp(x,m) << " + " 
+                        TRACE(qe, tout << x_t.get_coeff() << "* " << mk_pp(x,m) << " + " 
                               << mk_pp(x_t.get_term(), m) << "\n";);
                         SASSERT(x_t.get_coeff().is_pos());
                         term = m_util.mk_add(term, m_util.mk_mul(a, x_t.get_term()));
                         a    = a * x_t.get_coeff();
                     }
 
-                    TRACE("qe", tout << a << "* " << mk_pp(x,m) << " + " << mk_pp(term, m) << " <= 0\n";);
+                    TRACE(qe, tout << a << "* " << mk_pp(x,m) << " + " << mk_pp(term, m) << " <= 0\n";);
                     SASSERT(a.is_int());
                     SASSERT(is_lower == a.is_pos());                    
 
@@ -1806,7 +1806,7 @@ public:
                     term = m_util.mk_uminus(term);
                     term = mk_idiv(term, a);
                     terms.push_back(term);
-                    TRACE("qe", tout << "a: " << a << " term: " << mk_pp(term, m) << "\n";);
+                    TRACE(qe, tout << "a: " << a << " term: " << mk_pp(term, m) << "\n";);
                 }
                 is_strict = true;
                 sz = bounds.size(is_strict, !is_lower);
@@ -1837,7 +1837,7 @@ public:
                 
                 if (x_t.get_term()) {
                     // x := coeff * x + s
-                    TRACE("qe", tout << x_t.get_coeff() << "* " << mk_pp(x,m) << " + " 
+                    TRACE(qe, tout << x_t.get_coeff() << "* " << mk_pp(x,m) << " + " 
                           << mk_pp(x_t.get_term(), m) << "\n";);
                     def = m_util.mk_add(m_util.mk_mul(x_t.get_coeff(), def), x_t.get_term());
                 }
@@ -1850,7 +1850,7 @@ public:
             SASSERT(v < t_size + e_size);
             if (is_strict) {
                 v -= e_size;
-                TRACE("qe_verbose", bounds.display(tout); );               
+                TRACE(qe_verbose, bounds.display(tout); );               
             }
             else if (m_util.is_real(x)) {
                 SASSERT(0 == (e_size & 0x1));
@@ -1872,7 +1872,7 @@ public:
                 // x := coeff * x' + s                        
                 // solve instead for
                 // a*coeff*x' + term + a*s <= 0
-                TRACE("qe", tout << x_t.get_coeff() << "* " << mk_pp(x,m) << " + " 
+                TRACE(qe, tout << x_t.get_coeff() << "* " << mk_pp(x,m) << " + " 
                       << mk_pp(x_t.get_term(), m) << "\n";);
                 SASSERT(x_t.get_coeff().is_pos());
                 def = m_util.mk_add(def, m_util.mk_mul(a, x_t.get_term()));
@@ -1904,7 +1904,7 @@ public:
             m_util.simplify(def);
 
 
-            TRACE("qe", tout << "TBD (for Real): " << a << " " << mk_pp(def, m) << "\n";);
+            TRACE(qe, tout << "TBD (for Real): " << a << " " << mk_pp(def, m) << "\n";);
         }
 
         expr_ref mk_not(expr* e) {
@@ -1957,7 +1957,7 @@ public:
             }
             assign(x, fml, vl);
             subst(x, vl, fml, nullptr);
-            TRACE("qe", tout << mk_pp(fml, m) << "\n";);            
+            TRACE(qe, tout << mk_pp(fml, m) << "\n";);            
             return true;
         }
 
@@ -1980,7 +1980,7 @@ public:
             }
             assign(x, fml, vl);
             subst(x, vl, fml, nullptr);
-            TRACE("qe", tout << mk_pp(fml, m) << "\n";);
+            TRACE(qe, tout << mk_pp(fml, m) << "\n";);
             
             return true;
         }
@@ -2075,7 +2075,7 @@ public:
             // z < d
             expr* z_lt_d = m_util.m_arith.mk_le(z, m_util.m_arith.mk_numeral(d-rational(1), true));
             m_ctx.add_constraint(false, z_lt_d);
-            TRACE("qe", tout << mk_pp(z_lt_d, m) << "\n";);
+            TRACE(qe, tout << mk_pp(z_lt_d, m) << "\n";);
 
             // result <- result & z <= d - 1
             SASSERT(!abs(d).is_one());
@@ -2089,11 +2089,11 @@ public:
             t1 = m_util.mk_sub(x, z);
             m_util.mk_divides(d, t1, new_atom);
             m_ctx.add_constraint(false, new_atom);
-            TRACE("qe", tout << mk_pp(new_atom, m) << "\n";);
+            TRACE(qe, tout << mk_pp(new_atom, m) << "\n";);
             
             // (c | ax + t <-> c | az + t) for each divisor.
             mk_div_equivs(bounds, z, result);
-            TRACE("qe", tout << mk_pp(result, m) << "\n";);
+            TRACE(qe, tout << mk_pp(result, m) << "\n";);
             
             // update x_t to map x |-> dx + z
             x_t.set_term(z);
@@ -2173,7 +2173,7 @@ public:
                 m_util.simplify(mod_eq);
                 result = m.mk_and(result, mod_eq);
 
-                TRACE("qe", tout << mk_pp(mod_eq, m) << "\n";);
+                TRACE(qe, tout << mk_pp(mod_eq, m) << "\n";);
             }
         }
 
@@ -2260,7 +2260,7 @@ public:
                 }
             }
             m_util.simplify(result);
-            TRACE("qe", 
+            TRACE(qe, 
                   tout << (is_strict?"strict":"non-strict") << "\n";
                   tout << (is_lower?"is-lower":"is-upper") << "\n";
                   tout << "a: " << a << " " << mk_pp(t, m) << "\n";
@@ -2291,7 +2291,7 @@ public:
                        rational const& a, expr* t,
                        expr_ref& result) 
         {
-            TRACE("qe", tout << mk_pp(t, m) << "\n";);
+            TRACE(qe, tout << mk_pp(t, m) << "\n";);
             SASSERT(!is_eq_ctx || !is_strict_ctx);
             unsigned sz = bounds.size(is_strict, is_lower);
             expr_ref tmp(m), eq(m);            
@@ -2307,7 +2307,7 @@ public:
                 if (same_strict && i == index) {                    
                     if (non_strict_real) {
                         m_util.mk_eq(a, x, t, eq);
-                        TRACE("qe", tout << "a:" << a << " x: " << mk_pp(x, m) << "t: " << 
+                        TRACE(qe, tout << "a:" << a << " x: " << mk_pp(x, m) << "t: " << 
                               mk_pp(t, m) << " eq: " << mk_pp(eq, m) << "\n";);
                         if (is_eq_ctx) {
                             m_ctx.add_constraint(true, eq);
@@ -2340,7 +2340,7 @@ public:
                 mk_bound(result_is_strict, is_lower, a, t, b, s, tmp);
                 m_util.m_replace.apply_substitution(e, tmp.get(), result);
 
-                TRACE("qe", 
+                TRACE(qe, 
                       tout << (result_is_strict?"strict result":"non-strict result") << "\n";
                       tout << (is_strict?"strict":"non-strict") << "\n";
                       tout << mk_pp(atm, m) << " & ";
@@ -2379,7 +2379,7 @@ public:
                 
                 m_ctx.add_constraint(true, mk_not(e), tmp);
 
-                TRACE("qe_verbose", 
+                TRACE(qe_verbose, 
                       app* atm = bounds.atoms(is_strict_ctx, is_lower)[index];    
                       tout << mk_pp(atm, m) << " ";
                       tout << mk_pp(e, m) << " ==>\n";
@@ -2454,7 +2454,7 @@ public:
             m_trail(m),
             m_factor_rw(m),
             m_produce_models(produce_models) {
-            TRACE("qe", tout << "produce models: " << produce_models << "\n";);
+            TRACE(qe, tout << "produce models: " << produce_models << "\n";);
             m_util.set_enable_linear(true); // (produce_models);
         }
 
@@ -2485,7 +2485,7 @@ public:
             expr_ref result(m), tmp(m);
             m_factor_rw(branch_fml, tmp);
             m_rewriter(tmp, result);
-            TRACE("qe", tout << vl << " " << mk_pp(result.get(), m) << "\n";);
+            TRACE(qe, tout << vl << " " << mk_pp(result.get(), m) << "\n";);
             m_ctx.add_constraint(true, result);
         }
         
@@ -2502,9 +2502,9 @@ public:
 
             brs = alloc(nlarith::branch_conditions, m);
             
-            TRACE("nlarith", tout << mk_pp(fml, m) << "\n";);
+            TRACE(nlarith, tout << mk_pp(fml, m) << "\n";);
             if (!m_util.create_branches(x.x(), lits.size(), lits.data(), *brs)) {
-                TRACE("nlarith", tout << "no branches for " << mk_pp(x.x(), m) << "\n";);
+                TRACE(nlarith, tout << "no branches for " << mk_pp(x.x(), m) << "\n";);
                 dealloc(brs);
                 return false;
             }            

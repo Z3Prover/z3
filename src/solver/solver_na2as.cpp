@@ -35,7 +35,7 @@ void solver_na2as::assert_expr_core2(expr * t, expr * a) {
     else {
         SASSERT(is_uninterp_const(a));
         SASSERT(m.is_bool(a));
-        TRACE("solver_na2as", tout << "asserting\n" << mk_ismt2_pp(t, m) << "\n" << mk_ismt2_pp(a, m) << "\n";);
+        TRACE(solver_na2as, tout << "asserting\n" << mk_ismt2_pp(t, m) << "\n" << mk_ismt2_pp(a, m) << "\n";);
         m_assumptions.push_back(a);
         expr_ref new_t(m);
         new_t = m.mk_implies(a, t);
@@ -61,7 +61,7 @@ struct append_assumptions {
 
 lbool solver_na2as::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
     append_assumptions app(m_assumptions, num_assumptions, assumptions);
-    TRACE("solver_na2as", display(tout););
+    TRACE(solver_na2as, display(tout););
     return check_sat_core2(m_assumptions.size(), m_assumptions.data());
 }
 

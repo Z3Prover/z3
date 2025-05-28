@@ -91,7 +91,7 @@ bool filter_out_lit(const expr_ref_vector &vec, const expr_ref &lit, expr_ref_ve
         out.push_back(c);
     }
 
-    CTRACE("global", dirty,
+    CTRACE(global, dirty,
            tout << "Filtered " << lit << " from " << vec << "\n got " << out << "\n";);
     return dirty;
 }

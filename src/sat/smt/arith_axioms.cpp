@@ -104,7 +104,7 @@ namespace arith {
         if (a.is_zero(q)) {
             return;
         }
-        TRACE("arith", tout << expr_ref(p, m) << " " << expr_ref(q, m) << "\n";);
+        TRACE(arith, tout << expr_ref(p, m) << " " << expr_ref(q, m) << "\n";);
         // if q is zero, then idiv and mod are uninterpreted functions.
         expr_ref div(a.mk_idiv(p, q), m);
         expr_ref mod(a.mk_mod(p, q), m);
@@ -551,7 +551,7 @@ namespace arith {
         force_push();
         expr* e1 = var2expr(v1);
         expr* e2 = var2expr(v2);
-        TRACE("arith", tout << "new eq: v" << v1 << " v" << v2 << "\n";);
+        TRACE(arith, tout << "new eq: v" << v1 << " v" << v2 << "\n";);
         if (e1->get_id() > e2->get_id())
             std::swap(e1, e2);
             
@@ -572,7 +572,7 @@ namespace arith {
     }
 
     void solver::new_diseq_eh(euf::th_eq const& e) {
-        TRACE("artih", tout << mk_bounded_pp(e.eq(), m) << "\n");
+        TRACE(artih, tout << mk_bounded_pp(e.eq(), m) << "\n");
         ensure_column(e.v1());
         ensure_column(e.v2());
         m_delayed_eqs.push_back(std::make_pair(e, false));
@@ -637,7 +637,7 @@ namespace arith {
         add_def_constraint_and_equality(vi, lp::GE, rational::zero());
         add_def_constraint_and_equality(vi, lp::LT, abs(r));
         SASSERT(!is_infeasible());
-        TRACE("arith", tout << term << "\n" << lp().constraints(););
+        TRACE(arith, tout << term << "\n" << lp().constraints(););
     }
 
     /**
@@ -676,14 +676,14 @@ namespace arith {
 
             if (a.is_numeral(q, r2) && r2.is_pos()) {
                 if (!a.is_bounded(n)) {
-                    TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
+                    TRACE(arith, tout << "unbounded " << expr_ref(n, m) << "\n";);
                     continue;
                 }
                 theory_var v = internalize_def(n);
                 lp::impq val_v = get_ivalue(v);
                 if (val_v.y.is_zero() && val_v.x == div(r1.x, r2)) continue;
 
-                TRACE("arith", tout << get_value(v) << " != " << r1 << " div " << r2 << "\n";);
+                TRACE(arith, tout << get_value(v) << " != " << r1 << " div " << r2 << "\n";);
                 rational div_r = div(r1.x, r2);
                 // p <= q * div(r1, q) + q - 1 => div(p, q) <= div(r1, r2)
                 // p >= q * div(r1, q) => div(r1, q) <= div(p, q)
@@ -709,7 +709,7 @@ namespace arith {
 
                 all_divs_valid = false;
 
-                TRACE("arith", tout << r1 << " div " << r2 << "\n";);
+                TRACE(arith, tout << r1 << " div " << r2 << "\n";);
                 continue;
             }
         }

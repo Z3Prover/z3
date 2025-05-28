@@ -191,7 +191,7 @@ namespace seq {
     */
 
     void axioms::extract_axiom(expr* e) {
-        TRACE("seq", tout << mk_pp(e, m) << "\n";);
+        TRACE(seq, tout << mk_pp(e, m) << "\n";);
         expr* _s = nullptr, *_i = nullptr, *_l = nullptr;
         VERIFY(seq.str.is_extract(e, _s, _i, _l));
         auto s = purify(_s);
@@ -218,7 +218,7 @@ namespace seq {
             extract_suffix_axiom(e, s, i);
             return;
         }
-        TRACE("seq", tout << s << " " << i << " " << l << "\n";);
+        TRACE(seq, tout << s << " " << i << " " << l << "\n";);
         expr_ref x = m_sk.mk_pre(s, i);
         expr_ref ls = mk_len(_s);
         expr_ref lx = mk_len(x);
@@ -262,14 +262,14 @@ namespace seq {
     void axioms::tail_axiom(expr* e, expr* s) {    
         expr_ref head(m), tail(m);
         m_sk.decompose(s, head, tail);
-        TRACE("seq", tout << "tail " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << "\n";);
+        TRACE(seq, tout << "tail " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << "\n";);
         expr_ref emp = mk_eq_empty(s);
         add_clause(emp, mk_seq_eq(s, mk_concat(head, e)));
         add_clause(~emp, mk_eq_empty(e));
     }
 
     void axioms::drop_last_axiom(expr* e, expr* s) {
-        TRACE("seq", tout << "drop last " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << "\n";);
+        TRACE(seq, tout << "drop last " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << "\n";);
         expr_ref emp = mk_eq_empty(s);
         add_clause(emp, mk_seq_eq(s, mk_concat(e, seq.str.mk_unit(m_sk.mk_last(s)))));
         add_clause(~emp, mk_eq_empty(e));
@@ -331,7 +331,7 @@ namespace seq {
       len(s) < l => e = s
     */
     void axioms::extract_prefix_axiom(expr* e, expr* s, expr* l) {        
-        TRACE("seq", tout << "prefix " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << " " << mk_bounded_pp(l, m, 2) << "\n";);
+        TRACE(seq, tout << "prefix " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << " " << mk_bounded_pp(l, m, 2) << "\n";);
         expr_ref le = mk_len(e);
         expr_ref ls = mk_len(s);
         expr_ref ls_minus_l(mk_sub(ls, l), m);
@@ -351,7 +351,7 @@ namespace seq {
       i > len(s) => e = empty
     */
     void axioms::extract_suffix_axiom(expr* e, expr* s, expr* i) {
-        TRACE("seq", tout << "suffix " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << "\n";);
+        TRACE(seq, tout << "suffix " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << "\n";);
         expr_ref x = m_sk.mk_pre(s, i);
         expr_ref lx = mk_len(x);
         expr_ref ls = mk_len(s);
@@ -594,7 +594,7 @@ namespace seq {
 
     */
     void axioms::at_axiom(expr* e) {
-        TRACE("seq", tout << "at-axiom: " << mk_bounded_pp(e, m) << "\n";);
+        TRACE(seq, tout << "at-axiom: " << mk_bounded_pp(e, m) << "\n";);
         expr* _s = nullptr, *_i = nullptr;
         VERIFY(seq.str.is_at(e, _s, _i));
         auto s = purify(_s);
@@ -667,7 +667,7 @@ namespace seq {
 
     void axioms::itos_axiom(expr* e) {
         expr* n = nullptr;
-        TRACE("seq", tout << mk_pp(e, m) << "\n";);
+        TRACE(seq, tout << mk_pp(e, m) << "\n";);
         VERIFY(seq.str.is_itos(e, n));
 
         // itos(n) = "" <=> n < 0
@@ -704,7 +704,7 @@ namespace seq {
        stoi(s) >= 0 => len(s) >= 1
     */
     void axioms::stoi_axiom(expr* e) {
-        TRACE("seq", tout << mk_pp(e, m) << "\n";);
+        TRACE(seq, tout << mk_pp(e, m) << "\n";);
         expr_ref ge0 = mk_ge(e, 0);      
         expr* s = nullptr;
         VERIFY (seq.str.is_stoi(e, s));    

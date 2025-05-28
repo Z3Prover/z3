@@ -52,7 +52,7 @@ static std::pair<unsigned, bool> space_upto_line_break(ast_manager & m, format *
 
 inline bool fits(ast_manager & m, format * f, unsigned space_left) {
     unsigned s = space_upto_line_break(m, f).first;
-    TRACE("fits", tout << "s: " << s << " space_left " << space_left << "\n";);
+    TRACE(fits, tout << "s: " << s << " space_left " << space_left << "\n";);
     return s <= space_left;
 }
 

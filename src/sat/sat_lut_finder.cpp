@@ -115,7 +115,7 @@ namespace sat {
         m_removed_clauses.append(m_clauses_to_remove);
         bool_var v;
         uint64_t lut = convert_combination(m_vars, v);
-        TRACE("aig_simplifier",
+        TRACE(aig_simplifier,
               for (clause* cp : m_clauses_to_remove) {
                   tout << *cp << "\n" << v << ": " << m_vars << "\n";
               }

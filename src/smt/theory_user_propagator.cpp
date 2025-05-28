@@ -50,7 +50,7 @@ void theory_user_propagator::add_expr(expr* term, bool ensure_enode) {
     expr_ref r(m);
     expr* e = term;
     ctx.get_rewriter()(e, r);
-    TRACE("user_propagate", tout << "add " << mk_bounded_pp(e, m) << "\n");
+    TRACE(user_propagate, tout << "add " << mk_bounded_pp(e, m) << "\n");
     if (!is_ground(r)) {
         if (m_add_expr_fresh.contains(term))
             return;
@@ -89,7 +89,7 @@ bool theory_user_propagator::propagate_cb(
     unsigned num_fixed, expr* const* fixed_ids, 
     unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs, 
     expr* conseq) {
-    CTRACE("user_propagate", ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true,
+    CTRACE(user_propagate, ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true,
            ctx.display(tout << "redundant consequence: " << mk_pp(conseq, m) << "\n"));
 
     expr_ref _conseq(conseq, m);
@@ -160,9 +160,9 @@ final_check_status theory_user_propagator::final_check_eh() {
     catch (...) {
         throw default_exception("Exception thrown in \"final\"-callback");
     }
-    CTRACE("user_propagate", can_propagate(), tout << "can propagate\n");
+    CTRACE(user_propagate, can_propagate(), tout << "can propagate\n");
     propagate();
-    CTRACE("user_propagate", ctx.inconsistent(), tout << "inconsistent\n");
+    CTRACE(user_propagate, ctx.inconsistent(), tout << "inconsistent\n");
     // check if it became inconsistent or something new was propagated/registered
     bool done = (sz1 == m_prop.size()) && (sz2 == get_num_vars()) && !ctx.inconsistent();
     return done ? FC_DONE : FC_CONTINUE;
@@ -313,7 +313,7 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
     DEBUG_CODE(for (expr* e : prop.m_ids) VERIFY(m_fixed.contains(expr2var(e))););
     DEBUG_CODE(for (literal lit : m_lits) VERIFY(ctx.get_assignment(lit) == l_true););
     
-    TRACE("user_propagate", tout << "propagating #" << prop.m_conseq->get_id() << ": " << prop.m_conseq << "\n";
+    TRACE(user_propagate, tout << "propagating #" << prop.m_conseq->get_id() << ": " << prop.m_conseq << "\n";
           for (auto const& [a,b] : m_eqs) tout << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";
           for (expr* e : prop.m_ids) tout << mk_pp(e, m) << "\n";
           for (literal lit : m_lits) tout << lit << "\n");
@@ -358,7 +358,7 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
         else
             ctx.mk_th_lemma(get_id(), m_lits);
     }
-    TRACE("user_propagate", ctx.display(tout););
+    TRACE(user_propagate, ctx.display(tout););
     
 }
 
@@ -370,7 +370,7 @@ void theory_user_propagator::propagate_new_fixed(prop_info const& prop) {
 void theory_user_propagator::propagate() {
     if (m_qhead == m_prop.size() && m_to_add_qhead == m_to_add.size() && m_replay_qhead == m_clauses_to_replay.size())
         return;
-    TRACE("user_propagate", tout << "propagating queue head: " << m_qhead << " prop queue: " << m_prop.size() << "\n");
+    TRACE(user_propagate, tout << "propagating queue head: " << m_qhead << " prop queue: " << m_prop.size() << "\n");
     force_push();
 
     unsigned qhead = m_replay_qhead;

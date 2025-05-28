@@ -1065,7 +1065,7 @@ bool fpa_util::contains_floats(ast * a) {
 }
 
 bool fpa_util::is_considered_uninterpreted(func_decl * f, unsigned n, expr* const* args) {
-    TRACE("fpa_util", expr_ref t(m().mk_app(f, n, args), m()); tout << mk_ismt2_pp(t, m()) << std::endl; );
+    TRACE(fpa_util, expr_ref t(m().mk_app(f, n, args), m()); tout << mk_ismt2_pp(t, m()) << std::endl; );
 
     family_id ffid = plugin().get_family_id();
     if (f->get_family_id() != ffid)

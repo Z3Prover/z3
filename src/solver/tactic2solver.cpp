@@ -201,12 +201,12 @@ void tactic2solver::push_core() {
     m_last_assertions_valid = false;
     m_scopes.push_back(m_assertions.size());
     m_result = nullptr;
-    TRACE("pop", tout << m_scopes.size() << "\n";);
+    TRACE(pop, tout << m_scopes.size() << "\n";);
 }
 
 void tactic2solver::pop_core(unsigned n) {
     m_last_assertions_valid = false;
-    TRACE("pop", tout << m_scopes.size() << " " << n << "\n";);
+    TRACE(pop, tout << m_scopes.size() << " " << n << "\n";);
     n = std::min(m_scopes.size(), n);
     unsigned new_lvl = m_scopes.size() - n;
     unsigned old_sz  = m_scopes[new_lvl];
@@ -240,7 +240,7 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
     expr_dependency_ref core(m);
     std::string         reason_unknown = "unknown";
     labels_vec labels;
-    TRACE("tactic", g->display(tout););
+    TRACE(tactic, g->display(tout););
     try {
         switch (::check_sat(*m_tactic, g, md, labels, pr, core, reason_unknown)) {
         case l_true: 
@@ -260,8 +260,8 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
             }
             break;
         }
-        CTRACE("tactic", md.get(), tout << *md.get() << "\n";);
-        TRACE("tactic", 
+        CTRACE(tactic, md.get(), tout << *md.get() << "\n";);
+        TRACE(tactic, 
               if (m_mc) m_mc->display(tout << "mc:\n");
               if (g->mc()) g->mc()->display(tout << "\ng:\n");
               if (md) tout << "\nmodel:\n" << *md.get() << "\n";
@@ -270,12 +270,12 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
 
     }
     catch (z3_error & ex) {
-        TRACE("tactic2solver", tout << "exception: " << ex.what() << "\n";);
+        TRACE(tactic2solver, tout << "exception: " << ex.what() << "\n";);
         m_result->m_proof = pr;
         throw ex;
     }
     catch (z3_exception & ex) {
-        TRACE("tactic2solver", tout << "exception: " << ex.what() << "\n";);
+        TRACE(tactic2solver, tout << "exception: " << ex.what() << "\n";);
         m_result->set_status(l_undef);
         m_result->m_unknown = ex.what();
         m_result->m_proof = pr;

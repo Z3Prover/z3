@@ -164,7 +164,7 @@ unsigned read_datalog(char const * file) {
     //all rules were added
     ctx.close();
 
-    TRACE("dl_compiler", ctx.display(tout););
+    TRACE(dl_compiler, ctx.display(tout););
 
     datalog::rule_set original_rules(ctx.get_rules());
 
@@ -193,7 +193,7 @@ unsigned read_datalog(char const * file) {
 
             datalog::compiler::compile(ctx, ctx.get_rules(), rules_code, termination_code);
 
-            TRACE("dl_compiler", rules_code.display(ex_ctx, tout););
+            TRACE(dl_compiler, rules_code.display(ex_ctx, tout););
 
             rules_code.make_annotations(ex_ctx);
 
@@ -232,7 +232,7 @@ unsigned read_datalog(char const * file) {
         } while (early_termination);
 
 
-        TRACE("dl_compiler", ctx.display(tout);
+        TRACE(dl_compiler, ctx.display(tout);
               rules_code.display(ex_ctx, tout););
 
         if (ctx.output_tuples()) {

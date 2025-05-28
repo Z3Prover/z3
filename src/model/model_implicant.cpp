@@ -63,7 +63,7 @@ void model_implicant::assign_value(expr* e, expr* val) {
     }
     else {
         IF_VERBOSE(3, verbose_stream() << "Not evaluated " << mk_pp(e, m) << " := " << mk_pp(val, m) << "\n";);
-        TRACE("pdr", tout << "Variable is not tracked: " << mk_pp(e, m) << " := " << mk_pp(val, m) << "\n";);
+        TRACE(pdr, tout << "Variable is not tracked: " << mk_pp(e, m) << " := " << mk_pp(val, m) << "\n";);
         set_x(e);
     }
 }
@@ -96,13 +96,13 @@ void model_implicant::reset() {
 expr_ref_vector model_implicant::minimize_model(ptr_vector<expr> const & formulas, model_ref& mdl) {
     setup_model(mdl);
     
-    TRACE("pdr_verbose", 
+    TRACE(pdr_verbose, 
           tout << "formulas:\n";
           for (unsigned i = 0; i < formulas.size(); ++i) tout << mk_pp(formulas[i], m) << "\n"; 
           );
     
     expr_ref_vector model = prune_by_cone_of_influence(formulas);
-    TRACE("pdr_verbose",
+    TRACE(pdr_verbose,
           tout << "pruned model:\n";
           for (unsigned i = 0; i < model.size(); ++i) tout << mk_pp(model[i].get(), m) << "\n";);
     
@@ -118,7 +118,7 @@ expr_ref_vector model_implicant::minimize_model(ptr_vector<expr> const & formula
 
 expr_ref_vector model_implicant::minimize_literals(ptr_vector<expr> const& formulas, model_ref& mdl) {
     
-    TRACE("pdr", 
+    TRACE(pdr, 
           tout << "formulas:\n";
           for (unsigned i = 0; i < formulas.size(); ++i) tout << mk_pp(formulas[i], m) << "\n"; 
           );
@@ -151,7 +151,7 @@ expr_ref_vector model_implicant::minimize_literals(ptr_vector<expr> const& formu
         }
     }
     reset();
-    TRACE("pdr", 
+    TRACE(pdr, 
           tout << "minimized model:\n";
           for (unsigned i = 0; i < result.size(); ++i) tout << mk_pp(result[i].get(), m) << "\n"; 
           );
@@ -288,7 +288,7 @@ expr_ref_vector model_implicant::prune_by_cone_of_influence(ptr_vector<expr> con
     m1.reset();
     m2.reset();
     for (unsigned i = 0; i < tocollect.size(); ++i) {     
-        TRACE("pdr_verbose", tout << "collect: " << mk_pp(tocollect[i], m) << "\n";);
+        TRACE(pdr_verbose, tout << "collect: " << mk_pp(tocollect[i], m) << "\n";);
         for_each_expr(*this, m_visited, tocollect[i]);
     }
     unsigned sz = m_model->get_num_constants();
@@ -303,7 +303,7 @@ expr_ref_vector model_implicant::prune_by_cone_of_influence(ptr_vector<expr> con
         }
     }
     m_visited.reset();
-    TRACE("pdr", tout << sz << " ==> " << model.size() << "\n";);
+    TRACE(pdr, tout << sz << " ==> " << model.size() << "\n";);
     return model;
     
 }
@@ -445,7 +445,7 @@ void model_implicant::inherit_value(expr* e, expr* v) {
         if (is_true(v)) set_true(e);
         else if (is_false(v)) set_false(e);
         else {
-            TRACE("pdr", tout << "not inherited:\n" << mk_pp(e, m) << "\n" << mk_pp(v, m) << "\n";);
+            TRACE(pdr, tout << "not inherited:\n" << mk_pp(e, m) << "\n" << mk_pp(v, m) << "\n";);
             set_x(e);
         }
     }
@@ -459,7 +459,7 @@ void model_implicant::inherit_value(expr* e, expr* v) {
         set_value(e, w);
     }
     else {
-        TRACE("pdr", tout << "not inherited:\n" << mk_pp(e, m) << "\n" << mk_pp(v, m) << "\n";);
+        TRACE(pdr, tout << "not inherited:\n" << mk_pp(e, m) << "\n" << mk_pp(v, m) << "\n";);
         set_x(e);
     }
 }
@@ -476,7 +476,7 @@ void model_implicant::eval_exprs(expr_ref_vector& es) {
 bool model_implicant::extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref& else_case) {
     SASSERT(m_array.is_array(a));
     
-    TRACE("pdr", tout << mk_pp(a, m) << "\n";);
+    TRACE(pdr, tout << mk_pp(a, m) << "\n";);
     while (m_array.is_store(a)) {
         expr_ref_vector store(m);
         store.append(to_app(a)->get_num_args()-1, to_app(a)->get_args()+1);
@@ -502,7 +502,7 @@ bool model_implicant::extract_array_func_interp(expr* a, vector<expr_ref_vector>
             store.push_back(fe->get_result());
             for (unsigned j = 0; j < store.size(); ++j) {
                 if (!is_ground(store[j].get())) {
-                    TRACE("pdr", tout << "could not extract array interpretation: " << mk_pp(a, m) << "\n" << mk_pp(store[j].get(), m) << "\n";);
+                    TRACE(pdr, tout << "could not extract array interpretation: " << mk_pp(a, m) << "\n" << mk_pp(store[j].get(), m) << "\n";);
                     return false;
                 }
             }
@@ -511,21 +511,21 @@ bool model_implicant::extract_array_func_interp(expr* a, vector<expr_ref_vector>
         }        
         else_case = g->get_else();
         if (!else_case) {
-            TRACE("pdr", tout << "no else case " << mk_pp(a, m) << "\n";);
+            TRACE(pdr, tout << "no else case " << mk_pp(a, m) << "\n";);
             return false;
         }
         if (!is_ground(else_case)) {
-            TRACE("pdr", tout << "non-ground else case " << mk_pp(a, m) << "\n" << mk_pp(else_case, m) << "\n";);
+            TRACE(pdr, tout << "non-ground else case " << mk_pp(a, m) << "\n" << mk_pp(else_case, m) << "\n";);
             return false;
         }
         if (m_array.is_as_array(else_case)) {
             model_ref mr(m_model);
             else_case = eval(mr, else_case);
         }
-        TRACE("pdr", tout << "else case: " << mk_pp(else_case, m) << "\n";);
+        TRACE(pdr, tout << "else case: " << mk_pp(else_case, m) << "\n";);
         return true;
     }
-    TRACE("pdr", tout << "no translation: " << mk_pp(a, m) << "\n";);
+    TRACE(pdr, tout << "no translation: " << mk_pp(a, m) << "\n";);
     
     return false;
 }
@@ -534,7 +534,7 @@ bool model_implicant::extract_array_func_interp(expr* a, vector<expr_ref_vector>
    best effort evaluator of extensional array equality.
 */
 void model_implicant::eval_array_eq(app* e, expr* arg1, expr* arg2) {
-    TRACE("pdr", tout << "array equality: " << mk_pp(e, m) << "\n";);
+    TRACE(pdr, tout << "array equality: " << mk_pp(e, m) << "\n";);
     expr_ref v1 = (*m_model)(arg1);
     expr_ref v2 = (*m_model)(arg2);
     if (v1 == v2) {
@@ -545,7 +545,7 @@ void model_implicant::eval_array_eq(app* e, expr* arg1, expr* arg2) {
     sort* r = get_array_range(s);
     // give up evaluating finite domain/range arrays
     if (!r->is_infinite() && !r->is_very_big() && !s->is_infinite() && !s->is_very_big()) {
-        TRACE("pdr", tout << "equality is unknown: " << mk_pp(e, m) << "\n";);
+        TRACE(pdr, tout << "equality is unknown: " << mk_pp(e, m) << "\n";);
         set_x(e);
         return;
     }
@@ -553,14 +553,14 @@ void model_implicant::eval_array_eq(app* e, expr* arg1, expr* arg2) {
     expr_ref else1(m), else2(m);
     if (!extract_array_func_interp(v1, store, else1) ||
         !extract_array_func_interp(v2, store, else2)) {
-        TRACE("pdr", tout << "equality is unknown: " << mk_pp(e, m) << "\n";);
+        TRACE(pdr, tout << "equality is unknown: " << mk_pp(e, m) << "\n";);
         set_x(e);
         return;
     }
 
     if (else1 != else2) {
         if (m.is_value(else1) && m.is_value(else2)) {
-            TRACE("pdr", tout 
+            TRACE(pdr, tout 
                   << "defaults are different: " << mk_pp(e, m) << " " 
                   << mk_pp(else1, m) << " " << mk_pp(else2, m) << "\n";);
             set_false(e);
@@ -569,7 +569,7 @@ void model_implicant::eval_array_eq(app* e, expr* arg1, expr* arg2) {
             eval_array_eq(e, else1, else2);
         }
         else {
-            TRACE("pdr", tout << "equality is unknown: " << mk_pp(e, m) << "\n";);
+            TRACE(pdr, tout << "equality is unknown: " << mk_pp(e, m) << "\n";);
             set_x(e);
         }
         return;
@@ -592,7 +592,7 @@ void model_implicant::eval_array_eq(app* e, expr* arg1, expr* arg2) {
             continue;
         }
         if (m.is_value(w1) && m.is_value(w2)) {
-            TRACE("pdr", tout << "Equality evaluation: " << mk_pp(e, m) << "\n"; 
+            TRACE(pdr, tout << "Equality evaluation: " << mk_pp(e, m) << "\n"; 
                   tout << mk_pp(s1, m) << " |-> " << mk_pp(w1, m) << "\n";
                   tout << mk_pp(s2, m) << " |-> " << mk_pp(w2, m) << "\n";);
             set_false(e);
@@ -604,7 +604,7 @@ void model_implicant::eval_array_eq(app* e, expr* arg1, expr* arg2) {
             }
         }
         else {
-            TRACE("pdr", tout << "equality is unknown: " << mk_pp(e, m) << "\n";);
+            TRACE(pdr, tout << "equality is unknown: " << mk_pp(e, m) << "\n";);
             set_x(e);
         }
         return;
@@ -630,7 +630,7 @@ void model_implicant::eval_eq(app* e, expr* arg1, expr* arg2) {
             set_bool(e, false);
         }
         else {
-            TRACE("pdr", tout << "cannot evaluate: " << mk_pp(vl, m) <<  "\n";);
+            TRACE(pdr, tout << "cannot evaluate: " << mk_pp(vl, m) <<  "\n";);
             set_x(e);
         }
     }
@@ -657,7 +657,7 @@ void model_implicant::eval_eq(app* e, expr* arg1, expr* arg2) {
             set_bool(e, true);
         }
         else {
-            TRACE("pdr", tout << "not value equal:\n" << mk_pp(e1, m) << "\n" << mk_pp(e2, m) << "\n";);
+            TRACE(pdr, tout << "not value equal:\n" << mk_pp(e1, m) << "\n" << mk_pp(e2, m) << "\n";);
             set_x(e);
         }
     }
@@ -849,7 +849,7 @@ bool model_implicant::check_model(ptr_vector<expr> const& formulas) {
     for (unsigned i = 0; i < formulas.size(); ++i) {
         expr * form = formulas[i];
         SASSERT(!is_unknown(form));
-        TRACE("pdr_verbose", 
+        TRACE(pdr_verbose, 
               tout << "formula is " << (is_true(form) ? "true" : is_false(form) ? "false" : "unknown") << "\n" <<mk_pp(form, m)<< "\n";);
             
         if (is_false(form)) {
@@ -858,7 +858,7 @@ bool model_implicant::check_model(ptr_vector<expr> const& formulas) {
         }
         if (is_x(form)) {
             IF_VERBOSE(0, verbose_stream() << "formula undetermined in model: " << mk_pp(form, m) << "\n";);
-            TRACE("pdr", model_smt2_pp(tout, m, *m_model, 0);); 
+            TRACE(pdr, model_smt2_pp(tout, m, *m_model, 0);); 
             has_x = true;
         }
     }

@@ -319,13 +319,13 @@ interval & interval::operator*=(interval const & other) {
     v_dependency * c_d = other.m_lower_dep;
     v_dependency * d_d = other.m_upper_dep;
 
-    TRACE("interval_bug", tout << "operator*= " << *this << " " << other << "\n";);
+    TRACE(interval_bug, tout << "operator*= " << *this << " " << other << "\n";);
 
     if (is_N()) {
         if (other.is_N()) {
             // x <= b <= 0, y <= d <= 0 --> b*d <= x*y
             // a <= x <= b <= 0, c <= y <= d <= 0 --> x*y <= a*c  (we can use the fact that x or y is always negative (i.e., b is neg or d is neg))
-            TRACE("interval_bug", tout << "(N, N)\n";);
+            TRACE(interval_bug, tout << "(N, N)\n";);
             ext_numeral new_lower = b * d;
             ext_numeral new_upper = a * c;
             // if b = 0 (and the interval is closed), then the lower bound is closed
@@ -339,7 +339,7 @@ interval & interval::operator*=(interval const & other) {
         else if (other.is_M()) {
             // a <= x <= b <= 0,  y <= d, d > 0 --> a*d <= x*y (uses the fact that b is not positive)
             // a <= x <= b <= 0,  c <= y, c < 0 --> x*y <= a*c (uses the fact that b is not positive)
-            TRACE("interval_bug", tout << "(N, M)\n";);
+            TRACE(interval_bug, tout << "(N, M)\n";);
             ext_numeral new_lower = a * d; SASSERT(new_lower.is_neg());
             ext_numeral new_upper = a * c; SASSERT(new_upper.is_pos());
             m_lower_open = a_o || d_o;
@@ -352,7 +352,7 @@ interval & interval::operator*=(interval const & other) {
         else {
             // a <= x <= b <= 0, 0 <= c <= y <= d --> a*d <= x*y (uses the fact that x is neg (b is not positive) or y is pos (c is not negative))
             // x <= b <= 0,  0 <= c <= y --> x*y <= b*c
-            TRACE("interval_bug", tout << "(N, P)\n";);
+            TRACE(interval_bug, tout << "(N, P)\n";);
             SASSERT(other.is_P());
             ext_numeral new_lower = a * d;
             ext_numeral new_upper = b * c;
@@ -369,7 +369,7 @@ interval & interval::operator*=(interval const & other) {
         if (other.is_N()) {
             // b > 0, x <= b,  c <= y <= d <= 0 --> b*c <= x*y (uses the fact that d is not positive)
             // a < 0, a <= x,  c <= y <= d <= 0 --> x*y <= a*c (uses the fact that d is not positive)
-            TRACE("interval_bug", tout << "(M, N)\n";);
+            TRACE(interval_bug, tout << "(M, N)\n";);
             ext_numeral new_lower = b * c; SASSERT(new_lower.is_neg());
             ext_numeral new_upper = a * c; SASSERT(new_upper.is_pos());
             m_lower_open = b_o || c_o; SASSERT(b.is_pos() && c.is_neg());
@@ -380,7 +380,7 @@ interval & interval::operator*=(interval const & other) {
             m_upper_dep  = m_upper.is_infinite() ? nullptr : join(a_d, c_d, d_d);
         }
         else if (other.is_M()) {
-            TRACE("interval_bug", tout << "(M, M)\n";);
+            TRACE(interval_bug, tout << "(M, M)\n";);
             SASSERT(!a.is_zero() && !b.is_zero() && !c.is_zero() && !d.is_zero());
             ext_numeral ad = a*d; SASSERT(!ad.is_zero());
             ext_numeral bc = b*c; SASSERT(!bc.is_zero());
@@ -412,7 +412,7 @@ interval & interval::operator*=(interval const & other) {
         else {
             // a < 0, a <= x, 0 <= c <= y <= d --> a*d <= x*y (uses the fact that c is not negative)
             // b > 0, x <= b, 0 <= c <= y <= d --> x*y <= b*d (uses the fact that c is not negative)
-            TRACE("interval_bug", tout << "(M, P)\n";);
+            TRACE(interval_bug, tout << "(M, P)\n";);
             SASSERT(other.is_P());
             ext_numeral new_lower = a * d; SASSERT(new_lower.is_neg());
             ext_numeral new_upper = b * d; SASSERT(new_upper.is_pos());
@@ -429,7 +429,7 @@ interval & interval::operator*=(interval const & other) {
         if (other.is_N()) {
             // 0 <= a <= x <= b,   c <= y <= d <= 0  -->  x*y <= b*c (uses the fact that x is pos (a is not neg) or y is neg (d is not pos))
             // 0 <= a <= x,  y <= d <= 0  --> a*d <= x*y
-            TRACE("interval_bug", tout << "(P, N)\n";);
+            TRACE(interval_bug, tout << "(P, N)\n";);
             ext_numeral new_lower = b * c;
             ext_numeral new_upper = a * d;
             bool is_P0_old = is_P0(); // cache the value of is_P0(), since it may be affected by the next update.
@@ -443,7 +443,7 @@ interval & interval::operator*=(interval const & other) {
         else if (other.is_M()) {
             // 0 <= a <= x <= b,  c <= y --> b*c <= x*y (uses the fact that a is not negative)
             // 0 <= a <= x <= b,  y <= d --> x*y <= b*d (uses the fact that a is not negative)
-            TRACE("interval_bug", tout << "(P, M)\n";);
+            TRACE(interval_bug, tout << "(P, M)\n";);
             ext_numeral new_lower = b * c; SASSERT(new_lower.is_neg());
             ext_numeral new_upper = b * d; SASSERT(new_upper.is_pos());
             m_lower_open = b_o || c_o;
@@ -456,7 +456,7 @@ interval & interval::operator*=(interval const & other) {
         else {
             // 0 <= a <= x, 0 <= c <= y --> a*c <= x*y
             // x <= b, y <= d --> x*y <= b*d (uses the fact that x is pos (a is not negative) or y is pos (c is not negative))
-            TRACE("interval_bug", tout << "(P, P)\n";);
+            TRACE(interval_bug, tout << "(P, P)\n";);
             SASSERT(other.is_P());
             ext_numeral new_lower = a * c;
             ext_numeral new_upper = b * d;
@@ -468,8 +468,8 @@ interval & interval::operator*=(interval const & other) {
             m_upper_dep  = m_upper.is_infinite() ? nullptr : join_opt(b_d, d_d, a_d, c_d);
         }
     }
-    TRACE("interval_bug", tout << "operator*= result: " << *this << "\n";);
-    CTRACE("interval", !(!(contains_zero1 || contains_zero2) || contains_zero()),
+    TRACE(interval_bug, tout << "operator*= result: " << *this << "\n";);
+    CTRACE(interval, !(!(contains_zero1 || contains_zero2) || contains_zero()),
            tout << "contains_zero1: " << contains_zero1 << ", contains_zero2: " << contains_zero2 << ", contains_zero(): " << contains_zero() << "\n";);
     SASSERT(!(contains_zero1 || contains_zero2) || contains_zero());
     return *this;
@@ -484,7 +484,7 @@ bool interval::empty() const {
 }
 
 bool interval::contains_zero() const {
-    TRACE("interval_zero_bug", tout << "contains_zero info: " << *this << "\n";
+    TRACE(interval_zero_bug, tout << "contains_zero info: " << *this << "\n";
           tout << "m_lower.is_neg(): " << m_lower.is_neg() << "\n";
           tout << "m_lower.is_zero:  " << m_lower.is_zero() << "\n";
           tout << "m_lower_open:     " << m_lower_open << "\n";
@@ -568,7 +568,7 @@ interval & interval::operator/=(interval const & other) {
     SASSERT(!other.contains_zero());
     if (is_zero()) {
         // 0/other = 0 if other != 0
-        TRACE("interval", other.display_with_dependencies(tout););
+        TRACE(interval, other.display_with_dependencies(tout););
         if (other.m_lower.is_pos() || (other.m_lower.is_zero() && other.m_lower_open)) {
             // other.lower > 0
             //     x in ([0, 0] / [other.lo, other.up]), for other.lo > 0
@@ -625,10 +625,10 @@ void interval::expt(unsigned n) {
         else {
             // [l, u]^n = [0, max{l^n, u^n}] otherwise
             // we need both bounds to justify upper bound
-            TRACE("interval", tout << "before: " << m_lower << " " << m_upper << " " << n << "\n";);
+            TRACE(interval, tout << "before: " << m_lower << " " << m_upper << " " << n << "\n";);
             m_lower.expt(n);
             m_upper.expt(n);
-            TRACE("interval", tout << "after: " << m_lower << " " << m_upper << "\n";);
+            TRACE(interval, tout << "after: " << m_lower << " " << m_upper << "\n";);
             if (m_lower > m_upper || (m_lower == m_upper && !m_lower_open && m_upper_open)) {
                 m_upper      = m_lower;
                 m_upper_open = m_lower_open;

@@ -36,7 +36,7 @@ bool theory_seq::solve_nqs(unsigned i) {
 
 
 bool theory_seq::solve_ne(unsigned idx) {
-    TRACE("seq", display_disequation(tout << "solve: ", m_nqs[idx]););
+    TRACE(seq, display_disequation(tout << "solve: ", m_nqs[idx]););
     unsigned num_undef_lits = 0;
     return 
         (!check_ne_literals(idx, num_undef_lits))
@@ -50,7 +50,7 @@ bool theory_seq::check_ne_literals(unsigned idx, unsigned& num_undef_lits) {
     for (literal lit : n.lits()) {
         switch (ctx.get_assignment(lit)) {
         case l_false:
-            TRACE("seq", display_disequation(tout << "has false literal\n", n);
+            TRACE(seq, display_disequation(tout << "has false literal\n", n);
                   ctx.display_literal_verbose(tout, lit);
                   tout << "\n" << lit << " " << ctx.is_relevant(lit) << "\n";
                   display(tout);
@@ -101,13 +101,13 @@ bool theory_seq::propagate_ne2lit(unsigned idx) {
                 lits.reset();                
                 lits.push_back(~diseq);
                 dep = dep1;
-                TRACE("seq", tout << "conflict explained\n";);
+                TRACE(seq, tout << "conflict explained\n";);
             }
         }
         set_conflict(dep, lits);
     }
     else {
-        TRACE("seq", tout << "propagate: " << undef_lit << "\n";);
+        TRACE(seq, tout << "propagate: " << undef_lit << "\n";);
         propagate_lit(n.dep(), lits.size(), lits.data(), ~undef_lit);
     }
     return true;
@@ -167,7 +167,7 @@ bool theory_seq::reduce_ne(unsigned idx) {
         new_deps = m_dm.mk_join(deps, new_deps);
         bool is_sat = m_seq_rewrite.reduce_eq(ls, rs, eqs, change);
 
-        TRACE("seq", display_disequation(tout << "reduced\n", n);
+        TRACE(seq, display_disequation(tout << "reduced\n", n);
               tout << p.first << " -> " << ls << "\n";
               tout << p.second << " -> " << rs << "\n";
               tout << eqs << "\n";
@@ -178,7 +178,7 @@ bool theory_seq::reduce_ne(unsigned idx) {
         }
         
         if (!change) {
-            TRACE("seq", tout << "no change " << p.first << " " << p.second << "\n";);
+            TRACE(seq, tout << "no change " << p.first << " " << p.second << "\n";);
             if (updated) {
                 new_eqs.push_back(p);
             }
@@ -194,7 +194,7 @@ bool theory_seq::reduce_ne(unsigned idx) {
         if (!ls.empty() || !rs.empty()) {
             new_eqs.push_back(decomposed_eq(ls, rs));
         }
-        TRACE("seq",
+        TRACE(seq,
               tout << "num eqs: " << eqs.size() << "\n";
               tout << "num new eqs: " << new_eqs.size() << "\n";
               tout << eqs << "\n";
@@ -229,9 +229,9 @@ bool theory_seq::reduce_ne(unsigned idx) {
     }
 
     if (updated) {
-        TRACE("seq", display_disequation(tout, n););
+        TRACE(seq, display_disequation(tout, n););
         m_nqs.set(idx, ne(n.l(), n.r(), new_eqs, new_lits, new_deps));
-        TRACE("seq", display_disequation(tout << "updated:\n", m_nqs[idx]););
+        TRACE(seq, display_disequation(tout << "updated:\n", m_nqs[idx]););
     }
     return false;
 }
@@ -275,7 +275,7 @@ lbool theory_seq::branch_nq(ne const& n) {
     ctx.mark_as_relevant(eq_len);
     switch (ctx.get_assignment(eq_len)) {
     case l_false:
-        TRACE("seq", 
+        TRACE(seq, 
               display_disequation(tout, n);
               ctx.display_literal_smt2(tout << "lengths are different: ", eq_len) << "\n";);
         return l_true;
@@ -304,7 +304,7 @@ lbool theory_seq::branch_nq(ne const& n) {
     ctx.mark_as_relevant(eq_head);
     switch (ctx.get_assignment(eq_head)) {
     case l_false:
-        TRACE("seq", ctx.display_literal_smt2(tout << "heads are different: ", eq_head) << "\n";);
+        TRACE(seq, ctx.display_literal_smt2(tout << "heads are different: ", eq_head) << "\n";);
         return l_true;
     case l_undef:
         return l_undef;

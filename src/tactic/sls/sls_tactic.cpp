@@ -93,7 +93,7 @@ public:
             if (g->models_enabled()) {
                 model_ref mdl = m_sls->get_model();
                 mc = model2model_converter(mdl.get());
-                TRACE("sls_model", mc->display(tout););
+                TRACE(sls_model, mc->display(tout););
             }
             g->reset();
         }
@@ -105,7 +105,7 @@ public:
         goal_ref_buffer& result) override {
         result.reset();
 
-        TRACE("sls", g->display(tout););
+        TRACE(sls, g->display(tout););
         tactic_report report("sls", *g);
 
         model_converter_ref mc;
@@ -186,7 +186,7 @@ public:
             if (g->models_enabled()) {
                 model_ref mdl = m_engine->get_model();
                 mc = model2model_converter(mdl.get());
-                TRACE("sls_model", mc->display(tout););
+                TRACE(sls_model, mc->display(tout););
             }
             g->reset();
         }
@@ -199,7 +199,7 @@ public:
                     goal_ref_buffer & result) override {
         result.reset();
         
-        TRACE("sls", g->display(tout););
+        TRACE(sls, g->display(tout););
         tactic_report report("sls", *g);
         
         model_converter_ref mc;

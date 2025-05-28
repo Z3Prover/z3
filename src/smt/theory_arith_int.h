@@ -147,7 +147,7 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::find_infeasible_int_base_var() {
         theory_var r = find_bounded_infeasible_int_base_var();
-        CTRACE("find_infeasible_int_base_var", r != null_theory_var, display_var(tout << "bounded infeasible", r););
+        CTRACE(find_infeasible_int_base_var, r != null_theory_var, display_var(tout << "bounded infeasible", r););
         
         unsigned n   = 0;
         
@@ -169,7 +169,7 @@ namespace smt {
                     }
                 }
             }
-            CTRACE("find_infeasible_int_base_var", r != null_theory_var, tout << "found small value v" << r << "\n");
+            CTRACE(find_infeasible_int_base_var, r != null_theory_var, tout << "found small value v" << r << "\n");
         }
 
         if (r == null_theory_var) {
@@ -179,7 +179,7 @@ namespace smt {
                     SELECT_VAR(v);
                 }
             }
-            CTRACE("find_infeasible_int_base_var", r != null_theory_var, tout << "found base v" << r << "\n");
+            CTRACE(find_infeasible_int_base_var, r != null_theory_var, tout << "found base v" << r << "\n");
 
         }
 
@@ -191,7 +191,7 @@ namespace smt {
                     SELECT_VAR(v);
                 }
             }
-            CTRACE("find_infeasible_int_base_var", r != null_theory_var, tout << "found quasi base v" << r << "\n");
+            CTRACE(find_infeasible_int_base_var, r != null_theory_var, tout << "found quasi base v" << r << "\n");
         }
         CASSERT("arith", wf_rows());
         CASSERT("arith", wf_columns());
@@ -210,7 +210,7 @@ namespace smt {
         m_stats.m_branches++;
         numeral k     = ceil(get_value(v));
         rational _k   = k.to_rational();
-        TRACE("arith_int", tout << "branching v" << v << " = " << get_value(v) << "\n";
+        TRACE(arith_int, tout << "branching v" << v << " = " << get_value(v) << "\n";
               display_var(tout, v);
               tout << "k = " << k << ", _k = "<< _k << std::endl;
               );
@@ -222,7 +222,7 @@ namespace smt {
             std::function<expr*(void)> fn = [&]() { return m.mk_or(bound, m.mk_not(bound)); };
             scoped_trace_stream _sts(*this, fn);
             IF_VERBOSE(10, verbose_stream() << "branch " << bound << "\n");
-            TRACE("arith_int", tout << mk_bounded_pp(bound, m) << "\n";);
+            TRACE(arith_int, tout << mk_bounded_pp(bound, m) << "\n";);
             ctx.internalize(bound, true);
             ctx.mark_as_relevant(bound.get());
         }
@@ -255,7 +255,7 @@ namespace smt {
         for (auto const& r : m_rows) {
             theory_var b = r.get_base_var();
             if (b == null_theory_var) {
-                TRACE("arith_int", display_row(tout << "null: ", r, true); );
+                TRACE(arith_int, display_row(tout << "null: ", r, true); );
                 continue;
             }
             bool is_tight = false;
@@ -273,7 +273,7 @@ namespace smt {
                 const_coeff = u->get_value().get_rational();
             }
             if (!is_tight) {
-                TRACE("arith_int", 
+                TRACE(arith_int, 
                       display_row(tout << "!tight: ", r, true); 
                       display_var(tout, b);
                       );
@@ -299,7 +299,7 @@ namespace smt {
                     continue;
                 }
                 if (!is_int(x)) {
-                    TRACE("arith_int", display_row(tout << "!int:  ", r, true); );
+                    TRACE(arith_int, display_row(tout << "!int:  ", r, true); );
                     is_tight = false;
                     continue;
                 }
@@ -327,7 +327,7 @@ namespace smt {
                     row[i] *= denom.to_rational();
                 }
             }
-            TRACE("arith_int",
+            TRACE(arith_int,
                   tout << "extracted row:\n";
                   for (unsigned i = 0; i < max_row; ++i) {
                       tout << row[i] << " ";
@@ -368,7 +368,7 @@ namespace smt {
             }
         }            
         if (pol.empty()) {
-            TRACE("arith_int", tout << "The witness is trivial\n";);
+            TRACE(arith_int, tout << "The witness is trivial\n";);
             return false;
         }
         expr_ref p1(get_manager()), p2(get_manager());
@@ -390,7 +390,7 @@ namespace smt {
             ctx.mk_th_axiom(get_id(), l1, l2);
         }
        
-        TRACE("arith_int", 
+        TRACE(arith_int, 
               tout << "cut: (or " << mk_pp(p1, get_manager()) << " " << mk_pp(p2, get_manager()) << ")\n";
               );
 
@@ -471,10 +471,10 @@ namespace smt {
         expr_ref pol(m);
         pol = m_util.mk_add(_args.size(), _args.data());
         result = m_util.mk_ge(pol, m_util.mk_numeral(k, all_int));
-        TRACE("arith_mk_polynomial", tout << "before simplification:\n" << result << "\n";);
+        TRACE(arith_mk_polynomial, tout << "before simplification:\n" << result << "\n";);
         proof_ref pr(m);
         get_context().get_rewriter()(result, result, pr);
-        TRACE("arith_mk_polynomial", tout << "after simplification:\n" << result << "\n";);
+        TRACE(arith_mk_polynomial, tout << "after simplification:\n" << result << "\n";);
         SASSERT(is_well_sorted(get_manager(), result));
     }
 
@@ -511,12 +511,12 @@ namespace smt {
         bool cfv = constrain_free_vars(r);
 
         if (cfv || !is_gomory_cut_target(r)) {
-            TRACE("gomory_cut", tout << "failed to apply gomory cut:\n";
+            TRACE(gomory_cut, tout << "failed to apply gomory cut:\n";
                   tout << "constrain_free_vars(r):  " << cfv << "\n";);
             return false;
         }
 
-        TRACE("gomory_cut", tout << "applying cut at:\n"; display_row_info(tout, r););
+        TRACE(gomory_cut, tout << "applying cut at:\n"; display_row_info(tout, r););
         
         antecedents ante(*this);
 
@@ -564,14 +564,14 @@ namespace smt {
                         k.addmul(new_a_ij, upper_bound(x_j).get_rational());
                         upper(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
                     }
-                    TRACE("gomory_cut_detail", tout << a_ij << "*v" << x_j << " k: " << k << "\n";);
+                    TRACE(gomory_cut_detail, tout << a_ij << "*v" << x_j << " k: " << k << "\n";);
                     pol.push_back(row_entry(new_a_ij, x_j));
                 }
                 else {
                     ++num_ints;
                     SASSERT(is_int(x_j));
                     numeral f_j = Ext::fractional_part(a_ij);
-                    TRACE("gomory_cut_detail", 
+                    TRACE(gomory_cut_detail, 
                           tout << a_ij << "*v" << x_j << "\n";
                           tout << "fractional_part: " << Ext::fractional_part(a_ij) << "\n";
                           tout << "f_j: " << f_j << "\n";
@@ -601,7 +601,7 @@ namespace smt {
                             k.addmul(new_a_ij, upper_bound(x_j).get_rational());
                             upper(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
                         }
-                        TRACE("gomory_cut_detail", tout << "new_a_ij: " << new_a_ij << " k: " << k << "\n";);
+                        TRACE(gomory_cut_detail, tout << "new_a_ij: " << new_a_ij << " k: " << k << "\n";);
                         pol.push_back(row_entry(new_a_ij, x_j));
                         lcm_den = lcm(lcm_den, denominator(new_a_ij));
                     }
@@ -609,7 +609,7 @@ namespace smt {
             }
         }
 
-        CTRACE("empty_pol", pol.empty(), display_row_info(tout, r););
+        CTRACE(empty_pol, pol.empty(), display_row_info(tout, r););
 
         expr_ref bound(get_manager());
         if (pol.empty()) {
@@ -636,7 +636,7 @@ namespace smt {
         else { 
             if (num_ints > 0) {
                 lcm_den = lcm(lcm_den, denominator(k));
-                TRACE("gomory_cut_detail", tout << "k: " << k << " lcm_den: " << lcm_den << "\n";
+                TRACE(gomory_cut_detail, tout << "k: " << k << " lcm_den: " << lcm_den << "\n";
                       for (unsigned i = 0; i < pol.size(); i++) {
                           tout << pol[i].m_coeff << " " << pol[i].m_var << "\n";
                       }
@@ -651,7 +651,7 @@ namespace smt {
                     }
                     k *= lcm_den;
                 }
-                TRACE("gomory_cut_detail", tout << "after *lcm\n";
+                TRACE(gomory_cut_detail, tout << "after *lcm\n";
                       for (unsigned i = 0; i < pol.size(); i++) {
                           tout << pol[i].m_coeff << " * v" << pol[i].m_var << "\n";
                       }
@@ -659,7 +659,7 @@ namespace smt {
             }
             mk_polynomial_ge(pol.size(), pol.data(), k.to_rational(), bound);            
         }
-        TRACE("gomory_cut", tout << "new cut:\n" << bound << "\n"; ante.display(tout););
+        TRACE(gomory_cut, tout << "new cut:\n" << bound << "\n"; ante.display(tout););
         literal l     = null_literal;
         context & ctx = get_context();
         {
@@ -695,7 +695,7 @@ namespace smt {
             return true;
         m_stats.m_gcd_tests++;
         numeral lcm_den = r.get_denominators_lcm();
-        TRACE("gcd_test_bug", r.display(tout); tout << "lcm: " << lcm_den << "\n";);
+        TRACE(gcd_test_bug, r.display(tout); tout << "lcm: " << lcm_den << "\n";);
         numeral consts(0);
         numeral gcds(0);
         numeral least_coeff(0);
@@ -729,7 +729,7 @@ namespace smt {
                 }
                 SASSERT(gcds.is_int());
                 SASSERT(least_coeff.is_int());
-                TRACE("gcd_test_bug", tout << "coeff: " << e.m_coeff << ", gcds: " << gcds 
+                TRACE(gcd_test_bug, tout << "coeff: " << e.m_coeff << ", gcds: " << gcds 
                       << " least_coeff: " << least_coeff << " consts: " << consts << "\n";);
             }
         }
@@ -742,7 +742,7 @@ namespace smt {
         }
 
         if (!(consts / gcds).is_int()) {
-            TRACE("gcd_test", tout << "row failed the GCD test:\n"; display_row_info(tout, r););
+            TRACE(gcd_test, tout << "row failed the GCD test:\n"; display_row_info(tout, r););
             antecedents ante(*this);
             m_stats.m_gcd_conflicts++;
             collect_fixed_var_justifications(r, ante);
@@ -822,7 +822,7 @@ namespace smt {
         
         if (u1 < l1) {
             m_stats.m_gcd_conflicts++;
-            TRACE("gcd_test", tout << "row failed the extended GCD test:\n"; display_row_info(tout, r););
+            TRACE(gcd_test, tout << "row failed the extended GCD test:\n"; display_row_info(tout, r););
             collect_fixed_var_justifications(r, ante);
             context & ctx         = get_context();
             ctx.set_conflict(
@@ -902,7 +902,7 @@ namespace smt {
             // check whether value of v is already a multiple of m.
             if ((get_value(v).get_rational() / m).is_int())
                 continue;
-            TRACE("patch_int",
+            TRACE(patch_int,
                   tout << "TARGET v" << v << " -> [";
                   if (inf_l) tout << "-oo"; else tout << ceil(l);
                   tout << ", ";
@@ -957,13 +957,13 @@ namespace smt {
     */
     template<typename Ext>
     final_check_status theory_arith<Ext>::check_int_feasibility() {
-        TRACE("arith_int_detail", get_context().display(tout););
+        TRACE(arith_int_detail, get_context().display(tout););
         if (!has_infeasible_int_var()) {
-            TRACE("arith", tout << "FC_DONE 1...\n"; display(tout););
+            TRACE(arith, tout << "FC_DONE 1...\n"; display(tout););
             return FC_DONE;
         }
 
-        TRACE("arith",
+        TRACE(arith,
               int num = get_num_vars();
               for (theory_var v = 0; v < num; v++) {
                   if (is_int(v) && !get_value(v).is_int()) {
@@ -976,7 +976,7 @@ namespace smt {
                   }
               });
 
-        TRACE("arith_int_fracs_min_max",
+        TRACE(arith_int_fracs_min_max,
               numeral max(0);
               numeral min(1);
               int num = get_num_vars();
@@ -993,7 +993,7 @@ namespace smt {
               tout << "max: " << max << ", min: " << min << "\n";);
 
         if (m_params.m_arith_ignore_int) {
-            TRACE("arith", tout << "Ignore int: give up\n";);
+            TRACE(arith, tout << "Ignore int: give up\n";);
             return FC_GIVEUP;
         }
 
@@ -1005,7 +1005,7 @@ namespace smt {
 
         remove_fixed_vars_from_base();
 
-        TRACE("arith_int_freedom",
+        TRACE(arith_int_freedom,
               int num = get_num_vars();
               bool inf_l; bool inf_u;
               inf_numeral l; inf_numeral u;
@@ -1030,7 +1030,7 @@ namespace smt {
         if (get_context().inconsistent())
             return FC_CONTINUE;
         
-        TRACE("arith_int_inf",
+        TRACE(arith_int_inf,
               int num = get_num_vars();
               for (theory_var v = 0; v < num; v++) {
                   if (is_int(v) && !get_value(v).is_int()) {
@@ -1038,7 +1038,7 @@ namespace smt {
                   }
               });
 
-        TRACE("arith_int_rows",
+        TRACE(arith_int_rows,
               unsigned num = 0;
               for (auto const& e : m_rows) {
                   theory_var v = e.get_base_var();
@@ -1055,7 +1055,7 @@ namespace smt {
         theory_var int_var = find_infeasible_int_base_var();
         if (int_var == null_theory_var) {
             m_stats.m_patches_succ++;
-            TRACE("arith_int_incomp", tout << "FC_DONE 2...\n"; display(tout););
+            TRACE(arith_int_incomp, tout << "FC_DONE 2...\n"; display(tout););
             return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
         }
         
@@ -1072,22 +1072,22 @@ namespace smt {
 
         m_branch_cut_counter++;
         // TODO: add giveup code
-        TRACE("gomory_cut", tout << m_branch_cut_counter << ", " << m_params.m_arith_branch_cut_ratio << std::endl;);
+        TRACE(gomory_cut, tout << m_branch_cut_counter << ", " << m_params.m_arith_branch_cut_ratio << std::endl;);
         if (m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) {
-            TRACE("opt_verbose", display(tout););
+            TRACE(opt_verbose, display(tout););
             move_non_base_vars_to_bounds();
             if (!make_feasible()) {
-                TRACE("arith_int", tout << "failed to move variables to bounds.\n";);
+                TRACE(arith_int, tout << "failed to move variables to bounds.\n";);
                 failed();
                 return FC_CONTINUE;
             }
             theory_var int_var = find_infeasible_int_base_var();
             if (int_var != null_theory_var) {
-                TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
+                TRACE(arith_int, tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
                 SASSERT(is_base(int_var));
                 row const & r = m_rows[get_var_row(int_var)];
                 if (!mk_gomory_cut(r)) {
-                    TRACE("gomory_cut", tout << "silent failure\n";);
+                    TRACE(gomory_cut, tout << "silent failure\n";);
                 }
                 return FC_CONTINUE;
             }
@@ -1100,7 +1100,7 @@ namespace smt {
 
             theory_var int_var = find_infeasible_int_base_var();
             if (int_var != null_theory_var) {
-                TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
+                TRACE(arith_int, tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
                 // apply branching 
                 branch_infeasible_int_var(int_var);
                 ++m_stats.m_branch_infeasible_var;

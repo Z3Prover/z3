@@ -159,7 +159,7 @@ namespace sat {
 
         bool force = s.m_config.m_cut_force;
         report _report(*this);
-        TRACE("cut_simplifier", s.display(tout););
+        TRACE(cut_simplifier, s.display(tout););
         unsigned n = 0, i = 0;
         ++m_stats.m_num_calls;
         do {
@@ -220,7 +220,7 @@ namespace sat {
             // <=> 
             // ~head = t1 + t2 + ..
             literal head = ~xors[index];
-            TRACE("cut_simplifier", tout << xors << "\n";);
+            TRACE(cut_simplifier, tout << xors << "\n";);
             unsigned sz = xors.size() - 1;
             m_lits.reset();
             for (unsigned i = xors.size(); i-- > 0; ) {
@@ -342,7 +342,7 @@ namespace sat {
     void cut_simplifier::assign_equiv(cut const& c, literal u, literal v) {
         if (u.var() == v.var()) return;
         IF_VERBOSE(10, verbose_stream() << u << " " << v << " " << c << "\n";);
-        TRACE("cut_simplifier", tout << u << " == " << v << "\n";);                            
+        TRACE(cut_simplifier, tout << u << " == " << v << "\n";);                            
         certify_equivalence(u, v, c);                    
         validate_eq(u, v);
     }

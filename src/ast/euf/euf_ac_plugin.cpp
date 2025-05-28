@@ -437,10 +437,10 @@ namespace euf {
             if (eq_id == UINT_MAX)
                 break;
 
-            TRACE("plugin", tout << "propagate " << eq_id << ": " << eq_pp(*this, m_eqs[eq_id]) << "\n");
+            TRACE(plugin, tout << "propagate " << eq_id << ": " << eq_pp(*this, m_eqs[eq_id]) << "\n");
 
             // simplify eq using processed
-            TRACE("plugin", 
+            TRACE(plugin, 
                   for (auto other_eq : backward_iterator(eq_id))
                       tout << "backward iterator " << eq_id << " vs " << other_eq << " " << is_processed(other_eq) << "\n");
             for (auto other_eq : backward_iterator(eq_id))
@@ -466,7 +466,7 @@ namespace euf {
         }
         propagate_shared();
 
-        CTRACE("plugin", !m_shared.empty() || !m_eqs.empty(), display(tout));
+        CTRACE(plugin, !m_shared.empty() || !m_eqs.empty(), display(tout));
     }
 
     unsigned ac_plugin::pick_next_eq() {
@@ -637,11 +637,11 @@ namespace euf {
         auto& src = m_eqs[src_eq];  // src_r_counts, src_l_counts are initialized
         auto& dst = m_eqs[dst_eq];
 
-        TRACE("plugin", tout << "forward simplify " << eq_pp(*this, src) << " " << eq_pp(*this, dst) << "\n");
+        TRACE(plugin, tout << "forward simplify " << eq_pp(*this, src) << " " << eq_pp(*this, dst) << "\n");
 
 
         if (forward_subsumes(src_eq, dst_eq)) {
-            TRACE("plugin", tout << "forward subsumed\n");
+            TRACE(plugin, tout << "forward subsumed\n");
             set_status(dst_eq, eq_status::is_dead);
             return;
         }
@@ -691,7 +691,7 @@ namespace euf {
         push_undo(is_update_eq);
         m_src_r.reset();
         m_src_r.append(monomial(src.r).m_nodes);
-        TRACE("plugin", tout << "rewritten to " << m_pp(*this, monomial(new_r)) << "\n");
+        TRACE(plugin, tout << "rewritten to " << m_pp(*this, monomial(new_r)) << "\n");
     }
 
     bool ac_plugin::backward_simplify(unsigned dst_eq, unsigned src_eq) {
@@ -703,10 +703,10 @@ namespace euf {
         //
         // dst_ids, dst_count contain rhs of dst_eq
         //
-        TRACE("plugin", tout << "backward simplify " << eq_pp(*this, src) << " " << eq_pp(*this, dst) << " can-be-subset: " << can_be_subset(monomial(src.l), monomial(dst.r)) << "\n");
+        TRACE(plugin, tout << "backward simplify " << eq_pp(*this, src) << " " << eq_pp(*this, dst) << " can-be-subset: " << can_be_subset(monomial(src.l), monomial(dst.r)) << "\n");
 
         if (backward_subsumes(src_eq, dst_eq)) {
-            TRACE("plugin", tout << "backward subsumed\n");
+            TRACE(plugin, tout << "backward subsumed\n");
             set_status(dst_eq, eq_status::is_dead);
             return true;
         }
@@ -714,7 +714,7 @@ namespace euf {
         if (!can_be_subset(monomial(src.l), monomial(dst.r)))
             return false;
         if (!is_subset(m_dst_r_counts, m_src_l_counts, monomial(src.l))) {
-            TRACE("plugin", tout << "not subset\n");
+            TRACE(plugin, tout << "not subset\n");
             return false;
         }
 
@@ -731,7 +731,7 @@ namespace euf {
         m_update_eq_trail.push_back({ dst_eq, m_eqs[dst_eq] });
         m_eqs[dst_eq].r = new_r;
         m_eqs[dst_eq].j = j;
-        TRACE("plugin", tout << "rewritten to " << m_pp(*this, monomial(new_r)) << "\n");
+        TRACE(plugin, tout << "rewritten to " << m_pp(*this, monomial(new_r)) << "\n");
         push_undo(is_update_eq);
         return true;
     }
@@ -850,7 +850,7 @@ namespace euf {
                         continue;
                     if (!is_subset(m_m_counts, m_eq_counts, monomial(src.l)))
                         continue;
-                    TRACE("plugin", display_equation(tout << "reduce ", src) << "\n");
+                    TRACE(plugin, display_equation(tout << "reduce ", src) << "\n");
                     SASSERT(is_correct_ref_count(monomial(src.l), m_eq_counts));
                     rewrite1(m_eq_counts, monomial(src.r), m_m_counts, m);
                     j = join(j, eq);
@@ -900,7 +900,7 @@ namespace euf {
         auto& src = m_eqs[src_eq];
         auto& dst = m_eqs[dst_eq];
 
-        TRACE("plugin", tout << "superpose: "; display_equation(tout, src); tout << " "; display_equation(tout, dst); tout << "\n";);
+        TRACE(plugin, tout << "superpose: "; display_equation(tout, src); tout << " "; display_equation(tout, dst); tout << "\n";);
         // AB -> C, AD -> E => BE ~ CD
         // m_src_ids, m_src_counts contains information about src (call it AD -> E)
         m_dst_l_counts.reset();
@@ -941,7 +941,7 @@ namespace euf {
             return;
         }
 
-        TRACE("plugin", tout << m_pp(*this, m_src_r) << "== " << m_pp(*this, m_dst_r) << "\n";);
+        TRACE(plugin, tout << m_pp(*this, m_src_r) << "== " << m_pp(*this, m_dst_r) << "\n";);
 
         justification j = justify_rewrite(src_eq, dst_eq);
         reduce(m_dst_r, j);
@@ -994,11 +994,11 @@ namespace euf {
         m_monomial_table.reset();
         for (auto const& s1 : m_shared) {
             shared s2;
-            TRACE("plugin", tout << "shared " << m_pp(*this, monomial(s1.m)) << "\n");
+            TRACE(plugin, tout << "shared " << m_pp(*this, monomial(s1.m)) << "\n");
             if (!m_monomial_table.find(s1.m, s2)) 
                 m_monomial_table.insert(s1.m, s1);
             else if (s2.n->get_root() != s1.n->get_root()) {
-                TRACE("plugin", tout << m_pp(*this, monomial(s1.m)) << " == " << m_pp(*this, monomial(s2.m)) << "\n");
+                TRACE(plugin, tout << m_pp(*this, monomial(s1.m)) << " == " << m_pp(*this, monomial(s2.m)) << "\n");
                 push_merge(s1.n, s2.n, justification::dependent(m_dep_manager.mk_join(m_dep_manager.mk_leaf(s1.j), m_dep_manager.mk_leaf(s2.j))));
             }
         }
@@ -1008,7 +1008,7 @@ namespace euf {
         auto j = s.j;
         auto old_m = s.m;
         ptr_vector<node> m1(monomial(old_m).m_nodes);
-        TRACE("plugin", tout << "simplify " << m_pp(*this, monomial(old_m)) << "\n");
+        TRACE(plugin, tout << "simplify " << m_pp(*this, monomial(old_m)) << "\n");
         if (!reduce(m1, j))
             return;
 

@@ -192,7 +192,7 @@ namespace opt {
     };
 
     void preprocess::process_mutex(expr_ref_vector& mutex, obj_map<expr, rational>& new_soft, rational& lower) {
-        TRACE("opt", 
+        TRACE(opt, 
               for (expr* e : mutex) {
                   tout << mk_pp(e, m) << " |-> " << new_soft.find(e) << "\n";
               });

@@ -111,7 +111,7 @@ namespace smt {
             }
             m_trail_stack.push(reset_flag_trail(d->m_prop_upward));
             d->m_prop_upward = true;
-            TRACE("array", tout << "#" << v << "\n";);
+            TRACE(array, tout << "#" << v << "\n";);
             if (!m_params.m_array_delay_exp_axiom) {
                 instantiate_axiom2b_for(v);
                 instantiate_axiom_map_for(v);
@@ -133,7 +133,7 @@ namespace smt {
     // call set_prop_upward on array arguments.
     // 
     void theory_array_full::set_prop_upward(enode * n) {
-        TRACE("array", tout << pp(n, m) << "\n";);
+        TRACE(array, tout << pp(n, m) << "\n";);
         if (is_store(n)) {
             set_prop_upward(n->get_arg(0)->get_th_var(get_id()));
         }
@@ -265,7 +265,7 @@ namespace smt {
         if (ctx.e_internalized(n)) {
             return true;
         }
-        TRACE("array", tout << mk_pp(n, m) << "\n";);
+        TRACE(array, tout << mk_pp(n, m) << "\n";);
 
         if (is_store(n) || is_select(n)) {
             return theory_array::internalize_term(n);
@@ -358,7 +358,7 @@ namespace smt {
             add_as_array(v1, n);
         for (enode* n : d2->m_lambdas)
             add_lambda(v1, n);
-        TRACE("array", 
+        TRACE(array, 
               tout << pp(get_enode(v1), m) << "\n";
               tout << pp(get_enode(v2), m) << "\n";
               tout << "merge in\n"; display_var(tout, v2);
@@ -369,7 +369,7 @@ namespace smt {
         SASSERT(v != null_theory_var);
         v = find(v);
         var_data* d = m_var_data[v];
-        TRACE("array", tout << "v" << v << " " << pp(get_enode(v), m) << " " 
+        TRACE(array, tout << "v" << v << " " << pp(get_enode(v), m) << " " 
               << d->m_prop_upward << " " << m_params.m_array_delay_exp_axiom << "\n";);
         for (enode * store : d->m_stores) {
             SASSERT(is_store(store));
@@ -382,7 +382,7 @@ namespace smt {
     }
 
     void theory_array_full::add_parent_select(theory_var v, enode * s) {
-        TRACE("array", 
+        TRACE(array, 
               tout << v << " select parent: " << pp(s, m) << "\n";
               display_var(tout, v);
               );
@@ -408,7 +408,7 @@ namespace smt {
     }
     
     void theory_array_full::relevant_eh(app* n) {
-        TRACE("array", tout << mk_pp(n, m) << "\n";);
+        TRACE(array, tout << mk_pp(n, m) << "\n";);
         theory_array::relevant_eh(n);
         if (!is_default(n) && !is_select(n) && !is_map(n) && !is_const(n) && !is_as_array(n)){
             return;
@@ -469,7 +469,7 @@ namespace smt {
         func_decl* f = to_func_decl(map->get_decl()->get_parameter(0).get_ast());
 
 
-        TRACE("array_map_bug", tout << "invoked instantiate_select_map_axiom\n";
+        TRACE(array_map_bug, tout << "invoked instantiate_select_map_axiom\n";
               tout << sl->get_owner_id() << " " << mp->get_owner_id() << "\n";
               tout << mk_ismt2_pp(sl->get_expr(), m) << "\n" << mk_ismt2_pp(mp->get_expr(), m) << "\n";);
 
@@ -477,10 +477,10 @@ namespace smt {
             return false;
         }
 
-        TRACE("array_map_bug", tout << "new axiom\n";);
+        TRACE(array_map_bug, tout << "new axiom\n";);
 
         m_stats.m_num_map_axiom++;
-        TRACE("array", 
+        TRACE(array, 
               tout << mk_bounded_pp(mp->get_expr(), m) << "\n";
               tout << mk_bounded_pp(sl->get_expr(), m) << "\n";);
         unsigned num_args   = select->get_num_args();
@@ -512,7 +512,7 @@ namespace smt {
         ctx.internalize(sel1, false);
         ctx.internalize(sel2, false);
         
-        TRACE("array_map_bug",
+        TRACE(array_map_bug,
               tout << "select-map axiom\n" << mk_ismt2_pp(sel1, m) << "\n=\n" << mk_ismt2_pp(sel2,m) << "\n";);
 
         return try_assign_eq(sel1, sel2);
@@ -532,7 +532,7 @@ namespace smt {
         if (!ctx.add_fingerprint(this, m_default_map_fingerprint, 1, &mp)) {
             return false;
         }
-        TRACE("array", tout << mk_bounded_pp(map, m) << "\n";);
+        TRACE(array, tout << mk_bounded_pp(map, m) << "\n";);
 
         m_stats.m_num_default_map_axiom++;
 
@@ -558,7 +558,7 @@ namespace smt {
         }
         m_stats.m_num_default_const_axiom++;
         SASSERT(is_const(cnst));
-        TRACE("array", tout << mk_bounded_pp(cnst->get_expr(), m) << "\n";);
+        TRACE(array, tout << mk_bounded_pp(cnst->get_expr(), m) << "\n";);
         expr* val = cnst->get_arg(0)->get_expr();
         expr_ref def(mk_default(cnst->get_expr()), m);
         ctx.internalize(def, false);
@@ -578,7 +578,7 @@ namespace smt {
         }
         m_stats.m_num_default_as_array_axiom++;
         SASSERT(is_as_array(arr));
-        TRACE("array", tout << mk_bounded_pp(arr->get_owner(), m) << "\n";);
+        TRACE(array, tout << mk_bounded_pp(arr->get_owner(), m) << "\n";);
         expr* def = mk_default(arr->get_owner());
         func_decl * f = array_util(m).get_as_array_func_decl(arr->get_owner());
         ptr_vector<expr> args;
@@ -599,7 +599,7 @@ namespace smt {
         expr* e = arr->get_expr();
         expr_ref def(mk_default(e), m);
         quantifier* lam = m.is_lambda_def(arr->get_decl());
-        TRACE("array", tout << mk_pp(lam, m) << "\n" << mk_pp(e, m) << "\n");
+        TRACE(array, tout << mk_pp(lam, m) << "\n" << mk_pp(e, m) << "\n");
         expr_ref_vector args(m);       
         var_subst subst(m, false);
         args.push_back(subst(lam, to_app(e)->get_num_args(), to_app(e)->get_args()));
@@ -675,7 +675,7 @@ namespace smt {
         }
         expr * sel = mk_select(sel_args.size(), sel_args.data());
         expr * val = cnst->get_expr()->get_arg(0);
-        TRACE("array", tout << "new select-const axiom...\n";
+        TRACE(array, tout << "new select-const axiom...\n";
               tout << "const: " << mk_bounded_pp(cnst->get_expr(), m) << "\n";
               tout << "select: " << mk_bounded_pp(select->get_expr(), m) << "\n";
               tout << " sel/const: " << mk_bounded_pp(sel, m) << "\n";
@@ -710,7 +710,7 @@ namespace smt {
         expr * sel = mk_select(sel_args.size(), sel_args.data());
         func_decl * f = array_util(m).get_as_array_func_decl(arr->get_expr());
         expr_ref val(m.mk_app(f, sel_args.size()-1, sel_args.data()+1), m);
-        TRACE("array", tout << "new select-as-array axiom...\n";
+        TRACE(array, tout << "new select-as-array axiom...\n";
               tout << "as-array: " << mk_bounded_pp(arr->get_expr(), m) << "\n";
               tout << "select: " << mk_bounded_pp(select->get_expr(), m) << "\n";
               tout << " sel/as-array: " << mk_bounded_pp(sel, m) << "\n";
@@ -736,7 +736,7 @@ namespace smt {
 
         expr_ref def1(m), def2(m);
 
-        TRACE("array", tout << mk_bounded_pp(store_app, m) << "\n";);
+        TRACE(array, tout << mk_bounded_pp(store_app, m) << "\n";);
 
         unsigned num_args = store_app->get_num_args();
 
@@ -827,14 +827,14 @@ namespace smt {
         for (enode* n : m_as_array) {
             for (enode* p : n->get_parents())
                 if (!ctx.is_beta_redex(p, n)) {
-                    TRACE("array", tout << "not a beta redex " << enode_pp(p, ctx) << "\n");
+                    TRACE(array, tout << "not a beta redex " << enode_pp(p, ctx) << "\n");
                     return true;
                 }
         }
         for (enode* n : m_lambdas) 
             for (enode* p : n->get_parents())
                 if (!is_default(p) && !ctx.is_beta_redex(p, n)) {
-                    TRACE("array", tout << "lambda is not a beta redex " << enode_pp(p, ctx) << "\n");
+                    TRACE(array, tout << "lambda is not a beta redex " << enode_pp(p, ctx) << "\n");
                     return true;
                 }
         return false;
@@ -843,7 +843,7 @@ namespace smt {
 
     bool theory_array_full::instantiate_parent_stores_default(theory_var v) {
         SASSERT(v != null_theory_var);
-        TRACE("array", tout << "v" << v << "\n";);
+        TRACE(array, tout << "v" << v << "\n";);
         v = find(v);
         var_data* d = m_var_data[v];
         bool result = false;
@@ -859,7 +859,7 @@ namespace smt {
     }
 
     bool theory_array_full::try_assign_eq(expr* v1, expr* v2) {
-        TRACE("array", tout << mk_bounded_pp(v1, m) << "\n==\n" << mk_bounded_pp(v2, m) << "\n";);
+        TRACE(array, tout << mk_bounded_pp(v1, m) << "\n==\n" << mk_bounded_pp(v2, m) << "\n";);
         
         if (m_eqs.contains(v1, v2)) {
             return false;

@@ -1506,7 +1506,7 @@ std::ostream& ast_manager::display(std::ostream& out, parameter const& p) {
 }
 
 void ast_manager::copy_families_plugins(ast_manager const & from) {
-    TRACE("copy_families_plugins",
+    TRACE(copy_families_plugins,
           tout << "target:\n";
           for (family_id fid = 0; m_family_manager.has_family(fid); fid++) {
               tout << "fid: " << fid << " fidname: " << get_family_name(fid) << "\n";
@@ -1520,7 +1520,7 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
         if (!m_family_manager.has_family(fid)) {
             family_id new_fid = mk_family_id(fid_name);
             (void)new_fid;
-            TRACE("copy_families_plugins", tout << "new target fid created: " << new_fid << " fid_name: " << fid_name << "\n";);
+            TRACE(copy_families_plugins, tout << "new target fid created: " << new_fid << " fid_name: " << fid_name << "\n";);
         }
     }
     for (family_id fid = 0; from.m_family_manager.has_family(fid); fid++) {
@@ -1528,10 +1528,10 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
         SASSERT(!from.is_builtin_family_id(fid) || m_family_manager.has_family(fid));
         symbol fid_name   = from.get_family_name(fid);
         (void)fid_name;
-        TRACE("copy_families_plugins", tout << "copying: " << fid_name << ", src fid: " << fid
+        TRACE(copy_families_plugins, tout << "copying: " << fid_name << ", src fid: " << fid
               << ", target has_family: " << m_family_manager.has_family(fid) << "\n";
               if (m_family_manager.has_family(fid)) tout << get_family_id(fid_name) << "\n";);
-        TRACE("copy_families_plugins", tout << "target fid: " << get_family_id(fid_name) << "\n";);
+        TRACE(copy_families_plugins, tout << "target fid: " << get_family_id(fid_name) << "\n";);
         SASSERT(fid == get_family_id(fid_name));
         if (from.has_plugin(fid) && !has_plugin(fid)) {
             decl_plugin * new_p = from.get_plugin(fid)->mk_fresh();
@@ -1630,7 +1630,7 @@ bool ast_manager::are_distinct(expr* a, expr* b) const {
 }
 
 void ast_manager::add_lambda_def(func_decl* f, quantifier* q) {
-    TRACE("model", tout << "add lambda def " << mk_pp(q, *this) << "\n");
+    TRACE(model, tout << "add lambda def " << mk_pp(q, *this) << "\n");
     m_lambda_defs.insert(f, q);
     f->get_info()->set_lambda(true);
     inc_ref(q);
@@ -1658,7 +1658,7 @@ bool ast_manager::slow_not_contains(ast const * n) {
     unsigned num = 0;
     for (ast * curr : m_ast_table) {
         if (compare_nodes(curr, n)) {
-            TRACE("nondet_bug",
+            TRACE(nondet_bug,
                   tout << "id1:   " << curr->get_id() << ", id2: " << n->get_id() << "\n";
                   tout << "hash1: " << get_node_hash(curr) << ", hash2: " << get_node_hash(n) << "\n";);
             return false;
@@ -1680,7 +1680,7 @@ static unsigned s_count = 0;
 static void track_id(ast_manager& m, ast* n, unsigned id) {
     if (n->get_id() != id) return;
     ++s_count;
-    TRACE("ast", tout << s_count << "\n";);
+    TRACE(ast, tout << s_count << "\n";);
 //    SASSERT(s_count != 5);
 }
 #endif
@@ -1717,8 +1717,8 @@ ast * ast_manager::register_node_core(ast * n) {
 
   //  track_id(*this, n, 9213);
     
-//    TRACE("ast", tout << (s_count++) << " Object " << n->m_id << " was created.\n";);
-    TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);
+//    TRACE(ast, tout << (s_count++) << " Object " << n->m_id << " was created.\n";);
+    TRACE(mk_var_bug, tout << "mk_ast: " << n->m_id << "\n";);
     // increment reference counters
     switch (n->get_kind()) {
     case AST_SORT:
@@ -1804,16 +1804,16 @@ ast * ast_manager::register_node_core(ast * n) {
 
 
 void ast_manager::delete_node(ast * n) {
-    TRACE("delete_node_bug", tout << mk_ll_pp(n, *this) << "\n";);
+    TRACE(delete_node_bug, tout << mk_ll_pp(n, *this) << "\n";);
 
     SASSERT(m_ast_table.contains(n));
     m_ast_table.push_erase(n);
 
     while ((n = m_ast_table.pop_erase())) {
 
-        CTRACE("del_quantifier", is_quantifier(n), tout << "deleting quantifier " << n->m_id << " " << n << "\n";);
-        TRACE("mk_var_bug", tout << "del_ast: " << " " << n->m_ref_count << "\n";);
-        TRACE("ast_delete_node", tout << mk_bounded_pp(n, *this) << "\n";);
+        CTRACE(del_quantifier, is_quantifier(n), tout << "deleting quantifier " << n->m_id << " " << n << "\n";);
+        TRACE(mk_var_bug, tout << "del_ast: " << " " << n->m_ref_count << "\n";);
+        TRACE(ast_delete_node, tout << mk_bounded_pp(n, *this) << "\n";);
 
         SASSERT(!m_debug_ref_count || !m_debug_free_indices.contains(n->m_id));
 
@@ -2251,7 +2251,7 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
             }
         }
         else if (decl->is_chainable()) {
-            TRACE("chainable", tout << "chainable...\n";);
+            TRACE(chainable, tout << "chainable...\n";);
             ptr_buffer<expr> new_args;
             for (unsigned i = 1; i < num_args; i++) {
                 new_args.push_back(mk_app_core(decl, args[i-1], args[i]));
@@ -2263,7 +2263,7 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
         r = mk_app_core(decl, num_args, args);
     }
     SASSERT(r != 0);
-    TRACE("app_ground", tout << "ground: " << r->is_ground() << " id: " << r->get_id() << "\n" << mk_ll_pp(r, *this) << "\n";);
+    TRACE(app_ground, tout << "ground: " << r->is_ground() << " id: " << r->get_id() << "\n" << mk_ll_pp(r, *this) << "\n";);
     return r;
 }
 
@@ -2432,7 +2432,7 @@ quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, s
         throw ast_exception("simultaneous patterns and no-patterns not supported");
     DEBUG_CODE({
             for (unsigned i = 0; i < num_patterns; ++i) {
-                TRACE("ast", tout << i << " " << mk_pp(patterns[i], *this) << "\n";);
+                TRACE(ast, tout << i << " " << mk_pp(patterns[i], *this) << "\n";);
                 SASSERT(is_pattern(patterns[i]));
             }});
     unsigned sz               = quantifier::get_obj_size(num_decls, num_patterns, num_no_patterns);
@@ -2553,7 +2553,7 @@ quantifier * ast_manager::update_quantifier(quantifier * q, expr * body) {
 quantifier * ast_manager::update_quantifier_weight(quantifier * q, int w) {
     if (q->get_weight() == w)
         return q;
-    TRACE("update_quantifier_weight", tout << "#" << q->get_id() << " " << q->get_weight() << " -> " << w << "\n";);
+    TRACE(update_quantifier_weight, tout << "#" << q->get_id() << " " << q->get_weight() << " -> " << w << "\n";);
     return mk_quantifier(q->get_kind(),
                          q->get_num_decls(),
                          q->get_decl_sorts(),
@@ -2620,7 +2620,7 @@ app * ast_manager::mk_distinct_expanded(unsigned num_args, expr * const * args) 
         }
     }
     app * r = mk_and(new_args.size(), new_args.data());
-    TRACE("distinct", tout << "expanded distinct:\n" << mk_pp(r, *this) << "\n";);
+    TRACE(distinct, tout << "expanded distinct:\n" << mk_pp(r, *this) << "\n";);
     return r;
 }
 
@@ -2769,7 +2769,7 @@ proof * ast_manager::mk_true_proof() {
 }
 
 proof * ast_manager::mk_asserted(expr * f) {
-    CTRACE("mk_asserted_bug", !is_bool(f), tout << mk_ismt2_pp(f, *this) << "\nsort: " << mk_ismt2_pp(f->get_sort(), *this) << "\n";);
+    CTRACE(mk_asserted_bug, !is_bool(f), tout << mk_ismt2_pp(f, *this) << "\nsort: " << mk_ismt2_pp(f->get_sort(), *this) << "\n";);
     SASSERT(is_bool(f));
     return mk_proof(basic_family_id, PR_ASSERTED, f);
 }
@@ -2783,15 +2783,15 @@ proof * ast_manager::mk_modus_ponens(proof * p1, proof * p2) {
     if (!p2 || !p1) return p1;
     SASSERT(has_fact(p1));
     SASSERT(has_fact(p2));
-    CTRACE("mk_modus_ponens", !(is_implies(get_fact(p2)) || is_eq(get_fact(p2)) || is_oeq(get_fact(p2))),
+    CTRACE(mk_modus_ponens, !(is_implies(get_fact(p2)) || is_eq(get_fact(p2)) || is_oeq(get_fact(p2))),
            tout << mk_ll_pp(p1, *this) << "\n";
            tout << mk_ll_pp(p2, *this) << "\n";);
     SASSERT(is_implies(get_fact(p2)) || is_eq(get_fact(p2)) || is_oeq(get_fact(p2)));
-    CTRACE("mk_modus_ponens", to_app(get_fact(p2))->get_arg(0) != get_fact(p1),
+    CTRACE(mk_modus_ponens, to_app(get_fact(p2))->get_arg(0) != get_fact(p1),
            tout << mk_pp(get_fact(p1), *this) << "\n" << mk_pp(get_fact(p2), *this) << "\n";);
     SASSERT(!proofs_enabled() || to_app(get_fact(p2))->get_arg(0) == get_fact(p1));
-    CTRACE("mk_modus_ponens", !is_ground(p2) && !has_quantifiers(p2), tout << "Non-ground: " << mk_pp(p2, *this) << "\n";);
-    CTRACE("mk_modus_ponens", !is_ground(p1) && !has_quantifiers(p1), tout << "Non-ground: " << mk_pp(p1, *this) << "\n";);
+    CTRACE(mk_modus_ponens, !is_ground(p2) && !has_quantifiers(p2), tout << "Non-ground: " << mk_pp(p2, *this) << "\n";);
+    CTRACE(mk_modus_ponens, !is_ground(p1) && !has_quantifiers(p1), tout << "Non-ground: " << mk_pp(p1, *this) << "\n";);
     if (is_reflexivity(p2))
         return p1;
     expr * f = to_app(get_fact(p2))->get_arg(1);
@@ -2863,14 +2863,14 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
     app* fact2 = to_app(get_fact(p2));
     SASSERT(fact1->get_num_args() == 2);
     SASSERT(fact2->get_num_args() == 2);
-    CTRACE("mk_transitivity", fact1->get_decl() != fact2->get_decl(),
+    CTRACE(mk_transitivity, fact1->get_decl() != fact2->get_decl(),
            tout << mk_pp(fact1, *this) << "\n\n" << mk_pp(fact2, *this) << "\n";
            tout << mk_pp(fact1->get_decl(), *this) << "\n";
            tout << mk_pp(fact2->get_decl(), *this) << "\n";);
     SASSERT(fact1->get_decl() == fact2->get_decl() ||
             ( (is_eq(fact1) || is_oeq(fact1)) &&
               (is_eq(fact2) || is_oeq(fact2))));
-    CTRACE("mk_transitivity", fact1->get_arg(1) != fact2->get_arg(0),
+    CTRACE(mk_transitivity, fact1->get_arg(1) != fact2->get_arg(0),
            tout << mk_pp(fact1, *this) << "\n\n" << mk_pp(fact2, *this) << "\n";
            tout << p1->get_id() << ": " << mk_bounded_pp(p1, *this, 5) << "\n\n";
            tout << p2->get_id() << ": " << mk_bounded_pp(p2, *this, 5) << "\n\n";
@@ -3086,7 +3086,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
 
     if (!found_complement) {
         args.append(num_proofs, (expr**)proofs);
-        CTRACE("mk_unit_resolution_bug", !is_or(f1), tout << mk_ll_pp(f1, *this) << "\n";
+        CTRACE(mk_unit_resolution_bug, !is_or(f1), tout << mk_ll_pp(f1, *this) << "\n";
                for (unsigned i = 1; i < num_proofs; ++i)
                    tout << mk_pp(proofs[i], *this) << "\n";
                tout << "facts\n";
@@ -3121,7 +3121,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         }
         DEBUG_CODE({
                 for (unsigned i = 1; proofs_enabled() && i < num_proofs; i++) {
-                CTRACE("mk_unit_resolution_bug", !found.get(i, false),
+                CTRACE(mk_unit_resolution_bug, !found.get(i, false),
                        for (unsigned j = 0; j < num_proofs; j++) {
                            if (j == i) tout << "Index " << i << " was not found:\n";
                            tout << mk_ll_pp(get_fact(proofs[j]), *this);
@@ -3144,12 +3144,12 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
     }
     
     proof * pr = mk_app(basic_family_id, PR_UNIT_RESOLUTION, args.size(), args.data());
-    TRACE("unit_resolution", tout << "unit_resolution generating fact\n" << mk_ll_pp(pr, *this););
+    TRACE(unit_resolution, tout << "unit_resolution generating fact\n" << mk_ll_pp(pr, *this););
     return pr;
 }
 
 proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * proofs, expr * new_fact) {
-    TRACE("unit_bug",
+    TRACE(unit_bug,
           for (unsigned i = 0; i < num_proofs; i++) tout << mk_pp(get_fact(proofs[i]), *this) << "\n";
           tout << "===>\n";
           tout << mk_pp(new_fact, *this) << "\n";);
@@ -3167,7 +3167,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         SASSERT(is_or(f1));
         app * cls            = to_app(f1);
         unsigned cls_sz      = cls->get_num_args();
-        CTRACE("unit_bug", !(num_proofs == cls_sz || (num_proofs == cls_sz + 1 && is_false(new_fact))),
+        CTRACE(unit_bug, !(num_proofs == cls_sz || (num_proofs == cls_sz + 1 && is_false(new_fact))),
           for (unsigned i = 0; i < num_proofs; i++) tout << mk_pp(get_fact(proofs[i]), *this) << "\n";
           tout << "===>\n";
           tout << mk_pp(new_fact, *this) << "\n";);
@@ -3186,7 +3186,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
                 }
             }
             if (j == num_proofs) {
-                CTRACE("unit_bug", new_fact != lit, tout << mk_pp(f1, *this) << "\n" << mk_ll_pp(new_fact, *this) << "\n" << mk_ll_pp(lit, *this) << "\n";);
+                CTRACE(unit_bug, new_fact != lit, tout << mk_pp(f1, *this) << "\n" << mk_ll_pp(new_fact, *this) << "\n" << mk_ll_pp(lit, *this) << "\n";);
                 SASSERT(new_fact == lit);
                 ++num_occ;
             }
@@ -3196,7 +3196,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
     }
 #endif
     proof * pr = mk_app(basic_family_id, PR_UNIT_RESOLUTION, args.size(), args.data());
-    TRACE("unit_resolution", tout << "unit_resolution using fact\n" << mk_ll_pp(pr, *this););
+    TRACE(unit_resolution, tout << "unit_resolution using fact\n" << mk_ll_pp(pr, *this););
     return pr;
 }
 
@@ -3207,7 +3207,7 @@ proof * ast_manager::mk_hypothesis(expr * h) {
 proof * ast_manager::mk_lemma(proof * p, expr * lemma) {
     if (!p) return p;
     SASSERT(has_fact(p));
-    CTRACE("mk_lemma", !is_false(get_fact(p)), tout << mk_ll_pp(p, *this) << "\n";);
+    CTRACE(mk_lemma, !is_false(get_fact(p)), tout << mk_ll_pp(p, *this) << "\n";);
     SASSERT(is_false(get_fact(p)));
     return mk_app(basic_family_id, PR_LEMMA, p, lemma);
 }
@@ -3283,7 +3283,7 @@ proof * ast_manager::mk_and_elim(proof * p, unsigned i) {
         return nullptr;
     SASSERT(has_fact(p));
     SASSERT(is_and(get_fact(p)));
-    CTRACE("mk_and_elim", i >= to_app(get_fact(p))->get_num_args(), tout << "i: " << i << "\n" << mk_pp(get_fact(p), *this) << "\n";);
+    CTRACE(mk_and_elim, i >= to_app(get_fact(p))->get_num_args(), tout << "i: " << i << "\n" << mk_pp(get_fact(p), *this) << "\n";);
     SASSERT(i < to_app(get_fact(p))->get_num_args());
     expr * f = to_app(get_fact(p))->get_arg(i);
     return mk_app(basic_family_id, PR_AND_ELIM, p, f);
@@ -3365,7 +3365,7 @@ proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premis
     ptr_vector<expr> fmls;
     SASSERT(positions.size() + 1 == substs.size());
     for (unsigned i = 0; i < num_premises; ++i) {
-        TRACE("hyper_res", tout << mk_pp(premises[i], *this) << "\n";);
+        TRACE(hyper_res, tout << mk_pp(premises[i], *this) << "\n";);
         fmls.push_back(get_fact(premises[i]));
     }
     SASSERT(is_bool(concl));
@@ -3380,7 +3380,7 @@ proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premis
             params.push_back(parameter(positions[i].second));
         }
     }
-    TRACE("hyper_res",
+    TRACE(hyper_res,
           for (unsigned i = 0; i < params.size(); ++i) {
               params[i].display(tout); tout << "\n";
           });

@@ -150,7 +150,7 @@ namespace array {
     void solver::merge_eh(theory_var v1, theory_var v2, theory_var, theory_var) {
         euf::enode* n1 = var2enode(v1);
         euf::enode* n2 = var2enode(v2);
-        TRACE("array", tout << "merge: " << ctx.bpp(n1) << " == " << ctx.bpp(n2) << "\n";);
+        TRACE(array, tout << "merge: " << ctx.bpp(n1) << " == " << ctx.bpp(n2) << "\n";);
         SASSERT(n1->get_root() == n2->get_root());
         SASSERT(v1 == find(v1));
         expr* e1 = n1->get_expr();
@@ -179,8 +179,8 @@ namespace array {
         v_child = find(v_child);
         ctx.push_vec(get_var_data(v_child).m_parent_selects, select);
         euf::enode* child = var2enode(v_child);
-        TRACE("array", tout << "v" << v_child << " - " << ctx.bpp(select) << " " << ctx.bpp(child) << " prop: " << should_prop_upward(get_var_data(v_child)) << "\n";);
-        TRACE("array", tout << "can beta reduce " << can_beta_reduce(child) << "\n";);
+        TRACE(array, tout << "v" << v_child << " - " << ctx.bpp(select) << " " << ctx.bpp(child) << " prop: " << should_prop_upward(get_var_data(v_child)) << "\n";);
+        TRACE(array, tout << "can beta reduce " << can_beta_reduce(child) << "\n";);
         if (can_beta_reduce(child)) 
             push_axiom(select_axiom(select, child));
         propagate_parent_select_axioms(v_child);

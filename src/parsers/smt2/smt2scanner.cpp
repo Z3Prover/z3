@@ -103,7 +103,7 @@ namespace smt2 {
                 next();
                 m_string.push_back(0);
                 m_id = m_string.begin();
-                TRACE("scanner", tout << "new quoted symbol: " << m_id << "\n";);
+                TRACE(scanner, tout << "new quoted symbol: " << m_id << "\n";);
                 return SYMBOL_TOKEN;
             }
             else if (c != '|' && c != '\\' && escape) {
@@ -128,7 +128,7 @@ namespace smt2 {
             else {
                 m_string.push_back(0);
                 m_id = m_string.begin();
-                TRACE("scanner", tout << "new symbol: " << m_id << "\n";);
+                TRACE(scanner, tout << "new symbol: " << m_id << "\n";);
                 return SYMBOL_TOKEN;
             }
         }
@@ -175,7 +175,7 @@ namespace smt2 {
         }
         if (is_float)
             m_number /= q;
-        TRACE("scanner", tout << "new number: " << m_number << "\n";);
+        TRACE(scanner, tout << "new number: " << m_number << "\n";);
         return is_float ? FLOAT_TOKEN : INT_TOKEN;
     }
 

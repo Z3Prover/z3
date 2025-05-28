@@ -96,7 +96,7 @@ namespace smt {
                 else {
                     result = m_th.u().mk_numeral(0, s);
                 }
-                TRACE("theory_dl", tout << mk_pp(result, m_th.m()) << "\n";);
+                TRACE(theory_dl, tout << mk_pp(result, m_th.m()) << "\n";);
                 return result;
             }        
         };
@@ -114,7 +114,7 @@ namespace smt {
         char const * get_name() const override { return "datalog"; }
 
         bool internalize_atom(app * atom, bool gate_ctx) override {
-            TRACE("theory_dl", tout << mk_pp(atom, m()) << "\n";);
+            TRACE(theory_dl, tout << mk_pp(atom, m()) << "\n";);
             if (ctx.b_internalized(atom)) {
                 return true;
             }
@@ -136,7 +136,7 @@ namespace smt {
         }
 
         bool internalize_term(app * term) override {
-            TRACE("theory_dl", tout << mk_pp(term, m()) << "\n";);
+            TRACE(theory_dl, tout << mk_pp(term, m()) << "\n";);
             if (u().is_finite_sort(term)) {
                 return mk_rep(term);
             }
@@ -229,7 +229,7 @@ namespace smt {
             if (is_attached_to_var(e)) {
                 return false;
             }
-            TRACE("theory_dl", tout << mk_pp(n, m()) << "\n";);
+            TRACE(theory_dl, tout << mk_pp(n, m()) << "\n";);
             theory_var var = mk_var(e);
             ctx.attach_th_var(e, this, var);
             return true;
@@ -272,7 +272,7 @@ namespace smt {
         }
 
         void assert_cnstr(expr* e) {
-            TRACE("theory_dl", tout << mk_pp(e, m()) << "\n";);
+            TRACE(theory_dl, tout << mk_pp(e, m()) << "\n";);
             if (m().has_trace_stream()) log_axiom_instantiation(e);
             ctx.internalize(e, false);
             if (m().has_trace_stream()) m().trace_stream() << "[end-of-instance]\n";

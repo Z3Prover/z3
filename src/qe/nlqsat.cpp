@@ -267,7 +267,7 @@ namespace qe {
                 check_cancel();
                 init_assumptions();   
                 lbool res = s.m_solver.check(s.m_asms);
-                TRACE("qe", s.display(tout << res << "\n"); );
+                TRACE(qe, s.display(tout << res << "\n"); );
                 switch (res) {
                 case l_true:
                     s.save_model(is_exists(level()));
@@ -290,7 +290,7 @@ namespace qe {
             s.m_asms.reset();
             s.m_asms.push_back(is_exists()?s.m_is_true:~s.m_is_true);
             s.m_asms.append(s.m_assumptions);
-            TRACE("qe", tout << "model valid: " << s.m_valid_model << " level: " << lvl << " "; 
+            TRACE(qe, tout << "model valid: " << s.m_valid_model << " level: " << lvl << " "; 
                   s.display_assumptions(tout);
                   s.m_solver.display(tout););
 
@@ -322,7 +322,7 @@ namespace qe {
                     }
                 }
             }
-            TRACE("qe", s.display(tout);
+            TRACE(qe, s.display(tout);
                   tout << "assumptions\n";
                   for (nlsat::literal a : s.m_asms) {
                       s.m_solver.display(tout, a) << "\n";
@@ -380,14 +380,14 @@ namespace qe {
                     result.push_back(lit);
                 }
             }
-            TRACE("qe", s.m_solver.display(tout, result.size(), result.data()); tout << "\n";);
+            TRACE(qe, s.m_solver.display(tout, result.size(), result.data()); tout << "\n";);
             // project quantified real variables.
             // They are sorted by size, so we project the largest variables first to avoid 
             // renaming variables. 
             for (unsigned i = vars.size(); i-- > 0;) {
                 new_result.reset();
                 ex.project(vars[i], result.size(), result.data(), new_result);
-                TRACE("qe", display_project(tout, vars[i], result, new_result););
+                TRACE(qe, display_project(tout, vars[i], result, new_result););
                 result.swap(new_result);
             }
             negate_clause(result);
@@ -435,7 +435,7 @@ namespace qe {
             }
             nlsat::var_vector vs;
             s.m_solver.vars(l, vs);
-            TRACE("qe", s.m_solver.display(tout << vs << " ", l) << "\n";);
+            TRACE(qe, s.m_solver.display(tout << vs << " ", l) << "\n";);
             for (unsigned v : vs) {
                 level.merge(s.m_rvar2level.get(v, max_level()));
             }
@@ -454,11 +454,11 @@ namespace qe {
             s.m_preds[k]->push_back(l);
             s.m_solver.inc_ref(v);
             s.m_bvar2level.insert(v, level);            
-            TRACE("qe", s.m_solver.display(tout, l); tout << ": " << level << "\n";);
+            TRACE(qe, s.m_solver.display(tout, l); tout << ": " << level << "\n";);
         }
         
         void project() {
-            TRACE("qe", s.display_assumptions(tout););
+            TRACE(qe, s.display_assumptions(tout););
             if (!s.m_valid_model) {
                 pop(1);
                 return;
@@ -487,7 +487,7 @@ namespace qe {
                 SASSERT(num_scopes >= 2);
             }
             
-            TRACE("qe", tout << "backtrack: " << num_scopes << "\n";);
+            TRACE(qe, tout << "backtrack: " << num_scopes << "\n";);
             pop(num_scopes); 
         }
 
@@ -497,7 +497,7 @@ namespace qe {
             mbp(std::max(1u, level()-1), cl);            
             
             expr_ref fml = s.clause2fml(cl);
-            TRACE("qe", tout << level() << ": " << fml << "\n";);
+            TRACE(qe, tout << level() << ": " << fml << "\n";);
             max_level clevel = get_level(cl);
             if (level() == 1 || clevel.max() == 0) {
                 add_assumption_literal(cl, fml);           
@@ -621,7 +621,7 @@ namespace qe {
                     m_has_divs = true;
                     return;
                 }
-                TRACE("qe", tout << "not NRA: " << mk_pp(n, s.m) << "\n";);
+                TRACE(qe, tout << "not NRA: " << mk_pp(n, s.m) << "\n";);
                 throw tactic_exception("not NRA");
             }
             void operator()(quantifier * n) {}
@@ -740,7 +740,7 @@ namespace qe {
             goal_ref_buffer result;
             (*m_nftactic)(g, result);
             SASSERT(result.size() == 1);
-            TRACE("qe", result[0]->display(tout););
+            TRACE(qe, result[0]->display(tout););
             s.g2s(*result[0]);
 
             // insert variables and their levels.
@@ -753,18 +753,18 @@ namespace qe {
                     if (s.m_a2b.is_var(v)) {
                         SASSERT(m.is_bool(v));
                         nlsat::bool_var b = s.m_a2b.to_var(v);
-                        TRACE("qe", tout << mk_pp(v, m) << " |-> b" << b << "\n";);
+                        TRACE(qe, tout << mk_pp(v, m) << " |-> b" << b << "\n";);
                         s.m_bound_bvars.back().push_back(b);
                         set_level(b, lvl);
                     }
                     else if (s.m_t2x.is_var(v)) {
                         nlsat::var w = s.m_t2x.to_var(v);
-                        TRACE("qe", tout << mk_pp(v, m) << " |-> x" << w << "\n";);
+                        TRACE(qe, tout << mk_pp(v, m) << " |-> x" << w << "\n";);
                         s.m_bound_rvars.back().push_back(w);
                         s.m_rvar2level.setx(w, lvl, max_level());
                     }
                     else {
-                        TRACE("qe", tout << mk_pp(v, m) << " not found\n";);
+                        TRACE(qe, tout << mk_pp(v, m) << " not found\n";);
                     }
                 }
             }
@@ -772,13 +772,13 @@ namespace qe {
             s.m_is_true = nlsat::literal(s.m_a2b.to_var(is_true), false);
             // insert literals from arithmetical sub-formulas
             nlsat::atom_vector const& atoms = s.m_solver.get_atoms();
-            TRACE("qe", s.m_solver.display(tout););
+            TRACE(qe, s.m_solver.display(tout););
             for (unsigned i = 0; i < atoms.size(); ++i) {
                 if (atoms[i]) {
                     get_level(nlsat::literal(i, false));
                 }
             }
-            TRACE("qe", tout << fml << "\n";);
+            TRACE(qe, tout << fml << "\n";);
             return true;
         }
 
@@ -864,12 +864,12 @@ namespace qe {
                 fml = m.mk_not(fml);
             }                         
             reset();
-            TRACE("qe", tout << fml << "\n";);
+            TRACE(qe, tout << fml << "\n";);
             if (!hoist(fml)) {
                 result.push_back(in.get());
                 return;
             }
-            TRACE("qe", tout << "ex: " << fml << "\n";);
+            TRACE(qe, tout << "ex: " << fml << "\n";);
             lbool is_sat = check_sat();
             
             switch (is_sat) {

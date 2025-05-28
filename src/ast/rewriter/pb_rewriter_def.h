@@ -35,7 +35,7 @@ void pb_rewriter_util<PBU>::display(std::ostream& out, typename PBU::args_t& arg
 template<typename PBU>
 void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::numeral& k, bool is_eq) {
     
-    TRACE("pb_verbose", display(tout << "pre-unique:", args, k, is_eq););
+    TRACE(pb_verbose, display(tout << "pre-unique:", args, k, is_eq););
     for (unsigned i = 0; i < args.size(); ++i) {
         if (m_util.is_negated(args[i].first)) {
             args[i].first = m_util.negate(args[i].first);
@@ -84,12 +84,12 @@ void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::num
         }
     }
     args.resize(i);
-    TRACE("pb_verbose", display(tout << "post-unique:", args, k, is_eq););
+    TRACE(pb_verbose, display(tout << "post-unique:", args, k, is_eq););
 }
 
 template<typename PBU>
 lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU::numeral& k, bool is_eq) {
-    TRACE("pb_verbose", display(tout << "pre-normalize:", args, k, is_eq););
+    TRACE(pb_verbose, display(tout << "pre-normalize:", args, k, is_eq););
 
     DEBUG_CODE(
         bool found = false;
@@ -167,7 +167,7 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
         return l_false;
     }
     if (is_eq) {
-        TRACE("pb_verbose", display(tout << "post-normalize:", args, k, is_eq););
+        TRACE(pb_verbose, display(tout << "post-normalize:", args, k, is_eq););
         return l_undef;
     }
     
@@ -265,7 +265,7 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
             k = n1 + PBU::numeral::one();
         }
     }
-    TRACE("pb_verbose", display(tout << "post-normalize:", args, k, is_eq););
+    TRACE(pb_verbose, display(tout << "post-normalize:", args, k, is_eq););
     return l_undef;
 }
 

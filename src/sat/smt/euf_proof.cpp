@@ -118,7 +118,7 @@ namespace euf {
 
     void solver::log_antecedents(literal l, literal_vector const& r, th_proof_hint* hint) {
         SASSERT(hint && use_drat());
-        TRACE("euf", log_antecedents(tout, l, r); tout << mk_pp(hint->get_hint(*this), m) << "\n");
+        TRACE(euf, log_antecedents(tout, l, r); tout << mk_pp(hint->get_hint(*this), m) << "\n");
         literal_vector lits;
         for (literal lit : r) 
             lits.push_back(~lit);
@@ -368,7 +368,7 @@ namespace euf {
     }
 
     void solver::on_clause(unsigned n, literal const* lits, sat::status st) {
-        TRACE("euf_verbose", tout << "on-clause " << n << "\n");
+        TRACE(euf_verbose, tout << "on-clause " << n << "\n");
         on_lemma(n, lits, st);
         on_proof(n, lits, st);
         on_check(n, lits, st);

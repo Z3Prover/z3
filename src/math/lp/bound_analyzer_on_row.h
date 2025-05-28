@@ -300,7 +300,7 @@ namespace lp {
             const auto& row = this->m_row;
             auto explain = [row, bound_j, coeff_before_j_is_pos, is_lower_bound, strict, lar]() {
                 (void) strict;
-                TRACE("bound_analyzer", tout << "explain_bound_on_var_on_coeff, bound_j = " << bound_j << ", coeff_before_j_is_pos = " << coeff_before_j_is_pos << ", is_lower_bound = " << is_lower_bound << ", strict = " << strict << "\n";);
+                TRACE(bound_analyzer, tout << "explain_bound_on_var_on_coeff, bound_j = " << bound_j << ", coeff_before_j_is_pos = " << coeff_before_j_is_pos << ", is_lower_bound = " << is_lower_bound << ", strict = " << strict << "\n";);
                 int bound_sign = (is_lower_bound ? 1 : -1);
                 int j_sign = (coeff_before_j_is_pos ? 1 : -1) * bound_sign;
 

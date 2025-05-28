@@ -100,7 +100,7 @@ public:
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
         tactic_report report("split-clause", *in);
-        TRACE("before_split_clause", in->display(tout););
+        TRACE(before_split_clause, in->display(tout););
         ast_manager & m = in->m();
         unsigned cls_pos = select_clause(m, in);
         if (cls_pos == UINT_MAX) {

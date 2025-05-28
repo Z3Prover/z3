@@ -84,7 +84,7 @@ bool sls_engine::full_eval(model & mdl) {
         if (!m_manager.inc())
             return false;
         if (!mdl.is_true(a)) {
-            TRACE("sls", tout << "Evaluation: false\n";);
+            TRACE(sls, tout << "Evaluation: false\n";);
             return false;
         }
     }    
@@ -96,7 +96,7 @@ double sls_engine::top_score() {
     for (expr* e : m_assertions) {
         top_sum += m_tracker.get_score(e);
     }
-    TRACE("sls_top", tout << "Score distribution:";
+    TRACE(sls_top, tout << "Score distribution:";
           for (expr* e : m_assertions) 
               tout << " " << m_tracker.get_score(e);
           tout << " AVG: " << top_sum / (double)m_assertions.size() << std::endl;);
@@ -152,7 +152,7 @@ bool sls_engine::what_if(
     else
         r = incremental_score(fd, temp);
 #ifdef Z3DEBUG
-    TRACE("sls_whatif", tout << "WHAT IF " << fd->get_name() << " WERE " << m_mpz_manager.to_string(temp) <<
+    TRACE(sls_whatif, tout << "WHAT IF " << fd->get_name() << " WERE " << m_mpz_manager.to_string(temp) <<
             " --> " << r << std::endl;);
 
     m_mpz_manager.del(old_value);
@@ -268,7 +268,7 @@ void sls_engine::mk_random_move(ptr_vector<func_decl> & unsat_constants)
             NOT_IMPLEMENTED_YET();
         }
 
-        TRACE("sls", tout << "Randomization candidates: ";
+        TRACE(sls, tout << "Randomization candidates: ";
         for (unsigned i = 0; i < unsat_constants.size(); i++)
             tout << unsat_constants[i]->get_name() << ", ";
         tout << std::endl;

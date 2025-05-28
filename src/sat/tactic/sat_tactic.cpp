@@ -60,13 +60,13 @@ class sat_tactic : public tactic {
             fail_if_proof_generation("sat", g);
             bool produce_models = g->models_enabled();
             bool produce_core = g->unsat_core_enabled();
-            TRACE("before_sat_solver", g->display(tout););
+            TRACE(before_sat_solver, g->display(tout););
             g->elim_redundancies();
             atom2bool_var map(m);
             obj_map<expr, sat::literal> dep2asm;
             sat::literal_vector assumptions;
             m_goal2sat(*g, m_params, *m_solver, map, dep2asm);
-            TRACE("sat", tout << "interpreted_atoms: " << m_goal2sat.has_interpreted_funs() << "\n";
+            TRACE(sat, tout << "interpreted_atoms: " << m_goal2sat.has_interpreted_funs() << "\n";
                   func_decl_ref_vector funs(m);
                   m_goal2sat.get_interpreted_funs(funs);
                   for (func_decl* f : funs) 
@@ -85,10 +85,10 @@ class sat_tactic : public tactic {
 
             CASSERT("sat_solver", m_solver->check_invariant());
             IF_VERBOSE(TACTIC_VERBOSITY_LVL, m_solver->display_status(verbose_stream()););
-            TRACE("sat_dimacs", m_solver->display_dimacs(tout););
+            TRACE(sat_dimacs, m_solver->display_dimacs(tout););
             dep2assumptions(dep2asm, assumptions);
             lbool r = m_solver->check(assumptions.size(), assumptions.data());
-            TRACE("sat", tout << "result of checking: " << r << " "; 
+            TRACE(sat, tout << "result of checking: " << r << " "; 
                   if (r == l_undef) tout << m_solver->get_reason_unknown(); tout << "\n";
                   if (m_goal2sat.has_interpreted_funs()) tout << "has interpreted\n";);
             if (r == l_undef)
@@ -112,7 +112,7 @@ class sat_tactic : public tactic {
                 if (produce_models) {
                     model_ref md = alloc(model, m);
                     sat::model const & ll_m = m_solver->get_model();
-                    TRACE("sat_tactic", for (unsigned i = 0; i < ll_m.size(); i++) tout << i << ":" << ll_m[i] << " "; tout << "\n";);
+                    TRACE(sat_tactic, for (unsigned i = 0; i < ll_m.size(); i++) tout << i << ":" << ll_m[i] << " "; tout << "\n";);
                     for (auto const& kv : map) {
                         expr * n   = kv.m_key;
                         sat::bool_var v = kv.m_value;
@@ -121,7 +121,7 @@ class sat_tactic : public tactic {
                         app* a = to_app(n);
                         if (!is_uninterp_const(a))
                             continue;
-                        TRACE("sat_tactic", tout << "extracting value of " << mk_ismt2_pp(n, m) << "\nvar: " << v << "\n";);
+                        TRACE(sat_tactic, tout << "extracting value of " << mk_ismt2_pp(n, m) << "\nvar: " << v << "\n";);
                         switch (sat::value_at(v, ll_m)) {
                         case l_true: 
                             md->register_decl(a->get_decl(), m.mk_true()); 
@@ -141,7 +141,7 @@ class sat_tactic : public tactic {
                             IF_VERBOSE(0, verbose_stream() << "failed to validate: " << mk_pp(f, m) << "\n";);
                     
                     m_goal2sat.update_model(md);
-                    TRACE("sat_tactic", model_v2_pp(tout, *md););
+                    TRACE(sat_tactic, model_v2_pp(tout, *md););
                     g->add(model2model_converter(md.get()));
                 }
             }
@@ -248,10 +248,10 @@ public:
         catch (z3_exception& ex) {
             (void)ex;
             proc.m_solver->collect_statistics(m_stats);
-            TRACE("sat", tout << ex.what() << "\n";);            
+            TRACE(sat, tout << ex.what() << "\n";);            
             throw;
         }
-        TRACE("sat_stats", m_stats.display_smt2(tout););
+        TRACE(sat_stats, m_stats.display_smt2(tout););
     }
 
     void cleanup() override {

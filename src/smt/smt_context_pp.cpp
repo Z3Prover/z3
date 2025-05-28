@@ -468,7 +468,7 @@ namespace smt {
     unsigned context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
         std::string name = mk_lemma_name();
         std::ofstream out(name);
-        TRACE("lemma", tout << name << "\n";);
+        TRACE(lemma, tout << name << "\n";);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, consequent, logic);
         out.close();
         return m_lemma_id;
@@ -524,7 +524,7 @@ namespace smt {
                                                literal consequent, symbol const& logic) const {
         std::string name = mk_lemma_name();
         std::ofstream out(name);
-        TRACE("lemma", tout << name << "\n";
+        TRACE(lemma, tout << name << "\n";
               display_lemma_as_smt_problem(tout, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
               );
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);

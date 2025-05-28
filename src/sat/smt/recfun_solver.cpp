@@ -20,7 +20,7 @@ Author:
 #include "sat/smt/euf_solver.h"
 
 
-#define TRACEFN(x) TRACE("recfun", tout << x << '\n';)
+#define TRACEFN(x) TRACE(recfun, tout << x << '\n';)
 
 
 namespace recfun {
@@ -236,7 +236,7 @@ namespace recfun {
         force_push();
         SASSERT(m.is_bool(e));
         if (!visit_rec(m, e, sign, root)) {
-            TRACE("array", tout << mk_pp(e, m) << "\n";);
+            TRACE(array, tout << mk_pp(e, m) << "\n";);
             return sat::null_literal;
         }
         auto lit = expr2literal(e);

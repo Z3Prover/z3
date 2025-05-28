@@ -126,7 +126,7 @@ public:
     }
 
     solver* translate(ast_manager& m, params_ref const& p) override {
-        TRACE("solver", tout << "translate\n";);
+        TRACE(solver, tout << "translate\n";);
         solver* s1 = m_solver1->translate(m, p);
         solver* s2 = m_solver2->translate(m, p);
         combined_solver* r = alloc(combined_solver, s1, s2, p);
@@ -177,11 +177,11 @@ public:
         switch_inc_mode();
         m_solver1->push();
         m_solver2->push();        
-        TRACE("pop", tout << "push\n";);
+        TRACE(pop, tout << "push\n";);
     }
     
     void pop(unsigned n) override {
-        TRACE("pop", tout << n << "\n";);
+        TRACE(pop, tout << n << "\n";);
         switch_inc_mode();
         m_solver1->pop(n);
         m_solver2->pop(n);

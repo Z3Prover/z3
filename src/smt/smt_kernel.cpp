@@ -127,7 +127,7 @@ namespace smt {
 
     lbool kernel::check(unsigned num_assumptions, expr * const * assumptions) {
         lbool r = m_imp->m_kernel.check(num_assumptions, assumptions);
-        TRACE("smt_kernel", tout << "check result: " << r << "\n";);
+        TRACE(smt_kernel, tout << "check result: " << r << "\n";);
         return r;
     }
 

@@ -188,7 +188,7 @@ namespace euf {
             // because all cached values there do not depend on v.
         }
 
-        TRACE("solve_eqs",
+        TRACE(solve_eqs,
             tout << "after normalizing variables\n";
         for (unsigned id : m_subst_ids) {
             auto const& eq = m_next[id][0];
@@ -300,7 +300,7 @@ namespace euf {
             return true;
         unsigned num = 0;
         m_num_occs.find(t, num);
-        TRACE("solve_eqs_check_occs", tout << mk_ismt2_pp(t, m) << " num_occs: " << num << " max: " << m_config.m_max_occs << "\n";);
+        TRACE(solve_eqs_check_occs, tout << mk_ismt2_pp(t, m) << " num_occs: " << num << " max: " << m_config.m_max_occs << "\n";);
         return num <= m_config.m_max_occs;
     }
 

@@ -310,7 +310,7 @@ namespace spacer {
                     static unsigned bcnt = 0;
                     {
                         bcnt++;
-                        TRACE("spacer", tout << "Dumping pf bcnt: " << bcnt << "\n";);
+                        TRACE(spacer, tout << "Dumping pf bcnt: " << bcnt << "\n";);
                         if (bcnt == 123) {
                             std::ofstream ofs;
                             ofs.open("/tmp/bpf_" + std::to_string(bcnt) + ".dot");
@@ -362,7 +362,7 @@ namespace spacer {
             static unsigned cnt = 0;
             {
                 cnt++;
-                TRACE("spacer", tout << "Dumping pf cnt: " << cnt << "\n";);
+                TRACE(spacer, tout << "Dumping pf cnt: " << cnt << "\n";);
                 if (cnt == 123) {
                     std::ofstream ofs;
                     ofs.open("/tmp/pf_" + std::to_string(cnt) + ".dot");

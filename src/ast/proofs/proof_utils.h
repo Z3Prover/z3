@@ -221,7 +221,7 @@ public:
             }
             cache.insert(p, newp);
             todo.pop_back();
-            CTRACE("virtual",
+            CTRACE(proof_virtual,
                    p->get_decl_kind() == PR_TH_LEMMA &&
                    p->get_decl()->get_parameter(0).get_symbol() == "arith" &&
                    p->get_decl()->get_num_parameters() > 1 &&

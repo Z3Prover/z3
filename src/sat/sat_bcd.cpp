@@ -44,7 +44,7 @@ namespace sat {
         report(bcd& f):f(f) {}
         ~report() {
             IF_VERBOSE(1, verbose_stream() << "Decomposed set " << f.m_L.size() << " rest: " << f.m_R.size() << "\n";);
-            TRACE("sat",
+            TRACE(sat,
                   tout << "Decomposed set " << f.m_L.size() << "\n";
                   for (bclause b : f.m_L) tout << b.lit << ": " << *b.cls << "\n";
                   tout << "Remainder " << f.m_R.size() << "\n";
@@ -90,7 +90,7 @@ namespace sat {
             m_bin_clauses.push_back(cls);
             register_clause(cls);
         }
-        TRACE("sat", for (clause* cls : m_clauses) if (cls) tout << *cls << "\n";);
+        TRACE(sat, for (clause* cls : m_clauses) if (cls) tout << *cls << "\n";);
     }
 
     void bcd::register_clause(clause* cls) {
@@ -128,7 +128,7 @@ namespace sat {
         }
         m_L.append(tmpL);
         m_R.append(tmpR);
-        TRACE("bcd", tout << lit << " " << "pos: " << tmpL.size() << " " << "neg: " << tmpR.size() << "\n";);
+        TRACE(bcd, tout << lit << " " << "pos: " << tmpL.size() << " " << "neg: " << tmpR.size() << "\n";);
     }
     
     void bcd::pure_decompose(use_list& ul, literal lit, svector<bclause>& clauses) {
@@ -239,7 +239,7 @@ namespace sat {
     }
 
     literal bcd::find_blocked(use_list& ul, clause const& cls) {
-        TRACE("bcd", tout << cls << "\n";);
+        TRACE(bcd, tout << cls << "\n";);
 
         for (literal lit : cls) {            
             m_marked[(~lit).index()] = true;
@@ -247,7 +247,7 @@ namespace sat {
         literal result = null_literal;
         for (literal lit : cls) {
             if (is_blocked(ul, lit)) {
-                TRACE("bcd", tout << "is blocked " << lit << " : " << cls << "\n";);
+                TRACE(bcd, tout << "is blocked " << lit << " : " << cls << "\n";);
                 result = lit;
                 break;
             }
@@ -342,7 +342,7 @@ namespace sat {
             }
         }
         IF_VERBOSE(0, verbose_stream() << "num merge: " << num_merge << "\n");
-        TRACE("sat", uf.display(tout););
+        TRACE(sat, uf.display(tout););
     }
 
     void bcd::cleanup() {

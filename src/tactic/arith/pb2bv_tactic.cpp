@@ -52,7 +52,7 @@ public:
         }
     
         void throw_non_pb(expr * n) {
-            TRACE("pb2bv", tout << "Not pseudo-Boolean: " << mk_ismt2_pp(n, m) << "\n";);
+            TRACE(pb2bv, tout << "Not pseudo-Boolean: " << mk_ismt2_pp(n, m) << "\n";);
             throw non_pb(n);
         }
     
@@ -227,7 +227,7 @@ private:
                 if (owner.is_constraint_core(s)) {
                     owner.convert(to_app(s), m_saved_res, true, false);
                     t = m_saved_res;
-                    TRACE("pb2bv_convert", tout << mk_ismt2_pp(s, m) << "\n-->\n" << mk_ismt2_pp(t, m) << "\n";);
+                    TRACE(pb2bv_convert, tout << mk_ismt2_pp(s, m) << "\n-->\n" << mk_ismt2_pp(t, m) << "\n";);
                     return true;
                 }
                 return false;
@@ -425,13 +425,13 @@ private:
                         }
                     }
                 
-                    TRACE("pb2bv_bv", tout << "BV Cardinality: " << mk_ismt2_pp(tmp.back(), m) << std::endl;);
+                    TRACE(pb2bv_bv, tout << "BV Cardinality: " << mk_ismt2_pp(tmp.back(), m) << std::endl;);
                     r = tmp.back();
                     return;
                 }
             }
 
-            TRACE("pb2bv_bv_detail", tout << "encoding:\n"; display(tout, m_p, m_c);); 
+            TRACE(pb2bv_bv_detail, tout << "encoding:\n"; display(tout, m_p, m_c);); 
             // [Leo] improving number of bits needed.
             // using (sum-of-coeffs).get_num_bits()
             numeral sum;
@@ -449,7 +449,7 @@ private:
         
             unsigned bits = sum.get_num_bits();
         
-            TRACE("num_bits_bug", tout << "bits: " << bits << " sum: " << sum << " size: " << m_p.size() << "\n";);
+            TRACE(num_bits_bug, tout << "bits: " << bits << " sum: " << sum << " size: " << m_p.size() << "\n";);
         
             // [Leo]: The following assertion should hold, right? 
             // I mean, the constraints are normalized, then mo.m_a <= m_c for every monomial in cnstr.
@@ -511,7 +511,7 @@ private:
         }
 
         void mk_pbc(polynomial & m_p, numeral & m_c, expr_ref & r, bool enable_split) {
-            TRACE("mk_pbc", display(tout, m_p, m_c); );
+            TRACE(mk_pbc, display(tout, m_p, m_c); );
             if (m_c.is_nonpos()) {
                 // constraint is equivalent to true.
                 r = m.mk_true();
@@ -532,7 +532,7 @@ private:
                     it->m_a /= a_gcd;
                 m_c = ceil(m_c/a_gcd);
             }
-            TRACE("mk_pbc", tout << "GCD = " << a_gcd << "; Normalized: "; display(tout, m_p, m_c); tout << "\n"; );
+            TRACE(mk_pbc, tout << "GCD = " << a_gcd << "; Normalized: "; display(tout, m_p, m_c); tout << "\n"; );
             it  = m_p.begin();
             numeral a_sum;
             for (; it != end; ++it) {
@@ -546,10 +546,10 @@ private:
                 return;
             }
             polynomial clause;
-            TRACE("split_bug", display(tout, m_p, m_c););
+            TRACE(split_bug, display(tout, m_p, m_c););
             if (enable_split)
                 split(m_p, m_c, clause);
-            TRACE("split_bug", display(tout, m_p, m_c); display(tout, clause, rational(1)););
+            TRACE(split_bug, display(tout, m_p, m_c); display(tout, clause, rational(1)););
             if (clause.empty()) {
                 bitblast_pbc(m_p, m_c, r);
             }
@@ -558,7 +558,7 @@ private:
                 expr_ref r2(m);
                 bitblast_pbc(m_p, m_c, r1);
                 bitblast_pbc(clause, numeral(1), r2);
-                TRACE("split_bug", tout << mk_ismt2_pp(r1, m) << "\nAND\n" << mk_ismt2_pp(r2, m) << "\n";);
+                TRACE(split_bug, tout << mk_ismt2_pp(r1, m) << "\nAND\n" << mk_ismt2_pp(r2, m) << "\n";);
                 m_b_rw.mk_and(r1, r2, r);
             }
         }
@@ -582,7 +582,7 @@ private:
         }
     
         void throw_non_pb(expr * n) {        
-            TRACE("pb2bv", tout << "Not pseudo-Boolean: " << mk_ismt2_pp(n, m) << "\n";);
+            TRACE(pb2bv, tout << "Not pseudo-Boolean: " << mk_ismt2_pp(n, m) << "\n";);
             throw non_pb(n);
         }
 
@@ -590,7 +590,7 @@ private:
         // a_0*x_0 + a_0*~y_0 + ... + a_{n-1}*x_{n - 1} + a_{n - 1}*~y_{n - 1} = c
         // x_0 = y_0, ..., x_{n - 1} = y_{n - 1}
         bool is_eq_vector(polynomial const & p, numeral const & c) {
-            TRACE("is_eq_vector", display(tout, p, c););
+            TRACE(is_eq_vector, display(tout, p, c););
             unsigned sz = p.size();
             if (sz % 2 == 1)
                 return false; // size must be even
@@ -653,7 +653,7 @@ private:
                     else if ((c.is_zero() && k == LE) ||
                              (c.is_one() && k == GE)) {
                         // redundant 0 <= x, 1 >= x
-                        TRACE("pb2bv", tout << "discarding:\n" << mk_ismt2_pp(t, m) << "\n";);
+                        TRACE(pb2bv, tout << "discarding:\n" << mk_ismt2_pp(t, m) << "\n";);
                         SASSERT(pos);                        
                         r = m.mk_true();
                     }
@@ -678,7 +678,7 @@ private:
                 add_bounds_dependencies(lhs);
 
                 if (k == EQ) {
-                    TRACE("pb2bv_bug", tout << "c: " << c << "\n";);
+                    TRACE(pb2bv_bug, tout << "c: " << c << "\n";);
                     if (!c.is_zero() && !c.is_one()) {
                         // x = k --> true  where k is not 0 or 1
                         r = pos ? m.mk_false() : m.mk_true();
@@ -696,7 +696,7 @@ private:
                     if (k == LE) {
                         // x <= c >= 1
                         if (c >= numeral(1)) {
-                            TRACE("pb2bv", tout << "discarding:\n" << mk_ismt2_pp(t, m) << "\n";);
+                            TRACE(pb2bv, tout << "discarding:\n" << mk_ismt2_pp(t, m) << "\n";);
                             r = m.mk_true();
                             return;
                         }
@@ -709,7 +709,7 @@ private:
                     }
                     else if (k == GE) {
                         if (c.is_nonpos()) {
-                            TRACE("pb2bv", tout << "discarding:\n" << mk_ismt2_pp(t, m) << "\n";);
+                            TRACE(pb2bv, tout << "discarding:\n" << mk_ismt2_pp(t, m) << "\n";);
                             // x >= a <= 0
                             r = m.mk_true();
                             return;
@@ -721,13 +721,13 @@ private:
                         }
                         SASSERT(c.is_one());
                     }
-                    CTRACE("pb2bv", !(c.is_zero() || c.is_one()),
+                    CTRACE(pb2bv, !(c.is_zero() || c.is_one()),
                            tout << "BUG: " << mk_ismt2_pp(t, m) << "\nk: " << k << " " << c << "\n";);
                     SASSERT(c.is_zero() || c.is_one());
                     SASSERT(!((c.is_zero() && k == GE) ||
                               (c.is_one() && k == LE)));
 
-                    CTRACE("pb2bv_bug", !((c.is_zero() && k == LE) || (c.is_one() && k == GE)),
+                    CTRACE(pb2bv_bug, !((c.is_zero() && k == LE) || (c.is_one() && k == GE)),
                            tout << "c: " << c << ", k: " << k << "\n";
                            tout << "t: " << mk_ismt2_pp(t, m) << "\n";);
                     SASSERT((c.is_zero() && k == LE) ||
@@ -801,7 +801,7 @@ private:
                 SASSERT(k == EQ);
 
                 if (is_eq_vector(m_p, m_c)) {
-                    TRACE("is_eq_vector", tout << "found eq vector\n";);
+                    TRACE(is_eq_vector, tout << "found eq vector\n";);
                     unsigned sz = m_p.size();
                     expr_ref_vector eqs(m);
                     for (unsigned i = 0; i < sz; i += 2) {
@@ -829,7 +829,7 @@ private:
                 expr_ref r2(m);
                 mk_pbc(m_p, m_c, r1, false);
                 mk_pbc(m_p2, m_c2, r2, false);
-                TRACE("pb2bv_convert", tout << mk_ismt2_pp(t, m) << "\n";
+                TRACE(pb2bv_convert, tout << mk_ismt2_pp(t, m) << "\n";
                       display(tout, m_p, m_c);
                       display(tout, m_p2, m_c2);
                       tout << "--->\n" << mk_ismt2_pp(r1, m) << "\nAND\n" << mk_ismt2_pp(r2, m) << "\n";);
@@ -900,7 +900,7 @@ private:
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            TRACE("pb2bv", g->display(tout););
+            TRACE(pb2bv, g->display(tout););
             fail_if_proof_generation("pb2bv", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
@@ -917,7 +917,7 @@ private:
             for (unsigned i = 0; i < size; i++) 
                 m_bm(g->form(i), g->dep(i), g->pr(i));
             
-            TRACE("pb2bv", m_bm.display(tout););
+            TRACE(pb2bv, m_bm.display(tout););
 
             try {
                 quick_pb_check(g);
@@ -939,7 +939,7 @@ private:
                     bool pos;
                     if (is_constraint(curr, atom, pos)) {
                         convert(to_app(atom), new_f, pos, true);
-                        TRACE("pb2bv_convert", tout << "pos: " << pos << "\n" << mk_ismt2_pp(atom, m) << "\n--->\n" << mk_ismt2_pp(new_f, m) << "\n";); 
+                        TRACE(pb2bv_convert, tout << "pos: " << pos << "\n" << mk_ismt2_pp(atom, m) << "\n--->\n" << mk_ismt2_pp(new_f, m) << "\n";); 
                     }
                     else {
                         proof_ref pr(m);

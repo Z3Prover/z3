@@ -217,7 +217,7 @@ namespace opt {
             case l_undef:
                 break;
             case l_false:
-                TRACE("opt", tout << "pruned " << mk_bounded_pp(unprocessed(i), m) << "\n";);
+                TRACE(opt, tout << "pruned " << mk_bounded_pp(unprocessed(i), m) << "\n";);
                 m_hardened.push_back(m.mk_not(unprocessed(i)));
                 for (unsigned k = i; k + 1 < m_unprocessed.size(); ++k) 
                     m_unprocessed[k] = unprocessed(k + 1);
@@ -231,7 +231,7 @@ namespace opt {
                         if (j <= i)
                             ++offset;
                         ++m_num_improves;                        
-                        TRACE("opt", tout << "improved " << mk_bounded_pp(unprocessed(j), m) << "\n";);
+                        TRACE(opt, tout << "improved " << mk_bounded_pp(unprocessed(j), m) << "\n";);
                         m_hardened.push_back(unprocessed(j));
                         ++num_improved;
                     }

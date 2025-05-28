@@ -34,7 +34,7 @@ random_updater::random_updater(
     m_range(100000) {
     for (unsigned j : column_indices)
         m_var_set.insert(j);
-    TRACE("lar_solver_rand", tout << "size = " << m_var_set.size() << "\n";);
+    TRACE(lar_solver_rand, tout << "size = " << m_var_set.size() << "\n";);
 }
 
 
@@ -62,7 +62,7 @@ void random_updater::update() {
     }
     for (auto j : columns) {
         if (!m_var_set.contains(j)) {
-            TRACE("lar_solver_rand", tout << "skipped " << j << "\n";);
+            TRACE(lar_solver_rand, tout << "skipped " << j << "\n";);
             continue;
         }
         if (!m_lar_solver.is_base(j)) 
@@ -78,7 +78,7 @@ void random_updater::update() {
             }
         }            
     }
-    TRACE("lar_solver_rand", tout << "m_var_set.size() = " << m_var_set.size() << "\n";);
+    TRACE(lar_solver_rand, tout << "m_var_set.size() = " << m_var_set.size() << "\n";);
 }
 
 }

@@ -102,7 +102,7 @@ bool demodulator_util::is_demodulator(expr * e, app_ref & large, expr_ref & smal
     if (m.is_eq(qe, lhs, rhs)) {
         int subset  = is_subset(lhs, rhs);
         int smaller = is_smaller(lhs, rhs);
-        TRACE("demodulator", tout << "testing is_demodulator:\n"
+        TRACE(demodulator, tout << "testing is_demodulator:\n"
               << mk_pp(lhs, m) << "\n"
               << mk_pp(rhs, m) << "\n"
               << "subset: " << subset << ", smaller: " << smaller << "\n";);
@@ -190,7 +190,7 @@ demodulator_rewriter_util::demodulator_rewriter_util(ast_manager& m):
 
 expr_ref demodulator_rewriter_util::rewrite(expr * n) {
 
-    TRACE("demodulator", tout << "rewrite: " << mk_pp(n, m) << std::endl; );
+    TRACE(demodulator, tout << "rewrite: " << mk_pp(n, m) << std::endl; );
     app * a;
 
     SASSERT(m_rewrite_todo.empty());
@@ -199,7 +199,7 @@ expr_ref demodulator_rewriter_util::rewrite(expr * n) {
 
     m_rewrite_todo.push_back(n);
     while (!m_rewrite_todo.empty()) {
-        TRACE("demodulator_stack", tout << "STACK: " << std::endl;
+        TRACE(demodulator_stack, tout << "STACK: " << std::endl;
               for (unsigned i = 0; i < m_rewrite_todo.size(); i++)
                   tout << std::dec << i << ": " << std::hex << (size_t)m_rewrite_todo[i] <<
                   " = " << mk_pp(m_rewrite_todo[i], m) << std::endl;
@@ -251,7 +251,7 @@ expr_ref demodulator_rewriter_util::rewrite(expr * n) {
                     else {
                         expr_ref na(m);
                         na = m_th_rewriter.mk_app(f, m_new_args);
-                        TRACE("demodulator_bug", tout << "e:\n" << mk_pp(e, m) << "\nnew_args: \n";
+                        TRACE(demodulator_bug, tout << "e:\n" << mk_pp(e, m) << "\nnew_args: \n";
                               tout << m_new_args << "\n";
                               tout << "=====>\n";
                               tout << "na:\n " << na << "\n";);
@@ -289,7 +289,7 @@ expr_ref demodulator_rewriter_util::rewrite(expr * n) {
     SASSERT(ebp.second);
     expr * r = ebp.first;
 
-    TRACE("demodulator", tout << "rewrite result: " << mk_pp(r, m) << std::endl; );
+    TRACE(demodulator, tout << "rewrite result: " << mk_pp(r, m) << std::endl; );
 
     return expr_ref(r, m);
 }
@@ -309,7 +309,7 @@ bool demodulator_rewriter_util::rewrite_visit_children(app * a) {
         for (expr* t : m_rewrite_todo) {
             if (t == v) {
                 recursive = true;
-                TRACE("demodulator", tout << "Detected demodulator cycle: " <<
+                TRACE(demodulator, tout << "Detected demodulator cycle: " <<
                       mk_pp(a, m) << " --> " << mk_pp(v, m) << std::endl;);
                 rewrite_cache(e, v, true);
                 break;
@@ -362,7 +362,7 @@ demodulator_rewriter::~demodulator_rewriter() {
 void demodulator_rewriter::insert_fwd_idx(app * large, expr * small, quantifier * demodulator) {
     SASSERT(demodulator);
     SASSERT(large && small);
-    TRACE("demodulator_fwd", tout << "INSERT: " << mk_pp(demodulator, m) << std::endl; );
+    TRACE(demodulator_fwd, tout << "INSERT: " << mk_pp(demodulator, m) << std::endl; );
 
     func_decl * fd = to_app(large)->get_decl();
 
@@ -382,7 +382,7 @@ void demodulator_rewriter::insert_fwd_idx(app * large, expr * small, quantifier 
 }
 
 void demodulator_rewriter::remove_fwd_idx(func_decl * f, quantifier * demodulator) {
-    TRACE("demodulator_fwd", tout << "REMOVE: " << std::hex << (size_t)demodulator << std::endl; );
+    TRACE(demodulator_fwd, tout << "REMOVE: " << std::hex << (size_t)demodulator << std::endl; );
 
     quantifier_set* qs;
     if (m_fwd_idx.find(f, qs)) {
@@ -425,7 +425,7 @@ bool demodulator_rewriter::rewrite1(func_decl * f, expr_ref_vector const & args,
     quantifier_set* set;
     if (!m_fwd_idx.find(f, set))
         return false;
-    TRACE("demodulator_bug", tout << "trying to rewrite: " << f->get_name() << " args:\n";
+    TRACE(demodulator_bug, tout << "trying to rewrite: " << f->get_name() << " args:\n";
           tout << m_new_args << "\n";);
 
     for (quantifier* d : *set) {
@@ -435,12 +435,12 @@ bool demodulator_rewriter::rewrite1(func_decl * f, expr_ref_vector const & args,
         if (lhs->get_num_args() != args.size())
             continue;
         
-        TRACE("demodulator_bug", tout << "Matching with demodulator: " << mk_pp(d, m) << std::endl; );
+        TRACE(demodulator_bug, tout << "Matching with demodulator: " << mk_pp(d, m) << std::endl; );
         
         SASSERT(lhs->get_decl() == f);
         
         if (m_match_subst(lhs, rhs, args.data(), np)) {
-            TRACE("demodulator_bug", tout << "succeeded...\n" << mk_pp(rhs, m) << "\n===>\n" << mk_pp(np, m) << "\n";);
+            TRACE(demodulator_bug, tout << "succeeded...\n" << mk_pp(rhs, m) << "\n===>\n" << mk_pp(np, m) << "\n";);
             m_new_exprs.push_back(np);
             return true;
         }
@@ -464,7 +464,7 @@ bool demodulator_rewriter::rewrite_visit_children(app * a) {
         for (expr* t : m_rewrite_todo) {
             if (t == v) {
                 recursive = true;
-                TRACE("demodulator", tout << "Detected demodulator cycle: " <<
+                TRACE(demodulator, tout << "Detected demodulator cycle: " <<
                       mk_pp(a, m) << " --> " << mk_pp(v, m) << std::endl;);
                 rewrite_cache(e, v, true);
                 break;
@@ -486,7 +486,7 @@ expr * demodulator_rewriter::rewrite(expr * n) {
     if (m_fwd_idx.empty())
         return n;
 
-    TRACE("demodulator", tout << "rewrite: " << mk_pp(n, m) << std::endl; );
+    TRACE(demodulator, tout << "rewrite: " << mk_pp(n, m) << std::endl; );
     app * a;
 
     SASSERT(m_rewrite_todo.empty());
@@ -494,7 +494,7 @@ expr * demodulator_rewriter::rewrite(expr * n) {
 
     m_rewrite_todo.push_back(n);
     while (!m_rewrite_todo.empty()) {
-        TRACE("demodulator_stack", tout << "STACK: " << std::endl;
+        TRACE(demodulator_stack, tout << "STACK: " << std::endl;
               for (unsigned i = 0; i < m_rewrite_todo.size(); i++)
                   tout << std::dec << i << ": " << std::hex << (size_t)m_rewrite_todo[i] <<
                   " = " << mk_pp(m_rewrite_todo[i], m) << std::endl;
@@ -549,7 +549,7 @@ expr * demodulator_rewriter::rewrite(expr * n) {
                             na = m.mk_app(f, m_new_args);
                         else
                             m_bsimp.mk_app(f, m_new_args.size(), m_new_args.data(), na);
-                        TRACE("demodulator_bug", tout << "e:\n" << mk_pp(e, m) << "\nnew_args: \n";
+                        TRACE(demodulator_bug, tout << "e:\n" << mk_pp(e, m) << "\nnew_args: \n";
                               tout << m_new_args << "\n";
                               tout << "=====>\n";
                               tout << "na:\n " << na << "\n";);
@@ -587,7 +587,7 @@ expr * demodulator_rewriter::rewrite(expr * n) {
     SASSERT(ebp.second);
     expr * r = ebp.first;
 
-    TRACE("demodulator", tout << "rewrite result: " << mk_pp(r, m) << std::endl; );
+    TRACE(demodulator, tout << "rewrite result: " << mk_pp(r, m) << std::endl; );
 
     return r;
 }
@@ -703,7 +703,7 @@ void demodulator_rewriter::reschedule_demodulators(func_decl * f, expr * lhs) {
         if (!m_match_subst.can_rewrite(d, lhs)) 
             continue;
 
-        TRACE("demodulator", tout << "Rescheduling: " << std::endl << mk_pp(d, m) << std::endl);
+        TRACE(demodulator, tout << "Rescheduling: " << std::endl << mk_pp(d, m) << std::endl);
 
         remove_fwd_idx(df, d);
         remove_bwd_idx(d);
@@ -714,7 +714,7 @@ void demodulator_rewriter::reschedule_demodulators(func_decl * f, expr * lhs) {
 void demodulator_rewriter::operator()(expr_ref_vector const& exprs,
                                       expr_ref_vector & new_exprs) {
 
-    TRACE("demodulator", tout << "before demodulator:\n" << exprs);
+    TRACE(demodulator, tout << "before demodulator:\n" << exprs);
 
     // Initially, m_todo contains all formulas. That is, it contains the argument exprs. m_fwd_idx, m_processed, m_back_idx are empty.
     for (expr* e : exprs) 
@@ -745,7 +745,7 @@ void demodulator_rewriter::operator()(expr_ref_vector const& exprs,
         } 
         else {
             // np is a demodulator that allows us to replace 'large' with 'small'.
-            TRACE("demodulator", tout << "Found demodulator:\n" << large << "\n ---> " << small << "\n");
+            TRACE(demodulator, tout << "Found demodulator:\n" << large << "\n ---> " << small << "\n");
 
             // let f be the top symbol of n'
             func_decl * f = large->get_decl();
@@ -764,18 +764,18 @@ void demodulator_rewriter::operator()(expr_ref_vector const& exprs,
     // the result is the contents of m_processed + all demodulators in m_fwd_idx.
     for (expr* e : m_processed) {
         new_exprs.push_back(e);
-        TRACE("demodulator", tout << mk_pp(e, m) << std::endl; );
+        TRACE(demodulator, tout << mk_pp(e, m) << std::endl; );
     }
 
     for (auto const& [k, set] : m_fwd_idx) {
         if (set) {
             for (expr* e : *set) 
                 new_exprs.push_back(e);
-            TRACE("demodulator", for (expr* e : *set) tout << mk_pp(e, m) << std::endl; );
+            TRACE(demodulator, for (expr* e : *set) tout << mk_pp(e, m) << std::endl; );
         }
     }
 
-    TRACE("demodulator", tout << "after demodulator:\n" << new_exprs << "\n";);
+    TRACE(demodulator, tout << "after demodulator:\n" << new_exprs << "\n";);
 }
 
 

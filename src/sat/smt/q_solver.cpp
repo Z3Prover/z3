@@ -357,7 +357,7 @@ namespace q {
     }
 
     void solver::log_instantiation(unsigned n, sat::literal const* lits, justification* j) {
-        TRACE("q", for (unsigned i = 0; i < n; ++i) tout << literal2expr(lits[i]) << "\n";);
+        TRACE(q, for (unsigned i = 0; i < n; ++i) tout << literal2expr(lits[i]) << "\n";);
         if (get_config().m_instantiations2console) {
             ctx.on_instantiation(n, lits, j ? j->m_clause.num_decls() : 0, j ? j->m_binding : nullptr);
         }

@@ -154,7 +154,7 @@ class subpaving_tactic : public tactic {
             m_qm.div(k, n, k);
             if (is_neg(n))
                 lower = !lower;
-            TRACE("subpaving_tactic", tout << x << " " << k << " " << lower << " " << open << "\n";);
+            TRACE(subpaving_tactic, tout << x << " " << k << " " << lower << " " << open << "\n";);
             return m_ctx->mk_ineq(x, k, lower, open);
         }
 

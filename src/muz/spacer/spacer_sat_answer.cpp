@@ -64,7 +64,7 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
         solver::scoped_push _s_(*m_solver);
         m_solver->assert_expr(query.get_last_rf()->get());
         lbool res = m_solver->check_sat(0, nullptr);
-        CTRACE("spacer_sat", res != l_true, tout << "solver at check:\n";
+        CTRACE(spacer_sat, res != l_true, tout << "solver at check:\n";
                m_solver->display(tout) << "res: " << res << "\n";);
         if (res != l_true) throw default_exception("spacer: could not validate first proof step");
         model_ref mdl;
@@ -133,12 +133,12 @@ void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
     m_solver->assert_expr(fr.pt().transition());
     m_solver->assert_expr(fr.pt().rule2tag(&r));
 
-    TRACE("spacer_sat",
+    TRACE(spacer_sat,
           tout << "Solver in mk_children\n";
           m_solver->display(tout) << "\n";);
 
     lbool res = m_solver->check_sat(0, nullptr);
-    CTRACE("spacer_sat", res != l_true,
+    CTRACE(spacer_sat, res != l_true,
            m_solver->display(tout) << "\n" "Result: " << res << "\n";);
     if(res != l_true)
         throw default_exception("spacer: could not validate a proof step");
@@ -154,7 +154,7 @@ void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
                              m_ctx.get_pred_transformer(preds.get(i)), subst));
         fr.m_kids.push_back(todo.back().fact());
     }
-    TRACE("spacer_sat", tout << "Children for fact: " << fr.m_fact << " are " << fr.m_kids << "\n";
+    TRACE(spacer_sat, tout << "Children for fact: " << fr.m_fact << " are " << fr.m_kids << "\n";
           tout << "gnd_eq for fact are: " << fr.m_gnd_eq << "\n";
           );
 }
@@ -196,7 +196,7 @@ proof *ground_sat_answer_op::mk_proof_step(frame &fr) {
                                           premises.data(),
                                           fr.fact(),
                                           positions, substs));
-    TRACE("spacer_sat", tout << "pf step:\n"
+    TRACE(spacer_sat, tout << "pf step:\n"
           << "premises: " << premises << "\n"
           << "fact: " << mk_pp(fr.fact(), m) << "\n";);
     return to_app(m_pinned.back());

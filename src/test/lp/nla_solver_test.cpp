@@ -154,7 +154,7 @@ void create_abcde(solver & nla,
 void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     std::cout << "test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0\n";
     enable_trace("nla_solver");
-    TRACE("nla_solver",);
+    TRACE(nla_solver,);
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         abcde = 5, ac = 6, bde = 7;
@@ -233,7 +233,7 @@ void s_set_column_value_test(lp::lar_solver&s, lpvar j, const lp::impq & v) {
 
 void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     std::cout << "test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1\n";
-    TRACE("nla_solver",);
+    TRACE(nla_solver,);
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         bde = 7;

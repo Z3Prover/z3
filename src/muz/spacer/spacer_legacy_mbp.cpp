@@ -55,7 +55,7 @@ void qe_project(ast_manager& m, app_ref_vector& vars, expr_ref& fml, model_ref& 
     qe(vars, fml);
     rw(fml);
 
-    TRACE("spacer",
+    TRACE(spacer,
           tout << "After qe_lite:\n";
           tout << mk_pp(fml, m) << "\n";
           tout << "Vars:\n";
@@ -86,13 +86,13 @@ void qe_project(ast_manager& m, app_ref_vector& vars, expr_ref& fml, model_ref& 
             rep->set_substitution(&sub);
             (*rep)(fml);
             rw(fml);
-            TRACE("spacer",
+            TRACE(spacer,
                   tout << "Projected Boolean vars:\n" << mk_pp(fml, m) << "\n";
                  );
         }
         // model based projection
         if (!arith_vars.empty()) {
-            TRACE("spacer",
+            TRACE(spacer,
                   tout << "Arith vars:\n";
             for (unsigned i = 0; i < arith_vars.size(); ++i) {
             tout << mk_pp(arith_vars.get(i), m) << "\n";
@@ -103,7 +103,7 @@ void qe_project(ast_manager& m, app_ref_vector& vars, expr_ref& fml, model_ref& 
                 spacer_qe::arith_project(*M, arith_vars, fml, map);
             }
             SASSERT(arith_vars.empty());
-            TRACE("spacer",
+            TRACE(spacer,
                   tout << "Projected arith vars:\n" << mk_pp(fml, m) << "\n";
                  );
         }

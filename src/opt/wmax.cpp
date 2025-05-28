@@ -50,7 +50,7 @@ namespace opt {
             m_defs(m) {}
 
         lbool operator()() override {
-            TRACE("opt", tout << "weighted maxsat\n";);
+            TRACE(opt, tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);
             reset();
             if (!init())
@@ -67,7 +67,7 @@ namespace opt {
             wth().init_min_cost(m_upper - m_lower);
             trace_bounds("wmax");
 
-            TRACE("opt",
+            TRACE(opt,
                 s().display(tout) << "\n";
             tout << "lower: " << m_lower << " upper: " << m_upper << "\n";);
             while (m.inc() && m_lower < m_upper) {
@@ -79,7 +79,7 @@ namespace opt {
                     break;
                 }
                 if (is_sat == l_false) {
-                    TRACE("opt", tout << "Unsat\n";);
+                    TRACE(opt, tout << "Unsat\n";);
                     break;
                 }
                 if (is_sat == l_true) {
@@ -107,7 +107,7 @@ namespace opt {
                 is_sat = l_true;
                 m_lower = m_upper;
             }
-            TRACE("opt", tout << "min cost: " << m_upper << "\n";);
+            TRACE(opt, tout << "min cost: " << m_upper << "\n";);
             return is_sat;
         }
 

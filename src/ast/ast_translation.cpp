@@ -196,7 +196,7 @@ void ast_translation::mk_func_decl(func_decl * f, frame & fr) {
             to().add_lambda_def(new_f, new_q);
         }
     }
-    TRACE("ast_translation", 
+    TRACE(ast_translation, 
           tout << f->get_name() << " "; if (fi) tout << *fi; tout << "\n";
           tout << "---->\n";
           tout << new_f->get_name() << " "; if (new_f->get_info()) tout << *(new_f->get_info()); tout << "\n";);
@@ -226,14 +226,14 @@ ast * ast_translation::process(ast const * _n) {
             frame & fr = m_frame_stack.back();
             ast * n = fr.m_n;
             ast * r;         
-            TRACE("ast_translation", tout << mk_ll_pp(n, m_from_manager, false) << "\n";);
+            TRACE(ast_translation, tout << mk_ll_pp(n, m_from_manager, false) << "\n";);
             if (fr.m_idx == 0 && n->get_ref_count() > 1) {
                 if (m_cache.find(n, r)) {
                     SASSERT(m_result_stack.size() == fr.m_rpos);
                     m_result_stack.push_back(r);
                     m_extra_children_stack.shrink(fr.m_cpos);
                     m_frame_stack.pop_back();
-                    TRACE("ast_translation", tout << "hit\n";);
+                    TRACE(ast_translation, tout << "hit\n";);
                     m_hit_count++;
                     continue;
                 }

@@ -116,13 +116,13 @@ bool demodulator_simplifier::rewrite1(func_decl* f, expr_ref_vector const& args,
     if (!m_index.find_fwd(f, set))
         return false;
 
-    TRACE("demodulator", tout << "trying to rewrite: " << f->get_name() << " args:" << args << "\n"; m_index.display(tout));
+    TRACE(demodulator, tout << "trying to rewrite: " << f->get_name() << " args:" << args << "\n"; m_index.display(tout));
 
     for (unsigned i : *set) {
 
         auto const& [lhs, rhs] = m_rewrites[i];
 
-        TRACE("demodulator", tout << "Matching with demodulator: " << i << " " << mk_pp(lhs, m) << "\n");
+        TRACE(demodulator, tout << "Matching with demodulator: " << i << " " << mk_pp(lhs, m) << "\n");
 
         if (lhs->get_num_args() != args.size())
             continue;
@@ -131,7 +131,7 @@ bool demodulator_simplifier::rewrite1(func_decl* f, expr_ref_vector const& args,
 
 
         if (m_match_subst(lhs, rhs, args.data(), np)) {
-            TRACE("demodulator_bug", tout << "succeeded...\n" << mk_pp(rhs, m) << "\n===>\n" << np << "\n");
+            TRACE(demodulator_bug, tout << "succeeded...\n" << mk_pp(rhs, m) << "\n===>\n" << np << "\n");
             if (dep(i))
                 m_dependencies.insert(i);
             return true;
@@ -199,7 +199,7 @@ void demodulator_simplifier::reduce() {
         rewrite(i);
         if (m_util.is_demodulator(fml(i), large, small)) {
             func_decl* f = large->get_decl();
-            TRACE("demodulator", tout << i << " " << mk_pp(fml(i), m) << ": " << large << " ==> " << small << "\n");
+            TRACE(demodulator, tout << i << " " << mk_pp(fml(i), m) << ": " << large << " ==> " << small << "\n");
             reschedule_processed(f);
             reschedule_demodulators(f, large);
             m_index.insert_fwd(f, i);

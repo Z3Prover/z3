@@ -109,7 +109,7 @@ namespace smt {
         }
         else {
             ctx.internalize(rhs, false);
-            TRACE("datatype", tout << "adding axiom:\n" << pp(lhs, m) << "\n=\n" << mk_pp(rhs, m) << "\n";);
+            TRACE(datatype, tout << "adding axiom:\n" << pp(lhs, m) << "\n=\n" << mk_pp(rhs, m) << "\n";);
             if (antecedent == null_literal) {
                 ctx.assign_eq(lhs, ctx.get_enode(rhs), eq_justification::mk_axiom());
             }
@@ -124,9 +124,9 @@ namespace smt {
                 SASSERT(ctx.get_assignment(antecedent) == l_true);
                 enode * _rhs = ctx.get_enode(rhs);
                 justification * js = ctx.mk_justification(dt_eq_justification(get_id(), ctx, antecedent, lhs, _rhs));
-                TRACE("datatype", tout << "assigning... #" << lhs->get_owner_id() << " #" << _rhs->get_owner_id() << "\n";
+                TRACE(datatype, tout << "assigning... #" << lhs->get_owner_id() << " #" << _rhs->get_owner_id() << "\n";
                       tout << "v" << lhs->get_th_var(get_id()) << " v" << _rhs->get_th_var(get_id()) << "\n";);
-                TRACE("datatype_detail", display(tout););
+                TRACE(datatype_detail, display(tout););
                 ctx.assign_eq(lhs, _rhs, eq_justification(js));
             }
         }
@@ -138,7 +138,7 @@ namespace smt {
     */
     void theory_datatype::assert_is_constructor_axiom(enode * n, func_decl * c, literal antecedent) {
         app* e = n->get_expr();
-        TRACE("datatype_bug", tout << "creating axiom (= n (c (acc_1 n) ... (acc_m n))) for\n" 
+        TRACE(datatype_bug, tout << "creating axiom (= n (c (acc_1 n) ... (acc_m n))) for\n" 
             << mk_pp(c, m) << " " << mk_pp(e, m) << "\n";);
         m_stats.m_assert_cnstr++;
         SASSERT(m_util.is_constructor(c));
@@ -201,7 +201,7 @@ namespace smt {
         SASSERT(is_recognizer(r));
         SASSERT(m_util.get_recognizer_constructor(r->get_decl()) == c->get_decl());
         SASSERT(c->get_root() == r->get_arg(0)->get_root());
-        TRACE("recognizer_conflict",
+        TRACE(recognizer_conflict,
               tout << mk_ismt2_pp(c->get_expr(), m) << "\n" << mk_ismt2_pp(r->get_expr(), m) << "\n";);
         literal l(ctx.enode2bool_var(r));
         SASSERT(ctx.get_assignment(l) == l_false);
@@ -289,13 +289,13 @@ namespace smt {
     }
 
     bool theory_datatype::internalize_atom(app * atom, bool gate_ctx) {
-        TRACE("datatype", tout << "internalizing atom:\n" << mk_pp(atom, m) << "\n";);
+        TRACE(datatype, tout << "internalizing atom:\n" << mk_pp(atom, m) << "\n";);
         return internalize_term(atom);
     }
 
     bool theory_datatype::internalize_term(app * term) {
         force_push();
-        TRACE("datatype", tout << "internalizing term:\n" << mk_pp(term, m) << "\n";);
+        TRACE(datatype, tout << "internalizing term:\n" << mk_pp(term, m) << "\n";);
         unsigned num_args = term->get_num_args();
         for (unsigned i = 0; i < num_args; i++)
             ctx.internalize(term->get_arg(i), m.is_bool(term) && has_quantifiers(term));
@@ -382,8 +382,8 @@ namespace smt {
         //   (assert (> (len a) 1)
         //   
         // If the theory variable is not created for 'a', then a wrong model will be generated.
-        TRACE("datatype", tout << "apply_sort_cnstr: #" << n->get_owner_id() << " " << pp(n, m) << "\n";);
-        TRACE("datatype_bug", 
+        TRACE(datatype, tout << "apply_sort_cnstr: #" << n->get_owner_id() << " " << pp(n, m) << "\n";);
+        TRACE(datatype_bug, 
               tout << "apply_sort_cnstr:\n" << pp(n, m) << " ";
               tout << m_util.is_datatype(s) << " ";
               if (m_util.is_datatype(s)) tout << "is-infinite: " << s->is_infinite() << " "; 
@@ -416,7 +416,7 @@ namespace smt {
         enode * n     = ctx.bool_var2enode(v);
         if (!is_recognizer(n))
             return;
-        TRACE("datatype", tout << "assigning recognizer: #" << n->get_owner_id() << " is_true: " << is_true << "\n" 
+        TRACE(datatype, tout << "assigning recognizer: #" << n->get_owner_id() << " is_true: " << is_true << "\n" 
               << enode_pp(n, ctx) << "\n";);
         SASSERT(n->get_num_args() == 1);
         enode * arg   = n->get_arg(0);
@@ -446,7 +446,7 @@ namespace smt {
 
     void theory_datatype::relevant_eh(app * n) {
         force_push();
-        TRACE("datatype", tout << "relevant_eh: " << mk_pp(n, m) << "\n";);
+        TRACE(datatype, tout << "relevant_eh: " << mk_pp(n, m) << "\n";);
         SASSERT(ctx.relevancy());
         if (is_recognizer(n)) {
             SASSERT(ctx.e_internalized(n));
@@ -562,7 +562,7 @@ namespace smt {
 
     // explain the cycle root -> ... -> app -> root
     void theory_datatype::occurs_check_explain(enode * app, enode * root) {
-        TRACE("datatype", tout << "occurs_check_explain " << mk_bounded_pp(app->get_expr(), m) << " <-> " << mk_bounded_pp(root->get_expr(), m) << "\n";);
+        TRACE(datatype, tout << "occurs_check_explain " << mk_bounded_pp(app->get_expr(), m) << " <-> " << mk_bounded_pp(root->get_expr(), m) << "\n";);
 
         // first: explain that root=v, given that app=cstor(...,v,...)
 
@@ -581,7 +581,7 @@ namespace smt {
             m_used_eqs.push_back(enode_pair(app, root));
         }
 
-        TRACE("datatype",
+        TRACE(datatype,
               tout << "occurs_check\n";
               for (enode_pair const& p : m_used_eqs) 
                   tout << enode_eq_pp(p, ctx);
@@ -700,7 +700,7 @@ namespace smt {
        a3 = cons(v3, a1)
     */
     bool theory_datatype::occurs_check(enode * n) {
-        TRACE("datatype_verbose", tout << "occurs check: " << enode_pp(n, ctx) << "\n";);
+        TRACE(datatype_verbose, tout << "occurs check: " << enode_pp(n, ctx) << "\n";);
         m_stats.m_occurs_check++;
 
         bool res = false;
@@ -715,7 +715,7 @@ namespace smt {
             if (oc_cycle_free(app))
                 continue;
 
-            TRACE("datatype_verbose", tout << "occurs check loop: " << enode_pp(app, ctx) << (op==ENTER?" enter":" exit")<< "\n";);
+            TRACE(datatype_verbose, tout << "occurs check loop: " << enode_pp(app, ctx) << (op==ENTER?" enter":" exit")<< "\n";);
 
             switch (op) {
             case ENTER:
@@ -839,7 +839,7 @@ namespace smt {
         datatype_value_proc * result = alloc(datatype_value_proc, c_decl);
         for (enode* arg : enode::args(d->m_constructor)) 
             result->add_dependency(arg);
-        TRACE("datatype", 
+        TRACE(datatype, 
               tout << pp(n, m) << "\n";
               tout << "depends on\n";
               for (enode* arg : enode::args(d->m_constructor)) 
@@ -850,7 +850,7 @@ namespace smt {
 
     void theory_datatype::merge_eh(theory_var v1, theory_var v2, theory_var, theory_var) {
         // v1 is the new root
-        TRACE("datatype", tout << "merging v" << v1 << " v" << v2 << "\n";);
+        TRACE(datatype, tout << "merging v" << v1 << " v" << v2 << "\n";);
         SASSERT(v1 == static_cast<int>(m_find.find(v1)));
         var_data * d1 = m_var_data[v1];
         var_data * d2 = m_var_data[v2];
@@ -896,7 +896,7 @@ namespace smt {
         unsigned c_idx = m_util.get_recognizer_constructor_idx(recognizer->get_decl());
         if (d->m_recognizers[c_idx] == nullptr) {
             lbool val = ctx.get_assignment(recognizer);
-            TRACE("datatype", tout << "adding recognizer to v" << v << " rec: #" << recognizer->get_owner_id() << " val: " << val << "\n";);
+            TRACE(datatype, tout << "adding recognizer to v" << v << " rec: #" << recognizer->get_owner_id() << " val: " << val << "\n";);
             if (val == l_true) {
                 // do nothing... 
                 // If recognizer assignment was already processed, then
@@ -938,7 +938,7 @@ namespace smt {
             SASSERT(w != null_theory_var);
             add_recognizer(w, recognizer);
         }
-        CTRACE("datatype", d->m_recognizers.empty(), ctx.display(tout););
+        CTRACE(datatype, d->m_recognizers.empty(), ctx.display(tout););
         SASSERT(!d->m_recognizers.empty());
         literal_vector lits;
         enode_pair_vector eqs;
@@ -964,11 +964,11 @@ namespace smt {
                 unassigned_idx = idx;
             num_unassigned++;
         }
-        TRACE("datatype", tout << "propagate " << num_unassigned << " eqs: " << eqs.size() << "\n";);
+        TRACE(datatype, tout << "propagate " << num_unassigned << " eqs: " << eqs.size() << "\n";);
         if (num_unassigned == 0) {
             // conflict
             SASSERT(!lits.empty());
-            TRACE("datatype_conflict", tout << mk_ismt2_pp(recognizer->get_expr(), m) << "\n";
+            TRACE(datatype_conflict, tout << mk_ismt2_pp(recognizer->get_expr(), m) << "\n";
                   for (literal l : lits) 
                       ctx.display_detailed_literal(tout, l) << "\n";
                   for (auto const& p : eqs) 
@@ -1019,7 +1019,7 @@ namespace smt {
         func_decl * r         = nullptr;
         m_stats.m_splits++;
 
-        TRACE("datatype_bug", tout << "non_rec_c: " << non_rec_c->get_name() << " #rec: " << d->m_recognizers.size() << "\n";);
+        TRACE(datatype_bug, tout << "non_rec_c: " << non_rec_c->get_name() << " #rec: " << d->m_recognizers.size() << "\n";);
 
         if (d->m_recognizers.empty()) {
             r = m_util.get_constructor_is(non_rec_c);
@@ -1063,7 +1063,7 @@ namespace smt {
         }
         SASSERT(r != nullptr);
         app_ref r_app(m.mk_app(r, n->get_expr()), m);
-        TRACE("datatype", tout << "creating split: " << mk_pp(r_app, m) << "\n";);
+        TRACE(datatype, tout << "creating split: " << mk_pp(r_app, m) << "\n";);
         ctx.internalize(r_app, false);
         bool_var bv     = ctx.get_bool_var(r_app);
         ctx.set_true_first_flag(bv);

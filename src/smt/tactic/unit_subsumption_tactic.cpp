@@ -73,7 +73,7 @@ struct unit_subsumption_tactic : public tactic {
         r->elim_true();
         result.push_back(r.get());        
         m_context.pop(2);
-        TRACE("unit_subsumption_tactic", g->display(tout); r->display(tout););
+        TRACE(unit_subsumption_tactic, g->display(tout); r->display(tout););
     }
 
     void assert_clauses(goal_ref const& g) {
@@ -104,7 +104,7 @@ struct unit_subsumption_tactic : public tactic {
         bool is_unsat = m_context.inconsistent();
         m_context.pop(2);
         if (is_unsat) {            
-            TRACE("unit_subsumption_tactic", tout << "Removing clause " << i << "\n";);
+            TRACE(unit_subsumption_tactic, tout << "Removing clause " << i << "\n";);
             m_is_deleted.set(i, true);
             m_deleted.push_back(i);
         }

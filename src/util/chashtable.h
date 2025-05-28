@@ -89,7 +89,7 @@ protected:
     cell * copy_table(cell * source, unsigned source_slots, unsigned source_capacity, 
                       cell * target, unsigned target_slots, unsigned target_capacity,
                       unsigned & used_slots) {
-        TRACE("chashtable", tout << "copy_table...\n";);
+        TRACE(chashtable, tout << "copy_table...\n";);
         SASSERT(target_slots >= source_slots);
         SASSERT(target_capacity >= source_capacity);
         unsigned target_mask  = target_slots - 1;
@@ -129,7 +129,7 @@ protected:
             }
         }
 #if 0
-        TRACE("chashtable", 
+        TRACE(chashtable, 
               for (unsigned i = 0; i < source_capacity; i++) {
                   tout << i << ":[";
                   if (source[i].m_next == 0)

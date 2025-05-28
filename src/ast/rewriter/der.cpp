@@ -48,7 +48,7 @@ bool der::is_var_diseq(expr * e, unsigned num_decls, var * & v, expr_ref & t) {
     auto set_result = [&](var *w, expr* s) { 
         v = w; 
         t = s; 
-        TRACE("der", tout << mk_pp(e, m) << "\n";); 
+        TRACE(der, tout << mk_pp(e, m) << "\n";); 
         return true; 
     };
 
@@ -97,7 +97,7 @@ bool der::is_var_eq(expr* e, unsigned num_decls, var*& v, expr_ref& t) {
     auto set_result = [&](var* w, expr* s) {
         v = w;
         t = s;
-        TRACE("der", tout << mk_pp(e, m) << "\n";);
+        TRACE(der, tout << mk_pp(e, m) << "\n";);
         return true;
     };
 
@@ -137,7 +137,7 @@ void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
     pr = nullptr;
     r  = q;
 
-    TRACE("der", tout << mk_pp(q, m) << "\n";);
+    TRACE(der, tout << mk_pp(q, m) << "\n";);
 
     auto k = q->get_kind();
     // Keep applying it until r doesn't change anymore
@@ -226,7 +226,7 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
             }
         }
         else {
-            TRACE("der_bug", tout << "Did not find any diseq\n" << mk_pp(q, m) << "\n";);
+            TRACE(der_bug, tout << "Did not find any diseq\n" << mk_pp(q, m) << "\n";);
             r = q;
         }
     }
@@ -282,7 +282,7 @@ static void der_sort_vars(ptr_vector<var> & vars, expr_ref_vector & definitions,
             case AST_VAR:
                 vidx = to_var(t)->get_idx();
                 if (fr.second == 0) {
-                    CTRACE("der_bug", vidx >= definitions.size(), tout << "vidx: " << vidx << "\n";);
+                    CTRACE(der_bug, vidx >= definitions.size(), tout << "vidx: " << vidx << "\n";);
                     // Remark: The size of definitions may be smaller than the number of variables occurring in the quantified formula.
                     if (definitions.get(vidx, nullptr) != nullptr) {
                         if (visiting.is_marked(t)) {
@@ -341,7 +341,7 @@ static void der_sort_vars(ptr_vector<var> & vars, expr_ref_vector & definitions,
 void der::get_elimination_order() {
     m_order.reset();
 
-    TRACE("top_sort",
+    TRACE(top_sort,
           tout << "DEFINITIONS: " << std::endl;
           unsigned i = 0;
           for (expr* e : m_map) {
@@ -353,7 +353,7 @@ void der::get_elimination_order() {
     // der::top_sort ts(m);
     der_sort_vars(m_inx2var, m_map, m_order);
 
-    TRACE("der",
+    TRACE(der,
           tout << "Elimination m_order:" << "\n";
           tout << m_order << "\n";); 
 }

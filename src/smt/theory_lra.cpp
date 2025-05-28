@@ -242,7 +242,7 @@ class theory_lra::imp {
         lp().push();
         add_def_constraint_and_equality(var, lp::GE, rational(c));
         add_def_constraint_and_equality(var, lp::LE, rational(c));
-        TRACE("arith", tout << "add " << cnst << ", var = " << var << "\n";);
+        TRACE(arith, tout << "add " << cnst << ", var = " << var << "\n";);
         return var;
     }
 
@@ -272,13 +272,13 @@ class theory_lra::imp {
 
     void found_unsupported(expr* n) {
         ctx().push_trail(push_back_vector<ptr_vector<expr>>(m_not_handled));
-        TRACE("arith", tout << "unsupported " << mk_pp(n, m) << "\n");
+        TRACE(arith, tout << "unsupported " << mk_pp(n, m) << "\n");
         m_not_handled.push_back(n);
     } 
 
     void found_underspecified(expr* n) {
         if (a.is_underspecified(n)) {
-            TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
+            TRACE(arith, tout << "Unhandled: " << mk_pp(n, m) << "\n";);
             ctx().push_trail(push_back_vector<ptr_vector<app>>(m_underspecified));
             m_underspecified.push_back(to_app(n));
         }
@@ -559,7 +559,7 @@ class theory_lra::imp {
                 theory_var v = mk_var(n);
                 vars.push_back(register_theory_var_in_lar_solver(v));
             }
-            TRACE("arith", tout << "v" << v << " := " << bpp(t) << "\n" << vars << "\n";);
+            TRACE(arith, tout << "v" << v << " := " << bpp(t) << "\n" << vars << "\n";);
             m_solver->register_existing_terms();
             ensure_nla();
             m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.data());
@@ -568,7 +568,7 @@ class theory_lra::imp {
     }
 
     enode * mk_enode(app * n) {
-        TRACE("arith_verbose", tout << bpp(n) << " internalized: " << ctx().e_internalized(n) << "\n";);
+        TRACE(arith_verbose, tout << bpp(n) << " internalized: " << ctx().e_internalized(n) << "\n";);
         if (reflect(n))
             for (expr* arg : *n)
                 if (!ctx().e_internalized(arg))
@@ -588,12 +588,12 @@ class theory_lra::imp {
 
 
     void mk_clause(literal l1, literal l2, unsigned num_params, parameter * params) {
-        TRACE("arith", literal lits[2]; lits[0] = l1; lits[1] = l2; ctx().display_literals_verbose(tout, 2, lits); tout << "\n";);
+        TRACE(arith, literal lits[2]; lits[0] = l1; lits[1] = l2; ctx().display_literals_verbose(tout, 2, lits); tout << "\n";);
         ctx().mk_th_axiom(get_id(), l1, l2, num_params, params);
     }
 
     void mk_clause(literal l1, literal l2, literal l3, unsigned num_params, parameter * params) {
-        TRACE("arith", literal lits[3]; lits[0] = l1; lits[1] = l2; lits[2] = l3; ctx().display_literals_smt2(tout, 3, lits); tout << "\n";);
+        TRACE(arith, literal lits[3]; lits[0] = l1; lits[1] = l2; lits[2] = l3; ctx().display_literals_smt2(tout, 3, lits); tout << "\n";);
         ctx().mk_th_axiom(get_id(), l1, l2, l3, num_params, params);
     }
 
@@ -734,7 +734,7 @@ class theory_lra::imp {
     }
 
     void updt_unassigned_bounds(theory_var v, int inc) {
-        TRACE("arith_verbose", tout << "v" << v << " " << m_unassigned_bounds[v] << " += " << inc << "\n";);
+        TRACE(arith_verbose, tout << "v" << v << " " << m_unassigned_bounds[v] << " += " << inc << "\n";);
         ctx().push_trail(vector_value_trail<unsigned, false>(m_unassigned_bounds, v));
         m_unassigned_bounds[v] += inc;            
     }
@@ -745,7 +745,7 @@ class theory_lra::imp {
 
 
     theory_var internalize_def(app* term, scoped_internalize_state& st) {
-        TRACE("arith", tout << expr_ref(term, m) << "\n";);
+        TRACE(arith, tout << expr_ref(term, m) << "\n";);
         if (ctx().e_internalized(term)) {
             IF_VERBOSE(0, verbose_stream() << "repeated term\n";);
             return mk_var(term);
@@ -787,7 +787,7 @@ class theory_lra::imp {
 
     theory_var internalize_linearized_def(app* term, scoped_internalize_state& st) {
         theory_var v = mk_var(term);
-        TRACE("arith_internalize", tout << "v" << v << " " << bpp(term) << "\n";);
+        TRACE(arith_internalize, tout << "v" << v << " " << bpp(term) << "\n";);
 
         if (is_unit_var(st) && v == st.vars()[0]) 
             return st.vars()[0];
@@ -804,7 +804,7 @@ class theory_lra::imp {
             else {
                 vi = lp().add_term(m_left_side, v);
                 SASSERT(lp().column_has_term(vi));
-                TRACE("arith_verbose", 
+                TRACE(arith_verbose, 
                       tout << "v" << v << " := " << mk_pp(term, m) 
                       << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
                       lp().print_term(lp().get_term(vi), tout) << "\n";);
@@ -884,7 +884,7 @@ public:
     }
 
     bool internalize_atom(app * atom, bool gate_ctx) {
-        TRACE("arith_internalize", tout << bpp(atom) << "\n";);
+        TRACE(arith_internalize, tout << bpp(atom) << "\n";);
         SASSERT(!ctx().b_internalized(atom));
         expr* n1, *n2;
         rational r;
@@ -914,7 +914,7 @@ public:
             return true;
         }
         else {
-            TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
+            TRACE(arith, tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
             found_unsupported(atom);
             return true;
         }
@@ -928,7 +928,7 @@ public:
         m_bounds_trail.push_back(v);
         m_bool_var2bound.insert(bv, b);
         mk_bound_axioms(*b);
-        TRACE("arith_internalize", tout << "Internalized " << bv << ": " << bpp(atom) << "\n";);
+        TRACE(arith_internalize, tout << "Internalized " << bv << ": " << bpp(atom) << "\n";);
         return true;
     }
         
@@ -959,7 +959,7 @@ public:
     }
 
     void assign_eh(bool_var v, bool is_true) {
-        TRACE("arith", tout << "assign p" << literal(v, !is_true) << ": " << bpp(ctx().bool_var2expr(v)) << "\n";);
+        TRACE(arith, tout << "assign p" << literal(v, !is_true) << ": " << bpp(ctx().bool_var2expr(v)) << "\n";);
         m_asserted_atoms.push_back(delayed_atom(v, is_true));
     }
 
@@ -996,7 +996,7 @@ public:
     }
 
     void new_eq_eh(theory_var v1, theory_var v2) {
-        TRACE("arith", tout << "eq " << v1 << " == " << v2 << "\n";);
+        TRACE(arith, tout << "eq " << v1 << " == " << v2 << "\n";);
         if (!is_int(v1) && !is_real(v1)) 
             return;
         m_arith_eq_adapter.new_eq_eh(v1, v2);
@@ -1007,13 +1007,13 @@ public:
     }
 
     void new_diseq_eh(theory_var v1, theory_var v2) {
-        TRACE("arith", tout << "v" << v1 << " != " << "v" << v2 << "\n";);
+        TRACE(arith, tout << "v" << v1 << " != " << "v" << v2 << "\n";);
         ++m_stats.m_assert_diseq;
         m_arith_eq_adapter.new_diseq_eh(v1, v2);
     }
 
     void apply_sort_cnstr(enode* n, sort*) {
-        TRACE("arith", tout << "sort constraint: " << pp(n) << "\n";);
+        TRACE(arith, tout << "sort constraint: " << pp(n) << "\n";);
 #if 0
         if (!th.is_attached_to_var(n)) 
             mk_var(n->get_owner());
@@ -1045,7 +1045,7 @@ public:
         m_bv_to_propagate.reset();
         if (m_nla)
             m_nla->pop(num_scopes);
-        TRACE("arith", tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
+        TRACE(arith, tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
     }
 
     void restart_eh() {
@@ -1219,14 +1219,14 @@ public:
         add_def_constraint_and_equality(vi, lp::GE, rational::zero());
         add_def_constraint_and_equality(vi, lp::LT, abs(r));
         SASSERT(!is_infeasible());
-        TRACE("arith", tout << term << "\n" << lp().constraints(););
+        TRACE(arith, tout << term << "\n" << lp().constraints(););
     }
 
     void mk_idiv_mod_axioms(expr * p, expr * q) {
         if (a.is_zero(q)) {
             return;
         }
-        TRACE("arith", tout << expr_ref(p, m) << " " << expr_ref(q, m) << "\n";);
+        TRACE(arith, tout << expr_ref(p, m) << " " << expr_ref(q, m) << "\n";);
         // if q is zero, then idiv and mod are uninterpreted functions.
         expr_ref div(a.mk_idiv(p, q), m);
         expr_ref mod(a.mk_mod(p, q), m);
@@ -1309,7 +1309,7 @@ public:
                 div_ge = a.mk_ge(a.mk_sub(p, a.mk_mul(q, div)), zero);
                 ctx().get_rewriter()(div_ge);
                 mk_axiom(eqz, mk_literal(div_ge));
-                TRACE("arith", tout << eqz << " " << div_ge << "\n");
+                TRACE(arith, tout << eqz << " " << div_ge << "\n");
             }
 
 
@@ -1413,7 +1413,7 @@ public:
 
     literal mk_literal(expr* e) {
         expr_ref pinned(e, m);
-        TRACE("mk_bool_var", tout << pinned << " " << pinned->get_id() << "\n";);
+        TRACE(mk_bool_var, tout << pinned << " " << pinned->get_id() << "\n";);
         if (!ctx().e_internalized(e)) {
             ctx().internalize(e, false);
         }
@@ -1461,7 +1461,7 @@ public:
         if (m.inc() && m_solver.get() && th.get_num_vars() > 0) {   
             ctx().push_trail(value_trail<bool>(m_model_is_initialized));
             m_model_is_initialized = lp().init_model();
-            TRACE("arith", display(tout << "update variable values " << m_model_is_initialized << "\n"););            
+            TRACE(arith, display(tout << "update variable values " << m_model_is_initialized << "\n"););            
         }
     }
     
@@ -1498,7 +1498,7 @@ public:
                 }
             } 
         }
-        TRACE("arith", 
+        TRACE(arith, 
               for (theory_var v = 0; v < sz; ++v) 
                   if (th.is_relevant_and_shared(get_enode(v)))  
                       tout << "v" << v << " ";
@@ -1513,7 +1513,7 @@ public:
         if (delayed_assume_eqs())
             return true;
         
-        TRACE("arith_verbose", display(tout););
+        TRACE(arith_verbose, display(tout););
         random_update();
         m_model_eqs.reset();
         
@@ -1555,7 +1555,7 @@ public:
             enode* n1 = get_enode(v1);
             enode* n2 = get_enode(v2);
             m_assume_eq_head++;
-            CTRACE("arith", 
+            CTRACE(arith, 
                    is_eq(v1, v2) && n1->get_root() != n2->get_root(),
                    tout << "assuming eq: v" << v1 << " = v" << v2 << "\n";);
             if (is_eq(v1, v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) {
@@ -1620,7 +1620,7 @@ public:
         bool int_undef = false;
         switch (is_sat) {
         case l_true:
-            TRACE("arith", display(tout));            
+            TRACE(arith, display(tout));            
                 
             switch (check_lia()) {
             case FC_DONE:
@@ -1629,7 +1629,7 @@ public:
                 return FC_CONTINUE;
             case FC_GIVEUP:
                 int_undef = true;
-                TRACE("arith", tout << "check-lia giveup\n";);
+                TRACE(arith, tout << "check-lia giveup\n";);
                 if (ctx().get_fparams().m_arith_ignore_int)
                     st = FC_CONTINUE;
                 break;
@@ -1641,7 +1641,7 @@ public:
             case FC_CONTINUE:
                 return FC_CONTINUE;
             case FC_GIVEUP:
-                TRACE("arith", tout << "check-nra giveup\n";);
+                TRACE(arith, tout << "check-nra giveup\n";);
                 st = FC_GIVEUP;
                 break;
             }                        
@@ -1662,7 +1662,7 @@ public:
                     st = FC_CONTINUE;
                     break;
                 case FC_GIVEUP:
-                    TRACE("arith", tout << "give up " << mk_pp(e, m) << "\n");
+                    TRACE(arith, tout << "give up " << mk_pp(e, m) << "\n");
                     if (st != FC_CONTINUE) 
                         st = FC_GIVEUP;
                     break;
@@ -1677,13 +1677,13 @@ public:
             get_infeasibility_explanation_and_set_conflict();
             return FC_CONTINUE;
         case l_undef:
-            TRACE("arith", tout << "check feasible is undef\n";);
+            TRACE(arith, tout << "check feasible is undef\n";);
             return m.inc() ? FC_CONTINUE : FC_GIVEUP;
         default:
             UNREACHABLE();
             break;
         }
-        TRACE("arith", tout << "default giveup\n";);
+        TRACE(arith, tout << "default giveup\n";);
         return FC_GIVEUP;
     }
 
@@ -1739,11 +1739,11 @@ public:
             rational g = gcd_reduce(coeffs);
             if (!g.is_one()) {
                 if (lower_bound) {
-                    TRACE("arith", tout << "lower: " << offset << " / " << g << " = " << offset / g << " >= " << ceil(offset / g) << "\n";);
+                    TRACE(arith, tout << "lower: " << offset << " / " << g << " = " << offset / g << " >= " << ceil(offset / g) << "\n";);
                     offset = ceil(offset / g);
                 }
                 else {
-                    TRACE("arith", tout << "upper: " << offset << " / " << g << " = " << offset / g << " <= " << floor(offset / g) << "\n";);
+                    TRACE(arith, tout << "upper: " << offset << " / " << g << " = " << offset / g << " <= " << floor(offset / g) << "\n";);
                     offset = floor(offset / g);
                 }
             }
@@ -1754,7 +1754,7 @@ public:
             for (auto& kv : coeffs) kv.m_value.neg();
         }
 
-        // CTRACE("arith", is_int,
+        // CTRACE(arith, is_int,
         //        lp().print_term(term, tout << "term: ") << "\n";
         //        tout << "offset: " << offset << " gcd: " << g << "\n";);
 
@@ -1769,7 +1769,7 @@ public:
         // Note: it is not safe to rewrite atom because the rewriter can
         // destroy structure, such as (div x 24) >= 0 becomes x >= 0 and the internal variable
         // corresponding to (div x 24) is not constrained.
-        TRACE("arith", tout << t << ": " << atom << "\n";
+        TRACE(arith, tout << t << ": " << atom << "\n";
               lp().print_term(term, tout << "bound atom: ") << (lower_bound?" >= ":" <= ") << k << "\n";);
         ctx().internalize(atom, true);
         ctx().mark_as_relevant(atom.get());
@@ -1883,9 +1883,9 @@ public:
     }
     
     final_check_status check_lia() {
-        TRACE("arith",);
+        TRACE(arith,);
         if (!m.inc()) {
-            TRACE("arith", tout << "canceled\n";);
+            TRACE(arith, tout << "canceled\n";);
             return FC_CONTINUE;
         }
         auto cr = m_lia->check(&m_explanation);
@@ -1897,7 +1897,7 @@ public:
             break;
 
         case lp::lia_move::branch: {
-            TRACE("arith", tout << "branch\n";);
+            TRACE(arith, tout << "branch\n";);
             bool u = m_lia->is_upper();
             auto const & k = m_lia->offset();
             rational offset;
@@ -1921,7 +1921,7 @@ public:
         case lp::lia_move::cut: {
             if (ctx().get_fparams().m_arith_ignore_int) 
                 return FC_GIVEUP;
-            TRACE("arith", tout << "cut\n";);
+            TRACE(arith, tout << "cut\n";);
             // m_explanation implies term <= k
             reset_evidence();
             for (auto ev : m_explanation) {
@@ -1935,21 +1935,21 @@ public:
                 m.trace_stream() << "[end-of-instance]\n";
             }
             IF_VERBOSE(4, verbose_stream() << "cut " << b << "\n");
-            TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->offset(), m_explanation, m_lia->is_upper()););
+            TRACE(arith, dump_cut_lemma(tout, m_lia->get_term(), m_lia->offset(), m_explanation, m_lia->is_upper()););
             literal lit(ctx().get_bool_var(b), false);
-            TRACE("arith", 
+            TRACE(arith, 
                   ctx().display_lemma_as_smt_problem(tout << "new cut:\n", m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), lit);
                   display(tout););
             assign(lit, m_core, m_eqs, m_params);
             return FC_CONTINUE;
         }
         case lp::lia_move::conflict:
-            TRACE("arith", tout << "conflict\n";);
+            TRACE(arith, tout << "conflict\n";);
             // ex contains unsat core
             set_conflict();
             return FC_CONTINUE;
         case lp::lia_move::undef:
-            TRACE("arith", tout << "lia undef\n";);
+            TRACE(arith, tout << "lia undef\n";);
             return FC_CONTINUE;
         case lp::lia_move::continue_with_check:
             return FC_CONTINUE;
@@ -1994,7 +1994,7 @@ public:
         default:
             UNREACHABLE();
         }
-        TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
+        TRACE(arith, tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
         expr_ref atom(m);
         // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
         // then term is used instead of ineq.m_term
@@ -2041,10 +2041,10 @@ public:
 
     final_check_status check_nla() {
         if (!m.inc()) {
-            TRACE("arith", tout << "canceled\n";);
+            TRACE(arith, tout << "canceled\n";);
             return FC_GIVEUP;            
         }
-        CTRACE("arith",!m_nla, tout << "no nla\n";);
+        CTRACE(arith,!m_nla, tout << "no nla\n";);
         if (!m_nla)            
             return FC_DONE;        
         if (!m_nla->need_check()) 
@@ -2071,7 +2071,7 @@ public:
         enode * n      = get_enode(v);
         enode * r      = n->get_root();
         unsigned usz   = m_underspecified.size();
-        TRACE("shared", tout << ctx().get_scope_level() << " " <<  enode_pp(n, ctx()) << " " << v << " underspecified " << usz << " parents " << r->get_num_parents() << "\n";);
+        TRACE(shared, tout << ctx().get_scope_level() << " " <<  enode_pp(n, ctx()) << " " << v << " underspecified " << usz << " parents " << r->get_num_parents() << "\n";);
         if (r->get_num_parents() > 2*usz) {
             for (unsigned i = 0; i < usz; ++i) {
                 app* u = m_underspecified[i];
@@ -2130,7 +2130,7 @@ public:
             auto [bv, is_true] = m_asserted_atoms[m_asserted_qhead];
                         
             api_bound* b = nullptr;
-            TRACE("arith", tout << "propagate: " << literal(bv, !is_true) << "\n";
+            TRACE(arith, tout << "propagate: " << literal(bv, !is_true) << "\n";
                   if (!m_bool_var2bound.contains(bv)) tout << "not found\n");
             if (m_bool_var2bound.find(bv, b) && !assert_bound(bv, is_true, *b)) {
                 get_infeasibility_explanation_and_set_conflict();
@@ -2147,7 +2147,7 @@ public:
         
         switch(lbl) {
         case l_false:
-            TRACE("arith", tout << "propagation conflict\n";);
+            TRACE(arith, tout << "propagation conflict\n";);
             get_infeasibility_explanation_and_set_conflict();
             break;
         case l_true:
@@ -2169,7 +2169,7 @@ public:
     }
 
     void add_equality(lpvar j, rational const& k, lp::explanation const& exp) {
-        TRACE("arith", tout << "equality " << j << " " << k << "\n");
+        TRACE(arith, tout << "equality " << j << " " << k << "\n");
         theory_var v;
         if (k == 1)
             v = m_one_var;
@@ -2264,12 +2264,12 @@ public:
         if (v == null_theory_var) 
             return 0;
 
-        TRACE("arith", tout << "v" << v << " " << be.kind() << " " << be.m_bound << "\n";);
+        TRACE(arith, tout << "v" << v << " " << be.kind() << " " << be.m_bound << "\n";);
 
         reserve_bounds(v);
             
         if (m_unassigned_bounds[v] == 0 && !should_refine_bounds()) {
-            TRACE("arith", tout << "return\n";);
+            TRACE(arith, tout << "return\n";);
             return 0;
         }
         lp_bounds const& bounds = m_bounds[v];
@@ -2282,10 +2282,10 @@ public:
             literal lit = is_bound_implied(be.kind(), be.m_bound, *b);
             if (lit == null_literal) 
                 continue;
-            TRACE("arith", tout << lit << " bound: " << *b << " first: " << first << "\n";);
+            TRACE(arith, tout << lit << " bound: " << *b << " first: " << first << "\n";);
             ctx().display_literal_verbose(verbose_stream() << "miss ", lit) << "\n";
             display(verbose_stream());
-            TRACE("arith", ctx().display_literal_verbose(tout << "miss ", lit) << "\n");
+            TRACE(arith, ctx().display_literal_verbose(tout << "miss ", lit) << "\n");
             exit(0);
             
             ++count;
@@ -2301,12 +2301,12 @@ public:
         if (v == null_theory_var) 
             return 0;
 
-        TRACE("arith", tout << "v" << v << " " << be.kind() << " " << be.m_bound << "\n";);
+        TRACE(arith, tout << "v" << v << " " << be.kind() << " " << be.m_bound << "\n";);
 
         reserve_bounds(v);
             
         if (m_unassigned_bounds[v] == 0 && !should_refine_bounds()) {
-            TRACE("arith", tout << "return\n";);
+            TRACE(arith, tout << "return\n";);
             return 0;
         }
         lp_bounds const& bounds = m_bounds[v];
@@ -2319,7 +2319,7 @@ public:
             literal lit = is_bound_implied(be.kind(), be.m_bound, *b);
             if (lit == null_literal) 
                 continue;
-            TRACE("arith", tout << lit << " bound: " << *b << " first: " << first << "\n";);
+            TRACE(arith, tout << lit << " bound: " << *b << " first: " << first << "\n";);
 
             ++count;
 
@@ -2330,9 +2330,9 @@ public:
                 m_explanation.clear();
                 lp().explain_implied_bound(be, m_bp);
             }
-            CTRACE("arith", m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
+            CTRACE(arith, m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
             updt_unassigned_bounds(v, -1);
-            TRACE("arith",
+            TRACE(arith,
                   ctx().display_literals_verbose(tout, m_core);
                   tout << "\n --> ";
                   ctx().display_literal_verbose(tout, lit);
@@ -2405,7 +2405,7 @@ public:
         enode* n1 = get_enode(uv);
         enode* n2 = get_enode(vv);
 
-        TRACE("arith", tout << "add-eq " << pp(n1) << " == " << pp(n2) << "\n";);
+        TRACE(arith, tout << "add-eq " << pp(n1) << " == " << pp(n2) << "\n";);
         if (n1->get_root() == n2->get_root())
             return false;
         expr* e1 = n1->get_expr();
@@ -2771,7 +2771,7 @@ public:
 
     void flush_bound_axioms() {
         
-        CTRACE("arith", !m_new_bounds.empty(), tout << "flush bound axioms\n";);
+        CTRACE(arith, !m_new_bounds.empty(), tout << "flush bound axioms\n";);
 
         while (!m_new_bounds.empty()) {
             lp_bounds atoms;            
@@ -2786,7 +2786,7 @@ public:
                     --i;
                 }
             }            
-            CTRACE("arith", atoms.size() > 1, 
+            CTRACE(arith, atoms.size() > 1, 
                    for (auto* a : atoms) a->display(tout) << "\n";);
             lp_bounds occs(m_bounds[v]);
             
@@ -2910,7 +2910,7 @@ public:
         literal lit1(bv, !is_true);
         literal lit2 = null_literal;
         bool find_glb = (is_true == (k == lp_api::lower_t));
-        TRACE("arith_verbose", tout << "v" << v << " find_glb: " << find_glb << " is_true: " << is_true << " k: " << k << " is_lower: " << (k == lp_api::lower_t) << "\n";);
+        TRACE(arith_verbose, tout << "v" << v << " find_glb: " << find_glb << " is_true: " << is_true << " k: " << k << " is_lower: " << (k == lp_api::lower_t) << "\n";);
         if (find_glb) {
             rational glb;
             api_bound* lb = nullptr;
@@ -2949,7 +2949,7 @@ public:
         ++m_stats.m_bound_propagations2;
         reset_evidence();
         m_core.push_back(lit1);
-        TRACE("arith", 
+        TRACE(arith, 
               ctx().display_literals_verbose(tout, m_core);
               ctx().display_literal_verbose(tout << " => ", lit2);
               tout << "\n";);
@@ -3019,13 +3019,13 @@ public:
     // 
     void propagate_bound_compound(bool_var bv, bool is_true, api_bound& b) {
         theory_var v = b.get_var();
-        TRACE("arith", tout << pp(v) << "\n";);
+        TRACE(arith, tout << pp(v) << "\n";);
         if (static_cast<unsigned>(v) >= m_use_list.size()) {
             return;
         }
         for (auto const& vb : m_use_list[v]) {
             if (ctx().get_assignment(vb->get_lit()) != l_undef) {
-                TRACE("arith_verbose", display_bound(tout << "assigned ", *vb) << "\n";);
+                TRACE(arith_verbose, display_bound(tout << "assigned ", *vb) << "\n";);
                 continue;
             }
             inf_rational r;
@@ -3052,7 +3052,7 @@ public:
                 
             // get_glb and get_lub set m_core, m_eqs, m_params
             if (lit != null_literal) {
-                TRACE("arith",
+                TRACE(arith,
                       ctx().display_literals_verbose(tout, m_core);
                       ctx().display_literal_verbose(tout << "\n --> ", lit) << "\n";
                       );
@@ -3061,7 +3061,7 @@ public:
                 assign(lit, m_core, m_eqs, m_params);
             }
             else {
-                TRACE("arith_verbose", display_bound(tout << "skip ", *vb) << "\n";);
+                TRACE(arith_verbose, display_bound(tout << "skip ", *vb) << "\n";);
             }
         }
     }
@@ -3113,7 +3113,7 @@ public:
             r += value * mono.coeff();
             set_evidence(ci, m_core, m_eqs);                    
         }
-        TRACE("arith_verbose", tout << (is_lub?"lub":"glb") << " is " << r << "\n";);
+        TRACE(arith_verbose, tout << (is_lub?"lub":"glb") << " is " << r << "\n";);
         return true;
     }
 
@@ -3129,7 +3129,7 @@ public:
     }
 
     bool assert_bound(bool_var bv, bool is_true, api_bound& b) {
-        TRACE("arith", tout << b << "\n";);
+        TRACE(arith, tout << b << "\n";);
         lp::constraint_index ci = b.get_constraint(is_true);
         lp().activate(ci);
         if (is_infeasible()) 
@@ -3222,7 +3222,7 @@ public:
             }
             constraint_bound& b = vec[tv];
             if (b.first == UINT_MAX || (is_lower? b.second < v : b.second > v)) {
-                TRACE("arith", tout << "tighter bound " << tv << "\n";);
+                TRACE(arith, tout << "tighter bound " << tv << "\n";);
                 m_history.push_back(vec[tv]);
                 ctx().push_trail(history_trail<constraint_bound>(vec, tv, m_history));
                 b.first = ci;
@@ -3264,7 +3264,7 @@ public:
         if (lp().column_has_term(vi)) {
             theory_var v = lp().local_to_external(vi);
             rational val;
-            TRACE("arith", tout << lp().get_variable_name(vi) << " " << v << "\n";);
+            TRACE(arith, tout << lp().get_variable_name(vi) << " " << v << "\n";);
             if (v != null_theory_var && a.is_numeral(get_owner(v), val) && bound == val) {
                 dep = nullptr;
                 return bound == val;
@@ -3305,7 +3305,7 @@ public:
         u_dependency* ci1 = nullptr, *ci2 = nullptr, *ci3 = nullptr, *ci4 = nullptr;
         theory_var v1 = lp().local_to_external(vi1);
         theory_var v2 = lp().local_to_external(vi2);
-        TRACE("arith", tout << "fixed: " << pp(v1) << " " << pp(v2) << "\n";);
+        TRACE(arith, tout << "fixed: " << pp(v1) << " " << pp(v2) << "\n";);
         // we expect lp() to ensure that none of these returns happen.
         if (is_equal(v1, v2))
             return;
@@ -3337,7 +3337,7 @@ public:
                 ext_theory_eq_propagation_justification(
                     get_id(), ctx(), m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), x, y));
         
-        TRACE("arith",
+        TRACE(arith,
               for (auto c : m_core) 
                   ctx().display_detailed_literal(tout << ctx().get_assign_level(c.var()) << " " << c << " ", c) << "\n";              
               for (auto e : m_eqs) 
@@ -3365,7 +3365,7 @@ public:
         else
             return;
         enode* y = get_enode(w);
-        TRACE("arith", tout << pp(x) << " == " << pp(y) << "\n");
+        TRACE(arith, tout << pp(x) << " == " << pp(y) << "\n");
         if (x->get_sort() != y->get_sort())
             return;
         if (x->get_root() == y->get_root())
@@ -3377,15 +3377,15 @@ public:
     }
 
     lbool make_feasible() {
-        TRACE("pcs",  tout << lp().constraints(););
-        TRACE("arith_verbose", tout << "before calling lp().find_feasible_solution()\n"; display(tout););
+        TRACE(pcs,  tout << lp().constraints(););
+        TRACE(arith_verbose, tout << "before calling lp().find_feasible_solution()\n"; display(tout););
         auto status = lp().find_feasible_solution();
-        TRACE("arith_verbose", display(tout););
+        TRACE(arith_verbose, display(tout););
         if (lp().is_feasible())
             return l_true;
         if (status == lp::lp_status::INFEASIBLE)  
             return l_false;
-        TRACE("arith", tout << "status treated as inconclusive: " << status << "\n";);
+        TRACE(arith, tout << "status treated as inconclusive: " << status << "\n";);
             // TENTATIVE_UNBOUNDED, UNBOUNDED, TENTATIVE_DUAL_UNBOUNDED, DUAL_UNBOUNDED, 
             // TIME_EXAUSTED, EMPTY, UNSTABLE
         return l_undef;
@@ -3454,7 +3454,7 @@ public:
         // lp().shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
-        TRACE("arith_conflict",
+        TRACE(arith_conflict,
               tout << "@" << ctx().get_scope_level() << (is_conflict ? " conflict":" lemma");
               for (auto const& p : m_params) tout << " " << p;
               tout << "\n";
@@ -3486,7 +3486,7 @@ public:
                 if (ctx().get_assignment(c) == l_true)
                     return;
             }
-            TRACE("arith", ctx().display_literals_verbose(tout, m_core) << "\n";);
+            TRACE(arith, ctx().display_literals_verbose(tout, m_core) << "\n";);
             ctx().mk_th_axiom(get_id(), m_core.size(), m_core.data());
         }
     }
@@ -3521,7 +3521,7 @@ public:
                     m_factory->register_value(val);
 
         }
-        TRACE("arith", display(tout););
+        TRACE(arith, display(tout););
     }
 
     nlsat::anum const& nl_value(theory_var v, scoped_anum& r) const {
@@ -3532,8 +3532,8 @@ public:
         else {
 
             m_todo_terms.push_back({t, rational::one()});
-            TRACE("nl_value", tout << "v" << v << " " << t << "\n";);
-            TRACE("nl_value", tout << "v" << v << " := w" << t << "\n";
+            TRACE(nl_value, tout << "v" << v << " " << t << "\n";);
+            TRACE(nl_value, tout << "v" << v << " := w" << t << "\n";
                   lp().print_term(lp().get_term(t), tout) << "\n";);
 
             m_nla->am().set(r, 0);
@@ -3542,7 +3542,7 @@ public:
                 t = m_todo_terms.back().first;                
                 m_todo_terms.pop_back();
                 lp::lar_term const& term = lp().get_term(t);
-                TRACE("nl_value", lp().print_term(term, tout) << "\n";);
+                TRACE(nl_value, lp().print_term(term, tout) << "\n";);
                 scoped_anum r1(m_nla->am());
                 rational c1(0);
                 m_nla->am().set(r1, c1.to_mpq());
@@ -3576,7 +3576,7 @@ public:
         }
         else {
             rational r = get_value(v);
-            TRACE("arith", tout << mk_pp(o, m) << " v" << v << " := " << r << "\n";);
+            TRACE(arith, tout << mk_pp(o, m) << " v" << v << " := " << r << "\n";);
             SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.limit().is_canceled()));
             if (a.is_int(o) && !r.is_int()) r = floor(r);
             return alloc(expr_wrapper_proc, m_factory->mk_value(r,  o->get_sort()));
@@ -3588,7 +3588,7 @@ public:
         if (!is_registered_var(v)) return false;
         lpvar vi = get_lpvar(v);
         if (lp().has_value(vi, val)) {
-            TRACE("arith", tout << expr_ref(n->get_expr(), m) << " := " << val << "\n";);
+            TRACE(arith, tout << expr_ref(n->get_expr(), m) << " := " << val << "\n";);
             if (is_int(n) && !val.is_int()) return false;
             return true;
         }
@@ -3817,7 +3817,7 @@ public:
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(1000, &eh);
         bool result = l_true != nctx.check();
-        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), false_literal););        
+        CTRACE(arith, !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), false_literal););        
         return result;
     }
 
@@ -3831,7 +3831,7 @@ public:
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(1000, &eh);
         bool result = l_true != nctx.check();
-        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), lit);
+        CTRACE(arith, !result, ctx().display_lemma_as_smt_problem(tout, m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), lit);
                display(tout););   
         return result;
     }
@@ -3879,7 +3879,7 @@ public:
             lp().backup_x();
         }
         if (!is_registered_var(v)) {
-            TRACE("arith", tout << "cannot get bound for v" << v << "\n";);
+            TRACE(arith, tout << "cannot get bound for v" << v << "\n";);
             st = lp::lp_status::UNBOUNDED;
         }
         else if (!m.limit().inc()) {
@@ -3913,20 +3913,20 @@ public:
         switch (st) {
         case lp::lp_status::OPTIMAL: {
             init_variable_values();
-            TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
+            TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
             auto val = value(v);
             blocker = mk_gt(v);
             return val;
         }
         case lp::lp_status::FEASIBLE: {
             auto val = value(v);
-            TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
+            TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
             blocker = mk_gt(v);
             return val;
         }
         default:
             SASSERT(st == lp::lp_status::UNBOUNDED);
-            TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
+            TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
             has_shared = false;
             blocker = m.mk_false();
             return inf_eps(rational::one(), inf_rational());
@@ -3953,12 +3953,12 @@ public:
             else 
                 e = a.mk_gt(obj, e);
         }
-        TRACE("opt", tout << "v" << v << " " << val << " " << r << " " << e << "\n";);
+        TRACE(opt, tout << "v" << v << " " << val << " " << r << " " << e << "\n";);
         return e;
     }
 
     theory_var add_objective(app* term) {
-        TRACE("opt", tout << expr_ref(term, m) << "\n";);
+        TRACE(opt, tout << expr_ref(term, m) << "\n";);
         theory_var v = internalize_def(term);
         register_theory_var_in_lar_solver(v);
         return v;
@@ -3969,7 +3969,7 @@ public:
     }
 
     void term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs, rational const& coeff) {
-        TRACE("arith", lp().print_term(term, tout) << "\n";);
+        TRACE(arith, lp().print_term(term, tout) << "\n";);
         for (lp::lar_term::ival ti : term) {
             theory_var w;
             auto tv = ti.j();
@@ -3982,7 +3982,7 @@ public:
             else {
                 w = lp().local_to_external(tv);
                 SASSERT(w >= 0);
-                TRACE("arith", tout << tv << ": " << w << "\n";);
+                TRACE(arith, tout << tv << ": " << w << "\n";);
             }
             rational c0(0);
             coeffs.find(w, c0);
@@ -4055,7 +4055,7 @@ public:
         bool is_strict =  val.get_infinitesimal().is_pos();
         app_ref b(m);
         bool is_int = a.is_int(get_enode(v)->get_expr());
-        TRACE("arith", display(tout << "v" << v << "\n"););
+        TRACE(arith, display(tout << "v" << v << "\n"););
         if (is_strict) {
             b = a.mk_le(mk_obj(v), a.mk_numeral(r, is_int));
         }
@@ -4077,12 +4077,12 @@ public:
             m_bounds_trail.push_back(v);
             m_bool_var2bound.insert(bv, a);
 
-            TRACE("arith", tout << "internalized " << bv << ": " << mk_pp(b, m) << "\n";);
+            TRACE(arith, tout << "internalized " << bv << ": " << mk_pp(b, m) << "\n";);
         }
         if (is_strict) {
             b = m.mk_not(b);
         }
-        TRACE("arith", tout << b << "\n";);
+        TRACE(arith, tout << b << "\n";);
         return expr_ref(b, m);            
     }
 

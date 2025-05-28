@@ -318,7 +318,7 @@ namespace smt {
     }
     
     expr_ref farkas_util::get() {
-        TRACE("arith", 
+        TRACE(arith, 
               for (unsigned i = 0; i < m_coeffs.size(); ++i) {
                   tout << m_coeffs[i] << " * (" << mk_pp(m_ineqs[i].get(), m) << ") ";
               }
@@ -354,7 +354,7 @@ namespace smt {
             res = extract_consequence(0, m_coeffs.size());
         }
 
-        TRACE("arith", 
+        TRACE(arith, 
               for (unsigned i = 0; i < m_coeffs.size(); ++i) {
                   tout << m_coeffs[i] << " * (" << mk_pp(m_ineqs[i].get(), m) << ") ";
               }

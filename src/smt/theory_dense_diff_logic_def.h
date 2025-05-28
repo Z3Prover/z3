@@ -123,7 +123,7 @@ namespace smt {
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::found_non_diff_logic_expr(expr * n) {
         if (!m_non_diff_logic_exprs) {
-            TRACE("non_diff_logic", tout << "found non diff logic expression:\n" << mk_pp(n, m) << "\n";);
+            TRACE(non_diff_logic, tout << "found non diff logic expression:\n" << mk_pp(n, m) << "\n";);
             ctx.push_trail(value_trail<bool>(m_non_diff_logic_exprs));
             IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, m) << ")\n";); 
             m_non_diff_logic_exprs = true;
@@ -136,7 +136,7 @@ namespace smt {
             found_non_diff_logic_expr(n); // little hack... TODO: change to no_memory and return l_undef if SAT
             return false;
         }
-        TRACE("ddl", tout << "internalizing atom:\n" << mk_pp(n, m) << "\n";);
+        TRACE(ddl, tout << "internalizing atom:\n" << mk_pp(n, m) << "\n";);
         SASSERT(!ctx.b_internalized(n));
         SASSERT(m_autil.is_le(n) || m_autil.is_ge(n));
         theory_var source, target;
@@ -167,15 +167,15 @@ namespace smt {
             s = mk_zero_for(t);
         }
         else {
-            TRACE("ddl", tout << "failed to internalize:\n" << mk_pp(n, m) << "\n";);
+            TRACE(ddl, tout << "failed to internalize:\n" << mk_pp(n, m) << "\n";);
             found_non_diff_logic_expr(n);
             return false;
         }
-        TRACE("arith", tout << expr_ref(lhs, m) << " " << expr_ref(s, m) << " " << expr_ref(t, m) << "\n";);
+        TRACE(arith, tout << expr_ref(lhs, m) << " " << expr_ref(s, m) << " " << expr_ref(t, m) << "\n";);
         source = internalize_term_core(s);
         target = internalize_term_core(t);
         if (source == null_theory_var || target == null_theory_var) {
-            TRACE("ddl", tout << "failed to internalize:\n" << mk_pp(n, m) << "\n";);
+            TRACE(ddl, tout << "failed to internalize:\n" << mk_pp(n, m) << "\n";);
             found_non_diff_logic_expr(n);
             return false;
         }
@@ -192,7 +192,7 @@ namespace smt {
         m_bv2atoms.setx(bv, a, 0);
         m_matrix[source][target].m_occs.push_back(a);
         m_matrix[target][source].m_occs.push_back(a);
-        TRACE("ddl", tout << "succeeded internalizing:\n" << mk_pp(n, m) << "\n";);
+        TRACE(ddl, tout << "succeeded internalizing:\n" << mk_pp(n, m) << "\n";);
         return true;
     }
 
@@ -212,9 +212,9 @@ namespace smt {
             found_non_diff_logic_expr(term); // little hack... TODO: change to no_memory and return l_undef if SAT
             return false;
         }
-        TRACE("ddl", tout << "internalizing term: " << mk_pp(term, m) << "\n";);
+        TRACE(ddl, tout << "internalizing term: " << mk_pp(term, m) << "\n";);
         theory_var v = internalize_term_core(term);
-        TRACE("ddl", tout << mk_pp(term, m) << "\ninternalization result: " << (v != null_theory_var) << "\n";);
+        TRACE(ddl, tout << mk_pp(term, m) << "\ninternalization result: " << (v != null_theory_var) << "\n";);
         if (v == null_theory_var)
             found_non_diff_logic_expr(term);
         return v != null_theory_var;
@@ -222,7 +222,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::internalize_eq_eh(app * atom, bool_var v) {
-        TRACE("ddl", tout << "eq-eh: " << mk_pp(atom, m) << "\n";);
+        TRACE(ddl, tout << "eq-eh: " << mk_pp(atom, m) << "\n";);
         if (memory::above_high_watermark())
             return;
         app * lhs      = to_app(atom->get_arg(0));
@@ -255,7 +255,7 @@ namespace smt {
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::assign_eh(bool_var v, bool is_true) {
         if (ctx.has_th_justification(v, get_id())) {
-            TRACE("ddl", tout << "ignoring atom propagated by the theory.\n";);
+            TRACE(ddl, tout << "ignoring atom propagated by the theory.\n";);
             return;
         }
         atom * a = m_bv2atoms.get(v, 0);
@@ -268,7 +268,7 @@ namespace smt {
         theory_var s = a->get_source();
         theory_var t = a->get_target();
         numeral  k   = a->get_offset();
-        TRACE("assign_profile", tout << "#" << get_enode(s)->get_owner_id() << " #" << get_enode(t)->get_owner_id() << " " << k << "\n";);
+        TRACE(assign_profile, tout << "#" << get_enode(s)->get_owner_id() << " #" << get_enode(t)->get_owner_id() << " " << k << "\n";);
         if (l.sign()) {
             k.neg();
             k -= get_epsilon(s);
@@ -277,7 +277,7 @@ namespace smt {
         else {
             add_edge(s, t, k, l);
         }
-        TRACE("ddl_detail", display(tout););
+        TRACE(ddl_detail, display(tout););
     }
 
     template<typename Ext>
@@ -345,11 +345,11 @@ namespace smt {
         while (it != begin) {
             --it;
             atom * a                      = *it;
-            TRACE("del_atoms", tout << "deleting: p" << a->get_bool_var() << "\n";);
+            TRACE(del_atoms, tout << "deleting: p" << a->get_bool_var() << "\n";);
             m_bv2atoms[a->get_bool_var()] = 0;
             theory_var s = a->get_source();
             theory_var t = a->get_target();
-            TRACE("del_atoms", tout << "m_matrix.size() " << m_matrix.size() << 
+            TRACE(del_atoms, tout << "m_matrix.size() " << m_matrix.size() << 
                   ", m_matrix[s].size() " << m_matrix[s].size() <<
                   ", m_matrix[t].size(): " << m_matrix[t].size() <<
                   ", t: " << t << ", s: " << s << "\n";);
@@ -435,8 +435,8 @@ namespace smt {
     */
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::get_antecedents(theory_var source, theory_var target, literal_vector & result) {
-        TRACE("ddl", tout << "get_antecedents, source: #" << get_enode(source)->get_owner_id() << ", target: #" << get_enode(target)->get_owner_id() << "\n";);
-        CTRACE("ddl", !is_connected(source, target), display(tout););
+        TRACE(ddl, tout << "get_antecedents, source: #" << get_enode(source)->get_owner_id() << ", target: #" << get_enode(target)->get_owner_id() << "\n";);
+        CTRACE(ddl, !is_connected(source, target), display(tout););
         SASSERT(is_connected(source, target));
         svector<var_pair> & todo = m_tmp_pairs;
         todo.reset();
@@ -488,7 +488,7 @@ namespace smt {
                 new_dist    = k;
                 new_dist   += it->m_distance;
                 cell & s_x  = m_matrix[s][x];
-                TRACE("ddl", 
+                TRACE(ddl, 
                       tout << "s: #" << get_enode(s)->get_owner_id() << " x: #" << get_enode(x)->get_owner_id() << " new_dist: " << new_dist << "\n";
                       tout << "already has edge: " << s_x.m_edge_id << "  old dist: " << s_x.m_distance << "\n";);
                 if (s_x.m_edge_id == null_edge_id || new_dist < s_x.m_distance) {
@@ -557,7 +557,7 @@ namespace smt {
                     SASSERT(a->get_target() == target);
                     if (c.m_distance <= a->get_offset()) {
                         m_stats.m_num_propagations++;
-                        TRACE("ddl", tout << "asserting atom to true: "; display_atom(tout, a);
+                        TRACE(ddl, tout << "asserting atom to true: "; display_atom(tout, a);
                               tout << "distance(#" << get_enode(source)->get_owner_id() << ", #" << get_enode(target)->get_owner_id()
                               << "): " << c.m_distance << "\n";);
                         assign_literal(literal(a->get_bool_var(), false), source, target);
@@ -568,7 +568,7 @@ namespace smt {
                     SASSERT(a->get_target() == source);
                     if (neg_dist > a->get_offset()) {
                         m_stats.m_num_propagations++;
-                        TRACE("ddl", tout << "asserting atom to true: "; display_atom(tout, a);
+                        TRACE(ddl, tout << "asserting atom to true: "; display_atom(tout, a);
                               tout << "distance(#" << get_enode(source)->get_owner_id() << ", #" << get_enode(target)->get_owner_id()
                               << "): " << c.m_distance << "\n";);
                         assign_literal(literal(a->get_bool_var(), true), source, target);
@@ -580,11 +580,11 @@ namespace smt {
 
     template<typename Ext>
     inline void theory_dense_diff_logic<Ext>::add_edge(theory_var source, theory_var target, numeral const & offset, literal l) {
-        TRACE("ddl", tout << "trying adding edge: #" << get_enode(source)->get_owner_id() << " -- " << offset << " --> #" << get_enode(target)->get_owner_id() << "\n";);
+        TRACE(ddl, tout << "trying adding edge: #" << get_enode(source)->get_owner_id() << " -- " << offset << " --> #" << get_enode(target)->get_owner_id() << "\n";);
         cell & c_inv = m_matrix[target][source];
         if (c_inv.m_edge_id != null_edge_id && - c_inv.m_distance > offset) {
             // conflict detected.
-            TRACE("ddl", tout << "conflict detected: #" << get_enode(source)->get_owner_id() << " #" << get_enode(target)->get_owner_id() <<
+            TRACE(ddl, tout << "conflict detected: #" << get_enode(source)->get_owner_id() << " #" << get_enode(target)->get_owner_id() <<
                   " offset: " << offset << ", c_inv.m_edge_id: " << c_inv.m_edge_id << ", c_inv.m_distance: " << c_inv.m_distance << "\n";);
             literal_vector & antecedents = m_tmp_literals;
             antecedents.reset();
@@ -598,7 +598,7 @@ namespace smt {
         
         cell & c = m_matrix[source][target];
         if (c.m_edge_id == null_edge_id || offset < c.m_distance) {
-            TRACE("ddl", tout << "adding edge: #" << get_enode(source)->get_owner_id() << " -- " << offset << " --> #" << get_enode(target)->get_owner_id() << "\n";);
+            TRACE(ddl, tout << "adding edge: #" << get_enode(source)->get_owner_id() << " -- " << offset << " --> #" << get_enode(target)->get_owner_id() << "\n";);
             m_edges.push_back(edge(source, target, offset, l));
             update_cells();
         }
@@ -636,7 +636,7 @@ namespace smt {
                     k         += e.m_offset;
                     k         += get_distance(t, j);
                     if (c.m_distance != k) {
-                        CTRACE("ddl", c.m_distance != k, tout << "i: " << i << " j: " << j << " k: " << k << " c.m_distance: " << c.m_distance << "\n";
+                        CTRACE(ddl, c.m_distance != k, tout << "i: " << i << " j: " << j << " k: " << k << " c.m_distance: " << c.m_distance << "\n";
                               display(tout););
                         SASSERT(c.m_distance == k);
                     }
@@ -718,7 +718,7 @@ namespace smt {
         }
         for (int i = 0; i < num_vars; i++)
             m_assignment[i].neg();
-        TRACE("ddl_model", 
+        TRACE(ddl_model, 
               tout << "ddl model\n";
               for (theory_var v = 0; v < num_vars; v++) {
                   tout << "#" << mk_pp(get_enode(v)->get_expr(), m) << " = " << m_assignment[v] << "\n";
@@ -762,7 +762,7 @@ namespace smt {
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::compute_epsilon() {
         m_epsilon = rational(1, 2);
-        TRACE("ddl", display(tout););
+        TRACE(ddl, display(tout););
         typename edges::const_iterator it  = m_edges.begin();
         typename edges::const_iterator end = m_edges.end();
         // first edge is null
@@ -777,7 +777,7 @@ namespace smt {
             rational k_y = m_assignment[e.m_source].get_infinitesimal().to_rational();
             rational n_c = e.m_offset.get_rational().to_rational();
             rational k_c = e.m_offset.get_infinitesimal().to_rational();
-            TRACE("ddl",
+            TRACE(ddl,
                   tout << e.m_source << " - " << e.m_target << " <= " << e.m_offset << "\n";
                   tout << "(n_x,k_x): " << n_x << ", " << k_x << 
                   ", (n_y,k_y): " << n_y << ", " << k_y << 
@@ -785,7 +785,7 @@ namespace smt {
             if (n_x < n_y + n_c && k_x > k_y + k_c) {
                 rational new_epsilon = (n_y + n_c - n_x) / (2*(k_x - k_y - k_c));
                 if (new_epsilon < m_epsilon) {
-                    TRACE("ddl", tout << "new epsilon: " << new_epsilon << "\n";);
+                    TRACE(ddl, tout << "new epsilon: " << new_epsilon << "\n";);
                     m_epsilon = new_epsilon;
                 }
             }
@@ -810,7 +810,7 @@ namespace smt {
                 SASSERT(m_assignment[v].is_zero());
             }
         }
-        TRACE("ddl_model", 
+        TRACE(ddl_model, 
               tout << "ddl model\n";
               for (theory_var v = 0; v < num_vars; v++) {
                   tout << "#" << mk_pp(get_enode(v)->get_expr(), m) << " = " << m_assignment[v] << "\n";
@@ -981,7 +981,7 @@ namespace smt {
         vars.push_back(w);
         Simplex::row row = S.add_row(w, vars.size(), vars.data(), coeffs.data());
         
-        TRACE("opt", S.display(tout); display(tout););
+        TRACE(opt, S.display(tout); display(tout););
         
         // optimize    
         lbool is_sat = S.make_feasible();
@@ -989,7 +989,7 @@ namespace smt {
             blocker = m.mk_false();
             return inf_eps::infinity();        
         }
-        TRACE("opt", S.display(tout); );    
+        TRACE(opt, S.display(tout); );    
         SASSERT(is_sat != l_false);
         lbool is_fin = S.minimize(w);
 
@@ -999,7 +999,7 @@ namespace smt {
         case l_true: {
             simplex::mpq_ext::eps_numeral const& val = S.get_value(w);
             inf_rational r(-rational(val.first), -rational(val.second));
-            TRACE("opt", tout << r << " " << "\n"; 
+            TRACE(opt, tout << r << " " << "\n"; 
                   S.display_row(tout, row, true););
             Simplex::row_iterator it = S.row_begin(row), end = S.row_end(row);
             expr_ref_vector& core = m_objective_assignments[v];
@@ -1015,7 +1015,7 @@ namespace smt {
                         core.push_back(tmp);
                     }
                 }
-                TRACE("opt", tout << core << "\n";);
+                TRACE(opt, tout << core << "\n";);
             }
             for (unsigned i = 0; i < num_nodes; ++i) {
                 mpq_inf const& val = S.get_value(i);
@@ -1031,7 +1031,7 @@ namespace smt {
             return inf_eps(rational(0), r);
         }
         default:
-            TRACE("opt", tout << "unbounded\n"; );        
+            TRACE(opt, tout << "unbounded\n"; );        
             blocker = m.mk_false();
             return inf_eps::infinity();        
         }
@@ -1039,7 +1039,7 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_dense_diff_logic<Ext>::add_objective(app* term) {
-        TRACE("opt", tout << mk_pp(term, m) << "\n";);
+        TRACE(opt, tout << mk_pp(term, m) << "\n";);
         objective_term objective;
         theory_var result = m_objectives.size();
         rational q(1), r(0);
@@ -1073,7 +1073,7 @@ namespace smt {
     expr_ref theory_dense_diff_logic<Ext>::mk_ineq(theory_var v, inf_eps const& val, bool is_strict) {
         objective_term const& t = m_objectives[v];
         expr_ref e(m), f(m), f2(m);
-        TRACE("opt", tout << "mk_ineq " << v << " " << val << "\n";);
+        TRACE(opt, tout << "mk_ineq " << v << " " << val << "\n";);
         if (t.size() == 1 && t[0].second.is_one()) {
             f = get_enode(t[0].first)->get_expr();
         }
@@ -1097,7 +1097,7 @@ namespace smt {
             if (is_strict) {
                 f = m.mk_not(f);
             }
-            TRACE("arith", tout << "block: " << f << "\n";);
+            TRACE(arith, tout << "block: " << f << "\n";);
             return f;
         }
         

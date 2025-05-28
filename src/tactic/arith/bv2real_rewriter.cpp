@@ -315,7 +315,7 @@ bool bv2real_util::mk_is_divisible_by(expr_ref& s, rational const& _overflow) {
     SASSERT(overflow.is_int());
     SASSERT(overflow.is_pos());
     SASSERT(!overflow.is_one());
-    TRACE("bv2real_rewriter", 
+    TRACE(bv2real_rewriter, 
           tout << mk_pp(s, m()) << " " << overflow << "\n";);
     unsigned power2 = 0;
     while ((overflow % rational(2)) == rational(0)) {
@@ -336,7 +336,7 @@ bool bv2real_util::mk_is_divisible_by(expr_ref& s, rational const& _overflow) {
         }
     }
 
-    TRACE("bv2real_rewriter", 
+    TRACE(bv2real_rewriter, 
           tout << mk_pp(s, m()) << " " << overflow << "\n";);
     
     return overflow.is_one();
@@ -360,7 +360,7 @@ bv2real_rewriter::bv2real_rewriter(ast_manager& m, bv2real_util& util):
 
 
 br_status bv2real_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
-    TRACE("bv2real_rewriter", 
+    TRACE(bv2real_rewriter, 
           tout << mk_pp(f, m()) << " ";
           for (unsigned i = 0; i < num_args; ++i) {
               tout << mk_pp(args[i], m()) << " ";
@@ -469,7 +469,7 @@ bool bv2real_rewriter::mk_le(expr* s, expr* t, bool is_pos, bool is_neg, expr_re
             u().add_side_condition(e4);
         }
 
-        TRACE("bv2real_rewriter", tout << "mk_le\n";);
+        TRACE(bv2real_rewriter, tout << "mk_le\n";);
 
         if (is_pos) {
             result = le_proxy;
@@ -546,7 +546,7 @@ br_status bv2real_rewriter::mk_le(expr * s, expr * t, expr_ref & result) {
         expr* e2  = m().mk_or(m().mk_not(gz1), m().mk_not(lz2), ge);
         expr* e3  = m().mk_or(m().mk_not(gz2), m().mk_not(lz1), le);
         result    = m().mk_and(e1, e2, e3);
-        TRACE("bv2real_rewriter", tout << "\n";);
+        TRACE(bv2real_rewriter, tout << "\n";);
         return BR_DONE;
     }
     return BR_FAILED;

@@ -404,7 +404,7 @@ namespace smtfd {
 
         smtfd_abs& get_abs() { return m_abs; }
 
-        void add(expr* f, char const* msg) { m_lemmas.push_back(f); TRACE("smtfd", tout << msg << " " << mk_bounded_pp(f, m, 2) << "\n";); }
+        void add(expr* f, char const* msg) { m_lemmas.push_back(f); TRACE(smtfd, tout << msg << " " << mk_bounded_pp(f, m, 2) << "\n";); }
 
         ast_manager& get_manager() { return m; }
 
@@ -546,13 +546,13 @@ namespace smtfd {
             f_app f1 = mk_app(f, t, s);
             f_app const& f2 = insert(f1);
             if (f2.m_val_offset == f1.m_val_offset) {
-                TRACE("smtfd_verbose", tout << "fresh: " << mk_pp(f, m, 2) << "\n";);
+                TRACE(smtfd_verbose, tout << "fresh: " << mk_pp(f, m, 2) << "\n";);
                 return;
             }
             bool eq = value_of(f1) == value_of(f2);
             m_values.shrink(f1.m_val_offset);
             if (eq) {
-                TRACE("smtfd_verbose", tout << "eq: " << " " << mk_bounded_pp(t, m, 2) << " " << mk_bounded_pp(f2.m_t, m, 2) << "\n";);
+                TRACE(smtfd_verbose, tout << "eq: " << " " << mk_bounded_pp(t, m, 2) << " " << mk_bounded_pp(f2.m_t, m, 2) << "\n";);
                 return;
             }
             m_args.reset();
@@ -563,7 +563,7 @@ namespace smtfd {
                 expr* e2 = f2.m_t->get_arg(i);
                 if (e1 != e2) m_args.push_back(m.mk_eq(e1, e2));
             }            
-            TRACE("smtfd_verbose", tout << "diff: " << mk_bounded_pp(f1.m_t, m, 2) << " " << mk_bounded_pp(f2.m_t, m, 2) << "\n";);
+            TRACE(smtfd_verbose, tout << "diff: " << mk_bounded_pp(f1.m_t, m, 2) << " " << mk_bounded_pp(f2.m_t, m, 2) << "\n";);
             m_context.add(m.mk_implies(mk_and(m_args), m.mk_eq(f1.m_t, f2.m_t)), __FUNCTION__);
         }
 
@@ -797,7 +797,7 @@ namespace smtfd {
         void check_term(expr* t, unsigned round) override {
             sort* s = t->get_sort();
             if (round == 0 && is_uf(t)) {
-                TRACE("smtfd_verbose", tout << "check-term: " << mk_bounded_pp(t, m, 2) << "\n";);
+                TRACE(smtfd_verbose, tout << "check-term: " << mk_bounded_pp(t, m, 2) << "\n";);
                 enforce_congruence(to_app(t)->get_decl(), to_app(t), s);
             }
             else if (round == 1 && sort_covered(s) && m.is_value(t)) {
@@ -860,7 +860,7 @@ namespace smtfd {
                         args.push_back(model_value(arg));
                     }
                     expr_ref val = model_value(f.m_t);
-                    TRACE("smtfd_verbose", tout << mk_bounded_pp(f.m_t, m, 2) << " := " << val << "\n";);
+                    TRACE(smtfd_verbose, tout << mk_bounded_pp(f.m_t, m, 2) << " := " << val << "\n";);
                     fi->insert_new_entry(args.data(), val);
                 }
                 mdl->register_decl(fn, fi);
@@ -930,7 +930,7 @@ namespace smtfd {
         void check_select(app* t) {
             expr* a = t->get_arg(0);
             expr_ref vA = eval_abs(a);
-            TRACE("smtfd", tout << mk_bounded_pp(t, m, 2) << "\n";);
+            TRACE(smtfd, tout << mk_bounded_pp(t, m, 2) << "\n";);
             enforce_congruence(vA, t, a->get_sort());                                 
         }
 
@@ -948,7 +948,7 @@ namespace smtfd {
             expr_ref val2 = eval_abs(stored_value);
             // A[i] = v
             if (val1 != val2) {
-                TRACE("smtfd", tout << "select/store: " << mk_bounded_pp(t, m, 2) << "\n";);
+                TRACE(smtfd, tout << "select/store: " << mk_bounded_pp(t, m, 2) << "\n";);
                 m_context.add(m.mk_eq(sel, stored_value), __FUNCTION__);
                 m_pinned.push_back(sel);
                 insert_select(sel);
@@ -993,7 +993,7 @@ namespace smtfd {
             app_ref sel(m_autil.mk_select(m_args), m);
             val2 = eval_abs(sel);
             if (val1 != val2 && !m.is_true(eqV)) {
-                TRACE("smtfd", tout << "select/store: " << mk_bounded_pp(t, m, 2) << "\n";);                
+                TRACE(smtfd, tout << "select/store: " << mk_bounded_pp(t, m, 2) << "\n";);                
                 m_context.add(m.mk_or(m.mk_eq(sel, t), mk_and(eqs)), __FUNCTION__);
                 m_pinned.push_back(sel);
                 insert_select(sel);
@@ -1063,7 +1063,7 @@ namespace smtfd {
                 m_args.push_back(arg);
             }
             SASSERT(t->get_sort() == a->get_sort());
-            TRACE("smtfd", tout << mk_bounded_pp(t, m, 2) << " " << mk_bounded_pp(f.m_t, m, 2) << "\n";);
+            TRACE(smtfd, tout << mk_bounded_pp(t, m, 2) << " " << mk_bounded_pp(f.m_t, m, 2) << "\n";);
             expr_ref eq = mk_eq_idxs(t, f.m_t);
             m_args[0] = t;
             expr_ref sel1(m_autil.mk_select(m_args), m);
@@ -1159,7 +1159,7 @@ namespace smtfd {
             expr_ref b1(m_autil.mk_select(args), m);
             expr_ref ext(m.mk_iff(m.mk_eq(a1, b1), m.mk_eq(a, b)), m);
             if (!m.is_true(eval_abs(ext))) {
-                TRACE("smtfd", tout << mk_bounded_pp(a, m, 2) << " " << mk_bounded_pp(b, m, 2) << "\n";);
+                TRACE(smtfd, tout << mk_bounded_pp(a, m, 2) << " " << mk_bounded_pp(b, m, 2) << "\n";);
                 m_context.add(ext, __FUNCTION__);            
             }
         }
@@ -1414,7 +1414,7 @@ namespace smtfd {
             if (is_exists(q) && m.is_false(tmp)) {
                 return l_false;
             }
-            TRACE("smtfd", 
+            TRACE(smtfd, 
                   tout << mk_pp(q, m) << "\n";
                   /*tout << *m_model << "\n"; */
                   tout << "eval: " << tmp << "\n";);
@@ -1441,7 +1441,7 @@ namespace smtfd {
             m_solver->assert_expr(body);
             lbool r = m_solver->check_sat(0, nullptr);
             model_ref mdl;
-            TRACE("smtfd", tout << "check: " << r << "\n";);
+            TRACE(smtfd, tout << "check: " << r << "\n";);
             
             if (r == l_true) {
                 expr_ref qq(q->get_expr(), m);
@@ -1449,7 +1449,7 @@ namespace smtfd {
                     init_term(t);
                 }
                 m_solver->get_model(mdl);
-                TRACE("smtfd", tout << *mdl << "\n";);
+                TRACE(smtfd, tout << *mdl << "\n";);
 
                 for (unsigned i = 0; i < sz; ++i) {
                     app* v = to_app(vars.get(i));
@@ -1473,7 +1473,7 @@ namespace smtfd {
             if (r == l_true) {                
                 body = subst(q->get_expr(), vals.size(), vals.data());
                 m_context.rewrite(body);
-                TRACE("smtfd", tout << "vals: " << vals << "\n" << body << "\n";);
+                TRACE(smtfd, tout << "vals: " << vals << "\n" << body << "\n";);
                 if (is_forall(q)) {
                     body = m.mk_implies(q, body);
                 }
@@ -1632,7 +1632,7 @@ namespace smtfd {
                 m_assertions.pop_back();                
                 expr* toggle = add_toggle(m.mk_fresh_const("toggle", m.mk_bool_sort()));
                 m_assertions_qhead = m_assertions.size();
-                TRACE("smtfd", tout << "flush: " << m_assertions_qhead << " " << mk_bounded_pp(fml, m, 3) << "\n";);
+                TRACE(smtfd, tout << "flush: " << m_assertions_qhead << " " << mk_bounded_pp(fml, m, 3) << "\n";);
                 fml = abs(fml);
                 m_fd_sat_solver->assert_expr(fml);                
                 fml = m.mk_not(m.mk_and(toggle, fml));
@@ -1644,12 +1644,12 @@ namespace smtfd {
         lbool check_abs(unsigned num_assumptions, expr * const * assumptions) {
             expr_ref_vector asms(m);
             init_assumptions(num_assumptions, assumptions, asms);
-            TRACE("smtfd", 
+            TRACE(smtfd, 
                   for (unsigned i = 0; i < num_assumptions; ++i) {
                       tout << mk_bounded_pp(assumptions[i], m, 3) << "\n";
                   }
                   display(tout << asms << "\n"););
-            TRACE("smtfd_verbose", m_fd_sat_solver->display(tout););
+            TRACE(smtfd_verbose, m_fd_sat_solver->display(tout););
 
             lbool r = m_fd_sat_solver->check_sat(asms);
             update_reason_unknown(r, m_fd_sat_solver);
@@ -1663,12 +1663,12 @@ namespace smtfd {
             m_fd_sat_solver->get_model(m_model);
             m_model->set_model_completion(true);
             init_model_assumptions(num_assumptions, assumptions, asms);
-            TRACE("smtfd", display(tout << asms << "\n" << *m_model << "\n"););
+            TRACE(smtfd, display(tout << asms << "\n" << *m_model << "\n"););
             lbool r = m_fd_core_solver->check_sat(asms);
             update_reason_unknown(r, m_fd_core_solver);
             if (r == l_false) {
                 m_fd_core_solver->get_unsat_core(core);
-                TRACE("smtfd", display(tout << core << "\n"););
+                TRACE(smtfd, display(tout << core << "\n"););
                 SASSERT(asms.contains(m_toggles.back()));
                 SASSERT(core.contains(m_toggles.back()));
                 core.erase(m_toggles.back());
@@ -1684,7 +1684,7 @@ namespace smtfd {
 
             for (unsigned round = 0; !m_context.at_max() && m_context.add_theory_axioms(terms, round); ++round) {}
             
-            TRACE("smtfd", m_context.display(tout););
+            TRACE(smtfd, m_context.display(tout););
             for (expr* f : m_context) {
                 assert_fd(f);
             }
@@ -1713,7 +1713,7 @@ namespace smtfd {
             }
             m_context.populate_model(m_model, terms);
 
-            TRACE("smtfd", 
+            TRACE(smtfd, 
                   tout << "axioms: " << m_axioms << "\n";
                   for (expr* a : subterms::ground(terms)) {
                       expr_ref val0 = (*m_model)(a);
@@ -1885,7 +1885,7 @@ namespace smtfd {
         }
 
         void flush_atom_defs() {
-            CTRACE("smtfd", !m_abs.atom_defs().empty(), for (expr* f : m_abs.atom_defs()) tout << mk_bounded_pp(f, m, 4) << "\n";);
+            CTRACE(smtfd, !m_abs.atom_defs().empty(), for (expr* f : m_abs.atom_defs()) tout << mk_bounded_pp(f, m, 4) << "\n";);
             for (expr* f : m_abs.atom_defs()) {
                 m_fd_sat_solver->assert_expr(f);
                 m_fd_core_solver->assert_expr(f);
@@ -1896,8 +1896,8 @@ namespace smtfd {
 
         void assert_fd(expr* fml) {
             expr_ref _fml(fml, m);
-            TRACE("smtfd", tout << mk_bounded_pp(fml, m, 3) << "\n";);
-            CTRACE("smtfd", m_axioms.contains(fml), 
+            TRACE(smtfd, tout << mk_bounded_pp(fml, m, 3) << "\n";);
+            CTRACE(smtfd, m_axioms.contains(fml), 
                    tout << "formula:\n" << _fml << "\n";
                    tout << "axioms:\n" << m_axioms << "\n";
                    tout << "assertions:\n" << m_assertions << "\n";);
@@ -1906,7 +1906,7 @@ namespace smtfd {
             SASSERT(!m_axioms.contains(fml));
             m_axioms.push_back(fml);
             _fml = abs(fml);
-            TRACE("smtfd", tout << mk_bounded_pp(_fml, m, 3) << "\n";);
+            TRACE(smtfd, tout << mk_bounded_pp(_fml, m, 3) << "\n";);
             m_fd_sat_solver->assert_expr(_fml);
             m_fd_core_solver->assert_expr(_fml);
             flush_atom_defs();
@@ -1914,7 +1914,7 @@ namespace smtfd {
 
         void block_core(expr_ref_vector const& core) {
             expr_ref fml(m.mk_not(mk_and(core)), m);
-            TRACE("smtfd", tout << "block:\n" << mk_bounded_pp(fml, m, 3) << "\n" << mk_bounded_pp(abs(fml), m, 3) << "\n";);
+            TRACE(smtfd, tout << "block:\n" << mk_bounded_pp(fml, m, 3) << "\n" << mk_bounded_pp(abs(fml), m, 3) << "\n";);
             assert_fd(fml);
         }
 
@@ -1982,7 +1982,7 @@ namespace smtfd {
                 }
                 IF_VERBOSE(1, indent(); verbose_stream() << "(smtfd-round :round " << round << " :lemmas " << m_context.size() << ")\n");
                 round = 0;
-                TRACE("smtfd_verbose", 
+                TRACE(smtfd_verbose, 
                       for (expr* f : m_context) tout << "refine " << mk_bounded_pp(f, m, 3) << "\n";
                       m_context.display(tout););
                 for (expr* f : m_context) {

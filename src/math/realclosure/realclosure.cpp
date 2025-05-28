@@ -1300,7 +1300,7 @@ namespace realclosure {
             t->m_k++;
             t->m_proc(t->m_k, qim(), i);
             int m = magnitude(i);
-            TRACE("rcf_transcendental",
+            TRACE(rcf_transcendental,
                   tout << "refine_transcendental_interval rational: " << m << "\nrational interval: ";
                   qim().display(tout, i); tout << std::endl;);
             unsigned k;
@@ -1318,7 +1318,7 @@ namespace realclosure {
 
         void refine_transcendental_interval(transcendental * t, unsigned prec) {
             while (!check_precision(t->interval(), prec)) {
-                TRACE("rcf_transcendental", tout << "refine_transcendental_interval: " << magnitude(t->interval()) << std::endl;);
+                TRACE(rcf_transcendental, tout << "refine_transcendental_interval: " << magnitude(t->interval()) << std::endl;);
                 checkpoint();
                 save_interval_if_too_small(t, prec);
                 refine_transcendental_interval(t);
@@ -1675,7 +1675,7 @@ namespace realclosure {
                                   // Output values
                                   int & q_eq_0, int & q_gt_0, int & q_lt_0,
                                   value_ref_buffer & q2) {
-            TRACE("rcf_count_signs",
+            TRACE(rcf_count_signs,
                   tout << "p: "; display_poly(tout, p_sz, p); tout << "\n";
                   tout << "q: "; display_poly(tout, q_sz, q); tout << "\n";);
             SASSERT(num_roots > 0);
@@ -1989,7 +1989,7 @@ namespace realclosure {
                 SASSERT(M_s.m() == M_s.n());
                 SASSERT(M_s.m() == taqrs.size());
                 SASSERT(M_s.m() == scs.size());
-                TRACE("rcf_sign_det",
+                TRACE(rcf_sign_det,
                       tout << M_s;
                       for (unsigned j = 0; j < scs.size(); j++) {
                           display_sign_conditions(tout, scs[j]);
@@ -2007,7 +2007,7 @@ namespace realclosure {
                 int q_eq_0, q_gt_0, q_lt_0;
                 value_ref_buffer q2(*this);
                 count_signs_at_zeros(p_sz, p, q_sz, q, iso_interval, num_roots, q_eq_0, q_gt_0, q_lt_0, q2);
-                TRACE("rcf_sign_det",
+                TRACE(rcf_sign_det,
                       tout << "q: "; display_poly(tout, q_sz, q); tout << "\n";
                       tout << "#(q == 0): " << q_eq_0 << ", #(q > 0): " << q_gt_0 << ", #(q < 0): " << q_lt_0 << "\n";);
                 scoped_mpz_matrix M(mm());
@@ -2028,7 +2028,7 @@ namespace realclosure {
                 // Solve
                 //    new_M_s * sc_cardinalities = new_taqrs
                 VERIFY(mm().solve(new_M_s, sc_cardinalities.data(), new_taqrs.data()));
-                TRACE("rcf_sign_det", tout << "solution: "; for (unsigned i = 0; i < sc_cardinalities.size(); i++) { tout << sc_cardinalities[i] << " "; } tout << "\n";);
+                TRACE(rcf_sign_det, tout << "solution: "; for (unsigned i = 0; i < sc_cardinalities.size(); i++) { tout << sc_cardinalities[i] << " "; } tout << "\n";);
                 // The solution must contain only positive values <= num_roots
                 DEBUG_CODE(for (unsigned j = 0; j < sc_cardinalities.size(); j++) { SASSERT(0 <= sc_cardinalities[j] && sc_cardinalities[j] <= num_roots); });
                 // We should keep q only if it discriminated something.
@@ -2085,7 +2085,7 @@ namespace realclosure {
                     break;
                 }
             }
-            TRACE("rcf_sign_det",
+            TRACE(rcf_sign_det,
                   tout << "Final state\n";
                   display_poly(tout, p_sz, p); tout << "\n";
                   tout << M_s;
@@ -2284,7 +2284,7 @@ namespace realclosure {
             bool has_neg_upper = neg_root_upper_bound(n, p, neg_upper_N);
             bool has_pos_lower = pos_root_lower_bound(n, p, pos_lower_N);
             bool has_pos_upper = pos_root_upper_bound(n, p, pos_upper_N);
-            TRACE("rcf_isolate",
+            TRACE(rcf_isolate,
                   display_poly(tout, n, p); tout << "\n";
                   if (has_neg_lower) tout << "-2^" << neg_lower_N; else tout << "-oo";
                   tout << " < neg-roots < ";
@@ -2302,7 +2302,7 @@ namespace realclosure {
             int num_sv_plus_inf  = sign_variations_at_plus_inf(seq);
             int num_neg_roots    = num_sv_minus_inf - num_sv_zero;
             int num_pos_roots    = num_sv_zero      - num_sv_plus_inf;
-            TRACE("rcf_isolate",
+            TRACE(rcf_isolate,
                   tout << "num_neg_roots: " << num_neg_roots << "\n";
                   tout << "num_pos_roots: " << num_pos_roots << "\n";);
             scoped_mpbqi pos_interval(bqim());
@@ -2392,7 +2392,7 @@ namespace realclosure {
            \brief Root isolation for polynomials where 0 is not a root.
         */
         void nz_isolate_roots(unsigned n, value * const * p, numeral_vector & roots) {
-            TRACE("rcf_isolate",
+            TRACE(rcf_isolate,
                   tout << "nz_isolate_roots\n";
                   display_poly(tout, n, p); tout << "\n";);
             if (m_clean_denominators) {
@@ -2410,7 +2410,7 @@ namespace realclosure {
            \brief Root isolation entry point.
         */
         void isolate_roots(unsigned n, numeral const * p, numeral_vector & roots) {
-            TRACE("rcf_isolate_bug", tout << "isolate_roots: "; for (unsigned i = 0; i < n; i++) { display(tout, p[i]); tout << " "; } tout << "\n";);
+            TRACE(rcf_isolate_bug, tout << "isolate_roots: "; for (unsigned i = 0; i < n; i++) { display(tout, p[i]); tout << " "; } tout << "\n";);
             SASSERT(n > 0);
             SASSERT(!is_zero(p[n-1]));
             if (n == 1) {
@@ -2903,7 +2903,7 @@ namespace realclosure {
         void rem(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
             SASSERT(p1 != r.data());
             SASSERT(p2 != r.data());
-            TRACE("rcf_rem",
+            TRACE(rcf_rem,
                   tout << "rem\n";
                   display_poly(tout, sz1, p1); tout << "\n";
                   display_poly(tout, sz2, p2); tout << "\n";);
@@ -2922,7 +2922,7 @@ namespace realclosure {
                 checkpoint();
                 sz1 = r.size();
                 if (sz1 < sz2) {
-                    TRACE("rcf_rem", tout << "rem result\n"; display_poly(tout, r.size(), r.data()); tout << "\n";);
+                    TRACE(rcf_rem, tout << "rem result\n"; display_poly(tout, r.size(), r.data()); tout << "\n";);
                     return;
                 }
                 unsigned m_n = sz1 - sz2;
@@ -2947,7 +2947,7 @@ namespace realclosure {
         void prem(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, unsigned & d, value_ref_buffer & r) {
             SASSERT(p1 != r.data());
             SASSERT(p2 != r.data());
-            TRACE("rcf_prem",
+            TRACE(rcf_prem,
                   tout << "prem\n";
                   display_poly(tout, sz1, p1); tout << "\n";
                   display_poly(tout, sz2, p2); tout << "\n";);
@@ -2967,7 +2967,7 @@ namespace realclosure {
                 checkpoint();
                 sz1 = r.size();
                 if (sz1 < sz2) {
-                    TRACE("rcf_prem", tout << "prem result\n"; display_poly(tout, r.size(), r.data()); tout << "\n";);
+                    TRACE(rcf_prem, tout << "prem result\n"; display_poly(tout, r.size(), r.data()); tout << "\n";);
                     return;
                 }
                 unsigned m_n = sz1 - sz2;
@@ -3170,7 +3170,7 @@ namespace realclosure {
         */
         void clean_denominators_core(value * a, value_ref & p, value_ref & q) {
             INC_DEPTH();
-            TRACE("rcf_clean", tout << "clean_denominators_core [" << m_exec_depth << "]\na: "; display(tout, a, false); tout << "\n";);
+            TRACE(rcf_clean, tout << "clean_denominators_core [" << m_exec_depth << "]\na: "; display(tout, a, false); tout << "\n";);
             p.reset(); q.reset();
             if (a == nullptr) {
                 p = a;
@@ -3298,7 +3298,7 @@ namespace realclosure {
                         }
                         bool found_lt_eq = false;
                         for (unsigned j = 0; j < p_sz; j++) {
-                            TRACE("rcf_clean_bug", tout << "j: " << j << " "; display(tout, m, false); tout << "\n";);
+                            TRACE(rcf_clean_bug, tout << "j: " << j << " "; display(tout, m, false); tout << "\n";);
                             if (!dens[j])
                                 continue;
                             if (i != j && !is_nz_rational(dens[j])) {
@@ -3663,7 +3663,7 @@ namespace realclosure {
         */
         void gcd(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
             INC_DEPTH();
-            TRACE("rcf_gcd", tout << "GCD [" << m_exec_depth << "]\n";
+            TRACE(rcf_gcd, tout << "GCD [" << m_exec_depth << "]\n";
                   display_poly(tout, sz1, p1); tout << "\n";
                   display_poly(tout, sz2, p2); tout << "\n";);
             if (sz1 == 0) {
@@ -3681,13 +3681,13 @@ namespace realclosure {
                 A.append(sz1, p1);
                 B.append(sz2, p2);
                 while (true) {
-                    TRACE("rcf_gcd",
+                    TRACE(rcf_gcd,
                           tout << "A: "; display_poly(tout, A.size(), A.data()); tout << "\n";
                           tout << "B: "; display_poly(tout, B.size(), B.data()); tout << "\n";);
                     if (B.empty()) {
                         mk_monic(A);
                         r = A;
-                        TRACE("rcf_gcd",
+                        TRACE(rcf_gcd,
                               tout << "gcd result: "; display_poly(tout, r.size(), r.data()); tout << "\n";);
                         return;
                     }
@@ -3708,7 +3708,7 @@ namespace realclosure {
 
         void prem_gcd(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
             INC_DEPTH();
-            TRACE("rcf_gcd", tout << "prem-GCD [" << m_exec_depth << "]\n";
+            TRACE(rcf_gcd, tout << "prem-GCD [" << m_exec_depth << "]\n";
                   display_poly(tout, sz1, p1); tout << "\n";
                   display_poly(tout, sz2, p2); tout << "\n";);
             SASSERT(p1 != r.data());
@@ -3728,14 +3728,14 @@ namespace realclosure {
                 A.append(sz1, p1);
                 B.append(sz2, p2);
                 while (true) {
-                    TRACE("rcf_gcd",
+                    TRACE(rcf_gcd,
                           tout << "A: "; display_poly(tout, A.size(), A.data()); tout << "\n";
                           tout << "B: "; display_poly(tout, B.size(), B.data()); tout << "\n";);
                     if (B.empty()) {
                         normalize_int_coeffs(A);
                         flip_sign_if_lc_neg(A);
                         r = A;
-                        TRACE("rcf_gcd",
+                        TRACE(rcf_gcd,
                               tout << "gcd result: "; display_poly(tout, r.size(), r.data()); tout << "\n";);
                         return;
                     }
@@ -3805,7 +3805,7 @@ namespace realclosure {
             flet<bool> set(m_in_aux_values, true);
 
             SASSERT(seq.size() >= 2);
-            TRACE("rcf_sturm_seq",
+            TRACE(rcf_sturm_seq,
                   unsigned sz = seq.size();
                   tout << "sturm_seq_core [" << m_exec_depth << "]\n";
                   display_poly(tout, seq.size(sz-2), seq.coeffs(sz-2)); tout << "\n";
@@ -3820,7 +3820,7 @@ namespace realclosure {
                 else {
                     srem(seq.size(sz-2), seq.coeffs(sz-2), seq.size(sz-1), seq.coeffs(sz-1), r);
                 }
-                TRACE("rcf_sturm_seq",
+                TRACE(rcf_sturm_seq,
                       tout << "sturm_seq_core [" << m_exec_depth << "], new polynomial\n";
                       display_poly(tout, r.size(), r.data()); tout << "\n";);
                 if (r.empty())
@@ -4208,7 +4208,7 @@ namespace realclosure {
         */
         int TaQ(unsigned p_sz, value * const * p, unsigned q_sz, value * const * q, mpbqi const & interval) {
             INC_DEPTH();
-            TRACE("rcf_TaQ", tout << "TaQ [" << m_exec_depth << "]\n";
+            TRACE(rcf_TaQ, tout << "TaQ [" << m_exec_depth << "]\n";
                   display_poly(tout, p_sz, p); tout << "\n";
                   display_poly(tout, q_sz, q); tout << "\n";);
             scoped_polynomial_seq seq(*this);
@@ -4224,7 +4224,7 @@ namespace realclosure {
         */
         int TaQ_1(unsigned p_sz, value * const * p, mpbqi const & interval) {
             INC_DEPTH();
-            TRACE("rcf_TaQ", tout << "TaQ_1 [" << m_exec_depth << "]\n";
+            TRACE(rcf_TaQ, tout << "TaQ_1 [" << m_exec_depth << "]\n";
                   display_poly(tout, p_sz, p); tout << "\n";);
             scoped_polynomial_seq seq(*this);
             sturm_seq(p_sz, p, seq);
@@ -4324,7 +4324,7 @@ namespace realclosure {
                 refine_transcendental_interval(to_transcendental(v->ext()), _prec);
                 update_rf_interval(v, prec);
 
-                TRACE("rcf_transcendental", tout << "after update_rf_interval: " << magnitude(v->interval()) << " ";
+                TRACE(rcf_transcendental, tout << "after update_rf_interval: " << magnitude(v->interval()) << " ";
                       bqim().display(tout, v->interval()); tout << std::endl;);
 
                 if (check_precision(v->interval(), prec))
@@ -4471,7 +4471,7 @@ namespace realclosure {
                     return false;
 
                 update_rf_interval(v, prec);
-                TRACE("rcf_algebraic", tout << "after update_rf_interval: " << magnitude(v->interval()) << " "; bqim().display(tout, v->interval()); tout << std::endl;);
+                TRACE(rcf_algebraic, tout << "after update_rf_interval: " << magnitude(v->interval()) << " "; bqim().display(tout, v->interval()); tout << std::endl;);
                 if (check_precision(v->interval(), prec))
                     return true;
                 _prec++;
@@ -4913,7 +4913,7 @@ namespace realclosure {
         bool expensive_determine_algebraic_sign(rational_function_value * v) {
             SASSERT(contains_zero(v->interval()));
             SASSERT(v->ext()->is_algebraic());
-            TRACE("rcf_algebraic_sign",
+            TRACE(rcf_algebraic_sign,
                   tout << "expensive_determine_algebraic_sign\n"; display(tout, v, false);
                   tout << "\ninterval: ";  bqim().display(tout, v->interval()); tout << "\n";);
             algebraic * x = to_algebraic(v->ext());
@@ -4973,7 +4973,7 @@ namespace realclosure {
                 UNREACHABLE();
                 r = false;
             }
-            TRACE("rcf_determine_sign_bug",
+            TRACE(rcf_determine_sign_bug,
                   tout << "result: " << r << "\n";
                   display_compact(tout, v); tout << "\n";
                   tout << "sign: " << sign(v) << "\n";);
@@ -4999,7 +4999,7 @@ namespace realclosure {
         */
         void normalize_fraction(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & new_p1, value_ref_buffer & new_p2) {
             INC_DEPTH();
-            TRACE("rcf_arith", tout << "normalize [" << m_exec_depth << "]\n";
+            TRACE(rcf_arith, tout << "normalize [" << m_exec_depth << "]\n";
                   display_poly(tout, sz1, p1); tout << "\n";
                   display_poly(tout, sz2, p2); tout << "\n";);
             SASSERT(sz1 > 0 && sz2 > 0);
@@ -5023,7 +5023,7 @@ namespace realclosure {
                     normalize_num_monic_den(tmp1.size(), tmp1.data(), tmp2.size(), tmp2.data(), new_p1, new_p2);
                 }
             }
-            TRACE("normalize_fraction_bug",
+            TRACE(normalize_fraction_bug,
                   display_poly(tout, sz1, p1); tout << "\n";
                   display_poly(tout, sz2, p2); tout << "\n";
                   tout << "====>\n";
@@ -5232,7 +5232,7 @@ namespace realclosure {
             }
             else {
                 INC_DEPTH();
-                TRACE("rcf_arith", tout << "add [" << m_exec_depth << "]\n";
+                TRACE(rcf_arith, tout << "add [" << m_exec_depth << "]\n";
                       display(tout, a, false); tout << "\n";
                       display(tout, b, false); tout << "\n";);
                 switch (compare_rank(a, b)) {
@@ -5440,7 +5440,7 @@ namespace realclosure {
             }
             else {
                 INC_DEPTH();
-                TRACE("rcf_arith", tout << "mul [" << m_exec_depth << "]\n";
+                TRACE(rcf_arith, tout << "mul [" << m_exec_depth << "]\n";
                       display(tout, a, false); tout << "\n";
                       display(tout, b, false); tout << "\n";);
                 switch (compare_rank(a, b)) {
@@ -5497,7 +5497,7 @@ namespace realclosure {
            The following procedure is essentially a special case of the extended polynomial GCD algorithm.
         */
         bool inv_algebraic(unsigned q_sz, value * const * q, unsigned p_sz, value * const * p, value_ref_buffer & g, value_ref_buffer & h) {
-            TRACE("inv_algebraic",
+            TRACE(inv_algebraic,
                   tout << "q: "; display_poly(tout, q_sz, q); tout << "\n";
                   tout << "p: "; display_poly(tout, p_sz, p); tout << "\n";);
             SASSERT(q_sz > 0);
@@ -5517,7 +5517,7 @@ namespace realclosure {
             while (true) {
                 // In every iteration of the loop we have
                 //   Q(alpha) * h(alpha) = R(alpha)
-                TRACE("inv_algebraic",
+                TRACE(inv_algebraic,
                       tout << "Q: "; display_poly(tout, Q.size(), Q.data()); tout << "\n";
                       tout << "R: "; display_poly(tout, R.size(), R.data()); tout << "\n";);
                 if (Q.size() == 1) {
@@ -5525,7 +5525,7 @@ namespace realclosure {
                     // We just divide R by Q[0].
                     // h(alpha) = R(alpha) / Q[0]
                     div(R.size(), R.data(), Q[0], h);
-                    TRACE("inv_algebraic", tout << "h: "; display_poly(tout, h.size(), h.data()); tout << "\n";);
+                    TRACE(inv_algebraic, tout << "h: "; display_poly(tout, h.size(), h.data()); tout << "\n";);
                     // g <- 1
                     g.reset(); g.push_back(one());
                     return true;

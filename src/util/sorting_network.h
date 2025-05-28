@@ -694,7 +694,7 @@ Notes:
         }
 
         literal mk_exactly_1(bool full, unsigned n, literal const* xs) {
-            TRACE("pb", tout << "exactly 1 with " << n << " arguments " << (full?"full":"not full") << "\n";);
+            TRACE(pb, tout << "exactly 1 with " << n << " arguments " << (full?"full":"not full") << "\n";);
             literal_vector ors;
             literal r1;
             switch (m_cfg.m_encoding) {
@@ -724,7 +724,7 @@ Notes:
         }
 
         literal mk_at_most_1(bool full, unsigned n, literal const* xs, literal_vector& ors, bool use_ors) {
-            TRACE("pb_verbose", tout << (full?"full":"partial") << " ";
+            TRACE(pb_verbose, tout << (full?"full":"partial") << " ";
                   for (unsigned i = 0; i < n; ++i) tout << xs[i] << " ";
                   tout << "\n";);
             literal_vector in(n, xs);
@@ -948,7 +948,7 @@ Notes:
             for (unsigned i = 0; i < N; ++i) {
                 in.push_back(mk_not(xs[i]));
             }
-            TRACE("pb_verbose", 
+            TRACE(pb_verbose, 
                   //pp(tout << N << ": ", in);                  
                   tout << " ~ " << k << "\n";);
             return true;
@@ -1034,23 +1034,23 @@ Notes:
         }
 
         void card(unsigned k, unsigned n, literal const* xs, literal_vector& out) {
-            TRACE("pb_verbose", tout << "card k: " << k << " n: " << n << "\n";);
+            TRACE(pb_verbose, tout << "card k: " << k << " n: " << n << "\n";);
             if (n <= k) {
                 psort_nw<psort_expr>::sorting(n, xs, out);
             }
             else if (use_dcard(k, n)) {
-                TRACE("pb_verbose", tout << "use dcard\n";);
+                TRACE(pb_verbose, tout << "use dcard\n";);
                 dsorting(k, n, xs, out);
             }
             else {
-                TRACE("pb_verbose", tout << "use merge\n";);
+                TRACE(pb_verbose, tout << "use merge\n";);
                 literal_vector out1, out2;
                 unsigned half = n/2; // TBD
                 card(k, half, xs, out1);
                 card(k, n-half, xs + half, out2);
                 smerge(k, out1.size(), out1.data(), out2.size(), out2.data(), out);
             }
-            TRACE("pb_verbose", tout << "card k: " << k << " n: " << n << "\n";
+            TRACE(pb_verbose, tout << "card k: " << k << " n: " << n << "\n";
                   //pp(tout << "in:", n, xs) << "\n";
                   //pp(tout << "out:", out) << "\n";
                   );
@@ -1115,7 +1115,7 @@ Notes:
                       odd_b.size(), odd_b.data(), out2);
                 interleave(out1, out2, out); 
             }
-            TRACE("pb_verbose", tout << "merge a: " << a << " b: " << b << " ";
+            TRACE(pb_verbose, tout << "merge a: " << a << " b: " << b << " ";
                   tout << "num clauses " << m_stats.m_num_compiled_clauses - nc << "\n";
                   vc_dsmerge(a, b, a + b).pp(tout << "vc_dsmerge ") << "\n";
                   vc_smerge_rec(a, b, a + b).pp(tout << "vc_smerge_rec ") << "\n";
@@ -1178,7 +1178,7 @@ Notes:
                 out.push_back(as[sz+1]);
             }
             SASSERT(out.size() == as.size() + bs.size());
-            TRACE("pb_verbose", tout << "interleave: " << as.size() << " " << bs.size() << " ";
+            TRACE(pb_verbose, tout << "interleave: " << as.size() << " " << bs.size() << " ";
                   tout << "num clauses " << m_stats.m_num_compiled_clauses - nc << "\n";
                   //pp(tout << "a: ", as) << "\n";
                   //pp(tout << "b: ", bs) << "\n";
@@ -1192,7 +1192,7 @@ Notes:
         
     public:
         void sorting(unsigned n, literal const* xs, literal_vector& out) {
-            TRACE("pb_verbose", tout << "sorting: " << n << "\n";);
+            TRACE(pb_verbose, tout << "sorting: " << n << "\n";);
             switch(n) {
             case 0: 
                 break;
@@ -1204,11 +1204,11 @@ Notes:
                 break;
             default:
                 if (use_dsorting(n)) {
-                    TRACE("pb_verbose", tout << "use dsorting: " << n << "\n";);
+                    TRACE(pb_verbose, tout << "use dsorting: " << n << "\n";);
                     dsorting(n, n, xs, out);
                 }
                 else {
-                    TRACE("pb_verbose", tout << "use merge: " << n << "\n";);
+                    TRACE(pb_verbose, tout << "use merge: " << n << "\n";);
                     literal_vector out1, out2;
                     unsigned half = n/2;  // TBD
                     sorting(half, xs, out1);
@@ -1219,7 +1219,7 @@ Notes:
                 }
                 break;
             }
-            TRACE("pb_verbose", tout << "sorting: " << n << "\n";
+            TRACE(pb_verbose, tout << "sorting: " << n << "\n";
                   //pp(tout << "in:", n, xs) << "\n"; 
                   //pp(tout << "out:", out) << "\n";
                   );
@@ -1331,7 +1331,7 @@ Notes:
                     out.push_back(y);
                 }
             }
-            TRACE("pb_verbose", tout << "smerge: c:" << c << " a:" << a << " b:" << b << " ";
+            TRACE(pb_verbose, tout << "smerge: c:" << c << " a:" << a << " b:" << b << " ";
                   tout << "num clauses " << m_stats.m_num_compiled_clauses - nc << "\n";
                   //pp(tout << "a:", a, as) << "\n";
                   //pp(tout << "b:", b, bs) << "\n";
@@ -1421,7 +1421,7 @@ Notes:
                     }
                 }
             }
-            TRACE("pb_verbose", tout << "dsmerge: c:" << c << " a:" << a << " b:" << b << " ";
+            TRACE(pb_verbose, tout << "dsmerge: c:" << c << " a:" << a << " b:" << b << " ";
                   tout << "num clauses: " << m_stats.m_num_compiled_clauses - nc << "\n";
                   vc_dsmerge(a, b, c).pp(tout << "vc_dsmerge ") << "\n";
                   vc_smerge_rec(a, b, c).pp(tout << "vc_smerge_rec ") << "\n";
@@ -1463,7 +1463,7 @@ Notes:
                     lits.pop_back();
                 }
             }
-            TRACE("pb_verbose", 
+            TRACE(pb_verbose, 
                   tout << "dsorting m: " << m << " n: " << n << " ";
                   tout << "num clauses: " << m_stats.m_num_compiled_clauses - nc << "\n";);
         }
@@ -1482,7 +1482,7 @@ Notes:
 
         void add_subset(bool polarity, unsigned k, unsigned offset, literal_vector& lits, 
                         unsigned n, literal const* xs) {
-            TRACE("pb_verbose", tout << "k:" << k << " offset: " << offset << " n: " << n << " ";
+            TRACE(pb_verbose, tout << "k:" << k << " offset: " << offset << " n: " << n << " ";
                   //pp(tout, lits) << "\n";
                   );
             SASSERT(k + offset <= n);

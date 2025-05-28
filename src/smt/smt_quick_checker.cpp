@@ -129,7 +129,7 @@ namespace smt {
                 v.push_back(curr);
             }
         }
-        TRACE("collector", 
+        TRACE(collector, 
               tout << "candidates:\n";
               for (unsigned i = 0; i < m_num_vars; i++) {
                   tout << "var " << i << ":";
@@ -143,7 +143,7 @@ namespace smt {
     void quick_checker::collector::operator()(quantifier * q, bool conservative, vector<enode_vector> & candidates) {
         flet<bool> l(m_conservative, conservative);
         init(q);
-        TRACE("collector", tout << "model checking: #" << q->get_id() << "\n" << mk_pp(q, m_manager) << "\n";);
+        TRACE(collector, tout << "model checking: #" << q->get_id() << "\n" << mk_pp(q, m_manager) << "\n";);
         collect(q->get_expr(), nullptr, 0);
         save_result(candidates);
     }
@@ -159,7 +159,7 @@ namespace smt {
        \brief Instantiate instances unsatisfied by the current model. Return true if new instances were generated.
     */
     bool quick_checker::instantiate_unsat(quantifier * q) {
-        TRACE("quick_checker", tout << "instantiate instances unsatisfied by current model\n" << mk_pp(q, m_manager) << "\n";);
+        TRACE(quick_checker, tout << "instantiate instances unsatisfied by current model\n" << mk_pp(q, m_manager) << "\n";);
         m_candidate_vectors.reset();
         m_collector(q, true, m_candidate_vectors);
         m_num_bindings = q->get_num_decls();
@@ -170,7 +170,7 @@ namespace smt {
        \brief Instantiate instances not satisfied by the current model. Return true if new instances were generated.
     */
     bool quick_checker::instantiate_not_sat(quantifier * q) {
-        TRACE("quick_checker", tout << "instantiate instances not satisfied by current model\n" << mk_pp(q, m_manager) << "\n";);
+        TRACE(quick_checker, tout << "instantiate instances not satisfied by current model\n" << mk_pp(q, m_manager) << "\n";);
         m_candidate_vectors.reset();
         m_collector(q, false, m_candidate_vectors);
         m_num_bindings = q->get_num_decls();
@@ -208,8 +208,8 @@ namespace smt {
             szs.push_back(sz);
             it.push_back(0);
         }
-        TRACE("quick_checker_sizes", tout << mk_pp(q, m_manager) << "\n"; for (unsigned i = 0; i < szs.size(); i++) tout << szs[i] << " "; tout << "\n";);
-        TRACE("quick_checker_candidates", 
+        TRACE(quick_checker_sizes, tout << mk_pp(q, m_manager) << "\n"; for (unsigned i = 0; i < szs.size(); i++) tout << szs[i] << " "; tout << "\n";);
+        TRACE(quick_checker_candidates, 
               tout << "candidates:\n";
               for (unsigned i = 0; i < m_num_bindings; i++) {
                   enode_vector & v           = m_candidate_vectors[i];
@@ -224,7 +224,7 @@ namespace smt {
                 m_bindings[m_num_bindings - i - 1] = m_candidate_vectors[i][it[i]];
             if (!m_context.contains_instance(q, m_num_bindings, m_bindings.data())) {
                 bool is_candidate = false;
-                TRACE("quick_checker", tout << "processing bindings:";
+                TRACE(quick_checker, tout << "processing bindings:";
                       for (unsigned i = 0; i < m_num_bindings; i++) tout << " #" << m_bindings[i]->get_owner_id();
                       tout << "\n";);
                 if (unsat)
@@ -232,8 +232,8 @@ namespace smt {
                 else
                     is_candidate = !check_quantifier(q, true);
                 if (is_candidate) {
-                    TRACE("quick_checker", tout << "found new candidate\n";);
-                    TRACE("quick_checker_sizes", tout << "found new candidate\n"; 
+                    TRACE(quick_checker, tout << "found new candidate\n";);
+                    TRACE(quick_checker_sizes, tout << "found new candidate\n"; 
                           for (unsigned i = 0; i < m_num_bindings; i++) tout << "#" << m_bindings[i]->get_owner_id() << " "; tout << "\n";);
                     unsigned max_generation = get_max_generation(m_num_bindings, m_bindings.data());
                     if (m_context.add_instance(q, nullptr /* no pattern was used */, m_num_bindings, m_bindings.data(), nullptr, 
@@ -329,7 +329,7 @@ namespace smt {
             }
         }
         expr * new_a = canonize(a);
-        TRACE("quick_checker_canonizer", tout << "before:\n" << mk_pp(a, m_manager) << "\nafter:\n" << mk_pp(new_a, m_manager) << "\n";);
+        TRACE(quick_checker_canonizer, tout << "before:\n" << mk_pp(a, m_manager) << "\nafter:\n" << mk_pp(new_a, m_manager) << "\n";);
         if (m_context.lit_internalized(new_a) && m_context.is_relevant(new_a)) {
             lbool val = m_context.get_assignment(new_a);
             if (val != l_undef)

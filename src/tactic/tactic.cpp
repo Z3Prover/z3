@@ -34,14 +34,14 @@ struct tactic_report::imp {
         m_goal(g),
         m_start_memory(static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024)) {
         m_watch.start();
-        TRACE("tactic", g.display_with_proofs(tout << id << "\n"););
+        TRACE(tactic, g.display_with_proofs(tout << id << "\n"););
         SASSERT(g.is_well_formed());
     }
         
     ~imp() {
         m_watch.stop();
         double end_memory = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
-        TRACE("tactic", m_goal.display(tout << m_id << "\n");
+        TRACE(tactic, m_goal.display(tout << m_id << "\n");
               if (m_goal.mc()) m_goal.mc()->display(tout);
               );
         IF_VERBOSE(0, 
@@ -227,13 +227,13 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
         if (r.size() > 0) pr = r[0]->pr(0);
         return l_undef;
     }
-    TRACE("tactic",
+    TRACE(tactic,
           tout << "r.size(): " << r.size() << "\n";
           for (unsigned i = 0; i < r.size(); i++) r[i]->display_with_dependencies(tout););
 
     if (r.size() > 0) {
         pr = r[0]->pr(0);
-        CTRACE("tactic", pr, tout << pr << "\n";);
+        CTRACE(tactic, pr, tout << pr << "\n";);
     }    
 
     if (is_decided_sat(r)) {

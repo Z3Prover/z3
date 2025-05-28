@@ -48,7 +48,7 @@ namespace smt {
             m_thread[i] = i + 1;
         }
 
-        TRACE("network_flow", {
+        TRACE(network_flow, {
             tout << pp_vector("Predecessors", m_pred) << pp_vector("Threads", m_thread); 
             tout << pp_vector("Depths", m_depth) << pp_vector("Tree", m_tree);
         });
@@ -156,7 +156,7 @@ namespace smt {
 
         SASSERT(is_ancestor_of(v, q));
         
-        TRACE("network_flow", { 
+        TRACE(network_flow, { 
             tout << "update_spanning_tree: (" << p << ", " << q << ") enters, (";
             tout << u << ", " << v << ") leaves\n";
         });
@@ -202,7 +202,7 @@ namespace smt {
         SASSERT(!in_subtree_t2(u));
         SASSERT(in_subtree_t2(v));
 
-        TRACE("network_flow", {
+        TRACE(network_flow, {
             tout << pp_vector("Predecessors", m_pred) << pp_vector("Threads", m_thread); 
             tout << pp_vector("Depths", m_depth) << pp_vector("Tree", m_tree);
             });

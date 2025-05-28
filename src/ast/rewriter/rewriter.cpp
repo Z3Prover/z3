@@ -50,7 +50,7 @@ bool rewriter_core::rewrites_from(expr* t, proof* p) {
 }
 
 bool rewriter_core::rewrites_to(expr* t, proof* p) {
-    CTRACE("rewriter", p && !m().proofs_disabled() && to_app(m().get_fact(p))->get_arg(1) != t, 
+    CTRACE(rewriter, p && !m().proofs_disabled() && to_app(m().get_fact(p))->get_arg(1) != t, 
            tout << mk_pp(p, m()) << "\n";
            tout << mk_pp(t, m()) << "\n";);
     return !p || m().proofs_disabled() || (to_app(m().get_fact(p))->get_arg(1) == t); 
@@ -65,7 +65,7 @@ void rewriter_core::cache_shifted_result(expr * k, unsigned offset, expr * v) {
 #endif
     SASSERT(!m_proof_gen);
     
-    TRACE("rewriter_cache_result", tout << mk_ismt2_pp(k, m()) << "\n--->\n" << mk_ismt2_pp(v, m()) << "\n";);
+    TRACE(rewriter_cache_result, tout << mk_ismt2_pp(k, m()) << "\n--->\n" << mk_ismt2_pp(v, m()) << "\n";);
 
     SASSERT(k->get_sort() == v->get_sort());
 

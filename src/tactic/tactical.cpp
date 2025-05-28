@@ -288,7 +288,7 @@ public:
     }
 
     void updt_params(params_ref const & p) override {
-        TRACE("nary_tactical_updt_params", tout << "updt_params: " << p << "\n";);
+        TRACE(nary_tactical_updt_params, tout << "updt_params: " << p << "\n";);
         for (tactic* t : m_ts) t->updt_params(p);
     }
     
@@ -1076,7 +1076,7 @@ public:
     char const* name() const override { return "using_params"; }
 
     void updt_params(params_ref const & p) override {
-        TRACE("using_params", 
+        TRACE(using_params, 
               tout << "before p: " << p << "\n";
               tout << "m_params: " << m_params << "\n";);
         
@@ -1084,7 +1084,7 @@ public:
         new_p.append(m_params);
         unary_tactical::updt_params(new_p);
         
-        TRACE("using_params", 
+        TRACE(using_params, 
               tout << "after p: " << p << "\n";
               tout << "m_params: " << m_params << "\n";
               tout << "new_p: " << new_p << "\n";);

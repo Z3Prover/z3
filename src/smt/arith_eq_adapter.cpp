@@ -44,7 +44,7 @@ namespace smt {
         
         void undo() override {
             m_already_processed.erase(m_n1, m_n2);
-            TRACE("arith_eq_adapter_profile", tout << "del #" << m_n1->get_owner_id() << " #" << m_n2->get_owner_id() << "\n";);
+            TRACE(arith_eq_adapter_profile, tout << "del #" << m_n1->get_owner_id() << " #" << m_n2->get_owner_id() << "\n";);
         }
     };
 
@@ -83,7 +83,7 @@ namespace smt {
         if (n1 == n2)
             return;
         ast_manager & m = get_manager();
-        TRACE("arith_eq_adapter_mk_axioms", tout << "#" << n1->get_owner_id() << " #" << n2->get_owner_id() << "\n";
+        TRACE(arith_eq_adapter_mk_axioms, tout << "#" << n1->get_owner_id() << " #" << n2->get_owner_id() << "\n";
               tout << mk_ismt2_pp(n1->get_expr(), m) << "\n" << mk_ismt2_pp(n2->get_expr(), m) << "\n";);
         if (n1->get_owner_id() > n2->get_owner_id())
             std::swap(n1, n2);
@@ -105,7 +105,7 @@ namespace smt {
             return;
         }
         
-        CTRACE("arith_eq_adapter_relevancy", !(ctx.is_relevant(n1) && ctx.is_relevant(n2)),
+        CTRACE(arith_eq_adapter_relevancy, !(ctx.is_relevant(n1) && ctx.is_relevant(n2)),
                tout << "is_relevant(n1): #" << n1->get_owner_id() << " " << ctx.is_relevant(n1) << "\n";
                tout << "is_relevant(n2): #" << n2->get_owner_id() << " " << ctx.is_relevant(n2) << "\n";
                tout << pp(n1, get_manager()) << "\n";
@@ -119,12 +119,12 @@ namespace smt {
         if (m_already_processed.find(n1, n2, d)) 
             return;
         
-        TRACE("arith_eq_adapter_profile", tout << "mk #" << n1->get_owner_id() << " #" << n2->get_owner_id() << " " <<
+        TRACE(arith_eq_adapter_profile, tout << "mk #" << n1->get_owner_id() << " #" << n2->get_owner_id() << " " <<
               m_already_processed.size() << " " << ctx.get_scope_level() << "\n";);
         
         m_stats.m_num_eq_axioms++;
         
-        TRACE("arith_eq_adapter_profile_detail", 
+        TRACE(arith_eq_adapter_profile_detail, 
               tout << "mk_detail " << mk_bounded_pp(n1->get_expr(), m, 5) << " " << 
               mk_bounded_pp(n2->get_expr(), m, 5) << "\n";);
         
@@ -132,7 +132,7 @@ namespace smt {
         t1_eq_t2 = ctx.mk_eq_atom(t1, t2);
         SASSERT(!m.is_false(t1_eq_t2));
         
-        TRACE("arith_eq_adapter_bug", tout << mk_bounded_pp(t1_eq_t2, m) << "\n" 
+        TRACE(arith_eq_adapter_bug, tout << mk_bounded_pp(t1_eq_t2, m) << "\n" 
               << mk_bounded_pp(t1, m) << "\n"
               << mk_bounded_pp(t2, m) << "\n";);
 
@@ -176,19 +176,19 @@ namespace smt {
             le              = m_util.mk_le(s, zero);
             ge              = m_util.mk_ge(s, zero);
         }
-        TRACE("arith_eq_adapter_perf",
+        TRACE(arith_eq_adapter_perf,
               tout << mk_ismt2_pp(t1_eq_t2, m) << "\n" << mk_ismt2_pp(le, m) << "\n" << mk_ismt2_pp(ge, m) << "\n";);
 
         ctx.push_trail(already_processed_trail(m_already_processed, n1, n2));
         m_already_processed.insert(n1, n2, data(t1_eq_t2, le, ge));
-        TRACE("arith_eq_adapter_profile", tout << "insert #" << n1->get_owner_id() << " #" << n2->get_owner_id() << "\n";);
+        TRACE(arith_eq_adapter_profile, tout << "insert #" << n1->get_owner_id() << " #" << n2->get_owner_id() << "\n";);
         ctx.internalize(t1_eq_t2, true); 
         literal t1_eq_t2_lit(ctx.get_bool_var(t1_eq_t2)); 
-        TRACE("interface_eq", 
+        TRACE(interface_eq, 
               tout << "core should try true phase first for the equality: " << t1_eq_t2_lit << "\n";
               tout << "#" << n1->get_owner_id() << " == #" << n2->get_owner_id() << "\n";
               tout << "try_true_first: " << ctx.try_true_first(t1_eq_t2_lit.var()) << "\n";);
-        TRACE("arith_eq_adapter_bug",
+        TRACE(arith_eq_adapter_bug,
               tout << "le: " << mk_ismt2_pp(le, m) << "\nge: " << mk_ismt2_pp(ge, m) << "\n";);
         ctx.internalize(le, true);
         ctx.internalize(ge, true);
@@ -210,13 +210,13 @@ namespace smt {
         ctx.mk_th_axiom(tid, ~t1_eq_t2_lit, le_lit, m_proof_hint.size(), m_proof_hint.data());
         ctx.mk_th_axiom(tid, ~t1_eq_t2_lit, ge_lit, m_proof_hint.size(), m_proof_hint.data());
         ctx.mk_th_axiom(tid, t1_eq_t2_lit, ~le_lit, ~ge_lit, m_proof_hint.size(), m_proof_hint.data());
-        TRACE("arith_eq_adapter", tout << "internalizing: "
+        TRACE(arith_eq_adapter, tout << "internalizing: "
               << " " << mk_pp(le, m) << ": " << le_lit 
               << " " << mk_pp(ge, m) << ": " << ge_lit 
               << " " << mk_pp(t1_eq_t2, m) << ": " << t1_eq_t2_lit << "\n";);
 
         if (m_owner.get_fparams().m_arith_add_binary_bounds) {
-            TRACE("arith_eq_adapter", tout << "adding binary bounds...\n";);
+            TRACE(arith_eq_adapter, tout << "adding binary bounds...\n";);
             ctx.mk_th_axiom(tid, le_lit, ge_lit, m_proof_hint.size(), m_proof_hint.data());
         }
         if (ctx.relevancy()) {
@@ -228,17 +228,17 @@ namespace smt {
             n1->get_iscope_lvl() <= ctx.get_base_level() && n2->get_iscope_lvl() <= ctx.get_base_level()) {
             m_restart_pairs.push_back(enode_pair(n1, n2));
         }
-        TRACE("arith_eq_adapter_detail", ctx.display(tout););
+        TRACE(arith_eq_adapter_detail, ctx.display(tout););
     }
 
     void arith_eq_adapter::new_eq_eh(theory_var v1, theory_var v2) {
-        TRACE("arith_eq_adapter", tout << "v" << v1 << " = v" << v2 << " #" << get_enode(v1)->get_owner_id() << " = #" << get_enode(v2)->get_owner_id() << "\n";);
-        TRACE("arith_eq_adapter_bug", tout << mk_bounded_pp(get_enode(v1)->get_expr(), get_manager()) << "\n" << mk_bounded_pp(get_enode(v2)->get_expr(), get_manager()) << "\n";);
+        TRACE(arith_eq_adapter, tout << "v" << v1 << " = v" << v2 << " #" << get_enode(v1)->get_owner_id() << " = #" << get_enode(v2)->get_owner_id() << "\n";);
+        TRACE(arith_eq_adapter_bug, tout << mk_bounded_pp(get_enode(v1)->get_expr(), get_manager()) << "\n" << mk_bounded_pp(get_enode(v2)->get_expr(), get_manager()) << "\n";);
         mk_axioms(get_enode(v1), get_enode(v2));
     }
 
     void arith_eq_adapter::new_diseq_eh(theory_var v1, theory_var v2) {
-        TRACE("arith_eq_adapter", tout << "v" << v1 << " != v" << v2 << " #" << get_enode(v1)->get_owner_id() << " != #" << get_enode(v2)->get_owner_id() << "\n";);
+        TRACE(arith_eq_adapter, tout << "v" << v1 << " != v" << v2 << " #" << get_enode(v1)->get_owner_id() << " != #" << get_enode(v2)->get_owner_id() << "\n";);
         mk_axioms(get_enode(v1), get_enode(v2));
     }
 
@@ -247,7 +247,7 @@ namespace smt {
     }
 
     void arith_eq_adapter::reset_eh() {
-        TRACE("arith_eq_adapter", tout << "reset\n";);
+        TRACE(arith_eq_adapter, tout << "reset\n";);
         m_already_processed .reset();
         m_restart_pairs     .reset();
         m_stats             .reset();
@@ -255,13 +255,13 @@ namespace smt {
 
     void arith_eq_adapter::restart_eh() { 
         context & ctx = get_context();
-        TRACE("arith_eq_adapter", tout << "restart\n";);
+        TRACE(arith_eq_adapter, tout << "restart\n";);
         enode_pair_vector tmp(m_restart_pairs);
         m_restart_pairs.reset();
         for (auto const& p : tmp) {
             if (ctx.inconsistent())
                 break;
-            TRACE("arith_eq_adapter", tout << "creating arith_eq_adapter axioms at the base level #" << p.first->get_owner_id() << " #" <<
+            TRACE(arith_eq_adapter, tout << "creating arith_eq_adapter axioms at the base level #" << p.first->get_owner_id() << " #" <<
                   p.second->get_owner_id() << "\n";);
             mk_axioms(p.first, p.second);
         }

@@ -75,7 +75,7 @@ namespace qe {
         };
         intersect_proc symbols_in_b(*this, symbols_in_a.s);
         quick_for_each_expr(symbols_in_b, marks, b);
-        TRACE("qe", 
+        TRACE(qe, 
               tout << mk_pp(a, m) << "\n" << mk_pp(b, m) << "\n";
               for (func_decl* f : m_shared) tout << f->get_name() << " "; tout << "\n";);
     }
@@ -134,7 +134,7 @@ namespace qe {
 
     mbi_result prop_mbi_plugin::operator()(expr_ref_vector& lits, model_ref& mdl)  {
         lbool r = m_solver->check_sat(lits);
-        TRACE("qe", tout << r << " " << lits << "\n");
+        TRACE(qe, tout << r << " " << lits << "\n");
         switch (r) {
         case l_false:
             lits.reset();
@@ -221,11 +221,11 @@ namespace qe {
             else if (mdl->is_false(e)) 
                 lits.push_back(m.mk_not(e));
         }
-        TRACE("qe", tout << "atoms from model: " << lits << "\n";);
+        TRACE(qe, tout << "atoms from model: " << lits << "\n";);
         solver_ref dual = m_dual_solver->translate(m, m_dual_solver->get_params());
         dual->assert_expr(mk_not(mk_and(m_fmls)));
         lbool r = dual->check_sat(lits);
-        TRACE("qe", dual->display(tout << "dual result " << r << "\n"););
+        TRACE(qe, dual->display(tout << "dual result " << r << "\n"););
         if (l_false == r) {
             // use the dual solver to find a 'small' implicant
             lits.reset();
@@ -263,7 +263,7 @@ namespace qe {
             }
         }
         order_avars(avars);
-        TRACE("qe", tout << "vars: " << avars << " from " << lits << "\n";);
+        TRACE(qe, tout << "vars: " << avars << " from " << lits << "\n";);
         return avars;
     }
 
@@ -331,7 +331,7 @@ namespace qe {
         vector<mbp::def> defs;
         bool ok = ap.project(*mdl.get(), avars, lits, defs);
         (void)ok;
-        CTRACE("qe", !ok, tout << "projection failure ignored!!!!\n");
+        CTRACE(qe, !ok, tout << "projection failure ignored!!!!\n");
         fix_non_shared(*mdl, lits);
         return defs;
     }
@@ -343,7 +343,7 @@ namespace qe {
         case l_false:
             lits.reset();
             m_solver->get_unsat_core(lits);
-            TRACE("qe", tout << "unsat core: " << lits << "\n";);
+            TRACE(qe, tout << "unsat core: " << lits << "\n";);
             // optionally minimize core using superposition.
             return mbi_unsat;
         case l_true: 
@@ -367,7 +367,7 @@ namespace qe {
        \brief main projection routine
     */
     void uflia_mbi::project(model_ref& mdl, expr_ref_vector& lits) {
-        TRACE("qe", 
+        TRACE(qe, 
               tout << "project literals: " << lits << "\n" << *mdl << "\n";
               tout << m_solver->get_assertions() << "\n";);
 
@@ -377,13 +377,13 @@ namespace qe {
         auto avars = get_arith_vars(lits);
         vector<mbp::def> defs = arith_project(mdl, avars, alits);
         for (auto const& d : defs) uflits.push_back(m.mk_eq(d.var, d.term));
-        TRACE("qe", tout << "uflits: " << uflits << "\n";);
+        TRACE(qe, tout << "uflits: " << uflits << "\n";);
         project_euf(mdl, uflits);
         lits.reset();
         lits.append(alits);
         lits.append(uflits);
         IF_VERBOSE(10, verbose_stream() << "projection : " << lits << "\n");
-        TRACE("qe", 
+        TRACE(qe, 
               tout << "projection: " << lits << "\n";
               tout << "avars: " << avars << "\n";
               tout << "alits: " << lits << "\n";
@@ -410,7 +410,7 @@ namespace qe {
                 uflits.push_back(lit);
             }
         }
-        TRACE("qe", 
+        TRACE(qe, 
               tout << "alits: " << alits << "\n";
               tout << "uflits: " << uflits << "\n";);
     }
@@ -426,7 +426,7 @@ namespace qe {
         func_decl_ref_vector shared(m_shared_trail);
         tg.set_vars(shared, false);
         lits.append(tg.dcert(*mdl.get(), lits));
-        TRACE("qe", tout << "project: " << lits << "\n";);                
+        TRACE(qe, tout << "project: " << lits << "\n";);                
     }
 
     /**
@@ -479,7 +479,7 @@ namespace qe {
         tg.add_lits(lits);
         lits.reset();
         lits.append(tg.project(*mdl.get()));
-        TRACE("qe", tout << "project: " << lits << "\n";);                
+        TRACE(qe, tout << "project: " << lits << "\n";);                
     }
 
     /**
@@ -496,14 +496,14 @@ namespace qe {
                     (x->get_depth() == y->get_depth() && x->get_id() > y->get_id());
         };
         std::sort(avars.data(), avars.data() + avars.size(), compare_depth);
-        TRACE("qe", tout << "avars:" << avars << "\n";);
+        TRACE(qe, tout << "avars:" << avars << "\n";);
     }
 
     void uflia_mbi::block(expr_ref_vector const& lits) {
         expr_ref clause(mk_not(mk_and(lits)), m);
         collect_atoms(lits);
         m_fmls.push_back(clause);
-        TRACE("qe", tout << "block " << lits << "\n";);
+        TRACE(qe, tout << "block " << lits << "\n";);
         m_solver->assert_expr(clause);
     }
 
@@ -533,7 +533,7 @@ namespace qe {
                     itp = nullptr;
                     return l_true;
                 }
-                TRACE("mbi", tout << "new lits " << lits << "\n";);
+                TRACE(mbi, tout << "new lits " << lits << "\n";);
                 break; // continue
             case mbi_unsat: {
                 if (lits.empty()) {
@@ -544,7 +544,7 @@ namespace qe {
                 }
                 t2->block(lits);
                 expr_ref lemma(mk_not(mk_and(lits)));
-                TRACE("mbi", tout << lemma << "\n";);
+                TRACE(mbi, tout << lemma << "\n";);
                 blocks[turn].push_back(lemma);
                 itp = m.mk_implies(mk_and(blocks[!turn]), lemma);
                 // TBD: compute closure over variables not in vars
@@ -600,7 +600,7 @@ namespace qe {
         th_rewriter rewrite(m);
         rewrite(a);
         rewrite(b);
-        TRACE("interpolator", tout << a << " " << b << "\n");        
+        TRACE(interpolator, tout << a << " " << b << "\n");        
         solver_ref sA = sf(m, p, false /* no proofs */, true, true, symbol::null);
         solver_ref sB = sf(m, p, false /* no proofs */, true, true, symbol::null);
         solver_ref sNotA = sf(m, p, false /* no proofs */, true, true, symbol::null);

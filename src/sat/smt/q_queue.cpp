@@ -41,7 +41,7 @@ namespace q {
     }
 
     void queue::setup() {
-        TRACE("q", tout << "qi_cost: " << m_params.m_qi_cost << "\n";);
+        TRACE(q, tout << "qi_cost: " << m_params.m_qi_cost << "\n";);
         if (!m_parser.parse_string(m_params.m_qi_cost.c_str(), m_cost_function)) {
             warning_msg("invalid cost function '%s', switching to default one", m_params.m_qi_cost.c_str());
             VERIFY(m_parser.parse_string("(+ weight generation)", m_cost_function));
@@ -105,7 +105,7 @@ namespace q {
         m_vals[SCOPE]              = static_cast<float>(ctx.s().num_scopes());
         m_vals[NESTED_QUANTIFIERS] = static_cast<float>(stat->get_num_nested_quantifiers());
         m_vals[CS_FACTOR]          = static_cast<float>(stat->get_case_split_factor());
-        TRACE("q_detail", for (unsigned i = 0; i < m_vals.size(); i++) { tout << m_vals[i] << " "; } tout << "\n";);
+        TRACE(q_detail, for (unsigned i = 0; i < m_vals.size(); i++) { tout << m_vals[i] << " "; } tout << "\n";);
     }
 
     float queue::get_cost(binding& f) {
@@ -196,11 +196,11 @@ namespace q {
                 instantiate(curr);
             else if (m_params.m_qi_promote_unsat && l_false == em.evaluate(f.nodes(), *f.c)) {
                 // do not delay instances that produce a conflict.
-                TRACE("q", tout << "promoting instance that produces a conflict\n" << mk_pp(f.q(), m) << "\n";);
+                TRACE(q, tout << "promoting instance that produces a conflict\n" << mk_pp(f.q(), m) << "\n";);
                 instantiate(curr);
             }
             else {
-                TRACE("q", tout << "delaying quantifier instantiation... " << f << "\n" << mk_pp(f.q(), m) << "\ncost: " << curr.m_cost << "\n";);
+                TRACE(q, tout << "delaying quantifier instantiation... " << f << "\n" << mk_pp(f.q(), m) << "\ncost: " << curr.m_cost << "\n";);
                 m_delayed_entries.push_back(curr);
                 ctx.push(push_back_vector<svector<entry>>(m_delayed_entries));
             }
@@ -227,7 +227,7 @@ namespace q {
             bool init = false;
             cost_limit = 0.0;
             for (entry & e : m_delayed_entries) {
-                TRACE("q", tout << e.m_qb << ", cost: " << e.m_cost << ", instantiated: " << e.m_instantiated << "\n";);
+                TRACE(q, tout << e.m_qb << ", cost: " << e.m_cost << ", instantiated: " << e.m_instantiated << "\n";);
                 if (!e.m_instantiated && e.m_cost <= m_params.m_qi_lazy_threshold && (!init || e.m_cost < cost_limit)) {
                     init = true;
                     cost_limit = e.m_cost;

@@ -145,7 +145,7 @@ public:
     }
 
     void operator()(goal_ref const& g, goal_ref_buffer& result) override {
-        TRACE("tactic", tout << "params: " << m_params << "\n"; g->display(tout););
+        TRACE(tactic, tout << "params: " << m_params << "\n"; g->display(tout););
         tactic_report report("subsumption", *g);
 
         vector<std::pair<unsigned, expr_ref>> fmls;

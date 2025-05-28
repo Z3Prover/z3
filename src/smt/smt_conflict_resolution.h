@@ -125,7 +125,7 @@ namespace smt {
                     std::swap(n1, n2);
                 enode_pair p(n1, n2);
                 if (m_already_processed_eqs.insert_if_not_there(p)) {
-                    TRACE("conflict_detail_verbose", tout << "marking eq #" << p.first->get_owner_id() << " = #" << 
+                    TRACE(conflict_detail_verbose, tout << "marking eq #" << p.first->get_owner_id() << " = #" << 
                           p.second->get_owner_id() << "\n";);
                     m_todo_eqs.push_back(p);
                     SASSERT(m_already_processed_eqs.contains(p));

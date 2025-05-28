@@ -95,7 +95,7 @@ namespace datalog {
     }
 
     void rule_dependencies::populate(rule const* r) {
-        TRACE("dl_verbose", tout << r->get_decl()->get_name() << "\n";);
+        TRACE(dl_verbose, tout << r->get_decl()->get_name() << "\n";);
         m_visited.reset();
         func_decl * d = r->get_decl();
         func_decl_set & s = ensure_key(d);
@@ -316,7 +316,7 @@ namespace datalog {
     }
 
     void rule_set::add_rule(rule * r) {
-        TRACE("dl_verbose", r->display(m_context, tout << "add:"););
+        TRACE(dl_verbose, r->display(m_context, tout << "add:"););
         SASSERT(!is_closed());
         m_rules.push_back(r);
         app * head = r->get_head();
@@ -328,7 +328,7 @@ namespace datalog {
     }
 
     void rule_set::del_rule(rule * r) {
-        TRACE("dl", r->display(m_context, tout << "del:"););
+        TRACE(dl, r->display(m_context, tout << "del:"););
         func_decl* d = r->get_decl();
         rule_vector* rules = m_head2rules.find(d);
 #define DEL_VECTOR(_v)                                  \
@@ -346,7 +346,7 @@ namespace datalog {
     }
 
     void rule_set::replace_rule(rule * r, rule * other) {
-        TRACE("dl", r->display(m_context, tout << "replace:"););
+        TRACE(dl, r->display(m_context, tout << "replace:"););
         func_decl* d = r->get_decl();
         rule_vector* rules = m_head2rules.find(d);
 #define REPLACE_VECTOR(_v)                              \

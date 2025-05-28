@@ -65,7 +65,7 @@ expr_ref cached_var_subst::operator()() {
         // entry was already there
         m_new_keys[num_bindings] = m_key; // recycle key
         result = entry->get_data().m_value;
-        SCTRACE("bindings", is_trace_enabled("coming_from_quant"), tout << "(cache)\n";
+        SCTRACE(bindings, is_trace_enabled(TraceTag::coming_from_quant), tout << "(cache)\n";
                 for (unsigned i = 0; i < num_bindings; i++) 
                     if (m_key->m_bindings[i]) 
                         tout << i << ": " << mk_ismt2_pp(m_key->m_bindings[i], result.m()) << ";\n";

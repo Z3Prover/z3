@@ -187,7 +187,7 @@ br_status poly_rewriter<Config>::mk_flat_mul_core(unsigned num_args, expr * cons
                 }
             }
             br_status st = mk_nflat_mul_core(flat_args.size(), flat_args.data(), result);
-            TRACE("poly_rewriter",
+            TRACE(poly_rewriter,
                   tout << "flat mul:\n";
                   for (unsigned i = 0; i < num_args; i++) tout << mk_bounded_pp(args[i], M()) << "\n";
                   tout << "---->\n";
@@ -292,7 +292,7 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
                 new_add_args.push_back(mk_mul_app(c, to_app(var)->get_arg(i)));
             }
             result = mk_add_app(new_add_args.size(), new_add_args.data());
-            TRACE("mul_bug", tout << "result: " << mk_bounded_pp(result, M(), 5) << "\n";);
+            TRACE(mul_bug, tout << "result: " << mk_bounded_pp(result, M(), 5) << "\n";);
             return BR_REWRITE2;
         }
     }
@@ -324,7 +324,7 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
             new_args.push_back(curr);
             prev = curr;
         }
-        TRACE("poly_rewriter", 
+        TRACE(poly_rewriter, 
               for (unsigned i = 0; i < new_args.size(); i++) {
                   if (i > 0)
                       tout << (lt(new_args[i-1], new_args[i]) ? " < " : " !< ");
@@ -335,7 +335,7 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
             return BR_FAILED;
         if (!ordered) {
             std::sort(new_args.begin(), new_args.end(), lt);
-        TRACE("poly_rewriter",
+        TRACE(poly_rewriter,
                   tout << "after sorting:\n";
                   for (unsigned i = 0; i < new_args.size(); i++) {
                       if (i > 0)
@@ -347,7 +347,7 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
         SASSERT(new_args.size() >= 2);
         result = mk_mul_app(new_args.size(), new_args.data());
         result = mk_mul_app(c, result);
-        TRACE("poly_rewriter", 
+        TRACE(poly_rewriter, 
               for (unsigned i = 0; i < num_args; ++i)
                   tout << mk_ismt2_pp(args[i], M()) << " ";
               tout << "\nmk_nflat_mul_core result:\n" << mk_ismt2_pp(result, M()) << "\n";);
@@ -375,9 +375,9 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
     unsigned orig_size = sums.size();
     expr_ref_buffer sum(M()); // must be ref_buffer because we may throw an exception
     ptr_buffer<expr> m_args;
-    TRACE("som", tout << "starting soM()...\n";);
+    TRACE(som, tout << "starting soM()...\n";);
     do {
-        TRACE("som", for (unsigned i = 0; i < it.size(); i++) tout << it[i] << " ";
+        TRACE(som, for (unsigned i = 0; i < it.size(); i++) tout << it[i] << " ";
               tout << "\n";);
         if (sum.size() > m_som_blowup * orig_size) {
             return BR_FAILED;
@@ -564,7 +564,7 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
     }
     normalize(c);
     SASSERT(m_sort_sums || ordered);
-    TRACE("rewriter", 
+    TRACE(rewriter, 
           tout << "ordered: " << ordered << " sort sums: " << m_sort_sums << "\n";
           for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], M()) << "\n";);
 
@@ -615,14 +615,14 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
             }
         }
         if (m_sort_sums) {
-            TRACE("rewriter_bug", tout << "new_args.size(): " << new_args.size() << "\n";);
+            TRACE(rewriter_bug, tout << "new_args.size(): " << new_args.size() << "\n";);
             if (c.is_zero())
                 std::sort(new_args.data(), new_args.data() + new_args.size(), mon_lt(*this));
             else
                 std::sort(new_args.data() + 1, new_args.data() + new_args.size(), mon_lt(*this));
         }
         result = mk_add_app(new_args.size(), new_args.data());
-        TRACE("rewriter", tout << result << "\n";);
+        TRACE(rewriter, tout << result << "\n";);
         if (hoist_multiplication(result)) {
             return BR_REWRITE_FULL;
         }
@@ -881,7 +881,7 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     new_lhs_monomials[0] = insert_c_lhs ? mk_numeral(c) : nullptr;
     lhs_result = mk_add_app(new_lhs_monomials.size() - lhs_offset, new_lhs_monomials.data() + lhs_offset);
     rhs_result = mk_add_app(new_rhs_monomials.size() - rhs_offset, new_rhs_monomials.data() + rhs_offset);
-    TRACE("le_bug", tout << lhs_result << " " << rhs_result << "\n";);
+    TRACE(le_bug, tout << lhs_result << " " << rhs_result << "\n";);
     return BR_DONE;
 }
 

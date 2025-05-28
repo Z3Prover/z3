@@ -312,7 +312,7 @@ private:
         typename assignment_stack::iterator begin = m_assignment_stack.begin();
         while (it != begin) {
             --it;
-            TRACE("dl_bug", tout << "undo assignment: " << it->get_var() << " " << it->get_old_value() << "\n";);
+            TRACE(dl_bug, tout << "undo assignment: " << it->get_var() << " " << it->get_old_value() << "\n";);
             m_assignment[it->get_var()] = it->get_old_value();
         }
         m_assignment_stack.reset();
@@ -368,7 +368,7 @@ private:
         SASSERT(m_gamma[target].is_neg());
         acc_assignment(target, gamma);
 
-        TRACE("arith", display(tout << id << " " << gamma << "\n");
+        TRACE(arith, display(tout << id << " " << gamma << "\n");
               display_edge(tout, last_e);
               );
 
@@ -411,7 +411,7 @@ private:
                         }
                         break;
                     case DL_PROCESSED:
-                        TRACE("arith", display_edge(tout << "processed twice: ", e););
+                        TRACE(arith, display_edge(tout << "processed twice: ", e););
                         // if two edges with the same source/target occur in the graph.
                         break;
                     default:
@@ -469,7 +469,7 @@ public:
     // The graph does not have control over the ids assigned by the theory.
     // That is init_var receives the id as an argument.
     void init_var(dl_var v) {
-        TRACE("dl_bug", tout << "init_var " << v << "\n";);
+        TRACE(dl_bug, tout << "init_var " << v << "\n";);
         if (static_cast<unsigned>(v) < m_out_edges.size() && (!m_out_edges[v].empty() || !m_in_edges[v].empty())) {
             return;
         }
@@ -487,7 +487,7 @@ public:
         }
         m_assignment[v].reset();
         SASSERT(static_cast<unsigned>(v) < m_heap.get_bounds());
-        TRACE("dl_bug", tout << "init_var " << v << ", m_assignment[v]: " << m_assignment[v] << "\n";);
+        TRACE(dl_bug, tout << "init_var " << v << ", m_assignment[v]: " << m_assignment[v] << "\n";);
         SASSERT(m_assignment[v].is_zero());
         SASSERT(m_out_edges[v].empty());
         SASSERT(m_in_edges[v].empty());
@@ -501,7 +501,7 @@ public:
         edge_id new_id = m_edges.size();
         m_edges.push_back(edge(source, target, weight, m_timestamp, ex));
         m_activity.push_back(0);
-        TRACE("dl_bug", tout << "creating edge:\n"; display_edge(tout, m_edges.back()););
+        TRACE(dl_bug, tout << "creating edge:\n"; display_edge(tout, m_edges.back()););
         m_out_edges[source].push_back(new_id);
         m_in_edges[target].push_back(new_id);
         return new_id;
@@ -604,7 +604,7 @@ public:
                     numeral const& weight = e2.get_weight();
                     numeral delta = weight - potential + potentials[j];
                     if (delta.is_nonneg() && (gamma + delta).is_neg()) {
-                        TRACE("diff_logic_traverse", tout << "Reducing path by ";
+                        TRACE(diff_logic_traverse, tout << "Reducing path by ";
                               display_edge(tout, e2);
                               tout << "gamma: " << gamma << " weight: " << weight << "\n";
                               tout << "enabled: " << e2.is_enabled() << "\n";
@@ -620,7 +620,7 @@ public:
                         break;
                     }
                     else {
-                        TRACE("diff_logic_traverse", display_edge(tout << "skipping: ", e2););
+                        TRACE(diff_logic_traverse, display_edge(tout << "skipping: ", e2););
                     }
                 }
             }
@@ -632,7 +632,7 @@ public:
         }
         while (e_id != last_id);
         
-        TRACE("diff_logic_traverse", {   
+        TRACE(diff_logic_traverse, {   
                 tout << "Num conflicts: " << num_conflicts << "\n";
                 tout << "Resulting path:\n";
                 for (unsigned i = 0; i < edges.size(); ++i) {
@@ -886,7 +886,7 @@ public:
         unsigned to_delete     = num_edges - old_num_edges;
         for (unsigned i = 0; i < to_delete; i++) {
             const edge & e = m_edges.back();
-            TRACE("dl_bug", tout << "deleting edge:\n"; display_edge(tout, e););
+            TRACE(dl_bug, tout << "deleting edge:\n"; display_edge(tout, e););
             dl_var source  = e.get_source();
             dl_var target  = e.get_target();
             SASSERT(static_cast<int>(m_edges.size()) - 1 == m_out_edges[source].back());
@@ -957,7 +957,7 @@ private:
     // m_assignment[v] += inc
     // This method also stores the old value of v in the assignment stack.
     void acc_assignment(dl_var v, const numeral & inc) {
-        TRACE("dl_bug", tout << "update v: " << v << " += " << inc << " m_assignment[v] " << m_assignment[v] << "\n";);
+        TRACE(dl_bug, tout << "update v: " << v << " += " << inc << " m_assignment[v] " << m_assignment[v] << "\n";);
         m_assignment_stack.push_back(assignment_trail(v, m_assignment[v]));
         m_assignment[v] += inc;
     }
@@ -1109,7 +1109,7 @@ public:
                 edge_id id;
                 SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id)););                
                 if (!discovered.contains(next) && !explored.contains(next)) {
-                    TRACE("diff_logic", tout << "thread[" << prev << "] --> " << next << std::endl;);
+                    TRACE(diff_logic, tout << "thread[" << prev << "] --> " << next << std::endl;);
                     threads[prev] = next;
                     prev = next;
                     discovered.insert(next);
@@ -1150,7 +1150,7 @@ public:
                 edge_id id;
                 SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id)););
                 if (!visited.contains(next)) {
-                    TRACE("diff_logic", tout << "parents[" << next << "] --> " << current << std::endl;);
+                    TRACE(diff_logic, tout << "parents[" << next << "] --> " << current << std::endl;);
                     parents[next] = current;
                     depths[next] = depths[current] + 1;
                     visited.insert(next);
@@ -1206,7 +1206,7 @@ public:
                 dfs(v, scc_id);
             }        
         }
-        TRACE("eq_scc",
+        TRACE(eq_scc,
               for (dl_var v = 0; v < n; v++) {
                   tout << "$" << v << " -> " << scc_id[v] << "\n";
               });
@@ -1311,13 +1311,13 @@ private:
             unsigned pred = (i>0)?(i-1):(num_edges-1);
             edge const& e1 = m_edges[edges[pred]];
             if (e.get_target() != e1.get_source()) {
-                TRACE("check_explanation", display_edge(tout, e); display_edge(tout, e1); );
+                TRACE(check_explanation, display_edge(tout, e); display_edge(tout, e1); );
                 return false;
             }
             w += e.get_weight();
         }
         if (w.is_nonneg()) {
-            TRACE("check_explanation", tout << "weight: " << w << "\n";);
+            TRACE(check_explanation, tout << "weight: " << w << "\n";);
             return false;
         }
         return true;
@@ -1331,7 +1331,7 @@ private:
             potential0 += m_edges[edges[i]].get_weight();
             if (potential0 != potentials[i] || 
                 nodes[i] != m_edges[edges[i]].get_source()) {
-                TRACE("diff_logic_traverse", tout << "checking index " << i << " ";
+                TRACE(diff_logic_traverse, tout << "checking index " << i << " ";
                       tout << "potential: " << potentials[i] << " ";
                       display_edge(tout, m_edges[edges[i]]);
                       );
@@ -1397,7 +1397,7 @@ public:
             bfs_elem & curr = bfs_todo[head];
             int parent_idx  = head;
             dl_var v = curr.m_var;
-            TRACE("dl_bfs", tout << "processing: " << v << "\n";);
+            TRACE(dl_bfs, tout << "processing: " << v << "\n";);
             edge_id_vector & edges = m_out_edges[v];
             for (edge_id e_id : edges) {
                 edge & e     = m_edges[e_id];
@@ -1406,13 +1406,13 @@ public:
                     continue;
                 }
                 set_gamma(e, gamma);
-                TRACE("dl_bfs", display_edge(tout << "processing edge: ", e) << " gamma: " << gamma << "\n";);
+                TRACE(dl_bfs, display_edge(tout << "processing edge: ", e) << " gamma: " << gamma << "\n";);
                 if (is_connected(gamma, zero_edge, e, timestamp)) {
                     dl_var curr_target = e.get_target();
-                    TRACE("dl_bfs", tout << "curr_target: " << curr_target << ", mark: " << bfs_mark[curr_target] << "\n";);
+                    TRACE(dl_bfs, tout << "curr_target: " << curr_target << ", mark: " << bfs_mark[curr_target] << "\n";);
                     if (curr_target == target) {
-                        TRACE("dl_bfs", tout << "found path\n";);
-                        TRACE("dl_eq_bug", tout << "path: " << source << " --> " << target << "\n";
+                        TRACE(dl_bfs, tout << "found path\n";);
+                        TRACE(dl_eq_bug, tout << "path: " << source << " --> " << target << "\n";
                               display_edge(tout, e);
                               int tmp_parent_idx = parent_idx;
                               while (true) {
@@ -1426,7 +1426,7 @@ public:
                                       tmp_parent_idx = curr.m_parent_idx;
                                   }
                               });
-                        TRACE("dl_eq_bug", display_edge(tout, e););
+                        TRACE(dl_eq_bug, display_edge(tout, e););
                         f(e.get_explanation());
                         while (true) {
                             SASSERT(parent_idx >= 0);
@@ -1436,7 +1436,7 @@ public:
                             }
                             else {
                                 edge & e = m_edges[curr.m_edge_id];
-                                TRACE("dl_eq_bug", display_edge(tout, e););
+                                TRACE(dl_eq_bug, display_edge(tout, e););
                                 f(e.get_explanation());
                                 parent_idx = curr.m_parent_idx;
                             }
@@ -1556,7 +1556,7 @@ private:
         state.m_heap.insert(source);
         state.m_heap.insert(target);
         unsigned num_relevant = 1;
-        TRACE("diff_logic", display(tout); );
+        TRACE(diff_logic, display(tout); );
                 
         while (!state.m_heap.empty() && num_relevant > 0) {
                       
@@ -1574,7 +1574,7 @@ private:
             else {
                 m_mark[source] = DL_PROP_PROCESSED_IRRELEVANT;
             }
-            TRACE("diff_logic", tout << "source: " << source << "\n";);
+            TRACE(diff_logic, tout << "source: " << source << "\n";);
   
             for (edge_id e_id : edges[source]) {
                 edge const& e = m_edges[e_id];
@@ -1587,7 +1587,7 @@ private:
                 if (!e.is_enabled()) {
                     continue;
                 }
-                TRACE("diff_logic", display_edge(tout, e););
+                TRACE(diff_logic, display_edge(tout, e););
                 target = is_fw?e.get_target():e.get_source();
                 delta  = get_reduced_weight(state, source, e);
                 SASSERT(delta >= state.m_delta[source]);
@@ -1624,12 +1624,12 @@ private:
                     break;
                 }
                 case DL_PROP_PROCESSED_RELEVANT: 
-                    TRACE("diff_logic", tout << delta << " ?> " << state.m_delta[target] << "\n";);
+                    TRACE(diff_logic, tout << delta << " ?> " << state.m_delta[target] << "\n";);
                     SASSERT(delta >= state.m_delta[target]);
                     SASSERT(!(delta == state.m_delta[target] && source_mark == DL_PROP_IRRELEVANT));
                     break;
                 case DL_PROP_PROCESSED_IRRELEVANT: 
-                    TRACE("diff_logic", tout << delta << " ?> " << state.m_delta[target] << "\n";);
+                    TRACE(diff_logic, tout << delta << " ?> " << state.m_delta[target] << "\n";);
                     SASSERT(delta >= state.m_delta[target]);
                     break;
                 default:
@@ -1656,7 +1656,7 @@ private:
             }
         }
 
-        TRACE("diff_logic", {
+        TRACE(diff_logic, {
                 tout << (is_fw?"is_fw":"is_bw") << ": ";
                 for (unsigned i = 0; i < state.m_visited.size(); ++i) {
                     tout << state.m_visited[i] << " ";
@@ -1678,7 +1678,7 @@ private:
         dl_var b = e0.get_target();
         numeral n0 = m_assignment[b] - m_assignment[a] - e0.get_weight();
         vector<edge_id_vector> const& edges = m_out_edges;
-        TRACE("diff_logic", tout << "$" << a << " a:" << m_assignment[a] << " $" << b << " b: " << m_assignment[b] 
+        TRACE(diff_logic, tout << "$" << a << " a:" << m_assignment[a] << " $" << b << " b: " << m_assignment[b] 
               << " e0: " << e0.get_weight() << " n0: " << n0 << "\n";
               display_edge(tout, e0);
               );
@@ -1696,7 +1696,7 @@ private:
                 numeral n2 = n1 + tgt.m_delta[d] + m_assignment[d];
 
                 if (tgt.contains(d) && n2 <= e1.get_weight()) {
-                    TRACE("diff_logic", 
+                    TRACE(diff_logic, 
                           tout << "$" << c << " delta_c: " << src.m_delta[c] << " c: " << m_assignment[c] << "\n";
                           tout << "$" << d << " delta_d: " << src.m_delta[d] << " d: " << m_assignment[d] 
                           << " n2: " << n2 << " e1: " << e1.get_weight() << "\n";
@@ -1717,7 +1717,7 @@ public:
         m_fw.m_visited.reset();
         m_bw.m_visited.reset();
         if (!subsumed.empty()) {
-            TRACE("diff_logic", 
+            TRACE(diff_logic, 
                   display(tout);
                   tout << "subsumed\n";
                   for (unsigned i = 0; i < subsumed.size(); ++i) {
@@ -1844,7 +1844,7 @@ public:
         m_heap.insert(src2);
         m_visited.push_back(src2);
 
-        TRACE("diff_logic", 
+        TRACE(diff_logic, 
               display_edge(tout << "bridge:   ", e1); 
               display_edge(tout << "subsumed: ", e2); 
               display(tout); );
@@ -1853,7 +1853,7 @@ public:
             SASSERT(!m_heap.empty());
             dl_var v = m_heap.erase_min();
             m_mark[v] = DL_PROCESSED;
-            TRACE("diff_logic", tout << v << "\n";);
+            TRACE(diff_logic, tout << v << "\n";);
 
             for (edge_id e_id : m_out_edges[v]) {
                 edge const& e = m_edges[e_id];
@@ -1867,7 +1867,7 @@ public:
                 }
                 m_gamma[w] = gamma;
                 m_parent[w] = e_id;
-                TRACE("diff_logic", tout << w << " : " << gamma << " " << e2.get_weight() << "\n";);
+                TRACE(diff_logic, tout << w << " : " << gamma << " " << e2.get_weight() << "\n";);
                 if (w == dst2 && gamma <= e2.get_weight()) {
                     // found path.
                     reset_marks();

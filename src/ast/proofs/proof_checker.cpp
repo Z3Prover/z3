@@ -301,7 +301,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         return false;
     }
     case PR_MONOTONICITY: {
-        TRACE("proof_checker", tout << mk_bounded_pp(p, m, 3) << "\n";);
+        TRACE(proof_checker, tout << mk_bounded_pp(p, m, 3) << "\n";);
         if (match_fact(p, fact) &&
             match_binary(fact, d1, t1, t2) &&
             match_app(t1, f1, terms1) &&
@@ -530,7 +530,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                     found = match_negated(ors[j].get(), hypotheses[i].get());
                 }
                 if (!found) {
-                    TRACE("pr_lemma_bug",
+                    TRACE(pr_lemma_bug,
                           tout << "i: " << i << "\n";
                           tout << "ORs:\n" << ors << "\n";
                           tout << "HYPOTHESIS:\n" << hypotheses << "\n";
@@ -538,7 +538,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                     UNREACHABLE();
                     return false;
                 }
-                TRACE("proof_checker", tout << "Matched:\n";
+                TRACE(proof_checker, tout << "Matched:\n";
                       ast_ll_pp(tout, m, hypotheses[i].get());
                       ast_ll_pp(tout, m, ors[j-1].get()););
             }
@@ -575,7 +575,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                     }
                 }
                 if (!found) {
-                    TRACE("pr_unit_bug",
+                    TRACE(pr_unit_bug,
                           tout << "Parents:\n";
                           for (unsigned i = 0; i < proofs.size(); i++) {
                               expr* p = nullptr;
@@ -791,7 +791,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                 premise = vs(premise, sub.size(), sub.data());
             }
             fmls.push_back(premise.get());
-            TRACE("proof_checker",
+            TRACE(proof_checker,
                   tout << mk_pp(premise.get(), m) << "\n";
                   for (unsigned j = 0; j < sub.size(); ++j) {
                       tout << mk_pp(sub[j], m) << " ";
@@ -1151,7 +1151,7 @@ void proof_checker::get_hypotheses(proof* p, expr_ref_vector& ante) {
             SASSERT(match_nil(h));
         }
     }
-    TRACE("proof_checker",
+    TRACE(proof_checker,
           {
               ast_ll_pp(tout << "Getting hypotheses from: ", m, p);
               tout << "Found hypotheses:\n";
@@ -1396,7 +1396,7 @@ bool proof_checker::check_arith_proof(proof* p) {
             return false;
         }
     }
-    TRACE("proof_checker", 
+    TRACE(proof_checker, 
           for (unsigned i = 0; i < num_parents; i++) 
               tout << coeffs[i] << " * " << mk_bounded_pp(m.get_fact(m.get_parent(p, i)), m) << "\n";
           tout << "fact:" << mk_bounded_pp(fact, m) << "\n";);

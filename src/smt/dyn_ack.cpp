@@ -94,8 +94,8 @@ namespace smt {
             lits.push_back(eq);
             SASSERT(lits.size() >= 2);
             app_ref lemma(m.mk_or(lits), m);
-            TRACE("dyn_ack", tout << lemma << "\n";);
-            TRACE("dyn_ack", tout << false_pr << "\n";);
+            TRACE(dyn_ack, tout << lemma << "\n";);
+            TRACE(dyn_ack, tout << false_pr << "\n";);
             return m.mk_lemma(false_pr, lemma);
         }
 
@@ -211,7 +211,7 @@ namespace smt {
         }
         unsigned num_occs = 0;
         if (m_app_pair2num_occs.find(n1, n2, num_occs)) {
-            TRACE("dyn_ack", tout << "used_cg_eh:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\nnum_occs: " << num_occs << "\n";);
+            TRACE(dyn_ack, tout << "used_cg_eh:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\nnum_occs: " << num_occs << "\n";);
             num_occs++;
         }
         else {
@@ -227,7 +227,7 @@ namespace smt {
         SASSERT(m_app_pair2num_occs.find(n1, n2, num_occs2) && num_occs == num_occs2);
 #endif
         if (num_occs == m_params.m_dack_threshold) {
-            TRACE("dyn_ack", tout << "found candidate:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\nnum_occs: " << num_occs << "\n";);
+            TRACE(dyn_ack, tout << "found candidate:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\nnum_occs: " << num_occs << "\n";);
             m_to_instantiate.push_back(p);
         }
     }
@@ -238,7 +238,7 @@ namespace smt {
         }
         if (n1->get_id() > n2->get_id())
             std::swap(n1,n2);
-        TRACE("dyn_ack", 
+        TRACE(dyn_ack, 
               tout << mk_pp(n1, m) << " = " << mk_pp(n2, m) << " = " << mk_pp(r, m) << "\n";);
         app_triple tr(n1, n2, r);
         if (m_triple.m_instantiated.contains(tr)) {
@@ -246,7 +246,7 @@ namespace smt {
         }
         unsigned num_occs = 0;
         if (m_triple.m_app2num_occs.find(n1, n2, r, num_occs)) {
-            TRACE("dyn_ack", tout << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\n"
+            TRACE(dyn_ack, tout << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\n"
                   << mk_pp(r, m) << "\n" << "\nnum_occs: " << num_occs << "\n";);
             num_occs++;
         }
@@ -264,7 +264,7 @@ namespace smt {
         SASSERT(m_triple.m_app2num_occs.find(n1, n2, r, num_occs2) && num_occs == num_occs2);
 #endif
         if (num_occs == m_params.m_dack_threshold) {
-            TRACE("dyn_ack", tout << "found candidate:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) 
+            TRACE(dyn_ack, tout << "found candidate:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) 
                   << "\n" << mk_pp(r, m) 
                   << "\nnum_occs: " << num_occs << "\n";);
             m_triple.m_to_instantiate.push_back(tr);
@@ -293,7 +293,7 @@ namespace smt {
     };
 
     void dyn_ack_manager::gc() {
-        TRACE("dyn_ack", tout << "dyn_ack GC\n";);
+        TRACE(dyn_ack, tout << "dyn_ack GC\n";);
         m_to_instantiate.reset();
         m_qhead = 0;
         svector<app_pair>::iterator it  = m_app_pairs.begin();
@@ -302,7 +302,7 @@ namespace smt {
         for (; it != end; ++it) {
             app_pair & p = *it;
             if (m_instantiated.contains(p)) {
-                TRACE("dyn_ack", tout << "1) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
+                TRACE(dyn_ack, tout << "1) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
                 m.dec_ref(p.first);
                 m.dec_ref(p.second);
                 SASSERT(!m_app_pair2num_occs.contains(p.first, p.second));
@@ -317,7 +317,7 @@ namespace smt {
             // SASSERT(num_occs > 0);
             num_occs = static_cast<unsigned>(num_occs * m_params.m_dack_gc_inv_decay);
             if (num_occs <= 1) {
-                TRACE("dyn_ack", tout << "2) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
+                TRACE(dyn_ack, tout << "2) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
                 m_app_pair2num_occs.erase(p.first, p.second);
                 m.dec_ref(p.first);
                 m.dec_ref(p.second);
@@ -396,7 +396,7 @@ namespace smt {
 		app_ref eq(m.mk_eq(n1, n2), m);
         m_context.internalize(eq, true);
         literal l = m_context.get_literal(eq);
-        TRACE("dyn_ack", tout << "eq:\n" << mk_pp(eq, m) << "\nliteral: "; 
+        TRACE(dyn_ack, tout << "eq:\n" << mk_pp(eq, m) << "\nliteral: "; 
               m_context.display_literal(tout, l); tout << "\n";);
         return l;
     }
@@ -407,8 +407,8 @@ namespace smt {
         SASSERT(n1->get_num_args() == n2->get_num_args());
         SASSERT(n1 != n2);
         m_context.m_stats.m_num_dyn_ack++;
-        TRACE("dyn_ack_inst", tout << "dyn_ack: " << n1->get_id() << " " << n2->get_id() << "\n";);
-        TRACE("dyn_ack", tout << "expanding Ackermann's rule for:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\n";);
+        TRACE(dyn_ack_inst, tout << "dyn_ack: " << n1->get_id() << " " << n2->get_id() << "\n";);
+        TRACE(dyn_ack, tout << "expanding Ackermann's rule for:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\n";);
         unsigned num_args = n1->get_num_args();
         literal_buffer lits;
         for (unsigned i = 0; i < num_args; i++) {
@@ -436,7 +436,7 @@ namespace smt {
             dealloc(del_eh);
             return;
         }
-        TRACE("dyn_ack_clause", tout << "new clause:\n"; m_context.display_clause_detail(tout, cls); tout << "\n";);
+        TRACE(dyn_ack_clause, tout << "new clause:\n"; m_context.display_clause_detail(tout, cls); tout << "\n";);
         m_clause2app_pair.insert(cls, p);
     }
 
@@ -462,8 +462,8 @@ namespace smt {
         SASSERT(m_params.m_dack != dyn_ack_strategy::DACK_DISABLED);
         SASSERT(n1 != n2 && n1 != r && n2 != r);
         ctx.m_stats.m_num_dyn_ack++;
-        TRACE("dyn_ack_inst", tout << "dyn_ack: " << n1->get_id() << " " << n2->get_id() << " " << r->get_id() << "\n";);
-        TRACE("dyn_ack", tout << "expanding Ackermann's rule for:\n" << mk_pp(n1, m) << "\n" 
+        TRACE(dyn_ack_inst, tout << "dyn_ack: " << n1->get_id() << " " << n2->get_id() << " " << r->get_id() << "\n";);
+        TRACE(dyn_ack, tout << "expanding Ackermann's rule for:\n" << mk_pp(n1, m) << "\n" 
               << mk_pp(n2, m) << "\n"
               << mk_pp(r,  m) << "\n";
               );
@@ -495,7 +495,7 @@ namespace smt {
             dealloc(del_eh);
             return;
         }
-        TRACE("dyn_ack_clause", ctx.display_clause_detail(tout << "new clause:\n", cls); tout << "\n";);
+        TRACE(dyn_ack_clause, ctx.display_clause_detail(tout << "new clause:\n", cls); tout << "\n";);
         m_triple.m_clause2apps.insert(cls, tr);
     }
 
@@ -521,7 +521,7 @@ namespace smt {
     };
 
     void dyn_ack_manager::gc_triples() {
-        TRACE("dyn_ack", tout << "dyn_ack GC\n";);
+        TRACE(dyn_ack, tout << "dyn_ack GC\n";);
         m_triple.m_to_instantiate.reset();
         m_triple.m_qhead = 0;
         svector<app_triple>::iterator it  = m_triple.m_apps.begin();
@@ -530,7 +530,7 @@ namespace smt {
         for (; it != end; ++it) {
             app_triple & p = *it;
             if (m_triple.m_instantiated.contains(p)) {
-                TRACE("dyn_ack", tout << "1) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
+                TRACE(dyn_ack, tout << "1) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
                 m.dec_ref(p.first);
                 m.dec_ref(p.second);
                 m.dec_ref(p.third);
@@ -546,7 +546,7 @@ namespace smt {
             // SASSERT(num_occs > 0);
             num_occs = static_cast<unsigned>(num_occs * m_params.m_dack_gc_inv_decay);
             if (num_occs <= 1) {
-                TRACE("dyn_ack", tout << "2) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
+                TRACE(dyn_ack, tout << "2) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
                 m_triple.m_app2num_occs.erase(p.first, p.second, p.third);
                 m.dec_ref(p.first);
                 m.dec_ref(p.second);

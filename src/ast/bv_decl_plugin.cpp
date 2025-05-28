@@ -714,7 +714,7 @@ bool bv_decl_plugin::are_distinct(app * a, app * b) const {
     expr *   b_term;
     get_offset_term(a, a_term, a_offset);
     get_offset_term(b, b_term, b_offset);
-    TRACE("bv_are_distinct",
+    TRACE(bv_are_distinct,
           tout << mk_ismt2_pp(a, *m_manager) << "\n" << mk_ismt2_pp(b, *m_manager) << "\n";
           tout << "---->\n";
           tout << "a: " << a_offset << " + " << mk_ismt2_pp(a_term, *m_manager) << "\n";
@@ -865,7 +865,7 @@ bool bv_recognizers::is_allone(expr const * e) const {
         return false;
     }
     bool result = (r == rational::power_of_two(bv_size) - rational(1));
-    TRACE("is_allone", tout << r << " " << result << "\n";);
+    TRACE(is_allone, tout << r << " " << result << "\n";);
     return result;
 }
 

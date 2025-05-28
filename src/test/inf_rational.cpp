@@ -22,7 +22,7 @@ Revision History:
 
 static void tst0() {
     inf_rational n(rational(0), false);
-    TRACE("inf_rational", tout << n << "\n";);
+    TRACE(inf_rational, tout << n << "\n";);
     ENSURE(n < inf_rational::zero());
     ENSURE(!(n >= inf_rational::zero()));
 }

@@ -24,7 +24,7 @@ Revision History:
 #include "smt/theory_recfun.h"
 
 
-#define TRACEFN(x) TRACE("recfun", tout << x << '\n';)
+#define TRACEFN(x) TRACE(recfun, tout << x << '\n';)
 
 namespace smt {
 
@@ -48,7 +48,7 @@ namespace smt {
     }
 
     bool theory_recfun::internalize_atom(app * atom, bool gate_ctx) {
-        TRACE("recfun", tout << mk_pp(atom, m) << " " << u().has_defs() << "\n");
+        TRACE(recfun, tout << mk_pp(atom, m) << " " << u().has_defs() << "\n");
         if (!u().has_defs()) {
 //            if (u().is_defined(atom)) 
 //                throw default_exception("recursive atom definition is out of scope");

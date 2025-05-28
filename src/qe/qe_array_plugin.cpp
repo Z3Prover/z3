@@ -52,7 +52,7 @@ namespace qe {
             expr_ref_vector eqs(m);
             conjs.extract_equalities(eqs);
             for (unsigned i = 0; i < eqs.size(); ++i) {
-                TRACE("qe_verbose", 
+                TRACE(qe_verbose, 
                       tout << mk_pp(eqs[i].get(), m) << "\n";);
                 expr* e = eqs[i].get();
                 if (solve_eq_zero(e, fml)) {
@@ -114,7 +114,7 @@ namespace qe {
                 return false;
             }
             
-            TRACE("qe_verbose", 
+            TRACE(qe_verbose, 
                   tout << mk_pp(lhs, m) << 
                   " == " << mk_pp(rhs, m) << "\n";);
             expr_ref tmp(m);
@@ -172,7 +172,7 @@ namespace qe {
                 
                 store_B_i_t = m.mk_app(m_fid, OP_STORE, args2.size(), args2.data());
                 
-                TRACE("qe", 
+                TRACE(qe, 
                       tout << "fml: " << mk_pp(fml, m) << "\n";
                       tout << "solved form: " << mk_pp(store_B_i_t, m) << "\n";
                       tout << "eq: " << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << "\n";
@@ -244,7 +244,7 @@ namespace qe {
                     m_ctx.add_var(w);
                 }
                                
-                TRACE("qe", 
+                TRACE(qe, 
                       tout << "Variable: " << mk_pp(A, m) << "\n";
                       tout << "fml: " << mk_pp(fml, m) << "\n";
                       tout << "solved form: " << mk_pp(store_t, m) << "\n";

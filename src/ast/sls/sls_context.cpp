@@ -122,7 +122,7 @@ namespace sls {
         if (fid == basic_family_id)
             return false;
         auto p = m_plugins.get(fid, nullptr);
-        CTRACE("sls_verbose", p != nullptr, tout << "external " << mk_bounded_pp(a, m) << "\n");
+        CTRACE(sls_verbose, p != nullptr, tout << "external " << mk_bounded_pp(a, m) << "\n");
         return p != nullptr;     
     }
     
@@ -196,7 +196,7 @@ namespace sls {
                 
         s.on_model(mdl);
         // verbose_stream() << *mdl << "\n";
-        TRACE("sls", display(tout));
+        TRACE(sls, display(tout));
     }
 
     void context::validate_model(model& mdl) {
@@ -210,7 +210,7 @@ namespace sls {
 
             if (bad_model) {             
                 IF_VERBOSE(0, verbose_stream() << lit << " " << a->get_id() << " " << mk_bounded_pp(a, m) << " " << eval_a << "\n");
-                TRACE("sls", s.display(tout << lit << " " << a->get_id() << " " << mk_bounded_pp(a, m) << " " << eval_a << "\n");
+                TRACE(sls, s.display(tout << lit << " " << a->get_id() << " " << mk_bounded_pp(a, m) << " " << eval_a << "\n");
                 for (expr* t : subterms::all(expr_ref(a, m))) 
                     tout << "#" << t->get_id() << ": " << mk_bounded_pp(t, m) << " := " << ev(t) << "\n";
                 );
@@ -240,13 +240,13 @@ namespace sls {
             while (!m_repair_down.empty() && !m_new_constraint && m.inc()) {
                 auto id = m_repair_down.erase_min();
                 expr* e = term(id);
-                TRACE("sls", tout << "repair down " << mk_bounded_pp(e, m) << "\n");
+                TRACE(sls, tout << "repair down " << mk_bounded_pp(e, m) << "\n");
                 if (is_app(e)) {
                     auto p = m_plugins.get(get_fid(e), nullptr);
                     ++m_stats.m_num_repair_down;
                     if (p && !p->repair_down(to_app(e)) && !m_repair_up.contains(e->get_id())) {
                         IF_VERBOSE(3, verbose_stream() << "revert repair: " << mk_bounded_pp(e, m) << "\n");
-                        TRACE("sls", tout << "revert repair: " << mk_bounded_pp(e, m) << "\n");
+                        TRACE(sls, tout << "revert repair: " << mk_bounded_pp(e, m) << "\n");
                         m_repair_up.insert(e->get_id());
                     }
                 }
@@ -255,7 +255,7 @@ namespace sls {
                 auto id = m_repair_up.erase_min();
                 expr* e = term(id);
                 ++m_stats.m_num_repair_up;
-                TRACE("sls", tout << "repair up " << mk_bounded_pp(e, m) << "\n");
+                TRACE(sls, tout << "repair up " << mk_bounded_pp(e, m) << "\n");
                 if (is_app(e)) {
                     auto p = m_plugins.get(get_fid(e), nullptr);
                     if (p)

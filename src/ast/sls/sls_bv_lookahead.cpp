@@ -58,7 +58,7 @@ namespace sls {
         initialize_bool_values();
         rescore();
         m_config.max_moves = m_stats.m_moves + m_config.max_moves_base;
-        TRACE("bv", tout << "search " << m_stats.m_moves << " " << m_config.max_moves << "\n";);
+        TRACE(bv, tout << "search " << m_stats.m_moves << " " << m_config.max_moves << "\n";);
         IF_VERBOSE(1, verbose_stream() << "lookahead-search moves:" << m_stats.m_moves << " max-moves:" << m_config.max_moves << "\n");
 
         while (ctx.rlimit().inc() && m_stats.m_moves < m_config.max_moves) {
@@ -129,7 +129,7 @@ namespace sls {
         unsigned start = ctx.rand();
         for (unsigned i = 0; i < sz; ++i)
             add_updates(vars[(start + i) % sz]);
-        CTRACE("bv", !m_best_expr, tout << "no guided move\n";);
+        CTRACE(bv, !m_best_expr, tout << "no guided move\n";);
         return apply_update(m_last_atom, m_best_expr, m_best_value, move_type::guided_t);
     }
 
@@ -162,7 +162,7 @@ namespace sls {
         if (vars.empty())
             return false;
         expr* e = vars[ctx.rand(vars.size())];
-        TRACE("bv", tout << "random move " << mk_bounded_pp(e, m) << "\n";);
+        TRACE(bv, tout << "random move " << mk_bounded_pp(e, m) << "\n";);
         if (m.is_bool(e)) {
             if (is_root(e))
                 return false;
@@ -198,7 +198,7 @@ namespace sls {
         expr* e = nullptr;
         if (m_config.ucb) {
             double max = -1.0;
-            TRACE("bv", tout << "select\n");
+            TRACE(bv, tout << "select\n");
             for (auto a : get_root_assertions()) {
                 auto const& vars = m_ev.terms.uninterp_occurs(a);
                 //verbose_stream() << mk_bounded_pp(a, m) << " " << assertion_is_true(a) << " num vars " << vars.size() << "\n";
@@ -208,7 +208,7 @@ namespace sls {
                 if (vars.empty())
                     continue;
                 auto score = old_score(a);
-                TRACE("bv", tout << "score " << score << "  " << mk_bounded_pp(a, m) << "\n");
+                TRACE(bv, tout << "score " << score << "  " << mk_bounded_pp(a, m) << "\n");
                 auto q = score
                     + m_config.ucb_constant * sqrt(log((double)m_touched) / get_touched(a))
                     + m_config.ucb_noise * ctx.rand(512);
@@ -226,7 +226,7 @@ namespace sls {
                 if (!assertion_is_true(a) && !m_ev.terms.uninterp_occurs(e).empty() && ctx.rand() % ++n == 0)
                     e = a;
         }
-        CTRACE("bv", !e, ; display_weights(ctx.display(tout << "no candidate\n")););
+        CTRACE(bv, !e, ; display_weights(ctx.display(tout << "no candidate\n")););
 
         m_last_atom = e;
 
@@ -235,7 +235,7 @@ namespace sls {
 
         auto const& vars = m_ev.terms.uninterp_occurs(e);
 
-        TRACE("bv", tout << "candidates " << mk_bounded_pp(e, m) << ": ";
+        TRACE(bv, tout << "candidates " << mk_bounded_pp(e, m) << ": ";
         for (auto e : vars) tout << mk_bounded_pp(e, m) << " ";
         tout << "\n";);
         return vars;
@@ -493,12 +493,12 @@ namespace sls {
         else if (m.is_bool(t)) 
             m_ev.set_bool_value_no_log(t, !m_ev.get_bool_value(t));        
 
-        // TRACE("bv_verbose", tout << "lookahead update " << mk_bounded_pp(t, m) << " := " << new_value << "\n";);
+        // TRACE(bv_verbose, tout << "lookahead update " << mk_bounded_pp(t, m) << " := " << new_value << "\n";);
 
         for (unsigned depth = m_min_depth; depth <= m_max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto const& [a, is_bv] = m_update_stack[depth][i];
-                TRACE("bv_verbose", tout << "update " << mk_bounded_pp(a, m) << " depth: " << depth  << "\n";);
+                TRACE(bv_verbose, tout << "update " << mk_bounded_pp(a, m) << " depth: " << depth  << "\n";);
 
                 if (t != a) {
                     if (is_bv)
@@ -512,7 +512,7 @@ namespace sls {
         }
         m_ev.restore_bool_values(restore_point);
 
-        TRACE("bv_verbose", tout << "lookahead update " << mk_bounded_pp(t, m) << " := " << new_value << " score: " << score << " " << m_best_score << "\n");
+        TRACE(bv_verbose, tout << "lookahead update " << mk_bounded_pp(t, m) << " := " << new_value << " score: " << score << " " << m_best_score << "\n");
 
         return score;
     }
@@ -546,7 +546,7 @@ namespace sls {
         m_in_update_stack.reset();
         for (auto e : m_bv_restore) {
             wval(e).restore_value();
-            TRACE("sls_verbose", tout << "restore value " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");
+            TRACE(sls_verbose, tout << "restore value " << mk_bounded_pp(e, m) << " " << wval(e) << "\n");
         }
         for (auto const& [e, b]: m_bool_restore)
             m_ev.set_bool_value_no_log(e, b);
@@ -679,7 +679,7 @@ namespace sls {
         for (unsigned depth = max_depth; depth <= max_depth; ++depth) {
             for (unsigned i = 0; i < m_update_stack[depth].size(); ++i) {
                 auto [e, is_bv] = m_update_stack[depth][i];
-                TRACE("bv_verbose", tout << "update " << mk_bounded_pp(e, m) << "\n";);
+                TRACE(bv_verbose, tout << "update " << mk_bounded_pp(e, m) << "\n";);
                 if (t == e)
                     ;
                 else if (is_bv) {
@@ -690,7 +690,7 @@ namespace sls {
                     SASSERT(m.is_bool(e));    
                     auto v1 = m_ev.bval1(e);
 
-                    CTRACE("bv_verbose", m_ev.get_bool_value(e) != v1, tout << "updated truth value " << mk_bounded_pp(e, m) << " := " << v1 << "\n";);
+                    CTRACE(bv_verbose, m_ev.get_bool_value(e) != v1, tout << "updated truth value " << mk_bounded_pp(e, m) << " := " << v1 << "\n";);
 
 
                     if (m_config.use_top_level_assertions) {
@@ -715,7 +715,7 @@ namespace sls {
                                 bool rot = ctx.try_rotate(v, m_rotated, budget);
                                 if (rot)
                                     ++m_stats.m_rotations;
-                                CTRACE("bv", rot, tout << "rotated: " << m_rotated << "\n";);
+                                CTRACE(bv, rot, tout << "rotated: " << m_rotated << "\n";);
                             }
                         }
                     }
@@ -740,7 +740,7 @@ namespace sls {
             m_ev.commit_bool_values();
         else
             m_ev.restore_bool_values(restore_point);
-        TRACE("bv", tout << mt << " " << mk_bounded_pp(t, m);
+        TRACE(bv, tout << mt << " " << mk_bounded_pp(t, m);
         if (bv.is_bv(t)) tout << " := " << new_value; else tout << " " << m_ev.get_bool_value(t);
             tout << " score " << m_top_score << "\n";);
         return true;
@@ -755,7 +755,7 @@ namespace sls {
     }
 
     void bv_lookahead::insert_update(expr* e, bool is_bv) {
-        TRACE("sls_verbose", tout << "insert update " << mk_bounded_pp(e, m) << "\n");
+        TRACE(sls_verbose, tout << "insert update " << mk_bounded_pp(e, m) << "\n");
         if (is_bv) {
             SASSERT(bv.is_bv(e));
             auto& v = wval(e);

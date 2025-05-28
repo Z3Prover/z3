@@ -319,14 +319,14 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         break;
     }
     }
-    TRACE("pb_verbose",
+    TRACE(pb_verbose,
           expr_ref tmp(m);
           tmp = m.mk_app(f, num_args, args);
           tout << tmp << "\n";
           tout << result << "\n";
           );
     
-    TRACE("pb_validate",
+    TRACE(pb_validate,
           validate_rewrite(f, num_args, args, result););
           
     return st;

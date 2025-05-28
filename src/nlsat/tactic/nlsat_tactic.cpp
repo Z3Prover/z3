@@ -62,7 +62,7 @@ class nlsat_tactic : public tactic {
         bool contains_unsupported(expr_ref_vector & b2a, expr_ref_vector & x2t) {
             for (unsigned x = 0; x < x2t.size(); x++) {
                 if (!is_uninterp_const(x2t.get(x))) {
-                    TRACE("unsupported", tout << "unsupported atom:\n" << mk_ismt2_pp(x2t.get(x), m) << "\n";);
+                    TRACE(unsupported, tout << "unsupported atom:\n" << mk_ismt2_pp(x2t.get(x), m) << "\n";);
                     return true;
                 }
             }
@@ -74,7 +74,7 @@ class nlsat_tactic : public tactic {
                     continue;
                 if (m_solver.is_interpreted(b))
                     continue; // arithmetic atom
-                TRACE("unsupported", tout << "unsupported atom:\n" << mk_ismt2_pp(a, m) << "\n";);
+                TRACE(unsupported, tout << "unsupported atom:\n" << mk_ismt2_pp(a, m) << "\n";);
                 return true; // unsupported
             }
             return false;
@@ -84,7 +84,7 @@ class nlsat_tactic : public tactic {
             unsigned sz = g.size();
             for (unsigned i = 0; i < sz; i++) {
                 if (model.is_false(g.form(i))) {
-                    TRACE("nlsat", tout << mk_pp(g.form(i), m) << " -> " << model(g.form(i)) << "\n";);
+                    TRACE(nlsat, tout << mk_pp(g.form(i), m) << " -> " << model(g.form(i)) << "\n";);
                     IF_VERBOSE(0, verbose_stream() << mk_pp(g.form(i), m) << " -> " << model(g.form(i)) << "\n";);
                     IF_VERBOSE(1, verbose_stream() << model << "\n");
                     IF_VERBOSE(1, m_solver.display(verbose_stream()));
@@ -144,7 +144,7 @@ class nlsat_tactic : public tactic {
 
             fail_if_proof_generation("nlsat", g);
 
-            TRACE("nlsat", g->display(tout););
+            TRACE(nlsat, g->display(tout););
             expr2var  a2b(m);
             expr2var  t2x(m);
             
@@ -153,7 +153,7 @@ class nlsat_tactic : public tactic {
             m_display_var.m_var2expr.reset();
             t2x.mk_inv(m_display_var.m_var2expr);
             m_solver.set_display_var(m_display_var);
-            TRACE("nlsat", m_solver.display(tout););
+            TRACE(nlsat, m_solver.display(tout););
             IF_VERBOSE(10000, m_solver.display(verbose_stream()));
             IF_VERBOSE(10000, g->display(verbose_stream()));
 

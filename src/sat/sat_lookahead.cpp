@@ -82,7 +82,7 @@ namespace sat {
     }
 
     void lookahead::add_binary(literal l1, literal l2) {
-        TRACE("sat", tout << "binary: " << l1 << " " << l2 << "\n";);
+        TRACE(sat, tout << "binary: " << l1 << " " << l2 << "\n";);
         SASSERT(l1 != l2);
         // don't add tautologies and don't add already added binaries
         if (~l1 == l2) return;
@@ -95,7 +95,7 @@ namespace sat {
     }
 
     void lookahead::del_binary(unsigned idx) {
-        // TRACE("sat", display(tout << "Delete " << to_literal(idx) << "\n"););
+        // TRACE(sat, display(tout << "Delete " << to_literal(idx) << "\n"););
         literal_vector & lits = m_binary[idx];
         SASSERT(!lits.empty());
         literal l = lits.back();
@@ -157,7 +157,7 @@ namespace sat {
             if (!is_fixed(w)) {
                 if (is_stamped(~w)) {
                     // u \/ v, ~v \/ w, u \/ ~w => u is unit
-                    TRACE("sat", tout << "tc1: " << u << "\n";);
+                    TRACE(sat, tout << "tc1: " << u << "\n";);
                     propagated(u);
                     return false;
                 }
@@ -183,14 +183,14 @@ namespace sat {
         }
         set_bstamps(~u);
         if (is_stamped(~v)) {         
-            TRACE("sat", tout << "try_add_binary: " << u << "\n";);       
+            TRACE(sat, tout << "try_add_binary: " << u << "\n";);       
             propagated(u);        // u \/ ~v, u \/ v => u is a unit literal
         }
         else if (!is_stamped(v) && add_tc1(u, v)) {
             // u \/ v is not in index
             set_bstamps(~v);
             if (is_stamped(~u)) {
-                TRACE("sat", tout << "try_add_binary: " << v << "\n";);
+                TRACE(sat, tout << "try_add_binary: " << v << "\n";);
                 propagated(v);    // v \/ ~u, u \/ v => v is a unit literal
             }
             else if (add_tc1(v, u)) {
@@ -258,14 +258,14 @@ namespace sat {
                 }
             }                
         }
-        TRACE("sat", display_candidates(tout););
+        TRACE(sat, display_candidates(tout););
         SASSERT(!m_candidates.empty());
         heap_sort();
         while (m_candidates.size() > max_num_cand) {
             m_candidates.pop_back();
         }
         SASSERT(!m_candidates.empty() && m_candidates.size() <= max_num_cand);
-        TRACE("sat", display_candidates(tout););
+        TRACE(sat, display_candidates(tout););
         return true;
     }
 
@@ -342,7 +342,7 @@ namespace sat {
                 }           
             }
         } 
-        TRACE("sat", display_candidates(tout << "sum: " << sum << "\n"););
+        TRACE(sat, display_candidates(tout << "sum: " << sum << "\n"););
         if (skip_candidates > 0) {
             IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :candidates " << m_candidates.size() << " :skipped " << skip_candidates << ")\n";);
         }
@@ -395,7 +395,7 @@ namespace sat {
             literal_vector const& lits1 = m_binary[l.index()];
             for (literal lit1 : lits1) {
                 if (!is_true(lit1)) {
-                    TRACE("sat", tout << l << " " << lit1 << "\n";);
+                    TRACE(sat, tout << l << " " << lit1 << "\n";);
                     return false;
                 }
             }
@@ -403,7 +403,7 @@ namespace sat {
             literal_vector const& lits2 = m_binary[l.index()];
             for (literal lit2 : lits2) {
                 if (!is_true(lit2)) {
-                    TRACE("sat", tout << l << " " << lit2 << "\n";);
+                    TRACE(sat, tout << l << " " << lit2 << "\n";);
                     return false;
                 }
             }
@@ -651,7 +651,7 @@ namespace sat {
             if (get_rank(lit) == 0) get_scc(lit);
             if (get_rank(~lit) == 0) get_scc(~lit);
         }
-        TRACE("sat", display_scc(tout););
+        TRACE(sat, display_scc(tout););
     }
     void lookahead::init_scc() {
         inc_bstamp();
@@ -669,7 +669,7 @@ namespace sat {
         m_rank_max = UINT_MAX;
         m_active = null_literal;
         m_settled = null_literal;
-        TRACE("sat", display_dfs(tout););
+        TRACE(sat, display_dfs(tout););
     }
     void lookahead::init_dfs_info(literal l) {
         unsigned idx = l.index();
@@ -712,7 +712,7 @@ namespace sat {
     }
 
     void lookahead::get_scc(literal v) {
-        TRACE("scc", tout << v << "\n";);
+        TRACE(scc, tout << v << "\n";);
         set_parent(v, null_literal);
         activate_scc(v);
         do {
@@ -764,7 +764,7 @@ namespace sat {
         set_link(v, m_settled); m_settled = t; 
         while (t != v) {
             if (t == ~v) {
-                TRACE("sat", display_scc(tout << "found contradiction during scc search\n"););
+                TRACE(sat, display_scc(tout << "found contradiction during scc search\n"););
                 set_conflict();
                 break;
             }
@@ -850,13 +850,13 @@ namespace sat {
         literal pp = null_literal;
         unsigned h = 0;
         literal w, uu;
-        TRACE("sat", 
+        TRACE(sat, 
               for (literal u = m_settled; u != null_literal; u = get_link(u)) {
                   tout << u << " ";
               }
               tout << "\n";);
         for (literal u = m_settled; u != null_literal; u = uu) {
-            TRACE("sat", tout << "process: " << u << "\n";);
+            TRACE(sat, tout << "process: " << u << "\n";);
             uu = get_link(u);
             literal p = get_parent(u);
             if (p != pp) { 
@@ -869,7 +869,7 @@ namespace sat {
             unsigned sz = num_next(~u);
             for (unsigned j = 0; j < sz; ++j) {
                 literal v = ~get_next(~u, j);
-                TRACE("sat", tout << "child " << v << " link: " << get_link(v) << "\n";);
+                TRACE(sat, tout << "child " << v << " link: " << get_link(v) << "\n";);
                 literal pv = get_parent(v);
                 // skip nodes in same equivalence, they will all be processed
                 if (pv == p) continue; 
@@ -888,10 +888,10 @@ namespace sat {
                 set_child(u, null_literal);
                 set_link(u, v);
                 set_child(w, u);
-                TRACE("sat", tout << "child(" << w << ") = " << u << " link(" << u << ") = " << v << "\n";);
+                TRACE(sat, tout << "child(" << w << ") = " << u << " link(" << u << ") = " << v << "\n";);
             }
         }
-        TRACE("sat", 
+        TRACE(sat, 
                   display_forest(tout << "forest: ", get_child(null_literal));
               tout << "\n";
               display_scc(tout); );
@@ -958,7 +958,7 @@ namespace sat {
             }
         }
         SASSERT(2*m_lookahead.size() == offset);
-        TRACE("sat", for (unsigned i = 0; i < m_lookahead.size(); ++i) 
+        TRACE(sat, for (unsigned i = 0; i < m_lookahead.size(); ++i) 
                          tout << m_lookahead[i].m_lit << " : " << m_lookahead[i].m_offset << "\n";);
     }
 
@@ -1040,7 +1040,7 @@ namespace sat {
         propagate();
         m_qhead = m_trail.size();
         m_init_freevars = m_freevars.size();
-        TRACE("sat", m_s.display(tout); display(tout););
+        TRACE(sat, m_s.display(tout); display(tout););
     }
 
     void lookahead::copy_clauses(clause_vector const& clauses, bool learned) {
@@ -1095,7 +1095,7 @@ namespace sat {
             --i;
             literal l = m_trail[i];
             set_undef(l);
-            TRACE("sat", tout << "inserting free var v" << l.var() << "\n";);
+            TRACE(sat, tout << "inserting free var v" << l.var() << "\n";);
             m_freevars.insert_fresh(l.var());
         }
             
@@ -1163,7 +1163,7 @@ namespace sat {
                 literal l2 = m_wstack[i];
                 //update_prefix(~lit);
                 //update_prefix(m_wstack[i]);
-                TRACE("sat", tout << "windfall: " << nlit << " " << l2 << "\n";); 
+                TRACE(sat, tout << "windfall: " << nlit << " " << l2 << "\n";); 
                 // if we use try_add_binary, then this may produce new assignments
                 // these assignments get put on m_trail, and they are cleared by
                 // lookahead_backtrack. 
@@ -1234,7 +1234,7 @@ namespace sat {
         if (is_fixed(l1)) {
             if (is_false(l1)) {
                 if (is_false(l2)) {
-                    TRACE("sat", tout << l1 << " " << l2 << " " << "\n";);
+                    TRACE(sat, tout << l1 << " " << l2 << " " << "\n";);
                     set_conflict();
                     return l_false;
                 }
@@ -1270,7 +1270,7 @@ namespace sat {
             for (binary const& b : m_ternary[(~l).index()]) {
                 if (sz-- == 0) break;
                 // this could create a conflict from propagation, but we complete the transaction.
-                TRACE("sat", display(tout););
+                TRACE(sat, display(tout););
                 literal l1 = b.m_u;
                 literal l2 = b.m_v;
                 switch (propagate_ternary(l1, l2)) {
@@ -1705,7 +1705,7 @@ namespace sat {
             }
         }
 
-        TRACE("sat",
+        TRACE(sat,
               for (literal lit : clauses) {
                   if (lit == null_literal) {
                       tout << "\n";
@@ -1721,7 +1721,7 @@ namespace sat {
 
     void lookahead::propagate_binary(literal l) {
         literal_vector const& lits = m_binary[l.index()];
-        TRACE("sat", tout << l << " => " << lits << "\n";);
+        TRACE(sat, tout << l << " => " << lits << "\n";);
         for (literal lit : lits) {
             if (inconsistent()) break;
             assign(lit);
@@ -1732,7 +1732,7 @@ namespace sat {
         unsigned i = m_qhead;
         for (; i < m_trail.size() && !inconsistent(); ++i) {
             literal l = m_trail[i];
-            TRACE("sat", tout << "propagate " << l << " @ " << m_level << "\n";);
+            TRACE(sat, tout << "propagate " << l << " @ " << m_level << "\n";);
             propagate_binary(l);
         }
         while (m_qhead < m_trail.size() && !inconsistent()) {
@@ -1741,12 +1741,12 @@ namespace sat {
         SASSERT(m_qhead == m_trail.size() || (inconsistent() && m_qhead < m_trail.size()));
         //SASSERT(!missed_conflict());
         //VERIFY(!missed_propagation());
-        TRACE("sat_verbose", display(tout << scope_lvl() << " " << (inconsistent()?"unsat":"sat") << "\n"););
+        TRACE(sat_verbose, display(tout << scope_lvl() << " " << (inconsistent()?"unsat":"sat") << "\n"););
     }
 
 
     void lookahead::compute_lookahead_reward() {
-        TRACE("sat", display_lookahead(tout); );
+        TRACE(sat, display_lookahead(tout); );
         m_delta_decrease = pow(m_config.m_delta_rho, 1.0 / (double)m_lookahead.size());
         unsigned base = 2;
         bool change = true;
@@ -1775,7 +1775,7 @@ namespace sat {
                     unsat = true;
                 }
                 else {
-                    TRACE("sat", tout << "lookahead: " << lit << " @ " << m_lookahead[i].m_offset << "\n";);
+                    TRACE(sat, tout << "lookahead: " << lit << " @ " << m_lookahead[i].m_offset << "\n";);
                     reset_lookahead_reward(lit);
                     unsigned num_units = push_lookahead1(lit, level);
                     update_lookahead_reward(lit, level);
@@ -1788,7 +1788,7 @@ namespace sat {
                     pop_lookahead1(lit, num_units);
                 }
                 if (unsat) {
-                    TRACE("sat", tout << "backtracking and setting " << ~lit << "\n";);
+                    TRACE(sat, tout << "backtracking and setting " << ~lit << "\n";);
                     lookahead_backtrack();
                     assign(~lit);
                     propagate();
@@ -1821,7 +1821,7 @@ namespace sat {
             base += 2 * m_lookahead.size();
         }
         lookahead_backtrack();
-        TRACE("sat", display_lookahead(tout); );
+        TRACE(sat, display_lookahead(tout); );
     }
 
     literal lookahead::select_literal() {
@@ -1838,13 +1838,13 @@ namespace sat {
 
             if (mixd == h) ++count;
             if (mixd > h || (mixd == h && m_s.m_rand(count) == 0)) {
-                CTRACE("sat", l != null_literal, tout << lit << " mix diff: " << mixd << "\n";);
+                CTRACE(sat, l != null_literal, tout << lit << " mix diff: " << mixd << "\n";);
                 if (mixd > h) count = 1;
                 h = mixd;
                 l = diff1 < diff2 ? lit : ~lit;
             }
         }
-        TRACE("sat", tout << "selected: " << l << "\n";);
+        TRACE(sat, tout << "selected: " << l << "\n";);
         return l;
     }
 
@@ -1937,7 +1937,7 @@ namespace sat {
                     unsat = push_lookahead2(lit, level);
                 }
                 if (unsat) {
-                    TRACE("sat", tout << "unit: " << ~lit << "\n";);
+                    TRACE(sat, tout << "unit: " << ~lit << "\n";);
                     ++m_stats.m_double_lookahead_propagations;
                     SASSERT(m_level == dl_truth);
                     lookahead_backtrack();
@@ -2007,13 +2007,13 @@ namespace sat {
     void lookahead::assign(literal l) {
         SASSERT(m_level > 0);
         if (is_undef(l)) {
-            TRACE("sat", tout << "assign: " << l << " @ " << m_level << " " << m_trail_lim.size() << " " << m_search_mode << "\n";);
+            TRACE(sat, tout << "assign: " << l << " @ " << m_level << " " << m_trail_lim.size() << " " << m_search_mode << "\n";);
             set_true(l);
             SASSERT(m_trail.empty() || get_level(m_trail.back()) >= get_level(l));
             m_trail.push_back(l);
             if (m_search_mode == lookahead_mode::searching) {
                 m_stats.m_propagations++;
-                TRACE("sat", tout << "removing free var v" << l.var() << "\n";);
+                TRACE(sat, tout << "removing free var v" << l.var() << "\n";);
                 if (l.var() > m_freevars.max_var()) IF_VERBOSE(0, verbose_stream() << "bigger than max-var: " << l << " " << " " << m_freevars.max_var() << "\n";);
                 if (!m_freevars.contains(l.var())) IF_VERBOSE(0, verbose_stream() << "does not contain: " << l << " eliminated: " << m_s.was_eliminated(l.var()) << "\n";);
                 if (m_freevars.contains(l.var())) { m_freevars.remove(l.var()); }
@@ -2021,7 +2021,7 @@ namespace sat {
             }
         }
         else if (is_false(l)) {
-            TRACE("sat", tout << "conflict: " << l << " @ " << m_level << " " << m_search_mode << "\n";);
+            TRACE(sat, tout << "conflict: " << l << " @ " << m_level << " " << m_search_mode << "\n";);
             SASSERT(!is_true(l));
             validate_assign(l);                
             set_conflict(); 
@@ -2032,7 +2032,7 @@ namespace sat {
         assign(l);
         for (unsigned i = m_trail.size()-1; i < m_trail.size() && !inconsistent(); ++i) {
             literal l = m_trail[i];
-            TRACE("sat", tout << "propagate " << l << " @ " << m_level << "\n";);
+            TRACE(sat, tout << "propagate " << l << " @ " << m_level << "\n";);
             propagate_binary(l);
         }
         if (m_search_mode == lookahead_mode::lookahead1) {
@@ -2058,7 +2058,7 @@ namespace sat {
         literal_vector trail;
         m_search_mode = lookahead_mode::searching;
         while (true) {
-            TRACE("sat", display(tout););
+            TRACE(sat, display(tout););
             inc_istamp();
             checkpoint();
             literal l = choose();
@@ -2069,7 +2069,7 @@ namespace sat {
             if (l == null_literal) {
                 return l_true;
             }
-            TRACE("sat", tout << "choose: " << l << " " << trail << "\n";);
+            TRACE(sat, tout << "choose: " << l << " " << trail << "\n";);
             ++m_stats.m_decisions;
             IF_VERBOSE(1, display_search_string(););
             push(l, c_fixed_truth);
@@ -2165,11 +2165,11 @@ namespace sat {
         }
 
         while (true) {
-            TRACE("sat", display(tout););
+            TRACE(sat, display(tout););
             checkpoint();
             inc_istamp();
             if (inconsistent()) {
-                TRACE("sat", tout << "inconsistent: " << m_cube_state.m_cube << "\n";);
+                TRACE(sat, tout << "inconsistent: " << m_cube_state.m_cube << "\n";);
                 m_cube_state.m_freevars_threshold = m_freevars.size();     
                 m_cube_state.m_psat_threshold = m_config.m_cube_cutoff == adaptive_psat_cutoff ? psat_heur() : dbl_max;  // MN. only compute PSAT if enabled
                 m_cube_state.inc_conflict();
@@ -2204,7 +2204,7 @@ namespace sat {
             double prev_psat = m_config.m_cube_cutoff == adaptive_psat_cutoff ? psat_heur() : dbl_max;  // MN. only compute PSAT if enabled
             literal lit = choose();
             if (inconsistent()) {
-                TRACE("sat", tout << "inconsistent: " << m_cube_state.m_cube << "\n";);
+                TRACE(sat, tout << "inconsistent: " << m_cube_state.m_cube << "\n";);
                 m_cube_state.m_freevars_threshold = prev_nfreevars;
                 m_cube_state.m_psat_threshold = prev_psat;
                 m_cube_state.inc_conflict();
@@ -2220,7 +2220,7 @@ namespace sat {
                 init_model();
                 return m_freevars.empty() ? l_true : l_undef;
             }
-            TRACE("sat", tout << "choose: " << lit << " cube: " << m_cube_state.m_cube << "\n";);
+            TRACE(sat, tout << "choose: " << lit << " cube: " << m_cube_state.m_cube << "\n";);
             SASSERT(vars.empty() || vars.contains(lit.var()));
             ++m_stats.m_decisions;
             push(lit, c_fixed_truth);

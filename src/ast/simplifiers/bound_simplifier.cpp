@@ -72,13 +72,13 @@ br_status bound_simplifier::reduce_app(func_decl* f, unsigned num_args, expr* co
             return BR_FAILED;
         if (N > hi && lo >= 0) {
             result = x;
-            TRACE("propagate-ineqs", tout << expr_ref(m.mk_app(f, num_args, args), m) << " -> " << result << "\n");
+            TRACE(propagate_ineqs, tout << expr_ref(m.mk_app(f, num_args, args), m) << " -> " << result << "\n");
             return BR_DONE;
         }
         if (2 * N > hi && lo >= N) {
             result = a.mk_sub(x, a.mk_int(N));
             m_rewriter(result);
-            TRACE("propagate-ineqs", tout << expr_ref(m.mk_app(f, num_args, args), m) << " -> " << result << "\n");
+            TRACE(propagate_ineqs, tout << expr_ref(m.mk_app(f, num_args, args), m) << " -> " << result << "\n");
             return BR_DONE;
         }
         IF_VERBOSE(2, verbose_stream() << "potentially missed simplification: " << mk_pp(x, m) << " " << lo << " " << hi << " not reduced\n");
@@ -289,7 +289,7 @@ void bound_simplifier::tighten_bound(dependent_expr const& de) {
 void bound_simplifier::assert_upper(expr* x, rational const& n, bool strict) {
     scoped_mpq c(nm);
     nm.set(c, n.to_mpq());
-    TRACE("propagate-ineqs", tout << to_var(x) << ": " << mk_pp(x, m) << (strict ? " < " : " <= ") << n << "\n");
+    TRACE(propagate_ineqs, tout << to_var(x) << ": " << mk_pp(x, m) << (strict ? " < " : " <= ") << n << "\n");
     bp.assert_upper(to_var(x), c, strict);
 }
 
@@ -297,7 +297,7 @@ void bound_simplifier::assert_upper(expr* x, rational const& n, bool strict) {
 void bound_simplifier::assert_lower(expr* x, rational const& n, bool strict) {
     scoped_mpq c(nm);
     nm.set(c, n.to_mpq());
-    TRACE("propagate-ineqs", tout <<  to_var(x) << ": " << mk_pp(x, m) << (strict ? " > " : " >= ") << n << "\n");
+    TRACE(propagate_ineqs, tout <<  to_var(x) << ": " << mk_pp(x, m) << (strict ? " > " : " >= ") << n << "\n");
     bp.assert_lower(to_var(x), c, strict);
 }
 
@@ -308,7 +308,7 @@ bool bound_simplifier::has_lower(expr* x, rational& n, bool& strict) {
         return false;
     strict = m_interval.lower_is_open(i);
     n = m_interval.lower(i);
-    TRACE("propagate-ineqs", tout <<  to_var(x) << ": " << mk_pp(x, m) << (strict ? " > " : " >= ") << n << "\n");
+    TRACE(propagate_ineqs, tout <<  to_var(x) << ": " << mk_pp(x, m) << (strict ? " > " : " >= ") << n << "\n");
     return true;
 }
 
@@ -319,7 +319,7 @@ bool bound_simplifier::has_upper(expr* x, rational& n, bool& strict) {
         return false;
     strict = m_interval.upper_is_open(i);
     n = m_interval.upper(i);
-    TRACE("propagate-ineqs", tout << to_var(x) << ": " << mk_pp(x, m) << (strict ? " < " : " <= ") << n << "\n");
+    TRACE(propagate_ineqs, tout << to_var(x) << ": " << mk_pp(x, m) << (strict ? " < " : " <= ") << n << "\n");
     return true;  
 }
 
@@ -520,7 +520,7 @@ void bound_simplifier::reset() {
 
 #if 0
 void find_ite_bounds(expr* root) {
-    TRACE("find_ite_bounds_bug", display_bounds(tout););
+    TRACE(find_ite_bounds_bug, display_bounds(tout););
     expr* n = root;
     expr* target = nullptr;
     expr* c, * t, * e;
@@ -531,7 +531,7 @@ void find_ite_bounds(expr* root) {
     mpq curr;
     bool curr_strict;
     while (true) {
-        TRACE("find_ite_bounds_bug", tout << mk_ismt2_pp(n, m) << "\n";);
+        TRACE(find_ite_bounds_bug, tout << mk_ismt2_pp(n, m) << "\n";);
 
         if (m.is_ite(n, c, t, e)) {
             if (is_x_minus_y_eq_0(t, x, y))
@@ -548,7 +548,7 @@ void find_ite_bounds(expr* root) {
             break;
         }
 
-        TRACE("find_ite_bounds_bug", tout << "x: " << mk_ismt2_pp(x, m) << ", y: " << mk_ismt2_pp(y, m) << "\n";
+        TRACE(find_ite_bounds_bug, tout << "x: " << mk_ismt2_pp(x, m) << ", y: " << mk_ismt2_pp(y, m) << "\n";
         if (target) {
             tout << "target: " << mk_ismt2_pp(target, m) << "\n";
             tout << "has_l: " << has_l << " " << nm.to_string(l_min) << " has_u: " << has_u << " " << nm.to_string(u_max) << "\n";
@@ -558,7 +558,7 @@ void find_ite_bounds(expr* root) {
             std::swap(x, y);
 
         if (!is_unbounded(x)) {
-            TRACE("find_ite_bounds_bug", tout << "x is already bounded\n";);
+            TRACE(find_ite_bounds_bug, tout << "x is already bounded\n";);
             break;
         }
 
@@ -571,7 +571,7 @@ void find_ite_bounds(expr* root) {
             }
             else {
                 has_l = false;
-                TRACE("find_ite_bounds_bug", tout << "y does not have lower\n";);
+                TRACE(find_ite_bounds_bug, tout << "y does not have lower\n";);
             }
             if (upper(y, curr, curr_strict)) {
                 has_u = true;
@@ -580,7 +580,7 @@ void find_ite_bounds(expr* root) {
             }
             else {
                 has_u = false;
-                TRACE("find_ite_bounds_bug", tout << "y does not have upper\n";);
+                TRACE(find_ite_bounds_bug, tout << "y does not have upper\n";);
             }
         }
         else if (target == x) {
@@ -593,7 +593,7 @@ void find_ite_bounds(expr* root) {
                 }
                 else {
                     has_l = false;
-                    TRACE("find_ite_bounds_bug", tout << "y does not have lower\n";);
+                    TRACE(find_ite_bounds_bug, tout << "y does not have lower\n";);
                 }
             }
             if (has_u) {
@@ -605,7 +605,7 @@ void find_ite_bounds(expr* root) {
                 }
                 else {
                     has_u = false;
-                    TRACE("find_ite_bounds_bug", tout << "y does not have upper\n";);
+                    TRACE(find_ite_bounds_bug, tout << "y does not have upper\n";);
                 }
             }
         }
@@ -617,7 +617,7 @@ void find_ite_bounds(expr* root) {
             break;
 
         if (n == nullptr) {
-            TRACE("find_ite_bounds", tout << "found bounds for: " << mk_ismt2_pp(target, m) << "\n";
+            TRACE(find_ite_bounds, tout << "found bounds for: " << mk_ismt2_pp(target, m) << "\n";
             tout << "has_l: " << has_l << " " << nm.to_string(l_min) << " l_strict: " << l_strict << "\n";
             tout << "has_u: " << has_u << " " << nm.to_string(u_max) << " u_strict: " << u_strict << "\n";
             tout << "root:\n" << mk_ismt2_pp(root, m) << "\n";);
@@ -642,7 +642,7 @@ void find_ite_bounds() {
             find_ite_bounds(to_app(f));
     }
     bp.propagate();
-    TRACE("find_ite_bounds", display_bounds(tout););
+    TRACE(find_ite_bounds, display_bounds(tout););
 }
 
 #endif

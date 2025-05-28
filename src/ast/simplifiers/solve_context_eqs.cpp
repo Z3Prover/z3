@@ -236,7 +236,7 @@ namespace euf {
                 eqs[j++] = eq;
         }
         eqs.shrink(j);
-        TRACE("solve_eqs",
+        TRACE(solve_eqs,
               for (auto const& eq : eqs)
                   tout << eq << "\n");
     }

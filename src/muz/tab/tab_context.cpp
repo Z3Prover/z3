@@ -1526,7 +1526,7 @@ namespace datalog {
             lbool is_sat = m_solver.check();
             m_solver.pop(1);
 
-            TRACE("dl", tout << is_sat << ":\n" << mk_pp(fml, m) << "\n";);
+            TRACE(dl, tout << is_sat << ":\n" << mk_pp(fml, m) << "\n";);
 
             return l_false == is_sat;
 

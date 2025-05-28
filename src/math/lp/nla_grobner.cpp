@@ -102,7 +102,7 @@ namespace nla {
         for (auto eq : m_solver.equations()) {
             if (is_conflicting(*eq)) {
                 lp_settings().stats().m_grobner_conflicts++;
-                TRACE("grobner", m_solver.display(tout));
+                TRACE(grobner, m_solver.display(tout));
                 IF_VERBOSE(3, verbose_stream() << "grobner conflict\n");
                 return true;
             }
@@ -229,7 +229,7 @@ namespace nla {
         m_solver.reset();
         try {
             set_level2var();
-            TRACE("grobner",
+            TRACE(grobner,
                   tout << "base vars: ";
                   for (lpvar j : c().active_var_set())
                       if (lra.is_base(j))
@@ -247,7 +247,7 @@ namespace nla {
             IF_VERBOSE(2, verbose_stream() << "pdd throw\n");
             return false;
         }
-        TRACE("grobner", m_solver.display(tout));
+        TRACE(grobner, m_solver.display(tout));
 
 #if 0
         IF_VERBOSE(2, m_pdd_grobner.display(verbose_stream()));
@@ -323,7 +323,7 @@ namespace nla {
         scoped_dep_interval i(di), i_wd(di);
         evali.get_interval<dd::w_dep::without_deps>(e.poly(), i);    
         if (!di.separated_from_zero(i)) {
-            TRACE("grobner", m_solver.display(tout << "not separated from 0 ", e) << "\n";
+            TRACE(grobner, m_solver.display(tout << "not separated from 0 ", e) << "\n";
                   evali.get_interval_distributed<dd::w_dep::without_deps>(e.poly(), i);
                   tout << "separated from 0: " << di.separated_from_zero(i) << "\n";
                   for (auto j : e.poly().free_vars()) {
@@ -348,7 +348,7 @@ namespace nla {
             lemma &= e;
         };
         if (di.check_interval_for_conflict_on_zero(i_wd, e.dep(), f)) {
-            TRACE("grobner", m_solver.display(tout << "conflict ", e) << "\n");
+            TRACE(grobner, m_solver.display(tout << "conflict ", e) << "\n");
             return true;
         }
         else {
@@ -356,7 +356,7 @@ namespace nla {
             if (add_nla_conflict(e)) 
                 return true;
 #endif
-            TRACE("grobner", m_solver.display(tout << "no conflict ", e) << "\n");
+            TRACE(grobner, m_solver.display(tout << "no conflict ", e) << "\n");
             return false;
         }
     }
@@ -439,7 +439,7 @@ namespace nla {
             // a free column over the reals can be assigned
             if (lra.column_is_free(k) && k != j && !lra.var_is_int(k)) 
                 continue;
-            CTRACE("grobner", matrix.m_rows[row].size() > c().params().arith_nl_grobner_row_length_limit(),
+            CTRACE(grobner, matrix.m_rows[row].size() > c().params().arith_nl_grobner_row_length_limit(),
                    tout << "ignore the row " << row << " with the size " << matrix.m_rows[row].size() << "\n";);
             // limits overhead of grobner equations, unless this is for extracting a complete COI of the non-satisfied subset.
             if (!m_add_all_eqs && matrix.m_rows[row].size() > c().params().arith_nl_horner_row_length_limit())
@@ -564,14 +564,14 @@ namespace nla {
         dd::pdd sum = m_pdd_manager.mk_val(rational(0));
         for (const auto &p : row) 
             sum += pdd_expr(p.coeff(), p.var(), dep);
-        TRACE("grobner", c().print_row(row, tout) << " " << sum << "\n");
+        TRACE(grobner, c().print_row(row, tout) << " " << sum << "\n");
         add_eq(sum, dep);
     }
 
     void grobner::find_nl_cluster() {        
         prepare_rows_and_active_vars();
         svector<lpvar> q;
-        TRACE("grobner", for (lpvar j : c().m_to_refine) print_monic(c().emons()[j], tout) << "\n";);
+        TRACE(grobner, for (lpvar j : c().m_to_refine) print_monic(c().emons()[j], tout) << "\n";);
           
         for (lpvar j : c().m_to_refine)
             q.push_back(j);
@@ -581,7 +581,7 @@ namespace nla {
             q.pop_back();
             add_var_and_its_factors_to_q_and_collect_new_rows(j, q);
         }
-        TRACE("grobner", tout << "vars in cluster: ";
+        TRACE(grobner, tout << "vars in cluster: ";
               for (lpvar j : c().active_var_set()) tout << "j" << j << " "; tout << "\n";
               display_matrix_of_m_rows(tout);
               );
@@ -630,7 +630,7 @@ namespace nla {
 
         m_pdd_manager.reset(l2v);
 
-        TRACE("grobner",
+        TRACE(grobner,
             for (auto v : sorted_vars)
                 tout << "j" << v << " w:" << weighted_vars[v] << " ";
         tout << "\n");
@@ -698,13 +698,13 @@ namespace nla {
 
     void grobner::check_missing_propagation(const dd::solver::equation& e) { 
         bool is_confl = is_nla_conflict(e);
-        CTRACE("grobner", is_confl, m_solver.display(tout << "missed conflict ", e););
+        CTRACE(grobner, is_confl, m_solver.display(tout << "missed conflict ", e););
         if (is_confl) {
             IF_VERBOSE(2, verbose_stream() << "missed conflict\n");
             return;
         }
         //lbool r = c().m_nra.check_tight(e.poly());
-        //CTRACE("grobner", r == l_false, m_solver.display(tout << "tight equality ", e););
+        //CTRACE(grobner, r == l_false, m_solver.display(tout << "tight equality ", e););
     }
 
 

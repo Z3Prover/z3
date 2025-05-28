@@ -38,7 +38,7 @@ private:
         ++mem;
         value * r = reinterpret_cast<value*>(mem);
         SASSERT(capacity(r) == c);
-        TRACE("parray_mem", tout << "allocated values[" << c << "]: " << r << "\n";);
+        TRACE(parray_mem, tout << "allocated values[" << c << "]: " << r << "\n";);
         return r;
     }
 
@@ -46,7 +46,7 @@ private:
         if (vs == nullptr)
             return;
         size_t c     = capacity(vs);
-        TRACE("parray_mem", tout << "deallocated values[" << c << "]: " << vs << "\n";);
+        TRACE(parray_mem, tout << "deallocated values[" << c << "]: " << vs << "\n";);
         size_t * mem = reinterpret_cast<size_t*>(vs);
         --mem;
         m_allocator.deallocate(sizeof(value)*c + sizeof(size_t), mem);
@@ -98,7 +98,7 @@ private:
 
     cell * mk(ckind k) {
         cell * r = new (m_allocator.allocate(sizeof(cell))) cell(k);
-        TRACE("parray_mem", tout << "allocated cell: " << r << "\n";);
+        TRACE(parray_mem, tout << "allocated cell: " << r << "\n";);
         return r;
     }
 
@@ -119,7 +119,7 @@ private:
                 deallocate_values(c->m_values);
                 break;
             }
-            TRACE("parray_mem", tout << "deallocated cell: " << c << "\n";);
+            TRACE(parray_mem, tout << "deallocated cell: " << c << "\n";);
             c->~cell();
             m_allocator.deallocate(sizeof(cell), c);
             if (next == nullptr)
@@ -139,7 +139,7 @@ private:
 
     void dec_ref(cell * c) {
         if (!c) return;
-        TRACE("parray_mem", tout << "dec_ref(" << c << "), ref_count: " << c->m_ref_count << "\n";);
+        TRACE(parray_mem, tout << "dec_ref(" << c << "), ref_count: " << c->m_ref_count << "\n";);
         SASSERT(c->m_ref_count > 0);
         c->m_ref_count--;
         if (c->m_ref_count == 0)

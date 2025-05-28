@@ -73,7 +73,7 @@ class model_implicant {
     inline void set_bool(expr* x, bool v) { if (v) { set_true(x); } else { set_false(x); } }
     inline rational const& get_number(expr* x) const { return m_numbers.find(x); }
     inline void set_number(expr* x, rational const& v) { 
-        set_v(x); TRACE("pdr_verbose", tout << mk_pp(x,m) << " " << v << "\n";); m_numbers.insert(x,v); 
+        set_v(x); TRACE(pdr_verbose, tout << mk_pp(x,m) << " " << v << "\n";); m_numbers.insert(x,v); 
     }
     inline expr* get_value(expr* x) { return m_values.find(x); }
     inline void set_value(expr* x, expr* v) { set_v(x); m_refs.push_back(v); m_values.insert(x, v); }

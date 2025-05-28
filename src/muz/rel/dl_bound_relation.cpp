@@ -149,7 +149,7 @@ namespace datalog {
             m_is_widen(is_widen) {            
         }
         void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
-            TRACE("bound_relation", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
+            TRACE(bound_relation, _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             get(_r).mk_union(get(_src), get(_delta), m_is_widen);
         }
     };
@@ -161,9 +161,9 @@ namespace datalog {
             m_is_widen(is_widen) {            
         }
         void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
-            TRACE("bound_relation", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););   
+            TRACE(bound_relation, _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););   
             get(_r).mk_union_i(get_interval_relation(_src), get(_delta), m_is_widen);
-            TRACE("bound_relation", _r.display(tout << "dst':\n"););
+            TRACE(bound_relation, _r.display(tout << "dst':\n"););
         }
     };
     
@@ -343,7 +343,7 @@ namespace datalog {
         //  
 
         void operator()(relation_base& t) override {
-            TRACE("dl", tout << mk_pp(m_cond, m_cond.get_manager()) << "\n"; t.display(tout););
+            TRACE(dl, tout << mk_pp(m_cond, m_cond.get_manager()) << "\n"; t.display(tout););
             bound_relation& r = get(t);
             switch(m_kind) {
             case K_FALSE:
@@ -367,7 +367,7 @@ namespace datalog {
                 UNREACHABLE();
                 break;
             }    
-            TRACE("dl", t.display(tout << "result\n"););   
+            TRACE(dl, t.display(tout << "result\n"););   
         }
 
         bool supports_attachment(relation_base& t) override {
@@ -401,7 +401,7 @@ namespace datalog {
         for (; it != end; ++it) {
             lev.push_back(renaming[*it]);
         }
-        TRACE("dl", 
+        TRACE(dl, 
               tout << "project: ";
               for (unsigned i = 0; i < renaming.size(); ++i) 
                   if (renaming[i] == UINT_MAX) tout << i << " ";

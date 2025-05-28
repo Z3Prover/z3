@@ -41,11 +41,11 @@ void tst_substitution()
 
     expr_ref res(m);
 
-    TRACE("substitution", subst.display(tout););
-    TRACE("substitution", tout << ok1 << " " << ok2 << "\n";);
+    TRACE(substitution, subst.display(tout););
+    TRACE(substitution, tout << ok1 << " " << ok2 << "\n";);
     subst.display(std::cout);
     subst.apply(v1.get(), res);
-    TRACE("substitution", tout << mk_pp(res, m) << "\n";);
+    TRACE(substitution, tout << mk_pp(res, m) << "\n";);
 
     expr_ref q(m), body(m);
     sort_ref_vector sorts(m);
@@ -55,6 +55,6 @@ void tst_substitution()
     body = m.mk_and(m.mk_eq(v1,v2), m.mk_eq(v3,v4));
     q = m.mk_forall(sorts.size(), sorts.data(), names.data(), body);
     subst.apply(q, res);
-    TRACE("substitution", tout << mk_pp(q, m) << "\n->\n" << mk_pp(res, m) << "\n";);
+    TRACE(substitution, tout << mk_pp(q, m) << "\n->\n" << mk_pp(res, m) << "\n";);
 
 }

@@ -90,9 +90,9 @@ bool theory_diff_logic<Ext>::internalize_term(app * term) {
     if (!m_consistent)
         return false;
     bool result = null_theory_var != mk_term(term);
-    CTRACE("arith", !result, tout << "Did not internalize " << mk_pp(term, m) << "\n";);
+    CTRACE(arith, !result, tout << "Did not internalize " << mk_pp(term, m) << "\n";);
     if (!result) {
-        TRACE("non_diff_logic", tout << "Terms may not be internalized\n";);
+        TRACE(non_diff_logic, tout << "Terms may not be internalized\n";);
         found_non_diff_logic_expr(term);
     }
     return result;
@@ -169,7 +169,7 @@ public:
 template<typename Ext>
 void theory_diff_logic<Ext>::found_non_diff_logic_expr(expr * n) {
     if (!m_non_diff_logic_exprs) {
-        TRACE("non_diff_logic", tout << "found non diff logic expression:\n" << mk_pp(n, m) << "\n";);
+        TRACE(non_diff_logic, tout << "found non diff logic expression:\n" << mk_pp(n, m) << "\n";);
         IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, m) << ")\n";); 
         ctx.push_trail(value_trail<bool>(m_non_diff_logic_exprs));
         m_non_diff_logic_exprs = true;
@@ -277,7 +277,7 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
     m_atoms.push_back(a);
     m_bool_var2atom.insert(bv, a);
 
-    TRACE("arith", 
+    TRACE(arith, 
           tout << mk_pp(n, m) << "\n";
           m_graph.display_edge(tout << "pos: ", pos); 
           m_graph.display_edge(tout << "neg: ", neg); 
@@ -288,7 +288,7 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
 
 template<typename Ext>
 void theory_diff_logic<Ext>::internalize_eq_eh(app * atom, bool_var v) {
-    TRACE("arith", tout << mk_pp(atom, m) << "\n";);
+    TRACE(arith, tout << mk_pp(atom, m) << "\n";);
     app * lhs      = to_app(atom->get_arg(0));
     app * rhs      = to_app(atom->get_arg(1));
     app * s;
@@ -335,7 +335,7 @@ void theory_diff_logic<Ext>::collect_statistics(::statistics & st) const {
 
 template<typename Ext>
 void theory_diff_logic<Ext>::push_scope_eh() {
-    TRACE("arith", tout << "push\n";);
+    TRACE(arith, tout << "push\n";);
     theory::push_scope_eh();
     m_graph.push();
     m_scopes.push_back(scope());
@@ -347,7 +347,7 @@ void theory_diff_logic<Ext>::push_scope_eh() {
 
 template<typename Ext>
 void theory_diff_logic<Ext>::pop_scope_eh(unsigned num_scopes) {
-    TRACE("arith", tout << "pop " << num_scopes << "\n";);
+    TRACE(arith, tout << "pop " << num_scopes << "\n";);
     unsigned lvl     = m_scopes.size();
     SASSERT(num_scopes <= lvl);
     unsigned new_lvl = lvl - num_scopes;
@@ -358,7 +358,7 @@ void theory_diff_logic<Ext>::pop_scope_eh(unsigned num_scopes) {
     m_scopes.shrink(new_lvl);
     unsigned num_edges = m_graph.get_num_edges();
     m_graph.pop(num_scopes);
-    CTRACE("arith", !m_graph.is_feasible_dbg(), m_graph.display(tout););
+    CTRACE(arith, !m_graph.is_feasible_dbg(), m_graph.display(tout););
     if (num_edges != m_graph.get_num_edges() && m_num_simplex_edges > 0) {
         m_S.reset();
         m_num_simplex_edges = 0;
@@ -375,7 +375,7 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
         return FC_CONTINUE;
     }
 
-    TRACE("arith_final", display(tout); );
+    TRACE(arith_final, display(tout); );
     if (!is_consistent())
         return FC_CONTINUE;
     SASSERT(is_consistent());
@@ -388,7 +388,7 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
         if (fid != get_family_id() && 
             fid != m.get_basic_family_id() &&
             !is_uninterp_const(n->get_expr())) {
-            TRACE("arith", tout << mk_pp(n->get_expr(), m) << "\n";);
+            TRACE(arith, tout << mk_pp(n->get_expr(), m) << "\n";);
             return FC_GIVEUP;
         }
     }
@@ -518,11 +518,11 @@ void theory_diff_logic<Ext>::propagate() {
             if (m_num_propagation_calls * (m_stats.m_num_conflicts + 1) > 
                 m_params.m_arith_adaptive_propagation_threshold * ctx.m_stats.m_num_conflicts) {
                 m_num_propagation_calls = 1;
-                TRACE("arith_prop", tout << "propagating: " << m_num_propagation_calls << "\n";);
+                TRACE(arith_prop, tout << "propagating: " << m_num_propagation_calls << "\n";);
                 propagate_core();            
             }
             else {
-                TRACE("arith_prop", tout << "skipping propagation " << m_num_propagation_calls << "\n";);
+                TRACE(arith_prop, tout << "skipping propagation " << m_num_propagation_calls << "\n";);
             }
             break;
         }
@@ -536,7 +536,7 @@ void theory_diff_logic<Ext>::propagate() {
             }        
             ++m_num_propagation_calls;
             bool do_propagate = (m_num_propagation_calls * m_agility > m_params.m_arith_adaptive_propagation_threshold);
-            TRACE("arith_prop", tout << (do_propagate?"propagating: ":"skipping ") 
+            TRACE(arith_prop, tout << (do_propagate?"propagating: ":"skipping ") 
                   << " " << m_num_propagation_calls 
                   << " agility: " << m_agility << "\n";);
             if (do_propagate) {
@@ -578,13 +578,13 @@ void theory_diff_logic<Ext>::propagate_core() {
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::propagate_atom(atom* a) {
-    TRACE("arith", a->display(*this, tout); tout << "\n";);
+    TRACE(arith, a->display(*this, tout); tout << "\n";);
     if (ctx.inconsistent()) {
         return false;
     }
     int edge_id = a->get_asserted_edge();
     if (!m_graph.enable_edge(edge_id)) {
-        TRACE("arith", display(tout););
+        TRACE(arith, display(tout););
         set_neg_cycle_conflict();
         
         return false;
@@ -599,7 +599,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
         return;
     }
 
-    TRACE("dl_activity", tout << "\n";);
+    TRACE(dl_activity, tout << "\n";);
 
     numeral w(0);
     for (unsigned i = 0; i < num_edges; ++i) {
@@ -648,7 +648,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
     }
     lits.push_back(lit);
 
-    TRACE("dl_activity", 
+    TRACE(dl_activity, 
           tout << mk_pp(le, m) << "\n";
           tout << "edge: " << a->get_pos() << "\n";
           ctx.display_literals_verbose(tout, lits.size(), lits.data());
@@ -667,7 +667,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
     ctx.mk_clause(lits.size(), lits.data(), js, CLS_TH_LEMMA, nullptr);
 
 #if 0
-    TRACE("arith",
+    TRACE(arith,
           tout << "shortcut:\n";
           for (unsigned i = 0; i < num_edges; ++i) {
               edge_id e = edges[i];
@@ -698,7 +698,7 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
     m_graph.traverse_neg_cycle2(m_params.m_arith_stronger_lemmas, m_nc_functor);
     inc_conflicts();
     literal_vector const& lits = m_nc_functor.get_lits();
-    TRACE("arith_conflict", 
+    TRACE(arith_conflict, 
           tout << "conflict: ";
           for (literal lit : lits) ctx.display_literal_info(tout, lit);          
           tout << "\n";);
@@ -746,7 +746,7 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
     theory_var source, target;
     enode* e;
 
-    TRACE("arith", tout << mk_pp(n, m) << "\n";);
+    TRACE(arith, tout << mk_pp(n, m) << "\n";);
 
     rational r;
     if (m_util.is_numeral(n, r)) {
@@ -809,7 +809,7 @@ theory_var theory_diff_logic<Ext>::mk_num(app* n, rational const& r) {
 template<typename Ext>
 theory_var theory_diff_logic<Ext>::mk_var(enode* n) {
     theory_var v = theory::mk_var(n);
-    TRACE("diff_logic_vars", tout << "mk_var: " << v << "\n";);
+    TRACE(diff_logic_vars, tout << "mk_var: " << v << "\n";);
     m_graph.init_var(v);
     ctx.attach_th_var(n, this, v);
     set_sort(n->get_expr());
@@ -849,10 +849,10 @@ theory_var theory_diff_logic<Ext>::mk_var(app* n) {
         v = mk_var(e);
     }      
     if (is_interpreted(n)) {
-        TRACE("non_diff_logic", tout << "Variable should not be interpreted\n";);
+        TRACE(non_diff_logic, tout << "Variable should not be interpreted\n";);
         found_non_diff_logic_expr(n);
     }
-    TRACE("arith", tout << mk_pp(n, m) << " |-> " << v << "\n";);
+    TRACE(arith, tout << mk_pp(n, m) << " |-> " << v << "\n";);
     return v;
 }
 
@@ -902,12 +902,12 @@ void theory_diff_logic<Ext>::compute_delta() {
         rational k_y = m_graph.get_assignment(src).get_infinitesimal().to_rational();
         rational n_c = w.get_rational().to_rational();
         rational k_c = w.get_infinitesimal().to_rational();
-        TRACE("arith", tout << "(n_x,k_x): " << n_x << ", " << k_x << ", (n_y,k_y): " 
+        TRACE(arith, tout << "(n_x,k_x): " << n_x << ", " << k_x << ", (n_y,k_y): " 
               << n_y << ", " << k_y << ", (n_c,k_c): " << n_c << ", " << k_c << "\n";);
         if (n_x < n_y + n_c && k_x > k_y + k_c) {
             rational new_delta = (n_y + n_c - n_x) / (2*(k_x - k_y - k_c));
             if (new_delta < m_delta) {
-                TRACE("arith", tout << "new delta: " << new_delta << "\n";);
+                TRACE(arith, tout << "new delta: " << new_delta << "\n";);
                 m_delta = new_delta;
             }
         }
@@ -933,7 +933,7 @@ model_value_proc * theory_diff_logic<Ext>::mk_value(enode * n, model_generator &
         numeral val = m_graph.get_assignment(v);
         num = val.get_rational().to_rational() + m_delta * val.get_infinitesimal().to_rational();
     }
-    TRACE("arith", tout << mk_pp(n->get_expr(), m) << " |-> " << num << "\n";);
+    TRACE(arith, tout << mk_pp(n->get_expr(), m) << " |-> " << num << "\n";);
     bool is_int = m_util.is_int(n->get_expr());
     if (is_int && !num.is_int())
         throw default_exception("difference logic solver was used on mixed int/real problem");
@@ -1036,7 +1036,7 @@ void theory_diff_logic<Ext>::new_eq_or_diseq(bool is_eq, theory_var v1, theory_v
             log_axiom_instantiation(body);
         }
         
-        TRACE("diff_logic", 
+        TRACE(diff_logic, 
               tout << v1 << " .. " << v2 << "\n";
               tout << mk_pp(eq.get(), m) <<"\n";);
 
@@ -1233,12 +1233,12 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
     has_shared = false;
     Simplex& S = m_S;
 
-    CTRACE("arith",!m_graph.is_feasible_dbg(), m_graph.display(tout););
+    CTRACE(arith,!m_graph.is_feasible_dbg(), m_graph.display(tout););
     SASSERT(m_graph.is_feasible_dbg());
 
     update_simplex(S);
 
-    TRACE("arith",
+    TRACE(arith,
           objective_term const& objective = m_objectives[v];
           for (auto const& o : objective) {
               tout << "Coefficient " << o.second 
@@ -1247,7 +1247,7 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
           tout << "Free coefficient " << m_objective_consts[v] << "\n";
           );
 
-    TRACE("opt", 
+    TRACE(opt, 
           S.display(tout); 
           for (unsigned i = 0; i < m_graph.get_num_nodes(); ++i)
               tout << "$" << i << ": " << node2simplex(i) << "\n";
@@ -1260,7 +1260,7 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
         blocker = m.mk_false();
         return inf_eps::infinity();        
     }
-    TRACE("opt", S.display(tout); );    
+    TRACE(opt, S.display(tout); );    
     SASSERT(is_sat != l_false);
     unsigned w = obj2simplex(v);
     lbool is_fin = S.minimize(w);
@@ -1285,7 +1285,7 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
             }
         }
         ensure_rational_solution(S);
-        TRACE("opt", tout << r << " " << "\n"; 
+        TRACE(opt, tout << r << " " << "\n"; 
               S.display_row(tout, row, true);
               S.display(tout);
               );
@@ -1297,14 +1297,14 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
             rational r = rational(val.first);
             m_graph.set_assignment(i, numeral(r));
         }
-        CTRACE("arith",!m_graph.is_feasible_dbg(), m_graph.display(tout););
+        CTRACE(arith,!m_graph.is_feasible_dbg(), m_graph.display(tout););
         SASSERT(m_graph.is_feasible_dbg());
         inf_eps r1(rational(0), r);
         blocker = mk_gt(v, r1);
         return inf_eps(rational(0), r + m_objective_consts[v]);
     }
     default:
-        TRACE("opt", tout << "unbounded\n"; );        
+        TRACE(opt, tout << "unbounded\n"; );        
         blocker = m.mk_false();
         return inf_eps::infinity();        
     }
@@ -1445,7 +1445,7 @@ theory* theory_diff_logic<Ext>::mk_fresh(context* new_ctx) {
 template<typename Ext>
 void theory_diff_logic<Ext>::init_zero() {
     if (m_izero != null_theory_var) return;
-    TRACE("arith", tout << "init zero\n";);
+    TRACE(arith, tout << "init zero\n";);
     app* zero;
     enode* e;
     zero = m_util.mk_numeral(rational(0), true);

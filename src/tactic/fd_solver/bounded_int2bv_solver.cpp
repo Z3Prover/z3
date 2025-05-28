@@ -194,7 +194,7 @@ public:
             if (!offset.is_zero()) {
                 value = m_arith.mk_add(value, m_arith.mk_numeral(offset, true));
             }
-            TRACE("int2bv", tout << mk_pp(kv.m_key, m) << " " << value << "\n";);
+            TRACE(int2bv, tout << mk_pp(kv.m_key, m) << " " << value << "\n";);
             mc->add(kv.m_key, value);
         }
         return mc;
@@ -297,11 +297,11 @@ private:
                 if (!offset.is_zero()) {
                     t = m_arith.mk_add(t, m_arith.mk_numeral(offset, true));
                 }
-                TRACE("pb", tout << lo << " <= " << hi << " offset: " << offset << "\n"; tout << mk_pp(e, m) << " |-> " << t << "\n";);
+                TRACE(pb, tout << lo << " <= " << hi << " offset: " << offset << "\n"; tout << mk_pp(e, m) << " |-> " << t << "\n";);
                 sub.insert(e, t);
             }
             else {
-                TRACE("pb", 
+                TRACE(pb, 
                       tout << "unprocessed entry: " << mk_pp(e, m) << "\n";
                       if (bm.has_lower(e, lo, s1)) {
                           tout << "lower: " << lo << " " << s1 << "\n";
@@ -333,7 +333,7 @@ private:
         bound_manager& bm = *m_bounds.back();
         for (expr* a : m_assertions) 
             bm(a, nullptr, nullptr);        
-        TRACE("int2bv", bm.display(tout););
+        TRACE(int2bv, bm.display(tout););
         expr_safe_replace sub(m);
         accumulate_sub(sub);
         proof_ref proof(m);
@@ -350,7 +350,7 @@ private:
                     return;
                 }
                 m_solver->assert_expr(fml2);
-                TRACE("int2bv", tout << fml2 << "\n";);
+                TRACE(int2bv, tout << fml2 << "\n";);
             }
         }
         m_assertions.reset();

@@ -119,7 +119,7 @@ namespace dt {
        where acc_i are the accessors of constructor c.
     */
     void solver::assert_is_constructor_axiom(enode* n, func_decl* c, literal antecedent) {
-        TRACE("dt", tout << mk_pp(c, m) << " " << ctx.bpp(n) << "\n";);
+        TRACE(dt, tout << mk_pp(c, m) << " " << ctx.bpp(n) << "\n";);
         m_stats.m_assert_cnstr++;
         expr* e = n->get_expr();
         SASSERT(dt.is_constructor(c));
@@ -159,7 +159,7 @@ namespace dt {
         SASSERT(is_recognizer(r));
         SASSERT(dt.get_recognizer_constructor(r->get_decl()) == c->get_decl());
         SASSERT(c->get_root() == r->get_arg(0)->get_root());
-        TRACE("dt", tout << ctx.bpp(c) << "\n" << ctx.bpp(r) << "\n";);
+        TRACE(dt, tout << ctx.bpp(c) << "\n" << ctx.bpp(r) << "\n";);
         literal l = ctx.enode2literal(r);
         SASSERT(s().value(l) == l_false);
         clear_mark();
@@ -254,7 +254,7 @@ namespace dt {
         SASSERT(!d->m_constructor);
         SASSERT(!recognizer || ctx.value(recognizer) == l_false || !is_final);
         
-        TRACE("dt", tout << ctx.bpp(n) << " non_rec_c: " << non_rec_c->get_name() << " #rec: " << d->m_recognizers.size() << "\n";);
+        TRACE(dt, tout << ctx.bpp(n) << " non_rec_c: " << non_rec_c->get_name() << " #rec: " << d->m_recognizers.size() << "\n";);
 
         if (!recognizer && non_rec_c->get_arity() == 0) {
             sat::literal eq = eq_internalize(n->get_expr(), m.mk_const(non_rec_c));
@@ -332,7 +332,7 @@ namespace dt {
      * 
      */
     void solver::apply_sort_cnstr(enode* n, sort* s) {
-        TRACE("dt", tout << "apply_sort_cnstr: #" << ctx.bpp(n) << "\n";);
+        TRACE(dt, tout << "apply_sort_cnstr: #" << ctx.bpp(n) << "\n";);
         force_push();
         if (!is_attached_to_var(n))
             mk_var(n);        
@@ -348,7 +348,7 @@ namespace dt {
         enode* n = bool_var2enode(lit.var());
         if (!is_recognizer(n))
             return;
-        TRACE("dt", tout << "assigning recognizer: #" << n->get_expr_id() << " " << ctx.bpp(n) << "\n";);
+        TRACE(dt, tout << "assigning recognizer: #" << n->get_expr_id() << " " << ctx.bpp(n) << "\n";);
         SASSERT(n->num_args() == 1);
         enode* arg = n->get_arg(0);
         theory_var tv = arg->get_th_var(get_id());
@@ -369,7 +369,7 @@ namespace dt {
     }
 
     void solver::add_recognizer(theory_var v, enode* recognizer) {
-        TRACE("dt", tout << "add recognizer " << v << " " << mk_pp(recognizer->get_expr(), m) << "\n";);
+        TRACE(dt, tout << "add recognizer " << v << " " << mk_pp(recognizer->get_expr(), m) << "\n";);
         v = m_find.find(v);
         var_data* d = m_var_data[v];
         sort* s = recognizer->get_decl()->get_domain(0);
@@ -384,7 +384,7 @@ namespace dt {
             return;
 
         lbool val = ctx.value(recognizer);
-        TRACE("dt", tout << "adding recognizer to v" << v << " rec: #" << recognizer->get_expr_id() << " val: " << val << "\n";);
+        TRACE(dt, tout << "adding recognizer to v" << v << " rec: #" << recognizer->get_expr_id() << " val: " << val << "\n";);
 
         // do nothing... 
         // If recognizer assignment was already processed, then
@@ -423,7 +423,7 @@ namespace dt {
             return;
         }
 
-        CTRACE("dt", d->m_recognizers.empty(), ctx.display(tout););
+        CTRACE(dt, d->m_recognizers.empty(), ctx.display(tout););
         SASSERT(!d->m_recognizers.empty());
         m_lits.reset();
         enode_pair_vector eqs;
@@ -449,7 +449,7 @@ namespace dt {
             }
             ++idx;
         }
-        TRACE("dt", tout << "propagate " << num_unassigned << " eqs: " << eqs.size() << "\n";);
+        TRACE(dt, tout << "propagate " << num_unassigned << " eqs: " << eqs.size() << "\n";);
         if (num_unassigned == 0) {
             auto* ph = ctx.mk_smt_hint(name(), m_lits, eqs);
             ctx.set_conflict(euf::th_explain::conflict(*this, m_lits, eqs, ph));
@@ -488,7 +488,7 @@ namespace dt {
         var_data* d2 = m_var_data[v2];
         auto* con1 = d1->m_constructor;
         auto* con2 = d2->m_constructor;
-        TRACE("dt", tout << "merging v" << v1 << " v" << v2 << "\n" << ctx.bpp(var2enode(v1)) << " == " << ctx.bpp(var2enode(v2)) << " " << ctx.bpp(con1) << " " << ctx.bpp(con2) << "\n";);
+        TRACE(dt, tout << "merging v" << v1 << " v" << v2 << "\n" << ctx.bpp(var2enode(v1)) << " == " << ctx.bpp(var2enode(v2)) << " " << ctx.bpp(con1) << " " << ctx.bpp(con2) << "\n";);
         if (con1 && con2 && con1->get_decl() != con2->get_decl())
             ctx.set_conflict(euf::th_explain::conflict(*this, con1, con2, ctx.mk_smt_hint(name(), con1, con2)));
         else if (con2 && !con1) {
@@ -598,7 +598,7 @@ namespace dt {
 
     // explain the cycle root -> ... -> app -> root
     void solver::occurs_check_explain(enode* app, enode* root) {
-        TRACE("dt", tout << "occurs_check_explain " << ctx.bpp(app) << " <-> " << ctx.bpp(root) << "\n";);
+        TRACE(dt, tout << "occurs_check_explain " << ctx.bpp(app) << " <-> " << ctx.bpp(root) << "\n";);
 
         // first: explain that root=v, given that app=cstor(...,v,...)
 
@@ -616,7 +616,7 @@ namespace dt {
         if (app != root)
             m_used_eqs.push_back(enode_pair(app, root));
 
-        TRACE("dt",
+        TRACE(dt,
             tout << "occurs_check\n"; for (enode_pair const& p : m_used_eqs) tout << ctx.bpp(p.first) << " - " << ctx.bpp(p.second) << " ";);
     }
 
@@ -685,7 +685,7 @@ namespace dt {
        a3 = cons(v3, a1)
     */
     bool solver::occurs_check(enode* n) {
-        TRACE("dt_verbose", tout << "occurs check: " << ctx.bpp(n) << "\n";);
+        TRACE(dt_verbose, tout << "occurs check: " << ctx.bpp(n) << "\n";);
         m_stats.m_occurs_check++;
 
         bool res = false;
@@ -700,7 +700,7 @@ namespace dt {
             if (oc_cycle_free(app))
                 continue;
 
-            TRACE("dt_verbose", tout << "occurs check loop: " << ctx.bpp(app) << (op == ENTER ? " enter" : " exit") << "\n";);
+            TRACE(dt_verbose, tout << "occurs check loop: " << ctx.bpp(app) << (op == ENTER ? " enter" : " exit") << "\n";);
 
             switch (op) {
             case ENTER:
@@ -716,7 +716,7 @@ namespace dt {
         if (res) {
             clear_mark();
             ctx.set_conflict(euf::th_explain::conflict(*this, m_used_eqs, ctx.mk_smt_hint(name(), m_used_eqs)));
-            TRACE("dt", tout << "occurs check conflict: " << ctx.bpp(n) << "\n";);
+            TRACE(dt, tout << "occurs check conflict: " << ctx.bpp(n) << "\n";);
         }
         return res;
     }
@@ -783,7 +783,7 @@ namespace dt {
         if (v == euf::null_theory_var) 
             return false;
         euf::enode* con = m_var_data[m_find.find(v)]->m_constructor;
-        TRACE("dt", display(tout) << ctx.bpp(n) << " con: " << ctx.bpp(con) << "\n";);
+        TRACE(dt, display(tout) << ctx.bpp(n) << " con: " << ctx.bpp(con) << "\n";);
         if (con->num_args() == 0)
             dep.insert(n, nullptr);
         for (enode* arg : euf::enode_args(con))

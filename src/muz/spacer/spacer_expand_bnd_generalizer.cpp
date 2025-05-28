@@ -123,14 +123,14 @@ void lemma_expand_bnd_generalizer::operator()(lemma_ref &lemma) {
         if (m.is_true(lit)) continue;
         if (!is_arith_comp(lit, bnd, m)) continue;
 
-        TRACE("expand_bnd", tout << "Attempting to expand " << lit << " inside "
+        TRACE(expand_bnd, tout << "Attempting to expand " << lit << " inside "
                                  << cube << "\n";);
 
         // for every value
         for (rational n : m_values) {
             if (!is_interesting(lit, bnd, n)) continue;
             m_st.atmpts++;
-            TRACE("expand_bnd", tout << "Attempting to expand " << lit
+            TRACE(expand_bnd, tout << "Attempting to expand " << lit
                                      << " with numeral " << n << "\n";);
 
             // -- update bound on lit
@@ -166,7 +166,7 @@ void lemma_expand_bnd_generalizer::operator()(lemma_ref &lemma) {
 /// Side-effect: update \p lemma with the new candidate
 bool lemma_expand_bnd_generalizer::check_inductive(lemma_ref &lemma,
                                                    expr_ref_vector &candidate) {
-    TRACE("expand_bnd_verb",
+    TRACE(expand_bnd_verb,
           tout << "Attempting to update lemma with " << candidate << "\n";);
 
     unsigned uses_level = 0;
@@ -177,7 +177,7 @@ bool lemma_expand_bnd_generalizer::check_inductive(lemma_ref &lemma,
         m_st.success++;
         lemma->update_cube(lemma->get_pob(), candidate);
         lemma->set_level(uses_level);
-        TRACE("expand_bnd", tout << "expand_bnd succeeded with "
+        TRACE(expand_bnd, tout << "expand_bnd succeeded with "
                                  << mk_and(candidate) << " at level "
                                  << uses_level << "\n";);
     }

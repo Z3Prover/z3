@@ -239,7 +239,7 @@ namespace nlsat {
             else {
                 UNREACHABLE();
             }
-            TRACE("reorder", 
+            TRACE(reorder, 
                 tout << "new order: ";
                 for (unsigned i = 0; i < num_vars; i++) 
                     tout << new_order[i] << " ";

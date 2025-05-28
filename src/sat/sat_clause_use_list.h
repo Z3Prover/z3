@@ -32,7 +32,7 @@ namespace sat {
         unsigned        m_num_redundant;
     public:
         clause_use_list() {
-            STRACE("clause_use_list_bug", tout << "[cul_created] " << this << "\n";);
+            STRACE(clause_use_list_bug, tout << "[cul_created] " << this << "\n";);
             m_size = 0; 
             m_num_redundant = 0;
         }
@@ -52,7 +52,7 @@ namespace sat {
         bool empty() const { return size() == 0; }
         
         void insert(clause & c) { 
-            STRACE("clause_use_list_bug", tout << "[cul_insert] " << this << " " << &c << "\n";);
+            STRACE(clause_use_list_bug, tout << "[cul_insert] " << this << " " << &c << "\n";);
             SASSERT(!m_clauses.contains(&c)); 
             SASSERT(!c.was_removed()); 
             m_clauses.push_back(&c); 
@@ -61,7 +61,7 @@ namespace sat {
         }
 
         void erase_not_removed(clause & c) { 
-            STRACE("clause_use_list_bug", tout << "[cul_erase_not_removed] " << this << " " << &c << "\n";);
+            STRACE(clause_use_list_bug, tout << "[cul_erase_not_removed] " << this << " " << &c << "\n";);
             SASSERT(m_clauses.contains(&c)); 
             SASSERT(!c.was_removed()); 
             m_clauses.erase(&c); 
@@ -70,7 +70,7 @@ namespace sat {
         }
 
         void erase(clause & c) { 
-            STRACE("clause_use_list_bug", tout << "[cul_erase] " << this << " " << &c << "\n";);
+            STRACE(clause_use_list_bug, tout << "[cul_erase] " << this << " " << &c << "\n";);
             SASSERT(m_clauses.contains(&c)); 
             // SASSERT(c.was_removed()); 
             m_size--; 

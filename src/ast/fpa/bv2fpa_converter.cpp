@@ -111,7 +111,7 @@ expr_ref bv2fpa_converter::convert_bv2fp(sort * s, expr * sgn, expr * exp, expr 
 
     res = m_fpa_util.mk_value(fp_val);
 
-    TRACE("bv2fpa", tout << "[" << mk_ismt2_pp(sgn, m) <<
+    TRACE(bv2fpa, tout << "[" << mk_ismt2_pp(sgn, m) <<
                             " " << mk_ismt2_pp(exp, m) <<
                             " " << mk_ismt2_pp(sig, m) << "] == " <<
                             mk_ismt2_pp(res, m) << std::endl;);
@@ -189,7 +189,7 @@ expr_ref bv2fpa_converter::convert_bv2rm(model_core * mc, expr * val) {
 
 expr_ref bv2fpa_converter::rebuild_floats(model_core * mc, sort * s, expr * e) {
     expr_ref result(m);
-    TRACE("bv2fpa_rebuild", tout << "rebuild floats in " << mk_ismt2_pp(s, m) << " for ";
+    TRACE(bv2fpa_rebuild, tout << "rebuild floats in " << mk_ismt2_pp(s, m) << " for ";
                     if (e) tout << mk_ismt2_pp(e, m);
                     else tout << "nil";
                     tout << std::endl; );
@@ -240,7 +240,7 @@ bv2fpa_converter::array_model bv2fpa_converter::convert_array_func_interp(model_
     expr_ref as_arr_mdl(m);
     as_arr_mdl = mc->get_const_interp(bv_f);
     if (as_arr_mdl == 0) return am;
-    TRACE("bv2fpa", tout << "arity=0 func_interp for " << mk_ismt2_pp(f, m) << " := " << mk_ismt2_pp(as_arr_mdl, m) << std::endl;);
+    TRACE(bv2fpa, tout << "arity=0 func_interp for " << mk_ismt2_pp(f, m) << " := " << mk_ismt2_pp(as_arr_mdl, m) << std::endl;);
     SASSERT(arr_util.is_as_array(as_arr_mdl));
     for (unsigned i = 0; i < arity; i++)
         array_domain.push_back(to_sort(f->get_range()->get_parameter(i).get_ast()));
@@ -285,7 +285,7 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
             bv_fres = bv_fe->get_result();
             expr_ref ft_fres = rebuild_floats(mc, rng, to_app(bv_fres));
             m_th_rw(ft_fres);
-            TRACE("bv2fpa",
+            TRACE(bv2fpa,
                   tout << "func_interp entry #" << i << ":" << std::endl;
                   tout << "(" << bv_f->get_name();
                   for (unsigned i = 0; i < bv_f->get_arity(); i++)
@@ -338,7 +338,7 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
         else if (bv_fi->get_else()) {
             expr_ref ft_els = rebuild_floats(mc, rng, bv_fi->get_else());
             m_th_rw(ft_els);
-            TRACE("bv2fpa", tout << "else=" << mk_ismt2_pp(ft_els, m) << std::endl;);
+            TRACE(bv2fpa, tout << "else=" << mk_ismt2_pp(ft_els, m) << std::endl;);
             result->set_else(ft_els);
         }
     }
@@ -410,7 +410,7 @@ void bv2fpa_converter::convert_consts(model_core * mc, model_core * target_model
         expr_ref cv = convert_bv2fp(var->get_range(), sgn, exp, sig);
         target_model->register_decl(var, cv);
 
-        TRACE("bv2fpa", tout << var->get_name() << " == " << mk_ismt2_pp(cv, m) << std::endl;);
+        TRACE(bv2fpa, tout << var->get_name() << " == " << mk_ismt2_pp(cv, m) << std::endl;);
     }
 }
 
@@ -422,7 +422,7 @@ void bv2fpa_converter::convert_rm_consts(model_core * mc, model_core * target_mo
         SASSERT(m_fpa_util.is_bv2rm(val));
         expr * bvval = to_app(val)->get_arg(0);
         expr_ref fv = convert_bv2rm(mc, to_app(bvval));
-        TRACE("bv2fpa", tout << var->get_name() << " == " << mk_ismt2_pp(fv, m) << std::endl;);
+        TRACE(bv2fpa, tout << var->get_name() << " == " << mk_ismt2_pp(fv, m) << std::endl;);
         target_model->register_decl(var, fv);
         seen.insert(to_app(bvval)->get_decl());
     }
@@ -463,7 +463,7 @@ void bv2fpa_converter::convert_min_max_specials(model_core * mc, model_core * ta
         flt_fi->set_else(else_value);
 
         target_model->register_decl(f, flt_fi);
-        TRACE("bv2fpa", tout << "fp.min/fp.max special: " << std::endl <<
+        TRACE(bv2fpa, tout << "fp.min/fp.max special: " << std::endl <<
             mk_ismt2_pp(f, m) << " == " << mk_ismt2_pp(flt_fi->get_interp(), m) << std::endl;);
     }
 }
@@ -508,7 +508,7 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
         }
     }
 
-    TRACE("bv2fpa", tout << "Target model: " << *target_model << std::endl; );
+    TRACE(bv2fpa, tout << "Target model: " << *target_model << std::endl; );
 }
 
 void bv2fpa_converter::display(std::ostream & out) {

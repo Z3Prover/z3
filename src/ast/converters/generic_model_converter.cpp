@@ -36,7 +36,7 @@ void generic_model_converter::add(func_decl * d, expr* e) {
 }
 
 void generic_model_converter::operator()(model_ref & md) {
-    TRACE("model_converter", tout << "before generic_model_converter\n"; model_v2_pp(tout, *md); display(tout););
+    TRACE(model_converter, tout << "before generic_model_converter\n"; model_v2_pp(tout, *md); display(tout););
     
     model_evaluator ev(*(md.get()));
     ev.set_model_completion(m_completion);
@@ -53,7 +53,7 @@ void generic_model_converter::operator()(model_ref & md) {
             break;
         case instruction::ADD:
             ev(e.m_def, val);
-            TRACE("model_converter", tout << e.m_f->get_name() << " ->\n" << e.m_def << "\n==>\n" << val << "\n";);
+            TRACE(model_converter, tout << e.m_f->get_name() << " ->\n" << e.m_def << "\n==>\n" << val << "\n";);
             arity = e.m_f->get_arity();
             reset_ev = false;
             if (arity == 0) {
@@ -96,7 +96,7 @@ void generic_model_converter::operator()(model_ref & md) {
     for (auto const& [s, u] : uninterpreted) {
         md->register_usort(s, u.size(), u.data());
     }
-    TRACE("model_converter", tout << "after generic_model_converter\n"; model_v2_pp(tout, *md););
+    TRACE(model_converter, tout << "after generic_model_converter\n"; model_v2_pp(tout, *md););
 }
 
 void generic_model_converter::display(std::ostream & out) {

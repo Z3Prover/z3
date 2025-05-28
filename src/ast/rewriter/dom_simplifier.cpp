@@ -90,7 +90,7 @@ bool expr_dominators::compute_dominators() {
     unsigned iterations = 1;
     while (change) {
         change = false;
-        TRACE("simplify", 
+        TRACE(simplify, 
               for (auto & kv : m_doms) {
                   tout << mk_bounded_pp(kv.m_key, m) << " |-> " << mk_bounded_pp(kv.m_value, m) << "\n";
               });
@@ -135,7 +135,7 @@ bool expr_dominators::compile(expr * e) {
     compute_post_order();
     if (!compute_dominators()) return false;
     extract_tree();
-    TRACE("simplify", display(tout););
+    TRACE(simplify, display(tout););
     return true;
 }
 
@@ -263,7 +263,7 @@ public:
         if (m.is_true(t))
             return !sign;
 
-        TRACE("simplify", tout << t->get_id() << ": " << mk_bounded_pp(t, m) << " " << (sign?" - neg":" - pos") << "\n";);
+        TRACE(simplify, tout << t->get_id() << ": " << mk_bounded_pp(t, m) << " " << (sign?" - neg":" - pos") << "\n";);
 
         m_scoped_substitution.push();
         if (!sign) {
@@ -284,16 +284,16 @@ public:
             m_trail.push_back(lhs);
             m_trail.push_back(rhs);
             if (is_gt(lhs, rhs)) {
-                TRACE("propagate_values", tout << "insert " << mk_pp(lhs, m) << " -> " << mk_pp(rhs, m) << "\n";);
+                TRACE(propagate_values, tout << "insert " << mk_pp(lhs, m) << " -> " << mk_pp(rhs, m) << "\n";);
                 m_scoped_substitution.insert(lhs, rhs, pr);
                 return;
             }
             if (is_gt(rhs, lhs)) {
-                TRACE("propagate_values", tout << "insert " << mk_pp(rhs, m) << " -> " << mk_pp(lhs, m) << "\n";);
+                TRACE(propagate_values, tout << "insert " << mk_pp(rhs, m) << " -> " << mk_pp(lhs, m) << "\n";);
                 m_scoped_substitution.insert(rhs, lhs, m.mk_symmetry(pr));
                 return;
             }
-            TRACE("propagate_values", tout << "incompatible " << mk_pp(n, m) << "\n";);
+            TRACE(propagate_values, tout << "incompatible " << mk_pp(n, m) << "\n";);
         }
         if (m.is_not(n, n1)) {
             m_scoped_substitution.insert(n1, m.mk_false(), m.mk_iff_false(pr));

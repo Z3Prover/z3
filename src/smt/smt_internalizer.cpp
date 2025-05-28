@@ -201,14 +201,14 @@ namespace smt {
                 // stack overflow.
                 // a caveat is that theory internalizers do rely on recursive descent so
                 // internalization over these follows top-down
-                TRACE("deep_internalize", tout << "expression is deep: #" << n->get_id() << "\n" << mk_ll_pp(n, m););
+                TRACE(deep_internalize, tout << "expression is deep: #" << n->get_id() << "\n" << mk_ll_pp(n, m););
                 ts_todo.push_back(expr_bool_pair(n, true));
             }
         }
 
         svector<expr_bool_pair> sorted_exprs;
         top_sort_expr(exprs, num_exprs, sorted_exprs);
-        TRACE("deep_internalize", for (auto & kv : sorted_exprs) tout << "#" << kv.first->get_id() << " " << kv.second << "\n"; );
+        TRACE(deep_internalize, for (auto & kv : sorted_exprs) tout << "#" << kv.first->get_id() << " " << kv.second << "\n"; );
         for (auto & kv : sorted_exprs) {
             expr* e = kv.first;
             SASSERT(should_internalize_rec(e));
@@ -226,10 +226,10 @@ namespace smt {
        \remark pr is 0 if proofs are disabled.
     */
     void context::internalize_assertion(expr * n, proof * pr, unsigned generation) {
-        TRACE("internalize_assertion", tout << mk_pp(n, m) << "\n";); 
-        TRACE("internalize_assertion_ll", tout << mk_ll_pp(n, m) << "\n";); 
-        TRACE("generation", tout << "generation: " << m_generation << "\n";);
-        TRACE("incompleteness_bug", tout << "[internalize-assertion]: #" << n->get_id() << "\n";);
+        TRACE(internalize_assertion, tout << mk_pp(n, m) << "\n";); 
+        TRACE(internalize_assertion_ll, tout << mk_ll_pp(n, m) << "\n";); 
+        TRACE(generation, tout << "generation: " << m_generation << "\n";);
+        TRACE(incompleteness_bug, tout << "[internalize-assertion]: #" << n->get_id() << "\n";);
         flet<unsigned> l(m_generation, generation);
         m_stats.m_max_generation = std::max(m_generation, m_stats.m_max_generation);
         internalize_deep(n);
@@ -312,7 +312,7 @@ namespace smt {
 #define DISTINCT_SZ_THRESHOLD 32
 
     void context::assert_distinct(app * n, proof * pr) {
-        TRACE("assert_distinct", tout << mk_pp(n, m) << "\n";);
+        TRACE(assert_distinct, tout << mk_pp(n, m) << "\n";);
         unsigned num_args = n->get_num_args();
         if (num_args == 0 || num_args <= DISTINCT_SZ_THRESHOLD || m.proofs_enabled()) {
             assert_default(n, pr);
@@ -327,7 +327,7 @@ namespace smt {
             enode * e   = mk_enode(val, false, false, true);
             e->mark_as_interpreted();
             app_ref eq(m.mk_eq(fapp, val), m);
-            TRACE("assert_distinct", tout << "eq: " << mk_pp(eq, m) << "\n";);
+            TRACE(assert_distinct, tout << "eq: " << mk_pp(eq, m) << "\n";);
             assert_default(eq, nullptr);
             mark_as_relevant(eq.get());
             // TODO: we may want to hide the auxiliary values val and the function f from the model.
@@ -366,8 +366,8 @@ namespace smt {
     }
 
     void context::internalize_rec(expr * n, bool gate_ctx) {
-        TRACE("internalize", tout << "internalizing:\n" << mk_pp(n, m) << "\n";);
-        TRACE("internalize_bug", tout << "internalizing:\n" << mk_bounded_pp(n, m) << "\n";);
+        TRACE(internalize, tout << "internalizing:\n" << mk_pp(n, m) << "\n";);
+        TRACE(internalize_bug, tout << "internalizing:\n" << mk_bounded_pp(n, m) << "\n";);
         if (is_var(n)) {
             throw default_exception("Formulas should not contain unbound variables");
         }
@@ -388,7 +388,7 @@ namespace smt {
        \brief Internalize the given formula into the logical context.
     */
     void context::internalize_formula(expr * n, bool gate_ctx) {
-        TRACE("internalize_bug", tout << "internalize formula: #" << n->get_id() << ", gate_ctx: " << gate_ctx << "\n" << mk_pp(n, m) << "\n";);
+        TRACE(internalize_bug, tout << "internalize formula: #" << n->get_id() << ", gate_ctx: " << gate_ctx << "\n" << mk_pp(n, m) << "\n";);
         SASSERT(m.is_bool(n));
         if (m.is_true(n) || m.is_false(n))
             return;
@@ -403,19 +403,19 @@ namespace smt {
         if (b_internalized(n)) {
             // n was already internalized as a boolean.
             bool_var v = get_bool_var(n);
-            TRACE("internalize_bug", tout << "#" << n->get_id() << " already has bool_var v" << v << "\n";);
+            TRACE(internalize_bug, tout << "#" << n->get_id() << " already has bool_var v" << v << "\n";);
             
             // n was already internalized as boolean, but an enode was
             // not associated with it.  So, an enode is necessary, if
             // n is not in the context of a gate and is an application.
             if (!gate_ctx && is_app(n)) {
                 if (e_internalized(n)) {
-                    TRACE("internalize_bug", tout << "forcing enode #" << n->get_id() << " to merge with t/f\n";);
+                    TRACE(internalize_bug, tout << "forcing enode #" << n->get_id() << " to merge with t/f\n";);
                     enode * e = get_enode(to_app(n));
                     set_merge_tf(e, v, false);
                 }
                 else {
-                    TRACE("internalize_bug", tout << "creating enode for #" << n->get_id() << "\n";);
+                    TRACE(internalize_bug, tout << "creating enode for #" << n->get_id() << "\n";);
                     mk_enode(to_app(n), 
                              true, /* suppress arguments, we not not use CC for this kind of enode */
                              true, /* bool enode must be merged with true/false, since it is not in the context of a gate */
@@ -451,7 +451,7 @@ namespace smt {
         bool_var v        = get_bool_var(n);
         bool_var_data & d = get_bdata(v);
         d.set_eq_flag();
-        TRACE("internalize", tout << mk_pp(n, m) << " " << literal(v, false) << "\n";);
+        TRACE(internalize, tout << mk_pp(n, m) << " " << literal(v, false) << "\n";);
         
         sort * s    = n->get_arg(0)->get_sort();
         theory * th = m_theories.get_plugin(s->get_family_id());
@@ -463,7 +463,7 @@ namespace smt {
        \brief Internalize distinct constructor.
     */
     void context::internalize_distinct(app * n, bool gate_ctx) {
-        TRACE("distinct", tout << "internalizing distinct: " << mk_pp(n, m) << "\n";);
+        TRACE(distinct, tout << "internalizing distinct: " << mk_pp(n, m) << "\n";);
         SASSERT(!b_internalized(n));
         SASSERT(m.is_distinct(n));
         bool_var v = mk_bool_var(n);
@@ -493,12 +493,12 @@ namespace smt {
     bool context::internalize_theory_atom(app * n, bool gate_ctx) {
         SASSERT(!b_internalized(n));
         theory * th  = m_theories.get_plugin(n->get_family_id());
-        TRACE("datatype_bug", tout << "internalizing theory atom:\n" << mk_pp(n, m) << "\n";);
+        TRACE(datatype_bug, tout << "internalizing theory atom:\n" << mk_pp(n, m) << "\n";);
         if (!th || !th->internalize_atom(n, gate_ctx))
             return false;
-        TRACE("datatype_bug", tout << "internalization succeeded\n" << mk_pp(n, m) << "\n";);
+        TRACE(datatype_bug, tout << "internalization succeeded\n" << mk_pp(n, m) << "\n";);
         SASSERT(b_internalized(n));
-        TRACE("internalize_theory_atom", tout << "internalizing theory atom: #" << n->get_id() << "\n";);
+        TRACE(internalize_theory_atom, tout << "internalizing theory atom: #" << n->get_id() << "\n";);
         bool_var v        = get_bool_var(n);
         if (!gate_ctx) {
             // if the formula is not in the context of a gate, then it
@@ -561,8 +561,8 @@ namespace smt {
        context. 
     */
     void context::internalize_quantifier(quantifier * q, bool gate_ctx) {
-        TRACE("internalize_quantifier", tout << mk_pp(q, m) << "\n";);
-        CTRACE("internalize_quantifier_zero", q->get_weight() == 0, tout << mk_pp(q, m) << "\n";);
+        TRACE(internalize_quantifier, tout << mk_pp(q, m) << "\n";);
+        CTRACE(internalize_quantifier_zero, q->get_weight() == 0, tout << mk_pp(q, m) << "\n";);
         SASSERT(gate_ctx); // limitation of the current implementation
         SASSERT(!b_internalized(q));
         if (!is_forall(q))
@@ -583,7 +583,7 @@ namespace smt {
 
 
     void context::internalize_lambda(quantifier * q) {
-        TRACE("internalize_quantifier", tout << mk_pp(q, m) << "\n";);
+        TRACE(internalize_quantifier, tout << mk_pp(q, m) << "\n";);
         SASSERT(is_lambda(q));
         if (e_internalized(q)) 
             return;
@@ -617,12 +617,12 @@ namespace smt {
     bool context::has_lambda() {
         for (auto const & [n, q] : m_lambdas) {
             if (n->get_class_size() != 1) {
-                TRACE("context", tout << "class size " << n->get_class_size() << " " << enode_pp(n, *this) << "\n");
+                TRACE(context, tout << "class size " << n->get_class_size() << " " << enode_pp(n, *this) << "\n");
                 return true;
             }
             for (enode* p : enode::parents(n)) 
                 if (!is_beta_redex(p, n)) {
-                    TRACE("context", tout << "not a beta redex " << enode_pp(p, *this) << "\n");
+                    TRACE(context, tout << "not a beta redex " << enode_pp(p, *this) << "\n");
                     return true;
                 }
         }
@@ -636,7 +636,7 @@ namespace smt {
         SASSERT(!b_internalized(n));
         SASSERT(!e_internalized(n));
 
-        CTRACE("resolve_conflict_crash", m.is_not(n), tout << mk_ismt2_pp(n, m) << "\ngate_ctx: " << gate_ctx << "\n";);
+        CTRACE(resolve_conflict_crash, m.is_not(n), tout << mk_ismt2_pp(n, m) << "\ngate_ctx: " << gate_ctx << "\n";);
 
         bool _is_gate  = is_gate(m, n) || m.is_not(n);
         // process args
@@ -644,7 +644,7 @@ namespace smt {
             internalize_rec(arg, _is_gate);
         }
         
-        CTRACE("internalize_bug", b_internalized(n), tout << mk_ll_pp(n, m) << "\n";);
+        CTRACE(internalize_bug, b_internalized(n), tout << mk_ll_pp(n, m) << "\n";);
         
         bool is_new_var = false;
         bool_var v;
@@ -720,7 +720,7 @@ namespace smt {
             }
         }
         
-        CTRACE("internalize_bug", e_internalized(n), 
+        CTRACE(internalize_bug, e_internalized(n), 
                tout << "#" << n->get_id() << ", merge_tf: " << get_enode(n)->merge_tf() << "\n";);
     }
 
@@ -864,7 +864,7 @@ namespace smt {
         literal c_lit   = get_literal(c);
         literal eq1_lit = get_literal(eq1);
         literal eq2_lit = get_literal(eq2);
-        TRACE("internalize_ite_term_bug",
+        TRACE(internalize_ite_term_bug,
               tout << mk_ismt2_pp(n, m) << "\n";
               tout << mk_ismt2_pp(c, m) << "\n";
               tout << mk_ismt2_pp(t, m) << "\n";
@@ -876,7 +876,7 @@ namespace smt {
         mk_gate_clause( c_lit, eq2_lit);
         if (relevancy()) {
             relevancy_eh * eh = m_relevancy_propagator->mk_term_ite_relevancy_eh(n, eq1, eq2);
-            TRACE("ite_term_relevancy", tout << "#" << n->get_id() << " #" << eq1->get_id() << " #" << eq2->get_id() << "\n";);
+            TRACE(ite_term_relevancy, tout << "#" << n->get_id() << " #" << eq1->get_id() << " #" << eq2->get_id() << "\n";);
             add_rel_watch(c_lit, eh);
             add_rel_watch(~c_lit, eh);
             add_relevancy_eh(n, eh);
@@ -923,8 +923,8 @@ namespace smt {
         //SASSERT(!m.is_not(n));
         unsigned id = n->get_id();
         bool_var v  = m_b_internalized_stack.size();
-        TRACE("mk_bool_var", tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m) << " " << n->get_id() << "\n";);
-        TRACE("mk_var_bug", tout << "mk_bool: " << v << "\n";);                
+        TRACE(mk_bool_var, tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m) << " " << n->get_id() << "\n";);
+        TRACE(mk_var_bug, tout << "mk_bool: " << v << "\n";);                
         set_bool_var(id, v);
         m_bdata.reserve(v+1);
         m_activity.reserve(v+1);
@@ -965,9 +965,9 @@ namespace smt {
         unsigned n_id         = n->get_id();
         bool_var v            = get_bool_var_of_id(n_id);
         m_bool_var2expr[v]    = nullptr;
-        TRACE("undo_mk_bool_var", tout << "undo_bool: " << v << "\n" << mk_pp(n, m) << "\n" << "m_bdata.size: " << m_bdata.size()
+        TRACE(undo_mk_bool_var, tout << "undo_bool: " << v << "\n" << mk_pp(n, m) << "\n" << "m_bdata.size: " << m_bdata.size()
               << " m_assignment.size: " << m_assignment.size() << "\n";);
-        TRACE("mk_var_bug", tout << "undo_mk_bool: " << v << "\n";);
+        TRACE(mk_var_bug, tout << "undo_mk_bool: " << v << "\n";);
         // bool_var_data & d     = m_bdata[v];
         m_case_split_queue->del_var_eh(v);
         if (is_quantifier(n))
@@ -983,7 +983,7 @@ namespace smt {
        in the egraph.
     */
     enode * context::mk_enode(app * n, bool suppress_args, bool merge_tf, bool cgc_enabled) {
-        TRACE("mk_enode_detail", tout << mk_pp(n, m) << "\nsuppress_args: " << suppress_args << ", merge_tf: " << 
+        TRACE(mk_enode_detail, tout << mk_pp(n, m) << "\nsuppress_args: " << suppress_args << ", merge_tf: " << 
               merge_tf << ", cgc_enabled: " << cgc_enabled << "\n";);
         SASSERT(!e_internalized(n));
         unsigned id          = n->get_id();
@@ -991,15 +991,15 @@ namespace smt {
         unsigned _generation = 0;
         if (!m_cached_generation.empty() && m_cached_generation.find(n, _generation)) {
             generation = _generation;
-            CTRACE("cached_generation", generation != m_generation,
+            CTRACE(cached_generation, generation != m_generation,
                    tout << "cached_generation: #" << n->get_id() << " " << generation << " " << m_generation << "\n";);
         }
         enode * e           = enode::mk(m, m_region, m_app2enode, n, generation, suppress_args, merge_tf, m_scope_lvl, cgc_enabled, true);
-        TRACE("mk_enode_detail", tout << "e.get_num_args() = " << e->get_num_args() << "\n";);
+        TRACE(mk_enode_detail, tout << "e.get_num_args() = " << e->get_num_args() << "\n";);
         if (m.is_unique_value(n))
             e->mark_as_interpreted();
-        TRACE("mk_var_bug", tout << "mk_enode: " << id << "\n";);
-        TRACE("generation", tout << "mk_enode: " << id << " " << generation << "\n";);
+        TRACE(mk_var_bug, tout << "mk_enode: " << id << "\n";);
+        TRACE(generation, tout << "mk_enode: " << id << " " << generation << "\n";);
         m_app2enode.setx(id, e, nullptr);
         m_e_internalized_stack.push_back(n);
         m_trail_stack.push_back(&m_mk_enode_trail);
@@ -1037,12 +1037,12 @@ namespace smt {
         }
         SASSERT(e_internalized(n));
         m_stats.m_num_mk_enode++;
-        TRACE("mk_enode", tout << "created enode: #" << e->get_owner_id() << " for:\n" << mk_pp(n, m) << "\n";
+        TRACE(mk_enode, tout << "created enode: #" << e->get_owner_id() << " for:\n" << mk_pp(n, m) << "\n";
               if (e->get_num_args() > 0) {
                   tout << "is_true_eq: " << e->is_true_eq() << " in cg_table: " << m_cg_table.contains_ptr(e) << " is_cgr: "
                        << e->is_cgr() << "\n";
               });
-        SCTRACE("causality", m_coming_from_quant, tout << "EN: #" << e->get_owner_id() << "\n";);
+        SCTRACE(causality, m_coming_from_quant, tout << "EN: #" << e->get_owner_id() << "\n";);
 
         if (m.has_trace_stream())
             m.trace_stream() << "[attach-enode] #" << n->get_id() << " " << m_generation << "\n";        
@@ -1062,8 +1062,8 @@ namespace smt {
         SASSERT(!m_e_internalized_stack.empty());
         m_stats.m_num_del_enode++;
         expr * n              = m_e_internalized_stack.back();
-        TRACE("undo_mk_enode", tout << "undo_enode: #" << n->get_id() << "\n" << mk_pp(n, m) << "\n";);
-        TRACE("mk_var_bug", tout << "undo_mk_enode: " << n->get_id() << "\n";);
+        TRACE(undo_mk_enode, tout << "undo_enode: #" << n->get_id() << "\n" << mk_pp(n, m) << "\n";);
+        TRACE(mk_var_bug, tout << "undo_mk_enode: " << n->get_id() << "\n";);
         unsigned n_id         = n->get_id();
         SASSERT(is_app(n));
         enode * e             = m_app2enode[n_id];
@@ -1135,7 +1135,7 @@ namespace smt {
        clauses because they are deleted during backtracking.
     */
     bool context::simplify_aux_clause_literals(unsigned & num_lits, literal * lits, literal_buffer & simp_lits) {
-        TRACE("simplify_aux_clause_literals", display_literals(tout, num_lits, lits); tout << "\n";);
+        TRACE(simplify_aux_clause_literals, display_literals(tout, num_lits, lits); tout << "\n";);
         std::sort(lits, lits + num_lits);
         literal prev = null_literal;
         unsigned j = 0;
@@ -1144,7 +1144,7 @@ namespace smt {
             lbool   val  = get_assignment(curr);
             switch (val) {
             case l_false:
-                TRACE("simplify_aux_clause_literals", display_literal_verbose(tout << get_assign_level(curr) << " " << get_scope_level() << " " << curr << ":", curr); tout << "\n"; );
+                TRACE(simplify_aux_clause_literals, display_literal_verbose(tout << get_assign_level(curr) << " " << get_scope_level() << " " << curr << ":", curr); tout << "\n"; );
                 if (curr != prev) {
                     prev = curr;
                     simp_lits.push_back(~curr);
@@ -1191,9 +1191,9 @@ namespace smt {
        kind of simplification.
     */
     bool context::simplify_aux_lemma_literals(unsigned & num_lits, literal * lits) {
-        TRACE("simplify_aux_lemma_literals", display_literals(tout << "1) ", num_lits, lits) << "\n";);
+        TRACE(simplify_aux_lemma_literals, display_literals(tout << "1) ", num_lits, lits) << "\n";);
         std::sort(lits, lits + num_lits);
-        TRACE("simplify_aux_lemma_literals", display_literals(tout << "2) ", num_lits, lits) << "\n";);
+        TRACE(simplify_aux_lemma_literals, display_literals(tout << "2) ", num_lits, lits) << "\n";);
         literal prev = null_literal;
         unsigned i = 0;
         unsigned j = 0;
@@ -1215,7 +1215,7 @@ namespace smt {
             }
         }
         num_lits = j;
-        TRACE("simplify_aux_lemma_literals", display_literals(tout << "3) ", num_lits, lits) << "\n";);
+        TRACE(simplify_aux_lemma_literals, display_literals(tout << "3) ", num_lits, lits) << "\n";);
         return true;
     }
     
@@ -1379,7 +1379,7 @@ namespace smt {
        The deletion event handler is ignored if binary clause optimization is applicable.
     */
     clause * context::mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k, clause_del_eh * del_eh) {
-        TRACE("mk_clause", display_literals_verbose(tout << "creating clause: " << literal_vector(num_lits, lits) << "\n", num_lits, lits) << "\n";);
+        TRACE(mk_clause, display_literals_verbose(tout << "creating clause: " << literal_vector(num_lits, lits) << "\n", num_lits, lits) << "\n";);
         m_clause_proof.add(num_lits, lits, k, j);
         literal_buffer simp_lits;
         switch (k) {
@@ -1420,7 +1420,7 @@ namespace smt {
         default:
             break;
         }
-        TRACE("mk_clause", display_literals_verbose(tout << "after simplification: " << literal_vector(num_lits, lits) << "\n", num_lits, lits) << "\n";);
+        TRACE(mk_clause, display_literals_verbose(tout << "after simplification: " << literal_vector(num_lits, lits) << "\n", num_lits, lits) << "\n";);
 
         unsigned activity = 1;
         bool  lemma = is_lemma(k);
@@ -1430,7 +1430,7 @@ namespace smt {
         case 0:
             if (j && !j->in_region())
                 m_justifications.push_back(j);
-            TRACE("mk_clause", tout << "empty clause... setting conflict\n";);
+            TRACE(mk_clause, tout << "empty clause... setting conflict\n";);
             set_conflict(j == nullptr ? b_justification::mk_axiom() : b_justification(j));
             SASSERT(inconsistent());
             return nullptr;
@@ -1482,7 +1482,7 @@ namespace smt {
                     cls->swap_lits(0, w1_idx);
                     int w2_idx = select_watch_lit(cls, 1);
                     cls->swap_lits(1, w2_idx);
-                    TRACE("mk_th_lemma", display_clause(tout, cls); tout << "\n";);
+                    TRACE(mk_th_lemma, display_clause(tout, cls); tout << "\n";);
                 }
                 // display_clause(std::cout, cls); std::cout << "\n";
                 m_lemmas.push_back(cls);
@@ -1517,8 +1517,8 @@ namespace smt {
             
             add_lit_occs(*cls);
             
-            TRACE("add_watch_literal_bug", display_clause_detail(tout, cls););
-            TRACE("mk_clause_result", display_clause_detail(tout, cls););
+            TRACE(add_watch_literal_bug, display_clause_detail(tout, cls););
+            TRACE(mk_clause_result, display_clause_detail(tout, cls););
             CASSERT("mk_clause", check_clause(cls));
             return cls;
         }} 
@@ -1559,7 +1559,7 @@ namespace smt {
     
     void context::mk_th_clause(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params, parameter * params, clause_kind k) {
         justification * js = nullptr;
-        TRACE("mk_th_axiom", display_literals_verbose(tout, num_lits, lits) << "\n";);
+        TRACE(mk_th_axiom, display_literals_verbose(tout, num_lits, lits) << "\n";);
 
         if (m.proofs_enabled()) {
             js = mk_justification(theory_axiom_justification(tid, *this, num_lits, lits, num_params, params));
@@ -1600,7 +1600,7 @@ namespace smt {
     void context::mk_gate_clause(unsigned num_lits, literal * lits) {
         if (m.proofs_enabled()) {
             proof * pr = mk_clause_def_axiom(num_lits, lits, nullptr);
-            TRACE("gate_clause", tout << mk_ll_pp(pr, m););
+            TRACE(gate_clause, tout << mk_ll_pp(pr, m););
             mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
         }
         else if (clause_proof_active()) {
@@ -1641,7 +1641,7 @@ namespace smt {
             expr * fact = m.get_fact(pr);
             if (!m.is_or(fact)) {
                 proof * def = mk_clause_def_axiom(num_lits, lits, m.get_fact(pr));
-                TRACE("gate_clause", tout << mk_ll_pp(def, m) << "\n";
+                TRACE(gate_clause, tout << mk_ll_pp(def, m) << "\n";
                       tout << mk_ll_pp(pr, m););
                 proof * prs[2] = { def, pr };
                 pr  = m.mk_unit_resolution(2, prs);
@@ -1692,7 +1692,7 @@ namespace smt {
             relevancy_eh * eh = m_relevancy_propagator->mk_ite_relevancy_eh(n);
             literal l         = get_literal(n->get_arg(0));
             // when the condition of an ite is assigned to true or false, the ite-parent must be notified.
-            TRACE("propagate_relevant_ite", tout << "#" << n->get_id() << ", eh: " << eh << "\n";);
+            TRACE(propagate_relevant_ite, tout << "#" << n->get_id() << ", eh: " << eh << "\n";);
             add_rel_watch(l, eh);
             add_rel_watch(~l, eh);
         }    
@@ -1709,12 +1709,12 @@ namespace smt {
     
     void context::mk_and_cnstr(app * n) {
         literal l = get_literal(n);
-        TRACE("mk_and_cnstr", tout << "l: "; display_literal(tout, l); tout << "\n";);
+        TRACE(mk_and_cnstr, tout << "l: "; display_literal(tout, l); tout << "\n";);
         literal_buffer buffer;
         buffer.push_back(l);
         for (expr * arg : *n) {
             literal l_arg = get_literal(arg);
-            TRACE("mk_and_cnstr", tout << "l_arg: "; display_literal(tout, l_arg); tout << "\n";);
+            TRACE(mk_and_cnstr, tout << "l_arg: "; display_literal(tout, l_arg); tout << "\n";);
             mk_gate_clause(~l, l_arg);
             buffer.push_back(~l_arg);
         }
@@ -1740,7 +1740,7 @@ namespace smt {
         literal l1 = get_literal(n->get_arg(0));
         literal l2 = get_literal(n->get_arg(1));
         if (sign) l.neg();
-        TRACE("mk_iff_cnstr", tout << "l: " << l << ", l1: " << l1 << ", l2: " << l2 << "\n";);
+        TRACE(mk_iff_cnstr, tout << "l: " << l << ", l1: " << l1 << ", l2: " << l2 << "\n";);
         mk_gate_clause(~l,  l1, ~l2);
         mk_gate_clause(~l, ~l1 , l2);
         mk_gate_clause( l,  l1,  l2);

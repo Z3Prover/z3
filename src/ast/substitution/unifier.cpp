@@ -145,13 +145,13 @@ bool unifier::operator()(unsigned num_exprs, expr ** es, substitution & s, bool 
     reset(num_offsets);
     m_subst = &s;    
 #if 1
-    TRACE("unifier", for (unsigned i = 0; i < num_exprs; ++i) tout << mk_pp(es[i], m_manager) << "\n";);
+    TRACE(unifier, for (unsigned i = 0; i < num_exprs; ++i) tout << mk_pp(es[i], m_manager) << "\n";);
     for (unsigned i = s.get_num_bindings(); i > 0; ) {
         --i;
         std::pair<unsigned,unsigned> bound;
         expr_offset root, child;
         s.get_binding(i, bound, root);
-        TRACE("unifier", tout << bound.first << " |-> " << mk_pp(root.get_expr(), m_manager) << "\n";);
+        TRACE(unifier, tout << bound.first << " |-> " << mk_pp(root.get_expr(), m_manager) << "\n";);
         if (is_var(root.get_expr())) {
             var* v = m_manager.mk_var(bound.first,to_var(root.get_expr())->get_sort());
             child = expr_offset(v, bound.second);

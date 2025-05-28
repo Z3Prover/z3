@@ -285,7 +285,7 @@ namespace datalog {
         if (mc) {
             ast_manager& m = mc->get_manager();
             expr_ref_vector body(m);
-            TRACE("dl", tout << "unreachable: " << unreachable << " " << r.get_decl()->get_name() << "\n");
+            TRACE(dl, tout << "unreachable: " << unreachable << " " << r.get_decl()->get_name() << "\n");
             switch (unreachable) {
             case l_true:
                 body.push_back(m.mk_true());
@@ -304,7 +304,7 @@ namespace datalog {
                 }
                 break;
             }
-            TRACE("dl", 
+            TRACE(dl, 
                   tout << mk_pp(r.get_head(), m) << " :- \n";
                   for (unsigned i = 0; i < body.size(); ++i) {
                       tout << mk_pp(body.get(i), m) << "\n";
@@ -336,7 +336,7 @@ namespace datalog {
         premises.push_back(m.mk_asserted(fml2));
         positions.push_back(std::make_pair(idx+1, 0));
 
-        TRACE("dl", 
+        TRACE(dl, 
               tout << premises[0]->get_id() << " " << mk_pp(premises[0].get(), m) << "\n";
               for (unsigned i = 0; i < s1.size(); ++i) {
                   tout << mk_pp(s1[i], m) << " ";
@@ -374,7 +374,7 @@ namespace datalog {
         premises.push_back(r2.get_proof());
         positions.push_back(std::make_pair(idx+1, 0));
 
-        TRACE("dl", 
+        TRACE(dl, 
               tout << premises[0]->get_id() << " " << mk_pp(premises[0].get(), m) << "\n";
               for (unsigned i = 0; i < s1.size(); ++i) {
                   tout << mk_pp(s1[i], m) << " ";

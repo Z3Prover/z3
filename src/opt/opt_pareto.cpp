@@ -74,7 +74,7 @@ namespace opt {
         fmls.push_back(mk_or(gt));
         fml = mk_and(fmls);
         IF_VERBOSE(10, verbose_stream() << "dominates: " << fml << "\n";);
-        TRACE("opt", model_smt2_pp(tout << fml << "\n", m, *m_model, 0););
+        TRACE(opt, model_smt2_pp(tout << fml << "\n", m, *m_model, 0););
         m_solver->assert_expr(fml);        
     }
 
@@ -87,7 +87,7 @@ namespace opt {
         }
         fml = m.mk_not(mk_and(le));
         IF_VERBOSE(10, verbose_stream() << "not dominated by: " << fml << "\n";);
-        TRACE("opt", tout << fml << "\n";);
+        TRACE(opt, tout << fml << "\n";);
         m_solver->assert_expr(fml);        
     }
 

@@ -59,7 +59,7 @@ struct create_cut {
 
     void int_case_in_gomory_cut(unsigned j) {
         SASSERT(is_int(j) && m_fj.is_pos());
-        TRACE("gomory_cut_detail", 
+        TRACE(gomory_cut_detail, 
               tout << " k = " << m_k;
               tout << ", fj: " << m_fj << ", ";
               tout << (at_lower(j)?"at_lower":"at_upper")<< std::endl;
@@ -81,7 +81,7 @@ struct create_cut {
             push_explanation(column_upper_bound_constraint(j));
         }        
         m_t.add_monomial(new_a, j);
-        TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << "\n";);
+        TRACE(gomory_cut_detail, tout << "new_a = " << new_a << ", k = " << m_k << "\n";);
         if (numerator(new_a) > m_big_number)
             m_found_big = true;
     }
@@ -93,7 +93,7 @@ struct create_cut {
     }
 
     void real_case_in_gomory_cut(const mpq & a, unsigned j) {
-        TRACE("gomory_cut_detail_real", tout << "j = " << j << ", a = " << a << ", m_k = " << m_k << "\n";);
+        TRACE(gomory_cut_detail_real, tout << "j = " << j << ", a = " << a << ", m_k = " << m_k << "\n";);
         mpq new_a;
         if (at_lower(j)) {
             if (a.is_pos()) { 
@@ -126,7 +126,7 @@ struct create_cut {
             push_explanation(column_upper_bound_constraint(j));
         }
         m_t.add_monomial(new_a, j);
-        TRACE("gomory_cut_detail_real", tout << "add " << new_a << "*v" << j << ", k: " << m_k << "\n";
+        TRACE(gomory_cut_detail_real, tout << "add " << new_a << "*v" << j << ", k: " << m_k << "\n";
               tout << "m_t =  "; lia.lra.print_term(m_t, tout) << "\nk: " << m_k << "\n";);
         
         if (numerator(new_a) > m_big_number)
@@ -245,7 +245,7 @@ public:
     }
 
     lia_move cut() {
-        TRACE("gomory_cut", dump(tout););
+        TRACE(gomory_cut, dump(tout););
         // If m_polarity is MAX, then
         // the row constraints the base variable to be at the maximum,
         // MIN - at the minimum,
@@ -257,7 +257,7 @@ public:
         m_t.clear();
         m_ex->clear();
         m_found_big = false;
-        TRACE("gomory_cut_detail", tout << "m_f: " << m_f << ", ";
+        TRACE(gomory_cut_detail, tout << "m_f: " << m_f << ", ";
               tout << "1 - m_f: " << 1 - m_f << ", get_value(m_inf_col).x - m_f = " << get_value(m_inf_col).x - m_f << "\n";);
         SASSERT(m_f.is_pos() && (get_value(m_inf_col).x - m_f).is_int());  
         auto set_polarity_for_int = [&](const mpq & a, lpvar j) {
@@ -319,13 +319,13 @@ public:
         if (m_t.is_empty()) {
             return report_conflict_from_gomory_cut();
         }
-        TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut: "); tout << " >= " << m_k << std::endl;);
+        TRACE(gomory_cut, print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut: "); tout << " >= " << m_k << std::endl;);
         
         m_dep = nullptr;
         for (auto c : *m_ex) 
          	m_dep = lia.lra.join_deps(lia.lra.dep_manager().mk_leaf(c.ci()), m_dep);
 
-        TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout);
+        TRACE(gomory_cut_detail, dump_cut_and_constraints_as_smt_lemma(tout);
               lia.lra.display(tout));
         SASSERT(lia.current_solution_is_inf_on_cut());
               
@@ -363,7 +363,7 @@ public:
             if (p.coeff().is_int() && lia.column_is_int(j) && lia.get_value(j).is_int()) continue;
             
             if ( !lia.at_bound(j) || lia.get_value(j).y != 0) {
-                TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
+                TRACE(gomory_cut, tout << "row is not gomory cut target:\n";
                       lia.display_column(tout, j);
                       tout << "infinitesimal: " << !(lia.get_value(j).y ==0) << "\n";);
                 return false;

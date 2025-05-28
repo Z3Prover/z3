@@ -323,7 +323,7 @@ namespace opt {
         
         lbool is_sat = s.check_sat(asms.size(), asms.data());
 
-        TRACE("opt", s.display(tout << "initial search result: " << is_sat << "\n");); 
+        TRACE(opt, s.display(tout << "initial search result: " << is_sat << "\n");); 
         if (is_sat != l_false) {
             s.get_model(m_model);
             s.get_labels(m_labels);
@@ -333,7 +333,7 @@ namespace opt {
             }
         }        
         if (is_sat != l_true) {
-            TRACE("opt", tout << m_hard_constraints << " " << asms << "\n";);            
+            TRACE(opt, tout << m_hard_constraints << " " << asms << "\n";);            
             if (!asms.empty()) {
                 s.get_unsat_core(m_core);
             }
@@ -341,7 +341,7 @@ namespace opt {
         }
         s.assert_expr(asms);
         IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n");
-        TRACE("opt", model_smt2_pp(tout, m, *m_model, 0););
+        TRACE(opt, model_smt2_pp(tout, m, *m_model, 0););
         m_optsmt.setup(*m_opt_solver.get());
         update_lower();
         
@@ -389,7 +389,7 @@ namespace opt {
 
     void context::fix_model(model_ref& mdl) {
         if (mdl && !m_model_fixed.contains(mdl.get())) {
-            TRACE("opt", m_fm->display(tout << "fix-model\n");
+            TRACE(opt, m_fm->display(tout << "fix-model\n");
                   tout << *mdl << "\n";
                   if (m_model_converter) m_model_converter->display(tout););
             (*m_fm)(mdl);
@@ -433,10 +433,10 @@ namespace opt {
 
     void context::get_model_core(model_ref& mdl) {
         mdl = m_model;
-        CTRACE("opt", mdl, tout << *mdl;);
+        CTRACE(opt, mdl, tout << *mdl;);
         fix_model(mdl);
         if (mdl) mdl->set_model_completion(true);
-        CTRACE("opt", mdl, tout << *mdl;);
+        CTRACE(opt, mdl, tout << *mdl;);
     }
 
     void context::get_box_model(model_ref& mdl, unsigned index) {
@@ -530,7 +530,7 @@ namespace opt {
     lbool context::execute_box() {
         if (m_box_index < m_box_models.size()) {
             m_model = m_box_models[m_box_index];
-            CTRACE("opt", m_model, tout << *m_model << "\n";);
+            CTRACE(opt, m_model, tout << *m_model << "\n";);
             ++m_box_index;           
             return l_true;
         }
@@ -562,7 +562,7 @@ namespace opt {
         }
         if (r == l_true && !m_box_models.empty()) {
             m_model = m_box_models[0];
-            CTRACE("opt", m_model, tout << *m_model << "\n";);
+            CTRACE(opt, m_model, tout << *m_model << "\n";);
         }
         return r;
     }
@@ -615,7 +615,7 @@ namespace opt {
                     k += obj.m_weights[i];
                 }
                 else {
-                    TRACE("opt", tout << (*mdl)(obj.m_terms[i]) << "\n";);
+                    TRACE(opt, tout << (*mdl)(obj.m_terms[i]) << "\n";);
                 }
             }
             if (is_ge) {
@@ -627,7 +627,7 @@ namespace opt {
             break;
         }
         }
-        TRACE("opt", 
+        TRACE(opt, 
               tout << (is_ge?">= ":"<= ") << k << "\n";
               display_objective(tout, obj);
               tout << "\n";
@@ -651,7 +651,7 @@ namespace opt {
         m_pareto->get_model(m_model, m_labels);
         update_bound(true);
         update_bound(false);
-        TRACE("opt", model_smt2_pp(tout, m, *m_model.get(), 0););
+        TRACE(opt, model_smt2_pp(tout, m, *m_model.get(), 0););
     }
 
     lbool context::execute_pareto() {        
@@ -910,12 +910,12 @@ namespace opt {
             set_simplify(tac0.get());
         }
         goal_ref_buffer result;
-        TRACE("opt", g->display(tout););
+        TRACE(opt, g->display(tout););
         (*m_simplify)(g, result); 
         SASSERT(result.size() == 1);
         goal* r = result[0];
         m_model_converter = r->mc();
-        CTRACE("opt", r->mc(), r->mc()->display(tout););
+        CTRACE(opt, r->mc(), r->mc()->display(tout););
         fmls.reset();
         expr_ref tmp(m);
         for (unsigned i = 0; i < r->size(); ++i) {
@@ -1010,7 +1010,7 @@ namespace opt {
         bool is_max = is_maximize(fml, term, orig_term, index);
         bool is_min = !is_max && is_minimize(fml, term, orig_term, index);
         if (is_min && get_pb_sum(term, terms, weights, offset)) {
-            TRACE("opt", tout << "try to convert minimization\n" << mk_pp(term, m) << "\n";);
+            TRACE(opt, tout << "try to convert minimization\n" << mk_pp(term, m) << "\n";);
             // minimize 2*x + 3*y 
             // <=>
             // (assert-soft (not x) 2)
@@ -1025,7 +1025,7 @@ namespace opt {
                     terms[i] = mk_not(m, terms[i].get());
                 }
             }
-            TRACE("opt", 
+            TRACE(opt, 
                   tout << "Convert minimization " << orig_term << "\n";
                   tout << "to maxsat: " << term << "\n";
                   for (unsigned i = 0; i < weights.size(); ++i) {
@@ -1039,7 +1039,7 @@ namespace opt {
             return true;
         }
         if (is_max && get_pb_sum(term, terms, weights, offset)) {
-            TRACE("opt", tout << "try to convert maximization " << mk_pp(term, m) << "\n";);
+            TRACE(opt, tout << "try to convert maximization " << mk_pp(term, m) << "\n";);
             // maximize 2*x + 3*y - z 
             // <=>
             // (assert-soft x 2)
@@ -1117,7 +1117,7 @@ namespace opt {
     }
 
     void context::from_fmls(expr_ref_vector const& fmls) {
-        TRACE("opt", tout << fmls << "\n";);
+        TRACE(opt, tout << fmls << "\n";);
         m_hard_constraints.reset();
         for (expr * fml : fmls) {
             app_ref tr(m);
@@ -1147,7 +1147,7 @@ namespace opt {
                 obj.m_weights.append(weights);
                 obj.m_adjust_value.set_offset(offset);
                 obj.m_adjust_value.set_negate(neg);
-                TRACE("opt", tout << "maxsat: " << neg << " " << id << " offset: " << offset << "\n";
+                TRACE(opt, tout << "maxsat: " << neg << " " << id << " offset: " << offset << "\n";
                       tout << terms << "\n";);
             }
             else if (is_maximize(fml, tr, orig_term, index)) {
@@ -1206,17 +1206,17 @@ namespace opt {
         val = (*mdl)(term);
         unsigned bvsz;
         if (!m_arith.is_numeral(val, r) && !m_bv.is_numeral(val, r, bvsz)) {
-            TRACE("opt", tout << "model does not evaluate objective to a value but instead " << val << "\n";
+            TRACE(opt, tout << "model does not evaluate objective to a value but instead " << val << "\n";
                   tout << *mdl << "\n";
                   );
             return false;
         }
         if (r != v) {
-            TRACE("opt", tout << "Out of bounds: " << term << " " << val << " != " << v << "\n";);
+            TRACE(opt, tout << "Out of bounds: " << term << " " << val << " != " << v << "\n";);
             return false;
         }
         else {
-            TRACE("opt", tout << "validated: " << term << " = " << val << "\n";);
+            TRACE(opt, tout << "validated: " << term << " = " << val << "\n";);
         }
         return true;
     }
@@ -1236,7 +1236,7 @@ namespace opt {
             term = m_arith.mk_add(args.size(), args.data());
         }
         else if (m.is_ite(term) || !is_mul_const(term)) {
-            TRACE("opt", tout << "Purifying " << term << "\n";);
+            TRACE(opt, tout << "Purifying " << term << "\n";);
             term = purify(fm, term);
         }
         if (fm) {
@@ -1309,7 +1309,7 @@ namespace opt {
                 break;
             }
         }
-        TRACE("opt", tout << fmls << "\n";);
+        TRACE(opt, tout << fmls << "\n";);
     }
 
     void context::internalize() {
@@ -1346,10 +1346,10 @@ namespace opt {
             switch(obj.m_type) {
             case O_MINIMIZE: {
                 val = (*m_model)(obj.m_term);
-                TRACE("opt", tout << obj.m_term << " " << val << "\n";);
+                TRACE(opt, tout << obj.m_term << " " << val << "\n";);
                 if (is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
-                    TRACE("opt", tout << "adjusted value: " << val << "\n";);
+                    TRACE(opt, tout << "adjusted value: " << val << "\n";);
                     if (is_lower) {
                         m_optsmt.update_lower(obj.m_index, val);
                     }
@@ -1361,10 +1361,10 @@ namespace opt {
             }
             case O_MAXIMIZE: {
                 val = (*m_model)(obj.m_term);
-                TRACE("opt", tout << obj.m_term << " " << val << "\n";);
+                TRACE(opt, tout << obj.m_term << " " << val << "\n";);
                 if (is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
-                    TRACE("opt", tout << "adjusted value: " << val << "\n";);
+                    TRACE(opt, tout << "adjusted value: " << val << "\n";);
                     if (is_lower) {
                         m_optsmt.update_lower(obj.m_index, val);
                     }
@@ -1377,7 +1377,7 @@ namespace opt {
             case O_MAXSMT: {
                 for (unsigned j = 0; j < obj.m_terms.size(); ++j) {
                     val = (*m_model)(obj.m_terms[j]);
-                    TRACE("opt", tout << mk_pp(obj.m_terms[j], m) << " " << val << "\n";);
+                    TRACE(opt, tout << mk_pp(obj.m_terms[j], m) << " " << val << "\n";);
                     if (!m.is_true(val)) 
                         r += obj.m_weights[j];
                 }
@@ -1385,11 +1385,11 @@ namespace opt {
                 maxsmt& ms = *m_maxsmts.find(obj.m_id);
                 if (is_lower) {
                     ms.update_upper(r);
-                    TRACE("opt", tout << "update upper from " << r << " to " << ms.get_upper() << "\n";);           
+                    TRACE(opt, tout << "update upper from " << r << " to " << ms.get_upper() << "\n";);           
                 }
                 else {
                     ms.update_lower(r);
-                    TRACE("opt", tout << "update lower from " << r << " to " << ms.get_lower() << "\n";);           
+                    TRACE(opt, tout << "update lower from " << r << " to " << ms.get_lower() << "\n";);           
                 }
                 break;
             }
@@ -1737,7 +1737,7 @@ namespace opt {
 
     void context::validate_maxsat(symbol const& id) {
         maxsmt& ms = *m_maxsmts.find(id);
-        TRACE("opt", tout << "Validate: " << id << "\n";);
+        TRACE(opt, tout << "Validate: " << id << "\n";);
         for (objective const& obj : m_objectives) {
             if (obj.m_id == id && obj.m_type == O_MAXSMT) {        
                 SASSERT(obj.m_type == O_MAXSMT);
@@ -1752,7 +1752,7 @@ namespace opt {
                 }
                 value = obj.m_adjust_value(value);
                 rational value0 = ms.get_lower();
-                TRACE("opt", tout << "value " << value << " " << value0 << "\n";);
+                TRACE(opt, tout << "value " << value << " " << value0 << "\n";);
                 // TBD is this correct? SASSERT(value == value0);
             }
         }
@@ -1778,7 +1778,7 @@ namespace opt {
                 }
                 maxsmt& ms = *m_maxsmts.find(obj.m_id);
                 rational value0 = ms.get_lower();
-                TRACE("opt", tout << "value " << value << " other " << value0 << "\n";);
+                TRACE(opt, tout << "value " << value << " other " << value0 << "\n";);
                 // TBD SASSERT(value0 == value);
                 break;
             }

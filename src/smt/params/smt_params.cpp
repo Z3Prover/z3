@@ -370,7 +370,7 @@ void smt_params::setup_QF_AUFLIA(static_features const& st) {
         throw default_exception("Benchmark has real variables but it is marked as QF_AUFLIA (arrays, uninterpreted functions and linear integer arithmetic).");
     m_nnf_cnf             = false;
     if (st.m_num_clauses == st.m_num_units) {
-        TRACE("QF_AUFLIA", tout << "using relevancy: 0\n";);
+        TRACE(QF_AUFLIA, tout << "using relevancy: 0\n";);
         m_relevancy_lvl       = 0;
         m_phase_selection     = PS_ALWAYS_FALSE;
     }

@@ -299,7 +299,7 @@ struct purify_arith_proc {
 
         void push_cnstr(expr * cnstr) {
             m_new_cnstrs.push_back(cnstr);
-            TRACE("purify_arith", tout << mk_pp(cnstr, m()) << "\n";);
+            TRACE(purify_arith, tout << mk_pp(cnstr, m()) << "\n";);
         }
 
         void cache_result(app * t, expr * r, proof * pr) {
@@ -765,7 +765,7 @@ struct purify_arith_proc {
         expr_ref new_body(m());
         proof_ref new_body_pr(m());
         r(q->get_expr(), new_body, new_body_pr);
-        TRACE("purify_arith", 
+        TRACE(purify_arith, 
               tout << "body: " << mk_ismt2_pp(q->get_expr(), m()) << "\nnew_body: " << new_body << "\n";);
         result = m().update_quantifier(q, new_body);
         if (m_produce_proofs) {
@@ -792,8 +792,8 @@ struct purify_arith_proc {
         
         // add constraints
         sz = r.cfg().m_new_cnstrs.size();
-        TRACE("purify_arith", tout << r.cfg().m_new_cnstrs << "\n";);
-        TRACE("purify_arith", tout << r.cfg().m_new_cnstr_prs << "\n";);
+        TRACE(purify_arith, tout << r.cfg().m_new_cnstrs << "\n";);
+        TRACE(purify_arith, tout << r.cfg().m_new_cnstr_prs << "\n";);
         for (unsigned i = 0; i < sz; i++) {
             m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : nullptr, nullptr);
         }
@@ -923,7 +923,7 @@ public:
                     goal_ref_buffer & result) override {
         try {
             tactic_report report("purify-arith", *g);
-            TRACE("goal", g->display(tout););
+            TRACE(goal, g->display(tout););
             bool produce_proofs = g->proofs_enabled();
             bool produce_models = g->models_enabled();
             bool elim_root_objs = m_params.get_bool("elim_root_objects", true);

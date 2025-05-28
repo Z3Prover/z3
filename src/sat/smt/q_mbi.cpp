@@ -197,7 +197,7 @@ namespace q {
         expr_ref_vector eqs(m);
         add_domain_bounds(mdl, qb);
         auto proj = solver_project(mdl, qb, eqs, false);
-        CTRACE("q", !proj, tout << "could not project " << qb.mbody << " " << eqs << "\n" << mdl);
+        CTRACE(q, !proj, tout << "could not project " << qb.mbody << " " << eqs << "\n" << mdl);
         if (!proj)
             return false;
         add_instantiation(q, proj);
@@ -234,7 +234,7 @@ namespace q {
         if (is_exists(q))
             qlit.neg();
         ctx.rewrite(proj);
-        TRACE("q", tout << "project: " << proj << "\n";);
+        TRACE(q, tout << "project: " << proj << "\n";);
         IF_VERBOSE(11, verbose_stream() << "mbi:\n" << mk_pp(q, m) << "\n" << proj << "\n");
         ++m_stats.m_num_instantiations;        
         unsigned generation = ctx.get_max_generation(proj);
@@ -280,7 +280,7 @@ namespace q {
         mbody = subst(mbody, result->vars);
         if (is_forall(q))
             mbody = mk_not(m, mbody);
-        TRACE("q", tout << "specialize " << mbody << "\n";);
+        TRACE(q, tout << "specialize " << mbody << "\n";);
         return result;
     }
 
@@ -319,7 +319,7 @@ namespace q {
         app_ref_vector vars(qb.vars);
         bool fmls_extracted = false;
         m_defs.reset();
-        TRACE("q",
+        TRACE(q,
               tout << "Project\n";
               tout << fmls << "\n";
               tout << "model\n";
@@ -337,13 +337,13 @@ namespace q {
             app* v = vars.get(i);
             auto* p = get_plugin(v);
             if (p && !fmls_extracted) {
-                TRACE("q", tout << "domain eqs\n" << qb.domain_eqs << "\n";);
+                TRACE(q, tout << "domain eqs\n" << qb.domain_eqs << "\n";);
                                 
                 fmls.append(qb.domain_eqs);
                 eliminate_nested_vars(fmls, qb);
                 for (expr* e : fmls)
                     if (!m_model->is_true(e)) {
-                        TRACE("q", tout << "not true: " << mk_pp(e, m) << " := " << (*m_model)(e) << "\n");
+                        TRACE(q, tout << "not true: " << mk_pp(e, m) << " := " << (*m_model)(e) << "\n");
                         return expr_ref(nullptr, m);
                     }
                 mbp::project_plugin proj(m);
@@ -357,21 +357,21 @@ namespace q {
                     return expr_ref(m);                    
             }
             else if (!(*p)(*m_model, vars, fmls)) {
-                TRACE("q", tout << "theory projection failed - use value\n");
+                TRACE(q, tout << "theory projection failed - use value\n");
             }
         }
         for (app* v : vars) {
             expr_ref term(m);
             expr_ref val = (*m_model)(v);
             term = replace_model_value(val);
-            TRACE("euf", tout << "replaced model value " << term << "\nfrom\n" << val << "\n");
+            TRACE(euf, tout << "replaced model value " << term << "\nfrom\n" << val << "\n");
             rep.insert(v, term);
             if (ctx.use_drat())
                 m_defs.push_back({expr_ref(v, m), term});
             eqs.push_back(m.mk_eq(v, val));
         }
         rep(fmls);
-        TRACE("q", tout << "generated formulas\n" << fmls << "\ngenerated eqs:\n" << eqs << "\n";
+        TRACE(q, tout << "generated formulas\n" << fmls << "\ngenerated eqs:\n" << eqs << "\n";
                     for (auto const& [v,t] : m_defs) tout << v << " := " << t << "\n");
         return mk_and(fmls);
     }
@@ -436,7 +436,7 @@ namespace q {
 
     void mbqi::assert_expr(expr* e) {
         expr_ref _e(e, m);
-        TRACE("q", tout << _e << "\n");
+        TRACE(q, tout << _e << "\n");
         m_solver->assert_expr(e);
     }
 

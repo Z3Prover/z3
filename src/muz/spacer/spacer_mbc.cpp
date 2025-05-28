@@ -94,7 +94,7 @@ void mbc::operator()(const partition_map &pmap, expr_ref_vector &lits,
         }
     }
 
-    TRACE("mbc", tout << "Input: " << lits << "\n"
+    TRACE(mbc, tout << "Input: " << lits << "\n"
           << "Output: \n";
           for (auto &vec : res) tout << vec << "\n==================\n";);
 }

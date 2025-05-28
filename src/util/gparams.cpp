@@ -612,7 +612,7 @@ void gparams::reset() {
 }
 
 void gparams::set(char const * name, char const * value) {
-    TRACE("gparams", tout << "setting [" << name << "] <- '" << value << "'\n";);
+    TRACE(gparams, tout << "setting [" << name << "] <- '" << value << "'\n";);
     SASSERT(g_imp);
     g_imp->set(name, value);
 }
@@ -654,7 +654,7 @@ params_ref gparams::get_module(char const * module_name) {
 
 
 params_ref const& gparams::get_ref() {
-    TRACE("gparams", tout << "gparams::get_ref()\n";);
+    TRACE(gparams, tout << "gparams::get_ref()\n";);
     SASSERT(g_imp);
     return g_imp->get_ref();
 }
@@ -689,13 +689,13 @@ void gparams::display_parameter(std::ostream & out, char const * name) {
 }
 
 void gparams::init() {
-    TRACE("gparams", tout << "gparams::init()\n";);
+    TRACE(gparams, tout << "gparams::init()\n";);
     ALLOC_MUTEX(gparams_mux);
     g_imp = alloc(imp);
 }
 
 void gparams::finalize() {
-    TRACE("gparams", tout << "gparams::finalize()\n";);
+    TRACE(gparams, tout << "gparams::finalize()\n";);
     dealloc(g_imp);
     DEALLOC_MUTEX(gparams_mux);
 }

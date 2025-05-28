@@ -82,13 +82,13 @@ namespace sat {
         else {
             m_to_assert.reset();
             s.push();
-            TRACE("sat", tout << "probing " << l << "\n";);
+            TRACE(sat, tout << "probing " << l << "\n";);
             s.assign_scoped(l);
             m_counter--;
             unsigned old_tr_sz = s.m_trail.size();
             s.propagate(false);
             if (s.inconsistent()) {
-                TRACE("sat", tout << "probe failed: " << ~l << "\n";);
+                TRACE(sat, tout << "probe failed: " << ~l << "\n";);
                 // ~l must be true
                 s.drat_explain_conflict();
                 s.pop(1);
@@ -121,19 +121,19 @@ namespace sat {
     }
 
     void probing::process_core(bool_var v) {
-        TRACE("probing", tout << "processing: " << v << " counter: " << -m_counter << "\n";);
+        TRACE(probing, tout << "processing: " << v << " counter: " << -m_counter << "\n";);
         SASSERT(s.m_qhead == s.m_trail.size());
         SASSERT(s.value(v) == l_undef);
         m_counter--;
         s.push();
         literal l(v, false);
         s.assign_scoped(l);
-        TRACE("sat", tout << "probing " << l << "\n";);
+        TRACE(sat, tout << "probing " << l << "\n";);
         unsigned old_tr_sz = s.m_trail.size();
         s.propagate(false);
         if (s.inconsistent()) {
             // ~l must be true
-            TRACE("sat", tout << "probe failed: " << ~l << "\n";
+            TRACE(sat, tout << "probe failed: " << ~l << "\n";
                   s.display(tout););
             s.drat_explain_conflict();
             s.pop(1);

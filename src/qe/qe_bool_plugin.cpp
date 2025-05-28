@@ -62,7 +62,7 @@ namespace qe {
             expr_ref val_x(m);
             rational val;
             model_eval(x.x(), val_x);
-            CTRACE("qe", (!m.is_true(val_x) && !m.is_false(val_x)),
+            CTRACE(qe, (!m.is_true(val_x) && !m.is_false(val_x)),
                    tout << "Boolean is a don't care: " << mk_pp(x.x(), m) << "\n";);
             val = m.is_true(val_x)?rational::one():rational::zero();
             subst(x, val, fml, nullptr);
@@ -131,7 +131,7 @@ namespace qe {
             app* x = contains_x.x();            
             bool p = m_ctx.pos_atoms().contains(x);
             bool n = m_ctx.neg_atoms().contains(x);
-            TRACE("quant_elim", tout << mk_pp(x, m) << " " << mk_pp(fml, m) << "\n";);
+            TRACE(quant_elim, tout << mk_pp(x, m) << " " << mk_pp(fml, m) << "\n";);
             if (p && n) {
                 return false;
             }

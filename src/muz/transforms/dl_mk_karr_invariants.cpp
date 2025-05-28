@@ -200,7 +200,7 @@ namespace datalog {
         mk_backwards bwd(m_ctx);
 
         scoped_ptr<rule_set> src_loop = lc(source);
-        TRACE("dl", src_loop->display(tout << "source loop\n"););
+        TRACE(dl, src_loop->display(tout << "source loop\n"););
 
         get_invariants(*src_loop);
 
@@ -214,7 +214,7 @@ namespace datalog {
         scoped_ptr<rule_set> src_annot = update_rules(*src_loop);
         rule_set* rules = lc.revert(*src_annot);
         rules->inherit_predicates(source);
-        TRACE("dl", rules->display(tout););
+        TRACE(dl, rules->display(tout););
         m_pinned.reset();
         m_fun2inv.reset();
         return rules;

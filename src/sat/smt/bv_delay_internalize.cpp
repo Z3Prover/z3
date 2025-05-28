@@ -132,7 +132,7 @@ namespace bv {
         if (r1 == r2)
             return true;
 
-        TRACE("bv", tout << mk_bounded_pp(e, m) << " evaluates to " << r1 << " arguments: " << args << "\n";);
+        TRACE(bv, tout << mk_bounded_pp(e, m) << " evaluates to " << r1 << " arguments: " << args << "\n";);
         // check x*0 = 0
         if (!check_mul_zero(e, args, r1, r2))
             return false;
@@ -207,7 +207,7 @@ namespace bv {
         };
         auto add_inv = [&](expr* s) {
             inv = invert(s, n);
-            TRACE("bv", tout << "enforce " << inv << "\n";);
+            TRACE(bv, tout << "enforce " << inv << "\n";);
             add_unit(eq_internalize(inv, n));
         };
         bool ok = true;
@@ -280,14 +280,14 @@ namespace bv {
             expr_ref mul1(m.mk_app(n->get_decl(), arg_values[0], n->get_arg(1)), m);
             set_delay_internalize(mul1, internalize_mode::init_bits_only_i);
             add_unit(eq_internalize(mul1, n->get_arg(1)));
-            TRACE("bv", tout << mul1 << "\n";);
+            TRACE(bv, tout << mul1 << "\n";);
             return false;
         }
         if (bv.is_one(arg_values[1])) {
             expr_ref mul1(m.mk_app(n->get_decl(), n->get_arg(0), arg_values[1]), m);
             set_delay_internalize(mul1, internalize_mode::init_bits_only_i);
             add_unit(eq_internalize(mul1, n->get_arg(0)));
-            TRACE("bv", tout << mul1 << "\n";);
+            TRACE(bv, tout << mul1 << "\n";);
             return false;
         }
         return true;

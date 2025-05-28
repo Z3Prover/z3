@@ -192,7 +192,7 @@ public:
         labels_vec labels;
         goal_ref g = alloc(goal, m, ctx.produce_proofs(), ctx.produce_models(), ctx.produce_unsat_cores());
         assert_exprs_from(ctx, *g);
-        TRACE("check_sat_using", g->display(tout););
+        TRACE(check_sat_using, g->display(tout););
         model_ref           md;
         proof_ref           pr(m);
         expr_dependency_ref core(m);

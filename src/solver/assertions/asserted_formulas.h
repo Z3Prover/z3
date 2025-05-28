@@ -124,7 +124,7 @@ class asserted_formulas {
         distribute_forall_fn(asserted_formulas& af): simplify_fmls(af, "distribute-forall"), m_functor(af.m) {}
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_functor(j.fml(), n); }
         bool should_apply() const override { return af.m_smt_params.m_distribute_forall && af.has_quantifiers(); }
-        void post_op() override { af.reduce_and_solve();  TRACE("asserted_formulas", af.display(tout);); }
+        void post_op() override { af.reduce_and_solve();  TRACE(asserted_formulas, af.display(tout);); }
     };
 
     class pattern_inference_fn : public simplify_fmls {

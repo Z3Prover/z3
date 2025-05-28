@@ -106,7 +106,7 @@ namespace datalog {
             }            
             
         }
-        TRACE("dl", result->display(tout););
+        TRACE(dl, result->display(tout););
         return result.detach();
     }
 

@@ -46,7 +46,7 @@ class fix_dl_var_tactic : public tactic {
         }
         
         void throw_failed(expr * ctx1, expr * ctx2 = nullptr) {
-            TRACE("fix_dl_var", tout << mk_ismt2_pp(ctx1, m) << "\n"; if (ctx2) tout << mk_ismt2_pp(ctx2, m) << "\n";);
+            TRACE(fix_dl_var, tout << mk_ismt2_pp(ctx1, m) << "\n"; if (ctx2) tout << mk_ismt2_pp(ctx2, m) << "\n";);
             throw failed();
         }
         
@@ -104,7 +104,7 @@ class fix_dl_var_tactic : public tactic {
                 visit(s, nested);
             }
             else {
-                CTRACE("fix_dl_var", m_util.is_add(lhs, t, ms),
+                CTRACE(fix_dl_var, m_util.is_add(lhs, t, ms),
                        s = 0;
                        tout << "is_times_minus_one: " << m_util.is_times_minus_one(ms, s) << "\n";
                        tout << "is_uninterp(t):     " << is_uninterp(t) << "\n";
@@ -197,7 +197,7 @@ class fix_dl_var_tactic : public tactic {
             app * r1, * r2;
             r1 = most_occs(m_non_nested_occs, best1);
             r2 = most_occs(m_occs, best2);
-            TRACE("fix_dl_var", 
+            TRACE(fix_dl_var, 
                   if (r1) {
                       tout << "r1 occs: " << best1 << "\n";
                       tout << mk_ismt2_pp(r1, m) << "\n";
@@ -246,7 +246,7 @@ class fix_dl_var_tactic : public tactic {
                         goal_ref_buffer & result) {
             tactic_report report("fix-dl-var", *g);
             m_produce_models    = g->models_enabled();
-            TRACE("fix_dl_var", g->display(tout););
+            TRACE(fix_dl_var, g->display(tout););
 
             app * var = is_target(u)(*g);
             if (var != nullptr) {

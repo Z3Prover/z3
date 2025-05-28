@@ -33,7 +33,7 @@ model_converter * fpa2bv_model_converter::translate(ast_translation & translator
 }
 
 void fpa2bv_model_converter::convert(model_core * mc, model * float_mdl) {
-    TRACE("fpa2bv_mc", tout << "BV Model: " << std::endl;
+    TRACE(fpa2bv_mc, tout << "BV Model: " << std::endl;
         for (unsigned i = 0; i < mc->get_num_constants(); i++)
             tout << mc->get_constant(i)->get_name() << " --> " <<
                     mk_ismt2_pp(mc->get_const_interp(mc->get_constant(i)), m) << std::endl;
@@ -69,7 +69,7 @@ void fpa2bv_model_converter::convert(model_core * mc, model * float_mdl) {
     for (unsigned i = 0; i < sz; i++) {
         func_decl * f = mc->get_function(i);
         if (!seen.contains(f)) {
-            TRACE("fpa2bv_mc", tout << "Keeping: " << mk_ismt2_pp(f, m) << std::endl;);
+            TRACE(fpa2bv_mc, tout << "Keeping: " << mk_ismt2_pp(f, m) << std::endl;);
             func_interp * val = mc->get_func_interp(f)->copy();
             float_mdl->register_decl(f, val);
         }

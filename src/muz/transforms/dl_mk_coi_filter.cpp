@@ -92,7 +92,7 @@ namespace datalog {
             }
         }
         if (res->get_num_rules() == source.get_num_rules()) {
-            TRACE("dl", tout << "No transformation\n";);
+            TRACE(dl, tout << "No transformation\n";);
             res = nullptr;
         } 
         else {
@@ -108,9 +108,9 @@ namespace datalog {
             for (func_decl* f : unreachable) 
                 mc0->add(f, m.mk_false());
             m_context.add_model_converter(mc0);
-            TRACE("dl", m_context.get_model_converter()->display(tout););
+            TRACE(dl, m_context.get_model_converter()->display(tout););
         }
-        CTRACE("dl", res, res->display(tout););
+        CTRACE(dl, res, res->display(tout););
         return res.detach();
     }
 
@@ -147,7 +147,7 @@ namespace datalog {
         }
 
         if (res->get_num_rules() == source.get_num_rules()) {
-            TRACE("dl", tout << "No transformation\n";);
+            TRACE(dl, tout << "No transformation\n";);
             res = nullptr;
         }
         if (res && m_context.get_model_converter() && !pruned_preds.empty()) {
@@ -171,7 +171,7 @@ namespace datalog {
             }
             m_context.add_model_converter(mc0);
         }
-        CTRACE("dl", 0 != res, res->display(tout););
+        CTRACE(dl, 0 != res, res->display(tout););
         return res.detach();
     }
 }

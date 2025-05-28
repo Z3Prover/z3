@@ -271,14 +271,14 @@ bool bound_propagator::assert_lower_core(var x, mpq & k, bool strict, bkind bk, 
         SASSERT(m.is_int(k));
         strict = false;
     }
-    TRACE("bound_propagator_detail", tout << "new lower x" << x << " " << m.to_string(k) << " strict: " << strict << "\n";);
+    TRACE(bound_propagator_detail, tout << "new lower x" << x << " " << m.to_string(k) << " strict: " << strict << "\n";);
 
     bound * old_lower = m_lowers[x];
     if (old_lower) {
         bool improves = m.gt(k, old_lower->m_k) || (!old_lower->m_strict && strict && m.eq(k, old_lower->m_k));
         if (!improves) {
             if (bk == DERIVED) {
-                TRACE("bound_propagator_detail", tout << "false alarm\n";);
+                TRACE(bound_propagator_detail, tout << "false alarm\n";);
                 m_false_alarms++;
             }
             return false;
@@ -286,7 +286,7 @@ bool bound_propagator::assert_lower_core(var x, mpq & k, bool strict, bkind bk, 
     }
     
     if (bk == DERIVED) {
-        TRACE("bound_propagator_derived", tout << "new lower x" << x << " " << m.to_string(k) << " strict: " << strict << "\n";);
+        TRACE(bound_propagator_derived, tout << "new lower x" << x << " " << m.to_string(k) << " strict: " << strict << "\n";);
         m_propagations++;
     }
 
@@ -294,10 +294,10 @@ bool bound_propagator::assert_lower_core(var x, mpq & k, bool strict, bkind bk, 
         bk = AXIOM; // don't need justification at level 0
 
     double approx_k = m.get_double(k);
-    TRACE("new_bound", tout << "x" << x << " lower: " << m.to_string(k) << " approx: " << approx_k << "\n";);
+    TRACE(new_bound, tout << "x" << x << " lower: " << m.to_string(k) << " approx: " << approx_k << "\n";);
 #ifdef RELAX_BOUNDS
     approx_k = PRECISION*floor(approx_k*INV_PRECISION + TOLERANCE);
-    TRACE("new_bound", tout << "x" << x << " lower: " << m.to_string(k) << " relaxed approx: " << approx_k << "\n";);
+    TRACE(new_bound, tout << "x" << x << " lower: " << m.to_string(k) << " relaxed approx: " << approx_k << "\n";);
 #endif
     void  * mem = m_allocator.allocate(sizeof(bound));
     bound * new_lower = new (mem) bound(m, k, approx_k, true, strict, scope_lvl(), m_timestamp, bk, c_idx, a, old_lower);
@@ -323,14 +323,14 @@ bool bound_propagator::assert_upper_core(var x, mpq & k, bool strict, bkind bk, 
         strict = false;
     }
 
-    TRACE("bound_propagator_detail", tout << "new upper x" << x << " " << m.to_string(k) << " strict: " << strict << "\n";);
+    TRACE(bound_propagator_detail, tout << "new upper x" << x << " " << m.to_string(k) << " strict: " << strict << "\n";);
 
     bound * old_upper = m_uppers[x];
     if (old_upper) {
         bool improves = m.lt(k, old_upper->m_k) || (!old_upper->m_strict && strict && m.eq(k, old_upper->m_k));
         if (!improves) {
             if (bk == DERIVED) {
-                TRACE("bound_propagator_detail", tout << "false alarm\n";);
+                TRACE(bound_propagator_detail, tout << "false alarm\n";);
                 m_false_alarms++;
             }
             return false;
@@ -339,17 +339,17 @@ bool bound_propagator::assert_upper_core(var x, mpq & k, bool strict, bkind bk, 
 
     if (bk == DERIVED) {
         m_propagations++;
-        TRACE("bound_propagator_derived", tout << "new upper x" << x << " " << m.to_string(k) << " strict: " << strict << "\n";);
+        TRACE(bound_propagator_derived, tout << "new upper x" << x << " " << m.to_string(k) << " strict: " << strict << "\n";);
     }
 
     if (scope_lvl() == 0 && bk == DERIVED)
         bk = AXIOM; // don't need justification at level 0
 
     double approx_k = m.get_double(k);
-    TRACE("new_bound", tout << "x" << x << " upper: " << m.to_string(k) << " approx: " << approx_k << "\n";);
+    TRACE(new_bound, tout << "x" << x << " upper: " << m.to_string(k) << " approx: " << approx_k << "\n";);
 #ifdef RELAX_BOUNDS
     approx_k = PRECISION*ceil(approx_k*INV_PRECISION - TOLERANCE);
-    TRACE("new_bound", tout << "x" << x << " upper: " << m.to_string(k) << " relaxed approx: " << approx_k << "\n";);
+    TRACE(new_bound, tout << "x" << x << " upper: " << m.to_string(k) << " relaxed approx: " << approx_k << "\n";);
 #endif
     
     void  * mem = m_allocator.allocate(sizeof(bound));
@@ -374,7 +374,7 @@ bool bound_propagator::get_interval_size(var x, double & r) const {
 
 template<bool LOWER>
 bool bound_propagator::relevant_bound(var x, double new_k) const {
-    TRACE("bound_propagator_detail", tout << "relevant_bound x" << x << " " << new_k << " LOWER: " << LOWER << "\n";
+    TRACE(bound_propagator_detail, tout << "relevant_bound x" << x << " " << new_k << " LOWER: " << LOWER << "\n";
           if (LOWER && has_lower(x)) tout << "old: " << m.to_string(m_lowers[x]->m_k) << " | " << m_lowers[x]->m_approx_k << "\n";
           if (!LOWER && has_upper(x)) tout << "old: " << m.to_string(m_uppers[x]->m_k) << " | " << m_uppers[x]->m_approx_k << "\n";);
     bound * b = LOWER ? m_lowers[x] : m_uppers[x];
@@ -397,13 +397,13 @@ bool bound_propagator::relevant_bound(var x, double new_k) const {
         
         if (LOWER) {
             if (new_k <= b->m_approx_k + improvement) {
-                TRACE("bound_propagator", tout << "LOWER new: " << new_k << " old: " << b->m_approx_k << " improvement is too small\n";);
+                TRACE(bound_propagator, tout << "LOWER new: " << new_k << " old: " << b->m_approx_k << " improvement is too small\n";);
                 return false; // improvement is too small
             }
         }
         else {
             if (new_k >= b->m_approx_k - improvement) {
-                TRACE("bound_propagator", tout << "UPPER new: " << new_k << " old: " << b->m_approx_k << " improvement is too small\n";);
+                TRACE(bound_propagator, tout << "UPPER new: " << new_k << " old: " << b->m_approx_k << " improvement is too small\n";);
                 return false; // improvement is too small
             }
         }
@@ -449,7 +449,7 @@ void bound_propagator::check_feasibility(var x) {
         m_conflict = x;
         m_conflicts++;
         SASSERT(inconsistent());
-        TRACE("bound_propagator", tout << "inconsistency detected: x" << x << "\n"; display(tout););
+        TRACE(bound_propagator, tout << "inconsistency detected: x" << x << "\n"; display(tout););
     }
 }
 
@@ -465,7 +465,7 @@ void bound_propagator::propagate() {
         bound * b   = is_lower ? m_lowers[x] : m_uppers[x];
         SASSERT(b);
         unsigned ts = b->m_timestamp; 
-        TRACE("bound_propagator_detail", tout << "propagating x" << x << "\n";);
+        TRACE(bound_propagator_detail, tout << "propagating x" << x << "\n";);
         m_qhead++;
         wlist const & wl = m_watches[x];
         for (unsigned c_idx : wl) {
@@ -510,7 +510,7 @@ bool bound_propagator::propagate_eq(unsigned c_idx) {
     }
 #endif
 
-    TRACE("bound_propagator_detail", tout << "propagating using eq: "; m_eq_manager.display(tout, *eq); tout << "\n";);
+    TRACE(bound_propagator_detail, tout << "propagating using eq: "; m_eq_manager.display(tout, *eq); tout << "\n";);
     // ll = (Sum_{a_i < 0} -a_i*lower(x_i)) + (Sum_{a_i > 0} -a_i * upper(x_i)) 
     // uu = (Sum_{a_i > 0} -a_i*lower(x_i)) + (Sum_{a_i < 0} -a_i * upper(x_i)) 
     unsigned ll_i = UINT_MAX; // position of the variable that couldn't contribute to ll
@@ -678,17 +678,17 @@ bool bound_propagator::propagate_lower(unsigned c_idx, unsigned i) {
         var x_j = eq->x(j);
         mpz const & a_j = eq->a(j);
         bound * b_j = (m.is_neg(a_j) == neg_a_i) ? m_uppers[x_j] : m_lowers[x_j];
-        TRACE("bound_propagator_step_detail", tout << "k: " << m.to_string(k) << " b_j->m_k: " << m.to_string(b_j->m_k) << 
+        TRACE(bound_propagator_step_detail, tout << "k: " << m.to_string(k) << " b_j->m_k: " << m.to_string(b_j->m_k) << 
               " a_j: " << m.to_string(a_j) << "\n";);
         SASSERT(b_j);
         if (b_j->m_strict)
             strict = true;
         m.addmul(k, a_j, b_j->m_k, k);
     }
-    TRACE("bound_propagator_step_detail", tout << "k: " << m.to_string(k) << "\n";);
+    TRACE(bound_propagator_step_detail, tout << "k: " << m.to_string(k) << "\n";);
     m.neg(k);
     m.div(k, a_i, k);
-    TRACE("bound_propagator_step", tout << "propagating lower x" << x_i << " " << m.to_string(k) << " strict: " << strict << " using\n";
+    TRACE(bound_propagator_step, tout << "propagating lower x" << x_i << " " << m.to_string(k) << " strict: " << strict << " using\n";
           m_eq_manager.display(tout, *eq); tout << "\n"; display_bounds_of(tout, *eq););
     bool r = assert_lower_core(x_i, k, strict, DERIVED, c_idx, null_assumption);
     m.del(k);
@@ -722,7 +722,7 @@ bool bound_propagator::propagate_upper(unsigned c_idx, unsigned i) {
     }
     m.neg(k);
     m.div(k, a_i, k);
-    TRACE("bound_propagator_step", tout << "propagating upper x" << x_i << " " << m.to_string(k) << " strict: " << strict << " using\n";
+    TRACE(bound_propagator_step, tout << "propagating upper x" << x_i << " " << m.to_string(k) << " strict: " << strict << " using\n";
           m_eq_manager.display(tout, *eq); tout << "\n"; display_bounds_of(tout, *eq););
     bool r = assert_upper_core(x_i, k, strict, DERIVED, c_idx, null_assumption);
     m.del(k);

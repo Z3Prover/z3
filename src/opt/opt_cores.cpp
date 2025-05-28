@@ -316,7 +316,7 @@ namespace opt {
             add_core(core);
             if (core.empty()) {
                 IF_VERBOSE(100, verbose_stream() << "(opt.maxres :empty-core)\n";);
-                TRACE("opt", tout << "empty core\n";);
+                TRACE(opt, tout << "empty core\n";);
                 break;
             }
 

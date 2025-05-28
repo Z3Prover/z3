@@ -99,8 +99,8 @@ class elim_uncnstr_tactic : public tactic {
             }
             
             v = m().mk_fresh_const(nullptr, t->get_sort());
-            TRACE("elim_uncnstr_bug", tout << "eliminating:\n" << mk_ismt2_pp(t, m()) << "\n";);
-            TRACE("elim_uncnstr_bug_ll", tout << "eliminating:\n" << mk_bounded_pp(t, m()) << "\n";);
+            TRACE(elim_uncnstr_bug, tout << "eliminating:\n" << mk_ismt2_pp(t, m()) << "\n";);
+            TRACE(elim_uncnstr_bug_ll, tout << "eliminating:\n" << mk_bounded_pp(t, m()) << "\n";);
             m_fresh_vars.push_back(v);
             if (m_mc) m_mc->hide(v);
             m_cache_domain.push_back(t);
@@ -908,7 +908,7 @@ class elim_uncnstr_tactic : public tactic {
 
     void run(goal_ref const & g, goal_ref_buffer & result) {
         bool produce_proofs = g->proofs_enabled();
-        TRACE("goal", g->display(tout););
+        TRACE(goal, g->display(tout););
         statistics_report sreport([&](statistics& st) { collect_statistics(st); });
         tactic_report report("elim-uncnstr", *g);
         m_vars.reset();
@@ -920,7 +920,7 @@ class elim_uncnstr_tactic : public tactic {
             return;
         }
         bool modified = true;
-        TRACE("elim_uncnstr", tout << "unconstrained variables...\n";
+        TRACE(elim_uncnstr, tout << "unconstrained variables...\n";
                 for (expr * v : m_vars) tout << mk_ismt2_pp(v, m()) << " "; 
                 tout << "\n";);
         init_mc(g->models_enabled());
@@ -951,12 +951,12 @@ class elim_uncnstr_tactic : public tactic {
                     m_num_elim_apps = m_rw->cfg().m_fresh_vars.size();
                     g->add(m_mc.get());                        
                 }
-                TRACE("elim_uncnstr", if (m_mc) m_mc->display(tout); else tout << "no mc\n";);
+                TRACE(elim_uncnstr, if (m_mc) m_mc->display(tout); else tout << "no mc\n";);
                 m_mc = nullptr;
                 m_rw = nullptr;                    
                 result.push_back(g.get());
                 g->inc_depth();
-                TRACE("goal", g->display(tout););
+                TRACE(goal, g->display(tout););
                 return;
             }
             modified = false;

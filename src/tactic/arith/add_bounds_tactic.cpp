@@ -125,7 +125,7 @@ class add_bounds_tactic : public tactic {
             if (proc.m_num_bounds > 0) 
                 g->updt_prec(goal::UNDER);
             report_tactic_progress(":added-bounds", proc.m_num_bounds);
-            TRACE("add_bounds", g->display(tout););
+            TRACE(add_bounds, g->display(tout););
         }
     };
 

@@ -325,7 +325,7 @@ namespace user_solver {
 
     sat::literal solver::internalize(expr* e, bool sign, bool root) {
         if (!visit_rec(m, e, sign, root)) {
-            TRACE("array", tout << mk_pp(e, m) << "\n";);
+            TRACE(array, tout << mk_pp(e, m) << "\n";);
             return sat::null_literal;
         }
         sat::literal lit = ctx.expr2literal(e);

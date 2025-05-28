@@ -38,7 +38,7 @@ void bit2int::operator()(expr * n, expr_ref & result, proof_ref& p) {
         // TBD: rough
         p = m.mk_rewrite(n, result);
     }
-    TRACE("bit2int", 
+    TRACE(bit2int, 
           tout << mk_pp(n, m) << "======>\n" << result << "\n";);
 
 }
@@ -221,7 +221,7 @@ bool bit2int::is_bv_poly(expr* n, expr_ref& pos, expr_ref& neg) {
             VERIFY(mk_add(arg1, neg, neg));
         }
         else {
-            TRACE("bit2int", tout << "Not a poly: " << mk_pp(n, m) << "\n";);
+            TRACE(bit2int, tout << "Not a poly: " << mk_pp(n, m) << "\n";);
             return false;
         }
     }
@@ -407,12 +407,12 @@ expr * bit2int::get_cached(expr * n) const {
     expr* r = nullptr;
     proof* p = nullptr;
     const_cast<bit2int*>(this)->m_cache.get(n, r, p);
-    CTRACE("bit2int", !r, tout << mk_pp(n, m) << "\n";);
+    CTRACE(bit2int, !r, tout << mk_pp(n, m) << "\n";);
     return r;
 }
 
 void bit2int::cache_result(expr * n, expr * r) { 
-    TRACE("bit2int_verbose", tout << "caching:\n" << mk_pp(n, m) <<
+    TRACE(bit2int_verbose, tout << "caching:\n" << mk_pp(n, m) <<
           "======>\n" << mk_ll_pp(r, m) << "\n";);
     m_cache.insert(n, r, nullptr); 
 }

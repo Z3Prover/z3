@@ -115,12 +115,12 @@ static void tst7() {
     m.display_smt2(std::cout, a); std::cout << "\n";
 }
 
-//  if (!qm.le(qa, qt)) { TRACE("mpff_bug", tout << fa << "\n" << qa << "\n" << qt << "\n";); UNREACHABLE(); }
+//  if (!qm.le(qa, qt)) { TRACE(mpff_bug, tout << fa << "\n" << qa << "\n" << qt << "\n";); UNREACHABLE(); }
 
 
 #define MK_BIN_OP(OP)                                                   \
 static void tst_ ## OP ## _core(int64_t n1, uint64_t d1, int64_t n2, uint64_t d2, unsigned precision = 2, unsigned exp = 0) { \
-    TRACE("mpff_bug", tout << n1 << "/" << d1 << ", " << n2 << "/" << d2 << "\n";); \
+    TRACE(mpff_bug, tout << n1 << "/" << d1 << ", " << n2 << "/" << d2 << "\n";); \
     unsynch_mpq_manager qm;                                             \
     scoped_mpq  qa(qm), qb(qm), qc(qm), qt(qm);                         \
                                                                         \

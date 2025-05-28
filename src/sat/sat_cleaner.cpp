@@ -45,7 +45,7 @@ namespace sat {
                 SASSERT(it->empty());
                 continue;
             }
-            TRACE("cleanup_bug", tout << "processing wlist of " << to_literal(l_idx) << "\n";);
+            TRACE(cleanup_bug, tout << "processing wlist of " << to_literal(l_idx) << "\n";);
             watch_list & wlist = *it;
             watch_list::iterator it2      = wlist.begin();
             watch_list::iterator it_prev  = it2;
@@ -53,7 +53,7 @@ namespace sat {
             for (; it2 != end2; ++it2) {
                 switch (it2->get_kind()) {
                 case watched::BINARY:
-                    TRACE("cleanup_bug", 
+                    TRACE(cleanup_bug, 
                           tout << ~to_literal(l_idx) << " " << it2->get_literal() << "\n";
                           tout << s.value(~to_literal(l_idx)) << " " << s.value(it2->get_literal()) << "\n";
                           tout << s.was_eliminated(it2->get_literal()) << " " << s.inconsistent() << "\n";);
@@ -62,7 +62,7 @@ namespace sat {
                         *it_prev = *it2;
                         ++it_prev;
                     }
-                    TRACE("cleanup_bug", tout << "keeping: " << ~to_literal(l_idx) << " " << it2->get_literal() << "\n";);
+                    TRACE(cleanup_bug, tout << "keeping: " << ~to_literal(l_idx) << " " << it2->get_literal() << "\n";);
                     break;
                 case watched::CLAUSE:
                     // skip
@@ -86,9 +86,9 @@ namespace sat {
         clause_vector::iterator end = cs.end();
         for (; it != end; ++it) {
             clause & c = *(*it);
-            TRACE("sat_cleaner_bug", tout << "cleaning: " << c << "\n";
+            TRACE(sat_cleaner_bug, tout << "cleaning: " << c << "\n";
                   for (unsigned i = 0; i < c.size(); i++) tout << c[i] << ": " << s.value(c[i]) << "\n";);
-            CTRACE("sat_cleaner_frozen", c.frozen(), tout << c << "\n";);
+            CTRACE(sat_cleaner_frozen, c.frozen(), tout << c << "\n";);
             unsigned sz = c.size();
             unsigned i = 0, j = 0;
             m_cleanup_counter += sz;
@@ -108,7 +108,7 @@ namespace sat {
                 }
             }
         end_loop:
-            CTRACE("sat_cleaner_frozen", c.frozen(),
+            CTRACE(sat_cleaner_frozen, c.frozen(),
                    tout << "sat: " << (i < sz) << ", new_size: " << j << "\n";
                    tout << mk_lits_pp(j, c.begin()) << "\n";);
             if (i < sz) {
@@ -117,7 +117,7 @@ namespace sat {
             }
             else {
                 unsigned new_sz = j;
-                CTRACE("sat_cleaner_bug", new_sz < 2, tout << "new_sz: " << new_sz << "\n";
+                CTRACE(sat_cleaner_bug, new_sz < 2, tout << "new_sz: " << new_sz << "\n";
                        if (c.size() > 0) tout << "unit: " << c[0] << "\n";
                        s.display_watches(tout););
                 switch (new_sz) {
@@ -131,7 +131,7 @@ namespace sat {
                     break;
                 case 2:
                     SASSERT(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
-                    TRACE("cleanup_bug", tout << "clause became binary: " << c[0] << " " << c[1] << "\n";);
+                    TRACE(cleanup_bug, tout << "clause became binary: " << c[0] << " " << c[1] << "\n";);
                     s.mk_bin_clause(c[0], c[1], c.is_learned());
                     s.del_clause(c);
                     break;
@@ -198,7 +198,7 @@ namespace sat {
         unsigned trail_sz = s.m_trail.size();
 
         s.propagate(false); // make sure that everything was propagated.
-        TRACE("sat_cleaner_bug", s.display(tout); s.display_watches(tout););
+        TRACE(sat_cleaner_bug, s.display(tout); s.display_watches(tout););
         if (s.m_inconsistent)
             return false;
         if (m_last_num_units == trail_sz)

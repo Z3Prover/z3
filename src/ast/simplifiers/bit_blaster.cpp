@@ -43,7 +43,7 @@ void bit_blaster_simplifier::reduce() {
         if (curr != new_curr) {
             m_num_steps += m_rewriter.get_num_steps();
             change = true;                    
-            TRACE("bit_blaster", tout << mk_pp(curr, m) << " -> " << new_curr << "\n";);
+            TRACE(bit_blaster, tout << mk_pp(curr, m) << " -> " << new_curr << "\n";);
             m_fmls.update(idx, dependent_expr(m, new_curr, mp(p, new_pr), d));
         }
     }

@@ -90,7 +90,7 @@ namespace datatype {
 
     sort_ref def::instantiate(sort_ref_vector const& sorts) const {
         sort_ref s(m);
-        TRACE("datatype", tout << "instantiate " << m_name << "\n";);
+        TRACE(datatype, tout << "instantiate " << m_name << "\n";);
         if (!m_sort) {
             vector<parameter> ps;
             ps.push_back(parameter(m_name));
@@ -282,22 +282,22 @@ namespace datatype {
         sort * plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
             try {
                 if (k != DATATYPE_SORT) {
-                    TRACE("datatype", tout << "invalid kind parameter to datatype\n";);
+                    TRACE(datatype, tout << "invalid kind parameter to datatype\n";);
                     throw invalid_datatype();
                 }
                 if (num_parameters < 1) {
-                    TRACE("datatype", tout << "at least one parameter expected to datatype declaration\n";);
+                    TRACE(datatype, tout << "at least one parameter expected to datatype declaration\n";);
                     throw invalid_datatype();                    
                 }
                 parameter const & name = parameters[0];
                 if (!name.is_symbol()) {
-                    TRACE("datatype", tout << "expected symbol parameter at position " << 0 << " got: " << name << "\n";);
+                    TRACE(datatype, tout << "expected symbol parameter at position " << 0 << " got: " << name << "\n";);
                     throw invalid_datatype();
                 }
                 for (unsigned i = 1; i < num_parameters; ++i) {
                     parameter const& s = parameters[i];
                     if (!s.is_ast() || !is_sort(s.get_ast())) {
-                        TRACE("datatype", tout << "expected sort parameter at position " << i << " got: " << s << "\n";);
+                        TRACE(datatype, tout << "expected sort parameter at position " << i << " got: " << s << "\n";);
                         throw invalid_datatype();
                     }
                 }
@@ -309,15 +309,15 @@ namespace datatype {
                     obj_map<sort, sort_size> S;
                     for (unsigned i = 0; i + 1 < num_parameters; ++i) {
                         sort* r = to_sort(parameters[i + 1].get_ast());
-                        TRACE("datatype", tout << "inserting " << mk_ismt2_pp(r, *m_manager) << " " << r->get_num_elements() << "\n";);
+                        TRACE(datatype, tout << "inserting " << mk_ismt2_pp(r, *m_manager) << " " << r->get_num_elements() << "\n";);
                         S.insert(d->params()[i], r->get_num_elements()); 
                     }
                     sort_size ts = d->sort_size()->eval(S);
-                    TRACE("datatype", tout << name << " has size " << ts << "\n";);
+                    TRACE(datatype, tout << name << " has size " << ts << "\n";);
                     s->set_num_elements(ts);
                 }
                 else {
-                    TRACE("datatype", tout << "not setting size for " << name << "\n";);
+                    TRACE(datatype, tout << "not setting size for " << name << "\n";);
                 }
                 return s;
             }
@@ -564,9 +564,9 @@ namespace datatype {
             begin_def_block();
             for (unsigned i = 0; i < num_datatypes; ++i) {
                 def* d = nullptr;
-                TRACE("datatype", tout << "declaring " << datatypes[i]->name() << "\n";);
+                TRACE(datatype, tout << "declaring " << datatypes[i]->name() << "\n";);
                 if (m_defs.find(datatypes[i]->name(), d)) {
-                    TRACE("datatype", tout << "delete previous version for " << datatypes[i]->name() << "\n";);
+                    TRACE(datatype, tout << "delete previous version for " << datatypes[i]->name() << "\n";);
                     u().reset();
                     dealloc(d);
                 }
@@ -616,7 +616,7 @@ namespace datatype {
         }
         
         bool plugin::is_value_aux(bool unique, app * e) const {
-            TRACE("dt_is_value", tout << "checking\n" << mk_ismt2_pp(e, *m_manager) << "\n";);
+            TRACE(dt_is_value, tout << "checking\n" << mk_ismt2_pp(e, *m_manager) << "\n";);
             if (!u().is_constructor(e))
                 return false;
             if (e->get_num_args() == 0)
@@ -627,7 +627,7 @@ namespace datatype {
             // potentially expensive check for common sub-expressions.
             for (expr* arg : *e) {
                 if (!is_value_visit(unique, arg, todo)) {
-                    TRACE("dt_is_value", tout << "not-value:\n" << mk_ismt2_pp(arg, *m_manager) << "\n";);
+                    TRACE(dt_is_value, tout << "not-value:\n" << mk_ismt2_pp(arg, *m_manager) << "\n";);
                     return false;
                 }
             }
@@ -637,7 +637,7 @@ namespace datatype {
                 todo.pop_back();
                 for (expr* arg : *curr) {
                     if (!is_value_visit(unique, arg, todo)) {
-                        TRACE("dt_is_value", tout << "not-value:\n" << mk_ismt2_pp(arg, *m_manager) << "\n";);
+                        TRACE(dt_is_value, tout << "not-value:\n" << mk_ismt2_pp(arg, *m_manager) << "\n";);
                         return false;
                     }
                 }
@@ -858,12 +858,12 @@ namespace datatype {
         map<symbol, status, symbol_hash_proc, symbol_eq_proc> already_found;
         map<symbol, param_size::size*, symbol_hash_proc, symbol_eq_proc> szs;
 
-        TRACE("datatype", for (auto const& s : names) tout << s << " "; tout << "\n";);
+        TRACE(datatype, for (auto const& s : names) tout << s << " "; tout << "\n";);
         svector<symbol> todo(names);
         status st;
         while (!todo.empty()) {
             symbol s = todo.back();
-            TRACE("datatype", tout << "Sort size for " << s << "\n";);
+            TRACE(datatype, tout << "Sort size for " << s << "\n";);
 
             if (already_found.find(s, st) && st == BLACK) {
                 todo.pop_back();
@@ -897,7 +897,7 @@ namespace datatype {
             todo.pop_back();
             already_found.insert(s, BLACK);
             if (is_infinite) {
-                TRACE("datatype", tout << "infinite " << s << "\n";);
+                TRACE(datatype, tout << "infinite " << s << "\n";);
                 d.set_sort_size(param_size::size::mk_offset(sort_size::mk_infinite()));
                 continue;
             }
@@ -911,7 +911,7 @@ namespace datatype {
                 }
                 s_add.push_back(param_size::size::mk_times(s_mul));
             }
-            TRACE("datatype", tout << "set sort size " << s << "\n";);
+            TRACE(datatype, tout << "set sort size " << s << "\n";);
             d.set_sort_size(param_size::size::mk_plus(s_add));
             plugin().m_refs.reset();
         }
@@ -1208,7 +1208,7 @@ namespace datatype {
             return cd.first;
         ptr_vector<sort> forbidden_set;
         forbidden_set.push_back(ty);
-        TRACE("util_bug", tout << "invoke get-non-rec: " << sort_ref(ty, m) << "\n";);
+        TRACE(util_bug, tout << "invoke get-non-rec: " << sort_ref(ty, m) << "\n";);
         cd = get_non_rec_constructor_core(ty, forbidden_set);
         SASSERT(forbidden_set.back() == ty);
         if (!cd.first) // datatypes are not completed on parse errors
@@ -1232,7 +1232,7 @@ namespace datatype {
         cnstr_depth result(nullptr, 0);
         if (plugin().m_datatype2nonrec_constructor.find(ty, result))
             return result;
-        TRACE("util_bug", tout << "get-non-rec constructor: " << sort_ref(ty, m) << "\n";
+        TRACE(util_bug, tout << "get-non-rec constructor: " << sort_ref(ty, m) << "\n";
               tout << "forbidden: ";
               for (sort* s : forbidden_set) tout << sort_ref(s, m) << " ";
               tout << "\n";
@@ -1245,7 +1245,7 @@ namespace datatype {
         for (unsigned cj = 0; cj < constructors.size(); ++cj) {
             func_decl* c = constructors[(start + cj) % constructors.size()];
             if (all_of(*c, [&](sort* s) { return !is_datatype(s); })) {
-                TRACE("util_bug", tout << "non_rec_constructor c: " << func_decl_ref(c, m) << "\n";);
+                TRACE(util_bug, tout << "non_rec_constructor c: " << func_decl_ref(c, m) << "\n";);
                 result.first = c;
                 result.second = 1;
                 plugin().add_ast(result.first);
@@ -1257,7 +1257,7 @@ namespace datatype {
 
         for (unsigned cj = 0; cj < constructors.size(); ++cj) {
             func_decl* c = constructors[(start + cj) % constructors.size()];
-            TRACE("util_bug", tout << "non_rec_constructor c: " << func_decl_ref(c, m) << "\n";);
+            TRACE(util_bug, tout << "non_rec_constructor c: " << func_decl_ref(c, m) << "\n";);
             unsigned num_args = c->get_arity();
             unsigned j = 0;
             unsigned max_depth = 0;
@@ -1265,13 +1265,13 @@ namespace datatype {
             for (; j < num_args; j++) {
                 unsigned i = (start2 + j) % num_args;
                 sort * T_i = autil.get_array_range_rec(c->get_domain(i));
-                TRACE("util_bug", tout << "c: " << i << " " << sort_ref(T_i, m) << "\n";);
+                TRACE(util_bug, tout << "c: " << i << " " << sort_ref(T_i, m) << "\n";);
                 if (!is_datatype(T_i)) {
-                    TRACE("util_bug", tout << sort_ref(T_i, m) << " is not a datatype\n";);
+                    TRACE(util_bug, tout << sort_ref(T_i, m) << " is not a datatype\n";);
                     continue;
                 }
                 if (std::find(forbidden_set.begin(), forbidden_set.end(), T_i) != forbidden_set.end()) {
-                    TRACE("util_bug", tout << sort_ref(T_i, m) << " is in forbidden_set\n";);
+                    TRACE(util_bug, tout << sort_ref(T_i, m) << " is in forbidden_set\n";);
                     break;
                 }
                 forbidden_set.push_back(T_i);
@@ -1280,7 +1280,7 @@ namespace datatype {
                 forbidden_set.pop_back();
                 if (nested_c.first == nullptr)
                     break;
-                TRACE("util_bug", tout << "nested_c: " << nested_c.first->get_name() << "\n";);
+                TRACE(util_bug, tout << "nested_c: " << nested_c.first->get_name() << "\n";);
                 max_depth = std::max(nested_c.second + 1, max_depth);
             }
             if (j == num_args && max_depth < min_depth) {

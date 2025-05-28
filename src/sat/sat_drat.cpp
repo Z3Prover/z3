@@ -180,7 +180,7 @@ namespace sat {
     }
 
     void drat::append(literal l, status st) {
-        TRACE("sat_drat", pp(tout, st) << " " << l << "\n";);
+        TRACE(sat_drat, pp(tout, st) << " " << l << "\n";);
 
         declare(l);
         IF_VERBOSE(20, trace(verbose_stream(), 1, &l, st););
@@ -198,7 +198,7 @@ namespace sat {
     }
 
     void drat::append(literal l1, literal l2, status st) {
-        TRACE("sat_drat", pp(tout, st) << " " << l1 << " " << l2 << "\n";);
+        TRACE(sat_drat, pp(tout, st) << " " << l1 << " " << l2 << "\n";);
         declare(l1);
         declare(l2);
         literal lits[2] = { l1, l2 };
@@ -230,7 +230,7 @@ namespace sat {
     }
 
     void drat::append(clause& c, status st) {
-        TRACE("sat_drat", pp(tout, st) << " " << c << "\n";);
+        TRACE(sat_drat, pp(tout, st) << " " << c << "\n";);
         for (literal lit : c) declare(lit);
         unsigned n = c.size();
         IF_VERBOSE(20, trace(verbose_stream(), n, c.begin(), st););
@@ -371,7 +371,7 @@ namespace sat {
                     case l_undef: num_undef++; break;
                     }
                 }
-                CTRACE("sat_drat", num_true == 0 && num_undef == 1, display(tout););
+                CTRACE(sat_drat, num_true == 0 && num_undef == 1, display(tout););
                 VERIFY(num_true != 0 || num_undef != 1);
             }
         }
@@ -425,7 +425,7 @@ namespace sat {
         exit(0);
         UNREACHABLE();
         //display(std::cout);
-        TRACE("sat_drat",
+        TRACE(sat_drat,
               tout << literal_vector(n, c) << "\n";
               display(tout);
               s.display(tout););
@@ -545,7 +545,7 @@ namespace sat {
     void drat::assign(literal l, clause* c) {
         lbool new_value = l.sign() ? l_false : l_true;
         lbool old_value = value(l);
-        //        TRACE("sat_drat", tout << "assign " << l << " := " << new_value << " from " << old_value << "\n";);
+        //        TRACE(sat_drat, tout << "assign " << l << " := " << new_value << " from " << old_value << "\n";);
         switch (old_value) {
         case l_false:
             m_inconsistent = true;
@@ -578,7 +578,7 @@ namespace sat {
             watched_clause& wc = m_watched_clauses[idx];
             clause& c = *wc.m_clause;
 
-            //TRACE("sat_drat", tout << "Propagate " << l << " " << c << " watch: " << wc.m_l1 << " " << wc.m_l2 << "\n";);
+            //TRACE(sat_drat, tout << "Propagate " << l << " " << c << " watch: " << wc.m_l1 << " " << wc.m_l2 << "\n";);
             if (wc.m_l1 == ~l) {
                 std::swap(wc.m_l1, wc.m_l2);
             }

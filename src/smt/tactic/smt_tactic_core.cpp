@@ -55,7 +55,7 @@ public:
         m_params_ref(p),
         m_vars(m) {
         updt_params_core(p);
-        TRACE("smt_tactic", tout << "p: " << p << "\n";);
+        TRACE(smt_tactic, tout << "p: " << p << "\n";);
     }
 
     tactic * translate(ast_manager & m) override {
@@ -83,7 +83,7 @@ public:
     }
 
     void updt_params(params_ref const & p) override {
-        TRACE("smt_tactic", tout << "updt_params: " << p << "\n";);
+        TRACE(smt_tactic, tout << "updt_params: " << p << "\n";);
         updt_params_core(p);
         fparams().updt_params(p);
         m_params_ref.copy(p);
@@ -132,7 +132,7 @@ public:
             m_params_ref.reset();
             m_params_ref.append(o.params());
             smt::kernel * new_ctx = alloc(smt::kernel, m, m_params, m_params_ref);
-            TRACE("smt_tactic", tout << "logic: " << o.m_logic << "\n";);
+            TRACE(smt_tactic, tout << "logic: " << o.m_logic << "\n";);
             new_ctx->set_logic(o.m_logic);
             if (o.m_callback) {
                 new_ctx->set_progress_callback(o.m_callback);
@@ -159,15 +159,15 @@ public:
         try {
             IF_VERBOSE(10, verbose_stream() << "(smt.tactic start)\n";);
             tactic_report report("smt", *in);
-            TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "
+            TRACE(smt_tactic, tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "
                   << " PREPROCESS: " << fparams().m_preprocess << "\n";
                   tout << "RELEVANCY: " << fparams().m_relevancy_lvl << "\n";
                   tout << "fail-if-inconclusive: " << m_fail_if_inconclusive << "\n";
                   tout << "params_ref: " << m_params_ref << "\n";
                   tout << "nnf: " << fparams().m_nnf_cnf << "\n";);
-            TRACE("smt_tactic_params", m_params.display(tout););
-            TRACE("smt_tactic_detail", in->display(tout););
-            TRACE("smt_tactic_memory", tout << "wasted_size: " << m.get_allocator().get_wasted_size() << "\n";);
+            TRACE(smt_tactic_params, m_params.display(tout););
+            TRACE(smt_tactic_detail, in->display(tout););
+            TRACE(smt_tactic_memory, tout << "wasted_size: " << m.get_allocator().get_wasted_size() << "\n";);
             scoped_init_ctx  init(*this, m);
             SASSERT(m_ctx);
 
@@ -177,7 +177,7 @@ public:
             ref<generic_model_converter> fmc;
             if (in->unsat_core_enabled()) {
                 extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
-                TRACE("mus", in->display_with_dependencies(tout);
+                TRACE(mus, in->display_with_dependencies(tout);
                       tout << clauses << "\n";);
                 if (in->proofs_enabled() && !assumptions.empty())
                     throw tactic_exception("smt tactic does not support simultaneous generation of proofs and unsat cores");
@@ -210,14 +210,14 @@ public:
                     r = m_ctx->check(assumptions.size(), assumptions.data());
             }
             catch(...) {
-                TRACE("smt_tactic", tout << "exception\n";);
+                TRACE(smt_tactic, tout << "exception\n";);
                 m_ctx->collect_statistics(m_stats);
                 throw;
             }
             SASSERT(m_ctx);
             m_ctx->collect_statistics(m_stats);
             proof_ref pr(m_ctx->get_proof(), m);
-            TRACE("smt_tactic", tout << r << " " << pr << "\n";);
+            TRACE(smt_tactic, tout << r << " " << pr << "\n";);
             switch (r) {
             case l_true: {
                 if (m_fail_if_inconclusive && !in->sat_preserved())
@@ -244,7 +244,7 @@ public:
             }
             case l_false: {
                 if (m_fail_if_inconclusive && !in->unsat_preserved()) {
-                    TRACE("smt_tactic", tout << "failed to show to be unsat...\n";);
+                    TRACE(smt_tactic, tout << "failed to show to be unsat...\n";);
                     throw tactic_exception("under-approximated goal found to be unsat");
                 }
                 // formula is unsat, reset the goal, and store false there.

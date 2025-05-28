@@ -98,7 +98,7 @@ struct goal2nlsat::imp {
         ptr_buffer<polynomial::polynomial> ps;
         polynomial::factors fs(m_pm);
         m_pm.factor(p, fs, m_fparams);
-        TRACE("goal2nlsat_bug", tout << "factors:\n" << fs << "\n";); 
+        TRACE(goal2nlsat_bug, tout << "factors:\n" << fs << "\n";); 
         SASSERT(fs.distinct_factors() > 0);
         for (unsigned i = 0; i < fs.distinct_factors(); i++) {
             ps.push_back(fs[i]);
@@ -126,7 +126,7 @@ struct goal2nlsat::imp {
         m_qm.neg(d2);
         polynomial_ref p(m_pm);
         p = m_pm.addmul(d1, m_pm.mk_unit(), p1, d2, m_pm.mk_unit(), p2);
-        TRACE("goal2nlsat_bug", tout << mk_pp(f, m) << " p: " << p << "\nk: " << k << "\n";);
+        TRACE(goal2nlsat_bug, tout << mk_pp(f, m) << " p: " << p << "\nk: " << k << "\n";);
         if (is_const(p)) {
             int sign;
             if (is_zero(p))
@@ -194,7 +194,7 @@ struct goal2nlsat::imp {
                 switch (to_app(f)->get_decl_kind()) {
                 case OP_TRUE:
                 case OP_FALSE:
-                    TRACE("goal2nlsat", tout << "f: " << mk_pp(f, m) << "\n";);
+                    TRACE(goal2nlsat, tout << "f: " << mk_pp(f, m) << "\n";);
                     throw tactic_exception("apply simplify before applying nlsat");
                 case OP_AND:
                 case OP_OR:
@@ -252,7 +252,7 @@ struct goal2nlsat::imp {
     }
 
     void operator()(goal const & g) {
-        TRACE("goal2nlsat", g.display(tout););
+        TRACE(goal2nlsat, g.display(tout););
         if (has_term_ite(g))
             throw tactic_exception("eliminate term-ite before applying nlsat");
         unsigned sz = g.size();

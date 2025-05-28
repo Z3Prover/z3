@@ -328,7 +328,7 @@ struct check_logic::imp {
     }
 
     void fail_non_diff(expr * t) {
-        TRACE("check_logic", tout << mk_pp(t, m) << "\n";);
+        TRACE(check_logic, tout << mk_pp(t, m) << "\n";);
         fail("logic only supports difference arithmetic");
     }
 

@@ -47,7 +47,7 @@ namespace q {
             unsigned lim = m_indirect_nodes.size();
             lit l = c[i];
             lbool cmp = compare(n, binding, l.lhs, l.rhs, evidence);
-            TRACE("q", tout << l.lhs << " ~~ " << l.rhs << " is " << cmp << "\n";);
+            TRACE(q, tout << l.lhs << " ~~ " << l.rhs << " is " << cmp << "\n";);
             switch (cmp) {
             case l_false:                
                 m_indirect_nodes.shrink(lim);
@@ -93,7 +93,7 @@ namespace q {
         euf::enode* tr = tn ? tn->get_root() : tn;
         if (sn != sr) evidence.push_back(euf::enode_pair(sn, sr)), sn = sr;
         if (tn != tr) evidence.push_back(euf::enode_pair(tn, tr)), tn = tr;
-        TRACE("q", tout << mk_pp(s, m) << " ~~ " << mk_pp(t, m) << "\n";
+        TRACE(q, tout << mk_pp(s, m) << " ~~ " << mk_pp(t, m) << "\n";
               tout << ctx.bpp(sn) << " " << ctx.bpp(tn) << "\n";);
         
         lbool c;
@@ -237,7 +237,7 @@ namespace q {
                     if (a->get_root() != b->get_root())
                         return nullptr;
 
-                    TRACE("q", tout << "evidence " << ctx.bpp(a) << " " << ctx.bpp(b) << "\n");
+                    TRACE(q, tout << "evidence " << ctx.bpp(a) << " " << ctx.bpp(b) << "\n");
                     evidence.push_back(euf::enode_pair(a, b));
                 }
                 m_indirect_nodes.push_back(n);

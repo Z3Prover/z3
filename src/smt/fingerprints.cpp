@@ -89,10 +89,10 @@ namespace smt {
         for (unsigned i = 0; i < num_args; i++)
             d->m_args[i] = d->m_args[i]->get_root();
         if (m_set.contains(d)) {
-            TRACE("fingerprint_bug", tout << "failed: " << *d;);
+            TRACE(fingerprint_bug, tout << "failed: " << *d;);
             return nullptr;
         }
-        TRACE("fingerprint_bug", tout << "inserting @" << m_scopes.size() << " " << *d;);
+        TRACE(fingerprint_bug, tout << "inserting @" << m_scopes.size() << " " << *d;);
         fingerprint * f = new (m_region) fingerprint(m_region, data, data_hash, def, num_args, d->m_args);
         m_fingerprints.push_back(f);
         m_defs.push_back(def);
@@ -136,7 +136,7 @@ namespace smt {
         m_fingerprints.shrink(old_size);
         m_defs.shrink(old_size);
         m_scopes.shrink(new_lvl);
-        TRACE("fingerprint_bug", tout << "pop @" << m_scopes.size() << "\n";);
+        TRACE(fingerprint_bug, tout << "pop @" << m_scopes.size() << "\n";);
     }
 
     void fingerprint_set::display(std::ostream & out) const {
@@ -162,7 +162,7 @@ namespace smt {
                 if (f->get_arg(i)->get_root() != args[i]->get_root())
                     break;
             if (i == num_args) {
-                TRACE("missing_instance_detail", tout << "found instance data: " << data << "=" << *f;);
+                TRACE(missing_instance_detail, tout << "found instance data: " << data << "=" << *f;);
                 return true;
             }
         }

@@ -95,8 +95,8 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
 
-        TRACE("seq_regex", tout << "propagate in RE: " << lit.sign() << " " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PIR(" << mk_pp(s, m) << ","
+        TRACE(seq_regex, tout << "propagate in RE: " << lit.sign() << " " << mk_pp(e, m) << std::endl;);
+        STRACE(seq_regex_brief, tout << "PIR(" << mk_pp(s, m) << ","
                                        << state_str(r) << ") ";);
 
         // convert negative negative membership literals to positive
@@ -114,16 +114,16 @@ namespace smt {
         }
 
         if (coallesce_in_re(lit)) {
-            TRACE("seq_regex", tout
+            TRACE(seq_regex, tout
                 << "simplified conjunctions to an intersection" << std::endl;);
-            STRACE("seq_regex_brief", tout << "coallesce_in_re ";);
+            STRACE(seq_regex_brief, tout << "coallesce_in_re ";);
             return;
         }
 
         if (is_string_equality(lit)) {
-            TRACE("seq_regex", tout
+            TRACE(seq_regex, tout
                 << "simplified regex using string equality" << std::endl;);
-            STRACE("seq_regex_brief", tout << "string_eq ";);
+            STRACE(seq_regex_brief, tout << "string_eq ";);
             return;
         }
 
@@ -139,10 +139,10 @@ namespace smt {
             if (!re().is_full_seq(s_approx)) {
                 r = re().mk_inter(r, s_approx);
                 _r_temp_owner = r;
-                TRACE("seq_regex", tout
+                TRACE(seq_regex, tout
                     << "get_overapprox_regex(" << mk_pp(s, m)
                     << ") = " << mk_pp(s_approx, m) << std::endl;);
-                STRACE("seq_regex_brief", tout
+                STRACE(seq_regex_brief, tout
                     << "overapprox=" << state_str(r) << " ";);
             }
         }
@@ -151,7 +151,7 @@ namespace smt {
         expr_ref acc(sk().mk_accept(s, zero, r), m);
         literal acc_lit = th.mk_literal(acc);
 
-        TRACE("seq", tout << "propagate " << acc << "\n";);
+        TRACE(seq, tout << "propagate " << acc << "\n";);
 
         //th.propagate_lit(nullptr, 1, &lit, acc_lit);
         th.add_axiom(~lit, acc_lit);
@@ -211,7 +211,7 @@ namespace smt {
 
         //if the minlength of the regex is UINT_MAX then the regex is a deadend
         if (re().is_empty(r) || info.min_length == UINT_MAX) {
-            STRACE("seq_regex_brief", tout << "(empty) ";);
+            STRACE(seq_regex_brief, tout << "(empty) ";);
             th.add_axiom(~lit);
             return true;
         }
@@ -219,7 +219,7 @@ namespace smt {
         if (info.interpreted) {
             update_state_graph(r);            
             if (m_state_graph.is_dead(get_state_id(r))) {
-                STRACE("seq_regex_brief", tout << "(dead) ";);
+                STRACE(seq_regex_brief, tout << "(dead) ";);
                 th.add_axiom(~lit);
                 return true;
             }
@@ -258,9 +258,9 @@ namespace smt {
         unsigned idx = 0;
         VERIFY(sk().is_accept(e, s, i, idx, r));
 
-        TRACE("seq_regex", tout << "propagate accept: "
+        TRACE(seq_regex, tout << "propagate accept: "
                                 << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << std::endl
+        STRACE(seq_regex_brief, tout << std::endl
                                        << "PA(" << mk_pp(s, m) << "@" << idx
                                        << "," << state_str(r) << ") ";);
 
@@ -268,11 +268,11 @@ namespace smt {
             return;
 
         if (block_unfolding(lit, idx)) {
-            STRACE("seq_regex_brief", tout << "(blocked) ";);
+            STRACE(seq_regex_brief, tout << "(blocked) ";);
             return;
         }
 
-        STRACE("seq_regex_brief", tout << "(unfold) ";);
+        STRACE(seq_regex_brief, tout << "(unfold) ";);
 
         // Rule 1: use min_length to prune search
         unsigned min_len = re().min_length(r);
@@ -287,10 +287,10 @@ namespace smt {
         if (min_len == 0) {
             expr_ref is_nullable = is_nullable_wrapper(r);
             if (m.is_false(is_nullable)) {
-                STRACE("seq_regex", tout
+                STRACE(seq_regex, tout
                     << "Warning: min_length returned 0 for non-nullable regex"
                     << std::endl;);
-                STRACE("seq_regex_brief", tout
+                STRACE(seq_regex_brief, tout
                     << " (Warning: min_length returned 0 for"
                     << " non-nullable regex)";);
                 // since nullable(r) = false:
@@ -299,10 +299,10 @@ namespace smt {
             }
             else if (!m.is_true(is_nullable)) {
                 // is_nullable did not simplify
-                STRACE("seq_regex", tout
+                STRACE(seq_regex, tout
                     << "Warning: is_nullable did not simplify to true or false"
                     << std::endl;);
-                STRACE("seq_regex_brief", tout
+                STRACE(seq_regex_brief, tout
                     << " (Warning: is_nullable did not simplify)";);
                 literal is_nullable_lit = th.mk_literal(is_nullable);
                 ctx.mark_as_relevant(is_nullable_lit);
@@ -319,7 +319,7 @@ namespace smt {
         expr_ref s_i = th.mk_nth(s, i);
         expr_ref deriv(m);
         deriv = mk_derivative_wrapper(s_i, r);
-        STRACE("seq_regex", tout
+        STRACE(seq_regex, tout
             << "mk_derivative_wrapper: " << re().to_str(deriv) << std::endl;);
         expr_ref accept_deriv(m);
         accept_deriv = mk_deriv_accept(s, idx + 1, deriv);
@@ -415,14 +415,14 @@ namespace smt {
         and derivative calls. 
     */
     expr_ref seq_regex::is_nullable_wrapper(expr* r) {
-        STRACE("seq_regex", tout << "nullable: " << mk_pp(r, m) << std::endl;);
+        STRACE(seq_regex, tout << "nullable: " << mk_pp(r, m) << std::endl;);
 
         expr_ref result = seq_rw().is_nullable(r);
         //TODO: rewrite seems unnecessary here
         rewrite(result);
 
-        STRACE("seq_regex", tout << "nullable result: " << mk_pp(result, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "n(" << state_str(r) << ")="
+        STRACE(seq_regex, tout << "nullable result: " << mk_pp(result, m) << std::endl;);
+        STRACE(seq_regex_brief, tout << "n(" << state_str(r) << ")="
                                        << mk_pp(result, m) << " ";);
 
         return result;
@@ -433,7 +433,7 @@ namespace smt {
        This will create a cached entry for the generic derivative of r that is independent of ele.
     */
     expr_ref seq_regex::mk_derivative_wrapper(expr* ele, expr* r) {
-        STRACE("seq_regex", tout << "derivative(" << mk_pp(ele, m) << "): " << mk_pp(r, m) << std::endl;);
+        STRACE(seq_regex, tout << "derivative(" << mk_pp(ele, m) << "): " << mk_pp(r, m) << std::endl;);
 
         // Uses canonical variable (:var 0) for the derivative element
         // Substitute (:var 0) with the actual element
@@ -441,8 +441,8 @@ namespace smt {
         var_subst subst(m);
         der = subst(der, ele);
 
-        STRACE("seq_regex", tout << "derivative result: " << mk_pp(der, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "d(" << state_str(r) << ")="
+        STRACE(seq_regex, tout << "derivative result: " << mk_pp(der, m) << std::endl;);
+        STRACE(seq_regex_brief, tout << "d(" << state_str(r) << ")="
                                        << state_str(der) << " ";);
 
         //TODO: simplify der further, if ele implies further simplifications
@@ -451,8 +451,8 @@ namespace smt {
     }
 
     void seq_regex::propagate_eq(expr* r1, expr* r2) {
-        TRACE("seq_regex", tout << "propagate EQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PEQ ";);
+        TRACE(seq_regex, tout << "propagate EQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
+        STRACE(seq_regex_brief, tout << "PEQ ";);
 
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
@@ -473,8 +473,8 @@ namespace smt {
     }
     
     void seq_regex::propagate_ne(expr* r1, expr* r2) {
-        TRACE("seq_regex", tout << "propagate NEQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
-        STRACE("seq_regex_brief", tout << "PNEQ ";);
+        TRACE(seq_regex, tout << "propagate NEQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
+        STRACE(seq_regex_brief, tout << "PNEQ ";);
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
         expr_ref r = symmetric_diff(r1, r2);
@@ -509,8 +509,8 @@ namespace smt {
             return;
         
 
-        TRACE("seq_regex", tout << "propagate nonempty: " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief", tout
+        TRACE(seq_regex, tout << "propagate nonempty: " << mk_pp(e, m) << std::endl;);
+        STRACE(seq_regex_brief, tout
             << std::endl << "PNE(" << expr_id_str(e) << "," << state_str(r)
             << "," << expr_id_str(u) << "," << expr_id_str(n) << ") ";);
 
@@ -577,7 +577,7 @@ namespace smt {
             expr* econd = nullptr, *e1 = nullptr, *e2 = nullptr;
             if (!re_to_accept.contains(e)) {
                 // First visit: add children
-                STRACE("seq_regex_verbose", tout << "1";);
+                STRACE(seq_regex_verbose, tout << "1";);
                 if (m.is_ite(e, econd, e1, e2) ||
                     re().is_union(e, e1, e2)) {
                     to_visit.push_back(e1);
@@ -588,7 +588,7 @@ namespace smt {
             }
             else if (re_to_accept.find(e) == nullptr) {
                 // Second visit: set value
-                STRACE("seq_regex_verbose", tout << "2";);
+                STRACE(seq_regex_verbose, tout << "2";);
                 to_visit.pop_back();
                 if (m.is_ite(e, econd, e1, e2)) {
                     expr* b1 = re_to_accept.find(e1);
@@ -619,13 +619,13 @@ namespace smt {
                     _temp_bool_owner.push_back(acc_leaf);
                     re_to_accept.find(e) = acc_leaf;
 
-                    STRACE("seq_regex_verbose", tout
+                    STRACE(seq_regex_verbose, tout
                         << "mk_deriv_accept: added accept leaf: "
                         << mk_pp(acc_leaf, m) << std::endl;);
                 }
             }
             else {
-                STRACE("seq_regex_verbose", tout << "3";);
+                STRACE(seq_regex_verbose, tout << "3";);
                 // Remaining visits: skip
                 to_visit.pop_back();
             }
@@ -734,8 +734,8 @@ namespace smt {
         VERIFY(sk().is_is_empty(e, r, u, n));
         expr_ref is_nullable = is_nullable_wrapper(r);
 
-        TRACE("seq_regex", tout << "propagate empty: " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief", tout
+        TRACE(seq_regex, tout << "propagate empty: " << mk_pp(e, m) << std::endl;);
+        STRACE(seq_regex_brief, tout
             << std::endl << "PE(" << expr_id_str(e) << "," << state_str(r)
             << "," << expr_id_str(u) << "," << expr_id_str(n) << ") ";);
 
@@ -787,9 +787,9 @@ namespace smt {
             m_state_to_expr.push_back(e);
             unsigned new_id = m_state_to_expr.size();
             m_expr_to_state.insert(e, new_id);
-            STRACE("seq_regex_brief", tout << "new(" << expr_id_str(e)
+            STRACE(seq_regex_brief, tout << "new(" << expr_id_str(e)
                                            << ")=" << state_str(e) << " ";);
-            STRACE("seq_regex", tout
+            STRACE(seq_regex, tout
                 << "New state ID: " << new_id
                 << " = " << mk_pp(e, m) << std::endl;);
             SASSERT(get_expr_from_id(new_id) == e);
@@ -820,21 +820,21 @@ namespace smt {
         unsigned r_id = get_state_id(r);
         if (m_state_graph.is_done(r_id)) return false;
         if (m_state_graph.get_size() >= m_max_state_graph_size) {
-            STRACE("seq_regex", tout << "Warning: ignored state graph update -- max size of seen states reached!" << std::endl;);
-            STRACE("seq_regex_brief", tout << "(MAX SIZE REACHED) ";);
+            STRACE(seq_regex, tout << "Warning: ignored state graph update -- max size of seen states reached!" << std::endl;);
+            STRACE(seq_regex_brief, tout << "(MAX SIZE REACHED) ";);
             return false;
         }
-        STRACE("seq_regex", tout << "Updating state graph for regex "
+        STRACE(seq_regex, tout << "Updating state graph for regex "
                                  << mk_pp(r, m) << ") ";);
         
-        STRACE("state_graph",
+        STRACE(state_graph,
             if (!m_state_graph.is_seen(r_id))
                 tout << std::endl << "state(" << r_id << ") = " << re().to_str(r) << std::endl << "info(" << r_id << ") = " << re().get_info(r) << std::endl;);
         // Add state
         m_state_graph.add_state(r_id);
-        STRACE("seq_regex", tout << "Updating state graph for regex "
+        STRACE(seq_regex, tout << "Updating state graph for regex "
                                  << mk_pp(r, m) << ") " << std::endl;);
-        STRACE("seq_regex_brief", tout << std::endl << "USG("
+        STRACE(seq_regex_brief, tout << std::endl << "USG("
                                        << state_str(r) << ") ";);
         expr_ref r_nullable = is_nullable_wrapper(r);
         if (m.is_true(r_nullable)) {
@@ -843,14 +843,14 @@ namespace smt {
         else {
             // Add edges to all derivatives
             expr_ref_vector derivatives(m);
-            STRACE("seq_regex_verbose", tout
+            STRACE(seq_regex_verbose, tout
                 << "getting all derivs: " << r_id << " " << std::endl;);
             get_derivative_targets(r, derivatives);
             for (auto const& dr: derivatives) {
                 unsigned dr_id = get_state_id(dr);
-                STRACE("seq_regex_verbose", tout
+                STRACE(seq_regex_verbose, tout
                     << std::endl << "  traversing deriv: " << dr_id << " ";);              
-                STRACE("state_graph",
+                STRACE(state_graph,
                     if (!m_state_graph.is_seen(dr_id))
                         tout << "state(" << dr_id << ") = " << re().to_str(dr) << std::endl << "info(" << dr_id << ") = " << re().get_info(dr) << std::endl;);
                 // Add state
@@ -861,9 +861,9 @@ namespace smt {
             m_state_graph.mark_done(r_id);
         }
 
-        STRACE("seq_regex", m_state_graph.display(tout););
-        STRACE("seq_regex_brief", tout << std::endl;);
-        STRACE("seq_regex_brief", m_state_graph.display(tout););
+        STRACE(seq_regex, m_state_graph.display(tout););
+        STRACE(seq_regex_brief, tout << std::endl;);
+        STRACE(seq_regex_brief, m_state_graph.display(tout););
         return true;
     }
 

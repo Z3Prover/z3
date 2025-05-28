@@ -330,7 +330,7 @@ namespace datalog {
         relation_base * operator()(const relation_base & _r1, const relation_base & _r2) override {
             udoc_relation const& r1 = get(_r1);
             udoc_relation const& r2 = get(_r2);
-            TRACE("doc", r1.display(tout << "r1:\n"); r2.display(tout  << "r2:\n"););
+            TRACE(doc, r1.display(tout << "r1:\n"); r2.display(tout  << "r2:\n"););
             udoc_plugin& p = r1.get_plugin();            
             relation_signature const& sig = get_result_signature();
             udoc_relation * result = alloc(udoc_relation, p, sig);
@@ -338,7 +338,7 @@ namespace datalog {
             udoc const& d2 = r2.get_udoc();
             udoc& r = result->get_udoc();
             r.join(d1, d2, dm, dm1, m_cols1, m_cols2);
-            TRACE("doc", result->display(tout << "result:\n"););
+            TRACE(doc, result->display(tout << "result:\n"););
             IF_VERBOSE(3, result->display(verbose_stream() << "join result:\n"););
             SASSERT(r.well_formed(result->get_dm()));
             return result;
@@ -369,7 +369,7 @@ namespace datalog {
         }
 
         relation_base * operator()(const relation_base & tb) override {
-            TRACE("doc", tb.display(tout << "src:\n"););
+            TRACE(doc, tb.display(tout << "src:\n"););
             udoc_relation const& t = get(tb);
             udoc_plugin& p = t.get_plugin();
             udoc_relation* r = udoc_plugin::get(p.mk_empty(get_result_signature()));
@@ -382,7 +382,7 @@ namespace datalog {
                 d2 = dm1.project(dm2, m_to_delete, ud1[i]);
                 ud2.push_back(d2.detach());
             }
-            TRACE("doc", tout << "final size: " << r->get_size_estimate_rows() << '\n';);
+            TRACE(doc, tout << "final size: " << r->get_size_estimate_rows() << '\n';);
             SASSERT(ud2.well_formed(dm2));
             return r;
         }
@@ -427,7 +427,7 @@ namespace datalog {
             column_info.push_back(column);
             SASSERT(column == t.get_num_bits());
 
-            TRACE("doc",
+            TRACE(doc,
                   ast_manager& m = p.get_ast_manager();
                   sig1.output(m, tout << "sig1: "); tout << "\n";
                   sig2.output(m, tout << "sig2: "); tout << "\n";
@@ -463,7 +463,7 @@ namespace datalog {
 
         relation_base * operator()(const relation_base & _r) override {
             udoc_relation const& r = get(_r);
-            TRACE("doc", r.display(tout << "r:\n"););
+            TRACE(doc, r.display(tout << "r:\n"););
             udoc_plugin& p = r.get_plugin();            
             relation_signature const& sig = get_result_signature();
             udoc_relation* result = alloc(udoc_relation, p, sig);
@@ -474,7 +474,7 @@ namespace datalog {
             for (unsigned i = 0; i < src.size(); ++i) {
                 dst.push_back(dm.allocate(src[i], m_permutation.data()));
             }
-            TRACE("doc", result->display(tout << "result:\n"););
+            TRACE(doc, result->display(tout << "result:\n"););
             SASSERT(dst.well_formed(dm));
             return result;
         }
@@ -492,7 +492,7 @@ namespace datalog {
     class udoc_plugin::union_fn : public relation_union_fn {
     public:
         void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
-            TRACE("doc", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
+            TRACE(doc, _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             udoc_relation& r = get(_r);
             udoc_relation const& src = get(_src);
             udoc_relation* d = get(_delta);
@@ -503,7 +503,7 @@ namespace datalog {
             r.get_plugin().mk_union(dm, r.get_udoc(), src.get_udoc(), d1);
             SASSERT(r.get_udoc().well_formed(dm));
             SASSERT(!d1 || d1->well_formed(dm));
-            TRACE("doc", _r.display(tout << "dst':\n"); );
+            TRACE(doc, _r.display(tout << "dst':\n"); );
             IF_VERBOSE(3, r.display(verbose_stream() << "union: "););
             IF_VERBOSE(3, if (d) d->display(verbose_stream() << "delta: "););
         }
@@ -577,7 +577,7 @@ namespace datalog {
             doc_manager& dm = r.get_dm();
             d.merge(dm, m_cols[0], m_size, m_equalities, m_empty_bv);
             SASSERT(d.well_formed(dm));
-            TRACE("doc", tout << "final size: " << r.get_size_estimate_rows() << '\n';);
+            TRACE(doc, tout << "final size: " << r.get_size_estimate_rows() << '\n';);
         }
     };
     relation_mutator_fn * udoc_plugin::mk_filter_identical_fn(
@@ -836,11 +836,11 @@ namespace datalog {
             apply_guard(e1, sub, equalities, empty);
             result.subtract(dm, sub);
             result.simplify(dm);
-            TRACE("doc",
+            TRACE(doc,
                   result.display(dm, tout << "result0:") << "\n";
                   sub.display(dm, tout << "sub:") << "\n";);
             sub.reset(dm);
-            TRACE("doc", result.display(dm, tout << "result:") << "\n";);
+            TRACE(doc, result.display(dm, tout << "result:") << "\n";);
         }
         else if (m.is_or(g)) {
             udoc sub;
@@ -850,9 +850,9 @@ namespace datalog {
                 arg = mk_not(m, to_app(g)->get_arg(i));
                 apply_guard(arg, sub, equalities, discard_cols);
             }
-            TRACE("doc", result.display(dm, tout << "result0:") << "\n";);
+            TRACE(doc, result.display(dm, tout << "result0:") << "\n";);
             result.subtract(dm, sub);
-            TRACE("doc", 
+            TRACE(doc, 
                   sub.display(dm, tout << "sub:") << "\n";
                   result.display(dm, tout << "result:") << "\n";);
             sub.reset(dm);
@@ -923,7 +923,7 @@ namespace datalog {
             m_udoc.push_back(dm.allocateX());
             t.apply_guard(guard, m_udoc, m_equalities, m_empty_bv);
 
-            TRACE("doc", 
+            TRACE(doc, 
                   tout << "original condition: " << mk_pp(condition, m) << "\n";
                   tout << "remaining condition: " << m_reduced_condition << "\n"; 
                   m_udoc.display(dm, tout) << "\n";);
@@ -943,7 +943,7 @@ namespace datalog {
             SASSERT(u.well_formed(dm));            
             u.simplify(dm);
             SASSERT(u.well_formed(dm));
-            TRACE("doc", tout << "final size: " << t.get_size_estimate_rows() << '\n';);
+            TRACE(doc, tout << "final size: " << t.get_size_estimate_rows() << '\n';);
             IF_VERBOSE(3, t.display(verbose_stream()););
         }
     };
@@ -1030,7 +1030,7 @@ namespace datalog {
                     }
                 }
             }
-            TRACE("doc", result->display(tout););
+            TRACE(doc, result->display(tout););
             return result;            
         }
     };
@@ -1168,7 +1168,7 @@ namespace datalog {
             if (!jp->fast_empty()) {
                 t.get_udoc().subtract(dmt, jp->get_udoc());
             }
-            TRACE("doc", t.display(tout); tout << "\n"; jp->display(tout); tout << "\n";);
+            TRACE(doc, t.display(tout); tout << "\n"; jp->display(tout); tout << "\n";);
             jp->deallocate();
         }
     };

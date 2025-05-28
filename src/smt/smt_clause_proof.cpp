@@ -96,7 +96,7 @@ namespace smt {
         justification* j = c.get_justification();
         auto st = kind2st(c.get_kind());
         auto pr = justification2proof(st, j);
-        CTRACE("mk_clause", pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
+        CTRACE(mk_clause, pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
         update(c, st, pr, simp_lits);        
     }
 
@@ -105,7 +105,7 @@ namespace smt {
             return;
         auto st = kind2st(k);
         auto pr = justification2proof(st, j);
-        CTRACE("mk_clause", pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
+        CTRACE(mk_clause, pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
         m_lits.reset();
         for (unsigned i = 0; i < n; ++i) 
             m_lits.push_back(ctx.literal2expr(lits[i]));
@@ -189,7 +189,7 @@ namespace smt {
     }
 
     void clause_proof::update(status st, expr_ref_vector& v, proof* p) {
-        TRACE("clause_proof", tout << m_trail.size() << " " << st << " " << v << "\n";);
+        TRACE(clause_proof, tout << m_trail.size() << " " << st << " " << v << "\n";);
         if (ctx.get_fparams().m_clause_proof)
             m_trail.push_back(info(st, v, p));
         if (m_on_clause_eh) 
@@ -237,7 +237,7 @@ namespace smt {
     }
 
     proof_ref clause_proof::get_proof(bool inconsistent) {
-        TRACE("context", tout << "get-proof " << ctx.get_fparams().m_clause_proof << "\n";);
+        TRACE(context, tout << "get-proof " << ctx.get_fparams().m_clause_proof << "\n";);
         if (!ctx.get_fparams().m_clause_proof) 
             return proof_ref(m);
         expr_ref_vector ps(m);

@@ -92,7 +92,7 @@ static void tst2() {
             if (!object_coeff_pairs.empty()) {
                 unsigned idx = rand() % object_coeff_pairs.size();
                 cell * c = object_coeff_pairs[idx].first;
-                CTRACE("object_allocator", c->m_coeff != rational(object_coeff_pairs[idx].second), tout << c->m_coeff << " != " << rational(object_coeff_pairs[idx].second) << "\n";);
+                CTRACE(object_allocator, c->m_coeff != rational(object_coeff_pairs[idx].second), tout << c->m_coeff << " != " << rational(object_coeff_pairs[idx].second) << "\n";);
                 ENSURE(c->m_coeff == rational(object_coeff_pairs[idx].second));
                 if (idx < 5)
                     m1.recycle(c);
@@ -110,13 +110,13 @@ static void tst2() {
             num_resets++;
         }
     }
-    TRACE("object_allocator", tout << "num. resets: " << num_resets << "\n";);
+    TRACE(object_allocator, tout << "num. resets: " << num_resets << "\n";);
 }
 
 void tst_object_allocator() {
     tst1();
     tst2();
-    TRACE("object_allocator", tout << "num. allocated cells: " << cell::g_num_allocated_cells << "\nnum. deallocated cells: " << cell::g_num_deallocated_cells << 
+    TRACE(object_allocator, tout << "num. allocated cells: " << cell::g_num_allocated_cells << "\nnum. deallocated cells: " << cell::g_num_deallocated_cells << 
           "\nnum. recycled cells: " << cell::g_num_recycled_cells << "\n";);
     ENSURE(cell::g_num_allocated_cells == cell::g_num_deallocated_cells);
 }

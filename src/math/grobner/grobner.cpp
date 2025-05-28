@@ -427,7 +427,7 @@ bool grobner::is_eq_monomial_body(monomial const * m1, monomial const * m2) {
    \remark This method assumes the monomials are sorted.
 */
 void grobner::merge_monomials(ptr_vector<monomial> & monomials) {
-    TRACE("grobner", tout << "before merging monomials:\n"; display_monomials(tout, monomials.size(), monomials.data()); tout << "\n";);
+    TRACE(grobner, tout << "before merging monomials:\n"; display_monomials(tout, monomials.size(), monomials.data()); tout << "\n";);
     unsigned j  = 0;
     unsigned sz = monomials.size();
     if (sz == 0)
@@ -459,7 +459,7 @@ void grobner::merge_monomials(ptr_vector<monomial> & monomials) {
         j++;
     monomials.shrink(j);
     del_monomials(to_delete);    
-    TRACE("grobner", tout << "after merging monomials:\n"; display_monomials(tout, monomials.size(), monomials.data()); tout << "\n";);
+    TRACE(grobner, tout << "after merging monomials:\n"; display_monomials(tout, monomials.size(), monomials.data()); tout << "\n";);
 }
 
 /**
@@ -538,7 +538,7 @@ bool grobner::is_subset(monomial const * m1, monomial const * m2, ptr_vector<exp
             if (i1 >= sz1) {
                 for (; i2 < sz2; i2++) 
                     rest.push_back(m2->m_vars[i2]);
-                TRACE("grobner", 
+                TRACE(grobner, 
                       tout << "monomial: "; display_monomial(tout, *m1); tout << " is a subset of "; 
                       display_monomial(tout, *m2); tout << "\n";
                       tout << "rest: "; display_vars(tout, rest.size(), rest.data()); tout << "\n";);
@@ -563,7 +563,7 @@ bool grobner::is_subset(monomial const * m1, monomial const * m2, ptr_vector<exp
         }
     }
     // is not subset
-    TRACE("grobner", tout << "monomial: "; display_monomial(tout, *m1); tout << " is not a subset of "; 
+    TRACE(grobner, tout << "monomial: "; display_monomial(tout, *m1); tout << " is not a subset of "; 
           display_monomial(tout, *m2); tout << "\n";);
     return false;
 }
@@ -619,7 +619,7 @@ grobner::equation * grobner::copy_equation(equation const * eq) {
    Return new_equation if source->m_scope_lvl > target->m_scope_lvl, moreover target is freezed, and new_equation contains the result.
 */
 grobner::equation * grobner::simplify(equation const * source, equation * target) {
-    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
+    TRACE(grobner, tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
     if (source->get_num_monomials() == 0)
         return nullptr;
     if (!m_manager.inc())
@@ -673,7 +673,7 @@ grobner::equation * grobner::simplify(equation const * source, equation * target
         }
     }
     while (simplified && m_manager.inc());
-    TRACE("grobner", tout << "result: "; display_equation(tout, *target););
+    TRACE(grobner, tout << "result: "; display_equation(tout, *target););
     return result ? target : nullptr;
 }
 
@@ -686,7 +686,7 @@ grobner::equation * grobner::simplify(equation const * source, equation * target
 grobner::equation * grobner::simplify_using_processed(equation * eq) {
     bool result = false;
     bool simplified;
-    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities\n";);
+    TRACE(grobner, tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities\n";);
     do {
         simplified = false;
         for (equation const* p : m_processed) {
@@ -702,7 +702,7 @@ grobner::equation * grobner::simplify_using_processed(equation * eq) {
         }        
     }
     while (simplified);
-    TRACE("grobner", tout << "simplification result: "; display_equation(tout, *eq););
+    TRACE(grobner, tout << "simplification result: "; display_equation(tout, *eq););
     return result ? eq : nullptr;
 }
 
@@ -739,7 +739,7 @@ grobner::equation * grobner::pick_next() {
         del_equation(e);
     if (r)
         m_to_process.erase(r);
-    TRACE("grobner", tout << "selected equation: "; if (!r) tout << "<null>\n"; else display_equation(tout, *r););
+    TRACE(grobner, tout << "selected equation: "; if (!r) tout << "<null>\n"; else display_equation(tout, *r););
     return r;
 }
 
@@ -819,7 +819,7 @@ void grobner::simplify_to_process(equation * eq) {
    \brief If m1 = (* c M M1) and m2 = (* d M M2) and M is non empty, then return true and store M1 in rest1 and M2 in rest2.
 */
 bool grobner::unify(monomial const * m1, monomial const * m2, ptr_vector<expr> & rest1, ptr_vector<expr> & rest2) {
-    TRACE("grobner", tout << "unifying: "; display_monomial(tout, *m1); tout << " "; display_monomial(tout, *m2); tout << "\n";);
+    TRACE(grobner, tout << "unifying: "; display_monomial(tout, *m1); tout << " "; display_monomial(tout, *m2); tout << "\n";);
     bool found_M = false;
     unsigned i1  = 0;
     unsigned i2  = 0;
@@ -872,7 +872,7 @@ void grobner::superpose(equation * eq1, equation * eq2) {
     ptr_vector<expr> & rest2 = m_tmp_vars2;
     rest2.reset();
     if (unify(eq1->m_monomials[0], eq2->m_monomials[0], rest1, rest2)) {
-        TRACE("grobner", tout << "superposing:\n"; display_equation(tout, *eq1); display_equation(tout, *eq2); 
+        TRACE(grobner, tout << "superposing:\n"; display_equation(tout, *eq1); display_equation(tout, *eq2); 
               tout << "rest1: "; display_vars(tout, rest1.size(), rest1.data()); tout << "\n";
               tout << "rest2: "; display_vars(tout, rest2.size(), rest2.data()); tout << "\n";);
         ptr_vector<monomial> & new_monomials = m_tmp_monomials;
@@ -882,7 +882,7 @@ void grobner::superpose(equation * eq1, equation * eq2) {
         c.neg();
         mul_append(1, eq2, c, rest1, new_monomials);
         simplify(new_monomials);
-        TRACE("grobner", tout << "resulting monomials: "; display_monomials(tout, new_monomials.size(), new_monomials.data()); tout << "\n";);
+        TRACE(grobner, tout << "resulting monomials: "; display_monomials(tout, new_monomials.size(), new_monomials.data()); tout << "\n";);
         if (new_monomials.empty())
             return;
         m_num_new_equations++;
@@ -929,7 +929,7 @@ bool grobner::compute_basis_step() {
     superpose(eq);
     m_processed.insert(eq);
     simplify_to_process(eq);
-    TRACE("grobner", tout << "end of iteration:\n"; display(tout););
+    TRACE(grobner, tout << "end of iteration:\n"; display(tout););
     return false;
 }
 

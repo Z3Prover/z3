@@ -184,11 +184,66 @@ def configure_file(template_file_path, output_file_path, substitutions):
     with open(output_file_path, 'w') as f:
         f.write(template_string)
 
+def generate_trace_tag_docs():
+    """Generate trace tag documentation from trace_tags.def file.
+    
+    This function reads the trace_tags.def file and generates a markdown table with the following format:
+    
+    # Z3 Trace Tags Documentation
+    
+    This document contains the trace tags and their descriptions used in Z3.
+    
+    | Tag | Class | Description |
+    |-----|-------|-------------|
+    | Global | Global | Unknown Class |
+    | add_bounds_tactic | arith_bounds_tactic | add bounds tactic |
+    | parser | parser | parser functionality |
+    
+    The def file format should be:
+    X(class, tag, "description")
+    
+    For example:
+    X(Global, Global, "Unknown Class")
+    X(add_bounds_tactic, arith_bounds_tactic, "add bounds tactic")
+    """
+    print("Generating trace tag documentation...")
+    def_file = os.path.join(SCRIPT_DIR, "../src/util/trace_tags.def")
+    output_md = os.path.join(OUTPUT_DIRECTORY, "trace_tags.md")
+    
+    if not os.path.exists(def_file):
+        print(f"Warning: {def_file} not found. Skipping trace tag documentation generation.")
+        return
+        
+    with open(def_file, "r") as f:
+        lines = f.readlines()
+
+    entries = []
+    for line in lines:
+        match = re.match(r'X\(\s*(\w+)\s*,\s*(\w+)\s*,\s*"([^"]+)"\s*\)', line)
+        if match:
+            tag_class, tag, desc = match.groups()
+            entries.append((tag_class, tag, desc))
+
+    mk_dir(os.path.dirname(output_md))
+    with open(output_md, "w", encoding='utf-8') as f:
+        f.write("# Z3 Trace Tags Documentation\n\n")
+        f.write("This document contains the trace tags and their descriptions used in Z3.\n\n")
+        f.write("| Tag | Class | Description |\n")
+        f.write("|-----|-------|-------------|\n")
+        for tag, class_name, desc in sorted(entries):
+            f.write(f"| {tag} | {class_name} | {desc} |\n")
+    
+    print(f"Trace tag documentation has been generated at {output_md}")
+
 try:
     parse_options()
 
     print("Creating temporary directory \"{}\"".format(TEMP_DIR))
     mk_dir(TEMP_DIR)
+    
+    # Generate trace tag documentation
+    generate_trace_tag_docs()
+    
     # Short-hand for path to temporary file
     def temp_path(path):
         return os.path.join(TEMP_DIR, path)

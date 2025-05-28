@@ -50,7 +50,7 @@ namespace smt {
         auto& r = ctx.get_region();
         m_literals = new (r) literal[num_lits];
         memcpy(m_literals, lits, sizeof(literal) * num_lits);
-        TRACE("unit_resolution_justification_bug", tout << literal_vector(num_lits, lits) << "\n";);
+        TRACE(unit_resolution_justification_bug, tout << literal_vector(num_lits, lits) << "\n";);
         SASSERT(m_num_literals > 0);
     }
 
@@ -63,7 +63,7 @@ namespace smt {
         SASSERT(!js || !js->in_region());
         m_literals = alloc_vect<literal>(num_lits);
         memcpy(m_literals, lits, sizeof(literal) * num_lits);
-        TRACE("unit_resolution_justification_bug", tout << literal_vector(num_lits, lits) << "\n";);
+        TRACE(unit_resolution_justification_bug, tout << literal_vector(num_lits, lits) << "\n";);
         SASSERT(num_lits != 0);
     }
 
@@ -97,7 +97,7 @@ namespace smt {
             else
                 prs.push_back(pr);
         }
-        TRACE("unit_resolution_justification_bug",
+        TRACE(unit_resolution_justification_bug,
             tout << "in mk_proof\n" << literal_vector(m_num_literals, m_literals) << "\n";
             for (proof* p : prs) tout << mk_ll_pp(m.get_fact(p), m););
         return m.mk_unit_resolution(prs.size(), prs.data());
@@ -231,7 +231,7 @@ namespace smt {
             }
             pr = m.mk_modus_ponens(pr2, pr1);
             
-            TRACE("mp_iff_justification", tout << mk_pp(fact1, m) << "\n" << mk_pp(fact2, m) << "\n" <<
+            TRACE(mp_iff_justification, tout << mk_pp(fact1, m) << "\n" << mk_pp(fact2, m) << "\n" <<
                   mk_pp(m.get_fact(pr), m) << "\n";);
             return pr;
         }

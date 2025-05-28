@@ -53,7 +53,7 @@ namespace euf {
                 !m.is_bool(n->get_app()->get_arg(0)) && 
                 (n->get_arg(0)->get_root() == n->get_arg(1)->get_root())) {
                 enable_trace("euf");
-                TRACE("euf", display(tout << n->get_expr_id() << ": " << mk_pp(n->get_expr(), m) << "\n" 
+                TRACE(euf, display(tout << n->get_expr_id() << ": " << mk_pp(n->get_expr(), m) << "\n" 
                                      << "#" << n->get_arg(0)->get_expr_id() << " == #" << n->get_arg(1)->get_expr_id() << " r: " << n->get_arg(0)->get_root_id() << "\n");
                       );
                 UNREACHABLE();

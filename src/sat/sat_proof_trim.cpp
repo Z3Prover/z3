@@ -65,7 +65,7 @@ namespace sat {
     }
     
     void proof_trim::del(literal_vector const& cl, clause* cp) {
-        CTRACE("sat", cp, tout << "del " << *cp << "\n");
+        CTRACE(sat, cp, tout << "del " << *cp << "\n");
         if (cp) 
             s.detach_clause(*cp);
         else 
@@ -314,7 +314,7 @@ namespace sat {
 
     clause* proof_trim::del(literal_vector const& cl) {
         clause* cp = nullptr;
-        TRACE("sat", tout << "del: " << cl << "\n");
+        TRACE(sat, tout << "del: " << cl << "\n");
         if (cl.size() == 2) {
             s.detach_bin_clause(cl[0], cl[1], true);
             return cp;
@@ -325,7 +325,7 @@ namespace sat {
         auto& [clauses, id, in_core] = e->get_data().m_value;
         if (!clauses.empty()) {
             cp = clauses.back();
-            TRACE("sat", tout << "del: " << *cp << "\n");
+            TRACE(sat, tout << "del: " << *cp << "\n");
             s.detach_clause(*cp);
             clauses.pop_back();
         }

@@ -151,7 +151,7 @@ class reduce_args_tactic : public tactic {
             quick_for_each_expr(proc, visited, g.form(i));
         }
         
-        TRACE("reduce_args", tout << "non_candidates:\n";
+        TRACE(reduce_args, tout << "non_candidates:\n";
                 for (func_decl* d : non_candidates)
                     tout << d->get_name() << "\n";
               );
@@ -230,7 +230,7 @@ class reduce_args_tactic : public tactic {
         for (func_decl* a : bad_decls)
             decl2args.erase(a);
 
-        TRACE("reduce_args", tout << "decl2args:" << std::endl;
+        TRACE(reduce_args, tout << "decl2args:" << std::endl;
               for (auto const& [k, v] : decl2args) {
                   tout << k->get_name() << ": ";
                   for (unsigned i = 0; i < v.size(); ++i)
@@ -412,7 +412,7 @@ class reduce_args_tactic : public tactic {
     void operator()(goal & g) {
         if (g.inconsistent())
             return;
-        TRACE("reduce_args", g.display(tout););
+        TRACE(reduce_args, g.display(tout););
         tactic_report report("reduce-args", g);
         obj_hashtable<func_decl> non_candidates;
         obj_map<func_decl, bit_vector> decl2args;
@@ -439,7 +439,7 @@ class reduce_args_tactic : public tactic {
         if (g.models_enabled())
             g.add(mk_mc(decl2args, ctx.m_decl2arg2funcs));
 
-        TRACE("reduce_args", g.display(tout); if (g.mc()) g.mc()->display(tout););
+        TRACE(reduce_args, g.display(tout); if (g.mc()) g.mc()->display(tout););
     }
 
 public:

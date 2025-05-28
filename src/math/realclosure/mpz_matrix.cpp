@@ -218,7 +218,7 @@ bool mpz_matrix_manager::solve_core(mpz_matrix const & _A, mpz * b, bool int_sol
     scoped_mpz_matrix A(*this);
     set(A, _A);
     for (unsigned k = 0; k < A.m(); k++) {
-        TRACE("mpz_matrix", 
+        TRACE(mpz_matrix, 
               tout << "k: " << k << "\n" << A;
               tout << "b:";
               for (unsigned i = 0; i < A.m(); i++) {
@@ -359,7 +359,7 @@ unsigned mpz_matrix_manager::linear_independent_rows(mpz_matrix const & _A, unsi
     for (unsigned i = 0; i < A.m(); i++)
         rows[i] = i;
     for (unsigned k1 = 0, k2 = 0; k1 < A.m(); k1++) {
-        TRACE("mpz_matrix", tout << "k1: " << k1 << ", k2: " << k2 << "\n" << A;);
+        TRACE(mpz_matrix, tout << "k1: " << k1 << ", k2: " << k2 << "\n" << A;);
         // find pivot
         unsigned pivot = UINT_MAX;
         for (unsigned i = k1; i < A.m(); i++) {

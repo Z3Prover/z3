@@ -200,7 +200,7 @@ namespace datalog {
 
         void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
 
-            TRACE("interval_relation", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
+            TRACE(interval_relation, _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
 
             interval_relation& r = get(_r);
             interval_relation const& src = get(_src);
@@ -270,7 +270,7 @@ namespace datalog {
             interval_relation & r = get(_r);
             interval_relation_plugin & p = r.get_plugin();
             r.mk_intersect(m_col, interval(p.dep(), m_value));
-            TRACE("interval_relation", tout << m_value << "\n"; r.display(tout););            
+            TRACE(interval_relation, tout << m_value << "\n"; r.display(tout););            
         }
     };
 
@@ -292,7 +292,7 @@ namespace datalog {
 
         void operator()(relation_base& t) override {
             get(t).filter_interpreted(m_cond);
-            TRACE("interval_relation", tout << mk_pp(m_cond, m_cond.get_manager()) << "\n"; t.display(tout););
+            TRACE(interval_relation, tout << mk_pp(m_cond, m_cond.get_manager()) << "\n"; t.display(tout););
         }
     };
 
@@ -317,7 +317,7 @@ namespace datalog {
     interval_relation::interval_relation(interval_relation_plugin& p, relation_signature const& s, bool is_empty):
         vector_relation<interval>(p, s, is_empty, interval(p.dep())) 
     {
-        TRACE("interval_relation", tout << s.size() << "\n";);
+        TRACE(interval_relation, tout << s.size() << "\n";);
     }    
 
     void interval_relation::add_fact(const relation_fact & f) {

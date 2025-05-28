@@ -31,7 +31,7 @@ Revision History:
 void smaller_pattern::save(expr * p1, expr * p2) {
     expr_pair e(p1, p2);
     if (!m_cache.contains(e)) {
-        TRACE("smaller_pattern_proc", tout << "saving: " << p1->get_id() << " " << p2->get_id() << "\n";);
+        TRACE(smaller_pattern_proc, tout << "saving: " << p1->get_id() << " " << p2->get_id() << "\n";);
         m_cache.insert(e);
         m_todo.push_back(e);
     }
@@ -129,8 +129,8 @@ void pattern_inference_cfg::collect::operator()(expr * n, unsigned num_bindings)
         entry & e      = m_todo.back();
         n              = e.m_node;
         unsigned delta = e.m_delta;
-        TRACE("collect", tout << "processing: " << n->get_id() << " " << delta << " kind: " << n->get_kind() << "\n";);
-        TRACE("collect_info", tout << mk_pp(n, m) << "\n";);
+        TRACE(collect, tout << "processing: " << n->get_id() << " " << delta << " kind: " << n->get_kind() << "\n";);
+        TRACE(collect_info, tout << mk_pp(n, m) << "\n";);
         if (visit_children(n, delta)) {
             m_todo.pop_back();
             save_candidate(n, delta);
@@ -249,7 +249,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
         decl_kind k   = c->get_decl_kind();
         if (!free_vars.empty() &&            
             (fid != m_afid || (fid == m_afid && !m_owner.m_nested_arith_only && (k == OP_DIV || k == OP_IDIV || k == OP_MOD || k == OP_REM || k == OP_MUL)))) {
-            TRACE("pattern_inference", tout << "potential candidate: \n" << mk_pp(new_node, m) << "\n";);
+            TRACE(pattern_inference, tout << "potential candidate: \n" << mk_pp(new_node, m) << "\n";);
             m_owner.add_candidate(new_node, free_vars, size);
         }
         return;
@@ -352,7 +352,7 @@ bool pattern_inference_cfg::contains_subpattern::operator()(expr * n) {
                     uint_set const & s2 = e->get_data().m_value.m_free_vars;
                     SASSERT(s2.subset_of(s1));
                     if (s1 == s2) {
-                        TRACE("pattern_inference", tout << mk_pp(n, m_owner.m) << "\nis bigger than\n" << mk_pp(to_app(curr), m_owner.m) << "\n";);
+                        TRACE(pattern_inference, tout << mk_pp(n, m_owner.m) << "\nis bigger than\n" << mk_pp(to_app(curr), m_owner.m) << "\n";);
                         return true;
                     }
                 }
@@ -513,7 +513,7 @@ void pattern_inference_cfg::candidates2multi_patterns(unsigned max_num_patterns,
                 m_pre_patterns.push_back(curr);
             }
         }
-        TRACE("pattern_inference", tout << "m_pre_patterns.size(): " << m_pre_patterns.size() <<
+        TRACE(pattern_inference, tout << "m_pre_patterns.size(): " << m_pre_patterns.size() <<
               "\nnum_splits: " << num_splits << "\n";);
     }
 }
@@ -532,7 +532,7 @@ bool pattern_inference_cfg::is_forbidden(app * n) const {
     // occur outside of the quantifier. That is, Z3 will never match this kind of
     // pattern.
     if (m_params.m_pi_avoid_skolems && decl->is_skolem()) {
-        CTRACE("pattern_inference_skolem", decl->is_skolem(), tout << "ignoring: " << mk_pp(n, m) << "\n";);
+        CTRACE(pattern_inference_skolem, decl->is_skolem(), tout << "ignoring: " << mk_pp(n, m) << "\n";);
         return true;
     }
     if (is_forbidden(decl))
@@ -549,7 +549,7 @@ bool pattern_inference_cfg::has_preferred_patterns(ptr_vector<app> & candidate_p
             expr2info::obj_map_entry * e = m_candidates_info.find_core(candidate);
             info const & i = e->get_data().m_value;
             if (i.m_free_vars.num_elems() == m_num_bindings) {
-                TRACE("pattern_inference", tout << "found preferred pattern:\n" << mk_pp(candidate, m) << "\n";);
+                TRACE(pattern_inference, tout << "found preferred pattern:\n" << mk_pp(candidate, m) << "\n";);
                 app * p = m.mk_pattern(candidate);
                 result.push_back(p);
                 found = true;
@@ -570,7 +570,7 @@ void pattern_inference_cfg::mk_patterns(unsigned num_bindings,
 
     m_collect(n, num_bindings);
 
-    TRACE("pattern_inference",
+    TRACE(pattern_inference,
           tout << mk_pp(n, m);
           tout << "\ncandidates:\n";
           unsigned num = m_candidates.size();
@@ -581,7 +581,7 @@ void pattern_inference_cfg::mk_patterns(unsigned num_bindings,
     if (!m_candidates.empty()) {
         m_tmp1.reset();
         filter_looping_patterns(m_tmp1);
-        TRACE("pattern_inference",
+        TRACE(pattern_inference,
               tout << "candidates after removing looping-patterns:\n";
               dump_app_vector(tout, m_tmp1, m););
         SASSERT(!m_tmp1.empty());
@@ -590,7 +590,7 @@ void pattern_inference_cfg::mk_patterns(unsigned num_bindings,
             m_tmp2.reset();
             filter_bigger_patterns(m_tmp1, m_tmp2);
             SASSERT(!m_tmp2.empty());
-            TRACE("pattern_inference",
+            TRACE(pattern_inference,
                   tout << "candidates after removing bigger patterns:\n";
                   dump_app_vector(tout, m_tmp2, m););
             m_tmp1.reset();
@@ -601,7 +601,7 @@ void pattern_inference_cfg::mk_patterns(unsigned num_bindings,
             if (num_extra_multi_patterns > 0 && !m_tmp1.empty()) {
                 // m_pattern_weight_lt is not a total order
                 std::stable_sort(m_tmp1.begin(), m_tmp1.end(), m_pattern_weight_lt);
-                TRACE("pattern_inference",
+                TRACE(pattern_inference,
                       tout << "candidates after sorting:\n";
                       dump_app_vector(tout, m_tmp1, m););
                 candidates2multi_patterns(num_extra_multi_patterns, m_tmp1, result);
@@ -623,7 +623,7 @@ bool pattern_inference_cfg::reduce_quantifier(
     expr_ref & result,
     proof_ref & result_pr) {
 
-    TRACE("pattern_inference", tout << "processing:\n" << mk_pp(q, m) << "\n";);
+    TRACE(pattern_inference, tout << "processing:\n" << mk_pp(q, m) << "\n";);
     if (!m_params.m_pi_enabled)
         return false;
 
@@ -640,14 +640,14 @@ bool pattern_inference_cfg::reduce_quantifier(
             DEBUG_CODE(for (unsigned i = 0; i < new_patterns.size(); i++) { SASSERT(is_well_sorted(m, new_patterns.get(i))); });
             if (q->get_num_patterns() > 0) {
                 // just update the weight...
-                TRACE("pattern_inference", tout << "updating weight to: " << new_weight << "\n" << mk_pp(q, m) << "\n";);
+                TRACE(pattern_inference, tout << "updating weight to: " << new_weight << "\n" << mk_pp(q, m) << "\n";);
                 result = m.update_quantifier_weight(q, new_weight);
             }
             else {
                 quantifier_ref tmp(m);
                 tmp    = m.update_quantifier(q, new_patterns.size(), (expr**) new_patterns.data(), q->get_expr());
                 result = m.update_quantifier_weight(tmp, new_weight);
-                TRACE("pattern_inference", tout << "found patterns in database, weight: " << new_weight << "\n" << mk_pp(result, m) << "\n";);
+                TRACE(pattern_inference, tout << "found patterns in database, weight: " << new_weight << "\n" << mk_pp(result, m) << "\n";);
             }
             if (m.proofs_enabled())
                 result_pr = m.mk_rewrite(q, result);
@@ -739,7 +739,7 @@ bool pattern_inference_cfg::reduce_quantifier(
                 if (m.proofs_enabled()) {
                     result_pr = m.mk_transitivity(new_pr, m.mk_quant_intro(result2, new_q, m.mk_bind_proof(new_q, m.mk_reflexivity(new_q->get_expr()))));
                 }
-                TRACE("pattern_inference", tout << "pulled quantifier:\n" << mk_pp(new_q, m) << "\n";);
+                TRACE(pattern_inference, tout << "pulled quantifier:\n" << mk_pp(new_q, m) << "\n";);
             }
         }
     }
@@ -749,7 +749,7 @@ bool pattern_inference_cfg::reduce_quantifier(
             auto str = q->get_qid().str();
             warning_msg("failed to find a pattern for quantifier (quantifier id: %s)", str.c_str());
         }
-        TRACE("pi_failed", tout << mk_pp(q, m) << "\n";);
+        TRACE(pi_failed, tout << mk_pp(q, m) << "\n";);
     }
 
     if (new_patterns.empty() && new_body == q->get_expr()) {

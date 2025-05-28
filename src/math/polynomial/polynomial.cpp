@@ -363,7 +363,7 @@ namespace polynomial {
                 bool found = false;
                 for (unsigned i = 0; i < m_size; i++) {
                     if (get_var(i) < x) {
-                        CTRACE("poly_bug", !(y != null_var && get_var(i) <= y),
+                        CTRACE(poly_bug, !(y != null_var && get_var(i) <= y),
                                tout << "m: "; display(tout); tout << "\n";
                                tout << "x: " << x << "\n";
                                tout << "y: " << y << "\n";
@@ -685,7 +685,7 @@ namespace polynomial {
         var m_min;
         lex_lt2(var m):m_min(m) {}
         bool operator()(monomial * m1, monomial * m2) const {
-            TRACE("lex_bug", tout << "min: x" << m_min << "\n"; m1->display(tout); tout << "\n"; m2->display(tout); tout << "\n";);
+            TRACE(lex_bug, tout << "min: x" << m_min << "\n"; m1->display(tout); tout << "\n"; m2->display(tout); tout << "\n";);
             return lex_compare2(m1, m2, m_min) < 0;
         }
     };
@@ -797,7 +797,7 @@ namespace polynomial {
 
         ~monomial_manager() {
             dec_ref(m_unit);
-            CTRACE("polynomial", !m_monomials.empty(),
+            CTRACE(polynomial, !m_monomials.empty(),
                    tout << "monomials leaked (can happen during cancelation)\n";
                    for (auto * m : m_monomials) {
                        m->display(tout << m->id() << " " << m->ref_count() << " ") << "\n";
@@ -965,14 +965,14 @@ namespace polynomial {
                 j++;
             }
             product_tmp.set_size(j);
-            TRACE("monomial_mul_bug",
+            TRACE(monomial_mul_bug,
                   tout << "before mk_monomial\n";
                   tout << "pws1: "; for (unsigned i = 0; i < sz1; i++) tout << pws1[i] << " "; tout << "\n";
                   tout << "pws2: "; for (unsigned i = 0; i < sz2; i++) tout << pws2[i] << " "; tout << "\n";
                   tout << "product_tmp: "; for (unsigned i = 0; i < product_tmp.size(); i++) tout << product_tmp.get_power(i) << " ";
                   tout << "\n";);
             monomial * r = mk_monomial(product_tmp);
-            TRACE("monomial_mul_bug",
+            TRACE(monomial_mul_bug,
                   tout << "j: " << j << "\n";
                   tout << "r: "; r->display(tout); tout << "\n";
                   tout << "pws1: "; for (unsigned i = 0; i < sz1; i++) tout << pws1[i] << " "; tout << "\n";
@@ -1453,7 +1453,7 @@ namespace polynomial {
             m_lex_sorted = true;
             DEBUG_CODE({
                 for (unsigned i = 0; i < m_size - 1; i++) {
-                    CTRACE("poly_bug", lex_compare(m_ms[i], m_ms[i+1]) <= 0,
+                    CTRACE(poly_bug, lex_compare(m_ms[i], m_ms[i+1]) <= 0,
                            tout << "i: " << i << "\npoly: "; display(tout, nm); tout << "\n";);
                     SASSERT(lex_compare(m_ms[i], m_ms[i+1]) > 0);
                 }
@@ -2367,7 +2367,7 @@ namespace polynomial {
             m_manager.del(m_zero_numeral);
             m_mgcd_iterpolators.flush();
             m_mgcd_skeletons.reset();
-            CTRACE("polynomial", !m_polynomials.empty(), 
+            CTRACE(polynomial, !m_polynomials.empty(), 
                    tout << "leaked polynomials\n";
                    for (auto* p : m_polynomials) {
                        if (p) p->display(tout, m_manager) << "\n";
@@ -2427,7 +2427,7 @@ namespace polynomial {
         }
 
         void del(polynomial * p) {
-            TRACE("polynomial", tout << "deleting: "; p->display(tout, m_manager); tout << "\n";);
+            TRACE(polynomial, tout << "deleting: "; p->display(tout, m_manager); tout << "\n";);
             if (m_del_eh != nullptr) {
                 del_eh * curr = m_del_eh;
                 do {
@@ -2977,7 +2977,7 @@ namespace polynomial {
                \brief Add a new datapoint
             */
             void add(numeral const & input, polynomial const * output) {
-                TRACE("newton", tout << m().to_string(input) << " -> "; output->display(tout, m()); tout << "\n";);
+                TRACE(newton, tout << m().to_string(input) << " -> "; output->display(tout, m()); tout << "\n";);
                 SASSERT(m().modular());
                 unsigned sz = num_sample_points();
                 if (sz > 0) {
@@ -2995,7 +2995,7 @@ namespace polynomial {
                     m().inv(product);
                     m_inputs.push_back(input);
                     m_invs.push_back(product);
-                    TRACE("newton", tout << "invs[" << k << "]: " << product << "\n";);
+                    TRACE(newton, tout << "invs[" << k << "]: " << product << "\n";);
                     SASSERT(m().eq(m_inputs[k], input));
                     // Compute newton's coefficient
                     polynomial_ref temp(pm.m_wrapper);
@@ -3015,7 +3015,7 @@ namespace polynomial {
                     aux_poly = pm.mul(m_invs[sz], aux_poly);
                     SASSERT(pm.is_p_normalized(aux_poly));
                     m_vs.push_back(aux_poly);
-                    TRACE("newton", tout << "vs[" << k << "]: " << aux_poly << "\n";);
+                    TRACE(newton, tout << "vs[" << k << "]: " << aux_poly << "\n";);
                 }
                 else {
                     m_inputs.push_back(input);
@@ -3034,18 +3034,18 @@ namespace polynomial {
                 u = m_vs.get(d);
                 scoped_numeral c(m());
                 for (int k = d - 1; k >= 0; k--) {
-                    TRACE("newton", tout << "u: " << u << "\n";);
+                    TRACE(newton, tout << "u: " << u << "\n";);
                     // create polynomial (x - inputs[k])
                     m().set(c, m_inputs[k]);
                     m().neg(c);
                     numeral one(1);
                     aux_poly = pm.mk_linear(1, &one, &x, c);
-                    TRACE("newton", tout << "(x - inputs[k]): " << aux_poly << "\n";);
+                    TRACE(newton, tout << "(x - inputs[k]): " << aux_poly << "\n";);
                     // u <- u * (x - inputs[k]) + vs[k]
                     aux_poly = pm.mul(u, aux_poly);
                     u        = pm.add(aux_poly, m_vs.get(k));
                 }
-                TRACE("newton", tout << "result u: " << u << "\n";);
+                TRACE(newton, tout << "result u: " << u << "\n";);
                 r = u;
             }
         };
@@ -3154,7 +3154,7 @@ namespace polynomial {
                     m_orig_monomials.push_back(orig_m);
                     m_powers.push_back(k);
                 }
-                TRACE("skeleton",
+                TRACE(skeleton,
                       tout << "x: x" << m_x << "\n";
                       tout << "max: " << m_max_powers << "\n";
                       tout << "p: "; p->display(tout, pm.m()); tout << "\n";
@@ -3299,14 +3299,14 @@ namespace polynomial {
                             cs.push_back(aux);
                         }
                         unsigned output_idx = e.m_first_power_idx + i;
-                        TRACE("sparse_interpolator", tout << "adding new equation:\n";
+                        TRACE(sparse_interpolator, tout << "adding new equation:\n";
                               for (unsigned i = 0; i < num_pws; i++) {
                                   tout << m.to_string(cs[i]) << " ";
                               }
                               tout << "\n";);
                         solver.add(i, cs.data(), m_outputs[output_idx]);
                     }
-                    TRACE("sparse_interpolator",
+                    TRACE(sparse_interpolator,
                           tout << "find coefficients of:\n";
                           for (unsigned i = 0; i < num_pws; i++) {
                               m_skeleton->ith_orig_monomial(e, i)->display(tout); tout << "\n";
@@ -3412,7 +3412,7 @@ namespace polynomial {
         polynomial * coeff(polynomial const * p, var x, unsigned k) {
             SASSERT(is_valid(x));
             SASSERT(m_cheap_som_buffer.empty());
-            TRACE("coeff_bug", tout << "p: "; p->display(tout, m_manager); tout << "\nx: " << x << ", k: " << k << "\n";);
+            TRACE(coeff_bug, tout << "p: "; p->display(tout, m_manager); tout << "\nx: " << x << ", k: " << k << "\n";);
             unsigned sz = p->size();
             for (unsigned i = 0; i < sz; i++) {
                 monomial * m = p->m(i);
@@ -3599,7 +3599,7 @@ namespace polynomial {
            variable x.
         */
         void iccp(polynomial const * p, var x, numeral & i, polynomial_ref & c, polynomial_ref & pp) {
-            TRACE("polynomial", tout << "iccp x" << x << "\n"; p->display(tout, m_manager); tout << "\n";);
+            TRACE(polynomial, tout << "iccp x" << x << "\n"; p->display(tout, m_manager); tout << "\n";);
             if (is_zero(p)) {
                 m_manager.set(i, 0);
                 c  = mk_one();
@@ -3638,7 +3638,7 @@ namespace polynomial {
             for (unsigned j = 0; j < sz; j++) {
                 monomial * m = p->m(j);
                 unsigned   k = m->degree_of(x);
-                TRACE("polynomial", tout << "degree of x" << x << " at "; m->display(tout); tout << " is " << k << "\n";);
+                TRACE(polynomial, tout << "degree of x" << x << " at "; m->display(tout); tout << " is " << k << "\n";);
                 if (iccp_filter[k] == 0)
                     iccp_powers.push_back(k);
                 if (m->size() == (k > 0 ? 1 : 0))
@@ -3658,7 +3658,7 @@ namespace polynomial {
             }
             // Extract integer content
             ic(p, i, pp);
-            TRACE("polynomial", tout << "p: "; p->display(tout, m_manager); tout << "\ni: " << m_manager.to_string(i) << "\npp: " << pp << "\n";);
+            TRACE(polynomial, tout << "p: "; p->display(tout, m_manager); tout << "\ni: " << m_manager.to_string(i) << "\npp: " << pp << "\n";);
             // Compute c using the gcd of coeffs of x^k for k's in iccp_powers
             polynomial_ref ci(pm());
             c = coeff(pp, x, iccp_powers[0]);
@@ -3673,7 +3673,7 @@ namespace polynomial {
             SASSERT(!is_const(c));
             // make sure the sign of the leading monomial is positive
             flip_sign_if_lm_neg(c);
-            TRACE("polynomial", tout << "pp: " << pp << "\nc: " << c << "\n";);
+            TRACE(polynomial, tout << "pp: " << pp << "\nc: " << c << "\n";);
             pp = exact_div(pp, c);
         }
 
@@ -3701,7 +3701,7 @@ namespace polynomial {
         }
 
         void gcd_prs(polynomial const * u, polynomial const * v, var x, polynomial_ref & r) {
-            TRACE("polynomial_gcd", tout << "gcd prs with x" << x << " for\nu: ";
+            TRACE(polynomial_gcd, tout << "gcd prs with x" << x << " for\nu: ";
                   u->display(tout, m_manager); tout << "\nv: "; v->display(tout, m_manager); tout << "\n";);
             if (degree(u, x) < degree(v, x))
                 std::swap(u, v);
@@ -3717,7 +3717,7 @@ namespace polynomial {
 
             gcd(c_u, c_v, d_r);
             m_manager.gcd(i_u, i_v, d_a);
-            TRACE("polynomial_gcd_detail",
+            TRACE(polynomial_gcd_detail,
                   tout << "After GCD of the content\n";
                   tout << "u: "; u->display(tout, m_manager); tout << "\n";
                   tout << "v: "; v->display(tout, m_manager); tout << "\n";
@@ -3737,20 +3737,20 @@ namespace polynomial {
                 (void)counter;
                 SASSERT(degree(pp_u, x) >= degree(pp_v, x));
                 unsigned delta = degree(pp_u, x) - degree(pp_v, x);
-                TRACE("polynomial_gcd_detail",
+                TRACE(polynomial_gcd_detail,
                       tout << "iteration: " << counter << "\n";
                       tout << "gcd loop\npp_u: " << pp_u << "\npp_v: " << pp_v << "\ndelta: " << delta << "\n";);
                 counter++;
                 exact_pseudo_remainder(pp_u, pp_v, x, rem);
                 if (is_zero(rem)) {
-                    TRACE("polynomial", tout << "rem is zero...\npp_v: " << pp_v << "\n";);
+                    TRACE(polynomial, tout << "rem is zero...\npp_v: " << pp_v << "\n";);
                     flip_sign_if_lm_neg(pp_v);
                     r = pp(pp_v, x);
                     r = mul(d_a, d_r, r);
                     return;
                 }
                 if (is_const(rem)) {
-                    TRACE("polynomial", tout << "rem is a constant: " << rem << "\nr: " << d_r << "\nd_a: " << d_a << "\n";);
+                    TRACE(polynomial, tout << "rem is a constant: " << rem << "\nr: " << d_r << "\nd_a: " << d_a << "\n";);
                     r = mul(d_a, d_r);
                     return;
                 }
@@ -3787,7 +3787,7 @@ namespace polynomial {
         // TODO: implement euclid algorithm when m_manager in Zp mode
         void euclid_gcd(polynomial const * u, polynomial const * v, polynomial_ref & r) {
             SASSERT(m().modular());
-            CTRACE("mgcd", !is_univariate(u) || !is_univariate(v),
+            CTRACE(mgcd, !is_univariate(u) || !is_univariate(v),
                    tout << "euclid_gcd, polynomials are not univariate\n"; u->display(tout, m()); tout << "\n"; v->display(tout, m()); tout << "\n";);
             SASSERT(is_univariate(u));
             SASSERT(is_univariate(v));
@@ -3824,7 +3824,7 @@ namespace polynomial {
         void CRA_combine_images(polynomial const * C1, scoped_numeral const & b1, polynomial const * C2, scoped_numeral & b2, polynomial_ref & r) {
             lex_sort(C1);
             lex_sort(C2);
-            TRACE("CRA", tout << "C1: "; C1->display(tout, m()); tout << "\nC2: "; C2->display(tout, m()); tout << "\n";);
+            TRACE(CRA, tout << "C1: "; C1->display(tout, m()); tout << "\nC2: "; C2->display(tout, m()); tout << "\n";);
             SASSERT(m_cheap_som_buffer.empty());
             SASSERT(!m().m().is_even(b1));
             SASSERT(!m().m().is_even(b2));
@@ -3834,18 +3834,18 @@ namespace polynomial {
             scoped_numeral g(m());
             m().gcd(b1, b2, inv1, inv2, g);
             SASSERT(m().is_one(g));
-            TRACE("CRA", tout << "b1: " << b1 << ", b2: " << b2 << ", inv1: " << inv1 << ", inv2: " << inv2 << "\n";);
+            TRACE(CRA, tout << "b1: " << b1 << ", b2: " << b2 << ", inv1: " << inv1 << ", inv2: " << inv2 << "\n";);
             // b1*inv1 + b2.inv2 = 1
             // inv1 is the inverse of b1 mod b2
             // inv2 is the inverse of b2 mod b1
             m().m().mod(inv1, b2, inv1);
             m().m().mod(inv2, b1, inv2);
-            TRACE("CRA", tout << "inv1: " << inv1 << ", inv2: " << inv2 << "\n";);
+            TRACE(CRA, tout << "inv1: " << inv1 << ", inv2: " << inv2 << "\n";);
             scoped_numeral a1(m());
             scoped_numeral a2(m());
             m().mul(b2, inv2, a1); // a1 is the multiplicator for coefficients of C1
             m().mul(b1, inv1, a2); // a2 is the multiplicator for coefficients of C2
-            TRACE("CRA", tout << "a1: " << a1 << ", a2: " << a2 << "\n";);
+            TRACE(CRA, tout << "a1: " << a1 << ", a2: " << a2 << "\n";);
             // new bound
             scoped_numeral new_bound(m());
             m().mul(b1, b2, new_bound);
@@ -3855,7 +3855,7 @@ namespace polynomial {
             m().div(new_bound, 2, upper);
             m().set(lower, upper);
             m().neg(lower);
-            TRACE("CRA", tout << "lower: " << lower << ", upper: " << upper << "\n";);
+            TRACE(CRA, tout << "lower: " << lower << ", upper: " << upper << "\n";);
 
             #define ADD(A1, A2, M) {                    \
                 m().mul(A1, a1, tmp1);                  \
@@ -3875,7 +3875,7 @@ namespace polynomial {
             while (true) {
                 if (i1 == sz1) {
                     while (i2 < sz2) {
-                        TRACE("CRA", tout << "adding C2 rest\n";);
+                        TRACE(CRA, tout << "adding C2 rest\n";);
                         ADD(zero, C2->a(i2), C2->m(i2));
                         i2++;
                     }
@@ -3883,7 +3883,7 @@ namespace polynomial {
                 }
                 if (i2 == sz2) {
                     while (i1 < sz1) {
-                        TRACE("CRA", tout << "adding C1 rest\n";);
+                        TRACE(CRA, tout << "adding C1 rest\n";);
                         ADD(C1->a(i1), zero, C1->m(i1));
                         i1++;
                     }
@@ -3894,19 +3894,19 @@ namespace polynomial {
                 int s = lex_compare(m1, m2);
                 if (s == 0) {
                     ADD(C1->a(i1), C2->a(i2), m1);
-                    TRACE("CRA",
+                    TRACE(CRA,
                           tout << "C1->a(i1): " << m().to_string(C1->a(i1)) << ", C2->a(i2): " << m().to_string(C2->a(i2)) << ", new_a: " << new_a << "\n";
                           tout << "tmp1: " << tmp1 << ", tmp2: " << tmp2 << ", tmp3: " << tmp3 << "\n";);
                     i1++;
                     i2++;
                 }
                 else if (s > 0) {
-                    TRACE("CRA", tout << "C1 mon biggerr, adding it...\n";);
+                    TRACE(CRA, tout << "C1 mon biggerr, adding it...\n";);
                     ADD(C1->a(i1), zero, m1);
                     i1++;
                 }
                 else {
-                    TRACE("CRA", tout << "C2 mon bigger, adding it...\n";);
+                    TRACE(CRA, tout << "C2 mon bigger, adding it...\n";);
                     ADD(zero, C2->a(i2), m2);
                     i2++;
                 }
@@ -3916,7 +3916,7 @@ namespace polynomial {
         }
 
         void uni_mod_gcd(polynomial const * u, polynomial const * v, polynomial_ref & r) {
-            TRACE("mgcd", tout << "univ_modular_gcd\nu: "; u->display(tout, m_manager); tout << "\nv: "; v->display(tout, m_manager); tout << "\n";);
+            TRACE(mgcd, tout << "univ_modular_gcd\nu: "; u->display(tout, m_manager); tout << "\nv: "; v->display(tout, m_manager); tout << "\n";);
             SASSERT(!m().modular());
             SASSERT(is_univariate(u));
             SASSERT(!is_const(u) && !is_const(v));
@@ -3951,17 +3951,17 @@ namespace polynomial {
             scoped_numeral p(m());
             for (unsigned i = 0; i < NUM_BIG_PRIMES; i++) {
                 m().set(p, g_big_primes[i]);
-                TRACE("mgcd", tout << "trying prime: " << p << "\n";);
+                TRACE(mgcd, tout << "trying prime: " << p << "\n";);
                 {
                     scoped_set_zp setZp(m_wrapper, p);
                     u_Zp = normalize(pp_u);
                     v_Zp = normalize(pp_v);
                     if (degree(u_Zp, x) < d_u) {
-                        TRACE("mgcd", tout << "bad prime, leading coefficient vanished\n";);
+                        TRACE(mgcd, tout << "bad prime, leading coefficient vanished\n";);
                         continue; // bad prime
                     }
                     if (degree(v_Zp, x) < d_v) {
-                        TRACE("mgcd", tout << "bad prime, leading coefficient vanished\n";);
+                        TRACE(mgcd, tout << "bad prime, leading coefficient vanished\n";);
                         continue; // bad prime
                     }
                     euclid_gcd(u_Zp, v_Zp, q);
@@ -3971,9 +3971,9 @@ namespace polynomial {
                     m().set(c, lc_g);
                     q = mul(c, q);
                 }
-                TRACE("mgcd", tout << "new q:\n" << q << "\n";);
+                TRACE(mgcd, tout << "new q:\n" << q << "\n";);
                 if (is_const(q)) {
-                    TRACE("mgcd", tout << "done, modular gcd is one\n";);
+                    TRACE(mgcd, tout << "done, modular gcd is one\n";);
                     if (m().is_one(d_a))
                         r = q; // GCD is one
                     else
@@ -3987,26 +3987,26 @@ namespace polynomial {
                 else {
                     if (degree(q, x) < degree(C_star, x)) {
                         // discard accumulated image, it was affected by unlucky primes
-                        TRACE("mgcd", tout << "discarding image\n";);
+                        TRACE(mgcd, tout << "discarding image\n";);
                         C_star = q;
                         m().set(bound, p);
                     }
                     else {
                         CRA_combine_images(q, p, C_star, bound, C_star);
-                        TRACE("mgcd", tout << "new combined:\n" << C_star << "\n";);
+                        TRACE(mgcd, tout << "new combined:\n" << C_star << "\n";);
                     }
                 }
                 candidate = pp(C_star, x);
-                TRACE("mgcd", tout << "candidate:\n" << candidate << "\n";);
+                TRACE(mgcd, tout << "candidate:\n" << candidate << "\n";);
                 scoped_numeral lc_candidate(m());
                 lc_candidate = univ_coeff(candidate, degree(candidate, x));
                 if (m().divides(lc_candidate, lc_g) &&
                     divides(candidate, pp_u) &&
                     divides(candidate, pp_v)) {
-                    TRACE("mgcd", tout << "found GCD\n";);
+                    TRACE(mgcd, tout << "found GCD\n";);
                     r = mul(d_a, candidate);
                     flip_sign_if_lm_neg(r);
-                    TRACE("mgcd", tout << "r: " << r << "\n";);
+                    TRACE(mgcd, tout << "r: " << r << "\n";);
                     return;
                 }
             }
@@ -4024,16 +4024,16 @@ namespace polynomial {
         som_buffer_vector m_iccp_ZpX_buffers;
         void iccp_ZpX(polynomial const * p, var x, numeral & ci, polynomial_ref & c, polynomial_ref & pp) {
             SASSERT(m().modular());
-            TRACE("mgcd_detail", tout << "iccp_ZpX, p: "; p->display(tout, m()); tout << "\nvar x" << x << "\n";);
+            TRACE(mgcd_detail, tout << "iccp_ZpX, p: "; p->display(tout, m()); tout << "\nvar x" << x << "\n";);
             if (is_zero(p)) {
-                TRACE("mgcd_detail", tout << "iccp_ZpX, p is zero\n";);
+                TRACE(mgcd_detail, tout << "iccp_ZpX, p is zero\n";);
                 m_manager.set(ci, 0);
                 c  = mk_one();
                 pp = const_cast<polynomial*>(p);
                 return;
             }
             if (is_const(p)) {
-                TRACE("mgcd_detail", tout << "iccp_ZpX, p is constant\n";);
+                TRACE(mgcd_detail, tout << "iccp_ZpX, p is constant\n";);
                 m_manager.set(ci, p->a(0));
                 c  = mk_one();
                 pp = mk_one();
@@ -4041,7 +4041,7 @@ namespace polynomial {
             }
             unsigned d = degree(p, x);
             if (d == 0) {
-                TRACE("mgcd_detail", tout << "iccp_ZpX, degree(p, x) == 0\n";);
+                TRACE(mgcd_detail, tout << "iccp_ZpX, degree(p, x) == 0\n";);
                 ic(p, ci, pp);
                 c = mk_one();
                 return;
@@ -4068,7 +4068,7 @@ namespace polynomial {
                 SASSERT(no_x_ms.empty());
                 // nothing was marked.
                 // divide by x^min_degree
-                TRACE("mgcd_detail", tout << "iccp_ZpX, all monomials contain x" << x << ", dividing by x" << x << "^" << min_degree << "\n";);
+                TRACE(mgcd_detail, tout << "iccp_ZpX, all monomials contain x" << x << ", dividing by x" << x << "^" << min_degree << "\n";);
                 polynomial_ref xmin(m_wrapper);
                 polynomial_ref new_p(m_wrapper);
                 xmin  = mk_polynomial(x, min_degree);
@@ -4100,7 +4100,7 @@ namespace polynomial {
                 // reset remaining marks
                 for (unsigned i = 0; i < num_marked; i++)
                     m_m2pos.reset(no_x_ms[i]);
-                TRACE("mgcd_detail", tout << "iccp_ZpX, cheap case... invoking ic\n";);
+                TRACE(mgcd_detail, tout << "iccp_ZpX, cheap case... invoking ic\n";);
                 ic(p, ci, pp);
                 c  = mk_one();
                 return;
@@ -4148,7 +4148,7 @@ namespace polynomial {
                     break;
             }
             if (!is_const(g)) {
-                CTRACE("content_bug", !divides(g, pp),
+                CTRACE(content_bug, !divides(g, pp),
                        tout << "GF(" << m().m().to_string(m().p()) << ")\n";
                        tout << "pp: "; pp->display(tout, m()); tout << "\n"; tout << "var: x" << x << "\n";
                        tout << "content: " << g << "\n";);
@@ -4188,7 +4188,7 @@ namespace polynomial {
                 }
             }
             SASSERT(!m_som_buffer.empty());
-            TRACE("mgcd_detail", tout << "maximal monomial: "; max_m->display(tout); tout << "\n";);
+            TRACE(mgcd_detail, tout << "maximal monomial: "; max_m->display(tout); tout << "\n";);
             return m_som_buffer.mk();
         }
 
@@ -4224,14 +4224,14 @@ namespace polynomial {
         // Auxiliary recursive function used in multivariate modular GCD
         void mod_gcd_rec(polynomial const * u, polynomial const * v, unsigned p,
                          unsigned idx, var_buffer const & vars, polynomial_ref & r) {
-            TRACE("mgcd", tout << "mod_gcd_rec\nu: "; u->display(tout, m_manager, true); tout << "\nv: "; v->display(tout, m_manager, true); tout << "\n";);
+            TRACE(mgcd, tout << "mod_gcd_rec\nu: "; u->display(tout, m_manager, true); tout << "\nv: "; v->display(tout, m_manager, true); tout << "\n";);
             unsigned num_vars = vars.size();
             SASSERT(num_vars > 0);
             if (idx == num_vars - 1) {
                 SASSERT(is_univariate(u));
                 SASSERT(is_univariate(v));
                 euclid_gcd(u, v, r);
-                TRACE("mgcd", tout << "mod_gcd_rec result: "; r->display(tout, m_manager, true); tout << "\n";);
+                TRACE(mgcd, tout << "mod_gcd_rec result: "; r->display(tout, m_manager, true); tout << "\n";);
                 return;
             }
 
@@ -4246,7 +4246,7 @@ namespace polynomial {
             scoped_numeral ci_g(m());
             polynomial_ref c_g(m_wrapper);
             polynomial_ref lc_g(m_wrapper);
-            TRACE("mgcd_detail",
+            TRACE(mgcd_detail,
                   tout << "idx: " << idx << "\n";
                   tout << "x" << x << "\n";
                   tout << "pp_u = "; pp_u->display(tout, m_manager, true); tout << "\n";
@@ -4260,7 +4260,7 @@ namespace polynomial {
             m().gcd(ci_u, ci_v, ci_g);
             euclid_gcd(c_u, c_v, c_g);
             euclid_gcd(lc_u, lc_v, lc_g);
-            TRACE("mgcd_detail",
+            TRACE(mgcd_detail,
                   tout << "c_g = "; c_g->display(tout, m_manager, true); tout << "\n";
                   tout << "lc_g = "; lc_g->display(tout, m_manager, true); tout << "\n";
                   tout << "ci_g = " << ci_g << "\n";);
@@ -4288,7 +4288,7 @@ namespace polynomial {
                     if (!m().is_zero(lc_g_val))
                         break;
                 }
-                TRACE("mgcd", tout << "x" << x << " -> " << val << "\n";);
+                TRACE(mgcd, tout << "x" << x << " -> " << val << "\n";);
                 u1 = substitute(pp_u, 1, &x, &(val.get()));
                 v1 = substitute(pp_v, 1, &x, &(val.get()));
                 mod_gcd_rec(u1, v1, p, idx+1, vars, q);
@@ -4296,10 +4296,10 @@ namespace polynomial {
                 q = mul(lc_g_val, q);
                 var q_var      = max_var(q);
                 unsigned deg_q = q_var == null_var ? 0 : degree(q, q_var);
-                TRACE("mgcd_detail", tout << "counter: " << counter << "\nidx: " << idx << "\nq: " << q << "\ndeg_q: " << deg_q << "\nmin_deg_q: " <<
+                TRACE(mgcd_detail, tout << "counter: " << counter << "\nidx: " << idx << "\nq: " << q << "\ndeg_q: " << deg_q << "\nmin_deg_q: " <<
                       min_deg_q << "\nnext_x: x" << vars[idx+1] << "\nmax_var(q): " << q_var << "\n";);
                 if (deg_q < min_deg_q) {
-                    TRACE("mgcd_detail", tout << "resetting...\n";);
+                    TRACE(mgcd_detail, tout << "resetting...\n";);
                     counter   = 0;
                     min_deg_q = deg_q;
                     // start from scratch
@@ -4314,7 +4314,7 @@ namespace polynomial {
                     }
                 }
                 else if (deg_q == min_deg_q) {
-                    TRACE("mgcd_detail", tout << "adding sample point...\n";);
+                    TRACE(mgcd_detail, tout << "adding sample point...\n";);
                     if (sk == nullptr) {
                         interpolator.add(val, q);
                     }
@@ -4324,16 +4324,16 @@ namespace polynomial {
                     }
                 }
                 else {
-                    TRACE("mgcd", tout << "skipping q...\n";);
+                    TRACE(mgcd, tout << "skipping q...\n";);
                     continue;
                 }
                 bool found_candidate = false;
                 if (sk == nullptr) {
                     SASSERT(interpolator.num_sample_points() > 0);
                     interpolator.mk(x, H);
-                    TRACE("mgcd_detail", tout << "idx: " << idx << "\ncandidate H: " << H << "\n";);
+                    TRACE(mgcd_detail, tout << "idx: " << idx << "\ncandidate H: " << H << "\n";);
                     lc_H = lc_glex_ZpX(H, x);
-                    TRACE("mgcd_detail", tout << "idx: " << idx << "\nlc_H: " << lc_H << "\nlc_g: " << lc_g << "\n";);
+                    TRACE(mgcd_detail, tout << "idx: " << idx << "\nlc_H: " << lc_H << "\nlc_g: " << lc_g << "\n";);
                     if (eq(lc_H, lc_g)) {
                         found_candidate = true;
                     }
@@ -4352,7 +4352,7 @@ namespace polynomial {
                         primitive_ZpX(H, x, C);
                     else
                         C = normalize(H);
-                    TRACE("mgcd_detail", tout << "C: " << C << "\npp_u: " << pp_u << "\npp_v: " << pp_v << "\ndivides(C, pp_u): " <<
+                    TRACE(mgcd_detail, tout << "C: " << C << "\npp_u: " << pp_u << "\npp_v: " << pp_v << "\ndivides(C, pp_u): " <<
                           divides(C, pp_u) << "\ndivides(C, pp_v): " << divides(C, pp_v) << "\n";);
                     if (divides(C, pp_u) && divides(C, pp_v)) {
                         r = mul(c_g, C);
@@ -4370,7 +4370,7 @@ namespace polynomial {
                 }
 
                 if (done) {
-                    TRACE("mgcd", tout << "idx: " << idx << "\nresult: " << r << "\n";);
+                    TRACE(mgcd, tout << "idx: " << idx << "\nresult: " << r << "\n";);
                     if (sk == nullptr && m_use_sparse_gcd) {
                         // save skeleton
                         skeleton * new_sk = alloc(skeleton, *this, H, x);
@@ -4386,8 +4386,8 @@ namespace polynomial {
                      power_buffer const & u_var_degrees, power_buffer const & v_var_degrees,
                      polynomial_ref & r) {
             m_mgcd_iterpolators.set_owner(this);
-            TRACE("mgcd", tout << "mod_gcd\nu: "; u->display(tout, m_manager, true); tout << "\nv: "; v->display(tout, m_manager, true); tout << "\n";);
-            TRACE("mgcd_call", tout << "mod_gcd\nu: "; u->display(tout, m_manager, true); tout << "\nv: "; v->display(tout, m_manager, true); tout << "\n";);
+            TRACE(mgcd, tout << "mod_gcd\nu: "; u->display(tout, m_manager, true); tout << "\nv: "; v->display(tout, m_manager, true); tout << "\n";);
+            TRACE(mgcd_call, tout << "mod_gcd\nu: "; u->display(tout, m_manager, true); tout << "\nv: "; v->display(tout, m_manager, true); tout << "\n";);
             SASSERT(!m().modular());
             // u and v contain the same set of variables
             SASSERT(u_var_degrees.size() == v_var_degrees.size());
@@ -4435,29 +4435,29 @@ namespace polynomial {
 
             for (unsigned i = 0; i < NUM_BIG_PRIMES; i++) {
                 m().set(p, g_big_primes[i]);
-                TRACE("mgcd", tout << "trying prime: " << p << "\n";);
+                TRACE(mgcd, tout << "trying prime: " << p << "\n";);
                 {
                     scoped_set_zp setZp(m_wrapper, p);
                     u_Zp = normalize(pp_u);
                     if (u_Zp->size() != pp_u->size()) {
-                        TRACE("mgcd", tout << "bad prime, coefficient(s) vanished\n";);
+                        TRACE(mgcd, tout << "bad prime, coefficient(s) vanished\n";);
                         continue; // bad prime some monomial vanished
                     }
                     v_Zp = normalize(pp_v);
                     if (v_Zp->size() != pp_v->size()) {
-                        TRACE("mgcd", tout << "bad prime, coefficient(s) vanished\n";);
+                        TRACE(mgcd, tout << "bad prime, coefficient(s) vanished\n";);
                         continue; // bad prime some monomial vanished
                     }
-                    TRACE("mgcd", tout << "u_Zp: " << u_Zp << "\nv_Zp: " << v_Zp << "\n";);
+                    TRACE(mgcd, tout << "u_Zp: " << u_Zp << "\nv_Zp: " << v_Zp << "\n";);
                     mod_gcd_rec(u_Zp, v_Zp, g_big_primes[i], 0, vars, q);
                     q = mk_glex_monic(q);
                     scoped_numeral c(m());
                     m().set(c, lc_g);
                     q = mul(c, q);
                 }
-                TRACE("mgcd", tout << "new q:\n" << q << "\n";);
+                TRACE(mgcd, tout << "new q:\n" << q << "\n";);
                 if (is_const(q)) {
-                    TRACE("mgcd", tout << "done, modular gcd is one\n";);
+                    TRACE(mgcd, tout << "done, modular gcd is one\n";);
                     r = mk_const(d_a);
                     return;
                 }
@@ -4471,26 +4471,26 @@ namespace polynomial {
                     if (graded_lex_compare(max_q, max_C_star) < 0) {
                         // Discard accumulated image, it was affected by unlucky primes
                         // maximal monomial of q is smaller than maximal monomial of C_star
-                        TRACE("mgcd", tout << "discarding image\n";);
+                        TRACE(mgcd, tout << "discarding image\n";);
                         C_star = q;
                         m().set(bound, p);
                     }
                     else {
                         CRA_combine_images(q, p, C_star, bound, C_star);
-                        TRACE("mgcd", tout << "new combined:\n" << C_star << "\n";);
+                        TRACE(mgcd, tout << "new combined:\n" << C_star << "\n";);
                     }
                 }
                 candidate = normalize(C_star);
-                TRACE("mgcd", tout << "candidate:\n" << candidate << "\n";);
+                TRACE(mgcd, tout << "candidate:\n" << candidate << "\n";);
                 scoped_numeral lc_candidate(m());
                 lc_candidate = candidate->a(candidate->graded_lex_max_pos());
                 if (m().divides(lc_candidate, lc_g) &&
                     divides(candidate, pp_u) &&
                     divides(candidate, pp_v)) {
-                    TRACE("mgcd", tout << "found GCD\n";);
+                    TRACE(mgcd, tout << "found GCD\n";);
                     r = mul(d_a, candidate);
                     flip_sign_if_lm_neg(r);
-                    TRACE("mgcd", tout << "r: " << r << "\n";);
+                    TRACE(mgcd, tout << "r: " << r << "\n";);
                     return;
                 }
             }
@@ -4502,8 +4502,8 @@ namespace polynomial {
         void gcd(polynomial const * u, polynomial const * v, polynomial_ref & r) {
             power_buffer u_var_degrees;
             power_buffer v_var_degrees;
-            TRACE("gcd_calls", tout << "gcd\nu: "; u->display(tout, m_manager); tout << "\nv: "; v->display(tout, m_manager); tout << "\n";);
-            TRACE("polynomial_gcd",
+            TRACE(gcd_calls, tout << "gcd\nu: "; u->display(tout, m_manager); tout << "\nv: "; v->display(tout, m_manager); tout << "\n";);
+            TRACE(polynomial_gcd,
                   tout << "gcd\nu: "; u->display(tout, m_manager); tout << "\nv: "; v->display(tout, m_manager);
                   tout << "\nis_zero(u): " << is_zero(u) << ", is_const(u): " << is_const(u) << "\n";
                   tout << "is_zero(v): " << is_zero(v) << ", is_const(v): " << is_const(v) << "\n";
@@ -4537,7 +4537,7 @@ namespace polynomial {
             var_max_degrees(u, u_var_degrees); std::sort(u_var_degrees.begin(), u_var_degrees.end(), power::lt_var());
             var_max_degrees(v, v_var_degrees); std::sort(v_var_degrees.begin(), v_var_degrees.end(), power::lt_var());
 
-            TRACE("polynomial_gcd",
+            TRACE(polynomial_gcd,
                   tout << "u var info\n"; for (unsigned i = 0; i < u_var_degrees.size(); i++) tout << u_var_degrees[i] << " "; tout << "\n";
                   tout << "v var info\n"; for (unsigned i = 0; i < v_var_degrees.size(); i++) tout << v_var_degrees[i] << " "; tout << "\n";);
             var x        = null_var;
@@ -4638,7 +4638,7 @@ namespace polynomial {
                             polynomial_ref r2(m_wrapper);
                             flet<bool> use_prs(m_use_prs_gcd, false);
                             gcd_prs(orig_u, orig_v, x, r2);
-                            CTRACE("mgcd_bug", !eq(r, r2), tout << "u: " << orig_u << "\nv: " << orig_v << "\nr1: " << r << "\nr2: " << r2 << "\n";);
+                            CTRACE(mgcd_bug, !eq(r, r2), tout << "u: " << orig_u << "\nv: " << orig_v << "\nr1: " << r << "\nr2: " << r2 << "\n";);
                             SASSERT(eq(r, r2));
                         }
                         #endif
@@ -4665,7 +4665,7 @@ namespace polynomial {
             for (unsigned i = 0; i < sz; i++) {
                 monomial * m = p->m(i);
                 unsigned   d = m->degree_of(x);
-                TRACE("polynomial", m->display(tout); tout << " degree_of x" << x << ": " << d << "\n";);
+                TRACE(polynomial, m->display(tout); tout << " degree_of x" << x << ": " << d << "\n";);
                 if (d > 0) {
                     scoped_numeral n(m_manager);
                     m_manager.set(n, d);
@@ -5012,7 +5012,7 @@ namespace polynomial {
             m_manager.set(as[1], 1);
             m_manager.neg(as[0]);
             polynomial * p = mk_univariate(x, 1, as);
-            TRACE("polynomial", tout << "x - c: "; p->display(tout, m_manager); tout << "\n";);
+            TRACE(polynomial, tout << "x - c: "; p->display(tout, m_manager); tout << "\n";);
             m_manager.del(as[0]);
             m_manager.del(as[1]);
             return p;
@@ -5056,7 +5056,7 @@ namespace polynomial {
                                   var2degree const * x2d = nullptr) {
             SASSERT(is_valid(x));
             SASSERT(!ModD || x2d != 0);
-            TRACE("polynomial", tout << "pseudo_division\np: "; p->display(tout, m_manager);
+            TRACE(polynomial, tout << "pseudo_division\np: "; p->display(tout, m_manager);
                   tout << "\nq: "; q->display(tout, m_manager); tout << "\nx: " << x << "\n";);
             polynomial * A = const_cast<polynomial*>(p);
             polynomial * B = const_cast<polynomial*>(q);
@@ -5102,7 +5102,7 @@ namespace polynomial {
             Q = m_zero;
             while (true) {
                 checkpoint();
-                TRACE("polynomial",
+                TRACE(polynomial,
                       tout << "A: "; A->display(tout, m_manager); tout << "\n";
                       tout << "B: "; B->display(tout, m_manager); tout << "\n";
                       tout << "l_B: "; l_B->display(tout, m_manager); tout << "\n";
@@ -5120,7 +5120,7 @@ namespace polynomial {
                             unsigned e = exact_d - d;
                             polynomial_ref l_B_e(pm());
                             pw(l_B, e, l_B_e);
-                            TRACE("polynomial", tout << "l_B_e: " << l_B_e << "\n";);
+                            TRACE(polynomial, tout << "l_B_e: " << l_B_e << "\n";);
                             if (Quotient) {
                                 Q = mul(l_B_e, Q);
                                 if (ModD)
@@ -5158,7 +5158,7 @@ namespace polynomial {
                     if (m->degree_of(x) == deg_R) {
                         monomial_ref m_prime(pm());
                         m_prime = div_x_k(m, x, deg_B);
-                        CTRACE("polynomial", m->degree_of(x) != deg_R - deg_B,
+                        CTRACE(polynomial, m->degree_of(x) != deg_R - deg_B,
                                tout << "deg_R: " << deg_R << ", deg_B: " << deg_B << ", x: " << x << "\n";
                                m->display(tout); tout << ", "; m_prime->display(tout); tout << "\n";);
                         SASSERT(m->degree_of(x) == deg_R);
@@ -5219,7 +5219,7 @@ namespace polynomial {
             rhs = mul(Q, old_q);
             rhs = add(rhs, R);
             bool is_eq = eq(lhs, rhs);
-            TRACE("pseudo_remainder",
+            TRACE(pseudo_remainder,
                   tout << "pseudo_division bug\n";
                   tout << "p:   "; old_p->display(tout, m_manager); tout << "\n";
                   tout << "q:   "; old_q->display(tout, m_manager); tout << "\n";
@@ -5264,7 +5264,7 @@ namespace polynomial {
         }
 
         polynomial * exact_div(polynomial const * p, polynomial const * q) {
-            TRACE("polynomial", tout << "exact division\np: "; p->display(tout, m_manager); tout << "\nq: "; q->display(tout, m_manager); tout << "\n";);
+            TRACE(polynomial, tout << "exact division\np: "; p->display(tout, m_manager); tout << "\nq: "; q->display(tout, m_manager); tout << "\n";);
             if (is_zero(p))
                 return const_cast<polynomial*>(p);
             SASSERT(!is_zero(q));
@@ -5290,7 +5290,7 @@ namespace polynomial {
                 numeral const & a_r  = R.a(max_R);
                 monomial_ref m_r_q(pm());
                 VERIFY(div(m_r, m_q, m_r_q));
-                TRACE("polynomial", tout << "m_r: "; m_r->display(tout); tout << "\nm_q: "; m_q->display(tout); tout << "\n";
+                TRACE(polynomial, tout << "m_r: "; m_r->display(tout); tout << "\nm_q: "; m_q->display(tout); tout << "\n";
                       if (m_r_q) { tout << "m_r_q: "; m_r_q->display(tout); tout << "\n"; });
                 m_r_q_ref = m_r_q;
                 m_manager.div(a_r, a_q, a_r_q);
@@ -5302,8 +5302,8 @@ namespace polynomial {
 
         // Return true if q divides p.
         bool divides(polynomial const * q, polynomial const * p) {
-            TRACE("polynomial", tout << "divides\nq: "; q->display(tout, m_manager); tout << "\np: "; p->display(tout, m_manager); tout << "\n";);
-            TRACE("divides", tout << "divides\nq: "; q->display(tout, m_manager); tout << "\np: "; p->display(tout, m_manager); tout << "\n";);
+            TRACE(polynomial, tout << "divides\nq: "; q->display(tout, m_manager); tout << "\np: "; p->display(tout, m_manager); tout << "\n";);
+            TRACE(divides, tout << "divides\nq: "; q->display(tout, m_manager); tout << "\np: "; p->display(tout, m_manager); tout << "\n";);
             if (is_zero(p))
                 return true;
             SASSERT(!is_zero(q));
@@ -5328,7 +5328,7 @@ namespace polynomial {
                 monomial_ref m_r_q(pm());
                 bool q_div_r = div(m_r, m_q, m_r_q);
                 m_r_q_ref = m_r_q;
-                TRACE("polynomial", tout << "m_r: "; m_r->display(tout); tout << "\nm_q: "; m_q->display(tout); tout << "\n";
+                TRACE(polynomial, tout << "m_r: "; m_r->display(tout); tout << "\nm_q: "; m_q->display(tout); tout << "\n";
                       if (m_r_q) { tout << "m_r_q: "; m_r_q->display(tout); tout << "\n"; });
                 if (!q_div_r)
                     return false;
@@ -5403,7 +5403,7 @@ namespace polynomial {
             while (true) {
                 SASSERT(degree(h_1, x) <= degree(h_0, x));
                 pseudo_remainder(h_0, h_1, x, d, h_2);
-                TRACE("polynomial", tout << "h_0: " << h_0 << "\nh_1: " << h_1 << "\nh_2: " << h_2 << "\n";);
+                TRACE(polynomial, tout << "h_0: " << h_0 << "\nh_1: " << h_1 << "\nh_2: " << h_2 << "\n";);
                 SASSERT(degree(h_2, x) < degree(h_1, x));
                 // We have that
                 // l(h_1)^d h_0 = Q h_1 + h_2.
@@ -5509,7 +5509,7 @@ namespace polynomial {
             polynomial_ref B(pm());
             A = const_cast<polynomial*>(p);
             B = const_cast<polynomial*>(q);
-            TRACE("resultant", tout << "resultant(A, B, x)\nA: " << A << "\nB: " << B << "\nx: " << x << "\n";);
+            TRACE(resultant, tout << "resultant(A, B, x)\nA: " << A << "\nB: " << B << "\nx: " << x << "\n";);
             // Res(0, B) = Res(A, 0) = 0
             if (is_zero(A) || is_zero(B)) {
                 result = mk_zero();
@@ -5549,7 +5549,7 @@ namespace polynomial {
             A = ppA;
             B = ppB;
             //
-            TRACE("resultant", tout << "resultant(A, B, x) after normalization\nA: " << A << "\nB: " << B << "\nx: " << x << "\n";
+            TRACE(resultant, tout << "resultant(A, B, x) after normalization\nA: " << A << "\nB: " << B << "\nx: " << x << "\n";
                   tout << "t: " << t << "\n";);
 
             int s = 1;
@@ -5571,7 +5571,7 @@ namespace polynomial {
             h = mk_one();
 
             while (true) {
-                TRACE("resultant", tout << "A: " << A << "\nB: " << B << "\n";);
+                TRACE(resultant, tout << "A: " << A << "\nB: " << B << "\n";);
                 degA = degree(A, x);
                 degB = degree(B, x);
                 SASSERT(degA >= degB);
@@ -5630,7 +5630,7 @@ namespace polynomial {
             p_prime = derivative(p, x);
             resultant(p, p_prime, x, r);
             bool sign = (static_cast<uint64_t>(m) * static_cast<uint64_t>(m-1))%4 != 0;
-            TRACE("resultant", tout << "discriminant sign: " << sign << "\n";);
+            TRACE(resultant, tout << "discriminant sign: " << sign << "\n";);
             scoped_numeral lc(m_manager);
             if (const_coeff(p, x, m, lc)) {
                 if (sign)
@@ -5677,7 +5677,7 @@ namespace polynomial {
                     // sRes_j is regular
 
                     exact_pseudo_remainder(sRes.get(j+1), sRes.get(j), x, prem);
-                    TRACE("psc", tout << "j: " << j << "\nsRes_j+1: "; sRes.get(j+1)->display(tout, m_manager);
+                    TRACE(psc, tout << "j: " << j << "\nsRes_j+1: "; sRes.get(j+1)->display(tout, m_manager);
                           tout << "\nsRes_j: "; sRes.get(j)->display(tout, m_manager);
                           tout << "\nprem: " << prem << "\n";);
                     // sRes_{j-1} = prem/R_j_plus_1^2
@@ -5724,7 +5724,7 @@ namespace polynomial {
         // Optimized calculation of S_e using "Dichotomous Lazard"
         void Se_Lazard(unsigned d, polynomial const * lc_S_d, polynomial const * S_d_1, var x, polynomial_ref & S_e) {
             unsigned n = d - degree(S_d_1, x) - 1;
-            TRACE("Lazard", tout << "lc_S_d: "; lc_S_d->display(tout, m_manager); tout << "\nS_d_1: "; S_d_1->display(tout, m_manager);
+            TRACE(Lazard, tout << "lc_S_d: "; lc_S_d->display(tout, m_manager); tout << "\nS_d_1: "; S_d_1->display(tout, m_manager);
                   tout << "\nn: " << n << "\n";);
             if (n == 0) {
                 S_e = const_cast<polynomial*>(S_d_1);
@@ -5734,7 +5734,7 @@ namespace polynomial {
             X = lc(S_d_1, x);
             polynomial const * Y = lc_S_d;
             unsigned a = 1 << log2(n);
-            TRACE("Lazard", tout << "a: " << a << "\n";);
+            TRACE(Lazard, tout << "a: " << a << "\n";);
             SASSERT(a <= n);
             SASSERT(n < 2*a);
             polynomial_ref C(pm());
@@ -5745,16 +5745,16 @@ namespace polynomial {
                 // C <- C^2/Y
                 C = mul(C, C);
                 C = exact_div(C, Y);
-                TRACE("Lazard", tout << "loop a: " << a << "\nC : " << C << "\n";);
+                TRACE(Lazard, tout << "loop a: " << a << "\nC : " << C << "\n";);
                 if (n >= a) {
                     // C <- C*X/Y
                     C = mul(C, X);
                     C = exact_div(C, Y);
                     n = n - a;
-                    TRACE("Lazard", tout << "if, C: " << C << "\n";);
+                    TRACE(Lazard, tout << "if, C: " << C << "\n";);
                 }
             }
-            TRACE("Lazard", tout << "C: " << C << "\nY: " << Y << "\n";);
+            TRACE(Lazard, tout << "C: " << C << "\nY: " << Y << "\n";);
             S_e = mul(C, S_d_1);
             S_e = exact_div(S_e, Y);
         }
@@ -5815,7 +5815,7 @@ namespace polynomial {
         }
 
         void psc_chain_optimized_core(polynomial const * P, polynomial const * Q, var x, polynomial_ref_vector & S) {
-            TRACE("psc_chain_classic", tout << "P: "; P->display(tout, m_manager); tout << "\nQ: "; Q->display(tout, m_manager); tout << "\n";);
+            TRACE(psc_chain_classic, tout << "P: "; P->display(tout, m_manager); tout << "\nQ: "; Q->display(tout, m_manager); tout << "\n";);
             unsigned degP = degree(P, x);
             unsigned degQ = degree(Q, x);
             SASSERT(degP >= degQ);
@@ -5835,7 +5835,7 @@ namespace polynomial {
                 unsigned e = degree(B, x);
                 if (is_zero(B))
                     return;
-                TRACE("psc_chain_classic", tout << "A: " << A << "\nB: " << B << "\ns: " << s << "\nd: " << d << ", e: " << e << "\n";);
+                TRACE(psc_chain_classic, tout << "A: " << A << "\nB: " << B << "\ns: " << s << "\nd: " << d << ", e: " << e << "\n";);
                 // B is S_{d-1}
                 ps = coeff(B, x, d-1);
                 if (!is_zero(ps))
@@ -5952,7 +5952,7 @@ namespace polynomial {
                 return true;
             }
             scoped_numeral a(m_manager);
-            TRACE("sqrt_bug",
+            TRACE(sqrt_bug,
                   tout << "sqrt:    "; p->display(tout, m_manager); tout << "\n";
                   tout << "min pos: " <<  p->graded_lex_min_pos() << "\n";
                   tout << "max pos: " <<  p->graded_lex_max_pos() << "\n";);
@@ -6013,7 +6013,7 @@ namespace polynomial {
             monomial_ref m_aux(pm());
             while (true) {
                 checkpoint();
-                TRACE("sqrt_bug", tout << "R: "; R.display(tout); tout << "C: "; C.display(tout););
+                TRACE(sqrt_bug, tout << "R: "; R.display(tout); tout << "C: "; C.display(tout););
                 unsigned curr_max = C.graded_lex_max_pos();
                 if (curr_max == UINT_MAX) {
                     // C is empty
@@ -6053,7 +6053,7 @@ namespace polynomial {
         }
 
         void rename(unsigned sz, var const * xs) {
-            TRACE("rename", for (unsigned i = 0; i < sz; i++) tout << xs[i] << " "; tout << "\n";
+            TRACE(rename, for (unsigned i = 0; i < sz; i++) tout << xs[i] << " "; tout << "\n";
                   tout << "polynomials before rename\n";
                   for (unsigned i = 0; i < m_polynomials.size(); i++) {
                       if (m_polynomials[i] == 0)
@@ -6069,7 +6069,7 @@ namespace polynomial {
                     p->make_first_maximal();
                 SASSERT(!p || p->size() <= 1 || !p->lex_sorted());
             }
-            TRACE("rename",
+            TRACE(rename,
                   tout << "polynomials after rename\n";
                   for (unsigned i = 0; i < m_polynomials.size(); i++) {
                       if (m_polynomials[i] == 0)
@@ -6385,7 +6385,7 @@ namespace polynomial {
         }
 
         polynomial * substitute(polynomial const * p, unsigned xs_sz, var const * xs, numeral const * vs) {
-            TRACE("polynomial", tout << "substitute num_vars: " << xs_sz << "\n";
+            TRACE(polynomial, tout << "substitute num_vars: " << xs_sz << "\n";
                   for (unsigned i = 0; i < xs_sz; i++) { tout << "x" << xs[i] << " -> " << m_manager.to_string(vs[i]) << "\n"; });
             scoped_var_pos var2pos(m_var_pos, xs_sz, xs);
             scoped_numeral new_a(m_manager);
@@ -6415,7 +6415,7 @@ namespace polynomial {
                     }
                 }
                 new_m.set_size(new_msz);
-                TRACE("polynomial", tout << "processing " << m_manager.to_string(p->a(i)) << " "; m->display(tout); tout << "\n";
+                TRACE(polynomial, tout << "processing " << m_manager.to_string(p->a(i)) << " "; m->display(tout); tout << "\n";
                       tout << "new_a: " << m_manager.to_string(new_a) << " "; mk_monomial(new_m)->display(tout); tout << "\n";);
                 R.add(new_a, mk_monomial(new_m));
             }
@@ -6480,7 +6480,7 @@ namespace polynomial {
         template<typename ValManager>
         void t_eval_core(polynomial * p, ValManager & vm, var2value<ValManager> const & x2v,
                          unsigned start, unsigned end, var x, typename ValManager::numeral & r) {
-            TRACE("eval_bug", tout << "p: "; p->display(tout, m()); tout << "\n";
+            TRACE(eval_bug, tout << "p: "; p->display(tout, m()); tout << "\n";
                   tout << "start: " << start << ", end: " << end << ", x: " << x << "\n";);
             SASSERT(start < end);
             SASSERT(end <= p->size());
@@ -6546,7 +6546,7 @@ namespace polynomial {
                     i = j;
                 }
             }
-            TRACE("eval_bug", tout << "result for start: " << start << ", end: " << end << ", x: " << x << "\n";
+            TRACE(eval_bug, tout << "result for start: " << start << ", end: " << end << ", x: " << x << "\n";
                   tout << "r: "; vm.display(tout, r); tout << "\n";);
         }
 
@@ -6620,7 +6620,7 @@ namespace polynomial {
         }
 
         void acc_constant(factors & r, numeral const & c) {
-            TRACE("factor_bug", tout << "acc_constant, c: "; m_manager.display(tout, c); tout << "\n";);
+            TRACE(factor_bug, tout << "acc_constant, c: "; m_manager.display(tout, c); tout << "\n";);
             scoped_numeral new_c(m_manager);
             m_manager.mul(r.get_constant(), c, new_c);
             r.set_constant(new_c);
@@ -6637,7 +6637,7 @@ namespace polynomial {
             SASSERT(degree(p, x) == 1);
             SASSERT(is_primitive(p, x));
             SASSERT(is_square_free(p, x));
-            TRACE("factor", tout << "factor square free (degree == 1):\n"; p->display(tout, m_manager); tout << "\n";);
+            TRACE(factor, tout << "factor square free (degree == 1):\n"; p->display(tout, m_manager); tout << "\n";);
             // easy case
             r.push_back(const_cast<polynomial*>(p), k);
         }
@@ -6646,7 +6646,7 @@ namespace polynomial {
             SASSERT(degree(p, x) == 2);
             SASSERT(is_primitive(p, x));
             SASSERT(is_square_free(p, x));
-            TRACE("factor", tout << "factor square free (degree == 2):\n"; p->display(tout, m_manager); tout << "\n";);
+            TRACE(factor, tout << "factor square free (degree == 2):\n"; p->display(tout, m_manager); tout << "\n";);
 
             polynomial_ref a(pm());
             polynomial_ref b(pm());
@@ -6654,7 +6654,7 @@ namespace polynomial {
             a = coeff(p, x, 2);
             b = coeff(p, x, 1);
             c = coeff(p, x, 0);
-            TRACE("factor", tout << "a: " << a << "\nb: " << b << "\nc: " << c << "\n";);
+            TRACE(factor, tout << "a: " << a << "\nb: " << b << "\nc: " << c << "\n";);
             // make sure the leading monomoal of a is positive
             bool flipped_coeffs = false;
             SASSERT(!is_zero(a));
@@ -6678,7 +6678,7 @@ namespace polynomial {
             // discriminant must be different from 0, since p is square free
             SASSERT(!is_zero(disc));
             polynomial_ref disc_sqrt(pm());
-            TRACE("factor", tout << "disc: " << disc << "\n";);
+            TRACE(factor, tout << "disc: " << disc << "\n";);
             if (!sqrt(disc, disc_sqrt)) {
                 // p is irreducible
                 r.push_back(const_cast<polynomial*>(p), k);
@@ -6694,7 +6694,7 @@ namespace polynomial {
                 tmp = mul(disc_sqrt, disc_sqrt);
                 SASSERT(eq(disc, tmp));
             });
-            TRACE("factor", tout << "disc_sqrt: " << disc_sqrt << "\n";);
+            TRACE(factor, tout << "disc_sqrt: " << disc_sqrt << "\n";);
             // p = cont*(2*a*x + b - disc_sqrt)*(2*a*x + b + disc_sqrt)
             numeral two;
             m_manager.set(two, 2);
@@ -6708,13 +6708,13 @@ namespace polynomial {
             f2 = f1;
             f1 = sub(f1, disc_sqrt);
             f2 = add(f2, disc_sqrt);
-            TRACE("factor", tout << "before pp\nf1: " << f1 << "\nf2: " << f2 << "\n";
+            TRACE(factor, tout << "before pp\nf1: " << f1 << "\nf2: " << f2 << "\n";
                   polynomial_ref cf1(pm()); m_wrapper.content(f1, x, cf1);
                   polynomial_ref cf2(pm()); m_wrapper.content(f2, x, cf2);
                   tout << "content(f1): " << cf1 << "\ncontent(f2): " << cf2 << "\n";);
             f1 = pp(f1, x);
             f2 = pp(f2, x);
-            TRACE("factor", tout << "f1: " << f1 << "\nf2: " << f2 << "\n";);
+            TRACE(factor, tout << "f1: " << f1 << "\nf2: " << f2 << "\n";);
             DEBUG_CODE({
                 polynomial_ref f1f2(pm());
                 f1f2 = mul(f1, f2);
@@ -6731,7 +6731,7 @@ namespace polynomial {
             SASSERT(is_square_free(p, max_var(p)));
             SASSERT(is_primitive(p, max_var(p)));
             SASSERT(!is_zero(p));
-            TRACE("factor", tout << "factor square free univariate:\n"; p->display(tout, m_manager); tout << "\n";);
+            TRACE(factor, tout << "factor square free univariate:\n"; p->display(tout, m_manager); tout << "\n";);
 
             // Convert polynomial into a upolynomial, and execute univariate factorization.
             var x = max_var(p);
@@ -6749,7 +6749,7 @@ namespace polynomial {
             }
             else {
                 // Convert factors back into polynomial objects
-                TRACE("factor_bug", tout << "factoring fs constant: " << m().to_string(fs.get_constant()) << "\np:\n";
+                TRACE(factor_bug, tout << "factoring fs constant: " << m().to_string(fs.get_constant()) << "\np:\n";
                       p->display(tout, m()); tout << "\n";);
                 polynomial_ref f(pm());
                 unsigned num_factors = fs.distinct_factors();
@@ -6757,12 +6757,12 @@ namespace polynomial {
                     numeral_vector const & f1 = fs[i];
                     unsigned k1 = fs.get_degree(i);
                     f = to_polynomial(f1.size(), f1.data(), x);
-                    TRACE("factor_bug",
+                    TRACE(factor_bug,
                           tout << "uni-factor:\n"; upm().display(tout, f1); tout << "\n";
                           tout << "factor:\n" << f << "\n";);
                     r.push_back(f, k*k1);
                 }
-                TRACE("factor_bug", tout << "end-factors...\n";);
+                TRACE(factor_bug, tout << "end-factors...\n";);
                 SASSERT(m().is_one(fs.get_constant()) || m().is_minus_one(fs.get_constant()));
                 if (m().is_minus_one(fs.get_constant()) && k % 2 == 1)
                     flip_sign(r);
@@ -6773,7 +6773,7 @@ namespace polynomial {
             SASSERT(degree(p, x) > 2);
             SASSERT(is_primitive(p, x));
             SASSERT(is_square_free(p, x));
-            TRACE("factor", tout << "factor square free (degree > 2):\n"; p->display(tout, m_manager); tout << "\n";);
+            TRACE(factor, tout << "factor square free (degree > 2):\n"; p->display(tout, m_manager); tout << "\n";);
 
             // TODO: invoke Dejan's procedure
             r.push_back(const_cast<polynomial*>(p), k);
@@ -6797,8 +6797,8 @@ namespace polynomial {
         }
 
         void factor_core(polynomial const * p, factors & r, factor_params const & params) {
-            TRACE("factor", tout << "factor_core\np: "; p->display(tout, m_manager); tout << "\n";);
-            TRACE("factor_bug", tout << "factors r.get_constant(): " << m_manager.to_string(r.get_constant()) << "\n";);
+            TRACE(factor, tout << "factor_core\np: "; p->display(tout, m_manager); tout << "\n";);
+            TRACE(factor_bug, tout << "factors r.get_constant(): " << m_manager.to_string(r.get_constant()) << "\n";);
             SASSERT(!is_zero(p));
             if (is_const(p)) {
                 SASSERT(!is_zero(p));
@@ -6811,7 +6811,7 @@ namespace polynomial {
             scoped_numeral i(m_manager);
             polynomial_ref c(pm()), pp(pm());
             iccp(p, x, i, c, pp);
-            TRACE("factor", tout << "i: " << i << "\n";);
+            TRACE(factor, tout << "i: " << i << "\n";);
             acc_constant(r, i);
             factor_core(c, r, params);
 
@@ -6837,7 +6837,7 @@ namespace polynomial {
                     SASSERT(is_square_free(A, x));
                     SASSERT(degree(A, x) > 0);
                     checkpoint();
-                    TRACE("factor", tout << "factor_core main loop j: " << j << "\nA: " << A << "\nB: " << B << "\n";);
+                    TRACE(factor, tout << "factor_core main loop j: " << j << "\nA: " << A << "\nB: " << B << "\n";);
                     // A is of the form       P_j * P_{j+1} * P_{j+2}   * ... * P_k
                     // B is of the form             P_{j+1} * P_{j+2}^2 * ... * P_k^{k - j - 2}
                     gcd(A, B, D);
@@ -6849,7 +6849,7 @@ namespace polynomial {
                         factor_sqf_pp(C, r, x, j, params);
                     }
                     else {
-                        TRACE("factor", tout << "const C: " << C << "\n";);
+                        TRACE(factor, tout << "const C: " << C << "\n";);
                         SASSERT(C->size() == 1);
                         SASSERT(m_manager.is_one(C->a(0)) || m_manager.is_minus_one(C->a(0)));
                         if (m_manager.is_minus_one(C->a(0)) && j % 2 == 1)
@@ -6871,7 +6871,7 @@ namespace polynomial {
                 return;
             }
             factor_core(p, r, params);
-            TRACE("factor_bug", tout << "[factor] end, r.get_constant(): " << m_manager.to_string(r.get_constant()) << "\n";);
+            TRACE(factor_bug, tout << "[factor] end, r.get_constant(): " << m_manager.to_string(r.get_constant()) << "\n";);
         }
 
         polynomial * to_polynomial(unsigned sz, numeral const * p, var x) {

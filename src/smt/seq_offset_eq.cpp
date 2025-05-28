@@ -55,7 +55,7 @@ void seq_offset_eq::len_offset(expr* e, int val) {
     if (match_x_minus_y(e, x, y) && 
         ctx.e_internalized(x) && 
         ctx.e_internalized(y)) {
-        TRACE("seq", tout << "eqc: " << mk_pp(e, m) << "\n";);    
+        TRACE(seq, tout << "eqc: " << mk_pp(e, m) << "\n";);    
         enode* r1 = th.get_root(x);
         enode* r2 = th.get_root(y);
         for (enode* n1 : *r1) {
@@ -71,7 +71,7 @@ void seq_offset_eq::len_offset(expr* e, int val) {
                 m_offset_equalities.insert(r1, r2, val);
                 m_has_offset_equality.insert(r1);
                 m_has_offset_equality.insert(r2);
-                TRACE("seq", tout << "a length pair: " << mk_pp(e1, m) << ", " << mk_pp(e2, m) << "\n";);
+                TRACE(seq, tout << "a length pair: " << mk_pp(e1, m) << ", " << mk_pp(e2, m) << "\n";);
                 return;
             }
             return;
@@ -84,7 +84,7 @@ void seq_offset_eq::prop_arith_to_len_offset() {
     rational val;
     for (enode* n : th.get_context().enodes()) {
         if (a.is_numeral(n->get_expr(), val) && val.is_int32() && INT_MIN < val.get_int32()) {
-            TRACE("seq", tout << "offset: " << mk_pp(n->get_expr(), m) << "\n";);
+            TRACE(seq, tout << "offset: " << mk_pp(n->get_expr(), m) << "\n";);
             enode *next = n->get_next();
             while (next != n) {
                 len_offset(next->get_expr(), val.get_int32());

@@ -78,21 +78,21 @@ namespace smt {
             int i = 0;
             theory_var s = r.m_base_var;
             SASSERT(is_base(s) || is_quasi_base(s));
-            CTRACE("arith_bug", !(!is_base(s) || (!has_var_kind(r_id, BASE) && !has_var_kind(r_id, QUASI_BASE))),
+            CTRACE(arith_bug, !(!is_base(s) || (!has_var_kind(r_id, BASE) && !has_var_kind(r_id, QUASI_BASE))),
                    display_row_info(tout, r_id););
             SASSERT(!is_base(s) || (!has_var_kind(r_id, BASE) && !has_var_kind(r_id, QUASI_BASE)));
-            CTRACE("arith_bug", is_quasi_base(s) && has_var_kind(r_id, QUASI_BASE), display_row_info(tout, r_id););
+            CTRACE(arith_bug, is_quasi_base(s) && has_var_kind(r_id, QUASI_BASE), display_row_info(tout, r_id););
             SASSERT(!is_quasi_base(s) || !has_var_kind(r_id, QUASI_BASE));
             SASSERT(r.is_coeff_of(s, numeral::one()));
             typename vector<row_entry>::const_iterator it  = r.begin_entries();
             typename vector<row_entry>::const_iterator end = r.end_entries();
             for (; it != end; ++it, ++i) {
                 if (!it->is_dead()) {
-                    CTRACE("row_bug", already_found[it->m_var], display_row_info(tout, r_id););
+                    CTRACE(row_bug, already_found[it->m_var], display_row_info(tout, r_id););
                     SASSERT(!already_found[it->m_var]);
                     already_found[it->m_var] = true;
                     column const & c = m_columns[it->m_var];
-                    CTRACE("row_bug", it->m_coeff.is_zero(), display_row_info(tout, r_id););
+                    CTRACE(row_bug, it->m_coeff.is_zero(), display_row_info(tout, r_id););
                     SASSERT(!it->m_coeff.is_zero());
                     SASSERT(c[it->m_col_idx].m_row_id  == static_cast<int>(r_id));
                     SASSERT(c[it->m_col_idx].m_row_idx == i);
@@ -129,7 +129,7 @@ namespace smt {
         for (; it != end; ++it, ++i) {
             if (!it->is_dead()) {
                 row const & r = m_rows[it->m_row_id];
-                CTRACE("wf_column", r.size() == 0, tout << "v" << v << ", it->m_row_id: " << it->m_row_id << "\n"; display_row_info(tout, r); display(tout););
+                CTRACE(wf_column, r.size() == 0, tout << "v" << v << ", it->m_row_id: " << it->m_row_id << "\n"; display_row_info(tout, r); display(tout););
                 SASSERT(r.size() != 0);
                 SASSERT(r[it->m_row_idx].m_var == v);
                 SASSERT(r[it->m_row_idx].m_col_idx == i);
@@ -158,7 +158,7 @@ namespace smt {
     */
     template<typename Ext>
     bool theory_arith<Ext>::valid_row_assignment() const {
-        TRACE("valid_row_assignment", display(tout););
+        TRACE(valid_row_assignment, display(tout););
         typename vector<row>::const_iterator it  = m_rows.begin();
         typename vector<row>::const_iterator end = m_rows.end();
         for (; it != end; ++it) {
@@ -182,7 +182,7 @@ namespace smt {
                     sum += it->m_coeff * m_value[it->m_var];
                 }
             }
-            CTRACE("valid_row_assignment_bug", !sum.is_zero(), tout << "checking: "; display_row_info(tout, r););
+            CTRACE(valid_row_assignment_bug, !sum.is_zero(), tout << "checking: "; display_row_info(tout, r););
             SASSERT(sum.is_zero());
         }
         return true;
@@ -194,7 +194,7 @@ namespace smt {
             return true;
         int num = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
-            CTRACE("bound_bug", below_lower(v) || above_upper(v), display_var(tout, v); display(tout););
+            CTRACE(bound_bug, below_lower(v) || above_upper(v), display_var(tout, v); display(tout););
             SASSERT(!below_lower(v));
             SASSERT(!above_upper(v));
             if (below_lower(v) || above_upper(v)) return false;
@@ -207,7 +207,7 @@ namespace smt {
         int num = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
             if (is_int(v) && !get_value(v).is_int()) {
-                TRACE("bound_bug", display_var(tout, v); display(tout););
+                TRACE(bound_bug, display_var(tout, v); display(tout););
                 return false;
             }
         }
@@ -223,7 +223,7 @@ namespace smt {
             satisfy_integrality()) {
             return true;
         }
-        TRACE("arith", display(tout););
+        TRACE(arith, display(tout););
         return false;
     }
 

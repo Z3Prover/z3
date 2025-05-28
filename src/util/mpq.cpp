@@ -197,7 +197,7 @@ void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
         }
         ++str;
     }
-    TRACE("mpq_set", tout << "[before] a: " << to_string(a) << "\n";);
+    TRACE(mpq_set, tout << "[before] a: " << to_string(a) << "\n";);
     if (str[0] == '/' || str[0] == '.' || str[0] == 'e' || str[0] == 'E') {
         bool is_rat = str[0] == '/';
         _scoped_numeral<mpz_manager<SYNCH> > tmp2(*this);
@@ -239,7 +239,7 @@ void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
                 else if ('/' == str[0]) {
                     throw default_exception("mixing rational/scientific notation");
                 }
-                TRACE("mpq_set", tout << "[exp]: " << exp << ", str[0]: " << (str[0] - '0') << std::endl;);
+                TRACE(mpq_set, tout << "[exp]: " << exp << ", str[0]: " << (str[0] - '0') << std::endl;);
                 ++str;
             }
         }
@@ -258,7 +258,7 @@ void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
                 _scoped_numeral<mpq_manager<SYNCH>> _qten(*this);
                 _qten = 10;
                 power(_qten, static_cast<unsigned>(exp), _exp);
-                TRACE("mpq_set", tout << "a: " << to_string(a) << ", exp_sign:" << exp_sign << ", exp: " << exp << " " << to_string(_exp) << std::endl;);
+                TRACE(mpq_set, tout << "a: " << to_string(a) << ", exp_sign:" << exp_sign << ", exp: " << exp << " " << to_string(_exp) << std::endl;);
                 if (exp_sign)
                     div(a, _exp, a);
                 else
@@ -371,17 +371,17 @@ void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c, mpz& g1,
 
 template<bool SYNCH>
 void mpq_manager<SYNCH>::rat_mul(mpz const & a, mpq const & b, mpq & c) {
-    STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " * " << to_string(b) << " == ";); 
+    STRACE(rat_mpq, tout << "[mpq] " << to_string(a) << " * " << to_string(b) << " == ";); 
     mul(a, b.m_num, c.m_num);
     set(c.m_den, b.m_den);
     normalize(c);
-    STRACE("rat_mpq", tout << to_string(c) << "\n";);
+    STRACE(rat_mpq, tout << to_string(c) << "\n";);
 }
 
 
 template<bool SYNCH>
 void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c) {
-    STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " * " << to_string(b) << " == ";); 
+    STRACE(rat_mpq, tout << "[mpq] " << to_string(a) << " * " << to_string(b) << " == ";); 
     if (SYNCH) {
         mpz g1, g2, tmp1, tmp2;
         rat_mul(a, b, c, g1, g2, tmp1, tmp2);
@@ -393,12 +393,12 @@ void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c) {
     else {
         rat_mul(a, b, c, m_tmp1, m_tmp2, m_tmp3, m_tmp4);
     }
-    STRACE("rat_mpq", tout << to_string(c) << "\n";);
+    STRACE(rat_mpq, tout << to_string(c) << "\n";);
 }
 
 template<bool SYNCH>
 void mpq_manager<SYNCH>::rat_add(mpq const & a, mpq const & b, mpq & c) {
-    STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " + " << to_string(b) << " == ";); 
+    STRACE(rat_mpq, tout << "[mpq] " << to_string(a) << " + " << to_string(b) << " == ";); 
     if (SYNCH) {
         mpz_stack tmp1, tmp2, tmp3, g;
         lin_arith_op<false>(a, b, c, g, tmp1, tmp2, tmp3);
@@ -410,12 +410,12 @@ void mpq_manager<SYNCH>::rat_add(mpq const & a, mpq const & b, mpq & c) {
     else {
         lin_arith_op<false>(a, b, c, m_tmp1, m_tmp2, m_tmp3, m_tmp4);
     }
-    STRACE("rat_mpq", tout << to_string(c) << "\n";);
+    STRACE(rat_mpq, tout << to_string(c) << "\n";);
 }
 
 template<bool SYNCH>
 void mpq_manager<SYNCH>::rat_sub(mpq const & a, mpq const & b, mpq & c) {
-    STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " - " << to_string(b) << " == ";); 
+    STRACE(rat_mpq, tout << "[mpq] " << to_string(a) << " - " << to_string(b) << " == ";); 
     if (SYNCH) {
         mpz tmp1, tmp2, tmp3, g;
         lin_arith_op<true>(a, b, c, g, tmp1, tmp2, tmp3);
@@ -427,7 +427,7 @@ void mpq_manager<SYNCH>::rat_sub(mpq const & a, mpq const & b, mpq & c) {
     else {
         lin_arith_op<true>(a, b, c, m_tmp1, m_tmp2, m_tmp3, m_tmp4);
     }
-    STRACE("rat_mpq", tout << to_string(c) << "\n";);
+    STRACE(rat_mpq, tout << to_string(c) << "\n";);
 }
 
 

@@ -139,7 +139,7 @@ public:
         while (it != m_vars.end()) {  
             app * e = it->m_key;
             rec const& r = it->m_value;
-            TRACE("pb", tout << mk_pp(e, m) << " " << r.pos.size() << " " << r.neg.size() << "\n";);
+            TRACE(pb, tout << mk_pp(e, m) << " " << r.pos.size() << " " << r.neg.size() << "\n";);
             if (r.pos.empty()) {                
                 replace(r.neg, e, m.mk_false(), g);
                 set_value(mc, e, false);
@@ -280,11 +280,11 @@ private:
                     fml1 = decompose_cut(a, start, end, cut_args, cut_coeffs); 
                     g->assert_expr(fml1, nullptr, g->dep(i));
                     start = end;
-                    TRACE("pb", tout << fml1 << "\n";);
+                    TRACE(pb, tout << fml1 << "\n";);
                 }
                 fml2 = pb.mk_ge(cut_args.size(), cut_coeffs.data(), cut_args.data(), pb.get_k(e));
                 g->update(i, fml2, nullptr, g->dep(i));
-                TRACE("pb", tout << fml2 << "\n";);
+                TRACE(pb, tout << fml2 << "\n";);
             }
         }
     }
@@ -465,7 +465,7 @@ private:
         expr_ref tmp1(m), tmp2(m);
         expr* fml1 = g->form(idx1);
         expr* fml2 = g->form(idx2);
-        TRACE("pb", tout << mk_pp(fml1, m) << " " << mk_pp(fml2, m) << "\n";);
+        TRACE(pb, tout << mk_pp(fml1, m) << " " << mk_pp(fml2, m) << "\n";);
         expr_ref_vector args1(m), args2(m);
         vector<rational> coeffs1, coeffs2;        
         rational k1, k2;
@@ -482,7 +482,7 @@ private:
             m.is_not(x, x);
             if (!is_app(x) || !m_vars.contains(to_app(x))) 
                 return;            
-            TRACE("pb", tout << mk_pp(x, m) << "\n";);
+            TRACE(pb, tout << mk_pp(x, m) << "\n";);
             rec const& r = m_vars.find(to_app(x));
             if (r.pos.size() != 1 || r.neg.size() != 1) 
                 return;
@@ -527,7 +527,7 @@ private:
                    verbose_stream() << "resolve: " << mk_pp(fml1, m) << "\n" << mk_pp(fml2, m) << "\n" << tmp1 << "\n";
                    verbose_stream() << "to\n" << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
 
-        TRACE("pb",
+        TRACE(pb,
               tout << "resolve: " << mk_pp(fml1, m) << "\n" << mk_pp(fml2, m) << "\n" << tmp1 << "\n";
               tout << "to\n" << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
 
@@ -595,7 +595,7 @@ private:
             if (!m.is_true(f)) {
                 m_r(f, tmp, new_pr);
                 if (tmp != f) {
-                    TRACE("pb", tout << mk_pp(f, m) << " -> " << tmp 
+                    TRACE(pb, tout << mk_pp(f, m) << " -> " << tmp 
                           << " by " << mk_pp(e, m) << " |-> " << mk_pp(v, m) << "\n";);
                     IF_VERBOSE(3, verbose_stream() << "replace " << mk_pp(f, m) << " -> " << tmp << "\n";);
                     if (g->proofs_enabled()) {

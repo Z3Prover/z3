@@ -160,7 +160,7 @@ namespace qel {
                     case AST_VAR:
                         vidx = to_var(t)->get_idx();
                         if (fr.second == 0) {
-                            CTRACE("der_bug", vidx >= definitions.size(), tout << "vidx: " << vidx << "\n";);
+                            CTRACE(der_bug, vidx >= definitions.size(), tout << "vidx: " << vidx << "\n";);
                             // Remark: The size of definitions may be smaller than the number of variables occurring in the quantified formula.
                             if (definitions.get(vidx, nullptr) != nullptr) {
                                 if (visiting.is_marked(t)) {
@@ -264,7 +264,7 @@ namespace qel {
             }
             vs.push_back(to_var(lhs));
             ts.push_back(rhs);
-            TRACE("qe_lite", tout << mk_pp(eq, m) << "\n";);
+            TRACE(qe_lite, tout << mk_pp(eq, m) << "\n";);
             return true;
         }
 
@@ -287,7 +287,7 @@ namespace qel {
 
         bool is_var_eq(expr * e, ptr_vector<var>& vs, expr_ref_vector & ts) {
             expr* lhs = nullptr, *rhs = nullptr;
-            TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
+            TRACE(qe_lite, tout << mk_pp(e, m) << "\n";);
 
             // (= VAR t), (iff VAR t), (iff (not VAR) t), (iff t (not VAR)) cases
             if (m.is_eq(e, lhs, rhs) && trivial_solve(lhs, rhs, e, vs, ts)) {
@@ -303,7 +303,7 @@ namespace qel {
                 if (res != e && m.is_eq(res, lhs, rhs) && is_variable(lhs)) {
                     vs.push_back(to_var(lhs));
                     ts.push_back(rhs);
-                    TRACE("qe_lite", tout << res << "\n";);
+                    TRACE(qe_lite, tout << res << "\n";);
                     return true;
                 }
             }
@@ -321,7 +321,7 @@ namespace qel {
         }
 
         void get_elimination_order() {
-            TRACE("top_sort",
+            TRACE(top_sort,
                   tout << "DEFINITIONS: " << std::endl;
                   for(unsigned i = 0; i < m_map.size(); i++)
                       if(m_map[i]) tout << "VAR " << i << " = " << mk_pp(m_map[i], m) << std::endl;
@@ -329,7 +329,7 @@ namespace qel {
 
             der_sort_vars(m_inx2var, m_map, m_order);
 
-            TRACE("qe_lite",
+            TRACE(qe_lite,
                   tout << "Elimination m_order:" << std::endl;
                   tout << m_order << std::endl;
                   );
@@ -346,8 +346,8 @@ namespace qel {
                 expr_ref r(m);
                 if (is_ground(cur)) r = cur; else m_subst(cur, r);
                 unsigned inx = sz - idx - 1;
-                TRACE("qe_lite", tout << idx << " |-> " << r << "\n";);
-                CTRACE("top_sort", m_subst_map.get(inx) != nullptr,
+                TRACE(qe_lite, tout << idx << " |-> " << r << "\n";);
+                CTRACE(top_sort, m_subst_map.get(inx) != nullptr,
                        tout << "inx is " << inx << "\n"
                        << "idx is " << idx << "\n"
                        << "sz is " << sz << "\n"
@@ -401,7 +401,7 @@ namespace qel {
                 break;
             }
             expr_ref new_e = m_subst(t, m_subst_map.size(), m_subst_map.data());
-            TRACE("qe_lite", tout << new_e << "\n";);
+            TRACE(qe_lite, tout << new_e << "\n";);
 
             // don't forget to update the quantifier patterns
             expr_ref_buffer  new_patterns(m);
@@ -451,7 +451,7 @@ namespace qel {
                 }
             }
             else {
-                TRACE("der_bug", tout << "Did not find any diseq\n" << mk_pp(q, m) << "\n";);
+                TRACE(der_bug, tout << "Did not find any diseq\n" << mk_pp(q, m) << "\n";);
                 r = q;
             }
 
@@ -537,7 +537,7 @@ namespace qel {
                                 m_map[idx] = t;
                                 m_new_exprs.push_back(std::move(t));
                             }
-                            TRACE ("qe_def",
+                            TRACE(qe_def,
                                    tout << "Replacing definition of VAR " << idx << " from "
                                    << mk_pp(old_def, m) << " to " << mk_pp(t, m)
                                    << " inferred from: " << mk_pp(args[i], m) << "\n";);
@@ -548,7 +548,7 @@ namespace qel {
         }
 
         void flatten_definitions(expr_ref_vector& conjs) {
-            TRACE("qe_lite",
+            TRACE(qe_lite,
                   expr_ref tmp(m);
                   tmp = m.mk_and(conjs.size(), conjs.data());
                   tout << mk_pp(tmp, m) << "\n";);
@@ -584,7 +584,7 @@ namespace qel {
                     continue;
                 }
             }
-            TRACE("qe_lite",
+            TRACE(qe_lite,
                   expr_ref tmp(m);
                   tmp = m.mk_and(conjs.size(), conjs.data());
                   tout << "after flatten\n" << mk_pp(tmp, m) << "\n";);
@@ -633,7 +633,7 @@ namespace qel {
                 change = false;
                 for (unsigned i = 0; i < conjs.size(); ++i) {
                     if (m.is_not(conjs[i].get(), ne) && m.is_eq(ne, l, r)) {
-                        TRACE("qe_lite", tout << mk_pp(conjs[i].get(), m) << " " << is_variable(l) << " " << is_variable(r) << "\n";);
+                        TRACE(qe_lite, tout << mk_pp(conjs[i].get(), m) << " " << is_variable(l) << " " << is_variable(r) << "\n";);
                         if (is_variable(l) && ::is_var(l) && is_unconstrained(::to_var(l), r, i, conjs)) {
                             conjs[i] = m.mk_true();
                             reduced = true;
@@ -710,7 +710,7 @@ namespace qel {
         }
 
         void operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
-            TRACE("qe_lite", tout << mk_pp(q, m) << "\n";);
+            TRACE(qe_lite, tout << mk_pp(q, m) << "\n";);
             pr = nullptr;
             r  = q;
             reduce_quantifier(q, r, pr);
@@ -808,7 +808,7 @@ namespace qel {
                 expr_safe_replace rep(m);
                 rep.insert(A, B);
                 expr_ref tmp(m);
-                TRACE("qe_lite",
+                TRACE(qe_lite,
                       tout << mk_pp(e1, m) << " = " << mk_pp(e2, m) << "\n";);
                 for (unsigned j = 0; j < conjs.size(); ++j) {
                     if (i == j) {
@@ -1099,7 +1099,7 @@ namespace fm {
             if (m_util.is_le(t, lhs, rhs) || m_util.is_ge(t, lhs, rhs)) {
                 result = m_util.is_numeral(rhs) && is_linear_pol(lhs);
             }
-            TRACE("qe_lite", tout << mk_pp(t, m) << " " << (result?"true":"false") << "\n";);
+            TRACE(qe_lite, tout << mk_pp(t, m) << " " << (result?"true":"false") << "\n";);
 
             return result;
         }
@@ -1171,7 +1171,7 @@ namespace fm {
             cnstr->m_xs         = reinterpret_cast<var*>(mem_xs);
             cnstr->m_as         = reinterpret_cast<rational*>(mem_as);
             for (unsigned i = 0; i < num_vars; i++) {
-                TRACE("qe_lite", tout << "xs[" << i << "]: " << xs[i] << "\n";);
+                TRACE(qe_lite, tout << "xs[" << i << "]: " << xs[i] << "\n";);
                 cnstr->m_xs[i] = xs[i];
                 new (cnstr->m_as + i) rational(as[i]);
             }
@@ -1363,7 +1363,7 @@ namespace fm {
                 if (c2->m_dead)
                     continue;
                 if (subsumes(c, *c2)) {
-                    TRACE("qe_lite", display(tout, c); tout << "\nsubsumed:\n"; display(tout, *c2); tout << "\n";);
+                    TRACE(qe_lite, display(tout, c); tout << "\nsubsumed:\n"; display(tout, *c2); tout << "\n";);
                     c2->m_dead = true;
                     continue;
                 }
@@ -1439,10 +1439,10 @@ namespace fm {
             for (unsigned i = 0; i < sz; i++) {
                 expr * f = g[i];
                 if (is_occ(f)) {
-                    TRACE("qe_lite", tout << "OCC: " << mk_ismt2_pp(f, m) << "\n";);
+                    TRACE(qe_lite, tout << "OCC: " << mk_ismt2_pp(f, m) << "\n";);
                     continue;
                 }
-                TRACE("qe_lite", tout << "not OCC:\n" << mk_ismt2_pp(f, m) << "\n";);
+                TRACE(qe_lite, tout << "not OCC:\n" << mk_ismt2_pp(f, m) << "\n";);
                 quick_for_each_expr(proc, visited, f);
             }
         }
@@ -1571,7 +1571,7 @@ namespace fm {
             SASSERT(m_uppers.size()    == m_is_int.size());
             SASSERT(m_forbidden.size() == m_is_int.size());
             SASSERT(m_var2pos.size()   == m_is_int.size());
-            TRACE("qe_lite", tout << mk_pp(t,m) << " |-> " << x << " forbidden: " << forbidden << "\n";);
+            TRACE(qe_lite, tout << mk_pp(t,m) << " |-> " << x << " forbidden: " << forbidden << "\n";);
             return x;
         }
 
@@ -1593,7 +1593,7 @@ namespace fm {
                 x = mk_var(t);
             SASSERT(m_expr2var.contains(t));
             SASSERT(m_var2expr.get(x) == t);
-            TRACE("qe_lite", tout << mk_ismt2_pp(t, m) << " --> " << x << "\n";);
+            TRACE(qe_lite, tout << mk_ismt2_pp(t, m) << " --> " << x << "\n";);
             return x;
         }
 
@@ -1613,7 +1613,7 @@ namespace fm {
 
 
         void add_constraint(expr * f, expr_dependency * dep) {
-            TRACE("qe_lite", tout << mk_pp(f, m) << "\n";);
+            TRACE(qe_lite, tout << mk_pp(f, m) << "\n";);
             SASSERT(!m.is_or(f) || m_fm_occ);
             sbuffer<literal> lits;
             sbuffer<var>     xs;
@@ -1693,7 +1693,7 @@ namespace fm {
                 }
             }
 
-            TRACE("qe_lite", tout << "before mk_constraint: "; for (unsigned i = 0; i < xs.size(); i++) tout << " " << xs[i]; tout << "\n";);
+            TRACE(qe_lite, tout << "before mk_constraint: "; for (unsigned i = 0; i < xs.size(); i++) tout << " " << xs[i]; tout << "\n";);
 
             constraint * new_c = mk_constraint(lits.size(),
                                                lits.data(),
@@ -1704,7 +1704,7 @@ namespace fm {
                                                strict,
                                                dep);
 
-            TRACE("qe_lite", tout << "add_constraint: "; display(tout, *new_c); tout << "\n";);
+            TRACE(qe_lite, tout << "add_constraint: "; display(tout, *new_c); tout << "\n";);
             VERIFY(register_constraint(new_c));
         }
 
@@ -1717,7 +1717,7 @@ namespace fm {
             if (is_false(*c)) {
                 del_constraint(c);
                 m_inconsistent = true;
-                TRACE("qe_lite", tout << "is false "; display(tout, *c); tout << "\n";);
+                TRACE(qe_lite, tout << "is false "; display(tout, *c); tout << "\n";);
                 return false;
             }
 
@@ -1740,7 +1740,7 @@ namespace fm {
                 return true;
             }
             else {
-                TRACE("qe_lite", tout << "all variables are forbidden "; display(tout, *c); tout << "\n";);
+                TRACE(qe_lite, tout << "all variables are forbidden "; display(tout, *c); tout << "\n";);
                 m_new_fmls.push_back(to_expr(*c));
                 del_constraint(c);
                 return false;
@@ -1794,7 +1794,7 @@ namespace fm {
             }
             // x_cost_lt is not a total order on variables
             std::stable_sort(x_cost_vector.begin(), x_cost_vector.end(), x_cost_lt(m_is_int));
-            TRACE("qe_lite",
+            TRACE(qe_lite,
                   for (auto const& kv : x_cost_vector) {
                       tout << "(" << mk_ismt2_pp(m_var2expr.get(kv.first), m) << " " << kv.second << ") ";
                   }
@@ -1970,7 +1970,7 @@ namespace fm {
 
             if (new_xs.empty() && (new_c.is_pos() || (!new_strict && new_c.is_zero()))) {
                 // literal is true
-                TRACE("qe_lite", tout << "resolution " << x << " consequent literal is always true: \n";
+                TRACE(qe_lite, tout << "resolution " << x << " consequent literal is always true: \n";
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
@@ -2014,7 +2014,7 @@ namespace fm {
             }
 
             if (tautology) {
-                TRACE("qe_lite", tout << "resolution " << x << " tautology: \n";
+                TRACE(qe_lite, tout << "resolution " << x << " tautology: \n";
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
@@ -2024,7 +2024,7 @@ namespace fm {
             expr_dependency * new_dep = m.mk_join(l.m_dep, u.m_dep);
 
             if (new_lits.empty() && new_xs.empty() && (new_c.is_neg() || (new_strict && new_c.is_zero()))) {
-                TRACE("qe_lite", tout << "resolution " << x << " inconsistent: \n";
+                TRACE(qe_lite, tout << "resolution " << x << " inconsistent: \n";
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
@@ -2042,7 +2042,7 @@ namespace fm {
                                                    new_strict,
                                                    new_dep);
 
-            TRACE("qe_lite", tout << "resolution " << x << "\n";
+            TRACE(qe_lite, tout << "resolution " << x << "\n";
                   display(tout, l);
                   tout << "\n";
                   display(tout, u);
@@ -2065,7 +2065,7 @@ namespace fm {
             if (l.empty() || u.empty()) {
                 // easy case
                 mark_constraints_dead(x);
-                TRACE("qe_lite", tout << "variable was eliminated (trivial case)\n";);
+                TRACE(qe_lite, tout << "variable was eliminated (trivial case)\n";);
                 return true;
             }
 
@@ -2083,7 +2083,7 @@ namespace fm {
 
             m_counter += num_lowers * num_uppers;
 
-            TRACE("qe_lite", tout << "eliminating " << mk_ismt2_pp(m_var2expr.get(x), m) << "\nlowers:\n";
+            TRACE(qe_lite, tout << "eliminating " << mk_ismt2_pp(m_var2expr.get(x), m) << "\nlowers:\n";
                   display_constraints(tout, l); tout << "uppers:\n"; display_constraints(tout, u););
 
             unsigned num_old_cnstrs = num_uppers + num_lowers;
@@ -2093,7 +2093,7 @@ namespace fm {
             for (unsigned i = 0; i < num_lowers; i++) {
                 for (unsigned j = 0; j < num_uppers; j++) {
                     if (m_inconsistent || num_new_cnstrs > limit) {
-                        TRACE("qe_lite", tout << "too many new constraints: " << num_new_cnstrs << "\n";);
+                        TRACE(qe_lite, tout << "too many new constraints: " << num_new_cnstrs << "\n";);
                         del_constraints(new_constraints.size(), new_constraints.data());
                         return false;
                     }
@@ -2118,7 +2118,7 @@ namespace fm {
                 backward_subsumption(*c);
                 register_constraint(c);
             }
-            TRACE("qe_lite", tout << "variables was eliminated old: " << num_old_cnstrs << " new_constraints: " << sz << "\n";);
+            TRACE(qe_lite, tout << "variables was eliminated old: " << num_old_cnstrs << " new_constraints: " << sz << "\n";);
             return true;
         }
 
@@ -2128,7 +2128,7 @@ namespace fm {
                     if (!c->m_dead) {
                         c->m_dead = true;
                         expr * new_f = to_expr(*c);
-                        TRACE("qe_lite", tout << "asserting...\n" << mk_ismt2_pp(new_f, m) << "\nnew_dep: " << c->m_dep << "\n";);
+                        TRACE(qe_lite, tout << "asserting...\n" << mk_ismt2_pp(new_f, m) << "\nnew_dep: " << c->m_dep << "\n";);
                         m_new_fmls.push_back(new_f);
                     }
                 }
@@ -2160,7 +2160,7 @@ namespace fm {
                 m_new_fmls.push_back(m.mk_false());
             }
             else {
-                TRACE("qe_lite", display(tout););
+                TRACE(qe_lite, display(tout););
 
                 subsume();
                 var_vector candidates;
@@ -2369,7 +2369,7 @@ public:
             fmls[index] = fml;
             return;
         }
-        TRACE("qe_lite", tout << fmls << "\n";);
+        TRACE(qe_lite, tout << fmls << "\n";);
         is_variable_test is_var(index_set, index_of_bound);
         m_der.set_is_variable_proc(is_var);
         m_fm.set_is_variable_proc(is_var);
@@ -2378,7 +2378,7 @@ public:
         m_fm(fmls);
         // AG: disable m_array_der() since it interferes with other array handling
         if (m_use_array_der) m_array_der(fmls);
-        TRACE("qe_lite", for (unsigned i = 0; i < fmls.size(); ++i) tout << mk_pp(fmls[i].get(), m) << "\n";);
+        TRACE(qe_lite, for (unsigned i = 0; i < fmls.size(); ++i) tout << mk_pp(fmls[i].get(), m) << "\n";);
     }
 
 };

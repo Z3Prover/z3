@@ -59,7 +59,7 @@ struct mus::imp {
         unsigned idx = m_lit2expr.size();
         m_expr2lit.insert(lit, idx);
         m_lit2expr.push_back(lit);
-        TRACE("mus", tout << idx << ": " << mk_pp(lit, m) << "\n" << m_lit2expr << "\n";);
+        TRACE(mus, tout << idx << ": " << mk_pp(lit, m) << "\n" << m_lit2expr << "\n";);
         return idx;
     }
 
@@ -80,10 +80,10 @@ struct mus::imp {
     lbool get_mus1(expr_ref_vector& mus) {
         ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.data());
         expr_ref_vector core_exprs(m);
-        TRACE("mus", m_solver.display(tout););
+        TRACE(mus, m_solver.display(tout););
         while (!unknown.empty()) { 
             IF_VERBOSE(12, verbose_stream() << "(mus reducing core: " << unknown.size() << " new core: " << mus.size() << ")\n";);
-            TRACE("mus", display_vec(tout << "core:  ", unknown); display_vec(tout << "mus:   ", mus););
+            TRACE(mus, display_vec(tout << "core:  ", unknown); display_vec(tout << "mus:   ", mus););
             expr* lit = unknown.back();
             unknown.pop_back();
             expr_ref not_lit(mk_not(m, lit), m);
@@ -112,7 +112,7 @@ struct mus::imp {
                             unknown.push_back(c);
                         }
                     }
-                    TRACE("mus", tout << "core exprs:" << core_exprs << "\n";
+                    TRACE(mus, tout << "core exprs:" << core_exprs << "\n";
                         display_vec(tout << "core:", unknown);
                         display_vec(tout << "mus:", mus);
                     );
@@ -164,7 +164,7 @@ struct mus::imp {
             scoped_append assume_lit(*this,  mus, lit);      // current unknown literal
             switch (m_solver.check_sat(mus)) {
             case l_true: {
-                TRACE("mus", tout << "literal can be satisfied: " << mk_pp(lit, m) << "\n";);
+                TRACE(mus, tout << "literal can be satisfied: " << mk_pp(lit, m) << "\n";);
                 mss.push_back(lit);
                 m_solver.get_model(mdl);
                 model_evaluator eval(*mdl.get());
@@ -183,7 +183,7 @@ struct mus::imp {
                 break;
             }
             case l_false:
-                TRACE("mus", tout << "literal is in a core: " << mk_pp(lit, m) << "\n";);
+                TRACE(mus, tout << "literal is in a core: " << mk_pp(lit, m) << "\n";);
                 nmcs.push_back(mk_not(m, lit));
                 nmcs_set.insert(nmcs.back());
                 get_core(core);

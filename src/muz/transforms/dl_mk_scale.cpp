@@ -49,7 +49,7 @@ namespace datalog {
 				expr_ref tmp(m);
 
 				if (!new_fi) {
-					TRACE("dl", tout << new_p->get_name() << " has no value in the current model\n";);
+					TRACE(dl, tout << new_p->get_name() << " has no value in the current model\n";);
 					continue;
 				}
 				for (unsigned i = 0; i < old_p->get_arity(); ++i) {
@@ -88,7 +88,7 @@ namespace datalog {
                 }
             }
             md = old_model;
-            //TRACE("dl", model_smt2_pp(tout, m, *md, 0); );
+            //TRACE(dl, model_smt2_pp(tout, m, *md, 0); );
         }
 
         model_converter * translate(ast_translation & translator) override {
@@ -155,7 +155,7 @@ namespace datalog {
                 result->set_output_predicate(new_rule->get_decl());
             }
         }
-        TRACE("dl", result->display(tout););
+        TRACE(dl, result->display(tout););
         if (m_mc) {
             m_ctx.add_model_converter(m_mc);
         }

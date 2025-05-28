@@ -131,7 +131,7 @@ bool spacer_matrix::is_lin_reltd(unsigned i, unsigned j, rational &coeff1,
     for (unsigned k = 0; k < m_num_rows; k++) {
         if (((coeff1 * m_matrix[k][i]) + (coeff2 * m_matrix[k][j]) + off) !=
             rational::zero()) {
-            TRACE("cvx_dbg_verb",
+            TRACE(cvx_dbg_verb,
                   tout << "Didn't work for " << m_matrix[k][i] << " and "
                        << m_matrix[k][j] << " with coefficients " << coeff1
                        << " , " << coeff2 << " and offset " << off << "\n";);
@@ -165,7 +165,7 @@ bool spacer_matrix::compute_linear_deps(spacer_matrix &eq) const {
                 lin_dep[m_num_cols] = off;
                 eq.add_row(lin_dep);
 
-                TRACE("cvx_dbg_verb", {
+                TRACE(cvx_dbg_verb, {
                     tout << "Adding row ";
                     for (rational r : lin_dep) tout << r << " ";
                     tout << "\n";

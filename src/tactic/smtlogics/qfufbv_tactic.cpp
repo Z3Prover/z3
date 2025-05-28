@@ -59,7 +59,7 @@ public:
         fail_if_unsat_core_generation("qfufbv_ackr", g);
         fail_if_proof_generation("qfufbv_ackr", g);
 
-        TRACE("goal", g->display(tout););
+        TRACE(goal, g->display(tout););
         // running implementation
         ptr_vector<expr> flas;
         const unsigned sz = g->size();

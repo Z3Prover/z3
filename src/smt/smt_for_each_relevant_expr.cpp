@@ -38,7 +38,7 @@ namespace smt {
             for (; it != end; ++it) {
                 symbol const & s = *it;
                 if (s.contains('@')) {
-                    TRACE("for_each_relevant_expr", tout << "@ label: " << mk_pp(n, m_manager) << "\n";);
+                    TRACE(for_each_relevant_expr, tout << "@ label: " << mk_pp(n, m_manager) << "\n";);
                     count += 1;
                 }
             }
@@ -74,7 +74,7 @@ namespace smt {
         }
 
         if (count > 1 && m_first) {
-            TRACE("for_each_relevant_expr", tout << mk_pp(n, m_manager) << "\n";);
+            TRACE(for_each_relevant_expr, tout << mk_pp(n, m_manager) << "\n";);
             m_first = false;
         }
 
@@ -108,7 +108,7 @@ namespace smt {
         }
 
         if (count > 1 && m_first) {
-            TRACE("for_each_relevant_expr", tout << mk_pp(n, m_manager) << "\n";);
+            TRACE(for_each_relevant_expr, tout << mk_pp(n, m_manager) << "\n";);
             m_first = false;
         }
 
@@ -121,7 +121,7 @@ namespace smt {
     }
 
     void for_each_relevant_expr::operator()(expr * n) {
-        TRACE("for_each_relevant_expr", tout << "#" << n->get_id() << "\n";);
+        TRACE(for_each_relevant_expr, tout << "#" << n->get_id() << "\n";);
     }
 
     void for_each_relevant_expr::reset() {
@@ -140,8 +140,8 @@ namespace smt {
     }
     
     void for_each_relevant_expr::process(expr * n) {
-        TRACE("for_each_relevant_expr", tout << "processing:\n" << mk_bounded_pp(n, m_manager) << "\n";);
-        TRACE("for_each_relevant_expr", tout << "processing:\n" << mk_pp(n, m_manager) << "\n";);
+        TRACE(for_each_relevant_expr, tout << "processing:\n" << mk_bounded_pp(n, m_manager) << "\n";);
+        TRACE(for_each_relevant_expr, tout << "processing:\n" << mk_pp(n, m_manager) << "\n";);
         if (m_cache.contains(n))
             return;
         m_todo.reset();
@@ -196,7 +196,7 @@ namespace smt {
     */
     void for_each_relevant_expr::process_relevant_child(app * n, lbool val) {
         unsigned sz = n->get_num_args();
-        TRACE("for_each_relevant_expr", tout << val << " " << mk_bounded_pp(n, m_manager) << "\n";);
+        TRACE(for_each_relevant_expr, tout << val << " " << mk_bounded_pp(n, m_manager) << "\n";);
         for (unsigned i = 0; i < sz; i++) {
             expr * arg = n->get_arg(i);
             if (!is_relevant(arg))
@@ -204,7 +204,7 @@ namespace smt {
             if (get_assignment(arg) != val)
                 continue;
             if (m_cache.contains(arg)) {
-                TRACE("for_each_relevant_expr", tout << "justified by: " << mk_bounded_pp(arg, m_manager) << "\n";);
+                TRACE(for_each_relevant_expr, tout << "justified by: " << mk_bounded_pp(arg, m_manager) << "\n";);
                 return; // the current child justifies n.
             }
         }
@@ -215,7 +215,7 @@ namespace smt {
             if (get_assignment(arg) != val)
                 continue;
 
-            TRACE("for_each_relevant_expr", tout << "to_process: " << mk_bounded_pp(arg, m_manager) << "\n";);
+            TRACE(for_each_relevant_expr, tout << "to_process: " << mk_bounded_pp(arg, m_manager) << "\n";);
 
             m_todo.push_back(arg);
             return;
@@ -271,7 +271,7 @@ namespace smt {
 
 
     void collect_relevant_label_lits::operator()(expr * n) {
-        TRACE("for_each_relevant_expr", 
+        TRACE(for_each_relevant_expr, 
               tout << "label: " << m_manager.is_label_lit(n) << " " << " " << get_assignment(n) 
               << " " << mk_bounded_pp(n, m_manager) << "\n";);
         if (!m_manager.is_label_lit(n))
@@ -283,7 +283,7 @@ namespace smt {
 
     void collect_relevant_labels::operator()(expr * n) {
         bool pos;
-        TRACE("for_each_relevant_expr", 
+        TRACE(for_each_relevant_expr, 
               tout << "label: " << m_manager.is_label(n) << " " << get_assignment(n) 
               << " " << mk_bounded_pp(n, m_manager) << "\n";);
         if (!m_manager.is_label(n, pos))

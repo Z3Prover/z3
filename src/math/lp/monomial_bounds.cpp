@@ -45,7 +45,7 @@ namespace nla {
 
     void monomial_bounds::propagate_fixed_var(lpvar v) {
         SASSERT(c().var_is_fixed(v));
-        TRACE("nla_solver", tout << "propagate fixed var: " << c().var_str(v) << "\n";);
+        TRACE(nla_solver, tout << "propagate fixed var: " << c().var_str(v) << "\n";);
         for (auto const& m : c().emons().get_use_list(v)) 
             propagate_fixed_var(m, v);
     }
@@ -113,7 +113,7 @@ namespace nla {
             new_lemma lemma(c(), "propagate value - upper bound of range is below value");
             lemma &= ex;
             lemma |= ineq(v, cmp, upper); 
-            TRACE("nla_solver", dep.display(tout << c().val(v) << " > ", range) << "\n" << lemma << "\n";);
+            TRACE(nla_solver, dep.display(tout << c().val(v) << " > ", range) << "\n" << lemma << "\n";);
             propagated = true;           
         }
         if (should_propagate_lower(range, v, 1)) {
@@ -127,7 +127,7 @@ namespace nla {
             new_lemma lemma(c(), "propagate value - lower bound of range is above value");
             lemma &= ex;
             lemma |= ineq(v, cmp, lower); 
-            TRACE("nla_solver", dep.display(tout << c().val(v) << " < ", range) << "\n" << lemma << "\n";);
+            TRACE(nla_solver, dep.display(tout << c().val(v) << " < ", range) << "\n" << lemma << "\n";);
             propagated = true;
         }
         return propagated;
@@ -419,7 +419,7 @@ namespace nla {
     
     void monomial_bounds::propagate_fixed_to_zero(monic const& m, lpvar fixed_to_zero) {
         auto* dep = c().lra.get_bound_constraint_witnesses_for_column(fixed_to_zero);
-        TRACE("nla_solver", tout << "propagate fixed " << m << " =  0, fixed_to_zero = " << fixed_to_zero << "\n";);
+        TRACE(nla_solver, tout << "propagate fixed " << m << " =  0, fixed_to_zero = " << fixed_to_zero << "\n";);
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, rational(0), dep);
         
         // propagate fixed equality
@@ -429,7 +429,7 @@ namespace nla {
 
     void monomial_bounds::propagate_fixed(monic const& m, rational const& k) {
         auto* dep = explain_fixed(m, k);
-        TRACE("nla_solver", tout << "propagate fixed " << m << " = " << k << "\n";);
+        TRACE(nla_solver, tout << "propagate fixed " << m << " = " << k << "\n";);
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, dep);
         
         // propagate fixed equality
@@ -443,7 +443,7 @@ namespace nla {
         coeffs.push_back({rational::one(), m.var()});
         lp::lpvar j = c().lra.add_term(coeffs, UINT_MAX);
         auto* dep = explain_fixed(m, k);
-        TRACE("nla_solver", tout << "propagate nonfixed " << m << " = " << k << " " << w << "\n";);
+        TRACE(nla_solver, tout << "propagate nonfixed " << m << " = " << k << " " << w << "\n";);
         c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::EQ, mpq(0), dep);
 
         if (k == 1) {

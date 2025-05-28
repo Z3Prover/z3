@@ -126,7 +126,7 @@ void hwf_manager::set(hwf & o, mpf_rounding_mode rm, char const * value) {
     f = (e_pos != std::string::npos) ? v.substr(0, e_pos) : v;
     e = (e_pos != std::string::npos) ? v.substr(e_pos+1) : "0";
 
-    TRACE("mpf_dbg", tout << " f = " << f << " e = " << e << std::endl;);
+    TRACE(mpf_dbg, tout << " f = " << f << " e = " << e << std::endl;);
 
     mpq q;
     m_mpq_manager.set(q, f.c_str());
@@ -136,7 +136,7 @@ void hwf_manager::set(hwf & o, mpf_rounding_mode rm, char const * value) {
 
     set(o, rm, q, ex);
 
-    TRACE("mpf_dbg", tout << "set: res = " << to_string(o) << std::endl;);
+    TRACE(mpf_dbg, tout << "set: res = " << to_string(o) << std::endl;);
 }
 
 void hwf_manager::set(hwf & o, mpf_rounding_mode rm, mpq const & significand, mpz const & exponent) {

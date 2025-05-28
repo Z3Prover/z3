@@ -107,7 +107,7 @@ namespace euf {
         if (!bv.is_bv(x->get_expr()))
             return;
 
-        TRACE("bv", tout << "merge_eh " << g.bpp(x) << " == " << g.bpp(y) << "\n");
+        TRACE(bv, tout << "merge_eh " << g.bpp(x) << " == " << g.bpp(y) << "\n");
         SASSERT(!m_internal);
         flet<bool> _internal(m_internal, true);
 
@@ -208,7 +208,7 @@ namespace euf {
         m_ensure_concat.reset();
         auto ensure_concat = [&](unsigned lo, unsigned mid, unsigned hi) {
             // verbose_stream() << lo << " " << mid << " " << hi << "\n";
-            TRACE("bv", tout << "ensure-concat " << lo << " " << mid << " " << hi << "\n");
+            TRACE(bv, tout << "ensure-concat " << lo << " " << mid << " " << hi << "\n");
             unsigned lo_, hi_;
             for (enode* p1 : enode_parents(n))
                 if (is_extract(p1, lo_, hi_) && lo_ == lo && hi_ == hi && p1->get_arg(0)->get_root() == arg_r)
@@ -218,14 +218,14 @@ namespace euf {
         };
 
         auto propagate_above = [&](enode* b) {
-            TRACE("bv", tout << "propagate-above " << g.bpp(b) << "\n");
+            TRACE(bv, tout << "propagate-above " << g.bpp(b) << "\n");
             for (enode* sib : enode_class(b))
                 if (is_extract(sib, lo2, hi2) && sib->get_arg(0)->get_root() == arg_r && hi1 + 1 == lo2)
                     m_ensure_concat.push_back({lo1, hi1, hi2});
         };
 
         auto propagate_below = [&](enode* a) {
-            TRACE("bv", tout << "propagate-below " << g.bpp(a) << "\n");
+            TRACE(bv, tout << "propagate-below " << g.bpp(a) << "\n");
             for (enode* sib : enode_class(a))
                 if (is_extract(sib, lo2, hi2) && sib->get_arg(0)->get_root() == arg_r && hi2 + 1 == lo1)
                     m_ensure_concat.push_back({lo2, hi2, hi1});
@@ -271,7 +271,7 @@ namespace euf {
 
     
     void bv_plugin::propagate_register_node(enode* n) {
-        TRACE("bv", tout << "register " << g.bpp(n) << "\n");
+        TRACE(bv, tout << "register " << g.bpp(n) << "\n");
         enode* a, * b;
         unsigned lo, hi;
         if (is_concat(n, a, b)) {
@@ -296,7 +296,7 @@ namespace euf {
                 push_merge(mk_extract(arg, 0, w - 1), arg);
             ensure_slice(arg, lo, hi);
         }
-        TRACE("bv", tout << "done register " << g.bpp(n) << "\n");
+        TRACE(bv, tout << "done register " << g.bpp(n) << "\n");
     }
 
     //
@@ -306,7 +306,7 @@ namespace euf {
         enode* r = n;
         unsigned lb = 0, ub = width(n) - 1;
         while (true) {   
-            TRACE("bv", tout << "ensure slice " << g.bpp(n) << " " << lb << " [" << lo << ", " << hi << "] " << ub << "\n");
+            TRACE(bv, tout << "ensure slice " << g.bpp(n) << " " << lb << " [" << lo << ", " << hi << "] " << ub << "\n");
             SASSERT(lb <= lo && hi <= ub);
             SASSERT(ub - lb + 1 == width(r));
             if (lb == lo && ub == hi)
@@ -370,7 +370,7 @@ namespace euf {
             SASSERT(!ys.empty());
             auto x = xs.back();
             auto y = ys.back();
-            TRACE("bv", tout << "merge " << g.bpp(x) << " " << g.bpp(y) << "\n");
+            TRACE(bv, tout << "merge " << g.bpp(x) << " " << g.bpp(y) << "\n");
             if (unfold_sub(x, xs))
                 continue;
             else if (unfold_sub(y, ys))
@@ -407,7 +407,7 @@ namespace euf {
     }
 
     void bv_plugin::split(enode* n, unsigned cut) {
-        TRACE("bv", tout << "split: " << g.bpp(n) << " " << cut << "\n");
+        TRACE(bv, tout << "split: " << g.bpp(n) << " " << cut << "\n");
         unsigned w = width(n);
         SASSERT(!info(n).hi);
         SASSERT(0 < cut && cut < w);

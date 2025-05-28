@@ -78,7 +78,7 @@ tactic * mk_uflra_tactic(ast_manager & m, params_ref const & p) {
 tactic * mk_auflia_tactic(ast_manager & m, params_ref const & p) {
     params_ref qi_p;
     qi_p.set_str("qi.cost", "0");
-    TRACE("qi_cost", qi_p.display(tout); tout << "\n" << qi_p.get_str("qi.cost", "<null>") << "\n";);
+    TRACE(qi_cost, qi_p.display(tout); tout << "\n" << qi_p.get_str("qi.cost", "<null>") << "\n";);
     tactic * st = and_then(mk_no_solve_eq_preprocessor(m),
                            or_else(and_then(fail_if(mk_gt(mk_num_exprs_probe(), mk_const_probe(static_cast<double>(128)))),
                                             using_params(mk_smt_tactic(m), qi_p),

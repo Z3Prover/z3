@@ -82,7 +82,7 @@ namespace datalog {
 
         void init_top_down() {
             for (func_decl* sym : m_rules.get_output_predicates()) {
-                TRACE("dl", tout << sym->get_name() << "\n";);
+                TRACE(dl, tout << sym->get_name() << "\n";);
                 const rule_vector& output_rules = m_rules.get_predicate_rules(sym);
                 for (rule* r : output_rules) {
                     m_facts.insert_if_not_there(sym, Fact()).init_down(m_context, r);

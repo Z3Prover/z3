@@ -108,7 +108,7 @@ bool horn_subsume_model_converter::mk_horn(
         m_rewrite(body_res);
         
     }
-    TRACE("mc",
+    TRACE(mc,
           tout << mk_pp(head, m) << " :- " << mk_pp(body, m) << "\n";
           tout << pred->get_name() << " :- " << mk_pp(body_res.get(), m) << "\n";);
 
@@ -151,7 +151,7 @@ void horn_subsume_model_converter::add_default_proc::operator()(app* n) {
     if (m.is_bool(n) && 
         !m_md->has_interpretation(n->get_decl()) &&
         (n->get_family_id() == null_family_id)) {
-        TRACE("mc", tout << "adding: " << n->get_decl()->get_name() << "\n";);
+        TRACE(mc, tout << "adding: " << n->get_decl()->get_name() << "\n";);
         if (n->get_decl()->get_arity() == 0) {
             m_md->register_decl(n->get_decl(), m.mk_false());
         }
@@ -180,7 +180,7 @@ void horn_subsume_model_converter::operator()(model_ref& mr) {
     m_delay_head.reset();
     m_delay_body.reset();
 
-    TRACE("mc", tout << m_funcs.size() << "\n"; model_smt2_pp(tout, m, *mr, 0););
+    TRACE(mc, tout << m_funcs.size() << "\n"; model_smt2_pp(tout, m, *mr, 0););
     for (unsigned i = m_funcs.size(); i-- > 0; ) {
         func_decl* h = m_funcs.get(i);
         expr_ref body(m_bodies.get(i), m);
@@ -188,10 +188,10 @@ void horn_subsume_model_converter::operator()(model_ref& mr) {
         add_default_false_interpretation(body, mr);
         SASSERT(m.is_bool(body));
                 
-        TRACE("mc", tout << "eval: " << h->get_name() << "\n" << body << "\n";);
+        TRACE(mc, tout << "eval: " << h->get_name() << "\n" << body << "\n";);
         body = (*mr)(body);
         
-        TRACE("mc", tout << "to:\n" << body << "\n";);
+        TRACE(mc, tout << "to:\n" << body << "\n";);
                 
         if (arity == 0) {
             expr* e = mr->get_const_interp(h);
