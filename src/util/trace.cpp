@@ -57,6 +57,37 @@ void finalize_trace() {
     g_enabled_trace_tags = nullptr;
 }
 
+const TraceTag* get_tag_classes() {
+   static bool tag_class_init = false; // ignore thread safety assuming TRACE is already under a lock.
+   if (!tag_class_init) {
+       // Arrays to track first and last tag in each class
+       TraceTag first[static_cast<unsigned>(TraceTag::Count)];
+       TraceTag last[static_cast<unsigned>(TraceTag::Count)];
+       for (unsigned i = 0; i < static_cast<unsigned>(TraceTag::Count); ++i)
+           first[i] = last[i] = TraceTag::Count;
+
+       // Link tags in each class
+       for (unsigned i = 0; i < static_cast<unsigned>(TraceTag::Count); ++i) {
+           TraceTag tag = static_cast<TraceTag>(i);
+           TraceTag tag_class = get_trace_tag_class(tag);
+           unsigned cls = static_cast<unsigned>(tag_class);
+           if (first[cls] == TraceTag::Count) 
+               first[cls] = tag;           
+           else 
+               tag_classes[static_cast<unsigned>(last[cls])] = tag;           
+           last[cls] = tag;
+       }
+       // Close the circular list for each class
+       for (unsigned cls = 0; cls < static_cast<unsigned>(TraceTag::Count); ++cls) 
+           if (last[cls] != TraceTag::Count && first[cls] != TraceTag::Count) 
+               tag_classes[static_cast<unsigned>(last[cls])] = first[cls];
+                 
+       tag_class_init = true;
+   }
+   return tag_classes;
+}
+
+
 void enable_trace(const char * tag) {
     get_enabled_trace_tags().insert(tag);
     

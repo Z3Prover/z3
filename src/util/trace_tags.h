@@ -29,6 +29,15 @@ inline const char* get_trace_tag_doc(TraceTag tag) {
     }
 }
 
+inline TraceTag get_trace_tag_class(TraceTag tag) {
+    switch (tag) {
+#define X(tag, tag_class, desc) case TraceTag::tag: return TraceTag::tag_class;
+#include "util/trace_tags.def"
+#undef X
+    default: return TraceTag::Count;
+    }
+}
+
 // Return the number of TraceTags
 inline constexpr int trace_tag_count() {
     return static_cast<int>(TraceTag::Count);
@@ -43,6 +52,14 @@ inline constexpr int count_tags_in_class(TraceTag cls) {
 #undef X
     return count;
 }
+
+
+static TraceTag tag_classes[] = {
+#define X(tag, tc, desc) TraceTag::tag,
+#include "util/trace_tags.def"
+#undef  X
+};
+
 
 // TODO(#7663): Implement tag_class activation of all associated tags
 // TODO: Need to consider implementation approach and memory management
