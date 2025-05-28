@@ -57,7 +57,7 @@ void finalize_trace() {
     g_enabled_trace_tags = nullptr;
 }
 
-const TraceTag* get_tag_classes() {
+static const TraceTag* get_tag_classes() {
    static bool tag_class_init = false; // ignore thread safety assuming TRACE is already under a lock.
    if (!tag_class_init) {
        // Arrays to track first and last tag in each class
@@ -91,19 +91,20 @@ const TraceTag* get_tag_classes() {
 void enable_trace(const char * tag) {
     get_enabled_trace_tags().insert(tag);
     
-    // TODO(#7663): Implement tag_class activation of all associated tags
-    // int count = 0;
-    // TraceTag tag_str = find_trace_tag_by_string(tag);
-    // if(tag_str == TraceTag::Count) {
-    //     return;
-    // }
-    // const TraceTag* tags = get_tags_by_class(tag_str, count);
-    // for (int i = 0; i < count; ++i) {
-    //     const char* tag_str = tracetag_to_string(tags[i]);
-    //     if (!get_enabled_trace_tags().contains(tag_str)) {
-    //         get_enabled_trace_tags().insert(tag_str);
-    //     }
-    // }
+    TraceTag tag_str = find_trace_tag_by_string(tag);
+    if (tag_str == TraceTag::Count) 
+        return;
+
+    auto tag_class = get_trace_tag_class(tag_str);
+    if (tag_class != tag_str)
+        return; // Only enable the tag if it is a class tag.
+    auto const& next_tag = get_tag_classes();
+
+    auto t = next_tag[static_cast<unsigned>(tag_str)];
+    while (t != tag_str) {
+        get_enabled_trace_tags().insert(tracetag_to_string(t));
+        t = next_tag[static_cast<unsigned>(t)];
+    }
 }
 
 void enable_all_trace(bool flag) {

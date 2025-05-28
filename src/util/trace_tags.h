@@ -83,9 +83,9 @@ static TraceTag tag_classes[] = {
 // }
 
 // Find TraceTag by string
-// inline TraceTag find_trace_tag_by_string(const char* tag_str) {
-//     #define X(tag, tag_class, desc) if (strncmp(#tag, tag_str, strlen(#tag)) == 0) return TraceTag::tag;
-//     include "util/trace_tags.def"
-//     #undef X
-//     return TraceTag::Count;
-// }
+inline TraceTag find_trace_tag_by_string(const char* tag_str) {
+#define X(tag, tag_class, desc) if (strncmp(#tag, tag_str, strlen(#tag)) == 0) return TraceTag::tag;
+#include "util/trace_tags.def"
+#undef X
+    return TraceTag::Count;
+}
