@@ -4,7 +4,7 @@
 
 enum class TraceTag {
 #define X(tag, tag_class, desc) tag,
-#include "trace_tags.def"
+#include "util/trace_tags.def"
 #undef X
     Count
 };
@@ -13,7 +13,7 @@ enum class TraceTag {
 inline const char* tracetag_to_string(TraceTag tag) {
     switch (tag) {
 #define X(tag, tag_class, desc) case TraceTag::tag: return #tag;
-#include "trace_tags.def"
+#include "util/trace_tags.def"
 #undef X
     default: return "Unknown";
     }
@@ -23,7 +23,7 @@ inline const char* tracetag_to_string(TraceTag tag) {
 inline const char* get_trace_tag_doc(TraceTag tag) {
     switch (tag) {
 #define X(tag, tag_class, desc) case TraceTag::tag: return desc;
-#include "trace_tags.def"
+#include "util/trace_tags.def"
 #undef X
     default: return "Unknown tag";
     }
@@ -34,21 +34,23 @@ inline constexpr int trace_tag_count() {
     return static_cast<int>(TraceTag::Count);
 }
 
+#if 0
 // Return all TraceTags as an array
 inline const TraceTag* all_trace_tags() {
     static TraceTag tags[] = {
 #define X(tag, tag_class, desc) TraceTag::tag,
-#include "trace_tags.def"
+#include "util/trace_tags.def"
 #undef X
     };
     return tags;
 }
+#endif
 
 // Helper function to count tags in a class
 inline constexpr int count_tags_in_class(TraceTag cls) {
     int count = 0;
     #define X(tag, tag_class, desc) if (TraceTag::tag_class == cls) count++;
-    #include "trace_tags.def"
+    #include "util/trace_tags.def"
     #undef X
     return count;
 }
@@ -68,7 +70,7 @@ inline constexpr int count_tags_in_class(TraceTag cls) {
 //         if (TraceTag::tag_class == cls) { \
 //             class_tags[idx++] = TraceTag::tag; \
 //         }
-//     #include "trace_tags.def"
+//     #include "util/trace_tags.def"
 //     #undef X
     
 //     return class_tags;
@@ -77,7 +79,7 @@ inline constexpr int count_tags_in_class(TraceTag cls) {
 // Find TraceTag by string
 // inline TraceTag find_trace_tag_by_string(const char* tag_str) {
 //     #define X(tag, tag_class, desc) if (strncmp(#tag, tag_str, strlen(#tag)) == 0) return TraceTag::tag;
-//     #include "trace_tags.def"
+//     #include "util/trace_tags.def"
 //     #undef X
 //     return TraceTag::Count;
 // }
