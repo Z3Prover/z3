@@ -1617,7 +1617,7 @@ struct
     let g i = Z3native.model_get_const_decl (gc x) x i in
     List.init (n_funcs + n_consts) (fun i ->
       if i < n_funcs then f i
-      else g i
+      else g (i - n_funcs)
     )
 
   let eval (x:model) (t:expr) (completion:bool) =
