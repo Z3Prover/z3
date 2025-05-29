@@ -2811,7 +2811,8 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
 
         rational min_real, max_real;
         const mpz& max_exp_z = m_mpf_manager.m_powers2.m1(ebits-1);
-        SASSERT(m_mpz_manager.is_uint(max_exp_z));
+        if (!m_mpz_manager.is_uint(max_exp_z))
+            throw default_exception("exponents requiring more than 32 bits are not supported");
         unsigned max_exp = m_mpz_manager.get_uint(max_exp_z);
         rational max_sig = m_mpf_manager.m_powers2.m1(sbits) / m_mpf_manager.m_powers2(sbits-1);
         max_real = max_sig * rational(m_mpf_manager.m_powers2(max_exp));
