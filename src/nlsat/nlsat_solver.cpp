@@ -1661,21 +1661,8 @@ namespace nlsat {
             if (num_undef == 0) 
                 return false;
             SASSERT(first_undef != UINT_MAX);
-            if (num_undef == 1) {
-                if (false && cls.size() > 1) {
-                    core.clear();
-                    for (unsigned i = 0; i < sz; i++)  {
-                        if (i != first_undef)
-                            core.push_back(cls[i]);
-                    }
-                    clauses.clear();
-                    clauses.push_back(const_cast<clause*>(&cls));
-                    justification j = mk_lazy_jst(m_allocator, core.size(), core.data(), clauses.size(), clauses.data());
-                    set_literal_to_true(cls[first_undef], j);
-                } else {
-                    set_literal_to_true(cls[first_undef], mk_clause_jst(&cls));
-                }
-            }
+            if (num_undef == 1)
+                set_literal_to_true(cls[first_undef], mk_clause_jst(&cls));
             else
                 decide_literal(cls[first_undef]);
             return true;
@@ -1801,6 +1788,7 @@ namespace nlsat {
                 tmp = m_ism.mk_union(curr_set, xk_set);
                 if (m_ism.is_full(tmp)) {
                     TRACE("nlsat_inf_set", tout << "infeasible set + current set = R, skip literal\n";
+                          display_assignment(tout) << "\n";
                           display(tout, cls) << "\n";
                           m_ism.display(tout, tmp); tout << "\n";
                         );
@@ -1825,20 +1813,7 @@ namespace nlsat {
                        }
                     );
                 
-                if (true || cls.size() == 1) {
-                    set_literal_to_true(cls[first_undef], mk_clause_jst(&cls));
-                } else {
-                    core.clear();
-                    for (unsigned i = 0; i < cls.size(); i++)  {
-                        if (i != first_undef)
-                            core.push_back(cls[i]);
-                    }
-                    clauses.clear();
-                    clauses.push_back(const_cast<clause*>(&cls));
-                    justification j = mk_lazy_jst(m_allocator, core.size(), core.data(), clauses.size(), clauses.data());
-                    set_literal_to_true(cls[first_undef], j); 
-                    
-                }
+                set_literal_to_true(cls[first_undef], mk_clause_jst(&cls));
                 updt_infeasible(first_undef_set);
             }
             else if ( satisfy_learned ||
