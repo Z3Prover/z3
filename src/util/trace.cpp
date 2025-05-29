@@ -43,18 +43,30 @@ bool is_threaded() {
 std::ofstream tout(".z3-trace"); 
 
 static bool g_enable_all_trace_tags = false;
-static str_hashtable* g_enabled_trace_tags = nullptr;
 
-static str_hashtable& get_enabled_trace_tags() {
-    if (!g_enabled_trace_tags) {
-        g_enabled_trace_tags = alloc(str_hashtable);
-    }
-    return *g_enabled_trace_tags;
+static bool s_tag_enabled[] = {
+#define X(tag, tc, desc) false,
+#include "util/trace_tags.def"
+#undef  X
+};
+
+
+bool tag_enabled(TraceTag tag) {
+    return tag < TraceTag::Count && s_tag_enabled[static_cast<unsigned>(tag)];
 }
 
+static void enable_tag(TraceTag tag) {
+    if (tag < TraceTag::Count)
+        s_tag_enabled[static_cast<unsigned>(tag)] = true;
+}
+
+static void disable_tag(TraceTag tag) {
+    if (tag < TraceTag::Count)
+        s_tag_enabled[static_cast<unsigned>(tag)] = false;
+}
+
+
 void finalize_trace() {
-    dealloc(g_enabled_trace_tags);
-    g_enabled_trace_tags = nullptr;
 }
 
 static const TraceTag* get_tag_classes() {
@@ -88,13 +100,14 @@ static const TraceTag* get_tag_classes() {
 }
 
 
+
 void enable_trace(const char * tag) {
-    get_enabled_trace_tags().insert(tag);
-    
     TraceTag tag_str = find_trace_tag_by_string(tag);
-    if (tag_str == TraceTag::Count) 
+    if (tag_str == TraceTag::Count)
         return;
 
+    enable_tag(tag_str);
+  
     auto tag_class = get_trace_tag_class(tag_str);
     if (tag_class != tag_str)
         return; // Only enable the tag if it is a class tag.
@@ -102,7 +115,7 @@ void enable_trace(const char * tag) {
 
     auto t = next_tag[static_cast<unsigned>(tag_str)];
     while (t != tag_str) {
-        get_enabled_trace_tags().insert(tracetag_to_string(t));
+        enable_tag(t);
         t = next_tag[static_cast<unsigned>(t)];
     }
 }
@@ -112,12 +125,12 @@ void enable_all_trace(bool flag) {
 }
 
 void disable_trace(const char * tag) {
-    get_enabled_trace_tags().erase(tag);
+    TraceTag tag_str = find_trace_tag_by_string(tag);
+    disable_tag(tag_str);
 }
 
 bool is_trace_enabled(TraceTag tag) {
-    return g_enable_all_trace_tags || 
-        (g_enabled_trace_tags && get_enabled_trace_tags().contains(tracetag_to_string(tag)));
+    return g_enable_all_trace_tags || tag_enabled(tag);
 }
 
 void close_trace() {
