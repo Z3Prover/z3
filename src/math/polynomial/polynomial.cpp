@@ -1525,20 +1525,35 @@ namespace polynomial {
                 return out;
             }
 
-            for (unsigned i = 0; i < m_size; i++) {
+            // Step 1: Build vector of (index, string) pairs
+            std::vector<std::pair<unsigned, std::string>> idx_strs;
+            for (unsigned i = 0; i < m_size; ++i) {
+                std::ostringstream ss;
+                m(i)->display(ss, proc, use_star);
+                idx_strs.emplace_back(i, ss.str());
+            }
+
+            // Step 2: Sort indices by string
+            std::sort(idx_strs.begin(), idx_strs.end(),
+                      [](const std::pair<unsigned, std::string>& a, const std::pair<unsigned, std::string>& b) {
+                          return a.second < b.second;
+                      });
+
+            // Step 3: Output terms in sorted order
+            for (unsigned pos = 0; pos < idx_strs.size(); ++pos) {
+                unsigned i = idx_strs[pos].first;
                 numeral const & a_i = a(i);
                 _scoped_numeral<mpzzp_manager> abs_a_i(nm);
                 nm.set(abs_a_i, a_i);
                 nm.abs(abs_a_i);
 
                 numeral const & a_prime = abs_a_i;
-                if (i > 0) {
+                if (pos > 0) {
                     if (nm.is_neg(a_i))
                         out << " - ";
                     else
                         out << " + ";
-                }
-                else {
+                } else {
                     if (nm.is_neg(a_i))
                         out << "- ";
                 }
@@ -1547,7 +1562,7 @@ namespace polynomial {
                     out << nm.to_string(a_prime);
                 }
                 else if (nm.is_one(a_prime)) {
-                    m(i)->display(out, proc, use_star);
+                    out << idx_strs[pos].second;
                 }
                 else {
                     out << nm.to_string(a_prime);
@@ -1555,7 +1570,7 @@ namespace polynomial {
                         out << "*";
                     else
                         out << " ";
-                    m(i)->display(out, proc, use_star);
+                    out << idx_strs[pos].second;
                 }
             }
             return out;

@@ -333,7 +333,7 @@ namespace nlsat {
             polynomial_ref lc(m_pm);
             polynomial_ref reduct(m_pm);
             while (true) {
-                TRACE("nlsat_explain", tout << "elim vanishing x" << x << " k:" << k << " " << p << "\n";);
+                TRACE("nlsat_explain", tout << "elim vanishing "; m_solver.display_var(tout, x); tout << ", degree k:" << k << ", p:" ; display(tout, p) << "\n";);
                 if (is_const(p))
                     return;
                 if (k == 0) {
@@ -1755,7 +1755,7 @@ namespace nlsat {
             TRACE("nlsat_explain", 
                   tout << "[explain] set of literals is infeasible in the current interpretation\n"; 
                   display(tout, num, ls) << "\n";
-                  m_assignment.display(tout);
+                  m_solver.display_assignment(tout);
                   );
             m_result = &result;
             process(num, ls);

@@ -1554,11 +1554,11 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
         }
 
         /**
-           \brief Assign literal using the given justification
+           \brief Assign literal to true using the given justification
          */
-        void assign_literal(literal l, justification j) {
+        void set_literal_to_true(literal l, justification j) {
             TRACE("nlsat_assign", 
-                  display(tout << "assigning literal: ", l); 
+                  display(tout << "assigning literal: ", l) << "\n";
                   display(tout << " <- ", j););
                 
             SASSERT(assigned_value(l) == l_undef);
@@ -1574,7 +1574,7 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
             m_justifications[b] = j;
             save_assign_trail(b);
             updt_eq(b, j);
-
+            
             TRACE("nlsat_assign", tout << "b" << b << " -> " << m_bvalues[b]  << "\n";);
         }
 
@@ -1583,7 +1583,7 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
         */
         void decide_literal(literal l) {
             new_level();
-            assign_literal(l, decided_justification); // decided_justification is a constant
+            set_literal_to_true(l, decided_justification); // decided_justification is a constant
         }
         
         /**
@@ -1644,7 +1644,9 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
         /**
            \brief Process a clauses that contains only Boolean literals.
         */
-        bool process_boolean_clause(clause const & cls) {
+        literal_vector core;
+        ptr_vector<clause> clauses;
+        bool process_boolean_clause(const clause & cls) {
             SASSERT(m_xk == null_var);
             unsigned num_undef   = 0;
             unsigned first_undef = UINT_MAX;
@@ -1663,8 +1665,21 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
             if (num_undef == 0) 
                 return false;
             SASSERT(first_undef != UINT_MAX);
-            if (num_undef == 1)
-                assign_literal(cls[first_undef], mk_clause_jst(&cls)); // unit clause
+            if (num_undef == 1) {
+                if (false && cls.size() > 1) {
+                    core.clear();
+                    for (unsigned i = 0; i < sz; i++)  {
+                        if (i != first_undef)
+                            core.push_back(cls[i]);
+                    }
+                    clauses.clear();
+                    clauses.push_back(const_cast<clause*>(&cls));
+                    justification j = mk_lazy_jst(m_allocator, core.size(), core.data(), clauses.size(), clauses.data());
+                    set_literal_to_true(cls[first_undef], j);
+                } else {
+                    set_literal_to_true(cls[first_undef], mk_clause_jst(&cls));
+                }
+            }
             else
                 decide_literal(cls[first_undef]);
             return true;
@@ -1673,15 +1688,14 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
         /**
            \brief assign l to true, because l + (justification of) s is infeasible in RCF in the current interpretation.
         */
-        literal_vector core;
-        ptr_vector<clause> clauses;
         void R_propagate(literal l, interval_set const * s, bool include_l = true) {
             m_ism.get_justifications(s, core, clauses);
             if (include_l) 
                 core.push_back(~l);
+
             auto j = mk_lazy_jst(m_allocator, core.size(), core.data(), clauses.size(), clauses.data());
             TRACE("nlsat_resolve", display(tout, j); display_eval(tout << "evaluated:", j));
-            assign_literal(l, j);
+            set_literal_to_true(l, j);
             SASSERT(value(l) == l_true);
         }
         
@@ -1808,8 +1822,27 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
                 return false;
             SASSERT(first_undef != UINT_MAX);
             if (num_undef == 1) {
-                // unit clause
-                assign_literal(cls[first_undef], mk_clause_jst(&cls)); 
+                CTRACE("nlsat", cls.size() > 1,
+                      tout << "num_undef=1, "; display(tout, cls) << "\n";
+                      for (unsigned i = 0; i < cls.size(); i++) {
+                          tout << value(cls[i]) << ", ";
+                      }
+                    );
+                
+                if (true || cls.size() == 1) {
+                    set_literal_to_true(cls[first_undef], mk_clause_jst(&cls));
+                } else {
+                    core.clear();
+                    for (unsigned i = 0; i < cls.size(); i++)  {
+                        if (i != first_undef)
+                            core.push_back(cls[i]);
+                    }
+                    clauses.clear();
+                    clauses.push_back(const_cast<clause*>(&cls));
+                    justification j = mk_lazy_jst(m_allocator, core.size(), core.data(), clauses.size(), clauses.data());
+                    set_literal_to_true(cls[first_undef], j); 
+                    
+                }
                 updt_infeasible(first_undef_set);
             }
             else if ( satisfy_learned ||
@@ -1844,6 +1877,7 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
            Return 0, if the set was satisfied, or the violating clause otherwise
         */
         clause * process_clauses(clause_vector const & cs) {
+            TRACE("nlsat_process_clauses", tout << "cs:"; display(tout, cs) << "\n";);
             for (clause* c : cs) {
                 if (!process_clause(*c, false))
                     return c;
@@ -1907,6 +1941,28 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
             }
         }
 
+        bool debug_all_known_atomse_have_correct_values() {
+            unsigned n = 0;
+            for (unsigned j = 0; j < m_atoms.size(); j++) {
+                if (m_atoms[j] == nullptr)
+                    continue;
+                std::string name = debug_atom_string(j);
+                auto it = m_debug_known_sat_bool_vals.find(name);
+                if (it == m_debug_known_sat_bool_vals.end()) {
+                    continue;
+                }
+                if (!m_assignment.is_assigned(m_atoms[j]->max_var()))
+                    continue;
+                lbool val = to_lbool(m_evaluator.eval(m_atoms[j], false));
+                if (val == l_undef)
+                    continue;
+                if (val != it->second)
+                    return false;
+                n++;
+            }
+            std::cout << "from " << m_debug_known_sat_bool_vals.size() << ", " << n << " is evaluated\n";
+            return true;
+        }
 
         /**
            \brief main procedure
@@ -1956,14 +2012,21 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
                           tout << "\n";);
                     checkpoint();
                     clause * conflict_clause;
+                    bool on_prefix = debug_all_known_atomse_have_correct_values();
+                    std::cout << "on_prefix:" << (on_prefix? "true":"false") << "\n";
                     if (m_xk == null_var)
                         conflict_clause = process_clauses(m_bwatches[m_bk]);
                     else 
                         conflict_clause = process_clauses(m_watches[m_xk]);
                     if (conflict_clause == nullptr)
                         break;
-                    if (!resolve(*conflict_clause)) 
-                        return l_false;                    
+                    std::cout << "on_prefix:" << (on_prefix? "true":"false") << "\n";
+                    if (!resolve(*conflict_clause)) {
+                        std::cout << "conflict_clause:" ;display(std::cout, conflict_clause) << std::endl;
+                        if (debug_all_known_atomse_have_correct_values())
+                            std::cout << "all atoms are set correctly\n";
+                        return l_false;
+                    }
                     if (m_stats.m_conflicts >= m_max_conflicts)
                         return l_undef;
                     log();
@@ -2140,7 +2203,7 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
             for (unsigned i = 0, sz = learned_unit.size(); i < sz; ++i) {
                 clause *cla = mk_clause(1, &learned_unit[i], true, nullptr);
                 if (m_atoms[learned_unit[i].var()] == nullptr) {
-                    assign_literal(learned_unit[i], mk_clause_jst(cla));
+                    set_literal_to_true(learned_unit[i], mk_clause_jst(cla));
                 }
             }
             return true;
@@ -3483,35 +3546,29 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
 
         std::ostream& display_bool_assignment(std::ostream & out, bool eval_atoms = false) const {
             unsigned sz = m_atoms.size();
-            for (bool_var b = 0; b < sz; b++) {
-                if (m_atoms[b] == nullptr && m_bvalues[b] != l_undef) {
-                    out << "b" << b << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << " @" << m_levels[b] << "\n";
+            if (!eval_atoms) 
+                for (bool_var b = 0; b < sz; b++) {
+                    if (m_atoms[b] == nullptr && m_bvalues[b] != l_undef) {
+                        out << "b" << b << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << " @" << m_levels[b] << "\n";
+                    }
+                    else if (m_atoms[b] != nullptr && m_bvalues[b] != l_undef) {
+                        display(out << "b" << b << " ", *m_atoms[b]) << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << " @" << m_levels[b] << "\n";
+                    }
                 }
-                else if (m_atoms[b] != nullptr && m_bvalues[b] != l_undef) {
-                    display(out << "b" << b << " ", *m_atoms[b]) << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << " @" << m_levels[b] << "\n";
+            else { //if (eval_atoms) {
+                for (bool_var b = 0; b < sz; b++) {
+                    if (m_atoms[b] == nullptr) continue;
+                    lbool val = to_lbool(m_evaluator.eval(m_atoms[b], false));
+                    out << "b" << b << " -> " << val << " ";
+                    if (m_atoms[b]) {
+                        out << "\"";
+                        display(out, *m_atoms[b]);
+                        out << "\"";
+                    }
+                    out << "\n";
                 }
             }
-            TRACE("nlsat_bool_assignment",
-                  if (eval_atoms) {
-                      for (bool_var b = 0; b < sz; b++) {
-                          if (m_atoms[b] == nullptr) continue;
-                          lbool val = to_lbool(m_evaluator.eval(m_atoms[b], false));
-                          out << "b" << b << " -> " << val << " ";
-                          if (m_atoms[b]) {
-                              out << "\"";
-                              display(out, *m_atoms[b]);
-                              out << "\"";
-                          }
-                          out << "\n";
-                      }
-                  } else {
-                      for (bool_var b = 0; b < sz; b++) {
-                          out << "b" << b << " -> " << m_bvalues[b] << " ";
-                          if (m_atoms[b]) display(out, *m_atoms[b]);
-                          out << "\n";
-                      }
-                  }
-                );
+
             return out;
         }
 
@@ -4164,6 +4221,10 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
             return out;
         }
 
+        std::ostream& display_var(std::ostream& out, unsigned j) const {
+            return m_display_var(out, j);
+        }
+        
         std::ostream& display_smt2_arith_decls(std::ostream & out) const {
             unsigned sz = m_is_int.size();
             for (unsigned i = 0; i < sz; i++) {
@@ -4206,6 +4267,11 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
                 // Fallback if no display_var procedure
                 ss << "x" << m_perm[v];
             }
+            return ss.str();
+        }
+        std::string debug_atom_string(unsigned v) const {
+            std::stringstream ss;
+            display_atom(ss, v);
             return ss.str();
         }
     };
@@ -4409,10 +4475,19 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
         return m_imp->display(out);
     }
 
+    std::ostream& solver::display_var(std::ostream & out, unsigned j) const {
+        return m_imp->display_var(out, j);
+    }
+
     std::ostream& solver::display(std::ostream & out, literal l) const {
         return m_imp->display(out, l);
     }
 
+    std::ostream& solver::display_assignment(std::ostream & out) const {
+        return m_imp->display_assignment(out);
+    }
+
+    
     std::ostream& solver::display(std::ostream & out, unsigned n, literal const* ls) const {
         for (unsigned i = 0; i < n; ++i) {
             display(out, ls[i]);
@@ -4507,4 +4582,5 @@ m_debug_known_sat_bool_vals["from_1 - 4 = 0"] = l_true;
         return (m_imp->m_asm.mk_join(static_cast<imp::_assumption_set>(a), static_cast<imp::_assumption_set>(b)));
     }
     
+        
 };
