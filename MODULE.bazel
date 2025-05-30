@@ -17,3 +17,5 @@ bazel_dep(
     version = "8.0.1",
     dev_dependency = True,
 )
+
+bazel_dep(name = "platforms", version = "0.0.11")
