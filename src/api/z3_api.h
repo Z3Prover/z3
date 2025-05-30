@@ -6284,6 +6284,11 @@ extern "C" {
        The model may be null, in which case the returned model is valid if the goal was
        established satisfiable.
 
+       When using this feature it is advisable to set the parameter \c model.compact to \c false.
+       It is by default true, which erases variables created by the solver from models.
+       Without access to model values for intermediary variables, values of other variables
+       may end up having the wrong values.
+
        def_API('Z3_goal_convert_model', MODEL, (_in(CONTEXT), _in(GOAL), _in(MODEL)))
     */
     Z3_model Z3_API Z3_goal_convert_model(Z3_context c, Z3_goal g, Z3_model m);
