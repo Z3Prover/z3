@@ -1047,7 +1047,7 @@ new_lemma::new_lemma(core& c, char const* name):name(name), c(c) {
 new_lemma& new_lemma::operator|=(ineq const& ineq) {
     if (!c.explain_ineq(*this, ineq.term(), ineq.cmp(), ineq.rs())) {
         CTRACE(nla_solver, c.ineq_holds(ineq), c.print_ineq(ineq, tout) << "\n";);
-        SASSERT(!c.ineq_holds(ineq));
+        SASSERT(c.m_use_nra_model || !c.ineq_holds(ineq));
         current().push_back(ineq);
     }
     return *this;
