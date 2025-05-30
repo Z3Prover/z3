@@ -44,79 +44,85 @@ std::ofstream tout(".z3-trace");
 
 static bool g_enable_all_trace_tags = false;
 
-static bool s_tag_enabled[] = {
-#define X(tag, tc, desc) false,
+inline unsigned tag2u(TraceTag tag) { return static_cast<unsigned>(tag); }
+
+struct tag_info {
+    bool is_enabled;
+    bool is_class;
+    TraceTag next;
+};
+
+static tag_info s_tag_infos[] = {
+    #define X(tag, tc, desc) { false, false, TraceTag::tag },
 #include "util/trace_tags.def"
 #undef  X
 };
 
 
 bool tag_enabled(TraceTag tag) {
-    return tag < TraceTag::Count && s_tag_enabled[static_cast<unsigned>(tag)];
+    return tag < TraceTag::Count && s_tag_infos[tag2u(tag)].is_enabled;
 }
 
 static void enable_tag(TraceTag tag) {
     if (tag < TraceTag::Count)
-        s_tag_enabled[static_cast<unsigned>(tag)] = true;
+        s_tag_infos[tag2u(tag)].is_enabled = true;
 }
 
 static void disable_tag(TraceTag tag) {
     if (tag < TraceTag::Count)
-        s_tag_enabled[static_cast<unsigned>(tag)] = false;
+        s_tag_infos[tag2u(tag)].is_enabled = false;
 }
 
-
-void finalize_trace() {
-}
-
-static const TraceTag* get_tag_classes() {
+static const tag_info* get_tag_infos() {
    static bool tag_class_init = false; // ignore thread safety assuming TRACE is already under a lock.
    if (!tag_class_init) {
        // Arrays to track first and last tag in each class
        TraceTag first[static_cast<unsigned>(TraceTag::Count)];
        TraceTag last[static_cast<unsigned>(TraceTag::Count)];
-       for (unsigned i = 0; i < static_cast<unsigned>(TraceTag::Count); ++i)
+       for (unsigned i = 0; i < tag2u(TraceTag::Count); ++i)
            first[i] = last[i] = TraceTag::Count;
 
        // Link tags in each class
-       for (unsigned i = 0; i < static_cast<unsigned>(TraceTag::Count); ++i) {
+       for (unsigned i = 0; i < tag2u(TraceTag::Count); ++i) {
            TraceTag tag = static_cast<TraceTag>(i);
            TraceTag tag_class = get_trace_tag_class(tag);
-           unsigned cls = static_cast<unsigned>(tag_class);
+           s_tag_infos[tag2u(tag_class)].is_class = true;
+           unsigned cls = tag2u(tag_class);
            if (first[cls] == TraceTag::Count) 
                first[cls] = tag;           
            else 
-               tag_classes[static_cast<unsigned>(last[cls])] = tag;           
+               s_tag_infos[tag2u(last[cls])].next = tag;           
            last[cls] = tag;
        }
        // Close the circular list for each class
-       for (unsigned cls = 0; cls < static_cast<unsigned>(TraceTag::Count); ++cls) 
+       for (unsigned cls = 0; cls < tag2u(TraceTag::Count); ++cls) 
            if (last[cls] != TraceTag::Count && first[cls] != TraceTag::Count) 
-               tag_classes[static_cast<unsigned>(last[cls])] = first[cls];
+               s_tag_infos[tag2u(last[cls])].next = first[cls];
                  
        tag_class_init = true;
    }
-   return tag_classes;
+   return s_tag_infos;
 }
 
 
 
-void enable_trace(const char * tag) {
-    TraceTag tag_str = find_trace_tag_by_string(tag);
-    if (tag_str == TraceTag::Count)
+void enable_trace(const char * tag_str) {
+    TraceTag tag = find_trace_tag_by_string(tag_str);
+    if (tag == TraceTag::Count) {
+        warning_msg("trace tag '%s' does not exist", tag_str);
+        return;
+    }
+
+    enable_tag(tag);
+  
+    auto const& tag_infos = get_tag_infos();
+    if (!tag_infos[tag2u(tag)].is_class)
         return;
 
-    enable_tag(tag_str);
-  
-    auto tag_class = get_trace_tag_class(tag_str);
-    if (tag_class != tag_str)
-        return; // Only enable the tag if it is a class tag.
-    auto const& next_tag = get_tag_classes();
-
-    auto t = next_tag[static_cast<unsigned>(tag_str)];
-    while (t != tag_str) {
+    auto t = tag_infos[tag2u(tag)].next;
+    while (t != tag) {
         enable_tag(t);
-        t = next_tag[static_cast<unsigned>(t)];
+        t = tag_infos[tag2u(t)].next;
     }
 }
 

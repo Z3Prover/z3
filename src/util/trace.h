@@ -59,10 +59,6 @@ void disable_trace(const char * tag);
 bool is_trace_enabled(TraceTag tag);
 void close_trace();
 void open_trace();
-void finalize_trace();
-/*
-  ADD_FINALIZER('finalize_trace();')
-*/
 
 #else
 #define TRACE_CODE(CODE) ((void) 0)
