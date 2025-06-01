@@ -243,17 +243,36 @@ namespace nlsat {
         stats                  m_stats;
         std::unordered_map<std::string, anum> m_debug_known_sat_anum_map;
         std::unordered_map<std::string, lbool> m_debug_known_sat_bool_vals;
-
-        void debug_get_known_sat_anum_value(unsigned j, anum& v) {
+        std::vector<bool> m_debug_on_prefix_vector;
+        const anum & debug_get_known_sat_anum_value(unsigned j) {
             std::string name = debug_get_var_name(j);
-            std::cout << "name:" << name << ", j = " << j << std::endl;
+
             auto it = m_debug_known_sat_anum_map.find(name);
             if (it != m_debug_known_sat_anum_map.end())
-                v = it->second; 
+                return it->second; 
             else     
                 UNREACHABLE();
+            return it->second;
         }
 
+        lbool debug_get_known_literal_value(literal l) {
+            std::string atom_string = debug_atom_string(l.var());
+            auto it = m_debug_known_sat_bool_vals.find(atom_string);
+            if (it == m_debug_known_sat_bool_vals.end())
+                return l_undef;
+            if (it->second == l_false) {
+                if (l.sign())
+                    return l_true;
+                return l_false;
+            } else if (it->second == l_true) {
+                if (l.sign())
+                    return l_false;
+                return l_true;
+            } else
+                UNREACHABLE();
+
+            return l_undef;
+        }
         
         bool debug_check_literal(literal l) {
             return true;
@@ -911,6 +930,7 @@ namespace nlsat {
             m_num_bool_vars--;
             m_dead[b]  = true;
             m_atoms[b] = nullptr;
+            TRACE("nlsat_assign", tout << "undef bool value at index " << b << "\n";);
             m_bvalues[b] = l_undef;
             m_bid_gen.recycle(b);
         }
@@ -1421,11 +1441,22 @@ namespace nlsat {
         }
 
         void undo_new_stage() {
+            TRACE("nlsat", tout << "m_xk was " << m_xk << ",(" << debug_get_var_name(m_xk) << "), becaming " << m_xk - 1; if (m_xk) tout << "(" << debug_get_var_name(m_xk - 1) << ")"; tout << "\n";);
             if (m_xk == 0) {
                 m_xk = null_var;
+                SASSERT(m_debug_on_prefix_vector.size() == 1);
             }
             else if (m_xk != null_var) {
                 m_xk--;
+                m_debug_on_prefix_vector.pop_back();
+                SASSERT(m_debug_on_prefix_vector.size() == m_xk + 1); 
+                std::cout << "undo_new_stage, ";
+                if (m_debug_on_prefix_vector.back())
+                    std::cout << "on_prefix ";
+                else
+                    std::cout << "not on prefix ";
+                std::cout << "after pop at " << m_xk << "\n";
+
                 m_assignment.reset(m_xk);
             }
         }
@@ -1553,9 +1584,14 @@ namespace nlsat {
            \brief Assign literal to true using the given justification
         */
         void set_literal_to_true(literal l, justification j) {
-            TRACE("nlsat_assign", 
-                  display(tout << "assigning literal: ", l) << "\n";
-                  display(tout << " <- ", j););
+            TRACE("nlsat_assign",
+                  tout << "literal" << l << "\n";
+                  display(tout << "assigning literal to true: ", l) << "\n";
+                  display(tout << " <- ", j);
+                  auto known_val = debug_get_known_literal_value(l);
+                  if (known_val != l_undef) {
+                      tout << "known val of literal is " << known_val << "\n";
+                  });
                 
             SASSERT(assigned_value(l) == l_undef);
             SASSERT(j != null_justification);
@@ -1677,7 +1713,9 @@ namespace nlsat {
                 core.push_back(~l);
 
             auto j = mk_lazy_jst(m_allocator, core.size(), core.data(), clauses.size(), clauses.data());
-            TRACE("nlsat_resolve", display(tout, j); display_eval(tout << "evaluated:", j));
+            TRACE("nlsat_resolve", display(tout << "justification: ", j);
+                  display_eval(tout << "evaluated justification: ", j);
+                );
             set_literal_to_true(l, j);
             SASSERT(value(l) == l_true);
         }
@@ -1748,6 +1786,8 @@ namespace nlsat {
             unsigned first_undef = UINT_MAX;         // position of the first undefined literal
             interval_set_ref first_undef_set(m_ism); // infeasible region of the first undefined literal
             interval_set * xk_set = m_infeasible[m_xk]; // current set of infeasible interval for current variable
+            TRACE("nlsat_inf_set", tout << "m_infeasible["<< debug_get_var_name(m_xk) << "]:";
+                  m_ism.display(tout, xk_set) << "\n";);
             SASSERT(!m_ism.is_full(xk_set));
             for (unsigned idx = 0; idx < cls.size(); ++idx) {
                 literal l = cls[idx];
@@ -1766,8 +1806,11 @@ namespace nlsat {
                 SASSERT(a != nullptr);
                 interval_set_ref curr_set(m_ism);
                 curr_set = m_evaluator.infeasible_intervals(a, l.sign(), &cls);
-                TRACE("nlsat_inf_set", tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";
-                      display(tout, cls) << "\n";); 
+                TRACE("nlsat_inf_set",                      
+                      tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";
+                      display(tout, cls) << "\n";
+                      tout << "m_xk:" << m_xk << "(" << debug_get_var_name(m_xk) << ")"<< "\n";
+                      tout << "known deb value of the literal is: " << debug_get_known_literal_value(l) << "\n";); 
                 if (m_ism.is_empty(curr_set)) {
                     TRACE("nlsat_inf_set", tout << "infeasible set is empty, found literal\n";);
                     R_propagate(l, nullptr);
@@ -1788,8 +1831,8 @@ namespace nlsat {
                 tmp = m_ism.mk_union(curr_set, xk_set);
                 if (m_ism.is_full(tmp)) {
                     TRACE("nlsat_inf_set", tout << "infeasible set + current set = R, skip literal\n";
-                          display_assignment(tout) << "\n";
                           display(tout, cls) << "\n";
+                          display_assignment_for_clause(tout, cls);
                           m_ism.display(tout, tmp); tout << "\n";
                         );
                     R_propagate(~l, tmp, false);
@@ -1848,7 +1891,8 @@ namespace nlsat {
            Return 0, if the set was satisfied, or the violating clause otherwise
         */
         clause * process_clauses(clause_vector const & cs) {
-            TRACE("nlsat_process_clauses", tout << "cs:"; display(tout, cs) << "\n";);
+            TRACE("nlsat_process_clauses", tout << "clauses where max_var is " << m_xk << "("
+                  << debug_get_var_name(m_xk) << "):\n"; display(tout, cs) << "\n";);
             for (clause* c : cs) {
                 if (!process_clause(*c, false))
                     return c;
@@ -1878,8 +1922,9 @@ namespace nlsat {
             save_new_stage_trail();
             if (m_xk == null_var)
                 m_xk = 0;
-            else
+            else {
                 m_xk++;
+            }
         }
 
         /**
@@ -1889,13 +1934,33 @@ namespace nlsat {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
             m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
+            const anum& dw = debug_get_known_sat_anum_value(m_xk);
+            // m_xk corresponds to m_debug_on_prefix_vector[m_xk+1]
+            SASSERT(m_xk + 1 == m_debug_on_prefix_vector.size());
+            m_debug_on_prefix_vector.push_back(
+                m_debug_on_prefix_vector.back()
+                &&
+                m_ism.contains_in_complement(m_infeasible[m_xk], false, dw));
+            if (m_debug_on_prefix_vector.back())
+                std::cout << "on_prefix ";
+            else
+                std::cout << "not on prefix ";
+            std::cout << "at " << m_xk << "\n";
+            m_display_var(std::cout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";
+            std::cout << "known_val = "; m_am.display(std::cout, dw) << "\n";
             TRACE("nlsat", 
                   tout << "infeasible intervals: "; m_ism.display(tout, m_infeasible[m_xk]); tout << "\n";
                   tout << "assigning "; m_display_var(tout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";);
             TRACE("nlsat_root", tout << "value as root object: "; m_am.display_root(tout, w); tout << "\n";);
             if (!m_am.is_rational(w))
                 m_stats.m_irrational_assignments++;
-            m_assignment.set_core(m_xk, w);
+            if ( m_debug_on_prefix_vector.back()) {
+                anum val;
+                m_am.set(val, dw);
+                m_assignment.set_core(m_xk, val);
+            }
+            else 
+                m_assignment.set_core(m_xk, w);
         }
 
         
@@ -1912,7 +1977,7 @@ namespace nlsat {
             }
         }
 
-        bool debug_all_known_atomse_have_correct_values() {
+        bool debug_all_known_atoms_have_correct_values() {
             unsigned n = 0;
             for (unsigned j = 0; j < m_atoms.size(); j++) {
                 if (m_atoms[j] == nullptr)
@@ -1930,6 +1995,15 @@ namespace nlsat {
                 if (val != it->second)
                     return false;
                 n++;
+                if (n >= 26) {
+                    enable_trace("nlsat_assign");
+                    /*
+                    enable_trace("nlsat");
+                    enable_trace("nlsat_proof");*/
+                    enable_trace("nlsat_resolve");
+                    enable_trace("nlsat_inf_set");/*
+                    enable_trace("nlsat_process_clauses");*/
+                }
             }
             std::cout << "from " << m_debug_known_sat_bool_vals.size() << ", " << n << " is evaluated\n";
             return true;
@@ -1983,19 +2057,13 @@ namespace nlsat {
                           tout << "\n";);
                     checkpoint();
                     clause * conflict_clause;
-                    bool on_prefix = debug_all_known_atomse_have_correct_values();
-                    std::cout << "on_prefix:" << (on_prefix? "true":"false") << "\n";
                     if (m_xk == null_var)
                         conflict_clause = process_clauses(m_bwatches[m_bk]);
                     else 
                         conflict_clause = process_clauses(m_watches[m_xk]);
                     if (conflict_clause == nullptr)
                         break;
-                    std::cout << "on_prefix:" << (on_prefix? "true":"false") << "\n";
                     if (!resolve(*conflict_clause)) {
-                        std::cout << "conflict_clause:" ;display(std::cout, conflict_clause) << std::endl;
-                        if (debug_all_known_atomse_have_correct_values())
-                            std::cout << "all atoms are set correctly\n";
                         return l_false;
                     }
                     if (m_stats.m_conflicts >= m_max_conflicts)
@@ -2255,6 +2323,8 @@ namespace nlsat {
         
 
         void init_search() {
+            m_debug_on_prefix_vector.clear();
+            m_debug_on_prefix_vector.push_back(true);
             undo_until_empty();
             while (m_scope_lvl > 0) {
                 undo_new_level();
@@ -2386,7 +2456,7 @@ namespace nlsat {
                 SASSERT(value(antecedent) == l_false || m_rlimit.is_canceled());
                 if (!is_marked(b)) {
                     SASSERT(is_arith_atom(b) && max_var(b) < m_xk); // must be in a previous stage
-                    TRACE("nlsat_resolve", tout << "literal is unassigned, but it is false in arithmetic interpretation, adding it to lemma\n";); 
+                    TRACE("nlsat_resolve", tout << "marking an unmarked literal, it is unassigned, but it is false in arithmetic interpretation, adding it to lemma\n";); 
                     mark(b);
                     m_lemma.push_back(antecedent);
                 }
@@ -2633,7 +2703,8 @@ namespace nlsat {
             TRACE("nlsat", tout << "resolve, conflicting clause:\n"; display(tout, *conflict_clause) << "\n";
                   tout << "xk: "; if (m_xk != null_var) m_display_var(tout, m_xk); else tout << "<null>"; tout << "\n";
                   tout << "scope_lvl: " << scope_lvl() << "\n";
-                  tout << "current assignment\n"; display_assignment(tout););
+                  // tout << "current assignment\n"; display_assignment(tout);
+                );
             
             m_num_marks = 0;
             m_lemma.reset();
@@ -2749,8 +2820,8 @@ namespace nlsat {
                 undo_until_stage(new_max_var);
                 SASSERT(m_xk == new_max_var);
                 new_cls = mk_clause(sz, m_lemma.data(), true, m_lemma_assumptions.get());
-                TRACE("nlsat", tout << "new_level: " << scope_lvl() << "\nnew_stage: " << new_max_var << "\n"; 
-                      if (new_max_var != null_var) m_display_var(tout, new_max_var) << "\n";);
+                TRACE("nlsat", tout << "new_level: " << scope_lvl() << "\nnew_stage: " << new_max_var; 
+                      if (new_max_var != null_var) {tout << "("; m_display_var(tout, new_max_var) << ")\n";});
             }
             else {
                 SASSERT(scope_lvl() >= 1);
@@ -3568,6 +3639,47 @@ namespace nlsat {
             return out;
         }
 
+        std::ostream& display_assignment_for_clause(std::ostream& out, const clause& c) const {
+            // Print literal assignments
+            out << "Literals:\n";
+            for (unsigned i = 0; i < c.size(); ++i) {
+                literal l = c[i];
+                out << "  ";
+                display(out, l);
+                out << " := ";
+                lbool val = assigned_value(l);
+                if (val == l_true) out << "true";
+                else if (val == l_false) out << "false";
+                else out << "undef";
+                out << "\n";
+            }
+
+            // Collect all variables used in the clause
+            bool_vector printed_vars(num_vars(), false);
+            var_vector vars;
+            out << "Variables:\n";
+            for (unsigned i = 0; i < c.size(); ++i) {
+                vars.reset();
+                const_cast<imp*>(this)->vars(c[i], vars);
+                for (unsigned j = 0; j < vars.size(); ++j) {
+                    var x = vars[j];
+                    if (x >= printed_vars.size() || printed_vars[x])
+                        continue;
+                    printed_vars.setx(x, true, false);
+                    out << "  ";
+                    m_display_var(out, x);
+                    out << " = ";
+                    if (m_assignment.is_assigned(x)) {
+                        m_am.display_decimal(out, m_assignment.value(x));
+                    } else {
+                        out << "undef";
+                    }
+                    out << "\n";
+                }
+            } return out;
+        }
+
+
         std::ostream& display(std::ostream& out, justification j) const {
             switch (j.get_kind()) {
             case justification::CLAUSE:
@@ -4383,6 +4495,8 @@ namespace nlsat {
         TRACE("nlsat", display(tout););
         for (bool_var b = 0; b < vs.size(); ++b) {
             if (vs[b] != l_undef) {
+                TRACE("nlsat_assign", tout << "setting bool values " << b << "\n";);
+                std::cout << "set bvalues " << b << " to " << vs[b] << "\n";
                 m_imp->m_bvalues[b] = vs[b];
                 SASSERT(!m_imp->m_atoms[b]);
             }

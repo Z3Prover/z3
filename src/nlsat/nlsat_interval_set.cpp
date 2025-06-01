@@ -699,6 +699,43 @@ namespace nlsat {
         return 0;
     }
 
+    
+
+    bool interval_set_manager::contains_in_complement(interval_set const * s, bool is_int, const anum & w) {
+         if (s == nullptr)
+            return true; // complement is R, so contains everything
+        if (is_full(s))
+            return false; // complement is empty
+
+        unsigned num = s->m_num_intervals;
+        for (unsigned i = 0; i < num; ++i) {
+            const interval& itv = s->m_intervals[i];
+            // Check if w is in [itv.m_lower, itv.m_upper] (respecting open/closed, inf)
+            bool in = true;
+            // Lower bound
+            if (!itv.m_lower_inf) {
+                int cmp = m_am.compare(w, itv.m_lower);
+                if (cmp < 0 || (cmp == 0 && itv.m_lower_open))
+                    in = false;
+            }
+            // Upper bound
+            if (!itv.m_upper_inf) {
+                int cmp = m_am.compare(w, itv.m_upper);
+                if (cmp > 0 || (cmp == 0 && itv.m_upper_open))
+                    in = false;
+            }
+            // For integer domains, skip intervals that do not contain any integer
+            if (is_int && in) {
+                // If w is not integer, it's not in the interval for integer domain
+                if (!m_am.is_int(w))
+                    in = false;
+            }
+            if (in)
+                return false; // w is in an infeasible interval, so not in complement
+        }
+        return true;
+    }
+    
 
     void interval_set_manager::pick_in_complement(interval_set const * s, bool is_int, anum & w, bool randomize) {
         SASSERT(!is_full(s));
