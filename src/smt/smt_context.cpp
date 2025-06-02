@@ -2266,7 +2266,6 @@ namespace smt {
        contains a literal l where l.var() >= num_bool_vars.
     */
     void context::reinit_clauses(unsigned num_scopes, unsigned num_bool_vars) {
-        TRACE(reinit_clauses_bug, display_watch_lists(tout););
         if (m_clauses_to_reinit.empty())
             return;
         unsigned lim = m_scope_lvl + num_scopes;
