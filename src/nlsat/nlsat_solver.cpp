@@ -243,6 +243,7 @@ namespace nlsat {
         stats                  m_stats;
         std::unordered_map<std::string, anum> m_debug_known_sat_anum_map;
         std::unordered_map<std::string, lbool> m_debug_known_sat_bool_vals;
+        bool m_debug_use_known_sol = false;
         std::vector<bool> m_debug_on_prefix_vector;
         const anum & debug_get_known_sat_anum_value(unsigned j) {
             std::string name = debug_get_var_name(j);
@@ -646,7 +647,7 @@ namespace nlsat {
             m_dump_mathematica= p.dump_mathematica();
             m_check_lemmas   = p.check_lemmas();
             m_variable_ordering_strategy = p.variable_ordering_strategy();
-    
+            
 
             m_cell_sample = p.cell_sample();
 
@@ -656,6 +657,7 @@ namespace nlsat {
             m_explain.set_minimize_cores(min_cores);
             m_explain.set_factor(p.factor());
             m_am.updt_params(p.p);
+            m_debug_use_known_sol = p.debug_use_known_sol();
         }
 
         void reset() {
@@ -1934,6 +1936,7 @@ namespace nlsat {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
             m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
+            // debug 
             const anum& dw = debug_get_known_sat_anum_value(m_xk);
             // m_xk corresponds to m_debug_on_prefix_vector[m_xk+1]
             SASSERT(m_xk + 1 == m_debug_on_prefix_vector.size());
@@ -1947,14 +1950,15 @@ namespace nlsat {
                 std::cout << "not on prefix ";
             std::cout << "at " << m_xk << "\n";
             m_display_var(std::cout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";
-            std::cout << "known_val = "; m_am.display(std::cout, dw) << "\n";
-            TRACE("nlsat", 
-                  tout << "infeasible intervals: "; m_ism.display(tout, m_infeasible[m_xk]); tout << "\n";
+            std::cout << "known_val = "; m_am.display(std::cout, dw) << " and w = "; m_am.display(std::cout, w)<< "\n";
+            std::cout << "infeasible intervals:"; m_ism.display(std::cout, m_infeasible[m_xk]) << "\n";
+            // end debug
+            TRACE("nlsat", tout << "infeasible intervals: "; m_ism.display(tout, m_infeasible[m_xk]); tout << "\n";
                   tout << "assigning "; m_display_var(tout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";);
             TRACE("nlsat_root", tout << "value as root object: "; m_am.display_root(tout, w); tout << "\n";);
             if (!m_am.is_rational(w))
                 m_stats.m_irrational_assignments++;
-            if ( m_debug_on_prefix_vector.back()) {
+            if (m_debug_on_prefix_vector.back() && m_debug_use_known_sol) {
                 anum val;
                 m_am.set(val, dw);
                 m_assignment.set_core(m_xk, val);
