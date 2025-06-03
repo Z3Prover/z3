@@ -1668,12 +1668,28 @@ namespace nlsat {
                 return m_bvalues[b];
         }
 
-        bool debug_bvalues_coincide_with_sat_bvalues() {
-            for (const auto & p : m_debug_pure_bool_vals) {
-                if (m_bvalues[p.first] != p.second)
-                    return false;
+        bool debug_literal_holds_on_sat_var_values(literal l) {
+            bool_var b = l.var();
+            atom* a = m_atoms[b];
+            lbool val = l_undef;
+            if (a == nullptr) {
+                // Pure boolean variable: check m_bvalues
+                lbool bval = m_bvalues[b]; // use the current values
+                val = l.sign() ? ~bval : bval;
+            } else {
+                // Arithmetic atom: evaluate directly
+                var max = a->max_var();
+                if (m_debug_assignment.is_assigned(max)) {
+                    bool eval_result = false;
+                    if (a->is_ineq_atom())
+                        eval_result = m_debug_evaluator.eval(to_ineq_atom(a), l.sign());
+                    else
+                        eval_result = m_debug_evaluator.eval(to_root_atom(a), l.sign());
+                    val = to_lbool(eval_result);
+                }
             }
-            return true;
+            
+            return val == l_true;
         }
         
         /**
@@ -1704,9 +1720,13 @@ namespace nlsat {
             updt_eq(b, j);
             
             TRACE("nlsat_assign", tout << "b" << b << " -> " << m_bvalues[b]  << "\n";);
-            if (debug_bvalues_coincide_with_sat_bvalues()) {
-                std::cout << "hit all sat pure bool value\n";
+            
+            if (debug_literal_holds_on_sat_var_values(l)) {
+                std::cout << "literal holds: "; display(std::cout, l) << "\n";
+            } else {
+                std::cout << "literal does not hold: "; display(std::cout, l) << "\n";
             }
+                
         }
 
         /**
@@ -1871,8 +1891,7 @@ namespace nlsat {
         }
         
         /**
-           \brief Process a clause that contains nonlinear arithmetic literals
-
+           \brief Process a clause that contains only arithmetic literals
            If satisfy_learned is true, then learned clauses are satisfied even if m_lazy > 0
         */
         bool process_arith_clause(clause const & cls, bool satisfy_learned) {
@@ -1897,7 +1916,7 @@ namespace nlsat {
                     return true;  // could happen if clause is a tautology
                 CTRACE("nlsat", max_var(l) != m_xk || value(l) != l_undef, display(tout); 
                        tout << "xk: " << m_xk << ", max_var(l): " << max_var(l) << ", l: "; display(tout, l) << "\n";
-                       display(tout, cls) << "\n";);
+                       display(tout << "cls: ", cls) << "\n";);
                 SASSERT(value(l) == l_undef);
                 SASSERT(max_var(l) == m_xk);
                 bool_var b = l.var();
@@ -1907,7 +1926,7 @@ namespace nlsat {
                 curr_set = m_evaluator.infeasible_intervals(a, l.sign(), &cls);
                 TRACE("nlsat_inf_set",                      
                       tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";
-                      display(tout, cls) << "\n";
+                      display(tout << "cls: " , cls) << "\n";
                       tout << "m_xk:" << m_xk << "(" << debug_get_var_name(m_xk) << ")"<< "\n";
                       tout << "known deb value of the literal is: " << debug_get_known_literal_value(l) << "\n";); 
                 if (m_ism.is_empty(curr_set)) {
