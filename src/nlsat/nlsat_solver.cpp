@@ -106,7 +106,9 @@ namespace nlsat {
         anum_manager&           m_am;
         mutable assumption_manager     m_asm;
         assignment              m_assignment, m_lo, m_hi; // partial interpretation
-        mutable evaluator      m_evaluator;
+        assignment              m_debug_assignment;
+        mutable evaluator       m_evaluator;
+        mutable evaluator      m_debug_evaluator;
         interval_set_manager & m_ism;
         ineq_atom_table        m_ineq_atoms;
         root_atom_table        m_root_atoms;
@@ -242,9 +244,9 @@ namespace nlsat {
         // statistics
         stats                  m_stats;
         std::unordered_map<std::string, anum> m_debug_known_sat_anum_map;
-        std::unordered_map<std::string, lbool> m_debug_known_sat_bool_vals;
+        std::unordered_map<std::string, lbool> m_debug_known_sat_bool_non_pure_atom_vals;
+        std::unordered_map<unsigned, lbool> m_debug_pure_bool_vals;
         bool m_debug_use_known_sol = false;
-        std::vector<bool> m_debug_on_prefix_vector;
         const anum & debug_get_known_sat_anum_value(unsigned j) {
             std::string name = debug_get_var_name(j);
 
@@ -258,8 +260,8 @@ namespace nlsat {
 
         lbool debug_get_known_literal_value(literal l) {
             std::string atom_string = debug_atom_string(l.var());
-            auto it = m_debug_known_sat_bool_vals.find(atom_string);
-            if (it == m_debug_known_sat_bool_vals.end())
+            auto it = m_debug_known_sat_bool_non_pure_atom_vals.find(atom_string);
+            if (it == m_debug_known_sat_bool_non_pure_atom_vals.end())
                 return l_undef;
             if (it->second == l_false) {
                 if (l.sign())
@@ -402,184 +404,196 @@ namespace nlsat {
                 m_debug_known_sat_anum_map[kv.first] = val;
             }
 
+            debug_set_assignment_to_known_val();
+        
+            
         }
 
         void debug_set_known_bool_values() {
-            
-            /*    b0 -> true @0
-                  b13 -> false @1
-                  b18 -> true @2
-                  b23 -> false @2
-                  b26 -> false @3
-                  b31 -> true @4
-                  b36 -> false @4
-                  b39 -> false @5
-                  b44 -> true @6
-                  b49 -> false @6*/
+//            b0 -> true @0pure
+                m_debug_pure_bool_vals[0] = l_true;
+                //              b14 -> false @1pure
+                m_debug_pure_bool_vals[14] = l_false;
+//                b19 -> true @2pure 
+                m_debug_pure_bool_vals[19] = l_true;
+                //              b24 -> false @2pure 
+                m_debug_pure_bool_vals[24] = l_false;
+//                b27 -> false @3pure 
+                m_debug_pure_bool_vals[27] = l_false;
+                //              b32 -> true @3pure 
+                m_debug_pure_bool_vals[32] = l_true;
+//                b37 -> false @3pure 
+                m_debug_pure_bool_vals[37] = l_false;
+                //              b40 -> false @4pure 
+                m_debug_pure_bool_vals[40] = l_false;
+//                b45 -> true @4pure 
+                m_debug_pure_bool_vals[45] = l_true;
+//              b50 -> false @4pure 
+                m_debug_pure_bool_vals[50] = l_false;
 //b1 -> l_false "a_t1_1 < 0"
-            m_debug_known_sat_bool_vals["a_t1_1 < 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["a_t1_1 < 0"] = l_false;
 //b2 -> l_false "a_t2_1 < 0"
-            m_debug_known_sat_bool_vals["a_t2_1 < 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["a_t2_1 < 0"] = l_false;
 //b3 -> l_false "a_t0_2 < 0"
-            m_debug_known_sat_bool_vals["a_t0_2 < 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["a_t0_2 < 0"] = l_false;
 //b4 -> l_false "a_t2_2 < 0"
-            m_debug_known_sat_bool_vals["a_t2_2 < 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["a_t2_2 < 0"] = l_false;
 //b5 -> l_false "- 16 + a_t2_2 > 0"
-            m_debug_known_sat_bool_vals["- 16 + a_t2_2 > 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 16 + a_t2_2 > 0"] = l_false;
 //b6 -> l_true "from_1 > 0"
-            m_debug_known_sat_bool_vals["from_1 > 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["from_1 > 0"] = l_true;
 //b7 -> l_true "from_2 > 0"
-            m_debug_known_sat_bool_vals["from_2 > 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["from_2 > 0"] = l_true;
 //b8 -> l_true "from_3 > 0"
-            m_debug_known_sat_bool_vals["from_3 > 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["from_3 > 0"] = l_true;
 //b9 -> l_true "to_1 > 0"
-            m_debug_known_sat_bool_vals["to_1 > 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["to_1 > 0"] = l_true;
 //b10 -> l_true "to_2 > 0"
-            m_debug_known_sat_bool_vals["to_2 > 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["to_2 > 0"] = l_true;
 //b11 -> l_true "to_3 > 0"
-            m_debug_known_sat_bool_vals["to_3 > 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["to_3 > 0"] = l_true;
 //b12 -> l_true "- 8 - from_1 + r_t1t2_1 = 0"
-            m_debug_known_sat_bool_vals["- 8 - from_1 + r_t1t2_1 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 8 - from_1 + r_t1t2_1 = 0"] = l_true;
 //b14 -> l_true "- 6 + a_t2_1 + from_1 = 0"
-            m_debug_known_sat_bool_vals["- 6 + a_t2_1 + from_1 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 6 + a_t2_1 + from_1 = 0"] = l_true;
 //b15 -> l_true "- 18 + k!0 + l_t1t2_1 = 0"
-            m_debug_known_sat_bool_vals["- 18 + k!0 + l_t1t2_1 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 18 + k!0 + l_t1t2_1 = 0"] = l_true;
 //b16 -> l_true "6 - a_t1_1 + k!0 = 0"
-            m_debug_known_sat_bool_vals["6 - a_t1_1 + k!0 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["6 - a_t1_1 + k!0 = 0"] = l_true;
 //b17 -> l_false "- 18 + l_t1t2_1 = 0"
-            m_debug_known_sat_bool_vals["- 18 + l_t1t2_1 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 18 + l_t1t2_1 = 0"] = l_false;
 //b19 -> l_false "- 8 + r_t1t2_1 = 0"
-            m_debug_known_sat_bool_vals["- 8 + r_t1t2_1 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 8 + r_t1t2_1 = 0"] = l_false;
 //b20 -> l_false "- 6 + a_t1_1 = 0"
-            m_debug_known_sat_bool_vals["- 6 + a_t1_1 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 6 + a_t1_1 = 0"] = l_false;
 //b21 -> l_false "- 6 + a_t2_1 = 0"
-            m_debug_known_sat_bool_vals["- 6 + a_t2_1 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 6 + a_t2_1 = 0"] = l_false;
 //b22 -> l_false "to_1 < 0"
-            m_debug_known_sat_bool_vals["to_1 < 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["to_1 < 0"] = l_false;
 //b24 -> l_false "k!0 - to_1 < 0"
-            m_debug_known_sat_bool_vals["k!0 - to_1 < 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["k!0 - to_1 < 0"] = l_false;
 //b25 -> l_true "- 8 - from_2 + r_t2t0_2 = 0"
-            m_debug_known_sat_bool_vals["- 8 - from_2 + r_t2t0_2 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 8 - from_2 + r_t2t0_2 = 0"] = l_true;
 //b27 -> l_true "- 6 + a_t0_2 + from_2 = 0"
-            m_debug_known_sat_bool_vals["- 6 + a_t0_2 + from_2 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 6 + a_t0_2 + from_2 = 0"] = l_true;
 //b28 -> l_true "- 18 + k!1 + l_t2t0_2 = 0"
-            m_debug_known_sat_bool_vals["- 18 + k!1 + l_t2t0_2 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 18 + k!1 + l_t2t0_2 = 0"] = l_true;
 //b29 -> l_true "a_t2_1 - a_t2_2 + k!1 = 0"
-            m_debug_known_sat_bool_vals["a_t2_1 - a_t2_2 + k!1 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["a_t2_1 - a_t2_2 + k!1 = 0"] = l_true;
 //b30 -> l_false "- 18 + l_t2t0_2 = 0"
-            m_debug_known_sat_bool_vals["- 18 + l_t2t0_2 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 18 + l_t2t0_2 = 0"] = l_false;
 //b32 -> l_false "- 8 + r_t2t0_2 = 0"
-            m_debug_known_sat_bool_vals["- 8 + r_t2t0_2 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 8 + r_t2t0_2 = 0"] = l_false;
 //b33 -> l_false "- 6 + a_t0_2 = 0"
-            m_debug_known_sat_bool_vals["- 6 + a_t0_2 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 6 + a_t0_2 = 0"] = l_false;
 //b34 -> l_false "- a_t2_1 + a_t2_2 = 0"
-            m_debug_known_sat_bool_vals["- a_t2_1 + a_t2_2 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- a_t2_1 + a_t2_2 = 0"] = l_false;
 //b35 -> l_false "to_2 < 0"
-            m_debug_known_sat_bool_vals["to_2 < 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["to_2 < 0"] = l_false;
 //b37 -> l_false "k!1 - to_2 < 0"
-            m_debug_known_sat_bool_vals["k!1 - to_2 < 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["k!1 - to_2 < 0"] = l_false;
 //b38 -> l_true "- 8 - from_3 + r_t0t1_3 = 0"
-            m_debug_known_sat_bool_vals["- 8 - from_3 + r_t0t1_3 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 8 - from_3 + r_t0t1_3 = 0"] = l_true;
 //b40 -> l_true "- 18 + k!2 + l_t0t1_3 = 0"
-            m_debug_known_sat_bool_vals["- 18 + k!2 + l_t0t1_3 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 18 + k!2 + l_t0t1_3 = 0"] = l_true;
 //b41 -> l_true "- 8 + a_t0_2 + k!2 = 0"
-            m_debug_known_sat_bool_vals["- 8 + a_t0_2 + k!2 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 8 + a_t0_2 + k!2 = 0"] = l_true;
 //b42 -> l_true "16 - a_t1_1 - a_t2_2 + from_3 = 0"
-            m_debug_known_sat_bool_vals["16 - a_t1_1 - a_t2_2 + from_3 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["16 - a_t1_1 - a_t2_2 + from_3 = 0"] = l_true;
 //b43 -> l_false "- 18 + l_t0t1_3 = 0"
-            m_debug_known_sat_bool_vals["- 18 + l_t0t1_3 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 18 + l_t0t1_3 = 0"] = l_false;
 //b45 -> l_false "- 8 + r_t0t1_3 = 0"
-            m_debug_known_sat_bool_vals["- 8 + r_t0t1_3 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 8 + r_t0t1_3 = 0"] = l_false;
 //b46 -> l_false "- 8 + a_t0_2 = 0"
-            m_debug_known_sat_bool_vals["- 8 + a_t0_2 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 8 + a_t0_2 = 0"] = l_false;
 //b47 -> l_false "- 16 + a_t1_1 + a_t2_2 = 0"
-            m_debug_known_sat_bool_vals["- 16 + a_t1_1 + a_t2_2 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 16 + a_t1_1 + a_t2_2 = 0"] = l_false;
 //b48 -> l_false "to_3 < 0"
-            m_debug_known_sat_bool_vals["to_3 < 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["to_3 < 0"] = l_false;
 //b50 -> l_false "k!2 - to_3 < 0"
-            m_debug_known_sat_bool_vals["k!2 - to_3 < 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["k!2 - to_3 < 0"] = l_false;
 //b51 -> l_false "8 + from_1 = 0"
-            m_debug_known_sat_bool_vals["8 + from_1 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["8 + from_1 = 0"] = l_false;
 //b52 -> l_true "- 18 from_1 + from_1 k!0 + 8 k!0 = 0"
-            m_debug_known_sat_bool_vals["- 18 from_1 + from_1 k!0 + 8 k!0 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 18 from_1 + from_1 k!0 + 8 k!0 = 0"] = l_true;
 //b53 -> l_false "8 + from_2 = 0"
-            m_debug_known_sat_bool_vals["8 + from_2 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["8 + from_2 = 0"] = l_false;
 //b54 -> l_true "- 18 from_2 + from_2 k!1 + 8 k!1 = 0"
-            m_debug_known_sat_bool_vals["- 18 from_2 + from_2 k!1 + 8 k!1 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 18 from_2 + from_2 k!1 + 8 k!1 = 0"] = l_true;
 //b55 -> l_false "8 + from_3 = 0"
-            m_debug_known_sat_bool_vals["8 + from_3 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["8 + from_3 = 0"] = l_false;
 //b56 -> l_true "- 18 from_3 + from_3 k!2 + 8 k!2 = 0"
-            m_debug_known_sat_bool_vals["- 18 from_3 + from_3 k!2 + 8 k!2 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 18 from_3 + from_3 k!2 + 8 k!2 = 0"] = l_true;
 //b57 -> l_true "- k!0 + k!1 = 0"
-            m_debug_known_sat_bool_vals["- k!0 + k!1 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- k!0 + k!1 = 0"] = l_true;
 //b58 -> l_true "- from_1 + from_2 = 0"
-            m_debug_known_sat_bool_vals["- from_1 + from_2 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- from_1 + from_2 = 0"] = l_true;
 //b59 -> l_true "- from_1 + from_3 = 0"
-            m_debug_known_sat_bool_vals["- from_1 + from_3 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- from_1 + from_3 = 0"] = l_true;
 //b60 -> l_true "- k!0 + k!2 = 0"
-            m_debug_known_sat_bool_vals["- k!0 + k!2 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- k!0 + k!2 = 0"] = l_true;
 //b61 -> l_true "- from_2 + from_3 = 0"
-            m_debug_known_sat_bool_vals["- from_2 + from_3 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- from_2 + from_3 = 0"] = l_true;
 //b62 -> l_true "- k!1 + k!2 = 0"
-            m_debug_known_sat_bool_vals["- k!1 + k!2 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- k!1 + k!2 = 0"] = l_true;
 //b63 -> l_false "from_1 = 0"
-            m_debug_known_sat_bool_vals["from_1 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["from_1 = 0"] = l_false;
 //b64 -> l_false "- 6 + a_t2_2 + from_1 = 0"
-            m_debug_known_sat_bool_vals["- 6 + a_t2_2 + from_1 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 6 + a_t2_2 + from_1 = 0"] = l_false;
 //b65 -> l_true "8 a_t2_1 + a_t2_1 from_2 - 8 a_t2_2 - a_t2_2 from_2 + 18 from_2 = 0"
-            m_debug_known_sat_bool_vals["8 a_t2_1 + a_t2_1 from_2 - 8 a_t2_2 - a_t2_2 from_2 + 18 from_2 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["8 a_t2_1 + a_t2_1 from_2 - 8 a_t2_2 - a_t2_2 from_2 + 18 from_2 = 0"] = l_true;
 //b66 -> l_true "8 + from_2 > 0"
-            m_debug_known_sat_bool_vals["8 + from_2 > 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["8 + from_2 > 0"] = l_true;
 //b67 -> l_true "- 48 + 8 a_t2_2 + a_t2_2 from_2 + 8 from_1 + from_1 from_2 - 24 from_2 = 0"
-            m_debug_known_sat_bool_vals["- 48 + 8 a_t2_2 + a_t2_2 from_2 + 8 from_1 + from_1 from_2 - 24 from_2 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 48 + 8 a_t2_2 + a_t2_2 from_2 + 8 from_1 + from_1 from_2 - 24 from_2 = 0"] = l_true;
 //b68 -> l_false "18 from_2 = 0"
-            m_debug_known_sat_bool_vals["18 from_2 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["18 from_2 = 0"] = l_false;
 //b69 -> l_true "- 2 - from_2 + k!2 = 0"
-            m_debug_known_sat_bool_vals["- 2 - from_2 + k!2 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 2 - from_2 + k!2 = 0"] = l_true;
 //b70 -> l_true "16 + 8 from_2 + from_2 from_3 - 16 from_3 = 0"
-            m_debug_known_sat_bool_vals["16 + 8 from_2 + from_2 from_3 - 16 from_3 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["16 + 8 from_2 + from_2 from_3 - 16 from_3 = 0"] = l_true;
 //b71 -> l_true "- 16 + 16 from_3 > 0"
-            m_debug_known_sat_bool_vals["- 16 + 16 from_3 > 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 16 + 16 from_3 > 0"] = l_true;
 //b72 -> l_true "8 + from_3 > 0"
-            m_debug_known_sat_bool_vals["8 + from_3 > 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["8 + from_3 > 0"] = l_true;
 //b73 -> l_false "2 + from_2 = 0"
-            m_debug_known_sat_bool_vals["2 + from_2 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["2 + from_2 = 0"] = l_false;
 //b74 -> l_false "18 from_3 = 0"
-            m_debug_known_sat_bool_vals["18 from_3 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["18 from_3 = 0"] = l_false;
 //b75 -> l_true "- 10 + a_t2_2 - from_3 + k!0 = 0"
-            m_debug_known_sat_bool_vals["- 10 + a_t2_2 - from_3 + k!0 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 10 + a_t2_2 - from_3 + k!0 = 0"] = l_true;
 //b76 -> l_true "- 80 + 8 a_t2_2 + a_t2_2 from_1 + 8 from_1 - from_1 from_3 - 8 from_3 = 0"
-            m_debug_known_sat_bool_vals["- 80 + 8 a_t2_2 + a_t2_2 from_1 + 8 from_1 - from_1 from_3 - 8 from_3 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 80 + 8 a_t2_2 + a_t2_2 from_1 + 8 from_1 - from_1 from_3 - 8 from_3 = 0"] = l_true;
 //b77 -> l_true "256 - 48 from_1 - 24 from_1 from_2 + from_1 from_2 from_3 + 8 from_1 from_3 + 8 from_1^2 + from_1^2 from_2 - 112 from_2 + 8 from_2 from_3 + 64 from_3 = 0"
-            m_debug_known_sat_bool_vals["256 - 48 from_1 - 24 from_1 from_2 + from_1 from_2 from_3 + 8 from_1 from_3 + 8 from_1^2 + from_1^2 from_2 - 112 from_2 + 8 from_2 from_3 + 64 from_3 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["256 - 48 from_1 - 24 from_1 from_2 + from_1 from_2 from_3 + 8 from_1 from_3 + 8 from_1^2 + from_1^2 from_2 - 112 from_2 + 8 from_2 from_3 + 64 from_3 = 0"] = l_true;
 //b78 -> l_true "8 + from_1 > 0"
-            m_debug_known_sat_bool_vals["8 + from_1 > 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["8 + from_1 > 0"] = l_true;
 //b79 -> l_true "3840 - 384 from_1 from_3 + 24 from_1 from_3^2 + 48 from_1^2 + 24 from_1^2 from_3 - 1152 from_3 + 192 from_3^2 = 0"
-            m_debug_known_sat_bool_vals["3840 - 384 from_1 from_3 + 24 from_1 from_3^2 + 48 from_1^2 + 24 from_1^2 from_3 - 1152 from_3 + 192 from_3^2 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["3840 - 384 from_1 from_3 + 24 from_1 from_3^2 + 48 from_1^2 + 24 from_1^2 from_3 - 1152 from_3 + 192 from_3^2 = 0"] = l_true;
 //b81 -> l_false "a_t2_1 < root[1](- 112 - 24 from_1 + from_1 from_3 + from_1^2 + 8 from_3)"
-            m_debug_known_sat_bool_vals["a_t2_1 < root[1](- 112 - 24 from_1 + from_1 from_3 + from_1^2 + 8 from_3)"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["a_t2_1 < root[1](- 112 - 24 from_1 + from_1 from_3 + from_1^2 + 8 from_3)"] = l_false;
 //b82 -> l_false "48 + 24 from_3 = 0"
-            m_debug_known_sat_bool_vals["48 + 24 from_3 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["48 + 24 from_3 = 0"] = l_false;
 //b83 -> l_true "48 + 24 from_3 > 0"
-            m_debug_known_sat_bool_vals["48 + 24 from_3 > 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["48 + 24 from_3 > 0"] = l_true;
 //b84 -> l_true "- 16 + from_1 < 0"
-            m_debug_known_sat_bool_vals["- 16 + from_1 < 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 16 + from_1 < 0"] = l_true;
 //b85 -> l_true "- 176 - 32 from_1 + from_1^2 < 0"
-            m_debug_known_sat_bool_vals["- 176 - 32 from_1 + from_1^2 < 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 176 - 32 from_1 + from_1^2 < 0"] = l_true;
 //b86 -> l_false "- 4 + from_1 < 0"
-            m_debug_known_sat_bool_vals["- 4 + from_1 < 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 4 + from_1 < 0"] = l_false;
 //b87 -> l_false "- 4 + from_1 > 0"
-            m_debug_known_sat_bool_vals["- 4 + from_1 > 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 4 + from_1 > 0"] = l_false;
 //b88 -> l_false "- 16 + from_1 > 0"
-            m_debug_known_sat_bool_vals["- 16 + from_1 > 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 16 + from_1 > 0"] = l_false;
 //b89 -> l_false "- 16 + from_1 = 0"
-            m_debug_known_sat_bool_vals["- 16 + from_1 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 16 + from_1 = 0"] = l_false;
 //b90 -> l_false "- 176 - 32 from_1 + from_1^2 > 0"
-            m_debug_known_sat_bool_vals["- 176 - 32 from_1 + from_1^2 > 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 176 - 32 from_1 + from_1^2 > 0"] = l_false;
 //b91 -> l_false "- 176 - 32 from_1 + from_1^2 = 0"
-            m_debug_known_sat_bool_vals["- 176 - 32 from_1 + from_1^2 = 0"] = l_false;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 176 - 32 from_1 + from_1^2 = 0"] = l_false;
 //b92 -> l_true "- 4 + from_1 = 0"
-            m_debug_known_sat_bool_vals["- 4 + from_1 = 0"] = l_true;
+            m_debug_known_sat_bool_non_pure_atom_vals["- 4 + from_1 = 0"] = l_true;
         }
 
         void debug_set_knows_sat_values() {
@@ -599,7 +613,9 @@ namespace nlsat {
             m_am(c.m_am),
             m_asm(*this, m_allocator),
             m_assignment(m_am), m_lo(m_am), m_hi(m_am),
-            m_evaluator(s, m_assignment, m_pm, m_allocator), 
+            m_debug_assignment(m_am),
+            m_evaluator(s, m_assignment, m_pm, m_allocator),
+            m_debug_evaluator(s, m_debug_assignment, m_pm, m_allocator),
             m_ism(m_evaluator.ism()),
             m_num_bool_vars(0),
             m_simplify(s, m_atoms, m_clauses, m_learned, m_pm),
@@ -610,8 +626,6 @@ namespace nlsat {
             m_lemma(s),
             m_lazy_clause(s),
             m_lemma_assumptions(m_asm) {
-            debug_set_knows_sat_values();
-           
             updt_params(c.m_params);
             reset_statistics();
             mk_true_bvar();
@@ -1225,9 +1239,90 @@ namespace nlsat {
             bool_var operator[](bool_var v) const { return vec[v]; }
         };
 
+        void debug_set_assignment_to_known_val() {
+            for (var x = 0; x < num_vars(); ++x) {
+                const anum& dval = debug_get_known_sat_anum_value(x);
+                anum val;
+                m_am.set(val, dval);
+                m_debug_assignment.set_core(x, val);
+            }
+        }
+
+        // every literal has to be evaluate to true
+        void debug_check_lemma_on_known_sat_values(unsigned n_of_literals, literal const *cls, assumption_set a) {
+            SASSERT(a == nullptr);
+            bool satisfied = false;
+            for (unsigned i = 0; i < n_of_literals; ++i) {
+                literal l = cls[i];
+                bool_var b = l.var();
+                atom* a = m_atoms[b];
+                lbool val = l_undef;
+                if (a == nullptr) {
+                    // Pure boolean variable: check m_bvalues
+                    lbool bval = m_bvalues[b]; // use the current values
+                    val = l.sign() ? ~bval : bval;
+                } else {
+                    // Arithmetic atom: evaluate directly
+                    var max = a->max_var();
+                    if (m_debug_assignment.is_assigned(max)) {
+                        bool eval_result = false;
+                        if (a->is_ineq_atom())
+                            eval_result = m_debug_evaluator.eval(to_ineq_atom(a), l.sign());
+                        else
+                            eval_result = m_debug_evaluator.eval(to_root_atom(a), l.sign());
+                        val = to_lbool(eval_result);
+                    }
+                }
+                if (val == l_undef) {
+                    display(std::cout << "literal is undef: ", l) << "\n";
+                }
+                SASSERT(val != l_undef);
+                if (val == l_true) {
+                    satisfied = true;
+                    break;
+                }
+            }
+            if (!satisfied) {
+                std::cout << "Known sat assignment does not satisfy valid lemma!\n";
+                display(std::cout, n_of_literals, cls) << "\n";
+                display_assignment(std::cout);
+            } 
+
+        }
+
+        void debug_assign_all_vars(unsigned n, literal const* cls) {
+            // go over all literals in cls
+            // if l is a pure bool skip it
+            // otherwise for each literal go over all variables in the corresponding polinomial and
+            // call m_debug_assignment.set using m_debug_known_sat_anum_map
+            for (unsigned i = 0; i < n; ++i) {
+                literal l = cls[i];
+                display(std::cout,l) << std::endl;
+                atom* a = m_atoms[l.var()];
+                if (a == nullptr)
+                    continue; // skip pure boolean
+                var_vector vars;
+                vars.reset();
+                this->vars(l, vars);
+                for (unsigned j = 0; j < vars.size(); ++j) {
+                    var x = vars[j];
+                    if (m_debug_assignment.is_assigned(x)) continue;
+                    std::string name = debug_get_var_name(x);
+                    auto it = m_debug_known_sat_anum_map.find(name);
+                    if (it != m_debug_known_sat_anum_map.end()) {
+                        anum val;
+                        m_am.set(val, it->second);
+                        m_debug_assignment.set_core(x, val);
+                    }
+                }
+            }
+        }
+
         void check_lemma(unsigned n, literal const* cls, bool is_valid, assumption_set a) {
             TRACE("nlsat", display(tout << "check lemma: ", n, cls) << "\n";
                   display(tout););
+            debug_check_lemma_on_known_sat_values(n, cls, a);
+            return;
             IF_VERBOSE(2, display(verbose_stream() << "check lemma " << (is_valid?"valid: ":"consequence: "), n, cls) << "\n");
             for (clause* c : m_learned) IF_VERBOSE(1, display(verbose_stream() << "lemma: ", *c) << "\n"); 
             scoped_suspend_rlimit _limit(m_rlimit);
@@ -1375,7 +1470,7 @@ namespace nlsat {
             if (learned && m_log_lemmas) {
                 log_lemma(verbose_stream(), *cls);
             }
-            if (learned && m_check_lemmas && false) {
+            if (learned && m_check_lemmas) {
                 check_lemma(cls->size(), cls->data(), false, cls->assumptions());
             }
             if (learned)
@@ -1424,6 +1519,7 @@ namespace nlsat {
         }
      
         void unassign_bool_var(bool_var b) {
+            TRACE("nlsat_assign", tout << "unassign bool var b" << b << "\n";);
             m_bvalues[b] = l_undef;
             m_levels[b]  = UINT_MAX;
             del_jst(m_allocator, m_justifications[b]);
@@ -1446,19 +1542,9 @@ namespace nlsat {
             TRACE("nlsat", tout << "m_xk was " << m_xk << ",(" << debug_get_var_name(m_xk) << "), becaming " << m_xk - 1; if (m_xk) tout << "(" << debug_get_var_name(m_xk - 1) << ")"; tout << "\n";);
             if (m_xk == 0) {
                 m_xk = null_var;
-                SASSERT(m_debug_on_prefix_vector.size() == 1);
             }
             else if (m_xk != null_var) {
                 m_xk--;
-                m_debug_on_prefix_vector.pop_back();
-                SASSERT(m_debug_on_prefix_vector.size() == m_xk + 1); 
-                std::cout << "undo_new_stage, ";
-                if (m_debug_on_prefix_vector.back())
-                    std::cout << "on_prefix ";
-                else
-                    std::cout << "not on prefix ";
-                std::cout << "after pop at " << m_xk << "\n";
-
                 m_assignment.reset(m_xk);
             }
         }
@@ -1582,6 +1668,14 @@ namespace nlsat {
                 return m_bvalues[b];
         }
 
+        bool debug_bvalues_coincide_with_sat_bvalues() {
+            for (const auto & p : m_debug_pure_bool_vals) {
+                if (m_bvalues[p.first] != p.second)
+                    return false;
+            }
+            return true;
+        }
+        
         /**
            \brief Assign literal to true using the given justification
         */
@@ -1610,6 +1704,9 @@ namespace nlsat {
             updt_eq(b, j);
             
             TRACE("nlsat_assign", tout << "b" << b << " -> " << m_bvalues[b]  << "\n";);
+            if (debug_bvalues_coincide_with_sat_bvalues()) {
+                std::cout << "hit all sat pure bool value\n";
+            }
         }
 
         /**
@@ -1929,6 +2026,18 @@ namespace nlsat {
             }
         }
 
+        bool debug_set_known_sat_value_to_xk_() {
+            const anum& dw = debug_get_known_sat_anum_value(m_xk);
+            bool can_use = m_ism.contains_in_complement(m_infeasible[m_xk], false, dw);
+            if (!can_use){
+                return false;
+            }
+            anum val;
+            m_am.set(val, dw);
+            m_assignment.set_core(m_xk, val);
+            return true;
+        }
+        
         /**
            \brief Assign m_xk
         */
@@ -1936,35 +2045,16 @@ namespace nlsat {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
             m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
-            // debug 
-            const anum& dw = debug_get_known_sat_anum_value(m_xk);
-            // m_xk corresponds to m_debug_on_prefix_vector[m_xk+1]
-            SASSERT(m_xk + 1 == m_debug_on_prefix_vector.size());
-            m_debug_on_prefix_vector.push_back(
-                m_debug_on_prefix_vector.back()
-                &&
-                m_ism.contains_in_complement(m_infeasible[m_xk], false, dw));
-            if (m_debug_on_prefix_vector.back())
-                std::cout << "on_prefix ";
-            else
-                std::cout << "not on prefix ";
-            std::cout << "at " << m_xk << "\n";
-            m_display_var(std::cout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";
-            std::cout << "known_val = "; m_am.display(std::cout, dw) << " and w = "; m_am.display(std::cout, w)<< "\n";
-            std::cout << "infeasible intervals:"; m_ism.display(std::cout, m_infeasible[m_xk]) << "\n";
-            // end debug
             TRACE("nlsat", tout << "infeasible intervals: "; m_ism.display(tout, m_infeasible[m_xk]); tout << "\n";
                   tout << "assigning "; m_display_var(tout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";);
             TRACE("nlsat_root", tout << "value as root object: "; m_am.display_root(tout, w); tout << "\n";);
             if (!m_am.is_rational(w))
                 m_stats.m_irrational_assignments++;
-            if (m_debug_on_prefix_vector.back() && m_debug_use_known_sol) {
-                anum val;
-                m_am.set(val, dw);
-                m_assignment.set_core(m_xk, val);
+            if (m_debug_use_known_sol && debug_set_known_sat_value_to_xk_()) {
             }
-            else 
+            else {
                 m_assignment.set_core(m_xk, w);
+            }
         }
 
         
@@ -1987,8 +2077,8 @@ namespace nlsat {
                 if (m_atoms[j] == nullptr)
                     continue;
                 std::string name = debug_atom_string(j);
-                auto it = m_debug_known_sat_bool_vals.find(name);
-                if (it == m_debug_known_sat_bool_vals.end()) {
+                auto it = m_debug_known_sat_bool_non_pure_atom_vals.find(name);
+                if (it == m_debug_known_sat_bool_non_pure_atom_vals.end()) {
                     continue;
                 }
                 if (!m_assignment.is_assigned(m_atoms[j]->max_var()))
@@ -2009,7 +2099,7 @@ namespace nlsat {
                     enable_trace("nlsat_process_clauses");*/
                 }
             }
-            std::cout << "from " << m_debug_known_sat_bool_vals.size() << ", " << n << " is evaluated\n";
+            std::cout << "from " << m_debug_known_sat_bool_non_pure_atom_vals.size() << ", " << n << " is evaluated\n";
             return true;
         }
 
@@ -2291,6 +2381,9 @@ namespace nlsat {
                     );
             }
 
+            debug_set_knows_sat_values();
+           
+
             TRACE("nlsat_smt2", display_smt2(tout););
             TRACE("nlsat_fd", tout << "is_full_dimensional: " << is_full_dimensional() << "\n";);
             init_search();
@@ -2318,7 +2411,7 @@ namespace nlsat {
             if (reordered) {
                 restore_order();
             }
-            CTRACE("nlsat_model", r == l_true, tout << "model\n"; display_assignment(tout, true););
+            CTRACE("nlsat_model", r == l_true, tout << "model\n"; display_assignment(tout, false););
             CTRACE("nlsat", r == l_false, display(tout << "unsat\n"););
             SASSERT(r != l_true || check_satisfied(m_clauses));
             return r;
@@ -2327,8 +2420,6 @@ namespace nlsat {
         
 
         void init_search() {
-            m_debug_on_prefix_vector.clear();
-            m_debug_on_prefix_vector.push_back(true);
             undo_until_empty();
             while (m_scope_lvl > 0) {
                 undo_new_level();
@@ -2549,7 +2640,7 @@ namespace nlsat {
                 log_lemma(verbose_stream(), m_lazy_clause.size(), m_lazy_clause.data(), true);
 
             if (m_check_lemmas) {
-                check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), true, nullptr);
+                check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), false, nullptr);
                 m_valids.push_back(mk_clause_core(m_lazy_clause.size(), m_lazy_clause.data(), false, nullptr));
             }
             
@@ -3592,15 +3683,18 @@ namespace nlsat {
 
         std::ostream& display_bool_assignment(std::ostream & out, bool eval_atoms = false) const {
             unsigned sz = m_atoms.size();
-            if (!eval_atoms) 
+            if (!eval_atoms) {
                 for (bool_var b = 0; b < sz; b++) {
-                    if (m_atoms[b] == nullptr && m_bvalues[b] != l_undef) {
-                        out << "b" << b << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << " @" << m_levels[b] << "\n";
-                    }
-                    else if (m_atoms[b] != nullptr && m_bvalues[b] != l_undef) {
+                    if (m_bvalues[b] == l_undef)
+                        continue;
+                    if (m_atoms[b] == nullptr) 
+                        out << "b" << b << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << " @" << m_levels[b] << "pure \n";
+                    else  {
                         display(out << "b" << b << " ", *m_atoms[b]) << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << " @" << m_levels[b] << "\n";
-                    }
+                    }                                                                                     
+                    
                 }
+            }
             else { //if (eval_atoms) {
                 for (bool_var b = 0; b < sz; b++) {
                     if (m_atoms[b] == nullptr) continue;
