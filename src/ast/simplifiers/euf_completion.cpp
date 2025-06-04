@@ -149,8 +149,10 @@ namespace euf {
         for (unsigned i = 0; i < q->get_num_decls(); ++i)
             _binding.push_back(binding[i]->get_expr());
         expr_ref r = subst(q->get_expr(), _binding);
+        IF_VERBOSE(12, verbose_stream() << "add " << r << "\n");
         add_constraint(r, get_dependency(q));
         m_should_propagate = true;
+        ++m_stats.m_num_instances;
     }
 
     void completion::read_egraph() {
@@ -164,8 +166,7 @@ namespace euf {
 
         unsigned sz = qtail();
         for (unsigned i = qhead(); i < sz; ++i) {
-            auto [f, p, d] = m_fmls[i]();
-            
+            auto [f, p, d] = m_fmls[i]();            
             expr_dependency_ref dep(d, m);
             expr_ref g = canonize_fml(f, dep);
             if (g != f) {
@@ -388,6 +389,53 @@ namespace euf {
 
     void completion::collect_statistics(statistics& st) const {
         st.update("euf-completion-rewrites", m_stats.m_num_rewrites);        
+        st.update("euf-completion-instances", m_stats.m_num_instances);        
+    }
+
+    bool completion::is_gt(expr* lhs, expr* rhs) const {
+        if (lhs == rhs) 
+            return false;
+        // values are always less in ordering than non-values.
+        bool v1 = m.is_value(lhs);
+        bool v2 = m.is_value(rhs);
+        if (!v1 && v2) 
+            return true;
+        if (v1 && !v2) 
+            return false;
+        
+        if (get_depth(lhs) > get_depth(rhs)) 
+            return true;
+        if (get_depth(lhs) < get_depth(rhs)) 
+            return false;
+
+        // slow path
+        auto n1 = get_num_exprs(lhs);
+        auto n2 = get_num_exprs(rhs);
+        if (n1 > n2)
+            return true;
+        if (n1 < n2)
+            return false;
+        
+        if (is_app(lhs) && is_app(rhs)) {
+            app* l = to_app(lhs);
+            app* r = to_app(rhs);
+            if (l->get_decl()->get_id() != r->get_decl()->get_id()) 
+                return l->get_decl()->get_id() > r->get_decl()->get_id();
+            if (l->get_num_args() != r->get_num_args()) 
+                return l->get_num_args() > r->get_num_args();
+            for (unsigned i = 0; i < l->get_num_args(); ++i) 
+                if (l->get_arg(i) != r->get_arg(i)) 
+                    return is_gt(l->get_arg(i), r->get_arg(i));
+            UNREACHABLE();
+        }
+        if (is_quantifier(lhs) && is_quantifier(rhs)) {
+            expr* l = to_quantifier(lhs)->get_expr();
+            expr* r = to_quantifier(rhs)->get_expr();
+            return is_gt(l, r);
+        }
+        if (is_quantifier(lhs))
+            return true;
+        return false;
     }
 
     void completion::map_canonical() {
@@ -403,8 +451,9 @@ namespace euf {
             roots.push_back(n);
             enode* rep = nullptr;
             for (enode* k : enode_class(n)) 
-                if (!rep || m.is_value(k->get_expr()) || get_depth(rep->get_expr()) > get_depth(k->get_expr()))
-                    rep = k;
+                if (!rep || m.is_value(k->get_expr()) || is_gt(rep->get_expr(), k->get_expr()))
+                    rep = k;            
+            // IF_VERBOSE(0, verbose_stream() << m_egraph.bpp(n) << " ->\n" << m_egraph.bpp(rep) << "\n";);
             m_reps.setx(n->get_id(), rep, nullptr);
 
             TRACE(euf_completion, tout << "rep " << m_egraph.bpp(n) << " -> " << m_egraph.bpp(rep) << "\n";

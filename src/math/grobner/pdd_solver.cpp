@@ -72,7 +72,7 @@ namespace dd {
 
     void solver::adjust_cfg() {
         auto & cfg = m_config;
-        IF_VERBOSE(3, verbose_stream() << "start saturate\n"; display_statistics(verbose_stream()));
+        IF_VERBOSE(5, verbose_stream() << "start saturate\n"; display_statistics(verbose_stream()));
         cfg.m_eqs_threshold = static_cast<unsigned>(cfg.m_eqs_growth * ceil(log(1 + m_to_simplify.size()))* m_to_simplify.size());
         cfg.m_expr_size_limit = 0;
         cfg.m_expr_degree_limit = 0;
@@ -83,7 +83,7 @@ namespace dd {
         cfg.m_expr_size_limit *= cfg.m_expr_size_growth;
         cfg.m_expr_degree_limit *= cfg.m_expr_degree_growth;;
         
-        IF_VERBOSE(3, verbose_stream() << "set m_config.m_eqs_threshold " <<  m_config.m_eqs_threshold  << "\n";
+        IF_VERBOSE(5, verbose_stream() << "set m_config.m_eqs_threshold " <<  m_config.m_eqs_threshold  << "\n";
                    verbose_stream() << "set m_config.m_expr_size_limit to " <<  m_config.m_expr_size_limit << "\n";
                    verbose_stream() << "set m_config.m_expr_degree_limit to " <<  m_config.m_expr_degree_limit << "\n";
                    );
@@ -98,7 +98,7 @@ namespace dd {
             while (!done() && step()) {
                 TRACE(dd_solver, display(tout););
                 DEBUG_CODE(invariant(););
-                IF_VERBOSE(3, display_statistics(verbose_stream()));
+                IF_VERBOSE(6, display_statistics(verbose_stream()));
             }
             DEBUG_CODE(invariant(););
         }

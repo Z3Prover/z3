@@ -28,6 +28,7 @@ namespace euf {
 
         struct stats {
             unsigned m_num_rewrites = 0;
+            unsigned m_num_instances = 0;
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
@@ -63,6 +64,8 @@ namespace euf {
         expr_dependency* explain_eq(enode* a, enode* b);
         expr_dependency* explain_conflict();
         expr_dependency* get_dependency(quantifier* q) { return m_q2dep.contains(q) ? m_q2dep[q] : nullptr; }
+
+        bool is_gt(expr* a, expr* b) const;
     public:
         completion(ast_manager& m, dependent_expr_state& fmls);
         char const* name() const override { return "euf-reduce"; }

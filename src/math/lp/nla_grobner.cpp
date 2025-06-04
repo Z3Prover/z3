@@ -86,8 +86,8 @@ namespace nla {
         if (m_quota > 0)
            --m_quota;
 
-        IF_VERBOSE(3, verbose_stream() << "grobner miss, quota " << m_quota << "\n");
-        IF_VERBOSE(4, diagnose_pdd_miss(verbose_stream()));
+        IF_VERBOSE(5, verbose_stream() << "grobner miss, quota " << m_quota << "\n");
+        IF_VERBOSE(5, diagnose_pdd_miss(verbose_stream()));
     }
 
     dd::solver::equation_vector const& grobner::core_equations(bool all_eqs) {

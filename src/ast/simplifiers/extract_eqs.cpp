@@ -33,6 +33,40 @@ namespace euf {
         bool m_ite_solver = true;
         bool m_allow_bool = true;
 
+        bool is_eq_of(expr* x, expr* y, expr*& z, expr*& s, expr*& t) {
+            expr* x1 = nullptr, *x2 = nullptr, *y1 = nullptr, *y2 = nullptr;
+            if (!m.is_eq(x, x1, x2))
+                return false;
+            if (!m.is_eq(y, y1, y2))
+                return false;
+            if (x1 == y1) {
+                z = x1;
+                s = x2;
+                t = y2;
+                return true;
+            }
+            if (x1 == y2) {
+                z = x1;
+                s = x2;
+                t = y1;
+                return true;
+            }
+            if (x2 == y1) {
+                z = x2;
+                s = x1;
+                t = y2;
+                return true;
+            }
+            return false;
+        }
+        bool is_complementary(expr* x, expr* y) {
+            expr* z = nullptr;
+            if (m.is_not(x, z) && z == y)
+                return true;
+            if (m.is_not(y, z) && z == x)
+                return true;
+            return false;
+        }
     public:
         basic_extract_eq(ast_manager& m) : m(m) {}
 
@@ -67,6 +101,30 @@ namespace euf {
                     if (x1 == x2 && is_uninterp_const(x1)) 
                         eqs.push_back(dependent_eq(e.fml(), to_app(x1), expr_ref(m.mk_ite(c, y1, y2), m), d));
                 }
+            }
+            // (or (and a (= x t)) (and (not a) (= x s)))
+            // -> x = if a s t
+            if (m.is_or(f, x1, y1) && m.is_and(x1, x1, x2) && m.is_and(y1, y1, y2)) {
+                expr* z = nullptr, *t = nullptr, *s = nullptr;
+                if (is_eq_of(x1, y1, z, s, t) && is_complementary(x2, y2)) 
+                    eqs.push_back(dependent_eq(e.fml(), to_app(z), expr_ref(m.mk_ite(x2, s, t), m), d));
+                if (is_eq_of(x1, y2, z, s, t) && is_complementary(x2, y1))
+                    eqs.push_back(dependent_eq(e.fml(), to_app(z), expr_ref(m.mk_ite(x2, s, t), m), d));
+                if (is_eq_of(x2, y2, z, s, t) && is_complementary(x1, y1))
+                    eqs.push_back(dependent_eq(e.fml(), to_app(z), expr_ref(m.mk_ite(x1, s, t), m), d));
+                if (is_eq_of(x2, y1, z, s, t) && is_complementary(x1, y2))
+                    eqs.push_back(dependent_eq(e.fml(), to_app(z), expr_ref(m.mk_ite(x1, s, t), m), d));
+            }
+            if (m.is_and(f, x1, y1) && m.is_or(x, x1, x2) && m.is_or(y1, y1, y2)) {
+                expr* z = nullptr, *t = nullptr, *s = nullptr;
+                if (is_eq_of(x1, y1, z, s, t) && is_complementary(x2, y2)) 
+                    eqs.push_back(dependent_eq(e.fml(), to_app(z), expr_ref(m.mk_ite(y2, s, t), m), d));
+                if (is_eq_of(x1, y2, z, s, t) && is_complementary(x2, y1))
+                    eqs.push_back(dependent_eq(e.fml(), to_app(z), expr_ref(m.mk_ite(y1, s, t), m), d));
+                if (is_eq_of(x2, y2, z, s, t) && is_complementary(x1, y1))
+                    eqs.push_back(dependent_eq(e.fml(), to_app(z), expr_ref(m.mk_ite(y1, s, t), m), d));
+                if (is_eq_of(x2, y1, z, s, t) && is_complementary(x1, y2))
+                    eqs.push_back(dependent_eq(e.fml(), to_app(z), expr_ref(m.mk_ite(y2, s, t), m), d));
             }
             if (!m_allow_bool)
                 return;
