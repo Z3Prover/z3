@@ -19,5 +19,5 @@ def_module_params('nlsat',
                           ('inline_vars', BOOL, False, "inline variables that can be isolated from equations (not supported in incremental mode)"),
                           ('seed', UINT, 0, "random seed."),
                           ('factor', BOOL, True, "factor polynomials produced during conflict resolution."),
-                          ('debug_use_known_sol', BOOL, False, "use the supplied known SAT values.")
+                          ('debug_known_sol_file', STRING, "", "the file name of a known solution: use for debugging only")
                           ))         

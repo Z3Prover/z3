@@ -225,7 +225,6 @@ namespace nlsat {
         bool                   m_check_lemmas;
         unsigned               m_max_conflicts;
         unsigned               m_lemma_count;
-        bool m_simple_check =  false;
         unsigned m_variable_ordering_strategy;
         bool m_set_0_more;
         bool m_cell_sample;
@@ -246,7 +245,7 @@ namespace nlsat {
         std::unordered_map<std::string, anum> m_debug_known_sat_anum_map;
         std::unordered_map<std::string, lbool> m_debug_known_sat_bool_non_pure_atom_vals;
         std::unordered_map<unsigned, lbool> m_debug_pure_bool_vals;
-        bool m_debug_use_known_sol = false;
+        std::string m_debug_known_sol_file_name;
         const anum & debug_get_known_sat_anum_value(unsigned j) {
             std::string name = debug_get_var_name(j);
 
@@ -345,57 +344,8 @@ namespace nlsat {
             return correct;
         }
 
-        void debug_set_known_var_values() {
-            std::vector<std::pair<std::string, int>> var_sat_values = {
-                {"k!0", 6},
-                {"k!1", 6},
-                { "k!2", 6},
-                {"r_t0t1_3", 12},
-                {"a_t2_2",   8},
-                {"to_2",     1},
-                {"a_t0_2",   2},
-                {"from_3",   4},
-                {"r_t1t2_1", 12},
-                {"l_t0t1_3", 12},
-                {"a_t1_1",  12},
-                {"l_t0t1_1",18},
-                {"to_3",     1},
-                {"a_t2_1",   2},
-                {"to_1",     1},
-                {"l_t2t0_2",12},
-                {"r_t2t0_2",12},
-                {"a_t2_3",   8},
-                {"from_2",   4},
-                {"from_1",   4},
-                {"l_t1t2_1",12},
-                {"a_t1_3",   8},
-                {"r_t0t1_2", 8},
-                {"a_t0_0",   6},
-                {"l_t0t1_2",18},
-                {"l_t1t2_0",18},
-                {"r_t0t1_1", 8},
-                {"payout_3", 6},
-                {"l_t2t0_0",18},
-                {"a_t2_0",   6},
-                {"r_t1t2_0", 8},
-                {"payout_2", 6},
-                {"l_t2t0_3",12},
-                {"l_t2t0_1",18},
-                {"a_t1_0",   6},
-                {"r_t2t0_1", 8},
-                {"r_t1t2_3",12},
-                {"a_t0_1",   6},
-                {"r_t1t2_2",12},
-                {"r_t2t0_3",12},
-                {"a_t0_3",   8},
-                {"r_t0t1_0", 8},
-                {"r_t2t0_0", 8},
-                {"l_t1t2_3",12},
-                {"a_t1_2",  12},
-                {"payout_1",6},
-                {"l_t1t2_2",12},
-                {"l_t0t1_0",18}
-            };
+        void debug_set_known_sat_values() {
+            std::vector<std::pair<std::string, anum>> var_sat_values = debug_parse_var_anum_file();
 
             for (auto const & kv : var_sat_values) {
                 anum val;
@@ -403,199 +353,6 @@ namespace nlsat {
                 m_am.set(val, kv.second);
                 m_debug_known_sat_anum_map[kv.first] = val;
             }
-
-        }
-
-        void debug_set_known_bool_values() {
-//            b0 -> true @0pure
-                m_debug_pure_bool_vals[0] = l_true;
-                //              b14 -> false @1pure
-                m_debug_pure_bool_vals[14] = l_false;
-//                b19 -> true @2pure 
-                m_debug_pure_bool_vals[19] = l_true;
-                //              b24 -> false @2pure 
-                m_debug_pure_bool_vals[24] = l_false;
-//                b27 -> false @3pure 
-                m_debug_pure_bool_vals[27] = l_false;
-                //              b32 -> true @3pure 
-                m_debug_pure_bool_vals[32] = l_true;
-//                b37 -> false @3pure 
-                m_debug_pure_bool_vals[37] = l_false;
-                //              b40 -> false @4pure 
-                m_debug_pure_bool_vals[40] = l_false;
-//                b45 -> true @4pure 
-                m_debug_pure_bool_vals[45] = l_true;
-//              b50 -> false @4pure 
-                m_debug_pure_bool_vals[50] = l_false;
-//b1 -> l_false "a_t1_1 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["a_t1_1 < 0"] = l_false;
-//b2 -> l_false "a_t2_1 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["a_t2_1 < 0"] = l_false;
-//b3 -> l_false "a_t0_2 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["a_t0_2 < 0"] = l_false;
-//b4 -> l_false "a_t2_2 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["a_t2_2 < 0"] = l_false;
-//b5 -> l_false "- 16 + a_t2_2 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 16 + a_t2_2 > 0"] = l_false;
-//b6 -> l_true "from_1 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["from_1 > 0"] = l_true;
-//b7 -> l_true "from_2 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["from_2 > 0"] = l_true;
-//b8 -> l_true "from_3 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["from_3 > 0"] = l_true;
-//b9 -> l_true "to_1 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["to_1 > 0"] = l_true;
-//b10 -> l_true "to_2 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["to_2 > 0"] = l_true;
-//b11 -> l_true "to_3 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["to_3 > 0"] = l_true;
-//b12 -> l_true "- 8 - from_1 + r_t1t2_1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 8 - from_1 + r_t1t2_1 = 0"] = l_true;
-//b14 -> l_true "- 6 + a_t2_1 + from_1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 6 + a_t2_1 + from_1 = 0"] = l_true;
-//b15 -> l_true "- 18 + k!0 + l_t1t2_1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 18 + k!0 + l_t1t2_1 = 0"] = l_true;
-//b16 -> l_true "6 - a_t1_1 + k!0 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["6 - a_t1_1 + k!0 = 0"] = l_true;
-//b17 -> l_false "- 18 + l_t1t2_1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 18 + l_t1t2_1 = 0"] = l_false;
-//b19 -> l_false "- 8 + r_t1t2_1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 8 + r_t1t2_1 = 0"] = l_false;
-//b20 -> l_false "- 6 + a_t1_1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 6 + a_t1_1 = 0"] = l_false;
-//b21 -> l_false "- 6 + a_t2_1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 6 + a_t2_1 = 0"] = l_false;
-//b22 -> l_false "to_1 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["to_1 < 0"] = l_false;
-//b24 -> l_false "k!0 - to_1 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["k!0 - to_1 < 0"] = l_false;
-//b25 -> l_true "- 8 - from_2 + r_t2t0_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 8 - from_2 + r_t2t0_2 = 0"] = l_true;
-//b27 -> l_true "- 6 + a_t0_2 + from_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 6 + a_t0_2 + from_2 = 0"] = l_true;
-//b28 -> l_true "- 18 + k!1 + l_t2t0_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 18 + k!1 + l_t2t0_2 = 0"] = l_true;
-//b29 -> l_true "a_t2_1 - a_t2_2 + k!1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["a_t2_1 - a_t2_2 + k!1 = 0"] = l_true;
-//b30 -> l_false "- 18 + l_t2t0_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 18 + l_t2t0_2 = 0"] = l_false;
-//b32 -> l_false "- 8 + r_t2t0_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 8 + r_t2t0_2 = 0"] = l_false;
-//b33 -> l_false "- 6 + a_t0_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 6 + a_t0_2 = 0"] = l_false;
-//b34 -> l_false "- a_t2_1 + a_t2_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- a_t2_1 + a_t2_2 = 0"] = l_false;
-//b35 -> l_false "to_2 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["to_2 < 0"] = l_false;
-//b37 -> l_false "k!1 - to_2 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["k!1 - to_2 < 0"] = l_false;
-//b38 -> l_true "- 8 - from_3 + r_t0t1_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 8 - from_3 + r_t0t1_3 = 0"] = l_true;
-//b40 -> l_true "- 18 + k!2 + l_t0t1_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 18 + k!2 + l_t0t1_3 = 0"] = l_true;
-//b41 -> l_true "- 8 + a_t0_2 + k!2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 8 + a_t0_2 + k!2 = 0"] = l_true;
-//b42 -> l_true "16 - a_t1_1 - a_t2_2 + from_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["16 - a_t1_1 - a_t2_2 + from_3 = 0"] = l_true;
-//b43 -> l_false "- 18 + l_t0t1_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 18 + l_t0t1_3 = 0"] = l_false;
-//b45 -> l_false "- 8 + r_t0t1_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 8 + r_t0t1_3 = 0"] = l_false;
-//b46 -> l_false "- 8 + a_t0_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 8 + a_t0_2 = 0"] = l_false;
-//b47 -> l_false "- 16 + a_t1_1 + a_t2_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 16 + a_t1_1 + a_t2_2 = 0"] = l_false;
-//b48 -> l_false "to_3 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["to_3 < 0"] = l_false;
-//b50 -> l_false "k!2 - to_3 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["k!2 - to_3 < 0"] = l_false;
-//b51 -> l_false "8 + from_1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["8 + from_1 = 0"] = l_false;
-//b52 -> l_true "- 18 from_1 + from_1 k!0 + 8 k!0 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 18 from_1 + from_1 k!0 + 8 k!0 = 0"] = l_true;
-//b53 -> l_false "8 + from_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["8 + from_2 = 0"] = l_false;
-//b54 -> l_true "- 18 from_2 + from_2 k!1 + 8 k!1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 18 from_2 + from_2 k!1 + 8 k!1 = 0"] = l_true;
-//b55 -> l_false "8 + from_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["8 + from_3 = 0"] = l_false;
-//b56 -> l_true "- 18 from_3 + from_3 k!2 + 8 k!2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 18 from_3 + from_3 k!2 + 8 k!2 = 0"] = l_true;
-//b57 -> l_true "- k!0 + k!1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- k!0 + k!1 = 0"] = l_true;
-//b58 -> l_true "- from_1 + from_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- from_1 + from_2 = 0"] = l_true;
-//b59 -> l_true "- from_1 + from_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- from_1 + from_3 = 0"] = l_true;
-//b60 -> l_true "- k!0 + k!2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- k!0 + k!2 = 0"] = l_true;
-//b61 -> l_true "- from_2 + from_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- from_2 + from_3 = 0"] = l_true;
-//b62 -> l_true "- k!1 + k!2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- k!1 + k!2 = 0"] = l_true;
-//b63 -> l_false "from_1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["from_1 = 0"] = l_false;
-//b64 -> l_false "- 6 + a_t2_2 + from_1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 6 + a_t2_2 + from_1 = 0"] = l_false;
-//b65 -> l_true "8 a_t2_1 + a_t2_1 from_2 - 8 a_t2_2 - a_t2_2 from_2 + 18 from_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["8 a_t2_1 + a_t2_1 from_2 - 8 a_t2_2 - a_t2_2 from_2 + 18 from_2 = 0"] = l_true;
-//b66 -> l_true "8 + from_2 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["8 + from_2 > 0"] = l_true;
-//b67 -> l_true "- 48 + 8 a_t2_2 + a_t2_2 from_2 + 8 from_1 + from_1 from_2 - 24 from_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 48 + 8 a_t2_2 + a_t2_2 from_2 + 8 from_1 + from_1 from_2 - 24 from_2 = 0"] = l_true;
-//b68 -> l_false "18 from_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["18 from_2 = 0"] = l_false;
-//b69 -> l_true "- 2 - from_2 + k!2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 2 - from_2 + k!2 = 0"] = l_true;
-//b70 -> l_true "16 + 8 from_2 + from_2 from_3 - 16 from_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["16 + 8 from_2 + from_2 from_3 - 16 from_3 = 0"] = l_true;
-//b71 -> l_true "- 16 + 16 from_3 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 16 + 16 from_3 > 0"] = l_true;
-//b72 -> l_true "8 + from_3 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["8 + from_3 > 0"] = l_true;
-//b73 -> l_false "2 + from_2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["2 + from_2 = 0"] = l_false;
-//b74 -> l_false "18 from_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["18 from_3 = 0"] = l_false;
-//b75 -> l_true "- 10 + a_t2_2 - from_3 + k!0 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 10 + a_t2_2 - from_3 + k!0 = 0"] = l_true;
-//b76 -> l_true "- 80 + 8 a_t2_2 + a_t2_2 from_1 + 8 from_1 - from_1 from_3 - 8 from_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 80 + 8 a_t2_2 + a_t2_2 from_1 + 8 from_1 - from_1 from_3 - 8 from_3 = 0"] = l_true;
-//b77 -> l_true "256 - 48 from_1 - 24 from_1 from_2 + from_1 from_2 from_3 + 8 from_1 from_3 + 8 from_1^2 + from_1^2 from_2 - 112 from_2 + 8 from_2 from_3 + 64 from_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["256 - 48 from_1 - 24 from_1 from_2 + from_1 from_2 from_3 + 8 from_1 from_3 + 8 from_1^2 + from_1^2 from_2 - 112 from_2 + 8 from_2 from_3 + 64 from_3 = 0"] = l_true;
-//b78 -> l_true "8 + from_1 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["8 + from_1 > 0"] = l_true;
-//b79 -> l_true "3840 - 384 from_1 from_3 + 24 from_1 from_3^2 + 48 from_1^2 + 24 from_1^2 from_3 - 1152 from_3 + 192 from_3^2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["3840 - 384 from_1 from_3 + 24 from_1 from_3^2 + 48 from_1^2 + 24 from_1^2 from_3 - 1152 from_3 + 192 from_3^2 = 0"] = l_true;
-//b81 -> l_false "a_t2_1 < root[1](- 112 - 24 from_1 + from_1 from_3 + from_1^2 + 8 from_3)"
-            m_debug_known_sat_bool_non_pure_atom_vals["a_t2_1 < root[1](- 112 - 24 from_1 + from_1 from_3 + from_1^2 + 8 from_3)"] = l_false;
-//b82 -> l_false "48 + 24 from_3 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["48 + 24 from_3 = 0"] = l_false;
-//b83 -> l_true "48 + 24 from_3 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["48 + 24 from_3 > 0"] = l_true;
-//b84 -> l_true "- 16 + from_1 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 16 + from_1 < 0"] = l_true;
-//b85 -> l_true "- 176 - 32 from_1 + from_1^2 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 176 - 32 from_1 + from_1^2 < 0"] = l_true;
-//b86 -> l_false "- 4 + from_1 < 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 4 + from_1 < 0"] = l_false;
-//b87 -> l_false "- 4 + from_1 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 4 + from_1 > 0"] = l_false;
-//b88 -> l_false "- 16 + from_1 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 16 + from_1 > 0"] = l_false;
-//b89 -> l_false "- 16 + from_1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 16 + from_1 = 0"] = l_false;
-//b90 -> l_false "- 176 - 32 from_1 + from_1^2 > 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 176 - 32 from_1 + from_1^2 > 0"] = l_false;
-//b91 -> l_false "- 176 - 32 from_1 + from_1^2 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 176 - 32 from_1 + from_1^2 = 0"] = l_false;
-//b92 -> l_true "- 4 + from_1 = 0"
-            m_debug_known_sat_bool_non_pure_atom_vals["- 4 + from_1 = 0"] = l_true;
-        }
-
-        void debug_set_knows_sat_values() {
-            debug_set_known_var_values();
-            debug_set_known_bool_values();
         }
 
         imp(solver& s, ctx& c):
@@ -627,8 +384,8 @@ namespace nlsat {
             reset_statistics();
             mk_true_bvar();
             m_lemma_count = 0;
-            
-            
+            if (!m_debug_known_sol_file_name.empty())
+                debug_set_known_sat_values();
         }
         
         ~imp() {
@@ -668,7 +425,7 @@ namespace nlsat {
             m_explain.set_minimize_cores(min_cores);
             m_explain.set_factor(p.factor());
             m_am.updt_params(p.p);
-            m_debug_use_known_sol = p.debug_use_known_sol();
+            m_debug_known_sol_file_name = p.debug_known_sol_file();
         }
 
         void reset() {
@@ -2079,14 +1836,8 @@ namespace nlsat {
             TRACE("nlsat_root", tout << "value as root object: "; m_am.display_root(tout, w); tout << "\n";);
             if (!m_am.is_rational(w))
                 m_stats.m_irrational_assignments++;
-            if (m_debug_use_known_sol && debug_set_known_sat_value_to_xk_()) {
-            }
-            else {
-                m_assignment.set_core(m_xk, w);
-            }
+            m_assignment.set_core(m_xk, w);
         }
-
-        
 
         bool is_satisfied() {
             if (m_bk == null_bool_var && m_xk >= num_vars()) {
@@ -2098,38 +1849,6 @@ namespace nlsat {
             else {
                 return false;
             }
-        }
-
-        bool debug_all_known_atoms_have_correct_values() {
-            unsigned n = 0;
-            for (unsigned j = 0; j < m_atoms.size(); j++) {
-                if (m_atoms[j] == nullptr)
-                    continue;
-                std::string name = debug_atom_string(j);
-                auto it = m_debug_known_sat_bool_non_pure_atom_vals.find(name);
-                if (it == m_debug_known_sat_bool_non_pure_atom_vals.end()) {
-                    continue;
-                }
-                if (!m_assignment.is_assigned(m_atoms[j]->max_var()))
-                    continue;
-                lbool val = to_lbool(m_evaluator.eval(m_atoms[j], false));
-                if (val == l_undef)
-                    continue;
-                if (val != it->second)
-                    return false;
-                n++;
-                if (n >= 26) {
-                    enable_trace("nlsat_assign");
-                    /*
-                    enable_trace("nlsat");
-                    enable_trace("nlsat_proof");*/
-                    enable_trace("nlsat_resolve");
-                    enable_trace("nlsat_inf_set");/*
-                    enable_trace("nlsat_process_clauses");*/
-                }
-            }
-            std::cout << "from " << m_debug_known_sat_bool_non_pure_atom_vals.size() << ", " << n << " is evaluated\n";
-            return true;
         }
 
         /**
@@ -2400,19 +2119,6 @@ namespace nlsat {
         }
 
         lbool check() {
-            if (m_simple_check) {
-                if (!simple_check()) {
-                    TRACE("simple_check", tout << "real unsat\n";);
-                    return l_false;
-                }
-                TRACE("simple_checker_learned",
-                      tout << "simple check done\n";
-                    );
-            }
-
-            debug_set_knows_sat_values();
-           
-
             TRACE("nlsat_smt2", display_smt2(tout););
             TRACE("nlsat_fd", tout << "is_full_dimensional: " << is_full_dimensional() << "\n";);
             init_search();
@@ -3477,13 +3183,7 @@ namespace nlsat {
             unsigned num = num_vars();
             for (unsigned i = 0; i < num; i++) {
                 clause_vector & ws = m_watches[i];
-                // sort_clauses_by_degree(ws.size(), ws.data());
-                if (m_simple_check) {
-                    sort_clauses_by_degree_lit_num(ws.size(), ws.data());
-                }
-                else {
-                    sort_clauses_by_degree(ws.size(), ws.data());
-                }
+                sort_clauses_by_degree(ws.size(), ws.data());
             }
         }
 
@@ -4483,6 +4183,37 @@ namespace nlsat {
             std::stringstream ss;
             display_atom(ss, v);
             return ss.str();
+        }
+
+        std::vector<std::pair<std::string, anum>> debug_parse_var_anum_file() {
+            std::vector<std::pair<std::string, anum>> result;
+            std::ifstream in(m_debug_known_sol_file_name);
+            std::string line;
+            while (std::getline(in, line)) {
+                std::istringstream iss(line);
+                std::string name, value_str;
+                if (!(iss >> name >> value_str)) {
+                    std::cout << line << std::endl;
+                    std::cout << "is not recognized\n";
+                    exit(1); // skip malformed lines
+                }
+                // Parse rational value
+                rational r;
+                size_t slash = value_str.find('/');
+                if (slash == std::string::npos) {
+                    r = rational(value_str.c_str());
+                } else {
+                    std::string num = value_str.substr(0, slash);
+                    std::string den = value_str.substr(slash + 1);
+                     r = rational(num.c_str()) / rational(den.c_str());
+                }
+                anum a;
+                const auto& q =  r.to_mpq();
+                m_am.set(a, q);
+                result.emplace_back(name, a);
+            }
+
+            return result;
         }
     };
     
