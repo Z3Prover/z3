@@ -55,7 +55,10 @@ namespace nlsat {
             am().swap(m_values[x], v); 
         }
         void set(var x, anum const & v) {
-            set_core(x, const_cast<anum &>(v));
+            m_values.reserve(x+1, anum());
+            m_assigned.reserve(x+1, false); 
+            m_assigned[x] = true;
+            am().set(m_values[x], v); 
         }
         void reset(var x) { if (x < m_assigned.size()) m_assigned[x] = false; }
         void reset() { m_assigned.reset(); }

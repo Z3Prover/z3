@@ -404,9 +404,6 @@ namespace nlsat {
                 m_debug_known_sat_anum_map[kv.first] = val;
             }
 
-            debug_set_assignment_to_known_val();
-        
-            
         }
 
         void debug_set_known_bool_values() {
@@ -1239,17 +1236,54 @@ namespace nlsat {
             bool_var operator[](bool_var v) const { return vec[v]; }
         };
 
-        void debug_set_assignment_to_known_val() {
+        void debug_set_debug_assignment_to_known_vals() {
+            m_debug_assignment.reset();
             for (var x = 0; x < num_vars(); ++x) {
                 const anum& dval = debug_get_known_sat_anum_value(x);
-                anum val;
-                m_am.set(val, dval);
-                m_debug_assignment.set_core(x, val);
+                m_debug_assignment.set(x, dval);
             }
         }
 
+        std::vector<unsigned> collect_vars(literal l) {
+            var_vector vars;
+            this->vars(l, vars);
+            std::vector<unsigned> result;
+            for (unsigned i = 0; i < vars.size(); ++i) {
+                result.push_back(vars[i]);
+            }
+            return result;        }
+        std::vector<unsigned> collect_vars_on_clause(unsigned n_of_literals, literal const *cls) {
+            bool_vector seen(num_vars(), false);
+            std::vector<unsigned> result;
+            for (unsigned i = 0; i < n_of_literals; ++i) {
+                auto vlist = collect_vars(cls[i]);
+                for (unsigned x : vlist) {
+                    if (x < seen.size() && !seen[x]) {
+                        seen.setx(x, true, false);
+                        result.push_back(x);
+                    }
+                }
+            }
+            return result;
+        }
+
+        std::ostream& display_assignment_on_clause(std::ostream& out, const assignment & x2v, unsigned n_of_literals, literal const *cls) {
+            auto vars = collect_vars_on_clause(n_of_literals, cls);
+            for (unsigned x : vars) {
+                m_display_var(out, x);
+                out << " = ";
+                if (x2v.is_assigned(x))
+                    m_am.display_decimal(out, x2v.value(x));
+                else
+                    out << "undef";
+                out << "\n";
+            }
+            return out;
+        }
+        
         // every literal has to be evaluate to true
         void debug_check_lemma_on_known_sat_values(unsigned n_of_literals, literal const *cls, assumption_set a) {
+            debug_set_debug_assignment_to_known_vals();
             SASSERT(a == nullptr);
             bool satisfied = false;
             for (unsigned i = 0; i < n_of_literals; ++i) {
@@ -1258,6 +1292,7 @@ namespace nlsat {
                 atom* a = m_atoms[b];
                 lbool val = l_undef;
                 if (a == nullptr) {
+                    return; // ignore lemmas with booleans
                     // Pure boolean variable: check m_bvalues
                     lbool bval = m_bvalues[b]; // use the current values
                     val = l.sign() ? ~bval : bval;
@@ -1283,39 +1318,13 @@ namespace nlsat {
                 }
             }
             if (!satisfied) {
+                m_display_var.m_proc = nullptr;
                 std::cout << "Known sat assignment does not satisfy valid lemma!\n";
                 display(std::cout, n_of_literals, cls) << "\n";
-                display_assignment(std::cout);
+                display_assignment_on_clause(std::cout, m_debug_assignment, n_of_literals, cls);
+                exit(1);
             } 
 
-        }
-
-        void debug_assign_all_vars(unsigned n, literal const* cls) {
-            // go over all literals in cls
-            // if l is a pure bool skip it
-            // otherwise for each literal go over all variables in the corresponding polinomial and
-            // call m_debug_assignment.set using m_debug_known_sat_anum_map
-            for (unsigned i = 0; i < n; ++i) {
-                literal l = cls[i];
-                display(std::cout,l) << std::endl;
-                atom* a = m_atoms[l.var()];
-                if (a == nullptr)
-                    continue; // skip pure boolean
-                var_vector vars;
-                vars.reset();
-                this->vars(l, vars);
-                for (unsigned j = 0; j < vars.size(); ++j) {
-                    var x = vars[j];
-                    if (m_debug_assignment.is_assigned(x)) continue;
-                    std::string name = debug_get_var_name(x);
-                    auto it = m_debug_known_sat_anum_map.find(name);
-                    if (it != m_debug_known_sat_anum_map.end()) {
-                        anum val;
-                        m_am.set(val, it->second);
-                        m_debug_assignment.set_core(x, val);
-                    }
-                }
-            }
         }
 
         void check_lemma(unsigned n, literal const* cls, bool is_valid, assumption_set a) {
@@ -1696,6 +1705,7 @@ namespace nlsat {
            \brief Assign literal to true using the given justification
         */
         void set_literal_to_true(literal l, justification j) {
+            debug_set_debug_assignment_to_known_vals();
             TRACE("nlsat_assign",
                   tout << "literal" << l << "\n";
                   display(tout << "assigning literal to true: ", l) << "\n";
@@ -1720,7 +1730,7 @@ namespace nlsat {
             updt_eq(b, j);
             
             TRACE("nlsat_assign", tout << "b" << b << " -> " << m_bvalues[b]  << "\n";);
-            
+            return;
             if (debug_literal_holds_on_sat_var_values(l)) {
                 std::cout << "literal holds: "; display(std::cout, l) << "\n";
             } else {
