@@ -990,29 +990,23 @@ void bit_blaster_tpl<Cfg>::mk_ext_rotate_left_right(unsigned sz, expr * const * 
             mk_rotate_right(sz, a_bits, static_cast<unsigned>(k.get_uint64()), out_bits);
     }
     else {
-        //
-        // Review: a better tuned implementation is possible by using shifts by power of two.
-        // e.g., looping over the bits of b_bits, then rotate by a power of two depending
-        // on the bit-position. This would get rid of the mk_urem.
-        //
-        expr_ref_vector sz_bits(m());
-        expr_ref_vector masked_b_bits(m());
-        expr_ref_vector eqs(m());
-        numeral sz_numeral(sz);
-        num2bits(sz_numeral, sz, sz_bits);
-        mk_urem(sz, b_bits, sz_bits.data(), masked_b_bits);
-        mk_eqs(sz, masked_b_bits.data(), eqs);
-        for (unsigned i = 0; i < sz; i++) {
-            checkpoint();
-            expr_ref out(m());
-            out = a_bits[i];
-            for (unsigned j = 1; j < sz; j++) {
-                expr_ref new_out(m());
-                unsigned src = (Left ? (sz + i - j) : (i + j)) % sz;
-                mk_ite(eqs.get(j), a_bits[src], out, new_out);
-                out = new_out;
+        for (unsigned j = 0; j < sz; ++j)
+            out_bits.push_back(a_bits[j]);
+        expr_ref_vector out(m());
+        for (unsigned i = 0, p = 1; i < sz; ++i) {
+            auto bit_i = b_bits[i];
+            // rotate by p if bit_i is set.
+            out.reset();
+            for (unsigned j = 0; j < sz; ++j) {
+                unsigned src = (Left ? (sz + j - p) : (j + p)) % sz;
+                out.push_back(m().mk_ite(bit_i, out_bits.get(src), out_bits.get(j)));
             }
-            out_bits.push_back(out);
+            out_bits.reset();
+            out_bits.append(out);        
+            p *= 2;
+            if (is_power_of_two(sz) && sz == p)
+                break;
+            p %= sz;
         }
     }
 }
