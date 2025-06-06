@@ -8,7 +8,6 @@ z3_add_component(core_tactics
     der_tactic.cpp
     elim_term_ite_tactic.cpp
     elim_uncnstr_tactic.cpp
-    euf_completion_tactic.cpp
     injectivity_tactic.cpp
     nnf_tactic.cpp
     occf_tactic.cpp
@@ -38,7 +37,6 @@ z3_add_component(core_tactics
     elim_uncnstr_tactic.h
     elim_uncnstr2_tactic.h
     eliminate_predicates_tactic.h
-    euf_completion_tactic.h
     injectivity_tactic.h
     nnf_tactic.h
     occf_tactic.h

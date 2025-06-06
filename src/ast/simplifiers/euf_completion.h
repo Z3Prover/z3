@@ -17,6 +17,7 @@ Author:
 
 #pragma once
 
+#include "util/scoped_vector.h"
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_mam.h"
@@ -24,12 +25,27 @@ Author:
 
 namespace euf {
 
+    class side_condition_solver {
+    public:
+        virtual ~side_condition_solver() = default;
+        virtual void add_constraint(expr* f, expr_dependency* d) = 0;
+        virtual bool is_true(expr* f, expr_dependency*& d) = 0;
+    };
+
     class completion : public dependent_expr_simplifier, public on_binding_callback, public mam_solver {
 
         struct stats {
             unsigned m_num_rewrites = 0;
             unsigned m_num_instances = 0;
             void reset() { memset(this, 0, sizeof(*this)); }
+        };
+
+        struct ground_rule {
+            expr_ref_vector m_body;
+            expr_ref m_head;
+            expr_dependency* m_dep;
+            ground_rule(expr_ref_vector& b, expr_ref& h, expr_dependency* d) :
+                m_body(b), m_head(h), m_dep(d) {}
         };
 
         egraph                 m_egraph;
@@ -44,10 +60,11 @@ namespace euf {
         unsigned_vector        m_epochs;
         th_rewriter            m_rewriter;
         stats                  m_stats;
+        scoped_ptr<side_condition_solver> m_side_condition_solver;
+        ptr_vector<ground_rule>    m_rules;
         bool                   m_has_new_eq = false;
         bool                   m_should_propagate = false;
             
-
         enode* mk_enode(expr* e);
         bool is_new_eq(expr* a, expr* b);
         void update_has_new_eq(expr* g);
@@ -65,9 +82,17 @@ namespace euf {
         expr_dependency* explain_conflict();
         expr_dependency* get_dependency(quantifier* q) { return m_q2dep.contains(q) ? m_q2dep[q] : nullptr; }
 
+        lbool eval_cond(expr* f, expr_dependency*& d);
+        
+        lbool check_rule(ground_rule& rule);
+        void check_rules();
+        void add_rule(expr* f, expr_dependency* d);
+        void reset_rules();
+
         bool is_gt(expr* a, expr* b) const;
     public:
         completion(ast_manager& m, dependent_expr_state& fmls);
+        ~completion() override;
         char const* name() const override { return "euf-reduce"; }
         void push() override { m_egraph.push(); dependent_expr_simplifier::push(); }
         void pop(unsigned n) override { dependent_expr_simplifier::pop(n); m_egraph.pop(n); }
@@ -83,6 +108,8 @@ namespace euf {
         ast_manager& get_manager() override { return m; }
 
         void on_binding(quantifier* q, app* pat, enode* const* binding, unsigned mg, unsigned ming, unsigned mx) override;
+
+        void set_solver(side_condition_solver* s) { m_side_condition_solver = s; }
 
     };
 }
