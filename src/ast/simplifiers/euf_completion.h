@@ -30,6 +30,8 @@ namespace euf {
         virtual ~side_condition_solver() = default;
         virtual void add_constraint(expr* f, expr_dependency* d) = 0;
         virtual bool is_true(expr* f, expr_dependency*& d) = 0;
+        virtual void push() = 0;
+        virtual void pop(unsigned n) = 0;
     };
 
     class completion : public dependent_expr_simplifier, public on_binding_callback, public mam_solver {
@@ -44,6 +46,7 @@ namespace euf {
             expr_ref_vector m_body;
             expr_ref m_head;
             expr_dependency* m_dep;
+            bool m_active = true;
             ground_rule(expr_ref_vector& b, expr_ref& h, expr_dependency* d) :
                 m_body(b), m_head(h), m_dep(d) {}
         };
@@ -87,15 +90,15 @@ namespace euf {
         lbool check_rule(ground_rule& rule);
         void check_rules();
         void add_rule(expr* f, expr_dependency* d);
-        void reset_rules();
 
         bool is_gt(expr* a, expr* b) const;
     public:
         completion(ast_manager& m, dependent_expr_state& fmls);
         ~completion() override;
-        char const* name() const override { return "euf-reduce"; }
-        void push() override { m_egraph.push(); dependent_expr_simplifier::push(); }
-        void pop(unsigned n) override { dependent_expr_simplifier::pop(n); m_egraph.pop(n); }
+        char const* name() const override { return "euf-completion"; }
+        void push() override { if (m_side_condition_solver) m_side_condition_solver->push();  m_egraph.push(); dependent_expr_simplifier::push(); }
+        void pop(unsigned n) override { dependent_expr_simplifier::pop(n); m_egraph.pop(n); if (m_side_condition_solver) m_side_condition_solver->pop(1);
+        }
         void reduce() override;
         void collect_statistics(statistics& st) const override;
         void reset_statistics() override { m_stats.reset(); }

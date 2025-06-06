@@ -51,10 +51,6 @@ Delayed solver invocation
 Mam optimization?
    match(p, t, S) = suppose all variables in p are bound in S, check equality using canonization of p[S], otherwise prune instances from S.
 
-
-
-
-
 --*/
 
 #include "ast/ast_pp.h"
@@ -94,13 +90,6 @@ namespace euf {
     }
 
     completion::~completion() {
-        reset_rules();
-    }
-
-    void completion::reset_rules() {
-        for (auto r : m_rules)
-            dealloc(r);
-        m_rules.reset();
     }
 
     void completion::reduce() {
@@ -113,7 +102,6 @@ namespace euf {
             read_egraph();
             IF_VERBOSE(11, verbose_stream() << "(euf.completion :rounds " << rounds << ")\n");
         }
-        reset_rules();
     }
 
     void completion::add_egraph() {
@@ -229,33 +217,34 @@ namespace euf {
             }
         }
         body.shrink(j);
-        if (body.empty()) {
-            add_constraint(head, d);
-            return;
+        if (body.empty()) 
+            add_constraint(head, d);        
+        else {
+            m_rules.push_back(alloc(ground_rule, body, head, d));
+            get_trail().push(push_back_vector(m_rules));
         }
-        m_rules.push_back(alloc(ground_rule, body, head, d));
     }
 
     void completion::check_rules() {
-        unsigned j = 0;
         for (auto& r : m_rules) {
+            if (!r->m_active)
+                continue;
             switch (check_rule(*r)) {
             case l_true:
-                dealloc(r);
+                get_trail().push(value_trail(r->m_active));
+                r->m_active = false;
                 break; // remove rule, it is activated
             case l_false:
-                dealloc(r);
+                get_trail().push(value_trail(r->m_active));
+                r->m_active = false;               
                 break; // remove rule, premise is false
             case l_undef:                
-                m_rules[j++] = r;
                 break;
             }
         }
-        m_rules.shrink(j);
     }
 
      lbool completion::check_rule(ground_rule& r) {
-        unsigned j = 0;
         for (auto* f : r.m_body) {
             switch (eval_cond(f, r.m_dep)) {
             case l_true:
@@ -263,11 +252,9 @@ namespace euf {
             case l_false:
                 return l_false;
             default:
-                r.m_body[j++] = f;
                 break;
             }            
         }
-        r.m_body.shrink(j);
         if (r.m_body.empty()) {
             add_constraint(r.m_head, r.m_dep);
             return l_true;
@@ -651,5 +638,3 @@ namespace euf {
     }    
    
 }
-
-
