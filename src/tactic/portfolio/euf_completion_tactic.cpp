@@ -75,5 +75,5 @@ static euf::completion* mk_completion(ast_manager& m, dependent_expr_state& s, p
 
 tactic * mk_euf_completion_tactic(ast_manager& m, params_ref const& p) {
     return alloc(dependent_expr_state_tactic, m, p,
-                 [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(euf::completion, m, s); });
+                 [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return mk_completion(m, s, p); });
 }

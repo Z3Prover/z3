@@ -21,7 +21,6 @@ if it is smallest in a well-order, such as a ground Knuth-Bendix order.
 A basic approach is terms that are of smallest depth, are values can be chosen as simplest.
 Ties between equal-depth terms can be resolved arbitrarily.
 
-
 Algorithm for extracting canonical form from an E-graph:
 
 * Compute function canon(t) that maps every term in E to a canonical, least with respect to well-order relative to the congruence closure.
@@ -35,6 +34,25 @@ Algorithm for extracting canonical form from an E-graph:
   * Note that canon(g(t)) = true because g(t) = true is added to congruence closure of E.
 * We claim the new formula is equivalent.
 * The dependencies for each rewrite can be computed by following the equality justification data-structure.
+
+Conditional saturation:
+- forall X . Body => Head
+- propagate when (all assertions in) Body is merged with True 
+- Possible efficient approaches:
+    - use on_merge? 
+    - or bit set in nodes with Body?
+    - register Boolean reduction rules to EUF?
+    - register function "body_of" and monitor merges based on function?
+
+Delayed solver invocation
+- So far default code for checking rules 
+  - EUF check should be on demand, see note on conditional saturation
+
+Mam optimization?
+   match(p, t, S) = suppose all variables in p are bound in S, check equality using canonization of p[S], otherwise prune instances from S.
+
+
+
 
 
 --*/
@@ -75,6 +93,16 @@ namespace euf {
         m_egraph.set_on_make(_on_make);
     }
 
+    completion::~completion() {
+        reset_rules();
+    }
+
+    void completion::reset_rules() {
+        for (auto r : m_rules)
+            dealloc(r);
+        m_rules.reset();
+    }
+
     void completion::reduce() {
         m_has_new_eq = true;
         for (unsigned rounds = 0; m_has_new_eq && rounds <= 3 && !m_fmls.inconsistent(); ++rounds) {
@@ -85,6 +113,7 @@ namespace euf {
             read_egraph();
             IF_VERBOSE(11, verbose_stream() << "(euf.completion :rounds " << rounds << ")\n");
         }
+        reset_rules();
     }
 
     void completion::add_egraph() {
@@ -96,14 +125,19 @@ namespace euf {
             add_constraint(f, d);
         }
         m_should_propagate = true;
-        while (m_should_propagate) {
+        while (m_should_propagate && m.inc() && !m_egraph.inconsistent()) {
             m_should_propagate = false;
             m_egraph.propagate();
             m_mam->propagate();
+            IF_VERBOSE(11, verbose_stream() << "propagate " << m_stats.m_num_instances << "\n");
+            if (!m_should_propagate)
+                check_rules();
         }
     }
 
     void completion::add_constraint(expr* f, expr_dependency* d) {
+        if (m_egraph.inconsistent())
+            return;
         auto add_children = [&](enode* n) {                
             for (auto* ch : enode_args(n))
                 m_nodes_to_canonize.push_back(ch);
@@ -140,10 +174,110 @@ namespace euf {
                     get_trail().push(insert_obj_map(m_q2dep, q));
                 }                    
             }
+            add_rule(f, d);
         }
+        if (m_side_condition_solver)
+            m_side_condition_solver->add_constraint(f, d);
+    }
+
+    lbool completion::eval_cond(expr* f, expr_dependency*& d) {
+        auto n = mk_enode(f);
+        if (m.is_true(n->get_root()->get_expr())) {
+            d = m.mk_join(d, explain_eq(n, n->get_root()));
+            return l_true;
+        }
+        if (m.is_false(n->get_root()->get_expr())) 
+            return l_false;
+        
+        expr* g = nullptr;
+        if (m.is_not(f, g)) {
+            n = mk_enode(g);
+            if (m.is_false(n->get_root()->get_expr())) {
+                d = m.mk_join(d, explain_eq(n, n->get_root()));
+                return l_true;
+            }
+        }
+        if (m_side_condition_solver) {
+            expr_dependency* sd = nullptr;
+            if (m_side_condition_solver->is_true(f, sd)) {
+                add_constraint(f, sd);
+                d = m.mk_join(d, sd);
+                return l_true;
+            }
+        }
+        return l_undef;
+    }
+
+    void completion::add_rule(expr* f, expr_dependency* d) {
+        expr* x = nullptr, * y = nullptr;
+        if (!m.is_implies(f, x, y))
+            return;
+        expr_ref_vector body(m);
+        expr_ref head(y, m);
+        body.push_back(x);
+        flatten_and(body); 
+        unsigned j = 0;
+        for (auto f : body) {
+            switch (eval_cond(f, d)) {
+            case l_true:
+                break;
+            case l_false:
+                return;
+            case l_undef:
+                body[j++] = f;
+                break;
+            }
+        }
+        body.shrink(j);
+        if (body.empty()) {
+            add_constraint(head, d);
+            return;
+        }
+        m_rules.push_back(alloc(ground_rule, body, head, d));
+    }
+
+    void completion::check_rules() {
+        unsigned j = 0;
+        for (auto& r : m_rules) {
+            switch (check_rule(*r)) {
+            case l_true:
+                dealloc(r);
+                break; // remove rule, it is activated
+            case l_false:
+                dealloc(r);
+                break; // remove rule, premise is false
+            case l_undef:                
+                m_rules[j++] = r;
+                break;
+            }
+        }
+        m_rules.shrink(j);
+    }
+
+     lbool completion::check_rule(ground_rule& r) {
+        unsigned j = 0;
+        for (auto* f : r.m_body) {
+            switch (eval_cond(f, r.m_dep)) {
+            case l_true:
+                break;
+            case l_false:
+                return l_false;
+            default:
+                r.m_body[j++] = f;
+                break;
+            }            
+        }
+        r.m_body.shrink(j);
+        if (r.m_body.empty()) {
+            add_constraint(r.m_head, r.m_dep);
+            return l_true;
+        }
+        return l_undef;
     }
 
     void completion::on_binding(quantifier* q, app* pat, enode* const* binding, unsigned mg, unsigned ming, unsigned mx) {
+        if (m_egraph.inconsistent())
+            return;
         var_subst subst(m);
         expr_ref_vector _binding(m);
         for (unsigned i = 0; i < q->get_num_decls(); ++i)
@@ -156,14 +290,12 @@ namespace euf {
     }
 
     void completion::read_egraph() {
-
         if (m_egraph.inconsistent()) {
             auto* d = explain_conflict();
             dependent_expr de(m, m.mk_false(), nullptr, d);
             m_fmls.update(0, de);
             return;
         }
-
         unsigned sz = qtail();
         for (unsigned i = qhead(); i < sz; ++i) {
             auto [f, p, d] = m_fmls[i]();            
