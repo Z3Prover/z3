@@ -480,7 +480,7 @@ static void test_project() {
     vars.push_back(x);
     lits.push_back(x <= app_ref(m.mk_app(f, (expr*)x), m));
     lits.push_back(x < y);
-    plugin(mdl, vars, lits);
+    plugin.project(mdl, vars, lits);
     std::cout << lits << "\n";
 
     // test not-equals
@@ -488,7 +488,7 @@ static void test_project() {
     lits.reset();
     vars.push_back(x);
     lits.push_back(m.mk_not(m.mk_eq(x, y)));
-    plugin(mdl, vars, lits);
+    plugin.project(mdl, vars, lits);
     std::cout << lits << "\n";
 
     // test negation of distinct using bound variables
@@ -507,7 +507,7 @@ static void test_project() {
     ds.push_back(u);
     ds.push_back(z);
     lits.push_back(m.mk_not(m.mk_distinct(ds.size(), ds.data())));
-    plugin(mdl, vars, lits);
+    plugin.project(mdl, vars, lits);
     std::cout << lits << "\n";
 
     // test negation of distinct, not using bound variables
@@ -527,7 +527,7 @@ static void test_project() {
     ds.push_back(z + 10);
     ds.push_back(u + 4);
     lits.push_back(m.mk_not(m.mk_distinct(ds.size(), ds.data())));
-    plugin(mdl, vars, lits);
+    plugin.project(mdl, vars, lits);
     std::cout << lits << "\n";
 
 
@@ -546,7 +546,7 @@ static void test_project() {
     ds.push_back(z + 2);
     ds.push_back(u);
     lits.push_back(m.mk_distinct(ds.size(), ds.data()));
-    plugin(mdl, vars, lits);
+    plugin.project(mdl, vars, lits);
     std::cout << lits << "\n";
 
     // equality over modulus
@@ -557,7 +557,7 @@ static void test_project() {
     vars.push_back(y);
     lits.push_back(m.mk_eq(a.mk_mod(y, a.mk_int(3)), a.mk_int(1)));
     lits.push_back(m.mk_eq(2*y, z));
-    plugin(mdl, vars, lits);
+    plugin.project(mdl, vars, lits);
     std::cout << lits << "\n";
 
     // inequality test
@@ -572,7 +572,7 @@ static void test_project() {
     lits.push_back(z <= (x + (2*y)));
     lits.push_back(2*x < u + 3);
     lits.push_back(2*y <= u);
-    plugin(mdl, vars, lits);
+    plugin.project(mdl, vars, lits);
     std::cout << lits << "\n";
 
     // non-unit equalities
@@ -585,7 +585,7 @@ static void test_project() {
     vars.push_back(x);
     lits.push_back(m.mk_eq(2*x, z));
     lits.push_back(m.mk_eq(3*x, u));
-    plugin(mdl, vars, lits);
+    plugin.project(mdl, vars, lits);
     std::cout << lits << "\n";
 
 
