@@ -35,6 +35,16 @@ class euf_side_condition_solver : public euf::side_condition_solver {
 public:
     euf_side_condition_solver(ast_manager& m, params_ref const& p) : m(m), m_params(p), m_deps(m) {}
 
+    void push() override {
+        init_solver();
+        m_solver->push();
+    }
+
+    void pop(unsigned n) override {
+        SASSERT(m_solver.get());
+        m_solver->pop(n);
+    }
+
     void add_constraint(expr* f, expr_dependency* d) override {
         if (!is_ground(f))
             return;
@@ -66,7 +76,7 @@ public:
     }
 };
 
-static euf::completion* mk_completion(ast_manager& m, dependent_expr_state& s, params_ref const& p) {
+dependent_expr_simplifier* mk_euf_completion_simplifier(ast_manager& m, dependent_expr_state& s, params_ref const& p) {
     auto r = alloc(euf::completion, m, s);
     auto scs = alloc(euf_side_condition_solver, m, p);
     r->set_solver(scs);
@@ -75,5 +85,5 @@ static euf::completion* mk_completion(ast_manager& m, dependent_expr_state& s, p
 
 tactic * mk_euf_completion_tactic(ast_manager& m, params_ref const& p) {
     return alloc(dependent_expr_state_tactic, m, p,
-                 [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return mk_completion(m, s, p); });
+                 [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return mk_euf_completion_simplifier(m, s, p); });
 }

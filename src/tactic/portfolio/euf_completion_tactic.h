@@ -40,10 +40,11 @@ class ast_manager;
 class tactic;
 
 tactic * mk_euf_completion_tactic(ast_manager & m, params_ref const & p = params_ref());
+dependent_expr_simplifier* mk_euf_completion_simplifier(ast_manager& m, dependent_expr_state& s, params_ref const& p = params_ref());
 
 /*
   ADD_TACTIC("euf-completion", "simplify using equalities.", "mk_euf_completion_tactic(m, p)")
-  ADD_SIMPLIFIER("euf-completion", "simplify modulo congruence closure.", "alloc(euf::completion, m, s)")
+  ADD_SIMPLIFIER("euf-completion", "simplify modulo congruence closure.", "mk_euf_completion_simplifier(m, s, p)")
 */
 
 
