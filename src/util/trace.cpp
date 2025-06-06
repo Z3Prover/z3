@@ -105,11 +105,19 @@ static const tag_info* get_tag_infos() {
 }
 
 
+static bool has_overlap(char const* s, char const* t) {
+    if (s[0] == t[0])
+        return true;
+    return false;
+}
 
 void enable_trace(const char * tag_str) {
     TraceTag tag = find_trace_tag_by_string(tag_str);
     if (tag == TraceTag::Count) {
         warning_msg("trace tag '%s' does not exist", tag_str);
+#define X(tag, tag_class, desc) if (has_overlap(#tag, tag_str)) warning_msg("did you mean '%s'?", #tag);
+#include "util/trace_tags.def"
+#undef X           
         return;
     }
 

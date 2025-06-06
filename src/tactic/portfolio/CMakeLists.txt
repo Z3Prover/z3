@@ -16,6 +16,7 @@ z3_add_component(portfolio
     subpaving_tactic
     ufbv_tactic
     fd_solver
+    simplifiers
   TACTIC_HEADERS
     euf_completion_tactic.h
     default_tactic.h
