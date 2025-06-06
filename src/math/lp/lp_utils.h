@@ -118,7 +118,7 @@ std::ostream& print_linear_combination_customized(const vector<std::pair<T, unsi
             }
         }
         if (val != 1) {
-            out << T_to_string(val);
+            out << T_to_string(val) << "*";
         }
         out << var_str(it.second);
     }

@@ -53,7 +53,7 @@ public:
             if (val == -numeric_traits<T>::one())
                 out << " - ";
             else if (val != numeric_traits<T>::one())
-                out << val;
+                out << val << "*";
         
             out << get_variable_name(it.second);
         }
