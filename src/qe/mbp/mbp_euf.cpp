@@ -58,7 +58,7 @@ namespace mbp {
     }
 
 
-    bool euf_project_plugin::operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+    bool euf_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
         if (vars.empty())
             return false;
         // check if there is a variable of uninterp sort

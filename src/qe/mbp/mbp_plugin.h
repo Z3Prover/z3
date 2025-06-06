@@ -69,7 +69,7 @@ namespace mbp {
         virtual bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) { return false; }
         virtual family_id get_family_id() { return null_family_id; }
 
-        virtual bool operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) { return false; };
+        virtual bool project(model& model, app_ref_vector& vars, expr_ref_vector& lits) { return false; };
 
         /**
            \brief project vars modulo model, return set of definitions for eliminated variables.

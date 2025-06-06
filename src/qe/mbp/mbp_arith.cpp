@@ -725,7 +725,7 @@ namespace mbp {
         return m_imp->project1(model, var, vars, lits);
     }
 
-    bool arith_project_plugin::operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+    bool arith_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
         vector<def> defs;
         return m_imp->project(model, vars, lits, defs, false);
     }

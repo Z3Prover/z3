@@ -466,7 +466,7 @@ public:
                     TRACE(qe, tout << "after project " << m.get_family_name(p->get_family_id()) << ": " << vars << "\n");
                 }
                 else if (p)
-                    (*p)(model, vars, fmls);
+                    p->project(model, vars, fmls);
             }
             TRACE(qe, tout << "projecting " << vars << "\n");
             while (!vars.empty() && !fmls.empty() && !defs && m.limit().inc()) {

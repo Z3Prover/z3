@@ -356,7 +356,7 @@ namespace q {
                 if (!p->project(*m_model, vars, fmls, m_defs)) 
                     return expr_ref(m);                    
             }
-            else if (!(*p)(*m_model, vars, fmls)) {
+            else if (!p->project(*m_model, vars, fmls)) {
                 TRACE(q, tout << "theory projection failed - use value\n");
             }
         }

@@ -76,7 +76,7 @@ namespace euf {
 
         void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) override {
             auto [f, p, d] = e();
-            expr* x, * y;
+            expr* x = nullptr, * y = nullptr;
             if (m.is_eq(f, x, y)) {
                 if (x == y)
                     return;
@@ -87,7 +87,7 @@ namespace euf {
                 if (is_uninterp_const(y))
                     eqs.push_back(dependent_eq(e.fml(), to_app(y), expr_ref(x, m), d));
             }
-            expr* c, * th, * el, * x1, * y1, * x2, * y2;
+            expr* c = nullptr, * th = nullptr, * el = nullptr, * x1, * y1 = nullptr, * x2 = nullptr, * y2 = nullptr;
             if (m_ite_solver && m.is_ite(f, c, th, el)) {
                 if (m.is_eq(th, x1, y1) && m.is_eq(el, x2, y2)) {
                     if (!m_allow_bool && m.is_bool(x1))
@@ -203,7 +203,7 @@ namespace euf {
             if (!m_enabled)
                 return;
             auto [f, p, d] = e();
-            expr* x, * y;
+            expr* x = nullptr, * y = nullptr;
             if (m.is_eq(f, x, y) && bv.is_bv(x)) {
                 solve_eq(f, x, y, d, eqs);
                 solve_eq(f, y, x, d, eqs);
@@ -233,7 +233,7 @@ namespace euf {
         void solve_mod(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
             if (!m_eliminate_mod)
                 return;
-            expr* u, * z;
+            expr* u = nullptr, * z = nullptr;
             rational r1, r2;
             if (!a.is_mod(x, u, z))
                 return;
@@ -251,7 +251,7 @@ namespace euf {
         }
 
         void solve_to_real(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
-            expr* z, *u;
+            expr* z = nullptr, *u = nullptr;
             rational r;            
             if (!a.is_to_real(x, z) || !is_uninterp_const(z))
                 return;
@@ -270,7 +270,7 @@ namespace euf {
         void solve_add(expr* orig, expr* x, expr* y, expr_dependency* d, dep_eq_vector& eqs) {
             if (!a.is_add(x))
                 return;
-            expr* u, * z;
+            expr* u = nullptr, * z = nullptr;
             rational r;
             expr_ref term(m);
             unsigned i = 0;
@@ -407,7 +407,7 @@ break;
             if (!m_enabled)
                 return;
             auto [f, p, d] = e();
-            expr* x, * y;
+            expr* x = nullptr, * y = nullptr;
             if (m.is_eq(f, x, y) && a.is_int_real(x)) {
                 solve_eq(f, x, y, d, eqs);
                 solve_eq(f, y, x, d, eqs);
