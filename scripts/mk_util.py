@@ -2077,6 +2077,9 @@ class MLComponent(Component):
                 # Some ocamlmklib's don't like -g; observed on cygwin, but may be others as well.
                 OCAMLMKLIB += ' -g'
 
+            if IS_OSX:
+                OCAMLMKLIB += ' -ldopt -Wl,-headerpad_max_install_names'
+
             z3mls = os.path.join(self.sub_dir, 'z3ml')
 
             LIBZ3ML = ''
@@ -2694,6 +2697,8 @@ def mk_config():
             CXXFLAGS = '%s -arch arm64' % CXXFLAGS
             LDFLAGS = '%s -arch arm64' % LDFLAGS
             SLIBEXTRAFLAGS = '%s -arch arm64' % SLIBEXTRAFLAGS
+        if IS_OSX and is_ml_enabled():
+            SLIBFLAGS += ' -Wl,-headerpad_max_install_names'
 
         config.write('PREFIX=%s\n' % PREFIX)
         config.write('CC=%s\n' % CC)
