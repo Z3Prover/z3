@@ -191,7 +191,7 @@ namespace sat {
                 s.propagate(false);
             }
             if (!s.inconsistent())
-                IF_VERBOSE(0, s.display(verbose_stream()));
+                IF_VERBOSE(0, s.display(verbose_stream() << "probe on " << cl << "\n"));
             for (unsigned i = trail_size0; i < s.m_trail.size(); ++i)
                 m_propagated[s.m_trail[i].var()] = true;
         }
@@ -226,9 +226,11 @@ namespace sat {
             if (!s.is_marked(v))
                 s.mark(v);
         }
-        else if (s.lvl(v) == 0)  // literal depends on level 0, it is not assumed by ~C
+        else if (s.lvl(v) == 0) { // literal depends on level 0, it is not assumed by ~C
             // inefficient for repeated insertions ? 
-            add_core(v);                       
+            add_core(v);           
+            add_dependency(s.get_justification(v));
+        }
     }
     
     void proof_trim::add_dependency(justification j) {
