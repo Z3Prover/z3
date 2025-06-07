@@ -18,6 +18,7 @@ Author:
 #include "tactic/tactic.h"
 #include "tactic/portfolio/euf_completion_tactic.h"
 #include "solver/solver.h"
+#include "smt/smt_solver.h"
 
 class euf_side_condition_solver : public euf::side_condition_solver {
     ast_manager& m;
@@ -25,54 +26,80 @@ class euf_side_condition_solver : public euf::side_condition_solver {
     scoped_ptr<solver> m_solver;
     expr_ref_vector m_deps;
     obj_map<expr, expr_dependency*> m_e2d;
+    expr_ref_vector m_fmls;
+    obj_hashtable<expr> m_seen;
+    trail_stack m_trail;
+
     void init_solver() {
         if (m_solver.get())
             return;
         m_params.set_uint("smt.max_conflicts", 100);
-        scoped_ptr<solver_factory> f = mk_smt_strategic_solver_factory();
+        scoped_ptr<solver_factory> f = mk_smt_solver_factory();
         m_solver = (*f)(m, m_params, false, false, true, symbol::null);
     }
+
 public:
-    euf_side_condition_solver(ast_manager& m, params_ref const& p) : m(m), m_params(p), m_deps(m) {}
+
+    euf_side_condition_solver(ast_manager& m, params_ref const& p) : 
+        m(m), m_params(p), m_deps(m), m_fmls(m) {}
 
     void push() override {
         init_solver();
         m_solver->push();
+        m_trail.pop_scope(1);
     }
 
     void pop(unsigned n) override {
+        m_trail.push_scope();
         SASSERT(m_solver.get());
         m_solver->pop(n);
     }
 
     void add_constraint(expr* f, expr_dependency* d) override {
+        if (m_seen.contains(f))
+            return;
+        m_seen.insert(f);
+        m_trail.push(insert_obj_trail(m_seen, f));
         if (!is_ground(f))
             return;
+        if (m.is_implies(f))
+            return;
         init_solver();
-        expr* e_dep = nullptr;
         if (d) {
-            e_dep = m.mk_fresh_const("dep", m.mk_bool_sort());
+            expr* e_dep = m.mk_fresh_const("dep", m.mk_bool_sort());
             m_deps.push_back(e_dep);
             m_e2d.insert(e_dep, d);
+            m_trail.push(insert_obj_map(m_e2d, e_dep));
+            m_solver->assert_expr(f, e_dep);
         }
-        m_solver->assert_expr(f, e_dep);
+        else
+            m_solver->assert_expr(f);        
     }
 
     bool is_true(expr* f, expr_dependency*& d) override {
         d = nullptr;
-        m_solver->push();
-        expr_ref_vector fmls(m);
-        fmls.push_back(m.mk_not(f));
+        solver::scoped_push _sp(*m_solver);
+        m_fmls.reset();
+        m_fmls.push_back(m.mk_not(f));
         expr_ref nf(m.mk_not(f), m);
-        lbool r = m_solver->check_sat(fmls);
+        lbool r = m_solver->check_sat(m_fmls);
         if (r == l_false) {
             expr_ref_vector core(m);
             m_solver->get_unsat_core(core);
             for (auto c : core)
                 d = m.mk_join(d, m_e2d[c]);
         }
-        m_solver->pop(1);
         return r == l_false;
+    }
+
+    void solve_for(vector<solution>& sol) override {
+        vector<solver::solution> ss;
+        for (auto [v, t, g] : sol)
+            ss.push_back({ v, t, g });
+        sol.reset();
+        m_solver->solve_for(ss);
+        for (auto [v, t, g] : ss)
+            sol.push_back({ v, t, g });
     }
 };
 

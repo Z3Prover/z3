@@ -7,7 +7,10 @@ Module Name:
 
 Abstract:
 
-    Ground completion for equalities
+    Completion for (conditional) equalities.
+    This transforms expressions into a normal form by perorming equality saturation modulo 
+    ground equations and E-matching on quantified axioms.
+    It supports conditional equations in terms of implications.
 
 Author:
 
@@ -27,11 +30,17 @@ namespace euf {
 
     class side_condition_solver {
     public:
+        struct solution {
+            expr* var;
+            expr_ref term;
+            expr_ref guard;
+        };
         virtual ~side_condition_solver() = default;
         virtual void add_constraint(expr* f, expr_dependency* d) = 0;
         virtual bool is_true(expr* f, expr_dependency*& d) = 0;
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
+        virtual void solve_for(vector<solution>& sol) = 0;
     };
 
     class completion : public dependent_expr_simplifier, public on_binding_callback, public mam_solver {
@@ -42,12 +51,13 @@ namespace euf {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
-        struct ground_rule {
+        struct conditional_rule {
             expr_ref_vector m_body;
             expr_ref m_head;
             expr_dependency* m_dep;
             bool m_active = true;
-            ground_rule(expr_ref_vector& b, expr_ref& h, expr_dependency* d) :
+            bool m_in_queue = false;
+            conditional_rule(expr_ref_vector& b, expr_ref& h, expr_dependency* d) :
                 m_body(b), m_head(h), m_dep(d) {}
         };
 
@@ -64,9 +74,11 @@ namespace euf {
         th_rewriter            m_rewriter;
         stats                  m_stats;
         scoped_ptr<side_condition_solver> m_side_condition_solver;
-        ptr_vector<ground_rule>    m_rules;
+        ptr_vector<conditional_rule>    m_rules;
         bool                   m_has_new_eq = false;
         bool                   m_should_propagate = false;
+        unsigned               m_max_instantiations = std::numeric_limits<unsigned>::max();
+        vector<ptr_vector<conditional_rule>> m_rule_watch;
             
         enode* mk_enode(expr* e);
         bool is_new_eq(expr* a, expr* b);
@@ -87,32 +99,38 @@ namespace euf {
 
         lbool eval_cond(expr* f, expr_dependency*& d);
         
-        lbool check_rule(ground_rule& rule);
-        void check_rules();
+
+        bool should_stop();
+
         void add_rule(expr* f, expr_dependency* d);
+        void watch_rule(enode* root, enode* other);
+        void propagate_rule(conditional_rule& r);
+        void propagate_rules();
+        void propagate_all_rules();
+        void clear_propagation_queue();
+        ptr_vector<conditional_rule> m_propagation_queue;
+        struct push_watch_rule;
 
         bool is_gt(expr* a, expr* b) const;
     public:
         completion(ast_manager& m, dependent_expr_state& fmls);
         ~completion() override;
         char const* name() const override { return "euf-completion"; }
-        void push() override { if (m_side_condition_solver) m_side_condition_solver->push();  m_egraph.push(); dependent_expr_simplifier::push(); }
-        void pop(unsigned n) override { dependent_expr_simplifier::pop(n); m_egraph.pop(n); if (m_side_condition_solver) m_side_condition_solver->pop(1);
-        }
+        void push() override;
+        void pop(unsigned n) override;
         void reduce() override;
         void collect_statistics(statistics& st) const override;
         void reset_statistics() override { m_stats.reset(); }
+        void updt_params(params_ref const& p) override;
 
         trail_stack& get_trail() override { return m_trail;}
         region& get_region() override { return m_trail.get_region(); }
         egraph& get_egraph() override { return m_egraph; }
         bool is_relevant(enode* n) const override { return true; }
-        bool resource_limits_exceeded() const override { return false; }
+        bool resource_limits_exceeded() const override { return m_stats.m_num_instances > m_max_instantiations; }
         ast_manager& get_manager() override { return m; }
 
         void on_binding(quantifier* q, app* pat, enode* const* binding, unsigned mg, unsigned ming, unsigned mx) override;
-
         void set_solver(side_condition_solver* s) { m_side_condition_solver = s; }
-
     };
 }
