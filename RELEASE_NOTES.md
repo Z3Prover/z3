@@ -8,6 +8,12 @@ Version 4.next
   - add global incremental pre-processing for the legacy core.
 
 
+Version 4.15.1
+==============
+- #7672 - fix library header padding for install_name_tool
+- enable E-matching and conditional equations in euf-completion tactic
+- various bug fixes
+
 Version 4.15.0
 ==============
 - Improved integer cut algorithms for linear integer arithmetic.
