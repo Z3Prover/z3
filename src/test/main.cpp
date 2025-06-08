@@ -25,7 +25,6 @@
             std::cout << "    " << #MODULE << "\n";          \
         for (int i = 0; i < argc; i++)                       \
             if (test_all || strcmp(argv[i], #MODULE) == 0) { \
-                enable_trace(#MODULE);                       \
                 enable_debug(#MODULE);                       \
                 timeit timeit(true, s.c_str());              \
                 tst_##MODULE();                              \
