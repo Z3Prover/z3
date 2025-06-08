@@ -570,7 +570,7 @@ stages:
       inputs:
         artifact: 'NuGet32'
         path: $(Agent.TempDirectory)	
-    - task: GitHubRelease@0
+    - task: GitHubRelease@1
       inputs:
         gitHubConnection: Z3Prover
         repositoryName: $(Build.Repository.Name)
