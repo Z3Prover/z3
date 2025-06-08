@@ -170,8 +170,8 @@ static void test6() {
 
 
 void tst_euf_bv_plugin() {
-    enable_trace("bv");
-    enable_trace("plugin");
+    // enable_trace("bv");
+    // enable_trace("plugin");
     test6();
     return;
     test1();

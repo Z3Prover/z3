@@ -336,7 +336,7 @@ static void tst_eval_sign(polynomial_ref const & p, anum_manager & am,
 }
 
 static void tst_eval_sign() {
-    enable_trace("anum_eval_sign");
+    // enable_trace("anum_eval_sign");
     reslimit rl;
     unsynch_mpq_manager        qm;
     polynomial::manager        pm(rl, qm);
@@ -417,7 +417,7 @@ static void tst_isolate_roots(polynomial_ref const & p, anum_manager & am,
 }
 
 static void tst_isolate_roots() {
-    enable_trace("isolate_roots");
+    // enable_trace("isolate_roots");
     reslimit rl;
     unsynch_mpq_manager        qm;
     polynomial::manager        pm(rl, qm);

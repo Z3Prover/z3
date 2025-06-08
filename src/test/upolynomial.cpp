@@ -1060,10 +1060,10 @@ static void tst_lower_bound() {
 
 void tst_upolynomial() {
     set_verbosity_level(1000);
-    enable_trace("mpz_gcd");
-    enable_trace("normalize_bug");
-    enable_trace("factor_bug");
-    enable_trace("factor");
+    //    enable_trace("mpz_gcd");
+    // enable_trace("normalize_bug");
+    // enable_trace("factor_bug");
+    // enable_trace("factor");
     // enable_trace("mpzp_inv_bug");
     // enable_trace("mpz");
     tst_gcd();
@@ -1080,8 +1080,8 @@ void tst_upolynomial() {
     tst_isolate_roots();
     tst_sturm2();
     tst_convert_q2bq();
-    enable_trace("div_bug");
-    enable_trace("mpbq_bug");
+    // enable_trace("div_bug");
+    // enable_trace("mpbq_bug");
     tst_translate_q();
     tst_refine();
     tst_refinable();

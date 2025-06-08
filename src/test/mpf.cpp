@@ -82,7 +82,7 @@ static void bug_set_double() {
 }
 
 void tst_mpf() {
-    enable_trace("mpf_mul_bug");
+    // enable_trace("mpf_mul_bug");
     bug_set_int();
     bug_set_double();
 }

@@ -47,7 +47,7 @@ public:
     }
 
     void fuzz() {
-        enable_trace("pb");
+        // enable_trace("pb");
         unsigned nr = 0;
         for (unsigned i = 0; i < 100000; ++i) {
             fuzz_round(nr, 2);

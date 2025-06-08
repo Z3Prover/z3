@@ -18,12 +18,12 @@ static void test_qe(ast_manager& m, lbool expected_outcome, expr* fml, char cons
 
     //    enable_trace("bit2int");
     //enable_trace("gomory_cut");
-    enable_trace("final_check_arith");
-    enable_trace("arith_final_check");
+    // enable_trace("final_check_arith");
+    // enable_trace("arith_final_check");
     //enable_trace("arith_branching");
-    enable_trace("theory_arith_int");
-    enable_trace("presburger");
-    enable_trace("quant_elim");
+    // enable_trace("theory_arith_int");
+    // enable_trace("presburger");
+    // enable_trace("quant_elim");
     // enable_trace("arith_simplifier_plugin");
     // enable_trace("non_linear");
     // enable_trace("gomory_cut_detail");

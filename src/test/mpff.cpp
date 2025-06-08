@@ -610,8 +610,8 @@ static void tst_div(unsigned prec) {
 }
 
 void tst_mpff() {
-    disable_trace("mpff");
-    enable_trace("mpff_trace");
+    // disable_trace("mpff");
+    // enable_trace("mpff_trace");
     // enable_trace("mpff_bug");
     // enable_trace("mpff_to_mpq");
     //

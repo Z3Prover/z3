@@ -1599,9 +1599,9 @@ static void tst_gcd2() {
 
 #if 0
 static void tst_gcd3() {
-    enable_trace("polynomial_gcd");
-    enable_trace("polynomial_gcd_detail");
-    enable_trace("mpzzp");
+    // enable_trace("polynomial_gcd");
+    // enable_trace("polynomial_gcd_detail");
+    // enable_trace("mpzzp");
     polynomial::numeral_manager nm;
     reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x(m);
@@ -1625,7 +1625,7 @@ static void tst_gcd3() {
 }
 
 static void tst_gcd4() {
-    enable_trace("mgcd");
+    // enable_trace("mgcd");
     // enable_trace("CRA");
     polynomial::numeral_manager nm;
     reslimit rl; polynomial::manager m(rl, nm);
@@ -1817,9 +1817,9 @@ void tst_polynomial() {
     // enable_trace("factor");
     // enable_trace("poly_bug");
     // enable_trace("factor_bug");
-    disable_trace("polynomial");
-    enable_trace("psc_chain_classic");
-    enable_trace("Lazard");
+    // disable_trace("polynomial");
+    // enable_trace("psc_chain_classic");
+    // enable_trace("Lazard");
     // enable_trace("eval_bug");
     // enable_trace("mgcd");
     tst_psc();
@@ -1853,11 +1853,11 @@ void tst_polynomial() {
     // enable_trace("mpz_gcd");
     tst_vars();
     tst_sqf();
-    enable_trace("resultant");
-    enable_trace("psc");
-    disable_trace("polynomial");
-    enable_trace("pseudo_remainder");
-    enable_trace("resultant_bug");
+    // enable_trace("resultant");
+    // enable_trace("psc");
+    // disable_trace("polynomial");
+    // enable_trace("pseudo_remainder");
+    // enable_trace("resultant_bug");
     tst_sqrt();
     tst_prem();
     tst_compose();

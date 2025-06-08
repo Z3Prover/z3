@@ -131,7 +131,7 @@ static void test3() {
 }
 
 void tst_egraph() {
-    enable_trace("euf");
+    // enable_trace("euf");
     test3();
     test1();
     test2();

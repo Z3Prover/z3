@@ -71,7 +71,7 @@ static void tst1() {
 }
 
 static void tst2() {
-    enable_trace("mpz_matrix");
+    // enable_trace("mpz_matrix");
     unsynch_mpq_manager nm;
     small_object_allocator allocator;
     mpz_matrix_manager mm(nm, allocator);
@@ -164,8 +164,8 @@ static void tst_denominators() {
 }
 
 void tst_rcf() {
-    enable_trace("rcf_clean");
-    enable_trace("rcf_clean_bug");
+    // enable_trace("rcf_clean");
+    // enable_trace("rcf_clean_bug");
     tst_denominators();
     tst1();
     tst2();

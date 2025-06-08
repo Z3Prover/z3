@@ -136,7 +136,6 @@ static void tst2() {
 
 void tst_heap() {
     // enable_debug("heap");
-    enable_trace("heap");
     unsigned i = 0;
     while (i < 3) {
         IF_VERBOSE(1, verbose_stream() << "test\n";);

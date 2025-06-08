@@ -99,7 +99,7 @@ static void test3() {
 }
 
 void tst_euf_arith_plugin() {
-    enable_trace("plugin");
+    // enable_trace("plugin");
     test1();
     test2();
     test3();

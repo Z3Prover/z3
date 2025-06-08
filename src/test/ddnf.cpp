@@ -201,7 +201,7 @@ void tst_ddnf(char ** argv, int argc, int& i) {
 }
 
 void tst_ddnf1() {
-    enable_trace("ddnf");
+    // enable_trace("ddnf");
     unsigned W = 2;
     datalog::ddnf_core ddnf(W);
     tbv_manager& tbvm = ddnf.get_tbv_manager();
