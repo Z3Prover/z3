@@ -54,7 +54,6 @@ Mam optimization?
 #include "ast/rewriter/var_subst.h"
 #include "ast/simplifiers/euf_completion.h"
 #include "ast/shared_occs.h"
-#include "params/tactic_params.hpp"
 #include "params/smt_params_helper.hpp"
 
 namespace euf {
@@ -99,8 +98,8 @@ namespace euf {
     }
 
     void completion::updt_params(params_ref const& p) {
-        tactic_params tp(p);
-        m_max_instantiations = tp.completion_max_instantiations();
+        smt_params_helper sp(p);
+        m_max_instantiations = sp.qi_max_instances();
     }
 
     struct completion::push_watch_rule : public trail {

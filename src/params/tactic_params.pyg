@@ -12,7 +12,6 @@ def_module_params('tactic',
                           ('lia2card.max_range', UINT, 100, "maximal range of integers to compilation into Booleans"),
                           ('lia2card.max_ite_nesting', UINT, 4, "maximal nesting depth for ite expressions to be compiled into PB constraints"),
                           ('randomizer.seed', UINT, 0, "seed for randomizer pre-processor"),
-                          ('completion.max_instantiations', UINT, UINT_MAX, "Maximal number of instantiations allowed for euf-completion"),
                           ('default_tactic', SYMBOL, '', "overwrite default tactic in strategic solver"),
 
                      #     ('aig.per_assertion', BOOL, True, "process one assertion at a time"),
