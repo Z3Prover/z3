@@ -575,7 +575,7 @@ stages:
         repositoryName: 'Z3Prover/z3'
         action: 'delete'
 #     target: '$(Build.SourceVersion)'
-        tagSource: 'manual'
+        tagSource: 'gitTag'
         tag: 'Nightly'
     - task: GitHubRelease@1
       continueOnError: true 
@@ -584,7 +584,7 @@ stages:
         repositoryName: 'Z3Prover/z3'
         action: 'create'
 #     target: '$(Build.SourceVersion)'
-        tagSource: 'manual'
+        tagSource: 'gitTag'
         tag: 'Nightly'
         title: 'Nightly'
         releaseNotesSource: 'input'
