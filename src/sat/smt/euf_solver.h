@@ -31,7 +31,7 @@ Author:
 #include "sat/smt/user_solver.h"
 #include "sat/smt/euf_relevancy.h"
 #include "sat/smt/euf_proof_checker.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 
 
 namespace euf {

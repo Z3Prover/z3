@@ -20,7 +20,7 @@ Revision History:
 
 #include "smt/smt_types.h"
 #include "util/heap.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 
 namespace smt {
     class context;

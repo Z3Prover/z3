@@ -25,7 +25,7 @@ Notes:
 #include "ast/pb_decl_plugin.h"
 #include "smt/smt_clause.h"
 #include "smt/smt_b_justification.h"
-#include "smt/params/theory_pb_params.h"
+#include "params/theory_pb_params.h"
 #include "math/simplex/simplex.h"
 
 namespace smt {

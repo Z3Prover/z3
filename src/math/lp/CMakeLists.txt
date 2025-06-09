@@ -42,7 +42,7 @@ z3_add_component(lp
     util
     polynomial
     nlsat
-    smt_params
+    params
   PYG_FILES
     lp_params_helper.pyg
 )

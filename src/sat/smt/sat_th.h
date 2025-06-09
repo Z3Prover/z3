@@ -20,7 +20,7 @@ Author:
 #include "sat/smt/sat_smt.h"
 #include "ast/euf/euf_egraph.h"
 #include "model/model.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 
 namespace euf {
 

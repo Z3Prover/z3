@@ -5,7 +5,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "ast/ast.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "qe/qe.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"

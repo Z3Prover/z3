@@ -21,7 +21,7 @@ TODO: eager equality propagation
 #pragma once
 
 #include "smt/theory_arith.h"
-#include "smt/params/theory_arith_params.h"
+#include "params/theory_arith_params.h"
 #include "ast/arith_decl_plugin.h"
 #include "smt/arith_eq_adapter.h"
 #include "smt/theory_opt.h"

@@ -21,7 +21,7 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "util/statistics.h"
 #include "util/lbool.h"
 #include "ast/expr_functors.h"

@@ -9,7 +9,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "muz/rel/dl_table_relation.h"
 #include "muz/base/dl_context.h"
 #include "muz/fp/dl_register_engine.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "util/stopwatch.h"
 #include "ast/reg_decl_plugins.h"
 #include "muz/rel/dl_relation_manager.h"

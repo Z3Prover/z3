@@ -23,7 +23,7 @@ Revision History:
 #include "muz/rel/doc.h"
 #include "smt/smt_kernel.h"
 #include "ast/rewriter/expr_safe_replace.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 

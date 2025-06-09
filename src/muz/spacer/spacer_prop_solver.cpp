@@ -24,7 +24,7 @@ Revision History:
 
 #include "ast/rewriter/expr_replacer.h"
 
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 
 #include "model/model.h"
 #include "model/model_pp.h"

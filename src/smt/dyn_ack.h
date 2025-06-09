@@ -19,7 +19,7 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
-#include "smt/params/dyn_ack_params.h"
+#include "params/dyn_ack_params.h"
 #include "util/obj_hashtable.h"
 #include "util/obj_pair_hashtable.h"
 #include "util/obj_triple_hashtable.h"

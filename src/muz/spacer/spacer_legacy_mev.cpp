@@ -10,7 +10,7 @@ Copyright (c) 2017 Arie Gurfinkel
 #include "ast/rewriter/bool_rewriter.h"
 #include "muz/base/dl_util.h"
 #include "ast/for_each_expr.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "model/model.h"
 #include "util/ref_vector.h"
 #include "ast/rewriter/rewriter.h"

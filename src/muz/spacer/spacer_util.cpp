@@ -50,7 +50,7 @@ Notes:
 #include "model/model_evaluator.h"
 #include "model/model_pp.h"
 #include "model/model_smt2_pp.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 
 #include "qe/lite/qel.h"
 #include "qe/mbp/mbp_plugin.h"

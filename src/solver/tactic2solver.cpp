@@ -24,8 +24,8 @@ Notes:
 #include "solver/tactic2solver.h"
 #include "solver/solver_na2as.h"
 #include "solver/mus.h"
-#include "smt/params/smt_params.h"
-#include "smt/params/smt_params_helper.hpp"
+#include "params/smt_params.h"
+#include "params/smt_params_helper.hpp"
 
 
 /**

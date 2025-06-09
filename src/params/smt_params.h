@@ -19,16 +19,16 @@ Revision History:
 #pragma once
 
 #include "ast/static_features.h"
-#include "smt/params/dyn_ack_params.h"
-#include "smt/params/qi_params.h"
-#include "smt/params/theory_arith_params.h"
-#include "smt/params/theory_array_params.h"
-#include "smt/params/theory_bv_params.h"
-#include "smt/params/theory_str_params.h"
-#include "smt/params/theory_seq_params.h"
-#include "smt/params/theory_pb_params.h"
-#include "smt/params/theory_datatype_params.h"
-#include "smt/params/preprocessor_params.h"
+#include "params/dyn_ack_params.h"
+#include "params/qi_params.h"
+#include "params/theory_arith_params.h"
+#include "params/theory_array_params.h"
+#include "params/theory_bv_params.h"
+#include "params/theory_str_params.h"
+#include "params/theory_seq_params.h"
+#include "params/theory_pb_params.h"
+#include "params/theory_datatype_params.h"
+#include "params/preprocessor_params.h"
 #include "params/context_params.h"
 
 enum phase_selection {

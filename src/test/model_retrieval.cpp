@@ -6,7 +6,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 
 #include "ast/ast.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "smt/smt_context.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"

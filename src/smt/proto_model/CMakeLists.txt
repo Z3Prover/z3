@@ -4,5 +4,5 @@ z3_add_component(proto_model
   COMPONENT_DEPENDENCIES
     model
     rewriter
-    smt_params
+    params
 )

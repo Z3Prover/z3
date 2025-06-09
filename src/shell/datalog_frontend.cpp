@@ -21,7 +21,7 @@ Revision History:
 #include<time.h>
 #include<signal.h>
 #include "util/stopwatch.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "muz/rel/dl_compiler.h"

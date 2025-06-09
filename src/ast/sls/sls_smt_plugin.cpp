@@ -20,7 +20,7 @@ Author:
 #include "ast/for_each_expr.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/ast_pp.h"
-#include "smt/params/smt_params_helper.hpp"
+#include "params/smt_params_helper.hpp"
 
 namespace sls {
 

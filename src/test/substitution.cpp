@@ -5,7 +5,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "ast/expr_substitution.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "ast/substitution/substitution.h"
 #include "ast/substitution/unifier.h"
 #include "ast/bv_decl_plugin.h"

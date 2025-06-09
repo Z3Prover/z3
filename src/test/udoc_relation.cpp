@@ -13,7 +13,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/sorting_network.h"
 #include "smt/smt_kernel.h"
 #include "model/model_smt2_pp.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/th_rewriter.h"

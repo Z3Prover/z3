@@ -20,7 +20,7 @@ Revision History:
 
 #include "api/z3.h"
 #include "ast/ast.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "smt/smt_kernel.h"
 #include "api/api_util.h"
 

@@ -29,7 +29,7 @@ and V is a value (true or false) and x is a subterm
 
 #include "smt/tactic/ctx_solver_simplify_tactic.h"
 #include "ast/arith_decl_plugin.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "smt/smt_kernel.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/mk_simplified_app.h"

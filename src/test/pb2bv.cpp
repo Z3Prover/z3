@@ -12,7 +12,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/pb2bv_rewriter.h"
 #include "smt/smt_kernel.h"
 #include "model/model_smt2_pp.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "ast/ast_util.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"

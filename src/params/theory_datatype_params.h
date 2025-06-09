@@ -18,7 +18,7 @@ Revision History:
 --*/
 #pragma once
 
-#include "smt/params/smt_params_helper.hpp"
+#include "params/smt_params_helper.hpp"
 
 struct theory_datatype_params {
     unsigned   m_dt_lazy_splits;

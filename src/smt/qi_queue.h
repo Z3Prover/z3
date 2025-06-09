@@ -25,7 +25,7 @@ Revision History:
 #include "smt/smt_checker.h"
 #include "smt/smt_quantifier.h"
 #include "smt/fingerprints.h"
-#include "smt/params/qi_params.h"
+#include "params/qi_params.h"
 #include "ast/cost_evaluator.h"
 #include "util/statistics.h"
 

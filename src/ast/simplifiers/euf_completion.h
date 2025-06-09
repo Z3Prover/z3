@@ -52,12 +52,13 @@ namespace euf {
         };
 
         struct conditional_rule {
-            expr_ref_vector m_body;
+            euf::enode_vector m_body;
             expr_ref m_head;
             expr_dependency* m_dep;
+            unsigned m_watch_index = 0;
             bool m_active = true;
             bool m_in_queue = false;
-            conditional_rule(expr_ref_vector& b, expr_ref& h, expr_dependency* d) :
+            conditional_rule(euf::enode_vector& b, expr_ref& h, expr_dependency* d) :
                 m_body(b), m_head(h), m_dep(d) {}
         };
 
@@ -78,6 +79,7 @@ namespace euf {
         bool                   m_has_new_eq = false;
         bool                   m_should_propagate = false;
         unsigned               m_max_instantiations = std::numeric_limits<unsigned>::max();
+        unsigned               m_generation = 0;
         vector<ptr_vector<conditional_rule>> m_rule_watch;
             
         enode* mk_enode(expr* e);
@@ -104,12 +106,15 @@ namespace euf {
 
         void add_rule(expr* f, expr_dependency* d);
         void watch_rule(enode* root, enode* other);
+        void insert_watch(enode* n, conditional_rule* r);
         void propagate_rule(conditional_rule& r);
         void propagate_rules();
         void propagate_all_rules();
         void clear_propagation_queue();
         ptr_vector<conditional_rule> m_propagation_queue;
         struct push_watch_rule;
+
+        struct scoped_generation;
 
         bool is_gt(expr* a, expr* b) const;
     public:

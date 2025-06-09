@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include "smt/params/theory_bv_params.h"
-#include "smt/params/smt_params_helper.hpp"
+#include "params/theory_bv_params.h"
+#include "params/smt_params_helper.hpp"
 #include "params/bv_rewriter_params.hpp"
 
 void theory_bv_params::updt_params(params_ref const & _p) {

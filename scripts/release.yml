@@ -579,7 +579,7 @@ stages:
         tagSource: 'userSpecifiedTag'
         tag: 'z3-$(ReleaseVersion)'
         title: 'z3-$(ReleaseVersion)'
-        releaseNotesSource: 'input'
+        releaseNotesSource: 'inline'
         releaseNotes: '$(ReleaseVersion) release'
         assets: '$(Agent.TempDirectory)/*.*'
         isDraft: true

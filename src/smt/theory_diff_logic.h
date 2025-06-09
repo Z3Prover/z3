@@ -32,7 +32,7 @@ Revision History:
 #include "smt/smt_theory.h"
 #include "smt/diff_logic.h"
 #include "smt/smt_justification.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "smt/arith_eq_adapter.h"
 #include "smt/smt_model_generator.h"
 #include "smt/smt_clause.h"

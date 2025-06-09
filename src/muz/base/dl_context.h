@@ -32,7 +32,7 @@ Revision History:
 #include "util/trail.h"
 #include "ast/converters/model_converter.h"
 #include "model/model2expr.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "muz/base/dl_rule_transformer.h"
 #include "ast/expr_functors.h"
 #include "muz/base/dl_engine_base.h"

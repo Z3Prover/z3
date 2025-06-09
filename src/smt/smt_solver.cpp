@@ -23,8 +23,8 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/func_decl_dependencies.h"
 #include "smt/smt_kernel.h"
-#include "smt/params/smt_params.h"
-#include "smt/params/smt_params_helper.hpp"
+#include "params/smt_params.h"
+#include "params/smt_params_helper.hpp"
 #include "solver/solver_na2as.h"
 #include "solver/mus.h"
 

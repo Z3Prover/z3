@@ -55,6 +55,7 @@ Mam optimization?
 #include "ast/simplifiers/euf_completion.h"
 #include "ast/shared_occs.h"
 #include "params/tactic_params.hpp"
+#include "params/smt_params_helper.hpp"
 
 namespace euf {
 
@@ -108,6 +109,18 @@ namespace euf {
         push_watch_rule(vector<ptr_vector<conditional_rule>>& r, unsigned i) : m_rules(r), idx(i) {}
         void undo() override {
             m_rules[idx].pop_back();
+        }
+    };
+
+    struct completion::scoped_generation {
+        completion& c;
+        unsigned m_generation = 0;
+        scoped_generation(completion& c, unsigned g): c(c) {
+            m_generation = c.m_generation;
+            c.m_generation = g;
+        }
+        ~scoped_generation() {
+            c.m_generation = m_generation;
         }
     };
 
@@ -287,21 +300,24 @@ namespace euf {
         if (body.empty())
             add_constraint(head, d);
         else {
-            // create a new rule. 
-            // add all (one is actually enough) parts of the body to watch list.
-            auto r = alloc(conditional_rule, body, head, d);
+            euf::enode_vector _body;
+            for (auto* f : body)
+                _body.push_back(m_egraph.find(f)->get_root());
+            auto r = alloc(conditional_rule, _body, head, d);
             m_rules.push_back(r);
             get_trail().push(new_obj_trail(r));
             get_trail().push(push_back_vector(m_rules));
-            for (auto f : body) {
-                auto n = m_egraph.find(f)->get_root();
-                if (m.is_not(n->get_expr()))
-                    n = n->get_arg(0)->get_root();
-                m_rule_watch.reserve(n->get_id() + 1);
-                m_rule_watch[n->get_id()].push_back(r);
-                get_trail().push(push_watch_rule(m_rule_watch, n->get_id()));
-            }
+            insert_watch(_body[0], r);
         }
+    }
+
+    void completion::insert_watch(enode* n, conditional_rule* r) {
+        n = n->get_root();
+        if (m.is_not(n->get_expr()))
+            n = n->get_arg(0)->get_root();
+        m_rule_watch.reserve(n->get_id() + 1);
+        m_rule_watch[n->get_id()].push_back(r);
+        get_trail().push(push_watch_rule(m_rule_watch, n->get_id()));
     }
 
     void completion::propagate_all_rules() {
@@ -324,16 +340,20 @@ namespace euf {
     void completion::propagate_rule(conditional_rule& r) {
         if (!r.m_active)
             return;
-        for (auto* f : r.m_body) {
-            switch (eval_cond(f, r.m_dep)) {
+        for (unsigned i = r.m_watch_index; i < r.m_body.size(); ++i) {
+            auto* f = r.m_body.get(i);       
+            switch (eval_cond(f->get_expr(), r.m_dep)) {
             case l_true:
+                get_trail().push(value_trail(r.m_watch_index));
+                ++r.m_watch_index;
                 break;
             case l_false:
                 get_trail().push(value_trail(r.m_active));
                 r.m_active = false;
                 return;
             default:
-                break;
+                insert_watch(f, &r);
+                return;                
             }
         }
         if (r.m_body.empty()) {
@@ -349,10 +369,15 @@ namespace euf {
             return;
         var_subst subst(m);
         expr_ref_vector _binding(m);
-        for (unsigned i = 0; i < q->get_num_decls(); ++i)
+        unsigned max_generation = 0;
+        for (unsigned i = 0; i < q->get_num_decls(); ++i) {
             _binding.push_back(binding[i]->get_expr());
+            max_generation = std::max(max_generation, binding[i]->generation());
+        }
         expr_ref r = subst(q->get_expr(), _binding);
         IF_VERBOSE(12, verbose_stream() << "add " << r << "\n");
+
+        scoped_generation sg(*this, max_generation + 1);
         add_constraint(r, get_dependency(q));
         propagate_rules();
         m_should_propagate = true;
@@ -419,7 +444,7 @@ namespace euf {
                 continue;
             }
             if (!is_app(e)) {
-                m_nodes_to_canonize.push_back(m_egraph.mk(e, 0, 0, nullptr));
+                m_nodes_to_canonize.push_back(m_egraph.mk(e, m_generation, 0, nullptr));
                 m_todo.pop_back();
                 continue;
             }
@@ -433,7 +458,7 @@ namespace euf {
                     m_todo.push_back(arg);
             }
             if (sz == m_todo.size()) {
-                m_nodes_to_canonize.push_back(m_egraph.mk(e, 0, m_args.size(), m_args.data()));
+                m_nodes_to_canonize.push_back(m_egraph.mk(e, m_generation, m_args.size(), m_args.data()));
                 m_todo.pop_back();
             }
         }

@@ -19,7 +19,7 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 
 struct static_features;
 namespace smt {

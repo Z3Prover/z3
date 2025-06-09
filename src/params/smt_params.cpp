@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include "smt/params/smt_params.h"
-#include "smt/params/smt_params_helper.hpp"
+#include "params/smt_params.h"
+#include "params/smt_params_helper.hpp"
 #include "util/gparams.h"
 #include "params/solver_params.hpp"
 

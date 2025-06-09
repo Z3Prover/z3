@@ -41,7 +41,7 @@ Notes:
 #include "ast/simplifiers/flatten_clauses.h"
 #include "ast/simplifiers/bound_simplifier.h"
 #include "ast/simplifiers/cnf_nnf.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "solver/solver_preprocess.h"
 #include "qe/lite/qe_lite_tactic.h"
 

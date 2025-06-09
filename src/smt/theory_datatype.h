@@ -24,7 +24,7 @@ Revision History:
 #include "ast/datatype_decl_plugin.h"
 #include "model/datatype_factory.h"
 #include "smt/smt_theory.h"
-#include "smt/params/theory_datatype_params.h"
+#include "params/theory_datatype_params.h"
 
 namespace smt {
     class theory_datatype : public theory {

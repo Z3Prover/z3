@@ -20,7 +20,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "smt/smt_kernel.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/bool_rewriter.h"

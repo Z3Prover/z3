@@ -17,7 +17,7 @@ z3_add_component(solver
   COMPONENT_DEPENDENCIES
     model
     tactic
-    smt_params
+    params
     qe_lite
   PYG_FILES
     combined_solver_params.pyg

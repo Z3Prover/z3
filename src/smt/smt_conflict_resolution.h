@@ -24,7 +24,7 @@ Revision History:
 #include "smt/smt_enode.h"
 #include "smt/dyn_ack.h"
 #include "util/obj_pair_hashtable.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "util/obj_pair_hashtable.h"
 #include "util/map.h"
 #include "smt/watch_list.h"

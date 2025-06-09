@@ -26,5 +26,5 @@ z3_add_component(ast_sls
     euf
     converters
     normal_forms
-    smt_params
+    params
 )

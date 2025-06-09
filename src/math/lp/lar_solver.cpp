@@ -3,7 +3,7 @@
   Author: Nikolaj Bjorner, Lev Nachmanson
 */
 #include "math/lp/lar_solver.h"
-#include "smt/params/smt_params_helper.hpp"
+#include "params/smt_params_helper.hpp"
 #include "lar_solver.h"
 
 

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include "smt/params/theory_arith_params.h"
-#include "smt/params/smt_params_helper.hpp"
+#include "params/theory_arith_params.h"
+#include "params/smt_params_helper.hpp"
 #include "params/arith_rewriter_params.hpp"
 
 void theory_arith_params::updt_params(params_ref const & _p) {

@@ -20,6 +20,7 @@ Notes:
 
 --*/
 
+#include "params/smt_params.h"
 #include "ast/expr_abstract.h"
 #include "ast/ast_util.h"
 #include "ast/occurs.h"
@@ -31,7 +32,6 @@ Notes:
 #include "model/model_evaluator.h"
 #include "model/model_evaluator_params.hpp"
 #include "smt/smt_kernel.h"
-#include "smt/params/smt_params.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
 #include "solver/mus.h"

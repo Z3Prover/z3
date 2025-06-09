@@ -3,7 +3,7 @@ z3_add_component(solver_assertions
     asserted_formulas.cpp
   COMPONENT_DEPENDENCIES
     smt2parser
-    smt_params
+    params
     qe_lite
     solver
 )

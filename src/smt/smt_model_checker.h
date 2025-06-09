@@ -24,8 +24,8 @@ Revision History:
 #include "ast/ast.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/normal_forms/defined_names.h"
-#include "smt/params/qi_params.h"
-#include "smt/params/smt_params.h"
+#include "params/qi_params.h"
+#include "params/smt_params.h"
 
 class proto_model;
 class model;

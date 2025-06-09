@@ -26,7 +26,7 @@ Notes:
 #include "util/params.h"
 #include "solver/solver_na2as.h"
 #include "smt/smt_kernel.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "smt/smt_types.h"
 #include "smt/theory_opt.h"
 #include "ast/converters/generic_model_converter.h"

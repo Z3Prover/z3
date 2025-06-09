@@ -26,7 +26,7 @@ Author:
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
-#include "smt/params/smt_params_helper.hpp"
+#include "params/smt_params_helper.hpp"
 
 namespace sls {
 

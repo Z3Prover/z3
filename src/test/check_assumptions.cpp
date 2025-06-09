@@ -5,7 +5,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "util/memory_manager.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"

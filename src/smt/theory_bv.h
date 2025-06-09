@@ -24,7 +24,7 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "model/numeral_factory.h"
 #include "smt/smt_theory.h"
-#include "smt/params/theory_bv_params.h"
+#include "params/theory_bv_params.h"
 
 namespace smt {
     

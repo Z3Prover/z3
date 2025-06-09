@@ -19,7 +19,7 @@ Revision History:
 #pragma once
 
 #include "smt/theory_array_base.h"
-#include "smt/params/theory_array_params.h"
+#include "params/theory_array_params.h"
 #include "util/union_find.h"
 
 namespace smt {

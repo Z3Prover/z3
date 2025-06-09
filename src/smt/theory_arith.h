@@ -30,7 +30,7 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "model/numeral_factory.h"
 #include "smt/smt_theory.h"
-#include "smt/params/theory_arith_params.h"
+#include "params/theory_arith_params.h"
 #include "smt/arith_eq_adapter.h"
 #include "smt/smt_context.h"
 #include "smt/old_interval.h"
