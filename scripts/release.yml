@@ -576,7 +576,7 @@ stages:
         repositoryName: $(Build.Repository.Name)
         action: 'create'
         target: '$(Build.SourceVersion)'
-        tagSource: 'gitTag'
+        tagSource: 'userSpecifiedTag'
         tag: 'z3-$(ReleaseVersion)'
         title: 'z3-$(ReleaseVersion)'
         releaseNotesSource: 'input'
