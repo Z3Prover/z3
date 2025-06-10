@@ -15,6 +15,7 @@ Author:
 
 --*/
 
+#include "ast/rewriter/expr_safe_replace.h"
 #include "tactic/tactic.h"
 #include "tactic/portfolio/euf_completion_tactic.h"
 #include "solver/solver.h"
@@ -25,7 +26,7 @@ class euf_side_condition_solver : public euf::side_condition_solver {
     params_ref m_params;
     scoped_ptr<solver> m_solver;
     expr_ref_vector m_deps;
-    obj_map<expr, expr_dependency*> m_e2d;
+    obj_map<expr, std::pair<proof*, expr_dependency*>> m_e2d;
     expr_ref_vector m_fmls;
     obj_hashtable<expr> m_seen;
     trail_stack m_trail;
@@ -55,7 +56,7 @@ public:
         m_solver->pop(n);
     }
 
-    void add_constraint(expr* f, expr_dependency* d) override {
+    void add_constraint(expr* f, proof* pr, expr_dependency* d) override {
         if (m_seen.contains(f))
             return;
         m_seen.insert(f);
@@ -68,7 +69,7 @@ public:
         if (d) {
             expr* e_dep = m.mk_fresh_const("dep", m.mk_bool_sort());
             m_deps.push_back(e_dep);
-            m_e2d.insert(e_dep, d);
+            m_e2d.insert(e_dep, { pr, d });
             m_trail.push(insert_obj_map(m_e2d, e_dep));
             m_solver->assert_expr(f, e_dep);
         }
@@ -76,7 +77,7 @@ public:
             m_solver->assert_expr(f);        
     }
 
-    bool is_true(expr* f, expr_dependency*& d) override {
+    bool is_true(expr* f, proof_ref& pr, expr_dependency*& d) override {
         d = nullptr;
         solver::scoped_push _sp(*m_solver);
         m_fmls.reset();
@@ -86,9 +87,24 @@ public:
         if (r == l_false) {
             expr_ref_vector core(m);
             m_solver->get_unsat_core(core);
-            for (auto c : core)
-                d = m.mk_join(d, m_e2d[c]);
+            for (auto c : core) {
+                auto [pr, dep] = m_e2d[c];
+                d = m.mk_join(d, dep);
+            }
+            if (m.proofs_enabled()) {
+                pr = m_solver->get_proof();
+                SASSERT(pr);
+                expr_safe_replace rep(m);
+                for (auto c : core) {
+                    auto [p, dep] = m_e2d[c];
+                    rep.insert(m.mk_asserted(c), p);
+                }
+                expr_ref ppr(pr, m);
+                rep(ppr);
+                pr = to_app(ppr.get());
+            }
         }
+
         return r == l_false;
     }
 
