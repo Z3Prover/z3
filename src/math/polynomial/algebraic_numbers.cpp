@@ -2663,7 +2663,78 @@ namespace algebraic_numbers {
         };
 
 #define DEFAULT_PRECISION 2
+        unsigned m_python_file_number = 0;
+        void check_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots) {
+            std::string file_name = "root_check_" + std::to_string(m_python_file_number++) + ".py";
+            // std::ofstream py(file_name);
+            auto & py = std::cout;
+            py << "import sympy\n";
+            py << "from sympy import Poly, symbols, solveset, S\n";
+            py << "x = symbols('x')\n";
+            py << "# working on " << p << "\n";
+            // Substitute assigned variables to get a univariate polynomial
+            polynomial::manager & ext_pm = p.m();
+            var2basic x2v_basic(*this, x2v);
+            polynomial_ref p_prime(ext_pm);
+            p_prime = ext_pm.substitute(p, x2v_basic);
 
+            // Find the unassigned variable
+            // Try to substitute every variable in p using x2v, so only one variable remains
+            polynomial::var_vector xs;
+            ext_pm.vars(p_prime, xs);
+            p_prime = ext_pm.substitute(p, x2v_basic);
+            if (xs.size() != 1) {
+                std::cerr << "[LDBG] check_roots: after substitution, polynomial is not univariate (vars left: " << xs.size() << ")\n";
+                return;
+            }
+            polynomial::var xvar = xs[0];
+            // Write the polynomial coefficients (highest degree first)
+            py << "# Polynomial coefficients (highest degree first)\n";
+            unsigned deg = ext_pm.degree(p_prime, xvar);
+            py << "coeffs = [";
+            for (int i = deg; i >= 0; --i) {
+                polynomial_ref ci(ext_pm);
+                ci = ext_pm.coeff(p_prime, xvar, i);
+                scoped_anum ai(m_wrapper);
+                ext_pm.eval(ci, x2v, ai);
+                if (i < (int)deg) py << ", ";
+                if (ai.get().is_basic()) {
+                    basic_cell* v = ai.get().to_basic();
+                    if (!v) continue;
+                    mpq const & val = v->m_value;
+                    py << "sympy.Rational(" << qm().to_string(val.numerator()) << ", " << qm().to_string(val.denominator()) << ")";
+                } else {
+                    // Only allow root objects, not approximations
+                    std::cerr << "[LDBG] check_roots: non-basic coefficient at degree " << i << ", skipping check_roots.\n";
+                    py << "None";
+                }
+            }
+            py << "]\n";
+            py << "poly = Poly(coeffs, x)\n";
+
+            // Write the roots found by Z3 as a Python list using display_root
+            py << "# Roots found by Z3\n";
+            py << "z3_roots = [";
+            for (unsigned i = 0; i < roots.size(); ++i) {
+                if (i > 0) py << ", ";
+                std::ostringstream oss;
+                display_root(oss, roots[i]);
+                py << "\"" << oss.str() << "\"";
+            }
+            py << "]\n";
+
+            py << "# Only compare if all roots and coefficients are basic\n";
+            py << "if None not in coeffs:\n";
+            py << "    sympy_roots = solveset(poly.as_expr(), x, domain=S.Complexes)\n";
+            py << "    sympy_roots = list(sympy_roots)\n";
+            py << "    print('Z3 roots:', z3_roots)\n";
+            py << "    print('Sympy roots:', sympy_roots)\n";
+            py << "else:\n";
+            py << "    print('Skipping comparison: non-basic roots or coefficients encountered.')\n";
+//            py.close();
+        }
+ 
+         
         void isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, svector<sign> & signs) {
             isolate_roots(p, x2v, roots);
             unsigned num_roots = roots.size();
@@ -2720,6 +2791,7 @@ namespace algebraic_numbers {
                     signs.push_back(s);
                 }
             }
+            check_roots(p,x2v, roots);
         }
 
         std::ostream& display_root(std::ostream & out, numeral const & a) {

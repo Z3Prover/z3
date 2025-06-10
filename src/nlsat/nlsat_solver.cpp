@@ -1462,7 +1462,8 @@ namespace nlsat {
            \brief Assign literal to true using the given justification
         */
         void set_literal_to_true(literal l, justification j) {
-            debug_set_debug_assignment_to_known_vals();
+            if (!m_debug_known_sol_file_name.empty())
+                debug_set_debug_assignment_to_known_vals();
             TRACE("nlsat_assign",
                   tout << "literal" << l << "\n";
                   display(tout << "assigning literal to true: ", l) << "\n";
@@ -4075,7 +4076,7 @@ namespace nlsat {
             for (clause* c : cs) {
                 display(out, *c, proc) << "\n";
             }
-            return out;
+            return out; 
         }
 
         std::ostream& display(std::ostream & out, clause_vector const & cs) const {
