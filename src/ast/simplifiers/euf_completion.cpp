@@ -186,7 +186,7 @@ namespace euf {
 
         for (unsigned i = qhead(); i < sz; ++i) {
             auto [f, p, d] = m_fmls[i]();
-            add_constraint(f, d);
+            add_constraint(f, p, d);
         }
         m_should_propagate = true;
         while (m_should_propagate && !should_stop()) {
@@ -200,7 +200,7 @@ namespace euf {
         }
     }
 
-    void completion::add_constraint(expr* f, expr_dependency* d) {
+    void completion::add_constraint(expr* f, proof* pr, expr_dependency* d) {
         if (m_egraph.inconsistent())
             return;
         auto add_children = [&](enode* n) {
@@ -234,21 +234,21 @@ namespace euf {
                         mk_enode(g);
                     m_mam->add_pattern(q, p);
                 }
-                if (!get_dependency(q)) {
-                    m_q2dep.insert(q, d);
-                    get_trail().push(insert_obj_map(m_q2dep, q));
-                }
+                auto pq = get_dependency(q);
+                m_q2dep.insert(q, pq);
+                get_trail().push(insert_obj_map(m_q2dep, q));                
             }
-            add_rule(f, d);
+            add_rule(f, pr, d);
         }
         if (m_side_condition_solver)
-            m_side_condition_solver->add_constraint(f, d);
+            m_side_condition_solver->add_constraint(f, pr, d);
     }
 
-    lbool completion::eval_cond(expr* f, expr_dependency*& d) {
+    lbool completion::eval_cond(expr* f, proof_ref& pr, expr_dependency*& d) {
         auto n = mk_enode(f);
         if (m.is_true(n->get_root()->get_expr())) {
             d = m.mk_join(d, explain_eq(n, n->get_root()));
+            // TODO update pr
             return l_true;
         }
         if (m.is_false(n->get_root()->get_expr()))
@@ -259,6 +259,7 @@ namespace euf {
             n = mk_enode(g);
             if (m.is_false(n->get_root()->get_expr())) {
                 d = m.mk_join(d, explain_eq(n, n->get_root()));
+                // TODO update pr
                 return l_true;
             }
             if (m.is_true(n->get_root()->get_expr()))
@@ -266,8 +267,8 @@ namespace euf {
         }
         if (m_side_condition_solver) {
             expr_dependency* sd = nullptr;
-            if (m_side_condition_solver->is_true(f, sd)) {
-                add_constraint(f, sd);
+            if (m_side_condition_solver->is_true(f, pr, sd)) {
+                add_constraint(f, pr, sd);
                 d = m.mk_join(d, sd);
                 return l_true;
             }
@@ -275,18 +276,22 @@ namespace euf {
         return l_undef;
     }
 
-    void completion::add_rule(expr* f, expr_dependency* d) {
+    void completion::add_rule(expr* f, proof* pr, expr_dependency* d) {
         expr* x = nullptr, * y = nullptr;
         if (!m.is_implies(f, x, y))
             return;
         expr_ref_vector body(m);
+        proof_ref pr_i(m), pr0(m);
+        proof_ref_vector prs(m);
         expr_ref head(y, m);
         body.push_back(x);
         flatten_and(body);
         unsigned j = 0;
         for (auto f : body) {
-            switch (eval_cond(f, d)) {
+            switch (eval_cond(f, pr_i, d)) {
             case l_true:
+                if (m.proofs_enabled())
+                    prs.push_back(pr_i);
                 break;
             case l_false:
                 return;
@@ -296,13 +301,16 @@ namespace euf {
             }
         }
         body.shrink(j);
+        if (m.proofs_enabled()) {
+            // TODO
+        }
         if (body.empty())
-            add_constraint(head, d);
+            add_constraint(head, pr0, d);
         else {
             euf::enode_vector _body;
             for (auto* f : body)
                 _body.push_back(m_egraph.find(f)->get_root());
-            auto r = alloc(conditional_rule, _body, head, d);
+            auto r = alloc(conditional_rule, _body, head, pr0, d);
             m_rules.push_back(r);
             get_trail().push(new_obj_trail(r));
             get_trail().push(push_back_vector(m_rules));
@@ -340,11 +348,13 @@ namespace euf {
         if (!r.m_active)
             return;
         for (unsigned i = r.m_watch_index; i < r.m_body.size(); ++i) {
-            auto* f = r.m_body.get(i);       
-            switch (eval_cond(f->get_expr(), r.m_dep)) {
+            auto* f = r.m_body.get(i);    
+            proof_ref pr(m);
+            switch (eval_cond(f->get_expr(), pr, r.m_dep)) {
             case l_true:
                 get_trail().push(value_trail(r.m_watch_index));
                 ++r.m_watch_index;
+                // TODO accumulate proof in r?
                 break;
             case l_false:
                 get_trail().push(value_trail(r.m_active));
@@ -356,7 +366,7 @@ namespace euf {
             }
         }
         if (r.m_body.empty()) {
-            add_constraint(r.m_head, r.m_dep);
+            add_constraint(r.m_head, r.m_proof, r.m_dep);
             get_trail().push(value_trail(r.m_active));
             r.m_active = false;
         }
@@ -375,9 +385,10 @@ namespace euf {
         }
         expr_ref r = subst(q->get_expr(), _binding);
         IF_VERBOSE(12, verbose_stream() << "add " << r << "\n");
-
+        IF_VERBOSE(1, verbose_stream() << max_generation << "\n");
         scoped_generation sg(*this, max_generation + 1);
-        add_constraint(r, get_dependency(q));
+        auto [pr, d] = get_dependency(q);
+        add_constraint(r, pr, d);
         propagate_rules();
         m_should_propagate = true;
         ++m_stats.m_num_instances;

@@ -36,8 +36,8 @@ namespace euf {
             expr_ref guard;
         };
         virtual ~side_condition_solver() = default;
-        virtual void add_constraint(expr* f, expr_dependency* d) = 0;
-        virtual bool is_true(expr* f, expr_dependency*& d) = 0;
+        virtual void add_constraint(expr* f, proof*, expr_dependency* d) = 0;
+        virtual bool is_true(expr* f, proof_ref& pr, expr_dependency*& d) = 0;
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
         virtual void solve_for(vector<solution>& sol) = 0;
@@ -54,12 +54,13 @@ namespace euf {
         struct conditional_rule {
             euf::enode_vector m_body;
             expr_ref m_head;
+            proof_ref m_proof;
             expr_dependency* m_dep;
             unsigned m_watch_index = 0;
             bool m_active = true;
             bool m_in_queue = false;
-            conditional_rule(euf::enode_vector& b, expr_ref& h, expr_dependency* d) :
-                m_body(b), m_head(h), m_dep(d) {}
+            conditional_rule(euf::enode_vector& b, expr_ref& h, proof* pr, expr_dependency* d) :
+                m_body(b), m_head(h), m_proof(pr, h.get_manager()), m_dep(d) {}
         };
 
         egraph                 m_egraph;
@@ -69,7 +70,7 @@ namespace euf {
         enode_vector           m_args, m_reps, m_nodes_to_canonize;
         expr_ref_vector        m_canonical, m_eargs;
         expr_dependency_ref_vector m_deps;
-        obj_map<quantifier, expr_dependency*> m_q2dep;
+        obj_map<quantifier, std::pair<proof*, expr_dependency*>> m_q2dep;
         unsigned               m_epoch = 0;
         unsigned_vector        m_epochs;
         th_rewriter            m_rewriter;
@@ -94,17 +95,18 @@ namespace euf {
         expr* get_canonical(expr* f, expr_dependency_ref& d);
         expr* get_canonical(enode* n);
         void set_canonical(enode* n, expr* e);
-        void add_constraint(expr*f, expr_dependency* d);
+        void add_constraint(expr*f, proof* pr, expr_dependency* d);
         expr_dependency* explain_eq(enode* a, enode* b);
+        void prove_eq(enode* a, enode* b, proof_ref& pr);
         expr_dependency* explain_conflict();
-        expr_dependency* get_dependency(quantifier* q) { return m_q2dep.contains(q) ? m_q2dep[q] : nullptr; }
+        std::pair<proof*, expr_dependency*> get_dependency(quantifier* q) { return m_q2dep.contains(q) ? m_q2dep[q] : std::pair(nullptr, nullptr); }
 
-        lbool eval_cond(expr* f, expr_dependency*& d);
+        lbool eval_cond(expr* f, proof_ref& pr, expr_dependency*& d);
         
 
         bool should_stop();
 
-        void add_rule(expr* f, expr_dependency* d);
+        void add_rule(expr* f, proof* pr, expr_dependency* d);
         void watch_rule(enode* root, enode* other);
         void insert_watch(enode* n, conditional_rule* r);
         void propagate_rule(conditional_rule& r);
