@@ -2695,20 +2695,17 @@ namespace algebraic_numbers {
                 std::ostringstream ss;
                 display_decimal(ss, roots[i], 10);
                 std::string s = ss.str();
-                // Remove trailing '?' if present (means the root was truncated)
                 if (!s.empty() && s.back() == '?') {
-                    s.pop_back();
-                    // Add a comment in the Python script indicating truncation
-                    py << s << "  # value truncated to fit requested precision\n";
-                } else {
+                    s    .pop_back(); // Remove the trailing '?'
+                    // Optionally, add a comment in the Python script that the value was truncated
+                    py << s <<  "# trunctated root\n";
+                } else 
                     py << s;
-                }   
             }
-            
             py << "]\n";
 
             // Compute real roots using sympy
-            py << "sympy_roots = [r.evalf(10) for r in poly.real_roots(multiple=True)]\n";
+            py << "sympy_roots = [r.evalf(10) for r in poly.real_roots()]\n";
             py << "print('SymPy real roots:', sympy_roots)\n";
             py << "print('Solver roots:', roots)\n";
             py << "assert len(sympy_roots) == len(roots), f'Number of real roots mismatch: sympy={len(sympy_roots)}, solver={len(roots)}'\n";
