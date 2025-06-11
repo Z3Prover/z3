@@ -666,7 +666,7 @@ namespace algebraic_numbers {
                 m_isolate_uppers.reset();
             }
             sort_roots(roots);
-            dump_roots_as_python(up, roots);
+            TRACE("dump_roots", dump_roots_as_python(tout, up, roots));
         }
 
         void isolate_roots(polynomial_ref const & p, numeral_vector & roots) {
@@ -2664,60 +2664,58 @@ namespace algebraic_numbers {
         };
 
 #define DEFAULT_PRECISION 2
-
         unsigned m_python_file_number = 0;
-        void dump_roots_as_python(scoped_upoly const & p,  numeral_vector & roots) {
-            // Create a python script to check roots using sympy
-            std::string file_name = "root_check_" + std::to_string(m_python_file_number++) + ".py";
-            std::ofstream py(file_name);
-            if (!py) return;
 
-            py << "from sympy import *\n";
-            py << "x = symbols('x')\n";
-            py << "init_printing()\n";
+        std::ostream&  dump_roots_as_python(std::ostream& out, scoped_upoly const & p,  numeral_vector & roots) {
+            // Create a python script to check roots using sympy
+            out << "#python script number " << m_python_file_number ++ << "\n";
+            out << "from sympy import *\n";
+            out << "x = symbols('x')\n";
+            out << "init_printing()\n";
 
             // Print polynomial coefficients
-            py << "# Polynomial coefficients (from lowest to highest degree):\n";
-            py << "coeffs = [";
+            out << "# Polynomial coefficients (from lowest to highest degree):\n";
+            out << "coeffs = [";
             for (unsigned i = 0; i < p.size(); ++i) {
-                if (i > 0) py << ", ";
-                qm().display(py, p[i]);
+                if (i > 0) out << ", ";
+                qm().display(out, p[i]);
             }
-            py << "]\n";
-            py << "poly = Poly(coeffs[::-1], x)\n";
-            py << "print('Polynomial:', poly)\n";
+            out << "]\n";
+            out << "poly = Poly(coeffs[::-1], x)\n";
+            out << "print('Polynomial:', poly)\n";
 
             // Print roots
-            py << "# Roots to check (approximated):\n";
-            py << "roots = [";
+            out << "# Roots to check (approximated):\n";
+            out << "roots = [";
             for (unsigned i = 0; i < roots.size(); ++i) {
-                if (i > 0) py << ", ";
+                if (i > 0) out << ", ";
                 std::ostringstream ss;
                 display_decimal(ss, roots[i], 10);
                 std::string s = ss.str();
                 if (!s.empty() && s.back() == '?') {
-                    s    .pop_back(); // Remove the trailing '?'
+                    s.pop_back(); // Remove the trailing '?'
                     // Optionally, add a comment in the Python script that the value was truncated
-                    py << s <<  "# trunctated root\n";
+                    out << s <<  "# trunctated root\n";
                 } else 
-                    py << s;
+                    out << s;
             }
-            py << "]\n";
+            out << "]\n";
 
             // Compute real roots using sympy
-            py << "sympy_roots = [r.evalf(10) for r in poly.real_roots()]\n";
-            py << "print('SymPy real roots:', sympy_roots)\n";
-            py << "print('Solver roots:', roots)\n";
-            py << "assert len(sympy_roots) == len(roots), f'Number of real roots mismatch: sympy={len(sympy_roots)}, solver={len(roots)}'\n";
-            py << "def approx_equal(a, b, tol=1e-6):\n";
-            py << "    return abs(a - b) < tol\n";
-            py << "#roots_sorted = sorted([N(r, 10) for r in roots])\n";
-            py << "#sympy_sorted = sorted([N(r, 10) for r in sympy_roots])\n";
-            py << "for i, (r1, r2) in enumerate(zip(roots, sympy_roots)):\n";
-            py << "    print(f'Comparing root {i}: solver={r1}, sympy={r2}')\n";
-            py << "    assert approx_equal(r1, r2), f'Root mismatch: solver={r1}, sympy={r2}'\n";
-            py << "print('All roots match!')\n";
-            py.close();
+            out << "sympy_roots = [r.evalf(10) for r in poly.real_roots()]\n";
+            out << "print('SymPy real roots:', sympy_roots)\n";
+            out << "print('Solver roots:', roots)\n";
+            out << "assert len(sympy_roots) == len(roots), f'Number of real roots mismatch: sympy={len(sympy_roots)}, solver={len(roots)}'\n";
+            out << "def approx_equal(a, b, tol=1e-6):\n";
+            out << "    return abs(a - b) < tol\n";
+            out << "#roots_sorted = sorted([N(r, 10) for r in roots])\n";
+            out << "#sympy_sorted = sorted([N(r, 10) for r in sympy_roots])\n";
+            out << "for i, (r1, r2) in enumerate(zip(roots, sympy_roots)):\n";
+            out << "    print(f'Comparing root {i}: solver={r1}, sympy={r2}')\n";
+            out << "    assert approx_equal(r1, r2), f'Root mismatch: solver={r1}, sympy={r2}'\n";
+            out << "print('All roots match!')\n";
+            out << "#end of python script\n";
+            return out;
         }
  
          
