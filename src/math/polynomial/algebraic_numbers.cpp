@@ -600,7 +600,7 @@ namespace algebraic_numbers {
             }
         }
 
-        void isolate_roots(scoped_upoly const & up, numeral_vector & roots) {
+        void isolate_roots_on_scoped_upoly(scoped_upoly const & up, numeral_vector & roots) {
             TRACE("algebraic", upm().display(tout, up); tout << "\n";);
             if (up.empty())
                 return; // ignore the zero polynomial
@@ -666,6 +666,7 @@ namespace algebraic_numbers {
                 m_isolate_uppers.reset();
             }
             sort_roots(roots);
+            dump_roots_as_python(up, roots);
         }
 
         void isolate_roots(polynomial_ref const & p, numeral_vector & roots) {
@@ -675,7 +676,7 @@ namespace algebraic_numbers {
                 return; // ignore the zero polynomial
             scoped_upoly & up     = m_isolate_tmp1;
             upm().to_numeral_vector(p, up);
-            isolate_roots(up, roots);
+            isolate_roots_on_scoped_upoly(up, roots);
         }
 
         void mk_root(scoped_upoly const & up, unsigned i, numeral & r) {
@@ -686,7 +687,7 @@ namespace algebraic_numbers {
                 throw algebraic_exception("invalid root object, polynomial must not be the zero polynomial");
             SASSERT(i != 0);
             scoped_numeral_vector roots(m_wrapper);
-            isolate_roots(up, roots);
+            isolate_roots_on_scoped_upoly(up, roots);
             unsigned num_roots = roots.size();
             TRACE("algebraic", tout << "num-roots: " << num_roots << "\n";
                   for (unsigned i = 0; i < num_roots; i++) {
@@ -2663,80 +2664,69 @@ namespace algebraic_numbers {
         };
 
 #define DEFAULT_PRECISION 2
-        unsigned m_python_file_number = 0;
-        void check_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots) {
-            std::string file_name = "root_check_" + std::to_string(m_python_file_number++) + ".py";
-            // std::ofstream py(file_name);
-            auto & py = std::cout;
-            py << "import sympy\n";
-            py << "from sympy import Poly, symbols, solveset, S\n";
-            py << "x = symbols('x')\n";
-            py << "# working on " << p << "\n";
-            // Substitute assigned variables to get a univariate polynomial
-            polynomial::manager & ext_pm = p.m();
-            var2basic x2v_basic(*this, x2v);
-            polynomial_ref p_prime(ext_pm);
-            p_prime = ext_pm.substitute(p, x2v_basic);
 
-            // Find the unassigned variable
-            // Try to substitute every variable in p using x2v, so only one variable remains
-            polynomial::var_vector xs;
-            ext_pm.vars(p_prime, xs);
-            p_prime = ext_pm.substitute(p, x2v_basic);
-            if (xs.size() != 1) {
-                std::cerr << "[LDBG] check_roots: after substitution, polynomial is not univariate (vars left: " << xs.size() << ")\n";
-                return;
-            }
-            polynomial::var xvar = xs[0];
-            // Write the polynomial coefficients (highest degree first)
-            py << "# Polynomial coefficients (highest degree first)\n";
-            unsigned deg = ext_pm.degree(p_prime, xvar);
+        unsigned m_python_file_number = 0;
+        void dump_roots_as_python(scoped_upoly const & p,  numeral_vector & roots) {
+            // Create a python script to check roots using sympy
+            std::string file_name = "root_check_" + std::to_string(m_python_file_number++) + ".py";
+            std::ofstream py(file_name);
+            if (!py) return;
+
+            py << "from sympy import *\n";
+            py << "x = symbols('x')\n";
+            py << "init_printing()\n";
+
+            // Print polynomial coefficients
+            py << "# Polynomial coefficients (from lowest to highest degree):\n";
             py << "coeffs = [";
-            for (int i = deg; i >= 0; --i) {
-                polynomial_ref ci(ext_pm);
-                ci = ext_pm.coeff(p_prime, xvar, i);
-                scoped_anum ai(m_wrapper);
-                ext_pm.eval(ci, x2v, ai);
-                if (i < (int)deg) py << ", ";
-                if (ai.get().is_basic()) {
-                    basic_cell* v = ai.get().to_basic();
-                    if (!v) continue;
-                    mpq const & val = v->m_value;
-                    py << "sympy.Rational(" << qm().to_string(val.numerator()) << ", " << qm().to_string(val.denominator()) << ")";
-                } else {
-                    // Only allow root objects, not approximations
-                    std::cerr << "[LDBG] check_roots: non-basic coefficient at degree " << i << ", skipping check_roots.\n";
-                    py << "None";
-                }
+            for (unsigned i = 0; i < p.size(); ++i) {
+                if (i > 0) py << ", ";
+                qm().display(py, p[i]);
             }
             py << "]\n";
-            py << "poly = Poly(coeffs, x)\n";
+            py << "poly = Poly(coeffs[::-1], x)\n";
+            py << "print('Polynomial:', poly)\n";
 
-            // Write the roots found by Z3 as a Python list using display_root
-            py << "# Roots found by Z3\n";
-            py << "z3_roots = [";
+            // Print roots
+            py << "# Roots to check (approximated):\n";
+            py << "roots = [";
             for (unsigned i = 0; i < roots.size(); ++i) {
                 if (i > 0) py << ", ";
-                std::ostringstream oss;
-                display_root(oss, roots[i]);
-                py << "\"" << oss.str() << "\"";
+                std::ostringstream ss;
+                display_decimal(ss, roots[i], 10);
+                std::string s = ss.str();
+                // Remove trailing '?' if present (means the root was truncated)
+                if (!s.empty() && s.back() == '?') {
+                    s.pop_back();
+                    // Add a comment in the Python script indicating truncation
+                    py << s << "  # value truncated to fit requested precision\n";
+                } else {
+                    py << s;
+                }   
             }
+            
             py << "]\n";
 
-            py << "# Only compare if all roots and coefficients are basic\n";
-            py << "if None not in coeffs:\n";
-            py << "    sympy_roots = solveset(poly.as_expr(), x, domain=S.Complexes)\n";
-            py << "    sympy_roots = list(sympy_roots)\n";
-            py << "    print('Z3 roots:', z3_roots)\n";
-            py << "    print('Sympy roots:', sympy_roots)\n";
-            py << "else:\n";
-            py << "    print('Skipping comparison: non-basic roots or coefficients encountered.')\n";
-//            py.close();
+            // Compute real roots using sympy
+            py << "sympy_roots = [r.evalf(10) for r in poly.real_roots(multiple=True)]\n";
+            py << "print('SymPy real roots:', sympy_roots)\n";
+            py << "print('Solver roots:', roots)\n";
+            py << "assert len(sympy_roots) == len(roots), f'Number of real roots mismatch: sympy={len(sympy_roots)}, solver={len(roots)}'\n";
+            py << "def approx_equal(a, b, tol=1e-6):\n";
+            py << "    return abs(a - b) < tol\n";
+            py << "#roots_sorted = sorted([N(r, 10) for r in roots])\n";
+            py << "#sympy_sorted = sorted([N(r, 10) for r in sympy_roots])\n";
+            py << "for i, (r1, r2) in enumerate(zip(roots, sympy_roots)):\n";
+            py << "    print(f'Comparing root {i}: solver={r1}, sympy={r2}')\n";
+            py << "    assert approx_equal(r1, r2), f'Root mismatch: solver={r1}, sympy={r2}'\n";
+            py << "print('All roots match!')\n";
+            py.close();
         }
  
          
         void isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, svector<sign> & signs) {
             isolate_roots(p, x2v, roots);
+            
             unsigned num_roots = roots.size();
             if (num_roots == 0) {
                 anum zero;
@@ -2791,7 +2781,6 @@ namespace algebraic_numbers {
                     signs.push_back(s);
                 }
             }
-            check_roots(p,x2v, roots);
         }
 
         std::ostream& display_root(std::ostream & out, numeral const & a) {
