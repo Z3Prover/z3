@@ -18,7 +18,9 @@ public:
     order(core *c) : common(c) {}
     void order_lemma();
     
-private:
+    monic const* m_last_binom = nullptr;
+
+   private:
 
     bool order_lemma_on_ac_and_bc_and_factors(const monic& ac,
                                               const factor& a,

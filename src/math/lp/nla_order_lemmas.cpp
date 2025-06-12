@@ -83,6 +83,9 @@ void order::order_lemma_on_binomial(const monic& ac) {
 void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign) {
     if (!c().var_is_int(x) && val(x).is_big())
         return;
+    if (&xy == m_last_binom)
+        return;
+    c().trail().push(value_trail(m_last_binom, &xy));
     SASSERT(!_().mon_has_zero(xy.vars()));
     int sy = rat_sign(val(y));
     new_lemma lemma(c(), __FUNCTION__);
