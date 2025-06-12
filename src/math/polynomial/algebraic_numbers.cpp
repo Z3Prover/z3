@@ -2702,7 +2702,7 @@ namespace algebraic_numbers {
             out << "]\n";
 
             // Compute real roots using sympy
-            out << "sympy_roots = [r.evalf(10) for r in poly.real_roots()]\n";
+            out << "sympy_roots = [r[0].evalf(10) for r in poly.real_roots(multiple=False)]\n";
             out << "print('SymPy real roots:', sympy_roots)\n";
             out << "print('Solver roots:', roots)\n";
             out << "assert len(sympy_roots) == len(roots), f'Number of real roots mismatch: sympy={len(sympy_roots)}, solver={len(roots)}'\n";
