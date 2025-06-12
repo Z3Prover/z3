@@ -666,7 +666,7 @@ namespace algebraic_numbers {
                 m_isolate_uppers.reset();
             }
             sort_roots(roots);
-            TRACE("dump_roots", dump_roots_as_python(tout, up, roots));
+            TRACE("dump_roots", dump_roots_as_python(up, roots));
         }
 
         void isolate_roots(polynomial_ref const & p, numeral_vector & roots) {
@@ -2666,7 +2666,9 @@ namespace algebraic_numbers {
 #define DEFAULT_PRECISION 2
         unsigned m_python_file_number = 0;
 
-        std::ostream&  dump_roots_as_python(std::ostream& out, scoped_upoly const & p,  numeral_vector & roots) {
+        void dump_roots_as_python(scoped_upoly const & p,  numeral_vector & roots) {
+            std::string filename = "root_check_" + std::to_string(m_python_file_number++) + ".py";
+            std::ofstream out(filename);
             // Create a python script to check roots using sympy
             out << "#python script number " << m_python_file_number ++ << "\n";
             out << "from sympy import *\n";
@@ -2715,7 +2717,7 @@ namespace algebraic_numbers {
             out << "    assert approx_equal(r1, r2), f'Root mismatch: solver={r1}, sympy={r2}'\n";
             out << "print('All roots match!')\n";
             out << "#end of python script\n";
-            return out;
+            out.close();
         }
  
          
