@@ -638,8 +638,6 @@ namespace nlsat {
                         break;
                     }
                 }
-                SASSERT(sign(lc) != 0);
-                SASSERT(!is_const(lc));
             }
         }
 
@@ -1207,9 +1205,10 @@ namespace nlsat {
                     m_todo.reset();
                     break;
                 }
-                TRACE("nlsat_explain", tout << "project loop, processing var "; display_var(tout, x); tout << "\npolynomials\n";
+                TRACE("nlsat_explain",  tout << "project loop, processing var "; display_var(tout, x);
+                      tout << "\npolynomials\n";
                       display(tout, ps); tout << "\n";);
-                add_lc(ps, x);
+                add_sample_coeff(ps, x);
                 psc_discriminant(ps, x);
                 psc_resultant(ps, x);
                 if (m_todo.empty())
@@ -1229,7 +1228,7 @@ namespace nlsat {
         void project_cdcac(polynomial_ref_vector & ps, var max_x) {
             if (ps.empty())
                 return;
-            bool first = true;
+
             m_todo.reset();
             for (poly* p : ps) {
                 m_todo.insert(p);
@@ -1252,18 +1251,9 @@ namespace nlsat {
                 TRACE("nlsat_explain", tout << "project loop, processing var "; display_var(tout, x); tout << "\npolynomials\n";
                       display(tout, ps); tout << "\n";);
 
-                if (first) {
-                    add_lc(ps, x);
-                    psc_discriminant(ps, x);
-                    psc_resultant(ps, x);
-                    first = false;
-                }
-                else {
-                    add_lc(ps, x);
-                    // add_sample_coeff(ps, x);
-                    psc_discriminant(ps, x);
-                    psc_resultant_sample(ps, x, samples);
-                }
+                add_sample_coeff(ps, x);
+                psc_discriminant(ps, x);
+                psc_resultant(ps, x);
                 
                 if (m_todo.empty())
                     break;
