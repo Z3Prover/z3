@@ -1002,7 +1002,7 @@ void bit_blaster_tpl<Cfg>::mk_ext_rotate_left_right(unsigned sz, expr * const * 
                 out.reset();
                 for (unsigned j = 0; j < sz; ++j) {
                     unsigned src = (Left ? (sz + j - p) : (j + p)) % sz;
-                    mk_ite(bit_i, out_bits.get(src), out_bits.get(j), tmp));
+                    mk_ite(bit_i, out_bits.get(src), out_bits.get(j), tmp);
                     out.push_back(tmp);
                 }
                 out_bits.reset();
