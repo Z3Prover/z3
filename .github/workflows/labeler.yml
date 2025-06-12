@@ -1,0 +1,20 @@
+name: genai issue labeller
+on:
+  issues:
+    types: [opened, reopened, edited]
+permissions:
+  contents: read
+  issues: write
+  models: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number }}
+  cancel-in-progress: true
+jobs:
+  genai-issue-labeller:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pelikhan/action-genai-issue-labeller@v0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_issue: ${{ github.event.issue.number }}
