@@ -993,16 +993,27 @@ void bit_blaster_tpl<Cfg>::mk_ext_rotate_left_right(unsigned sz, expr * const * 
         for (unsigned j = 0; j < sz; ++j)
             out_bits.push_back(a_bits[j]);
         expr_ref_vector out(m());
+        auto mk_ite = [&](expr* bit_i, expr* th, expr* el)  {
+            if (m().is_false(bit_i))
+                return el;
+            if (m().is_true(bit_i))
+                return th;
+            return (expr*)(m().mk_ite(bit_i, th, el));
+        };
         for (unsigned i = 0, p = 1; i < sz; ++i) {
             auto bit_i = b_bits[i];
             // rotate by p if bit_i is set.
-            out.reset();
-            for (unsigned j = 0; j < sz; ++j) {
-                unsigned src = (Left ? (sz + j - p) : (j + p)) % sz;
-                out.push_back(m().mk_ite(bit_i, out_bits.get(src), out_bits.get(j)));
+
+            if (!m().is_false(bit_i)) {
+                out.reset();
+                for (unsigned j = 0; j < sz; ++j) {
+                    unsigned src = (Left ? (sz + j - p) : (j + p)) % sz;
+                    out.push_back(mk_ite(bit_i, out_bits.get(src), out_bits.get(j)));
+                }
+                out_bits.reset();
+                out_bits.append(out);
             }
-            out_bits.reset();
-            out_bits.append(out);        
+
             p *= 2;
             if (is_power_of_two(sz) && sz == p)
                 break;
