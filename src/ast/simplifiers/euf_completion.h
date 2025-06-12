@@ -54,13 +54,13 @@ namespace euf {
         struct conditional_rule {
             euf::enode_vector m_body;
             expr_ref m_head;
-            proof_ref m_proof;
+            expr_ref_vector m_proofs;
             expr_dependency* m_dep;
             unsigned m_watch_index = 0;
             bool m_active = true;
             bool m_in_queue = false;
-            conditional_rule(euf::enode_vector& b, expr_ref& h, proof* pr, expr_dependency* d) :
-                m_body(b), m_head(h), m_proof(pr, h.get_manager()), m_dep(d) {}
+            conditional_rule(euf::enode_vector& b, expr_ref& h, expr_ref_vector& prs, expr_dependency* d) :
+                m_body(b), m_head(h), m_proofs(prs), m_dep(d) {}
         };
 
         egraph                 m_egraph;
@@ -69,8 +69,10 @@ namespace euf {
         ptr_vector<expr>       m_todo;
         enode_vector           m_args, m_reps, m_nodes_to_canonize;
         expr_ref_vector        m_canonical, m_eargs;
+        proof_ref_vector       m_canonical_proofs;
         expr_dependency_ref_vector m_deps;
         obj_map<quantifier, std::pair<proof*, expr_dependency*>> m_q2dep;
+        vector<std::pair<proof_ref, expr_dependency*>> m_pr_dep;
         unsigned               m_epoch = 0;
         unsigned_vector        m_epochs;
         th_rewriter            m_rewriter;
@@ -82,6 +84,10 @@ namespace euf {
         unsigned               m_max_instantiations = std::numeric_limits<unsigned>::max();
         unsigned               m_generation = 0;
         vector<ptr_vector<conditional_rule>> m_rule_watch;
+
+        size_t* to_ptr(size_t i) const { return reinterpret_cast<size_t*>(i); }
+        unsigned from_ptr(size_t* s) const { return (unsigned)reinterpret_cast<size_t>(s); }
+        unsigned push_pr_dep(proof* pr, expr_dependency* d);
             
         enode* mk_enode(expr* e);
         bool is_new_eq(expr* a, expr* b);
@@ -90,20 +96,21 @@ namespace euf {
         void add_egraph();
         void map_canonical();
         void read_egraph();
-        expr_ref canonize(expr* f, expr_dependency_ref& dep);
-        expr_ref canonize_fml(expr* f, expr_dependency_ref& dep);
-        expr* get_canonical(expr* f, expr_dependency_ref& d);
+        expr_ref canonize(expr* f, proof_ref& pr, expr_dependency_ref& dep);
+        expr_ref canonize_fml(expr* f, proof_ref& pr, expr_dependency_ref& dep);
+        expr* get_canonical(expr* f, proof_ref& pr, expr_dependency_ref& d);
         expr* get_canonical(enode* n);
-        void set_canonical(enode* n, expr* e);
+        proof* get_canonical_proof(enode* n);
+        void set_canonical(enode* n, expr* e, proof* pr);
         void add_constraint(expr*f, proof* pr, expr_dependency* d);
         expr_dependency* explain_eq(enode* a, enode* b);
-        void prove_eq(enode* a, enode* b, proof_ref& pr);
+        proof_ref prove_eq(enode* a, enode* b);
+        proof_ref prove_conflict();
         expr_dependency* explain_conflict();
         std::pair<proof*, expr_dependency*> get_dependency(quantifier* q) { return m_q2dep.contains(q) ? m_q2dep[q] : std::pair(nullptr, nullptr); }
 
         lbool eval_cond(expr* f, proof_ref& pr, expr_dependency*& d);
         
-
         bool should_stop();
 
         void add_rule(expr* f, proof* pr, expr_dependency* d);
@@ -129,6 +136,7 @@ namespace euf {
         void collect_statistics(statistics& st) const override;
         void reset_statistics() override { m_stats.reset(); }
         void updt_params(params_ref const& p) override;
+        bool supports_proofs() const override { return true; }
 
         trail_stack& get_trail() override { return m_trail;}
         region& get_region() override { return m_trail.get_region(); }

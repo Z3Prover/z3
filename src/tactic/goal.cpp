@@ -296,6 +296,7 @@ void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
         if (!m_inconsistent) {
             if (m().is_false(out_f)) {
                 push_back(out_f, out_pr, d);
+                m_inconsistent = true;
             }
             else {
                 m().set(m_forms, i, out_f);
