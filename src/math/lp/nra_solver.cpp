@@ -63,6 +63,8 @@ struct solver::imp {
 
         for (auto ci : lra.constraints().indices()) {
             auto const& c = lra.constraints()[ci];
+            if (c.is_auxiliary())
+                continue;
             for (auto const& [coeff, v] : c.coeffs()) {
                 var2occurs.reserve(v + 1);
                 var2occurs[v].constraints.push_back(ci);

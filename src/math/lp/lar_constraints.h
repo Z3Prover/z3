@@ -41,14 +41,15 @@ class lar_base_constraint {
     lconstraint_kind m_kind;
     mpq              m_right_side;
     bool             m_active;
+    bool             m_is_auxiliary;
     unsigned         m_j;
     u_dependency*    m_dep;
 
-   public:
+public:
 
     virtual vector<std::pair<mpq, lpvar>> coeffs() const = 0;
     lar_base_constraint(unsigned j, lconstraint_kind kind, u_dependency* dep, const mpq& right_side) :
-        m_kind(kind), m_right_side(right_side), m_active(false), m_j(j), m_dep(dep) {}
+        m_kind(kind), m_right_side(right_side), m_active(false), m_is_auxiliary(false), m_j(j), m_dep(dep) {}
     virtual ~lar_base_constraint() = default;
 
     lconstraint_kind kind() const { return m_kind; }
@@ -59,6 +60,9 @@ class lar_base_constraint {
     void activate() { m_active = true; }
     void deactivate() { m_active = false; }
     bool is_active() const { return m_active; }
+
+    bool is_auxiliary() const { return m_is_auxiliary; }
+    void set_auxiliary() { m_is_auxiliary = true; }
 
     virtual unsigned size() const = 0;
     virtual mpq get_free_coeff_of_left_side() const { return zero_of_type<mpq>();}
@@ -96,10 +100,13 @@ class constraint_set {
     stacked_value<unsigned>        m_constraint_count;
     unsigned_vector                m_active;
     stacked_value<unsigned>        m_active_lim;    
+    bool                           m_is_auxiliary_mode = false;
 
     constraint_index add(lar_base_constraint* c) {
         constraint_index ci = m_constraints.size();
         m_constraints.push_back(c);
+        if (m_is_auxiliary_mode)
+            c->set_auxiliary();
         return ci;
     }
 
@@ -145,6 +152,8 @@ public:
         for (auto* c : m_constraints) 
             c->~lar_base_constraint();
     }
+
+    void set_auxiliary(bool m) { m_is_auxiliary_mode = m; }
 
     void push() {
         m_constraint_count = m_constraints.size();

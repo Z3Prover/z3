@@ -1744,6 +1744,14 @@ namespace lp {
         A_r().m_columns.pop_back();
     }
 
+    lar_solver::scoped_auxiliary::scoped_auxiliary(lar_solver& s) : s(s) {
+        s.m_imp->m_constraints.set_auxiliary(true);
+    }
+
+    lar_solver::scoped_auxiliary::~scoped_auxiliary() {
+        s.m_imp->m_constraints.set_auxiliary(false);
+    }
+
     void lar_solver::remove_last_column_from_basis_tableau(unsigned j) {
         auto& rslv = get_core_solver().m_r_solver;
         int i = rslv.m_basis_heading[j];

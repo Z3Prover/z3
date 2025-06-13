@@ -319,6 +319,12 @@ public:
     bool compare_values(lpvar j, lconstraint_kind kind, const mpq& right_side);
     lpvar add_term(const vector<std::pair<mpq, lpvar>>& coeffs, unsigned ext_i);
     void register_existing_terms();
+    class scoped_auxiliary {
+        lar_solver& s;
+    public:
+        scoped_auxiliary(lar_solver& s);
+        ~scoped_auxiliary();
+    };
     constraint_index add_var_bound(lpvar, lconstraint_kind, const mpq&);
     constraint_index add_var_bound_check_on_equal(lpvar, lconstraint_kind, const mpq&, lpvar&);
 

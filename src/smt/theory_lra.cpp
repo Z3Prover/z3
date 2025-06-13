@@ -2040,6 +2040,8 @@ public:
     }
 
     final_check_status check_nla() {
+        // TODO - enable or remove if found useful internals are corrected:
+        // lp::lar_solver::scoped_auxiliary _sa(lp()); // new atoms are auxilairy and are not used in nra_solver
         if (!m.inc()) {
             TRACE(arith, tout << "canceled\n";);
             return FC_GIVEUP;            
