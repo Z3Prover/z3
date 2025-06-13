@@ -5829,6 +5829,64 @@ namespace polynomial {
                 S_e_1 = neg(S_e_1);
         }
 
+        void debug_check_psc_chain_optimized_core(polynomial const * P, polynomial const * Q, var x, polynomial_ref_vector & S) {
+
+            // Write a Python script to check the PSC chain using SymPy
+            std::string fname = "psc_" + std::to_string(P->id()) + "_" + std::to_string(Q->id()) + ".py";
+            std::ofstream py(fname);
+            if (!py) std::cout << "cannot open " <<  fname << "\n"; 
+            py << "from sympy import *\n";
+            py << "x = symbols('x')\n";
+            py << "init_printing()\n";
+            // Write P and Q as lists of coefficients (lowest to highest degree)
+            py << "# Polynomial P\n";
+            py << "P_coeffs = [";
+            for (unsigned i = 0; i < P->size(); ++i) {
+                if (i > 0) py << ", ";
+                m_manager.display(py, P->a(i));
+            }
+            py << "]\n";
+            py << "P = Poly(P_coeffs[::-1], x)\n";
+            py << "print('P:', P)\n";
+            py << "# Polynomial Q\n";
+            py << "Q_coeffs = [";
+            for (unsigned i = 0; i < Q->size(); ++i) {
+                if (i > 0) py << ", ";
+                m_manager.display(py, Q->a(i));
+            }
+            py << "]\n";
+            py << "Q = Poly(Q_coeffs[::-1], x)\n";
+            py << "print('Q:', Q)\n";
+            py << "# Compute subresultant sequence using SymPy\n";
+            py << "sres = subresultants(P, Q)\n";
+            py << "print('SymPy subresultant sequence:')\n";
+            py << "for i, s in enumerate(sres):\n";
+            py << "    print(f'S_{{i}}:', s.as_expr())\n";
+            py << "# PSCs from C++\n";
+            py << "psc_cpp = [";
+            for (unsigned i = 0; i < S.size(); ++i) {
+                if (i > 0) py << ", ";
+                // Output as a list of coefficients for each PSC
+                py << "[";
+                polynomial const* psc = S.get(i);
+                for (unsigned j = 0; j < psc->size(); ++j) {
+                    if (j > 0) py << ", ";
+                    m_manager.display(py, psc->a(j));
+                }
+                py << "]";
+            }
+            py << "]\n";
+            py << "print('PSC chain from C++:')\n";
+            py << "for i, coeffs in enumerate(psc_cpp):\n";
+            py << "    print(f'PSC_{{i}}:', Poly(coeffs[::-1], x))\n";
+            py << "# Compare PSCs (as polynomials)\n";
+            py << "for i, coeffs in enumerate(psc_cpp):\n";
+            py << "    cpp_poly = Poly(coeffs[::-1], x)\n";
+            py << "    if i < len(sres):\n";
+            py << "        assert cpp_poly == sres[i], f'Mismatch at PSC_{{i}}: C++={{cpp_poly}}, SymPy={{sres[i]}}'\n";
+            py << "print('All PSCs match!')\n";
+        }
+        
         void psc_chain_optimized_core(polynomial const * P, polynomial const * Q, var x, polynomial_ref_vector & S) {
             TRACE("psc_chain_classic", tout << "P: "; P->display(tout, m_manager); tout << "\nQ: "; Q->display(tout, m_manager); tout << "\n";);
             unsigned degP = degree(P, x);
@@ -5849,7 +5907,7 @@ namespace polynomial {
                 unsigned d = degree(A, x);
                 unsigned e = degree(B, x);
                 if (is_zero(B))
-                    return;
+                    break;
                 TRACE("psc_chain_classic", tout << "A: " << A << "\nB: " << B << "\ns: " << s << "\nd: " << d << ", e: " << e << "\n";);
                 // B is S_{d-1}
                 ps = coeff(B, x, d-1);
@@ -5873,7 +5931,7 @@ namespace polynomial {
                     C = B;
                 }
                 if (e == 0)
-                    return;
+                    break;
                 // B <- optimized S_e_1
                 optimized_S_e_1(d, e, A, B, C, s, x, B);
                 // A <- C
@@ -5881,6 +5939,8 @@ namespace polynomial {
                 // s <- lc(A)
                 s = lc(A, x);
             }
+            TRACE("debug_check_psc_chain_optimized_core",
+                  debug_check_psc_chain_optimized_core(P, Q, x, S););
         }
 
         void psc_chain_optimized(polynomial const * P, polynomial const * Q, var x, polynomial_ref_vector & S) {

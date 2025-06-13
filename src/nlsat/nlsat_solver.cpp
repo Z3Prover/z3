@@ -1080,7 +1080,13 @@ namespace nlsat {
                 display(std::cout, n_of_literals, cls) << "\n";
                 display_assignment_on_clause(std::cout, m_debug_assignment, n_of_literals, cls);
                 exit(1);
-            } 
+            } else {
+                std::cout << "satisfied\n";
+                auto save = m_display_var.m_proc;
+                m_display_var.m_proc = nullptr;
+                display(std::cout, n_of_literals, cls) << "\n";
+                m_display_var.m_proc = save;
+            }
 
         }
 
@@ -2353,7 +2359,7 @@ namespace nlsat {
             
             
             m_lazy_clause.reset();
-            m_explain(jst.num_lits(), jst.lits(), m_lazy_clause);
+            m_explain.main_operator(jst.num_lits(), jst.lits(), m_lazy_clause);
             for (unsigned i = 0; i < sz; i++)
                 m_lazy_clause.push_back(~jst.lit(i));
             
