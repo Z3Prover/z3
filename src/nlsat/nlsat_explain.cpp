@@ -348,11 +348,16 @@ namespace nlsat {
                 lc = m_pm.coeff(p, x, k, reduct);
                 TRACE("nlsat_explain_vanished", tout << "lc: " << lc << " reduct: " << reduct << "\n";);
                 if (!is_zero(lc)) {
-                    if (!::is_zero(sign(lc))) 
+                    if (!::is_zero(sign(lc))) {
+                        TRACE("nlsat_explain_vanished", tout << "lc does no vaninsh\n";);
                         return;
+                    }
+                    TRACE("nlsat_explain_vanished", tout << "got a zero sign on lc\n";);
+
+
                     // lc is not the zero polynomial, but it vanished in the current interpretation.
                     // so we keep searching...
-                    TRACE("nlsat_explain", tout << "adding zero assumption for var:"; m_solver.display_var(tout, x); tout << ", degree k:" << k << ", p:" ; display(tout, p) << "\n";);
+                    TRACE("nlsat_explain_vanished", tout << "adding zero assumption for var:"; m_solver.display_var(tout, x); tout << ", degree k:" << k << ", p:" ; display(tout, p) << "\n";);
 
                     add_zero_assumption(lc);
                 }
@@ -360,6 +365,7 @@ namespace nlsat {
                     // all coefficients of p vanished in the current interpretation,
                     // and were added as assumptions.
                     p = m_pm.mk_zero();
+                    TRACE("nlsat_explain_vanished", tout << "all coefficients of p vanished\n";);
                     return;
                 }
                 k--;
@@ -612,10 +618,12 @@ namespace nlsat {
             }
         }
 
-        void add_sample_coeff(polynomial_ref_vector &ps, var x){
+        // for each p in ps add first non-const coefficients to the projection
+        void add_lcs(polynomial_ref_vector &ps, var x, bool include_all = true){
             polynomial_ref p(m_pm);
             polynomial_ref lc(m_pm);
-            unsigned sz = ps.size();            
+            unsigned sz = ps.size();
+            bool first = true;
             for (unsigned i = 0; i < sz; i++){
                 p = ps.get(i);
                 unsigned k = degree(p, x);
@@ -625,6 +633,9 @@ namespace nlsat {
                     lc = m_pm.coeff(p, x, k);
                     TRACE("nlsat_explain", tout << "add coeff: "; display(tout, lc) << "\n";);
                     add_factors(lc);
+                    if (!include_all)
+                        break;
+                    first = false;    
                     if (m_pm.nonzero_const_coeff(p, x, k)){
                         TRACE("nlsat_explain", tout << "skipping the rest of coeffs\n";);
                         break;
@@ -649,35 +660,6 @@ namespace nlsat {
             }
         }
         
-        
-        /**
-           \brief Add leading coefficients of the polynomials in ps.
-
-           \pre all polynomials in ps contain x
-           
-           Remark: the leading coefficients do not vanish in the current model,
-           since all polynomials in ps were pre-processed using elim_vanishing.
-        */
-        void add_lc(polynomial_ref_vector & ps, var x) {
-            polynomial_ref p(m_pm);
-            polynomial_ref lc(m_pm);
-            unsigned sz = ps.size();
-            for (unsigned i = 0; i < sz; i++) {
-                p = ps.get(i);
-                unsigned k = degree(p, x);
-                SASSERT(k > 0);
-                lc = m_pm.coeff(p, x, k);
-                TRACE("nlsat_explain", tout << "add_lc, lc: "; display(tout, lc); tout << "\nk: " << k << "\np:"; display(tout, p); tout << "\n";);
-                if (m_pm.nonzero_const_coeff(p, x, k)) {
-                    TRACE("nlsat_explain", tout << "not adding coeff\n";);
-                    continue;
-                }
-                SASSERT(sign(lc) != 0);
-                SASSERT(!is_const(lc));
-                add_factors(lc);
-            }
-        }
-
         void add_zero_assumption_on_factor(polynomial_ref& f) {
             display(std::cout << "zero factors \n", f); 
         }
@@ -1200,7 +1182,7 @@ namespace nlsat {
                 TRACE("nlsat_explain",  tout << "project loop, processing var "; display_var(tout, x);
                       tout << "\npolynomials\n";
                       display(tout, ps); tout << "\n";);
-                add_sample_coeff(ps, x);
+                add_lcs(ps, x);
                 psc_discriminant(ps, x);
                 psc_resultant(ps, x);
                 if (m_todo.empty())
@@ -1242,8 +1224,7 @@ namespace nlsat {
                 }
                 TRACE("nlsat_explain", tout << "project loop, processing var "; display_var(tout, x); tout << "\npolynomials\n";
                       display(tout, ps); tout << "\n";);
-                add_lc(ps, x);
-                //add_sample_coeff(ps, x);
+                add_lcs(ps, x);
                 psc_discriminant(ps, x);
                 psc_resultant(ps, x);
                 
@@ -1626,7 +1607,7 @@ namespace nlsat {
             collect_polys(num, ls, m_ps);
             var max_x = max_var(m_ps);
             TRACE("nlsat_explain", tout << "polynomials in the conflict:\n"; display(tout, m_ps); tout << "\n";);
-            elim_vanishing(m_ps);
+            // elim_vanishing(m_ps);
             TRACE("nlsat_explain", tout << "after elim vanishing\n"; display(tout, m_ps); tout << "\n";);
             project(m_ps, max_x);
             TRACE("nlsat_explain", tout << "after projection\n"; display(tout, m_ps); tout << "\n";);

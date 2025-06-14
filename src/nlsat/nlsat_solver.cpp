@@ -274,75 +274,7 @@ namespace nlsat {
                 UNREACHABLE();
 
             return l_undef;
-        }
-        
-        bool debug_check_literal(literal l) {
-            return true;
-            bool_var b = l.var();
-            lbool assigned_val = value(l);
-    
-            // If the literal isn't assigned yet, nothing to check
-            if (assigned_val == l_undef) {
-                return true; 
-            }
-    
-            // Special case for true/false literals
-            if (b == true_bool_var) {
-                return (l.sign() ? assigned_val == l_false : assigned_val == l_true);
-            }
-    
-            atom* a = m_atoms[b];
-    
-            // For pure boolean variables (no atom)
-            if (a == nullptr) {
-                lbool bval = m_bvalues[b];
-                lbool expected = l.sign() ? ~bval : bval;
-                bool correct = (expected == assigned_val);
-                if (!correct) {
-                    std::cout << "Boolean assignment error for b" << b 
-                              << ": expected " << expected 
-                              << ", got " << assigned_val << std::endl;
-                }
-                return correct;
-            }
-            if (!m_assignment.is_assigned(a->max_var()))
-                return true;
-    
-            // For atoms (arithmetic constraints)
-            // We need to evaluate it from scratch based on the current assignment
-            bool eval_result;
-    
-            if (a->is_ineq_atom()) {
-                eval_result = m_evaluator.eval(to_ineq_atom(a), l.sign());
-            }
-            else {
-                eval_result = m_evaluator.eval(to_root_atom(a), l.sign());
-            }
-    
-            lbool expected = to_lbool(eval_result);
-            bool correct = (expected == assigned_val);
-    
-            if (!correct) {
-                std::cout << "Atom assignment error for ";
-                display(std::cout, l);
-                std::cout << ": expected " << expected
-                          << ", got " << assigned_val << std::endl;
-        
-                // Display current variable assignments for atoms
-                if (a->max_var() != null_var) {
-                    std::cout << "Current variable assignments:" << std::endl;
-                    for (var x = 0; x <= a->max_var(); x++) {
-                        if (m_assignment.is_assigned(x)) {
-                            m_display_var(std::cout << "  ", x) << " = ";
-                            m_am.display_decimal(std::cout, m_assignment.value(x));
-                            std::cout << std::endl;
-                        }
-                    }
-                }
-            }
-    
-            return correct;
-        }
+        }        
 
         void debug_set_known_sat_values() {
             std::vector<std::pair<std::string, anum>> var_sat_values = debug_parse_var_anum_file();
@@ -1008,7 +940,9 @@ namespace nlsat {
             for (unsigned i = 0; i < vars.size(); ++i) {
                 result.push_back(vars[i]);
             }
-            return result;        }
+            return result;
+        }
+
         std::vector<unsigned> collect_vars_on_clause(unsigned n_of_literals, literal const *cls) {
             bool_vector seen(num_vars(), false);
             std::vector<unsigned> result;
@@ -1038,41 +972,27 @@ namespace nlsat {
             return out;
         }
         
-        // every literal has to be evaluate to true
+        // At least one literal has to be evaluate to true.
+        // The method might ignore a lemma with pure boolean varibles.
         void debug_check_lemma_on_known_sat_values(unsigned n_of_literals, literal const *cls, assumption_set a) {
             debug_set_debug_assignment_to_known_vals();
             SASSERT(a == nullptr);
             bool satisfied = false;
-            for (unsigned i = 0; i < n_of_literals; ++i) {
+            for (unsigned i = 0; i < n_of_literals && !satisfied; ++i) {
                 literal l = cls[i];
                 bool_var b = l.var();
                 atom* a = m_atoms[b];
+                if (a == nullptr) 
+                    return; // ignore lemmas with pure booleal variables
+
                 lbool val = l_undef;
-                if (a == nullptr) {
-                    return; // ignore lemmas with booleans
-                    // Pure boolean variable: check m_bvalues
-                    lbool bval = m_bvalues[b]; // use the current values
-                    val = l.sign() ? ~bval : bval;
-                } else {
-                    // Arithmetic atom: evaluate directly
-                    var max = a->max_var();
-                    if (m_debug_assignment.is_assigned(max)) {
-                        bool eval_result = false;
-                        if (a->is_ineq_atom())
-                            eval_result = m_debug_evaluator.eval(to_ineq_atom(a), l.sign());
-                        else
-                            eval_result = m_debug_evaluator.eval(to_root_atom(a), l.sign());
-                        val = to_lbool(eval_result);
-                    }
-                }
-                if (val == l_undef) {
-                    display(std::cout << "literal is undef: ", l) << "\n";
-                }
+                // Arithmetic atom: evaluate directly
+                var max = a->max_var();
+                SASSERT (m_debug_assignment.is_assigned(max));
+                val = to_lbool(m_debug_evaluator.eval(a, l.sign()));
                 SASSERT(val != l_undef);
-                if (val == l_true) {
-                    satisfied = true;
-                    break;
-                }
+                if (val == l_true)
+                    satisfied = true;                
             }
             if (!satisfied) {
                 m_display_var.m_proc = nullptr;
@@ -1080,14 +1000,7 @@ namespace nlsat {
                 display(std::cout, n_of_literals, cls) << "\n";
                 display_assignment_on_clause(std::cout, m_debug_assignment, n_of_literals, cls);
                 exit(1);
-            } else {
-                std::cout << "satisfied\n";
-                auto save = m_display_var.m_proc;
-                m_display_var.m_proc = nullptr;
-                display(std::cout, n_of_literals, cls) << "\n";
-                m_display_var.m_proc = save;
             }
-
         }
 
         void check_lemma(unsigned n, literal const* cls, bool is_valid, assumption_set a) {
@@ -1440,30 +1353,6 @@ namespace nlsat {
                 return m_bvalues[b];
         }
 
-        bool debug_literal_holds_on_sat_var_values(literal l) {
-            bool_var b = l.var();
-            atom* a = m_atoms[b];
-            lbool val = l_undef;
-            if (a == nullptr) {
-                // Pure boolean variable: check m_bvalues
-                lbool bval = m_bvalues[b]; // use the current values
-                val = l.sign() ? ~bval : bval;
-            } else {
-                // Arithmetic atom: evaluate directly
-                var max = a->max_var();
-                if (m_debug_assignment.is_assigned(max)) {
-                    bool eval_result = false;
-                    if (a->is_ineq_atom())
-                        eval_result = m_debug_evaluator.eval(to_ineq_atom(a), l.sign());
-                    else
-                        eval_result = m_debug_evaluator.eval(to_root_atom(a), l.sign());
-                    val = to_lbool(eval_result);
-                }
-            }
-            
-            return val == l_true;
-        }
-        
         /**
            \brief Assign literal to true using the given justification
         */
@@ -1494,13 +1383,6 @@ namespace nlsat {
             updt_eq(b, j);
             
             TRACE("nlsat_assign", tout << "b" << b << " -> " << m_bvalues[b]  << "\n";);
-            return;
-            if (debug_literal_holds_on_sat_var_values(l)) {
-                std::cout << "literal holds: "; display(std::cout, l) << "\n";
-            } else {
-                std::cout << "literal does not hold: "; display(std::cout, l) << "\n";
-            }
-                
         }
 
         /**
@@ -1544,7 +1426,6 @@ namespace nlsat {
         */
         bool is_satisfied(clause const & cls) {
             for (literal l : cls) {
-                SASSERT(debug_check_literal(l));
                 if (const_cast<imp*>(this)->value(l) == l_true) {
                     TRACE("value_bug:", tout << l << " := true\n";);
                     return true;
@@ -4177,7 +4058,9 @@ namespace nlsat {
 
         std::string debug_get_var_name(unsigned v) const {
             std::stringstream ss;
-            if (m_display_var.m_proc) {
+            if (v >= m_perm.size()) {
+                ss << "x" << v << "\n";
+            } else if (m_display_var.m_proc) {
                 // Use the display procedure to get the variable name
                 (*m_display_var.m_proc)(ss, m_perm[v]);
             } else {

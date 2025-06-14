@@ -5833,6 +5833,7 @@ namespace polynomial {
 
             // Write a Python script to check the PSC chain using SymPy
             std::string fname = "psc_" + std::to_string(P->id()) + "_" + std::to_string(Q->id()) + ".py";
+            std::cout << fname << "\n";
             std::ofstream py(fname);
             if (!py) std::cout << "cannot open " <<  fname << "\n"; 
             py << "from sympy import *\n";
@@ -5861,8 +5862,8 @@ namespace polynomial {
             py << "sres = subresultants(P, Q)\n";
             py << "print('SymPy subresultant sequence:')\n";
             py << "for i, s in enumerate(sres):\n";
-            py << "    print(f'S_{{i}}:', s.as_expr())\n";
-            py << "# PSCs from C++\n";
+            py << "    print(f'SymPy S_{i}:', s.as_expr(), 'coeffs:', s.all_coeffs())\n";
+py << "# PSCs from C++\n";
             py << "psc_cpp = [";
             for (unsigned i = 0; i < S.size(); ++i) {
                 if (i > 0) py << ", ";
@@ -5876,14 +5877,24 @@ namespace polynomial {
                 py << "]";
             }
             py << "]\n";
+
             py << "print('PSC chain from C++:')\n";
             py << "for i, coeffs in enumerate(psc_cpp):\n";
-            py << "    print(f'PSC_{{i}}:', Poly(coeffs[::-1], x))\n";
+            py << "    cpp_poly = Poly(coeffs[::-1], x)\n";
+            py << "    print(f'C++ PSC_{i}:', cpp_poly.as_expr(), 'coeffs:', cpp_poly.all_coeffs())\n";
+            py << "# Compare lengths first\n";
+            py << "if len(psc_cpp) != len(sres):\n";
+            py << "    print(f'Length mismatch: PSC chain from C++ has {len(psc_cpp)}, SymPy subresultant sequence has {len(sres)}')\n";
+            py << "    exit(1)\n";
             py << "# Compare PSCs (as polynomials)\n";
             py << "for i, coeffs in enumerate(psc_cpp):\n";
             py << "    cpp_poly = Poly(coeffs[::-1], x)\n";
             py << "    if i < len(sres):\n";
-            py << "        assert cpp_poly == sres[i], f'Mismatch at PSC_{{i}}: C++={{cpp_poly}}, SymPy={{sres[i]}}'\n";
+            py << "        if cpp_poly != sres[i]:\n";
+            py << "            print(f\"Mismatch at PSC_{i}:\")\n";
+            py << "            print(f\"  C++ PSC_{i}: {cpp_poly.as_expr()} coeffs: {cpp_poly.all_coeffs()}\")\n";
+            py << "            print(f\"  SymPy S_{i}: {sres[i].as_expr()} coeffs: {sres[i].all_coeffs()}\")\n";
+            py << "            raise AssertionError(f'Mismatch at PSC_{i}')\n";
             py << "print('All PSCs match!')\n";
         }
         
