@@ -618,27 +618,57 @@ namespace nlsat {
             }
         }
 
-        // for each p in ps add first non-const coefficients to the projection
-        void add_lcs(polynomial_ref_vector &ps, var x, bool include_all = true){
-            polynomial_ref p(m_pm);
-            polynomial_ref lc(m_pm);
-            unsigned sz = ps.size();
-            bool first = true;
-            for (unsigned i = 0; i < sz; i++){
-                p = ps.get(i);
-                unsigned k = degree(p, x);
-                SASSERT(k > 0);
-                TRACE("nlsat_explain", tout << "process p of degree " << k << ":" ; display(tout, p); tout << "\n";);
-                for(; k > 0; k--){
-                    lc = m_pm.coeff(p, x, k);
-                    TRACE("nlsat_explain", tout << "add coeff: "; display(tout, lc) << "\n";);
-                    add_factors(lc);
-                    if (!include_all)
-                        break;
-                    first = false;    
-                    if (m_pm.nonzero_const_coeff(p, x, k)){
-                        TRACE("nlsat_explain", tout << "skipping the rest of coeffs\n";);
-                        break;
+		// for each p in ps add first or all coefficients to the projection
+        void add_lcs(polynomial_ref_vector &ps, var x) {
+            polynomial_ref p_poly(m_pm);
+            polynomial_ref lc_poly(m_pm);
+            polynomial_ref disc_poly(m_pm); 
+            polynomial_ref current_coeff_poly(m_pm);
+
+            bool is_globally_well_oriented = true; 
+
+            // First pass: Determine global well-orientedness
+            for (unsigned i = 0; i < ps.size(); i++) {
+                p_poly = ps.get(i);
+                unsigned k_deg = m_pm.degree(p_poly, x); 
+
+                if (k_deg > 0) { // p_poly depends on x
+                    lc_poly = m_pm.coeff(p_poly, x, k_deg);
+                    if (this->sign(lc_poly) == 0) { // LC is zero
+                        is_globally_well_oriented = false;
+                        TRACE("nlsat_explain", tout << "Global !WO: LC of poly is zero. Poly: "; display(tout, p_poly); tout << " LC: "; display(tout, lc_poly) << "\\n";);
+                        break; 
+                    }
+
+                    if (k_deg > 1) { // Degree > 1, check discriminant
+                        disc_poly = discriminant(p_poly, x); // Use global helper
+                        if (this->sign(disc_poly) == 0) { // Discriminant is zero
+                            is_globally_well_oriented = false;
+                            TRACE("nlsat_explain", tout << "Global !WO: Discriminant of poly is zero. Poly: "; display(tout, p_poly); tout << " Disc: "; display(tout, disc_poly) << "\\n";);
+                            break; 
+                        }
+                    }
+                }
+            }
+
+            // Second pass: Add factors based on global well-orientedness
+            for (unsigned i = 0; i < ps.size(); i++) {
+                p_poly = ps.get(i);
+                unsigned k_deg = m_pm.degree(p_poly, x);
+
+                if (k_deg > 0) { // p_poly depends on x
+                    TRACE("nlsat_explain", tout << "add_lcs: processing poly of degree " << k_deg << " w.r.t x" << x << ": "; display(tout, p_poly); tout << (is_globally_well_oriented ? " (WO)" : " (!WO)") << "\\n";);
+                    if (is_globally_well_oriented) {
+                        lc_poly = m_pm.coeff(p_poly, x, k_deg);
+                        TRACE("nlsat_explain", tout << "  WO: adding LC: "; display(tout, lc_poly) << "\\n";);
+                        add_factors(lc_poly);
+                    } else {
+                        TRACE("nlsat_explain", tout << "  !WO: adding all coeffs (deg " << k_deg << " down to 1) for poly: "; display(tout, p_poly) << "\\n";);
+                        for (unsigned j_coeff_deg = k_deg; j_coeff_deg >= 1; j_coeff_deg--) { 
+                            current_coeff_poly = m_pm.coeff(p_poly, x, j_coeff_deg);
+                            TRACE("nlsat_explain", tout << "    coeff deg " << j_coeff_deg << ": "; display(tout, current_coeff_poly) << "\\n";);
+                            add_factors(current_coeff_poly);
+                        }
                     }
                 }
             }
@@ -1389,12 +1419,10 @@ namespace nlsat {
                             // If the leading coefficient is not a constant, we must store this information as an extra assumption.
                             if (d % 2 == 0 || // d is even
                                 is_even ||  // rewriting a factor of even degree, sign flip doesn't matter
-                                _a->get_kind() == atom::EQ) {  // rewriting an equation, sign flip doesn't matter
+                                _a->get_kind() == atom::EQ)  // rewriting an equation, sign flip doesn't matter
                                 info.add_lc_diseq();
-                            }
-                            else {
+                            else
                                 info.add_lc_ineq();
-                            }
                         }
                         if (s < 0 && !is_even) {
                             atom_sign = -atom_sign;
@@ -1407,12 +1435,10 @@ namespace nlsat {
                     if (!info.m_lc_const) {
                         if (d % 2 == 0 || // d is even
                             is_even ||  // rewriting a factor of even degree, sign flip doesn't matter
-                            _a->get_kind() == atom::EQ) {  // rewriting an equation, sign flip doesn't matter
+                            _a->get_kind() == atom::EQ)  // rewriting an equation, sign flip doesn't matter
                             info.add_lc_diseq();
-                        }
-                        else {
+                        else
                             info.add_lc_ineq();
-                        }
                     }
                 }
             }
@@ -2120,7 +2146,6 @@ namespace nlsat {
     }
 
 };
-
 #ifdef Z3DEBUG
 #include <iostream>
 void pp(nlsat::explain::imp & ex, unsigned num, nlsat::literal const * ls) {

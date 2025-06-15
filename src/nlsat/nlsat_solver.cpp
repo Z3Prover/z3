@@ -106,9 +106,7 @@ namespace nlsat {
         anum_manager&           m_am;
         mutable assumption_manager     m_asm;
         assignment              m_assignment, m_lo, m_hi; // partial interpretation
-        assignment              m_debug_assignment;
         mutable evaluator       m_evaluator;
-        mutable evaluator      m_debug_evaluator;
         interval_set_manager & m_ism;
         ineq_atom_table        m_ineq_atoms;
         root_atom_table        m_root_atoms;
@@ -242,50 +240,7 @@ namespace nlsat {
         };
         // statistics
         stats                  m_stats;
-        std::unordered_map<std::string, anum> m_debug_known_sat_anum_map;
-        std::unordered_map<std::string, lbool> m_debug_known_sat_bool_non_pure_atom_vals;
-        std::unordered_map<unsigned, lbool> m_debug_pure_bool_vals;
-        std::string m_debug_known_sol_file_name;
-        const anum & debug_get_known_sat_anum_value(unsigned j) {
-            std::string name = debug_get_var_name(j);
-
-            auto it = m_debug_known_sat_anum_map.find(name);
-            if (it != m_debug_known_sat_anum_map.end())
-                return it->second; 
-            else     
-                UNREACHABLE();
-            return it->second;
-        }
-
-        lbool debug_get_known_literal_value(literal l) {
-            std::string atom_string = debug_atom_string(l.var());
-            auto it = m_debug_known_sat_bool_non_pure_atom_vals.find(atom_string);
-            if (it == m_debug_known_sat_bool_non_pure_atom_vals.end())
-                return l_undef;
-            if (it->second == l_false) {
-                if (l.sign())
-                    return l_true;
-                return l_false;
-            } else if (it->second == l_true) {
-                if (l.sign())
-                    return l_false;
-                return l_true;
-            } else
-                UNREACHABLE();
-
-            return l_undef;
-        }        
-
-        void debug_set_known_sat_values() {
-            std::vector<std::pair<std::string, anum>> var_sat_values = debug_parse_var_anum_file();
-
-            for (auto const & kv : var_sat_values) {
-                anum val;
-                // Convert kv.second to an anum using m_am
-                m_am.set(val, kv.second);
-                m_debug_known_sat_anum_map[kv.first] = val;
-            }
-        }
+        std::string m_debug_known_solution_file_name;
 
         imp(solver& s, ctx& c):
             m_ctx(c),
@@ -299,9 +254,7 @@ namespace nlsat {
             m_am(c.m_am),
             m_asm(*this, m_allocator),
             m_assignment(m_am), m_lo(m_am), m_hi(m_am),
-            m_debug_assignment(m_am),
             m_evaluator(s, m_assignment, m_pm, m_allocator),
-            m_debug_evaluator(s, m_debug_assignment, m_pm, m_allocator),
             m_ism(m_evaluator.ism()),
             m_num_bool_vars(0),
             m_simplify(s, m_atoms, m_clauses, m_learned, m_pm),
@@ -316,8 +269,6 @@ namespace nlsat {
             reset_statistics();
             mk_true_bvar();
             m_lemma_count = 0;
-            if (!m_debug_known_sol_file_name.empty())
-                debug_set_known_sat_values();
         }
         
         ~imp() {
@@ -357,7 +308,7 @@ namespace nlsat {
             m_explain.set_minimize_cores(min_cores);
             m_explain.set_factor(p.factor());
             m_am.updt_params(p.p);
-            m_debug_known_sol_file_name = p.debug_known_sol_file();
+            m_debug_known_solution_file_name = p.debug_known_sol_file();
         }
 
         void reset() {
@@ -925,14 +876,6 @@ namespace nlsat {
             bool_var operator[](bool_var v) const { return vec[v]; }
         };
 
-        void debug_set_debug_assignment_to_known_vals() {
-            m_debug_assignment.reset();
-            for (var x = 0; x < num_vars(); ++x) {
-                const anum& dval = debug_get_known_sat_anum_value(x);
-                m_debug_assignment.set(x, dval);
-            }
-        }
-
         std::vector<unsigned> collect_vars(literal l) {
             var_vector vars;
             this->vars(l, vars);
@@ -975,21 +918,75 @@ namespace nlsat {
         // At least one literal has to be evaluate to true.
         // The method might ignore a lemma with pure boolean varibles.
         void debug_check_lemma_on_known_sat_values(unsigned n_of_literals, literal const *cls, assumption_set a) {
-            debug_set_debug_assignment_to_known_vals();
             SASSERT(a == nullptr);
+            
+            // If no debug file is specified, just return
+            if (m_debug_known_solution_file_name.empty()) 
+                return;
+                
+            // Create local debug objects
+            assignment debug_assignment(m_am);
+            evaluator debug_evaluator(m_solver, debug_assignment, m_pm, m_allocator);
+            
+            // Parse the debug file to get known variable values
+            std::vector<std::pair<std::string, anum>> var_sat_values;
+            std::ifstream in(m_debug_known_solution_file_name);
+            std::string line;
+            while (std::getline(in, line)) {
+                std::istringstream iss(line);
+                std::string name, value_str;
+                if (!(iss >> name >> value_str)) {
+                    std::cout << line << std::endl;
+                    std::cout << "is not recognized\n";
+                    exit(1);
+                }
+                // Parse rational value
+                rational r;
+                size_t slash = value_str.find('/');
+                if (slash == std::string::npos) {
+                    r = rational(value_str.c_str());
+                } else {
+                    std::string num = value_str.substr(0, slash);
+                    std::string den = value_str.substr(slash + 1);
+                    r = rational(num.c_str()) / rational(den.c_str());
+                }
+                anum a;
+                const auto& q = r.to_mpq();
+                m_am.set(a, q);
+                var_sat_values.emplace_back(name, a);
+            }
+            
+            // Build a map from variable names to their known values
+            std::unordered_map<std::string, anum> debug_known_sat_anum_map;
+            for (auto const & kv : var_sat_values) {
+                anum val;
+                m_am.set(val, kv.second);
+                debug_known_sat_anum_map[kv.first] = val;
+            }
+            
+            // Set up the debug assignment with known values
+            debug_assignment.reset();
+            for (var x = 0; x < num_vars(); ++x) {
+                std::string name = debug_get_var_name(x);
+                auto it = debug_known_sat_anum_map.find(name);
+                if (it != debug_known_sat_anum_map.end()) {
+                    debug_assignment.set(x, it->second);
+                }
+            }
+            
             bool satisfied = false;
             for (unsigned i = 0; i < n_of_literals && !satisfied; ++i) {
                 literal l = cls[i];
                 bool_var b = l.var();
                 atom* a = m_atoms[b];
                 if (a == nullptr) 
-                    return; // ignore lemmas with pure booleal variables
+                    return; // ignore lemmas with pure boolean variables
 
                 lbool val = l_undef;
                 // Arithmetic atom: evaluate directly
                 var max = a->max_var();
-                SASSERT (m_debug_assignment.is_assigned(max));
-                val = to_lbool(m_debug_evaluator.eval(a, l.sign()));
+                SASSERT(debug_assignment.is_assigned(max));
+                val = to_lbool(debug_evaluator.eval(a, l.sign()));
                 SASSERT(val != l_undef);
                 if (val == l_true)
                     satisfied = true;                
@@ -998,7 +995,7 @@ namespace nlsat {
                 m_display_var.m_proc = nullptr;
                 std::cout << "Known sat assignment does not satisfy valid lemma!\n";
                 display(std::cout, n_of_literals, cls) << "\n";
-                display_assignment_on_clause(std::cout, m_debug_assignment, n_of_literals, cls);
+                display_assignment_on_clause(std::cout, debug_assignment, n_of_literals, cls);
                 exit(1);
             }
         }
@@ -1357,16 +1354,10 @@ namespace nlsat {
            \brief Assign literal to true using the given justification
         */
         void set_literal_to_true(literal l, justification j) {
-            if (!m_debug_known_sol_file_name.empty())
-                debug_set_debug_assignment_to_known_vals();
             TRACE("nlsat_assign",
                   tout << "literal" << l << "\n";
                   display(tout << "assigning literal to true: ", l) << "\n";
-                  display(tout << " <- ", j);
-                  auto known_val = debug_get_known_literal_value(l);
-                  if (known_val != l_undef) {
-                      tout << "known val of literal is " << known_val << "\n";
-                  });
+                  display(tout << " <- ", j););
                 
             SASSERT(assigned_value(l) == l_undef);
             SASSERT(j != null_justification);
@@ -1578,12 +1569,11 @@ namespace nlsat {
                 atom * a   = m_atoms[b];
                 SASSERT(a != nullptr);
                 interval_set_ref curr_set(m_ism);
-                curr_set = m_evaluator.infeasible_intervals(a, l.sign(), &cls);
-                TRACE("nlsat_inf_set",                      
+                curr_set = m_evaluator.infeasible_intervals(a, l.sign(), &cls);           
+				TRACE("nlsat_inf_set", 
                       tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";
                       display(tout << "cls: " , cls) << "\n";
-                      tout << "m_xk:" << m_xk << "(" << debug_get_var_name(m_xk) << ")"<< "\n";
-                      tout << "known deb value of the literal is: " << debug_get_known_literal_value(l) << "\n";); 
+                      tout << "m_xk:" << m_xk << "(" << debug_get_var_name(m_xk) << ")"<< "\n";);
                 if (m_ism.is_empty(curr_set)) {
                     TRACE("nlsat_inf_set", tout << "infeasible set is empty, found literal\n";);
                     R_propagate(l, nullptr);
@@ -1700,18 +1690,6 @@ namespace nlsat {
             }
         }
 
-        bool debug_set_known_sat_value_to_xk_() {
-            const anum& dw = debug_get_known_sat_anum_value(m_xk);
-            bool can_use = m_ism.contains_in_complement(m_infeasible[m_xk], false, dw);
-            if (!can_use){
-                return false;
-            }
-            anum val;
-            m_am.set(val, dw);
-            m_assignment.set_core(m_xk, val);
-            return true;
-        }
-        
         /**
            \brief Assign m_xk
         */
@@ -4077,7 +4055,7 @@ namespace nlsat {
 
         std::vector<std::pair<std::string, anum>> debug_parse_var_anum_file() {
             std::vector<std::pair<std::string, anum>> result;
-            std::ifstream in(m_debug_known_sol_file_name);
+            std::ifstream in(m_debug_known_solution_file_name);
             std::string line;
             while (std::getline(in, line)) {
                 std::istringstream iss(line);
