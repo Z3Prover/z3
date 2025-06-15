@@ -26,7 +26,7 @@ Author:
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_mam.h"
 #include "ast/rewriter/th_rewriter.h"
-// #include "ast/pattern/pattern_inference.h"
+// include "ast/pattern/pattern_inference.h"
 #include "params/smt_params.h"
 
 namespace euf {
