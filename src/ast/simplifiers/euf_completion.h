@@ -21,10 +21,13 @@ Author:
 #pragma once
 
 #include "util/scoped_vector.h"
+#include "util/dlist.h"
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_mam.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/pattern/pattern_inference.h"
+#include "params/smt_params.h"
 
 namespace euf {
 
@@ -42,6 +45,60 @@ namespace euf {
         virtual void pop(unsigned n) = 0;
         virtual void solve_for(vector<solution>& sol) = 0;
     };
+
+    struct binding : public dll_base<binding> {
+        quantifier*        m_q;
+        app*               m_pattern;
+        unsigned           m_max_generation;
+        unsigned           m_min_top_generation;
+        unsigned           m_max_top_generation;
+        euf::enode*        m_nodes[0];
+
+        binding(quantifier* q, app* pat, unsigned max_generation, unsigned min_top, unsigned max_top) :
+            m_q(q),
+            m_pattern(pat),
+            m_max_generation(max_generation),
+            m_min_top_generation(min_top),
+            m_max_top_generation(max_top) {
+        }
+
+        euf::enode* const* nodes() { return m_nodes; }
+
+        euf::enode* operator[](unsigned i) const { return m_nodes[i]; }
+
+        unsigned size() const { return m_q->get_num_decls(); }
+
+        quantifier* q() const { return m_q; }
+
+        bool eq(binding const& other) const {
+            if (q() != other.q())
+                return false;
+            for (unsigned i = size(); i-- > 0; )
+                if ((*this)[i] != other[i])
+                    return false;
+            return true;
+        }
+    };
+
+    struct binding_khasher {
+        unsigned operator()(binding const* f) const { return f->q()->get_id(); }
+    };
+
+    struct binding_chasher {
+        unsigned operator()(binding const* f, unsigned idx) const { return f->m_nodes[idx]->hash(); }
+    };
+
+    struct binding_hash_proc {
+        unsigned operator()(binding const* f) const {
+            return get_composite_hash<binding*, binding_khasher, binding_chasher>(const_cast<binding*>(f), f->size());
+        }
+    };
+
+    struct binding_eq_proc {
+        bool operator()(binding const* a, binding const* b) const { return a->eq(*b); }
+    };
+
+    typedef ptr_hashtable<binding, binding_hash_proc, binding_eq_proc> bindings;
 
     class completion : public dependent_expr_simplifier, public on_binding_callback, public mam_solver {
 
@@ -63,6 +120,7 @@ namespace euf {
                 m_body(b), m_head(h), m_proofs(prs), m_dep(d) {}
         };
 
+        smt_params             m_smt_params;
         egraph                 m_egraph;
         scoped_ptr<mam>        m_mam;
         enode*                 m_tt, *m_ff;
@@ -70,6 +128,10 @@ namespace euf {
         enode_vector           m_args, m_reps, m_nodes_to_canonize;
         expr_ref_vector        m_canonical, m_eargs;
         proof_ref_vector       m_canonical_proofs;
+        pattern_inference_rw   m_infer_patterns;
+        bindings               m_bindings;
+        scoped_ptr<binding>    m_tmp_binding;
+        unsigned               m_tmp_binding_capacity = 0;
         expr_dependency_ref_vector m_deps;
         obj_map<quantifier, std::pair<proof*, expr_dependency*>> m_q2dep;
         vector<std::pair<proof_ref, expr_dependency*>> m_pr_dep;
@@ -108,6 +170,13 @@ namespace euf {
         proof_ref prove_conflict();
         expr_dependency* explain_conflict();
         std::pair<proof*, expr_dependency*> get_dependency(quantifier* q) { return m_q2dep.contains(q) ? m_q2dep[q] : std::pair(nullptr, nullptr); }
+
+        binding* tmp_binding(quantifier* q, app* pat, euf::enode* const* _binding);
+        binding* alloc_binding(quantifier* q, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
+        void insert_binding(binding* b);
+        void apply_binding(binding& b);
+        void flush_binding_queue();
+        vector<ptr_vector<binding>> m_queue;
 
         lbool eval_cond(expr* f, proof_ref& pr, expr_dependency*& d);
         
