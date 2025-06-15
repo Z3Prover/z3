@@ -308,7 +308,7 @@ namespace nlsat {
             m_explain.set_minimize_cores(min_cores);
             m_explain.set_factor(p.factor());
             m_am.updt_params(p.p);
-            m_debug_known_solution_file_name = p.debug_known_sol_file();
+            m_debug_known_solution_file_name = p.known_sat_assignment_file_name();
         }
 
         void reset() {
@@ -914,22 +914,10 @@ namespace nlsat {
             }
             return out;
         }
-        
-        // At least one literal has to be evaluate to true.
-        // The method might ignore a lemma with pure boolean varibles.
-        void debug_check_lemma_on_known_sat_values(unsigned n_of_literals, literal const *cls, assumption_set a) {
-            SASSERT(a == nullptr);
-            
-            // If no debug file is specified, just return
-            if (m_debug_known_solution_file_name.empty()) 
-                return;
-                
-            // Create local debug objects
-            assignment debug_assignment(m_am);
-            evaluator debug_evaluator(m_solver, debug_assignment, m_pm, m_allocator);
-            
-            // Parse the debug file to get known variable values
-            std::vector<std::pair<std::string, anum>> var_sat_values;
+
+        void debug_parse_known_assignment(
+            std::vector<std::pair<std::string, anum>> & var_sat_values,
+            assignment& debug_assignment) {
             std::ifstream in(m_debug_known_solution_file_name);
             std::string line;
             while (std::getline(in, line)) {
@@ -965,7 +953,6 @@ namespace nlsat {
             }
             
             // Set up the debug assignment with known values
-            debug_assignment.reset();
             for (var x = 0; x < num_vars(); ++x) {
                 std::string name = debug_get_var_name(x);
                 auto it = debug_known_sat_anum_map.find(name);
@@ -973,14 +960,15 @@ namespace nlsat {
                     debug_assignment.set(x, it->second);
                 }
             }
-            
-            bool satisfied = false;
-            for (unsigned i = 0; i < n_of_literals && !satisfied; ++i) {
+        }
+
+        bool debug_check_lemma_literals(unsigned n_of_literals, literal const *cls, evaluator& debug_evaluator, assignment& debug_assignment) {           
+            for (unsigned i = 0; i < n_of_literals; ++i) {
                 literal l = cls[i];
                 bool_var b = l.var();
                 atom* a = m_atoms[b];
                 if (a == nullptr) 
-                    return; // ignore lemmas with pure boolean variables
+                    return true; // ignore lemmas with pure boolean variables
 
                 lbool val = l_undef;
                 // Arithmetic atom: evaluate directly
@@ -989,8 +977,22 @@ namespace nlsat {
                 val = to_lbool(debug_evaluator.eval(a, l.sign()));
                 SASSERT(val != l_undef);
                 if (val == l_true)
-                    satisfied = true;                
+                    return true;
             }
+            return false;
+        }
+        
+        // At least one literal has to be evaluate to true.
+        // The method might ignore a lemma with pure boolean varibles.
+        void debug_check_lemma_on_known_sat_values(unsigned n_of_literals, literal const *cls) {
+            // If no debug file is specified, just return
+            if (m_debug_known_solution_file_name.empty()) 
+                return;
+            assignment debug_assignment(m_am);
+            evaluator debug_evaluator(m_solver, debug_assignment, m_pm, m_allocator);
+            std::vector<std::pair<std::string, anum>> var_sat_values;
+            debug_parse_known_assignment(var_sat_values, debug_assignment);
+            bool satisfied = debug_check_lemma_literals(n_of_literals, cls, debug_evaluator, debug_assignment);
             if (!satisfied) {
                 m_display_var.m_proc = nullptr;
                 std::cout << "Known sat assignment does not satisfy valid lemma!\n";
@@ -1003,7 +1005,7 @@ namespace nlsat {
         void check_lemma(unsigned n, literal const* cls, bool is_valid, assumption_set a) {
             TRACE("nlsat", display(tout << "check lemma: ", n, cls) << "\n";
                   display(tout););
-            debug_check_lemma_on_known_sat_values(n, cls, a);
+            debug_check_lemma_on_known_sat_values(n, cls);
             return;
             IF_VERBOSE(2, display(verbose_stream() << "check lemma " << (is_valid?"valid: ":"consequence: "), n, cls) << "\n");
             for (clause* c : m_learned) IF_VERBOSE(1, display(verbose_stream() << "lemma: ", *c) << "\n"); 
