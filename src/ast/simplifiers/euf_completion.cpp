@@ -66,7 +66,7 @@ namespace euf {
         m_canonical(m),
         m_eargs(m),
         m_canonical_proofs(m),
-        m_infer_patterns(m, m_smt_params),
+        // m_infer_patterns(m, m_smt_params),
         m_deps(m),
         m_rewriter(m) {
         m_tt = m_egraph.mk(m.mk_true(), 0, 0, nullptr);
@@ -241,12 +241,14 @@ namespace euf {
             add_children(n);
             if (is_forall(f)) {
                 quantifier* q = to_quantifier(f);
+#if 0
                 if (q->get_num_patterns() == 0) {
                     expr_ref tmp(m);
                     m_infer_patterns(q, tmp);
                     m_egraph.mk(tmp, 0, 0, nullptr); // ensure tmp is pinned within this scope.
                     q = to_quantifier(tmp);
                 }
+#endif
                 ptr_vector<app> ground;
                 for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
                     auto p = to_app(q->get_pattern(i));

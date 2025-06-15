@@ -26,7 +26,7 @@ Author:
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_mam.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "ast/pattern/pattern_inference.h"
+// #include "ast/pattern/pattern_inference.h"
 #include "params/smt_params.h"
 
 namespace euf {
@@ -128,7 +128,7 @@ namespace euf {
         enode_vector           m_args, m_reps, m_nodes_to_canonize;
         expr_ref_vector        m_canonical, m_eargs;
         proof_ref_vector       m_canonical_proofs;
-        pattern_inference_rw   m_infer_patterns;
+        //        pattern_inference_rw   m_infer_patterns;
         bindings               m_bindings;
         scoped_ptr<binding>    m_tmp_binding;
         unsigned               m_tmp_binding_capacity = 0;
