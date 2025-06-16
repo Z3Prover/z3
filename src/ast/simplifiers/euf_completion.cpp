@@ -51,6 +51,8 @@ Mam optimization?
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/euf/euf_egraph.h"
+#include "ast/euf/euf_arith_plugin.h"
+#include "ast/euf/euf_bv_plugin.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/simplifiers/euf_completion.h"
 #include "ast/shared_occs.h"
@@ -87,6 +89,9 @@ namespace euf {
 
         m_egraph.set_on_merge(_on_merge);
         m_egraph.set_on_make(_on_make);
+
+        m_egraph.add_plugin(alloc(arith_plugin, m_egraph));
+        m_egraph.add_plugin(alloc(bv_plugin, m_egraph));
     }
 
     completion::~completion() {
@@ -203,6 +208,7 @@ namespace euf {
             if (!m_should_propagate && !should_stop())
                 propagate_all_rules();
         }
+        TRACE(euf, m_egraph.display(tout));
     }
 
     unsigned completion::push_pr_dep(proof* pr, expr_dependency* d) {
@@ -520,7 +526,7 @@ namespace euf {
             if (g != f) {
                 m_fmls.update(i, dependent_expr(m, g, pr, dep));
                 m_stats.m_num_rewrites++;
-                IF_VERBOSE(0, verbose_stream() << mk_bounded_pp(f, m, 3) << " -> " << mk_bounded_pp(g, m, 3) << "\n");
+                IF_VERBOSE(2, verbose_stream() << mk_bounded_pp(f, m, 3) << " -> " << mk_bounded_pp(g, m, 3) << "\n");
                 update_has_new_eq(g);
             }
             CTRACE(euf_completion, g != f, tout << mk_bounded_pp(f, m) << " -> " << mk_bounded_pp(g, m) << "\n");
@@ -579,7 +585,16 @@ namespace euf {
                     m_todo.push_back(arg);
             }
             if (sz == m_todo.size()) {
-                m_nodes_to_canonize.push_back(m_egraph.mk(e, m_generation, m_args.size(), m_args.data()));
+                n = m_egraph.mk(e, m_generation, m_args.size(), m_args.data());
+                if (m_egraph.get_plugin(e->get_sort()->get_family_id()))
+                    m_egraph.add_th_var(n, m_th_var++, e->get_sort()->get_family_id());
+                if (!m.is_eq(e)) {
+                    for (auto ch : m_args)
+                        for (auto idv : euf::enode_th_vars(*ch))
+                            m_egraph.register_shared(n, idv.get_id());
+                }
+                                    
+                m_nodes_to_canonize.push_back(n);
                 m_todo.pop_back();
             }
         }

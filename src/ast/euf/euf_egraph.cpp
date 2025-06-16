@@ -310,6 +310,13 @@ namespace euf {
         }
     }
 
+    void egraph::register_shared(enode* n, theory_id id) {
+        force_push();
+        auto* p = get_plugin(id);
+        if (p)
+            p->register_node(n);
+    }
+
     void egraph::undo_add_th_var(enode* n, theory_id tid) {
         theory_var v = n->get_th_var(tid);
         SASSERT(v != null_theory_var);

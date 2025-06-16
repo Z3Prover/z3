@@ -122,6 +122,7 @@ namespace euf {
 
         smt_params             m_smt_params;
         egraph                 m_egraph;
+        unsigned               m_th_var = 0;
         scoped_ptr<mam>        m_mam;
         enode*                 m_tt, *m_ff;
         ptr_vector<expr>       m_todo;

@@ -33,10 +33,13 @@ namespace euf {
     }    
 
     void arith_plugin::register_node(enode* n) {
-        // no-op
+        TRACE(plugin, tout << g.bpp(n) << "\n");
+        m_add.register_node(n);
+        m_mul.register_node(n);
     }
 
     void arith_plugin::merge_eh(enode* n1, enode* n2) {
+        TRACE(plugin, tout << g.bpp(n1) << " == " << g.bpp(n2) << "\n");
         m_add.merge_eh(n1, n2);
         m_mul.merge_eh(n1, n2);
     }

@@ -93,7 +93,7 @@ namespace euf {
             return;
         for (auto arg : enode_args(n))
             if (is_op(arg))
-                register_shared(arg); // TODO optimization to avoid registering shared terms twice
+                register_shared(arg); 
     }
 
     void ac_plugin::register_shared(enode* n) {
@@ -180,7 +180,7 @@ namespace euf {
     std::ostream& ac_plugin::display_monomial(std::ostream& out, ptr_vector<node> const& m) const {
         for (auto n : m) {
             if (n->n->num_args() == 0)
-                out << mk_pp(n->n->get_expr(), g.get_manager()) << " ";
+                out << n->n->get_expr_id() << ": " << mk_pp(n->n->get_expr(), g.get_manager()) << " ";
             else
                 out << g.bpp(n->n) << " ";
         }
@@ -244,6 +244,7 @@ namespace euf {
         if (l == r)
             return;
         auto j = justification::equality(l, r);
+        TRACE(plugin, tout << g.bpp(l) << " == " << g.bpp(r) << " " << is_op(l) << " " << is_op(r) << "\n");
         if (!is_op(l) && !is_op(r))
             merge(mk_node(l), mk_node(r), j);
         else
@@ -263,6 +264,7 @@ namespace euf {
     void ac_plugin::init_equation(eq const& e) {
         m_eqs.push_back(e);
         auto& eq = m_eqs.back();
+        TRACE(plugin, display_equation(tout, e) << "\n");
         if (orient_equation(eq)) {
             
             unsigned eq_id = m_eqs.size() - 1;
@@ -273,6 +275,8 @@ namespace euf {
                     n->root->n->mark1();
                     push_undo(is_add_eq_index);
                     m_node_trail.push_back(n->root);
+                    for (auto s : n->root->shared)
+                        m_shared_todo.insert(s);
                 }
             }
 
@@ -282,6 +286,8 @@ namespace euf {
                     n->root->n->mark1();
                     push_undo(is_add_eq_index);
                     m_node_trail.push_back(n->root);
+                    for (auto s : n->root->shared)
+                        m_shared_todo.insert(s);
                 }
             }
 
@@ -291,6 +297,7 @@ namespace euf {
             for (auto n : monomial(eq.r))
                 n->root->n->unmark1();
 
+            TRACE(plugin, display_equation(tout, e) << "\n");
             m_to_simplify_todo.insert(eq_id);
         }
         else
@@ -368,6 +375,7 @@ namespace euf {
     }
 
     void ac_plugin::merge(node* root, node* other, justification j) {
+        TRACE(plugin, tout << root << " == " << other << " num shared " << other->shared.size() << "\n");
         for (auto n : equiv(other))
             n->root = root;
         m_merge_trail.push_back({ other, root->shared.size(), root->eqs.size() });
@@ -394,20 +402,32 @@ namespace euf {
         ptr_vector<node> m;
         ns.push_back(n);
         for (unsigned i = 0; i < ns.size(); ++i) {
-            n = ns[i];
-            if (is_op(n)) 
-                ns.append(n->num_args(), n->args());            
+            auto k = ns[i];
+            if (is_op(k)) 
+                ns.append(k->num_args(), k->args());            
             else 
-                m.push_back(mk_node(n));            
+                m.push_back(mk_node(k));            
         }
         return to_monomial(n, m);
     }
 
     unsigned ac_plugin::to_monomial(enode* e, ptr_vector<node> const& ms) {
         unsigned id = m_monomials.size();
-        m_monomials.push_back({ ms, bloom() });
+        m_monomials.push_back({ ms, bloom(), e });
         push_undo(is_add_monomial);
         return id;
+    }
+
+    enode* ac_plugin::from_monomial(ptr_vector<node> const& mon) {
+        auto& m = g.get_manager();
+        ptr_buffer<expr> args;
+        enode_vector nodes;
+        for (auto arg : mon) {
+            nodes.push_back(arg->root->n);
+            args.push_back(arg->root->n->get_expr());
+        }
+        auto n = m.mk_app(m_fid, m_op, args.size(), args.data());
+        return g.mk(n, 0, nodes.size(), nodes.data());
     }
 
     ac_plugin::node* ac_plugin::node::mk(region& r, enode* n) {
@@ -427,6 +447,9 @@ namespace euf {
         push_undo(is_add_node);
         m_nodes.setx(id, r, nullptr);
         m_node_trail.push_back(r);
+        if (is_op(n)) {
+            // extract shared sub-expressions
+        }
         return r;
     }
 
@@ -983,6 +1006,7 @@ namespace euf {
     // 
 
     void ac_plugin::propagate_shared() {
+        TRACE(plugin, tout << "num shared todo " << m_shared_todo.size() << "\n");
         if (m_shared_todo.empty())
             return;
         while (!m_shared_todo.empty()) {
@@ -1007,12 +1031,15 @@ namespace euf {
     void ac_plugin::simplify_shared(unsigned idx, shared s) {
         auto j = s.j;
         auto old_m = s.m;
+        auto old_n = monomial(old_m).m_src;
         ptr_vector<node> m1(monomial(old_m).m_nodes);
-        TRACE(plugin, tout << "simplify " << m_pp(*this, monomial(old_m)) << "\n");
+        TRACE(plugin, tout << "simplify " << g.bpp(old_n) << ": " << m_pp(*this, monomial(old_m)) << "\n");
         if (!reduce(m1, j))
             return;
 
-        auto new_m = to_monomial(m1);
+
+        auto new_n = from_monomial(m1);
+        auto new_m = to_monomial(new_n, m1);
         // update shared occurrences for members of the new monomial that are not already in the old monomial.
         for (auto n : monomial(old_m))
             n->root->n->mark1();
@@ -1029,6 +1056,10 @@ namespace euf {
         push_undo(is_update_shared);
         m_shared[idx].m = new_m;
         m_shared[idx].j = j;
+
+        TRACE(plugin, tout << "shared simplified to " << m_pp(*this, monomial(new_m)) << "\n");
+        
+        push_merge(old_n, new_n, j);
     }
 
     justification ac_plugin::justify_rewrite(unsigned eq1, unsigned eq2) {

@@ -318,6 +318,7 @@ namespace euf {
 
 
         void add_th_var(enode* n, theory_var v, theory_id id);
+        void register_shared(enode* n, theory_id id);
         void set_th_propagates_diseqs(theory_id id);
         void set_cgc_enabled(enode* n, bool enable_cgc);
         void set_merge_tf_enabled(enode* n, bool enable_merge_tf);

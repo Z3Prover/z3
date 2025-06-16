@@ -649,7 +649,7 @@ namespace euf {
         }
     
         bool is_ac(func_decl* f) const {
-            return false && f->is_associative() && f->is_commutative();
+            return f->is_associative() && f->is_commutative();
         }
         
         instruction * mk_init(func_decl* f, unsigned n) {
@@ -1777,6 +1777,10 @@ namespace euf {
             m_use_filters(use_filters) {
         }
 
+        bool is_ac(func_decl* f) const {
+            return f->is_associative() && f->is_commutative();
+        }
+
         /**
            \brief Create a new code tree for the given quantifier.
 
@@ -1791,6 +1795,8 @@ namespace euf {
             code_tree * r     = m_ct_manager.mk_code_tree(p->get_decl(), num_args, filter_candidates);
             init(r, qa, mp, first_idx);
             linearise(r->m_root, first_idx);
+            if (is_ac(p->get_decl()))
+                ++m_num_choices;
             r->m_num_choices  = m_num_choices;
             TRACE(mam_compiler, tout << "new tree for:\n" << mk_pp(mp, m) << "\n" << *r;);
             return r;
@@ -1861,9 +1867,6 @@ namespace euf {
         unsigned             m_old_max_generation;
         union {
             enode *  m_curr;
-            struct {
-                unsigned m_next_pattern;
-            };
             struct {
                 enode_vector *  m_to_recycle;
                 enode * const * m_it;
@@ -2009,7 +2012,7 @@ namespace euf {
 
         void display_pc_info(std::ostream & out);
 
-        bool match_ac(initn const* pc);
+        bool next_ac_match(initn const* pc);
 
 #define INIT_ARGS_SIZE 16
 
@@ -2291,9 +2294,53 @@ namespace euf {
     // Established: use Diophantine equations to capture matchability.
     //
 
-    bool interpreter::match_ac(initn const* pc) {
+    bool interpreter::next_ac_match(initn const* pc) {
         unsigned f_args = pc->m_num_args;
         SASSERT(f_args <= m_acargs.size());        
+        for (unsigned i = f_args; i-- > 0;) {
+            unsigned j = m_acpatarg[i];
+            m_acbitset[j] = false;
+        next_j:
+            ++j;
+            for (; j < m_acargs.size(); ++j) {
+                if (m_acbitset[j])
+                    continue;
+                m_registers[i + 1] = m_acargs[j];
+                m_acbitset[j] = true;
+                m_acpatarg[i] = j;
+                break;
+            }
+            if (j == m_acargs.size())
+                continue;
+            
+            for (unsigned ii = i + 1; ii < f_args; ++ii) {
+                unsigned k = 0;
+                // populate arguments after i
+                for (; k < m_acargs.size(); ++k) {
+                    if (!m_acbitset[k]) {
+                        m_registers[ii + 1] = m_acargs[k];
+                        m_acbitset[k] = true;
+                        m_acpatarg[ii] = k;
+                        break;
+                    }
+                }
+                if (k == m_acargs.size()) {
+                    --ii;
+                    // clean up 
+                    for (; ii >= i; --ii) {
+                        k = m_acpatarg[ii];
+                        m_acbitset[k] = false;
+                    }
+                    goto next_j;
+                }
+            }
+            IF_VERBOSE(2,
+                verbose_stream() << "next ac: ";
+            for (unsigned j = 0; j < f_args; ++j)
+                verbose_stream() << m_acpatarg[j] << " ";
+            verbose_stream() << "\n";);
+            return true;
+        }
         return false;
     }
 
@@ -2412,6 +2459,7 @@ namespace euf {
             m_acargs.reset();
             m_acargs.push_back(m_app);
             auto* f = m_app->get_decl();
+            auto num_pat_args = static_cast<const initn*>(m_pc)->m_num_args;
             for (unsigned i = 0; i < m_acargs.size(); ++i) {
                 auto* arg = m_acargs[i];
                 if (is_app(arg->get_expr()) && f == arg->get_decl()) {
@@ -2421,7 +2469,7 @@ namespace euf {
                     --i;
                 }
             }
-            if (static_cast<const initn*>(m_pc)->m_num_args > m_acargs.size())
+            if (num_pat_args > m_acargs.size())
                 goto backtrack;
             m_acbitset.reset();
             m_acbitset.reserve(m_acargs.size(), false);
@@ -2429,11 +2477,12 @@ namespace euf {
             m_acpatarg.reserve(m_acargs.size(), 0);
             m_backtrack_stack[m_top].m_instr = m_pc;                                                  
             m_backtrack_stack[m_top].m_old_max_generation = m_curr_max_generation;      
-            m_backtrack_stack[m_top].m_next_pattern = 0;
-            ++m_top;
-            // perform the match relative index
-            if (!match_ac(static_cast<initn const*>(m_pc)))
-                goto backtrack;
+            ++m_top;            
+            for (unsigned i = 0; i < num_pat_args; ++i) {
+                m_acpatarg[i] = i;
+                m_acbitset[i] = true;
+                m_registers[i + 1] = m_acargs[i];
+            }
             m_pc = m_pc->m_next;
             goto main_loop;
         }
@@ -2499,7 +2548,7 @@ namespace euf {
                  m_app  = get_first_f_app(static_cast<const bind *>(m_pc)->m_label, static_cast<const bind *>(m_pc)->m_num_args, m_n1); \
                  if (!m_app)                                                                                            \
                      goto backtrack;                                                                                    \
-                 TRACE(mam_int, tout << "bind candidate: " << mk_pp(m_app->get_expr(), m) << "\n";);     \
+                 TRACE(mam_int, tout << "bind candidate: " << mk_pp(m_app->get_expr(), m) << " " << m_top << " " << m_backtrack_stack.size() << "\n";);     \
                  m_backtrack_stack[m_top].m_instr              = m_pc;                                                  \
                  m_backtrack_stack[m_top].m_old_max_generation = m_curr_max_generation;                                 \
                  m_backtrack_stack[m_top].m_curr               = m_app;                                                 \
@@ -2832,7 +2881,11 @@ namespace euf {
 
         case INITAC:
             // this is a backtracking point.
-            NOT_IMPLEMENTED_YET();
+            if (!next_ac_match(static_cast<initn const*>(bp.m_instr))) {
+                --m_top;
+                goto backtrack;
+            }            
+            m_pc = bp.m_instr->m_next;
             goto main_loop;
 
         case CONTINUE:

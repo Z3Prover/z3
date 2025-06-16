@@ -97,6 +97,7 @@ namespace euf {
         struct monomial_t {
             ptr_vector<node> m_nodes;
             bloom m_bloom;
+            enode* m_src = nullptr;
             node* operator[](unsigned i) const { return m_nodes[i]; }
             unsigned size() const { return m_nodes.size(); }
             void set(ptr_vector<node> const& ns) { m_nodes.reset(); m_nodes.append(ns); m_bloom.m_tick = 0; }
@@ -187,6 +188,7 @@ namespace euf {
         unsigned to_monomial(enode* n);
         unsigned to_monomial(enode* n, ptr_vector<node> const& ms);
         unsigned to_monomial(ptr_vector<node> const& ms) { return to_monomial(nullptr, ms); }
+        enode* from_monomial(ptr_vector<node> const& m);
         monomial_t const& monomial(unsigned i) const { return m_monomials[i]; }
         monomial_t& monomial(unsigned i) { return m_monomials[i]; }
         void sort(monomial_t& monomial);
