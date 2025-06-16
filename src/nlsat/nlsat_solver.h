@@ -290,6 +290,11 @@ namespace nlsat {
         std::ostream& display(std::ostream & out, var x) const;
         
         display_var_proc const & display_proc() const;
+
+        std::ostream& display_assignment(std::ostream& out) const;
+
+        std::ostream& display_var(std::ostream& out, unsigned j) const;
+        
     };
 
 };
