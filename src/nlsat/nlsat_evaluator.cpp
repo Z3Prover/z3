@@ -463,10 +463,12 @@ namespace nlsat {
                 svector<sign> & signs = m_add_signs_tmp;
                 roots.reset();
                 signs.reset();
-                TRACE(nlsat_evaluator, tout << "x: " << x << " max_var(p): " << m_pm.max_var(p) << "\n";);
+                TRACE(nlsat_evaluator, m_solver.display(tout << "p: ", polynomial_ref(p, m_pm)) << "\n";tout << "x: " << x << " max_var(p): " << m_pm.max_var(p) << "\n";);
                 // Note: I added undef_var_assignment in the following statement, to allow us to obtain the infeasible interval sets
                 // even when the maximal variable is assigned. I need this feature to minimize conflict cores.
-                m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(m_assignment, x), roots, signs);
+                auto pr = polynomial_ref(p, m_pm);
+                auto uass = undef_var_assignment(m_assignment, x);
+                m_am.isolate_roots(pr, uass, roots, signs);
                 t.add(roots, signs);
             }
         }

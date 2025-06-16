@@ -30,7 +30,7 @@ namespace nlsat {
             // then promote learned to main.
             for (auto c : m_learned)
                 s.del_clause(c);
-            m_learned.reset();
+            m_learned.clear();
             
             IF_VERBOSE(3, s.display(verbose_stream() << "before\n"));
             unsigned sz = m_clauses.size();
@@ -342,7 +342,7 @@ namespace nlsat {
                 else
                     m_clauses[j++] = c;
             }
-            m_clauses.shrink(j);
+            m_clauses.resize(j);
             return j < sz;
         }
 
