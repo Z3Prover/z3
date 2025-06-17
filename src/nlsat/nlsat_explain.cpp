@@ -617,11 +617,11 @@ namespace nlsat {
                 m_todo.insert(p);
             }
         }
-// It is the only check I found to test for well-orientedness, that first appears in 
-//  "An improved projection operation for cylindrical algebraic decomposition of three-dimensional space",
-//  by McCallum, Scott
+
+// The monomials have to be square free according to
+//"An improved projection operation for cylindrical algebraic decomposition of three-dimensional space", by McCallum, Scott
             
-        bool is_well_oriented(polynomial_ref_vector &ps, var x) {
+        bool is_square_free_at_sample(polynomial_ref_vector &ps, var x) {
             polynomial_ref p(m_pm);
             polynomial_ref lc_poly(m_pm);
             polynomial_ref disc_poly(m_pm); 
@@ -634,7 +634,12 @@ namespace nlsat {
                 // p depends on x
                 disc_poly = discriminant(p, x); // Use global helper
                 if (sign(disc_poly) == 0) { // Discriminant is zero
-                    TRACE(nlsat_explain, tout << "Global !WO: Discriminant of poly is zero. Poly: "; display(tout, p); tout << " Disc: "; display(tout, disc_poly) << "\\n";);
+                    TRACE(nlsat_explain, tout << "p is not square free:\n ";
+                          display(tout, p); tout << "\ndiscriminant: "; display(tout, disc_poly) << "\n";
+                          m_solver.display_assignment(tout) << '\n';
+                          m_solver.display_var(tout << "x:", x) << '\n';
+                        );
+
                     return false;
                 }
             }
@@ -647,19 +652,19 @@ namespace nlsat {
             polynomial_ref p(m_pm);
             polynomial_ref coeff(m_pm);
 
-            bool wo = is_well_oriented(ps, x);
+            bool sqf = is_square_free_at_sample(ps, x);
             // Add coefficients based on well-orientedness
             for (unsigned i = 0; i < ps.size(); i++) {
                 p = ps.get(i);
                 unsigned k_deg = m_pm.degree(p, x);
                 if (k_deg == 0) continue;
                 // p depends on x
-                TRACE(nlsat_explain, tout << "processing poly of degree " << k_deg << " w.r.t x" << x << ": "; display(tout, p); tout << (wo ? " (wo)" : " (!wo)") << "\n";);
+                TRACE(nlsat_explain, tout << "processing poly of degree " << k_deg << " w.r.t x" << x << ": "; display(tout, p); tout << (sqf ? " (sqf)" : " (!sqf)") << "\n";);
                 for (unsigned j_coeff_deg = k_deg; j_coeff_deg >= 1; j_coeff_deg--) { 
                     coeff = m_pm.coeff(p, x, j_coeff_deg);
                     TRACE(nlsat_explain, tout << "    coeff deg " << j_coeff_deg << ": "; display(tout, coeff) << "\n";);
                     add_factors(coeff);
-                    if (wo)
+                    if (sqf)
                         break;
                 }
                 
