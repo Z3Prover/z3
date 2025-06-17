@@ -4218,7 +4218,6 @@ namespace nlsat {
         for (bool_var b = 0; b < vs.size(); ++b) {
             if (vs[b] != l_undef) {
                 TRACE(nlsat_assign, tout << "setting bool values " << b << "\n";);
-                std::cout << "set bvalues " << b << " to " << vs[b] << "\n";
                 m_imp->m_bvalues[b] = vs[b];
                 SASSERT(!m_imp->m_atoms[b]);
             }
