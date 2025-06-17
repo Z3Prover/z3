@@ -617,7 +617,10 @@ namespace nlsat {
                 m_todo.insert(p);
             }
         }
-
+// It is the only check I found to test for well-orientedness, that first appears in 
+//  "An improved projection operation for cylindrical algebraic decomposition of three-dimensional space",
+//  by McCallum, Scott
+            
         bool is_well_oriented(polynomial_ref_vector &ps, var x) {
             polynomial_ref p(m_pm);
             polynomial_ref lc_poly(m_pm);
@@ -631,7 +634,6 @@ namespace nlsat {
                 // p depends on x
                 disc_poly = discriminant(p, x); // Use global helper
                 if (sign(disc_poly) == 0) { // Discriminant is zero
-                    
                     TRACE(nlsat_explain, tout << "Global !WO: Discriminant of poly is zero. Poly: "; display(tout, p); tout << " Disc: "; display(tout, disc_poly) << "\\n";);
                     return false;
                 }
@@ -639,7 +641,7 @@ namespace nlsat {
             return true;
         }
         
-	    // For each p in ps add the leading or all the coefficients of p to the projection,
+	// For each p in ps add the leading or all the coefficients of p to the projection,
         // depending on the well-orientedness of ps.
         void add_lcs(polynomial_ref_vector &ps, var x) {
             polynomial_ref p(m_pm);
@@ -1915,6 +1917,161 @@ namespace nlsat {
             bool glb_valid = false, lub_valid = false;
             for (unsigned i = 0; i < ps.size(); ++i) {
                 p = ps.get(i);
+                scoped_anum_vector & roots = m_roots_tmp;
+                roots.reset();
+                m_am.isolate_roots(p, undef_var_assignment(m_assignment, x), roots);
+                for (auto const& r : roots) {
+                    int s = m_am.compare(x_val, r);
+                    SASSERT(s != 0);
+
+                    if (s < 0 && (!lub_valid || m_am.lt(r, lub))) {
+                        lub_index = i;
+                        m_am.set(lub, r);
+                        lub_valid = true;
+                    }
+
+                    if (s > 0 && (!glb_valid || m_am.lt(glb, r))) {
+                        glb_index = i;
+                        m_am.set(glb, r);
+                        glb_valid = true;
+                    }
+                    if (s < 0) ++num_lub;
+                    if (s > 0) ++num_glb;
+                }
+            }
+            TRACE(nlsat_explain, tout << "glb: " << num_glb << " lub: " << num_lub << "\n" << lub_index << "\n" << glb_index << "\n" << ps << "\n";);
+
+            if (num_lub == 0) {
+                project_plus_infinity(x, ps);
+                return;
+            }
+                
+            if (num_glb == 0) {
+                project_minus_infinity(x, ps);
+                return;
+            }
+
+            if (num_lub <= num_glb) {
+                glb_index = lub_index;
+            }
+
+            project_pairs(x, glb_index, ps);
+        }
+
+        void project_plus_infinity(var x, polynomial_ref_vector const& ps) {
+            polynomial_ref p(m_pm), lc(m_pm);
+            for (unsigned i = 0; i < ps.size(); ++i) {
+                p = ps.get(i);
+                unsigned d = degree(p, x);
+                lc = m_pm.coeff(p, x, d);
+                if (!is_const(lc)) {                    
+                    int s = sign(p);
+                    SASSERT(s != 0);
+                    atom::kind k = (s > 0)?(atom::GT):(atom::LT);
+                    add_simple_assumption(k, lc);
+                }
+            }
+        }
+
+        void project_minus_infinity(var x, polynomial_ref_vector const& ps) {
+            polynomial_ref p(m_pm), lc(m_pm);
+            for (unsigned i = 0; i < ps.size(); ++i) {
+                p = ps.get(i);
+                unsigned d = degree(p, x);
+                lc = m_pm.coeff(p, x, d);
+                if (!is_const(lc)) {
+                    int s = sign(p);
+                    TRACE(nlsat_explain, tout << "degree: " << d << " " << lc << " sign: " << s << "\n";);
+                    SASSERT(s != 0);
+                    atom::kind k;
+                    if (s > 0) {
+                        k = (d % 2 == 0)?(atom::GT):(atom::LT);
+                    }
+                    else {
+                        k = (d % 2 == 0)?(atom::LT):(atom::GT);
+                    }
+                    add_simple_assumption(k, lc);
+                }
+            }
+        }
+
+        void project_pairs(var x, unsigned idx, polynomial_ref_vector const& ps) {
+            TRACE(nlsat_explain, tout << "project pairs\n";);
+            polynomial_ref p(m_pm);
+            p = ps.get(idx);
+            for (unsigned i = 0; i < ps.size(); ++i) {
+                if (i != idx) {
+                    project_pair(x, ps.get(i), p);
+                }
+            }
+        }
+
+        void project_pair(var x, polynomial::polynomial* p1, polynomial::polynomial* p2) {
+            m_ps2.reset();
+            m_ps2.push_back(p1);
+            m_ps2.push_back(p2);
+            project(m_ps2, x);
+        }
+
+        void project_single(var x, polynomial::polynomial* p) {
+            m_ps2.reset();
+            m_ps2.push_back(p);
+            project(m_ps2, x);
+        }
+
+        void solve_eq(var x, unsigned idx, polynomial_ref_vector const& ps) {
+            polynomial_ref p(m_pm), A(m_pm), B(m_pm), C(m_pm), D(m_pm), E(m_pm), q(m_pm), r(m_pm);
+            polynomial_ref_vector As(m_pm), Bs(m_pm);
+            p = ps.get(idx);
+            SASSERT(degree(p, x) == 1);
+            A = m_pm.coeff(p, x, 1);
+            B = m_pm.coeff(p, x, 0);
+            As.push_back(m_pm.mk_const(rational(1)));
+            Bs.push_back(m_pm.mk_const(rational(1)));
+            B = neg(B);
+            TRACE(nlsat_explain, tout << "p: " << p << " A: " << A << " B: " << B << "\n";);
+            // x = B/A
+            for (unsigned i = 0; i < ps.size(); ++i) {
+                if (i != idx) {
+                    q = ps.get(i);
+                    unsigned d = degree(q, x);
+                    D = m_pm.mk_const(rational(1));
+                    E = D;
+                    r = m_pm.mk_zero();
+                    for (unsigned j = As.size(); j <= d; ++j) {
+                        D = As.back(); As.push_back(A * D);
+                        D = Bs.back(); Bs.push_back(B * D);
+                    }
+                    for (unsigned j = 0; j <= d; ++j) {
+                        // A^d*p0 + A^{d-1}*B*p1 + ... + B^j*A^{d-j}*pj + ... + B^d*p_d
+                        C = m_pm.coeff(q, x, j);
+                        TRACE(nlsat_explain, tout << "coeff: q" << j << ": " << C << "\n";);
+                        if (!is_zero(C)) {
+                            D = As.get(d - j);
+                            E = Bs.get(j);
+                            r = r + D*E*C;
+                        }
+                    }
+                    TRACE(nlsat_explain, tout << "p: " << p << " q: " << q << " r: " << r << "\n";);
+                    ensure_sign(r);
+                }
+                else {
+                    ensure_sign(A);
+                }
+            }
+
+        }
+
+        void maximize(var x, unsigned num, literal const * ls, scoped_anum& val, bool& unbounded) {
+            svector<literal> lits;
+            polynomial_ref p(m_pm);
+            split_literals(x, num, ls, lits);
+            collect_polys(lits.size(), lits.data(), m_ps);
+            unbounded = true;
+            scoped_anum x_val(m_am);
+            x_val = m_assignment.value(x);
+            for (unsigned i = 0; i < m_ps.size(); ++i) {
+                p = m_ps.get(i);
                 scoped_anum_vector & roots = m_roots_tmp;
                 roots.reset();
                 m_am.isolate_roots(p, undef_var_assignment(m_assignment, x), roots);
