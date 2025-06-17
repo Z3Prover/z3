@@ -319,7 +319,7 @@ static void project(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsigned
 static void project_fa(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsigned num, nlsat::literal const* lits) {
     std::cout << "Project ";
     nlsat::scoped_literal_vector result(s);
-    ex(num, lits, result);
+    ex.main_operator(num, lits, result);
     std::cout << "(or";
     for (auto l : result) {
         s.display(std::cout << " ", l);
