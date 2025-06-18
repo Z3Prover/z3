@@ -31,7 +31,7 @@ namespace euf {
             g(g)
         {}
 
-        void operator()(expr* pat, enode* t, enode** binding) {}        
+        void operator()(expr* pat, enode* t, enode** binding);      
             
     };
 }
