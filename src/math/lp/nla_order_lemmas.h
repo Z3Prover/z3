@@ -9,6 +9,8 @@
 #pragma once
 #include "math/lp/factorization.h"
 #include "math/lp/nla_common.h"
+#include "util/hashtable.h"
+#include "util/hash.h"
 
 namespace nla {
 class core;
@@ -18,8 +20,8 @@ public:
     order(core *c) : common(c) {}
     void order_lemma();
     
-    monic const* m_last_binom = nullptr;
-
+    int_hashtable<int_hash, default_eq<int>> m_processed_binoms;
+    bool throttle_monic(const monic&);
    private:
 
     bool order_lemma_on_ac_and_bc_and_factors(const monic& ac,

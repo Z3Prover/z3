@@ -10,6 +10,7 @@
 #include "math/lp/nla_core.h"
 #include "math/lp/nla_common.h"
 #include "math/lp/factorization_factory_imp.h"
+#include "util/trail.h"
 
 namespace nla {
 
@@ -83,9 +84,9 @@ void order::order_lemma_on_binomial(const monic& ac) {
 void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign) {
     if (!c().var_is_int(x) && val(x).is_big())
         return;
-    if (&xy == m_last_binom)
+    if (throttle_monic(xy))
         return;
-    c().trail().push(value_trail(m_last_binom, &xy));
+        
     SASSERT(!_().mon_has_zero(xy.vars()));
     int sy = rat_sign(val(y));
     new_lemma lemma(c(), __FUNCTION__);
@@ -94,13 +95,28 @@ void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int 
     lemma |= ineq(term(xy.var(), - val(x), y), sign == 1    ? llc::LE : llc::GE, 0);
 }
 
+bool order::throttle_monic(const monic& ac) {
+    // Check if this monic has already been processed using its variable ID
+    if (m_processed_binoms.contains(ac.var()))
+        return true;
+    
+    // Mark this monic as processed and add to trail for backtracking
+    m_processed_binoms.insert(ac.var());
+    c().trail().push(insert_map(m_processed_binoms, ac.var()));
+    return false;
+}
+
 // We look for monics e = m.rvars()[k]*d and see if we can create an order lemma for m and  e
 void order::order_lemma_on_factor_binomial_explore(const monic& ac, bool k) {
     TRACE(nla_solver, tout << "ac = " <<  pp_mon_with_vars(c(), ac););
     SASSERT(ac.size() == 2);    
-    lpvar c = ac.vars()[k];
     
-    for (monic const& bd : _().emons().get_products_of(c)) {
+    if (throttle_monic(ac))
+        return;
+
+    lpvar c_var = ac.vars()[k];
+    
+    for (monic const& bd : _().emons().get_products_of(c_var)) {
         if (bd.var() == ac.var()) 
             continue;
         TRACE(nla_solver, tout << "bd = " << pp_mon_with_vars(_(), bd););
