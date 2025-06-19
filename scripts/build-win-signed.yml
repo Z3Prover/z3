@@ -29,59 +29,6 @@ jobs:
       sourceFolder: dist
       contents: '**/*.pdb'
       targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-  # Publish symbol archive to match nuget package
-  # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
-  - task: PublishSymbols@2
-    condition: eq(1,0)
-    inputs:
-      symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
-      searchPattern: '**/*.pdb' 
-      indexSources: false # Github sources not supported
-      publishSymbols: true
-      symbolServerType: TeamServices
-      detailedLog: true
-  - task: EsrpCodeSigning@2
-    displayName: Sign
-    condition: eq(1,0)
-    inputs:
-      ConnectedServiceName: 'z3-esrp-signing-2'
-      FolderPath: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
-      Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
-      signConfigType: 'inlineSignParams'
-      inlineOperation: |
-        [
-          {
-            "keyCode": "CP-230012",
-            "operationSetCode": "SigntoolSign",
-            "parameters": [
-              {
-                "parameterName": "OpusName",
-                "parameterValue": "Microsoft"
-              },
-              {
-                "parameterName": "OpusInfo",
-                "parameterValue": "http://www.microsoft.com"
-              },
-              {
-                "parameterName": "PageHash",
-                "parameterValue": "/NPH"
-              },
-              {
-                "parameterName": "FileDigest",
-                "parameterValue": "/fd sha256"
-              },
-              {
-                "parameterName": "TimeStamp",
-                "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
-              }
-            ],
-            "toolName": "signtool.exe",
-            "toolVersion": "6.2.9304.0"
-          }
-        ]
-      SessionTimeout: '60'
-      MaxConcurrency: '50'
-      MaxRetryAttempts: '5'
   - task: DeleteFiles@1
     displayName: Cleanup
     inputs:
