@@ -200,6 +200,10 @@ void tangents::tangent_lemma() {
 }
 
 bool tangents::throttle_plane(unsigned var, bool below, std::string const & debug_location) {
+    // Check if throttling is enabled
+    if (!c().params().arith_nl_trl()) 
+        return false;
+    
     tangent_key key(var, below);
     
     // Check if this (var, below) pair has already been processed
