@@ -84,7 +84,7 @@ void order::order_lemma_on_binomial(const monic& ac) {
 void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign) {
     if (!c().var_is_int(x) && val(x).is_big())
         return;
-    if (throttle_monic(xy))
+    if (throttle_monic(xy, std::string(__FILE__)+ "," + std::to_string(__LINE__)))
         return;
         
     SASSERT(!_().mon_has_zero(xy.vars()));
@@ -95,14 +95,16 @@ void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int 
     lemma |= ineq(term(xy.var(), - val(x), y), sign == 1    ? llc::LE : llc::GE, 0);
 }
 
-bool order::throttle_monic(const monic& ac) {
+bool order::throttle_monic(const monic& ac, std::string const & debug_location ) {
     // Check if this monic has already been processed using its variable ID
-    if (m_processed_binoms.contains(ac.var()))
+    if (m_processed_monics.contains(ac.var())) {
+        std::cout << "throttled at " << debug_location << "\n";
         return true;
+    }
     
     // Mark this monic as processed and add to trail for backtracking
-    m_processed_binoms.insert(ac.var());
-    c().trail().push(insert_map(m_processed_binoms, ac.var()));
+    m_processed_monics.insert(ac.var());
+    c().trail().push(insert_map(m_processed_monics, ac.var()));
     return false;
 }
 
@@ -110,10 +112,7 @@ bool order::throttle_monic(const monic& ac) {
 void order::order_lemma_on_factor_binomial_explore(const monic& ac, bool k) {
     TRACE(nla_solver, tout << "ac = " <<  pp_mon_with_vars(c(), ac););
     SASSERT(ac.size() == 2);    
-    
-    if (throttle_monic(ac))
-        return;
-
+        
     lpvar c_var = ac.vars()[k];
     
     for (monic const& bd : _().emons().get_products_of(c_var)) {
@@ -363,6 +362,8 @@ void order::order_lemma_on_ab_gt(new_lemma& lemma, const monic& m, const rationa
    lemma b != val(b) || sign*m >= a*val(b)
 */
 void order::order_lemma_on_ab_lt(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b) {
+    if (throttle_monic(m, std::string(__FILE__)+ "," + std::to_string(__LINE__)))
+        return;
     TRACE(nla_solver, tout << "sign = " << sign << ", m = "; c().print_monic(m, tout) << ", a = "; c().print_var(a, tout) <<
           ", b = "; c().print_var(b, tout) << "\n";);
     SASSERT(sign * var_val(m) < val(a) * val(b));
@@ -373,6 +374,8 @@ void order::order_lemma_on_ab_lt(new_lemma& lemma, const monic& m, const rationa
 }
 
 void order::order_lemma_on_ab(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b, bool gt) {
+    if (throttle_monic(m, std::string(__FILE__)+ "," + std::to_string(__LINE__)))
+        return;
     if (gt)
         order_lemma_on_ab_gt(lemma, m, sign, a, b);
     else 

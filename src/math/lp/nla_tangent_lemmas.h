@@ -9,9 +9,36 @@
 #include "util/rational.h"
 #include "math/lp/factorization.h"
 #include "math/lp/nla_common.h"
+#include "util/hashtable.h"
+#include "util/hash.h"
 
 namespace nla {
 class core;
+
+// Key for throttling tangent plane generation: (var, below)
+struct tangent_key {
+    unsigned var;
+    bool below;
+    
+    tangent_key(unsigned v, bool b) : var(v), below(b) {}
+    tangent_key() : var(0), below(false) {}
+    
+    bool operator==(const tangent_key& other) const {
+        return var == other.var && below == other.below;
+    }
+};
+
+struct tangent_key_hash {
+    unsigned operator()(const tangent_key& k) const {
+        return hash_u(k.var) ^ (k.below ? 1 : 0);
+    }
+};
+
+struct tangent_key_eq {
+    bool operator()(const tangent_key& a, const tangent_key& b) const {
+        return a == b;
+    }
+};
 
 struct point {
     rational x;
@@ -41,7 +68,13 @@ inline std::ostream& operator<<(std::ostream& out, point const& a) { return out 
 
 
 struct tangents : common {
+    // Hashtable to throttle tangent plane generation
+    hashtable<tangent_key, tangent_key_hash, tangent_key_eq> m_processed_planes;
+    
     tangents(core *core);
-    void tangent_lemma();    
+    void tangent_lemma();
+    
+    // Throttling function similar to order::throttle_monic
+    bool throttle_plane(unsigned var, bool below, std::string const & debug_location);
 }; // end of tangents
 } // end of namespace

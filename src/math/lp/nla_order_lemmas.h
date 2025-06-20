@@ -20,8 +20,8 @@ public:
     order(core *c) : common(c) {}
     void order_lemma();
     
-    int_hashtable<int_hash, default_eq<int>> m_processed_binoms;
-    bool throttle_monic(const monic&);
+    int_hashtable<int_hash, default_eq<int>> m_processed_monics;
+    bool throttle_monic(const monic&, const std::string & debug_location);
    private:
 
     bool order_lemma_on_ac_and_bc_and_factors(const monic& ac,

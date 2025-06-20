@@ -8,6 +8,8 @@
   --*/
 #include "math/lp/nla_tangent_lemmas.h"
 #include "math/lp/nla_core.h"
+#include "util/trail.h"
+#include <iostream>
 
 namespace nla {
 
@@ -70,6 +72,10 @@ private:
     }
 
     void generate_plane(const point & pl) {
+        // Throttle plane generation based on m_xy.var() and m_below
+        if (m_tang.throttle_plane(m_j, m_below, std::string(__FILE__) + "," + std::to_string(__LINE__)))
+            return;
+            
         new_lemma lemma(c(), "generate tangent plane");
         c().negate_relation(lemma, m_jx, m_x.rat_sign()*pl.x);
         c().negate_relation(lemma, m_jy, m_y.rat_sign()*pl.y);
@@ -191,6 +197,21 @@ void tangents::tangent_lemma() {
         tangent_imp tangent(point(val(bf[0]), val(bf[1])), c().val(j), *m, bf, *this);
         tangent();
     }
+}
+
+bool tangents::throttle_plane(unsigned var, bool below, std::string const & debug_location) {
+    tangent_key key(var, below);
+    
+    // Check if this (var, below) pair has already been processed
+    if (m_processed_planes.contains(key)) {
+        std::cout << "throttled plane at " << debug_location << " for var=" << var << ", below=" << below << "\n";
+        return true;
+    }
+    
+    // Mark this (var, below) pair as processed and add to trail for backtracking
+    m_processed_planes.insert(key);
+    c().trail().push(insert_map(m_processed_planes, key));
+    return false;
 }
 
 
