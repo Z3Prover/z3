@@ -1140,7 +1140,10 @@ br_status arith_rewriter::mk_div_core(expr * arg1, expr * arg2, expr_ref & resul
     if (m_util.is_numeral(arg2, v2, is_int)) {
         SASSERT(!is_int);
         if (v2.is_zero()) {
-            return BR_FAILED;
+            // For division by zero, create a consistent uninterpreted function
+            // This ensures that (div a 0) and (div (to_int a) 0) are handled consistently
+            result = m_util.mk_div0(arg1, arg2);
+            return BR_DONE;
         }
         else if (m_util.is_numeral(arg1, v1, is_int)) {
             result = m_util.mk_numeral(v1/v2, false);
