@@ -231,6 +231,7 @@ namespace lp {
     lar_solver::~lar_solver() {
         for (auto t : m_imp->m_terms)
             delete t;
+        m_imp->m_var_register.clear();
     }
     
     void lar_solver::clear_columns_with_changed_bounds() { m_imp->m_columns_with_changed_bounds.reset(); }
