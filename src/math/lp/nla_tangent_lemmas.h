@@ -40,6 +40,31 @@ struct tangent_key_eq {
     }
 };
 
+// Key for throttling tangent line generation: (var1, var2)
+struct line_key {
+    unsigned var1;
+    unsigned var2;
+    
+    line_key(unsigned v1, unsigned v2) : var1(v1), var2(v2) {}
+    line_key() : var1(0), var2(0) {}
+    
+    bool operator==(const line_key& other) const {
+        return var1 == other.var1 && var2 == other.var2;
+    }
+};
+
+struct line_key_hash {
+    unsigned operator()(const line_key& k) const {
+        return hash_u(k.var1) ^ hash_u(k.var2);
+    }
+};
+
+struct line_key_eq {
+    bool operator()(const line_key& a, const line_key& b) const {
+        return a == b;
+    }
+};
+
 struct point {
     rational x;
     rational y;
@@ -71,10 +96,16 @@ struct tangents : common {
     // Hashtable to throttle tangent plane generation
     hashtable<tangent_key, tangent_key_hash, tangent_key_eq> m_processed_planes;
     
+    // Hashtable to throttle tangent line generation
+    hashtable<line_key, line_key_hash, line_key_eq> m_processed_lines;
+    
     tangents(core *core);
     void tangent_lemma();
     
     // Throttling function similar to order::throttle_monic
     bool throttle_plane(unsigned var, bool below, std::string const & debug_location);
+    
+    // Throttling function for line generation
+    bool throttle_line(unsigned var1, unsigned var2, std::string const & debug_location);
 }; // end of tangents
 } // end of namespace

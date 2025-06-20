@@ -97,6 +97,10 @@ private:
     }
 
     void generate_line1() {
+        // Throttle line generation based on (m_j, m_jy)
+        if (m_tang.throttle_line(m_j, m_jy, std::string(__FILE__) + "," + std::to_string(__LINE__)))
+            return;
+            
         new_lemma lemma(c(), "tangent line 1");
         // Should be  v = val(m_x)*val(m_y), and val(factor) = factor.rat_sign()*var(factor.var())
         lemma |= ineq(m_jx, llc::NE, c().val(m_jx));
@@ -104,7 +108,11 @@ private:
         explain(lemma);
     }
 
-    void generate_line2() {            
+    void generate_line2() {
+        // Throttle line generation based on (m_j, m_jx)
+        if (m_tang.throttle_line(m_j, m_jx, std::string(__FILE__) + "," + std::to_string(__LINE__)))
+            return;
+            
         new_lemma lemma(c(), "tangent line 2");
         lemma |= ineq(m_jy, llc::NE, c().val(m_jy));
         lemma |= ineq(lp::lar_term(m_j, - m_x.rat_sign() * m_xy.y, m_jx), llc::EQ, 0);
@@ -215,6 +223,25 @@ bool tangents::throttle_plane(unsigned var, bool below, std::string const & debu
     // Mark this (var, below) pair as processed and add to trail for backtracking
     m_processed_planes.insert(key);
     c().trail().push(insert_map(m_processed_planes, key));
+    return false;
+}
+
+bool tangents::throttle_line(unsigned var1, unsigned var2, std::string const & debug_location) {
+    // Check if throttling is enabled
+    if (!c().params().arith_nl_trl()) 
+        return false;
+    
+    line_key key(var1, var2);
+    
+    // Check if this (var1, var2) pair has already been processed
+    if (m_processed_lines.contains(key)) {
+        TRACE(nla_solver, tout << "throttled line at " << debug_location << " for var1=" << var1 << ", var2=" << var2 << "\n";);
+        return true;
+    }
+    
+    // Mark this (var1, var2) pair as processed and add to trail for backtracking
+    m_processed_lines.insert(key);
+    c().trail().push(insert_map(m_processed_lines, key));
     return false;
 }
 
