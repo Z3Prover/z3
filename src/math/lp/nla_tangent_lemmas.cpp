@@ -204,7 +204,7 @@ bool tangents::throttle_plane(unsigned var, bool below, std::string const & debu
     
     // Check if this (var, below) pair has already been processed
     if (m_processed_planes.contains(key)) {
-        std::cout << "throttled plane at " << debug_location << " for var=" << var << ", below=" << below << "\n";
+        TRACE(nla_solver, tout << "throttled plane at " << debug_location << " for var=" << var << ", below=" << below << "\n";);
         return true;
     }
     

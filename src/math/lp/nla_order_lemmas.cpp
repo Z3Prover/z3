@@ -95,10 +95,10 @@ void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int 
     lemma |= ineq(term(xy.var(), - val(x), y), sign == 1    ? llc::LE : llc::GE, 0);
 }
 
-bool order::throttle_monic(const monic& ac, std::string const & debug_location ) {
+bool order::throttle_monic(const monic& ac, std::string const & debug_location ) { // todo - remove debug location!
     // Check if this monic has already been processed using its variable ID
     if (m_processed_monics.contains(ac.var())) {
-        std::cout << "throttled at " << debug_location << "\n";
+        TRACE(nla_solver, tout << "throttled at " << debug_location << "\n";);
         return true;
     }
     
