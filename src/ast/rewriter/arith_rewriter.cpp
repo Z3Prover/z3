@@ -1137,13 +1137,21 @@ br_status arith_rewriter::mk_div_core(expr * arg1, expr * arg2, expr_ref & resul
     set_curr_sort(arg1->get_sort());
     numeral v1, v2;
     bool is_int;
+    
+    // Special handling for division by zero with to_int expressions
+    // Ensure (div (to_int x) 0) is treated consistently with (div x 0)
+    expr* to_int_arg;
+    if (m_util.is_to_int(arg1, to_int_arg) && m_util.is_numeral(arg2, v2, is_int) && v2.is_zero()) {
+        // Convert (div (to_int x) 0) to (to_int (div x 0)) for consistent handling
+        expr_ref div_expr(m_util.mk_div(to_int_arg, arg2), m);
+        result = m_util.mk_to_int(div_expr);
+        return BR_REWRITE2;
+    }
+    
     if (m_util.is_numeral(arg2, v2, is_int)) {
         SASSERT(!is_int);
         if (v2.is_zero()) {
-            // For division by zero, create a consistent uninterpreted function
-            // This ensures that (div a 0) and (div (to_int a) 0) are handled consistently
-            result = m_util.mk_div0(arg1, arg2);
-            return BR_DONE;
+            return BR_FAILED;
         }
         else if (m_util.is_numeral(arg1, v1, is_int)) {
             result = m_util.mk_numeral(v1/v2, false);
