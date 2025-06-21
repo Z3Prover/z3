@@ -231,7 +231,6 @@ namespace lp {
     lar_solver::~lar_solver() {
         for (auto t : m_imp->m_terms)
             delete t;
-        m_imp->m_var_register.clear();
         dealloc(m_imp);
     }
     
