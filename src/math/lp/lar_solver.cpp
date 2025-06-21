@@ -32,7 +32,7 @@ namespace lp {
                 }
                 return seed;
             }
-        };
+        }
 
         struct term_comparer {
             bool operator()(const lar_term& a, const lar_term& b) const {
