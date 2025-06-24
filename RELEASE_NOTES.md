@@ -7,6 +7,9 @@ Version 4.next
     - CDCL core for SMT queries. It extends the SAT engine with theory solver plugins.
   - add global incremental pre-processing for the legacy core.
 
+Version 4.15.2
+==============
+- #7690, #7691 - fix leak introduced in arithmetic solver.
 
 Version 4.15.1
 ==============
