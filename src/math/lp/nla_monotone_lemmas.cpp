@@ -54,7 +54,7 @@ void monotone::monotonicity_lemma(monic const& m) {
     
 */
 void monotone::monotonicity_lemma_gt(const monic& m) {
-    new_lemma lemma(c(), "monotonicity > ");
+    lemma_builder lemma(c(), "monotonicity > ");
     rational product(1);
     for (lpvar j : m.vars()) {
         auto v = c().val(j);
@@ -76,7 +76,7 @@ void monotone::monotonicity_lemma_gt(const monic& m) {
     x <= -2 & y >= 3 => x*y <= -6
 */
 void monotone::monotonicity_lemma_lt(const monic& m) {
-    new_lemma lemma(c(), "monotonicity <");
+    lemma_builder lemma(c(), "monotonicity <");
     rational product(1);
     for (lpvar j : m.vars()) {
         auto v = c().val(j);

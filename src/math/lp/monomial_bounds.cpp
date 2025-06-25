@@ -110,7 +110,7 @@ namespace nla {
             dep.get_upper_dep(range, ex);
             if (is_too_big(upper))
                 return false;
-            new_lemma lemma(c(), "propagate value - upper bound of range is below value");
+            lemma_builder lemma(c(), "propagate value - upper bound of range is below value");
             lemma &= ex;
             lemma |= ineq(v, cmp, upper); 
             TRACE(nla_solver, dep.display(tout << c().val(v) << " > ", range) << "\n" << lemma << "\n";);
@@ -124,7 +124,7 @@ namespace nla {
             dep.get_lower_dep(range, ex);
             if (is_too_big(lower))
                 return false;
-            new_lemma lemma(c(), "propagate value - lower bound of range is above value");
+            lemma_builder lemma(c(), "propagate value - lower bound of range is above value");
             lemma &= ex;
             lemma |= ineq(v, cmp, lower); 
             TRACE(nla_solver, dep.display(tout << c().val(v) << " < ", range) << "\n" << lemma << "\n";);
@@ -196,7 +196,7 @@ namespace nla {
             // p even, range.upper < 0, v^p >= 0 -> infeasible
             if (p % 2 == 0 && rational(dep.upper(range)).is_neg()) {
                 ++c().lra.settings().stats().m_nla_propagate_bounds;
-                new_lemma lemma(c(), "range requires a non-negative upper bound");
+                lemma_builder lemma(c(), "range requires a non-negative upper bound");
                 lemma &= ex;
                 return true;
             }
@@ -208,7 +208,7 @@ namespace nla {
                 if ((p % 2 == 1) || c().val(v).is_pos()) {
                     ++c().lra.settings().stats().m_nla_propagate_bounds;
                     auto le = dep.upper_is_open(range) ? llc::LT : llc::LE;
-                    new_lemma lemma(c(), "propagate value - root case - upper bound of range is below value");
+                    lemma_builder lemma(c(), "propagate value - root case - upper bound of range is below value");
                     lemma &= ex;
                     lemma |= ineq(v, le, r);
                     return true;
@@ -218,7 +218,7 @@ namespace nla {
                     ++c().lra.settings().stats().m_nla_propagate_bounds;
                     SASSERT(!r.is_neg());
                     auto ge = dep.upper_is_open(range) ? llc::GT : llc::GE;
-                    new_lemma lemma(c(), "propagate value - root case - upper bound of range is below negative value");
+                    lemma_builder lemma(c(), "propagate value - root case - upper bound of range is below negative value");
                     lemma &= ex;
                     lemma |= ineq(v, ge, -r);
                     return true;
@@ -242,7 +242,7 @@ namespace nla {
                 auto le = dep.lower_is_open(range) ? llc::LT : llc::LE;
                 lp::explanation ex;
                 dep.get_lower_dep(range, ex);
-                new_lemma lemma(c(), "propagate value - root case - lower bound of range is above value");
+                lemma_builder lemma(c(), "propagate value - root case - lower bound of range is above value");
                 lemma &= ex;
                 lemma |= ineq(v, ge, r);
                 if (p % 2 == 0)
@@ -380,7 +380,7 @@ namespace nla {
             return false;
         lp::explanation exp;
         c().lra.get_infeasibility_explanation(exp);
-        new_lemma lemma(c(), "propagate fixed - infeasible lra");
+        lemma_builder lemma(c(), "propagate fixed - infeasible lra");
         lemma &= exp;
         return true;
     }

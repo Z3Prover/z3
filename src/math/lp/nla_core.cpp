@@ -350,7 +350,7 @@ bool core::explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& boun
 }
     
 // return true iff the negation of the ineq can be derived from the constraints
-bool core::explain_ineq(new_lemma& lemma, const lp::lar_term& t, llc cmp, const rational& rs) {
+bool core::explain_ineq(lemma_builder& lemma, const lp::lar_term& t, llc cmp, const rational& rs) {
     // check that we have something like 0 < 0, which is always false and can be safely
     // removed from the lemma
         
@@ -410,7 +410,7 @@ bool core::explain_by_equiv(const lp::lar_term& t, lp::explanation& e) const {
     return true;            
 }
 
-void core::mk_ineq_no_expl_check(new_lemma& lemma, lp::lar_term& t, llc cmp, const rational& rs) {
+void core::mk_ineq_no_expl_check(lemma_builder& lemma, lp::lar_term& t, llc cmp, const rational& rs) {
     TRACE(nla_solver_details, lra.print_term_as_indices(t, tout << "t = "););
     lemma |= ineq(cmp, t, rs);
     CTRACE(nla_solver, ineq_holds(ineq(cmp, t, rs)), print_ineq(ineq(cmp, t, rs), tout) << "\n";);
@@ -429,7 +429,7 @@ llc apply_minus(llc cmp) {
 }   
     
 // the monics should be equal by modulo sign but this is not so in the model
-void core::fill_explanation_and_lemma_sign(new_lemma& lemma, const monic& a, const monic & b, rational const& sign) {
+void core::fill_explanation_and_lemma_sign(lemma_builder& lemma, const monic& a, const monic & b, rational const& sign) {
     SASSERT(sign == 1 || sign == -1);
     lemma &= a;
     lemma &= b;
@@ -899,7 +899,7 @@ bool core::divide(const monic& bc, const factor& c, factor & b) const {
 }
 
 
-void core::negate_factor_equality(new_lemma& lemma, const factor& c,
+void core::negate_factor_equality(lemma_builder& lemma, const factor& c,
                                   const factor& d) {
     if (c == d)
         return;
@@ -910,7 +910,7 @@ void core::negate_factor_equality(new_lemma& lemma, const factor& c,
     lemma |= ineq(term(i, rational(iv == jv ? -1 : 1), j), llc::NE, 0);    
 }
     
-void core::negate_factor_relation(new_lemma& lemma, const rational& a_sign, const factor& a, const rational& b_sign, const factor& b) {
+void core::negate_factor_relation(lemma_builder& lemma, const rational& a_sign, const factor& a, const rational& b_sign, const factor& b) {
     rational a_fs = sign_to_rat(canonize_sign(a));
     rational b_fs = sign_to_rat(canonize_sign(b));
     llc cmp = a_sign*val(a) < b_sign*val(b)? llc::GE : llc::LE;
@@ -1040,11 +1040,11 @@ rational core::val(const factorization& f) const {
     return r;
 }
 
-new_lemma::new_lemma(core& c, char const* name):name(name), c(c) {
+lemma_builder::lemma_builder(core& c, char const* name):name(name), c(c) {
     c.m_lemmas.push_back(lemma());
 }
 
-new_lemma& new_lemma::operator|=(ineq const& ineq) {
+lemma_builder& lemma_builder::operator|=(ineq const& ineq) {
     if (!c.explain_ineq(*this, ineq.term(), ineq.cmp(), ineq.rs())) {
         CTRACE(nla_solver, c.ineq_holds(ineq), c.print_ineq(ineq, tout) << "\n";);
         SASSERT(c.m_use_nra_model || !c.ineq_holds(ineq));
@@ -1054,7 +1054,7 @@ new_lemma& new_lemma::operator|=(ineq const& ineq) {
 }
     
 
-new_lemma::~new_lemma() {
+lemma_builder::~lemma_builder() {
     static int i = 0;
     (void)i;
     (void)name;
@@ -1067,22 +1067,22 @@ new_lemma::~new_lemma() {
     TRACE(nla_solver, tout << name << " " << (++i) << "\n" << *this; );
 }
 
-lemma& new_lemma::current() const {
+lemma& lemma_builder::current() const {
     return c.m_lemmas.back();
 }
 
-new_lemma& new_lemma::operator&=(lp::explanation const& e) {
+lemma_builder& lemma_builder::operator&=(lp::explanation const& e) {
     expl().add_expl(e);
     return *this;
 }
 
-new_lemma& new_lemma::operator&=(const monic& m) {
+lemma_builder& lemma_builder::operator&=(const monic& m) {
     for (lpvar j : m.vars())
         *this &= j;
     return *this;
 }
 
-new_lemma& new_lemma::operator&=(const factor& f) {
+lemma_builder& lemma_builder::operator&=(const factor& f) {
     if (f.type() == factor_type::VAR) 
         *this &= f.var();
     else 
@@ -1090,7 +1090,7 @@ new_lemma& new_lemma::operator&=(const factor& f) {
     return *this;
 }
 
-new_lemma& new_lemma::operator&=(const factorization& f) {
+lemma_builder& lemma_builder::operator&=(const factorization& f) {
     if (f.is_mon())
         return *this;
     for (const auto& fc : f) {
@@ -1099,19 +1099,19 @@ new_lemma& new_lemma::operator&=(const factorization& f) {
     return *this;
 }
 
-new_lemma& new_lemma::operator&=(lpvar j) {
+lemma_builder& lemma_builder::operator&=(lpvar j) {
     c.m_evars.explain(j, expl());
     return *this;
 }
 
-new_lemma& new_lemma::explain_fixed(lpvar j) {
+lemma_builder& lemma_builder::explain_fixed(lpvar j) {
     SASSERT(c.var_is_fixed(j));
     explain_existing_lower_bound(j);
     explain_existing_upper_bound(j);
     return *this;
 }
 
-new_lemma& new_lemma::explain_equiv(lpvar a, lpvar b) {
+lemma_builder& lemma_builder::explain_equiv(lpvar a, lpvar b) {
     SASSERT(abs(c.val(a)) == abs(c.val(b)));
     if (c.vars_are_equiv(a, b)) {
         *this &= a;
@@ -1123,7 +1123,7 @@ new_lemma& new_lemma::explain_equiv(lpvar a, lpvar b) {
     return *this;
 }
 
-new_lemma& new_lemma::explain_var_separated_from_zero(lpvar j) {
+lemma_builder& lemma_builder::explain_var_separated_from_zero(lpvar j) {
     SASSERT(c.var_is_separated_from_zero(j));
     if (c.lra.column_has_upper_bound(j) && 
         (c.lra.get_upper_bound(j)< lp::zero_of_type<lp::impq>())) 
@@ -1133,7 +1133,7 @@ new_lemma& new_lemma::explain_var_separated_from_zero(lpvar j) {
     return *this;
 }
 
-new_lemma& new_lemma::explain_existing_lower_bound(lpvar j) {
+lemma_builder& lemma_builder::explain_existing_lower_bound(lpvar j) {
     SASSERT(c.has_lower_bound(j));
     lp::explanation ex;
     c.lra.push_explanation(c.lra.get_column_lower_bound_witness(j), ex);
@@ -1142,7 +1142,7 @@ new_lemma& new_lemma::explain_existing_lower_bound(lpvar j) {
     return *this;
 }
 
-new_lemma& new_lemma::explain_existing_upper_bound(lpvar j) {
+lemma_builder& lemma_builder::explain_existing_upper_bound(lpvar j) {
     SASSERT(c.has_upper_bound(j));
     lp::explanation ex;
     c.lra.push_explanation(c.lra.get_column_upper_bound_witness(j), ex);
@@ -1150,7 +1150,7 @@ new_lemma& new_lemma::explain_existing_upper_bound(lpvar j) {
     return *this;
 }
     
-std::ostream& new_lemma::display(std::ostream & out) const {
+std::ostream& lemma_builder::display(std::ostream & out) const {
     auto const& lemma = current();
 
     for (auto p : lemma.expl()) {
@@ -1175,7 +1175,7 @@ std::ostream& new_lemma::display(std::ostream & out) const {
     return out;
 }
     
-void core::negate_relation(new_lemma& lemma, unsigned j, const rational& a) {
+void core::negate_relation(lemma_builder& lemma, unsigned j, const rational& a) {
     SASSERT(val(j) != a);
     lemma |= ineq(j, val(j) < a ? llc::GE : llc::LE, a);   
 }

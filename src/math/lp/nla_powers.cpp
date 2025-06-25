@@ -89,7 +89,7 @@ namespace nla {
         lemmas.reset();
 
         auto x_exp_0 = [&]() {
-            new_lemma lemma(c, "x != 0 => x^0 = 1");
+            lemma_builder lemma(c, "x != 0 => x^0 = 1");
             lemma |= ineq(x, llc::EQ, rational::zero());
             lemma |= ineq(y, llc::NE, rational::zero());
             lemma |= ineq(r, llc::EQ, rational::one());
@@ -97,7 +97,7 @@ namespace nla {
         };
 
         auto zero_exp_y = [&]() {
-            new_lemma lemma(c, "y != 0 => 0^y = 0");
+            lemma_builder lemma(c, "y != 0 => 0^y = 0");
             lemma |= ineq(x, llc::NE, rational::zero());
             lemma |= ineq(y, llc::EQ, rational::zero());
             lemma |= ineq(r, llc::EQ, rational::zero());
@@ -105,14 +105,14 @@ namespace nla {
         };
 
         auto x_gt_0 = [&]() {
-            new_lemma lemma(c, "x > 0 => x^y > 0");
+            lemma_builder lemma(c, "x > 0 => x^y > 0");
             lemma |= ineq(x, llc::LE, rational::zero());
             lemma |= ineq(r, llc::GT, rational::zero());
             return l_false;
         };
 
         auto y_lt_1 = [&]() {
-            new_lemma lemma(c, "x > 1, y < 0 => x^y < 1");
+            lemma_builder lemma(c, "x > 1, y < 0 => x^y < 1");
             lemma |= ineq(x, llc::LE, rational::one());
             lemma |= ineq(y, llc::GE, rational::zero());
             lemma |= ineq(r, llc::LT, rational::one());
@@ -120,7 +120,7 @@ namespace nla {
         };
 
         auto y_gt_1 = [&]() {
-            new_lemma lemma(c, "x > 1, y > 0 => x^y > 1");
+            lemma_builder lemma(c, "x > 1, y > 0 => x^y > 1");
             lemma |= ineq(x, llc::LE, rational::one());
             lemma |= ineq(y, llc::LE, rational::zero());
             lemma |= ineq(r, llc::GT, rational::one());
@@ -128,7 +128,7 @@ namespace nla {
         };
 
         auto x_ge_3 = [&]() {
-            new_lemma lemma(c, "x >= 3, y != 0 => x^y > ln(x)y + 1");
+            lemma_builder lemma(c, "x >= 3, y != 0 => x^y > ln(x)y + 1");
             lemma |= ineq(x, llc::LT, rational(3));
             lemma |= ineq(y, llc::EQ, rational::zero());
             lemma |= ineq(lp::lar_term(r, rational::minus_one(), y), llc::GT, rational::one());
@@ -172,21 +172,21 @@ namespace nla {
                 if (rval == r2val)
                     return l_true;
                 if (c.random() % 2 == 0) {
-                    new_lemma lemma(c, "x == x0, y == y0 => r = x0^y0");
+                    lemma_builder lemma(c, "x == x0, y == y0 => r = x0^y0");
                     lemma |= ineq(x, llc::NE, xval);
                     lemma |= ineq(y, llc::NE, yval);
                     lemma |= ineq(r, llc::EQ, r2val);
                     return l_false;
                 }
                 if (yval > 0 && r2val > rval) {
-                    new_lemma lemma(c, "x >= x0 > 0, y >= y0 > 0 => r >= x0^y0");
+                    lemma_builder lemma(c, "x >= x0 > 0, y >= y0 > 0 => r >= x0^y0");
                     lemma |= ineq(x, llc::LT, xval);
                     lemma |= ineq(y, llc::LT, yval);
                     lemma |= ineq(r, llc::GE, r2val);
                     return l_false;
                 }
                 if (r2val < rval) {
-                    new_lemma lemma(c, "0 < x <= x0, y <= y0 => r <= x0^y0");
+                    lemma_builder lemma(c, "0 < x <= x0, y <= y0 => r <= x0^y0");
                     lemma |= ineq(x, llc::LE, rational::zero());
                     lemma |= ineq(x, llc::GT, xval);
                     lemma |= ineq(y, llc::GT, yval);
