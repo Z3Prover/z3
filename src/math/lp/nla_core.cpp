@@ -1067,10 +1067,12 @@ lemma_builder::~lemma_builder() {
     TRACE(nla_solver, tout << name << " " << (++i) << "\n" << *this; );
 }
 
-lemma& lemma_builder::current() const {
+lemma& lemma_builder::current() {
     return c.m_lemmas.back();
 }
-
+const lemma& lemma_builder::current() const {
+    return c.m_lemmas.back();
+}
 lemma_builder& lemma_builder::operator&=(lp::explanation const& e) {
     expl().add_expl(e);
     return *this;
