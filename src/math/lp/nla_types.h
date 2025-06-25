@@ -60,6 +60,7 @@ namespace nla {
         lp::explanation& expl() { return m_expl; }
         const lp::explanation& expl() const { return m_expl; }
         bool is_conflict() const { return m_ineqs.empty() && !m_expl.empty(); }
+        bool is_empty() const { return m_ineqs.empty() && m_expl.empty(); }
     };
     
     class core;
@@ -72,12 +73,13 @@ namespace nla {
     class lemma_builder {
         char const* name;
         core& c;
-        lemma& current() const;
+        // the non-const version is private
+        lemma& current();
+        const lemma& current() const;
         
     public:
         lemma_builder(core& c, char const* name);
         ~lemma_builder();
-        lemma& operator()() { return current(); }
         std::ostream& display(std::ostream& out) const;
         lemma_builder& operator&=(lp::explanation const& e);
         lemma_builder& operator&=(const monic& m);
