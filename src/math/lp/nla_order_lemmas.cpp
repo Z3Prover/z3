@@ -111,6 +111,28 @@ bool order::throttle_monic(const monic& ac, std::string const & debug_location )
     return false;
 }
 
+bool order::throttle_mon_ol(const monic& ac, lpvar a, const rational& c_sign, lpvar c_var,
+                           const monic& bd, const factor& b, const rational& d_sign, 
+                           lpvar d, llc ab_cmp, const std::string& debug_location) {
+    // Check if throttling is enabled
+    if (!c().params().arith_nl_thrl())
+        return false;
+    
+    // Create the key for this specific generate_mon_ol invocation
+    mon_ol_key key(ac.var(), a, c_sign, c_var, bd.var(), b.var(), d_sign, d, ab_cmp);
+    
+    // Check if this combination has already been processed
+    if (m_processed_mon_ol.contains(key)) {
+        TRACE(nla_solver, tout << "throttled generate_mon_ol at " << debug_location << "\n";);
+        return true;
+    }
+    
+    // Mark this combination as processed and add to trail for backtracking
+    m_processed_mon_ol.insert(key);
+    c().trail().push(insert_map(m_processed_mon_ol, key));
+    return false;
+}
+
 // We look for monics e = m.rvars()[k]*d and see if we can create an order lemma for m and  e
 void order::order_lemma_on_factor_binomial_explore(const monic& ac, bool k) {
     TRACE(nla_solver, tout << "ac = " <<  pp_mon_with_vars(c(), ac););
@@ -186,6 +208,10 @@ void order::generate_mon_ol(const monic& ac,
     SASSERT(ab_cmp == llc::LT || ab_cmp == llc::GT);
     SASSERT(ab_cmp != llc::LT || (var_val(ac) >= var_val(bd) && val(a)*c_sign < val(b)*d_sign));
     SASSERT(ab_cmp != llc::GT || (var_val(ac) <= var_val(bd) && val(a)*c_sign > val(b)*d_sign));
+    
+    // Check if this specific combination should be throttled
+    if (throttle_mon_ol(ac, a, c_sign, c, bd, b, d_sign, d, ab_cmp, __FUNCTION__))
+        return;
     
     lemma_builder lemma(_(), __FUNCTION__);
     lemma |= ineq(term(c_sign, c), llc::LE, 0);
