@@ -49,10 +49,68 @@ namespace nla {
         nlsat::anum const& am_value(lp::lpvar v) const;
         scoped_anum& tmp1();
         scoped_anum& tmp2();
-        vector<nla::lemma> const& lemmas() const;
         vector<nla::ineq> const& literals() const;
         vector<lp::fixed_equality> const& fixed_equalities() const;
         vector<lp::equality> const& equalities() const;
         bool should_check_feasible() const { return m_core->should_check_feasible(); }
+        
+        // Iterator class for filtering out empty lemmas
+        class non_empty_lemma_iterator {
+            vector<nla::lemma>::const_iterator current_;
+            vector<nla::lemma>::const_iterator end_;
+            
+            void advance_to_non_empty() {
+                while (current_ != end_ && current_->is_empty()) {
+                    std::cout << "skip\n";
+                    ++current_;
+                }
+            }
+            
+        public:
+            non_empty_lemma_iterator(vector<nla::lemma>::const_iterator start, 
+                                   vector<nla::lemma>::const_iterator end) 
+                : current_(start), end_(end) {
+                advance_to_non_empty();
+            }
+            
+            const nla::lemma& operator*() const { return *current_; }
+            const nla::lemma* operator->() const { return &*current_; }
+            
+            non_empty_lemma_iterator& operator++() {
+                ++current_;
+                advance_to_non_empty();
+                return *this;
+            }
+            
+            bool operator!=(const non_empty_lemma_iterator& other) const {
+                return current_ != other.current_;
+            }
+            
+            bool operator==(const non_empty_lemma_iterator& other) const {
+                return current_ == other.current_;
+            }
+        };
+        
+        // Helper class to provide range-based iteration over non-empty lemmas
+        class non_empty_lemmas_range {
+            const vector<nla::lemma>& lemmas_;
+        public:
+            non_empty_lemmas_range(const vector<nla::lemma>& lemmas) : lemmas_(lemmas) {}
+            
+            non_empty_lemma_iterator begin() const {
+                return non_empty_lemma_iterator(lemmas_.begin(), lemmas_.end());
+            }
+            
+            non_empty_lemma_iterator end() const {
+                return non_empty_lemma_iterator(lemmas_.end(), lemmas_.end());
+            }
+            
+            bool empty() const {
+                return begin() == end();
+            }
+        };
+        
+        non_empty_lemmas_range lemmas() const;
+        
     };
 }
