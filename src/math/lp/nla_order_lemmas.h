@@ -9,17 +9,19 @@
 #pragma once
 #include "math/lp/factorization.h"
 #include "math/lp/nla_common.h"
+#include "util/hashtable.h"
+#include "util/hash.h"
 
 namespace nla {
 class core;
-class new_lemma;
+class lemma_builder;
 class order: common {
 public:
     order(core *c) : common(c) {}
     void order_lemma();
     
-    monic const* m_last_binom = nullptr;
-
+    int_hashtable<int_hash, default_eq<int>> m_processed_monics;
+    bool throttle_monic(const monic&, const std::string & debug_location);
    private:
 
     bool order_lemma_on_ac_and_bc_and_factors(const monic& ac,
@@ -41,9 +43,9 @@ public:
     void order_lemma_on_factorization(const monic& rm, const factorization& ab);
     
 
-    void order_lemma_on_ab_gt(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b);
-    void order_lemma_on_ab_lt(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b);
-    void order_lemma_on_ab(new_lemma& lemma, const monic& m, const rational& sign, lpvar a, lpvar b, bool gt);
+    void order_lemma_on_ab_gt(lemma_builder& lemma, const monic& m, const rational& sign, lpvar a, lpvar b);
+    void order_lemma_on_ab_lt(lemma_builder& lemma, const monic& m, const rational& sign, lpvar a, lpvar b);
+    void order_lemma_on_ab(lemma_builder& lemma, const monic& m, const rational& sign, lpvar a, lpvar b, bool gt);
     void order_lemma_on_factor_binomial_explore(const monic& m, bool k);
     void order_lemma_on_factor_binomial_rm(const monic& ac, bool k, const monic& bd);
     void order_lemma_on_binomial_ac_bd(const monic& ac, bool k, const monic& bd, const factor& b, lpvar d);

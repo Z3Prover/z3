@@ -228,7 +228,7 @@ struct solver::imp {
                 ex.push_back(idx);
                 TRACE(nra, lra.display_constraint(tout << "ex: " << idx << ": ", idx) << "\n";);
             }
-            nla::new_lemma lemma(m_nla_core, __FUNCTION__);
+            nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
             lemma &= ex;
             m_nla_core.set_use_nra_model(true);
             break;
@@ -416,7 +416,7 @@ struct solver::imp {
                 dm.linearize(static_cast<u_dependency*>(c), lv);
             for (auto ci : lv)
                 ex.push_back(ci);
-            nla::new_lemma lemma(m_nla_core, __FUNCTION__);
+            nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
             lemma &= ex;
             break;
         }

@@ -61,7 +61,7 @@ private:
 
     core & c() { return m_tang.c(); }
 
-    void explain(new_lemma& lemma) {
+    void explain(lemma_builder& lemma) {
         if (!m_is_mon) {
             lemma &= m_m;
             lemma &= m_x;
@@ -70,7 +70,7 @@ private:
     }
 
     void generate_plane(const point & pl) {
-        new_lemma lemma(c(), "generate tangent plane");
+        lemma_builder lemma(c(), "generate tangent plane");
         c().negate_relation(lemma, m_jx, m_x.rat_sign()*pl.x);
         c().negate_relation(lemma, m_jy, m_y.rat_sign()*pl.y);
 #if Z3DEBUG
@@ -91,7 +91,7 @@ private:
     }
 
     void generate_line1() {
-        new_lemma lemma(c(), "tangent line 1");
+        lemma_builder lemma(c(), "tangent line 1");
         // Should be  v = val(m_x)*val(m_y), and val(factor) = factor.rat_sign()*var(factor.var())
         lemma |= ineq(m_jx, llc::NE, c().val(m_jx));
         lemma |= ineq(lp::lar_term(m_j,  - m_y.rat_sign() * m_xy.x,  m_jy), llc::EQ, 0);
@@ -99,7 +99,7 @@ private:
     }
 
     void generate_line2() {            
-        new_lemma lemma(c(), "tangent line 2");
+        lemma_builder lemma(c(), "tangent line 2");
         lemma |= ineq(m_jy, llc::NE, c().val(m_jy));
         lemma |= ineq(lp::lar_term(m_j, - m_x.rat_sign() * m_xy.y, m_jx), llc::EQ, 0);
         explain(lemma);

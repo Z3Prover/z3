@@ -69,27 +69,27 @@ namespace nla {
     // all constraints are assumed added to the lemma
     // correctness of the lemma can be checked at this point.
     //
-    class new_lemma {
+    class lemma_builder {
         char const* name;
         core& c;
         lemma& current() const;
         
     public:
-        new_lemma(core& c, char const* name);
-        ~new_lemma();
+        lemma_builder(core& c, char const* name);
+        ~lemma_builder();
         lemma& operator()() { return current(); }
         std::ostream& display(std::ostream& out) const;
-        new_lemma& operator&=(lp::explanation const& e);
-        new_lemma& operator&=(const monic& m);
-        new_lemma& operator&=(const factor& f);
-        new_lemma& operator&=(const factorization& f);
-        new_lemma& operator&=(lpvar j);
-        new_lemma& operator|=(ineq const& i);
-        new_lemma& explain_fixed(lpvar j);
-        new_lemma& explain_equiv(lpvar u, lpvar v);
-        new_lemma& explain_var_separated_from_zero(lpvar j);
-        new_lemma& explain_existing_lower_bound(lpvar j);
-        new_lemma& explain_existing_upper_bound(lpvar j);    
+        lemma_builder& operator&=(lp::explanation const& e);
+        lemma_builder& operator&=(const monic& m);
+        lemma_builder& operator&=(const factor& f);
+        lemma_builder& operator&=(const factorization& f);
+        lemma_builder& operator&=(lpvar j);
+        lemma_builder& operator|=(ineq const& i);
+        lemma_builder& explain_fixed(lpvar j);
+        lemma_builder& explain_equiv(lpvar u, lpvar v);
+        lemma_builder& explain_var_separated_from_zero(lpvar j);
+        lemma_builder& explain_existing_lower_bound(lpvar j);
+        lemma_builder& explain_existing_upper_bound(lpvar j);    
         
         lp::explanation& expl() { return current().expl(); }
         
@@ -97,7 +97,7 @@ namespace nla {
     };
 
 
-    inline std::ostream& operator<<(std::ostream& out, new_lemma const& l) {
+    inline std::ostream& operator<<(std::ostream& out, lemma_builder const& l) {
         return l.display(out);
     }
 

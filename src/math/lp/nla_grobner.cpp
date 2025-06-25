@@ -142,7 +142,7 @@ namespace nla {
             ineq new_eq(v, llc::EQ, rational::zero());
             if (c().ineq_holds(new_eq))
                 return false;
-            new_lemma lemma(c(), "pdd-eq");
+            lemma_builder lemma(c(), "pdd-eq");
             add_dependencies(lemma, eq);
             lemma |= new_eq;
             return true;
@@ -159,7 +159,7 @@ namespace nla {
             ineq new_eq(term(a, v), llc::EQ, b);
             if (c().ineq_holds(new_eq))
                 return false;
-            new_lemma lemma(c(), "pdd-eq");
+            lemma_builder lemma(c(), "pdd-eq");
             add_dependencies(lemma, eq);
             lemma |= new_eq;
             return true;
@@ -202,7 +202,7 @@ namespace nla {
             if (c().ineq_holds(i))
                 return false;
 
-        new_lemma lemma(c(), "pdd-factored");
+        lemma_builder lemma(c(), "pdd-factored");
         add_dependencies(lemma, eq);
         for (auto const& i : ineqs)
             lemma |= i;
@@ -219,7 +219,7 @@ namespace nla {
     }
 
 
-    void grobner::add_dependencies(new_lemma& lemma, const dd::solver::equation& eq) {
+    void grobner::add_dependencies(lemma_builder& lemma, const dd::solver::equation& eq) {
         lp::explanation exp;
         explain(eq, exp);
         lemma &= exp;
@@ -344,7 +344,7 @@ namespace nla {
         }
         evali.get_interval<dd::w_dep::with_deps>(e.poly(), i_wd);  
         std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
-            new_lemma lemma(m_core, "pdd");
+            lemma_builder lemma(m_core, "pdd");
             lemma &= e;
         };
         if (di.check_interval_for_conflict_on_zero(i_wd, e.dep(), f)) {
@@ -686,7 +686,7 @@ namespace nla {
 
     bool grobner::add_nla_conflict(const dd::solver::equation& eq) {
         if (is_nla_conflict(eq)) {
-            new_lemma lemma(m_core,"nla-conflict");
+            lemma_builder lemma(m_core,"nla-conflict");
             lp::explanation exp;
             explain(eq, exp);
             lemma &= exp;

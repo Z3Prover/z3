@@ -14,7 +14,7 @@
 
 namespace nla {
 class core;
-class new_lemma;
+class lemma_builder;
 struct basics: common {
     basics(core *core);
     bool basic_sign_lemma_on_two_monics(const monic& m, const monic& n);
@@ -84,7 +84,7 @@ struct basics: common {
     void generate_strict_case_zero_lemma(const monic& m, unsigned zero_j, int sign_of_zj);
     
     void add_fixed_zero_lemma(const monic& m, lpvar j);
-    void negate_strict_sign(new_lemma& lemma, lpvar j);
+    void negate_strict_sign(lemma_builder& lemma, lpvar j);
     // x != 0 or y = 0 => |xy| >= |y|
     void proportion_lemma_model_based(const monic& rm, const factorization& factorization);
     // if there are no zero factors then |m| >= |m[factor_index]|
