@@ -178,6 +178,9 @@ class theory_lra::imp {
     // integer arithmetic
     scoped_ptr<lp::int_solver> m_lia;
 
+    // temporary lemma storage
+    nla::lemma m_lemma;
+
 
     struct var_value_eq {
         imp & m_th;
@@ -1962,8 +1965,6 @@ public:
         return FC_DONE;
     }
 
-    nla::lemma m_lemma;
-
     literal mk_literal(nla::ineq const& ineq) {
         bool is_lower = true, pos = true, is_eq = false;
         switch (ineq.cmp()) {
@@ -2010,6 +2011,7 @@ public:
         m_lemma = l; //todo avoid the copy
         m_explanation = l.expl();
         literal_vector core;
+        SASSERT(!m_lemma.is_empty());
         for (auto const& ineq : m_lemma.ineqs()) {
             auto lit = mk_literal(ineq);
             core.push_back(~lit);
