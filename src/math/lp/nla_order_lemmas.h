@@ -20,6 +20,50 @@ public:
     order(core *c) : common(c) {}
     void order_lemma();
     
+    // Structure to represent the key parameters for throttling generate_mon_ol
+    struct mon_ol_key {
+        lpvar ac_var;
+        lpvar a;
+        rational c_sign;
+        lpvar c;
+        lpvar bd_var;
+        lpvar b_var;
+        rational d_sign;
+        lpvar d;
+        llc ab_cmp;
+        
+        // Default constructor for hashtable
+        mon_ol_key() : ac_var(0), a(0), c_sign(0), c(0), bd_var(0), b_var(0), d_sign(0), d(0), ab_cmp(llc::EQ) {}
+        
+        mon_ol_key(lpvar ac_var, lpvar a, const rational& c_sign, lpvar c,
+                   lpvar bd_var, lpvar b_var, const rational& d_sign, lpvar d, llc ab_cmp)
+            : ac_var(ac_var), a(a), c_sign(c_sign), c(c), bd_var(bd_var), 
+              b_var(b_var), d_sign(d_sign), d(d), ab_cmp(ab_cmp) {}
+              
+        bool operator==(const mon_ol_key& other) const {
+            return ac_var == other.ac_var && a == other.a && c_sign == other.c_sign &&
+                   c == other.c && bd_var == other.bd_var && b_var == other.b_var &&
+                   d_sign == other.d_sign && d == other.d && ab_cmp == other.ab_cmp;
+        }
+    };
+    
+    struct mon_ol_key_hash {
+        unsigned operator()(const mon_ol_key& k) const {
+            return combine_hash(combine_hash(combine_hash(combine_hash(
+                   combine_hash(combine_hash(combine_hash(combine_hash(
+                   static_cast<unsigned>(k.ac_var), static_cast<unsigned>(k.a)),
+                   k.c_sign.hash()), static_cast<unsigned>(k.c)),
+                   static_cast<unsigned>(k.bd_var)), static_cast<unsigned>(k.b_var)),
+                   k.d_sign.hash()), static_cast<unsigned>(k.d)),
+                   static_cast<unsigned>(k.ab_cmp));
+        }
+    };
+    
+    hashtable<mon_ol_key, mon_ol_key_hash, default_eq<mon_ol_key>> m_processed_mon_ol;
+    bool throttle_mon_ol(const monic& ac, lpvar a, const rational& c_sign, lpvar c_var,
+                         const monic& bd, const factor& b, const rational& d_sign, 
+                         lpvar d, llc ab_cmp, const std::string& debug_location);
+    
     int_hashtable<int_hash, default_eq<int>> m_processed_monics;
     bool throttle_monic(const monic&, const std::string & debug_location);
    private:
