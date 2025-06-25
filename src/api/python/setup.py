@@ -329,19 +329,9 @@ class bdist_wheel(_bdist_wheel):
 
 
 setup(
-    name='z3-solver',
-    version=_z3_version(),
-    description='an efficient SMT solver library',
-    long_description='Z3 is a theorem prover from Microsoft Research with support for bitvectors, booleans, arrays, floating point numbers, strings, and other data types.\n\nFor documentation, please read http://z3prover.github.io/api/html/z3.html',
-    author="The Z3 Theorem Prover Project",
-    maintainer="Audrey Dutcher and Nikolaj Bjorner",
-    maintainer_email="audrey@rhelmot.io",
-    url='https://github.com/Z3Prover/z3',
-    license='MIT License',
-    keywords=['z3', 'smt', 'sat', 'prover', 'theorem'],
-    packages=['z3'],
+    # Most configuration is now in pyproject.toml
+    # Keep only setup.py-specific configuration
     setup_requires = SETUP_REQUIRES,
-    install_requires = ["importlib-resources; python_version < '3.9'"],
     include_package_data=True,
     package_data={
         'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]

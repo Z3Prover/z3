@@ -48,5 +48,8 @@ include-package-data = true
 [tool.setuptools.package-data]
 z3 = ["lib/*", "include/*.h", "include/c++/*.h"]
 
+[tool.setuptools.data-files]
+bin = ["bin/*"]
+
 [tool.setuptools.dynamic]
 version = {attr = "z3_version.__version__"}
