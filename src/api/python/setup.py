@@ -9,7 +9,11 @@ import glob
 from setuptools import setup
 from setuptools.command.build import build as _build
 from setuptools.command.sdist import sdist as _sdist
-from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
+try:
+    from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+except ImportError:
+    # wheel package not available, provide a dummy class
+    from setuptools.command.build import build as _bdist_wheel
 from setuptools.command.develop import develop as _develop
 
 class LibError(Exception):

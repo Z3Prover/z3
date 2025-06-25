@@ -7,7 +7,7 @@ name = "z3-solver"
 description = "an efficient SMT solver library"
 readme = "README.txt"
 requires-python = ">=3.8"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
     {name = "The Z3 Theorem Prover Project"}
 ]
