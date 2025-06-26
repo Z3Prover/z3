@@ -89,55 +89,13 @@ void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int 
     SASSERT(!_().mon_has_zero(xy.vars()));
     int sy = rat_sign(val(y));
     // throttle here 
-    if (throttle_binomial_sign(xy, x, y, sign, sy)) 
+    if (c().throttle().insert_new(nla_throttle::BINOMIAL_SIGN_LEMMA, xy.var(), x, y, sign, sy)) 
         return;
     
     lemma_builder lemma(c(), __FUNCTION__);
     lemma |= ineq(y,                                   sy == 1      ? llc::LE : llc::GE, 0); // negate sy
     lemma |= ineq(x,                                   sy*sign == 1 ? llc::GT : llc::LT , val(x)); 
-    lemma |= ineq(term(xy.var(), - val(x), y), sign == 1    ? llc::LE : llc::GE, 0);
-}
-
-bool order::throttle_mon_ol(const monic& ac, lpvar a, const rational& c_sign, lpvar c_var,
-                           const monic& bd, const factor& b, const rational& d_sign, 
-                           lpvar d, llc ab_cmp) {
-    // Check if throttling is enabled
-    if (!c().params().arith_nl_thrl())
-        return false;
-    
-    // Create the key for this specific generate_mon_ol invocation
-    mon_ol_key key(ac.var(), a, c_sign, c_var, bd.var(), b.var(), d_sign, d, ab_cmp);
-    
-    // Check if this combination has already been processed
-    if (m_processed_mon_ol.contains(key)) {
-        TRACE(nla_solver, tout << "throttled generate_mon_ol\n";);
-        return true;
-    }
-    
-    // Mark this combination as processed and add to trail for backtracking
-    m_processed_mon_ol.insert(key);
-    c().trail().push(insert_map(m_processed_mon_ol, key));
-    return false;
-}
-
-bool order::throttle_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign, int sy) {
-    // Check if throttling is enabled
-    if (!c().params().arith_nl_thrl())
-        return false;
-    
-    // Create the key for this specific order_lemma_on_binomial_sign invocation
-    binomial_sign_key key(xy.var(), x, y, sign, sy);
-    
-    // Check if this combination has already been processed
-    if (m_processed_binomial_sign.contains(key)) {
-        TRACE(nla_solver, tout << "throttled order_lemma_on_binomial_sign\n";);
-        return true;
-    }
-    
-    // Mark this combination as processed and add to trail for backtracking
-    m_processed_binomial_sign.insert(key);
-    c().trail().push(insert_map(m_processed_binomial_sign, key));
-    return false;
+    lemma |= ineq(lp::lar_term(xy.var(), - val(x), y), sign == 1    ? llc::LE : llc::GE, 0);
 }
 
 // We look for monics e = m.rvars()[k]*d and see if we can create an order lemma for m and  e
@@ -206,7 +164,7 @@ void order::order_lemma_on_binomial_ac_bd(const monic& ac, bool k, const monic& 
 void order::generate_mon_ol(const monic& ac,                     
                            lpvar a,
                            const rational& c_sign,
-                           lpvar c,
+                           lpvar c_par,
                            const monic& bd,
                            const factor& b,
                            const rational& d_sign,
@@ -217,14 +175,14 @@ void order::generate_mon_ol(const monic& ac,
     SASSERT(ab_cmp != llc::GT || (var_val(ac) <= var_val(bd) && val(a)*c_sign > val(b)*d_sign));
     
     // Check if this specific combination should be throttled
-    if (throttle_mon_ol(ac, a, c_sign, c, bd, b, d_sign, d, ab_cmp))
+    if (c().throttle().insert_new(nla_throttle::ORDER_LEMMA, ac.var(), a, c_sign, c_par, bd.var(), b.var(), d_sign, d, ab_cmp))
         return;
     
     lemma_builder lemma(_(), __FUNCTION__);
-    lemma |= ineq(term(c_sign, c), llc::LE, 0);
-    lemma &= c; // this explains c == +- d
-    lemma |= ineq(term(c_sign, a, -d_sign * b.rat_sign(), b.var()), negate(ab_cmp), 0);
-    lemma |= ineq(term(ac.var(), rational(-1), var(bd)), ab_cmp, 0);
+    lemma |= ineq(lp::lar_term(c_sign, c_par), llc::LE, 0);
+    lemma &= c_par; // this explains c_par == +- d
+    lemma |= ineq(lp::lar_term(c_sign, a, -d_sign * b.rat_sign(), b.var()), negate(ab_cmp), 0);
+    lemma |= ineq(lp::lar_term(rational(1), ac.var(), rational(-1), var(bd)), ab_cmp, 0);
     lemma &= bd;
     lemma &= b;
     lemma &= d;
@@ -367,7 +325,7 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
                                                  const monic& bc,
                                                  const factor& b) {
     SASSERT(!val(c).is_zero());
-    rational c_sign = rational(nla::rat_sign(val(c)));
+    rational c_sign = rational(rat_sign(val(c)));
     auto av_c_s = val(a) * c_sign;
     auto bv_c_s = val(b) * c_sign;      
     if ((var_val(ac) > var_val(bc) && av_c_s < bv_c_s) ||
