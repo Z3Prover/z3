@@ -28,6 +28,7 @@
 #include "math/lp/nla_intervals.h"
 #include "nlsat/nlsat_solver.h"
 #include "params/smt_params_helper.hpp"
+#include "math/lp/nla_throttle.h"
 
 namespace nra {
     class solver;
@@ -101,6 +102,9 @@ class core {
     bool                     m_cautious_patching = true;
     lpvar                    m_patched_var = 0;
     monic const*             m_patched_monic = nullptr; 
+
+    nla_throttle             m_throttle;
+    bool                     m_throttle_enabled = true;
 
 
 
@@ -431,6 +435,11 @@ public:
 
     void add_fixed_equality(lp::lpvar v, rational const& k, lp::explanation const& e) { m_fixed_equalities.push_back({v, k, e}); }
     void add_equality(lp::lpvar i, lp::lpvar j, lp::explanation const& e) { m_equalities.push_back({i, j, e}); }
+
+    void set_throttle_enabled(bool enabled) { m_throttle_enabled = enabled; m_throttle.set_enabled(enabled); }
+    bool throttle_enabled() const { return m_throttle_enabled; }
+    nla_throttle& throttle() { return m_throttle; }
+    const nla_throttle& throttle() const { return m_throttle; }
 
 };  // end of core
 
