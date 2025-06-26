@@ -436,7 +436,6 @@ public:
     void add_fixed_equality(lp::lpvar v, rational const& k, lp::explanation const& e) { m_fixed_equalities.push_back({v, k, e}); }
     void add_equality(lp::lpvar i, lp::lpvar j, lp::explanation const& e) { m_equalities.push_back({i, j, e}); }
 
-    void set_throttle_enabled(bool enabled) { m_throttle_enabled = enabled; m_throttle.set_enabled(enabled); }
     bool throttle_enabled() const { return m_throttle_enabled; }
     nla_throttle& throttle() { return m_throttle; }
     const nla_throttle& throttle() const { return m_throttle; }

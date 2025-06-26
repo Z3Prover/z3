@@ -11,7 +11,6 @@
 namespace nla {
 
 bool nla_throttle::insert_new(throttle_kind k, lpvar mvar, bool is_lt) {
-    if (!m_enabled) return false;
     signature sig;
     sig.m_values[0] = static_cast<unsigned>(k);
     sig.m_values[1] = static_cast<unsigned>(mvar);
@@ -20,7 +19,6 @@ bool nla_throttle::insert_new(throttle_kind k, lpvar mvar, bool is_lt) {
 }
 
 bool nla_throttle::insert_new(throttle_kind k, lpvar xy_var, lpvar x, lpvar y, int sign, int sy) {
-    if (!m_enabled) return false;
     signature sig;
     sig.m_values[0] = static_cast<unsigned>(k);
     sig.m_values[1] = static_cast<unsigned>(xy_var);
@@ -33,7 +31,6 @@ bool nla_throttle::insert_new(throttle_kind k, lpvar xy_var, lpvar x, lpvar y, i
 
 bool nla_throttle::insert_new(throttle_kind k, lpvar ac_var, lpvar a, const rational& c_sign, lpvar c,
                               lpvar bd_var, lpvar b_var, const rational& d_sign, lpvar d, llc ab_cmp) {
-    if (!m_enabled) return false;
     signature sig;
     sig.m_values[0] = static_cast<unsigned>(k);
     sig.m_values[1] = static_cast<unsigned>(ac_var);
@@ -50,7 +47,6 @@ bool nla_throttle::insert_new(throttle_kind k, lpvar ac_var, lpvar a, const rati
 }
 
 bool nla_throttle::insert_new(throttle_kind k, lpvar monic_var, lpvar x_var, lpvar y_var, bool below, int plane_type) {
-    if (!m_enabled) return false;
     signature sig;
     sig.m_values[0] = static_cast<unsigned>(k);
     sig.m_values[1] = static_cast<unsigned>(monic_var);
@@ -62,7 +58,6 @@ bool nla_throttle::insert_new(throttle_kind k, lpvar monic_var, lpvar x_var, lpv
 }
 
 bool nla_throttle::insert_new(throttle_kind k, lpvar monic_var, lpvar x_var, lpvar y_var, bool below) {
-    if (!m_enabled) return false;
     signature sig;
     sig.m_values[0] = static_cast<unsigned>(k);
     sig.m_values[1] = static_cast<unsigned>(monic_var);
