@@ -41,7 +41,7 @@ namespace nla {
         
     private:
         hashtable<monotone_key, monotone_key_hash, default_eq<monotone_key>> m_processed_monotone;
-        bool throttle_monotone(const monic& m, bool is_lt, const std::string& debug_location);
+        bool throttle_monotone(const monic& m, bool is_lt);
         
         void monotonicity_lemma(monic const& m);
         void monotonicity_lemma_gt(const monic& m);    
