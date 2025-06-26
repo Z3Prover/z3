@@ -94,6 +94,10 @@ private:
     }
 
     void generate_line1() {
+        // Use plane_type 1 to distinguish line1 from other tangent lemmas
+        if (c().throttle().insert_new(nla_throttle::TANGENT_LEMMA, m_j, m_jx, m_jy, m_below, 1))
+            return;
+            
         lemma_builder lemma(c(), "tangent line 1");
         // Should be  v = val(m_x)*val(m_y), and val(factor) = factor.rat_sign()*var(factor.var())
         lemma |= ineq(m_jx, llc::NE, c().val(m_jx));
@@ -101,7 +105,11 @@ private:
         explain(lemma);
     }
 
-    void generate_line2() {            
+    void generate_line2() {
+        // Use plane_type 2 to distinguish line2 from other tangent lemmas
+        if (c().throttle().insert_new(nla_throttle::TANGENT_LEMMA, m_j, m_jx, m_jy, m_below, 2))
+            return;
+            
         lemma_builder lemma(c(), "tangent line 2");
         lemma |= ineq(m_jy, llc::NE, c().val(m_jy));
         lemma |= ineq(lp::lar_term(m_j, - m_x.rat_sign() * m_xy.y, m_jx), llc::EQ, 0);
