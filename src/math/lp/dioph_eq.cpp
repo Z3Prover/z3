@@ -2542,7 +2542,7 @@ namespace lp {
     public:
 
         void explain(explanation& ex) {
-            SASSERT(ex.empty());
+            ex.clear();
             if (has_conflict_index()) {
                 TRACE(dio, print_entry(m_normalize_conflict_index, tout << "conflict:", true) << std::endl;);
                 for (auto ci : lra.flatten(explain_fixed_in_meta_term(m_l_matrix.m_rows[m_normalize_conflict_index], m_normalize_conflict_gcd)))

@@ -84,31 +84,18 @@ void order::order_lemma_on_binomial(const monic& ac) {
 void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign) {
     if (!c().var_is_int(x) && val(x).is_big())
         return;
-    // throttle!!!
+    
 
     SASSERT(!_().mon_has_zero(xy.vars()));
     int sy = rat_sign(val(y));
+    // throttle here 
+    if (throttle_binomial_sign(xy, x, y, sign, sy, __FUNCTION__)) 
+        return;
+    
     lemma_builder lemma(c(), __FUNCTION__);
     lemma |= ineq(y,                                   sy == 1      ? llc::LE : llc::GE, 0); // negate sy
     lemma |= ineq(x,                                   sy*sign == 1 ? llc::GT : llc::LT , val(x)); 
     lemma |= ineq(term(xy.var(), - val(x), y), sign == 1    ? llc::LE : llc::GE, 0);
-}
-
-bool order::throttle_monic(const monic& ac, std::string const & debug_location ) { // todo - remove debug location!
-    // Check if throttling is enabled
-    if (!c().params().arith_nl_thrl())
-        return false;
-    
-    // Check if this monic has already been processed using its variable ID
-    if (m_processed_monics.contains(ac.var())) {
-        TRACE(nla_solver, tout << "throttled at " << debug_location << "\n";);
-        return true;
-    }
-    
-    // Mark this monic as processed and add to trail for backtracking
-    m_processed_monics.insert(ac.var());
-    c().trail().push(insert_map(m_processed_monics, ac.var()));
-    return false;
 }
 
 bool order::throttle_mon_ol(const monic& ac, lpvar a, const rational& c_sign, lpvar c_var,
@@ -130,6 +117,26 @@ bool order::throttle_mon_ol(const monic& ac, lpvar a, const rational& c_sign, lp
     // Mark this combination as processed and add to trail for backtracking
     m_processed_mon_ol.insert(key);
     c().trail().push(insert_map(m_processed_mon_ol, key));
+    return false;
+}
+
+bool order::throttle_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign, int sy, const std::string& debug_location) {
+    // Check if throttling is enabled
+    if (!c().params().arith_nl_thrl())
+        return false;
+    
+    // Create the key for this specific order_lemma_on_binomial_sign invocation
+    binomial_sign_key key(xy.var(), x, y, sign, sy);
+    
+    // Check if this combination has already been processed
+    if (m_processed_binomial_sign.contains(key)) {
+        TRACE(nla_solver, tout << "throttled order_lemma_on_binomial_sign at " << debug_location << "\n";);
+        return true;
+    }
+    
+    // Mark this combination as processed and add to trail for backtracking
+    m_processed_binomial_sign.insert(key);
+    c().trail().push(insert_map(m_processed_binomial_sign, key));
     return false;
 }
 

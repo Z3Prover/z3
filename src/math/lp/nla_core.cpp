@@ -1040,7 +1040,7 @@ rational core::val(const factorization& f) const {
     return r;
 }
 
-lemma_builder::lemma_builder(core& c, char const* name):name(name), c(c) {
+lemma_builder::lemma_builder(core& c, const char* name):name(name), c(c) {
     c.m_lemmas.push_back(lemma());
 }
 
