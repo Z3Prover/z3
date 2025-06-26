@@ -7,6 +7,7 @@
   --*/
 #pragma once
 #include "math/lp/nla_defs.h"
+#include "math/lp/lp_settings.h"
 #include "util/hashtable.h"
 #include "util/trail.h"
 #include <cstring>
@@ -47,10 +48,11 @@ private:
     
     hashtable<signature, signature_hash, default_eq<signature>> m_seen;
     trail_stack& m_trail;
+    lp::statistics& m_stats;
     bool m_enabled = true;
     
 public:
-    nla_throttle(trail_stack& trail) : m_trail(trail) {}
+    nla_throttle(trail_stack& trail, lp::statistics& stats) : m_trail(trail), m_stats(stats) {}
       void set_enabled(bool enabled) { m_enabled = enabled; }
     bool enabled() const { return m_enabled; }
     
