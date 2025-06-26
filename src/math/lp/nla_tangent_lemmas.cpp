@@ -70,6 +70,9 @@ private:
     }
 
     void generate_plane(const point & pl) {
+        if (c().throttle().insert_new(nla_throttle::TANGENT_LEMMA, m_j, m_jx, m_jy, m_below))
+            return;
+            
         lemma_builder lemma(c(), "generate tangent plane");
         c().negate_relation(lemma, m_jx, m_x.rat_sign()*pl.x);
         c().negate_relation(lemma, m_jy, m_y.rat_sign()*pl.y);

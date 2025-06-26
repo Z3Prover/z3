@@ -7,30 +7,9 @@
   --*/
 #include "math/lp/nla_basics_lemmas.h"
 #include "math/lp/nla_core.h"
-#include "util/trail.h"
 namespace nla {
 
 monotone::monotone(core * c) : common(c) {}
-
-bool monotone::throttle_monotone(const monic& m, bool is_lt) {
-    // Check if throttling is enabled
-    if (!c().params().arith_nl_thrl())
-        return false;
-    
-    // Create the key for this specific monotonicity_lemma invocation
-    monotone_key key(m.var(), is_lt);
-    
-    // Check if this combination has already been processed
-    if (m_processed_monotone.contains(key)) {
-        TRACE(nla_solver, tout << "throttled monotonicity_lemma\n";);
-        return true;
-    }
-    
-    // Mark this combination as processed and add to trail for backtracking
-    m_processed_monotone.insert(key);
-    c().trail().push(insert_map(m_processed_monotone, key));
-    return false;
-}
     
 void monotone::monotonicity_lemma() {
     unsigned shift = random();
@@ -52,7 +31,7 @@ void monotone::monotonicity_lemma(monic const& m) {
     bool is_lt = m_val < prod_val;
     
     // Check if this specific combination should be throttled
-    if (throttle_monotone(m, is_lt))
+    if (c().throttle().insert_new(nla_throttle::MONOTONE_LEMMA, m.var(), is_lt))
         return;
     
     if (is_lt)
