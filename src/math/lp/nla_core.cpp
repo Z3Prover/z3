@@ -39,7 +39,8 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
     m_emons(m_evars),
     m_use_nra_model(false),
     m_nra(s, m_nra_lim, *this),
-    m_throttle(lra.trail()) {
+    m_throttle(lra.trail(), 
+	lra.settings().stats()) {
      m_nlsat_delay_bound = lp_settings().nlsat_delay();
      m_throttle.set_enabled(m_params.arith_nl_thrl());
      lra.m_find_monics_with_changed_bounds_func = [&](const indexed_uint_set& columns_with_changed_bounds) {

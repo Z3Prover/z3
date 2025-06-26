@@ -76,6 +76,7 @@ bool nla_throttle::insert_new(throttle_kind k, lpvar monic_var, lpvar x_var, lpv
 bool nla_throttle::insert_new_impl(const signature& sig) {
     if (m_seen.contains(sig)) {
         TRACE(nla_solver, tout << "throttled lemma generation\n";);
+        m_stats.m_nla_throttled_lemmas++;
         return true;  // Already seen, throttle
     }
     
