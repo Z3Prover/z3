@@ -49,12 +49,10 @@ private:
     hashtable<signature, signature_hash, default_eq<signature>> m_seen;
     trail_stack& m_trail;
     lp::statistics& m_stats;
-    bool m_enabled = true;
+    
     
 public:
     nla_throttle(trail_stack& trail, lp::statistics& stats) : m_trail(trail), m_stats(stats) {}
-      void set_enabled(bool enabled) { m_enabled = enabled; }
-    bool enabled() const { return m_enabled; }
     
     // Monotone lemma: mvar + is_lt
     bool insert_new(throttle_kind k, lpvar mvar, bool is_lt);
