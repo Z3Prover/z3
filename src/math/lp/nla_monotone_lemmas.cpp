@@ -12,7 +12,7 @@ namespace nla {
 
 monotone::monotone(core * c) : common(c) {}
 
-bool monotone::throttle_monotone(const monic& m, bool is_lt, const std::string& debug_location) {
+bool monotone::throttle_monotone(const monic& m, bool is_lt) {
     // Check if throttling is enabled
     if (!c().params().arith_nl_thrl())
         return false;
@@ -22,7 +22,7 @@ bool monotone::throttle_monotone(const monic& m, bool is_lt, const std::string& 
     
     // Check if this combination has already been processed
     if (m_processed_monotone.contains(key)) {
-        TRACE(nla_solver, tout << "throttled monotonicity_lemma at " << debug_location << "\n";);
+        TRACE(nla_solver, tout << "throttled monotonicity_lemma\n";);
         return true;
     }
     
@@ -52,7 +52,7 @@ void monotone::monotonicity_lemma(monic const& m) {
     bool is_lt = m_val < prod_val;
     
     // Check if this specific combination should be throttled
-    if (throttle_monotone(m, is_lt, __FUNCTION__))
+    if (throttle_monotone(m, is_lt))
         return;
     
     if (is_lt)

@@ -89,7 +89,7 @@ void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int 
     SASSERT(!_().mon_has_zero(xy.vars()));
     int sy = rat_sign(val(y));
     // throttle here 
-    if (throttle_binomial_sign(xy, x, y, sign, sy, __FUNCTION__)) 
+    if (throttle_binomial_sign(xy, x, y, sign, sy)) 
         return;
     
     lemma_builder lemma(c(), __FUNCTION__);
@@ -100,7 +100,7 @@ void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int 
 
 bool order::throttle_mon_ol(const monic& ac, lpvar a, const rational& c_sign, lpvar c_var,
                            const monic& bd, const factor& b, const rational& d_sign, 
-                           lpvar d, llc ab_cmp, const std::string& debug_location) {
+                           lpvar d, llc ab_cmp) {
     // Check if throttling is enabled
     if (!c().params().arith_nl_thrl())
         return false;
@@ -110,7 +110,7 @@ bool order::throttle_mon_ol(const monic& ac, lpvar a, const rational& c_sign, lp
     
     // Check if this combination has already been processed
     if (m_processed_mon_ol.contains(key)) {
-        TRACE(nla_solver, tout << "throttled generate_mon_ol at " << debug_location << "\n";);
+        TRACE(nla_solver, tout << "throttled generate_mon_ol\n";);
         return true;
     }
     
@@ -120,7 +120,7 @@ bool order::throttle_mon_ol(const monic& ac, lpvar a, const rational& c_sign, lp
     return false;
 }
 
-bool order::throttle_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign, int sy, const std::string& debug_location) {
+bool order::throttle_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign, int sy) {
     // Check if throttling is enabled
     if (!c().params().arith_nl_thrl())
         return false;
@@ -130,7 +130,7 @@ bool order::throttle_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign, 
     
     // Check if this combination has already been processed
     if (m_processed_binomial_sign.contains(key)) {
-        TRACE(nla_solver, tout << "throttled order_lemma_on_binomial_sign at " << debug_location << "\n";);
+        TRACE(nla_solver, tout << "throttled order_lemma_on_binomial_sign\n";);
         return true;
     }
     
@@ -217,7 +217,7 @@ void order::generate_mon_ol(const monic& ac,
     SASSERT(ab_cmp != llc::GT || (var_val(ac) <= var_val(bd) && val(a)*c_sign > val(b)*d_sign));
     
     // Check if this specific combination should be throttled
-    if (throttle_mon_ol(ac, a, c_sign, c, bd, b, d_sign, d, ab_cmp, __FUNCTION__))
+    if (throttle_mon_ol(ac, a, c_sign, c, bd, b, d_sign, d, ab_cmp))
         return;
     
     lemma_builder lemma(_(), __FUNCTION__);

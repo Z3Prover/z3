@@ -70,7 +70,7 @@ public:
     hashtable<mon_ol_key, mon_ol_key_hash, default_eq<mon_ol_key>> m_processed_mon_ol;
     bool throttle_mon_ol(const monic& ac, lpvar a, const rational& c_sign, lpvar c_var,
                          const monic& bd, const factor& b, const rational& d_sign, 
-                         lpvar d, llc ab_cmp, const std::string& debug_location);
+                         lpvar d, llc ab_cmp);
     
     // Structure to represent the key parameters for throttling order_lemma_on_binomial_sign
     // Optimized for memory efficiency with packed fields
@@ -108,7 +108,7 @@ public:
     };
     
     hashtable<binomial_sign_key, binomial_sign_key_hash, default_eq<binomial_sign_key>> m_processed_binomial_sign;
-    bool throttle_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign, int sy, const std::string& debug_location);
+    bool throttle_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign, int sy);
     
    private:
 
