@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "z3-solver"
+version = "4.15.3.0"
 description = "an efficient SMT solver library"
 readme = "README.txt"
 requires-python = ">=3.8"
@@ -33,7 +34,6 @@ classifiers = [
 dependencies = [
     "importlib-resources; python_version < '3.9'"
 ]
-dynamic = ["version"]
 
 [project.urls]
 Homepage = "https://github.com/Z3Prover/z3"
@@ -51,5 +51,4 @@ z3 = ["lib/*", "include/*.h", "include/c++/*.h"]
 [tool.setuptools.data-files]
 bin = ["bin/*"]
 
-[tool.setuptools.dynamic]
-version = {attr = "z3_version.__version__"}
+

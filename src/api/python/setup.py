@@ -116,27 +116,22 @@ def _clean_native_build():
     rmtree(BUILD_DIR)
 
 def _z3_version():
-    # Import version from z3_version module for consistency
-    try:
-        from z3_version import get_version
-        return get_version()
-    except ImportError:
-        # Fallback to original implementation
-        post = os.getenv('Z3_VERSION_SUFFIX', '')
-        if RELEASE_DIR is None:
-            fn = os.path.join(SRC_DIR, 'scripts', 'mk_project.py')
-            if os.path.exists(fn):
-                with open(fn) as f:
-                    for line in f:
-                        n = re.match(r".*set_version\((.*), (.*), (.*), (.*)\).*", line)
-                        if not n is None:
-                            return n.group(1) + '.' + n.group(2) + '.' + n.group(3) + '.' + n.group(4) + post
-            return "?.?.?.?"
-        else:
-            version = RELEASE_METADATA[0]
-            if version.count('.') == 2:
-                version += '.0'
-            return version + post
+    # Get version from project metadata
+    post = os.getenv('Z3_VERSION_SUFFIX', '')
+    if RELEASE_DIR is None:
+        fn = os.path.join(SRC_DIR, 'scripts', 'mk_project.py')
+        if os.path.exists(fn):
+            with open(fn) as f:
+                for line in f:
+                    n = re.match(r".*set_version\((.*), (.*), (.*), (.*)\).*", line)
+                    if not n is None:
+                        return n.group(1) + '.' + n.group(2) + '.' + n.group(3) + '.' + n.group(4) + post
+        return "?.?.?.?"
+    else:
+        version = RELEASE_METADATA[0]
+        if version.count('.') == 2:
+            version += '.0'
+        return version + post
 
 def _configure_z3():
     global IS_SINGLE_THREADED
@@ -335,6 +330,7 @@ class bdist_wheel(_bdist_wheel):
 setup(
     # Most configuration is now in pyproject.toml
     # Keep only setup.py-specific configuration
+    version=_z3_version(),
     setup_requires = SETUP_REQUIRES,
     include_package_data=True,
     package_data={
