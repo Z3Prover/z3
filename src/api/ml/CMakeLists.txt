@@ -302,7 +302,7 @@ add_custom_command(
     -dllpath "${z3ml_bin}"
     "${z3ml_bin}/z3ml.cma"
     "${z3ml_example_src}"
-  COMMAND env DYLD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR} ocamlrun ${z3ml_bin}/ml_example.byte > ${z3ml_bin}/ml_example.bc.log
+  COMMAND env DYLD_LIBRARY_PATH=${PROJECT_BINARY_DIR} ocamlrun ${z3ml_bin}/ml_example.byte > ${z3ml_bin}/ml_example.bc.log
   COMMENT "Run OCaml bytecode example"
   VERBATIM
 )
@@ -316,7 +316,7 @@ add_custom_command(
     -I "${z3ml_bin}"
     "${z3ml_bin}/z3ml.cmxa"
     "${z3ml_example_src}"
-  COMMAND env DYLD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR} ${z3ml_bin}/ml_example > ${z3ml_bin}/ml_example.log
+  COMMAND env DYLD_LIBRARY_PATH=${PROJECT_BINARY_DIR} ${z3ml_bin}/ml_example > ${z3ml_bin}/ml_example.log
   COMMENT "Run OCaml native example"
   VERBATIM
 )
