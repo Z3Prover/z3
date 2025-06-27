@@ -285,7 +285,7 @@ add_custom_target(build_z3_ocaml_bindings
     ${z3ml_bin}/dllz3ml.so
     ${z3ml_bin}/libz3ml.a
     ${META_OUTPUT_FILE}
-    patch_z3ml_dylib
+    # patch_z3ml_dylib
 )
 
 # test
