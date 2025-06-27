@@ -75,7 +75,6 @@ jobs:
           echo "OCAMLOPT:     $(which ocamlopt)"
           echo "OCAML_VERSION: $(ocamlc -version)"
           echo "OCAMLLIB: $OCAMLLIB"
-          env | grep OCAML
           cmake .. \
             -G Ninja \
             -DZ3_BUILD_LIBZ3_SHARED=ON \
