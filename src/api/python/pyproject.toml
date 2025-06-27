@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "z3-solver"
-version = "4.15.3.0"
+dynamic = ["version"]
 description = "an efficient SMT solver library"
 readme = "README.txt"
 requires-python = ">=3.8"
