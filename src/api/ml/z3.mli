@@ -304,11 +304,13 @@ sig
     type parameter =
         P_Int of int
       | P_Dbl of float
+      | P_Rat of string
       | P_Sym of Symbol.symbol
       | P_Srt of Sort.sort
       | P_Ast of AST.ast
       | P_Fdl of func_decl
-      | P_Rat of string
+      | P_Interal of string
+      | P_ZStr of string
 
     (** The kind of the parameter. *)
     val get_kind : parameter -> Z3enums.parameter_kind
