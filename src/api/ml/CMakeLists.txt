@@ -7,14 +7,14 @@ set(bc_ext ".byte")
 set(z3ml_src ${CMAKE_CURRENT_SOURCE_DIR})
 set(z3ml_bin ${CMAKE_CURRENT_BINARY_DIR})
 
-if (Z3_BUILD_OCAML_EXTERNAL_LIBZ3)
-  add_custom_target(libz3_z3ml
+if (Z3_BUILD_EXTERNAL_LIBZ3)
+  add_custom_target(libz3_ocaml
     ALL
-    DEPENDS ${Z3_BUILD_OCAML_EXTERNAL_LIBZ3}/libz3${so_ext}
+    DEPENDS ${Z3_BUILD_EXTERNAL_LIBZ3}/libz3${so_ext}
   )
-  set(libz3_path ${Z3_BUILD_OCAML_EXTERNAL_LIBZ3})
+  set(libz3_path ${Z3_BUILD_EXTERNAL_LIBZ3})
 else()
-  add_custom_target(libz3_z3ml
+  add_custom_target(libz3_ocaml
     ALL
     DEPENDS libz3
   )
@@ -216,7 +216,7 @@ add_custom_command(
           "-I" "${z3ml_bin}"
           "${z3ml_bin}/z3ml.cmxa"
   DEPENDS
-          libz3_z3ml
+          libz3_ocaml
           ${z3ml_bin}/z3native_stubs.o
           ${z3ml_bin}/z3enums.cmo
           ${z3ml_bin}/z3native.cmo
@@ -226,6 +226,23 @@ add_custom_command(
           ${z3ml_bin}/z3.cmx
   COMMENT "Building z3ml.{cma,cmxa,cmxs}, dllz3ml.so, and libz3ml.a"
   VERBATIM)
+
+set(META_INPUT_FILE  "${z3ml_src}/META.in")
+set(META_OUTPUT_FILE "${z3ml_bin}/META")
+
+set(Z3_VERSION_STRING "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
+
+configure_file(
+  "${META_INPUT_FILE}"
+  "${META_OUTPUT_FILE}"
+  @ONLY
+)
+
+add_custom_target(
+  generate_meta ALL
+  DEPENDS "${META_OUTPUT_FILE}"
+  COMMENT "Generating META file for OCaml bindings"
+)
 
 ###############################################################################
 # Example
@@ -267,6 +284,7 @@ add_custom_target(build_z3_ocaml_bindings
     ${z3ml_bin}/z3ml.cmxs
     ${z3ml_bin}/dllz3ml.so
     ${z3ml_bin}/libz3ml.a
+    ${META_OUTPUT_FILE}
     patch_z3ml_dylib
 )
 
