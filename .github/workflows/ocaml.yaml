@@ -107,7 +107,7 @@ jobs:
       - name: Run ml_example.byte
         run: |
           eval $(opam env)
-          export DYLD_LIBRARY_PATH=$(pwd)build/src/api/ml
+          export DYLD_LIBRARY_PATH=$(pwd)/build/src
           ocamlrun ./ml_example.byte
 
       - name: Compile ml_example (native)
@@ -121,6 +121,6 @@ jobs:
             examples/ml/ml_example.ml
 
       - name: Run ml_example (native)
-        run: 
-          export DYLD_LIBRARY_PATH=$(pwd)build/src/api/ml
+        run: |
+          export DYLD_LIBRARY_PATH=$(pwd)/build/src
           ./ml_example
