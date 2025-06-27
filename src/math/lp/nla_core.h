@@ -28,6 +28,7 @@
 #include "math/lp/nla_intervals.h"
 #include "nlsat/nlsat_solver.h"
 #include "params/smt_params_helper.hpp"
+#include "math/lp/nla_throttle.h"
 
 namespace nra {
     class solver;
@@ -46,7 +47,7 @@ bool try_insert(const A& elem, B& collection) {
 
 class core {
     friend struct common;
-    friend class new_lemma;
+    friend class lemma_builder;
     friend class grobner;
     friend class order;
     friend struct basics;
@@ -101,6 +102,9 @@ class core {
     bool                     m_cautious_patching = true;
     lpvar                    m_patched_var = 0;
     monic const*             m_patched_monic = nullptr; 
+
+    nla_throttle             m_throttle;
+    bool                     m_throttle_enabled = true;
 
 
 
@@ -263,7 +267,7 @@ public:
                         std::ostream& out);
 
         
-    void mk_ineq_no_expl_check(new_lemma& lemma, lp::lar_term& t, llc cmp, const rational& rs);
+    void mk_ineq_no_expl_check(lemma_builder& lemma, lp::lar_term& t, llc cmp, const rational& rs);
     
     void maybe_add_a_factor(lpvar i,
                             const factor& c,
@@ -273,7 +277,7 @@ public:
 
     llc apply_minus(llc cmp);
     
-    void fill_explanation_and_lemma_sign(new_lemma& lemma, const monic& a, const monic & b, rational const& sign);
+    void fill_explanation_and_lemma_sign(lemma_builder& lemma, const monic& a, const monic & b, rational const& sign);
 
     svector<lpvar> reduce_monic_to_rooted(const svector<lpvar> & vars, rational & sign) const;
 
@@ -319,7 +323,7 @@ public:
     bool var_is_separated_from_zero(lpvar j) const;
 
     bool vars_are_equiv(lpvar a, lpvar b) const;    
-    bool explain_ineq(new_lemma& lemma, const lp::lar_term& t, llc cmp, const rational& rs);
+    bool explain_ineq(lemma_builder& lemma, const lp::lar_term& t, llc cmp, const rational& rs);
     bool explain_upper_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const;
     bool explain_lower_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const;
     bool explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const;
@@ -370,9 +374,9 @@ public:
     bool rm_check(const monic&) const;
     std::unordered_map<unsigned, unsigned_vector> get_rm_by_arity();
 
-    void negate_relation(new_lemma& lemma, unsigned j, const rational& a);
-    void negate_factor_equality(new_lemma& lemma, const factor& c, const factor& d);    
-    void negate_factor_relation(new_lemma& lemma, const rational& a_sign, const factor& a, const rational& b_sign, const factor& b);
+    void negate_relation(lemma_builder& lemma, unsigned j, const rational& a);
+    void negate_factor_equality(lemma_builder& lemma, const factor& c, const factor& d);    
+    void negate_factor_relation(lemma_builder& lemma, const rational& a_sign, const factor& a, const rational& b_sign, const factor& b);
 
     bool  find_bfc_to_refine_on_monic(const monic&, factorization & bf);
     
@@ -431,6 +435,10 @@ public:
 
     void add_fixed_equality(lp::lpvar v, rational const& k, lp::explanation const& e) { m_fixed_equalities.push_back({v, k, e}); }
     void add_equality(lp::lpvar i, lp::lpvar j, lp::explanation const& e) { m_equalities.push_back({i, j, e}); }
+
+    bool throttle_enabled() const { return m_throttle_enabled; }
+    nla_throttle& throttle() { return m_throttle; }
+    const nla_throttle& throttle() const { return m_throttle; }
 
 };  // end of core
 

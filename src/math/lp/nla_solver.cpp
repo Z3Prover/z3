@@ -108,7 +108,7 @@ namespace nla {
         m_core->check_bounded_divisions();
     }
 
-    vector<nla::lemma> const& solver::lemmas() const {
+    const vector<lemma>&  solver::lemmas() const {
         return m_core->lemmas();
     }
     

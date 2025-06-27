@@ -6,12 +6,14 @@
    Nikolaj Bjorner (nbjorner)
   --*/
 #pragma once
+
 namespace nla {
     class core;
     class monotone : common {    
     public:
         monotone(core *core);
         void monotonicity_lemma();
+        
     private:
         void monotonicity_lemma(monic const& m);
         void monotonicity_lemma_gt(const monic& m);    

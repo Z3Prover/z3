@@ -70,7 +70,7 @@ public:
         }
     }
 
-    bool empty() const {  return m_vector.empty() || m_set.empty();  }
+    bool empty() const {  return m_vector.empty() && m_set.empty();  }
     size_t size() const { return std::max(m_vector.size(), m_set.size()); }
 
     class cimpq {

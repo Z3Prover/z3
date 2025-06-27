@@ -89,7 +89,7 @@ bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
     m_core->lp_settings().stats().m_cross_nested_forms++;
     scoped_dep_interval i(get_dep_intervals());
     std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
-        new_lemma lemma(*m_core, "check_nex");
+        lemma_builder lemma(*m_core, "check_nex");
         lemma &= e;
     };
     if (!interval_of_expr<e_with_deps::without_deps>(n, 1, i, f)) {

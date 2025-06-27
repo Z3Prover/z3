@@ -10,7 +10,6 @@
 namespace nla {
 
 monotone::monotone(core * c) : common(c) {}
-
     
 void monotone::monotonicity_lemma() {
     unsigned shift = random();
@@ -29,7 +28,13 @@ void monotone::monotonicity_lemma(monic const& m) {
        return;
     const rational prod_val = abs(c().product_value(m));
     const rational m_val = abs(var_val(m));
-    if (m_val < prod_val)
+    bool is_lt = m_val < prod_val;
+    
+    // Check if this specific combination should be throttled
+    if (c().throttle().insert_new(nla_throttle::MONOTONE_LEMMA, m.var(), is_lt))
+        return;
+    
+    if (is_lt)
         monotonicity_lemma_lt(m);
     else if (m_val > prod_val)
         monotonicity_lemma_gt(m);
@@ -54,7 +59,7 @@ void monotone::monotonicity_lemma(monic const& m) {
     
 */
 void monotone::monotonicity_lemma_gt(const monic& m) {
-    new_lemma lemma(c(), "monotonicity > ");
+    lemma_builder lemma(c(), "monotonicity > ");
     rational product(1);
     for (lpvar j : m.vars()) {
         auto v = c().val(j);
@@ -76,7 +81,7 @@ void monotone::monotonicity_lemma_gt(const monic& m) {
     x <= -2 & y >= 3 => x*y <= -6
 */
 void monotone::monotonicity_lemma_lt(const monic& m) {
-    new_lemma lemma(c(), "monotonicity <");
+    lemma_builder lemma(c(), "monotonicity <");
     rational product(1);
     for (lpvar j : m.vars()) {
         auto v = c().val(j);
