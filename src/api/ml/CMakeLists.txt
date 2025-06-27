@@ -254,27 +254,27 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE)
   
 # Always define patch_z3ml_dylib for dependency consistency
-if(APPLE)
-  add_custom_command(
-    OUTPUT ${z3ml_bin}/patched_dllz3ml
-    COMMAND install_name_tool -id "$<TARGET_FILE:libz3>" "$<TARGET_FILE:libz3>"
-    COMMAND install_name_tool -change "@rpath/libz3.${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.dylib" "$<TARGET_FILE:libz3>" "${z3ml_bin}/dllz3ml.so"
-    COMMAND touch ${z3ml_bin}/patched_dllz3ml
-    DEPENDS ${z3ml_bin}/dllz3ml.so
-    COMMENT "Patch install name and reference for macOS"
-    VERBATIM
-  )
-else()
-  add_custom_command(
-    OUTPUT ${z3ml_bin}/patched_dllz3ml
-    COMMAND ${CMAKE_COMMAND} -E touch ${z3ml_bin}/patched_dllz3ml
-    COMMENT "Dummy patch target for non-macOS"
-    VERBATIM
-  )
-endif()
+# if(APPLE)
+#   add_custom_command(
+#     OUTPUT ${z3ml_bin}/patched_dllz3ml
+#     COMMAND install_name_tool -id "$<TARGET_FILE:libz3>" "$<TARGET_FILE:libz3>"
+#     COMMAND install_name_tool -change "@rpath/libz3.${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.dylib" "$<TARGET_FILE:libz3>" "${z3ml_bin}/dllz3ml.so"
+#     COMMAND touch ${z3ml_bin}/patched_dllz3ml
+#     DEPENDS ${z3ml_bin}/dllz3ml.so
+#     COMMENT "Patch install name and reference for macOS"
+#     VERBATIM
+#   )
+# else()
+#   add_custom_command(
+#     OUTPUT ${z3ml_bin}/patched_dllz3ml
+#     COMMAND ${CMAKE_COMMAND} -E touch ${z3ml_bin}/patched_dllz3ml
+#     COMMENT "Dummy patch target for non-macOS"
+#     VERBATIM
+#   )
+# endif()
 
-add_custom_target(patch_z3ml_dylib ALL
-  DEPENDS ${z3ml_bin}/patched_dllz3ml)
+# add_custom_target(patch_z3ml_dylib ALL
+#   DEPENDS ${z3ml_bin}/patched_dllz3ml)
 
 add_custom_target(build_z3_ocaml_bindings
   ALL
@@ -302,7 +302,7 @@ add_custom_command(
     -dllpath "${z3ml_bin}"
     "${z3ml_bin}/z3ml.cma"
     "${z3ml_example_src}"
-  COMMAND ocamlrun "${z3ml_bin}/ml_example.byte" > "${z3ml_bin}/ml_example.bc.log"
+  COMMAND env DYLD_LIBRARY_PATH="${z3ml_bin}" ocamlrun "${z3ml_bin}/ml_example.byte" > "${z3ml_bin}/ml_example.bc.log"
   COMMENT "Run OCaml bytecode example"
   VERBATIM
 )
@@ -316,7 +316,7 @@ add_custom_command(
     -I "${z3ml_bin}"
     "${z3ml_bin}/z3ml.cmxa"
     "${z3ml_example_src}"
-  COMMAND "${z3ml_bin}/ml_example" > "${z3ml_bin}/ml_example.log"
+  COMMAND env DYLD_LIBRARY_PATH="${z3ml_bin}" "${z3ml_bin}/ml_example" > "${z3ml_bin}/ml_example.log"
   COMMENT "Run OCaml native example"
   VERBATIM
 )
