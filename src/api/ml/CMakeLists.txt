@@ -7,12 +7,12 @@ set(bc_ext ".byte")
 set(z3ml_src ${CMAKE_CURRENT_SOURCE_DIR})
 set(z3ml_bin ${CMAKE_CURRENT_BINARY_DIR})
 
-if (Z3_BUILD_EXTERNAL_LIBZ3)
+if (Z3_EXTERNAL_LIBZ3)
   add_custom_target(libz3_ocaml
     ALL
-    DEPENDS ${Z3_BUILD_EXTERNAL_LIBZ3}/libz3${so_ext}
+    DEPENDS ${Z3_EXTERNAL_LIBZ3}/libz3${so_ext}
   )
-  set(libz3_path ${Z3_BUILD_EXTERNAL_LIBZ3})
+  set(libz3_path ${Z3_EXTERNAL_LIBZ3})
 else()
   add_custom_target(libz3_ocaml
     ALL

@@ -244,7 +244,7 @@ sig
       | P_Srt of Sort.sort
       | P_Ast of AST.ast
       | P_Fdl of func_decl
-      | P_Interal of string
+      | P_Internal of string
       | P_ZStr of string
 
     val get_kind : parameter -> Z3enums.parameter_kind
@@ -291,7 +291,7 @@ end = struct
       | P_Srt of Sort.sort
       | P_Ast of AST.ast
       | P_Fdl of func_decl
-      | P_Interal of string
+      | P_Internal of string
       | P_ZStr of string
 
     let get_kind = function
@@ -302,7 +302,7 @@ end = struct
       | P_Srt _ -> PARAMETER_SORT
       | P_Ast _ -> PARAMETER_AST
       | P_Fdl _ -> PARAMETER_FUNC_DECL
-      | P_Interal _ -> PARAMETER_INTERNAL
+      | P_Internal _ -> PARAMETER_INTERNAL
       | P_ZStr _ -> PARAMETER_ZSTRING
 
 
@@ -390,7 +390,7 @@ end = struct
       | PARAMETER_SORT -> Parameter.P_Srt (Z3native.get_decl_sort_parameter (gc x) x i)
       | PARAMETER_AST -> Parameter.P_Ast (Z3native.get_decl_ast_parameter (gc x) x i)
       | PARAMETER_FUNC_DECL -> Parameter.P_Fdl (Z3native.get_decl_func_decl_parameter (gc x) x i)
-      | PARAMETER_INTERNAL -> Parameter.P_Interal ("interal_")
+      | PARAMETER_INTERNAL -> Parameter.P_Internal ("interal parameter")
       | PARAMETER_ZSTRING -> Parameter.P_ZStr ("internal string")
       
     in

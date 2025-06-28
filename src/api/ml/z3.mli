@@ -309,7 +309,7 @@ sig
       | P_Srt of Sort.sort
       | P_Ast of AST.ast
       | P_Fdl of func_decl
-      | P_Interal of string
+      | P_Internal of string
       | P_ZStr of string
 
     (** The kind of the parameter. *)
