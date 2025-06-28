@@ -4249,7 +4249,7 @@ def Extract(high, low, a):
     >>> # Sequence extraction examples  
     >>> s = StringVal("hello")
     >>> Extract(s, 1, 3)  # Extract 3 characters starting at position 1
-    Extract(StringVal("hello"), 1, 3)
+    str.substr("hello", 1, 3)
     >>> simplify(Extract(StringVal("abcd"), 2, 1))  # Extract 1 character at position 2
     "c"
     >>> simplify(Extract(StringVal("abcd"), 0, 2))  # Extract first 2 characters  
@@ -11215,7 +11215,7 @@ def SubString(s, offset, length):
     
     >>> s = StringVal("hello world") 
     >>> SubString(s, 6, 5)  # Extract "world"
-    Extract(StringVal("hello world"), 6, 5)
+    str.substr("hello world", 6, 5)
     >>> simplify(SubString(StringVal("hello"), 1, 3))
     "ell"
     """
@@ -11229,7 +11229,7 @@ def SubSeq(s, offset, length):
     
     >>> s = StringVal("hello world")
     >>> SubSeq(s, 0, 5)  # Extract "hello"  
-    Extract(StringVal("hello world"), 0, 5)
+    str.substr("hello world", 0, 5)
     >>> simplify(SubSeq(StringVal("testing"), 2, 4))
     "stin"
     """
