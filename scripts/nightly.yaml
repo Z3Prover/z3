@@ -465,9 +465,9 @@ stages:
       continueOnError: true 
       inputs:
         gitHubConnection: Z3Prover
-        repositoryName: 'Z3Prover/z3'
+        repositoryName: $(Build.Repository.Name)
         action: 'create'
-#     target: '$(Build.SourceVersion)'
+        target: '$(Build.SourceVersion)'
         tagSource: 'userSpecifiedTag'
         tag: 'Nightly'
         title: 'Nightly'
