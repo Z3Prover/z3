@@ -1,5 +1,5 @@
 # META file for the "z3" package:
-version = "@VERSION@"
+version = "@Z3_VERSION_STRING@"
 description = "Z3 Theorem Prover (OCaml API)"
 requires = "zarith threads"
 archive(byte) = "z3ml.cma"

@@ -239,11 +239,13 @@ sig
     type parameter =
         P_Int of int
       | P_Dbl of float
+      | P_Rat of string
       | P_Sym of Symbol.symbol
       | P_Srt of Sort.sort
       | P_Ast of AST.ast
       | P_Fdl of func_decl
-      | P_Rat of string
+      | P_Internal of string
+      | P_ZStr of string
 
     val get_kind : parameter -> Z3enums.parameter_kind
     val get_int : parameter -> int
@@ -284,20 +286,25 @@ end = struct
     type parameter =
       | P_Int of int
       | P_Dbl of float
+      | P_Rat of string
       | P_Sym of Symbol.symbol
       | P_Srt of Sort.sort
       | P_Ast of AST.ast
       | P_Fdl of func_decl
-      | P_Rat of string
+      | P_Internal of string
+      | P_ZStr of string
 
     let get_kind = function
       | P_Int _ -> PARAMETER_INT
       | P_Dbl _ -> PARAMETER_DOUBLE
+      | P_Rat _ -> PARAMETER_RATIONAL
       | P_Sym _ -> PARAMETER_SYMBOL
       | P_Srt _ -> PARAMETER_SORT
       | P_Ast _ -> PARAMETER_AST
       | P_Fdl _ -> PARAMETER_FUNC_DECL
-      | P_Rat _ -> PARAMETER_RATIONAL
+      | P_Internal _ -> PARAMETER_INTERNAL
+      | P_ZStr _ -> PARAMETER_ZSTRING
+
 
     let get_int = function
       | P_Int x -> x
@@ -306,6 +313,10 @@ end = struct
     let get_float = function
       | P_Dbl x -> x
       | _ -> raise (Error "parameter is not a float")
+
+    let get_rational = function
+      | P_Rat x -> x
+      | _ -> raise (Error "parameter is not a rational string")
 
     let get_symbol = function
       | P_Sym x -> x
@@ -322,10 +333,6 @@ end = struct
     let get_func_decl = function
       | P_Fdl x -> x
       | _ -> raise (Error "parameter is not a func_decl")
-
-    let get_rational = function
-      | P_Rat x -> x
-      | _ -> raise (Error "parameter is not a rational string")
   end
 
   let mk_func_decl (ctx:context) (name:Symbol.symbol) (domain:Sort.sort list) (range:Sort.sort) =
@@ -378,11 +385,14 @@ end = struct
       match parameter_kind_of_int (Z3native.get_decl_parameter_kind (gc x) x i) with
       | PARAMETER_INT -> Parameter.P_Int (Z3native.get_decl_int_parameter (gc x) x i)
       | PARAMETER_DOUBLE -> Parameter.P_Dbl (Z3native.get_decl_double_parameter (gc x) x i)
+      | PARAMETER_RATIONAL -> Parameter.P_Rat (Z3native.get_decl_rational_parameter (gc x) x i)
       | PARAMETER_SYMBOL-> Parameter.P_Sym (Z3native.get_decl_symbol_parameter (gc x) x i)
       | PARAMETER_SORT -> Parameter.P_Srt (Z3native.get_decl_sort_parameter (gc x) x i)
       | PARAMETER_AST -> Parameter.P_Ast (Z3native.get_decl_ast_parameter (gc x) x i)
       | PARAMETER_FUNC_DECL -> Parameter.P_Fdl (Z3native.get_decl_func_decl_parameter (gc x) x i)
-      | PARAMETER_RATIONAL -> Parameter.P_Rat (Z3native.get_decl_rational_parameter (gc x) x i)
+      | PARAMETER_INTERNAL -> Parameter.P_Internal ("interal parameter")
+      | PARAMETER_ZSTRING -> Parameter.P_ZStr ("internal string")
+      
     in
     List.init n f
 

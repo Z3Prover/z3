@@ -7,14 +7,14 @@ set(bc_ext ".byte")
 set(z3ml_src ${CMAKE_CURRENT_SOURCE_DIR})
 set(z3ml_bin ${CMAKE_CURRENT_BINARY_DIR})
 
-if (Z3_BUILD_OCAML_EXTERNAL_LIBZ3)
-  add_custom_target(libz3_z3ml
+if (Z3_EXTERNAL_LIBZ3)
+  add_custom_target(libz3_ocaml
     ALL
-    DEPENDS ${Z3_BUILD_OCAML_EXTERNAL_LIBZ3}/libz3${so_ext}
+    DEPENDS ${Z3_EXTERNAL_LIBZ3}/libz3${so_ext}
   )
-  set(libz3_path ${Z3_BUILD_OCAML_EXTERNAL_LIBZ3})
+  set(libz3_path ${Z3_EXTERNAL_LIBZ3})
 else()
-  add_custom_target(libz3_z3ml
+  add_custom_target(libz3_ocaml
     ALL
     DEPENDS libz3
   )
@@ -60,14 +60,6 @@ add_custom_command(
 set(z3ml_common_flags  "-package" "zarith"
                        "-I" "${z3ml_bin}")
 
-                       # add_custom_command(
-#   OUTPUT  ${z3ml_bin}/z3.ml
-#           ${z3ml_bin}/z3.mli
-#   COMMAND "${CMAKE_COMMAND}" "-E" "copy" "${z3ml_src}/z3.ml" "${z3ml_bin}/z3.ml"
-#   COMMAND "${CMAKE_COMMAND}" "-E" "copy" "${z3ml_src}/z3.mli" "${z3ml_bin}/z3.mli"
-#   DEPENDS ${z3ml_src}/z3.ml
-#           ${z3ml_src}/z3.mli
-#   COMMENT "Copying z3.ml and z3.mli to build area")
 
 # z3native_stubs.c depends on nothing
 execute_process(
@@ -136,12 +128,6 @@ add_custom_command(
   OUTPUT ${z3ml_bin}/z3.cmi
          ${z3ml_bin}/z3.cmo
          ${z3ml_bin}/z3.cmx
- # COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
-  #         "-c" "${z3ml_bin}/z3.mli"
-  # COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
-  #         "-c" "${z3ml_bin}/z3.ml"
-  # COMMAND "${OCAMLFIND}" "ocamlopt" ${z3ml_common_flags}
-  #         "-c" "${z3ml_bin}/z3.ml" 
 COMMAND "${OCAMLFIND}" "ocamlc"   ${z3ml_common_flags}
   "-o" "${z3ml_bin}/z3.cmi"
   "-c" "${z3ml_src}/z3.mli"
@@ -153,8 +139,6 @@ COMMAND "${OCAMLFIND}" "ocamlopt" ${z3ml_common_flags}
   "-c" "${z3ml_src}/z3.ml" 
   DEPENDS ${z3ml_bin}/z3enums.cmo
           ${z3ml_bin}/z3native.cmo
-          # ${z3ml_bin}/z3.ml
-          # ${z3ml_bin}/z3.mli
           ${z3ml_src}/z3.ml
           ${z3ml_src}/z3.mli
   COMMENT "Building z3.cmo"
@@ -216,7 +200,7 @@ add_custom_command(
           "-I" "${z3ml_bin}"
           "${z3ml_bin}/z3ml.cmxa"
   DEPENDS
-          libz3_z3ml
+          libz3_ocaml
           ${z3ml_bin}/z3native_stubs.o
           ${z3ml_bin}/z3enums.cmo
           ${z3ml_bin}/z3native.cmo
@@ -227,6 +211,23 @@ add_custom_command(
   COMMENT "Building z3ml.{cma,cmxa,cmxs}, dllz3ml.so, and libz3ml.a"
   VERBATIM)
 
+set(META_INPUT_FILE  "${z3ml_src}/META.in")
+set(META_OUTPUT_FILE "${z3ml_bin}/META")
+
+set(Z3_VERSION_STRING "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
+
+configure_file(
+  "${META_INPUT_FILE}"
+  "${META_OUTPUT_FILE}"
+  @ONLY
+)
+
+add_custom_target(
+  generate_meta ALL
+  DEPENDS "${META_OUTPUT_FILE}"
+  COMMENT "Generating META file for OCaml bindings"
+)
+
 ###############################################################################
 # Example
 ###############################################################################
@@ -235,29 +236,6 @@ execute_process(
   COMMAND ${OCAMLFIND} query zarith
   OUTPUT_VARIABLE ocaml_pkg_zarith_path
   OUTPUT_STRIP_TRAILING_WHITESPACE)
-  
-# Always define patch_z3ml_dylib for dependency consistency
-if(APPLE)
-  add_custom_command(
-    OUTPUT ${z3ml_bin}/patched_dllz3ml
-    COMMAND install_name_tool -id "$<TARGET_FILE:libz3>" "$<TARGET_FILE:libz3>"
-    COMMAND install_name_tool -change "@rpath/libz3.${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.dylib" "$<TARGET_FILE:libz3>" "${z3ml_bin}/dllz3ml.so"
-    COMMAND touch ${z3ml_bin}/patched_dllz3ml
-    DEPENDS ${z3ml_bin}/dllz3ml.so
-    COMMENT "Patch install name and reference for macOS"
-    VERBATIM
-  )
-else()
-  add_custom_command(
-    OUTPUT ${z3ml_bin}/patched_dllz3ml
-    COMMAND ${CMAKE_COMMAND} -E touch ${z3ml_bin}/patched_dllz3ml
-    COMMENT "Dummy patch target for non-macOS"
-    VERBATIM
-  )
-endif()
-
-add_custom_target(patch_z3ml_dylib ALL
-  DEPENDS ${z3ml_bin}/patched_dllz3ml)
 
 add_custom_target(build_z3_ocaml_bindings
   ALL
@@ -267,7 +245,7 @@ add_custom_target(build_z3_ocaml_bindings
     ${z3ml_bin}/z3ml.cmxs
     ${z3ml_bin}/dllz3ml.so
     ${z3ml_bin}/libz3ml.a
-    patch_z3ml_dylib
+    ${META_OUTPUT_FILE}
 )
 
 # test
@@ -284,7 +262,7 @@ add_custom_command(
     -dllpath "${z3ml_bin}"
     "${z3ml_bin}/z3ml.cma"
     "${z3ml_example_src}"
-  COMMAND ocamlrun "${z3ml_bin}/ml_example.byte" > "${z3ml_bin}/ml_example.bc.log"
+  COMMAND env DYLD_LIBRARY_PATH=${PROJECT_BINARY_DIR} ocamlrun ${z3ml_bin}/ml_example.byte > ${z3ml_bin}/ml_example.bc.log
   COMMENT "Run OCaml bytecode example"
   VERBATIM
 )
@@ -298,7 +276,7 @@ add_custom_command(
     -I "${z3ml_bin}"
     "${z3ml_bin}/z3ml.cmxa"
     "${z3ml_example_src}"
-  COMMAND "${z3ml_bin}/ml_example" > "${z3ml_bin}/ml_example.log"
+  COMMAND env DYLD_LIBRARY_PATH=${PROJECT_BINARY_DIR} ${z3ml_bin}/ml_example > ${z3ml_bin}/ml_example.log
   COMMENT "Run OCaml native example"
   VERBATIM
 )
