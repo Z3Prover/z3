@@ -9,7 +9,11 @@ import glob
 from setuptools import setup
 from setuptools.command.build import build as _build
 from setuptools.command.sdist import sdist as _sdist
-from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
+try:
+    from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+except ImportError:
+    # wheel package not available, provide a dummy class
+    from setuptools.command.build import build as _bdist_wheel
 from setuptools.command.develop import develop as _develop
 
 class LibError(Exception):
@@ -112,6 +116,7 @@ def _clean_native_build():
     rmtree(BUILD_DIR)
 
 def _z3_version():
+    # Get version from project metadata
     post = os.getenv('Z3_VERSION_SUFFIX', '')
     if RELEASE_DIR is None:
         fn = os.path.join(SRC_DIR, 'scripts', 'mk_project.py')
@@ -284,7 +289,7 @@ class sdist(_sdist):
 # The Azure Dev Ops pipelines use internal OS version tagging that don't correspond
 # to releases.
 
-internal_build_re = re.compile("(.+)\_7")
+internal_build_re = re.compile(r"(.+)\_7")
 
 class bdist_wheel(_bdist_wheel):
 
@@ -323,19 +328,10 @@ class bdist_wheel(_bdist_wheel):
 
 
 setup(
-    name='z3-solver',
+    # Most configuration is now in pyproject.toml
+    # Keep only setup.py-specific configuration
     version=_z3_version(),
-    description='an efficient SMT solver library',
-    long_description='Z3 is a theorem prover from Microsoft Research with support for bitvectors, booleans, arrays, floating point numbers, strings, and other data types.\n\nFor documentation, please read http://z3prover.github.io/api/html/z3.html',
-    author="The Z3 Theorem Prover Project",
-    maintainer="Audrey Dutcher and Nikolaj Bjorner",
-    maintainer_email="audrey@rhelmot.io",
-    url='https://github.com/Z3Prover/z3',
-    license='MIT License',
-    keywords=['z3', 'smt', 'sat', 'prover', 'theorem'],
-    packages=['z3'],
     setup_requires = SETUP_REQUIRES,
-    install_requires = ["importlib-resources; python_version < '3.9'"],
     include_package_data=True,
     package_data={
         'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]
