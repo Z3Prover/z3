@@ -10,7 +10,6 @@
 #include "math/lp/nla_core.h"
 #include "math/lp/nla_common.h"
 #include "math/lp/factorization_factory_imp.h"
-#include "util/trail.h"
 
 namespace nla {
 

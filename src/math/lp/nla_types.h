@@ -66,8 +66,8 @@ namespace nla {
     class core;
     //
     // lemmas are created in a scope.
-    // when the destructor of new_lemma is invoked
-    // all constraints are assumed added to the lemma
+    // when the destructor of lemma_builder is invoked
+    // all constraints are assumed already added to the current_lemma
     // correctness of the lemma can be checked at this point.
     //
     class lemma_builder {
