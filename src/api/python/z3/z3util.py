@@ -493,7 +493,12 @@ def model_str(m, as_str=True):
 
     if m:
         vs = [(v, m[v]) for v in m]
-        vs = sorted(vs, key=lambda a, _: str(a))
+        # Sort model entries by the variable name for determinism.
+        # "sorted" expects a key function with a single argument, but the
+        # previous implementation incorrectly declared a two-argument lambda
+        # which resulted in a TypeError when invoked.  Use a one-argument
+        # lambda that accesses the first element of the pair.
+        vs = sorted(vs, key=lambda pair: str(pair[0]))
         if as_str:
             return "\n".join(["{} = {}".format(k, v) for (k, v) in vs])
         else:

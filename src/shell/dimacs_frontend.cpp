@@ -55,6 +55,7 @@ static void display_statistics() {
 }
 
 static void on_timeout() {
+    g_display_statistics = true;
     display_statistics();
     _Exit(0);
 }
