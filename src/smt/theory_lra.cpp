@@ -3446,7 +3446,6 @@ public:
     }
 
     void set_conflict() {
-        std::cout << "[DEBUG] theory_lra::set_conflict() - LRA conflict detected, incrementing m_num_conflicts from " << m_num_conflicts << "\n";
         literal_vector core;
         set_conflict_or_lemma(core, true);
     }
@@ -3459,7 +3458,6 @@ public:
         // lp().shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
-        std::cout << "[DEBUG] theory_lra conflict count incremented to: " << m_num_conflicts << ", stats conflicts: " << m_stats.m_conflicts << "\n";
         TRACE(arith_conflict,
               tout << "@" << ctx().get_scope_level() << (is_conflict ? " conflict":" lemma");
               for (auto const& p : m_params) tout << " " << p;
@@ -4153,34 +4151,9 @@ public:
     }
 
     void collect_statistics(::statistics & st) const {
-        std::cout << "[DEBUG] theory_lra impl::collect_statistics() - conflicts: " << m_stats.m_conflicts << ", total: " << m_num_conflicts << "\n";
-        
-        // Count statistics before adding
-        unsigned before_count = st.size();
-        
         m_arith_eq_adapter.collect_statistics(st);
         m_stats.collect_statistics(st);
         lp().settings().stats().collect_statistics(st);
-        
-        // Count statistics after adding
-        unsigned after_count = st.size();
-        std::cout << "[DEBUG] theory_lra impl added " << (after_count - before_count) << " statistics entries to the statistics object\n";
-        
-        // Show a few sample statistics that were added
-        if (after_count > before_count) {
-            std::cout << "[DEBUG] Some LRA statistics added:\n";
-            unsigned shown = 0;
-            unsigned total = st.size();
-            for (unsigned i = 0; i < total && shown < 5; ++i, ++shown) {
-                std::cout << "[DEBUG]   " << st.get_key(i) << ": ";
-                if (st.is_uint(i)) {
-                    std::cout << st.get_uint_value(i);
-                } else {
-                    std::cout << st.get_double_value(i);
-                }
-                std::cout << "\n";
-            }
-        }
     }        
 
     /*
@@ -4343,7 +4316,6 @@ void theory_lra::display(std::ostream & out) const {
     m_imp->display(out);
 }
 void theory_lra::collect_statistics(::statistics & st) const {
-    std::cout << "[DEBUG] theory_lra::collect_statistics() called\n";
     m_imp->collect_statistics(st);
 }
 theory_lra::inf_eps theory_lra::value(theory_var v) {

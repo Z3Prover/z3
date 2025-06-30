@@ -130,6 +130,7 @@ namespace smt {
         class parallel*             m_par = nullptr;
         unsigned                    m_par_index = 0;
         bool                        m_internalizing_assertions = false;
+        bool                        m_statistics_collected = false; // prevent double collection of theory statistics
         lbool                       m_internal_completed = l_undef;
 
 
@@ -1893,6 +1894,9 @@ namespace smt {
 
 
     std::ostream& operator<<(std::ostream& out, enode_pp const& p);
+    
+    // Function to get the current global SMT context (for timeout handling)
+    context* get_current_smt_context();
 
 };
 

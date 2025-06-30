@@ -27,11 +27,18 @@ Revision History:
 
 namespace smt {
     void context::flush_statistics() {
+        // Only collect statistics once to avoid duplication
+        if (m_statistics_collected) {
+            return;
+        }
+        
         // Force aggregation of theory statistics into m_aux_stats
         // This ensures that detailed theory statistics are available even on timeout/interruption
         for (theory* t : m_theory_set) {
             t->collect_statistics(m_aux_stats);
         }
+        
+        m_statistics_collected = true;
     }
 
     std::ostream& context::display_last_failure(std::ostream& out) const {
@@ -431,9 +438,15 @@ namespace smt {
         st.update("mk bool var", m_stats.m_num_mk_bool_var ? m_stats.m_num_mk_bool_var - 1 : 0);
         m_qmanager->collect_statistics(st);
         m_asserted_formulas.collect_statistics(st);
-        for (theory* th : m_theory_set) {
-            th->collect_statistics(st);
+        
+        // Only collect theory statistics if they haven't been aggregated yet by flush_statistics()
+        if (!m_statistics_collected) {
+            for (theory* th : m_theory_set) {
+                th->collect_statistics(st);
+            }
         }
+        // If theory stats were already aggregated by flush_statistics(), they are already in m_aux_stats
+        // which was copied to st above via st.copy(m_aux_stats)
     }
 
     void context::display_statistics(std::ostream & out) const {

@@ -40,7 +40,6 @@ extern bool g_display_statistics;
 extern bool g_display_model;
 static clock_t             g_start_time;
 static cmd_context *       g_cmd_context = nullptr;
-static smt::context *      g_smt_context = nullptr;  // Track active SMT context for timeout stats
 
 static void display_statistics() {
     lock_guard lock(*display_stats_mux);
@@ -66,18 +65,15 @@ static void display_model() {
 static void on_timeout() {
     // Force aggregation of theory statistics before displaying them
     
-    if (g_cmd_context) {
+    // Try to access the SMT context directly first (more direct path to theories)
+    smt::context* current_smt_ctx = smt::get_current_smt_context();
+    if (current_smt_ctx && g_cmd_context) {
+        // Force aggregation at SMT level and collect directly into singleton
+        current_smt_ctx->flush_statistics();
+        g_cmd_context->collect_smt_statistics(*current_smt_ctx);
+    } else if (g_cmd_context) {
+        // Fall back to normal flush if no direct SMT context access
         g_cmd_context->flush_statistics();
-    }
-    
-    // Try to access the SMT context directly if available
-    if (g_smt_context) {
-        g_smt_context->flush_statistics();
-        
-        // Also collect the aggregated stats into the cmd_context singleton
-        if (g_cmd_context) {
-            g_cmd_context->collect_smt_statistics(*g_smt_context);
-        }
     }
     
     display_statistics();
@@ -88,15 +84,6 @@ static void STD_CALL on_ctrl_c(int) {
     signal (SIGINT, SIG_DFL);
     display_statistics();
     raise(SIGINT);
-}
-
-// Functions to register/unregister the active SMT context for timeout handling
-void register_smt_context(smt::context* ctx) {
-    g_smt_context = ctx;
-}
-
-void unregister_smt_context() {
-    g_smt_context = nullptr;
 }
 
 void help_tactics() {

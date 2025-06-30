@@ -49,6 +49,9 @@ Revision History:
 
 namespace smt {
 
+    // Global pointer to current SMT context for timeout statistics collection
+    static context* g_smt_context = nullptr;
+
     context::context(ast_manager & m, smt_params & p, params_ref const & _p):
         m(m),
         m_fparams(p),
@@ -100,7 +103,7 @@ namespace smt {
         m_model_generator->set_context(this);
         
         // Register this SMT context for timeout statistics collection
-        register_smt_context(this);
+        g_smt_context = this;
     }
 
     /**
@@ -193,7 +196,9 @@ namespace smt {
 
     context::~context() {
         // Unregister this SMT context
-        unregister_smt_context();
+        if (g_smt_context == this) {
+            g_smt_context = nullptr;
+        }
         flush();
         m_asserted_formulas.finalize();
     }
@@ -3058,11 +3063,7 @@ namespace smt {
         
         // Aggregate statistics from all theories before cleanup
         // This ensures that detailed theory statistics are preserved even on timeout/interruption
-        std::cout << "[DEBUG] context::flush() - Aggregating statistics from " << m_theory_set.size() << " theories\n";
-        for (theory* t : m_theory_set) {
-            std::cout << "[DEBUG] Collecting stats from theory: " << t->get_name() << "\n";
-            t->collect_statistics(m_aux_stats);
-        }
+        flush_statistics();
         
         m_relevancy_propagator = nullptr;
         m_model_generator->reset();
@@ -3529,11 +3530,7 @@ namespace smt {
         
         // Aggregate statistics from all theories at the end of search
         // This ensures that theory statistics are collected even if search was interrupted
-        std::cout << "[DEBUG] context::check_finalize() - Aggregating statistics from " << m_theory_set.size() << " theories\n";
-        for (theory* t : m_theory_set) {
-            std::cout << "[DEBUG] Collecting stats from theory: " << t->get_name() << "\n";
-            t->collect_statistics(m_aux_stats);
-        }
+        flush_statistics();
         
         display_profile(verbose_stream());
         if (r == l_true && get_cancel_flag()) 
@@ -4820,6 +4817,10 @@ namespace smt {
         
         if (m_model && p.user_functions() && smtlib2_compliant != "true")
             m_model->add_rec_funs();
+    }
+    // Function to get the current global SMT context (for timeout handling)
+    context* get_current_smt_context() {
+        return g_smt_context;
     }
 
 };

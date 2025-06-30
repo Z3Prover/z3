@@ -2315,16 +2315,20 @@ void cmd_context::flush_statistics() {
     // Force aggregation of theory statistics AND collect them into our singleton
     // This ensures detailed theory stats are preserved even on timeout/interruption
     
+    // Avoid double-collection if m_check_sat_result and m_solver point to same object
+    bool collected_from_check_sat = false;
+    
     // Try m_check_sat_result first
     if (m_check_sat_result) {
         m_check_sat_result->flush_statistics();
         
         // Also collect the statistics immediately into our singleton
         m_check_sat_result->collect_statistics(m_global_stats);
+        collected_from_check_sat = true;
     }
     
-    // Also try m_solver which might have the theories
-    if (m_solver) {
+    // Also try m_solver which might have the theories (but avoid duplication)
+    if (m_solver && (!collected_from_check_sat || m_solver.get() != m_check_sat_result)) {
         m_solver->flush_statistics();
         
         // Also collect the statistics immediately into our singleton
@@ -2332,7 +2336,7 @@ void cmd_context::flush_statistics() {
     }
     
     // Try to get access to any other solver contexts
-    if (m_opt) {
+    if (m_opt && m_opt.get() != m_check_sat_result) {
         // m_opt->flush_statistics(); // Not implemented for optimization
         
         // But we can still collect stats
