@@ -508,6 +508,7 @@ public:
 
     void display_assertions();
     void display_statistics(bool show_total_time = false, double total_time = 0.0);
+    void flush_statistics();  // Force aggregation of theory statistics
     void display_dimacs();
     void display_parameters(std::ostream& out);
     void reset(bool finalize = false);

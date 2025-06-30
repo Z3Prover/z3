@@ -1836,6 +1836,8 @@ namespace smt {
 
         void collect_statistics(::statistics & st) const;
 
+        void flush_statistics();  // Force aggregation of theory statistics
+
         void display_statistics(std::ostream & out) const;
         void display_istatistics(std::ostream & out) const;
 

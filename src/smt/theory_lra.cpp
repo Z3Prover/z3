@@ -3446,6 +3446,7 @@ public:
     }
 
     void set_conflict() {
+        std::cout << "[DEBUG] theory_lra::set_conflict() - LRA conflict detected, incrementing m_num_conflicts from " << m_num_conflicts << "\n";
         literal_vector core;
         set_conflict_or_lemma(core, true);
     }
@@ -3458,6 +3459,7 @@ public:
         // lp().shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
+        std::cout << "[DEBUG] theory_lra conflict count incremented to: " << m_num_conflicts << ", stats conflicts: " << m_stats.m_conflicts << "\n";
         TRACE(arith_conflict,
               tout << "@" << ctx().get_scope_level() << (is_conflict ? " conflict":" lemma");
               for (auto const& p : m_params) tout << " " << p;
@@ -4151,6 +4153,7 @@ public:
     }
 
     void collect_statistics(::statistics & st) const {
+        std::cout << "[DEBUG] theory_lra impl::collect_statistics() - conflicts: " << m_stats.m_conflicts << ", total: " << m_num_conflicts << "\n";
         m_arith_eq_adapter.collect_statistics(st);
         m_stats.collect_statistics(st);
         lp().settings().stats().collect_statistics(st);
@@ -4316,6 +4319,7 @@ void theory_lra::display(std::ostream & out) const {
     m_imp->display(out);
 }
 void theory_lra::collect_statistics(::statistics & st) const {
+    std::cout << "[DEBUG] theory_lra::collect_statistics() called\n";
     m_imp->collect_statistics(st);
 }
 theory_lra::inf_eps theory_lra::value(theory_var v) {

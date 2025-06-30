@@ -256,6 +256,11 @@ namespace smt {
     void kernel::collect_statistics(::statistics & st) const {
         m_imp->m_kernel.collect_statistics(st);
     }
+
+    void kernel::flush_statistics() {
+        std::cout << "[DEBUG] smt::kernel::flush_statistics() called\n";
+        m_imp->m_kernel.flush_statistics();
+    }
         
     void kernel::reset_statistics() {
     }

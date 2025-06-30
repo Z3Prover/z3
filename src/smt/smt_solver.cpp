@@ -146,6 +146,11 @@ namespace {
             m_context.collect_statistics(st);
         }
 
+        void flush_statistics() override {
+            // Force aggregation of theory statistics before collecting them
+            m_context.flush_statistics();
+        }
+
         lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) override {
             expr_ref_vector unfixed(m_context.m());
             return m_context.get_consequences(assumptions, vars, conseq, unfixed);

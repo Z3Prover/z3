@@ -2306,6 +2306,20 @@ void cmd_context::display_statistics(bool show_total_time, double total_time) {
     st.display_smt2(regular_stream());
 }
 
+void cmd_context::flush_statistics() {
+    // Force aggregation of theory statistics before displaying them
+    // This ensures detailed theory stats are available even on timeout/interruption
+    if (m_check_sat_result) {
+        m_check_sat_result->flush_statistics();
+    }
+    else if (m_solver) {
+        m_solver->flush_statistics();
+    }
+    else if (m_opt) {
+        // m_opt->flush_statistics(); // Not implemented for optimization
+    }
+}
+
 
 vector<std::pair<expr*,expr*>> cmd_context::tracked_assertions() {
     vector<std::pair<expr*,expr*>> result;

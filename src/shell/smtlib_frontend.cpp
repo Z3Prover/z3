@@ -62,6 +62,12 @@ static void display_model() {
 }
 
 static void on_timeout() {
+    // Force aggregation of theory statistics before displaying them
+    std::cout << "[DEBUG] on_timeout() called - forcing statistics aggregation\n";
+    if (g_cmd_context) {
+        std::cout << "[DEBUG] Calling g_cmd_context->flush_statistics()\n";
+        g_cmd_context->flush_statistics();
+    }
     display_statistics();
     _Exit(0);
 }

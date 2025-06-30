@@ -54,6 +54,7 @@ public:
     lbool set_status(lbool r) { return m_status = r; }
     lbool status() const { return m_status; }
     virtual void collect_statistics(statistics & st) const = 0;
+    virtual void flush_statistics() {}  // Force aggregation of theory statistics
     virtual void get_unsat_core(expr_ref_vector & r) = 0;
     void set_model_converter(model_converter* mc) { m_mc0 = mc; }
     model_converter* mc0() const { return m_mc0.get(); }

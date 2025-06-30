@@ -3049,6 +3049,15 @@ namespace smt {
     void context::flush() {
         flet<bool> l1(m_flushing, true);
         TRACE(flush, tout << "m_scope_lvl: " << m_scope_lvl << "\n";);
+        
+        // Aggregate statistics from all theories before cleanup
+        // This ensures that detailed theory statistics are preserved even on timeout/interruption
+        std::cout << "[DEBUG] context::flush() - Aggregating statistics from " << m_theory_set.size() << " theories\n";
+        for (theory* t : m_theory_set) {
+            std::cout << "[DEBUG] Collecting stats from theory: " << t->get_name() << "\n";
+            t->collect_statistics(m_aux_stats);
+        }
+        
         m_relevancy_propagator = nullptr;
         m_model_generator->reset();
         for (theory* t : m_theory_set) {
@@ -3511,6 +3520,15 @@ namespace smt {
               m_case_split_queue->display(tout << "case splits\n");
               );
         m_search_finalized = true;
+        
+        // Aggregate statistics from all theories at the end of search
+        // This ensures that theory statistics are collected even if search was interrupted
+        std::cout << "[DEBUG] context::check_finalize() - Aggregating statistics from " << m_theory_set.size() << " theories\n";
+        for (theory* t : m_theory_set) {
+            std::cout << "[DEBUG] Collecting stats from theory: " << t->get_name() << "\n";
+            t->collect_statistics(m_aux_stats);
+        }
+        
         display_profile(verbose_stream());
         if (r == l_true && get_cancel_flag()) 
             r = l_undef;

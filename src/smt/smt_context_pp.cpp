@@ -27,7 +27,6 @@ Revision History:
 
 namespace smt {
 
-
     std::ostream& context::display_last_failure(std::ostream& out) const {
         switch(m_last_search_failure) {
         case OK:
@@ -427,6 +426,16 @@ namespace smt {
         m_asserted_formulas.collect_statistics(st);
         for (theory* th : m_theory_set) {
             th->collect_statistics(st);
+        }
+    }
+
+    void context::flush_statistics() {
+        // Force aggregation of theory statistics into m_aux_stats
+        // This ensures detailed theory stats are available even on timeout/interruption
+        std::cout << "[DEBUG] context::flush_statistics() - Aggregating statistics from " << m_theory_set.size() << " theories\n";
+        for (theory* t : m_theory_set) {
+            std::cout << "[DEBUG] Collecting stats from theory: " << t->get_name() << "\n";
+            t->collect_statistics(m_aux_stats);
         }
     }
 

@@ -271,6 +271,11 @@ namespace smt {
         void collect_statistics(::statistics & st) const;
         
         /**
+           \brief Force aggregation of theory statistics.
+         */
+        void flush_statistics();
+        
+        /**
            \brief Reset kernel statistics.
         */
         void reset_statistics();
