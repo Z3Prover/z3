@@ -304,3 +304,31 @@ jobs:
 # Skip as dead-slow in debug mode:
 #  - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
+
+
+- job: Python
+  displayName: "Python packaging"
+  pool:
+    vmImage: "ubuntu-24.04"
+  steps:
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download macOS Build'
+    inputs:
+      artifactName: 'macOsPython'
+      targetPath: $(Agent.TempDirectory)
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download ManyLinux Build'    
+    inputs:
+      artifactName: 'ManyLinuxPythonBuildAmd64'
+      targetPath: $(Agent.TempDirectory)
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download ManyLinux Arm64 Build'
+    inputs:
+      artifactName: 'ManyLinuxPythonBuildArm64'
+      targetPath: $(Agent.TempDirectory)
+  - script: cd $(Agent.TempDirectory); mkdir osx-x64-bin; cd osx-x64-bin; unzip ../*x64-osx*.zip
+  - script: python3 -m pip install --user -U setuptools
+  - script: cd src/api/python; python3 setup.py sdist
+    # take a look at this PREMIUM HACK I came up with to get around the fact that the azure variable syntax overloads the bash syntax for subshells
+  - script: cd src/api/python; echo $(Agent.TempDirectory)/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+  - script: cp $(Agent.TempDirectory)/*.whl src/api/python/dist
