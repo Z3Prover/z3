@@ -29,25 +29,9 @@ namespace smt {
     void context::flush_statistics() {
         // Force aggregation of theory statistics into m_aux_stats
         // This ensures that detailed theory statistics are available even on timeout/interruption
-        std::cout << "[DEBUG] smt::context::flush_statistics() called - Aggregating statistics from " << m_theory_set.size() << " theories\n";
-        
-        // Show current m_aux_stats before aggregation
-        std::cout << "[DEBUG] m_aux_stats before aggregation has " << m_aux_stats.size() << " entries\n";
-        
         for (theory* t : m_theory_set) {
-            std::cout << "[DEBUG] Collecting stats from theory: " << t->get_name() << "\n";
-            
-            // Count stats before collecting from this theory
-            unsigned before_count = m_aux_stats.size();
-            
             t->collect_statistics(m_aux_stats);
-            
-            // Count stats after collecting from this theory
-            unsigned after_count = m_aux_stats.size();
-            std::cout << "[DEBUG] Theory " << t->get_name() << " added " << (after_count - before_count) << " statistics entries\n";
         }
-        
-        std::cout << "[DEBUG] m_aux_stats after aggregation has " << m_aux_stats.size() << " total entries\n";
     }
 
     std::ostream& context::display_last_failure(std::ostream& out) const {
@@ -428,9 +412,7 @@ namespace smt {
     }
 
     void context::collect_statistics(::statistics & st) const {
-        std::cout << "[DEBUG] smt::context::collect_statistics() called - m_aux_stats has " << m_aux_stats.size() << " entries\n";
         st.copy(m_aux_stats);
-        std::cout << "[DEBUG] After copying m_aux_stats, st has " << st.size() << " entries\n";
         st.update("conflicts", m_stats.m_num_conflicts);
         st.update("decisions", m_stats.m_num_decisions);
         st.update("propagations", m_stats.m_num_propagations + m_stats.m_num_bin_propagations);
