@@ -2309,14 +2309,21 @@ void cmd_context::display_statistics(bool show_total_time, double total_time) {
 void cmd_context::flush_statistics() {
     // Force aggregation of theory statistics before displaying them
     // This ensures detailed theory stats are available even on timeout/interruption
+    std::cout << "[DEBUG] cmd_context::flush_statistics() called\n";
     if (m_check_sat_result) {
+        std::cout << "[DEBUG] Calling m_check_sat_result->flush_statistics()\n";
         m_check_sat_result->flush_statistics();
     }
     else if (m_solver) {
+        std::cout << "[DEBUG] Calling m_solver->flush_statistics()\n";
         m_solver->flush_statistics();
     }
     else if (m_opt) {
+        std::cout << "[DEBUG] m_opt exists but flush_statistics not implemented\n";
         // m_opt->flush_statistics(); // Not implemented for optimization
+    }
+    else {
+        std::cout << "[DEBUG] No solver object found!\n";
     }
 }
 

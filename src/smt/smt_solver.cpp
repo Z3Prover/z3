@@ -148,6 +148,7 @@ namespace {
 
         void flush_statistics() override {
             // Force aggregation of theory statistics before collecting them
+            std::cout << "[DEBUG] smt_solver::flush_statistics() called\n";
             m_context.flush_statistics();
         }
 
