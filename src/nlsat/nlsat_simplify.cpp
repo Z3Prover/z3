@@ -33,7 +33,7 @@ namespace nlsat {
             m_learned.clear();
             
             IF_VERBOSE(3, s.display(verbose_stream() << "before\n"));
-            unsigned sz = m_clauses.size();
+            unsigned sz = static_cast<unsigned>(m_clauses.size());
             while (true) {
 
                 subsumption_simplify();
@@ -51,7 +51,7 @@ namespace nlsat {
 
                 split_factors();
 
-                sz = m_clauses.size();
+                sz = static_cast<unsigned>(m_clauses.size());
             }
 
             IF_VERBOSE(3, s.display(verbose_stream() << "after\n"));
@@ -66,7 +66,7 @@ namespace nlsat {
             polynomial_ref p(m_pm);
             ptr_buffer<poly> ps;
             buffer<bool> is_even;
-            unsigned num_atoms = m_atoms.size();
+            unsigned num_atoms = static_cast<unsigned>(m_atoms.size());
             for (unsigned j = 0; j < num_atoms; ++j) {
                 atom* a1 = m_atoms[j];
                 if (a1 && a1->is_ineq_atom()) {
@@ -94,7 +94,7 @@ namespace nlsat {
 
         void update_clauses(u_map<literal> const& b2l) {
             literal_vector lits;
-            unsigned n = m_clauses.size();
+            unsigned n = static_cast<unsigned>(m_clauses.size());
 
             for (unsigned i = 0; i < n; ++i) {
                 clause* c = m_clauses[i];
@@ -334,7 +334,7 @@ namespace nlsat {
         }
 
         bool cleanup_removed() {
-            unsigned j = 0, sz = m_clauses.size();
+            unsigned j = 0, sz = static_cast<unsigned>(m_clauses.size());
             for (unsigned i = 0; i < sz; ++i) {
                 auto c = m_clauses[i];
                 if (c->is_removed())
