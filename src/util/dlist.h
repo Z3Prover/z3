@@ -210,7 +210,7 @@ public:
         return *this;
     }
 
-    T const& operator*() const {
+    T const & operator*() const {
         return *m_elem;
     }
     bool operator!=(dll_iterator const& other) const {

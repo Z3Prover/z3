@@ -301,10 +301,8 @@ bool substitution::acyclic(expr_offset p) {
 bool substitution::acyclic() {
     m_color.reset();
     expr_offset r;
-    svector<var_offset>::iterator it  = m_vars.begin();
-    svector<var_offset>::iterator end = m_vars.end();
-    for (; it != end; ++it) {
-        m_subst.find(it->first, it->second, r);
+    for (auto const& [k, v] : m_vars) {
+        m_subst.find(k, v, r);
         if (!acyclic(r))
             return false;
     }
