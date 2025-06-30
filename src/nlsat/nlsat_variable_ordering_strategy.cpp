@@ -131,7 +131,7 @@ namespace nlsat {
         }
 
         void collect(clause_vector const & cs) {
-            unsigned sz = static_cast<unsigned>(cs.size());
+            unsigned sz = usize(cs);
             for (unsigned i = 0; i < sz; i++) 
                 collect(*(cs[i]));
         }

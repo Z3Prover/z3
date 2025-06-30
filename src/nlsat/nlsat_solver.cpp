@@ -2603,7 +2603,7 @@ namespace nlsat {
         }
 
         bool check_satisfied(clause_vector const & cs) {
-            unsigned sz = static_cast<unsigned>(cs.size());
+            unsigned sz = usize(cs);
             for (unsigned i = 0; i < sz; i++) {
                 clause const & c = *(cs[i]);
                 if (!is_satisfied(c)) {
@@ -2616,7 +2616,7 @@ namespace nlsat {
 
         bool check_satisfied() {
             TRACE(nlsat, tout << "bk: b" << m_bk << ", xk: x" << m_xk << "\n"; if (m_xk != null_var) { m_display_var(tout, m_xk); tout << "\n"; });
-            unsigned num = static_cast<unsigned>(m_atoms.size());
+            unsigned num = usize(m_atoms);
             if (m_bk != null_bool_var)
                 num = m_bk;
             for (bool_var b = 0; b < num; b++) {
@@ -2713,7 +2713,7 @@ namespace nlsat {
             }
 
             void collect(clause_vector const & cs) {
-                unsigned sz = static_cast<unsigned>(cs.size());
+                unsigned sz = usize(cs);
                 for (unsigned i = 0; i < sz; i++) 
                     collect(*(cs[i]));
             }
@@ -3045,7 +3045,7 @@ namespace nlsat {
             unsigned num = num_vars();
             for (unsigned i = 0; i < num; i++) {
                 clause_vector & ws = m_watches[i];
-                sort_clauses_by_degree(static_cast<unsigned>(ws.size()), ws.data());
+                sort_clauses_by_degree(usize(ws), ws.data());
             }
         }
 
@@ -3273,7 +3273,7 @@ namespace nlsat {
         }
 
         std::ostream& display_bool_assignment(std::ostream & out, bool eval_atoms = false) const {
-            unsigned sz = static_cast<unsigned>(m_atoms.size());
+            unsigned sz = usize(m_atoms);
             if (!eval_atoms) {
                 for (bool_var b = 0; b < sz; b++) {
                     if (m_bvalues[b] == l_undef)
@@ -3945,7 +3945,7 @@ namespace nlsat {
         }
 
         std::ostream& display_mathematica(std::ostream & out, clause_vector const & cs) const {            
-            unsigned sz = static_cast<unsigned>(cs.size());
+            unsigned sz = usize(cs);
             for (unsigned i = 0; i < sz; i++) {
                 if (i > 0) out << ",\n";
                 display_mathematica(out << " ", *(cs[i]));
@@ -4011,7 +4011,7 @@ namespace nlsat {
         }
 
         std::ostream& display_smt2_bool_decls(std::ostream & out) const {
-            unsigned sz = static_cast<unsigned>(m_atoms.size());
+            unsigned sz = usize(m_atoms);
             for (unsigned i = 0; i < sz; i++) {
                 if (m_atoms[i] == nullptr)
                     out << "(declare-fun b" << i << " () Bool)\n";

@@ -1249,3 +1249,8 @@ inline std::ostream& operator<<(std::ostream& out, vector<T> const& v) {
     }
     return out;
  }
+
+template<typename Vec>
+inline unsigned usize(Vec const& v) {
+    return static_cast<unsigned>(v.size());
+}

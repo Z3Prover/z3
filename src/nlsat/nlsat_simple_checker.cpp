@@ -257,8 +257,8 @@ namespace nlsat {
             for (unsigned i = 0; i < arith_var_num; ++i) {
                 vars_domain.push_back(Var_Domain(am));
             }
-            clauses_visited.resize(static_cast<unsigned>(clauses.size()));
-            literal_special_kind.resize(static_cast<unsigned>(clauses.size()));
+            clauses_visited.resize(usize(clauses));
+            literal_special_kind.resize(usize(clauses));
         }
         sign_kind to_sign_kind(atom::kind kd) {
             if (kd == atom::EQ)
@@ -1067,7 +1067,7 @@ else { // ( == 0) + (c > 0) -> > 0
    
         bool collect_var_domain() {
             // vector<unsigned> vec_id;
-            for (unsigned i = 0, sz = static_cast<unsigned>(clauses.size()); i < sz; ++i) {
+            for (unsigned i = 0, sz = usize(clauses); i < sz; ++i) {
                 if (clauses_visited[i].visited)
                     continue;
                 if (clauses[i]->size() > 1)
@@ -1099,7 +1099,7 @@ else { // ( == 0) + (c > 0) -> > 0
                     tout << "====== arith[" << i << "] ======\n";
                 }
             );
-            for (unsigned i = 0, sz = static_cast<unsigned>(clauses.size()); i < sz; ++i) {
+            for (unsigned i = 0, sz = usize(clauses); i < sz; ++i) {
                 // unsigned id = vec_id[i];
                 if (!collect_domain_axbsc_form(i, 0))
                     return false;
@@ -1520,7 +1520,7 @@ else { // ( == 0) + (c > 0) -> > 0
             return false;
         }
         bool check() {
-            for (unsigned i = 0, sz = static_cast<unsigned>(clauses.size()); i < sz; ++i) {
+            for (unsigned i = 0, sz = usize(clauses); i < sz; ++i) {
                 if (clauses_visited[i].visited)
                     continue;
                 if (!check_clause_satisfiable(i)) {
