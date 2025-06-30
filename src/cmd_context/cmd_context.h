@@ -23,6 +23,7 @@ Notes:
 #include<sstream>
 #include<vector>
 #include "util/stopwatch.h"
+#include "util/stats.h"
 #include "util/cmd_context_types.h"
 #include "util/event_handler.h"
 #include "util/sexpr.h"
@@ -43,6 +44,9 @@ Notes:
 #include "cmd_context/tactic_manager.h"
 #include "params/context_params.h"
 
+namespace smt {
+    class context;
+}
 
 class func_decls {
     func_decl * m_decls { nullptr };
@@ -302,6 +306,11 @@ protected:
     ref<opt_wrapper>             m_opt;
 
     stopwatch                    m_watch;
+    
+    // Singleton statistics object to accumulate stats throughout the run
+    // This ensures theory statistics collected during timeout are preserved
+    statistics                   m_global_stats;
+    bool                         m_stats_collected;
 
     class dt_eh : public new_datatype_eh {
         cmd_context &             m_owner;
@@ -509,6 +518,7 @@ public:
     void display_assertions();
     void display_statistics(bool show_total_time = false, double total_time = 0.0);
     void flush_statistics();  // Force aggregation of theory statistics
+    void collect_smt_statistics(smt::context& smt_ctx);  // Collect stats from SMT context into singleton
     void display_dimacs();
     void display_parameters(std::ostream& out);
     void reset(bool finalize = false);

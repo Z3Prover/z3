@@ -17,6 +17,8 @@ Notes:
 --*/
 
 #include<signal.h>
+#include<typeinfo>
+#include "smt/smt_context.h"
 #include "util/tptr.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_ctrl_c.h"
@@ -606,7 +608,8 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_manager(m),
     m_own_manager(m == nullptr),
     m_regular("stdout", std::cout),
-    m_diagnostic("stderr", std::cerr) {
+    m_diagnostic("stderr", std::cerr),
+    m_stats_collected(false) {
     SASSERT(m != 0 || !has_manager());
     install_basic_cmds(*this);
     install_ext_basic_cmds(*this);
@@ -2288,43 +2291,88 @@ void cmd_context::set_solver_factory(solver_factory * f) {
 }
 
 void cmd_context::display_statistics(bool show_total_time, double total_time) {
-    statistics st;
+    std::cout << "[DEBUG] cmd_context::display_statistics() called - singleton has " << m_global_stats.size() << " entries\n";
+    
+    // If statistics haven't been collected yet, collect them now
+    if (!m_stats_collected) {
+        std::cout << "[DEBUG] Statistics not yet collected, calling flush_statistics()\n";
+        flush_statistics();
+    } else {
+        std::cout << "[DEBUG] Using already collected singleton statistics\n";
+    }
+    
+    // Add time and memory statistics
     if (show_total_time)
-        st.update("total time", total_time);
-    st.update("time", get_seconds());
-    get_memory_statistics(st);
-    get_rlimit_statistics(m().limit(), st);
-    if (m_check_sat_result) {
-        m_check_sat_result->collect_statistics(st);
-    }
-    else if (m_solver) {
-        m_solver->collect_statistics(st);
-    }
-    else if (m_opt) {
-        m_opt->collect_statistics(st);
-    }
-    st.display_smt2(regular_stream());
+        m_global_stats.update("total time", total_time);
+    m_global_stats.update("time", get_seconds());
+    get_memory_statistics(m_global_stats);
+    get_rlimit_statistics(m().limit(), m_global_stats);
+    
+    std::cout << "[DEBUG] Final singleton statistics has " << m_global_stats.size() << " entries\n";
+    m_global_stats.display_smt2(regular_stream());
 }
 
 void cmd_context::flush_statistics() {
-    // Force aggregation of theory statistics before displaying them
-    // This ensures detailed theory stats are available even on timeout/interruption
-    std::cout << "[DEBUG] cmd_context::flush_statistics() called\n";
+    // Only collect statistics once to avoid duplication
+    if (m_stats_collected) {
+        std::cout << "[DEBUG] cmd_context::flush_statistics() - Statistics already collected, skipping\n";
+        return;
+    }
+    
+    // Force aggregation of theory statistics AND collect them into our singleton
+    // This ensures detailed theory stats are preserved even on timeout/interruption
+    std::cout << "[DEBUG] cmd_context::flush_statistics() called - collecting into singleton\n";
+    
+    // Try m_check_sat_result first
     if (m_check_sat_result) {
-        std::cout << "[DEBUG] Calling m_check_sat_result->flush_statistics()\n";
+        std::cout << "[DEBUG] m_check_sat_result exists, calling flush_statistics() on " << typeid(*m_check_sat_result).name() << "\n";
         m_check_sat_result->flush_statistics();
+        
+        // Also collect the statistics immediately into our singleton
+        std::cout << "[DEBUG] Collecting statistics from m_check_sat_result into singleton\n";
+        m_check_sat_result->collect_statistics(m_global_stats);
+    } else {
+        std::cout << "[DEBUG] m_check_sat_result is null\n";
     }
-    else if (m_solver) {
-        std::cout << "[DEBUG] Calling m_solver->flush_statistics()\n";
+    
+    // Also try m_solver which might have the theories
+    if (m_solver) {
+        std::cout << "[DEBUG] m_solver exists, calling flush_statistics() on " << typeid(*m_solver).name() << "\n";
         m_solver->flush_statistics();
+        
+        // Also collect the statistics immediately into our singleton
+        std::cout << "[DEBUG] Collecting statistics from m_solver into singleton\n";
+        m_solver->collect_statistics(m_global_stats);
+    } else {
+        std::cout << "[DEBUG] m_solver is null\n";
     }
-    else if (m_opt) {
+    
+    // Try to get access to any other solver contexts
+    if (m_opt) {
         std::cout << "[DEBUG] m_opt exists but flush_statistics not implemented\n";
         // m_opt->flush_statistics(); // Not implemented for optimization
+        
+        // But we can still collect stats
+        std::cout << "[DEBUG] Collecting statistics from m_opt into singleton\n";
+        m_opt->collect_statistics(m_global_stats);
+    } else {
+        std::cout << "[DEBUG] m_opt is null\n";
     }
-    else {
-        std::cout << "[DEBUG] No solver object found!\n";
-    }
+    
+    std::cout << "[DEBUG] Singleton statistics now has " << m_global_stats.size() << " entries\n";
+    m_stats_collected = true;
+}
+
+void cmd_context::collect_smt_statistics(smt::context& smt_ctx) {
+    // Collect statistics from SMT context directly into our singleton
+    std::cout << "[DEBUG] cmd_context::collect_smt_statistics() called\n";
+    std::cout << "[DEBUG] Singleton before SMT collection has " << m_global_stats.size() << " entries\n";
+    
+    // Collect from the SMT context which should have aggregated theory stats
+    smt_ctx.collect_statistics(m_global_stats);
+    
+    std::cout << "[DEBUG] Singleton after SMT collection has " << m_global_stats.size() << " entries\n";
+    m_stats_collected = true;
 }
 
 

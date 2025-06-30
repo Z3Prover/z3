@@ -28,6 +28,7 @@ Revision History:
 #include "ast/recfun_decl_plugin.h"
 #include "ast/proofs/proof_checker.h"
 #include "ast/ast_util.h"
+#include "shell/smtlib_frontend.h"
 #include "ast/well_sorted.h"
 #include "model/model_params.hpp"
 #include "model/model.h"
@@ -97,6 +98,9 @@ namespace smt {
             m_fparams.m_relevancy_lemma = false;
 
         m_model_generator->set_context(this);
+        
+        // Register this SMT context for timeout statistics collection
+        register_smt_context(this);
     }
 
     /**
@@ -188,6 +192,8 @@ namespace smt {
     }
 
     context::~context() {
+        // Unregister this SMT context
+        unregister_smt_context();
         flush();
         m_asserted_formulas.finalize();
     }

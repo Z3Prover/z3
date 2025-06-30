@@ -24,6 +24,7 @@ Revision History:
 #include "util/timeout.h"
 #include "util/mutex.h"
 #include "parsers/smt2/smt2parser.h"
+#include "smt/smt_context.h"
 #include "muz/fp/dl_cmds.h"
 #include "cmd_context/extra_cmds/dbg_cmds.h"
 #include "cmd_context/extra_cmds/proof_cmds.h"
@@ -39,6 +40,7 @@ extern bool g_display_statistics;
 extern bool g_display_model;
 static clock_t             g_start_time;
 static cmd_context *       g_cmd_context = nullptr;
+static smt::context *      g_smt_context = nullptr;  // Track active SMT context for timeout stats
 
 static void display_statistics() {
     lock_guard lock(*display_stats_mux);
@@ -64,10 +66,26 @@ static void display_model() {
 static void on_timeout() {
     // Force aggregation of theory statistics before displaying them
     std::cout << "[DEBUG] on_timeout() called - forcing statistics aggregation\n";
+    
     if (g_cmd_context) {
         std::cout << "[DEBUG] Calling g_cmd_context->flush_statistics()\n";
         g_cmd_context->flush_statistics();
     }
+    
+    // Try to access the SMT context directly if available
+    if (g_smt_context) {
+        std::cout << "[DEBUG] Found g_smt_context! Calling flush_statistics() directly\n";
+        g_smt_context->flush_statistics();
+        
+        // Also collect the aggregated stats into the cmd_context singleton
+        if (g_cmd_context) {
+            std::cout << "[DEBUG] Collecting SMT context stats into cmd_context singleton\n";
+            g_cmd_context->collect_smt_statistics(*g_smt_context);
+        }
+    } else {
+        std::cout << "[DEBUG] g_smt_context is null\n";
+    }
+    
     display_statistics();
     _Exit(0);
 }
@@ -76,6 +94,17 @@ static void STD_CALL on_ctrl_c(int) {
     signal (SIGINT, SIG_DFL);
     display_statistics();
     raise(SIGINT);
+}
+
+// Functions to register/unregister the active SMT context for timeout handling
+void register_smt_context(smt::context* ctx) {
+    g_smt_context = ctx;
+    std::cout << "[DEBUG] Registered SMT context: " << (void*)ctx << "\n";
+}
+
+void unregister_smt_context() {
+    std::cout << "[DEBUG] Unregistered SMT context: " << (void*)g_smt_context << "\n";
+    g_smt_context = nullptr;
 }
 
 void help_tactics() {

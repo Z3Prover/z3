@@ -4154,9 +4154,33 @@ public:
 
     void collect_statistics(::statistics & st) const {
         std::cout << "[DEBUG] theory_lra impl::collect_statistics() - conflicts: " << m_stats.m_conflicts << ", total: " << m_num_conflicts << "\n";
+        
+        // Count statistics before adding
+        unsigned before_count = st.size();
+        
         m_arith_eq_adapter.collect_statistics(st);
         m_stats.collect_statistics(st);
         lp().settings().stats().collect_statistics(st);
+        
+        // Count statistics after adding
+        unsigned after_count = st.size();
+        std::cout << "[DEBUG] theory_lra impl added " << (after_count - before_count) << " statistics entries to the statistics object\n";
+        
+        // Show a few sample statistics that were added
+        if (after_count > before_count) {
+            std::cout << "[DEBUG] Some LRA statistics added:\n";
+            unsigned shown = 0;
+            unsigned total = st.size();
+            for (unsigned i = 0; i < total && shown < 5; ++i, ++shown) {
+                std::cout << "[DEBUG]   " << st.get_key(i) << ": ";
+                if (st.is_uint(i)) {
+                    std::cout << st.get_uint_value(i);
+                } else {
+                    std::cout << st.get_double_value(i);
+                }
+                std::cout << "\n";
+            }
+        }
     }        
 
     /*
