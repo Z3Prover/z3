@@ -28,9 +28,8 @@ Revision History:
 namespace smt {
     void context::flush_statistics() {
         // Only collect statistics once to avoid duplication
-        if (m_statistics_collected) {
+        if (m_statistics_collected)
             return;
-        }
         
         // Force aggregation of theory statistics into m_aux_stats
         // This ensures that detailed theory statistics are available even on timeout/interruption

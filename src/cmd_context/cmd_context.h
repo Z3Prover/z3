@@ -311,7 +311,7 @@ protected:
     // Singleton statistics object to accumulate stats throughout the run
     // This ensures theory statistics collected during timeout are preserved
     // Using a pointer to avoid any accidental copying
-    std::unique_ptr<statistics>      m_global_stats;
+    std::unique_ptr<statistics>  m_global_stats;
     bool                         m_stats_collected;
     mutex                        m_stats_mutex;  // Protect statistics access
 
