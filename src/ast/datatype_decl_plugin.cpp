@@ -1070,6 +1070,12 @@ namespace datatype {
         plugin().add_ast(con);
         plugin().m_vectors.push_back(res);
         plugin().m_constructor2accessors.insert(con, res);
+        
+        // Early return for 0-ary constructors - they have no accessors by definition
+        if (con->get_arity() == 0) {
+            return res;
+        }
+        
         sort * datatype = con->get_range();
         def const& d = get_def(datatype);
         for (constructor const* c : d) {
