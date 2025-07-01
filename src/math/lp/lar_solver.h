@@ -503,6 +503,7 @@ public:
     const constraint_set & constraints() const;
     void push();
     void pop();
+    unsigned get_scope_level() const;
 
     u_dependency* get_column_lower_bound_witness(unsigned j) const;
     

@@ -528,6 +528,10 @@ namespace lp {
         m_imp->m_usage_in_terms.push();
         m_imp->m_dependencies.push_scope();
     }
+
+    unsigned lar_solver::get_scope_level() const {
+        return m_imp->m_trail.get_num_scopes();
+    }
     
     void lar_solver::clean_popped_elements(unsigned n, indexed_uint_set& set) {
         vector<int> to_remove;
