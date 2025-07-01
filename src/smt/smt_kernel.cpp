@@ -258,7 +258,7 @@ namespace smt {
     }
 
     void kernel::flush_statistics() {
-        std::cout << "[DEBUG] smt::kernel::flush_statistics() called\n";
+        IF_LOG(DEBUG, log() << "smt::kernel::flush_statistics() called\n";);
         m_imp->m_kernel.flush_statistics();
     }
         
