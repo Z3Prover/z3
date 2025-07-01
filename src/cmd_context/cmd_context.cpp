@@ -2471,6 +2471,10 @@ cmd_context::dt_eh::dt_eh(cmd_context & owner):
 
 void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
     TRACE(new_dt_eh, tout << "new datatype: "; m_owner.pm().display(tout, dt); tout << "\n";);
+    
+    // Batch initialize all constructor functions to avoid O(n²) behavior for large datatypes  
+    m_dt_util.batch_initialize_constructor_functions(dt);
+    
     for (func_decl * c : *m_dt_util.get_datatype_constructors(dt)) {
         TRACE(new_dt_eh, tout << "new constructor: " << c->get_name() << "\n";);
         m_owner.insert(c);

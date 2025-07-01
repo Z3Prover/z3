@@ -373,6 +373,7 @@ namespace datatype {
         func_decl * get_constructor_recognizer(func_decl * constructor);
         func_decl * get_constructor_is(func_decl * constructor);
         ptr_vector<func_decl> const * get_constructor_accessors(func_decl * constructor);
+        void batch_initialize_constructor_functions(sort * datatype);
         func_decl * get_accessor_constructor(func_decl * accessor);
         func_decl * get_recognizer_constructor(func_decl * recognizer) const;
         func_decl * get_update_accessor(func_decl * update) const;
