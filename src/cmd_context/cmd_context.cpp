@@ -609,6 +609,7 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_own_manager(m == nullptr),
     m_regular("stdout", std::cout),
     m_diagnostic("stderr", std::cerr),
+    m_global_stats(std::make_unique<statistics>()),
     m_stats_collected(false) {
     SASSERT(m != 0 || !has_manager());
     install_basic_cmds(*this);
@@ -2291,22 +2292,29 @@ void cmd_context::set_solver_factory(solver_factory * f) {
 }
 
 void cmd_context::display_statistics(bool show_total_time, double total_time) {
+    lock_guard lock(m_stats_mutex);
+    
     // If statistics haven't been collected yet, collect them now
     if (!m_stats_collected) {
-        flush_statistics();
+        flush_statistics_unlocked();  // Call unlocked version since we already have the lock
     }
     
     // Add time and memory statistics
     if (show_total_time)
-        m_global_stats.update("total time", total_time);
-    m_global_stats.update("time", get_seconds());
-    get_memory_statistics(m_global_stats);
-    get_rlimit_statistics(m().limit(), m_global_stats);
+        m_global_stats->update("total time", total_time);
+    m_global_stats->update("time", get_seconds());
+    get_memory_statistics(*m_global_stats);
+    get_rlimit_statistics(m().limit(), *m_global_stats);
     
-    m_global_stats.display_smt2(regular_stream());
+    m_global_stats->display_smt2(regular_stream());
 }
 
 void cmd_context::flush_statistics() {
+    lock_guard lock(m_stats_mutex);
+    flush_statistics_unlocked();
+}
+
+void cmd_context::flush_statistics_unlocked() {
     // Only collect statistics once to avoid duplication
     if (m_stats_collected) {
         return;
@@ -2323,7 +2331,7 @@ void cmd_context::flush_statistics() {
         m_check_sat_result->flush_statistics();
         
         // Also collect the statistics immediately into our singleton
-        m_check_sat_result->collect_statistics(m_global_stats);
+        m_check_sat_result->collect_statistics(*m_global_stats);
         collected_from_check_sat = true;
     }
     
@@ -2332,7 +2340,7 @@ void cmd_context::flush_statistics() {
         m_solver->flush_statistics();
         
         // Also collect the statistics immediately into our singleton
-        m_solver->collect_statistics(m_global_stats);
+        m_solver->collect_statistics(*m_global_stats);
     }
     
     // Try to get access to any other solver contexts
@@ -2340,16 +2348,18 @@ void cmd_context::flush_statistics() {
         // m_opt->flush_statistics(); // Not implemented for optimization
         
         // But we can still collect stats
-        m_opt->collect_statistics(m_global_stats);
+        m_opt->collect_statistics(*m_global_stats);
     }
     
     m_stats_collected = true;
 }
 
 void cmd_context::collect_smt_statistics(smt::context& smt_ctx) {
+    lock_guard lock(m_stats_mutex);
+    
     // Collect statistics from SMT context directly into our singleton
     // Collect from the SMT context which should have aggregated theory stats
-    smt_ctx.collect_statistics(m_global_stats);
+    smt_ctx.collect_statistics(*m_global_stats);
     
     m_stats_collected = true;
 }

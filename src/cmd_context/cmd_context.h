@@ -23,6 +23,7 @@ Notes:
 #include<sstream>
 #include<vector>
 #include "util/stopwatch.h"
+#include "util/mutex.h"
 #include "util/stats.h"
 #include "util/cmd_context_types.h"
 #include "util/event_handler.h"
@@ -309,8 +310,10 @@ protected:
     
     // Singleton statistics object to accumulate stats throughout the run
     // This ensures theory statistics collected during timeout are preserved
-    statistics                   m_global_stats;
+    // Using a pointer to avoid any accidental copying
+    std::unique_ptr<statistics>      m_global_stats;
     bool                         m_stats_collected;
+    mutex                        m_stats_mutex;  // Protect statistics access
 
     class dt_eh : public new_datatype_eh {
         cmd_context &             m_owner;
@@ -518,6 +521,7 @@ public:
     void display_assertions();
     void display_statistics(bool show_total_time = false, double total_time = 0.0);
     void flush_statistics();  // Force aggregation of theory statistics
+    void flush_statistics_unlocked();  // Internal helper, requires m_stats_mutex to be held
     void collect_smt_statistics(smt::context& smt_ctx);  // Collect stats from SMT context into singleton
     void display_dimacs();
     void display_parameters(std::ostream& out);

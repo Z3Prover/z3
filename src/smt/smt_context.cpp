@@ -21,6 +21,7 @@ Revision History:
 #include "util/warning.h"
 #include "util/timeit.h"
 #include "util/union_find.h"
+#include "util/mutex.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
@@ -50,7 +51,9 @@ Revision History:
 namespace smt {
 
     // Global pointer to current SMT context for timeout statistics collection
+    // Protected by mutex for thread safety
     static context* g_smt_context = nullptr;
+    static mutex g_smt_context_mutex;
 
     context::context(ast_manager & m, smt_params & p, params_ref const & _p):
         m(m),
@@ -102,8 +105,11 @@ namespace smt {
 
         m_model_generator->set_context(this);
         
-        // Register this SMT context for timeout statistics collection
-        g_smt_context = this;
+        // Register this SMT context for timeout statistics collection (thread-safe)
+        {
+            lock_guard lock(g_smt_context_mutex);
+            g_smt_context = this;
+        }
     }
 
     /**
@@ -195,9 +201,12 @@ namespace smt {
     }
 
     context::~context() {
-        // Unregister this SMT context
-        if (g_smt_context == this) {
-            g_smt_context = nullptr;
+        // Unregister this SMT context (thread-safe)
+        {
+            lock_guard lock(g_smt_context_mutex);
+            if (g_smt_context == this) {
+                g_smt_context = nullptr;
+            }
         }
         flush();
         m_asserted_formulas.finalize();
@@ -4820,6 +4829,7 @@ namespace smt {
     }
     // Function to get the current global SMT context (for timeout handling)
     context* get_current_smt_context() {
+        lock_guard lock(g_smt_context_mutex);
         return g_smt_context;
     }
 
