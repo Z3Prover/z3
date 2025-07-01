@@ -1070,6 +1070,10 @@ namespace datatype {
         plugin().add_ast(con);
         plugin().m_vectors.push_back(res);
         plugin().m_constructor2accessors.insert(con, res);
+        if (con->get_arity() == 0) 
+            // no accessors for nullary constructors
+            return res;
+        
         sort * datatype = con->get_range();
         def const& d = get_def(datatype);
         for (constructor const* c : d) {
@@ -1101,6 +1105,10 @@ namespace datatype {
         sort * datatype = con->get_range();
         def const& dd = get_def(datatype);
         symbol r;
+        // This should be fixed for perf.
+        // Option 1: hash-table in dd that maps to constructors instead of iterating over all constructors.
+        // initialize the hash-table lazily when dd is large.
+        // Option 2: initialize all calls to plugin() registration in a single pass.
         for (constructor const* c : dd) 
             if (c->name() == con->get_name()) 
                 r = c->recognizer();                    
