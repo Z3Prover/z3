@@ -2477,9 +2477,11 @@ void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
         func_decl * r = m_dt_util.get_constructor_recognizer(c);
         m_owner.insert(r);
         // TRACE(new_dt_eh, tout << "new recognizer: " << r->get_name() << "\n";);
-        for (func_decl * a : *m_dt_util.get_constructor_accessors(c)) {
-            TRACE(new_dt_eh, tout << "new accessor: " << a->get_name() << "\n";);
-            m_owner.insert(a);
+        if (c->get_arity() > 0) {
+            for (func_decl * a : *m_dt_util.get_constructor_accessors(c)) {
+                TRACE(new_dt_eh, tout << "new accessor: " << a->get_name() << "\n";);
+                m_owner.insert(a);
+            }
         }
     }
     if (!m_owner.m_scopes.empty() && !m_owner.m_global_decls) {
