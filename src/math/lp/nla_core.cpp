@@ -1063,7 +1063,7 @@ lemma_builder::~lemma_builder() {
     if (current().is_conflict()) {
         c.m_conflicts++;
     }
-    IF_VERBOSE(4, verbose_stream() << name << "\n");
+    IF_VERBOSE(4, verbose_stream() << name << " " << c.lra.get_scope_level() << "\n");
     IF_VERBOSE(4, verbose_stream() << *this << "\n");
     TRACE(nla_solver, tout << name << " " << (++i) << "\n" << *this; );
 }
