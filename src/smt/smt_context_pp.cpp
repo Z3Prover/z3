@@ -445,8 +445,6 @@ namespace smt {
                 th->collect_statistics(st);
             }
         }
-        // If theory stats were already aggregated by flush_statistics(), they are already in m_aux_stats
-        // which was copied to st above via st.copy(m_aux_stats)
     }
 
     void context::display_statistics(std::ostream & out) const {
