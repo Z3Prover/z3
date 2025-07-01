@@ -309,6 +309,8 @@ solver* tactic2solver::translate(ast_manager& m, params_ref const& p) {
 
 void tactic2solver::collect_statistics(statistics & st) const {    
     st.copy(m_stats);
+    if (m_stats.size() == 0 && m_tactic)
+        m_tactic->collect_statistics(st);
     //SASSERT(m_stats.size() > 0);
 }
 
