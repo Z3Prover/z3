@@ -203,6 +203,7 @@ function(get_git_head_describe GIT_DOT_FILE OUTPUT_VAR)
       "${GIT_EXECUTABLE}"
       "describe"
       "--long"
+      "--always"
     WORKING_DIRECTORY
       "${GIT_WORKING_DIR}"
     RESULT_VARIABLE
