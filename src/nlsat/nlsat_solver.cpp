@@ -804,7 +804,7 @@ namespace nlsat {
             del_clause(cls);
         }
 
-        void del_clauses(std_vector<clause*> & cs) {
+        void del_clauses(clause_vector & cs) {
             for (clause* cp : cs) 
                 del_clause(cp);
             cs.clear();
