@@ -66,7 +66,7 @@ namespace nlsat {
             polynomial_ref p(m_pm);
             ptr_buffer<poly> ps;
             buffer<bool> is_even;
-            unsigned num_atoms = m_atoms.size();
+            unsigned num_atoms = usize(m_atoms);
             for (unsigned j = 0; j < num_atoms; ++j) {
                 atom* a1 = m_atoms[j];
                 if (a1 && a1->is_ineq_atom()) {
