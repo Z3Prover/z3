@@ -1077,7 +1077,7 @@ namespace datatype {
         sort * datatype = con->get_range();
         def const& d = get_def(datatype);
         // Use O(1) lookup instead of O(n) linear search
-        constructor* c = d.get_constructor_by_name(con->get_name());
+        constructor* c = d.get_constructor_by_name(con);
         if (c) {
             for (accessor const* a : *c) {
                 func_decl_ref fn = a->instantiate(datatype);
@@ -1105,7 +1105,7 @@ namespace datatype {
         def const& dd = get_def(datatype);
         symbol r;
         // Use O(1) lookup instead of O(n) linear search
-        constructor* c = dd.get_constructor_by_name(con->get_name());
+        constructor* c = dd.get_constructor_by_name(con);
         if (c) {
             r = c->recognizer();
         }
