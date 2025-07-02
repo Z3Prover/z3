@@ -101,8 +101,9 @@ public:
 
 
     void collect_statistics(statistics & st) const override {
-        if (m_ctx)
-            m_ctx->collect_statistics(st); // ctx is still running...
+        smt::kernel * local_ctx = m_ctx;  // Capture pointer to avoid race condition
+        if (local_ctx)
+            local_ctx->collect_statistics(st); // ctx is still running...
         else
             st.copy(m_stats);
     }
