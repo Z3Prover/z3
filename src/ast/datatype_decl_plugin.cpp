@@ -1076,14 +1076,13 @@ namespace datatype {
         
         sort * datatype = con->get_range();
         def const& d = get_def(datatype);
-        for (constructor const* c : d) {
-            if (c->name() == con->get_name()) {
-                for (accessor const* a : *c) {
-                    func_decl_ref fn = a->instantiate(datatype);
-                    res->push_back(fn);
-                    plugin().add_ast(fn);
-                }
-                break;
+        // Use O(1) lookup instead of O(n) linear search
+        constructor* c = d.get_constructor_by_name(con->get_name());
+        if (c) {
+            for (accessor const* a : *c) {
+                func_decl_ref fn = a->instantiate(datatype);
+                res->push_back(fn);
+                plugin().add_ast(fn);
             }
         }
         return res;
@@ -1105,13 +1104,11 @@ namespace datatype {
         sort * datatype = con->get_range();
         def const& dd = get_def(datatype);
         symbol r;
-        // This should be fixed for perf.
-        // Option 1: hash-table in dd that maps to constructors instead of iterating over all constructors.
-        // initialize the hash-table lazily when dd is large.
-        // Option 2: initialize all calls to plugin() registration in a single pass.
-        for (constructor const* c : dd) 
-            if (c->name() == con->get_name()) 
-                r = c->recognizer();                    
+        // Use O(1) lookup instead of O(n) linear search
+        constructor* c = dd.get_constructor_by_name(con->get_name());
+        if (c) {
+            r = c->recognizer();
+        }
         parameter ps[2] = { parameter(con), parameter(r) };
         d  = m.mk_func_decl(fid(), OP_DT_RECOGNISER, 2, ps, 1, &datatype);
         SASSERT(d);
@@ -1119,56 +1116,6 @@ namespace datatype {
         plugin().add_ast(d);
         plugin().m_constructor2recognizer.insert(con, d);
         return d;
-    }
-
-    void util::batch_initialize_constructor_functions(sort * datatype) {
-        SASSERT(is_datatype(datatype));
-        def const& dd = get_def(datatype);
-        
-        // Get all constructors for this datatype
-        ptr_vector<func_decl> const* constructors = get_datatype_constructors(datatype);
-        if (!constructors) return;
-        
-        // Process all constructors in a single pass to avoid O(n²) behavior
-        for (func_decl * con : *constructors) {
-            // Initialize recognizer if not already cached
-            if (!plugin().m_constructor2recognizer.contains(con)) {
-                symbol r;
-                for (constructor const* c : dd) {
-                    if (c->name() == con->get_name()) {
-                        r = c->recognizer();
-                        break;
-                    }
-                }
-                parameter ps[2] = { parameter(con), parameter(r) };
-                func_decl* d = m.mk_func_decl(fid(), OP_DT_RECOGNISER, 2, ps, 1, &datatype);
-                plugin().add_ast(con);
-                plugin().add_ast(d);
-                plugin().m_constructor2recognizer.insert(con, d);
-            }
-            
-            // Initialize accessors if not already cached
-            if (!plugin().m_constructor2accessors.contains(con)) {
-                ptr_vector<func_decl>* res = alloc(ptr_vector<func_decl>);
-                plugin().add_ast(con);
-                plugin().m_vectors.push_back(res);
-                plugin().m_constructor2accessors.insert(con, res);
-                
-                if (con->get_arity() > 0) {
-                    // Find the constructor definition and create accessors
-                    for (constructor const* c : dd) {
-                        if (c->name() == con->get_name()) {
-                            for (accessor const* a : *c) {
-                                func_decl_ref fn = a->instantiate(datatype);
-                                res->push_back(fn);
-                                plugin().add_ast(fn);
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-        }
     }
 
     app* util::mk_is(func_decl * c, expr *f) {

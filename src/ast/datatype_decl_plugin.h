@@ -26,6 +26,7 @@ Revision History:
 #include "util/buffer.h"
 #include "util/symbol_table.h"
 #include "util/obj_hashtable.h"
+#include "util/dictionary.h"
 
 
 enum sort_kind {
@@ -164,6 +165,7 @@ namespace datatype {
         sort_ref_vector         m_params;
         mutable sort_ref        m_sort;
         ptr_vector<constructor> m_constructors;
+        mutable dictionary<constructor*> m_name2constructor;
     public:
         def(ast_manager& m, util& u, symbol const& n, unsigned class_id, unsigned num_params, sort * const* params):
             m(m),
@@ -195,6 +197,17 @@ namespace datatype {
         util& u() const { return m_util; }
         param_size::size* sort_size() { return m_sort_size; }
         void set_sort_size(param_size::size* p) { auto* q = m_sort_size;  m_sort_size = p; if (p) p->inc_ref(); if (q) q->dec_ref(); m_sort = nullptr; }
+        constructor* get_constructor_by_name(symbol const& name) const {
+            // Lazy initialization of name-to-constructor map for O(1) lookups
+            if (m_name2constructor.empty() && !m_constructors.empty()) {
+                for (constructor* c : m_constructors) {
+                    m_name2constructor.insert(c->name(), c);
+                }
+            }
+            constructor* result = nullptr;
+            m_name2constructor.find(name, result);
+            return result;
+        }
         def* translate(ast_translation& tr, util& u);
     };
 
@@ -373,7 +386,6 @@ namespace datatype {
         func_decl * get_constructor_recognizer(func_decl * constructor);
         func_decl * get_constructor_is(func_decl * constructor);
         ptr_vector<func_decl> const * get_constructor_accessors(func_decl * constructor);
-        void batch_initialize_constructor_functions(sort * datatype);
         func_decl * get_accessor_constructor(func_decl * accessor);
         func_decl * get_recognizer_constructor(func_decl * recognizer) const;
         func_decl * get_update_accessor(func_decl * update) const;
