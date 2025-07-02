@@ -32,6 +32,7 @@ Notes:
 #include "solver/mus.h"
 #include "solver/parallel_tactical.h"
 #include "solver/parallel_params.hpp"
+#include <atomic>
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
@@ -44,6 +45,7 @@ class smt_tactic : public tactic {
     vector<std::pair<expr_ref, expr_ref>> m_values;
     statistics                   m_stats;
     smt::kernel*                 m_ctx = nullptr;
+    mutable std::atomic<bool>    m_ctx_destroying;
     symbol                       m_logic;
     progress_callback*           m_callback = nullptr;
     bool                         m_candidate_models = false;
@@ -53,7 +55,8 @@ public:
     smt_tactic(ast_manager& m, params_ref const & p):
         m(m),
         m_params_ref(p),
-        m_vars(m) {
+        m_vars(m),
+        m_ctx_destroying(false) {
         updt_params_core(p);
         TRACE(smt_tactic, tout << "p: " << p << "\n";);
     }
@@ -101,10 +104,16 @@ public:
 
 
     void collect_statistics(statistics & st) const override {
-        if (m_ctx)
-            m_ctx->collect_statistics(st); // ctx is still running...
-        else
-            st.copy(m_stats);
+        // Check if context is being destroyed to avoid race condition
+        if (!m_ctx_destroying.load() && m_ctx) {
+            try {
+                m_ctx->collect_statistics(st);
+                return;
+            } catch (...) {
+                // If exception occurs, fall back to cached stats
+            }
+        }
+        st.copy(m_stats);
     }
 
     void cleanup() override {
@@ -141,12 +150,18 @@ public:
         }
 
         ~scoped_init_ctx() {
+            // Signal that we're destroying the context
+            m_owner.m_ctx_destroying.store(true);
+            
             smt::kernel * d = m_owner.m_ctx;
             m_owner.m_ctx = nullptr;
             m_owner.m_user_ctx = nullptr;
 
             if (d)
                 dealloc(d);
+                
+            // Reset the flag after cleanup
+            m_owner.m_ctx_destroying.store(false);
         }
     };
 
