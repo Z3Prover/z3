@@ -1106,9 +1106,8 @@ namespace datatype {
         symbol r;
         // Use O(1) lookup instead of O(n) linear search
         constructor* c = dd.get_constructor_by_name(con);
-        if (c) {
-            r = c->recognizer();
-        }
+        SASSERT(c);
+        r = c->recognizer();        
         parameter ps[2] = { parameter(con), parameter(r) };
         d  = m.mk_func_decl(fid(), OP_DT_RECOGNISER, 2, ps, 1, &datatype);
         SASSERT(d);
