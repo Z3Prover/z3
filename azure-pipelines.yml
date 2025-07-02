@@ -56,6 +56,15 @@ jobs:
   - script: "pip install build git+https://github.com/rhelmot/auditwheel"
   - script: "cd src/api/python && python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../.."
   - script: "pip install ./src/api/python/wheelhouse/*.whl && python - <src/api/python/z3test.py z3 && python - <src/api/python/z3test.py z3num"
+  - task: CopyFiles@2
+    inputs:
+      sourceFolder: src/api/python/wheelhouse
+      contents: '*.whl'
+      targetFolder: $(Build.ArtifactStagingDirectory)
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'ManyLinuxPythonBuildAMD64'
+      targetPath: $(Build.ArtifactStagingDirectory)   
 
 - job: ManyLinuxPythonBuildArm64
   timeoutInMinutes: 90
@@ -245,6 +254,15 @@ jobs:
 # Skip as dead-slow in debug mode:
 #  - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'MacOSPython'
+        targetPath: $(Build.ArtifactStagingDirectory)
 
 
 - job: "MacOSCMake"
@@ -314,17 +332,12 @@ jobs:
   - task: DownloadPipelineArtifact@2
     displayName: 'Download macOS Build'
     inputs:
-      artifactName: 'macOsPython'
+      artifactName: 'MacOSPython'
       targetPath: $(Agent.TempDirectory)
   - task: DownloadPipelineArtifact@2
     displayName: 'Download ManyLinux Build'    
     inputs:
       artifactName: 'ManyLinuxPythonBuildAmd64'
-      targetPath: $(Agent.TempDirectory)
-  - task: DownloadPipelineArtifact@2
-    displayName: 'Download ManyLinux Arm64 Build'
-    inputs:
-      artifactName: 'ManyLinuxPythonBuildArm64'
       targetPath: $(Agent.TempDirectory)
   - script: cd $(Agent.TempDirectory); mkdir osx-x64-bin; cd osx-x64-bin; unzip ../*x64-osx*.zip
   - script: python3 -m pip install --user -U setuptools
