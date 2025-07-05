@@ -245,6 +245,11 @@ public:
         return mk_select(2, args);
     }
 
+    app* mk_select(expr* a, expr* i, expr* j) const {
+        expr* args[3] = { a, i, j };
+        return mk_select(3, args);
+    }
+
     app * mk_select(unsigned num_args, expr * const * args) const {
         return m_manager.mk_app(m_fid, OP_SELECT, 0, nullptr, num_args, args);
     }
