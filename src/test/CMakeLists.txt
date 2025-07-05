@@ -58,6 +58,7 @@ add_executable(test-z3
   heap.cpp
   heap_trie.cpp
   hilbert_basis.cpp
+  ho_matcher.cpp
   horn_subsume_model_converter.cpp
   hwf.cpp
   inf_rational.cpp
