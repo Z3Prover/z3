@@ -487,24 +487,34 @@ namespace euf {
     void completion::apply_binding(binding& b) {
         if (should_stop())
             return;
+#if 0
+        if (is_ho_binding(b)) 
+            apply_ho_binding(b);        
+        else 
+#endif
+        {
+            expr_ref_vector _binding(m);
+            quantifier* q = b.m_q;
+            for (unsigned i = 0; i < q->get_num_decls(); ++i)
+                _binding.push_back(b.m_nodes[i]->get_expr());
+            apply_binding(b, _binding);
+        }
+    }
+
+    void completion::apply_binding(binding& b, expr_ref_vector const& s) {
         var_subst subst(m);
-        expr_ref_vector _binding(m);
         quantifier* q = b.m_q;
-        for (unsigned i = 0; i < q->get_num_decls(); ++i)
-            _binding.push_back(b.m_nodes[i]->get_expr());
-
-        expr_ref r = subst(q->get_expr(), _binding);
-
+        expr_ref r = subst(q->get_expr(), s);
         scoped_generation sg(*this, b.m_max_top_generation + 1);
         auto [pr, d] = get_dependency(q);
         if (pr)
-            pr = m.mk_quant_inst(m.mk_or(m.mk_not(q), r), _binding.size(), _binding.data());
+            pr = m.mk_quant_inst(m.mk_or(m.mk_not(q), r), s.size(), s.data());
         add_constraint(r, pr, d);
         propagate_rules();
         m_egraph.propagate();
         m_should_propagate = true;
-        ++m_stats.m_num_instances;
     }
+
 
     void completion::read_egraph() {
         if (m_egraph.inconsistent()) {

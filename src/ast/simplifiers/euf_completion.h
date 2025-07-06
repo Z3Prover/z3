@@ -176,6 +176,7 @@ namespace euf {
         binding* alloc_binding(quantifier* q, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
         void insert_binding(binding* b);
         void apply_binding(binding& b);
+        void apply_binding(binding& b, expr_ref_vector const& s);
         void flush_binding_queue();
         vector<ptr_vector<binding>> m_queue;
 
