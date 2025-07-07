@@ -2994,6 +2994,8 @@ namespace euf {
             SASSERT(m.is_pattern(mp));
             SASSERT(first_idx < mp->get_num_args());
             app * p           = to_app(mp->get_arg(first_idx));
+            if (is_ground(p))
+                return;
             func_decl * lbl   = p->get_decl();
             unsigned lbl_id   = lbl->get_small_id();
             m_trees.reserve(lbl_id+1, nullptr);
@@ -3879,9 +3881,10 @@ namespace euf {
             // Ground patterns are discarded.
             // However, the simplifier may turn a non-ground pattern into a ground one.
             // So, we should check it again here.
-            for (expr* arg : *mp)
-                if (is_ground(arg) || has_quantifiers(arg))
-                    return; // ignore multi-pattern containing ground pattern.
+            if (all_of(*mp, [](expr* arg) { return is_ground(arg); }))
+                return; // ignore multi-pattern containing only ground pattern.
+            if (any_of(*mp, [](expr* arg) { return has_quantifiers(arg); }))
+                return; // patterns with quantifiers are not handled.
             update_filters(qa, mp);
             m_new_patterns.push_back(qp_pair(qa, mp));
             ctx.get_trail().push(push_back_trail<qp_pair, false>(m_new_patterns));

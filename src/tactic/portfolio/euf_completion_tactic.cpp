@@ -88,6 +88,8 @@ public:
             expr_ref_vector core(m);
             m_solver->get_unsat_core(core);
             for (auto c : core) {
+                if (c == nf)
+                    continue;
                 auto [pr, dep] = m_e2d[c];
                 d = m.mk_join(d, dep);
             }
@@ -96,6 +98,8 @@ public:
                 SASSERT(pr);
                 expr_safe_replace rep(m);
                 for (auto c : core) {
+                    if (c == nf)
+                        continue;
                     auto [p, dep] = m_e2d[c];
                     rep.insert(m.mk_asserted(c), p);
                 }

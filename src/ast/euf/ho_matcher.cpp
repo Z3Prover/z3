@@ -55,6 +55,7 @@ namespace euf {
 
     void ho_matcher::operator()(expr* pat, expr* t, unsigned num_bound, unsigned num_vars) {               
         m_trail.push_scope();
+        m_subst.resize(0);
         m_subst.resize(num_vars);
         m_goals.reset();
         m_goals.push(0, num_bound, pat, t); 
@@ -93,7 +94,7 @@ namespace euf {
             bool st = consume_work(wi);
             IF_VERBOSE(3, display(verbose_stream() << "ho_matcher::consume_work: " << wi.pat << " =?= " << wi.t << " -> " << (st?"true":"false") << "\n"););
             if (st) {
-                if (m_goals.empty()) 
+                if (m_goals.empty())                     
                     m_on_match(m_subst);                
                 break;
             }
@@ -635,14 +636,17 @@ namespace euf {
     }
 
 
-    app* ho_matcher::compile_ho_pattern(quantifier* q, app* p) {
+    quantifier* ho_matcher::compile_ho_pattern(quantifier* q, app*& p) {
         app* p1 = nullptr;
-        if (m_pat2hopat.find(p, p1))
-            return p1;
+        if (m_pat2hopat.find(p, p)) {
+            q = m_q2hoq[q];
+            return q;
+        }
         auto is_ho = any_of(subterms::all(expr_ref(p, m)), [&](expr* t) { return m_unitary.is_flex(0, t); });
         if (!is_ho)
-            return p;
+            return q;
         ptr_vector<expr> todo;
+        ptr_buffer<var> bound;
         expr_ref_vector cache(m);
         unsigned nb = q->get_num_decls();
         todo.push_back(p);
@@ -655,7 +659,9 @@ namespace euf {
             }
             if (m_unitary.is_flex(0, t)) {
                 m_pat2abs.insert_if_not_there(p, svector<std::pair<unsigned, expr*>>()).push_back({ nb, t });
-                cache.setx(t->get_id(), m.mk_var(nb++, t->get_sort()));
+                auto v = m.mk_var(nb++, t->get_sort());
+                bound.push_back(v);
+                cache.setx(t->get_id(), v);
                 todo.pop_back();
                 continue;
             }
@@ -678,41 +684,91 @@ namespace euf {
             }
             if (is_quantifier(t)) {
                 m_pat2abs.remove(p);
-                return p;
+                return q;
             }
         }
-
         p1 = to_app(cache.get(p->get_id()));
+        expr_free_vars free_vars;
+        free_vars(p1);
+        app_ref_vector new_ground(m);
+        app_ref_vector new_patterns(m);
+
+        ptr_buffer<sort> sorts;
+        vector<symbol> names;
+        for (unsigned i = bound.size(); i-- > 0; ) {
+            sorts.push_back(bound[i]->get_sort());
+            names.push_back(symbol(bound[i]->get_idx()));
+        }
+        unsigned sz = q->get_num_decls();
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned idx = sz - i - 1;
+            auto s = q->get_decl_sort(i);
+            sorts.push_back(s);
+            names.push_back(q->get_decl_name(i));
+            if (!free_vars.contains(idx)) {
+                auto p = m.mk_fresh_func_decl("p", 1, &s, m.mk_bool_sort());
+                new_patterns.push_back(m.mk_app(p, m.mk_var(idx, s)));
+                new_ground.push_back(m.mk_app(p, m.mk_fresh_const(symbol("c"), s)));
+            }
+        }
+        auto body = q->get_expr();
+        if (!new_patterns.empty()) {
+            ptr_vector<app> pats;
+            VERIFY(m.is_pattern(p1, pats));
+            for (auto p : new_patterns) // patterns for variables that are not free in new pattern
+                pats.push_back(p);
+            for (auto g : new_ground) // ensure ground terms are in pattern so they have enodes
+                pats.push_back(g);
+            p1 = m.mk_pattern(pats.size(), pats.data());
+        }
+
+        quantifier* q1 = m.mk_forall(sorts.size(), sorts.data(), names.data(), body);
+
         m_pat2hopat.insert(p, p1);
         m_hopat2pat.insert(p1, p);
+        m_q2hoq.insert(q, q1);
+        m_hoq2q.insert(q1, q);
+        m_hopat2free_vars.insert(p1, free_vars);
         m_ho_patterns.push_back(p1);
+        m_ho_qs.push_back(q1);
         trail().push(push_back_vector(m_ho_patterns));
+        trail().push(push_back_vector(m_ho_qs));
         trail().push(insert_map(m_pat2hopat, p));
         trail().push(insert_map(m_hopat2pat, p1));
         trail().push(insert_map(m_pat2abs, p));
-        return p1;
+        trail().push(insert_map(m_q2hoq, q));
+        trail().push(insert_map(m_hoq2q, q1));
+        trail().push(insert_map(m_hopat2free_vars, p1));
+        p = p1;
+        return q1;
     }
 
     bool ho_matcher::is_ho_pattern(app* p) {
         return m_hopat2pat.contains(p);
     }
 
-    void ho_matcher::refine_ho_match(app* p, expr_ref_vector const& s) {
+    void ho_matcher::refine_ho_match(app* p, expr_ref_vector& s) {
         auto fo_pat = m_hopat2pat[p];
         m_trail.push_scope();
+        m_subst.resize(0);
         m_subst.resize(s.size());
         m_goals.reset();
         for (unsigned i = 0; i < s.size(); ++i) {
-            if (s[i])
-                m_subst.set(i, s[i]);
+            auto idx = s.size() - i - 1;
+            if (!m_hopat2free_vars[p].contains(idx))
+                s[i] = m.mk_var(idx, s[i]->get_sort());
+            else if (s.get(i))
+                m_subst.set(i, s.get(i));
         }
+
+        IF_VERBOSE(1, verbose_stream() << "refine " << mk_pp(p, m) << "\n" << s << "\n");
 
         unsigned num_bound = 0, level = 0;
         for (auto [v, pat] : m_pat2abs[fo_pat]) {
-            var_subst sub(m, false);
+            var_subst sub(m, true);
             auto pat_refined = sub(pat, s);
             IF_VERBOSE(1, verbose_stream() << mk_pp(pat, m) << " -> " << pat_refined << "\n");
-            m_goals.push(level, num_bound, pat_refined, s[v]);
+            m_goals.push(level, num_bound, pat_refined, s.get(s.size() - v - 1));
         }
 
         search();

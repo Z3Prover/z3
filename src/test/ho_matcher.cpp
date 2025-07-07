@@ -23,7 +23,7 @@ namespace euf {
             m_f = m.mk_func_decl(symbol("f"), m_int, m_int, m_int);
 
             std::function<void(ho_subst& s)> on_match = [&](ho_subst& s) {
-                s.display(verbose_stream() << "match\n");
+                s.display(verbose_stream() << "match\n");                
             };
 
             m_matcher.set_on_match(on_match);

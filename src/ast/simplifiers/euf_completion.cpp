@@ -70,7 +70,8 @@ namespace euf {
         m_canonical_proofs(m),
         // m_infer_patterns(m, m_smt_params),
         m_deps(m),
-        m_rewriter(m) {
+        m_rewriter(m),
+        m_matcher(m, m_trail) {
         m_tt = m_egraph.mk(m.mk_true(), 0, 0, nullptr);
         m_ff = m_egraph.mk(m.mk_false(), 0, 0, nullptr);
         m_rewriter.set_order_eq(true);
@@ -92,6 +93,39 @@ namespace euf {
 
         m_egraph.add_plugin(alloc(arith_plugin, m_egraph));
         m_egraph.add_plugin(alloc(bv_plugin, m_egraph));
+
+        std::function<void(ho_subst&)> on_match =
+            [&](ho_subst& s) {
+            IF_VERBOSE(1, s.display(verbose_stream() << "on-match\n") << "\n");
+            auto& b = *m_ho_binding;
+            auto* hopat = b.m_pattern;
+            auto* hoq = b.m_q;
+            auto* q = m_matcher.hoq2q(hoq);
+            // shrink binding
+            expr_ref_vector binding(m);
+            for (unsigned i = 0; i < s.size(); ++i)
+                binding.push_back(s.get(i));
+            binding.reverse();
+            if (binding.size() > q->get_num_decls()) {
+                bool change = true;
+                while (change) {
+                    change = false;
+                    for (unsigned i = binding.size(); i-- > 0;) {
+                        var_subst sub(m, false);
+                        auto r = sub(binding.get(i), binding);
+                        change |= r != binding.get(i);
+                        binding[i] = r;
+                    }
+                }
+            }
+            binding.shrink(q->get_num_decls());
+            binding.reverse();
+
+            IF_VERBOSE(1, verbose_stream() << binding << "\n");
+            apply_binding(b, q, binding);
+            };
+
+        m_matcher.set_on_match(on_match);
     }
 
     completion::~completion() {
@@ -108,6 +142,7 @@ namespace euf {
     void completion::updt_params(params_ref const& p) {
         smt_params_helper sp(p);
         m_max_instantiations = sp.qi_max_instances();
+        // m_max_generation = sp.qi_max_generation();
     }
 
     struct completion::push_watch_rule : public trail {
@@ -222,6 +257,7 @@ namespace euf {
     void completion::add_constraint(expr* f, proof* pr, expr_dependency* d) {
         if (m_egraph.inconsistent())
             return;
+        TRACE(euf_completion, tout << mk_pp(f, m) << "\n");
         auto add_children = [&](enode* n) {
             for (auto* ch : enode_args(n))
                 m_nodes_to_canonize.push_back(ch);
@@ -234,12 +270,14 @@ namespace euf {
             m_egraph.merge(a, b, to_ptr(push_pr_dep(pr, d)));
             add_children(a);
             add_children(b);
+            m_should_propagate = true;
         }
         else if (m.is_not(f, f)) {
             enode* n = mk_enode(f);
             auto j = to_ptr(push_pr_dep(pr, d));
             m_egraph.new_diseq(n, j);
             add_children(n);
+            m_should_propagate = true;
         }
         else {
             enode* n = mk_enode(f);
@@ -255,13 +293,15 @@ namespace euf {
                     q = to_quantifier(tmp);
                 }
 #endif
-                ptr_vector<app> ground;
+                                
                 for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
                     auto p = to_app(q->get_pattern(i));
+                    auto q1 = m_matcher.compile_ho_pattern(q, p);
+                    ptr_vector<app> ground;
                     mam::ground_subterms(p, ground);
                     for (expr* g : ground)
                         mk_enode(g);
-                    m_mam->add_pattern(q, p);
+                    m_mam->add_pattern(q1, p);                                      
                 }
                 m_q2dep.insert(q, { pr, d});
                 get_trail().push(insert_obj_map(m_q2dep, q));                
@@ -295,7 +335,7 @@ namespace euf {
             if (m.is_true(n->get_root()->get_expr()))
                 return l_false;
         }
-        if (m_side_condition_solver) {
+        if (m_side_condition_solver && m_propagate_with_solver) {
             expr_dependency* sd = nullptr;
             if (m_side_condition_solver->is_true(f, pr, sd)) {
                 add_constraint(f, pr, sd);
@@ -363,6 +403,7 @@ namespace euf {
     }
 
     void completion::propagate_all_rules() {
+        flet<bool> _propagate_with_solver(m_propagate_with_solver, true);
         for (auto* r : m_rules)
             if (!r->m_in_queue)
                 r->m_in_queue = true,
@@ -456,6 +497,8 @@ namespace euf {
     void completion::on_binding(quantifier* q, app* pat, enode* const* binding, unsigned max_global, unsigned min_top, unsigned max_top) {
         if (should_stop())
             return;
+        if (max_top >= m_max_generation)
+            return;
         auto* b = alloc_binding(q, pat, binding, max_global, min_top, max_top);
         if (!b)
             return;
@@ -487,23 +530,21 @@ namespace euf {
     void completion::apply_binding(binding& b) {
         if (should_stop())
             return;
-#if 0
-        if (is_ho_binding(b)) 
-            apply_ho_binding(b);        
-        else 
-#endif
-        {
-            expr_ref_vector _binding(m);
-            quantifier* q = b.m_q;
-            for (unsigned i = 0; i < q->get_num_decls(); ++i)
-                _binding.push_back(b.m_nodes[i]->get_expr());
-            apply_binding(b, _binding);
+        expr_ref_vector _binding(m);
+        quantifier* q = b.m_q;
+        for (unsigned i = 0; i < q->get_num_decls(); ++i)
+            _binding.push_back(b.m_nodes[i]->get_expr());
+        if (m_matcher.is_ho_pattern(b.m_pattern)) {
+            flet<binding*> set_binding(m_ho_binding, &b);
+            m_matcher.refine_ho_match(b.m_pattern, _binding);
         }
+        else        
+            apply_binding(b, q, _binding);
+        
     }
 
-    void completion::apply_binding(binding& b, expr_ref_vector const& s) {
+    void completion::apply_binding(binding& b, quantifier* q, expr_ref_vector const& s) {
         var_subst subst(m);
-        quantifier* q = b.m_q;
         expr_ref r = subst(q->get_expr(), s);
         scoped_generation sg(*this, b.m_max_top_generation + 1);
         auto [pr, d] = get_dependency(q);
@@ -512,9 +553,7 @@ namespace euf {
         add_constraint(r, pr, d);
         propagate_rules();
         m_egraph.propagate();
-        m_should_propagate = true;
     }
-
 
     void completion::read_egraph() {
         if (m_egraph.inconsistent()) {

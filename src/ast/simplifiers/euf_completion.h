@@ -25,6 +25,7 @@ Author:
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_mam.h"
+#include "ast/euf/ho_matcher.h"
 #include "ast/rewriter/th_rewriter.h"
 // include "ast/pattern/pattern_inference.h"
 #include "params/smt_params.h"
@@ -133,18 +134,22 @@ namespace euf {
         bindings               m_bindings;
         scoped_ptr<binding>    m_tmp_binding;
         unsigned               m_tmp_binding_capacity = 0;
+        binding*               m_ho_binding = nullptr;
         expr_dependency_ref_vector m_deps;
         obj_map<quantifier, std::pair<proof*, expr_dependency*>> m_q2dep;
         vector<std::pair<proof_ref, expr_dependency*>> m_pr_dep;
         unsigned               m_epoch = 0;
         unsigned_vector        m_epochs;
         th_rewriter            m_rewriter;
+        ho_matcher             m_matcher;
         stats                  m_stats;
         scoped_ptr<side_condition_solver> m_side_condition_solver;
         ptr_vector<conditional_rule>    m_rules;
         bool                   m_has_new_eq = false;
         bool                   m_should_propagate = false;
+        bool                   m_propagate_with_solver = false;
         unsigned               m_max_instantiations = std::numeric_limits<unsigned>::max();
+        unsigned               m_max_generation = 10;
         unsigned               m_generation = 0;
         vector<ptr_vector<conditional_rule>> m_rule_watch;
 
@@ -176,7 +181,7 @@ namespace euf {
         binding* alloc_binding(quantifier* q, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
         void insert_binding(binding* b);
         void apply_binding(binding& b);
-        void apply_binding(binding& b, expr_ref_vector const& s);
+        void apply_binding(binding& b, quantifier* q, expr_ref_vector const& s);
         void flush_binding_queue();
         vector<ptr_vector<binding>> m_queue;
 

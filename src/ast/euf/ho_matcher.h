@@ -316,8 +316,10 @@ namespace euf {
         mutable array_rewriter   m_rewriter;
         array_util       m_array;
         obj_map<app, app*>     m_pat2hopat, m_hopat2pat;
+        obj_map<quantifier, quantifier*> m_q2hoq, m_hoq2q;
+        obj_map<app, expr_free_vars> m_hopat2free_vars;
         obj_map<app, svector<std::pair<unsigned, expr*>>> m_pat2abs;
-        expr_ref_vector        m_ho_patterns;
+        expr_ref_vector        m_ho_patterns, m_ho_qs;
 
     	void resume();
 
@@ -373,7 +375,8 @@ namespace euf {
             m_unitary(m),
             m_rewriter(m),
             m_array(m),
-            m_ho_patterns(m)
+            m_ho_patterns(m),
+            m_ho_qs(m)
         {
         }
 
@@ -383,11 +386,15 @@ namespace euf {
 
         void operator()(expr* pat, expr* t, unsigned num_bound, unsigned num_vars);
 
-        app* compile_ho_pattern(quantifier* q, app* p);
+        quantifier* compile_ho_pattern(quantifier* q, app*& p);
 
         bool is_ho_pattern(app* p);
 
-        void refine_ho_match(app* p, expr_ref_vector const& s);
+        void refine_ho_match(app* p, expr_ref_vector& s);
+
+        bool is_free(app* p, unsigned i) const { return m_hopat2free_vars[p].contains(i); }
+
+        quantifier* hoq2q(quantifier* q) const { return m_hoq2q[q]; }
 
     };
 }
