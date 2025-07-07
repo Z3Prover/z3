@@ -14,4 +14,5 @@ z3_add_component(euf
   COMPONENT_DEPENDENCIES
     ast
     util
+    rewriter
 )
