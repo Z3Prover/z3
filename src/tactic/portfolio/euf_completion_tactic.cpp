@@ -79,6 +79,7 @@ public:
 
     bool is_true(expr* f, proof_ref& pr, expr_dependency*& d) override {
         d = nullptr;
+        init_solver();
         solver::scoped_push _sp(*m_solver);
         m_fmls.reset();
         m_fmls.push_back(m.mk_not(f));
@@ -113,6 +114,7 @@ public:
     }
 
     void solve_for(vector<solution>& sol) override {
+        init_solver();
         vector<solver::solution> ss;
         for (auto [v, t, g] : sol)
             ss.push_back({ v, t, g });

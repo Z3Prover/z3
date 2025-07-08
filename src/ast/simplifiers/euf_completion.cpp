@@ -98,28 +98,36 @@ namespace euf {
             [&](ho_subst& s) {
             IF_VERBOSE(1, s.display(verbose_stream() << "on-match\n") << "\n");
             auto& b = *m_ho_binding;
-            auto* hopat = b.m_pattern;
             auto* hoq = b.m_q;
             auto* q = m_matcher.hoq2q(hoq);
             // shrink binding
             expr_ref_vector binding(m);
             for (unsigned i = 0; i < s.size(); ++i)
                 binding.push_back(s.get(i));
-            binding.reverse();
+            
             if (binding.size() > q->get_num_decls()) {
                 bool change = true;
                 while (change) {
                     change = false;
-                    for (unsigned i = binding.size(); i-- > 0;) {
-                        var_subst sub(m, false);
+                    for (unsigned i = 1; i < binding.size();) {
+                        var_subst sub(m);
                         auto r = sub(binding.get(i), binding);
                         change |= r != binding.get(i);
+                        m_rewriter(r);
                         binding[i] = r;
                     }
                 }
+                binding.reverse();
+                binding.shrink(q->get_num_decls());
+                binding.reverse();
             }
-            binding.shrink(q->get_num_decls());
-            binding.reverse();
+            else {
+                for (unsigned i = 0; i < binding.size();) {
+                    expr_ref r(binding.get(i), m);
+                    m_rewriter(r);
+                    binding[i] = r;
+                }
+            }
 
             IF_VERBOSE(1, verbose_stream() << binding << "\n");
             apply_binding(b, q, binding);
@@ -226,7 +234,7 @@ namespace euf {
     void completion::add_egraph() {
         m_nodes_to_canonize.reset();
         unsigned sz = qtail();
-
+        
         for (unsigned i = qhead(); i < sz; ++i) {
             auto [f, p, d] = m_fmls[i]();
 
@@ -264,23 +272,36 @@ namespace euf {
             };
         expr* x, * y;
         if (m.is_eq(f, x, y)) {
-            enode* a = mk_enode(x);
-            enode* b = mk_enode(y);
-           
+            expr_ref x1(x, m);
+            expr_ref y1(y, m);
+            m_rewriter(x1);
+            m_rewriter(y1);
+            enode* a = mk_enode(x1);
+            enode* b = mk_enode(y1);
+            if (a->get_root() == b->get_root())
+                return;           
             m_egraph.merge(a, b, to_ptr(push_pr_dep(pr, d)));
             add_children(a);
             add_children(b);
             m_should_propagate = true;
+            if (m_side_condition_solver)
+                m_side_condition_solver->add_constraint(f, pr, d);
         }
         else if (m.is_not(f, f)) {
             enode* n = mk_enode(f);
+            if (m.is_false(n->get_root()->get_expr()))
+                return;
             auto j = to_ptr(push_pr_dep(pr, d));
             m_egraph.new_diseq(n, j);
             add_children(n);
             m_should_propagate = true;
+            if (m_side_condition_solver)
+                m_side_condition_solver->add_constraint(f, pr, d);
         }
         else {
             enode* n = mk_enode(f);
+            if (m.is_true(n->get_root()->get_expr()))
+                return;
             m_egraph.merge(n, m_tt, to_ptr(push_pr_dep(pr, d)));
             add_children(n);
             if (is_forall(f)) {
@@ -296,20 +317,24 @@ namespace euf {
                                 
                 for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
                     auto p = to_app(q->get_pattern(i));
-                    auto q1 = m_matcher.compile_ho_pattern(q, p);
+                    auto [q1, p1] = m_matcher.compile_ho_pattern(q, p);
                     ptr_vector<app> ground;
                     mam::ground_subterms(p, ground);
+                    if (p1 != p)
+                        mam::ground_subterms(p1, ground);
                     for (expr* g : ground)
                         mk_enode(g);
-                    m_mam->add_pattern(q1, p);                                      
+                    m_mam->add_pattern(q, p);
+                    if (p != p1)
+                        m_mam->add_pattern(q1, p1);                                      
                 }
                 m_q2dep.insert(q, { pr, d});
                 get_trail().push(insert_obj_map(m_q2dep, q));                
             }
             add_rule(f, pr, d);
+            if (!is_forall(f) && !m.is_implies(f) && m_side_condition_solver)
+                m_side_condition_solver->add_constraint(f, pr, d);
         }
-        if (m_side_condition_solver)
-            m_side_condition_solver->add_constraint(f, pr, d);
     }
 
     lbool completion::eval_cond(expr* f, proof_ref& pr, expr_dependency*& d) {
@@ -357,6 +382,7 @@ namespace euf {
         body.push_back(x);
         flatten_and(body);
         unsigned j = 0;
+        flet<bool> _propagate_with_solver(m_propagate_with_solver, true);
         
         for (auto f : body) {
             switch (eval_cond(f, pr_i, d)) {

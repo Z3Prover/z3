@@ -636,15 +636,15 @@ namespace euf {
     }
 
 
-    quantifier* ho_matcher::compile_ho_pattern(quantifier* q, app*& p) {
+    std::pair<quantifier*, app*> ho_matcher::compile_ho_pattern(quantifier* q, app* p) {
         app* p1 = nullptr;
         if (m_pat2hopat.find(p, p)) {
             q = m_q2hoq[q];
-            return q;
+            return { q, p };
         }
         auto is_ho = any_of(subterms::all(expr_ref(p, m)), [&](expr* t) { return m_unitary.is_flex(0, t); });
         if (!is_ho)
-            return q;
+            return { q, p };
         ptr_vector<expr> todo;
         ptr_buffer<var> bound;
         expr_ref_vector cache(m);
@@ -684,7 +684,7 @@ namespace euf {
             }
             if (is_quantifier(t)) {
                 m_pat2abs.remove(p);
-                return q;
+                return { q, p };
             }
         }
         p1 = to_app(cache.get(p->get_id()));
@@ -738,9 +738,8 @@ namespace euf {
         trail().push(insert_map(m_pat2abs, p));
         trail().push(insert_map(m_q2hoq, q));
         trail().push(insert_map(m_hoq2q, q1));
-        trail().push(insert_map(m_hopat2free_vars, p1));
-        p = p1;
-        return q1;
+        trail().push(insert_map(m_hopat2free_vars, p1));        
+        return { q1, p1 };
     }
 
     bool ho_matcher::is_ho_pattern(app* p) {
