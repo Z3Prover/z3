@@ -189,6 +189,16 @@ struct solver::imp {
         }
     }
 
+    bool check_constraints() {
+        for (lp::constraint_index ci : lra.constraints().indices())
+            if (!check_constraint(ci))
+                return false;
+        for (auto const& m : m_nla_core.emons())
+            if (!check_monic(m))
+                return false;
+        return true;
+    }
+
     /**
        \brief one-shot nlsat check.
        A one shot checker is the least functionality that can 
@@ -319,6 +329,7 @@ struct solver::imp {
                                 if (mon) 
                                     v = mon->var();                                
                                 else {
+                                    NOT_IMPLEMENTED_YET();
                                     return l_undef;
                                     // this one is for Lev Nachmanson: lar_solver relies on internal variables
                                     // to have terms from outside. The solver doesn't get to create
@@ -527,12 +538,8 @@ struct solver::imp {
         case l_true:
             m_nla_core.set_use_nra_model(true);
             lra.init_model();
-            for (lp::constraint_index ci : lra.constraints().indices())
-                if (!check_constraint(ci))
-                    return l_undef;
-            for (auto const& m : m_nla_core.emons()) 
-                if (!check_monic(m))
-                    return l_undef;
+            if (!check_constraints())
+                return l_undef;
             break;
         case l_false: {
             lp::explanation ex;
