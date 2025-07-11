@@ -30,6 +30,7 @@ namespace euf {
         m_add.set_undo(uadd);
         std::function<void(void)> umul = [&]() { m_undo.push_back(undo_t::undo_mul); };
         m_mul.set_undo(umul);
+        m_add.set_injective();
     }    
 
     void arith_plugin::register_node(enode* n) {

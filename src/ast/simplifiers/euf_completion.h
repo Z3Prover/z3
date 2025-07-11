@@ -171,6 +171,19 @@ namespace euf {
         proof* get_canonical_proof(enode* n);
         void set_canonical(enode* n, expr* e, proof* pr);
         void add_constraint(expr*f, proof* pr, expr_dependency* d);
+
+        // Enable equality propagation inside of quantifiers
+        // add quantifier bodies as closure terms to the E-graph.
+        // use fresh variables for bound variables, but such that the fresh variables are 
+        // the same when the quantifier prefix is the same.
+        // Thus, we are going to miss equalities of quantifier bodies 
+        // if the prefixes are different but the bodies are the same.
+        // Closure terms are re-abstracted by the canonizer.
+        void add_quantifiers(ptr_vector<expr>& bound, expr* t);
+        void add_quantifiers(expr* t);
+        expr_ref canonize(quantifier* q, proof_ref& pr, expr_dependency_ref& d);
+        obj_map<quantifier, std::pair<ptr_vector<expr>, expr*>> m_closures;
+
         expr_dependency* explain_eq(enode* a, enode* b);
         proof_ref prove_eq(enode* a, enode* b);
         proof_ref prove_conflict();

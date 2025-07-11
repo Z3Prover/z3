@@ -46,7 +46,7 @@ namespace euf {
             unsigned_vector shared;    // shared occurrences
             unsigned_vector eqs;       // equality occurrences
             
-            unsigned root_id() const { return root->n->get_id(); }
+            unsigned id() const { return root->n->get_id(); }
             static node* mk(region& r, enode* n);
         };
 
@@ -117,7 +117,7 @@ namespace euf {
                 if (!p.is_sorted(m))
                     p.sort(m);
                 for (auto* n : m)
-                    h = combine_hash(h, n->root_id());
+                    h = combine_hash(h, n->id());
                 return h;
             }
         };
@@ -130,7 +130,7 @@ namespace euf {
                 auto const& m2 = p.monomial(j);
                 if (m1.size() != m2.size()) return false;
                 for (unsigned k = 0; k < m1.size(); ++k)
-                    if (m1[k]->root_id() != m2[k]->root_id())
+                    if (m1[k]->id() != m2[k]->id())
                         return false;
                 return true;
             }
@@ -139,6 +139,7 @@ namespace euf {
         theory_id                m_fid = 0;
         decl_kind                m_op = null_decl_kind;
         func_decl*               m_decl = nullptr;
+        bool                     m_is_injective = false;
         vector<eq>               m_eqs;
         ptr_vector<node>         m_nodes;
         bool_vector              m_shared_nodes;
@@ -208,7 +209,8 @@ namespace euf {
 
         void forward_simplify(unsigned eq_id, unsigned using_eq);
         bool backward_simplify(unsigned eq_id, unsigned using_eq);
-        void superpose(unsigned src_eq, unsigned dst_eq);
+        bool superpose(unsigned src_eq, unsigned dst_eq);
+        void deduplicate(ptr_vector<node>& a, ptr_vector<node>& b);
         
         ptr_vector<node> m_src_r, m_src_l, m_dst_r, m_dst_l;
 
@@ -236,6 +238,7 @@ namespace euf {
         void compress_eq_occurs(unsigned eq_id);
         // check that src is a subset of dst, where dst_counts are precomputed
         bool is_subset(ref_counts const& dst_counts, ref_counts& src_counts, monomial_t const& src);
+        bool is_equation_oriented(eq const& e) const;
 
         // check that dst is a superset of dst, where src_counts are precomputed
         bool is_superset(ref_counts const& src_counts, ref_counts& dst_counts, monomial_t const& dst);
@@ -262,6 +265,9 @@ namespace euf {
         std::ostream& display_monomial(std::ostream& out, monomial_t const& m) const { return display_monomial(out, m.m_nodes); }
         std::ostream& display_monomial(std::ostream& out, ptr_vector<node> const& m) const;
         std::ostream& display_equation(std::ostream& out, eq const& e) const;
+        std::ostream& display_monomial_ll(std::ostream& out, monomial_t const& m) const { return display_monomial_ll(out, m.m_nodes); }
+        std::ostream& display_monomial_ll(std::ostream& out, ptr_vector<node> const& m) const;
+        std::ostream& display_equation_ll(std::ostream& out, eq const& e) const;
         std::ostream& display_status(std::ostream& out, eq_status s) const;
 
 
@@ -270,6 +276,8 @@ namespace euf {
         ac_plugin(egraph& g, unsigned fid, unsigned op);
 
         ac_plugin(egraph& g, func_decl* f);
+
+        void set_injective() { m_is_injective = true; }
         
         theory_id get_id() const override { return m_fid; }
 
@@ -288,20 +296,36 @@ namespace euf {
         void set_undo(std::function<void(void)> u) { m_undo_notify = u; }
 
         struct eq_pp {
-            ac_plugin& p; eq const& e; 
-            eq_pp(ac_plugin& p, eq const& e) : p(p), e(e) {}; 
-            eq_pp(ac_plugin& p, unsigned eq_id): p(p), e(p.m_eqs[eq_id]) {}
+            ac_plugin const& p; eq const& e; 
+            eq_pp(ac_plugin const& p, eq const& e) : p(p), e(e) {}; 
+            eq_pp(ac_plugin const& p, unsigned eq_id): p(p), e(p.m_eqs[eq_id]) {}
             std::ostream& display(std::ostream& out) const { return p.display_equation(out, e); }
         };
 
+        struct eq_pp_ll {
+            ac_plugin const& p; eq const& e;
+            eq_pp_ll(ac_plugin const& p, eq const& e) : p(p), e(e) {};
+            eq_pp_ll(ac_plugin const& p, unsigned eq_id) : p(p), e(p.m_eqs[eq_id]) {}
+            std::ostream& display(std::ostream& out) const { return p.display_equation_ll(out, e); }
+        };
+
         struct m_pp { 
-            ac_plugin& p; ptr_vector<node> const& m; 
-            m_pp(ac_plugin& p, monomial_t const& m) : p(p), m(m.m_nodes) {} 
-            m_pp(ac_plugin& p, ptr_vector<node> const& m) : p(p), m(m) {}
+            ac_plugin const& p; ptr_vector<node> const& m; 
+            m_pp(ac_plugin const& p, monomial_t const& m) : p(p), m(m.m_nodes) {} 
+            m_pp(ac_plugin const& p, ptr_vector<node> const& m) : p(p), m(m) {}
             std::ostream& display(std::ostream& out) const { return p.display_monomial(out, m); }
+        };
+
+        struct m_pp_ll {
+            ac_plugin const& p; ptr_vector<node> const& m;
+            m_pp_ll(ac_plugin const& p, monomial_t const& m) : p(p), m(m.m_nodes) {}
+            m_pp_ll(ac_plugin const& p, ptr_vector<node> const& m) : p(p), m(m) {}
+            std::ostream& display(std::ostream& out) const { return p.display_monomial_ll(out, m); }
         };
     };
 
     inline std::ostream& operator<<(std::ostream& out, ac_plugin::eq_pp const& d) { return d.display(out); }
+    inline std::ostream& operator<<(std::ostream& out, ac_plugin::eq_pp_ll const& d) { return d.display(out); }
     inline std::ostream& operator<<(std::ostream& out, ac_plugin::m_pp const& d) { return d.display(out); }
+    inline std::ostream& operator<<(std::ostream& out, ac_plugin::m_pp_ll const& d) { return d.display(out); }
 }
