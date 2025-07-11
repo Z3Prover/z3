@@ -454,13 +454,13 @@ stages:
         targetPath: tmp
     - script: |
         cd tmp
-        for file in *.zip; do
-          if [ -f "$file" ]; then
+        for file in z3-*.zip; do
+          if [ -f "$file" ] && [[ "$file" == *"$(Build.SourceVersion)"* ]]; then
             sha256sum "$file" > "$file.sha256"
-            echo "Generated SHA256 for $file"
+            echo "Generated SHA256 for source code archive: $file"
           fi
         done
-      displayName: 'Generate SHA256 hashes for ZIP files'
+      displayName: 'Generate SHA256 hashes for source code archives'
     - task: GitHubRelease@1
       continueOnError: true 
       inputs:
