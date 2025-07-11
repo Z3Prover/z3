@@ -228,14 +228,8 @@ struct solver::imp {
             validate_constraints();
             break;
         case l_false: {
-            vector<nlsat::assumption, false> core;
             lp::explanation ex;
-            m_nlsat->get_core(core);
-            for (auto c : core) {
-                unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
-                ex.push_back(idx);
-                TRACE(nra, lra.display_constraint(tout << "ex: " << idx << ": ", idx) << "\n";);
-            }
+            constraint_core2ex(ex);
             nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
             lemma &= ex;
             m_nla_core.set_use_nra_model(true);
@@ -252,8 +246,8 @@ struct solver::imp {
         lbool r = l_undef;
         statistics& st = m_nla_core.lp_settings().stats().m_st;
         nlsat::atom_vector clause;
+        polynomial::manager& pm = m_nlsat->pm();
         try {
-            polynomial::manager& pm = m_nlsat->pm();
             nlsat::assignment rvalues(m_nlsat->am());
             for (auto [j, x] : m_lp2nl) {
                 scoped_anum a(am());
@@ -262,10 +256,12 @@ struct solver::imp {
             }
             r = m_nlsat->check(rvalues, clause);
 
-        } catch (z3_exception&) {
+        } 
+        catch (z3_exception&) {
             if (m_limit.is_canceled()) {
                 r = l_undef;
-            } else {
+            } 
+            else {
                 m_nlsat->collect_statistics(st);
                 throw;
             }
@@ -282,14 +278,11 @@ struct solver::imp {
                 validate_constraints();
                 break;
             case l_false: {
-                vector<nlsat::assumption, false> core;
                 lp::explanation ex;
-                m_nlsat->get_core(core);
-                for (auto c : core) {
-                    unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
-                    ex.push_back(idx);
-                    TRACE(nra, lra.display_constraint(tout << "ex: " << idx << ": ", idx) << "\n";);
-                }
+                constraint_core2ex(ex);
+                u_map<lp::lpvar> nl2lp;
+                for (auto [j, x] : m_lp2nl)
+                    nl2lp.insert(x, j);
                 for (auto a : clause) {
                     // a cannot be a root object.
                     SASSERT(!a->is_root_atom());
@@ -297,31 +290,64 @@ struct solver::imp {
                     auto& ia = *to_ineq_atom(a);
                     VERIFY(ia.size() == 1); // deal with factored polynomials later
                     // a is an inequality atom, i.e., p > 0, p < 0, or p = 0.
-                    polynomial::polynomial* p = ia.p(0);
-                    
-                    #if 0
-                    // convert poloynomial into monomials etc.
-                    #endif
+                    polynomial::polynomial const* p = ia.p(0);
+                    unsigned num_mon = pm.size(p);
+                    rational bound(0);
+                    lp::lar_term t;
+
+                    nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
+                    lemma &= ex;
+                    for (unsigned i = 0; i < num_mon; ++i) {
+                        polynomial::monomial* m = pm.get_monomial(p, i);
+                        auto& coeff = pm.coeff(p, i);
+                        unsigned num_vars = pm.size(m);
+                        lp::lpvar v = lp::null_lpvar;
+                        // add mon * coeff to t;
+                        switch (num_vars) {
+                            case 0:
+                                bound -= coeff;
+                                break;
+                            case 1:
+                                v = nl2lp[pm.get_var(m, 0)];
+                                t.add_monomial(coeff, v);
+                                break;
+                            default: {
+                                svector<lp::lpvar> vars;
+                                for (unsigned j = 0; j < num_vars; ++j)
+                                    vars.push_back(nl2lp[pm.get_var(m, j)]);
+                                auto mon = m_nla_core.emons().find_canonical(vars);
+                                if (mon) 
+                                    v = mon->var();                                
+                                else {
+                                    return l_undef;
+                                    // this one is for Lev Nachmanson: lar_solver relies on internal variables
+                                    // to have terms from outside. The solver doesn't get to create
+                                    // its own monomials. 
+                                    // v = ...
+                                    // It is not a use case if the nlsat solver only provides linear
+                                    // polynomials so punt for now.
+                                    m_nla_core.add_monic(v, vars.size(), vars.data());
+                                }
+                                t.add_monomial(coeff, v);
+                                break;
+                            }
+                        }                      
+                    }                   
+
                     switch (a->get_kind()) {
-                        case nlsat::atom::EQ: {
-                            NOT_IMPLEMENTED_YET();
-                            break;
-                        }
-                        case nlsat::atom::LT: {
-                            NOT_IMPLEMENTED_YET();
-                            break;
-                        }
-                        case nlsat::atom::GT: {
-                            NOT_IMPLEMENTED_YET();
-                            break;
-                        }
+                        case nlsat::atom::EQ: 
+                            lemma |= nla::ineq(lp::lconstraint_kind::EQ, t, bound);
+                            break;                        
+                        case nlsat::atom::LT: 
+                            lemma |= nla::ineq(lp::lconstraint_kind::LT, t, bound);
+                            break;                        
+                        case nlsat::atom::GT: 
+                            lemma |= nla::ineq(lp::lconstraint_kind::GT, t, bound);
+                            break;                        
                         default:
                             UNREACHABLE();
                     }
                 }
-
-                nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
-                lemma &= ex;
                 m_nla_core.set_use_nra_model(true);
                 break;
             }
@@ -329,6 +355,16 @@ struct solver::imp {
                 break;
         }
         return r;
+    }
+
+    void constraint_core2ex(lp::explanation& ex) {
+        vector<nlsat::assumption, false> core;
+        m_nlsat->get_core(core);
+        for (auto c : core) {
+            unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
+            ex.push_back(idx);
+            TRACE(nra, lra.display_constraint(tout << "ex: " << idx << ": ", idx) << "\n";);
+        }
     }
 
 
