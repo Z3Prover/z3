@@ -448,12 +448,22 @@ stages:
       displayName: 'Download NuGet64 Package'
       inputs:
         artifact: 'NuGet'
-        path: $(Agent.TempDirectory)	
+        path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download NuGet32 Package'
       inputs:
         artifact: 'NuGet32'
-        path: $(Agent.TempDirectory)	
+        path: $(Agent.TempDirectory)
+    - powershell: |
+        $files = Get-ChildItem -Path "$(Agent.TempDirectory)" -Filter "*.zip"
+        foreach ($file in $files) {
+          $hash = Get-FileHash -Path $file.FullName -Algorithm SHA256
+          $hashString = $hash.Hash.ToLower() + "  " + $file.Name
+          $hashFile = $file.FullName + ".sha256"
+          Set-Content -Path $hashFile -Value $hashString
+          Write-Host "Generated SHA256 for $($file.Name)"
+        }
+      displayName: 'Generate SHA256 hashes for ZIP files'
     - task: GitHubRelease@1
       inputs:
         gitHubConnection: Z3Prover

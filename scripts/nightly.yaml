@@ -358,7 +358,7 @@ stages:
       displayName: 'Download Win32 Build'
       inputs:
         artifactName: 'WindowsBuild-x86'
-        targetPath: $(Agent.TempDirectory)	
+        targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download ManyLinux Build'    
       inputs:
@@ -452,6 +452,15 @@ stages:
       inputs:
         artifactName: 'NuGet32'
         targetPath: tmp
+    - script: |
+        cd tmp
+        for file in *.zip; do
+          if [ -f "$file" ]; then
+            sha256sum "$file" > "$file.sha256"
+            echo "Generated SHA256 for $file"
+          fi
+        done
+      displayName: 'Generate SHA256 hashes for ZIP files'
     - task: GitHubRelease@1
       continueOnError: true 
       inputs:
