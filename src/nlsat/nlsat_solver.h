@@ -225,9 +225,7 @@ namespace nlsat {
         // l_false - update the list of assumptions (possibly reset it to empty), and a set of polynomials in core,
         // such that the conjunction of the assumptions and the polynomials in core is unsatisfiable.
         // l_undef - if the search was interrupted by a resource limit.
-        // Core is a list of polynomials. We associate literals as follows:
-        // For ~ in { >, <, = } If p(rvalues) ~ 0, then lit is p ~ 0. Their negations are used in the conflict clause.
-        // (this constrains the kind of literals for the conflict clause and may be revisited).
+        // Core is a list of polynomials. We associate literals as follows: TBD
         // Different implementations of check are possible. One where core comprises of linear polynomials could
         // produce lemmas that are friendly to linear arithmetic solvers.
         //
