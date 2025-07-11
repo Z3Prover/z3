@@ -218,14 +218,18 @@ namespace nlsat {
 
         lbool check(literal_vector& assumptions);
 
+        //
         // check satisfiability of asserted formulas relative to assumptions.
         // produce either,
-        // l_true - a model is availabe (rvalues can be ignored) or,
+        // l_true - a model is available (rvalues can be ignored) or,
         // l_false - update the list of assumptions (possibly reset it to empty), and a set of polynomials in core,
         // such that the conjunction of the assumptions and the polynomials in core is unsatisfiable.
         // l_undef - if the search was interrupted by a resource limit.
-        // We associate literals with the polynomials in the core based on their sign with respect to rvalues.
-        // If p(rvalues) > 0, then the literal is p <= 0, p(rvalues) < 0, then p(rvalues) >= 0, and p(rvalues) = 0, then p != 0.
+        // Core is a list of polynomials. We associate literals as follows:
+        // For ~ in { >, <, = } If p(rvalues) ~ 0, then lit is p ~ 0. Their negations are used in the conflict clause.
+        // (this constrains the kind of literals for the conflict clause and may be revisited).
+        // Different implementations of check are possible. One where core comprises of linear polynomials could
+        // produce lemmas that are friendly to linear arithmetic solvers.
         //
         lbool check(literal_vector& assumptions, assignment const& rvalues, polynomial_ref_vector& core);
 
