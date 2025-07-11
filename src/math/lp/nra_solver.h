@@ -47,6 +47,11 @@ namespace nra {
         */
         lbool check(dd::solver::equation_vector const& eqs);
 
+        /**
+          \brief Check feasibility moduo current value assignment.
+        */
+        lbool check_assignment();
+
         /*
           \brief determine whether nra check is needed.
         */

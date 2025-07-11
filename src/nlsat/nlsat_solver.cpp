@@ -2034,7 +2034,7 @@ namespace nlsat {
             m_assignment.reset();
         }
 
-        lbool check(literal_vector& assumptions, assignment const& rvalues, polynomial_ref_vector& core) {
+        lbool check(assignment const& rvalues, atom_vector& core) {
             return l_undef;
         }
 
@@ -4108,8 +4108,8 @@ namespace nlsat {
         return m_imp->check(assumptions);
     }
 
-    lbool solver::check(literal_vector& assumptions, assignment const& rvalues, polynomial_ref_vector& core) {
-        return m_imp->check(assumptions, rvalues, core);
+    lbool solver::check(assignment const& rvalues, atom_vector& clause) {
+        return m_imp->check(rvalues, clause);
     }
 
     void solver::get_core(vector<assumption, false>& assumptions) {

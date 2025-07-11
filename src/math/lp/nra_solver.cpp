@@ -10,6 +10,7 @@
 #include "math/lp/lar_solver.h"
 #include "math/lp/nra_solver.h"
 #include "nlsat/nlsat_solver.h"
+#include "nlsat/nlsat_assignment.h"
 #include "math/polynomial/polynomial.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/map.h"
@@ -133,27 +134,15 @@ struct solver::imp {
         m_lp2nl.reset();
     }
 
-    /**
-       \brief one-shot nlsat check.
-       A one shot checker is the least functionality that can 
-       enable non-linear reasoning. 
-       In addition to checking satisfiability we would also need
-       to identify equalities in the model that should be assumed
-       with the remaining solver.
-           
-       TBD: use partial model from lra_solver to prime the state of nlsat_solver.
-       TBD: explore more incremental ways of applying nlsat (using assumptions)
-    */
-    lbool check() {
+    void setup_solver() {
         SASSERT(need_check());
         reset();
-        vector<nlsat::assumption, false> core;
 
         init_cone_of_influence();
         // add linear inequalities from lra_solver
         for (auto ci : m_constraint_set)
             add_constraint(ci);
-        
+
         // add polynomial definitions.
         for (auto const& m : m_mon_set)
             add_monic_eq(m_nla_core.emons()[m]);
@@ -169,7 +158,7 @@ struct solver::imp {
             static unsigned id = 0;
             std::stringstream strm;
 
-#ifndef SINGLE_THREAD            
+#ifndef SINGLE_THREAD
             std::thread::id this_id = std::this_thread::get_id();
             strm << "nla_" << this_id << "." << (++id) << ".smt2";
 #else
@@ -180,7 +169,39 @@ struct solver::imp {
             out << "(check-sat)\n";
             out.close();
         }
+    }
 
+    void validate_constraints() {
+        for (lp::constraint_index ci : lra.constraints().indices())
+            if (!check_constraint(ci)) {
+                IF_VERBOSE(0, verbose_stream() << "constraint " << ci << " violated\n";
+                           lra.constraints().display(verbose_stream()));
+                UNREACHABLE();
+                return;
+            }
+        for (auto const& m : m_nla_core.emons()) {
+            if (!check_monic(m)) {
+                IF_VERBOSE(0, verbose_stream() << "monic " << m << " violated\n";
+                           lra.constraints().display(verbose_stream()));
+                UNREACHABLE();
+                return;
+            }
+        }
+    }
+
+    /**
+       \brief one-shot nlsat check.
+       A one shot checker is the least functionality that can 
+       enable non-linear reasoning. 
+       In addition to checking satisfiability we would also need
+       to identify equalities in the model that should be assumed
+       with the remaining solver.
+           
+       TBD: use partial model from lra_solver to prime the state of nlsat_solver.
+       TBD: explore more incremental ways of applying nlsat (using assumptions)
+    */
+    lbool check() {
+        setup_solver();
         lbool r = l_undef;
         statistics& st = m_nla_core.lp_settings().stats().m_st;
         try {
@@ -204,23 +225,10 @@ struct solver::imp {
         case l_true:
             m_nla_core.set_use_nra_model(true);
             lra.init_model();
-            for (lp::constraint_index ci : lra.constraints().indices())
-                if (!check_constraint(ci)) {
-                    IF_VERBOSE(0, verbose_stream() << "constraint " << ci << " violated\n";
-                               lra.constraints().display(verbose_stream()));
-                    UNREACHABLE();
-                    return l_undef;
-                }
-            for (auto const& m : m_nla_core.emons()) {
-                if (!check_monic(m)) {
-                    IF_VERBOSE(0, verbose_stream() << "monic " << m << " violated\n";
-                               lra.constraints().display(verbose_stream()));
-                    UNREACHABLE();
-                    return l_undef;
-                }
-            }
+            validate_constraints();
             break;
         case l_false: {
+            vector<nlsat::assumption, false> core;
             lp::explanation ex;
             m_nlsat->get_core(core);
             for (auto c : core) {
@@ -237,7 +245,91 @@ struct solver::imp {
             break;
         }
         return r;
-    }   
+    }
+
+    lbool check_assignment() {
+        setup_solver();
+        lbool r = l_undef;
+        statistics& st = m_nla_core.lp_settings().stats().m_st;
+        nlsat::atom_vector clause;
+        try {
+            polynomial::manager& pm = m_nlsat->pm();
+            nlsat::assignment rvalues(m_nlsat->am());
+            for (auto [j, x] : m_lp2nl) {
+                scoped_anum a(am());
+                am().set(a, m_nla_core.val(j).to_mpq());
+                rvalues.set(x, a);           
+            }
+            r = m_nlsat->check(rvalues, clause);
+
+        } catch (z3_exception&) {
+            if (m_limit.is_canceled()) {
+                r = l_undef;
+            } else {
+                m_nlsat->collect_statistics(st);
+                throw;
+            }
+        }
+        m_nlsat->collect_statistics(st);
+        TRACE(nra,
+              m_nlsat->display(tout << r << "\n");
+              display(tout);
+              for (auto [j, x] : m_lp2nl) tout << "j" << j << " := x" << x << "\n";);
+        switch (r) {
+            case l_true:
+                m_nla_core.set_use_nra_model(true);
+                lra.init_model();
+                validate_constraints();
+                break;
+            case l_false: {
+                vector<nlsat::assumption, false> core;
+                lp::explanation ex;
+                m_nlsat->get_core(core);
+                for (auto c : core) {
+                    unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
+                    ex.push_back(idx);
+                    TRACE(nra, lra.display_constraint(tout << "ex: " << idx << ": ", idx) << "\n";);
+                }
+                for (auto a : clause) {
+                    // a cannot be a root object.
+                    SASSERT(!a->is_root_atom());
+                    SASSERT(a->is_ineq_atom());
+                    auto& ia = *to_ineq_atom(a);
+                    VERIFY(ia.size() == 1); // deal with factored polynomials later
+                    // a is an inequality atom, i.e., p > 0, p < 0, or p = 0.
+                    polynomial::polynomial* p = ia.p(0);
+                    
+                    #if 0
+                    // convert poloynomial into monomials etc.
+                    #endif
+                    switch (a->get_kind()) {
+                        case nlsat::atom::EQ: {
+                            NOT_IMPLEMENTED_YET();
+                            break;
+                        }
+                        case nlsat::atom::LT: {
+                            NOT_IMPLEMENTED_YET();
+                            break;
+                        }
+                        case nlsat::atom::GT: {
+                            NOT_IMPLEMENTED_YET();
+                            break;
+                        }
+                        default:
+                            UNREACHABLE();
+                    }
+                }
+
+                nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
+                lemma &= ex;
+                m_nla_core.set_use_nra_model(true);
+                break;
+            }
+            case l_undef:
+                break;
+        }
+        return r;
+    }
 
 
     void add_monic_eq_bound(mon_eq const& m) {
@@ -654,6 +746,10 @@ lbool solver::check(vector<dd::pdd> const& eqs) {
 lbool solver::check(dd::solver::equation_vector const& eqs) {
     return m_imp->check(eqs);
 }
+
+lbool solver::check_assignment() {
+    return m_imp->check_assignment();
+}   
 
 bool solver::need_check() {
     return m_imp->need_check();
