@@ -1736,7 +1736,7 @@ export interface DatatypeSort<Name extends string = 'main'> extends Sort<Name> {
   /**
    * Get the idx'th constructor function declaration
    */
-  constructor(idx: number): FuncDecl<Name>;
+  constructorDecl(idx: number): FuncDecl<Name>;
 
   /**
    * Get the idx'th recognizer function declaration
