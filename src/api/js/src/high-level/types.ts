@@ -364,6 +364,8 @@ export interface Context<Name extends string = 'main'> {
   readonly Array: SMTArrayCreation<Name>;
   /** @category Expressions */
   readonly Set: SMTSetCreation<Name>;
+  /** @category Expressions */
+  readonly Datatype: DatatypeCreation<Name>;
 
   ////////////////
   // Operations //

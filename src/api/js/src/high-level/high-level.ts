@@ -3225,7 +3225,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       BitVec,
       Array,
       Set,
-      // Datatype,
+      Datatype,
 
       ////////////////
       // Operations //
