@@ -24,8 +24,7 @@ export type AnySort<Name extends string = 'main'> =
   | BoolSort<Name>
   | ArithSort<Name>
   | BitVecSort<number, Name>
-  | SMTArraySort<Name>
-  | DatatypeSort<n>;
+  | SMTArraySort<Name>;
 /** @hidden */
 export type AnyExpr<Name extends string = 'main'> =
   | Expr<Name>
@@ -35,8 +34,7 @@ export type AnyExpr<Name extends string = 'main'> =
   | RatNum<Name>
   | BitVec<number, Name>
   | BitVecNum<number, Name>
-  | SMTArray<Name>
-  | DatatypeExpr<n>;
+  | SMTArray<Name>;
 /** @hidden */
 export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
