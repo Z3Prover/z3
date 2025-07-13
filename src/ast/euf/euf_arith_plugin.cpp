@@ -24,8 +24,8 @@ namespace euf {
     arith_plugin::arith_plugin(egraph& g) :
         plugin(g),
         a(g.get_manager()),
-        m_add(g, get_id(), OP_ADD),
-        m_mul(g, get_id(), OP_MUL) {
+        m_add(g, "add", get_id(), OP_ADD),
+        m_mul(g, "mul", get_id(), OP_MUL) {
         std::function<void(void)> uadd = [&]() { m_undo.push_back(undo_t::undo_add); };
         m_add.set_undo(uadd);
         std::function<void(void)> umul = [&]() { m_undo.push_back(undo_t::undo_mul); };
@@ -66,9 +66,7 @@ namespace euf {
     }
         
     std::ostream& arith_plugin::display(std::ostream& out) const {
-        out << "add\n";
         m_add.display(out);
-        out << "mul\n";
         m_mul.display(out);
         return out;
     }

@@ -149,6 +149,7 @@ namespace euf {
         tracked_uint_set         m_to_simplify_todo;
         tracked_uint_set         m_shared_todo;
         uint64_t                 m_tick = 1;
+        symbol                   m_name;
         
 
 
@@ -273,7 +274,7 @@ namespace euf {
 
     public:
 
-        ac_plugin(egraph& g, unsigned fid, unsigned op);
+        ac_plugin(egraph& g, char const* name, unsigned fid, unsigned op);
 
         ac_plugin(egraph& g, func_decl* f);
 

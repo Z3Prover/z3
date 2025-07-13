@@ -80,12 +80,13 @@ TODOs:
 
 namespace euf {
 
-    ac_plugin::ac_plugin(egraph& g, unsigned fid, unsigned op) :
+    ac_plugin::ac_plugin(egraph& g, char const* name, unsigned fid, unsigned op) :
         plugin(g), m_fid(fid), m_op(op),
         m_dep_manager(get_region()),
         m_hash(*this), m_eq(*this), m_monomial_table(m_hash, m_eq)
     {
         g.set_th_propagates_diseqs(m_fid);
+        m_name = symbol(name);
     }
 
     ac_plugin::ac_plugin(egraph& g, func_decl* f) :
@@ -93,6 +94,7 @@ namespace euf {
         m_dep_manager(get_region()),
         m_hash(*this), m_eq(*this), m_monomial_table(m_hash, m_eq)
     {
+        m_name = f->get_name();
         if (m_fid != null_family_id)
             g.set_th_propagates_diseqs(m_fid);
     }
@@ -110,14 +112,15 @@ namespace euf {
             return;
         auto m = to_monomial(n);
         auto const& ns = monomial(m);
+        auto idx = m_shared.size();
         for (auto arg : ns) {
-            arg->shared.push_back(m);
+            arg->shared.push_back(idx);
             m_node_trail.push_back(arg);
             push_undo(is_add_shared_index);
         }
         m_shared_nodes.setx(n->get_id(), true, false);
         sort(monomial(m));
-        m_shared_todo.insert(m_shared.size());
+        m_shared_todo.insert(idx);
         m_shared.push_back({ n, m, justification::axiom(get_id()) });
         push_undo(is_register_shared);
     }
@@ -228,12 +231,20 @@ namespace euf {
     }
 
     std::ostream& ac_plugin::display(std::ostream& out) const {
+        out << m_name << "\n";
         unsigned i = 0;
         for (auto const& eq : m_eqs) {
             if (eq.status != eq_status::is_dead)               
                 out << i << ": " << eq_pp_ll(*this, eq) << "\n";
             ++i;
         }
+
+        if (!m_shared.empty())
+            out << "shared monomials:\n";
+        for (auto const& s : m_shared) {
+            out << g.bpp(s.n) << ": " << s.m << "\n";
+        }
+#if 0
         i = 0;
         for (auto m : m_monomials) {
             out << i << ": ";
@@ -241,12 +252,13 @@ namespace euf {
             out << "\n";
             ++i;
         }
+#endif
         for (auto n : m_nodes) {
             if (!n)
                 continue;
             if (n->eqs.empty() && n->shared.empty())
                 continue;
-            out << g.bpp(n->n) << " r: " << n->id() << " ";
+            out << g.bpp(n->n) << " ";
             if (!n->eqs.empty()) {
                 out << "eqs ";
                 for (auto l : n->eqs)
@@ -266,7 +278,7 @@ namespace euf {
         if (l == r)
             return;
         auto j = justification::equality(l, r);
-        TRACE(plugin, tout << g.bpp(l) << " == " << g.bpp(r) << " " << is_op(l) << " " << is_op(r) << "\n");
+        TRACE(plugin, tout << "merge: " << m_name << " " << g.bpp(l) << " == " << g.bpp(r) << " " << is_op(l) << " " << is_op(r) << "\n");
         if (!is_op(l) && !is_op(r))
             merge(mk_node(l), mk_node(r), j);
         init_equation(eq(to_monomial(l), to_monomial(r), j));
@@ -285,9 +297,7 @@ namespace euf {
     void ac_plugin::init_equation(eq const& e) {
         m_eqs.push_back(e);
         auto& eq = m_eqs.back();
-        TRACE(plugin, display_equation_ll(tout, e) << "\n");
         deduplicate(monomial(eq.l).m_nodes, monomial(eq.r).m_nodes);
-        TRACE(plugin, display_equation_ll(tout << "dedup ", e) << "\n");
 
         if (orient_equation(eq)) {
             auto& ml = monomial(eq.l);
@@ -326,7 +336,7 @@ namespace euf {
             for (auto n : mr)
                 n->root->n->unmark1();
 
-            TRACE(plugin, display_equation_ll(tout, e) << "\n");
+            TRACE(plugin, display_equation_ll(tout, e) << " shared: " << m_shared_todo << "\n");
             m_to_simplify_todo.insert(eq_id);
         }
         else
@@ -427,7 +437,7 @@ namespace euf {
     }
 
     void ac_plugin::merge(node* a, node* b, justification j) {
-        TRACE(plugin, tout << a << " == " << b << " num shared " << b->shared.size() << "\n");
+        TRACE(plugin, tout << g.bpp(a->n) << " == " << g.bpp(b->n) << " num shared " << b->shared.size() << "\n");
         if (a == b)
             return;
         if (a->id() < b->id())
@@ -482,8 +492,9 @@ namespace euf {
             nodes.push_back(arg->root->n);
             args.push_back(arg->root->n->get_expr());
         }
-        auto n = m.mk_app(m_fid, m_op, args.size(), args.data());
-        return g.find(n) ? g.find(n) : g.mk(n, 0, nodes.size(), nodes.data());
+        auto n = args.size() == 1 ? args[0] : m.mk_app(m_fid, m_op, args.size(), args.data());
+        auto r = g.find(n);
+        return r ? r : g.mk(n, 0, nodes.size(), nodes.data());
     }
 
     ac_plugin::node* ac_plugin::node::mk(region& r, enode* n) {
@@ -728,7 +739,6 @@ namespace euf {
 
         TRACE(plugin, tout << "forward simplify " << eq_pp_ll(*this, src) << " " << eq_pp_ll(*this, dst) << "\n");
 
-
         if (forward_subsumes(src_eq, dst_eq)) {
             TRACE(plugin, tout << "forward subsumed\n");
             set_status(dst_eq, eq_status::is_dead);
@@ -737,7 +747,6 @@ namespace euf {
 
         if (!can_be_subset(monomial(src.l), monomial(dst.r)))
             return;
-
 
         m_dst_r_counts.reset();
 
@@ -1147,7 +1156,7 @@ namespace euf {
         m_monomial_table.reset();
         for (auto const& s1 : m_shared) {
             shared s2;
-            TRACE(plugin, tout << "shared " << m_pp(*this, monomial(s1.m)) << "\n");
+            TRACE(plugin, tout << "shared " << s1.m << ": " << m_pp_ll(*this, monomial(s1.m)) << "\n");
             if (!m_monomial_table.find(s1.m, s2)) 
                 m_monomial_table.insert(s1.m, s1);
             else if (s2.n->get_root() != s1.n->get_root()) {
@@ -1162,23 +1171,23 @@ namespace euf {
         auto old_m = s.m;
         auto old_n = monomial(old_m).m_src;
         ptr_vector<node> m1(monomial(old_m).m_nodes);
-        TRACE(plugin, tout << "simplify " << g.bpp(old_n) << ": " << m_pp(*this, monomial(old_m)) << "\n");
+        TRACE(plugin, tout << "simplify shared: " << g.bpp(old_n) << ": " << m_pp_ll(*this, monomial(old_m)) << "\n");
         if (!reduce(m1, j))
             return;
-
 
         auto new_n = from_monomial(m1);
         auto new_m = to_monomial(new_n, m1);
         // update shared occurrences for members of the new monomial that are not already in the old monomial.
         for (auto n : monomial(old_m))
             n->root->n->mark1();
-        for (auto n : m1)
+        for (auto n : m1) {
             if (!n->root->n->is_marked1()) {
                 n->root->shared.push_back(idx);
                 m_shared_todo.insert(idx);
                 m_node_trail.push_back(n->root);
                 push_undo(is_add_shared_index);
             }
+        }
         for (auto n : monomial(old_m))
             n->root->n->unmark1();  
         m_update_shared_trail.push_back({ idx, s });
@@ -1186,7 +1195,7 @@ namespace euf {
         m_shared[idx].m = new_m;
         m_shared[idx].j = j;
 
-        TRACE(plugin, tout << "shared simplified to " << m_pp(*this, monomial(new_m)) << "\n");
+        TRACE(plugin, tout << "shared simplified to " << m_pp_ll(*this, monomial(new_m)) << "\n");
         
         push_merge(old_n, new_n, j);
     }
