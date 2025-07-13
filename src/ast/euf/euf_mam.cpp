@@ -682,7 +682,8 @@ namespace euf {
             m_region(ctx.get_region()) {
         }
 
-        code_tree * mk_code_tree(func_decl * lbl, unsigned short num_args, bool filter_candidates) {
+        code_tree * mk_code_tree(app* p, unsigned short num_args, bool filter_candidates) {
+            func_decl* lbl = p->get_decl();
             code_tree * r = alloc(code_tree,m_lbl_hasher, lbl, num_args, filter_candidates);
             r->m_root     = mk_init(lbl, num_args);
             return r;
@@ -1792,7 +1793,7 @@ namespace euf {
             SASSERT(m.is_pattern(mp));
             app * p = to_app(mp->get_arg(first_idx));
             unsigned num_args = p->get_num_args();
-            code_tree * r     = m_ct_manager.mk_code_tree(p->get_decl(), num_args, filter_candidates);
+            code_tree * r     = m_ct_manager.mk_code_tree(p, num_args, filter_candidates);
             init(r, qa, mp, first_idx);
             linearise(r->m_root, first_idx);
             if (is_ac(p->get_decl()))
@@ -2345,7 +2346,7 @@ namespace euf {
     }
 
     bool interpreter::execute_core(code_tree * t, enode * n) {
-        TRACE(trigger_bug, tout << "interpreter::execute_core\n"; t->display(tout); tout << "\nenode\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";);
+        TRACE(trigger_bug, tout << "interpreter::execute_core\n"; t->display(tout); tout << "\nenode: " << mk_ismt2_pp(n->get_expr(), m) << "\n";);
         unsigned since_last_check = 0;
 
 #ifdef _PROFILE_MAM
@@ -2462,13 +2463,22 @@ namespace euf {
             auto num_pat_args = static_cast<const initn*>(m_pc)->m_num_args;
             for (unsigned i = 0; i < m_acargs.size(); ++i) {
                 auto* arg = m_acargs[i];
-                if (is_app(arg->get_expr()) && f == arg->get_decl()) {
+                if (!is_app(arg->get_expr()))
+                    continue;                
+                auto fa = arg->get_decl();
+                if (f == fa) {
                     m_acargs.append(arg->num_args(), arg->args());
                     m_acargs[i] = m_acargs.back();
                     m_acargs.pop_back();
                     --i;
                 }
             }
+            TRACE(mam_bug, tout << "initac:\n";
+            for (auto arg : m_acargs) tout << mk_pp(arg->get_expr(), m) << "\n";
+            tout << "\n";
+            display_instr_input_reg(tout, m_pc);
+                );
+               
             if (num_pat_args > m_acargs.size())
                 goto backtrack;
             m_acbitset.reset();
