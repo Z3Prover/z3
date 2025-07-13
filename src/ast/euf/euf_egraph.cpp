@@ -903,12 +903,7 @@ namespace euf {
             out << "n";
         out << "#" << n->get_expr_id() << " := ";
         expr* f = n->get_expr();
-        if (is_app(f))
-            out << mk_bounded_pp(f, m, 1) << " ";
-        else if (is_quantifier(f))
-            out << "q:" << f->get_id() << " ";
-        else
-            out << "v:" << f->get_id() << " ";
+        out << mk_bounded_pp(f, m, 1) << " ";
         if (!n->is_root()) 
             out << "[r " << n->get_root()->get_expr_id() << "] ";
         if (!n->m_parents.empty()) {
