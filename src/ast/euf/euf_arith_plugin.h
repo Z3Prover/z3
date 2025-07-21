@@ -46,6 +46,11 @@ namespace euf {
         void propagate() override;
         
         std::ostream& display(std::ostream& out) const override;
+
+        void collect_statistics(statistics& st) const override {
+            m_add.collect_statistics(st);
+            m_mul.collect_statistics(st);
+        }
             
     };
 }

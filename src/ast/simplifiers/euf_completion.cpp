@@ -68,6 +68,8 @@ namespace euf {
         m_mam(mam::mk(*this, *this)),
         m_canonical(m),
         m_eargs(m),
+        m_expr_trail(m),
+        m_consequences(m),
         m_canonical_proofs(m),
         // m_infer_patterns(m, m_smt_params),
         m_deps(m),
@@ -135,6 +137,7 @@ namespace euf {
             };
 
         m_matcher.set_on_match(on_match);
+
     }
 
     completion::~completion() {
@@ -230,15 +233,51 @@ namespace euf {
             read_egraph();
             IF_VERBOSE(1, verbose_stream() << "(euf.completion :rounds " << rounds << " :instances " << m_stats.m_num_instances << " :stop " << should_stop() << ")\n");
         }
+        map_congruences();
+        for (auto c : m_consequences)
+            add_consequence(c);
+
+        TRACE(euf_completion, m_egraph.display(tout));
+    }
+
+    void completion::map_congruences() {
+        unsigned sz = qtail();
+        for (unsigned i = qhead(); i < sz; ++i) {
+            auto [f, p, d] = m_fmls[i]();
+            if (is_app(f) && to_app(f)->get_num_args() == 1 && symbol("congruences") == to_app(f)->get_decl()->get_name())
+                map_congruence(to_app(f)->get_arg(0));
+        }
+    }
+
+    void completion::map_congruence(expr* t) {
+        auto n = m_egraph.find(t);
+        if (!n)
+            return;
+        ptr_vector<expr> args;
+        for (auto s : enode_class(n)) {
+            expr_ref r(s->get_expr(), m);
+            m_rewriter(r);
+            args.push_back(r);
+        }
+        expr_ref cong(m);
+        cong = m.mk_app(symbol("congruence"), args.size(), args.data(), m.mk_bool_sort());
+        m_fmls.add(dependent_expr(m, cong, nullptr, nullptr));        
+    }
+
+    void completion::add_consequence(expr* f) {
+        expr_ref r(f, m);
+        m_rewriter(r);
+        f = r.get();
+        // verbose_stream() << r << "\n";
+        auto cons = m.mk_app(symbol("consequence"), 1, &f, m.mk_bool_sort());
+        m_fmls.add(dependent_expr(m, cons, nullptr, nullptr));
     }
 
     void completion::add_egraph() {
         m_nodes_to_canonize.reset();
         unsigned sz = qtail();
-        
         for (unsigned i = qhead(); i < sz; ++i) {
             auto [f, p, d] = m_fmls[i]();
-
             add_constraint(f, p, d);
         }
         m_should_propagate = true;
@@ -248,6 +287,7 @@ namespace euf {
             m_mam->propagate();
             flush_binding_queue();
             propagate_rules();
+            propagate_closures();
             IF_VERBOSE(11, verbose_stream() << "propagate " << m_stats.m_num_instances << "\n");
             if (!m_should_propagate && !should_stop())
                 propagate_all_rules();
@@ -271,7 +311,7 @@ namespace euf {
             for (auto* ch : enode_args(n))
                 m_nodes_to_canonize.push_back(ch);
             };
-        expr* x, * y;
+        expr* x = nullptr, * y = nullptr;
         if (m.is_eq(f, x, y)) {
             expr_ref x1(x, m);
             expr_ref y1(y, m);
@@ -285,16 +325,20 @@ namespace euf {
             if (a->get_root() == b->get_root())
                 return;           
             m_egraph.merge(a, b, to_ptr(push_pr_dep(pr, d)));
+            m_egraph.propagate();
             add_children(a);
             add_children(b);
             auto a1 = mk_enode(x);
             if (a1->get_root() != a->get_root()) {
                 m_egraph.merge(a, a1, nullptr);
+                m_egraph.propagate();
                 add_children(a1);
             }
             auto b1 = mk_enode(y);
             if (b1->get_root() != b->get_root()) {
+                TRACE(euf, tout << "merge and propagate\n");
                 m_egraph.merge(b, b1, nullptr);
+                m_egraph.propagate();
                 add_children(b1);
             }
 
@@ -310,6 +354,7 @@ namespace euf {
             add_quantifiers(f);
             auto j = to_ptr(push_pr_dep(pr, d));
             m_egraph.new_diseq(n, j);
+            m_egraph.propagate();
             add_children(n);
             m_should_propagate = true;
             if (m_side_condition_solver)
@@ -322,6 +367,7 @@ namespace euf {
                 return;            
             IF_VERBOSE(1, verbose_stream() << "fml: " << mk_pp(f, m) << "\n");
             m_egraph.merge(n, m_tt, to_ptr(push_pr_dep(pr, d)));
+            m_egraph.propagate();
             add_children(n);
             if (is_forall(f)) {
                 quantifier* q = to_quantifier(f);
@@ -352,7 +398,7 @@ namespace euf {
             }
 
             add_rule(f, pr, d);
-            if (!is_forall(f) && !m.is_implies(f)) {
+            if (!is_forall(f) && !m.is_implies(f) && !m.is_or(f)) {
                 add_quantifiers(f);
                 if (m_side_condition_solver)
                     m_side_condition_solver->add_constraint(f, pr, d);
@@ -388,18 +434,27 @@ namespace euf {
             else if (is_quantifier(t)) {
                 auto q = to_quantifier(t);
                 auto nd = q->get_num_decls();
-                verbose_stream() << "bind " << mk_pp(q, m) << "\n";
+                IF_VERBOSE(1, verbose_stream() << "bind " << mk_pp(q, m) << "\n");
                 for (unsigned i = 0; i < nd; ++i) {
                     auto name = std::string("bound!") + std::to_string(bound.size());
                     auto b = m.mk_const(name, q->get_decl_sort(i));
-                    // TODO: persist bound variables withn scope to avoid reference count crashes
+                    if (b->get_ref_count() == 0) {
+                        m_expr_trail.push_back(b);
+                        get_trail().push(push_back_vector(m_expr_trail));
+                    }
                     bound.push_back(b);
                 }
                 expr_ref inst = var_subst(m)(q->get_expr(), bound);
+
                 if (!m_egraph.find(inst)) {
+                    expr_ref clos(m);
                     m_closures.insert(q, { bound, inst });
                     get_trail().push(insert_map(m_closures, q));
-                    mk_enode(inst);
+                    // ensure that inst occurs in a foreign context to enable equality propagation
+                    // on inst.
+                    func_decl* f = m.mk_func_decl(symbol("clos!"), inst->get_sort(), m.mk_bool_sort());
+                    clos = m.mk_app(f, inst);
+                    mk_enode(clos);
                     // TODO: handle nested quantifiers after m_closures is updated to 
                     // index on sort declaration prefix together with quantifier
                     // add_quantifiers(bound, inst);
@@ -445,13 +500,31 @@ namespace euf {
 
     void completion::add_rule(expr* f, proof* pr, expr_dependency* d) {
         expr* x = nullptr, * y = nullptr;
-        if (!m.is_implies(f, x, y))
-            return;
         expr_ref_vector body(m);
         proof_ref pr_i(m), pr0(m);
         expr_ref_vector prs(m);
-        expr_ref head(y, m);
-        body.push_back(x);
+        expr_ref head(m);
+        if (m.is_implies(f, x, y)) {
+            head = y;
+            body.push_back(x);
+        } 
+        else if (m.is_or(f)) {
+            auto a = to_app(f);
+            for (auto arg : *to_app(f)) {
+                if (m.is_eq(arg)) {
+                    if (head)
+                        return;
+                    head = arg;
+                }
+                else
+                    body.push_back(arg);
+            }
+            if (!head)
+                return;
+        }
+        else 
+            return;
+
         flatten_and(body);
         unsigned j = 0;
         flet<bool> _propagate_with_solver(m_propagate_with_solver, true);
@@ -552,6 +625,39 @@ namespace euf {
         }
     }
 
+    void completion::propagate_closures() {
+        for (auto [q, clos] : m_closures) {
+            expr* body = clos.second;
+            auto n = m_egraph.find(body);
+            SASSERT(n);
+#if 0
+            verbose_stream() << "class of " << mk_pp(body, m) << "\n";
+            for (auto s : euf::enode_class(n)) {
+                verbose_stream() << mk_pp(s->get_expr(), m) << "\n";
+            }
+#endif
+            if (n->is_root())
+                continue;
+            auto qn = m_egraph.find(q);
+#if 0
+            verbose_stream() << "class of " << mk_pp(q, m) << "\n";
+            for (auto s : euf::enode_class(qn)) {
+                verbose_stream() << mk_pp(s->get_expr(), m) << "\n";
+            }
+#endif
+            expr_ref new_body = expr_ref(n->get_root()->get_expr(), m);
+            expr_ref new_q = expr_abstract(m, clos.first, new_body);
+            new_q = m.update_quantifier(q, new_q);
+            auto new_qn = m_egraph.find(new_q);
+            if (!new_qn)
+                new_qn = m_egraph.mk(new_q, qn->generation(), 0, nullptr);
+            if (new_qn->get_root() == qn->get_root())
+                continue;
+            m_egraph.merge(new_qn, qn, nullptr); // todo track dependencies
+            m_should_propagate = true;
+        }
+    }
+
     binding* completion::tmp_binding(quantifier* q, app* pat, euf::enode* const* _binding) {
         if (q->get_num_decls() > m_tmp_binding_capacity) {
             void* mem = memory::allocate(sizeof(binding) + q->get_num_decls() * sizeof(euf::enode*));
@@ -643,11 +749,12 @@ namespace euf {
 
     void completion::apply_binding(binding& b, quantifier* q, expr_ref_vector const& s) {
         var_subst subst(m);
-        expr_ref r = subst(q->get_expr(), s);
+        expr_ref r = subst(q->get_expr(), s);        
         scoped_generation sg(*this, b.m_max_top_generation + 1);
         auto [pr, d] = get_dependency(q);
         if (pr)
             pr = m.mk_quant_inst(m.mk_or(m.mk_not(q), r), s.size(), s.data());
+        m_consequences.push_back(r);
         add_constraint(r, pr, d);
         propagate_rules();
         m_egraph.propagate();
@@ -788,7 +895,7 @@ namespace euf {
             if (x1 == y1)
                 r = expr_ref(m.mk_true(), m);
             else {
-                expr* c = get_canonical(x, pr3, d);
+                auto c = get_canonical(x, pr3, d);
                 if (c == x1)
                     r = m_rewriter.mk_eq(y1, c);
                 else if (c == y1)
@@ -832,8 +939,6 @@ namespace euf {
     }
 
     expr_ref completion::canonize(expr* f, proof_ref& pr, expr_dependency_ref& d) {
-        if (is_quantifier(f)) 
-            return expr_ref(canonize(to_quantifier(f), pr, d), m);
         
         if (!is_app(f))
             return expr_ref(f, m); // todo could normalize ground expressions under quantifiers
@@ -862,13 +967,30 @@ namespace euf {
         return r;
     }
 
-    expr_ref completion::canonize(quantifier* q, proof_ref& pr, expr_dependency_ref& d) {
+    expr_ref completion::get_canonical(quantifier* q, proof_ref& pr, expr_dependency_ref& d) {
         std::pair<ptr_vector<expr>, expr*> clos;
+//        verbose_stream() << "canonize " << mk_pp(q, m) << "\n";
         if (!m_closures.find(q, clos))
             return expr_ref(q, m);
         expr* body = clos.second;
-        expr_ref new_body = canonize(body, pr, d);
+        auto n = m_egraph.find(body);
+        SASSERT(n);
+#if 0
+        verbose_stream() << "class of " << mk_pp(body, m) << "\n";
+        for (auto s : euf::enode_class(n)) {
+            verbose_stream() << mk_pp(s->get_expr(), m) << "\n";
+        }
+#endif
+        n = m_egraph.find(q);
+#if 0
+        verbose_stream() << "class of " << mk_pp(q, m) << "\n";
+        for (auto s : euf::enode_class(n)) {
+            verbose_stream() << mk_pp(s->get_expr(), m) << "\n";
+        }
+#endif
+        expr_ref new_body = get_canonical(body, pr, d);
         expr_ref result = expr_abstract(m, clos.first, new_body);
+        result = m.update_quantifier(q, result);
         if (m.proofs_enabled()) {
             // add proof rule 
             // 
@@ -881,10 +1003,28 @@ namespace euf {
     }
 
 
-    expr* completion::get_canonical(expr* f, proof_ref& pr, expr_dependency_ref& d) {
+    expr_ref completion::get_canonical(expr* f, proof_ref& pr, expr_dependency_ref& d) {
+        expr_ref e(m);
+        if (has_quantifiers(f)) {
+            if (is_quantifier(f))
+                return get_canonical(to_quantifier(f), pr, d);
+            else if (is_app(f)) {
+                expr_ref_vector args(m);
+                for (auto arg : *to_app(f)) {
+                    // TODO: pr reconstruction
+                    args.push_back(get_canonical(arg, pr, d));
+                }
+                e = m.mk_app(to_app(f)->get_decl(), args);
+                if (!m_egraph.find(e))
+                    return e;
+                f = e;
+            }
+            else
+                UNREACHABLE();
+
+        }
         enode* n = m_egraph.find(f);
         
-        if (!n) verbose_stream() << "not found " << f->get_id() << " " << mk_pp(f, m) << "\n";
         enode* r = n->get_root();
         d = m.mk_join(d, explain_eq(n, r));
         d = m.mk_join(d, m_deps.get(r->get_id(), nullptr));
@@ -894,7 +1034,7 @@ namespace euf {
                 pr = m.mk_transitivity(pr, get_canonical_proof(r));            
         }
         SASSERT(m_canonical.get(r->get_id()));
-        return m_canonical.get(r->get_id());
+        return expr_ref(m_canonical.get(r->get_id()), m);
     }
 
     expr* completion::get_canonical(enode* n) {
@@ -990,6 +1130,7 @@ namespace euf {
     void completion::collect_statistics(statistics& st) const {
         st.update("euf-completion-rewrites", m_stats.m_num_rewrites);
         st.update("euf-completion-instances", m_stats.m_num_instances);
+        m_egraph.collect_statistics(st);
     }
 
     bool completion::is_gt(expr* lhs, expr* rhs) const {
@@ -1098,8 +1239,8 @@ namespace euf {
                 proof_ref pr(m);
                 prs.reset();
                 for (enode* arg : enode_args(rep)) {
-                    enode* rarg = arg->get_root();
-                    expr* c = get_canonical(rarg);
+                    auto rarg = arg->get_root();
+                    auto c = get_canonical(rarg);
                     if (c) {
                         m_eargs.push_back(c);
                         new_arg |= c != arg->get_expr();

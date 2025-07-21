@@ -128,7 +128,7 @@ namespace euf {
         enode*                 m_tt, *m_ff;
         ptr_vector<expr>       m_todo;
         enode_vector           m_args, m_reps, m_nodes_to_canonize;
-        expr_ref_vector        m_canonical, m_eargs;
+        expr_ref_vector        m_canonical, m_eargs, m_expr_trail, m_consequences;
         proof_ref_vector       m_canonical_proofs;
         //        pattern_inference_rw   m_infer_patterns;
         bindings               m_bindings;
@@ -166,11 +166,14 @@ namespace euf {
         void read_egraph();
         expr_ref canonize(expr* f, proof_ref& pr, expr_dependency_ref& dep);
         expr_ref canonize_fml(expr* f, proof_ref& pr, expr_dependency_ref& dep);
-        expr* get_canonical(expr* f, proof_ref& pr, expr_dependency_ref& d);
+        expr_ref get_canonical(expr* f, proof_ref& pr, expr_dependency_ref& d);
         expr* get_canonical(enode* n);
         proof* get_canonical_proof(enode* n);
         void set_canonical(enode* n, expr* e, proof* pr);
         void add_constraint(expr*f, proof* pr, expr_dependency* d);
+        void map_congruences();
+        void map_congruence(expr* t);
+        void add_consequence(expr* t);
 
         // Enable equality propagation inside of quantifiers
         // add quantifier bodies as closure terms to the E-graph.
@@ -181,7 +184,7 @@ namespace euf {
         // Closure terms are re-abstracted by the canonizer.
         void add_quantifiers(ptr_vector<expr>& bound, expr* t);
         void add_quantifiers(expr* t);
-        expr_ref canonize(quantifier* q, proof_ref& pr, expr_dependency_ref& d);
+        expr_ref get_canonical(quantifier* q, proof_ref& pr, expr_dependency_ref& d);
         obj_map<quantifier, std::pair<ptr_vector<expr>, expr*>> m_closures;
 
         expr_dependency* explain_eq(enode* a, enode* b);
@@ -208,6 +211,7 @@ namespace euf {
         void propagate_rule(conditional_rule& r);
         void propagate_rules();
         void propagate_all_rules();
+        void propagate_closures();
         void clear_propagation_queue();
         ptr_vector<conditional_rule> m_propagation_queue;
         struct push_watch_rule;

@@ -36,37 +36,19 @@ namespace euf {
 
     class ac_plugin : public plugin {
 
-        // enode structure for AC equivalences
-        struct node {
-            enode* n;        // associated enode
-            node* root;      // path compressed root
-            node* next;      // next in equivalence class
-            justification j; // justification for equality
-            node* target = nullptr;    // justified next
-            unsigned_vector shared;    // shared occurrences
-            unsigned_vector eqs;       // equality occurrences
-            
-            unsigned id() const { return root->n->get_id(); }
-            static node* mk(region& r, enode* n);
+        struct stats {
+            unsigned m_num_superpositions = 0;// number of superpositions
         };
 
-        class equiv {
-            node& n;
-        public:
-            class iterator {
-                node* m_first;
-                node* m_last;
-            public:
-                iterator(node* n, node* m) : m_first(n), m_last(m) {}
-                node* operator*() { return m_first; }
-                iterator& operator++() { if (!m_last) m_last = m_first; m_first = m_first->next; return *this; }
-                iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
-                bool operator!=(iterator const& other) const { return m_last != other.m_last || m_first != other.m_first; }
-            };
-            equiv(node& _n) :n(_n) {}
-            equiv(node* _n) :n(*_n) {}
-            iterator begin() const { return iterator(&n, nullptr); }
-            iterator end() const { return iterator(&n, &n); }
+        // enode structure for AC equivalences
+        struct node {
+            enode* n;                  // associated enode
+            unsigned_vector shared;    // shared occurrences
+            unsigned_vector eqs;       // equality occurrences
+            bool is_zero = false;
+            
+            unsigned id() const { return n->get_id(); }
+            static node* mk(region& r, enode* n);
         };
 
         struct bloom {
@@ -75,7 +57,7 @@ namespace euf {
         };
 
         enum eq_status {
-            processed, to_simplify, is_dead
+            processed, to_simplify, is_reducing_eq, is_dead
         };
 
         // represent equalities added by merge_eh and by superposition
@@ -150,6 +132,10 @@ namespace euf {
         tracked_uint_set         m_shared_todo;
         uint64_t                 m_tick = 1;
         symbol                   m_name;
+        unsigned                 m_fuel = 0;
+        unsigned                 m_fuel_inc = 3;
+        stats                    m_stats;
+        mutable symbol           m_superposition_stats, m_eqs_stats;
         
 
 
@@ -163,7 +149,6 @@ namespace euf {
             is_add_eq,
             is_add_monomial,
             is_add_node,
-            is_merge_node,
             is_update_eq,
             is_add_shared_index,
             is_add_eq_index,
@@ -200,14 +185,35 @@ namespace euf {
         bool can_be_subset(monomial_t& subset, ptr_vector<node> const& m, bloom& b);
         bool are_equal(ptr_vector<node> const& a, ptr_vector<node> const& b);
         bool are_equal(monomial_t& a, monomial_t& b);
+        bool are_equal(eq const& a, eq const& b)  {
+            return are_equal(monomial(a.l), monomial(b.l)) && are_equal(monomial(a.r), monomial(b.r));
+        }
+        bool well_formed(eq const& e) const;
+        bool is_reducing(eq const& e) const;
+        void forward_reduce(unsigned eq_id);
+        void forward_reduce(eq const& src, unsigned dst);
+        bool forward_reduce_monomial(eq const& eq, monomial_t& m);
+        void backward_subsume_new_eqs();
+        bool is_backward_subsumed(unsigned dst_eq);
         bool backward_subsumes(unsigned src_eq, unsigned dst_eq);
         bool forward_subsumes(unsigned src_eq, unsigned dst_eq);
 
-        void init_equation(eq const& e);
+        enode_vector m_units;
+        enode* get_unit(enode* n) const {
+            for (auto u : m_units) {
+                if (u->get_sort() == n->get_sort())
+                    return u;
+            }
+            UNREACHABLE();
+            return nullptr;
+        }
+        
+        bool init_equation(eq const& e);
         bool orient_equation(eq& e);
         void set_status(unsigned eq_id, eq_status s);
         unsigned pick_next_eq();
 
+        unsigned_vector m_new_eqs;
         void forward_simplify(unsigned eq_id, unsigned using_eq);
         bool backward_simplify(unsigned eq_id, unsigned using_eq);
         bool superpose(unsigned src_eq, unsigned dst_eq);
@@ -249,6 +255,7 @@ namespace euf {
 
         bool is_to_simplify(unsigned eq) const { return m_eqs[eq].status == eq_status::to_simplify; }
         bool is_processed(unsigned eq) const { return m_eqs[eq].status == eq_status::processed; }
+        bool is_reducing(unsigned eq) const { return m_eqs[eq].status == eq_status::is_reducing_eq; }
         bool is_alive(unsigned eq) const { return m_eqs[eq].status != eq_status::is_dead; }
 
         justification justify_rewrite(unsigned eq1, unsigned eq2);
@@ -279,6 +286,10 @@ namespace euf {
         ac_plugin(egraph& g, func_decl* f);
 
         void set_injective() { m_is_injective = true; }
+
+        void add_unit(enode*);
+
+        void add_zero(enode*);
         
         theory_id get_id() const override { return m_fid; }
 
@@ -293,6 +304,8 @@ namespace euf {
         void propagate() override;
         
         std::ostream& display(std::ostream& out) const override;
+
+        void collect_statistics(statistics& st) const override;
 
         void set_undo(std::function<void(void)> u) { m_undo_notify = u; }
 

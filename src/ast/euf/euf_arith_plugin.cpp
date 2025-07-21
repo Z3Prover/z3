@@ -31,6 +31,25 @@ namespace euf {
         std::function<void(void)> umul = [&]() { m_undo.push_back(undo_t::undo_mul); };
         m_mul.set_undo(umul);
         m_add.set_injective();
+        auto e = a.mk_int(0);
+        auto n = g.find(e) ? g.find(e) : g.mk(e, 0, 0, nullptr);
+        m_add.add_unit(n);
+        m_mul.add_zero(n);
+
+        e = a.mk_real(0);
+        n = g.find(e) ? g.find(e) : g.mk(e, 0, 0, nullptr);
+        m_add.add_unit(n);
+        m_mul.add_zero(n);
+
+        e = a.mk_int(1);
+        n = g.find(e) ? g.find(e) : g.mk(e, 0, 0, nullptr);
+        m_mul.add_unit(n);
+
+        e = a.mk_real(1);
+        n = g.find(e) ? g.find(e) : g.mk(e, 0, 0, nullptr);
+        m_mul.add_unit(n);
+
+
     }    
 
     void arith_plugin::register_node(enode* n) {
