@@ -307,7 +307,6 @@ namespace euf {
     }
 
     void ac_plugin::collect_statistics(statistics& st) const {
-
         std::string name = m_name.str();
         m_superposition_stats = symbol((std::string("ac ") + name + " superpositions"));
         m_eqs_stats = symbol((std::string("ac ") + name + " equations"));
@@ -320,8 +319,10 @@ namespace euf {
             return;
         m_fuel += m_fuel_inc;
         auto j = justification::equality(l, r);
-        TRACE(plugin, tout << "merge: " << m_name << " " << g.bpp(l) << " == " << g.bpp(r) << " " << is_op(l) << " " << is_op(r) << "\n");
-        init_equation(eq(to_monomial(l), to_monomial(r), j));
+        auto m1 = to_monomial(l);
+        auto m2 = to_monomial(r);
+        TRACE(plugin, tout << "merge: " << m_name << " " << g.bpp(l) << " == " << g.bpp(r) << " " << m_pp_ll(*this, monomial(m1)) << " == " << m_pp_ll(*this, monomial(m2)) << "\n");
+        init_equation(eq(m1, m2, j));
     }
 
     void ac_plugin::diseq_eh(enode* eq) {
@@ -1063,14 +1064,13 @@ namespace euf {
                     break;
                 }
                 for (auto eq : n->eqs) {
-                    if (!is_processed(eq))
+                    continue;
+                    if (!is_reducing(eq)) // also can use processed?
                         continue;
                     auto& src = m_eqs[eq];
                    
-                    if (!is_equation_oriented(src)) {
-                        //verbose_stream() << "equation is not oriented: " << m_eq_ll(*this, src) << "\n";
-                        continue;
-                    }
+                    if (!is_equation_oriented(src)) 
+                        continue;                    
                     if (!can_be_subset(monomial(src.l), m, b))
                         continue;
                     if (!is_subset(m_m_counts, m_eq_counts, monomial(src.l)))
@@ -1134,7 +1134,7 @@ namespace euf {
         unsigned max_left  = std::max(monomial(src.l).size(), monomial(dst.l).size());
         unsigned min_right = std::max(monomial(src.r).size(), monomial(dst.r).size());
 
-        TRACE(plugin, tout << "superpose: "; display_equation_ll(tout, src); tout << " "; display_equation_ll(tout, dst); tout << "\n";);
+
         // AB -> C, AD -> E => BE ~ CD
         // m_src_ids, m_src_counts contains information about src (call it AD -> E)
         m_dst_l_counts.reset();
@@ -1175,13 +1175,11 @@ namespace euf {
             return false;
         }
 
-        TRACE(plugin, tout << "superpose result: " << m_pp_ll(*this, m_src_r) << "== " << m_pp_ll(*this, m_dst_r) << "\n";);
-
         justification j = justify_rewrite(src_eq, dst_eq);
         reduce(m_dst_r, j);
         reduce(m_src_r, j);
         deduplicate(m_src_r, m_dst_r);
-        TRACE(plugin, tout << "superpose result: " << m_pp_ll(*this, m_src_r) << "== " << m_pp_ll(*this, m_dst_r) << "\n";);
+
         
         bool added_eq = false;
         auto src_r = src.r;
@@ -1189,6 +1187,10 @@ namespace euf {
         unsigned min_right_new = std::min(m_src_r.size(), m_dst_r.size());
         if (max_left_new <= max_left && min_right_new <= min_right) 
             added_eq = init_equation(eq(to_monomial(m_src_r), to_monomial(m_dst_r), j));
+
+        CTRACE(plugin, added_eq,
+            tout << "superpose: " << m_name << " " << eq_pp_ll(*this, src) << " " << eq_pp_ll(*this, dst) << " --> ";
+            tout << m_pp_ll(*this, m_src_r) << "== " << m_pp_ll(*this, m_dst_r) << "\n";);
         
         m_src_r.reset();
         m_src_r.append(monomial(src_r).m_nodes);
