@@ -369,8 +369,8 @@ namespace euf {
 
         ho_matcher(ast_manager& m, trail_stack &trail) : 
             m(m),
-            m_subst(m),
             m_trail(trail),
+            m_subst(m),
             m_goals(*this, m),
             m_unitary(m),
             m_rewriter(m),

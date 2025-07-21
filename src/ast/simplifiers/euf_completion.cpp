@@ -509,7 +509,6 @@ namespace euf {
             body.push_back(x);
         } 
         else if (m.is_or(f)) {
-            auto a = to_app(f);
             for (auto arg : *to_app(f)) {
                 if (m.is_eq(arg)) {
                     if (head)
@@ -973,15 +972,14 @@ namespace euf {
         if (!m_closures.find(q, clos))
             return expr_ref(q, m);
         expr* body = clos.second;
-        auto n = m_egraph.find(body);
-        SASSERT(n);
+        SASSERT(m_egraph.find(body));
 #if 0
         verbose_stream() << "class of " << mk_pp(body, m) << "\n";
         for (auto s : euf::enode_class(n)) {
             verbose_stream() << mk_pp(s->get_expr(), m) << "\n";
         }
 #endif
-        n = m_egraph.find(q);
+        auto n = m_egraph.find(q);
 #if 0
         verbose_stream() << "class of " << mk_pp(q, m) << "\n";
         for (auto s : euf::enode_class(n)) {
