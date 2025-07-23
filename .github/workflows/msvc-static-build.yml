@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-2019
+    runs-on: windows-latest
     env:
       BUILD_TYPE: Release
     steps:
