@@ -57,7 +57,7 @@ namespace euf {
         };
 
         enum eq_status {
-            processed, to_simplify, is_reducing_eq, is_dead
+            is_processed_eq, is_passive_eq, is_to_simplify_eq, is_reducing_eq, is_dead_eq
         };
 
         // represent equalities added by merge_eh and by superposition
@@ -65,7 +65,7 @@ namespace euf {
             eq(unsigned l, unsigned r, justification j):
                 l(l), r(r), j(j) {}
             unsigned l, r;              // refer to monomials
-            eq_status status = to_simplify;
+            eq_status status = is_to_simplify_eq;
             justification j;            // justification for equality
         };
 
@@ -122,7 +122,7 @@ namespace euf {
         decl_kind                m_op = null_decl_kind;
         func_decl*               m_decl = nullptr;
         bool                     m_is_injective = false;
-        vector<eq>               m_eqs;
+        vector<eq>               m_active, m_passive;
         ptr_vector<node>         m_nodes;
         bool_vector              m_shared_nodes;
         vector<monomial_t>       m_monomials;
@@ -190,13 +190,13 @@ namespace euf {
         }
         bool well_formed(eq const& e) const;
         bool is_reducing(eq const& e) const;
-        void forward_reduce(unsigned eq_id);
-        void forward_reduce(eq const& src, unsigned dst);
-        bool forward_reduce_monomial(eq const& eq, monomial_t& m);
-        void backward_subsume_new_eqs();
-        bool is_backward_subsumed(unsigned dst_eq);
-        bool backward_subsumes(unsigned src_eq, unsigned dst_eq);
+        void backward_reduce(unsigned eq_id);
+        void backward_reduce(eq const& src, unsigned dst);
+        bool backward_reduce_monomial(eq const& eq, monomial_t& m);
+        void forward_subsume_new_eqs();
+        bool is_forward_subsumed(unsigned dst_eq);
         bool forward_subsumes(unsigned src_eq, unsigned dst_eq);
+        bool backward_subsumes(unsigned src_eq, unsigned dst_eq);
 
         enode_vector m_units;
         enode* get_unit(enode* n) const {
@@ -214,8 +214,8 @@ namespace euf {
         unsigned pick_next_eq();
 
         unsigned_vector m_new_eqs;
-        void forward_simplify(unsigned eq_id, unsigned using_eq);
-        bool backward_simplify(unsigned eq_id, unsigned using_eq);
+        void backward_simplify(unsigned eq_id, unsigned using_eq);
+        bool forward_simplify(unsigned eq_id, unsigned using_eq);
         bool superpose(unsigned src_eq, unsigned dst_eq);
         void deduplicate(ptr_vector<node>& a, ptr_vector<node>& b);
         
@@ -235,9 +235,9 @@ namespace euf {
         unsigned_vector m_eq_occurs;
         bool_vector m_eq_seen;
 
-        unsigned_vector const& forward_iterator(unsigned eq);
-        unsigned_vector const& superpose_iterator(unsigned eq);
         unsigned_vector const& backward_iterator(unsigned eq);
+        unsigned_vector const& superpose_iterator(unsigned eq);
+        unsigned_vector const& forward_iterator(unsigned eq);
         void init_ref_counts(monomial_t const& monomial, ref_counts& counts) const;
         void init_ref_counts(ptr_vector<node> const& monomial, ref_counts& counts) const;
         void init_overlap_iterator(unsigned eq, monomial_t const& m);
@@ -253,10 +253,10 @@ namespace euf {
         bool reduce(ptr_vector<node>& m, justification& j);
         void index_new_r(unsigned eq, monomial_t const& old_r, monomial_t const& new_r);
 
-        bool is_to_simplify(unsigned eq) const { return m_eqs[eq].status == eq_status::to_simplify; }
-        bool is_processed(unsigned eq) const { return m_eqs[eq].status == eq_status::processed; }
-        bool is_reducing(unsigned eq) const { return m_eqs[eq].status == eq_status::is_reducing_eq; }
-        bool is_alive(unsigned eq) const { return m_eqs[eq].status != eq_status::is_dead; }
+        bool is_to_simplify(unsigned eq) const { return m_active[eq].status == eq_status::is_to_simplify_eq; }
+        bool is_processed(unsigned eq) const { return m_active[eq].status == eq_status::is_processed_eq; }
+        bool is_reducing(unsigned eq) const { return m_active[eq].status == eq_status::is_reducing_eq; }
+        bool is_active(unsigned eq) const { return m_active[eq].status != eq_status::is_dead_eq; }
 
         justification justify_rewrite(unsigned eq1, unsigned eq2);
         justification::dependency* justify_equation(unsigned eq);
@@ -312,14 +312,14 @@ namespace euf {
         struct eq_pp {
             ac_plugin const& p; eq const& e; 
             eq_pp(ac_plugin const& p, eq const& e) : p(p), e(e) {}; 
-            eq_pp(ac_plugin const& p, unsigned eq_id): p(p), e(p.m_eqs[eq_id]) {}
+            eq_pp(ac_plugin const& p, unsigned eq_id): p(p), e(p.m_active[eq_id]) {}
             std::ostream& display(std::ostream& out) const { return p.display_equation(out, e); }
         };
 
         struct eq_pp_ll {
             ac_plugin const& p; eq const& e;
             eq_pp_ll(ac_plugin const& p, eq const& e) : p(p), e(e) {};
-            eq_pp_ll(ac_plugin const& p, unsigned eq_id) : p(p), e(p.m_eqs[eq_id]) {}
+            eq_pp_ll(ac_plugin const& p, unsigned eq_id) : p(p), e(p.m_active[eq_id]) {}
             std::ostream& display(std::ostream& out) const { return p.display_equation_ll(out, e); }
         };
 
