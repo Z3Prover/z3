@@ -92,15 +92,63 @@ namespace smt {
             sl.push_child(&(new_m->limit()));
         }
 
-        auto cube = [](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
-            lookahead lh(ctx);
-            c = lh.choose();
-            if (c) {
+        // auto cube = [](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
+        //     lookahead lh(ctx);
+        //     c = lh.choose();
+        //     if (c) {
+        //         if ((ctx.get_random_value() % 2) == 0) 
+        //             c = c.get_manager().mk_not(c);
+        //         lasms.push_back(c);
+        //     }
+        // };
+
+        auto cube = [&](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
+            lookahead lh(ctx); // Create lookahead object to use get_score for evaluation
+
+            std::vector<std::pair<expr_ref, double>> candidates; // List of candidate literals and their scores
+            unsigned budget = 10; // Maximum number of variables to sample for building the cubes
+
+            // Loop through all Boolean variables in the context
+            for (bool_var v = 0; v < ctx.m_bool_var2expr.size(); ++v) {
+                if (ctx.get_assignment(v) != l_undef) continue; // Skip already assigned variables
+
+                expr* e = ctx.bool_var2expr(v); // Get expression associated with variable
+                if (!e) continue; // Skip if not a valid variable
+
+                literal lit(v, false); // Create literal for v = true
+
+                ctx.push_scope(); // Save solver state
+                ctx.assign(lit, b_justification::mk_axiom(), true); // Assign v = true with axiom justification
+                ctx.propagate(); // Propagate consequences of assignment
+
+                if (!ctx.inconsistent()) { // Only keep variable if assignment didn’t lead to conflict
+                    double score = lh.get_score(); // Evaluate current state using lookahead scoring
+                    candidates.emplace_back(expr_ref(e, ctx.get_manager()), score); // Store (expr, score) pair
+                }
+
+                ctx.pop_scope(1); // Restore solver state
+
+                if (candidates.size() >= budget) break; // Stop early if sample budget is exhausted
+            }
+
+            // Sort candidates in descending order by score (higher score = better)
+            std::sort(candidates.begin(), candidates.end(),
+                [](auto& a, auto& b) { return a.second > b.second; });
+
+            unsigned cube_size = 2; // compute_cube_size_from_feedback(); // NEED TO IMPLEMENT: Decide how many literals to include (adaptive)
+
+            // Select top-scoring literals to form the cube
+            for (unsigned i = 0; i < std::min(cube_size, (unsigned)candidates.size()); ++i) {
+                expr_ref lit = candidates[i].first;
+
+                // Randomly flip polarity with 50% chance (introduces polarity diversity)
                 if ((ctx.get_random_value() % 2) == 0) 
-                    c = c.get_manager().mk_not(c);
-                lasms.push_back(c);
+                    lit = ctx.get_manager().mk_not(lit);
+
+                lasms.push_back(lit); // Add literal as thread-local assumption
             }
         };
+
 
         obj_hashtable<expr> unit_set;
         expr_ref_vector unit_trail(ctx.m);
@@ -217,6 +265,7 @@ namespace smt {
         while (true) {
             vector<std::thread> threads(num_threads);
             for (unsigned i = 0; i < num_threads; ++i) {
+                // [&, i] is the lambda's capture clause: capture all variables by reference (&) except i, which is captured by value.
                 threads[i] = std::thread([&, i]() { worker_thread(i); });
             }
             for (auto & th : threads) {
