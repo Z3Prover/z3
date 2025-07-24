@@ -189,6 +189,7 @@ namespace smt {
         unsigned_vector             m_lit_occs;    //!< occurrence count of literals
         svector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
         svector<double>             m_activity;
+        svector<double[2]>          m_scores;
         clause_vector               m_aux_clauses;
         clause_vector               m_lemmas;
         vector<clause_vector>       m_clauses_to_reinit;
@@ -929,6 +930,13 @@ namespace smt {
         ast_pp_util m_lemma_visitor;
         void dump_lemma(unsigned n, literal const* lits);
         void dump_axiom(unsigned n, literal const* lits);
+        void add_scores(unsigned n, literal const* lits);
+        void reset_scores() {
+            for (auto& s : m_scores) s[0] = s[1] = 0.0;
+        }
+        double get_score(literal l) const {
+            return m_scores[l.var()][l.sign()];
+        }
     public:        
 
         void ensure_internalized(expr* e);

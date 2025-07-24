@@ -928,6 +928,8 @@ namespace smt {
         set_bool_var(id, v);
         m_bdata.reserve(v+1);
         m_activity.reserve(v+1);
+        m_scores.reserve(v + 1);
+        m_scores[v][0] = m_scores[v][1] = 0.0;
         m_bool_var2expr.reserve(v+1);
         m_bool_var2expr[v] = n;
         literal l(v, false);
@@ -1416,6 +1418,7 @@ namespace smt {
             break;
         case CLS_LEARNED:
             dump_lemma(num_lits, lits);
+            add_scores(num_lits, lits);
             break;
         default:
             break;
@@ -1522,6 +1525,14 @@ namespace smt {
             CASSERT("mk_clause", check_clause(cls));
             return cls;
         }} 
+    }
+
+    void context::add_scores(unsigned n, literal const* lits) {
+        for (unsigned i = 0; i < n; ++i) {
+            auto lit = lits[i];
+            unsigned v = lit.var();
+            m_scores[v][lit.sign()] += 1.0 / n;
+        }
     }
 
     void context::dump_axiom(unsigned n, literal const* lits) {
