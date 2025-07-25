@@ -44,4 +44,26 @@ We track notes for updates to smt\_parallel.cpp and possibly solver/parallel\_ta
 
 
 This section considers various possible algorithms. 
+In the following, $F$ refers to the original goal, $T$ is the number of CPU cores or CPU threads.
+
+### Base algorithm
+
+The existing algorithm in <b>smt_parallel</b> is as follows:
+
+1. Run a solver on $F$ with a bounded number of conflicts.
+2. If the result is SAT/UNSAT, or UNKNOWN with an interrupt or timeout, return. If the maximal number of conflicts were reached continue.
+3. Spawn $T$ solvers on $F$ with a bounded number of conflicts, wait until a thread returns UNSAT/SAT or all threads have reached a maximal number of conflicts.
+4. Perform a similar check as in 2.
+5. Share unit literals learned by each thread.
+6. Compute unit cubes for each thread $T$.
+7. Spawn $T$ solvers with $F \wedge \ell$, where $\ell$ is a unit literal determined by lookahead function in each thread.
+8. Perform a similar check as in 2.
+9. Shared unit literals learned by each thread, increase the maximal number of conflicts, go to 3.
+
+### Algorithm Variants
+
+* Instead of using lookahead solving to find unit cubes use the proof-prefix based scoring function.
+* Instead of using independent unit cubes, perform a systematic (where systematic can mean many things) cube and conquer strategy.
+* Change the synchronization barrier discipline.
+* [Future] Include in-processing 
 
