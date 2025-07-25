@@ -189,7 +189,7 @@ namespace smt {
         unsigned_vector             m_lit_occs;    //!< occurrence count of literals
         svector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
         svector<double>             m_activity;
-        svector<double[2]>          m_scores;
+        svector<double>             m_scores[2];
         clause_vector               m_aux_clauses;
         clause_vector               m_lemmas;
         vector<clause_vector>       m_clauses_to_reinit;

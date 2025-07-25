@@ -92,6 +92,9 @@ namespace smt {
             sl.push_child(&(new_m->limit()));
         }
 
+        // Access socres as follows:
+        // ctx.m_scores[lit.sign()][lit.var()]
+
         // auto cube = [](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
         //     lookahead lh(ctx);
         //     c = lh.choose();

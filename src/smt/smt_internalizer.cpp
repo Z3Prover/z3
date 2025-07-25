@@ -928,8 +928,9 @@ namespace smt {
         set_bool_var(id, v);
         m_bdata.reserve(v+1);
         m_activity.reserve(v+1);
-        m_scores.reserve(v + 1);
-        m_scores[v][0] = m_scores[v][1] = 0.0;
+        m_scores[0].reserve(v + 1);
+        m_scores[1].reserve(v + 1);
+        m_scores[0][v] = m_scores[1][v] = 0.0;
         m_bool_var2expr.reserve(v+1);
         m_bool_var2expr[v] = n;
         literal l(v, false);
@@ -1531,7 +1532,7 @@ namespace smt {
         for (unsigned i = 0; i < n; ++i) {
             auto lit = lits[i];
             unsigned v = lit.var();
-            m_scores[v][lit.sign()] += 1.0 / n;
+            m_scores[lit.sign()][v] += 1.0 / n;
         }
     }
 
