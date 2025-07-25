@@ -15,9 +15,9 @@ We track notes for updates to smt\_parallel.cpp and possibly solver/parallel\_ta
 * Lookahead solvers:
   * lookahead in the smt directory performs a simplistic lookahead search using unit propagation.
   * lookahead in the sat directory uses custom lookahead solver.
-  They both proxy on a cost model where the most useful variable to branch on is the one that \_minimizes\_ the set of new clauses maximally
-  through unit propagation. In other words, if a literal \_p\_ is set to true, and \_p\_ occurs in clause $\\neg p \\vee q \\vee r$, then it results in 
-  reducing the clause from size 3 to 2 (because $\\neg p$ will be false after propagating \_p\_).
+  They both proxy on a cost model where the most useful variable to branch on is the one that _minimizes_ the set of new clauses maximally
+  through unit propagation. In other words, if a literal _p_ is set to true, and _p_ occurs in clause $\neg p \vee q \vee r$, then it results in 
+  reducing the clause from size 3 to 2 (because $\neg p$ will be false after propagating _p_).
 * VSIDS:
   * As referenced in Matteo and Antti's solvers. 
   * Variable activity is a proxy for how useful it is to case split on a variable during search. Variables with a higher VSIDS are split first.
@@ -57,7 +57,7 @@ The existing algorithm in <b>smt_parallel</b> is as follows:
 5. Share unit literals learned by each thread.
 6. Compute unit cubes for each thread $T$.
 7. Spawn $T$ solvers with $F \wedge \ell$, where $\ell$ is a unit literal determined by lookahead function in each thread.
-8. Perform a similar check as in 2.
+8. Perform a similar check as in 2. But note that a thread can be UNSAT because the unit cube $\ell$ contradicted $F$. In this case learn the unit literal $\neg \ell$.
 9. Shared unit literals learned by each thread, increase the maximal number of conflicts, go to 3.
 
 ### Algorithm Variants
