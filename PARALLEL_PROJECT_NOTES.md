@@ -64,6 +64,43 @@ The existing algorithm in <b>smt_parallel</b> is as follows:
 
 * Instead of using lookahead solving to find unit cubes use the proof-prefix based scoring function.
 * Instead of using independent unit cubes, perform a systematic (where systematic can mean many things) cube and conquer strategy.
+* Spawn some threads to work in "SAT" mode, tuning to find models instead of short resolution proofs.
 * Change the synchronization barrier discipline.
 * [Future] Include in-processing 
 
+### Cube and Conquer strategy
+
+We could maintain a global decomposition of the search space by maintaing a list of _cubes_.
+Initially, the list of cubes has just one element, the cube with no literals $[ [] ]$.
+By using a list of cubes instead of a _set_ of cubes we can refer to an ordering.
+For example, cubes can be ordered by a suffix traversal of the _cube tree_ (the tree formed by
+case splitting on the first literal, children of the _true_ branch are the cubes where the first
+literal is true, children of the _false_ branch are the cubes where the first literal is false).
+
+The main question is going to be how the cube decomposition is created.
+
+#### Static cubing
+We can aim for a static cube strategy that uses a few initial (concurrent) probes to find cube literals.
+This strategy would be a parallel implementaiton of proof-prefix approach. The computed cubes are inserted
+into the list of cubes and the list is consumed by a second round.
+
+### Growing cubes on demand
+Based on experiences with cubing so far, there is high variance in how easy cubes are to solve.
+Some cubes will be harder than others to solve. For hard cubes, it is tempting to develop a recursive
+cubing strategy. Ideally, a recursive cubing strategy is symmetric to top-level cubing.
+
+* The solver would have to identify hard cubes vs. easy cubes.
+* It would have to know when to stop working on a hard cube and replace it in the list of cubes by
+  a new list of sub-cubes.
+
+* Ideally, we don't need any static cubing and cubing is grown on demand while all threads are utilized.
+  * If we spawn $T$ threads to initially work with empty cubes, we could extract up to $T$ indepenent cubes
+    by examining the proof-prefix of their traces. This can form the basis for the first, up to $2^T$ cubes.
+  * After a round of solving with each thread churning on some cubes, we may obtain more proof-prefixes from
+    _hard_ cubes. It is not obvious that we want to share cubes from different proof prefixes at this point.
+    But a starting point is to split a hard cube into two by using the proof-prefix from attempting to solve it.
+
+### Representing cubes implicitly and batching.
+
+* We can represent a list of cubes by using intervals and only represent start and end-points of the intervals.
+* Threads can work on more than one cube in a batch.
