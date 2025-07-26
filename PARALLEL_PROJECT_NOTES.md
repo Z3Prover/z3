@@ -104,7 +104,7 @@ cubing strategy. Ideally, a recursive cubing strategy is symmetric to top-level 
     in parallel, then an analogy is to share candidates for new cube literals among cubes that are close to each-other.
     For example, if thread $t_1$ processes cube $a, b, c$ and $t_2$ processes $a,b, \neg c$. They are close. They are only
     separated by Hamming distance 1. If $t_1$ finds cube literal $d$ and $t_2$ finds cube literal $e$, we could consider the cubes
-    $a, b, c, d, e$, $a, b, c, d, \neg e$, $\ldots$, $a, b, \neg c, \neg d, \neg e$.
+    $a, b, c, d, e$, and $a, b, c, d, \neg e$, $\ldots$, $a, b, \neg c, \neg d, \neg e$.
 
 #### Representing cubes implicitly
 
