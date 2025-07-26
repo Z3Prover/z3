@@ -5,7 +5,7 @@
 We track notes for updates to 
 [smt/parallel.cpp](https://github.com/Z3Prover/z3/blob/master/src/smt/smt_parallel.cpp) 
 and possibly 
-[solver/parallel_tactic.cpp](https://github.com/Z3Prover/z3/blob/master/src/solver/parallel_tactic.cpp).
+[solver/parallel_tactic.cpp](https://github.com/Z3Prover/z3/blob/master/src/solver/parallel_tactical.cpp).
 
 
 
