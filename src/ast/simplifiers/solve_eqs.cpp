@@ -133,7 +133,6 @@ namespace euf {
 
 
                     m_todo.push_back(t);
-                    verbose_stream() << "check " << mk_pp(t, m) << "\n";
                     expr_fast_mark1 visited;
                     while (!m_todo.empty()) {
                         expr* e = m_todo.back();
