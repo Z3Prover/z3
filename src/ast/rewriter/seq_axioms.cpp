@@ -1246,15 +1246,16 @@ namespace seq {
             // len(extract(y, o, l)) = o + l - len(y) if o <= len(y) < o + l
             expr_ref len_y(mk_len(y), m);
             expr_ref z(a.mk_int(0), m);
-            expr_ref y_ge_l(a.mk_ge(len_y, a.mk_add(offs, l)), m);
-            expr_ref y_ge_o(a.mk_ge(len_y, offs), m);
-            expr_ref offs_ge_0(a.mk_ge(offs, z), m);
-            expr_ref l_ge_0(a.mk_ge(l, z), m);
+            expr_ref y_ge_l = mk_ge(a.mk_sub(len_y, a.mk_add(offs, l)), 0);
+            expr_ref y_ge_o = mk_ge(a.mk_sub(len_y, offs), 0); 
+            expr_ref offs_ge_0 = mk_ge(offs, 0);
+            expr_ref l_ge_0 = mk_ge(l, 0);
+            
             add_clause(~offs_ge_0, ~l_ge_0, ~y_ge_l, mk_eq(n, l));
             add_clause(offs_ge_0, mk_eq(n, z));
             add_clause(l_ge_0, mk_eq(n, z));
             add_clause(y_ge_o, mk_eq(n, z));
-            add_clause(~y_ge_o, y_ge_l, mk_eq(n, a.mk_sub(a.mk_add(offs, l), len_y)));  
+            add_clause(~y_ge_o, y_ge_l, mk_eq(n, a.mk_sub(a.mk_add(offs, l), len_y))); 
         }
         else if (seq.str.is_unit(x) ||
             seq.str.is_empty(x) ||
