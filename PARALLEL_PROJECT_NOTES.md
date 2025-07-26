@@ -98,7 +98,13 @@ cubing strategy. Ideally, a recursive cubing strategy is symmetric to top-level 
     by examining the proof-prefix of their traces. This can form the basis for the first, up to $2^T$ cubes.
   * After a round of solving with each thread churning on some cubes, we may obtain more proof-prefixes from
     _hard_ cubes. It is not obvious that we want to share cubes from different proof prefixes at this point.
-    But a starting point is to split a hard cube into two by using the proof-prefix from attempting to solve it.
+    But a starting point is to split a hard cube into two by using the proof-prefix from attempting to solve it.    
+  * Suppose we take the proof-prefix sampling algorithm at heart: It says to start with some initial cube prefix
+    and then sample for other cube literals. If we translate it to the case where multiple cubes are being processed
+    in parallel, then an analogy is to share candidates for new cube literals among cubes that are close to each-other.
+    For example, if thread $t_1$ processes cube $a, b, c$ and $t_2$ processes $a,b, \neg c$. They are close. They are only
+    separated by Hamming distance 1. If $t_1$ finds cube literal $d$ and $t_2$ finds cube literal $e$, we could consider the cubes
+    $a, b, c, d, e$, $a, b, c, d, \neg e$, $\ldots$, $a, b, \neg c, \neg d, \neg e$.
 
 ### Representing cubes implicitly and batching.
 
