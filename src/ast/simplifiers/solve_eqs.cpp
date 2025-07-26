@@ -119,7 +119,10 @@ namespace euf {
                     SASSERT(j == var2id(v));
                     if (m_fmls.frozen(v))
                         continue;
-                    
+
+                    if (!m_config.m_enable_non_ground && has_quantifiers(t)) 
+                        continue;                        
+
                     bool is_safe = true;                    
                     unsigned todo_sz = todo.size();
 
@@ -127,7 +130,10 @@ namespace euf {
                     // all time-stamps must be at or above current level
                     // unexplored variables that are part of substitution are appended to work list.
                     SASSERT(m_todo.empty());
+
+
                     m_todo.push_back(t);
+                    verbose_stream() << "check " << mk_pp(t, m) << "\n";
                     expr_fast_mark1 visited;
                     while (!m_todo.empty()) {
                         expr* e = m_todo.back();
@@ -336,6 +342,7 @@ namespace euf {
         m_rewriter.updt_params(p);
         smt_params_helper sp(p);
         m_config.m_enabled = sp.solve_eqs();
+        m_config.m_enable_non_ground = sp.solve_eqs_non_ground();
     }
 
     void solve_eqs::collect_param_descrs(param_descrs& r) {
