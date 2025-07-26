@@ -2,7 +2,7 @@
 
 
 
-We track notes for updates to smt\_parallel.cpp and possibly solver/parallel\_tactic.cpp
+We track notes for updates to smt/parallel.cpp and possibly solver/parallel\_tactic.cpp
 
 
 
@@ -112,3 +112,8 @@ We can represent a list of cubes by using intervals and only represent start and
 
 #### Batching
 Threads can work on more than one cube in a batch.
+
+### Synchronization
+
+* The first thread to time out or finish could kill other threads instead of joining on all threads to finish.
+* Instead of synchronization barriers have threads continue concurrently without terminating. They synchronize on signals and new units. This is trickier to implement, but in some guises accomplished in sat/sat_parallel.cpp.
