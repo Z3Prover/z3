@@ -84,7 +84,7 @@ We can aim for a static cube strategy that uses a few initial (concurrent) probe
 This strategy would be a parallel implementaiton of proof-prefix approach. The computed cubes are inserted
 into the list of cubes and the list is consumed by a second round.
 
-### Growing cubes on demand
+#### Growing cubes on demand
 Based on experiences with cubing so far, there is high variance in how easy cubes are to solve.
 Some cubes will be harder than others to solve. For hard cubes, it is tempting to develop a recursive
 cubing strategy. Ideally, a recursive cubing strategy is symmetric to top-level cubing.
@@ -106,7 +106,9 @@ cubing strategy. Ideally, a recursive cubing strategy is symmetric to top-level 
     separated by Hamming distance 1. If $t_1$ finds cube literal $d$ and $t_2$ finds cube literal $e$, we could consider the cubes
     $a, b, c, d, e$, $a, b, c, d, \neg e$, $\ldots$, $a, b, \neg c, \neg d, \neg e$.
 
-### Representing cubes implicitly and batching.
+#### Representing cubes implicitly
 
-* We can represent a list of cubes by using intervals and only represent start and end-points of the intervals.
-* Threads can work on more than one cube in a batch.
+We can represent a list of cubes by using intervals and only represent start and end-points of the intervals.
+
+#### Batching
+Threads can work on more than one cube in a batch.
