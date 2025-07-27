@@ -123,6 +123,7 @@ namespace euf {
         func_decl*               m_decl = nullptr;
         bool                     m_is_injective = false;
         vector<eq>               m_active, m_passive;
+        enode_pair_vector        m_queued;
         ptr_vector<node>         m_nodes;
         bool_vector              m_shared_nodes;
         vector<monomial_t>       m_monomials;
@@ -146,21 +147,21 @@ namespace euf {
 
         // backtrackable state
         enum undo_kind {
-            is_add_eq,
+            is_queue_eq,
             is_add_monomial,
             is_add_node,
-            is_update_eq,
             is_add_shared_index,
             is_add_eq_index,
             is_register_shared,
-            is_update_shared
+            is_update_shared,
+            is_push_scope
         };
         svector<undo_kind>       m_undo;
         ptr_vector<node>         m_node_trail;
+        unsigned                 m_queue_head = 0;
 
         svector<std::pair<unsigned, shared>> m_update_shared_trail;
         svector<std::tuple<node*, unsigned, unsigned>> m_merge_trail;
-        svector<std::pair<unsigned, eq>> m_update_eq_trail;
 
 
 
@@ -191,8 +192,8 @@ namespace euf {
         bool well_formed(eq const& e) const;
         bool is_reducing(eq const& e) const;
         void backward_reduce(unsigned eq_id);
-        void backward_reduce(eq const& src, unsigned dst);
-        bool backward_reduce_monomial(eq const& eq, monomial_t& m);
+        void backward_reduce(eq const& eq, unsigned dst);
+        bool backward_reduce_monomial(eq const& src, eq & dst, monomial_t& m);
         void forward_subsume_new_eqs();
         bool is_forward_subsumed(unsigned dst_eq);
         bool forward_subsumes(unsigned src_eq, unsigned dst_eq);
@@ -207,8 +208,10 @@ namespace euf {
             UNREACHABLE();
             return nullptr;
         }
-        
-        bool init_equation(eq const& e);
+       
+        bool init_equation(eq e, bool is_active);
+        void push_equation(enode* l, enode* r);
+        void pop_equation(enode* l, enode* r);
         bool orient_equation(eq& e);
         void set_status(unsigned eq_id, eq_status s);
         unsigned pick_next_eq();
@@ -217,6 +220,7 @@ namespace euf {
         void backward_simplify(unsigned eq_id, unsigned using_eq);
         bool forward_simplify(unsigned eq_id, unsigned using_eq);
         bool superpose(unsigned src_eq, unsigned dst_eq);
+        void deduplicate(monomial_t& a, monomial_t& b);
         void deduplicate(ptr_vector<node>& a, ptr_vector<node>& b);
         
         ptr_vector<node> m_src_r, m_src_l, m_dst_r, m_dst_l;
@@ -260,8 +264,8 @@ namespace euf {
 
         justification justify_rewrite(unsigned eq1, unsigned eq2);
         justification::dependency* justify_equation(unsigned eq);
-        justification::dependency* justify_monomial(justification::dependency* d, monomial_t const& m);
         justification join(justification j1, unsigned eq);
+        justification join(justification j1, eq const& eq);
 
         bool is_correct_ref_count(monomial_t const& m, ref_counts const& counts) const;
         bool is_correct_ref_count(ptr_vector<node> const& m, ref_counts const& counts) const;
@@ -300,6 +304,8 @@ namespace euf {
         void diseq_eh(enode* eq) override;
 
         void undo() override;
+
+        void push_scope_eh() override;
 
         void propagate() override;
         

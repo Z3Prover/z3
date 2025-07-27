@@ -103,6 +103,9 @@ namespace euf {
             m_scopes.push_back(m_updates.size());
             m_region.push_scope();
             m_updates.push_back(update_record(m_new_th_eqs_qhead, update_record::new_th_eq_qhead()));
+            for (auto p : m_plugins)
+                if (p)
+                    p->push_scope_eh();
         }
         SASSERT(m_new_th_eqs_qhead <= m_new_th_eqs.size());
     }
