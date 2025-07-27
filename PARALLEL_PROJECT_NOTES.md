@@ -17,34 +17,37 @@ and possibly
 
 * Lookahead solvers:
   * lookahead in the smt directory performs a simplistic lookahead search using unit propagation.
-  * lookahead in the sat directory uses custom lookahead solver.
-  They both proxy on a cost model where the most useful variable to branch on is the one that _minimizes_ the set of new clauses maximally
+  * lookahead in the sat directory uses custom lookahead solver based on MARCH. March is described in Handbook of SAT and Knuth volumne 4.
+  * They both proxy on a cost model where the most useful variable to branch on is the one that _minimizes_ the set of new clauses maximally
   through unit propagation. In other words, if a literal _p_ is set to true, and _p_ occurs in clause $\neg p \vee q \vee r$, then it results in 
   reducing the clause from size 3 to 2 (because $\neg p$ will be false after propagating _p_).
+  * Selected references: SAT handbook, Knuth Volumne 4, Marijn's March solver on github, [implementation of march in z3](https://github.com/Z3Prover/z3/blob/master/src/sat/sat_lookahead.cpp)
 * VSIDS:
   * As referenced in Matteo and Antti's solvers. 
   * Variable activity is a proxy for how useful it is to case split on a variable during search. Variables with a higher VSIDS are split first.
   * VSIDS is updated dynamically during search. It was introduced in the paper with Moscovitz, Malik, et al in early 2000s. A good overview is in Armin's tutorial slides (also in my overview of SMT). 
   * VSIDS does not keep track of variable phases (if the variable was set to true or false).
+  * Selected refernces [DAC 2001](https://www.princeton.edu/~chaff/publication/DAC2001v56.pdf) and [Biere Tutorial](https://alexeyignatiev.github.io/ssa-school-2019/slides/ab-satsmtar19-slides.pdf)
 * Proof prefix:
   * Collect the literals that occur in learned clauses. Count their occurrences based on polarity. This gets tracked in a weighted score.
   * The weight function can be formulated to take into account clause sizes.
   * The score assignment may also decay similar to VSIDS. 
   * We could also use a doubly linked list for literals used in conflicts and keep reinsert literals into the list when they are used. This would be a "Variable move to front" (VMTF) variant.
+  * Selected references: [Battleman et al](https://www.cs.cmu.edu/~mheule/publications/proofix-SAT25.pdf)
 * From local search:
   * Note also that local search solvers can be used to assign variable branch priorities. 
   * We are not going to directly run a local search solver in the mix up front, but let us consider this heuristic for completeness.
   * The heuristic is documented in Biere and Cai's journal paper on integrating local search for CDCL. 
   * Roughly, it considers clauses that move from the UNSAT set to the SAT set of clauses. It then keeps track of the literals involved.
+  * Selected references: [Cai et al](https://www.jair.org/index.php/jair/article/download/13666/26833/)
 * Assignment trails:
   * We could also consider the assignments to variables during search. 
   * Variables that are always assigned to the same truth value could be considered to be safe to assign that truth value. 
   * The cubes resulting from such variables might be a direction towards finding satisfying solutions.
+  * Selected references: [Alex and Vadim](https://link.springer.com/chapter/10.1007/978-3-319-94144-8_7) and most recently [Robin et al](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.SAT.2024.9).
   
 
 ## Algorithms
-
-
 
 This section considers various possible algorithms. 
 In the following, $F$ refers to the original goal, $T$ is the number of CPU cores or CPU threads.
