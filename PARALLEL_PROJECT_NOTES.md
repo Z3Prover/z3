@@ -27,7 +27,7 @@ and possibly
   * Variable activity is a proxy for how useful it is to case split on a variable during search. Variables with a higher VSIDS are split first.
   * VSIDS is updated dynamically during search. It was introduced in the paper with Moscovitz, Malik, et al in early 2000s. A good overview is in Armin's tutorial slides (also in my overview of SMT). 
   * VSIDS does not keep track of variable phases (if the variable was set to true or false).
-  * Selected refernces [DAC 2001](https://www.princeton.edu/~chaff/publication/DAC2001v56.pdf) and [Biere Tutorial](https://alexeyignatiev.github.io/ssa-school-2019/slides/ab-satsmtar19-slides.pdf)
+  * Selected refernces [DAC 2001](https://www.princeton.edu/~chaff/publication/DAC2001v56.pdf) and [Biere Tutorial, slide 64 on Variable Scoring Schemes](https://alexeyignatiev.github.io/ssa-school-2019/slides/ab-satsmtar19-slides.pdf)
 * Proof prefix:
   * Collect the literals that occur in learned clauses. Count their occurrences based on polarity. This gets tracked in a weighted score.
   * The weight function can be formulated to take into account clause sizes.
