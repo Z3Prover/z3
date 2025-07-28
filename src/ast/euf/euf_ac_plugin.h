@@ -179,6 +179,7 @@ namespace euf {
         enode* from_monomial(ptr_vector<node> const& m);
         monomial_t const& monomial(unsigned i) const { return m_monomials[i]; }
         monomial_t& monomial(unsigned i) { return m_monomials[i]; }
+        
         void sort(monomial_t& monomial);
         bool is_sorted(monomial_t const& monomial) const;
         uint64_t filter(monomial_t& m);
@@ -189,6 +190,7 @@ namespace euf {
         bool are_equal(eq const& a, eq const& b)  {
             return are_equal(monomial(a.l), monomial(b.l)) && are_equal(monomial(a.r), monomial(b.r));
         }
+        bool bloom_filter_is_correct(ptr_vector<node> const& m, bloom const& b) const;
         bool well_formed(eq const& e) const;
         bool is_reducing(eq const& e) const;
         void backward_reduce(unsigned eq_id);

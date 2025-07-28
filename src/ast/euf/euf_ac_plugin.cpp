@@ -361,16 +361,13 @@ namespace euf {
         if (!orient_equation(eq))
             return false;
 
-#if 0
+#if 1
         if (is_reducing(eq))
             is_active = true;
-#endif
+#else
 
-        is_active = true; // set to active because forward reduction is not implemented yet.
-        // we will have to forward reduce a passive equation before it can be activated.
-        // this means that we have to iterate over all overlaps of variables in equation with
-        // reducing eqations. Otherwise, we will not have the invariant that reducing variables
-        // are eliminated from all equations.
+        is_active = true; // set to active by default
+#endif
 
         if (!is_active) {
             m_passive.push_back(eq);
@@ -489,10 +486,7 @@ namespace euf {
         auto& bloom = m.m_bloom;
 
         if (bloom.m_tick == m_tick) {
-            uint64_t f = 0;
-            for (auto n : m)
-                f |= (1ull << (n->id() % 64ull));
-            SASSERT(f == bloom.m_filter);
+            SASSERT(bloom_filter_is_correct(m.m_nodes, m.m_bloom));
             return bloom.m_filter;
         }
         bloom.m_filter = 0;
@@ -501,7 +495,14 @@ namespace euf {
         if (!is_sorted(m))
             sort(m);
         bloom.m_tick = m_tick;
-         return bloom.m_filter;
+        return bloom.m_filter;
+    }
+
+    bool ac_plugin::bloom_filter_is_correct(ptr_vector<node> const& m, bloom const& b) const {
+        uint64_t f = 0;
+        for (auto n : m)
+            f |= (1ull << (n->id() % 64ull));
+        return b.m_filter == f;
     }
 
     bool ac_plugin::can_be_subset(monomial_t& subset, monomial_t& superset) {
@@ -515,6 +516,7 @@ namespace euf {
     bool ac_plugin::can_be_subset(monomial_t& subset, ptr_vector<node> const& m, bloom& bloom) {
         if (subset.size() > m.size())
             return false;
+        SASSERT(bloom.m_tick != m_tick || bloom_filter_is_correct(m, bloom));
         if (bloom.m_tick != m_tick) {
             bloom.m_filter = 0;
             for (auto n : m)
@@ -674,7 +676,7 @@ namespace euf {
         }
         if (!m_passive.empty()) {
             auto eq = m_passive.back();
-            verbose_stream() << "pick passive " << eq_pp_ll(*this, eq) << "\n";
+            // verbose_stream() << "pick passive " << eq_pp_ll(*this, eq) << "\n";
             m_passive.pop_back();
             init_equation(eq, true);
             goto init_pick;
@@ -1245,6 +1247,16 @@ namespace euf {
             SASSERT(is_active(other_eq));
             backward_reduce(eq, other_eq);
         }
+        for (auto p : m_passive) {
+            bool change = false;
+            if (backward_reduce_monomial(eq, p, monomial(p.l)))
+                change = true;
+            if (backward_reduce_monomial(eq, p, monomial(p.r)))
+                change = true;
+            (void)change;
+            CTRACE(plugin, change,
+                verbose_stream() << "backward reduce " << eq_pp_ll(*this, eq) << " " << eq_pp_ll(*this, p) << "\n");
+        }           
     }
 
     void ac_plugin::backward_reduce(eq const& eq, unsigned other_eq_id) {
