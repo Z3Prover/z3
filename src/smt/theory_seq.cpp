@@ -439,7 +439,6 @@ final_check_status theory_seq::final_check_eh() {
 }
 
 
-
 bool theory_seq::set_empty(expr* x) {
     add_axiom(~mk_eq(m_autil.mk_int(0), mk_len(x), false), mk_eq_empty(x));
     return true;
@@ -475,9 +474,8 @@ bool theory_seq::check_fixed_length(bool is_zero, bool check_long_strings) {
     bool found = false;    
     for (unsigned i = 0; i < m_length.size(); ++i) {
         expr* e = m_length.get(i);
-        if (fixed_length(e, is_zero, check_long_strings)) {
-            found = true;
-        }
+        if (fixed_length(e, is_zero, check_long_strings)) 
+            found = true;        
     }
     return found;
 }
