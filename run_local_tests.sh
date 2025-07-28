@@ -21,11 +21,12 @@ for rel_path in "${REL_TEST_FILES[@]}"; do
     test_name="$rel_path"
 
     echo "Running: $test_name"
-    echo "===== $test_name =====" >> "$OUT_FILE"
+    echo "===== $test_name =====" | tee -a "$OUT_FILE"
 
-    $Z3 "$full_path" $OPTIONS >> "$OUT_FILE" 2>&1
+    # Run Z3 and pipe output to both screen and file
+    $Z3 "$full_path" $OPTIONS 2>&1 | tee -a "$OUT_FILE"
 
-    echo "" >> "$OUT_FILE"
+    echo "" | tee -a "$OUT_FILE"
 done
 
 echo "Results written to $OUT_FILE"
