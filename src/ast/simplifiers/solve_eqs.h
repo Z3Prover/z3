@@ -41,6 +41,8 @@ namespace euf {
         struct config {
             bool m_context_solve = true;
             unsigned m_max_occs = UINT_MAX;
+            bool m_enabled = true;
+            bool m_enable_non_ground = true;
         };
 
         stats                         m_stats;

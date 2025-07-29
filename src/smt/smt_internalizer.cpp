@@ -1545,6 +1545,7 @@ namespace smt {
             
             auto new_score = m_lit_scores[v][0] * m_lit_scores[v][1];
             m_pq_scores.set(v, new_score);
+
         }
     }
 
