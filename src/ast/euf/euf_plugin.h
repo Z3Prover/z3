@@ -52,6 +52,8 @@ namespace euf {
         virtual void propagate() = 0;
 
         virtual void undo() = 0;
+
+        virtual void push_scope_eh() {}
         
         virtual std::ostream& display(std::ostream& out) const = 0;
 

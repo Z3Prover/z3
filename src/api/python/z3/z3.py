@@ -1506,6 +1506,8 @@ def Consts(names, sort):
 
 def FreshConst(sort, prefix="c"):
     """Create a fresh constant of a specified sort"""
+    if z3_debug():
+        _z3_assert(is_sort(sort), f"Z3 sort expected, got {type(sort)}")
     ctx = _get_ctx(sort.ctx)
     return _to_expr_ref(Z3_mk_fresh_const(ctx.ref(), prefix, sort.ast), ctx)
 

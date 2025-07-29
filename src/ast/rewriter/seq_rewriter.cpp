@@ -6021,6 +6021,12 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
         result = m_autil.mk_lt(s, zero());
         return true;
     }
+    // at(s, offset) = "" <=> len(s) <= offset or offset < 0
+    if (str().is_at(r, s, offset)) {
+        expr_ref len_s(str().mk_length(s), m()); 
+        result = m().mk_or(m_autil.mk_le(len_s, offset), m_autil.mk_lt(offset, zero()));
+        return true;
+    }
     return false;
 }
 
