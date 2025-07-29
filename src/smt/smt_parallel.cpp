@@ -92,6 +92,7 @@ namespace smt {
             sl.push_child(&(new_m->limit()));
         }
 
+
         auto cube = [](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
             lookahead lh(ctx);
             c = lh.choose();
@@ -121,6 +122,7 @@ namespace smt {
 
                 expr* e = ctx.bool_var2expr(node.key);
                 if (!e) continue;
+
 
                 expr_ref lit(e, m);
                 conjuncts.push_back(lit);

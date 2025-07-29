@@ -192,6 +192,7 @@ namespace smt {
         svector<double>             m_activity;
         updatable_priority_queue::priority_queue<bool_var, double> m_pq_scores;
         svector<std::array<double, 2>> m_lit_scores; 
+
         clause_vector               m_aux_clauses;
         clause_vector               m_lemmas;
         vector<clause_vector>       m_clauses_to_reinit;
