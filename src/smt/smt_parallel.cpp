@@ -77,13 +77,16 @@ namespace smt {
             throw default_exception("trace streams have to be off in parallel mode");
 
         
+        params_ref params = ctx.get_params();
         for (unsigned i = 0; i < num_threads; ++i) {
             smt_params.push_back(ctx.get_fparams());
+            smt_params.back().m_preprocess = false;
         }
+                    
         for (unsigned i = 0; i < num_threads; ++i) {
             ast_manager* new_m = alloc(ast_manager, m, true);
             pms.push_back(new_m);
-            pctxs.push_back(alloc(context, *new_m, smt_params[i], ctx.get_params())); 
+            pctxs.push_back(alloc(context, *new_m, smt_params[i], params)); 
             context& new_ctx = *pctxs.back();
             context::copy(ctx, new_ctx, true);
             new_ctx.set_random_seed(i + ctx.get_fparams().m_random_seed);
@@ -178,6 +181,7 @@ namespace smt {
         for (unsigned i = 0; i < num_threads; ++i) unit_lim.push_back(0);
 
         std::function<void(void)> collect_units = [&,this]() {
+            //return; -- has overhead
             for (unsigned i = 0; i < num_threads; ++i) {
                 context& pctx = *pctxs[i];
                 pctx.pop_to_base_lvl();

@@ -72,9 +72,14 @@ namespace smt {
         svector<bool_var> vars;
         for (bool_var v = 0; v < static_cast<bool_var>(sz); ++v) {
             expr* b = ctx.bool_var2expr(v);
-            if (b && ctx.get_assignment(v) == l_undef) {
-                vars.push_back(v);
-            }
+            if (!b)
+                continue;
+            if (ctx.get_assignment(v) != l_undef)
+                continue;
+            if (m.is_and(b) || m.is_or(b) || m.is_not(b) || m.is_ite(b) || m.is_implies(b) || m.is_iff(b) || m.is_xor(b))
+                continue; // do not choose connectives
+            vars.push_back(v);
+            
         }
         compare comp(ctx);
         std::sort(vars.begin(), vars.end(), comp);
