@@ -220,9 +220,9 @@ namespace smt {
 
                 // Initialize local assumptions and cube
                 expr_ref_vector lasms(pasms[i]);
-                expr_ref c = mk_or(cube_batch);
-                std::cout << "Thread " << i << " initial cube: " << mk_pp(c, pm) << "\n";
-                lasms.push_back(c);
+                expr_ref cube_batch_disjunction = mk_or(cube_batch);
+                // std::cout << "Thread " << i << " initial cube: " << mk_pp(cube_batch_disjunction, pm) << "\n";
+                lasms.push_back(cube_batch_disjunction);
 
                 // Set the max conflict limit for this thread
                 pctx.get_fparams().m_max_conflicts = std::min(thread_max_conflicts, max_conflicts);
@@ -230,13 +230,15 @@ namespace smt {
                 // Optional verbose logging
                 IF_VERBOSE(1, verbose_stream() << "(smt.thread " << i; 
                         if (num_rounds > 0) verbose_stream() << " :round " << num_rounds;
-                        if (c) verbose_stream() << " :cube " << mk_bounded_pp(c, pm, 3);
+                        if (cube_batch_disjunction) verbose_stream() << " :cube " << mk_bounded_pp(cube_batch_disjunction, pm, 3);
                         verbose_stream() << ")\n";);
-
-                auto intersects = [&](const expr_ref_vector &a, const expr_ref_vector &b) {
-                    for (expr *e : a) {
-                        if (b.contains(e)) return true;
-                    }
+                
+                auto cube_intersects_core = [&](expr* cube, const expr_ref_vector &core) {
+                    expr_ref_vector cube_lits(pctx.m);
+                    flatten_and(cube, cube_lits);
+                    for (expr* lit : cube_lits)
+                        if (core.contains(lit))
+                            return true;
                     return false;
                 };
 
@@ -248,11 +250,17 @@ namespace smt {
                 else if (r == l_undef && pctx.m_num_conflicts >= thread_max_conflicts)
                     return; // quit thread early
                 // If cube was unsat and it's in the core, learn from it. i.e. a thread can be UNSAT because the cube c contradicted F. In this case learn the negation of the cube ¬c
-                // TAKE THE INTERSECTION INSTEAD OF CHECKING MEMBERSHIP, SEE WHITEBOARD NOTES
-                else if (r == l_false && intersects(cube_batch, pctx.unsat_core())) { // pctx.unsat_core().contains(c)) { THIS IS THE VERSION FOR SINGLE LITERAL CUBES
-                    IF_VERBOSE(1, verbose_stream() << "(smt.thread " << i << " :learn " << mk_bounded_pp(c, pm, 3) << ")");
-                    pctx.assert_expr(mk_not(mk_and(pctx.unsat_core())));
-                    return;
+                else if (r == l_false) { 
+                    IF_VERBOSE(1, verbose_stream() << "(smt.thread " << i << " :learn cube batch " << mk_bounded_pp(cube_batch_disjunction, pm, 3) << ")" << " unsat_core: " << pctx.unsat_core() << "\n");
+                    bool learned_cube = false;
+                    for (expr* cube : cube_batch) { // iterate over each cube in the batch
+                        if (cube_intersects_core(cube, pctx.unsat_core())) {
+                            IF_VERBOSE(1, verbose_stream() << "(pruning cube: " << mk_bounded_pp(cube, pm, 3) << " given unsat core: " << pctx.unsat_core() << ")");
+                            pctx.assert_expr(mk_not(mk_and(pctx.unsat_core())));
+                            learned_cube = true;
+                        }
+                    }
+                    if (learned_cube) return;
                 }
 
                 // Begin thread-safe update of shared result state
@@ -321,12 +329,12 @@ namespace smt {
                 }
 
                 ++batch_idx;
-                std::cout << "Thread batch " << batch_idx - 1 << " size: " << cube_batch.size() << "\n";
+                // std::cout << "Thread batch " << batch_idx - 1 << " size: " << cube_batch.size() << "\n";
                 return cube_batch;
             }
 
             expr_ref_vector cube_batch_pq(context& ctx) {
-                unsigned k = 3; // generates 2^k cubes in the batch
+                unsigned k = 1; // generates 2^k cubes in the batch
                 ast_manager& m = ctx.get_manager();
 
                 auto candidates = ctx.m_pq_scores.get_heap();
@@ -344,10 +352,10 @@ namespace smt {
                     if (top_lits.size() >= k) break;
                 }
 
-                std::cout << "Top lits:\n";
-                for (unsigned j = 0; j < top_lits.size(); ++j) {
-                    std::cout << "  [" << j << "] " << mk_pp(top_lits[j].get(), m) << "\n";
-                }
+                // std::cout << "Top lits:\n";
+                // for (unsigned j = 0; j < top_lits.size(); ++j) {
+                //     std::cout << "  [" << j << "] " << mk_pp(top_lits[j].get(), m) << "\n";
+                // }
 
                 unsigned num_lits = top_lits.size();
                 unsigned num_cubes = 1 << num_lits; // 2^num_lits combinations
@@ -366,10 +374,10 @@ namespace smt {
                     cube_batch.push_back(mk_and(cube_conj));
                 }
 
-                std::cout << "Cubes out:\n";
-                for (size_t j = 0; j < cube_batch.size(); ++j) {
-                    std::cout << "  [" << j << "] " << mk_pp(cube_batch[j].get(), m) << "\n";
-                }
+                // std::cout << "Cubes out:\n";
+                // for (size_t j = 0; j < cube_batch.size(); ++j) {
+                //     std::cout << "  [" << j << "] " << mk_pp(cube_batch[j].get(), m) << "\n";
+                // }
                 
                 return cube_batch;
             };
