@@ -904,6 +904,8 @@ namespace smt {
 
         void add_or_rel_watches(app * n);
 
+        void add_implies_rel_watches(app* n);
+
         void add_ite_rel_watches(app * n);
 
         void mk_not_cnstr(app * n);
@@ -911,6 +913,8 @@ namespace smt {
         void mk_and_cnstr(app * n);
 
         void mk_or_cnstr(app * n);
+
+        void mk_implies_cnstr(app* n);
 
         void mk_iff_cnstr(app * n, bool sign);
 
