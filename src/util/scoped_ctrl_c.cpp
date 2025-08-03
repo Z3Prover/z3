@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include <atomic>
+#include <mutex>
 #include <vector>
 #include <signal.h>
 #include "util/scoped_ctrl_c.h"
@@ -24,7 +24,7 @@ Revision History:
 
 static std::vector<scoped_ctrl_c*> g_list;
 static std::mutex g_list_mutex;
-static void (*g_old_handler)(int) = nullptr;
+static void (*g_old_handler)(int);
 
 static void on_ctrl_c(int) {
     std::lock_guard lock(g_list_mutex);

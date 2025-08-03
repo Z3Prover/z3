@@ -26,18 +26,27 @@ Revision History:
 */
 template<typename T>
 class cancel_eh : public event_handler {
+    std::mutex m_mutex;
     std::atomic<bool> m_canceled = false;
     bool m_auto_cancel = false;
     T & m_obj;
 public:
     cancel_eh(T & o): m_obj(o) {}
     ~cancel_eh() override { if (m_canceled) m_obj.dec_cancel(); if (m_auto_cancel) m_obj.auto_cancel(); }
+
+    // Note that this method doesn't race with the destructor since
+    // potential callers like scoped_ctrl_c/scoped_timer are destroyed
+    // before the cancel_eh destructor is invoked.
+    // Thus, the only races are with itself and with the getters.
     void operator()(event_handler_caller_t caller_id) override {
-        if (!m_canceled.exchange(true)) {
+        std::lock_guard lock(m_mutex);
+        if (!m_canceled) {
             m_caller_id = caller_id;
             m_obj.inc_cancel();
+            m_canceled = true;
         }
     }
+
     bool canceled() const { return m_canceled; }
     void reset() { m_canceled = false; }
     T& t() { return m_obj; }
