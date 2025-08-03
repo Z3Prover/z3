@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include <atomic>
 #include "util/event_handler.h"
 
 /**
@@ -25,17 +26,16 @@ Revision History:
 */
 template<typename T>
 class cancel_eh : public event_handler {
-    bool m_canceled = false;
+    std::atomic<bool> m_canceled = false;
     bool m_auto_cancel = false;
     T & m_obj;
 public:
     cancel_eh(T & o): m_obj(o) {}
     ~cancel_eh() override { if (m_canceled) m_obj.dec_cancel(); if (m_auto_cancel) m_obj.auto_cancel(); }
     void operator()(event_handler_caller_t caller_id) override {
-        if (!m_canceled) {
+        if (!m_canceled.exchange(true)) {
             m_caller_id = caller_id;
-            m_canceled = true;
-            m_obj.inc_cancel(); 
+            m_obj.inc_cancel();
         }
     }
     bool canceled() const { return m_canceled; }
@@ -43,4 +43,3 @@ public:
     T& t() { return m_obj; }
     void set_auto_cancel() { m_auto_cancel = true; }
 };
-
