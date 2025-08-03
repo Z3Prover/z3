@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include <atomic>
+#include <mutex>
 #include "util/event_handler.h"
 
 /**
