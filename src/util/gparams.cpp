@@ -416,7 +416,7 @@ public:
         symbol sp(p.c_str());
         std::ostringstream buffer;
         ps.display(buffer, sp);
-        return buffer.str();
+        return std::move(buffer).str();
     }
 
     std::string get_default(param_descrs const & d, std::string const & p, std::string const & m) {
