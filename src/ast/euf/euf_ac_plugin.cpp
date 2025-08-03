@@ -278,17 +278,9 @@ namespace euf {
         if (!m_shared.empty())
             out << "shared monomials:\n";
         for (auto const& s : m_shared) {
-            out << g.bpp(s.n) << ": " << s.m << " r: " << g.bpp(s.n->get_root()) << "\n";
+            out << g.bpp(s.n) << " r " << g.bpp(s.n->get_root()) << " - " << s.m << ": " << m_pp_ll(*this, monomial(s.m)) << "\n";
         }
-#if 0
-        i = 0;
-        for (auto m : m_monomials) {
-            out << i << ": ";
-            display_monomial_ll(out, m);
-            out << "\n";
-            ++i;
-        }
-#endif
+
         for (auto n : m_nodes) {
             if (!n)
                 continue;
@@ -361,18 +353,15 @@ namespace euf {
         if (!orient_equation(eq))
             return false;
 
-#if 1
         if (is_reducing(eq))
             is_active = true;
-#else
-
-        is_active = true; // set to active by default
-#endif
 
         if (!is_active) {
             m_passive.push_back(eq);
             return true;          
         }
+
+        eq.status = eq_status::is_to_simplify_eq;
 
         m_active.push_back(eq);
         auto& ml = monomial(eq.l);
@@ -621,9 +610,9 @@ namespace euf {
             // simplify eq using processed
             TRACE(plugin,
                 for (auto other_eq : forward_iterator(eq_id))
-                    tout << "forward iterator " << eq_id << " vs " << other_eq << " " << is_processed(other_eq) << "\n");
+                    tout << "forward iterator " << eq_pp_ll(*this, m_active[eq_id]) << " vs " << eq_pp_ll(*this, m_active[other_eq])  << "\n");
             for (auto other_eq : forward_iterator(eq_id))
-                if (is_processed(other_eq) && forward_simplify(eq_id, other_eq))
+                if ((is_processed(other_eq) || is_reducing(other_eq)) && forward_simplify(eq_id, other_eq))
                     goto loop_start;
 
             auto& eq = m_active[eq_id];
@@ -914,6 +903,8 @@ namespace euf {
             set_status(dst_eq, eq_status::is_dead_eq);
             return true;
         }
+        SASSERT(!are_equal(m_active[src_eq], m_active[dst_eq]));
+        
         if (!is_equation_oriented(src))
             return false;
         // check that src.l is a subset of dst.r
@@ -1088,23 +1079,18 @@ namespace euf {
     // rewrite monomial to normal form.
     bool ac_plugin::reduce(ptr_vector<node>& m, justification& j) {
         bool change = false;
-        unsigned sz = m.size();
         do {
         init_loop:
-            if (m.size() == 1)
-                return change;
             bloom b;
             init_ref_counts(m, m_m_counts);
             for (auto n : m) {
                 if (n->is_zero) {
                     m[0] = n;
                     m.shrink(1);
+                    change = true;
                     break;
                 }
                 for (auto eq : n->eqs) {
-                    continue;
-                    if (!is_reducing(eq)) // also can use processed?
-                        continue;
                     auto& src = m_active[eq];
 
                     if (!is_equation_oriented(src))
@@ -1116,17 +1102,16 @@ namespace euf {
 
                     TRACE(plugin, display_equation_ll(tout << "reduce ", src) << "\n");
                     SASSERT(is_correct_ref_count(monomial(src.l), m_eq_counts));
-                    //display_equation_ll(std::cout << "reduce ", src) << ": ";
-                    //display_monomial_ll(std::cout, m);
+                    for (auto n : m)
+                        for (auto s : n->shared)
+                            m_shared_todo.insert(s);
                     rewrite1(m_eq_counts, monomial(src.r), m_m_counts, m);
-                    //display_monomial_ll(std::cout << " -> ", m) << "\n";
                     j = join(j, eq);
                     change = true;
                     goto init_loop;
                 }
             }
         } while (false);
-        VERIFY(sz >= m.size());
         return change;
     }
 
@@ -1287,6 +1272,8 @@ namespace euf {
                 continue;
             }
             change = true;
+            for (auto s : n->shared)
+                m_shared_todo.insert(s);
             if (r.size() == 0)
                 // if r is empty, we can remove n from l
                 continue;
@@ -1407,9 +1394,11 @@ namespace euf {
         TRACE(plugin_verbose, tout << "num shared todo " << m_shared_todo.size() << "\n");
         if (m_shared_todo.empty())
             return;
+
         while (!m_shared_todo.empty()) {
             auto idx = *m_shared_todo.begin();
-            m_shared_todo.remove(idx);
+            m_shared_todo.remove(idx);        
+            TRACE(plugin, tout << "index " << idx << " shared size " << m_shared.size() << "\n");
             if (idx < m_shared.size())
                 simplify_shared(idx, m_shared[idx]);
         }
@@ -1431,7 +1420,7 @@ namespace euf {
         auto old_m = s.m;
         auto old_n = monomial(old_m).m_src;
         ptr_vector<node> m1(monomial(old_m).m_nodes);
-        TRACE(plugin_verbose, tout << "simplify shared: " << g.bpp(old_n) << ": " << m_pp_ll(*this, monomial(old_m)) << "\n");
+        TRACE(plugin, tout << "simplify shared: " << g.bpp(old_n) << ": " << m_pp_ll(*this, monomial(old_m)) << "\n");
         if (!reduce(m1, j))
             return;
 
