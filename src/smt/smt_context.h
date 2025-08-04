@@ -51,6 +51,7 @@ Revision History:
 #include "solver/progress_callback.h"
 #include "solver/assertions/asserted_formulas.h"
 #include "smt/priority_queue.h"
+#include "util/dlist.h"
 #include <tuple>
 
 // there is a significant space overhead with allocating 1000+ contexts in
@@ -191,6 +192,13 @@ namespace smt {
         svector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
         svector<double>             m_activity;
         updatable_priority_queue::priority_queue<bool_var, double> m_pq_scores;
+
+        struct lit_node : dll_base<lit_node> {
+            literal lit;
+            lit_node(literal l) : lit(l) { init(this); }
+        };
+        lit_node* m_dll_lits;
+
         svector<std::array<double, 2>> m_lit_scores; 
 
         clause_vector               m_aux_clauses;
@@ -908,6 +916,8 @@ namespace smt {
 
         void add_or_rel_watches(app * n);
 
+        void add_implies_rel_watches(app* n);
+
         void add_ite_rel_watches(app * n);
 
         void mk_not_cnstr(app * n);
@@ -915,6 +925,8 @@ namespace smt {
         void mk_and_cnstr(app * n);
 
         void mk_or_cnstr(app * n);
+
+        void mk_implies_cnstr(app* n);
 
         void mk_iff_cnstr(app * n, bool sign);
 

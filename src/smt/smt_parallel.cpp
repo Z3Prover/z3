@@ -36,6 +36,7 @@ namespace smt {
 #else
 
 #include <thread>
+#include <cassert>
 
 namespace smt {
     
@@ -77,13 +78,16 @@ namespace smt {
             throw default_exception("trace streams have to be off in parallel mode");
 
         
+        params_ref params = ctx.get_params();
         for (unsigned i = 0; i < num_threads; ++i) {
             smt_params.push_back(ctx.get_fparams());
+            smt_params.back().m_preprocess = false;
         }
+                    
         for (unsigned i = 0; i < num_threads; ++i) {
             ast_manager* new_m = alloc(ast_manager, m, true);
             pms.push_back(new_m);
-            pctxs.push_back(alloc(context, *new_m, smt_params[i], ctx.get_params())); 
+            pctxs.push_back(alloc(context, *new_m, smt_params[i], params)); 
             context& new_ctx = *pctxs.back();
             context::copy(ctx, new_ctx, true);
             new_ctx.set_random_seed(i + ctx.get_fparams().m_random_seed);
@@ -103,8 +107,9 @@ namespace smt {
             }
         };
 
-        auto cube_batch_pq = [&](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
-            unsigned k = 4; // Number of top literals you want
+        auto cube_pq = [&](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
+            unsigned k = 3; // Number of top literals you want
+
             ast_manager& m = ctx.get_manager();
 
             // Get the entire fixed-size priority queue (it's not that big)
@@ -134,12 +139,11 @@ namespace smt {
             lasms.push_back(c);
         };
 
-        auto cube_batch = [&](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
-            std::vector<std::pair<expr_ref, double>> candidates;
+        auto cube_score = [&](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
+            vector<std::pair<expr_ref, double>> candidates;
             unsigned k = 4; // Get top-k scoring literals
             ast_manager& m = ctx.get_manager();
 
-            // std::cout << ctx.m_bool_var2expr.size() << std::endl; // Prints the size of m_bool_var2expr
             // Loop over first 100 Boolean vars
             for (bool_var v = 0; v < 100; ++v) {
                 if (ctx.get_assignment(v) != l_undef) continue;
@@ -151,7 +155,7 @@ namespace smt {
                 double score = ctx.get_score(lit);
                 if (score == 0.0) continue;
 
-                candidates.emplace_back(expr_ref(e, m), score);
+                candidates.push_back(std::make_pair(expr_ref(e, m), score));
             }
 
             // Sort all candidate literals descending by score
@@ -179,6 +183,7 @@ namespace smt {
         for (unsigned i = 0; i < num_threads; ++i) unit_lim.push_back(0);
 
         std::function<void(void)> collect_units = [&,this]() {
+            //return; -- has overhead
             for (unsigned i = 0; i < num_threads; ++i) {
                 context& pctx = *pctxs[i];
                 pctx.pop_to_base_lvl();
@@ -203,7 +208,7 @@ namespace smt {
                 for (unsigned j = unit_lim[i]; j < sz; ++j) {
                     expr_ref src(ctx.m), dst(pctx.m);
                     dst = tr(unit_trail.get(j));
-                    pctx.assert_expr(dst);
+                    pctx.assert_expr(dst); // Assert that the conjunction of the assumptions in this unsat core is not satisfiable — prune it from future search
                 }
                 unit_lim[i] = pctx.assigned_literals().size();
             }
@@ -213,7 +218,7 @@ namespace smt {
         std::mutex mux;
 
         // Lambda defining the work each SMT thread performs
-        auto worker_thread = [&](int i) {
+        auto worker_thread = [&](int i, vector<expr_ref_vector>& cube_batch) {
             try {
                 // Get thread-specific context and AST manager
                 context& pctx = *pctxs[i];
@@ -221,36 +226,68 @@ namespace smt {
 
                 // Initialize local assumptions and cube
                 expr_ref_vector lasms(pasms[i]);
-                expr_ref c(pm);
 
-                // Set the max conflict limit for this thread
-                pctx.get_fparams().m_max_conflicts = std::min(thread_max_conflicts, max_conflicts);
+                vector<lbool> results;
+                for (expr_ref_vector& cube : cube_batch) {
+                    expr_ref_vector lasms_copy(lasms);
 
-                // Periodically generate cubes based on frequency
-                if (num_rounds > 0 && (num_rounds % pctx.get_fparams().m_threads_cube_frequency) == 0) 
-                    cube_batch(pctx, lasms, c);
+                    if (&cube.get_manager() != &pm) {
+                            std::cerr << "Manager mismatch on cube: " << mk_bounded_pp(mk_and(cube), pm, 3) << "\n";
+                            UNREACHABLE(); // or throw
+                        }
 
-                // Optional verbose logging
-                IF_VERBOSE(1, verbose_stream() << "(smt.thread " << i; 
-                        if (num_rounds > 0) verbose_stream() << " :round " << num_rounds;
-                        if (c) verbose_stream() << " :cube " << mk_bounded_pp(c, pm, 3);
-                        verbose_stream() << ")\n";);
+                    for (expr* cube_lit : cube) {
+                        lasms_copy.push_back(expr_ref(cube_lit, pm));
+                    }
 
-                // Check satisfiability of assumptions
-                lbool r = pctx.check(lasms.size(), lasms.data());
+                    // Set the max conflict limit for this thread
+                    pctx.get_fparams().m_max_conflicts = std::min(thread_max_conflicts, max_conflicts);
+
+                    // Optional verbose logging
+                    IF_VERBOSE(1, verbose_stream() << "(smt.thread " << i; 
+                            if (num_rounds > 0) verbose_stream() << " :round " << num_rounds;
+                            verbose_stream() << " :cube " << mk_bounded_pp(mk_and(cube), pm, 3);
+                            verbose_stream() << ")\n";);
+                    
+                    lbool r = pctx.check(lasms_copy.size(), lasms_copy.data());
+                    std::cout << "Thread " << i << " finished cube " << mk_bounded_pp(mk_and(cube), pm, 3) << " with result: " << r << "\n";
+                    results.push_back(r);
+                }
+
+                lbool r = l_false;
+                for (lbool res : results) {
+                    if (res == l_true) {
+                        r = l_true;
+                    } else if (res == l_undef) {
+                        if (r == l_false)
+                            r = l_undef;
+                    }
+                }
+
+                 auto cube_intersects_core = [&](expr* cube, const expr_ref_vector &core) {
+                    expr_ref_vector cube_lits(pctx.m);
+                    flatten_and(cube, cube_lits);
+                    for (expr* lit : cube_lits)
+                        if (core.contains(lit))
+                            return true;
+                    return false;
+                };
 
                 // Handle results based on outcome and conflict count
                 if (r == l_undef && pctx.m_num_conflicts >= max_conflicts)
                     ; // no-op, allow loop to continue
                 else if (r == l_undef && pctx.m_num_conflicts >= thread_max_conflicts)
                     return; // quit thread early
-
-                // If cube was unsat and it's in the core, learn from it
-                else if (r == l_false && pctx.unsat_core().contains(c)) {
-                    IF_VERBOSE(1, verbose_stream() << "(smt.thread " << i << " :learn " << mk_bounded_pp(c, pm, 3) << ")");
-                    pctx.assert_expr(mk_not(mk_and(pctx.unsat_core())));
-                    return;
-                }
+                // If cube was unsat and it's in the core, learn from it. i.e. a thread can be UNSAT because the cube c contradicted F. In this case learn the negation of the cube ¬c
+                // else if (r == l_false) { 
+                //     // IF_VERBOSE(1, verbose_stream() << "(smt.thread " << i << " :learn cube batch " << mk_bounded_pp(cube, pm, 3) << ")" << " unsat_core: " << pctx.unsat_core() << ")");
+                //     for (expr* cube : cube_batch) { // iterate over each cube in the batch
+                //         if (cube_intersects_core(cube, pctx.unsat_core())) {
+                //             // IF_VERBOSE(1, verbose_stream() << "(pruning cube: " << mk_bounded_pp(cube, pm, 3) << " given unsat core: " << pctx.unsat_core() << ")");
+                //             pctx.assert_expr(mk_not(mk_and(pctx.unsat_core())));
+                //         }
+                //     }
+                // }
 
                 // Begin thread-safe update of shared result state
                 bool first = false;
@@ -273,7 +310,6 @@ namespace smt {
                 for (ast_manager* m : pms) {
                     if (m != &pm) m->limit().cancel();
                 }
-
             } catch (z3_error & err) {
                 if (finished_id == UINT_MAX) {
                     error_code = err.error_code();
@@ -295,14 +331,142 @@ namespace smt {
             }
         };
 
+        struct BatchManager {
+            std::mutex mtx;
+            vector<vector<expr_ref_vector>> batches;
+            unsigned batch_idx = 0;
+            unsigned batch_size = 1;
+
+            BatchManager(unsigned batch_size) : batch_size(batch_size) {}
+
+            // translate the next SINGLE batch of batch_size cubes to the thread
+            vector<expr_ref_vector> get_next_batch(
+                ast_manager &main_ctx_m,
+                ast_manager &thread_m
+            ) {
+                std::lock_guard<std::mutex> lock(mtx);
+                vector<expr_ref_vector> cube_batch; // ensure bound to thread manager
+                if (batch_idx >= batches.size()) return cube_batch;
+
+                vector<expr_ref_vector> next_batch = batches[batch_idx];
+
+                for (const expr_ref_vector& cube : next_batch) {
+                    expr_ref_vector translated_cube_lits(thread_m);
+                    for (expr* lit : cube) {
+                        // Translate each literal to the thread's manager
+                        translated_cube_lits.push_back(translate(lit, main_ctx_m, thread_m));
+                    }
+                    cube_batch.push_back(translated_cube_lits);
+                }
+
+                ++batch_idx;
+
+                return cube_batch;
+            }
+
+            // returns a list (vector) of cubes, where each cube is an expr_ref_vector of literals
+            vector<expr_ref_vector> cube_batch_pq(context& ctx) {
+                unsigned k = 1; // generates 2^k cubes in the batch
+                ast_manager& m = ctx.get_manager();
+
+                auto candidates = ctx.m_pq_scores.get_heap();
+                std::sort(candidates.begin(), candidates.end(),
+                        [](const auto& a, const auto& b) { return a.priority > b.priority; });
+
+                expr_ref_vector top_lits(m);
+                for (const auto& node : candidates) {
+                    if (ctx.get_assignment(node.key) != l_undef) continue;
+
+                    expr* e = ctx.bool_var2expr(node.key);
+                    if (!e) continue;
+
+                    top_lits.push_back(expr_ref(e, m));
+                    if (top_lits.size() >= k) break;
+                }
+
+                // std::cout << "Top lits:\n";
+                // for (unsigned j = 0; j < top_lits.size(); ++j) {
+                //     std::cout << "  [" << j << "] " << mk_pp(top_lits[j].get(), m) << "\n";
+                // }
+
+                unsigned num_lits = top_lits.size();
+                unsigned num_cubes = 1 << num_lits; // 2^num_lits combinations
+
+                vector<expr_ref_vector> cube_batch;
+
+                for (unsigned mask = 0; mask < num_cubes; ++mask) {
+                    expr_ref_vector cube_lits(m);
+                    for (unsigned i = 0; i < num_lits; ++i) {
+                        expr_ref lit(top_lits[i].get(), m);
+                        if ((mask >> i) & 1)
+                            cube_lits.push_back(mk_not(lit));
+                        else
+                            cube_lits.push_back(lit);
+                    }
+                    cube_batch.push_back(cube_lits);
+                }
+
+                std::cout << "Cubes out:\n";
+                for (size_t j = 0; j < cube_batch.size(); ++j) {
+                    std::cout << "  [" << j << "]\n";
+                    for (size_t k = 0; k < cube_batch[j].size(); ++k) {
+                        std::cout << "     [" << k << "] " << mk_pp(cube_batch[j][k].get(), m) << "\n";
+                    }
+                }
+                
+                return cube_batch;
+            };
+            
+            // returns a vector of new cubes batches. each cube batch is a vector of expr_ref_vector cubes
+            vector<vector<expr_ref_vector>> gen_new_batches(context& main_ctx) {
+                vector<vector<expr_ref_vector>> cube_batches;
+
+                // Get all cubes in the main context's manager
+                vector<expr_ref_vector> all_cubes = cube_batch_pq(main_ctx);
+
+                ast_manager &m = main_ctx.get_manager();
+
+                // Partition into batches
+                for (unsigned start = 0; start < all_cubes.size(); start += batch_size) {
+                    vector<expr_ref_vector> batch;
+
+                    unsigned end = std::min(start + batch_size, all_cubes.size());
+                    for (unsigned j = start; j < end; ++j) {
+                        batch.push_back(all_cubes[j]);
+                    }
+
+                    cube_batches.push_back(batch);
+                }
+                batch_idx = 0; // Reset index for next round
+                return cube_batches;
+            }
+
+            void check_for_new_batches(context& main_ctx) {
+                std::lock_guard<std::mutex> lock(mtx);
+                if (batch_idx >= batches.size()) {
+                    batches = gen_new_batches(main_ctx);
+                }
+            }
+        };
+    
+        BatchManager batch_manager(1);
+
         // Thread scheduling loop
         while (true) {
             vector<std::thread> threads(num_threads);
+            batch_manager.check_for_new_batches(ctx);
 
             // Launch threads
             for (unsigned i = 0; i < num_threads; ++i) {
                 // [&, i] is the lambda's capture clause: capture all variables by reference (&) except i, which is captured by value.
-                threads[i] = std::thread([&, i]() { worker_thread(i); });
+                threads[i] = std::thread([&, i]() {
+                    while (!done) {
+                        auto next_batch = batch_manager.get_next_batch(ctx.m, *pms[i]);
+                        if (next_batch.empty()) break; // No more work
+
+                        worker_thread(i, next_batch);
+                    }
+                });
             }
 
             // Wait for all threads to finish
@@ -317,7 +481,7 @@ namespace smt {
             collect_units();
             ++num_rounds;
             max_conflicts = (max_conflicts < thread_max_conflicts) ? 0 : (max_conflicts - thread_max_conflicts);
-            thread_max_conflicts *= 2;            
+            thread_max_conflicts *= 2;    
         }
 
         // Gather statistics from all solver contexts
