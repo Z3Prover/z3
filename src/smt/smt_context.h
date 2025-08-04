@@ -192,11 +192,13 @@ namespace smt {
         svector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
         svector<double>             m_activity;
         updatable_priority_queue::priority_queue<bool_var, double> m_pq_scores;
+
         struct lit_node : dll_base<lit_node> {
             literal lit;
             lit_node(literal l) : lit(l) { init(this); }
         };
         lit_node* m_dll_lits;
+
         svector<std::array<double, 2>> m_lit_scores; 
 
         clause_vector               m_aux_clauses;
