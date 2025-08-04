@@ -49,6 +49,8 @@ namespace smt {
         unsigned max_conflicts = ctx.get_fparams().m_max_conflicts;
 
         // try first sequential with a low conflict budget to make super easy problems cheap
+        // GET RID OF THIS, AND IMMEDIATELY SEND TO THE MULTITHREADED CHECKER
+        // THE FIRST BATCH OF CUBES IS EMPTY, AND WE WILL SET ALL THREADS TO WORK ON THE ORIGINAL FORMULA 
         unsigned max_c = std::min(thread_max_conflicts, 40u);
         flet<unsigned> _mc(ctx.get_fparams().m_max_conflicts, max_c);
         result = ctx.check(asms.size(), asms.data());
@@ -61,6 +63,8 @@ namespace smt {
             ERROR_EX
         };
 
+        //  MOVE ALL OF THIS INSIDE THE WORKER THREAD AND CREATE/MANAGE LOCALLY
+        // SO THEN WE REMOVE THE ENCAPSULATING scoped_ptr_vector ETC, SMT_PARAMS BECOMES SMT_
         vector<smt_params> smt_params;
         scoped_ptr_vector<ast_manager> pms;
         scoped_ptr_vector<context> pctxs;
@@ -228,7 +232,7 @@ namespace smt {
 
                 vector<lbool> results;
                 for (expr_ref_vector& cube : cube_batch) {
-                    expr_ref_vector lasms_copy(lasms);
+                    expr_ref_vector lasms_copy(lasms); // DON'T NEED TO COPY, JUST SHRINK BACK TO ORIGINAL SIZE
 
                     if (&cube.get_manager() != &pm) {
                             std::cerr << "Manager mismatch on cube: " << mk_bounded_pp(mk_and(cube), pm, 3) << "\n";
@@ -247,6 +251,7 @@ namespace smt {
                             if (num_rounds > 0) verbose_stream() << " :round " << num_rounds;
                             verbose_stream() << " :cube " << mk_bounded_pp(mk_and(cube), pm, 3);
                             verbose_stream() << ")\n";);
+                    
                     
                     lbool r = pctx.check(lasms_copy.size(), lasms_copy.data());
                     std::cout << "Thread " << i << " finished cube " << mk_bounded_pp(mk_and(cube), pm, 3) << " with result: " << r << "\n";
@@ -289,6 +294,8 @@ namespace smt {
                 // }
 
                 // Begin thread-safe update of shared result state
+                // THIS SHOULD ALL BE HANDLED WITHIN THE BATCH MANAGER
+                // USING METHODS LIKE SET_UNSAT AND SET_SAT WHICH KILLS THE OTHER WORKER THREADS
                 bool first = false;
                 {
                     std::lock_guard<std::mutex> lock(mux);
@@ -306,6 +313,7 @@ namespace smt {
                 }
 
                 // Cancel limits on other threads now that a result is known
+                // MOVE INSIDE BATCH MANAGER
                 for (ast_manager* m : pms) {
                     if (m != &pm) m->limit().cancel();
                 }
@@ -353,7 +361,7 @@ namespace smt {
                     expr_ref_vector translated_cube_lits(thread_m);
                     for (expr* lit : cube) {
                         // Translate each literal to the thread's manager
-                        translated_cube_lits.push_back(translate(lit, main_ctx_m, thread_m));
+                        translated_cube_lits.push_back(translate(lit, main_ctx_m, thread_m)); // IF WE DO AST_TRANSLATION& g2l INSTEAD, THE AST MANAGER HANDLES THE TRANSLATION UNDER LOCK, THIS IS BETTER
                     }
                     cube_batch.push_back(translated_cube_lits);
                 }
@@ -364,6 +372,9 @@ namespace smt {
             }
 
             // returns a list (vector) of cubes, where each cube is an expr_ref_vector of literals
+            // NOTE: THE HEAP IS THREAD SPECIFIC!!! SO DON'T QUERY FROM MAIN THREAD ALL THE TIME!!
+            // PASS IN THE CONTEXT OF THE THREAD WE WANT TO QUERY THE TOP K HEAP FROM!!
+            // ALSO, WE ARE GOING TO RETURN JUST THE TOP K LITS, NOT THE 2^K TOP CUBES
             vector<expr_ref_vector> cube_batch_pq(context& ctx) {
                 unsigned k = 1; // generates 2^k cubes in the batch
                 ast_manager& m = ctx.get_manager();
@@ -497,6 +508,7 @@ namespace smt {
         }
 
         // Handle result: translate model/unsat core back to main context
+        // THIS SHOULD CO INSIDE THE PARALLEL::WORKER::RUN FUNCTION
         model_ref mdl;        
         context& pctx = *pctxs[finished_id];
         ast_translation tr(*pms[finished_id], m);
