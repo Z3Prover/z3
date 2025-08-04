@@ -39,6 +39,132 @@ namespace smt {
 #include <cassert>
 
 namespace smt {
+
+
+    void parallel::worker::run() {
+        ast_translation tr(ctx->m, m);
+        while (m.inc()) {
+            vector<expr_ref_vector> cubes;
+            b.get_cubes(tr, cubes);
+            if (cubes.empty())
+                return;
+            for (auto& cube : cubes) {
+                if (!m.inc())
+                    return; // stop if the main context is cancelled                
+                switch (check_cube(cube)) {
+                case l_undef:
+                    // return unprocessed cubes to the batch manager
+                    // add a split literal to the batch manager.
+                    // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
+                    break;
+                case l_true: {
+                    model_ref mdl;
+                    ctx->get_model(mdl);
+                    //b.set_sat(tr, *mdl);
+                    return;
+                }
+                case l_false:
+                    // if unsat core only contains assumptions, then unsat
+                    // otherwise, extract lemmas that can be shared (units (and unsat core?)).
+                    // share with batch manager.
+                    // process next cube.
+                    break;
+                }
+            }
+        }
+    }
+
+    parallel::worker::worker(parallel& p, context& _ctx, expr_ref_vector const& _asms): p(p), b(p.m_batch_manager), m_smt_params(_ctx.get_fparams()), asms(m) {
+        
+        ast_translation g2l(_ctx.m, m);
+        for (auto e : _asms) 
+            asms.push_back(g2l(e));        
+        m_smt_params.m_preprocess = false;
+        ctx = alloc(context, m, m_smt_params, _ctx.get_params());
+    }
+
+
+    lbool parallel::worker::check_cube(expr_ref_vector const& cube) {
+
+        return l_undef;
+    }
+
+    void parallel::batch_manager::get_cubes(ast_translation& g2l, vector<expr_ref_vector>& cubes) {
+        std::scoped_lock lock(mux);
+        if (m_cubes.size() == 1 && m_cubes[0].size() == 0) {
+            // special initialization: the first cube is emtpy, have the worker work on an empty cube.
+            cubes.push_back(expr_ref_vector(g2l.to()));
+            return;
+        }
+        // TODO adjust to number of worker threads runnin.
+        // if the size of m_cubes is less than m_max_batch_size/ num_threads, then return fewer cubes.
+        for (unsigned i = 0; i < m_max_batch_size && !m_cubes.empty(); ++i) {
+            auto& cube = m_cubes.back();
+            expr_ref_vector l_cube(g2l.to());
+            for (auto& e : cube) {
+                l_cube.push_back(g2l(e));
+            }
+            cubes.push_back(l_cube);
+            m_cubes.pop_back();
+        }
+    }
+
+    
+    void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms) {
+        std::scoped_lock lock(mux);
+        for (auto & c : cubes) {
+            expr_ref_vector g_cube(l2g.to());
+            for (auto& e : c) {
+                g_cube.push_back(l2g(e));
+            }
+            // TODO: split this g_cube on m_split_atoms that are not already in g_cube as literals.
+            m_cubes.push_back(g_cube);
+        }
+        // TODO: avoid making m_cubes too large.
+        for (auto& atom : split_atoms) {
+            expr_ref g_atom(l2g.from());
+            g_atom = l2g(atom);
+            if (m_split_atoms.contains(g_atom))
+                continue;
+            m_split_atoms.push_back(g_atom);
+            unsigned sz = m_cubes.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                m_cubes.push_back(m_cubes[i]); // copy the existing cubes
+                m_cubes.back().push_back(m.mk_not(g_atom)); // add the negation of the split atom to each cube
+                m_cubes[i].push_back(g_atom);
+            }
+        }
+    }
+
+
+    lbool parallel::new_check(expr_ref_vector const& asms) {
+
+        ast_manager& m = ctx.m;
+        {
+            scoped_limits sl(m.limit());
+            unsigned num_threads = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
+            SASSERT(num_threads > 1);
+            for (unsigned i = 0; i < num_threads; ++i)
+                m_workers.push_back(alloc(worker, *this, ctx, asms));
+            for (auto w : m_workers)
+                sl.push_child(&(w->limit()));
+
+            // Launch threads
+            vector<std::thread> threads(num_threads);
+            for (unsigned i = 0; i < num_threads; ++i) {
+                threads[i] = std::thread([&, i]() {
+                    m_workers[i]->run();
+                    }
+                );
+            }
+
+            // Wait for all threads to finish
+            for (auto& th : threads)
+                th.join();
+        }
+        m_workers.clear();
+        return m_batch_manager.get_result();        
+    }
     
     lbool parallel::operator()(expr_ref_vector const& asms) {
 
@@ -100,16 +226,6 @@ namespace smt {
             sl.push_child(&(new_m->limit()));
         }
 
-
-        auto cube = [](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
-            lookahead lh(ctx);
-            c = lh.choose();
-            if (c) {
-                if ((ctx.get_random_value() % 2) == 0) 
-                    c = c.get_manager().mk_not(c);
-                lasms.push_back(c);
-            }
-        };
 
         auto cube_pq = [&](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
             unsigned k = 3; // Number of top literals you want
@@ -255,7 +371,6 @@ namespace smt {
                             if (num_rounds > 0) verbose_stream() << " :round " << num_rounds;
                             verbose_stream() << " :cube " << mk_bounded_pp(mk_and(cube), pm, 3);
                             verbose_stream() << ")\n";);
-                    
                     
                     lbool r = pctx.check(lasms_copy.size(), lasms_copy.data());
                     std::cout << "Thread " << i << " finished cube " << mk_bounded_pp(mk_and(cube), pm, 3) << " with result: " << r << "\n";
@@ -421,9 +536,9 @@ namespace smt {
                 }
 
                 std::cout << "Cubes out:\n";
-                for (size_t j = 0; j < cube_batch.size(); ++j) {
+                for (unsigned j = 0; j < cube_batch.size(); ++j) {
                     std::cout << "  [" << j << "]\n";
-                    for (size_t k = 0; k < cube_batch[j].size(); ++k) {
+                    for (unsigned k = 0; k < cube_batch[j].size(); ++k) {
                         std::cout << "     [" << k << "] " << mk_pp(cube_batch[j][k].get(), m) << "\n";
                     }
                 }

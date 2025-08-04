@@ -199,7 +199,8 @@ namespace smt {
         };
         lit_node* m_dll_lits;
 
-        svector<std::array<double, 2>> m_lit_scores; 
+        // svector<std::array<double, 2>> m_lit_scores; 
+        svector<double> m_lit_scores[2];
 
         clause_vector               m_aux_clauses;
         clause_vector               m_lemmas;
@@ -947,11 +948,14 @@ namespace smt {
         void dump_axiom(unsigned n, literal const* lits);
         void add_scores(unsigned n, literal const* lits);
         void reset_scores() {
-            for (auto& s : m_lit_scores) s[0] = s[1] = 0.0;
+            for (auto& e : m_lit_scores[0])
+                e = 0;
+            for (auto& e : m_lit_scores[1])
+                e = 0;
             m_pq_scores.clear();  // Clear the priority queue heap as well
         }
         double get_score(literal l) const {
-            return m_lit_scores[l.var()][l.sign()];
+            return m_lit_scores[l.sign()][l.var()];
         }
     public:        
 
