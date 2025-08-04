@@ -191,6 +191,9 @@ namespace smt {
                 unsigned sz = pctx.assigned_literals().size();
                 for (unsigned j = unit_lim[i]; j < sz; ++j) {
                     literal lit = pctx.assigned_literals()[j];
+                    //IF_VERBOSE(0, verbose_stream() << "(smt.thread " << i << " :unit " << lit << " " << pctx.is_relevant(lit.var()) << ")\n";);
+                    if (!pctx.is_relevant(lit.var()))
+                        continue;
                     expr_ref e(pctx.bool_var2expr(lit.var()), pctx.m);
                     if (lit.sign()) e = pctx.m.mk_not(e);
                     expr_ref ce(tr(e.get()), ctx.m);
