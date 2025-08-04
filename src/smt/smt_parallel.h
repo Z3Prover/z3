@@ -24,6 +24,22 @@ namespace smt {
 
     class parallel {
         context& ctx;
+
+        class worker {
+            ast_manager m;
+            context ctx;
+            expr_ref_vector asms;
+        public:
+            worker(context& ctx, expr_ref_vector const& asms);
+            void run();
+            void cancel();
+        };
+
+        std::mutex mux;
+        void set_unsat();
+        void set_sat(ast_translation& tr, model& m);
+        void get_cubes(ast_translation& tr, expr_ref_vector& cubes);
+
     public:
         parallel(context& ctx): ctx(ctx) {}
 

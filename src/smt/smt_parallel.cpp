@@ -97,16 +97,6 @@ namespace smt {
         }
 
 
-        auto cube = [](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
-            lookahead lh(ctx);
-            c = lh.choose();
-            if (c) {
-                if ((ctx.get_random_value() % 2) == 0) 
-                    c = c.get_manager().mk_not(c);
-                lasms.push_back(c);
-            }
-        };
-
         auto cube_pq = [&](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
             unsigned k = 3; // Number of top literals you want
 
