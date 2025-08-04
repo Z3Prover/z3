@@ -60,7 +60,7 @@ namespace smt {
                 case l_true: {
                     model_ref mdl;
                     ctx->get_model(mdl);
-                    b.set_sat(tr, *mdl);
+                    //b.set_sat(tr, *mdl);
                     return;
                 }
                 case l_false:
