@@ -109,6 +109,7 @@ namespace smt {
 
         auto cube_pq = [&](context& ctx, expr_ref_vector& lasms, expr_ref& c) {
             unsigned k = 3; // Number of top literals you want
+
             ast_manager& m = ctx.get_manager();
 
             // Get the entire fixed-size priority queue (it's not that big)
@@ -302,7 +303,7 @@ namespace smt {
                         finished_id = i;
                         result = r;                        
                     }
-                    else if (!first) return;
+                    else if (!first) return; // nothing new to contribute
                 }
 
                 // Cancel limits on other threads now that a result is known
