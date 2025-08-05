@@ -199,7 +199,7 @@ namespace smt {
         };
         lit_node* m_dll_lits;
 
-
+        // svector<std::array<double, 2>> m_lit_scores; 
         svector<double> m_lit_scores[2];
 
         clause_vector               m_aux_clauses;

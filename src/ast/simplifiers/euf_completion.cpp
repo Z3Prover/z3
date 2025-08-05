@@ -268,7 +268,6 @@ namespace euf {
         expr_ref r(f, m);
         m_rewriter(r);
         f = r.get();
-        // verbose_stream() << r << "\n";
         auto cons = m.mk_app(symbol("consequence"), 1, &f, m.mk_bool_sort());
         m_fmls.add(dependent_expr(m, cons, nullptr, nullptr));
     }
@@ -317,35 +316,43 @@ namespace euf {
             expr_ref y1(y, m);
             m_rewriter(x1);
             m_rewriter(y1);
-            
+
             add_quantifiers(x1);
             add_quantifiers(y1);
             enode* a = mk_enode(x1);
             enode* b = mk_enode(y1);
+
             if (a->get_root() == b->get_root())
-                return;           
-            m_egraph.merge(a, b, to_ptr(push_pr_dep(pr, d)));
-            m_egraph.propagate();
+                return;
+
+            TRACE(euf, tout << "merge and propagate\n");
             add_children(a);
             add_children(b);
+            m_egraph.merge(a, b, to_ptr(push_pr_dep(pr, d)));
+            m_egraph.propagate();
+            m_should_propagate = true; 
+
+#if 0
             auto a1 = mk_enode(x);
-            if (a1->get_root() != a->get_root()) {
+            auto b1 = mk_enode(y);
+
+            if (a->get_root() != a1->get_root()) {
+                add_children(a1);;
                 m_egraph.merge(a, a1, nullptr);
                 m_egraph.propagate();
-                add_children(a1);
-            }
-            auto b1 = mk_enode(y);
-            if (b1->get_root() != b->get_root()) {
-                TRACE(euf, tout << "merge and propagate\n");
-                m_egraph.merge(b, b1, nullptr);
-                m_egraph.propagate();
-                add_children(b1);
             }
 
-            m_should_propagate = true;
-            if (m_side_condition_solver)
+            if (b->get_root() != b1->get_root()) {
+                add_children(b1);
+                m_egraph.merge(b, b1, nullptr);
+                m_egraph.propagate();
+            }
+#endif
+            
+            if (m_side_condition_solver && a->get_root() != b->get_root())
                 m_side_condition_solver->add_constraint(f, pr, d);
-            IF_VERBOSE(1, verbose_stream() << "eq: " << mk_pp(x1, m) << " == " << mk_pp(y1, m) << "\n");
+            IF_VERBOSE(1, verbose_stream() << "eq: " << a->get_root_id() << " " << b->get_root_id() << " " 
+                 << x1 << " == " << y1 << "\n");
         }
         else if (m.is_not(f, f)) {
             enode* n = mk_enode(f);
@@ -689,7 +696,7 @@ namespace euf {
         b = new (mem) binding(q, pat, max_generation, min_top, max_top);
         b->init(b);
         for (unsigned i = 0; i < n; ++i)
-            b->m_nodes[i] = _binding[i];
+            b->m_nodes[i] = _binding[i]->get_root();
 
         m_bindings.insert(b);
         get_trail().push(insert_map<bindings, binding*>(m_bindings, b));
@@ -748,12 +755,13 @@ namespace euf {
 
     void completion::apply_binding(binding& b, quantifier* q, expr_ref_vector const& s) {
         var_subst subst(m);
-        expr_ref r = subst(q->get_expr(), s);        
+        expr_ref r = subst(q->get_expr(), s);      
         scoped_generation sg(*this, b.m_max_top_generation + 1);
         auto [pr, d] = get_dependency(q);
         if (pr)
             pr = m.mk_quant_inst(m.mk_or(m.mk_not(q), r), s.size(), s.data());
         m_consequences.push_back(r);
+        TRACE(euf_completion, tout << "new instantiation: " << r << " q: " << mk_pp(q, m) << "\n");
         add_constraint(r, pr, d);
         propagate_rules();
         m_egraph.propagate();
@@ -1022,7 +1030,7 @@ namespace euf {
 
         }
         enode* n = m_egraph.find(f);
-        
+        if (!n) n = mk_enode(f);
         enode* r = n->get_root();
         d = m.mk_join(d, explain_eq(n, r));
         d = m.mk_join(d, m_deps.get(r->get_id(), nullptr));

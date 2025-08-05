@@ -24,6 +24,7 @@ namespace smt {
 
     class parallel {
         context& ctx;
+        unsigned num_threads;
 
         class batch_manager {        
             ast_manager& m;
@@ -71,6 +72,7 @@ namespace smt {
         public:
             worker(parallel& p, context& _ctx, expr_ref_vector const& _asms);
             void run();
+            expr_ref_vector get_split_atoms();
             void cancel() {
                 m.limit().cancel();
             }
@@ -88,7 +90,12 @@ namespace smt {
         lbool new_check(expr_ref_vector const& asms);
 
     public:
-        parallel(context& ctx): ctx(ctx), m_batch_manager(ctx.m, *this) {}
+        parallel(context& ctx) : 
+            ctx(ctx),
+            num_threads(std::min(
+                (unsigned)std::thread::hardware_concurrency(),
+                ctx.get_fparams().m_threads)),
+            m_batch_manager(ctx.m, *this) {}
 
         lbool operator()(expr_ref_vector const& asms);
 
