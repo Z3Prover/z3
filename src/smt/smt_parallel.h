@@ -27,6 +27,12 @@ namespace smt {
         unsigned num_threads;
 
         class batch_manager {        
+
+            enum exception_kind {
+                NO_EX,
+                ERROR_CODE_EX,
+                ERROR_MSG_EX
+            };
             ast_manager& m;
             parallel& p;
             std::mutex mux;
@@ -34,10 +40,19 @@ namespace smt {
             vector<expr_ref_vector> m_cubes;
             lbool m_result = l_false; // want states: init/undef, canceled/exception, sat, unsat
             unsigned m_max_batch_size = 10;
+            exception_kind m_exception_kind = NO_EX;
+            unsigned m_exception_code = 0;
+            std::string m_exception_msg;
+
+            // called from batch manager to cancel other workers if we've reached a verdict
+            void cancel_workers() {
+                for (auto& w : p.m_workers) 
+                    w->cancel();                
+            }
 
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_split_atoms(m) { m_cubes.push_back(expr_ref_vector(m)); }
-            void set_unsat();
+            void set_unsat(ast_translation& l2g, expr_ref_vector const& unsat_core);
             void set_sat(ast_translation& l2g, model& m);
             void set_exception(std::string const& msg);
             void set_exception(unsigned error_code);
@@ -55,11 +70,11 @@ namespace smt {
             // 
             void return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms);
             void share_lemma(ast_translation& l2g, expr* lemma);
-            void cancel_workers(); // called from batch manager to cancel other workers if we've reached a verdict
-            lbool get_result() const { return m.limit().is_canceled() ? l_undef : m_result; } 
+            lbool get_result() const;
         };
 
         class worker {
+            unsigned id; // unique identifier for the worker
             parallel& p;
             batch_manager& b;
             ast_manager m;
@@ -71,7 +86,7 @@ namespace smt {
             void share_units();
             lbool check_cube(expr_ref_vector const& cube);
         public:
-            worker(parallel& p, context& _ctx, expr_ref_vector const& _asms);
+            worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
             void run();
             expr_ref_vector get_split_atoms();
             void cancel() {

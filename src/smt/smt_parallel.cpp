@@ -41,50 +41,62 @@ namespace smt {
 namespace smt {
 
     void parallel::worker::run() {
-        ast_translation tr(ctx->m, m);
+        ast_translation g2l(ctx->m, m);
+        ast_translation l2g(m, ctx->m);
         while (m.inc()) {
             vector<expr_ref_vector> cubes;
-            b.get_cubes(tr, cubes);
+            b.get_cubes(g2l, cubes);
             if (cubes.empty())
                 return;
             for (auto& cube : cubes) {
                 if (!m.inc())
                     return; // stop if the main context is cancelled                
                 switch (check_cube(cube)) {
-                case l_undef:
+                case l_undef: {
                     // return unprocessed cubes to the batch manager
                     // add a split literal to the batch manager.
                     // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
-                    b.m_cubes.push_back(cube); // TODO: add access funcs for m_cubes
+                    vector<expr_ref_vector> returned_cubes;
+                    returned_cubes.push_back(cube);
+                    auto split_atoms = get_split_atoms();
+                    b.return_cubes(l2g, returned_cubes, split_atoms);
                     break;
+                }
                 case l_true: {
                     model_ref mdl;
                     ctx->get_model(mdl);
-                    if (mdl) 
-                        ctx->set_model(mdl->translate(tr));
-                    //b.set_sat(tr, *mdl);
+                    b.set_sat(l2g, *mdl);
                     return;
                 }
-                case l_false:
+                case l_false: {
                     // if unsat core only contains (external) assumptions (i.e. all the unsat core are asms), then unsat and return as this does NOT depend on cubes
                     // otherwise, extract lemmas that can be shared (units (and unsat core?)).
                     // share with batch manager.
                     // process next cube.
-                    ctx->m_unsat_core.reset();
-                    for (expr* e : pctx.unsat_core()) // TODO: move this logic to the batch manager since this is per-thread
-                        ctx->m_unsat_core.push_back(tr(e));
+                    auto const& unsat_core = ctx->unsat_core();
+                    // If the unsat core only contains assumptions, 
+                    // unsatisfiability does not depend on the current cube and the entire problem is unsat.
+                    if (any_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
+                        b.set_unsat(l2g, ctx->unsat_core());
+                        return;
+                    }
+                    // TODO: can share lemmas here, such as new units and not(and(unsat_core)), binary clauses, etc.
+                    // TODO: remember assumptions used in core so that they get used for the final core.
                     break;
+                }
                 }
             }
         }
     }
 
-    parallel::worker::worker(parallel& p, context& _ctx, expr_ref_vector const& _asms): p(p), b(p.m_batch_manager), m_smt_params(_ctx.get_fparams()), asms(m) {
-        ast_translation g2l(_ctx.m, m);
+    parallel::worker::worker(unsigned id, parallel& p, expr_ref_vector const& _asms): id(id), p(p), b(p.m_batch_manager), m_smt_params(p.ctx.get_fparams()), asms(m) {
+        ast_translation g2l(p.ctx.m, m);
         for (auto e : _asms) 
             asms.push_back(g2l(e));        
         m_smt_params.m_preprocess = false;
-        ctx = alloc(context, m, m_smt_params, _ctx.get_params());
+        ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
+        context::copy(p.ctx, *ctx, true);
+        ctx->set_random_seed(id + m_smt_params.m_random_seed);
     }
 
 
@@ -92,10 +104,21 @@ namespace smt {
     // THERE IS AN EDGE CASE: IF ALL THE CUBES ARE UNSAT, BUT DEPEND ON NONEMPTY ASSUMPTIONS, NEED TO TAKE THE UNION OF THESE ASMS WHEN LEARNING FROM UNSAT CORE
     // DON'T CODE THIS CASE YET: WE ARE JUST TESTING WITH EMPTY ASMS FOR NOW (I.E. WE ARE NOT PASSING IN ASMS). THIS DOES NOT APPLY TO THE INTERNAL "LEARNED" UNSAT CORE
     lbool parallel::worker::check_cube(expr_ref_vector const& cube) {
-        for (auto& atom : cube) {
-            asms.push_back(atom);
+        for (auto& atom : cube) 
+            asms.push_back(atom);                
+        lbool r = l_undef;
+        try {
+            r = ctx->check(asms.size(), asms.data());
         }
-        lbool r = ctx->check(asms.size(), asms.data());
+        catch (z3_error& err) {
+            b.set_exception(err.error_code());
+        }
+        catch (z3_exception& ex) {
+            b.set_exception(ex.what());
+        }
+        catch (...) {
+            b.set_exception("unknown exception");
+        }
         asms.shrink(asms.size() - cube.size());
         return r;
     }
@@ -121,19 +144,64 @@ namespace smt {
 
     void parallel::batch_manager::set_sat(ast_translation& l2g, model& m) {
         std::scoped_lock lock(mux);
-        if (m_result == l_true || m_result == l_undef) {
-            m_result = l_true;
+        if (l_true == m_result)
             return;
-        }
         m_result = l_true;
-        for (auto& c : m_cubes) {
-            expr_ref_vector g_cube(l2g.to());
-            for (auto& e : c) {
-                g_cube.push_back(l2g(e));
-            }
-            share_lemma(l2g, mk_and(g_cube));
-        }
+        p.ctx.set_model(m.translate(l2g));
+        cancel_workers();
     }
+
+    void parallel::batch_manager::set_unsat(ast_translation& l2g, expr_ref_vector const& unsat_core) {
+        std::scoped_lock lock(mux);
+        if (l_false == m_result)
+            return;
+        m_result = l_false;
+        expr_ref_vector g_core(l2g.to());
+        for (auto& e : unsat_core) 
+            g_core.push_back(l2g(e));        
+        p.ctx.m_unsat_core.reset();
+        for (expr* e : unsat_core)
+            p.ctx.m_unsat_core.push_back(l2g(e));
+        cancel_workers();
+    }
+
+    void parallel::batch_manager::set_exception(unsigned error_code) {
+        std::scoped_lock lock(mux);
+        if (m_exception_kind != NO_EX)
+            return; // already set
+        m_exception_kind = ERROR_CODE_EX;
+        m_exception_code = error_code;
+        cancel_workers();
+    }
+
+    void parallel::batch_manager::set_exception(std::string const& msg) {
+        std::scoped_lock lock(mux);
+        if (m_exception_kind != NO_EX)
+            return; // already set
+        m_exception_kind = ERROR_MSG_EX;
+        m_exception_msg = msg;
+        cancel_workers();
+    }
+
+    lbool parallel::batch_manager::get_result() const {
+        if (m_exception_kind == ERROR_MSG_EX)
+            throw default_exception(m_exception_msg.c_str());
+        if (m_exception_kind == ERROR_CODE_EX)
+            throw z3_error(m_exception_code);
+        if (m.limit().is_canceled())
+            return l_undef; // the main context was cancelled, so we return undef.
+        return m_result;
+    }
+
+#if 0
+    for (auto& c : m_cubes) {
+        expr_ref_vector g_cube(l2g.to());
+        for (auto& e : c) {
+            g_cube.push_back(l2g(e));
+        }
+        share_lemma(l2g, mk_and(g_cube));
+    }
+#endif
     
     // CALL GET_SPLIT_ATOMS AS ARGUMENT TO RETURN_CUBES
     void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms) {
@@ -172,25 +240,32 @@ namespace smt {
 
         expr_ref_vector top_lits(m);
         for (const auto& node : candidates) {
-            if (ctx->get_assignment(node.key) != l_undef) continue;
+            if (ctx->get_assignment(node.key) != l_undef) 
+                continue;
 
             expr* e = ctx->bool_var2expr(node.key);
-            if (!e) continue;
+            if (!e) 
+                continue;
 
             top_lits.push_back(expr_ref(e, m));
-            if (top_lits.size() >= k) break;
+            if (top_lits.size() >= k) 
+                break;
         }
         return top_lits;
     }
 
     lbool parallel::new_check(expr_ref_vector const& asms) {
         ast_manager& m = ctx.m;
+
+        if (m.has_trace_stream())
+            throw default_exception("trace streams have to be off in parallel mode");
+
         {
             scoped_limits sl(m.limit());
             unsigned num_threads = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
             SASSERT(num_threads > 1);
             for (unsigned i = 0; i < num_threads; ++i)
-                m_workers.push_back(alloc(worker, *this, ctx, asms));
+                m_workers.push_back(alloc(worker, i, *this, asms));
                 
             // THIS WILL ALLOW YOU TO CANCEL ALL THE CHILD THREADS
             // within the lexical scope of the code block, creates a data structure that allows you to push children
@@ -210,6 +285,9 @@ namespace smt {
             // Wait for all threads to finish
             for (auto& th : threads)
                 th.join();
+
+            for (auto w : m_workers) 
+                w->collect_statistics(ctx.m_aux_stats);            
         }
         m_workers.clear();
         return m_batch_manager.get_result();        
