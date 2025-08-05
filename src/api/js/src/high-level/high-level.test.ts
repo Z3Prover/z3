@@ -890,4 +890,74 @@ describe('high-level', () => {
       expect(model.eval(z).eqIdentity(Int.val(5))).toBeTruthy();
     });
   });
+
+  describe('datatypes', () => {
+    it('should create simple enum datatype', async () => {
+      const { Datatype, Int, Bool, Solver } = api.Context('main');
+
+      // Create a simple Color enum datatype
+      const Color = Datatype('Color');
+      Color.declare('red');
+      Color.declare('green');
+      Color.declare('blue');
+      
+      const ColorSort = Color.create();
+      
+      // Test that we can access the constructors
+      expect(typeof (ColorSort as any).red).not.toBe('undefined');
+      expect(typeof (ColorSort as any).green).not.toBe('undefined');
+      expect(typeof (ColorSort as any).blue).not.toBe('undefined');
+      
+      // Test that we can access the recognizers
+      expect(typeof (ColorSort as any).is_red).not.toBe('undefined');
+      expect(typeof (ColorSort as any).is_green).not.toBe('undefined');
+      expect(typeof (ColorSort as any).is_blue).not.toBe('undefined');
+    });
+
+    it('should create recursive list datatype', async () => {
+      const { Datatype, Int, Solver } = api.Context('main');
+
+      // Create a recursive List datatype like in the Python example
+      const List = Datatype('List');
+      List.declare('cons', ['car', Int.sort()], ['cdr', List]);
+      List.declare('nil');
+      
+      const ListSort = List.create();
+      
+      // Test that constructors and accessors exist
+      expect(typeof (ListSort as any).cons).not.toBe('undefined');
+      expect(typeof (ListSort as any).nil).not.toBe('undefined');
+      expect(typeof (ListSort as any).is_cons).not.toBe('undefined');
+      expect(typeof (ListSort as any).is_nil).not.toBe('undefined');
+      expect(typeof (ListSort as any).car).not.toBe('undefined');
+      expect(typeof (ListSort as any).cdr).not.toBe('undefined');
+    });
+
+    it('should create mutually recursive tree datatypes', async () => {
+      const { Datatype, Int } = api.Context('main');
+
+      // Create mutually recursive Tree and TreeList datatypes
+      const Tree = Datatype('Tree');
+      const TreeList = Datatype('TreeList');
+      
+      Tree.declare('leaf', ['value', Int.sort()]);
+      Tree.declare('node', ['children', TreeList]);
+      TreeList.declare('nil');
+      TreeList.declare('cons', ['car', Tree], ['cdr', TreeList]);
+      
+      const [TreeSort, TreeListSort] = Datatype.createDatatypes(Tree, TreeList);
+      
+      // Test that both datatypes have their constructors
+      expect(typeof (TreeSort as any).leaf).not.toBe('undefined');
+      expect(typeof (TreeSort as any).node).not.toBe('undefined');
+      expect(typeof (TreeListSort as any).nil).not.toBe('undefined');
+      expect(typeof (TreeListSort as any).cons).not.toBe('undefined');
+      
+      // Test accessors exist
+      expect(typeof (TreeSort as any).value).not.toBe('undefined');
+      expect(typeof (TreeSort as any).children).not.toBe('undefined');
+      expect(typeof (TreeListSort as any).car).not.toBe('undefined');
+      expect(typeof (TreeListSort as any).cdr).not.toBe('undefined');
+    });
+  });
 });
