@@ -32,7 +32,7 @@ namespace smt {
             std::mutex mux;
             expr_ref_vector m_split_atoms; // atoms to split on
             vector<expr_ref_vector> m_cubes;
-            lbool m_result = l_false;
+            lbool m_result = l_false; // want states: init/undef, canceled/exception, sat, unsat
             unsigned m_max_batch_size = 10;
 
         public:
@@ -55,6 +55,7 @@ namespace smt {
             // 
             void return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms);
             void share_lemma(ast_translation& l2g, expr* lemma);
+            void cancel_workers(); // called from batch manager to cancel other workers if we've reached a verdict
             lbool get_result() const { return m.limit().is_canceled() ? l_undef : m_result; } 
         };
 

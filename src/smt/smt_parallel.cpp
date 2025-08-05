@@ -66,7 +66,7 @@ namespace smt {
                     return;
                 }
                 case l_false:
-                    // if unsat core only contains assumptions, then unsat
+                    // if unsat core only contains (external) assumptions (i.e. all the unsat core are asms), then unsat and return as this does NOT depend on cubes
                     // otherwise, extract lemmas that can be shared (units (and unsat core?)).
                     // share with batch manager.
                     // process next cube.
@@ -88,6 +88,9 @@ namespace smt {
     }
 
 
+    // PUT THE LOGIC FOR LEARNING FROM UNSAT CORE HERE IF THE CUBE INTERSECTS WITH IT!!!
+    // THERE IS AN EDGE CASE: IF ALL THE CUBES ARE UNSAT, BUT DEPEND ON NONEMPTY ASSUMPTIONS, NEED TO TAKE THE UNION OF THESE ASMS WHEN LEARNING FROM UNSAT CORE
+    // DON'T CODE THIS CASE YET: WE ARE JUST TESTING WITH EMPTY ASMS FOR NOW (I.E. WE ARE NOT PASSING IN ASMS). THIS DOES NOT APPLY TO THE INTERNAL "LEARNED" UNSAT CORE
     lbool parallel::worker::check_cube(expr_ref_vector const& cube) {
         for (auto& atom : cube) {
             asms.push_back(atom);
@@ -132,6 +135,7 @@ namespace smt {
         }
     }
     
+    // CALL GET_SPLIT_ATOMS AS ARGUMENT TO RETURN_CUBES
     void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms) {
         std::scoped_lock lock(mux);
         for (auto & c : cubes) {
@@ -270,6 +274,8 @@ namespace smt {
         unsigned_vector unit_lim;
         for (unsigned i = 0; i < num_threads; ++i) unit_lim.push_back(0);
 
+        // we just want to share lemmas and have a way of remembering how they are shared -- this is the next step
+        // (this needs to be reworked)
         std::function<void(void)> collect_units = [&,this]() {
             //return; -- has overhead
             for (unsigned i = 0; i < num_threads; ++i) {
