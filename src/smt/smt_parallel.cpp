@@ -65,7 +65,7 @@ namespace smt {
                         break;
                     }
                     case l_true: {
-                        std::cout << "Worker " << id << " found sat cube: " << mk_pp(mk_and(cube), m) << "\n";
+                        std::cout << "Worker " << id << " found sat cube: " << mk_and(cube) << "\n";
                         model_ref mdl;
                         ctx->get_model(mdl);
                         b.set_sat(l2g, *mdl);
