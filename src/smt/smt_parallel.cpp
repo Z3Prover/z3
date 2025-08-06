@@ -52,38 +52,43 @@ namespace smt {
                 if (!m.inc())
                     return; // stop if the main context is cancelled                
                 switch (check_cube(cube)) {
-                case l_undef: {
-                    // return unprocessed cubes to the batch manager
-                    // add a split literal to the batch manager.
-                    // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
-                    vector<expr_ref_vector> returned_cubes;
-                    returned_cubes.push_back(cube);
-                    auto split_atoms = get_split_atoms();
-                    b.return_cubes(l2g, returned_cubes, split_atoms);
-                    break;
-                }
-                case l_true: {
-                    model_ref mdl;
-                    ctx->get_model(mdl);
-                    b.set_sat(l2g, *mdl);
-                    return;
-                }
-                case l_false: {
-                    // if unsat core only contains (external) assumptions (i.e. all the unsat core are asms), then unsat and return as this does NOT depend on cubes
-                    // otherwise, extract lemmas that can be shared (units (and unsat core?)).
-                    // share with batch manager.
-                    // process next cube.
-                    auto const& unsat_core = ctx->unsat_core();
-                    // If the unsat core only contains assumptions, 
-                    // unsatisfiability does not depend on the current cube and the entire problem is unsat.
-                    if (any_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
-                        b.set_unsat(l2g, ctx->unsat_core());
+                    case l_undef: {
+                        // return unprocessed cubes to the batch manager
+                        // add a split literal to the batch manager.
+                        // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
+                        vector<expr_ref_vector> returned_cubes;
+                        returned_cubes.push_back(cube);
+                        auto split_atoms = get_split_atoms();
+                        b.return_cubes(l2g, returned_cubes, split_atoms);
+                        break;
+                    }
+                    case l_true: {
+                        std::cout << "Worker " << id << " found sat cube: " << mk_pp(mk_and(cube), m) << "\n";
+                        model_ref mdl;
+                        ctx->get_model(mdl);
+                        b.set_sat(l2g, *mdl);
                         return;
                     }
-                    // TODO: can share lemmas here, such as new units and not(and(unsat_core)), binary clauses, etc.
-                    // TODO: remember assumptions used in core so that they get used for the final core.
-                    break;
-                }
+                    case l_false: {
+                        // if unsat core only contains (external) assumptions (i.e. all the unsat core are asms), then unsat and return as this does NOT depend on cubes
+                        // otherwise, extract lemmas that can be shared (units (and unsat core?)).
+                        // share with batch manager.
+                        // process next cube.
+                        expr_ref_vector const& unsat_core = ctx->unsat_core();
+                        // If the unsat core only contains assumptions, 
+                        // unsatisfiability does not depend on the current cube and the entire problem is unsat.
+                        if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
+                            std::cout << "Worker " << id << " determined formula unsat";
+                            b.set_unsat(l2g, unsat_core);
+                            return;
+                        }
+                        // TODO: can share lemmas here, such as new units and not(and(unsat_core)), binary clauses, etc.
+                        // TODO: remember assumptions used in core so that they get used for the final core.
+                        std::cout << "Worker " << id << " found unsat cube: " << mk_pp(mk_and(cube), m) << "\n";
+                        b.share_lemma(l2g, mk_not(mk_and(unsat_core)));
+                        // share_units();
+                        break;
+                    }
                 }
             }
         }
@@ -97,6 +102,57 @@ namespace smt {
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         context::copy(p.ctx, *ctx, true);
         ctx->set_random_seed(id + m_smt_params.m_random_seed);
+    }
+
+    void parallel::worker::share_units() {
+        //     obj_hashtable<expr> unit_set;
+    //     expr_ref_vector unit_trail(ctx.m);
+    //     unsigned_vector unit_lim;
+    //     for (unsigned i = 0; i < num_threads; ++i) unit_lim.push_back(0);
+
+    //     // we just want to share lemmas and have a way of remembering how they are shared -- this is the next step
+    //     // (this needs to be reworked)
+    //     std::function<void(void)> collect_units = [&,this]() {
+    //         //return; -- has overhead
+    //         for (unsigned i = 0; i < num_threads; ++i) {
+    //             context& pctx = *pctxs[i];
+    //             pctx.pop_to_base_lvl();
+    //             ast_translation tr(pctx.m, ctx.m);
+    //             unsigned sz = pctx.assigned_literals().size();
+    //             for (unsigned j = unit_lim[i]; j < sz; ++j) {
+    //                 literal lit = pctx.assigned_literals()[j];
+    //                 //IF_VERBOSE(0, verbose_stream() << "(smt.thread " << i << " :unit " << lit << " " << pctx.is_relevant(lit.var()) << ")\n";);
+    //                 if (!pctx.is_relevant(lit.var()))
+    //                     continue;
+    //                 expr_ref e(pctx.bool_var2expr(lit.var()), pctx.m);
+    //                 if (lit.sign()) e = pctx.m.mk_not(e);
+    //                 expr_ref ce(tr(e.get()), ctx.m);
+    //                 if (!unit_set.contains(ce)) {
+    //                     unit_set.insert(ce);
+    //                     unit_trail.push_back(ce);
+    //                 }
+    //             }
+    //         }
+
+    //         unsigned sz = unit_trail.size();
+    //         for (unsigned i = 0; i < num_threads; ++i) {
+    //             context& pctx = *pctxs[i];
+    //             ast_translation tr(ctx.m, pctx.m);
+    //             for (unsigned j = unit_lim[i]; j < sz; ++j) {
+    //                 expr_ref src(ctx.m), dst(pctx.m);
+    //                 dst = tr(unit_trail.get(j));
+    //                 pctx.assert_expr(dst); // Assert that the conjunction of the assumptions in this unsat core is not satisfiable — prune it from future search
+    //             }
+    //             unit_lim[i] = pctx.assigned_literals().size();
+    //         }
+    //         IF_VERBOSE(1, verbose_stream() << "(smt.thread :units " << sz << ")\n");
+    //     };
+    }
+
+    void parallel::batch_manager::share_lemma(ast_translation& l2g, expr* lemma) {
+        std::scoped_lock lock(mux);
+        expr_ref g_lemma(l2g(lemma), l2g.to());
+        p.ctx.assert_expr(g_lemma); // QUESTION: where does this get shared with the local thread contexts?      
     }
 
 
@@ -155,10 +211,7 @@ namespace smt {
         std::scoped_lock lock(mux);
         if (l_false == m_result)
             return;
-        m_result = l_false;
-        expr_ref_vector g_core(l2g.to());
-        for (auto& e : unsat_core) 
-            g_core.push_back(l2g(e));        
+        m_result = l_false;       
         p.ctx.m_unsat_core.reset();
         for (expr* e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
@@ -203,7 +256,6 @@ namespace smt {
     }
 #endif
     
-    // CALL GET_SPLIT_ATOMS AS ARGUMENT TO RETURN_CUBES
     void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms) {
         std::scoped_lock lock(mux);
         for (auto & c : cubes) {
@@ -229,7 +281,7 @@ namespace smt {
         // TODO: avoid making m_cubes too large.
         // QUESTION: do we need to check if any split_atoms are already in the cubes in m_cubes??
         for (auto& atom : split_atoms) {
-            expr_ref g_atom(l2g.from());
+            expr_ref g_atom(l2g.to());
             g_atom = l2g(atom);
             if (m_split_atoms.contains(g_atom))
                 continue;
@@ -244,7 +296,7 @@ namespace smt {
     }
 
     expr_ref_vector parallel::worker::get_split_atoms() {
-        unsigned k = 1;
+        unsigned k = 2;
 
         auto candidates = ctx->m_pq_scores.get_heap();
         std::sort(candidates.begin(), candidates.end(),
@@ -307,50 +359,8 @@ namespace smt {
     
     lbool parallel::operator()(expr_ref_vector const& asms) {
         std::cout << "Parallel solving with " << asms.size() << " assumptions." << std::endl;
+        flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
         return new_check(asms);
-
-    //     obj_hashtable<expr> unit_set;
-    //     expr_ref_vector unit_trail(ctx.m);
-    //     unsigned_vector unit_lim;
-    //     for (unsigned i = 0; i < num_threads; ++i) unit_lim.push_back(0);
-
-    //     // we just want to share lemmas and have a way of remembering how they are shared -- this is the next step
-    //     // (this needs to be reworked)
-    //     std::function<void(void)> collect_units = [&,this]() {
-    //         //return; -- has overhead
-    //         for (unsigned i = 0; i < num_threads; ++i) {
-    //             context& pctx = *pctxs[i];
-    //             pctx.pop_to_base_lvl();
-    //             ast_translation tr(pctx.m, ctx.m);
-    //             unsigned sz = pctx.assigned_literals().size();
-    //             for (unsigned j = unit_lim[i]; j < sz; ++j) {
-    //                 literal lit = pctx.assigned_literals()[j];
-    //                 //IF_VERBOSE(0, verbose_stream() << "(smt.thread " << i << " :unit " << lit << " " << pctx.is_relevant(lit.var()) << ")\n";);
-    //                 if (!pctx.is_relevant(lit.var()))
-    //                     continue;
-    //                 expr_ref e(pctx.bool_var2expr(lit.var()), pctx.m);
-    //                 if (lit.sign()) e = pctx.m.mk_not(e);
-    //                 expr_ref ce(tr(e.get()), ctx.m);
-    //                 if (!unit_set.contains(ce)) {
-    //                     unit_set.insert(ce);
-    //                     unit_trail.push_back(ce);
-    //                 }
-    //             }
-    //         }
-
-    //         unsigned sz = unit_trail.size();
-    //         for (unsigned i = 0; i < num_threads; ++i) {
-    //             context& pctx = *pctxs[i];
-    //             ast_translation tr(ctx.m, pctx.m);
-    //             for (unsigned j = unit_lim[i]; j < sz; ++j) {
-    //                 expr_ref src(ctx.m), dst(pctx.m);
-    //                 dst = tr(unit_trail.get(j));
-    //                 pctx.assert_expr(dst); // Assert that the conjunction of the assumptions in this unsat core is not satisfiable — prune it from future search
-    //             }
-    //             unit_lim[i] = pctx.assigned_literals().size();
-    //         }
-    //         IF_VERBOSE(1, verbose_stream() << "(smt.thread :units " << sz << ")\n");
-    //     };
     }
 
 }
