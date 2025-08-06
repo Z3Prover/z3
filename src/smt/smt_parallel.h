@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include "smt/smt_context.h"
+#include <thread>
 
 namespace smt {
 

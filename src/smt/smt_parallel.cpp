@@ -208,14 +208,26 @@ namespace smt {
         std::scoped_lock lock(mux);
         for (auto & c : cubes) {
             expr_ref_vector g_cube(l2g.to());
-            for (auto& e : c) {
-                g_cube.push_back(l2g(e));
+            for (auto& atom : c) {
+                g_cube.push_back(l2g(atom));
             }
-            // TODO: split this g_cube on m_split_atoms that are not already in g_cube as literals.
-            m_cubes.push_back(g_cube);
+
+            m_cubes.push_back(g_cube); // base cube
+            expr_ref_vector& base = m_cubes.back();
+
+            for (auto& atom : m_split_atoms) {
+                if (g_cube.contains(atom) || g_cube.contains(m.mk_not(atom)))
+                    continue;
+
+                // Split base: one copy with ¬atom, one with atom
+                m_cubes.push_back(base);                   // push new copy of base cube
+                m_cubes.back().push_back(m.mk_not(atom));  // add ¬atom to new copy
+                base.push_back(atom);                      // add atom to base cube
+            }
         }
 
         // TODO: avoid making m_cubes too large.
+        // QUESTION: do we need to check if any split_atoms are already in the cubes in m_cubes??
         for (auto& atom : split_atoms) {
             expr_ref g_atom(l2g.from());
             g_atom = l2g(atom);
@@ -224,9 +236,9 @@ namespace smt {
             m_split_atoms.push_back(g_atom);
             unsigned sz = m_cubes.size();
             for (unsigned i = 0; i < sz; ++i) {
-                m_cubes.push_back(m_cubes[i]); // copy the existing cubes
-                m_cubes.back().push_back(m.mk_not(g_atom)); // add the negation of the split atom to each cube
-                m_cubes[i].push_back(g_atom);
+                m_cubes.push_back(m_cubes[i]); // push copy of m_cubes[i]
+                m_cubes.back().push_back(m.mk_not(g_atom)); // add ¬p to the copy
+                m_cubes[i].push_back(g_atom); // add p to the original
             }
         }
     }
@@ -265,7 +277,7 @@ namespace smt {
             unsigned num_threads = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
             SASSERT(num_threads > 1);
             for (unsigned i = 0; i < num_threads; ++i)
-                m_workers.push_back(alloc(worker, i, *this, asms));
+                m_workers.push_back(alloc(worker, i, *this, asms)); // i.e. "new worker(i, *this, asms)"
                 
             // THIS WILL ALLOW YOU TO CANCEL ALL THE CHILD THREADS
             // within the lexical scope of the code block, creates a data structure that allows you to push children
@@ -294,115 +306,51 @@ namespace smt {
     }
     
     lbool parallel::operator()(expr_ref_vector const& asms) {
+        std::cout << "Parallel solving with " << asms.size() << " assumptions." << std::endl;
+        return new_check(asms);
 
-        lbool result = l_undef;
-        unsigned num_threads = std::min((unsigned) std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
-        flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
-        unsigned thread_max_conflicts = ctx.get_fparams().m_threads_max_conflicts;
-        unsigned max_conflicts = ctx.get_fparams().m_max_conflicts;
+    //     obj_hashtable<expr> unit_set;
+    //     expr_ref_vector unit_trail(ctx.m);
+    //     unsigned_vector unit_lim;
+    //     for (unsigned i = 0; i < num_threads; ++i) unit_lim.push_back(0);
 
-        // try first sequential with a low conflict budget to make super easy problems cheap
-        // GET RID OF THIS, AND IMMEDIATELY SEND TO THE MULTITHREADED CHECKER
-        // THE FIRST BATCH OF CUBES IS EMPTY, AND WE WILL SET ALL THREADS TO WORK ON THE ORIGINAL FORMULA 
+    //     // we just want to share lemmas and have a way of remembering how they are shared -- this is the next step
+    //     // (this needs to be reworked)
+    //     std::function<void(void)> collect_units = [&,this]() {
+    //         //return; -- has overhead
+    //         for (unsigned i = 0; i < num_threads; ++i) {
+    //             context& pctx = *pctxs[i];
+    //             pctx.pop_to_base_lvl();
+    //             ast_translation tr(pctx.m, ctx.m);
+    //             unsigned sz = pctx.assigned_literals().size();
+    //             for (unsigned j = unit_lim[i]; j < sz; ++j) {
+    //                 literal lit = pctx.assigned_literals()[j];
+    //                 //IF_VERBOSE(0, verbose_stream() << "(smt.thread " << i << " :unit " << lit << " " << pctx.is_relevant(lit.var()) << ")\n";);
+    //                 if (!pctx.is_relevant(lit.var()))
+    //                     continue;
+    //                 expr_ref e(pctx.bool_var2expr(lit.var()), pctx.m);
+    //                 if (lit.sign()) e = pctx.m.mk_not(e);
+    //                 expr_ref ce(tr(e.get()), ctx.m);
+    //                 if (!unit_set.contains(ce)) {
+    //                     unit_set.insert(ce);
+    //                     unit_trail.push_back(ce);
+    //                 }
+    //             }
+    //         }
 
-        enum par_exception_kind {
-            DEFAULT_EX,
-            ERROR_EX
-        };
-
-        //  MOVE ALL OF THIS INSIDE THE WORKER THREAD AND CREATE/MANAGE LOCALLY
-        // SO THEN WE REMOVE THE ENCAPSULATING scoped_ptr_vector ETC, SMT_PARAMS BECOMES SMT_
-        vector<smt_params> smt_params;
-        scoped_ptr_vector<ast_manager> pms;
-        scoped_ptr_vector<context> pctxs;
-        vector<expr_ref_vector> pasms;
-
-        ast_manager& m = ctx.m;
-        scoped_limits sl(m.limit());
-        unsigned finished_id = UINT_MAX;
-        std::string        ex_msg;
-        par_exception_kind ex_kind = DEFAULT_EX;
-        unsigned error_code = 0;
-        bool done = false;
-        unsigned num_rounds = 0;
-        if (m.has_trace_stream())
-            throw default_exception("trace streams have to be off in parallel mode");
-
-        
-        params_ref params = ctx.get_params();
-        for (unsigned i = 0; i < num_threads; ++i) {
-            smt_params.push_back(ctx.get_fparams());
-            smt_params.back().m_preprocess = false;
-        }
-                    
-        for (unsigned i = 0; i < num_threads; ++i) {
-            ast_manager* new_m = alloc(ast_manager, m, true);
-            pms.push_back(new_m);
-            pctxs.push_back(alloc(context, *new_m, smt_params[i], params)); 
-            context& new_ctx = *pctxs.back();
-            context::copy(ctx, new_ctx, true);
-            new_ctx.set_random_seed(i + ctx.get_fparams().m_random_seed);
-            ast_translation tr(m, *new_m);
-            pasms.push_back(tr(asms));
-            sl.push_child(&(new_m->limit()));
-        }
-
-        obj_hashtable<expr> unit_set;
-        expr_ref_vector unit_trail(ctx.m);
-        unsigned_vector unit_lim;
-        for (unsigned i = 0; i < num_threads; ++i) unit_lim.push_back(0);
-
-        // we just want to share lemmas and have a way of remembering how they are shared -- this is the next step
-        // (this needs to be reworked)
-        std::function<void(void)> collect_units = [&,this]() {
-            //return; -- has overhead
-            for (unsigned i = 0; i < num_threads; ++i) {
-                context& pctx = *pctxs[i];
-                pctx.pop_to_base_lvl();
-                ast_translation tr(pctx.m, ctx.m);
-                unsigned sz = pctx.assigned_literals().size();
-                for (unsigned j = unit_lim[i]; j < sz; ++j) {
-                    literal lit = pctx.assigned_literals()[j];
-                    //IF_VERBOSE(0, verbose_stream() << "(smt.thread " << i << " :unit " << lit << " " << pctx.is_relevant(lit.var()) << ")\n";);
-                    if (!pctx.is_relevant(lit.var()))
-                        continue;
-                    expr_ref e(pctx.bool_var2expr(lit.var()), pctx.m);
-                    if (lit.sign()) e = pctx.m.mk_not(e);
-                    expr_ref ce(tr(e.get()), ctx.m);
-                    if (!unit_set.contains(ce)) {
-                        unit_set.insert(ce);
-                        unit_trail.push_back(ce);
-                    }
-                }
-            }
-
-            unsigned sz = unit_trail.size();
-            for (unsigned i = 0; i < num_threads; ++i) {
-                context& pctx = *pctxs[i];
-                ast_translation tr(ctx.m, pctx.m);
-                for (unsigned j = unit_lim[i]; j < sz; ++j) {
-                    expr_ref src(ctx.m), dst(pctx.m);
-                    dst = tr(unit_trail.get(j));
-                    pctx.assert_expr(dst); // Assert that the conjunction of the assumptions in this unsat core is not satisfiable — prune it from future search
-                }
-                unit_lim[i] = pctx.assigned_literals().size();
-            }
-            IF_VERBOSE(1, verbose_stream() << "(smt.thread :units " << sz << ")\n");
-        };
-
-        // Gather statistics from all solver contexts
-        for (context* c : pctxs) {
-            c->collect_statistics(ctx.m_aux_stats);
-        }
-
-        // If no thread finished successfully, throw recorded error
-        if (finished_id == UINT_MAX) {
-            switch (ex_kind) {
-            case ERROR_EX: throw z3_error(error_code);
-            default: throw default_exception(std::move(ex_msg));
-            }
-        }
-        
+    //         unsigned sz = unit_trail.size();
+    //         for (unsigned i = 0; i < num_threads; ++i) {
+    //             context& pctx = *pctxs[i];
+    //             ast_translation tr(ctx.m, pctx.m);
+    //             for (unsigned j = unit_lim[i]; j < sz; ++j) {
+    //                 expr_ref src(ctx.m), dst(pctx.m);
+    //                 dst = tr(unit_trail.get(j));
+    //                 pctx.assert_expr(dst); // Assert that the conjunction of the assumptions in this unsat core is not satisfiable — prune it from future search
+    //             }
+    //             unit_lim[i] = pctx.assigned_literals().size();
+    //         }
+    //         IF_VERBOSE(1, verbose_stream() << "(smt.thread :units " << sz << ")\n");
+    //     };
     }
 
 }
