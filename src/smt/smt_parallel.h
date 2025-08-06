@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include "smt/smt_context.h"
+#include <thread>
 
 namespace smt {
 
@@ -38,12 +39,13 @@ namespace smt {
             std::mutex mux;
             expr_ref_vector m_split_atoms; // atoms to split on
             vector<expr_ref_vector> m_cubes;
-            lbool m_result = l_false;
+            lbool m_result = l_false; // want states: init/undef, canceled/exception, sat, unsat
             unsigned m_max_batch_size = 10;
             exception_kind m_exception_kind = NO_EX;
             unsigned m_exception_code = 0;
             std::string m_exception_msg;
 
+            // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
                 for (auto& w : p.m_workers) 
                     w->cancel();                
