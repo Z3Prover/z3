@@ -29,19 +29,21 @@ namespace smt {
 
         class batch_manager {        
 
-            enum exception_kind {
-                NO_EX,
-                ERROR_CODE_EX,
-                ERROR_MSG_EX
+            enum state {
+                is_running,
+                is_sat,
+                is_unsat,
+                is_exception_msg,
+                is_exception_code
             };
+
             ast_manager& m;
             parallel& p;
             std::mutex mux;
+            state m_state = state::is_running;
             expr_ref_vector m_split_atoms; // atoms to split on
             vector<expr_ref_vector> m_cubes;
-            lbool m_result = l_false; // want states: init/undef, canceled/exception, sat, unsat
             unsigned m_max_batch_size = 10;
-            exception_kind m_exception_kind = NO_EX;
             unsigned m_exception_code = 0;
             std::string m_exception_msg;
 
@@ -52,7 +54,10 @@ namespace smt {
             }
 
         public:
-            batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_split_atoms(m) { m_cubes.push_back(expr_ref_vector(m)); }
+            batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_split_atoms(m) { }
+
+            void initialize();
+
             void set_unsat(ast_translation& l2g, expr_ref_vector const& unsat_core);
             void set_sat(ast_translation& l2g, model& m);
             void set_exception(std::string const& msg);
@@ -103,8 +108,6 @@ namespace smt {
 
         batch_manager m_batch_manager;
         ptr_vector<worker> m_workers;
-
-        lbool new_check(expr_ref_vector const& asms);
 
     public:
         parallel(context& ctx) : 
