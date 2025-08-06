@@ -50,7 +50,7 @@ namespace smt {
                 return;
             for (auto& cube : cubes) {
                 if (!m.inc())
-                    return; // stop if the main context is cancelled                
+                    return; // stop if the main context (i.e. parent thread) is cancelled                
                 switch (check_cube(cube)) {
                     case l_undef: {
                         // return unprocessed cubes to the batch manager
@@ -152,7 +152,7 @@ namespace smt {
     void parallel::batch_manager::share_lemma(ast_translation& l2g, expr* lemma) {
         std::scoped_lock lock(mux);
         expr_ref g_lemma(l2g(lemma), l2g.to());
-        p.ctx.assert_expr(g_lemma); // QUESTION: where does this get shared with the local thread contexts?      
+        p.ctx.assert_expr(g_lemma); // QUESTION: where does this get shared with the local thread contexts? -- doesn't right now, we will build the scaffolding for this later!  
     }
 
 
@@ -256,6 +256,8 @@ namespace smt {
     }
 #endif
     
+// frugal stragety: only split on return cubes
+// 
     void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms) {
         std::scoped_lock lock(mux);
         for (auto & c : cubes) {
@@ -272,6 +274,7 @@ namespace smt {
                     continue;
 
                 // Split base: one copy with ¬atom, one with atom
+                // TODO FIX: THIS CAN RESULT IN SEGFAULT because it's a pointer to a pointer vector, which may have changed!
                 m_cubes.push_back(base);                   // push new copy of base cube
                 m_cubes.back().push_back(m.mk_not(atom));  // add ¬atom to new copy
                 base.push_back(atom);                      // add atom to base cube
@@ -326,7 +329,6 @@ namespace smt {
 
         {
             scoped_limits sl(m.limit());
-            unsigned num_threads = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
             SASSERT(num_threads > 1);
             for (unsigned i = 0; i < num_threads; ++i)
                 m_workers.push_back(alloc(worker, i, *this, asms)); // i.e. "new worker(i, *this, asms)"
@@ -354,7 +356,7 @@ namespace smt {
                 w->collect_statistics(ctx.m_aux_stats);            
         }
         m_workers.clear();
-        return m_batch_manager.get_result();        
+        return m_batch_manager.get_result(); // i.e. all threads have finished all of their cubes -- so if state::is_running is still true, means the entire formula is unsat (otherwise a thread would have returned l_undef)        
     }
     
     lbool parallel::operator()(expr_ref_vector const& asms) {
