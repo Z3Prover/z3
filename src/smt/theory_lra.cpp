@@ -1017,6 +1017,7 @@ public:
 
     void apply_sort_cnstr(enode* n, sort*) {
         TRACE(arith, tout << "sort constraint: " << pp(n) << "\n";);
+        std::cout << "sort constraint: " << pp(n) << " " << __FILE__ << ":" << __LINE__ << "\n";
 #if 0
         if (!th.is_attached_to_var(n)) 
             mk_var(n->get_owner());
