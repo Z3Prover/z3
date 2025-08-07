@@ -1587,7 +1587,8 @@ void theory_seq::add_length_limit(expr* s, unsigned k, bool is_searching) {
     m_trail_stack.push(insert_obj_map<expr, unsigned>(m_length_limit_map, s));
     if (is_searching) {
         expr_ref dlimit = m_sk.mk_max_unfolding_depth(m_max_unfolding_depth);
-        add_axiom(~mk_literal(dlimit), mk_literal(lim_e));
+        auto p0 = ~mk_literal(dlimit);
+        add_axiom(p0, mk_literal(lim_e));
     }
 }
 
@@ -3062,7 +3063,8 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             f = m_sk.mk_prefix_inv(se1, se2);
             f = mk_concat(se1, f);
             propagate_eq(lit, f, se2, true);
-            propagate_eq(lit, mk_len(f), mk_len(se2), false);
+            auto p0 = mk_len(f);
+            propagate_eq(lit, p0, mk_len(se2), false);
         }
         else {
             propagate_not_prefix(e);
