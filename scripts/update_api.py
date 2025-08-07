@@ -1392,6 +1392,7 @@ z3_ml_callbacks = frozenset([
     'Z3_solver_propagate_diseq',
     'Z3_solver_propagate_created',
     'Z3_solver_propagate_decide',
+    'Z3_solver_propagate_on_binding',
     'Z3_solver_register_on_clause'
     ])
 
