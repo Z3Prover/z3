@@ -440,7 +440,10 @@ final_check_status theory_seq::final_check_eh() {
 
 
 bool theory_seq::set_empty(expr* x) {
-    add_axiom(~mk_eq(m_autil.mk_int(0), mk_len(x), false), mk_eq_empty(x));
+    // pre-calculate literals to enforce evaluation order
+    literal zero_len_lit = mk_eq(m_autil.mk_int(0), mk_len(x), false);
+    literal empty_lit    = mk_eq_empty(x);
+    add_axiom(~zero_len_lit, empty_lit);
     return true;
 }
 
@@ -3106,7 +3109,8 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             propagate_non_empty(lit, se2);
             dependency* dep = m_dm.mk_leaf(assumption(lit));
             // |e1| - |e2| <= -1
-            literal len_gt = m_ax.mk_le(mk_sub(mk_len(se1), mk_len(se2)), -1);
+            auto e1e = mk_len(se1);
+            literal len_gt = m_ax.mk_le(mk_sub(e1e, mk_len(se2)), -1);
             ctx.force_phase(len_gt);
             m_ncs.push_back(nc(expr_ref(e, m), len_gt, dep));
         }
