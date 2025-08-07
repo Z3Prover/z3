@@ -5,6 +5,8 @@ and print matches in grep-like format: file:line:match
 """
 import os
 import re
+# skip chain calls like obj.method(...)
+chain_pattern = re.compile(r"\.\s*[A-Za-z_]\w*\s*\(")
 
 # pattern: identifier(... foo(...), ... bar(...)) with two function-call args
 pattern = re.compile(
@@ -28,7 +30,10 @@ for root, dirs, files in os.walk('src/smt'):
                 for i, line in enumerate(f, 1):
                     if pattern.search(line):
                         # skip lines with TRACE or ASSERT in all caps
-                        if any(word in line for word in excl):
+                        if 'TRACE' in line or 'ASSERT' in line or 'VERIFY' in line:
+                            continue
+                        # skip chain calls (method-style chaining)
+                        if chain_pattern.search(line):
                             continue
                         full_path = os.path.abspath(path)
                         print(f"{full_path}:{i}:{line.rstrip()}")
