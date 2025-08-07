@@ -339,6 +339,10 @@ namespace smt {
             m_plugin->add_eq_eh(n1, n2);
         }
 
+        void register_on_binding(std::function<bool(quantifier*, expr*)>& on_binding) {
+            m_qi_queue.register_on_binding(on_binding);
+        }
+
         void relevant_eh(enode * n) {
             m_plugin->relevant_eh(n);
         }
@@ -491,6 +495,10 @@ namespace smt {
 
     void quantifier_manager::add_eq_eh(enode * n1, enode * n2) {
         m_imp->add_eq_eh(n1, n2);
+    }
+
+    void quantifier_manager::register_on_binding(std::function<bool(quantifier*, expr*)>& on_binding) {
+        m_imp->register_on_binding(on_binding);
     }
 
     void quantifier_manager::relevant_eh(enode * n) {

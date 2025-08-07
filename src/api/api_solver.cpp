@@ -1160,6 +1160,14 @@ extern "C" {
         Z3_CATCH;
     }
 
+    void Z3_API Z3_solver_propagate_on_binding(Z3_context c, Z3_solver s, Z3_on_binding_eh binding_eh) {
+        Z3_TRY;
+        RESET_ERROR_CODE();
+        user_propagator::binding_eh_t c = (bool(*)(void*, user_propagator::callback*, expr*, expr*))binding_eh;
+        to_solver_ref(s)->user_propagate_register_on_binding(c);
+        Z3_CATCH;
+    }
+
     bool Z3_API Z3_solver_next_split(Z3_context c, Z3_solver_callback cb,  Z3_ast t, unsigned idx, Z3_lbool phase) {
         Z3_TRY;
         LOG_Z3_solver_next_split(c, cb, t, idx, phase);

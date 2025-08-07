@@ -110,6 +110,15 @@ void theory_user_propagator::register_cb(expr* e) {
         add_expr(e, true);
 }
 
+void theory_user_propagator::register_on_binding(user_propagator::binding_eh_t& binding_eh) {
+    std::function<bool(quantifier* q, expr* inst)> on_binding = 
+        [this, binding_eh](quantifier* q, expr* inst) {
+            return binding_eh(m_user_context, this, q, inst);
+        };    
+    ctx.register_on_binding(on_binding);
+
+}
+
 bool theory_user_propagator::next_split_cb(expr* e, unsigned idx, lbool phase) {
     if (e == nullptr) { // clear
         m_next_split_var = nullptr;

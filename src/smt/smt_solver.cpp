@@ -244,6 +244,10 @@ namespace {
             m_context.user_propagate_register_expr(e);
         }
 
+        void user_propagate_register_on_binding(user_propagator::binding_eh_t& binding_eh) override {
+            m_context.user_propagate_register_on_binding(binding_eh);
+        }
+
         void user_propagate_register_created(user_propagator::created_eh_t& c) override {
             m_context.user_propagate_register_created(c);
         }

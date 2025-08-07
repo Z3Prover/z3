@@ -1440,6 +1440,7 @@ Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, Z3_as
 Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
 Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast t));
 Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast t, unsigned idx, bool phase));
+Z3_DECLARE_CLOSURE(Z3_on_binding_eh, bool, (void* ctx, Z3_solver_callback cb, Z3_ast q, Z3_ast inst));
 Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals));
 
 
@@ -7225,6 +7226,17 @@ extern "C" {
     */
     void Z3_API Z3_solver_propagate_decide(Z3_context c, Z3_solver s, Z3_decide_eh decide_eh);
 
+
+    /**
+       \brief register a callback when the solver instantiates a quantifier.
+       If the callback returns false, the actual instantiation of the quantifier is blocked.
+       This allows the user propagator selectively prioritize instantiations without relying on default
+       or configured weights.
+       
+       def_API('Z3_solver_propagate_on_binding', VOID, (_in(CONTEXT), _in(SOLVER), _fnptr(Z3_on_binding_eh)))
+    */
+
+    void Z3_API Z3_solver_propagate_on_binding(Z3_context c, Z3_solver s, Z3_on_binding_eh on_binding_eh);
     /**
         Sets the next (registered) expression to split on.
         The function returns false and ignores the given expression in case the expression is already assigned internally

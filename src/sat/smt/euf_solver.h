@@ -554,6 +554,10 @@ namespace euf {
             check_for_user_propagator();
             m_user_propagator->register_decide(ceh);
         }
+        void user_propagate_register_on_binding(user_propagator::binding_eh_t& on_binding_eh) {
+            check_for_user_propagator();
+            NOT_IMPLEMENTED_YET();
+        }
         void user_propagate_register_expr(expr* e) {
             check_for_user_propagator();
             m_user_propagator->add_expr(e);
