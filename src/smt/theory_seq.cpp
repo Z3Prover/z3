@@ -441,7 +441,8 @@ final_check_status theory_seq::final_check_eh() {
 
 bool theory_seq::set_empty(expr* x) {
     // pre-calculate literals to enforce evaluation order
-    literal zero_len_lit = mk_eq(m_autil.mk_int(0), mk_len(x), false);
+    auto zero = m_autil.mk_int(0);
+    literal zero_len_lit = mk_eq(zero, mk_len(x), false);
     literal empty_lit    = mk_eq_empty(x);
     add_axiom(~zero_len_lit, empty_lit);
     return true;
@@ -2909,7 +2910,8 @@ void theory_seq::ensure_nth(literal lit, expr* s, expr* idx) {
         m_sk.decompose(s2, head, tail);
         elems.push_back(head);
         len1 = mk_len(s2);
-        len2 = m_autil.mk_add(m_autil.mk_int(1), mk_len(tail));
+        auto one = m_autil.mk_int(1);
+        len2 = m_autil.mk_add(one, mk_len(tail));
         propagate_eq(lit, len1, len2, false);
         s2 = tail;
     }
