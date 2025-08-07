@@ -157,7 +157,7 @@ static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast _val, unsigned bit
 static jboolean on_binding_eh(void* _p, Z3_solver_callback cb, Z3_ast _q, Z3_ast _inst) {
   JavaInfo *info = static_cast<JavaInfo*>(_p);
   ScopedCB scoped(info, cb);
-  return info->jenv->CallVoidMethod(info->jobj, info->on_binding, (jlong)_q, (jlong)_inst);
+  return info->jenv->CallBooleanMethod(info->jobj, info->on_binding, (jlong)_q, (jlong)_inst);
 }
 
 DLL_VIS JNIEXPORT jlong JNICALL Java_com_microsoft_z3_Native_propagateInit(JNIEnv *jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
