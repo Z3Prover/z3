@@ -153,7 +153,7 @@ static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast _val, unsigned bit
   info->jenv->CallVoidMethod(info->jobj, info->decide, (jlong)_val, bit, is_pos);
 }
 
-static boolean on_binding_eh(void* _p, Z3_solver_callback cb, Z3_ast _q, Z3_ast _inst) {
+static jboolean on_binding_eh(void* _p, Z3_solver_callback cb, Z3_ast _q, Z3_ast _inst) {
   JavaInfo *info = static_cast<JavaInfo*>(_p);
   ScopedCB scoped(info, cb);
   return info->jenv->CallVoidMethod(info->jobj, info->on_binding, (jlong)_q, (jlong)_inst);
