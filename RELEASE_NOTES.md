@@ -7,6 +7,15 @@ Version 4.next
     - CDCL core for SMT queries. It extends the SAT engine with theory solver plugins.
   - add global incremental pre-processing for the legacy core.
 
+Version 4.15.3
+==============
+- Add UserPropagator callback option for quantifier instantiations. It allows the user propagator to
+  intercept quantifier instantiations. It can then inspect these in the callback. By returning false, 
+  the callback signals that the instantiation should be discarded by the solver. The user propagator 
+  is then able to apply finer control over instantiations. It can also use this mechanism to delay
+  instantiations.
+  
+
 Version 4.15.2
 ==============
 - #7690, #7691 - fix leak introduced in arithmetic solver.
