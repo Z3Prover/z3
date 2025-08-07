@@ -3078,7 +3078,8 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             f = m_sk.mk_suffix_inv(se1, se2);
             f = mk_concat(f, se1);
             propagate_eq(lit, f, se2, true);
-            propagate_eq(lit, mk_len(f), mk_len(se2), false);
+            auto p0 = mk_len(f);
+            propagate_eq(lit, p0, mk_len(se2), false);
         }
         else {
             propagate_not_suffix(e);
@@ -3098,7 +3099,8 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             expr_ref f2 = m_sk.mk_contains_right(se1, se2);
             f = mk_concat(f1, se2, f2);
             propagate_eq(lit, f, e1, true);
-            propagate_eq(lit, mk_len(f), mk_len(e1), false);
+            auto p0 = mk_len(f);
+            propagate_eq(lit, p0, mk_len(e1), false);
         }
         else {
             propagate_non_empty(lit, se2);
