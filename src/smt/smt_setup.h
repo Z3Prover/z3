@@ -108,7 +108,6 @@ namespace smt {
         void setup_mi_arith();
         void setup_lra_arith();
         void setup_fpa();
-        void setup_str();
         void setup_relevancy(static_features& st);
 
     public:
