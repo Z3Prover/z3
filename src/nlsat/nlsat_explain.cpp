@@ -646,8 +646,8 @@ namespace nlsat {
             return true;
         }
         
-	// For each p in ps add the leading or coefficent to the projection,
-        void add_lcs(polynomial_ref_vector &ps, var x) {
+	// For each p in ps add the leading coefficent to the projection,
+        void add_lc(polynomial_ref_vector &ps, var x) {
             polynomial_ref p(m_pm);
             polynomial_ref coeff(m_pm);
 
@@ -1203,7 +1203,7 @@ namespace nlsat {
                 TRACE(nlsat_explain,  tout << "project loop, processing var "; display_var(tout, x);
                       tout << "\npolynomials\n";
                       display(tout, ps); tout << "\n";);
-                add_lcs(ps, x);
+                add_lc(ps, x);
                 psc_discriminant(ps, x);
                 psc_resultant(ps, x);
                 if (m_todo.empty())
@@ -1251,7 +1251,7 @@ namespace nlsat {
                 }
                 TRACE(nlsat_explain, tout << "project loop, processing var "; display_var(tout, x); tout << "\npolynomials\n";
                       display(tout, ps); tout << "\n";);
-                add_lcs(ps, x);
+                add_lc(ps, x);
                 psc_discriminant(ps, x);
                 psc_resultant(ps, x);
                 
