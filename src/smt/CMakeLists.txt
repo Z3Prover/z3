@@ -69,9 +69,6 @@ z3_add_component(smt
     theory_seq.cpp
     theory_sls.cpp
     theory_special_relations.cpp
-    theory_str.cpp
-    theory_str_mc.cpp
-    theory_str_regex.cpp
     theory_user_propagator.cpp
     theory_utvpi.cpp
     theory_wmaxsat.cpp

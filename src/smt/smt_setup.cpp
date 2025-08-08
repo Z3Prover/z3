@@ -39,7 +39,6 @@ Revision History:
 #include "smt/theory_sls.h"
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
-#include "smt/theory_str.h"
 #include "smt/theory_polymorphism.h"
 
 namespace smt {
@@ -562,7 +561,7 @@ namespace smt {
 
     void setup::setup_QF_S() {
         if (m_params.m_string_solver == "z3str3") {
-            setup_str();
+            throw default_exception("z3str3 string solver has been removed. Use 'seq' instead.");
         }
         else if (m_params.m_string_solver == "seq") {
             setup_unknown();
@@ -582,7 +581,7 @@ namespace smt {
             // don't register any solver.
         }
         else {
-            throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
+            throw default_exception("invalid parameter for smt.string_solver, valid options are 'seq', 'char', 'empty', 'none', 'auto'");
         }
     }
 
@@ -749,7 +748,7 @@ namespace smt {
     void setup::setup_seq_str(static_features const & st) {
         // check params for what to do here when it's ambiguous
         if (m_params.m_string_solver == "z3str3") {
-            setup_str();
+            throw default_exception("z3str3 string solver has been removed. Use 'seq' instead.");
         } 
         else if (m_params.m_string_solver == "seq") {
             setup_seq();
@@ -765,11 +764,11 @@ namespace smt {
                 setup_seq();
             } 
             else {
-                setup_str();
+                setup_seq(); // default to seq instead of z3str3
             }
         } 
         else {
-            throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
+            throw default_exception("invalid parameter for smt.string_solver, valid options are 'seq', 'empty', 'none', 'auto'");
         }
     }
 
@@ -785,11 +784,6 @@ namespace smt {
     void setup::setup_fpa() {
         setup_bv();
         m_context.register_plugin(alloc(theory_fpa, m_context));
-    }
-
-    void setup::setup_str() {
-        setup_arith();
-        m_context.register_plugin(alloc(theory_str, m_context, m_manager, m_params));
     }
 
     void setup::setup_seq() {
