@@ -1266,11 +1266,11 @@ namespace nlsat {
 
 
         /**
-         * Pre:
-         * Post:
-         *  - ps_below contains all polynomials from ps which have a root below m_assignment w.r.t. x
-         *  - ps_above contains all polynomials from ps which have a root above m_assignment w.r.t. x
-         *  - ps_equal contains all polynomials from ps which have a root equal to m_assignment
+         *  \brief add cell literals for the linearized projection and categorize the polynomials in ps
+         *  - ps_below will contain all polynomials from ps which have a root below m_assignment w.r.t. x
+         *  - ps_above will contain all polynomials from ps which have a root above m_assignment w.r.t. x
+         *  - ps_equal will contain at least one polynomial from ps which have a root equal to m_assignment
+         *  - In addition, they may contain additional linear polynomials added as cell boundaries
          *  - The back elements of ps_below, ps_above, ps_equal are the polynomials used for the cell literals
          */
         void add_cell_lits_linear(polynomial_ref_vector const& ps,
@@ -1390,6 +1390,9 @@ namespace nlsat {
         }
 
 
+        /**
+         * \brief compute the resultants of p with each polynomial in ps w.r.t. x
+         */
         void psc_resultants_with(polynomial_ref_vector const& ps, polynomial_ref p, var const x) {
             polynomial_ref q(m_pm);
             unsigned sz = ps.size();
@@ -1401,14 +1404,12 @@ namespace nlsat {
         }
 
 
-        void project_top_level(polynomial_ref_vector & ps, var x) {
-            add_lcs(ps, x);
-            psc_discriminant(ps, x);
-            // could also do a covering-style projection, sparing some resultants
-            psc_resultant(ps, x);
-        }
-
-
+        /**
+         * Linearized projection based on:
+         * Valentin Promies, Jasper Nalbach, Erika Abraham and Paul Wagner
+         * "More is Less: Adding Polynomials for Faster Explanations in NLSAT"
+         * in CADE30, 2025
+         */
         void project_linear(polynomial_ref_vector & ps, var max_x) {
             if (ps.empty())
                 return;
@@ -1422,7 +1423,11 @@ namespace nlsat {
             polynomial_ref_vector ps_equal_sample(m_pm);
             var x = m_todo.extract_max_polys(ps);
             if (x == max_x) {
-                project_top_level(ps,x);
+                // top level projection like original
+                // we could also do a covering-style projection, sparing some resultants
+                add_lcs(ps, x);
+                psc_discriminant(ps, x);
+                psc_resultant(ps, x);
                 x = m_todo.extract_max_polys(ps);
             }
 
