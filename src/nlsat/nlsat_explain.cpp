@@ -45,6 +45,7 @@ namespace nlsat {
         bool                    m_minimize_cores;
         bool                    m_factor;
         bool                    m_signed_project;
+        bool                    m_linear_project;
         bool                    m_cell_sample;
 
 
@@ -155,6 +156,7 @@ namespace nlsat {
             m_full_dimensional = false;
             m_minimize_cores   = false;
             m_signed_project   = false;
+            m_linear_project   = false;
         }
 
         std::ostream& display(std::ostream & out, polynomial_ref const & p) const {
@@ -1262,8 +1264,207 @@ namespace nlsat {
             }
         }
 
+
+        /**
+         * Pre:
+         * Post:
+         *  - ps_below contains all polynomials from ps which have a root below m_assignment w.r.t. x
+         *  - ps_above contains all polynomials from ps which have a root above m_assignment w.r.t. x
+         *  - ps_equal contains all polynomials from ps which have a root equal to m_assignment
+         *  - The back elements of ps_below, ps_above, ps_equal are the polynomials used for the cell literals
+         */
+        void add_cell_lits_linear(polynomial_ref_vector const& ps,
+                                  var const x,
+                                  polynomial_ref_vector& ps_below,
+                                  polynomial_ref_vector& ps_above,
+                                  polynomial_ref_vector& ps_equal) {
+            ps_below.reset();
+            ps_above.reset();
+            ps_equal.reset();
+
+            SASSERT(m_assignment.is_assigned(x));
+            anum const & x_val = m_assignment.value(x);
+
+            bool           lower_inf = true,   upper_inf = true;
+            scoped_anum    lower(m_am),        upper(m_am);
+            polynomial_ref p_lower(m_pm),      p_upper(m_pm);
+            unsigned       i_lower = UINT_MAX, i_upper = UINT_MAX;
+
+            scoped_anum_vector & roots = m_roots_tmp;
+            polynomial_ref p(m_pm);
+
+            unsigned sz = ps.size();
+            for (unsigned k = 0; k < sz; k++) {
+                p = ps.get(k);
+                if (max_var(p) != x)
+                    continue;
+                roots.reset();
+
+                // Temporarily unassign x, s.t. isolate_roots does not assume p as constant.
+                m_am.isolate_roots(p, undef_var_assignment(m_assignment, x), roots);
+                unsigned num_roots = roots.size();
+                if (num_roots == 0) continue;
+
+                // find p's smallest root above the sample
+                unsigned i = 0;
+                int s = 1;
+                for (; i < num_roots; ++i) {
+                    s = m_am.compare(x_val, roots[i]);
+                    if (s <= 0) break;
+                }
+
+                if (s == 0) {
+                    // roots[i] == x_val
+                    ps_equal.push_back(p);
+                    p_lower = p;
+                    i_lower = i+1;
+                    break; // TODO: choose the best among multiple section polynomials?
+                } else if (s < 0) {
+                    // x_val < roots[i]
+                    ps_above.push_back(p);
+                    if (upper_inf || m_am.lt(roots[i], upper)) {
+                        upper_inf = false;
+                        m_am.set(upper, roots[i]);
+                        p_upper = p;
+                        i_upper = i + 1;
+                    }
+                }
+                // in any case, roots[i-1] might provide a lower bound if it exists
+                if (i > 0) {
+                    // roots[i-1] < x_val
+                    ps_below.push_back(p);
+                    if (lower_inf || m_am.lt(lower, roots[i-1])) {
+                        lower_inf = false;
+                        m_am.set(lower, roots[i-1]);
+                        p_lower = p;
+                        i_lower = i;
+                    }
+                }
+            }
+
+            // add linear cell bounds
+
+            if (!ps_equal.empty()) {
+                if (!m_am.is_rational(x_val)) {
+                    // TODO: FAIL
+                    NOT_IMPLEMENTED_YET();
+                } else if (m_pm.total_degree(p_lower) > 1) {
+                    rational bound;
+                    m_am.to_rational(x_val, bound);
+                    p_lower = m_pm.mk_polynomial(x);
+                    p_lower = p_lower - bound;
+                }
+                add_root_literal(atom::ROOT_EQ, x, 1, p_lower);
+                // make sure bounding poly is at the back of the vector
+                ps_equal.push_back(p_lower);
+                return;
+            }
+            if (!lower_inf) {
+                bool approximate = (m_pm.total_degree(p_lower) > 1);
+                if (approximate) {
+                    scoped_anum between(m_am);
+                    m_am.select(lower, x_val, between);
+                    rational new_bound;
+                    m_am.to_rational(between, new_bound);
+                    p_lower = m_pm.mk_polynomial(x);
+                    p_lower = p_lower - new_bound;
+                }
+                add_root_literal((approximate || m_full_dimensional) ? atom::ROOT_GE : atom::ROOT_GT, x, 1, p_lower);
+                // make sure bounding poly is at the back of the vector
+                ps_below.push_back(p_lower);
+            }
+            if (!upper_inf) {
+                bool approximate = (m_pm.total_degree(p_upper) > 1);
+                if (approximate) {
+                    scoped_anum between(m_am);
+                    m_am.select(x_val, upper, between);
+                    rational new_bound;
+                    m_am.to_rational(between, new_bound);
+                    p_upper = m_pm.mk_polynomial(x);
+                    p_upper = p_upper - new_bound;
+                }
+                add_root_literal((approximate || m_full_dimensional) ? atom::ROOT_LE : atom::ROOT_LT, x, 1, p_upper);
+                // make sure bounding poly is at the back of the vector
+                ps_below.push_back(p_upper);
+            }
+        }
+
+
+        void psc_resultants_with(polynomial_ref_vector const& ps, polynomial_ref p, var const x) {
+            polynomial_ref q(m_pm);
+            unsigned sz = ps.size();
+            for (unsigned i = 0; i < sz; i++) {
+                q = ps.get(i);
+                if (q == p) continue;
+                psc(p, q, x);
+            }
+        }
+
+
+        void project_top_level(polynomial_ref_vector & ps, var x) {
+            add_lcs(ps, x);
+            psc_discriminant(ps, x);
+            // could also do a covering-style projection, sparing some resultants
+            psc_resultant(ps, x);
+        }
+
+
+        void project_linear(polynomial_ref_vector & ps, var max_x) {
+            if (ps.empty())
+                return;
+            m_todo.reset();
+            for (poly* p : ps) {
+                m_todo.insert(p);
+            }
+
+            polynomial_ref_vector ps_below_sample(m_pm);
+            polynomial_ref_vector ps_above_sample(m_pm);
+            polynomial_ref_vector ps_equal_sample(m_pm);
+            var x = m_todo.extract_max_polys(ps);
+            if (x == max_x) {
+                project_top_level(ps,x);
+                x = m_todo.extract_max_polys(ps);
+            }
+
+            while(!m_todo.empty()) {
+                add_cell_lits_linear(ps, x, ps_below_sample, ps_above_sample, ps_equal_sample);
+                if (all_univ(ps, x) && m_todo.empty()) {
+                    m_todo.reset();
+                    break;
+                }
+                add_lcs(ps, x);
+                psc_discriminant(ps, x);
+                polynomial_ref lb(m_pm);
+                polynomial_ref ub(m_pm);
+
+                if (!ps_equal_sample.empty()) {
+                    // section
+                    lb = ps_equal_sample.back();
+                    psc_resultants_with(ps, lb, x);
+                } else {
+                    if (!ps_below_sample.empty()) {
+                        lb = ps_below_sample.back();
+                        psc_resultants_with(ps_below_sample, lb, x);
+                    }
+                    if (!ps_above_sample.empty()) {
+                        ub = ps_above_sample.back();
+                        psc_resultants_with(ps_above_sample, ub, x);
+                        if (!ps_below_sample.empty()) {
+                            // also need resultant between bounds
+                            psc(lb, ub, x);
+                        }
+                    }
+                }
+                x = m_todo.extract_max_polys(ps);
+            }
+        }
+
+
         void project(polynomial_ref_vector & ps, var max_x) {
-            if (m_cell_sample) {
+            if (m_linear_project) {
+                project_linear(ps, max_x);
+            }
+            else if (m_cell_sample) {
                 project_cdcac(ps, max_x);
             }
             else {
@@ -2124,6 +2325,10 @@ namespace nlsat {
 
     void explain::set_signed_project(bool f) {
         m_imp->m_signed_project = f;
+    }
+
+    void explain::set_linear_project(bool f) {
+        m_imp->m_linear_project = f;
     }
 
     void explain::main_operator(unsigned n, literal const * ls, scoped_literal_vector & result) {
