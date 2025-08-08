@@ -2035,7 +2035,66 @@ namespace nlsat {
         }
 
         lbool check(assignment const& rvalues, atom_vector& core) {
-            return l_undef;
+            // temporarily set m_assignment to the given one
+            assignment tmp = m_assignment;
+            m_assignment.reset();
+            m_assignment.copy(rvalues);
+
+            // check whether the asserted atoms are satisfied by rvalues
+            literal best_literal = null_literal;
+            unsigned sz = m_clauses.size();
+            lbool satisfied = l_true;
+            for (unsigned i = 0; i < sz; i++) {
+                bool c_satisfied = false;
+                clause const & c = *(m_clauses[i]);
+                for (literal l : c) {
+                    if (const_cast<imp*>(this)->value(l) != l_false) {
+                        c_satisfied = true;
+                        break;
+                    }
+                }
+                if (c_satisfied) continue;
+
+                // take best literal from c
+                for (literal l : c) {
+                    if (best_literal == null_literal) {
+                        best_literal = l;
+                    } else {
+                        bool_var b_best = best_literal.var();
+                        bool_var b_l = l.var();
+                        if (degree(m_atoms[b_l]) < degree(m_atoms[b_best])) {
+                            best_literal = l;
+                        }
+                        // TODO: there might be better criteria than just the degree in the main variable.
+                    }
+                }
+            }
+
+            if (satisfied == l_true) {
+                // nothing to do
+                return l_true;
+            }
+            if (satisfied == l_undef) {
+                // nothing to do?
+                return l_undef;
+            }
+
+            // assignment does not satisfy the constraints -> create lemma
+            SASSERT(best_literal != null_literal);
+            m_lazy_clause.reset();
+            m_explain.set_linear_project(true);
+            m_explain.main_operator(1, &best_literal, m_lazy_clause);
+            m_explain.set_linear_project(false); // TODO: there should be a better way to control this.
+            m_lazy_clause.push_back(~best_literal);
+
+            core.clear();
+            for (literal l : m_lazy_clause) {
+                core.push_back(m_atoms[l.var()]);
+            }
+
+            m_assignment.reset();
+            m_assignment.copy(tmp);
+            return l_false;
         }
 
         lbool check(literal_vector& assumptions) {
