@@ -49,6 +49,7 @@ namespace smt {
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
+                IF_VERBOSE(0, verbose_stream() << "Canceling workers\n");
                 for (auto& w : p.m_workers) 
                     w->cancel();                
             }
@@ -96,9 +97,11 @@ namespace smt {
             void run();
             expr_ref_vector get_split_atoms();
             void cancel() {
+                IF_VERBOSE(0, verbose_stream() << "Worker " << id << " canceling\n");
                 m.limit().cancel();
             }
             void collect_statistics(::statistics& st) const {
+                IF_VERBOSE(0, verbose_stream() << "Collecting statistics for worker " << id << "\n");
                 ctx->collect_statistics(st);
             }
             reslimit& limit() {
