@@ -22,7 +22,7 @@ Revision History:
 #include "util/buffer.h"
 #include "sat/sat_types.h"
 #include "util/z3_exception.h"
-
+#include <vector>
 namespace algebraic_numbers {
     class anum;
     class manager;
@@ -142,6 +142,50 @@ namespace nlsat {
         struct hash_proc { unsigned operator()(root_atom const * a) const; };
         struct eq_proc { bool operator()(root_atom const * a1, root_atom const * a2) const; };
     };
+
+    /**
+       \brief An indexed root expression designates the i-th real root of a (square-free) polynomial p when regarded as
+       a univariate over its maximal variable x after substituting the current values for variables < x.
+
+       It is a lightweight value object used by projection / sample-cell algorithms. It does not own the polynomial.
+    */
+    struct indexed_root {
+        poly *   m_p;      // polynomial whose root is referenced (assumed non-null)
+        unsigned m_index;  // root index (0-based internally; corresponds to paper's i)
+        var      m_var;    // the main variable of m_p when treated as univariate
+        indexed_root(): m_p(nullptr), m_index(0), m_var(null_var) {}
+        indexed_root(poly* p, unsigned i, var x): m_p(p), m_index(i), m_var(x) {}
+        poly * p() const { return m_p; }
+        unsigned index() const { return m_index; }
+        var x() const { return m_var; }
+        bool is_null() const { return m_p == nullptr; }
+        // ordering helper (by variable then polynomial id then index) - total but arbitrary
+        struct lt {
+            pmanager & m_pm;
+            lt(pmanager & pm): m_pm(pm) {}
+            bool operator()(indexed_root const & a, indexed_root const & b) const {
+                if (a.m_var != b.m_var) return a.m_var < b.m_var;
+                if (a.m_p != b.m_p) return m_pm.id(a.m_p) < m_pm.id(b.m_p);
+                return a.m_index < b.m_index;
+            }
+        };
+        struct hash_proc {
+            pmanager & m_pm;
+            hash_proc(pmanager & pm): m_pm(pm) {}
+            unsigned operator()(indexed_root const & r) const {
+                return combine(combine(m_pm.id(r.m_p), r.m_index), r.m_var);
+            }
+            static unsigned combine(unsigned a, unsigned b) { return a * 1315423911u + b + (a<<5) + (b>>2); }
+        };
+        struct eq_proc {
+            pmanager & m_pm;
+            eq_proc(pmanager & pm): m_pm(pm) {}
+            bool operator()(indexed_root const & a, indexed_root const & b) const {
+                return a.m_var == b.m_var && a.m_index == b.m_index && a.m_p == b.m_p; }
+        };
+    };
+
+    typedef std::vector<indexed_root> indexed_root_vector;
 
     inline ineq_atom * to_ineq_atom(atom * a) { SASSERT(a->is_ineq_atom()); return static_cast<ineq_atom*>(a); }
     inline root_atom * to_root_atom(atom * a) { SASSERT(a->is_root_atom()); return static_cast<root_atom*>(a); }
