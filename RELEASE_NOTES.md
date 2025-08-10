@@ -14,7 +14,7 @@ Version 4.15.3
   the callback signals that the instantiation should be discarded by the solver. The user propagator 
   is then able to apply finer control over instantiations. It can also use this mechanism to delay
   instantiations.
-  
+- Deprecate z3str3
 
 Version 4.15.2
 ==============
