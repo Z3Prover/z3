@@ -41,8 +41,8 @@ namespace smt {
 namespace smt {
 
     void parallel::worker::run() {
-        ast_translation g2l(ctx->m, m);
-        ast_translation l2g(m, ctx->m);
+        ast_translation g2l(p.ctx.m, m); // global to local context -- MUST USE p.ctx.m, not ctx->m, AS GLOBAL MANAGER!!!
+        ast_translation l2g(m, p.ctx.m); // local to global context
         while (m.inc()) {
             vector<expr_ref_vector> cubes;
             b.get_cubes(g2l, cubes);
@@ -51,7 +51,7 @@ namespace smt {
             for (auto& cube : cubes) {
                 if (!m.inc()) {
                     b.set_exception("context cancelled");
-                    return; // stop if the main context is cancelled                
+                    return; // stop if the main context (i.e. parent thread) is cancelled                
                 }
                 switch (check_cube(cube)) {
                     case l_undef: {
@@ -65,7 +65,7 @@ namespace smt {
                         break;
                     }
                     case l_true: {
-                        std::cout << "Worker " << id << " found sat cube: " << mk_and(cube) << "\n";
+                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found sat cube: " << mk_and(cube) << "\n");
                         model_ref mdl;
                         ctx->get_model(mdl);
                         b.set_sat(l2g, *mdl);
@@ -99,7 +99,8 @@ namespace smt {
     parallel::worker::worker(unsigned id, parallel& p, expr_ref_vector const& _asms): id(id), p(p), b(p.m_batch_manager), m_smt_params(p.ctx.get_fparams()), asms(m) {
         ast_translation g2l(p.ctx.m, m);
         for (auto e : _asms) 
-            asms.push_back(g2l(e));        
+            asms.push_back(g2l(e));
+        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " created with " << asms.size() << " assumptions\n");        
         m_smt_params.m_preprocess = false;
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         context::copy(p.ctx, *ctx, true);
@@ -154,7 +155,7 @@ namespace smt {
     void parallel::batch_manager::share_lemma(ast_translation& l2g, expr* lemma) {
         std::scoped_lock lock(mux);
         expr_ref g_lemma(l2g(lemma), l2g.to());
-        p.ctx.assert_expr(g_lemma); // QUESTION: where does this get shared with the local thread contexts?      
+        p.ctx.assert_expr(g_lemma); // QUESTION: where does this get shared with the local thread contexts? -- doesn't right now, we will build the scaffolding for this later!  
     }
 
 
@@ -242,61 +243,79 @@ namespace smt {
         if (m.limit().is_canceled())
             return l_undef; // the main context was cancelled, so we return undef.
         switch (m_state) {
-        case state::is_running:
-            if (!m_cubes.empty())
-                throw default_exception("inconsistent end state");
-            // TODO collect unsat core from assumptions, if any.
-            return l_false;
-        case state::is_unsat:
-            return l_false;
-        case state::is_sat:
-            return l_true;
-        case state::is_exception_msg:
-            throw default_exception(m_exception_msg.c_str());
-        case state::is_exception_code:
-            throw z3_error(m_exception_code);
-        default:
-            UNREACHABLE();
+            case state::is_running: // batch manager is still running, but all threads have processed their cubes, which means all cubes were unsat
+                if (!m_cubes.empty())
+                    throw default_exception("inconsistent end state");
+                // TODO collect unsat core from assumptions, if any. -- this is for the version where asms are passed in (currently, asms are empty)
+                return l_false;
+            case state::is_unsat:
+                return l_false;
+            case state::is_sat:
+                return l_true;
+            case state::is_exception_msg:
+                throw default_exception(m_exception_msg.c_str());
+            case state::is_exception_code:
+                throw z3_error(m_exception_code);
+            default:
+                UNREACHABLE();
+                return l_undef;
         }
     }
 
-    //
-    // Batch manager maintains C_batch, A_batch.
-    // C_batch - set of cubes 
-    // A_batch - set of split atoms.
-    // return_cubes is called with C_batch A_batch C A.
-    // C_worker - one or more cubes
-    // A_worker - split atoms form the worker thread.
-    // 
-    // Assumption: A_worker does not occur in C_worker.
-    // 
-    // Greedy strategy:
-    // 
-    // return_cubes C_batch A_batch C_worker A_worker:
-    //         C_batch <- { cube * 2^(A_worker u (A_batch \ atoms(cube)) | cube in C_worker } u
-    //                    { cube * 2^(A_worker \ A_batch) | cube in C_batch }
-    //                 = 
-    //                     let C_batch' = C_batch u { cube * 2^(A_batch \ atoms(cube)) | cube in C_worker }
-    //                     { cube * 2^(A_worker \ A_batch) | cube in C_batch' }
-    //         A_batch <- A_batch u A_worker
-    //
-    // Frugal strategy:
-    // 
-    // return_cubes C_batch A_batch [[]] A_worker:
-    //         C_batch <- C_batch u 2^(A_worker u A_batch), 
-    //         A_batch <- A_batch u A_worker
-    // 
-    // return_cubes C_batch A_batch C_worker A_worker:
-    //        C_batch <- C_batch u { cube * 2^A_worker | cube in C_worker }.
-    //        A_batch <- A_batch u A_worker
-    // 
-    // Between Frugal and Greedy: (generalizes the first case of empty cube returned by worker)
-    //         C_batch <- C_batch u { cube * 2^(A_worker u (A_batch \ atoms(cube)) | cube in C_worker }
-    //         A_batch <- A_batch u A_worker
-    // 
-    // Or: use greedy strategy by a policy when C_batch, A_batch, A_worker are "small".
-    //
-    void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& a_worker) {
+    /*
+    Batch manager maintains C_batch, A_batch.
+    C_batch - set of cubes 
+    A_batch - set of split atoms.
+    return_cubes is called with C_batch A_batch C A.
+    C_worker - one or more cubes
+    A_worker - split atoms form the worker thread.
+    
+    Assumption: A_worker does not occur in C_worker.
+    
+    ------------------------------------------------------------------------------------------------------------------------------------------------------------
+    Greedy strategy:
+    For each returned cube c from the worker, you split it on all split atoms not in it (i.e., A_batch \ atoms(c)), plus any new atoms from A_worker.
+    For each existing cube in the batch, you also split it on the new atoms from A_worker.
+    
+    return_cubes C_batch A_batch C_worker A_worker:
+            C_batch <- { cube * 2^(A_worker u (A_batch \ atoms(cube)) | cube in C_worker } u
+                       { cube * 2^(A_worker \ A_batch) | cube in C_batch }
+                    = 
+                        let C_batch' = C_batch u { cube * 2^(A_batch \ atoms(cube)) | cube in C_worker }
+                        in { cube * 2^(A_worker \ A_batch) | cube in C_batch' }
+            A_batch <- A_batch u A_worker
+    
+    ------------------------------------------------------------------------------------------------------------------------------------------------------------
+    Frugal strategy: only split on worker cubes
+    
+    case 1: thread returns no cubes, just atoms: just create 2^k cubes from all combinations of atoms so far.
+    return_cubes C_batch A_batch [[]] A_worker:
+            C_batch <- C_batch u 2^(A_worker u A_batch), 
+            A_batch <- A_batch u A_worker
+    
+    case 2: thread returns both cubes and atoms
+    Only the returned cubes get split by the newly discovered atoms (A_worker). Existing cubes are not touched.
+    return_cubes C_batch A_batch C_worker A_worker:
+           C_batch <- C_batch u { cube * 2^A_worker | cube in C_worker }.
+           A_batch <- A_batch u A_worker
+    
+    This means:
+    Only the returned cubes get split by the newly discovered atoms (A_worker).
+    Existing cubes are not touched.
+    
+    ------------------------------------------------------------------------------------------------------------------------------------------------------------
+    Hybrid: Between Frugal and Greedy: (generalizes the first case of empty cube returned by worker) -- don't focus on this approach
+            i.e. Expand only the returned cubes, but allow them to be split on both new and old atoms not already in them.
+    
+            C_batch <- C_batch u { cube * 2^(A_worker u (A_batch \ atoms(cube)) | cube in C_worker }
+            A_batch <- A_batch u A_worker
+    
+    ------------------------------------------------------------------------------------------------------------------------------------------------------------
+    Final thought (do this!): use greedy strategy by a policy when C_batch, A_batch, A_worker are "small". -- want to do this. switch to frugal strategy after reaching size limit
+    */
+
+    // currenly, the code just implements the greedy strategy
+    void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& C_worker, expr_ref_vector const& A_worker) {
         auto atom_in_cube = [&](expr_ref_vector const& cube, expr* atom) {
             return any_of(cube, [&](expr* e) { return e == atom || (m.is_not(e, e) && e == atom); });
         };
@@ -304,38 +323,69 @@ namespace smt {
         auto add_split_atom = [&](expr* atom, unsigned start) {
             unsigned stop = m_cubes.size();
             for (unsigned i = start; i < stop; ++i) {
-                m_cubes.push_back(m_cubes[i]); // push copy of m_cubes[i]
-                m_cubes.back().push_back(m.mk_not(atom)); // add ¬atom to the copy
-                m_cubes[i].push_back(atom); // add atom to the original
+                m_cubes.push_back(m_cubes[i]);
+                m_cubes.back().push_back(m.mk_not(atom));
+                m_cubes[i].push_back(atom);
             }
-         };
+        };
 
         std::scoped_lock lock(mux);
-        for (auto & c : cubes) {
+        unsigned max_cubes = 1000;
+        bool greedy_mode = (m_cubes.size() <= max_cubes);
+        unsigned initial_m_cubes_size = m_cubes.size(); // cubes present before processing this batch
+
+        // --- Phase 1: Add worker cubes from C_worker and split each new cube on the existing atoms in A_batch (m_split_atoms) that aren't already in the new cube ---
+        for (auto& c : C_worker) {
             expr_ref_vector g_cube(l2g.to());
-            for (auto& atom : c) {
+            for (auto& atom : c)
                 g_cube.push_back(l2g(atom));
-            }
 
             unsigned start = m_cubes.size();
-            m_cubes.push_back(g_cube); // base cube
+            m_cubes.push_back(g_cube); // continuously update the start idx so we're just processing the single most recent cube
 
-            for (auto& atom : m_split_atoms) {
-                if (atom_in_cube(g_cube, atom))
-                    continue;
-                add_split_atom(atom, start);
+            if (greedy_mode) {
+                // Split new cube all existing m_split_atoms (i.e. A_batch) that aren't already in the cube
+                for (auto g_atom : m_split_atoms) {
+                    if (!atom_in_cube(g_cube, g_atom)) {
+                        add_split_atom(g_atom, start);
+                        if (m_cubes.size() > max_cubes) {
+                            greedy_mode = false;
+                            break; // stop splitting on older atoms, switch to frugal mode
+                        }
+                    }
+                }
             }
         }
 
-        // TODO: avoid making m_cubes too large.
-        // QUESTION: do we need to check if any split_atoms are already in the cubes in m_cubes??
-        for (auto& atom : a_worker) {
-            expr_ref g_atom(l2g.to());
-            g_atom = l2g(atom);
-            if (m_split_atoms.contains(g_atom))
-                continue;
-            m_split_atoms.push_back(g_atom);
-            add_split_atom(g_atom, 0); // add ¬p to all cubes in m_cubes    
+        unsigned a_worker_start_idx = 0;
+
+        // --- Phase 2: Process split atoms from A_worker ---
+        if (greedy_mode) {
+            // Start as greedy: split all cubes on new atoms
+            for (; a_worker_start_idx < A_worker.size(); ++a_worker_start_idx) {
+                expr_ref g_atom(A_worker[a_worker_start_idx], l2g.to());
+                if (m_split_atoms.contains(g_atom))
+                    continue;
+                m_split_atoms.push_back(g_atom);
+
+                add_split_atom(g_atom, 0);
+                if (m_cubes.size() > max_cubes) {
+                    greedy_mode = false;
+                    ++a_worker_start_idx; // Record where to start processing the remaining atoms for frugal processing, so there's no redundant splitting
+                    break;
+                }
+            }
+        }
+
+        // --- Phase 3: Frugal fallback ---
+        if (!greedy_mode) {
+            // Split only cubes added in *this call* on the new A_worker atoms (starting where we left off from the initial greedy phase)
+            for (unsigned i = a_worker_start_idx; i < A_worker.size(); ++i) {
+                expr_ref g_atom(A_worker[i], l2g.to());
+                if (!m_split_atoms.contains(g_atom))
+                    m_split_atoms.push_back(g_atom);
+                add_split_atom(g_atom, initial_m_cubes_size); // start from the initial size of m_cubes to ONLY split the NEW worker cubes
+            }
         }
     }
 
@@ -343,6 +393,7 @@ namespace smt {
         unsigned k = 2;
 
         auto candidates = ctx->m_pq_scores.get_heap();
+        
         std::sort(candidates.begin(), candidates.end(),
                 [](const auto& a, const auto& b) { return a.priority > b.priority; });
 
@@ -379,7 +430,6 @@ namespace smt {
             m_batch_manager.initialize();
             m_workers.reset();
             scoped_limits sl(m.limit());
-            unsigned num_threads = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
             flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
             SASSERT(num_threads > 1);
             for (unsigned i = 0; i < num_threads; ++i)
@@ -407,10 +457,10 @@ namespace smt {
             for (auto w : m_workers) 
                 w->collect_statistics(ctx.m_aux_stats);            
         }
-        m_workers.clear();
-        return m_batch_manager.get_result();        
-    }
 
+        m_workers.clear();
+        return m_batch_manager.get_result(); // i.e. all threads have finished all of their cubes -- so if state::is_running is still true, means the entire formula is unsat (otherwise a thread would have returned l_undef)        
+    }
 
 }
 #endif
