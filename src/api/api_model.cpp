@@ -160,9 +160,6 @@ extern "C" {
         model * _m = to_model_ref(m);
         params_ref p;
         ast_manager& mgr = mk_c(c)->m();
-        if (!_m->has_solver()) {
-            _m->set_solver(alloc(api::seq_expr_solver, mgr, p));
-        }
         expr_ref result(mgr);
         model::scoped_model_completion _scm(*_m, model_completion);
         result = (*_m)(to_expr(t));

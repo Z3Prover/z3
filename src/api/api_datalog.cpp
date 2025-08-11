@@ -287,7 +287,7 @@ extern "C" {
             cancel_eh<reslimit> eh(mk_c(c)->m().limit());
             api::context::set_interruptable si(*(mk_c(c)), eh);        
             scoped_timer timer(timeout, &eh);
-            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
+            scoped_ctrl_c ctrlc(eh, use_ctrl_c);
             try {
                 r = to_fixedpoint_ref(d)->ctx().query(to_expr(q));
             }

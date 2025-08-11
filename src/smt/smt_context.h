@@ -1838,6 +1838,14 @@ namespace smt {
             m_user_propagator->register_decide(r);
         }
 
+        void user_propagate_register_on_binding(user_propagator::binding_eh_t& t) {
+            m_user_propagator->register_on_binding(t);
+        }
+
+        void register_on_binding(std::function<bool(quantifier* q, expr* inst)>& f) {
+            m_qmanager->register_on_binding(f);
+        }
+
         void user_propagate_initialize_value(expr* var, expr* value);
 
         bool watches_fixed(enode* n) const;

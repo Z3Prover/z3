@@ -800,12 +800,11 @@ extern "C" {
         unsigned timeout     = p.get_uint("timeout", mk_c(c)->get_timeout());
         bool     use_ctrl_c  = p.get_bool("ctrl_c", false);
         th_rewriter m_rw(m, p);
-        m_rw.set_solver(alloc(api::seq_expr_solver, m, p));
         expr_ref    result(m);
         cancel_eh<reslimit> eh(m.limit());
         api::context::set_interruptable si(*(mk_c(c)), eh);
         {
-            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
+            scoped_ctrl_c ctrlc(eh, use_ctrl_c);
             scoped_timer timer(timeout, &eh);
             try {
                 m_rw(a, result);

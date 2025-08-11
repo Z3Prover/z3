@@ -28,6 +28,7 @@ Revision History:
 #include "params/qi_params.h"
 #include "ast/cost_evaluator.h"
 #include "util/statistics.h"
+#include "tactic/user_propagator_base.h"
 
 namespace smt {
     class context;
@@ -52,6 +53,7 @@ namespace smt {
         cached_var_subst              m_subst;
         svector<float>                m_vals;
         double                        m_eager_cost_threshold = 0;
+        std::function<bool(quantifier*,expr*)> m_on_binding;
         struct entry {
             fingerprint * m_qb;
             float         m_cost;
@@ -95,6 +97,9 @@ namespace smt {
         void reset();
         void display_delayed_instances_stats(std::ostream & out) const;
         void collect_statistics(::statistics & st) const;
+        void register_on_binding(std::function<bool(quantifier* q, expr* e)> & on_binding) {
+            m_on_binding = on_binding;
+        }
     };
 };
 
