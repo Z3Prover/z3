@@ -44,6 +44,7 @@ namespace smt {
         ast_translation g2l(p.ctx.m, m); // global to local context -- MUST USE p.ctx.m, not ctx->m, AS GLOBAL MANAGER!!!
         ast_translation l2g(m, p.ctx.m); // local to global context
         while (m.inc()) {
+            IF_VERBOSE(0, verbose_stream() << "Worker " << id << " checking cubes\n");
             vector<expr_ref_vector> cubes;
             b.get_cubes(g2l, cubes);
             if (cubes.empty())
@@ -323,9 +324,9 @@ namespace smt {
         auto add_split_atom = [&](expr* atom, unsigned start) {
             unsigned stop = m_cubes.size();
             for (unsigned i = start; i < stop; ++i) {
-                m_cubes.push_back(m_cubes[i]);
-                m_cubes.back().push_back(m.mk_not(atom));
-                m_cubes[i].push_back(atom);
+                m_cubes.push_back(m_cubes[i]); // push copy of m_cubes[i]
+                m_cubes.back().push_back(m.mk_not(atom)); // add ¬atom to the copy
+                m_cubes[i].push_back(atom); // add atom to the original
             }
         };
 
@@ -363,7 +364,7 @@ namespace smt {
         if (greedy_mode) {
             // Start as greedy: split all cubes on new atoms
             for (; a_worker_start_idx < A_worker.size(); ++a_worker_start_idx) {
-                expr_ref g_atom(A_worker[a_worker_start_idx], l2g.to());
+                expr_ref g_atom(l2g(A_worker[a_worker_start_idx]), l2g.to());
                 if (m_split_atoms.contains(g_atom))
                     continue;
                 m_split_atoms.push_back(g_atom);
@@ -381,7 +382,7 @@ namespace smt {
         if (!greedy_mode) {
             // Split only cubes added in *this call* on the new A_worker atoms (starting where we left off from the initial greedy phase)
             for (unsigned i = a_worker_start_idx; i < A_worker.size(); ++i) {
-                expr_ref g_atom(A_worker[i], l2g.to());
+                expr_ref g_atom(l2g(A_worker[i]), l2g.to());
                 if (!m_split_atoms.contains(g_atom))
                     m_split_atoms.push_back(g_atom);
                 add_split_atom(g_atom, initial_m_cubes_size); // start from the initial size of m_cubes to ONLY split the NEW worker cubes
