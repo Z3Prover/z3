@@ -28,7 +28,6 @@ namespace smt {
         unsigned num_threads;
 
         class batch_manager {        
-
             enum state {
                 is_running,
                 is_sat,
@@ -46,7 +45,6 @@ namespace smt {
             unsigned m_max_batch_size = 10;
             unsigned m_exception_code = 0;
             std::string m_exception_msg;
-            obj_hashtable<expr> m_assumptions_used; // assumptions used in unsat cores, to be used in final core
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
@@ -111,6 +109,7 @@ namespace smt {
             }
         };
 
+        obj_hashtable<expr> m_assumptions_used; // assumptions used in unsat cores, to be used in final core
         batch_manager m_batch_manager;
         ptr_vector<worker> m_workers;
 

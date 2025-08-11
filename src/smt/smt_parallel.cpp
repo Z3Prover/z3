@@ -92,7 +92,7 @@ namespace smt {
                             b.set_unsat(l2g, unsat_core);
                             return;
                         }
-                        for (expr * e : unsat_core)
+                        for (expr* e : unsat_core)
                             if (asms.contains(e))
                                 b.report_assumption_used(l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
@@ -170,10 +170,6 @@ namespace smt {
         p.ctx.assert_expr(g_lemma); // QUESTION: where does this get shared with the local thread contexts? -- doesn't right now, we will build the scaffolding for this later!  
     }
 
-
-    // PUT THE LOGIC FOR LEARNING FROM UNSAT CORE HERE IF THE CUBE INTERSECTS WITH IT!!!
-    // THERE IS AN EDGE CASE: IF ALL THE CUBES ARE UNSAT, BUT DEPEND ON NONEMPTY ASSUMPTIONS, NEED TO TAKE THE UNION OF THESE ASMS WHEN LEARNING FROM UNSAT CORE
-    // DON'T CODE THIS CASE YET: WE ARE JUST TESTING WITH EMPTY ASMS FOR NOW (I.E. WE ARE NOT PASSING IN ASMS). THIS DOES NOT APPLY TO THE INTERNAL "LEARNED" UNSAT CORE
     lbool parallel::worker::check_cube(expr_ref_vector const& cube) {
         IF_VERBOSE(0, verbose_stream() << "Worker " << id << " checking cube\n";);
         for (auto& atom : cube) 
@@ -259,7 +255,7 @@ namespace smt {
 
     void parallel::batch_manager::report_assumption_used(ast_translation& l2g, expr* assumption) {
         std::scoped_lock lock(mux);
-        m_used_assumptions.insert(l2g(assumption))
+        p.m_assumptions_used.insert(l2g(assumption));
     }
 
     lbool parallel::batch_manager::get_result() const {
@@ -269,10 +265,10 @@ namespace smt {
             case state::is_running: // batch manager is still running, but all threads have processed their cubes, which means all cubes were unsat
                 if (!m_cubes.empty())
                     throw default_exception("inconsistent end state");
-                if (!m_assumptions_used.empty()) {
-                    // collect unsat core from assumptions used, if any.
+                if (!p.m_assumptions_used.empty()) {
+                    // collect unsat core from assumptions used, if any --> case when all cubes were unsat, but depend on nonempty asms, so we need to add these asms to final unsat core
                     SASSERT(p.ctx.m_unsat_core.empty());
-                    for (auto a : m_assumptions_used)
+                    for (auto a : p.m_assumptions_used)
                         p.ctx.m_unsat_core.push_back(a);
                 }
                 return l_false;
@@ -458,13 +454,13 @@ namespace smt {
 
         if (m.has_trace_stream())
             throw default_exception("trace streams have to be off in parallel mode");
-
+        
         struct scoped_clear_table {
-            obj_hashtable& ht;
-            scoped_clear(obj_hashtable& ht) : ht(ht) {}
-            ~scoped_clear() { ht.reset(); }
+            obj_hashtable<expr>& ht;
+            scoped_clear_table(obj_hashtable<expr>& ht) : ht(ht) {} // Constructor: Takes a reference to a hash table when the object is created and saves it.
+            ~scoped_clear_table() { ht.reset(); } // Destructor: When the scoped_clear_table object goes out of scope, it automatically calls reset() on that hash table, clearing it
         };
-        scoped_clear_table clear(m_batch_manager.m_used_assumptions);
+        scoped_clear_table clear(m_assumptions_used); // creates a scoped_clear_table named clear, bound to m_assumptions_used
 
         {
             m_batch_manager.initialize();
