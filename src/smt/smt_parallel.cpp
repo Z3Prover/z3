@@ -324,9 +324,9 @@ namespace smt {
         auto add_split_atom = [&](expr* atom, unsigned start) {
             unsigned stop = m_cubes.size();
             for (unsigned i = start; i < stop; ++i) {
-                m_cubes.push_back(m_cubes[i]); // push copy of m_cubes[i]
-                m_cubes.back().push_back(m.mk_not(atom)); // add ¬atom to the copy
-                m_cubes[i].push_back(atom); // add atom to the original
+                m_cubes.push_back(m_cubes[i]);
+                m_cubes.back().push_back(m.mk_not(atom));
+                m_cubes[i].push_back(atom);
             }
         };
 
