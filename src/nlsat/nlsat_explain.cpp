@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "nlsat/nlsat_explain.h"
+#include "nlsat/levelwise.h"
 #include "nlsat/nlsat_assignment.h"
 #include "nlsat/nlsat_evaluator.h"
 #include "math/polynomial/algebraic_numbers.h"
