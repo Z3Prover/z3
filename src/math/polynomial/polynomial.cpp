@@ -5153,6 +5153,8 @@ namespace polynomial {
                 //
                 unsigned sz = R->size();
                 for (unsigned i = 0; i < sz; i++) {
+                    if (sz > 100 && i % 100 == 0)
+                        checkpoint();
                     monomial * m      = R->m(i);
                     numeral const & a = R->a(i);
                     if (m->degree_of(x) == deg_R) {
@@ -5571,6 +5573,7 @@ namespace polynomial {
             h = mk_one();
 
             while (true) {
+                checkpoint();
                 TRACE(resultant, tout << "A: " << A << "\nB: " << B << "\n";);
                 degA = degree(A, x);
                 degB = degree(B, x);

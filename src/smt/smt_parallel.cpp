@@ -43,7 +43,7 @@ namespace smt {
     void parallel::worker::run() {
         ast_translation g2l(p.ctx.m, m); // global to local context -- MUST USE p.ctx.m, not ctx->m, AS GLOBAL MANAGER!!!
         ast_translation l2g(m, p.ctx.m); // local to global context
-        while (m.inc()) {
+        while (m.inc()) { // inc: increase the limit and check if it is canceled, vs m.limit().is_canceled() is readonly. the .limit() is also not necessary (m.inc() etc provides a convenience wrapper)
             IF_VERBOSE(0, verbose_stream() << "Worker " << id << " checking cubes\n");
             vector<expr_ref_vector> cubes;
             b.get_cubes(g2l, cubes);
@@ -52,10 +52,17 @@ namespace smt {
             for (auto& cube : cubes) {
                 if (!m.inc()) {
                     b.set_exception("context cancelled");
-                    return; // stop if the main context (i.e. parent thread) is cancelled                
+                    return;
                 }
-                switch (check_cube(cube)) {
+                IF_VERBOSE(0, verbose_stream() << "Processing cube: " << mk_bounded_pp(mk_and(cube), m, 3) << "\n");
+                lbool r = check_cube(cube);
+                if (m.limit().is_canceled()) {
+                    IF_VERBOSE(0, verbose_stream() << "Worker " << id << " context cancelled\n");
+                    return;           
+                }
+                switch (r) {
                     case l_undef: {
+                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found undef cube\n");
                         // return unprocessed cubes to the batch manager
                         // add a split literal to the batch manager.
                         // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
@@ -66,7 +73,7 @@ namespace smt {
                         break;
                     }
                     case l_true: {
-                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found sat cube: " << mk_and(cube) << "\n");
+                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found sat cube\n");
                         model_ref mdl;
                         ctx->get_model(mdl);
                         b.set_sat(l2g, *mdl);
@@ -87,7 +94,7 @@ namespace smt {
                         }
                         // TODO: can share lemmas here, such as new units and not(and(unsat_core)), binary clauses, etc.
                         // TODO: remember assumptions used in core so that they get used for the final core.
-                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found unsat cube: " << mk_pp(mk_and(cube), m) << "\n");
+                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found unsat cube\n");
                         b.share_lemma(l2g, mk_not(mk_and(unsat_core)));
                         // share_units();
                         break;
@@ -164,6 +171,7 @@ namespace smt {
     // THERE IS AN EDGE CASE: IF ALL THE CUBES ARE UNSAT, BUT DEPEND ON NONEMPTY ASSUMPTIONS, NEED TO TAKE THE UNION OF THESE ASMS WHEN LEARNING FROM UNSAT CORE
     // DON'T CODE THIS CASE YET: WE ARE JUST TESTING WITH EMPTY ASMS FOR NOW (I.E. WE ARE NOT PASSING IN ASMS). THIS DOES NOT APPLY TO THE INTERNAL "LEARNED" UNSAT CORE
     lbool parallel::worker::check_cube(expr_ref_vector const& cube) {
+        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " checking cube\n";);
         for (auto& atom : cube) 
             asms.push_back(atom);                
         lbool r = l_undef;
@@ -180,6 +188,7 @@ namespace smt {
             b.set_exception("unknown exception");
         }
         asms.shrink(asms.size() - cube.size());
+        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " DONE checking cube\n";);
         return r;
     }
 
@@ -216,7 +225,9 @@ namespace smt {
         if (m_state != state::is_running)
             return;
         m_state = state::is_unsat;    
-        p.ctx.m_unsat_core.reset();
+        p.ctx.m_unsat_core.reset(); // need to reset the unsat core in the main context bc every time we do a check_sat call, don't want to have old info coming from a prev check_sat call
+        // actually, it gets reset internally in the context after each check_sat, so we don't need to do it here -- replace with assertion
+        // takeaway: each call to check_sat needs to have a fresh unsat core
         for (expr* e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
         cancel_workers();
@@ -341,8 +352,8 @@ namespace smt {
             for (auto& atom : c)
                 g_cube.push_back(l2g(atom));
 
-            unsigned start = m_cubes.size();
-            m_cubes.push_back(g_cube); // continuously update the start idx so we're just processing the single most recent cube
+            unsigned start = m_cubes.size();  // continuously update the start idx so we're just processing the single most recent cube
+            m_cubes.push_back(g_cube);
 
             if (greedy_mode) {
                 // Split new cube all existing m_split_atoms (i.e. A_batch) that aren't already in the cube
@@ -369,13 +380,18 @@ namespace smt {
                     continue;
                 m_split_atoms.push_back(g_atom);
 
-                add_split_atom(g_atom, 0);
+                add_split_atom(g_atom, 0); // split ALL cubes on the atom
                 if (m_cubes.size() > max_cubes) {
                     greedy_mode = false;
                     ++a_worker_start_idx; // Record where to start processing the remaining atoms for frugal processing, so there's no redundant splitting
                     break;
                 }
             }
+        }
+
+        if (m.limit().is_canceled()) {
+            IF_VERBOSE(0, verbose_stream() << "Batch manager: no cubes to process, returning\n");
+            return;       
         }
 
         // --- Phase 3: Frugal fallback ---
@@ -385,7 +401,7 @@ namespace smt {
                 expr_ref g_atom(l2g(A_worker[i]), l2g.to());
                 if (!m_split_atoms.contains(g_atom))
                     m_split_atoms.push_back(g_atom);
-                add_split_atom(g_atom, initial_m_cubes_size); // start from the initial size of m_cubes to ONLY split the NEW worker cubes
+                add_split_atom(g_atom, initial_m_cubes_size); // start from the initial size of m_cubes (splits ALL the new worker cubes, and whatever old ones were processed in the greedy phase). this is somewhat wasteful to process the old one, but keep for now
             }
         }
     }
@@ -440,6 +456,7 @@ namespace smt {
             // within the lexical scope of the code block, creates a data structure that allows you to push children
             // objects to the limit object, so if someone cancels the parent object, the cancellation propagates to the children
             // and that cancellation has the lifetime of the scope
+            // even if this code doesn't expliclty kill the main thread, still applies bc if you e.g. Ctrl+C the main thread, the children threads need to be cancelled
             for (auto w : m_workers)
                 sl.push_child(&(w->limit()));
 
@@ -455,7 +472,7 @@ namespace smt {
             for (auto& th : threads)
                 th.join();
 
-            for (auto w : m_workers) 
+            for (auto w : m_workers)
                 w->collect_statistics(ctx.m_aux_stats);            
         }
 
