@@ -88,10 +88,14 @@ namespace smt {
                         // If the unsat core only contains assumptions, 
                         // unsatisfiability does not depend on the current cube and the entire problem is unsat.
                         if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
-                            IF_VERBOSE(0, verbose_stream() << "Worker " << id << " determined formula unsat");
+                            IF_VERBOSE(0, verbose_stream() << "Worker " << id << " determined formula unsat\n");
                             b.set_unsat(l2g, unsat_core);
                             return;
                         }
+                        for (expr * e : unsat_core)
+                            if (asms.contains(e))
+                                b.report_assumption_used(l2g, e); // report assumptions used in unsat core, so they can be used in final core
+
                         // TODO: can share lemmas here, such as new units and not(and(unsat_core)), binary clauses, etc.
                         // TODO: remember assumptions used in core so that they get used for the final core.
                         IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found unsat cube\n");
@@ -225,9 +229,11 @@ namespace smt {
         if (m_state != state::is_running)
             return;
         m_state = state::is_unsat;    
-        p.ctx.m_unsat_core.reset(); // need to reset the unsat core in the main context bc every time we do a check_sat call, don't want to have old info coming from a prev check_sat call
-        // actually, it gets reset internally in the context after each check_sat, so we don't need to do it here -- replace with assertion
+
+        // every time we do a check_sat call, don't want to have old info coming from a prev check_sat call
+        // the unsat core gets reset internally in the context after each check_sat, so we assert this property here
         // takeaway: each call to check_sat needs to have a fresh unsat core
+        SASSERT(p.ctx.m_unsat_core.empty());
         for (expr* e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
         cancel_workers();
@@ -251,6 +257,11 @@ namespace smt {
         cancel_workers();
     }
 
+    void parallel::batch_manager::report_assumption_used(ast_translation& l2g, expr* assumption) {
+        std::scoped_lock lock(mux);
+        m_used_assumptions.insert(l2g(assumption))
+    }
+
     lbool parallel::batch_manager::get_result() const {
         if (m.limit().is_canceled())
             return l_undef; // the main context was cancelled, so we return undef.
@@ -258,7 +269,12 @@ namespace smt {
             case state::is_running: // batch manager is still running, but all threads have processed their cubes, which means all cubes were unsat
                 if (!m_cubes.empty())
                     throw default_exception("inconsistent end state");
-                // TODO collect unsat core from assumptions, if any. -- this is for the version where asms are passed in (currently, asms are empty)
+                if (!m_assumptions_used.empty()) {
+                    // collect unsat core from assumptions used, if any.
+                    SASSERT(p.ctx.m_unsat_core.empty());
+                    for (auto a : m_assumptions_used)
+                        p.ctx.m_unsat_core.push_back(a);
+                }
                 return l_false;
             case state::is_unsat:
                 return l_false;
@@ -335,9 +351,9 @@ namespace smt {
         auto add_split_atom = [&](expr* atom, unsigned start) {
             unsigned stop = m_cubes.size();
             for (unsigned i = start; i < stop; ++i) {
-                m_cubes.push_back(m_cubes[i]); // push copy of m_cubes[i]
-                m_cubes.back().push_back(m.mk_not(atom)); // add ¬atom to the copy
-                m_cubes[i].push_back(atom); // add atom to the original
+                m_cubes.push_back(m_cubes[i]);
+                m_cubes.back().push_back(m.mk_not(atom));
+                m_cubes[i].push_back(atom);
             }
         };
 
@@ -442,6 +458,13 @@ namespace smt {
 
         if (m.has_trace_stream())
             throw default_exception("trace streams have to be off in parallel mode");
+
+        struct scoped_clear_table {
+            obj_hashtable& ht;
+            scoped_clear(obj_hashtable& ht) : ht(ht) {}
+            ~scoped_clear() { ht.reset(); }
+        };
+        scoped_clear_table clear(m_batch_manager.m_used_assumptions);
 
         {
             m_batch_manager.initialize();

@@ -11814,6 +11814,16 @@ def user_prop_decide(ctx, cb, t_ref, idx, phase):
     t = _to_expr_ref(to_Ast(t_ref), prop.ctx())
     prop.decide(t, idx, phase)
     prop.cb = old_cb
+
+def user_prop_binding(ctx, cb, q_ref, inst_ref):
+    prop = _prop_closures.get(ctx)
+    old_cb = prop.cb
+    prop.cb = cb
+    q = _to_expr_ref(to_Ast(q_ref), prop.ctx())
+    inst = _to_expr_ref(to_Ast(inst_ref), prop.ctx())
+    r = prop.binding(q, inst)
+    prop.cb = old_cb
+    return r
     
 
 _user_prop_push = Z3_push_eh(user_prop_push)
@@ -11825,6 +11835,7 @@ _user_prop_final = Z3_final_eh(user_prop_final)
 _user_prop_eq = Z3_eq_eh(user_prop_eq)
 _user_prop_diseq = Z3_eq_eh(user_prop_diseq)
 _user_prop_decide = Z3_decide_eh(user_prop_decide)
+_user_prop_binding = Z3_on_binding_eh(user_prop_binding)
 
 
 def PropagateFunction(name, *sig):
@@ -11873,6 +11884,7 @@ class UserPropagateBase:
         self.diseq = None
         self.decide = None
         self.created = None
+        self.binding = None
         if ctx:
             self.fresh_ctx = ctx
         if s:
@@ -11936,7 +11948,14 @@ class UserPropagateBase:
         assert not self._ctx
         if self.solver:
             Z3_solver_propagate_decide(self.ctx_ref(), self.solver.solver, _user_prop_decide)
-        self.decide = decide        
+        self.decide = decide   
+        
+    def add_on_binding(self, binding):
+        assert not self.binding
+        assert not self._ctx
+        if self.solver:
+            Z3_solver_propagate_on_binding(self.ctx_ref(), self.solver.solver, _user_prop_binding)
+        self.binding = binding
 
     def push(self):
         raise Z3Exception("push needs to be overwritten")

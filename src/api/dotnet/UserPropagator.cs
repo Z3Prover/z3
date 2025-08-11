@@ -64,7 +64,15 @@ namespace Microsoft.Z3
         /// <param name="idx">If the term is a bit-vector, then an index into the bit-vector being branched on</param>
         /// <param name="phase">The tentative truth-value</param>
         public delegate void DecideEh(Expr term, uint idx, bool phase);
-        
+
+        /// <summary>
+        /// Delegate type for callback when a quantifier is bound to an instance.
+        /// </summary>
+        /// <param name="q">Quantifier</param>
+        /// <param name="inst">Instance</param>
+        /// <returns>true if binding is allowed to take effect in the solver, false if blocked by callback</returns>
+        public delegate bool OnBindingEh(Expr q, Expr inst);
+
         // access managed objects through a static array.
         // thread safety is ignored for now.
         GCHandle gch;
@@ -78,6 +86,7 @@ namespace Microsoft.Z3
         EqEh diseq_eh;
         CreatedEh created_eh;
         DecideEh decide_eh;
+        OnBindingEh on_binding_eh;
 
         Native.Z3_push_eh push_eh;
         Native.Z3_pop_eh pop_eh;
@@ -89,6 +98,7 @@ namespace Microsoft.Z3
         Native.Z3_eq_eh diseq_wrapper;
         Native.Z3_decide_eh decide_wrapper;
         Native.Z3_created_eh created_wrapper;
+        Native.Z3_on_binding_eh on_binding_wrapper;
 
         void Callback(Action fn, Z3_solver_callback cb)
         {
@@ -173,6 +183,19 @@ namespace Microsoft.Z3
             var prop = (UserPropagator)GCHandle.FromIntPtr(ctx).Target;
             using var t = Expr.Create(prop.ctx, a);
             prop.Callback(() => prop.decide_eh(t, idx, phase), cb);
+        }
+
+        static bool _on_binding(voidp _ctx, Z3_solver_callback cb, Z3_ast _q, Z3_ast _inst)
+        {
+            var prop = (UserPropagator)GCHandle.FromIntPtr(_ctx).Target;
+            using var q = Expr.Create(prop.ctx, _q);
+            using var inst = Expr.Create(prop.ctx, _inst);
+            bool result = true;
+            prop.Callback(() => {
+                if (prop.on_binding_wrapper != null)
+                    result = prop.on_binding_eh(q, inst);
+            }, cb);
+            return result;
         }
 
         /// <summary>
@@ -362,6 +385,20 @@ namespace Microsoft.Z3
             }
         }
 
+        /// <summary>
+        /// Set binding callback
+        /// </summary>
+        public OnBindingEh OnBinding
+        {
+            set
+            {
+                this.on_binding_wrapper = _on_binding;
+                this.on_binding_eh = value;
+                if (solver != null)
+                    Native.Z3_solver_propagate_on_binding(ctx.nCtx, solver.NativeObject, on_binding_wrapper);
+            }
+        }
+
 
         /// <summary>
         /// Set the next decision
@@ -377,6 +414,8 @@ namespace Microsoft.Z3
         {
             return Native.Z3_solver_next_split(ctx.nCtx, this.callback, e?.NativeObject ?? IntPtr.Zero, idx, phase) != 0;
         }
+
+        
 
         /// <summary>
         /// Track assignments to a term
