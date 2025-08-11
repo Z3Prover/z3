@@ -38,6 +38,7 @@ namespace nlsat {
     an_sub,              // an_sub(i)
     sample,              // sample(s) for all s ∈ Ri of level i
     repr,                // repr(I, s) for all I of level i and s ∈ ...
+    holds,
     _count               // always last: number of properties
   };
 
@@ -55,7 +56,8 @@ namespace nlsat {
     case polynom_property::an_sub:              return "an_sub";
     case polynom_property::sample:              return "sample";
     case polynom_property::repr:                return "repr";
-    default: return "unknown";
+    case polynom_property::holds:                return "holds";
+    default: throw "unknown";
     }
   }
 
@@ -63,20 +65,14 @@ namespace nlsat {
   // Property propagation mapping: for each property, the set of properties it implies (see levelwise paper, e.g., rule 4.2)
   // Example: property_dependencies[root_property::sgn_inv] = {root_property::ord_inv, ...}
   // Overload: property_dependencies with context (for rules like 4.2 with multiple cases)
-  inline const std::vector<polynom_property>& property_dependencies(polynom_property prop, property_mapping_case p_case) {
+  inline const std::vector<polynom_property> get_property_dependencies(polynom_property prop, property_mapping_case p_case) {
     // Each property has a table of vectors, one per context case
-    static const std::vector<polynom_property> table[][2] = {
-      /* sgn_inv  */ { { /* case1: ... */ }, { /* case2: ... */ } },
-      /* ord_inv  */ { { /* case1: ... */ }, { /* case2: ... */ } },
-      /* non_null */ { { /* case1: ... */ }, { /* case2: ... */ } }
-      // Extend as needed for more properties
+    static const std::vector<polynom_property> table[][10] = {
+      
     };
     return table[(unsigned)prop][(unsigned)p_case];
   }
 
-  // For static (context-free) queries, default to case1
-  inline const std::vector<polynom_property>& property_dependencies(polynom_property prop) {
-    return property_dependencies(prop, property_mapping_case::case1);
-  }
+  
 
 } // namespace nlsat
