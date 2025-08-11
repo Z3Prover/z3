@@ -81,12 +81,15 @@ namespace smt {
                         // If the unsat core only contains assumptions, 
                         // unsatisfiability does not depend on the current cube and the entire problem is unsat.
                         if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
-                            IF_VERBOSE(0, verbose_stream() << "Worker " << id << " determined formula unsat");
+                            IF_VERBOSE(0, verbose_stream() << "Worker " << id << " determined formula unsat\n");
                             b.set_unsat(l2g, unsat_core);
                             return;
                         }
+                        for (expr * e : unsat_core)
+                            if (asms.contains(e))
+                                b.report_assumption_used(l2g, e); // report assumptions used in unsat core, so they can be used in final core
+
                         // TODO: can share lemmas here, such as new units and not(and(unsat_core)), binary clauses, etc.
-                        // TODO: remember assumptions used in core so that they get used for the final core.
                         IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found unsat cube: " << mk_pp(mk_and(cube), m) << "\n");
                         b.share_lemma(l2g, mk_not(mk_and(unsat_core)));
                         // share_units();
@@ -216,7 +219,7 @@ namespace smt {
         if (m_state != state::is_running)
             return;
         m_state = state::is_unsat;    
-        p.ctx.m_unsat_core.reset();
+        SASSERT(p.ctx.m_unsat_core.empty());
         for (expr* e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
         cancel_workers();
@@ -240,6 +243,11 @@ namespace smt {
         cancel_workers();
     }
 
+    void parallel::batch_manager::report_assumption_used(ast_translation& l2g, expr* assumption) {
+        std::scoped_lock lock(mux);
+        m_used_assumptions.insert(l2g(assumption))
+    }
+
     lbool parallel::batch_manager::get_result() const {
         if (m.limit().is_canceled())
             return l_undef; // the main context was cancelled, so we return undef.
@@ -247,7 +255,12 @@ namespace smt {
             case state::is_running: // batch manager is still running, but all threads have processed their cubes, which means all cubes were unsat
                 if (!m_cubes.empty())
                     throw default_exception("inconsistent end state");
-                // TODO collect unsat core from assumptions, if any. -- this is for the version where asms are passed in (currently, asms are empty)
+                if (!m_assumptions_used.empty()) {
+                    // collect unsat core from assumptions used, if any.
+                    SASSERT(p.ctx.m_unsat_core.empty());
+                    for (auto a : m_assumptions_used)
+                        p.ctx.m_unsat_core.push_back(a);
+                }
                 return l_false;
             case state::is_unsat:
                 return l_false;
@@ -356,7 +369,7 @@ namespace smt {
                     }
                 }
             }
-        }
+        }        
 
         unsigned a_worker_start_idx = 0;
 
@@ -385,7 +398,7 @@ namespace smt {
                 expr_ref g_atom(l2g(A_worker[i]), l2g.to());
                 if (!m_split_atoms.contains(g_atom))
                     m_split_atoms.push_back(g_atom);
-                add_split_atom(g_atom, initial_m_cubes_size); // start from the initial size of m_cubes to ONLY split the NEW worker cubes
+                add_split_atom(g_atom, initial_m_cubes_size); // start from the initial size of m_cubes
             }
         }
     }
@@ -426,6 +439,13 @@ namespace smt {
 
         if (m.has_trace_stream())
             throw default_exception("trace streams have to be off in parallel mode");
+
+        struct scoped_clear_table {
+            obj_hashtable& ht;
+            scoped_clear(obj_hashtable& ht) : ht(ht) {}
+            ~scoped_clear() { ht.reset(); }
+        };
+        scoped_clear_table clear(m_batch_manager.m_used_assumptions);
 
         {
             m_batch_manager.initialize();

@@ -46,6 +46,7 @@ namespace smt {
             unsigned m_max_batch_size = 10;
             unsigned m_exception_code = 0;
             std::string m_exception_msg;
+            obj_hashtable<expr> m_assumptions_used; // assumptions used in unsat cores, to be used in final core
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
@@ -76,6 +77,7 @@ namespace smt {
             // the batch manager re-enqueues unprocessed cubes and optionally splits them using the split_atoms returned by this and workers.
             // 
             void return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms);
+            void report_assumption_used(ast_translation& l2g, expr* assumption);
             void share_lemma(ast_translation& l2g, expr* lemma);
             lbool get_result() const;
         };
