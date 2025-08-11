@@ -379,6 +379,10 @@ public:
     void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh) override {
         m_solver2->user_propagate_register_diseq(diseq_eh);
     }
+
+    void user_propagate_register_on_binding(user_propagator::binding_eh_t& binding_eh) override {
+        m_solver2->user_propagate_register_on_binding(binding_eh);
+    }
     
     void user_propagate_register_expr(expr* e) override {
         m_solver2->user_propagate_register_expr(e);

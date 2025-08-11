@@ -69,8 +69,6 @@ public:
         if (m_params.get_bool("som", false))
             m_params.set_bool("flat", true);
         th_rewriter s(ctx.m(), m_params);
-        th_solver solver(ctx);
-        s.set_solver(alloc(th_solver, ctx));
         unsigned cache_sz;
         unsigned num_steps = 0;
         unsigned timeout   = m_params.get_uint("timeout", UINT_MAX);

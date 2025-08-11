@@ -75,7 +75,6 @@ public:
         unsigned rlimit  = m_params.get_uint("rlimit", 0);
         // md->compress();
         model_evaluator ev(*(md.get()), m_params);
-        ev.set_solver(alloc(th_solver, ctx));
         cancel_eh<reslimit> eh(ctx.m().limit());
         { 
             scoped_ctrl_c ctrlc(eh);

@@ -132,6 +132,7 @@ namespace smt {
         void register_diseq(user_propagator::eq_eh_t& diseq_eh) { m_diseq_eh = diseq_eh; }
         void register_created(user_propagator::created_eh_t& created_eh) { m_created_eh = created_eh; }
         void register_decide(user_propagator::decide_eh_t& decide_eh) { m_decide_eh = decide_eh; }
+        void register_on_binding(user_propagator::binding_eh_t& binding_eh);
 
         bool has_fixed() const { return (bool)m_fixed_eh; }
         

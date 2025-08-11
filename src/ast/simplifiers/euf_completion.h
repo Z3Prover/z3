@@ -187,6 +187,7 @@ namespace euf {
         expr_ref get_canonical(quantifier* q, proof_ref& pr, expr_dependency_ref& d);
         obj_map<quantifier, std::pair<ptr_vector<expr>, expr*>> m_closures;
 
+        void propagate_arithmetic();
         expr_dependency* explain_eq(enode* a, enode* b);
         proof_ref prove_eq(enode* a, enode* b);
         proof_ref prove_conflict();
