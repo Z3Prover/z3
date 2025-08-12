@@ -44,7 +44,6 @@ namespace smt {
         ast_translation g2l(p.ctx.m, m); // global to local context -- MUST USE p.ctx.m, not ctx->m, AS GLOBAL MANAGER!!!
         ast_translation l2g(m, p.ctx.m); // local to global context
         while (m.inc()) { // inc: increase the limit and check if it is canceled, vs m.limit().is_canceled() is readonly. the .limit() is also not necessary (m.inc() etc provides a convenience wrapper)
-            IF_VERBOSE(0, verbose_stream() << "Worker " << id << " checking cubes\n");
             vector<expr_ref_vector> cubes;
             b.get_cubes(g2l, cubes);
             if (cubes.empty())
@@ -356,64 +355,59 @@ namespace smt {
         std::scoped_lock lock(mux);
         unsigned max_cubes = 1000;
         bool greedy_mode = (m_cubes.size() <= max_cubes);
-        unsigned initial_m_cubes_size = m_cubes.size(); // cubes present before processing this batch
-
-        // --- Phase 1: Add worker cubes from C_worker and split each new cube on the existing atoms in A_batch (m_split_atoms) that aren't already in the new cube ---
-        for (auto& c : C_worker) {
-            expr_ref_vector g_cube(l2g.to());
-            for (auto& atom : c)
-                g_cube.push_back(l2g(atom));
-
-            unsigned start = m_cubes.size();  // continuously update the start idx so we're just processing the single most recent cube
-            m_cubes.push_back(g_cube);
-
-            if (greedy_mode) {
-                // Split new cube all existing m_split_atoms (i.e. A_batch) that aren't already in the cube
-                for (auto g_atom : m_split_atoms) {
-                    if (!atom_in_cube(g_cube, g_atom)) {
-                        add_split_atom(g_atom, start);
-                        if (m_cubes.size() > max_cubes) {
-                            greedy_mode = false;
-                            break; // stop splitting on older atoms, switch to frugal mode
-                        }
-                    }
-                }
-            }
-        }
-
         unsigned a_worker_start_idx = 0;
 
-        // --- Phase 2: Process split atoms from A_worker ---
+        //
+        // --- Phase 1: Greedy split of *existing* cubes on new A_worker atoms (greedy) ---
+        //
         if (greedy_mode) {
-            // Start as greedy: split all cubes on new atoms
             for (; a_worker_start_idx < A_worker.size(); ++a_worker_start_idx) {
                 expr_ref g_atom(l2g(A_worker[a_worker_start_idx]), l2g.to());
                 if (m_split_atoms.contains(g_atom))
                     continue;
                 m_split_atoms.push_back(g_atom);
 
-                add_split_atom(g_atom, 0); // split ALL cubes on the atom
+                add_split_atom(g_atom, 0); // split all *existing* cubes
                 if (m_cubes.size() > max_cubes) {
                     greedy_mode = false;
-                    ++a_worker_start_idx; // Record where to start processing the remaining atoms for frugal processing, so there's no redundant splitting
+                    ++a_worker_start_idx; // start frugal from here
                     break;
                 }
             }
         }
 
-        if (m.limit().is_canceled()) {
-            IF_VERBOSE(0, verbose_stream() << "Batch manager: no cubes to process, returning\n");
-            return;       
+        unsigned initial_m_cubes_size = m_cubes.size(); // where to start processing the worker cubes after splitting the EXISTING cubes on the new worker atoms
+
+        // --- Phase 2: Process worker cubes (greedy) ---
+        for (auto& c : C_worker) {
+            expr_ref_vector g_cube(l2g.to());
+            for (auto& atom : c)
+                g_cube.push_back(l2g(atom));
+
+            unsigned start = m_cubes.size(); // update start after adding each cube so we only process the current cube being added
+            m_cubes.push_back(g_cube);
+
+            if (greedy_mode) {
+                // Split new cube on all existing m_split_atoms not in it
+                for (auto g_atom : m_split_atoms) {
+                    if (!atom_in_cube(g_cube, g_atom)) {
+                        add_split_atom(g_atom, start);
+                        if (m_cubes.size() > max_cubes) {
+                            greedy_mode = false;
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
-        // --- Phase 3: Frugal fallback ---
+        // --- Phase 3: Frugal fallback: only process NEW worker cubes with NEW atoms ---
         if (!greedy_mode) {
-            // Split only cubes added in *this call* on the new A_worker atoms (starting where we left off from the initial greedy phase)
             for (unsigned i = a_worker_start_idx; i < A_worker.size(); ++i) {
                 expr_ref g_atom(l2g(A_worker[i]), l2g.to());
                 if (!m_split_atoms.contains(g_atom))
                     m_split_atoms.push_back(g_atom);
-                add_split_atom(g_atom, initial_m_cubes_size); // start from the initial size of m_cubes (splits ALL the new worker cubes, and whatever old ones were processed in the greedy phase). this is somewhat wasteful to process the old one, but keep for now
+                add_split_atom(g_atom, initial_m_cubes_size); 
             }
         }
     }
