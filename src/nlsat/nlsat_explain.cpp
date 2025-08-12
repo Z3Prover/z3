@@ -602,7 +602,7 @@ namespace nlsat {
             if (m_factor) {
                 restore_factors _restore(m_factors, m_factors_save);
                 factor(p, m_factors);
-                TRACE(nlsat_explain, display(tout << "adding factors of\n", p); tout << "\n" << m_factors << "\n";);
+                TRACE(nlsat_explain, display(tout << "adding factors of\n", p); tout << "\n" << m_factors << std::endl;);
                 polynomial_ref f(m_pm);
                 for (unsigned i = 0; i < m_factors.size(); i++) {
                     f = m_factors.get(i);
@@ -617,42 +617,15 @@ namespace nlsat {
                 m_todo.insert(p);
             }
         }
-
-// The monomials have to be square free according to
-//"An improved projection operation for cylindrical algebraic decomposition of three-dimensional space", by McCallum, Scott
-            
-        bool is_square_free(polynomial_ref_vector &ps, var x) {
-            polynomial_ref p(m_pm);
-            polynomial_ref lc_poly(m_pm);
-            polynomial_ref disc_poly(m_pm); 
-
-            for (unsigned i = 0; i < ps.size(); i++) {
-                p = ps.get(i);
-                unsigned k_deg = m_pm.degree(p, x); 
-                if (k_deg == 0)
-                    continue;
-                // p depends on x
-                disc_poly = discriminant(p, x); // Use global helper
-                if (sign(disc_poly) == 0) { // Discriminant is zero
-                    TRACE(nlsat_explain, tout << "p is not square free:\n ";
-                          display(tout, p); tout << "\ndiscriminant: "; display(tout, disc_poly) << "\n";
-                          m_solver.display_assignment(tout) << '\n';
-                          m_solver.display_var(tout << "x:", x) << '\n';
-                        );
-
-                    return false;
-                }
-            }
-            return true;
-        }
         
-     	// If each p from ps is square-free then add the leading coefficents to the projection. 
-	// Otherwise, add each coefficient of each p to the projection.
+     	// Add the leading coefficient of each p from ps to the projection.
+        // If the discriminant(p) is evaluauted to zero on the sample - add the discriminant to the projection.
+        // A zero of the discriminant means that there is at least one multiple roots at the sample: the delineability breaks.
+        // Do we always need to add the discriminant?
         void add_lcs(polynomial_ref_vector &ps, var x) {
             polynomial_ref p(m_pm);
             polynomial_ref coeff(m_pm);
-
-            bool sqf = is_square_free(ps, x);
+            polynomial_ref disc_poly(m_pm);
             // Add the leading or all coeffs, depening on being square-free
             for (unsigned i = 0; i < ps.size(); i++) {
                 p = ps.get(i);
@@ -660,13 +633,12 @@ namespace nlsat {
                 if (k_deg == 0) continue;
                 // p depends on x
                 TRACE(nlsat_explain, tout << "processing poly of degree " << k_deg << " w.r.t x" << x << ": "; display(tout, p) << "\n";);
-                for (unsigned j_coeff_deg = k_deg; j_coeff_deg >= 1; j_coeff_deg--) { 
-                    coeff = m_pm.coeff(p, x, j_coeff_deg);
-                    TRACE(nlsat_explain, tout << "    coeff deg " << j_coeff_deg << ": "; display(tout, coeff) << "\n";);
-                    insert_fresh_factors_in_todo(coeff);
-                    if (sqf)
-                        break;
-                }
+                coeff = m_pm.coeff(p, x, k_deg);
+                TRACE(nlsat_explain, tout << "    coeff deg " << k_deg << ": "; display(tout, coeff) << "\n";);
+                insert_fresh_factors_in_todo(coeff);
+                disc_poly = discriminant(p, x);
+                if (sign(disc_poly) == 0)
+                    insert_fresh_factors_in_todo(disc_poly);
             }
         }
 
