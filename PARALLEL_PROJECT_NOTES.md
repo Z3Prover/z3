@@ -123,3 +123,24 @@ Threads can work on more than one cube in a batch.
 
 * The first thread to time out or finish could kill other threads instead of joining on all threads to finish.
 * Instead of synchronization barriers have threads continue concurrently without terminating. They synchronize on signals and new units. This is trickier to implement, but in some guises accomplished in [sat/sat_parallel.cpp](https://github.com/Z3Prover/z3/blob/master/src/sat/sat_parallel.cpp)
+
+
+## Parameter tuning
+
+The idea is to have parallel threads try out different parameter settings and search the parameter space of an optimal parameter setting.
+
+Let us assume that there is a set of tunable parameters $P$. The set comprises of a set of named parameters with initial values.
+$P = \{ (p_1, v_1), \ldots, (p_n, v_n) \}$.
+With each parameter associate a set of mutation functions $+=, -=, *=$, such as increment, decrement, scale a parameter by a non-negative multiplier (which can be less than 1).
+We will initialize a search space of parameter settings by parameters, values and mutation functions that have assigned reward values. The reward value is incremented
+if a parameter mutation step results in an improvement, and decremented if a mutation step degrades performance.
+$P = \{ (p_1, v_1, \{ (r_{11}, m_{11}), \ldots, (r_{1k_1}, m_{1k_1}) \}), \ldots, (p_n, v_n, \{ (r_{n1}, m_{n1}), \ldots, (r_{nk_n}, m_{nk_n})\}) \}$.
+The initial values of reward functions is fixed (to 1) and the initial values of parameters are the defaults.
+
+The batch manager maintains a set of candidate parameters $CP = \{ (P_1, r_1), \ldots, (P_n, r_n) \}$.
+A worker thread picks up a parameter $P_i$ from $CP$ from the batch manager.
+It picks one or more parameter settings within $P_i$ whose mutation function have non-zero reward functions and applies a mutation.
+It then runs with a bounded set of cubes.
+It measures the reward for the new parameter setting based in number of cubes, cube depth, number of timeouts, and completions with number of conflicts.
+If the new reward is an improvement over $(P_i, r_i)$ it inserts the new parameter setting $(P_i', r_i')$ into the batch manager.
+The batch manager discards the worst parameter settings keeping the top $K$ ($K = 5$) parameter settings.
