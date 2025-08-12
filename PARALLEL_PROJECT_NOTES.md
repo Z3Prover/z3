@@ -140,7 +140,7 @@ The initial values of reward functions is fixed (to 1) and the initial values of
 * The batch manager maintains a set of candidate parameters $CP = \{ (P_1, r_1), \ldots, (P_n, r_n) \}$.
 * A worker thread picks up a parameter $P_i$ from $CP$ from the batch manager.
 * It picks one or more parameter settings within $P_i$ whose mutation function have non-zero reward functions and applies a mutation.
-* It then runs with a bounded set of cubes.
+* It then runs with a batch of cubes.
 * It measures the reward for the new parameter setting based in number of cubes, cube depth, number of timeouts, and completions with number of conflicts.
 * If the new reward is an improvement over $(P_i, r_i)$ it inserts the new parameter setting $(P_i', r_i')$ into the batch manager.
 * The batch manager discards the worst parameter settings keeping the top $K$ ($K = 5$) parameter settings.
