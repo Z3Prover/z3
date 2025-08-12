@@ -54,15 +54,15 @@ namespace smt {
                     b.set_exception("context cancelled");
                     return;
                 }
-                IF_VERBOSE(0, verbose_stream() << "Worker " << id << " cube: " << mk_bounded_pp(mk_and(cube), m, 3) << "\n");
+                IF_VERBOSE(1, verbose_stream() << "Worker " << id << " cube: " << mk_bounded_pp(mk_and(cube), m, 3) << "\n");
                 lbool r = check_cube(cube);
                 if (m.limit().is_canceled()) {
-                    IF_VERBOSE(0, verbose_stream() << "Worker " << id << " context cancelled\n");
+                    IF_VERBOSE(1, verbose_stream() << "Worker " << id << " context cancelled\n");
                     return;           
                 }
                 switch (r) {
                     case l_undef: {
-                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found undef cube\n");
+                        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " found undef cube\n");
                         // return unprocessed cubes to the batch manager
                         // add a split literal to the batch manager.
                         // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
@@ -74,7 +74,7 @@ namespace smt {
                         break;
                     }
                     case l_true: {
-                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found sat cube\n");
+                        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " found sat cube\n");
                         model_ref mdl;
                         ctx->get_model(mdl);
                         b.set_sat(l2g, *mdl);
@@ -86,11 +86,11 @@ namespace smt {
                         // share with batch manager.
                         // process next cube.
                         expr_ref_vector const& unsat_core = ctx->unsat_core();
-                        IF_VERBOSE(0, verbose_stream() << "unsat core: " << unsat_core << "\n");
+                        IF_VERBOSE(1, verbose_stream() << "unsat core: " << unsat_core << "\n");
                         // If the unsat core only contains assumptions, 
                         // unsatisfiability does not depend on the current cube and the entire problem is unsat.
                         if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
-                            IF_VERBOSE(0, verbose_stream() << "Worker " << id << " determined formula unsat\n");
+                            IF_VERBOSE(1, verbose_stream() << "Worker " << id << " determined formula unsat\n");
                             b.set_unsat(l2g, unsat_core);
                             return;
                         }
@@ -98,7 +98,7 @@ namespace smt {
                             if (asms.contains(e))
                                 b.report_assumption_used(l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
-                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found unsat cube\n");
+                        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " found unsat cube\n");
                         b.collect_clause(l2g, id, mk_not(mk_and(unsat_core)));
                         break;
                     }
@@ -112,7 +112,7 @@ namespace smt {
         ast_translation g2l(p.ctx.m, m);
         for (auto e : _asms) 
             asms.push_back(g2l(e));
-        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " created with " << asms.size() << " assumptions\n");        
+        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " created with " << asms.size() << " assumptions\n");        
         m_smt_params.m_preprocess = false;
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         context::copy(p.ctx, *ctx, true);
@@ -151,7 +151,7 @@ namespace smt {
         for (expr* e : new_clauses) {
             expr_ref local_clause(e, g2l.to()); // e was already translated to the local context in the batch manager!!
             ctx->assert_expr(local_clause); // assert the clause in the local context
-            IF_VERBOSE(0, verbose_stream() << "Worker " << id << " asserting shared clause: " << mk_bounded_pp(local_clause, m, 3) << "\n");
+            IF_VERBOSE(1, verbose_stream() << "Worker " << id << " asserting shared clause: " << mk_bounded_pp(local_clause, m, 3) << "\n");
         }
     }
 
@@ -169,7 +169,7 @@ namespace smt {
     }
 
     lbool parallel::worker::check_cube(expr_ref_vector const& cube) {
-        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " checking cube\n";);
+        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " checking cube\n";);
         for (auto& atom : cube) 
             asms.push_back(atom);                
         lbool r = l_undef;
@@ -188,7 +188,7 @@ namespace smt {
             b.set_exception("unknown exception");
         }
         asms.shrink(asms.size() - cube.size());
-        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " DONE checking cube " << r << "\n";);
+        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " DONE checking cube " << r << "\n";);
         return r;
     }
 
@@ -434,7 +434,7 @@ namespace smt {
             if (top_lits.size() >= k) 
                 break;
         }
-        IF_VERBOSE(0, verbose_stream() << "top literals " << top_lits << " head size " << ctx->m_pq_scores.size() << " num vars " << ctx->get_num_bool_vars() << "\n");
+        IF_VERBOSE(1, verbose_stream() << "top literals " << top_lits << " head size " << ctx->m_pq_scores.size() << " num vars " << ctx->get_num_bool_vars() << "\n");
         return top_lits;
     }
 

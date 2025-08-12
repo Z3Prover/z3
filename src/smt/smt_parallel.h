@@ -55,7 +55,7 @@ namespace smt {
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
-                IF_VERBOSE(0, verbose_stream() << "Canceling workers\n");
+                IF_VERBOSE(1, verbose_stream() << "Canceling workers\n");
                 for (auto& w : p.m_workers) 
                     w->cancel();
             }
@@ -110,11 +110,11 @@ namespace smt {
             void collect_shared_clauses(ast_translation& g2l);
 
             void cancel() {
-                IF_VERBOSE(0, verbose_stream() << "Worker " << id << " canceling\n");
+                IF_VERBOSE(1, verbose_stream() << "Worker " << id << " canceling\n");
                 m.limit().cancel();
             }
             void collect_statistics(::statistics& st) const {
-                IF_VERBOSE(0, verbose_stream() << "Collecting statistics for worker " << id << "\n");
+                IF_VERBOSE(1, verbose_stream() << "Collecting statistics for worker " << id << "\n");
                 ctx->collect_statistics(st);
             }
             reslimit& limit() {
