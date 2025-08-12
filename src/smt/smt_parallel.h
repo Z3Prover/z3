@@ -27,8 +27,12 @@ namespace smt {
         context& ctx;
         unsigned num_threads;
 
-        class batch_manager {        
+        struct SharedClause {
+            unsigned source_worker_id;
+            expr* clause;
+        };
 
+        class batch_manager {        
             enum state {
                 is_running,
                 is_sat,
@@ -46,13 +50,14 @@ namespace smt {
             unsigned m_max_batch_size = 10;
             unsigned m_exception_code = 0;
             std::string m_exception_msg;
-            obj_hashtable<expr> m_assumptions_used; // assumptions used in unsat cores, to be used in final core
+            std::vector<SharedClause> shared_clause_trail; // store all shared clauses with worker IDs
+            obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
                 IF_VERBOSE(0, verbose_stream() << "Canceling workers\n");
                 for (auto& w : p.m_workers) 
-                    w->cancel();                
+                    w->cancel();
             }
 
         public:
@@ -78,7 +83,8 @@ namespace smt {
             // 
             void return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms);
             void report_assumption_used(ast_translation& l2g, expr* assumption);
-            void share_lemma(ast_translation& l2g, expr* lemma);
+            void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* e);
+            expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
             lbool get_result() const;
         };
 
@@ -92,12 +98,15 @@ namespace smt {
             scoped_ptr<context> ctx;
             unsigned m_max_conflicts = 100;
             unsigned m_num_shared_units = 0;
-            void share_units();
+            unsigned shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
+            void share_units(ast_translation& l2g);
             lbool check_cube(expr_ref_vector const& cube);
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
             void run();
             expr_ref_vector get_split_atoms();
+            void collect_shared_clauses(ast_translation& g2l);
+
             void cancel() {
                 IF_VERBOSE(0, verbose_stream() << "Worker " << id << " canceling\n");
                 m.limit().cancel();
@@ -111,6 +120,7 @@ namespace smt {
             }
         };
 
+        obj_hashtable<expr> m_assumptions_used; // assumptions used in unsat cores, to be used in final core
         batch_manager m_batch_manager;
         ptr_vector<worker> m_workers;
 
@@ -123,7 +133,6 @@ namespace smt {
             m_batch_manager(ctx.m, *this) {}
 
         lbool operator()(expr_ref_vector const& asms);
-
     };
 
 }

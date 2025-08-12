@@ -43,8 +43,7 @@ namespace smt {
     void parallel::worker::run() {
         ast_translation g2l(p.ctx.m, m); // global to local context -- MUST USE p.ctx.m, not ctx->m, AS GLOBAL MANAGER!!!
         ast_translation l2g(m, p.ctx.m); // local to global context
-        while (m.inc()) {
-            IF_VERBOSE(0, verbose_stream() << "Worker " << id << " checking cubes\n");
+        while (m.inc()) { // inc: increase the limit and check if it is canceled, vs m.limit().is_canceled() is readonly. the .limit() is also not necessary (m.inc() etc provides a convenience wrapper)
             vector<expr_ref_vector> cubes;
             b.get_cubes(g2l, cubes);
             if (cubes.empty())
@@ -52,10 +51,17 @@ namespace smt {
             for (auto& cube : cubes) {
                 if (!m.inc()) {
                     b.set_exception("context cancelled");
-                    return; // stop if the main context (i.e. parent thread) is cancelled                
+                    return;
                 }
-                switch (check_cube(cube)) {
+                IF_VERBOSE(0, verbose_stream() << "Processing cube: " << mk_bounded_pp(mk_and(cube), m, 3) << "\n");
+                lbool r = check_cube(cube);
+                if (m.limit().is_canceled()) {
+                    IF_VERBOSE(0, verbose_stream() << "Worker " << id << " context cancelled\n");
+                    return;           
+                }
+                switch (r) {
                     case l_undef: {
+                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found undef cube\n");
                         // return unprocessed cubes to the batch manager
                         // add a split literal to the batch manager.
                         // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
@@ -66,7 +72,7 @@ namespace smt {
                         break;
                     }
                     case l_true: {
-                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found sat cube: " << mk_and(cube) << "\n");
+                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found sat cube\n");
                         model_ref mdl;
                         ctx->get_model(mdl);
                         b.set_sat(l2g, *mdl);
@@ -85,14 +91,15 @@ namespace smt {
                             b.set_unsat(l2g, unsat_core);
                             return;
                         }
-                        for (expr * e : unsat_core)
+                        for (expr* e : unsat_core)
                             if (asms.contains(e))
                                 b.report_assumption_used(l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
                         // TODO: can share lemmas here, such as new units and not(and(unsat_core)), binary clauses, etc.
-                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found unsat cube: " << mk_pp(mk_and(cube), m) << "\n");
-                        b.share_lemma(l2g, mk_not(mk_and(unsat_core)));
-                        // share_units();
+                        // TODO: remember assumptions used in core so that they get used for the final core.
+                        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found unsat cube\n");
+                        b.collect_clause(l2g, id, mk_not(mk_and(unsat_core)));
+                        share_units(l2g);
                         break;
                     }
                 }
@@ -111,62 +118,57 @@ namespace smt {
         ctx->set_random_seed(id + m_smt_params.m_random_seed);
     }
 
-    void parallel::worker::share_units() {
-        //     obj_hashtable<expr> unit_set;
-    //     expr_ref_vector unit_trail(ctx.m);
-    //     unsigned_vector unit_lim;
-    //     for (unsigned i = 0; i < num_threads; ++i) unit_lim.push_back(0);
-
-    //     // we just want to share lemmas and have a way of remembering how they are shared -- this is the next step
-    //     // (this needs to be reworked)
-    //     std::function<void(void)> collect_units = [&,this]() {
-    //         //return; -- has overhead
-    //         for (unsigned i = 0; i < num_threads; ++i) {
-    //             context& pctx = *pctxs[i];
-    //             pctx.pop_to_base_lvl();
-    //             ast_translation tr(pctx.m, ctx.m);
-    //             unsigned sz = pctx.assigned_literals().size();
-    //             for (unsigned j = unit_lim[i]; j < sz; ++j) {
-    //                 literal lit = pctx.assigned_literals()[j];
-    //                 //IF_VERBOSE(0, verbose_stream() << "(smt.thread " << i << " :unit " << lit << " " << pctx.is_relevant(lit.var()) << ")\n";);
-    //                 if (!pctx.is_relevant(lit.var()))
-    //                     continue;
-    //                 expr_ref e(pctx.bool_var2expr(lit.var()), pctx.m);
-    //                 if (lit.sign()) e = pctx.m.mk_not(e);
-    //                 expr_ref ce(tr(e.get()), ctx.m);
-    //                 if (!unit_set.contains(ce)) {
-    //                     unit_set.insert(ce);
-    //                     unit_trail.push_back(ce);
-    //                 }
-    //             }
-    //         }
-
-    //         unsigned sz = unit_trail.size();
-    //         for (unsigned i = 0; i < num_threads; ++i) {
-    //             context& pctx = *pctxs[i];
-    //             ast_translation tr(ctx.m, pctx.m);
-    //             for (unsigned j = unit_lim[i]; j < sz; ++j) {
-    //                 expr_ref src(ctx.m), dst(pctx.m);
-    //                 dst = tr(unit_trail.get(j));
-    //                 pctx.assert_expr(dst); // Assert that the conjunction of the assumptions in this unsat core is not satisfiable — prune it from future search
-    //             }
-    //             unit_lim[i] = pctx.assigned_literals().size();
-    //         }
-    //         IF_VERBOSE(1, verbose_stream() << "(smt.thread :units " << sz << ")\n");
-    //     };
+    void parallel::worker::share_units(ast_translation& l2g) {
+        // Collect new units learned locally by this worker and send to batch manager
+        unsigned sz = ctx->assigned_literals().size();
+        for (unsigned j = shared_clause_limit; j < sz; ++j) { // iterate only over new literals since last sync -- QUESTION: I THINK THIS IS BUGGY BECAUSE THE SHARED CLAUSE LIMIT IS ONLY UPDATED (FOR ALL CLAUSE TYPES) WHEN WE GATHER NEW SHARED UNITS
+            literal lit = ctx->assigned_literals()[j];
+            expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m); // turn literal into a Boolean expression
+            if (lit.sign()) 
+                e = ctx->m.mk_not(e); // negate if literal is negative
+            b.collect_clause(l2g, id, e);
+        }
     }
 
-    void parallel::batch_manager::share_lemma(ast_translation& l2g, expr* lemma) {
+    void parallel::batch_manager::collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause) {
         std::scoped_lock lock(mux);
-        expr_ref g_lemma(l2g(lemma), l2g.to());
-        p.ctx.assert_expr(g_lemma); // QUESTION: where does this get shared with the local thread contexts? -- doesn't right now, we will build the scaffolding for this later!  
+        expr* g_clause = l2g(clause);
+        if (!shared_clause_set.contains(g_clause)) {
+            shared_clause_set.insert(g_clause);
+            SharedClause sc{source_worker_id, g_clause};
+            shared_clause_trail.push_back(sc);
+        }
     }
 
+    // QUESTION -- WHERE SHOULD WE CALL THIS?
+    void parallel::worker::collect_shared_clauses(ast_translation& g2l) { 
+        expr_ref_vector new_clauses = b.return_shared_clauses(g2l, shared_clause_limit, id); // get new clauses from the batch manager
+        // iterate over new clauses and assert them in the local context
+        for (expr* e : new_clauses) {
+            expr_ref local_clause(e, g2l.to()); // e was already translated to the local context in the batch manager!!
+            ctx->assert_expr(local_clause); // assert the clause in the local context
+            IF_VERBOSE(0, verbose_stream() << "Worker " << id << " asserting shared clause: " << mk_bounded_pp(local_clause, m, 3) << "\n");
+        }
+    }
 
-    // PUT THE LOGIC FOR LEARNING FROM UNSAT CORE HERE IF THE CUBE INTERSECTS WITH IT!!!
-    // THERE IS AN EDGE CASE: IF ALL THE CUBES ARE UNSAT, BUT DEPEND ON NONEMPTY ASSUMPTIONS, NEED TO TAKE THE UNION OF THESE ASMS WHEN LEARNING FROM UNSAT CORE
-    // DON'T CODE THIS CASE YET: WE ARE JUST TESTING WITH EMPTY ASMS FOR NOW (I.E. WE ARE NOT PASSING IN ASMS). THIS DOES NOT APPLY TO THE INTERNAL "LEARNED" UNSAT CORE
+    // get new clauses from the batch manager and assert them in the local context
+    expr_ref_vector parallel::batch_manager::return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id) {
+        expr_ref_vector result(g2l.to());
+        {
+            std::scoped_lock lock(mux);
+            for (unsigned i = worker_limit; i < shared_clause_trail.size(); ++i) {
+                if (shared_clause_trail[i].source_worker_id == worker_id)
+                    continue; // skip clauses from the requesting worker
+                expr_ref local_clause(g2l(shared_clause_trail[i].clause), g2l.to());
+                result.push_back(local_clause);
+            }
+            worker_limit = shared_clause_trail.size(); // update the worker limit to the end of the current trail
+        }
+        return result;
+    }
+
     lbool parallel::worker::check_cube(expr_ref_vector const& cube) {
+        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " checking cube\n";);
         for (auto& atom : cube) 
             asms.push_back(atom);                
         lbool r = l_undef;
@@ -183,6 +185,7 @@ namespace smt {
             b.set_exception("unknown exception");
         }
         asms.shrink(asms.size() - cube.size());
+        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " DONE checking cube\n";);
         return r;
     }
 
@@ -219,6 +222,10 @@ namespace smt {
         if (m_state != state::is_running)
             return;
         m_state = state::is_unsat;    
+
+        // every time we do a check_sat call, don't want to have old info coming from a prev check_sat call
+        // the unsat core gets reset internally in the context after each check_sat, so we assert this property here
+        // takeaway: each call to check_sat needs to have a fresh unsat core
         SASSERT(p.ctx.m_unsat_core.empty());
         for (expr* e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
@@ -245,7 +252,7 @@ namespace smt {
 
     void parallel::batch_manager::report_assumption_used(ast_translation& l2g, expr* assumption) {
         std::scoped_lock lock(mux);
-        m_used_assumptions.insert(l2g(assumption))
+        p.m_assumptions_used.insert(l2g(assumption));
     }
 
     lbool parallel::batch_manager::get_result() const {
@@ -255,10 +262,10 @@ namespace smt {
             case state::is_running: // batch manager is still running, but all threads have processed their cubes, which means all cubes were unsat
                 if (!m_cubes.empty())
                     throw default_exception("inconsistent end state");
-                if (!m_assumptions_used.empty()) {
-                    // collect unsat core from assumptions used, if any.
+                if (!p.m_assumptions_used.empty()) {
+                    // collect unsat core from assumptions used, if any --> case when all cubes were unsat, but depend on nonempty asms, so we need to add these asms to final unsat core
                     SASSERT(p.ctx.m_unsat_core.empty());
-                    for (auto a : m_assumptions_used)
+                    for (auto a : p.m_assumptions_used)
                         p.ctx.m_unsat_core.push_back(a);
                 }
                 return l_false;
@@ -346,59 +353,59 @@ namespace smt {
         std::scoped_lock lock(mux);
         unsigned max_cubes = 1000;
         bool greedy_mode = (m_cubes.size() <= max_cubes);
-        unsigned initial_m_cubes_size = m_cubes.size(); // cubes present before processing this batch
-
-        // --- Phase 1: Add worker cubes from C_worker and split each new cube on the existing atoms in A_batch (m_split_atoms) that aren't already in the new cube ---
-        for (auto& c : C_worker) {
-            expr_ref_vector g_cube(l2g.to());
-            for (auto& atom : c)
-                g_cube.push_back(l2g(atom));
-
-            unsigned start = m_cubes.size();
-            m_cubes.push_back(g_cube); // continuously update the start idx so we're just processing the single most recent cube
-
-            if (greedy_mode) {
-                // Split new cube all existing m_split_atoms (i.e. A_batch) that aren't already in the cube
-                for (auto g_atom : m_split_atoms) {
-                    if (!atom_in_cube(g_cube, g_atom)) {
-                        add_split_atom(g_atom, start);
-                        if (m_cubes.size() > max_cubes) {
-                            greedy_mode = false;
-                            break; // stop splitting on older atoms, switch to frugal mode
-                        }
-                    }
-                }
-            }
-        }        
-
         unsigned a_worker_start_idx = 0;
 
-        // --- Phase 2: Process split atoms from A_worker ---
+        //
+        // --- Phase 1: Greedy split of *existing* cubes on new A_worker atoms (greedy) ---
+        //
         if (greedy_mode) {
-            // Start as greedy: split all cubes on new atoms
             for (; a_worker_start_idx < A_worker.size(); ++a_worker_start_idx) {
                 expr_ref g_atom(l2g(A_worker[a_worker_start_idx]), l2g.to());
                 if (m_split_atoms.contains(g_atom))
                     continue;
                 m_split_atoms.push_back(g_atom);
 
-                add_split_atom(g_atom, 0);
+                add_split_atom(g_atom, 0); // split all *existing* cubes
                 if (m_cubes.size() > max_cubes) {
                     greedy_mode = false;
-                    ++a_worker_start_idx; // Record where to start processing the remaining atoms for frugal processing, so there's no redundant splitting
+                    ++a_worker_start_idx; // start frugal from here
                     break;
                 }
             }
         }
 
-        // --- Phase 3: Frugal fallback ---
+        unsigned initial_m_cubes_size = m_cubes.size(); // where to start processing the worker cubes after splitting the EXISTING cubes on the new worker atoms
+
+        // --- Phase 2: Process worker cubes (greedy) ---
+        for (auto& c : C_worker) {
+            expr_ref_vector g_cube(l2g.to());
+            for (auto& atom : c)
+                g_cube.push_back(l2g(atom));
+
+            unsigned start = m_cubes.size(); // update start after adding each cube so we only process the current cube being added
+            m_cubes.push_back(g_cube);
+
+            if (greedy_mode) {
+                // Split new cube on all existing m_split_atoms not in it
+                for (auto g_atom : m_split_atoms) {
+                    if (!atom_in_cube(g_cube, g_atom)) {
+                        add_split_atom(g_atom, start);
+                        if (m_cubes.size() > max_cubes) {
+                            greedy_mode = false;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Phase 3: Frugal fallback: only process NEW worker cubes with NEW atoms ---
         if (!greedy_mode) {
-            // Split only cubes added in *this call* on the new A_worker atoms (starting where we left off from the initial greedy phase)
             for (unsigned i = a_worker_start_idx; i < A_worker.size(); ++i) {
                 expr_ref g_atom(l2g(A_worker[i]), l2g.to());
                 if (!m_split_atoms.contains(g_atom))
                     m_split_atoms.push_back(g_atom);
-                add_split_atom(g_atom, initial_m_cubes_size); // start from the initial size of m_cubes
+                add_split_atom(g_atom, initial_m_cubes_size); 
             }
         }
     }
@@ -439,13 +446,13 @@ namespace smt {
 
         if (m.has_trace_stream())
             throw default_exception("trace streams have to be off in parallel mode");
-
+        
         struct scoped_clear_table {
-            obj_hashtable& ht;
-            scoped_clear(obj_hashtable& ht) : ht(ht) {}
-            ~scoped_clear() { ht.reset(); }
+            obj_hashtable<expr>& ht;
+            scoped_clear_table(obj_hashtable<expr>& ht) : ht(ht) {} // Constructor: Takes a reference to a hash table when the object is created and saves it.
+            ~scoped_clear_table() { ht.reset(); } // Destructor: When the scoped_clear_table object goes out of scope, it automatically calls reset() on that hash table, clearing it
         };
-        scoped_clear_table clear(m_batch_manager.m_used_assumptions);
+        scoped_clear_table clear(m_assumptions_used); // creates a scoped_clear_table named clear, bound to m_assumptions_used
 
         {
             m_batch_manager.initialize();
@@ -460,6 +467,7 @@ namespace smt {
             // within the lexical scope of the code block, creates a data structure that allows you to push children
             // objects to the limit object, so if someone cancels the parent object, the cancellation propagates to the children
             // and that cancellation has the lifetime of the scope
+            // even if this code doesn't expliclty kill the main thread, still applies bc if you e.g. Ctrl+C the main thread, the children threads need to be cancelled
             for (auto w : m_workers)
                 sl.push_child(&(w->limit()));
 
@@ -475,7 +483,7 @@ namespace smt {
             for (auto& th : threads)
                 th.join();
 
-            for (auto w : m_workers) 
+            for (auto w : m_workers)
                 w->collect_statistics(ctx.m_aux_stats);            
         }
 
