@@ -48,12 +48,13 @@ namespace smt {
             b.get_cubes(g2l, cubes);
             if (cubes.empty())
                 return;
+            collect_shared_clauses(g2l);
             for (auto& cube : cubes) {
                 if (!m.inc()) {
                     b.set_exception("context cancelled");
                     return;
                 }
-                IF_VERBOSE(0, verbose_stream() << "Processing cube: " << mk_bounded_pp(mk_and(cube), m, 3) << "\n");
+                IF_VERBOSE(0, verbose_stream() << "Worker " << id << " cube: " << mk_bounded_pp(mk_and(cube), m, 3) << "\n");
                 lbool r = check_cube(cube);
                 if (m.limit().is_canceled()) {
                     IF_VERBOSE(0, verbose_stream() << "Worker " << id << " context cancelled\n");
@@ -69,6 +70,7 @@ namespace smt {
                         returned_cubes.push_back(cube);
                         auto split_atoms = get_split_atoms();
                         b.return_cubes(l2g, returned_cubes, split_atoms);
+                        update_max_thread_conflicts();
                         break;
                     }
                     case l_true: {
@@ -84,6 +86,7 @@ namespace smt {
                         // share with batch manager.
                         // process next cube.
                         expr_ref_vector const& unsat_core = ctx->unsat_core();
+                        IF_VERBOSE(0, verbose_stream() << "unsat core: " << unsat_core << "\n");
                         // If the unsat core only contains assumptions, 
                         // unsatisfiability does not depend on the current cube and the entire problem is unsat.
                         if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
@@ -95,15 +98,13 @@ namespace smt {
                             if (asms.contains(e))
                                 b.report_assumption_used(l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
-                        // TODO: can share lemmas here, such as new units and not(and(unsat_core)), binary clauses, etc.
-                        // TODO: remember assumptions used in core so that they get used for the final core.
                         IF_VERBOSE(0, verbose_stream() << "Worker " << id << " found unsat cube\n");
                         b.collect_clause(l2g, id, mk_not(mk_and(unsat_core)));
-                        share_units(l2g);
                         break;
                     }
-                }
+                }     
             }
+            share_units(l2g);
         }
     }
 
@@ -116,18 +117,22 @@ namespace smt {
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         context::copy(p.ctx, *ctx, true);
         ctx->set_random_seed(id + m_smt_params.m_random_seed);
+
+        m_max_thread_conflicts = ctx->get_fparams().m_threads_max_conflicts;
+        m_max_conflicts = ctx->get_fparams().m_max_conflicts;
     }
 
     void parallel::worker::share_units(ast_translation& l2g) {
         // Collect new units learned locally by this worker and send to batch manager
         unsigned sz = ctx->assigned_literals().size();
-        for (unsigned j = shared_clause_limit; j < sz; ++j) { // iterate only over new literals since last sync -- QUESTION: I THINK THIS IS BUGGY BECAUSE THE SHARED CLAUSE LIMIT IS ONLY UPDATED (FOR ALL CLAUSE TYPES) WHEN WE GATHER NEW SHARED UNITS
+        for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
             literal lit = ctx->assigned_literals()[j];
             expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m); // turn literal into a Boolean expression
             if (lit.sign()) 
-                e = ctx->m.mk_not(e); // negate if literal is negative
+                e = m.mk_not(e); // negate if literal is negative
             b.collect_clause(l2g, id, e);
         }
+        m_num_shared_units = sz;
     }
 
     void parallel::batch_manager::collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause) {
@@ -135,14 +140,13 @@ namespace smt {
         expr* g_clause = l2g(clause);
         if (!shared_clause_set.contains(g_clause)) {
             shared_clause_set.insert(g_clause);
-            SharedClause sc{source_worker_id, g_clause};
+            shared_clause sc{source_worker_id, expr_ref(g_clause, m)};
             shared_clause_trail.push_back(sc);
         }
     }
 
-    // QUESTION -- WHERE SHOULD WE CALL THIS?
     void parallel::worker::collect_shared_clauses(ast_translation& g2l) { 
-        expr_ref_vector new_clauses = b.return_shared_clauses(g2l, shared_clause_limit, id); // get new clauses from the batch manager
+        expr_ref_vector new_clauses = b.return_shared_clauses(g2l, m_shared_clause_limit, id); // get new clauses from the batch manager
         // iterate over new clauses and assert them in the local context
         for (expr* e : new_clauses) {
             expr_ref local_clause(e, g2l.to()); // e was already translated to the local context in the batch manager!!
@@ -153,17 +157,14 @@ namespace smt {
 
     // get new clauses from the batch manager and assert them in the local context
     expr_ref_vector parallel::batch_manager::return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id) {
+        std::scoped_lock lock(mux);
         expr_ref_vector result(g2l.to());
-        {
-            std::scoped_lock lock(mux);
-            for (unsigned i = worker_limit; i < shared_clause_trail.size(); ++i) {
-                if (shared_clause_trail[i].source_worker_id == worker_id)
-                    continue; // skip clauses from the requesting worker
-                expr_ref local_clause(g2l(shared_clause_trail[i].clause), g2l.to());
-                result.push_back(local_clause);
-            }
-            worker_limit = shared_clause_trail.size(); // update the worker limit to the end of the current trail
+        for (unsigned i = worker_limit; i < shared_clause_trail.size(); ++i) {
+            if (shared_clause_trail[i].source_worker_id == worker_id)
+                continue; // skip clauses from the requesting worker
+            result.push_back(g2l(shared_clause_trail[i].clause.get()));
         }
+        worker_limit = shared_clause_trail.size(); // update the worker limit to the end of the current trail
         return result;
     }
 
@@ -172,6 +173,8 @@ namespace smt {
         for (auto& atom : cube) 
             asms.push_back(atom);                
         lbool r = l_undef;
+
+        ctx->get_fparams().m_max_conflicts = std::min(m_max_thread_conflicts, m_max_conflicts);
         try {
             r = ctx->check(asms.size(), asms.data());
         }
@@ -185,7 +188,7 @@ namespace smt {
             b.set_exception("unknown exception");
         }
         asms.shrink(asms.size() - cube.size());
-        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " DONE checking cube\n";);
+        IF_VERBOSE(0, verbose_stream() << "Worker " << id << " DONE checking cube " << r << "\n";);
         return r;
     }
 
@@ -419,7 +422,7 @@ namespace smt {
                 [](const auto& a, const auto& b) { return a.priority > b.priority; });
 
         expr_ref_vector top_lits(m);
-        for (const auto& node : candidates) {
+        for (const auto& node: candidates) {
             if (ctx->get_assignment(node.key) != l_undef) 
                 continue;
 
@@ -431,6 +434,7 @@ namespace smt {
             if (top_lits.size() >= k) 
                 break;
         }
+        IF_VERBOSE(0, verbose_stream() << "top literals " << top_lits << " head size " << ctx->m_pq_scores.size() << " num vars " << ctx->get_num_bool_vars() << "\n");
         return top_lits;
     }
 
