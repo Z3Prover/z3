@@ -137,10 +137,16 @@ if a parameter mutation step results in an improvement, and decremented if a mut
 $P = \{ (p_1, v_1, \{ (r_{11}, m_{11}), \ldots, (r_{1k_1}, m_{1k_1}) \}), \ldots, (p_n, v_n, \{ (r_{n1}, m_{n1}), \ldots, (r_{nk_n}, m_{nk_n})\}) \}$.
 The initial values of reward functions is fixed (to 1) and the initial values of parameters are the defaults.
 
-The batch manager maintains a set of candidate parameters $CP = \{ (P_1, r_1), \ldots, (P_n, r_n) \}$.
-A worker thread picks up a parameter $P_i$ from $CP$ from the batch manager.
-It picks one or more parameter settings within $P_i$ whose mutation function have non-zero reward functions and applies a mutation.
-It then runs with a bounded set of cubes.
-It measures the reward for the new parameter setting based in number of cubes, cube depth, number of timeouts, and completions with number of conflicts.
-If the new reward is an improvement over $(P_i, r_i)$ it inserts the new parameter setting $(P_i', r_i')$ into the batch manager.
-The batch manager discards the worst parameter settings keeping the top $K$ ($K = 5$) parameter settings.
+* The batch manager maintains a set of candidate parameters $CP = \{ (P_1, r_1), \ldots, (P_n, r_n) \}$.
+* A worker thread picks up a parameter $P_i$ from $CP$ from the batch manager.
+* It picks one or more parameter settings within $P_i$ whose mutation function have non-zero reward functions and applies a mutation.
+* It then runs with a bounded set of cubes.
+* It measures the reward for the new parameter setting based in number of cubes, cube depth, number of timeouts, and completions with number of conflicts.
+* If the new reward is an improvement over $(P_i, r_i)$ it inserts the new parameter setting $(P_i', r_i')$ into the batch manager.
+* The batch manager discards the worst parameter settings keeping the top $K$ ($K = 5$) parameter settings.
+
+When picking among mutation steps with reward functions use a weighted sampling algorithm.
+Weighted sampling works as follows: You are given a set of items with weights $(i_1, w_1), \ldots, (i_k, w_k)$.
+Add $w = \sum_j w_j$. Pick a random number $w_0$ in the range $0\ldots w$.
+Then you pick item $i_n$ such that $n$ is the smallest index with $\sum_{j = 1}^n w_j \geq w_0$.
+
