@@ -27,9 +27,9 @@ namespace smt {
         context& ctx;
         unsigned num_threads;
 
-        struct SharedClause {
+        struct shared_clause {
             unsigned source_worker_id;
-            expr* clause;
+            expr_ref clause;
         };
 
         class batch_manager {        
@@ -50,7 +50,7 @@ namespace smt {
             unsigned m_max_batch_size = 10;
             unsigned m_exception_code = 0;
             std::string m_exception_msg;
-            std::vector<SharedClause> shared_clause_trail; // store all shared clauses with worker IDs
+            vector<shared_clause> shared_clause_trail; // store all shared clauses with worker IDs
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
             // called from batch manager to cancel other workers if we've reached a verdict
@@ -96,11 +96,13 @@ namespace smt {
             expr_ref_vector asms;
             smt_params m_smt_params;
             scoped_ptr<context> ctx;
-            unsigned m_max_conflicts = 100;
+            unsigned m_max_conflicts = 0;
+            unsigned m_max_thread_conflicts = 100;
             unsigned m_num_shared_units = 0;
-            unsigned shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
+            unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             void share_units(ast_translation& l2g);
             lbool check_cube(expr_ref_vector const& cube);
+            void update_max_thread_conflicts() {} // allow for backoff scheme of conflicts within the thread for cube timeouts.
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
             void run();
