@@ -123,3 +123,96 @@ Threads can work on more than one cube in a batch.
 
 * The first thread to time out or finish could kill other threads instead of joining on all threads to finish.
 * Instead of synchronization barriers have threads continue concurrently without terminating. They synchronize on signals and new units. This is trickier to implement, but in some guises accomplished in [sat/sat_parallel.cpp](https://github.com/Z3Prover/z3/blob/master/src/sat/sat_parallel.cpp)
+
+
+## Parameter tuning
+
+The idea is to have parallel threads try out different parameter settings and search the parameter space of an optimal parameter setting.
+
+Let us assume that there is a set of tunable parameters $P$. The set comprises of a set of named parameters with initial values.
+$P = \{ (p_1, v_1), \ldots, (p_n, v_n) \}$.
+With each parameter associate a set of mutation functions $+=, -=, *=$, such as increment, decrement, scale a parameter by a non-negative multiplier (which can be less than 1).
+We will initialize a search space of parameter settings by parameters, values and mutation functions that have assigned reward values. The reward value is incremented
+if a parameter mutation step results in an improvement, and decremented if a mutation step degrades performance.
+$P = \{ (p_1, v_1, \{ (r_{11}, m_{11}), \ldots, (r_{1k_1}, m_{1k_1}) \}), \ldots, (p_n, v_n, \{ (r_{n1}, m_{n1}), \ldots, (r_{nk_n}, m_{nk_n})\}) \}$.
+The initial values of reward functions is fixed (to 1) and the initial values of parameters are the defaults.
+
+* The batch manager maintains a set of candidate parameters $CP = \{ (P_1, r_1), \ldots, (P_n, r_n) \}$.
+* A worker thread picks up a parameter $P_i$ from $CP$ from the batch manager.
+* It picks one or more parameter settings within $P_i$ whose mutation function have non-zero reward functions and applies a mutation.
+* It then runs with a bounded set of cubes.
+* It measures the reward for the new parameter setting based in number of cubes, cube depth, number of timeouts, and completions with number of conflicts.
+* If the new reward is an improvement over $(P_i, r_i)$ it inserts the new parameter setting $(P_i', r_i')$ into the batch manager.
+* The batch manager discards the worst parameter settings keeping the top $K$ ($K = 5$) parameter settings.
+
+When picking among mutation steps with reward functions use a weighted sampling algorithm.
+Weighted sampling works as follows: You are given a set of items with weights $(i_1, w_1), \ldots, (i_k, w_k)$.
+Add $w = \sum_j w_j$. Pick a random number $w_0$ in the range $0\ldots w$.
+Then you pick item $i_n$ such that $n$ is the smallest index with $\sum_{j = 1}^n w_j \geq w_0$.
+
+SMT parameters that could be tuned:
+
+<pre>
+
+  arith.bprop_on_pivoted_rows (bool) (default: true)
+  arith.branch_cut_ratio (unsigned int) (default: 2)
+  arith.eager_eq_axioms (bool) (default: true)
+  arith.enable_hnf (bool) (default: true)
+  arith.greatest_error_pivot (bool) (default: false)
+  arith.int_eq_branch (bool) (default: false)
+  arith.min (bool) (default: false)
+  arith.nl.branching (bool) (default: true)
+  arith.nl.cross_nested (bool) (default: true)
+  arith.nl.delay (unsigned int) (default: 10)
+  arith.nl.expensive_patching (bool) (default: false)
+  arith.nl.expp (bool) (default: false)
+  arith.nl.gr_q (unsigned int) (default: 10)
+  arith.nl.grobner (bool) (default: true)
+  arith.nl.grobner_cnfl_to_report (unsigned int) (default: 1)
+  arith.nl.grobner_eqs_growth (unsigned int) (default: 10)
+  arith.nl.grobner_expr_degree_growth (unsigned int) (default: 2)
+  arith.nl.grobner_expr_size_growth (unsigned int) (default: 2)
+  arith.nl.grobner_frequency (unsigned int) (default: 4)
+  arith.nl.grobner_max_simplified (unsigned int) (default: 10000)
+  arith.nl.grobner_row_length_limit (unsigned int) (default: 10)
+  arith.nl.grobner_subs_fixed (unsigned int) (default: 1)
+  arith.nl.horner (bool) (default: true)
+  arith.nl.horner_frequency (unsigned int) (default: 4)
+  arith.nl.horner_row_length_limit (unsigned int) (default: 10)
+  arith.nl.horner_subs_fixed (unsigned int) (default: 2)
+  arith.nl.nra (bool) (default: true)
+  arith.nl.optimize_bounds (bool) (default: true)
+  arith.nl.order (bool) (default: true)
+  arith.nl.propagate_linear_monomials (bool) (default: true)
+  arith.nl.rounds (unsigned int) (default: 1024)
+  arith.nl.tangents (bool) (default: true)
+  arith.propagate_eqs (bool) (default: true)
+  arith.propagation_mode (unsigned int) (default: 1)
+  arith.random_initial_value (bool) (default: false)
+  arith.rep_freq (unsigned int) (default: 0)
+  arith.simplex_strategy (unsigned int) (default: 0)
+  dack (unsigned int) (default: 1)
+  dack.eq (bool) (default: false)
+  dack.factor (double) (default: 0.1)
+  dack.gc (unsigned int) (default: 2000)
+  dack.gc_inv_decay (double) (default: 0.8)
+  dack.threshold (unsigned int) (default: 10)
+  delay_units (bool) (default: false)
+  delay_units_threshold (unsigned int) (default: 32)
+  dt_lazy_splits (unsigned int) (default: 1)
+  lemma_gc_strategy (unsigned int) (default: 0)
+  phase_caching_off (unsigned int) (default: 100)
+  phase_caching_on (unsigned int) (default: 400)
+  phase_selection (unsigned int) (default: 3)
+  qi.eager_threshold (double) (default: 10.0)
+  qi.lazy_threshold (double) (default: 20.0)
+  qi.quick_checker (unsigned int) (default: 0)
+  relevancy (unsigned int) (default: 2)
+  restart_factor (double) (default: 1.1)
+  restart_strategy (unsigned int) (default: 1)
+  seq.max_unfolding (unsigned int) (default: 1000000000)
+  seq.min_unfolding (unsigned int) (default: 1)
+  seq.split_w_len (bool) (default: true)
+</pre>
+
+
