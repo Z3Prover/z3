@@ -359,6 +359,11 @@ namespace euf {
             IF_VERBOSE(1, verbose_stream() << "not: " << nf << "\n");
         }
         else {
+            expr_ref f1(f, m);
+            if (!m.is_implies(f) && !is_quantifier(f)) {
+                m_rewriter(f1);
+                f = f1;
+            }
             enode* n = mk_enode(f);
             if (m.is_true(n->get_root()->get_expr()))
                 return;            
