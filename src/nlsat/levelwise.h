@@ -21,6 +21,6 @@ public:
 };
 
 // Convenience free-function driver prototype
-void levelwise_project(polynomial_ref_vector const& ps, var max_x, assignment const& s);
+polynomial_ref_vector levelwise_project(polynomial_ref_vector& ps, var max_x, assignment const& s);
 
 } // namespace nlsat
