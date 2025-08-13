@@ -124,6 +124,7 @@ namespace smt {
 
     void parallel::worker::share_units(ast_translation& l2g) {
         // Collect new units learned locally by this worker and send to batch manager
+        ctx->pop_to_base_lvl();
         unsigned sz = ctx->assigned_literals().size();
         for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
             literal lit = ctx->assigned_literals()[j];
