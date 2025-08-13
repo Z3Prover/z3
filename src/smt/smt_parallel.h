@@ -96,13 +96,15 @@ namespace smt {
             expr_ref_vector asms;
             smt_params m_smt_params;
             scoped_ptr<context> ctx;
-            unsigned m_max_conflicts = 0;
-            unsigned m_max_thread_conflicts = 100;
+            unsigned m_max_conflicts = 800; // the global budget for all work this worker can do across cubes in the current run.
+            unsigned m_max_thread_conflicts = 100; // the per-cube limit for how many conflicts the worker can spend on a single cube before timing out on it and moving on
             unsigned m_num_shared_units = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             void share_units(ast_translation& l2g);
             lbool check_cube(expr_ref_vector const& cube);
-            void update_max_thread_conflicts() {} // allow for backoff scheme of conflicts within the thread for cube timeouts.
+            void update_max_thread_conflicts() {
+                m_max_thread_conflicts *= 2;
+            } // allow for backoff scheme of conflicts within the thread for cube timeouts.
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
             void run();
