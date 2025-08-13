@@ -4,9 +4,32 @@
 namespace nlsat {
 
     class assignment; // forward declared in nlsat_types.h
-    struct symbolic_interval {};
 
     class levelwise {
+    public:
+        struct indexed_root_expr {
+            poly* p;
+            short i;
+        };
+        struct symbolic_interval {
+            bool section = true;
+            poly* l = nullptr;
+            short l_index; // the root index
+            poly* u = nullptr;
+            short u_index; // the root index
+            bool l_inf() const { return l == nullptr; }
+            bool u_inf() const { return u == nullptr; }
+            bool is_section() { return section; }
+            bool is_sector() { return !section; }
+            poly* section_poly() {
+                SASSERT(is_section());                
+                return l;
+            }
+        };
+            
+    private:
+
+
         struct impl;
         impl* m_impl;
     public:
