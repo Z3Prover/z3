@@ -50,8 +50,6 @@ Revision History:
 #include "model/model.h"
 #include "solver/progress_callback.h"
 #include "solver/assertions/asserted_formulas.h"
-#include "smt/priority_queue.h"
-#include "util/dlist.h"
 #include <tuple>
 
 // there is a significant space overhead with allocating 1000+ contexts in
@@ -191,17 +189,6 @@ namespace smt {
         unsigned_vector             m_lit_occs;    //!< occurrence count of literals
         svector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
         svector<double>             m_activity;
-        updatable_priority_queue::priority_queue<bool_var, double> m_pq_scores;
-
-        struct lit_node : dll_base<lit_node> {
-            literal lit;
-            lit_node(literal l) : lit(l) { init(this); }
-        };
-        lit_node* m_dll_lits;
-
-        // svector<std::array<double, 2>> m_lit_scores; 
-        svector<double> m_lit_scores[2];
-
         clause_vector               m_aux_clauses;
         clause_vector               m_lemmas;
         vector<clause_vector>       m_clauses_to_reinit;
@@ -946,17 +933,6 @@ namespace smt {
         ast_pp_util m_lemma_visitor;
         void dump_lemma(unsigned n, literal const* lits);
         void dump_axiom(unsigned n, literal const* lits);
-        void add_scores(unsigned n, literal const* lits);
-        void reset_scores() {
-            for (auto& e : m_lit_scores[0])
-                e = 0;
-            for (auto& e : m_lit_scores[1])
-                e = 0;
-            m_pq_scores.clear();  // Clear the priority queue heap as well
-        }
-        double get_score(literal l) const {
-            return m_lit_scores[l.sign()][l.var()];
-        }
     public:        
 
         void ensure_internalized(expr* e);
