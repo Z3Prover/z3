@@ -146,6 +146,8 @@ extern "C" {
         bool proofs_enabled = true, models_enabled = true, unsat_core_enabled = false;
         params_ref p = s->m_params;
         mk_c(c)->params().get_solver_params(p, proofs_enabled, models_enabled, unsat_core_enabled);
+        if (!s->m_solver_factory)
+            s->m_solver_factory = mk_smt_solver_factory();
         s->m_solver = (*(s->m_solver_factory))(mk_c(c)->m(), p, proofs_enabled, models_enabled, unsat_core_enabled, s->m_logic);
         
         param_descrs r;
