@@ -35,30 +35,32 @@ namespace nlsat {
         // max_x plays the role of n in algorith 1 of the levelwise paper.
         impl(polynomial_ref_vector const& ps, var max_x, assignment const& s)
             : m_P(ps), m_max_x(max_x), m_s(s) {
-            seed_initial_goals();
         }
-        void seed_initial_goals() {
+        std::vector<property_goal> seed_initial_goals() {
+            std::vector<property_goal> Q;
             // Algorithm 1: initial goals are sgn_inv(p, s) for p in ps at current level of max_x
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 poly* p = m_P.get(i);
-                m_Q.push_back(property_goal{ prop::sgn_inv_irreducible, p, /*s_idx*/0, /* level */ m_max_x});
+                Q.push_back(property_goal{ prop::sgn_inv_irreducible, p, /*s_idx*/0, /* level */ m_max_x});
             }
+            return Q;
+        }
+
+        std::vector<symbolic_interval> single_cell() {
+            return std::vector<symbolic_interval>();
         }
     };
-
+// constructor
     levelwise::levelwise(polynomial_ref_vector const& ps, var n, assignment const& s)
         : m_impl(new impl(ps, n, s)) {}
 
     levelwise::~levelwise() { delete m_impl; }
-    levelwise::levelwise(levelwise&& o) noexcept : m_impl(o.m_impl) { o.m_impl = nullptr; }
 
-    levelwise& levelwise::operator=(levelwise&& o) noexcept { if (this != &o) { delete m_impl; m_impl = o.m_impl; o.m_impl = nullptr; } return *this; }
 
-// Free-function driver: create a local implementation and seed initial goals.
-    polynomial_ref_vector levelwise_project(polynomial_ref_vector & ps, var max_x, assignment const& s) {
-        struct impl {
+    std::vector<symbolic_interval> levelwise::single_cell() {
+        /*   struct impl {
             polynomial_ref_vector const& m_P;
-            var                          m_max_x;
+            var                          m_n;
             assignment const&            m_sample;
             std::vector<property_goal>   m_goals;
             // simple fact DB
@@ -84,32 +86,7 @@ namespace nlsat {
             std::vector<property_goal>                   m_facts; // id -> fact
             std::vector<unsigned>                        m_worklist;
             impl(polynomial_ref_vector const& ps_, var mx, assignment const& sa)
-                : m_P(ps_), m_max_x(mx), m_sample(sa) {
-                seed_initial_goals();
-            }
-            void seed_initial_goals() {
-                for (unsigned i = 0; i < m_P.size(); ++i) {
-                    poly* p = m_P.get(i);
-                    m_goals.push_back(property_goal{ prop::sgn_inv_irreducible, p, /*s_idx*/0, /*level*/0 });
-                }
-            }
-            unsigned intern(property_goal const& g) {
-                key k{ g.prop, g.p, g.s_idx, g.level };
-                auto it = m_index.find(k);
-                if (it != m_index.end())
-                    return it->second;
-                unsigned id = static_cast<unsigned>(m_facts.size());
-                m_index.emplace(k, id);
-                m_facts.push_back(g);
-                m_worklist.push_back(id);
-                return id;
-            }
-            bool pop(unsigned& id) {
-                if (m_worklist.empty())
-                    return false;
-                id = m_worklist.back();
-                m_worklist.pop_back();
-                return true;
+                : m_P(ps_), m_n(mx), m_sample(sa) {
             }
             void derive_from(property_goal const& f) {
                 // Minimal rule: sgn_inv_irreducible(p) => non_null(p) and ir_ord(p)
@@ -118,8 +95,13 @@ namespace nlsat {
                     intern(property_goal{ prop::ir_ord,   f.p, f.s_idx, f.level });
                 }
             }
+            struct result_struct {
+                symbolic_interval I;
+                std::vector<property_goal> Q;
+                bool status;
+            };
             // Construct an interval at level n = m_max_x around the current sample s per the levelwise paper.
-            void construct_interval() {
+            result_struct construct_interval() {
                 // TODO: Implement per Algorithm "construct_interval" in the paper:
                 // 1) Collect polynomials of level n (max_x) from m_P.
                 // 2) Compute relevant roots under current sample m_sample.
@@ -127,16 +109,23 @@ namespace nlsat {
                 // 4) Select a representative sample within I.
                 // 5) Record properties (repr(I,s), sample(s), etc.) as needed.
                 // This is a placeholder skeleton; no-op for now.
-                (void)m_P; (void)m_max_x; (void)m_sample;
+                result_struct ret;
+                return ret;
             }
-            void single_cell() {
-                construct_interval();
+            std::vector<symbolic_interval> single_cell() {
+                std::vector<symbolic_interval> ret;
+                std::vector<property_goal> Q = seed_properties();
+                for (unsigned i = m_n; i >= 1; i--) {
+                    auto result = construct_interval();
+                    if (result.status == false)
+                        return std::vector<symbolic_interval>();
+                    Q
+                }
             }
         }; // end of impl structure
+        */
 
-        impl m_impl(ps, max_x, s);
-        m_impl.single_cell();
-        return ps;
+        return m_impl->single_cell();
     }
 
 } // namespace nlsat
