@@ -60,6 +60,10 @@ public:
         auto s = mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
         return s;
     }
+    
+    solver_factory* translate(ast_manager& m) override {
+        return alloc(smt_nested_solver_factory);
+    }
 };
 
 tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const & logic) {
@@ -184,6 +188,10 @@ public:
         return mk_combined_solver(mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l),
                                   mk_solver_for_logic(m, p, l), 
                                   p);
+    }
+    
+    solver_factory* translate(ast_manager& m) override {
+        return alloc(smt_strategic_solver_factory, m_logic);
     }
 };
 

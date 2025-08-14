@@ -32,6 +32,7 @@ class solver_factory {
 public:
     virtual ~solver_factory() = default;
     virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) = 0;
+    virtual solver_factory* translate(ast_manager& m) = 0;
 };
 
 solver_factory * mk_smt_strategic_solver_factory(symbol const & logic = symbol::null);
