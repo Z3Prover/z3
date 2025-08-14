@@ -1,0 +1,7 @@
+def_module_params('smt_parallel', 
+                  export=True,
+                  description='Experimental parameters for parallel solving',
+                  params=(
+                        ('share_units', BOOL, True, 'share units'),
+                        ('share_conflicts', BOOL, True, 'share conflicts'),
+              ))

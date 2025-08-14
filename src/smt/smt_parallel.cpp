@@ -23,6 +23,7 @@ Author:
 #include "ast/ast_translation.h"
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
+#include "params/smt_parallel_params.hpp"
 
 #ifdef SINGLE_THREAD
 
@@ -99,12 +100,14 @@ namespace smt {
                                 b.report_assumption_used(l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
                         IF_VERBOSE(1, verbose_stream() << "Worker " << id << " found unsat cube\n");
-                        b.collect_clause(l2g, id, mk_not(mk_and(unsat_core)));
+                        if (smt_parallel_params(p.ctx.m_params).share_conflicts())
+                            b.collect_clause(l2g, id, mk_not(mk_and(unsat_core)));
                         break;
                     }
                 }     
             }
-            share_units(l2g);
+            if (smt_parallel_params(p.ctx.m_params).share_units())
+                share_units(l2g);
         }
     }
 
