@@ -2,6 +2,7 @@
 #include "nlsat/nlsat_types.h"
 #include <vector>
 #include <unordered_map>
+#include <map>
 namespace nlsat {
 
 // Local enums reused from previous scaffolding
@@ -60,21 +61,21 @@ namespace nlsat {
 
         
         std::vector<property> greatest_to_refine() {
-            // For each polynomial p, pick the property at current level m_i
-            // with the highest score, excluding sgn_inv_irreducible.
-            std::unordered_map<poly*, property> best;
+            // Deterministic order: use ascending polynomial id as key
+            std::map<unsigned, property> best_by_poly;
             for (const auto& q : m_Q) {
                 if (q.level != m_i)
                     continue;
                 if (q.prop == prop_enum::sgn_inv_irreducible)
                     continue;
-                auto it = best.find(q.p);
-                if (it == best.end() || score(q.prop) > score(it->second.prop))
-                    best[q.p] = q;
+                unsigned pid = polynomial::manager::id(q.p);
+                auto it = best_by_poly.find(pid);
+                if (it == best_by_poly.end() || score(q.prop) > score(it->second.prop))
+                    best_by_poly[pid] = q;
             }
             std::vector<property> ret;
-            ret.reserve(best.size());
-            for (auto const& kv : best)
+            ret.reserve(best_by_poly.size());
+            for (auto const& kv : best_by_poly)
                 ret.push_back(kv.second);
             return ret;
         }
