@@ -34,7 +34,7 @@ namespace nlsat {
         impl* m_impl;
     public:
     // Construct with polynomials ps, maximal variable max_x, current sample s, polynomial manager pm, and algebraic-number manager am
-    levelwise(polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am);
+        levelwise(nlsat::solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am);
         ~levelwise();
 
         levelwise(levelwise const&) = delete;
