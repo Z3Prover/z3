@@ -5,9 +5,9 @@
 namespace nlsat {
 
 // Local enums reused from previous scaffolding
-    enum class property_mapping_case : unsigned { case1 = 0, case2 = 1, case3 = 2 };
-
-    enum class prop : unsigned {
+    enum class property_mapping_case : unsigned { case1 = 0, case2 = 1, case3 = 2 };    
+    
+    enum class prop_enum : unsigned {
         ir_ord,
         an_del,
         non_null,
@@ -18,10 +18,15 @@ namespace nlsat {
         sample,
         repr,
         holds,
-        _count
+        _count 
     };
-    struct property_goal {
-        prop prop;
+
+    static unsigned score(prop_enum pe) {
+        return static_cast<unsigned>(prop_enum::_count) - static_cast<unsigned>(pe);
+    }
+    
+    struct property {
+        prop_enum prop;
         poly*            p = nullptr;
         unsigned         s_idx = 0; // index into current sample roots on level, if applicable
         unsigned         level = 0;
@@ -30,48 +35,75 @@ namespace nlsat {
         polynomial_ref_vector const& m_P;
         var                          m_n;
         assignment const&            m_s;
-        std::vector<property_goal>   m_Q; // the set of properties to prove as in single_cell
-
+        std::vector<property>        m_Q; // the set of properties to prove as in single_cell
+        bool                         m_fail = false;
+        unsigned                     m_i; // current level
         // max_x plays the role of n in algorith 1 of the levelwise paper.
         impl(polynomial_ref_vector const& ps, var max_x, assignment const& s)
             : m_P(ps), m_n(max_x), m_s(s) {
         }
-        std::vector<property_goal> seed_properties() {
-            std::vector<property_goal> Q;
+        std::vector<property> seed_properties() {
+            std::vector<property> Q;
             // Algorithm 1: initial goals are sgn_inv(p, s) for p in ps at current level of max_x
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 poly* p = m_P.get(i);
-                Q.push_back(property_goal{ prop::sgn_inv_irreducible, p, /*s_idx*/0, /* level */ m_n});
+                Q.push_back(property{ prop_enum::sgn_inv_irreducible, p, /*s_idx*/0, /* level */ m_n});
             }
             return Q;
         }
         struct result_struct {
             symbolic_interval I;
-            std::vector<property_goal> Q;
+            std::vector<property> Q;
             bool status;
         };
         
-        result_struct construct_interval() {
-            // TODO: Implement per Algorithm "construct_interval" in the paper:
-            // 1) Collect polynomials of level n (max_x) from m_P.
-            // 2) Compute relevant roots under current sample m_sample.
-            // 3) Build an interval I delimited by adjacent roots around s.
-            // 4) Select a representative sample within I.
-            // 5) Record properties (repr(I,s), sample(s), etc.) as needed.
-            // This is a placeholder skeleton; no-op for now.
-            result_struct ret;
+
+        
+        std::vector<property> greatest_to_refine() {
+            // For each polynomial p, pick the property at current level m_i
+            // with the highest score, excluding sgn_inv_irreducible.
+            std::unordered_map<poly*, property> best;
+            for (const auto& q : m_Q) {
+                if (q.level != m_i)
+                    continue;
+                if (q.prop == prop_enum::sgn_inv_irreducible)
+                    continue;
+                auto it = best.find(q.p);
+                if (it == best.end() || score(q.prop) > score(it->second.prop))
+                    best[q.p] = q;
+            }
+            std::vector<property> ret;
+            ret.reserve(best.size());
+            for (auto const& kv : best)
+                ret.push_back(kv.second);
             return ret;
+        }
+
+        result_struct construct_interval() {
+            result_struct ret;
+/*foreach q ∈ Q |i where q is the greatest element with respect to ▹ (from Definition 4.5) and q ̸= sgn_inv(p) for an irreducible p
+do
+2 Q := apply_pre(i, Q ,q,(s)) // Algorithm 3
+3 if Q= FAIL then
+4 return FAIL
+  */        
+           std::vector<property> to_refine = greatest_to_refine();
+           for (const auto & q : this->m_Q) {
+               if (false)
+                   ;
+           }
+           return ret;
         }
         // return an empty vector on failure
         std::vector<symbolic_interval> single_cell() {
             std::vector<symbolic_interval> ret;
-            std::vector<property_goal> Q = seed_properties();
+            m_Q = seed_properties(); // Q is the set of properties on level m_n
             for (unsigned i = m_n; i >= 1; i--) {
                 auto result = construct_interval();
                 if (result.status == false)
                     return std::vector<symbolic_interval>(); // return empty
                 ret.push_back(result.I);
-                Q = result.Q;
+                m_Q = result.Q;
             }
      
             return ret; // the order is reversed!
