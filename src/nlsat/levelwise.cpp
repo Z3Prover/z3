@@ -40,6 +40,7 @@ namespace nlsat {
         polynomial_ref_vector const& m_P;
         var                          m_n;
         assignment const&            m_s;
+            pmanager&                    m_pm;
         anum_manager&                m_am;
         std::vector<property>        m_Q; // the set of properties to prove as in single_cell
         bool                         m_fail = false;
@@ -50,8 +51,8 @@ namespace nlsat {
         // Since m_p_relation holds (lesser -> greater), we invert edges when populating dom: greater ▹ lesser.
         std::vector<std::vector<bool>> m_prop_dom;
         // max_x plays the role of n in algorith 1 of the levelwise paper.
-        impl(polynomial_ref_vector const& ps, var max_x, assignment const& s, anum_manager& am)
-            : m_P(ps), m_n(max_x), m_s(s), m_am(am) {
+        impl(polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am)
+            : m_P(ps), m_n(max_x), m_s(s), m_pm(pm), m_am(am) {
             init_relation();
         }
 
@@ -176,7 +177,7 @@ namespace nlsat {
         ::sign sign(poly * p) {
             polynomial_ref pr(p, m_P.m());
             auto s = m_am.eval_sign_at(pr, m_s);
-            TRACE(nlsat_explain, tout << "p: " << p << " var: " << m_P.m().max_var(p) << " sign: " << s << "\n";);
+            TRACE(nlsat_explain, tout << "p: " << p << " var: " << m_pm.max_var(p) << " sign: " << s << "\n";);
             return s;
         }
         result_struct construct_interval() {
@@ -232,8 +233,8 @@ namespace nlsat {
         }
     };
 // constructor
-    levelwise::levelwise(polynomial_ref_vector const& ps, var n, assignment const& s, anum_manager& am)
-        : m_impl(new impl(ps, n, s, am)) {}
+    levelwise::levelwise(polynomial_ref_vector const& ps, var n, assignment const& s, pmanager& pm, anum_manager& am)
+        : m_impl(new impl(ps, n, s, pm, am)) {}
 
     levelwise::~levelwise() { delete m_impl; }
 
