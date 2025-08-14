@@ -33,8 +33,8 @@ namespace nlsat {
         struct impl;
         impl* m_impl;
     public:
-        // Construct with polynomials ps, maximal variable max_x, and current sample s (assignment of vars < max_x)
-        levelwise(polynomial_ref_vector const& ps, var max_x, assignment const& s);
+    // Construct with polynomials ps, maximal variable max_x, current sample s, and algebraic-number manager am
+    levelwise(polynomial_ref_vector const& ps, var max_x, assignment const& s, anum_manager& am);
         ~levelwise();
 
         levelwise(levelwise const&) = delete;
