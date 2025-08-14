@@ -53,9 +53,7 @@ namespace nlsat {
         }
 
         #ifdef Z3DEBUG
-        
         bool check_prop_init() {
-            std::cout << "checked\n";
             for (unsigned k = 0; k < prop_count(); ++k)
                 if (m_prop_dom[k][k])
                     return false;
@@ -123,8 +121,11 @@ namespace nlsat {
             std::vector<property> Q;
             bool status;
         };
-        
-        bool dominates(prop_enum a, prop_enum b) {
+
+        bool dominates(const property& a, const property& b) const {
+            return a.p == b.p && dominates(a.prop, b.prop);
+        }
+        bool dominates(prop_enum a, prop_enum b) const {
             return m_prop_dom[static_cast<unsigned>(a)][static_cast<unsigned>(b)];
         }
 
@@ -139,11 +140,11 @@ namespace nlsat {
             if (cand.empty()) return {};
 
             // Determine maxima w.r.t. ▹ using the transitive closure matrix
-
+            // Dominance requires the same polynomial in both compared properties
             std::vector<bool> dominated(cand.size(), false);
             for (size_t i = 0; i < cand.size(); ++i) {
                 for (size_t j = 0; j < cand.size(); ++j) {
-                    if (i != j && dominates(cand[j].prop, cand[i].prop)) {
+                    if (i != j && dominates(cand[j], cand[i])) {
                         dominated[i] = true;
                         break;
                     }
@@ -171,19 +172,22 @@ namespace nlsat {
 
         result_struct construct_interval() {
             result_struct ret;
-/*foreach q ∈ Q |i where q is the greatest element with respect to ▹ (from Definition 4.5) and q ̸= sgn_inv(p) for an irreducible p
-  do
-  2 Q := apply_pre(i, Q ,q,(s)) // Algorithm 3
-  3 if Q= FAIL then
-  4 return FAIL
-*/        
+  /*foreach q ∈ Q |i where q is the greatest element with respect to the relation (from Definition 4.5) and q ̸= sgn_inv(p) for an irreducible p
+    do
+    2 Q := apply_pre(i, Q ,q,(s)) // Algorithm 3
+    3 if Q= FAIL then
+      4 return FAIL
+*/
+
             std::vector<property> to_refine = greatest_to_refine();
+
             // refine using to_refine (TBD)
             return ret;
         }
         // return an empty vector on failure
         std::vector<symbolic_interval> single_cell() {
             std::vector<symbolic_interval> ret;
+
             m_Q = seed_properties(); // Q is the set of properties on level m_n
             for (unsigned i = m_n; i >= 1; i--) {
                 auto result = construct_interval();
@@ -192,7 +196,7 @@ namespace nlsat {
                 ret.push_back(result.I);
                 m_Q = result.Q;
             }
-     
+
             return ret; // the order is reversed!
         }
     };
