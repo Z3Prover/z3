@@ -1,9 +1,11 @@
 #include "nlsat/levelwise.h"
 #include "nlsat/nlsat_types.h"
+#include "nlsat/nlsat_assignment.h"
 #include <vector>
 #include <unordered_map>
 #include <map>
 #include <algorithm>
+#include "math/polynomial/algebraic_numbers.h"
 namespace nlsat {
 
 // Local enums reused from previous scaffolding
@@ -28,16 +30,17 @@ namespace nlsat {
     unsigned prop_count() { return static_cast<unsigned>(prop_enum::_count);}
     // no score-based ordering; precedence is defined by m_p_relation only
     
-    struct property {
-        prop_enum prop;
-        poly*            p = nullptr;
-        unsigned         s_idx = 0; // index into current sample roots on level, if applicable
-        unsigned         level = 0;
-    };
     struct levelwise::impl {
+        struct property {
+            prop_enum prop;
+            poly*            p = nullptr;
+            unsigned         s_idx = 0; // index into current sample roots on level, if applicable
+            unsigned         level = 0;
+        };
         polynomial_ref_vector const& m_P;
         var                          m_n;
         assignment const&            m_s;
+        anum_manager&                m_am;
         std::vector<property>        m_Q; // the set of properties to prove as in single_cell
         bool                         m_fail = false;
         unsigned                     m_i; // current level
@@ -47,24 +50,24 @@ namespace nlsat {
         // Since m_p_relation holds (lesser -> greater), we invert edges when populating dom: greater ▹ lesser.
         std::vector<std::vector<bool>> m_prop_dom;
         // max_x plays the role of n in algorith 1 of the levelwise paper.
-        impl(polynomial_ref_vector const& ps, var max_x, assignment const& s)
-            : m_P(ps), m_n(max_x), m_s(s) {
+        impl(polynomial_ref_vector const& ps, var max_x, assignment const& s, anum_manager& am)
+            : m_P(ps), m_n(max_x), m_s(s), m_am(am) {
             init_relation();
         }
 
-        #ifdef Z3DEBUG
+#ifdef Z3DEBUG
         bool check_prop_init() {
             for (unsigned k = 0; k < prop_count(); ++k)
                 if (m_prop_dom[k][k])
                     return false;
             return !dominates(prop_enum::ord_inv_irreducible, prop_enum::non_null);
         }
-        #endif
+#endif
         
         void init_relation() {
             m_p_relation.clear();
             auto add = [&](prop_enum lesser, prop_enum greater) { m_p_relation.emplace_back(lesser, greater); };
-            // m_p_relation stores edges (lesser -> greater). We later invert these to build dom (greater ▹ lesser).
+            // m_p_relation stores edges (lesser -> greater). 
             // The edges below follow Figure 8. Examples include: an_del -> ir_ord, sample -> ir_ord.
             add(prop_enum::holds,   prop_enum::repr);
             add(prop_enum::repr,    prop_enum::sample);
@@ -104,8 +107,9 @@ namespace nlsat {
                             if (m_prop_dom[k][j])
                                 m_prop_dom[i][j] = true;
 
-
-            SASSERT(check_prop_init());            
+#ifdef Z3DEBUG
+            SASSERT(check_prop_init());
+#endif            
         }
         std::vector<property> seed_properties() {
             std::vector<property> Q;
@@ -119,7 +123,7 @@ namespace nlsat {
         struct result_struct {
             symbolic_interval I;
             std::vector<property> Q;
-            bool status;
+            bool fail;
         };
 
         bool dominates(const property& a, const property& b) const {
@@ -128,7 +132,6 @@ namespace nlsat {
         bool dominates(prop_enum a, prop_enum b) const {
             return m_prop_dom[static_cast<unsigned>(a)][static_cast<unsigned>(b)];
         }
-
         
         std::vector<property> greatest_to_refine() {
             // Collect candidates on current level, excluding sgn_inv_irreducible
@@ -170,28 +173,56 @@ namespace nlsat {
             return ret;
         }
 
+        ::sign sign(poly * p) {
+            polynomial_ref pr(p, m_P.m());
+            auto s = m_am.eval_sign_at(pr, m_s);
+            TRACE(nlsat_explain, tout << "p: " << p << " var: " << m_P.m().max_var(p) << " sign: " << s << "\n";);
+            return s;
+        }
         result_struct construct_interval() {
             result_struct ret;
-  /*foreach q ∈ Q |i where q is the greatest element with respect to the relation (from Definition 4.5) and q ̸= sgn_inv(p) for an irreducible p
-    do
-    2 Q := apply_pre(i, Q ,q,(s)) // Algorithm 3
-    3 if Q= FAIL then
-      4 return FAIL
-*/
 
             std::vector<property> to_refine = greatest_to_refine();
+            for (const auto& p: to_refine) {
+                apply_pre(p);
+            }
+            if (m_fail) {
+                ret.fail = true;
+                return ret;
+            }
 
-            // refine using to_refine (TBD)
+            /*
+              P_{nonnull} := {p | sgn_inv(p) ∈ Q |i s.t. p(s[i−1], xi ) ̸= 0}
+              6 E:= irExpr(P_{nonnull} , s[i−1])
+              7 choose representation (I, E, ≼) of with respect to s
+              8 if i > 1 then
+              9 foreach q ∈ Q |i where q is the greatest element with respect to ▹ (from Definition 4.5) and q ̸= holds(I) do
+              10 Q := apply_pre(i, Q ,q,(s, I, ≼)) 11 if Q= FAIL then
+              12 return FAIL
+            */
+     
+            
+            std::vector<const poly*> p_non_null;
+            for (const auto & pr: m_Q) {
+                if (pr.prop == prop_enum::sgn_inv_irreducible && sign(pr.p) != 0)
+                    p_non_null.push_back(pr.p);
+            }
+            
+   
             return ret;
+        }
+        // overload exists in explain; keep local poly*-based API only for now
+        void apply_pre(const property& p) {
+            NOT_IMPLEMENTED_YET();
         }
         // return an empty vector on failure
         std::vector<symbolic_interval> single_cell() {
             std::vector<symbolic_interval> ret;
 
             m_Q = seed_properties(); // Q is the set of properties on level m_n
-            for (unsigned i = m_n; i >= 1; i--) {
+            for (m_i = m_n; m_i > 0; --m_i) {
                 auto result = construct_interval();
-                if (result.status == false)
+                if (result.fail)
                     return std::vector<symbolic_interval>(); // return empty
                 ret.push_back(result.I);
                 m_Q = result.Q;
@@ -201,8 +232,8 @@ namespace nlsat {
         }
     };
 // constructor
-    levelwise::levelwise(polynomial_ref_vector const& ps, var n, assignment const& s)
-        : m_impl(new impl(ps, n, s)) {}
+    levelwise::levelwise(polynomial_ref_vector const& ps, var n, assignment const& s, anum_manager& am)
+        : m_impl(new impl(ps, n, s, am)) {}
 
     levelwise::~levelwise() { delete m_impl; }
 
