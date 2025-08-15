@@ -686,6 +686,7 @@ namespace euf {
         case eq_status::is_processed_eq:
         case eq_status::is_reducing_eq:
         case eq_status::is_dead_eq:
+        case eq_status::is_passive_eq:
             m_to_simplify_todo.remove(id);
             break;
         case eq_status::is_to_simplify_eq:
