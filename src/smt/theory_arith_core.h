@@ -612,6 +612,17 @@ namespace smt {
                 s(div_ge);                
                 mk_axiom(eqz, div_ge, false);
                 TRACE(arith, tout << eqz << " " << div_ge << "\n");
+                
+                // Add axiom: (mod x y) = (mod x -y) when y != 0
+                // This is needed for divisibility problems to work correctly with abs(y)
+                expr_ref neg_divisor(m_util.mk_uminus(divisor), m);
+                expr_ref mod_neg(m_util.mk_mod(dividend, neg_divisor), m);
+                mk_axiom(eqz, m.mk_eq(mod, mod_neg));
+                
+                // Also add the axiom for abs: (mod x y) = (mod x abs(y)) when y != 0
+                expr_ref abs_divisor(m.mk_ite(m_util.mk_ge(divisor, zero), divisor, m_util.mk_uminus(divisor)), m);
+                expr_ref mod_abs(m_util.mk_mod(dividend, abs_divisor), m);
+                mk_axiom(eqz, m.mk_eq(mod, mod_abs));
             }
 
             if (m_params.m_arith_enum_const_mod && m_util.is_numeral(divisor, k) &&

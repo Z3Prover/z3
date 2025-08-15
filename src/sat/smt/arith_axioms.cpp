@@ -200,6 +200,19 @@ namespace arith {
             else if (!a.is_numeral(q)) {
                 // (or (= y 0)  (<= (* y (div x y)) x))
                 add_clause(eqz, mk_literal(a.mk_le(a.mk_mul(q, div), p)));
+                
+                // Add axiom: (mod x y) = (mod x -y) when y != 0
+                // This is needed for divisibility problems to work correctly with abs(y)
+                expr_ref neg_q(a.mk_uminus(q), m);
+                expr_ref mod_neg(a.mk_mod(p, neg_q), m);
+                literal mod_eq_mod_neg = mk_literal(m.mk_eq(mod, mod_neg));
+                add_clause(eqz, mod_eq_mod_neg);
+                
+                // Also add the axiom for abs: (mod x y) = (mod x abs(y)) when y != 0
+                expr_ref abs_q(m.mk_ite(a.mk_ge(q, zero), q, a.mk_uminus(q)), m);
+                expr_ref mod_abs(a.mk_mod(p, abs_q), m);
+                literal mod_eq_mod_abs = mk_literal(m.mk_eq(mod, mod_abs));
+                add_clause(eqz, mod_eq_mod_abs);
             }
 
 
