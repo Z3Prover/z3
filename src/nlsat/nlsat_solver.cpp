@@ -4374,11 +4374,11 @@ namespace nlsat {
         nlsat_params::collect_param_descrs(d);
     }
 
-    const assignment &solver::get_assignment() const {
+    const assignment &solver::sample() const {
         return m_imp->m_assignment;
     }
 
-    assignment &solver::get_assignment() {
+    assignment &solver::sample() {
         return m_imp->m_assignment;
     }
 

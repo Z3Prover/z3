@@ -52,8 +52,8 @@ namespace nlsat {
         // Since m_p_relation holds (lesser -> greater), we invert edges when populating dom: greater ▹ lesser.
         std::vector<std::vector<bool>> m_prop_dom;
 
-        assignment const&            sample() const { return m_solver.get_assignment();}
-        assignment & sample() { return m_solver.get_assignment(); }
+        assignment const&            sample() const { return m_solver.sample();}
+        assignment & sample() { return m_solver.sample(); }
 
 // max_x plays the role of n in algorith 1 of the levelwise paper.
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am)
