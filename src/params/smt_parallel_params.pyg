@@ -5,5 +5,5 @@ def_module_params('smt_parallel',
                         ('share_units', BOOL, True, 'share units'),
                         ('share_conflicts', BOOL, True, 'share conflicts'),
                         ('never_cube', BOOL, False, 'never cube'),
-                        ('only_eager_cube', BOOL, False, 'only eager cube'),
+                        ('frugal_cube_only', BOOL, False, 'only apply frugal cube strategy'),
               ))

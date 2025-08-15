@@ -96,8 +96,8 @@ namespace smt {
             expr_ref_vector asms;
             smt_params m_smt_params;
             scoped_ptr<context> ctx;
-            unsigned m_max_conflicts = 800; // the global budget for all work this worker can do across cubes in the current run.
-            unsigned m_max_thread_conflicts = 100; // the per-cube limit for how many conflicts the worker can spend on a single cube before timing out on it and moving on
+            unsigned m_max_conflicts; // the global budget for all work this worker can do across cubes in the current run. THIS GETS SET IN THE CPP FILE
+            unsigned m_max_thread_conflicts; // the per-cube limit for how many conflicts the worker can spend on a single cube before timing out on it and moving on. THIS GETS SET IN THE CPP FILE
             unsigned m_num_shared_units = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             void share_units(ast_translation& l2g);
