@@ -55,7 +55,7 @@ namespace smt {
                     b.set_exception("context cancelled");
                     return;
                 }
-                IF_VERBOSE(1, verbose_stream() << "Worker " << id << " cube: " << mk_bounded_pp(mk_and(cube), m, 3) << "\n");
+                IF_VERBOSE(1, verbose_stream() << "Worker " << id << " checking cube: " << mk_bounded_pp(mk_and(cube), m, 3) << "\n");
                 lbool r = check_cube(cube);
                 if (m.limit().is_canceled()) {
                     IF_VERBOSE(1, verbose_stream() << "Worker " << id << " context cancelled\n");
@@ -63,6 +63,8 @@ namespace smt {
                 }
                 switch (r) {
                     case l_undef: {
+                        if (m.limit().is_canceled())
+                            break;
                         IF_VERBOSE(1, verbose_stream() << "Worker " << id << " found undef cube\n");
                         // return unprocessed cubes to the batch manager
                         // add a split literal to the batch manager.
@@ -131,7 +133,16 @@ namespace smt {
         unsigned sz = ctx->assigned_literals().size();
         for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
             literal lit = ctx->assigned_literals()[j];
+            if (!ctx->is_relevant(lit.var()) && smt_parallel_params(p.ctx.m_params).relevant_units_only()) {
+                // IF_VERBOSE(0, verbose_stream() << "non-relevant literal " << lit << "\n");
+                continue;
+            }
             expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m); // turn literal into a Boolean expression
+            if (m.is_and(e) || m.is_or(e)) {
+                //IF_VERBOSE(0, verbose_stream() << "skip Boolean\n");                
+                continue;
+            }
+
             if (lit.sign()) 
                 e = m.mk_not(e); // negate if literal is negative
             b.collect_clause(l2g, id, e);
@@ -155,7 +166,7 @@ namespace smt {
         for (expr* e : new_clauses) {
             expr_ref local_clause(e, g2l.to()); // e was already translated to the local context in the batch manager!!
             ctx->assert_expr(local_clause); // assert the clause in the local context
-            IF_VERBOSE(1, verbose_stream() << "Worker " << id << " asserting shared clause: " << mk_bounded_pp(local_clause, m, 3) << "\n");
+            IF_VERBOSE(2, verbose_stream() << "Worker " << id << " asserting shared clause: " << mk_bounded_pp(local_clause, m, 3) << "\n");
         }
     }
 
@@ -173,7 +184,6 @@ namespace smt {
     }
 
     lbool parallel::worker::check_cube(expr_ref_vector const& cube) {
-        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " checking cube\n";);
         for (auto& atom : cube) 
             asms.push_back(atom);                
         lbool r = l_undef;
@@ -441,7 +451,7 @@ namespace smt {
             if (top_lits.size() >= k) 
                 break;
         }
-        IF_VERBOSE(1, verbose_stream() << "top literals " << top_lits << " head size " << ctx->m_pq_scores.size() << " num vars " << ctx->get_num_bool_vars() << "\n");
+        IF_VERBOSE(2, verbose_stream() << "top literals " << top_lits << " head size " << ctx->m_pq_scores.size() << " num vars " << ctx->get_num_bool_vars() << "\n");
         return top_lits;
     }
 
