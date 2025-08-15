@@ -41,6 +41,7 @@ Revision History:
 #include "nlsat/nlsat_simplify.h"
 #include "nlsat/nlsat_simple_checker.h"
 #include "nlsat/nlsat_variable_ordering_strategy.h"
+#include "nlsat_solver.h"
 
 #define NLSAT_EXTRA_VERBOSE
 
@@ -4373,10 +4374,14 @@ namespace nlsat {
         nlsat_params::collect_param_descrs(d);
     }
 
-    unsynch_mpq_manager & solver::qm() {
+    const assignment &solver::get_assignment() const {
+        return m_imp->m_assignment;
+    }
+    unsynch_mpq_manager &solver::qm()
+    {
         return m_imp->m_qm;
     }
-        
+
     anum_manager & solver::am() {
         return m_imp->m_am;
     }
