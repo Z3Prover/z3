@@ -14,7 +14,7 @@ Abstract:
 #pragma once
 
 #include "nlsat/nlsat_solver.h"
-
+#include "nlsat/nlsat_scoped_literal_vector.h"
 namespace nlsat {
 
 inline std::ostream& display(std::ostream& out, pmanager& pm, polynomial_ref const& p, display_var_proc const& proc) {
