@@ -30,13 +30,11 @@ namespace smt {
 
         struct compare;
 
-        // double get_score();
+        double get_score();
 
         void choose_rec(expr_ref_vector& trail, expr_ref_vector& result, unsigned depth, unsigned budget);
 
     public:
-        double get_score();
-
         lookahead(context& ctx);
 
         expr_ref choose(unsigned budget = 2000);
