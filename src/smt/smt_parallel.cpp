@@ -362,7 +362,7 @@ namespace smt {
 
         std::scoped_lock lock(mux);
         unsigned max_cubes = 1000;
-        bool greedy_mode = (m_cubes.size() <= max_cubes);
+        bool greedy_mode = (m_cubes.size() <= max_cubes) && !smt_parallel_params(p.ctx.m_params).frugal_cube_only();
         unsigned a_worker_start_idx = 0;
 
         //
