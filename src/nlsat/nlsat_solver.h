@@ -244,8 +244,8 @@ namespace nlsat {
         // -----------------------
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
-        const assignment& get_assignment() const;
-        assignment& get_assignment(); 
+        const assignment& sample() const;
+        assignment& sample(); 
 
         void reset();
         void collect_statistics(statistics & st);

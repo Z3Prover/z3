@@ -52,8 +52,8 @@ namespace nlsat {
         bool                    m_add_zero_disc;
         bool                    m_cell_sample;
 
-        assignment const &      sample() const { return m_solver.get_assignment(); }
-        assignment &      sample() { return m_solver.get_assignment(); }
+        assignment const &      sample() const { return m_solver.sample(); }
+        assignment &      sample() { return m_solver.sample(); }
 
         struct todo_set {
             polynomial::cache  &    m_cache;
@@ -515,7 +515,7 @@ namespace nlsat {
                     if (max_var(p) == max)
                         elim_vanishing(p); // eliminate vanishing coefficients of max
                     if (is_const(p) || max_var(p) < max) {
-                        int s = sign(p, m_solver.get_assignment(), m_am); 
+                        int s = sign(p, m_solver.sample(), m_am); 
                         if (!is_const(p)) {
                             SASSERT(max_var(p) != null_var);
                             SASSERT(max_var(p) < max);
