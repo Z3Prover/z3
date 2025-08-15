@@ -244,7 +244,7 @@ namespace nlsat {
         // -----------------------
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
-
+        const assignment& get_assignment() const; 
         void reset();
         void collect_statistics(statistics & st);
         void reset_statistics();
@@ -294,7 +294,7 @@ namespace nlsat {
         std::ostream& display_assignment(std::ostream& out) const;
 
         std::ostream& display_var(std::ostream& out, unsigned j) const;
-        
+
     };
 
 };
