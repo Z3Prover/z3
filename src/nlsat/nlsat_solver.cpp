@@ -4377,6 +4377,11 @@ namespace nlsat {
     const assignment &solver::get_assignment() const {
         return m_imp->m_assignment;
     }
+
+    assignment &solver::get_assignment() {
+        return m_imp->m_assignment;
+    }
+
     unsynch_mpq_manager &solver::qm()
     {
         return m_imp->m_qm;

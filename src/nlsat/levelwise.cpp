@@ -6,7 +6,7 @@
 #include <map>
 #include <algorithm>
 #include "math/polynomial/algebraic_numbers.h"
-#include "nlsat_pp.h"
+#include "nlsat_common.h"
 namespace nlsat {
 
 // Local enums reused from previous scaffolding
@@ -41,7 +41,6 @@ namespace nlsat {
         solver& m_solver;
         polynomial_ref_vector const& m_P;
         var                          m_n;
-        assignment const&            sample() { return m_solver.get_assignment();}
         pmanager&                    m_pm;
         anum_manager&                m_am;
         std::vector<property>        m_Q; // the set of properties to prove as in single_cell
@@ -52,7 +51,11 @@ namespace nlsat {
         // Transitive closure matrix: dom[a][b] == true iff a ▹ b (a strictly dominates b).
         // Since m_p_relation holds (lesser -> greater), we invert edges when populating dom: greater ▹ lesser.
         std::vector<std::vector<bool>> m_prop_dom;
-        // max_x plays the role of n in algorith 1 of the levelwise paper.
+
+        assignment const&            sample() const { return m_solver.get_assignment();}
+        assignment & sample() { return m_solver.get_assignment(); }
+
+// max_x plays the role of n in algorith 1 of the levelwise paper.
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am)
             : m_solver(solver), m_P(ps), m_n(max_x),  m_pm(pm), m_am(am) {
             TRACE(levelwise, tout  << "m_n:" << m_n << "\n";);    
@@ -181,12 +184,6 @@ namespace nlsat {
             return ret;
         }
 
-        ::sign sign(poly * p) {
-            polynomial_ref pr(p, m_P.m());
-            auto s = m_am.eval_sign_at(pr, sample());
-            TRACE(levelwise, tout << "p: " << p << " var: " << m_pm.max_var(p) << " sign: " << s << "\n";);
-            return s;
-        }
         result_struct construct_interval() {
             result_struct ret;
 
@@ -212,7 +209,7 @@ namespace nlsat {
             
             std::vector<const poly*> p_non_null;
             for (const auto & pr: m_Q) {
-                if (pr.prop == prop_enum::sgn_inv_irreducible && m_pm.max_var(pr.p) < m_i && sign(pr.p) != 0)
+                if (pr.prop == prop_enum::sgn_inv_irreducible && m_pm.max_var(pr.p) < m_i && sign(polynomial_ref(pr.p, m_pm), sample(), m_am) != 0)
                     p_non_null.push_back(pr.p);
             }
             
