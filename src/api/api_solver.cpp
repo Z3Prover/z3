@@ -276,7 +276,11 @@ extern "C" {
         LOG_Z3_solver_translate(c, s, target);
         RESET_ERROR_CODE();
         params_ref const& p = to_solver(s)->m_params; 
-        Z3_solver_ref * sr = alloc(Z3_solver_ref, *mk_c(target), (solver_factory *)nullptr);
+        solver_factory* translated_factory = nullptr;
+        if (to_solver(s)->m_solver_factory.get()) {
+            translated_factory = to_solver(s)->m_solver_factory->translate(mk_c(target)->m());
+        }
+        Z3_solver_ref * sr = alloc(Z3_solver_ref, *mk_c(target), translated_factory);
         init_solver(c, s);
         sr->m_solver = to_solver(s)->m_solver->translate(mk_c(target)->m(), p);
         mk_c(target)->save_object(sr);
