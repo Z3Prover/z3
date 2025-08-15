@@ -23,6 +23,7 @@ Author:
 #include "ast/ast_translation.h"
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
+#include "params/smt_parallel_params.hpp"
 
 #ifdef SINGLE_THREAD
 
@@ -99,12 +100,14 @@ namespace smt {
                                 b.report_assumption_used(l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
                         IF_VERBOSE(1, verbose_stream() << "Worker " << id << " found unsat cube\n");
-                        b.collect_clause(l2g, id, mk_not(mk_and(unsat_core)));
+                        if (smt_parallel_params(p.ctx.m_params).share_conflicts())
+                            b.collect_clause(l2g, id, mk_not(mk_and(unsat_core)));
                         break;
                     }
                 }     
             }
-            share_units(l2g);
+            if (smt_parallel_params(p.ctx.m_params).share_units())
+                share_units(l2g);
         }
     }
 
@@ -124,6 +127,7 @@ namespace smt {
 
     void parallel::worker::share_units(ast_translation& l2g) {
         // Collect new units learned locally by this worker and send to batch manager
+        ctx->pop_to_base_lvl();
         unsigned sz = ctx->assigned_literals().size();
         for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
             literal lit = ctx->assigned_literals()[j];
@@ -340,7 +344,6 @@ namespace smt {
 
     // currenly, the code just implements the greedy strategy
     void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& C_worker, expr_ref_vector const& A_worker) {
-        std::scoped_lock lock(mux);
         auto atom_in_cube = [&](expr_ref_vector const& cube, expr* atom) {
             return any_of(cube, [&](expr* e) { return e == atom || (m.is_not(e, e) && e == atom); });
         };
