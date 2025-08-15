@@ -170,7 +170,7 @@ namespace arith {
 
             // Add basic mod axiom for abs handling  
             // (mod x y) = (mod x -y) when y != 0 - fundamental property for divisibility
-            expr_ref neg_q(a.mk_uminus(q), m);
+            expr_ref neg_q(a.mk_add(a.mk_int(-1), q), m);
             expr_ref mod_neg(a.mk_mod(p, neg_q), m);
             literal mod_eq_mod_neg = mk_literal(m.mk_eq(mod, mod_neg));
             add_clause(eqz, mod_eq_mod_neg);
@@ -210,32 +210,10 @@ namespace arith {
                 
                 // Add axiom: (mod x y) = (mod x -y) when y != 0
                 // This is needed for divisibility problems to work correctly with abs(y)
-                expr_ref neg_q(a.mk_uminus(q), m);
+                expr_ref neg_q(a.mk_add(a.mk_int(-1), q), m);
                 expr_ref mod_neg(a.mk_mod(p, neg_q), m);
                 literal mod_eq_mod_neg = mk_literal(m.mk_eq(mod, mod_neg));
                 add_clause(eqz, mod_eq_mod_neg);
-                
-                // Also add the axiom for abs: (mod x y) = (mod x abs(y)) when y != 0  
-                expr_ref abs_q(m.mk_ite(a.mk_ge(q, zero), q, a.mk_uminus(q)), m);
-                expr_ref mod_abs(a.mk_mod(p, abs_q), m);
-                literal mod_eq_mod_abs = mk_literal(m.mk_eq(mod, mod_abs));
-                add_clause(eqz, mod_eq_mod_abs);
-                
-                // Add conditional axioms for the ite form that abs gets rewritten to
-                // (mod x (ite (>= y 0) y (-y))) should equal (mod x y) when y >= 0
-                // (mod x (ite (>= y 0) y (-y))) should equal (mod x (-y)) when y < 0
-                expr_ref q_ge_0(a.mk_ge(q, zero), m);
-                expr_ref ite_divisor(m.mk_ite(q_ge_0, q, neg_q), m);
-                expr_ref mod_ite(a.mk_mod(p, ite_divisor), m);
-                
-                // When y >= 0: mod(x, ite(...)) = mod(x, y)
-                literal q_ge_0_lit = mk_literal(q_ge_0);
-                literal mod_ite_eq_mod = mk_literal(m.mk_eq(mod_ite, mod));
-                add_clause(eqz, ~q_ge_0_lit, mod_ite_eq_mod);
-                
-                // When y < 0: mod(x, ite(...)) = mod(x, -y)  
-                literal mod_ite_eq_mod_neg = mk_literal(m.mk_eq(mod_ite, mod_neg));
-                add_clause(eqz, q_ge_0_lit, mod_ite_eq_mod_neg);
             }
 
 
