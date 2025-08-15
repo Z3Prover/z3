@@ -623,6 +623,19 @@ namespace smt {
                 expr_ref abs_divisor(m.mk_ite(m_util.mk_ge(divisor, zero), divisor, m_util.mk_uminus(divisor)), m);
                 expr_ref mod_abs(m_util.mk_mod(dividend, abs_divisor), m);
                 mk_axiom(eqz, m.mk_eq(mod, mod_abs));
+                
+                // Add conditional axioms for the ite form that abs gets rewritten to
+                expr_ref divisor_ge_0(m_util.mk_ge(divisor, zero), m);
+                expr_ref ite_divisor(m.mk_ite(divisor_ge_0, divisor, neg_divisor), m);
+                expr_ref mod_ite(m_util.mk_mod(dividend, ite_divisor), m);
+                
+                // When y >= 0: mod(x, ite(...)) = mod(x, y)
+                expr_ref ante1(m.mk_and(m.mk_not(eqz), divisor_ge_0), m);
+                mk_axiom(ante1, m.mk_eq(mod_ite, mod));
+                
+                // When y < 0: mod(x, ite(...)) = mod(x, -y)  
+                expr_ref ante2(m.mk_and(m.mk_not(eqz), m.mk_not(divisor_ge_0)), m);
+                mk_axiom(ante2, m.mk_eq(mod_ite, mod_neg));
             }
 
             if (m_params.m_arith_enum_const_mod && m_util.is_numeral(divisor, k) &&
