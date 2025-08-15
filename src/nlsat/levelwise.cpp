@@ -31,6 +31,12 @@ namespace nlsat {
     unsigned prop_count() { return static_cast<unsigned>(prop_enum::_count);}
     // no score-based ordering; precedence is defined by m_p_relation only
     
+
+    struct indexed_root_expr {
+        poly* p;  // the polynomial
+        unsigned i; // the root index, starting from 1 to be constistent with anums
+    };
+
     struct levelwise::impl {
         struct property {
             prop_enum prop;
@@ -45,7 +51,6 @@ namespace nlsat {
         anum_manager&                m_am;
         std::vector<property>        m_Q; // the set of properties to prove as in single_cell
         bool                         m_fail = false;
-        unsigned                     m_i; // current level
         // Property precedence relation stored as pairs (lesser, greater)
         std::vector<std::pair<prop_enum, prop_enum>> m_p_relation;
         // Transitive closure matrix: dom[a][b] == true iff a ▹ b (a strictly dominates b).
@@ -144,12 +149,12 @@ namespace nlsat {
             return m_prop_dom[static_cast<unsigned>(a)][static_cast<unsigned>(b)];
         }
         
-        std::vector<property> greatest_to_refine() {
+        std::vector<property> greatest_to_refine(unsigned i) {
             // Collect candidates on current level, excluding sgn_inv_irreducible
             std::vector<property> cand;
             cand.reserve(m_Q.size());
             for (const auto& q : m_Q)
-                if (q.level == m_i && q.prop != prop_enum::sgn_inv_irreducible)
+                if (q.level == i && q.prop != prop_enum::sgn_inv_irreducible)
                     cand.push_back(q);
             if (cand.empty()) return {};
 
@@ -183,11 +188,23 @@ namespace nlsat {
             for (auto const& k : keys) ret.push_back(cand[k.idx]);
             return ret;
         }
-
-        result_struct construct_interval() {
+        // check that at least one coeeficient of p \in Q[x0,..., x_{i-1}](x) does not evaluate to zere at the sample. 
+        bool poly_is_not_nullified_at_sample_at_level(poly* p, unsigned i) {
+            // iterate coefficients of p with respect to the current level variable m_i
+            unsigned deg = m_pm.degree(p, i);
+            polynomial_ref c(m_pm);
+            for (unsigned j = 0; j <= deg; ++j) {
+                c = m_pm.coeff(p, i, j);
+                if (sign(c, sample(), m_am) != 0)
+                    return true;
+            }
+            return false;
+        }
+            
+        result_struct construct_interval(unsigned i) {
             result_struct ret;
 
-            std::vector<property> to_refine = greatest_to_refine();
+            std::vector<property> to_refine = greatest_to_refine(i);
             for (const auto& p: to_refine) {
                 apply_pre(p);
             }
@@ -209,7 +226,7 @@ namespace nlsat {
             
             std::vector<const poly*> p_non_null;
             for (const auto & pr: m_Q) {
-                if (pr.prop == prop_enum::sgn_inv_irreducible && m_pm.max_var(pr.p) < m_i && sign(polynomial_ref(pr.p, m_pm), sample(), m_am) != 0)
+                if (pr.prop == prop_enum::sgn_inv_irreducible && m_pm.max_var(pr.p) == i && poly_is_not_nullified_at_sample_at_level(pr.p, i))
                     p_non_null.push_back(pr.p);
             }
             
@@ -225,8 +242,8 @@ namespace nlsat {
             std::vector<symbolic_interval> ret;
 
             m_Q = seed_properties(); // Q is the set of properties on level m_n
-            for (m_i = m_n; m_i > 0; --m_i) {
-                auto result = construct_interval();
+            for (unsigned i = m_n; i > 0; --i) {
+                auto result = construct_interval(i);
                 if (result.fail)
                     return std::vector<symbolic_interval>(); // return empty
                 ret.push_back(result.I);

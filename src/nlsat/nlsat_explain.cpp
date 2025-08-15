@@ -53,7 +53,7 @@ namespace nlsat {
         bool                    m_cell_sample;
 
         assignment const &      sample() const { return m_solver.sample(); }
-        assignment &      sample() { return m_solver.sample(); }
+        assignment &            sample() { return m_solver.sample(); }
 
         struct todo_set {
             polynomial::cache  &    m_cache;
