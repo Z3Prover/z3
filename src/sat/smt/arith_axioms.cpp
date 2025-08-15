@@ -168,6 +168,13 @@ namespace arith {
             add_clause(eqz, mod_ge_0);
             add_clause(eqz, mod_lt_q);
 
+            // Add basic mod axiom for abs handling  
+            // (mod x y) = (mod x -y) when y != 0 - fundamental property for divisibility
+            expr_ref neg_q(a.mk_uminus(q), m);
+            expr_ref mod_neg(a.mk_mod(p, neg_q), m);
+            literal mod_eq_mod_neg = mk_literal(m.mk_eq(mod, mod_neg));
+            add_clause(eqz, mod_eq_mod_neg);
+
 #if 0
             /*literal div_ge_0   = */ mk_literal(a.mk_ge(div, zero));
             /*literal div_le_0   = */ mk_literal(a.mk_le(div, zero));

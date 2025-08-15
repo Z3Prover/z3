@@ -582,6 +582,12 @@ namespace smt {
             mk_axiom(eqz, lower, false);
             mk_axiom(eqz, upper, !m_util.is_numeral(abs_divisor));
 
+            // Add basic mod axioms for abs handling
+            // (mod x y) = (mod x -y) when y != 0 - fundamental property for divisibility
+            expr_ref neg_divisor(m_util.mk_uminus(divisor), m);
+            expr_ref mod_neg(m_util.mk_mod(dividend, neg_divisor), m);
+            mk_axiom(eqz, m.mk_eq(mod, mod_neg));
+
             rational k;
 
             m_arith_eq_adapter.mk_axioms(ensure_enode(qr), ensure_enode(dividend));
