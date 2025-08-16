@@ -364,7 +364,9 @@ namespace smt {
         auto add_split_atom = [&](expr* atom, unsigned start) {
             unsigned stop = m_cubes.size();
             for (unsigned i = start; i < stop; ++i) {
-                m_cubes.push_back(m_cubes[i]);
+                // copy the last cube so that expanding m_cubes doesn't invalidate reference.
+                auto cube = m_cubes[i];
+                m_cubes.push_back(cube);
                 m_cubes.back().push_back(m.mk_not(atom));
                 m_cubes[i].push_back(atom);
             }
