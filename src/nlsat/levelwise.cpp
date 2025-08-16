@@ -156,6 +156,17 @@ namespace nlsat {
             bucket_t& operator=(bucket_t const&) = delete;
         };
 
+        // Internal carrier to keep root value paired with indexed root expr
+        struct root_item_t {
+            scoped_anum val;
+            indexed_root_expr ire;
+            root_item_t(anum_manager& am, poly* p, unsigned idx, anum const& v)
+                : val(am), ire{ p, idx } { am.set(val, v); }
+            root_item_t(root_item_t&& other) noexcept : val(other.val.m()), ire(other.ire) { val = other.val; }
+            root_item_t(root_item_t const&) = delete;
+            root_item_t& operator=(root_item_t const&) = delete;
+        };
+
         bool dominates(const property& a, const property& b) const {
             return a.p == b.p && dominates(a.prop, b.prop);
         }
@@ -215,11 +226,11 @@ namespace nlsat {
             return false;
         }
 
-        // Step 1: collect E and build equality buckets of roots for initial omega ordering
-        void collect_E_and_buckets(std::vector<const poly*> const& P_non_null,
-                                   unsigned i,
-                                   std::vector<indexed_root_expr>& E,
-                                   std::vector<std::unique_ptr<bucket_t>>& buckets) {
+        // Step 1a: collect E and root values
+        void collect_E_and_roots(std::vector<const poly*> const& P_non_null,
+                                 unsigned i,
+                                 std::vector<indexed_root_expr>& E,
+                                 std::vector<root_item_t>& roots_out) {
             var y = i;
             for (auto const* p0 : P_non_null) {
                 auto* p = const_cast<poly*>(p0);
@@ -230,20 +241,28 @@ namespace nlsat {
                 unsigned num_roots = roots.size();
                 for (unsigned k = 0; k < num_roots; ++k) {
                     E.push_back(indexed_root_expr{ p, k + 1 });
-                    bool placed = false;
-                    for (auto& b : buckets) {
-                        if (m_am.compare(roots[k], b->val) == 0) {
-                            b->members.push_back(indexed_root_expr{ p, k + 1 });
-                            placed = true;
-                            break;
-                        }
+                    roots_out.emplace_back(m_am, p, k + 1, roots[k]);
+                }
+            }
+        }
+
+        // Step 1b: bucketize roots by equality of values
+        void bucketize_roots(std::vector<root_item_t> const& roots,
+                             std::vector<std::unique_ptr<bucket_t>>& buckets) {
+            for (auto const& r : roots) {
+                bool placed = false;
+                for (auto& b : buckets) {
+                    if (m_am.compare(r.val, b->val) == 0) {
+                        b->members.push_back(r.ire);
+                        placed = true;
+                        break;
                     }
-                    if (!placed) {
-                        auto nb = std::make_unique<bucket_t>(m_am);
-                        nb->members.push_back(indexed_root_expr{ p, k + 1 });
-                        m_am.set(nb->val, roots[k]);
-                        buckets.push_back(std::move(nb));
-                    }
+                }
+                if (!placed) {
+                    auto nb = std::make_unique<bucket_t>(m_am);
+                    nb->members.push_back(r.ire);
+                    m_am.set(nb->val, r.val);
+                    buckets.push_back(std::move(nb));
                 }
             }
         }
@@ -338,7 +357,9 @@ namespace nlsat {
             }
             // Line 7: choose representation (I, E, ≼) with respect to s.
             std::vector<std::unique_ptr<bucket_t>> buckets;
-            collect_E_and_buckets(p_non_null, i, ret.E, buckets);
+            std::vector<root_item_t> roots;
+            collect_E_and_roots(p_non_null, i, ret.E, roots);
+            bucketize_roots(roots, buckets);
             finalize_representation_from_buckets(i, buckets, ret.I, ret.omega_buckets);
             return ret;
         }
