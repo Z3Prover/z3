@@ -9,14 +9,14 @@ namespace nlsat {
     public:
         struct indexed_root_expr {
             poly* p;
-            short i;
+            unsigned i;
         };
         struct symbolic_interval {
             bool section = true;
             poly* l = nullptr;
-            short l_index; // the root index
+            unsigned l_index; // the root index
             poly* u = nullptr;
-            short u_index; // the root index
+            unsigned u_index; // the root index
             bool l_inf() const { return l == nullptr; }
             bool u_inf() const { return u == nullptr; }
             bool is_section() { return section; }
