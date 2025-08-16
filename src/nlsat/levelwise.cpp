@@ -246,38 +246,42 @@ namespace nlsat {
             }
         }
 
-        // Step 1b: bucketize roots by equality of values
-        void bucketize_roots(std::vector<root_item_t> const& roots,
-                             std::vector<std::unique_ptr<bucket_t>>& buckets) {
-            for (auto const& r : roots) {
-                bool placed = false;
-                for (auto& b : buckets) {
-                    if (m_am.compare(r.val, b->val) == 0) {
-                        b->members.push_back(r.ire);
-                        placed = true;
-                        break;
-                    }
-                }
-                if (!placed) {
-                    auto nb = std::make_unique<bucket_t>(m_am);
-                    nb->members.push_back(r.ire);
-                    m_am.set(nb->val, r.val);
-                    buckets.push_back(std::move(nb));
-                }
-            }
+        // Find an existing bucket that has the same algebraic value; returns nullptr if none found
+        bucket_t* find_bucket_by_value(anum const& v,
+                                       std::vector<std::unique_ptr<bucket_t>>& buckets) {
+            for (auto& b : buckets)
+                if (m_am.compare(v, b->val) == 0)
+                    return b.get();
+            return nullptr;
         }
 
-        // Step 2: finalize representation (I and omega buckets) from collected buckets
-        void finalize_representation_from_buckets(unsigned i,
-                                                  std::vector<std::unique_ptr<bucket_t>>& buckets,
-                                                  symbolic_interval& I,
-                                                  std::vector<std::vector<indexed_root_expr>>& omega_buckets) {
-            var y = i;
-            // default: whole line sector (-inf, +inf)
-            I.section = false;
-            I.l = nullptr; I.u = nullptr; I.l_index = 0; I.u_index = 0;
+        // Append a root to a given bucket (does not change the bucket's value)
+        void add_root_to_bucket(bucket_t& bucket, root_item_t const& r) {
+            bucket.members.push_back(r.ire);
+        }
 
-            // Sort buckets by numeric value and form omega_buckets
+        // Step 1b: bucketize roots by equality of values
+        void add_root_to_buckets(root_item_t const& r,
+                                 std::vector<std::unique_ptr<bucket_t>>& buckets) {
+            if (auto* b = find_bucket_by_value(r.val, buckets)) {
+                add_root_to_bucket(*b, r);
+                return;
+            }
+            auto nb = std::make_unique<bucket_t>(m_am);
+            m_am.set(nb->val, r.val);
+            add_root_to_bucket(*nb, r);
+            buckets.push_back(std::move(nb));
+        }
+
+        void bucketize_roots(std::vector<root_item_t> const& roots,
+                             std::vector<std::unique_ptr<bucket_t>>& buckets) {
+            for (auto const& r : roots)
+                add_root_to_buckets(r, buckets);
+        }
+
+        // Step 2a: sort buckets and form omega_buckets
+        void build_omega_buckets(std::vector<std::unique_ptr<bucket_t>>& buckets,
+                                 std::vector<std::vector<indexed_root_expr>>& omega_buckets) {
             std::sort(buckets.begin(), buckets.end(), [&](std::unique_ptr<bucket_t> const& a, std::unique_ptr<bucket_t> const& b){
                 return m_am.lt(a->val, b->val);
             });
@@ -285,35 +289,43 @@ namespace nlsat {
             omega_buckets.reserve(buckets.size());
             for (auto& b : buckets)
                 omega_buckets.push_back(b->members);
+        }
 
+        // Helper: set I as a section if sample matches a bucket value; returns true if set
+        bool initialize_section_from_bucket(unsigned i,
+                                      std::vector<std::unique_ptr<bucket_t>>& buckets,
+                                      symbolic_interval& I) {
+            var y = i;
             if (!sample().is_assigned(y))
-                return;
-
+                return false;
             anum const& y_val = sample().value(y);
-            // Check for section first
             for (auto const& b : buckets) {
                 if (m_am.compare(y_val, b->val) == 0) {
                     I.section = true;
-                    // pick a representative indexed root expression from the bucket
                     auto const& ire = b->members.front();
                     I.l = ire.p;
                     I.l_index = ire.i;
                     I.u = nullptr; I.u_index = 0;
-                    return;
+                    return true;
                 }
             }
-            // Otherwise compute nearest lower/upper buckets
+            return false;
+        }
+
+        // Helper: set sector bounds from neighboring buckets; assumes buckets sorted; no-op if sample unassigned
+        void set_sector_bounds_from_buckets(unsigned i,
+                                            std::vector<std::unique_ptr<bucket_t>>& buckets,
+                                            symbolic_interval& I) {
+            var y = i;
+            if (!sample().is_assigned(y))
+                return;
+            anum const& y_val = sample().value(y);
             bucket_t* lower_b = nullptr;
             bucket_t* upper_b = nullptr;
             for (auto& b : buckets) {
                 int cmp = m_am.compare(y_val, b->val);
-                if (cmp > 0) {
-                    lower_b = b.get();
-                }
-                else if (cmp < 0) {
-                    upper_b = b.get();
-                    break;
-                }
+                if (cmp > 0) lower_b = b.get();
+                else if (cmp < 0) { upper_b = b.get(); break; }
             }
             if (lower_b) {
                 auto const& ire = lower_b->members.front();
@@ -326,41 +338,55 @@ namespace nlsat {
                 I.u_index = ire.i;
             }
         }
-            
-        result_struct construct_interval(unsigned i) {
-            result_struct ret;
 
+        // Step 2b: compute interval I from (sorted) buckets and current sample
+        void compute_interval_from_buckets(unsigned i,
+                                           std::vector<std::unique_ptr<bucket_t>>& buckets,
+                                           symbolic_interval& I) {
+            // default: whole line sector (-inf, +inf)
+            I.section = false;
+            I.l = nullptr; I.u = nullptr; I.l_index = 0; I.u_index = 0;
+
+            if (initialize_section_from_bucket(i, buckets, I))
+                return;
+            set_sector_bounds_from_buckets(i, buckets, I);
+        }
+            
+        // Part A of construct_interval: apply pre-conditions (line 8-11 scaffolding)
+        bool apply_property_rules(unsigned i) {
             std::vector<property> to_refine = greatest_to_refine(i);
-            for (const auto& p: to_refine) {
+            for (const auto& p: to_refine)
                 apply_pre(p);
-            }
-            if (m_fail) {
-                ret.fail = true;
-                return ret;
-            }
+            return !m_fail;
+        }
 
-            /*
-              P_{nonnull} := {p | sgn_inv(p) ∈ Q |i s.t. p(s[i−1], xi ) ̸= 0}
-              6 E:= irExpr(P_{nonnull} , s[i−1])
-              7 choose representation (I, E, ≼) of with respect to s
-              8 if i > 1 then
-              9 foreach q ∈ Q |i where q is the greatest element with respect to ▹ (from Definition 4.5) and q ̸= holds(I) do
-              10 Q := apply_pre(i, Q ,q,(s, I, ≼)) 
-              11 if Q == FAIL return FAIL
-            */
-     
-            
+        // Part B of construct_interval: build (I, E, ≼) representation for level i
+        void build_representation(unsigned i, result_struct& ret) {
             std::vector<const poly*> p_non_null;
             for (const auto & pr: m_Q) {
                 if (pr.prop == prop_enum::sgn_inv_irreducible && m_pm.max_var(pr.p) == i && poly_is_not_nullified_at_sample_at_level(pr.p, i))
                     p_non_null.push_back(pr.p);
             }
-            // Line 7: choose representation (I, E, ≼) with respect to s.
             std::vector<std::unique_ptr<bucket_t>> buckets;
             std::vector<root_item_t> roots;
             collect_E_and_roots(p_non_null, i, ret.E, roots);
             bucketize_roots(roots, buckets);
-            finalize_representation_from_buckets(i, buckets, ret.I, ret.omega_buckets);
+            build_omega_buckets(buckets, ret.omega_buckets);
+            compute_interval_from_buckets(i, buckets, ret.I);
+        }
+
+        result_struct construct_interval(unsigned i) {
+            result_struct ret;
+            ret.fail = false;
+
+            if (!apply_property_rules(i)) {
+                ret.fail = true;
+                return ret;
+            }
+
+            build_representation(i, ret);
+            // Keep Q unchanged for now until apply_pre is implemented
+            ret.Q = m_Q;
             return ret;
         }
         // overload exists in explain; keep local poly*-based API only for now
