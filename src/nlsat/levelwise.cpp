@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <map>
 #include <algorithm>
+#include <memory>
 #include "math/polynomial/algebraic_numbers.h"
 #include "nlsat_common.h"
 namespace nlsat {
@@ -31,12 +32,6 @@ namespace nlsat {
     unsigned prop_count() { return static_cast<unsigned>(prop_enum::_count);}
     // no score-based ordering; precedence is defined by m_p_relation only
     
-
-    struct indexed_root_expr {
-        poly* p;  // the polynomial
-        unsigned i; // the root index, starting from 1 to be constistent with anums
-    };
-
     struct levelwise::impl {
         struct property {
             prop_enum prop;
@@ -123,6 +118,11 @@ namespace nlsat {
             SASSERT(check_prop_init());
 #endif            
         }
+
+        unsigned  max_var(poly* p) {
+            return m_pm.max_var(p);
+        }
+
         std::vector<property> seed_properties() {
             std::vector<property> Q;
 
@@ -132,14 +132,28 @@ namespace nlsat {
                 TRACE(levelwise, display(tout << "p:", m_solver, polynomial_ref(p, m_pm)) << std::endl;
                       tout << "max_var:" << m_pm.max_var(p) << std::endl;
                       m_solver.display_assignment(tout << "sample()") << std::endl;);
-                Q.push_back(property{ prop_enum::sgn_inv_irreducible, p, /*s_idx*/0, /* level */ m_n});
+                Q.push_back(property{ prop_enum::sgn_inv_irreducible, p, /*s_idx*/0, /* level */ max_var(p)});
             }
             return Q;
         }
         struct result_struct {
             symbolic_interval I;
+            // Set E of indexed root expressions at level i for P_non_null: the root functions from E pass throug s[i]
+            std::vector<indexed_root_expr> E;
+            // Initial ordering buckets for omega: each bucket groups equal-valued roots
+            std::vector<std::vector<indexed_root_expr>> omega_buckets;
             std::vector<property> Q;
             bool fail;
+        };
+
+        // Bucket of equal-valued roots used for initial omega ordering
+        struct bucket_t {
+            scoped_anum val;
+            std::vector<indexed_root_expr> members;
+            bucket_t(anum_manager& am): val(am) {}
+            bucket_t(bucket_t&& other) noexcept : val(other.val.m()), members(std::move(other.members)) { val = other.val; }
+            bucket_t(bucket_t const&) = delete;
+            bucket_t& operator=(bucket_t const&) = delete;
         };
 
         bool dominates(const property& a, const property& b) const {
@@ -149,12 +163,12 @@ namespace nlsat {
             return m_prop_dom[static_cast<unsigned>(a)][static_cast<unsigned>(b)];
         }
         
-        std::vector<property> greatest_to_refine(unsigned i) {
+        std::vector<property> greatest_to_refine(unsigned level) {
             // Collect candidates on current level, excluding sgn_inv_irreducible
             std::vector<property> cand;
             cand.reserve(m_Q.size());
             for (const auto& q : m_Q)
-                if (q.level == i && q.prop != prop_enum::sgn_inv_irreducible)
+                if (q.level == level && q.prop != prop_enum::sgn_inv_irreducible)
                     cand.push_back(q);
             if (cand.empty()) return {};
 
@@ -200,6 +214,99 @@ namespace nlsat {
             }
             return false;
         }
+
+        // Step 1: collect E and build equality buckets of roots for initial omega ordering
+        void collect_E_and_buckets(std::vector<const poly*> const& P_non_null,
+                                   unsigned i,
+                                   std::vector<indexed_root_expr>& E,
+                                   std::vector<std::unique_ptr<bucket_t>>& buckets) {
+            var y = i;
+            for (auto const* p0 : P_non_null) {
+                auto* p = const_cast<poly*>(p0);
+                if (m_pm.max_var(p) != y)
+                    continue;
+                scoped_anum_vector roots(m_am);
+                m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), y), roots);
+                unsigned num_roots = roots.size();
+                for (unsigned k = 0; k < num_roots; ++k) {
+                    E.push_back(indexed_root_expr{ p, k + 1 });
+                    bool placed = false;
+                    for (auto& b : buckets) {
+                        if (m_am.compare(roots[k], b->val) == 0) {
+                            b->members.push_back(indexed_root_expr{ p, k + 1 });
+                            placed = true;
+                            break;
+                        }
+                    }
+                    if (!placed) {
+                        auto nb = std::make_unique<bucket_t>(m_am);
+                        nb->members.push_back(indexed_root_expr{ p, k + 1 });
+                        m_am.set(nb->val, roots[k]);
+                        buckets.push_back(std::move(nb));
+                    }
+                }
+            }
+        }
+
+        // Step 2: finalize representation (I and omega buckets) from collected buckets
+        void finalize_representation_from_buckets(unsigned i,
+                                                  std::vector<std::unique_ptr<bucket_t>>& buckets,
+                                                  symbolic_interval& I,
+                                                  std::vector<std::vector<indexed_root_expr>>& omega_buckets) {
+            var y = i;
+            // default: whole line sector (-inf, +inf)
+            I.section = false;
+            I.l = nullptr; I.u = nullptr; I.l_index = 0; I.u_index = 0;
+
+            // Sort buckets by numeric value and form omega_buckets
+            std::sort(buckets.begin(), buckets.end(), [&](std::unique_ptr<bucket_t> const& a, std::unique_ptr<bucket_t> const& b){
+                return m_am.lt(a->val, b->val);
+            });
+            omega_buckets.clear();
+            omega_buckets.reserve(buckets.size());
+            for (auto& b : buckets)
+                omega_buckets.push_back(b->members);
+
+            if (!sample().is_assigned(y))
+                return;
+
+            anum const& y_val = sample().value(y);
+            // Check for section first
+            for (auto const& b : buckets) {
+                if (m_am.compare(y_val, b->val) == 0) {
+                    I.section = true;
+                    // pick a representative indexed root expression from the bucket
+                    auto const& ire = b->members.front();
+                    I.l = ire.p;
+                    I.l_index = ire.i;
+                    I.u = nullptr; I.u_index = 0;
+                    return;
+                }
+            }
+            // Otherwise compute nearest lower/upper buckets
+            bucket_t* lower_b = nullptr;
+            bucket_t* upper_b = nullptr;
+            for (auto& b : buckets) {
+                int cmp = m_am.compare(y_val, b->val);
+                if (cmp > 0) {
+                    lower_b = b.get();
+                }
+                else if (cmp < 0) {
+                    upper_b = b.get();
+                    break;
+                }
+            }
+            if (lower_b) {
+                auto const& ire = lower_b->members.front();
+                I.l = ire.p;
+                I.l_index = ire.i;
+            }
+            if (upper_b) {
+                auto const& ire = upper_b->members.front();
+                I.u = ire.p;
+                I.u_index = ire.i;
+            }
+        }
             
         result_struct construct_interval(unsigned i) {
             result_struct ret;
@@ -219,8 +326,8 @@ namespace nlsat {
               7 choose representation (I, E, ≼) of with respect to s
               8 if i > 1 then
               9 foreach q ∈ Q |i where q is the greatest element with respect to ▹ (from Definition 4.5) and q ̸= holds(I) do
-              10 Q := apply_pre(i, Q ,q,(s, I, ≼)) 11 if Q= FAIL then
-              12 return FAIL
+              10 Q := apply_pre(i, Q ,q,(s, I, ≼)) 
+              11 if Q == FAIL return FAIL
             */
      
             
@@ -229,8 +336,10 @@ namespace nlsat {
                 if (pr.prop == prop_enum::sgn_inv_irreducible && m_pm.max_var(pr.p) == i && poly_is_not_nullified_at_sample_at_level(pr.p, i))
                     p_non_null.push_back(pr.p);
             }
-            
-   
+            // Line 7: choose representation (I, E, ≼) with respect to s.
+            std::vector<std::unique_ptr<bucket_t>> buckets;
+            collect_E_and_buckets(p_non_null, i, ret.E, buckets);
+            finalize_representation_from_buckets(i, buckets, ret.I, ret.omega_buckets);
             return ret;
         }
         // overload exists in explain; keep local poly*-based API only for now
