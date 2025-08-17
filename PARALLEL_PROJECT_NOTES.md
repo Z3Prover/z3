@@ -215,4 +215,80 @@ SMT parameters that could be tuned:
   seq.split_w_len (bool) (default: true)
 </pre>
 
+# Benchmark setup
 
+## Prepare benchmark data
+
+Data
+<pre>
+QF_LIA            - heavily skewed for selected benchmarks
+QF_NIA_small  
+
+Others we should try:
+
+Certora
+QF_ABV
+QF_UFBV
+QF_AUFBV (or whatever it is called)
+QF_UFLIA (might be too small)
+
+push more instances from smtlib.org benchmarks into z3-poly-testing/inputs or upload tgz files directly in setup.
+
+</pre>
+
+## Naming conventions and basic parameters
+
+The first rounds created a base-line where all features were turned off, then it created variants where one feature was turned off at a time.
+The data-point where all but one feature is turned off could tell us something if a feature has a chance of being useful in isolation.
+The following is a sample naming scheme for associated settings.
+
+<pre>
+threads-1
+-T:30 smt.threads=1 tactic.default_tactic=smt
+
+threads-4-none-unbounded
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=false smt.threads.max_conflicts=4294967295
+
+threads-4-none
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=false 
+
+threads-4-shareunits
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=true 
+
+threads-4-cube-frugal
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=false smt_parallel.frugal_cube_only=true smt_parallel.share_conflicts=false smt_parallel.share_units=false
+
+threads-4-cube-frugal-shareconflicts
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=false smt_parallel.frugal_cube_only=true smt_parallel.share_conflicts=true smt_parallel.share_units=false 
+
+threads-4-shareunits-nonrelevant
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=true smt_parallel.share_units=false smt_parallel.relevant_units_only=false 
+
+threads-4-cube
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=false smt_parallel.frugal_cube_only=false smt_parallel.share_conflicts=false smt_parallel.share_units=false 
+
+threads-4-cube-shareconflicts
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=false smt_parallel.frugal_cube_only=false smt_parallel.share_conflicts=true smt_parallel.share_units=false 
+
+</pre>
+
+Ideas for other knobs that can be tested
+
+<il>
+<li> Only cube on literals that exist in initial formula. Don't cube on literals created during search (such as by theory lemmas).
+<li> Only share units for literals that exist in the initial formula.
+<li> Vary the backoff scheme for <b>max_conflict_mul</b> from 1.5 to lower and higher.
+<li> Vary <b>smt.threads.max_conflicts</b>
+<li> Replace backoff scheme by a geometric scheme: add <b>conflict_inc</b> (a new parameter) every time and increment <b>conflict_inc</b>
+</il>
+
+<pre>
+  cube_initial_only (bool) (default: false)          only useful when never_cube=false
+  frugal_cube_only (bool) (default: false)           only useful when never_cube=false
+  max_conflict_mul (double) (default: 1.5)
+  never_cube (bool) (default: false)
+  relevant_units_only (bool) (default: true)         only useful when share_units=true
+  share_conflicts (bool) (default: true)             only useful when never_cube=false
+  share_units (bool) (default: true)
+  share_units_initial_only (bool) (default: false)   only useful when share_units=true
+</pre>

@@ -39,48 +39,50 @@ namespace smt {
 #include <thread>
 #include <cassert>
 
+#define LOG_WORKER(lvl, s) IF_VERBOSE(lvl, verbose_stream() << "Worker " << id << s)
+
 namespace smt {
 
     void parallel::worker::run() {
-        ast_translation g2l(p.ctx.m, m); // global to local context -- MUST USE p.ctx.m, not ctx->m, AS GLOBAL MANAGER!!!
-        ast_translation l2g(m, p.ctx.m); // local to global context
         while (m.inc()) { // inc: increase the limit and check if it is canceled, vs m.limit().is_canceled() is readonly. the .limit() is also not necessary (m.inc() etc provides a convenience wrapper)
             vector<expr_ref_vector> cubes;
-            b.get_cubes(g2l, cubes);
+            b.get_cubes(m_g2l, cubes);
             if (cubes.empty())
                 return;
-            collect_shared_clauses(g2l);
+            collect_shared_clauses(m_g2l);
             for (auto& cube : cubes) {
                 if (!m.inc()) {
                     b.set_exception("context cancelled");
                     return;
                 }
-                IF_VERBOSE(1, verbose_stream() << "Worker " << id << " checking cube: " << mk_bounded_pp(mk_and(cube), m, 3) << "\n");
+                LOG_WORKER(1, " checking cube: " << mk_bounded_pp(mk_and(cube), m, 3) << " max-conflicts " << m_config.m_threads_max_conflicts << "\n");
                 lbool r = check_cube(cube);
                 if (m.limit().is_canceled()) {
-                    IF_VERBOSE(1, verbose_stream() << "Worker " << id << " context cancelled\n");
+                    LOG_WORKER(1, " context cancelled\n");
                     return;           
                 }
                 switch (r) {
                     case l_undef: {
                         if (m.limit().is_canceled())
                             break;
-                        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " found undef cube\n");
+                        LOG_WORKER(1, " found undef cube\n");
                         // return unprocessed cubes to the batch manager
                         // add a split literal to the batch manager.
                         // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
-                        vector<expr_ref_vector> returned_cubes;
-                        returned_cubes.push_back(cube);
-                        auto split_atoms = get_split_atoms();
-                        b.return_cubes(l2g, returned_cubes, split_atoms);
+                        if (!m_config.m_never_cube) {
+                            vector<expr_ref_vector> returned_cubes;
+                            returned_cubes.push_back(cube);
+                            auto split_atoms = get_split_atoms();
+                            b.return_cubes(m_l2g, returned_cubes, split_atoms);
+                        }
                         update_max_thread_conflicts();
                         break;
                     }
                     case l_true: {
-                        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " found sat cube\n");
+                        LOG_WORKER(1, " found sat cube\n");
                         model_ref mdl;
                         ctx->get_model(mdl);
-                        b.set_sat(l2g, *mdl);
+                        b.set_sat(m_l2g, *mdl);
                         return;
                     }
                     case l_false: {
@@ -89,42 +91,58 @@ namespace smt {
                         // share with batch manager.
                         // process next cube.
                         expr_ref_vector const& unsat_core = ctx->unsat_core();
-                        IF_VERBOSE(1, verbose_stream() << "unsat core: " << unsat_core << "\n");
+                        LOG_WORKER(2, " unsat core:\n"; for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
                         // If the unsat core only contains assumptions, 
                         // unsatisfiability does not depend on the current cube and the entire problem is unsat.
                         if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
-                            IF_VERBOSE(1, verbose_stream() << "Worker " << id << " determined formula unsat\n");
-                            b.set_unsat(l2g, unsat_core);
+                            LOG_WORKER(1, " determined formula unsat\n");
+                            b.set_unsat(m_l2g, unsat_core);
                             return;
                         }
                         for (expr* e : unsat_core)
                             if (asms.contains(e))
-                                b.report_assumption_used(l2g, e); // report assumptions used in unsat core, so they can be used in final core
+                                b.report_assumption_used(m_l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
-                        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " found unsat cube\n");
-                        if (smt_parallel_params(p.ctx.m_params).share_conflicts())
-                            b.collect_clause(l2g, id, mk_not(mk_and(unsat_core)));
+                        LOG_WORKER(1, " found unsat cube\n");
+                        if (m_config.m_share_conflicts)
+                            b.collect_clause(m_l2g, id, mk_not(mk_and(unsat_core)));
                         break;
                     }
                 }     
             }
-            if (smt_parallel_params(p.ctx.m_params).share_units())
-                share_units(l2g);
+            if (m_config.m_share_units)
+                share_units(m_l2g);
         }
     }
 
-    parallel::worker::worker(unsigned id, parallel& p, expr_ref_vector const& _asms): id(id), p(p), b(p.m_batch_manager), m_smt_params(p.ctx.get_fparams()), asms(m) {
-        ast_translation g2l(p.ctx.m, m);
+    parallel::worker::worker(unsigned id, parallel& p, expr_ref_vector const& _asms): 
+        id(id), p(p), b(p.m_batch_manager), m_smt_params(p.ctx.get_fparams()), asms(m),
+        m_g2l(p.ctx.m, m),
+        m_l2g(m, p.ctx.m) {
         for (auto e : _asms) 
-            asms.push_back(g2l(e));
-        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " created with " << asms.size() << " assumptions\n");        
+            asms.push_back(m_g2l(e));
+        LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");        
         m_smt_params.m_preprocess = false;
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         context::copy(p.ctx, *ctx, true);
         ctx->set_random_seed(id + m_smt_params.m_random_seed);
 
-        m_max_thread_conflicts = ctx->get_fparams().m_threads_max_conflicts;
-        m_max_conflicts = ctx->get_fparams().m_max_conflicts;
+        smt_parallel_params pp(p.ctx.m_params);
+        m_config.m_threads_max_conflicts = ctx->get_fparams().m_threads_max_conflicts;
+        m_config.m_max_conflicts = ctx->get_fparams().m_max_conflicts;
+        m_config.m_relevant_units_only = pp.relevant_units_only();
+        m_config.m_never_cube = pp.never_cube();
+        m_config.m_share_conflicts = pp.share_conflicts();
+        m_config.m_share_units = pp.share_units();
+        m_config.m_share_units_initial_only = pp.share_units_initial_only();
+        m_config.m_cube_initial_only = pp.cube_initial_only();
+        m_config.m_max_conflict_mul = pp.max_conflict_mul();
+
+        // don't share initial units
+        ctx->pop_to_base_lvl();
+        m_num_shared_units = ctx->assigned_literals().size();
+
+        m_num_initial_atoms = ctx->get_num_bool_vars();
     }
 
     void parallel::worker::share_units(ast_translation& l2g) {
@@ -133,21 +151,58 @@ namespace smt {
         unsigned sz = ctx->assigned_literals().size();
         for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
             literal lit = ctx->assigned_literals()[j];
-            if (!ctx->is_relevant(lit.var()) && smt_parallel_params(p.ctx.m_params).relevant_units_only()) {
-                // IF_VERBOSE(0, verbose_stream() << "non-relevant literal " << lit << "\n");
+            if (!ctx->is_relevant(lit.var()) && m_config.m_relevant_units_only) 
                 continue;
+
+            if (m_config.m_share_units_initial_only && lit.var() >= m_num_initial_atoms) {
+                LOG_WORKER(2, " Skipping non-initial unit: " << lit.var() << "\n");
+                continue; // skip non-iniial atoms if configured to do so
             }
+            
             expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m); // turn literal into a Boolean expression
-            if (m.is_and(e) || m.is_or(e)) {
-                //IF_VERBOSE(0, verbose_stream() << "skip Boolean\n");                
+            if (m.is_and(e) || m.is_or(e))             
                 continue;
-            }
+            
 
             if (lit.sign()) 
                 e = m.mk_not(e); // negate if literal is negative
             b.collect_clause(l2g, id, e);
         }
         m_num_shared_units = sz;
+    }
+
+    void parallel::batch_manager::init_parameters_state() {
+        auto& smt_params = p.ctx.get_fparams();
+        std::function<std::function<void(void)>(unsigned&)> inc = [](unsigned& v) { return [&]() -> void { ++v; }; };
+        std::function<std::function<void(void)>(unsigned&)> dec = [](unsigned& v) { return [&]() -> void { if (v > 0) --v; }; };       
+        std::function<std::function<void(void)>(bool&)> incb = [](bool& v) { return [&]() -> void { v = true; }; };
+        std::function<std::function<void(void)>(bool&)> decb = [](bool& v) { return [&]() -> void { v = false; }; };
+        std::function<parameter_state(unsigned&)> unsigned_parameter = [&](unsigned& p) -> parameter_state {
+            return { { { p , 1.0}},
+                       { { 1.0, inc(p) }, { 1.0, dec(p) }} 
+                   };
+        };
+        std::function<parameter_state(bool&)> bool_parameter = [&](bool& p) -> parameter_state {
+            return { { { p , 1.0}},
+                       { { 1.0, incb(p) }, { 1.0, decb(p) }}
+            };
+        };
+
+        parameter_state s1 = unsigned_parameter(smt_params.m_arith_branch_cut_ratio);
+        parameter_state s2 = bool_parameter(smt_params.m_arith_eager_eq_axioms);    
+
+        //  arith.enable_hnf(bool) (default: true)
+        //  arith.greatest_error_pivot(bool) (default: false)
+        //  arith.int_eq_branch(bool) (default: false)
+        //  arith.min(bool) (default: false)
+        //  arith.nl.branching(bool) (default: true)
+        //  arith.nl.cross_nested(bool) (default: true)
+        //  arith.nl.delay(unsigned int) (default: 10)
+        //  arith.nl.expensive_patching(bool) (default: false)
+        //  arith.nl.expp(bool) (default: false)
+        //  arith.nl.gr_q(unsigned int) (default: 10)
+        //  arith.nl.grobner(bool) (default: true)
+        //  arith.nl.grobner_cnfl_to_report(unsigned int) (default: 1) };
     }
 
     void parallel::batch_manager::collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause) {
@@ -166,7 +221,7 @@ namespace smt {
         for (expr* e : new_clauses) {
             expr_ref local_clause(e, g2l.to()); // e was already translated to the local context in the batch manager!!
             ctx->assert_expr(local_clause); // assert the clause in the local context
-            IF_VERBOSE(2, verbose_stream() << "Worker " << id << " asserting shared clause: " << mk_bounded_pp(local_clause, m, 3) << "\n");
+            LOG_WORKER(2, " asserting shared clause: " << mk_bounded_pp(local_clause, m, 3) << "\n");
         }
     }
 
@@ -188,7 +243,7 @@ namespace smt {
             asms.push_back(atom);                
         lbool r = l_undef;
 
-        ctx->get_fparams().m_max_conflicts = std::min(m_max_thread_conflicts, m_max_conflicts);
+        ctx->get_fparams().m_max_conflicts = std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts);
         try {
             r = ctx->check(asms.size(), asms.data());
         }
@@ -202,7 +257,7 @@ namespace smt {
             b.set_exception("unknown exception");
         }
         asms.shrink(asms.size() - cube.size());
-        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " DONE checking cube " << r << "\n";);
+        LOG_WORKER(1, " DONE checking cube " << r << "\n";);
         return r;
     }
 
@@ -354,8 +409,7 @@ namespace smt {
 
     // currenly, the code just implements the greedy strategy
     void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& C_worker, expr_ref_vector const& A_worker) {
-        if (smt_parallel_params(p.ctx.m_params).never_cube())
-            return; // portfolio only
+        SASSERT(!smt_parallel_params(p.ctx.m_params).never_cube());
 
         auto atom_in_cube = [&](expr_ref_vector const& cube, expr* atom) {
             return any_of(cube, [&](expr* e) { return e == atom || (m.is_not(e, e) && e == atom); });
@@ -364,7 +418,9 @@ namespace smt {
         auto add_split_atom = [&](expr* atom, unsigned start) {
             unsigned stop = m_cubes.size();
             for (unsigned i = start; i < stop; ++i) {
-                m_cubes.push_back(m_cubes[i]);
+                // copy the last cube so that expanding m_cubes doesn't invalidate reference.
+                auto cube = m_cubes[i];
+                m_cubes.push_back(cube);
                 m_cubes.back().push_back(m.mk_not(atom));
                 m_cubes[i].push_back(atom);
             }
@@ -440,8 +496,14 @@ namespace smt {
 
         expr_ref_vector top_lits(m);
         for (const auto& node: candidates) {
+
             if (ctx->get_assignment(node.key) != l_undef) 
                 continue;
+
+            if (m_config.m_cube_initial_only && node.key >= m_num_initial_atoms) {
+                LOG_WORKER(2, " Skipping non-initial atom from cube: " << node.key << "\n");
+                continue; // skip non-initial atoms if configured to do so
+            }
 
             expr* e = ctx->bool_var2expr(node.key);
             if (!e) 
@@ -451,7 +513,7 @@ namespace smt {
             if (top_lits.size() >= k) 
                 break;
         }
-        IF_VERBOSE(2, verbose_stream() << "top literals " << top_lits << " head size " << ctx->m_pq_scores.size() << " num vars " << ctx->get_num_bool_vars() << "\n");
+        IF_VERBOSE(3, verbose_stream() << "top literals " << top_lits << " head size " << ctx->m_pq_scores.size() << " num vars " << ctx->get_num_bool_vars() << "\n");
         return top_lits;
     }
 

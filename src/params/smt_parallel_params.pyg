@@ -6,5 +6,8 @@ def_module_params('smt_parallel',
                         ('share_conflicts', BOOL, True, 'share conflicts'),
                         ('never_cube', BOOL, False, 'never cube'),
                         ('frugal_cube_only', BOOL, False, 'only apply frugal cube strategy'),
-                        ('relevant_units_only', BOOL, False, 'only share relvant units')
+                        ('relevant_units_only', BOOL, True, 'only share relvant units'),
+                        ('max_conflict_mul', DOUBLE, 1.5, 'increment multiplier for max-conflicts'),
+                        ('share_units_initial_only', BOOL, False, 'share only initial Boolean atoms as units'),
+                        ('cube_initial_only', BOOL, False, 'cube only on initial Boolean atoms')
               ))

@@ -11,7 +11,7 @@ Abstract:
 
 Author:
 
-    nbjorner 2020-01-31
+    Ilana 2025
 
 Revision History:
 
@@ -30,6 +30,11 @@ namespace smt {
         struct shared_clause {
             unsigned source_worker_id;
             expr_ref clause;
+        };
+
+        struct parameter_state {
+            std::vector<std::pair<unsigned, double>> m_value_scores; // bounded number of values with scores.
+            std::vector<std::pair<double, std::function<void(void)>>> m_weighted_moves; // possible moves weighted by how well they did
         };
 
         class batch_manager {        
@@ -52,6 +57,7 @@ namespace smt {
             std::string m_exception_msg;
             vector<shared_clause> shared_clause_trail; // store all shared clauses with worker IDs
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
+            vector<parameter_state> m_parameters_state;
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
@@ -59,6 +65,8 @@ namespace smt {
                 for (auto& w : p.m_workers) 
                     w->cancel();
             }
+
+            void init_parameters_state();
 
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_split_atoms(m) { }
@@ -89,21 +97,33 @@ namespace smt {
         };
 
         class worker {
+            struct config {
+                unsigned m_threads_max_conflicts = 1000;
+                unsigned m_max_conflicts = 10000000;
+                bool m_relevant_units_only = true;
+                bool m_never_cube = false;
+                bool m_share_conflicts = true;
+                bool m_share_units = true;
+                double m_max_conflict_mul = 1.5;
+                bool m_share_units_initial_only = false;
+                bool m_cube_initial_only = false;
+            };
             unsigned id; // unique identifier for the worker
             parallel& p;
             batch_manager& b;
             ast_manager m;
             expr_ref_vector asms;
             smt_params m_smt_params;
+            config m_config;
             scoped_ptr<context> ctx;
-            unsigned m_max_conflicts; // the global budget for all work this worker can do across cubes in the current run. THIS GETS SET IN THE CPP FILE
-            unsigned m_max_thread_conflicts; // the per-cube limit for how many conflicts the worker can spend on a single cube before timing out on it and moving on. THIS GETS SET IN THE CPP FILE
+            ast_translation m_g2l, m_l2g;
             unsigned m_num_shared_units = 0;
+            unsigned m_num_initial_atoms = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             void share_units(ast_translation& l2g);
             lbool check_cube(expr_ref_vector const& cube);
             void update_max_thread_conflicts() {
-                m_max_thread_conflicts *= 2;
+                m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
             } // allow for backoff scheme of conflicts within the thread for cube timeouts.
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
@@ -116,7 +136,6 @@ namespace smt {
                 m.limit().cancel();
             }
             void collect_statistics(::statistics& st) const {
-                IF_VERBOSE(1, verbose_stream() << "Collecting statistics for worker " << id << "\n");
                 ctx->collect_statistics(st);
             }
             reslimit& limit() {

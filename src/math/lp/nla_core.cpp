@@ -38,7 +38,7 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
     m_grobner(this),
     m_emons(m_evars),
     m_use_nra_model(false),
-    m_nra(s, m_nra_lim, *this),
+    m_nra(s, m_nra_lim, *this, p),
     m_throttle(lra.trail(), 
 	lra.settings().stats()) {
      m_nlsat_delay_bound = lp_settings().nlsat_delay();
@@ -1561,6 +1561,9 @@ lbool core::check() {
     if (no_effect() && params().arith_nl_nra()) {
         scoped_limits sl(m_reslim);
         sl.push_child(&m_nra_lim);
+        params_ref p;
+        p.set_uint("max_conflicts", lp_settings().m_max_conflicts);
+        m_nra.updt_params(p);
         ret = m_nra.check();
         lp_settings().stats().m_nra_calls++;
     }
@@ -1595,7 +1598,7 @@ lbool core::bounded_nlsat() {
         scoped_rlimit sr(m_nra_lim, 100000);
         ret = m_nra.check();
     }
-    p.set_uint("max_conflicts", UINT_MAX);           
+    p.set_uint("max_conflicts", lp_settings().m_max_conflicts);           
     m_nra.updt_params(p);
     lp_settings().stats().m_nra_calls++;
     if (ret == l_undef) 
