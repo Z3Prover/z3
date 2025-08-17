@@ -91,7 +91,7 @@ namespace smt {
                         // share with batch manager.
                         // process next cube.
                         expr_ref_vector const& unsat_core = ctx->unsat_core();
-                        LOG_WORKER(2, "unsat core: " << unsat_core << "\n");
+                        LOG_WORKER(2, " unsat core:\n"; for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
                         // If the unsat core only contains assumptions, 
                         // unsatisfiability does not depend on the current cube and the entire problem is unsat.
                         if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
