@@ -215,4 +215,52 @@ SMT parameters that could be tuned:
   seq.split_w_len (bool) (default: true)
 </pre>
 
+# Benchmark setup
+
+## Prepare benchmark data
+
+Data
+<pre>
+QF_LIA            - heavily skewed for selected benchmarks
+QF_NIA_small  
+
+Others we should try:
+
+Certora
+QF_ABV
+QF_UFBV
+QF_AUFBV (or whatever it is called)
+QF_UFLIA (might be too small)
+
+push more instances from smtlib.org benchmarks into z3-poly-testing/inputs or upload tgz files directly in setup.
+
+</pre>
+
+## Naming conventions and basic parameters
+
+The first rounds created a base-line where all features were turned off, then it created variants where one feature was turned off at a time.
+The data-point where all but one feature is turned off could tell us something if a feature has a chance of being useful in isolation.
+The following is a sample naming scheme.
+
+<pre>
+threads-1
+smt.threads=1 tactic.default_tactic=smt -T:30
+
+threads-4-none-unbounded
+smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=false smt.threads.max_conflicts=4294967295 -T:30
+
+threads-4-none
+smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=false -T:30
+
+threads-4-shareunits
+smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=true -T:30
+
+threads-4-shareconflicts
+smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=true smt_parallel.share_units=false -T:30
+
+threads-4-cube
+smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=false smt_parallel.share_conflicts=false smt_parallel.share_units=false -T:30
+
+base-shareunits-nonrelevant
+</pre>
 
