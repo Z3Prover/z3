@@ -153,6 +153,11 @@ namespace smt {
             literal lit = ctx->assigned_literals()[j];
             if (!ctx->is_relevant(lit.var()) && m_config.m_relevant_units_only) 
                 continue;
+
+            if (m_config.m_share_units_initial_only && lit.var() >= m_num_initial_atoms) {
+                LOG_WORKER(2, " Skipping non-initial unit: " << lit.var() << "\n");
+                continue; // skip non-iniial atoms if configured to do so
+            }
             
             expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m); // turn literal into a Boolean expression
             if (m.is_and(e) || m.is_or(e))             
@@ -491,8 +496,14 @@ namespace smt {
 
         expr_ref_vector top_lits(m);
         for (const auto& node: candidates) {
+
             if (ctx->get_assignment(node.key) != l_undef) 
                 continue;
+
+            if (m_config.m_cube_initial_only && node.key >= m_num_initial_atoms) {
+                LOG_WORKER(2, " Skipping non-initial atom from cube: " << node.key << "\n");
+                continue; // skip non-initial atoms if configured to do so
+            }
 
             expr* e = ctx->bool_var2expr(node.key);
             if (!e) 
