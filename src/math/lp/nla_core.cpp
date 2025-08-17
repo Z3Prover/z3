@@ -1595,7 +1595,7 @@ lbool core::bounded_nlsat() {
         scoped_rlimit sr(m_nra_lim, 100000);
         ret = m_nra.check();
     }
-    p.set_uint("max_conflicts", UINT_MAX);           
+    p.set_uint("max_conflicts", lp_settings().m_max_conflicts);           
     m_nra.updt_params(p);
     lp_settings().stats().m_nra_calls++;
     if (ret == l_undef) 

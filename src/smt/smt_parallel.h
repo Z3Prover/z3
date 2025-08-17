@@ -104,6 +104,9 @@ namespace smt {
                 bool m_never_cube = false;
                 bool m_share_conflicts = true;
                 bool m_share_units = true;
+                double m_max_conflict_mul = 1.5;
+                bool m_share_units_initial_only = false;
+                bool m_cube_initial_only = false;
             };
             unsigned id; // unique identifier for the worker
             parallel& p;
@@ -115,11 +118,12 @@ namespace smt {
             scoped_ptr<context> ctx;
             ast_translation m_g2l, m_l2g;
             unsigned m_num_shared_units = 0;
+            unsigned m_num_initial_atoms = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             void share_units(ast_translation& l2g);
             lbool check_cube(expr_ref_vector const& cube);
             void update_max_thread_conflicts() {
-                m_config.m_threads_max_conflicts *= 2;
+                m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
             } // allow for backoff scheme of conflicts within the thread for cube timeouts.
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
@@ -132,7 +136,6 @@ namespace smt {
                 m.limit().cancel();
             }
             void collect_statistics(::statistics& st) const {
-                IF_VERBOSE(1, verbose_stream() << "Collecting statistics for worker " << id << "\n");
                 ctx->collect_statistics(st);
             }
             reslimit& limit() {

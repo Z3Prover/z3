@@ -55,7 +55,7 @@ namespace smt {
                     b.set_exception("context cancelled");
                     return;
                 }
-                LOG_WORKER(1, " checking cube: " << mk_bounded_pp(mk_and(cube), m, 3) << "\n");
+                LOG_WORKER(1, " checking cube: " << mk_bounded_pp(mk_and(cube), m, 3) << " max-conflicts " << m_config.m_threads_max_conflicts << "\n");
                 lbool r = check_cube(cube);
                 if (m.limit().is_canceled()) {
                     LOG_WORKER(1, " context cancelled\n");
@@ -134,8 +134,15 @@ namespace smt {
         m_config.m_never_cube = pp.never_cube();
         m_config.m_share_conflicts = pp.share_conflicts();
         m_config.m_share_units = pp.share_units();
+        m_config.m_share_units_initial_only = pp.share_units_initial_only();
+        m_config.m_cube_initial_only = pp.cube_initial_only();
+        m_config.m_max_conflict_mul = pp.max_conflict_mul();
 
+        // don't share initial units
+        ctx->pop_to_base_lvl();
+        m_num_shared_units = ctx->assigned_literals().size();
 
+        m_num_initial_atoms = ctx->get_num_bool_vars();
     }
 
     void parallel::worker::share_units(ast_translation& l2g) {
