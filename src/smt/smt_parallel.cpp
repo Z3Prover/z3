@@ -39,6 +39,8 @@ namespace smt {
 #include <thread>
 #include <cassert>
 
+#define LOG_WORKER(lvl, s) IF_VERBOSE(lvl, verbose_stream() << "Worker " << id << s)
+
 namespace smt {
 
     void parallel::worker::run() {
@@ -55,29 +57,31 @@ namespace smt {
                     b.set_exception("context cancelled");
                     return;
                 }
-                IF_VERBOSE(1, verbose_stream() << "Worker " << id << " checking cube: " << mk_bounded_pp(mk_and(cube), m, 3) << "\n");
+                LOG_WORKER(1, " checking cube: " << mk_bounded_pp(mk_and(cube), m, 3) << "\n");
                 lbool r = check_cube(cube);
                 if (m.limit().is_canceled()) {
-                    IF_VERBOSE(1, verbose_stream() << "Worker " << id << " context cancelled\n");
+                    LOG_WORKER(1, " context cancelled\n");
                     return;           
                 }
                 switch (r) {
                     case l_undef: {
                         if (m.limit().is_canceled())
                             break;
-                        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " found undef cube\n");
+                        LOG_WORKER(1, " found undef cube\n");
                         // return unprocessed cubes to the batch manager
                         // add a split literal to the batch manager.
                         // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
-                        vector<expr_ref_vector> returned_cubes;
-                        returned_cubes.push_back(cube);
-                        auto split_atoms = get_split_atoms();
-                        b.return_cubes(l2g, returned_cubes, split_atoms);
+                        if (!m_config.m_never_cube) {
+                            vector<expr_ref_vector> returned_cubes;
+                            returned_cubes.push_back(cube);
+                            auto split_atoms = get_split_atoms();
+                            b.return_cubes(l2g, returned_cubes, split_atoms);
+                        }
                         update_max_thread_conflicts();
                         break;
                     }
                     case l_true: {
-                        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " found sat cube\n");
+                        LOG_WORKER(1, " found sat cube\n");
                         model_ref mdl;
                         ctx->get_model(mdl);
                         b.set_sat(l2g, *mdl);
@@ -89,11 +93,11 @@ namespace smt {
                         // share with batch manager.
                         // process next cube.
                         expr_ref_vector const& unsat_core = ctx->unsat_core();
-                        IF_VERBOSE(2, verbose_stream() << "unsat core: " << unsat_core << "\n");
+                        LOG_WORKER(2, "unsat core: " << unsat_core << "\n");
                         // If the unsat core only contains assumptions, 
                         // unsatisfiability does not depend on the current cube and the entire problem is unsat.
                         if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
-                            IF_VERBOSE(1, verbose_stream() << "Worker " << id << " determined formula unsat\n");
+                            LOG_WORKER(1, " determined formula unsat\n");
                             b.set_unsat(l2g, unsat_core);
                             return;
                         }
@@ -101,14 +105,14 @@ namespace smt {
                             if (asms.contains(e))
                                 b.report_assumption_used(l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
-                        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " found unsat cube\n");
-                        if (smt_parallel_params(p.ctx.m_params).share_conflicts())
+                        LOG_WORKER(1, " found unsat cube\n");
+                        if (m_config.m_share_conflicts)
                             b.collect_clause(l2g, id, mk_not(mk_and(unsat_core)));
                         break;
                     }
                 }     
             }
-            if (smt_parallel_params(p.ctx.m_params).share_units())
+            if (m_config.m_share_units)
                 share_units(l2g);
         }
     }
@@ -117,14 +121,19 @@ namespace smt {
         ast_translation g2l(p.ctx.m, m);
         for (auto e : _asms) 
             asms.push_back(g2l(e));
-        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " created with " << asms.size() << " assumptions\n");        
+        LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");        
         m_smt_params.m_preprocess = false;
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         context::copy(p.ctx, *ctx, true);
         ctx->set_random_seed(id + m_smt_params.m_random_seed);
 
-        m_max_thread_conflicts = ctx->get_fparams().m_threads_max_conflicts;
-        m_max_conflicts = ctx->get_fparams().m_max_conflicts;
+        smt_parallel_params pp(p.ctx.m_params);
+        m_config.m_threads_max_conflicts = ctx->get_fparams().m_threads_max_conflicts;
+        m_config.m_max_conflicts = ctx->get_fparams().m_max_conflicts;
+        m_config.m_relevant_units_only = pp.relevant_units_only();
+        m_config.m_never_cube = pp.never_cube();
+        m_config.m_share_conflicts = pp.share_conflicts();
+        m_config.m_share_units = pp.share_units();
     }
 
     void parallel::worker::share_units(ast_translation& l2g) {
@@ -133,15 +142,13 @@ namespace smt {
         unsigned sz = ctx->assigned_literals().size();
         for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
             literal lit = ctx->assigned_literals()[j];
-            if (!ctx->is_relevant(lit.var()) && smt_parallel_params(p.ctx.m_params).relevant_units_only()) {
-                // IF_VERBOSE(0, verbose_stream() << "non-relevant literal " << lit << "\n");
+            if (!ctx->is_relevant(lit.var()) && m_config.m_relevant_units_only) 
                 continue;
-            }
+            
             expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m); // turn literal into a Boolean expression
-            if (m.is_and(e) || m.is_or(e)) {
-                //IF_VERBOSE(0, verbose_stream() << "skip Boolean\n");                
+            if (m.is_and(e) || m.is_or(e))             
                 continue;
-            }
+            
 
             if (lit.sign()) 
                 e = m.mk_not(e); // negate if literal is negative
@@ -166,7 +173,7 @@ namespace smt {
         for (expr* e : new_clauses) {
             expr_ref local_clause(e, g2l.to()); // e was already translated to the local context in the batch manager!!
             ctx->assert_expr(local_clause); // assert the clause in the local context
-            IF_VERBOSE(2, verbose_stream() << "Worker " << id << " asserting shared clause: " << mk_bounded_pp(local_clause, m, 3) << "\n");
+            LOG_WORKER(2, " asserting shared clause: " << mk_bounded_pp(local_clause, m, 3) << "\n");
         }
     }
 
@@ -188,7 +195,7 @@ namespace smt {
             asms.push_back(atom);                
         lbool r = l_undef;
 
-        ctx->get_fparams().m_max_conflicts = std::min(m_max_thread_conflicts, m_max_conflicts);
+        ctx->get_fparams().m_max_conflicts = std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts);
         try {
             r = ctx->check(asms.size(), asms.data());
         }
@@ -202,7 +209,7 @@ namespace smt {
             b.set_exception("unknown exception");
         }
         asms.shrink(asms.size() - cube.size());
-        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " DONE checking cube " << r << "\n";);
+        LOG_WORKER(1, " DONE checking cube " << r << "\n";);
         return r;
     }
 
@@ -354,8 +361,7 @@ namespace smt {
 
     // currenly, the code just implements the greedy strategy
     void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& C_worker, expr_ref_vector const& A_worker) {
-        if (smt_parallel_params(p.ctx.m_params).never_cube())
-            return; // portfolio only
+        SASSERT(!smt_parallel_params(p.ctx.m_params).never_cube());
 
         auto atom_in_cube = [&](expr_ref_vector const& cube, expr* atom) {
             return any_of(cube, [&](expr* e) { return e == atom || (m.is_not(e, e) && e == atom); });

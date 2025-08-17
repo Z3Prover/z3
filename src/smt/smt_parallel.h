@@ -11,7 +11,7 @@ Abstract:
 
 Author:
 
-    nbjorner 2020-01-31
+    Ilana 2025
 
 Revision History:
 
@@ -89,21 +89,28 @@ namespace smt {
         };
 
         class worker {
+            struct config {
+                unsigned m_threads_max_conflicts = 1000;
+                unsigned m_max_conflicts = 10000000;
+                bool m_relevant_units_only = true;
+                bool m_never_cube = false;
+                bool m_share_conflicts = true;
+                bool m_share_units = true;
+            };
             unsigned id; // unique identifier for the worker
             parallel& p;
             batch_manager& b;
             ast_manager m;
             expr_ref_vector asms;
             smt_params m_smt_params;
+            config m_config;
             scoped_ptr<context> ctx;
-            unsigned m_max_conflicts = 800; // the global budget for all work this worker can do across cubes in the current run.
-            unsigned m_max_thread_conflicts = 100; // the per-cube limit for how many conflicts the worker can spend on a single cube before timing out on it and moving on
             unsigned m_num_shared_units = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             void share_units(ast_translation& l2g);
             lbool check_cube(expr_ref_vector const& cube);
             void update_max_thread_conflicts() {
-                m_max_thread_conflicts *= 2;
+                m_config.m_threads_max_conflicts *= 2;
             } // allow for backoff scheme of conflicts within the thread for cube timeouts.
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
