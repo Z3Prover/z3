@@ -272,15 +272,23 @@ threads-4-cube-shareconflicts
 
 </pre>
 
-Ideas for other knobs that can be added:
+Ideas for other knobs that can be tested
 
 <il>
 <li> Only cube on literals that exist in initial formula. Don't cube on literals created during search (such as by theory lemmas).
 <li> Only share units for literals that exist in the initial formula.
+<li> Vary the backoff scheme for <b>max_conflict_mul</b> from 1.5 to lower and higher.
+<li> Vary <b>smt.threads.max_conflicts</b>
+<li> Replace backoff scheme by a geometric scheme: add <b>conflict_inc</b> (a new parameter) every time and increment <b>conflict_inc</b>
 </il>
 
-This requires collecting sub-expressions from the solver state at initialization time. It can be programmed by adding an expr_mark 
-structure and marking all expressions used in bool_vars after initialization as initial.
-Then only initial bool_vars are shared as units.
-A simpler approach is just to remember the initial number of bool_vars.
-Fresh atoms are allocated with higher ordinals anyway.
+<pre>
+  cube_initial_only (bool) (default: false)          only useful when never_cube=false
+  frugal_cube_only (bool) (default: false)           only useful when never_cube=false
+  max_conflict_mul (double) (default: 1.5)
+  never_cube (bool) (default: false)
+  relevant_units_only (bool) (default: true)         only useful when share_units=true
+  share_conflicts (bool) (default: true)             only useful when never_cube=false
+  share_units (bool) (default: true)
+  share_units_initial_only (bool) (default: false)   only useful when share_units=true
+</pre>
