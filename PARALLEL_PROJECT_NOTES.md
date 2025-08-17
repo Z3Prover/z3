@@ -240,27 +240,43 @@ push more instances from smtlib.org benchmarks into z3-poly-testing/inputs or up
 
 The first rounds created a base-line where all features were turned off, then it created variants where one feature was turned off at a time.
 The data-point where all but one feature is turned off could tell us something if a feature has a chance of being useful in isolation.
-The following is a sample naming scheme.
+The following is a sample naming scheme for associated settings.
 
 <pre>
 threads-1
-smt.threads=1 tactic.default_tactic=smt -T:30
+-T:30 smt.threads=1 tactic.default_tactic=smt
 
 threads-4-none-unbounded
-smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=false smt.threads.max_conflicts=4294967295 -T:30
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=false smt.threads.max_conflicts=4294967295
 
 threads-4-none
-smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=false -T:30
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=false 
 
 threads-4-shareunits
-smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=true -T:30
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=true 
 
 threads-4-shareconflicts
-smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=true smt_parallel.share_units=false -T:30
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=true smt_parallel.share_units=false 
+
+threads-4-cube-frugal
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=false smt_parallel.frugal_cube_only=true smt_parallel.share_conflicts=false smt_parallel.share_units=false
+
+threads-4-shareunits-nonrelevant
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=true smt_parallel.share_units=false smt_parallel.relevant_units_only=false 
 
 threads-4-cube
-smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=false smt_parallel.share_conflicts=false smt_parallel.share_units=false -T:30
-
-base-shareunits-nonrelevant
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=false smt_parallel.frugal_cube_only=false smt_parallel.share_conflicts=false smt_parallel.share_units=false 
 </pre>
 
+Ideas for other knobs that can be added:
+
+<il>
+<li> Only cube on literals that exist in initial formula. Don't cube on literals created during search (such as by theory lemmas).
+<li> Only share units for literals that exist in the initial formula.
+</il>
+
+This requires collecting sub-expressions from the solver state at initialization time. It can be programmed by adding an expr_mark 
+structure and marking all expressions used in bool_vars after initialization as initial.
+Then only initial bool_vars are shared as units.
+A simpler approach is just to remember the initial number of bool_vars.
+Fresh atoms are allocated with higher ordinals anyway.

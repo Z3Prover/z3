@@ -89,7 +89,7 @@ namespace smt {
                         // share with batch manager.
                         // process next cube.
                         expr_ref_vector const& unsat_core = ctx->unsat_core();
-                        IF_VERBOSE(1, verbose_stream() << "unsat core: " << unsat_core << "\n");
+                        IF_VERBOSE(2, verbose_stream() << "unsat core: " << unsat_core << "\n");
                         // If the unsat core only contains assumptions, 
                         // unsatisfiability does not depend on the current cube and the entire problem is unsat.
                         if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
@@ -453,7 +453,7 @@ namespace smt {
             if (top_lits.size() >= k) 
                 break;
         }
-        IF_VERBOSE(2, verbose_stream() << "top literals " << top_lits << " head size " << ctx->m_pq_scores.size() << " num vars " << ctx->get_num_bool_vars() << "\n");
+        IF_VERBOSE(3, verbose_stream() << "top literals " << top_lits << " head size " << ctx->m_pq_scores.size() << " num vars " << ctx->get_num_bool_vars() << "\n");
         return top_lits;
     }
 
