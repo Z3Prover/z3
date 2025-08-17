@@ -113,6 +113,7 @@ namespace smt {
             smt_params m_smt_params;
             config m_config;
             scoped_ptr<context> ctx;
+            ast_translation m_g2l, m_l2g;
             unsigned m_num_shared_units = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             void share_units(ast_translation& l2g);

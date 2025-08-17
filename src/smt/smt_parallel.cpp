@@ -44,14 +44,12 @@ namespace smt {
 namespace smt {
 
     void parallel::worker::run() {
-        ast_translation g2l(p.ctx.m, m); // global to local context -- MUST USE p.ctx.m, not ctx->m, AS GLOBAL MANAGER!!!
-        ast_translation l2g(m, p.ctx.m); // local to global context
         while (m.inc()) { // inc: increase the limit and check if it is canceled, vs m.limit().is_canceled() is readonly. the .limit() is also not necessary (m.inc() etc provides a convenience wrapper)
             vector<expr_ref_vector> cubes;
-            b.get_cubes(g2l, cubes);
+            b.get_cubes(m_g2l, cubes);
             if (cubes.empty())
                 return;
-            collect_shared_clauses(g2l);
+            collect_shared_clauses(m_g2l);
             for (auto& cube : cubes) {
                 if (!m.inc()) {
                     b.set_exception("context cancelled");
@@ -75,7 +73,7 @@ namespace smt {
                             vector<expr_ref_vector> returned_cubes;
                             returned_cubes.push_back(cube);
                             auto split_atoms = get_split_atoms();
-                            b.return_cubes(l2g, returned_cubes, split_atoms);
+                            b.return_cubes(m_l2g, returned_cubes, split_atoms);
                         }
                         update_max_thread_conflicts();
                         break;
@@ -84,7 +82,7 @@ namespace smt {
                         LOG_WORKER(1, " found sat cube\n");
                         model_ref mdl;
                         ctx->get_model(mdl);
-                        b.set_sat(l2g, *mdl);
+                        b.set_sat(m_l2g, *mdl);
                         return;
                     }
                     case l_false: {
@@ -98,29 +96,31 @@ namespace smt {
                         // unsatisfiability does not depend on the current cube and the entire problem is unsat.
                         if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
                             LOG_WORKER(1, " determined formula unsat\n");
-                            b.set_unsat(l2g, unsat_core);
+                            b.set_unsat(m_l2g, unsat_core);
                             return;
                         }
                         for (expr* e : unsat_core)
                             if (asms.contains(e))
-                                b.report_assumption_used(l2g, e); // report assumptions used in unsat core, so they can be used in final core
+                                b.report_assumption_used(m_l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
                         LOG_WORKER(1, " found unsat cube\n");
                         if (m_config.m_share_conflicts)
-                            b.collect_clause(l2g, id, mk_not(mk_and(unsat_core)));
+                            b.collect_clause(m_l2g, id, mk_not(mk_and(unsat_core)));
                         break;
                     }
                 }     
             }
             if (m_config.m_share_units)
-                share_units(l2g);
+                share_units(m_l2g);
         }
     }
 
-    parallel::worker::worker(unsigned id, parallel& p, expr_ref_vector const& _asms): id(id), p(p), b(p.m_batch_manager), m_smt_params(p.ctx.get_fparams()), asms(m) {
-        ast_translation g2l(p.ctx.m, m);
+    parallel::worker::worker(unsigned id, parallel& p, expr_ref_vector const& _asms): 
+        id(id), p(p), b(p.m_batch_manager), m_smt_params(p.ctx.get_fparams()), asms(m),
+        m_g2l(p.ctx.m, m),
+        m_l2g(m, p.ctx.m) {
         for (auto e : _asms) 
-            asms.push_back(g2l(e));
+            asms.push_back(m_g2l(e));
         LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");        
         m_smt_params.m_preprocess = false;
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
@@ -134,6 +134,8 @@ namespace smt {
         m_config.m_never_cube = pp.never_cube();
         m_config.m_share_conflicts = pp.share_conflicts();
         m_config.m_share_units = pp.share_units();
+
+
     }
 
     void parallel::worker::share_units(ast_translation& l2g) {
@@ -159,10 +161,10 @@ namespace smt {
 
     void parallel::batch_manager::init_parameters_state() {
         auto& smt_params = p.ctx.get_fparams();
-        std::function<std::function<void(void)>(unsigned&)> inc = [](unsigned& v) { std::function<void(void)> clo = [&]() { ++v; }; return clo; };
-        std::function<std::function<void(void)>(unsigned&)> dec = [](unsigned& v) { std::function<void(void)> clo = [&]() { if (v > 0) --v; }; return clo; };       
-        std::function<std::function<void(void)>(bool&)> incb = [](bool& v) { std::function<void(void)> clo = [&]() { v = true; }; return clo; };
-        std::function<std::function<void(void)>(bool&)> decb = [](bool& v) { std::function<void(void)> clo = [&]() { v = false; }; return clo; };
+        std::function<std::function<void(void)>(unsigned&)> inc = [](unsigned& v) { return [&]() -> void { ++v; }; };
+        std::function<std::function<void(void)>(unsigned&)> dec = [](unsigned& v) { return [&]() -> void { if (v > 0) --v; }; };       
+        std::function<std::function<void(void)>(bool&)> incb = [](bool& v) { return [&]() -> void { v = true; }; };
+        std::function<std::function<void(void)>(bool&)> decb = [](bool& v) { return [&]() -> void { v = false; }; };
         std::function<parameter_state(unsigned&)> unsigned_parameter = [&](unsigned& p) -> parameter_state {
             return { { { p , 1.0}},
                        { { 1.0, inc(p) }, { 1.0, dec(p) }} 
@@ -174,10 +176,8 @@ namespace smt {
             };
         };
 
-
         parameter_state s1 = unsigned_parameter(smt_params.m_arith_branch_cut_ratio);
-        parameter_state s2 = bool_parameter(smt_params.m_arith_eager_eq_axioms);
-    
+        parameter_state s2 = bool_parameter(smt_params.m_arith_eager_eq_axioms);    
 
         //  arith.enable_hnf(bool) (default: true)
         //  arith.greatest_error_pivot(bool) (default: false)
