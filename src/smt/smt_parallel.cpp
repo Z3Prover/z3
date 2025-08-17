@@ -157,6 +157,42 @@ namespace smt {
         m_num_shared_units = sz;
     }
 
+    void parallel::batch_manager::init_parameters_state() {
+        auto& smt_params = p.ctx.get_fparams();
+        std::function<std::function<void(void)>(unsigned&)> inc = [](unsigned& v) { std::function<void(void)> clo = [&]() { ++v; }; return clo; };
+        std::function<std::function<void(void)>(unsigned&)> dec = [](unsigned& v) { std::function<void(void)> clo = [&]() { if (v > 0) --v; }; return clo; };       
+        std::function<std::function<void(void)>(bool&)> incb = [](bool& v) { std::function<void(void)> clo = [&]() { v = true; }; return clo; };
+        std::function<std::function<void(void)>(bool&)> decb = [](bool& v) { std::function<void(void)> clo = [&]() { v = false; }; return clo; };
+        std::function<parameter_state(unsigned&)> unsigned_parameter = [&](unsigned& p) -> parameter_state {
+            return { { { p , 1.0}},
+                       { { 1.0, inc(p) }, { 1.0, dec(p) }} 
+                   };
+        };
+        std::function<parameter_state(bool&)> bool_parameter = [&](bool& p) -> parameter_state {
+            return { { { p , 1.0}},
+                       { { 1.0, incb(p) }, { 1.0, decb(p) }}
+            };
+        };
+
+
+        parameter_state s1 = unsigned_parameter(smt_params.m_arith_branch_cut_ratio);
+        parameter_state s2 = bool_parameter(smt_params.m_arith_eager_eq_axioms);
+    
+
+        //  arith.enable_hnf(bool) (default: true)
+        //  arith.greatest_error_pivot(bool) (default: false)
+        //  arith.int_eq_branch(bool) (default: false)
+        //  arith.min(bool) (default: false)
+        //  arith.nl.branching(bool) (default: true)
+        //  arith.nl.cross_nested(bool) (default: true)
+        //  arith.nl.delay(unsigned int) (default: 10)
+        //  arith.nl.expensive_patching(bool) (default: false)
+        //  arith.nl.expp(bool) (default: false)
+        //  arith.nl.gr_q(unsigned int) (default: 10)
+        //  arith.nl.grobner(bool) (default: true)
+        //  arith.nl.grobner_cnfl_to_report(unsigned int) (default: 1) };
+    }
+
     void parallel::batch_manager::collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause) {
         std::scoped_lock lock(mux);
         expr* g_clause = l2g(clause);

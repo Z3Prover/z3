@@ -32,6 +32,11 @@ namespace smt {
             expr_ref clause;
         };
 
+        struct parameter_state {
+            std::vector<std::pair<unsigned, double>> m_value_scores; // bounded number of values with scores.
+            std::vector<std::pair<double, std::function<void(void)>>> m_weighted_moves; // possible moves weighted by how well they did
+        };
+
         class batch_manager {        
             enum state {
                 is_running,
@@ -52,6 +57,7 @@ namespace smt {
             std::string m_exception_msg;
             vector<shared_clause> shared_clause_trail; // store all shared clauses with worker IDs
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
+            vector<parameter_state> m_parameters_state;
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
@@ -59,6 +65,8 @@ namespace smt {
                 for (auto& w : p.m_workers) 
                     w->cancel();
             }
+
+            void init_parameters_state();
 
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_split_atoms(m) { }

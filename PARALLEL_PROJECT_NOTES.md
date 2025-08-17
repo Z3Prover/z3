@@ -255,17 +255,21 @@ threads-4-none
 threads-4-shareunits
 -T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=false smt_parallel.share_units=true 
 
-threads-4-shareconflicts
--T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=true smt_parallel.share_units=false 
-
 threads-4-cube-frugal
 -T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=false smt_parallel.frugal_cube_only=true smt_parallel.share_conflicts=false smt_parallel.share_units=false
+
+threads-4-cube-frugal-shareconflicts
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=false smt_parallel.frugal_cube_only=true smt_parallel.share_conflicts=true smt_parallel.share_units=false 
 
 threads-4-shareunits-nonrelevant
 -T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=true smt_parallel.share_conflicts=true smt_parallel.share_units=false smt_parallel.relevant_units_only=false 
 
 threads-4-cube
 -T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=false smt_parallel.frugal_cube_only=false smt_parallel.share_conflicts=false smt_parallel.share_units=false 
+
+threads-4-cube-shareconflicts
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.never_cube=false smt_parallel.frugal_cube_only=false smt_parallel.share_conflicts=true smt_parallel.share_units=false 
+
 </pre>
 
 Ideas for other knobs that can be added:
