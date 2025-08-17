@@ -1427,6 +1427,8 @@ public:
     void init_search_eh() {
         m_arith_eq_adapter.init_search_eh();
         m_num_conflicts = 0;
+        if (m_solver)   
+           lp().settings().m_max_conflicts = ctx().get_fparams().m_max_conflicts;
     }
 
     bool can_get_value(theory_var v) const {
