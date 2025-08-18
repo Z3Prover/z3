@@ -47,6 +47,8 @@ namespace smt {
             };
             struct config {
                 unsigned m_max_cube_size = 20;
+                bool m_frugal_cube_only = false;
+                bool m_never_cube = false; 
             };
 
             ast_manager& m;

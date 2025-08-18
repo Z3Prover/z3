@@ -409,7 +409,7 @@ namespace smt {
 
     // currenly, the code just implements the greedy strategy
     void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& C_worker, expr_ref_vector const& A_worker) {
-        SASSERT(!smt_parallel_params(p.ctx.m_params).never_cube());
+        SASSERT(!m_config.never_cube());
 
         auto atom_in_cube = [&](expr_ref_vector const& cube, expr* atom) {
             return any_of(cube, [&](expr* e) { return e == atom || (m.is_not(e, e) && e == atom); });
@@ -430,7 +430,7 @@ namespace smt {
 
         std::scoped_lock lock(mux);
         unsigned max_cubes = 1000;
-        bool greedy_mode = (m_cubes.size() <= max_cubes) && !smt_parallel_params(p.ctx.m_params).frugal_cube_only();
+        bool greedy_mode = (m_cubes.size() <= max_cubes) && !m_config.m_frugal_cube_only;
         unsigned a_worker_start_idx = 0;
 
         //
@@ -524,7 +524,10 @@ namespace smt {
         m_cubes.reset();
         m_cubes.push_back(expr_ref_vector(m)); // push empty cube
         m_split_atoms.reset();
-        m_config.m_max_cube_size = smt_parallel_params(p.ctx.m_params).max_cube_size();
+        smt_parallel_params sp(p.ctx.m_params);
+        m_config.m_max_cube_size = sp.max_cube_size();
+        m_config.m_frugal_cube_only = sp.frugal_cube_only();
+        m_config.m_never_cube = sp.never_cube();
     }
 
     lbool parallel::operator()(expr_ref_vector const& asms) {
@@ -533,12 +536,12 @@ namespace smt {
         if (m.has_trace_stream())
             throw default_exception("trace streams have to be off in parallel mode");
         
-        struct scoped_clear_table {
-            obj_hashtable<expr>& ht;
-            scoped_clear_table(obj_hashtable<expr>& ht) : ht(ht) {} // Constructor: Takes a reference to a hash table when the object is created and saves it.
-            ~scoped_clear_table() { ht.reset(); } // Destructor: When the scoped_clear_table object goes out of scope, it automatically calls reset() on that hash table, clearing it
+        struct scoped_clear {
+            parallel& p;
+            scoped_clear(parallel& p) : p(p) {}
+            ~scoped_clear() { p.m_workers.clear();  p.m_assumptions_used.reset(); }
         };
-        scoped_clear_table clear(m_assumptions_used); // creates a scoped_clear_table named clear, bound to m_assumptions_used
+        scoped_clear clear(*this);
 
         {
             m_batch_manager.initialize();
@@ -573,7 +576,6 @@ namespace smt {
                 w->collect_statistics(ctx.m_aux_stats);            
         }
 
-        m_workers.clear();
         return m_batch_manager.get_result(); // i.e. all threads have finished all of their cubes -- so if state::is_running is still true, means the entire formula is unsat (otherwise a thread would have returned l_undef)        
     }
 
