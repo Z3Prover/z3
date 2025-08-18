@@ -100,8 +100,10 @@ namespace smt {
      */
     void theory_recfun::relevant_eh(app * n) {
         SASSERT(ctx.relevancy());
-        // TRACEFN("relevant_eh: (defined) " <<  u().is_defined(n) << " " << mk_pp(n, m));        
-        if (u().is_defined(n) && u().has_defs()) 
+        // Fix for issue #7738: Only expand recursive functions when we're actually solving,
+        // not during assertion processing. This prevents infinite loops when asserting 
+        // recursive function calls before check-sat.
+        if (u().is_defined(n) && u().has_defs() && ctx.is_searching()) 
             push_case_expand(n);
     }
 

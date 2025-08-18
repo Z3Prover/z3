@@ -275,8 +275,11 @@ namespace recfun {
             return true;
         euf::theory_var w = mk_var(n);
         ctx.attach_th_var(n, this, w);
-        if (u().is_defined(e) && u().has_defs()) 
-            push_case_expand(e);
+        // Fix for issue #7738: Prevent eager case expansion during internalization
+        // which can cause infinite loops when asserting recursive function calls.
+        // Recursive functions should only be expanded on-demand during solving.
+        // if (u().is_defined(e) && u().has_defs()) 
+        //     push_case_expand(e);
         return true;
     }
 
