@@ -50,12 +50,17 @@ namespace smt {
                 bool m_frugal_cube_only = false;
                 bool m_never_cube = false; 
             };
+            struct stats {
+                unsigned m_max_cube_size = 0;
+                unsigned m_num_cubes = 0;
+            };
 
             ast_manager& m;
             parallel& p;
             std::mutex mux;
             state m_state = state::is_running;
             config m_config;
+            stats m_stats;
             expr_ref_vector m_split_atoms; // atoms to split on
             vector<expr_ref_vector> m_cubes;
             unsigned m_max_batch_size = 10;
@@ -99,6 +104,8 @@ namespace smt {
             void report_assumption_used(ast_translation& l2g, expr* assumption);
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* e);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
+
+            void collect_statistics(::statistics& st) const;
             lbool get_result() const;
         };
 
@@ -114,6 +121,7 @@ namespace smt {
                 bool m_share_units_initial_only = false;
                 bool m_cube_initial_only = false;
             };
+
             unsigned id; // unique identifier for the worker
             parallel& p;
             batch_manager& b;
@@ -137,13 +145,9 @@ namespace smt {
             expr_ref_vector get_split_atoms();
             void collect_shared_clauses(ast_translation& g2l);
 
-            void cancel() {
-                IF_VERBOSE(1, verbose_stream() << "Worker " << id << " canceling\n");
-                m.limit().cancel();
-            }
-            void collect_statistics(::statistics& st) const {
-                ctx->collect_statistics(st);
-            }
+            void cancel();
+            void collect_statistics(::statistics& st) const;
+
             reslimit& limit() {
                 return m.limit();
             }

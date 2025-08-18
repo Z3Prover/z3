@@ -171,6 +171,15 @@ namespace smt {
         m_num_shared_units = sz;
     }
 
+    void parallel::worker::collect_statistics(::statistics& st) const {
+        ctx->collect_statistics(st);
+    }
+
+    void parallel::worker::cancel() {
+        LOG_WORKER(1, " canceling\n");
+        m.limit().cancel();
+    }
+
     void parallel::batch_manager::init_parameters_state() {
         auto& smt_params = p.ctx.get_fparams();
         std::function<std::function<void(void)>(unsigned&)> inc = [](unsigned& v) { return [&]() -> void { ++v; }; };
@@ -425,6 +434,8 @@ namespace smt {
                 m_cubes.push_back(cube);
                 m_cubes.back().push_back(m.mk_not(atom));
                 m_cubes[i].push_back(atom);
+                m_stats.m_max_cube_size = std::max(m_stats.m_max_cube_size, m_cubes.back().size());
+                m_stats.m_num_cubes += 2;
             }
         };
 
@@ -530,6 +541,12 @@ namespace smt {
         m_config.m_never_cube = sp.never_cube();
     }
 
+    void parallel::batch_manager::collect_statistics(::statistics& st) const {
+        //ctx->collect_statistics(st);
+        st.update("parallel-num_cubes", m_stats.m_num_cubes);
+        st.update("parallel-max-cube-size", m_stats.m_max_cube_size);
+    }
+
     lbool parallel::operator()(expr_ref_vector const& asms) {
         ast_manager& m = ctx.m;
 
@@ -573,7 +590,8 @@ namespace smt {
                 th.join();
 
             for (auto w : m_workers)
-                w->collect_statistics(ctx.m_aux_stats);            
+                w->collect_statistics(ctx.m_aux_stats);     
+            m_batch_manager.collect_statistics(ctx.m_aux_stats);
         }
 
         return m_batch_manager.get_result(); // i.e. all threads have finished all of their cubes -- so if state::is_running is still true, means the entire formula is unsat (otherwise a thread would have returned l_undef)        
