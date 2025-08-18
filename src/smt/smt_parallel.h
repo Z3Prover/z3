@@ -45,11 +45,15 @@ namespace smt {
                 is_exception_msg,
                 is_exception_code
             };
+            struct config {
+                unsigned m_max_cube_size = 20;
+            };
 
             ast_manager& m;
             parallel& p;
             std::mutex mux;
             state m_state = state::is_running;
+            config m_config;
             expr_ref_vector m_split_atoms; // atoms to split on
             vector<expr_ref_vector> m_cubes;
             unsigned m_max_batch_size = 10;

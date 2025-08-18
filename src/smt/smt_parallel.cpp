@@ -420,6 +420,8 @@ namespace smt {
             for (unsigned i = start; i < stop; ++i) {
                 // copy the last cube so that expanding m_cubes doesn't invalidate reference.
                 auto cube = m_cubes[i];
+                if (cube.size() >= m_config.m_max_cube_size)
+                    continue;
                 m_cubes.push_back(cube);
                 m_cubes.back().push_back(m.mk_not(atom));
                 m_cubes[i].push_back(atom);
@@ -522,6 +524,7 @@ namespace smt {
         m_cubes.reset();
         m_cubes.push_back(expr_ref_vector(m)); // push empty cube
         m_split_atoms.reset();
+        m_config.m_max_cube_size = smt_parallel_params(p.ctx.m_params).max_cube_size();
     }
 
     lbool parallel::operator()(expr_ref_vector const& asms) {
