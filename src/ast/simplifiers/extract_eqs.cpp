@@ -115,7 +115,7 @@ namespace euf {
                 if (is_eq_of(x2, y1, z, s, t) && is_complementary(x1, y2))
                     eqs.push_back(dependent_eq(e.fml(), to_app(z), expr_ref(m.mk_ite(x1, s, t), m), d));
             }
-            if (m.is_and(f, x1, y1) && m.is_or(x, x1, x2) && m.is_or(y1, y1, y2)) {
+            if (m.is_and(f, x1, y1) && m.is_or(x1, x1, x2) && m.is_or(y1, y1, y2)) {
                 expr* z = nullptr, *t = nullptr, *s = nullptr;
                 if (is_eq_of(x1, y1, z, s, t) && is_complementary(x2, y2)) 
                     eqs.push_back(dependent_eq(e.fml(), to_app(z), expr_ref(m.mk_ite(y2, s, t), m), d));
