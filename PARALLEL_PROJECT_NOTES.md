@@ -275,11 +275,13 @@ threads-4-cube-shareconflicts
 Ideas for other knobs that can be tested
 
 <il>
-<li> Only cube on literals that exist in initial formula. Don't cube on literals created during search (such as by theory lemmas).
-<li> Only share units for literals that exist in the initial formula.
-<li> Vary the backoff scheme for <b>max_conflict_mul</b> from 1.5 to lower and higher.
-<li> Vary <b>smt.threads.max_conflicts</b>
-<li> Replace backoff scheme by a geometric scheme: add <b>conflict_inc</b> (a new parameter) every time and increment <b>conflict_inc</b>
+<li> Only cube on literals that exist in initial formula. Don't cube on literals created during search (such as by theory lemmas).</li>
+<li> Only share units for literals that exist in the initial formula.</li>
+<li> Vary the backoff scheme for <b>max_conflict_mul</b> from 1.5 to lower and higher.</li>
+<li> Vary <b>smt.threads.max_conflicts</b>.</li>
+<li> Replace backoff scheme by a geometric scheme: add <b>conflict_inc</b> (a new parameter) every time and increment <b>conflict_inc</b>.</li>
+ <li> Revert backoff if a cube is solved.</li>
+ <li>Delay lemma and unit sharing.</li>
 </il>
 
 <pre>
