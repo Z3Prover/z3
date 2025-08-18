@@ -60,8 +60,8 @@ namespace smt {
             ctx.mk_enode(atom, false, true, true);
         if (!ctx.b_internalized(atom)) 
             ctx.set_var_theory(ctx.mk_bool_var(atom), get_id());
-        if (!ctx.relevancy() && u().is_defined(atom)) 
-            push_case_expand(atom);
+        // Removed eager case expansion - recursive functions should only be expanded
+        // when they become relevant during solving, not during assertion processing
         return true;
     }
 
@@ -77,9 +77,8 @@ namespace smt {
         if (!ctx.e_internalized(term)) {            
             ctx.mk_enode(term, false, false, true);
         }
-        if (!ctx.relevancy() && u().is_defined(term)) {
-            push_case_expand(term);
-        }
+        // Removed eager case expansion - recursive functions should only be expanded
+        // when they become relevant during solving, not during assertion processing
         return true; 
     }
 
