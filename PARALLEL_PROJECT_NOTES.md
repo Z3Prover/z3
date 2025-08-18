@@ -282,12 +282,14 @@ Ideas for other knobs that can be tested
 <li> Replace backoff scheme by a geometric scheme: add <b>conflict_inc</b> (a new parameter) every time and increment <b>conflict_inc</b>.</li>
  <li> Revert backoff if a cube is solved.</li>
  <li>Delay lemma and unit sharing.</li>
+ <li>Vary <b>max_cube_size</b>, or add a parameter to grow <b>max_cube_size</b> if initial attempts to conquer reach <b>max_conflicts</b>.</li>
 </il>
 
 <pre>
   cube_initial_only (bool) (default: false)          only useful when never_cube=false
   frugal_cube_only (bool) (default: false)           only useful when never_cube=false
   max_conflict_mul (double) (default: 1.5)
+  max_cube_size (unsigned int) (default: 20)         only useful when never_cube=false
   never_cube (bool) (default: false)
   relevant_units_only (bool) (default: true)         only useful when share_units=true
   share_conflicts (bool) (default: true)             only useful when never_cube=false
