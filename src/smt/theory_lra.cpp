@@ -1301,8 +1301,8 @@ public:
             mk_axiom(eqz, eq);
             mk_axiom(eqz, mod_ge_0);
             mk_axiom(eqz, mod_lt_q);
-//            if (!a.is_uminus(q)) 
-//                mk_axiom(mk_literal(m.mk_eq(mod, a.mk_mod(p, a.mk_uminus(q)))));
+            if (!a.is_uminus(q)) 
+                mk_axiom(mk_literal(m.mk_eq(mod, a.mk_mod(p, a.mk_uminus(q)))));
             
             m_arith_eq_adapter.mk_axioms(th.ensure_enode(mod_r), th.ensure_enode(p));
 

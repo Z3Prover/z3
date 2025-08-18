@@ -168,6 +168,9 @@ namespace arith {
             add_clause(eqz, mod_ge_0);
             add_clause(eqz, mod_lt_q);
 
+            if (!a.is_uminus(q))
+                add_clause(mk_literal(m.mk_eq(mod, a.mk_mod(p, a.mk_uminus(q)))));
+
 #if 0
             /*literal div_ge_0   = */ mk_literal(a.mk_ge(div, zero));
             /*literal div_le_0   = */ mk_literal(a.mk_le(div, zero));
