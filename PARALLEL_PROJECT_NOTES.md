@@ -215,6 +215,38 @@ SMT parameters that could be tuned:
   seq.split_w_len (bool) (default: true)
 </pre>
 
+### Probing parameter tuning
+
+A first experiment with parameter tuning can be performed using the Python API.
+The idea is to run a solver with one update to parameters at a time and measure
+progress measures. The easiest is to use number of decisions per conflict as a proxy for progress.
+Finer-grained progress can be measured by checking glue levels of conflicts and average depth (depth of decisions before a conflict).
+
+Roughly,
+<pre>
+
+max_conflicts = 5000
+
+params = [("smt.arith.eager_eq_axioms", False), ("smt.restart_factor", 1.2), 
+          ("smt.restart_factor", 1.4), ("smt.relevancy", 0), ("smt.phase_caching_off", 200), ("smt.phase_caching_on", 600) ] # etc
+
+for benchmark in benchmarks:
+   scores = {}
+   for n, v in params:
+      s = SimpleSolver()
+      s.from_file(benchmarkfile)
+      s.set("smt.auto_config", False)
+      s.set(n, v)
+      s.set("smt.max_conflicts", max_conflicts)
+      r = s.check()
+      st = s.statistics()
+      conf = st.num_conflicts()
+      scores[(n, v)] = conf 
+
+</pre>
+
+It can filter
+
 # Benchmark setup
 
 ## Prepare benchmark data
