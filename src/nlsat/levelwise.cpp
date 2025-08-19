@@ -36,7 +36,7 @@ namespace nlsat {
         struct property {
             prop_enum prop;
             poly*            p = nullptr;
-            unsigned         s_idx = 0; // index into current sample roots on level, if applicable
+            unsigned         s_idx = 0; // index of the root function, if applicable
             unsigned         level = 0;
         };
         solver& m_solver;
@@ -44,22 +44,22 @@ namespace nlsat {
         var                          m_n;
         pmanager&                    m_pm;
         anum_manager&                m_am;
-        std::vector<property>        m_Q; // the set of properties to prove as in single_cell
-        bool                         m_fail = false;
+        std::vector<property>        m_Q; // the set of properties to prove
+        bool                         m_fail = false; 
         // Property precedence relation stored as pairs (lesser, greater)
         std::vector<std::pair<prop_enum, prop_enum>> m_p_relation;
         // Transitive closure matrix: dom[a][b] == true iff a ▹ b (a strictly dominates b).
-        // Since m_p_relation holds (lesser -> greater), we invert edges when populating dom: greater ▹ lesser.
+        // Invert edges when populating dom: greater ▹ lesser.
         std::vector<std::vector<bool>> m_prop_dom;
 
-        assignment const&            sample() const { return m_solver.sample();}
+        assignment const & sample() const { return m_solver.sample();}
         assignment & sample() { return m_solver.sample(); }
 
-// max_x plays the role of n in algorith 1 of the levelwise paper.
+       // max_x plays the role of n in algorith 1 of the levelwise paper.
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am)
             : m_solver(solver), m_P(ps), m_n(max_x),  m_pm(pm), m_am(am) {
             TRACE(levelwise, tout  << "m_n:" << m_n << "\n";);    
-            init_relation();
+            init_property_relation();
         }
 
 #ifdef Z3DEBUG
@@ -71,7 +71,7 @@ namespace nlsat {
         }
 #endif
         
-        void init_relation() {
+        void init_property_relation() {
             m_p_relation.clear();
             auto add = [&](prop_enum lesser, prop_enum greater) { m_p_relation.emplace_back(lesser, greater); };
             // m_p_relation stores edges (lesser -> greater). 
@@ -119,23 +119,19 @@ namespace nlsat {
 #endif            
         }
 
-        unsigned  max_var(poly* p) {
-            return m_pm.max_var(p);
-        }
+        unsigned  max_var(poly* p) { return m_pm.max_var(p); }
 
         std::vector<property> seed_properties() {
             std::vector<property> Q;
 
             // Algorithm 1: initial goals are sgn_inv(p, s) for p in ps at current level of max_x
             for (unsigned i = 0; i < m_P.size(); ++i) {
-                poly* p = m_P.get(i);
-                TRACE(levelwise, display(tout << "p:", m_solver, polynomial_ref(p, m_pm)) << std::endl;
-                      tout << "max_var:" << m_pm.max_var(p) << std::endl;
-                      m_solver.display_assignment(tout << "sample()") << std::endl;);
-                Q.push_back(property{ prop_enum::sgn_inv_irreducible, p, /*s_idx*/0, /* level */ max_var(p)});
+                poly* p = m_P.get(i);                
+                Q.push_back(property{ prop_enum::sgn_inv_irreducible, p, /*s_idx*/0, /* level */ m_n - 1});
             }
             return Q;
         }
+        
         struct result_struct {
             symbolic_interval I;
             // Set E of indexed root expressions at level i for P_non_null: the root functions from E pass throug s[i]
@@ -143,7 +139,7 @@ namespace nlsat {
             // Initial ordering buckets for omega: each bucket groups equal-valued roots
             std::vector<std::vector<indexed_root_expr>> omega_buckets;
             std::vector<property> Q;
-            bool fail;
+            bool fail = false;
         };
 
         // Bucket of equal-valued roots used for initial omega ordering
@@ -174,12 +170,47 @@ namespace nlsat {
             return m_prop_dom[static_cast<unsigned>(a)][static_cast<unsigned>(b)];
         }
         
-        std::vector<property> greatest_to_refine(unsigned level) {
+        // Pretty-print helpers
+        static const char* prop_name(prop_enum p) {
+            switch (p) {
+            case prop_enum::ir_ord:               return "ir_ord";
+            case prop_enum::an_del:               return "an_del";
+            case prop_enum::non_null:             return "non_null";
+            case prop_enum::ord_inv_reducible:    return "ord_inv_reducible";
+            case prop_enum::ord_inv_irreducible:  return "ord_inv_irreducible";
+            case prop_enum::sgn_inv_reducible:    return "sgn_inv_reducible";
+            case prop_enum::sgn_inv_irreducible:  return "sgn_inv_irreducible";
+            case prop_enum::connected:            return "connected";
+            case prop_enum::an_sub:               return "an_sub";
+            case prop_enum::sample:               return "sample";
+            case prop_enum::repr:                 return "repr";
+            case prop_enum::holds:                return "holds";
+            case prop_enum::_count:               return "_count";
+            }
+            return "?";
+        }
+
+        std::ostream& display(std::ostream& out, const property & pr) {
+            out << "{prop:" << prop_name(pr.prop)
+                << ", level:" << pr.level
+                << ", s_idx:" << pr.s_idx;
+            if (pr.p) {
+                out << ", p:";
+                ::nlsat::display(out, m_solver, polynomial_ref(pr.p, m_pm));
+            }
+            else {
+                out << ", p:null";
+            }
+            out << "}";
+            return out;
+        }
+        
+        std::vector<property> greatest_to_refine(unsigned level, prop_enum prop_to_avoid) {
             // Collect candidates on current level, excluding sgn_inv_irreducible
             std::vector<property> cand;
             cand.reserve(m_Q.size());
             for (const auto& q : m_Q)
-                if (q.level == level && q.prop != prop_enum::sgn_inv_irreducible)
+                if (q.level == level && q.prop != prop_to_avoid)
                     cand.push_back(q);
             if (cand.empty()) return {};
 
@@ -213,6 +244,7 @@ namespace nlsat {
             for (auto const& k : keys) ret.push_back(cand[k.idx]);
             return ret;
         }
+        
         // check that at least one coeeficient of p \in Q[x0,..., x_{i-1}](x) does not evaluate to zere at the sample. 
         bool poly_is_not_nullified_at_sample_at_level(poly* p, unsigned i) {
             // iterate coefficients of p with respect to the current level variable m_i
@@ -238,7 +270,15 @@ namespace nlsat {
                     continue;
                 scoped_anum_vector roots(m_am);
                 m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), y), roots);
+
                 unsigned num_roots = roots.size();
+                TRACE(levelwise,
+                      tout << "roots (" << num_roots << "):";
+                      for (unsigned kk = 0; kk < num_roots; ++kk) {
+                          tout << " "; m_am.display(tout, roots[kk]);
+                      }
+                      tout << std::endl;
+                );
                 for (unsigned k = 0; k < num_roots; ++k) {
                     E.push_back(indexed_root_expr{ p, k + 1 });
                     roots_out.emplace_back(m_am, p, k + 1, roots[k]);
@@ -353,8 +393,8 @@ namespace nlsat {
         }
             
         // Part A of construct_interval: apply pre-conditions (line 8-11 scaffolding)
-        bool apply_property_rules(unsigned i) {
-            std::vector<property> to_refine = greatest_to_refine(i);
+        bool apply_property_rules(unsigned i, prop_enum prop_to_avoid) {
+            std::vector<property> to_refine = greatest_to_refine(i, prop_to_avoid);
             for (const auto& p: to_refine)
                 apply_pre(p);
             return !m_fail;
@@ -375,30 +415,44 @@ namespace nlsat {
             compute_interval_from_buckets(i, buckets, ret.I);
         }
 
+        void remove_level_i_from_Q(std::vector<property> & Q, unsigned i) {
+            Q.erase(std::remove_if(Q.begin(), Q.end(),
+                                   [i](const property &p) { return p.level == i; }),
+            Q.end());
+        }
+
         result_struct construct_interval(unsigned i) {
             result_struct ret;
-            ret.fail = false;
-
-            if (!apply_property_rules(i)) {
+            if (!apply_property_rules(i, prop_enum::sgn_inv_irreducible)) {
                 ret.fail = true;
                 return ret;
             }
 
             build_representation(i, ret);
-            // Keep Q unchanged for now until apply_pre is implemented
+            apply_property_rules(i, prop_enum(prop_enum::holds));
             ret.Q = m_Q;
+            ret.fail = m_fail;
+            remove_level_i_from_Q(ret.Q, i);
             return ret;
         }
-        // overload exists in explain; keep local poly*-based API only for now
+
         void apply_pre(const property& p) {
+            TRACE(levelwise, display(tout << "p:", p) << std::endl;);
             NOT_IMPLEMENTED_YET();
         }
-        // return an empty vector on failure
+        // return an empty vector on failure, otherwis returns the cell representations with intervals
         std::vector<symbolic_interval> single_cell() {
+            TRACE(levelwise,
+                  m_solver.display_assignment(tout << "sample()") << std::endl;
+                  tout << "m_P:\n";
+                  for (const auto & p: m_P) {
+                      ::nlsat::display(tout, m_solver, polynomial_ref(p, m_pm)) << std::endl;
+                      tout << "max0_var:" << m_pm.max_var(p) << std::endl;
+                  }
+                );
             std::vector<symbolic_interval> ret;
-
             m_Q = seed_properties(); // Q is the set of properties on level m_n
-            for (unsigned i = m_n; i > 0; --i) {
+            for (unsigned i = m_n; --i > 0; ) {
                 auto result = construct_interval(i);
                 if (result.fail)
                     return std::vector<symbolic_interval>(); // return empty

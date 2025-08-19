@@ -64,7 +64,6 @@ namespace nlsat {
     inline ::sign sign(polynomial_ref const & p, assignment & x2v, anum_manager& am) {
         SASSERT(max_var(p) == null_var || x2v.is_assigned(max_var(p)));
         auto s = am.eval_sign_at(p, x2v);
-        TRACE(nlsat_explain, tout << "p: " << p << " var: " << max_var(p) << " sign: " << s << "\n";);
         return s;
     }
 
