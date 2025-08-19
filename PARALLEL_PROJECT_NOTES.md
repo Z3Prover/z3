@@ -215,6 +215,38 @@ SMT parameters that could be tuned:
   seq.split_w_len (bool) (default: true)
 </pre>
 
+### Probing parameter tuning
+
+A first experiment with parameter tuning can be performed using the Python API.
+The idea is to run a solver with one update to parameters at a time and measure
+progress measures. The easiest is to use number of decisions per conflict as a proxy for progress.
+Finer-grained progress can be measured by checking glue levels of conflicts and average depth (depth of decisions before a conflict).
+
+Roughly,
+<pre>
+
+max_conflicts = 5000
+
+params = [("smt.arith.eager_eq_axioms", False), ("smt.restart_factor", 1.2), 
+          ("smt.restart_factor", 1.4), ("smt.relevancy", 0), ("smt.phase_caching_off", 200), ("smt.phase_caching_on", 600) ] # etc
+
+for benchmark in benchmarks:
+   scores = {}
+   for n, v in params:
+      s = SimpleSolver()
+      s.from_file(benchmarkfile)
+      s.set("smt.auto_config", False)
+      s.set(n, v)
+      s.set("smt.max_conflicts", max_conflicts)
+      r = s.check()
+      st = s.statistics()
+      conf = st.num_conflicts()
+      scores[(n, v)] = conf 
+
+</pre>
+
+It can filter
+
 # Benchmark setup
 
 ## Prepare benchmark data
@@ -275,17 +307,21 @@ threads-4-cube-shareconflicts
 Ideas for other knobs that can be tested
 
 <il>
-<li> Only cube on literals that exist in initial formula. Don't cube on literals created during search (such as by theory lemmas).
-<li> Only share units for literals that exist in the initial formula.
-<li> Vary the backoff scheme for <b>max_conflict_mul</b> from 1.5 to lower and higher.
-<li> Vary <b>smt.threads.max_conflicts</b>
-<li> Replace backoff scheme by a geometric scheme: add <b>conflict_inc</b> (a new parameter) every time and increment <b>conflict_inc</b>
+<li> Only cube on literals that exist in initial formula. Don't cube on literals created during search (such as by theory lemmas).</li>
+<li> Only share units for literals that exist in the initial formula.</li>
+<li> Vary the backoff scheme for <b>max_conflict_mul</b> from 1.5 to lower and higher.</li>
+<li> Vary <b>smt.threads.max_conflicts</b>.</li>
+<li> Replace backoff scheme by a geometric scheme: add <b>conflict_inc</b> (a new parameter) every time and increment <b>conflict_inc</b>.</li>
+ <li> Revert backoff if a cube is solved.</li>
+ <li>Delay lemma and unit sharing.</li>
+ <li>Vary <b>max_cube_size</b>, or add a parameter to grow <b>max_cube_size</b> if initial attempts to conquer reach <b>max_conflicts</b>.</li>
 </il>
 
 <pre>
   cube_initial_only (bool) (default: false)          only useful when never_cube=false
   frugal_cube_only (bool) (default: false)           only useful when never_cube=false
   max_conflict_mul (double) (default: 1.5)
+  max_cube_size (unsigned int) (default: 20)         only useful when never_cube=false
   never_cube (bool) (default: false)
   relevant_units_only (bool) (default: true)         only useful when share_units=true
   share_conflicts (bool) (default: true)             only useful when never_cube=false
