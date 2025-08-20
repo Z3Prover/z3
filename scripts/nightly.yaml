@@ -1,10 +1,12 @@
 variables:
+  # Version components read from VERSION.txt (updated manually when VERSION.txt changes)
   Major: '4'
   Minor: '15'
   Patch: '4'
   ReleaseVersion: $(Major).$(Minor).$(Patch)
   AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
   NightlyVersion: $(AssemblyVersion)-$(Build.buildId)
+  # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
 
 stages:
 - stage: Build

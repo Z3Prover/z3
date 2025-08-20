@@ -1,1 +1,0 @@
-cmd='/usr/local/bin/cmake;-DZ3_DIR=/home/runner/work/z3/z3/test-cmake;-DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo;-GUnix Makefiles;-S;<SOURCE_DIR><SOURCE_SUBDIR>;-B;<BINARY_DIR>'
