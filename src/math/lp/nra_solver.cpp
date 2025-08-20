@@ -280,6 +280,7 @@ struct solver::imp {
         TRACE(nra,
               m_nlsat->display(tout << r << "\n");
               display(tout);
+              tout << "m_lp2nl:\n";
               for (auto [j, x] : m_lp2nl) tout << "j" << j << " := x" << x << "\n";);
         switch (r) {
             case l_true:
@@ -317,14 +318,19 @@ struct solver::imp {
                             case 0:
                                 bound -= coeff;
                                 break;
-                            case 1:
-                                v = nl2lp[pm.get_var(m, 0)];
-                                t.add_monomial(coeff, v);
+                            case 1: {
+                                    v = nl2lp[pm.get_var(m, 0)];
+                                    rational s;
+                                    v = m_nla_core.reduce_var_to_rooted(v, s);
+                                    t.add_monomial(s * coeff, v);
+                                }
                                 break;
                             default: {
                                 svector<lp::lpvar> vars;
                                 for (unsigned j = 0; j < num_vars; ++j)
                                     vars.push_back(nl2lp[pm.get_var(m, j)]);
+                                rational s(1);    
+                                vars = m_nla_core.reduce_monic_to_rooted(vars, s);
                                 auto mon = m_nla_core.emons().find_canonical(vars);
                                 if (mon) 
                                     v = mon->var();                                
@@ -339,12 +345,12 @@ struct solver::imp {
                                     // polynomials so punt for now.
                                     m_nla_core.add_monic(v, vars.size(), vars.data());
                                 }
-                                t.add_monomial(coeff, v);
+                                t.add_monomial(s * coeff, v);
                                 break;
                             }
                         }                      
                     }                   
-
+                    TRACE(nra, this->lra.print_term(t, tout << "t:") << std::endl;);
                     switch (a->get_kind()) {
                         case nlsat::atom::EQ: 
                             lemma |= nla::ineq(lp::lconstraint_kind::EQ, t, bound);

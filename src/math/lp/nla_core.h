@@ -281,8 +281,12 @@ public:
 
     svector<lpvar> reduce_monic_to_rooted(const svector<lpvar> & vars, rational & sign) const;
 
-    monic_coeff canonize_monic(monic const& m) const;
+    // Reduce a single variable to its canonical root under current equalities
+    // and return the convertion 	sign as either 1 or -1
+    lpvar reduce_var_to_rooted(lpvar v, rational & sign) const;
 
+    monic_coeff canonize_monic(monic const& m) const;
+    
     int vars_sign(const svector<lpvar>& v);
     bool has_upper_bound(lpvar j) const; 
     bool has_lower_bound(lpvar j) const;
@@ -356,10 +360,6 @@ public:
 
     template <typename T>
     bool vars_are_roots(const T& v) const;
-
-    void register_monic_in_tables(unsigned i_mon);
-
-    void register_monics_in_tables();
 
     void clear();
     

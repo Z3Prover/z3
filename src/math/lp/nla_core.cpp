@@ -1,4 +1,4 @@
- /*++
+/*++
 Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
@@ -86,6 +86,13 @@ bool core::lemma_holds(const lemma& l) const {
 
 lpvar core::map_to_root(lpvar j) const {
     return m_evars.find(j).var();
+}
+    
+// Reduce a single variable to its root and provide the reduction sign.
+lpvar core::reduce_var_to_rooted(lpvar j, rational & sign) const {
+    auto root = m_evars.find(j);
+    sign = rational(root.sign() ? -1 : 1);
+    return root.var();
 }
     
 svector<lpvar> core::sorted_rvars(const factor& f) const {
