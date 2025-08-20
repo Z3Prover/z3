@@ -45,8 +45,8 @@ namespace nlsat {
         bool                    m_minimize_cores;
         bool                    m_factor;
         bool                    m_signed_project;
-        bool                    m_linear_project;
         bool                    m_cell_sample;
+        bool                    m_linear_project = false;
 
 
         struct todo_set {
@@ -156,7 +156,6 @@ namespace nlsat {
             m_full_dimensional = false;
             m_minimize_cores   = false;
             m_signed_project   = false;
-            m_linear_project   = false;
         }
 
         std::ostream& display(std::ostream & out, polynomial_ref const & p) const {
@@ -1413,7 +1412,7 @@ namespace nlsat {
          * "More is Less: Adding Polynomials for Faster Explanations in NLSAT"
          * in CADE30, 2025
          */
-        void project_linear(polynomial_ref_vector & ps, var max_x) {
+        void linear_project(polynomial_ref_vector & ps, var max_x) {
             if (ps.empty())
                 return;
             m_todo.reset();
@@ -1434,7 +1433,7 @@ namespace nlsat {
                 x = m_todo.extract_max_polys(ps);
             }
 
-            while(!m_todo.empty()) {
+            while (!m_todo.empty()) {
                 add_cell_lits_linear(ps, x, ps_below_sample, ps_above_sample, ps_equal_sample);
                 if (all_univ(ps, x) && m_todo.empty()) {
                     m_todo.reset();
@@ -1470,15 +1469,12 @@ namespace nlsat {
 
 
         void project(polynomial_ref_vector & ps, var max_x) {
-            if (m_linear_project) {
-                project_linear(ps, max_x);
-            }
-            else if (m_cell_sample) {
-                project_cdcac(ps, max_x);
-            }
-            else {
-                project_original(ps, max_x);
-            }
+            if (m_linear_project)
+                linear_project(ps, max_x);
+            else if (m_cell_sample) 
+                project_cdcac(ps, max_x);            
+            else 
+                project_original(ps, max_x);            
         }
 
         bool check_already_added() const {
@@ -2336,12 +2332,12 @@ namespace nlsat {
         m_imp->m_signed_project = f;
     }
 
-    void explain::set_linear_project(bool f) {
-        m_imp->m_linear_project = f;
-    }
-
     void explain::main_operator(unsigned n, literal const * ls, scoped_literal_vector & result) {
         (*m_imp)(n, ls, result);
+    }
+
+    void explain::linear_project(unsigned n, literal const* ls, scoped_literal_vector& result) {
+        m_imp->linear_project(n, ls, result);
     }
 
     void explain::project(var x, unsigned n, literal const * ls, scoped_literal_vector & result) {
