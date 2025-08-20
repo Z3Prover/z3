@@ -1538,6 +1538,13 @@ lbool core::check() {
     if (no_effect()) 
         m_divisions.check();
 
+    bool use_nra_linearization = true;
+
+    if (no_effect() && use_nra_linearization) {
+        scoped_limits sl(m_reslim);
+        sl.push_child(&m_nra_lim);
+        ret = m_nra.check_assignment();
+    }
 
     if (no_effect()) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma();
