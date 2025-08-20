@@ -42,11 +42,12 @@ def update_bazel_module(version):
         with open(module_file, 'r') as f:
             content = f.read()
         
-        # Update version line
+        # Update version line in module() block only
         content = re.sub(
-            r'(\s+version\s*=\s*")[^"]*(".*)',
+            r'(module\([^)]*?\s+version\s*=\s*")[^"]*(".*?)',
             r'\g<1>' + bazel_version + r'\g<2>',
-            content
+            content,
+            flags=re.DOTALL
         )
         
         with open(module_file, 'w') as f:

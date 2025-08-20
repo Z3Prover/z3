@@ -4,8 +4,8 @@ module(
     bazel_compatibility = [">=7.0.0"],
 )
 
-bazel_dep(name = "rules_foreign_cc", version = "4.15.4")
-bazel_dep(name = "rules_license", version = "4.15.4")
+bazel_dep(name = "rules_foreign_cc", version = "0.14.0")
+bazel_dep(name = "rules_license", version = "1.0.0")
 
 # Enables formatting all Bazel files (.bazel, .bzl) by running:
 # ```bash
@@ -14,8 +14,8 @@ bazel_dep(name = "rules_license", version = "4.15.4")
 # ```
 bazel_dep(
     name = "buildifier_prebuilt",
-    version = "4.15.4",
+    version = "8.0.1",
     dev_dependency = True,
 )
 
-bazel_dep(name = "platforms", version = "4.15.4")
+bazel_dep(name = "platforms", version = "0.0.11")
