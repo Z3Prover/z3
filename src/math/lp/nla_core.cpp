@@ -1544,6 +1544,7 @@ lbool core::check() {
         scoped_limits sl(m_reslim);
         sl.push_child(&m_nra_lim);
         ret = m_nra.check_assignment();
+        IF_VERBOSE(1, verbose_stream() << "nra check_assignment returned " << ret << "\n";);
     }
 
     if (no_effect()) {

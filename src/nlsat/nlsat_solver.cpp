@@ -2078,7 +2078,9 @@ namespace nlsat {
             // assignment does not satisfy the constraints -> create lemma
             SASSERT(best_literal != null_literal);
             m_lazy_clause.reset();
-            m_explain.linear_project(1, &best_literal, m_lazy_clause);
+            m_explain.set_linear_project(true);
+            m_explain.main_operator(1, &best_literal, m_lazy_clause);
+            m_explain.set_linear_project(false);
             m_lazy_clause.push_back(~best_literal);
 
             core.clear();

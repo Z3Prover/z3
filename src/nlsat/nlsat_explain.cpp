@@ -2316,6 +2316,10 @@ namespace nlsat {
         m_imp->m_simplify_cores = f;
     }
 
+    void explain::set_linear_project(bool f) {
+        m_imp->m_linear_project = f;
+    }
+
     void explain::set_full_dimensional(bool f) {
         m_imp->m_full_dimensional = f;
     }
@@ -2334,10 +2338,6 @@ namespace nlsat {
 
     void explain::main_operator(unsigned n, literal const * ls, scoped_literal_vector & result) {
         (*m_imp)(n, ls, result);
-    }
-
-    void explain::linear_project(unsigned n, literal const* ls, scoped_literal_vector& result) {
-        m_imp->linear_project(n, ls, result);
     }
 
     void explain::project(var x, unsigned n, literal const * ls, scoped_literal_vector & result) {

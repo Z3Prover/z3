@@ -358,6 +358,8 @@ struct solver::imp {
                         default:
                             UNREACHABLE();
                     }
+
+                    IF_VERBOSE(1, verbose_stream() << "linear lemma: " << lemma << "\n");
                 }
                 m_nla_core.set_use_nra_model(true);
                 break;

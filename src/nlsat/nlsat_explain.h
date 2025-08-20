@@ -66,8 +66,6 @@ namespace nlsat {
         */
         void main_operator(unsigned n, literal const * ls, scoped_literal_vector & result);
 
-        void linear_project(unsigned n, literal const* ls, scoped_literal_vector& result);
-
         
         /**
            \brief projection for a given variable.
