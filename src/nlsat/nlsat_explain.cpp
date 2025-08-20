@@ -1303,7 +1303,8 @@ namespace nlsat {
                 // Temporarily unassign x, s.t. isolate_roots does not assume p as constant.
                 m_am.isolate_roots(p, undef_var_assignment(m_assignment, x), roots);
                 unsigned num_roots = roots.size();
-                if (num_roots == 0) continue;
+                if (num_roots == 0) 
+                    continue;
 
                 // find p's smallest root above the sample
                 unsigned i = 0;
@@ -1319,7 +1320,8 @@ namespace nlsat {
                     p_lower = p;
                     i_lower = i+1;
                     break; // TODO: choose the best among multiple section polynomials?
-                } else if (s < 0) {
+                } 
+                else if (s < 0) {
                     // x_val < roots[i]
                     ps_above.push_back(p);
                     if (upper_inf || m_am.lt(roots[i], upper)) {
@@ -1348,7 +1350,8 @@ namespace nlsat {
                 if (!m_am.is_rational(x_val)) {
                     // TODO: FAIL
                     NOT_IMPLEMENTED_YET();
-                } else if (m_pm.total_degree(p_lower) > 1) {
+                } 
+                else if (m_pm.total_degree(p_lower) > 1) {
                     rational bound;
                     m_am.to_rational(x_val, bound);
                     p_lower = m_pm.mk_polynomial(x);
@@ -1446,7 +1449,8 @@ namespace nlsat {
                     // section
                     lb = ps_equal_sample.back();
                     psc_resultants_with(ps, lb, x);
-                } else {
+                } 
+                else {
                     if (!ps_below_sample.empty()) {
                         lb = ps_below_sample.back();
                         psc_resultants_with(ps_below_sample, lb, x);

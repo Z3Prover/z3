@@ -2044,22 +2044,24 @@ namespace nlsat {
             literal best_literal = null_literal;
             unsigned sz = m_clauses.size();
             lbool satisfied = l_true;
-            for (unsigned i = 0; i < sz; i++) {
-                bool c_satisfied = false;
-                clause const & c = *(m_clauses[i]);
-                for (literal l : c) {
-                    if (const_cast<imp*>(this)->value(l) != l_false) {
-                        c_satisfied = true;
-                        break;
-                    }
+            for (auto cp : m_clauses) {
+                auto& c = *cp;
+                bool is_false = all_of(c, [&](literal l) { return const_cast<imp*>(this)->value(l) == l_false; });
+                bool is_true = any_of(c, [&](literal l) { return const_cast<imp*>(this)->value(l) == l_true; });
+                if (is_true)
+                    continue;                
+                
+                if (!is_false) {
+                    satisfied = l_undef;
+                    continue;
                 }
-                if (c_satisfied) continue;
 
                 // take best literal from c
                 for (literal l : c) {
                     if (best_literal == null_literal) {
                         best_literal = l;
-                    } else {
+                    } 
+                    else {
                         bool_var b_best = best_literal.var();
                         bool_var b_l = l.var();
                         if (degree(m_atoms[b_l]) < degree(m_atoms[b_best])) {
@@ -2070,14 +2072,9 @@ namespace nlsat {
                 }
             }
 
-            if (satisfied == l_true) {
-                // nothing to do
-                return l_true;
-            }
-            if (satisfied == l_undef) {
-                // nothing to do?
+            if (best_literal == null_literal)
+                return satisfied;
                 return l_undef;
-            }
 
             // assignment does not satisfy the constraints -> create lemma
             SASSERT(best_literal != null_literal);
