@@ -1,0 +1,13 @@
+prefix=/usr/local
+exec_prefix=/usr/local
+libdir=${exec_prefix}/lib
+sharedlibdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: z3
+Description: The Z3 Theorem Prover
+Version: 4.15.4.0
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lz3
+Cflags: -I${includedir}

@@ -1,0 +1,13 @@
+# Target labels
+ c_maxsat_example
+# Source files and their labels
+/home/runner/work/z3/z3/test-cmake/examples/CMakeFiles/c_maxsat_example
+/home/runner/work/z3/z3/test-cmake/examples/CMakeFiles/c_maxsat_example.rule
+/home/runner/work/z3/z3/test-cmake/examples/CMakeFiles/c_maxsat_example-complete.rule
+/home/runner/work/z3/z3/test-cmake/examples/c_maxsat_example-prefix/src/c_maxsat_example-stamp/c_maxsat_example-build.rule
+/home/runner/work/z3/z3/test-cmake/examples/c_maxsat_example-prefix/src/c_maxsat_example-stamp/c_maxsat_example-configure.rule
+/home/runner/work/z3/z3/test-cmake/examples/c_maxsat_example-prefix/src/c_maxsat_example-stamp/c_maxsat_example-download.rule
+/home/runner/work/z3/z3/test-cmake/examples/c_maxsat_example-prefix/src/c_maxsat_example-stamp/c_maxsat_example-install.rule
+/home/runner/work/z3/z3/test-cmake/examples/c_maxsat_example-prefix/src/c_maxsat_example-stamp/c_maxsat_example-mkdir.rule
+/home/runner/work/z3/z3/test-cmake/examples/c_maxsat_example-prefix/src/c_maxsat_example-stamp/c_maxsat_example-patch.rule
+/home/runner/work/z3/z3/test-cmake/examples/c_maxsat_example-prefix/src/c_maxsat_example-stamp/c_maxsat_example-update.rule

@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/runner/work/z3/z3/test-cmake/examples/CMakeFiles/userPropagator"
+		},
+		{
+			"file" : "/home/runner/work/z3/z3/test-cmake/examples/CMakeFiles/userPropagator.rule"
+		},
+		{
+			"file" : "/home/runner/work/z3/z3/test-cmake/examples/CMakeFiles/userPropagator-complete.rule"
+		},
+		{
+			"file" : "/home/runner/work/z3/z3/test-cmake/examples/userPropagator-prefix/src/userPropagator-stamp/userPropagator-build.rule"
+		},
+		{
+			"file" : "/home/runner/work/z3/z3/test-cmake/examples/userPropagator-prefix/src/userPropagator-stamp/userPropagator-configure.rule"
+		},
+		{
+			"file" : "/home/runner/work/z3/z3/test-cmake/examples/userPropagator-prefix/src/userPropagator-stamp/userPropagator-download.rule"
+		},
+		{
+			"file" : "/home/runner/work/z3/z3/test-cmake/examples/userPropagator-prefix/src/userPropagator-stamp/userPropagator-install.rule"
+		},
+		{
+			"file" : "/home/runner/work/z3/z3/test-cmake/examples/userPropagator-prefix/src/userPropagator-stamp/userPropagator-mkdir.rule"
+		},
+		{
+			"file" : "/home/runner/work/z3/z3/test-cmake/examples/userPropagator-prefix/src/userPropagator-stamp/userPropagator-patch.rule"
+		},
+		{
+			"file" : "/home/runner/work/z3/z3/test-cmake/examples/userPropagator-prefix/src/userPropagator-stamp/userPropagator-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"userPropagator"
+		],
+		"name" : "userPropagator"
+	}
+}

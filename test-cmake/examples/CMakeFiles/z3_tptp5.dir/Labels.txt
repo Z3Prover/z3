@@ -1,0 +1,13 @@
+# Target labels
+ z3_tptp5
+# Source files and their labels
+/home/runner/work/z3/z3/test-cmake/examples/CMakeFiles/z3_tptp5
+/home/runner/work/z3/z3/test-cmake/examples/CMakeFiles/z3_tptp5.rule
+/home/runner/work/z3/z3/test-cmake/examples/CMakeFiles/z3_tptp5-complete.rule
+/home/runner/work/z3/z3/test-cmake/examples/z3_tptp5-prefix/src/z3_tptp5-stamp/z3_tptp5-build.rule
+/home/runner/work/z3/z3/test-cmake/examples/z3_tptp5-prefix/src/z3_tptp5-stamp/z3_tptp5-configure.rule
+/home/runner/work/z3/z3/test-cmake/examples/z3_tptp5-prefix/src/z3_tptp5-stamp/z3_tptp5-download.rule
+/home/runner/work/z3/z3/test-cmake/examples/z3_tptp5-prefix/src/z3_tptp5-stamp/z3_tptp5-install.rule
+/home/runner/work/z3/z3/test-cmake/examples/z3_tptp5-prefix/src/z3_tptp5-stamp/z3_tptp5-mkdir.rule
+/home/runner/work/z3/z3/test-cmake/examples/z3_tptp5-prefix/src/z3_tptp5-stamp/z3_tptp5-patch.rule
+/home/runner/work/z3/z3/test-cmake/examples/z3_tptp5-prefix/src/z3_tptp5-stamp/z3_tptp5-update.rule

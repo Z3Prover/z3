@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC  -Werror=odr  -Werror=return-type  -O2 -g -DNDEBUG -Wl,--dependency-file=CMakeFiles/libz3.dir/link.d -shared -Wl,-soname,libz3.so.4.15 -o ../libz3.so.4.15.4.0 @CMakeFiles/libz3.dir/objects1.rsp

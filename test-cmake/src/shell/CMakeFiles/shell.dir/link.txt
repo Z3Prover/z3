@@ -1,0 +1,1 @@
+/usr/bin/c++  -Werror=odr  -Werror=return-type  -O2 -g -DNDEBUG -Wl,--dependency-file=CMakeFiles/shell.dir/link.d @CMakeFiles/shell.dir/objects1.rsp -o ../../z3
