@@ -118,7 +118,7 @@ def _z3_version():
         if os.path.exists(fn):
             with open(fn) as f:
                 for line in f:
-                    n = re.match(r"(.*), (.*), (.*), (.*)", line)
+                    n = re.match(r"(.*)\.(.*)\.(.*)\.(.*)", line)
                     if not n is None:
                         return n.group(1) + '.' + n.group(2) + '.' + n.group(3) + '.' + n.group(4) + post
         return "?.?.?.?"
