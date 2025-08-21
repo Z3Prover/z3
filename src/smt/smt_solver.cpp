@@ -527,6 +527,10 @@ public:
     solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_smt_solver(m, p, logic);
     }
+    
+    solver_factory* translate(ast_manager& m) override {
+        return alloc(smt_solver_factory);
+    }
 };
 }
 

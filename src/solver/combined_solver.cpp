@@ -424,6 +424,12 @@ public:
                                   (*m_f2)(m, p, proofs_enabled, models_enabled, unsat_core_enabled, logic),
                                   p);
     }
+    
+    solver_factory* translate(ast_manager& m) override {
+        solver_factory* translated_f1 = m_f1->translate(m);
+        solver_factory* translated_f2 = m_f2->translate(m);
+        return alloc(combined_solver_factory, translated_f1, translated_f2);
+    }
 };
 
 solver_factory * mk_combined_solver_factory(solver_factory * f1, solver_factory * f2) {

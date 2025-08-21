@@ -245,6 +245,7 @@ private:
 public:
     unsigned         limit_on_rows_for_hnf_cutter = 75;
     unsigned         limit_on_columns_for_hnf_cutter = 150;
+    mpq              m_epsilon = mpq(1);
 private:
     unsigned         m_nlsat_delay = 0;
     bool             m_enable_hnf = true;

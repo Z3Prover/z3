@@ -1450,6 +1450,59 @@ br_status seq_rewriter::mk_seq_last_index(expr* a, expr* b, expr_ref& result) {
         result = m_autil.mk_int(0);
         return BR_DONE;
     }
+
+    if (str().is_empty(b)) {
+        result = str().mk_length(a);
+        return BR_DONE;
+    }
+
+    expr_ref_vector as(m()), bs(m());
+    str().get_concat_units(a, as);
+    str().get_concat_units(b, bs);
+
+    auto is_suffix = [&](expr_ref_vector const& as, expr_ref_vector const& bs) {
+        if (as.size() < bs.size())
+            return l_undef;
+        for (unsigned j = 0; j < bs.size(); ++j) {
+            auto a = as.get(as.size() - j - 1);
+            auto b = bs.get(bs.size() - j - 1);
+            if (m().are_equal(a, b))
+                continue;
+            if (m().are_distinct(a, b))
+                return l_false;
+            return l_undef;
+        }
+        return l_true;
+    };
+
+    switch (compare_lengths(as, bs)) {
+    case shorter_c:
+        result = minus_one();
+        return BR_DONE;
+    case same_length_c:
+        result = m().mk_ite(m().mk_eq(a, b), zero(), minus_one());
+        return BR_REWRITE_FULL;
+    case longer_c: {
+        unsigned i = as.size();
+        while (i >= bs.size()) {
+            switch (is_suffix(as, bs)) {
+            case l_undef:
+                return BR_FAILED;
+            case l_true:
+                result = m_autil.mk_sub(str().mk_length(a), m_autil.mk_int(bs.size() - i));
+                return BR_REWRITE3;
+            case l_false:
+                as.pop_back();
+                --i;
+                break;
+            }
+        }
+        break;
+    }
+    default:
+        break;
+    }
+
     return BR_FAILED;
 }
 

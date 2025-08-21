@@ -653,6 +653,10 @@ class SortRef(AstRef):
         """
         return not Z3_is_eq_sort(self.ctx_ref(), self.ast, other.ast)
 
+    def __gt__(self, other):
+        """Create the function space Array(self, other)"""
+        return ArraySort(self, other)
+
     def __hash__(self):
         """ Hash code. """
         return AstRef.__hash__(self)
