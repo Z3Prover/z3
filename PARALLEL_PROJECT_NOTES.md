@@ -240,8 +240,8 @@ for benchmark in benchmarks:
       s.set("smt.max_conflicts", max_conflicts)
       r = s.check()
       st = s.statistics()
-      conf = st.num_conflicts()
-      scores[(n, v)] = conf 
+      d = st.num_decisions()
+      scores[(n, v)] = d
 
 </pre>
 
