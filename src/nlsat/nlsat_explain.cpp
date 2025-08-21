@@ -1424,7 +1424,7 @@ namespace nlsat {
             polynomial_ref_vector ps_above_sample(m_pm);
             polynomial_ref_vector ps_equal_sample(m_pm);
             var x = m_todo.extract_max_polys(ps);
-            if (x == max_x) {
+            if (!m_assignment.is_assigned(x)) {
                 // top level projection like original
                 // we could also do a covering-style projection, sparing some resultants
                 add_lcs(ps, x);
@@ -1433,7 +1433,7 @@ namespace nlsat {
                 x = m_todo.extract_max_polys(ps);
             }
 
-            while (!m_todo.empty()) {
+            while (true) {
                 add_cell_lits_linear(ps, x, ps_below_sample, ps_above_sample, ps_equal_sample);
                 if (all_univ(ps, x) && m_todo.empty()) {
                     m_todo.reset();
@@ -1463,6 +1463,8 @@ namespace nlsat {
                         }
                     }
                 }
+                if (m_todo.empty())
+                    break;
                 x = m_todo.extract_max_polys(ps);
             }
         }
