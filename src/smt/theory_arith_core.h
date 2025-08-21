@@ -3174,7 +3174,8 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::compute_epsilon() {
-        m_epsilon = numeral(1);
+        auto eps = ctx.get_fparams().m_arith_epsilon;        
+        m_epsilon = numeral(eps);
         theory_var num = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
             bound * l = lower(v);
