@@ -500,6 +500,20 @@ namespace smt {
     }
 
     expr_ref_vector parallel::worker::get_split_atoms() {
+#if false
+        for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
+            if (ctx->get_assignment(v) != l_undef)
+                continue;
+            expr* e = ctx->bool_var2expr(v);
+            if (!e)
+                continue;
+            auto v_score = ctx->m_lit_scores[0][v] * ctx->m_lit_scores[1][v];
+            // if v_score is maximal then v is our split atom..
+
+            ctx->m_lit_scores[0][v] /= 2;
+            ctx->m_lit_scores[1][v] /= 2;
+        }
+#endif
         unsigned k = 2;
 
         auto candidates = ctx->m_pq_scores.get_heap();
