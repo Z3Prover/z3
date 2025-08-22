@@ -390,6 +390,11 @@ public:
     solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_tactic2solver(m, m_tactic.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
     }
+    
+    solver_factory* translate(ast_manager& m) override {
+        tactic* translated_tactic = m_tactic->translate(m);
+        return alloc(tactic2solver_factory, translated_tactic);
+    }
 };
 
 class tactic_factory2solver_factory : public solver_factory {
@@ -401,6 +406,10 @@ public:
     solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         tactic * t = (*m_factory)(m, p);
         return mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
+    }
+    
+    solver_factory* translate(ast_manager& m) override {
+        return alloc(tactic_factory2solver_factory, m_factory);
     }
 };
 }

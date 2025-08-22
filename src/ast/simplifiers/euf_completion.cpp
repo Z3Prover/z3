@@ -244,7 +244,7 @@ namespace euf {
         unsigned sz = qtail();
         for (unsigned i = qhead(); i < sz; ++i) {
             auto [f, p, d] = m_fmls[i]();
-            if (is_app(f) && to_app(f)->get_num_args() == 1 && symbol("congruences") == to_app(f)->get_decl()->get_name())
+            if (is_congruences(f))
                 map_congruence(to_app(f)->get_arg(0));
         }
     }
@@ -255,6 +255,11 @@ namespace euf {
             return;
         expr_ref_vector args(m);
         expr_mark visited;
+        proof_ref pr(m);
+        expr_dependency_ref dep(m);
+        auto canon = get_canonical(n->get_expr(), pr, dep);
+        args.push_back(canon);
+        visited.mark(canon);
         for (auto s : enode_class(n)) {
             expr_ref r(s->get_expr(), m);
             m_rewriter(r);
@@ -329,6 +334,12 @@ namespace euf {
             if (a->get_root() == b->get_root())
                 return;
 
+            expr_ref x1(x, m);
+            m_rewriter(x1);
+//            enode* a1 = mk_enode(x1);
+//            if (a->get_root() != a1->get_root())
+//                m_egraph.merge(a, a1, nullptr);
+
             TRACE(euf, tout << "merge and propagate\n");
             add_children(a);
             add_children(b);
@@ -344,6 +355,7 @@ namespace euf {
         else if (m.is_not(f, nf)) {
             expr_ref f1(nf, m);
             m_rewriter(f1);
+
             enode* n = mk_enode(f1);
             if (m.is_false(n->get_root()->get_expr()))
                 return;
@@ -351,6 +363,9 @@ namespace euf {
             auto n_false = mk_enode(m.mk_false());
             auto j = to_ptr(push_pr_dep(pr, d));
             m_egraph.merge(n, n_false, j);
+            if (nf != f1) 
+                m_egraph.merge(n, mk_enode(nf), nullptr);
+            
             m_egraph.propagate();
             add_children(n);
             m_should_propagate = true;
@@ -358,7 +373,21 @@ namespace euf {
                 m_side_condition_solver->add_constraint(f, pr, d);
             IF_VERBOSE(1, verbose_stream() << "not: " << nf << "\n");
         }
+        else if (is_congruences(f)) {
+            auto t = to_app(f)->get_arg(0);
+            expr_ref r(t, m);
+            m_rewriter(r);
+            auto a = mk_enode(t);
+            auto b = mk_enode(r);
+            m_egraph.merge(a, b, nullptr);
+            m_egraph.propagate();
+        }
         else {
+            expr_ref f1(f, m);
+            if (!m.is_implies(f) && !is_quantifier(f)) {
+                m_rewriter(f1);
+                f = f1;
+            }
             enode* n = mk_enode(f);
             if (m.is_true(n->get_root()->get_expr()))
                 return;            
@@ -1099,7 +1128,6 @@ namespace euf {
             }
             else
                 UNREACHABLE();
-
         }
         enode* n = m_egraph.find(f);
         if (!n) n = mk_enode(f);
@@ -1108,10 +1136,11 @@ namespace euf {
         d = m.mk_join(d, m_deps.get(r->get_id(), nullptr));
         if (m.proofs_enabled()) {
             pr = prove_eq(n, r);
-            if (get_canonical_proof(r)) 
-                pr = m.mk_transitivity(pr, get_canonical_proof(r));            
+            if (get_canonical_proof(r))
+                pr = m.mk_transitivity(pr, get_canonical_proof(r));
         }
-        SASSERT(m_canonical.get(r->get_id()));
+        if (!m_canonical.get(r->get_id()))
+            m_canonical.setx(r->get_id(), r->get_expr());
         return expr_ref(m_canonical.get(r->get_id()), m);
     }
 

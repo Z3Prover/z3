@@ -114,11 +114,11 @@ def _clean_native_build():
 def _z3_version():
     post = os.getenv('Z3_VERSION_SUFFIX', '')
     if RELEASE_DIR is None:
-        fn = os.path.join(SRC_DIR, 'scripts', 'mk_project.py')
+        fn = os.path.join(SRC_DIR_REPO, 'VERSION.txt')
         if os.path.exists(fn):
             with open(fn) as f:
                 for line in f:
-                    n = re.match(r".*set_version\((.*), (.*), (.*), (.*)\).*", line)
+                    n = re.match(r"(.*)\.(.*)\.(.*)\.(.*)", line)
                     if not n is None:
                         return n.group(1) + '.' + n.group(2) + '.' + n.group(3) + '.' + n.group(4) + post
         return "?.?.?.?"
@@ -284,7 +284,7 @@ class sdist(_sdist):
 # The Azure Dev Ops pipelines use internal OS version tagging that don't correspond
 # to releases.
 
-internal_build_re = re.compile("(.+)\_7")
+internal_build_re = re.compile("(.+)_7")
 
 class bdist_wheel(_bdist_wheel):
 

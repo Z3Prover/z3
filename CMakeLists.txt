@@ -2,7 +2,12 @@
 cmake_minimum_required(VERSION 3.16)
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 VERSION 4.15.3.0 LANGUAGES CXX)
+
+# Read version from VERSION.txt file
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION.txt" Z3_VERSION_FROM_FILE)
+string(STRIP "${Z3_VERSION_FROM_FILE}" Z3_VERSION_FROM_FILE)
+
+project(Z3 VERSION ${Z3_VERSION_FROM_FILE} LANGUAGES CXX)
 
 ################################################################################
 # Project version

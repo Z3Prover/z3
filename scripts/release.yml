@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.15.3'
+  ReleaseVersion: '4.16.0'  # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
 
 stages:
 
@@ -492,7 +492,7 @@ stages:
 
   # Enable on release:
   - job: PyPIPublish
-    condition: eq(0,1)
+    condition: eq(1,1)
     displayName: "Publish to PyPI"
     pool:
       vmImage: "ubuntu-latest"

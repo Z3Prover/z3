@@ -175,6 +175,10 @@ namespace euf {
         void map_congruence(expr* t);
         void add_consequence(expr* t);
 
+        bool is_congruences(expr* f) const {
+            return is_app(f) && to_app(f)->get_num_args() == 1 && symbol("congruences") == to_app(f)->get_decl()->get_name();
+        }
+
         // Enable equality propagation inside of quantifiers
         // add quantifier bodies as closure terms to the E-graph.
         // use fresh variables for bound variables, but such that the fresh variables are 
