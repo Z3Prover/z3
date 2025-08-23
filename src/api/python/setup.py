@@ -114,7 +114,7 @@ def _clean_native_build():
 def _z3_version():
     post = os.getenv('Z3_VERSION_SUFFIX', '')
     if RELEASE_DIR is None:
-        fn = os.path.join(SRC_DIR_REPO, 'VERSION.txt')
+        fn = os.path.join(SRC_DIR, 'VERSION.txt')
         if os.path.exists(fn):
             with open(fn) as f:
                 for line in f:
@@ -247,6 +247,7 @@ def _copy_sources():
 
 #   shutil.copy(os.path.join(SRC_DIR_REPO, 'LICENSE.txt'), ROOT_DIR)
     shutil.copy(os.path.join(SRC_DIR_REPO, 'LICENSE.txt'), SRC_DIR_LOCAL)
+    shutil.copy(os.path.join(SRC_DIR_REPO, 'VERSION.txt'), SRC_DIR_LOCAL)
     shutil.copy(os.path.join(SRC_DIR_REPO, 'z3.pc.cmake.in'), SRC_DIR_LOCAL)
     shutil.copy(os.path.join(SRC_DIR_REPO, 'CMakeLists.txt'), SRC_DIR_LOCAL)
     shutil.copytree(os.path.join(SRC_DIR_REPO, 'cmake'), os.path.join(SRC_DIR_LOCAL, 'cmake'))
