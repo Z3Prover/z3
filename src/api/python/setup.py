@@ -113,6 +113,7 @@ def _clean_native_build():
 
 def _z3_version():
     post = os.getenv('Z3_VERSION_SUFFIX', '')
+    print("z3_version", "release dir", RELEASE_DIR)
     if RELEASE_DIR is None:
         fn = os.path.join(SRC_DIR, 'VERSION.txt')
         print("loading version file", fn)
