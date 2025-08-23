@@ -864,14 +864,6 @@ bool model_evaluator::eval(expr_ref_vector const& ts, expr_ref& r, bool model_co
     return eval(tmp, r, model_completion);
 }
 
-void model_evaluator::set_solver(expr_solver* solver) {
-    m_imp->m_cfg.m_seq_rw.set_solver(solver);
-}
-
-bool model_evaluator::has_solver() {
-    return m_imp->m_cfg.m_seq_rw.has_solver();
-}
-
 model_core const & model_evaluator::get_model() const {
     return m_imp->cfg().m_model;
 }

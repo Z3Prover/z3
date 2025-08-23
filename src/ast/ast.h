@@ -2015,7 +2015,7 @@ public:
 
     bool is_pattern(expr const * n) const;
 
-    bool is_pattern(expr const *n, ptr_vector<expr> &args);
+    bool is_pattern(expr const *n, ptr_vector<app> &args);
 
 public:
 

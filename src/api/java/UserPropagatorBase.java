@@ -44,6 +44,13 @@ public abstract class UserPropagatorBase extends Native.UserPropagatorBase {
     }
 
     @Override
+    protected final boolean onBindingWrapper(long lq, long linst) {
+        Expr q = new Expr(ctx, lq);
+        Expr inst = new Expr(ctx, linst);
+        return on_binding(q, inst);
+    }
+
+    @Override
     protected final UserPropagatorBase freshWrapper(long lctx) {
         return fresh(new Context(lctx));
     }
@@ -77,6 +84,8 @@ public abstract class UserPropagatorBase extends Native.UserPropagatorBase {
     public void fixed(Expr<?> var, Expr<?> value) {}
 
     public void eq(Expr<?> x, Expr<?> y) {}
+    
+    public boolean on_binding(Expr<?> q, Expr<?> inst) { return true; }
 
     public void decide(Expr<?> var, int bit, boolean is_pos) {}
 

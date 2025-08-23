@@ -79,6 +79,7 @@ public:
 
     bool is_true(expr* f, proof_ref& pr, expr_dependency*& d) override {
         d = nullptr;
+        init_solver();
         solver::scoped_push _sp(*m_solver);
         m_fmls.reset();
         m_fmls.push_back(m.mk_not(f));
@@ -88,6 +89,8 @@ public:
             expr_ref_vector core(m);
             m_solver->get_unsat_core(core);
             for (auto c : core) {
+                if (c == nf)
+                    continue;
                 auto [pr, dep] = m_e2d[c];
                 d = m.mk_join(d, dep);
             }
@@ -96,6 +99,8 @@ public:
                 SASSERT(pr);
                 expr_safe_replace rep(m);
                 for (auto c : core) {
+                    if (c == nf)
+                        continue;
                     auto [p, dep] = m_e2d[c];
                     rep.insert(m.mk_asserted(c), p);
                 }
@@ -109,6 +114,7 @@ public:
     }
 
     void solve_for(vector<solution>& sol) override {
+        init_solver();
         vector<solver::solution> ss;
         for (auto [v, t, g] : sol)
             ss.push_back({ v, t, g });

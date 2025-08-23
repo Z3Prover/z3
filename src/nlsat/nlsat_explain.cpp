@@ -593,7 +593,7 @@ namespace nlsat {
         /**
            \brief Add factors of p to todo
         */
-        void add_factors(polynomial_ref & p) {
+        void insert_fresh_factors_in_todo(polynomial_ref & p) {
             if (is_const(p))
                 return;
             elim_vanishing(p);
@@ -621,7 +621,7 @@ namespace nlsat {
 // The monomials have to be square free according to
 //"An improved projection operation for cylindrical algebraic decomposition of three-dimensional space", by McCallum, Scott
             
-        bool is_square_free_at_sample(polynomial_ref_vector &ps, var x) {
+        bool is_square_free(polynomial_ref_vector &ps, var x) {
             polynomial_ref p(m_pm);
             polynomial_ref lc_poly(m_pm);
             polynomial_ref disc_poly(m_pm); 
@@ -646,28 +646,27 @@ namespace nlsat {
             return true;
         }
         
-	// For each p in ps add the leading or all the coefficients of p to the projection,
-        // depending on the well-orientedness of ps.
+     	// If each p from ps is square-free then add the leading coefficents to the projection. 
+	// Otherwise, add each coefficient of each p to the projection.
         void add_lcs(polynomial_ref_vector &ps, var x) {
             polynomial_ref p(m_pm);
             polynomial_ref coeff(m_pm);
 
-            bool sqf = is_square_free_at_sample(ps, x);
-            // Add coefficients based on well-orientedness
+            bool sqf = is_square_free(ps, x);
+            // Add the leading or all coeffs, depening on being square-free
             for (unsigned i = 0; i < ps.size(); i++) {
                 p = ps.get(i);
                 unsigned k_deg = m_pm.degree(p, x);
                 if (k_deg == 0) continue;
                 // p depends on x
-                TRACE(nlsat_explain, tout << "processing poly of degree " << k_deg << " w.r.t x" << x << ": "; display(tout, p); tout << (sqf ? " (sqf)" : " (!sqf)") << "\n";);
+                TRACE(nlsat_explain, tout << "processing poly of degree " << k_deg << " w.r.t x" << x << ": "; display(tout, p) << "\n";);
                 for (unsigned j_coeff_deg = k_deg; j_coeff_deg >= 1; j_coeff_deg--) { 
                     coeff = m_pm.coeff(p, x, j_coeff_deg);
                     TRACE(nlsat_explain, tout << "    coeff deg " << j_coeff_deg << ": "; display(tout, coeff) << "\n";);
-                    add_factors(coeff);
+                    insert_fresh_factors_in_todo(coeff);
                     if (sqf)
                         break;
                 }
-                
             }
         }
 
@@ -772,7 +771,7 @@ namespace nlsat {
                       display(tout, s);
                       tout << "\n";);
                 // s did not vanish completely, but its leading coefficient may have vanished
-                add_factors(s);
+                insert_fresh_factors_in_todo(s);
                 return; 
             }
         }
@@ -1231,18 +1230,24 @@ namespace nlsat {
                 return;
 
             m_todo.reset();
-            for (poly* p : ps) {
-                m_todo.insert(p);
+            for (unsigned i = 0; i < ps.size(); i++) {
+                polynomial_ref p(m_pm);
+                p = ps.get(i);
+                insert_fresh_factors_in_todo(p);
             }
+            // replace ps by the fresh factors
+            ps.reset();
+            for (auto p: m_todo.m_set)
+                ps.push_back(p);
+            
             var x = m_todo.extract_max_polys(ps);
             // Remark: after vanishing coefficients are eliminated, ps may not contain max_x anymore
             
             polynomial_ref_vector samples(m_pm);
 
             
-            if (x < max_x){
+            if (x < max_x)
                 cac_add_cell_lits(ps, x, samples);
-            }
 
             while (true) {
                 if (all_univ(ps, x) && m_todo.empty()) {

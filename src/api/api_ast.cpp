@@ -225,13 +225,15 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_fresh_func_decl(c, prefix, domain_size, domain, range);
         RESET_ERROR_CODE();
+        CHECK_IS_SORT(range, nullptr);
+        CHECK_SORTS(domain_size, domain, nullptr);
         if (prefix == nullptr) {
             prefix = "";
         }
 
         func_decl* d = mk_c(c)->m().mk_fresh_func_decl(prefix,
                                                        domain_size,
-                                                       reinterpret_cast<sort*const*>(domain),
+                                                       to_sorts(domain),
                                                        to_sort(range), false);
 
         mk_c(c)->save_ast_trail(d);
@@ -243,9 +245,11 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_fresh_const(c, prefix, ty);
         RESET_ERROR_CODE();
+        CHECK_IS_SORT(ty, nullptr);
         if (prefix == nullptr) {
             prefix = "";
         }
+
         app* a = mk_c(c)->m().mk_fresh_const(prefix, to_sort(ty), false);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -654,6 +658,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_sort_name(c, t);
         RESET_ERROR_CODE();
+        CHECK_IS_SORT(t, of_symbol(symbol::null));
         CHECK_VALID_AST(t, of_symbol(symbol::null));
         return of_symbol(to_sort(t)->get_name());
         Z3_CATCH_RETURN(of_symbol(symbol::null));
@@ -795,12 +800,11 @@ extern "C" {
         unsigned timeout     = p.get_uint("timeout", mk_c(c)->get_timeout());
         bool     use_ctrl_c  = p.get_bool("ctrl_c", false);
         th_rewriter m_rw(m, p);
-        m_rw.set_solver(alloc(api::seq_expr_solver, m, p));
         expr_ref    result(m);
         cancel_eh<reslimit> eh(m.limit());
         api::context::set_interruptable si(*(mk_c(c)), eh);
         {
-            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
+            scoped_ctrl_c ctrlc(eh, use_ctrl_c);
             scoped_timer timer(timeout, &eh);
             try {
                 m_rw(a, result);

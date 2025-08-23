@@ -528,6 +528,10 @@ namespace lp {
         m_imp->m_usage_in_terms.push();
         m_imp->m_dependencies.push_scope();
     }
+
+    unsigned lar_solver::get_scope_level() const {
+        return m_imp->m_trail.get_num_scopes();
+    }
     
     void lar_solver::clean_popped_elements(unsigned n, indexed_uint_set& set) {
         vector<int> to_remove;
@@ -1519,7 +1523,7 @@ namespace lp {
         if (!m_imp->m_columns_with_changed_bounds.empty())
             return false;
 
-        m_imp->m_delta = get_core_solver().find_delta_for_strict_bounds(mpq(1));
+        m_imp->m_delta = get_core_solver().find_delta_for_strict_bounds(m_imp->m_settings.m_epsilon);
         unsigned j;
         unsigned n = get_core_solver().r_x().size();
         do {
@@ -1541,7 +1545,7 @@ namespace lp {
     }
 
     void lar_solver::get_model_do_not_care_about_diff_vars(std::unordered_map<lpvar, mpq>& variable_values) const {
-        mpq delta = get_core_solver().find_delta_for_strict_bounds(mpq(1));
+        mpq delta = get_core_solver().find_delta_for_strict_bounds(m_imp->m_settings.m_epsilon);
         for (unsigned i = 0; i < get_core_solver().r_x().size(); i++) {
             const impq& rp = get_core_solver().r_x(i);
             variable_values[i] = rp.x + delta * rp.y;
@@ -1565,7 +1569,7 @@ namespace lp {
         }
         if (y_is_zero)
             return;
-        mpq delta = get_core_solver().find_delta_for_strict_bounds(mpq(1));
+        mpq delta = get_core_solver().find_delta_for_strict_bounds(m_imp->m_settings.m_epsilon);
         for (unsigned j = 0; j < number_of_vars(); j++) {
             auto& v = get_core_solver().r_x(j);
             if (!v.y.is_zero()) {

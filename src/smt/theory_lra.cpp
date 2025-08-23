@@ -1296,10 +1296,14 @@ public:
             // q = 0 or p = (p mod q) + q * (p div q)
             // q = 0 or (p mod q) >= 0
             // q = 0 or (p mod q) < abs(q)
+            // q >= 0 or (p mod q) = (p mod -q)
             
             mk_axiom(eqz, eq);
             mk_axiom(eqz, mod_ge_0);
             mk_axiom(eqz, mod_lt_q);
+            if (!a.is_uminus(q)) 
+                mk_axiom(mk_literal(m.mk_eq(mod, a.mk_mod(p, a.mk_uminus(q)))));
+            
             m_arith_eq_adapter.mk_axioms(th.ensure_enode(mod_r), th.ensure_enode(p));
 
             if (a.is_zero(p)) {
@@ -3732,6 +3736,8 @@ public:
         unsigned_vector vars;
         unsigned j = 0;
         for (auto [e, t, g] : solutions) {
+            if (!ctx().e_internalized(e))
+                continue;
             auto n = get_enode(e);
             if (!n) {
                 solutions[j++] = { e, t, g };

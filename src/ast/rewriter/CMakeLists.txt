@@ -46,7 +46,6 @@ z3_add_component(rewriter
   COMPONENT_DEPENDENCIES
     ast
     params
-    automata
     interval
     polynomial
 )

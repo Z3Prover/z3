@@ -26,6 +26,7 @@ Revision History:
 #include "util/buffer.h"
 #include "util/symbol_table.h"
 #include "util/obj_hashtable.h"
+#include "util/dictionary.h"
 
 
 enum sort_kind {
@@ -164,6 +165,7 @@ namespace datatype {
         sort_ref_vector         m_params;
         mutable sort_ref        m_sort;
         ptr_vector<constructor> m_constructors;
+        mutable dictionary<constructor*> m_name2constructor;
     public:
         def(ast_manager& m, util& u, symbol const& n, unsigned class_id, unsigned num_params, sort * const* params):
             m(m),
@@ -195,6 +197,31 @@ namespace datatype {
         util& u() const { return m_util; }
         param_size::size* sort_size() { return m_sort_size; }
         void set_sort_size(param_size::size* p) { auto* q = m_sort_size;  m_sort_size = p; if (p) p->inc_ref(); if (q) q->dec_ref(); m_sort = nullptr; }
+        constructor* get_constructor_by_name(func_decl* con) const {
+            symbol const& name = con->get_name();
+            constructor* result = nullptr;
+            
+            // For small datatypes (< 10 constructors), use linear search instead of hash table
+            if (m_constructors.size() < 10) {
+                for (constructor* c : m_constructors) {
+                    if (c->name() == name) {
+                        result = c;
+                        break;
+                    }
+                }
+            } else {
+                // Lazy initialization of name-to-constructor map for O(1) lookups
+                if (m_name2constructor.empty() && !m_constructors.empty()) {
+                    for (constructor* c : m_constructors) {
+                        m_name2constructor.insert(c->name(), c);
+                    }
+                }
+                m_name2constructor.find(name, result);
+            }
+            
+            SASSERT(result); // Post-condition: get_constructor_by_name returns a non-null result
+            return result;
+        }
         def* translate(ast_translation& tr, util& u);
     };
 

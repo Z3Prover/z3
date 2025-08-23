@@ -2386,29 +2386,19 @@ app * ast_manager::mk_pattern(unsigned num_exprs, app * const * exprs) {
 }
 
 bool ast_manager::is_pattern(expr const * n) const {
-    if (!is_app_of(n, pattern_family_id, OP_PATTERN)) {
-        return false;
-    }
-    for (unsigned i = 0; i < to_app(n)->get_num_args(); ++i) {
-        if (!is_app(to_app(n)->get_arg(i))) {
-            return false;
-         }
-    }
-    return true;
+    if (!is_app_of(n, pattern_family_id, OP_PATTERN)) 
+        return false;    
+    return all_of(*to_app(n), [](expr* arg) { return is_app(arg); });
 }
 
 
-bool ast_manager::is_pattern(expr const * n, ptr_vector<expr> &args) {
-    if (!is_app_of(n, pattern_family_id, OP_PATTERN)) {
+bool ast_manager::is_pattern(expr const * n, ptr_vector<app> &args) {
+    if (!is_pattern(n))
         return false;
-    }
-    for (unsigned i = 0; i < to_app(n)->get_num_args(); ++i) {
-        expr *arg = to_app(n)->get_arg(i);
-        if (!is_app(arg)) {
-            return false;
-        }
-        args.push_back(arg);
-    }
+
+    for (auto arg : *to_app(n)) 
+        args.push_back(to_app(arg));
+    
     return true;
 }
 

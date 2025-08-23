@@ -77,13 +77,16 @@ namespace smt {
             throw default_exception("trace streams have to be off in parallel mode");
 
         
+        params_ref params = ctx.get_params();
         for (unsigned i = 0; i < num_threads; ++i) {
             smt_params.push_back(ctx.get_fparams());
+            smt_params.back().m_preprocess = false;
         }
+                    
         for (unsigned i = 0; i < num_threads; ++i) {
             ast_manager* new_m = alloc(ast_manager, m, true);
             pms.push_back(new_m);
-            pctxs.push_back(alloc(context, *new_m, smt_params[i], ctx.get_params())); 
+            pctxs.push_back(alloc(context, *new_m, smt_params[i], params)); 
             context& new_ctx = *pctxs.back();
             context::copy(ctx, new_ctx, true);
             new_ctx.set_random_seed(i + ctx.get_fparams().m_random_seed);
@@ -108,6 +111,7 @@ namespace smt {
         for (unsigned i = 0; i < num_threads; ++i) unit_lim.push_back(0);
 
         std::function<void(void)> collect_units = [&,this]() {
+            //return; -- has overhead
             for (unsigned i = 0; i < num_threads; ++i) {
                 context& pctx = *pctxs[i];
                 pctx.pop_to_base_lvl();
@@ -115,6 +119,9 @@ namespace smt {
                 unsigned sz = pctx.assigned_literals().size();
                 for (unsigned j = unit_lim[i]; j < sz; ++j) {
                     literal lit = pctx.assigned_literals()[j];
+                    //IF_VERBOSE(0, verbose_stream() << "(smt.thread " << i << " :unit " << lit << " " << pctx.is_relevant(lit.var()) << ")\n";);
+                    if (!pctx.is_relevant(lit.var()))
+                        continue;
                     expr_ref e(pctx.bool_var2expr(lit.var()), pctx.m);
                     if (lit.sign()) e = pctx.m.mk_not(e);
                     expr_ref ce(tr(e.get()), ctx.m);

@@ -4295,12 +4295,14 @@ namespace z3 {
         typedef std::function<void(expr const&, expr const&)> eq_eh_t;
         typedef std::function<void(expr const&)> created_eh_t;
         typedef std::function<void(expr, unsigned, bool)> decide_eh_t;
+        typedef std::function<bool(expr const&, expr const&)> on_binding_eh_t;
 
         final_eh_t m_final_eh;
         eq_eh_t    m_eq_eh;
         fixed_eh_t m_fixed_eh;
         created_eh_t m_created_eh;
         decide_eh_t m_decide_eh;
+        on_binding_eh_t m_on_binding_eh;
         solver*    s;
         context*   c;
         std::vector<z3::context*> subcontexts;
@@ -4371,6 +4373,13 @@ namespace z3 {
             scoped_cb _cb(p, cb);
             expr val(p->ctx(), _val);
             p->m_decide_eh(val, bit, is_pos);
+        }
+
+        static bool on_binding_eh(void* _p, Z3_solver_callback cb, Z3_ast _q, Z3_ast _inst) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
+            scoped_cb _cb(p, cb);
+            expr q(p->ctx(), _q), inst(p->ctx(), _inst);
+            return p->m_on_binding_eh(q, inst);
         }
         
     public:
@@ -4498,6 +4507,14 @@ namespace z3 {
             }
         }
 
+        void register_on_binding() {
+            m_on_binding_eh = [this](expr const& q, expr const& inst) {
+                return on_binding(q, inst);
+            };
+            if (s) 
+                Z3_solver_propagate_on_binding(ctx(), *s, on_binding_eh);
+        }
+
         virtual void fixed(expr const& /*id*/, expr const& /*e*/) { }
 
         virtual void eq(expr const& /*x*/, expr const& /*y*/) { }
@@ -4507,6 +4524,8 @@ namespace z3 {
         virtual void created(expr const& /*e*/) {}
         
         virtual void decide(expr const& /*val*/, unsigned /*bit*/, bool /*is_pos*/) {}
+
+        virtual bool on_binding(expr const& /*q*/, expr const& /*inst*/) { return true; }
 
         bool next_split(expr const& e, unsigned idx, Z3_lbool phase) {
             assert(cb);

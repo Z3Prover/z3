@@ -904,6 +904,8 @@ namespace smt {
 
         void add_or_rel_watches(app * n);
 
+        void add_implies_rel_watches(app* n);
+
         void add_ite_rel_watches(app * n);
 
         void mk_not_cnstr(app * n);
@@ -911,6 +913,8 @@ namespace smt {
         void mk_and_cnstr(app * n);
 
         void mk_or_cnstr(app * n);
+
+        void mk_implies_cnstr(app* n);
 
         void mk_iff_cnstr(app * n, bool sign);
 
@@ -1808,6 +1812,14 @@ namespace smt {
             if (!m_user_propagator)
                 throw default_exception("user propagator must be initialized");
             m_user_propagator->register_decide(r);
+        }
+
+        void user_propagate_register_on_binding(user_propagator::binding_eh_t& t) {
+            m_user_propagator->register_on_binding(t);
+        }
+
+        void register_on_binding(std::function<bool(quantifier* q, expr* inst)>& f) {
+            m_qmanager->register_on_binding(f);
         }
 
         void user_propagate_initialize_value(expr* var, expr* value);

@@ -53,7 +53,7 @@ struct tag_info {
 };
 
 static tag_info s_tag_infos[] = {
-    #define X(tag, tc, desc) { false, false, TraceTag::tag },
+    #define X(tag_class, tag, desc) { false, false, TraceTag::tag },
 #include "util/trace_tags.def"
 #undef  X
 };
@@ -115,7 +115,7 @@ void enable_trace(const char * tag_str) {
     TraceTag tag = find_trace_tag_by_string(tag_str);
     if (tag == TraceTag::Count) {
         warning_msg("trace tag '%s' does not exist", tag_str);
-#define X(tag, tag_class, desc) if (has_overlap(#tag, tag_str)) warning_msg("did you mean '%s'?", #tag);
+#define X(tag_class, tag, desc) if (has_overlap(#tag, tag_str)) warning_msg("did you mean '%s'?", #tag);
 #include "util/trace_tags.def"
 #undef X           
         return;

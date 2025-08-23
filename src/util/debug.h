@@ -30,7 +30,8 @@ enum class debug_action {
     abort,
     stop,
     throw_exception,
-    invoke_debugger,
+    invoke_gdb,
+    invoke_lldb
 };
 debug_action get_default_debug_action();
 void set_default_debug_action(debug_action a);
@@ -69,8 +70,8 @@ void invoke_exit_action(unsigned int code);
 #ifdef _WINDOWS
 #define INVOKE_DEBUGGER() __debugbreak()
 #else
-void invoke_gdb();
-#define INVOKE_DEBUGGER() invoke_gdb()
+void invoke_debugger();
+#define INVOKE_DEBUGGER() invoke_debugger()
 #endif
 #endif
 

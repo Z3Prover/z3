@@ -23,6 +23,7 @@ Revision History:
 #include "util/statistics.h"
 #include "util/params.h"
 #include "smt/smt_types.h"
+#include "tactic/user_propagator_base.h"
 #include <tuple>
 
 class proto_model;
@@ -95,6 +96,8 @@ namespace smt {
 
         void collect_statistics(::statistics & st) const;
         void reset_statistics();
+
+        void register_on_binding(std::function<bool(quantifier*, expr*)> & f);
 
         ptr_vector<quantifier>::const_iterator begin_quantifiers() const;
         ptr_vector<quantifier>::const_iterator end_quantifiers() const;

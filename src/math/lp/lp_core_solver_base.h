@@ -386,7 +386,7 @@ public:
     void change_basis(unsigned entering, unsigned leaving) {
         TRACE(lar_solver, tout << "entering = " << entering << ", leaving = " << leaving << "\n";);
         SASSERT(m_basis_heading[entering] < 0);
-		SASSERT(m_basis_heading[leaving] >= 0);
+        SASSERT(m_basis_heading[leaving] >= 0);
         
         int place_in_basis =  m_basis_heading[leaving];
         int place_in_non_basis = - m_basis_heading[entering] - 1;
@@ -568,17 +568,17 @@ public:
             insert_column_into_inf_heap(j);
     }
     void insert_column_into_inf_heap(unsigned j) {        
-		if (!m_inf_heap.contains(j)) {
+        if (!m_inf_heap.contains(j)) {
             m_inf_heap.reserve(j+1);
-	        m_inf_heap.insert(j);
+            m_inf_heap.insert(j);
             TRACE(lar_solver_inf_heap, tout << "insert into inf_heap j = " << j << "\n";);
         }
         SASSERT(!column_is_feasible(j));
     }
     void remove_column_from_inf_heap(unsigned j) {
-		if (m_inf_heap.contains(j)) {
+        if (m_inf_heap.contains(j)) {
             TRACE(lar_solver_inf_heap, tout << "erase from heap j = " << j << "\n";);
-        	m_inf_heap.erase(j);
+            m_inf_heap.erase(j);
         }
         SASSERT(column_is_feasible(j));
     }

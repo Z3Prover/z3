@@ -1147,7 +1147,7 @@ namespace arith {
                 new_eq_eh(e);
             else if (is_eq(e.v1(), e.v2())) {
                 mk_diseq_axiom(e.v1(), e.v2());
-                TRACE(arith, tout << mk_bounded_pp(e.eq(), m) << " " << use_nra_model() << "\n");
+                TRACE(arith, tout << mk_bounded_pp(e.eq()->get_expr(), m) << " " << use_nra_model() << "\n");
                 found_diseq = true;
                 break;
             }

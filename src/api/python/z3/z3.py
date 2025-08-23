@@ -653,6 +653,10 @@ class SortRef(AstRef):
         """
         return not Z3_is_eq_sort(self.ctx_ref(), self.ast, other.ast)
 
+    def __gt__(self, other):
+        """Create the function space Array(self, other)"""
+        return ArraySort(self, other)
+
     def __hash__(self):
         """ Hash code. """
         return AstRef.__hash__(self)
@@ -1506,6 +1510,8 @@ def Consts(names, sort):
 
 def FreshConst(sort, prefix="c"):
     """Create a fresh constant of a specified sort"""
+    if z3_debug():
+        _z3_assert(is_sort(sort), f"Z3 sort expected, got {type(sort)}")
     ctx = _get_ctx(sort.ctx)
     return _to_expr_ref(Z3_mk_fresh_const(ctx.ref(), prefix, sort.ast), ctx)
 
@@ -4216,21 +4222,44 @@ def Concat(*args):
 
 
 def Extract(high, low, a):
-    """Create a Z3 bit-vector extraction expression.
-    Extract is overloaded to also work on sequence extraction.
-    The functions SubString and SubSeq are redirected to Extract.
-    For this case, the arguments are reinterpreted as:
-        high - is a sequence (string)
-        low  - is an offset
-        a    - is the length to be extracted
+    """Create a Z3 bit-vector extraction expression or sequence extraction expression.
+    
+    Extract is overloaded to work with both bit-vectors and sequences:
+    
+    **Bit-vector extraction**: Extract(high, low, bitvector)
+        Extracts bits from position `high` down to position `low` (both inclusive).
+        - high: int - the highest bit position to extract (0-indexed from right)
+        - low: int - the lowest bit position to extract (0-indexed from right)  
+        - bitvector: BitVecRef - the bit-vector to extract from
+        Returns a new bit-vector containing bits [high:low]
+    
+    **Sequence extraction**: Extract(sequence, offset, length)
+        Extracts a subsequence starting at the given offset with the specified length.
+        The functions SubString and SubSeq are redirected to this form of Extract.
+        - sequence: SeqRef or str - the sequence to extract from
+        - offset: int - the starting position (0-indexed)
+        - length: int - the number of elements to extract
+        Returns a new sequence containing the extracted subsequence
 
+    >>> # Bit-vector extraction examples
     >>> x = BitVec('x', 8)
-    >>> Extract(6, 2, x)
+    >>> Extract(6, 2, x)  # Extract bits 6 down to 2 (5 bits total)
     Extract(6, 2, x)
-    >>> Extract(6, 2, x).sort()
+    >>> Extract(6, 2, x).sort()  # Result is a 5-bit vector
     BitVec(5)
-    >>> simplify(Extract(StringVal("abcd"),2,1))
+    >>> Extract(7, 0, x)  # Extract all 8 bits
+    Extract(7, 0, x)
+    >>> Extract(3, 3, x)  # Extract single bit at position 3
+    Extract(3, 3, x)
+    
+    >>> # Sequence extraction examples  
+    >>> s = StringVal("hello")
+    >>> Extract(s, 1, 3)  # Extract 3 characters starting at position 1
+    str.substr("hello", 1, 3)
+    >>> simplify(Extract(StringVal("abcd"), 2, 1))  # Extract 1 character at position 2
     "c"
+    >>> simplify(Extract(StringVal("abcd"), 0, 2))  # Extract first 2 characters  
+    "ab"
     """
     if isinstance(high, str):
         high = StringVal(high)
@@ -11186,12 +11215,30 @@ def Strings(names, ctx=None):
 
 
 def SubString(s, offset, length):
-    """Extract substring or subsequence starting at offset"""
+    """Extract substring or subsequence starting at offset.
+    
+    This is a convenience function that redirects to Extract(s, offset, length).
+    
+    >>> s = StringVal("hello world") 
+    >>> SubString(s, 6, 5)  # Extract "world"
+    str.substr("hello world", 6, 5)
+    >>> simplify(SubString(StringVal("hello"), 1, 3))
+    "ell"
+    """
     return Extract(s, offset, length)
 
 
 def SubSeq(s, offset, length):
-    """Extract substring or subsequence starting at offset"""
+    """Extract substring or subsequence starting at offset.
+    
+    This is a convenience function that redirects to Extract(s, offset, length).
+    
+    >>> s = StringVal("hello world")
+    >>> SubSeq(s, 0, 5)  # Extract "hello"  
+    str.substr("hello world", 0, 5)
+    >>> simplify(SubSeq(StringVal("testing"), 2, 4))
+    "stin"
+    """
     return Extract(s, offset, length)
 
 
@@ -11771,6 +11818,16 @@ def user_prop_decide(ctx, cb, t_ref, idx, phase):
     t = _to_expr_ref(to_Ast(t_ref), prop.ctx())
     prop.decide(t, idx, phase)
     prop.cb = old_cb
+
+def user_prop_binding(ctx, cb, q_ref, inst_ref):
+    prop = _prop_closures.get(ctx)
+    old_cb = prop.cb
+    prop.cb = cb
+    q = _to_expr_ref(to_Ast(q_ref), prop.ctx())
+    inst = _to_expr_ref(to_Ast(inst_ref), prop.ctx())
+    r = prop.binding(q, inst)
+    prop.cb = old_cb
+    return r
     
 
 _user_prop_push = Z3_push_eh(user_prop_push)
@@ -11782,6 +11839,7 @@ _user_prop_final = Z3_final_eh(user_prop_final)
 _user_prop_eq = Z3_eq_eh(user_prop_eq)
 _user_prop_diseq = Z3_eq_eh(user_prop_diseq)
 _user_prop_decide = Z3_decide_eh(user_prop_decide)
+_user_prop_binding = Z3_on_binding_eh(user_prop_binding)
 
 
 def PropagateFunction(name, *sig):
@@ -11830,6 +11888,7 @@ class UserPropagateBase:
         self.diseq = None
         self.decide = None
         self.created = None
+        self.binding = None
         if ctx:
             self.fresh_ctx = ctx
         if s:
@@ -11893,7 +11952,14 @@ class UserPropagateBase:
         assert not self._ctx
         if self.solver:
             Z3_solver_propagate_decide(self.ctx_ref(), self.solver.solver, _user_prop_decide)
-        self.decide = decide        
+        self.decide = decide   
+        
+    def add_on_binding(self, binding):
+        assert not self.binding
+        assert not self._ctx
+        if self.solver:
+            Z3_solver_propagate_on_binding(self.ctx_ref(), self.solver.solver, _user_prop_binding)
+        self.binding = binding
 
     def push(self):
         raise Z3Exception("push needs to be overwritten")

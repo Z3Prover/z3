@@ -244,6 +244,10 @@ namespace {
             m_context.user_propagate_register_expr(e);
         }
 
+        void user_propagate_register_on_binding(user_propagator::binding_eh_t& binding_eh) override {
+            m_context.user_propagate_register_on_binding(binding_eh);
+        }
+
         void user_propagate_register_created(user_propagator::created_eh_t& c) override {
             m_context.user_propagate_register_created(c);
         }
@@ -522,6 +526,10 @@ class smt_solver_factory : public solver_factory {
 public:
     solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_smt_solver(m, p, logic);
+    }
+    
+    solver_factory* translate(ast_manager& m) override {
+        return alloc(smt_solver_factory);
     }
 };
 }

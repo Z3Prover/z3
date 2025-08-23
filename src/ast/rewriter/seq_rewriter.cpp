@@ -29,8 +29,6 @@ Authors:
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "params/seq_rewriter_params.hpp"
-#include "math/automata/automaton.h"
-#include "math/automata/symbolic_automata_def.h"
 
 
 expr_ref sym_expr::accept(expr* e) {
@@ -83,320 +81,6 @@ struct display_expr1 {
     }
 };
 
-class sym_expr_boolean_algebra : public boolean_algebra<sym_expr*> {
-    ast_manager& m;
-    expr_solver& m_solver;
-    expr_ref     m_var;
-    typedef sym_expr* T;
-public:
-    sym_expr_boolean_algebra(ast_manager& m, expr_solver& s): 
-        m(m), m_solver(s), m_var(m) {}
-
-    T mk_false() override {
-        expr_ref fml(m.mk_false(), m);
-        return sym_expr::mk_pred(fml, m.mk_bool_sort()); // use of Bool sort for bound variable is arbitrary
-    }
-    T mk_true() override {
-        expr_ref fml(m.mk_true(), m);
-        return sym_expr::mk_pred(fml, m.mk_bool_sort());
-    }
-    T mk_and(T x, T y) override {
-        seq_util u(m);
-        if (x->is_char() && y->is_char()) {
-            if (x->get_char() == y->get_char()) {
-                return x;
-            }
-            if (m.are_distinct(x->get_char(), y->get_char())) {
-                expr_ref fml(m.mk_false(), m);
-                return sym_expr::mk_pred(fml, x->get_sort());
-            }
-        }
-        unsigned lo1, hi1, lo2, hi2;
-        if (x->is_range() && y->is_range() &&
-            u.is_const_char(x->get_lo(), lo1) && u.is_const_char(x->get_hi(), hi1) &&
-            u.is_const_char(y->get_lo(), lo2) && u.is_const_char(y->get_hi(), hi2)) {
-            lo1 = std::max(lo1, lo2);
-            hi1 = std::min(hi1, hi2);
-            if (lo1 > hi1) {
-                expr_ref fml(m.mk_false(), m);
-                return sym_expr::mk_pred(fml, x->get_sort());
-            }
-            expr_ref _start(u.mk_char(lo1), m);
-            expr_ref _stop(u.mk_char(hi1), m);
-            return sym_expr::mk_range(_start, _stop);
-        }
-
-        sort* s = x->get_sort();
-        if (m.is_bool(s)) s = y->get_sort();
-        var_ref v(m.mk_var(0, s), m);
-        expr_ref fml1 = x->accept(v);
-        expr_ref fml2 = y->accept(v);
-        if (m.is_true(fml1)) {
-            return y;
-        }
-        if (m.is_true(fml2)) {
-            return x;
-        }
-        if (fml1 == fml2) {
-            return x;   
-        }
-        if (is_complement(fml1, fml2)) {
-            expr_ref ff(m.mk_false(), m);
-            return sym_expr::mk_pred(ff, x->get_sort());
-        }
-        expr_ref fml(m);
-        bool_rewriter br(m);
-        br.mk_and(fml1, fml2, fml);
-        return sym_expr::mk_pred(fml, x->get_sort());
-    }
-
-    bool is_complement(expr* f1, expr* f2) {
-        expr* f = nullptr;
-        return 
-            (m.is_not(f1, f) && f == f2) ||
-            (m.is_not(f2, f) && f == f1);
-    }
-
-    T mk_or(T x, T y) override {
-        if (x->is_char() && y->is_char() &&
-            x->get_char() == y->get_char()) {
-            return x;
-        }
-        if (x == y) return x;
-        var_ref v(m.mk_var(0, x->get_sort()), m);
-        expr_ref fml1 = x->accept(v);
-        expr_ref fml2 = y->accept(v);        
-        if (m.is_false(fml1)) return y;
-        if (m.is_false(fml2)) return x;
-        bool_rewriter br(m);
-        expr_ref fml(m);
-        br.mk_or(fml1, fml2, fml);
-        return sym_expr::mk_pred(fml, x->get_sort());
-    }
-
-    T mk_and(unsigned sz, T const* ts) override {
-        switch (sz) {
-        case 0: return mk_true();
-        case 1: return ts[0];
-        default: {
-            T t = ts[0];
-            for (unsigned i = 1; i < sz; ++i) {
-                t = mk_and(t, ts[i]);
-            }
-            return t;
-        }
-        }
-    }
-
-    T mk_or(unsigned sz, T const* ts) override {
-        switch (sz) {
-        case 0: return mk_false();
-        case 1: return ts[0];
-        default: {
-            T t = ts[0];
-            for (unsigned i = 1; i < sz; ++i) {
-                t = mk_or(t, ts[i]);
-            }
-            return t;
-        }
-        }
-    }
-
-    lbool is_sat(T x) override {
-        unsigned lo, hi;
-        seq_util u(m);
-
-        if (x->is_char()) {
-            return l_true;
-        }
-        if (x->is_range() && u.is_const_char(x->get_lo(), lo) && u.is_const_char(x->get_hi(), hi)) {
-            return (lo <= hi) ? l_true : l_false; 
-        }
-        if (x->is_not() && x->get_arg()->is_range() && u.is_const_char(x->get_arg()->get_lo(), lo) && 0 < lo) {
-            return l_true;
-        }            
-        if (!m_var || m_var->get_sort() != x->get_sort()) {
-            m_var = m.mk_fresh_const("x", x->get_sort()); 
-        }
-        expr_ref fml = x->accept(m_var);
-        if (m.is_true(fml)) {
-            return l_true;
-        }
-        if (m.is_false(fml)) {
-            return l_false;
-        }
-        return m_solver.check_sat(fml);
-    }
-
-    T mk_not(T x) override {
-        return sym_expr::mk_not(m, x);    
-    }
-
-};
-
-re2automaton::re2automaton(ast_manager& m): m(m), u(m), m_ba(nullptr), m_sa(nullptr) {}
-
-void re2automaton::set_solver(expr_solver* solver) {
-    m_solver = solver;
-    m_ba = alloc(sym_expr_boolean_algebra, m, *solver);
-    m_sa = alloc(symbolic_automata_t, sm, *m_ba.get());
-}
-
-eautomaton* re2automaton::mk_product(eautomaton* a1, eautomaton* a2) {
-    return m_sa->mk_product(*a1, *a2);
-}
-
-eautomaton* re2automaton::operator()(expr* e) { 
-    eautomaton* r = re2aut(e); 
-    if (r) {        
-        r->compress(); 
-        bool_rewriter br(m);
-        TRACE(seq, display_expr1 disp(m); r->display(tout << mk_pp(e, m) << " -->\n", disp););
-    }
-    return r;
-} 
-
-bool re2automaton::is_unit_char(expr* e, expr_ref& ch) {
-    zstring s;
-    expr* c = nullptr;
-    if (u.str.is_string(e, s) && s.length() == 1) {
-        ch = u.mk_char(s[0]);
-        return true;
-    }
-    if (u.str.is_unit(e, c)) {
-        ch = c;
-        return true;
-    }
-    return false;
-}
-
-eautomaton* re2automaton::re2aut(expr* e) {
-    SASSERT(u.is_re(e));
-    expr *e0, *e1, *e2;
-    scoped_ptr<eautomaton> a, b;
-    unsigned lo, hi;
-    zstring s1, s2;
-    if (u.re.is_to_re(e, e1)) {
-        return seq2aut(e1);
-    }
-    else if (u.re.is_concat(e, e1, e2) && (a = re2aut(e1)) && (b = re2aut(e2))) {
-        return eautomaton::mk_concat(*a, *b);
-    }
-    else if (u.re.is_union(e, e1, e2) && (a = re2aut(e1)) && (b = re2aut(e2))) {
-        return eautomaton::mk_union(*a, *b);
-    }
-    else if (u.re.is_star(e, e1) && (a = re2aut(e1))) {
-        a->add_final_to_init_moves();
-        a->add_init_to_final_states();        
-        return a.detach();            
-    }
-    else if (u.re.is_plus(e, e1) && (a = re2aut(e1))) {
-        a->add_final_to_init_moves();
-        return a.detach();            
-    }
-    else if (u.re.is_opt(e, e1) && (a = re2aut(e1))) {
-        a = eautomaton::mk_opt(*a);
-        return a.detach();                    
-    }
-    else if (u.re.is_range(e, e1, e2)) {
-        expr_ref _start(m), _stop(m);
-        if (is_unit_char(e1, _start) &&
-            is_unit_char(e2, _stop)) {
-            TRACE(seq, tout << "Range: " << _start << " " << _stop << "\n";);
-            a = alloc(eautomaton, sm, sym_expr::mk_range(_start, _stop));
-            return a.detach();            
-        }
-        else {
-            // if e1/e2 are not unit, (re.range e1 e2) is defined to be the empty language
-            return alloc(eautomaton, sm);
-        }
-    }
-    else if (u.re.is_complement(e, e0) && (a = re2aut(e0)) && m_sa) {
-        return m_sa->mk_complement(*a);
-    }
-    else if (u.re.is_loop(e, e1, lo, hi) && (a = re2aut(e1))) {
-        scoped_ptr<eautomaton> eps = eautomaton::mk_epsilon(sm);
-        b = eautomaton::mk_epsilon(sm);
-        while (hi > lo) {
-            scoped_ptr<eautomaton> c = eautomaton::mk_concat(*a, *b);
-            b = eautomaton::mk_union(*eps, *c);
-            --hi;
-        }
-        while (lo > 0) {
-            b = eautomaton::mk_concat(*a, *b);
-            --lo;
-        }
-        return b.detach();        
-    }
-    else if (u.re.is_loop(e, e1, lo) && (a = re2aut(e1))) {
-        b = eautomaton::clone(*a);
-        b->add_final_to_init_moves();
-        b->add_init_to_final_states();        
-        while (lo > 0) {
-            b = eautomaton::mk_concat(*a, *b);
-            --lo;
-        }
-        return b.detach();        
-    }
-    else if (u.re.is_empty(e)) {
-        return alloc(eautomaton, sm);
-    }
-    else if (u.re.is_full_seq(e)) {
-        expr_ref tt(m.mk_true(), m);
-        sort *seq_s = nullptr, *char_s = nullptr;
-        VERIFY (u.is_re(e->get_sort(), seq_s));
-        VERIFY (u.is_seq(seq_s, char_s));
-        sym_expr* _true = sym_expr::mk_pred(tt, char_s);
-        return eautomaton::mk_loop(sm, _true);
-    }
-    else if (u.re.is_full_char(e)) {
-        expr_ref tt(m.mk_true(), m);
-        sort *seq_s = nullptr, *char_s = nullptr;
-        VERIFY (u.is_re(e->get_sort(), seq_s));
-        VERIFY (u.is_seq(seq_s, char_s));
-        sym_expr* _true = sym_expr::mk_pred(tt, char_s);
-        a = alloc(eautomaton, sm, _true);
-        return a.detach();
-    }
-    else if (u.re.is_intersection(e, e1, e2) && m_sa && (a = re2aut(e1)) && (b = re2aut(e2))) {
-        eautomaton* r = m_sa->mk_product(*a, *b);
-        TRACE(seq, display_expr1 disp(m); a->display(tout << "a:", disp); b->display(tout << "b:", disp); r->display(tout << "intersection:", disp););
-        return r;
-    }
-    else {        
-        TRACE(seq, tout << "not handled " << mk_pp(e, m) << "\n";);
-    }
-    
-    return nullptr;
-}
-
-eautomaton* re2automaton::seq2aut(expr* e) {
-    SASSERT(u.is_seq(e));
-    zstring s;
-    expr* e1, *e2;
-    scoped_ptr<eautomaton> a, b;
-    if (u.str.is_concat(e, e1, e2) && (a = seq2aut(e1)) && (b = seq2aut(e2))) {
-        return eautomaton::mk_concat(*a, *b);
-    }
-    else if (u.str.is_unit(e, e1)) {
-        return alloc(eautomaton, sm, sym_expr::mk_char(m, e1));
-    }
-    else if (u.str.is_empty(e)) {
-        return eautomaton::mk_epsilon(sm);
-    }
-    else if (u.str.is_string(e, s)) {        
-        unsigned init = 0;
-        eautomaton::moves mvs;        
-        unsigned_vector final;
-        final.push_back(s.length());
-        for (unsigned k = 0; k < s.length(); ++k) {
-            // reference count?
-            mvs.push_back(eautomaton::move(sm, k, k+1, sym_expr::mk_char(m, u.str.mk_char(s, k))));
-        }
-        return alloc(eautomaton, sm, init, final, mvs);
-    }
-    return nullptr;
-}
 
 void seq_rewriter::updt_params(params_ref const & p) {
     seq_rewriter_params sp(p);
@@ -1766,6 +1450,59 @@ br_status seq_rewriter::mk_seq_last_index(expr* a, expr* b, expr_ref& result) {
         result = m_autil.mk_int(0);
         return BR_DONE;
     }
+
+    if (str().is_empty(b)) {
+        result = str().mk_length(a);
+        return BR_DONE;
+    }
+
+    expr_ref_vector as(m()), bs(m());
+    str().get_concat_units(a, as);
+    str().get_concat_units(b, bs);
+
+    auto is_suffix = [&](expr_ref_vector const& as, expr_ref_vector const& bs) {
+        if (as.size() < bs.size())
+            return l_undef;
+        for (unsigned j = 0; j < bs.size(); ++j) {
+            auto a = as.get(as.size() - j - 1);
+            auto b = bs.get(bs.size() - j - 1);
+            if (m().are_equal(a, b))
+                continue;
+            if (m().are_distinct(a, b))
+                return l_false;
+            return l_undef;
+        }
+        return l_true;
+    };
+
+    switch (compare_lengths(as, bs)) {
+    case shorter_c:
+        result = minus_one();
+        return BR_DONE;
+    case same_length_c:
+        result = m().mk_ite(m().mk_eq(a, b), zero(), minus_one());
+        return BR_REWRITE_FULL;
+    case longer_c: {
+        unsigned i = as.size();
+        while (i >= bs.size()) {
+            switch (is_suffix(as, bs)) {
+            case l_undef:
+                return BR_FAILED;
+            case l_true:
+                result = m_autil.mk_sub(str().mk_length(a), m_autil.mk_int(bs.size() - i));
+                return BR_REWRITE3;
+            case l_false:
+                as.pop_back();
+                --i;
+                break;
+            }
+        }
+        break;
+    }
+    default:
+        break;
+    }
+
     return BR_FAILED;
 }
 
@@ -2721,46 +2458,6 @@ void seq_rewriter::add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned
 
 }
 
-bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
-    seq.reset();
-    unsigned state = aut.init();
-    uint_set visited;
-    eautomaton::moves mvs;
-    unsigned_vector states;
-    aut.get_epsilon_closure(state, states);
-    bool has_final = false;
-    for (unsigned i = 0; !has_final && i < states.size(); ++i) {
-        has_final = aut.is_final_state(states[i]);
-    }
-    aut.get_moves_from(state, mvs, true);       
-    while (!has_final) {
-        if (mvs.size() != 1) {
-            return false;
-        }
-        if (visited.contains(state)) {
-            return false;
-        }
-        if (aut.is_final_state(mvs[0].src())) {
-            return false;
-        }
-        visited.insert(state);
-        sym_expr* t = mvs[0].t();
-        if (!t || !t->is_char()) {
-            return false;
-        }
-        seq.push_back(str().mk_unit(t->get_char()));
-        state = mvs[0].dst();
-        mvs.reset();
-        aut.get_moves_from(state, mvs, true);
-        states.reset();
-        has_final = false;
-        aut.get_epsilon_closure(state, states);
-        for (unsigned i = 0; !has_final && i < states.size(); ++i) {
-            has_final = aut.is_final_state(states[i]);
-        }
-    }
-    return mvs.empty();
-}
 
 bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
     seq.reset();
@@ -6019,6 +5716,12 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
     }
     if (str().is_itos(r, s)) {
         result = m_autil.mk_lt(s, zero());
+        return true;
+    }
+    // at(s, offset) = "" <=> len(s) <= offset or offset < 0
+    if (str().is_at(r, s, offset)) {
+        expr_ref len_s(str().mk_length(s), m()); 
+        result = m().mk_or(m_autil.mk_le(len_s, offset), m_autil.mk_lt(offset, zero()));
         return true;
     }
     return false;

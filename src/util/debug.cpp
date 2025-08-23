@@ -117,7 +117,7 @@ void set_default_debug_action(debug_action a) {
 }
 
 debug_action ask_debug_action(std::istream& in) {
-    std::cerr << "(C)ontinue, (A)bort, (S)top, (T)hrow exception, Invoke (G)DB\n";
+    std::cerr << "(C)ontinue, (A)bort, (S)top, (T)hrow exception, Invoke (G)DB, Invoke (L)LDB\n";
     char result;
     bool ok = bool(in >> result);
     if (!ok)
@@ -137,7 +137,10 @@ debug_action ask_debug_action(std::istream& in) {
         return debug_action::throw_exception;
     case 'G':
     case 'g':
-        return debug_action::invoke_debugger;
+        return debug_action::invoke_gdb;
+    case 'L':
+    case 'l':
+        return debug_action::invoke_lldb;
     default:
         std::cerr << "INVALID COMMAND\n";
         return debug_action::ask;
@@ -145,7 +148,7 @@ debug_action ask_debug_action(std::istream& in) {
 }
 
 #if !defined(_WINDOWS) && !defined(NO_Z3_DEBUGGER)
-void invoke_gdb() {
+void invoke_debugger() {
     std::string buffer;
     int *x = nullptr;
     debug_action a = get_default_debug_action();
@@ -161,7 +164,7 @@ void invoke_gdb() {
             return;
         case debug_action::throw_exception:
             throw default_exception("assertion violation");
-        case debug_action::invoke_debugger:
+        case debug_action::invoke_gdb:
             buffer = "gdb -nw /proc/" + std::to_string(getpid()) + "/exe " + std::to_string(getpid());
             std::cerr << "invoking GDB...\n";
             if (system(buffer.c_str()) == 0) {
@@ -169,6 +172,19 @@ void invoke_gdb() {
             }
             else {
                 std::cerr << "error starting GDB...\n";
+                // forcing seg fault.
+                int *x = nullptr;
+                *x = 0;
+            }
+            return;
+        case debug_action::invoke_lldb:
+            buffer = "lldb -p " + std::to_string(getpid());
+            std::cerr << "invoking LLDB...\n";
+            if (system(buffer.c_str()) == 0) {
+                std::cerr << "continuing the execution...\n";
+            }
+            else {
+                std::cerr << "error starting LLDB...\n";
                 // forcing seg fault.
                 int *x = nullptr;
                 *x = 0;

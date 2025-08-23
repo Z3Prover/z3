@@ -2265,6 +2265,20 @@ br_status bv_rewriter::mk_bv_ext_rotate_left(expr * arg1, expr * arg2, expr_ref 
         unsigned shift = static_cast<unsigned>((r2 % numeral(bv_size)).get_uint64() % static_cast<uint64_t>(bv_size));
         return mk_bv_rotate_left(shift, arg1, result);
     }
+    expr* x = nullptr, * y = nullptr;
+    if (m_util.is_ext_rotate_right(arg1, x, y) && arg2 == y) {
+        // bv_ext_rotate_left(bv_ext_rotate_right(x, y), y) --> x
+        result = x;
+        return BR_DONE;
+    }
+    if (m_util.is_ext_rotate_left(arg1, x, y)) {
+        result = m_util.mk_bv_rotate_left(x, m_util.mk_bv_add(y, arg2));
+        return BR_REWRITE2;
+    }
+    if (m_util.is_ext_rotate_right(arg1, x, y)) {
+        result = m_util.mk_bv_rotate_left(x, m_util.mk_bv_sub(arg2, y));
+        return BR_REWRITE2;
+    }
     return BR_FAILED;
 }
 
@@ -2274,6 +2288,20 @@ br_status bv_rewriter::mk_bv_ext_rotate_right(expr * arg1, expr * arg2, expr_ref
     if (is_numeral(arg2, r2, bv_size)) {
         unsigned shift = static_cast<unsigned>((r2 % numeral(bv_size)).get_uint64() % static_cast<uint64_t>(bv_size));
         return mk_bv_rotate_right(shift, arg1, result);
+    }
+    expr* x = nullptr, * y = nullptr;
+    if (m_util.is_ext_rotate_left(arg1, x, y) && arg2 == y) {
+        // bv_ext_rotate_right(bv_ext_rotate_left(x, y), y) --> x
+        result = x;
+        return BR_DONE;
+    }
+    if (m_util.is_ext_rotate_right(arg1, x, y)) {
+        result = m_util.mk_bv_rotate_right(x, m_util.mk_bv_add(y, arg2));
+        return BR_REWRITE2;
+    }
+    if (m_util.is_ext_rotate_left(arg1, x, y)) {
+        result = m_util.mk_bv_rotate_right(x, m_util.mk_bv_sub(arg2, y));
+        return BR_REWRITE2;
     }
     return BR_FAILED;
 }

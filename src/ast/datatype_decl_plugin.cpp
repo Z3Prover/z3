@@ -1070,16 +1070,19 @@ namespace datatype {
         plugin().add_ast(con);
         plugin().m_vectors.push_back(res);
         plugin().m_constructor2accessors.insert(con, res);
+        if (con->get_arity() == 0) 
+            // no accessors for nullary constructors
+            return res;
+        
         sort * datatype = con->get_range();
         def const& d = get_def(datatype);
-        for (constructor const* c : d) {
-            if (c->name() == con->get_name()) {
-                for (accessor const* a : *c) {
-                    func_decl_ref fn = a->instantiate(datatype);
-                    res->push_back(fn);
-                    plugin().add_ast(fn);
-                }
-                break;
+        // Use O(1) lookup instead of O(n) linear search
+        constructor* c = d.get_constructor_by_name(con);
+        if (c) {
+            for (accessor const* a : *c) {
+                func_decl_ref fn = a->instantiate(datatype);
+                res->push_back(fn);
+                plugin().add_ast(fn);
             }
         }
         return res;
@@ -1101,9 +1104,10 @@ namespace datatype {
         sort * datatype = con->get_range();
         def const& dd = get_def(datatype);
         symbol r;
-        for (constructor const* c : dd) 
-            if (c->name() == con->get_name()) 
-                r = c->recognizer();                    
+        // Use O(1) lookup instead of O(n) linear search
+        constructor* c = dd.get_constructor_by_name(con);
+        SASSERT(c);
+        r = c->recognizer();        
         parameter ps[2] = { parameter(con), parameter(r) };
         d  = m.mk_func_decl(fid(), OP_DT_RECOGNISER, 2, ps, 1, &datatype);
         SASSERT(d);

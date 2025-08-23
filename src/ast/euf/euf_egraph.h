@@ -58,7 +58,7 @@ namespace euf {
         theory_var m_v2;
         union {            
             enode* m_child;
-            expr* m_eq;
+            enode* m_eq;
         };
         enode* m_root;
     public:
@@ -68,10 +68,10 @@ namespace euf {
         theory_var v2() const { return m_v2; }
         enode* child() const { SASSERT(is_eq()); return m_child; }
         enode* root() const { SASSERT(is_eq()); return m_root; }
-        expr* eq() const { SASSERT(!is_eq()); return m_eq; }
+        enode* eq() const { SASSERT(!is_eq()); return m_eq; }
         th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r) :
             m_id(id), m_v1(v1), m_v2(v2), m_child(c), m_root(r) {}
-        th_eq(theory_id id, theory_var v1, theory_var v2, expr* eq) :
+        th_eq(theory_id id, theory_var v1, theory_var v2, enode* eq) :
             m_id(id), m_v1(v1), m_v2(v2), m_eq(eq), m_root(nullptr) {}
     };
 
@@ -116,6 +116,7 @@ namespace euf {
             struct replace_th_var {};
             struct new_th_eq {};
             struct new_th_eq_qhead {};
+            struct plugin_qhead {};
             struct inconsistent {};
             struct value_assignment {};
             struct lbl_hash {};
@@ -125,7 +126,7 @@ namespace euf {
             struct plugin_undo {};
             enum class tag_t { is_set_parent, is_add_node, is_toggle_cgc, is_toggle_merge_tf, is_update_children,
                     is_add_th_var, is_replace_th_var, is_new_th_eq,
-                    is_lbl_hash, is_new_th_eq_qhead,
+                    is_lbl_hash, is_new_th_eq_qhead, is_plugin_qhead,
                     is_inconsistent, is_value_assignment, is_lbl_set, is_set_relevant,
                     is_plugin_undo };
             tag_t  tag;
@@ -158,6 +159,8 @@ namespace euf {
                 tag(tag_t::is_new_th_eq), r1(nullptr), n1(nullptr), r2_num_parents(0) {}
             update_record(unsigned qh, new_th_eq_qhead):
                 tag(tag_t::is_new_th_eq_qhead), r1(nullptr), n1(nullptr), qhead(qh) {}
+            update_record(unsigned qh, plugin_qhead) :
+                tag(tag_t::is_plugin_qhead), r1(nullptr), n1(nullptr), qhead(qh) {}
             update_record(bool inc, inconsistent) :
                 tag(tag_t::is_inconsistent), r1(nullptr), n1(nullptr), m_inconsistent(inc) {}
             update_record(enode* n, value_assignment) :
@@ -196,6 +199,7 @@ namespace euf {
         enode                  *m_n2 = nullptr;
         justification          m_justification;
         unsigned               m_new_th_eqs_qhead = 0;
+        unsigned               m_plugin_qhead = 0;
         svector<th_eq>         m_new_th_eqs;
         bool_vector            m_th_propagates_diseqs;
         enode_vector           m_todo;

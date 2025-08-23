@@ -1,10 +1,12 @@
 variables:
+  # Version components read from VERSION.txt (updated manually when VERSION.txt changes)
   Major: '4'
-  Minor: '15'
-  Patch: '3'
+  Minor: '16'
+  Patch: '0'
   ReleaseVersion: $(Major).$(Minor).$(Patch)
   AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
   NightlyVersion: $(AssemblyVersion)-$(Build.buildId)
+  # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
 
 stages:
 - stage: Build
@@ -252,9 +254,9 @@ stages:
       inputs:
         artifact: 'MacArm64'
         path: $(Agent.TempDirectory)\package
-    - task: NuGetToolInstaller@0
+    - task: NuGetToolInstaller@1
       inputs:
-        versionSpec: 5.x
+        versionSpec: 6.x
         checkLatest: false        
     - task: PythonScript@0
       displayName: 'Python: assemble files'
@@ -300,9 +302,9 @@ stages:
       inputs:
         artifact: 'WindowsBuild-x86'
         path: $(Agent.TempDirectory)\package
-    - task: NuGetToolInstaller@0
+    - task: NuGetToolInstaller@1
       inputs:
-        versionSpec: 5.x
+        versionSpec: 6.x
         checkLatest: false        
     - task: PythonScript@0
       displayName: 'Python: assemble files'
@@ -465,55 +467,18 @@ stages:
       continueOnError: true 
       inputs:
         gitHubConnection: Z3Prover
-        repositoryName: 'Z3Prover/z3'
+        repositoryName: $(Build.Repository.Name)
         action: 'create'
-#     target: '$(Build.SourceVersion)'
+        target: '$(Build.SourceVersion)'
         tagSource: 'userSpecifiedTag'
         tag: 'Nightly'
         title: 'Nightly'
-        releaseNotesSource: 'input'
+        releaseNotesSource: 'inline'
         releaseNotes: 'nightly build'
         assets: 'tmp/*'
         assetUploadMode: 'replace'
         isDraft: false
         isPreRelease: true
 
-- stage: NugetPublishNightly
-  jobs:
-   # Publish to nightly feed on Azure
-  - job: NuGetPublishNightly
-    displayName: "Push nuget packages to Azure Feed"
-    steps:
-    - task: NuGetAuthenticate@0
-      displayName: 'NuGet Authenticate'
-    - task: NuGetToolInstaller@0
-      inputs:
-        versionSpec: 5.x
-        checkLatest: false
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download NuGet x86 Package'
-      inputs:
-        artifact: 'NuGet32'
-        path: $(Agent.TempDirectory)/x86
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download NuGet x64 Package'
-      inputs:
-        artifact: 'NuGet'
-        path: $(Agent.TempDirectory)/x64
-    - task: NuGetCommand@2
-      displayName: 'NuGet Nightly x64 push'
-      inputs:
-        command: push
-        publishVstsFeed: 'Z3Build/Z3-Nightly-Builds'
-        packagesToPush: $(Agent.TempDirectory)/x64/*.nupkg
-        allowPackageConflicts: true
-    - task: NuGetCommand@2
-      displayName: 'NuGet Nightly x86 push'
-      inputs:
-        command: push
-        publishVstsFeed: 'Z3Build/Z3-Nightly-Builds'
-        packagesToPush: $(Agent.TempDirectory)/x86/*.nupkg
-        allowPackageConflicts: true
-    
-       
+
 # TBD: run regression tests on generated binaries.

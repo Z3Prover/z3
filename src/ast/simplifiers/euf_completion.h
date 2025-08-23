@@ -25,6 +25,7 @@ Author:
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_mam.h"
+#include "ast/euf/ho_matcher.h"
 #include "ast/rewriter/th_rewriter.h"
 // include "ast/pattern/pattern_inference.h"
 #include "params/smt_params.h"
@@ -127,24 +128,28 @@ namespace euf {
         enode*                 m_tt, *m_ff;
         ptr_vector<expr>       m_todo;
         enode_vector           m_args, m_reps, m_nodes_to_canonize;
-        expr_ref_vector        m_canonical, m_eargs;
+        expr_ref_vector        m_canonical, m_eargs, m_expr_trail, m_consequences;
         proof_ref_vector       m_canonical_proofs;
         //        pattern_inference_rw   m_infer_patterns;
         bindings               m_bindings;
         scoped_ptr<binding>    m_tmp_binding;
         unsigned               m_tmp_binding_capacity = 0;
+        binding*               m_ho_binding = nullptr;
         expr_dependency_ref_vector m_deps;
         obj_map<quantifier, std::pair<proof*, expr_dependency*>> m_q2dep;
         vector<std::pair<proof_ref, expr_dependency*>> m_pr_dep;
         unsigned               m_epoch = 0;
         unsigned_vector        m_epochs;
         th_rewriter            m_rewriter;
+        ho_matcher             m_matcher;
         stats                  m_stats;
         scoped_ptr<side_condition_solver> m_side_condition_solver;
         ptr_vector<conditional_rule>    m_rules;
         bool                   m_has_new_eq = false;
         bool                   m_should_propagate = false;
+        bool                   m_propagate_with_solver = false;
         unsigned               m_max_instantiations = std::numeric_limits<unsigned>::max();
+        unsigned               m_max_generation = 10;
         unsigned               m_generation = 0;
         vector<ptr_vector<conditional_rule>> m_rule_watch;
 
@@ -161,11 +166,32 @@ namespace euf {
         void read_egraph();
         expr_ref canonize(expr* f, proof_ref& pr, expr_dependency_ref& dep);
         expr_ref canonize_fml(expr* f, proof_ref& pr, expr_dependency_ref& dep);
-        expr* get_canonical(expr* f, proof_ref& pr, expr_dependency_ref& d);
+        expr_ref get_canonical(expr* f, proof_ref& pr, expr_dependency_ref& d);
         expr* get_canonical(enode* n);
         proof* get_canonical_proof(enode* n);
         void set_canonical(enode* n, expr* e, proof* pr);
         void add_constraint(expr*f, proof* pr, expr_dependency* d);
+        void map_congruences();
+        void map_congruence(expr* t);
+        void add_consequence(expr* t);
+
+        bool is_congruences(expr* f) const {
+            return is_app(f) && to_app(f)->get_num_args() == 1 && symbol("congruences") == to_app(f)->get_decl()->get_name();
+        }
+
+        // Enable equality propagation inside of quantifiers
+        // add quantifier bodies as closure terms to the E-graph.
+        // use fresh variables for bound variables, but such that the fresh variables are 
+        // the same when the quantifier prefix is the same.
+        // Thus, we are going to miss equalities of quantifier bodies 
+        // if the prefixes are different but the bodies are the same.
+        // Closure terms are re-abstracted by the canonizer.
+        void add_quantifiers(ptr_vector<expr>& bound, expr* t);
+        void add_quantifiers(expr* t);
+        expr_ref get_canonical(quantifier* q, proof_ref& pr, expr_dependency_ref& d);
+        obj_map<quantifier, std::pair<ptr_vector<expr>, expr*>> m_closures;
+
+        void propagate_arithmetic();
         expr_dependency* explain_eq(enode* a, enode* b);
         proof_ref prove_eq(enode* a, enode* b);
         proof_ref prove_conflict();
@@ -176,6 +202,7 @@ namespace euf {
         binding* alloc_binding(quantifier* q, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
         void insert_binding(binding* b);
         void apply_binding(binding& b);
+        void apply_binding(binding& b, quantifier* q, expr_ref_vector const& s);
         void flush_binding_queue();
         vector<ptr_vector<binding>> m_queue;
 
@@ -189,6 +216,7 @@ namespace euf {
         void propagate_rule(conditional_rule& r);
         void propagate_rules();
         void propagate_all_rules();
+        void propagate_closures();
         void clear_propagation_queue();
         ptr_vector<conditional_rule> m_propagation_queue;
         struct push_watch_rule;

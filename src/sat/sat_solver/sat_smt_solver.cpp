@@ -565,6 +565,10 @@ public:
     void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh) override {
         ensure_euf()->user_propagate_register_diseq(diseq_eh);
     }
+
+    void user_propagate_register_on_binding(user_propagator::binding_eh_t& binding_eh) override {
+        ensure_euf()->user_propagate_register_on_binding(binding_eh);
+    }
     
     void user_propagate_register_expr(expr* e) override { 
         ensure_euf()->user_propagate_register_expr(e);
