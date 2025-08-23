@@ -8,6 +8,13 @@ variables:
   NightlyVersion: $(AssemblyVersion)-$(Build.buildId)
   # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
 
+resources:
+  repositories:
+    - repository: z3
+      type: github
+      name: Z3Prover/z3
+      endpoint: Z3Prover
+
 stages:
 - stage: Build
   jobs:
