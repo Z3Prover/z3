@@ -119,6 +119,30 @@ target_link_libraries(yourTarget libz3)
 ```
 Note that this is `libz3` not `z3` (`libz3` refers to the library target from `src/CMakeLists.txt`).
 
+#### Using system-installed Z3
+
+If you have Z3 installed on your system (e.g., via package manager or by building and installing Z3 yourself), you can use CMake's `find_package` to locate it:
+
+```cmake
+find_package(Z3 REQUIRED CONFIG)
+```
+
+Once found, you can use the Z3 include directories and libraries:
+
+```cmake
+# For C projects
+target_include_directories(yourTarget PRIVATE ${Z3_C_INCLUDE_DIRS})
+target_link_libraries(yourTarget PRIVATE ${Z3_LIBRARIES})
+
+# For C++ projects  
+target_include_directories(yourTarget PRIVATE ${Z3_CXX_INCLUDE_DIRS})
+target_link_libraries(yourTarget PRIVATE ${Z3_LIBRARIES})
+```
+
+The `find_package(Z3 CONFIG)` approach uses Z3's provided `Z3Config.cmake` file, which is installed to a standard location (typically `<prefix>/lib/cmake/z3/`). If CMake cannot automatically find Z3, you can help it by setting `-DZ3_DIR=<path>` where `<path>` is the directory containing the `Z3Config.cmake` file.
+
+**Note**: This approach requires that Z3 was built and installed using CMake. Z3 installations from the Python build system may not provide the necessary CMake configuration files.
+
 
 
 ### Ninja
