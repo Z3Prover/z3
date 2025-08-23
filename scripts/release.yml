@@ -261,9 +261,9 @@ stages:
         artifact: 'MacArm64'
         path: $(Agent.TempDirectory)\package
 
-    - task: NuGetToolInstaller@0
+    - task: NuGetToolInstaller@1
       inputs:
-        versionSpec: 5.x
+        versionSpec: 6.x
         checkLatest: false        
     - task: PythonScript@0
       displayName: 'Python: assemble files'
@@ -305,9 +305,9 @@ stages:
       inputs:
         artifact: 'WindowsBuild-x86'
         path: $(Agent.TempDirectory)\package
-    - task: NuGetToolInstaller@0
+    - task: NuGetToolInstaller@1
       inputs:
-        versionSpec: 5.x
+        versionSpec: 6.x
         checkLatest: false        
     - task: PythonScript@0
       displayName: 'Python: assemble files'
@@ -479,9 +479,9 @@ stages:
       inputs:
         artifact: 'NuGetPackage'
         path: $(Agent.TempDirectory)
-    - task: NuGetToolInstaller@0
+    - task: NuGetToolInstaller@1
       inputs:
-        versionSpec: 5.x
+        versionSpec: 6.x
         checkLatest: false
     - task: NuGetCommand@2
       inputs:
