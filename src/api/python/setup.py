@@ -119,9 +119,7 @@ def _z3_version():
         for d in dirs:
             if os.path.exists(d):
                print(d, ": ", os.listdir(d))
-        fns = [os.path.join(d, 'VERSION.txt') for d in dirs]
-        # Also try the scripts directory
-        fns.extend([os.path.join(d, 'scripts', 'VERSION.txt') for d in dirs])
+        fns = [os.path.join(d, 'scripts', 'VERSION.txt') for d in dirs]        
         for fn in fns:
             print("loading version file", fn, "exists", os.path.exists(fn))
             if os.path.exists(fn):
@@ -256,7 +254,6 @@ def _copy_sources():
 
 #   shutil.copy(os.path.join(SRC_DIR_REPO, 'LICENSE.txt'), ROOT_DIR)
     shutil.copy(os.path.join(SRC_DIR_REPO, 'LICENSE.txt'), SRC_DIR_LOCAL)
-    shutil.copy(os.path.join(SRC_DIR, 'scripts', 'VERSION.txt'), SRC_DIR_LOCAL)
     shutil.copy(os.path.join(SRC_DIR_REPO, 'z3.pc.cmake.in'), SRC_DIR_LOCAL)
     shutil.copy(os.path.join(SRC_DIR_REPO, 'CMakeLists.txt'), SRC_DIR_LOCAL)
     shutil.copytree(os.path.join(SRC_DIR_REPO, 'cmake'), os.path.join(SRC_DIR_LOCAL, 'cmake'))
