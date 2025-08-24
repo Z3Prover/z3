@@ -118,7 +118,7 @@ def _z3_version():
         dirs = [SRC_DIR, ROOT_DIR, SRC_DIR_REPO, SRC_DIR_LOCAL, os.path.join(ROOT_DIR, '..', '..')]
         fns = [os.path.join(d, 'VERSION.txt') for d in dirs]
         for fn in fns:
-            print("loading version file", fn)
+            print("loading version file", fn, "exists", os.path.exists(fn))
             if os.path.exists(fn):
                 with open(fn) as f:
                     for line in f:
