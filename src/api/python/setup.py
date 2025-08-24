@@ -115,7 +115,8 @@ def _z3_version():
     post = os.getenv('Z3_VERSION_SUFFIX', '')
     print("z3_version", "release dir", RELEASE_DIR)   
     if RELEASE_DIR is None:
-        fns = [os.path.join(SRC_DIR, 'VERSION.txt'), os.path.join(ROOT_DIR, 'VERSION.txt')]
+        dirs = [SRC_DIR, ROOT_DIR, SRC_DIR_REPO]
+        fns = [os.path.join(d, 'VERSION.txt') for d in dirs]
         for fn in fns:
             print("loading version file", fn)
             if os.path.exists(fn):
