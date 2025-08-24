@@ -65,7 +65,7 @@ else:
     BUILD_ARCH = RELEASE_METADATA[1]
     if len(RELEASE_METADATA) == 4:
         BUILD_OS_VERSION = RELEASE_METADATA[3].split(".")
-    else:v
+    else:
         BUILD_OS_VERSION = None
 
 # determine where destinations are
