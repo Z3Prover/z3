@@ -113,16 +113,17 @@ def _clean_native_build():
 
 def _z3_version():
     post = os.getenv('Z3_VERSION_SUFFIX', '')
-    print("z3_version", "release dir", RELEASE_DIR)
+    print("z3_version", "release dir", RELEASE_DIR)   
     if RELEASE_DIR is None:
-        fn = os.path.join(SRC_DIR, 'VERSION.txt')
-        print("loading version file", fn)
-        if os.path.exists(fn):
-            with open(fn) as f:
-                for line in f:
-                    n = re.match(r"(.*)\.(.*)\.(.*)\.(.*)", line)
-                    if not n is None:
-                        return n.group(1) + '.' + n.group(2) + '.' + n.group(3) + '.' + n.group(4) + post
+        fns = [os.path.join(SRC_DIR, 'VERSION.txt'), os.path.join(ROOT_DIR, 'VERSION.txt')]
+        for fn in fns:
+            print("loading version file", fn)
+            if os.path.exists(fn):
+                with open(fn) as f:
+                    for line in f:
+                        n = re.match(r"(.*)\.(.*)\.(.*)\.(.*)", line)
+                        if not n is None:
+                            return n.group(1) + '.' + n.group(2) + '.' + n.group(3) + '.' + n.group(4) + post
         return "?.?.?.?"
     else:
         version = RELEASE_METADATA[0]
