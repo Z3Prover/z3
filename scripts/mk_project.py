@@ -9,7 +9,7 @@ from mk_util import *
 
 def init_version():
     # Read version from VERSION.txt file
-    version_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'VERSION.txt')
+    version_file_path = os.path.join(os.path.dirname(__file__), 'VERSION.txt')
     try:
         with open(version_file_path, 'r') as f:
             version_str = f.read().strip()

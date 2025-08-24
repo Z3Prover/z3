@@ -16,7 +16,7 @@ import sys
 def read_version():
     """Read version from VERSION.txt file."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    version_file = os.path.join(os.path.dirname(script_dir), 'VERSION.txt')
+    version_file = os.path.join(script_dir, 'VERSION.txt')
     
     try:
         with open(version_file, 'r') as f:
