@@ -254,7 +254,7 @@ def _copy_sources():
 
 #   shutil.copy(os.path.join(SRC_DIR_REPO, 'LICENSE.txt'), ROOT_DIR)
     shutil.copy(os.path.join(SRC_DIR_REPO, 'LICENSE.txt'), SRC_DIR_LOCAL)
-    shutil.copy(os.path.join(SRC_DIR_REPO, 'VERSION.txt'), SRC_DIR_LOCAL)
+    shutil.copy(os.path.join(SRC_DIR, 'VERSION.txt'), SRC_DIR_LOCAL)
     shutil.copy(os.path.join(SRC_DIR_REPO, 'z3.pc.cmake.in'), SRC_DIR_LOCAL)
     shutil.copy(os.path.join(SRC_DIR_REPO, 'CMakeLists.txt'), SRC_DIR_LOCAL)
     shutil.copytree(os.path.join(SRC_DIR_REPO, 'cmake'), os.path.join(SRC_DIR_LOCAL, 'cmake'))
