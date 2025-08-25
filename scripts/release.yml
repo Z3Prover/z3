@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.16.0'  # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
+  ReleaseVersion: '4.15.4'  # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
 
 stages:
 
@@ -261,9 +261,9 @@ stages:
         artifact: 'MacArm64'
         path: $(Agent.TempDirectory)\package
 
-    - task: NuGetToolInstaller@0
+    - task: NuGetToolInstaller@1
       inputs:
-        versionSpec: 5.x
+        versionSpec: 6.x
         checkLatest: false        
     - task: PythonScript@0
       displayName: 'Python: assemble files'
@@ -305,9 +305,9 @@ stages:
       inputs:
         artifact: 'WindowsBuild-x86'
         path: $(Agent.TempDirectory)\package
-    - task: NuGetToolInstaller@0
+    - task: NuGetToolInstaller@1
       inputs:
-        versionSpec: 5.x
+        versionSpec: 6.x
         checkLatest: false        
     - task: PythonScript@0
       displayName: 'Python: assemble files'
@@ -471,7 +471,7 @@ stages:
 
      
   - job: NuGetPublish
-    condition: eq(1,0)
+    condition: eq(1,1)
     displayName: "Publish to NuGet.org"
     steps:
     - task: DownloadPipelineArtifact@2
@@ -479,9 +479,9 @@ stages:
       inputs:
         artifact: 'NuGetPackage'
         path: $(Agent.TempDirectory)
-    - task: NuGetToolInstaller@0
+    - task: NuGetToolInstaller@1
       inputs:
-        versionSpec: 5.x
+        versionSpec: 6.x
         checkLatest: false
     - task: NuGetCommand@2
       inputs:
