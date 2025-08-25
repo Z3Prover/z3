@@ -560,47 +560,47 @@ namespace smt {
     }
 
     expr_ref_vector parallel::worker::get_split_atoms() {
-#if false
+        unsigned k = 2;
+
+        // auto candidates = ctx->m_pq_scores.get_heap();
+        auto candidates = ctx->m_lit_scores;
+        std::vector<std::pair<double, expr*>> top_k; // will hold at most k elements
+
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
             if (ctx->get_assignment(v) != l_undef)
                 continue;
             expr* e = ctx->bool_var2expr(v);
             if (!e)
                 continue;
-            auto v_score = ctx->m_lit_scores[0][v] * ctx->m_lit_scores[1][v];
-            // if v_score is maximal then v is our split atom..
 
+            double score = ctx->m_lit_scores[0][v] * ctx->m_lit_scores[1][v];
+
+            // decay the scores
             ctx->m_lit_scores[0][v] /= 2;
             ctx->m_lit_scores[1][v] /= 2;
-        }
-#endif
-        unsigned k = 2;
 
-        auto candidates = ctx->m_pq_scores.get_heap();
-        
-        std::sort(candidates.begin(), candidates.end(),
-                [](const auto& a, const auto& b) { return a.priority > b.priority; });
+            // insert into top_k. linear scan since k is very small
+            if (top_k.size() < k) {
+                top_k.push_back({score, e});
+            } else {
+                // find the smallest in top_k and replace if we found a new min
+                size_t min_idx = 0;
+                for (size_t i = 1; i < k; ++i)
+                    if (top_k[i].first < top_k[min_idx].first)
+                        min_idx = i;
+
+                if (score > top_k[min_idx].first) {
+                    top_k[min_idx] = {score, e};
+                }
+            }
+        }
 
         expr_ref_vector top_lits(m);
-        for (const auto& node: candidates) {
-
-            if (ctx->get_assignment(node.key) != l_undef) 
-                continue;
-
-            if (m_config.m_cube_initial_only && node.key >= m_num_initial_atoms) {
-                LOG_WORKER(2, " Skipping non-initial atom from cube: " << node.key << "\n");
-                continue; // skip non-initial atoms if configured to do so
-            }
-
-            expr* e = ctx->bool_var2expr(node.key);
-            if (!e) 
-                continue;
-
-            top_lits.push_back(expr_ref(e, m));
-            if (top_lits.size() >= k) 
-                break;
-        }
-        IF_VERBOSE(3, verbose_stream() << "top literals " << top_lits << " head size " << ctx->m_pq_scores.size() << " num vars " << ctx->get_num_bool_vars() << "\n");
+        for (auto& p : top_k)
+            top_lits.push_back(expr_ref(p.second, m));
+        
+        IF_VERBOSE(3, verbose_stream() << "top literals " << top_lits << " head size " << ctx->m_lit_scores->size() << " num vars " << ctx->get_num_bool_vars() << "\n");
+        
         return top_lits;
     }
 

@@ -1532,14 +1532,6 @@ namespace smt {
         }} 
     }
 
-    // void context::add_scores(unsigned n, literal const* lits) {
-    //     for (unsigned i = 0; i < n; ++i) {
-    //         auto lit = lits[i];
-    //         unsigned v = lit.var();
-    //         m_lit_scores[v][lit.sign()] += 1.0 / n;
-    //     }
-    // }
-
     void context::add_scores(unsigned n, literal const* lits) {
         for (unsigned i = 0; i < n; ++i) {
             auto lit = lits[i];
@@ -1547,8 +1539,8 @@ namespace smt {
 
             m_lit_scores[lit.sign()][v] += 1.0 / n;
             
-            auto new_score = m_lit_scores[0][v] * m_lit_scores[1][v];
-            m_pq_scores.set(v, new_score);
+            // auto new_score = m_lit_scores[0][v] * m_lit_scores[1][v];
+            // m_pq_scores.set(v, new_score);
 
         }
     }
