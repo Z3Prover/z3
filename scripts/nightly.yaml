@@ -1,8 +1,8 @@
 variables:
   # Version components read from VERSION.txt (updated manually when VERSION.txt changes)
   Major: '4'
-  Minor: '16'
-  Patch: '0'
+  Minor: '15'
+  Patch: '4'
   ReleaseVersion: $(Major).$(Minor).$(Patch)
   AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
   NightlyVersion: $(AssemblyVersion)-$(Build.buildId)
@@ -254,9 +254,9 @@ stages:
       inputs:
         artifact: 'MacArm64'
         path: $(Agent.TempDirectory)\package
-    - task: NuGetToolInstaller@0
+    - task: NuGetToolInstaller@1
       inputs:
-        versionSpec: 5.x
+        versionSpec: 6.x
         checkLatest: false        
     - task: PythonScript@0
       displayName: 'Python: assemble files'
@@ -302,9 +302,9 @@ stages:
       inputs:
         artifact: 'WindowsBuild-x86'
         path: $(Agent.TempDirectory)\package
-    - task: NuGetToolInstaller@0
+    - task: NuGetToolInstaller@1
       inputs:
-        versionSpec: 5.x
+        versionSpec: 6.x
         checkLatest: false        
     - task: PythonScript@0
       displayName: 'Python: assemble files'

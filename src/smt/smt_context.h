@@ -191,7 +191,7 @@ namespace smt {
         unsigned_vector             m_lit_occs;    //!< occurrence count of literals
         svector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
         svector<double>             m_activity;
-        updatable_priority_queue::priority_queue<bool_var, double> m_pq_scores;
+        // updatable_priority_queue::priority_queue<bool_var, double> m_pq_scores;
 
         struct lit_node : dll_base<lit_node> {
             literal lit;
@@ -199,7 +199,6 @@ namespace smt {
         };
         lit_node* m_dll_lits;
 
-        // svector<std::array<double, 2>> m_lit_scores; 
         svector<double> m_lit_scores[2];
 
         clause_vector               m_aux_clauses;
@@ -952,7 +951,7 @@ namespace smt {
                 e = 0;
             for (auto& e : m_lit_scores[1])
                 e = 0;
-            m_pq_scores.clear();  // Clear the priority queue heap as well
+            // m_pq_scores.clear();  // Clear the priority queue heap as well
         }
         double get_score(literal l) const {
             return m_lit_scores[l.sign()][l.var()];

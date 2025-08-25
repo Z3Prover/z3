@@ -20,6 +20,7 @@ Revision History:
 
 #include "smt/smt_context.h"
 #include <thread>
+#include <map>
 
 namespace smt {
 
@@ -49,6 +50,7 @@ namespace smt {
                 unsigned m_max_cube_size = 20;
                 bool m_frugal_cube_only = false;
                 bool m_never_cube = false; 
+                bool m_frugal_deepest_cube_only = false;
             };
             struct stats {
                 unsigned m_max_cube_size = 0;
@@ -63,6 +65,7 @@ namespace smt {
             stats m_stats;
             expr_ref_vector m_split_atoms; // atoms to split on
             vector<expr_ref_vector> m_cubes;
+            std::map<unsigned, vector<expr_ref_vector>> m_cubes_depth_sets; // map<vec<cube>> contains sets of cubes, key is depth/size of cubes in the set
             unsigned m_max_batch_size = 10;
             unsigned m_exception_code = 0;
             std::string m_exception_msg;
@@ -120,6 +123,8 @@ namespace smt {
                 double m_max_conflict_mul = 1.5;
                 bool m_share_units_initial_only = false;
                 bool m_cube_initial_only = false;
+                bool m_max_greedy_cubes = 1000;
+                unsigned m_num_split_lits = 2;
             };
 
             unsigned id; // unique identifier for the worker
