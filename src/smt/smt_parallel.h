@@ -144,6 +144,9 @@ namespace smt {
             void update_max_thread_conflicts() {
                 m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
             } // allow for backoff scheme of conflicts within the thread for cube timeouts.
+
+            expr_ref_vector find_backbone_candidates();
+            void test_backbone_candidates(expr_ref_vector const& candidates);
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
             void run();

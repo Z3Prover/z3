@@ -306,8 +306,8 @@ threads-4-cube-shareconflicts
 threads-4-cube-maxdepth-10
 -T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.share_conflicts=false smt_parallel.share_units=false smt_parallel.max_cube_depth=10
 
-threads-4-cube-depthsplitting
--T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.share_conflicts=false smt_parallel.share_units=false smt_parallel.frugal_depth_splitting_only=true
+threads-4-cube-shareconflicts
+-T:30 smt.threads=4 tactic.default_tactic=smt smt_parallel.share_conflicts=true smt_parallel.share_units=false smt_parallel.frugal_depth_splitting_only=true
 
 </pre>
 

@@ -191,7 +191,6 @@ namespace smt {
         unsigned_vector             m_lit_occs;    //!< occurrence count of literals
         svector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
         svector<double>             m_activity;
-        // updatable_priority_queue::priority_queue<bool_var, double> m_pq_scores;
 
         struct lit_node : dll_base<lit_node> {
             literal lit;
@@ -200,6 +199,7 @@ namespace smt {
         lit_node* m_dll_lits;
 
         svector<double> m_lit_scores[2];
+        svector<double> m_phase_scores[2];
 
         clause_vector               m_aux_clauses;
         clause_vector               m_lemmas;

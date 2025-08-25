@@ -931,10 +931,13 @@ namespace smt {
         set_bool_var(id, v);
         m_bdata.reserve(v+1);
         m_activity.reserve(v+1);
-            m_lit_scores[0].reserve(v + 1);
-            m_lit_scores[1].reserve(v + 1);
-
+        m_lit_scores[0].reserve(v + 1);
+        m_lit_scores[1].reserve(v + 1);
         m_lit_scores[0][v] = m_lit_scores[1][v] = 0.0;
+        m_phase_scores[0].reserve(v + 1);
+        m_phase_scores[1].reserve(v + 1);
+        m_phase_scores[0][v] = m_phase_scores[1][v] = 0.0;
+
         m_bool_var2expr.reserve(v+1);
         m_bool_var2expr[v] = n;
         literal l(v, false);
