@@ -137,6 +137,8 @@ namespace smt {
         m_config.m_share_units_initial_only = pp.share_units_initial_only();
         m_config.m_cube_initial_only = pp.cube_initial_only();
         m_config.m_max_conflict_mul = pp.max_conflict_mul();
+        m_config.m_max_greedy_cubes = pp.max_greedy_cubes();
+        m_config.m_num_split_lits = pp.num_split_lits();
 
         // don't share initial units
         ctx->pop_to_base_lvl();
@@ -272,20 +274,37 @@ namespace smt {
 
     void parallel::batch_manager::get_cubes(ast_translation& g2l, vector<expr_ref_vector>& cubes) {
         std::scoped_lock lock(mux);
-        if (m_cubes.size() == 1 && m_cubes[0].size() == 0) {
+        if (m_cubes.size() == 1 && m_cubes[0].empty()) {
             // special initialization: the first cube is emtpy, have the worker work on an empty cube.
             cubes.push_back(expr_ref_vector(g2l.to()));
             return;
         }
 
         for (unsigned i = 0; i < std::min(m_max_batch_size / p.num_threads, (unsigned)m_cubes.size()) && !m_cubes.empty(); ++i) {
-            auto& cube = m_cubes.back();
-            expr_ref_vector l_cube(g2l.to());
-            for (auto& e : cube) {
-                l_cube.push_back(g2l(e));
+            if (m_config.m_frugal_deepest_cube_only) {
+                // get the deepest set of cubes
+                auto& deepest_cubes = m_cubes_depth_sets.rbegin()->second;
+                unsigned idx = rand() % deepest_cubes.size();
+                auto& cube = deepest_cubes[idx]; // get a random cube from the deepest set
+
+                expr_ref_vector l_cube(g2l.to());
+                for (auto& e : cube) {
+                    l_cube.push_back(g2l(e));
+                }
+                cubes.push_back(l_cube);
+                
+                deepest_cubes.erase(deepest_cubes.begin() + idx); // remove the cube from the set
+                if (deepest_cubes.empty())
+                    m_cubes_depth_sets.erase(m_cubes_depth_sets.size() - 1);
+            } else {
+                auto& cube = m_cubes.back();
+                expr_ref_vector l_cube(g2l.to());
+                for (auto& e : cube) {
+                    l_cube.push_back(g2l(e));
+                }
+                cubes.push_back(l_cube);
+                m_cubes.pop_back();
             }
-            cubes.push_back(l_cube);
-            m_cubes.pop_back();
         }
     }
 
@@ -341,7 +360,7 @@ namespace smt {
             return l_undef; // the main context was cancelled, so we return undef.
         switch (m_state) {
             case state::is_running: // batch manager is still running, but all threads have processed their cubes, which means all cubes were unsat
-                if (!m_cubes.empty())
+                if (!m_cubes.empty() || (m_config.m_frugal_deepest_cube_only && !m_cubes_depth_sets.empty()))
                     throw default_exception("inconsistent end state");
                 if (!p.m_assumptions_used.empty()) {
                     // collect unsat core from assumptions used, if any --> case when all cubes were unsat, but depend on nonempty asms, so we need to add these asms to final unsat core
@@ -439,9 +458,36 @@ namespace smt {
             }
         };
 
+        // apply the frugal strategy to ALL incoming worker cubes, but save in the deepest cube data structure
+        auto add_split_atom_deepest_cubes = [&](expr* atom) {
+            for (auto& c : C_worker) {
+                expr_ref_vector g_cube(l2g.to());
+                for (auto& atom : c)
+                    g_cube.push_back(l2g(atom));
+                if (g_cube.size() >= m_config.m_max_cube_size) // we already added this before!! we just need to add the splits now
+                    continue;
+
+                // add depth set d+1 if it doesn't exist yet
+                unsigned d = g_cube.size();
+                if (m_cubes_depth_sets.find(d + 1) == m_cubes_depth_sets.end())
+                    m_cubes_depth_sets[d + 1] = vector<expr_ref_vector>();
+
+                // split on the negative atom
+                m_cubes_depth_sets[d + 1].push_back(g_cube);
+                m_cubes_depth_sets[d + 1].back().push_back(m.mk_not(atom));
+                
+                // need to split on the positive atom too
+                g_cube.push_back(atom);
+                m_cubes_depth_sets[d + 1].push_back(g_cube);
+
+                m_stats.m_num_cubes += 2;
+                m_stats.m_max_cube_size = std::max(m_stats.m_max_cube_size, d + 1);
+            }
+        };
+
         std::scoped_lock lock(mux);
-        unsigned max_cubes = 1000;
-        bool greedy_mode = (m_cubes.size() <= max_cubes) && !m_config.m_frugal_cube_only;
+        unsigned max_greedy_cubes = 1000;
+        bool greedy_mode = (m_cubes.size() <= max_greedy_cubes) && !m_config.m_frugal_cube_only && !m_config.m_frugal_deepest_cube_only;
         unsigned a_worker_start_idx = 0;
 
         //
@@ -455,7 +501,7 @@ namespace smt {
                 m_split_atoms.push_back(g_atom);
 
                 add_split_atom(g_atom, 0); // split all *existing* cubes
-                if (m_cubes.size() > max_cubes) {
+                if (m_cubes.size() > max_greedy_cubes) {
                     greedy_mode = false;
                     ++a_worker_start_idx; // start frugal from here
                     break;
@@ -470,16 +516,26 @@ namespace smt {
             expr_ref_vector g_cube(l2g.to());
             for (auto& atom : c)
                 g_cube.push_back(l2g(atom));
-
             unsigned start = m_cubes.size(); // update start after adding each cube so we only process the current cube being added
-            m_cubes.push_back(g_cube);
+
+            if (m_config.m_frugal_deepest_cube_only) {
+                // need to add the depth set if it doesn't exist yet
+                if (m_cubes_depth_sets.find(g_cube.size()) == m_cubes_depth_sets.end()) {
+                    m_cubes_depth_sets[g_cube.size()] = vector<expr_ref_vector>();
+                }
+                m_cubes_depth_sets[g_cube.size()].push_back(g_cube);
+                m_stats.m_num_cubes += 1;
+                m_stats.m_max_cube_size = std::max(m_stats.m_max_cube_size, g_cube.size());
+            } else {
+                m_cubes.push_back(g_cube);
+            }
 
             if (greedy_mode) {
                 // Split new cube on all existing m_split_atoms not in it
                 for (auto g_atom : m_split_atoms) {
                     if (!atom_in_cube(g_cube, g_atom)) {
                         add_split_atom(g_atom, start);
-                        if (m_cubes.size() > max_cubes) {
+                        if (m_cubes.size() > max_greedy_cubes) {
                             greedy_mode = false;
                             break;
                         }
@@ -494,7 +550,11 @@ namespace smt {
                 expr_ref g_atom(l2g(A_worker[i]), l2g.to());
                 if (!m_split_atoms.contains(g_atom))
                     m_split_atoms.push_back(g_atom);
-                add_split_atom(g_atom, initial_m_cubes_size); 
+                if (m_config.m_frugal_deepest_cube_only) {
+                    add_split_atom_deepest_cubes(g_atom);
+                } else {
+                    add_split_atom(g_atom, initial_m_cubes_size);
+                }
             }
         }
     }
@@ -548,11 +608,17 @@ namespace smt {
         m_state = state::is_running;
         m_cubes.reset();
         m_cubes.push_back(expr_ref_vector(m)); // push empty cube
+        
+        if (m_config.m_frugal_deepest_cube_only) {
+            m_cubes_depth_sets.clear();
+        }
+        
         m_split_atoms.reset();
         smt_parallel_params sp(p.ctx.m_params);
         m_config.m_max_cube_size = sp.max_cube_size();
         m_config.m_frugal_cube_only = sp.frugal_cube_only();
         m_config.m_never_cube = sp.never_cube();
+        m_config.m_frugal_deepest_cube_only = sp.frugal_deepest_cube_only();
     }
 
     void parallel::batch_manager::collect_statistics(::statistics& st) const {
