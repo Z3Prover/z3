@@ -559,6 +559,90 @@ namespace smt {
         }
     }
 
+    expr_ref_vector parallel::worker::find_backbone_candidates() {
+        expr_ref_vector backbone_candidates(m);
+        // Find backbone candidates based on the current state of the worker
+
+        unsigned k = 5;
+        svector<std::pair<double, expr*>> top_k; // will hold at most k elements
+
+        for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
+            if (ctx->get_assignment(v) != l_undef)
+                continue;
+            expr* e = ctx->bool_var2expr(v);
+            if (!e)
+                continue;
+
+            auto score1 = ctx->m_phase_scores[0][v]; // assigned to true
+            auto score2 = ctx->m_phase_scores[1][v]; // assigned to false
+
+            ctx->m_phase_scores[0][v] /= 2; // decay the scores
+            ctx->m_phase_scores[1][v] /= 2;
+
+            if (score1 == 0 && score2 == 0)
+                continue;
+
+            if (score1 == 0) {
+                backbone_candidates.push_back(expr_ref(e, m));
+                continue;
+            }
+
+            if (score2 == 0) {
+                backbone_candidates.push_back(expr_ref(m.mk_not(e), m));
+                continue;
+            }
+
+            if (score1 == score2)
+                continue;
+
+            if (score1 >= score2) {
+                double ratio = score1 / score2;
+//                insert by absolute value
+            }
+            else {
+                double ratio = - score2 / score1;
+                //                insert by absolute value
+            }
+        }
+        // post-process top_k to get the top k elements
+
+        return backbone_candidates;
+    }
+
+    // 
+    // Assume the negation of all candidates (or a batch of them)
+    // run the solver with a low budget of conflicts
+    // if the unsat core contains a single candidate we have found a backbone literal
+    // 
+    void parallel::worker::test_backbone_candidates(expr_ref_vector const& candidates) {
+
+        unsigned sz = asms.size();
+        for (expr* e : candidates)
+            asms.push_back(mk_not(m, e));
+
+        ctx->get_fparams().m_max_conflicts = 100;
+        lbool r = l_undef;
+        try {
+            r = ctx->check(asms.size(), asms.data());
+        }
+        catch (z3_error& err) {
+            b.set_exception(err.error_code());
+        }
+        catch (z3_exception& ex) {
+            b.set_exception(ex.what());
+        }
+        catch (...) {
+            b.set_exception("unknown exception");
+        }
+        asms.shrink(sz);
+        if (r == l_false) {
+            auto core = ctx->unsat_core();
+            LOG_WORKER(2, " backbone core:\n"; for (auto c : core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");                          
+        }
+
+        // TODO
+    }
+
     expr_ref_vector parallel::worker::get_split_atoms() {
         unsigned k = 2;
 
