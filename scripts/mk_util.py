@@ -596,6 +596,19 @@ def get_version_string(n):
         return "{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD)
     return "{}.{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD,VER_TWEAK)
 
+def get_nuget_version_string():
+    """
+    Generate a NuGet-compatible version string using semantic versioning format.
+    Uses 3-component version (MAJOR.MINOR.PATCH) to avoid issues with NuGet
+    interpreting 4-component versions incorrectly.
+    """
+    if VER_TWEAK == 0:
+        # For releases without revision, use 3-component version
+        return "{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD)
+    else:
+        # For builds with revision, format as pre-release version
+        return "{}.{}.{}-{}".format(VER_MAJOR,VER_MINOR,VER_BUILD,VER_TWEAK)
+
 def build_static_lib():
     return STATIC_LIB
 
@@ -1736,7 +1749,7 @@ class DotNetDLLComponent(Component):
             key = "<AssemblyOriginatorKeyFile>%s</AssemblyOriginatorKeyFile>" % self.key_file
             key += "\n<SignAssembly>true</SignAssembly>"
 
-        version = get_version_string(4)
+        version = get_nuget_version_string()
 
         print("Version output to csproj:", version)
 
