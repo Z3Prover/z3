@@ -105,6 +105,13 @@ FetchContent_Declare(Z3
         GIT_TAG        z3-4.12.1
 )
 FetchContent_MakeAvailable(Z3)
+
+# Add the C++ API include directory for z3++.h
+if(TARGET libz3)
+    target_include_directories(libz3 INTERFACE
+        $<BUILD_INTERFACE:${z3_SOURCE_DIR}/src/api/c++>
+    )
+endif()
 ```
 
 Once fetched, you can link the z3 library to your target:
@@ -113,9 +120,12 @@ Once fetched, you can link the z3 library to your target:
 target_link_libraries(yourTarget PRIVATE libz3)
 ```
 
-**Note**: The target name is `libz3` (referring to the library target from `src/CMakeLists.txt`). The target automatically provides the necessary include directories, so no manual `include_directories()` call is needed.
+**Important notes for FetchContent approach**:
+- The target name is `libz3` (referring to the library target from `src/CMakeLists.txt`)
+- An additional include directory for `src/api/c++` is added to enable `#include "z3++.h"` in C++ code
+- Without the additional include directory, you would need `#include "c++/z3++.h"` instead
 
-**Alternative using target alias** (for consistency with system installs):
+**Recommended: Create an alias for consistency with system installs**:
 
 ```cmake
 # Create an alias for consistency with system install
@@ -178,6 +188,13 @@ else()
         GIT_TAG        z3-${Z3_MIN_VERSION}
     )
     FetchContent_MakeAvailable(Z3)
+    
+    # Add the C++ API include directory for z3++.h
+    if(TARGET libz3)
+        target_include_directories(libz3 INTERFACE
+            $<BUILD_INTERFACE:${z3_SOURCE_DIR}/src/api/c++>
+        )
+    endif()
     
     # Create an alias to match the system install target name
     if(NOT TARGET z3::libz3)
