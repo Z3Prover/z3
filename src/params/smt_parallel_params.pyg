@@ -14,4 +14,5 @@ def_module_params('smt_parallel',
                         ('max_greedy_cubes', UINT, 1000, 'maximum number of cube to greedily share before switching to frugal'),
                         ('num_split_lits', UINT, 2, 'how many literals, k, we split on to create 2^k cubes'),
                         ('frugal_depth_splitting_only', BOOL, False, 'only apply frugal cube strategy, and only on deepest (biggest) cubes from the batch manager'),
+                        ('backbone_detection', BOOL, False, 'apply backbone literal heuristic'),
               ))

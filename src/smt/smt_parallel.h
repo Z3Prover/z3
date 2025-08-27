@@ -123,8 +123,9 @@ namespace smt {
                 double m_max_conflict_mul = 1.5;
                 bool m_share_units_initial_only = false;
                 bool m_cube_initial_only = false;
-                bool m_max_greedy_cubes = 1000;
+                unsigned m_max_greedy_cubes = 1000;
                 unsigned m_num_split_lits = 2;
+                bool m_backbone_detection = false;
             };
 
             unsigned id; // unique identifier for the worker
@@ -146,7 +147,7 @@ namespace smt {
             } // allow for backoff scheme of conflicts within the thread for cube timeouts.
 
             expr_ref_vector find_backbone_candidates();
-            void test_backbone_candidates(expr_ref_vector const& candidates);
+            expr_ref_vector get_backbones_from_candidates(expr_ref_vector const& candidates);
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
             void run();
