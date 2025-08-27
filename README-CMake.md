@@ -102,7 +102,7 @@ cmake targets are added to the project:
 include(FetchContent)
 FetchContent_Declare(Z3
         GIT_REPOSITORY https://github.com/Z3Prover/z3
-        GIT_TAG        z3-4.12.1
+        GIT_TAG        z3-4.15.3
 )
 FetchContent_MakeAvailable(Z3)
 
