@@ -4,8 +4,7 @@ variables:
   Minor: '15'
   Patch: '4'
   ReleaseVersion: $(Major).$(Minor).$(Patch)
-  AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
-  NightlyVersion: $(AssemblyVersion)-$(Build.buildId)
+  NightlyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
   # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
 
 stages:
