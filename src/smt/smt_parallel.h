@@ -50,7 +50,7 @@ namespace smt {
                 unsigned m_max_cube_depth = 20;
                 bool m_frugal_cube_only = false;
                 bool m_never_cube = false; 
-                bool m_frugal_depth_splitting_only = false;
+                bool m_depth_splitting_only = false;
             };
             struct stats {
                 unsigned m_max_cube_depth = 0;
