@@ -1672,7 +1672,7 @@ namespace nlsat {
             }
         }
       
-        void operator()(unsigned num, literal const * ls, scoped_literal_vector & result) {
+        void compute_conflict_explanation(unsigned num, literal const * ls, scoped_literal_vector & result) {
             SASSERT(check_already_added());
             SASSERT(num > 0);
             TRACE(nlsat_explain, 
@@ -1878,8 +1878,8 @@ namespace nlsat {
         m_imp->m_add_zero_disc = f;
     }
 
-    void explain::main_operator(unsigned n, literal const * ls, scoped_literal_vector & result) {
-        (*m_imp)(n, ls, result);
+    void explain::compute_conflict_explanation(unsigned n, literal const * ls, scoped_literal_vector & result) {
+        m_imp->compute_conflict_explanation(n, ls, result);
     }
 
     void explain::project(var x, unsigned n, literal const * ls, scoped_literal_vector & result) {
