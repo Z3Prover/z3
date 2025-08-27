@@ -140,7 +140,8 @@ target_link_libraries(yourTarget PRIVATE z3::libz3)
 If you have Z3 installed on your system (e.g., via package manager or by building and installing Z3 yourself), you can use CMake's `find_package` to locate it:
 
 ```cmake
-find_package(Z3 REQUIRED CONFIG)
+set(Z3_MIN_VERSION "4.15.3")
+find_package(Z3 ${Z3_MIN_VERSION} REQUIRED CONFIG)
 ```
 
 Once found, you can link to Z3 using the exported target (recommended):
