@@ -98,36 +98,59 @@ of z3 is required that may not match with the system version. With the following
 cmake file of your project, z3 version 4.12.1 is downloaded to the build directory and the
 cmake targets are added to the project:
 
-```
-FetchContent_Declare(z3
+```cmake
+include(FetchContent)
+FetchContent_Declare(Z3
         GIT_REPOSITORY https://github.com/Z3Prover/z3
-        GIT_TAG        z3-4.12.1
+        GIT_TAG        z3-4.15.3
 )
-FetchContent_MakeAvailable(z3)
+FetchContent_MakeAvailable(Z3)
+
+# Add the C++ API include directory for z3++.h
+if(TARGET libz3)
+    target_include_directories(libz3 INTERFACE
+        $<BUILD_INTERFACE:${z3_SOURCE_DIR}/src/api/c++>
+    )
+endif()
 ```
 
-The header files can be added to the included directories as follows:
+Once fetched, you can link the z3 library to your target:
 
-```
-include_directories( ${z3_SOURCE_DIR}/src/api )
+```cmake
+target_link_libraries(yourTarget PRIVATE libz3)
 ```
 
-Finally, the z3 library can be linked to a `yourTarget` using
+**Important notes for FetchContent approach**:
+- The target name is `libz3` (referring to the library target from `src/CMakeLists.txt`)
+- An additional include directory for `src/api/c++` is added to enable `#include "z3++.h"` in C++ code
+- Without the additional include directory, you would need `#include "c++/z3++.h"` instead
 
+**Recommended: Create an alias for consistency with system installs**:
+
+```cmake
+# Create an alias for consistency with system install
+if(NOT TARGET z3::libz3)
+    add_library(z3::libz3 ALIAS libz3)
+endif()
+target_link_libraries(yourTarget PRIVATE z3::libz3)
 ```
-target_link_libraries(yourTarget libz3)
-```
-Note that this is `libz3` not `z3` (`libz3` refers to the library target from `src/CMakeLists.txt`).
 
 #### Using system-installed Z3
 
 If you have Z3 installed on your system (e.g., via package manager or by building and installing Z3 yourself), you can use CMake's `find_package` to locate it:
 
 ```cmake
-find_package(Z3 REQUIRED CONFIG)
+set(Z3_MIN_VERSION "4.15.3")
+find_package(Z3 ${Z3_MIN_VERSION} REQUIRED CONFIG)
 ```
 
-Once found, you can use the Z3 include directories and libraries:
+Once found, you can link to Z3 using the exported target (recommended):
+
+```cmake
+target_link_libraries(yourTarget PRIVATE z3::libz3)
+```
+
+**Alternative using variables** (for compatibility with older CMake code):
 
 ```cmake
 # For C projects
@@ -141,8 +164,62 @@ target_link_libraries(yourTarget PRIVATE ${Z3_LIBRARIES})
 
 The `find_package(Z3 CONFIG)` approach uses Z3's provided `Z3Config.cmake` file, which is installed to a standard location (typically `<prefix>/lib/cmake/z3/`). If CMake cannot automatically find Z3, you can help it by setting `-DZ3_DIR=<path>` where `<path>` is the directory containing the `Z3Config.cmake` file.
 
-**Note**: This approach requires that Z3 was built and installed using CMake. Z3 installations from the Python build system may not provide the necessary CMake configuration files.
+**Note**: This approach requires that Z3 was built and installed using CMake. Z3 installations from the Python build system may not provide the necessary CMake configuration files. The exported target `z3::libz3` automatically provides the correct include directories and linking flags.
 
+#### Using system-installed Z3 with FetchContent fallback
+
+This approach combines the benefits of both methods above: it uses a system-installed Z3 if available and meets the minimum version requirement, otherwise falls back to fetching Z3 from the repository. This is often the most practical approach for projects.
+
+```cmake
+set(Z3_MIN_VERSION "4.15.3")
+
+# First, try to find Z3 on the system
+find_package(Z3 ${Z3_MIN_VERSION} CONFIG QUIET)
+
+if(Z3_FOUND)
+    message(STATUS "Found system Z3 version ${Z3_VERSION_STRING}")
+    # Z3_LIBRARIES will contain z3::libz3
+else()
+    message(STATUS "System Z3 not found or version too old, fetching Z3 ${Z3_MIN_VERSION}")
+    
+    # Fallback to FetchContent
+    include(FetchContent)
+    FetchContent_Declare(Z3
+        GIT_REPOSITORY https://github.com/Z3Prover/z3
+        GIT_TAG        z3-${Z3_MIN_VERSION}
+    )
+    FetchContent_MakeAvailable(Z3)
+    
+    # Add the C++ API include directory for z3++.h
+    if(TARGET libz3)
+        target_include_directories(libz3 INTERFACE
+            $<BUILD_INTERFACE:${z3_SOURCE_DIR}/src/api/c++>
+        )
+    endif()
+    
+    # Create an alias to match the system install target name
+    if(NOT TARGET z3::libz3)
+        add_library(z3::libz3 ALIAS libz3)
+    endif()
+endif()
+
+# Now use Z3 consistently regardless of how it was found
+target_link_libraries(yourTarget PRIVATE z3::libz3)
+```
+
+**Key benefits of this approach:**
+
+- **Consistent interface**: Both paths result in the same `z3::libz3` target
+- **Version control**: Ensures minimum version requirements are met
+- **Flexible deployment**: Works whether Z3 is pre-installed or not
+- **Proper linking**: Uses CMake targets which handle include directories and linking automatically
+
+**Important notes:**
+
+- Use `z3::libz3` target instead of raw library names for better CMake integration
+- The target automatically provides the correct include directories, so no need for manual `target_include_directories`
+- When using FetchContent, an alias is created to ensure target name consistency
+- Set `QUIET` in `find_package` to avoid error messages when Z3 isn't found
 
 
 ### Ninja
