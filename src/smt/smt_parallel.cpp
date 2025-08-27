@@ -25,6 +25,8 @@ Author:
 #include "smt/smt_lookahead.h"
 #include "params/smt_parallel_params.hpp"
 
+#include <cmath>
+
 #ifdef SINGLE_THREAD
 
 namespace smt {
@@ -103,6 +105,17 @@ namespace smt {
                             if (asms.contains(e))
                                 b.report_assumption_used(m_l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
+                        if (m_config.m_backbone_detection) {
+                            expr_ref_vector backbone_candidates = find_backbone_candidates();
+                            expr_ref_vector backbones = get_backbones_from_candidates(backbone_candidates);
+                            if (!backbones.empty()) { // QUESTION: how do we avoid splitting on backbones???? 
+                                for (expr* bb : backbones) {
+                                    ctx->assert_expr(bb);              // local pruning
+                                    b.collect_clause(m_l2g, id, bb);   // share globally // QUESTION: gatekeep this behind share_units param???? 
+                                }
+                            }
+                        }
+
                         LOG_WORKER(1, " found unsat cube\n");
                         if (m_config.m_share_conflicts)
                             b.collect_clause(m_l2g, id, mk_not(mk_and(unsat_core)));
@@ -139,6 +152,7 @@ namespace smt {
         m_config.m_max_conflict_mul = pp.max_conflict_mul();
         m_config.m_max_greedy_cubes = pp.max_greedy_cubes();
         m_config.m_num_split_lits = pp.num_split_lits();
+        m_config.m_backbone_detection = pp.backbone_detection();
 
         // don't share initial units
         ctx->pop_to_base_lvl();
@@ -281,7 +295,7 @@ namespace smt {
         }
 
         for (unsigned i = 0; i < std::min(m_max_batch_size / p.num_threads, (unsigned)m_cubes.size()) && !m_cubes.empty(); ++i) {
-            if (m_config.m_frugal_deepest_cube_only) {
+            if (m_config.m_depth_splitting_only) {
                 // get the deepest set of cubes
                 auto& deepest_cubes = m_cubes_depth_sets.rbegin()->second;
                 unsigned idx = rand() % deepest_cubes.size();
@@ -360,7 +374,7 @@ namespace smt {
             return l_undef; // the main context was cancelled, so we return undef.
         switch (m_state) {
             case state::is_running: // batch manager is still running, but all threads have processed their cubes, which means all cubes were unsat
-                if (!m_cubes.empty() || (m_config.m_frugal_deepest_cube_only && !m_cubes_depth_sets.empty()))
+                if (!m_cubes.empty() || (m_config.m_depth_splitting_only && !m_cubes_depth_sets.empty()))
                     throw default_exception("inconsistent end state");
                 if (!p.m_assumptions_used.empty()) {
                     // collect unsat core from assumptions used, if any --> case when all cubes were unsat, but depend on nonempty asms, so we need to add these asms to final unsat core
@@ -448,12 +462,12 @@ namespace smt {
             for (unsigned i = start; i < stop; ++i) {
                 // copy the last cube so that expanding m_cubes doesn't invalidate reference.
                 auto cube = m_cubes[i];
-                if (cube.size() >= m_config.m_max_cube_size)
+                if (cube.size() >= m_config.m_max_cube_depth)
                     continue;
                 m_cubes.push_back(cube);
                 m_cubes.back().push_back(m.mk_not(atom));
                 m_cubes[i].push_back(atom);
-                m_stats.m_max_cube_size = std::max(m_stats.m_max_cube_size, m_cubes.back().size());
+                m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, m_cubes.back().size());
                 m_stats.m_num_cubes += 2;
             }
         };
@@ -464,7 +478,7 @@ namespace smt {
                 expr_ref_vector g_cube(l2g.to());
                 for (auto& atom : c)
                     g_cube.push_back(l2g(atom));
-                if (g_cube.size() >= m_config.m_max_cube_size) // we already added this before!! we just need to add the splits now
+                if (g_cube.size() >= m_config.m_max_cube_depth) // we already added this before!! we just need to add the splits now
                     continue;
 
                 // add depth set d+1 if it doesn't exist yet
@@ -481,13 +495,13 @@ namespace smt {
                 m_cubes_depth_sets[d + 1].push_back(g_cube);
 
                 m_stats.m_num_cubes += 2;
-                m_stats.m_max_cube_size = std::max(m_stats.m_max_cube_size, d + 1);
+                m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, d + 1);
             }
         };
 
         std::scoped_lock lock(mux);
         unsigned max_greedy_cubes = 1000;
-        bool greedy_mode = (m_cubes.size() <= max_greedy_cubes) && !m_config.m_frugal_cube_only && !m_config.m_frugal_deepest_cube_only;
+        bool greedy_mode = (m_cubes.size() <= max_greedy_cubes) && !m_config.m_frugal_cube_only;
         unsigned a_worker_start_idx = 0;
 
         //
@@ -500,7 +514,11 @@ namespace smt {
                     continue;
                 m_split_atoms.push_back(g_atom);
 
-                add_split_atom(g_atom, 0); // split all *existing* cubes
+                if (m_config.m_depth_splitting_only) {
+                    add_split_atom_deepest_cubes(g_atom); // split all *existing* cubes in the depth sets data structure
+                } else {
+                    add_split_atom(g_atom, 0); // split all *existing* cubes
+                }
                 if (m_cubes.size() > max_greedy_cubes) {
                     greedy_mode = false;
                     ++a_worker_start_idx; // start frugal from here
@@ -518,14 +536,14 @@ namespace smt {
                 g_cube.push_back(l2g(atom));
             unsigned start = m_cubes.size(); // update start after adding each cube so we only process the current cube being added
 
-            if (m_config.m_frugal_deepest_cube_only) {
+            if (m_config.m_depth_splitting_only) {
                 // need to add the depth set if it doesn't exist yet
                 if (m_cubes_depth_sets.find(g_cube.size()) == m_cubes_depth_sets.end()) {
                     m_cubes_depth_sets[g_cube.size()] = vector<expr_ref_vector>();
                 }
                 m_cubes_depth_sets[g_cube.size()].push_back(g_cube);
                 m_stats.m_num_cubes += 1;
-                m_stats.m_max_cube_size = std::max(m_stats.m_max_cube_size, g_cube.size());
+                m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, g_cube.size());
             } else {
                 m_cubes.push_back(g_cube);
             }
@@ -534,7 +552,11 @@ namespace smt {
                 // Split new cube on all existing m_split_atoms not in it
                 for (auto g_atom : m_split_atoms) {
                     if (!atom_in_cube(g_cube, g_atom)) {
-                        add_split_atom(g_atom, start);
+                        if (m_config.m_depth_splitting_only) {
+                            add_split_atom_deepest_cubes(g_atom); // split all *existing* cubes in the depth sets data structure
+                        } else {
+                            add_split_atom(g_atom, 0); // split all *existing* cubes
+                        }
                         if (m_cubes.size() > max_greedy_cubes) {
                             greedy_mode = false;
                             break;
@@ -550,7 +572,7 @@ namespace smt {
                 expr_ref g_atom(l2g(A_worker[i]), l2g.to());
                 if (!m_split_atoms.contains(g_atom))
                     m_split_atoms.push_back(g_atom);
-                if (m_config.m_frugal_deepest_cube_only) {
+                if (m_config.m_depth_splitting_only) {
                     add_split_atom_deepest_cubes(g_atom);
                 } else {
                     add_split_atom(g_atom, initial_m_cubes_size);
@@ -573,39 +595,53 @@ namespace smt {
             if (!e)
                 continue;
 
-            auto score1 = ctx->m_phase_scores[0][v]; // assigned to true
-            auto score2 = ctx->m_phase_scores[1][v]; // assigned to false
+            auto score_pos = ctx->m_phase_scores[0][v]; // assigned to true
+            auto score_neg = ctx->m_phase_scores[1][v]; // assigned to false
 
             ctx->m_phase_scores[0][v] /= 2; // decay the scores
             ctx->m_phase_scores[1][v] /= 2;
 
-            if (score1 == 0 && score2 == 0)
+            if (score_pos == score_neg)
                 continue;
 
-            if (score1 == 0) {
-                backbone_candidates.push_back(expr_ref(e, m));
-                continue;
+            double score_ratio = INFINITY; // score_pos / score_neg;
+            expr_ref candidate = expr_ref(e, m);
+
+            // if score_neg is zero (and thus score_pos > 0 since at this point score_pos != score_neg)
+            // then not(e) is a backbone candidate with score_ratio=infinity
+            if (score_neg == 0) { 
+                candidate = expr_ref(m.mk_not(e), m);
+            } else {
+                score_ratio = score_pos / score_neg;
             }
 
-            if (score2 == 0) {
-                backbone_candidates.push_back(expr_ref(m.mk_not(e), m));
-                continue;
+            if (score_ratio < 1) { // so score_pos < score_neg
+                candidate = expr_ref(m.mk_not(e), m);
+                // score_ratio *= -1; // insert by absolute value
             }
 
-            if (score1 == score2)
-                continue;
+            // insert into top_k. linear scan since k is very small
+            if (top_k.size() < k) {
+                top_k.push_back({score_ratio, candidate});
+            } else {
+                // find the smallest in top_k and replace if we found a new element bigger than the min
+                size_t min_idx = 0;
+                for (size_t i = 1; i < k; ++i)
+                    if (top_k[i].first < top_k[min_idx].first)
+                        min_idx = i;
 
-            if (score1 >= score2) {
-                double ratio = score1 / score2;
-//                insert by absolute value
-            }
-            else {
-                double ratio = - score2 / score1;
-                //                insert by absolute value
+                if (score_ratio > top_k[min_idx].first) {
+                    top_k[min_idx] = {score_ratio, candidate};
+                }
             }
         }
-        // post-process top_k to get the top k elements
 
+        for (auto& p : top_k)
+            backbone_candidates.push_back(expr_ref(p.second, m));
+        
+        for (expr* e : backbone_candidates)
+            LOG_WORKER(0, " backbone candidate: " << mk_bounded_pp(e, m, 3) << " head size " << ctx->m_lit_scores->size() << " num vars " << ctx->get_num_bool_vars() << "\n");
+        
         return backbone_candidates;
     }
 
@@ -614,40 +650,57 @@ namespace smt {
     // run the solver with a low budget of conflicts
     // if the unsat core contains a single candidate we have found a backbone literal
     // 
-    void parallel::worker::test_backbone_candidates(expr_ref_vector const& candidates) {
+    expr_ref_vector parallel::worker::get_backbones_from_candidates(expr_ref_vector const& candidates) {
+        expr_ref_vector backbones(m);
 
         unsigned sz = asms.size();
-        for (expr* e : candidates)
-            asms.push_back(mk_not(m, e));
+        LOG_WORKER(0, "GETTING BACKBONES\n");
 
-        ctx->get_fparams().m_max_conflicts = 100;
-        lbool r = l_undef;
-        try {
-            r = ctx->check(asms.size(), asms.data());
-        }
-        catch (z3_error& err) {
-            b.set_exception(err.error_code());
-        }
-        catch (z3_exception& ex) {
-            b.set_exception(ex.what());
-        }
-        catch (...) {
-            b.set_exception("unknown exception");
-        }
-        asms.shrink(sz);
-        if (r == l_false) {
-            auto core = ctx->unsat_core();
-            LOG_WORKER(2, " backbone core:\n"; for (auto c : core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");                          
+        for (expr* e : candidates) {
+            // push ¬c
+            expr* not_e = nullptr;
+            if (m.is_bool(e)) { // IT CRASHES ON THIS LINE?????
+                LOG_WORKER(0, "candidate IS Bool: " << mk_bounded_pp(e, m, 3) << "\n");
+                not_e = m.mk_not(e);
+            } else {
+                // e is a theory atom represented in the SAT solver
+                LOG_WORKER(0, "candidate is NOT Bool: " << mk_bounded_pp(e, m, 3) << "\n");
+            }
+            LOG_WORKER(0, "NEGATED BACKBONE\n");
+            asms.push_back(not_e);
+            LOG_WORKER(0, "PUSHED BACKBONES TO ASMS\n");
+
+            ctx->get_fparams().m_max_conflicts = 100;
+            lbool r = l_undef;
+            try {
+                r = ctx->check(asms.size(), asms.data());
+            }
+            catch (z3_error& err) {
+                b.set_exception(err.error_code());
+            }
+            catch (z3_exception& ex) {
+                b.set_exception(ex.what());
+            }
+            catch (...) {
+                b.set_exception("unknown exception");
+            }
+
+            asms.shrink(sz); // restore assumptions
+
+            if (r == l_false) {
+                // c must be true in all models → backbone
+                backbones.push_back(e);
+                LOG_WORKER(0, "backbone found: " << mk_bounded_pp(e, m, 3) << "\n");
+            }
         }
 
-        // TODO
+        return backbones;
     }
 
     expr_ref_vector parallel::worker::get_split_atoms() {
         unsigned k = 2;
 
         // auto candidates = ctx->m_pq_scores.get_heap();
-        auto candidates = ctx->m_lit_scores;
         std::vector<std::pair<double, expr*>> top_k; // will hold at most k elements
 
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
@@ -667,7 +720,7 @@ namespace smt {
             if (top_k.size() < k) {
                 top_k.push_back({score, e});
             } else {
-                // find the smallest in top_k and replace if we found a new min
+                // find the smallest in top_k and replace if we found a new element bigger than the min
                 size_t min_idx = 0;
                 for (size_t i = 1; i < k; ++i)
                     if (top_k[i].first < top_k[min_idx].first)
@@ -693,22 +746,22 @@ namespace smt {
         m_cubes.reset();
         m_cubes.push_back(expr_ref_vector(m)); // push empty cube
         
-        if (m_config.m_frugal_deepest_cube_only) {
+        if (m_config.m_depth_splitting_only) {
             m_cubes_depth_sets.clear();
         }
         
         m_split_atoms.reset();
         smt_parallel_params sp(p.ctx.m_params);
-        m_config.m_max_cube_size = sp.max_cube_size();
+        m_config.m_max_cube_depth = sp.max_cube_depth();
         m_config.m_frugal_cube_only = sp.frugal_cube_only();
         m_config.m_never_cube = sp.never_cube();
-        m_config.m_frugal_deepest_cube_only = sp.frugal_deepest_cube_only();
+        m_config.m_depth_splitting_only = sp.depth_splitting_only();
     }
 
     void parallel::batch_manager::collect_statistics(::statistics& st) const {
         //ctx->collect_statistics(st);
         st.update("parallel-num_cubes", m_stats.m_num_cubes);
-        st.update("parallel-max-cube-size", m_stats.m_max_cube_size);
+        st.update("parallel-max-cube-size", m_stats.m_max_cube_depth);
     }
 
     lbool parallel::operator()(expr_ref_vector const& asms) {
