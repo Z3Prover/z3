@@ -450,7 +450,7 @@ namespace smt {
 
     // currenly, the code just implements the greedy strategy
     void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& C_worker, expr_ref_vector const& A_worker) {
-        SASSERT(!m_config.never_cube());
+//        SASSERT(!m_config.never_cube());
 
         auto atom_in_cube = [&](expr_ref_vector const& cube, expr* atom) {
             return any_of(cube, [&](expr* e) { return e == atom || (m.is_not(e, e) && e == atom); });
@@ -606,6 +606,8 @@ namespace smt {
 
             double score_ratio = INFINITY; // score_pos / score_neg;
 
+            LOG_WORKER(0, " backbone candidate: " << mk_bounded_pp(candidate, m, 3) << " score_pos " << score_pos << " score_neg " << score_neg << "\n");
+
             // if score_neg is zero (and thus score_pos > 0 since at this point score_pos != score_neg)
             // then not(e) is a backbone candidate with score_ratio=infinity
             if (score_neg == 0) { 
@@ -641,7 +643,7 @@ namespace smt {
             backbone_candidates.push_back(p.second);
         
         for (expr* e : backbone_candidates)
-            LOG_WORKER(1, " backbone candidate: " << mk_bounded_pp(e, m, 3) << " head size " << ctx->m_lit_scores->size() << " num vars " << ctx->get_num_bool_vars() << "\n");
+            LOG_WORKER(0, "selected backbone candidate: " << mk_bounded_pp(e, m, 3) << " head size " << ctx->m_lit_scores->size() << " num vars " << ctx->get_num_bool_vars() << "\n");
         
         return backbone_candidates;
     }
@@ -656,10 +658,9 @@ namespace smt {
 
         unsigned sz = asms.size();
 
-        for (expr* e : candidates) {
-            // push ¬c
-            expr* not_e = nullptr;
+        for (expr* e : candidates) 
             asms.push_back(m.mk_not(e));
+
             LOG_WORKER(1, "PUSHED BACKBONES TO ASMS\n");
 
             ctx->get_fparams().m_max_conflicts = 100;
@@ -679,12 +680,18 @@ namespace smt {
 
             asms.shrink(sz); // restore assumptions
 
+            LOG_WORKER(0, " BACKBONE CHECK RESULT: " << r << "\n");
+
             if (r == l_false) {
                 // c must be true in all models → backbone
-                backbones.push_back(e);
-                LOG_WORKER(1, "backbone found: " << mk_bounded_pp(e, m, 3) << "\n");
+                auto core = ctx->unsat_core();
+                LOG_WORKER(0, "core: " << core << "\n");
+                if (core.size() == 1) {
+                    expr* e = core.get(0);
+                    backbones.push_back(mk_not(m, e));
+                }                
             }
-        }
+        
 
         return backbones;
     }
@@ -765,7 +772,7 @@ namespace smt {
         struct scoped_clear {
             parallel& p;
             scoped_clear(parallel& p) : p(p) {}
-            ~scoped_clear() { p.m_workers.clear();  p.m_assumptions_used.reset(); }
+            ~scoped_clear() { p.m_workers.reset();  p.m_assumptions_used.reset(); }
         };
         scoped_clear clear(*this);
 

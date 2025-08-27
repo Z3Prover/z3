@@ -164,7 +164,7 @@ namespace smt {
 
         obj_hashtable<expr> m_assumptions_used; // assumptions used in unsat cores, to be used in final core
         batch_manager m_batch_manager;
-        ptr_vector<worker> m_workers;
+        scoped_ptr_vector<worker> m_workers;
 
     public:
         parallel(context& ctx) : 
