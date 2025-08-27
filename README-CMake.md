@@ -171,7 +171,7 @@ The `find_package(Z3 CONFIG)` approach uses Z3's provided `Z3Config.cmake` file,
 This approach combines the benefits of both methods above: it uses a system-installed Z3 if available and meets the minimum version requirement, otherwise falls back to fetching Z3 from the repository. This is often the most practical approach for projects.
 
 ```cmake
-set(Z3_MIN_VERSION "4.12.1")
+set(Z3_MIN_VERSION "4.15.3")
 
 # First, try to find Z3 on the system
 find_package(Z3 ${Z3_MIN_VERSION} CONFIG QUIET)
