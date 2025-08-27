@@ -44,6 +44,7 @@ namespace nlsat {
         var                          m_n;
         pmanager&                    m_pm;
         anum_manager&                m_am;
+        polynomial_ref_vector        m_generated; // storage for resultants we create
         std::vector<property>        m_Q; // the set of properties to prove
         bool                         m_fail = false; 
         // Property precedence relation stored as pairs (lesser, greater)
@@ -57,7 +58,7 @@ namespace nlsat {
 
        // max_x plays the role of n in algorith 1 of the levelwise paper.
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am)
-            : m_solver(solver), m_P(ps), m_n(max_x),  m_pm(pm), m_am(am) {
+            : m_solver(solver), m_P(ps), m_n(max_x),  m_pm(pm), m_am(am), m_generated(m_pm) {
             TRACE(levelwise, tout  << "m_n:" << m_n << "\n";);    
             init_property_relation();
         }
@@ -123,12 +124,89 @@ namespace nlsat {
 
         std::vector<property> seed_properties() {
             std::vector<property> Q;
-
+        /*
+        Recall the description of MCSAT in Section 1.2. We are interested in when MCSAT resolves theory
+        conflicts. I.e. when there is a set of constraints C in real variables x0, . . . , x_{n-1} , x_{n-1}+1 that should be
+        satisfied according to the Boolean model and an assignment s : {x0, . . . , x_{n-1} } → R such that s cannot be
+        extended to a value for x_{n-1}+1 satisfying C . The task then is to exclude a cell around s that generalizes
+        this conflict, i.e. a region cell where the reason for unsatisfiability of C is invariant.
+        This reason of unsatisfiability is maintained when all input polynomials are sign-invariant on the
+        generalized cell. To achieve this, we could do a full McCallum projection step, obtaining a set of
+        properties of one level below allowing to construct a cell around s.
+        However, this is already too strong, as we need the set of input polynomials P = {p | (p ∼ 0) ∈
+        C } : Q[x0, . . . , x_{n-1} , x_n] to be delineable over a cell containing the current sample s ∈ Rn for main-
+        taining the desired property. We achieve this by determining the indexed root expression of the real
+        roots of the set {p ∈ factors(P )| level(p) = n } over s in x_n and ordering them such that ξ1(s) ≤
+        ξ2(s) ≤. . . ≤ ξk (s). Finally, we ensure that all lower level factors {p ∈ factors(P )| level(p) < n} are
+        sign-invariant, check that each polynomial is not nullified (if not, we stop), make each polynomial
+        individually delineable and add the resultants of the pair of polynomials (ξ j.p, ξ j+1.p) for j ∈ [1..k − 1].
+        Thus, the input of the presented one-cell algorithm is given as
+        Q = {sgn_inv(p) | p ∈ factors(P ), level(p) < n }
+        ∪ {an_del(p) | p ∈ factors(P ), level(p)= n }
+        ∪ {ord_inv(resxn+1 (ξ j.p, ξ j+1.p)) | j ∈ [k− 1]}.
+         */
             // Algorithm 1: initial goals are sgn_inv(p, s) for p in ps at current level of max_x
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 poly* p = m_P.get(i);                
-                Q.push_back(property{ prop_enum::sgn_inv_irreducible, p, /*s_idx*/0, /* level */ m_n - 1});
+                unsigned level = m_pm.max_var(p);
+                if (level < m_n)
+                    Q.push_back(property{ prop_enum::sgn_inv_irreducible, p, /*s_idx*/0, /* level */ level});
+                else if (level == m_n) 
+                    Q.push_back(property{ prop_enum::an_del, p, /* s_idx*/ 0, level });   
+                else {
+                    SASSERT(level <= m_n);
+                }    
             }
+
+            // compute indexed roots for polynomials at level m_n, order them and add ord_inv(resultant) properties ---
+            // collect polynomials whose main variable is m_n
+            std::vector<poly*> ps_of_n_level;
+            for (unsigned i = 0; i < m_P.size(); ++i) {
+                poly* p = m_P.get(i);
+                if (m_pm.max_var(p) == m_n)
+                    ps_of_n_level.push_back(p);
+            }
+
+            if (ps_of_n_level.size() >= 2) {
+                // collect all roots (as algebraic numbers) together with their originating indexed_root_expr
+                std::vector<std::pair<scoped_anum, indexed_root_expr>> root_vals;
+                for (auto * p : ps_of_n_level) {
+                    scoped_anum_vector roots(m_am);
+                    m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_n), roots);
+                    unsigned num_roots = roots.size();
+                    for (unsigned k = 0; k < num_roots; ++k) {
+                        scoped_anum v(m_am);
+                        m_am.set(v, roots[k]);
+                        root_vals.emplace_back(std::move(v), indexed_root_expr{p, k + 1});
+                    }
+                }
+
+                // order roots by their algebraic value (ascending)
+                if (root_vals.size() >= 2) {
+                    std::sort(root_vals.begin(), root_vals.end(), [&](auto const & a, auto const & b){
+                        return m_am.lt(a.first, b.first);
+                    });
+
+                    // add resultants of adjacent roots
+                    for (size_t j = 0; j + 1 < root_vals.size(); ++j) {
+                        poly* p1 = root_vals[j].second.p;
+                        poly* p2 = root_vals[j+1].second.p;
+                        polynomial_ref r(m_pm);
+                        r =resultant(polynomial_ref(p1, m_pm), polynomial_ref(p2, m_pm), m_n);
+                        if (is_const(r)) continue;
+                        if (is_zero(r) ) {
+                            NOT_IMPLEMENTED_YET(); // not sure how to process
+                        }
+                        // keep the resultant alive in m_generated
+                        m_generated.push_back(r.get());
+                        poly* rp = m_generated.get(m_generated.size() - 1);
+                        unsigned lvl = m_pm.max_var(rp);
+                        Q.push_back(property{ prop_enum::ord_inv_irreducible, rp, /*s_idx*/ 0u, lvl });
+                    }
+                }
+            }
+            // ---------------------------------------------------------------------------------
+
             return Q;
         }
         
@@ -447,7 +525,7 @@ namespace nlsat {
                   tout << "m_P:\n";
                   for (const auto & p: m_P) {
                       ::nlsat::display(tout, m_solver, polynomial_ref(p, m_pm)) << std::endl;
-                      tout << "max0_var:" << m_pm.max_var(p) << std::endl;
+                      tout << "max_var:" << m_pm.max_var(p) << std::endl;
                   }
                 );
             std::vector<symbolic_interval> ret;
