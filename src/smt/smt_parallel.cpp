@@ -77,6 +77,16 @@ namespace smt {
                             auto split_atoms = get_split_atoms();
                             b.return_cubes(m_l2g, returned_cubes, split_atoms);
                         }
+                        if (m_config.m_backbone_detection) {
+                            expr_ref_vector backbone_candidates = find_backbone_candidates();
+                            expr_ref_vector backbones = get_backbones_from_candidates(backbone_candidates);
+                            if (!backbones.empty()) { // QUESTION: how do we avoid splitting on backbones???? 
+                                for (expr* bb : backbones) {
+                                    ctx->assert_expr(bb);              // local pruning
+                                    b.collect_clause(m_l2g, id, bb);   // share globally // QUESTION: gatekeep this behind share_units param???? 
+                                }
+                            }
+                        }
                         update_max_thread_conflicts();
                         break;
                     }
@@ -104,17 +114,6 @@ namespace smt {
                         for (expr* e : unsat_core)
                             if (asms.contains(e))
                                 b.report_assumption_used(m_l2g, e); // report assumptions used in unsat core, so they can be used in final core
-
-                        if (m_config.m_backbone_detection) {
-                            expr_ref_vector backbone_candidates = find_backbone_candidates();
-                            expr_ref_vector backbones = get_backbones_from_candidates(backbone_candidates);
-                            if (!backbones.empty()) { // QUESTION: how do we avoid splitting on backbones???? 
-                                for (expr* bb : backbones) {
-                                    ctx->assert_expr(bb);              // local pruning
-                                    b.collect_clause(m_l2g, id, bb);   // share globally // QUESTION: gatekeep this behind share_units param???? 
-                                }
-                            }
-                        }
 
                         LOG_WORKER(1, " found unsat cube\n");
                         if (m_config.m_share_conflicts)
@@ -586,13 +585,14 @@ namespace smt {
         // Find backbone candidates based on the current state of the worker
 
         unsigned k = 5;
-        svector<std::pair<double, expr*>> top_k; // will hold at most k elements
+        vector<std::pair<double, expr_ref>> top_k; // will hold at most k elements
+        expr_ref candidate(m);
 
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
             if (ctx->get_assignment(v) != l_undef)
                 continue;
-            expr* e = ctx->bool_var2expr(v);
-            if (!e)
+            candidate = ctx->bool_var2expr(v);
+            if (!candidate)
                 continue;
 
             auto score_pos = ctx->m_phase_scores[0][v]; // assigned to true
@@ -605,25 +605,26 @@ namespace smt {
                 continue;
 
             double score_ratio = INFINITY; // score_pos / score_neg;
-            expr_ref candidate = expr_ref(e, m);
 
             // if score_neg is zero (and thus score_pos > 0 since at this point score_pos != score_neg)
             // then not(e) is a backbone candidate with score_ratio=infinity
             if (score_neg == 0) { 
-                candidate = expr_ref(m.mk_not(e), m);
-            } else {
+                candidate = mk_not(candidate);
+            } 
+            else {
                 score_ratio = score_pos / score_neg;
             }
 
             if (score_ratio < 1) { // so score_pos < score_neg
-                candidate = expr_ref(m.mk_not(e), m);
+                candidate = mk_not(candidate);
                 // score_ratio *= -1; // insert by absolute value
             }
 
             // insert into top_k. linear scan since k is very small
             if (top_k.size() < k) {
                 top_k.push_back({score_ratio, candidate});
-            } else {
+            } 
+            else {
                 // find the smallest in top_k and replace if we found a new element bigger than the min
                 size_t min_idx = 0;
                 for (size_t i = 1; i < k; ++i)
@@ -637,10 +638,10 @@ namespace smt {
         }
 
         for (auto& p : top_k)
-            backbone_candidates.push_back(expr_ref(p.second, m));
+            backbone_candidates.push_back(p.second);
         
         for (expr* e : backbone_candidates)
-            LOG_WORKER(0, " backbone candidate: " << mk_bounded_pp(e, m, 3) << " head size " << ctx->m_lit_scores->size() << " num vars " << ctx->get_num_bool_vars() << "\n");
+            LOG_WORKER(1, " backbone candidate: " << mk_bounded_pp(e, m, 3) << " head size " << ctx->m_lit_scores->size() << " num vars " << ctx->get_num_bool_vars() << "\n");
         
         return backbone_candidates;
     }
@@ -654,21 +655,12 @@ namespace smt {
         expr_ref_vector backbones(m);
 
         unsigned sz = asms.size();
-        LOG_WORKER(0, "GETTING BACKBONES\n");
 
         for (expr* e : candidates) {
             // push ¬c
             expr* not_e = nullptr;
-            if (m.is_bool(e)) { // IT CRASHES ON THIS LINE?????
-                LOG_WORKER(0, "candidate IS Bool: " << mk_bounded_pp(e, m, 3) << "\n");
-                not_e = m.mk_not(e);
-            } else {
-                // e is a theory atom represented in the SAT solver
-                LOG_WORKER(0, "candidate is NOT Bool: " << mk_bounded_pp(e, m, 3) << "\n");
-            }
-            LOG_WORKER(0, "NEGATED BACKBONE\n");
-            asms.push_back(not_e);
-            LOG_WORKER(0, "PUSHED BACKBONES TO ASMS\n");
+            asms.push_back(m.mk_not(e));
+            LOG_WORKER(1, "PUSHED BACKBONES TO ASMS\n");
 
             ctx->get_fparams().m_max_conflicts = 100;
             lbool r = l_undef;
@@ -690,7 +682,7 @@ namespace smt {
             if (r == l_false) {
                 // c must be true in all models → backbone
                 backbones.push_back(e);
-                LOG_WORKER(0, "backbone found: " << mk_bounded_pp(e, m, 3) << "\n");
+                LOG_WORKER(1, "backbone found: " << mk_bounded_pp(e, m, 3) << "\n");
             }
         }
 
