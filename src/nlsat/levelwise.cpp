@@ -34,12 +34,12 @@ namespace nlsat {
     
     struct levelwise::impl {
         struct property {
-            prop_enum prop;
+            prop_enum prop_tag;
             polynomial_ref   poly;
             unsigned         s_idx = -1; // index of the root function, if applicable; -1 means unspecified
             unsigned         level = -1;  // -1 means unspecified
-            property(prop_enum pr, polynomial_ref const & pp, int si, int lvl) : prop(pr), poly(pp), s_idx(si), level(lvl) {}
-            property(prop_enum pr, polynomial_ref const & pp) : prop(pr), poly(pp), s_idx(-1), level(-1) {}
+            property(prop_enum pr, polynomial_ref const & pp, int si, int lvl) : prop_tag(pr), poly(pp), s_idx(si), level(lvl) {}
+            property(prop_enum pr, polynomial_ref const & pp) : prop_tag(pr), poly(pp), s_idx(-1), level(-1) {}
         };
         solver& m_solver;
         polynomial_ref_vector const& m_P;
@@ -243,7 +243,7 @@ namespace nlsat {
         };
 
         bool dominates(const property& a, const property& b) const {
-            return a.poly == b.poly && dominates(a.prop, b.prop);
+            return a.poly == b.poly && dominates(a.prop_tag, b.prop_tag);
         }
         bool dominates(prop_enum a, prop_enum b) const {
             return m_prop_dom[static_cast<unsigned>(a)][static_cast<unsigned>(b)];
@@ -270,7 +270,7 @@ namespace nlsat {
         }
 
         std::ostream& display(std::ostream& out, const property & pr) {
-            out << "{prop:" << prop_name(pr.prop);
+            out << "{prop:" << prop_name(pr.prop_tag);
             if (pr.level != -1) out   << ", level:" << pr.level;
             if (pr.s_idx != -1) out   << ", s_idx:" << pr.s_idx;
             if (pr.poly) {
@@ -289,7 +289,7 @@ namespace nlsat {
             std::vector<property> cand;
             cand.reserve(m_Q.size());
             for (const auto& q : m_Q)
-                if (q.level == level && q.prop != prop_to_avoid)
+                if (q.level == level && q.prop_tag != prop_to_avoid)
                     cand.push_back(q);
             if (cand.empty()) return {};
 
@@ -311,7 +311,7 @@ namespace nlsat {
             keys.reserve(cand.size());
             for (size_t i = 0; i < cand.size(); ++i) {
                 if (!dominated[i]) {
-                    keys.push_back(Key{ polynomial::manager::id(cand[i].poly.get()), static_cast<unsigned>(cand[i].prop), i });
+                    keys.push_back(Key{ polynomial::manager::id(cand[i].poly.get()), static_cast<unsigned>(cand[i].prop_tag), i });
                 }
             }
             std::sort(keys.begin(), keys.end(), [](Key const& a, Key const& b){
@@ -483,7 +483,7 @@ namespace nlsat {
         void build_representation(unsigned i, result_struct& ret) {
             std::vector<const poly*> p_non_null;
             for (const auto & pr: m_Q) {
-                if (pr.prop == prop_enum::sgn_inv_irreducible && max_var(pr.poly) == i && poly_is_not_nullified_at_sample_at_level(pr.poly.get(), i))
+                if (pr.prop_tag == prop_enum::sgn_inv_irreducible && max_var(pr.poly) == i && poly_is_not_nullified_at_sample_at_level(pr.poly.get(), i))
                     p_non_null.push_back(pr.poly.get());
             }
             std::vector<std::unique_ptr<bucket_t>> buckets;
