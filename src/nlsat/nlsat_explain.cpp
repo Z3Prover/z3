@@ -1287,7 +1287,6 @@ namespace nlsat {
             bool           lower_inf = true,   upper_inf = true;
             scoped_anum    lower(m_am),        upper(m_am);
             polynomial_ref p_lower(m_pm),      p_upper(m_pm);
-            unsigned       i_lower = UINT_MAX, i_upper = UINT_MAX;
 
             scoped_anum_vector & roots = m_roots_tmp;
             polynomial_ref p(m_pm);
@@ -1317,7 +1316,6 @@ namespace nlsat {
                     // roots[i] == x_val
                     ps_equal.push_back(p);
                     p_lower = p;
-                    i_lower = i+1;
                     break; // TODO: choose the best among multiple section polynomials?
                 } 
                 else if (s < 0) {
@@ -1327,7 +1325,6 @@ namespace nlsat {
                         upper_inf = false;
                         m_am.set(upper, roots[i]);
                         p_upper = p;
-                        i_upper = i + 1;
                     }
                 }
                 // in any case, roots[i-1] might provide a lower bound if it exists
@@ -1338,7 +1335,6 @@ namespace nlsat {
                         lower_inf = false;
                         m_am.set(lower, roots[i-1]);
                         p_lower = p;
-                        i_lower = i;
                     }
                 }
             }
@@ -1354,7 +1350,7 @@ namespace nlsat {
                     rational bound;
                     m_am.to_rational(x_val, bound);
                     p_lower = m_pm.mk_polynomial(x);
-                    p_lower = p_lower - bound;
+                    p_lower = denominator(bound)*p_lower - numerator(bound);
                 }
                 add_root_literal(atom::ROOT_EQ, x, 1, p_lower);
                 // make sure bounding poly is at the back of the vector
@@ -1369,9 +1365,9 @@ namespace nlsat {
                     rational new_bound;
                     m_am.to_rational(between, new_bound);
                     p_lower = m_pm.mk_polynomial(x);
-                    p_lower = p_lower - new_bound;
+                    p_lower = denominator(new_bound)*p_lower - numerator(new_bound);
                 }
-                add_root_literal((approximate || m_full_dimensional) ? atom::ROOT_GE : atom::ROOT_GT, x, 1, p_lower);
+                add_root_literal((/*approximate ||*/ m_full_dimensional) ? atom::ROOT_GE : atom::ROOT_GT, x, 1, p_lower);
                 // make sure bounding poly is at the back of the vector
                 ps_below.push_back(p_lower);
             }
@@ -1383,11 +1379,11 @@ namespace nlsat {
                     rational new_bound;
                     m_am.to_rational(between, new_bound);
                     p_upper = m_pm.mk_polynomial(x);
-                    p_upper = p_upper - new_bound;
+                    p_upper = denominator(new_bound)*p_upper - numerator(new_bound);
                 }
-                add_root_literal((approximate || m_full_dimensional) ? atom::ROOT_LE : atom::ROOT_LT, x, 1, p_upper);
+                add_root_literal((/*approximate ||*/ m_full_dimensional) ? atom::ROOT_LE : atom::ROOT_LT, x, 1, p_upper);
                 // make sure bounding poly is at the back of the vector
-                ps_below.push_back(p_upper);
+                ps_above.push_back(p_upper);
             }
         }
 
