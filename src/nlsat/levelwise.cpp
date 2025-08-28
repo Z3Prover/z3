@@ -35,16 +35,17 @@ namespace nlsat {
     struct levelwise::impl {
         struct property {
             prop_enum prop;
-            poly*            p = nullptr;
-            unsigned         s_idx = 0; // index of the root function, if applicable
-            unsigned         level = 0;
+            polynomial_ref   p;
+            unsigned         s_idx = -1; // index of the root function, if applicable; -1 means unspecified
+            unsigned         level = -1;  // -1 means unspecified
+            property(prop_enum pr, polynomial_ref const & pp, int si, int lvl) : prop(pr), p(pp), s_idx(si), level(lvl) {}
+            property(prop_enum pr, polynomial_ref const & pp) : prop(pr), p(pp), s_idx(-1), level(-1) {}
         };
         solver& m_solver;
         polynomial_ref_vector const& m_P;
         var                          m_n;
         pmanager&                    m_pm;
         anum_manager&                m_am;
-        polynomial_ref_vector        m_generated; // storage for resultants we create
         std::vector<property>        m_Q; // the set of properties to prove
         bool                         m_fail = false; 
         // Property precedence relation stored as pairs (lesser, greater)
@@ -58,11 +59,15 @@ namespace nlsat {
 
        // max_x plays the role of n in algorith 1 of the levelwise paper.
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am)
-            : m_solver(solver), m_P(ps), m_n(max_x),  m_pm(pm), m_am(am), m_generated(m_pm) {
+            : m_solver(solver), m_P(ps), m_n(max_x),  m_pm(pm), m_am(am) {
             TRACE(levelwise, tout  << "m_n:" << m_n << "\n";);    
             init_property_relation();
         }
 
+        // helper overload so callers can pass either raw poly* or polynomial_ref
+        unsigned  max_var(poly* p) { return m_pm.max_var(p); }
+        unsigned  max_var(polynomial_ref const & p) { return m_pm.max_var(p); }
+        
 #ifdef Z3DEBUG
         bool check_prop_init() {
             for (unsigned k = 0; k < prop_count(); ++k)
@@ -120,8 +125,6 @@ namespace nlsat {
 #endif            
         }
 
-        unsigned  max_var(poly* p) { return m_pm.max_var(p); }
-
         std::vector<property> seed_properties() {
             std::vector<property> Q;
         /*
@@ -150,9 +153,9 @@ namespace nlsat {
                 poly* p = m_P.get(i);                
                 unsigned level = m_pm.max_var(p);
                 if (level < m_n)
-                    Q.push_back(property{ prop_enum::sgn_inv_irreducible, p, /*s_idx*/0, /* level */ level});
+                    Q.push_back(property(prop_enum::sgn_inv_irreducible, polynomial_ref(p, m_pm), /*s_idx*/0u, /* level */ level));
                 else if (level == m_n) 
-                    Q.push_back(property{ prop_enum::an_del, p, /* s_idx*/ 0, level });   
+                    Q.push_back(property(prop_enum::an_del, polynomial_ref(p, m_pm), /* s_idx*/ 0u, level));   
                 else {
                     SASSERT(level <= m_n);
                 }    
@@ -192,16 +195,14 @@ namespace nlsat {
                         poly* p1 = root_vals[j].second.p;
                         poly* p2 = root_vals[j+1].second.p;
                         polynomial_ref r(m_pm);
-                        r =resultant(polynomial_ref(p1, m_pm), polynomial_ref(p2, m_pm), m_n);
+                        r = resultant(polynomial_ref(p1, m_pm), polynomial_ref(p2, m_pm), m_n);
                         if (is_const(r)) continue;
                         if (is_zero(r) ) {
                             NOT_IMPLEMENTED_YET(); // not sure how to process
                         }
-                        // keep the resultant alive in m_generated
-                        m_generated.push_back(r.get());
-                        poly* rp = m_generated.get(m_generated.size() - 1);
-                        unsigned lvl = m_pm.max_var(rp);
-                        Q.push_back(property{ prop_enum::ord_inv_irreducible, rp, /*s_idx*/ 0u, lvl });
+                        // copy polynomial_ref into the property so the property owns the resultant
+                        unsigned lvl = max_var(r);
+                        Q.push_back(property(prop_enum::ord_inv_irreducible, r, /*s_idx*/ 0u, lvl));
                     }
                 }
             }
@@ -274,7 +275,7 @@ namespace nlsat {
                 << ", s_idx:" << pr.s_idx;
             if (pr.p) {
                 out << ", p:";
-                ::nlsat::display(out, m_solver, polynomial_ref(pr.p, m_pm));
+                ::nlsat::display(out, m_solver, pr.p);
             }
             else {
                 out << ", p:null";
@@ -310,7 +311,7 @@ namespace nlsat {
             keys.reserve(cand.size());
             for (size_t i = 0; i < cand.size(); ++i) {
                 if (!dominated[i]) {
-                    keys.push_back(Key{ polynomial::manager::id(cand[i].p), static_cast<unsigned>(cand[i].prop), i });
+                    keys.push_back(Key{ polynomial::manager::id(cand[i].p.get()), static_cast<unsigned>(cand[i].prop), i });
                 }
             }
             std::sort(keys.begin(), keys.end(), [](Key const& a, Key const& b){
@@ -482,8 +483,8 @@ namespace nlsat {
         void build_representation(unsigned i, result_struct& ret) {
             std::vector<const poly*> p_non_null;
             for (const auto & pr: m_Q) {
-                if (pr.prop == prop_enum::sgn_inv_irreducible && m_pm.max_var(pr.p) == i && poly_is_not_nullified_at_sample_at_level(pr.p, i))
-                    p_non_null.push_back(pr.p);
+                if (pr.prop == prop_enum::sgn_inv_irreducible && max_var(pr.p) == i && poly_is_not_nullified_at_sample_at_level(pr.p.get(), i))
+                    p_non_null.push_back(pr.p.get());
             }
             std::vector<std::unique_ptr<bucket_t>> buckets;
             std::vector<root_item_t> roots;
@@ -530,6 +531,7 @@ namespace nlsat {
                 );
             std::vector<symbolic_interval> ret;
             m_Q = seed_properties(); // Q is the set of properties on level m_n
+            apply_property_rules(m_n, prop_enum::_count); // reduce the level by one to be consumed by construct_interval
             for (unsigned i = m_n; --i > 0; ) {
                 auto result = construct_interval(i);
                 if (result.fail)
