@@ -228,8 +228,9 @@ namespace nlsat {
         // clause is a list of atoms. Their negations conjoined with core literals are unsatisfiable.
         // Different implementations of check are possible. One where core comprises of linear polynomials could
         // produce lemmas that are friendly to linear arithmetic solvers.
+        // TODO: update
         //
-        lbool check(assignment const& rvalues, atom_vector& clause);
+        lbool check(assignment const& rvalues, atom_vector& clause, literal_vector& cell);
 
         // -----------------------
         //

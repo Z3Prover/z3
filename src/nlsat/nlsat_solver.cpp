@@ -2034,7 +2034,7 @@ namespace nlsat {
             m_assignment.reset();
         }
 
-        lbool check(assignment const& rvalues, atom_vector& core) {
+        lbool check(assignment const& rvalues, atom_vector& core, literal_vector& cell) {
             // temporarily set m_assignment to the given one
             assignment tmp = m_assignment;
             m_assignment.reset();
@@ -2042,7 +2042,6 @@ namespace nlsat {
 
             // check whether the asserted atoms are satisfied by rvalues
             literal best_literal = null_literal;
-            unsigned sz = m_clauses.size();
             lbool satisfied = l_true;
             for (auto cp : m_clauses) {
                 auto& c = *cp;
@@ -2077,16 +2076,21 @@ namespace nlsat {
 
             // assignment does not satisfy the constraints -> create lemma
             SASSERT(best_literal != null_literal);
+            cell.reset();
             m_lazy_clause.reset();
             m_explain.set_linear_project(true);
             m_explain.main_operator(1, &best_literal, m_lazy_clause);
             m_explain.set_linear_project(false);
-            m_lazy_clause.push_back(~best_literal);
 
-            core.clear();
-            for (literal l : m_lazy_clause) {
-                core.push_back(m_atoms[l.var()]);
+            for (auto l : m_lazy_clause) {
+                cell.push_back(l);
             }
+
+            m_lemma_assumptions = nullptr;
+            
+            core.clear();
+            SASSERT(!best_literal.sign());
+            core.push_back(m_atoms[best_literal.var()]);
 
             m_assignment.reset();
             m_assignment.copy(tmp);
@@ -4163,8 +4167,8 @@ namespace nlsat {
         return m_imp->check(assumptions);
     }
 
-    lbool solver::check(assignment const& rvalues, atom_vector& clause) {
-        return m_imp->check(rvalues, clause);
+    lbool solver::check(assignment const& rvalues, atom_vector& clause, literal_vector& cell) {
+        return m_imp->check(rvalues, clause, cell);
     }
 
     void solver::get_core(vector<assumption, false>& assumptions) {
