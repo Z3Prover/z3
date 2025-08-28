@@ -256,6 +256,7 @@ struct solver::imp {
         lbool r = l_undef;
         statistics& st = m_nla_core.lp_settings().stats().m_st;
         nlsat::atom_vector clause;
+        nlsat::literal_vector cell;
         polynomial::manager& pm = m_nlsat->pm();
         try {
             nlsat::assignment rvalues(m_nlsat->am());
@@ -264,8 +265,7 @@ struct solver::imp {
                 am().set(a, m_nla_core.val(j).to_mpq());
                 rvalues.set(x, a);           
             }
-            r = m_nlsat->check(rvalues, clause);
-
+            r = m_nlsat->check(rvalues, clause, cell);
         } 
         catch (z3_exception&) {
             if (m_limit.is_canceled()) {
@@ -294,8 +294,11 @@ struct solver::imp {
                 u_map<lp::lpvar> nl2lp;
                 for (auto [j, x] : m_lp2nl)
                     nl2lp.insert(x, j);
-                for (auto a : clause) {
-                    // a cannot be a root object.
+
+                nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
+                lemma &= ex;
+
+                auto translate_atom = [&](nlsat::atom* a, bool negated){
                     SASSERT(!a->is_root_atom());
                     SASSERT(a->is_ineq_atom());
                     auto& ia = *to_ineq_atom(a);
@@ -305,9 +308,6 @@ struct solver::imp {
                     unsigned num_mon = pm.size(p);
                     rational bound(0);
                     lp::lar_term t;
-
-                    nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
-                    lemma &= ex;
                     for (unsigned i = 0; i < num_mon; ++i) {
                         polynomial::monomial* m = pm.get_monomial(p, i);
                         auto& coeff = pm.coeff(p, i);
@@ -336,7 +336,6 @@ struct solver::imp {
                                     v = mon->var();                                
                                 else {
                                     NOT_IMPLEMENTED_YET();
-                                    return l_undef;
                                     // this one is for Lev Nachmanson: lar_solver relies on internal variables
                                     // to have terms from outside. The solver doesn't get to create
                                     // its own monomials. 
@@ -349,24 +348,29 @@ struct solver::imp {
                                 break;
                             }
                         }                      
-                    }                   
-                    TRACE(nra, this->lra.print_term(t, tout << "t:") << std::endl;);
+                    }
                     switch (a->get_kind()) {
-                        case nlsat::atom::EQ: 
-                            lemma |= nla::ineq(lp::lconstraint_kind::EQ, t, bound);
-                            break;                        
-                        case nlsat::atom::LT: 
-                            lemma |= nla::ineq(lp::lconstraint_kind::LT, t, bound);
-                            break;                        
-                        case nlsat::atom::GT: 
-                            lemma |= nla::ineq(lp::lconstraint_kind::GT, t, bound);
-                            break;                        
+                        case nlsat::atom::EQ:
+                            return nla::ineq(negated ? lp::lconstraint_kind::NE : lp::lconstraint_kind::EQ, t, bound);
+                        case nlsat::atom::LT:
+                            return nla::ineq(negated ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LT, t, bound);
+                        case nlsat::atom::GT:
+                            return nla::ineq(negated ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GT, t, bound);
                         default:
                             UNREACHABLE();
                     }
+                };
 
-                    IF_VERBOSE(1, verbose_stream() << "linear lemma: " << lemma << "\n");
+                
+                for (auto a : clause) {
+                    lemma |= translate_atom(a, true);
                 }
+
+                for (nlsat::literal l : cell) {
+                    lemma |= translate_atom( m_nlsat->bool_var2atom(l.var()), l.sign());
+                }
+
+                IF_VERBOSE(1, verbose_stream() << "linear lemma: " << lemma << "\n");
                 m_nla_core.set_use_nra_model(true);
                 break;
             }
