@@ -21,6 +21,8 @@ Revision History:
 #include "smt/smt_context.h"
 #include <thread>
 #include <map>
+#include <queue>
+#include <vector>
 
 namespace smt {
 
@@ -52,6 +54,7 @@ namespace smt {
                 bool m_never_cube = false; 
                 bool m_depth_splitting_only = false;
                 bool m_iterative_deepening = false;
+                bool m_beam_search = false;
             };
             struct stats {
                 unsigned m_max_cube_depth = 0;
@@ -66,6 +69,29 @@ namespace smt {
             stats m_stats;
             expr_ref_vector m_split_atoms; // atoms to split on
             vector<expr_ref_vector> m_cubes;
+            
+            struct ScoredCube {
+                double score;
+                expr_ref_vector cube;
+                
+                ScoredCube(unsigned s, expr_ref_vector const& c) : score(s), cube(c) {}
+            };
+
+            // higher score = higher priority
+            struct ScoredCubeCompare {
+                bool operator()(ScoredCube const& a, ScoredCube const& b) const {
+                    return a.score < b.score; 
+                }
+            };
+
+            using CubePQ = std::priority_queue<
+                ScoredCube, 
+                std::vector<ScoredCube>, 
+                ScoredCubeCompare
+            >;
+
+            CubePQ m_cubes_pq;
+
             std::map<unsigned, vector<expr_ref_vector>> m_cubes_depth_sets; // map<vec<cube>> contains sets of cubes, key is depth/size of cubes in the set
             unsigned m_max_batch_size = 10;
             unsigned m_exception_code = 0;
@@ -113,6 +139,7 @@ namespace smt {
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
 
             double update_avg_cube_hardness(double hardness) {
+                IF_VERBOSE(1, verbose_stream() << "Cube hardness: " << hardness << ", previous avg: " << m_avg_cube_hardness << ", solved cubes: " << m_solved_cube_count << "\n";);
                 m_avg_cube_hardness = (m_avg_cube_hardness * m_solved_cube_count + hardness) / (m_solved_cube_count + 1);
                 m_solved_cube_count++;
                 return m_avg_cube_hardness;

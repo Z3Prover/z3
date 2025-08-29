@@ -110,7 +110,7 @@ namespace smt {
                                 const double avg_hardness = b.update_avg_cube_hardness(cube_hardness);
                                 const double factor = 1;  // can tune for multiple of avg hardness later
                                 bool should_split = cube_hardness >= avg_hardness * factor;
-                                LOG_WORKER(1, " cube hardness: " << cube_hardness << " avg: " << avg_hardness << " should-split: " << should_split << "\n");
+                                LOG_WORKER(1, " cube hardness: " << cube_hardness << " avg: " << avg_hardness << " avg*factor: " << avg_hardness * factor << " should-split: " << should_split << "\n");
                                 // we still need to call return_cubes, even if we don't split, since we need to re-enqueue the current unsolved cube to the batch manager!
                                 // should_split tells return_cubes whether to further split the unsolved cube.
                                 b.return_cubes(m_l2g, returned_cubes, split_atoms, should_split);
@@ -329,9 +329,9 @@ namespace smt {
 
     void parallel::batch_manager::get_cubes(ast_translation& g2l, vector<expr_ref_vector>& cubes) {
         std::scoped_lock lock(mux);
-        if (m_config.m_beam_search) {
-            
-        } else if (m_cubes.size() == 1 && m_cubes[0].empty()) {
+        if (m_cubes.size() == 1 && m_cubes[0].empty()
+            || m_config.m_beam_search && m_cubes_pq.empty()
+            || m_config.m_depth_splitting_only && m_cubes_depth_sets.empty()) {
             // special initialization: the first cube is emtpy, have the worker work on an empty cube.
             cubes.push_back(expr_ref_vector(g2l.to()));
             return;
@@ -353,6 +353,19 @@ namespace smt {
                 deepest_cubes.erase(deepest_cubes.begin() + idx); // remove the cube from the set
                 if (deepest_cubes.empty())
                     m_cubes_depth_sets.erase(m_cubes_depth_sets.size() - 1);
+            } else if (m_config.m_beam_search) {
+                // get the highest ranked cube
+                SASSERT(!m_cubes_pq.empty());
+                
+                ScoredCube const& scored_cube = m_cubes_pq.top();
+                auto& cube = scored_cube.cube;
+                expr_ref_vector l_cube(g2l.to());
+                for (auto& e : cube) {
+                    l_cube.push_back(g2l(e));
+                }
+                
+                cubes.push_back(l_cube);
+                m_cubes_pq.pop();
             } else {
                 auto& cube = m_cubes.back();
                 expr_ref_vector l_cube(g2l.to());
@@ -417,7 +430,7 @@ namespace smt {
             return l_undef; // the main context was cancelled, so we return undef.
         switch (m_state) {
             case state::is_running: // batch manager is still running, but all threads have processed their cubes, which means all cubes were unsat
-                if (!m_cubes.empty() || (m_config.m_depth_splitting_only && !m_cubes_depth_sets.empty()))
+                if (!m_cubes.empty() || (m_config.m_depth_splitting_only && !m_cubes_depth_sets.empty()) || (m_config.m_beam_search && !m_cubes_pq.empty()))
                     throw default_exception("inconsistent end state");
                 if (!p.m_assumptions_used.empty()) {
                     // collect unsat core from assumptions used, if any --> case when all cubes were unsat, but depend on nonempty asms, so we need to add these asms to final unsat core
@@ -516,11 +529,13 @@ namespace smt {
         // apply the frugal strategy to ALL incoming worker cubes, but save in the deepest cube data structure
         auto add_split_atom_deepest_cubes = [&](expr* atom) {
             for (auto& c : C_worker) {
+                if (c.size() >= m_config.m_max_cube_depth || !should_split) {
+                    IF_VERBOSE(1, verbose_stream() << " Skipping split of cube at max depth " << m_config.m_max_cube_depth << "\n";);
+                    continue;
+                }
                 expr_ref_vector g_cube(l2g.to());
                 for (auto& atom : c)
                     g_cube.push_back(l2g(atom));
-                if (g_cube.size() >= m_config.m_max_cube_depth) // we already added this before!! we just need to add the splits now
-                    continue;
 
                 // add depth set d+1 if it doesn't exist yet
                 unsigned d = g_cube.size();
@@ -534,6 +549,36 @@ namespace smt {
                 // need to split on the positive atom too
                 g_cube.push_back(atom);
                 m_cubes_depth_sets[d + 1].push_back(g_cube);
+
+                m_stats.m_num_cubes += 2;
+                m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, d + 1);
+            }
+        };
+
+        // apply the frugal strategy to ALL incoming worker cubes, but save in the PQ data structure for beam search
+        auto add_split_atom_pq = [&](expr* atom) {
+            for (auto& c : C_worker) {
+                if (c.size() >= m_config.m_max_cube_depth || !should_split) {
+                    IF_VERBOSE(1, verbose_stream() << " Skipping split of cube at max depth " << m_config.m_max_cube_depth << "\n";);
+                    continue;
+                }
+
+                expr_ref_vector g_cube(l2g.to());
+                for (auto& atom : c)
+                    g_cube.push_back(l2g(atom));
+
+                // i need to split on the positive and negative atom, and add both to the PQ. the score is the depth of the cube (same for both)
+                unsigned d = g_cube.size();
+                
+                // Positive atom branch
+                expr_ref_vector cube_pos = g_cube;
+                cube_pos.push_back(atom);
+                m_cubes_pq.push(ScoredCube(d, cube_pos));
+
+                // Negative atom branch
+                expr_ref_vector cube_neg = g_cube;
+                cube_neg.push_back(m.mk_not(atom));
+                m_cubes_pq.push(ScoredCube(d, cube_neg));
 
                 m_stats.m_num_cubes += 2;
                 m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, d + 1);
@@ -557,6 +602,8 @@ namespace smt {
 
                 if (m_config.m_depth_splitting_only) {
                     add_split_atom_deepest_cubes(g_atom); // split all *existing* cubes in the depth sets data structure
+                } else if (m_config.m_beam_search) {
+                    add_split_atom_pq(g_atom); // split all *existing* cubes in the priority queue data structure
                 } else {
                     add_split_atom(g_atom, 0); // split all *existing* cubes
                 }
@@ -576,17 +623,26 @@ namespace smt {
             for (auto& atom : c)
                 g_cube.push_back(l2g(atom));
 
-            if (m_config.m_depth_splitting_only || m_config.m_iterative_deepening) {
-                // need to add the depth set if it doesn't exist yet
-                if (m_cubes_depth_sets.find(g_cube.size()) == m_cubes_depth_sets.end()) {
-                    m_cubes_depth_sets[g_cube.size()] = vector<expr_ref_vector>();
+            // the cube does NOT get overwritten by its split later. 
+            // however, we do want to re-enqueue the cube if we don't split (in the iterative deepening case)
+            // currently, there limitation is that should_split is only correct when C_worker has size 1
+            // should-split is only false sometimes in the iterative deepening experiment (it's always true otherwise)
+            if ((c.size() >= m_config.m_max_cube_depth || !should_split)
+                    && (m_config.m_depth_splitting_only || m_config.m_iterative_deepening || m_config.m_beam_search)) {
+                if (m_config.m_beam_search) {
+                    m_cubes_pq.push(ScoredCube(g_cube.size(), g_cube)); // re-enqueue the cube as is
+                } else {
+                    // need to add the depth set if it doesn't exist yet
+                    if (m_cubes_depth_sets.find(g_cube.size()) == m_cubes_depth_sets.end()) {
+                        m_cubes_depth_sets[g_cube.size()] = vector<expr_ref_vector>();
+                    }
+                    m_cubes_depth_sets[g_cube.size()].push_back(g_cube);
+                    return; // don't split this cube further
                 }
-                m_cubes_depth_sets[g_cube.size()].push_back(g_cube);
-                m_stats.m_num_cubes += 1;
-                m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, g_cube.size());
             } else {
-                m_cubes.push_back(g_cube);
+                m_cubes.push_back(g_cube); // the cube gets overwritten by its split later
             }
+            // in the non-iterative-deepening PQ approach, we add the subcubes directly, otherwise we're re-enquing a cube that's already been worked on when we dont want to 
 
             if (greedy_mode) {
                 // Split new cube on all existing m_split_atoms not in it
@@ -594,6 +650,8 @@ namespace smt {
                     if (!atom_in_cube(g_cube, g_atom)) {
                         if (m_config.m_depth_splitting_only) {
                             add_split_atom_deepest_cubes(g_atom); // split all *existing* cubes in the depth sets data structure
+                        } else if (m_config.m_beam_search) {
+                            add_split_atom_pq(g_atom); 
                         } else {
                             add_split_atom(g_atom, 0); // split all *existing* cubes
                         }
@@ -615,6 +673,8 @@ namespace smt {
                 if (should_split && (m_config.m_depth_splitting_only || m_config.m_iterative_deepening)) {
                     IF_VERBOSE(1, verbose_stream() << " splitting worker cubes on new atom " << mk_bounded_pp(g_atom, m, 3) << "\n");
                     add_split_atom_deepest_cubes(g_atom);
+                } else if (m_config.m_beam_search) {
+                    add_split_atom_pq(g_atom); 
                 } else {
                     add_split_atom(g_atom, initial_m_cubes_size);
                 }
@@ -787,8 +847,11 @@ namespace smt {
         m_cubes.reset();
         m_cubes.push_back(expr_ref_vector(m)); // push empty cube
         
-        if (m_config.m_depth_splitting_only) {
+        if (m_config.m_depth_splitting_only || m_config.m_iterative_deepening) {
             m_cubes_depth_sets.clear();
+        }
+        if (m_config.m_beam_search) {
+            m_cubes_pq = CubePQ();
         }
         
         m_split_atoms.reset();
@@ -798,6 +861,7 @@ namespace smt {
         m_config.m_never_cube = sp.never_cube();
         m_config.m_depth_splitting_only = sp.depth_splitting_only();
         m_config.m_iterative_deepening = sp.iterative_deepening();
+        m_config.m_beam_search = sp.beam_search();
     }
 
     void parallel::batch_manager::collect_statistics(::statistics& st) const {
