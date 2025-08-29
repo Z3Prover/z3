@@ -747,7 +747,7 @@ namespace nlsat {
             bool have_zero = false;
             for (unsigned i = 0; i < num_factors; i++) {
                 f = m_factors.get(i);
-                if (coeffs_are_zeroes_in_factor(f)) {
+                if (coeffs_are_zeroes_on_sample(f,  m_pm, sample(), m_am)) {
                     have_zero = true;
                     break;
                 } 
@@ -764,20 +764,7 @@ namespace nlsat {
             }
             return true;
         }
-    
-
-        bool coeffs_are_zeroes_in_factor(polynomial_ref & s) {
-            var x = max_var(s);
-            unsigned n = degree(s, x);
-            auto c = polynomial_ref(this->m_pm);
-            for (unsigned j = 0; j <= n; j++) {
-                c = m_pm.coeff(s, x, j);
-                if (sign(c, sample(), m_am) != 0)
-                    return false;
-            }
-            return true;
-        }
-
+        
         /**
            \brief Add v-psc(p, q, x) into m_todo
         */
