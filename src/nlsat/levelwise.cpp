@@ -126,25 +126,25 @@ namespace nlsat {
 #endif            
         }
 
+        /*
+          Short: build the initial property set Q so the one-cell algorithm can generalize the
+          conflict around the current sample. The main goal is to eliminate raw input polynomials
+          whose main variable is x_{m_n} (i.e. level == m_n) by replacing them with properties.
+
+          Strategy:
+          - For factors with level < m_n: add sgn_inv(p) to Q (sign-invariance).
+          - For factors with level == m_n: add an_del(p) and isolate their indexed roots over the sample;
+          sort those roots and for each adjacent pair coming from distinct polynomials add
+          ord_inv(resultant(p_j, p_{j+1})) to Q.
+          - If any constructed polynomial (resultant, discriminant, etc.) is nullified on the sample,
+          fail immediately.
+
+          Result: Q = { sgn_inv(p) | level(p) < m_n }
+          ∪ { an_del(p)  | level(p) == m_n }
+          ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent roots }.
+        */
         std::vector<property> seed_properties() {
             std::vector<property> Q;
-            /*
-             Short: build the initial property set Q so the one-cell algorithm can generalize the
-             conflict around the current sample. The main goal is to eliminate raw input polynomials
-             whose main variable is x_{m_n} (i.e. level == m_n) by replacing them with properties.
-
-             Strategy:
-             - For factors with level < m_n: add sgn_inv(p) to Q (sign-invariance).
-             - For factors with level == m_n: add an_del(p) and isolate their indexed roots over the sample;
-               sort those roots and for each adjacent pair coming from distinct polynomials add
-               ord_inv(resultant(p_j, p_{j+1})) to Q.
-             - If any constructed polynomial (resultant, discriminant, etc.) is nullified on the sample,
-               fail immediately.
-
-             Result: Q = { sgn_inv(p) | level(p) < m_n }
-                      ∪ { an_del(p)  | level(p) == m_n }
-                      ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent roots }.
-            */
             std::vector<poly*> ps_of_n_level;
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 poly* p = m_P[i];                
@@ -610,10 +610,8 @@ namespace nlsat {
                 TRACE(levelwise, tout << "apply_pre: an_del processed and removed from m_Q" << std::endl;);
                 return;
             }
-
-            // ...existing code...
         }
-        // return an empty vector on failure, otherwis returns the cell representations with intervals
+        // return an empty vector on failure, otherwise returns the cell representations with intervals
         std::vector<symbolic_interval> single_cell() {
             TRACE(levelwise,
                   m_solver.display_assignment(tout << "sample()") << std::endl;
