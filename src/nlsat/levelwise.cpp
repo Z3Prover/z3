@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <map>
+#include <set>
 #include <algorithm>
 #include <memory>
 #include "math/polynomial/algebraic_numbers.h"
@@ -178,10 +179,20 @@ namespace nlsat {
             });
 
             // add resultants of adjacent roots
+            // avoid adding the same polynomial pair twice (treat (p1,p2) == (p2,p1))
+            std::set<std::pair<unsigned,unsigned>> added_pairs;
             for (size_t j = 0; j + 1 < root_vals.size(); ++j) {
                 poly* p1 = root_vals[j].second;
                 poly* p2 = root_vals[j+1].second;
-                if (p1 == p2) continue;
+                if (p1 == p2) continue; // the delineability of p1 will be handled by an_del property above
+
+                unsigned id1 = m_pm.id(p1);// polynomial::manager::id(polynomial_ref(p1, m_pm));
+                unsigned id2 = polynomial::manager::id(polynomial_ref(p2, m_pm));
+                std::pair<unsigned,unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
+                if (added_pairs.find(key) != added_pairs.end())
+                    continue;
+                added_pairs.insert(key);
+
                 polynomial_ref r(m_pm);
                 r = resultant(polynomial_ref(p1, m_pm), polynomial_ref(p2, m_pm), m_n);
                 if (is_const(r)) continue;
