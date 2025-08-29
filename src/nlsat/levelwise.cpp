@@ -143,26 +143,25 @@ namespace nlsat {
           ∪ { an_del(p)  | level(p) == m_n }
           ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent roots }.
         */
-        std::vector<property> seed_properties() {
-            std::vector<property> Q;
-            std::vector<poly*> ps_of_n_level;
+        // Helper 1: scan input polynomials, add sgn_inv / an_del properties and collect polynomials at level m_n
+        void collect_level_properties(std::vector<property> & Q, std::vector<poly*> & ps_of_n_level) {
             for (unsigned i = 0; i < m_P.size(); ++i) {
-                poly* p = m_P[i];                
+                poly* p = m_P[i];
                 unsigned level = max_var(p);
                 if (level < m_n)
                     Q.push_back(property(prop_enum::sgn_inv_irreducible, polynomial_ref(p, m_pm), /*s_idx*/0u, /* level */ level));
-                else if (level == m_n){ 
+                else if (level == m_n){
                     Q.push_back(property(prop_enum::an_del, polynomial_ref(p, m_pm), /* s_idx */ -1, level));
                     ps_of_n_level.push_back(p);
                 }
                 else {
                     SASSERT(level <= m_n);
-                }    
+                }
             }
+        }
 
-            // collect all roots (as algebraic numbers) together with their originating polynomials
-            // ignore the root index
-            std::vector<std::pair<scoped_anum, poly*>> root_vals;
+        // Helper 2: isolate and collect algebraic roots for the given polynomials
+        void collect_roots_for_ps(std::vector<poly*> const & ps_of_n_level, std::vector<std::pair<scoped_anum, poly*>> & root_vals) {
             for (poly * p : ps_of_n_level) {
                 scoped_anum_vector roots(m_am);
                 m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_n), roots);
@@ -173,34 +172,52 @@ namespace nlsat {
                     root_vals.emplace_back(std::move(v), p);
                 }
             }
-            // order roots by their algebraic value
-            std::sort(root_vals.begin(), root_vals.end(), [&](auto const & a, auto const & b){
-                return m_am.lt(a.first, b.first);
-            });
+        }
 
-            // add resultants of adjacent roots
-            // avoid adding the same polynomial pair twice (treat (p1,p2) == (p2,p1))
+        // Helper 3: given collected roots (possibly unsorted), sort them, and add ord_inv(resultant(...))
+        // for adjacent roots coming from different polynomials. Avoid adding the same unordered pair twice.
+        // Returns false on failure (e.g. when encountering an ambiguous zero resultant).
+        bool add_adjacent_resultants(std::vector<std::pair<scoped_anum, poly*>> & root_vals, std::vector<property> & Q) {
+            if (root_vals.size() < 2) return true;
+            std::sort(root_vals.begin(), root_vals.end(), [&](auto const & a, auto const & b){ return m_am.lt(a.first, b.first); });
             std::set<std::pair<unsigned,unsigned>> added_pairs;
             for (size_t j = 0; j + 1 < root_vals.size(); ++j) {
                 poly* p1 = root_vals[j].second;
                 poly* p2 = root_vals[j+1].second;
-                if (p1 == p2) continue; // the delineability of p1 will be handled by an_del property above
-
-                unsigned id1 = m_pm.id(p1);
-                unsigned id2 = m_pm.id(p2);
+                if (p1 == p2) continue; // delineability of p1 handled by an_del
+                unsigned id1 = polynomial::manager::id(polynomial_ref(p1, m_pm));
+                unsigned id2 = polynomial::manager::id(polynomial_ref(p2, m_pm));
                 std::pair<unsigned,unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
                 if (added_pairs.find(key) != added_pairs.end())
                     continue;
                 added_pairs.insert(key);
-
                 polynomial_ref r(m_pm);
                 r = resultant(polynomial_ref(p1, m_pm), polynomial_ref(p2, m_pm), m_n);
                 if (is_const(r)) continue;
-                if (is_zero(r) ) {
-                    NOT_IMPLEMENTED_YET(); // not sure how to process
+                if (is_zero(r)) {
+                    NOT_IMPLEMENTED_YET();// ambiguous resultant - not handled yet
+                    return false;
                 }
-                // copy polynomial_ref into the property so the property owns the resultant
                 Q.push_back(property(prop_enum::ord_inv_irreducible, r, /*s_idx*/ -1, max_var(r)));
+            }
+            return true;
+        }
+
+        /*
+          Return Q = { sgn_inv(p) | level(p) < m_n }
+          ∪ { an_del(p)  | level(p) == m_n }
+          ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent root functions }.
+        */
+        std::vector<property> seed_properties() {
+            std::vector<property> Q;
+
+            std::vector<poly*> ps_of_n_level;
+            collect_level_properties(Q, ps_of_n_level);
+            std::vector<std::pair<scoped_anum, poly*>> root_vals;
+            collect_roots_for_ps(ps_of_n_level, root_vals);
+            if (!add_adjacent_resultants(root_vals, Q)) {
+                m_fail = true;
+                return Q;
             }
             return Q;
         }
