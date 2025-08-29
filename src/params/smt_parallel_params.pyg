@@ -15,4 +15,5 @@ def_module_params('smt_parallel',
                         ('num_split_lits', UINT, 2, 'how many literals, k, we split on to create 2^k cubes'),
                         ('depth_splitting_only', BOOL, False, 'only apply frugal cube strategy, and only on deepest (biggest) cubes from the batch manager'),
                         ('backbone_detection', BOOL, False, 'apply backbone literal heuristic'),
+                        ('iterative_deepening', BOOL, False, 'deepen cubes based on iterative hardness cutoff heuristic'),
               ))

@@ -51,6 +51,7 @@ namespace smt {
                 bool m_frugal_cube_only = false;
                 bool m_never_cube = false; 
                 bool m_depth_splitting_only = false;
+                bool m_iterative_deepening = false;
             };
             struct stats {
                 unsigned m_max_cube_depth = 0;
@@ -72,6 +73,9 @@ namespace smt {
             vector<shared_clause> shared_clause_trail; // store all shared clauses with worker IDs
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
             vector<parameter_state> m_parameters_state;
+
+            double m_avg_cube_hardness = 0.0;
+            unsigned m_solved_cube_count = 0;
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
@@ -103,10 +107,16 @@ namespace smt {
             // worker threads return unprocessed cubes to the batch manager together with split literal candidates.
             // the batch manager re-enqueues unprocessed cubes and optionally splits them using the split_atoms returned by this and workers.
             // 
-            void return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms);
+            void return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms, const bool should_split=true);
             void report_assumption_used(ast_translation& l2g, expr* assumption);
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* e);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
+
+            double update_avg_cube_hardness(double hardness) {
+                m_avg_cube_hardness = (m_avg_cube_hardness * m_solved_cube_count + hardness) / (m_solved_cube_count + 1);
+                m_solved_cube_count++;
+                return m_avg_cube_hardness;
+            }
 
             void collect_statistics(::statistics& st) const;
             lbool get_result() const;
@@ -126,6 +136,7 @@ namespace smt {
                 unsigned m_max_greedy_cubes = 1000;
                 unsigned m_num_split_lits = 2;
                 bool m_backbone_detection = false;
+                bool m_iterative_deepening = false;
             };
 
             unsigned id; // unique identifier for the worker
