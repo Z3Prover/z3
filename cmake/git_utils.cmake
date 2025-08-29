@@ -202,7 +202,7 @@ function(get_git_head_describe GIT_DOT_FILE OUTPUT_VAR)
     COMMAND
       "${GIT_EXECUTABLE}"
       "describe"
-      "--long"
+      "--tags"
     WORKING_DIRECTORY
       "${GIT_WORKING_DIR}"
     RESULT_VARIABLE
