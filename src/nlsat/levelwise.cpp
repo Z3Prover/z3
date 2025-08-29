@@ -127,87 +127,70 @@ namespace nlsat {
 
         std::vector<property> seed_properties() {
             std::vector<property> Q;
-        /*
-        Recall the description of MCSAT in Section 1.2. We are interested in when MCSAT resolves theory
-        conflicts. I.e. when there is a set of constraints C in real variables x0, . . . , x_{n-1} , x_{n-1}+1 that should be
-        satisfied according to the Boolean model and an assignment s : {x0, . . . , x_{n-1} } → R such that s cannot be
-        extended to a value for x_{n-1}+1 satisfying C . The task then is to exclude a cell around s that generalizes
-        this conflict, i.e. a region cell where the reason for unsatisfiability of C is invariant.
-        This reason of unsatisfiability is maintained when all input polynomials are sign-invariant on the
-        generalized cell. To achieve this, we could do a full McCallum projection step, obtaining a set of
-        properties of one level below allowing to construct a cell around s.
-        However, this is already too strong, as we need the set of input polynomials P = {p | (p ∼ 0) ∈
-        C } : Q[x0, . . . , x_{n-1} , x_n] to be delineable over a cell containing the current sample s ∈ Rn for main-
-        taining the desired property. We achieve this by determining the indexed root expression of the real
-        roots of the set {p ∈ factors(P )| level(p) = n } over s in x_n and ordering them such that ξ1(s) ≤
-        ξ2(s) ≤. . . ≤ ξk (s). Finally, we ensure that all lower level factors {p ∈ factors(P )| level(p) < n} are
-        sign-invariant, check that each polynomial is not nullified (if not, we stop), make each polynomial
-        individually delineable and add the resultants of the pair of polynomials (ξ j.p, ξ j+1.p) for j ∈ [1..k − 1].
-        Thus, the input of the presented one-cell algorithm is given as
-        Q = {sgn_inv(p) | p ∈ factors(P ), level(p) < n }
-        ∪ {an_del(p) | p ∈ factors(P ), level(p)= n }
-        ∪ {ord_inv(resxn+1 (ξ j.p, ξ j+1.p)) | j ∈ [k− 1]}.
-         */
-            // Algorithm 1: initial goals are sgn_inv(p, s) for p in ps at current level of max_x
+            /*
+             Short: build the initial property set Q so the one-cell algorithm can generalize the
+             conflict around the current sample. The main goal is to eliminate raw input polynomials
+             whose main variable is x_{m_n} (i.e. level == m_n) by replacing them with properties.
+
+             Strategy:
+             - For factors with level < m_n: add sgn_inv(p) to Q (sign-invariance).
+             - For factors with level == m_n: add an_del(p) and isolate their indexed roots over the sample;
+               sort those roots and for each adjacent pair coming from distinct polynomials add
+               ord_inv(resultant(p_j, p_{j+1})) to Q.
+             - If any constructed polynomial (resultant, discriminant, etc.) is nullified on the sample,
+               fail immediately.
+
+             Result: Q = { sgn_inv(p) | level(p) < m_n }
+                      ∪ { an_del(p)  | level(p) == m_n }
+                      ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent roots }.
+            */
+            std::vector<poly*> ps_of_n_level;
             for (unsigned i = 0; i < m_P.size(); ++i) {
-                poly* p = m_P.get(i);                
-                unsigned level = m_pm.max_var(p);
+                poly* p = m_P[i];                
+                unsigned level = max_var(p);
                 if (level < m_n)
                     Q.push_back(property(prop_enum::sgn_inv_irreducible, polynomial_ref(p, m_pm), /*s_idx*/0u, /* level */ level));
-                else if (level == m_n) 
-                    Q.push_back(property(prop_enum::an_del, polynomial_ref(p, m_pm), /* s_idx */ -1, level));   
+                else if (level == m_n){ 
+                    Q.push_back(property(prop_enum::an_del, polynomial_ref(p, m_pm), /* s_idx */ -1, level));
+                    ps_of_n_level.push_back(p);
+                }
                 else {
                     SASSERT(level <= m_n);
                 }    
             }
 
-            // compute indexed roots for polynomials at level m_n, order them and add ord_inv(resultant) properties ---
-            // collect polynomials whose main variable is m_n
-            std::vector<poly*> ps_of_n_level;
-            for (unsigned i = 0; i < m_P.size(); ++i) {
-                poly* p = m_P.get(i);
-                if (m_pm.max_var(p) == m_n)
-                    ps_of_n_level.push_back(p);
-            }
-
-            if (ps_of_n_level.size() >= 2) {
-                // collect all roots (as algebraic numbers) together with their originating indexed_root_expr
-                std::vector<std::pair<scoped_anum, indexed_root_expr>> root_vals;
-                for (auto * p : ps_of_n_level) {
-                    scoped_anum_vector roots(m_am);
-                    m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_n), roots);
-                    unsigned num_roots = roots.size();
-                    for (unsigned k = 0; k < num_roots; ++k) {
-                        scoped_anum v(m_am);
-                        m_am.set(v, roots[k]);
-                        root_vals.emplace_back(std::move(v), indexed_root_expr{p, k + 1});
-                    }
-                }
-
-                // order roots by their algebraic value (ascending)
-                if (root_vals.size() >= 2) {
-                    std::sort(root_vals.begin(), root_vals.end(), [&](auto const & a, auto const & b){
-                        return m_am.lt(a.first, b.first);
-                    });
-
-                    // add resultants of adjacent roots
-                    for (size_t j = 0; j + 1 < root_vals.size(); ++j) {
-                        poly* p1 = root_vals[j].second.p;
-                        poly* p2 = root_vals[j+1].second.p;
-                        polynomial_ref r(m_pm);
-                        r = resultant(polynomial_ref(p1, m_pm), polynomial_ref(p2, m_pm), m_n);
-                        if (is_const(r)) continue;
-                        if (is_zero(r) ) {
-                            NOT_IMPLEMENTED_YET(); // not sure how to process
-                        }
-                        // copy polynomial_ref into the property so the property owns the resultant
-                        unsigned lvl = max_var(r);
-                        Q.push_back(property(prop_enum::ord_inv_irreducible, r, /*s_idx*/ 0u, lvl));
-                    }
+            // collect all roots (as algebraic numbers) together with their originating polynomials
+            // ignore the root index
+            std::vector<std::pair<scoped_anum, poly*>> root_vals;
+            for (poly * p : ps_of_n_level) {
+                scoped_anum_vector roots(m_am);
+                m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_n), roots);
+                unsigned num_roots = roots.size();
+                for (unsigned k = 0; k < num_roots; ++k) {
+                    scoped_anum v(m_am);
+                    m_am.set(v, roots[k]);
+                    root_vals.emplace_back(std::move(v), p);
                 }
             }
-            // ---------------------------------------------------------------------------------
+            // order roots by their algebraic value
+            std::sort(root_vals.begin(), root_vals.end(), [&](auto const & a, auto const & b){
+                return m_am.lt(a.first, b.first);
+            });
 
+            // add resultants of adjacent roots
+            for (size_t j = 0; j + 1 < root_vals.size(); ++j) {
+                poly* p1 = root_vals[j].second;
+                poly* p2 = root_vals[j+1].second;
+                if (p1 == p2) continue;
+                polynomial_ref r(m_pm);
+                r = resultant(polynomial_ref(p1, m_pm), polynomial_ref(p2, m_pm), m_n);
+                if (is_const(r)) continue;
+                if (is_zero(r) ) {
+                    NOT_IMPLEMENTED_YET(); // not sure how to process
+                }
+                // copy polynomial_ref into the property so the property owns the resultant
+                Q.push_back(property(prop_enum::ord_inv_irreducible, r, /*s_idx*/ -1, max_var(r)));
+            }
             return Q;
         }
         
@@ -304,14 +287,14 @@ namespace nlsat {
                     }
                 }
             }
-
+            auto poly_id = [cand](unsigned i) { return cand[i].poly == nullptr? UINT_MAX: polynomial::manager::id(cand[i].poly);};
             // Extract non-dominated (greatest) candidates; keep deterministic order by (poly id, prop enum)
             struct Key { unsigned pid; unsigned pprop; size_t idx; };
             std::vector<Key> keys;
             keys.reserve(cand.size());
             for (size_t i = 0; i < cand.size(); ++i) {
                 if (!dominated[i]) {
-                    keys.push_back(Key{ polynomial::manager::id(cand[i].poly.get()), static_cast<unsigned>(cand[i].prop_tag), i });
+                    keys.push_back(Key{ poly_id(i), static_cast<unsigned>(cand[i].prop_tag), i });
                 }
             }
             std::sort(keys.begin(), keys.end(), [](Key const& a, Key const& b){
@@ -324,19 +307,6 @@ namespace nlsat {
             return ret;
         }
         
-        // check that at least one coeeficient of p \in Q[x0,..., x_{i-1}](x) does not evaluate to zere at the sample. 
-        bool poly_is_not_nullified_at_sample_at_level(poly* p, unsigned i) {
-            // iterate coefficients of p with respect to the current level variable m_i
-            unsigned deg = m_pm.degree(p, i);
-            polynomial_ref c(m_pm);
-            for (unsigned j = 0; j <= deg; ++j) {
-                c = m_pm.coeff(p, i, j);
-                if (sign(c, sample(), m_am) != 0)
-                    return true;
-            }
-            return false;
-        }
-
         // Step 1a: collect E and root values
         void collect_E_and_roots(std::vector<const poly*> const& P_non_null,
                                  unsigned i,
@@ -483,7 +453,8 @@ namespace nlsat {
         void build_representation(unsigned i, result_struct& ret) {
             std::vector<const poly*> p_non_null;
             for (const auto & pr: m_Q) {
-                if (pr.prop_tag == prop_enum::sgn_inv_irreducible && max_var(pr.poly) == i && poly_is_not_nullified_at_sample_at_level(pr.poly.get(), i))
+                if (pr.prop_tag == prop_enum::sgn_inv_irreducible && max_var(pr.poly) == i && 
+                !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
                     p_non_null.push_back(pr.poly.get());
             }
             std::vector<std::unique_ptr<bucket_t>> buckets;
@@ -517,7 +488,119 @@ namespace nlsat {
 
         void apply_pre(const property& p) {
             TRACE(levelwise, display(tout << "property p:", p) << std::endl;);
-            NOT_IMPLEMENTED_YET();
+
+            if (p.prop_tag == prop_enum::an_del) {
+                if (!p.poly) {
+                    TRACE(levelwise, tout << "apply_pre: an_del with null poly -> fail" << std::endl;);
+                    m_fail = true;
+                    return;
+                }
+                if (p.level == static_cast<unsigned>(-1)) {
+                    TRACE(levelwise, tout << "apply_pre: an_del with unspecified level -> skip" << std::endl;);
+                    return;
+                }
+
+                // If p is nullified on the sample for its level we must abort (Rule 4.1)
+                if (coeffs_are_zeroes_on_sample(p.poly, m_pm, sample(), m_am)) {
+                    TRACE(levelwise, tout << "Rule 4.1: polynomial nullified at sample -> failing" << std::endl;);
+                    m_fail = true;
+                    return;
+                }
+
+                // Pre-conditions for an_del(p) per Rule 4.1
+                unsigned i = (p.level > 0) ? p.level - 1 : 0;
+
+                // an_sub(i)
+                {
+                    polynomial_ref empty(m_pm);
+                    bool found = false;
+                    for (auto const & q : m_Q) {
+                        if (q.prop_tag == prop_enum::an_sub && q.level == i) { found = true; break; }
+                    }
+                    if (!found)
+                        m_Q.push_back(property(prop_enum::an_sub, empty, /*s_idx*/ -1, /*level*/ i));
+                }
+
+                // connected(i)
+                {
+                    polynomial_ref empty(m_pm);
+                    bool found = false;
+                    for (auto const & q : m_Q) {
+                        if (q.prop_tag == prop_enum::connected && q.level == i) { found = true; break; }
+                    }
+                    if (!found)
+                        m_Q.push_back(property(prop_enum::connected, empty, /*s_idx*/ -1, /*level*/ i));
+                }
+
+                // non_null(p) -- register that p is not nullified at sample
+                {
+                    bool found = false;
+                    for (auto const & q : m_Q) {
+                        if (q.prop_tag == prop_enum::non_null && q.poly == p.poly && q.level == p.level) { found = true; break; }
+                    }
+                    if (!found)
+                        m_Q.push_back(property(prop_enum::non_null, p.poly, p.s_idx, p.level));
+                }
+
+                // ord_inv(discriminant_{x_{i+1}}(p))
+                {
+                    polynomial_ref disc(m_pm);
+                    disc = discriminant(p.poly, p.level);
+                    if (!is_const(disc)) {
+                        if (coeffs_are_zeroes_on_sample(disc, m_pm, sample(), m_am)) {
+                            m_fail = true; // ambiguous multiplicity -- not handled yet
+                            return;
+                        }
+                        else {
+                            unsigned lvl = max_var(disc);
+                            bool found = false;
+                            for (auto const & q : m_Q) 
+                                if (q.prop_tag == prop_enum::ord_inv_irreducible && q.poly == disc && q.level == lvl)
+                                {
+                                    found = true;
+                                    break;
+                                }
+                            
+                            if (!found)
+                                m_Q.push_back(property(prop_enum::ord_inv_irreducible, disc, /*s_idx*/ 0u, lvl));
+                        }
+                    }
+                }
+
+                // sgn_inv(leading_coefficient_{x_{i+1}}(p))
+                {
+                    poly * pp = p.poly.get();
+                    unsigned deg = m_pm.degree(pp, p.level);
+                    if (deg > 0) {
+                        polynomial_ref lc(m_pm);
+                        lc = m_pm.coeff(pp, p.level, deg);
+                        if (!is_const(lc)) {
+                            if (coeffs_are_zeroes_on_sample(lc, m_pm, sample(), m_am)) {
+                                NOT_IMPLEMENTED_YET(); // leading coeff vanished as polynomial -- not handled yet
+                            }
+                            else {
+                                unsigned lvl = max_var(lc);
+                                bool found = false;
+                                for (auto const & q : m_Q) {
+                                    if (q.prop_tag == prop_enum::sgn_inv_irreducible && q.poly == lc && q.level == lvl) { found = true; break; }
+                                }
+                                if (!found)
+                                    m_Q.push_back(property(prop_enum::sgn_inv_irreducible, lc, /*s_idx*/ 0u, lvl));
+                            }
+                        }
+                    }
+                }
+
+                // Discharge the input an_del property: remove matching entries from m_Q
+                m_Q.erase(std::remove_if(m_Q.begin(), m_Q.end(), [&](const property & q) {
+                    return q.prop_tag == prop_enum::an_del && q.poly == p.poly && q.level == p.level && q.s_idx == p.s_idx;
+                }), m_Q.end());
+
+                TRACE(levelwise, tout << "apply_pre: an_del processed and removed from m_Q" << std::endl;);
+                return;
+            }
+
+            // ...existing code...
         }
         // return an empty vector on failure, otherwis returns the cell representations with intervals
         std::vector<symbolic_interval> single_cell() {
