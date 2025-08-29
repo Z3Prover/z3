@@ -748,7 +748,7 @@ namespace nlsat {
             bool have_zero = false;
             for (unsigned i = 0; i < num_factors; ++i) {
                 f = m_factors.get(i);
-                if (coeffs_are_zeroes_in_factor(f)) {
+                if (coeffs_are_zeroes_on_sample(f,  m_pm, sample(), m_am)) {
                     have_zero = true;
                     break;
                 } 
