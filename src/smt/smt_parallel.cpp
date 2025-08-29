@@ -111,8 +111,9 @@ namespace smt {
                                 const double factor = 1;  // can tune for multiple of avg hardness later
                                 bool should_split = cube_hardness >= avg_hardness * factor;
                                 LOG_WORKER(1, " cube hardness: " << cube_hardness << " avg: " << avg_hardness << " should-split: " << should_split << "\n");
-                                if (should_split)
-                                    b.return_cubes(m_l2g, returned_cubes, split_atoms);
+                                // we still need to call return_cubes, even if we don't split, since we need to re-enqueue the current unsolved cube to the batch manager!
+                                // should_split tells return_cubes whether to further split the unsolved cube.
+                                b.return_cubes(m_l2g, returned_cubes, split_atoms, should_split);
                             } else {
                                 b.return_cubes(m_l2g, returned_cubes, split_atoms);
                             }
@@ -328,7 +329,9 @@ namespace smt {
 
     void parallel::batch_manager::get_cubes(ast_translation& g2l, vector<expr_ref_vector>& cubes) {
         std::scoped_lock lock(mux);
-        if (m_cubes.size() == 1 && m_cubes[0].empty()) {
+        if (m_config.m_beam_search) {
+            
+        } else if (m_cubes.size() == 1 && m_cubes[0].empty()) {
             // special initialization: the first cube is emtpy, have the worker work on an empty cube.
             cubes.push_back(expr_ref_vector(g2l.to()));
             return;
@@ -488,7 +491,7 @@ namespace smt {
     ------------------------------------------------------------------------------------------------------------------------------------------------------------
     Final thought (do this!): use greedy strategy by a policy when C_batch, A_batch, A_worker are "small". -- want to do this. switch to frugal strategy after reaching size limit
     */
-    void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& C_worker, expr_ref_vector const& A_worker) {
+    void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& C_worker, expr_ref_vector const& A_worker, const bool should_split) {
 //        SASSERT(!m_config.never_cube());
 
         auto atom_in_cube = [&](expr_ref_vector const& cube, expr* atom) {
@@ -572,7 +575,6 @@ namespace smt {
             expr_ref_vector g_cube(l2g.to());
             for (auto& atom : c)
                 g_cube.push_back(l2g(atom));
-            unsigned start = m_cubes.size(); // update start after adding each cube so we only process the current cube being added
 
             if (m_config.m_depth_splitting_only || m_config.m_iterative_deepening) {
                 // need to add the depth set if it doesn't exist yet
@@ -610,7 +612,8 @@ namespace smt {
                 expr_ref g_atom(l2g(A_worker[i]), l2g.to());
                 if (!m_split_atoms.contains(g_atom))
                     m_split_atoms.push_back(g_atom);
-                if (m_config.m_depth_splitting_only || m_config.m_iterative_deepening) {
+                if (should_split && (m_config.m_depth_splitting_only || m_config.m_iterative_deepening)) {
+                    IF_VERBOSE(1, verbose_stream() << " splitting worker cubes on new atom " << mk_bounded_pp(g_atom, m, 3) << "\n");
                     add_split_atom_deepest_cubes(g_atom);
                 } else {
                     add_split_atom(g_atom, initial_m_cubes_size);
@@ -645,7 +648,7 @@ namespace smt {
 
             double score_ratio = INFINITY; // score_pos / score_neg;
 
-            LOG_WORKER(0, " backbone candidate: " << mk_bounded_pp(candidate, m, 3) << " score_pos " << score_pos << " score_neg " << score_neg << "\n");
+            LOG_WORKER(1, " backbone candidate: " << mk_bounded_pp(candidate, m, 3) << " score_pos " << score_pos << " score_neg " << score_neg << "\n");
 
             // if score_neg is zero (and thus score_pos > 0 since at this point score_pos != score_neg)
             // then not(e) is a backbone candidate with score_ratio=infinity
@@ -682,8 +685,8 @@ namespace smt {
             backbone_candidates.push_back(p.second);
         
         for (expr* e : backbone_candidates)
-            LOG_WORKER(0, "selected backbone candidate: " << mk_bounded_pp(e, m, 3) << " head size " << ctx->m_lit_scores->size() << " num vars " << ctx->get_num_bool_vars() << "\n");
-        
+            LOG_WORKER(1, "selected backbone candidate: " << mk_bounded_pp(e, m, 3) << " head size " << ctx->m_lit_scores->size() << " num vars " << ctx->get_num_bool_vars() << "\n");
+
         return backbone_candidates;
     }
 
@@ -719,12 +722,12 @@ namespace smt {
 
             asms.shrink(sz); // restore assumptions
 
-            LOG_WORKER(0, " BACKBONE CHECK RESULT: " << r << "\n");
+            LOG_WORKER(1, " BACKBONE CHECK RESULT: " << r << "\n");
 
             if (r == l_false) {
                 // c must be true in all models → backbone
                 auto core = ctx->unsat_core();
-                LOG_WORKER(0, "core: " << core << "\n");
+                LOG_WORKER(1, "core: " << core << "\n");
                 if (core.size() == 1) {
                     expr* e = core.get(0);
                     backbones.push_back(mk_not(m, e));

@@ -66,8 +66,6 @@ namespace smt {
             stats m_stats;
             expr_ref_vector m_split_atoms; // atoms to split on
             vector<expr_ref_vector> m_cubes;
-            updatable_priority_queue::priority_queue<expr_ref_vector, double> m_cubes_pq;
-            
             std::map<unsigned, vector<expr_ref_vector>> m_cubes_depth_sets; // map<vec<cube>> contains sets of cubes, key is depth/size of cubes in the set
             unsigned m_max_batch_size = 10;
             unsigned m_exception_code = 0;
@@ -109,7 +107,7 @@ namespace smt {
             // worker threads return unprocessed cubes to the batch manager together with split literal candidates.
             // the batch manager re-enqueues unprocessed cubes and optionally splits them using the split_atoms returned by this and workers.
             // 
-            void return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms);
+            void return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms, const bool should_split=true);
             void report_assumption_used(ast_translation& l2g, expr* assumption);
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* e);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
