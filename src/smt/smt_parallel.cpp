@@ -73,9 +73,49 @@ namespace smt {
                         // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
                         if (!m_config.m_never_cube) {
                             vector<expr_ref_vector> returned_cubes;
-                            returned_cubes.push_back(cube);
+                            returned_cubes.push_back(cube); 
                             auto split_atoms = get_split_atoms();
-                            b.return_cubes(m_l2g, returned_cubes, split_atoms);
+
+                            if (m_config.m_iterative_deepening) {
+                                unsigned conflicts_before    = ctx->m_stats.m_num_conflicts;
+                                unsigned propagations_before = ctx->m_stats.m_num_propagations + ctx->m_stats.m_num_bin_propagations;
+                                unsigned decisions_before    = ctx->m_stats.m_num_decisions;
+                                unsigned restarts_before     = ctx->m_stats.m_num_restarts;
+
+                                lbool r = check_cube(cube);
+
+                                unsigned conflicts_after    = ctx->m_stats.m_num_conflicts;
+                                unsigned propagations_after = ctx->m_stats.m_num_propagations + ctx->m_stats.m_num_bin_propagations;
+                                unsigned decisions_after    = ctx->m_stats.m_num_decisions;
+                                unsigned restarts_after     = ctx->m_stats.m_num_restarts;
+
+                                // per-cube deltas
+                                unsigned conflicts_delta    = conflicts_after - conflicts_before;
+                                unsigned propagations_delta = propagations_after - propagations_before;
+                                unsigned decisions_delta    = decisions_after - decisions_before;
+                                unsigned restarts_delta     = restarts_after - restarts_before;
+                                LOG_WORKER(1, " cube deltas: conflicts: " << conflicts_delta << " propagations: " << propagations_delta << " decisions: " << decisions_delta << " restarts: " << restarts_delta << "\n");
+
+                                // tuned experimentally
+                                const double w_conflicts = 1.0;
+                                const double w_propagations = 0.001;
+                                const double w_decisions = 0.1;
+                                const double w_restarts = 0.5;
+
+                                const double cube_hardness = w_conflicts * conflicts_delta +
+                                    w_propagations * propagations_delta +
+                                    w_decisions * decisions_delta +
+                                    w_restarts * restarts_delta;
+
+                                const double avg_hardness = b.update_avg_cube_hardness(cube_hardness);
+                                const double factor = 1;  // can tune for multiple of avg hardness later
+                                bool should_split = cube_hardness >= avg_hardness * factor;
+                                LOG_WORKER(1, " cube hardness: " << cube_hardness << " avg: " << avg_hardness << " should-split: " << should_split << "\n");
+                                if (should_split)
+                                    b.return_cubes(m_l2g, returned_cubes, split_atoms);
+                            } else {
+                                b.return_cubes(m_l2g, returned_cubes, split_atoms);
+                            }
                         }
                         if (m_config.m_backbone_detection) {
                             expr_ref_vector backbone_candidates = find_backbone_candidates();
@@ -152,6 +192,7 @@ namespace smt {
         m_config.m_max_greedy_cubes = pp.max_greedy_cubes();
         m_config.m_num_split_lits = pp.num_split_lits();
         m_config.m_backbone_detection = pp.backbone_detection();
+        m_config.m_iterative_deepening = pp.iterative_deepening();
 
         // don't share initial units
         ctx->pop_to_base_lvl();
@@ -294,7 +335,7 @@ namespace smt {
         }
 
         for (unsigned i = 0; i < std::min(m_max_batch_size / p.num_threads, (unsigned)m_cubes.size()) && !m_cubes.empty(); ++i) {
-            if (m_config.m_depth_splitting_only) {
+            if (m_config.m_depth_splitting_only || m_config.m_iterative_deepening) {
                 // get the deepest set of cubes
                 auto& deepest_cubes = m_cubes_depth_sets.rbegin()->second;
                 unsigned idx = rand() % deepest_cubes.size();
@@ -447,8 +488,6 @@ namespace smt {
     ------------------------------------------------------------------------------------------------------------------------------------------------------------
     Final thought (do this!): use greedy strategy by a policy when C_batch, A_batch, A_worker are "small". -- want to do this. switch to frugal strategy after reaching size limit
     */
-
-    // currenly, the code just implements the greedy strategy
     void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& C_worker, expr_ref_vector const& A_worker) {
 //        SASSERT(!m_config.never_cube());
 
@@ -500,7 +539,7 @@ namespace smt {
 
         std::scoped_lock lock(mux);
         unsigned max_greedy_cubes = 1000;
-        bool greedy_mode = (m_cubes.size() <= max_greedy_cubes) && !m_config.m_frugal_cube_only;
+        bool greedy_mode = (m_cubes.size() <= max_greedy_cubes) && !m_config.m_frugal_cube_only && !m_config.m_iterative_deepening; // for iterative deepening, our hardness metric is cube-specific, so it only makes sense for frugal approach for now
         unsigned a_worker_start_idx = 0;
 
         //
@@ -535,7 +574,7 @@ namespace smt {
                 g_cube.push_back(l2g(atom));
             unsigned start = m_cubes.size(); // update start after adding each cube so we only process the current cube being added
 
-            if (m_config.m_depth_splitting_only) {
+            if (m_config.m_depth_splitting_only || m_config.m_iterative_deepening) {
                 // need to add the depth set if it doesn't exist yet
                 if (m_cubes_depth_sets.find(g_cube.size()) == m_cubes_depth_sets.end()) {
                     m_cubes_depth_sets[g_cube.size()] = vector<expr_ref_vector>();
@@ -571,7 +610,7 @@ namespace smt {
                 expr_ref g_atom(l2g(A_worker[i]), l2g.to());
                 if (!m_split_atoms.contains(g_atom))
                     m_split_atoms.push_back(g_atom);
-                if (m_config.m_depth_splitting_only) {
+                if (m_config.m_depth_splitting_only || m_config.m_iterative_deepening) {
                     add_split_atom_deepest_cubes(g_atom);
                 } else {
                     add_split_atom(g_atom, initial_m_cubes_size);
@@ -755,6 +794,7 @@ namespace smt {
         m_config.m_frugal_cube_only = sp.frugal_cube_only();
         m_config.m_never_cube = sp.never_cube();
         m_config.m_depth_splitting_only = sp.depth_splitting_only();
+        m_config.m_iterative_deepening = sp.iterative_deepening();
     }
 
     void parallel::batch_manager::collect_statistics(::statistics& st) const {
