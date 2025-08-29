@@ -186,8 +186,8 @@ namespace nlsat {
                 poly* p2 = root_vals[j+1].second;
                 if (p1 == p2) continue; // the delineability of p1 will be handled by an_del property above
 
-                unsigned id1 = m_pm.id(p1);// polynomial::manager::id(polynomial_ref(p1, m_pm));
-                unsigned id2 = polynomial::manager::id(polynomial_ref(p2, m_pm));
+                unsigned id1 = m_pm.id(p1);
+                unsigned id2 = m_pm.id(p2);
                 std::pair<unsigned,unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
                 if (added_pairs.find(key) != added_pairs.end())
                     continue;
