@@ -1660,9 +1660,6 @@ public:
                 return FC_CONTINUE;
             }
 
-            if (st == FC_GIVEUP)
-                IF_VERBOSE(0, display(verbose_stream()));
-
             if (!int_undef && !check_bv_terms())
                 return FC_CONTINUE;
             

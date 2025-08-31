@@ -250,6 +250,8 @@ namespace nla {
     // z < 0 & x < 0 => -x <= -z
     bool grobner::propagate_quotients(dd::solver::equation const& eq) {
         dd::pdd const& p = eq.poly();
+        dd::pdd_eval eval;
+        eval.var2val() = [&](unsigned j) { return val(j); };
         if (p.is_linear())
             return false;
         if (p.is_val())
@@ -260,15 +262,17 @@ namespace nla {
         for (auto v : p.free_vars())
             if (!c().var_is_int(v))
                 return false;
+        if (eval(p) == 0)
+            return false;
         tracked_uint_set nl_vars;
+        rational d(1);
         for (auto const& m : p) {
+            d = lcm(d, denominator(m.coeff));
             if (m.vars.size() == 1)
                 continue;
             for (auto j : m.vars)
                 nl_vars.insert(j);
         }
-        dd::pdd_eval eval;
-        eval.var2val() = [&](unsigned j) { return val(j); };
 
         for (auto v : nl_vars) {
             auto& m = p.manager();
@@ -276,9 +280,16 @@ namespace nla {
             p.factor(v, 1, lc, r);
             if (!r.is_linear())
                 continue;
+            if (d != 1) {
+                lc *= d;
+                r *= d;
+            }
             auto v_value = val(v);
             auto r_value = eval(r);
             auto lc_value = eval(lc);
+            SASSERT(v_value.is_int());
+            SASSERT(r_value.is_int());
+            SASSERT(lc_value.is_int());
             if (r_value == 0) {
                 if (v_value == 0)
                     continue;
