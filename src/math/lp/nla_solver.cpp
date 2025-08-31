@@ -35,6 +35,10 @@ namespace nla {
     void solver::set_relevant(std::function<bool(lpvar)>& is_relevant) {
         m_core->set_relevant(is_relevant);
     }
+
+    void solver::updt_params(params_ref const& p) {
+        m_core->updt_params(p);
+    }
     
     bool solver::is_monic_var(lpvar v) const {
         return m_core->is_monic_var(v);
@@ -71,7 +75,7 @@ namespace nla {
     }
     
     std::ostream& solver::display(std::ostream& out) const {    
-        m_core->print_monics(out);
+        m_core->display(out);
         if (use_nra_model()) 
             m_core->m_nra.display(out);
         return out;

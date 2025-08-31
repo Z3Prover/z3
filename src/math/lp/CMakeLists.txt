@@ -32,6 +32,7 @@ z3_add_component(lp
     nla_monotone_lemmas.cpp
     nla_order_lemmas.cpp
     nla_powers.cpp
+    nla_pp.cpp
     nla_solver.cpp
     nla_tangent_lemmas.cpp
     nla_throttle.cpp

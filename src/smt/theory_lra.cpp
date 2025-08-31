@@ -269,6 +269,7 @@ class theory_lra::imp {
                 return ctx().is_relevant(th.get_enode(u));
             };
             m_nla->set_relevant(is_relevant);
+            m_nla->updt_params(ctx().get_params());
 
         }
     }
@@ -1286,23 +1287,24 @@ public:
         }
         else {
 
-            expr_ref abs_q(m.mk_ite(a.mk_ge(q, zero), q, a.mk_uminus(q)), m);
             expr_ref mone(a.mk_int(-1), m);
-            expr_ref modmq(a.mk_sub(mod, abs_q), m);
             literal eqz = mk_literal(m.mk_eq(q, zero));
             literal mod_ge_0 = mk_literal(a.mk_ge(mod, zero));
-            literal mod_lt_q = mk_literal(a.mk_le(modmq, mone));
+
             
             // q = 0 or p = (p mod q) + q * (p div q)
             // q = 0 or (p mod q) >= 0
-            // q = 0 or (p mod q) < abs(q)
-            // q >= 0 or (p mod q) = (p mod -q)
-            
+            // q >= 0 or (p mod q) + q <= -1
+            // q <= 0 or (p mod q) - q <= -1            
+            // (p mod q) = (p mod -q)
+
             mk_axiom(eqz, eq);
             mk_axiom(eqz, mod_ge_0);
-            mk_axiom(eqz, mod_lt_q);
-            if (!a.is_uminus(q)) 
-                mk_axiom(mk_literal(m.mk_eq(mod, a.mk_mod(p, a.mk_uminus(q)))));
+            mk_axiom(mk_literal(a.mk_le(q, zero)), mk_literal(a.mk_le(a.mk_add(mod, a.mk_mul(mone, q)), mone)));
+            mk_axiom(mk_literal(a.mk_ge(q, zero)), mk_literal(a.mk_le(a.mk_add(mod, q), mone)));
+            expr* x = nullptr, * y = nullptr;
+            if (false && !(a.is_mul(q, x, y) && mone == x))
+                mk_axiom(mk_literal(m.mk_eq(mod, a.mk_mod(p, a.mk_mul(mone, q)))));
             
             m_arith_eq_adapter.mk_axioms(th.ensure_enode(mod_r), th.ensure_enode(p));
 
@@ -1657,6 +1659,9 @@ public:
                 ++m_stats.m_assume_eqs;
                 return FC_CONTINUE;
             }
+
+            if (st == FC_GIVEUP)
+                IF_VERBOSE(0, display(verbose_stream()));
 
             if (!int_undef && !check_bv_terms())
                 return FC_CONTINUE;

@@ -11,6 +11,7 @@ Author:
 
 --*/
 #include "util/uint_set.h"
+#include "params/smt_params_helper.hpp"
 #include "math/lp/nla_core.h"
 #include "math/lp/factorization_factory_imp.h"
 #include "math/grobner/pdd_solver.h"
@@ -26,6 +27,11 @@ namespace nla {
         lra(m_core.lra),
         m_quota(m_core.params().arith_nl_gr_q())
     {}
+
+    void grobner::updt_params(params_ref const& p) {
+        smt_params_helper ph(p);
+        m_config.m_propagate_quotients = ph.arith_nl_grobner_propagate_quotients();
+    }
 
     lp::lp_settings& grobner::lp_settings() {
         return c().lp_settings();
@@ -72,6 +78,10 @@ namespace nla {
             
             if (propagate_linear_equations())
                 return;
+
+            if (propagate_quotients())
+                return;
+            IF_VERBOSE(0, m_solver.display(verbose_stream() << "grobner\n"));
             
         }
         catch (...) {
@@ -181,23 +191,12 @@ namespace nla {
 
         // IF_VERBOSE(0, verbose_stream() << "factored " << q << " : " << vars << "\n");
 
-        term t;
-        rational lc(1);
-        auto ql = q;
-        while (!ql.is_val()) {
-            lc = lcm(lc, denominator(ql.hi().val()));
-            ql = ql.lo();
-        }
-        lc = lcm(denominator(ql.val()), lc);
+        auto [t, offset] = linear_to_term(q);
 
-        while (!q.is_val()) {
-            t.add_monomial(lc*q.hi().val(), q.var());
-            q = q.lo();
-        }
         vector<ineq> ineqs;
         for (auto v : vars)
             ineqs.push_back(ineq(v, llc::EQ, rational::zero()));
-        ineqs.push_back(ineq(t, llc::EQ, -lc*q.val()));
+        ineqs.push_back(ineq(t, llc::EQ, -offset));
         for (auto const& i : ineqs)
             if (c().ineq_holds(i))
                 return false;
@@ -208,6 +207,151 @@ namespace nla {
             lemma |= i;
         //lemma.display(verbose_stream());
         return true;
+    }
+
+
+    std::pair<lp::lar_term, rational> grobner::linear_to_term(dd::pdd q) {
+        SASSERT(q.is_linear());
+        rational lc(1);
+        auto ql = q;
+        lp::lar_term t;
+        while (!ql.is_val()) {
+            lc = lcm(lc, denominator(ql.hi().val()));
+            ql = ql.lo();
+        }
+        lc = lcm(denominator(ql.val()), lc);
+
+        while (!q.is_val()) {
+            t.add_monomial(lc * q.hi().val(), q.var());
+            q = q.lo();
+        }
+        rational offset = lc * q.val();
+        return {t, offset};
+    }
+
+    bool grobner::propagate_quotients() {
+        if (!m_config.m_propagate_quotients)
+            return false;
+        unsigned changed = 0;
+        for (auto eq : m_solver.equations())
+            if (propagate_quotients(*eq) && ++changed >= m_solver.number_of_conflicts_to_report())
+                return true;
+        return changed > 0;
+    }
+
+    // factor each nl var at a time.
+    // x*y + z = 0
+    // x = 0 => z = 0
+    // y = 0 => z = 0
+    // z = 0 => x = 0 or y = 0
+    // z > 0 & x > 0 => x <= z
+    // z < 0 & x > 0 => x <= -z
+    // z > 0 & x < 0 => -x <= z
+    // z < 0 & x < 0 => -x <= -z
+    bool grobner::propagate_quotients(dd::solver::equation const& eq) {
+        dd::pdd const& p = eq.poly();
+        if (p.is_linear())
+            return false;
+        if (p.is_val())
+            return false;
+        auto v = p.var();
+        if (!c().var_is_int(v))
+            return false;
+        for (auto v : p.free_vars())
+            if (!c().var_is_int(v))
+                return false;
+        tracked_uint_set nl_vars;
+        for (auto const& m : p) {
+            if (m.vars.size() == 1)
+                continue;
+            for (auto j : m.vars)
+                nl_vars.insert(j);
+        }
+        dd::pdd_eval eval;
+        eval.var2val() = [&](unsigned j) { return val(j); };
+
+        for (auto v : nl_vars) {
+            auto& m = p.manager();
+            dd::pdd lc(m), r(m);
+            p.factor(v, 1, lc, r);
+            if (!r.is_linear())
+                continue;
+            auto v_value = val(v);
+            auto r_value = eval(r);
+            auto lc_value = eval(lc);
+            if (r_value == 0) {
+                if (v_value == 0)
+                    continue;
+                if (lc_value == 0)
+                    continue;
+                if (!lc.is_linear())
+                    continue;
+                auto [t, offset] = linear_to_term(lc);
+                auto [t2, offset2] = linear_to_term(r);
+                lemma_builder lemma(c(), "pdd-quotient");
+                add_dependencies(lemma, eq);
+                // v = 0 or lc = 0 or r != 0
+                lemma |= ineq(v, llc::EQ, rational::zero());
+                lemma |= ineq(t, llc::EQ, -offset);
+                lemma |= ineq(t2, llc::NE, -offset2);
+                return true;
+            }
+            // r_value != 0
+            if (v_value == 0) {
+                // v = 0 => r = 0
+                lemma_builder lemma(c(), "pdd-quotient");
+                add_dependencies(lemma, eq);
+                auto [t, offset] = linear_to_term(r);
+                lemma |= ineq(v, llc::NE, rational::zero());
+                lemma |= ineq(t, llc::EQ, -offset);
+                return true;
+            }
+            if (lc_value == 0) {
+                if (!lc.is_linear())
+                    continue;
+                // lc = 0 => r = 0
+                lemma_builder lemma(c(), "pdd-quotient");
+                add_dependencies(lemma, eq);
+                auto [t, offset] = linear_to_term(lc);
+                auto [t2, offset2] = linear_to_term(r);
+                lemma |= ineq(t, llc::NE, -offset);
+                lemma |= ineq(t2, llc::EQ, -offset2);
+                return true;            
+            }
+            if (divides(v_value, r_value))
+                continue;
+              
+            if (abs(v_value) > abs(r_value)) {
+                // v*c + r = 0 & v > 0 => r >= v or -r >= v or r = 0
+                lemma_builder lemma(c(), "pdd-quotient");
+                auto [t, offset] = linear_to_term(r);
+                add_dependencies(lemma, eq);
+                if (v_value > 0) {
+                    lemma |= ineq(v, llc::LE, rational::zero());
+                    lemma |= ineq(t, llc::EQ, -offset);
+                    t.add_monomial(rational(-1), v);
+                    lemma |= ineq(t, llc::GE, -offset);
+                    auto [t2, offset2] = linear_to_term(-r);
+                    t2.add_monomial(rational(-1), v);
+                    lemma |= ineq(t2, llc::GE, -offset2);
+                } 
+                else {
+                    // v*lc + r = 0 & v < 0 => r <= v or -r <= v or r = 0
+                    lemma |= ineq(v, llc::GE, rational::zero());
+                    lemma |= ineq(t, llc::EQ, -offset);
+                    t.add_monomial(rational(-1), v);
+                    lemma |= ineq(t, llc::LE, -offset);
+                    auto [t2, offset2] = linear_to_term(-r);
+                    t2.add_monomial(rational(-1), v);
+                    lemma |= ineq(t2, llc::LE, -offset2);
+                }
+                return true;
+            } 
+            // other division lemmas are possible.  
+            // also extend to non-linear r, non-linear lc         
+        }
+
+        return false;
     }
 
     void grobner::explain(dd::solver::equation const& eq, lp::explanation& exp) {
