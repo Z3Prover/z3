@@ -45,11 +45,19 @@ namespace smt {
 
 namespace smt {
 
-    double parallel::worker::eval_hardness() {
+    double parallel::worker::explicit_hardness(expr_ref_vector const& cube) {
         double total = 0.0;
         unsigned clause_count = 0;
 
+        // Get the scope level before the cube is assumed
         unsigned scope_lvl = ctx->get_scope_level();
+
+        // Build a set of bool_vars corresponding to the cube literals
+        svector<bool_var> cube_vars;
+        for (expr* e : cube) {
+            bool_var v = ctx->get_bool_var(e);
+            if (v != null_bool_var) cube_vars.push_back(v);
+        }
 
         for (auto* cp : ctx->m_aux_clauses) {
             auto& clause = *cp;
@@ -58,19 +66,21 @@ namespace smt {
             bool satisfied = false;
 
             for (literal l : clause) {
-                expr* e = ctx->bool_var2expr(l.var());
-                if (asms.contains(e)) continue;
+                bool_var v = l.var();
+
+                // Only consider literals that are part of the cube
+                if (!cube_vars.contains(v)) continue;
 
                 lbool val = ctx->get_assignment(l);
                 unsigned lvl = ctx->get_assign_level(l);
 
-                if (lvl <= scope_lvl) continue;   // ignore pre-existing assignments
+                // Only include assignments made after the scope level
+                if (lvl <= scope_lvl) continue;
 
                 sz++;
                 if (val == l_true) { satisfied = true; break; }
                 if (val == l_false) n_false++;
             }
-            // LOG_WORKER(1, " n_false: " << n_false << " satisfied: " << satisfied << "\n");
 
             if (satisfied || sz == 0) continue;
 
@@ -80,6 +90,73 @@ namespace smt {
         }
 
         return clause_count ? total / clause_count : 0.0;
+    }
+
+    double parallel::worker::heule_schur_hardness(expr_ref_vector const& cube) {
+        double total = 0.0;
+        unsigned n = 0;
+
+        for (expr* e : cube) {
+            double literal_score = 0.0;
+
+            for (auto* cp : ctx->m_aux_clauses) {
+                auto& clause = *cp;
+                unsigned sz = 0;
+                bool occurs = false;
+
+                for (literal l : clause) {
+                    expr* lit_expr = ctx->bool_var2expr(l.var());
+                    if (asms.contains(lit_expr)) continue; // ignore assumptions
+                    sz++;
+                    if (lit_expr == e) occurs = true;
+                }
+
+                if (occurs && sz > 0) {
+                    literal_score += 1.0 / pow(2.0, sz); // weight inversely by clause size
+                }
+            }
+
+            total += literal_score;
+            n++;
+        }
+
+        return n ? total / n : 0.0;
+    }
+
+    double parallel::worker::march_cu_hardness(expr_ref_vector const& cube) {
+        double total = 0.0;
+        unsigned n = 0;
+
+        for (expr* e : cube) {
+            double score = 1.0; // start with 1 to avoid zero
+
+            for (auto* cp : ctx->m_aux_clauses) {
+                auto& clause = *cp;
+                bool occurs = false;
+
+                unsigned sz = 0; // clause size counting only non-assumption literals
+
+                for (literal l : clause) {
+                    expr* lit_expr = ctx->bool_var2expr(l.var());
+
+                    if (asms.contains(lit_expr)) continue; // ignore assumptions
+                    sz++;
+
+                    if (lit_expr == e) {
+                        occurs = true;
+                    }
+                }
+
+                if (occurs && sz > 0) {
+                    score += pow(0.5, static_cast<double>(sz)); // approximate March weight
+                }
+            }
+
+            total += score;
+            n++;
+        }
+
+        return n ? total / n : 0.0;
     }
 
     void parallel::worker::run() {
@@ -94,11 +171,6 @@ namespace smt {
                     b.set_exception("context cancelled");
                     return;
                 }
-                
-                unsigned conflicts_before    = ctx->m_stats.m_num_conflicts;
-                unsigned propagations_before = ctx->m_stats.m_num_propagations + ctx->m_stats.m_num_bin_propagations;
-                unsigned decisions_before    = ctx->m_stats.m_num_decisions;
-                unsigned restarts_before     = ctx->m_stats.m_num_restarts;
                 
                 LOG_WORKER(1, " checking cube\n");
                 lbool r = check_cube(cube);
@@ -118,26 +190,8 @@ namespace smt {
                             if (m_config.m_iterative_deepening || m_config.m_beam_search) { // let's automatically do iterative deepening for beam search
                                 LOG_WORKER(1, " applying iterative deepening\n");
 
-                                if (false) {
-                                    // per-cube deltas
-                                    unsigned conflicts_delta    = ctx->m_stats.m_num_conflicts - conflicts_before;
-                                    unsigned propagations_delta = (ctx->m_stats.m_num_propagations + ctx->m_stats.m_num_bin_propagations) - propagations_before;
-                                    unsigned decisions_delta    = ctx->m_stats.m_num_decisions - decisions_before;
-                                    unsigned restarts_delta     = ctx->m_stats.m_num_restarts - restarts_before;
-                                    LOG_WORKER(1, " cube deltas: conflicts: " << conflicts_delta << " propagations: " << propagations_delta << " decisions: " << decisions_delta << " restarts: " << restarts_delta << "\n");
-
-                                    // tuned experimentally
-                                    const double w_conflicts = 1.0;
-                                    const double w_propagations = 0.001;
-                                    const double w_decisions = 0.1;
-                                    const double w_restarts = 0.5;
-
-                                    const double cube_hardness = w_conflicts * conflicts_delta +
-                                        w_propagations * propagations_delta +
-                                        w_decisions * decisions_delta +
-                                        w_restarts * restarts_delta;
-                                }
-                                const double cube_hardness = eval_hardness();
+                                // const double cube_hardness = ctx->m_stats.m_num_decisions / std::max(1u, ctx->m_stats.m_num_conflicts);
+                                const double cube_hardness = explicit_hardness(cube); // huele_schur_hardness(cube); march_cu_hardness(cube);
 
                                 const double avg_hardness = b.update_avg_cube_hardness(cube_hardness);
                                 const double factor = 1;  // can tune for multiple of avg hardness later
@@ -538,7 +592,7 @@ namespace smt {
     ------------------------------------------------------------------------------------------------------------------------------------------------------------
     Final thought (do this!): use greedy strategy by a policy when C_batch, A_batch, A_worker are "small". -- want to do this. switch to frugal strategy after reaching size limit
     */
-    void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& C_worker, expr_ref_vector const& A_worker, const bool should_split) {
+    void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& C_worker, expr_ref_vector const& A_worker, const bool should_split, const double hardness) {
 //        SASSERT(!m_config.never_cube());
 
         auto atom_in_cube = [&](expr_ref_vector const& cube, expr* atom) {
@@ -607,12 +661,12 @@ namespace smt {
                 // Positive atom branch
                 expr_ref_vector cube_pos = g_cube;
                 cube_pos.push_back(atom);
-                m_cubes_pq.push(ScoredCube(d, cube_pos));
+                m_cubes_pq.push(ScoredCube(d / hardness, cube_pos));
 
                 // Negative atom branch
                 expr_ref_vector cube_neg = g_cube;
                 cube_neg.push_back(m.mk_not(atom));
-                m_cubes_pq.push(ScoredCube(d, cube_neg));
+                m_cubes_pq.push(ScoredCube(d / hardness, cube_neg));
 
                 m_stats.m_num_cubes += 2;
                 m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, d + 1);
@@ -664,7 +718,7 @@ namespace smt {
             if ((c.size() >= m_config.m_max_cube_depth || !should_split)
                     && (m_config.m_depth_splitting_only || m_config.m_iterative_deepening || m_config.m_beam_search)) {
                 if (m_config.m_beam_search) {
-                    m_cubes_pq.push(ScoredCube(g_cube.size(), g_cube)); // re-enqueue the cube as is
+                    m_cubes_pq.push(ScoredCube(g_cube.size() / hardness, g_cube)); // re-enqueue the cube as is
                 } else {
                     // need to add the depth set if it doesn't exist yet
                     if (m_cubes_depth_sets.find(g_cube.size()) == m_cubes_depth_sets.end()) {
