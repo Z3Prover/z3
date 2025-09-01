@@ -31,6 +31,7 @@ namespace nla {
     void grobner::updt_params(params_ref const& p) {
         smt_params_helper ph(p);
         m_config.m_propagate_quotients = ph.arith_nl_grobner_propagate_quotients();
+        m_config.m_gcd_test = ph.arith_nl_grobner_gcd_test();
     }
 
     lp::lp_settings& grobner::lp_settings() {
@@ -81,6 +82,9 @@ namespace nla {
 
             if (propagate_quotients())
                 return;
+
+            if (propagate_gcd_test())
+                return;
             
         }
         catch (...) {
@@ -97,14 +101,6 @@ namespace nla {
 
         IF_VERBOSE(5, verbose_stream() << "grobner miss, quota " << m_quota << "\n");
         IF_VERBOSE(5, diagnose_pdd_miss(verbose_stream()));
-    }
-
-    dd::solver::equation_vector const& grobner::core_equations(bool all_eqs) {
-        flet<bool> _add_all(m_add_all_eqs, all_eqs);
-        find_nl_cluster();        
-        if (!configure()) 
-            throw dd::pdd_manager::mem_out();
-        return m_solver.equations();
     }
 
     bool grobner::is_conflicting() {
@@ -228,6 +224,76 @@ namespace nla {
         return {t, offset};
     }
 
+    bool grobner::propagate_gcd_test() {
+        if (!m_config.m_gcd_test)
+            return false;
+        unsigned changed = 0;
+        for (auto eq : m_solver.equations())
+            if (propagate_gcd_test(*eq) && ++changed >= m_solver.number_of_conflicts_to_report())
+                return true;
+        return changed > 0;
+    }
+
+    // x^2 - y = 0 => y mod 4 = { 0, 1 }
+    // x^k - y = 0 => y mod k^2 = {0, 1, .., (k-1)^k }
+    bool grobner::propagate_gcd_test(dd::solver::equation const& eq) {
+        dd::pdd p = eq.poly();
+        if (p.is_linear())
+            return false;
+        if (p.is_val())
+            return false;
+        auto v = p.var();
+        if (!c().var_is_int(v))
+            return false;
+        for (auto v : p.free_vars())
+            if (!c().var_is_int(v))
+                return false;
+        dd::pdd_eval eval;
+        eval.var2val() = [&](unsigned j) { return val(j); };
+        if (eval(p) == 0)
+            return false;
+        p.get_powers(m_powers);
+        if (m_powers.empty())
+            return false;
+        rational d(1);
+        for (auto const& value : p.coefficients())
+            d = lcm(d, denominator(value.coeff));
+        if (d != 1)
+            p *= d;
+        auto& m = p.manager();
+        auto fails_gcd_test = [&](dd::pdd const& q) {
+            rational g(0);
+            rational k(0);
+            for (auto const& value : q.coefficients()) {
+                if (value.is_constant) {
+                    k += value.coeff;
+                    continue;
+                }
+                g = gcd(g, value.coeff);
+                if (g == 1)
+                    return false;                
+            }
+            return k != 0 && !divides(g, k);
+        };
+        for (auto [x, k] : m_powers) {
+            SASSERT(k > 1);
+            bool gcd_fail = true;
+            dd::pdd kx = m.mk_var(x) * m.mk_val(k); 
+            for (unsigned r = 0; gcd_fail && r < k; r++) {
+                dd::pdd kx_plus_r = kx + m.mk_val(r);
+                auto q = p.subst_pdd(x, kx_plus_r);
+                if (!fails_gcd_test(q))
+                    gcd_fail = false;
+            }
+            if (gcd_fail) {
+                lemma_builder lemma(c(), "pdd-power");
+                add_dependencies(lemma, eq);
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool grobner::propagate_quotients() {
         if (!m_config.m_propagate_quotients)
             return false;
@@ -249,8 +315,6 @@ namespace nla {
     // z < 0 & x < 0 => -x <= -z
     bool grobner::propagate_quotients(dd::solver::equation const& eq) {
         dd::pdd const& p = eq.poly();
-        dd::pdd_eval eval;
-        eval.var2val() = [&](unsigned j) { return val(j); };
         if (p.is_linear())
             return false;
         if (p.is_val())
@@ -261,6 +325,8 @@ namespace nla {
         for (auto v : p.free_vars())
             if (!c().var_is_int(v))
                 return false;
+        dd::pdd_eval eval;
+        eval.var2val() = [&](unsigned j) { return val(j); };
         if (eval(p) == 0)
             return false;
         tracked_uint_set nl_vars;
@@ -577,8 +643,12 @@ namespace nla {
                 for (const factor& fc: fcn) 
                     q.push_back(var(fc));        
         }
-
-        if (c().var_is_fixed(j))
+        else if (c().lra.column_has_term(j)) {
+            const lp::lar_term& t = c().lra.get_term(j);
+            for (auto k : t)
+                q.push_back(k.j());
+        }
+        else if (c().var_is_fixed(j))
             return;
         const auto& matrix = lra.A_r();
         for (auto & s : matrix.m_columns[j]) {
@@ -587,12 +657,18 @@ namespace nla {
                 continue;
             m_rows.insert(row);
             unsigned k = lra.get_base_column_in_row(row);
-            // grobner bassis does not know about integer constraints
-            if (lra.column_is_free(k) && !m_add_all_eqs && k != j)
-                continue;
             // a free column over the reals can be assigned
-            if (lra.column_is_free(k) && k != j && !lra.var_is_int(k)) 
-                continue;
+            if (lra.column_is_free(k) && k != j) {
+                if (!lra.var_is_int(k))
+                    continue;
+                // free integer columns are ignored unless m_add_all_eqs is set or we are doing gcd test.
+                if (!m_add_all_eqs && !m_config.m_gcd_test)
+                    continue;
+                // a free integer column with integer coefficients can be assigned.
+                if (!m_add_all_eqs && all_of(c().lra.get_row(row), [&](auto& ri) { return ri.coeff().is_int();}))
+                    continue;
+            }
+
             CTRACE(grobner, matrix.m_rows[row].size() > c().params().arith_nl_grobner_row_length_limit(),
                    tout << "ignore the row " << row << " with the size " << matrix.m_rows[row].size() << "\n";);
             // limits overhead of grobner equations, unless this is for extracting a complete COI of the non-satisfied subset.
@@ -618,6 +694,7 @@ namespace nla {
         while (!vars.empty()) {
             j = vars.back();
             vars.pop_back();
+
             if (c().params().arith_nl_grobner_subs_fixed() > 0 && c().var_is_fixed_to_zero(j)) {
                 r = m_pdd_manager.mk_val(val_of_fixed_var_with_deps(j, zero_dep));
                 dep = zero_dep;

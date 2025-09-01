@@ -21,6 +21,7 @@ namespace nla {
     class grobner : common {
         struct config {
             bool m_propagate_quotients = false;
+            bool m_gcd_test = false;
         };
         dd::pdd_manager          m_pdd_manager;
         dd::solver               m_solver;
@@ -51,6 +52,10 @@ namespace nla {
         bool propagate_quotients();
         bool propagate_quotients(dd::solver::equation const& eq);
 
+        svector<std::pair<unsigned, unsigned>> m_powers;
+        bool propagate_gcd_test();
+        bool propagate_gcd_test(dd::solver::equation const& eq);
+
         std::pair<lp::lar_term, rational> linear_to_term(dd::pdd q);
         
         void add_dependencies(lemma_builder& lemma, dd::solver::equation const& eq);
@@ -74,7 +79,7 @@ namespace nla {
         bool is_solved(dd::pdd const& p, unsigned& v, dd::pdd& r);
         void add_eq(dd::pdd& p, u_dependency* dep);        
         const rational& val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep);
-        dd::pdd pdd_expr(const rational& c, lpvar j, u_dependency*& dep);                
+        dd::pdd pdd_expr(const rational& c, lpvar j, u_dependency*& dep);  
 
         void display_matrix_of_m_rows(std::ostream& out) const;
         std::ostream& diagnose_pdd_miss(std::ostream& out);
@@ -83,6 +88,6 @@ namespace nla {
         grobner(core *core);        
         void operator()();
         void updt_params(params_ref const& p);
-        dd::solver::equation_vector const& core_equations(bool all_eqs);
+        // dd::solver::equation_vector const& core_equations(bool all_eqs);
     }; 
 }

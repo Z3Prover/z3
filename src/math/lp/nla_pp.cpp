@@ -19,13 +19,13 @@ std::ostream& core::print_product(const T& m, std::ostream& out) const {
     bool first = true;
     for (lpvar v : m) {
         if (!first)
-            out << "*";
+            out << " * ";
         else
             first = false;
         if (lp_settings().print_external_var_name())
-            out << "(" << lra.get_variable_name(v) << "=" << val(v) << ")";
+            out << lra.get_variable_name(v);
         else
-            out << "(j" << v << " = " << val(v) << ")";
+            out << "j" << v;
     }
     return out;
 }
@@ -69,13 +69,13 @@ std::ostream& core::print_factor_with_vars(const factor& f, std::ostream& out) c
 
 std::ostream& core::print_monic(const monic& m, std::ostream& out) const {
     if (lp_settings().print_external_var_name())
-        out << "([" << m.var() << "] = " << lra.get_variable_name(m.var()) << " = " << val(m.var()) << " = ";
+        out << "[" << m.var() << "] := " << lra.get_variable_name(m.var()) << " := ";
     else
-        out << "(j" << m.var() << " = " << val(m.var()) << " = ";
-    print_product(m.vars(), out) << ")\n";
+        out << "j" << m.var() << " := ";
+    print_product(m.vars(), out) << "\n";
     return out;
 }
-
+ 
 std::ostream& core::print_bfc(const factorization& m, std::ostream& out) const {
     SASSERT(m.size() == 2);
     out << "( x = " << pp(m[0]) << "* y = " << pp(m[1]) << ")";
@@ -85,6 +85,7 @@ std::ostream& core::print_bfc(const factorization& m, std::ostream& out) const {
 std::ostream& core::print_monic_with_vars(lpvar v, std::ostream& out) const {
     return print_monic_with_vars(m_emons[v], out);
 }
+
 template <typename T>
 std::ostream& core::print_product_with_vars(const T& m, std::ostream& out) const {
     print_product(m, out) << "\n";
@@ -141,9 +142,8 @@ std::ostream& core::print_var(lpvar j, std::ostream& out) const {
 }
 
 std::ostream& core::print_monics(std::ostream& out) const {
-    for (auto& m : m_emons) {
-        print_monic_with_vars(m, out);
-    }
+    for (auto& m : m_emons) 
+        print_monic_with_vars(m, out);    
     return out;
 }
 
@@ -312,8 +312,7 @@ std::ostream& core::display_row(std::ostream& out, lp::row_strip<lp::mpq> const&
 }
 
 std::ostream& core::display(std::ostream& out) {
-    print_monics(out);
-    for (unsigned i = 0; i < lra.row_count(); ++i)
-        display_row(out, lra.get_row(i));
+    for (auto& m : m_emons)
+        print_monic(m, out);
     return out;
 }
