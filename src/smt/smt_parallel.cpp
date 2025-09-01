@@ -45,6 +45,43 @@ namespace smt {
 
 namespace smt {
 
+    double parallel::worker::eval_hardness() {
+        double total = 0.0;
+        unsigned clause_count = 0;
+
+        unsigned scope_lvl = ctx->get_scope_level();
+
+        for (auto* cp : ctx->m_aux_clauses) {
+            auto& clause = *cp;
+            unsigned sz = 0;
+            unsigned n_false  = 0;
+            bool satisfied = false;
+
+            for (literal l : clause) {
+                expr* e = ctx->bool_var2expr(l.var());
+                if (asms.contains(e)) continue;
+
+                lbool val = ctx->get_assignment(l);
+                unsigned lvl = ctx->get_assign_level(l);
+
+                if (lvl <= scope_lvl) continue;   // ignore pre-existing assignments
+
+                sz++;
+                if (val == l_true) { satisfied = true; break; }
+                if (val == l_false) n_false++;
+            }
+            // LOG_WORKER(1, " n_false: " << n_false << " satisfied: " << satisfied << "\n");
+
+            if (satisfied || sz == 0) continue;
+
+            double m = static_cast<double>(sz) / std::max(1u, sz - n_false);
+            total += m;
+            clause_count++;
+        }
+
+        return clause_count ? total / clause_count : 0.0;
+    }
+
     void parallel::worker::run() {
         while (m.inc()) { // inc: increase the limit and check if it is canceled, vs m.limit().is_canceled() is readonly. the .limit() is also not necessary (m.inc() etc provides a convenience wrapper)
             vector<expr_ref_vector> cubes;
@@ -80,27 +117,32 @@ namespace smt {
                             LOG_WORKER(1, " CUBING\n");
                             if (m_config.m_iterative_deepening || m_config.m_beam_search) { // let's automatically do iterative deepening for beam search
                                 LOG_WORKER(1, " applying iterative deepening\n");
-                                // per-cube deltas
-                                unsigned conflicts_delta    = ctx->m_stats.m_num_conflicts - conflicts_before;
-                                unsigned propagations_delta = (ctx->m_stats.m_num_propagations + ctx->m_stats.m_num_bin_propagations) - propagations_before;
-                                unsigned decisions_delta    = ctx->m_stats.m_num_decisions - decisions_before;
-                                unsigned restarts_delta     = ctx->m_stats.m_num_restarts - restarts_before;
-                                LOG_WORKER(1, " cube deltas: conflicts: " << conflicts_delta << " propagations: " << propagations_delta << " decisions: " << decisions_delta << " restarts: " << restarts_delta << "\n");
 
-                                // tuned experimentally
-                                const double w_conflicts = 1.0;
-                                const double w_propagations = 0.001;
-                                const double w_decisions = 0.1;
-                                const double w_restarts = 0.5;
+                                if (false) {
+                                    // per-cube deltas
+                                    unsigned conflicts_delta    = ctx->m_stats.m_num_conflicts - conflicts_before;
+                                    unsigned propagations_delta = (ctx->m_stats.m_num_propagations + ctx->m_stats.m_num_bin_propagations) - propagations_before;
+                                    unsigned decisions_delta    = ctx->m_stats.m_num_decisions - decisions_before;
+                                    unsigned restarts_delta     = ctx->m_stats.m_num_restarts - restarts_before;
+                                    LOG_WORKER(1, " cube deltas: conflicts: " << conflicts_delta << " propagations: " << propagations_delta << " decisions: " << decisions_delta << " restarts: " << restarts_delta << "\n");
 
-                                const double cube_hardness = w_conflicts * conflicts_delta +
-                                    w_propagations * propagations_delta +
-                                    w_decisions * decisions_delta +
-                                    w_restarts * restarts_delta;
+                                    // tuned experimentally
+                                    const double w_conflicts = 1.0;
+                                    const double w_propagations = 0.001;
+                                    const double w_decisions = 0.1;
+                                    const double w_restarts = 0.5;
+
+                                    const double cube_hardness = w_conflicts * conflicts_delta +
+                                        w_propagations * propagations_delta +
+                                        w_decisions * decisions_delta +
+                                        w_restarts * restarts_delta;
+                                }
+                                const double cube_hardness = eval_hardness();
 
                                 const double avg_hardness = b.update_avg_cube_hardness(cube_hardness);
                                 const double factor = 1;  // can tune for multiple of avg hardness later
-                                bool should_split = cube_hardness >= avg_hardness * factor;
+                                bool should_split = cube_hardness > avg_hardness * factor;
+                                
                                 LOG_WORKER(1, " cube hardness: " << cube_hardness << " avg: " << avg_hardness << " avg*factor: " << avg_hardness * factor << " should-split: " << should_split << "\n");
                                 // we still need to call return_cubes, even if we don't split, since we need to re-enqueue the current unsolved cube to the batch manager!
                                 // should_split tells return_cubes whether to further split the unsolved cube.

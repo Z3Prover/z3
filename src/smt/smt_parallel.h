@@ -187,6 +187,7 @@ namespace smt {
 
             expr_ref_vector find_backbone_candidates();
             expr_ref_vector get_backbones_from_candidates(expr_ref_vector const& candidates);
+            double eval_hardness();
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
             void run();
