@@ -57,16 +57,17 @@ namespace smt {
                     b.set_exception("context cancelled");
                     return;
                 }
-                LOG_WORKER(1, " checking cube: " << mk_bounded_pp(mk_and(cube), m, 3) << " max-conflicts " << m_config.m_threads_max_conflicts << "\n");
+                
+                unsigned conflicts_before    = ctx->m_stats.m_num_conflicts;
+                unsigned propagations_before = ctx->m_stats.m_num_propagations + ctx->m_stats.m_num_bin_propagations;
+                unsigned decisions_before    = ctx->m_stats.m_num_decisions;
+                unsigned restarts_before     = ctx->m_stats.m_num_restarts;
+                
+                LOG_WORKER(1, " checking cube\n");
                 lbool r = check_cube(cube);
-                if (m.limit().is_canceled()) {
-                    LOG_WORKER(1, " context cancelled\n");
-                    return;           
-                }
+                
                 switch (r) {
                     case l_undef: {
-                        if (m.limit().is_canceled())
-                            break;
                         LOG_WORKER(1, " found undef cube\n");
                         // return unprocessed cubes to the batch manager
                         // add a split literal to the batch manager.
@@ -76,24 +77,14 @@ namespace smt {
                             returned_cubes.push_back(cube); 
                             auto split_atoms = get_split_atoms();
 
-                            if (m_config.m_iterative_deepening) {
-                                unsigned conflicts_before    = ctx->m_stats.m_num_conflicts;
-                                unsigned propagations_before = ctx->m_stats.m_num_propagations + ctx->m_stats.m_num_bin_propagations;
-                                unsigned decisions_before    = ctx->m_stats.m_num_decisions;
-                                unsigned restarts_before     = ctx->m_stats.m_num_restarts;
-
-                                lbool r = check_cube(cube);
-
-                                unsigned conflicts_after    = ctx->m_stats.m_num_conflicts;
-                                unsigned propagations_after = ctx->m_stats.m_num_propagations + ctx->m_stats.m_num_bin_propagations;
-                                unsigned decisions_after    = ctx->m_stats.m_num_decisions;
-                                unsigned restarts_after     = ctx->m_stats.m_num_restarts;
-
+                            LOG_WORKER(1, " CUBING\n");
+                            if (m_config.m_iterative_deepening || m_config.m_beam_search) { // let's automatically do iterative deepening for beam search
+                                LOG_WORKER(1, " applying iterative deepening\n");
                                 // per-cube deltas
-                                unsigned conflicts_delta    = conflicts_after - conflicts_before;
-                                unsigned propagations_delta = propagations_after - propagations_before;
-                                unsigned decisions_delta    = decisions_after - decisions_before;
-                                unsigned restarts_delta     = restarts_after - restarts_before;
+                                unsigned conflicts_delta    = ctx->m_stats.m_num_conflicts - conflicts_before;
+                                unsigned propagations_delta = (ctx->m_stats.m_num_propagations + ctx->m_stats.m_num_bin_propagations) - propagations_before;
+                                unsigned decisions_delta    = ctx->m_stats.m_num_decisions - decisions_before;
+                                unsigned restarts_delta     = ctx->m_stats.m_num_restarts - restarts_before;
                                 LOG_WORKER(1, " cube deltas: conflicts: " << conflicts_delta << " propagations: " << propagations_delta << " decisions: " << decisions_delta << " restarts: " << restarts_delta << "\n");
 
                                 // tuned experimentally
@@ -194,6 +185,7 @@ namespace smt {
         m_config.m_num_split_lits = pp.num_split_lits();
         m_config.m_backbone_detection = pp.backbone_detection();
         m_config.m_iterative_deepening = pp.iterative_deepening();
+        m_config.m_beam_search = pp.beam_search();
 
         // don't share initial units
         ctx->pop_to_base_lvl();

@@ -164,6 +164,7 @@ namespace smt {
                 unsigned m_num_split_lits = 2;
                 bool m_backbone_detection = false;
                 bool m_iterative_deepening = false;
+                bool m_beam_search = false;
             };
 
             unsigned id; // unique identifier for the worker
