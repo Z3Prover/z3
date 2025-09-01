@@ -81,7 +81,6 @@ namespace nla {
 
             if (propagate_quotients())
                 return;
-            IF_VERBOSE(0, m_solver.display(verbose_stream() << "grobner\n"));
             
         }
         catch (...) {
