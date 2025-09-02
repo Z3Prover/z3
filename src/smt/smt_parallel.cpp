@@ -45,6 +45,10 @@ namespace smt {
 
 namespace smt {
 
+    double parallel::worker::naive_hardness() {
+        return ctx->m_stats.m_num_decisions / std::max(1u, ctx->m_stats.m_num_conflicts);
+    }
+
     double parallel::worker::explicit_hardness(expr_ref_vector const& cube) {
         double total = 0.0;
         unsigned clause_count = 0;
@@ -74,7 +78,7 @@ namespace smt {
                 lbool val = ctx->get_assignment(l);
                 unsigned lvl = ctx->get_assign_level(l);
 
-                // Only include assignments made after the scope level
+                // Only include assignments made after the base scope level (i.e. those made by specifically assuming the cube)
                 if (lvl <= scope_lvl) continue;
 
                 sz++;
@@ -96,27 +100,77 @@ namespace smt {
         double total = 0.0;
         unsigned n = 0;
 
-        for (expr* e : cube) {
-            double literal_score = 0.0;
+        auto literal_occs = [&](literal l) {
+            unsigned count = 0;
 
             for (auto* cp : ctx->m_aux_clauses) {
                 auto& clause = *cp;
-                unsigned sz = 0;
                 bool occurs = false;
-
-                for (literal l : clause) {
-                    expr* lit_expr = ctx->bool_var2expr(l.var());
-                    if (asms.contains(lit_expr)) continue; // ignore assumptions
-                    sz++;
-                    if (lit_expr == e) occurs = true;
+                for (literal li : clause) {
+                    if (li == ~l) {
+                        occurs = true;
+                        break;
+                    }
                 }
 
-                if (occurs && sz > 0) {
-                    literal_score += 1.0 / pow(2.0, sz); // weight inversely by clause size
+                if (!occurs) continue;
+                if (clause.get_num_atoms() >= 2) {
+                    count += 1;
                 }
             }
 
-            total += literal_score;
+            return static_cast<double>(count);
+        };
+
+        for (expr* e : cube) {
+            literal lit = ctx->get_literal(e);  // you may need your own expr→literal helper
+            double score = 0.0;
+
+            for (auto* cp : ctx->m_aux_clauses) {
+                auto& clause = *cp;
+                if (clause.get_num_atoms() == 2) { // binary clauses
+                    literal a = clause[0];
+                    literal b = clause[1];
+                    if (a == lit && ctx->get_assignment(b) == l_undef) {
+                        score += literal_occs(b) / 4.0;
+                    } else if (b == lit && ctx->get_assignment(a) == l_undef) {
+                        score += literal_occs(a) / 4.0;
+                    }
+                } else if (clause.get_num_atoms() == 3) { // ternary clauses containing ~lit
+                    bool has_neg = false;
+                    std::vector<literal> others;
+                    for (literal l2 : clause) {
+                        if (l2 == ~lit) {
+                            has_neg = true;
+                        } else {
+                            others.push_back(l2);
+                        }
+                    }
+                    if (has_neg && others.size() == 2) { // since lit + others is a ternary clause
+                        score += (literal_occs(others[0]) + literal_occs(others[1])) / 8.0;
+                    }
+                } else { // n-ary clauses (size > 3) containing ~lit
+                    unsigned len = clause.get_num_atoms();
+                    if (len > 3) {
+                        bool has_neg = false;
+                        double to_add = 0.0;
+                        for (literal l2 : clause) {
+                            if (l2 == ~lit) {
+                                has_neg = true;
+                                continue;
+                            }
+                            if (ctx->get_assignment(l2) == l_undef) {
+                                to_add += literal_occs(l2);
+                            }
+                        }
+                        if (has_neg) {
+                            score += pow(0.5, static_cast<double>(len)) * to_add / len;
+                        }
+                    }
+                }
+            }
+
+            total += score;
             n++;
         }
 
@@ -128,35 +182,52 @@ namespace smt {
         unsigned n = 0;
 
         for (expr* e : cube) {
-            double score = 1.0; // start with 1 to avoid zero
+            bool_var v = ctx->get_bool_var(e);  // assumes you have expr→bool_var
+            literal l(v, false);
 
-            for (auto* cp : ctx->m_aux_clauses) {
-                auto& clause = *cp;
-                bool occurs = false;
-
-                unsigned sz = 0; // clause size counting only non-assumption literals
-
-                for (literal l : clause) {
-                    expr* lit_expr = ctx->bool_var2expr(l.var());
-
-                    if (asms.contains(lit_expr)) continue; // ignore assumptions
-                    sz++;
-
-                    if (lit_expr == e) {
-                        occurs = true;
+            auto big_occs = [&](literal lit) {
+                unsigned count = 0;
+                for (auto* cp : ctx->m_aux_clauses) {
+                    auto& clause = *cp;
+                    if (clause.get_num_atoms() >= 3) {
+                        for (literal li : clause) {
+                            if (li == lit) { count++; break; }
+                        }
                     }
                 }
+                return count;
+            };
 
-                if (occurs && sz > 0) {
-                    score += pow(0.5, static_cast<double>(sz)); // approximate March weight
+            auto march_cu_score = [&](literal lit) {
+                double sum = 1.0;
+                // occurrences of ~lit in big clauses
+                sum += big_occs(~lit);
+
+                // binary neighbors of lit
+                for (auto* cp : ctx->m_aux_clauses) {
+                    auto& clause = *cp;
+                    if (clause.get_num_atoms() == 2) { // binary clauses
+                        literal a = clause[0];
+                        literal b = clause[1];
+                        if (a == lit && ctx->get_assignment(b) == l_undef) {
+                            sum += big_occs(b);
+                        } else if (b == lit && ctx->get_assignment(a) == l_undef) {
+                            sum += big_occs(a);
+                        }
+                    }
                 }
-            }
+                return sum;
+            };
 
-            total += score;
+            double pos = march_cu_score(l);
+            double neg = march_cu_score(~l);
+
+            double rating = 1024 * pos * neg + pos + neg + 1;
+            total += rating;
             n++;
         }
 
-        return n ? total / n : 0.0;
+        return n ? total / n : 0.0; // average the march scores of the literals in the cube
     }
 
     void parallel::worker::run() {
@@ -189,9 +260,21 @@ namespace smt {
                             LOG_WORKER(1, " CUBING\n");
                             if (m_config.m_iterative_deepening || m_config.m_beam_search) { // let's automatically do iterative deepening for beam search
                                 LOG_WORKER(1, " applying iterative deepening\n");
-
-                                // const double cube_hardness = ctx->m_stats.m_num_decisions / std::max(1u, ctx->m_stats.m_num_conflicts);
-                                const double cube_hardness = explicit_hardness(cube); // huele_schur_hardness(cube); march_cu_hardness(cube);
+                                
+                                double cube_hardness;
+                                if (m_config.m_explicit_hardness) {
+                                    cube_hardness = explicit_hardness(cube);
+                                    LOG_WORKER(1, " explicit hardness: " << cube_hardness << "\n");    
+                                } else if (m_config.m_march_hardness) {
+                                    cube_hardness = march_cu_hardness(cube);
+                                    LOG_WORKER(1, " march hardness: " << cube_hardness << "\n");    
+                                } else if (m_config.m_heule_schur_hardness) {
+                                    cube_hardness = heule_schur_hardness(cube);
+                                    LOG_WORKER(1, " heule schur hardness: " << cube_hardness << "\n");    
+                                } else { // default to naive hardness
+                                    cube_hardness = naive_hardness();
+                                    LOG_WORKER(1, " naive hardness: " << cube_hardness << "\n");    
+                                }
 
                                 const double avg_hardness = b.update_avg_cube_hardness(cube_hardness);
                                 const double factor = 1;  // can tune for multiple of avg hardness later
@@ -282,6 +365,9 @@ namespace smt {
         m_config.m_backbone_detection = pp.backbone_detection();
         m_config.m_iterative_deepening = pp.iterative_deepening();
         m_config.m_beam_search = pp.beam_search();
+        m_config.m_explicit_hardness = pp.explicit_hardness();
+        m_config.m_march_hardness = pp.march_hardness();
+        m_config.m_heule_schur_hardness = pp.heule_schur_hardness();
 
         // don't share initial units
         ctx->pop_to_base_lvl();
