@@ -493,6 +493,22 @@ namespace nlsat {
             compute_interval_from_buckets(i, buckets, ret.I);
         }
 
+        // Helper: add a property to m_Q if an equivalent one is not already present.
+        // Equivalence: same prop_tag and same level; if pr.poly is non-null, require the same poly as well.
+        void add_to_Q_if_not_found(const property & pr) {
+            for (auto const & q : m_Q) {
+                if (q.prop_tag != pr.prop_tag) continue;
+                if (q.level != pr.level) continue;
+                if (pr.poly) {
+                    if (q.poly == pr.poly) return;
+                    else continue;
+                }
+                // pr.poly is null -> match by prop_tag + level only
+                return;
+            }
+            m_Q.push_back(pr);
+        }
+
         void remove_level_i_from_Q(std::vector<property> & Q, unsigned i) {
             Q.erase(std::remove_if(Q.begin(), Q.end(),
                                    [i](const property &p) { return p.level == i; }),
@@ -514,14 +530,52 @@ namespace nlsat {
             return ret;
         }
 
+        // Extracted helper: handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
+        void add_ord_inv_discriminant_for(const property& p) {
+            polynomial_ref disc(m_pm);
+            disc = discriminant(p.poly, p.level);
+            if (!is_const(disc)) {
+                if (coeffs_are_zeroes_on_sample(disc, m_pm, sample(), m_am)) {
+                    m_fail = true; // ambiguous multiplicity -- not handled yet
+                    NOT_IMPLEMENTED_YET();
+                    return;
+                }
+                else {
+                    unsigned lvl = max_var(disc);
+                    add_to_Q_if_not_found(property(prop_enum::ord_inv_irreducible, disc, /*s_idx*/ 0u, lvl));
+                }
+            }
+        }
+
+        // Extracted helper: handle sgn_inv(leading_coefficient_{x_{i+1}}(p)) for an_del pre-processing
+        void add_sgn_inv_leading_coeff_for(const property& p) {
+            poly * pp = p.poly.get();
+            unsigned deg = m_pm.degree(pp, p.level);
+            if (deg > 0) {
+                polynomial_ref lc(m_pm);
+                lc = m_pm.coeff(pp, p.level, deg);
+                if (!is_const(lc)) {
+                    if (coeffs_are_zeroes_on_sample(lc, m_pm, sample(), m_am)) {
+                        NOT_IMPLEMENTED_YET(); // leading coeff vanished as polynomial -- not handled yet
+                    }
+                    else {
+                        unsigned lvl = max_var(lc);
+                        add_to_Q_if_not_found(property(prop_enum::sgn_inv_irreducible, lc, /*s_idx*/ 0u, lvl));
+                    }
+                }
+            }
+        }
+
         void apply_pre_an_del(const property& p) {
                 if (!p.poly) {
                     TRACE(levelwise, tout << "apply_pre: an_del with null poly -> fail" << std::endl;);
+                    
                     m_fail = true;
                     return;
                 }
                 if (p.level == static_cast<unsigned>(-1)) {
                     TRACE(levelwise, tout << "apply_pre: an_del with unspecified level -> skip" << std::endl;);
+                    NOT_IMPLEMENTED_YET();
                     return;
                 }
 
@@ -536,86 +590,17 @@ namespace nlsat {
                 // Pre-conditions for an_del(p) per Rule 4.1
                 unsigned i = (p.level > 0) ? p.level - 1 : 0;
 
-                // an_sub(i)
-                {
-                    polynomial_ref empty(m_pm);
-                    bool found = false;
-                    for (auto const & q : m_Q) {
-                        if (q.prop_tag == prop_enum::an_sub && q.level == i) { found = true; break; }
-                    }
-                    if (!found)
-                        m_Q.push_back(property(prop_enum::an_sub, empty, /*s_idx*/ -1, /*level*/ i));
-                }
-
-                // connected(i)
-                {
-                    polynomial_ref empty(m_pm);
-                    bool found = false;
-                    for (auto const & q : m_Q) {
-                        if (q.prop_tag == prop_enum::connected && q.level == i) { found = true; break; }
-                    }
-                    if (!found)
-                        m_Q.push_back(property(prop_enum::connected, empty, /*s_idx*/ -1, /*level*/ i));
-                }
-
-                // non_null(p) -- register that p is not nullified at sample
-                {
-                    bool found = false;
-                    for (auto const & q : m_Q) {
-                        if (q.prop_tag == prop_enum::non_null && q.poly == p.poly && q.level == p.level) { found = true; break; }
-                    }
-                    if (!found)
-                        m_Q.push_back(property(prop_enum::non_null, p.poly, p.s_idx, p.level));
-                }
-
+                polynomial_ref empty(m_pm);
+                add_to_Q_if_not_found(property(prop_enum::an_sub, empty, /*s_idx*/ -1, /*level*/ i));
+                add_to_Q_if_not_found(property(prop_enum::connected, empty, /*s_idx*/ -1, /*level*/ i));
+                add_to_Q_if_not_found(property(prop_enum::non_null, p.poly, p.s_idx, p.level));
+                
                 // ord_inv(discriminant_{x_{i+1}}(p))
-                {
-                    polynomial_ref disc(m_pm);
-                    disc = discriminant(p.poly, p.level);
-                    if (!is_const(disc)) {
-                        if (coeffs_are_zeroes_on_sample(disc, m_pm, sample(), m_am)) {
-                            m_fail = true; // ambiguous multiplicity -- not handled yet
-                            return;
-                        }
-                        else {
-                            unsigned lvl = max_var(disc);
-                            bool found = false;
-                            for (auto const & q : m_Q) 
-                                if (q.prop_tag == prop_enum::ord_inv_irreducible && q.poly == disc && q.level == lvl)
-                                {
-                                    found = true;
-                                    break;
-                                }
-                            
-                            if (!found)
-                                m_Q.push_back(property(prop_enum::ord_inv_irreducible, disc, /*s_idx*/ 0u, lvl));
-                        }
-                    }
-                }
+                add_ord_inv_discriminant_for(p);
+                if (m_fail) return;
 
                 // sgn_inv(leading_coefficient_{x_{i+1}}(p))
-                {
-                    poly * pp = p.poly.get();
-                    unsigned deg = m_pm.degree(pp, p.level);
-                    if (deg > 0) {
-                        polynomial_ref lc(m_pm);
-                        lc = m_pm.coeff(pp, p.level, deg);
-                        if (!is_const(lc)) {
-                            if (coeffs_are_zeroes_on_sample(lc, m_pm, sample(), m_am)) {
-                                NOT_IMPLEMENTED_YET(); // leading coeff vanished as polynomial -- not handled yet
-                            }
-                            else {
-                                unsigned lvl = max_var(lc);
-                                bool found = false;
-                                for (auto const & q : m_Q) {
-                                    if (q.prop_tag == prop_enum::sgn_inv_irreducible && q.poly == lc && q.level == lvl) { found = true; break; }
-                                }
-                                if (!found)
-                                    m_Q.push_back(property(prop_enum::sgn_inv_irreducible, lc, /*s_idx*/ 0u, lvl));
-                            }
-                        }
-                    }
-                }
+                add_sgn_inv_leading_coeff_for(p);
 
                 // Discharge the input an_del property: remove matching entries from m_Q
                 m_Q.erase(std::remove_if(m_Q.begin(), m_Q.end(), [&](const property & q) {
@@ -628,11 +613,10 @@ namespace nlsat {
         void apply_pre(const property& p) {
             TRACE(levelwise, display(tout << "property p:", p) << std::endl;);
 
-            if (p.prop_tag == prop_enum::an_del) {
+            if (p.prop_tag == prop_enum::an_del)
                 apply_pre_an_del(p);
-            } else {
+            else
                 NOT_IMPLEMENTED_YET();
-            }
         }
         // return an empty vector on failure, otherwise returns the cell representations with intervals
         std::vector<symbolic_interval> single_cell() {
