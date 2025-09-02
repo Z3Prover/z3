@@ -566,6 +566,14 @@ namespace nlsat {
             }
         }
 
+        void erase_from_Q(const property& p) {
+            auto it = std::find_if(m_Q.begin(), m_Q.end(), [&](const property & q) {
+                return q.prop_tag == p.prop_tag && q.poly == p.poly && q.level == p.level && q.s_idx == p.s_idx;
+            });
+            SASSERT(it != m_Q.end());
+            m_Q.erase(it);
+        }
+        
         void apply_pre_an_del(const property& p) {
                 if (!p.poly) {
                     TRACE(levelwise, tout << "apply_pre: an_del with null poly -> fail" << std::endl;);
@@ -602,12 +610,7 @@ namespace nlsat {
                 // sgn_inv(leading_coefficient_{x_{i+1}}(p))
                 add_sgn_inv_leading_coeff_for(p);
 
-                // Discharge the input an_del property: remove matching entries from m_Q
-                m_Q.erase(std::remove_if(m_Q.begin(), m_Q.end(), [&](const property & q) {
-                    return q.prop_tag == prop_enum::an_del && q.poly == p.poly && q.level == p.level && q.s_idx == p.s_idx;
-                }), m_Q.end());
-
-                TRACE(levelwise, tout << "apply_pre: an_del processed and removed from m_Q" << std::endl;);
+                erase_from_Q(p);
         }
         
         void apply_pre(const property& p) {
