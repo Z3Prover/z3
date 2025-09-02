@@ -514,10 +514,7 @@ namespace nlsat {
             return ret;
         }
 
-        void apply_pre(const property& p) {
-            TRACE(levelwise, display(tout << "property p:", p) << std::endl;);
-
-            if (p.prop_tag == prop_enum::an_del) {
+        void apply_pre_an_del(const property& p) {
                 if (!p.poly) {
                     TRACE(levelwise, tout << "apply_pre: an_del with null poly -> fail" << std::endl;);
                     m_fail = true;
@@ -532,6 +529,7 @@ namespace nlsat {
                 if (coeffs_are_zeroes_on_sample(p.poly, m_pm, sample(), m_am)) {
                     TRACE(levelwise, tout << "Rule 4.1: polynomial nullified at sample -> failing" << std::endl;);
                     m_fail = true;
+                    NOT_IMPLEMENTED_YET();
                     return;
                 }
 
@@ -625,7 +623,15 @@ namespace nlsat {
                 }), m_Q.end());
 
                 TRACE(levelwise, tout << "apply_pre: an_del processed and removed from m_Q" << std::endl;);
-                return;
+        }
+        
+        void apply_pre(const property& p) {
+            TRACE(levelwise, display(tout << "property p:", p) << std::endl;);
+
+            if (p.prop_tag == prop_enum::an_del) {
+                apply_pre_an_del(p);
+            } else {
+                NOT_IMPLEMENTED_YET();
             }
         }
         // return an empty vector on failure, otherwise returns the cell representations with intervals
