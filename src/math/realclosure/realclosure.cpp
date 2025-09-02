@@ -1021,7 +1021,7 @@ namespace realclosure {
         }
 
         static bool is_rational_function(numeral const & a) {
-            return is_rational_function(a.m_value);
+            return !is_zero(a) && is_rational_function(a.m_value);
         }
 
         static rational_function_value * to_rational_function(numeral const & a) {
@@ -2521,7 +2521,7 @@ namespace realclosure {
            \brief Return true if a is a rational.
         */
         bool is_rational(numeral const & a) {
-            return a.m_value->is_rational();
+            return is_zero(a) || a.m_value->is_rational();
         }
 
 
