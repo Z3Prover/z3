@@ -574,43 +574,47 @@ namespace nlsat {
             m_Q.erase(it);
         }
         
+        // Extracted helper: check preconditions for an_del property; returns true if ok, false otherwise.
+        bool precondition_on_an_del(const property& p) {
+            if (!p.poly) {
+                TRACE(levelwise, tout << "apply_pre: an_del with null poly -> fail" << std::endl;);
+                m_fail = true;
+                return false;
+            }
+            if (p.level == static_cast<unsigned>(-1)) {
+                TRACE(levelwise, tout << "apply_pre: an_del with unspecified level -> skip" << std::endl;);
+                NOT_IMPLEMENTED_YET();
+                return false;
+            }
+            // If p is nullified on the sample for its level we must abort (Rule 4.1)
+            if (coeffs_are_zeroes_on_sample(p.poly, m_pm, sample(), m_am)) {
+                TRACE(levelwise, tout << "Rule 4.1: polynomial nullified at sample -> failing" << std::endl;);
+                m_fail = true;
+                NOT_IMPLEMENTED_YET();
+                return false;
+            }
+            return true;
+        }
+
         void apply_pre_an_del(const property& p) {
-                if (!p.poly) {
-                    TRACE(levelwise, tout << "apply_pre: an_del with null poly -> fail" << std::endl;);
-                    
-                    m_fail = true;
-                    return;
-                }
-                if (p.level == static_cast<unsigned>(-1)) {
-                    TRACE(levelwise, tout << "apply_pre: an_del with unspecified level -> skip" << std::endl;);
-                    NOT_IMPLEMENTED_YET();
-                    return;
-                }
+            if (!precondition_on_an_del(p)) return;
 
-                // If p is nullified on the sample for its level we must abort (Rule 4.1)
-                if (coeffs_are_zeroes_on_sample(p.poly, m_pm, sample(), m_am)) {
-                    TRACE(levelwise, tout << "Rule 4.1: polynomial nullified at sample -> failing" << std::endl;);
-                    m_fail = true;
-                    NOT_IMPLEMENTED_YET();
-                    return;
-                }
+            // Pre-conditions for an_del(p) per Rule 4.1
+            unsigned i = (p.level > 0) ? p.level - 1 : 0;
 
-                // Pre-conditions for an_del(p) per Rule 4.1
-                unsigned i = (p.level > 0) ? p.level - 1 : 0;
+            polynomial_ref empty(m_pm);
+            add_to_Q_if_not_found(property(prop_enum::an_sub, empty, /*s_idx*/ -1, /*level*/ i));
+            add_to_Q_if_not_found(property(prop_enum::connected, empty, /*s_idx*/ -1, /*level*/ i));
+            add_to_Q_if_not_found(property(prop_enum::non_null, p.poly, p.s_idx, p.level));
+            
+            // ord_inv(discriminant_{x_{i+1}}(p))
+            add_ord_inv_discriminant_for(p);
+            if (m_fail) return;
 
-                polynomial_ref empty(m_pm);
-                add_to_Q_if_not_found(property(prop_enum::an_sub, empty, /*s_idx*/ -1, /*level*/ i));
-                add_to_Q_if_not_found(property(prop_enum::connected, empty, /*s_idx*/ -1, /*level*/ i));
-                add_to_Q_if_not_found(property(prop_enum::non_null, p.poly, p.s_idx, p.level));
-                
-                // ord_inv(discriminant_{x_{i+1}}(p))
-                add_ord_inv_discriminant_for(p);
-                if (m_fail) return;
+            // sgn_inv(leading_coefficient_{x_{i+1}}(p))
+            add_sgn_inv_leading_coeff_for(p);
 
-                // sgn_inv(leading_coefficient_{x_{i+1}}(p))
-                add_sgn_inv_leading_coeff_for(p);
-
-                erase_from_Q(p);
+            erase_from_Q(p);
         }
         
         void apply_pre(const property& p) {
