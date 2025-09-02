@@ -165,6 +165,9 @@ namespace smt {
                 bool m_backbone_detection = false;
                 bool m_iterative_deepening = false;
                 bool m_beam_search = false;
+                bool m_explicit_hardness = false;
+                bool m_march_hardness = false;
+                bool m_heule_schur_hardness = false;
             };
 
             unsigned id; // unique identifier for the worker
@@ -187,7 +190,9 @@ namespace smt {
 
             expr_ref_vector find_backbone_candidates();
             expr_ref_vector get_backbones_from_candidates(expr_ref_vector const& candidates);
-            double explicit_hardness(expr_ref_vector const& cube);
+            
+            double naive_hardness();
+            double explicit_hardness(expr_ref_vector const& cube, unsigned initial_scope_lvl);
             double heule_schur_hardness(expr_ref_vector const& cube);
             double march_cu_hardness(expr_ref_vector const& cube);
         public:
