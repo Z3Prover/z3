@@ -192,7 +192,7 @@ namespace smt {
             expr_ref_vector get_backbones_from_candidates(expr_ref_vector const& candidates);
             
             double naive_hardness();
-            double explicit_hardness(expr_ref_vector const& cube);
+            double explicit_hardness(expr_ref_vector const& cube, unsigned initial_scope_lvl);
             double heule_schur_hardness(expr_ref_vector const& cube);
             double march_cu_hardness(expr_ref_vector const& cube);
         public:
