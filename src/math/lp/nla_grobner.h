@@ -88,6 +88,5 @@ namespace nla {
         grobner(core *core);        
         void operator()();
         void updt_params(params_ref const& p);
-        // dd::solver::equation_vector const& core_equations(bool all_eqs);
     }; 
 }

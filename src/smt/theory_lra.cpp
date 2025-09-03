@@ -601,6 +601,12 @@ class theory_lra::imp {
         ctx().mk_th_axiom(get_id(), l1, l2, l3, num_params, params);
     }
 
+    void mk_clause(literal l1, literal l2, literal l3, literal l4, unsigned num_params, parameter* params) {
+        literal clause[4] = { l1, l2, l3, l4 };
+        TRACE(arith, ctx().display_literals_smt2(tout, 4, clause); tout << "\n";);
+        ctx().mk_th_axiom(get_id(), 4, clause, num_params, params);
+    }
+
 
     bool reflect(app* n) const {
         return params().m_arith_reflect || a.is_underspecified(n);          
@@ -1288,6 +1294,7 @@ public:
         else {
 
             expr_ref mone(a.mk_int(-1), m);
+            expr_ref minus_q(a.mk_mul(mone, q), m);
             literal eqz = mk_literal(m.mk_eq(q, zero));
             literal mod_ge_0 = mk_literal(a.mk_ge(mod, zero));
 
@@ -1296,12 +1303,13 @@ public:
             // q = 0 or (p mod q) >= 0
             // q >= 0 or (p mod q) + q <= -1
             // q <= 0 or (p mod q) - q <= -1            
-            // (p mod q) = (p mod -q)
 
             mk_axiom(eqz, eq);
             mk_axiom(eqz, mod_ge_0);
-            mk_axiom(mk_literal(a.mk_le(q, zero)), mk_literal(a.mk_le(a.mk_add(mod, a.mk_mul(mone, q)), mone)));
+            mk_axiom(mk_literal(a.mk_le(q, zero)), mk_literal(a.mk_le(a.mk_add(mod, minus_q), mone)));
             mk_axiom(mk_literal(a.mk_ge(q, zero)), mk_literal(a.mk_le(a.mk_add(mod, q), mone)));
+
+                
             expr* x = nullptr, * y = nullptr;
             if (false && !(a.is_mul(q, x, y) && mone == x))
                 mk_axiom(mk_literal(m.mk_eq(mod, a.mk_mod(p, a.mk_mul(mone, q)))));
@@ -1420,12 +1428,21 @@ public:
         }
     }
 
+    void mk_axiom(literal l1, literal l2, literal l3, literal l4) {
+        mk_clause(l1, l2, l3, l4, 0, nullptr);
+        if (ctx().relevancy()) {
+            ctx().mark_as_relevant(l1);
+            ctx().mark_as_relevant(l2);
+            ctx().mark_as_relevant(l3);
+            ctx().mark_as_relevant(l4);
+        }
+    }
+
     literal mk_literal(expr* e) {
         expr_ref pinned(e, m);
         TRACE(mk_bool_var, tout << pinned << " " << pinned->get_id() << "\n";);
-        if (!ctx().e_internalized(e)) {
-            ctx().internalize(e, false);
-        }
+        if (!ctx().e_internalized(e)) 
+            ctx().internalize(e, false);        
         return ctx().get_literal(e);
     }
 

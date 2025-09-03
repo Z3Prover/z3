@@ -1419,6 +1419,12 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
         return BR_REWRITE1;
     }
 
+    // mod x -y = mod x y
+    if (m_util.is_mul(arg2, t1, t2) && m_util.is_numeral(t1, v1) && v1 == -1) {
+        result = m_util.mk_mod(arg1, t2);
+        return BR_REWRITE1;
+    }
+
     return BR_FAILED;
 }
 
