@@ -51,6 +51,7 @@ namespace nlsat {
         anum_manager&                m_am;
         std::vector<property>        m_Q; // the set of properties to prove
         bool                         m_fail = false; 
+        bool                         m_Q_changed = false; // tracks mutations to m_Q for fixed-point iteration
         // Property precedence relation stored as pairs (lesser, greater)
         std::vector<std::pair<prop_enum, prop_enum>> m_p_relation;
         // Transitive closure matrix: dom[a][b] == true iff a ▹ b (a strictly dominates b).
@@ -472,10 +473,18 @@ namespace nlsat {
         }
             
         // Part A of construct_interval: apply pre-conditions (line 8-11 scaffolding)
-        bool apply_property_rules(unsigned i, prop_enum prop_to_avoid) {
-            std::vector<property> to_refine = greatest_to_refine(i, prop_to_avoid);
-            for (const auto& p: to_refine)
-                apply_pre(p);
+        bool apply_property_rules(unsigned i, prop_enum prop_to_avoid, result_struct* rs) {
+            // Iterate until no mutation to m_Q occurs (fixed-point). We avoid copying m_Q
+            // by using a change flag that is set by mutating helpers (add_to_Q_if_new / erase_from_Q).
+            if (m_fail) return false;
+            do {
+                m_Q_changed = false;
+                std::vector<property> to_refine = greatest_to_refine(i, prop_to_avoid);
+                for (const auto& p : to_refine) {
+                    apply_pre(p, rs);
+                    if (m_fail) return false;
+                }
+            } while (m_Q_changed && !m_fail);
             return !m_fail;
         }
 
@@ -509,6 +518,7 @@ namespace nlsat {
                 return;
             }
             m_Q.push_back(pr);
+            m_Q_changed = true;
         }
 
         void remove_level_i_from_Q(std::vector<property> & Q, unsigned i) {
@@ -517,15 +527,24 @@ namespace nlsat {
             Q.end());
         }
 
+        void erase_from_Q(const property& p) {
+            auto it = std::find_if(m_Q.begin(), m_Q.end(), [&](const property & q) {
+                return q.prop_tag == p.prop_tag && q.poly == p.poly && q.level == p.level && q.s_idx == p.s_idx;
+            });
+            SASSERT(it != m_Q.end());
+            m_Q.erase(it);
+            m_Q_changed = true;
+        }
+        
         result_struct construct_interval(unsigned i) {
             result_struct ret;
-            if (!apply_property_rules(i, prop_enum::sgn_inv_irreducible)) {
+            if (!apply_property_rules(i, prop_enum::sgn_inv_irreducible, nullptr)) {
                 ret.fail = true;
                 return ret;
             }
 
             build_representation(i, ret);
-            apply_property_rules(i, prop_enum(prop_enum::holds));
+            apply_property_rules(i, prop_enum(prop_enum::holds), & ret);
 
             // (moved Rule 1.1 precondition handling into apply_pre_connected)
 
@@ -534,7 +553,6 @@ namespace nlsat {
             remove_level_i_from_Q(ret.Q, i);
             return ret;
         }
-
         // Extracted helper: handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
         void add_ord_inv_discriminant_for(const property& p) {
             polynomial_ref disc(m_pm);
@@ -571,14 +589,6 @@ namespace nlsat {
             }
         }
 
-        void erase_from_Q(const property& p) {
-            auto it = std::find_if(m_Q.begin(), m_Q.end(), [&](const property & q) {
-                return q.prop_tag == p.prop_tag && q.poly == p.poly && q.level == p.level && q.s_idx == p.s_idx;
-            });
-            SASSERT(it != m_Q.end());
-            m_Q.erase(it);
-        }
-        
         // Extracted helper: check preconditions for an_del property; returns true if ok, false otherwise.
         bool precondition_on_an_del(const property& p) {
             if (!p.poly) {
@@ -618,7 +628,7 @@ namespace nlsat {
         }
 
         // Pre-processing for connected(i) (Rule 4.11)
-        void apply_pre_connected(const property & p) {
+        void apply_pre_connected(const property & p, result_struct* rs) {
             TRACE(levelwise, tout << "connected:";
                   if (p.level != static_cast<unsigned>(-1)) tout << " level=" << p.level;
                   tout << std::endl;);
@@ -631,25 +641,27 @@ namespace nlsat {
                 return;
             }
 
+            // p.level > 0
+            if (!rs) return; // no change since the interval etc is not there
             // Rule 1.1 precondition: when processing connected(i) we must ensure the next lower level
             // has connected(i-1) and repr(I,s) available. Add those markers to m_Q so they propagate.
-            if (p.level > 0) {
-                polynomial_ref empty(m_pm);
-                add_to_Q_if_new(property(prop_enum::connected, empty, /*level*/ p.level - 1));
-                add_to_Q_if_new(property(prop_enum::repr,      empty, /*level*/ p.level - 1));
-            }
+
+            polynomial_ref empty(m_pm);
+            add_to_Q_if_new(property(prop_enum::connected, empty, /*level*/ p.level - 1));
+            add_to_Q_if_new(property(prop_enum::repr,      empty, /*level*/ p.level - 1));
+            
 
             // todo!!!! add missing preconditions
             // connected property has been processed
             erase_from_Q(p);
         }
 
-        void apply_pre(const property& p) {
+        void apply_pre(const property& p, result_struct* rs) {
             TRACE(levelwise, display(tout << "property p:", p) << std::endl;);
             if (p.prop_tag == prop_enum::an_del)
                 apply_pre_an_del(p);
             else if (p.prop_tag == prop_enum::connected)
-                apply_pre_connected(p); 
+                apply_pre_connected(p, rs ); 
             else 
                 NOT_IMPLEMENTED_YET();
         }
@@ -665,7 +677,7 @@ namespace nlsat {
                 );
             std::vector<symbolic_interval> ret;
             m_Q = seed_properties(); // Q is the set of properties on level m_n
-            apply_property_rules(m_n, prop_enum::_count); // reduce the level by one to be consumed by construct_interval
+            apply_property_rules(m_n, prop_enum::_count, nullptr); // reduce the level by one to be consumed by construct_interval
             for (unsigned i = m_n; --i > 0; ) {
                 auto result = construct_interval(i);
                 if (result.fail)
