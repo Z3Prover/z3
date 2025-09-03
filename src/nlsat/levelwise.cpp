@@ -527,13 +527,7 @@ namespace nlsat {
             build_representation(i, ret);
             apply_property_rules(i, prop_enum(prop_enum::holds));
 
-            // Rule 1.1 precondition: when descending to level i-1, ensure m_Q contains
-            // connected(i-1) and repr(I,s) so they are available for the next iteration.
-            if (i > 0) {
-                polynomial_ref empty(m_pm);
-                add_to_Q_if_new(property(prop_enum::connected, empty, /*level*/ i - 1));
-                add_to_Q_if_new(property(prop_enum::repr,      empty, /*level*/ i - 1));
-            }
+            // (moved Rule 1.1 precondition handling into apply_pre_connected)
 
             ret.Q = m_Q;
             ret.fail = m_fail;
@@ -637,7 +631,15 @@ namespace nlsat {
                 return;
             }
 
-            
+            // Rule 1.1 precondition: when processing connected(i) we must ensure the next lower level
+            // has connected(i-1) and repr(I,s) available. Add those markers to m_Q so they propagate.
+            if (p.level > 0) {
+                polynomial_ref empty(m_pm);
+                add_to_Q_if_new(property(prop_enum::connected, empty, /*level*/ p.level - 1));
+                add_to_Q_if_new(property(prop_enum::repr,      empty, /*level*/ p.level - 1));
+            }
+
+            // todo!!!! add missing preconditions
             // connected property has been processed
             erase_from_Q(p);
         }
