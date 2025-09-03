@@ -2034,7 +2034,7 @@ namespace nlsat {
             m_assignment.reset();
         }
 
-        lbool check(assignment const& rvalues, atom_vector& core, literal_vector& cell) {
+        lbool check(assignment const& rvalues, literal_vector& clause) {
             // temporarily set m_assignment to the given one
             assignment tmp = m_assignment;
             m_assignment.reset();
@@ -2076,21 +2076,16 @@ namespace nlsat {
 
             // assignment does not satisfy the constraints -> create lemma
             SASSERT(best_literal != null_literal);
-            cell.reset();
+            clause.reset();
             m_lazy_clause.reset();
             m_explain.set_linear_project(true);
             m_explain.main_operator(1, &best_literal, m_lazy_clause);
             m_explain.set_linear_project(false);
 
             for (auto l : m_lazy_clause) {
-                cell.push_back(l);
+                clause.push_back(l);
             }
-
-            m_lemma_assumptions = nullptr;
-            
-            core.clear();
-            SASSERT(!best_literal.sign());
-            core.push_back(m_atoms[best_literal.var()]);
+            clause.push_back(~best_literal);
 
             m_assignment.reset();
             m_assignment.copy(tmp);
@@ -4167,8 +4162,8 @@ namespace nlsat {
         return m_imp->check(assumptions);
     }
 
-    lbool solver::check(assignment const& rvalues, atom_vector& clause, literal_vector& cell) {
-        return m_imp->check(rvalues, clause, cell);
+    lbool solver::check(assignment const& rvalues, literal_vector& clause) {
+        return m_imp->check(rvalues, clause);
     }
 
     void solver::get_core(vector<assumption, false>& assumptions) {

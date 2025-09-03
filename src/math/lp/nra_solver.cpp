@@ -255,8 +255,7 @@ struct solver::imp {
         setup_solver();
         lbool r = l_undef;
         statistics& st = m_nla_core.lp_settings().stats().m_st;
-        nlsat::atom_vector clause;
-        nlsat::literal_vector cell;
+        nlsat::literal_vector clause;
         polynomial::manager& pm = m_nlsat->pm();
         try {
             nlsat::assignment rvalues(m_nlsat->am());
@@ -265,7 +264,7 @@ struct solver::imp {
                 am().set(a, m_nla_core.val(j).to_mpq());
                 rvalues.set(x, a);           
             }
-            r = m_nlsat->check(rvalues, clause, cell);
+            r = m_nlsat->check(rvalues, clause);
         } 
         catch (z3_exception&) {
             if (m_limit.is_canceled()) {
@@ -289,16 +288,13 @@ struct solver::imp {
                 validate_constraints();
                 break;
             case l_false: {
-                lp::explanation ex;
-                constraint_core2ex(ex);
                 u_map<lp::lpvar> nl2lp;
                 for (auto [j, x] : m_lp2nl)
                     nl2lp.insert(x, j);
 
                 nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
-                lemma &= ex;
-
-                auto translate_atom = [&](nlsat::atom* a, bool negated){
+                for (nlsat::literal l : clause) {
+                    nlsat::atom* a = m_nlsat->bool_var2atom(l.var());
                     SASSERT(!a->is_root_atom());
                     SASSERT(a->is_ineq_atom());
                     auto& ia = *to_ineq_atom(a);
@@ -351,23 +347,18 @@ struct solver::imp {
                     }
                     switch (a->get_kind()) {
                         case nlsat::atom::EQ:
-                            return nla::ineq(negated ? lp::lconstraint_kind::NE : lp::lconstraint_kind::EQ, t, bound);
+                            lemma |= nla::ineq(l.sign() ? lp::lconstraint_kind::NE : lp::lconstraint_kind::EQ, t, bound);
+                            break;
                         case nlsat::atom::LT:
-                            return nla::ineq(negated ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LT, t, bound);
+                            lemma |= nla::ineq(l.sign() ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LT, t, bound);
+                            break;
                         case nlsat::atom::GT:
-                            return nla::ineq(negated ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GT, t, bound);
+                            lemma |= nla::ineq(l.sign() ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GT, t, bound);
+                            break;
                         default:
                             UNREACHABLE();
+                            return l_undef;
                     }
-                };
-
-                
-                for (auto a : clause) {
-                    lemma |= translate_atom(a, true);
-                }
-
-                for (nlsat::literal l : cell) {
-                    lemma |= translate_atom( m_nlsat->bool_var2atom(l.var()), l.sign());
                 }
 
                 IF_VERBOSE(1, verbose_stream() << "linear lemma: " << lemma << "\n");
