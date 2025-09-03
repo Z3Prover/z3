@@ -49,7 +49,7 @@ namespace smt {
         return ctx->m_stats.m_num_decisions / std::max(1u, ctx->m_stats.m_num_conflicts);
     }
 
-    double parallel::worker::explicit_hardness(expr_ref_vector const& cube, unsigned initial_scope_lvl) {
+    double parallel::worker::explicit_hardness(expr_ref_vector const& cube) {
         double total = 0.0;
         unsigned clause_count = 0;
         LOG_WORKER(1, " CUBE SIZE IN EXPLICIT HARDNESS: " << cube.size() << "\n");      
@@ -73,16 +73,12 @@ namespace smt {
             for (literal l : clause) {
                 bool_var v = l.var();
 
-                // Only consider literals that are part of the cube
-                LOG_WORKER(1, " Cube contains " << v << ": " << (cube_vars.contains(v)) << "\n");
-                if (!cube_vars.contains(v)) continue;
-
                 lbool val = ctx->get_assignment(l);
                 unsigned lvl = ctx->get_assign_level(l);
 
                 // Only include assignments made after the base scope level (i.e. those made by specifically assuming the cube)
-                LOG_WORKER(1, " Literal " << l << " at level " << lvl << " is equal or below scope level " << initial_scope_lvl << ": " << bool(lvl <= initial_scope_lvl) << "\n");
-                if (lvl <= initial_scope_lvl) continue;
+                LOG_WORKER(1, " Literal " << l << " at level " << lvl << " is equal or below scope level " << ctx->get_search_level() << ": " << bool(lvl <= initial_scope_lvl) << "\n");
+                if (lvl <= ctx->get_search_level()) continue;
 
                 sz++;
                 if (val == l_true) { satisfied = true; break; }
@@ -92,6 +88,7 @@ namespace smt {
             if (satisfied || sz == 0) continue;
 
             double m = static_cast<double>(sz) / std::max(1u, sz - n_false);
+            // or 1/2^(size of clause)
             LOG_WORKER(1, " Clause contributes " << m << " to hardness metric\n");
             total += m;
             clause_count++;
@@ -247,8 +244,6 @@ namespace smt {
                     return;
                 }
                 
-                LOG_WORKER(1, " checking cube\n");
-                unsigned initial_scope_lvl = ctx->get_scope_level();
                 LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
                 lbool r = check_cube(cube);
 
@@ -276,7 +271,7 @@ namespace smt {
                                 
                                 double cube_hardness;
                                 if (m_config.m_explicit_hardness) {
-                                    cube_hardness = explicit_hardness(cube, initial_scope_lvl);
+                                    cube_hardness = explicit_hardness(cube);
                                     LOG_WORKER(1, " explicit hardness: " << cube_hardness << "\n");    
                                 } else if (m_config.m_march_hardness) {
                                     cube_hardness = march_cu_hardness(cube);
