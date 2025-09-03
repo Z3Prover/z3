@@ -41,6 +41,8 @@ namespace nlsat {
             unsigned         level = -1;  // -1 means unspecified
             property(prop_enum pr, polynomial_ref const & pp, int si, int lvl) : prop_tag(pr), poly(pp), s_idx(si), level(lvl) {}
             property(prop_enum pr, polynomial_ref const & pp) : prop_tag(pr), poly(pp), s_idx(-1), level(-1) {}
+            property(prop_enum pr, polynomial_ref const & empty, unsigned lvl) : prop_tag(pr), poly(empty), s_idx(-1), level(lvl) {}
+            
         };
         solver& m_solver;
         polynomial_ref_vector const& m_P;
@@ -495,7 +497,7 @@ namespace nlsat {
 
         // Helper: add a property to m_Q if an equivalent one is not already present.
         // Equivalence: same prop_tag and same level; if pr.poly is non-null, require the same poly as well.
-        void add_to_Q_if_not_found(const property & pr) {
+        void add_to_Q_if_new(const property & pr) {
             for (auto const & q : m_Q) {
                 if (q.prop_tag != pr.prop_tag) continue;
                 if (q.level != pr.level) continue;
@@ -524,6 +526,15 @@ namespace nlsat {
 
             build_representation(i, ret);
             apply_property_rules(i, prop_enum(prop_enum::holds));
+
+            // Rule 1.1 precondition: when descending to level i-1, ensure m_Q contains
+            // connected(i-1) and repr(I,s) so they are available for the next iteration.
+            if (i > 0) {
+                polynomial_ref empty(m_pm);
+                add_to_Q_if_new(property(prop_enum::connected, empty, /*level*/ i - 1));
+                add_to_Q_if_new(property(prop_enum::repr,      empty, /*level*/ i - 1));
+            }
+
             ret.Q = m_Q;
             ret.fail = m_fail;
             remove_level_i_from_Q(ret.Q, i);
@@ -542,7 +553,7 @@ namespace nlsat {
                 }
                 else {
                     unsigned lvl = max_var(disc);
-                    add_to_Q_if_not_found(property(prop_enum::ord_inv_irreducible, disc, /*s_idx*/ 0u, lvl));
+                    add_to_Q_if_new(property(prop_enum::ord_inv_irreducible, disc, /*s_idx*/ 0u, lvl));
                 }
             }
         }
@@ -560,7 +571,7 @@ namespace nlsat {
                     }
                     else {
                         unsigned lvl = max_var(lc);
-                        add_to_Q_if_not_found(property(prop_enum::sgn_inv_irreducible, lc, /*s_idx*/ 0u, lvl));
+                        add_to_Q_if_new(property(prop_enum::sgn_inv_irreducible, lc, /*s_idx*/ 0u, lvl));
                     }
                 }
             }
@@ -600,29 +611,44 @@ namespace nlsat {
             if (!precondition_on_an_del(p)) return;
 
             // Pre-conditions for an_del(p) per Rule 4.1
-            unsigned i = (p.level > 0) ? p.level - 1 : 0;
-
+            unsigned lvl = (p.level > 0) ? p.level - 1 : 0;
             polynomial_ref empty(m_pm);
-            add_to_Q_if_not_found(property(prop_enum::an_sub, empty, /*s_idx*/ -1, /*level*/ i));
-            add_to_Q_if_not_found(property(prop_enum::connected, empty, /*s_idx*/ -1, /*level*/ i));
-            add_to_Q_if_not_found(property(prop_enum::non_null, p.poly, p.s_idx, p.level));
+            add_to_Q_if_new(property(prop_enum::an_sub, empty, lvl));
+            add_to_Q_if_new(property(prop_enum::connected, empty, lvl));
+            add_to_Q_if_new(property(prop_enum::non_null, p.poly, p.s_idx, p.level));
             
-            // ord_inv(discriminant_{x_{i+1}}(p))
             add_ord_inv_discriminant_for(p);
             if (m_fail) return;
-
-            // sgn_inv(leading_coefficient_{x_{i+1}}(p))
             add_sgn_inv_leading_coeff_for(p);
-
             erase_from_Q(p);
         }
-        
+
+        // Pre-processing for connected(i) (Rule 4.11)
+        void apply_pre_connected(const property & p) {
+            TRACE(levelwise, tout << "connected:";
+                  if (p.level != static_cast<unsigned>(-1)) tout << " level=" << p.level;
+                  tout << std::endl;);
+            SASSERT(p.level != static_cast<unsigned>(-1));
+            // Rule 4.11 special-case: if the connected property refers to level 0 there's nothing to refine
+            // further; just remove the property from Q and return.
+            if (p.level == 0) {
+                TRACE(levelwise, tout << "apply_pre_connected: level 0 -> erasing connected property and returning" << std::endl;);
+                erase_from_Q(p);
+                return;
+            }
+
+            
+            // connected property has been processed
+            erase_from_Q(p);
+        }
+
         void apply_pre(const property& p) {
             TRACE(levelwise, display(tout << "property p:", p) << std::endl;);
-
             if (p.prop_tag == prop_enum::an_del)
                 apply_pre_an_del(p);
-            else
+            else if (p.prop_tag == prop_enum::connected)
+                apply_pre_connected(p); 
+            else 
                 NOT_IMPLEMENTED_YET();
         }
         // return an empty vector on failure, otherwise returns the cell representations with intervals
