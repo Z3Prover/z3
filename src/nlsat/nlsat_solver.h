@@ -222,15 +222,14 @@ namespace nlsat {
         // check satisfiability of asserted formulas relative to state of the nlsat solver.
         // produce either,
         // l_true - a model is available (rvalues can be ignored) or,
-        // l_false - the conjunction of literals from get_core, and negations of atoms in clause,
-        // such that the conjunction of the assumptions and the polynomials in core is unsatisfiable.
+        // l_false - a clause (not core v not cell) excluding a cell around rvalues if core (consisting of atoms
+        // passed to nlsat) is asserted.
         // l_undef - if the search was interrupted by a resource limit.
-        // clause is a list of atoms. Their negations conjoined with core literals are unsatisfiable.
-        // Different implementations of check are possible. One where core comprises of linear polynomials could
+        // clause is a list of literals. Their disjunction is valid.
+        // Different implementations of check are possible. One where cell comprises of linear polynomials could
         // produce lemmas that are friendly to linear arithmetic solvers.
-        // TODO: update
         //
-        lbool check(assignment const& rvalues, atom_vector& clause, literal_vector& cell);
+        lbool check(assignment const& rvalues, literal_vector& clause);
 
         // -----------------------
         //
