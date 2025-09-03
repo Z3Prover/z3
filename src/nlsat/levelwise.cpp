@@ -41,7 +41,7 @@ namespace nlsat {
             unsigned         level = -1;  // -1 means unspecified
             property(prop_enum pr, polynomial_ref const & pp, int si, int lvl) : prop_tag(pr), poly(pp), s_idx(si), level(lvl) {}
             property(prop_enum pr, polynomial_ref const & pp) : prop_tag(pr), poly(pp), s_idx(-1), level(-1) {}
-            property(prop_enum pr, polynomial_ref const & empty, unsigned lvl) : prop_tag(pr), poly(empty), s_idx(-1), level(lvl) {}
+            property(prop_enum pr, polynomial::manager& pm, unsigned lvl) : prop_tag(pr), poly(polynomial_ref(pm)), s_idx(-1), level(lvl) {}
             
         };
         solver& m_solver;
@@ -617,9 +617,8 @@ namespace nlsat {
 
             // Pre-conditions for an_del(p) per Rule 4.1
             unsigned lvl = (p.level > 0) ? p.level - 1 : 0;
-            polynomial_ref empty(m_pm);
-            add_to_Q_if_new(property(prop_enum::an_sub, empty, lvl));
-            add_to_Q_if_new(property(prop_enum::connected, empty, lvl));
+            add_to_Q_if_new(property(prop_enum::an_sub, m_pm, lvl));
+            add_to_Q_if_new(property(prop_enum::connected, m_pm, lvl));
             add_to_Q_if_new(property(prop_enum::non_null, p.poly, p.s_idx, p.level));
             
             add_ord_inv_discriminant_for(p);
@@ -647,9 +646,8 @@ namespace nlsat {
             // Rule 1.1 precondition: when processing connected(i) we must ensure the next lower level
             // has connected(i-1) and repr(I,s) available. Add those markers to m_Q so they propagate.
 
-            polynomial_ref empty(m_pm);
-            add_to_Q_if_new(property(prop_enum::connected, empty, /*level*/ p.level - 1));
-            add_to_Q_if_new(property(prop_enum::repr,      empty, /*level*/ p.level - 1));
+            add_to_Q_if_new(property(prop_enum::connected, m_pm, /*level*/ p.level - 1));
+            add_to_Q_if_new(property(prop_enum::repr, m_pm, /*level*/ p.level - 1));
             
             NOT_IMPLEMENTED_YET();
             // todo!!!! add missing preconditions
@@ -676,7 +674,7 @@ namespace nlsat {
 
             return false;         
         }
-        
+
         // Helper for Rule 4.2, subrule 2:
         // If some coefficient c_j of p is constant non-zero at the sample, or
         // if c_j evaluates non-zero at the sample and we already have sgn_inv(c_j) in m_Q,
@@ -688,12 +686,7 @@ namespace nlsat {
                 erase_from_Q(p);
                 return true;
             }
-
-            if (have_sgn_inv_property(p, p.level)) {
-                erase_from_Q(p);
-                return true;
-            }
-                
+   
             poly* pp = p.poly.get();
             unsigned deg = m_pm.degree(pp, p.level);
             for (unsigned j = 0; j <= deg; ++j) {
