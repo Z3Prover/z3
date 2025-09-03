@@ -133,7 +133,7 @@ namespace smt {
             // worker threads return unprocessed cubes to the batch manager together with split literal candidates.
             // the batch manager re-enqueues unprocessed cubes and optionally splits them using the split_atoms returned by this and workers.
             // 
-            void return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& cubes, expr_ref_vector const& split_atoms, const bool should_split=true, const double hardness=1.0);
+            void return_cubes(ast_translation& l2g, expr_ref_vector const& cube, expr_ref_vector const& split_atoms, const bool should_split=true, const double hardness=1.0);
             void report_assumption_used(ast_translation& l2g, expr* assumption);
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* e);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
@@ -166,8 +166,6 @@ namespace smt {
                 bool m_iterative_deepening = false;
                 bool m_beam_search = false;
                 bool m_explicit_hardness = false;
-                bool m_march_hardness = false;
-                bool m_heule_schur_hardness = false;
             };
 
             unsigned id; // unique identifier for the worker
@@ -192,7 +190,7 @@ namespace smt {
             expr_ref_vector get_backbones_from_candidates(expr_ref_vector const& candidates);
             
             double naive_hardness();
-            double explicit_hardness(expr_ref_vector const& cube, unsigned initial_scope_lvl);
+            double explicit_hardness(expr_ref_vector const& cube);
             double heule_schur_hardness(expr_ref_vector const& cube);
             double march_cu_hardness(expr_ref_vector const& cube);
         public:

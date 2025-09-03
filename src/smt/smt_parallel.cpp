@@ -49,189 +49,54 @@ namespace smt {
         return ctx->m_stats.m_num_decisions / std::max(1u, ctx->m_stats.m_num_conflicts);
     }
 
-    double parallel::worker::explicit_hardness(expr_ref_vector const& cube, unsigned initial_scope_lvl) {
-        double total = 0.0;
-        unsigned clause_count = 0;
-        LOG_WORKER(1, " CUBE SIZE IN EXPLICIT HARDNESS: " << cube.size() << "\n");      
+    double parallel::worker::explicit_hardness(expr_ref_vector const& cube) {
+        double overall_hardness = 0.0;
+        // LOG_WORKER(1, " CUBE SIZE IN EXPLICIT HARDNESS: " << cube.size() << "\n");      
 
         // Build a set of bool_vars corresponding to the cube literals
         svector<bool_var> cube_vars;
         for (auto& e : cube) {
-            LOG_WORKER(1, " PROCESSING CUBE\n");
+            // LOG_WORKER(1, " PROCESSING CUBE\n");
             bool_var v = ctx->get_bool_var(e);
-            LOG_WORKER(1, " Cube contains var " << v << "\n");
+            // LOG_WORKER(1, " Cube contains var " << v << "\n");
             if (v != null_bool_var) cube_vars.push_back(v);
         }
 
         for (auto* cp : ctx->m_aux_clauses) {
             auto& clause = *cp;
-            unsigned sz = 0;
             unsigned n_false  = 0;
             bool satisfied = false;
 
-            LOG_WORKER(1, " Clause has num literals: " << clause.get_num_literals() << "\n");
+            // LOG_WORKER(1, " Clause has num literals: " << clause.get_num_literals() << "\n");
             for (literal l : clause) {
+                // LOG_WORKER(1, " Processing literal " << l << " with val: " << ctx->get_assignment(l) << "\n");
                 bool_var v = l.var();
 
-                // Only consider literals that are part of the cube
-                LOG_WORKER(1, " Cube contains " << v << ": " << (cube_vars.contains(v)) << "\n");
-                if (!cube_vars.contains(v)) continue;
-
                 lbool val = ctx->get_assignment(l);
+                if (val == l_undef) continue; 
+
                 unsigned lvl = ctx->get_assign_level(l);
 
                 // Only include assignments made after the base scope level (i.e. those made by specifically assuming the cube)
-                LOG_WORKER(1, " Literal " << l << " at level " << lvl << " is equal or below scope level " << initial_scope_lvl << ": " << bool(lvl <= initial_scope_lvl) << "\n");
-                if (lvl <= initial_scope_lvl) continue;
+                // LOG_WORKER(1, " Literal " << l << " at level " << lvl << " is below scope level " << ctx->get_search_level() << ": " << bool(lvl < ctx->get_search_level()) << "\n");
+                if (lvl < ctx->get_search_level()) continue;
 
-                sz++;
                 if (val == l_true) { satisfied = true; break; }
                 if (val == l_false) n_false++;
             }
-            LOG_WORKER(1, " Clause of size " << sz << " has " << n_false << " false literals in cube. Is satisfied: " << satisfied << "\n");
-            if (satisfied || sz == 0) continue;
+            
+            if (satisfied || n_false == 0) continue; // meaning, the clause is true (at least 1 true atom), or we had no true OR false atoms so the whole thing is undefined
+            
+            unsigned sz = clause.get_num_literals();
+            // LOG_WORKER(1, " Clause of size " << sz << " has " << n_false << " false literals in cube. Is satisfied: " << satisfied << "\n");
 
-            double m = static_cast<double>(sz) / std::max(1u, sz - n_false);
-            LOG_WORKER(1, " Clause contributes " << m << " to hardness metric\n");
-            total += m;
-            clause_count++;
+            // double reduction_ratio = static_cast<double>(sz) / n_false; // n_false/sz -> higher value=easier //std::max(1u, reduction);
+            double reduction_ratio = pow(0.5, sz) * (1 / n_false);
+            // LOG_WORKER(1, " Clause contributes " << reduction_ratio << " to hardness metric. n_false: " << n_false << "\n");
+            overall_hardness += reduction_ratio;
         }
 
-        return clause_count ? total / clause_count : 0.0;
-    }
-
-    double parallel::worker::heule_schur_hardness(expr_ref_vector const& cube) {
-        double total = 0.0;
-        unsigned n = 0;
-
-        auto literal_occs = [&](literal l) {
-            unsigned count = 0;
-
-            for (auto* cp : ctx->m_aux_clauses) {
-                auto& clause = *cp;
-                bool occurs = false;
-                for (literal li : clause) {
-                    if (li == ~l) {
-                        occurs = true;
-                        break;
-                    }
-                }
-
-                if (!occurs) continue;
-                if (clause.get_num_literals() >= 2) {
-                    count += 1;
-                }
-            }
-
-            return static_cast<double>(count);
-        };
-
-        for (expr* e : cube) {
-            literal lit = ctx->get_literal(e);
-            double score = 0.0;
-
-            for (auto* cp : ctx->m_aux_clauses) {
-                auto& clause = *cp;
-                if (clause.get_num_literals() == 2) { // binary clauses
-                    literal a = clause[0];
-                    literal b = clause[1];
-                    if (a == lit && ctx->get_assignment(b) == l_undef) {
-                        score += literal_occs(b) / 4.0;
-                    } else if (b == lit && ctx->get_assignment(a) == l_undef) {
-                        score += literal_occs(a) / 4.0;
-                    }
-                } else if (clause.get_num_literals() == 3) { // ternary clauses containing ~lit
-                    bool has_neg = false;
-                    std::vector<literal> others;
-                    for (literal l2 : clause) {
-                        if (l2 == ~lit) {
-                            has_neg = true;
-                        } else {
-                            others.push_back(l2);
-                        }
-                    }
-                    if (has_neg && others.size() == 2) { // since lit + others is a ternary clause
-                        score += (literal_occs(others[0]) + literal_occs(others[1])) / 8.0;
-                    }
-                } else { // n-ary clauses (size > 3) containing ~lit
-                    unsigned len = clause.get_num_literals();
-                    if (len > 3) {
-                        bool has_neg = false;
-                        double to_add = 0.0;
-                        for (literal l2 : clause) {
-                            if (l2 == ~lit) {
-                                has_neg = true;
-                                continue;
-                            }
-                            if (ctx->get_assignment(l2) == l_undef) {
-                                to_add += literal_occs(l2);
-                            }
-                        }
-                        if (has_neg) {
-                            score += pow(0.5, static_cast<double>(len)) * to_add / len;
-                        }
-                    }
-                }
-            }
-
-            total += score;
-            n++;
-        }
-
-        return n ? total / n : 0.0;
-    }
-
-    double parallel::worker::march_cu_hardness(expr_ref_vector const& cube) {
-        double total = 0.0;
-        unsigned n = 0;
-
-        for (expr* e : cube) {
-            bool_var v = ctx->get_bool_var(e); 
-            literal l(v, false);
-
-            auto big_occs = [&](literal lit) {
-                unsigned count = 0;
-                for (auto* cp : ctx->m_aux_clauses) {
-                    auto& clause = *cp;
-                    if (clause.get_num_literals() >= 3) {
-                        for (literal li : clause) {
-                            if (li == lit) { count++; break; }
-                        }
-                    }
-                }
-                return count;
-            };
-
-            auto march_cu_score = [&](literal lit) {
-                double sum = 1.0;
-                // occurrences of ~lit in big clauses
-                sum += big_occs(~lit);
-
-                // binary neighbors of lit
-                for (auto* cp : ctx->m_aux_clauses) {
-                    auto& clause = *cp;
-                    if (clause.get_num_literals() == 2) { // binary clauses
-                        literal a = clause[0];
-                        literal b = clause[1];
-                        if (a == lit && ctx->get_assignment(b) == l_undef) {
-                            sum += big_occs(b);
-                        } else if (b == lit && ctx->get_assignment(a) == l_undef) {
-                            sum += big_occs(a);
-                        }
-                    }
-                }
-                return sum;
-            };
-
-            double pos = march_cu_score(l);
-            double neg = march_cu_score(~l);
-
-            double rating = 1024 * pos * neg + pos + neg + 1;
-            total += rating;
-            n++;
-        }
-
-        return n ? total / n : 0.0; // average the march scores of the literals in the cube
+        return overall_hardness;
     }
 
     void parallel::worker::run() {
@@ -247,8 +112,6 @@ namespace smt {
                     return;
                 }
                 
-                LOG_WORKER(1, " checking cube\n");
-                unsigned initial_scope_lvl = ctx->get_scope_level();
                 LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
                 lbool r = check_cube(cube);
 
@@ -264,11 +127,10 @@ namespace smt {
                         // add a split literal to the batch manager.
                         // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
                         if (!m_config.m_never_cube) {
-                            vector<expr_ref_vector> returned_cubes;
-                            returned_cubes.push_back(cube); 
+                            // vector<expr_ref_vector> returned_cubes;
+                            // returned_cubes.push_back(cube); 
                             auto split_atoms = get_split_atoms();
 
-                            LOG_WORKER(1, " CUBING\n");
                             // let's automatically do iterative deepening for beam search.
                             // when using more advanced metrics like explicit_hardness etc: need one of two things: (1) split if greater than OR EQUAL TO than avg hardness, or (3) enter this branch only when cube.size() > 0, or else we get stuck in a loop of never deepening.
                             if (m_config.m_iterative_deepening || m_config.m_beam_search) { 
@@ -276,17 +138,11 @@ namespace smt {
                                 
                                 double cube_hardness;
                                 if (m_config.m_explicit_hardness) {
-                                    cube_hardness = explicit_hardness(cube, initial_scope_lvl);
-                                    LOG_WORKER(1, " explicit hardness: " << cube_hardness << "\n");    
-                                } else if (m_config.m_march_hardness) {
-                                    cube_hardness = march_cu_hardness(cube);
-                                    LOG_WORKER(1, " march hardness: " << cube_hardness << "\n");    
-                                } else if (m_config.m_heule_schur_hardness) {
-                                    cube_hardness = heule_schur_hardness(cube);
-                                    LOG_WORKER(1, " heule schur hardness: " << cube_hardness << "\n");    
+                                    cube_hardness = explicit_hardness(cube);
+                                    // LOG_WORKER(1, " explicit hardness: " << cube_hardness << "\n");    
                                 } else { // default to naive hardness
                                     cube_hardness = naive_hardness();
-                                    LOG_WORKER(1, " naive hardness: " << cube_hardness << "\n");    
+                                    // LOG_WORKER(1, " naive hardness: " << cube_hardness << "\n");
                                 }
 
                                 const double avg_hardness = b.update_avg_cube_hardness(cube_hardness);
@@ -296,9 +152,9 @@ namespace smt {
                                 LOG_WORKER(1, " cube hardness: " << cube_hardness << " avg: " << avg_hardness << " avg*factor: " << avg_hardness * factor << " should-split: " << should_split << "\n");
                                 // we still need to call return_cubes, even if we don't split, since we need to re-enqueue the current unsolved cube to the batch manager!
                                 // should_split tells return_cubes whether to further split the unsolved cube.
-                                b.return_cubes(m_l2g, returned_cubes, split_atoms, should_split);
+                                b.return_cubes(m_l2g, cube, split_atoms, should_split);
                             } else {
-                                b.return_cubes(m_l2g, returned_cubes, split_atoms);
+                                b.return_cubes(m_l2g, cube, split_atoms);
                             }
                         }
                         if (m_config.m_backbone_detection) {
@@ -379,8 +235,6 @@ namespace smt {
         m_config.m_iterative_deepening = pp.iterative_deepening();
         m_config.m_beam_search = pp.beam_search();
         m_config.m_explicit_hardness = pp.explicit_hardness();
-        m_config.m_march_hardness = pp.march_hardness();
-        m_config.m_heule_schur_hardness = pp.heule_schur_hardness();
 
         // don't share initial units
         ctx->pop_to_base_lvl();
@@ -694,9 +548,8 @@ namespace smt {
     ------------------------------------------------------------------------------------------------------------------------------------------------------------
     Final thought (do this!): use greedy strategy by a policy when C_batch, A_batch, A_worker are "small". -- want to do this. switch to frugal strategy after reaching size limit
     */
-    void parallel::batch_manager::return_cubes(ast_translation& l2g, vector<expr_ref_vector>const& C_worker, expr_ref_vector const& A_worker, const bool should_split, const double hardness) {
+    void parallel::batch_manager::return_cubes(ast_translation& l2g, expr_ref_vector const& c, expr_ref_vector const& A_worker, const bool should_split, const double hardness) {
 //        SASSERT(!m_config.never_cube());
-        IF_VERBOSE(1, verbose_stream() << " Batch manager returning " << C_worker.size() << " cubes and " << A_worker.size() << " split atoms\n");
         auto atom_in_cube = [&](expr_ref_vector const& cube, expr* atom) {
             return any_of(cube, [&](expr* e) { return e == atom || (m.is_not(e, e) && e == atom); });
         };
@@ -718,10 +571,9 @@ namespace smt {
 
         // apply the frugal strategy to ALL incoming worker cubes, but save in the deepest cube data structure
         auto add_split_atom_deepest_cubes = [&](expr* atom) {
-            for (auto& c : C_worker) {
                 if (c.size() >= m_config.m_max_cube_depth || !should_split) {
                     IF_VERBOSE(1, verbose_stream() << " Skipping split of cube at max depth " << m_config.m_max_cube_depth << "\n";);
-                    continue;
+                    return;
                 }
                 expr_ref_vector g_cube(l2g.to());
                 for (auto& atom : c)
@@ -742,40 +594,37 @@ namespace smt {
 
                 m_stats.m_num_cubes += 2;
                 m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, d + 1);
-            }
+
         };
 
         // apply the frugal strategy to ALL incoming worker cubes, but save in the PQ data structure for beam search
         auto add_split_atom_pq = [&](expr* atom) {
             // IF_VERBOSE(1, verbose_stream() << " Adding split atom to PQ: " << mk_bounded_pp(atom, m, 3) << "\n");
-            for (auto& c : C_worker) {
+
                 if (c.size() >= m_config.m_max_cube_depth || !should_split) {
                     // IF_VERBOSE(1, verbose_stream() << " Skipping split of cube at max depth " << m_config.m_max_cube_depth << "\n";);
-                    continue;
+                    return;
                 }
 
                 expr_ref_vector g_cube(l2g.to());
                 for (auto& atom : c)
                     g_cube.push_back(l2g(atom));
-
-                // i need to split on the positive and negative atom, and add both to the PQ. the score is the depth of the cube (same for both)
-                unsigned d = g_cube.size();
                 
                 // Positive atom branch
                 expr_ref_vector cube_pos = g_cube;
                 cube_pos.push_back(atom);
-                m_cubes_pq.push(ScoredCube(d / hardness, cube_pos));
+                m_cubes_pq.push(ScoredCube(1 / hardness, cube_pos));
 
                 // Negative atom branch
                 expr_ref_vector cube_neg = g_cube;
                 cube_neg.push_back(m.mk_not(atom));
-                m_cubes_pq.push(ScoredCube(d / hardness, cube_neg));
+                m_cubes_pq.push(ScoredCube(1 / hardness, cube_neg));
 
                 // IF_VERBOSE(1, verbose_stream() << " PQ size now: " << m_cubes_pq.size() << ". PQ is empty: " << m_cubes_pq.empty() << "\n");
 
                 m_stats.m_num_cubes += 2;
-                m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, d + 1);
-            }
+                m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, g_cube.size() + 1);
+
         };
 
         std::scoped_lock lock(mux);
@@ -811,7 +660,7 @@ namespace smt {
         unsigned initial_m_cubes_size = m_cubes.size(); // where to start processing the worker cubes after splitting the EXISTING cubes on the new worker atoms
 
         // --- Phase 2: Process worker cubes (greedy) ---
-        for (auto& c : C_worker) {
+
             expr_ref_vector g_cube(l2g.to());
             for (auto& atom : c)
                 g_cube.push_back(l2g(atom));
@@ -823,7 +672,7 @@ namespace smt {
             if ((c.size() >= m_config.m_max_cube_depth || !should_split)
                     && (m_config.m_depth_splitting_only || m_config.m_iterative_deepening || m_config.m_beam_search)) {
                 if (m_config.m_beam_search) {
-                    m_cubes_pq.push(ScoredCube(g_cube.size() / hardness, g_cube)); // re-enqueue the cube as is
+                    m_cubes_pq.push(ScoredCube(1 / hardness, g_cube)); // re-enqueue the cube as is
                 } else {
                     // need to add the depth set if it doesn't exist yet
                     if (m_cubes_depth_sets.find(g_cube.size()) == m_cubes_depth_sets.end()) {
@@ -855,7 +704,6 @@ namespace smt {
                     }
                 }
             }
-        }
 
         // --- Phase 3: Frugal fallback: only process NEW worker cubes with NEW atoms ---
         if (!greedy_mode) {
