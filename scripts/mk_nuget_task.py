@@ -28,11 +28,9 @@ os_info = {  'x64-ubuntu-latest' : ('so', 'linux-x64'),
              'x64-win' : ('dll', 'win-x64'),
              'x86-win' : ('dll', 'win-x86'),
              'x64-osx' : ('dylib', 'osx-x64'),
+             'arm64-glibc' : ('so', 'linux-arm64'),
+             'arm64-osx' : ('dylib', 'osx-arm64'),
              'debian' : ('so', 'linux-x64') }
-
-# Nuget not supported for ARM
-#'arm-glibc-2.35' : ('so', 'linux-arm64'),
-#'arm64-osx' : ('dylib', 'osx-arm64'),
 
         
 
