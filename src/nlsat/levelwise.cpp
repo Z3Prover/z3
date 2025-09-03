@@ -557,6 +557,7 @@ namespace nlsat {
         void add_ord_inv_discriminant_for(const property& p) {
             polynomial_ref disc(m_pm);
             disc = discriminant(p.poly, p.level);
+            TRACE(levelwise, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
             if (!is_const(disc)) {
                 if (coeffs_are_zeroes_on_sample(disc, m_pm, sample(), m_am)) {
                     m_fail = true; // ambiguous multiplicity -- not handled yet
@@ -650,9 +651,119 @@ namespace nlsat {
             add_to_Q_if_new(property(prop_enum::connected, empty, /*level*/ p.level - 1));
             add_to_Q_if_new(property(prop_enum::repr,      empty, /*level*/ p.level - 1));
             
-
+            NOT_IMPLEMENTED_YET();
             // todo!!!! add missing preconditions
             // connected property has been processed
+            erase_from_Q(p);
+        }
+
+        void apply_pre_non_null(const property& p) {
+            TRACE(levelwise, tout << "apply_pre_non_null:";
+                  if (p.level != static_cast<unsigned>(-1)) tout << " level=" << p.level;
+                  tout << std::endl;);
+            // First try subrule 1 of Rule 4.2. If it succeeds we do not apply the fallback (subrule 2).
+            if (try_non_null_via_coeffs(p, nullptr))
+                return;
+            // fallback: apply the first subrule
+            apply_pre_non_null_fallback(p);
+         }
+
+        bool have_non_zero_const(const polynomial_ref& p, unsigned level) {
+            unsigned deg = m_pm.degree(p, level); 
+            for (unsigned j = deg; --j > 0; )
+                if (m_pm.nonzero_const_coeff(p.get(), level, j))  
+                    return true;
+
+            return false;         
+        }
+        
+        // Helper for Rule 4.2, subrule 2:
+        // If some coefficient c_j of p is constant non-zero at the sample, or
+        // if c_j evaluates non-zero at the sample and we already have sgn_inv(c_j) in m_Q,
+        // then non_null(p) holds on the region represented by 'rs' (if provided).
+        // Returns true if non_null was established and the property p was removed.
+        bool try_non_null_via_coeffs(const property& p, result_struct* rs) {
+            if (have_non_zero_const(p.poly, p.level)) {
+                TRACE(levelwise, tout << "have a non-zero const coefficient\n";);
+                erase_from_Q(p);
+                return true;
+            }
+
+            if (have_sgn_inv_property(p, p.level)) {
+                erase_from_Q(p);
+                return true;
+            }
+                
+            poly* pp = p.poly.get();
+            unsigned deg = m_pm.degree(pp, p.level);
+            for (unsigned j = 0; j <= deg; ++j) {
+                polynomial_ref coeff(m_pm);
+                coeff = m_pm.coeff(pp, p.level, j);
+                // If coefficient is constant and non-zero at sample -> non_null holds
+                if (is_const(coeff)) {
+                    SASSERT(m_pm.nonzero_const_coeff(pp, p.level, j));
+                    continue; 
+                }
+                
+                if (sign(coeff, sample(), m_am) == 0)
+                    continue;
+
+                auto it = std::find_if(m_Q.begin(), m_Q.end(), [&](const property & q) {
+                    return (q.prop_tag == prop_enum::sgn_inv_irreducible || q.prop_tag == prop_enum::sgn_inv_reducible)
+                        && q.poly == p.poly;
+                });
+                if (it != m_Q.end()) {
+                    erase_from_Q(p);
+                    return true;
+                }
+
+                add_to_Q_if_new(property(prop_enum::sgn_inv_reducible, coeff, 0u, max_var(coeff)));
+                erase_from_Q(p);
+                return true;
+            }
+            return false;
+        }
+
+        // Helper for Rule 4.2, subrule 1: fallback when subrule 2 does not apply.
+        // sample(s)(R), degx_{i+1} (p) > 1, disc(x_{i+1} (p)(s)) ̸= 0, sgn_inv(disc(x_{i+1} (p))(R) 
+        void apply_pre_non_null_fallback(const property& p) {
+            // basic sanity checks
+            if (!p.poly) {
+                TRACE(levelwise, tout << "apply_pre_non_null_fallback: null poly -> fail" << std::endl;);
+                m_fail = true;
+                return;
+            }
+            if (p.level == static_cast<unsigned>(-1)) {
+                TRACE(levelwise, tout << "apply_pre_non_null_fallback: unspecified level -> skip" << std::endl;);
+                return;
+            }
+
+            poly * pp = p.poly.get();
+            unsigned deg = m_pm.degree(pp, p.level);
+            // fallback applies only for degree > 1
+            if (deg <= 1) return;
+
+            // compute discriminant w.r.t. the variable at p.level
+            polynomial_ref disc(m_pm);
+            disc = discriminant(p.poly, p.level);
+            TRACE(levelwise, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
+
+            // If discriminant evaluates to zero at the sample, we cannot proceed
+            // (ambiguous multiplicity) -> fail per instruction
+            if (sign(disc, sample(), m_am) == 0) {
+                TRACE(levelwise, tout << "apply_pre_non_null_fallback: discriminant vanishes at sample -> failing" << std::endl;);
+                m_fail = true;
+                NOT_IMPLEMENTED_YET();
+                return;
+            }
+
+            // If discriminant is non-constant, add sign-invariance requirement for it
+            if (!is_const(disc)) {
+                unsigned lvl = max_var(disc);
+                add_to_Q_if_new(property(prop_enum::sgn_inv_irreducible, disc, /*s_idx*/ 0u, lvl));
+            }
+
+            // non_null is established by the discriminant being non-zero at the sample
             erase_from_Q(p);
         }
 
@@ -662,7 +773,9 @@ namespace nlsat {
                 apply_pre_an_del(p);
             else if (p.prop_tag == prop_enum::connected)
                 apply_pre_connected(p, rs ); 
-            else 
+            else if (p.prop_tag == prop_enum::non_null)
+                apply_pre_non_null(p);
+            else      
                 NOT_IMPLEMENTED_YET();
         }
         // return an empty vector on failure, otherwise returns the cell representations with intervals
