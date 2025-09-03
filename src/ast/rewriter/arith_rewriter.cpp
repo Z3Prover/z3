@@ -1413,7 +1413,7 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
         }
     }
 
-    expr* x, *y;
+    expr* x = nullptr, * y = nullptr, * z = nullptr;
     if (is_num2 && v2.is_pos() && m_util.is_mul(arg1, x, y) && m_util.is_numeral(x, v1, is_int) && v1 > 0 && divides(v1, v2)) {
         result = m_util.mk_mul(m_util.mk_int(v1), m_util.mk_mod(y, m_util.mk_int(v2/v1)));        
         return BR_REWRITE1;
@@ -1423,6 +1423,13 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
     if (m_util.is_mul(arg2, t1, t2) && m_util.is_numeral(t1, v1) && v1 == -1) {
         result = m_util.mk_mod(arg1, t2);
         return BR_REWRITE1;
+    }
+
+    if (m.is_ite(arg2, x, y, z)) {
+        expr_ref mod1(m_util.mk_mod(arg1, y), m);
+        expr_ref mod2(m_util.mk_mod(arg1, z), m);
+        result = m.mk_ite(x, mod1, mod2);
+        return BR_REWRITE3;
     }
 
     return BR_FAILED;
