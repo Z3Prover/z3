@@ -234,6 +234,11 @@ stages:
         artifact: 'WindowsBuild-x64'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
+      displayName: 'Download Win ARM64 Build'
+      inputs:
+        artifact: 'WindowsBuild-arm64'
+        path: $(Agent.TempDirectory)\package
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu Build'
       inputs:
         artifact: 'UbuntuBuild'
