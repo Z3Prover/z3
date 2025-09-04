@@ -66,32 +66,29 @@ namespace smt {
             auto& clause = *cp;
             unsigned n_false  = 0;
             bool satisfied = false;
+            unsigned sz = 0;
 
             // LOG_WORKER(1, " Clause has num literals: " << clause.get_num_literals() << "\n");
             for (literal l : clause) {
                 // LOG_WORKER(1, " Processing literal " << l << " with val: " << ctx->get_assignment(l) << "\n");
                 bool_var v = l.var();
 
-                lbool val = ctx->get_assignment(l);
-                if (val == l_undef) continue; 
-
-                unsigned lvl = ctx->get_assign_level(l);
-
                 // Only include assignments made after the base scope level (i.e. those made by specifically assuming the cube)
                 // LOG_WORKER(1, " Literal " << l << " at level " << lvl << " is below scope level " << ctx->get_search_level() << ": " << bool(lvl < ctx->get_search_level()) << "\n");
+                unsigned lvl = ctx->get_assign_level(l);
                 if (lvl < ctx->get_search_level()) continue;
 
+                lbool val = ctx->get_assignment(l);
                 if (val == l_true) { satisfied = true; break; }
                 if (val == l_false) n_false++;
+                sz++;
             }
             
-            if (satisfied || n_false == 0) continue; // meaning, the clause is true (at least 1 true atom), or we had no true OR false atoms so the whole thing is undefined
-            
-            unsigned sz = clause.get_num_literals();
+            if (satisfied || sz == 0) continue; 
             // LOG_WORKER(1, " Clause of size " << sz << " has " << n_false << " false literals in cube. Is satisfied: " << satisfied << "\n");
 
-            // double reduction_ratio = static_cast<double>(sz) / n_false; // n_false/sz -> higher value=easier //std::max(1u, reduction);
-            double reduction_ratio = pow(0.5, sz) * (1 / n_false);
+            // double reduction_ratio = static_cast<double>(sz) / std::max(1u, sz - n_false); // n_false/sz -> higher value=easier //std::max(1u, reduction);
+            double reduction_ratio = pow(0.5, sz) * (1.0 / std::max(1u, sz - n_false));
             // LOG_WORKER(1, " Clause contributes " << reduction_ratio << " to hardness metric. n_false: " << n_false << "\n");
             overall_hardness += reduction_ratio;
         }
@@ -146,13 +143,13 @@ namespace smt {
                                 }
 
                                 const double avg_hardness = b.update_avg_cube_hardness(cube_hardness);
-                                const double factor = 1;  // can tune for multiple of avg hardness later
-                                bool should_split = cube_hardness >= avg_hardness * factor;
+                                const double factor = 1.5;  // can tune for multiple of avg hardness later
+                                bool should_split = cube_hardness >= avg_hardness * factor; // must be >= otherwise we never deepen
                                 
                                 LOG_WORKER(1, " cube hardness: " << cube_hardness << " avg: " << avg_hardness << " avg*factor: " << avg_hardness * factor << " should-split: " << should_split << "\n");
                                 // we still need to call return_cubes, even if we don't split, since we need to re-enqueue the current unsolved cube to the batch manager!
                                 // should_split tells return_cubes whether to further split the unsolved cube.
-                                b.return_cubes(m_l2g, cube, split_atoms, should_split);
+                                b.return_cubes(m_l2g, cube, split_atoms, should_split, cube_hardness);
                             } else {
                                 b.return_cubes(m_l2g, cube, split_atoms);
                             }
@@ -672,6 +669,7 @@ namespace smt {
             if ((c.size() >= m_config.m_max_cube_depth || !should_split)
                     && (m_config.m_depth_splitting_only || m_config.m_iterative_deepening || m_config.m_beam_search)) {
                 if (m_config.m_beam_search) {
+                    // IF_VERBOSE(1, verbose_stream() << " Re-enqueuing cube in PQ with hardness: " << hardness << "\n");
                     m_cubes_pq.push(ScoredCube(1 / hardness, g_cube)); // re-enqueue the cube as is
                 } else {
                     // need to add the depth set if it doesn't exist yet
