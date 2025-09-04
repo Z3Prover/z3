@@ -1555,7 +1555,12 @@ void core::refine_pseudo_linear(monic const& m) {
     lemma_builder lemma(*this, "nla-pseudo-linear");
     lpvar nlvar = null_lpvar;
     rational prod(1);
-    for (auto v : m.vars()) {
+    for (unsigned i = 0; i < m.vars().size(); ++i) {
+        auto v = m.vars()[i];
+        if (i == m.vars().size() - 1 && nlvar == null_lpvar) {
+            nlvar = v;
+            break;
+        }
         if (lra.column_is_bounded(v) && lra.var_is_int(v)) {
             auto lb = lra.get_lower_bound(v);
             auto ub = lra.get_upper_bound(v);
@@ -1568,6 +1573,7 @@ void core::refine_pseudo_linear(monic const& m) {
         SASSERT(nlvar == null_lpvar);
         nlvar = v;
     }
+    SASSERT(nlvar != null_lpvar);
     lemma |= ineq(lp::lar_term(m.var(), rational(-prod), nlvar), llc::EQ, rational(0));
     // lemma.display(verbose_stream() << "pseudo-linear lemma\n");
 }
