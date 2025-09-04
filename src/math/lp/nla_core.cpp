@@ -1307,6 +1307,10 @@ lbool core::check() {
     
     if (no_effect())
         m_monomial_bounds.propagate();
+
+    if (no_effect() && refine_pseudo_linear())
+        return l_false;
+       
     
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
@@ -1519,6 +1523,54 @@ void core::simplify() {
 
 }
 
+bool core::is_pseudo_linear(monic const& m) const {
+    bool has_unbounded = false;
+    for (auto v : m.vars()) {
+        if (lra.column_is_bounded(v) && lra.var_is_int(v)) {
+            auto lb = lra.get_lower_bound(v);
+            auto ub = lra.get_upper_bound(v);
+            if (ub - lb <= rational(4))
+                continue;
+        }
+        if (has_unbounded)
+            return false;
+        has_unbounded = true;
+    }
+    return true;
+}
+
+bool core::refine_pseudo_linear() {
+    if (!params().arith_nl_reduce_pseudo_linear())
+        return false;
+    for (lpvar j : m_to_refine) {
+        if (is_pseudo_linear(m_emons[j])) {
+            refine_pseudo_linear(m_emons[j]);
+            return true;
+        }
+    }
+    return false;
+}
+
+void core::refine_pseudo_linear(monic const& m) {
+    lemma_builder lemma(*this, "nla-pseudo-linear");
+    lpvar nlvar = null_lpvar;
+    rational prod(1);
+    for (auto v : m.vars()) {
+        if (lra.column_is_bounded(v) && lra.var_is_int(v)) {
+            auto lb = lra.get_lower_bound(v);
+            auto ub = lra.get_upper_bound(v);
+            if (ub - lb <= rational(4)) {
+                lemma |= ineq(v, llc::NE, val(v));
+                prod *= val(v);
+                continue;
+            }
+        }
+        SASSERT(nlvar == null_lpvar);
+        nlvar = v;
+    }
+    lemma |= ineq(lp::lar_term(m.var(), rational(-prod), nlvar), llc::EQ, rational(0));
+    // lemma.display(verbose_stream() << "pseudo-linear lemma\n");
+}
 
 
 

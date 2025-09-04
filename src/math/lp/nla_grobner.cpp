@@ -841,22 +841,6 @@ namespace nla {
             m_solver.add(p, dep);
     }
 
-    bool grobner::is_pseudo_linear(unsigned_vector const& vars) const {
-        bool has_unbounded = false;
-        for (auto v : vars) {
-            if (c().lra.column_is_bounded(v) && c().lra.var_is_int(v)) {
-                auto lb = c().lra.get_lower_bound(v);
-                auto ub = c().lra.get_upper_bound(v);
-                if (ub - lb <= rational(4))
-                    continue;                
-            }
-            if (has_unbounded)
-                return false;
-            has_unbounded = true;
-        }
-        return true;
-    }
-
     void grobner::add_fixed_monic(unsigned j) {
         u_dependency* dep = nullptr;
         dd::pdd r = m_pdd_manager.mk_val(rational(1));
@@ -882,8 +866,7 @@ namespace nla {
         TRACE(grobner, for (lpvar j : c().m_to_refine) print_monic(c().emons()[j], tout) << "\n";);
          
         for (lpvar j : c().m_to_refine)
-            if (!is_pseudo_linear(c().emons()[j].vars()))
-                q.push_back(j);
+            q.push_back(j);
     
         while (!q.empty()) {
             lpvar j = q.back();        
