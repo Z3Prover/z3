@@ -50,6 +50,7 @@ namespace nlsat {
         pmanager&                    m_pm;
         anum_manager&                m_am;
         std::vector<property>        m_Q; // the set of properties to prove
+        std::vector<symbolic_interval> m_I; // intervals per level (indexed by variable/level)
         bool                         m_fail = false; 
         bool                         m_Q_changed = false; // tracks mutations to m_Q for fixed-point iteration
         // Property precedence relation stored as pairs (lesser, greater)
@@ -147,14 +148,14 @@ namespace nlsat {
           ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent roots }.
         */
         // Helper 1: scan input polynomials, add sgn_inv / an_del properties and collect polynomials at level m_n
-        void collect_level_properties(std::vector<property> & Q, std::vector<poly*> & ps_of_n_level) {
+        void collect_level_properties(std::vector<poly*> & ps_of_n_level) {
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 poly* p = m_P[i];
                 unsigned level = max_var(p);
                 if (level < m_n)
-                    Q.push_back(property(prop_enum::sgn_inv_irreducible, polynomial_ref(p, m_pm), /*s_idx*/0u, /* level */ level));
+                    m_Q.push_back(property(prop_enum::sgn_inv_irreducible, polynomial_ref(p, m_pm), /*s_idx*/0u, /* level */ level));
                 else if (level == m_n){
-                    Q.push_back(property(prop_enum::an_del, polynomial_ref(p, m_pm), /* s_idx */ -1, level));
+                    m_Q.push_back(property(prop_enum::an_del, polynomial_ref(p, m_pm), /* s_idx */ -1, level));
                     ps_of_n_level.push_back(p);
                 }
                 else {
@@ -180,7 +181,7 @@ namespace nlsat {
         // Helper 3: given collected roots (possibly unsorted), sort them, and add ord_inv(resultant(...))
         // for adjacent roots coming from different polynomials. Avoid adding the same unordered pair twice.
         // Returns false on failure (e.g. when encountering an ambiguous zero resultant).
-        bool add_adjacent_resultants(std::vector<std::pair<scoped_anum, poly*>> & root_vals, std::vector<property> & Q) {
+        bool add_adjacent_resultants(std::vector<std::pair<scoped_anum, poly*>> & root_vals) {
             if (root_vals.size() < 2) return true;
             std::sort(root_vals.begin(), root_vals.end(), [&](auto const & a, auto const & b){ return m_am.lt(a.first, b.first); });
             std::set<std::pair<unsigned,unsigned>> added_pairs;
@@ -201,7 +202,7 @@ namespace nlsat {
                     NOT_IMPLEMENTED_YET();// ambiguous resultant - not handled yet
                     return false;
                 }
-                Q.push_back(property(prop_enum::ord_inv_irreducible, r, /*s_idx*/ -1, max_var(r)));
+                m_Q.push_back(property(prop_enum::ord_inv_irreducible, r, /*s_idx*/ -1, max_var(r)));
             }
             return true;
         }
@@ -211,29 +212,15 @@ namespace nlsat {
           ∪ { an_del(p)  | level(p) == m_n }
           ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent root functions }.
         */
-        std::vector<property> seed_properties() {
-            std::vector<property> Q;
-
+        void seed_properties() {
             std::vector<poly*> ps_of_n_level;
-            collect_level_properties(Q, ps_of_n_level);
+            collect_level_properties(ps_of_n_level);
             std::vector<std::pair<scoped_anum, poly*>> root_vals;
             collect_roots_for_ps(ps_of_n_level, root_vals);
-            if (!add_adjacent_resultants(root_vals, Q)) {
+            if (!add_adjacent_resultants(root_vals))
                 m_fail = true;
-                return Q;
-            }
-            return Q;
         }
         
-        struct result_struct {
-            symbolic_interval I;
-            // Set E of indexed root expressions at level i for P_non_null: the root functions from E pass throug s[i]
-            std::vector<indexed_root_expr> E;
-            // omega_buckets removed: sort roots by value instead of grouping into buckets
-            std::vector<property> Q;
-            bool fail = false;
-        };
-
         // Internal carrier to keep root value paired with indexed root expr
         struct root_item_t {
             scoped_anum val;
@@ -247,7 +234,7 @@ namespace nlsat {
             root_item_t& operator=(root_item_t&& other) noexcept { val = other.val; ire = other.ire; return *this; }
         };
 
-        // Compute symbolic interval I from sorted roots. Assumes roots are sorted.
+        // Compute symbolic interval from sorted roots. Assumes roots are sorted.
         void compute_interval_from_sorted_roots(unsigned i,
                                                 std::vector<root_item_t>& roots,
                                                 symbolic_interval& I) {
@@ -298,172 +285,173 @@ namespace nlsat {
         // directly on a sorted vector<root_item_t>.
 
         // Part A of construct_interval: apply pre-conditions (line 8-11 scaffolding)
-        bool apply_property_rules(unsigned i, prop_enum prop_to_avoid, result_struct* rs) {
-            // Iterate until no mutation to m_Q occurs (fixed-point). We avoid copying m_Q
-            // by using a change flag that is set by mutating helpers (add_to_Q_if_new / erase_from_Q).
-            if (m_fail) return false;
-            do {
-                m_Q_changed = false;
-                std::vector<property> to_refine = greatest_to_refine(i, prop_to_avoid);
-                for (const auto& p : to_refine) {
-                    apply_pre(p, rs);
-                    if (m_fail) return false;
-                }
-            } while (m_Q_changed && !m_fail);
-            return !m_fail;
-        }
+        bool apply_property_rules(unsigned i, prop_enum prop_to_avoid, bool has_repr) {
+             // Iterate until no mutation to m_Q occurs (fixed-point). We avoid copying m_Q
+             // by using a change flag that is set by mutating helpers (add_to_Q_if_new / erase_from_Q).
+             if (m_fail) return false;
+             do {
+                 m_Q_changed = false;
+                 std::vector<property> to_refine = greatest_to_refine(i, prop_to_avoid);
+                 for (const auto& p : to_refine) {
+                    apply_pre(p, has_repr);
+                     if (m_fail) return false;
+                 }
+             } while (m_Q_changed && !m_fail);
+             return !m_fail;
+         }
 
-        // Part B of construct_interval: build (I, E, ≼) representation for level i
-        void build_representation(unsigned i, result_struct& ret) {
-            std::vector<const poly*> p_non_null;
-            for (const auto & pr: m_Q) {
-                if (pr.prop_tag == prop_enum::sgn_inv_irreducible && max_var(pr.poly) == i && 
-                    !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
-                    p_non_null.push_back(pr.poly.get());
-            }
-            std::vector<root_item_t> roots;
-            collect_E_and_roots(p_non_null, i, ret.E, roots);
-            // Do not use omega_buckets: sort roots by their algebraic value and compute the interval
-            std::sort(roots.begin(), roots.end(), [&](root_item_t const& a, root_item_t const& b){
-                return m_am.lt(a.val, b.val);
-            });
-            compute_interval_from_sorted_roots(i, roots, ret.I);
-        }
+         // Part B of construct_interval: build (I, E, ≼) representation for level i
+         void build_representation(unsigned i) {
+             std::vector<const poly*> p_non_null;
+             for (const auto & pr: m_Q) {
+                 if (pr.prop_tag == prop_enum::sgn_inv_irreducible && max_var(pr.poly) == i && 
+                     !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
+                     p_non_null.push_back(pr.poly.get());
+             }
+             std::vector<root_item_t> roots;
+             std::vector<indexed_root_expr> E;
+             collect_E_and_roots(p_non_null, i, E, roots);
+             // Ensure m_I can hold interval for this level
+             if (m_I.size() <= i) m_I.resize(i+1);
+             std::sort(roots.begin(), roots.end(), [&](root_item_t const& a, root_item_t const& b){
+                 return m_am.lt(a.val, b.val);
+             });
+             compute_interval_from_sorted_roots(i, roots, m_I[i]);
+         }
 
-        std::vector<property> greatest_to_refine(unsigned level, prop_enum prop_to_avoid) {
-            // Collect candidates on current level, excluding sgn_inv_irreducible
-            std::vector<property> cand;
-            cand.reserve(m_Q.size());
-            for (const auto& q : m_Q)
-                if (q.level == level && q.prop_tag != prop_to_avoid)
-                    cand.push_back(q);
-            if (cand.empty()) return {};
+         std::vector<property> greatest_to_refine(unsigned level, prop_enum prop_to_avoid) {
+             // Collect candidates on current level, excluding sgn_inv_irreducible
+             std::vector<property> cand;
+             cand.reserve(m_Q.size());
+             for (const auto& q : m_Q)
+                 if (q.level == level && q.prop_tag != prop_to_avoid)
+                     cand.push_back(q);
+             if (cand.empty()) return {};
 
-            // Determine maxima w.r.t. ▹ using the transitive closure matrix
-            // Dominance requires the same polynomial in both compared properties
-            std::vector<bool> dominated(cand.size(), false);
-            for (size_t i = 0; i < cand.size(); ++i) {
-                for (size_t j = 0; j < cand.size(); ++j) {
-                    if (i != j && dominates(cand[j], cand[i])) {
-                        dominated[i] = true;
-                        break;
-                    }
-                }
-            }
-            auto poly_id = [cand](unsigned i) { return cand[i].poly == nullptr? UINT_MAX: polynomial::manager::id(cand[i].poly);};
-            // Extract non-dominated (greatest) candidates; keep deterministic order by (poly id, prop enum)
-            struct Key { unsigned pid; unsigned pprop; size_t idx; };
-            std::vector<Key> keys;
-            keys.reserve(cand.size());
-            for (size_t i = 0; i < cand.size(); ++i) {
-                if (!dominated[i]) {
-                    keys.push_back(Key{ poly_id(i), static_cast<unsigned>(cand[i].prop_tag), i });
-                }
-            }
-            std::sort(keys.begin(), keys.end(), [](Key const& a, Key const& b){
-                if (a.pid != b.pid) return a.pid < b.pid;
-                return a.pprop < b.pprop;
-            });
-            std::vector<property> ret;
-            ret.reserve(keys.size());
-            for (auto const& k : keys) ret.push_back(cand[k.idx]);
-            return ret;
-        }
+             // Determine maxima w.r.t. ▹ using the transitive closure matrix
+             // Dominance requires the same polynomial in both compared properties
+             std::vector<bool> dominated(cand.size(), false);
+             for (size_t i = 0; i < cand.size(); ++i) {
+                 for (size_t j = 0; j < cand.size(); ++j) {
+                     if (i != j && dominates(cand[j], cand[i])) {
+                         dominated[i] = true;
+                         break;
+                     }
+                 }
+             }
+             auto poly_id = [cand](unsigned i) { return cand[i].poly == nullptr? UINT_MAX: polynomial::manager::id(cand[i].poly);};
+             // Extract non-dominated (greatest) candidates; keep deterministic order by (poly id, prop enum)
+             struct Key { unsigned pid; unsigned pprop; size_t idx; };
+             std::vector<Key> keys;
+             keys.reserve(cand.size());
+             for (size_t i = 0; i < cand.size(); ++i) {
+                 if (!dominated[i]) {
+                     keys.push_back(Key{ poly_id(i), static_cast<unsigned>(cand[i].prop_tag), i });
+                 }
+             }
+             std::sort(keys.begin(), keys.end(), [](Key const& a, Key const& b){
+                 if (a.pid != b.pid) return a.pid < b.pid;
+                 return a.pprop < b.pprop;
+             });
+             std::vector<property> ret;
+             ret.reserve(keys.size());
+             for (auto const& k : keys) ret.push_back(cand[k.idx]);
+             return ret;
+         }
 
-        // Step 1a: collect E and root values
-        void collect_E_and_roots(std::vector<const poly*> const& P_non_null,
-                                 unsigned i,
-                                 std::vector<indexed_root_expr>& E,
-                                 std::vector<root_item_t>& roots_out) {
-            var y = i;
-            for (auto const* p0 : P_non_null) {
-                auto* p = const_cast<poly*>(p0);
-                if (m_pm.max_var(p) != y)
-                    continue;
-                scoped_anum_vector roots(m_am);
-                m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), y), roots);
+         // Step 1a: collect E and root values
+         void collect_E_and_roots(std::vector<const poly*> const& P_non_null,
+                                  unsigned i,
+                                  std::vector<indexed_root_expr>& E,
+                                  std::vector<root_item_t>& roots_out) {
+             var y = i;
+             for (auto const* p0 : P_non_null) {
+                 auto* p = const_cast<poly*>(p0);
+                 if (m_pm.max_var(p) != y)
+                     continue;
+                 scoped_anum_vector roots(m_am);
+                 m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), y), roots);
 
-                unsigned num_roots = roots.size();
-                TRACE(levelwise,
-                      tout << "roots (" << num_roots << "):";
-                      for (unsigned kk = 0; kk < num_roots; ++kk) {
-                          tout << " "; m_am.display(tout, roots[kk]);
-                      }
-                      tout << std::endl;
-                );
-                for (unsigned k = 0; k < num_roots; ++k) {
-                    E.push_back(indexed_root_expr{ p, k + 1 });
-                    roots_out.emplace_back(m_am, p, k + 1, roots[k]);
-                }
-            }
-        }
+                 unsigned num_roots = roots.size();
+                 TRACE(levelwise,
+                       tout << "roots (" << num_roots << "):";
+                       for (unsigned kk = 0; kk < num_roots; ++kk) {
+                           tout << " "; m_am.display(tout, roots[kk]);
+                       }
+                       tout << std::endl;
+                 );
+                 for (unsigned k = 0; k < num_roots; ++k) {
+                     E.push_back(indexed_root_expr{ p, k + 1 });
+                     roots_out.emplace_back(m_am, p, k + 1, roots[k]);
+                 }
+             }
+         }
 
-        // Helper: add a property to m_Q if an equivalent one is not already present.
-        // Equivalence: same prop_tag and same level; if pr.poly is non-null, require the same poly as well.
-        void add_to_Q_if_new(const property & pr) {
-            for (auto const & q : m_Q) {
-                if (q.prop_tag != pr.prop_tag) continue;
-                if (q.level != pr.level) continue;
-                if (pr.poly) {
-                    if (q.poly == pr.poly) return;
-                    else continue;
-                }
-                // pr.poly is null -> match by prop_tag + level only
-                return;
-            }
-            m_Q.push_back(pr);
-            m_Q_changed = true;
-        }
+         // Helper: add a property to m_Q if an equivalent one is not already present.
+         // Equivalence: same prop_tag and same level; if pr.poly is non-null, require the same poly as well.
+         void add_to_Q_if_new(const property & pr) {
+             for (auto const & q : m_Q) {
+                 if (q.prop_tag != pr.prop_tag) continue;
+                 if (q.level != pr.level) continue;
+                 if (pr.poly) {
+                     if (q.poly == pr.poly) return;
+                     else continue;
+                 }
+                 // pr.poly is null -> match by prop_tag + level only
+                 return;
+             }
+             m_Q.push_back(pr);
+             m_Q_changed = true;
+         }
 
-        void remove_level_i_from_Q(std::vector<property> & Q, unsigned i) {
-            Q.erase(std::remove_if(Q.begin(), Q.end(),
-                                   [i](const property &p) { return p.level == i; }),
-            Q.end());
-        }
+         void remove_level_i_from_Q(std::vector<property> & Q, unsigned i) {
+             Q.erase(std::remove_if(Q.begin(), Q.end(),
+                                    [i](const property &p) { return p.level == i; }),
+             Q.end());
+         }
 
-        void erase_from_Q(const property& p) {
-            auto it = std::find_if(m_Q.begin(), m_Q.end(), [&](const property & q) {
-                return q.prop_tag == p.prop_tag && q.poly == p.poly && q.level == p.level && q.s_idx == p.s_idx;
-            });
-            SASSERT(it != m_Q.end());
-            m_Q.erase(it);
-            m_Q_changed = true;
-        }
+         void erase_from_Q(const property& p) {
+             auto it = std::find_if(m_Q.begin(), m_Q.end(), [&](const property & q) {
+                 return q.prop_tag == p.prop_tag && q.poly == p.poly && q.level == p.level && q.s_idx == p.s_idx;
+             });
+             SASSERT(it != m_Q.end());
+             m_Q.erase(it);
+             m_Q_changed = true;
+         }
         
-        result_struct construct_interval(unsigned i) {
-            result_struct ret;
-            if (!apply_property_rules(i, prop_enum::sgn_inv_irreducible, nullptr)) {
-                ret.fail = true;
-                return ret;
+        // construct_interval: compute representation for level i and apply post rules.
+        // Returns true on failure.
+        bool construct_interval(unsigned i) {
+            if (!apply_property_rules(i, prop_enum::sgn_inv_irreducible, false)) {
+                return true;
             }
 
-            build_representation(i, ret);
-            apply_property_rules(i, prop_enum(prop_enum::holds), & ret);
+            build_representation(i);
+            // apply post-processing that may rely on the representation being present
+            if (!apply_property_rules(i, prop_enum(prop_enum::holds), true))
+                return true;
 
-            // (moved Rule 1.1 precondition handling into apply_pre_connected)
-
-            ret.Q = m_Q;
-            ret.fail = m_fail;
-            remove_level_i_from_Q(ret.Q, i);
-            return ret;
+            // remove properties at level i from m_Q (they are consumed by this level)
+            remove_level_i_from_Q(m_Q, i);
+            return m_fail;
         }
-        // Extracted helper: handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
-        void add_ord_inv_discriminant_for(const property& p) {
-            polynomial_ref disc(m_pm);
-            disc = discriminant(p.poly, p.level);
-            TRACE(levelwise, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
-            if (!is_const(disc)) {
-                if (coeffs_are_zeroes_on_sample(disc, m_pm, sample(), m_am)) {
-                    m_fail = true; // ambiguous multiplicity -- not handled yet
-                    NOT_IMPLEMENTED_YET();
-                    return;
-                }
-                else {
-                    unsigned lvl = max_var(disc);
-                    add_to_Q_if_new(property(prop_enum::ord_inv_irreducible, disc, /*s_idx*/ 0u, lvl));
-                }
-            }
-        }
+         // Extracted helper: handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
+         void add_ord_inv_discriminant_for(const property& p) {
+             polynomial_ref disc(m_pm);
+             disc = discriminant(p.poly, p.level);
+             TRACE(levelwise, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
+             if (!is_const(disc)) {
+                 if (coeffs_are_zeroes_on_sample(disc, m_pm, sample(), m_am)) {
+                     m_fail = true; // ambiguous multiplicity -- not handled yet
+                     NOT_IMPLEMENTED_YET();
+                     return;
+                 }
+                 else {
+                     unsigned lvl = max_var(disc);
+                     add_to_Q_if_new(property(prop_enum::ord_inv_irreducible, disc, /*s_idx*/ 0u, lvl));
+                 }
+             }
+         }
 
         // Extracted helper: handle sgn_inv(leading_coefficient_{x_{i+1}}(p)) for an_del pre-processing
         void add_sgn_inv_leading_coeff_for(const property& p) {
@@ -522,7 +510,7 @@ namespace nlsat {
         }
 
         // Pre-processing for connected(i) (Rule 4.11)
-        void apply_pre_connected(const property & p, result_struct* rs) {
+        void apply_pre_connected(const property & p, bool has_repr) {
             TRACE(levelwise, tout << "connected:";
                   if (p.level != static_cast<unsigned>(-1)) tout << " level=" << p.level;
                   tout << std::endl;);
@@ -536,7 +524,7 @@ namespace nlsat {
             }
 
             // p.level > 0
-            if (!rs) return; // no change since the interval etc is not there
+            if (!has_repr) return; // no change since the interval etc is not there
             // Rule 1.1 precondition: when processing connected(i) we must ensure the next lower level
             // has connected(i-1) and repr(I,s) available. Add those markers to m_Q so they propagate.
 
@@ -554,7 +542,7 @@ namespace nlsat {
                   if (p.level != static_cast<unsigned>(-1)) tout << " level=" << p.level;
                   tout << std::endl;);
             // First try subrule 1 of Rule 4.2. If it succeeds we do not apply the fallback (subrule 2).
-            if (try_non_null_via_coeffs(p, nullptr))
+            if (try_non_null_via_coeffs(p))
                 return;
             // fallback: apply the first subrule
             apply_pre_non_null_fallback(p);
@@ -574,13 +562,13 @@ namespace nlsat {
         // if c_j evaluates non-zero at the sample and we already have sgn_inv(c_j) in m_Q,
         // then non_null(p) holds on the region represented by 'rs' (if provided).
         // Returns true if non_null was established and the property p was removed.
-        bool try_non_null_via_coeffs(const property& p, result_struct* rs) {
+        bool try_non_null_via_coeffs(const property& p) {
             if (have_non_zero_const(p.poly, p.level)) {
                 TRACE(levelwise, tout << "have a non-zero const coefficient\n";);
                 erase_from_Q(p);
                 return true;
             }
-   
+    
             poly* pp = p.poly.get();
             unsigned deg = m_pm.degree(pp, p.level);
             for (unsigned j = 0; j <= deg; ++j) {
@@ -596,17 +584,17 @@ namespace nlsat {
                     continue;
 
                 auto it = std::find_if(m_Q.begin(), m_Q.end(), [&](const property & q) {
-                    return (q.prop_tag == prop_enum::sgn_inv_irreducible || q.prop_tag == prop_enum::sgn_inv_reducible)
-                        && q.poly == p.poly;
-                });
-                if (it != m_Q.end()) {
-                    erase_from_Q(p);
-                    return true;
-                }
+                     return (q.prop_tag == prop_enum::sgn_inv_irreducible || q.prop_tag == prop_enum::sgn_inv_reducible)
+                         && q.poly == p.poly;
+                 });
+                 if (it != m_Q.end()) {
+                     erase_from_Q(p);
+                     return true;
+                 }
 
-                add_to_Q_if_new(property(prop_enum::sgn_inv_reducible, coeff, 0u, max_var(coeff)));
-                erase_from_Q(p);
-                return true;
+                 add_to_Q_if_new(property(prop_enum::sgn_inv_reducible, coeff, 0u, max_var(coeff)));
+                 erase_from_Q(p);
+                 return true;
             }
             return false;
         }
@@ -654,39 +642,35 @@ namespace nlsat {
             erase_from_Q(p);
         }
 
-        void apply_pre(const property& p, result_struct* rs) {
+        void apply_pre(const property& p, bool has_repr) {
             TRACE(levelwise, display(tout << "property p:", p) << std::endl;);
             if (p.prop_tag == prop_enum::an_del)
                 apply_pre_an_del(p);
             else if (p.prop_tag == prop_enum::connected)
-                apply_pre_connected(p, rs ); 
+                apply_pre_connected(p, has_repr ); 
             else if (p.prop_tag == prop_enum::non_null)
                 apply_pre_non_null(p);
             else      
                 NOT_IMPLEMENTED_YET();
-        }
+         }
         // return an empty vector on failure, otherwise returns the cell representations with intervals
         std::vector<symbolic_interval> single_cell() {
             TRACE(levelwise,
-                  m_solver.display_assignment(tout << "sample()") << std::endl;
-                  tout << "m_P:\n";
-                  for (const auto & p: m_P) {
-                      ::nlsat::display(tout, m_solver, polynomial_ref(p, m_pm)) << std::endl;
-                      tout << "max_var:" << m_pm.max_var(p) << std::endl;
-                  }
-                );
-            std::vector<symbolic_interval> ret;
-            m_Q = seed_properties(); // Q is the set of properties on level m_n
-            apply_property_rules(m_n, prop_enum::_count, nullptr); // reduce the level by one to be consumed by construct_interval
+                   m_solver.display_assignment(tout << "sample()") << std::endl;
+                   tout << "m_P:\n";
+                   for (const auto & p: m_P) {
+                       ::nlsat::display(tout, m_solver, polynomial_ref(p, m_pm)) << std::endl;
+                       tout << "max_var:" << m_pm.max_var(p) << std::endl;
+                   }
+                 );
+            seed_properties(); // initializes m_Q as the set of properties on level m_n
+            apply_property_rules(m_n, prop_enum::_count, false); // reduce the level by one to be consumed by construct_interval
             for (unsigned i = m_n; --i > 0; ) {
-                auto result = construct_interval(i);
-                if (result.fail)
+                if (!construct_interval(i))
                     return std::vector<symbolic_interval>(); // return empty
-                ret.push_back(result.I);
-                m_Q = result.Q;
             }
-
-            return ret; // the order is reversed!
+            
+            return m_I; // the order of intervals is reversed
         }
         
         bool dominates(const property& a, const property& b) const {
