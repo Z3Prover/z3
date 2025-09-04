@@ -229,20 +229,9 @@ namespace nlsat {
             symbolic_interval I;
             // Set E of indexed root expressions at level i for P_non_null: the root functions from E pass throug s[i]
             std::vector<indexed_root_expr> E;
-            // Initial ordering buckets for omega: each bucket groups equal-valued roots
-            std::vector<std::vector<indexed_root_expr>> omega_buckets;
+            // omega_buckets removed: sort roots by value instead of grouping into buckets
             std::vector<property> Q;
             bool fail = false;
-        };
-
-        // Bucket of equal-valued roots used for initial omega ordering
-        struct bucket_t {
-            scoped_anum val;
-            std::vector<indexed_root_expr> members;
-            bucket_t(anum_manager& am): val(am) {}
-            bucket_t(bucket_t&& other) noexcept : val(other.val.m()), members(std::move(other.members)) { val = other.val; }
-            bucket_t(bucket_t const&) = delete;
-            bucket_t& operator=(bucket_t const&) = delete;
         };
 
         // Internal carrier to keep root value paired with indexed root expr
@@ -254,50 +243,93 @@ namespace nlsat {
             root_item_t(root_item_t&& other) noexcept : val(other.val.m()), ire(other.ire) { val = other.val; }
             root_item_t(root_item_t const&) = delete;
             root_item_t& operator=(root_item_t const&) = delete;
+            // allow move-assignment so we can sort a vector<root_item_t>
+            root_item_t& operator=(root_item_t&& other) noexcept { val = other.val; ire = other.ire; return *this; }
         };
 
-        bool dominates(const property& a, const property& b) const {
-            return a.poly == b.poly && dominates(a.prop_tag, b.prop_tag);
-        }
-        bool dominates(prop_enum a, prop_enum b) const {
-            return m_prop_dom[static_cast<unsigned>(a)][static_cast<unsigned>(b)];
-        }
-        
-        // Pretty-print helpers
-        static const char* prop_name(prop_enum p) {
-            switch (p) {
-            case prop_enum::ir_ord:               return "ir_ord";
-            case prop_enum::an_del:               return "an_del";
-            case prop_enum::non_null:             return "non_null";
-            case prop_enum::ord_inv_reducible:    return "ord_inv_reducible";
-            case prop_enum::ord_inv_irreducible:  return "ord_inv_irreducible";
-            case prop_enum::sgn_inv_reducible:    return "sgn_inv_reducible";
-            case prop_enum::sgn_inv_irreducible:  return "sgn_inv_irreducible";
-            case prop_enum::connected:            return "connected";
-            case prop_enum::an_sub:               return "an_sub";
-            case prop_enum::sample:               return "sample";
-            case prop_enum::repr:                 return "repr";
-            case prop_enum::holds:                return "holds";
-            case prop_enum::_count:               return "_count";
+        // Compute symbolic interval I from sorted roots. Assumes roots are sorted.
+        void compute_interval_from_sorted_roots(unsigned i,
+                                                std::vector<root_item_t>& roots,
+                                                symbolic_interval& I) {
+            // default: whole line sector (-inf, +inf)
+            I.section = false;
+            I.l = nullptr; I.u = nullptr; I.l_index = 0; I.u_index = 0;
+
+            var y = i;
+            if (!sample().is_assigned(y))
+                return;
+            anum const& y_val = sample().value(y);
+            if (roots.empty()) return;
+
+            // find first index where roots[idx].val >= y_val
+            size_t idx = 0;
+            while (idx < roots.size() && m_am.compare(roots[idx].val, y_val) < 0) ++idx;
+
+            if (idx < roots.size() && m_am.compare(roots[idx].val, y_val) == 0) {
+                // sample matches a root value -> section
+                // find start of equal-valued group
+                size_t start = idx;
+                while (start > 0 && m_am.compare(roots[start-1].val, roots[idx].val) == 0) --start;
+                auto const& ire = roots[start].ire;
+                I.section = true;
+                I.l = ire.p; I.l_index = ire.i;
+                I.u = nullptr; I.u_index = 0;
+                return;
             }
-            return "?";
+
+            // sector: lower bound is last root with val < y, upper bound is first root with val > y
+            if (idx > 0) {
+                // find start of equal-valued group for lower bound
+                size_t start = idx - 1;
+                while (start > 0 && m_am.compare(roots[start-1].val, roots[start].val) == 0) --start;
+                auto const& ire = roots[start].ire;
+                I.l = ire.p; I.l_index = ire.i;
+            }
+            if (idx < roots.size()) {
+                size_t start = idx;
+                while (start > 0 && m_am.compare(roots[start-1].val, roots[start].val) == 0) --start;
+                auto const& ire = roots[start].ire;
+                I.u = ire.p; I.u_index = ire.i;
+            }
         }
 
-        std::ostream& display(std::ostream& out, const property & pr) {
-            out << "{prop:" << prop_name(pr.prop_tag);
-            if (pr.level != -1) out   << ", level:" << pr.level;
-            if (pr.s_idx != -1) out   << ", s_idx:" << pr.s_idx;
-            if (pr.poly) {
-                out << ", poly:";
-                ::nlsat::display(out, m_solver, pr.poly);
-            }
-            else {
-                out << ", p:null";
-            }
-            out << "}";
-            return out;
+        // Step 1b/2: old bucket-based helpers removed. The implementation now uses
+        // compute_interval_from_sorted_roots which operates
+        // directly on a sorted vector<root_item_t>.
+
+        // Part A of construct_interval: apply pre-conditions (line 8-11 scaffolding)
+        bool apply_property_rules(unsigned i, prop_enum prop_to_avoid, result_struct* rs) {
+            // Iterate until no mutation to m_Q occurs (fixed-point). We avoid copying m_Q
+            // by using a change flag that is set by mutating helpers (add_to_Q_if_new / erase_from_Q).
+            if (m_fail) return false;
+            do {
+                m_Q_changed = false;
+                std::vector<property> to_refine = greatest_to_refine(i, prop_to_avoid);
+                for (const auto& p : to_refine) {
+                    apply_pre(p, rs);
+                    if (m_fail) return false;
+                }
+            } while (m_Q_changed && !m_fail);
+            return !m_fail;
         }
-        
+
+        // Part B of construct_interval: build (I, E, ≼) representation for level i
+        void build_representation(unsigned i, result_struct& ret) {
+            std::vector<const poly*> p_non_null;
+            for (const auto & pr: m_Q) {
+                if (pr.prop_tag == prop_enum::sgn_inv_irreducible && max_var(pr.poly) == i && 
+                    !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
+                    p_non_null.push_back(pr.poly.get());
+            }
+            std::vector<root_item_t> roots;
+            collect_E_and_roots(p_non_null, i, ret.E, roots);
+            // Do not use omega_buckets: sort roots by their algebraic value and compute the interval
+            std::sort(roots.begin(), roots.end(), [&](root_item_t const& a, root_item_t const& b){
+                return m_am.lt(a.val, b.val);
+            });
+            compute_interval_from_sorted_roots(i, roots, ret.I);
+        }
+
         std::vector<property> greatest_to_refine(unsigned level, prop_enum prop_to_avoid) {
             // Collect candidates on current level, excluding sgn_inv_irreducible
             std::vector<property> cand;
@@ -337,7 +369,7 @@ namespace nlsat {
             for (auto const& k : keys) ret.push_back(cand[k.idx]);
             return ret;
         }
-        
+
         // Step 1a: collect E and root values
         void collect_E_and_roots(std::vector<const poly*> const& P_non_null,
                                  unsigned i,
@@ -364,144 +396,6 @@ namespace nlsat {
                     roots_out.emplace_back(m_am, p, k + 1, roots[k]);
                 }
             }
-        }
-
-        // Find an existing bucket that has the same algebraic value; returns nullptr if none found
-        bucket_t* find_bucket_by_value(anum const& v,
-                                       std::vector<std::unique_ptr<bucket_t>>& buckets) {
-            for (auto& b : buckets)
-                if (m_am.compare(v, b->val) == 0)
-                    return b.get();
-            return nullptr;
-        }
-
-        // Append a root to a given bucket (does not change the bucket's value)
-        void add_root_to_bucket(bucket_t& bucket, root_item_t const& r) {
-            bucket.members.push_back(r.ire);
-        }
-
-        // Step 1b: bucketize roots by equality of values
-        void add_root_to_buckets(root_item_t const& r,
-                                 std::vector<std::unique_ptr<bucket_t>>& buckets) {
-            if (auto* b = find_bucket_by_value(r.val, buckets)) {
-                add_root_to_bucket(*b, r);
-                return;
-            }
-            auto nb = std::make_unique<bucket_t>(m_am);
-            m_am.set(nb->val, r.val);
-            add_root_to_bucket(*nb, r);
-            buckets.push_back(std::move(nb));
-        }
-
-        void bucketize_roots(std::vector<root_item_t> const& roots,
-                             std::vector<std::unique_ptr<bucket_t>>& buckets) {
-            for (auto const& r : roots)
-                add_root_to_buckets(r, buckets);
-        }
-
-        // Step 2a: sort buckets and form omega_buckets
-        void build_omega_buckets(std::vector<std::unique_ptr<bucket_t>>& buckets,
-                                 std::vector<std::vector<indexed_root_expr>>& omega_buckets) {
-            std::sort(buckets.begin(), buckets.end(), [&](std::unique_ptr<bucket_t> const& a, std::unique_ptr<bucket_t> const& b){
-                return m_am.lt(a->val, b->val);
-            });
-            omega_buckets.clear();
-            omega_buckets.reserve(buckets.size());
-            for (auto& b : buckets)
-                omega_buckets.push_back(b->members);
-        }
-
-        // Helper: set I as a section if sample matches a bucket value; returns true if set
-        bool initialize_section_from_bucket(unsigned i,
-                                      std::vector<std::unique_ptr<bucket_t>>& buckets,
-                                      symbolic_interval& I) {
-            var y = i;
-            if (!sample().is_assigned(y))
-                return false;
-            anum const& y_val = sample().value(y);
-            for (auto const& b : buckets) {
-                if (m_am.compare(y_val, b->val) == 0) {
-                    I.section = true;
-                    auto const& ire = b->members.front();
-                    I.l = ire.p;
-                    I.l_index = ire.i;
-                    I.u = nullptr; I.u_index = 0;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        // Helper: set sector bounds from neighboring buckets; assumes buckets sorted; no-op if sample unassigned
-        void set_sector_bounds_from_buckets(unsigned i,
-                                            std::vector<std::unique_ptr<bucket_t>>& buckets,
-                                            symbolic_interval& I) {
-            var y = i;
-            if (!sample().is_assigned(y))
-                return;
-            anum const& y_val = sample().value(y);
-            bucket_t* lower_b = nullptr;
-            bucket_t* upper_b = nullptr;
-            for (auto& b : buckets) {
-                int cmp = m_am.compare(y_val, b->val);
-                if (cmp > 0) lower_b = b.get();
-                else if (cmp < 0) { upper_b = b.get(); break; }
-            }
-            if (lower_b) {
-                auto const& ire = lower_b->members.front();
-                I.l = ire.p;
-                I.l_index = ire.i;
-            }
-            if (upper_b) {
-                auto const& ire = upper_b->members.front();
-                I.u = ire.p;
-                I.u_index = ire.i;
-            }
-        }
-
-        // Step 2b: compute interval I from (sorted) buckets and current sample
-        void compute_interval_from_buckets(unsigned i,
-                                           std::vector<std::unique_ptr<bucket_t>>& buckets,
-                                           symbolic_interval& I) {
-            // default: whole line sector (-inf, +inf)
-            I.section = false;
-            I.l = nullptr; I.u = nullptr; I.l_index = 0; I.u_index = 0;
-
-            if (initialize_section_from_bucket(i, buckets, I))
-                return;
-            set_sector_bounds_from_buckets(i, buckets, I);
-        }
-            
-        // Part A of construct_interval: apply pre-conditions (line 8-11 scaffolding)
-        bool apply_property_rules(unsigned i, prop_enum prop_to_avoid, result_struct* rs) {
-            // Iterate until no mutation to m_Q occurs (fixed-point). We avoid copying m_Q
-            // by using a change flag that is set by mutating helpers (add_to_Q_if_new / erase_from_Q).
-            if (m_fail) return false;
-            do {
-                m_Q_changed = false;
-                std::vector<property> to_refine = greatest_to_refine(i, prop_to_avoid);
-                for (const auto& p : to_refine) {
-                    apply_pre(p, rs);
-                    if (m_fail) return false;
-                }
-            } while (m_Q_changed && !m_fail);
-            return !m_fail;
-        }
-
-        // Part B of construct_interval: build (I, E, ≼) representation for level i
-        void build_representation(unsigned i, result_struct& ret) {
-            std::vector<const poly*> p_non_null;
-            for (const auto & pr: m_Q) {
-                if (pr.prop_tag == prop_enum::sgn_inv_irreducible && max_var(pr.poly) == i && 
-                !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
-                    p_non_null.push_back(pr.poly.get());
-            }
-            std::vector<std::unique_ptr<bucket_t>> buckets;
-            std::vector<root_item_t> roots;
-            collect_E_and_roots(p_non_null, i, ret.E, roots);
-            bucketize_roots(roots, buckets);
-            build_omega_buckets(buckets, ret.omega_buckets);
-            compute_interval_from_buckets(i, buckets, ret.I);
         }
 
         // Helper: add a property to m_Q if an equivalent one is not already present.
@@ -793,6 +687,48 @@ namespace nlsat {
             }
 
             return ret; // the order is reversed!
+        }
+        
+        bool dominates(const property& a, const property& b) const {
+            return a.poly == b.poly && dominates(a.prop_tag, b.prop_tag);
+        }
+        bool dominates(prop_enum a, prop_enum b) const {
+            return m_prop_dom[static_cast<unsigned>(a)][static_cast<unsigned>(b)];
+        }
+
+        // Pretty-print helpers
+        static const char* prop_name(prop_enum p) {
+            switch (p) {
+            case prop_enum::ir_ord:               return "ir_ord";
+            case prop_enum::an_del:               return "an_del";
+            case prop_enum::non_null:             return "non_null";
+            case prop_enum::ord_inv_reducible:    return "ord_inv_reducible";
+            case prop_enum::ord_inv_irreducible:  return "ord_inv_irreducible";
+            case prop_enum::sgn_inv_reducible:    return "sgn_inv_reducible";
+            case prop_enum::sgn_inv_irreducible:  return "sgn_inv_irreducible";
+            case prop_enum::connected:            return "connected";
+            case prop_enum::an_sub:               return "an_sub";
+            case prop_enum::sample:               return "sample";
+            case prop_enum::repr:                 return "repr";
+            case prop_enum::holds:                return "holds";
+            case prop_enum::_count:               return "_count";
+            }
+            return "?";
+        }
+
+        std::ostream& display(std::ostream& out, const property & pr) {
+            out << "{prop:" << prop_name(pr.prop_tag);
+            if (pr.level != -1) out   << ", level:" << pr.level;
+            if (pr.s_idx != -1) out   << ", s_idx:" << pr.s_idx;
+            if (pr.poly) {
+                out << ", poly:";
+                ::nlsat::display(out, m_solver, pr.poly);
+            }
+            else {
+                out << ", p:null";
+            }
+            out << "}";
+            return out;
         }
     };
 // constructor
