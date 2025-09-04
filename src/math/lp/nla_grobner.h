@@ -22,6 +22,7 @@ namespace nla {
         struct config {
             bool m_propagate_quotients = false;
             bool m_gcd_test = false;
+            bool m_expand_terms = false;
         };
         dd::pdd_manager          m_pdd_manager;
         dd::solver               m_solver;
@@ -78,8 +79,10 @@ namespace nla {
         void add_fixed_monic(unsigned j);
         bool is_solved(dd::pdd const& p, unsigned& v, dd::pdd& r);
         void add_eq(dd::pdd& p, u_dependency* dep);        
+        bool is_pseudo_linear(unsigned_vector const& vars) const;
         const rational& val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep);
         dd::pdd pdd_expr(const rational& c, lpvar j, u_dependency*& dep);  
+        dd::pdd pdd_expr(lp::lar_term const& t, u_dependency*& dep);
 
         void display_matrix_of_m_rows(std::ostream& out) const;
         std::ostream& diagnose_pdd_miss(std::ostream& out);

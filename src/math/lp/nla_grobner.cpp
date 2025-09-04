@@ -32,6 +32,7 @@ namespace nla {
         smt_params_helper ph(p);
         m_config.m_propagate_quotients = ph.arith_nl_grobner_propagate_quotients();
         m_config.m_gcd_test = ph.arith_nl_grobner_gcd_test();
+        m_config.m_expand_terms = ph.arith_nl_grobner_expand_terms();
     }
 
     lp::lp_settings& grobner::lp_settings() {
@@ -63,6 +64,7 @@ namespace nla {
         if (!configure())
             return;
         m_solver.saturate();
+        TRACE(grobner, m_solver.display(tout));
 
         if (m_delay_base > 0)
             --m_delay_base;
@@ -359,6 +361,11 @@ namespace nla {
             auto v_value = val(v);
             auto r_value = eval(r);
             auto lc_value = eval(lc);
+
+            TRACE(grobner, tout << "nl-var: " << v << " " << v_value << "\n"
+                                << "lc: " << lc << " " << lc_value << "\n"
+                                << "r: " << r << " " << r_value << "\n";
+            );
             SASSERT(v_value.is_int());
             SASSERT(r_value.is_int());
             SASSERT(lc_value.is_int());
@@ -447,6 +454,44 @@ namespace nla {
                 found_lemma = true;
                 continue;
             } 
+            if (abs(lc_value) > 1 && abs(v_value) > 1 && abs(v_value) >= abs(r_value)) {
+                // v*c + t = 0 & |c| > 1, |v| > 1 => |v| < |t|
+                lemma_builder lemma(c(), "grobner-bounds");
+                auto [tr, offset_t] = linear_to_term(r);
+                auto [tc, offset_c] = linear_to_term(lc);
+                add_dependencies(lemma, eq);
+                if (lc_value > 1) // c <= 1                   
+                    lemma |= ineq(tc, llc::LE, rational(1) - offset_c);  // lc <= 1                
+                else // c >= -1
+                    lemma |= ineq(tc, llc::GE, rational(-1) - offset_c);  // lc >= -1
+                if (v_value > 1)                                          
+                    lemma |= ineq(v, llc::LE, rational(1));               // v <= 1
+                else                                                      
+                    lemma |= ineq(v, llc::GE, rational(-1));              // v >= -1
+                if (v_value > 0 && r_value > 0) {
+                    // t >= v + 1
+                    tr.add_monomial(rational(-1), v);
+                    lemma |= ineq(tr, llc::GE, rational(1) - offset_t); 
+                }
+                else if (v_value > 0 && r_value < 0) {
+                    // t + v <= -1
+                    tr.add_monomial(rational(1), v);
+                    lemma |= ineq(tr, llc::LE, rational(-1) - offset_t); 
+                }
+                else if (v_value < 0 && r_value > 0) {
+                    // t + v >= 1
+                    tr.add_monomial(rational(1), v);
+                    lemma |= ineq(tr, llc::GE, rational(1) - offset_t); 
+                }
+                else if (v_value < 0 && r_value < 0) {
+                    // t - v <= -1
+                    tr.add_monomial(rational(-1), v);
+                    lemma |= ineq(tr, llc::LE, rational(-1) - offset_t); 
+                }
+                found_lemma = true;
+                TRACE(grobner, lemma.display(tout << "quotient5\n"));
+                continue;
+            }
             // other division lemmas are possible.  
             // also extend to non-linear r, non-linear lc         
         }
@@ -693,6 +738,13 @@ namespace nla {
         return lra.column_lower_bound(j).x;
     }
 
+    dd::pdd grobner::pdd_expr(lp::lar_term const& t, u_dependency*& dep) {
+        dd::pdd r = m_pdd_manager.mk_val(0);
+        for (auto const& ti : t) 
+            r += pdd_expr(ti.coeff(), ti.j(), dep);        
+        return r;
+    }
+
     dd::pdd grobner::pdd_expr(const rational& coeff, lpvar j, u_dependency*& dep) {
         dd::pdd r = m_pdd_manager.mk_val(coeff);
         sbuffer<lpvar> vars;
@@ -709,6 +761,8 @@ namespace nla {
             }
             if (c().params().arith_nl_grobner_subs_fixed() == 1 && c().var_is_fixed(j))
                 r *= val_of_fixed_var_with_deps(j, dep);
+            else if (m_config.m_expand_terms && c().lra.column_has_term(j))
+                r *= pdd_expr(c().lra.get_term(j), dep);
             else if (!c().is_monic_var(j))
                 r *= m_pdd_manager.mk_var(j);
             else
@@ -787,6 +841,22 @@ namespace nla {
             m_solver.add(p, dep);
     }
 
+    bool grobner::is_pseudo_linear(unsigned_vector const& vars) const {
+        bool has_unbounded = false;
+        for (auto v : vars) {
+            if (c().lra.column_is_bounded(v) && c().lra.var_is_int(v)) {
+                auto lb = c().lra.get_lower_bound(v);
+                auto ub = c().lra.get_upper_bound(v);
+                if (ub - lb <= rational(4))
+                    continue;                
+            }
+            if (has_unbounded)
+                return false;
+            has_unbounded = true;
+        }
+        return true;
+    }
+
     void grobner::add_fixed_monic(unsigned j) {
         u_dependency* dep = nullptr;
         dd::pdd r = m_pdd_manager.mk_val(rational(1));
@@ -810,9 +880,10 @@ namespace nla {
         prepare_rows_and_active_vars();
         svector<lpvar> q;
         TRACE(grobner, for (lpvar j : c().m_to_refine) print_monic(c().emons()[j], tout) << "\n";);
-          
+         
         for (lpvar j : c().m_to_refine)
-            q.push_back(j);
+            if (!is_pseudo_linear(c().emons()[j].vars()))
+                q.push_back(j);
     
         while (!q.empty()) {
             lpvar j = q.back();        
