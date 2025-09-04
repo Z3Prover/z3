@@ -185,6 +185,19 @@ namespace nlsat {
             if (root_vals.size() < 2) return true;
             std::sort(root_vals.begin(), root_vals.end(), [&](auto const & a, auto const & b){ return m_am.lt(a.first, b.first); });
             std::set<std::pair<unsigned,unsigned>> added_pairs;
+            TRACE(levelwise, 
+                tout << "root_vals:";
+                for (const auto& rv : root_vals) {
+                    tout << " [";
+                    m_am.display(tout, rv.first);
+                    if (rv.second) {
+                        tout << ", poly: ";
+                        ::nlsat::display(tout, m_solver, polynomial_ref(rv.second, m_pm));
+                    }
+                    tout << "]";
+                }
+                tout << std::endl;
+            );
             for (size_t j = 0; j + 1 < root_vals.size(); ++j) {
                 poly* p1 = root_vals[j].second;
                 poly* p2 = root_vals[j+1].second;
@@ -198,11 +211,12 @@ namespace nlsat {
                 polynomial_ref r(m_pm);
                 r = resultant(polynomial_ref(p1, m_pm), polynomial_ref(p2, m_pm), m_n);
                 if (is_const(r)) continue;
+                TRACE(levelwise, tout << "resultant: "; ::nlsat::display(tout, m_solver, r); tout << std::endl;);
                 if (is_zero(r)) {
                     NOT_IMPLEMENTED_YET();// ambiguous resultant - not handled yet
                     return false;
                 }
-                m_Q.push_back(property(prop_enum::ord_inv_irreducible, r, /*s_idx*/ -1, max_var(r)));
+                m_Q.push_back(property(prop_enum::ord_inv_reducible, r, /*s_idx*/ -1, max_var(r)));
             }
             return true;
         }
@@ -292,9 +306,17 @@ namespace nlsat {
              do {
                  m_Q_changed = false;
                  std::vector<property> to_refine = greatest_to_refine(i, prop_to_avoid);
+                 TRACE(levelwise, 
+                     tout << "to_refine properties:";
+                     for (const auto& p : to_refine) {
+                         display(tout, p);
+                         tout << "; ";
+                     }
+                     tout << std::endl;
+                 );
                  for (const auto& p : to_refine) {
                     apply_pre(p, has_repr);
-                     if (m_fail) return false;
+                    if (m_fail) return false;
                  }
              } while (m_Q_changed && !m_fail);
              return !m_fail;
@@ -524,12 +546,12 @@ namespace nlsat {
             }
 
             // p.level > 0
-            if (!has_repr) return; // no change since the interval etc is not there
-            // Rule 1.1 precondition: when processing connected(i) we must ensure the next lower level
+            // Rule 4.11 precondition: when processing connected(i) we must ensure the next lower level
             // has connected(i-1) and repr(I,s) available. Add those markers to m_Q so they propagate.
 
             add_to_Q_if_new(property(prop_enum::connected, m_pm, /*level*/ p.level - 1));
-            add_to_Q_if_new(property(prop_enum::repr, m_pm, /*level*/ p.level - 1));
+            add_to_Q_if_new(property(prop_enum::repr, m_pm, /*level*/ p.level - 1));            
+            if (!has_repr) return; // no change since the cell representation is not available            
             
             NOT_IMPLEMENTED_YET();
             // todo!!!! add missing preconditions
@@ -643,16 +665,26 @@ namespace nlsat {
         }
 
         void apply_pre(const property& p, bool has_repr) {
+            TRACE(levelwise, 
+                tout << "apply_pre BEGIN m_Q:";
+                for (const auto& q : m_Q) { display(tout, q); tout << "; "; }
+                tout << std::endl;
+            );
             TRACE(levelwise, display(tout << "property p:", p) << std::endl;);
             if (p.prop_tag == prop_enum::an_del)
                 apply_pre_an_del(p);
             else if (p.prop_tag == prop_enum::connected)
-                apply_pre_connected(p, has_repr ); 
+                apply_pre_connected(p,has_repr); 
             else if (p.prop_tag == prop_enum::non_null)
                 apply_pre_non_null(p);
             else      
                 NOT_IMPLEMENTED_YET();
-         }
+            TRACE(levelwise, 
+                tout << "apply_pre END m_Q:";
+                for (const auto& q : m_Q) { display(tout, q); tout << "; "; }
+                tout << std::endl;
+            );
+        }
         // return an empty vector on failure, otherwise returns the cell representations with intervals
         std::vector<symbolic_interval> single_cell() {
             TRACE(levelwise,
