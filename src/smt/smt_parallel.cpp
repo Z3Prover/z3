@@ -98,107 +98,102 @@ namespace smt {
 
     void parallel::worker::run() {
         while (m.inc()) { // inc: increase the limit and check if it is canceled, vs m.limit().is_canceled() is readonly. the .limit() is also not necessary (m.inc() etc provides a convenience wrapper)
-            vector<expr_ref_vector> cubes;
-            b.get_cubes(m_g2l, cubes);
-            if (cubes.empty())
-                return;
+            expr_ref_vector cube = b.get_cube(m_g2l);
             collect_shared_clauses(m_g2l);
-            for (auto& cube : cubes) {
-                if (!m.inc()) {
-                    b.set_exception("context cancelled");
-                    return;
-                }
-                
-                LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
-                lbool r = check_cube(cube);
+            if (!m.inc()) {
+                b.set_exception("context cancelled");
+                return;
+            }
+            
+            LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
+            lbool r = check_cube(cube);
 
-                if (m.limit().is_canceled()) {
-                    LOG_WORKER(1, " cancelled\n");
-                    return;
-                }
-                
-                switch (r) {
-                    case l_undef: {
-                        LOG_WORKER(1, " found undef cube\n");
-                        // return unprocessed cubes to the batch manager
-                        // add a split literal to the batch manager.
-                        // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
-                        if (!m_config.m_never_cube) {
-                            // vector<expr_ref_vector> returned_cubes;
-                            // returned_cubes.push_back(cube); 
-                            auto split_atoms = get_split_atoms();
+            if (m.limit().is_canceled()) {
+                LOG_WORKER(1, " cancelled\n");
+                return;
+            }
+            
+            switch (r) {
+                case l_undef: {
+                    LOG_WORKER(1, " found undef cube\n");
+                    // return unprocessed cubes to the batch manager
+                    // add a split literal to the batch manager.
+                    // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
+                    if (!m_config.m_never_cube) {
+                        // vector<expr_ref_vector> returned_cubes;
+                        // returned_cubes.push_back(cube); 
+                        auto split_atoms = get_split_atoms();
 
-                            // let's automatically do iterative deepening for beam search.
-                            // when using more advanced metrics like explicit_hardness etc: need one of two things: (1) split if greater than OR EQUAL TO than avg hardness, or (3) enter this branch only when cube.size() > 0, or else we get stuck in a loop of never deepening.
-                            if (m_config.m_iterative_deepening || m_config.m_beam_search) { 
-                                LOG_WORKER(1, " applying iterative deepening\n");
-                                
-                                double cube_hardness;
-                                if (m_config.m_explicit_hardness) {
-                                    cube_hardness = explicit_hardness(cube);
-                                    // LOG_WORKER(1, " explicit hardness: " << cube_hardness << "\n");    
-                                } else { // default to naive hardness
-                                    cube_hardness = naive_hardness();
-                                    // LOG_WORKER(1, " naive hardness: " << cube_hardness << "\n");
-                                }
-
-                                const double avg_hardness = b.update_avg_cube_hardness(cube_hardness);
-                                const double factor = 1.5;  // can tune for multiple of avg hardness later
-                                bool should_split = cube_hardness >= avg_hardness * factor; // must be >= otherwise we never deepen
-                                
-                                LOG_WORKER(1, " cube hardness: " << cube_hardness << " avg: " << avg_hardness << " avg*factor: " << avg_hardness * factor << " should-split: " << should_split << "\n");
-                                // we still need to call return_cubes, even if we don't split, since we need to re-enqueue the current unsolved cube to the batch manager!
-                                // should_split tells return_cubes whether to further split the unsolved cube.
-                                b.return_cubes(m_l2g, cube, split_atoms, should_split, cube_hardness);
-                            } else {
-                                b.return_cubes(m_l2g, cube, split_atoms);
+                        // let's automatically do iterative deepening for beam search.
+                        // when using more advanced metrics like explicit_hardness etc: need one of two things: (1) split if greater than OR EQUAL TO than avg hardness, or (3) enter this branch only when cube.size() > 0, or else we get stuck in a loop of never deepening.
+                        if (m_config.m_iterative_deepening || m_config.m_beam_search) { 
+                            LOG_WORKER(1, " applying iterative deepening\n");
+                            
+                            double cube_hardness;
+                            if (m_config.m_explicit_hardness) {
+                                cube_hardness = explicit_hardness(cube);
+                                // LOG_WORKER(1, " explicit hardness: " << cube_hardness << "\n");    
+                            } else { // default to naive hardness
+                                cube_hardness = naive_hardness();
+                                // LOG_WORKER(1, " naive hardness: " << cube_hardness << "\n");
                             }
+
+                            const double avg_hardness = b.update_avg_cube_hardness(cube_hardness);
+                            const double factor = 1.5;  // can tune for multiple of avg hardness later
+                            bool should_split = cube_hardness >= avg_hardness * factor; // must be >= otherwise we never deepen
+                            
+                            LOG_WORKER(1, " cube hardness: " << cube_hardness << " avg: " << avg_hardness << " avg*factor: " << avg_hardness * factor << " should-split: " << should_split << "\n");
+                            // we still need to call return_cubes, even if we don't split, since we need to re-enqueue the current unsolved cube to the batch manager!
+                            // should_split tells return_cubes whether to further split the unsolved cube.
+                            b.return_cubes(m_l2g, cube, split_atoms, should_split, cube_hardness);
+                        } else {
+                            b.return_cubes(m_l2g, cube, split_atoms);
                         }
-                        if (m_config.m_backbone_detection) {
-                            expr_ref_vector backbone_candidates = find_backbone_candidates();
-                            expr_ref_vector backbones = get_backbones_from_candidates(backbone_candidates);
-                            if (!backbones.empty()) { // QUESTION: how do we avoid splitting on backbones???? 
-                                for (expr* bb : backbones) {
-                                    ctx->assert_expr(bb);              // local pruning
-                                    b.collect_clause(m_l2g, id, bb);   // share globally // QUESTION: gatekeep this behind share_units param???? 
-                                }
-                            }
-                        }
-                        update_max_thread_conflicts();
-                        break;
                     }
-                    case l_true: {
-                        LOG_WORKER(1, " found sat cube\n");
-                        model_ref mdl;
-                        ctx->get_model(mdl);
-                        b.set_sat(m_l2g, *mdl);
+                    if (m_config.m_backbone_detection) {
+                        expr_ref_vector backbone_candidates = find_backbone_candidates();
+                        expr_ref_vector backbones = get_backbones_from_candidates(backbone_candidates);
+                        if (!backbones.empty()) { // QUESTION: how do we avoid splitting on backbones???? 
+                            for (expr* bb : backbones) {
+                                ctx->assert_expr(bb);              // local pruning
+                                b.collect_clause(m_l2g, id, bb);   // share globally // QUESTION: gatekeep this behind share_units param???? 
+                            }
+                        }
+                    }
+                    update_max_thread_conflicts();
+                    break;
+                }
+                case l_true: {
+                    LOG_WORKER(1, " found sat cube\n");
+                    model_ref mdl;
+                    ctx->get_model(mdl);
+                    b.set_sat(m_l2g, *mdl);
+                    return;
+                }
+                case l_false: {
+                    // if unsat core only contains (external) assumptions (i.e. all the unsat core are asms), then unsat and return as this does NOT depend on cubes
+                    // otherwise, extract lemmas that can be shared (units (and unsat core?)).
+                    // share with batch manager.
+                    // process next cube.
+                    expr_ref_vector const& unsat_core = ctx->unsat_core();
+                    LOG_WORKER(2, " unsat core:\n"; for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
+                    // If the unsat core only contains assumptions, 
+                    // unsatisfiability does not depend on the current cube and the entire problem is unsat.
+                    if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
+                        LOG_WORKER(1, " determined formula unsat\n");
+                        b.set_unsat(m_l2g, unsat_core);
                         return;
                     }
-                    case l_false: {
-                        // if unsat core only contains (external) assumptions (i.e. all the unsat core are asms), then unsat and return as this does NOT depend on cubes
-                        // otherwise, extract lemmas that can be shared (units (and unsat core?)).
-                        // share with batch manager.
-                        // process next cube.
-                        expr_ref_vector const& unsat_core = ctx->unsat_core();
-                        LOG_WORKER(2, " unsat core:\n"; for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
-                        // If the unsat core only contains assumptions, 
-                        // unsatisfiability does not depend on the current cube and the entire problem is unsat.
-                        if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
-                            LOG_WORKER(1, " determined formula unsat\n");
-                            b.set_unsat(m_l2g, unsat_core);
-                            return;
-                        }
-                        for (expr* e : unsat_core)
-                            if (asms.contains(e))
-                                b.report_assumption_used(m_l2g, e); // report assumptions used in unsat core, so they can be used in final core
+                    for (expr* e : unsat_core)
+                        if (asms.contains(e))
+                            b.report_assumption_used(m_l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
-                        LOG_WORKER(1, " found unsat cube\n");
-                        if (m_config.m_share_conflicts)
-                            b.collect_clause(m_l2g, id, mk_not(mk_and(unsat_core)));
-                        break;
-                    }
-                }     
-            }
+                    LOG_WORKER(1, " found unsat cube\n");
+                    if (m_config.m_share_conflicts)
+                        b.collect_clause(m_l2g, id, mk_not(mk_and(unsat_core)));
+                    break;
+                }
+            }    
             if (m_config.m_share_units)
                 share_units(m_l2g);
         }
@@ -365,29 +360,30 @@ namespace smt {
         return r;
     }
 
-    void parallel::batch_manager::get_cubes(ast_translation& g2l, vector<expr_ref_vector>& cubes) {
+    expr_ref_vector parallel::batch_manager::get_cube(ast_translation& g2l) {
         std::scoped_lock lock(mux);
         if (m_cubes.size() == 1 && m_cubes[0].empty()
             || m_config.m_beam_search && m_cubes_pq.empty()
-            || m_config.m_depth_splitting_only && m_cubes_depth_sets.empty()) {
+            || m_config.m_depth_splitting_only && m_cubes_depth_sets.empty()
+            || m_config.m_cubetree && m_cubes_tree.empty()) {
             // special initialization: the first cube is emtpy, have the worker work on an empty cube.
-            cubes.push_back(expr_ref_vector(g2l.to()));
             IF_VERBOSE(1, verbose_stream() << "Batch manager giving out empty cube.\n");
-            return;
+            return expr_ref_vector(g2l.to()); // return empty cube
         }
 
-        for (unsigned i = 0; i < std::min(m_max_batch_size / p.num_threads, (unsigned)m_cubes.size()) && !m_cubes.empty(); ++i) {
+        // for (unsigned i = 0; i < std::min(m_max_batch_size / p.num_threads, (unsigned)m_cubes.size()) && !m_cubes.empty(); ++i) {
+            expr_ref_vector l_cube(g2l.to());
+
             if (m_config.m_depth_splitting_only || m_config.m_iterative_deepening) {
                 // get the deepest set of cubes
                 auto& deepest_cubes = m_cubes_depth_sets.rbegin()->second;
                 unsigned idx = rand() % deepest_cubes.size();
                 auto& cube = deepest_cubes[idx]; // get a random cube from the deepest set
 
-                expr_ref_vector l_cube(g2l.to());
+                
                 for (auto& e : cube) {
                     l_cube.push_back(g2l(e));
                 }
-                cubes.push_back(l_cube);
                 
                 deepest_cubes.erase(deepest_cubes.begin() + idx); // remove the cube from the set
                 if (deepest_cubes.empty())
@@ -404,19 +400,34 @@ namespace smt {
                     l_cube.push_back(g2l(e));
                 }
                 
-                cubes.push_back(l_cube);
                 m_cubes_pq.pop();
-            } else {
-                IF_VERBOSE(1, verbose_stream() << "Batch manager giving out cube.\n");
-                auto& cube = m_cubes.back();
+            } else if (m_config.m_cubetree) {
+                // get a cube from the CubeTree
+                SASSERT(!m_cubes_tree.empty());
+                expr_ref_vector cube = m_cubes_tree.get_next_cube(); // get and remove the minimum (leftmost) cube
+                IF_VERBOSE(1, verbose_stream() << "Batch manager giving out cube from CubeTree.\n");
+
                 expr_ref_vector l_cube(g2l.to());
                 for (auto& e : cube) {
                     l_cube.push_back(g2l(e));
                 }
-                cubes.push_back(l_cube);
+            }
+            else {
+                IF_VERBOSE(1, verbose_stream() << "Batch manager giving out cube.\n");
+                auto& cube = m_cubes.back();
+                // print out the cubes in m_cubes
+                for (auto& e : m_cubes) {
+                    IF_VERBOSE(1, verbose_stream() << "Cube: " << e << "\n");
+                }
+                expr_ref_vector l_cube(g2l.to());
+                for (auto& e : cube) {
+                    l_cube.push_back(g2l(e));
+                }
                 m_cubes.pop_back();
             }
-        }
+
+            return l_cube;
+        // }
     }
 
     void parallel::batch_manager::set_sat(ast_translation& l2g, model& m) {
@@ -884,14 +895,16 @@ namespace smt {
 
     void parallel::batch_manager::initialize() {
         m_state = state::is_running;
-        m_cubes.reset();
-        m_cubes.push_back(expr_ref_vector(m)); // push empty cube
         
         if (m_config.m_depth_splitting_only || m_config.m_iterative_deepening) {
             m_cubes_depth_sets.clear();
-        }
-        if (m_config.m_beam_search) {
+        } else if (m_config.m_beam_search) {
             m_cubes_pq = CubePQ();
+        } else if (m_config.m_bst) {
+            m_cubes_bst.clear();
+        } else {
+            m_cubes.reset();
+            m_cubes.push_back(expr_ref_vector(m)); // push empty cube
         }
         
         m_split_atoms.reset();
@@ -902,6 +915,7 @@ namespace smt {
         m_config.m_depth_splitting_only = sp.depth_splitting_only();
         m_config.m_iterative_deepening = sp.iterative_deepening();
         m_config.m_beam_search = sp.beam_search();
+        m_config.m_bst = sp.bst();
     }
 
     void parallel::batch_manager::collect_statistics(::statistics& st) const {
