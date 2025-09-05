@@ -5,8 +5,7 @@
 #include <cmath>
 #include <cassert>
 #include <iostream>
-
-using unsigned_vector = std::vector<unsigned>;
+#include <random>
 
 std::mutex cout_mutex;
 // Initially there are no cubes.
@@ -20,7 +19,33 @@ std::mutex cout_mutex;
     _out_   \
 }
 
-inline std::ostream& operator<<(std::ostream& out, std::vector<int> const& v) {
+struct atom {
+    unsigned id = UINT_MAX;
+    atom() {}
+    atom(unsigned id) : id(id) {}
+    bool operator<(atom const& other) const { return id < other.id; }
+    bool operator==(atom const& other) const { return id == other.id; }    
+    bool is_null() const { return id == UINT_MAX; }
+};
+
+struct literal {
+    atom a;
+    bool sign;
+    literal(atom a, bool s = false) : a(a), sign(s) {}
+    literal operator~() const { return literal(a, !sign); }
+    bool operator==(literal const& other) const { return a == other.a && sign == other.sign; }
+};
+
+inline std::ostream& operator<<(std::ostream& out, literal const& l) {
+    if (!l.sign)
+        out << "-";
+    out << l.a.id;
+    return out;
+}
+
+using literal_vector = std::vector<literal>;
+
+inline std::ostream& operator<<(std::ostream& out, literal_vector const& v) {
     out << "[";
     for (unsigned i = 0; i < v.size(); ++i) {
         if (i > 0)
@@ -37,42 +62,101 @@ enum status {
     active
 };
 
+
 struct node {
     node* left = nullptr;
     node* right = nullptr;
     node* parent = nullptr;
-    unsigned atom = UINT_MAX;
+    atom atom = UINT_MAX;
     status status = status::open;
 
     node() {}
     node(node* parent) : parent(parent) {
     }
-    node(node* parent, int lit) : parent(parent) {
-        parent->atom = std::abs(lit);        
-        if (lit < 0)
+    node(node* parent, literal lit) : parent(parent) {
+        parent->atom = lit.a;
+        if (lit.sign)
             parent->left = this;
         else
             parent->right = this;
     }
 
-    std::vector<int> get_cube() {
-        std::vector<int> path;
+    literal_vector get_cube() {
+        literal_vector path;
         auto t = this;
         while (t->parent) {
-            int lit = t->parent->atom;
+            literal lit = t->parent->atom;
             if (t == t->parent->left)
-                lit = -lit;
+                lit = ~lit;
             path.push_back(lit);
             t = t->parent;
         }
         std::reverse(path.begin(), path.end());
         return path;
     }
+
+    void display(std::ostream& out, unsigned indent) const {
+        auto t = this;
+        for (unsigned i = 0; i < indent; ++i)
+            out << " ";
+        if (!t->atom.is_null())
+            out << t->atom;
+        else
+            out << "leaf";
+        out << (t->status == status::open ? " (o)" : t->status == status::closed ? " (c)" : " (a)");
+        out << "\n";
+        if (t->left)
+            t->left->display(out, indent + 2);
+        if (t->right)
+            t->right->display(out, indent + 2);
+    }
+
+    std::ostream& display(std::ostream& out) const {
+        display(out, 0);
+        return out;
+    }
+
+    node* get_open() {
+        if (!left && !right && status == status::open)
+            return this;
+        if (left) {
+            auto r = left->get_open();
+            if (r)
+                return r;
+        }
+        if (right) {
+            auto r = right->get_open();
+            if (r)
+                return r;
+        }
+        return nullptr;
+    }
+
+
+    node* get_active() {
+
+        if (status == status::active)
+            return this;
+
+        if (left) {
+            auto r = left->get_active();
+            if (r)
+                return r;
+        }
+        if (right) {
+            auto r = right->get_active();
+            if (r)
+                return r;
+        }
+        return nullptr;
+    }
+
 };
 
 class search_tree {
     node* root;
     void close_rec(node* t) {
+        // if t->status == status::active, you can possibly pre-empt a worker.
         t->status = status::closed;
         if (t->left)
             close_rec(t->left);
@@ -80,60 +164,11 @@ class search_tree {
             close_rec(t->right);
     }
 
-    bool contains(std::vector<int> const& core, int lit) const {
+    bool contains(literal_vector const& core, literal lit) const {
         for (auto c : core)
             if (lit == c)
                 return true;
         return false;
-    }
-
-    void display_rec(std::ostream& out, node* t, unsigned indent) const {
-        for (unsigned i = 0; i < indent; ++i)
-            out << " ";
-        if (t->atom != UINT_MAX)
-            out << t->atom;
-        else
-            out << "leaf";
-        out << (t->status == status::open ? " (o)" : t->status == status::closed ? " (c)" : " (a)");
-        out << "\n";
-        if (t->left)
-            display_rec(out, t->left, indent + 2);
-        if (t->right)
-            display_rec(out, t->right, indent + 2);
-    }
-
-    node* get_open_rec(node* t) const {
-        if (!t->left && !t->right && t->status == status::open) 
-            return t;
-        
-        if (t->left) {
-            auto r = get_open_rec(t->left);
-            if (r)
-                return r;
-        }
-        if (t->right) {
-            auto r = get_open_rec(t->right);
-            if (r)
-                return r;
-        }
-        return nullptr;
-    }
-
-    node* get_active_rec(node* t) const {
-        if (t->status == status::active) 
-            return t;
-        
-        if (t->left) {
-            auto r = get_active_rec(t->left);
-            if (r)
-                return r;
-        }
-        if (t->right) {
-            auto r = get_active_rec(t->right);
-            if (r)
-                return r;
-        }
-        return nullptr;
     }
 
 public:
@@ -142,22 +177,19 @@ public:
         root = new node;
     }
 
-    node* add_path(std::vector<int> const& path) {
+    node* add_path(literal_vector const& path) {
         auto t = root;
-        unsigned i = 0;
-        while (i < path.size()) {
-            int lit = path[i];
-            unsigned atom = std::abs(lit);
-            bool sign = lit < 0;
-            if (t->atom == UINT_MAX) {
-                t->atom = atom;
-                t->status = status::open;
+        for (auto lit : path) {
+            atom atom = lit.a;
+            if (t->atom.is_null()) {
+                t->atom = atom;                
             }
             assert(t->atom == atom);
-            if (sign) {
-                if (!t->left) 
-                    t = new node(t, lit);                
-                else 
+            t->status = status::open;
+            if (lit.sign) {
+                if (!t->left)
+                    t = new node(t, lit);
+                else
                     t = t->left;
             }
             else {
@@ -166,18 +198,16 @@ public:
                 else 
                     t = t->right;
             }
-            i++;
         }
-        t->status = status::open;
         return t;
     }
 
     node* get_open() const {
-        return get_open_rec(root);
+        return root->get_open();
     }
 
     node* get_active() const {
-        return get_active_rec(root);
+        return root->get_active();
     }
 
     bool is_closed() const {
@@ -185,30 +215,24 @@ public:
     }
 
     // close a branch that contains a core
-    void close(std::vector<int> const& path, std::vector<int> const& core) {
+    void close(literal_vector const& path, literal_vector const& core) {
         unsigned num_hit = 0;
-        unsigned i = 0;
         auto t = root;
-        while (num_hit < core.size()) {
+        for (unsigned i = 0; num_hit < core.size(); ++i) {
+            assert(i < path.size());
             LOG_OUT(std::cout << "close " << path << " " << core << " at " << i << " " << t->atom << "\n";);
-            int lit = path[i];
-            unsigned atom = std::abs(lit);
-            bool sign = lit < 0;
-            auto next_t = sign ? t->left : t->right;
-            if (!next_t)
-                break; 
+            literal lit = path[i];
+            atom atom = lit.a;
             assert(t->atom == atom);
-            t = next_t;
+            t = lit.sign ? t->left : t->right;            
             if (contains(core, lit))
                 num_hit++;
-            ++i;
-        }        
+        }
         close_rec(t);
     }
 
     std::ostream& display(std::ostream& out) const {
-        display_rec(out, root, 0);
-        return out;
+        return root->display(out);
     }
 
 };
@@ -224,24 +248,24 @@ public:
     cube_manager(unsigned num_workers) : num_workers(num_workers) {}
     ~cube_manager() {}
 
-    void add_atom(int atom) {
+    void add_atom(atom atom) {
         std::lock_guard<std::mutex> lock(mutex);
         if (!at_start)
             return;
         LOG_OUT(std::cout << "adding atom " << atom << "\n";);
-        at_start = false;        
-        tree.add_path({atom});
-        tree.add_path({ -atom });        
+        at_start = false;
+        tree.add_path({ literal(atom) });
+        tree.add_path({ ~literal(atom) });
         LOG_OUT(tree.display(std::cout););
         cv.notify_all();
     }
 
-    void add_cube(std::vector<int>& cube, int atom) {
+    void add_cube(literal_vector& cube, literal lit) {
         std::lock_guard<std::mutex> lock(mutex);
-        std::vector<int> cube1(cube);
-        cube1.push_back(atom);
+        literal_vector cube1(cube);
+        cube1.push_back(lit);
         tree.add_path(cube1);
-        cube.push_back(-atom);
+        cube.push_back(~lit);
         auto t = tree.add_path(cube);
         t->status = status::active;
         at_start = false;
@@ -249,7 +273,7 @@ public:
         LOG_OUT(std::cout << "adding cube " << cube1 << " and " << cube << "\n";);
     }
 
-    bool get_cube(std::vector<int>& cube) {
+    bool get_cube(literal_vector& cube) {
         std::unique_lock<std::mutex> lock(mutex);
         if (at_start) {
             cube.clear();
@@ -273,7 +297,7 @@ public:
         return true;
     }
 
-    void close(std::vector<int> const& path, std::vector<int> const& core) {
+    void close(literal_vector const& path, literal_vector const& core) {
         std::lock_guard<std::mutex> lock(mutex);
         tree.close(path, core);
         LOG_OUT(std::cout << "closing "; tree.display(std::cout););
@@ -286,12 +310,11 @@ public:
 };
 
 struct random_gen {
-    unsigned idx = 0;
+    unsigned idx = std::rand();
     random_gen(unsigned seed) : idx(seed) {}
 
     unsigned operator()(unsigned k) {
-        idx += (idx + 1) * (idx << 3 + 2);
-        return idx % k;
+        return std::rand() % k;
     }
 };
 
@@ -300,10 +323,10 @@ class worker {
     cube_manager& cm;
     random_gen m_rand;
 
-    bool solve_cube(const std::vector<int>& cube) {
+    bool solve_cube(const literal_vector& cube) {
         // dummy implementation
         LOG_OUT(std::cout << id << " solving " << cube << "\n";);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100 + m_rand(1000)));
+        std::this_thread::sleep_for(std::chrono::milliseconds(50 + m_rand(100)));
         // the deeper the cube, the more likely we are to succeed.
         // 1 - (9/10)^(|cube|) success probability
         if (cube.empty())
@@ -319,27 +342,30 @@ public:
     worker(unsigned id, cube_manager& cm) : id(id), cm(cm), m_rand(id) {}
     ~worker() {}
     void run() {
-        std::vector<int> cube;
+        literal_vector cube;
         while (cm.get_cube(cube)) {
             while (true) {
                 if (solve_cube(cube)) {
-                    std::vector<int> core;
+                    literal_vector core;
                     for (auto l : cube)
                         if (m_rand(2) == 0)
                             core.push_back(l);
                     cm.close(cube, core);
                     break;
                 }
-                int atom = 1 + cube.size() + 1000 * id;
+                atom atom = 1 + cube.size() + 1000 * id;
                 if (cube.empty()) {
                     cm.add_atom(atom);
                     break;
                 }
+                literal lit(atom);
                 if (m_rand(2) == 0)
-                    atom = -atom;
-                cm.add_cube(cube, atom);
+                    lit = ~lit;
+
+                cm.add_cube(cube, lit);
+
+                LOG_OUT(std::cout << id << " getting new cube\n";);
             }
-            LOG_OUT(std::cout << id << " getting new cube\n";);
         }
     }
 };
@@ -371,7 +397,7 @@ public:
 };
 
 int main() {
-    parallel_cuber sp(3);
+    parallel_cuber sp(8);
     sp.start();
     return 0;
 }
