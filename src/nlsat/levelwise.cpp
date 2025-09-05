@@ -41,6 +41,7 @@ namespace nlsat {
             unsigned         level = -1;  // -1 means unspecified
             property(prop_enum pr, polynomial_ref const & pp, int si, int lvl) : prop_tag(pr), poly(pp), s_idx(si), level(lvl) {}
             property(prop_enum pr, polynomial_ref const & pp, polynomial::manager& pm) : prop_tag(pr), poly(pp), s_idx(-1), level(pm.max_var(pp)) {}
+            // have to pass polynomial::manager& to create a polynomial_ref even with a null object
             property(prop_enum pr, polynomial::manager& pm, unsigned lvl) : prop_tag(pr), poly(polynomial_ref(pm)), s_idx(-1), level(lvl) {}
             
         };
@@ -75,13 +76,14 @@ namespace nlsat {
         unsigned  max_var(polynomial_ref const & p) { return m_pm.max_var(p); }
 
         // Helper to print out m_Q
-        void print_m_Q(std::ostream& out) const {
+        std::ostream& display(std::ostream& out) const {
             out << "m_Q: [\n";
             for (const auto& pr : m_Q) {
                 display(out, pr);
                 out << "\n";
             }
             out << "]\n";
+            return out;
         }
         
 #ifdef Z3DEBUG
@@ -312,10 +314,10 @@ namespace nlsat {
             }
         }
 
+
         // Step 1b/2: old bucket-based helpers removed. The implementation now uses
         // compute_interval_from_sorted_roots which operates
         // directly on a sorted vector<root_item_t>.
-
         // Part A of construct_interval: apply pre-conditions (line 8-11 scaffolding)
         bool apply_property_rules(unsigned i, prop_enum prop_to_avoid, bool has_repr) {
              // Iterate until no mutation to m_Q occurs (fixed-point). We avoid copying m_Q
@@ -324,14 +326,7 @@ namespace nlsat {
              do {
                  m_Q_changed = false;
                  std::vector<property> to_refine = greatest_to_refine(i, prop_to_avoid);
-                 TRACE(levelwise, 
-                     tout << "to_refine properties:";
-                     for (const auto& p : to_refine) {
-                         display(tout, p);
-                         tout << "; ";
-                     }
-                     tout << std::endl;
-                 );
+                 TRACE(levelwise, display(tout << "to_refine properties:", to_refine);); 
                  for (const auto& p : to_refine) {
                     apply_pre(p, has_repr);
                     if (m_fail) return false;
@@ -551,9 +546,6 @@ namespace nlsat {
 
         // Pre-processing for connected(i) (Rule 4.11)
         void apply_pre_connected(const property & p, bool has_repr) {
-            TRACE(levelwise, tout << "connected:";
-                  if (p.level != static_cast<unsigned>(-1)) tout << " level=" << p.level;
-                  tout << std::endl;);
             SASSERT(p.level != static_cast<unsigned>(-1));
             // Rule 4.11 special-case: if the connected property refers to level 0 there's nothing to refine
             // further; just remove the property from Q and return.
@@ -569,8 +561,10 @@ namespace nlsat {
 
             add_to_Q_if_new(property(prop_enum::connected, m_pm, /*level*/ p.level - 1));
             add_to_Q_if_new(property(prop_enum::repr, m_pm, /*level*/ p.level - 1));            
-            if (!has_repr) return; // no change since the cell representation is not available            
-            
+            if (!has_repr) { 
+               erase_from_Q(p);
+               return; // no change since the cell representation is not available            
+            }
             NOT_IMPLEMENTED_YET();
             // todo!!!! add missing preconditions
             // connected property has been processed
@@ -679,8 +673,19 @@ namespace nlsat {
             erase_from_Q(p);
         }
 
+        // an_sub(R) iff R is an analitcal manifold
+        // Rule 4.7
+        void apply_pre_an_sub(const property& p) {
+            if (p.level > 0) {
+                add_to_Q_if_new(property(prop_enum::repr, m_pm, p.level)) ;
+                add_to_Q_if_new(property(prop_enum::an_sub, m_pm, p.level -1)) ;
+            }  
+            // if p.level == 0 then an_sub holds - bcs an empty set is an analytical submanifold 
+            erase_from_Q(p);             
+        }
+
         void apply_pre(const property& p, bool has_repr) {
-            TRACE(levelwise, tout << "apply_pre BEGIN m_Q:"; print_m_Q(tout) << std::endl; 
+            TRACE(levelwise, tout << "apply_pre BEGIN m_Q:"; display(tout) << std::endl; 
                 display(tout << "pre p:", p) << std::endl;);
             if (p.prop_tag == prop_enum::an_del)
                 apply_pre_an_del(p);
@@ -688,9 +693,10 @@ namespace nlsat {
                 apply_pre_connected(p,has_repr); 
             else if (p.prop_tag == prop_enum::non_null)
                 apply_pre_non_null(p);
-            else      
-                NOT_IMPLEMENTED_YET();
-            TRACE(levelwise,  tout << "apply_pre END m_Q:"; print_m_Q(tout) << std::endl;);
+            else if (p.prop_tag == prop_enum::an_sub)
+                apply_pre_an_sub(p);      
+                
+            TRACE(levelwise,  tout << "apply_pre END m_Q:"; display(tout) << std::endl;);
         }
         // return an empty vector on failure, otherwise returns the cell representations with intervals
         std::vector<symbolic_interval> single_cell() {
@@ -738,6 +744,14 @@ namespace nlsat {
             }
             return "?";
         }
+
+        std::ostream& display(std::ostream& out, std::vector<property> & prs) const {
+            for (const auto &pr : prs) {
+                display(out, pr) << std::endl;
+            }
+            return out;
+        }
+        
 
         std::ostream& display(std::ostream& out, const property & pr) const {
             out << "{prop:" << prop_name(pr.prop_tag);
