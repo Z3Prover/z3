@@ -34,6 +34,10 @@ namespace nlsat {
         return display(out, s.pm(), p, s.display_proc());
     }
 
+    inline std::ostream& display(std::ostream& out, solver& s, poly* p) {
+        return display(out, s.pm(), polynomial_ref(p, s.pm()), s.display_proc());
+    }
+
     inline std::ostream& display(std::ostream& out, solver& s, polynomial_ref_vector const& ps, char const* delim = "\n") {
         return display(out, s.pm(), ps, s.display_proc(), delim);
     }

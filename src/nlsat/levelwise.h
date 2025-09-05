@@ -12,7 +12,7 @@ namespace nlsat {
             unsigned i;
         };
         struct symbolic_interval {
-            bool section = true;
+            bool section = false;
             poly* l = nullptr;
             unsigned l_index; // the root index
             poly* u = nullptr;
