@@ -17,6 +17,7 @@ Author:
 #include "math/grobner/pdd_solver.h"
 #include "math/dd/pdd_interval.h"
 #include "math/dd/pdd_eval.h"
+
 using namespace nla;
 
 typedef lp::lar_term term;
@@ -1575,8 +1576,4 @@ void core::refine_pseudo_linear(monic const& m) {
     }
     SASSERT(nlvar != null_lpvar);
     lemma |= ineq(lp::lar_term(m.var(), rational(-prod), nlvar), llc::EQ, rational(0));
-    // lemma.display(verbose_stream() << "pseudo-linear lemma\n");
 }
-
-
-
