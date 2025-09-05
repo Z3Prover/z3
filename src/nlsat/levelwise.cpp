@@ -628,14 +628,7 @@ namespace nlsat {
                 for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
                     polynomial_ref f(m_pm);
                     f = factors[i];
-                    auto it = std::find_if(m_Q.begin(), m_Q.end(), [f](const property & q) {
-                        return
-                            (q.prop_tag == prop_enum::sgn_inv_irreducible || q.prop_tag == prop_enum::sgn_inv_reducible)                          && q.poly == f;
-                    });
-                    if (it != m_Q.end()) //already asserted
-                        return true;                    
-                    
-                    m_Q.push_back(property(prop_enum::sgn_inv_reducible, f, m_pm));
+                    add_to_Q_if_new(property(prop_enum::sgn_inv_reducible, f, m_pm));
                 }
                 erase_from_Q(p);
                 return true;
@@ -687,12 +680,8 @@ namespace nlsat {
         }
 
         void apply_pre(const property& p, bool has_repr) {
-            TRACE(levelwise, 
-                tout << "apply_pre BEGIN m_Q:";
-                print_m_Q(tout);
-                tout << std::endl;
-            );
-            TRACE(levelwise, display(tout << "property p:", p) << std::endl;);
+            TRACE(levelwise, tout << "apply_pre BEGIN m_Q:"; print_m_Q(tout) << std::endl; 
+                display(tout << "pre p:", p) << std::endl;);
             if (p.prop_tag == prop_enum::an_del)
                 apply_pre_an_del(p);
             else if (p.prop_tag == prop_enum::connected)
@@ -701,11 +690,7 @@ namespace nlsat {
                 apply_pre_non_null(p);
             else      
                 NOT_IMPLEMENTED_YET();
-            TRACE(levelwise, 
-                tout << "apply_pre END m_Q:";
-                print_m_Q(tout);
-                tout << std::endl;
-            );
+            TRACE(levelwise,  tout << "apply_pre END m_Q:"; print_m_Q(tout) << std::endl;);
         }
         // return an empty vector on failure, otherwise returns the cell representations with intervals
         std::vector<symbolic_interval> single_cell() {
