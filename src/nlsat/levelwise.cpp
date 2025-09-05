@@ -65,8 +65,9 @@ namespace nlsat {
 
        // max_x plays the role of n in algorith 1 of the levelwise paper.
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am)
-            : m_solver(solver), m_P(ps), m_n(max_x),  m_pm(pm), m_am(am) {
-            TRACE(levelwise, tout  << "m_n:" << m_n << "\n";);    
+            : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am) {
+            TRACE(levelwise, tout  << "m_n:" << m_n << "\n";);
+            m_I.resize(max_x);
             init_property_relation();
         }
 
@@ -347,7 +348,7 @@ namespace nlsat {
              std::vector<indexed_root_expr> E;
              collect_E_and_roots(p_non_null, i, E, roots);
              // Ensure m_I can hold interval for this level
-             if (m_I.size() <= i) m_I.resize(i+1);
+             SASSERT(m_I.size() > i);
              std::sort(roots.begin(), roots.end(), [&](root_item_t const& a, root_item_t const& b){
                  return m_am.lt(a.val, b.val);
              });
@@ -684,25 +685,46 @@ namespace nlsat {
             erase_from_Q(p);             
         }
 
+        /*
+The property repr(I, s) holds on R if and only if I.l ∈ irExpr(I.l.p, s) (if I.l ̸= −∞), I.u ∈ irExpr(I.u.p, s)
+(if I.u ̸= ∞) respectively I.b ∈ irExpr(I.b.p, s) and one of the following holds:
+• I = (sector, l, u), dom(θl,s ) ∩ dom(θu,s ) ⊇ R ↓[i−1] and R = {(r, r′) | r ∈ R ↓[i−1], r′ ∈ (θl,s (r), θu,s (r))};
+or
+• I = (sector, −∞, u), dom(θu,s ) ⊇ R ↓[i−1] and R = {(r, r′) | r ∈ R ↓[i−1], r′ ∈ (−∞, θu,s (r))}; or
+• I = (sector, l, ∞), dom(θl,s ) ⊇ R ↓[i−1] and R = {(r, r′) | r ∈ R ↓[i−1], r′ ∈ (θl,s (r), ∞)}; or
+• I = (sector, −∞, ∞) and R = {(r, r′) | r ∈ R ↓[i−1], r′ ∈ R}; or
+• I = (section, b), dom(θb,s ) ⊇ R ↓[i−1] and R = {(r, r′) | r ∈ R ↓[i−1], r′
+= θb,s (r)},
+         */
+        void apply_pre_repr(const property& p) {
+            const auto& I = m_I[p.level];
+            TRACE(levelwise, display(tout << "interval m_I[" << p.level << "]\n", I) << "\n";);
+            NOT_IMPLEMENTED_YET();
+        }
+
         void apply_pre(const property& p, bool has_repr) {
             TRACE(levelwise, tout << "apply_pre BEGIN m_Q:"; display(tout) << std::endl; 
-                display(tout << "pre p:", p) << std::endl;);
+                  display(tout << "pre p:", p) << std::endl;);
             switch (p.prop_tag) {
-                case prop_enum::an_del:
-                    apply_pre_an_del(p);
-                    break;
-                case prop_enum::connected:
-                    apply_pre_connected(p, has_repr);
-                    break;
-                case prop_enum::non_null:
-                    apply_pre_non_null(p);
-                    break;
-                case prop_enum::an_sub:
-                    apply_pre_an_sub(p);
-                    break;
-                default:
-                    NOT_IMPLEMENTED_YET();
-                    break;
+            case prop_enum::an_del:
+                apply_pre_an_del(p);
+                break;
+            case prop_enum::connected:
+                apply_pre_connected(p, has_repr);
+                break;
+            case prop_enum::non_null:
+                apply_pre_non_null(p);
+                break;
+            case prop_enum::an_sub:
+                apply_pre_an_sub(p);
+                break;
+            case prop_enum::repr:
+                apply_pre_repr(p);
+                break;
+            default:
+                TRACE(levelwise, display(tout << "not impl: p", p));
+                NOT_IMPLEMENTED_YET();
+                break;
             }
             TRACE(levelwise,  tout << "apply_pre END m_Q:"; display(tout) << std::endl;);
         }
@@ -775,6 +797,37 @@ namespace nlsat {
             out << "}";
             return out;
         }
+
+        
+        std::ostream& display(std::ostream& out, const indexed_root_expr& ire ) const {
+            out << "RootExpr: p=";
+            ::nlsat::display(out, m_solver, ire.p);
+            out << ", i=" << ire.i;
+            return out;
+        }
+
+        std::ostream& display(std::ostream& out, const symbolic_interval& I) const {
+            if (I.section) {
+                    out << "Section:\n"; 
+                    if (I.l == nullptr)
+                       out << "not defined\n";
+                    else    
+                        ::nlsat::display(out, m_solver, I.l);
+                } else {
+                    out << "Sector: (";
+                    if (I.l_inf())
+                        out << "-oo,";
+                    else
+                        ::nlsat::display(out, m_solver, I.l) << ",";
+                    if (I.u_inf())
+                        out << "+oo)";
+                    else 
+                        ::nlsat::display(out, m_solver, I.u) << ")";
+                }
+                return out;
+            }
+
+
     };
 // constructor
     levelwise::levelwise(nlsat::solver& solver, polynomial_ref_vector const& ps, var n, assignment const& s, pmanager& pm, anum_manager& am)
@@ -783,7 +836,7 @@ namespace nlsat {
     levelwise::~levelwise() { delete m_impl; }
 
     std::vector<levelwise::symbolic_interval> levelwise::single_cell() {
-        return m_impl->single_cell();
+    return m_impl->single_cell();
     }
 
 } // namespace nlsat
