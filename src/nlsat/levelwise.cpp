@@ -695,6 +695,8 @@ namespace nlsat {
                 apply_pre_non_null(p);
             else if (p.prop_tag == prop_enum::an_sub)
                 apply_pre_an_sub(p);      
+            else 
+                NOT_IMPLEMENTED_YET();    
                 
             TRACE(levelwise,  tout << "apply_pre END m_Q:"; display(tout) << std::endl;);
         }
