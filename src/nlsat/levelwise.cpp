@@ -40,7 +40,7 @@ namespace nlsat {
             unsigned         s_idx = -1; // index of the root function, if applicable; -1 means unspecified
             unsigned         level = -1;  // -1 means unspecified
             property(prop_enum pr, polynomial_ref const & pp, int si, int lvl) : prop_tag(pr), poly(pp), s_idx(si), level(lvl) {}
-            property(prop_enum pr, polynomial_ref const & pp) : prop_tag(pr), poly(pp), s_idx(-1), level(-1) {}
+            property(prop_enum pr, polynomial_ref const & pp, polynomial::manager& pm) : prop_tag(pr), poly(pp), s_idx(-1), level(pm.max_var(pp)) {}
             property(prop_enum pr, polynomial::manager& pm, unsigned lvl) : prop_tag(pr), poly(polynomial_ref(pm)), s_idx(-1), level(lvl) {}
             
         };
@@ -216,7 +216,14 @@ namespace nlsat {
                     NOT_IMPLEMENTED_YET();// ambiguous resultant - not handled yet
                     return false;
                 }
-                m_Q.push_back(property(prop_enum::ord_inv_reducible, r, /*s_idx*/ -1, max_var(r)));
+                // Instead of adding property with r, add property with irreducible factors of r
+                polynomial::factors factors(m_pm);
+                factor(r, factors);
+                for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
+                    polynomial_ref f(m_pm);
+                    f = factors[i];
+                    m_Q.push_back(property(prop_enum::ord_inv_irreducible, f, m_pm));
+                }
             }
             return true;
         }
@@ -605,18 +612,22 @@ namespace nlsat {
                 if (sign(coeff, sample(), m_am) == 0)
                     continue;
 
-                auto it = std::find_if(m_Q.begin(), m_Q.end(), [&](const property & q) {
-                     return (q.prop_tag == prop_enum::sgn_inv_irreducible || q.prop_tag == prop_enum::sgn_inv_reducible)
-                         && q.poly == p.poly;
-                 });
-                 if (it != m_Q.end()) {
-                     erase_from_Q(p);
-                     return true;
-                 }
-
-                 add_to_Q_if_new(property(prop_enum::sgn_inv_reducible, coeff, 0u, max_var(coeff)));
-                 erase_from_Q(p);
-                 return true;
+                polynomial::factors factors(m_pm);
+                factor(coeff, factors);
+                for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
+                    polynomial_ref f(m_pm);
+                    f = factors[i];
+                    auto it = std::find_if(m_Q.begin(), m_Q.end(), [f](const property & q) {
+                        return
+                            (q.prop_tag == prop_enum::sgn_inv_irreducible || q.prop_tag == prop_enum::sgn_inv_reducible)                          && q.poly == f;
+                    });
+                    if (it != m_Q.end()) //already asserted
+                        return true;                    
+                    
+                    m_Q.push_back(property(prop_enum::sgn_inv_reducible, f, m_pm));
+                }
+                erase_from_Q(p);
+                return true;
             }
             return false;
         }
