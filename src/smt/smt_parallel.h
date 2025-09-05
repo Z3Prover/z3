@@ -131,16 +131,29 @@ namespace smt {
             // they pass in a translation function from the global context to local context (ast-manager). It is called g2l.
             // The batch manager returns the next cube to
             //
-            expr_ref_vector get_cube(ast_translation& g2l);
+            expr_ref_vector get_cube(ast_translation& g2l);  // FOR ALL NON-TREE VERSIONS
+            CubeNode* get_cube_from_tree(ast_translation& g2l, CubeNode* prev_cube = nullptr);
 
             //
             // worker threads return unprocessed cubes to the batch manager together with split literal candidates.
             // the batch manager re-enqueues unprocessed cubes and optionally splits them using the split_atoms returned by this and workers.
             // 
+            void return_cubes_tree(ast_translation& l2g, CubeNode* cube, expr_ref_vector const& split_atoms);
+            // FOR ALL NON-TREE VERSIONS
             void return_cubes(ast_translation& l2g, expr_ref_vector const& cube, expr_ref_vector const& split_atoms, const bool should_split=true, const double hardness=1.0);
             void report_assumption_used(ast_translation& l2g, expr* assumption);
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* e);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
+
+            void remove_node_and_propagate(CubeNode* node) {
+                SASSERT(m_config.m_cubetree);
+                CubeNode* last_removed = m_cubes_tree.remove_node_and_propagate(node);
+                if (last_removed) {
+                    IF_VERBOSE(1, verbose_stream() << "Cube tree: removed node and propagated up to depth " << last_removed->cube.size() << "\n");
+                } else {
+                    IF_VERBOSE(1, verbose_stream() << "Cube tree: ERROR removing node with no propagation\n");
+                }
+            }
 
             double update_avg_cube_hardness(double hardness) {
                 IF_VERBOSE(1, verbose_stream() << "Cube hardness: " << hardness << ", previous avg: " << m_avg_cube_hardness << ", solved cubes: " << m_solved_cube_count << "\n";);
@@ -170,6 +183,7 @@ namespace smt {
                 bool m_iterative_deepening = false;
                 bool m_beam_search = false;
                 bool m_explicit_hardness = false;
+                bool m_cubetree = false;
             };
 
             unsigned id; // unique identifier for the worker
@@ -181,7 +195,7 @@ namespace smt {
             config m_config;
             scoped_ptr<context> ctx;
             ast_translation m_g2l, m_l2g;
-            expr_ref_vector m_curr_cube;
+            CubeNode* m_curr_cube_node = nullptr;
             unsigned m_num_shared_units = 0;
             unsigned m_num_initial_atoms = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
