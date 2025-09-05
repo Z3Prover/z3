@@ -69,9 +69,20 @@ namespace nlsat {
             init_property_relation();
         }
 
+
         // helper overload so callers can pass either raw poly* or polynomial_ref
         unsigned  max_var(poly* p) { return m_pm.max_var(p); }
         unsigned  max_var(polynomial_ref const & p) { return m_pm.max_var(p); }
+
+        // Helper to print out m_Q
+        void print_m_Q(std::ostream& out) const {
+            out << "m_Q: [\n";
+            for (const auto& pr : m_Q) {
+                display(out, pr);
+                out << "\n";
+            }
+            out << "]\n";
+        }
         
 #ifdef Z3DEBUG
         bool check_prop_init() {
@@ -678,7 +689,7 @@ namespace nlsat {
         void apply_pre(const property& p, bool has_repr) {
             TRACE(levelwise, 
                 tout << "apply_pre BEGIN m_Q:";
-                for (const auto& q : m_Q) { display(tout, q); tout << "; "; }
+                print_m_Q(tout);
                 tout << std::endl;
             );
             TRACE(levelwise, display(tout << "property p:", p) << std::endl;);
@@ -692,7 +703,7 @@ namespace nlsat {
                 NOT_IMPLEMENTED_YET();
             TRACE(levelwise, 
                 tout << "apply_pre END m_Q:";
-                for (const auto& q : m_Q) { display(tout, q); tout << "; "; }
+                print_m_Q(tout);
                 tout << std::endl;
             );
         }
@@ -743,7 +754,7 @@ namespace nlsat {
             return "?";
         }
 
-        std::ostream& display(std::ostream& out, const property & pr) {
+        std::ostream& display(std::ostream& out, const property & pr) const {
             out << "{prop:" << prop_name(pr.prop_tag);
             if (pr.level != -1) out   << ", level:" << pr.level;
             if (pr.s_idx != -1) out   << ", s_idx:" << pr.s_idx;
