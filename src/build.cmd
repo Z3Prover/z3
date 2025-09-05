@@ -1,0 +1,1 @@
+cl parallel.cpp /EHsc /Zi

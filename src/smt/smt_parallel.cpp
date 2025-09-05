@@ -680,7 +680,6 @@ namespace smt {
             if ((c.size() >= m_config.m_max_cube_depth || !should_split)
                     && (m_config.m_depth_splitting_only || m_config.m_iterative_deepening || m_config.m_beam_search)) {
                 if (m_config.m_beam_search) {
-                    // IF_VERBOSE(1, verbose_stream() << " Re-enqueuing cube in PQ with hardness: " << hardness << "\n");
                     m_cubes_pq.push(ScoredCube(1 / hardness, g_cube)); // re-enqueue the cube as is
                 } else {
                     // need to add the depth set if it doesn't exist yet
@@ -900,8 +899,8 @@ namespace smt {
             m_cubes_depth_sets.clear();
         } else if (m_config.m_beam_search) {
             m_cubes_pq = CubePQ();
-        } else if (m_config.m_bst) {
-            m_cubes_bst.clear();
+        } else if (m_config.m_cubetree) {
+            m_cubes_tree = CubeTree(m);
         } else {
             m_cubes.reset();
             m_cubes.push_back(expr_ref_vector(m)); // push empty cube
@@ -915,7 +914,7 @@ namespace smt {
         m_config.m_depth_splitting_only = sp.depth_splitting_only();
         m_config.m_iterative_deepening = sp.iterative_deepening();
         m_config.m_beam_search = sp.beam_search();
-        m_config.m_bst = sp.bst();
+        m_config.m_cubetree = sp.cubetree();
     }
 
     void parallel::batch_manager::collect_statistics(::statistics& st) const {
