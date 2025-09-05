@@ -687,17 +687,23 @@ namespace nlsat {
         void apply_pre(const property& p, bool has_repr) {
             TRACE(levelwise, tout << "apply_pre BEGIN m_Q:"; display(tout) << std::endl; 
                 display(tout << "pre p:", p) << std::endl;);
-            if (p.prop_tag == prop_enum::an_del)
-                apply_pre_an_del(p);
-            else if (p.prop_tag == prop_enum::connected)
-                apply_pre_connected(p,has_repr); 
-            else if (p.prop_tag == prop_enum::non_null)
-                apply_pre_non_null(p);
-            else if (p.prop_tag == prop_enum::an_sub)
-                apply_pre_an_sub(p);      
-            else 
-                NOT_IMPLEMENTED_YET();    
-                
+            switch (p.prop_tag) {
+                case prop_enum::an_del:
+                    apply_pre_an_del(p);
+                    break;
+                case prop_enum::connected:
+                    apply_pre_connected(p, has_repr);
+                    break;
+                case prop_enum::non_null:
+                    apply_pre_non_null(p);
+                    break;
+                case prop_enum::an_sub:
+                    apply_pre_an_sub(p);
+                    break;
+                default:
+                    NOT_IMPLEMENTED_YET();
+                    break;
+            }
             TRACE(levelwise,  tout << "apply_pre END m_Q:"; display(tout) << std::endl;);
         }
         // return an empty vector on failure, otherwise returns the cell representations with intervals
