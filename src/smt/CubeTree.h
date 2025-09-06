@@ -34,7 +34,7 @@ public:
     }
 
     void clear() {
-        delete_leaf(root);
+        delete_subtree(root); // actually delete all nodes
         root = nullptr;
     }
 
@@ -47,6 +47,7 @@ public:
     void add_children(CubeNode* parent,
                       const Cube& left_cube,
                       const Cube& right_cube) {
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: adding children of sizes " << left_cube.size() << " and " << right_cube.size() << " under parent of size " << (parent ? parent->cube.size() : 0) << "\n");
         CubeNode* left  = new CubeNode(left_cube, parent);
         CubeNode* right = new CubeNode(right_cube, parent);
         parent->children.push_back(left);
@@ -55,6 +56,7 @@ public:
 
     // Add a new node under an existing parent
     void add_node(CubeNode* node, CubeNode* parent) {
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: adding node of size " << (node ? node->cube.size() : 0) << " under parent of size " << (parent ? parent->cube.size() : 0) << "\n");
         if (!node) return;
 
         // If no parent is specified, assume it's the root
@@ -67,111 +69,116 @@ public:
         }
     }
 
-    // remove node and propagate upward if parent becomes leaf
-    // return pointer to last removed ancestor (or nullptr if none) so we can select one of its siblings as the next cube
+    // mark node as inactive and propagate upward if parent becomes a leaf (all children inactive)
+    // return pointer to last affected ancestor (or nullptr if none) so we can select one of its siblings as the next cube
     CubeNode* remove_node_and_propagate(CubeNode* node) {
-        if (!node || node == root || node->children.empty()) return nullptr; // error or root or not a leaf
+        if (!node || node == root || !node->is_leaf()) return nullptr; // error, root, or not a leaf
 
         CubeNode* parent = node->parent;
-        CubeNode* last_removed = node;
+        CubeNode* last_marked = node;
 
-        // erase node from parent's children
-        for (size_t i = 0; i < parent->children.size(); ++i) {
-            if (parent->children[i] == node) {
-                delete_leaf(node);
-                parent->children.erase(parent->children.begin() + i);
-                break;
-            }
-        }
+        // mark this node as inactive
+        node->active = false;
 
-        // propagate upward if parent became leaf
-        while (parent && parent != root && parent->is_leaf()) {
-            SASSERT(parent->active); // parent only just became a leaf node -- no thread should be working on it! i.e. must NOT be inactive!
-            CubeNode* gp = parent->parent;
-            for (size_t i = 0; i < gp->children.size(); ++i) {
-                if (gp->children[i] == parent) {
-                    last_removed = parent;   // track the last ancestor we delete
-                    delete parent;
-                    gp->children.erase(gp->children.begin() + i);
+        // propagate upward if parent became a "leaf" (all children inactive)
+        while (parent && parent != root) {
+            bool all_inactive = true;
+            for (CubeNode* child : parent->children) {
+                if (child->active) {
+                    all_inactive = false;
                     break;
                 }
             }
-            parent = gp;
+
+            if (!all_inactive) break;  // stop propagating
+
+            SASSERT(parent->active); // parent must not be currently worked on
+            last_marked = parent;     // track the last ancestor we mark
+            parent->active = false;   // mark parent inactive
+            parent = parent->parent;
         }
 
-        return last_removed;
+        return last_marked;
     }
+
+
 
     // get closest cube to current by getting a random sibling of current (if current was UNSAT and we removed it from the tree)
     // or by descending randomly to a leaf (if we split the current node) to get the newest cube split fromthe current
     // we descend randomly to a leaf instead of just taking a random child because it's possible another thread made more descendants
     CubeNode* get_next_cube(CubeNode* current) {
+
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is null: " << (current == nullptr) << "\n");
         if (!current) return nullptr;
 
-        // must be a leaf
-        SASSERT(current->is_leaf());
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: getting next cube from current of size " << current->cube.size() << "\n");
 
         // lambda to find any active leaf in the subtree (explore all branches)
-        std::function<CubeNode*(CubeNode*)> find_active_leaf;
-        find_active_leaf = [&](CubeNode* node) -> CubeNode* {
+        std::function<CubeNode*(CubeNode*)> find_active_leaf = [&](CubeNode* node) -> CubeNode* {
             if (!node || !node->active) return nullptr;
             if (node->is_leaf()) return node;
-
             for (CubeNode* child : node->children) {
                 CubeNode* leaf = find_active_leaf(child);
-                if (leaf) return leaf; // return first found active leaf
+                if (leaf) return leaf;
             }
             return nullptr;
         };
 
         CubeNode* node = current;
 
-        while (node->parent) {
-            CubeNode* parent = node->parent;
+        while (node) {
+            // 1. check if current node itself is active leaf
+            if (node->active && node->is_leaf()) return node;
 
-            // gather active siblings
-            std::vector<CubeNode*> siblings;
-            for (CubeNode* s : parent->children) {
-                if (s != node && s->active)
-                    siblings.push_back(s);
+            // 2. check active leaf descendants
+            CubeNode* leaf_descendant = nullptr;
+            for (CubeNode* child : node->children) {
+                leaf_descendant = find_active_leaf(child);
+                if (leaf_descendant) return leaf_descendant;
             }
 
-            if (!siblings.empty()) {
-                // try each sibling until we find an active leaf
-                for (CubeNode* sibling : siblings) {
-                    CubeNode* leaf = find_active_leaf(sibling);
-                    if (leaf) return leaf;
+            // 3 & 4. check siblings and their active leaf descendants
+            if (node->parent) {
+                CubeNode* parent = node->parent;
+                for (CubeNode* sibling : parent->children) {
+                    if (sibling == node) continue;
+
+                    // check if sibling itself is an active leaf
+                    if (sibling->active && sibling->is_leaf()) return sibling;
+
+                    // check for active leaf descendants of sibling
+                    CubeNode* leaf_in_sibling = find_active_leaf(sibling);
+                    if (leaf_in_sibling) return leaf_in_sibling;
                 }
             }
 
-            // no active leaf among siblings → climb up
-            node = parent;
+            // 5. climb up to parent
+            node = node->parent;
         }
 
-        // nothing found
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: no active cube found\n");
         return nullptr;
     }
 
 private:
     CubeNode* root;
 
-    void delete_leaf(CubeNode* node) {
+    // mark leaf as inactive instead of deleting it
+    void mark_leaf_inactive(CubeNode* node) {
         if (!node || !node->active) return;
 
         // must be a leaf
         SASSERT(node->children.empty());
 
-        // detach from parent
-        if (node->parent) {
-            auto& siblings = node->parent->children;
-            for (auto it = siblings.begin(); it != siblings.end(); ++it) {
-                if (*it == node) {
-                    siblings.erase(it);
-                    break;
-                }
-            }
-        }
+        // just mark inactive
+        node->active = false;
+    }
 
+    void delete_subtree(CubeNode* node) {
+        if (!node) return;
+        for (CubeNode* child : node->children) {
+            delete_subtree(child);
+        }
         delete node;
     }
 };
