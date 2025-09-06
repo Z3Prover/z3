@@ -146,6 +146,7 @@ namespace smt {
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
 
             void remove_node_and_propagate(CubeNode* node) {
+                std::scoped_lock lock(mux);
                 SASSERT(m_config.m_cubetree);
                 CubeNode* last_removed = m_cubes_tree.remove_node_and_propagate(node);
                 if (last_removed) {
@@ -156,6 +157,7 @@ namespace smt {
             }
 
             double update_avg_cube_hardness(double hardness) {
+                std::scoped_lock lock(mux);
                 IF_VERBOSE(1, verbose_stream() << "Cube hardness: " << hardness << ", previous avg: " << m_avg_cube_hardness << ", solved cubes: " << m_solved_cube_count << "\n";);
                 m_avg_cube_hardness = (m_avg_cube_hardness * m_solved_cube_count + hardness) / (m_solved_cube_count + 1);
                 m_solved_cube_count++;
@@ -212,8 +214,6 @@ namespace smt {
             
             double naive_hardness();
             double explicit_hardness(expr_ref_vector const& cube);
-            double heule_schur_hardness(expr_ref_vector const& cube);
-            double march_cu_hardness(expr_ref_vector const& cube);
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
             void run();

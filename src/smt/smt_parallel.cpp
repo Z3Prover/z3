@@ -100,13 +100,14 @@ namespace smt {
         while (m.inc()) { // inc: increase the limit and check if it is canceled, vs m.limit().is_canceled() is readonly. the .limit() is also not necessary (m.inc() etc provides a convenience wrapper)
             expr_ref_vector cube(m);
             CubeNode* cube_node;
+            LOG_WORKER(1, " Curr cube node is null: " << (m_curr_cube_node == nullptr) << "\n");
             if (m_config.m_cubetree) {
                 cube_node = b.get_cube_from_tree(m_g2l, m_curr_cube_node);
+                LOG_WORKER(1, " Got cube node from CubeTree. Is null: " << (cube_node == nullptr) << "\n");
                 m_curr_cube_node = cube_node; // store the current cube so we know how to get the next closest cube from the tree
                 cube = (expr_ref_vector)(cube_node->cube);
                 IF_VERBOSE(1, verbose_stream() << " Worker " << id << " got cube of size " << cube.size() << " from CubeTree\n");
-            }
-            else {
+            } else {
                 cube = b.get_cube(m_g2l);
             }
                 
@@ -156,6 +157,7 @@ namespace smt {
                             // should_split tells return_cubes whether to further split the unsolved cube.
                             b.return_cubes(m_l2g, cube, split_atoms, should_split, cube_hardness);
                         } else if (m_config.m_cubetree) {
+                            IF_VERBOSE(1, verbose_stream() << " returning undef cube to CubeTree\n");
                             b.return_cubes_tree(m_l2g, cube_node, split_atoms);
                         } else {
                             b.return_cubes(m_l2g, cube, split_atoms);
@@ -205,6 +207,7 @@ namespace smt {
                     
                     // prune the tree now that we know the cube is unsat
                     if (m_config.m_cubetree) {
+                        IF_VERBOSE(1, verbose_stream() << " removing cube node from CubeTree and propagate deletion\n");
                         b.remove_node_and_propagate(m_curr_cube_node);
                     }
                     break;
@@ -388,20 +391,28 @@ namespace smt {
             CubeNode* new_cube_node = new CubeNode(l_cube, nullptr);
             m_cubes_tree.add_node(new_cube_node, nullptr);
             return new_cube_node; // return empty cube
+        } else if (!prev_cube) {
+            prev_cube = m_cubes_tree.get_root(); // if prev_cube is null, it means that another thread started the tree first. so we also start from the root (i.e. the empty cube)
+            return prev_cube;
         }
 
         // get a cube from the CubeTree
         SASSERT(!m_cubes_tree.empty());
         CubeNode* next_cube_node = m_cubes_tree.get_next_cube(prev_cube); // get the next cube in the tree closest to the prev cube (i.e. longest common prefix)
+        
+        IF_VERBOSE(1, verbose_stream() << "Batch manager giving out cube from CubeTree. Is null: " << (next_cube_node==nullptr) << "\n");
+        
         expr_ref_vector& next_cube = next_cube_node->cube;
-        IF_VERBOSE(1, verbose_stream() << "Batch manager giving out cube from CubeTree.\n");
 
         for (auto& e : next_cube) {
+            IF_VERBOSE(1, verbose_stream() << " HERE1\n");
             l_cube.push_back(g2l(e));
+            IF_VERBOSE(1, verbose_stream() << " HERE2\n");
         }
 
+        IF_VERBOSE(1, verbose_stream() << " Cube size: " << l_cube.size() << "\n");
         next_cube_node->active = false; // mark the cube as inactive (i.e. being processed by a worker)
-
+        
         return next_cube_node;
     }
 
@@ -773,8 +784,8 @@ namespace smt {
         };
 
         // apply the frugal strategy to ALL incoming worker cubes, but save in the PQ data structure for beam search
-        auto add_split_atom_pq = [&](expr* atom) {
-            // IF_VERBOSE(1, verbose_stream() << " Adding split atom to PQ: " << mk_bounded_pp(atom, m, 3) << "\n");
+        auto add_split_atom_tree = [&](expr* atom) {
+            IF_VERBOSE(1, verbose_stream() << " Adding split atom to tree: " << mk_bounded_pp(atom, m, 3) << "\n");
             expr_ref_vector g_cube(l2g.to());
             for (auto& atom : c)
                 g_cube.push_back(l2g(atom));
@@ -789,17 +800,11 @@ namespace smt {
 
             m_cubes_tree.add_children(cube_node, cube_pos, cube_neg);
 
-            // IF_VERBOSE(1, verbose_stream() << " PQ size now: " << m_cubes_pq.size() << ". PQ is empty: " << m_cubes_pq.empty() << "\n");
-
             m_stats.m_num_cubes += 2;
             m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, g_cube.size() + 1);
         };
 
         std::scoped_lock lock(mux);
-        expr_ref_vector g_cube(l2g.to());
-
-        for (auto& atom : c)
-            g_cube.push_back(l2g(atom));
 
         if (c.size() >= m_config.m_max_cube_depth) {
             // IF_VERBOSE(1, verbose_stream() << " Skipping split of cube at max depth " << m_config.m_max_cube_depth << "\n";);
@@ -814,7 +819,7 @@ namespace smt {
                 m_split_atoms.push_back(g_atom);
             
             IF_VERBOSE(1, verbose_stream() << " splitting worker cubes on new atom for PQ " << mk_bounded_pp(g_atom, m, 3) << "\n");
-            add_split_atom_pq(g_atom); 
+            add_split_atom_tree(g_atom); 
         }
     }
 

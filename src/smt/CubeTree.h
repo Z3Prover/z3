@@ -47,6 +47,7 @@ public:
     void add_children(CubeNode* parent,
                       const Cube& left_cube,
                       const Cube& right_cube) {
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: adding children of sizes " << left_cube.size() << " and " << right_cube.size() << " under parent of size " << (parent ? parent->cube.size() : 0) << "\n");
         CubeNode* left  = new CubeNode(left_cube, parent);
         CubeNode* right = new CubeNode(right_cube, parent);
         parent->children.push_back(left);
@@ -55,6 +56,7 @@ public:
 
     // Add a new node under an existing parent
     void add_node(CubeNode* node, CubeNode* parent) {
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: adding node of size " << (node ? node->cube.size() : 0) << " under parent of size " << (parent ? parent->cube.size() : 0) << "\n");
         if (!node) return;
 
         // If no parent is specified, assume it's the root
@@ -106,10 +108,12 @@ public:
     // or by descending randomly to a leaf (if we split the current node) to get the newest cube split fromthe current
     // we descend randomly to a leaf instead of just taking a random child because it's possible another thread made more descendants
     CubeNode* get_next_cube(CubeNode* current) {
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is null: " << (current == nullptr) << "\n");
         if (!current) return nullptr;
-
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: getting next cube from current of size " << current->cube.size() << "\n");
         // must be a leaf
         SASSERT(current->is_leaf());
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: current is leaf\n");
 
         // lambda to find any active leaf in the subtree (explore all branches)
         std::function<CubeNode*(CubeNode*)> find_active_leaf;
