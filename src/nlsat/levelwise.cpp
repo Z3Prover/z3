@@ -79,11 +79,6 @@ namespace nlsat {
         std::vector<property>        m_to_refine; 
         std::vector<symbolic_interval> m_I; // intervals per level (indexed by variable/level)
         bool                         m_fail = false; 
-        // Property precedence relation stored as pairs (lesser, greater)
-        std::vector<std::pair<prop_enum, prop_enum>> m_p_relation;
-        // Transitive closure matrix: dom[a][b] == true iff a ▹ b (a strictly dominates b).
-        // Invert edges when populating dom: greater ▹ lesser.
-        std::vector<std::vector<bool>> m_prop_dom;
 
         assignment const & sample() const { return m_solver.sample();}
         assignment & sample() { return m_solver.sample(); }
@@ -94,7 +89,6 @@ namespace nlsat {
             TRACE(levelwise, tout  << "m_n:" << m_n << "\n";);
             m_I.resize(m_n);
             m_Q.resize(m_n+1);
-            init_property_relation();
         }
 
 
@@ -116,63 +110,7 @@ namespace nlsat {
             return out;
         }
         
-#ifdef Z3DEBUG
-        bool check_prop_init() {
-            for (unsigned k = 0; k < prop_count(); ++k)
-                if (m_prop_dom[k][k])
-                    return false;
-            return !dominates(prop_enum::ord_inv_irreducible, prop_enum::non_null);
-        }
-#endif
         
-        void init_property_relation() {
-            m_p_relation.clear();
-            auto add = [&](prop_enum lesser, prop_enum greater) { m_p_relation.emplace_back(lesser, greater); };
-            // m_p_relation stores edges (lesser -> greater). 
-            // The edges below follow Figure 8. Examples include: an_del -> ir_ord, sample -> ir_ord.
-            add(prop_enum::holds,   prop_enum::repr);
-            add(prop_enum::repr,    prop_enum::sample);
-            add(prop_enum::sample,  prop_enum::an_sub);
-            add(prop_enum::an_sub,  prop_enum::connected);
-            // connected < sgn_inv_*
-            add(prop_enum::connected, prop_enum::sgn_inv_reducible);
-            add(prop_enum::connected, prop_enum::sgn_inv_irreducible);
-            // sgn_inv_* < ord_inv_* (same reducibility)
-            add(prop_enum::sgn_inv_reducible,   prop_enum::ord_inv_reducible);
-            add(prop_enum::sgn_inv_irreducible, prop_enum::ord_inv_irreducible);
-            // ord_inv_* < non_null
-
-            add(prop_enum::ord_inv_reducible,   prop_enum::non_null);
-            add(prop_enum::ord_inv_irreducible, prop_enum::non_null);
-            // non_null < an_del
-            add(prop_enum::non_null, prop_enum::an_del);
-            // an_del < ir_ord
-            add(prop_enum::an_del,    prop_enum::ir_ord);
-            // Additional explicit edge from Fig 8
-            add(prop_enum::sample,    prop_enum::ir_ord);
-
-            // Build transitive closure matrix for quick comparisons
-            unsigned N = prop_count();
-            m_prop_dom.assign(N, std::vector<bool>(N, false));
-            for (auto const& pr : m_p_relation) {
-                unsigned lesser  = static_cast<unsigned>(pr.first);
-                unsigned greater = static_cast<unsigned>(pr.second);
-                // Build dominance relation as: greater ▹ lesser
-                m_prop_dom[greater][lesser] = true;
-            }
-            // Floyd-Warshall style closure on a tiny fixed-size set
-            for (unsigned k = 0; k < N; ++k)
-                for (unsigned i = 0; i < N; ++i)
-                    if (m_prop_dom[i][k])
-                        for (unsigned j = 0; j < N; ++j)
-                            if (m_prop_dom[k][j])
-                                m_prop_dom[i][j] = true;
-
-#ifdef Z3DEBUG
-            SASSERT(check_prop_init());
-#endif            
-        }
-
         /*
           Short: build the initial property set Q so the one-cell algorithm can generalize the
           conflict around the current sample. The main goal is to eliminate raw input polynomials
@@ -734,13 +672,6 @@ or
             return m_I; // the order of intervals is reversed
         }
         
-        bool dominates(const property& a, const property& b) const {
-            return a.poly == b.poly && dominates(a.prop_tag, b.prop_tag);
-        }
-        bool dominates(prop_enum a, prop_enum b) const {
-            return m_prop_dom[static_cast<unsigned>(a)][static_cast<unsigned>(b)];
-        }
-
         // Pretty-print helpers
         static const char* prop_name(prop_enum p) {
             switch (p) {
