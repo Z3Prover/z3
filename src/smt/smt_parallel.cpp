@@ -102,10 +102,9 @@ namespace smt {
             CubeNode* cube_node;
             LOG_WORKER(1, " Curr cube node is null: " << (m_curr_cube_node == nullptr) << "\n");
             if (m_config.m_cubetree) {
-                cube_node = b.get_cube_from_tree(m_g2l, m_curr_cube_node);
+                auto [cube_node, cube] = b.get_cube_from_tree(m_g2l, m_curr_cube_node); // cube node is the reference to the node in the tree, tells us how to get the next cube. "cube" is the translated cube we need for the solver
                 LOG_WORKER(1, " Got cube node from CubeTree. Is null: " << (cube_node == nullptr) << "\n");
                 m_curr_cube_node = cube_node; // store the current cube so we know how to get the next closest cube from the tree
-                cube = (expr_ref_vector)(cube_node->cube);
                 IF_VERBOSE(1, verbose_stream() << " Worker " << id << " got cube of size " << cube.size() << " from CubeTree\n");
             } else {
                 cube = b.get_cube(m_g2l);
@@ -380,7 +379,7 @@ namespace smt {
         return r;
     }
 
-    CubeNode* parallel::batch_manager::get_cube_from_tree(ast_translation& g2l, CubeNode* prev_cube) {
+    std::pair<CubeNode*, expr_ref_vector> parallel::batch_manager::get_cube_from_tree(ast_translation& g2l, CubeNode* prev_cube) {
         std::scoped_lock lock(mux);
         expr_ref_vector l_cube(g2l.to());
         SASSERT(m_config.m_cubetree);
@@ -390,10 +389,10 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << "Batch manager giving out empty cube.\n");
             CubeNode* new_cube_node = new CubeNode(l_cube, nullptr);
             m_cubes_tree.add_node(new_cube_node, nullptr);
-            return new_cube_node; // return empty cube
+            return {new_cube_node, l_cube}; // return empty cube
         } else if (!prev_cube) {
             prev_cube = m_cubes_tree.get_root(); // if prev_cube is null, it means that another thread started the tree first. so we also start from the root (i.e. the empty cube)
-            return prev_cube;
+            return {prev_cube, l_cube};
         }
 
         // get a cube from the CubeTree
@@ -401,10 +400,8 @@ namespace smt {
         CubeNode* next_cube_node = m_cubes_tree.get_next_cube(prev_cube); // get the next cube in the tree closest to the prev cube (i.e. longest common prefix)
         
         IF_VERBOSE(1, verbose_stream() << "Batch manager giving out cube from CubeTree. Is null: " << (next_cube_node==nullptr) << "\n");
-        
-        expr_ref_vector& next_cube = next_cube_node->cube;
 
-        for (auto& e : next_cube) {
+        for (auto& e : next_cube_node->cube) {
             IF_VERBOSE(1, verbose_stream() << " HERE1\n");
             l_cube.push_back(g2l(e));
             IF_VERBOSE(1, verbose_stream() << " HERE2\n");
@@ -412,8 +409,8 @@ namespace smt {
 
         IF_VERBOSE(1, verbose_stream() << " Cube size: " << l_cube.size() << "\n");
         next_cube_node->active = false; // mark the cube as inactive (i.e. being processed by a worker)
-        
-        return next_cube_node;
+
+        return {next_cube_node, l_cube};
     }
 
     // FOR ALL NON-TREE VERSIONS
@@ -475,6 +472,7 @@ namespace smt {
 
     void parallel::batch_manager::set_sat(ast_translation& l2g, model& m) {
         std::scoped_lock lock(mux);
+        IF_VERBOSE(1, verbose_stream() << "Batch manager setting SAT.\n");
         if (m_state != state::is_running)
             return;
         m_state = state::is_sat;
@@ -484,6 +482,7 @@ namespace smt {
 
     void parallel::batch_manager::set_unsat(ast_translation& l2g, expr_ref_vector const& unsat_core) {
         std::scoped_lock lock(mux);
+        IF_VERBOSE(1, verbose_stream() << "Batch manager setting UNSAT.\n");
         if (m_state != state::is_running)
             return;
         m_state = state::is_unsat;    
@@ -499,6 +498,7 @@ namespace smt {
 
     void parallel::batch_manager::set_exception(unsigned error_code) {
         std::scoped_lock lock(mux);
+        IF_VERBOSE(1, verbose_stream() << "Batch manager setting exception code: " << error_code << ".\n");
         if (m_state != state::is_running)
             return;
         m_state = state::is_exception_code;
@@ -508,6 +508,7 @@ namespace smt {
 
     void parallel::batch_manager::set_exception(std::string const& msg) {
         std::scoped_lock lock(mux);
+        IF_VERBOSE(1, verbose_stream() << "Batch manager setting exception msg: " << msg << ".\n");
         if (m_state != state::is_running || m.limit().is_canceled())
             return;
         m_state = state::is_exception_msg;

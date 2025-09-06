@@ -132,7 +132,7 @@ namespace smt {
             // The batch manager returns the next cube to
             //
             expr_ref_vector get_cube(ast_translation& g2l);  // FOR ALL NON-TREE VERSIONS
-            CubeNode* get_cube_from_tree(ast_translation& g2l, CubeNode* prev_cube = nullptr);
+            std::pair<CubeNode*, expr_ref_vector> get_cube_from_tree(ast_translation& g2l, CubeNode* prev_cube = nullptr);
 
             //
             // worker threads return unprocessed cubes to the batch manager together with split literal candidates.
