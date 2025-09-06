@@ -98,12 +98,11 @@ namespace nlsat {
 
         // Helper to print out m_Q
         std::ostream& display(std::ostream& out) {
-            out << "m_Q: [\n";
+            out << "[\n";
             for (auto &q: m_Q) {
                 auto q_dump = to_vector(q);
                 for (const auto& pr : q_dump) {
-                    display(out, pr);
-                    out << "\n";
+                    display(out, pr) << "\n";
                 }
             }
             out << "]\n";
@@ -294,8 +293,10 @@ namespace nlsat {
             auto& q = m_Q[m_level];
             while(!q.empty()) {
                 property p = pop(q);
-                if (p.prop_tag == prop_to_avoid)
+                if (p.prop_tag == prop_to_avoid) {
                     avoided.push_back(p);
+                    continue;
+                }
                 apply_pre(p, has_repr);
                 if (m_fail) break;
             }
@@ -372,13 +373,7 @@ namespace nlsat {
             }
 
             build_representation();
-            // apply post-processing that may rely on the representation being present
-            if (!apply_property_rules(prop_enum(prop_enum::holds), true))
-                return true;
-
-            SASSERT(m_Q[m_level].empty());
-            
-            return m_fail;
+            return apply_property_rules(prop_enum::holds, true);
         }
          // Extracted helper: handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
          void add_ord_inv_discriminant_for(const property& p) {
@@ -631,6 +626,8 @@ or
             case prop_enum::repr:
                 apply_pre_repr(p);
                 break;
+            case prop_enum::holds:
+                break; // ignore the bottom of refinement
             default:
                 TRACE(levelwise, display(tout << "not impl: p", p));
                 NOT_IMPLEMENTED_YET();
