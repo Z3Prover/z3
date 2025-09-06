@@ -880,10 +880,7 @@ namespace Microsoft.Z3
         {
             Debug.Assert(f != null);
             Debug.Assert(args == null || args.All(a => a != null));
-
-            CheckContextMatch(f);
-            CheckContextMatch(args);
-            return Expr.Create(this, f, args.ToArray());
+            return MkApp(f, args?.ToArray());
         }
 
         #region Propositional
@@ -1051,10 +1048,7 @@ namespace Microsoft.Z3
         public BoolExpr MkAnd(IEnumerable<BoolExpr> t)
         {
             Debug.Assert(t != null);
-            var ands = t.ToArray();
-            Debug.Assert(ands.All(a => a != null));
-            CheckContextMatch((Z3Object[])ands);
-            return new BoolExpr(this, Native.Z3_mk_and(nCtx, (uint)ands.Length, AST.ArrayToNative(ands)));
+            return MkAnd(t.ToArray());
         }
 
         /// <summary>
@@ -1076,11 +1070,7 @@ namespace Microsoft.Z3
         public BoolExpr MkOr(IEnumerable<BoolExpr> t)
         {
             Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
-
-            CheckContextMatch(t);
-            var ts = t.ToArray();
-            return new BoolExpr(this, Native.Z3_mk_or(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
+            return MkOr(t.ToArray());
         }
 
         #endregion
@@ -1104,11 +1094,7 @@ namespace Microsoft.Z3
         public ArithExpr MkAdd(IEnumerable<ArithExpr> t)
         {
             Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
-
-            CheckContextMatch(t);
-            var ts = t.ToArray();
-            return (ArithExpr)Expr.Create(this, Native.Z3_mk_add(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
+            return MkAdd(t.ToArray());
         }
 
         /// <summary>
@@ -1120,8 +1106,7 @@ namespace Microsoft.Z3
             Debug.Assert(t.All(a => a != null));
 
             CheckContextMatch<ArithExpr>(t);
-            var ts = t.ToArray();
-            return (ArithExpr)Expr.Create(this, Native.Z3_mk_mul(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
+            return (ArithExpr)Expr.Create(this, Native.Z3_mk_mul(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
         }
 
         /// <summary>
@@ -1130,11 +1115,7 @@ namespace Microsoft.Z3
         public ArithExpr MkMul(IEnumerable<ArithExpr> t)
         {
             Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
-
-            CheckContextMatch<ArithExpr>(t);
-            var ts = t.ToArray();
-            return (ArithExpr)Expr.Create(this, Native.Z3_mk_mul(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
+            return MkMul(t.ToArray());
         }
 
         /// <summary>
