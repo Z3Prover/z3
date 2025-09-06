@@ -51,9 +51,9 @@ namespace nlsat {
         pmanager&                    m_pm;
         anum_manager&                m_am;
         std::vector<property>        m_Q; // the set of properties to prove
+        std::vector<property>        m_to_refine; 
         std::vector<symbolic_interval> m_I; // intervals per level (indexed by variable/level)
         bool                         m_fail = false; 
-        bool                         m_Q_changed = false; // tracks mutations to m_Q for fixed-point iteration
         // Property precedence relation stored as pairs (lesser, greater)
         std::vector<std::pair<prop_enum, prop_enum>> m_p_relation;
         // Transitive closure matrix: dom[a][b] == true iff a ▹ b (a strictly dominates b).
@@ -321,20 +321,17 @@ namespace nlsat {
         // directly on a sorted vector<root_item_t>.
         // Part A of construct_interval: apply pre-conditions (line 8-11 scaffolding)
         bool apply_property_rules(unsigned i, prop_enum prop_to_avoid, bool has_repr) {
-             // Iterate until no mutation to m_Q occurs (fixed-point). We avoid copying m_Q
-             // by using a change flag that is set by mutating helpers (add_to_Q_if_new / erase_from_Q).
-             if (m_fail) return false;
-             do {
-                 m_Q_changed = false;
-                 std::vector<property> to_refine = greatest_to_refine(i, prop_to_avoid);
-                 TRACE(levelwise, display(tout << "to_refine properties:", to_refine);); 
-                 for (const auto& p : to_refine) {
-                    apply_pre(p, has_repr);
-                    if (m_fail) return false;
-                 }
-             } while (m_Q_changed && !m_fail);
-             return !m_fail;
-         }
+            SASSERT (!m_fail);
+            greatest_to_refine(i, prop_to_avoid);
+            TRACE(levelwise, display(tout << "to_refine properties:", m_to_refine);); 
+            while(m_to_refine.size()) {
+                property p = m_to_refine.back();
+                m_to_refine.pop_back();
+                apply_pre(p, has_repr);
+                if (m_fail) return false;
+            }
+            return !m_fail;
+        }
 
          // Part B of construct_interval: build (I, E, ≼) representation for level i
          void build_representation(unsigned i) {
@@ -355,45 +352,22 @@ namespace nlsat {
              compute_interval_from_sorted_roots(i, roots, m_I[i]);
          }
 
-         std::vector<property> greatest_to_refine(unsigned level, prop_enum prop_to_avoid) {
-             // Collect candidates on current level, excluding sgn_inv_irreducible
-             std::vector<property> cand;
-             cand.reserve(m_Q.size());
-             for (const auto& q : m_Q)
-                 if (q.level == level && q.prop_tag != prop_to_avoid)
-                     cand.push_back(q);
-             if (cand.empty()) return {};
-
-             // Determine maxima w.r.t. ▹ using the transitive closure matrix
-             // Dominance requires the same polynomial in both compared properties
-             std::vector<bool> dominated(cand.size(), false);
-             for (size_t i = 0; i < cand.size(); ++i) {
-                 for (size_t j = 0; j < cand.size(); ++j) {
-                     if (i != j && dominates(cand[j], cand[i])) {
-                         dominated[i] = true;
-                         break;
-                     }
-                 }
-             }
-             auto poly_id = [cand](unsigned i) { return cand[i].poly == nullptr? UINT_MAX: polynomial::manager::id(cand[i].poly);};
-             // Extract non-dominated (greatest) candidates; keep deterministic order by (poly id, prop enum)
-             struct Key { unsigned pid; unsigned pprop; size_t idx; };
-             std::vector<Key> keys;
-             keys.reserve(cand.size());
-             for (size_t i = 0; i < cand.size(); ++i) {
-                 if (!dominated[i]) {
-                     keys.push_back(Key{ poly_id(i), static_cast<unsigned>(cand[i].prop_tag), i });
-                 }
-             }
-             std::sort(keys.begin(), keys.end(), [](Key const& a, Key const& b){
-                 if (a.pid != b.pid) return a.pid < b.pid;
-                 return a.pprop < b.pprop;
-             });
-             std::vector<property> ret;
-             ret.reserve(keys.size());
-             for (auto const& k : keys) ret.push_back(cand[k.idx]);
-             return ret;
-         }
+        bool is_dominated_by_Q(const property& p) {
+            // Return true if any q in m_Q (q != p by value) dominates p
+            return std::any_of(m_Q.begin(), m_Q.end(), [&](const property& q) {
+                bool is_same = (q.prop_tag == p.prop_tag) && (q.level == p.level) && (q.s_idx == p.s_idx) && (q.poly == p.poly);
+                return !is_same && dominates(q, p);
+            });
+        }
+        
+        void greatest_to_refine(unsigned level, prop_enum prop_to_avoid) {
+            // Collect candidates on current level, excluding prop_to_avoid
+            
+            m_to_refine.clear();
+            for (const auto& q : m_Q)
+                if (q.level == level && q.prop_tag != prop_to_avoid && !is_dominated_by_Q(q)) 
+                    m_to_refine.push_back(q);            
+        }
 
          // Step 1a: collect E and root values
          void collect_E_and_roots(std::vector<const poly*> const& P_non_null,
@@ -423,21 +397,18 @@ namespace nlsat {
              }
          }
 
-         // Helper: add a property to m_Q if an equivalent one is not already present.
-         // Equivalence: same prop_tag and same level; if pr.poly is non-null, require the same poly as well.
+         // add a property to m_Q if an equivalent one is not already present.
+         // Equivalence: same prop_tag and same level; require the same poly as well.
          void add_to_Q_if_new(const property & pr) {
              for (auto const & q : m_Q) {
                  if (q.prop_tag != pr.prop_tag) continue;
                  if (q.level != pr.level) continue;
-                 if (pr.poly) {
-                     if (q.poly == pr.poly) return;
-                     else continue;
-                 }
-                 // pr.poly is null -> match by prop_tag + level only
+                 if (q.poly != pr.poly) continue;
+                 if (q.s_idx != pr.s_idx) continue;
+                 TRACE(levelwise, display(tout << "matched q:", q) << std::endl;);
                  return;
              }
              m_Q.push_back(pr);
-             m_Q_changed = true;
          }
 
          void remove_level_i_from_Q(std::vector<property> & Q, unsigned i) {
@@ -452,7 +423,6 @@ namespace nlsat {
              });
              SASSERT(it != m_Q.end());
              m_Q.erase(it);
-             m_Q_changed = true;
          }
         
         // construct_interval: compute representation for level i and apply post rules.
@@ -699,7 +669,17 @@ or
         void apply_pre_repr(const property& p) {
             const auto& I = m_I[p.level];
             TRACE(levelwise, display(tout << "interval m_I[" << p.level << "]\n", I) << "\n";);
-            NOT_IMPLEMENTED_YET();
+            add_to_Q_if_new(property(prop_enum::holds, m_pm, p.level -1));
+            add_to_Q_if_new(property(prop_enum::sample, m_pm, p.level -1));
+            if (I.is_section()) {
+                NOT_IMPLEMENTED_YET();
+            } else {
+                SASSERT(I.is_sector());
+                if (!I.l_inf() || !I.u_inf()) {
+                    NOT_IMPLEMENTED_YET();
+                }
+            }
+            erase_from_Q(p);
         }
 
         void apply_pre(const property& p, bool has_repr) {
