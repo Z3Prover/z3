@@ -19,8 +19,8 @@ namespace nlsat {
             unsigned u_index; // the root index
             bool l_inf() const { return l == nullptr; }
             bool u_inf() const { return u == nullptr; }
-            bool is_section() { return section; }
-            bool is_sector() { return !section; }
+            bool is_section() const { return section; }
+            bool is_sector() const { return !section; }
             poly* section_poly() {
                 SASSERT(is_section());                
                 return l;
