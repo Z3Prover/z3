@@ -9,6 +9,10 @@
 #include <memory>
 #include "math/polynomial/algebraic_numbers.h"
 #include "nlsat_common.h"
+#include <queue>
+
+// Helper to iterate over a std::priority_queue by dumping to a vector and restoring
+
 namespace nlsat {
 
 // Local enums reused from previous scaffolding
@@ -45,12 +49,33 @@ namespace nlsat {
             property(prop_enum pr, polynomial::manager& pm, unsigned lvl) : prop_tag(pr), poly(polynomial_ref(pm)), s_idx(-1), level(lvl) {}
             
         };
+        struct compare_prop_tags {
+            bool operator()(const property& a, const property& b) const {
+                return a.prop_tag < b.prop_tag; // ir_ord dequed first
+            }
+        };
+        typedef std::priority_queue<property, std::vector<property>, compare_prop_tags> property_queue;
+
+        std::vector<property> to_vector(property_queue& pq) {
+            std::vector<property> result;
+            while (!pq.empty()) {
+                result.push_back(pq.top());
+                pq.pop();
+            }
+            // Restore the queue
+            for (const auto& item : result) {
+                pq.push(item);
+            }
+            return result;
+        }
+        
         solver& m_solver;
         polynomial_ref_vector const& m_P;
-        var                          m_n;
+        unsigned                     m_n; // the max of max_var(p) of all the polynomials, the level of the conflict
+        unsigned                     m_level;// the current level while refining the properties
         pmanager&                    m_pm;
         anum_manager&                m_am;
-        std::vector<property>        m_Q; // the set of properties to prove
+        std::vector<property_queue>  m_Q; // the set of properties to prove
         std::vector<property>        m_to_refine; 
         std::vector<symbolic_interval> m_I; // intervals per level (indexed by variable/level)
         bool                         m_fail = false; 
@@ -67,7 +92,8 @@ namespace nlsat {
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am)
             : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am) {
             TRACE(levelwise, tout  << "m_n:" << m_n << "\n";);
-            m_I.resize(max_x);
+            m_I.resize(m_n);
+            m_Q.resize(m_n+1);
             init_property_relation();
         }
 
@@ -77,11 +103,14 @@ namespace nlsat {
         unsigned  max_var(polynomial_ref const & p) { return m_pm.max_var(p); }
 
         // Helper to print out m_Q
-        std::ostream& display(std::ostream& out) const {
+        std::ostream& display(std::ostream& out) {
             out << "m_Q: [\n";
-            for (const auto& pr : m_Q) {
-                display(out, pr);
-                out << "\n";
+            for (auto &q: m_Q) {
+                auto q_dump = to_vector(q);
+                for (const auto& pr : q_dump) {
+                    display(out, pr);
+                    out << "\n";
+                }
             }
             out << "]\n";
             return out;
@@ -167,9 +196,9 @@ namespace nlsat {
                 poly* p = m_P[i];
                 unsigned level = max_var(p);
                 if (level < m_n)
-                    m_Q.push_back(property(prop_enum::sgn_inv_irreducible, polynomial_ref(p, m_pm), /*s_idx*/0u, /* level */ level));
+                    m_Q[level].push(property(prop_enum::sgn_inv_irreducible, polynomial_ref(p, m_pm), /*s_idx*/0u, /* level */ level));
                 else if (level == m_n){
-                    m_Q.push_back(property(prop_enum::an_del, polynomial_ref(p, m_pm), /* s_idx */ -1, level));
+                    m_Q[level].push(property(prop_enum::an_del, polynomial_ref(p, m_pm), /* s_idx */ -1, level));
                     ps_of_n_level.push_back(p);
                 }
                 else {
@@ -236,7 +265,7 @@ namespace nlsat {
                 for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
                     polynomial_ref f(m_pm);
                     f = factors[i];
-                    m_Q.push_back(property(prop_enum::ord_inv_irreducible, f, m_pm));
+                    m_Q[max_var(f)].push(property(prop_enum::ord_inv_irreducible, f, m_pm));
                 }
             }
             return true;
@@ -270,17 +299,16 @@ namespace nlsat {
         };
 
         // Compute symbolic interval from sorted roots. Assumes roots are sorted.
-        void compute_interval_from_sorted_roots(unsigned i,
+        void compute_interval_from_sorted_roots( // works on m_level
                                                 std::vector<root_item_t>& roots,
                                                 symbolic_interval& I) {
             // default: whole line sector (-inf, +inf)
             I.section = false;
             I.l = nullptr; I.u = nullptr; I.l_index = 0; I.u_index = 0;
 
-            var y = i;
-            if (!sample().is_assigned(y))
+            if (!sample().is_assigned(m_level))
                 return;
-            anum const& y_val = sample().value(y);
+            anum const& y_val = sample().value(m_level);
             if (roots.empty()) return;
 
             // find first index where roots[idx].val >= y_val
@@ -315,72 +343,59 @@ namespace nlsat {
             }
         }
 
+        property pop(property_queue & q) {
+            property r = q.top();
+            q.pop();
+            return r;
+        }
 
-        // Step 1b/2: old bucket-based helpers removed. The implementation now uses
-        // compute_interval_from_sorted_roots which operates
-        // directly on a sorted vector<root_item_t>.
-        // Part A of construct_interval: apply pre-conditions (line 8-11 scaffolding)
-        bool apply_property_rules(unsigned i, prop_enum prop_to_avoid, bool has_repr) {
+        //works on m_level
+        bool apply_property_rules(prop_enum prop_to_avoid, bool has_repr) {
             SASSERT (!m_fail);
-            greatest_to_refine(i, prop_to_avoid);
-            TRACE(levelwise, display(tout << "to_refine properties:", m_to_refine);); 
-            while(m_to_refine.size()) {
-                property p = m_to_refine.back();
-                m_to_refine.pop_back();
+            std::vector<property> avoided;
+            auto& q = m_Q[m_level];
+            while(!q.empty()) {
+                property p = pop(q);
+                if (p.prop_tag == prop_to_avoid)
+                    avoided.push_back(p);
                 apply_pre(p, has_repr);
-                if (m_fail) return false;
+                if (m_fail) break;
             }
+            for (auto & p : avoided)
+                q.push(p);
             return !m_fail;
         }
 
          // Part B of construct_interval: build (I, E, ≼) representation for level i
-         void build_representation(unsigned i) {
+         void build_representation() {
              std::vector<const poly*> p_non_null;
-             for (const auto & pr: m_Q) {
-                 if (pr.prop_tag == prop_enum::sgn_inv_irreducible && max_var(pr.poly) == i && 
-                     !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
+             for (const auto & pr: to_vector(m_Q[m_level])) {
+                 SASSERT(max_var(pr.poly) == m_level);
+                 if (pr.prop_tag == prop_enum::sgn_inv_irreducible &&  !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
                      p_non_null.push_back(pr.poly.get());
              }
              std::vector<root_item_t> roots;
              std::vector<indexed_root_expr> E;
-             collect_E_and_roots(p_non_null, i, E, roots);
+             collect_E_and_roots(p_non_null, E, roots);
              // Ensure m_I can hold interval for this level
-             SASSERT(m_I.size() > i);
+             SASSERT(m_I.size() > m_level);
              std::sort(roots.begin(), roots.end(), [&](root_item_t const& a, root_item_t const& b){
                  return m_am.lt(a.val, b.val);
              });
-             compute_interval_from_sorted_roots(i, roots, m_I[i]);
+             compute_interval_from_sorted_roots(roots, m_I[m_level]);
          }
-
-        bool is_dominated_by_Q(const property& p) {
-            // Return true if any q in m_Q (q != p by value) dominates p
-            return std::any_of(m_Q.begin(), m_Q.end(), [&](const property& q) {
-                bool is_same = (q.prop_tag == p.prop_tag) && (q.level == p.level) && (q.s_idx == p.s_idx) && (q.poly == p.poly);
-                return !is_same && dominates(q, p);
-            });
-        }
-        
-        void greatest_to_refine(unsigned level, prop_enum prop_to_avoid) {
-            // Collect candidates on current level, excluding prop_to_avoid
-            
-            m_to_refine.clear();
-            for (const auto& q : m_Q)
-                if (q.level == level && q.prop_tag != prop_to_avoid && !is_dominated_by_Q(q)) 
-                    m_to_refine.push_back(q);            
-        }
 
          // Step 1a: collect E and root values
          void collect_E_and_roots(std::vector<const poly*> const& P_non_null,
-                                  unsigned i,
+                                  // works on m_level,
                                   std::vector<indexed_root_expr>& E,
                                   std::vector<root_item_t>& roots_out) {
-             var y = i;
              for (auto const* p0 : P_non_null) {
                  auto* p = const_cast<poly*>(p0);
-                 if (m_pm.max_var(p) != y)
+                 if (m_pm.max_var(p) != m_level)
                      continue;
                  scoped_anum_vector roots(m_am);
-                 m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), y), roots);
+                 m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_level), roots);
 
                  unsigned num_roots = roots.size();
                  TRACE(levelwise,
@@ -400,45 +415,35 @@ namespace nlsat {
          // add a property to m_Q if an equivalent one is not already present.
          // Equivalence: same prop_tag and same level; require the same poly as well.
          void add_to_Q_if_new(const property & pr) {
-             for (auto const & q : m_Q) {
+             for (auto const & q : to_vector(m_Q[pr.level])) {
                  if (q.prop_tag != pr.prop_tag) continue;
-                 if (q.level != pr.level) continue;
                  if (q.poly != pr.poly) continue;
                  if (q.s_idx != pr.s_idx) continue;
                  TRACE(levelwise, display(tout << "matched q:", q) << std::endl;);
                  return;
              }
-             m_Q.push_back(pr);
-         }
-
-         void remove_level_i_from_Q(std::vector<property> & Q, unsigned i) {
-             Q.erase(std::remove_if(Q.begin(), Q.end(),
-                                    [i](const property &p) { return p.level == i; }),
-             Q.end());
+             m_Q[pr.level].push(pr);
          }
 
          void erase_from_Q(const property& p) {
-             auto it = std::find_if(m_Q.begin(), m_Q.end(), [&](const property & q) {
-                 return q.prop_tag == p.prop_tag && q.poly == p.poly && q.level == p.level && q.s_idx == p.s_idx;
-             });
-             SASSERT(it != m_Q.end());
-             m_Q.erase(it);
+             // should be nop
          }
         
         // construct_interval: compute representation for level i and apply post rules.
         // Returns true on failure.
-        bool construct_interval(unsigned i) {
-            if (!apply_property_rules(i, prop_enum::sgn_inv_irreducible, false)) {
+        // works on m_level
+        bool construct_interval() {
+            if (!apply_property_rules(prop_enum::sgn_inv_irreducible, false)) {
                 return true;
             }
 
-            build_representation(i);
+            build_representation();
             // apply post-processing that may rely on the representation being present
-            if (!apply_property_rules(i, prop_enum(prop_enum::holds), true))
+            if (!apply_property_rules(prop_enum(prop_enum::holds), true))
                 return true;
 
-            // remove properties at level i from m_Q (they are consumed by this level)
-            remove_level_i_from_Q(m_Q, i);
+            SASSERT(m_Q[m_level].empty());
+            
             return m_fail;
         }
          // Extracted helper: handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
@@ -718,10 +723,11 @@ or
                        tout << "max_var:" << m_pm.max_var(p) << std::endl;
                    }
                  );
-            seed_properties(); // initializes m_Q as the set of properties on level m_n
-            apply_property_rules(m_n, prop_enum::_count, false); // reduce the level by one to be consumed by construct_interval
-            for (unsigned i = m_n; --i > 0; ) {
-                if (!construct_interval(i))
+            m_level = m_n;
+            seed_properties(); // initializes m_Q as the set of properties on level m_n            
+            apply_property_rules(prop_enum::_count, false); // reduce the level by one to be consumed by construct_interval
+            while (--m_level > 0) {
+                if (!construct_interval())
                     return std::vector<symbolic_interval>(); // return empty
             }
             
