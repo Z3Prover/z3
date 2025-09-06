@@ -798,7 +798,7 @@ namespace smt {
             expr_ref_vector cube_neg = g_cube;
             cube_neg.push_back(m.mk_not(atom));
 
-            m_cubes_tree.add_children(cube_node, cube_pos, cube_neg);
+            m_cubes_tree.add_children(cube_node, cube_pos, cube_neg); // default is active
 
             m_stats.m_num_cubes += 2;
             m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, g_cube.size() + 1);

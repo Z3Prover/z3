@@ -110,49 +110,53 @@ public:
     CubeNode* get_next_cube(CubeNode* current) {
         IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is null: " << (current == nullptr) << "\n");
         if (!current) return nullptr;
+
         IF_VERBOSE(1, verbose_stream() << "CubeTree: getting next cube from current of size " << current->cube.size() << "\n");
-        // must be a leaf
-        SASSERT(current->is_leaf());
-        IF_VERBOSE(1, verbose_stream() << "CubeTree: current is leaf\n");
 
         // lambda to find any active leaf in the subtree (explore all branches)
-        std::function<CubeNode*(CubeNode*)> find_active_leaf;
-        find_active_leaf = [&](CubeNode* node) -> CubeNode* {
+        std::function<CubeNode*(CubeNode*)> find_active_leaf = [&](CubeNode* node) -> CubeNode* {
             if (!node || !node->active) return nullptr;
             if (node->is_leaf()) return node;
-
             for (CubeNode* child : node->children) {
                 CubeNode* leaf = find_active_leaf(child);
-                if (leaf) return leaf; // return first found active leaf
+                if (leaf) return leaf;
             }
             return nullptr;
         };
 
         CubeNode* node = current;
 
-        while (node->parent) {
-            CubeNode* parent = node->parent;
+        while (node) {
+            // 1. check if current node itself is active leaf
+            if (node->active && node->is_leaf()) return node;
 
-            // gather active siblings
-            std::vector<CubeNode*> siblings;
-            for (CubeNode* s : parent->children) {
-                if (s != node && s->active)
-                    siblings.push_back(s);
+            // 2. check active leaf descendants
+            CubeNode* leaf_descendant = nullptr;
+            for (CubeNode* child : node->children) {
+                leaf_descendant = find_active_leaf(child);
+                if (leaf_descendant) return leaf_descendant;
             }
 
-            if (!siblings.empty()) {
-                // try each sibling until we find an active leaf
-                for (CubeNode* sibling : siblings) {
-                    CubeNode* leaf = find_active_leaf(sibling);
-                    if (leaf) return leaf;
+            // 3 & 4. check siblings and their active leaf descendants
+            if (node->parent) {
+                CubeNode* parent = node->parent;
+                for (CubeNode* sibling : parent->children) {
+                    if (sibling == node) continue;
+
+                    // check if sibling itself is an active leaf
+                    if (sibling->active && sibling->is_leaf()) return sibling;
+
+                    // check for active leaf descendants of sibling
+                    CubeNode* leaf_in_sibling = find_active_leaf(sibling);
+                    if (leaf_in_sibling) return leaf_in_sibling;
                 }
             }
 
-            // no active leaf among siblings → climb up
-            node = parent;
+            // 5. climb up to parent
+            node = node->parent;
         }
 
-        // nothing found
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: no active cube found\n");
         return nullptr;
     }
 
