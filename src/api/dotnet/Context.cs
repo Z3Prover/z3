@@ -1051,10 +1051,10 @@ namespace Microsoft.Z3
         public BoolExpr MkAnd(IEnumerable<BoolExpr> t)
         {
             Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
-            CheckContextMatch<BoolExpr>(t);
             var ands = t.ToArray();
-            return new BoolExpr(this, Native.Z3_mk_and(nCtx, (uint)t.Count(), AST.ArrayToNative(ands)));
+            Debug.Assert(ands.All(a => a != null));
+            CheckContextMatch((Z3Object[])ands);
+            return new BoolExpr(this, Native.Z3_mk_and(nCtx, (uint)ands.Length, AST.ArrayToNative(ands)));
         }
 
         /// <summary>
