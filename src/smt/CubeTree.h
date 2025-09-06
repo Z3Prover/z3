@@ -102,10 +102,12 @@ public:
     }
 
 
+
     // get closest cube to current by getting a random sibling of current (if current was UNSAT and we removed it from the tree)
     // or by descending randomly to a leaf (if we split the current node) to get the newest cube split fromthe current
     // we descend randomly to a leaf instead of just taking a random child because it's possible another thread made more descendants
     CubeNode* get_next_cube(CubeNode* current) {
+
         IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is null: " << (current == nullptr) << "\n");
         if (!current) return nullptr;
 
