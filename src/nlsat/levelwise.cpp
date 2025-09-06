@@ -362,10 +362,6 @@ namespace nlsat {
              }
              m_Q[pr.level].push(pr);
          }
-
-         void erase_from_Q(const property& p) {
-             // should be nop
-         }
         
         // construct_interval: compute representation for level i and apply post rules.
         // Returns true on failure.
@@ -455,7 +451,6 @@ namespace nlsat {
             add_ord_inv_discriminant_for(p);
             if (m_fail) return;
             add_sgn_inv_leading_coeff_for(p);
-            erase_from_Q(p);
         }
 
         // Pre-processing for connected(i) (Rule 4.11)
@@ -465,7 +460,6 @@ namespace nlsat {
             // further; just remove the property from Q and return.
             if (p.level == 0) {
                 TRACE(levelwise, tout << "apply_pre_connected: level 0 -> erasing connected property and returning" << std::endl;);
-                erase_from_Q(p);
                 return;
             }
 
@@ -476,13 +470,11 @@ namespace nlsat {
             add_to_Q_if_new(property(prop_enum::connected, m_pm, /*level*/ p.level - 1));
             add_to_Q_if_new(property(prop_enum::repr, m_pm, /*level*/ p.level - 1));            
             if (!has_repr) { 
-               erase_from_Q(p);
                return; // no change since the cell representation is not available            
             }
             NOT_IMPLEMENTED_YET();
             // todo!!!! add missing preconditions
             // connected property has been processed
-            erase_from_Q(p);
         }
 
         void apply_pre_non_null(const property& p) {
@@ -513,7 +505,6 @@ namespace nlsat {
         bool try_non_null_via_coeffs(const property& p) {
             if (have_non_zero_const(p.poly, p.level)) {
                 TRACE(levelwise, tout << "have a non-zero const coefficient\n";);
-                erase_from_Q(p);
                 return true;
             }
     
@@ -538,7 +529,6 @@ namespace nlsat {
                     f = factors[i];
                     add_to_Q_if_new(property(prop_enum::sgn_inv_reducible, f, m_pm));
                 }
-                erase_from_Q(p);
                 return true;
             }
             return false;
@@ -584,7 +574,6 @@ namespace nlsat {
             }
 
             // non_null is established by the discriminant being non-zero at the sample
-            erase_from_Q(p);
         }
 
         // an_sub(R) iff R is an analitcal manifold
@@ -595,7 +584,6 @@ namespace nlsat {
                 add_to_Q_if_new(property(prop_enum::an_sub, m_pm, p.level -1)) ;
             }  
             // if p.level == 0 then an_sub holds - bcs an empty set is an analytical submanifold 
-            erase_from_Q(p);             
         }
 
         /*
@@ -622,7 +610,6 @@ or
                     NOT_IMPLEMENTED_YET();
                 }
             }
-            erase_from_Q(p);
         }
 
         void apply_pre(const property& p, bool has_repr) {
@@ -753,7 +740,7 @@ or
     levelwise::~levelwise() { delete m_impl; }
 
     std::vector<levelwise::symbolic_interval> levelwise::single_cell() {
-    return m_impl->single_cell();
+        return m_impl->single_cell();
     }
 
 } // namespace nlsat
