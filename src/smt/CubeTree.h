@@ -106,8 +106,7 @@ public:
     // get closest cube to current by getting a random sibling of current (if current was UNSAT and we removed it from the tree)
     // or by descending randomly to a leaf (if we split the current node) to get the newest cube split fromthe current
     // we descend randomly to a leaf instead of just taking a random child because it's possible another thread made more descendants
-    CubeNode* get_next_cube(CubeNode* current) {
-
+    CubeNode* get_next_cube(CubeNode* current, std::vector<CubeNode*>& frontier_roots) {
         IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is null: " << (current == nullptr) << "\n");
         if (!current) return nullptr;
 
@@ -115,44 +114,66 @@ public:
 
         // lambda to find any active leaf in the subtree (explore all branches)
         std::function<CubeNode*(CubeNode*)> find_active_leaf = [&](CubeNode* node) -> CubeNode* {
-            if (!node || !node->active) return nullptr;
-            if (node->is_leaf()) return node;
+            if (!node) return nullptr;
+            if (node->is_leaf() && node->active) return node;
             for (CubeNode* child : node->children) {
-                CubeNode* leaf = find_active_leaf(child);
-                if (leaf) return leaf;
+                CubeNode* active_leaf = find_active_leaf(child);
+                if (active_leaf) return active_leaf;
             }
             return nullptr;
         };
 
         CubeNode* node = current;
+        std::vector<CubeNode*> remaining_frontier_roots = frontier_roots;
+        bool is_unexplored_frontier = frontier_roots.size() > 0 && current->cube.size() < frontier_roots[0]->cube.size(); // i.e. current is above the frontier (which always happens when we start with the empty cube!!)
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is " << (is_unexplored_frontier ? "above" : "within") << " the frontier\n");
+        
+        // if current is above the frontier, start searching from the first frontier root
+        if (is_unexplored_frontier && !frontier_roots.empty()) {
+            IF_VERBOSE(1, verbose_stream() << "CubeTree: starting search from first frontier root\n");
+            node = frontier_roots[0];
+        }
 
         while (node) {
-            // 1. check if current node itself is active leaf
-            if (node->active && node->is_leaf()) return node;
-
-            // 2. check active leaf descendants
+            // check active leaf descendants
             CubeNode* leaf_descendant = nullptr;
-            for (CubeNode* child : node->children) {
-                leaf_descendant = find_active_leaf(child);
-                if (leaf_descendant) return leaf_descendant;
-            }
+            leaf_descendant = find_active_leaf(node);
+            if (leaf_descendant) return leaf_descendant;
 
-            // 3 & 4. check siblings and their active leaf descendants
-            if (node->parent) {
-                CubeNode* parent = node->parent;
-                for (CubeNode* sibling : parent->children) {
-                    if (sibling == node) continue;
+            // DO NOT NEED to check siblings and their active leaf descendants
+            // since this is handled by the recusion up the tree!! 
+            // and checking siblings here is unsafe if we adhere to thread frontier optimizations
 
-                    // check if sibling itself is an active leaf
-                    if (sibling->active && sibling->is_leaf()) return sibling;
+            // see if we're at a boundary of the frontier (i.e. we hit one of the frontier roots)
+            auto it = std::find(remaining_frontier_roots.begin(), remaining_frontier_roots.end(), node);
+            // get the index of the node in remaining_frontier_roots
+            unsigned curr_root_idx = std::distance(remaining_frontier_roots.begin(), it);
+            if (it != remaining_frontier_roots.end()) { // i.e. the node is in the list of remaining_frontier_roots
+                IF_VERBOSE(1, verbose_stream() << "CubeTree: hit frontier root " << node << "\n");
 
-                    // check for active leaf descendants of sibling
-                    CubeNode* leaf_in_sibling = find_active_leaf(sibling);
-                    if (leaf_in_sibling) return leaf_in_sibling;
+                if (!remaining_frontier_roots.empty()) {
+                    IF_VERBOSE(1, verbose_stream() << "CubeTree: picking next frontier root to search from.\n");
+                    // pick the next frontier root (wrap around if at end)
+                    // we do this so we either move onto the next split atom in the frontier (if we just processed neg(atom))
+                    // or we get the negation of the atom we just processed (if we just processed pos(atom))
+                    // since the other the splits are added is [pos, neg, ...] for each split atom
+                    node = remaining_frontier_roots[curr_root_idx + 1 < remaining_frontier_roots.size() ? curr_root_idx + 1 : 0];
+                    
+                    // Remove exhausted frontier root
+                    remaining_frontier_roots.erase(it);
+                } else {
+                    IF_VERBOSE(1, verbose_stream() << "CubeTree: resetting frontier after exhausting\n");
+                    // Frontier exhausted: reset frontier_roots for next iteration
+                    frontier_roots.clear();
+
+                    // Start "global" search from current node
+                    node = node->parent;
                 }
+
+                continue;
             }
 
-            // 5. climb up to parent
+            // Move up in the current frontier
             node = node->parent;
         }
 
