@@ -169,6 +169,7 @@ public:
             // check active leaf descendants
             CubeNode* leaf_descendant = nullptr;
             leaf_descendant = find_active_leaf(node);
+            
             if (leaf_descendant) {
                 IF_VERBOSE(1, {verbose_stream() << "CubeTree: Worker " << worker_id << " found active leaf descendant under node (which could be the node itself): "; 
                     for (auto* e : node->cube) {

@@ -271,4 +271,5 @@ int main(int argc, char ** argv) {
     TST(scoped_vector);
     TST(sls_seq_plugin);
     TST(ho_matcher);
+    TST(search_tree);
 }
