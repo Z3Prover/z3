@@ -125,6 +125,14 @@ public:
 
         CubeNode* node = current;
         std::vector<CubeNode*> remaining_frontier_roots = frontier_roots;
+        bool is_unexplored_frontier = frontier_roots.size() > 0 && current->cube.size() < frontier_roots[0]->cube.size(); // i.e. current is above the frontier (which always happens when we start with the empty cube!!)
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is " << (is_unexplored_frontier ? "above" : "within") << " the frontier\n");
+        
+        // if current is above the frontier, start searching from the first frontier root
+        if (is_unexplored_frontier && !frontier_roots.empty()) {
+            IF_VERBOSE(1, verbose_stream() << "CubeTree: starting search from first frontier root\n");
+            node = frontier_roots[0];
+        }
 
         while (node) {
             // check active leaf descendants
