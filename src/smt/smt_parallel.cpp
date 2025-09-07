@@ -105,6 +105,7 @@ namespace smt {
             if (m_config.m_cubetree) {
                 // use std::tie so we don't overshadow cube_node!!!
                 std::tie(cube_node, cube) = b.get_cube_from_tree(m_g2l, frontier_roots, id, m_curr_cube_node); // cube node is the reference to the node in the tree, tells us how to get the next cube. "cube" is the translated cube we need for the solver
+                
                 LOG_WORKER(1, " Got cube node from CubeTree. Is null: " << (cube_node == nullptr) << "\n");
                 if (!cube_node) { // i.e. no more cubes
                     LOG_WORKER(1, " No more cubes from CubeTree, exiting\n");

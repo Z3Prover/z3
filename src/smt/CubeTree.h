@@ -111,6 +111,7 @@ public:
     // we descend randomly to a leaf instead of just taking a random child because it's possible another thread made more descendants
     CubeNode* get_next_cube(CubeNode* current, std::vector<CubeNode*>& frontier_roots, ast_manager& m, unsigned worker_id) {
         print_tree(m);
+        
         IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is null: " << (current == nullptr) << "\n");
         if (!current) return nullptr;
 
@@ -164,6 +165,7 @@ public:
                 IF_VERBOSE(1, verbose_stream() << "\n");
             }
         }
+
 
         while (node) {
             // check active leaf descendants
