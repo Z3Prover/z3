@@ -105,7 +105,7 @@ public:
     // get closest cube to current by getting a random sibling of current (if current was UNSAT and we removed it from the tree)
     // or by descending randomly to a leaf (if we split the current node) to get the newest cube split fromthe current
     // we descend randomly to a leaf instead of just taking a random child because it's possible another thread made more descendants
-    CubeNode* get_next_cube(CubeNode* current) {
+    CubeNode* get_next_cube(CubeNode* current, std::vector<CubeNode*>& frontier_roots) {
         IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is null: " << (current == nullptr) << "\n");
         if (!current) return nullptr;
 
@@ -123,6 +123,7 @@ public:
         };
 
         CubeNode* node = current;
+        std::vector<CubeNode*> remaining_frontier_roots = frontier_roots;
 
         while (node) {
             // 1. check if current node itself is active leaf
@@ -150,7 +151,34 @@ public:
                 }
             }
 
-            // 5. climb up to parent
+            // see if we're at a boundary of the frontier (i.e. one of the frontier roots)
+            // 4. Check if we hit a frontier root
+            auto it = std::find(remaining_frontier_roots.begin(), remaining_frontier_roots.end(), node);
+            // get the index of the node in remaining_frontier_roots
+            unsigned curr_root_idx = std::distance(remaining_frontier_roots.begin(), it);
+            if (it != remaining_frontier_roots.end()) { // i.e. the node is in the list of remaining_frontier_roots
+                IF_VERBOSE(1, verbose_stream() << "CubeTree: hit frontier root " << node << "\n");
+
+                if (!remaining_frontier_roots.empty()) {
+                    // pick the next frontier root (wrap around if at end)
+                    // we do this so we either move onto the next split atom in the frontier (if we just processed neg(atom))
+                    // or we get the negation of the atom we just processed (if we just processed pos(atom))
+                    // since the other the splits are added is [pos, neg, ...] for each split atom
+                    node = remaining_frontier_roots[curr_root_idx + 1 < remaining_frontier_roots.size() ? curr_root_idx + 1 : 0];
+                } else {
+                    // Frontier exhausted: reset frontier_roots for next iteration
+                    frontier_roots.clear();
+
+                    // Start "global" search from current node
+                    node = node->parent;
+                }
+
+                // Remove exhausted frontier root
+                remaining_frontier_roots.erase(it);
+                continue;
+            }
+
+            // 5. Move up in the current frontier
             node = node->parent;
         }
 
