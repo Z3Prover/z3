@@ -132,13 +132,13 @@ namespace smt {
             // The batch manager returns the next cube to
             //
             expr_ref_vector get_cube(ast_translation& g2l);  // FOR ALL NON-TREE VERSIONS
-            std::pair<CubeNode*, expr_ref_vector> get_cube_from_tree(ast_translation& g2l, std::vector<CubeNode*>& frontier_roots, CubeNode* prev_cube = nullptr);
+            std::pair<CubeNode*, expr_ref_vector> get_cube_from_tree(ast_translation& g2l, std::vector<CubeNode*>& frontier_roots, unsigned worker_id, CubeNode* prev_cube = nullptr);
 
             //
             // worker threads return unprocessed cubes to the batch manager together with split literal candidates.
             // the batch manager re-enqueues unprocessed cubes and optionally splits them using the split_atoms returned by this and workers.
             // 
-            void return_cubes_tree(ast_translation& l2g, CubeNode* cube, expr_ref_vector const& split_atoms, std::vector<CubeNode*>& frontier_roots);
+            void return_cubes_tree(ast_translation& l2g, CubeNode* cube_node, expr_ref_vector const& cube, expr_ref_vector const& split_atoms, std::vector<CubeNode*>& frontier_roots);
             // FOR ALL NON-TREE VERSIONS
             void return_cubes(ast_translation& l2g, expr_ref_vector const& cube, expr_ref_vector const& split_atoms, const bool should_split=true, const double hardness=1.0);
             void report_assumption_used(ast_translation& l2g, expr* assumption);

@@ -1,4 +1,5 @@
 #include "ast/ast_translation.h"
+#include "ast/ast_ll_pp.h"
 
 #include <vector>
 #include <cstdlib>   // rand()
@@ -44,7 +45,7 @@ public:
 
     CubeNode* get_root() { return root; } // if root is nullptr, tree is empty
 
-    void add_children(CubeNode* parent,
+    std::pair<CubeNode*, CubeNode*> add_children(CubeNode* parent,
                       const Cube& left_cube,
                       const Cube& right_cube) {
         IF_VERBOSE(1, verbose_stream() << "CubeTree: adding children of sizes " << left_cube.size() << " and " << right_cube.size() << " under parent of size " << (parent ? parent->cube.size() : 0) << "\n");
@@ -52,6 +53,8 @@ public:
         CubeNode* right = new CubeNode(right_cube, parent);
         parent->children.push_back(left);
         parent->children.push_back(right);
+
+        return {left, right}; // return the newly created children
     }
 
     // Add a new node under an existing parent
@@ -106,7 +109,8 @@ public:
     // get closest cube to current by getting a random sibling of current (if current was UNSAT and we removed it from the tree)
     // or by descending randomly to a leaf (if we split the current node) to get the newest cube split fromthe current
     // we descend randomly to a leaf instead of just taking a random child because it's possible another thread made more descendants
-    CubeNode* get_next_cube(CubeNode* current, std::vector<CubeNode*>& frontier_roots) {
+    CubeNode* get_next_cube(CubeNode* current, std::vector<CubeNode*>& frontier_roots, ast_manager& m, unsigned worker_id) {
+        print_tree(m);
         IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is null: " << (current == nullptr) << "\n");
         if (!current) return nullptr;
 
@@ -126,19 +130,65 @@ public:
         CubeNode* node = current;
         std::vector<CubeNode*> remaining_frontier_roots = frontier_roots;
         bool is_unexplored_frontier = frontier_roots.size() > 0 && current->cube.size() < frontier_roots[0]->cube.size(); // i.e. current is above the frontier (which always happens when we start with the empty cube!!)
-        IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is " << (is_unexplored_frontier ? "above" : "within") << " the frontier\n");
-        
+        IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is " << (is_unexplored_frontier ? "above" : "within") << " the frontier. Current cube has the following children: \n");
+        for (auto* child : current->children) {
+            IF_VERBOSE(1, verbose_stream() << "  Child cube size: " << child->cube.size() << " Active: " << child->active << " Cube: ");
+            for (auto* e : child->cube) {
+                IF_VERBOSE(1, verbose_stream() << mk_bounded_pp(e, m, 3) << " ");
+            }
+            IF_VERBOSE(1, verbose_stream() << "\n");
+        }
+
         // if current is above the frontier, start searching from the first frontier root
         if (is_unexplored_frontier && !frontier_roots.empty()) {
-            IF_VERBOSE(1, verbose_stream() << "CubeTree: starting search from first frontier root\n");
+            IF_VERBOSE(1, verbose_stream() << "CubeTree: Worker " << worker_id << " starting search from first frontier root. Frontier roots are:\n");
+            for (auto* x : frontier_roots) {
+                IF_VERBOSE(1, verbose_stream() << "  Cube size: " << x->cube.size() << " Active: " << x->active << " Cube: ");
+                for (auto* e : x->cube) {
+                    IF_VERBOSE(1, verbose_stream() << mk_bounded_pp(e, m, 3) << " ");
+                }
+                IF_VERBOSE(1, verbose_stream() << "\n");
+            }
             node = frontier_roots[0];
+            IF_VERBOSE(1, verbose_stream() << "CubeTree: Worker " << worker_id << " selected frontier root: ");
+            for (auto* e : node->cube) {
+                IF_VERBOSE(1, verbose_stream() << mk_bounded_pp(e, m, 3) << " ");
+            }
+            IF_VERBOSE(1, verbose_stream() << "\n");
+            IF_VERBOSE(1, verbose_stream() << "This frontier root has children:\n");
+            for (auto* child : node->children) {
+                IF_VERBOSE(1, verbose_stream() << "  Child cube size: " << child->cube.size() << " Active: " << child->active << " Cube: ");
+                for (auto* e : child->cube) {
+                    IF_VERBOSE(1, verbose_stream() << mk_bounded_pp(e, m, 3) << " ");
+                }
+                IF_VERBOSE(1, verbose_stream() << "\n");
+            }
         }
 
         while (node) {
             // check active leaf descendants
             CubeNode* leaf_descendant = nullptr;
             leaf_descendant = find_active_leaf(node);
-            if (leaf_descendant) return leaf_descendant;
+            if (leaf_descendant) {
+                IF_VERBOSE(1, {verbose_stream() << "CubeTree: Worker " << worker_id << " found active leaf descendant under node (which could be the node itself): "; 
+                    for (auto* e : node->cube) {
+                        verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
+                    }
+                    verbose_stream() << "\n  Active leaf descendant is: ";
+                    for (auto* e : leaf_descendant->cube) {
+                        verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
+                    }
+                    verbose_stream() << "\n";
+                });
+                return leaf_descendant;
+            }
+
+            IF_VERBOSE(1, {verbose_stream() << "CubeTree: Worker " << worker_id << " found no active leaf descendants found under node: "; 
+                for (auto* e : node->cube) {
+                        verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
+                    }
+                    verbose_stream() << "\n";
+            });
 
             // DO NOT NEED to check siblings and their active leaf descendants
             // since this is handled by the recusion up the tree!! 
@@ -181,6 +231,13 @@ public:
         return nullptr;
     }
 
+    // Pretty-print the entire cube tree
+    void print_tree(ast_manager& m) const {
+        IF_VERBOSE(1, verbose_stream() << "=== CubeTree Dump ===\n");
+        print_subtree(m, root, 0);
+        IF_VERBOSE(1, verbose_stream() << "=== End Dump ===\n");
+    }
+
 private:
     CubeNode* root;
 
@@ -201,5 +258,26 @@ private:
             delete_subtree(child);
         }
         delete node;
+    }
+
+    void print_subtree(ast_manager& m, CubeNode* node, int indent) const {
+        if (!node) return;
+
+        // indent according to depth
+        for (int i = 0; i < indent; i++) IF_VERBOSE(1, verbose_stream() << "  ");
+
+        IF_VERBOSE(1, verbose_stream() << "Node@" << node
+                         << " size=" << node->cube.size()
+                         << " active=" << node->active
+                         << " cube={ ");
+
+        for (expr* e : node->cube) {
+            IF_VERBOSE(1, verbose_stream() << mk_bounded_pp(e, m, 3) << " ");
+        }
+        IF_VERBOSE(1, verbose_stream() << "}\n");
+
+        for (CubeNode* child : node->children) {
+            print_subtree(m, child, indent + 1);
+        }
     }
 };
