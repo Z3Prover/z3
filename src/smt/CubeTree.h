@@ -109,8 +109,10 @@ public:
     // get closest cube to current by getting a random sibling of current (if current was UNSAT and we removed it from the tree)
     // or by descending randomly to a leaf (if we split the current node) to get the newest cube split fromthe current
     // we descend randomly to a leaf instead of just taking a random child because it's possible another thread made more descendants
+
     CubeNode* get_next_cube(CubeNode* current, std::vector<CubeNode*>& frontier_roots, ast_manager& m, unsigned worker_id) {
         print_tree(m);
+
         IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is null: " << (current == nullptr) << "\n");
         if (!current) return nullptr;
 
@@ -165,10 +167,12 @@ public:
             }
         }
 
+
         while (node) {
             // check active leaf descendants
             CubeNode* leaf_descendant = nullptr;
             leaf_descendant = find_active_leaf(node);
+
             if (leaf_descendant) {
                 IF_VERBOSE(1, {verbose_stream() << "CubeTree: Worker " << worker_id << " found active leaf descendant under node (which could be the node itself): "; 
                     for (auto* e : node->cube) {
@@ -189,6 +193,7 @@ public:
                     }
                     verbose_stream() << "\n";
             });
+
 
             // DO NOT NEED to check siblings and their active leaf descendants
             // since this is handled by the recusion up the tree!! 
