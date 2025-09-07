@@ -56,7 +56,6 @@ public:
         using model_converter::operator();
         void operator()(sat::model& m);
         void operator()(model_ref& md) override;
-        void operator()(expr_ref& fml) override; 
         model_converter* translate(ast_translation& translator) override;
         void set_env(ast_pp_util* visitor) override;
         void display(std::ostream& out) override;

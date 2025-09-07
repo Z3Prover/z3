@@ -93,11 +93,6 @@ public:
         this->m_c1->operator()(m);
     }
 
-    void operator()(expr_ref & fml) override {
-        this->m_c2->operator()(fml);
-        this->m_c1->operator()(fml);
-    }
-    
     void operator()(labels_vec & r) override {
         this->m_c2->operator()(r);
         this->m_c1->operator()(r);
@@ -155,11 +150,6 @@ public:
 
     void operator()(labels_vec & r) override {
         r.append(m_labels.size(), m_labels.data());
-    }
-
-    void operator()(expr_ref& fml) override {
-        model::scoped_model_completion _scm(m_model, false);
-        fml = (*m_model)(fml);
     }
 
     void get_units(obj_map<expr, bool>& fmls) override {

@@ -59,7 +59,8 @@ void sat2goal::mc::flush_smc(sat::solver& s, atom2bool_var const& map) {
 void sat2goal::mc::flush_gmc() {
     sat::literal_vector updates;
     m_smc.expand(updates);    
-    if (!m_gmc) m_gmc = alloc(generic_model_converter, m, "sat2goal");
+    if (!m_gmc) 
+        m_gmc = alloc(generic_model_converter, m, "sat2goal");
     // now gmc owns the model converter
     sat::literal_vector clause;
     expr_ref_vector tail(m);
@@ -124,15 +125,12 @@ void sat2goal::mc::set_env(ast_pp_util* visitor) {
 }
 
 void sat2goal::mc::display(std::ostream& out) {
-    flush_gmc();
     if (m_gmc) m_gmc->display(out);
 }
 
 void sat2goal::mc::get_units(obj_map<expr, bool>& units) {
-    flush_gmc();
     if (m_gmc) m_gmc->get_units(units);
 }
-
 
 void sat2goal::mc::operator()(sat::model& md) {
     m_smc(md);
@@ -143,12 +141,6 @@ void sat2goal::mc::operator()(model_ref & md) {
     CTRACE(sat_mc, m_gmc, m_gmc->display(tout << "before sat_mc\n"); model_v2_pp(tout, *md););
     if (m_gmc) (*m_gmc)(md);
     CTRACE(sat_mc, m_gmc, m_gmc->display(tout << "after sat_mc\n"); model_v2_pp(tout, *md););
-}
-
-
-void sat2goal::mc::operator()(expr_ref& fml) {
-    flush_gmc();
-    if (m_gmc) (*m_gmc)(fml);
 }
 
 void sat2goal::mc::insert(sat::bool_var v, expr * atom, bool aux) {
