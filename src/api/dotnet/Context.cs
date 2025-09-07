@@ -866,8 +866,7 @@ namespace Microsoft.Z3
         public Expr MkApp(FuncDecl f, params Expr[] args)
         {
             Debug.Assert(f != null);
-            Debug.Assert(args != null);
-
+            Debug.Assert(args == null || args.All(a => a != null);
             CheckContextMatch(f);
             CheckContextMatch<Expr>(args);
             return Expr.Create(this, f, args);
@@ -879,8 +878,7 @@ namespace Microsoft.Z3
         public Expr MkApp(FuncDecl f, IEnumerable<Expr> args)
         {
             Debug.Assert(f != null);
-			Debug.Assert(args != null);
-            return MkApp(f, args.ToArray());
+            return MkApp(f, args?.ToArray());
         }
 
         #region Propositional
