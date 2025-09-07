@@ -106,6 +106,10 @@ namespace smt {
                 // use std::tie so we don't overshadow cube_node!!!
                 std::tie(cube_node, cube) = b.get_cube_from_tree(m_g2l, frontier_roots, m_curr_cube_node); // cube node is the reference to the node in the tree, tells us how to get the next cube. "cube" is the translated cube we need for the solver
                 LOG_WORKER(1, " Got cube node from CubeTree. Is null: " << (cube_node == nullptr) << "\n");
+                if (!cube_node) { // i.e. no more cubes
+                    LOG_WORKER(1, " No more cubes from CubeTree, exiting\n");
+                    return;
+                }
                 m_curr_cube_node = cube_node; // store the current cube so we know how to get the next closest cube from the tree
                 IF_VERBOSE(1, verbose_stream() << " Worker " << id << " got cube of size " << cube.size() << " from CubeTree\n");
             } else {
@@ -404,6 +408,11 @@ namespace smt {
         CubeNode* next_cube_node = m_cubes_tree.get_next_cube(prev_cube, frontier_roots); // get the next cube in the tree closest to the prev cube (i.e. longest common prefix)
         
         IF_VERBOSE(1, verbose_stream() << "Batch manager giving out cube from CubeTree. Is null: " << (next_cube_node==nullptr) << "\n");
+
+        if (!next_cube_node) { // i.e. no more cubes
+            IF_VERBOSE(1, verbose_stream() << " No more cubes from CubeTree, exiting\n");
+            return {nullptr, l_cube}; // return nullptr and empty cube 
+        }
 
         for (auto& e : next_cube_node->cube) {
             l_cube.push_back(g2l(e));
@@ -786,6 +795,9 @@ namespace smt {
         IF_VERBOSE(1, verbose_stream() << " Cube node null: " << (cube_node == nullptr) << "\n");
         IF_VERBOSE(1, verbose_stream() << " PROCESSING CUBE of size: " << l_cube.size() << "\n");
 
+        bool is_new_frontier = frontier_roots.empty(); // need to save this as a bool here, bc otherwise the frontier stops being populated after a single split atom
+        IF_VERBOSE(1, verbose_stream() << " Is new frontier: " << is_new_frontier << "\n");
+
         auto atom_in_cube = [&](expr_ref_vector const& cube, expr* atom) {
             return any_of(cube, [&](expr* e) { return e == atom || (m.is_not(e, e) && e == atom); });
         };
@@ -807,7 +819,7 @@ namespace smt {
             g_cube_neg.push_back(m.mk_not(atom));
 
             m_cubes_tree.add_children(cube_node, g_cube_pos, g_cube_neg); // default is active
-            if (frontier_roots.empty()) {
+            if (is_new_frontier) { // note: calling frontier_roots.empty() here would always return false after adding the first split atom
                 // add cube_pos and cube_neg to frontier roots
                 CubeNode* cube_node_pos = new CubeNode(*cube_node); // deep copy of the node
                 CubeNode* cube_node_neg = new CubeNode(*cube_node); // deep copy of the node
@@ -839,7 +851,7 @@ namespace smt {
             if (!m_split_atoms.contains(g_atom))
                 m_split_atoms.push_back(g_atom);
             
-            IF_VERBOSE(1, verbose_stream() << " splitting worker cubes on new atom for PQ " << mk_bounded_pp(g_atom, m, 3) << "\n");
+            IF_VERBOSE(1, verbose_stream() << " splitting worker cube on new atom " << mk_bounded_pp(g_atom, m, 3) << "\n");
             add_split_atom_tree(g_atom); 
         }
     }
