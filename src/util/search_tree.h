@@ -52,7 +52,6 @@ namespace search_tree {
         status get_status() const { return m_status; }
         void set_status(status s) { m_status = s; }
         literal const& get_literal() const { return m_literal; }
-        void set_literal(literal const& l) { m_literal = l; }
         bool literal_is_null() const { return Config::is_null(m_literal); }
         void split(literal const& a, literal const& b) {
             if (m_status != status::active)
@@ -146,8 +145,8 @@ namespace search_tree {
             }
         }
 
-        // conflict is given by a set of atoms.
-        // they are a subset of atoms on the path from root to n
+        // conflict is given by a set of literals.
+        // they are a subset of literals on the path from root to n
         void backtrack(node<Config>* n, vector<literal> const& conflict) {
             if (conflict.empty()) {
                 close_node(m_root.get());
