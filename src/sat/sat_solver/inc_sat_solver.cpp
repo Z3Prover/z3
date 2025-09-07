@@ -1091,10 +1091,9 @@ private:
         CTRACE(sat, m_sat_mc, m_sat_mc->display(tout););
         sat::model ll_m = m_solver.get_model();
         mdl = alloc(model, m);
-        if (m_sat_mc) {
-            m_sat_mc->flush_smc(m_solver, m_map);
+        if (m_sat_mc) 
             (*m_sat_mc)(ll_m);
-        }        
+        
         expr_ref_vector var2expr(m);
         m_map.mk_var_inv(var2expr);
         
