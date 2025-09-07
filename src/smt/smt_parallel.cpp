@@ -104,14 +104,22 @@ namespace smt {
             LOG_WORKER(1, " Curr cube node is null: " << (m_curr_cube_node == nullptr) << "\n");
             if (m_config.m_cubetree) {
                 // use std::tie so we don't overshadow cube_node!!!
-                std::tie(cube_node, cube) = b.get_cube_from_tree(m_g2l, frontier_roots, m_curr_cube_node); // cube node is the reference to the node in the tree, tells us how to get the next cube. "cube" is the translated cube we need for the solver
+
+                std::tie(cube_node, cube) = b.get_cube_from_tree(m_g2l, frontier_roots, id, m_curr_cube_node); // cube node is the reference to the node in the tree, tells us how to get the next cube. "cube" is the translated cube we need for the solver
+
                 LOG_WORKER(1, " Got cube node from CubeTree. Is null: " << (cube_node == nullptr) << "\n");
                 if (!cube_node) { // i.e. no more cubes
                     LOG_WORKER(1, " No more cubes from CubeTree, exiting\n");
                     return;
                 }
                 m_curr_cube_node = cube_node; // store the current cube so we know how to get the next closest cube from the tree
-                IF_VERBOSE(1, verbose_stream() << " Worker " << id << " got cube of size " << cube.size() << " from CubeTree\n");
+                IF_VERBOSE(1, {
+                    verbose_stream() << " Worker " << id << " got cube of size " << cube.size() << " from CubeTree. Cube contents: ";
+                    for (auto& e : cube) {
+                        verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
+                    }
+                    verbose_stream() << "\n";
+                });
             } else {
                 cube = b.get_cube(m_g2l);
             }
@@ -163,7 +171,30 @@ namespace smt {
                             b.return_cubes(m_l2g, cube, split_atoms, should_split, cube_hardness);
                         } else if (m_config.m_cubetree) {
                             IF_VERBOSE(1, verbose_stream() << " returning undef cube to CubeTree. Cube node is null: " << (cube_node == nullptr) << "\n");
-                            b.return_cubes_tree(m_l2g, cube_node, split_atoms, frontier_roots);
+
+                            bool is_new_frontier = frontier_roots.empty();
+                            b.return_cubes_tree(m_l2g, cube_node, cube, split_atoms, frontier_roots);
+
+                            if (is_new_frontier) {
+                                IF_VERBOSE(1, {
+                                    verbose_stream() << " Worker " << id << " has new frontier roots, with the following children: \n";
+                                    for (auto* node : frontier_roots) {
+                                        verbose_stream() << "  Cube size: " << node->cube.size() << " Active: " << node->active << " Cube: ";
+                                        for (auto* e : node->cube) {
+                                            verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
+                                        }
+                                        verbose_stream() << " Children: ";
+                                        for (auto* child : node->children) {
+                                            verbose_stream() << "[";
+                                            for (auto* e : child->cube) {
+                                                verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
+                                            }
+                                            verbose_stream() << "] ";
+                                        }
+                                        verbose_stream() << "\n";
+                                    }
+                                });
+                            }
                         } else {
                             b.return_cubes(m_l2g, cube, split_atoms);
                         }
@@ -385,7 +416,8 @@ namespace smt {
         return r;
     }
 
-    std::pair<CubeNode*, expr_ref_vector> parallel::batch_manager::get_cube_from_tree(ast_translation& g2l, std::vector<CubeNode*>& frontier_roots, CubeNode* prev_cube) {
+
+    std::pair<CubeNode*, expr_ref_vector> parallel::batch_manager::get_cube_from_tree(ast_translation& g2l, std::vector<CubeNode*>& frontier_roots, unsigned worker_id, CubeNode* prev_cube) {
         std::scoped_lock lock(mux);
         expr_ref_vector l_cube(g2l.to());
         SASSERT(m_config.m_cubetree);
@@ -399,13 +431,13 @@ namespace smt {
             m_cubes_tree.add_node(new_cube_node, nullptr);
             return {new_cube_node, l_cube}; // return empty cube
         } else if (!prev_cube) {
-            prev_cube = m_cubes_tree.get_root(); // if prev_cube is null, it means that another thread started the tree first. so we also start from the root (i.e. the empty cube)
-            return {prev_cube, l_cube};
+            return {m_cubes_tree.get_root(), l_cube}; // if prev_cube is null, it means that another thread started the tree first. so we also start from the root (i.e. the empty cube)
         }
 
         // get a cube from the CubeTree
         SASSERT(!m_cubes_tree.empty());
-        CubeNode* next_cube_node = m_cubes_tree.get_next_cube(prev_cube, frontier_roots); // get the next cube in the tree closest to the prev cube (i.e. longest common prefix)
+
+        CubeNode* next_cube_node = m_cubes_tree.get_next_cube(prev_cube, frontier_roots, g2l.to(), worker_id); // get the next cube in the tree closest to the prev cube (i.e. longest common prefix)
         
         IF_VERBOSE(1, verbose_stream() << "Batch manager giving out cube from CubeTree. Is null: " << (next_cube_node==nullptr) << "\n");
 
@@ -418,7 +450,6 @@ namespace smt {
             l_cube.push_back(g2l(e));
         }
 
-        IF_VERBOSE(1, verbose_stream() << " Cube size: " << l_cube.size() << "\n");
         next_cube_node->active = false; // mark the cube as inactive (i.e. being processed by a worker)
 
         return {next_cube_node, l_cube};
@@ -789,11 +820,9 @@ namespace smt {
         }
     }
 
-    void parallel::batch_manager::return_cubes_tree(ast_translation& l2g, CubeNode* cube_node, expr_ref_vector const& A_worker, std::vector<CubeNode*>& frontier_roots) {
-        IF_VERBOSE(1, verbose_stream() << " Returning cube to batch manager's cube tree.\n");
-        expr_ref_vector const& l_cube = cube_node->cube;
-        IF_VERBOSE(1, verbose_stream() << " Cube node null: " << (cube_node == nullptr) << "\n");
-        IF_VERBOSE(1, verbose_stream() << " PROCESSING CUBE of size: " << l_cube.size() << "\n");
+    void parallel::batch_manager::return_cubes_tree(ast_translation& l2g, CubeNode* cube_node, expr_ref_vector const& l_cube, expr_ref_vector const& A_worker, std::vector<CubeNode*>& frontier_roots) {
+        IF_VERBOSE(1, verbose_stream() << " Returning cube to batch manager's cube tree. Cube node null: " << (cube_node == nullptr) << " PROCESSING CUBE of size: " << l_cube.size() << "\n");
+
 
         bool is_new_frontier = frontier_roots.empty(); // need to save this as a bool here, bc otherwise the frontier stops being populated after a single split atom
         IF_VERBOSE(1, verbose_stream() << " Is new frontier: " << is_new_frontier << "\n");
@@ -818,17 +847,21 @@ namespace smt {
             expr_ref_vector g_cube_neg = g_cube;
             g_cube_neg.push_back(m.mk_not(atom));
 
-            m_cubes_tree.add_children(cube_node, g_cube_pos, g_cube_neg); // default is active
-            if (is_new_frontier) { // note: calling frontier_roots.empty() here would always return false after adding the first split atom
-                // add cube_pos and cube_neg to frontier roots
-                CubeNode* cube_node_pos = new CubeNode(*cube_node); // deep copy of the node
-                CubeNode* cube_node_neg = new CubeNode(*cube_node); // deep copy of the node
-                cube_node_pos->cube.push_back(atom);           // modify cube
-                cube_node_neg->cube.push_back(m.mk_not(atom)); // modify cube
 
-                frontier_roots.push_back(cube_node_pos);
-                frontier_roots.push_back(cube_node_neg);
-                IF_VERBOSE(1, verbose_stream() << " Added split to frontier roots. Size now: " << frontier_roots.size() << "\n");
+            IF_VERBOSE(1, verbose_stream() << " Splitting positive and negative atoms: " << mk_pp(atom, m) << "," << mk_pp(m.mk_not(atom),  m) << " from root: ");
+            //print the cube 
+            for (auto& e : cube_node->cube)
+                IF_VERBOSE(1, verbose_stream() << mk_bounded_pp(e, m, 3) << " ");
+            IF_VERBOSE(1, verbose_stream() << "\n");
+
+            auto [left_child, right_child] = m_cubes_tree.add_children(cube_node, g_cube_pos, g_cube_neg); // note: default is active
+
+            if (is_new_frontier) {
+                frontier_roots.push_back(left_child);
+                frontier_roots.push_back(right_child);
+                IF_VERBOSE(1, verbose_stream() << " Added split to frontier roots. Size now: " 
+                        << frontier_roots.size() << "\n");
+
             }
 
             m_stats.m_num_cubes += 2;
@@ -854,6 +887,16 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << " splitting worker cube on new atom " << mk_bounded_pp(g_atom, m, 3) << "\n");
             add_split_atom_tree(g_atom); 
         }
+
+        IF_VERBOSE(1, verbose_stream() << " The returned cube:");
+        for (auto& e : l_cube)
+            IF_VERBOSE(1, verbose_stream() << mk_bounded_pp(e, m, 3) << " ");
+        IF_VERBOSE(1, verbose_stream() << " now has the following children:\n");
+        for (auto child : cube_node->children) {
+            for (auto& e : child->cube)
+                IF_VERBOSE(1, verbose_stream() << mk_bounded_pp(e, m, 3) << " ");
+        }
+        IF_VERBOSE(1, verbose_stream() << "\n");
     }
 
     expr_ref_vector parallel::worker::find_backbone_candidates() {
