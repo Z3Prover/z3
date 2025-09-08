@@ -54,6 +54,8 @@ namespace search_tree {
         literal const& get_literal() const { return m_literal; }
         bool literal_is_null() const { return Config::is_null(m_literal); }
         void split(literal const& a, literal const& b) {
+            SASSERT(!Config::literal_is_null(a));
+            SASSERT(!Config::literal_is_null(b));
             if (m_status != status::active)
                 return;
             SASSERT(!m_left);
@@ -126,23 +128,22 @@ namespace search_tree {
     public:
 
         tree(literal const& null_literal) : m_null_literal(null_literal) {
-            m_root = alloc(node<Config>, m_null_literal, nullptr);
-            m_root->set_status(status::active);
+            reset();
         }
 
         void set_seed(unsigned seed) {
             m_rand.set_seed(seed);
         }
+
+        void reset() {
+            m_root = alloc(node<Config>, m_null_literal, nullptr);
+            m_root->set_status(status::active);
+        }
         
         // Split current node if it is active.
         // After the call, n is open and has two children.
-        void split(node<Config>* n, literal const& a, literal const& b) {
-            SASSERT(!Config::literal_is_null(a));
-            SASSERT(!Config::literal_is_null(b));
-            if (n->get_status() == status::active) {              
-                n->split(a, b);
-                n->set_status(status::open);
-            }
+        void split(node<Config>* n, literal const& a, literal const& b) {           
+            n->split(a, b);
         }
 
         // conflict is given by a set of literals.
@@ -155,6 +156,7 @@ namespace search_tree {
             }           
             SASSERT(n != m_root.get());
             // all literals in conflict are on the path from root to n
+            // remove assumptions from conflict to ensure this.
             DEBUG_CODE(
                 auto on_path = [&](literal const& a) {
                     node<Config>* p = n;
