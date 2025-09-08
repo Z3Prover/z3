@@ -15,6 +15,7 @@
 
 namespace nlsat {
 
+    
 // Local enums reused from previous scaffolding
     enum class property_mapping_case : unsigned { case1 = 0, case2 = 1, case3 = 2 };    
     
@@ -33,9 +34,17 @@ namespace nlsat {
     };
 
     unsigned prop_count() { return static_cast<unsigned>(prop_enum::_count);}
-    // no score-based ordering; precedence is defined by m_p_relation only
     
     struct levelwise::impl {
+        // Utility: call fn for each distinct irreducible factor of poly
+        template<typename Func>
+        void for_each_distinct_factor(const polynomial::polynomial_ref& poly, Func&& fn) {
+            polynomial::factors factors(m_pm);
+            factor(poly, factors);
+            for (unsigned i = 0; i < factors.distinct_factors(); ++i) 
+                fn(factors[i]);            
+        }
+        
         struct property {
             prop_enum prop_tag;
             polynomial_ref   poly;
@@ -200,14 +209,9 @@ namespace nlsat {
                     NOT_IMPLEMENTED_YET();// ambiguous resultant - not handled yet
                     return false;
                 }
-                // Instead of adding property with r, add property with irreducible factors of r
-                polynomial::factors factors(m_pm);
-                factor(r, factors);
-                for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
-                    polynomial_ref f(m_pm);
-                    f = factors[i];
+                for_each_distinct_factor(r, [&](const polynomial::polynomial_ref &f) {
                     m_Q[max_var(f)].push(property(prop_enum::ord_inv, f, m_pm));
-                }
+                });
             }
             return true;
         }
@@ -377,26 +381,20 @@ namespace nlsat {
         }
          // Extracted helper: handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
          void add_ord_inv_discriminant_for(const property& p) {
-             polynomial_ref disc(m_pm);
-             disc = discriminant(p.poly, p.level);
-             TRACE(levelwise, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
-             if (!is_const(disc)) {
-                 // Factor the discriminant
-                 polynomial::factors disc_factors(m_pm);
-                 factor(disc, disc_factors);
-                 for (unsigned i = 0; i < disc_factors.distinct_factors(); ++i) {
-                     polynomial_ref f = disc_factors[i];
-                     if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
-                         m_fail = true; // ambiguous multiplicity -- not handled yet
-                         NOT_IMPLEMENTED_YET();
-                         return;
-                     }
-                     else {
-                         unsigned lvl = max_var(f);
-                         add_to_Q_if_new(property(prop_enum::ord_inv, f, /*s_idx*/ 0u, lvl));
-                     }
-                 }
-             }
+            polynomial::polynomial_ref disc(m_pm);
+            disc = discriminant(p.poly, p.level);
+            TRACE(levelwise, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
+            if (!is_const(disc)) {
+                for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
+                    if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
+                        m_fail = true; // ambiguous multiplicity -- not handled yet
+                        NOT_IMPLEMENTED_YET();
+                        return;
+                    }
+                    unsigned lvl = max_var(f);
+                    add_to_Q_if_new(property(prop_enum::ord_inv, f, /*s_idx*/ 0u, lvl));
+                });
+            }
          }
 
         // Extracted helper: handle sgn_inv(leading_coefficient_{x_{i+1}}(p)) for an_del pre-processing
@@ -407,11 +405,7 @@ namespace nlsat {
                 polynomial_ref lc(m_pm);
                 lc = m_pm.coeff(pp, p.level, deg);
                 if (!is_const(lc)) {
-                    // Factor the leading coefficient
-                    polynomial::factors lc_factors(m_pm);
-                    factor(lc, lc_factors);
-                    for (unsigned i = 0; i < lc_factors.distinct_factors(); ++i) {
-                        polynomial_ref f = lc_factors[i];
+                    for_each_distinct_factor(lc, [&](polynomial::polynomial_ref f) {
                         if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
                             NOT_IMPLEMENTED_YET(); // leading coeff vanished as polynomial -- not handled yet
                         }
@@ -419,7 +413,7 @@ namespace nlsat {
                             unsigned lvl = max_var(f);
                             add_to_Q_if_new(property(prop_enum::sgn_inv, f, /*s_idx*/ 0u, lvl));
                         }
-                    }
+                    });
                 }
             }
         }
@@ -529,13 +523,9 @@ namespace nlsat {
                 if (sign(coeff, sample(), m_am) == 0)
                     continue;
 
-                polynomial::factors factors(m_pm);
-                factor(coeff, factors);
-                for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
-                    polynomial_ref f(m_pm);
-                    f = factors[i];
+                for_each_distinct_factor(coeff, [&](const polynomial::polynomial_ref & f) {
                     add_to_Q_if_new(property(prop_enum::sgn_inv, f, m_pm));
-                }
+                });
                 return true;
             }
             return false;
@@ -573,12 +563,12 @@ namespace nlsat {
                 NOT_IMPLEMENTED_YET();
                 return;
             }
-            // factor disc todo!!!!
-            
             // If discriminant is non-constant, add sign-invariance requirement for it
             if (!is_const(disc)) {
                 unsigned lvl = max_var(disc);
-                add_to_Q_if_new(property(prop_enum::sgn_inv, disc, /*s_idx*/ 0u, lvl));
+                for_each_distinct_factor(disc, [&](const polynomial::polynomial_ref & f) {
+                    add_to_Q_if_new(property(prop_enum::sgn_inv, f, /*s_idx*/ 0u, lvl));
+                });
             }
 
             // non_null is established by the discriminant being non-zero at the sample
