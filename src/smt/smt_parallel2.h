@@ -22,6 +22,7 @@ Revision History:
 #include "util/search_tree.h"
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 
 namespace smt {
