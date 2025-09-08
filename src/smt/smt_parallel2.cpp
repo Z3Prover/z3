@@ -220,6 +220,10 @@ namespace smt {
         IF_VERBOSE(1, verbose_stream() << "Batch manager splitting on literal: " << mk_bounded_pp(lit, m, 3) << "\n");
         if (m_state != state::is_running)
             return;
+        // optional heuristic:
+        // node->get_status() == status::active
+        // and depth is 'high' enough
+        // then ignore split, and instead set the status of node to open.
         m_search_tree.split(node, lit, nlit);
         cv.notify_all();
     }

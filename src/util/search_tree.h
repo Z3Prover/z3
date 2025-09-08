@@ -80,6 +80,8 @@ namespace search_tree {
                 if (res)
                     return res;
             }
+            if (m_left->get_status() == status::closed && m_right->get_status() == status::closed)
+                m_status = status::closed;
             return nullptr;
         }
 
@@ -137,6 +139,19 @@ namespace search_tree {
             n->set_status(status::closed);
             close_node(n->left());
             close_node(n->right());
+            while (n) {
+                auto p = n->parent();
+                if (!p)
+                    return;
+                if (p->get_status() != status::open)
+                    return;
+                if (p->left()->get_status() != status::closed)
+                    return;
+                if (p->right()->get_status() != status::closed)
+                    return;
+                p->set_status(status::closed);
+                n = p;
+            }
         }
 
     public:
