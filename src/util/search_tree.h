@@ -69,6 +69,20 @@ namespace search_tree {
         node* right() const { return m_right; }
         node* parent() const { return m_parent; }
 
+        node* find_active_node() {
+            if (m_status == status::active)
+                return this;
+            if (m_status != status::open)
+                return nullptr;
+            node* nodes[2] = { m_left, m_right };
+            for (unsigned i = 0; i < 2; ++i) {
+                auto res = nodes[i] ? nodes[i]->find_active_node() : nullptr;
+                if (res)
+                    return res;
+            }
+            return nullptr;
+        }
+
         void display(std::ostream& out, unsigned indent) const {
             for (unsigned i = 0; i < indent; ++i)
                 out << " ";
@@ -216,6 +230,10 @@ namespace search_tree {
                 n = p;
             }
             return nullptr;
+        }
+
+        node<Config>* find_active_node() {
+            return m_root->find_active_node();
         }
 
         bool is_closed() const {

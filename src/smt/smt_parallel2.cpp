@@ -203,6 +203,8 @@ namespace smt {
             g_core.push_back(expr_ref(l2g(c), m));
         }
         m_search_tree.backtrack(node, g_core);
+
+        IF_VERBOSE(1, m_search_tree.display(verbose_stream() << core << "\n"););
         if (m_search_tree.is_closed()) {
             m_state = state::is_unsat;
             cancel_workers();
@@ -399,6 +401,11 @@ namespace smt {
                 IF_VERBOSE(1, verbose_stream() << "aborting get_cube\n";);
                 cv.notify_all();
                 return false;
+            }
+            t = m_search_tree.find_active_node();
+            if (t) {
+                IF_VERBOSE(1, verbose_stream() << "found active node\n";);
+                break;
             }
             IF_VERBOSE(1, verbose_stream() << "waiting... " << id << "\n";);
             cv.wait(lock);
