@@ -44,7 +44,12 @@ namespace nlsat {
             for (unsigned i = 0; i < factors.distinct_factors(); ++i) 
                 fn(factors[i]);            
         }
-        
+        template<typename Func>
+        void for_first_distinct_factor(const polynomial::polynomial_ref& poly, Func&& fn) {
+            polynomial::factors factors(m_pm);
+            factor(poly, factors);
+            fn(factors[0]);            
+        }
         struct property {
             prop_enum prop_tag;
             polynomial_ref   poly;
@@ -479,9 +484,7 @@ namespace nlsat {
         }
 
         void apply_pre_non_null(const property& p) {
-            TRACE(levelwise, tout << "apply_pre_non_null:";
-                  if (p.level != static_cast<unsigned>(-1)) tout << " level=" << p.level;
-                  tout << std::endl;);
+            TRACE(levelwise, tout << "p:"; display(tout, p) << std::endl;);
             // First try subrule 1 of Rule 4.2. If it succeeds we do not apply the fallback (subrule 2).
             if (try_non_null_via_coeffs(p))
                 return;
@@ -514,16 +517,17 @@ namespace nlsat {
             for (unsigned j = 0; j <= deg; ++j) {
                 polynomial_ref coeff(m_pm);
                 coeff = m_pm.coeff(pp, p.level, j);
-                // If coefficient is constant and non-zero at sample -> non_null holds
-                if (is_const(coeff)) {
-                    SASSERT(m_pm.nonzero_const_coeff(pp, p.level, j));
-                    continue; 
-                }
-                
+                // If coefficient is a non-zero constant  non_null holds
+                if(m_pm.nonzero_const_coeff(pp, p.level, j)) 
+                    return true;
+            } 
+            for (unsigned j = 0; j <= deg; ++j) {
+                polynomial_ref coeff(m_pm);
+                coeff = m_pm.coeff(pp, p.level, j);
                 if (sign(coeff, sample(), m_am) == 0)
                     continue;
 
-                for_each_distinct_factor(coeff, [&](const polynomial::polynomial_ref & f) {
+                for_first_distinct_factor(coeff, [&](const polynomial::polynomial_ref & f) {
                     add_to_Q_if_new(property(prop_enum::sgn_inv, f, m_pm));
                 });
                 return true;
@@ -621,6 +625,28 @@ or
         void apply_pre_sgn_inv(const property& p, bool has_repr) {
             NOT_IMPLEMENTED_YET();
         }
+
+        /*
+          Rule 4.5. Let i ∈ N>0 , R ⊆ Ri
+          , s ∈ Ri
+          , and p ∈ Q[x1, . . . , xi ], level(p) = i. Assume that p is irreducible.
+          p(s) ̸= 0, sample(s)(R), sgn_inv(p)(R) ⊢ ord_inv(p)(R)
+          p(s)= 0, sample(s)(R), an_sub(i− 1)(R), connected(i)(R), sgn_inv(p)(R), an_del(p)(R) ⊢ ord_inv(p)(R)
+        */
+        void apply_pre_ord_inv(const property& p, bool has_repr) {
+            SASSERT(p.prop_tag == prop_enum::ord_inv && is_irreducible(p.poly));
+            auto sign_on_sample = sign(p.poly, sample(), m_am);
+            if (sign_on_sample) {
+                add_to_Q_if_new(property(prop_enum::sample, m_pm, p.level));
+                add_to_Q_if_new(property(prop_enum::sgn_inv, p.poly, p.s_idx, p.level));
+            } else { // sign is zero
+                add_to_Q_if_new(property(prop_enum::sample, m_pm, p.level));
+                add_to_Q_if_new(property(prop_enum::an_sub, m_pm, p.level - 1));
+                add_to_Q_if_new(property(prop_enum::connected, m_pm, p.level));                
+                add_to_Q_if_new(property(prop_enum::sgn_inv, p.poly, p.s_idx, p.level));
+                add_to_Q_if_new(property(prop_enum::an_del, p.poly, p.s_idx, p.level));
+            }
+        }
         
         void apply_pre(const property& p, bool has_repr) {
             TRACE(levelwise, tout << "apply_pre BEGIN m_Q:"; display(tout) << std::endl; 
@@ -648,6 +674,9 @@ or
                 break;
             case prop_enum::sgn_inv:
                 apply_pre_sgn_inv(p, has_repr);
+                break;
+            case prop_enum::ord_inv:
+                apply_pre_ord_inv(p, has_repr);
                 break;
             default:
                 TRACE(levelwise, display(tout << "not impl: p", p));
