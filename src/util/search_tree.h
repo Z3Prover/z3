@@ -128,12 +128,16 @@ namespace search_tree {
     public:
 
         tree(literal const& null_literal) : m_null_literal(null_literal) {
-            m_root = alloc(node<Config>, m_null_literal, nullptr);
-            m_root->set_status(status::active);
+            reset();
         }
 
         void set_seed(unsigned seed) {
             m_rand.set_seed(seed);
+        }
+
+        void reset() {
+            m_root = alloc(node<Config>, m_null_literal, nullptr);
+            m_root->set_status(status::active);
         }
         
         // Split current node if it is active.

@@ -85,6 +85,7 @@ namespace smt {
         friend class model_generator;
         friend class lookahead;
         friend class parallel;
+        friend class parallel2;
     public:
         statistics                  m_stats;
 

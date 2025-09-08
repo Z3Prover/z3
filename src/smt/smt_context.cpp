@@ -42,8 +42,10 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "smt/smt_model_checker.h"
 #include "smt/smt_model_finder.h"
+#include "smt/smt_parallel2.h"
 #include "smt/smt_parallel.h"
 #include "smt/smt_arith_value.h"
+#include "params/smt_parallel_params.hpp"
 #include <iostream>
 
 namespace smt {
@@ -3621,9 +3623,17 @@ namespace smt {
         setup_context(m_fparams.m_auto_config);
 
         if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {
-            parallel p(*this);
-            expr_ref_vector asms(m);
-            return p(asms);
+            smt_parallel_params p(m_params);
+            if (p.searchtree()) {
+                parallel2 p(*this);
+                expr_ref_vector asms(m);
+                return p(asms);
+            }
+            else {
+                parallel p(*this);
+                expr_ref_vector asms(m);
+                return p(asms);
+            }
         }
 
         try {
@@ -3689,8 +3699,15 @@ namespace smt {
         search_completion sc(*this);
         if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {            
             expr_ref_vector asms(m, num_assumptions, assumptions);
-            parallel p(*this);
-            return p(asms);
+            smt_parallel_params p(m_params);
+            if (p.searchtree()) {
+                parallel2 p(*this);
+                return p(asms);
+            }
+            else {
+                parallel p(*this);
+                return p(asms);
+            }
         }
         lbool r = l_undef;
         do {

@@ -19,4 +19,5 @@ def_module_params('smt_parallel',
                         ('beam_search', BOOL, False, 'use beam search with PQ to rank cubes given to threads'),
                         ('explicit_hardness', BOOL, False, 'use explicit hardness metric for cube'),
                         ('cubetree', BOOL, False, 'use cube tree data structure for storing cubes'),
+                        ('searchtree', BOOL, False, 'use search tree implementation (parallel2)')
               ))
