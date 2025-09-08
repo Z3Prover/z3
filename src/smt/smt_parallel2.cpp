@@ -315,6 +315,7 @@ namespace smt {
             return;
         m_state = state::is_sat;
         p.ctx.set_model(m.translate(l2g));
+        cv.notify_all();
         cancel_workers();
     }
 
@@ -331,6 +332,7 @@ namespace smt {
         SASSERT(p.ctx.m_unsat_core.empty());
         for (expr* e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
+        cv.notify_all();
         cancel_workers();
     }
 
@@ -341,6 +343,7 @@ namespace smt {
             return;
         m_state = state::is_exception_code;
         m_exception_code = error_code;
+        cv.notify_all();
         cancel_workers();
     }
 
@@ -351,6 +354,7 @@ namespace smt {
             return;
         m_state = state::is_exception_msg;
         m_exception_msg = msg;
+        cv.notify_all();
         cancel_workers();
     }
 
@@ -397,6 +401,11 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << "waiting... " << "\n";);
             if (m_search_tree.is_closed()) {
                 IF_VERBOSE(1, verbose_stream() << "all done\n";);
+                cv.notify_all();
+                return false;
+            }
+            if (m_state != state::is_running) {
+                IF_VERBOSE(1, verbose_stream() << "aborting get_cube\n";);
                 cv.notify_all();
                 return false;
             }
