@@ -223,21 +223,21 @@ namespace nlsat {
         }
         
         // Internal carrier to keep root value paired with indexed root expr
-        struct root_item_t {
+        struct root_function {
             scoped_anum val;
             indexed_root_expr ire;
-            root_item_t(anum_manager& am, poly* p, unsigned idx, anum const& v)
+            root_function(anum_manager& am, poly* p, unsigned idx, anum const& v)
                 : val(am), ire{ p, idx } { am.set(val, v); }
-            root_item_t(root_item_t&& other) noexcept : val(other.val.m()), ire(other.ire) { val = other.val; }
-            root_item_t(root_item_t const&) = delete;
-            root_item_t& operator=(root_item_t const&) = delete;
-            // allow move-assignment so we can sort a vector<root_item_t>
-            root_item_t& operator=(root_item_t&& other) noexcept { val = other.val; ire = other.ire; return *this; }
+            root_function(root_function&& other) noexcept : val(other.val.m()), ire(other.ire) { val = other.val; }
+            root_function(root_function const&) = delete;
+            root_function& operator=(root_function const&) = delete;
+            // allow move-assignment so we can sort a vector<root_function>
+            root_function& operator=(root_function&& other) noexcept { val = other.val; ire = other.ire; return *this; }
         };
 
         // Compute symbolic interval from sorted roots. Assumes roots are sorted.
         void compute_interval_from_sorted_roots( // works on m_level
-                                                std::vector<root_item_t>& roots,
+                                                std::vector<root_function>& roots,
                                                 symbolic_interval& I) {
             // default: whole line sector (-inf, +inf)
             I.section = false;
@@ -313,22 +313,20 @@ namespace nlsat {
                  if (pr.prop_tag == prop_enum::sgn_inv_irreducible &&  !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
                      p_non_null.push_back(pr.poly.get());
              }
-             std::vector<root_item_t> roots;
-             std::vector<indexed_root_expr> E;
-             collect_E_and_roots(p_non_null, E, roots);
+             std::vector<root_function> E;
+             collect_E(p_non_null, E);
              // Ensure m_I can hold interval for this level
              SASSERT(m_I.size() > m_level);
-             std::sort(roots.begin(), roots.end(), [&](root_item_t const& a, root_item_t const& b){
+             std::sort(E.begin(), E.end(), [&](root_function const& a, root_function const& b){
                  return m_am.lt(a.val, b.val);
              });
-             compute_interval_from_sorted_roots(roots, m_I[m_level]);
+             compute_interval_from_sorted_roots(E, m_I[m_level]);
          }
 
-         // Step 1a: collect E and root values
-         void collect_E_and_roots(std::vector<const poly*> const& P_non_null,
+         // Step 1a: collect E the set of root functions 
+         void collect_E(std::vector<const poly*> const& P_non_null,
                                   // works on m_level,
-                                  std::vector<indexed_root_expr>& E,
-                                  std::vector<root_item_t>& roots_out) {
+                                  std::vector<root_function>& E) {
              for (auto const* p0 : P_non_null) {
                  auto* p = const_cast<poly*>(p0);
                  if (m_pm.max_var(p) != m_level)
@@ -344,10 +342,8 @@ namespace nlsat {
                        }
                        tout << std::endl;
                  );
-                 for (unsigned k = 0; k < num_roots; ++k) {
-                     E.push_back(indexed_root_expr{ p, k + 1 });
-                     roots_out.emplace_back(m_am, p, k + 1, roots[k]);
-                 }
+                 for (unsigned k = 0; k < num_roots; ++k) 
+                     E.emplace_back(m_am, p, k + 1, roots[k]);
              }
          }
 
@@ -522,7 +518,7 @@ namespace nlsat {
                 for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
                     polynomial_ref f(m_pm);
                     f = factors[i];
-                    add_to_Q_if_new(property(prop_enum::sgn_inv_reducible, f, m_pm));
+                    add_to_Q_if_new(property(prop_enum::sgn_inv_irreducible, f, m_pm));
                 }
                 return true;
             }
@@ -607,6 +603,24 @@ or
             }
         }
 
+        void apply_pre_sample(const property& p, bool has_repr) {
+            if (m_level == 0)
+                return;
+            add_to_Q_if_new(property(prop_enum::sample, m_pm, m_level - 1));
+            add_to_Q_if_new(property(prop_enum::repr,m_pm,  m_level - 1));
+        }
+
+        void apply_pre_sgn_inv_reducible(const property& p, bool has_repr) {
+            polynomial::factors factors(m_pm);
+            factor(p.poly, factors);
+            for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
+                polynomial_ref f(m_pm);
+                f = factors[i];
+                add_to_Q_if_new(property(prop_enum::sgn_inv_irreducible, f, m_pm));
+            }
+                         
+        }
+        
         void apply_pre(const property& p, bool has_repr) {
             TRACE(levelwise, tout << "apply_pre BEGIN m_Q:"; display(tout) << std::endl; 
                   display(tout << "pre p:", p) << std::endl;);
@@ -628,6 +642,12 @@ or
                 break;
             case prop_enum::holds:
                 break; // ignore the bottom of refinement
+            case prop_enum::sample:
+                apply_pre_sample(p, has_repr);
+                break;
+            case prop_enum::sgn_inv_reducible:
+                apply_pre_sgn_inv_reducible(p, has_repr);
+                break;
             default:
                 TRACE(levelwise, display(tout << "not impl: p", p));
                 NOT_IMPLEMENTED_YET();
