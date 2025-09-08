@@ -108,7 +108,9 @@ namespace nlsat {
         }
 
         bool is_irreducible(poly* p) {
-            return true;
+            polynomial::factors factors(m_pm);
+            factor(polynomial_ref(p, m_pm), factors);
+            return factors.total_factors() == 1;            
         }
         
         /*
