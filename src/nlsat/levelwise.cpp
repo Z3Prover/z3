@@ -621,9 +621,17 @@ or
             add_to_Q_if_new(property(prop_enum::repr,m_pm,  m_level - 1));
         }
 
-
+/*  Rule 4.6. Let i ∈ N, R ⊆ Ri, s ∈ R_{i−1}, and realRoots(p(s, xi )) = ∅. */
         void apply_pre_sgn_inv(const property& p, bool has_repr) {
-            NOT_IMPLEMENTED_YET();
+            if (p.level == 0) return; // nothing todo
+            scoped_anum_vector roots(m_am);
+            SASSERT(max_var(p.poly) == p.level && p.level == m_level);
+            m_am.isolate_roots(p.poly, undef_var_assignment(sample(), m_level), roots);
+            if (roots.size() == 0) {
+                //Rule 4.6 sample(s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R)
+                add_to_Q_if_new(property(prop_enum::sample, m_pm, p.level - 1));
+                add_to_Q_if_new(property(prop_enum::an_del, p.poly, m_pm));
+            }
         }
 
         /*
