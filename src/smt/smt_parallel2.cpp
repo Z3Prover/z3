@@ -53,8 +53,7 @@ namespace smt {
     void parallel2::worker::run() {
         search_tree::node<cube_config>* node = nullptr;
         expr_ref_vector cube(m);
-        while (m.inc()) { 
-
+        while (true) { 
             collect_shared_clauses(m_g2l);
 
             if (!b.get_cube(m_g2l, id, cube, node)) {
@@ -208,7 +207,6 @@ namespace smt {
         m_search_tree.backtrack(node, g_core);
         if (m_search_tree.is_closed()) {
             m_state = state::is_unsat;
-            cv.notify_all();
             cancel_workers();
         }
     }
@@ -315,7 +313,6 @@ namespace smt {
             return;
         m_state = state::is_sat;
         p.ctx.set_model(m.translate(l2g));
-        cv.notify_all();
         cancel_workers();
     }
 
@@ -332,7 +329,6 @@ namespace smt {
         SASSERT(p.ctx.m_unsat_core.empty());
         for (expr* e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
-        cv.notify_all();
         cancel_workers();
     }
 
@@ -343,7 +339,6 @@ namespace smt {
             return;
         m_state = state::is_exception_code;
         m_exception_code = error_code;
-        cv.notify_all();
         cancel_workers();
     }
 
@@ -354,7 +349,6 @@ namespace smt {
             return;
         m_state = state::is_exception_msg;
         m_exception_msg = msg;
-        cv.notify_all();
         cancel_workers();
     }
 
