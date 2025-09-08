@@ -376,17 +376,23 @@ namespace nlsat {
          // Extracted helper: handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
          void add_ord_inv_discriminant_for(const property& p) {
              polynomial_ref disc(m_pm);
-             disc = discriminant(p.poly, p.level); // todo - factor the discriminant!!!!
+             disc = discriminant(p.poly, p.level);
              TRACE(levelwise, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
              if (!is_const(disc)) {
-                 if (coeffs_are_zeroes_on_sample(disc, m_pm, sample(), m_am)) {
-                     m_fail = true; // ambiguous multiplicity -- not handled yet
-                     NOT_IMPLEMENTED_YET();
-                     return;
-                 }
-                 else {
-                     unsigned lvl = max_var(disc);
-                     add_to_Q_if_new(property(prop_enum::ord_inv, disc, /*s_idx*/ 0u, lvl));
+                 // Factor the discriminant
+                 polynomial::factors disc_factors(m_pm);
+                 factor(disc, disc_factors);
+                 for (unsigned i = 0; i < disc_factors.distinct_factors(); ++i) {
+                     polynomial_ref f = disc_factors[i];
+                     if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
+                         m_fail = true; // ambiguous multiplicity -- not handled yet
+                         NOT_IMPLEMENTED_YET();
+                         return;
+                     }
+                     else {
+                         unsigned lvl = max_var(f);
+                         add_to_Q_if_new(property(prop_enum::ord_inv, f, /*s_idx*/ 0u, lvl));
+                     }
                  }
              }
          }
@@ -398,14 +404,19 @@ namespace nlsat {
             if (deg > 0) {
                 polynomial_ref lc(m_pm);
                 lc = m_pm.coeff(pp, p.level, deg);
-                // todo - factor lc
                 if (!is_const(lc)) {
-                    if (coeffs_are_zeroes_on_sample(lc, m_pm, sample(), m_am)) {
-                        NOT_IMPLEMENTED_YET(); // leading coeff vanished as polynomial -- not handled yet
-                    }
-                    else {
-                        unsigned lvl = max_var(lc);
-                        add_to_Q_if_new(property(prop_enum::sgn_inv, lc, /*s_idx*/ 0u, lvl));
+                    // Factor the leading coefficient
+                    polynomial::factors lc_factors(m_pm);
+                    factor(lc, lc_factors);
+                    for (unsigned i = 0; i < lc_factors.distinct_factors(); ++i) {
+                        polynomial_ref f = lc_factors[i];
+                        if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
+                            NOT_IMPLEMENTED_YET(); // leading coeff vanished as polynomial -- not handled yet
+                        }
+                        else {
+                            unsigned lvl = max_var(f);
+                            add_to_Q_if_new(property(prop_enum::sgn_inv, f, /*s_idx*/ 0u, lvl));
+                        }
                     }
                 }
             }
