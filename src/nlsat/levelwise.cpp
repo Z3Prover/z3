@@ -22,10 +22,8 @@ namespace nlsat {
         ir_ord,
         an_del,
         non_null,
-        ord_inv_reducible,
-        ord_inv_irreducible,
-        sgn_inv_reducible,
-        sgn_inv_irreducible,
+        ord_inv,
+        sgn_inv,
         connected,
         an_sub,
         sample,
@@ -108,7 +106,10 @@ namespace nlsat {
             out << "]\n";
             return out;
         }
-        
+
+        bool is_irreducible(poly* p) {
+            return true;
+        }
         
         /*
           Short: build the initial property set Q so the one-cell algorithm can generalize the
@@ -131,9 +132,10 @@ namespace nlsat {
         void collect_level_properties(std::vector<poly*> & ps_of_n_level) {
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 poly* p = m_P[i];
+                SASSERT(is_irreducible(p));
                 unsigned level = max_var(p);
                 if (level < m_n)
-                    m_Q[level].push(property(prop_enum::sgn_inv_irreducible, polynomial_ref(p, m_pm), /*s_idx*/0u, /* level */ level));
+                    m_Q[level].push(property(prop_enum::sgn_inv, polynomial_ref(p, m_pm), /*s_idx*/0u, /* level */ level));
                 else if (level == m_n){
                     m_Q[level].push(property(prop_enum::an_del, polynomial_ref(p, m_pm), /* s_idx */ -1, level));
                     ps_of_n_level.push_back(p);
@@ -202,7 +204,7 @@ namespace nlsat {
                 for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
                     polynomial_ref f(m_pm);
                     f = factors[i];
-                    m_Q[max_var(f)].push(property(prop_enum::ord_inv_irreducible, f, m_pm));
+                    m_Q[max_var(f)].push(property(prop_enum::ord_inv, f, m_pm));
                 }
             }
             return true;
@@ -310,7 +312,7 @@ namespace nlsat {
              std::vector<const poly*> p_non_null;
              for (const auto & pr: to_vector(m_Q[m_level])) {
                  SASSERT(max_var(pr.poly) == m_level);
-                 if (pr.prop_tag == prop_enum::sgn_inv_irreducible &&  !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
+                 if (pr.prop_tag == prop_enum::sgn_inv &&  !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
                      p_non_null.push_back(pr.poly.get());
              }
              std::vector<root_function> E;
@@ -364,7 +366,7 @@ namespace nlsat {
         // Returns true on failure.
         // works on m_level
         bool construct_interval() {
-            if (!apply_property_rules(prop_enum::sgn_inv_irreducible, false)) {
+            if (!apply_property_rules(prop_enum::sgn_inv, false)) {
                 return true;
             }
 
@@ -374,7 +376,7 @@ namespace nlsat {
          // Extracted helper: handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
          void add_ord_inv_discriminant_for(const property& p) {
              polynomial_ref disc(m_pm);
-             disc = discriminant(p.poly, p.level);
+             disc = discriminant(p.poly, p.level); // todo - factor the discriminant!!!!
              TRACE(levelwise, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
              if (!is_const(disc)) {
                  if (coeffs_are_zeroes_on_sample(disc, m_pm, sample(), m_am)) {
@@ -384,7 +386,7 @@ namespace nlsat {
                  }
                  else {
                      unsigned lvl = max_var(disc);
-                     add_to_Q_if_new(property(prop_enum::ord_inv_irreducible, disc, /*s_idx*/ 0u, lvl));
+                     add_to_Q_if_new(property(prop_enum::ord_inv, disc, /*s_idx*/ 0u, lvl));
                  }
              }
          }
@@ -396,13 +398,14 @@ namespace nlsat {
             if (deg > 0) {
                 polynomial_ref lc(m_pm);
                 lc = m_pm.coeff(pp, p.level, deg);
+                // todo - factor lc
                 if (!is_const(lc)) {
                     if (coeffs_are_zeroes_on_sample(lc, m_pm, sample(), m_am)) {
                         NOT_IMPLEMENTED_YET(); // leading coeff vanished as polynomial -- not handled yet
                     }
                     else {
                         unsigned lvl = max_var(lc);
-                        add_to_Q_if_new(property(prop_enum::sgn_inv_irreducible, lc, /*s_idx*/ 0u, lvl));
+                        add_to_Q_if_new(property(prop_enum::sgn_inv, lc, /*s_idx*/ 0u, lvl));
                     }
                 }
             }
@@ -518,7 +521,7 @@ namespace nlsat {
                 for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
                     polynomial_ref f(m_pm);
                     f = factors[i];
-                    add_to_Q_if_new(property(prop_enum::sgn_inv_irreducible, f, m_pm));
+                    add_to_Q_if_new(property(prop_enum::sgn_inv, f, m_pm));
                 }
                 return true;
             }
@@ -557,11 +560,12 @@ namespace nlsat {
                 NOT_IMPLEMENTED_YET();
                 return;
             }
-
+            // factor disc todo!!!!
+            
             // If discriminant is non-constant, add sign-invariance requirement for it
             if (!is_const(disc)) {
                 unsigned lvl = max_var(disc);
-                add_to_Q_if_new(property(prop_enum::sgn_inv_irreducible, disc, /*s_idx*/ 0u, lvl));
+                add_to_Q_if_new(property(prop_enum::sgn_inv, disc, /*s_idx*/ 0u, lvl));
             }
 
             // non_null is established by the discriminant being non-zero at the sample
@@ -610,15 +614,9 @@ or
             add_to_Q_if_new(property(prop_enum::repr,m_pm,  m_level - 1));
         }
 
-        void apply_pre_sgn_inv_reducible(const property& p, bool has_repr) {
-            polynomial::factors factors(m_pm);
-            factor(p.poly, factors);
-            for (unsigned i = 0; i < factors.distinct_factors(); ++i) {
-                polynomial_ref f(m_pm);
-                f = factors[i];
-                add_to_Q_if_new(property(prop_enum::sgn_inv_irreducible, f, m_pm));
-            }
-                         
+
+        void apply_pre_sgn_inv(const property& p, bool has_repr) {
+            NOT_IMPLEMENTED_YET();
         }
         
         void apply_pre(const property& p, bool has_repr) {
@@ -645,8 +643,8 @@ or
             case prop_enum::sample:
                 apply_pre_sample(p, has_repr);
                 break;
-            case prop_enum::sgn_inv_reducible:
-                apply_pre_sgn_inv_reducible(p, has_repr);
+            case prop_enum::sgn_inv:
+                apply_pre_sgn_inv(p, has_repr);
                 break;
             default:
                 TRACE(levelwise, display(tout << "not impl: p", p));
@@ -682,10 +680,8 @@ or
             case prop_enum::ir_ord:               return "ir_ord";
             case prop_enum::an_del:               return "an_del";
             case prop_enum::non_null:             return "non_null";
-            case prop_enum::ord_inv_reducible:    return "ord_inv_reducible";
-            case prop_enum::ord_inv_irreducible:  return "ord_inv_irreducible";
-            case prop_enum::sgn_inv_reducible:    return "sgn_inv_reducible";
-            case prop_enum::sgn_inv_irreducible:  return "sgn_inv_irreducible";
+            case prop_enum::ord_inv:              return "ord_inv";
+            case prop_enum::sgn_inv:              return "sgn_inv";
             case prop_enum::connected:            return "connected";
             case prop_enum::an_sub:               return "an_sub";
             case prop_enum::sample:               return "sample";
