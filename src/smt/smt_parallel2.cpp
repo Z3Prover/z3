@@ -112,10 +112,8 @@ namespace smt {
                     break;
                 }
             }    
-#if 0
             if (m_config.m_share_units)
                 share_units(m_l2g);
-#endif
         }
     }
 
