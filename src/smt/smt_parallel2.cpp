@@ -343,7 +343,7 @@ namespace smt {
     void parallel2::batch_manager::set_exception(std::string const& msg) {
         std::scoped_lock lock(mux);
         IF_VERBOSE(1, verbose_stream() << "Batch manager setting exception msg: " << msg << ".\n");
-        if (m_state != state::is_running || m.limit().is_canceled())
+        if (m_state != state::is_running)
             return;
         m_state = state::is_exception_msg;
         m_exception_msg = msg;
@@ -390,7 +390,6 @@ namespace smt {
         while ((t = m_search_tree.activate_node(n)) == nullptr) {
             // if all threads have reported they are done, then return false
             // otherwise wait for condition variable
-            IF_VERBOSE(1, verbose_stream() << "waiting... " << "\n";);
             if (m_search_tree.is_closed()) {
                 IF_VERBOSE(1, verbose_stream() << "all done\n";);
                 cv.notify_all();
@@ -401,7 +400,9 @@ namespace smt {
                 cv.notify_all();
                 return false;
             }
+            IF_VERBOSE(1, verbose_stream() << "waiting... " << id << "\n";);
             cv.wait(lock);
+            IF_VERBOSE(1, verbose_stream() << "release... " << id << "\n";);
         }
         IF_VERBOSE(1, m_search_tree.display(verbose_stream()); verbose_stream() << "\n";);
         n = t;
