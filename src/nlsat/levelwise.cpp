@@ -156,13 +156,13 @@ namespace nlsat {
                 SASSERT(is_irreducible(p));
                 unsigned level = max_var(p);
                 if (level < m_n)
-                    m_Q[level].push(property(prop_enum::sgn_inv, polynomial_ref(p, m_pm), /*s_idx*/ -1));
+                    m_Q[level].push(property(prop_enum::sgn_inv, polynomial_ref(p, m_pm)));
                 else if (level == m_n){
-                    m_Q[level].push(property(prop_enum::an_del, polynomial_ref(p, m_pm), /* s_idx */ -1));
+                    m_Q[level].push(property(prop_enum::an_del, polynomial_ref(p, m_pm)));
                     ps_of_n_level.push_back(p);
                 }
                 else {
-                    SASSERT(false);
+                    UNREACHABLE();
                 }
             }
         }
@@ -271,14 +271,10 @@ namespace nlsat {
             while (idx < roots.size() && m_am.compare(roots[idx].val, y_val) < 0) ++idx;
 
             if (idx < roots.size() && m_am.compare(roots[idx].val, y_val) == 0) {
-                // sample matches a root value -> section
-                // find start of equal-valued group
-                size_t start = idx;
-                while (start > 0 && m_am.compare(roots[start-1].val, roots[idx].val) == 0) --start;
-                auto const& ire = roots[start].ire;
+                auto const& ire = roots[idx].ire;
                 I.section = true;
                 I.l = ire.p; I.l_index = ire.i;
-                I.u = nullptr; I.u_index = 0;
+                I.u = nullptr; I.u_index = -1; // the section is defined by the I.l
                 return;
             }
 
@@ -339,6 +335,7 @@ namespace nlsat {
                  return m_am.lt(a.val, b.val);
              });
              compute_interval_from_sorted_roots(E, m_I[m_level]);
+             TRACE(levelwise, display(tout << "m_I[" << m_level << "]:", m_I[m_level]) << std::endl;);
          }
 
          // Step 1a: collect E the set of root functions 
@@ -386,6 +383,8 @@ namespace nlsat {
                 return true;
             }
 
+            TRACE(levelwise, display(tout << "m_Q:") << std::endl;);
+
             build_representation();
             SASSERT(invariant());
             return apply_property_rules(prop_enum::holds, true);
@@ -394,7 +393,8 @@ namespace nlsat {
          void add_ord_inv_discriminant_for(const property& p) {
             polynomial::polynomial_ref disc(m_pm);
             disc = discriminant(p.poly, max_var(p.poly));
-            TRACE(levelwise, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
+            TRACE(levelwise, tout << "p:"; display(tout, p) << "\n";
+                  ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
             if (!is_const(disc)) {
                 for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
                     if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
@@ -631,7 +631,15 @@ or
                 //Rule 4.6 sample(s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R)
                 add_to_Q_if_new(property(prop_enum::sample, m_pm), m_level - 1);
                 add_to_Q_if_new(property(prop_enum::an_del, p.poly),  m_level);
-            }
+            } 
+            /* Rule 4.8. Let i ∈ N>0 , R ⊆ Ri
+               , s ∈ Ri−1
+               , p ∈ Q[x1, . . . , xi ], level(p) = i, and I be a symbolic interval
+               of level i. Assume that p is irreducible, and I = (section, b).
+               Let Q := an_sub(i − 1)(R) ∧ connected(i − 1)(R) ∧ repr(I, s)(R) ∧ an_del(b.p)(R).
+               Q, b.p= p ⊢ sgn_inv(p)(R)
+               Q, b.p ̸= p, ord_inv(resxi (b.p, p))(R) ⊢ sgn_inv(p)(R)*/
+            NOT_IMPLEMENTED_YET();    
         }
 
         /*
@@ -718,7 +726,7 @@ or
                    }
                  );
             m_level = m_n;
-            seed_properties(); // initializes m_Q as the set of properties on level m_n            
+            seed_properties(); // initializes m_Q as the set of properties on levels <= m_n            
             apply_property_rules(prop_enum::_count, false); // reduce the level by one to be consumed by construct_interval
             while (--m_level > 0) {
                 if (!construct_interval())
