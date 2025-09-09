@@ -145,10 +145,8 @@ public:
             if (polarity_pair && polarity_pair->cube_state == closed) {
                 polarity_pair_closed = true;
             } else {
-                return last_closed;
+                continue; // polarity pair is not UNSAT, the parent node is thus still open, stop propagating
             }
-
-            if (!polarity_pair_closed) break;  // stop propagating
 
             SASSERT(parent->cube_state != active); // parent must not be currently worked on
             close_subtree(parent);   // mark parent and its subtree as closed
