@@ -17,6 +17,7 @@ Author:
 
 
 
+
 #include "util/scoped_ptr_vector.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
@@ -27,6 +28,22 @@ Author:
 #include "params/smt_parallel_params.hpp"
 
 #include <cmath>
+
+class bounded_pp_exprs {
+    expr_ref_vector const& es;
+public:
+    bounded_pp_exprs(expr_ref_vector const& es): es(es) {}
+
+    std::ostream& display(std::ostream& out) const {
+        for (auto e : es) 
+            out << mk_bounded_pp(e, es.get_manager()) << "\n";
+        return out;
+    }
+};
+
+inline std::ostream& operator<<(std::ostream& out, bounded_pp_exprs const& pp) {
+    return pp.display(out);
+}
 
 #ifdef SINGLE_THREAD
 
@@ -204,7 +221,7 @@ namespace smt {
         }
         m_search_tree.backtrack(node, g_core);
 
-        IF_VERBOSE(1, m_search_tree.display(verbose_stream() << core << "\n"););
+        IF_VERBOSE(1, m_search_tree.display(verbose_stream() << bounded_pp_exprs(core) << "\n"););
         if (m_search_tree.is_closed()) {
             m_state = state::is_unsat;
             cancel_workers();
@@ -266,7 +283,8 @@ namespace smt {
             asms.push_back(atom);                
         lbool r = l_undef;
 
-        ctx->get_fparams().m_max_conflicts = std::min((cube.size() + 1) *m_config.m_threads_max_conflicts, m_config.m_max_conflicts);
+        ctx->get_fparams().m_max_conflicts = std::min(cube.size() * 0 + m_config.m_threads_max_conflicts, m_config.m_max_conflicts);
+        IF_VERBOSE(1, verbose_stream() << " Checking cube\n" << bounded_pp_exprs(cube) << "with max_conflicts: " << ctx->get_fparams().m_max_conflicts << "\n";);
         try {
             r = ctx->check(asms.size(), asms.data());
         }

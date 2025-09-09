@@ -399,6 +399,7 @@ namespace smt {
         lbool r = l_undef;
 
         ctx->get_fparams().m_max_conflicts = std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts);
+        IF_VERBOSE(1, verbose_stream() << " Checking cube " << cube << " with max_conflicts: " << ctx->get_fparams().m_max_conflicts << "\n";);
         try {
             r = ctx->check(asms.size(), asms.data());
         }
