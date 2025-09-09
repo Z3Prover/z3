@@ -221,28 +221,29 @@ namespace search_tree {
             auto res = activate_from_root(n);
             if (res)
                 return res;
-            while (n) {
-                if (n->left() && n->left()->get_status() == status::closed &&
-                    n->right() && n->right()->get_status() == status::closed) {
-                    n->set_status(status::closed);
-                    n = n->parent();
+
+            auto p = n->parent();
+            while (p) {
+                if (p->left() && p->left()->get_status() == status::closed &&
+                    p->right() && p->right()->get_status() == status::closed) {
+                    p->set_status(status::closed);
+                    n = p;                    
+                    p = n->parent();
                     continue;
                 }
-                auto p = n->parent();
-                if (!p)
-                    return nullptr;
                 if (n == p->left()) {
                     res = activate_from_root(p->right());
                     if (res)
                         return res;
                 }
                 else {
-                    SASSERT(n == p->right());
+                    VERIFY(n == p->right());
                     res = activate_from_root(p->left());
                     if (res)
                         return res;
                 }                   
                 n = p;
+                p = n->parent();
             }
             return nullptr;
         }
