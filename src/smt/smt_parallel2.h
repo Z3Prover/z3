@@ -155,6 +155,11 @@ namespace smt {
             lbool check_cube(expr_ref_vector const& cube);
             void share_units(ast_translation& l2g);
 
+            void update_max_thread_conflicts() {
+                m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
+            } // allow for backoff scheme of conflicts within the thread for cube timeouts.
+
+
         public:
             worker(unsigned id, parallel2& p, expr_ref_vector const& _asms);
             void run();

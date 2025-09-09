@@ -501,7 +501,7 @@ namespace smt {
             auto& cube = m_cubes.back();
             // print out the cubes in m_cubes
             for (auto& e : m_cubes) {
-                IF_VERBOSE(1, verbose_stream() << "Cube: " << e << "\n");
+                IF_VERBOSE(4, verbose_stream() << "Cube: " << e << "\n");
             }
 
             expr_ref_vector l_cube(g2l.to());

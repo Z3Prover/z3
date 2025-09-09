@@ -89,6 +89,7 @@ namespace smt {
             
             switch (r) {
                 case l_undef: {
+                    update_max_thread_conflicts();
                     LOG_WORKER(1, " found undef cube\n");
                     // return unprocessed cubes to the batch manager
                     // add a split literal to the batch manager.
@@ -283,7 +284,7 @@ namespace smt {
             asms.push_back(atom);                
         lbool r = l_undef;
 
-        ctx->get_fparams().m_max_conflicts = std::min(cube.size() * 0 + m_config.m_threads_max_conflicts, m_config.m_max_conflicts);
+        ctx->get_fparams().m_max_conflicts = std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts);
         IF_VERBOSE(1, verbose_stream() << " Checking cube\n" << bounded_pp_exprs(cube) << "with max_conflicts: " << ctx->get_fparams().m_max_conflicts << "\n";);
         try {
             r = ctx->check(asms.size(), asms.data());
