@@ -23,6 +23,7 @@ Revision History:
 #include <thread>
 #include <condition_variable>
 #include <mutex>
+#include <condition_variable>
 
 
 namespace smt {
@@ -84,6 +85,7 @@ namespace smt {
                 IF_VERBOSE(1, verbose_stream() << "Canceling workers\n");
                 for (auto& w : p.m_workers) 
                     w->cancel();
+                cv.notify_all();
             }
 
             void init_parameters_state();

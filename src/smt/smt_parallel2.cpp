@@ -55,8 +55,7 @@ namespace smt {
     void parallel2::worker::run() {
         search_tree::node<cube_config>* node = nullptr;
         expr_ref_vector cube(m);
-        while (m.inc()) { 
-
+        while (true) { 
             collect_shared_clauses(m_g2l);
 
             if (!b.get_cube(m_g2l, id, cube, node)) {
@@ -111,10 +110,8 @@ namespace smt {
                     break;
                 }
             }    
-#if 0
             if (m_config.m_share_units)
                 share_units(m_l2g);
-#endif
         }
     }
 
@@ -204,9 +201,10 @@ namespace smt {
             g_core.push_back(expr_ref(l2g(c), m));
         }
         m_search_tree.backtrack(node, g_core);
+
+        IF_VERBOSE(1, m_search_tree.display(verbose_stream() << core << "\n"););
         if (m_search_tree.is_closed()) {
             m_state = state::is_unsat;
-            cv.notify_all();
             cancel_workers();
         }
     }
@@ -220,6 +218,10 @@ namespace smt {
         IF_VERBOSE(1, verbose_stream() << "Batch manager splitting on literal: " << mk_bounded_pp(lit, m, 3) << "\n");
         if (m_state != state::is_running)
             return;
+        // optional heuristic:
+        // node->get_status() == status::active
+        // and depth is 'high' enough
+        // then ignore split, and instead set the status of node to open.
         m_search_tree.split(node, lit, nlit);
         cv.notify_all();
     }
@@ -311,7 +313,6 @@ namespace smt {
             return;
         m_state = state::is_sat;
         p.ctx.set_model(m.translate(l2g));
-        cv.notify_all();
         cancel_workers();
     }
 
@@ -326,7 +327,6 @@ namespace smt {
         SASSERT(p.ctx.m_unsat_core.empty());
         for (expr* e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
-        cv.notify_all();
         cancel_workers();
     }
 
@@ -337,18 +337,16 @@ namespace smt {
             return;
         m_state = state::is_exception_code;
         m_exception_code = error_code;
-        cv.notify_all();
         cancel_workers();
     }
 
     void parallel2::batch_manager::set_exception(std::string const& msg) {
         std::scoped_lock lock(mux);
         IF_VERBOSE(1, verbose_stream() << "Batch manager setting exception msg: " << msg << ".\n");
-        if (m_state != state::is_running || m.limit().is_canceled())
+        if (m_state != state::is_running)
             return;
         m_state = state::is_exception_msg;
         m_exception_msg = msg;
-        cv.notify_all();
         cancel_workers();
     }
 
@@ -392,7 +390,6 @@ namespace smt {
         while ((t = m_search_tree.activate_node(n)) == nullptr) {
             // if all threads have reported they are done, then return false
             // otherwise wait for condition variable
-            IF_VERBOSE(1, verbose_stream() << "waiting... " << "\n";);
             if (m_search_tree.is_closed()) {
                 IF_VERBOSE(1, verbose_stream() << "all done\n";);
                 cv.notify_all();
@@ -403,7 +400,14 @@ namespace smt {
                 cv.notify_all();
                 return false;
             }
+            t = m_search_tree.find_active_node();
+            if (t) {
+                IF_VERBOSE(1, verbose_stream() << "found active node\n";);
+                break;
+            }
+            IF_VERBOSE(1, verbose_stream() << "waiting... " << id << "\n";);
             cv.wait(lock);
+            IF_VERBOSE(1, verbose_stream() << "release... " << id << "\n";);
         }
         IF_VERBOSE(1, m_search_tree.display(verbose_stream()); verbose_stream() << "\n";);
         n = t;
