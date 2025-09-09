@@ -123,7 +123,11 @@ namespace opt {
             wmax& max;
             compare_asm(wmax& max):max(max) {}
             bool operator()(expr* a, expr* b) const {
-                return max.m_weights[a] > max.m_weights[b];
+                rational wa = max.m_weights[a];
+                rational wb = max.m_weights[b];
+                if (wa != wb) return wa > wb;
+                // deterministic tie-break
+                return a->get_id() > b->get_id();
             }
         };
 

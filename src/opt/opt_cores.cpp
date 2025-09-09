@@ -65,7 +65,20 @@ namespace opt {
      * weighted soft constraints are treated as multi-sets.
      */
     vector<weighted_core> const& cores::disjoint_cores() {
-        std::sort(m_cores.begin(), m_cores.end(), [&](weighted_core const& c1, weighted_core const& c2) { return c1.m_core.size() < c2.m_core.size(); });
+        std::sort(m_cores.begin(), m_cores.end(), [&](weighted_core const& c1, weighted_core const& c2) {
+            // primary: smaller core size first
+            if (c1.m_core.size() != c2.m_core.size()) return c1.m_core.size() < c2.m_core.size();
+            // secondary: smaller stored weight first
+            if (c1.m_weight != c2.m_weight) return c1.m_weight < c2.m_weight;
+            // final deterministic tie-break: lexicographic compare of expr ids
+            unsigned n = std::min(c1.m_core.size(), c2.m_core.size());
+            for (unsigned i = 0; i < n; ++i) {
+                expr* e1 = c1.m_core[i];
+                expr* e2 = c2.m_core[i];
+                if (e1->get_id() != e2->get_id()) return e1->get_id() < e2->get_id();
+            }
+            return false;
+        });
         vector<weighted_core> result;
         for (auto const& [core, w] : m_cores) {
             rational weight = core_weight(core);
@@ -348,7 +361,14 @@ namespace opt {
     lbool cores::check_sat_hill_climb(expr_ref_vector const& _soft) {
         expr_ref_vector soft(_soft);
         lbool is_sat = l_true;
-        std::sort(soft.data(), soft.data() + soft.size(), [&](expr* a, expr* b) { return m_weight[a] > m_weight[b]; });
+        std::sort(soft.data(), soft.data() + soft.size(), [&](expr* a, expr* b) {
+            // primary: larger weight first
+            rational wa = m_weight[a];
+            rational wb = m_weight[b];
+            if (wa != wb) return wa > wb;
+            // deterministic tie-break: expr id (larger id first to keep original direction)
+            return a->get_id() > b->get_id();
+        });
         unsigned index = 0, last_index = 0;
         SASSERT(index < soft.size() || soft.empty());
         IF_VERBOSE(10, verbose_stream() << "start hill climb " << index << " soft: " << soft.size() << "\n";);

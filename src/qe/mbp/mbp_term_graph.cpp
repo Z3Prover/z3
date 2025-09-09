@@ -52,7 +52,11 @@ static expr_ref mk_neq(ast_manager &m, expr *e1, expr *e2) {
 namespace {
 struct sort_lt_proc { // for representatives in model_complete
     bool operator()(const expr *a, const expr *b) const {
-        return a->get_sort()->get_id() < b->get_sort()->get_id();
+        unsigned sa = a->get_sort()->get_id();
+        unsigned sb = b->get_sort()->get_id();
+        if (sa != sb) return sa < sb;
+        // tie-break by expr id for deterministic ordering
+        return a->get_id() < b->get_id();
     }
 };
 struct mark_all_sub_expr {

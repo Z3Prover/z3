@@ -28,7 +28,13 @@ namespace opt {
 
     bool is_maxlex(vector<soft> const & _ws) {
         vector<soft> ws(_ws);
-        std::sort(ws.begin(), ws.end(), [&](soft const& s1, soft const& s2) { return s1.weight < s2.weight; });
+        std::sort(ws.begin(), ws.end(), [&](soft const& s1, soft const& s2) {
+            if (s1.weight != s2.weight) return s1.weight < s2.weight;
+            // deterministic tie-break: compare expr ids
+            expr* e1 = s1.s.get();
+            expr* e2 = s2.s.get();
+            return e1->get_id() < e2->get_id();
+        });
         ws.reverse();
         rational sum(0);
         for (auto const& [e, w, t] : ws) {

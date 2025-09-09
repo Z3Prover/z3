@@ -173,7 +173,16 @@ namespace opt {
 
     void lns::relax_cores() {
         if (!m_cores.empty() && m_cores_are_valid) {
-            std::sort(m_cores.begin(), m_cores.end(), [&](expr_ref_vector const& a, expr_ref_vector const& b) { return a.size() < b.size(); });
+            std::sort(m_cores.begin(), m_cores.end(), [&](expr_ref_vector const& a, expr_ref_vector const& b) {
+                if (a.size() != b.size()) return a.size() < b.size();
+                unsigned n = std::min(a.size(), b.size());
+                for (unsigned i = 0; i < n; ++i) {
+                    expr* ea = a[i];
+                    expr* eb = b[i];
+                    if (ea->get_id() != eb->get_id()) return ea->get_id() < eb->get_id();
+                }
+                return false;
+            });
             vector<expr_ref_vector> new_cores;
             for (auto const& c : m_cores) {
                 bool in_core = false;

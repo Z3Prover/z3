@@ -414,7 +414,13 @@ namespace mbp {
 
         struct compare_nd {
             bool operator()(std::pair<unsigned, app*> const& x, std::pair<unsigned, app*> const& y) const {
-                return x < y;
+                // deterministic comparison: compare nesting depth first, then AST ids of the apps
+                if (x.first != y.first) return x.first < y.first;
+                app* ax = x.second;
+                app* ay = y.second;
+                if (ax && ay) return ax->get_id() < ay->get_id();
+                // fallback (should not happen): preserve original pointer ordering as last resort
+                return ax < ay;
             }
         };
 
@@ -848,6 +854,14 @@ namespace mbp {
                     rational const& yv = y.rval[j];
                     if (xv < yv) return true;
                     if (xv > yv) return false;
+                }
+                // tie-break deterministically using index expressions' AST ids (lexicographic)
+                if (x.idx.size() != y.idx.size()) return x.idx.size() < y.idx.size();
+                for (unsigned j = 0; j < x.idx.size(); ++j) {
+                    expr* xi = x.idx[j];
+                    expr* yi = y.idx[j];
+                    if (xi->get_id() < yi->get_id()) return true;
+                    if (xi->get_id() > yi->get_id()) return false;
                 }
                 return false;
             }

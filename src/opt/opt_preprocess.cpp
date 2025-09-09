@@ -187,7 +187,11 @@ namespace opt {
         obj_map<expr, rational> const& m_soft;
         maxsmt_compare_soft(obj_map<expr, rational> const& soft): m_soft(soft) {}
         bool operator()(expr* a, expr* b) const {
-            return m_soft.find(a) > m_soft.find(b);
+            rational ra = m_soft.find(a);
+            rational rb = m_soft.find(b);
+            if (ra != rb) return ra > rb;
+            // deterministic tie-break
+            return a->get_id() > b->get_id();
         }
     };
 
