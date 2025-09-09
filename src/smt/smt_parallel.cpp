@@ -108,7 +108,8 @@ namespace smt {
                 
                 LOG_WORKER(1, " Got cube node from CubeTree. Is null: " << (cube_node == nullptr) << "\n");
                 if (!cube_node) { // i.e. no more cubes
-                    LOG_WORKER(1, " No more cubes from CubeTree, exiting\n");
+                    LOG_WORKER(1, " Cube_Tree ran out of nodes, problem is UNSAT\n");
+                    b.set_unsat(m_g2l, cube);
                     return;
                 }
                 m_curr_cube_node = cube_node; // store the current cube so we know how to get the next closest cube from the tree
@@ -124,7 +125,7 @@ namespace smt {
             }
                 
             collect_shared_clauses(m_g2l);
-            if (!m.inc()) {
+            if (m.limit().is_canceled()) {
                 b.set_exception("context cancelled");
                 return;
             }
@@ -148,7 +149,7 @@ namespace smt {
 
                         // let's automatically do iterative deepening for beam search.
                         // when using more advanced metrics like explicit_hardness etc: need one of two things: (1) split if greater than OR EQUAL TO than avg hardness, or (3) enter this branch only when cube.size() > 0, or else we get stuck in a loop of never deepening.
-                        if (m_config.m_iterative_deepening || m_config.m_beam_search) { 
+                        if (!m_config.m_cubetree && (m_config.m_iterative_deepening || m_config.m_beam_search)) { 
                             LOG_WORKER(1, " applying iterative deepening\n");
                             
                             double cube_hardness;
@@ -171,13 +172,34 @@ namespace smt {
                         } else if (m_config.m_cubetree) {
                             IF_VERBOSE(1, verbose_stream() << " returning undef cube to CubeTree. Cube node is null: " << (cube_node == nullptr) << "\n");
                             bool is_new_frontier = frontier_roots.empty();
-                            b.return_cubes_tree(m_l2g, cube_node, cube, split_atoms, frontier_roots);
+                            bool should_split = true;
+
+                            if (m_config.m_iterative_deepening) {
+                                LOG_WORKER(1, " applying iterative deepening\n");
+                            
+                                double cube_hardness;
+                                if (m_config.m_explicit_hardness) {
+                                    cube_hardness = explicit_hardness(cube);
+                                    // LOG_WORKER(1, " explicit hardness: " << cube_hardness << "\n");    
+                                } else { // default to naive hardness
+                                    cube_hardness = naive_hardness();
+                                    // LOG_WORKER(1, " naive hardness: " << cube_hardness << "\n");
+                                }
+
+                                const double avg_hardness = update_avg_cube_hardness_worker(cube_hardness); // let's only compare to hardness on the same thread/frontier
+                                const double factor = 1;  // can tune for multiple of avg hardness later
+                                should_split = cube_hardness >= avg_hardness * factor; // must be >= otherwise we never deepen
+
+                                LOG_WORKER(1, " cube hardness: " << cube_hardness << " avg: " << avg_hardness << " avg*factor: " << avg_hardness * factor << " should-split: " << should_split << "\n");
+                            }
+
+                            b.return_cubes_tree(m_l2g, cube_node, cube, split_atoms, frontier_roots, should_split);
 
                             if (is_new_frontier) {
                                 IF_VERBOSE(1, {
                                     verbose_stream() << " Worker " << id << " has new frontier roots, with the following children: \n";
                                     for (auto* node : frontier_roots) {
-                                        verbose_stream() << "  Cube size: " << node->cube.size() << " State: " << node->cube_state << " Cube: ";
+                                        verbose_stream() << "  Cube size: " << node->cube.size() << " State: " << node->state << " Cube: ";
                                         for (auto* e : node->cube) {
                                             verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
                                         }
@@ -446,7 +468,7 @@ namespace smt {
             l_cube.push_back(g2l(e));
         }
 
-        next_cube_node->cube_state = active; // mark the cube as active (i.e. being processed by a worker)
+        next_cube_node->state = active; // mark the cube as active (i.e. being processed by a worker)
 
         return {next_cube_node, l_cube};
     }
@@ -816,7 +838,7 @@ namespace smt {
         }
     }
 
-    void parallel::batch_manager::return_cubes_tree(ast_translation& l2g, CubeNode* cube_node, expr_ref_vector const& l_cube, expr_ref_vector const& A_worker, std::vector<CubeNode*>& frontier_roots) {
+    void parallel::batch_manager::return_cubes_tree(ast_translation& l2g, CubeNode* cube_node, expr_ref_vector const& l_cube, expr_ref_vector const& A_worker, std::vector<CubeNode*>& frontier_roots, bool should_split) {
         IF_VERBOSE(1, verbose_stream() << " Returning cube to batch manager's cube tree. Cube node null: " << (cube_node == nullptr) << " PROCESSING CUBE of size: " << l_cube.size() << "\n");
 
         bool is_new_frontier = frontier_roots.empty(); // need to save this as a bool here, bc otherwise the frontier stops being populated after a single split atom
@@ -863,9 +885,9 @@ namespace smt {
 
         std::scoped_lock lock(mux);
 
-        if (l_cube.size() >= m_config.m_max_cube_depth) {
+        if (l_cube.size() >= m_config.m_max_cube_depth || !should_split) {
             IF_VERBOSE(1, verbose_stream() << " Skipping split of cube at max depth " << m_config.m_max_cube_depth << "\n";);
-            cube_node->cube_state = open; // mark the cube as open again since we didn't split it
+            cube_node->state = open; // mark the cube as open again since we didn't split it
             return;
         }
         

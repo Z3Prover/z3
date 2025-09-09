@@ -10,13 +10,13 @@ struct CubeNode;
 
 typedef expr_ref_vector Cube;  // shorthand
 
-enum state {
+enum State {
     open,
     closed,
     active
 };
 
-inline const char* to_string(state s) {
+inline const char* to_string(State s) {
     switch (s) {
         case open:   return "open";
         case closed: return "closed";
@@ -30,10 +30,10 @@ struct CubeNode {
     CubeNode* parent;
     std::vector<CubeNode*> children;
     
-    state cube_state;
+    State state;
 
     CubeNode(const Cube& c, CubeNode* p = 0) 
-        : cube(c), parent(p), cube_state(open) {}
+        : cube(c), parent(p), state(open) {}
 
     bool is_leaf() const { return children.empty(); }
 };
@@ -100,7 +100,7 @@ public:
         std::function<void(CubeNode*)> close_subtree = [&](CubeNode* n) {
             if (!n)
                 return;
-            n->cube_state = closed;
+            n->state = closed;
             for (CubeNode* child : n->children)
                 close_subtree(child);
         };
@@ -108,10 +108,8 @@ public:
         // mark this node as closed
         close_subtree(node);
 
-        // propagate upward if parent became a "leaf" (all children closed)
+        // propagate upward if parent becomes UNSAT because one of its child polarity pairs (i.e. tautology) is closed
         while (parent) {
-            bool polarity_pair_closed = false;
-
             // get the index of the node in its parent's children
             auto it = std::find(parent->children.begin(), parent->children.end(), last_closed);
             SASSERT(it != parent->children.end());
@@ -126,13 +124,13 @@ public:
 
             // print the cube and its polarity pair CONTENTS, we have to loop thru each cube
             IF_VERBOSE(1, {
-                verbose_stream() << "CubeTree: checking if parent node can be closed. Current node cube size: " << last_closed->cube.size() << " State: " << to_string(last_closed->cube_state) << " Cube: ";
+                verbose_stream() << "CubeTree: checking if parent node can be closed. Current node cube size: " << last_closed->cube.size() << " State: " << to_string(last_closed->state) << " Cube: ";
                 for (auto* e : last_closed->cube) {
                     verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
                 }
                 verbose_stream() << "\n";
                 if (polarity_pair) {
-                    verbose_stream() << "CubeTree: polarity pair cube size: " << polarity_pair->cube.size() << " State: " << to_string(polarity_pair->cube_state) << " Cube: ";
+                    verbose_stream() << "CubeTree: polarity pair cube size: " << polarity_pair->cube.size() << " State: " << to_string(polarity_pair->state) << " Cube: ";
                     for (auto* e : polarity_pair->cube) {
                         verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
                     }
@@ -142,16 +140,15 @@ public:
                 }
             });
 
-            if (polarity_pair && polarity_pair->cube_state == closed) {
-                polarity_pair_closed = true;
+            // node and its polarity pair are closed, this is a tautology, so the parent is closed, so the parent's entire subtree is closed
+            if (polarity_pair && polarity_pair->state == closed) { 
+                SASSERT(parent->state != active); // parent must not be currently worked on
+                close_subtree(parent);   // mark parent and its subtree as closed
+                last_closed = parent;    // track the last ancestor we mark
+                parent = parent->parent;
             } else {
-                continue; // polarity pair is not UNSAT, the parent node is thus still open, stop propagating
+                break; // stop propagation
             }
-
-            SASSERT(parent->cube_state != active); // parent must not be currently worked on
-            close_subtree(parent);   // mark parent and its subtree as closed
-            last_closed = parent;    // track the last ancestor we mark
-            parent = parent->parent;
         }
 
         return last_closed;
@@ -169,11 +166,11 @@ public:
         IF_VERBOSE(1, verbose_stream() << "CubeTree: getting next cube from current of size " << current->cube.size() << "\n");
 
         // lambda to find any open leaf in the subtree (explore all branches)
-        std::function<CubeNode*(CubeNode*)> find_open_leaf = [&](CubeNode* node) -> CubeNode* {
+        std::function<CubeNode*(CubeNode*, State)> find_leaf_with_state = [&](CubeNode* node, State state) -> CubeNode* {
             if (!node) return nullptr;
-            if (node->is_leaf() && node->cube_state == open) return node;
+            if (node->is_leaf() && node->state == state) return node;
             for (CubeNode* child : node->children) {
-                CubeNode* open_leaf = find_open_leaf(child);
+                CubeNode* open_leaf = find_leaf_with_state(child, state);
                 if (open_leaf) return open_leaf;
             }
             return nullptr;
@@ -184,7 +181,7 @@ public:
         bool is_unexplored_frontier = frontier_roots.size() > 0 && current->cube.size() < frontier_roots[0]->cube.size(); // i.e. current is above the frontier (which always happens when we start with the empty cube!!)
         IF_VERBOSE(1, verbose_stream() << "CubeTree: current cube is " << (is_unexplored_frontier ? "above" : "within") << " the frontier. Current cube has the following children: \n");
         for (auto* child : current->children) {
-            IF_VERBOSE(1, verbose_stream() << "  Child cube size: " << child->cube.size() << " State: " << to_string(child->cube_state) << " Cube: ");
+            IF_VERBOSE(1, verbose_stream() << "  Child cube size: " << child->cube.size() << " State: " << to_string(child->state) << " Cube: ");
             for (auto* e : child->cube) {
                 IF_VERBOSE(1, verbose_stream() << mk_bounded_pp(e, m, 3) << " ");
             }
@@ -195,7 +192,7 @@ public:
         if (is_unexplored_frontier && !frontier_roots.empty()) {
             IF_VERBOSE(1, verbose_stream() << "CubeTree: Worker " << worker_id << " starting search from first frontier root. Frontier roots are:\n");
             for (auto* x : frontier_roots) {
-                IF_VERBOSE(1, verbose_stream() << "  Cube size: " << x->cube.size() << " State: " << to_string(x->cube_state) << " Cube: ");
+                IF_VERBOSE(1, verbose_stream() << "  Cube size: " << x->cube.size() << " State: " << to_string(x->state) << " Cube: ");
                 for (auto* e : x->cube) {
                     IF_VERBOSE(1, verbose_stream() << mk_bounded_pp(e, m, 3) << " ");
                 }
@@ -213,7 +210,7 @@ public:
             IF_VERBOSE(1, verbose_stream() << "\n");
             IF_VERBOSE(1, verbose_stream() << "This frontier root has children:\n");
             for (auto* child : node->children) {
-                IF_VERBOSE(1, verbose_stream() << "  Child cube size: " << child->cube.size() << " State: " << to_string(child->cube_state) << " Cube: ");
+                IF_VERBOSE(1, verbose_stream() << "  Child cube size: " << child->cube.size() << " State: " << to_string(child->state) << " Cube: ");
                 for (auto* e : child->cube) {
                     IF_VERBOSE(1, verbose_stream() << mk_bounded_pp(e, m, 3) << " ");
                 }
@@ -224,24 +221,39 @@ public:
 
         while (node) {
             // check open leaf descendants
-            CubeNode* open_leaf_descendant = nullptr;
-            open_leaf_descendant = find_open_leaf(node);
+            CubeNode* next_leaf_descendant = nullptr;
+            next_leaf_descendant = find_leaf_with_state(node, open); // find an open leaf descendant
             
-            if (open_leaf_descendant) {
+            if (next_leaf_descendant) {
                 IF_VERBOSE(1, {verbose_stream() << "CubeTree: Worker " << worker_id << " found open leaf descendant under node (which could be the node itself): ";
                     for (auto* e : node->cube) {
                         verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
                     }
                     verbose_stream() << "\n  Open leaf descendant is: ";
-                    for (auto* e : open_leaf_descendant->cube) {
+                    for (auto* e : next_leaf_descendant->cube) {
                         verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
                     }
                     verbose_stream() << "\n";
                 });
-                return open_leaf_descendant;
+                return next_leaf_descendant;
             }
 
-            IF_VERBOSE(1, {verbose_stream() << "CubeTree: Worker " << worker_id << " found no open leaf descendants found under node: "; 
+            next_leaf_descendant = find_leaf_with_state(node, active); // find an ACTIVE leaf descendant (so we have multiple threads working on the same cube)
+            if (next_leaf_descendant) {
+                IF_VERBOSE(1, {verbose_stream() << "CubeTree: Worker " << worker_id << " found ACTIVE leaf descendant under node (which could be the node itself): ";
+                    for (auto* e : node->cube) {
+                        verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
+                    }
+                    verbose_stream() << "\n  Active leaf descendant is: ";
+                    for (auto* e : next_leaf_descendant->cube) {
+                        verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
+                    }
+                    verbose_stream() << "\n";
+                });
+                return next_leaf_descendant;
+            }
+
+            IF_VERBOSE(1, {verbose_stream() << "CubeTree: Worker " << worker_id << " found no open or active leaf descendants found under node: "; 
                 for (auto* e : node->cube) {
                         verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
                     }
@@ -303,7 +315,7 @@ private:
     void mark_leaf_closed(CubeNode* node) {
         if (!node) return;
         SASSERT(node->children.empty());
-        node->cube_state = closed;
+        node->state = closed;
     }
 
     void delete_subtree(CubeNode* node) {
@@ -322,7 +334,7 @@ private:
 
         IF_VERBOSE(1, verbose_stream() << "Node@" << node
                          << " size=" << node->cube.size()
-                         << " state=" << to_string(node->cube_state)
+                         << " state=" << to_string(node->state)
                          << " cube={ ");
 
         for (expr* e : node->cube) {

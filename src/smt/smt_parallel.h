@@ -138,7 +138,7 @@ namespace smt {
             // worker threads return unprocessed cubes to the batch manager together with split literal candidates.
             // the batch manager re-enqueues unprocessed cubes and optionally splits them using the split_atoms returned by this and workers.
             // 
-            void return_cubes_tree(ast_translation& l2g, CubeNode* cube_node, expr_ref_vector const& cube, expr_ref_vector const& split_atoms, std::vector<CubeNode*>& frontier_roots);
+            void return_cubes_tree(ast_translation& l2g, CubeNode* cube_node, expr_ref_vector const& cube, expr_ref_vector const& split_atoms, std::vector<CubeNode*>& frontier_roots, const bool should_split=true);
             // FOR ALL NON-TREE VERSIONS
             void return_cubes(ast_translation& l2g, expr_ref_vector const& cube, expr_ref_vector const& split_atoms, const bool should_split=true, const double hardness=1.0);
             void report_assumption_used(ast_translation& l2g, expr* assumption);
@@ -204,6 +204,15 @@ namespace smt {
             unsigned m_num_initial_atoms = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             
+            double m_avg_cube_hardness = 0.0;
+            unsigned m_solved_cube_count = 0;
+
+            double update_avg_cube_hardness_worker(double hardness) {
+                IF_VERBOSE(1, verbose_stream() << "Cube hardness: " << hardness << ", previous avg: " << m_avg_cube_hardness << ", solved cubes: " << m_solved_cube_count << "\n";);
+                m_avg_cube_hardness = (m_avg_cube_hardness * m_solved_cube_count + hardness) / (m_solved_cube_count + 1);
+                m_solved_cube_count++;
+                return m_avg_cube_hardness;
+            }
             
             void share_units(ast_translation& l2g);
             lbool check_cube(expr_ref_vector const& cube);
