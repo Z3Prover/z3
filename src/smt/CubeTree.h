@@ -91,7 +91,7 @@ public:
     // mark node as closed and propagate upward if its polarity pair is also closed (so we have a tautology, so its parent is closed, and thus all its siblings are closed)
     // return pointer to last affected ancestor (or nullptr if none) so we can select one of its siblings as the next cube
     CubeNode* remove_node_and_propagate(CubeNode* node, ast_manager& m) {
-        if (!node || node == root || !node->is_leaf()) return nullptr; // error, root, or not a leaf
+        if (!node) return nullptr; 
 
         CubeNode* parent = node->parent;
         CubeNode* last_closed = node;
