@@ -21,6 +21,7 @@ Revision History:
 #include "smt/smt_context.h"
 #include "util/search_tree.h"
 #include <thread>
+#include <condition_variable>
 #include <mutex>
 
 

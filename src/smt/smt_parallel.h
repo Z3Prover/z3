@@ -145,10 +145,10 @@ namespace smt {
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* e);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
 
-            void remove_node_and_propagate(CubeNode* node) {
+            void remove_node_and_propagate(CubeNode* node, ast_manager& m) {
                 std::scoped_lock lock(mux);
                 SASSERT(m_config.m_cubetree);
-                CubeNode* last_removed = m_cubes_tree.remove_node_and_propagate(node);
+                CubeNode* last_removed = m_cubes_tree.remove_node_and_propagate(node, m);
                 if (last_removed) {
                     IF_VERBOSE(1, verbose_stream() << "Cube tree: removed node and propagated up to depth " << last_removed->cube.size() << "\n");
                 } else {

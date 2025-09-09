@@ -177,7 +177,7 @@ namespace smt {
                                 IF_VERBOSE(1, {
                                     verbose_stream() << " Worker " << id << " has new frontier roots, with the following children: \n";
                                     for (auto* node : frontier_roots) {
-                                        verbose_stream() << "  Cube size: " << node->cube.size() << " Active: " << node->active << " Cube: ";
+                                        verbose_stream() << "  Cube size: " << node->cube.size() << " State: " << node->cube_state << " Cube: ";
                                         for (auto* e : node->cube) {
                                             verbose_stream() << mk_bounded_pp(e, m, 3) << " ";
                                         }
@@ -242,7 +242,7 @@ namespace smt {
                     // prune the tree now that we know the cube is unsat
                     if (m_config.m_cubetree) {
                         IF_VERBOSE(1, verbose_stream() << " removing cube node from CubeTree and propagate deletion\n");
-                        b.remove_node_and_propagate(m_curr_cube_node);
+                        b.remove_node_and_propagate(m_curr_cube_node, m);
                     }
                     break;
                 }
@@ -446,7 +446,7 @@ namespace smt {
             l_cube.push_back(g2l(e));
         }
 
-        next_cube_node->active = false; // mark the cube as inactive (i.e. being processed by a worker)
+        next_cube_node->cube_state = active; // mark the cube as active (i.e. being processed by a worker)
 
         return {next_cube_node, l_cube};
     }
@@ -848,7 +848,7 @@ namespace smt {
                 IF_VERBOSE(1, verbose_stream() << mk_bounded_pp(e, m, 3) << " ");
             IF_VERBOSE(1, verbose_stream() << "\n");
 
-            auto [left_child, right_child] = m_cubes_tree.add_children(cube_node, g_cube_pos, g_cube_neg); // note: default is active
+            auto [left_child, right_child] = m_cubes_tree.add_children(cube_node, g_cube_pos, g_cube_neg); // note: default is open
 
             if (is_new_frontier) {
                 frontier_roots.push_back(left_child);
@@ -865,7 +865,7 @@ namespace smt {
 
         if (l_cube.size() >= m_config.m_max_cube_depth) {
             IF_VERBOSE(1, verbose_stream() << " Skipping split of cube at max depth " << m_config.m_max_cube_depth << "\n";);
-            cube_node->active = true; // mark the cube as active again since we didn't split it
+            cube_node->cube_state = open; // mark the cube as open again since we didn't split it
             return;
         }
         
