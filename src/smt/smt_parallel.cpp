@@ -991,6 +991,8 @@ namespace smt {
         // auto candidates = ctx->m_pq_scores.get_heap();
         std::vector<std::pair<double, expr*>> top_k; // will hold at most k elements
 
+        ctx->pop_to_search_lvl();
+
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
             if (ctx->get_assignment(v) != l_undef)
                 continue;

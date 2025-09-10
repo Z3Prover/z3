@@ -130,6 +130,7 @@ namespace smt {
                 bool m_cube_initial_only = false;
                 unsigned m_max_greedy_cubes = 1000;
                 unsigned m_num_split_lits = 2;
+                unsigned m_max_cube_depth = 20;
                 bool m_backbone_detection = false;
                 bool m_iterative_deepening = false;
                 bool m_beam_search = false;

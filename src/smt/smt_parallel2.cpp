@@ -62,6 +62,7 @@ namespace smt {
 #include <mutex>
 #include <condition_variable>
 
+#define SHARE_SEARCH_TREE 1
 
 #define LOG_WORKER(lvl, s) IF_VERBOSE(lvl, verbose_stream() << "Worker " << id << s)
 
@@ -73,9 +74,9 @@ namespace smt {
         search_tree::node<cube_config>* node = nullptr;
         expr_ref_vector cube(m);
         while (true) { 
-            collect_shared_clauses(m_g2l);
 
-#if 0
+
+#if SHARE_SEARCH_TREE
             if (!b.get_cube(m_g2l, id, cube, node)) {
                 LOG_WORKER(1, " no more cubes\n");
                 return;
@@ -84,6 +85,7 @@ namespace smt {
             if (!get_cube(cube, node))
                 return;
 #endif
+            collect_shared_clauses(m_g2l);
 
         check_cube_start:
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
@@ -101,10 +103,13 @@ namespace smt {
                     // return unprocessed cubes to the batch manager
                     // add a split literal to the batch manager.
                     // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
+                    if (m_config.m_max_cube_depth <= cube.size()) 
+                        goto check_cube_start;
+
                     auto atom = get_split_atom();
                     if (!atom)
                         goto check_cube_start;
-#if 0
+#if SHARE_SEARCH_TREE
                     b.split(m_l2g, id, node, atom);
 #else
                     split(node, atom);
@@ -133,7 +138,7 @@ namespace smt {
                             b.report_assumption_used(m_l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
                     LOG_WORKER(1, " found unsat cube\n");    
-#if 0
+#if SHARE_SEARCH_TREE
                     b.backtrack(m_l2g, unsat_core, node);
 #else
                     backtrack(unsat_core, node);
@@ -208,6 +213,7 @@ namespace smt {
         m_config.m_beam_search = pp.beam_search();
         m_config.m_explicit_hardness = pp.explicit_hardness();
         m_config.m_cubetree = pp.cubetree();
+        m_config.m_max_cube_depth = pp.max_cube_depth();
 
         // don't share initial units
         ctx->pop_to_base_lvl();
