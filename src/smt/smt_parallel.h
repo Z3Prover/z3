@@ -72,7 +72,6 @@ namespace smt {
             stats m_stats;
             expr_ref_vector m_split_atoms; // atoms to split on
             vector<expr_ref_vector> m_cubes;
-            CubeTree m_cubes_tree;
             
             struct ScoredCube {
                 double score;
@@ -117,7 +116,7 @@ namespace smt {
             void init_parameters_state();
 
         public:
-            batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_split_atoms(m), m_cubes_tree(m) { }
+            batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_split_atoms(m) { }
 
             void initialize();
 
@@ -132,29 +131,16 @@ namespace smt {
             // The batch manager returns the next cube to
             //
             expr_ref_vector get_cube(ast_translation& g2l);  // FOR ALL NON-TREE VERSIONS
-            std::pair<CubeNode*, expr_ref_vector> get_cube_from_tree(ast_translation& g2l, std::vector<CubeNode*>& frontier_roots, unsigned worker_id, CubeNode* prev_cube = nullptr);
-
+            
             //
             // worker threads return unprocessed cubes to the batch manager together with split literal candidates.
             // the batch manager re-enqueues unprocessed cubes and optionally splits them using the split_atoms returned by this and workers.
             // 
-            void return_cubes_tree(ast_translation& l2g, CubeNode* cube_node, expr_ref_vector const& cube, expr_ref_vector const& split_atoms, std::vector<CubeNode*>& frontier_roots, const bool should_split=true);
             // FOR ALL NON-TREE VERSIONS
             void return_cubes(ast_translation& l2g, expr_ref_vector const& cube, expr_ref_vector const& split_atoms, const bool should_split=true, const double hardness=1.0);
             void report_assumption_used(ast_translation& l2g, expr* assumption);
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* e);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
-
-            void remove_node_and_propagate(CubeNode* node, ast_manager& m) {
-                std::scoped_lock lock(mux);
-                SASSERT(m_config.m_cubetree);
-                CubeNode* last_removed = m_cubes_tree.remove_node_and_propagate(node, m);
-                if (last_removed) {
-                    IF_VERBOSE(1, verbose_stream() << "Cube tree: removed node and propagated up to depth " << last_removed->cube.size() << "\n");
-                } else {
-                    IF_VERBOSE(1, verbose_stream() << "Cube tree: ERROR removing node with no propagation\n");
-                }
-            }
 
             double update_avg_cube_hardness(double hardness) {
                 std::scoped_lock lock(mux);
@@ -179,6 +165,7 @@ namespace smt {
                 double m_max_conflict_mul = 1.5;
                 bool m_share_units_initial_only = false;
                 bool m_cube_initial_only = false;
+                unsigned m_max_cube_depth = 20;
                 unsigned m_max_greedy_cubes = 1000;
                 unsigned m_num_split_lits = 2;
                 bool m_backbone_detection = false;
@@ -186,6 +173,11 @@ namespace smt {
                 bool m_beam_search = false;
                 bool m_explicit_hardness = false;
                 bool m_cubetree = false;
+            };
+
+            struct stats {
+                unsigned m_max_cube_depth = 0;
+                unsigned m_num_cubes = 0;
             };
 
             unsigned id; // unique identifier for the worker
@@ -198,7 +190,9 @@ namespace smt {
             scoped_ptr<context> ctx;
             ast_translation m_g2l, m_l2g;
             CubeNode* m_curr_cube_node = nullptr;
-            std::vector<CubeNode*> frontier_roots;
+            CubeTree m_cubes_tree;
+            stats m_stats;
+            expr_ref_vector m_split_atoms;
 
             unsigned m_num_shared_units = 0;
             unsigned m_num_initial_atoms = 0;
@@ -206,6 +200,16 @@ namespace smt {
             
             double m_avg_cube_hardness = 0.0;
             unsigned m_solved_cube_count = 0;
+
+            void remove_node_and_propagate(CubeNode* node, ast_manager& m) {
+                SASSERT(m_config.m_cubetree);
+                // CubeNode* last_removed = m_cubes_tree.remove_node_and_propagate(node, m);
+                // if (last_removed) {
+                //     IF_VERBOSE(1, verbose_stream() << "Cube tree: removed node and propagated up to depth " << last_removed->cube.size() << "\n");
+                // } else {
+                //     IF_VERBOSE(1, verbose_stream() << "Cube tree: ERROR removing node with no propagation\n");
+                // }
+            }
 
             double update_avg_cube_hardness_worker(double hardness) {
                 IF_VERBOSE(1, verbose_stream() << "Cube hardness: " << hardness << ", previous avg: " << m_avg_cube_hardness << ", solved cubes: " << m_solved_cube_count << "\n";);
@@ -222,7 +226,9 @@ namespace smt {
 
             expr_ref_vector find_backbone_candidates();
             expr_ref_vector get_backbones_from_candidates(expr_ref_vector const& candidates);
-            
+            std::pair<CubeNode*, expr_ref_vector> get_cube_from_tree(unsigned worker_id, CubeNode* prev_cube = nullptr);
+            void return_cubes_tree(CubeNode* cube_node, expr_ref_vector const& split_atoms, const bool should_split=true);
+
             double naive_hardness();
             double explicit_hardness(expr_ref_vector const& cube);
         public:
