@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include "ast/quantifier_stat.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 #include "smt/smt_clause.h"
 #include "smt/smt_setup.h"
 #include "smt/smt_enode.h"
@@ -134,6 +135,8 @@ namespace smt {
         unsigned                    m_par_index = 0;
         bool                        m_internalizing_assertions = false;
         lbool                       m_internal_completed = l_undef;
+
+        scoped_ptr<dependent_expr_simplifier>  m_simplifier;
 
 
         // -----------------------------------

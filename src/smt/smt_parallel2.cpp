@@ -214,6 +214,7 @@ namespace smt {
         m_config.m_explicit_hardness = pp.explicit_hardness();
         m_config.m_cubetree = pp.cubetree();
         m_config.m_max_cube_depth = pp.max_cube_depth();
+        m_config.m_inprocessing = pp.inprocessing();
 
         // don't share initial units
         ctx->pop_to_base_lvl();
@@ -246,6 +247,23 @@ namespace smt {
             b.collect_clause(l2g, id, e);
         }
         m_num_shared_units = sz;
+    }
+
+    void parallel2::worker::simplify() {
+        // first attempt: one-shot simplification of the context.
+        if (!m_config.m_inprocessing)
+            return;
+        m_config.m_inprocessing = true;
+        if (!ctx->m_simplifier) {
+            // create a simplifier if none exists
+        }
+
+        // extract assertions from ctx.
+        // feed them to the simplifier
+        // extract simplified assertions from the simplifier
+        // create a new context with the simplified assertions
+        // update ctx with the new context.
+
     }
 
     void parallel2::worker::collect_statistics(::statistics& st) const {

@@ -136,6 +136,7 @@ namespace smt {
                 bool m_beam_search = false;
                 bool m_explicit_hardness = false;
                 bool m_cubetree = false;
+                bool m_inprocessing = false;
             };
 
             using node = search_tree::node<cube_config>;
@@ -168,6 +169,8 @@ namespace smt {
             bool get_cube(expr_ref_vector& cube, node*& n);
             void backtrack(expr_ref_vector const& core, node* n);
             void split(node* n, expr* atom);
+
+            void simplify();
 
         public:
             worker(unsigned id, parallel2& p, expr_ref_vector const& _asms);
