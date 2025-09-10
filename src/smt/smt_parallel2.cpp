@@ -28,6 +28,8 @@ Author:
 #include "params/smt_parallel_params.hpp"
 
 #include <cmath>
+#include <condition_variable>
+#include <mutex>
 
 class bounded_pp_exprs {
     expr_ref_vector const& es;
@@ -117,13 +119,9 @@ namespace smt {
                     return;
                 }
                 case l_false: {
-                    // if unsat core only contains (external) assumptions (i.e. all the unsat core are asms), then unsat and return as this does NOT depend on cubes
-                    // otherwise, extract lemmas that can be shared (units (and unsat core?)).
-                    // share with batch manager.
-                    // process next cube.
                     expr_ref_vector const& unsat_core = ctx->unsat_core();
                     LOG_WORKER(2, " unsat core:\n"; for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
-                    // If the unsat core only contains assumptions, 
+                    // If the unsat core only contains external assumptions, 
                     // unsatisfiability does not depend on the current cube and the entire problem is unsat.
                     if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
                         LOG_WORKER(1, " determined formula unsat\n");
@@ -303,16 +301,15 @@ namespace smt {
     }
 
     void parallel2::worker::collect_shared_clauses(ast_translation& g2l) { 
-        expr_ref_vector new_clauses = b.return_shared_clauses(g2l, m_shared_clause_limit, id); // get new clauses from the batch manager
+        expr_ref_vector new_clauses = b.return_shared_clauses(g2l, m_shared_clause_limit, id); 
         // iterate over new clauses and assert them in the local context
         for (expr* e : new_clauses) {
-            expr_ref local_clause(e, g2l.to()); // e was already translated to the local context in the batch manager!!
-            ctx->assert_expr(local_clause); // assert the clause in the local context
+            expr_ref local_clause(e, g2l.to());
+            ctx->assert_expr(local_clause); 
             LOG_WORKER(2, " asserting shared clause: " << mk_bounded_pp(local_clause, m, 3) << "\n");
         }
     }
 
-    // get new clauses from the batch manager and assert them in the local context
     expr_ref_vector parallel2::batch_manager::return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id) {
         std::scoped_lock lock(mux);
         expr_ref_vector result(g2l.to());
@@ -363,7 +360,6 @@ namespace smt {
 
             double new_score = ctx->m_lit_scores[0][v] * ctx->m_lit_scores[1][v];
 
-            // decay the scores
             ctx->m_lit_scores[0][v] /= 2;
             ctx->m_lit_scores[1][v] /= 2;
 
@@ -392,9 +388,7 @@ namespace smt {
             return;
         m_state = state::is_unsat;    
 
-        // every time we do a check_sat call, don't want to have old info coming from a prev check_sat call
-        // the unsat core gets reset internally in the context after each check_sat, so we assert this property here
-        // takeaway: each call to check_sat needs to have a fresh unsat core
+        // each call to check_sat needs to have a fresh unsat core
         SASSERT(p.ctx.m_unsat_core.empty());
         for (expr* e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
@@ -509,7 +503,6 @@ namespace smt {
     }
 
     void parallel2::batch_manager::collect_statistics(::statistics& st) const {
-        //ctx->collect_statistics(st);
         st.update("parallel-num_cubes", m_stats.m_num_cubes);
         st.update("parallel-max-cube-size", m_stats.m_max_cube_depth);
     }
@@ -536,11 +529,6 @@ namespace smt {
             for (unsigned i = 0; i < num_threads; ++i)
                 m_workers.push_back(alloc(worker, i, *this, asms)); // i.e. "new worker(i, *this, asms)"
                 
-            // THIS WILL ALLOW YOU TO CANCEL ALL THE CHILD THREADS
-            // within the lexical scope of the code block, creates a data structure that allows you to push children
-            // objects to the limit object, so if someone cancels the parent object, the cancellation propagates to the children
-            // and that cancellation has the lifetime of the scope
-            // even if this code doesn't expliclty kill the main thread, still applies bc if you e.g. Ctrl+C the main thread, the children threads need to be cancelled
             for (auto w : m_workers)
                 sl.push_child(&(w->limit()));
 
@@ -561,7 +549,7 @@ namespace smt {
             m_batch_manager.collect_statistics(ctx.m_aux_stats);
         }
 
-        return m_batch_manager.get_result(); // i.e. all threads have finished all of their cubes -- so if state::is_running is still true, means the entire formula is unsat (otherwise a thread would have returned l_undef)        
+        return m_batch_manager.get_result(); 
     }
 
 }
