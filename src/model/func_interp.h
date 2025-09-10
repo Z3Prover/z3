@@ -31,6 +31,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/ast_translation.h"
+#include "util/map.h"
 
 class func_interp;
 
@@ -64,6 +65,8 @@ public:
 };
 
 class func_interp {
+    static const unsigned HASHTABLE_THRESHOLD = 100;  // Use hashtable when entries > this threshold
+    
     ast_manager &          m_manager;
     unsigned               m_arity;
     ptr_vector<func_entry> m_entries;
@@ -73,8 +76,16 @@ class func_interp {
     expr *                 m_interp; //!< cache for representing the whole interpretation as a single expression (it uses ite terms).
 
     expr *                 m_array_interp; // <! interp with lambda abstraction
+    
+    // Simple hash table for fast lookups when we have many entries
+    // Maps from argument hash to vector of func_entry* with that hash
+    typedef u_map<ptr_vector<func_entry>*> entry_hash_map;
+    entry_hash_map* m_entry_hash_map;
 
     void reset_interp_cache();
+    void ensure_hash_map();
+    void clear_hash_map();
+    unsigned compute_args_hash(expr * const * args) const;
 
     expr * get_interp_core() const;
 

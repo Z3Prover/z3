@@ -22,6 +22,7 @@ Revision History:
 #include "ast/ast_util.h"
 #include "model/func_interp.h"
 #include "ast/array_decl_plugin.h"
+#include "util/hash.h"
 
 func_entry::func_entry(ast_manager & m, unsigned arity, expr * const * args, expr * result):
     m_args_are_values(true),
@@ -76,7 +77,8 @@ func_interp::func_interp(ast_manager & m, unsigned arity):
     m_else(nullptr),
     m_args_are_values(true),
     m_interp(nullptr),
-    m_array_interp(nullptr) {
+    m_array_interp(nullptr),
+    m_entry_hash_map(nullptr) {
 }
 
 func_interp::~func_interp() {
@@ -86,6 +88,43 @@ func_interp::~func_interp() {
     m().dec_ref(m_else);
     m().dec_ref(m_interp);
     m().dec_ref(m_array_interp);
+    clear_hash_map();
+}
+
+unsigned func_interp::compute_args_hash(expr * const * args) const {
+    unsigned h = 0;
+    for (unsigned i = 0; i < m_arity; i++) {
+        h = combine_hash(h, args[i]->hash());
+    }
+    return h;
+}
+
+void func_interp::ensure_hash_map() {
+    if (m_entry_hash_map == nullptr && m_entries.size() > HASHTABLE_THRESHOLD) {
+        m_entry_hash_map = alloc(entry_hash_map);
+        
+        // Populate hash map with existing entries
+        for (func_entry* entry : m_entries) {
+            unsigned h = compute_args_hash(entry->get_args());
+            ptr_vector<func_entry>* bucket = nullptr;
+            if (!m_entry_hash_map->find(h, bucket)) {
+                bucket = alloc(ptr_vector<func_entry>);
+                m_entry_hash_map->insert(h, bucket);
+            }
+            bucket->push_back(entry);
+        }
+    }
+}
+
+void func_interp::clear_hash_map() {
+    if (m_entry_hash_map != nullptr) {
+        // Clean up all the bucket vectors
+        for (auto& pair : *m_entry_hash_map) {
+            dealloc(pair.m_value);
+        }
+        dealloc(m_entry_hash_map);
+        m_entry_hash_map = nullptr;
+    }
 }
 
 func_interp * func_interp::copy() const {
@@ -177,11 +216,26 @@ bool func_interp::is_constant() const {
    args_are_values to true if for all entries e e.args_are_values() is true.
 */
 func_entry * func_interp::get_entry(expr * const * args) const {
-    for (func_entry* curr : m_entries) {
-        if (curr->eq_args(m(), m_arity, args))
-            return curr;
+    if (m_entry_hash_map != nullptr) {
+        // Use hash map for fast lookup
+        unsigned h = compute_args_hash(args);
+        ptr_vector<func_entry>* bucket = nullptr;
+        if (m_entry_hash_map->find(h, bucket)) {
+            // Check all entries in this hash bucket
+            for (func_entry* curr : *bucket) {
+                if (curr->eq_args(m(), m_arity, args))
+                    return curr;
+            }
+        }
+        return nullptr;
+    } else {
+        // Use linear search for small number of entries
+        for (func_entry* curr : m_entries) {
+            if (curr->eq_args(m(), m_arity, args))
+                return curr;
+        }
+        return nullptr;
     }
-    return nullptr;
 }
 
 void func_interp::insert_entry(expr * const * args, expr * r) {
@@ -214,6 +268,20 @@ void func_interp::insert_new_entry(expr * const * args, expr * r) {
     if (!new_entry->args_are_values())
         m_args_are_values = false;
     m_entries.push_back(new_entry);
+    
+    // Add to hash map if it exists
+    if (m_entry_hash_map != nullptr) {
+        unsigned h = compute_args_hash(args);
+        ptr_vector<func_entry>* bucket = nullptr;
+        if (!m_entry_hash_map->find(h, bucket)) {
+            bucket = alloc(ptr_vector<func_entry>);
+            m_entry_hash_map->insert(h, bucket);
+        }
+        bucket->push_back(new_entry);
+    } else {
+        // Check if we should create the hash map
+        ensure_hash_map();
+    }
 }
 
 void func_interp::del_entry(unsigned idx) {
@@ -221,6 +289,9 @@ void func_interp::del_entry(unsigned idx) {
     m_entries[idx] = m_entries.back();
     m_entries.pop_back();
     e->deallocate(m(), m_arity);
+    
+    // Clear hash map - it will be rebuilt lazily if needed
+    clear_hash_map();
 }
 
 bool func_interp::eval_else(expr * const * args, expr_ref & result) const {
@@ -278,6 +349,8 @@ void func_interp::compress() {
     if (j < m_entries.size()) {
         reset_interp_cache();
         m_entries.shrink(j);
+        // Clear hash map since entries were removed
+        clear_hash_map();
     }
     // other compression, if else is a default branch.
     // or function encode identity.
@@ -291,6 +364,7 @@ void func_interp::compress() {
         }
         m_entries.reset();
         reset_interp_cache();
+        clear_hash_map();
         m().inc_ref(new_else);
         m().dec_ref(m_else);
         m_else = new_else;
@@ -303,6 +377,7 @@ void func_interp::compress() {
         }
         m_entries.reset();
         reset_interp_cache();
+        clear_hash_map();
         expr_ref new_else(m().mk_var(0, m_else->get_sort()), m());
         m().inc_ref(new_else);
         m().dec_ref(m_else);
