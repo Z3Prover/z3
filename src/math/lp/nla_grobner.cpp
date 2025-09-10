@@ -678,7 +678,9 @@ namespace nla {
         cross_nested cn(
             [this, dep](const nex* n) { return c().m_intervals.check_nex(n, dep);  },
             [this](unsigned j)   { return c().var_is_fixed(j); },
-            [this]() { return c().random(); }, nc);
+            c().reslim(), 
+            c().random(),
+            nc);
         cn.run(to_sum(e));
         bool ret = cn.done();
         return ret;

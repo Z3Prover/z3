@@ -192,7 +192,7 @@ namespace smt {
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         context::copy(p.ctx, *ctx, true);
         ctx->set_random_seed(id + m_smt_params.m_random_seed);
-
+        
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_threads_max_conflicts = ctx->get_fparams().m_threads_max_conflicts;
         m_config.m_max_conflicts = ctx->get_fparams().m_max_conflicts;
