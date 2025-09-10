@@ -64,6 +64,7 @@ namespace smt {
                 unsigned m_num_cubes = 0;
             };
 
+
             ast_manager& m;
             parallel2& p;
             std::mutex mux;
@@ -135,6 +136,8 @@ namespace smt {
                 bool m_cubetree = false;
             };
 
+            using node = search_tree::node<cube_config>;
+
             unsigned id; // unique identifier for the worker
             parallel2& p;
             batch_manager& b;
@@ -145,6 +148,7 @@ namespace smt {
             random_gen m_rand;
             scoped_ptr<context> ctx;
             ast_translation m_g2l, m_l2g;
+            search_tree::tree<cube_config> m_search_tree;
 
             unsigned m_num_shared_units = 0;
             unsigned m_num_initial_atoms = 0;
@@ -159,6 +163,9 @@ namespace smt {
                 m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
             } // allow for backoff scheme of conflicts within the thread for cube timeouts.
 
+            bool get_cube(expr_ref_vector& cube, node*& n);
+            void backtrack(expr_ref_vector const& core, node* n);
+            void split(node* n, expr* atom);
 
         public:
             worker(unsigned id, parallel2& p, expr_ref_vector const& _asms);

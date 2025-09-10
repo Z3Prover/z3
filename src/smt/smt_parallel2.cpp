@@ -73,10 +73,15 @@ namespace smt {
         while (true) { 
             collect_shared_clauses(m_g2l);
 
+#if 0
             if (!b.get_cube(m_g2l, id, cube, node)) {
                 LOG_WORKER(1, " no more cubes\n");
                 return;
             }
+#else
+            if (!get_cube(cube, node))
+                return;
+#endif
 
         check_cube_start:
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
@@ -97,7 +102,11 @@ namespace smt {
                     auto atom = get_split_atom();
                     if (!atom)
                         goto check_cube_start;
+#if 0
                     b.split(m_l2g, id, node, atom);
+#else
+                    split(node, atom);
+#endif
                     break;
                 }
                 case l_true: {
@@ -125,8 +134,12 @@ namespace smt {
                         if (asms.contains(e))
                             b.report_assumption_used(m_l2g, e); // report assumptions used in unsat core, so they can be used in final core
 
-                    LOG_WORKER(1, " found unsat cube\n");                    
+                    LOG_WORKER(1, " found unsat cube\n");    
+#if 0
                     b.backtrack(m_l2g, unsat_core, node);
+#else
+                    backtrack(unsat_core, node);
+#endif
                     break;
                 }
             }    
@@ -135,10 +148,43 @@ namespace smt {
         }
     }
 
+    bool parallel2::worker::get_cube(expr_ref_vector& cube, node*& n) {
+        node* t = m_search_tree.activate_node(n);
+        cube.reset();
+        if (!t) {
+            b.set_unsat(m_l2g, cube);
+            return false;
+        }
+        n = t;
+        while (t) {
+            if (cube_config::literal_is_null(t->get_literal()))
+                break;
+            cube.push_back(t->get_literal());
+            t = t->parent();
+        }
+        return true;
+    }
+
+    void parallel2::worker::backtrack(expr_ref_vector const& core, node* n) {
+        vector<expr_ref> core_copy;
+        for (auto c : core)
+            core_copy.push_back(expr_ref(c, m));
+        m_search_tree.backtrack(n, core_copy);
+        //LOG_WORKER(1, m_search_tree.display(verbose_stream() << bounded_pp_exprs(core) << "\n"););
+    }
+
+    void parallel2::worker::split(node* n, expr* atom) {
+        expr_ref lit(atom, m), nlit(m);
+        nlit = mk_not(m, lit);
+        IF_VERBOSE(1, verbose_stream() << "Batch manager splitting on literal: " << mk_bounded_pp(lit, m, 3) << "\n");
+        m_search_tree.split(n, lit, nlit);
+    }
+
     parallel2::worker::worker(unsigned id, parallel2& p, expr_ref_vector const& _asms): 
         id(id), p(p), b(p.m_batch_manager), m_smt_params(p.ctx.get_fparams()), asms(m),
         m_g2l(p.ctx.m, m),
-        m_l2g(m, p.ctx.m) {
+        m_l2g(m, p.ctx.m),
+        m_search_tree(expr_ref(m)) {
         for (auto e : _asms) 
             asms.push_back(m_g2l(e));
         LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");        
