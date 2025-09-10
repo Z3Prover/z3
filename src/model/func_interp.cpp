@@ -23,6 +23,7 @@ Revision History:
 #include "model/func_interp.h"
 #include "ast/array_decl_plugin.h"
 #include "util/hash.h"
+#include <iostream>
 
 func_entry::func_entry(ast_manager & m, unsigned arity, expr * const * args, expr * result):
     m_args_are_values(true),
@@ -134,6 +135,7 @@ func_interp * func_interp::copy() const {
         new_fi->insert_new_entry(curr->get_args(), curr->get_result());
     }
     new_fi->set_else(m_else);
+    // Hash map will be created automatically by insert_new_entry if needed
     return new_fi;
 }
 
