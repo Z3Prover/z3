@@ -350,7 +350,7 @@ namespace smt {
         expr_ref result(m);
         double score = 0;
         unsigned n = 0;
-
+        ctx->pop_to_search_lvl();
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
             if (ctx->get_assignment(v) != l_undef)
                 continue;

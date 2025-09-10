@@ -63,6 +63,7 @@ public:
 
     
     void run(nex *e) {
+
         TRACE(nla_cn, tout << *e << "\n";);
         SASSERT(m_nex_creator.is_simplified(*e));
         m_e = e;
