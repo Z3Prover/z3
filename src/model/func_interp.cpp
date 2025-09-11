@@ -223,7 +223,7 @@ void func_interp::insert_new_entry(expr * const * args, expr * r) {
         m_args_are_values = false;
     m_entries.push_back(new_entry);
     if (!m_entry_table && m_entries.size() > 500) {
-        m_entry_table = alloc(entry_table, 1000, 
+        m_entry_table = alloc(entry_table, 1024, 
             func_entry_hash(m_arity), func_entry_eq(m_arity));
         for (func_entry* curr : m_entries) 
             m_entry_table->insert(curr);        
