@@ -2032,7 +2032,7 @@ public class Context implements AutoCloseable {
     public SeqExpr<CharSort> mkString(String s)
     {
         StringBuilder buf = new StringBuilder();
-        for (int i = 0; i < s.length(); ++i) {
+        for (int i = 0; i < s.length(); i += Character.charCount(s.codePointAt(i))) {
             int code = s.codePointAt(i);
             if (code <= 32 || 127 < code) 
                 buf.append(String.format("\\u{%x}", code));
