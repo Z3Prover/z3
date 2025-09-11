@@ -31,7 +31,6 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/ast_translation.h"
-#include "util/map.h"
 
 class func_interp;
 
@@ -77,8 +76,8 @@ class func_interp {
 
     expr *                 m_array_interp; // <! interp with lambda abstraction
     
-    // Simple hash table for fast lookups when we have many entries
-    // Maps from argument hash to vector of func_entry* with that hash
+    // Hash table for fast lookups when we have many entries
+    // Maps from argument hash to list of func_entry* with that hash
     typedef u_map<ptr_vector<func_entry>*> entry_hash_map;
     entry_hash_map* m_entry_hash_map;
 

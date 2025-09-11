@@ -22,8 +22,6 @@ Revision History:
 #include "ast/ast_util.h"
 #include "model/func_interp.h"
 #include "ast/array_decl_plugin.h"
-#include "util/hash.h"
-#include <iostream>
 
 func_entry::func_entry(ast_manager & m, unsigned arity, expr * const * args, expr * result):
     m_args_are_values(true),
@@ -135,7 +133,6 @@ func_interp * func_interp::copy() const {
         new_fi->insert_new_entry(curr->get_args(), curr->get_result());
     }
     new_fi->set_else(m_else);
-    // Hash map will be created automatically by insert_new_entry if needed
     return new_fi;
 }
 
@@ -219,7 +216,7 @@ bool func_interp::is_constant() const {
 */
 func_entry * func_interp::get_entry(expr * const * args) const {
     if (m_entry_hash_map != nullptr) {
-        // Use hash map for fast lookup
+        // Use hash map for O(1) average lookup
         unsigned h = compute_args_hash(args);
         ptr_vector<func_entry>* bucket = nullptr;
         if (m_entry_hash_map->find(h, bucket)) {
@@ -290,10 +287,11 @@ void func_interp::del_entry(unsigned idx) {
     auto* e = m_entries[idx];
     m_entries[idx] = m_entries.back();
     m_entries.pop_back();
-    e->deallocate(m(), m_arity);
     
     // Clear hash map - it will be rebuilt lazily if needed
     clear_hash_map();
+    
+    e->deallocate(m(), m_arity);
 }
 
 bool func_interp::eval_else(expr * const * args, expr_ref & result) const {
@@ -351,8 +349,6 @@ void func_interp::compress() {
     if (j < m_entries.size()) {
         reset_interp_cache();
         m_entries.shrink(j);
-        // Clear hash map since entries were removed
-        clear_hash_map();
     }
     // other compression, if else is a default branch.
     // or function encode identity.
@@ -366,7 +362,6 @@ void func_interp::compress() {
         }
         m_entries.reset();
         reset_interp_cache();
-        clear_hash_map();
         m().inc_ref(new_else);
         m().dec_ref(m_else);
         m_else = new_else;
@@ -379,7 +374,6 @@ void func_interp::compress() {
         }
         m_entries.reset();
         reset_interp_cache();
-        clear_hash_map();
         expr_ref new_else(m().mk_var(0, m_else->get_sort()), m());
         m().inc_ref(new_else);
         m().dec_ref(m_else);
