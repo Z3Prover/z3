@@ -86,6 +86,7 @@ func_interp::~func_interp() {
     m().dec_ref(m_else);
     m().dec_ref(m_interp);
     m().dec_ref(m_array_interp);
+    dealloc(m_entry_table);
 }
 
 func_interp * func_interp::copy() const {
@@ -177,6 +178,13 @@ bool func_interp::is_constant() const {
    args_are_values to true if for all entries e e.args_are_values() is true.
 */
 func_entry * func_interp::get_entry(expr * const * args) const {
+    if (m_entry_table) {
+        func_entry key(m(), m_arity, args, m().mk_true()), * entry = nullptr;
+        if (m_entry_table->find(&key, entry))
+            return entry;
+        else
+            return nullptr;
+    }
     for (func_entry* curr : m_entries) {
         if (curr->eq_args(m(), m_arity, args))
             return curr;
@@ -214,10 +222,20 @@ void func_interp::insert_new_entry(expr * const * args, expr * r) {
     if (!new_entry->args_are_values())
         m_args_are_values = false;
     m_entries.push_back(new_entry);
+    if (!m_entry_table && m_entries.size() > 500) {
+        m_entry_table = alloc(entry_table, 1000, 
+            func_entry_hash(m_arity), func_entry_eq(m_arity));
+        for (func_entry* curr : m_entries) 
+            m_entry_table->insert(curr);        
+    }
+    else if (m_entry_table) 
+        m_entry_table->insert(new_entry);    
 }
 
 void func_interp::del_entry(unsigned idx) {
     auto* e = m_entries[idx];
+    if (m_entry_table) 
+        m_entry_table->remove(e);    
     m_entries[idx] = m_entries.back();
     m_entries.pop_back();
     e->deallocate(m(), m_arity);
