@@ -60,7 +60,11 @@ namespace smt {
         compare(context& ctx): ctx(ctx) {}
 
         bool operator()(bool_var v1, bool_var v2) const {
-            return ctx.get_activity(v1) > ctx.get_activity(v2);
+            double act1 = ctx.get_activity(v1);
+            double act2 = ctx.get_activity(v2);
+            if (act1 != act2)
+                return act1 > act2;
+            return v1 < v2;  // tie-breaker for determinism
         }
     };
     

@@ -3371,7 +3371,9 @@ namespace pb {
      */
     struct compare_wlit {
         bool operator()(wliteral l1, wliteral l2) const {
-            return l1.first > l2.first;
+            if (l1.first != l2.first)
+                return l1.first > l2.first;
+            return l1.second.index() < l2.second.index();
         }
     };
 

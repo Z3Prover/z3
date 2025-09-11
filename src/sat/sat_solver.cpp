@@ -812,7 +812,7 @@ namespace sat {
 
     template<bool lvl0>
     bool solver::simplify_clause_core(unsigned & num_lits, literal * lits) const {
-        std::sort(lits, lits+num_lits);
+        std::stable_sort(lits, lits+num_lits);
         literal prev = null_literal;
         unsigned i = 0;
         unsigned j = 0;

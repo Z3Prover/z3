@@ -322,7 +322,15 @@ namespace arith {
 
         // bounds
         struct compare_bounds {
-            bool operator()(api_bound* a1, api_bound* a2) const { return a1->get_value() < a2->get_value(); }
+            bool operator()(api_bound* a1, api_bound* a2) const { 
+                if (a1->get_value() != a2->get_value())
+                    return a1->get_value() < a2->get_value();
+                if (a1->get_bound_kind() != a2->get_bound_kind())
+                    return a1->get_bound_kind() < a2->get_bound_kind();
+                if (a1->get_var() != a2->get_var())
+                    return a1->get_var() < a2->get_var();
+                return a1->get_lit().index() < a2->get_lit().index();
+            }
         };
 
         typedef lp_bounds::iterator iterator;
