@@ -342,7 +342,7 @@ namespace smt {
         if (!m_config.m_inprocessing)
             return;
         m_config.m_inprocessing = false; // initial strategy is to immediately disable inprocessing for future calls.
-        dep_expr_state fmls(m);
+        dep_expr_state fmls(m); // TBD, OH, this also has to be heap allocated for m_simplifier to be valid!
         if (!ctx->m_simplifier) {
             // create a simplifier if none exists
             // initialize it to a default pre-processing simplifier.
