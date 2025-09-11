@@ -100,6 +100,7 @@ class func_interp {
 
     using entry_table = ptr_hashtable<func_entry, func_entry_hash, func_entry_eq>;
     entry_table* m_entry_table = nullptr;
+    func_entry* m_key = nullptr;
 
     void reset_interp_cache();
 

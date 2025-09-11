@@ -31,7 +31,7 @@ func_entry::func_entry(ast_manager & m, unsigned arity, expr * const * args, exp
     for (unsigned i = 0; i < arity; i++) {
         expr * arg = args[i];
         //SASSERT(is_ground(arg));
-        if (!m.is_value(arg))
+        if (arg && !m.is_value(arg))
             m_args_are_values = false;
         m.inc_ref(arg);
         m_args[i] = arg;
@@ -80,13 +80,16 @@ func_interp::func_interp(ast_manager & m, unsigned arity):
 }
 
 func_interp::~func_interp() {
+    dealloc(m_entry_table);
     for (func_entry* curr : m_entries) {
         curr->deallocate(m(), m_arity);
     }
     m().dec_ref(m_else);
     m().dec_ref(m_interp);
     m().dec_ref(m_array_interp);
-    dealloc(m_entry_table);
+
+    if (m_key)
+        m_key->deallocate(m(), m_arity);
 }
 
 func_interp * func_interp::copy() const {
@@ -179,8 +182,13 @@ bool func_interp::is_constant() const {
 */
 func_entry * func_interp::get_entry(expr * const * args) const {
     if (m_entry_table) {
-        func_entry key(m(), m_arity, args, m().mk_true()), * entry = nullptr;
-        if (m_entry_table->find(&key, entry))
+        for (unsigned i = 0; i < m_arity; ++i)
+            m_key->m_args[i] = args[i];
+        func_entry * entry = nullptr;
+        bool found = m_entry_table->find(m_key, entry);
+        for (unsigned i = 0; i < m_arity; ++i)
+            m_key->m_args[i] = nullptr;
+        if (found)
             return entry;
         else
             return nullptr;
@@ -226,7 +234,10 @@ void func_interp::insert_new_entry(expr * const * args, expr * r) {
         m_entry_table = alloc(entry_table, 1024, 
             func_entry_hash(m_arity), func_entry_eq(m_arity));
         for (func_entry* curr : m_entries) 
-            m_entry_table->insert(curr);        
+            m_entry_table->insert(curr);   
+        ptr_vector<expr> null_args;
+        null_args.resize(m_arity, nullptr);
+        m_key = func_entry::mk(m(), m_arity, null_args.data(), nullptr);
     }
     else if (m_entry_table) 
         m_entry_table->insert(new_entry);    
