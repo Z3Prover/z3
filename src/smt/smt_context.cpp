@@ -4769,6 +4769,11 @@ namespace smt {
             }
             mdl = m_model.get();
         }
+        if (m_fmls && mdl) {
+            auto convert = m_fmls->model_trail().get_model_converter();
+            if (convert) 
+                (*convert)(mdl);            
+        }
     }
 
     void context::get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {

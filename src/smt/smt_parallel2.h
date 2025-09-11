@@ -137,6 +137,7 @@ namespace smt {
                 bool m_explicit_hardness = false;
                 bool m_cubetree = false;
                 bool m_inprocessing = false;
+                unsigned m_inprocessing_delay = 0;
             };
 
             using node = search_tree::node<cube_config>;

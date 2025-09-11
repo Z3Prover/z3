@@ -20,5 +20,6 @@ def_module_params('smt_parallel',
                         ('explicit_hardness', BOOL, False, 'use explicit hardness metric for cube'),
                         ('cubetree', BOOL, False, 'use cube tree data structure for storing cubes'),
                         ('searchtree', BOOL, False, 'use search tree implementation (parallel2)'),
-                        ('inprocessing', BOOL, False, 'integrate in-processing as a heuristic simplification')
+                        ('inprocessing', BOOL, False, 'integrate in-processing as a heuristic simplification'),
+                        ('inprocessing_delay', UINT, 0, 'number of undef before invoking simplification')
               ))

@@ -137,6 +137,7 @@ namespace smt {
         lbool                       m_internal_completed = l_undef;
 
         scoped_ptr<dependent_expr_simplifier>  m_simplifier;
+        scoped_ptr<base_dependent_expr_state>  m_fmls;
 
 
         // -----------------------------------
