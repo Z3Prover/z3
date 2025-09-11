@@ -4786,6 +4786,9 @@ namespace smt {
         for (literal lit : m_assigned_literals) {
             if (get_assign_level(lit) > max_level + m_base_lvl)
                 continue;
+            bool_var_data const& d = get_bdata(lit.var());
+            if (d.is_theory_atom() && !m_theories.get_plugin(d.get_theory())->is_safe_to_copy(lit.var())) 
+                continue;
             expr_ref e(m);
             literal2expr(lit, e);
             result.push_back(std::move(e));

@@ -23,9 +23,11 @@ Author:
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_translation.h"
+#include "ast/simplifiers/then_simplifier.h"
 #include "smt/smt_parallel2.h"
 #include "smt/smt_lookahead.h"
 #include "params/smt_parallel_params.hpp"
+#include "solver/solver_preprocess.h"
 
 #include <cmath>
 #include <condition_variable>
@@ -114,6 +116,7 @@ namespace smt {
 #else
                     split(node, atom);
 #endif
+                    simplify();
                     break;
                 }
                 case l_true: {
@@ -240,30 +243,146 @@ namespace smt {
             expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m); // turn literal into a Boolean expression
             if (m.is_and(e) || m.is_or(e))             
                 continue;
-            
 
-            if (lit.sign()) 
+            if (lit.sign())
                 e = m.mk_not(e); // negate if literal is negative
             b.collect_clause(l2g, id, e);
         }
         m_num_shared_units = sz;
     }
 
+    // move to ast/simplifiers as a general class
+    struct dep_expr_state : public dependent_expr_state {
+        ast_manager& m;
+        model_reconstruction_trail m_reconstruction_trail;
+        bool m_updated = false;
+        vector<dependent_expr> m_fmls;
+        bool m_inconsistent = false;
+        dep_expr_state(ast_manager& m) :dependent_expr_state(m), m(m), m_reconstruction_trail(m, m_trail) {}
+        unsigned qtail() const override { return m_fmls.size(); }
+        dependent_expr const& operator[](unsigned i) override { return m_fmls[i]; }
+        void update(unsigned i, dependent_expr const& j) override {
+            SASSERT(j.fml());
+            check_false(j.fml());
+            m_fmls[i] = j;
+            m_updated = true;
+        }
+        void add(dependent_expr const& j) override { m_updated = true; check_false(j.fml()); m_fmls.push_back(j); }
+        bool inconsistent() override { return m_inconsistent; }
+        bool updated() override { return m_updated; }
+        void reset_updated() override { m_updated = false; }
+        model_reconstruction_trail& model_trail() override { return m_reconstruction_trail; }
+        std::ostream& display(std::ostream& out) const override {
+            unsigned i = 0;
+            for (auto const& d : m_fmls) {
+                if (i > 0 && i == qhead())
+                    out << "---- head ---\n";
+                out << d << "\n";
+                ++i;
+            }
+            m_reconstruction_trail.display(out);
+            return out;
+        }
+        void check_false(expr* f) {
+            if (m.is_false(f))
+                m_inconsistent = true;
+        }
+        void replay(unsigned qhead, expr_ref_vector& assumptions) {
+            m_reconstruction_trail.replay(qhead, assumptions, *this);
+            th_rewriter rw(m);
+            expr_ref tmp(m);
+            for (unsigned i = 0; i < assumptions.size(); ++i) {
+                tmp = assumptions.get(i);
+                rw(tmp);
+                assumptions[i] = tmp;
+            }
+        }
+        void flatten_suffix() override {
+            expr_mark seen;
+            unsigned j = qhead();
+            expr_ref_vector pinned(m);
+            for (unsigned i = qhead(); i < qtail(); ++i) {
+                expr* f = m_fmls[i].fml(), * g = nullptr;
+                pinned.push_back(f);
+                if (seen.is_marked(f))
+                    continue;
+                seen.mark(f, true);
+                if (m.is_true(f))
+                    continue;
+                if (m.is_and(f)) {
+                    auto* d = m_fmls[i].dep();
+                    for (expr* arg : *to_app(f))
+                        add(dependent_expr(m, arg, nullptr, d));
+                    continue;
+                }
+                if (m.is_not(f, g) && m.is_or(g)) {
+                    auto* d = m_fmls[i].dep();
+                    for (expr* arg : *to_app(g))
+                        add(dependent_expr(m, mk_not(m, arg), nullptr, d));
+                    continue;
+                }
+                if (i != j)
+                    m_fmls[j] = m_fmls[i];
+                ++j;
+            }
+            m_fmls.shrink(j);
+        }
+    };
+
     void parallel2::worker::simplify() {
         // first attempt: one-shot simplification of the context.
+        // a precise schedule of repeated simplificaiton is TBD.
+        // also, the in-processing simplifier should be applied to
+        // a current set of irredundant clauses that may be reduced by
+        // unit propagation. By including the units we are effectively 
+        // repeating unit propagaiton, but potentially not subsumption or 
+        // Boolean simplifications that a solver could perform.
+        // Integration of inprocssing simplifcation here or in sat/smt solver could
+        // be based on taking the current clause set instead of the asserted formulas.
         if (!m_config.m_inprocessing)
             return;
-        m_config.m_inprocessing = true;
+        m_config.m_inprocessing = false; // initial strategy is to immediately disable inprocessing for future calls.
+        dep_expr_state fmls(m);
         if (!ctx->m_simplifier) {
             // create a simplifier if none exists
+            // initialize it to a default pre-processing simplifier.
+            auto* s = alloc(then_simplifier, m, ctx->get_params(), fmls);
+            ctx->m_simplifier = s;
+            init_preprocess(m, ctx->get_params(), *s, fmls);
         }
-
+        
+        dependent_expr_simplifier* s = ctx->m_simplifier.get();
         // extract assertions from ctx.
+        // it is possible to track proof objects here if wanted.
         // feed them to the simplifier
+        ptr_vector<expr> assertions;
+        expr_ref_vector units(m);
+        ctx->get_assertions(assertions);
+        ctx->get_units(units);
+        for (expr* e : assertions) 
+            s->get_fmls().add(dependent_expr(m, e, nullptr, nullptr));
+        for (expr* e : units) 
+            s->get_fmls().add(dependent_expr(m, e, nullptr, nullptr));
+
+        // run in-processing on the assertions
+        s->reduce();
+        
+        scoped_ptr<context> new_ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         // extract simplified assertions from the simplifier
         // create a new context with the simplified assertions
         // update ctx with the new context.
+        for (unsigned i = 0; i < s->get_fmls().qtail(); ++i) {
+            auto const& de = s->get_fmls()[i];
+            new_ctx->assert_expr(de.fml());
+        }
+        ctx = new_ctx.detach();
 
+        // TODO: outside of this function is to make sure model construction uses 
+        // model converter from simplifier.
+        // The model produced by ctx is not correct when there are model converting
+        // simplifications. The model returned in the "SAT" case has to be post-processed
+        // by m_simplifier->model_trail().
+        // not too complicated, just has to be done properly.
     }
 
     void parallel2::worker::collect_statistics(::statistics& st) const {
