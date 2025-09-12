@@ -255,6 +255,8 @@ namespace smt {
 
 
     void parallel2::worker::simplify() {
+        if (!m.inc())
+            return;
         // first attempt: one-shot simplification of the context.
         // a precise schedule of repeated simplification is TBD.
         // also, the in-processing simplifier should be applied to
@@ -309,6 +311,14 @@ namespace smt {
         }
         ctx = new_ctx.detach();
 
+        ctx->internalize_assertions();
+
+        auto old_atoms = m_num_initial_atoms;
+        m_num_shared_units = ctx->assigned_literals().size();
+        m_num_initial_atoms = ctx->get_num_bool_vars();
+
+
+        LOG_WORKER(1, " inprocess " << old_atoms << " -> " << m_num_initial_atoms << "\n");
         // TODO: copy user-propagators similar to context::copy.
     }
 
