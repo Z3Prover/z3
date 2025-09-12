@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-14 21:17:17
+# Effective stop-time: 2025-09-14 22:19:00
 
 name: "Daily Test Coverage Improver"
 "on":
@@ -104,7 +104,7 @@ jobs:
           WORKFLOW_NAME="Daily Test Coverage Improver"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-14 21:17:17"
+          STOP_TIME="2025-09-14 22:19:00"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -286,20 +286,20 @@ jobs:
           **Adding a Comment to an Issue or Pull Request**
           
           To add a comment to an issue or pull request:
-          1. Write an entry to "${{ env.GITHUB_AW_SAFE_OUTPUTS }}":
+          1. Append an entry on a new line to "${{ env.GITHUB_AW_SAFE_OUTPUTS }}":
           ```json
           {"type": "add-issue-comment", "body": "Your comment content in markdown"}
           ```
-          2. After you write to that file, read it as JSONL and check it is valid. If it isn't, make any necessary corrections to it to fix it up
+          2. After you write to that file, read it back and check it is valid, see below.
           
           **Creating an Issue**
           
           To create an issue:
-          1. Write an entry to "${{ env.GITHUB_AW_SAFE_OUTPUTS }}":
+          1. Append an entry on a new line to "${{ env.GITHUB_AW_SAFE_OUTPUTS }}":
           ```json
           {"type": "create-issue", "title": "Issue title", "body": "Issue body in markdown", "labels": ["optional", "labels"]}
           ```
-          2. After you write to that file, read it as JSONL and check it is valid. If it isn't, make any necessary corrections to it to fix it up
+          2. After you write to that file, read it back and check it is valid, see below.
           
           **Creating a Pull Request**
           
@@ -311,7 +311,7 @@ jobs:
           ```json
           {"type": "create-pull-request", "branch": "branch-name", "title": "PR title", "body": "PR body in markdown", "labels": ["optional", "labels"]}
           ```
-          5. After you write to that file, read it as JSONL and check it is valid. If it isn't, make any necessary corrections to it to fix it up
+          5. After you write to that file, read it back and check it is valid, see below.
           
           **Updating an Issue**
           
@@ -319,7 +319,6 @@ jobs:
           ```json
           {"type": "update-issue", "title": "New issue title", "body": "Updated issue body in markdown", "issue_number": "The issue number to update"}
           ```
-          2. After you write to that file, read it as JSONL and check it is valid. If it isn't, make any necessary corrections to it to fix it up
           
           **Example JSONL file content:**
           ```
@@ -334,6 +333,7 @@ jobs:
           - Each JSON object must be on its own line
           - Only include output types that are configured for this workflow
           - The content of this file will be automatically processed and executed
+          - After you write or append to "${{ env.GITHUB_AW_SAFE_OUTPUTS }}", read it back as JSONL and check it is valid. Make sure it actually puts multiple entries on different lines rather than trying to separate entries on one line with the text "\n" - we've seen you make this mistake before, be careful! Maybe run a bash script to check the validity of the JSONL line by line if you have access to bash. If there are any problems with the JSONL make any necessary corrections to it to fix it up
           
           EOF
       - name: Print prompt to step summary
