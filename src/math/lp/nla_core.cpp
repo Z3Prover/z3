@@ -1532,8 +1532,13 @@ lbool core::check() {
             return l_false;
     }
 
-    
-    if (no_effect() && should_run_bounded_nlsat()) 
+    if (no_effect()) {
+        scoped_limits sl(m_reslim);
+        sl.push_child(&m_nra_lim);
+        ret = m_nra.check_assignment();
+        IF_VERBOSE(1, verbose_stream() << "nra check_assignment returned " << ret << "\n";);
+    }    
+    else if (no_effect() && should_run_bounded_nlsat()) 
         ret = bounded_nlsat();
                 
     if (no_effect()) 
@@ -1545,14 +1550,9 @@ lbool core::check() {
     if (no_effect()) 
         m_divisions.check();
 
-    bool use_nra_linearization = true;
 
-    if (no_effect() && use_nra_linearization) {
-        scoped_limits sl(m_reslim);
-        sl.push_child(&m_nra_lim);
-        ret = m_nra.check_assignment();
-        IF_VERBOSE(1, verbose_stream() << "nra check_assignment returned " << ret << "\n";);
-    }
+
+
 
     if (no_effect()) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma();
