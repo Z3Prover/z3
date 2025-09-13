@@ -633,13 +633,17 @@ or
                 add_to_Q_if_new(property(prop_enum::an_del, p.poly),  m_level);
             } 
             /* Rule 4.8. Let i ∈ N>0 , R ⊆ Ri
-               , s ∈ Ri−1
+               , s ∈ R_{i−1}
                , p ∈ Q[x1, . . . , xi ], level(p) = i, and I be a symbolic interval
                of level i. Assume that p is irreducible, and I = (section, b).
                Let Q := an_sub(i − 1)(R) ∧ connected(i − 1)(R) ∧ repr(I, s)(R) ∧ an_del(b.p)(R).
                Q, b.p= p ⊢ sgn_inv(p)(R)
                Q, b.p ̸= p, ord_inv(resxi (b.p, p))(R) ⊢ sgn_inv(p)(R)*/
-            NOT_IMPLEMENTED_YET();    
+            if (m_I[m_level].section == true) {
+                NOT_IMPLEMENTED_YET();
+            } else {
+                NOT_IMPLEMENTED_YET();
+            }
         }
 
         /*
