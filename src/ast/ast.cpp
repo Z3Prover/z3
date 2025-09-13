@@ -428,18 +428,26 @@ bool compare_nodes(ast const * n1, ast const * n2) {
         if (to_func_decl(n1)->get_info() != nullptr && !(*to_func_decl(n1)->get_info() == *to_func_decl(n2)->get_info())) {
             return false;
         }
-        return
-            to_func_decl(n1)->get_name()  == to_func_decl(n2)->get_name() &&
-            to_func_decl(n1)->get_arity() == to_func_decl(n2)->get_arity() &&
-            to_func_decl(n1)->get_range() == to_func_decl(n2)->get_range() &&
-            compare_arrays(to_func_decl(n1)->get_domain(),
-                           to_func_decl(n2)->get_domain(),
-                           to_func_decl(n1)->get_arity());
+        {
+            auto d1 = to_func_decl(n1)->get_domain();
+            auto d2 = to_func_decl(n2)->get_domain();
+            auto arity = to_func_decl(n1)->get_arity();
+            return
+                to_func_decl(n1)->get_name()  == to_func_decl(n2)->get_name() &&
+                to_func_decl(n1)->get_arity() == to_func_decl(n2)->get_arity() &&
+                to_func_decl(n1)->get_range() == to_func_decl(n2)->get_range() &&
+                compare_arrays(d1, d2, arity);
+        }
     case AST_APP:
-        return
-            to_app(n1)->get_decl()     == to_app(n2)->get_decl() &&
-            to_app(n1)->get_num_args() == to_app(n2)->get_num_args() &&
-            compare_arrays(to_app(n1)->get_args(), to_app(n2)->get_args(), to_app(n1)->get_num_args());
+        {
+            auto a1 = to_app(n1)->get_args();
+            auto a2 = to_app(n2)->get_args();
+            auto na = to_app(n1)->get_num_args();
+            return
+                to_app(n1)->get_decl()     == to_app(n2)->get_decl() &&
+                to_app(n1)->get_num_args() == to_app(n2)->get_num_args() &&
+                compare_arrays(a1, a2, na);
+        }
     case AST_VAR:
         return
             to_var(n1)->get_idx()  == to_var(n2)->get_idx() &&
@@ -447,27 +455,30 @@ bool compare_nodes(ast const * n1, ast const * n2) {
     case AST_QUANTIFIER: {
         quantifier const* q1 = to_quantifier(n1);
         quantifier const* q2 = to_quantifier(n2);
+        auto ds1 = q1->get_decl_sorts();
+        auto ds2 = q2->get_decl_sorts();
+        auto nd  = q1->get_num_decls();
+        auto dn1 = q1->get_decl_names();
+        auto dn2 = q2->get_decl_names();
+        auto pats1 = q1->get_patterns();
+        auto pats2 = q2->get_patterns();
+        auto npats = q1->get_num_patterns();
+        auto nop1 = q1->get_no_patterns();
+        auto nop2 = q2->get_no_patterns();
+        auto nnop = q1->get_num_no_patterns();
         return
             q1->get_kind()         == q2->get_kind() &&
             q1->get_num_decls()    == q2->get_num_decls() &&
             q1->get_expr()         == q2->get_expr() &&
             q1->get_weight()       == q2->get_weight() &&
             q1->get_num_patterns() == q2->get_num_patterns() &&
-            compare_arrays(q1->get_decl_sorts(),
-                           q2->get_decl_sorts(),
-                           q1->get_num_decls()) &&
-            compare_arrays(q1->get_decl_names(),
-                           q2->get_decl_names(),
-                           q1->get_num_decls()) &&
+            compare_arrays(ds1, ds2, nd) &&
+            compare_arrays(dn1, dn2, nd) &&
             ((q1->get_qid().is_numerical() && q2->get_qid().is_numerical()) ||
              (q1->get_qid() == q2->get_qid())) && 
-            compare_arrays(q1->get_patterns(),
-                           q2->get_patterns(),
-                           q1->get_num_patterns()) &&
+            compare_arrays(pats1, pats2, npats) &&
             q1->get_num_no_patterns() == q2->get_num_no_patterns() &&
-            compare_arrays(q1->get_no_patterns(),
-                           q2->get_no_patterns(),
-                           q1->get_num_no_patterns());
+            compare_arrays(nop1, nop2, nnop);
     }
     default:
         UNREACHABLE();
@@ -483,11 +494,21 @@ inline unsigned ast_array_hash(T * const * array, unsigned size, unsigned init_v
     case 1:
         return combine_hash(array[0]->hash(), init_value);
     case 2:
-        return combine_hash(combine_hash(array[0]->hash(), array[1]->hash()),
-                            init_value);
+        {
+            auto h0 = array[0]->hash();
+            auto h1 = array[1]->hash();
+            auto t01 = combine_hash(h0, h1);
+            return combine_hash(t01, init_value);
+        }
     case 3:
-        return combine_hash(combine_hash(array[0]->hash(), array[1]->hash()),
-                            combine_hash(array[2]->hash(), init_value));
+        {
+            auto h0 = array[0]->hash();
+            auto h1 = array[1]->hash();
+            auto h2 = array[2]->hash();
+            auto t01 = combine_hash(h0, h1);
+            auto t2 = combine_hash(h2, init_value);
+            return combine_hash(t01, t2);
+        }
     default: {
         unsigned a, b, c;
         a = b = 0x9e3779b9;
@@ -521,26 +542,47 @@ unsigned get_node_hash(ast const * n) {
         if (to_sort(n)->get_info() == nullptr)
             return to_sort(n)->get_name().hash();
         else
-            return combine_hash(to_sort(n)->get_name().hash(), to_sort(n)->get_info()->hash());
+            {
+                auto name_h = to_sort(n)->get_name().hash();
+                auto info_h = to_sort(n)->get_info()->hash();
+                return combine_hash(name_h, info_h);
+            }
     case AST_FUNC_DECL: {
-        unsigned h = combine_hash(to_func_decl(n)->get_name().hash(), to_func_decl(n)->get_range()->hash());
-        return ast_array_hash(to_func_decl(n)->get_domain(), to_func_decl(n)->get_arity(),
-            combine_hash(h, to_func_decl(n)->get_info() == nullptr ?  0 : to_func_decl(n)->get_info()->hash()));
+        {
+            auto name_h = to_func_decl(n)->get_name().hash();
+            auto range_h = to_func_decl(n)->get_range()->hash();
+            unsigned h = combine_hash(name_h, range_h);
+            auto dom = to_func_decl(n)->get_domain();
+            auto ar = to_func_decl(n)->get_arity();
+            unsigned info_h = to_func_decl(n)->get_info() == nullptr ?  0 : to_func_decl(n)->get_info()->hash();
+            unsigned init = combine_hash(h, info_h);
+            return ast_array_hash(dom, ar, init);
+        }
     }
     case AST_APP:
-        return ast_array_hash(to_app(n)->get_args(),
-                              to_app(n)->get_num_args(),
-                              to_app(n)->get_decl()->hash());
+        {
+            auto args = to_app(n)->get_args();
+            auto nargs = to_app(n)->get_num_args();
+            auto decl_h = to_app(n)->get_decl()->hash();
+            return ast_array_hash(args, nargs, decl_h);
+        }
     case AST_VAR:
-        return combine_hash(to_var(n)->get_idx(), to_var(n)->get_sort()->hash());
+        {
+            auto idx = to_var(n)->get_idx();
+            auto sort_h = to_var(n)->get_sort()->hash();
+            return combine_hash(idx, sort_h);
+        }
     case AST_QUANTIFIER:
-        a = ast_array_hash(to_quantifier(n)->get_decl_sorts(),
-                           to_quantifier(n)->get_num_decls(),
-                           to_quantifier(n)->get_kind() == forall_k ? 31 : 19);
-        b = to_quantifier(n)->get_num_patterns();
-        c = to_quantifier(n)->get_expr()->hash();
-        mix(a,b,c);
-        return c;
+        {
+            auto decl_sorts = to_quantifier(n)->get_decl_sorts();
+            auto num_decls  = to_quantifier(n)->get_num_decls();
+            auto kind_init  = to_quantifier(n)->get_kind() == forall_k ? 31u : 19u;
+            a = ast_array_hash(decl_sorts, num_decls, kind_init);
+            b = to_quantifier(n)->get_num_patterns();
+            c = to_quantifier(n)->get_expr()->hash();
+            mix(a,b,c);
+            return c;
+        }
     default:
         UNREACHABLE();
     }
@@ -1674,8 +1716,9 @@ bool ast_manager::slow_not_contains(ast const * n) {
 }
 #endif
 
-#if 0
 static unsigned s_count = 0;
+
+#if 0
 
 static void track_id(ast_manager& m, ast* n, unsigned id) {
     if (n->get_id() != id) return;
@@ -1716,8 +1759,8 @@ ast * ast_manager::register_node_core(ast * n) {
     n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();        
 
   //  track_id(*this, n, 9213);
-    
-//    TRACE(ast, tout << (s_count++) << " Object " << n->m_id << " was created.\n";);
+    std::cout << (s_count++) << " Object " << n->m_id << " was created.\n";
+    TRACE(ast, tout << (s_count++) << " Object " << n->m_id << " was created.\n";);
     TRACE(mk_var_bug, tout << "mk_ast: " << n->m_id << "\n";);
     // increment reference counters
     switch (n->get_kind()) {
@@ -2130,10 +2173,16 @@ expr* ast_manager::coerce_to(expr* e, sort* s) {
     }
     if (s != se && s->get_family_id() == arith_family_id && is_bool(e)) {
         arith_util au(*this);
-        if (s->get_decl_kind() == REAL_SORT) 
-            return mk_ite(e, au.mk_real(1), au.mk_real(0));
-        else 
-            return mk_ite(e, au.mk_int(1), au.mk_int(0));
+        if (s->get_decl_kind() == REAL_SORT) {
+            expr * t_true = au.mk_real(1);
+            expr * t_false = au.mk_real(0);
+            return mk_ite(e, t_true, t_false);
+        }
+        else {
+            expr * t_true = au.mk_int(1);
+            expr * t_false = au.mk_int(0);
+            return mk_ite(e, t_true, t_false);
+        }
     }
     else {
         return e;
@@ -3111,7 +3160,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         }
         DEBUG_CODE({
                 for (unsigned i = 1; proofs_enabled() && i < num_proofs; i++) {
-                CTRACE(mk_unit_resolution_bug, !found.get(i, false),
+                    CTRACE(mk_unit_resolution_bug, !found.get(i, false),
                        for (unsigned j = 0; j < num_proofs; j++) {
                            if (j == i) tout << "Index " << i << " was not found:\n";
                            tout << mk_ll_pp(get_fact(proofs[j]), *this);
