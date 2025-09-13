@@ -112,7 +112,7 @@ void sat2goal::mc::flush_gmc() {
 model_converter* sat2goal::mc::translate(ast_translation& translator) {
     mc* result = alloc(mc, translator.to());
     result->m_smc.copy(m_smc);
-    result->m_gmc = m_gmc ? dynamic_cast<generic_model_converter*>(m_gmc->translate(translator)) : nullptr;
+    result->m_gmc = m_gmc ? static_cast<generic_model_converter*>(m_gmc->translate(translator)) : nullptr;
     for (expr* e : m_var2expr) {
         result->m_var2expr.push_back(translator(e));
     }
@@ -269,7 +269,7 @@ struct sat2goal::imp {
                 ba->to_formulas(l2e, fmls);
             }
             else 
-                dynamic_cast<euf::solver*>(ext)->to_formulas(l2e, fmls);            
+                static_cast<euf::solver*>(ext)->to_formulas(l2e, fmls);            
             for (expr* f : fmls)
                 r.assert_expr(f);            
         }

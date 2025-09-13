@@ -72,7 +72,7 @@ namespace euf {
         model_ref mdl;
         auto s = get_solver(m.mk_family_id("sls"), nullptr);
         if (s)
-            mdl = dynamic_cast<sls::solver*>(s)->get_model();
+            mdl = static_cast<sls::solver*>(s)->get_model();
         return mdl;
     }
 

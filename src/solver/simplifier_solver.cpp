@@ -272,7 +272,7 @@ public:
         for (dependent_expr const& f : m_fmls) 
             result->m_fmls.push_back(dependent_expr(tr, f));
         if (m_mc) 
-            result->m_mc = dynamic_cast<generic_model_converter*>(m_mc->translate(tr));
+            result->m_mc = m_mc->translate(tr);
 
         // copy m_preprocess_state?
         return result;

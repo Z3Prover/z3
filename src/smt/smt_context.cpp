@@ -1568,7 +1568,7 @@ namespace smt {
         family_id fid = m.get_family_id("specrels");
         theory* th = get_theory(fid);
         if (th)
-            dynamic_cast<theory_special_relations*>(th)->get_specrels(rels);
+            static_cast<theory_special_relations*>(th)->get_specrels(rels);
     }
 
 
@@ -3602,7 +3602,7 @@ namespace smt {
         auto p = m_theories.get_plugin(tid);
         if (!p)
             return false;
-        m_model = dynamic_cast<theory_sls*>(p)->get_model();      
+        m_model = static_cast<theory_sls*>(p)->get_model();
         return m_model.get() != nullptr;
     }
 

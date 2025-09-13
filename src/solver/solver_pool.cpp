@@ -399,7 +399,7 @@ solver* solver_pool::mk_solver() {
     }
     else {
         solver* s = m_solvers[(m_current_pool++) % m_num_pools];
-        base_solver = dynamic_cast<pool_solver*>(s)->base_solver();
+        base_solver = static_cast<pool_solver*>(s)->base_solver();
     }
     std::stringstream name;
     name << "vsolver#" << m_solvers.size();
@@ -412,7 +412,7 @@ solver* solver_pool::mk_solver() {
 void solver_pool::reset_solver(solver* s) {
     pool_solver* ps = dynamic_cast<pool_solver*>(s);
     SASSERT(ps);
-    if (ps) ps->reset();
+    ps->reset();
 }
 
 void solver_pool::refresh(solver* base_solver) {
