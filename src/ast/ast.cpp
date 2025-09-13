@@ -188,7 +188,11 @@ unsigned decl_info::hash() const {
     unsigned a = m_family_id;
     unsigned b = m_kind;
     unsigned c = get_num_parameters() == 0 ? 0 : get_composite_hash<decl_info const *, default_kind_hash_proc<decl_info const *>, decl_info_child_hash_proc>(this, get_num_parameters());
-    mix(a, b, c);
+    {
+        auto aa = a, bb = b, cc = c;
+        mix(aa, bb, cc);
+        c = cc;
+    }
     return c;
 }
 
@@ -520,7 +524,11 @@ inline unsigned ast_array_hash(T * const * array, unsigned size, unsigned init_v
             b += array[size]->hash();
             size--;
             c += array[size]->hash();
-            mix(a, b, c);
+            {
+                auto aa = a, bb = b, cc = c;
+                mix(aa, bb, cc);
+                a = aa; b = bb; c = cc;
+            }
         }
         switch (size) {
         case 2:
@@ -529,7 +537,11 @@ inline unsigned ast_array_hash(T * const * array, unsigned size, unsigned init_v
         case 1:
             c += array[0]->hash();
         }
-        mix(a, b, c);
+        {
+            auto aa = a, bb = b, cc = c;
+            mix(aa, bb, cc);
+            c = cc;
+        }
         return c;
     } }
 }
@@ -1759,8 +1771,9 @@ ast * ast_manager::register_node_core(ast * n) {
     n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();        
 
   //  track_id(*this, n, 9213);
-    std::cout << (s_count++) << " Object " << n->m_id << " was created.\n";
-    TRACE(ast, tout << (s_count++) << " Object " << n->m_id << " was created.\n";);
+    unsigned sc = s_count++;
+    std::cout << sc << " Object " << n->m_id << " was created.\n";
+    TRACE(ast, tout << sc << " Object " << n->m_id << " was created.\n";);
     TRACE(mk_var_bug, tout << "mk_ast: " << n->m_id << "\n";);
     // increment reference counters
     switch (n->get_kind()) {
@@ -1775,8 +1788,12 @@ ast * ast_manager::register_node_core(ast * n) {
             to_func_decl(n)->m_info = alloc(func_decl_info, std::move(*(to_func_decl(n)->get_info())));
             to_func_decl(n)->m_info->init_eh(*this);
         }
-        inc_array_ref(to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
-        inc_ref(to_func_decl(n)->get_range());
+        {
+            auto ar = to_func_decl(n)->get_arity();
+            auto dom = to_func_decl(n)->get_domain();
+            inc_array_ref(ar, dom);
+            inc_ref(to_func_decl(n)->get_range());
+        }
         break;
     case AST_APP: {
         app * t = to_app(n);
@@ -1833,11 +1850,19 @@ ast * ast_manager::register_node_core(ast * n) {
         inc_ref(to_var(n)->get_sort());
         break;
     case AST_QUANTIFIER:
-        inc_array_ref(to_quantifier(n)->get_num_decls(), to_quantifier(n)->get_decl_sorts());
-        inc_ref(to_quantifier(n)->get_expr());
-        inc_ref(to_quantifier(n)->get_sort());
-        inc_array_ref(to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
-        inc_array_ref(to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
+        {
+            auto nd = to_quantifier(n)->get_num_decls();
+            auto ds = to_quantifier(n)->get_decl_sorts();
+            auto np = to_quantifier(n)->get_num_patterns();
+            auto ps = to_quantifier(n)->get_patterns();
+            auto nnp = to_quantifier(n)->get_num_no_patterns();
+            auto nps = to_quantifier(n)->get_no_patterns();
+            inc_array_ref(nd, ds);
+            inc_ref(to_quantifier(n)->get_expr());
+            inc_ref(to_quantifier(n)->get_sort());
+            inc_array_ref(np, ps);
+            inc_array_ref(nnp, nps);
+        }
         break;
     default:
         break;
