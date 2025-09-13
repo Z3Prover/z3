@@ -235,7 +235,7 @@ namespace dd {
         vector<pr> s(_s);        
         std::function<bool (pr const&, pr const&)> compare_level = 
             [&](pr const& a, pr const& b) { return m_var2level[a.first] < m_var2level[b.first]; };
-        std::sort(s.begin(), s.end(), compare_level);
+        std::stable_sort(s.begin(), s.end(), compare_level);
         pdd r(one());
         for (auto const& q : s) 
             r = (r * mk_var(q.first)) + q.second;
@@ -859,8 +859,8 @@ namespace dd {
             for (; i < a.size() && a[i] == b[i]; ++i) {};
             return i < a.size() && m_var2level[a[i]] > m_var2level[b[i]];
         };
-        std::sort(ma.begin(), ma.end(), degree_lex_gt);
-        std::sort(mb.begin(), mb.end(), degree_lex_gt);
+        std::stable_sort(ma.begin(), ma.end(), degree_lex_gt);
+        std::stable_sort(mb.begin(), mb.end(), degree_lex_gt);
         auto ita = ma.begin();
         auto itb = mb.begin();
         for (; ita != ma.end() && itb != mb.end(); ++ita, ++itb) {
@@ -1599,7 +1599,7 @@ namespace dd {
             m_nodes.push_back(node());
             m_nodes.back().m_index = m_nodes.size() - 1;
         }        
-        std::sort(m_free_nodes.begin(), m_free_nodes.end());
+        std::stable_sort(m_free_nodes.begin(), m_free_nodes.end());
         m_free_nodes.reverse();
         init_dmark();
     }
@@ -1663,7 +1663,7 @@ namespace dd {
             }
         }
         // sort free nodes so that adjacent nodes are picked in order of use
-        std::sort(m_free_nodes.begin(), m_free_nodes.end());
+        std::stable_sort(m_free_nodes.begin(), m_free_nodes.end());
         m_free_nodes.reverse();
 
         ptr_vector<op_entry> to_delete, to_keep;

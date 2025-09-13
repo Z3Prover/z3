@@ -65,7 +65,7 @@ namespace opt {
      * weighted soft constraints are treated as multi-sets.
      */
     vector<weighted_core> const& cores::disjoint_cores() {
-        std::sort(m_cores.begin(), m_cores.end(), [&](weighted_core const& c1, weighted_core const& c2) { return c1.m_core.size() < c2.m_core.size(); });
+        std::stable_sort(m_cores.begin(), m_cores.end(), [&](weighted_core const& c1, weighted_core const& c2) { return c1.m_core.size() < c2.m_core.size(); });
         vector<weighted_core> result;
         for (auto const& [core, w] : m_cores) {
             rational weight = core_weight(core);
@@ -348,7 +348,7 @@ namespace opt {
     lbool cores::check_sat_hill_climb(expr_ref_vector const& _soft) {
         expr_ref_vector soft(_soft);
         lbool is_sat = l_true;
-        std::sort(soft.data(), soft.data() + soft.size(), [&](expr* a, expr* b) { return m_weight[a] > m_weight[b]; });
+        std::stable_sort(soft.data(), soft.data() + soft.size(), [&](expr* a, expr* b) { return m_weight[a] > m_weight[b]; });
         unsigned index = 0, last_index = 0;
         SASSERT(index < soft.size() || soft.empty());
         IF_VERBOSE(10, verbose_stream() << "start hill climb " << index << " soft: " << soft.size() << "\n";);

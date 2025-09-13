@@ -581,7 +581,7 @@ namespace sat {
                 wl[j++] = w;
         }
 #if 0
-        std::sort(m_ternary_to_delete.begin(), m_ternary_to_delete.end());
+        std::stable_sort(m_ternary_to_delete.begin(), m_ternary_to_delete.end());
         int prev = -1;
         unsigned k = 0;
         std::tuple<literal, literal, bool> p = tuple(null_literal, null_literal, false);

@@ -82,7 +82,7 @@ namespace smt {
             
         }
         compare comp(ctx);
-        std::sort(vars.begin(), vars.end(), comp);
+        std::stable_sort(vars.begin(), vars.end(), comp);
         
         unsigned ns = 0, n = 0;
         for (bool_var v : vars) {

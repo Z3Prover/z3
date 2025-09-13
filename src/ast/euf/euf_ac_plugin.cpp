@@ -459,7 +459,7 @@ namespace euf {
     }
 
     void ac_plugin::sort(monomial_t& m) {
-        std::sort(m.begin(), m.end(), [&](node* a, node* b) { return a->id() < b->id(); });
+        std::stable_sort(m.begin(), m.end(), [&](node* a, node* b) { return a->id() < b->id(); });
     }
 
     bool ac_plugin::is_sorted(monomial_t const& m) const {
@@ -1361,8 +1361,8 @@ namespace euf {
         bool has_dup = any_of(b, [&](node* n) { return m_eq_counts[n->id()] > 0; });
         if (!has_dup)
             return;
-        std::sort(a.begin(), a.end(), [&](node* x, node* y) { return x->id() < y->id(); });
-        std::sort(b.begin(), b.end(), [&](node* x, node* y) { return x->id() < y->id(); });
+        std::stable_sort(a.begin(), a.end(), [&](node* x, node* y) { return x->id() < y->id(); });
+        std::stable_sort(b.begin(), b.end(), [&](node* x, node* y) { return x->id() < y->id(); });
         unsigned i = 0, j = 0, in = 0, jn = 0;
         for (; i < a.size() && j < b.size(); ) {
             if (a[i]->id() == b[j]->id()) {

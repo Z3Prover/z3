@@ -56,7 +56,7 @@ public:
             m.is_distinct(f)) {
             ptr_buffer<expr> buffer;
             buffer.append(num_args, args);
-            std::sort(buffer.begin(), buffer.end(), ast_lt_proc());
+            std::stable_sort(buffer.begin(), buffer.end(), ast_lt_proc());
             bool change = false;
             for (unsigned i = 0; !change && i < num_args; ++i) {
                 change = (args[i] != buffer[i]);

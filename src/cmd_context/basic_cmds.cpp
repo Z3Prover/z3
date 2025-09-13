@@ -79,7 +79,7 @@ public:
                 cmds.push_back(named_cmd((*it).m_key, (*it).m_value));
             }
             // named_cmd_lt is not a total order for commands, but this is irrelevant for Linux x Windows behavior
-            std::sort(cmds.begin(), cmds.end(), named_cmd_lt());
+            std::stable_sort(cmds.begin(), cmds.end(), named_cmd_lt());
             for (named_cmd const& nc : cmds) {
                 display_cmd(ctx, nc.first, nc.second);
             }

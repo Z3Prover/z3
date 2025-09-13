@@ -134,7 +134,7 @@ namespace opt {
                 _asms.push_back(it->m_key);
             }
             compare_asm comp(*this);
-            std::sort(_asms.begin(),_asms.end(), comp); 
+            std::stable_sort(_asms.begin(),_asms.end(), comp); 
             asms.reset();
             for (unsigned i = 0; i < _asms.size(); ++i) {
                 asms.push_back(m.mk_not(_asms[i]));

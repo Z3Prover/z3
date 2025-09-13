@@ -550,7 +550,7 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
                     }
                     gs.shrink(k);
                     if (and_change) {
-                        std::sort(gs.begin(), gs.end(), [](expr* a, expr* b) { return a->get_id() < b->get_id(); });
+                        std::stable_sort(gs.begin(), gs.end(), [](expr* a, expr* b) { return a->get_id() < b->get_id(); });
                         expr* arg = m_util.mk_map_assoc(f, gs.size(), gs.data());
                         es[j] = m_util.mk_map(m().mk_not_decl(), 1, &arg);                          
                     }
@@ -559,7 +559,7 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
             ++j;
         }        
         if (change) {
-            std::sort(es.begin(), es.end(), [](expr* a, expr* b) { return a->get_id() < b->get_id(); });
+            std::stable_sort(es.begin(), es.end(), [](expr* a, expr* b) { return a->get_id() < b->get_id(); });
             result = m_util.mk_map_assoc(f, es.size(), es.data());
             return BR_REWRITE2;
         }

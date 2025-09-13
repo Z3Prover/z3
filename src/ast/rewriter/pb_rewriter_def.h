@@ -59,7 +59,7 @@ void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::num
     args.shrink(j);
     // sort and coalesce arguments:
     typename PBU::compare cmp;
-    std::sort(args.begin(), args.end(), cmp);
+    std::stable_sort(args.begin(), args.end(), cmp);
 
     // coallesce
     unsigned i;

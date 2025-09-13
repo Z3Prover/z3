@@ -976,7 +976,7 @@ lbool hilbert_basis::saturate(num_vector const& ineq, bool is_eq) {
         m_basis.pop_back();
     }
     m_basis.append(m_zero);
-    std::sort(m_basis.begin(), m_basis.end(), vector_lt_t(*this));
+    std::stable_sort(m_basis.begin(), m_basis.end(), vector_lt_t(*this));
     m_zero.reset();
     TRACE(hilbert_basis, display(tout););
     return m_basis.empty()?l_false:l_true;

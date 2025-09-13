@@ -165,7 +165,7 @@ struct param_descrs::imp {
         for (auto const& kv : m_info) {
             names.push_back(kv.m_key);
         }
-        std::sort(names.begin(), names.end(), symlt());
+        std::stable_sort(names.begin(), names.end(), symlt());
         if (names.empty())
             return;
         if (markdown) {

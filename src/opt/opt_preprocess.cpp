@@ -201,7 +201,7 @@ namespace opt {
 
         maxsmt_compare_soft cmp(new_soft);
         ptr_vector<expr> _mutex(mutex.size(), mutex.data());
-        std::sort(_mutex.begin(), _mutex.end(), cmp);
+        std::stable_sort(_mutex.begin(), _mutex.end(), cmp);
         mutex.reset();
         mutex.append(_mutex.size(), _mutex.data());
 

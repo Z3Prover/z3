@@ -937,7 +937,7 @@ namespace opt {
         SASSERT(r.m_vars.empty());
         r.m_vars.append(coeffs.size(), coeffs.data());
         bool is_int_row = !coeffs.empty();
-        std::sort(r.m_vars.begin(), r.m_vars.end(), var::compare());
+        std::stable_sort(r.m_vars.begin(), r.m_vars.end(), var::compare());
         for (auto const& c : coeffs) {
             val += m_var2value[c.m_id] * c.m_coeff;
             SASSERT(!is_int(c.m_id) || c.m_coeff.is_int());
@@ -1605,7 +1605,7 @@ namespace opt {
         r.m_vars.push_back(var(y, coeff*A));
         r.m_value += coeff*A*m_var2value[y];
         if (!r.m_vars.empty() && r.m_vars.back().m_id > y) 
-            std::sort(r.m_vars.begin(), r.m_vars.end(), var::compare());
+            std::stable_sort(r.m_vars.begin(), r.m_vars.end(), var::compare());
         m_var2row_ids[y].push_back(row_id);
         SASSERT(invariant(row_id, r));
     }
@@ -1621,7 +1621,7 @@ namespace opt {
         if (B != 0) r.m_vars.push_back(var(z, coeff*B));
         r.m_value += coeff*A*m_var2value[y];
         r.m_value += coeff*B*m_var2value[z];
-        std::sort(r.m_vars.begin(), r.m_vars.end(), var::compare());
+        std::stable_sort(r.m_vars.begin(), r.m_vars.end(), var::compare());
         if (A != 0) m_var2row_ids[y].push_back(row_id);
         if (B != 0) m_var2row_ids[z].push_back(row_id);
         SASSERT(invariant(row_id, r));

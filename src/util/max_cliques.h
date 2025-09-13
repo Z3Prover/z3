@@ -177,7 +177,7 @@ public:
             for (unsigned n : conns[v])
                 if (todo.contains(n))
                     next.push_back(n);
-            std::sort(next.begin(), next.end(), [&](unsigned a, unsigned b) { return conns[a].num_elems() < conns[b].num_elems(); });
+            std::stable_sort(next.begin(), next.end(), [&](unsigned a, unsigned b) { return conns[a].num_elems() < conns[b].num_elems(); });
             for (unsigned x : next) {
                 bool all = heap.contains(x);
                 for (unsigned y : am1) {

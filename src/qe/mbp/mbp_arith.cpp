@@ -119,7 +119,7 @@ namespace mbp {
                     if (!a.is_numeral(val, r)) return false;
                     nums.push_back(std::make_pair(arg, r));
                 }
-                std::sort(nums.begin(), nums.end(), compare_second());
+                std::stable_sort(nums.begin(), nums.end(), compare_second());
                 for (unsigned i = 0; i + 1 < nums.size(); ++i) {
                     SASSERT(nums[i].second < nums[i + 1].second);
                     expr_ref fml(a.mk_lt(nums[i].first, nums[i + 1].first), m);

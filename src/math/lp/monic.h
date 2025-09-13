@@ -27,11 +27,11 @@ public:
     // constructors
     mon_eq(lp::lpvar v, unsigned sz, lp::lpvar const* vs):
         m_v(v), m_vs(sz, vs) {
-        std::sort(m_vs.begin(), m_vs.end());
+        std::stable_sort(m_vs.begin(), m_vs.end());
     }
     mon_eq(lp::lpvar v, const svector<lp::lpvar> &vs):
         m_v(v), m_vs(vs) {
-        std::sort(m_vs.begin(), m_vs.end());
+        std::stable_sort(m_vs.begin(), m_vs.end());
     }
     mon_eq(): m_v(UINT_MAX) {}
         
@@ -66,7 +66,7 @@ public:
         monic(v, svector<lpvar>(sz, vs), idx) {}
     monic(lpvar v, const svector<lpvar> &vs, unsigned idx): 
         mon_eq(v, vs), m_rsign(false),  m_visited(0) {
-        std::sort(vars1().begin(), vars1().end());
+        std::stable_sort(vars1().begin(), vars1().end());
     }
 
     unsigned visited() const { return m_visited; }
@@ -75,7 +75,7 @@ public:
     bool rsign() const { return m_rsign; }
     void reset_rfields() { m_rsign = false; m_rvars.reset(); SASSERT(m_rvars.size() == 0); }
     void push_rvar(signed_var sv) { m_rsign ^= sv.sign(); m_rvars.push_back(sv.var()); }
-    void sort_rvars() { std::sort(m_rvars.begin(), m_rvars.end()); }
+    void sort_rvars() { std::stable_sort(m_rvars.begin(), m_rvars.end()); }
     void set_propagated(bool p) { m_propagated = p; }
     bool is_propagated() const { return m_propagated; }
     void set_bound_propagated(bool p) { m_bound_propagated = p; }

@@ -284,7 +284,7 @@ namespace sat {
             UNREACHABLE();
             break;
         }
-        std::sort(m_clause.begin(), m_clause.end());
+        std::stable_sort(m_clause.begin(), m_clause.end());
         IF_VERBOSE(3, verbose_stream() << "add core {" << m_clause << "}\n");
         auto& [clauses, id, in_core] = m_clauses.find(m_clause);
         in_core = true;
@@ -340,7 +340,7 @@ namespace sat {
     }
 
     void proof_trim::assume(unsigned id, bool is_initial) {
-        std::sort(m_clause.begin(), m_clause.end()); 
+        std::stable_sort(m_clause.begin(), m_clause.end()); 
         unsigned j = 0;
         sat::literal prev = null_literal;
         for (unsigned i = 0; i < m_clause.size(); ++i) 
@@ -419,7 +419,7 @@ namespace sat {
     }
     
     void proof_trim::del() {
-        std::sort(m_clause.begin(), m_clause.end());
+        std::stable_sort(m_clause.begin(), m_clause.end());
         clause* cp = del(m_clause);
         m_trail.push_back({ 0, m_clause, cp, false, true });
     }

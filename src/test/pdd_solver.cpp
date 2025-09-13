@@ -189,7 +189,7 @@ namespace dd {
             ds.push_back(std::make_pair(to_app(e)->get_depth(), e->get_id()));
             maxid = std::max(maxid, e->get_id());
         }
-        std::sort(ds.begin(), ds.end());
+        std::stable_sort(ds.begin(), ds.end());
         unsigned v = 1;
         id2var.resize(maxid + 1);
         for (auto p : ds) {

@@ -205,8 +205,8 @@ void small_object_allocator::consolidate() {
         if (free_objs.size() < num_objs_per_chunk)
             continue;
         SASSERT(!chunks.empty());
-        std::sort(chunks.begin(), chunks.end(), ptr_lt<chunk>());
-        std::sort(free_objs.begin(), free_objs.end(), ptr_lt<char>());
+        std::stable_sort(chunks.begin(), chunks.end(), ptr_lt<chunk>());
+        std::stable_sort(free_objs.begin(), free_objs.end(), ptr_lt<char>());
         chunk *   last_chunk = nullptr;
         void * last_free_obj = nullptr;
         unsigned chunk_idx = 0;

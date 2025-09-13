@@ -125,7 +125,7 @@ class slice_solver : public solver {
                 }
             }
         }
-        std::sort(m_new_idx.begin(), m_new_idx.end());
+        std::stable_sort(m_new_idx.begin(), m_new_idx.end());
         activate_indices();
         m_new_idx.reset();
 

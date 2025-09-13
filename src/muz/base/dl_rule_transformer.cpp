@@ -55,7 +55,7 @@ namespace datalog {
 
     void rule_transformer::ensure_ordered() {
         if (m_dirty) {
-            std::sort(m_plugins.begin(), m_plugins.end(), plugin_comparator());
+            std::stable_sort(m_plugins.begin(), m_plugins.end(), plugin_comparator());
             m_dirty = false;
         }
     }

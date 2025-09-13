@@ -634,7 +634,7 @@ namespace qe {
             for (unsigned i = 0; i < sz; ++i) {
                 args.push_back(to_app(p)->get_arg(i));
             }
-            std::sort(args.begin(), args.end(), mul_lt(*this));
+            std::stable_sort(args.begin(), args.end(), mul_lt(*this));
             p = m_arith.mk_add(args.size(), args.data());
         }
 

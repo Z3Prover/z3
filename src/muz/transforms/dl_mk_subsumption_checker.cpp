@@ -189,7 +189,7 @@ namespace datalog {
 
         //before traversing we sort rules so that the shortest are in the beginning.
         //this will help make subsumption checks more efficient
-        std::sort(orig_rules.data(), orig_rules.data() + orig_rules.size(), rule_size_comparator);
+        std::stable_sort(orig_rules.data(), orig_rules.data() + orig_rules.size(), rule_size_comparator);
 
         for (rule * r : orig_rules) {
             func_decl * head_pred = r->get_decl();

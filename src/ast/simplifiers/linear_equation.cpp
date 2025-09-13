@@ -196,7 +196,7 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpz * as, var * xs, b
         m_val_buffer.reserve(x+1);
         m.swap(m_val_buffer[x], as[i]);
     }
-    std::sort(xs, xs+sz);
+    std::stable_sort(xs, xs+sz);
     for (unsigned i = 0; i < sz; i++) {
         var x = xs[i];
         m.swap(as[i], m_val_buffer[x]);

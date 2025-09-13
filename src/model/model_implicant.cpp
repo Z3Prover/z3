@@ -787,7 +787,7 @@ void model_implicant::eval_basic(app* e) {
             }
             values.push_back(get_number(arg));
         }
-        std::sort(values.begin(), values.end());
+        std::stable_sort(values.begin(), values.end());
         for (unsigned i = 0; i + 1 < values.size(); ++i) {
             if (values[i] == values[i+1]) {
                 set_false(e);

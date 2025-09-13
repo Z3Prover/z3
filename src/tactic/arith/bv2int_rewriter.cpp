@@ -69,7 +69,7 @@ void bv2int_rewriter_ctx::collect_power2(goal const& s) {
         SASSERT(!bounds.empty());
         lt_rational lt;
         // lt is a total order on rationals.
-        std::sort(bounds.begin(), bounds.end(), lt);
+        std::stable_sort(bounds.begin(), bounds.end(), lt);
         rational p(1);
         unsigned num_bits = 0;
         for (unsigned i = 0; ok && i < bounds.size(); ++i) {

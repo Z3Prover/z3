@@ -264,7 +264,7 @@ public:
 //         for (nex * c : m_children) {
 //             c->sort();
 //         }
-//         std::sort(m_children.begin(), m_children.end(), [](const nex* a, const nex* b) { return *a < *b; });
+//         std::stable_sort(m_children.begin(), m_children.end(), [](const nex* a, const nex* b) { return *a < *b; });
 //     }
 //     #endif
 
@@ -356,7 +356,7 @@ public:
         }
         
 
-        std::sort(m_children.begin(), m_children.end(), [](const nex* a, const nex* b) { return *a < *b; });
+        std::stable_sort(m_children.begin(), m_children.end(), [](const nex* a, const nex* b) { return *a < *b; });
         */
     }
 #endif

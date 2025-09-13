@@ -911,7 +911,7 @@ namespace nla {
         }
 #endif
 
-        std::sort(sorted_vars.begin(), sorted_vars.end(), [&](unsigned a, unsigned b) {
+        std::stable_sort(sorted_vars.begin(), sorted_vars.end(), [&](unsigned a, unsigned b) {
             unsigned wa = weighted_vars[a];
             unsigned wb = weighted_vars[b];
             return wa < wb || (wa == wb && a < b); });

@@ -367,7 +367,7 @@ context_t<C>::monomial::monomial(unsigned sz, power const * pws):
     definition(constraint::MONOMIAL),
     m_size(sz) {
     std::uninitialized_copy(pws, pws + sz, m_powers);
-    std::sort(m_powers, m_powers+sz, typename power::lt_proc());
+    std::stable_sort(m_powers, m_powers+sz, typename power::lt_proc());
     DEBUG_CODE({
             for (unsigned i = 0; i < sz; i ++) {
                 SASSERT(i == 0 || x(i) > x(i-1));
@@ -701,7 +701,7 @@ var context_t<C>::mk_monomial(unsigned sz, power const * pws) {
     SASSERT(sz > 0);
     m_pws.reset();
     m_pws.append(sz, pws);
-    std::sort(m_pws.begin(), m_pws.end(), power::lt_proc());
+    std::stable_sort(m_pws.begin(), m_pws.end(), power::lt_proc());
     unsigned j = 0;
     for (unsigned i = 1; i < sz; i++) {
         if (m_pws[j].x() == m_pws[i].x()) {
@@ -754,7 +754,7 @@ var context_t<C>::mk_sum(numeral const & c, unsigned sz, numeral const * as, var
     p->m_as          = reinterpret_cast<numeral*>(static_cast<char*>(mem) + sizeof(polynomial));
     p->m_xs          = reinterpret_cast<var*>(reinterpret_cast<char*>(p->m_as) + sizeof(numeral)*sz);
     memcpy(p->m_xs, xs, sizeof(var)*sz);
-    std::sort(p->m_xs, p->m_xs+sz);
+    std::stable_sort(p->m_xs, p->m_xs+sz);
     for (unsigned i = 0; i < sz; i++) {
         numeral * curr = p->m_as + i;
         new (curr) numeral();

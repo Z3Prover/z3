@@ -1197,7 +1197,7 @@ void mpz_manager<SYNCH>::gcd(unsigned sz, mpz const * as, mpz & g) {
         for (i = 0; i < sz; i++)
             p.push_back(i);
         sz_lt lt(*this, as);
-        std::sort(p.begin(), p.end(), lt);
+        std::stable_sort(p.begin(), p.end(), lt);
         TRACE(mpz_gcd, for (unsigned i = 0; i < sz; i++) tout << p[i] << ":" << size_info(as[p[i]]) << " "; tout << "\n";);
         gcd(as[p[0]], as[p[1]], g);
         for (i = 2; i < sz; i++) {

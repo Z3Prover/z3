@@ -78,7 +78,7 @@ namespace datalog {
             total_bytes += sz;
             sizes.push_back(std::make_pair(i, sz));
         }
-        std::sort(sizes.begin(), sizes.end(), compare_size_proc());        
+        std::stable_sort(sizes.begin(), sizes.end(), compare_size_proc());        
 
         out << "bytes " << total_bytes << "\n";
         out << "bytes\trows\tannotation\n";

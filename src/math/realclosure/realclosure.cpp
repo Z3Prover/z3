@@ -6071,7 +6071,7 @@ namespace realclosure {
             for (unsigned i = 0; i < n; i++)
                 c.mark(p[i]);
             display_polynomial(out, n, p, display_free_var_proc(), true, false);
-            std::sort(c.m_found.begin(), c.m_found.end(), rank_lt_proc());
+            std::stable_sort(c.m_found.begin(), c.m_found.end(), rank_lt_proc());
             for (unsigned i = 0; i < c.m_found.size(); i++) {
                 algebraic * ext = c.m_found[i];
                 out << "\n   r!" << ext->idx() << " := ";
@@ -6128,7 +6128,7 @@ namespace realclosure {
                 display(out, a, true, pp);
             }
             else {
-                std::sort(c.m_found.begin(), c.m_found.end(), rank_lt_proc());
+                std::stable_sort(c.m_found.begin(), c.m_found.end(), rank_lt_proc());
                 out << "[";
                 display(out, a, true, pp);
                 for (unsigned i = 0; i < c.m_found.size(); i++) {

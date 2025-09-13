@@ -1368,7 +1368,7 @@ public:
             return mk_and(args[0], args[1]);
         default:
             // No need to use stable_sort, aig_lit_lt is a total order on AIG nodes
-            std::sort(args, args+num, aig_lit_lt());
+            std::stable_sort(args, args+num, aig_lit_lt());
             aig_lit r = mk_and(args[0], args[1]);
             inc_ref(r);
             for (unsigned i = 2; i < num; i++) {
@@ -1399,7 +1399,7 @@ public:
         case 2:
             return mk_or(args[0], args[1]);
         default:
-            std::sort(args, args+num, aig_lit_lt());
+            std::stable_sort(args, args+num, aig_lit_lt());
             aig_lit r = mk_or(args[0], args[1]);
             inc_ref(r);
             for (unsigned i = 2; i < num; i++) {

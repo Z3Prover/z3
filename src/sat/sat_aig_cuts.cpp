@@ -354,7 +354,7 @@ namespace sat {
         m_literals.append(sz, args);
         for (unsigned i = 0; i < sz; ++i) reserve(args[i].var());
         if (op == and_op || op == xor_op) {
-            std::sort(m_literals.data() + offset, m_literals.data() + offset + sz);
+            std::stable_sort(m_literals.data() + offset, m_literals.data() + offset + sz);
         }
         add_node(v, n);
     }
@@ -424,7 +424,7 @@ namespace sat {
             }
         }
         if (changed && (n.is_and() || n.is_xor())) {
-            std::sort(m_literals.data() + n.offset(), m_literals.data() + n.offset() + n.size());
+            std::stable_sort(m_literals.data() + n.offset(), m_literals.data() + n.offset() + n.size());
         }
         return true;
     }
@@ -819,7 +819,7 @@ namespace sat {
             IF_VERBOSE(10, verbose_stream() << "check: " << r << "\n");
             if (r == l_true) {
                 IF_VERBOSE(0,
-                    std::sort(vars.begin(), vars.end());
+                    std::stable_sort(vars.begin(), vars.end());
                     s.display(verbose_stream());
                     for (auto v : vars) verbose_stream() << v << " := " << s.get_model()[v] << "\n";
                 );

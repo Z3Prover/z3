@@ -220,20 +220,20 @@ namespace nlsat {
                 new_order.push_back(x);
             }
             if (m_vos_type == BROWN) {
-                std::sort(new_order.begin(), new_order.end(), brown_reorder_lt(this));
+                std::stable_sort(new_order.begin(), new_order.end(), brown_reorder_lt(this));
             }
             else if (m_vos_type == TRIANGULAR) {
-                std::sort(new_order.begin(), new_order.end(), triangular_reorder_lt(this));
+                std::stable_sort(new_order.begin(), new_order.end(), triangular_reorder_lt(this));
             }
             else if (m_vos_type == ONLYPOLY) {
-                std::sort(new_order.begin(), new_order.end(), onlypoly_reorder_lt(this));
+                std::stable_sort(new_order.begin(), new_order.end(), onlypoly_reorder_lt(this));
             }
             
             else if(m_vos_type == UNIVARIATE){
-                std::sort(new_order.begin(), new_order.end(), univariate_reorder_lt(this));
+                std::stable_sort(new_order.begin(), new_order.end(), univariate_reorder_lt(this));
             }
             else if(m_vos_type == FEATURE){
-                std::sort(new_order.begin(), new_order.end(), feature_reorder_lt(this));
+                std::stable_sort(new_order.begin(), new_order.end(), feature_reorder_lt(this));
             }
             
             else {

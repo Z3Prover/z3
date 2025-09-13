@@ -233,7 +233,7 @@ namespace euf {
         for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 
             args.push_back(s.literal2expr(s.m_proof_literals[i]));
         
-        std::sort(s.m_explain_cc.data() + m_cc_head, s.m_explain_cc.data() + m_cc_tail, compare_ts);
+        std::stable_sort(s.m_explain_cc.data() + m_cc_head, s.m_explain_cc.data() + m_cc_tail, compare_ts);
         for (unsigned i = m_cc_head; i < m_cc_tail; ++i) {
             auto const& [a, b, ts, comm] = s.m_explain_cc[i];
             args.push_back(cc_proof(comm, m.mk_eq(a, b)));

@@ -1718,7 +1718,7 @@ namespace smt {
             }
             m_coeff2args[coeff].push_back(v);
         }
-        std::sort(m_active_coeffs.begin(), m_active_coeffs.end());
+        std::stable_sort(m_active_coeffs.begin(), m_active_coeffs.end());
         return true;
     }
 

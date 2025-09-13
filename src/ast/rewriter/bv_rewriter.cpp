@@ -1926,7 +1926,7 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
         return BR_DONE;
     default:
         if (m_bv_sort_ac)
-            std::sort(new_args.begin(), new_args.end(), ast_to_lt());
+            std::stable_sort(new_args.begin(), new_args.end(), ast_to_lt());
         if (distribute_concat(OP_BOR, new_args.size(), new_args.data(), result)) {
             return BR_REWRITE3;
         }
@@ -2102,7 +2102,7 @@ br_status bv_rewriter::mk_bv_xor(unsigned num, expr * const * args, expr_ref & r
         Z3_fallthrough;
     default:
         if (m_bv_sort_ac)
-            std::sort(new_args.begin(), new_args.end(), ast_to_lt());
+            std::stable_sort(new_args.begin(), new_args.end(), ast_to_lt());
         if (distribute_concat(OP_BXOR, new_args.size(), new_args.data(), result)) {
             return BR_REWRITE3;
         }

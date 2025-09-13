@@ -1149,7 +1149,7 @@ namespace nlsat {
             SASSERT(num_lits > 0);
             clause * cls = mk_clause_core(num_lits, lits, learned, a);
             TRACE(nlsat_sort, display(tout << "mk_clause:\n", *cls) << "\n";);
-            std::sort(cls->begin(), cls->end(), lit_lt(*this));
+            std::stable_sort(cls->begin(), cls->end(), lit_lt(*this));
             TRACE(nlsat, display(tout << " after sort:\n", *cls) << "\n";);
             if (learned && m_log_lemmas) {
                 log_lemma(verbose_stream(), *cls);
@@ -2757,7 +2757,7 @@ namespace nlsat {
             for (var x = 0; x < num; x++) 
                 new_order.push_back(x);
             
-            std::sort(new_order.begin(), new_order.end(), reorder_lt(collector));
+            std::stable_sort(new_order.begin(), new_order.end(), reorder_lt(collector));
             TRACE(nlsat_reorder, 
                   tout << "new order: "; for (unsigned i = 0; i < num; i++) tout << new_order[i] << " "; tout << "\n";);
             var_vector perm;
@@ -2993,7 +2993,7 @@ namespace nlsat {
                 m_cs_p.push_back(i);
                 m_cs_degrees.push_back(degree(*(cs[i])));
             }
-            std::sort(m_cs_p.begin(), m_cs_p.end(), degree_lt(m_cs_degrees));
+            std::stable_sort(m_cs_p.begin(), m_cs_p.end(), degree_lt(m_cs_degrees));
             TRACE(nlsat_reorder_clauses, tout << "permutation: "; ::display(tout, m_cs_p.begin(), m_cs_p.end()); tout << "\n";);
             apply_permutation(sz, cs, m_cs_p.data());
             TRACE(nlsat_reorder_clauses, tout << "after:\n"; for (unsigned i = 0; i < sz; i++) { display(tout, *(cs[i])); tout << "\n"; });
@@ -3035,7 +3035,7 @@ namespace nlsat {
                 m_dl_lit_num.push_back(cs[i]->size());
                 m_dl_p.push_back(i);
             }
-            std::sort(m_dl_p.begin(), m_dl_p.end(), degree_lit_num_lt(m_dl_degrees, m_dl_lit_num));
+            std::stable_sort(m_dl_p.begin(), m_dl_p.end(), degree_lit_num_lt(m_dl_degrees, m_dl_lit_num));
             TRACE(nlsat_reorder_clauses, tout << "permutation: "; ::display(tout, m_dl_p.begin(), m_dl_p.end()); tout << "\n";);
             apply_permutation(sz, cs, m_dl_p.data());
             TRACE(nlsat_reorder_clauses, tout << "after:\n"; for (unsigned i = 0; i < sz; i++) { display(tout, *(cs[i])); tout << "\n"; });

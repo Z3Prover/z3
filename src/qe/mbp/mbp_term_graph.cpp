@@ -1138,7 +1138,7 @@ class term_graph::projector {
             }
         }
         term_depth td;
-        std::sort(worklist.begin(), worklist.end(), td);
+        std::stable_sort(worklist.begin(), worklist.end(), td);
 
         for (unsigned i = 0; i < worklist.size(); ++i) {
             term *t = worklist[i];
@@ -1396,7 +1396,7 @@ class term_graph::projector {
 
         // -- sort representatives, call mk_distinct on any range
         // -- of the same sort longer than 1
-        std::sort(reps.data(), reps.data() + reps.size(), sort_lt_proc());
+        std::stable_sort(reps.data(), reps.data() + reps.size(), sort_lt_proc());
         unsigned i = 0;
         unsigned sz = reps.size();
         while (i < sz) {
@@ -1555,7 +1555,7 @@ public:
         }
         // traverse worklist in order of depth.
         term_depth td;
-        std::sort(worklist.begin(), worklist.end(), td);
+        std::stable_sort(worklist.begin(), worklist.end(), td);
 
         for (unsigned i = 0; i < worklist.size(); ++i) {
             term *t = worklist[i];

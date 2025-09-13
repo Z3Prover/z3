@@ -441,7 +441,7 @@ namespace mbp {
                     true_eqs.push_back (std::make_pair(get_nesting_depth(eq), eq));
                 }
             }
-            std::sort(true_eqs.begin(), true_eqs.end(), compare_nd());
+            std::stable_sort(true_eqs.begin(), true_eqs.end(), compare_nd());
             DEBUG_CODE(for (unsigned i = 0; i + 1 < true_eqs.size(); ++i) SASSERT(true_eqs[i].first <= true_eqs[i+1].first););
 
             // search for subst term
@@ -928,7 +928,7 @@ namespace mbp {
             else if (is_numeric) {
                 // sort reprs by their value and add a chain of strict inequalities
                 compare_idx cmp(*this);
-                std::sort(m_idxs.begin() + start, m_idxs.end(), cmp);
+                std::stable_sort(m_idxs.begin() + start, m_idxs.end(), cmp);
                 for (unsigned i = start; i + 1 < m_idxs.size(); ++i) {
                     m_idx_lits.push_back (mk_lex_lt(m_idxs[i].idx, m_idxs[i+1].idx));
                 }

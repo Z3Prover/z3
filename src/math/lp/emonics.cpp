@@ -156,7 +156,7 @@ emonics::cell* emonics::head(lpvar v) const {
 monic const* emonics::find_canonical(svector<lpvar> const& vars) const {
     SASSERT(m_ve.is_root(vars));
     m_find_key = vars;
-    std::sort(m_find_key.begin(), m_find_key.end());
+    std::stable_sort(m_find_key.begin(), m_find_key.end());
     monic const* result = nullptr;
     if (m_cg_table.contains(UINT_MAX) && !m_cg_table[UINT_MAX].empty()) {
         lpvar w = m_cg_table[UINT_MAX][0];

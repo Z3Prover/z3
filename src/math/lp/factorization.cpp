@@ -28,8 +28,8 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
     unsigned_vector j_vars;
     init_vars_by_the_mask(k_vars, j_vars);
     SASSERT(!k_vars.empty() && !j_vars.empty());
-    std::sort(k_vars.begin(), k_vars.end());
-    std::sort(j_vars.begin(), j_vars.end());
+    std::stable_sort(k_vars.begin(), k_vars.end());
+    std::stable_sort(j_vars.begin(), j_vars.end());
 
     if (m_num_failures > 1000) {
         for (bool& m : m_mask) m = true;

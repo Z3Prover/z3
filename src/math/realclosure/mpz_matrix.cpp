@@ -386,7 +386,7 @@ unsigned mpz_matrix_manager::linear_independent_rows(mpz_matrix const & _A, unsi
         eliminate(A, nullptr, k1, k2, false);
         k2++;
     }
-    std::sort(r, r + r_sz);
+    std::stable_sort(r, r + r_sz);
     // Copy linear independent rows to B
     mpz_matrix & C = A;
     mk(r_sz, _A.n, C);

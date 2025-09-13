@@ -334,7 +334,7 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
         if (ordered && num_coeffs == 0 && !use_power())
             return BR_FAILED;
         if (!ordered) {
-            std::sort(new_args.begin(), new_args.end(), lt);
+            std::stable_sort(new_args.begin(), new_args.end(), lt);
         TRACE(poly_rewriter,
                   tout << "after sorting:\n";
                   for (unsigned i = 0; i < new_args.size(); i++) {
@@ -617,9 +617,9 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
         if (m_sort_sums) {
             TRACE(rewriter_bug, tout << "new_args.size(): " << new_args.size() << "\n";);
             if (c.is_zero())
-                std::sort(new_args.data(), new_args.data() + new_args.size(), mon_lt(*this));
+                std::stable_sort(new_args.data(), new_args.data() + new_args.size(), mon_lt(*this));
             else
-                std::sort(new_args.data() + 1, new_args.data() + new_args.size(), mon_lt(*this));
+                std::stable_sort(new_args.data() + 1, new_args.data() + new_args.size(), mon_lt(*this));
         }
         result = mk_add_app(new_args.size(), new_args.data());
         TRACE(rewriter, tout << result << "\n";);
@@ -650,9 +650,9 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
         }
         if (!ordered) {
             if (c.is_zero())
-                std::sort(new_args.data(), new_args.data() + new_args.size(), lt);
+                std::stable_sort(new_args.data(), new_args.data() + new_args.size(), lt);
             else 
-                std::sort(new_args.data() + 1, new_args.data() + new_args.size(), lt);
+                std::stable_sort(new_args.data() + 1, new_args.data() + new_args.size(), lt);
         }
         result = mk_add_app(new_args.size(), new_args.data());        
         if (hoist_multiplication(result)) {
@@ -856,7 +856,7 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     if (move) {
         if (m_sort_sums) { 
             // + 1 to skip coefficient
-            std::sort(new_lhs_monomials.begin() + 1, new_lhs_monomials.end(), lt);
+            std::stable_sort(new_lhs_monomials.begin() + 1, new_lhs_monomials.end(), lt);
         }
         c_at_rhs = true;
     }

@@ -1170,8 +1170,8 @@ namespace smt {
             CTRACE(arith, atoms.size() > 1, for (auto* a : atoms) a->display(*this, tout) << "\n";);
             ptr_vector<atom> occs(m_var_occs[v]);
 
-            std::sort(atoms.begin(), atoms.end(), compare_atoms());
-            std::sort(occs.begin(), occs.end(), compare_atoms());
+            std::stable_sort(atoms.begin(), atoms.end(), compare_atoms());
+            std::stable_sort(occs.begin(), occs.end(), compare_atoms());
 
             typename atoms::iterator begin1 = occs.begin();
             typename atoms::iterator begin2 = occs.begin();

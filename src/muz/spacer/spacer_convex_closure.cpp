@@ -349,7 +349,7 @@ void convex_closure::cc_1dim(const expr_ref &var, expr_ref_vector &out) {
     auto gt_proc = [](rational const &x, rational const &y) -> bool {
         return x > y;
     };
-    std::sort(data.begin(), data.end(), gt_proc);
+    std::stable_sort(data.begin(), data.end(), gt_proc);
 
     // -- compute LB <= var <= UB
     expr_ref res(m);
@@ -367,7 +367,7 @@ void convex_closure::cc_1dim(const expr_ref &var, expr_ref_vector &out) {
         if (v && (m_arith.is_int(v) || m_bv.is_bv(v))) {
             data.reset();
             m_data.get_col(j, data);
-            std::sort(data.begin(), data.end(), gt_proc);
+            std::stable_sort(data.begin(), data.end(), gt_proc);
             if (infer_div_pred(data, cr, off)) {
                 out.push_back(mk_eq_mod(v, cr, off));
             }

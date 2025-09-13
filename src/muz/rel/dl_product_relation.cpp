@@ -134,7 +134,7 @@ namespace datalog {
         for(; rit!=rend; ++rit) {
             specs.push_back((*rit)->m_spec);
             SASSERT(specs.back().well_formed());
-            std::sort(specs.back().begin(), specs.back().end());
+            std::stable_sort(specs.back().begin(), specs.back().end());
         }
 
         vector<rel_spec>::iterator sit = specs.begin(), send = specs.end();

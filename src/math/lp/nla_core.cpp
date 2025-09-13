@@ -356,7 +356,7 @@ svector<lpvar> core::reduce_monic_to_rooted(const svector<lpvar> & vars, rationa
         ret.push_back(root.var());
     }
     sign = rational(s? -1: 1);
-    std::sort(ret.begin(), ret.end());
+    std::stable_sort(ret.begin(), ret.end());
     return ret;
 }
 

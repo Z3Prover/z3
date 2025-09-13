@@ -28,7 +28,7 @@ namespace opt {
 
     bool is_maxlex(vector<soft> const & _ws) {
         vector<soft> ws(_ws);
-        std::sort(ws.begin(), ws.end(), [&](soft const& s1, soft const& s2) { return s1.weight < s2.weight; });
+        std::stable_sort(ws.begin(), ws.end(), [&](soft const& s1, soft const& s2) { return s1.weight < s2.weight; });
         ws.reverse();
         rational sum(0);
         for (auto const& [e, w, t] : ws) {
@@ -191,7 +191,7 @@ namespace opt {
             m_c(c) {
             // ensure that soft constraints are sorted with largest soft constraints first.
             cmp_soft cmp;
-            std::sort(m_soft.begin(), m_soft.end(), cmp);
+            std::stable_sort(m_soft.begin(), m_soft.end(), cmp);
         }            
         
         lbool operator()() override {

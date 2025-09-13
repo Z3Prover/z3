@@ -184,7 +184,7 @@ void lemma_quantifier_generalizer::find_candidates(expr *e,
         }
     }
 
-    std::sort(candidates.data(), candidates.data() + candidates.size(),
+    std::stable_sort(candidates.data(), candidates.data() + candidates.size(),
               index_lt_proc(m));
     // keep actual select indices in the order found at the back of
     // candidate list. There is no particular reason for this order
@@ -671,7 +671,7 @@ bool lemma_quantifier_generalizer::find_stride(expr_ref_vector &cube,
     if (instances.size() <= 1)
         return false;
 
-    std::sort(instances.begin(), instances.end());
+    std::stable_sort(instances.begin(), instances.end());
 
     stride = instances[1]-instances[0];
     TRACE(spacer_qgen, tout << "Index Stride is: " << stride << "\n";);

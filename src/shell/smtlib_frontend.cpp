@@ -83,7 +83,7 @@ void help_tactics() {
     for (auto cmd : ctx.tactics()) 
         cmds.push_back(cmd);
     cmp lt;
-    std::sort(cmds.begin(), cmds.end(), lt);
+    std::stable_sort(cmds.begin(), cmds.end(), lt);
     for (auto cmd : cmds) 
         std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
 }
@@ -99,7 +99,7 @@ void help_simplifiers() {
     for (auto cmd : ctx.simplifiers()) 
         cmds.push_back(cmd);
     cmp lt;
-    std::sort(cmds.begin(), cmds.end(), lt);
+    std::stable_sort(cmds.begin(), cmds.end(), lt);
     for (auto cmd : cmds) 
         std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
 }
@@ -149,7 +149,7 @@ void help_probes() {
     for (auto cmd : ctx.probes()) 
         cmds.push_back(cmd);
     cmp lt;
-    std::sort(cmds.begin(), cmds.end(), lt);
+    std::stable_sort(cmds.begin(), cmds.end(), lt);
     for (auto cmd : cmds) 
         std::cout << "- " << cmd->get_name() << " " << cmd->get_descr() << "\n";
 }

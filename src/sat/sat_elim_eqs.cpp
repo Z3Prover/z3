@@ -133,7 +133,7 @@ namespace sat {
                 VERIFY(c[i] == norm(roots, c[i]));
                 VERIFY(!m_solver.was_eliminated(c[i].var()) || lit == c[i]);
             }
-            std::sort(c.begin(), c.end());
+            std::stable_sort(c.begin(), c.end());
             for (literal l : c) VERIFY(l == norm(roots, l));
             TRACE(sats, tout << "after normalization/sorting: " << c << "\n"; tout.flush(););
             DEBUG_CODE({

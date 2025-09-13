@@ -596,7 +596,7 @@ namespace algebraic_numbers {
         void sort_roots(numeral_vector & r) {
             if (m_limit.inc()) {
                 // DEBUG_CODE(check_transitivity(r););
-                std::sort(r.begin(), r.end(), lt_proc(m_wrapper));
+                std::stable_sort(r.begin(), r.end(), lt_proc(m_wrapper));
             }
         }
 

@@ -100,7 +100,7 @@ lemma_expand_bnd_generalizer::lemma_expand_bnd_generalizer(context &ctx)
     }
 
     // remove duplicates
-    std::sort(m_values.begin(), m_values.end());
+    std::stable_sort(m_values.begin(), m_values.end());
     auto last = std::unique(m_values.begin(), m_values.end());
     for (size_t i = 0, sz = std::distance(last, m_values.end()); i < sz; ++i)
         m_values.pop_back();

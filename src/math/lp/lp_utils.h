@@ -96,7 +96,7 @@ std::ostream& print_linear_combination_customized(const vector<std::pair<T, unsi
     for (const auto& p : coeffs) {
         sorted_coeffs.emplace_back(p.first, p.second);
     }
-    std::sort(sorted_coeffs.begin(), sorted_coeffs.end(), 
+    std::stable_sort(sorted_coeffs.begin(), sorted_coeffs.end(), 
              [](const auto& a, const auto& b) { return a.second < b.second; });
 
     // Print the sorted term

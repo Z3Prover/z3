@@ -103,7 +103,7 @@ std::ostream& statistics::display_smt2(std::ostream & out) const {
     ptr_buffer<char> keys;                              \
     get_keys(m_u, keys);                                \
     get_keys(m_d, keys);                                \
-    std::sort(keys.begin(), keys.end(), str_lt());      \
+    std::stable_sort(keys.begin(), keys.end(), str_lt());      \
     unsigned max = get_max_len(keys);                   
 
     INIT_DISPLAY();

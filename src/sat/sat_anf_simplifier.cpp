@@ -367,7 +367,7 @@ namespace sat {
         shuffle(var2id.size(), var2id.data(), s.rand());
         for (unsigned i = 0; i < nv; ++i) id2var[var2id[i]] = i;
         for (unsigned i = 0; i < nv; ++i) vl[i] = std::make_pair(i, var2id[i]);
-        std::sort(vl.begin(), vl.end());
+        std::stable_sort(vl.begin(), vl.end());
         for (unsigned i = 0; i < nv; ++i) l2v[i] = id2var[vl[i].second];
 
         ps.get_manager().reset(l2v);

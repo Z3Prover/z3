@@ -845,8 +845,8 @@ static void tst_vars(polynomial_ref const & p, unsigned sz, polynomial::var * xs
     }
     std::cout << std::endl;
     ENSURE(r.size() == sz);
-    std::sort(r.begin(), r.end());
-    std::sort(xs, xs + sz);
+    std::stable_sort(r.begin(), r.end());
+    std::stable_sort(xs, xs + sz);
     for (unsigned i = 0; i < r.size(); i++) {
         ENSURE(r[i] == xs[i]);
     }

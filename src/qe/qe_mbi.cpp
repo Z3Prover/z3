@@ -495,7 +495,7 @@ namespace qe {
                     (x->get_depth() > y->get_depth()) || 
                     (x->get_depth() == y->get_depth() && x->get_id() > y->get_id());
         };
-        std::sort(avars.data(), avars.data() + avars.size(), compare_depth);
+        std::stable_sort(avars.data(), avars.data() + avars.size(), compare_depth);
         TRACE(qe, tout << "avars:" << avars << "\n";);
     }
 

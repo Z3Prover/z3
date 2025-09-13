@@ -101,7 +101,7 @@ namespace polynomial {
         struct lt_var {
             bool operator()(power const & p1, power const & p2) {
                 // CMW: The assertion below does not hold on macOS, because
-                // their implementation of std::sort will try to compare
+                // their implementation of std::stable_sort will try to compare
                 // two items at the same index instead of comparing
                 // the indices directly. I suspect that the purpose of
                 // this assertion was to make sure that there are
@@ -163,7 +163,7 @@ namespace polynomial {
         friend class tmp_monomial;
 
         void sort() {
-            std::sort(m_powers, m_powers + m_size, power::lt_var());
+            std::stable_sort(m_powers, m_powers + m_size, power::lt_var());
         }
     public:
         static unsigned hash_core(unsigned sz, power const * pws) {
@@ -909,7 +909,7 @@ namespace polynomial {
             if (sz == 1)
                 return mk_monomial(xs[0]);
             m_powers_tmp.reset();
-            std::sort(xs, xs+sz);
+            std::stable_sort(xs, xs+sz);
             SASSERT(is_valid(xs[0]));
             m_powers_tmp.push_back(power(xs[0], 1));
             for (unsigned i = 1; i < sz; i++) {
@@ -2108,7 +2108,7 @@ namespace polynomial {
             }
 
             void sort_graded_lex() {
-                std::sort(m_tmp_ms.begin(), m_tmp_ms.end(), graded_lex_gt());
+                std::stable_sort(m_tmp_ms.begin(), m_tmp_ms.end(), graded_lex_gt());
                 numeral_vector new_as;
                 unsigned sz = m_tmp_ms.size();
                 for (unsigned i = 0; i < sz; i++) {
@@ -3127,7 +3127,7 @@ namespace polynomial {
                 for (unsigned i = 0; i < sz; i++) {
                     ms.push_back(p->m(i));
                 }
-                std::sort(ms.begin(), ms.end(), lex_lt2(x));
+                std::stable_sort(ms.begin(), ms.end(), lex_lt2(x));
                 monomial * prev = nullptr;
                 for (unsigned i = 0; i < sz; i++) {
                     monomial * orig_m = ms[i];
@@ -4401,7 +4401,7 @@ namespace polynomial {
                 unsigned d = std::min(u_var_degrees[i].degree(), v_var_degrees[i].degree());
                 var_min_degrees.push_back(power(x, d));
             }
-            std::sort(var_min_degrees.begin(), var_min_degrees.end(), power::lt_degree());
+            std::stable_sort(var_min_degrees.begin(), var_min_degrees.end(), power::lt_degree());
             m_mgcd_skeletons.reset();
             for (unsigned i = 0; i < num_vars; i++) {
                 vars.push_back(var_min_degrees[i].get_var());
@@ -4534,8 +4534,8 @@ namespace polynomial {
             }
 
             // Search for a variable x that occurs only in u or v.
-            var_max_degrees(u, u_var_degrees); std::sort(u_var_degrees.begin(), u_var_degrees.end(), power::lt_var());
-            var_max_degrees(v, v_var_degrees); std::sort(v_var_degrees.begin(), v_var_degrees.end(), power::lt_var());
+            var_max_degrees(u, u_var_degrees); std::stable_sort(u_var_degrees.begin(), u_var_degrees.end(), power::lt_var());
+            var_max_degrees(v, v_var_degrees); std::stable_sort(v_var_degrees.begin(), v_var_degrees.end(), power::lt_var());
 
             TRACE(polynomial_gcd,
                   tout << "u var info\n"; for (unsigned i = 0; i < u_var_degrees.size(); i++) tout << u_var_degrees[i] << " "; tout << "\n";

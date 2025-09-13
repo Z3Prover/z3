@@ -244,8 +244,8 @@ namespace sat {
             m_neg.push_back(~l);
         }
         compare_left cmp(big);
-        std::sort(m_pos.begin(), m_pos.end(), cmp);
-        std::sort(m_neg.begin(), m_neg.end(), cmp);
+        std::stable_sort(m_pos.begin(), m_pos.end(), cmp);
+        std::stable_sort(m_neg.begin(), m_neg.end(), cmp);
 
         IF_VERBOSE(100, 
                    for (literal l : m_pos) verbose_stream() << big.get_left(l) << " "; 

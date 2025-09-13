@@ -306,7 +306,7 @@ bool naive_convex_closure::get_range(vector<unsigned int>& v,
                                      unsigned int& lower_bound, unsigned int& upper_bound)
 {
     // sort substitutions
-    std::sort(v.begin(), v.end());
+    std::stable_sort(v.begin(), v.end());
 
     // check that numbers are consecutive
     for (unsigned i=0; i+1 < v.size(); ++i) {

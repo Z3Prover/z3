@@ -56,7 +56,7 @@ namespace smt {
             }
         }
         else {
-            std::sort(m_cost_save.begin(), m_cost_save.end());
+            std::stable_sort(m_cost_save.begin(), m_cost_save.end());
             for (unsigned i = 0,j = 0; i < m_vars.size(); ++i) {
                 if (j < m_cost_save.size() && m_cost_save[j] == static_cast<theory_var>(i)) {
                     result.push_back(false);
@@ -231,7 +231,7 @@ namespace smt {
         expr_ref_vector disj(m);
         compare_cost compare_cost(*this);
         svector<theory_var> costs(m_costs);
-        std::sort(costs.begin(), costs.end(), compare_cost);
+        std::stable_sort(costs.begin(), costs.end(), compare_cost);
         scoped_mpz weight(m_mpz);
         m_mpz.reset(weight);
         for (unsigned i = 0; i < costs.size() && m_mpz.lt(weight, m_zmin_cost); ++i) {
@@ -271,7 +271,7 @@ namespace smt {
         literal_vector lits;
         compare_cost compare_cost(*this);
         svector<theory_var> costs(m_costs);
-        std::sort(costs.begin(), costs.end(), compare_cost);
+        std::stable_sort(costs.begin(), costs.end(), compare_cost);
         
         scoped_mpz weight(m_mpz);
         m_mpz.reset(weight);
@@ -353,7 +353,7 @@ namespace smt {
             m_sorted_vars.push_back(i);
         }
         compare_cost compare_cost(*this);
-        std::sort(m_sorted_vars.begin(), m_sorted_vars.end(), compare_cost);
+        std::stable_sort(m_sorted_vars.begin(), m_sorted_vars.end(), compare_cost);
         m_max_unassigned_index = 0;
         
         m_zcost.reset();

@@ -95,7 +95,7 @@ struct pb2bv_rewriter::imp {
             for (unsigned i = 0; i < m_args.size(); ++i) {
                 cas.push_back(std::make_pair(m_coeffs[i], expr_ref(m_args.get(i), m)));
             }
-            std::sort(cas.begin(), cas.end(), compare_coeffs());
+            std::stable_sort(cas.begin(), cas.end(), compare_coeffs());
             m_coeffs.reset();
             m_args.reset();
             for (ca const& ca : cas) {
@@ -371,7 +371,7 @@ struct pb2bv_rewriter::imp {
             for (unsigned u : sums) {
                 oc.push_back(u);
             }            
-            std::sort(oc.begin(), oc.end());
+            std::stable_sort(oc.begin(), oc.end());
             DEBUG_CODE(                
                 for (unsigned i = 0; i + 1 < oc.size(); ++i) {
                     SASSERT(oc[i] < oc[i+1]);

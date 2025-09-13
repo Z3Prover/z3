@@ -2817,8 +2817,8 @@ public:
                    for (auto* a : atoms) a->display(tout) << "\n";);
             lp_bounds occs(m_bounds[v]);
             
-            std::sort(atoms.begin(), atoms.end(), compare_bounds());
-            std::sort(occs.begin(), occs.end(), compare_bounds());
+            std::stable_sort(atoms.begin(), atoms.end(), compare_bounds());
+            std::stable_sort(occs.begin(), occs.end(), compare_bounds());
                 
             iterator begin1 = occs.begin();
             iterator begin2 = occs.begin();

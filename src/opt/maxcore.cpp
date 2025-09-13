@@ -469,7 +469,7 @@ public:
         compare_asm comp(*this);
         exprs asms(_asms.size(), _asms.data());
         expr_ref_vector trail(_asms);
-        std::sort(asms.begin(), asms.end(), comp);
+        std::stable_sort(asms.begin(), asms.end(), comp);
         _asms.reset();
         _asms.append(asms.size(), asms.data());
         DEBUG_CODE(

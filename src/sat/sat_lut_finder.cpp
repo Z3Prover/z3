@@ -66,7 +66,7 @@ namespace sat {
             m_clause.push_back(l);
         }
         // ensure that variables in returned LUT are sorted
-        std::sort(m_clause.begin(), m_clause.end());
+        std::stable_sort(m_clause.begin(), m_clause.end());
         for (literal l : m_clause) {
             m_vars.push_back(l.var());
             m_var_position[l.var()] = i;

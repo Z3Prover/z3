@@ -582,7 +582,7 @@ void lemma::mk_cube_core() {
             m_cube.push_back(m.mk_true());
         }
         else {
-            std::sort(m_cube.data(), m_cube.data() + m_cube.size(), ast_lt_proc());
+            std::stable_sort(m_cube.data(), m_cube.data() + m_cube.size(), ast_lt_proc());
         }
     }
     else {
@@ -2086,7 +2086,7 @@ void pred_transformer::frames::sort ()
     if (m_sorted) { return; }
 
     m_sorted = true;
-    std::sort(m_lemmas.data(), m_lemmas.data() + m_lemmas.size (), m_lt);
+    std::stable_sort(m_lemmas.data(), m_lemmas.data() + m_lemmas.size (), m_lt);
 }
 
 bool pred_transformer::frames::propagate_to_next_level (unsigned level)

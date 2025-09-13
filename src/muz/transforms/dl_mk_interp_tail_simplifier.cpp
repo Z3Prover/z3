@@ -334,7 +334,7 @@ namespace datalog {
             m_app_args.reset();
             m_app_args.append(num, args);
 
-            std::sort(m_app_args.data(), m_app_args.data()+m_app_args.size(), m_expr_cmp);
+            std::stable_sort(m_app_args.data(), m_app_args.data()+m_app_args.size(), m_expr_cmp);
 
             remove_duplicates(m_app_args);
 

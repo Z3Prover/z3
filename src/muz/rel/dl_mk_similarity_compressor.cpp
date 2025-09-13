@@ -460,7 +460,7 @@ namespace datalog {
 #if 0
         for (unsigned ignored_index=0; ignored_index<const_cnt; ignored_index++) {
             arg_ignoring_comparator comparator(ignored_index);
-            std::sort(first, after_last, comparator);
+            std::stable_sort(first, after_last, comparator);
 
             rule_vector::iterator it = first;
             rule_vector::iterator grp_begin = it;
@@ -517,7 +517,7 @@ namespace datalog {
             m_rules.push_back(source.get_rule(i));
         }
 
-        std::sort(m_rules.begin(), m_rules.end(), initial_comparator);
+        std::stable_sort(m_rules.begin(), m_rules.end(), initial_comparator);
 
         rule_vector::iterator it = m_rules.begin();
         rule_vector::iterator end = m_rules.end();

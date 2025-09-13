@@ -861,13 +861,13 @@ namespace smt {
             void sort_values(node* n, ptr_buffer<expr>& values) {
                 sort* s = n->get_sort();
                 if (m_arith.is_int(s) || m_arith.is_real(s)) {
-                    std::sort(values.begin(), values.end(), numeral_lt<arith_util>(m_arith));
+                    std::stable_sort(values.begin(), values.end(), numeral_lt<arith_util>(m_arith));
                 }
                 else if (!n->is_signed_proj()) {
-                    std::sort(values.begin(), values.end(), numeral_lt<bv_util>(m_bv));
+                    std::stable_sort(values.begin(), values.end(), numeral_lt<bv_util>(m_bv));
                 }
                 else {
-                    std::sort(values.begin(), values.end(), signed_bv_lt(m_bv, m_bv.get_bv_size(s)));
+                    std::stable_sort(values.begin(), values.end(), signed_bv_lt(m_bv, m_bv.get_bv_size(s)));
                 }
             }
 

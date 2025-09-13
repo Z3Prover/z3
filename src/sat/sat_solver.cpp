@@ -812,7 +812,7 @@ namespace sat {
 
     template<bool lvl0>
     bool solver::simplify_clause_core(unsigned & num_lits, literal * lits) const {
-        std::sort(lits, lits+num_lits);
+        std::stable_sort(lits, lits+num_lits);
         literal prev = null_literal;
         unsigned i = 0;
         unsigned j = 0;
@@ -1394,7 +1394,7 @@ namespace sat {
             svector<std::pair<double, bool_var>> priorities(mdl.size());
             for (unsigned i = 0; i < mdl.size(); ++i) 
                 priorities[i] = { m_local_search->get_priority(i), i };
-            std::sort(priorities.begin(), priorities.end(), [](auto& x, auto& y) { return x.first > y.first; });
+            std::stable_sort(priorities.begin(), priorities.end(), [](auto& x, auto& y) { return x.first > y.first; });
             for (unsigned i = priorities.size() / 10; i-- > 0; )
                 move_to_front(priorities[i].second);
 #endif

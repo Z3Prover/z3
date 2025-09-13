@@ -177,7 +177,7 @@ namespace euf {
         scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
         rp->set_substitution(m_subst.get());
 
-        std::sort(m_subst_ids.begin(), m_subst_ids.end(), [&](unsigned u, unsigned v) { return m_id2level[u] > m_id2level[v]; });
+        std::stable_sort(m_subst_ids.begin(), m_subst_ids.end(), [&](unsigned u, unsigned v) { return m_id2level[u] > m_id2level[v]; });
 
         for (unsigned id : m_subst_ids) {
             if (!m.inc())

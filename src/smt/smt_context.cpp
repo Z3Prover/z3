@@ -3470,7 +3470,7 @@ namespace smt {
         reset_assumptions();
         pop_to_base_lvl(); // undo the push_scope() performed by init_assumptions
         m_search_lvl = m_base_lvl;
-        std::sort(m_unsat_core.data(), m_unsat_core.data() + m_unsat_core.size(), ast_lt_proc());
+        std::stable_sort(m_unsat_core.data(), m_unsat_core.data() + m_unsat_core.size(), ast_lt_proc());
         TRACE(unsat_core_bug, tout << "unsat core:\n" << m_unsat_core << "\n";);
         validate_unsat_core();
         // theory validation of unsat core
@@ -4348,7 +4348,7 @@ namespace smt {
             m_conflict_resolution->release_lemma_atoms();
             TRACE(context_lemma, tout << "new lemma: ";
                   literal_vector v(num_lits, lits);
-                  std::sort(v.begin(), v.end());
+                  std::stable_sort(v.begin(), v.end());
                   for (unsigned i = 0; i < num_lits; i++) {
                       display_literal(tout, v[i]);
                       tout << "\n";

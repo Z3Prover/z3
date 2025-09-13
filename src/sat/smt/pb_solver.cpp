@@ -3381,7 +3381,7 @@ namespace pb {
         if (m_overflow) {
             return nullptr;
         }
-        std::sort(m_wlits.begin(), m_wlits.end(), compare_wlit());
+        std::stable_sort(m_wlits.begin(), m_wlits.end(), compare_wlit());
         unsigned k = 0;
         uint64_t sum = 0, sum0 = 0;
         for (wliteral wl : m_wlits) {

@@ -373,7 +373,7 @@ void nex_creator::mul_to_powers(vector<nex_pow>& children) {
         children.push_back(nex_pow(p.first, p.second));
     }
 
-    std::sort(children.begin(), children.end(), [this](const nex_pow& a, const nex_pow& b) {
+    std::stable_sort(children.begin(), children.end(), [this](const nex_pow& a, const nex_pow& b) {
                                                     return gt_on_nex_pow(a, b);
                                                 });
 }

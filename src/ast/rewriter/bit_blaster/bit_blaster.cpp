@@ -32,7 +32,7 @@ static void sort_args(expr * & l1, expr * & l2, expr * & l3) {
     expr * args[3] = {l1, l2, l3};
     // ast_lt_proc is based on the AST ids. So, it is a total order on AST nodes.
     // No need for stable_sort
-    std::sort(args, args+3, ast_lt_proc());
+    std::stable_sort(args, args+3, ast_lt_proc());
     l1 = args[0]; l2 = args[1]; l3 = args[2];
 }
 

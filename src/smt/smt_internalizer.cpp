@@ -1139,7 +1139,7 @@ namespace smt {
     */
     bool context::simplify_aux_clause_literals(unsigned & num_lits, literal * lits, literal_buffer & simp_lits) {
         TRACE(simplify_aux_clause_literals, display_literals(tout, num_lits, lits); tout << "\n";);
-        std::sort(lits, lits + num_lits);
+        std::stable_sort(lits, lits + num_lits);
         literal prev = null_literal;
         unsigned j = 0;
         for (unsigned i = 0; i < num_lits; i++) {
@@ -1195,7 +1195,7 @@ namespace smt {
     */
     bool context::simplify_aux_lemma_literals(unsigned & num_lits, literal * lits) {
         TRACE(simplify_aux_lemma_literals, display_literals(tout << "1) ", num_lits, lits) << "\n";);
-        std::sort(lits, lits + num_lits);
+        std::stable_sort(lits, lits + num_lits);
         TRACE(simplify_aux_lemma_literals, display_literals(tout << "2) ", num_lits, lits) << "\n";);
         literal prev = null_literal;
         unsigned i = 0;

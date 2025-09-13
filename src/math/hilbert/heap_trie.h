@@ -500,7 +500,7 @@ private:
         if (is_sorted) {
             return;
         }
-        std::sort(infos.begin(), infos.end());
+        std::stable_sort(infos.begin(), infos.end());
         unsigned_vector sorted_keys, new_keys;
         for (unsigned i = 0; i < num_keys(); ++i) {
             unsigned j = infos[i].m_index;

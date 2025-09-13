@@ -527,7 +527,7 @@ namespace datalog {
             numbers.push_back(i);
         }
         aux__index_comparator<T> cmp(keys);
-        std::sort(numbers.begin(), numbers.end(), cmp);
+        std::stable_sort(numbers.begin(), numbers.end(), cmp);
         for (unsigned i=0; i<len; i++) {
             unsigned prev_i = i;
             for (;;) {

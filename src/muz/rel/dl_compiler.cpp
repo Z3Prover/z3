@@ -732,7 +732,7 @@ namespace datalog {
                     make_clone(filtered_res, filtered_res, acc);
                 acc.push_back(instruction::mk_filter_interpreted(filtered_res, app_renamed));
             } else {
-                std::sort(remove_columns.begin(), remove_columns.end());
+                std::stable_sort(remove_columns.begin(), remove_columns.end());
                 make_filter_interpreted_and_project(filtered_res, app_renamed, remove_columns, filtered_res, dealloc, acc);
             }
             dealloc = true;

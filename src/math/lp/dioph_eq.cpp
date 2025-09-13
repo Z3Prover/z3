@@ -309,7 +309,7 @@ namespace lp {
             for (const auto& p : term) {
                 sorted_term.emplace_back(p.coeff(), p.j());
             }
-            std::sort(
+            std::stable_sort(
                 sorted_term.begin(), sorted_term.end(),
                 [](const auto& a, const auto& b) {
                     return a.second < b.second;
@@ -1505,7 +1505,7 @@ namespace lp {
             }
 
             // Sort by term_weight descending
-            std::sort(sorted_changed_terms.begin(), sorted_changed_terms.end(),
+            std::stable_sort(sorted_changed_terms.begin(), sorted_changed_terms.end(),
                       [this](unsigned j1, unsigned j2) {
                           return term_weight(lra.get_term(j1)) > term_weight(lra.get_term(j2) );
                       });

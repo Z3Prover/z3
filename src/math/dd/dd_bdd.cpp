@@ -841,7 +841,7 @@ namespace dd {
             }
         }
         // sort free nodes so that adjacent nodes are picked in order of use
-        std::sort(m_free_nodes.begin(), m_free_nodes.end());
+        std::stable_sort(m_free_nodes.begin(), m_free_nodes.end());
         m_free_nodes.reverse();
 
         ptr_vector<op_entry> to_delete, to_keep;

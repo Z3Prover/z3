@@ -211,7 +211,7 @@ public:
 
         m_random_bit = m_random() % 2;
         TRACE(nla_cn, tout << "m_random_bit = " << m_random_bit << "\n";);
-        std::sort(vars.begin(), vars.end(), [this](lpvar j, lpvar k)
+        std::stable_sort(vars.begin(), vars.end(), [this](lpvar j, lpvar k)
                                             {
                                                 auto it_j = m_nex_creator.occurences_map().find(j);
                                                 auto it_k = m_nex_creator.occurences_map().find(k);
@@ -352,7 +352,7 @@ public:
         vector<std::pair<lpvar, occ>> ret;
         for (auto & p : m_nex_creator.occurences_map())
             ret.push_back(p);
-        std::sort(ret.begin(), ret.end(), [](const std::pair<lpvar, occ>& a, const std::pair<lpvar, occ>& b) {
+        std::stable_sort(ret.begin(), ret.end(), [](const std::pair<lpvar, occ>& a, const std::pair<lpvar, occ>& b) {
                                               if (a.second.m_occs > b.second.m_occs)
                                                   return true;
                                               if (a.second.m_occs < b.second.m_occs)

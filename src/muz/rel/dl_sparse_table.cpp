@@ -1203,7 +1203,7 @@ namespace datalog {
 
             if (!tgt_is_first) {
                 //in this case \c res now may be in arbitrary order
-                std::sort(res.begin(), res.end());
+                std::stable_sort(res.begin(), res.end());
             }
         }
 
