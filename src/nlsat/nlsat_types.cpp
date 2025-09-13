@@ -59,7 +59,11 @@ namespace nlsat {
         unsigned _a = a->m_x;
         unsigned _b = ((a->m_i << 2) | (a->m_kind));
         unsigned _c = polynomial::manager::id(a->m_p);
-        mix(_a, _b, _c);
+        {
+            auto a2 = _a, b2 = _b, c2 = _c;
+            mix(a2, b2, c2);
+            _c = c2;
+        }
         return _c;
     }
 

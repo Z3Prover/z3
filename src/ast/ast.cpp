@@ -1914,14 +1914,22 @@ void ast_manager::delete_node(ast * n) {
                 info->del_eh(*this);
                 dealloc(info);
             }
-            push_dec_array_ref(f->get_arity(), f->get_domain());
-            push_dec_ref(f->get_range());
+            {
+                auto ar = f->get_arity();
+                auto dom = f->get_domain();
+                push_dec_array_ref(ar, dom);
+                push_dec_ref(f->get_range());
+            }
             break;
         }
         case AST_APP: {
             app* a = to_app(n);
             push_dec_ref(a->get_decl());
-            push_dec_array_ref(a->get_num_args(), a->get_args());
+            {
+                auto na = a->get_num_args();
+                auto args = a->get_args();
+                push_dec_array_ref(na, args);
+            }
             break;
         }
         case AST_VAR:
@@ -1929,11 +1937,19 @@ void ast_manager::delete_node(ast * n) {
             break;
         case AST_QUANTIFIER: {
             quantifier* q = to_quantifier(n);
-            push_dec_array_ref(q->get_num_decls(), q->get_decl_sorts());
-            push_dec_ref(q->get_expr());
-            push_dec_ref(q->get_sort());
-            push_dec_array_ref(q->get_num_patterns(), q->get_patterns());
-            push_dec_array_ref(q->get_num_no_patterns(), q->get_no_patterns());
+            {
+                auto nd  = q->get_num_decls();
+                auto ds  = q->get_decl_sorts();
+                auto np  = q->get_num_patterns();
+                auto ps  = q->get_patterns();
+                auto nnp = q->get_num_no_patterns();
+                auto nps = q->get_no_patterns();
+                push_dec_array_ref(nd, ds);
+                push_dec_ref(q->get_expr());
+                push_dec_ref(q->get_sort());
+                push_dec_array_ref(np, ps);
+                push_dec_array_ref(nnp, nps);
+            }
             break;
         }
         default:

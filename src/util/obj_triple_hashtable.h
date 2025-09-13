@@ -77,14 +77,22 @@ public:
             m_key1(k1), 
             m_key2(k2),
             m_key3(k3){
-            m_hash = combine_hash(combine_hash(m_key1->hash(), m_key2->hash()), m_key3->hash());
+            auto h1 = m_key1->hash();
+            auto h2 = m_key2->hash();
+            auto h3 = m_key3->hash();
+            auto t12 = combine_hash(h1, h2);
+            m_hash = combine_hash(t12, h3);
         }
         key_data(Key1 * k1, Key2 * k2, Key3* k3, const Value & v):
             m_key1(k1),
             m_key2(k2),
             m_key3(k3),
             m_value(v) {
-            m_hash = combine_hash(combine_hash(m_key1->hash(), m_key2->hash()), m_key3->hash());
+            auto h1 = m_key1->hash();
+            auto h2 = m_key2->hash();
+            auto h3 = m_key3->hash();
+            auto t12 = combine_hash(h1, h2);
+            m_hash = combine_hash(t12, h3);
         }
         unsigned hash() const { return m_hash; }
         bool operator==(key_data const & other) const { return m_key1 == other.m_key1 && m_key2 == other.m_key2 && m_key3 == other.m_key3; }

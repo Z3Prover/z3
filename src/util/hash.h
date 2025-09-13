@@ -85,21 +85,21 @@ unsigned get_composite_hash(Composite app, unsigned n, GetKindHashProc const & k
     case 1:
         a += kind_hash;
         b  = chasher(app, 0);
-        mix(a, b, c);
+        { auto aa=a, bb=b, cc=c; mix(aa,bb,cc); a=aa; b=bb; c=cc; }
         return c;
     case 2:
         a += kind_hash;
         b += chasher(app, 0);
         c += chasher(app, 1);
-        mix(a, b, c);
+        { auto aa=a, bb=b, cc=c; mix(aa,bb,cc); a=aa; b=bb; c=cc; }
         return c;
     case 3:
         a += chasher(app, 0);
         b += chasher(app, 1);
         c += chasher(app, 2);
-        mix(a, b, c);
+        { auto aa=a, bb=b, cc=c; mix(aa,bb,cc); a=aa; b=bb; c=cc; }
         a += kind_hash;
-        mix(a, b, c);
+        { auto aa=a, bb=b, cc=c; mix(aa,bb,cc); a=aa; b=bb; c=cc; }
         return c;
     default:
         while (n >= 3) {
@@ -109,7 +109,7 @@ unsigned get_composite_hash(Composite app, unsigned n, GetKindHashProc const & k
             b += chasher(app, n);
             n--;
             c += chasher(app, n);
-            mix(a, b, c);
+            { auto aa=a, bb=b, cc=c; mix(aa,bb,cc); a=aa; b=bb; c=cc; }
         }
         
         a += kind_hash;
@@ -120,7 +120,7 @@ unsigned get_composite_hash(Composite app, unsigned n, GetKindHashProc const & k
         case 1:
             c += chasher(app, 0);
         }
-        mix(a, b, c);
+        { auto aa=a, bb=b, cc=c; mix(aa,bb,cc); a=aa; b=bb; c=cc; }
         return c;
     }
 }
@@ -205,7 +205,11 @@ struct triple_hash : private Hash1 {
     }
 
     unsigned operator()(std::pair<typename Hash1::data_t, typename Hash2::data_t> const & p) const {
-        return combine_hash(combine_hash(Hash1::operator()(p.first), m_hash2.operator()(p.second)), m_hash3.operator()(p.third));
+        auto h1 = Hash1::operator()(p.first);
+        auto h2 = m_hash2.operator()(p.second);
+        auto h3 = m_hash3.operator()(p.third);
+        auto t12 = combine_hash(h1, h2);
+        return combine_hash(t12, h3);
     }
 };
 
@@ -213,7 +217,11 @@ template<typename T1, typename T2, typename T3>
 struct obj_ptr_triple_hash {
     typedef triple<T1*, T2*, T3*> data_t;
     unsigned operator()(data_t const & d) const {
-        return combine_hash(combine_hash(d.first->hash(), d.second->hash()), d.third->hash());
+        auto h1 = d.first->hash();
+        auto h2 = d.second->hash();
+        auto h3 = d.third->hash();
+        auto t12 = combine_hash(h1, h2);
+        return combine_hash(t12, h3);
     }
 };
 
@@ -245,8 +253,9 @@ struct ptr_hash {
 };
 
 inline unsigned mk_mix(unsigned a, unsigned b, unsigned c) {
-    mix(a, b, c);
-    return c;
+    auto aa = a, bb = b, cc = c;
+    mix(aa, bb, cc);
+    return cc;
 }
 
 

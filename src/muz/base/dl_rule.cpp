@@ -1073,7 +1073,10 @@ namespace datalog {
         unsigned res = get_head()->hash();
         unsigned tail_len = get_tail_size();
         for (unsigned i=0; i<tail_len; ++i) {
-            res = combine_hash(res, combine_hash(get_tail(i)->hash(), is_neg_tail(i)));
+            auto h = get_tail(i)->hash();
+            auto neg = is_neg_tail(i);
+            auto t = combine_hash(h, neg);
+            res = combine_hash(res, t);
         }
         return res;
     }
