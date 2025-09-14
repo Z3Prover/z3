@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Tests for Horner evaluation functionality in math/lp
+    Tests for Horner evaluation functionality - simple polynomial evaluation
 
 Author:
 
@@ -17,9 +17,8 @@ Revision History:
 
 --*/
 
-#include "math/lp/horner.h"
 #include "util/rational.h"
-#include "util/rlimit.h"
+#include "util/vector.h"
 #include <iostream>
 
 // Simple horner evaluation function for testing
