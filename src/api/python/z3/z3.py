@@ -7509,7 +7509,7 @@ class Solver(Z3PPObject):
         >>> s = SimpleSolver()
         >>> s.add(x == 2**x)
         >>> s.check()
-        sat
+        unknown
         >>> s.reason_unknown()
         '(incomplete (theory arithmetic))'
         """
