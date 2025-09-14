@@ -27,7 +27,7 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
         SASSERT(num_args == 1);
         result = m_util.mk_is(m_util.get_recognizer_constructor(f), args[0]);
         return BR_REWRITE1;
-    case OP_DT_IS:
+    case OP_DT_IS: {
         //
         // simplify is_cons(cons(x,y)) -> true
         // simplify is_cons(nil) -> false
@@ -37,23 +37,48 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
             result = m().mk_true();
             return BR_DONE;
         }
-        if (!is_app(args[0]) || !m_util.is_constructor(to_app(args[0])))
+        if (!is_app(args[0]))
             return BR_FAILED;
-        if (to_app(args[0])->get_decl() == m_util.get_recognizer_constructor(f))
+        app* a = to_app(args[0]);
+        if (m_util.is_update_field(a)) {
+            result = m().mk_app(f, a->get_arg(0));
+            return BR_REWRITE1;
+        }
+        if (!m_util.is_constructor(a))
+            return BR_FAILED;
+        if (a->get_decl() == m_util.get_recognizer_constructor(f))
             result = m().mk_true();
         else
             result = m().mk_false();
         return BR_DONE;
+    }
     case OP_DT_ACCESSOR: {
         // 
         // simplify head(cons(x,y)) -> x
         // 
         SASSERT(num_args == 1);
-        if (!is_app(args[0]) || !m_util.is_constructor(to_app(args[0])))
+        if (!is_app(args[0]))
             return BR_FAILED;
+        app* a = to_app(args[0]);
+
+        func_decl* c_decl = a->get_decl(); 
+        auto num_constructors = m_util.get_datatype_num_constructors(args[0]->get_sort());
+
+        if (m_util.is_update_field(a) && num_constructors == 1) {
+            auto dt = a->get_arg(0);
+            auto val = a->get_arg(1);
+            func_decl* acc = m_util.get_update_accessor(c_decl);
+            if (f == acc) {
+                result = val;
+                return BR_DONE;
+            }
+            result = m().mk_app(f, dt);
+            return BR_REWRITE1;
+        }
         
-        app * a = to_app(args[0]);
-        func_decl * c_decl = a->get_decl();
+        if (!m_util.is_constructor(to_app(args[0])))
+            return BR_FAILED;        
+
         if (c_decl != m_util.get_accessor_constructor(f))
             return BR_FAILED;
         ptr_vector<func_decl> const & acc = *m_util.get_constructor_accessors(c_decl);
