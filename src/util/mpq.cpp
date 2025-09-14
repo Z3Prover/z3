@@ -281,6 +281,14 @@ void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
 
 template<bool SYNCH>
 void mpq_manager<SYNCH>::power(mpq const & a, unsigned p, mpq & b) {
+    if (p == 1) {
+        set(b, a);
+        return;
+    }
+    if (p == 0) {
+        set(b, 1);
+        return;
+    }
     unsigned mask = 1;
     mpq power;
     set(power, a);

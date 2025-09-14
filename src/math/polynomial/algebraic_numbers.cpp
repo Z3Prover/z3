@@ -2156,6 +2156,7 @@ namespace algebraic_numbers {
                 }
 
                 if (restart) {
+                    checkpoint();
                     // Some non-basic value became basic.
                     // So, restarting the whole process
                     TRACE(anum_eval_sign, tout << "restarting some algebraic_cell became basic\n";);

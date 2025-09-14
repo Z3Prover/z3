@@ -239,6 +239,14 @@ public:
     int64_t get_int64(mpz & a) const { const_cast<mpzzp_manager*>(this)->p_normalize(a); return m().get_int64(a); }
     double get_double(mpz & a) const { const_cast<mpzzp_manager*>(this)->p_normalize(a); return m().get_double(a); }
     void power(mpz const & a, unsigned k, mpz & b) { 
+        if (k == 1) {
+            set(b, a);
+            return;
+        }
+        if (k == 0) {
+            set(b, 1);
+            return;
+        }
         SASSERT(is_p_normalized(a));
         unsigned mask = 1;
         mpz power;

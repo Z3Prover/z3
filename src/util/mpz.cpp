@@ -2320,17 +2320,45 @@ bool mpz_manager<SYNCH>::is_perfect_square(mpz const & a, mpz & root) {
         set(root, 1);
         return true;
     }
+    // x^2 mod 16 in { 9, 1, 4, 0 }
+    auto mod16 = get_least_significant(a) & 0xF;
+    if (mod16 != 0 && mod16 != 1 && mod16 != 4 && mod16 != 9)
+        return false;
 
-    mpz lo, hi, mid, sq_lo, sq_hi, sq_mid;
+    mpz lo, hi, mid, sq_lo, sq_mid;
     set(lo, 1);
     set(hi, a);
-    set(sq_lo, 1);
-    mul(hi, hi, sq_hi);
-    bool result;
+    set(sq_lo, 1);    
+
+    bool result = false;
+    bool first = true;
     // lo*lo <= *this < hi*hi
+
+    // first find small interval lo*lo <= a <<= hi*hi
     while (true) {
         SASSERT(lt(lo, hi));
-        SASSERT(le(sq_lo, a) && lt(a, sq_hi));
+
+        if (eq(sq_lo, a)) {
+            set(root, lo);
+            result = true;
+            break;
+        }
+        mpz& tmp = mid;
+        mul(lo, mpz(2), tmp);
+        if (gt(tmp, hi))
+            break;
+        mul(tmp, tmp, sq_mid);
+        if (gt(sq_mid, a)) {
+            set(hi, tmp);
+            break;
+        }
+        set(lo, tmp);
+        set(sq_lo, sq_mid);
+    }
+
+    while (!result) {
+        SASSERT(lt(lo, hi));
+
         if (eq(sq_lo, a)) {
             set(root, lo);
             result = true;
@@ -2338,6 +2366,7 @@ bool mpz_manager<SYNCH>::is_perfect_square(mpz const & a, mpz & root) {
         }
 
         mpz & tmp = mid;
+
         add(lo, mpz(1), tmp);
         if (eq(tmp, hi)) {
             set(root, hi);
@@ -2354,7 +2383,6 @@ bool mpz_manager<SYNCH>::is_perfect_square(mpz const & a, mpz & root) {
 
         if (gt(sq_mid, a)) {
             set(hi, mid);
-            set(sq_hi, sq_mid);
         }
         else {
             set(lo, mid);
@@ -2365,7 +2393,6 @@ bool mpz_manager<SYNCH>::is_perfect_square(mpz const & a, mpz & root) {
     del(hi);
     del(mid);
     del(sq_lo);
-    del(sq_hi);
     del(sq_mid);
     return result;
 }
@@ -2453,6 +2480,30 @@ bool mpz_manager<SYNCH>::root(mpz & a, unsigned n) {
     del(mid);
     del(mid_n);
     return result;
+}
+
+template<bool SYNCH>
+digit_t mpz_manager<SYNCH>::get_least_significant(mpz const& a) {
+    if (is_small(a)) 
+        return std::abs(a.m_val);
+#ifndef _MP_GMP
+    mpz_cell* cell_a = a.m_ptr;   
+    unsigned sz = cell_a->m_size;
+    if (sz == 0)
+        return 0;
+    return cell_a->m_digits[0];
+#else   
+    digit_t result = 0;
+    MPZ_BEGIN_CRITICAL();
+    mpz_set(m_tmp, *a.m_ptr);
+    mpz_abs(m_tmp, m_tmp);
+    if (mpz_sgn(m_tmp) != 0) {
+        mpz_tdiv_r_2exp(m_tmp2, m_tmp, 32);
+        result = mpz_get_ui(m_tmp2);
+    }
+    MPZ_END_CRITICAL();
+    return result;
+#endif
 }
 
 template<bool SYNCH>
