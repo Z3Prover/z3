@@ -7263,7 +7263,7 @@ class Solver(Z3PPObject):
         >>> s.reset()
         >>> s.add(2**x == 4)
         >>> s.check()
-        unknown
+        sat
         """
         s = BoolSort(self.ctx)
         assumptions = _get_args(assumptions)
@@ -7507,9 +7507,9 @@ class Solver(Z3PPObject):
 
         >>> x = Int('x')
         >>> s = SimpleSolver()
-        >>> s.add(2**x == 4)
+        >>> s.add(x == 2**x)
         >>> s.check()
-        unknown
+        sat
         >>> s.reason_unknown()
         '(incomplete (theory arithmetic))'
         """
