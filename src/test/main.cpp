@@ -210,8 +210,13 @@ int main(int argc, char ** argv) {
     TST(smt2print_parse);
     TST(substitution);
     TST(polynomial);
+    TST(polynomial_factorization);
     TST(upolynomial);
     TST(algebraic);
+    TST(algebraic_numbers);
+    TST(monomial_bounds);
+    TST(nla_intervals);
+    TST(horner);
     TST(prime_generator);
     TST(permutation);
     TST(nlsat);
