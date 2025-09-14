@@ -2313,17 +2313,20 @@ bool mpz_manager<SYNCH>::is_perfect_square(mpz const & a, mpz & root) {
     if (is_neg(a))
         return false;
     set(root, 0);
-    if (is_zero(a)) {
+    if (is_zero(a)) {       
         return true;
     }
     if (is_one(a)) {
         set(root, 1);
         return true;
     }
+#if 0
+    // current contract is that root is set to an approximation within +1/-1 of actional root.
     // x^2 mod 16 in { 9, 1, 4, 0 }
     auto mod16 = get_least_significant(a) & 0xF;
     if (mod16 != 0 && mod16 != 1 && mod16 != 4 && mod16 != 9)
         return false;
+#endif
 
     mpz lo, hi, mid, sq_lo, sq_mid;
     set(lo, 1);
@@ -2484,6 +2487,7 @@ bool mpz_manager<SYNCH>::root(mpz & a, unsigned n) {
 
 template<bool SYNCH>
 digit_t mpz_manager<SYNCH>::get_least_significant(mpz const& a) {
+    SASSERT(!is_neg(a));
     if (is_small(a)) 
         return std::abs(a.m_val);
 #ifndef _MP_GMP
@@ -2493,16 +2497,7 @@ digit_t mpz_manager<SYNCH>::get_least_significant(mpz const& a) {
         return 0;
     return cell_a->m_digits[0];
 #else   
-    digit_t result = 0;
-    MPZ_BEGIN_CRITICAL();
-    mpz_set(m_tmp, *a.m_ptr);
-    mpz_abs(m_tmp, m_tmp);
-    if (mpz_sgn(m_tmp) != 0) {
-        mpz_tdiv_r_2exp(m_tmp2, m_tmp, 32);
-        result = mpz_get_ui(m_tmp2);
-    }
-    MPZ_END_CRITICAL();
-    return result;
+    return mpz_get_ui(*a.m_ptr);
 #endif
 }
 
