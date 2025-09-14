@@ -186,10 +186,7 @@ class theory_lra::imp {
         imp & m_th;
         var_value_eq(imp & th):m_th(th) {}
         bool operator()(theory_var v1, theory_var v2) const { 
-            if (m_th.is_int(v1) != m_th.is_int(v2)) {
-                return false;
-            }
-            return m_th.is_eq(v1, v2);
+            return m_th.is_int(v1) == m_th.is_int(v2) && m_th.is_eq(v1, v2);
         }
     };
 
@@ -270,7 +267,6 @@ class theory_lra::imp {
             };
             m_nla->set_relevant(is_relevant);
             m_nla->updt_params(ctx().get_params());
-
         }
     }
 
@@ -470,7 +466,8 @@ class theory_lra::imp {
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);       
                 }
-                else if (a.is_power(n, n1, n2)) {                    
+                else if (a.is_power(n, n1, n2)) { 
+                    ensure_nla();
                     found_unsupported(n);
                     if (!ctx().relevancy()) mk_power_axiom(n, n1, n2);
                     st.to_ensure_var().push_back(n1);
@@ -1680,6 +1677,8 @@ public:
             if (!int_undef && !check_bv_terms())
                 return FC_CONTINUE;
             
+            if (!m_not_handled.empty())
+                init_variable_values();
             for (expr* e : m_not_handled) {
                 if (!ctx().is_relevant(e))
                     continue;
