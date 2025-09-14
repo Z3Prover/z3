@@ -39,7 +39,7 @@ void test_monomial_bounds_basic() {
     lpvar xyz = s.add_var(3, true);
     
     // Set up solver with monomial bounds
-    solver nla_solver(s, p, rl);
+    nla::core nla_solver(s, p, rl);
     
     // Create monomial xyz = x * y * z
     vector<lpvar> vars;
@@ -55,7 +55,7 @@ void test_monomial_bounds_basic() {
     s.set_column_value_test(xyz, lp::impq(rational(20))); // Should be 24
     
     // Test that this produces a conflict
-    lbool result = nla_solver.get_core().test_check();
+    lbool result = nla_solver.test_check();
     VERIFY(result == l_false);
 }
 
@@ -71,7 +71,7 @@ void test_monomial_bounds_propagation() {
     lpvar y = s.add_var(1, true);
     lpvar xy = s.add_var(2, true);
     
-    solver nla_solver(s, p, rl);
+    nla::core nla_solver(s, p, rl);
     
     // Create monomial xy = x * y
     vector<lpvar> vars;
@@ -84,7 +84,7 @@ void test_monomial_bounds_propagation() {
     s.set_column_value_test(y, lp::impq(rational(5)));
     s.set_column_value_test(xy, lp::impq(rational(1))); // Should be 0
     
-    lbool result = nla_solver.get_core().test_check();
+    lbool result = nla_solver.test_check();
     VERIFY(result == l_false);
 }
 
@@ -100,7 +100,7 @@ void test_monomial_bounds_intervals() {
     lpvar b = s.add_var(1, true);
     lpvar ab = s.add_var(2, true);
     
-    solver nla_solver(s, p, rl);
+    nla::core nla_solver(s, p, rl);
     
     vector<lpvar> vars;
     vars.push_back(a);
@@ -112,7 +112,7 @@ void test_monomial_bounds_intervals() {
     s.set_column_value_test(b, lp::impq(rational(3), rational(2))); // 1.5
     s.set_column_value_test(ab, lp::impq(rational(1))); // Should be 0.75
     
-    lbool result = nla_solver.get_core().test_check();
+    lbool result = nla_solver.test_check();
     VERIFY(result == l_false);
 }
 
@@ -127,7 +127,7 @@ void test_monomial_bounds_power() {
     lpvar x = s.add_var(0, true);
     lpvar x_squared = s.add_var(1, true);
     
-    solver nla_solver(s, p, rl);
+    nla::core nla_solver(s, p, rl);
     
     // Create x^2 = x * x
     vector<lpvar> vars;
@@ -139,7 +139,7 @@ void test_monomial_bounds_power() {
     s.set_column_value_test(x, lp::impq(rational(-3)));
     s.set_column_value_test(x_squared, lp::impq(rational(8))); // Should be 9
     
-    lbool result = nla_solver.get_core().test_check();
+    lbool result = nla_solver.test_check();
     VERIFY(result == l_false);
 }
 
@@ -154,7 +154,7 @@ void test_monomial_bounds_linear_case() {
     lpvar x = s.add_var(0, true);
     lpvar mx = s.add_var(1, true); // monomial of just x
     
-    solver nla_solver(s, p, rl);
+    nla::core nla_solver(s, p, rl);
     
     vector<lpvar> vars;
     vars.push_back(x);
@@ -163,7 +163,7 @@ void test_monomial_bounds_linear_case() {
     s.set_column_value_test(x, lp::impq(rational(7)));
     s.set_column_value_test(mx, lp::impq(rational(6))); // Should be 7
     
-    lbool result = nla_solver.get_core().test_check();
+    lbool result = nla_solver.test_check();
     VERIFY(result == l_false);
 }
 

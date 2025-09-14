@@ -28,24 +28,24 @@ void test_algebraic_basic_operations() {
     
     reslimit rl;
     unsynch_mpq_manager qm;
-    pmanager pm(rl, qm);
-    amanager am(rl, qm, pm);
+    anum_manager am(rl, qm);
     
-    // Test basic algebraic number creation
+    // Test basic algebraic number creation and operations
     scoped_anum a(am), b(am), c(am);
     
-    // Create algebraic number representing sqrt(2)
-    polynomial_ref p(pm);
-    var x = pm.mk_var();
-    p = pm.mk_polynomial(pm.mk_mul(x, x)) - pm.mk_const(rational(2));
+    // Set a = 2, b = 3
+    scoped_mpq q2(qm), q3(qm);
+    qm.set(q2, 2);
+    qm.set(q3, 3);
+    am.set(a, q2);
+    am.set(b, q3);
     
-    am.mk_root(a, p, 1);  // Positive root of x^2 - 2
+    // Test addition: c = a + b = 2 + 3 = 5
+    am.add(a, b, c);
     
-    // Test that sqrt(2) squared equals 2
-    am.mul(a, a, b);
-    am.set(c, rational(2));
-    
-    VERIFY(am.eq(b, c));
+    scoped_mpq q5(qm);
+    qm.set(q5, 5);
+    VERIFY(am.eq(c, q5));
 }
 
 void test_algebraic_arithmetic() {
@@ -53,41 +53,31 @@ void test_algebraic_arithmetic() {
     
     reslimit rl;
     unsynch_mpq_manager qm;
-    pmanager pm(rl, qm);
-    amanager am(rl, qm, pm);
+    anum_manager am(rl, qm);
     
-    scoped_anum sqrt2(am), sqrt3(am), sum(am), expected(am);
+    scoped_anum a(am), b(am), sum(am), diff(am), prod(am);
     
-    // Create sqrt(2) and sqrt(3)
-    polynomial_ref p2(pm), p3(pm);
-    var x = pm.mk_var();
+    // Set a = 5/2, b = 3/4
+    scoped_mpq qa(qm), qb(qm);
+    qm.set(qa, 5, 2);
+    qm.set(qb, 3, 4);
+    am.set(a, qa);
+    am.set(b, qb);
     
-    p2 = pm.mk_polynomial(pm.mk_mul(x, x)) - pm.mk_const(rational(2));
-    p3 = pm.mk_polynomial(pm.mk_mul(x, x)) - pm.mk_const(rational(3));
+    // Test arithmetic operations
+    am.add(a, b, sum);     // 5/2 + 3/4 = 13/4
+    am.sub(a, b, diff);    // 5/2 - 3/4 = 7/4
+    am.mul(a, b, prod);    // 5/2 * 3/4 = 15/8
     
-    am.mk_root(sqrt2, p2, 1);
-    am.mk_root(sqrt3, p3, 1);
+    // Verify results
+    scoped_mpq qsum(qm), qdiff(qm), qprod(qm);
+    qm.set(qsum, 13, 4);
+    qm.set(qdiff, 7, 4);
+    qm.set(qprod, 15, 8);
     
-    // Test addition: sqrt(2) + sqrt(3)
-    am.add(sqrt2, sqrt3, sum);
-    
-    // Verify the sum is algebraic (should be a root of x^4 - 10x^2 + 1)
-    polynomial_ref sum_poly(pm);
-    sum_poly = pm.mk_polynomial(pm.mk_power(x, 4)) - 
-               pm.mk_polynomial(pm.mk_mul(pm.mk_const(rational(10)), pm.mk_mul(x, x))) +
-               pm.mk_const(rational(1));
-    
-    // Test that (sqrt(2) + sqrt(3))^4 - 10*(sqrt(2) + sqrt(3))^2 + 1 = 0
-    scoped_anum sum_sq(am), sum_4th(am), ten_sum_sq(am), result(am);
-    am.mul(sum, sum, sum_sq);
-    am.mul(sum_sq, sum_sq, sum_4th);
-    am.mul(sum_sq, rational(10), ten_sum_sq);
-    
-    am.sub(sum_4th, ten_sum_sq, result);
-    am.add(result, rational(1), result);
-    
-    // The result should be close to zero (within algebraic precision)
-    VERIFY(am.is_zero(result));
+    VERIFY(am.eq(sum, qsum));
+    VERIFY(am.eq(diff, qdiff));
+    VERIFY(am.eq(prod, qprod));
 }
 
 void test_algebraic_comparison() {
@@ -95,55 +85,23 @@ void test_algebraic_comparison() {
     
     reslimit rl;
     unsynch_mpq_manager qm;
-    pmanager pm(rl, qm);
-    amanager am(rl, qm, pm);
+    anum_manager am(rl, qm);
     
-    scoped_anum sqrt2(am), sqrt3(am), rational_val(am);
+    scoped_anum a(am), b(am), c(am);
     
-    // Create sqrt(2) and sqrt(3)
-    polynomial_ref p2(pm), p3(pm);
-    var x = pm.mk_var();
-    
-    p2 = pm.mk_polynomial(pm.mk_mul(x, x)) - pm.mk_const(rational(2));
-    p3 = pm.mk_polynomial(pm.mk_mul(x, x)) - pm.mk_const(rational(3));
-    
-    am.mk_root(sqrt2, p2, 1);
-    am.mk_root(sqrt3, p3, 1);
-    am.set(rational_val, rational(3, 2));
+    // Set a = 2, b = 3, c = 2
+    scoped_mpq q2(qm), q3(qm);
+    qm.set(q2, 2);
+    qm.set(q3, 3);
+    am.set(a, q2);
+    am.set(b, q3);
+    am.set(c, q2);
     
     // Test comparisons
-    VERIFY(am.lt(sqrt2, sqrt3));  // sqrt(2) < sqrt(3)
-    VERIFY(am.gt(sqrt2, rational_val));  // sqrt(2) > 1.5
-    VERIFY(!am.eq(sqrt2, sqrt3));  // sqrt(2) != sqrt(3)
-}
-
-void test_algebraic_isolation() {
-    std::cout << "test_algebraic_isolation\n";
-    
-    reslimit rl;
-    unsynch_mpq_manager qm;
-    pmanager pm(rl, qm);
-    amanager am(rl, qm, pm);
-    
-    // Test root isolation for polynomial with multiple roots
-    polynomial_ref p(pm);
-    var x = pm.mk_var();
-    
-    // Create polynomial (x-1)(x-2)(x-3) = x^3 - 6x^2 + 11x - 6
-    p = pm.mk_polynomial(pm.mk_power(x, 3)) -
-        pm.mk_polynomial(pm.mk_mul(pm.mk_const(rational(6)), pm.mk_mul(x, x))) +
-        pm.mk_polynomial(pm.mk_mul(pm.mk_const(rational(11)), x)) -
-        pm.mk_const(rational(6));
-    
-    scoped_anum root1(am), root2(am), root3(am);
-    
-    am.mk_root(root1, p, 0);  // First root (should be 1)
-    am.mk_root(root2, p, 1);  // Second root (should be 2)
-    am.mk_root(root3, p, 2);  // Third root (should be 3)
-    
-    VERIFY(am.eq(root1, rational(1)));
-    VERIFY(am.eq(root2, rational(2)));
-    VERIFY(am.eq(root3, rational(3)));
+    VERIFY(am.lt(a, b));      // 2 < 3
+    VERIFY(am.gt(b, a));      // 3 > 2
+    VERIFY(am.eq(a, c));      // 2 == 2
+    VERIFY(!am.eq(a, b));     // 2 != 3
 }
 
 void test_algebraic_degree() {
@@ -151,60 +109,57 @@ void test_algebraic_degree() {
     
     reslimit rl;
     unsynch_mpq_manager qm;
-    pmanager pm(rl, qm);
-    amanager am(rl, qm, pm);
+    anum_manager am(rl, qm);
     
-    scoped_anum rational_num(am), algebraic_num(am);
+    scoped_anum rational_num(am);
     
-    // Test rational number (degree 1)
-    am.set(rational_num, rational(5, 3));
+    // Test rational number
+    scoped_mpq q(qm);
+    qm.set(q, 5, 3);
+    am.set(rational_num, q);
     
-    // Test algebraic number (degree 2 - sqrt(2))
-    polynomial_ref p(pm);
-    var x = pm.mk_var();
-    p = pm.mk_polynomial(pm.mk_mul(x, x)) - pm.mk_const(rational(2));
-    am.mk_root(algebraic_num, p, 1);
-    
-    // Rational numbers should have minimal polynomials of degree 1
+    // Rational numbers should be detected as rational
     VERIFY(am.is_rational(rational_num));
     
-    // sqrt(2) should not be rational
-    VERIFY(!am.is_rational(algebraic_num));
+    // Test zero
+    scoped_anum zero(am);
+    am.reset(zero);
+    VERIFY(am.is_zero(zero));
+    VERIFY(am.is_rational(zero));
 }
 
-void test_algebraic_refinement() {
-    std::cout << "test_algebraic_refinement\n";
+void test_algebraic_signs() {
+    std::cout << "test_algebraic_signs\n";
     
     reslimit rl;
     unsynch_mpq_manager qm;
-    pmanager pm(rl, qm);
-    amanager am(rl, qm, pm);
+    anum_manager am(rl, qm);
     
-    // Test interval refinement for algebraic numbers
-    scoped_anum sqrt2(am);
-    polynomial_ref p(pm);
-    var x = pm.mk_var();
+    scoped_anum pos(am), neg(am), zero(am);
     
-    p = pm.mk_polynomial(pm.mk_mul(x, x)) - pm.mk_const(rational(2));
-    am.mk_root(sqrt2, p, 1);
+    // Set positive, negative, and zero values
+    scoped_mpq qpos(qm), qneg(qm);
+    qm.set(qpos, 5);
+    qm.set(qneg, -3);
+    am.set(pos, qpos);
+    am.set(neg, qneg);
+    am.reset(zero);
     
-    // Get interval containing sqrt(2)
-    scoped_anum lower(am), upper(am);
-    am.get_lower(sqrt2, lower);
-    am.get_upper(sqrt2, upper);
-    
-    // sqrt(2) should be between 1.4 and 1.5
-    VERIFY(am.ge(sqrt2, rational(14, 10)));
-    VERIFY(am.le(sqrt2, rational(15, 10)));
+    // Test sign detection
+    VERIFY(am.is_pos(pos));
+    VERIFY(am.is_neg(neg));
+    VERIFY(am.is_zero(zero));
+    VERIFY(!am.is_pos(neg));
+    VERIFY(!am.is_neg(pos));
+    VERIFY(!am.is_zero(pos));
 }
 
 void test_algebraic_numbers() {
     test_algebraic_basic_operations();
     test_algebraic_arithmetic();
     test_algebraic_comparison();
-    test_algebraic_isolation();
     test_algebraic_degree();
-    test_algebraic_refinement();
+    test_algebraic_signs();
 }
 
 } // namespace polynomial

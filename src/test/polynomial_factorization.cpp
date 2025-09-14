@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Tests for polynomial factorization functionality
+    Tests for polynomial factorization functionality in math/polynomial
 
 Author:
 
@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include "math/polynomial/upolynomial_factorization.h"
 #include "math/polynomial/upolynomial.h"
+#include "math/polynomial/upolynomial_factorization.h"
 #include "util/rlimit.h"
 #include <iostream>
 
@@ -30,35 +30,24 @@ void test_factorization_basic() {
     reslimit rl;
     unsynch_mpq_manager nm;
     upolynomial::manager m(rl, nm);
-    upolynomial::factors fs(nm);
+    upolynomial::factors fs(m);
     
     // Test factorization of x^2 - 1 = (x-1)(x+1)
     upolynomial::scoped_numeral_vector p(m);
     
     // Create polynomial x^2 - 1: coefficients [c_0, c_1, c_2] = [-1, 0, 1]
-    m.set(p, 3);
-    nm.set(p[0], -1);  // constant term
-    nm.set(p[1], 0);   // coefficient of x
-    nm.set(p[2], 1);   // coefficient of x^2
+    p.push_back(mpz(-1));  // constant term
+    p.push_back(mpz(0));   // x coefficient  
+    p.push_back(mpz(1));   // x^2 coefficient
     
-    // Factor the polynomial
     m.factor(p, fs);
     
-    // Should have two linear factors
-    VERIFY(fs.distinct_factors() >= 2);
+    // Should have 2 distinct factors: (x-1) and (x+1)
+    VERIFY(fs.distinct_factors() == 2);
     
-    // Verify that multiplying factors gives back original polynomial
+    // Reconstruct polynomial from factors
     upolynomial::scoped_numeral_vector result(m);
-    m.set(result, 1);
-    nm.set(result[0], 1);  // Start with constant 1
-    
-    for (unsigned i = 0; i < fs.distinct_factors(); i++) {
-        upolynomial::scoped_numeral_vector temp(m);
-        for (unsigned j = 0; j < fs.get_multiplicity(i); j++) {
-            m.mul(result, fs[i], temp);
-            m.swap(result, temp);
-        }
-    }
+    fs.multiply(result);
     
     VERIFY(m.eq(p, result));
 }
@@ -69,22 +58,26 @@ void test_factorization_irreducible() {
     reslimit rl;
     unsynch_mpq_manager nm;
     upolynomial::manager m(rl, nm);
-    upolynomial::factors fs(nm);
+    upolynomial::factors fs(m);
     
-    // Test irreducible polynomial x^2 + 1 over rationals
+    // Test irreducible polynomial x^2 + 1 (over rationals)
     upolynomial::scoped_numeral_vector p(m);
     
     // Create polynomial x^2 + 1: coefficients [1, 0, 1]
-    m.set(p, 3);
-    nm.set(p[0], 1);   // constant term
-    nm.set(p[1], 0);   // coefficient of x  
-    nm.set(p[2], 1);   // coefficient of x^2
+    p.push_back(mpz(1));   // constant term
+    p.push_back(mpz(0));   // x coefficient
+    p.push_back(mpz(1));   // x^2 coefficient
     
     m.factor(p, fs);
     
-    // Should be irreducible over rationals (only one factor)
+    // Should have 1 distinct factor (irreducible)
     VERIFY(fs.distinct_factors() == 1);
-    VERIFY(m.eq(p, fs[0]));
+    
+    // Reconstruct polynomial from factors
+    upolynomial::scoped_numeral_vector result(m);
+    fs.multiply(result);
+    
+    VERIFY(m.eq(p, result));
 }
 
 void test_factorization_cubic() {
@@ -93,36 +86,25 @@ void test_factorization_cubic() {
     reslimit rl;
     unsynch_mpq_manager nm;
     upolynomial::manager m(rl, nm);
-    upolynomial::factors fs(nm);
+    upolynomial::factors fs(m);
     
-    // Test cubic polynomial x^3 - 6x^2 + 11x - 6 = (x-1)(x-2)(x-3)
+    // Test factorization of x^3 - 6x^2 + 11x - 6 = (x-1)(x-2)(x-3)
     upolynomial::scoped_numeral_vector p(m);
     
-    // Create polynomial x^3 - 6x^2 + 11x - 6
-    m.set(p, 4);
-    nm.set(p[0], -6);  // constant term
-    nm.set(p[1], 11);  // coefficient of x
-    nm.set(p[2], -6);  // coefficient of x^2
-    nm.set(p[3], 1);   // coefficient of x^3
+    // Create polynomial x^3 - 6x^2 + 11x - 6: coefficients [-6, 11, -6, 1]
+    p.push_back(mpz(-6));  // constant term
+    p.push_back(mpz(11));  // x coefficient
+    p.push_back(mpz(-6));  // x^2 coefficient
+    p.push_back(mpz(1));   // x^3 coefficient
     
     m.factor(p, fs);
     
-    // Should have three linear factors
-    VERIFY(fs.distinct_factors() >= 3 || 
-           (fs.distinct_factors() > 0 && fs.total_factors() == 3));
+    // Should have 3 distinct factors: (x-1), (x-2), (x-3)
+    VERIFY(fs.distinct_factors() == 3);
     
-    // Verify reconstruction
+    // Reconstruct polynomial from factors
     upolynomial::scoped_numeral_vector result(m);
-    m.set(result, 1);
-    nm.set(result[0], 1);
-    
-    for (unsigned i = 0; i < fs.distinct_factors(); i++) {
-        upolynomial::scoped_numeral_vector temp(m);
-        for (unsigned j = 0; j < fs.get_multiplicity(i); j++) {
-            m.mul(result, fs[i], temp);
-            m.swap(result, temp);
-        }
-    }
+    fs.multiply(result);
     
     VERIFY(m.eq(p, result));
 }
@@ -133,34 +115,28 @@ void test_factorization_repeated_factors() {
     reslimit rl;
     unsynch_mpq_manager nm;
     upolynomial::manager m(rl, nm);
-    upolynomial::factors fs(nm);
+    upolynomial::factors fs(m);
     
-    // Test polynomial with repeated factors: (x-1)^2(x-2) = x^3 - 4x^2 + 5x - 2
+    // Test factorization of (x-1)^3 = x^3 - 3x^2 + 3x - 1
     upolynomial::scoped_numeral_vector p(m);
     
-    m.set(p, 4);
-    nm.set(p[0], -2);  // constant term
-    nm.set(p[1], 5);   // coefficient of x
-    nm.set(p[2], -4);  // coefficient of x^2
-    nm.set(p[3], 1);   // coefficient of x^3
+    // Create polynomial x^3 - 3x^2 + 3x - 1: coefficients [-1, 3, -3, 1]
+    p.push_back(mpz(-1));  // constant term
+    p.push_back(mpz(3));   // x coefficient
+    p.push_back(mpz(-3));  // x^2 coefficient
+    p.push_back(mpz(1));   // x^3 coefficient
     
     m.factor(p, fs);
     
-    // Should detect repeated factors
-    bool has_repeated = false;
-    for (unsigned i = 0; i < fs.distinct_factors(); i++) {
-        if (fs.get_multiplicity(i) > 1) {
-            has_repeated = true;
-            break;
-        }
-    }
+    // Should have 1 distinct factor with multiplicity 3
+    VERIFY(fs.distinct_factors() == 1);
     
-    // Verify total degree matches
+    // Check that factor has degree 3 (meaning (x-1)^3)
     unsigned total_degree = 0;
     for (unsigned i = 0; i < fs.distinct_factors(); i++) {
-        total_degree += m.degree(fs[i]) * fs.get_multiplicity(i);
+        total_degree += m.degree(fs[i]) * fs.get_degree(i);
     }
-    VERIFY(total_degree == m.degree(p));
+    VERIFY(total_degree == 3);
 }
 
 void test_factorization_constant() {
@@ -169,21 +145,19 @@ void test_factorization_constant() {
     reslimit rl;
     unsynch_mpq_manager nm;
     upolynomial::manager m(rl, nm);
-    upolynomial::factors fs(nm);
+    upolynomial::factors fs(m);
     
-    // Test constant polynomial
+    // Test constant polynomial 5
     upolynomial::scoped_numeral_vector p(m);
-    
-    m.set(p, 1);
-    nm.set(p[0], 42);  // constant 42
+    p.push_back(mpz(5));  // constant term
     
     m.factor(p, fs);
     
-    // Constant should factor as itself
-    VERIFY(fs.distinct_factors() <= 1);
-    if (fs.distinct_factors() == 1) {
-        VERIFY(m.degree(fs[0]) == 0);
-    }
+    // Should have 0 distinct factors (constant)
+    VERIFY(fs.distinct_factors() == 0);
+    
+    // The constant should be 5
+    VERIFY(nm.eq(fs.get_constant(), mpz(5)));
 }
 
 void test_factorization_zero() {
@@ -192,18 +166,16 @@ void test_factorization_zero() {
     reslimit rl;
     unsynch_mpq_manager nm;
     upolynomial::manager m(rl, nm);
-    upolynomial::factors fs(nm);
+    upolynomial::factors fs(m);
     
     // Test zero polynomial
     upolynomial::scoped_numeral_vector p(m);
-    
-    m.set(p, 1);
-    nm.set(p[0], 0);
+    p.push_back(mpz(0));  // just zero
     
     m.factor(p, fs);
     
-    // Zero polynomial should be handled appropriately
-    VERIFY(fs.distinct_factors() == 0 || m.is_zero(fs[0]));
+    // Zero polynomial should have 0 factors or be detected as zero
+    VERIFY(fs.distinct_factors() == 0 || m.is_zero(const_cast<upolynomial::numeral_vector&>(fs[0])));
 }
 
 void test_factorization_gcd() {
@@ -213,35 +185,26 @@ void test_factorization_gcd() {
     unsynch_mpq_manager nm;
     upolynomial::manager m(rl, nm);
     
-    // Test GCD computation which is used in factorization
+    // Test GCD computation with polynomials
     upolynomial::scoped_numeral_vector p1(m), p2(m), gcd_result(m);
     
-    // p1 = (x-1)(x-2) = x^2 - 3x + 2
-    m.set(p1, 3);
-    nm.set(p1[0], 2);  nm.set(p1[1], -3);  nm.set(p1[2], 1);
+    // p1 = x^2 - 1 = (x-1)(x+1)
+    p1.push_back(mpz(-1)); // constant
+    p1.push_back(mpz(0));  // x
+    p1.push_back(mpz(1));  // x^2
     
-    // p2 = (x-1)(x-3) = x^2 - 4x + 3  
-    m.set(p2, 3);
-    nm.set(p2[0], 3);  nm.set(p2[1], -4);  nm.set(p2[2], 1);
+    // p2 = x^3 - 1 = (x-1)(x^2+x+1) 
+    p2.push_back(mpz(-1)); // constant
+    p2.push_back(mpz(0));  // x
+    p2.push_back(mpz(0));  // x^2  
+    p2.push_back(mpz(1));  // x^3
     
     m.gcd(p1, p2, gcd_result);
     
-    // GCD should be (x-1), which is x - 1
+    // GCD should be (x-1), which is [-1, 1] in coefficient form
     VERIFY(m.degree(gcd_result) == 1);
-    // Check if it's indeed x - 1 by evaluating at x = 1
-    mpq eval_result;
-    nm.set(eval_result, 0);
-    for (unsigned i = 0; i < m.size(gcd_result); i++) {
-        mpq term, power_val;
-        nm.set(power_val, 1);
-        // Compute 1^i = 1
-        nm.mul(p1[i], power_val, term);
-        nm.add(eval_result, term, eval_result);
-        nm.del(term);
-        nm.del(power_val);
-    }
-    VERIFY(nm.is_zero(eval_result));
-    nm.del(eval_result);
+    VERIFY(nm.eq(gcd_result[0], mpz(-1)));
+    VERIFY(nm.eq(gcd_result[1], mpz(1)));
 }
 
 void test_polynomial_factorization() {
