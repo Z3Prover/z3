@@ -2320,13 +2320,11 @@ bool mpz_manager<SYNCH>::is_perfect_square(mpz const & a, mpz & root) {
         set(root, 1);
         return true;
     }
-#if 0
     // current contract is that root is set to an approximation within +1/-1 of actional root.
     // x^2 mod 16 in { 9, 1, 4, 0 }
     auto mod16 = get_least_significant(a) & 0xF;
     if (mod16 != 0 && mod16 != 1 && mod16 != 4 && mod16 != 9)
         return false;
-#endif
 
     mpz lo, hi, mid, sq_lo, sq_mid;
     set(lo, 1);
