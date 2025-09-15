@@ -1,12 +1,8 @@
 name: Code Coverage
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
   schedule:
-    - cron: "0 11 * * *"
+    - cron: '0 0 */2 * *'
 
 permissions:
   contents: read
