@@ -1,8 +1,8 @@
 name: RISC V and PowerPC 64
 
 on:
-  push:
-  pull_request:
+  schedule:
+    - cron: '0 0 */2 * *'
 
 permissions:
   contents: read
