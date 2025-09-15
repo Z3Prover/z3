@@ -3016,7 +3016,6 @@ namespace polynomial {
             }
             m_som_buffer.reset();
             unsigned sz1 = p1->size();
-            unsigned sz2 = p2->size();
             for (unsigned i = 0; i < sz1; i++) {
                 checkpoint();
                 numeral const & a1 = p1->a(i);
@@ -3026,6 +3025,7 @@ namespace polynomial {
             m_som_buffer.add(a);
             auto p = m_som_buffer.mk();
 #if 0
+            unsigned sz2 = p2->size();
             if (sz1 > 2 && sz2 > 2) {
                 auto s1 = sw.get_seconds();
                 IF_VERBOSE(0, verbose_stream() << "polynomial muladd time: " << sz1 << " " << sz2 << " " << s1 << "\n");
