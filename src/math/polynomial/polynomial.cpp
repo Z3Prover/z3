@@ -989,7 +989,6 @@ namespace polynomial {
                   tout << "\n";);
             monomial * r = mk_monomial(product_tmp);
             TRACE(monomial_mul_bug,
-                  tout << "j: " << j << "\n";
                   tout << "r: "; r->display(tout); tout << "\n";
                   tout << "pws1: "; for (unsigned i = 0; i < sz1; i++) tout << pws1[i] << " "; tout << "\n";
                   tout << "pws2: "; for (unsigned i = 0; i < sz2; i++) tout << pws2[i] << " "; tout << "\n";
