@@ -2334,7 +2334,8 @@ namespace polynomial {
         // Buffer for multiplying large polynomials.
         // It delays internalizing monomials, and uses sorted vectors instead of hash tables.
         // this implementation is 10x slower on results up to 10K monomials
-        // it also has a bug as entries are not properly sorted.
+        // it also has a bug as entries are not properly sorted and therefore 
+        // the same monomial can appear several times.
         // perf tuning and debugging is required if this is to be used.
         // it is possible this can be faster for very large polynomials by ensuring cache locality.
         // at this point there are several cache misses: such as m_powers are pointers inside of m_monomial.
