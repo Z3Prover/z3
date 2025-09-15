@@ -379,7 +379,7 @@ jobs:
           if-no-files-found: warn
       - name: Execute Claude Code Action
         id: agentic_execution
-        uses: anthropics/claude-code-base-action@v0.0.56
+        uses: anthropics/claude-code-base-action@v0.0.63
         with:
           # Allowed tools (sorted):
           # - Bash
