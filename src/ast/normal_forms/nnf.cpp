@@ -684,8 +684,8 @@ struct nnf::imp {
             if (proofs_enabled()) {
                 expr_ref aux(m);
                 aux = m.mk_label(true, names.size(), names.data(), arg);
-                pr = m.mk_transitivity(mk_proof(fr.m_pol, 1, &arg_pr, t, to_app(aux)),
-                                         m.mk_iff_oeq(m.mk_rewrite(aux, r)));
+                proof * pr1 = mk_proof(fr.m_pol, 1, &arg_pr, t, to_app(aux));
+                pr = m.mk_transitivity(pr1, m.mk_iff_oeq(m.mk_rewrite(aux, r)));
             }
         }
         else {

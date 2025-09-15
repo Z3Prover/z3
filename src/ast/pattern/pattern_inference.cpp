@@ -737,7 +737,8 @@ bool pattern_inference_cfg::reduce_quantifier(
                 }
                 new_q = m.update_quantifier(result2, new_patterns.size(), (expr**) new_patterns.data(), result2->get_expr());
                 if (m.proofs_enabled()) {
-                    result_pr = m.mk_transitivity(new_pr, m.mk_quant_intro(result2, new_q, m.mk_bind_proof(new_q, m.mk_reflexivity(new_q->get_expr()))));
+                    proof * quant_intro_pr = m.mk_quant_intro(result2, new_q, m.mk_bind_proof(new_q, m.mk_reflexivity(new_q->get_expr())));
+                    result_pr = m.mk_transitivity(new_pr, quant_intro_pr);
                 }
                 TRACE(pattern_inference, tout << "pulled quantifier:\n" << mk_pp(new_q, m) << "\n";);
             }

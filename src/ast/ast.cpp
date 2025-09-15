@@ -2891,7 +2891,9 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2, proof * p3) {
 }
 
 proof * ast_manager::mk_transitivity(proof * p1, proof * p2, proof * p3, proof * p4) {
-    return mk_transitivity(mk_transitivity(mk_transitivity(p1,p2), p3), p4);
+    proof * tmp1 = mk_transitivity(p1, p2);
+    proof * tmp2 = mk_transitivity(tmp1, p3);
+    return mk_transitivity(tmp2, p4);
 }
 
 proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs) {
