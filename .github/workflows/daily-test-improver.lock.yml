@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-14 22:19:00
+# Effective stop-time: 2025-09-17 13:56:24
 
 name: "Daily Test Coverage Improver"
 "on":
@@ -18,14 +18,7 @@ concurrency:
 run-name: "Daily Test Coverage Improver"
 
 jobs:
-  task:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Task job condition barrier
-        run: echo "Task job executed - conditions satisfied"
-
   daily-test-coverage-improver:
-    needs: task
     runs-on: ubuntu-latest
     permissions: read-all
     outputs:
@@ -104,7 +97,7 @@ jobs:
           WORKFLOW_NAME="Daily Test Coverage Improver"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-14 22:19:00"
+          STOP_TIME="2025-09-17 13:56:24"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -479,10 +472,14 @@ jobs:
           echo "## Agent Output (JSONL)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '``````json' >> $GITHUB_STEP_SUMMARY
-          cat ${{ env.GITHUB_AW_SAFE_OUTPUTS }} >> $GITHUB_STEP_SUMMARY
-          # Ensure there's a newline after the file content if it doesn't end with one
-          if [ -s ${{ env.GITHUB_AW_SAFE_OUTPUTS }} ] && [ "$(tail -c1 ${{ env.GITHUB_AW_SAFE_OUTPUTS }})" != "" ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f ${{ env.GITHUB_AW_SAFE_OUTPUTS }} ]; then
+            cat ${{ env.GITHUB_AW_SAFE_OUTPUTS }} >> $GITHUB_STEP_SUMMARY
+            # Ensure there's a newline after the file content if it doesn't end with one
+            if [ -s ${{ env.GITHUB_AW_SAFE_OUTPUTS }} ] && [ "$(tail -c1 ${{ env.GITHUB_AW_SAFE_OUTPUTS }})" != "" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "No agent output file found" >> $GITHUB_STEP_SUMMARY
           fi
           echo '``````' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -1323,9 +1320,14 @@ jobs:
                   return;
                 }
                 const logContent = fs.readFileSync(logFile, "utf8");
-                const markdown = parseClaudeLog(logContent);
+                const result = parseClaudeLog(logContent);
                 // Append to GitHub step summary
-                core.summary.addRaw(markdown).write();
+                core.summary.addRaw(result.markdown).write();
+                // Check for MCP server failures and fail the job if any occurred
+                if (result.mcpFailures && result.mcpFailures.length > 0) {
+                  const failedServers = result.mcpFailures.join(", ");
+                  core.setFailed(`MCP server(s) failed to launch: ${failedServers}`);
+                }
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 core.setFailed(errorMessage);
@@ -1334,15 +1336,32 @@ jobs:
             /**
              * Parses Claude log content and converts it to markdown format
              * @param {string} logContent - The raw log content as a string
-             * @returns {string} Formatted markdown content
+             * @returns {{markdown: string, mcpFailures: string[]}} Result with formatted markdown content and MCP failure list
              */
             function parseClaudeLog(logContent) {
               try {
                 const logEntries = JSON.parse(logContent);
                 if (!Array.isArray(logEntries)) {
-                  return "## Agent Log Summary\n\nLog format not recognized as Claude JSON array.\n";
+                  return {
+                    markdown:
+                      "## Agent Log Summary\n\nLog format not recognized as Claude JSON array.\n",
+                    mcpFailures: [],
+                  };
                 }
-                let markdown = "## 🤖 Commands and Tools\n\n";
+                let markdown = "";
+                const mcpFailures = [];
+                // Check for initialization data first
+                const initEntry = logEntries.find(
+                  entry => entry.type === "system" && entry.subtype === "init"
+                );
+                if (initEntry) {
+                  markdown += "## 🚀 Initialization\n\n";
+                  const initResult = formatInitializationSummary(initEntry);
+                  markdown += initResult.markdown;
+                  mcpFailures.push(...initResult.mcpFailures);
+                  markdown += "\n";
+                }
+                markdown += "## 🤖 Commands and Tools\n\n";
                 const toolUsePairs = new Map(); // Map tool_use_id to tool_result
                 const commandSummary = []; // For the succinct summary
                 // First pass: collect tool results by tool_use_id
@@ -1473,11 +1492,128 @@ jobs:
                     }
                   }
                 }
-                return markdown;
+                return { markdown, mcpFailures };
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
-                return `## Agent Log Summary\n\nError parsing Claude log: ${errorMessage}\n`;
+                return {
+                  markdown: `## Agent Log Summary\n\nError parsing Claude log: ${errorMessage}\n`,
+                  mcpFailures: [],
+                };
               }
+            }
+            /**
+             * Formats initialization information from system init entry
+             * @param {any} initEntry - The system init entry containing tools, mcp_servers, etc.
+             * @returns {{markdown: string, mcpFailures: string[]}} Result with formatted markdown string and MCP failure list
+             */
+            function formatInitializationSummary(initEntry) {
+              let markdown = "";
+              const mcpFailures = [];
+              // Display model and session info
+              if (initEntry.model) {
+                markdown += `**Model:** ${initEntry.model}\n\n`;
+              }
+              if (initEntry.session_id) {
+                markdown += `**Session ID:** ${initEntry.session_id}\n\n`;
+              }
+              if (initEntry.cwd) {
+                // Show a cleaner path by removing common prefixes
+                const cleanCwd = initEntry.cwd.replace(
+                  /^\/home\/runner\/work\/[^\/]+\/[^\/]+/,
+                  "."
+                );
+                markdown += `**Working Directory:** ${cleanCwd}\n\n`;
+              }
+              // Display MCP servers status
+              if (initEntry.mcp_servers && Array.isArray(initEntry.mcp_servers)) {
+                markdown += "**MCP Servers:**\n";
+                for (const server of initEntry.mcp_servers) {
+                  const statusIcon =
+                    server.status === "connected"
+                      ? "✅"
+                      : server.status === "failed"
+                        ? "❌"
+                        : "❓";
+                  markdown += `- ${statusIcon} ${server.name} (${server.status})\n`;
+                  // Track failed MCP servers
+                  if (server.status === "failed") {
+                    mcpFailures.push(server.name);
+                  }
+                }
+                markdown += "\n";
+              }
+              // Display tools by category
+              if (initEntry.tools && Array.isArray(initEntry.tools)) {
+                markdown += "**Available Tools:**\n";
+                // Categorize tools
+                /** @type {{ [key: string]: string[] }} */
+                const categories = {
+                  Core: [],
+                  "File Operations": [],
+                  "Git/GitHub": [],
+                  MCP: [],
+                  Other: [],
+                };
+                for (const tool of initEntry.tools) {
+                  if (
+                    ["Task", "Bash", "BashOutput", "KillBash", "ExitPlanMode"].includes(
+                      tool
+                    )
+                  ) {
+                    categories["Core"].push(tool);
+                  } else if (
+                    [
+                      "Read",
+                      "Edit",
+                      "MultiEdit",
+                      "Write",
+                      "LS",
+                      "Grep",
+                      "Glob",
+                      "NotebookEdit",
+                    ].includes(tool)
+                  ) {
+                    categories["File Operations"].push(tool);
+                  } else if (tool.startsWith("mcp__github__")) {
+                    categories["Git/GitHub"].push(formatMcpName(tool));
+                  } else if (
+                    tool.startsWith("mcp__") ||
+                    ["ListMcpResourcesTool", "ReadMcpResourceTool"].includes(tool)
+                  ) {
+                    categories["MCP"].push(
+                      tool.startsWith("mcp__") ? formatMcpName(tool) : tool
+                    );
+                  } else {
+                    categories["Other"].push(tool);
+                  }
+                }
+                // Display categories with tools
+                for (const [category, tools] of Object.entries(categories)) {
+                  if (tools.length > 0) {
+                    markdown += `- **${category}:** ${tools.length} tools\n`;
+                    if (tools.length <= 5) {
+                      // Show all tools if 5 or fewer
+                      markdown += `  - ${tools.join(", ")}\n`;
+                    } else {
+                      // Show first few and count
+                      markdown += `  - ${tools.slice(0, 3).join(", ")}, and ${tools.length - 3} more\n`;
+                    }
+                  }
+                }
+                markdown += "\n";
+              }
+              // Display slash commands if available
+              if (initEntry.slash_commands && Array.isArray(initEntry.slash_commands)) {
+                const commandCount = initEntry.slash_commands.length;
+                markdown += `**Slash Commands:** ${commandCount} available\n`;
+                if (commandCount <= 10) {
+                  markdown += `- ${initEntry.slash_commands.join(", ")}\n`;
+                } else {
+                  markdown += `- ${initEntry.slash_commands.slice(0, 5).join(", ")}, and ${commandCount - 5} more\n`;
+                }
+                markdown += "\n";
+              }
+              return { markdown, mcpFailures };
             }
             /**
              * Formats a tool use entry with its result into markdown
@@ -1647,6 +1783,7 @@ jobs:
               module.exports = {
                 parseClaudeLog,
                 formatToolUse,
+                formatInitializationSummary,
                 formatBashCommand,
                 truncateString,
               };
@@ -1786,6 +1923,93 @@ jobs:
       issue_number: ${{ steps.create_issue.outputs.issue_number }}
       issue_url: ${{ steps.create_issue.outputs.issue_url }}
     steps:
+      - name: Check team membership for workflow
+        id: check-team-member
+        uses: actions/github-script@v7
+        env:
+          GITHUB_AW_REQUIRED_ROLES: admin,maintainer
+        with:
+          script: |
+            async function setCancelled(message) {
+              try {
+                await github.rest.actions.cancelWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: context.runId,
+                });
+                core.info(`Cancellation requested for this workflow run: ${message}`);
+              } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                core.warning(`Failed to cancel workflow run: ${errorMessage}`);
+                core.setFailed(message); // Fallback if API call fails
+              }
+            }
+            async function main() {
+              const { eventName } = context;
+              // skip check for safe events
+              const safeEvents = ["workflow_dispatch", "workflow_run", "schedule"];
+              if (safeEvents.includes(eventName)) {
+                core.info(`✅ Event ${eventName} does not require validation`);
+                return;
+              }
+              const actor = context.actor;
+              const { owner, repo } = context.repo;
+              const requiredPermissionsEnv = process.env.GITHUB_AW_REQUIRED_ROLES;
+              const requiredPermissions = requiredPermissionsEnv
+                ? requiredPermissionsEnv.split(",").filter(p => p.trim() !== "")
+                : [];
+              if (!requiredPermissions || requiredPermissions.length === 0) {
+                core.error(
+                  "❌ Configuration error: Required permissions not specified. Contact repository administrator."
+                );
+                await setCancelled(
+                  "Configuration error: Required permissions not specified"
+                );
+                return;
+              }
+              // Check if the actor has the required repository permissions
+              try {
+                core.debug(
+                  `Checking if user '${actor}' has required permissions for ${owner}/${repo}`
+                );
+                core.debug(`Required permissions: ${requiredPermissions.join(", ")}`);
+                const repoPermission =
+                  await github.rest.repos.getCollaboratorPermissionLevel({
+                    owner: owner,
+                    repo: repo,
+                    username: actor,
+                  });
+                const permission = repoPermission.data.permission;
+                core.debug(`Repository permission level: ${permission}`);
+                // Check if user has one of the required permission levels
+                for (const requiredPerm of requiredPermissions) {
+                  if (
+                    permission === requiredPerm ||
+                    (requiredPerm === "maintainer" && permission === "maintain")
+                  ) {
+                    core.info(`✅ User has ${permission} access to repository`);
+                    return;
+                  }
+                }
+                core.warning(
+                  `User permission '${permission}' does not meet requirements: ${requiredPermissions.join(", ")}`
+                );
+              } catch (repoError) {
+                const errorMessage =
+                  repoError instanceof Error ? repoError.message : String(repoError);
+                core.error(`Repository permission check failed: ${errorMessage}`);
+                await setCancelled(`Repository permission check failed: ${errorMessage}`);
+                return;
+              }
+              // Cancel the workflow when permission check fails
+              core.warning(
+                `❌ Access denied: Only authorized users can trigger this workflow. User '${actor}' is not authorized. Required permissions: ${requiredPermissions.join(", ")}`
+              );
+              await setCancelled(
+                `Access denied: User '${actor}' is not authorized. Required permissions: ${requiredPermissions.join(", ")}`
+              );
+            }
+            await main();
       - name: Create Output Issue
         id: create_issue
         uses: actions/github-script@v7
@@ -1793,6 +2017,7 @@ jobs:
           GITHUB_AW_AGENT_OUTPUT: ${{ needs.daily-test-coverage-improver.outputs.output }}
           GITHUB_AW_ISSUE_TITLE_PREFIX: "${{ github.workflow }}"
         with:
+          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             async function main() {
               // Check if we're in staged mode
@@ -1992,6 +2217,7 @@ jobs:
           GITHUB_AW_AGENT_OUTPUT: ${{ needs.daily-test-coverage-improver.outputs.output }}
           GITHUB_AW_COMMENT_TARGET: "*"
         with:
+          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             async function main() {
               // Check if we're in staged mode
@@ -2214,6 +2440,7 @@ jobs:
           GITHUB_AW_PR_DRAFT: "true"
           GITHUB_AW_PR_IF_NO_CHANGES: "warn"
         with:
+          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             /** @type {typeof import("fs")} */
             const fs = require("fs");
@@ -2534,6 +2761,7 @@ jobs:
           GITHUB_AW_UPDATE_BODY: true
           GITHUB_AW_UPDATE_TARGET: "*"
         with:
+          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             async function main() {
               // Check if we're in staged mode
