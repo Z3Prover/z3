@@ -47,7 +47,7 @@ jobs:
           echo "Git configured with standard GitHub Actions identity"
       - name: Setup agent output
         id: setup_agent_output
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             function main() {
@@ -360,7 +360,7 @@ jobs:
         env:
           GITHUB_AW_PROMPT: /tmp/aw-prompts/prompt.txt
       - name: Generate agentic run info
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
@@ -513,7 +513,7 @@ jobs:
           if-no-files-found: warn
       - name: Ingest agent output
         id: collect_output
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           GITHUB_AW_SAFE_OUTPUTS: ${{ env.GITHUB_AW_SAFE_OUTPUTS }}
           GITHUB_AW_SAFE_OUTPUTS_CONFIG: "{\"add-issue-comment\":{\"enabled\":true,\"target\":\"*\"},\"create-issue\":true,\"create-pull-request\":true}"
@@ -1322,7 +1322,7 @@ jobs:
           rm -f output.txt
       - name: Parse agent logs for step summary
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           GITHUB_AW_AGENT_OUTPUT: /tmp/daily-perf-improver.log
         with:
@@ -1946,7 +1946,7 @@ jobs:
     steps:
       - name: Check team membership for workflow
         id: check-team-member
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           GITHUB_AW_REQUIRED_ROLES: admin,maintainer
         with:
@@ -2033,7 +2033,7 @@ jobs:
             await main();
       - name: Create Output Issue
         id: create_issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           GITHUB_AW_AGENT_OUTPUT: ${{ needs.daily-perf-improver.outputs.output }}
           GITHUB_AW_ISSUE_TITLE_PREFIX: "${{ github.workflow }}"
@@ -2233,7 +2233,7 @@ jobs:
     steps:
       - name: Add Issue Comment
         id: create_comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           GITHUB_AW_AGENT_OUTPUT: ${{ needs.daily-perf-improver.outputs.output }}
           GITHUB_AW_COMMENT_TARGET: "*"
@@ -2453,7 +2453,7 @@ jobs:
           echo "Git configured with standard GitHub Actions identity"
       - name: Create Pull Request
         id: create_pull_request
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           GITHUB_AW_AGENT_OUTPUT: ${{ needs.daily-perf-improver.outputs.output }}
           GITHUB_AW_WORKFLOW_ID: "daily-perf-improver"
