@@ -20,7 +20,6 @@ safe-outputs:
     target: "*" # can add a comment to any one single issue or pull request
   create-pull-request:
     draft: true
-  github-token: ${{ secrets.DSYME_GH_TOKEN}}
 
 tools:
   web-fetch:
@@ -33,7 +32,7 @@ tools:
 
 steps:
   - name: Checkout repository
-    uses: actions/checkout@v3
+    uses: actions/checkout@v5
 
   - name: Check if action.yml exists
     id: check_build_steps_file
@@ -60,7 +59,7 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
 
 1. Performance research (if not done before).
 
-   1a. Check if an open issue with title "${{ github.workflow }}: Research and Plan" exists using `search_issues`. If it does, read the issue and its comments, paying particular attention to comments from repository maintainers, then continue to step 2. If the issue doesn't exist, follow the steps below to create it:
+   1a. Check if an open issue with label "daily-perf-improver-plan" exists using `search_issues`. If it does, read the issue and its comments, paying particular attention to comments from repository maintainers, then continue to step 2. If the issue doesn't exist, follow the steps below to create it:
 
    1b. Do some deep research into performance matters in this repo.
      - How is performance testing is done in the repo?
@@ -88,7 +87,7 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
      Consider perf engineering fundamentals:
      - You want to get to a zone where the engineers can run commands to get numbers towards some performance goal - with commands running reliably within 1min or so - and it can "see" the code paths associated with that. If you can achieve that, your engineers will be very good at finding low-hanging fruit to work towards the performance goals.
 
-     1b. Use this research to write an issue with title "${{ github.workflow }}: Research and Plan", then exit this entire workflow.
+     1b. Use this research to create an issue with title "${{ github.workflow }} - Research and Plan" and label "daily-perf-improver-plan", then exit this entire workflow.
 
 2. Build steps inference and configuration (if not done before)
 

@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-17 13:56:24
+# Effective stop-time: 2025-09-18 12:10:40
 
 name: "Daily Test Coverage Improver"
 "on":
@@ -67,7 +67,443 @@ jobs:
               core.setOutput("output_file", outputFile);
             }
             main();
+      - name: Setup Safe Outputs Collector MCP
+        env:
+          GITHUB_AW_SAFE_OUTPUTS_CONFIG: "{\"add-issue-comment\":{\"enabled\":true,\"target\":\"*\"},\"create-issue\":true,\"create-pull-request\":true,\"update-issue\":true}"
+        run: |
+          mkdir -p /tmp/safe-outputs
+          cat > /tmp/safe-outputs/mcp-server.cjs << 'EOF'
+            const fs = require("fs");
+            const encoder = new TextEncoder();
+            const configEnv = process.env.GITHUB_AW_SAFE_OUTPUTS_CONFIG;
+            if (!configEnv) throw new Error("GITHUB_AW_SAFE_OUTPUTS_CONFIG not set");
+            const safeOutputsConfig = JSON.parse(configEnv);
+            const outputFile = process.env.GITHUB_AW_SAFE_OUTPUTS;
+            if (!outputFile)
+              throw new Error("GITHUB_AW_SAFE_OUTPUTS not set, no output file");
+            const SERVER_INFO = { name: "safe-outputs-mcp-server", version: "1.0.0" };
+            const debug = msg => process.stderr.write(`[${SERVER_INFO.name}] ${msg}\n`);
+            function writeMessage(obj) {
+              const json = JSON.stringify(obj);
+              debug(`send: ${json}`);
+              const message = json + "\n";
+              const bytes = encoder.encode(message);
+              fs.writeSync(1, bytes);
+            }
+            class ReadBuffer {
+              append(chunk) {
+                this._buffer = this._buffer ? Buffer.concat([this._buffer, chunk]) : chunk;
+              }
+              readMessage() {
+                if (!this._buffer) {
+                  return null;
+                }
+                const index = this._buffer.indexOf("\n");
+                if (index === -1) {
+                  return null;
+                }
+                const line = this._buffer.toString("utf8", 0, index).replace(/\r$/, "");
+                this._buffer = this._buffer.subarray(index + 1);
+                if (line.trim() === "") {
+                  return this.readMessage(); // Skip empty lines recursively
+                }
+                try {
+                  return JSON.parse(line);
+                } catch (error) {
+                  throw new Error(
+                    `Parse error: ${error instanceof Error ? error.message : String(error)}`
+                  );
+                }
+              }
+            }
+            const readBuffer = new ReadBuffer();
+            function onData(chunk) {
+              readBuffer.append(chunk);
+              processReadBuffer();
+            }
+            function processReadBuffer() {
+              while (true) {
+                try {
+                  const message = readBuffer.readMessage();
+                  if (!message) {
+                    break;
+                  }
+                  debug(`recv: ${JSON.stringify(message)}`);
+                  handleMessage(message);
+                } catch (error) {
+                  // For parse errors, we can't know the request id, so we shouldn't send a response
+                  // according to JSON-RPC spec. Just log the error.
+                  debug(
+                    `Parse error: ${error instanceof Error ? error.message : String(error)}`
+                  );
+                }
+              }
+            }
+            function replyResult(id, result) {
+              if (id === undefined || id === null) return; // notification
+              const res = { jsonrpc: "2.0", id, result };
+              writeMessage(res);
+            }
+            function replyError(id, code, message, data) {
+              // Don't send error responses for notifications (id is null/undefined)
+              if (id === undefined || id === null) {
+                debug(`Error for notification: ${message}`);
+                return;
+              }
+              const error = { code, message };
+              if (data !== undefined) {
+                error.data = data;
+              }
+              const res = {
+                jsonrpc: "2.0",
+                id,
+                error,
+              };
+              writeMessage(res);
+            }
+            function isToolEnabled(name) {
+              return safeOutputsConfig[name];
+            }
+            function appendSafeOutput(entry) {
+              if (!outputFile) throw new Error("No output file configured");
+              const jsonLine = JSON.stringify(entry) + "\n";
+              try {
+                fs.appendFileSync(outputFile, jsonLine);
+              } catch (error) {
+                throw new Error(
+                  `Failed to write to output file: ${error instanceof Error ? error.message : String(error)}`
+                );
+              }
+            }
+            const defaultHandler = type => args => {
+              const entry = { ...(args || {}), type };
+              appendSafeOutput(entry);
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: `success`,
+                  },
+                ],
+              };
+            };
+            const TOOLS = Object.fromEntries(
+              [
+                {
+                  name: "create-issue",
+                  description: "Create a new GitHub issue",
+                  inputSchema: {
+                    type: "object",
+                    required: ["title", "body"],
+                    properties: {
+                      title: { type: "string", description: "Issue title" },
+                      body: { type: "string", description: "Issue body/description" },
+                      labels: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Issue labels",
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+                {
+                  name: "create-discussion",
+                  description: "Create a new GitHub discussion",
+                  inputSchema: {
+                    type: "object",
+                    required: ["title", "body"],
+                    properties: {
+                      title: { type: "string", description: "Discussion title" },
+                      body: { type: "string", description: "Discussion body/content" },
+                      category: { type: "string", description: "Discussion category" },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+                {
+                  name: "add-issue-comment",
+                  description: "Add a comment to a GitHub issue or pull request",
+                  inputSchema: {
+                    type: "object",
+                    required: ["body"],
+                    properties: {
+                      body: { type: "string", description: "Comment body/content" },
+                      issue_number: {
+                        type: "number",
+                        description: "Issue or PR number (optional for current context)",
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+                {
+                  name: "create-pull-request",
+                  description: "Create a new GitHub pull request",
+                  inputSchema: {
+                    type: "object",
+                    required: ["title", "body"],
+                    properties: {
+                      title: { type: "string", description: "Pull request title" },
+                      body: {
+                        type: "string",
+                        description: "Pull request body/description",
+                      },
+                      branch: {
+                        type: "string",
+                        description:
+                          "Optional branch name (will be auto-generated if not provided)",
+                      },
+                      labels: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Optional labels to add to the PR",
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+                {
+                  name: "create-pull-request-review-comment",
+                  description: "Create a review comment on a GitHub pull request",
+                  inputSchema: {
+                    type: "object",
+                    required: ["path", "line", "body"],
+                    properties: {
+                      path: {
+                        type: "string",
+                        description: "File path for the review comment",
+                      },
+                      line: {
+                        type: ["number", "string"],
+                        description: "Line number for the comment",
+                      },
+                      body: { type: "string", description: "Comment body content" },
+                      start_line: {
+                        type: ["number", "string"],
+                        description: "Optional start line for multi-line comments",
+                      },
+                      side: {
+                        type: "string",
+                        enum: ["LEFT", "RIGHT"],
+                        description: "Optional side of the diff: LEFT or RIGHT",
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+                {
+                  name: "create-code-scanning-alert",
+                  description: "Create a code scanning alert",
+                  inputSchema: {
+                    type: "object",
+                    required: ["file", "line", "severity", "message"],
+                    properties: {
+                      file: {
+                        type: "string",
+                        description: "File path where the issue was found",
+                      },
+                      line: {
+                        type: ["number", "string"],
+                        description: "Line number where the issue was found",
+                      },
+                      severity: {
+                        type: "string",
+                        enum: ["error", "warning", "info", "note"],
+                        description: "Severity level",
+                      },
+                      message: {
+                        type: "string",
+                        description: "Alert message describing the issue",
+                      },
+                      column: {
+                        type: ["number", "string"],
+                        description: "Optional column number",
+                      },
+                      ruleIdSuffix: {
+                        type: "string",
+                        description: "Optional rule ID suffix for uniqueness",
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+                {
+                  name: "add-issue-label",
+                  description: "Add labels to a GitHub issue or pull request",
+                  inputSchema: {
+                    type: "object",
+                    required: ["labels"],
+                    properties: {
+                      labels: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Labels to add",
+                      },
+                      issue_number: {
+                        type: "number",
+                        description: "Issue or PR number (optional for current context)",
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+                {
+                  name: "update-issue",
+                  description: "Update a GitHub issue",
+                  inputSchema: {
+                    type: "object",
+                    properties: {
+                      status: {
+                        type: "string",
+                        enum: ["open", "closed"],
+                        description: "Optional new issue status",
+                      },
+                      title: { type: "string", description: "Optional new issue title" },
+                      body: { type: "string", description: "Optional new issue body" },
+                      issue_number: {
+                        type: ["number", "string"],
+                        description: "Optional issue number for target '*'",
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+                {
+                  name: "push-to-pr-branch",
+                  description: "Push changes to a pull request branch",
+                  inputSchema: {
+                    type: "object",
+                    properties: {
+                      message: { type: "string", description: "Optional commit message" },
+                      pull_request_number: {
+                        type: ["number", "string"],
+                        description: "Optional pull request number for target '*'",
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+                {
+                  name: "missing-tool",
+                  description:
+                    "Report a missing tool or functionality needed to complete tasks",
+                  inputSchema: {
+                    type: "object",
+                    required: ["tool", "reason"],
+                    properties: {
+                      tool: { type: "string", description: "Name of the missing tool" },
+                      reason: { type: "string", description: "Why this tool is needed" },
+                      alternatives: {
+                        type: "string",
+                        description: "Possible alternatives or workarounds",
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+              ]
+                .filter(({ name }) => isToolEnabled(name))
+                .map(tool => [tool.name, tool])
+            );
+            debug(`v${SERVER_INFO.version} ready on stdio`);
+            debug(`  output file: ${outputFile}`);
+            debug(`  config: ${JSON.stringify(safeOutputsConfig)}`);
+            debug(`  tools: ${Object.keys(TOOLS).join(", ")}`);
+            if (!Object.keys(TOOLS).length)
+              throw new Error("No tools enabled in configuration");
+            function handleMessage(req) {
+              // Validate basic JSON-RPC structure
+              if (!req || typeof req !== "object") {
+                debug(`Invalid message: not an object`);
+                return;
+              }
+              if (req.jsonrpc !== "2.0") {
+                debug(`Invalid message: missing or invalid jsonrpc field`);
+                return;
+              }
+              const { id, method, params } = req;
+              // Validate method field
+              if (!method || typeof method !== "string") {
+                replyError(id, -32600, "Invalid Request: method must be a string");
+                return;
+              }
+              try {
+                if (method === "initialize") {
+                  const clientInfo = params?.clientInfo ?? {};
+                  console.error(`client initialized:`, clientInfo);
+                  const protocolVersion = params?.protocolVersion ?? undefined;
+                  const result = {
+                    serverInfo: SERVER_INFO,
+                    ...(protocolVersion ? { protocolVersion } : {}),
+                    capabilities: {
+                      tools: {},
+                    },
+                  };
+                  replyResult(id, result);
+                } else if (method === "tools/list") {
+                  const list = [];
+                  Object.values(TOOLS).forEach(tool => {
+                    list.push({
+                      name: tool.name,
+                      description: tool.description,
+                      inputSchema: tool.inputSchema,
+                    });
+                  });
+                  replyResult(id, { tools: list });
+                } else if (method === "tools/call") {
+                  const name = params?.name;
+                  const args = params?.arguments ?? {};
+                  if (!name || typeof name !== "string") {
+                    replyError(id, -32602, "Invalid params: 'name' must be a string");
+                    return;
+                  }
+                  const tool = TOOLS[name];
+                  if (!tool) {
+                    replyError(id, -32601, `Tool not found: ${name}`);
+                    return;
+                  }
+                  const handler = tool.handler || defaultHandler(tool.name);
+                  const requiredFields =
+                    tool.inputSchema && Array.isArray(tool.inputSchema.required)
+                      ? tool.inputSchema.required
+                      : [];
+                  if (requiredFields.length) {
+                    const missing = requiredFields.filter(f => args[f] === undefined);
+                    if (missing.length) {
+                      replyError(
+                        id,
+                        -32602,
+                        `Invalid arguments: missing ${missing.map(m => `'${m}'`).join(", ")}`
+                      );
+                      return;
+                    }
+                  }
+                  const result = handler(args);
+                  const content = result && result.content ? result.content : [];
+                  replyResult(id, { content });
+                } else if (/^notifications\//.test(method)) {
+                  debug(`ignore ${method}`);
+                } else {
+                  replyError(id, -32601, `Method not found: ${method}`);
+                }
+              } catch (e) {
+                replyError(id, -32603, "Internal error", {
+                  message: e instanceof Error ? e.message : String(e),
+                });
+              }
+            }
+            process.stdin.on("data", onData);
+            process.stdin.on("error", err => debug(`stdin error: ${err}`));
+            process.stdin.resume();
+            debug(`listening...`);
+          EOF
+          chmod +x /tmp/safe-outputs/mcp-server.cjs
+          
       - name: Setup MCPs
+        env:
+          GITHUB_AW_SAFE_OUTPUTS: ${{ env.GITHUB_AW_SAFE_OUTPUTS }}
+          GITHUB_AW_SAFE_OUTPUTS_CONFIG: "{\"add-issue-comment\":{\"enabled\":true,\"target\":\"*\"},\"create-issue\":true,\"create-pull-request\":true,\"update-issue\":true}"
         run: |
           mkdir -p /tmp/mcp-config
           cat > /tmp/mcp-config/mcp-servers.json << 'EOF'
@@ -86,6 +522,14 @@ jobs:
                 "env": {
                   "GITHUB_PERSONAL_ACCESS_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
                 }
+              },
+              "safe_outputs": {
+                "command": "node",
+                "args": ["/tmp/safe-outputs/mcp-server.cjs"],
+                "env": {
+                  "GITHUB_AW_SAFE_OUTPUTS": "${{ env.GITHUB_AW_SAFE_OUTPUTS }}",
+                  "GITHUB_AW_SAFE_OUTPUTS_CONFIG": ${{ toJSON(env.GITHUB_AW_SAFE_OUTPUTS_CONFIG) }}
+                }
               }
             }
           }
@@ -97,7 +541,7 @@ jobs:
           WORKFLOW_NAME="Daily Test Coverage Improver"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-17 13:56:24"
+          STOP_TIME="2025-09-18 12:10:40"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -134,13 +578,13 @@ jobs:
           
           1. Testing research (if not done before)
           
-             1a. Check if an open issue with title "${{ github.workflow }}: Research and Plan" exists using `search_issues`. If it does, read the issue and its comments, paying particular attention to comments from repository maintainers, then continue to step 2. If the issue doesn't exist, follow the steps below to create it:
+             1a. Check if an open issue with label "daily-test-improver-plan" exists using `search_issues`. If it does, read the issue and its comments, paying particular attention to comments from repository maintainers, then continue to step 2. If the issue doesn't exist, follow the steps below to create it:
           
              1b. Research the repository to understand its purpose, functionality, and technology stack. Look at the README.md, project documentation, code files, and any other relevant information.
           
              1c. Research the current state of test coverage in the repository. Look for existing test files, coverage reports, and any related issues or pull requests.
           
-             1d. Create an issue with title "${{ github.workflow }}: Research and Plan" that includes:
+             1d. Create an issue with title "${{ github.workflow }} - Research and Plan" and label "daily-test-improver-plan" that includes:
                 - A summary of your findings about the repository, its testing strategies, its test coverage
                 - A plan for how you will approach improving test coverage, including specific areas to focus on and strategies to use
                 - Details of the commands needed to run to build the project, run tests, and generate coverage reports
@@ -261,73 +705,16 @@ jobs:
           
           When using `git commit`, ensure you set the author name and email appropriately. Do this by using a `--author` flag with `git commit`, for example `git commit --author "${{ github.workflow }} <github-actions[bot]@users.noreply.github.com>" ...`.
           
-          <!-- You can whitelist tools in .github/workflows/build-tools.md file -->
           
-          <!-- You can customize prompting and tools in .github/workflows/agentics/daily-test-improver.config.md -->
+          
+          
           
           
           ---
           
           ## Adding a Comment to an Issue or Pull Request, Creating an Issue, Creating a Pull Request, Updating Issues, Reporting Missing Tools or Functionality
           
-          **IMPORTANT**: To do the actions mentioned in the header of this section, do NOT attempt to use MCP tools, do NOT attempt to use `gh`, do NOT attempt to use the GitHub API. You don't have write access to the GitHub repo. Instead write JSON objects to the file "${{ env.GITHUB_AW_SAFE_OUTPUTS }}". Each line should contain a single JSON object (JSONL format). You can write them one by one as you do them.
-          
-          **Format**: Write one JSON object per line. Each object must have a `type` field specifying the action type.
-          
-          ### Available Output Types:
-          
-          **Adding a Comment to an Issue or Pull Request**
-          
-          To add a comment to an issue or pull request:
-          1. Append an entry on a new line to "${{ env.GITHUB_AW_SAFE_OUTPUTS }}":
-          ```json
-          {"type": "add-issue-comment", "body": "Your comment content in markdown"}
-          ```
-          2. After you write to that file, read it back and check it is valid, see below.
-          
-          **Creating an Issue**
-          
-          To create an issue:
-          1. Append an entry on a new line to "${{ env.GITHUB_AW_SAFE_OUTPUTS }}":
-          ```json
-          {"type": "create-issue", "title": "Issue title", "body": "Issue body in markdown", "labels": ["optional", "labels"]}
-          ```
-          2. After you write to that file, read it back and check it is valid, see below.
-          
-          **Creating a Pull Request**
-          
-          To create a pull request:
-          1. Make any file changes directly in the working directory
-          2. If you haven't done so already, create a local branch using an appropriate unique name
-          3. Add and commit your changes to the branch. Be careful to add exactly the files you intend, and check there are no extra files left un-added. Check you haven't deleted or changed any files you didn't intend to.
-          4. Do not push your changes. That will be done later. Instead append the PR specification to the file "${{ env.GITHUB_AW_SAFE_OUTPUTS }}":
-          ```json
-          {"type": "create-pull-request", "branch": "branch-name", "title": "PR title", "body": "PR body in markdown", "labels": ["optional", "labels"]}
-          ```
-          5. After you write to that file, read it back and check it is valid, see below.
-          
-          **Updating an Issue**
-          
-          To udpate an issue:
-          ```json
-          {"type": "update-issue", "title": "New issue title", "body": "Updated issue body in markdown", "issue_number": "The issue number to update"}
-          ```
-          
-          **Example JSONL file content:**
-          ```
-          {"type": "create-issue", "title": "Bug Report", "body": "Found an issue with..."}
-          {"type": "add-issue-comment", "body": "This is related to the issue above."}
-          {"type": "create-pull-request", "title": "Fix typo", "body": "Corrected spelling mistake in documentation"}
-          {"type": "update-issue", "title": "Updated Issue Title", "body": "Expanded issue description.", "status": "open"}
-          ```
-          
-          **Important Notes:**
-          - Do NOT attempt to use MCP tools, `gh`, or the GitHub API for these actions
-          - Each JSON object must be on its own line
-          - Only include output types that are configured for this workflow
-          - The content of this file will be automatically processed and executed
-          - After you write or append to "${{ env.GITHUB_AW_SAFE_OUTPUTS }}", read it back as JSONL and check it is valid. Make sure it actually puts multiple entries on different lines rather than trying to separate entries on one line with the text "\n" - we've seen you make this mistake before, be careful! Maybe run a bash script to check the validity of the JSONL line by line if you have access to bash. If there are any problems with the JSONL make any necessary corrections to it to fix it up
-          
+          **IMPORTANT**: To do the actions mentioned in the header of this section, use the **safe-outputs** tools, do NOT attempt to use `gh`, do NOT attempt to use the GitHub API. You don't have write access to the GitHub repo.
           EOF
       - name: Print prompt to step summary
         run: |
@@ -377,94 +764,90 @@ jobs:
           name: aw_info.json
           path: /tmp/aw_info.json
           if-no-files-found: warn
-      - name: Execute Claude Code Action
+      - name: Execute Claude Code CLI
         id: agentic_execution
-        uses: anthropics/claude-code-base-action@v0.0.63
-        with:
-          # Allowed tools (sorted):
-          # - Bash
-          # - BashOutput
-          # - Edit
-          # - ExitPlanMode
-          # - Glob
-          # - Grep
-          # - KillBash
-          # - LS
-          # - MultiEdit
-          # - NotebookEdit
-          # - NotebookRead
-          # - Read
-          # - Task
-          # - TodoWrite
-          # - WebFetch
-          # - WebSearch
-          # - Write
-          # - mcp__github__download_workflow_run_artifact
-          # - mcp__github__get_code_scanning_alert
-          # - mcp__github__get_commit
-          # - mcp__github__get_dependabot_alert
-          # - mcp__github__get_discussion
-          # - mcp__github__get_discussion_comments
-          # - mcp__github__get_file_contents
-          # - mcp__github__get_issue
-          # - mcp__github__get_issue_comments
-          # - mcp__github__get_job_logs
-          # - mcp__github__get_me
-          # - mcp__github__get_notification_details
-          # - mcp__github__get_pull_request
-          # - mcp__github__get_pull_request_comments
-          # - mcp__github__get_pull_request_diff
-          # - mcp__github__get_pull_request_files
-          # - mcp__github__get_pull_request_reviews
-          # - mcp__github__get_pull_request_status
-          # - mcp__github__get_secret_scanning_alert
-          # - mcp__github__get_tag
-          # - mcp__github__get_workflow_run
-          # - mcp__github__get_workflow_run_logs
-          # - mcp__github__get_workflow_run_usage
-          # - mcp__github__list_branches
-          # - mcp__github__list_code_scanning_alerts
-          # - mcp__github__list_commits
-          # - mcp__github__list_dependabot_alerts
-          # - mcp__github__list_discussion_categories
-          # - mcp__github__list_discussions
-          # - mcp__github__list_issues
-          # - mcp__github__list_notifications
-          # - mcp__github__list_pull_requests
-          # - mcp__github__list_secret_scanning_alerts
-          # - mcp__github__list_tags
-          # - mcp__github__list_workflow_jobs
-          # - mcp__github__list_workflow_run_artifacts
-          # - mcp__github__list_workflow_runs
-          # - mcp__github__list_workflows
-          # - mcp__github__search_code
-          # - mcp__github__search_issues
-          # - mcp__github__search_orgs
-          # - mcp__github__search_pull_requests
-          # - mcp__github__search_repositories
-          # - mcp__github__search_users
-          allowed_tools: "Bash,BashOutput,Edit,ExitPlanMode,Glob,Grep,KillBash,LS,MultiEdit,NotebookEdit,NotebookRead,Read,Task,TodoWrite,WebFetch,WebSearch,Write,mcp__github__download_workflow_run_artifact,mcp__github__get_code_scanning_alert,mcp__github__get_commit,mcp__github__get_dependabot_alert,mcp__github__get_discussion,mcp__github__get_discussion_comments,mcp__github__get_file_contents,mcp__github__get_issue,mcp__github__get_issue_comments,mcp__github__get_job_logs,mcp__github__get_me,mcp__github__get_notification_details,mcp__github__get_pull_request,mcp__github__get_pull_request_comments,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_files,mcp__github__get_pull_request_reviews,mcp__github__get_pull_request_status,mcp__github__get_secret_scanning_alert,mcp__github__get_tag,mcp__github__get_workflow_run,mcp__github__get_workflow_run_logs,mcp__github__get_workflow_run_usage,mcp__github__list_branches,mcp__github__list_code_scanning_alerts,mcp__github__list_commits,mcp__github__list_dependabot_alerts,mcp__github__list_discussion_categories,mcp__github__list_discussions,mcp__github__list_issues,mcp__github__list_notifications,mcp__github__list_pull_requests,mcp__github__list_secret_scanning_alerts,mcp__github__list_tags,mcp__github__list_workflow_jobs,mcp__github__list_workflow_run_artifacts,mcp__github__list_workflow_runs,mcp__github__list_workflows,mcp__github__search_code,mcp__github__search_issues,mcp__github__search_orgs,mcp__github__search_pull_requests,mcp__github__search_repositories,mcp__github__search_users"
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          claude_env: |
-            GITHUB_AW_SAFE_OUTPUTS: ${{ env.GITHUB_AW_SAFE_OUTPUTS }}
-          mcp_config: /tmp/mcp-config/mcp-servers.json
-          prompt_file: /tmp/aw-prompts/prompt.txt
-          timeout_minutes: 30
+        # Allowed tools (sorted):
+        # - Bash
+        # - BashOutput
+        # - Edit
+        # - ExitPlanMode
+        # - Glob
+        # - Grep
+        # - KillBash
+        # - LS
+        # - MultiEdit
+        # - NotebookEdit
+        # - NotebookRead
+        # - Read
+        # - Task
+        # - TodoWrite
+        # - WebFetch
+        # - WebSearch
+        # - Write
+        # - mcp__github__download_workflow_run_artifact
+        # - mcp__github__get_code_scanning_alert
+        # - mcp__github__get_commit
+        # - mcp__github__get_dependabot_alert
+        # - mcp__github__get_discussion
+        # - mcp__github__get_discussion_comments
+        # - mcp__github__get_file_contents
+        # - mcp__github__get_issue
+        # - mcp__github__get_issue_comments
+        # - mcp__github__get_job_logs
+        # - mcp__github__get_me
+        # - mcp__github__get_notification_details
+        # - mcp__github__get_pull_request
+        # - mcp__github__get_pull_request_comments
+        # - mcp__github__get_pull_request_diff
+        # - mcp__github__get_pull_request_files
+        # - mcp__github__get_pull_request_reviews
+        # - mcp__github__get_pull_request_status
+        # - mcp__github__get_secret_scanning_alert
+        # - mcp__github__get_tag
+        # - mcp__github__get_workflow_run
+        # - mcp__github__get_workflow_run_logs
+        # - mcp__github__get_workflow_run_usage
+        # - mcp__github__list_branches
+        # - mcp__github__list_code_scanning_alerts
+        # - mcp__github__list_commits
+        # - mcp__github__list_dependabot_alerts
+        # - mcp__github__list_discussion_categories
+        # - mcp__github__list_discussions
+        # - mcp__github__list_issues
+        # - mcp__github__list_notifications
+        # - mcp__github__list_pull_requests
+        # - mcp__github__list_secret_scanning_alerts
+        # - mcp__github__list_tags
+        # - mcp__github__list_workflow_jobs
+        # - mcp__github__list_workflow_run_artifacts
+        # - mcp__github__list_workflow_runs
+        # - mcp__github__list_workflows
+        # - mcp__github__search_code
+        # - mcp__github__search_issues
+        # - mcp__github__search_orgs
+        # - mcp__github__search_pull_requests
+        # - mcp__github__search_repositories
+        # - mcp__github__search_users
+        timeout-minutes: 30
+        run: |
+          set -o pipefail
+          # Execute Claude Code CLI with prompt from file
+          npx @anthropic-ai/claude-code@latest --print --mcp-config /tmp/mcp-config/mcp-servers.json --allowed-tools "Bash,BashOutput,Edit,ExitPlanMode,Glob,Grep,KillBash,LS,MultiEdit,NotebookEdit,NotebookRead,Read,Task,TodoWrite,WebFetch,WebSearch,Write,mcp__github__download_workflow_run_artifact,mcp__github__get_code_scanning_alert,mcp__github__get_commit,mcp__github__get_dependabot_alert,mcp__github__get_discussion,mcp__github__get_discussion_comments,mcp__github__get_file_contents,mcp__github__get_issue,mcp__github__get_issue_comments,mcp__github__get_job_logs,mcp__github__get_me,mcp__github__get_notification_details,mcp__github__get_pull_request,mcp__github__get_pull_request_comments,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_files,mcp__github__get_pull_request_reviews,mcp__github__get_pull_request_status,mcp__github__get_secret_scanning_alert,mcp__github__get_tag,mcp__github__get_workflow_run,mcp__github__get_workflow_run_logs,mcp__github__get_workflow_run_usage,mcp__github__list_branches,mcp__github__list_code_scanning_alerts,mcp__github__list_commits,mcp__github__list_dependabot_alerts,mcp__github__list_discussion_categories,mcp__github__list_discussions,mcp__github__list_issues,mcp__github__list_notifications,mcp__github__list_pull_requests,mcp__github__list_secret_scanning_alerts,mcp__github__list_tags,mcp__github__list_workflow_jobs,mcp__github__list_workflow_run_artifacts,mcp__github__list_workflow_runs,mcp__github__list_workflows,mcp__github__search_code,mcp__github__search_issues,mcp__github__search_orgs,mcp__github__search_pull_requests,mcp__github__search_repositories,mcp__github__search_users" --debug --verbose --permission-mode bypassPermissions --output-format json "$(cat /tmp/aw-prompts/prompt.txt)" 2>&1 | tee /tmp/daily-test-coverage-improver.log
         env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DISABLE_TELEMETRY: "1"
+          DISABLE_ERROR_REPORTING: "1"
+          DISABLE_BUG_COMMAND: "1"
           GITHUB_AW_PROMPT: /tmp/aw-prompts/prompt.txt
           GITHUB_AW_SAFE_OUTPUTS: ${{ env.GITHUB_AW_SAFE_OUTPUTS }}
-      - name: Capture Agentic Action logs
+      - name: Ensure log file exists
         if: always()
         run: |
-          # Copy the detailed execution file from Agentic Action if available
-          if [ -n "${{ steps.agentic_execution.outputs.execution_file }}" ] && [ -f "${{ steps.agentic_execution.outputs.execution_file }}" ]; then
-            cp ${{ steps.agentic_execution.outputs.execution_file }} /tmp/daily-test-coverage-improver.log
-          else
-            echo "No execution file output found from Agentic Action" >> /tmp/daily-test-coverage-improver.log
-          fi
-          
           # Ensure log file exists
           touch /tmp/daily-test-coverage-improver.log
+          # Show last few lines for debugging
+          echo "=== Last 10 lines of Claude execution log ==="
+          tail -10 /tmp/daily-test-coverage-improver.log || echo "No log content available"
       - name: Print Agent output
         env:
           GITHUB_AW_SAFE_OUTPUTS: ${{ env.GITHUB_AW_SAFE_OUTPUTS }}
@@ -1289,16 +1672,6 @@ jobs:
           name: agent_output.json
           path: ${{ env.GITHUB_AW_AGENT_OUTPUT }}
           if-no-files-found: warn
-      - name: Upload engine output files
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent_outputs
-          path: |
-            output.txt
-          if-no-files-found: ignore
-      - name: Clean up engine output files
-        run: |
-          rm -f output.txt
       - name: Parse agent logs for step summary
         if: always()
         uses: actions/github-script@v8
@@ -1309,7 +1682,6 @@ jobs:
             function main() {
               const fs = require("fs");
               try {
-                // Get the log file path from environment
                 const logFile = process.env.GITHUB_AW_AGENT_OUTPUT;
                 if (!logFile) {
                   core.info("No agent log file specified");
@@ -1321,9 +1693,7 @@ jobs:
                 }
                 const logContent = fs.readFileSync(logFile, "utf8");
                 const result = parseClaudeLog(logContent);
-                // Append to GitHub step summary
                 core.summary.addRaw(result.markdown).write();
-                // Check for MCP server failures and fail the job if any occurred
                 if (result.mcpFailures && result.mcpFailures.length > 0) {
                   const failedServers = result.mcpFailures.join(", ");
                   core.setFailed(`MCP server(s) failed to launch: ${failedServers}`);
@@ -1340,11 +1710,41 @@ jobs:
              */
             function parseClaudeLog(logContent) {
               try {
-                const logEntries = JSON.parse(logContent);
-                if (!Array.isArray(logEntries)) {
+                let logEntries;
+                // First, try to parse as JSON array (old format)
+                try {
+                  logEntries = JSON.parse(logContent);
+                  if (!Array.isArray(logEntries)) {
+                    throw new Error("Not a JSON array");
+                  }
+                } catch (jsonArrayError) {
+                  // If that fails, try to parse as mixed format (debug logs + JSONL)
+                  logEntries = [];
+                  const lines = logContent.split("\n");
+                  for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine === "") {
+                      continue; // Skip empty lines
+                    }
+                    // Skip debug log lines that don't start with {
+                    // (these are typically timestamped debug messages)
+                    if (!trimmedLine.startsWith("{")) {
+                      continue;
+                    }
+                    // Try to parse each line as JSON
+                    try {
+                      const jsonEntry = JSON.parse(trimmedLine);
+                      logEntries.push(jsonEntry);
+                    } catch (jsonLineError) {
+                      // Skip invalid JSON lines (could be partial debug output)
+                      continue;
+                    }
+                  }
+                }
+                if (!Array.isArray(logEntries) || logEntries.length === 0) {
                   return {
                     markdown:
-                      "## Agent Log Summary\n\nLog format not recognized as Claude JSON array.\n",
+                      "## Agent Log Summary\n\nLog format not recognized as Claude JSON array or JSONL.\n",
                     mcpFailures: [],
                   };
                 }
@@ -1496,7 +1896,7 @@ jobs:
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 return {
-                  markdown: `## Agent Log Summary\n\nError parsing Claude log: ${errorMessage}\n`,
+                  markdown: `## Agent Log Summary\n\nError parsing Claude log (tried both JSON array and JSONL formats): ${errorMessage}\n`,
                   mcpFailures: [],
                 };
               }
@@ -2017,7 +2417,6 @@ jobs:
           GITHUB_AW_AGENT_OUTPUT: ${{ needs.daily-test-coverage-improver.outputs.output }}
           GITHUB_AW_ISSUE_TITLE_PREFIX: "${{ github.workflow }}"
         with:
-          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             async function main() {
               // Check if we're in staged mode
@@ -2217,7 +2616,6 @@ jobs:
           GITHUB_AW_AGENT_OUTPUT: ${{ needs.daily-test-coverage-improver.outputs.output }}
           GITHUB_AW_COMMENT_TARGET: "*"
         with:
-          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             async function main() {
               // Check if we're in staged mode
@@ -2440,7 +2838,6 @@ jobs:
           GITHUB_AW_PR_DRAFT: "true"
           GITHUB_AW_PR_IF_NO_CHANGES: "warn"
         with:
-          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             /** @type {typeof import("fs")} */
             const fs = require("fs");
@@ -2761,7 +3158,6 @@ jobs:
           GITHUB_AW_UPDATE_BODY: true
           GITHUB_AW_UPDATE_TARGET: "*"
         with:
-          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             async function main() {
               // Check if we're in staged mode

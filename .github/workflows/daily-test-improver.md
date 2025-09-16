@@ -23,7 +23,6 @@ safe-outputs:
     target: "*" # can add a comment to any one single issue or pull request
   create-pull-request: # can create a pull request
     draft: true
-  github-token: ${{ secrets.DSYME_GH_TOKEN}}
 
 tools:
   web-fetch:
@@ -40,7 +39,7 @@ tools:
 
 steps:
   - name: Checkout repository
-    uses: actions/checkout@v3
+    uses: actions/checkout@v5
 
   - name: Check if action.yml exists
     id: check_coverage_steps_file
@@ -67,13 +66,13 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
 
 1. Testing research (if not done before)
 
-   1a. Check if an open issue with title "${{ github.workflow }}: Research and Plan" exists using `search_issues`. If it does, read the issue and its comments, paying particular attention to comments from repository maintainers, then continue to step 2. If the issue doesn't exist, follow the steps below to create it:
+   1a. Check if an open issue with label "daily-test-improver-plan" exists using `search_issues`. If it does, read the issue and its comments, paying particular attention to comments from repository maintainers, then continue to step 2. If the issue doesn't exist, follow the steps below to create it:
 
    1b. Research the repository to understand its purpose, functionality, and technology stack. Look at the README.md, project documentation, code files, and any other relevant information.
 
    1c. Research the current state of test coverage in the repository. Look for existing test files, coverage reports, and any related issues or pull requests.
 
-   1d. Create an issue with title "${{ github.workflow }}: Research and Plan" that includes:
+   1d. Create an issue with title "${{ github.workflow }} - Research and Plan" and label "daily-test-improver-plan" that includes:
       - A summary of your findings about the repository, its testing strategies, its test coverage
       - A plan for how you will approach improving test coverage, including specific areas to focus on and strategies to use
       - Details of the commands needed to run to build the project, run tests, and generate coverage reports
