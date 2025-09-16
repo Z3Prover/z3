@@ -28,16 +28,24 @@ Revision History:
 # include <iostream>
 #endif
 
+// Common object sizes optimized for Z3 usage patterns
+const unsigned small_object_allocator::COMMON_SIZES[NUM_COMMON_POOLS] = {16, 32, 64, 128};
+
 
 small_object_allocator::small_object_allocator(char const * id) {
     for (unsigned i = 0; i < NUM_SLOTS; i++) {
         m_chunks[i] = nullptr;
         m_free_list[i] = nullptr;
     }
+    for (unsigned i = 0; i < NUM_COMMON_POOLS; i++) {
+        m_pools[i] = nullptr;
+    }
     DEBUG_CODE({
         m_id = id;
     });
     m_alloc_size = 0;
+    m_pool_hits = 0;
+    m_total_allocs = 0;
 }
 
 small_object_allocator::~small_object_allocator() {
@@ -49,9 +57,21 @@ small_object_allocator::~small_object_allocator() {
             c = next;
         }
     }
+    // Clean up pools
+    for (unsigned i = 0; i < NUM_COMMON_POOLS; i++) {
+        pool_chunk* p = m_pools[i];
+        while (p) {
+            pool_chunk* next = p->m_next;
+            dealloc(p);
+            p = next;
+        }
+    }
     DEBUG_CODE({
         if (m_alloc_size > 0) {
             std::cerr << "Memory leak detected for small object allocator '" << m_id << "'. " << m_alloc_size << " bytes leaked" << std::endl;
+        }
+        if (m_total_allocs > 0) {
+            std::cerr << "Pool hit ratio for '" << m_id << "': " << get_pool_hit_ratio() * 100.0 << "%" << std::endl;
         }
     });
 }
@@ -67,11 +87,70 @@ void small_object_allocator::reset() {
         m_chunks[i] = nullptr;
         m_free_list[i] = nullptr;
     }
+    // Reset pools
+    for (unsigned i = 0; i < NUM_COMMON_POOLS; i++) {
+        pool_chunk* p = m_pools[i];
+        while (p) {
+            pool_chunk* next = p->m_next;
+            dealloc(p);
+            p = next;
+        }
+        m_pools[i] = nullptr;
+    }
     m_alloc_size = 0;
+    m_pool_hits = 0;
+    m_total_allocs = 0;
 }
 
 #define MASK ((1 << PTR_ALIGNMENT) - 1)
 
+// Pool chunk implementation
+void small_object_allocator::pool_chunk::init_free_list() {
+    m_free_head = m_data;
+    char* curr = m_data;
+    for (unsigned i = 0; i < m_objects_per_chunk - 1; i++) {
+        *(reinterpret_cast<void**>(curr)) = curr + m_obj_size;
+        curr += m_obj_size;
+    }
+    *(reinterpret_cast<void**>(curr)) = nullptr;
+}
+
+void* small_object_allocator::pool_chunk::allocate() {
+    if (m_free_head == nullptr) return nullptr;
+
+    void* result = m_free_head;
+    m_free_head = *(reinterpret_cast<void**>(m_free_head));
+    m_free_count--;
+
+#ifdef __builtin_prefetch
+    if (m_free_head) __builtin_prefetch(m_free_head, 1, 3);
+#endif
+
+    return result;
+}
+
+void small_object_allocator::pool_chunk::deallocate(void* p) {
+    *(reinterpret_cast<void**>(p)) = m_free_head;
+    m_free_head = p;
+    m_free_count++;
+}
+
+unsigned small_object_allocator::get_pool_index(size_t size) const {
+    for (unsigned i = 0; i < NUM_COMMON_POOLS; i++) {
+        if (size <= COMMON_SIZES[i]) return i;
+    }
+    return NUM_COMMON_POOLS; // Not found
+}
+
+small_object_allocator::pool_chunk* small_object_allocator::get_or_create_pool(unsigned pool_idx) {
+    if (m_pools[pool_idx] == nullptr || m_pools[pool_idx]->m_free_head == nullptr) {
+        // Create new pool chunk
+        pool_chunk* new_pool = alloc(pool_chunk, COMMON_SIZES[pool_idx]);
+        new_pool->m_next = m_pools[pool_idx];
+        m_pools[pool_idx] = new_pool;
+    }
+    return m_pools[pool_idx];
+}
 
 void small_object_allocator::deallocate(size_t size, void * p) {
     if (size == 0) return;
@@ -84,10 +163,27 @@ void small_object_allocator::deallocate(size_t size, void * p) {
     SASSERT(m_alloc_size >= size);
     SASSERT(p);
     m_alloc_size -= size;
+
     if (size >= SMALL_OBJ_SIZE - (1 << PTR_ALIGNMENT)) {
         memory::deallocate(p);
         return;
     }
+
+    // Try to deallocate from pools first
+    unsigned pool_idx = get_pool_index(size);
+    if (pool_idx < NUM_COMMON_POOLS) {
+        // Find which pool chunk contains this pointer
+        pool_chunk* pool = m_pools[pool_idx];
+        while (pool != nullptr) {
+            if (pool->contains(p)) {
+                pool->deallocate(p);
+                return;
+            }
+            pool = pool->m_next;
+        }
+    }
+
+    // Fall back to slot-based deallocation
     unsigned slot_id = static_cast<unsigned>(size >> PTR_ALIGNMENT);
     if ((size & MASK) != 0)
         slot_id++;
@@ -99,10 +195,10 @@ void small_object_allocator::deallocate(size_t size, void * p) {
 
 
 void * small_object_allocator::allocate(size_t size) {
-    if (size == 0) 
+    if (size == 0)
         return nullptr;
 
-
+    m_total_allocs++; // Track allocation count
 
 #if defined(Z3DEBUG) && !defined(_WINDOWS)
     // Valgrind friendly
@@ -113,7 +209,18 @@ void * small_object_allocator::allocate(size_t size) {
         return memory::allocate(size);
     }
 
+    // Try pool allocation first for common sizes
+    unsigned pool_idx = get_pool_index(size);
+    if (pool_idx < NUM_COMMON_POOLS) {
+        pool_chunk* pool = get_or_create_pool(pool_idx);
+        void* result = pool->allocate();
+        if (result != nullptr) {
+            m_pool_hits++; // Track pool hits
+            return result;
+        }
+    }
 
+    // Fall back to original slot-based allocation
 #ifdef Z3DEBUG
     size_t osize = size;
 #endif
@@ -127,10 +234,11 @@ void * small_object_allocator::allocate(size_t size) {
         m_free_list[slot_id] = *(reinterpret_cast<void **>(r));
         return r;
     }
-    chunk * c = m_chunks[slot_id]; 
+    chunk * c = m_chunks[slot_id];
     size = slot_id << PTR_ALIGNMENT;
     SASSERT(size >= osize);
     if (c != nullptr) {
+        c->prefetch_next(); // Cache prefetch optimization
         char * new_curr = c->m_curr + size;
         if (new_curr < c->m_data + CHUNK_SIZE) {
             void * r = c->m_curr;
@@ -148,6 +256,8 @@ void * small_object_allocator::allocate(size_t size) {
 
 size_t small_object_allocator::get_wasted_size() const {
     size_t r = 0;
+
+    // Count wasted space in slots
     for (unsigned slot_id = 0; slot_id < NUM_SLOTS; slot_id++) {
         size_t slot_obj_size = slot_id << PTR_ALIGNMENT;
         void ** ptr = reinterpret_cast<void **>(const_cast<small_object_allocator*>(this)->m_free_list[slot_id]);
@@ -156,11 +266,23 @@ size_t small_object_allocator::get_wasted_size() const {
             ptr = reinterpret_cast<void**>(*ptr);
         }
     }
+
+    // Count wasted space in pools
+    for (unsigned pool_idx = 0; pool_idx < NUM_COMMON_POOLS; pool_idx++) {
+        pool_chunk* pool = const_cast<small_object_allocator*>(this)->m_pools[pool_idx];
+        while (pool != nullptr) {
+            r += pool->m_free_count * COMMON_SIZES[pool_idx];
+            pool = pool->m_next;
+        }
+    }
+
     return r;
 }
 
 size_t small_object_allocator::get_num_free_objs() const {
     size_t r = 0;
+
+    // Count free objects in slots
     for (unsigned slot_id = 0; slot_id < NUM_SLOTS; slot_id++) {
         void ** ptr = reinterpret_cast<void **>(const_cast<small_object_allocator*>(this)->m_free_list[slot_id]);
         while (ptr != nullptr) {
@@ -168,6 +290,16 @@ size_t small_object_allocator::get_num_free_objs() const {
             ptr = reinterpret_cast<void**>(*ptr);
         }
     }
+
+    // Count free objects in pools
+    for (unsigned pool_idx = 0; pool_idx < NUM_COMMON_POOLS; pool_idx++) {
+        pool_chunk* pool = const_cast<small_object_allocator*>(this)->m_pools[pool_idx];
+        while (pool != nullptr) {
+            r += pool->m_free_count;
+            pool = pool->m_next;
+        }
+    }
+
     return r;
 }
 
