@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-18 15:25:04
+# Effective stop-time: 2025-09-18 22:27:02
 
 name: "Daily Perf Improver"
 "on":
@@ -541,7 +541,7 @@ jobs:
           WORKFLOW_NAME="Daily Perf Improver"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-18 15:25:04"
+          STOP_TIME="2025-09-18 22:27:02"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -683,7 +683,9 @@ jobs:
              - include links to any issues you created or commented on, and any pull requests you created.
              - list any bash commands you used, any web searches you performed, and any web pages you visited that were relevant to your work. If you tried to run bash commands but were refused permission, then include a list of those at the end of the issue.
           
-             Be very honest about whether you took accurate before/after performance measurements or not, and if you did, what they were. If you didn't, explain why not. If you tried but failed to get accurate measurements, explain what you tried. Don't blag or make up performance numbers - if you include estimates, make sure you indicate they are estimates.
+             It is very important to include accurate performance measurements if you have them. Include a section "Performance measurements". Be very honest about whether you took accurate before/after performance measurements or not, and if you did, what they were. If you didn't, explain why not. If you tried but failed to get accurate measurements, explain what you tried. Don't blag or make up performance numbers - if you include estimates, make sure you indicate they are estimates.
+          
+             Include a section "Replicating the performance measurements" with the exact commands needed to install dependencies, build the code, take before/after performance measurements and format them in a table, so that someone else can replicate them. If you used any scripts or benchmark programs to help with this, include them in the repository if appropriate, or include links to them if they are external.
           
              5d. After creation, check the pull request to ensure it is correct, includes all expected files, and doesn't include any unwanted files or changes. Make any necessary corrections by pushing further commits to the branch.
           
@@ -786,6 +788,14 @@ jobs:
             fs.writeFileSync(tmpPath, JSON.stringify(awInfo, null, 2));
             console.log('Generated aw_info.json at:', tmpPath);
             console.log(JSON.stringify(awInfo, null, 2));
+            
+            // Add agentic workflow run information to step summary
+            core.summary
+              .addRaw('## Agentic Run Information\n\n')
+              .addRaw('```json\n')
+              .addRaw(JSON.stringify(awInfo, null, 2))
+              .addRaw('\n```\n')
+              .write();
       - name: Upload agentic run info
         if: always()
         uses: actions/upload-artifact@v4
@@ -1754,6 +1764,19 @@ jobs:
                     const trimmedLine = line.trim();
                     if (trimmedLine === "") {
                       continue; // Skip empty lines
+                    }
+                    // Handle lines that start with [ (JSON array format)
+                    if (trimmedLine.startsWith("[{")) {
+                      try {
+                        const arrayEntries = JSON.parse(trimmedLine);
+                        if (Array.isArray(arrayEntries)) {
+                          logEntries.push(...arrayEntries);
+                          continue;
+                        }
+                      } catch (arrayParseError) {
+                        // Skip invalid array lines
+                        continue;
+                      }
                     }
                     // Skip debug log lines that don't start with {
                     // (these are typically timestamped debug messages)

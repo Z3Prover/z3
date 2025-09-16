@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-18 15:25:05
+# Effective stop-time: 2025-09-18 22:27:02
 
 name: "Daily Test Coverage Improver"
 "on":
@@ -541,7 +541,7 @@ jobs:
           WORKFLOW_NAME="Daily Test Coverage Improver"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-18 15:25:05"
+          STOP_TIME="2025-09-18 22:27:02"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -648,10 +648,8 @@ jobs:
                 - A summary of the changes made
                 - The problems you found
                 - The actions you took
-                - The changes in test coverage achieved - give numbers from the coverage reports
-                - Include exact coverage numbers before and after the changes, drawing from the coverage reports
-                - Include changes in numbers for overall coverage
-                - If coverage numbers a guesstimates, rather than based on coverage reports, say so. Don't blag, be honest. Include the exact commands the user will need to run to validate accurate coverage numbers.
+                - Include a section "Test coverage results" giving exact coverage numbers before and after the changes, drawing from the coverage reports, in a table if possible. Include changes in numbers for overall coverage. If coverage numbers a guesstimates, rather than based on coverage reports, say so. Don't blag, be honest. Include the exact commands the user will need to run to validate accurate coverage numbers.
+                - Include a section "Replicating the test coverage measurements" with the exact commands needed to install dependencies, build the code, run tests, generate coverage reports including a summary before/after table, so that someone else can replicate them. If you used any scripts or programs to help with this, include them in the repository if appropriate, or include links to them if they are external.
                 - List possible other areas for future improvement
                 - In a collapsed section list
                   - all bash commands you ran
@@ -757,6 +755,14 @@ jobs:
             fs.writeFileSync(tmpPath, JSON.stringify(awInfo, null, 2));
             console.log('Generated aw_info.json at:', tmpPath);
             console.log(JSON.stringify(awInfo, null, 2));
+            
+            // Add agentic workflow run information to step summary
+            core.summary
+              .addRaw('## Agentic Run Information\n\n')
+              .addRaw('```json\n')
+              .addRaw(JSON.stringify(awInfo, null, 2))
+              .addRaw('\n```\n')
+              .write();
       - name: Upload agentic run info
         if: always()
         uses: actions/upload-artifact@v4
@@ -1725,6 +1731,19 @@ jobs:
                     const trimmedLine = line.trim();
                     if (trimmedLine === "") {
                       continue; // Skip empty lines
+                    }
+                    // Handle lines that start with [ (JSON array format)
+                    if (trimmedLine.startsWith("[{")) {
+                      try {
+                        const arrayEntries = JSON.parse(trimmedLine);
+                        if (Array.isArray(arrayEntries)) {
+                          logEntries.push(...arrayEntries);
+                          continue;
+                        }
+                      } catch (arrayParseError) {
+                        // Skip invalid array lines
+                        continue;
+                      }
                     }
                     // Skip debug log lines that don't start with {
                     // (these are typically timestamped debug messages)

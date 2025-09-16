@@ -165,7 +165,9 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
    - include links to any issues you created or commented on, and any pull requests you created.
    - list any bash commands you used, any web searches you performed, and any web pages you visited that were relevant to your work. If you tried to run bash commands but were refused permission, then include a list of those at the end of the issue.
 
-   Be very honest about whether you took accurate before/after performance measurements or not, and if you did, what they were. If you didn't, explain why not. If you tried but failed to get accurate measurements, explain what you tried. Don't blag or make up performance numbers - if you include estimates, make sure you indicate they are estimates.
+   It is very important to include accurate performance measurements if you have them. Include a section "Performance measurements". Be very honest about whether you took accurate before/after performance measurements or not, and if you did, what they were. If you didn't, explain why not. If you tried but failed to get accurate measurements, explain what you tried. Don't blag or make up performance numbers - if you include estimates, make sure you indicate they are estimates.
+
+   Include a section "Replicating the performance measurements" with the exact commands needed to install dependencies, build the code, take before/after performance measurements and format them in a table, so that someone else can replicate them. If you used any scripts or benchmark programs to help with this, include them in the repository if appropriate, or include links to them if they are external.
 
    5d. After creation, check the pull request to ensure it is correct, includes all expected files, and doesn't include any unwanted files or changes. Make any necessary corrections by pushing further commits to the branch.
 

@@ -137,10 +137,8 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
       - A summary of the changes made
       - The problems you found
       - The actions you took
-      - The changes in test coverage achieved - give numbers from the coverage reports
-      - Include exact coverage numbers before and after the changes, drawing from the coverage reports
-      - Include changes in numbers for overall coverage
-      - If coverage numbers a guesstimates, rather than based on coverage reports, say so. Don't blag, be honest. Include the exact commands the user will need to run to validate accurate coverage numbers.
+      - Include a section "Test coverage results" giving exact coverage numbers before and after the changes, drawing from the coverage reports, in a table if possible. Include changes in numbers for overall coverage. If coverage numbers a guesstimates, rather than based on coverage reports, say so. Don't blag, be honest. Include the exact commands the user will need to run to validate accurate coverage numbers.
+      - Include a section "Replicating the test coverage measurements" with the exact commands needed to install dependencies, build the code, run tests, generate coverage reports including a summary before/after table, so that someone else can replicate them. If you used any scripts or programs to help with this, include them in the repository if appropriate, or include links to them if they are external.
       - List possible other areas for future improvement
       - In a collapsed section list
         - all bash commands you ran
