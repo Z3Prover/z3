@@ -126,8 +126,8 @@ runs:
       shell: bash
       run: |
         echo "Generating HTML coverage report" >> coverage-steps.log
-        # Generate basic HTML coverage report
-        gcovr --html coverage.html --gcov-ignore-parse-errors --gcov-executable "llvm-cov gcov" . 2>&1 | tee -a coverage-steps.log
+        # Generate basic HTML coverage report with merge-mode fix
+        gcovr --html coverage.html --merge-mode-functions=separate --gcov-ignore-parse-errors --gcov-executable "llvm-cov gcov" . 2>&1 | tee -a coverage-steps.log
         echo "Basic coverage report generated as coverage.html" >> coverage-steps.log
         
     # Generate detailed coverage report
@@ -136,8 +136,8 @@ runs:
       run: |
         echo "Generating detailed HTML coverage report" >> coverage-steps.log
         mkdir -p cov-details
-        # Generate detailed HTML coverage report focused on src directory
-        gcovr --html-details cov-details/coverage.html --gcov-ignore-parse-errors --gcov-executable "llvm-cov gcov" -r src --object-directory build 2>&1 | tee -a coverage-steps.log || echo "Detailed coverage generation had issues, basic report still available" >> coverage-steps.log
+        # Generate detailed HTML coverage report focused on src directory with merge-mode fix
+        gcovr --html-details cov-details/coverage.html --merge-mode-functions=separate --gcov-ignore-parse-errors --gcov-executable "llvm-cov gcov" -r src --object-directory build 2>&1 | tee -a coverage-steps.log || echo "Detailed coverage generation had issues, basic report still available" >> coverage-steps.log
         echo "Detailed coverage report generated in cov-details/ directory" >> coverage-steps.log
         
     # Generate text summary of coverage
@@ -145,7 +145,7 @@ runs:
       shell: bash
       run: |
         echo "Generating text coverage summary" >> coverage-steps.log
-        gcovr --gcov-ignore-parse-errors --gcov-executable "llvm-cov gcov" . 2>&1 | tee coverage-summary.txt | tee -a coverage-steps.log
+        gcovr --merge-mode-functions=separate --gcov-ignore-parse-errors --gcov-executable "llvm-cov gcov" . 2>&1 | tee coverage-summary.txt | tee -a coverage-steps.log
         echo "Coverage summary saved to coverage-summary.txt" >> coverage-steps.log
         
     # Upload coverage reports as artifact
