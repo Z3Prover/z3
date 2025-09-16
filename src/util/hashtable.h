@@ -26,7 +26,7 @@ Revision History:
 #include "util/memory_manager.h"
 #include "util/hash.h"
 #include "util/vector.h"
-#ifdef __builtin_prefetch
+#ifdef __has_builtin(__builtin_prefetch) 
 #define HASHTABLE_PREFETCH(addr) __builtin_prefetch(addr, 0, 3)
 #else
 #define HASHTABLE_PREFETCH(addr) ((void)0)
@@ -65,14 +65,12 @@ public:
     bool is_free() const { return m_state == HT_FREE; }
     bool is_deleted() const { return m_state == HT_DELETED; }
     bool is_used() const { return m_state == HT_USED; }
-    unsigned char get_probe_distance() const { return m_probe_distance; }
     T & get_data()             { return m_data; }
     const T & get_data() const { return m_data; }
     void set_data(T && d) { m_data = std::move(d); m_state = HT_USED; }
     void set_hash(unsigned h)  { m_hash = h; }
-    void set_probe_distance(unsigned char dist) { m_probe_distance = dist; }
     void mark_as_deleted() { m_state = HT_DELETED; }
-    void mark_as_free() { m_state = HT_FREE; m_probe_distance = 0; }
+    void mark_as_free() { m_state = HT_FREE; }
 };
 
 /**

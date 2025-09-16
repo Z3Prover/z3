@@ -6,7 +6,7 @@
 #include <random>
 
 struct int_hash {
-    unsigned operator()(int k) const { return static_cast<unsigned>(k); }
+    unsigned operator()(int k) const { return static_cast<unsigned>(k) * 2654435761U; }
 };
 
 struct int_eq {
