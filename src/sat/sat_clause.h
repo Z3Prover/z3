@@ -37,7 +37,7 @@ namespace sat {
 
     std::ostream & operator<<(std::ostream & out, clause const & c);
 
-    class clause {
+    class alignas(16) clause {
         friend class clause_allocator;
         friend class tmp_clause;
         unsigned           m_id;
@@ -103,6 +103,12 @@ namespace sat {
 
         bool on_reinit_stack() const { return m_reinit_stack; }
         void set_reinit_stack(bool f) { m_reinit_stack = f; }
+
+        // Performance monitoring for cache-friendly optimizations
+        static unsigned get_cache_line_size() { return 64; }  // Typical cache line size
+        bool is_cache_aligned() const {
+            return reinterpret_cast<uintptr_t>(this) % 16 == 0;
+        }
     };
 
     std::ostream & operator<<(std::ostream & out, clause_vector const & cs);

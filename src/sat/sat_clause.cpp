@@ -60,17 +60,59 @@ namespace sat {
     }
 
     bool clause::contains(literal l) const {
-        for (literal l2 : *this) 
-            if (l2 == l) 
-                return true;
-        return false;
+        // Prefetch the literals array for better cache performance
+        #ifdef __GNUC__
+        if (m_size > 0) __builtin_prefetch(m_lits, 0, 3);
+        #endif
+
+        // Unroll small cases for better branch prediction
+        switch (m_size) {
+        case 0: return false;
+        case 1: return m_lits[0] == l;
+        case 2: return m_lits[0] == l || m_lits[1] == l;
+        case 3: return m_lits[0] == l || m_lits[1] == l || m_lits[2] == l;
+        default:
+            // For larger clauses, use unrolled loop for better cache usage
+            unsigned i = 0;
+            for (; i + 3 < m_size; i += 4) {
+                if (m_lits[i] == l || m_lits[i+1] == l ||
+                    m_lits[i+2] == l || m_lits[i+3] == l)
+                    return true;
+            }
+            for (; i < m_size; i++) {
+                if (m_lits[i] == l)
+                    return true;
+            }
+            return false;
+        }
     }
 
     bool clause::contains(bool_var v) const {
-        for (literal l : *this) 
-            if (l.var() == v)
-                return true;
-        return false;
+        // Prefetch the literals array for better cache performance
+        #ifdef __GNUC__
+        if (m_size > 0) __builtin_prefetch(m_lits, 0, 3);
+        #endif
+
+        // Unroll small cases for better branch prediction
+        switch (m_size) {
+        case 0: return false;
+        case 1: return m_lits[0].var() == v;
+        case 2: return m_lits[0].var() == v || m_lits[1].var() == v;
+        case 3: return m_lits[0].var() == v || m_lits[1].var() == v || m_lits[2].var() == v;
+        default:
+            // For larger clauses, use unrolled loop for better cache usage
+            unsigned i = 0;
+            for (; i + 3 < m_size; i += 4) {
+                if (m_lits[i].var() == v || m_lits[i+1].var() == v ||
+                    m_lits[i+2].var() == v || m_lits[i+3].var() == v)
+                    return true;
+            }
+            for (; i < m_size; i++) {
+                if (m_lits[i].var() == v)
+                    return true;
+            }
+            return false;
+        }
     }
 
     void clause::elim(literal l) {
@@ -101,17 +143,41 @@ namespace sat {
     }
 
     bool clause::satisfied_by(model const & m) const {
-        for (literal l : *this) {
-            if (l.sign()) {
-                if (m[l.var()] == l_false)
-                    return true;
-            }
-            else {
-                if (m[l.var()] == l_true)
-                    return true;
-            }
+        // Prefetch the literals array for better cache performance
+        #ifdef __GNUC__
+        if (m_size > 0) __builtin_prefetch(m_lits, 0, 3);
+        #endif
+
+        // Unroll small cases for better branch prediction
+        switch (m_size) {
+        case 0: return false;
+        case 1: {
+            literal l = m_lits[0];
+            return l.sign() ? (m[l.var()] == l_false) : (m[l.var()] == l_true);
         }
-        return false;
+        case 2: {
+            literal l0 = m_lits[0], l1 = m_lits[1];
+            return (l0.sign() ? (m[l0.var()] == l_false) : (m[l0.var()] == l_true)) ||
+                   (l1.sign() ? (m[l1.var()] == l_false) : (m[l1.var()] == l_true));
+        }
+        default:
+            // For larger clauses, use unrolled loop
+            unsigned i = 0;
+            for (; i + 3 < m_size; i += 4) {
+                literal l0 = m_lits[i], l1 = m_lits[i+1], l2 = m_lits[i+2], l3 = m_lits[i+3];
+                if ((l0.sign() ? (m[l0.var()] == l_false) : (m[l0.var()] == l_true)) ||
+                    (l1.sign() ? (m[l1.var()] == l_false) : (m[l1.var()] == l_true)) ||
+                    (l2.sign() ? (m[l2.var()] == l_false) : (m[l2.var()] == l_true)) ||
+                    (l3.sign() ? (m[l3.var()] == l_false) : (m[l3.var()] == l_true)))
+                    return true;
+            }
+            for (; i < m_size; i++) {
+                literal l = m_lits[i];
+                if (l.sign() ? (m[l.var()] == l_false) : (m[l.var()] == l_true))
+                    return true;
+            }
+            return false;
+        }
     }
 
     clause_offset clause::get_new_offset() const {
@@ -224,19 +290,19 @@ namespace sat {
     }
 
     bool clause_wrapper::contains(literal l) const {
-        unsigned sz = size();
-        for (unsigned i = 0; i < sz; i++)
-            if (operator[](i) == l)
-                return true;
-        return false;
+        if (is_binary()) {
+            return operator[](0) == l || operator[](1) == l;
+        } else {
+            return get_clause()->contains(l);
+        }
     }
 
     bool clause_wrapper::contains(bool_var v) const {
-        unsigned sz = size();
-        for (unsigned i = 0; i < sz; i++)
-            if (operator[](i).var() == v)
-                return true;
-        return false;
+        if (is_binary()) {
+            return operator[](0).var() == v || operator[](1).var() == v;
+        } else {
+            return get_clause()->contains(v);
+        }
     }
 
     std::ostream & operator<<(std::ostream & out, clause_wrapper const & c) {
