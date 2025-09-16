@@ -149,8 +149,10 @@ class skolemizer {
         r = m_subst(body, substitution);
         p = nullptr;
         if (m_proofs_enabled) {
-            if (q->get_kind() == forall_k) 
-                p = m.mk_skolemization(mk_not(m, q), mk_not(m, r));
+            if (q->get_kind() == forall_k) {
+                auto a = mk_not(m, q); 
+                p = m.mk_skolemization(a , mk_not(m, r));
+            }
             else
                 p = m.mk_skolemization(q, r);
         }
@@ -609,8 +611,10 @@ struct nnf::imp {
         expr * not_rhs  = rs[3];
 
         app * r;
-        if (is_eq(t) == fr.m_pol) 
-            r = m.mk_and(m.mk_or(not_lhs, rhs), m.mk_or(lhs, not_rhs));
+        if (is_eq(t) == fr.m_pol) {
+            auto a = m.mk_or(not_lhs, rhs);
+            r = m.mk_and(a, m.mk_or(lhs, not_rhs));
+        }
         else
             r = m.mk_and(m.mk_or(lhs, rhs), m.mk_or(not_lhs, not_rhs));
         m_result_stack.shrink(fr.m_spos);
