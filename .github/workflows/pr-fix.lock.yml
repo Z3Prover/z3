@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-18 22:30:52
+# Effective stop-time: 2025-09-18 23:04:00
 
 name: "PR Fix"
 on:
@@ -37,7 +37,7 @@ jobs:
         id: check-team-member
         uses: actions/github-script@v8
         env:
-          GITHUB_AW_REQUIRED_ROLES: admin,maintainer
+          GITHUB_AW_REQUIRED_ROLES: admin,maintainer,write
         with:
           script: |
             async function setCancelled(message) {
@@ -1071,7 +1071,7 @@ jobs:
           WORKFLOW_NAME="PR Fix"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-18 22:30:52"
+          STOP_TIME="2025-09-18 23:04:00"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds

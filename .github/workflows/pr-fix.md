@@ -6,6 +6,7 @@ on:
   stop-after: +48h
 
 permissions: read-all
+roles: [admin, maintainer, write]
 
 network: defaults
 

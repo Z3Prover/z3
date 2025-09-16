@@ -4,6 +4,7 @@ on:
     name: ask
   reaction: "eyes"
   stop-after: +48h
+roles: [admin, maintainer, write]
 
 permissions: read-all
 
