@@ -508,3 +508,128 @@ INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/tactic_params.hpp"
 [203/881] Building CXX object src/ast/macros/CMakeFiles/macros.dir/quantifier_macro_info.cpp.o
 [204/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/th_rewriter.cpp.o
 [205/881] Building CXX object src/ast/macros/CMakeFiles/macros.dir/macro_finder.cpp.o
+[206/881] Building CXX object src/ast/macros/CMakeFiles/macros.dir/macro_util.cpp.o
+[207/881] Building CXX object src/ast/macros/CMakeFiles/macros.dir/macro_manager.cpp.o
+[208/881] Building CXX object src/ast/macros/CMakeFiles/macros.dir/quasi_macros.cpp.o
+[209/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/seq_rewriter.cpp.o
+[210/881] Building CXX object src/ast/rewriter/bit_blaster/CMakeFiles/bit_blaster.dir/bit_blaster.cpp.o
+[211/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_arith_plugin.cpp.o
+/home/runner/work/z3/z3/src/ast/euf/euf_arith_plugin.cpp: In member function ‘virtual void euf::arith_plugin::register_node(euf::enode*)’:
+/home/runner/work/z3/z3/src/ast/euf/euf_arith_plugin.cpp:62:19: warning: unused variable ‘m’ [-Wunused-variable]
+   62 |             auto& m = g.get_manager();
+      |                   ^
+[212/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_enode.cpp.o
+[213/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_bv_plugin.cpp.o
+[214/881] Building CXX object src/ast/rewriter/bit_blaster/CMakeFiles/bit_blaster.dir/bit_blaster_rewriter.cpp.o
+[215/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_ac_plugin.cpp.o
+/home/runner/work/z3/z3/src/ast/euf/euf_ac_plugin.cpp: In member function ‘void euf::ac_plugin::rewrite1(const ref_counts&, const monomial_t&, ref_counts&, ptr_vector<node>&)’:
+/home/runner/work/z3/z3/src/ast/euf/euf_ac_plugin.cpp:1060:14: warning: unused variable ‘change’ [-Wunused-variable]
+ 1060 |         bool change = false;
+      |              ^~~~~~
+[216/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_justification.cpp.o
+[217/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_egraph.cpp.o
+[218/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_etable.cpp.o
+[219/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_plugin.cpp.o
+[220/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_specrel_plugin.cpp.o
+[221/881] Building CXX object src/ast/substitution/CMakeFiles/substitution.dir/matcher.cpp.o
+[222/881] Building CXX object src/ast/substitution/CMakeFiles/substitution.dir/substitution.cpp.o
+[222/881] Generating "/home/runner/work/z3/z3/build/src/parsers/util/parser_params.hpp" from "parser_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/parsers/util/parser_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/parsers/util/parser_params.hpp"
+[223/881] Generating "/home/runner/work/z3/z3/build/src/ast/normal_forms/nnf_params.hpp" from "nnf_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/ast/normal_forms/nnf_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/ast/normal_forms/nnf_params.hpp"
+[224/881] Generating "/home/runner/work/z3/z3/build/src/model/model_evaluator_params.hpp" from "model_evaluator_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/model/model_evaluator_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/model/model_evaluator_params.hpp"
+[225/881] Generating "/home/runner/work/z3/z3/build/src/model/model_params.hpp" from "model_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/model/model_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/model/model_params.hpp"
+[226/881] Building CXX object src/ast/substitution/CMakeFiles/substitution.dir/unifier.cpp.o
+[227/881] Generating "/home/runner/work/z3/z3/build/src/sat/sat_asymm_branch_params.hpp" from "sat_asymm_branch_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/sat/sat_asymm_branch_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/sat/sat_asymm_branch_params.hpp"
+[228/881] Generating "/home/runner/work/z3/z3/build/src/sat/sat_scc_params.hpp" from "sat_scc_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/sat/sat_scc_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/sat/sat_scc_params.hpp"
+[229/881] Generating "/home/runner/work/z3/z3/build/src/sat/sat_simplifier_params.hpp" from "sat_simplifier_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/sat/sat_simplifier_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/sat/sat_simplifier_params.hpp"
+[231/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/ho_matcher.cpp.o
+/home/runner/work/z3/z3/src/ast/euf/ho_matcher.cpp: In member function ‘bool euf::ho_matcher::consume_work(euf::match_goal&)’:
+/home/runner/work/z3/z3/src/ast/euf/ho_matcher.cpp:296:18: warning: unused variable ‘idx’ [-Wunused-variable]
+  296 |             auto idx = v->get_idx() - wi.pat_offset();
+      |                  ^~~
+[232/881] Building CXX object src/ast/substitution/CMakeFiles/substitution.dir/substitution_tree.cpp.o
+[233/881] Building CXX object src/ast/substitution/CMakeFiles/substitution.dir/demodulator_rewriter.cpp.o
+[234/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_mam.cpp.o
+[235/881] Building CXX object src/ast/normal_forms/CMakeFiles/normal_forms.dir/defined_names.cpp.o
+[236/881] Building CXX object src/ast/normal_forms/CMakeFiles/normal_forms.dir/name_exprs.cpp.o
+[237/881] Building CXX object src/model/CMakeFiles/model.dir/array_factory.cpp.o
+[238/881] Building CXX object src/ast/normal_forms/CMakeFiles/normal_forms.dir/nnf.cpp.o
+[239/881] Building CXX object src/ast/normal_forms/CMakeFiles/normal_forms.dir/elim_term_ite.cpp.o
+[240/881] Building CXX object src/model/CMakeFiles/model.dir/datatype_factory.cpp.o
+[241/881] Building CXX object src/ast/normal_forms/CMakeFiles/normal_forms.dir/pull_quant.cpp.o
+[242/881] Building CXX object src/model/CMakeFiles/model.dir/model_core.cpp.o
+[243/881] Building CXX object src/model/CMakeFiles/model.dir/model2expr.cpp.o
+[244/881] Building CXX object src/model/CMakeFiles/model.dir/func_interp.cpp.o
+[245/881] Building CXX object src/model/CMakeFiles/model.dir/model_pp.cpp.o
+[246/881] Building CXX object src/model/CMakeFiles/model.dir/model.cpp.o
+[247/881] Building CXX object src/model/CMakeFiles/model.dir/model_smt2_pp.cpp.o
+[248/881] Building CXX object src/model/CMakeFiles/model.dir/model_v2_pp.cpp.o
+[249/881] Building CXX object src/model/CMakeFiles/model.dir/model_macro_solver.cpp.o
+[250/881] Building CXX object src/model/CMakeFiles/model.dir/model_implicant.cpp.o
+[251/881] Building CXX object src/model/CMakeFiles/model.dir/struct_factory.cpp.o
+[252/881] Building CXX object src/model/CMakeFiles/model.dir/numeral_factory.cpp.o
+[253/881] Building CXX object src/model/CMakeFiles/model.dir/model_evaluator.cpp.o
+[254/881] Building CXX object src/model/CMakeFiles/model.dir/value_factory.cpp.o
+[255/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/equiv_proof_converter.cpp.o
+[256/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/expr_inverter.cpp.o
+[257/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/model_converter.cpp.o
+[258/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/proof_converter.cpp.o
+[259/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/generic_model_converter.cpp.o
+[260/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/horn_subsume_model_converter.cpp.o
+[261/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/replace_proof_converter.cpp.o
+[262/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/bit_blaster.cpp.o
+[263/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/bound_manager.cpp.o
+[264/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/bound_propagator.cpp.o
+[265/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/bv_slice.cpp.o
+[266/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/bv_bounds_simplifier.cpp.o
+[267/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/card2bv.cpp.o
+[268/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/dependent_expr_state.cpp.o
+[269/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/bound_simplifier.cpp.o
+[270/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/demodulator_simplifier.cpp.o
+[271/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/dominator_simplifier.cpp.o
+[272/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/elim_unconstrained.cpp.o
+[273/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/distribute_forall.cpp.o
+[274/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/linear_equation.cpp.o
+[275/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/extract_eqs.cpp.o
+[276/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/eliminate_predicates.cpp.o
+[277/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/propagate_values.cpp.o
+[278/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/euf_completion.cpp.o
+/home/runner/work/z3/z3/src/ast/simplifiers/euf_completion.cpp: In member function ‘expr_ref euf::completion::get_canonical(quantifier*, proof_ref&, expr_dependency_ref&)’:
+/home/runner/work/z3/z3/src/ast/simplifiers/euf_completion.cpp:1091:14: warning: unused variable ‘n’ [-Wunused-variable]
+ 1091 |         auto n = m_egraph.find(q);
+      |              ^
+[279/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/model_reconstruction_trail.cpp.o
+[280/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/max_bv_sharing.cpp.o
+[281/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/dependency_converter.cpp.o
+[282/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/solve_context_eqs.cpp.o
+[283/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/goal_num_occurs.cpp.o
+[284/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/solve_eqs.cpp.o
+[285/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/reduce_args_simplifier.cpp.o
+[286/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/goal.cpp.o
+[287/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/goal_shared_occs.cpp.o
+[288/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/goal_util.cpp.o
+[289/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/probe.cpp.o
+[290/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/tactic.cpp.o
+[291/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/tactical.cpp.o
+[292/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_arrays_tg.cpp.o
+[293/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_basic_tg.cpp.o
+[294/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_datatypes.cpp.o
+[295/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_arith.cpp.o
+[296/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_dt_tg.cpp.o
+[297/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_arrays.cpp.o
+[298/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_euf.cpp.o
+[299/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_qel_util.cpp.o
+[300/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_qel.cpp.o
