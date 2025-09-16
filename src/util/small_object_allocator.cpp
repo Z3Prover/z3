@@ -70,9 +70,9 @@ small_object_allocator::~small_object_allocator() {
         if (m_alloc_size > 0) {
             std::cerr << "Memory leak detected for small object allocator '" << m_id << "'. " << m_alloc_size << " bytes leaked" << std::endl;
         }
-        if (m_total_allocs > 0) {
-            std::cerr << "Pool hit ratio for '" << m_id << "': " << get_pool_hit_ratio() * 100.0 << "%" << std::endl;
-        }
+        // if (m_total_allocs > 0) {
+        //     std::cerr << "Pool hit ratio for '" << m_id << "': " << get_pool_hit_ratio() * 100.0 << "%" << std::endl;
+        // }
     });
 }
 
