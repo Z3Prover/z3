@@ -15,6 +15,7 @@ add_executable(test-z3
   algebraic_numbers.cpp
   api_bug.cpp
   api.cpp
+  api_algebraic.cpp
   arith_rewriter.cpp
   arith_simplifier_plugin.cpp
   ast.cpp
