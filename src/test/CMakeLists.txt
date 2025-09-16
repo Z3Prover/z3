@@ -13,6 +13,7 @@ add_executable(test-z3
   EXCLUDE_FROM_ALL
   algebraic.cpp
   algebraic_numbers.cpp
+  api_ast_map.cpp
   api_bug.cpp
   api.cpp
   arith_rewriter.cpp
