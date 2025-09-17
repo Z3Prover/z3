@@ -2457,7 +2457,6 @@ namespace algebraic_numbers {
                 TRACE(isolate_roots, tout << "resultant loop i: " << i << ", y: x" << y << "\np_y: " << p_y << "\n";
                       tout << "q: " << q << "\n";);
                 if (ext_pm.is_zero(q)) {
-                    SASSERT(!nested_call);
                     break;
                 }
             }
@@ -2469,7 +2468,6 @@ namespace algebraic_numbers {
                 // until we find one that is not zero at x2v.
                 // In the process we will copy p_prime to the local polynomial manager, since we will need to create
                 // an auxiliary variable.
-                SASSERT(!nested_call);
                 unsigned n = ext_pm.degree(p_prime, x);
                 SASSERT(n > 0);
                 if (n == 1) {
