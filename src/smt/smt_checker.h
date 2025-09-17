@@ -29,11 +29,13 @@ namespace smt {
 
         typedef obj_map<expr, bool>    expr2bool;
         typedef obj_map<expr, enode *> expr2enode;
+        typedef obj_hashtable<expr>    expr_set;
 
         context &              m_context;
         ast_manager &          m_manager;
         expr2bool              m_is_true_cache[2];
         expr2enode             m_to_enode_cache;
+        expr_set               m_visited_cache[2];  // DAG-aware visited tracking
         unsigned               m_num_bindings;
         enode * const *        m_bindings;
 

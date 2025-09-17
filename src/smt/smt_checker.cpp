@@ -109,12 +109,23 @@ namespace smt {
     }
     
     bool checker::check(expr * n, bool is_true) {
+        // Enhanced DAG-aware caching: check cache for all expressions
         bool r;
-        if (n->get_ref_count() > 1 && m_is_true_cache[is_true].find(n, r))
+        if (m_is_true_cache[is_true].find(n, r))
             return r;
-        r = check_core(n, is_true);
-        if (n->get_ref_count() > 1)
-            m_is_true_cache[is_true].insert(n, r);
+
+        // DAG optimization: avoid redundant work on already processed expressions
+        if (m_visited_cache[is_true].contains(n)) {
+            // Expression already processed but result not cached - recompute
+            r = check_core(n, is_true);
+        } else {
+            // Mark as visited to prevent redundant traversal
+            m_visited_cache[is_true].insert(n);
+            r = check_core(n, is_true);
+        }
+
+        // Cache result for future lookups (DAG-aware: cache all results)
+        m_is_true_cache[is_true].insert(n, r);
         return r;
     }
 
@@ -134,7 +145,7 @@ namespace smt {
     }
 
     enode * checker::get_enode_eq_to(expr * n) {
-        if (is_var(n)) { 
+        if (is_var(n)) {
             unsigned idx = to_var(n)->get_idx();
             if (idx >= m_num_bindings)
                 return nullptr;
@@ -144,12 +155,16 @@ namespace smt {
             return m_context.get_enode(n);
         if (!is_app(n) || to_app(n)->get_num_args() == 0)
             return nullptr;
+
+        // DAG-aware caching: cache results for all expressions (not just ref_count > 1)
         enode * r = nullptr;
-        if (n->get_ref_count() > 1 && m_to_enode_cache.find(n, r)) 
+        if (m_to_enode_cache.find(n, r))
             return r;
+
         r = get_enode_eq_to_core(to_app(n));
-        if (n->get_ref_count() > 1)
-            m_to_enode_cache.insert(n, r);
+
+        // Cache all results to avoid redundant computation in DAG traversal
+        m_to_enode_cache.insert(n, r);
         return r;
     }
 
@@ -159,6 +174,8 @@ namespace smt {
         bool r = check(n, true);
         m_is_true_cache[0].reset();
         m_is_true_cache[1].reset();
+        m_visited_cache[0].reset();  // Clear DAG visited cache
+        m_visited_cache[1].reset();  // Clear DAG visited cache
         m_to_enode_cache.reset();
         return r;
     }
@@ -169,6 +186,8 @@ namespace smt {
         bool r = check(n, false);
         m_is_true_cache[0].reset();
         m_is_true_cache[1].reset();
+        m_visited_cache[0].reset();  // Clear DAG visited cache
+        m_visited_cache[1].reset();  // Clear DAG visited cache
         m_to_enode_cache.reset();
         return r;
     }
