@@ -319,10 +319,29 @@ namespace lp {
     void update_x_tableau_rows(unsigned entering, unsigned leaving,
                                const X &delta) {
         this->add_delta_to_x(entering, delta);
-        for (const auto &c : this->m_A.m_columns[entering])
-            if (leaving != this->m_basis[c.var()])
+
+        const auto &column = this->m_A.m_columns[entering];
+        const unsigned col_size = column.size();
+
+        // Cache prefetch for large columns
+        if (col_size > 16) {
+#ifdef __GNUC__
+            __builtin_prefetch(&column[0], 0, 3);
+#endif
+        }
+
+        // Precompute -delta to avoid repeated negation
+        const X neg_delta = -delta;
+
+        // Optimized loop with better branch prediction
+        for (unsigned k = 0; k < col_size; k++) {
+            const auto &c = column[k];
+            const unsigned basis_var = this->m_basis[c.var()];
+            if (leaving != basis_var) {
                 this->add_delta_to_x_and_track_feasibility(
-                    this->m_basis[c.var()], -delta * this->m_A.get_val(c));
+                    basis_var, neg_delta * this->m_A.get_val(c));
+            }
+        }
     }
 
     void update_basis_and_x_tableau_rows(int entering, int leaving, X const &tt) {

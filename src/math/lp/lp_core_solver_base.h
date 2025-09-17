@@ -40,9 +40,36 @@ template <typename T, typename X>
 X dot_product(const vector<T> & a, const vector<X> & b) {
     SASSERT(a.size() == b.size());
     auto r = zero_of_type<X>();
-    for (unsigned i = 0; i < a.size(); i++) {
+    const unsigned size = a.size();
+
+    // Cache prefetch for large vectors
+    if (size > 64) {
+#ifdef __GNUC__
+        __builtin_prefetch(&a[0], 0, 3);
+        __builtin_prefetch(&b[0], 0, 3);
+        if (size > 128) {
+            __builtin_prefetch(&a[64], 0, 3);
+            __builtin_prefetch(&b[64], 0, 3);
+        }
+#endif
+    }
+
+    // 4-way loop unrolling for better CPU throughput
+    unsigned i = 0;
+    const unsigned unroll_end = size & ~3u; // Round down to multiple of 4
+
+    for (; i < unroll_end; i += 4) {
+        r += a[i] * b[i] +
+             a[i+1] * b[i+1] +
+             a[i+2] * b[i+2] +
+             a[i+3] * b[i+3];
+    }
+
+    // Handle remaining elements
+    for (; i < size; i++) {
         r += a[i] * b[i];
     }
+
     return r;
 }
 
