@@ -325,7 +325,10 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         return mk_seq_nth(args[0], args[1], result); 
     case OP_SEQ_NTH_I:
         SASSERT(num_args == 2);
-        return mk_seq_nth_i(args[0], args[1], result); 
+        return mk_seq_nth_i(args[0], args[1], result);
+    case OP_SEQ_NTH_U:
+        SASSERT(num_args == 2);
+        return mk_seq_nth_u(args[0], args[1], result);
     case OP_SEQ_PREFIX: 
         SASSERT(num_args == 2);
         st = mk_seq_prefix(args[0], args[1], result);
@@ -1434,6 +1437,40 @@ br_status seq_rewriter::mk_seq_nth_i(expr* a, expr* b, expr_ref& result) {
             break;
     }
     
+    return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_seq_nth_u(expr* a, expr* b, expr_ref& result) {
+    // Handle uninterpreted seq.nth_u operations
+    // This function should provide better model validation by ensuring
+    // that seq.nth_u returns appropriate default values when out of bounds
+
+    rational r;
+    if (m_autil.is_numeral(b, r)) {
+        // If index is negative, return a consistent default value
+        if (r.is_neg()) {
+            sort* seq_sort = a->get_sort();
+            sort* elem_sort = nullptr;
+            if (u.is_seq(seq_sort, elem_sort)) {
+                // For sequences, return the default value of the element type
+                if (u.is_char(elem_sort)) {
+                    result = u.mk_char(0); // Return null character
+                    return BR_DONE;
+                } else {
+                    // For non-character sequences, delegate to get_some_value
+                    // This will be handled by the model during evaluation
+                }
+            } else if (u.is_string(seq_sort)) {
+                // For strings, return empty string when out of bounds
+                result = str().mk_string("");
+                return BR_DONE;
+            }
+        }
+    }
+
+    // For other cases, we cannot simplify further, so we leave it
+    // as an uninterpreted function. The model validator should ensure
+    // consistency during model validation.
     return BR_FAILED;
 }
 

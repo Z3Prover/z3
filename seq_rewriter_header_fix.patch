@@ -1,0 +1,9 @@
+--- a/src/ast/rewriter/seq_rewriter.h
++++ b/src/ast/rewriter/seq_rewriter.h
+@@ -200,6 +200,7 @@ class seq_rewriter {
+     br_status mk_seq_nth(expr* a, expr* b, expr_ref& result);
+     br_status mk_seq_nth_i(expr* a, expr* b, expr_ref& result);
++    br_status mk_seq_nth_u(expr* a, expr* b, expr_ref& result);
+     br_status mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& result);
+     br_status mk_seq_contains(expr* a, expr* b, expr_ref& result);
+     br_status mk_seq_at(expr* s, expr* i, expr_ref& result);

@@ -1,0 +1,47 @@
+--- a/src/ast/rewriter/seq_rewriter.cpp
++++ b/src/ast/rewriter/seq_rewriter.cpp
+@@ -325,6 +325,8 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * co
+         return mk_seq_nth(args[0], args[1], result);
+     case OP_SEQ_NTH_I:
+         SASSERT(num_args == 2);
+         return mk_seq_nth_i(args[0], args[1], result);
++    case OP_SEQ_NTH_U:
++        SASSERT(num_args == 2);
++        return mk_seq_nth_u(args[0], args[1], result);
+     case OP_SEQ_PREFIX:
+         SASSERT(num_args == 2);
+         st = mk_seq_prefix(args[0], args[1], result);
+@@ -1438,6 +1440,32 @@ br_status seq_rewriter::mk_seq_nth_i(expr* a, expr* b, expr_ref& result) {
+     return BR_FAILED;
+ }
+
++br_status seq_rewriter::mk_seq_nth_u(expr* a, expr* b, expr_ref& result) {
++    // Handle uninterpreted seq.nth_u operations
++    // When out of bounds or when sequence content cannot be determined,
++    // seq.nth_u should return a consistent default value
++
++    rational r;
++    if (m_autil.is_numeral(b, r)) {
++        // If index is negative, return the default empty string/element
++        if (r.is_neg()) {
++            if (u.is_string(a->get_sort())) {
++                result = str().mk_string("");
++                return BR_DONE;
++            } else {
++                sort* elem_sort;
++                if (u.is_seq(a->get_sort(), elem_sort)) {
++                    result = m().get_some_value(elem_sort);
++                    return BR_DONE;
++                }
++            }
++        }
++    }
++
++    // For other cases, leave as uninterpreted but ensure model validation
++    // will check consistency with sequence bounds
++    return BR_FAILED;
++}
++
+ br_status seq_rewriter::mk_seq_last_index(expr* a, expr* b, expr_ref& result) {
+     zstring s1, s2;
+     bool isc1 = str().is_string(a, s1);
