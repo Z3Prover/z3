@@ -1,0 +1,296 @@
+Installing dependencies...
+Installing dependencies...
+Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+Hit:6 https://packages.microsoft.com/repos/azure-cli noble InRelease
+Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+Get:8 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [53.2 kB]
+Get:9 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [35.7 kB]
+Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1411 kB]
+Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [278 kB]
+Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [175 kB]
+Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 c-n-f Metadata [15.2 kB]
+Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1483 kB]
+Get:15 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [298 kB]
+Get:16 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [377 kB]
+Get:17 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 c-n-f Metadata [31.0 kB]
+Get:18 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1882 kB]
+Get:19 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [422 kB]
+Get:20 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Components [212 B]
+Get:21 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 c-n-f Metadata [500 B]
+Get:22 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Packages [41.9 kB]
+Get:23 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse Translation-en [7064 B]
+Get:24 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
+Get:25 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 c-n-f Metadata [644 B]
+Get:26 http://azure.archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [7068 B]
+Get:27 http://azure.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [19.2 kB]
+Get:28 http://azure.archive.ubuntu.com/ubuntu noble-backports/restricted amd64 Components [216 B]
+Get:29 http://azure.archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Components [212 B]
+Get:30 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [1119 kB]
+Get:31 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [192 kB]
+Get:32 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Components [21.6 kB]
+Get:33 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 c-n-f Metadata [8748 B]
+Get:34 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [880 kB]
+Get:35 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [195 kB]
+Get:36 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Components [52.2 kB]
+Get:37 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 c-n-f Metadata [18.0 kB]
+Get:38 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1756 kB]
+Get:39 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted Translation-en [392 kB]
+Get:40 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Components [212 B]
+Get:41 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 c-n-f Metadata [468 B]
+Get:42 http://azure.archive.ubuntu.com/ubuntu noble-security/multiverse amd64 Packages [37.4 kB]
+Get:43 http://azure.archive.ubuntu.com/ubuntu noble-security/multiverse Translation-en [6020 B]
+Get:44 http://azure.archive.ubuntu.com/ubuntu noble-security/multiverse amd64 Components [212 B]
+Get:45 http://azure.archive.ubuntu.com/ubuntu noble-security/multiverse amd64 c-n-f Metadata [476 B]
+Fetched 11.6 MB in 1s (7858 kB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+python3 is already the newest version (3.12.3-0ubuntu2).
+python3-pip is already the newest version (24.0+dfsg-1ubuntu1.2).
+git is already the newest version (1:2.51.0-0ppa2~ubuntu24.04.1).
+git set to manually installed.
+Suggested packages:
+  cmake-doc cmake-format elpa-cmake-mode
+The following NEW packages will be installed:
+  build-essential cmake cmake-data libjsoncpp25 librhash0 ninja-build
+0 upgraded, 6 newly installed, 0 to remove and 34 not upgraded.
+Need to get 13.7 MB of archives.
+After this operation, 49.5 MB of additional disk space will be used.
+Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Get:2 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 build-essential amd64 12.10ubuntu1 [4928 B]
+Get:3 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libjsoncpp25 amd64 1.9.5-6build1 [82.8 kB]
+Get:4 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 librhash0 amd64 1.4.3-3build1 [129 kB]
+Get:5 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 cmake-data all 3.28.3-1build7 [2155 kB]
+Get:6 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 cmake amd64 3.28.3-1build7 [11.2 MB]
+Get:7 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 ninja-build amd64 1.11.1-2 [129 kB]
+Fetched 13.7 MB in 1s (26.6 MB/s)
+Selecting previously unselected package build-essential.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 218657 files and directories currently installed.)
+Preparing to unpack .../0-build-essential_12.10ubuntu1_amd64.deb ...
+Unpacking build-essential (12.10ubuntu1) ...
+Selecting previously unselected package libjsoncpp25:amd64.
+Preparing to unpack .../1-libjsoncpp25_1.9.5-6build1_amd64.deb ...
+Unpacking libjsoncpp25:amd64 (1.9.5-6build1) ...
+Selecting previously unselected package librhash0:amd64.
+Preparing to unpack .../2-librhash0_1.4.3-3build1_amd64.deb ...
+Unpacking librhash0:amd64 (1.4.3-3build1) ...
+Selecting previously unselected package cmake-data.
+Preparing to unpack .../3-cmake-data_3.28.3-1build7_all.deb ...
+Unpacking cmake-data (3.28.3-1build7) ...
+Selecting previously unselected package cmake.
+Preparing to unpack .../4-cmake_3.28.3-1build7_amd64.deb ...
+Unpacking cmake (3.28.3-1build7) ...
+Selecting previously unselected package ninja-build.
+Preparing to unpack .../5-ninja-build_1.11.1-2_amd64.deb ...
+Unpacking ninja-build (1.11.1-2) ...
+Setting up ninja-build (1.11.1-2) ...
+Setting up libjsoncpp25:amd64 (1.9.5-6build1) ...
+Setting up librhash0:amd64 (1.4.3-3build1) ...
+Setting up build-essential (12.10ubuntu1) ...
+Setting up cmake-data (3.28.3-1build7) ...
+Setting up cmake (3.28.3-1build7) ...
+Processing triggers for man-db (2.12.0-4build2) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.5) ...
+
+Running kernel seems to be up-to-date.
+
+Restarting services...
+
+Service restarts being deferred:
+ systemctl restart hosted-compute-agent.service
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+Creating build directory...
+Configuring CMake for performance development...
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Z3 version 4.15.4.0
+-- Found simple git working directory
+-- Found git directory "/home/runner/work/z3/z3/.git"
+-- Adding git dependency "/home/runner/work/z3/z3/.git/HEAD"
+-- Adding git dependency "/home/runner/work/z3/z3/.git/refs/heads/master"
+-- Found Git: /usr/bin/git (found version "2.51.0")
+-- Using Git hash in version output: 81da4be2281bfa03e63b537562ec10f9734a0a10
+fatal: No names found, cannot describe anything.
+CMake Warning at cmake/git_utils.cmake:215 (message):
+  Failed to execute git
+Call Stack (most recent call first):
+  CMakeLists.txt:83 (get_git_head_describe)
+
+
+CMake Warning at CMakeLists.txt:85 (message):
+  Failed to get Git description
+
+
+CMake Warning at CMakeLists.txt:50 (message):
+  Disabling Z3_INCLUDE_GIT_DESCRIBE
+Call Stack (most recent call first):
+  CMakeLists.txt:86 (disable_git_describe)
+
+
+-- Using Git description in version output: NOTFOUND
+-- CMake generator: Ninja
+-- Build type: RelWithDebInfo
+-- Found Python3: /usr/bin/python3.12 (found version "3.12.3") found components: Interpreter
+-- Python3_EXECUTABLE: /usr/bin/python3.12
+-- Detected target architecture: x86_64
+-- Not using libgmp
+-- Not using Z3_API_LOG_SYNC
+-- Thread-safe build
+-- Performing Test HAS_SSE2
+-- Performing Test HAS_SSE2 - Success
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Performing Test HAS__Wall
+-- Performing Test HAS__Wall - Success
+-- C++ compiler supports -Wall
+-- Treating only serious compiler warnings as errors
+-- Performing Test HAS__Werror_odr
+-- Performing Test HAS__Werror_odr - Success
+-- C++ compiler supports -Werror=odr
+-- Performing Test HAS__Werror_return_type
+-- Performing Test HAS__Werror_return_type - Success
+-- C++ compiler supports -Werror=return-type
+-- LTO disabled
+-- Performing Test BUILTIN_ATOMIC
+-- Performing Test BUILTIN_ATOMIC - Success
+-- CMAKE_CXX_FLAGS: "-fno-omit-frame-pointer -Werror=odr  -Werror=return-type "
+-- CMAKE_EXE_LINKER_FLAGS: ""
+-- CMAKE_STATIC_LINKER_FLAGS: ""
+-- CMAKE_SHARED_LINKER_FLAGS: ""
+-- CMAKE_CXX_FLAGS_RELWITHDEBINFO: "-O2 -g -DNDEBUG"
+-- CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO: ""
+-- CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO: ""
+-- CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO: ""
+-- Z3_COMPONENT_CXX_DEFINES: $<$<CONFIG:Debug>:Z3DEBUG>;$<$<CONFIG:Release>:_EXTERNAL_RELEASE>;$<$<CONFIG:RelWithDebInfo>:_EXTERNAL_RELEASE>;-D_MP_INTERNAL;-D_TRACE
+-- Z3_COMPONENT_CXX_FLAGS: -mfpmath=sse;-msse;-msse2;-Wall
+-- Z3_DEPENDENT_LIBS: Threads::Threads
+-- Z3_COMPONENT_EXTRA_INCLUDE_DIRS: /home/runner/work/z3/z3/build/src;/home/runner/work/z3/z3/src
+-- Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS: 
+-- CMAKE_INSTALL_LIBDIR: "lib"
+-- CMAKE_INSTALL_BINDIR: "bin"
+-- CMAKE_INSTALL_INCLUDEDIR: "include"
+-- CMAKE_INSTALL_PKGCONFIGDIR: "lib/pkgconfig"
+-- CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR: "lib/cmake/z3"
+-- Adding component util
+-- Adding component polynomial
+-- Adding rule to generate "algebraic_params.hpp"
+-- Adding component dd
+-- Adding component hilbert
+-- Adding component simplex
+-- Adding component interval
+-- Adding component realclosure
+-- Adding rule to generate "rcf_params.hpp"
+-- Adding component subpaving
+-- Adding component ast
+-- Adding rule to generate "pp_params.hpp"
+-- Adding component params
+-- Adding rule to generate "arith_rewriter_params.hpp"
+-- Adding rule to generate "array_rewriter_params.hpp"
+-- Adding rule to generate "bool_rewriter_params.hpp"
+-- Adding rule to generate "bv_rewriter_params.hpp"
+-- Adding rule to generate "fpa_rewriter_params.hpp"
+-- Adding rule to generate "fpa2bv_rewriter_params.hpp"
+-- Adding rule to generate "pattern_inference_params_helper.hpp"
+-- Adding rule to generate "poly_rewriter_params.hpp"
+-- Adding rule to generate "rewriter_params.hpp"
+-- Adding rule to generate "sat_params.hpp"
+-- Adding rule to generate "seq_rewriter_params.hpp"
+-- Adding rule to generate "sls_params.hpp"
+-- Adding rule to generate "smt_params_helper.hpp"
+-- Adding rule to generate "solver_params.hpp"
+-- Adding rule to generate "tactic_params.hpp"
+-- Adding component rewriter
+-- Adding component bit_blaster
+-- Adding component normal_forms
+-- Adding rule to generate "nnf_params.hpp"
+-- Adding component macros
+-- Adding component model
+-- Adding rule to generate "model_evaluator_params.hpp"
+-- Adding rule to generate "model_params.hpp"
+-- Adding component euf
+-- Adding component converters
+-- Adding component substitution
+-- Adding component simplifiers
+-- Adding component tactic
+-- Adding component mbp
+-- Adding component qe_lite
+-- Adding component parser_util
+-- Adding rule to generate "parser_params.hpp"
+-- Adding component grobner
+-- Adding component sat
+-- Adding rule to generate "sat_asymm_branch_params.hpp"
+-- Adding rule to generate "sat_scc_params.hpp"
+-- Adding rule to generate "sat_simplifier_params.hpp"
+-- Adding component nlsat
+-- Adding rule to generate "nlsat_params.hpp"
+-- Adding component core_tactics
+-- Adding component subpaving_tactic
+-- Adding component aig_tactic
+-- Adding component arith_tactics
+-- Adding component solver
+-- Adding rule to generate "combined_solver_params.hpp"
+-- Adding rule to generate "parallel_params.hpp"
+-- Adding component cmd_context
+-- Adding component extra_cmds
+-- Adding component smt2parser
+-- Adding component solver_assertions
+-- Adding component pattern
+-- Adding component lp
+-- Adding rule to generate "lp_params_helper.hpp"
+-- Adding component ast_sls
+-- Adding component sat_smt
+-- Adding component sat_tactic
+-- Adding component nlsat_tactic
+-- Adding component ackermannization
+-- Adding rule to generate "ackermannization_params.hpp"
+-- Adding rule to generate "ackermannize_bv_tactic_params.hpp"
+-- Adding component proofs
+-- Adding component fpa
+-- Adding component proto_model
+-- Adding component smt
+-- Adding component bv_tactics
+-- Adding component smt_tactic
+-- Adding component sls_tactic
+-- Adding component qe
+-- Adding component muz
+-- Adding rule to generate "fp_params.hpp"
+-- Adding component dataflow
+-- Adding component transforms
+-- Adding component rel
+-- Adding component clp
+-- Adding component tab
+-- Adding component bmc
+-- Adding component ddnf
+-- Adding component spacer
+-- Adding component fp
+-- Adding component ufbv_tactic
+-- Adding component sat_solver
+-- Adding component smtlogic_tactics
+-- Adding rule to generate "qfufbv_tactic_params.hpp"
+-- Adding component fpa_tactics
+-- Adding component fd_solver
+-- Adding component portfolio
+-- Adding component opt
+-- Adding rule to generate "opt_params.hpp"
+-- Adding component api
+-- Adding component api_dll
+-- Adding component fuzzing
+-- Building documentation disabled
+-- Configuring done (1.9s)
+-- Generating done (0.3s)
+-- Build files have been written to: /home/runner/work/z3/z3/build
