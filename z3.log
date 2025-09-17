@@ -1,0 +1,60 @@
+[tool-version] Z3 4.15.4
+[mk-app] #1 true
+[mk-app] #2 false
+[mk-app] #1 true
+[mk-app] #2 false
+[mk-app] #3 pi
+[mk-app] #4 euler
+[mk-var] datatype#0 0
+[mk-var] datatype#1 1
+[mk-app] datatype#2 insert datatype#0 datatype#1
+[mk-app] datatype#3 pattern datatype#2
+[mk-app] datatype#4 head datatype#2
+[mk-app] datatype#5 = datatype#0 datatype#4
+[mk-quant] datatype#6 constructor_accessor_axiom 2 datatype#3 datatype#5
+[attach-var-names] datatype#6 (;k!0) (;List)
+[mk-app] datatype#7 tail datatype#2
+[mk-app] datatype#8 = datatype#1 datatype#7
+[mk-quant] datatype#9 constructor_accessor_axiom 2 datatype#3 datatype#8
+[attach-var-names] datatype#9 (;k!0) (;List)
+[mk-app] #5 bv
+[attach-meaning] #5 bv #b0
+[mk-var] #6 0
+[mk-var] #7 1
+[mk-var] #8 2
+[mk-var] #9 3
+[mk-var] #10 4
+[mk-var] #11 5
+[mk-var] #12 6
+[mk-var] #13 7
+[mk-var] #14 8
+[mk-var] #15 9
+[mk-var] #16 10
+[mk-var] #17 11
+[mk-var] #18 12
+[mk-var] #19 13
+[mk-var] #20 14
+[mk-app] #21 + #14 #12
+[attach-enode] #1 0
+[attach-enode] #2 0
+[mk-app] #5 bv
+[attach-meaning] #5 bv #b0
+[mk-var] #14 0
+[mk-var] #12 1
+[mk-var] #21 2
+[mk-var] #6 3
+[mk-var] #20 4
+[mk-var] #19 5
+[mk-var] #18 6
+[mk-var] #17 7
+[mk-var] #16 8
+[mk-var] #15 9
+[mk-var] #13 10
+[mk-var] #11 11
+[mk-var] #10 12
+[mk-var] #9 13
+[mk-var] #8 14
+[mk-app] #7 + #16 #18
+[attach-enode] #1 0
+[attach-enode] #2 0
+[eof]
