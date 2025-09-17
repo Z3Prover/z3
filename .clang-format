@@ -1,0 +1,108 @@
+# Z3 C++ Code Style Configuration for clang-format
+# Based on analysis of existing Z3 source code patterns
+#
+# Usage:
+#   clang-format --sort-includes=false -i <file>     # Format file in-place
+#   git clang-format --style=file                    # Format staged changes
+#
+# References:
+# - https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+# - Issue #1441: https://github.com/Z3Prover/z3/issues/1441
+
+BasedOnStyle: LLVM
+
+# Indentation - Z3 uses 4-space indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+AccessModifierOffset: -4
+IndentCaseLabels: false
+
+# Line length and wrapping
+ColumnLimit: 120
+ReflowComments: true
+
+# Brace wrapping - Z3 uses mixed style
+BreakBeforeBraces: Attach  # Braces attach to control statements, but classes/functions on new line
+
+# Spacing around pointers and references - Z3 uses "type* var" style
+PointerAlignment: Left
+ReferenceAlignment: Left
+SpaceAfterCStyleCast: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInContainerLiterals: false
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Function and method formatting
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: false
+BinPackArguments: true
+BinPackParameters: true
+
+# Constructor and class formatting
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+Cpp11BracedListStyle: true
+
+# Template formatting
+SpaceAfterTemplateKeyword: true
+
+# Include sorting - preserve Z3's existing organization
+SortIncludes: Never
+IncludeBlocks: Preserve
+
+# Statement formatting
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+# Break formatting
+BreakBeforeBinaryOperators: None
+BreakBeforeTernaryOperators: true
+BreakStringLiterals: true
+CompactNamespaces: false
+
+# Comment formatting
+CommentPragmas: '^(IWYU pragma:|NOLINT)'
+DisableFormat: false
+
+# Penalty settings for line breaking decisions
+PenaltyBreakAssignment: 2
+PenaltyBreakBeforeFirstCallParameter: 19
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 60
+
+# Namespace formatting
+NamespaceIndentation: None
+FixNamespaceComments: false
+
+# Language standard
+Standard: Cpp11
+
+# Keep empty lines
+KeepEmptyLinesAtTheStartOfBlocks: true
+MaxEmptyLinesToKeep: 2
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: false
+
+# Preprocessor formatting
+IndentPPDirectives: None
