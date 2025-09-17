@@ -1026,47 +1026,72 @@ namespace sat {
         watch_list::iterator it = wlist.begin();
         watch_list::iterator it2 = it;
         watch_list::iterator end = wlist.end();
+
+#ifdef __builtin_prefetch
+#define PREFETCH_NEXT_WATCH(iter) \
+        if (__builtin_expect((iter + 1) < end, 1)) \
+            __builtin_prefetch(&(iter + 1)->get_kind(), 0, 3);
+#else
+#define PREFETCH_NEXT_WATCH(iter) ((void)0)
+#endif
+
 #define CONFLICT_CLEANUP() {                    \
                 for (; it != end; ++it, ++it2)  \
                     *it2 = *it;                 \
                 wlist.set_end(it2);             \
             }
+
+        // Process watches with optimized branch prediction and prefetching
         for (; it != end; ++it) {
+            // Prefetch next watch entry for better cache performance
+            PREFETCH_NEXT_WATCH(it);
+
             switch (it->get_kind()) {
-            case watched::BINARY:
+            case watched::BINARY: {
                 l1 = it->get_literal();
-                switch (value(l1)) {
-                case l_false:
+                // Cache the value lookup to avoid repeated array access
+                lbool l1_val = value(l1);
+
+                // Branch prediction hint: conflicts are rare, propagation is more common
+                if (__builtin_expect(l1_val == l_false, 0)) {
                     CONFLICT_CLEANUP();
                     set_conflict(justification(curr_level, not_l), ~l1);
                     return false;
-                case l_undef:
+                } else if (__builtin_expect(l1_val == l_undef, 1)) {
                     m_stats.m_bin_propagate++;
                     assign_core(l1, justification(curr_level, not_l));
-                    break;
-                case l_true:
-                    break; // skip
                 }
+                // l_true case: just skip, no work needed
                 *it2 = *it;
                 it2++;
                 break;
+            }
             case watched::CLAUSE: {
-                if (value(it->get_blocked_literal()) == l_true) {
-                    TRACE(propagate_clause_bug, tout << "blocked literal " << it->get_blocked_literal() << "\n";
+                // Cache blocked literal value to avoid redundant lookups
+                literal blocked_lit = it->get_blocked_literal();
+                if (__builtin_expect(value(blocked_lit) == l_true, 0)) {
+                    TRACE(propagate_clause_bug, tout << "blocked literal " << blocked_lit << "\n";
                     tout << get_clause(it) << "\n";);
                     *it2 = *it;
                     it2++;
                     break;
                 }
+
                 clause_offset cls_off = it->get_clause_offset();
                 clause& c = get_clause(cls_off);
+
+                // Prefetch clause data for better memory locality
+#ifdef __builtin_prefetch
+                __builtin_prefetch(&c[0], 0, 3);
+#endif
+
                 TRACE(propagate_clause_bug, tout << "processing... " << c << "\nwas_removed: " << c.was_removed() << "\n";);
                 if (c[0] == not_l)
                     std::swap(c[0], c[1]);
                 CTRACE(propagate_bug, c[1] != not_l, tout << "l: " << l << " " << c << "\n";);
 
-
-                if (c.was_removed() || c.size() == 1 || c[1] != not_l) {
+                // Early exit conditions - clause invalid or malformed
+                if (__builtin_expect(c.was_removed() || c.size() == 1 || c[1] != not_l, 0)) {
                     // Remark: this method may be invoked when the watch lists are not in a consistent state,
                     // and may contain dead/removed clauses, or clauses with removed literals.
                     // See: method propagate_unit at sat_simplifier.cpp
@@ -1076,54 +1101,106 @@ namespace sat {
                     it2++;
                     break;
                 }
-                if (value(c[0]) == l_true) {
+
+                // Cache c[0] value to avoid repeated lookups
+                lbool c0_val = value(c[0]);
+                if (__builtin_expect(c0_val == l_true, 0)) {
                     it2->set_clause(c[0], cls_off);
                     it2++;
                     break;
                 }
                 VERIFY(c[1] == not_l);
-                
+
                 unsigned undef_index = 0;
                 unsigned assign_level = curr_level;
                 unsigned max_index = 1;
                 unsigned num_undef = 0;
                 unsigned sz = c.size();
 
-                for (unsigned i = 2; i < sz && num_undef <= 1; ++i) {
+                // Optimized clause scanning with unrolled loop for small clauses
+                unsigned i = 2;
+                if (__builtin_expect(sz > 5, 1)) {
+                    // For larger clauses, use 2-way unrolled loop
+                    for (; i + 1 < sz && num_undef <= 1; i += 2) {
+                        // Process two literals per iteration for better pipeline utilization
+                        literal lit1 = c[i];
+                        literal lit2 = c[i + 1];
+
+                        lbool val1 = value(lit1);
+                        lbool val2 = value(lit2);
+
+                        // Check first literal
+                        if (__builtin_expect(val1 == l_true, 0)) {
+                            it2->set_clause(lit1, cls_off);
+                            it2++;
+                            goto end_clause_case;
+                        } else if (val1 == l_undef) {
+                            undef_index = i;
+                            ++num_undef;
+                            if (num_undef > 1) break;
+                        } else if (val1 == l_false) {
+                            unsigned level = lvl(lit1);
+                            if (level > assign_level) {
+                                assign_level = level;
+                                max_index = i;
+                            }
+                        }
+
+                        // Check second literal
+                        if (i + 1 < sz) {
+                            if (__builtin_expect(val2 == l_true, 0)) {
+                                it2->set_clause(lit2, cls_off);
+                                it2++;
+                                goto end_clause_case;
+                            } else if (val2 == l_undef) {
+                                undef_index = i + 1;
+                                ++num_undef;
+                                if (num_undef > 1) break;
+                            } else if (val2 == l_false) {
+                                unsigned level = lvl(lit2);
+                                if (level > assign_level) {
+                                    assign_level = level;
+                                    max_index = i + 1;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Handle remaining literals with standard loop
+                for (; i < sz && num_undef <= 1; ++i) {
                     literal lit = c[i];
-                    switch (value(lit)) {
-                    case l_true:
+                    lbool lit_val = value(lit);
+
+                    if (__builtin_expect(lit_val == l_true, 0)) {
                         it2->set_clause(lit, cls_off);
                         it2++;
                         goto end_clause_case;
-                    case l_undef:
+                    } else if (lit_val == l_undef) {
                         undef_index = i;
                         ++num_undef;
-                        break;
-                    case l_false: {
+                    } else { // l_false
                         unsigned level = lvl(lit);
                         if (level > assign_level) {
                             assign_level = level;
                             max_index = i;
                         }
-                        break;
-                    }
                     }
                 }
 
-                if (value(c[0]) == l_false)
+                if (c0_val == l_false)
                     assign_level = std::max(assign_level, lvl(c[0]));
 
-                if (undef_index != 0) {       
+                if (__builtin_expect(undef_index != 0, 1)) {
                     set_watch(c, undef_index, cls_off);
-                    if (value(c[0]) == l_false && num_undef == 1) {   
+                    if (c0_val == l_false && num_undef == 1) {
                         std::swap(c[0], c[1]);
                         propagate_clause(c, update, assign_level, cls_off);
                     }
                     goto end_clause_case;
                 }
 
-                if (value(c[0]) == l_false) {
+                if (__builtin_expect(c0_val == l_false, 0)) {
                     c.mark_used();
                     CONFLICT_CLEANUP();
                     set_conflict(justification(assign_level, cls_off));
@@ -1147,7 +1224,7 @@ namespace sat {
             case watched::EXT_CONSTRAINT:
                 SASSERT(m_ext);
                 keep = m_ext->propagated(l, it->get_ext_constraint_idx());
-                if (m_inconsistent) {
+                if (__builtin_expect(m_inconsistent, 0)) {
                     if (!keep) {
                         ++it;
                     }
