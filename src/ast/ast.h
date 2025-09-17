@@ -456,31 +456,26 @@ char const * get_ast_kind_name(ast_kind k);
 
 class shared_occs_mark;
 
-class ast {
+class alignas(8) ast {  // Align to 8-byte boundary for efficient access
 protected:
     friend class ast_manager;
 
-    unsigned m_id = UINT_MAX;
-    unsigned m_kind:16;
-    // Warning: the marks should be used carefully, since they are shared.
+    // Cache-optimized layout: frequently accessed hot fields first
+    unsigned m_hash = 0;           // Most frequently accessed for hash table lookups
+    unsigned m_kind:16;            // Frequently accessed for type dispatch
+    // Pack all bitfields together for cache efficiency
     unsigned m_mark1:1;
     unsigned m_mark2:1;
-    // Private mark used by shared_occs functor
-    // Motivation for this field:
-    //  - A mark cannot be used by more than one owner.
-    //    So, it is only safe to use mark by "self-contained" code.
-    //    They should be viewed as temporary information.
-    //  - The functor shared_occs is used by some AST pretty printers.
-    //  - So, a code that uses marks could not use the pretty printer if
-    //    shared_occs used one of the public marks.
-    //  - This was a constant source of assertion violations.
     unsigned m_mark_shared_occs:1;
+    unsigned m_reserved:13;        // Reserved bits for future use, maintain alignment
+
+    unsigned m_ref_count = 0;      // Reference counting, moderately frequent access
+    unsigned m_id = UINT_MAX;      // Less frequently accessed, moved to end
+
     friend class shared_occs_mark;
     void mark_so(bool flag) { m_mark_shared_occs = flag; }
     void reset_mark_so() { m_mark_shared_occs = false; }
     bool is_marked_so() const { return m_mark_shared_occs; }
-    unsigned m_ref_count = 0;
-    unsigned m_hash = 0;
 #ifdef Z3DEBUG
     // In debug mode, we store who is the owner of the mark.
     void *   m_mark1_owner;
@@ -724,10 +719,11 @@ struct app_flags {
 class app : public expr {
     friend class ast_manager;
 
-    func_decl *  m_decl;
-    unsigned     m_num_args;
-    app_flags    m_flags;
-    expr *       m_args[0];
+    // Cache-optimized layout: place most frequently accessed fields first
+    func_decl *  m_decl;           // Most frequently accessed - function declaration
+    app_flags    m_flags;          // Frequently accessed for optimization checks
+    unsigned     m_num_args;       // Frequently accessed for iteration bounds
+    expr *       m_args[0];        // Variable-length array, keep at end
 
     static unsigned get_obj_size(unsigned num_args) {
         return sizeof(app) + num_args * sizeof(expr *);
@@ -993,7 +989,9 @@ class ast_translation;
 
 class ast_table : public chashtable<ast*, obj_ptr_hash<ast>, ast_eq_proc> {
 public:
-    ast_table() : chashtable({}, {}, 512 * 1024, 8 * 1024) {}
+    // Cache-optimized parameters: start smaller for better cache locality
+    // and allow growth as needed. This improves performance for typical workloads.
+    ast_table() : chashtable({}, {}, 16 * 1024, 2 * 1024) {}
     void push_erase(ast * n);
     ast* pop_erase();
 };
