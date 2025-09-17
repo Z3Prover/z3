@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-19 15:41:02
+# Effective stop-time: 2025-09-19 22:46:19
 
 name: "Daily Test Coverage Improver"
 "on":
@@ -553,7 +553,7 @@ jobs:
           WORKFLOW_NAME="Daily Test Coverage Improver"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-19 15:41:02"
+          STOP_TIME="2025-09-19 22:46:19"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -2400,6 +2400,7 @@ jobs:
         if: always()
         env:
           GITHUB_AW_SAFE_OUTPUTS: ${{ env.GITHUB_AW_SAFE_OUTPUTS }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
           # Check current git status
           echo "Current git status:"
@@ -2426,7 +2427,7 @@ jobs:
                   # Extract branch value using sed
                   BRANCH_NAME=$(echo "$line" | sed -n 's/.*"branch"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
                   if [ -n "$BRANCH_NAME" ]; then
-                    echo "Extracted branch name from create-pull-request: $BRANCH_NAME"
+                    echo "Extracted branch name from push-to-pr-branch: $BRANCH_NAME"
                     break
                   fi
                 fi
@@ -2434,13 +2435,10 @@ jobs:
             done < "$GITHUB_AW_SAFE_OUTPUTS"
           fi
           
-          # Get the initial commit SHA from the base branch of the pull request
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] || [ "$GITHUB_EVENT_NAME" = "pull_request_review_comment" ]; then
-            INITIAL_SHA="$GITHUB_BASE_REF"
-          else
-            INITIAL_SHA="$GITHUB_SHA"
+          # If no branch or branch doesn't exist, no patch
+          if [ -z "$BRANCH_NAME" ]; then
+            echo "No branch found, no patch generation"
           fi
-          echo "Base commit SHA: $INITIAL_SHA"
           
           # If we have a branch name, check if that branch exists and get its diff
           if [ -n "$BRANCH_NAME" ]; then
@@ -2448,47 +2446,26 @@ jobs:
             # Check if the branch exists
             if git show-ref --verify --quiet refs/heads/$BRANCH_NAME; then
               echo "Branch $BRANCH_NAME exists, generating patch from branch changes"
-              # Generate patch from the base to the branch
-              git format-patch "$INITIAL_SHA".."$BRANCH_NAME" --stdout > /tmp/aw.patch || echo "Failed to generate patch from branch" > /tmp/aw.patch
-              echo "Patch file created from branch: $BRANCH_NAME"
+              
+              # Check if origin/$BRANCH_NAME exists to use as base
+              if git show-ref --verify --quiet refs/remotes/origin/$BRANCH_NAME; then
+                echo "Using origin/$BRANCH_NAME as base for patch generation"
+                BASE_REF="origin/$BRANCH_NAME"
+              else
+                echo "origin/$BRANCH_NAME does not exist, using merge-base with default branch"
+                # Get the default branch name
+                DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+                echo "Default branch: $DEFAULT_BRANCH"
+                # Find merge base between default branch and current branch
+                BASE_REF=$(git merge-base origin/$DEFAULT_BRANCH $BRANCH_NAME)
+                echo "Using merge-base as base: $BASE_REF"
+              fi
+              
+              # Generate patch from the determined base to the branch
+              git format-patch "$BASE_REF".."$BRANCH_NAME" --stdout > /tmp/aw.patch || echo "Failed to generate patch from branch" > /tmp/aw.patch
+              echo "Patch file created from branch: $BRANCH_NAME (base: $BASE_REF)"
             else
-              echo "Branch $BRANCH_NAME does not exist, falling back to current HEAD"
-              BRANCH_NAME=""
-            fi
-          fi
-          
-          # If no branch or branch doesn't exist, use the existing logic
-          if [ -z "$BRANCH_NAME" ]; then
-            echo "Using current HEAD for patch generation"
-            # Stage any unstaged files
-            git add -A || true
-            # Check if there are staged files to commit
-            if ! git diff --cached --quiet; then
-              echo "Staged files found, committing them..."
-              git commit -m "[agent] staged files" || true
-              echo "Staged files committed"
-            else
-              echo "No staged files to commit"
-            fi
-            # Check updated git status
-            echo "Updated git status after committing staged files:"
-            git status
-            # Show compact diff information between initial commit and HEAD (committed changes only)
-            echo '## Git diff' >> $GITHUB_STEP_SUMMARY
-            echo '' >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            git diff --name-only "$INITIAL_SHA"..HEAD >> $GITHUB_STEP_SUMMARY || true
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo '' >> $GITHUB_STEP_SUMMARY
-            # Check if there are any committed changes since the initial commit
-            if git diff --quiet "$INITIAL_SHA" HEAD; then
-              echo "No committed changes detected since initial commit"
-              echo "Skipping patch generation - no committed changes to create patch from"
-            else
-              echo "Committed changes detected, generating patch..."
-              # Generate patch from initial commit to HEAD (committed changes only)
-              git format-patch "$INITIAL_SHA"..HEAD --stdout > /tmp/aw.patch || echo "Failed to generate patch" > /tmp/aw.patch
-              echo "Patch file created at /tmp/aw.patch"
+              echo "Branch $BRANCH_NAME does not exist, no patch"
             fi
           fi
           

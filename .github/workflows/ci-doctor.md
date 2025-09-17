@@ -1,12 +1,12 @@
 ---
 on:
   workflow_run:
-    workflows: ["Daily Perf Improver", "Daily Test Coverage Improver"]
+    #workflows: ["Daily Perf Improver", "Daily Test Coverage Improver"]
     types:
       - completed
     # This will trigger only when the CI workflow completes with failure
     # The condition is handled in the workflow body
-  stop-after: +48h
+  #stop-after: +48h
 
 # Only trigger for failures - check in the workflow body
 if: ${{ github.event.workflow_run.conclusion == 'failure' }}
