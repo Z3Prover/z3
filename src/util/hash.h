@@ -61,6 +61,14 @@ inline unsigned combine_hash(unsigned h1, unsigned h2) {
     return h2;
 }
 
+inline unsigned combine_hash_batch(const unsigned* hashes, unsigned count, unsigned init = 0) {
+    unsigned result = init;
+    for (unsigned i = 0; i < count; ++i) {
+        result = combine_hash(result, hashes[i]);
+    }
+    return result;
+}
+
 inline unsigned hash_u_u(unsigned a, unsigned b) {
     return combine_hash(hash_u(a), hash_u(b));
 }

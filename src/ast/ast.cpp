@@ -492,21 +492,68 @@ inline unsigned ast_array_hash(T * const * array, unsigned size, unsigned init_v
         unsigned a, b, c;
         a = b = 0x9e3779b9;
         c = init_value;
-        while (size >= 3) {
-            size--;
-            a += array[size]->hash();
-            size--;
-            b += array[size]->hash();
-            size--;
-            c += array[size]->hash();
-            mix(a, b, c);
-        }
-        switch (size) {
-        case 2:
-            b += array[1]->hash();
-            Z3_fallthrough;
-        case 1:
-            c += array[0]->hash();
+
+        // Optimized version: batch-prefetch hash values to improve cache locality
+        // For arrays with many children, fetch hash values in batches to reduce cache misses
+        if (size >= 12) {
+            constexpr unsigned BATCH_SIZE = 6;
+            unsigned hash_buffer[BATCH_SIZE];
+            unsigned idx = size;
+
+            while (idx >= BATCH_SIZE) {
+                // Batch-fetch hash values to improve cache locality
+                for (unsigned i = 0; i < BATCH_SIZE; ++i) {
+                    hash_buffer[i] = array[--idx]->hash();
+                }
+
+                // Process in groups of 3 for mixing
+                a += hash_buffer[2];
+                b += hash_buffer[1];
+                c += hash_buffer[0];
+                mix(a, b, c);
+
+                a += hash_buffer[5];
+                b += hash_buffer[4];
+                c += hash_buffer[3];
+                mix(a, b, c);
+            }
+
+            // Handle remaining elements in the original way
+            while (idx >= 3) {
+                idx--;
+                a += array[idx]->hash();
+                idx--;
+                b += array[idx]->hash();
+                idx--;
+                c += array[idx]->hash();
+                mix(a, b, c);
+            }
+
+            switch (idx) {
+            case 2:
+                b += array[1]->hash();
+                Z3_fallthrough;
+            case 1:
+                c += array[0]->hash();
+            }
+        } else {
+            // For smaller arrays, use original algorithm
+            while (size >= 3) {
+                size--;
+                a += array[size]->hash();
+                size--;
+                b += array[size]->hash();
+                size--;
+                c += array[size]->hash();
+                mix(a, b, c);
+            }
+            switch (size) {
+            case 2:
+                b += array[1]->hash();
+                Z3_fallthrough;
+            case 1:
+                c += array[0]->hash();
+            }
         }
         mix(a, b, c);
         return c;
