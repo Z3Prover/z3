@@ -33,6 +33,7 @@ Revision History:
 #include "util/tptr.h"
 #include "util/memory_manager.h"
 #include "util/small_object_allocator.h"
+#include "util/ast_object_pool.h"
 #include "util/obj_ref.h"
 #include "util/ref_vector.h"
 #include "util/ref_pair_vector.h"
@@ -1502,6 +1503,7 @@ public:
 protected:
     reslimit                  m_limit;
     small_object_allocator    m_alloc;
+    ast_object_pool           m_ast_pool;
     family_manager            m_family_manager;
     expr_array_manager        m_expr_array_manager;
     expr_dependency_manager   m_expr_dependency_manager;
@@ -1582,6 +1584,7 @@ public:
     void copy_families_plugins(ast_manager const & from);
 
     small_object_allocator & get_allocator() { return m_alloc; }
+    ast_object_pool & get_ast_pool() { return m_ast_pool; }
 
     family_id mk_family_id(symbol const & s) { return m_family_manager.mk_family_id(s); }
     family_id mk_family_id(char const * s) { return mk_family_id(symbol(s)); }
@@ -1699,11 +1702,23 @@ protected:
     void delete_node(ast * n);
 
     void * allocate_node(unsigned size) {
+        // Try the optimized AST object pool first for common sizes
+        void* result = m_ast_pool.allocate(size);
+        if (result != nullptr) {
+            return result;
+        }
+        // Fall back to the original small object allocator for compatibility
         return m_alloc.allocate(size);
     }
 
     void deallocate_node(ast * n, unsigned sz) {
-        m_alloc.deallocate(sz, n);
+        // Try the AST pool first (it will handle its own allocations)
+        if (m_ast_pool.handles_size(sz)) {
+            m_ast_pool.deallocate(sz, n);
+        } else {
+            // For objects not handled by the pool, use the fallback allocator
+            m_alloc.deallocate(sz, n);
+        }
     }
 
 public:

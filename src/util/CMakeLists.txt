@@ -49,6 +49,7 @@ z3_add_component(util
     sexpr.cpp
     s_integer.cpp
     small_object_allocator.cpp
+    ast_object_pool.cpp
     smt2_util.cpp
     stack.cpp
     state_graph.cpp
