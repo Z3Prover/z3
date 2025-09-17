@@ -60,7 +60,11 @@ namespace sat {
         index_set      m_unit_set;
         literal_vector m_lits;
         vector_pool    m_pool;
-        mutex          m_mux;
+
+        // Fine-grained locking for better parallel performance
+        mutex          m_unit_mux;     // Separate mutex for unit literal exchange
+        mutex          m_clause_mux;   // Separate mutex for clause sharing
+        mutex          m_solver_mux;   // Separate mutex for solver state operations
 
         // for exchange with local search:
         unsigned           m_num_clauses;

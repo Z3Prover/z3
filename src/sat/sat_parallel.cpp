@@ -125,14 +125,34 @@ namespace sat {
     void parallel::exchange(solver& s, literal_vector const& in, unsigned& limit, literal_vector& out) {
         if (s.get_config().m_num_threads == 1 || s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
+
+        // Pre-filter input literals to reduce work inside critical section
+        literal_vector filtered_input;
+        filtered_input.reserve(in.size());
+
         {
-            lock_guard lock(m_mux);
+            // Critical section 1: Read existing units (shorter lock duration)
+            lock_guard lock(m_unit_mux);
             if (limit < m_units.size()) {
-                // this might repeat some literals.
+                // Prefetch memory for better cache performance
+                __builtin_prefetch(m_units.data() + limit, 0, 3);
                 out.append(m_units.size() - limit, m_units.data() + limit);
             }
+
+            // Pre-check which literals are new (while holding lock)
             for (unsigned i = 0; i < in.size(); ++i) {
                 literal lit = in[i];
+                if (!m_unit_set.contains(lit.index())) {
+                    filtered_input.push_back(lit);
+                }
+            }
+        }
+
+        // Critical section 2: Add new literals (separate, shorter duration)
+        if (!filtered_input.empty()) {
+            lock_guard lock(m_unit_mux);
+            for (literal lit : filtered_input) {
+                // Double-check in case another thread added it
                 if (!m_unit_set.contains(lit.index())) {
                     m_unit_set.insert(lit.index());
                     m_units.push_back(lit);
@@ -142,37 +162,55 @@ namespace sat {
         }
     }
 
-    void parallel::share_clause(solver& s, literal l1, literal l2) {        
+    void parallel::share_clause(solver& s, literal l1, literal l2) {
         if (s.get_config().m_num_threads == 1 || s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
         IF_VERBOSE(3, verbose_stream() << s.m_par_id << ": share " <<  l1 << " " << l2 << "\n";);
-        {
-            lock_guard lock(m_mux);
-            m_pool.begin_add_vector(s.m_par_id, 2);
-            m_pool.add_vector_elem(l1.index());
-            m_pool.add_vector_elem(l2.index());            
-            m_pool.end_add_vector();
-        }        
+
+        // Use dedicated clause sharing mutex for reduced contention
+        lock_guard lock(m_clause_mux);
+        m_pool.begin_add_vector(s.m_par_id, 2);
+        m_pool.add_vector_elem(l1.index());
+        m_pool.add_vector_elem(l2.index());
+        m_pool.end_add_vector();
     }
 
-    void parallel::share_clause(solver& s, clause const& c) {        
+    void parallel::share_clause(solver& s, clause const& c) {
         if (s.get_config().m_num_threads == 1 || !enable_add(c) || s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
+
         unsigned n = c.size();
         unsigned owner = s.m_par_id;
         IF_VERBOSE(3, verbose_stream() << owner << ": share " <<  c << "\n";);
-        lock_guard lock(m_mux);
-        m_pool.begin_add_vector(owner, n);                
-        for (unsigned i = 0; i < n; ++i) 
-            m_pool.add_vector_elem(c[i].index());
-        m_pool.end_add_vector();        
+
+        // Pre-compute clause data outside critical section for better performance
+        unsigned_vector clause_indices;
+        clause_indices.reserve(n);
+        for (unsigned i = 0; i < n; ++i) {
+            clause_indices.push_back(c[i].index());
+        }
+
+        // Reduced critical section with prefetch hints
+        {
+            lock_guard lock(m_clause_mux);
+            // Prefetch memory for vector pool operations
+            __builtin_prefetch(&m_pool, 1, 3);
+
+            m_pool.begin_add_vector(owner, n);
+            for (unsigned i = 0; i < n; ++i) {
+                m_pool.add_vector_elem(clause_indices[i]);
+            }
+            m_pool.end_add_vector();
+        }
     }
 
     void parallel::get_clauses(solver& s) {
         if (s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
-        lock_guard lock(m_mux);
-        _get_clauses(s);        
+
+        // Use clause-specific mutex for clause operations
+        lock_guard lock(m_clause_mux);
+        _get_clauses(s);
     }
 
     void parallel::_get_clauses(solver& s) {
@@ -225,12 +263,14 @@ namespace sat {
     }
 
     void parallel::from_solver(solver& s) {
-        lock_guard lock(m_mux);
-        _from_solver(s);        
+        // Use solver-specific mutex for solver state operations
+        lock_guard lock(m_solver_mux);
+        _from_solver(s);
     }
 
     void parallel::to_solver(solver& s) {
-        lock_guard lock(m_mux);
+        // Use solver-specific mutex for solver state operations
+        lock_guard lock(m_solver_mux);
         _to_solver(s);
     }
 
@@ -255,18 +295,21 @@ namespace sat {
     }
 
     bool parallel::from_solver(i_local_search& s) {
-        lock_guard lock(m_mux);
+        // Use solver-specific mutex for local search operations
+        lock_guard lock(m_solver_mux);
         return _from_solver(s);
     }
 
     void parallel::to_solver(i_local_search& s) {
-        lock_guard lock(m_mux);
-        _to_solver(s);               
+        // Use solver-specific mutex for local search operations
+        lock_guard lock(m_solver_mux);
+        _to_solver(s);
     }
 
     bool parallel::copy_solver(solver& s) {
         bool copied = false;
-        lock_guard lock(m_mux);
+        // Use solver-specific mutex for solver copying
+        lock_guard lock(m_solver_mux);
         m_consumer_ready = true;
         if (m_solver_copy && s.m_clauses.size() > m_solver_copy->m_clauses.size()) {
             s.copy(*m_solver_copy, true);

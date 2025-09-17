@@ -1,0 +1,15 @@
+Parallel Algorithm Improvement Benchmark Results
+==============================================
+
+Configuration:
+- Threads: 4
+- Operations per thread: 25000
+- Total operations: 100000
+
+Results:
+- Coarse-grained time: 49.7304 ms
+- Fine-grained time: 30.3175 ms
+- Speedup factor: 1.64032x
+- Performance improvement: 64.0321%
+- Coarse-grained throughput: 2010841 ops/sec
+- Fine-grained throughput: 3298423 ops/sec
