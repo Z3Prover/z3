@@ -197,7 +197,7 @@ std::vector<std::string> generate_test_data() {
 
 template<typename HashFunc>
 double benchmark_hash(const std::vector<std::string>& data, HashFunc hash_func, const std::string& name) {
-    const int iterations = 100;
+    const int iterations = 10000;
 
     auto start = std::chrono::high_resolution_clock::now();
     volatile unsigned result = 0;
