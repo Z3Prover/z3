@@ -46,12 +46,17 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
    1a. Check carefully if an open issue with title "${{ github.workflow }} - Research, Roadmap and Plan" exists using `search_issues`. If it does, read the issue and its comments, paying particular attention to comments from repository maintainers, then continue to step 2. If the issue doesn't exist, follow the steps below to create it:
 
    1b. Do some deep research into the backlog in this repo.
-    - Read existing documentation, issues, pull requests, project files, dev guides in the repository.
-    - Look at any existing open issues and pull requests that are part of the backlog - not feature requests, but bugs, chores, maintenance tasks and so on.
+    - Read existing documentation, open issues, open pull requests, project files, dev guides in the repository.
+    - Carefully research the entire backlog of issues and pull requests. Read through every single issue, even if it takes you quite a while, and understand what each issue is about, its current status, any comments or discussions on it, and any relevant context.
     - Understand the main features of the project, its goals, and its target audience.
     - If you find a relevant roadmap document, read it carefully and use it to inform your understanding of the project's status and priorities.
+    - Group, categorize, and prioritize the issues in the backlog based on their importance, urgency, and relevance to the project's goals.
+    - Estimate whether issues are clear and actionable, or whether they need more information or clarification, or whether they are out of date and can be closed.
+    - Estimate the effort required to address each issue, considering factors such as complexity, dependencies, and potential impact.
+    - Identify any patterns or common themes among the issues, such as recurring bugs, feature requests, or areas of improvement.
+    - Look for any issues that may be duplicates or closely related to each other, and consider whether they can be consolidated or linked together.
     
-   1c. Use this research to write an issue with title "${{ github.workflow }} - Research, Roadmap and Plan", then exit this entire workflow.
+   1c. Use this research to create an issue with title "${{ github.workflow }} - Research, Roadmap and Plan". This issue should be a comprehensive plan for dealing with the backlog in this repo, and summarize your findings from the backlog research, including any patterns or themes you identified, and your recommendations for addressing the backlog. Then exit this entire workflow.
 
 2. Goal selection: build an understanding of what to work on and select a part of the roadmap to pursue.
 
