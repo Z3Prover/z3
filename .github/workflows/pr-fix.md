@@ -15,6 +15,7 @@ safe-outputs:
   create-issue:
     title-prefix: "${{ github.workflow }}"
   add-issue-comment:
+  github-token: ${{ secrets.DSYME_GH_TOKEN}}
 
 tools:
   web-fetch:

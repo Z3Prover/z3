@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-19 01:20:03
+# Effective stop-time: 2025-09-19 01:41:09
 
 name: "Daily Backlog Burner"
 "on":
@@ -527,7 +527,7 @@ jobs:
           WORKFLOW_NAME="Daily Backlog Burner"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-19 01:20:03"
+          STOP_TIME="2025-09-19 01:41:09"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -2389,6 +2389,7 @@ jobs:
           GITHUB_AW_AGENT_OUTPUT: ${{ needs.daily-backlog-burner.outputs.output }}
           GITHUB_AW_ISSUE_TITLE_PREFIX: "${{ github.workflow }}"
         with:
+          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             async function main() {
               // Check if we're in staged mode
@@ -2588,6 +2589,7 @@ jobs:
           GITHUB_AW_AGENT_OUTPUT: ${{ needs.daily-backlog-burner.outputs.output }}
           GITHUB_AW_COMMENT_TARGET: "*"
         with:
+          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             async function main() {
               // Check if we're in staged mode
@@ -2810,6 +2812,7 @@ jobs:
           GITHUB_AW_PR_DRAFT: "true"
           GITHUB_AW_PR_IF_NO_CHANGES: "warn"
         with:
+          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             /** @type {typeof import("fs")} */
             const fs = require("fs");

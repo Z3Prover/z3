@@ -19,6 +19,7 @@ safe-outputs:
     max: 3
   create-pull-request:
     draft: true
+  github-token: ${{ secrets.DSYME_GH_TOKEN}}
 
 tools:
   web-fetch:
