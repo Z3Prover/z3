@@ -146,6 +146,20 @@ namespace sat {
         svector<uint64_t>       m_reasoned;
         int                     m_action;
         double                  m_step_size;
+
+        // ML-guided variable ordering enhancements
+        struct variable_learning_data {
+            double success_rate;      // Success rate for decisions on this variable
+            uint32_t decision_count;  // Number of times variable was chosen
+            uint32_t success_count;   // Number of successful (conflict-free) decisions
+            uint64_t avg_conflict_depth; // Average depth when conflicts occur
+            double constraint_density; // Variable's constraint connectivity
+
+            variable_learning_data() : success_rate(0.5), decision_count(0),
+                                     success_count(0), avg_conflict_depth(0),
+                                     constraint_density(0.0) {}
+        };
+        svector<variable_learning_data> m_var_learning;
         // phase
         bool_vector             m_phase; 
         bool_vector             m_best_phase;
@@ -554,6 +568,12 @@ namespace sat {
         bool guess(bool_var next);
         bool decide();
         bool_var next_var();
+
+        // ML-guided variable ordering methods
+        double compute_ml_variable_score(bool_var v) const;
+        void update_variable_learning_data(bool_var v, bool success, unsigned conflict_depth);
+        void update_constraint_density(bool_var v);
+        bool_var ml_enhanced_next_var();
         lbool bounded_search();
         lbool basic_search();
         lbool search();

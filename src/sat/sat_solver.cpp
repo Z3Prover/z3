@@ -315,6 +315,7 @@ namespace sat {
         m_participated.push_back(0);
         m_canceled.push_back(0);
         m_reasoned.push_back(0);
+        m_var_learning.push_back(variable_learning_data());
         m_case_split_queue.mk_var_eh(v);
         m_simplifier.insert_elim_todo(v);
         SASSERT(!was_eliminated(v));
@@ -1685,7 +1686,148 @@ namespace sat {
 
         return null_bool_var;
     }
-    
+
+    // ML-guided variable ordering implementation
+    double solver::compute_ml_variable_score(bool_var v) const {
+        if (v >= m_var_learning.size()) return 0.0;
+
+        const auto& learning_data = m_var_learning[v];
+        const double base_activity = static_cast<double>(m_activity[v]);
+
+        // Combine multiple factors for ML-guided scoring
+        double success_factor = learning_data.success_rate;
+
+        // Recency factor - prefer variables that were recently successful
+        double recency_factor = 1.0;
+        if (learning_data.decision_count > 0) {
+            uint64_t conflicts_since_last = m_stats.m_conflict - m_last_conflict[v];
+            recency_factor = 1.0 / (1.0 + conflicts_since_last * 0.001);
+        }
+
+        // Constraint density factor - prefer well-connected variables
+        double density_factor = 1.0 + learning_data.constraint_density * 0.1;
+
+        // Learning confidence factor - more reliable for frequently used variables
+        double confidence_factor = 1.0;
+        if (learning_data.decision_count > 10) {
+            confidence_factor = 1.0 + std::min(0.5, learning_data.decision_count * 0.01);
+        }
+
+        // Combine all factors with base VSIDS activity
+        return base_activity * success_factor * recency_factor * density_factor * confidence_factor;
+    }
+
+    void solver::update_variable_learning_data(bool_var v, bool success, unsigned conflict_depth) {
+        if (v >= m_var_learning.size()) {
+            m_var_learning.reserve(v + 1);
+            while (m_var_learning.size() <= v) {
+                m_var_learning.push_back(variable_learning_data());
+            }
+        }
+
+        auto& data = m_var_learning[v];
+        data.decision_count++;
+
+        if (success) {
+            data.success_count++;
+        }
+
+        // Update success rate with exponential smoothing
+        double current_success = success ? 1.0 : 0.0;
+        data.success_rate = 0.9 * data.success_rate + 0.1 * current_success;
+
+        // Update average conflict depth
+        if (!success && conflict_depth > 0) {
+            if (data.avg_conflict_depth == 0) {
+                data.avg_conflict_depth = conflict_depth;
+            } else {
+                data.avg_conflict_depth = (data.avg_conflict_depth * 3 + conflict_depth) / 4;
+            }
+        }
+    }
+
+    void solver::update_constraint_density(bool_var v) {
+        if (v >= m_var_learning.size()) {
+            m_var_learning.reserve(v + 1);
+            while (m_var_learning.size() <= v) {
+                m_var_learning.push_back(variable_learning_data());
+            }
+        }
+
+        // Count constraints involving this variable
+        unsigned clause_count = 0;
+        unsigned total_literals = 0;
+
+        literal pos_lit(v, false);
+        literal neg_lit(v, true);
+
+        // Count clauses containing positive literal
+        if (pos_lit.index() < m_watches.size()) {
+            const auto& pos_watches = m_watches[pos_lit.index()];
+            for (const auto& w : pos_watches) {
+                clause_count++;
+                if (w.is_clause()) {
+                    clause_offset cls_off = w.get_clause_offset();
+                    clause* cls = m_cls_allocator[m_cls_allocator_idx].get_clause(cls_off);
+                    total_literals += cls->size();
+                }
+            }
+        }
+
+        // Count clauses containing negative literal
+        if (neg_lit.index() < m_watches.size()) {
+            const auto& neg_watches = m_watches[neg_lit.index()];
+            for (const auto& w : neg_watches) {
+                clause_count++;
+                if (w.is_clause()) {
+                    clause_offset cls_off = w.get_clause_offset();
+                    clause* cls = m_cls_allocator[m_cls_allocator_idx].get_clause(cls_off);
+                    total_literals += cls->size();
+                }
+            }
+        }
+
+        // Calculate constraint density as average literals per clause
+        if (clause_count > 0) {
+            m_var_learning[v].constraint_density = static_cast<double>(total_literals) / clause_count;
+        }
+    }
+
+    bool_var solver::ml_enhanced_next_var() {
+        // Use ML-guided selection with fallback to original VSIDS
+
+        // First try ML-enhanced selection for variables with sufficient learning data
+        double best_ml_score = -1.0;
+        bool_var best_ml_var = null_bool_var;
+
+        // Check top candidates from VSIDS queue with ML scoring
+        const unsigned max_candidates = 20;
+        unsigned candidates_checked = 0;
+
+        // Use iterators to examine queue elements without modifying it
+        for (auto it = m_case_split_queue.begin();
+             it != m_case_split_queue.end() && candidates_checked < max_candidates;
+             ++it, ++candidates_checked) {
+
+            bool_var candidate = static_cast<bool_var>(*it);
+            if (value(candidate) == l_undef && !was_eliminated(candidate)) {
+                double ml_score = compute_ml_variable_score(candidate);
+                if (ml_score > best_ml_score) {
+                    best_ml_score = ml_score;
+                    best_ml_var = candidate;
+                }
+            }
+        }
+
+        // If we found a good ML candidate, use it
+        if (best_ml_var != null_bool_var && best_ml_score > 0) {
+            return best_ml_var;
+        }
+
+        // Fallback to original next_var logic
+        return next_var();
+    }
+
     bool solver::guess(bool_var next) {
         lbool lphase = m_ext ? m_ext->get_phase(next) : l_undef;
         
@@ -1720,9 +1862,17 @@ namespace sat {
         bool used_queue = false;
         if (!m_ext || !m_ext->get_case_split(next, phase)) {
             used_queue = true;
-            next = next_var();
+            // Use ML-enhanced variable selection after initial learning period
+            if (m_stats.m_decision > 100) {
+                next = ml_enhanced_next_var();
+            } else {
+                next = next_var();
+            }
             if (next == null_bool_var)
                 return false;
+
+            // Update constraint density for newly selected variable
+            update_constraint_density(next);
         }
         else {
             SASSERT(value(next) == l_undef);
@@ -1802,6 +1952,12 @@ namespace sat {
         if (m_ext) {
             switch (m_ext->check()) {
             case check_result::CR_DONE:
+                // Update learning data for successful decisions in current trail
+                for (unsigned level = 0; level < scope_lvl(); level++) {
+                    literal decision_lit = scope_literal(level);
+                    bool_var decision_var = decision_lit.var();
+                    update_variable_learning_data(decision_var, true, 0);
+                }
                 mk_model();
                 return l_true;
             case check_result::CR_CONTINUE:
@@ -1813,6 +1969,12 @@ namespace sat {
             return l_undef;
         }
         else {
+            // Update learning data for successful decisions in current trail
+            for (unsigned level = 0; level < scope_lvl(); level++) {
+                literal decision_lit = scope_literal(level);
+                bool_var decision_var = decision_lit.var();
+                update_variable_learning_data(decision_var, true, 0);
+            }
             mk_model();
             return l_true;
         }
@@ -3619,6 +3781,22 @@ namespace sat {
         unsigned new_lvl = scope_lvl() - num_scopes;
         scope & s        = m_scopes[new_lvl];
         m_inconsistent   = false; // TBD: use model seems to make this redundant: s.m_inconsistent;
+
+        // Update ML learning data for backtracked decisions
+        if (num_scopes > 0) {
+            for (unsigned level = new_lvl; level < scope_lvl(); level++) {
+                if (level < m_scopes.size()) {
+                    // Get the decision literal for this scope level
+                    literal decision_lit = scope_literal(level);
+                    bool_var decision_var = decision_lit.var();
+
+                    // This decision led to conflict (backtracking), so mark as unsuccessful
+                    unsigned conflict_depth = scope_lvl() - level;
+                    update_variable_learning_data(decision_var, false, conflict_depth);
+                }
+            }
+        }
+
         unassign_vars(s.m_trail_lim, new_lvl);
         for (bool_var v : m_vars_to_free)
             m_case_split_queue.del_var_eh(v);
