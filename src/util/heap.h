@@ -27,6 +27,13 @@ class heap : private LT {
     int_vector    m_values;
     int_vector    m_value2indices;
 
+    // Performance optimization: Cache prefetch hints for better memory access patterns
+    static inline void prefetch_memory(const void* ptr) {
+#ifdef __builtin_prefetch
+        __builtin_prefetch(ptr, 0, 3);  // Read, high temporal locality
+#endif
+    }
+
     static int left(int i) { 
         return i << 1; 
     }
@@ -87,11 +94,24 @@ private:
 
     void move_up(int idx) {
         int val = m_values[idx];
+
+        // Prefetch parent location for better cache performance
+        if (idx > 1) {
+            int parent_idx = parent(idx);
+            prefetch_memory(&m_values[parent_idx]);
+        }
+
         while (true) {
             int parent_idx = parent(idx);
             if (parent_idx == 0 || !less_than(val, m_values[parent_idx])) {
                 break;
             }
+
+            // Prefetch grandparent location if we'll likely continue
+            if (parent_idx > 1) {
+                prefetch_memory(&m_values[parent(parent_idx)]);
+            }
+
             m_values[idx]                  = m_values[parent_idx];
             m_value2indices[m_values[idx]] = idx;
             idx                            = parent_idx;
@@ -104,8 +124,19 @@ private:
     void move_down(int idx) {
         int val = m_values[idx];
         int sz  = static_cast<int>(m_values.size());
+
+        // Prefetch children for better cache performance
+        int left_idx = left(idx);
+        if (left_idx < sz) {
+            prefetch_memory(&m_values[left_idx]);
+            int right_idx = right(idx);
+            if (right_idx < sz) {
+                prefetch_memory(&m_values[right_idx]);
+            }
+        }
+
         while (true) {
-            int left_idx  = left(idx);
+            left_idx = left(idx);
             if (left_idx >= sz) {
                 break;
             }
@@ -116,6 +147,17 @@ private:
             if (!less_than(min_value, val)) {
                 break;
             }
+
+            // Prefetch grandchildren if we'll likely continue
+            int next_left = left(min_idx);
+            if (next_left < sz) {
+                prefetch_memory(&m_values[next_left]);
+                int next_right = right(min_idx);
+                if (next_right < sz) {
+                    prefetch_memory(&m_values[next_right]);
+                }
+            }
+
             m_values[idx]                  = min_value;
             m_value2indices[min_value]     = idx;
             idx                            = min_idx;
@@ -253,6 +295,34 @@ public:
         m_values.push_back(val);
         SASSERT(idx == static_cast<int>(m_values.size()) - 1);
         move_up(idx);
+        CASSERT("heap", check_invariant());
+    }
+
+    // Performance optimization: Bulk insert for adding many variables at once
+    void bulk_insert(const int_vector& vals) {
+        CASSERT("heap", check_invariant());
+
+        // Reserve space for better memory efficiency
+        m_values.reserve(m_values.size() + vals.size());
+
+        // Add all values without heapify
+        int base_idx = static_cast<int>(m_values.size());
+        for (unsigned i = 0; i < vals.size(); ++i) {
+            int val = vals[i];
+            CASSERT("heap", !contains(val));
+            SASSERT(is_valid_value(val));
+
+            int idx = base_idx + i;
+            m_value2indices[val] = idx;
+            m_values.push_back(val);
+        }
+
+        // Heapify bottom-up for O(n) complexity instead of O(n log n)
+        int start = parent(static_cast<int>(m_values.size()) - 1);
+        for (int i = start; i >= 1; --i) {
+            move_down(i);
+        }
+
         CASSERT("heap", check_invariant());
     }
 
