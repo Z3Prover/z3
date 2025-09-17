@@ -26,7 +26,7 @@ Revision History:
 #include "util/memory_manager.h"
 #include "util/hash.h"
 #include "util/vector.h"
-#ifdef __has_builtin(__builtin_prefetch) 
+#if __has_builtin(__builtin_prefetch) 
 #define HASHTABLE_PREFETCH(addr) __builtin_prefetch(addr, 0, 3)
 #else
 #define HASHTABLE_PREFETCH(addr) ((void)0)
