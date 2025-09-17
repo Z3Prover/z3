@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-19 22:46:19
+# Effective stop-time: 2025-09-19 22:49:48
 
 name: "Daily Backlog Burner"
 "on":
@@ -539,7 +539,7 @@ jobs:
           WORKFLOW_NAME="Daily Backlog Burner"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-19 22:46:19"
+          STOP_TIME="2025-09-19 22:49:48"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds

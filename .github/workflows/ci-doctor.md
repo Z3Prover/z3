@@ -1,7 +1,7 @@
 ---
 on:
   workflow_run:
-    #workflows: ["Daily Perf Improver", "Daily Test Coverage Improver"]
+    workflows: ["Windows"]
     types:
       - completed
     # This will trigger only when the CI workflow completes with failure
