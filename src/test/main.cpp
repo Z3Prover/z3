@@ -202,6 +202,7 @@ int main(int argc, char ** argv) {
     TST(nlarith_util);
     TST(api_ast_map);
     TST(api_bug);
+    TST(api_special_relations);
     TST(arith_rewriter);
     TST(check_assumptions);
     TST(smt_context);
