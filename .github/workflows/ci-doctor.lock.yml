@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-19 14:50:09
+# Effective stop-time: 2025-09-19 15:41:02
 
 name: "CI Failure Doctor"
 "on":
@@ -248,7 +248,7 @@ jobs:
                   description: "Create a new GitHub pull request",
                   inputSchema: {
                     type: "object",
-                    required: ["title", "body"],
+                    required: ["title", "body", "branch"],
                     properties: {
                       title: { type: "string", description: "Pull request title" },
                       body: {
@@ -257,8 +257,7 @@ jobs:
                       },
                       branch: {
                         type: "string",
-                        description:
-                          "Optional branch name (will be auto-generated if not provided)",
+                        description: "Required branch name",
                       },
                       labels: {
                         type: "array",
@@ -380,9 +379,9 @@ jobs:
                   description: "Push changes to a pull request branch",
                   inputSchema: {
                     type: "object",
-                    required: ["branch_name", "message"],
+                    required: ["branch", "message"],
                     properties: {
-                      branch_name: {
+                      branch: {
                         type: "string",
                         description:
                           "The name of the branch to push to, should be the branch name associated with the pull request",
@@ -481,12 +480,19 @@ jobs:
                       ? tool.inputSchema.required
                       : [];
                   if (requiredFields.length) {
-                    const missing = requiredFields.filter(f => args[f] === undefined);
+                    const missing = requiredFields.filter(f => {
+                      const value = args[f];
+                      return (
+                        value === undefined ||
+                        value === null ||
+                        (typeof value === "string" && value.trim() === "")
+                      );
+                    });
                     if (missing.length) {
                       replyError(
                         id,
                         -32602,
-                        `Invalid arguments: missing ${missing.map(m => `'${m}'`).join(", ")}`
+                        `Invalid arguments: missing or empty ${missing.map(m => `'${m}'`).join(", ")}`
                       );
                       return;
                     }
@@ -553,7 +559,7 @@ jobs:
           WORKFLOW_NAME="CI Failure Doctor"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-19 14:50:09"
+          STOP_TIME="2025-09-19 15:41:02"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -1500,13 +1506,16 @@ jobs:
                         );
                         continue;
                       }
+                      if (!item.branch || typeof item.branch !== "string") {
+                        errors.push(
+                          `Line ${i + 1}: create-pull-request requires a 'branch' string field`
+                        );
+                        continue;
+                      }
                       // Sanitize text content
                       item.title = sanitizeContent(item.title);
                       item.body = sanitizeContent(item.body);
-                      // Sanitize branch name if present
-                      if (item.branch && typeof item.branch === "string") {
-                        item.branch = sanitizeContent(item.branch);
-                      }
+                      item.branch = sanitizeContent(item.branch);
                       // Sanitize labels if present
                       if (item.labels && Array.isArray(item.labels)) {
                         item.labels = item.labels.map(
@@ -1603,10 +1612,10 @@ jobs:
                       }
                       break;
                     case "push-to-pr-branch":
-                      // Validate required branch_name field
-                      if (!item.branch_name || typeof item.branch_name !== "string") {
+                      // Validate required branch field
+                      if (!item.branch || typeof item.branch !== "string") {
                         errors.push(
-                          `Line ${i + 1}: push-to-pr-branch requires a 'branch_name' string field`
+                          `Line ${i + 1}: push-to-pr-branch requires a 'branch' string field`
                         );
                         continue;
                       }
@@ -1618,7 +1627,7 @@ jobs:
                         continue;
                       }
                       // Sanitize text content
-                      item.branch_name = sanitizeContent(item.branch_name);
+                      item.branch = sanitizeContent(item.branch);
                       item.message = sanitizeContent(item.message);
                       // Validate pull_request_number if provided (for target "*")
                       const pushPRNumValidation = validateIssueOrPRNumber(
