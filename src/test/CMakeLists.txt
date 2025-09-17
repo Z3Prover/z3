@@ -46,6 +46,7 @@ add_executable(test-z3
   euf_bv_plugin.cpp
   euf_arith_plugin.cpp
   ex.cpp
+  expr_inverter.cpp
   expr_rand.cpp
   expr_substitution.cpp
   ext_numeral.cpp
