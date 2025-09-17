@@ -14,6 +14,7 @@ add_executable(test-z3
   algebraic.cpp
   algebraic_numbers.cpp
   api_ast_map.cpp
+  api_stats.cpp
   api_bug.cpp
   api.cpp
   api_algebraic.cpp

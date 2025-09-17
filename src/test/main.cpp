@@ -201,6 +201,7 @@ int main(int argc, char ** argv) {
     TST(ex);
     TST(nlarith_util);
     TST(api_ast_map);
+    TST(api_stats);
     TST(api_bug);
     TST(arith_rewriter);
     TST(check_assumptions);
