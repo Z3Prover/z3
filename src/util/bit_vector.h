@@ -201,6 +201,7 @@ public:
         return *this;
     }
 
+    // SIMD-optimized bitwise operations (when SSE2 available and data aligned)
     bit_vector & operator|=(bit_vector const & source);
 
     bit_vector & operator&=(bit_vector const & source);

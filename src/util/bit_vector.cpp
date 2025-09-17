@@ -19,10 +19,97 @@ Revision History:
 #include<climits>
 #include "util/bit_vector.h"
 #include "util/trace.h"
+#ifdef __SSE2__
+#include <emmintrin.h>
+#endif
 
 #define DEFAULT_CAPACITY 2
 
 #define MK_MASK(_num_bits_) ((1U << _num_bits_) - 1)
+
+// SIMD optimization helpers
+#ifdef __SSE2__
+namespace {
+    // SIMD-optimized bitwise operations for aligned memory
+    inline void simd_or_aligned(unsigned* dst, const unsigned* src, size_t num_words) {
+        const size_t simd_words = (num_words / 4) * 4;
+        const __m128i* src_simd = reinterpret_cast<const __m128i*>(src);
+        __m128i* dst_simd = reinterpret_cast<__m128i*>(dst);
+
+        for (size_t i = 0; i < simd_words / 4; ++i) {
+            __m128i a = _mm_load_si128(&dst_simd[i]);
+            __m128i b = _mm_load_si128(&src_simd[i]);
+            _mm_store_si128(&dst_simd[i], _mm_or_si128(a, b));
+        }
+
+        // Handle remaining words with scalar operations
+        for (size_t i = simd_words; i < num_words; ++i) {
+            dst[i] |= src[i];
+        }
+    }
+
+    inline void simd_and_aligned(unsigned* dst, const unsigned* src, size_t num_words) {
+        const size_t simd_words = (num_words / 4) * 4;
+        const __m128i* src_simd = reinterpret_cast<const __m128i*>(src);
+        __m128i* dst_simd = reinterpret_cast<__m128i*>(dst);
+
+        for (size_t i = 0; i < simd_words / 4; ++i) {
+            __m128i a = _mm_load_si128(&dst_simd[i]);
+            __m128i b = _mm_load_si128(&src_simd[i]);
+            _mm_store_si128(&dst_simd[i], _mm_and_si128(a, b));
+        }
+
+        // Handle remaining words with scalar operations
+        for (size_t i = simd_words; i < num_words; ++i) {
+            dst[i] &= src[i];
+        }
+    }
+
+    inline bool simd_equals_aligned(const unsigned* a, const unsigned* b, size_t num_words) {
+        const size_t simd_words = (num_words / 4) * 4;
+        const __m128i* a_simd = reinterpret_cast<const __m128i*>(a);
+        const __m128i* b_simd = reinterpret_cast<const __m128i*>(b);
+
+        for (size_t i = 0; i < simd_words / 4; ++i) {
+            __m128i vec_a = _mm_load_si128(&a_simd[i]);
+            __m128i vec_b = _mm_load_si128(&b_simd[i]);
+            __m128i cmp = _mm_cmpeq_epi32(vec_a, vec_b);
+
+            if (_mm_movemask_epi8(cmp) != 0xFFFF) {
+                return false;
+            }
+        }
+
+        // Handle remaining words with scalar operations
+        for (size_t i = simd_words; i < num_words; ++i) {
+            if (a[i] != b[i]) return false;
+        }
+
+        return true;
+    }
+
+    inline void simd_negate_aligned(unsigned* data, size_t num_words) {
+        const size_t simd_words = (num_words / 4) * 4;
+        __m128i* data_simd = reinterpret_cast<__m128i*>(data);
+        const __m128i ones = _mm_set1_epi32(~0);
+
+        for (size_t i = 0; i < simd_words / 4; ++i) {
+            __m128i vec = _mm_load_si128(&data_simd[i]);
+            _mm_store_si128(&data_simd[i], _mm_xor_si128(vec, ones));
+        }
+
+        // Handle remaining words with scalar operations
+        for (size_t i = simd_words; i < num_words; ++i) {
+            data[i] = ~data[i];
+        }
+    }
+
+    // Check if pointer is 16-byte aligned for SSE2
+    inline bool is_aligned_16(const void* ptr) {
+        return (reinterpret_cast<uintptr_t>(ptr) & 15) == 0;
+    }
+}
+#endif
 
 void bit_vector::expand_to(unsigned new_capacity) {
     if (m_data) {
@@ -123,6 +210,25 @@ bool bit_vector::operator==(bit_vector const & source) const {
     unsigned n = num_words();
     if (n == 0)
         return true;
+
+#ifdef __SSE2__
+    // Use SIMD optimization for aligned memory and sufficient size
+    if (n >= 4 && is_aligned_16(m_data) && is_aligned_16(source.m_data)) {
+        if (n > 1) {
+            // Compare all but the last word with SIMD
+            if (!simd_equals_aligned(m_data, source.m_data, n - 1))
+                return false;
+        }
+
+        // Handle the last word with potential mask
+        unsigned bit_rest = source.m_num_bits % 32;
+        unsigned mask = MK_MASK(bit_rest);
+        if (mask == 0) mask = UINT_MAX;
+        return (m_data[n-1] & mask) == (source.m_data[n-1] & mask);
+    }
+#endif
+
+    // Fallback to scalar implementation
     unsigned i;
     for (i = 0; i < n - 1; i++) {
         if (m_data[i] != source.m_data[i])
@@ -140,6 +246,23 @@ bit_vector & bit_vector::operator|=(bit_vector const & source) {
     unsigned n2 = source.num_words();
     SASSERT(n2 <= num_words());
     unsigned bit_rest = source.m_num_bits % 32;
+
+#ifdef __SSE2__
+    // Use SIMD optimization for aligned memory and sufficient size
+    if (n2 >= 4 && is_aligned_16(m_data) && is_aligned_16(source.m_data)) {
+        if (bit_rest == 0) {
+            simd_or_aligned(m_data, source.m_data, n2);
+        } else {
+            simd_or_aligned(m_data, source.m_data, n2 - 1);
+            // Handle the last word with mask manually
+            unsigned mask = MK_MASK(bit_rest);
+            m_data[n2 - 1] |= source.m_data[n2 - 1] & mask;
+        }
+        return *this;
+    }
+#endif
+
+    // Fallback to scalar implementation
     if (bit_rest == 0) {
         unsigned i = 0;
         for (i = 0; i < n2; i++)
@@ -160,6 +283,34 @@ bit_vector & bit_vector::operator&=(bit_vector const & source) {
     unsigned n2 = source.num_words();
     if (n1 == 0)
         return *this;
+
+#ifdef __SSE2__
+    // Use SIMD optimization for aligned memory and sufficient size
+    if (n2 >= 4 && is_aligned_16(m_data) && is_aligned_16(source.m_data)) {
+        if (n2 > n1) {
+            simd_and_aligned(m_data, source.m_data, n1);
+        } else {
+            unsigned bit_rest = source.m_num_bits % 32;
+            if (bit_rest == 0) {
+                simd_and_aligned(m_data, source.m_data, n2);
+                // Clear remaining words
+                for (unsigned i = n2; i < n1; i++)
+                    m_data[i] = 0;
+            } else {
+                simd_and_aligned(m_data, source.m_data, n2 - 1);
+                // Handle the last word with mask manually
+                unsigned mask = MK_MASK(bit_rest);
+                m_data[n2 - 1] &= (source.m_data[n2 - 1] & mask);
+                // Clear remaining words
+                for (unsigned i = n2; i < n1; i++)
+                    m_data[i] = 0;
+            }
+        }
+        return *this;
+    }
+#endif
+
+    // Fallback to scalar implementation
     if (n2 > n1) {
         for (unsigned i = 0; i < n1; i++)
             m_data[i] &= source.m_data[i];
@@ -177,7 +328,7 @@ bit_vector & bit_vector::operator&=(bit_vector const & source) {
                 m_data[i] &= source.m_data[i];
             unsigned mask = MK_MASK(bit_rest);
             m_data[i] &= (source.m_data[i] & mask);
-            
+
         }
         for (i = n2; i < n1; i++)
             m_data[i] = 0;
@@ -228,6 +379,16 @@ unsigned bit_vector::get_hash() const {
 
 bit_vector& bit_vector::neg() {
     unsigned n = num_words();
+
+#ifdef __SSE2__
+    // Use SIMD optimization for aligned memory and sufficient size
+    if (n >= 4 && is_aligned_16(m_data)) {
+        simd_negate_aligned(m_data, n);
+        return *this;
+    }
+#endif
+
+    // Fallback to scalar implementation
     for (unsigned i = 0; i < n; ++i) {
         m_data[i] = ~m_data[i];
     }
