@@ -1,0 +1,160 @@
+name: 🔧 Build/Installation Issue
+description: Report problems with building or installing Z3
+title: "[Build] "
+labels: ["build/release"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a build or installation issue!
+
+  - type: dropdown
+    id: build-type
+    attributes:
+      label: Build/Installation Method
+      description: How are you trying to build or install Z3?
+      options:
+        - Building from source (CMake)
+        - Building from source (Python scripts)
+        - pip install z3-solver
+        - Package manager (apt, brew, vcpkg, etc.)
+        - Pre-built binaries from releases
+        - Building language bindings (Java, .NET, OCaml)
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: What platform are you building on?
+      options:
+        - Linux (Ubuntu/Debian)
+        - Linux (RedHat/CentOS/Fedora)
+        - Linux (other distribution)
+        - macOS (Intel)
+        - macOS (Apple Silicon)
+        - Windows (MSVC)
+        - Windows (MinGW/MSYS2)
+        - Windows (Cygwin)
+        - Other Unix-like system
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: Describe what went wrong during build/installation
+      placeholder: The build fails with error... / Installation doesn't work because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: build-commands
+    attributes:
+      label: Build Commands
+      description: Show the exact commands you used
+      placeholder: |
+        mkdir build
+        cd build
+        cmake ..
+        make
+      render: bash
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error Output
+      description: Paste the complete error message or build failure output
+      placeholder: |
+        -- Configuring done
+        CMake Error: ...
+        make: *** [target] Error 1
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: system-info
+    attributes:
+      label: System Information
+      description: Provide details about your build environment
+      placeholder: |
+        OS: Ubuntu 22.04
+        Compiler: gcc 11.4.0
+        CMake: 3.22.1
+        Python: 3.10.12
+        Java: OpenJDK 11.0.16 (if building Java bindings)
+      value: |
+        **Operating System:**
+        **Compiler:**
+        **CMake version:**
+        **Python version:**
+        **Other relevant tools:**
+    validations:
+      required: true
+
+  - type: textarea
+    id: cmake-options
+    attributes:
+      label: CMake Configuration (if applicable)
+      description: What CMake options or configuration did you use?
+      placeholder: |
+        cmake -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_PYTHON_BINDINGS=ON ..
+      render: bash
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: What dependencies do you have installed? Any missing?
+      placeholder: |
+        Installed: build-essential, cmake, python3-dev
+        Missing: Not sure what's missing
+
+  - type: textarea
+    id: workarounds
+    attributes:
+      label: Workarounds Tried
+      description: What have you tried to fix this issue?
+      placeholder: |
+        - Tried different CMake options
+        - Reinstalled dependencies
+        - Checked similar issues
+
+  - type: checkboxes
+    id: build-info
+    attributes:
+      label: Additional Information
+      description: Help us understand your build environment
+      options:
+        - label: This worked in a previous version of Z3
+          required: false
+        - label: This is a fresh/clean build (not incremental)
+          required: false
+        - label: I can provide more detailed logs if needed
+          required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information (Docker, CI environment, cross-compilation, etc.)
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Before submitting
+        - [ ] I searched existing build-related issues
+        - [ ] I provided the complete error output
+        - [ ] I included my system/environment details
+
+        ### Common build documentation:
+        - [CMake build instructions](https://github.com/Z3Prover/z3/blob/master/README-CMake.md)
+        - [Main README](https://github.com/Z3Prover/z3/blob/master/README.md)
+        - [Python API installation](https://pypi.org/project/z3-solver/)

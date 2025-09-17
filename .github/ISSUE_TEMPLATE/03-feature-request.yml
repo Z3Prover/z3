@@ -1,0 +1,147 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for Z3
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new feature! This helps us understand what users need.
+
+  - type: dropdown
+    id: feature-category
+    attributes:
+      label: Feature Category
+      description: What area does this feature request relate to?
+      options:
+        - New theory support
+        - API enhancement (Python/C++/Java/.NET/etc.)
+        - Solver tactics/strategies
+        - SMT-LIB2 standard compliance
+        - Build system/packaging
+        - Performance optimization
+        - Documentation
+        - Developer tools/workflow
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: A clear and concise description of the feature you'd like to see
+      placeholder: I would like Z3 to support...
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation and Use Case
+      description: Why do you need this feature? What problem does it solve?
+      placeholder: |
+        This feature would help with...
+        My use case is...
+        Currently, I have to work around this by...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: How do you envision this feature working?
+      placeholder: |
+        I think this could be implemented by...
+        The API could look like...
+        An example usage would be...
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example Usage
+      description: Show how you would use this feature (code examples, SMT-LIB2 syntax, etc.)
+      placeholder: |
+        // Python API example:
+        solver.set_option("new_feature", True)
+
+        ; SMT-LIB2 example:
+        (set-option :new-feature true)
+        (assert ...)
+      render: python
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: |
+        I tried using... but it doesn't work because...
+        Another approach would be... but it has the drawback of...
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature for your work?
+      options:
+        - Low - Nice to have
+        - Medium - Would be helpful
+        - High - Important for my work
+        - Critical - Blocking my research/project
+    validations:
+      required: true
+
+  - type: dropdown
+    id: implementation-help
+    attributes:
+      label: Implementation Help
+      description: Would you be willing to help implement this feature?
+      options:
+        - I would like to implement this myself
+        - I could help with implementation if guided
+        - I can help with testing/feedback
+        - I can only provide requirements/feedback
+    validations:
+      required: true
+
+  - type: textarea
+    id: related-work
+    attributes:
+      label: Related Work
+      description: Are there similar features in other solvers, research papers, or standards?
+      placeholder: |
+        Similar to CVC5's feature...
+        Described in paper: ...
+        SMT-LIB2 standard section: ...
+
+  - type: checkboxes
+    id: compatibility
+    attributes:
+      label: Compatibility Considerations
+      description: Please consider compatibility aspects
+      options:
+        - label: This feature should maintain backward compatibility
+          required: false
+        - label: This feature might require breaking API changes
+          required: false
+        - label: This feature affects SMT-LIB2 compliance
+          required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful (screenshots, links, research papers, etc.)
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Before submitting
+        - [ ] I searched existing feature requests and issues
+        - [ ] I provided clear motivation and use cases
+        - [ ] I considered backward compatibility implications
+
+        ### After submitting
+        Community discussion and maintainer feedback will help refine this feature request. Complex features may require design discussions before implementation begins.
