@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-19 12:19:15
+# Effective stop-time: 2025-09-19 12:48:20
 
 name: "PR Fix"
 on:
@@ -1071,7 +1071,7 @@ jobs:
           WORKFLOW_NAME="PR Fix"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-19 12:19:15"
+          STOP_TIME="2025-09-19 12:48:20"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -1427,24 +1427,21 @@ jobs:
                  * @returns {string} The string with unknown domains redacted
                  */
                 function sanitizeUrlDomains(s) {
-                  return s.replace(
-                    /\bhttps:\/\/[^\s\])}'"<>&\x00-\x1f,;]+/gi,
-                    (match) => {
-                      // Extract just the URL part after https://
-                      const urlAfterProtocol = match.slice(8); // Remove 'https://'
-                      // Extract the hostname part (before first slash, colon, or other delimiter)
-                      const hostname = urlAfterProtocol.split(/[\/:\?#]/)[0].toLowerCase();
-                      // Check if this domain or any parent domain is in the allowlist
-                      const isAllowed = allowedDomains.some(allowedDomain => {
-                        const normalizedAllowed = allowedDomain.toLowerCase();
-                        return (
-                          hostname === normalizedAllowed ||
-                          hostname.endsWith("." + normalizedAllowed)
-                        );
-                      });
-                      return isAllowed ? match : "(redacted)";
-                    }
-                  );
+                  return s.replace(/\bhttps:\/\/[^\s\])}'"<>&\x00-\x1f,;]+/gi, match => {
+                    // Extract just the URL part after https://
+                    const urlAfterProtocol = match.slice(8); // Remove 'https://'
+                    // Extract the hostname part (before first slash, colon, or other delimiter)
+                    const hostname = urlAfterProtocol.split(/[\/:\?#]/)[0].toLowerCase();
+                    // Check if this domain or any parent domain is in the allowlist
+                    const isAllowed = allowedDomains.some(allowedDomain => {
+                      const normalizedAllowed = allowedDomain.toLowerCase();
+                      return (
+                        hostname === normalizedAllowed ||
+                        hostname.endsWith("." + normalizedAllowed)
+                      );
+                    });
+                    return isAllowed ? match : "(redacted)";
+                  });
                 }
                 /**
                  * Remove unknown protocols except https
@@ -2144,16 +2141,22 @@ jobs:
               }
               core.setOutput("output", JSON.stringify(validatedOutput));
               core.setOutput("raw_output", outputContent);
+              // Write processed output to step summary using core.summary
+              try {
+                await core.summary
+                  .addRaw("## Processed Output\n\n")
+                  .addRaw("```json\n")
+                  .addRaw(JSON.stringify(validatedOutput))
+                  .addRaw("\n```\n")
+                  .write();
+                core.info("Successfully wrote processed output to step summary");
+              } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                core.warning(`Failed to write to step summary: ${errorMsg}`);
+              }
             }
             // Call the main function
             await main();
-      - name: Print sanitized agent output
-        run: |
-          echo "## Processed Output" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo '``````json' >> $GITHUB_STEP_SUMMARY
-          echo '${{ steps.collect_output.outputs.output }}' >> $GITHUB_STEP_SUMMARY
-          echo '``````' >> $GITHUB_STEP_SUMMARY
       - name: Upload sanitized agent output
         if: always() && env.GITHUB_AW_AGENT_OUTPUT
         uses: actions/upload-artifact@v4
