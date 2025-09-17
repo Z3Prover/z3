@@ -16,7 +16,7 @@ public:
     // Simulate watched literal processing patterns
     void simulate_propagation_loop() {
         const size_t num_watches = 100000;
-        const size_t iterations = 1000;
+        const size_t iterations = 100000;
 
         // Simulate watched literal data
         std::vector<int> watch_kinds(num_watches);
