@@ -1,0 +1,34 @@
+Setting up build environment...
+Creating build directory...
+Configuring CMake for performance development...
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Z3 version 4.15.4.0
+-- Found simple git working directory
+-- Found git directory "/home/runner/work/z3/z3/.git"
+-- Adding git dependency "/home/runner/work/z3/z3/.git/HEAD"
+-- Adding git dependency "/home/runner/work/z3/z3/.git/refs/heads/master"
+-- Found Git: /usr/bin/git (found version "2.51.0")
+-- Using Git hash in version output: aabdb407d10cc4f470a24554ac7504f9031aac14
+fatal: No names found, cannot describe anything.
+CMake Warning at cmake/git_utils.cmake:215 (message):
+  Failed to execute git
+Call Stack (most recent call first):
+  CMakeLists.txt:83 (get_git_head_describe)
+
+
+CMake Warning at CMakeLists.txt:85 (message):
+  Failed to get Git description
+
+
+CMake Warning at CMakeLists.txt:50 (message):
+  Disabling Z3_INCLUDE_GIT_DESCRIBE
+Call Stack (most recent call first):
+  CMakeLists.txt:86 (disable_git_describe)
+
+
+Build timeout reached or completed
