@@ -2840,6 +2840,363 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Parse the given file using the SMT-LIB2 parser, properly handling set-option commands.
+     * Unlike parseSMTLIB2File, this method processes set-option commands found in the file
+     * and applies them to the current context before parsing assertions.
+     * This resolves performance inconsistencies between Java API and command-line usage.
+     *
+     * @param fileName The SMT-LIB2 file to parse
+     * @param sortNames Names of additional sorts to recognize during parsing
+     * @param sorts Sort objects corresponding to sortNames
+     * @param declNames Names of additional function declarations to recognize during parsing
+     * @param decls Function declaration objects corresponding to declNames
+     * @return Array of boolean expressions parsed from the file
+     * @throws Z3Exception if parsing fails or file cannot be read
+     * @see #parseSMTLIB2File
+     **/
+    public BoolExpr[] parseSMTLIB2FileWithOptions(String fileName, Symbol[] sortNames,
+            Sort[] sorts, Symbol[] declNames, FuncDecl<?>[] decls)
+    {
+        int csn = Symbol.arrayLength(sortNames);
+        int cs = Sort.arrayLength(sorts);
+        int cdn = Symbol.arrayLength(declNames);
+        int cd = AST.arrayLength(decls);
+        if (csn != cs || cdn != cd)
+            throw new Z3Exception("Argument size mismatch");
+
+        try {
+            // First pass: Extract and apply set-option commands
+            java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.FileReader(fileName));
+            java.io.StringWriter filteredContent = new java.io.StringWriter();
+            java.io.PrintWriter filteredWriter = new java.io.PrintWriter(filteredContent);
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmedLine = line.trim();
+
+                // Check for set-option commands
+                if (trimmedLine.startsWith("(set-option ")) {
+                    // Extract option name and value from (set-option :name value)
+                    String optionPart = trimmedLine.substring(12); // Remove "(set-option "
+                    if (optionPart.endsWith(")")) {
+                        optionPart = optionPart.substring(0, optionPart.length() - 1); // Remove ")"
+                    }
+
+                    // Parse option name and value
+                    optionPart = optionPart.trim();
+                    if (optionPart.startsWith(":")) {
+                        int spaceIndex = optionPart.indexOf(' ');
+                        if (spaceIndex > 0) {
+                            String optionName = optionPart.substring(1, spaceIndex); // Remove ":"
+                            String optionValue = optionPart.substring(spaceIndex + 1).trim();
+
+                            // Apply the option to this context
+                            try {
+                                applyContextOption(optionName, optionValue);
+                            } catch (Exception e) {
+                                // Continue if option cannot be applied (may be solver-specific)
+                                System.err.println("Warning: Could not apply option " + optionName +
+                                                 " = " + optionValue + ": " + e.getMessage());
+                            }
+                        }
+                    }
+                } else {
+                    // Keep non-option lines for parsing
+                    filteredWriter.println(line);
+                }
+            }
+            reader.close();
+
+            // Second pass: Parse the filtered content (assertions without options)
+            String filteredSmt2 = filteredContent.toString();
+            ASTVector v = new ASTVector(this, Native.parseSmtlib2String(nCtx(),
+                    filteredSmt2, AST.arrayLength(sorts),
+                    Symbol.arrayToNative(sortNames), AST.arrayToNative(sorts),
+                    AST.arrayLength(decls), Symbol.arrayToNative(declNames),
+                    AST.arrayToNative(decls)));
+            return v.ToBoolExprArray();
+
+        } catch (java.io.IOException e) {
+            throw new Z3Exception("Error reading file: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Result class for parsing SMT-LIB2 files with options extraction.
+     * Contains both the parsed expressions and the extracted options that can be applied to solvers.
+     */
+    public static class ParseResult {
+        private final BoolExpr[] expressions;
+        private final java.util.Map<String, String> options;
+
+        public ParseResult(BoolExpr[] expressions, java.util.Map<String, String> options) {
+            this.expressions = expressions;
+            this.options = options;
+        }
+
+        /**
+         * @return Array of boolean expressions parsed from the SMT-LIB2 file
+         */
+        public BoolExpr[] getExpressions() {
+            return expressions;
+        }
+
+        /**
+         * @return Map of option names to values extracted from set-option commands
+         */
+        public java.util.Map<String, String> getOptions() {
+            return options;
+        }
+
+        /**
+         * Apply the extracted options to a solver's parameters.
+         * This resolves the performance inconsistency by ensuring solver gets the same
+         * configuration as would be applied when using the command-line tool.
+         *
+         * @param solver The solver to configure with the extracted options
+         */
+        public void applyOptionsToSolver(Solver solver) {
+            if (options.isEmpty()) {
+                return;
+            }
+
+            Params params = solver.getParameters();
+            for (java.util.Map.Entry<String, String> entry : options.entrySet()) {
+                String optionName = entry.getKey();
+                String optionValue = entry.getValue();
+
+                try {
+                    // Map SMT-LIB2 option names to Z3 parameter names and apply them
+                    applyOptionToParams(params, optionName, optionValue);
+                } catch (Exception e) {
+                    System.err.println("Warning: Could not apply option " + optionName +
+                                     " = " + optionValue + " to solver: " + e.getMessage());
+                }
+            }
+            solver.setParameters(params);
+        }
+
+        /**
+         * Helper method to apply a single option to solver parameters.
+         */
+        private void applyOptionToParams(Params params, String optionName, String optionValue) {
+            // Handle common SMT-LIB2 options by mapping them to Z3 parameter names
+            switch (optionName) {
+                case "auto_config":
+                case "auto-config":
+                    params.add("auto_config", Boolean.parseBoolean(optionValue));
+                    break;
+                case "produce-proofs":
+                case "produce_proofs":
+                    params.add("proof", Boolean.parseBoolean(optionValue));
+                    break;
+                case "produce-models":
+                case "produce_models":
+                    params.add("model", Boolean.parseBoolean(optionValue));
+                    break;
+                case "timeout":
+                    params.add("timeout", Integer.parseInt(optionValue));
+                    break;
+                case "random_seed":
+                case "random-seed":
+                    params.add("smt.random_seed", Integer.parseInt(optionValue));
+                    break;
+                case "smt.mbqi":
+                    params.add("smt.mbqi", Boolean.parseBoolean(optionValue));
+                    break;
+                case "smt.phase_selection":
+                    params.add("smt.phase_selection", Integer.parseInt(optionValue));
+                    break;
+                case "smt.restart_strategy":
+                    params.add("smt.restart_strategy", Integer.parseInt(optionValue));
+                    break;
+                case "smt.restart_factor":
+                    params.add("smt.restart_factor", Double.parseDouble(optionValue));
+                    break;
+                case "nnf.sk_hack":
+                    params.add("nnf.sk_hack", Boolean.parseBoolean(optionValue));
+                    break;
+                case "smt.qi.eager_threshold":
+                    params.add("smt.qi.eager_threshold", Double.parseDouble(optionValue));
+                    break;
+                case "smt.arith.random_initial_value":
+                    params.add("smt.arith.random_initial_value", Boolean.parseBoolean(optionValue));
+                    break;
+                case "smt.case_split":
+                    params.add("smt.case_split", Integer.parseInt(optionValue));
+                    break;
+                case "smt.delay_units":
+                    params.add("smt.delay_units", Boolean.parseBoolean(optionValue));
+                    break;
+                case "smt.delay_units_threshold":
+                    params.add("smt.delay_units_threshold", Integer.parseInt(optionValue));
+                    break;
+                case "smt.bv.reflect":
+                    params.add("smt.bv.reflect", Boolean.parseBoolean(optionValue));
+                    break;
+                case "model_evaluator.completion":
+                    params.add("model_evaluator.completion", Boolean.parseBoolean(optionValue));
+                    break;
+                case "model.v1":
+                    params.add("model.v1", Boolean.parseBoolean(optionValue));
+                    break;
+                default:
+                    // For other options, try to apply them directly
+                    // This handles cases where option name matches parameter name exactly
+                    try {
+                        // Try as boolean first
+                        if ("true".equals(optionValue) || "false".equals(optionValue)) {
+                            params.add(optionName, Boolean.parseBoolean(optionValue));
+                        } else {
+                            // Try as integer
+                            try {
+                                params.add(optionName, Integer.parseInt(optionValue));
+                            } catch (NumberFormatException e1) {
+                                // Try as double
+                                try {
+                                    params.add(optionName, Double.parseDouble(optionValue));
+                                } catch (NumberFormatException e2) {
+                                    // Apply as string
+                                    params.add(optionName, optionValue);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Ignore options that cannot be applied
+                    }
+                    break;
+            }
+        }
+    }
+
+    /**
+     * Parse the given file using the SMT-LIB2 parser and extract set-option commands.
+     * This method addresses the performance inconsistency between Java API and command-line
+     * usage by properly extracting and providing access to set-option commands that affect
+     * solver behavior.
+     *
+     * Example usage:
+     * <pre>
+     * Context ctx = new Context();
+     * ParseResult result = ctx.parseSMTLIB2FileWithOptionsExtracted("input.smt2", null, null, null, null);
+     *
+     * Solver solver = ctx.mkSolver();
+     * result.applyOptionsToSolver(solver);  // Apply extracted options to solver
+     * solver.add(result.getExpressions());  // Add parsed expressions
+     *
+     * Status status = solver.check();       // Now performs consistently with CLI
+     * </pre>
+     *
+     * @param fileName The SMT-LIB2 file to parse
+     * @param sortNames Names of additional sorts to recognize during parsing
+     * @param sorts Sort objects corresponding to sortNames
+     * @param declNames Names of additional function declarations to recognize during parsing
+     * @param decls Function declaration objects corresponding to declNames
+     * @return ParseResult containing both expressions and extracted options
+     * @throws Z3Exception if parsing fails or file cannot be read
+     */
+    public ParseResult parseSMTLIB2FileWithOptionsExtracted(String fileName, Symbol[] sortNames,
+            Sort[] sorts, Symbol[] declNames, FuncDecl<?>[] decls)
+    {
+        int csn = Symbol.arrayLength(sortNames);
+        int cs = Sort.arrayLength(sorts);
+        int cdn = Symbol.arrayLength(declNames);
+        int cd = AST.arrayLength(decls);
+        if (csn != cs || cdn != cd)
+            throw new Z3Exception("Argument size mismatch");
+
+        try {
+            // First pass: Extract set-option commands and filter content
+            java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.FileReader(fileName));
+            java.io.StringWriter filteredContent = new java.io.StringWriter();
+            java.io.PrintWriter filteredWriter = new java.io.PrintWriter(filteredContent);
+            java.util.Map<String, String> extractedOptions = new java.util.HashMap<>();
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmedLine = line.trim();
+
+                // Check for set-option commands
+                if (trimmedLine.startsWith("(set-option ")) {
+                    // Parse option using more robust approach to handle various formats
+                    String optionContent = extractOptionContent(trimmedLine);
+                    if (optionContent != null) {
+                        String[] parts = parseOptionNameValue(optionContent);
+                        if (parts != null && parts.length == 2) {
+                            extractedOptions.put(parts[0], parts[1]);
+                        }
+                    }
+                    // Skip set-option lines in the parsed content
+                } else if (trimmedLine.startsWith("(set-info ")) {
+                    // Skip set-info lines as they are metadata
+                } else if (!trimmedLine.isEmpty() && !trimmedLine.startsWith(";")) {
+                    // Keep other non-comment lines for parsing
+                    filteredWriter.println(line);
+                }
+            }
+            reader.close();
+
+            // Second pass: Parse the filtered content (assertions without options)
+            String filteredSmt2 = filteredContent.toString().trim();
+            BoolExpr[] expressions;
+
+            if (filteredSmt2.isEmpty()) {
+                // Handle case where file contains only options/info/comments
+                expressions = new BoolExpr[0];
+            } else {
+                ASTVector v = new ASTVector(this, Native.parseSmtlib2String(nCtx(),
+                        filteredSmt2, AST.arrayLength(sorts),
+                        Symbol.arrayToNative(sortNames), AST.arrayToNative(sorts),
+                        AST.arrayLength(decls), Symbol.arrayToNative(declNames),
+                        AST.arrayToNative(decls)));
+                expressions = v.ToBoolExprArray();
+            }
+
+            return new ParseResult(expressions, extractedOptions);
+
+        } catch (java.io.IOException e) {
+            throw new Z3Exception("Error reading file: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Helper method to extract option content from a set-option line.
+     */
+    private String extractOptionContent(String line) {
+        // Handle "(set-option :name value)" format
+        String trimmed = line.trim();
+        if (!trimmed.startsWith("(set-option ") || !trimmed.endsWith(")")) {
+            return null;
+        }
+
+        // Remove "(set-option " and ")"
+        String content = trimmed.substring(12, trimmed.length() - 1).trim();
+        return content;
+    }
+
+    /**
+     * Helper method to parse option name and value from extracted content.
+     */
+    private String[] parseOptionNameValue(String content) {
+        if (content == null || !content.startsWith(":")) {
+            return null;
+        }
+
+        // Find the end of the option name (first space after :)
+        int spaceIndex = content.indexOf(' ');
+        if (spaceIndex <= 1) {
+            return null;
+        }
+
+        String optionName = content.substring(1, spaceIndex).trim(); // Remove ":"
+        String optionValue = content.substring(spaceIndex + 1).trim();
+
+        return new String[]{optionName, optionValue};
+    }
+
+    /**
      * Creates a new Goal.
      * Remarks:  Note that the Context must have been
      * created with proof generation support if {@code proofs} is set
