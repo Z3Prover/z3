@@ -17,6 +17,7 @@ add_executable(test-z3
   api_bug.cpp
   api.cpp
   api_algebraic.cpp
+  api_polynomial.cpp
   arith_rewriter.cpp
   arith_simplifier_plugin.cpp
   ast.cpp
