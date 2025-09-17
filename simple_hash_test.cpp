@@ -150,50 +150,18 @@ unsigned fast_string_hash(const char* data, unsigned len, uint32_t seed) {
     return h32;
 }
 
-// Classic hash_u implementation
-inline unsigned classic_hash_u(unsigned a) {
-   a = (a+0x7ed55d16) + (a<<12);
-   a = (a^0xc761c23c) ^ (a>>19);
-   a = (a+0x165667b1) + (a<<5);
-   a = (a+0xd3a2646c) ^ (a<<9);
-   a = (a+0xfd7046c5) + (a<<3);
-   a = (a^0xb55a4f09) ^ (a>>16);
-   return a;
-}
-
-// Modern hash_u implementation
-inline unsigned modern_hash_u(uint32_t v) {
-    static constexpr uint32_t PRIME32_2 = 0x85EBCA77U;
-    static constexpr uint32_t PRIME32_3 = 0xC2B2AE3DU;
-    static constexpr uint32_t PRIME32_4 = 0x27D4EB2FU;
-    static constexpr uint32_t PRIME32_5 = 0x165667B1U;
-
-    uint32_t h32 = PRIME32_5 + 4U;
-    h32 += v * PRIME32_3;
-    h32 = ((h32 << 17) | (h32 >> (32 - 17))) * PRIME32_4;
-
-    h32 ^= h32 >> 15;
-    h32 *= PRIME32_2;
-    h32 ^= h32 >> 13;
-    h32 *= PRIME32_3;
-    h32 ^= h32 >> 16;
-
-    return h32;
-}
 
 int main() {
-    cout << "=== Hash Function Performance Benchmark ===" << endl;
-    cout << "Comparing Bob Jenkins (Z3 classic) vs xxHash-inspired (modern) implementations" << endl;
+    cout << "=== String Hash Function Performance Benchmark ===" << endl;
+    cout << "Comparing Bob Jenkins (Z3 classic) vs xxHash-inspired (modern) string hashing" << endl;
     cout << endl;
 
     // Test parameters
-    const int NUM_ITERATIONS = 1000000;
     const int NUM_STRING_TESTS = 100000;
 
     // Generate test data
     mt19937 rng{42};
     vector<string> test_strings;
-    vector<unsigned> test_integers;
 
     cout << "Generating test data..." << endl;
 
@@ -211,64 +179,30 @@ int main() {
         test_strings.push_back(s);
     }
 
-    // Generate integers
-    uniform_int_distribution<unsigned> int_dist(0, 0xFFFFFFFF);
-    for (int i = 0; i < NUM_ITERATIONS; i++) {
-        test_integers.push_back(int_dist(rng));
-    }
-
-    cout << "Generated " << NUM_STRING_TESTS << " test strings and " << NUM_ITERATIONS << " test integers" << endl;
+    cout << "Generated " << NUM_STRING_TESTS << " test strings" << endl;
     cout << endl;
 
-    // Integer hash benchmark
-    cout << "=== Integer Hash Performance ===" << endl;
+    // String hash benchmark
+    cout << "=== String Hash Performance ===" << endl;
 
     auto start = high_resolution_clock::now();
     volatile unsigned result1 = 0;
-    for (int i = 0; i < NUM_ITERATIONS; i++) {
-        result1 ^= classic_hash_u(test_integers[i]);
+    for (const auto& s : test_strings) {
+        result1 ^= classic_string_hash(s.c_str(), s.length(), 0);
     }
     auto end = high_resolution_clock::now();
     auto classic_time = duration_cast<microseconds>(end - start).count();
 
     start = high_resolution_clock::now();
     volatile unsigned result2 = 0;
-    for (int i = 0; i < NUM_ITERATIONS; i++) {
-        result2 ^= modern_hash_u(test_integers[i]);
+    for (const auto& s : test_strings) {
+        result2 ^= fast_string_hash(s.c_str(), s.length(), 0);
     }
     end = high_resolution_clock::now();
     auto modern_time = duration_cast<microseconds>(end - start).count();
 
     double speedup = static_cast<double>(classic_time) / modern_time;
     double improvement = ((classic_time - modern_time) * 100.0) / classic_time;
-
-    cout << "Classic hash_u():   " << classic_time << " μs" << endl;
-    cout << "Modern hash_u():    " << modern_time << " μs" << endl;
-    cout << "Speedup: " << fixed << setprecision(2) << speedup << "x" << endl;
-    cout << "Improvement: " << fixed << setprecision(1) << improvement << "%" << endl;
-    cout << endl;
-
-    // String hash benchmark
-    cout << "=== String Hash Performance ===" << endl;
-
-    start = high_resolution_clock::now();
-    result1 = 0;
-    for (const auto& s : test_strings) {
-        result1 ^= classic_string_hash(s.c_str(), s.length(), 0);
-    }
-    end = high_resolution_clock::now();
-    classic_time = duration_cast<microseconds>(end - start).count();
-
-    start = high_resolution_clock::now();
-    result2 = 0;
-    for (const auto& s : test_strings) {
-        result2 ^= fast_string_hash(s.c_str(), s.length(), 0);
-    }
-    end = high_resolution_clock::now();
-    modern_time = duration_cast<microseconds>(end - start).count();
-
-    speedup = static_cast<double>(classic_time) / modern_time;
-    improvement = ((classic_time - modern_time) * 100.0) / classic_time;
 
     cout << "Classic string_hash(): " << classic_time << " μs" << endl;
     cout << "Modern string_hash():  " << modern_time << " μs" << endl;
@@ -277,13 +211,13 @@ int main() {
     cout << endl;
 
     cout << "=== Performance Summary ===" << endl;
-    cout << "Modern xxHash-inspired hash functions show significant performance" << endl;
+    cout << "Modern xxHash-inspired string hash function shows significant performance" << endl;
     cout << "improvements over classic Bob Jenkins implementation." << endl;
     cout << "Expected benefits for Z3:" << endl;
-    cout << "- Faster hash table operations throughout the codebase" << endl;
-    cout << "- Improved performance in AST processing and manipulation" << endl;
-    cout << "- Better scaling with large formulas and complex expressions" << endl;
-    cout << "- Reduced CPU overhead in hash-intensive SAT/SMT solving" << endl;
+    cout << "- Faster string hash operations throughout the codebase" << endl;
+    cout << "- Improved performance in AST processing with string-based operations" << endl;
+    cout << "- Better scaling with large string-heavy formulas and expressions" << endl;
+    cout << "- Reduced CPU overhead in string-intensive hash table operations" << endl;
 
     return 0;
 }
