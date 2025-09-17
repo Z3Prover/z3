@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-19 10:02:59
+# Effective stop-time: 2025-09-19 10:32:53
 
 name: "Question Answering Researcher"
 on:
@@ -854,7 +854,7 @@ jobs:
                   },
                 },
                 {
-                  name: "add-issue-label",
+                  name: "add-issue-labels",
                   description: "Add labels to a GitHub issue or pull request",
                   inputSchema: {
                     type: "object",
@@ -1066,7 +1066,7 @@ jobs:
           WORKFLOW_NAME="Question Answering Researcher"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-19 10:02:59"
+          STOP_TIME="2025-09-19 10:32:53"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -1154,6 +1154,11 @@ jobs:
           ## Adding a Comment to an Issue or Pull Request, Reporting Missing Tools or Functionality
           
           **IMPORTANT**: To do the actions mentioned in the header of this section, use the **safe-outputs** tools, do NOT attempt to use `gh`, do NOT attempt to use the GitHub API. You don't have write access to the GitHub repo.
+          
+          **Adding a Comment to an Issue or Pull Request**
+          
+          To add a comment to an issue or pull request, use the add-issue-comments tool from the safe-outputs MCP
+          
           EOF
       - name: Print prompt to step summary
         run: |
@@ -1478,7 +1483,7 @@ jobs:
                     return 1; // Only one pull request allowed
                   case "create-pull-request-review-comment":
                     return 10; // Default to 10 review comments allowed
-                  case "add-issue-label":
+                  case "add-issue-labels":
                     return 5; // Only one labels operation allowed
                   case "update-issue":
                     return 1; // Only one issue update allowed
@@ -1731,10 +1736,10 @@ jobs:
                         );
                       }
                       break;
-                    case "add-issue-label":
+                    case "add-issue-labels":
                       if (!item.labels || !Array.isArray(item.labels)) {
                         errors.push(
-                          `Line ${i + 1}: add-issue-label requires a 'labels' array field`
+                          `Line ${i + 1}: add-issue-labels requires a 'labels' array field`
                         );
                         continue;
                       }
@@ -1744,7 +1749,7 @@ jobs:
                         )
                       ) {
                         errors.push(
-                          `Line ${i + 1}: add-issue-label labels array must contain only strings`
+                          `Line ${i + 1}: add-issue-labels labels array must contain only strings`
                         );
                         continue;
                       }
