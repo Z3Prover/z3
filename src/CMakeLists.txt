@@ -152,6 +152,16 @@ set_target_properties(libz3 PROPERTIES
   VERSION ${Z3_VERSION}
   SOVERSION ${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR})
 
+# Set macOS-specific properties for proper .dylib versioning (fixes issue #6651)
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  set_target_properties(libz3 PROPERTIES
+    # Use @rpath for install name to make library relocatable
+    INSTALL_NAME_DIR "@rpath"
+    # Enable RPATH support
+    MACOSX_RPATH TRUE
+  )
+endif()
+
 if (NOT MSVC)
   # On UNIX like platforms if we don't change the OUTPUT_NAME
   # the library gets a name like ``liblibz3.so`` so we change it
