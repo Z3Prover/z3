@@ -21,6 +21,11 @@ Revision History:
 #include<algorithm>
 #include "util/util.h"
 
+// Enable modern hash optimizations (xxHash-inspired fast hashing)
+#ifndef Z3_DISABLE_FAST_HASH
+#define Z3_ENABLE_FAST_HASH
+#endif
+
 #define mix(a,b,c)              \
 {                               \
   a -= b; a -= c; a ^= (c>>13); \
@@ -66,6 +71,78 @@ inline unsigned hash_u_u(unsigned a, unsigned b) {
 }
 
 unsigned string_hash(const char * str, unsigned len, unsigned init_value);
+
+// Modern high-performance hash functions (xxHash-inspired)
+#ifdef Z3_ENABLE_FAST_HASH
+namespace z3_fast_hash {
+
+// xxHash32-inspired fast hash for 32-bit values
+inline unsigned fast_hash_u32(uint32_t v) {
+    // Based on xxHash32 constants and operations
+    static constexpr uint32_t PRIME32_2 = 0x85EBCA77U;
+    static constexpr uint32_t PRIME32_3 = 0xC2B2AE3DU;
+    static constexpr uint32_t PRIME32_4 = 0x27D4EB2FU;
+    static constexpr uint32_t PRIME32_5 = 0x165667B1U;
+
+    uint32_t h32 = PRIME32_5 + 4U;
+    h32 += v * PRIME32_3;
+    h32 = ((h32 << 17) | (h32 >> (32 - 17))) * PRIME32_4;
+
+    h32 ^= h32 >> 15;
+    h32 *= PRIME32_2;
+    h32 ^= h32 >> 13;
+    h32 *= PRIME32_3;
+    h32 ^= h32 >> 16;
+
+    return h32;
+}
+
+// Fast string hash using xxHash32-like algorithm
+unsigned fast_string_hash(const char* data, unsigned len, uint32_t seed = 0);
+
+// Fast combine hash with better avalanche properties
+inline uint32_t fast_combine_hash(uint32_t h1, uint32_t h2) {
+    // Better mixing than the original combine_hash
+    static constexpr uint32_t PRIME32_2 = 0x85EBCA77U;
+    static constexpr uint32_t PRIME32_3 = 0xC2B2AE3DU;
+
+    h1 ^= h2;
+    h1 = ((h1 << 13) | (h1 >> (32 - 13))) * PRIME32_2;
+    h1 ^= h1 >> 16;
+    h1 *= PRIME32_3;
+    h1 ^= h1 >> 13;
+
+    return h1;
+}
+
+} // namespace z3_fast_hash
+
+// High-performance drop-in replacements (when enabled)
+inline unsigned fast_hash_u(unsigned a) {
+#ifdef Z3_ENABLE_FAST_HASH
+    return z3_fast_hash::fast_hash_u32(a);
+#else
+    return hash_u(a);
+#endif
+}
+
+inline unsigned fast_combine_hash(unsigned h1, unsigned h2) {
+#ifdef Z3_ENABLE_FAST_HASH
+    return z3_fast_hash::fast_combine_hash(h1, h2);
+#else
+    return combine_hash(h1, h2);
+#endif
+}
+
+inline unsigned fast_string_hash(const char* str, unsigned len, unsigned init_value = 0) {
+#ifdef Z3_ENABLE_FAST_HASH
+    return z3_fast_hash::fast_string_hash(str, len, init_value);
+#else
+    return string_hash(str, len, init_value);
+#endif
+}
+
+#endif // Z3_ENABLE_FAST_HASH
 
 inline unsigned unsigned_ptr_hash(unsigned const* vec, unsigned len, unsigned init_value) {
     return string_hash((char const*)(vec), len*4, init_value);
