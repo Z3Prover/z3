@@ -19,10 +19,11 @@ safe-outputs:
     target: "*" # one single issue
     body: # can update the issue title/body only
     title: # can update the issue title/body only
-  add-issue-comment:
+  add-comment:
     target: "*" # can add a comment to any one single issue or pull request
   create-pull-request: # can create a pull request
     draft: true
+  github-token: ${{ secrets.DSYME_GH_TOKEN}}
 
 tools:
   web-fetch:

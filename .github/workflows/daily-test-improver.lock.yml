@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-19 10:32:53
+# Effective stop-time: 2025-09-19 12:19:15
 
 name: "Daily Test Coverage Improver"
 "on":
@@ -69,7 +69,7 @@ jobs:
             main();
       - name: Setup Safe Outputs Collector MCP
         env:
-          GITHUB_AW_SAFE_OUTPUTS_CONFIG: "{\"add-issue-comment\":{\"enabled\":true,\"target\":\"*\"},\"create-issue\":true,\"create-pull-request\":true,\"update-issue\":true}"
+          GITHUB_AW_SAFE_OUTPUTS_CONFIG: "{\"add-comment\":{\"enabled\":true,\"target\":\"*\"},\"create-issue\":true,\"create-pull-request\":true,\"update-issue\":true}"
         run: |
           mkdir -p /tmp/safe-outputs
           cat > /tmp/safe-outputs/mcp-server.cjs << 'EOF'
@@ -222,7 +222,7 @@ jobs:
                   },
                 },
                 {
-                  name: "add-issue-comment",
+                  name: "add-comment",
                   description: "Add a comment to a GitHub issue or pull request",
                   inputSchema: {
                     type: "object",
@@ -329,7 +329,7 @@ jobs:
                   },
                 },
                 {
-                  name: "add-issue-labels",
+                  name: "add-labels",
                   description: "Add labels to a GitHub issue or pull request",
                   inputSchema: {
                     type: "object",
@@ -503,7 +503,7 @@ jobs:
       - name: Setup MCPs
         env:
           GITHUB_AW_SAFE_OUTPUTS: ${{ env.GITHUB_AW_SAFE_OUTPUTS }}
-          GITHUB_AW_SAFE_OUTPUTS_CONFIG: "{\"add-issue-comment\":{\"enabled\":true,\"target\":\"*\"},\"create-issue\":true,\"create-pull-request\":true,\"update-issue\":true}"
+          GITHUB_AW_SAFE_OUTPUTS_CONFIG: "{\"add-comment\":{\"enabled\":true,\"target\":\"*\"},\"create-issue\":true,\"create-pull-request\":true,\"update-issue\":true}"
         run: |
           mkdir -p /tmp/mcp-config
           cat > /tmp/mcp-config/mcp-servers.json << 'EOF'
@@ -541,7 +541,7 @@ jobs:
           WORKFLOW_NAME="Daily Test Coverage Improver"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-19 10:32:53"
+          STOP_TIME="2025-09-19 12:19:15"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -714,7 +714,7 @@ jobs:
           
           **Adding a Comment to an Issue or Pull Request**
           
-          To add a comment to an issue or pull request, use the add-issue-comments tool from the safe-outputs MCP
+          To add a comment to an issue or pull request, use the add-comments tool from the safe-outputs MCP
           
           **Creating an Issue**
           
@@ -904,7 +904,7 @@ jobs:
         uses: actions/github-script@v8
         env:
           GITHUB_AW_SAFE_OUTPUTS: ${{ env.GITHUB_AW_SAFE_OUTPUTS }}
-          GITHUB_AW_SAFE_OUTPUTS_CONFIG: "{\"add-issue-comment\":{\"enabled\":true,\"target\":\"*\"},\"create-issue\":true,\"create-pull-request\":true,\"update-issue\":true}"
+          GITHUB_AW_SAFE_OUTPUTS_CONFIG: "{\"add-comment\":{\"enabled\":true,\"target\":\"*\"},\"create-issue\":true,\"create-pull-request\":true,\"update-issue\":true}"
         with:
           script: |
             async function main() {
@@ -937,15 +937,12 @@ jobs:
                 let sanitized = content;
                 // Neutralize @mentions to prevent unintended notifications
                 sanitized = neutralizeMentions(sanitized);
+                // Remove XML comments to prevent content hiding
+                sanitized = removeXmlComments(sanitized);
+                // Remove ANSI escape sequences BEFORE removing control characters
+                sanitized = sanitized.replace(/\x1b\[[0-9;]*[mGKH]/g, "");
                 // Remove control characters (except newlines and tabs)
                 sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
-                // XML character escaping
-                sanitized = sanitized
-                  .replace(/&/g, "&amp;") // Must be first to avoid double-escaping
-                  .replace(/</g, "&lt;")
-                  .replace(/>/g, "&gt;")
-                  .replace(/"/g, "&quot;")
-                  .replace(/'/g, "&apos;");
                 // URI filtering - replace non-https protocols with "(redacted)"
                 sanitized = sanitizeUrlProtocols(sanitized);
                 // Domain filtering for HTTPS URIs
@@ -965,8 +962,7 @@ jobs:
                     lines.slice(0, maxLines).join("\n") +
                     "\n[Content truncated due to line count]";
                 }
-                // Remove ANSI escape sequences
-                sanitized = sanitized.replace(/\x1b\[[0-9;]*[mGKH]/g, "");
+                // ANSI escape sequences already removed earlier in the function
                 // Neutralize common bot trigger phrases
                 sanitized = neutralizeBotTriggers(sanitized);
                 // Trim excessive whitespace
@@ -978,10 +974,12 @@ jobs:
                  */
                 function sanitizeUrlDomains(s) {
                   return s.replace(
-                    /\bhttps:\/\/([^\/\s\])}'"<>&\x00-\x1f]+)/gi,
-                    (match, domain) => {
+                    /\bhttps:\/\/[^\s\])}'"<>&\x00-\x1f,;]+/gi,
+                    (match) => {
+                      // Extract just the URL part after https://
+                      const urlAfterProtocol = match.slice(8); // Remove 'https://'
                       // Extract the hostname part (before first slash, colon, or other delimiter)
-                      const hostname = domain.split(/[\/:\?#]/)[0].toLowerCase();
+                      const hostname = urlAfterProtocol.split(/[\/:\?#]/)[0].toLowerCase();
                       // Check if this domain or any parent domain is in the allowlist
                       const isAllowed = allowedDomains.some(allowedDomain => {
                         const normalizedAllowed = allowedDomain.toLowerCase();
@@ -1000,9 +998,10 @@ jobs:
                  * @returns {string} The string with non-https protocols redacted
                  */
                 function sanitizeUrlProtocols(s) {
-                  // Match both protocol:// and protocol: patterns
+                  // Match protocol:// patterns (URLs) and standalone protocol: patterns that look like URLs
+                  // Avoid matching command line flags like -v:10 or z3 -memory:high
                   return s.replace(
-                    /\b(\w+):(?:\/\/)?[^\s\])}'"<>&\x00-\x1f]+/gi,
+                    /\b(\w+):\/\/[^\s\])}'"<>&\x00-\x1f]+/gi,
                     (match, protocol) => {
                       // Allow https (case insensitive), redact everything else
                       return protocol.toLowerCase() === "https" ? match : "(redacted)";
@@ -1020,6 +1019,16 @@ jobs:
                     /(^|[^\w`])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?(?:\/[A-Za-z0-9._-]+)?)/g,
                     (_m, p1, p2) => `${p1}\`@${p2}\``
                   );
+                }
+                /**
+                 * Removes XML comments to prevent content hiding
+                 * @param {string} s - The string to process
+                 * @returns {string} The string with XML comments removed
+                 */
+                function removeXmlComments(s) {
+                  // Remove XML/HTML comments including malformed ones that might be used to hide content
+                  // Matches: <!-- ... --> and <!--- ... --> and <!--- ... --!> variations
+                  return s.replace(/<!--[\s\S]*?-->/g, "").replace(/<!--[\s\S]*?--!>/g, "");
                 }
                 /**
                  * Neutralizes bot trigger phrases by wrapping them in backticks
@@ -1054,13 +1063,13 @@ jobs:
                 switch (itemType) {
                   case "create-issue":
                     return 1; // Only one issue allowed
-                  case "add-issue-comment":
+                  case "add-comment":
                     return 1; // Only one comment allowed
                   case "create-pull-request":
                     return 1; // Only one pull request allowed
                   case "create-pull-request-review-comment":
                     return 10; // Default to 10 review comments allowed
-                  case "add-issue-labels":
+                  case "add-labels":
                     return 5; // Only one labels operation allowed
                   case "update-issue":
                     return 1; // Only one issue update allowed
@@ -1275,10 +1284,10 @@ jobs:
                         );
                       }
                       break;
-                    case "add-issue-comment":
+                    case "add-comment":
                       if (!item.body || typeof item.body !== "string") {
                         errors.push(
-                          `Line ${i + 1}: add-issue-comment requires a 'body' string field`
+                          `Line ${i + 1}: add-comment requires a 'body' string field`
                         );
                         continue;
                       }
@@ -1313,10 +1322,10 @@ jobs:
                         );
                       }
                       break;
-                    case "add-issue-labels":
+                    case "add-labels":
                       if (!item.labels || !Array.isArray(item.labels)) {
                         errors.push(
-                          `Line ${i + 1}: add-issue-labels requires a 'labels' array field`
+                          `Line ${i + 1}: add-labels requires a 'labels' array field`
                         );
                         continue;
                       }
@@ -1326,7 +1335,7 @@ jobs:
                         )
                       ) {
                         errors.push(
-                          `Line ${i + 1}: add-issue-labels labels array must contain only strings`
+                          `Line ${i + 1}: add-labels labels array must contain only strings`
                         );
                         continue;
                       }
@@ -2456,6 +2465,7 @@ jobs:
           GITHUB_AW_AGENT_OUTPUT: ${{ needs.daily-test-coverage-improver.outputs.output }}
           GITHUB_AW_ISSUE_TITLE_PREFIX: "${{ github.workflow }}"
         with:
+          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             async function main() {
               // Check if we're in staged mode
@@ -2645,16 +2655,17 @@ jobs:
       pull-requests: write
     timeout-minutes: 10
     outputs:
-      comment_id: ${{ steps.create_comment.outputs.comment_id }}
-      comment_url: ${{ steps.create_comment.outputs.comment_url }}
+      comment_id: ${{ steps.add_comment.outputs.comment_id }}
+      comment_url: ${{ steps.add_comment.outputs.comment_url }}
     steps:
       - name: Add Issue Comment
-        id: create_comment
+        id: add_comment
         uses: actions/github-script@v8
         env:
           GITHUB_AW_AGENT_OUTPUT: ${{ needs.daily-test-coverage-improver.outputs.output }}
           GITHUB_AW_COMMENT_TARGET: "*"
         with:
+          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             async function main() {
               // Check if we're in staged mode
@@ -2684,15 +2695,15 @@ jobs:
                 core.info("No valid items found in agent output");
                 return;
               }
-              // Find all add-issue-comment items
+              // Find all add-comment items
               const commentItems = validatedOutput.items.filter(
-                /** @param {any} item */ item => item.type === "add-issue-comment"
+                /** @param {any} item */ item => item.type === "add-comment"
               );
               if (commentItems.length === 0) {
-                core.info("No add-issue-comment items found in agent output");
+                core.info("No add-comment items found in agent output");
                 return;
               }
-              core.info(`Found ${commentItems.length} add-issue-comment item(s)`);
+              core.info(`Found ${commentItems.length} add-comment item(s)`);
               // If in staged mode, emit step summary instead of creating comments
               if (isStaged) {
                 let summaryContent = "## 🎭 Staged Mode: Add Comments Preview\n\n";
@@ -2736,7 +2747,7 @@ jobs:
               for (let i = 0; i < commentItems.length; i++) {
                 const commentItem = commentItems[i];
                 core.info(
-                  `Processing add-issue-comment item ${i + 1}/${commentItems.length}: bodyLength=${commentItem.body.length}`
+                  `Processing add-comment item ${i + 1}/${commentItems.length}: bodyLength=${commentItem.body.length}`
                 );
                 // Determine the issue/PR number and comment endpoint for this comment
                 let issueNumber;
@@ -2877,6 +2888,7 @@ jobs:
           GITHUB_AW_PR_DRAFT: "true"
           GITHUB_AW_PR_IF_NO_CHANGES: "warn"
         with:
+          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             /** @type {typeof import("fs")} */
             const fs = require("fs");
@@ -3197,6 +3209,7 @@ jobs:
           GITHUB_AW_UPDATE_BODY: true
           GITHUB_AW_UPDATE_TARGET: "*"
         with:
+          github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
             async function main() {
               // Check if we're in staged mode

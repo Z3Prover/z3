@@ -16,10 +16,11 @@ safe-outputs:
   create-issue:
     title-prefix: "${{ github.workflow }}"
     max: 5
-  add-issue-comment:
+  add-comment:
     target: "*" # can add a comment to any one single issue or pull request
   create-pull-request:
     draft: true
+  github-token: ${{ secrets.DSYME_GH_TOKEN}}
 
 tools:
   web-fetch:
