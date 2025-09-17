@@ -315,6 +315,14 @@ namespace sat {
         m_participated.push_back(0);
         m_canceled.push_back(0);
         m_reasoned.push_back(0);
+
+        // Initialize cache-friendly variable data
+        m_var_data_cache_friendly.push_back(variable_data());
+        variable_data& var_data = m_var_data_cache_friendly.back();
+        var_data.decision = dvar;
+        var_data.external = ext;
+        var_data.var_scope = scope_lvl();
+
         m_case_split_queue.mk_var_eh(v);
         m_simplifier.insert_elim_todo(v);
         SASSERT(!was_eliminated(v));
@@ -1670,15 +1678,33 @@ namespace sat {
         while (!m_case_split_queue.empty()) {
             if (m_config.m_anti_exploration) {
                 next = m_case_split_queue.min_var();
+
+                // Prefetch variable data for better cache performance
+                if (next < m_var_data_cache_friendly.size()) {
+                    __builtin_prefetch(&m_var_data_cache_friendly[next], 0, 3);
+                }
+
                 auto age = m_stats.m_conflict - m_canceled[next];
                 while (age > 0) {
                     set_activity(next, static_cast<unsigned>(m_activity[next] * pow(0.95, static_cast<double>(age))));
                     m_canceled[next] = m_stats.m_conflict;
+
+                    // Update cache-friendly data structure too
+                    if (next < m_var_data_cache_friendly.size()) {
+                        m_var_data_cache_friendly[next].canceled = m_stats.m_conflict;
+                    }
+
                     next = m_case_split_queue.min_var();
-                    age = m_stats.m_conflict - m_canceled[next];                    
+                    age = m_stats.m_conflict - m_canceled[next];
                 }
             }
             next = m_case_split_queue.next_var();
+
+            // Prefetch variable data for next iteration
+            if (next < m_var_data_cache_friendly.size()) {
+                __builtin_prefetch(&m_var_data_cache_friendly[next], 0, 3);
+            }
+
             if (value(next) == l_undef && !was_eliminated(next))
                 return next;
         }
@@ -1952,7 +1978,13 @@ namespace sat {
 
     void solver::set_activity(bool_var v, unsigned new_act) {
         unsigned old_act = m_activity[v];
-        m_activity[v] = new_act; 
+        m_activity[v] = new_act;
+
+        // Update cache-friendly data structure
+        if (v < m_var_data_cache_friendly.size()) {
+            m_var_data_cache_friendly[v].activity = new_act;
+        }
+
         if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
             m_case_split_queue.activity_changed_eh(v, new_act > old_act);
         }

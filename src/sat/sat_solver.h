@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include <cmath>
+#include <cstring>
 #include "util/var_queue.h"
 #include "util/params.h"
 #include "util/statistics.h"
@@ -86,6 +87,44 @@ namespace sat {
     struct no_drat_params : public params_ref {
         no_drat_params() { set_bool("drat.disable", true); }
     };
+
+    /**
+     * \brief Cache-friendly variable data structure.
+     *
+     * Groups frequently accessed variable data together to improve cache locality.
+     * Aligned to cache line boundaries for optimal memory access patterns.
+     */
+    struct alignas(8) variable_data {
+        // Most frequently accessed data - first cache line
+        unsigned        activity;           // Variable activity (VSIDS)
+        uint64_t        last_conflict;      // Last conflict where variable participated
+        uint64_t        last_propagation;   // Last propagation involving variable
+        bool            phase;              // Current phase
+        bool            best_phase;         // Best saved phase
+        bool            decision;           // Is decision variable
+        bool            mark;               // General purpose mark
+        bool            eliminated;         // Variable eliminated
+        bool            external;           // External variable
+        char            assigned_since_gc;  // Assigned since last GC
+        unsigned        var_scope;          // Variable scope level
+        unsigned        touch_count;        // Touch counter
+
+        // Less frequently accessed data - second cache line
+        uint64_t        participated;       // Conflicts participated
+        uint64_t        canceled;          // Times canceled
+        uint64_t        reasoned;          // Times used in reasoning
+
+        // Padding to ensure alignment
+        char padding[64 - (sizeof(uint64_t) * 3) % 64];
+
+        variable_data() : activity(0), last_conflict(0), last_propagation(0),
+                         phase(false), best_phase(false), decision(false),
+                         mark(false), eliminated(false), external(false),
+                         assigned_since_gc(0), var_scope(0), touch_count(0),
+                         participated(0), canceled(0), reasoned(0) {
+            memset(padding, 0, sizeof(padding));
+        }
+    };
     
     class solver : public solver_core {
     public:
@@ -126,7 +165,12 @@ namespace sat {
         unsigned_vector         m_active_vars, m_free_vars, m_vars_to_free, m_vars_to_reinit;
         vector<watch_list>      m_watches;
         svector<lbool>          m_assignment;
-        svector<justification>  m_justification; 
+        svector<justification>  m_justification;
+
+        // Cache-friendly variable data - groups related fields for better locality
+        svector<variable_data>  m_var_data_cache_friendly;
+
+        // Original variable data structures (kept for compatibility)
         bool_vector             m_decision;
         bool_vector             m_mark;
         bool_vector             m_lit_mark;
