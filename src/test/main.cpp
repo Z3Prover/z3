@@ -251,6 +251,7 @@ int main(int argc, char ** argv) {
     TST(polynorm);
     TST(qe_arith);
     TST(expr_substitution);
+    TST(expr_context_simplifier);
     TST(sorting_network);
     TST(theory_pb);
     TST(simplex);

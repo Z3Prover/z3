@@ -48,6 +48,7 @@ add_executable(test-z3
   ex.cpp
   expr_rand.cpp
   expr_substitution.cpp
+  expr_context_simplifier.cpp
   ext_numeral.cpp
   f2n.cpp
   factor_rewriter.cpp
