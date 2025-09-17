@@ -44,7 +44,7 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
 
 1. Backlog research (if not done before).
 
-   1a. Check carefully if an open issue with title "${{ github.workflow }} - Research, Roadmap and Plan" exists using `search_issues`. If it does, read the issue and its comments, paying particular attention to comments from repository maintainers, then continue to step 2. If the issue doesn't exist, follow the steps below to create it:
+   1a. Check carefully if an open issue with label "daily-backlog-burner-plan" exists using `search_issues`. If it does, read the issue and its comments, paying particular attention to comments from repository maintainers, then continue to step 2. If the issue doesn't exist, follow the steps below to create it:
 
    1b. Do some deep research into the backlog in this repo.
     - Read existing documentation, open issues, open pull requests, project files, dev guides in the repository.
@@ -57,7 +57,7 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
     - Identify any patterns or common themes among the issues, such as recurring bugs, feature requests, or areas of improvement.
     - Look for any issues that may be duplicates or closely related to each other, and consider whether they can be consolidated or linked together.
     
-   1c. Use this research to create an issue with title "${{ github.workflow }} - Research, Roadmap and Plan". This issue should be a comprehensive plan for dealing with the backlog in this repo, and summarize your findings from the backlog research, including any patterns or themes you identified, and your recommendations for addressing the backlog. Then exit this entire workflow.
+   1c. Use this research to create an issue with title "${{ github.workflow }} - Research, Roadmap and Plan" and label "daily-backlog-burner-plan". This issue should be a comprehensive plan for dealing with the backlog in this repo, and summarize your findings from the backlog research, including any patterns or themes you identified, and your recommendations for addressing the backlog. Then exit this entire workflow.
 
 2. Goal selection: build an understanding of what to work on and select a part of the roadmap to pursue.
 
@@ -91,11 +91,10 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
 
    4c. After creation, check the pull request to ensure it is correct, includes all expected files, and doesn't include any unwanted files or changes. Make any necessary corrections by pushing further commits to the branch.
 
-   4d. Add a very brief comment to the issue from step 1a if it exists, saying you have worked on the particular goal and linking to the pull request you created.
+5. At the end of your work, add a very, very brief comment (at most two-sentences) to the issue from step 1a, saying you have worked on the particular goal, linking to any pull request you created, and indicating whether you made any progress or not.
 
-5. If you didn't succeed, create an issue with title starting with "${{ github.workflow }}", summarizing similar information to above.
-
-6. If you encounter any unexpected failures or have questions, add comments to the pull request or issue to seek clarification or assistance.
+6. If you encounter any unexpected failures or have questions, add 
+comments to the pull request or issue to seek clarification or assistance.
 
 @include agentics/shared/no-push-to-main.md
 
