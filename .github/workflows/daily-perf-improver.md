@@ -16,7 +16,7 @@ safe-outputs:
   create-issue:
     title-prefix: "${{ github.workflow }}"
     max: 5
-  add-issue-comment:
+  add-comment:
     target: "*" # can add a comment to any one single issue or pull request
   create-pull-request:
     draft: true
@@ -94,13 +94,13 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
 
    2a. Check if `.github/actions/daily-perf-improver/build-steps/action.yml` exists in this repo. Note this path is relative to the current directory (the root of the repo). If this file exists then continue to step 3. Otherwise continue to step 2b.
 
-   2b. Check if an open pull request with title "${{ github.workflow }}: Updates to complete configuration" exists in this repo. If it does, add a comment to the pull request saying configuration needs to be completed, then exit the workflow. Otherwise continue to step 2c.
+   2b. Check if an open pull request with title "${{ github.workflow }} - Updates to complete configuration" exists in this repo. If it does, add a comment to the pull request saying configuration needs to be completed, then exit the workflow. Otherwise continue to step 2c.
 
    2c. Have a careful think about the CI commands needed to build the project and set up the environment for individual performance development work, assuming one set of build assumptions and one architecture (the one running). Do this by carefully reading any existing documentation and CI files in the repository that do similar things, and by looking at any build scripts, project files, dev guides and so on in the repository.
 
    2d. Create the file `.github/actions/daily-perf-improver/build-steps/action.yml` as a GitHub Action containing these steps, ensuring that the action.yml file is valid and carefully cross-checking with other CI files and devcontainer configurations in the repo to ensure accuracy and correctness. Each step should append its output to a file called `build-steps.log` in the root of the repository. Ensure that the action.yml file is valid and correctly formatted.
 
-   2e. Make a pull request for the addition of this file, with title "${{ github.workflow }}: Updates to complete configuration". Encourage the maintainer to review the files carefully to ensure they are appropriate for the project. Exit the entire workflow.
+   2e. Make a pull request for the addition of this file, with title "${{ github.workflow }} - Updates to complete configuration". Encourage the maintainer to review the files carefully to ensure they are appropriate for the project. Exit the entire workflow.
 
    2f. Try to run through the steps you worked out manually one by one. If the a step needs updating, then update the branch you created in step 2e. Continue through all the steps. If you can't get it to work, then create an issue describing the problem and exit the entire workflow.
 
@@ -171,13 +171,7 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
 
    5d. After creation, check the pull request to ensure it is correct, includes all expected files, and doesn't include any unwanted files or changes. Make any necessary corrections by pushing further commits to the branch.
 
-   5e. Add a very brief comment to the issue from step 1a if it exists, saying you have worked on the particular performance goal and linking to the pull request you created. Assess the work that you've done and write notes about what you would have needed to do to make things go more smoothly, and include these notes in the comment. Leave notes about the fastest ways to run builds, tests, benchmarks and so on, including the ways to avoid any problems you encountered.
-
-6. If you didn't succeed in improving performance, create an issue with title starting with "${{ github.workflow }}", summarizing similar information to above.
-
-7. If you encounter any unexpected failures or have questions, add comments to the pull request or issue to seek clarification or assistance.
-
-8. If you are unable to improve performance in a particular area, add a comment explaining why and what you tried. If you have any relevant links or resources, include those as well.
+6. At the end of your work, add a very, very brief comment (at most two-sentences) to the issue from step 1a, saying you have worked on the particular goal, linking to any pull request you created, and indicating whether you made any progress or not.
 
 @include agentics/shared/no-push-to-main.md
 
