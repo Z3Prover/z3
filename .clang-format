@@ -1,3 +1,4 @@
+
 # Z3 Theorem Prover clang-format configuration
 # Based on analysis of existing codebase style patterns
 
@@ -12,7 +13,6 @@ UseTab: Never
 ColumnLimit: 120
 
 # Braces
-BreakBeforeBraces: Linux
 Cpp11BracedListStyle: true
 
 # Classes and structs
@@ -25,7 +25,15 @@ AlwaysBreakAfterReturnType: None
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
-
+# Ensure function-opening brace is attached to the signature
+BreakBeforeBraces: Custom
+# Explicitly ensure function brace is not placed on a new line
+BraceWrapping:
+   AfterFunction: false
+   AfterClass: false
+   AfterControlStatement: false
+   AfterNamespace: false
+   AfterStruct: false
 # Spacing
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
@@ -52,7 +60,7 @@ BreakBeforeTernaryOperators: true
 SortIncludes: false  # Z3 has specific include ordering conventions
 
 # Namespaces
-NamespaceIndentation: None
+NamespaceIndentation: All
 
 # Comments and documentation
 ReflowComments: true
