@@ -177,6 +177,8 @@ int main(int argc, char ** argv) {
     TST(api);
     TST(api_algebraic);
     TST(api_rcf);
+    TST(api_polynomial);
+    TST(api_pb);
     TST(api_datalog);
     TST(cube_clause);
     TST(old_interval);
