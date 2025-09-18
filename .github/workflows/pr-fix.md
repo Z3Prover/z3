@@ -14,7 +14,7 @@ safe-outputs:
   push-to-pr-branch:
   create-issue:
     title-prefix: "${{ github.workflow }}"
-  add-issue-comment:
+  add-comment:
   github-token: ${{ secrets.DSYME_GH_TOKEN}}
 
 tools:
