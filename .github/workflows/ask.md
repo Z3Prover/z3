@@ -11,7 +11,7 @@ permissions: read-all
 network: defaults
 
 safe-outputs:
-  add-issue-comment:
+  add-comment:
 
 tools:
   web-fetch:
