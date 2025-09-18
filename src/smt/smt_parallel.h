@@ -21,9 +21,7 @@ Revision History:
 #include "smt/smt_context.h"
 #include "util/search_tree.h"
 #include <thread>
-#include <condition_variable>
 #include <mutex>
-#include <condition_variable>
 
 
 namespace smt {
@@ -51,15 +49,6 @@ namespace smt {
                 is_exception_msg,
                 is_exception_code
             };
-            struct config {
-                unsigned m_max_cube_depth = 20;
-                bool m_frugal_cube_only = false;
-                bool m_never_cube = false; 
-                bool m_depth_splitting_only = false;
-                bool m_iterative_deepening = false;
-                bool m_beam_search = false;
-                bool m_cubetree = false;
-            };
             struct stats {
                 unsigned m_max_cube_depth = 0;
                 unsigned m_num_cubes = 0;
@@ -70,7 +59,6 @@ namespace smt {
             parallel& p;
             std::mutex mux;
             state m_state = state::is_running;
-            config m_config;
             stats m_stats;
             using node = search_tree::node<cube_config>;
             search_tree::tree<cube_config> m_search_tree;
@@ -90,7 +78,7 @@ namespace smt {
             void init_parameters_state();
 
             bool is_assumption(expr* e) const {
-                return false; // m_assumptions_used.contains(e);
+                return p.m_assumptions.contains(e);
             }
 
         public:
@@ -120,22 +108,14 @@ namespace smt {
                 unsigned m_threads_max_conflicts = 1000;
                 unsigned m_max_conflicts = 10000000;
                 bool m_relevant_units_only = true;
-                bool m_never_cube = false;
                 bool m_share_conflicts = true;
                 bool m_share_units = true;
                 double m_max_conflict_mul = 1.5;
-                bool m_share_units_initial_only = false;
-                bool m_cube_initial_only = false;
-                unsigned m_max_greedy_cubes = 1000;
-                unsigned m_num_split_lits = 2;
-                unsigned m_max_cube_depth = 20;
-                bool m_backbone_detection = false;
-                bool m_iterative_deepening = false;
-                bool m_beam_search = false;
-                bool m_explicit_hardness = false;
-                bool m_cubetree = false;
-                bool m_inprocessing = false;
+                bool m_share_units_initial_only = true;
+                bool m_cube_initial_only = true;
+                bool m_inprocessing = true;
                 unsigned m_inprocessing_delay = 0;
+                unsigned m_max_cube_depth = 20;
             };
 
             using node = search_tree::node<cube_config>;
@@ -187,6 +167,7 @@ namespace smt {
         };
 
         obj_hashtable<expr> m_assumptions_used; // assumptions used in unsat cores, to be used in final core
+        obj_hashtable<expr> m_assumptions;       // all assumptions
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
 

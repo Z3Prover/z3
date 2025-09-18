@@ -569,16 +569,6 @@ namespace smt {
     void parallel::batch_manager::initialize() {
         m_state = state::is_running; 
         m_search_tree.reset();
-        #if 0
-        smt_parallel_params sp(p.ctx.m_params);
-        m_config.m_max_cube_depth = sp.max_cube_depth();
-        m_config.m_frugal_cube_only = sp.frugal_cube_only();
-        m_config.m_never_cube = sp.never_cube();
-        m_config.m_depth_splitting_only = sp.depth_splitting_only();
-        m_config.m_iterative_deepening = sp.iterative_deepening();
-        m_config.m_beam_search = sp.beam_search();
-        m_config.m_cubetree = sp.cubetree();
-        #endif
     }
 
     void parallel::batch_manager::collect_statistics(::statistics& st) const {
@@ -595,19 +585,25 @@ namespace smt {
         struct scoped_clear {
             parallel& p;
             scoped_clear(parallel& p) : p(p) {}
-            ~scoped_clear() { p.m_workers.reset(); p.m_assumptions_used.reset(); }
+            ~scoped_clear() { 
+                p.m_workers.reset(); 
+                p.m_assumptions_used.reset(); 
+                p.m_assumptions.reset();
+            }
         };
         scoped_clear clear(*this);
 
         {
             m_batch_manager.initialize();
             m_workers.reset();
+            for (auto e : asms) 
+                m_assumptions.insert(e);
             scoped_limits sl(m.limit());
             flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
             SASSERT(num_threads > 1);
             for (unsigned i = 0; i < num_threads; ++i)
-                m_workers.push_back(alloc(worker, i, *this, asms)); // i.e. "new worker(i, *this, asms)"
-                
+                m_workers.push_back(alloc(worker, i, *this, asms)); 
+
             for (auto w : m_workers)
                 sl.push_child(&(w->limit()));
 
