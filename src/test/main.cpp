@@ -176,6 +176,7 @@ int main(int argc, char ** argv) {
     TST(simple_parser);
     TST(api);
     TST(api_algebraic);
+    TST(api_pb);
     TST(api_datalog);
     TST(cube_clause);
     TST(old_interval);
