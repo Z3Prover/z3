@@ -652,9 +652,17 @@ or
                Let Q := an_sub(i − 1)(R) ∧ connected(i − 1)(R) ∧ repr(I, s)(R) ∧ an_del(b.p)(R).
                Q, b.p= p ⊢ sgn_inv(p)(R)
                Q, b.p ̸= p, ord_inv(resxi (b.p, p))(R) ⊢ sgn_inv(p)(R)*/
-            if (m_I[m_level].section == true) {
+            const auto &I = m_I[m_level];
+            if (I.section == true) {
                 mk_prop(prop_enum::an_sub, m_level - 1);
-                NOT_IMPLEMENTED_YET();
+                mk_prop(prop_enum::connected, m_level - 1);
+                mk_prop(prop_enum::repr, m_level - 1); // is it correct?
+                mk_prop(prop_enum::an_del, polynomial_ref(m_I[m_level].l, m_pm));
+                if (I.l == p.poly.get()) {
+                    // nothing is added
+                } else {
+                    mk_prop(prop_enum::ord_inv, resultant(polynomial_ref(I.l, m_pm), p.poly, m_level));
+                }
             } else {
                 NOT_IMPLEMENTED_YET();
             }
