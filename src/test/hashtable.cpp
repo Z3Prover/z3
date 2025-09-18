@@ -17,7 +17,6 @@ Author:
 Revision History:
 
 --*/
-#ifdef _WINDOWS
 #include<iostream>
 #include<unordered_set>
 #include<stdlib.h>
@@ -236,7 +235,3 @@ void tst_hashtable() {
     test_hashtable_operators();
     std::cout << "All tests passed!" << std::endl;
 }
-#else
-void tst_hashtable() {
-}
-#endif

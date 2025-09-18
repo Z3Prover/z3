@@ -177,6 +177,60 @@ endif()
 # so that if those are also shared libraries they are referenced by `libz3.so`.
 target_link_libraries(libz3 PRIVATE ${Z3_DEPENDENT_LIBS})
 
+################################################################################
+# Create include directory with headers for easier developer integration
+################################################################################
+set(Z3_BUILD_INCLUDE_DIR "${CMAKE_BINARY_DIR}/include")
+file(MAKE_DIRECTORY "${Z3_BUILD_INCLUDE_DIR}")
+
+# Copy Z3 API headers to build include directory
+set(Z3_API_HEADERS
+  api/z3.h
+  api/z3_api.h
+  api/z3_algebraic.h
+  api/z3_ast_containers.h
+  api/z3_fixedpoint.h
+  api/z3_fpa.h
+  api/z3_logger.h
+  api/z3_macros.h
+  api/z3_optimization.h
+  api/z3_polynomial.h
+  api/z3_private.h
+  api/z3_rcf.h
+  api/z3_replayer.h
+  api/z3_spacer.h
+  api/z3_v1.h
+  api/c++/z3++.h
+)
+
+# Create custom target to copy headers
+add_custom_target(z3_headers_copy ALL
+  COMMENT "Copying Z3 API headers to build include directory"
+)
+
+foreach(header_file ${Z3_API_HEADERS})
+  get_filename_component(header_name "${header_file}" NAME)
+  set(src_file "${CMAKE_CURRENT_SOURCE_DIR}/${header_file}")
+  set(dst_file "${Z3_BUILD_INCLUDE_DIR}/${header_name}")
+
+  add_custom_command(
+    TARGET z3_headers_copy POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${src_file}"
+            "${dst_file}"
+    COMMENT "Copying ${header_name} to include directory"
+    VERBATIM
+  )
+endforeach()
+
+# Make libz3 depend on header copying
+add_dependencies(libz3 z3_headers_copy)
+
+# Update libz3 to also expose the build include directory
+target_include_directories(libz3 INTERFACE
+  $<BUILD_INTERFACE:${Z3_BUILD_INCLUDE_DIR}>
+)
+
 # This is currently only for the OpenMP flags. It needs to be set
 # via `target_link_libraries()` rather than `z3_append_linker_flag_list_to_target()`
 # because when building the `libz3` as a static library when the target is exported
