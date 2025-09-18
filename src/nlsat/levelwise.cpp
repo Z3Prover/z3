@@ -403,7 +403,7 @@ namespace nlsat {
                         return;
                     }
                     unsigned lvl = max_var(f);
-                    add_to_Q_if_new(property(prop_enum::ord_inv, f, /*s_idx*/ 0u), lvl);
+                    mk_prop(prop_enum::ord_inv, f, lvl);
                 });
             }
          }
@@ -423,7 +423,7 @@ namespace nlsat {
                         }
                         else {
                             unsigned lvl = max_var(f);
-                            add_to_Q_if_new(property(prop_enum::sgn_inv, f, /*s_idx*/ -1), lvl);
+                            mk_prop(prop_enum::sgn_inv, f, lvl);
                         }
                     });
                 }
@@ -453,9 +453,9 @@ namespace nlsat {
             // Pre-conditions for an_del(p) per Rule 4.1
             
             unsigned p_lvl = max_var(p.poly);
-            add_to_Q_if_new(property(prop_enum::an_sub, m_pm), p_lvl - 1);
-            add_to_Q_if_new(property(prop_enum::connected, m_pm), p_lvl - 1);
-            add_to_Q_if_new(property(prop_enum::non_null, p.poly, p.s_idx), p_lvl);
+            mk_prop(prop_enum::an_sub, p_lvl - 1);
+            mk_prop(prop_enum::connected, p_lvl - 1);
+            mk_prop(prop_enum::non_null, p.poly, p.s_idx, p_lvl);
             
             add_ord_inv_discriminant_for(p);
             if (m_fail) return;
@@ -475,8 +475,8 @@ namespace nlsat {
             // Rule 4.11 precondition: when processing connected(i) we must ensure the next lower level
             // has connected(i-1) and repr(I,s) available. Add those markers to m_Q so they propagate.
 
-            add_to_Q_if_new(property(prop_enum::connected, m_pm ), m_level - 1);
-            add_to_Q_if_new(property(prop_enum::repr, m_pm), m_level - 1);            
+            mk_prop(prop_enum::connected, m_level - 1);
+            mk_prop(prop_enum::repr, m_level - 1);            
             if (!has_repr) { 
                return; // no change since the cell representation is not available            
             }
@@ -531,7 +531,7 @@ namespace nlsat {
                     continue;
 
                 for_first_distinct_factor(coeff, [&](const polynomial::polynomial_ref & f) {
-                    add_to_Q_if_new(property(prop_enum::sgn_inv, f, -1), max_var(f));
+                    mk_prop(prop_enum::sgn_inv, f, -1, max_var(f));
                 });
                 return true;
             }
@@ -572,7 +572,7 @@ namespace nlsat {
             if (!is_const(disc)) {
                 unsigned lvl = max_var(disc);
                 for_each_distinct_factor(disc, [&](const polynomial::polynomial_ref & f) {
-                    add_to_Q_if_new(property(prop_enum::sgn_inv, f, /*s_idx*/ -1), lvl);
+                    mk_prop(prop_enum::sgn_inv, f, /*s_idx*/ -1, lvl);
                 });
             }
 
@@ -583,8 +583,8 @@ namespace nlsat {
         // Rule 4.7
         void apply_pre_an_sub(const property& p) {
             if (m_level > 0) {
-                add_to_Q_if_new(property(prop_enum::repr, m_pm), m_level) ;
-                add_to_Q_if_new(property(prop_enum::an_sub, m_pm), m_level -1);
+                mk_prop(prop_enum::repr, m_level) ;
+                mk_prop(prop_enum::an_sub, m_level -1);
             }  
             // if level == 0 then an_sub holds - bcs an empty set is an analytical submanifold 
         }
@@ -603,8 +603,8 @@ or
         void apply_pre_repr(const property& p) {
             const auto& I = m_I[m_level];
             TRACE(levelwise, display(tout << "interval m_I[" << m_level << "]\n", I) << "\n";);
-            add_to_Q_if_new(property(prop_enum::holds, m_pm), m_level -1);
-            add_to_Q_if_new(property(prop_enum::sample, m_pm), m_level -1);
+            mk_prop(prop_enum::holds, m_level -1);
+            mk_prop(prop_enum::sample, m_level -1);
             if (I.is_section()) {
                 NOT_IMPLEMENTED_YET();
             } else {
@@ -618,19 +618,32 @@ or
         void apply_pre_sample(const property& p, bool has_repr) {
             if (m_level == 0)
                 return;
-            add_to_Q_if_new(property(prop_enum::sample, m_pm), m_level - 1);
-            add_to_Q_if_new(property(prop_enum::repr,m_pm), m_level - 1);
+            mk_prop(prop_enum::sample, m_level - 1);
+            mk_prop(prop_enum::repr, m_level - 1);
+        }
+
+        void mk_prop(prop_enum pe, unsigned level) {
+            add_to_Q_if_new(property(pe, m_pm), level);
+        }
+
+        void mk_prop(prop_enum pe, const polynomial_ref& poly, unsigned level) {
+            add_to_Q_if_new(property(pe, poly), level);
+        }
+
+        void mk_prop(prop_enum pe, const polynomial_ref& poly, unsigned root_index, unsigned level) {
+            add_to_Q_if_new(property(pe, poly, root_index), level);
         }
 
 /*  Rule 4.6. Let i ∈ N, R ⊆ Ri, s ∈ R_{i−1}, and realRoots(p(s, xi )) = ∅. */
         void apply_pre_sgn_inv(const property& p, bool has_repr) {
+            SASSERT(is_irreducible(p.poly));
             scoped_anum_vector roots(m_am);
             SASSERT(max_var(p.poly) == m_level);
             m_am.isolate_roots(p.poly, undef_var_assignment(sample(), m_level), roots);
             if (roots.size() == 0) {
                 //Rule 4.6 sample(s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R)
-                add_to_Q_if_new(property(prop_enum::sample, m_pm), m_level - 1);
-                add_to_Q_if_new(property(prop_enum::an_del, p.poly),  m_level);
+                mk_prop(prop_enum::sample, m_level - 1);
+                mk_prop(prop_enum::an_del, p.poly, m_level);
             } 
             /* Rule 4.8. Let i ∈ N>0 , R ⊆ Ri
                , s ∈ R_{i−1}
@@ -640,6 +653,7 @@ or
                Q, b.p= p ⊢ sgn_inv(p)(R)
                Q, b.p ̸= p, ord_inv(resxi (b.p, p))(R) ⊢ sgn_inv(p)(R)*/
             if (m_I[m_level].section == true) {
+                mk_prop(prop_enum::an_sub, m_level - 1);
                 NOT_IMPLEMENTED_YET();
             } else {
                 NOT_IMPLEMENTED_YET();
@@ -658,14 +672,14 @@ or
             unsigned level = max_var(p.poly);
             auto sign_on_sample = sign(p.poly, sample(), m_am);
             if (sign_on_sample) {
-                add_to_Q_if_new(property(prop_enum::sample, m_pm), level);
-                add_to_Q_if_new(property(prop_enum::sgn_inv, p.poly), level);
+                mk_prop(prop_enum::sample, level);
+                mk_prop(prop_enum::sgn_inv, p.poly, level);
             } else { // sign is zero
-                add_to_Q_if_new(property(prop_enum::sample, m_pm), level);
-                add_to_Q_if_new(property(prop_enum::an_sub, m_pm), level - 1);
-                add_to_Q_if_new(property(prop_enum::connected, m_pm), level);                
-                add_to_Q_if_new(property(prop_enum::sgn_inv, p.poly, p.s_idx), level);
-                add_to_Q_if_new(property(prop_enum::an_del, p.poly, p.s_idx), level);
+                mk_prop(prop_enum::sample, level);
+                mk_prop(prop_enum::an_sub, level - 1);
+                mk_prop(prop_enum::connected, level);                
+                mk_prop(prop_enum::sgn_inv, p.poly, p.s_idx, level);
+                mk_prop(prop_enum::an_del, p.poly, p.s_idx, level);
             }
         }
         
