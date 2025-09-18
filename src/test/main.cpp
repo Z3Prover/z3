@@ -177,6 +177,7 @@ int main(int argc, char ** argv) {
     TST(api);
     TST(api_algebraic);
     TST(api_pb);
+    TST(api_datalog);
     TST(cube_clause);
     TST(old_interval);
     TST(get_implied_equalities);
@@ -201,6 +202,7 @@ int main(int argc, char ** argv) {
     TST(egraph);
     TST(ex);
     TST(nlarith_util);
+    TST(api_ast_map);
     TST(api_bug);
     TST(arith_rewriter);
     TST(check_assumptions);

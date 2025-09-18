@@ -13,10 +13,12 @@ add_executable(test-z3
   EXCLUDE_FROM_ALL
   algebraic.cpp
   algebraic_numbers.cpp
+  api_ast_map.cpp
   api_bug.cpp
   api.cpp
   api_algebraic.cpp
   api_pb.cpp
+  api_datalog.cpp
   arith_rewriter.cpp
   arith_simplifier_plugin.cpp
   ast.cpp
