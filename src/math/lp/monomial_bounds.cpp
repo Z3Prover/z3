@@ -378,7 +378,6 @@ namespace nla {
     bool monomial_bounds::add_lemma() {
         if (c().lra.get_status() != lp::lp_status::INFEASIBLE)
             return false;
-        c().lp_settings().stats().m_nla_bounds_lemmas++;
         lp::explanation exp;
         c().lra.get_infeasibility_explanation(exp);
         lemma_builder lemma(c(), "propagate fixed - infeasible lra");
@@ -423,7 +422,6 @@ namespace nla {
         TRACE(nla_solver, tout << "propagate fixed " << m << " =  0, fixed_to_zero = " << fixed_to_zero << "\n";);
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, rational(0), dep);
         
-        c().lp_settings().stats().m_nla_bounds_propagations++;
         // propagate fixed equality
         auto exp = get_explanation(dep);        
         c().add_fixed_equality(m.var(), rational(0), exp);
@@ -433,7 +431,7 @@ namespace nla {
         auto* dep = explain_fixed(m, k);
         TRACE(nla_solver, tout << "propagate fixed " << m << " = " << k << "\n";);
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, dep);
-        c().lp_settings().stats().m_nla_bounds_propagations++;
+        
         // propagate fixed equality
         auto exp = get_explanation(dep);        
         c().add_fixed_equality(m.var(), k, exp);
@@ -450,7 +448,6 @@ namespace nla {
 
         if (k == 1) {
             lp::explanation exp = get_explanation(dep);
-            c().lp_settings().stats().m_nla_bounds_propagations++;
             c().add_equality(m.var(), w, exp);
         }
     }

@@ -204,27 +204,27 @@ set(Z3_API_HEADERS
 )
 
 # Create custom target to copy headers
-add_custom_target(z3_headers_copy ALL
-  COMMENT "Copying Z3 API headers to build include directory"
-)
-
-foreach(header_file ${Z3_API_HEADERS})
-  get_filename_component(header_name "${header_file}" NAME)
-  set(src_file "${CMAKE_CURRENT_SOURCE_DIR}/${header_file}")
-  set(dst_file "${Z3_BUILD_INCLUDE_DIR}/${header_name}")
-
-  add_custom_command(
-    TARGET z3_headers_copy POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${src_file}"
-            "${dst_file}"
-    COMMENT "Copying ${header_name} to include directory"
-    VERBATIM
-  )
-endforeach()
+#add_custom_target(z3_headers_copy ALL
+#  COMMENT "Copying Z3 API headers to build include directory"
+#)
+#
+#foreach(header_file ${Z3_API_HEADERS})
+#  get_filename_component(header_name "${header_file}" NAME)
+#  set(src_file "${CMAKE_CURRENT_SOURCE_DIR}/${header_file}")
+#  set(dst_file "${Z3_BUILD_INCLUDE_DIR}/${header_name}")
+#
+#  add_custom_command(
+#    TARGET z3_headers_copy POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#            "${src_file}"
+#            "${dst_file}"
+#    COMMENT "Copying ${header_name} to include directory"
+#    VERBATIM
+#  )
+#endforeach()
 
 # Make libz3 depend on header copying
-add_dependencies(libz3 z3_headers_copy)
+#add_dependencies(libz3 z3_headers_copy)
 
 # Update libz3 to also expose the build include directory
 target_include_directories(libz3 INTERFACE
