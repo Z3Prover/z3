@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-19 22:49:48
+# Effective stop-time: 2025-09-21 02:31:54
 
 name: "PR Fix"
 on:
@@ -1083,7 +1083,7 @@ jobs:
           WORKFLOW_NAME="PR Fix"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-19 22:49:48"
+          STOP_TIME="2025-09-21 02:31:54"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -1222,7 +1222,7 @@ jobs:
               version: "",
               workflow_name: "PR Fix",
               experimental: false,
-              supports_tools_whitelist: true,
+              supports_tools_allowlist: true,
               supports_http_transport: true,
               run_id: context.runId,
               run_number: context.runNumber,
@@ -2908,8 +2908,10 @@ jobs:
               else
                 echo "origin/$BRANCH_NAME does not exist, using merge-base with default branch"
                 # Get the default branch name
-                DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+                DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
                 echo "Default branch: $DEFAULT_BRANCH"
+                # Fetch the default branch to ensure it's available locally
+                git fetch origin $DEFAULT_BRANCH
                 # Find merge base between default branch and current branch
                 BASE_REF=$(git merge-base origin/$DEFAULT_BRANCH $BRANCH_NAME)
                 echo "Using merge-base as base: $BASE_REF"
@@ -3389,6 +3391,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_AW_AGENT_OUTPUT: ${{ needs.pr-fix.outputs.output }}
           GITHUB_AW_PUSH_IF_NO_CHANGES: "warn"
+          GITHUB_AW_MAX_PATCH_SIZE: 1024
         with:
           github-token: ${{ secrets.DSYME_GH_TOKEN}}
           script: |
@@ -3438,8 +3441,26 @@ jobs:
                     return;
                 }
               }
-              // Empty patch is valid - behavior depends on if-no-changes configuration
+              // Validate patch size (unless empty)
               const isEmpty = !patchContent || !patchContent.trim();
+              if (!isEmpty) {
+                // Get maximum patch size from environment (default: 1MB = 1024 KB)
+                const maxSizeKb = parseInt(
+                  process.env.GITHUB_AW_MAX_PATCH_SIZE || "1024",
+                  10
+                );
+                const patchSizeBytes = Buffer.byteLength(patchContent, "utf8");
+                const patchSizeKb = Math.ceil(patchSizeBytes / 1024);
+                core.info(
+                  `Patch size: ${patchSizeKb} KB (maximum allowed: ${maxSizeKb} KB)`
+                );
+                if (patchSizeKb > maxSizeKb) {
+                  const message = `Patch size (${patchSizeKb} KB) exceeds maximum allowed size (${maxSizeKb} KB)`;
+                  core.setFailed(message);
+                  return;
+                }
+                core.info("Patch size validation passed");
+              }
               if (isEmpty) {
                 const message =
                   "Patch file is empty - no changes to apply (noop operation)";

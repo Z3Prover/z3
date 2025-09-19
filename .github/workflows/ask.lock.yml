@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-09-19 22:49:48
+# Effective stop-time: 2025-09-21 02:31:54
 
 name: "Question Answering Researcher"
 on:
@@ -1078,7 +1078,7 @@ jobs:
           WORKFLOW_NAME="Question Answering Researcher"
           
           # Check stop-time limit
-          STOP_TIME="2025-09-19 22:49:48"
+          STOP_TIME="2025-09-21 02:31:54"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -1194,7 +1194,7 @@ jobs:
               version: "",
               workflow_name: "Question Answering Researcher",
               experimental: false,
-              supports_tools_whitelist: true,
+              supports_tools_allowlist: true,
               supports_http_transport: true,
               run_id: context.runId,
               run_number: context.runNumber,
