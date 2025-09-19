@@ -155,6 +155,9 @@ int main(int argc, char ** argv) {
     TST(rational);
     TST(inf_rational);
     TST(ast);
+    TST(array_peq);
+    TST(array_peq_multi);
+    TST(array_peq_edge);
     TST(optional);
     TST(bit_vector);
     TST(fixed_bit_vector);
