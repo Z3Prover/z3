@@ -179,6 +179,7 @@ int main(int argc, char ** argv) {
     TST(api_polynomial);
     TST(api_pb);
     TST(api_datalog);
+    TST(expr_context_simplifier);
     TST(cube_clause);
     TST(old_interval);
     TST(get_implied_equalities);
