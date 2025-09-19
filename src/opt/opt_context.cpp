@@ -345,6 +345,21 @@ namespace opt {
         m_optsmt.setup(*m_opt_solver.get());
         update_lower();
         
+        // Try to detect and optimize max PB constraints pattern before deciding optimization strategy
+        if (m_objectives.size() > 1) {
+            expr_ref_vector maxsat_terms(m);
+            vector<rational> maxsat_weights;
+            rational maxsat_offset;
+            bool maxsat_neg;
+            symbol maxsat_id;
+            
+            if (detect_max_pb_constraints(maxsat_terms, maxsat_weights, maxsat_offset, maxsat_neg, maxsat_id)) {
+                TRACE(opt, tout << "Max PB pattern detected, switching to single maxsat objective\n";);
+                // The pattern was detected and objectives were modified by detect_max_pb_constraints
+                // Now we have a single objective, so we can process it as such
+            }
+        }
+        
         switch (m_objectives.size()) {
         case 0:
             break;
@@ -1077,10 +1092,133 @@ namespace opt {
             neg = is_max;
             std::ostringstream out;
             out << mk_bounded_pp(orig_term, m, 2) << ':' << index;
-            id = symbol(out.str());
             return true;
         }
         return false;
+    }
+
+    bool context::detect_max_pb_constraints(expr_ref_vector& terms, 
+                                           vector<rational>& weights, rational& offset, 
+                                           bool& neg, symbol& id) {
+        // This function detects when we have multiple maximize objectives that are PB constraints
+        // and transforms them to use auxiliary variables.
+        // 
+        // Pattern: maximize { PB1, ..., PBn } where each PB_i is a weighted sum of Boolean variables
+        // Transform to: PB_i >= k => p_i_k for k = 1, ..., max_potential_sum(PB_i)
+        //               maximize sum(p_i_k for all i,k)
+        
+        TRACE(opt, tout << "detect_max_pb_constraints called with " << m_objectives.size() << " objectives\n";);
+        
+        unsigned num_maximize_objs = 0;
+        vector<unsigned> max_indices;
+        vector<expr_ref_vector> pb_terms;
+        vector<vector<rational>> pb_weights;
+        vector<rational> pb_offsets;
+        
+        // First pass: collect all maximize objectives that are PB constraints
+        for (unsigned idx = 0; idx < m_objectives.size(); ++idx) {
+            objective const& obj = m_objectives[idx];
+            TRACE(opt, tout << "Objective " << idx << " type: " << obj.m_type << "\n";);
+            if (obj.m_type == O_MAXIMIZE && obj.m_term) {
+                expr_ref_vector pb_terms_i(m);
+                vector<rational> pb_weights_i;
+                rational pb_offset_i;
+                
+                if (get_pb_sum(obj.m_term, pb_terms_i, pb_weights_i, pb_offset_i)) {
+                    max_indices.push_back(idx);
+                    pb_terms.push_back(pb_terms_i);
+                    pb_weights.push_back(pb_weights_i);
+                    pb_offsets.push_back(pb_offset_i);
+                    num_maximize_objs++;
+                    TRACE(opt, tout << "Objective " << idx << " is a PB constraint with " << pb_terms_i.size() << " terms\n";);
+                }
+            }
+        }
+        
+        TRACE(opt, tout << "Found " << num_maximize_objs << " PB maximize objectives\n";);
+        
+        // Only apply transformation if we have multiple PB maximize objectives
+        if (num_maximize_objs < 2) {
+            return false;
+        }
+        
+        TRACE(opt, tout << "Detected " << num_maximize_objs << " PB maximize objectives, applying transformation\n";);
+        
+        // Clear output vectors
+        terms.reset();
+        weights.reset();
+        offset = rational::zero();
+        neg = true; // We negate because we convert maximize to maxsat (minimizing penalty)
+        
+        arith_util arith(m);
+        
+        // For each PB constraint, create auxiliary variables and constraints
+        for (unsigned i = 0; i < num_maximize_objs; ++i) {
+            expr_ref_vector const& pb_terms_i = pb_terms[i];
+            vector<rational> const& pb_weights_i = pb_weights[i];
+            rational const& pb_offset_i = pb_offsets[i];
+            
+            // Calculate maximum potential sum for this PB constraint
+            rational max_sum = pb_offset_i;
+            for (unsigned j = 0; j < pb_weights_i.size(); ++j) {
+                if (pb_weights_i[j].is_pos()) {
+                    max_sum += pb_weights_i[j];
+                }
+            }
+            
+            TRACE(opt, tout << "PB constraint " << i << " has max sum " << max_sum << "\n";);
+            
+            // Create auxiliary variables p_i_k for k = 1 to max_sum
+            for (rational k = rational::one(); k <= max_sum; k += rational::one()) {
+                std::ostringstream aux_name;
+                aux_name << "pb_aux_" << i << "_" << k.to_string();
+                expr_ref aux_var(m.mk_const(symbol(aux_name.str()), m.mk_bool_sort()), m);
+                
+                // Create PB constraint: sum(pb_weights_i[j] * pb_terms_i[j]) for j
+                expr_ref pb_sum(arith.mk_numeral(pb_offset_i, true), m);
+                for (unsigned j = 0; j < pb_terms_i.size(); ++j) {
+                    expr_ref weighted_term(arith.mk_mul(arith.mk_numeral(pb_weights_i[j], true), 
+                                                      m.mk_ite(pb_terms_i[j], arith.mk_numeral(rational::one(), true), arith.mk_numeral(rational::zero(), true))), m);
+                    pb_sum = arith.mk_add(pb_sum, weighted_term);
+                }
+                
+                // Add constraint: pb_sum >= k => aux_var
+                expr_ref constraint(m.mk_implies(arith.mk_ge(pb_sum, arith.mk_numeral(k, true)), aux_var), m);
+                add_hard_constraint(constraint);
+                
+                // Add auxiliary variable to maximize
+                terms.push_back(aux_var);
+                weights.push_back(rational::one());
+                offset += rational::one();
+            }
+        }
+        
+        // Now modify m_objectives to replace the multiple maximize objectives with a single maxsat objective
+        // Find the first maximize objective to replace
+        unsigned target_index = max_indices[0];
+        objective& obj = m_objectives[target_index];
+        obj.m_id = symbol("max_pb_unified");
+        obj.m_type = O_MAXSMT;
+        obj.m_term = nullptr;
+        obj.m_terms.reset();
+        obj.m_terms.append(terms);
+        obj.m_weights.reset();
+        obj.m_weights.append(weights);
+        obj.m_adjust_value.set_offset(offset);
+        obj.m_adjust_value.set_negate(neg);
+        
+        // Remove other maximize objectives that were converted (in reverse order to maintain indices)
+        for (int i = max_indices.size() - 1; i >= 1; --i) {
+            unsigned idx_to_remove = max_indices[i];
+            m_objectives.erase(m_objectives.begin() + idx_to_remove);
+        }
+        
+        // Create a unique ID for this transformation
+        id = symbol("max_pb_unified");
+        
+        TRACE(opt, tout << "Transformed to " << terms.size() << " auxiliary variables, " << m_objectives.size() << " objectives remaining\n";);
+        
+        return true;
     }
 
     expr* context::mk_objective_fn(unsigned index, objective_t ty, unsigned sz, expr*const* args) {
@@ -1119,6 +1257,7 @@ namespace opt {
     void context::from_fmls(expr_ref_vector const& fmls) {
         TRACE(opt, tout << fmls << "\n";);
         m_hard_constraints.reset();
+        
         for (expr * fml : fmls) {
             app_ref tr(m);
             expr_ref orig_term(m);

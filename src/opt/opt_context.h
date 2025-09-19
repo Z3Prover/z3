@@ -313,6 +313,9 @@ namespace opt {
         bool is_maxsat(expr* fml, expr_ref_vector& terms, 
                        vector<rational>& weights, rational& offset, bool& neg, 
                        symbol& id, expr_ref& orig_term, unsigned& index);
+        bool detect_max_pb_constraints(expr_ref_vector& terms, 
+                                     vector<rational>& weights, rational& offset, 
+                                     bool& neg, symbol& id);
         void  purify(app_ref& term);
         app* purify(generic_model_converter_ref& fm, expr* e);
         bool is_mul_const(expr* e);
