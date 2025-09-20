@@ -118,10 +118,10 @@ namespace smt {
                     b.set_unsat(m_l2g, unsat_core);
                     return;
                 }
+                // report assumptions used in unsat core, so they can be used in final core
                 for (expr *e : unsat_core)
                     if (asms.contains(e))
-                        b.report_assumption_used(
-                            m_l2g, e);  // report assumptions used in unsat core, so they can be used in final core
+                        b.report_assumption_used(m_l2g, e);  
 
                 LOG_WORKER(1, " found unsat cube\n");
                 b.backtrack(m_l2g, unsat_core, node);
