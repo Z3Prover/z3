@@ -1055,6 +1055,8 @@ namespace opt {
                 continue;            
             return false;
         }
+        if (min_cardinality == UINT_MAX)
+            return false;
         expr_ref_vector new_fmls(m);
         expr_ref_vector soft(m);
         for (unsigned k = 1; k <= min_cardinality; ++k) {
