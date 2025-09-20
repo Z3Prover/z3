@@ -42,6 +42,7 @@ namespace smt {
         };
 
         class batch_manager {        
+
             enum state {
                 is_running,
                 is_sat,
@@ -49,6 +50,7 @@ namespace smt {
                 is_exception_msg,
                 is_exception_code
             };
+
             struct stats {
                 unsigned m_max_cube_depth = 0;
                 unsigned m_num_cubes = 0;
@@ -114,7 +116,7 @@ namespace smt {
                 bool m_share_units_initial_only = true;
                 bool m_cube_initial_only = true;
                 bool m_inprocessing = true;
-                unsigned m_inprocessing_delay = 0;
+                unsigned m_inprocessing_delay = 1;
                 unsigned m_max_cube_depth = 20;
             };
 
@@ -144,10 +146,6 @@ namespace smt {
             void update_max_thread_conflicts() {
                 m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
             } // allow for backoff scheme of conflicts within the thread for cube timeouts.
-
-            bool get_cube(expr_ref_vector& cube, node*& n);
-            void backtrack(expr_ref_vector const& core, node* n);
-            void split(node* n, expr* atom);
 
             void simplify();
 
