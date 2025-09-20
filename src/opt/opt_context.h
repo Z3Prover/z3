@@ -313,6 +313,8 @@ namespace opt {
         bool is_maxsat(expr* fml, expr_ref_vector& terms, 
                        vector<rational>& weights, rational& offset, bool& neg, 
                        symbol& id, expr_ref& orig_term, unsigned& index);
+        bool is_min_max_of_sums(expr *fml, expr_ref_vector &fmls);
+        bool simplify_min_max_of_sums(expr_ref_vector &fmls);
         void  purify(app_ref& term);
         app* purify(generic_model_converter_ref& fm, expr* e);
         bool is_mul_const(expr* e);

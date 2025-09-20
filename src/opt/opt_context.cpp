@@ -26,6 +26,7 @@ Notes:
 #include "ast/ast_pp_util.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/display_dimacs.h"
+#include "ast/occurs.h"
 #include "model/model_smt2_pp.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
@@ -870,6 +871,8 @@ namespace opt {
         m_model_converter = nullptr;
         to_fmls(fmls);
         simplify_fmls(fmls, asms);
+        while (false && asms.empty() && simplify_min_max_of_sums(fmls))
+            simplify_fmls(fmls, asms);
         from_fmls(fmls);
     }
 
@@ -968,6 +971,118 @@ namespace opt {
         return false;
     }
 
+    bool context::simplify_min_max_of_sums(expr_ref_vector& fmls) {
+        bool simplified = false;
+        bool progress = true;
+        while (progress) {
+            progress = false;
+            for (auto f : fmls) {
+                if (is_min_max_of_sums(f, fmls)) {
+                    progress = true;
+                    simplified = true;
+                    break;
+                }
+            }                
+        }
+        return simplified;
+    }
+
+    bool context::is_min_max_of_sums(expr* fml, expr_ref_vector& fmls) {
+        app_ref term(m);        
+        expr_ref orig_term(m);
+        unsigned index = 0;
+        bool is_max = is_maximize(fml, term, orig_term, index);
+        bool is_min = !is_max && is_minimize(fml, term, orig_term, index);
+        if (!is_max && !is_min)
+            return false;
+        if (!is_uninterp(term))
+            return false;
+        ptr_vector<expr> _fmls(fmls.size(), fmls.data());
+        expr_mark mark;
+        mark_occurs(_fmls, term, mark);
+        unsigned max_cardinality = 0, min_cardinality = UINT_MAX;
+        expr_ref_vector cardinalities(m);
+        arith_util a(m);
+        expr *x = nullptr, *y = nullptr, *cnd = nullptr, *th = nullptr, *el = nullptr;
+        rational n;
+        auto is_zero_one = [&](expr *t) -> bool {
+            return m.is_ite(t, cnd, th, el) && a.is_numeral(th, n) && 
+                    (n == 1 || n == 0) && a.is_numeral(el, n) &&
+                    (n == 1 || n == 0);
+        };
+        auto is_lower_bound = [&](expr *f) {
+            // TODO pattern match against a.is_ge(f, y, x) too or something more general
+            if (!a.is_le(f, x, y))
+                return false;
+            if (x != term)
+                return false;
+            if (mark.is_marked(y))
+                return false;
+            bool is_zo = is_zero_one(y);
+            if (!a.is_add(y) && !is_zo)
+                return false;
+            if (!is_zo && !all_of(*to_app(y), is_zero_one))
+                return false;
+             cardinalities.push_back(y);
+             max_cardinality = std::max(max_cardinality, is_zo ? 1 : to_app(y)->get_num_args());
+             min_cardinality = std::min(min_cardinality, is_zo ? 1 : to_app(y)->get_num_args());
+            return true;
+        };
+        auto is_upper_bound = [&](expr *f) {
+            if (!a.is_ge(f, x, y))
+                return false;
+            if (x != term)
+                return false;
+            bool is_zo = is_zero_one(y);
+            if (!is_zo && !a.is_add(y))
+                return false;
+            if (!is_zo && !all_of(*to_app(y), is_zero_one))
+                return false;
+            cardinalities.push_back(x);
+            max_cardinality = std::max(max_cardinality, is_zo ? 1 : to_app(x)->get_num_args());
+            min_cardinality = std::min(min_cardinality, is_zo ? 1 : to_app(y)->get_num_args());
+            return true;
+        };
+
+        for (auto f : fmls) {
+            if (fml == f)
+                continue;
+            if (!mark.is_marked(f))
+                continue;
+            if (is_max && is_lower_bound(f))
+                continue;
+            if (!is_max && is_upper_bound(f))
+                continue;            
+            return false;
+        }
+        expr_ref_vector new_fmls(m);
+        expr_ref_vector soft(m);
+        for (unsigned k = 1; k <= max_cardinality; ++k) {
+            auto p_k = m.mk_fresh_const("p", m.mk_bool_sort());
+            soft.push_back(m.mk_ite(p_k, a.mk_int(1), a.mk_int(0)));
+            for (auto c : cardinalities)
+                // p_k => c >= k
+                if (is_max)
+                    new_fmls.push_back(m.mk_implies(p_k, a.mk_ge(c, a.mk_int(k))));
+                else
+                    new_fmls.push_back(m.mk_implies(a.mk_ge(c, a.mk_int(k)), p_k));
+        }
+        // min x | x >= c, min sum p_k : c >= k => p_k
+        // max x | x <= c, max sum p_k : p_k => c >= k
+        app_ref sum(a.mk_add(soft.size(), soft.data()), m);
+        if (is_max)
+            new_fmls.push_back(mk_maximize(index, sum));
+        else
+            new_fmls.push_back(mk_minimize(index, sum));
+        unsigned j = 0;
+        for (auto f : fmls) 
+            if (!mark.is_marked(f))
+                fmls[j++] = f;
+        fmls.shrink(j);
+        fmls.append(new_fmls);
+        return true;
+    }
+
     bool context::is_maxsat(expr* fml, expr_ref_vector& terms, 
                             vector<rational>& weights, rational& offset, 
                             bool& neg, symbol& id, expr_ref& orig_term, unsigned& index) {
@@ -1009,6 +1124,8 @@ namespace opt {
         offset = rational::zero();
         bool is_max = is_maximize(fml, term, orig_term, index);
         bool is_min = !is_max && is_minimize(fml, term, orig_term, index);
+        if (!is_max && !is_min)
+            return false;
         if (is_min && get_pb_sum(term, terms, weights, offset)) {
             TRACE(opt, tout << "try to convert minimization\n" << mk_pp(term, m) << "\n";);
             // minimize 2*x + 3*y 
@@ -1160,6 +1277,7 @@ namespace opt {
                 m_objectives[index].m_adjust_value.set_negate(true);
             }
             else {
+
                 m_hard_constraints.push_back(fml);
             }
         }
