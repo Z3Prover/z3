@@ -48,10 +48,7 @@ void tst_api_datalog() {
         Z3_fixedpoint fp = Z3_mk_fixedpoint(ctx);
         ENSURE(fp != nullptr);
 
-        // Test reference counting
         Z3_fixedpoint_inc_ref(ctx, fp);
-        Z3_fixedpoint_dec_ref(ctx, fp);
-
         // Test string conversion (empty fixedpoint)
         Z3_string fp_str = Z3_fixedpoint_to_string(ctx, fp, 0, nullptr);
         ENSURE(fp_str != nullptr);
