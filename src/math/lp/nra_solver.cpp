@@ -374,30 +374,28 @@ struct solver::imp {
                     process_polynomial_check_assignment(num_mon, p, bound, nl2lp, t);
 
                     switch (a->get_kind()) {
-                    case nlsat::atom::EQ:
-                        {
-                            nla::ineq inq(l.sign() ? lp::lconstraint_kind::NE : lp::lconstraint_kind::EQ, t, bound);
-                            if (m_nla_core.ineq_holds(inq))
-                                return l_undef;
-                            lemma |= inq;
+                    {
+                        // Introduce a single ineq variable and assign it per case; common handling after switch.
+                        nla::ineq inq(lp::lconstraint_kind::EQ, t, bound); // initial value overwritten in cases below
+                        switch (a->get_kind()) {
+                        case nlsat::atom::EQ:
+                            inq = nla::ineq(l.sign() ? lp::lconstraint_kind::NE : lp::lconstraint_kind::EQ, t, bound);
+                            break;
+                        case nlsat::atom::LT:
+                            inq = nla::ineq(l.sign() ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LT, t, bound);
+                            break;
+                        case nlsat::atom::GT:
+                            inq = nla::ineq(l.sign() ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GT, t, bound);
+                            break;
+                        default:
+                            UNREACHABLE();
+                            return l_undef;
                         }
-                        break;
-                    case nlsat::atom::LT:
-                        {
-                            nla::ineq inq(l.sign() ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LT, t, bound);
-                             if (m_nla_core.ineq_holds(inq))
-                                return l_undef;
-                            lemma |= inq;
-                        }
-                        break;
-                    case nlsat::atom::GT:
-                        {
-                            nla::ineq inq(l.sign() ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GT, t, bound);
-                            if (m_nla_core.ineq_holds(inq))
-                                return l_undef;
-                            lemma |= inq;
-                        }
-                        break;
+                        if (m_nla_core.ineq_holds(inq))
+                            return l_undef;
+                        lemma |= inq;
+                    }
+                    break;
                     default:
                         UNREACHABLE();
                         return l_undef;
