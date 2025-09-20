@@ -1055,6 +1055,7 @@ lemma_builder::lemma_builder(core& c, const char* name):name(name), c(c) {
 lemma_builder& lemma_builder::operator|=(ineq const& ineq) {
     if (!c.explain_ineq(*this, ineq.term(), ineq.cmp(), ineq.rs())) {
         CTRACE(nla_solver, c.ineq_holds(ineq), c.print_ineq(ineq, tout) << "\n";);
+        CTRACE(nra, c.ineq_holds(ineq), c.print_ineq(ineq, tout) << "\n";);        
         SASSERT(c.m_use_nra_model || !c.ineq_holds(ineq));
         current().push_back(ineq);
     }
@@ -1549,10 +1550,6 @@ lbool core::check() {
 
     if (no_effect()) 
         m_divisions.check();
-
-
-
-
 
     if (no_effect()) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma();
