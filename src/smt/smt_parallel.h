@@ -108,7 +108,6 @@ namespace smt {
         class worker {
             struct config {
                 unsigned m_threads_max_conflicts = 1000;
-                bool m_share_conflicts = false;
                 bool m_share_units = true;
                 bool m_share_units_relevant_only = true;
                 bool m_share_units_initial_only = true;
