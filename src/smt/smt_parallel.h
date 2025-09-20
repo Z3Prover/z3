@@ -108,16 +108,16 @@ namespace smt {
         class worker {
             struct config {
                 unsigned m_threads_max_conflicts = 1000;
-                unsigned m_max_conflicts = 10000000;
-                bool m_relevant_units_only = true;
-                bool m_share_conflicts = true;
+                bool m_share_conflicts = false;
                 bool m_share_units = true;
-                double m_max_conflict_mul = 1.5;
+                bool m_share_units_relevant_only = true;
                 bool m_share_units_initial_only = true;
+                double m_max_conflict_mul = 1.5;
                 bool m_cube_initial_only = true;
                 bool m_inprocessing = true;
                 unsigned m_inprocessing_delay = 1;
                 unsigned m_max_cube_depth = 20;
+                unsigned m_max_conflicts = UINT_MAX;
             };
 
             using node = search_tree::node<cube_config>;

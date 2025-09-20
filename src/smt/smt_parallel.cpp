@@ -155,7 +155,7 @@ namespace smt {
         unsigned sz = ctx->assigned_literals().size();
         for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
             literal lit = ctx->assigned_literals()[j];
-            if (!ctx->is_relevant(lit.var()) && m_config.m_relevant_units_only)
+            if (!ctx->is_relevant(lit.var()) && m_config.m_share_units_relevant_only)
                 continue;
 
             if (m_config.m_share_units_initial_only && lit.var() >= m_num_initial_atoms) {
