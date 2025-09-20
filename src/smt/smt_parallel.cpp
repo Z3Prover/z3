@@ -59,8 +59,6 @@ namespace smt {
 
 #include <thread>
 
-#define SHARE_SEARCH_TREE 1
-
 #define LOG_WORKER(lvl, s) IF_VERBOSE(lvl, verbose_stream() << "Worker " << id << s)
 
 namespace smt {
@@ -265,9 +263,8 @@ namespace smt {
         vector<cube_config::literal> g_core;
         for (auto c : core) {
             expr_ref g_c(l2g(c), m);
-            if (is_assumption(g_c))
-                continue;
-            g_core.push_back(expr_ref(l2g(c), m));
+            if (!is_assumption(g_c))
+                g_core.push_back(expr_ref(l2g(c), m));
         }
         m_search_tree.backtrack(node, g_core);
 
@@ -308,9 +305,8 @@ namespace smt {
         expr_ref_vector new_clauses = b.return_shared_clauses(g2l, m_shared_clause_limit, id);
         // iterate over new clauses and assert them in the local context
         for (expr *e : new_clauses) {
-            expr_ref local_clause(e, g2l.to());
-            ctx->assert_expr(local_clause);
-            LOG_WORKER(2, " asserting shared clause: " << mk_bounded_pp(local_clause, m, 3) << "\n");
+            ctx->assert_expr(e);
+            LOG_WORKER(2, " asserting shared clause: " << mk_bounded_pp(e, m, 3) << "\n");
         }
     }
 
@@ -319,9 +315,8 @@ namespace smt {
         std::scoped_lock lock(mux);
         expr_ref_vector result(g2l.to());
         for (unsigned i = worker_limit; i < shared_clause_trail.size(); ++i) {
-            if (shared_clause_trail[i].source_worker_id == worker_id)
-                continue;  // skip clauses from the requesting worker
-            result.push_back(g2l(shared_clause_trail[i].clause.get()));
+            if (shared_clause_trail[i].source_worker_id != worker_id)
+                result.push_back(g2l(shared_clause_trail[i].clause.get()));
         }
         worker_limit = shared_clause_trail.size();  // update the worker limit to the end of the current trail
         return result;
@@ -468,22 +463,19 @@ namespace smt {
         node *t = m_search_tree.activate_node(n);
         if (!t)
             t = m_search_tree.find_active_node();
-        if (t) {
-            IF_VERBOSE(1, m_search_tree.display(verbose_stream()); verbose_stream() << "\n";);
-            n = t;
-            while (t) {
-                if (cube_config::literal_is_null(t->get_literal()))
-                    break;
-                expr_ref lit(g2l.to());
-                lit = g2l(t->get_literal().get());
-                cube.push_back(lit);
-                t = t->parent();
-            }
-            //        IF_VERBOSE(1, verbose_stream() << "got cube " << cube << " from " << " " << t->get_status() <<
-            //        "\n";);
-            return true;
+        if (!t)
+            return false;
+        IF_VERBOSE(1, m_search_tree.display(verbose_stream()); verbose_stream() << "\n";);
+        n = t;
+        while (t) {
+            if (cube_config::literal_is_null(t->get_literal()))
+                break;
+            expr_ref lit(g2l.to());
+            lit = g2l(t->get_literal().get());
+            cube.push_back(lit);
+            t = t->parent();
         }
-        return false;
+        return true;
     }
 
     void parallel::batch_manager::initialize() {
