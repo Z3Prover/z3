@@ -871,7 +871,7 @@ namespace opt {
         m_model_converter = nullptr;
         to_fmls(fmls);
         simplify_fmls(fmls, asms);
-        while (false && asms.empty() && simplify_min_max_of_sums(fmls))
+        while (asms.empty() && simplify_min_max_of_sums(fmls))
             simplify_fmls(fmls, asms);
         from_fmls(fmls);
     }
@@ -995,7 +995,7 @@ namespace opt {
         bool is_min = !is_max && is_minimize(fml, term, orig_term, index);
         if (!is_max && !is_min)
             return false;
-        if (!is_uninterp(term))
+        if (!is_uninterp(term)) // this can be generalized to summations
             return false;
         ptr_vector<expr> _fmls(fmls.size(), fmls.data());
         expr_mark mark;
@@ -1023,9 +1023,9 @@ namespace opt {
                 return false;
             if (!is_zo && !all_of(*to_app(y), is_zero_one))
                 return false;
-             cardinalities.push_back(y);
-             max_cardinality = std::max(max_cardinality, is_zo ? 1 : to_app(y)->get_num_args());
-             min_cardinality = std::min(min_cardinality, is_zo ? 1 : to_app(y)->get_num_args());
+            cardinalities.push_back(y);
+            max_cardinality = std::max(max_cardinality, is_zo ? 1 : to_app(y)->get_num_args());
+            min_cardinality = std::min(min_cardinality, is_zo ? 1 : to_app(y)->get_num_args());
             return true;
         };
         auto is_upper_bound = [&](expr *f) {
@@ -1057,18 +1057,19 @@ namespace opt {
         }
         expr_ref_vector new_fmls(m);
         expr_ref_vector soft(m);
-        for (unsigned k = 1; k <= max_cardinality; ++k) {
+        for (unsigned k = 1; k <= min_cardinality; ++k) {
             auto p_k = m.mk_fresh_const("p", m.mk_bool_sort());
             soft.push_back(m.mk_ite(p_k, a.mk_int(1), a.mk_int(0)));
             for (auto c : cardinalities)
                 // p_k => c >= k
                 if (is_max)
                     new_fmls.push_back(m.mk_implies(p_k, a.mk_ge(c, a.mk_int(k))));
+                // c >= k => p_k
                 else
                     new_fmls.push_back(m.mk_implies(a.mk_ge(c, a.mk_int(k)), p_k));
         }
-        // min x | x >= c, min sum p_k : c >= k => p_k
-        // max x | x <= c, max sum p_k : p_k => c >= k
+        // min x | x >= c_i, min sum p_k : /\_i c_i >= k => p_k
+        // max x | x <= c_i, max sum p_k : /\_i p_k => c_i >= k 
         app_ref sum(a.mk_add(soft.size(), soft.data()), m);
         if (is_max)
             new_fmls.push_back(mk_maximize(index, sum));
