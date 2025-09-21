@@ -1381,6 +1381,8 @@ lbool core::check() {
     TRACE(nla_solver, tout << "ret = " << ret << ", lemmas count = " << m_lemmas.size() << "\n";);
     IF_VERBOSE(5, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
     CTRACE(nla_solver, ret == l_undef, tout << "Monomials\n"; print_monics(tout););
+    CTRACE(nla_solver, ret == l_undef, display_smt(tout););
+    // if (ret == l_undef) IF_VERBOSE(0, display_smt(verbose_stream()));
     return ret;
 }
 

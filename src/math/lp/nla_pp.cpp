@@ -316,3 +316,121 @@ std::ostream& core::display(std::ostream& out) {
         print_monic(m, out);
     return out;
 }
+
+std::ostream& core::display_smt(std::ostream& out) {
+    out << "(set-option :unsat_core true)\n";
+    display_declarations_smt(out);
+    unsigned id = 0;
+    for (auto& c : lra.constraints().active())
+        display_constraint_smt(out, id++, c);
+    out << "(check-sat)\n";
+    out << "(get-unsat-core)\n";
+    out << "(reset)\n";
+    return out;
+}
+
+
+std::ostream& core::display_declarations_smt(std::ostream& out) const {
+    for (unsigned v = 0; v < lra.column_count(); ++v) {
+        if (is_monic_var(v)) {
+            out << "(define-const x" << v << " ";
+            out << (lra.var_is_int(v) ? "Int" : "Real");
+            auto const& m = m_emons[v];
+            out << " (*";
+            for (auto w : m.vars())
+                out << " x" << w;
+            out << ")";
+            out << "); " << val(v) << " = ";
+            rational p(1);
+            for (auto w : m.vars())
+                p *= val(v);
+            out << p;
+            out << "\n";
+        } 
+        else {
+            out << "(declare-const x" << v << " ";
+            out << (lra.var_is_int(v) ? "Int" : "Real");
+            out << "); " << val(v) << "\n";
+        }
+    }
+    return out;
+}
+
+std::ostream& core::display_constraint_smt(std::ostream& out, unsigned id, lp::lar_base_constraint const& c) const {
+    auto k = c.kind();
+    auto rhs = c.rhs();
+    auto lhs = c.coeffs();
+    auto sz = lhs.size();
+    rational den = denominator(rhs);
+    for (auto [coeff, v] : lhs) 
+        den = lcm(den, denominator(coeff));
+    rhs *= den;  
+
+    auto value_of = [&](lp::lpvar v) {
+        if (is_monic_var(v)) {
+            auto& m = m_emons[v];
+            rational p(1);
+            for (auto w : m.vars())
+                p *= val(w);
+            return p;
+        }
+        return val(v);
+    };
+
+    switch (k) {
+    case lp::lconstraint_kind::LE:
+        out << "(assert (! (<= ";
+        break;
+    case lp::lconstraint_kind::GE:
+        out << "(assert (! (>= ";
+        break;
+    case lp::lconstraint_kind::LT:
+        out << "(assert (! (< ";
+        break;
+    case lp::lconstraint_kind::GT:
+        out << "(assert (! (> ";
+        break;
+    case lp::lconstraint_kind::EQ:
+        out << "(assert (! (= ";
+        break;
+    default:
+        UNREACHABLE();  // unreachable
+    }
+    rational lhs_val(0);
+    if (lhs.size() > 1)
+        out << "(+";
+    for (auto [coeff, v] : lhs) {
+        auto c = coeff * den;
+        if (c == 1)
+            out << " x" << v;
+        else
+            out << " (* " << c << " x" << v << ")";
+        lhs_val += value_of(v) * c;
+    }
+    if (lhs.size() > 1)
+        out << ")";
+    out << " " << rhs << ") :named a" << id << ")); ";
+    bool evaluation = true;
+    switch (k) {
+        case lp::lconstraint_kind::LE:
+            evaluation = lhs_val <= rhs;
+            break;
+        case lp::lconstraint_kind::GE:
+            evaluation = lhs_val >= rhs;
+            break;
+        case lp::lconstraint_kind::LT:
+            evaluation = lhs_val < rhs;
+            break;
+        case lp::lconstraint_kind::GT:
+            evaluation = lhs_val > rhs;
+            break;
+        case lp::lconstraint_kind::EQ:
+            evaluation = lhs_val == rhs;
+            break;            
+        default:
+            UNREACHABLE();  // unreachable
+    }
+    out << (evaluation ? "true" : "false");
+    out << "\n";
+    return out;
+}

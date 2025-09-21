@@ -115,6 +115,9 @@ class core {
     bool is_pseudo_linear(monic const& m) const;    
     void refine_pseudo_linear(monic const& m);
 
+    std::ostream& display_constraint_smt(std::ostream& out, unsigned id, lp::lar_base_constraint const& c) const;
+    std::ostream& display_declarations_smt(std::ostream& out) const;
+
 public:    
     // constructor
     core(lp::lar_solver& s, params_ref const& p, reslimit&);
@@ -230,6 +233,7 @@ public:
 
     std::ostream & display_row(std::ostream& out, lp::row_strip<lp::mpq> const& row) const;
     std::ostream & display(std::ostream& out);
+    std::ostream& display_smt(std::ostream& out);
     std::ostream & print_ineq(const ineq & in, std::ostream & out) const;
     std::ostream & print_var(lpvar j, std::ostream & out) const;
     std::ostream & print_monics(std::ostream & out) const;    
