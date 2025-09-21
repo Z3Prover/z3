@@ -933,6 +933,10 @@ namespace smt {
         m_activity.reserve(v+1);
         m_bool_var2expr.reserve(v+1);
         m_bool_var2expr[v] = n;
+        m_lit_scores[0].reserve(v + 1);
+        m_lit_scores[1].reserve(v + 1);
+        m_lit_scores[0][v] = m_lit_scores[1][v] = 0.0;
+
         literal l(v, false);
         literal not_l(v, true);
         unsigned aux = std::max(l.index(), not_l.index()) + 1;
@@ -960,6 +964,15 @@ namespace smt {
         SASSERT(check_bool_var_vector_sizes());
         return v;
     }
+
+    void context::add_scores(unsigned n, literal const *lits) {
+        for (unsigned i = 0; i < n; ++i) {
+            auto lit = lits[i];
+            unsigned v = lit.var();  // unique key per literal
+            m_lit_scores[lit.sign()][v] += 1.0 / n;
+        }
+    }
+
     
     void context::undo_mk_bool_var() {
         SASSERT(!m_b_internalized_stack.empty());
@@ -1419,6 +1432,7 @@ namespace smt {
             break;
         case CLS_LEARNED:
             dump_lemma(num_lits, lits);
+            add_scores(num_lits, lits);
             break;
         default:
             break;
