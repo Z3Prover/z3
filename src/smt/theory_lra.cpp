@@ -2640,12 +2640,12 @@ public:
 
         if (a.is_band(n)) {
                        
-            // x&y <= x
-            // x&y <= y
+            // 0 <= x => x&y <= x
+            // 0 <= y => x&y <= y
             // TODO? x = y => x&y = x
 
-            ctx().mk_th_axiom(get_id(), mk_literal(mk_le(n, x)));
-            ctx().mk_th_axiom(get_id(), mk_literal(mk_le(n, y)));
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(x, a.mk_int(0))), mk_literal(a.mk_le(n, x)));
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(y, a.mk_int(0))), mk_literal(a.mk_le(n, y)));
         }
         else if (a.is_shl(n)) {
             // y >= sz => n = 0
