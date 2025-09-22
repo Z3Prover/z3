@@ -31,10 +31,10 @@ namespace nla {
             for (auto& con : lra.constraints().active()) {                
                 for (auto v : m.vars()) {
                     for (auto [coeff, u] : con.coeffs()) {
-                        if (u == v) {
-                            // add new constraint
+                        if (u == v) 
                             // multiply by remaining vars
-                        }
+                            multiply_constraint(con, m, v);
+                            // add new constraint
                     }
                 }
             }
@@ -55,8 +55,53 @@ namespace nla {
         return r;
     }
 
-    lp::lar_base_constraint* mul_saturate::multiply_constraint(lp::lar_base_constraint const& c, monic const& m, lpvar x) {
+    // multiply by remaining vars
+    void mul_saturate::multiply_constraint(lp::lar_base_constraint const& con, monic const& m, lpvar x) {
+        auto const& lhs = con.coeffs();
+        auto const& rhs = con.rhs();
+        auto k = con.kind();
+        auto sign = false;
+        svector<lpvar> vars;
+        bool first = true;
+        for (auto v : m.vars()) {
+            if (v != x || !first)
+                vars.push_back(v);
+            else
+                first = false;
+        }
+        vector<std::pair<rational, lpvar>> new_lhs;
+        rational new_rhs(rhs);
+        for (auto [coeff, v] : lhs) {
+            vars.push_back(v);
 
-        return nullptr;
+            auto new_m = c().emons().find_canonical(vars);
+            if (!new_m) {
+                bool is_int = lra.var_is_int(x);  // assume all vars in monic have the same type, can be changed for MIP
+                lpvar new_monic_var = 0; // lra.add_var(is_int);
+                c().emons().add(new_monic_var, vars);
+                new_m = c().emons().find_canonical(vars);
+                SASSERT(new_m);
+            }
+            new_lhs.push_back({coeff, new_m->var()});
+            vars.pop_back();
+        }
+        if (rhs != 0) {
+            new_lhs.push_back({-rhs, m.var()});
+            new_rhs = 0;
+        }
+        // compute sign of vars
+        for (auto v : vars) 
+            if (c().val(v).is_neg())
+                sign = !sign;
+        if (sign) {
+            switch (k) {
+            case lp::lconstraint_kind::LE: k = lp::lconstraint_kind::GE; break;
+            case lp::lconstraint_kind::LT: k = lp::lconstraint_kind::GT; break;
+            case lp::lconstraint_kind::GE: k = lp::lconstraint_kind::LE; break;
+            case lp::lconstraint_kind::GT: k = lp::lconstraint_kind::LT; break;
+            default: break;
+            }
+        }
+        // instead of adding a constraint here, add row to tableau based on the new_lhs, new_rhs, k.
     }
 }

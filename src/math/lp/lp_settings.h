@@ -259,6 +259,7 @@ private:
     unsigned         m_dio_calls_period = 4;
     bool             m_dio_run_gcd = true;
 public:
+    bool m_enable_relevancy = false;
     unsigned dio_calls_period() const { return m_dio_calls_period; }
     unsigned & dio_calls_period() { return m_dio_calls_period; }
     bool print_external_var_name() const { return m_print_external_var_name; }
