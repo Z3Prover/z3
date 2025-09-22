@@ -87,9 +87,6 @@ namespace smt {
             case l_undef: {
                 update_max_thread_conflicts();
                 LOG_WORKER(1, " found undef cube\n");
-                // return unprocessed cubes to the batch manager
-                // add a split literal to the batch manager.
-                // optionally process other cubes and delay sending back unprocessed cubes to batch manager.
                 if (m_config.m_max_cube_depth <= cube.size())
                     goto check_cube_start;
 
