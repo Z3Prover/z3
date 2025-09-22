@@ -163,16 +163,18 @@ rational core::product_value(const monic& m) const {
 // return true iff the monic value is equal to the product of the values of the factors
 //                 or if the variable associated with the monomial is not relevant.
 bool core::check_monic(const monic& m) const {    
-#if 0
     // TODO test this
-    if (!is_relevant(m.var()))
+    if (lp_settings().m_enable_relevancy && !is_relevant(m.var()))
         return true;
-#endif
     if (lra.column_is_int(m.var()) && !lra.get_column_value(m.var()).is_int())
         return true;
-    
+        
     bool ret = product_value(m) == lra.get_column_value(m.var()).x; 
     CTRACE(nla_solver_check_monic, !ret, print_monic(m, tout) << '\n';);
+
+    if (!ret) {
+        // check if m.var() actually occurs in lra.constraints()...
+    }
     return ret;
 }
     
@@ -1343,24 +1345,29 @@ lbool core::check() {
     if (no_effect()) 
         m_divisions.check();
 
+    if (no_effect())
+        m_order.order_lemma();
 
     if (no_effect()) {
-        std::function<void(void)> check1 = [&]() { m_order.order_lemma();
+        unsigned num_calls = lp_settings().stats().m_nla_calls;
+        if (!conflict_found() && params().arith_nl_nra() && num_calls % 50 == 0 && num_calls > 500)
+            ret = bounded_nlsat();
+
+        // both tangent and monotonicity are expensive
+        std::function<void(void)> check1 = [&]() { m_monotone.monotonicity_lemma();
         };
-        std::function<void(void)> check2 = [&]() { m_monotone.monotonicity_lemma();
+        std::function<void(void)> check2 = [&]() { m_tangents.tangent_lemma();
         };
-        std::function<void(void)> check3 = [&]() { m_tangents.tangent_lemma();
-        };
+
+
         
         std::pair<unsigned, std::function<void(void)>> checks[] = 
-            { { 6, check1 }, 
-              { 2, check2 }, 
-              { 1, check3 }};
-        check_weighted(3, checks);
+            { 
+              { 2, check1 }, 
+              { 1, check2 }};
+        check_weighted(2, checks);
 
-        unsigned num_calls = lp_settings().stats().m_nla_calls;
-        if (!conflict_found() && params().arith_nl_nra() && num_calls % 50 == 0 && num_calls > 500) 
-            ret = bounded_nlsat();
+
     }
 
     if (no_effect() && params().arith_nl_nra()) {
