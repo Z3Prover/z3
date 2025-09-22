@@ -11,7 +11,7 @@ Abstract:
 
 Author:
 
-    Ilana 2025
+    Ilana Shapiro - 2025
 
 Revision History:
 
@@ -131,7 +131,6 @@ namespace smt {
             random_gen m_rand;
             scoped_ptr<context> ctx;
             ast_translation m_g2l, m_l2g;
-            search_tree::tree<cube_config> m_search_tree;
 
             unsigned m_num_shared_units = 0;
             unsigned m_num_initial_atoms = 0;
@@ -140,7 +139,7 @@ namespace smt {
             expr_ref get_split_atom();
 
             lbool check_cube(expr_ref_vector const& cube);
-            void share_units(ast_translation& l2g);
+            void share_units();
 
             void update_max_thread_conflicts() {
                 m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
@@ -152,7 +151,7 @@ namespace smt {
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
             void run();
             
-            void collect_shared_clauses(ast_translation& g2l);
+            void collect_shared_clauses();
 
             void cancel();
             void collect_statistics(::statistics& st) const;

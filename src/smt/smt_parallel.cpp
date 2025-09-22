@@ -72,7 +72,7 @@ namespace smt {
                 LOG_WORKER(1, " no more cubes\n");
                 return;
             }
-            collect_shared_clauses(m_g2l);
+            collect_shared_clauses();
 
         check_cube_start:
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
@@ -129,13 +129,13 @@ namespace smt {
             }
             }
             if (m_config.m_share_units)
-                share_units(m_l2g);
+                share_units();
         }
     }
 
     parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms)
         : id(id), p(p), b(p.m_batch_manager), m_smt_params(p.ctx.get_fparams()), asms(m), m_g2l(p.ctx.m, m),
-          m_l2g(m, p.ctx.m), m_search_tree(expr_ref(m)) {
+          m_l2g(m, p.ctx.m) {
         for (auto e : _asms)
             asms.push_back(m_g2l(e));
         LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");
@@ -149,7 +149,7 @@ namespace smt {
         m_num_initial_atoms = ctx->get_num_bool_vars();
     }
 
-    void parallel::worker::share_units(ast_translation &l2g) {
+    void parallel::worker::share_units() {
         // Collect new units learned locally by this worker and send to batch manager
         ctx->pop_to_base_lvl();
         unsigned sz = ctx->assigned_literals().size();
@@ -169,7 +169,7 @@ namespace smt {
 
             if (lit.sign())
                 e = m.mk_not(e);  // negate if literal is negative
-            b.collect_clause(l2g, id, e);
+            b.collect_clause(m_l2g, id, e);
         }
         m_num_shared_units = sz;
     }
@@ -301,8 +301,8 @@ namespace smt {
         }
     }
 
-    void parallel::worker::collect_shared_clauses(ast_translation &g2l) {
-        expr_ref_vector new_clauses = b.return_shared_clauses(g2l, m_shared_clause_limit, id);
+    void parallel::worker::collect_shared_clauses() {
+        expr_ref_vector new_clauses = b.return_shared_clauses(m_g2l, m_shared_clause_limit, id);
         // iterate over new clauses and assert them in the local context
         for (expr *e : new_clauses) {
             ctx->assert_expr(e);
