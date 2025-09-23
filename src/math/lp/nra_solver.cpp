@@ -320,21 +320,22 @@ struct solver::imp {
     }
     
     lbool check_assignment() {
+        IF_VERBOSE(1, verbose_stream() << "nra::solver::check_assignment\n";);
         setup_solver();
         lbool r = l_undef;
-        statistics& st = m_nla_core.lp_settings().stats().m_st;
+        statistics &st = m_nla_core.lp_settings().stats().m_st;
         nlsat::literal_vector clause;
-        polynomial::manager& pm = m_nlsat->pm();
+        polynomial::manager &pm = m_nlsat->pm();
         try {
             nlsat::assignment rvalues(m_nlsat->am());
             for (auto [j, x] : m_lp2nl) {
                 scoped_anum a(am());
                 am().set(a, m_nla_core.val(j).to_mpq());
-                rvalues.set(x, a);           
+                rvalues.set(x, a);
             }
             r = m_nlsat->check(rvalues, clause);
         } 
-        catch (z3_exception&) {
+        catch (z3_exception &) {
             if (m_limit.is_canceled()) {
                 r = l_undef;
             } 
@@ -344,71 +345,65 @@ struct solver::imp {
             }
         }
         m_nlsat->collect_statistics(st);
-        TRACE(nra,
-              m_nlsat->display(tout << r << "\n");
-              display(tout);
-              tout << "m_lp2nl:\n";
+        TRACE(nra, m_nlsat->display(tout << r << "\n"); display(tout); tout << "m_lp2nl:\n";
               for (auto [j, x] : m_lp2nl) tout << "j" << j << " := x" << x << "\n";);
         switch (r) {
-            case l_true:
-                m_nla_core.set_use_nra_model(true);
-                lra.init_model();
-                validate_constraints();
-                break;
-            case l_false: {
-                u_map<lp::lpvar> nl2lp = reverse_lp2nl();
-                nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
-                for (nlsat::literal l : clause) {
-                    nlsat::atom* a = m_nlsat->bool_var2atom(l.var());
-                    TRACE(nra, tout << "atom: "; m_nlsat->display(tout, *a); tout << "\n";);
-                    SASSERT(!a->is_root_atom());
-                    SASSERT(a->is_ineq_atom());
-                    auto& ia = *to_ineq_atom(a);
-                    VERIFY(ia.size() == 1); // deal with factored polynomials later
-                    // a is an inequality atom, i.e., p > 0, p < 0, or p = 0.
-                    polynomial::polynomial const* p = ia.p(0);
-                    TRACE(nra, tout << "polynomial: "; pm.display(tout, p); tout << "\n";);
-                    unsigned num_mon = pm.size(p);
-                    rational bound(0);
-                    lp::lar_term t;
-                    process_polynomial_check_assignment(num_mon, p, bound, nl2lp, t);
-
-                    switch (a->get_kind()) {
-                    {
-                        // Introduce a single ineq variable and assign it per case; common handling after switch.
-                        nla::ineq inq(lp::lconstraint_kind::EQ, t, bound); // initial value overwritten in cases below
-                        switch (a->get_kind()) {
-                        case nlsat::atom::EQ:
-                            inq = nla::ineq(l.sign() ? lp::lconstraint_kind::NE : lp::lconstraint_kind::EQ, t, bound);
-                            break;
-                        case nlsat::atom::LT:
-                            inq = nla::ineq(l.sign() ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LT, t, bound);
-                            break;
-                        case nlsat::atom::GT:
-                            inq = nla::ineq(l.sign() ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GT, t, bound);
-                            break;
-                        default:
-                            UNREACHABLE();
-                            return l_undef;
-                        }
-                        if (m_nla_core.ineq_holds(inq))
-                            return l_undef;
-                        lemma |= inq;
-                    }
-                    break;
-                    default:
-                        UNREACHABLE();
-                        return l_undef;
-                    }
-                }
-                IF_VERBOSE(1, verbose_stream() << "linear lemma: " << lemma << "\n");
-                m_nla_core.set_use_nra_model(true);
-                break;
-            }
-            case l_undef:
-                break;
+        case l_true:
+            m_nla_core.set_use_nra_model(true);
+            lra.init_model();
+            validate_constraints();
+            m_nla_core.set_use_nra_model(true);
+            break;
+        case l_false:
+            return add_lemma(clause);
+        default:
+            break;
         }
-        return r;
+        return r;        
+    }
+
+    lbool add_lemma(nlsat::literal_vector const &clause) {
+        u_map<lp::lpvar> nl2lp = reverse_lp2nl();
+        polynomial::manager &pm = m_nlsat->pm();
+        nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
+        for (nlsat::literal l : clause) {
+            nlsat::atom *a = m_nlsat->bool_var2atom(l.var());
+            TRACE(nra, tout << "atom: "; m_nlsat->display(tout, *a); tout << "\n";);
+            SASSERT(!a->is_root_atom());
+            SASSERT(a->is_ineq_atom());
+            auto &ia = *to_ineq_atom(a);
+            VERIFY(ia.size() == 1);  // deal with factored polynomials later
+            // a is an inequality atom, i.e., p > 0, p < 0, or p = 0.
+            polynomial::polynomial const *p = ia.p(0);
+            TRACE(nra, tout << "polynomial: "; pm.display(tout, p); tout << "\n";);
+            unsigned num_mon = pm.size(p);
+            rational bound(0);
+            lp::lar_term t;
+            process_polynomial_check_assignment(num_mon, p, bound, nl2lp, t);
+
+            // Introduce a single ineq variable and assign it per case; common handling after switch.
+            nla::ineq inq(lp::lconstraint_kind::EQ, t, bound);  // initial value overwritten in cases below
+            switch (a->get_kind()) {
+            case nlsat::atom::EQ:
+                inq = nla::ineq(l.sign() ? lp::lconstraint_kind::NE : lp::lconstraint_kind::EQ, t, bound);
+                break;
+            case nlsat::atom::LT:
+                inq = nla::ineq(l.sign() ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LT, t, bound);
+                break;
+            case nlsat::atom::GT:
+                inq = nla::ineq(l.sign() ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GT, t, bound);
+                break;
+            default:
+                UNREACHABLE();
+                return l_undef;
+            }
+            // NSB review: what is this???
+            if (m_nla_core.ineq_holds(inq))
+                return l_undef;
+            lemma |= inq;
+            IF_VERBOSE(1, verbose_stream() << "linear lemma: " << lemma << "\n");
+            return l_false;
+        }
     }
 
     void constraint_core2ex(lp::explanation& ex) {
