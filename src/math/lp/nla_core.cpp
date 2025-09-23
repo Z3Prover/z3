@@ -636,6 +636,9 @@ void core::erase_from_to_refine(lpvar j) {
 void core::init_to_refine() {
     TRACE(nla_solver_details, tout << "emons:" << pp_emons(*this, m_emons););
     m_to_refine.reset();
+    // Traversal order of monomials uses randomization to avoid bias.
+    // We can cache a shuffle of m_emons indices instead of using cyclic shifts
+    // The shuffle can survive backtracking points to enforce bias within a scope.
     unsigned r = random(), sz = m_emons.number_of_monics();
     for (unsigned k = 0; k < sz; k++) {
         auto const & m = *(m_emons.begin() + (k + r)% sz);
@@ -812,9 +815,7 @@ bool core::find_bfc_to_refine_on_monic(const monic& m, factorization & bf) {
 // finds a monic to refine with its binary factorization
 bool core::find_bfc_to_refine(const monic* & m, factorization & bf){
     m = nullptr;
-    unsigned r = random(), sz = m_to_refine.size();
-    for (unsigned k = 0; k < sz; k++) {
-        lpvar i = m_to_refine[(k + r) % sz];
+    for (auto i : m_to_refine) {
         m = &m_emons[i];
         SASSERT (!check_monic(*m));
         if (has_real(m))
@@ -1213,16 +1214,9 @@ void core::patch_monomials_on_to_refine() {
     // the rest of the function might change m_to_refine, so have to copy
     unsigned_vector to_refine;
     for (unsigned j : m_to_refine) 
-        to_refine.push_back(j);
-    
-    unsigned sz = to_refine.size();
-
-    unsigned start = random();
-    for (unsigned i = 0; i < sz && !m_to_refine.empty(); i++) 
-        patch_monomial(to_refine[(start + i) % sz]);
-
-    TRACE(nla_solver, tout << "sz = " << sz << ", m_to_refine = " << m_to_refine.size() <<
-          (sz > m_to_refine.size()? " less" : " same" ) << "\n";);
+        to_refine.push_back(j);    
+    for (auto j : to_refine)
+        patch_monomial(j);
 }
 
 void core::patch_monomials() {
@@ -1265,9 +1259,7 @@ void core::check_bounded_divisions() {
 }
 // looking for a free variable inside of a monic to split
 void core::add_bounds() {
-    unsigned r = random(), sz = m_to_refine.size();
-    for (unsigned k = 0; k < sz; k++) {
-        lpvar i = m_to_refine[(k + r) % sz];
+    for (auto i : m_to_refine) {
         auto const& m = m_emons[i];
         for (lpvar j : m.vars()) {
             if (!var_is_free(j))

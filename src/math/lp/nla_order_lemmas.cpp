@@ -23,12 +23,9 @@ void order::order_lemma() {
         TRACE(nla_solver, tout << "not generating order lemmas\n";);
         return;
     }
-    
-    const auto& to_ref = c().m_to_refine;
-    unsigned r = random();
-    unsigned sz = to_ref.size();
-    for (unsigned i = 0; i < sz && !done(); ++i) {
-        lpvar j = to_ref[(i + r) % sz];
+   
+    for (auto j : c().m_to_refine) {
+        if (done()) break; 
         order_lemma_on_monic(c().emons()[j]);
     }
 }
