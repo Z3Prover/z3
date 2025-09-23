@@ -636,12 +636,20 @@ void core::erase_from_to_refine(lpvar j) {
 void core::init_to_refine() {
     TRACE(nla_solver_details, tout << "emons:" << pp_emons(*this, m_emons););
     m_to_refine.reset();
-    // Traversal order of monomials uses randomization to avoid bias.
-    // We can cache a shuffle of m_emons indices instead of using cyclic shifts
-    // The shuffle can survive backtracking points to enforce bias within a scope.
-    unsigned r = random(), sz = m_emons.number_of_monics();
-    for (unsigned k = 0; k < sz; k++) {
-        auto const & m = *(m_emons.begin() + (k + r)% sz);
+    unsigned sz = m_emons.number_of_monics();
+    // shuffle is sticky within a backtracking level
+    if (!m_emon_shuffle_valid || sz != m_emon_shuffle.size()) {
+        m_emon_shuffle.reset();
+        for (unsigned i = 0; i < sz; i++)
+            m_emon_shuffle.push_back(i);
+        random_gen rand(random());
+        shuffle(m_emon_shuffle.size(), m_emon_shuffle.data(), rand);
+        trail().push(value_trail(m_emon_shuffle_valid));
+        m_emon_shuffle_valid = true;
+    }
+
+    for (auto k : m_emon_shuffle) {
+        auto const & m = m_emons[k];
         if (!check_monic(m)) 
             insert_to_refine(m.var());
     }

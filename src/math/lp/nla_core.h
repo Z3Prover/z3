@@ -78,6 +78,8 @@ class core {
     vector<ineq>             m_literals;
     vector<lp::equality>       m_equalities;
     vector<lp::fixed_equality> m_fixed_equalities;
+    unsigned_vector          m_emon_shuffle;
+    bool                     m_emon_shuffle_valid = false;
     indexed_uint_set         m_to_refine;
     indexed_uint_set         m_monics_with_changed_bounds;
     tangents                 m_tangents;
@@ -219,7 +221,7 @@ public:
 
     void set_relevant(std::function<bool(lpvar)>& is_relevant) { m_relevant = is_relevant; }
     bool is_relevant(lpvar v) const { return !m_relevant || m_relevant(v); }
-
+    
     void push();     
     void pop(unsigned n);
 
