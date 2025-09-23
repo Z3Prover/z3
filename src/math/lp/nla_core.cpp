@@ -649,7 +649,7 @@ void core::init_to_refine() {
     }
 
     for (auto k : m_emon_shuffle) {
-        auto const & m = m_emons[k];
+        auto const& m = m_emons.begin()[k];
         if (!check_monic(m)) 
             insert_to_refine(m.var());
     }
