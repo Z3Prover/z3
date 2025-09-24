@@ -3768,6 +3768,55 @@ namespace smt {
         TRACE(literal_occ, display_literal_num_occs(tout););
     }
 
+    void context::initialize_values() {
+        if (m_values.empty())
+            return;
+        expr_safe_replace sub(m);
+        for (auto const &[var, value] : m_values) {
+            initialize_value(var, value);
+            sub.insert(var, value);
+        }        
+        for (unsigned v = 0; v < get_num_bool_vars(); ++v) {
+            expr_ref var(bool_var2expr(v), m);
+            if (!var)
+                continue;
+            sub(var);
+            m_rewriter(var);
+
+            if (m.is_true(var)) {
+                m_bdata[v].m_phase_available = true;
+                m_bdata[v].m_phase = true;
+            }
+            else if (m.is_false(var)) {
+                m_bdata[v].m_phase_available = true;
+                m_bdata[v].m_phase = false;
+            } 
+        }
+
+        for (clause *cls : m_aux_clauses) {
+            literal undef_lit = null_literal;
+            bool is_true = false;
+            for (auto lit : *cls) {
+                auto v = lit.var();
+                if (m_bdata[v].m_phase_available) {
+                    bool phase = m_bdata[v].m_phase;
+                    if (lit.sign() != phase) {
+                        is_true = true;
+                        break;
+                    }
+                }
+                else {
+                    undef_lit = lit;
+                }
+            }
+            if (!is_true && undef_lit != null_literal) {
+                auto v = undef_lit.var();
+                m_bdata[v].m_phase_available = true;
+                m_bdata[v].m_phase = !undef_lit.sign();
+            }
+        }       
+    }
+
     void context::end_search() {
         m_case_split_queue->end_search_eh();
     }
@@ -3820,8 +3869,7 @@ namespace smt {
         TRACE(search, display(tout); display_enodes_lbls(tout););
         TRACE(search_detail, m_asserted_formulas.display(tout););
         init_search();
-        for (auto const& [var, value] : m_values)
-            initialize_value(var, value);
+        initialize_values();
             
         flet<bool> l(m_searching, true);
         TRACE(after_init_search, display(tout););

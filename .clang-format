@@ -42,6 +42,7 @@ SpaceInEmptyParentheses: false
 SpacesInCStyleCastParentheses: false
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
+IndentCaseLabels: false
 
 # Alignment
 AlignConsecutiveAssignments: false

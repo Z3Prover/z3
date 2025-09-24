@@ -211,7 +211,7 @@ struct solver::imp {
                     UNREACHABLE();
                     return l_undef;
                 }
-            for (auto const& m : m_nla_core.emons()) {
+            for (auto const &m : m_nla_core.emons()) {
                 if (!check_monic(m)) {
                     IF_VERBOSE(0, verbose_stream() << "monic " << m << " violated\n";
                                lra.constraints().display(verbose_stream()));

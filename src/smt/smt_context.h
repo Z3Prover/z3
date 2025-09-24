@@ -269,6 +269,7 @@ namespace smt {
         // ----------------------------------
         vector<std::pair<expr_ref, expr_ref>> m_values;
         void initialize_value(expr* var, expr* value);
+        void initialize_values();
 
 
         // -----------------------------------
