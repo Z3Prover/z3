@@ -2173,7 +2173,15 @@ namespace z3 {
     inline expr ugt(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvugt(a.ctx(), a, b)); }
     inline expr ugt(expr const & a, int b) { return ugt(a, a.ctx().num_val(b, a.get_sort())); }
     inline expr ugt(int a, expr const & b) { return ugt(b.ctx().num_val(a, b.get_sort()), b); }
+
     /**
+       \brief signed division operator for bitvectors.
+    */
+    inline expr sdiv(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvsdiv(a.ctx(), a, b)); }
+    inline expr sdiv(expr const & a, int b) { return sdiv(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr sdiv(int a, expr const & b) { return sdiv(b.ctx().num_val(a, b.get_sort()), b); }
+
+/**
        \brief unsigned division operator for bitvectors.
     */
     inline expr udiv(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvudiv(a.ctx(), a, b)); }
