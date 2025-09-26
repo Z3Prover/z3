@@ -70,8 +70,8 @@ namespace smt {
 
     struct enode_pp {
         context const& ctx;
-        enode*   n;
-        enode_pp(enode* n, context const& ctx): ctx(ctx), n(n) {}
+        enode const*   n;
+        enode_pp(enode const* n, context const& ctx): ctx(ctx), n(n) {}
     };
 
     struct replay_unit {
@@ -1414,7 +1414,7 @@ namespace smt {
 
         void display_asserted_formulas(std::ostream & out) const;
 
-        enode_pp pp(enode* n) { return enode_pp(n, *this); }
+        enode_pp pp(enode const* n) { return enode_pp(n, *this); }
 
         std::ostream& display_literal(std::ostream & out, literal l) const;
 

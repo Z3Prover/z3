@@ -692,7 +692,7 @@ namespace smt {
 
     std::ostream& operator<<(std::ostream& out, enode_pp const& p) {
         ast_manager& m = p.ctx.get_manager();
-        enode* n = p.n;
+        enode const* n = p.n;
         return out << n->get_owner_id() << ": " << mk_bounded_pp(n->get_expr(), m);
     }
 

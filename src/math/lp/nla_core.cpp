@@ -35,6 +35,7 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
     m_divisions(*this),
     m_intervals(this, lim),
     m_monomial_bounds(this),
+    m_mul_saturate(this),
     m_horner(this),
     m_grobner(this),
     m_emons(m_evars),
@@ -1331,7 +1332,6 @@ lbool core::check() {
         if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
             return l_false;
     }
-
     
     if (no_effect() && should_run_bounded_nlsat()) 
         ret = bounded_nlsat();
@@ -1347,6 +1347,9 @@ lbool core::check() {
 
     if (no_effect())
         m_order.order_lemma();
+
+    if (false && no_effect())
+        ret = m_mul_saturate.saturate();
 
     if (no_effect()) {
         unsigned num_calls = lp_settings().stats().m_nla_calls;

@@ -245,11 +245,7 @@ bool basics::basic_lemma(bool derived) {
     if (derived) 
         return false;
     const auto& mon_inds_to_ref = c().m_to_refine;
-    TRACE(nla_solver, tout << "mon_inds_to_ref = "; print_vector(mon_inds_to_ref, tout) << "\n";);
-    unsigned start = c().random();
-    unsigned sz = mon_inds_to_ref.size();
-    for (unsigned j = 0; j < sz; ++j) {
-        lpvar v = mon_inds_to_ref[(j + start) % mon_inds_to_ref.size()];
+    for (auto v : mon_inds_to_ref) {
         const monic& r = c().emons()[v];
         SASSERT (!c().check_monic(c().emons()[v]));
         basic_lemma_for_mon(r, derived);

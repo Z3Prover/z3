@@ -97,10 +97,7 @@ namespace smt {
            but it may be inherited from another enode n' during an
            equivalence class merge. That is, get_enode(v) != n.
         */
-        bool is_attached_to_var(enode const * n) const {
-            theory_var v = n->get_th_var(get_id());
-            return v != null_theory_var && get_enode(v) == n;
-        }
+        bool is_attached_to_var(enode const *n) const;
 
         struct scoped_trace_stream {
             ast_manager& m;

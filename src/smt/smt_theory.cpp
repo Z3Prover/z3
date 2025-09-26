@@ -59,6 +59,11 @@ namespace smt {
         }
     }
 
+    bool theory::is_attached_to_var(enode const *n) const {
+        theory_var v = n->get_th_var(get_id());
+        return v != null_theory_var && get_enode(v) == n;
+    }
+
     void theory::display_var2enode(std::ostream & out) const {
         unsigned sz = m_var2enode.size();
         for (unsigned v = 0; v < sz; v++) {

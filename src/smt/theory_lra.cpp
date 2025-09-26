@@ -890,7 +890,7 @@ public:
             mk_is_int_axiom(n);        
     }
 
-    bool internalize_atom(app * atom, bool gate_ctx) {
+    void internalize_atom(app * atom) {
         TRACE(arith_internalize, tout << bpp(atom) << "\n";);
         SASSERT(!ctx().b_internalized(atom));
         expr* n1, *n2;
@@ -918,12 +918,12 @@ public:
         }
         else if (a.is_is_int(atom)) {
             internalize_is_int(atom);
-            return true;
+            return;
         }
         else {
             TRACE(arith, tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
             found_unsupported(atom);
-            return true;
+            return;
         }
 
         if (is_int(v) && !r.is_int()) 
@@ -936,7 +936,6 @@ public:
         m_bool_var2bound.insert(bv, b);
         mk_bound_axioms(*b);
         TRACE(arith_internalize, tout << "Internalized " << bv << ": " << bpp(atom) << "\n";);
-        return true;
     }
         
     bool internalize_term(app * term) {
@@ -1712,7 +1711,7 @@ public:
         return FC_GIVEUP;
     }
 
-        // create an eq atom representing "term = offset"
+    // create an eq atom representing "term = offset"
     app_ref mk_eq(lp::lar_term const& term, rational const& offset) {
         u_map<rational> coeffs;
         term2coeffs(term, coeffs);
@@ -1730,15 +1729,10 @@ public:
             return atom;
         }
     }
-    // create a bound atom representing term >= k is lower_bound is true, and term <= k if it is false
-    expr_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound) {
-        rational offset;
-        expr_ref t(m);
-        return mk_bound(term, k, lower_bound, offset, t);
-    }
 
-    expr_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound, rational& offset, expr_ref& t) {
-        offset = k;
+    expr_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound) {
+        rational offset = k;
+        expr_ref t(m);
         u_map<rational> coeffs;
         term2coeffs(term, coeffs);
         bool is_int = true;
@@ -1925,9 +1919,7 @@ public:
             TRACE(arith, tout << "branch\n";);
             bool u = m_lia->is_upper();
             auto const & k = m_lia->offset();
-            rational offset;
-            expr_ref t(m);
-            expr_ref b = mk_bound(m_lia->get_term(), k, !u, offset, t);
+            expr_ref b = mk_bound(m_lia->get_term(), k, !u);
             if (m.has_trace_stream()) {
                 app_ref body(m);
                 body = m.mk_or(b, m.mk_not(b));
@@ -4192,16 +4184,13 @@ public:
     unsigned init_range() const { return 5; }
     unsigned max_range() const { return 20; }
     
-
     void setup() {
         m_bounded_range_lit = null_literal;
         m_bound_terms.reset();
         m_bound_predicate = nullptr;
     }
 
-
     void validate_model(proto_model& mdl) {
-
         rational r1, r2;
         expr_ref res(m);
         if (!m_model_is_initialized)
@@ -4240,7 +4229,8 @@ void theory_lra::init() {
     m_imp->init();
 }    
 bool theory_lra::internalize_atom(app * atom, bool gate_ctx) {
-    return m_imp->internalize_atom(atom, gate_ctx);
+    m_imp->internalize_atom(atom);
+    return true;
 }
 bool theory_lra::internalize_term(app * term) {
     return m_imp->internalize_term(term);

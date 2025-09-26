@@ -50,7 +50,8 @@ std::ostream& core::print_factor(const factor& f, std::ostream& out) const {
         out << "- ";
     if (f.is_var()) {
         out << "VAR,  " << pp(f.var());
-    } else {
+    } 
+    else {
         out << "MON, v" << m_emons[f.var()] << " = ";
         print_product(m_emons[f.var()].rvars(), out);
     }
@@ -61,7 +62,8 @@ std::ostream& core::print_factor(const factor& f, std::ostream& out) const {
 std::ostream& core::print_factor_with_vars(const factor& f, std::ostream& out) const {
     if (f.is_var()) {
         out << pp(f.var());
-    } else {
+    } 
+    else {
         out << " MON = " << pp_mon_with_vars(*this, m_emons[f.var()]);
     }
     return out;
@@ -133,9 +135,8 @@ std::ostream& core::print_var(lpvar j, std::ostream& out) const {
     lra.print_column_info(j, out);
     signed_var jr = m_evars.find(j);
     out << "root=";
-    if (jr.sign()) {
-        out << "-";
-    }
+    if (jr.sign()) 
+        out << "-";    
 
     out << lra.get_variable_name(jr.var()) << "\n";
     return out;
@@ -245,23 +246,25 @@ std::string core::var_str(lpvar j) const {
     return result;
 }
 
+std::ostream& core::display_coeff(std::ostream& out, bool first, lp::mpq const& p) const {
+    if (first && p == 1)
+        return out;
+    if (first && p > 0)
+        out << p;
+    else if (p == 1)
+        out << " + ";
+    else if (p > 0)
+        out << " + " << p << " * ";
+    else if (p == -1)
+        out << " - ";
+    else if (first)
+        out << p << " * ";
+    else
+        out << " - " << -p << " * ";
+    return out;
+}
+
 std::ostream& core::display_row(std::ostream& out, lp::row_strip<lp::mpq> const& row) const {
-    auto display_coeff = [&](bool first, lp::mpq const& p) {
-        if (first && p == 1)
-            return;
-        if (first && p > 0)
-            out << p;
-        else if (p == 1)
-            out << " + ";
-        else if (p > 0)
-            out << " + " << p << " * ";
-        else if (p == -1)
-            out << " - ";
-        else if (first)
-            out << p << " * ";
-        else
-            out << " - " << -p << " * ";
-    };
     auto display_var = [&](bool first, lp::mpq p, lp::lpvar v) {
         if (is_monic_var(v)) {
             for (auto w : m_emons[v].vars())
@@ -270,7 +273,7 @@ std::ostream& core::display_row(std::ostream& out, lp::row_strip<lp::mpq> const&
         else 
             p *= m_evars.find(v).rsign();
         
-        display_coeff(first, p);
+        display_coeff(out, first, p);
         if (is_monic_var(v)) {
             bool first = true;
             for (auto w : m_emons[v].vars())
@@ -354,6 +357,28 @@ std::ostream& core::display_declarations_smt(std::ostream& out) const {
         }
     }
     return out;
+}
+
+std::ostream& core::display_constraint(std::ostream& out, lp::constraint_index ci) const {
+    auto const& c = lra.constraints()[ci];
+    return display_constraint(out, c.coeffs(), c.kind(), c.rhs());
+}
+
+std::ostream& core::display_constraint(std::ostream& out, lp::lar_term const& lhs, lp::lconstraint_kind k, lp::mpq const& rhs) const {
+    return display_constraint(out, lhs.coeffs_as_vector(), k, rhs);
+}
+
+std::ostream& core::display_constraint(std::ostream& out, vector<std::pair<rational, lpvar>> const & lhs, lp::lconstraint_kind k, lp::mpq const& rhs) const {
+    bool first = true;
+    for (auto [coeff, v] : lhs) {
+        display_coeff(out, first, coeff);
+        first = false;
+        if (is_monic_var(v))
+            print_product(m_emons[v], out);      
+        else
+            out << "j" << v;
+    }
+    return out << " " << k << " " << rhs;    
 }
 
 std::ostream& core::display_constraint_smt(std::ostream& out, unsigned id, lp::lar_base_constraint const& c) const {

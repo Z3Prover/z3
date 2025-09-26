@@ -21,6 +21,7 @@
 #include "math/lp/nla_grobner.h"
 #include "math/lp/nla_powers.h"
 #include "math/lp/nla_divisions.h"
+#include "math/lp/nla_mul_saturate.h"
 #include "math/lp/emonics.h"
 #include "math/lp/nex.h"
 #include "math/lp/horner.h"
@@ -90,6 +91,7 @@ class core {
     divisions                m_divisions;
     intervals                m_intervals; 
     monomial_bounds          m_monomial_bounds;
+    mul_saturate             m_mul_saturate;
     unsigned                 m_conflicts;
     bool                     m_check_feasible = false;
     horner                   m_horner;
@@ -221,8 +223,8 @@ public:
 
     void set_relevant(std::function<bool(lpvar)>& is_relevant) { m_relevant = is_relevant; }
     bool is_relevant(lpvar v) const { return !m_relevant || m_relevant(v); }
-    
-    void push();     
+
+    void push();
     void pop(unsigned n);
 
     trail_stack& trail() { return m_emons.get_trail_stack(); }
@@ -237,11 +239,16 @@ public:
     std::ostream & display_row(std::ostream& out, lp::row_strip<lp::mpq> const& row) const;
     std::ostream & display(std::ostream& out);
     std::ostream& display_smt(std::ostream& out);
+    std::ostream& display_coeff(std::ostream& out, bool first, lp::mpq const& p) const;
+    std::ostream& display_constraint(std::ostream& out, lp::constraint_index ci) const;
+    std::ostream& display_constraint(std::ostream& out, lp::lar_term const& lhs, lp::lconstraint_kind k, lp::mpq const& rhs) const;
+    std::ostream& display_constraint(std::ostream& out, vector<std::pair<rational, lpvar>> const& lhs, lp::lconstraint_kind k, lp::mpq const& rhs) const;
     std::ostream & print_ineq(const ineq & in, std::ostream & out) const;
     std::ostream & print_var(lpvar j, std::ostream & out) const;
     std::ostream & print_monics(std::ostream & out) const;    
     std::ostream & print_ineqs(const lemma& l, std::ostream & out) const;    
     std::ostream & print_factorization(const factorization& f, std::ostream& out) const;
+    
     template <typename T>
     std::ostream& print_product(const T & m, std::ostream& out) const;    
     template <typename T>

@@ -23,11 +23,11 @@ Revision History:
 #include "util/hashtable.h"
 namespace lp {
 class explanation {
-    typedef vector<std::pair<unsigned, mpq>> pair_vec;
+    typedef vector<std::pair<constraint_index, mpq>> pair_vec;
     typedef    hashtable<unsigned, u_hash, u_eq>  ci_set;
     // Only one of the fields below is used. The first call adding an entry decides which one it is.
-    vector<std::pair<constraint_index, mpq>> m_vector;
-    ci_set  m_set;   
+    pair_vec m_vector;
+    ci_set   m_set;   
 public:
     explanation() = default;
     
