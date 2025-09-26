@@ -1318,6 +1318,7 @@ lbool core::check() {
             return l_false;
     }
 
+
     if (no_effect() && lp_settings().m_enable_stellensatz)
         ret = m_stellensatz.saturate();
     
