@@ -9,6 +9,7 @@
 #include <fstream>
 #include "math/lp/lar_solver.h"
 #include "math/lp/nra_solver.h"
+#include "math/lp/nla_coi.h"
 #include "nlsat/nlsat_solver.h"
 #include "math/polynomial/polynomial.h"
 #include "math/polynomial/algebraic_numbers.h"
@@ -29,107 +30,30 @@ struct solver::imp {
     reslimit&                 m_limit;  
     params_ref                m_params; 
     u_map<polynomial::var>    m_lp2nl;  // map from lar_solver variables to nlsat::solver variables        
-    indexed_uint_set          m_term_set;
     scoped_ptr<nlsat::solver> m_nlsat;
     scoped_ptr<scoped_anum_vector>   m_values; // values provided by LRA solver
     scoped_ptr<scoped_anum> m_tmp1, m_tmp2;
+    nla::coi                  m_coi;
     nla::core&                m_nla_core;
     
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p, nla::core& nla_core): 
         lra(s), 
         m_limit(lim),
         m_params(p),
+        m_coi(nla_core),
         m_nla_core(nla_core) {}
 
     bool need_check() {
         return m_nla_core.m_to_refine.size() != 0;
     }
 
-    indexed_uint_set m_mon_set, m_constraint_set;
-
-    struct occurs {
-        unsigned_vector constraints;
-        unsigned_vector monics;
-        unsigned_vector terms;
-    };
-
-    void init_cone_of_influence() {
-        indexed_uint_set visited;
-        unsigned_vector todo;
-        vector<occurs> var2occurs;
-        m_term_set.reset();
-        m_mon_set.reset();
-        m_constraint_set.reset();
-
-        for (auto ci : lra.constraints().indices()) {
-            auto const& c = lra.constraints()[ci];
-            if (c.is_auxiliary())
-                continue;
-            for (auto const& [coeff, v] : c.coeffs()) {
-                var2occurs.reserve(v + 1);
-                var2occurs[v].constraints.push_back(ci);
-            }
-        }
-
-        for (auto const& m : m_nla_core.emons()) {
-            for (auto v : m.vars()) {
-                var2occurs.reserve(v + 1);
-                var2occurs[v].monics.push_back(m.var());
-            }
-        }
-
-        for (const auto *t :  lra.terms() ) {
-            for (auto const iv : *t) {
-                auto v = iv.j();
-                var2occurs.reserve(v + 1);
-                var2occurs[v].terms.push_back(t->j());
-            }
-        }
-
-        for (auto const& m : m_nla_core.m_to_refine)
-            todo.push_back(m);
-
-        for (unsigned i = 0; i < todo.size(); ++i) {
-            auto v = todo[i];
-            if (visited.contains(v))
-                continue;
-            visited.insert(v);
-            var2occurs.reserve(v + 1);
-            for (auto ci : var2occurs[v].constraints) {
-                m_constraint_set.insert(ci);
-                auto const& c = lra.constraints()[ci];
-                for (auto const& [coeff, w] : c.coeffs())
-                    todo.push_back(w);
-            }
-            for (auto w : var2occurs[v].monics)
-                todo.push_back(w);
-
-            for (auto ti : var2occurs[v].terms) {
-                for (auto iv : lra.get_term(ti))
-                    todo.push_back(iv.j());
-                todo.push_back(ti);
-            }
-
-            if (lra.column_has_term(v)) {
-                m_term_set.insert(v);
-                for (auto kv : lra.get_term(v))
-                    todo.push_back(kv.j());
-            }            
-
-            if (m_nla_core.is_monic_var(v)) {
-                m_mon_set.insert(v);
-                for (auto w : m_nla_core.emons()[v])
-                    todo.push_back(w);
-            }
-        }
-    }
+ 
 
     void reset() {
         m_values = nullptr;
         m_tmp1 = nullptr; m_tmp2 = nullptr;
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_values = alloc(scoped_anum_vector, am());
-        m_term_set.reset();
         m_lp2nl.reset();
     }
 
@@ -149,17 +73,17 @@ struct solver::imp {
         reset();
         vector<nlsat::assumption, false> core;
 
-        init_cone_of_influence();
+        m_coi.init();
         // add linear inequalities from lra_solver
-        for (auto ci : m_constraint_set)
+        for (auto ci : m_coi.constraints())
             add_constraint(ci);
         
         // add polynomial definitions.
-        for (auto const& m : m_mon_set)
+        for (auto const& m : m_coi.mons())
             add_monic_eq(m_nla_core.emons()[m]);
 
         // add term definitions.
-        for (unsigned i : m_term_set)
+        for (unsigned i : m_coi.terms())
             add_term(i);
 
         TRACE(nra, m_nlsat->display(tout));
@@ -370,7 +294,7 @@ struct solver::imp {
         for (auto const& m : m_nla_core.emons())
             if (any_of(m.vars(), [&](lp::lpvar v) { return m_lp2nl.contains(v); }))
                 add_monic_eq_bound(m);
-        for (unsigned i : m_term_set)
+        for (unsigned i : m_coi.terms())
             add_term(i);
         for (auto const& [v, w] : m_lp2nl) {
             if (lra.column_has_lower_bound(v))
@@ -554,8 +478,8 @@ struct solver::imp {
         if (!m_lp2nl.find(v, r)) {
             r = m_nlsat->mk_var(is_int(v));
             m_lp2nl.insert(v, r);
-            if (!m_term_set.contains(v) && lra.column_has_term(v)) {
-                m_term_set.insert(v);
+            if (!m_coi.terms().contains(v) && lra.column_has_term(v)) {
+                m_coi.terms().insert(v);
             }
         }
         return r;

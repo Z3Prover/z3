@@ -250,15 +250,17 @@ std::ostream& core::display_coeff(std::ostream& out, bool first, lp::mpq const& 
     if (first && p == 1)
         return out;
     if (first && p > 0)
-        out << p;
+        out << p << " * ";
+    else if (first && p == -1)
+        out << "-";
+    else if (first)
+        out << p << " * ";
     else if (p == 1)
         out << " + ";
     else if (p > 0)
         out << " + " << p << " * ";
     else if (p == -1)
         out << " - ";
-    else if (first)
-        out << p << " * ";
     else
         out << " - " << -p << " * ";
     return out;

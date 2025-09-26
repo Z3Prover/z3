@@ -70,7 +70,7 @@ class core {
     lbool bounded_nlsat();
 
     var_eqs<emonics>         m_evars;
-
+    
     lp::lar_solver&          lra;
     reslimit&                m_reslim;
     smt_params_helper        m_params;
@@ -127,6 +127,9 @@ public:
     // constructor
     core(lp::lar_solver& s, params_ref const& p, reslimit&);
     const auto& monics_with_changed_bounds() const { return m_monics_with_changed_bounds; }
+    lp::lar_solver& lra_solver() { return lra; }
+    indexed_uint_set const& to_refine() const { return m_to_refine; }
+
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
 

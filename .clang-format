@@ -8,6 +8,7 @@ BasedOnStyle: LLVM
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
+IndentCaseLabels: false
 
 # Column width
 ColumnLimit: 120
@@ -55,6 +56,7 @@ BinPackArguments: true
 BinPackParameters: true
 BreakBeforeBinaryOperators: None
 BreakBeforeTernaryOperators: true
+# BreakBeforeElse: true
 
 # Includes
 SortIncludes: false  # Z3 has specific include ordering conventions

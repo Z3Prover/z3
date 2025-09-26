@@ -2022,6 +2022,7 @@ public:
     }    
 
     void false_case_of_check_nla(const nla::lemma & l) {
+        TRACE(arith, tout << "nla false case\n";);
         m_lemma = l; //todo avoid the copy
         m_explanation = l.expl();
         literal_vector core;
@@ -3472,13 +3473,19 @@ public:
         // lp().shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
+        for (auto ev : m_explanation)
+            set_evidence(ev.ci(), m_core, m_eqs);
+        if (m_eqs.empty() && all_of(m_core, [&](literal l) { return ctx().get_assignment(l) == l_false; }))
+            is_conflict = true;
+        for (auto l : m_core) {
+            verbose_stream() << l << " " << ctx().get_assignment(l) << "\n";
+        }
         TRACE(arith_conflict,
               tout << "@" << ctx().get_scope_level() << (is_conflict ? " conflict":" lemma");
               for (auto const& p : m_params) tout << " " << p;
               tout << "\n";
               display_evidence(tout << core << " ", m_explanation););
-        for (auto ev : m_explanation) 
-            set_evidence(ev.ci(), m_core, m_eqs);
+
 
 
         if (params().m_arith_validate)
