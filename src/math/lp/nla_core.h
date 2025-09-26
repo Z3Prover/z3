@@ -128,6 +128,7 @@ public:
     const auto& monics_with_changed_bounds() const { return m_monics_with_changed_bounds; }
     lp::lar_solver& lra_solver() { return lra; }
     lp::lar_solver const & lra_solver() const { return lra; }
+
     indexed_uint_set const& to_refine() const { return m_to_refine; }
 
     void insert_to_refine(lpvar j);
