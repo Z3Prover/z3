@@ -2116,16 +2116,18 @@ namespace lp {
     mpq lar_solver::adjust_bound_for_int(lpvar j, lconstraint_kind& k, const mpq& bound) {
         if (!column_is_int(j))
             return bound;
-        if (bound.is_int())
-            return bound;
         switch (k) {
         case LT:
             k = LE;
+            if (bound.is_int())
+                return bound - 1;
             Z3_fallthrough;
         case LE:
             return floor(bound);
         case GT:
             k = GE;
+            if (bound.is_int())
+                return bound + 1;
             Z3_fallthrough;
         case GE:
             return ceil(bound);

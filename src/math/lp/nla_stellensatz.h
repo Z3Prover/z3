@@ -34,9 +34,10 @@ namespace nla {
             rational rhs;           
         };
         using bound_justification = std::variant<u_dependency*, bound>;
+        using bound_justifications = vector<bound_justification>;
 
         coi m_coi;
-        u_map<vector<bound_justification>> m_new_mul_constraints;
+        u_map<bound_justifications> m_new_mul_constraints;
         indexed_uint_set m_to_refine;
         ptr_vector<u_dependency> m_ci2dep;
         vector<rational> m_values;
@@ -60,8 +61,12 @@ namespace nla {
         lpvar add_monomial(svector<lp::lpvar> const& vars);
         bool is_int(svector<lp::lpvar> const& vars) const;
         lpvar add_var(bool is_int);
+        lbool add_bounds(svector<lpvar> const &vars, bound_justifications &bounds);
         void saturate_constraints();
         void saturate_constraint(lp::constraint_index con_id, lp::lpvar mi, lpvar x);
+        void saturate_basic_linearize();
+        void saturate_signs(lpvar j, rational const& val_j, svector<lpvar> const& vars, rational const& val_vars);
+        void saturate_units(lpvar j, svector<lpvar> const &vars);
 
 
         // lemmas

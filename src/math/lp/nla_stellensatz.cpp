@@ -138,6 +138,103 @@ namespace nla {
         c().lra_solver().settings().stats().m_nla_stellensatz++;
     }
 
+    //
+    // TODO - also possible:
+    // derive units
+    // x*y = +/-x => y = +/-1
+    // 
+    // derive monotonicity:
+    // x >= 1 => |xy| > |y|
+    //
+    // add monotonicity axioms for squares
+    // 
+    // Use to_refine and model from c().lra_solver() for initial pass.
+    // Use model from m_solver.lra() for subsequent passes.
+    //    
+    void stellensatz::saturate_basic_linearize() {
+        auto &lra = c().lra_solver();
+        for (auto j : c().to_refine()) {
+            auto const &vars = m_mon2vars[j];
+            auto val_j = c().val(j);
+            auto val_vars = m_values[j];
+            saturate_signs(j, val_j, vars, val_vars);
+            saturate_units(j, vars);            
+        }
+    }
+
+    //
+    // Sign axioms:
+    // x = 0 => x*y = 0
+    // the equation x*y = 0 is asserted with assumption x = 0
+    // x > 0 & y < 0 => x*y < 0
+    // 
+    void stellensatz::saturate_signs(lpvar j, rational const& val_j, svector<lpvar> const& vars,
+        rational const& val_vars) {
+        if (val_vars == 0 && val_j != 0) {
+            bound_justifications bounds;
+            lbool sign = add_bounds(vars, bounds);
+            SASSERT(sign == l_undef);
+            auto new_ci = m_solver.lra().add_var_bound(j, lp::lconstraint_kind::EQ, rational(0));
+            m_new_mul_constraints.insert(new_ci, bounds);
+            m_ci2dep.setx(new_ci, nullptr, nullptr);
+        } 
+        else if (val_j <= 0 && 0 < val_vars) {
+            bound_justifications bounds;
+            lbool sign = add_bounds(vars, bounds);
+            SASSERT(sign == l_false);
+            auto new_ci = m_solver.lra().add_var_bound(j, lp::lconstraint_kind::GT, rational(0));
+            m_new_mul_constraints.insert(new_ci, bounds);
+            m_ci2dep.setx(new_ci, nullptr, nullptr);
+        } 
+        else if (val_j >= 0 && 0 > val_vars) {
+            bound_justifications bounds;
+            lbool sign = add_bounds(vars, bounds);
+            SASSERT(sign == l_true);
+            auto new_ci = m_solver.lra().add_var_bound(j, lp::lconstraint_kind::LT, rational(0));
+            m_new_mul_constraints.insert(new_ci, bounds);
+            m_ci2dep.setx(new_ci, nullptr, nullptr);
+        }
+    }
+
+    //
+    // Unit axioms:
+    // x = -1 => x*y = -y
+    // x = 1 => x*y = y
+    //
+    void stellensatz::saturate_units(lpvar j, svector<lpvar> const &vars) {
+        lpvar non_unit = lp::null_lpvar;
+        bool sign = false;
+        for (auto v : vars) {
+            if (m_values[v] == 1)
+                continue;
+            if (m_values[v] == -1) {
+                sign = !sign;
+                continue;
+            }
+            if (non_unit != lp::null_lpvar)
+                return;
+            non_unit = v;
+        }
+        bound_justifications bounds;
+        for (auto v : vars) {
+            if (m_values[v] == 1 || m_values[v] == -1) {
+                bound b(v, lp::lconstraint_kind::EQ, rational(m_values[v]));
+                bounds.push_back(b);
+            }
+        }
+        // assert j = +/- non_unit
+        lp::lar_term new_lhs;
+        new_lhs.add_monomial(rational(1), j);
+        new_lhs.add_monomial(rational(sign ? 1 : -1), non_unit);
+        auto ti = m_solver.lra().add_term(new_lhs.coeffs_as_vector(), m_solver.lra().number_of_vars());
+        m_values.push_back(m_values[j] - (sign ? 1 : -1) * m_values[non_unit]);
+        auto k = lp::lconstraint_kind::EQ;
+        auto new_ci = m_solver.lra().add_var_bound(ti, k, rational(0));
+        SASSERT(m_values.size() - 1 == ti);
+        m_new_mul_constraints.insert(new_ci, bounds);
+        m_ci2dep.setx(new_ci, nullptr, nullptr);
+    }
+
     // record new monomials that are created and recursively down-saturate with respect to these.
     // this is a simplistic pass
     void stellensatz::saturate_constraints() {
@@ -183,13 +280,11 @@ namespace nla {
     // multiply by remaining vars
     void stellensatz::saturate_constraint(lp::constraint_index old_ci, lp::lpvar mi, lpvar x) {
         lp::lar_base_constraint const& con = m_solver.lra().constraints()[old_ci];
-        auto &lra = c().lra_solver();
         auto const& lhs = con.coeffs();
         auto const& rhs = con.rhs();
         auto k = con.kind();
         if (k == lp::lconstraint_kind::NE || k == lp::lconstraint_kind::EQ)
             return;  // not supported
-        auto sign = false, strict = true;
         svector<lpvar> vars;
         bool first = true;
         for (auto v : m_mon2vars[mi]) {
@@ -200,45 +295,9 @@ namespace nla {
         }
         SASSERT(!first); // v was a member and was removed
 
-        vector<bound_justification> bounds;
+        bound_justifications bounds;
         // compute bounds constraints and sign of vars
-
-        auto add_bound = [&](lpvar v, lp::lconstraint_kind k, int r) { 
-            bound b(v, k, rational(r));
-            bounds.push_back(b);
-        };
-        for (auto v : vars) {
-            // retrieve bounds of v
-            // if v has positive lower bound add as positive
-            // if v has negative upper bound add as negative
-            // otherwise look at the current value of v and add bounds assumption based on current sign.
-            // todo: detect squares, allow for EQ but skip bounds assumptions.
-            if (lra.number_of_vars() > v && lra.column_has_lower_bound(v) && lra.get_lower_bound(v).is_pos()) {
-                bounds.push_back(lra.get_column_lower_bound_witness(v));
-            } 
-            else if (lra.number_of_vars() > v && lra.column_has_upper_bound(v) && lra.get_upper_bound(v).is_neg()) {
-                bounds.push_back(lra.get_column_upper_bound_witness(v));                
-                sign = !sign;
-            } 
-            else if (m_values[v].is_neg()) {
-                if (lra.var_is_int(v))
-                    add_bound(v, lp::lconstraint_kind::LE, -1);
-                else
-                    add_bound(v, lp::lconstraint_kind::LT, 0);
-                sign = !sign;
-            } 
-            else if (m_values[v].is_pos()) {
-                if (lra.var_is_int(v)) 
-                    add_bound(v, lp::lconstraint_kind::GE, 1);                
-                else 
-                    add_bound(v, lp::lconstraint_kind::GT, 0);                
-            } 
-            else {
-                SASSERT(m_values[v] == 0);
-                strict = false;
-                add_bound(v, lp::lconstraint_kind::GE, 0);                
-            }
-        }
+        lbool sign = add_bounds(vars, bounds);
         lp::lar_term new_lhs;
         rational new_rhs(rhs), term_value(0);
         for (auto const & [coeff, v] : lhs) {
@@ -259,10 +318,10 @@ namespace nla {
             new_rhs = 0;
         }
 
-        if (sign) 
+        if (sign == l_true) 
             k = swap_side(k);
         
-        if (!strict) {
+        if (sign == l_undef) {
             switch (k) {
             case lp::lconstraint_kind::GT:
                 k = lp::lconstraint_kind::GE;
@@ -282,6 +341,48 @@ namespace nla {
         SASSERT(m_values.size() - 1 == ti);
         m_new_mul_constraints.insert(new_ci, bounds);
         m_ci2dep.setx(new_ci, m_ci2dep.get(old_ci, nullptr), nullptr);
+    }
+
+    lbool stellensatz::add_bounds(svector<lpvar> const& vars, bound_justifications& bounds) {
+        bool sign = false;
+        auto &lra = c().lra_solver();
+        auto add_bound = [&](lpvar v, lp::lconstraint_kind k, int r) {
+            bound b(v, k, rational(r));
+            bounds.push_back(b);
+        };
+        for (auto v : vars) {
+            if (m_values[v] != 0)
+                continue;
+            add_bound(v, lp::lconstraint_kind::EQ, 0); 
+            return l_undef;
+        }
+        for (auto v : vars) {
+            // retrieve bounds of v
+            // if v has positive lower bound add as positive
+            // if v has negative upper bound add as negative
+            // otherwise look at the current value of v and add bounds assumption based on current sign.
+            // todo: detect squares, allow for EQ but skip bounds assumptions.
+            if (lra.number_of_vars() > v && lra.column_has_lower_bound(v) && lra.get_lower_bound(v).is_pos()) {
+                bounds.push_back(lra.get_column_lower_bound_witness(v));
+            } else if (lra.number_of_vars() > v && lra.column_has_upper_bound(v) && lra.get_upper_bound(v).is_neg()) {
+                bounds.push_back(lra.get_column_upper_bound_witness(v));
+                sign = !sign;
+            } else if (m_values[v].is_neg()) {
+                if (lra.var_is_int(v))
+                    add_bound(v, lp::lconstraint_kind::LE, -1);
+                else
+                    add_bound(v, lp::lconstraint_kind::LT, 0);
+                sign = !sign;
+            } else if (m_values[v].is_pos()) {
+                if (lra.var_is_int(v))
+                    add_bound(v, lp::lconstraint_kind::GE, 1);
+                else
+                    add_bound(v, lp::lconstraint_kind::GT, 0);
+            } else {
+                UNREACHABLE();
+            }
+        }
+        return sign ? l_true : l_false;
     }
 
     // Insert a (new) monomial representing product of vars.
