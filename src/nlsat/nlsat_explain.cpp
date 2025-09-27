@@ -1135,7 +1135,7 @@ namespace nlsat {
             
             polynomial_ref_vector samples(m_pm);
             if (x < max_x)
-                cac_add_cell_lits(ps, x, samples);
+                cac_add_cell_lits(ps, x);
 
             while (true) {
                 if (all_univ(ps, x) && m_todo.empty()) {
@@ -1160,7 +1160,7 @@ namespace nlsat {
                 if (m_todo.empty())
                     break;
                 x = m_todo.extract_max_polys(ps);
-                cac_add_cell_lits(ps, x, samples);
+                cac_add_cell_lits(ps, x);
             }
         }
 
