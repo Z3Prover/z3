@@ -137,6 +137,7 @@ struct statistics {
     unsigned m_bounds_tightening_conflicts = 0;
     unsigned m_bounds_tightenings = 0;
     unsigned m_nla_throttled_lemmas = 0;
+    unsigned m_nla_stellensatz = 0;
 
     ::statistics m_st = {};
 
@@ -176,6 +177,7 @@ struct statistics {
         st.update("arith-bounds-tightening-conflicts", m_bounds_tightening_conflicts);
         st.update("arith-bounds-tightenings", m_bounds_tightenings);
         st.update("arith-nla-throttled-lemmas", m_nla_throttled_lemmas);
+        st.update("arith-nla-stellensatz", m_nla_stellensatz);
         st.copy(m_st);
     }
 };
@@ -260,6 +262,7 @@ private:
     bool             m_dio_run_gcd = true;
 public:
     bool m_enable_relevancy = false;
+    bool m_enable_stellensatz = true;
     unsigned dio_calls_period() const { return m_dio_calls_period; }
     unsigned & dio_calls_period() { return m_dio_calls_period; }
     bool print_external_var_name() const { return m_print_external_var_name; }

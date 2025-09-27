@@ -40,6 +40,7 @@ namespace lp {
         EQ = 0,
         NE = 3
     };
+
     typedef unsigned lpvar;
     const lpvar null_lpvar = UINT_MAX;
     const constraint_index null_ci = UINT_MAX;

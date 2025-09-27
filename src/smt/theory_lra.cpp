@@ -3467,15 +3467,15 @@ public:
 
     void set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
         reset_evidence();
-        for (literal lit : core) {
+        for (literal lit : core) 
             m_core.push_back(lit);
-        }
+        
         // lp().shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
         for (auto ev : m_explanation)
             set_evidence(ev.ci(), m_core, m_eqs);
-        if (m_eqs.empty() && all_of(m_core, [&](literal l) { return ctx().get_assignment(l) == l_false; }))
+        if (all_of(m_core, [&](literal l) { return ctx().get_assignment(l) == l_false; }))
             is_conflict = true;
         TRACE(arith_conflict,
               tout << "@" << ctx().get_scope_level() << (is_conflict ? " conflict":" lemma");

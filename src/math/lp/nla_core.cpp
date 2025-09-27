@@ -1333,7 +1333,7 @@ lbool core::check() {
             return l_false;
     }
 
-    if (false && no_effect())
+    if (no_effect() && lp_settings().m_enable_stellensatz)
         ret = m_mul_saturate.saturate();
     
     if (no_effect() && should_run_bounded_nlsat()) 

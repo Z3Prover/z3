@@ -5,6 +5,8 @@
 #pragma once
 
 #include "math/lp/nla_coi.h"
+#include "math/lp/int_solver.h"
+#include <variant>
 
 namespace nla {
 
@@ -12,18 +14,19 @@ namespace nla {
     class lar_solver;    
     class mul_saturate : common {
 
-        struct var_sign {
+
+        struct bound {
             lpvar v = lp::null_lpvar;
-            bool is_neg = false;
-            u_dependency* dep = nullptr;
+            lp::lconstraint_kind k;
+            rational rhs;           
         };
+        using bound_justification = std::variant<u_dependency*, bound>;
+
         coi m_coi;
-        // source of multiplication constraint
-        u_map<lp::constraint_index> m_new_mul_constraints;
-        svector<var_sign> m_var_signs;
-        tracked_uint_set m_seen_vars;
+        u_map<vector<bound_justification>> m_new_mul_constraints;
         indexed_uint_set m_to_refine;
-        scoped_ptr<lp::lar_solver> local_solver;
+        scoped_ptr<lp::lar_solver> lra_solver;
+        scoped_ptr<lp::int_solver> int_solver;
         ptr_vector<u_dependency> m_ci2dep;
         vector<rational> m_values;
         struct eq {
@@ -51,6 +54,8 @@ namespace nla {
 
         // solving
         lbool solve(lp::explanation& ex);
+        lbool solve_lra(lp::explanation &ex);
+        lbool solve_lia(lp::explanation &ex);
 
         // lemmas
         void add_lemma(lp::explanation const& ex);
