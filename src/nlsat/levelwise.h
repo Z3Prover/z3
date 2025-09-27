@@ -13,19 +13,24 @@ namespace nlsat {
         };
         struct symbolic_interval {
             bool section = false;
-            poly* l = nullptr;
+            polynomial_ref l;
             unsigned l_index; // the root index
-            poly* u = nullptr;
+            polynomial_ref u;
             unsigned u_index; // the root index
             bool l_inf() const { return l == nullptr; }
             bool u_inf() const { return u == nullptr; }
             bool is_section() const { return section; }
             bool is_sector() const { return !section; }
-            poly* section_poly() {
+            polynomial_ref& section_poly() {
                 SASSERT(is_section());                
                 return l;
             }
+            symbolic_interval(polynomial::manager & pm):l(pm), u(pm) {}
         };
+        // Free pretty-printer declared here so external modules (e.g., nlsat_explain) can
+        // display intervals without depending on levelwise internals.
+        // Implemented in levelwise.cpp
+        friend std::ostream& display(std::ostream& out, solver& s, symbolic_interval const& I);
             
     private:
 
@@ -43,5 +48,7 @@ namespace nlsat {
     };
 
     //
+    // Free pretty-printer (non-member) for levelwise::symbolic_interval
+    std::ostream& display(std::ostream& out, solver& s, levelwise::symbolic_interval const& I);
 
 } // namespace nlsat
