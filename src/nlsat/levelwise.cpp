@@ -19,7 +19,7 @@ namespace nlsat {
 // Local enums reused from previous scaffolding
     enum class property_mapping_case : unsigned { case1 = 0, case2 = 1, case3 = 2 };    
     
-    enum class prop_enum : unsigned {
+    enum prop_enum {
         ir_ord,
         an_del,
         non_null,
@@ -27,13 +27,13 @@ namespace nlsat {
         sgn_inv,
         connected,
         an_sub,
-        sample,
+        sample_holds,
         repr,
         holds,
         _count 
     };
 
-    unsigned prop_count() { return static_cast<unsigned>(prop_enum::_count);}
+    unsigned prop_count() { return static_cast<unsigned>(_count);}
     
     struct levelwise::impl {
         // Utility: call fn for each distinct irreducible factor of poly
@@ -97,10 +97,17 @@ namespace nlsat {
        // max_x plays the role of n in algorith 1 of the levelwise paper.
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am)
             : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am) {
-            TRACE(levelwise, tout  << "m_n:" << m_n << "\n";);
-            m_I.resize(m_n);
+            TRACE(lws, tout  << "m_n:" << m_n << "\n";);
+            // m_I holds one symbolic_interval per level. symbolic_interval is not default
+            // constructible (it requires a polynomial::manager), so using resize() would
+            // attempt to default-construct elements and fail to compile. Instead we
+            // explicitly emplace objects initialized with the polynomial manager.
+            m_I.reserve(m_n);
+            for (unsigned i = 0; i < m_n; ++i)
+                m_I.emplace_back(m_pm);
             m_Q.resize(m_n+1);
         }
+        // end constructor
 
 
         // helper overload so callers can pass either raw poly* or polynomial_ref
@@ -188,7 +195,7 @@ namespace nlsat {
             if (root_vals.size() < 2) return true;
             std::sort(root_vals.begin(), root_vals.end(), [&](auto const & a, auto const & b){ return m_am.lt(a.first, b.first); });
             std::set<std::pair<unsigned,unsigned>> added_pairs;
-            TRACE(levelwise, 
+            TRACE(lws, 
                 tout << "root_vals:";
                 for (const auto& rv : root_vals) {
                     tout << " [";
@@ -214,7 +221,7 @@ namespace nlsat {
                 polynomial_ref r(m_pm);
                 r = resultant(polynomial_ref(p1, m_pm), polynomial_ref(p2, m_pm), m_n);
                 if (is_const(r)) continue;
-                TRACE(levelwise, tout << "resultant: "; ::nlsat::display(tout, m_solver, r); tout << std::endl;);
+                TRACE(lws, tout << "resultant: "; ::nlsat::display(tout, m_solver, r); tout << std::endl;);
                 if (is_zero(r)) {
                     NOT_IMPLEMENTED_YET();// ambiguous resultant - not handled yet
                     return false;
@@ -301,7 +308,7 @@ namespace nlsat {
         }
 
         //works on m_level
-        bool apply_property_rules(prop_enum prop_to_avoid, bool has_repr) {
+        bool apply_property_rules(prop_enum prop_to_avoid, bool have_representation) {
             SASSERT (!m_fail);
             std::vector<property> avoided;
             auto& q = m_Q[m_level];
@@ -311,7 +318,7 @@ namespace nlsat {
                     avoided.push_back(p);
                     continue;
                 }
-                apply_pre(p, has_repr);
+                apply_pre(p, have_representation);
                 if (m_fail) break;
             }
             for (auto & p : avoided)
@@ -335,7 +342,7 @@ namespace nlsat {
                  return m_am.lt(a.val, b.val);
              });
              compute_interval_from_sorted_roots(E, m_I[m_level]);
-             TRACE(levelwise, display(tout << "m_I[" << m_level << "]:", m_I[m_level]) << std::endl;);
+             TRACE(lws, display(tout << "m_I[" << m_level << "]:", m_I[m_level]) << std::endl;);
          }
 
          // Step 1a: collect E the set of root functions 
@@ -350,7 +357,7 @@ namespace nlsat {
                  m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_level), roots);
 
                  unsigned num_roots = roots.size();
-                 TRACE(levelwise,
+                 TRACE(lws,
                        tout << "roots (" << num_roots << "):";
                        for (unsigned kk = 0; kk < num_roots; ++kk) {
                            tout << " "; m_am.display(tout, roots[kk]);
@@ -369,7 +376,7 @@ namespace nlsat {
                  if (q.prop_tag != pr.prop_tag) continue;
                  if (q.poly != pr.poly) continue;
                  if (q.s_idx != pr.s_idx) continue;
-                 TRACE(levelwise, display(tout << "matched q:", q) << std::endl;);
+                 TRACE(lws, display(tout << "matched q:", q) << std::endl;);
                  return;
              }
              m_Q[level].push(pr);
@@ -383,7 +390,7 @@ namespace nlsat {
                 return true;
             }
 
-            TRACE(levelwise, display(tout << "m_Q:") << std::endl;);
+            TRACE(lws, display(tout << "m_Q:") << std::endl;);
 
             build_representation();
             SASSERT(invariant());
@@ -393,7 +400,7 @@ namespace nlsat {
          void add_ord_inv_discriminant_for(const property& p) {
             polynomial::polynomial_ref disc(m_pm);
             disc = discriminant(p.poly, max_var(p.poly));
-            TRACE(levelwise, tout << "p:"; display(tout, p) << "\n";
+            TRACE(lws, tout << "p:"; display(tout, p) << "\n";
                   ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
             if (!is_const(disc)) {
                 for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
@@ -433,13 +440,13 @@ namespace nlsat {
         // Extracted helper: check preconditions for an_del property; returns true if ok, false otherwise.
         bool precondition_on_an_del(const property& p) {
             if (!p.poly) {
-                TRACE(levelwise, tout << "apply_pre: an_del with null poly -> fail" << std::endl;);
+                TRACE(lws, tout << "apply_pre: an_del with null poly -> fail" << std::endl;);
                 m_fail = true;
                 return false;
             }
             // If p is nullified on the sample for its level we must abort (Rule 4.1)
             if (coeffs_are_zeroes_on_sample(p.poly, m_pm, sample(), m_am)) {
-                TRACE(levelwise, tout << "Rule 4.1: polynomial nullified at sample -> failing" << std::endl;);
+                TRACE(lws, tout << "Rule 4.1: polynomial nullified at sample -> failing" << std::endl;);
                 m_fail = true;
                 NOT_IMPLEMENTED_YET();
                 return false;
@@ -463,11 +470,11 @@ namespace nlsat {
         }
 
         // Pre-processing for connected(i) (Rule 4.11)
-        void apply_pre_connected(const property & p, bool has_repr) {
+        void apply_pre_connected(const property & p, bool have_representation) {
             // Rule 4.11 special-case: if the connected property refers to level 0 there's nothing to refine
             // further; just remove the property from Q and return.
             if (m_level == 0) {
-                TRACE(levelwise, tout << "apply_pre_connected: level 0 -> erasing connected property and returning" << std::endl;);
+                TRACE(lws, tout << "apply_pre_connected: level 0 -> erasing connected property and returning" << std::endl;);
                 return;
             }
 
@@ -477,7 +484,7 @@ namespace nlsat {
 
             mk_prop(prop_enum::connected, m_level - 1);
             mk_prop(prop_enum::repr, m_level - 1);            
-            if (!has_repr) { 
+            if (!have_representation) { 
                return; // no change since the cell representation is not available            
             }
             NOT_IMPLEMENTED_YET();
@@ -486,7 +493,7 @@ namespace nlsat {
         }
 
         void apply_pre_non_null(const property& p) {
-            TRACE(levelwise, tout << "p:"; display(tout, p) << std::endl;);
+            TRACE(lws, tout << "p:"; display(tout, p) << std::endl;);
             // First try subrule 1 of Rule 4.2. If it succeeds we do not apply the fallback (subrule 2).
             if (try_non_null_via_coeffs(p))
                 return;
@@ -511,7 +518,7 @@ namespace nlsat {
         bool try_non_null_via_coeffs(const property& p) {
             unsigned level = max_var(p.poly);
             if (have_non_zero_const(p.poly, level)) {
-                TRACE(levelwise, tout << "have a non-zero const coefficient\n";);
+                TRACE(lws, tout << "have a non-zero const coefficient\n";);
                 return true;
             }
     
@@ -543,7 +550,7 @@ namespace nlsat {
         void apply_pre_non_null_fallback(const property& p) {
             // basic sanity checks
             if (!p.poly) {
-                TRACE(levelwise, tout << "apply_pre_non_null_fallback: null poly -> fail" << std::endl;);
+                TRACE(lws, tout << "apply_pre_non_null_fallback: null poly -> fail" << std::endl;);
                 m_fail = true;
                 return;
             }
@@ -558,12 +565,12 @@ namespace nlsat {
             // compute discriminant w.r.t. the variable at p.level
             polynomial_ref disc(m_pm);
             disc = discriminant(p.poly, level);
-            TRACE(levelwise, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
+            TRACE(lws, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
 
             // If discriminant evaluates to zero at the sample, we cannot proceed
             // (ambiguous multiplicity) -> fail per instruction
             if (sign(disc, sample(), m_am) == 0) {
-                TRACE(levelwise, tout << "apply_pre_non_null_fallback: discriminant vanishes at sample -> failing" << std::endl;);
+                TRACE(lws, tout << "apply_pre_non_null_fallback: discriminant vanishes at sample -> failing" << std::endl;);
                 m_fail = true;
                 NOT_IMPLEMENTED_YET();
                 return;
@@ -590,6 +597,7 @@ namespace nlsat {
         }
 
         /*
+        Rule 4.13
 The property repr(I, s) holds on R if and only if I.l ∈ irExpr(I.l.p, s) (if I.l ̸= −∞), I.u ∈ irExpr(I.u.p, s)
 (if I.u ̸= ∞) respectively I.b ∈ irExpr(I.b.p, s) and one of the following holds:
 • I = (sector, l, u), dom(θl,s ) ∩ dom(θu,s ) ⊇ R ↓[i−1] and R = {(r, r′) | r ∈ R ↓[i−1], r′ ∈ (θl,s (r), θu,s (r))};
@@ -602,9 +610,9 @@ or
          */
         void apply_pre_repr(const property& p) {
             const auto& I = m_I[m_level];
-            TRACE(levelwise, display(tout << "interval m_I[" << m_level << "]\n", I) << "\n";);
+            TRACE(lws, display(tout << "interval m_I[" << m_level << "]\n", I) << "\n";);
             mk_prop(prop_enum::holds, m_level -1);
-            mk_prop(prop_enum::sample, m_level -1);
+            mk_prop(sample_holds, m_level -1);
             if (I.is_section()) {
                 NOT_IMPLEMENTED_YET();
             } else {
@@ -615,10 +623,10 @@ or
             }
         }
 
-        void apply_pre_sample(const property& p, bool has_repr) {
+        void apply_pre_sample(const property& p, bool have_representation) {
             if (m_level == 0)
                 return;
-            mk_prop(prop_enum::sample, m_level - 1);
+            mk_prop(sample_holds, m_level - 1);
             mk_prop(prop_enum::repr, m_level - 1);
         }
 
@@ -635,14 +643,14 @@ or
         }
 
 /*  Rule 4.6. Let i ∈ N, R ⊆ Ri, s ∈ R_{i−1}, and realRoots(p(s, xi )) = ∅. */
-        void apply_pre_sgn_inv(const property& p, bool has_repr) {
+        void apply_pre_sgn_inv(const property& p, bool have_representation) {
             SASSERT(is_irreducible(p.poly));
             scoped_anum_vector roots(m_am);
             SASSERT(max_var(p.poly) == m_level);
             m_am.isolate_roots(p.poly, undef_var_assignment(sample(), m_level), roots);
             if (roots.size() == 0) {
                 //Rule 4.6 sample(s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R)
-                mk_prop(prop_enum::sample, m_level - 1);
+                mk_prop(sample_holds, m_level - 1);
                 mk_prop(prop_enum::an_del, p.poly, m_level);
             } 
             /* Rule 4.8. Let i ∈ N>0 , R ⊆ Ri
@@ -675,15 +683,15 @@ or
           p(s) ̸= 0, sample(s)(R), sgn_inv(p)(R) ⊢ ord_inv(p)(R)
           p(s)= 0, sample(s)(R), an_sub(i− 1)(R), connected(i)(R), sgn_inv(p)(R), an_del(p)(R) ⊢ ord_inv(p)(R)
         */
-        void apply_pre_ord_inv(const property& p, bool has_repr) {
+        void apply_pre_ord_inv(const property& p, bool have_representation) {
             SASSERT(p.prop_tag == prop_enum::ord_inv && is_irreducible(p.poly));
             unsigned level = max_var(p.poly);
             auto sign_on_sample = sign(p.poly, sample(), m_am);
             if (sign_on_sample) {
-                mk_prop(prop_enum::sample, level);
+                mk_prop(sample_holds, level);
                 mk_prop(prop_enum::sgn_inv, p.poly, level);
             } else { // sign is zero
-                mk_prop(prop_enum::sample, level);
+                mk_prop(sample_holds, level);
                 mk_prop(prop_enum::an_sub, level - 1);
                 mk_prop(prop_enum::connected, level);                
                 mk_prop(prop_enum::sgn_inv, p.poly, p.s_idx, level);
@@ -691,15 +699,15 @@ or
             }
         }
         
-        void apply_pre(const property& p, bool has_repr) {
-            TRACE(levelwise, tout << "apply_pre BEGIN m_Q:"; display(tout) << std::endl; 
+        void apply_pre(const property& p, bool have_representation) {
+            TRACE(lws, tout << "apply_pre BEGIN m_Q:"; display(tout) << std::endl; 
                   display(tout << "pre p:", p) << std::endl;);
             switch (p.prop_tag) {
             case prop_enum::an_del:
                 apply_pre_an_del(p);
                 break;
             case prop_enum::connected:
-                apply_pre_connected(p, has_repr);
+                apply_pre_connected(p, have_representation);
                 break;
             case prop_enum::non_null:
                 apply_pre_non_null(p);
@@ -712,21 +720,21 @@ or
                 break;
             case prop_enum::holds:
                 break; // ignore the bottom of refinement
-            case prop_enum::sample:
-                apply_pre_sample(p, has_repr);
+            case sample_holds:
+                apply_pre_sample(p, have_representation);
                 break;
             case prop_enum::sgn_inv:
-                apply_pre_sgn_inv(p, has_repr);
+                apply_pre_sgn_inv(p, have_representation);
                 break;
             case prop_enum::ord_inv:
-                apply_pre_ord_inv(p, has_repr);
+                apply_pre_ord_inv(p, have_representation);
                 break;
             default:
-                TRACE(levelwise, display(tout << "not impl: p", p));
+                TRACE(lws, display(tout << "not impl: p", p));
                 NOT_IMPLEMENTED_YET();
                 break;
             }
-            TRACE(levelwise,  tout << "apply_pre END m_Q:"; display(tout) << std::endl;);
+            TRACE(lws,  tout << "apply_pre END m_Q:"; display(tout) << std::endl;);
             SASSERT(invariant());
         }
 
@@ -743,7 +751,7 @@ or
 
         // return an empty vector on failure, otherwise returns the cell representations with intervals
         std::vector<symbolic_interval> single_cell() {
-            TRACE(levelwise,
+            TRACE(lws,
                    m_solver.display_assignment(tout << "sample()") << std::endl;
                    tout << "m_P:\n";
                    for (const auto & p: m_P) {
@@ -772,7 +780,7 @@ or
             case prop_enum::sgn_inv:              return "sgn_inv";
             case prop_enum::connected:            return "connected";
             case prop_enum::an_sub:               return "an_sub";
-            case prop_enum::sample:               return "sample";
+            case sample_holds:                    return "sample";
             case prop_enum::repr:                 return "repr";
             case prop_enum::holds:                return "holds";
             case prop_enum::_count:               return "_count";
@@ -811,25 +819,8 @@ or
         }
 
         std::ostream& display(std::ostream& out, const symbolic_interval& I) const {
-            if (I.section) {
-                    out << "Section:\n"; 
-                    if (I.l == nullptr)
-                       out << "not defined\n";
-                    else    
-                        ::nlsat::display(out, m_solver, I.l);
-                } else {
-                    out << "Sector: (";
-                    if (I.l_inf())
-                        out << "-oo,";
-                    else
-                        ::nlsat::display(out, m_solver, I.l) << ",";
-                    if (I.u_inf())
-                        out << "+oo)";
-                    else 
-                        ::nlsat::display(out, m_solver, I.u) << ")";
-                }
-                return out;
-            }
+            return ::nlsat::display(out, m_solver, I);
+        }
 
 
     };
@@ -844,3 +835,34 @@ or
     }
 
 } // namespace nlsat
+
+// Free pretty-printer for symbolic_interval
+std::ostream& nlsat::display(std::ostream& out, solver& s, levelwise::symbolic_interval const& I) {
+    if (I.section) {
+        out << "Section: ";
+        if (I.l == nullptr)
+            out << "(undef)";
+        else {
+            ::nlsat::display(out, s, I.l);
+            out << "[root_index=" << I.l_index << "]";
+        }
+    }
+    else {
+        out << "Sector: (";
+        if (I.l_inf())
+            out << "-oo";
+        else {
+            ::nlsat::display(out, s, I.l);
+            out << "[i=" << I.l_index << "]";
+        }
+        out << ", ";
+        if (I.u_inf())
+            out << "+oo";
+        else {
+            ::nlsat::display(out, s, I.u);
+            out << "[i=" << I.u_index << "]";
+        }
+        out << ")";
+    }
+    return out;
+}
