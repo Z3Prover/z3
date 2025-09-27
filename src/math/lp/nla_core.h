@@ -21,7 +21,7 @@
 #include "math/lp/nla_grobner.h"
 #include "math/lp/nla_powers.h"
 #include "math/lp/nla_divisions.h"
-#include "math/lp/nla_mul_saturate.h"
+#include "math/lp/nla_stellensatz.h"
 #include "math/lp/emonics.h"
 #include "math/lp/nex.h"
 #include "math/lp/horner.h"
@@ -61,7 +61,6 @@ class core {
     friend class monomial_bounds;
     friend class nra::solver;
     friend class divisions;
-    friend class mul_saturate;
 
     unsigned m_nlsat_delay = 0;
     unsigned m_nlsat_delay_bound = 0;
@@ -91,7 +90,7 @@ class core {
     divisions                m_divisions;
     intervals                m_intervals; 
     monomial_bounds          m_monomial_bounds;
-    mul_saturate             m_mul_saturate;
+    stellensatz              m_stellensatz;
     unsigned                 m_conflicts;
     bool                     m_check_feasible = false;
     horner                   m_horner;
@@ -128,6 +127,7 @@ public:
     core(lp::lar_solver& s, params_ref const& p, reslimit&);
     const auto& monics_with_changed_bounds() const { return m_monics_with_changed_bounds; }
     lp::lar_solver& lra_solver() { return lra; }
+    lp::lar_solver const & lra_solver() const { return lra; }
     indexed_uint_set const& to_refine() const { return m_to_refine; }
 
     void insert_to_refine(lpvar j);

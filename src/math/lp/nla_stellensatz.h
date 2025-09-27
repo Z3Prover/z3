@@ -10,10 +10,23 @@
 
 namespace nla {
 
-    class core;
-    class lar_solver;    
-    class mul_saturate : common {
+    class core; 
+    class lar_solver;
+    class stellensatz : common {
 
+        class solver {            
+            scoped_ptr<lp::lar_solver> lra_solver;
+            scoped_ptr<lp::int_solver> int_solver;
+            lbool solve_lra(lp::explanation &ex);
+            lbool solve_lia(lp::explanation &ex);
+        public:  
+            void init();
+            lbool solve(lp::explanation &ex);
+            lp::lar_solver &lra() { return *lra_solver; }
+            lp::lar_solver const &lra() const { return *lra_solver; }
+        };
+
+        solver m_solver;
 
         struct bound {
             lpvar v = lp::null_lpvar;
@@ -25,8 +38,6 @@ namespace nla {
         coi m_coi;
         u_map<vector<bound_justification>> m_new_mul_constraints;
         indexed_uint_set m_to_refine;
-        scoped_ptr<lp::lar_solver> lra_solver;
-        scoped_ptr<lp::int_solver> int_solver;
         ptr_vector<u_dependency> m_ci2dep;
         vector<rational> m_values;
         struct eq {
@@ -49,13 +60,9 @@ namespace nla {
         lpvar add_monomial(svector<lp::lpvar> const& vars);
         bool is_int(svector<lp::lpvar> const& vars) const;
         lpvar add_var(bool is_int);
-        void add_multiply_constraints();
-        void add_multiply_constraint(lp::constraint_index con_id, lp::lpvar mi, lpvar x);
+        void saturate_constraints();
+        void saturate_constraint(lp::constraint_index con_id, lp::lpvar mi, lpvar x);
 
-        // solving
-        lbool solve(lp::explanation& ex);
-        lbool solve_lra(lp::explanation &ex);
-        lbool solve_lia(lp::explanation &ex);
 
         // lemmas
         void add_lemma(lp::explanation const& ex);
@@ -67,7 +74,7 @@ namespace nla {
                                          lp::lconstraint_kind k, rational const& rhs) const;
 
     public:
-        mul_saturate(core* core);
+        stellensatz(core* core);
         lbool saturate();
     };
 

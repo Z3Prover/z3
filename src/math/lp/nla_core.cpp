@@ -35,7 +35,7 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
     m_divisions(*this),
     m_intervals(this, lim),
     m_monomial_bounds(this),
-    m_mul_saturate(this),
+    m_stellensatz(this),
     m_horner(this),
     m_grobner(this),
     m_emons(m_evars),
@@ -1334,7 +1334,7 @@ lbool core::check() {
     }
 
     if (no_effect() && lp_settings().m_enable_stellensatz)
-        ret = m_mul_saturate.saturate();
+        ret = m_stellensatz.saturate();
     
     if (no_effect() && should_run_bounded_nlsat()) 
         ret = bounded_nlsat();

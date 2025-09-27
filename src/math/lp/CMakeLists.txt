@@ -31,11 +31,11 @@ z3_add_component(lp
     nla_grobner.cpp
     nla_intervals.cpp
     nla_monotone_lemmas.cpp
-    nla_mul_saturate.cpp
     nla_order_lemmas.cpp
     nla_powers.cpp
     nla_pp.cpp
     nla_solver.cpp
+    nla_stellensatz.cpp
     nla_tangent_lemmas.cpp
     nla_throttle.cpp
     nra_solver.cpp    
