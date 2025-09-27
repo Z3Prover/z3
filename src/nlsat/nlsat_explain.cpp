@@ -1130,7 +1130,7 @@ namespace nlsat {
             for (auto p: m_todo.m_set)
                 ps.push_back(p);
             
-            var x = m_todo.extract_max_polys(ps);
+            m_todo.extract_max_polys(ps);
             // Remark: after vanishing coefficients are eliminated, ps may not contain max_x anymore
             
             polynomial_ref_vector samples(m_pm);
