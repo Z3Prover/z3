@@ -8,7 +8,7 @@ namespace nla {
     class coi {
         core& c;
         indexed_uint_set m_mon_set, m_constraint_set;
-        indexed_uint_set m_term_set;
+        indexed_uint_set m_term_set, m_var_set;
 
         struct occurs {
             unsigned_vector constraints;
@@ -24,6 +24,7 @@ namespace nla {
         indexed_uint_set const& mons() const { return m_mon_set; }
         indexed_uint_set const& constraints() const { return m_constraint_set; }
         indexed_uint_set& terms() { return m_term_set; }
+        indexed_uint_set const &vars() { return m_var_set; }
 
     };
 }

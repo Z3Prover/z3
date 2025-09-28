@@ -46,6 +46,7 @@ namespace nla {
           if (visited.contains(v))
               continue;
           visited.insert(v);
+          m_var_set.insert(v);
           var2occurs.reserve(v + 1);
           for (auto ci : var2occurs[v].constraints) {
               m_constraint_set.insert(ci);
