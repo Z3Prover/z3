@@ -58,15 +58,15 @@ namespace nla {
         struct resolvent {
             lp::constraint_index old_ci;
             lpvar mi;
-            lpvar x;
+            svector<lpvar> xs;
             struct eq {
                 bool operator()(resolvent const& a, resolvent const& b) const {
-                    return a.old_ci == b.old_ci && a.mi == b.mi && a.x == b.x;
+                    return a.old_ci == b.old_ci && a.mi == b.mi && a.xs == b.xs;
                 }
             };
             struct hash {
                 unsigned operator()(resolvent const& a) const {
-                    return hash_u_u(a.old_ci, hash_u_u(a.mi, a.x));
+                    return hash_u_u(a.old_ci, hash_u_u(a.mi, svector_hash<unsigned_hash>()(a.xs)));
                 }
             };
         };
@@ -92,7 +92,7 @@ namespace nla {
         lpvar add_var(bool is_int);
         lbool add_bounds(svector<lpvar> const &vars, bound_justifications &bounds);
         void saturate_constraints();
-        void saturate_constraint(lp::constraint_index con_id, lp::lpvar mi, lpvar x);
+        void saturate_constraint(lp::constraint_index con_id, lp::lpvar mi, svector<lpvar> const & xs);
         void saturate_basic_linearize();
         void saturate_basic_linearize(lpvar j, rational const &val_j, svector<lpvar> const &vars,
                                       rational const &val_vars);

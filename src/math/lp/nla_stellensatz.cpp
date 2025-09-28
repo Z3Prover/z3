@@ -46,6 +46,7 @@ namespace nla {
         init_solver();
         saturate_constraints();
         saturate_basic_linearize();
+        TRACE(arith, display(tout << "stellensatz after saturation\n"));
         lbool r = m_solver.solve(ex);
         if (r == l_false)
             add_lemma(ex);
@@ -137,7 +138,7 @@ namespace nla {
     }
 
     //
-    // a constraint can be explained by a set of bounds used as assumptions for the constraint
+    // a constraint can be explained by a set of bounds used as assumptions
     // and by an original constraint.
     // 
     void stellensatz::explain_constraint(lemma_builder& new_lemma, lp::constraint_index ci, lp::explanation& ex) {
@@ -156,7 +157,13 @@ namespace nla {
             if (std::holds_alternative<u_dependency *>(b)) {
                 auto dep = *std::get_if<u_dependency *>(&b);
                 m_solver.lra().push_explanation(dep, ex);
-            } else {
+            } 
+            else {
+                //
+                // the inequality was posted as an assumption
+                // negate it to add to the lemma
+                // recall that lemmas are represented in the form: /\ Assumptions => \/ C
+                //
                 auto [v, k, rhs] = *std::get_if<bound>(&b);
                 k = negate(k);
                 if (m_solver.lra().var_is_int(v)) {
@@ -296,13 +303,13 @@ namespace nla {
         auto valx = m_values[x];
         auto valy = m_values[y];
         if (valx > 1 && valy > 0 && val_j <= valy)
-            saturate_monotonicity(j, val_j, x, false, y, false);
+            saturate_monotonicity(j, val_j, x, 1, y, 1);
         else if (valx > 1 && valy < 0 && -val_j <= -valy)
-            saturate_monotonicity(j, val_j, x, false, y, true);
+            saturate_monotonicity(j, val_j, x, 1, y, -1);
         else if (valx < -1 && valy > 0 && -val_j <= valy)
-            saturate_monotonicity(j, val_j, x, true, y, false);
+            saturate_monotonicity(j, val_j, x, -1, y, 1);
         else if (valx < -1 && valy < 0 && val_j <= -valy)
-            saturate_monotonicity(j, val_j, x, true, y, true);
+            saturate_monotonicity(j, val_j, x, -1, y, -1);
     }
 
     // x > 1, y > 0 => xy > y
@@ -349,6 +356,7 @@ namespace nla {
     lp::constraint_index stellensatz::add_ineq(bound_justifications const& bounds,
         lp::lar_term const& t, lp::lconstraint_kind k,
         rational const& rhs) {
+        SASSERT(!t.coeffs_as_vector().empty());
         auto ti = m_solver.lra().add_term(t.coeffs_as_vector(), m_solver.lra().number_of_vars());
         m_values.push_back(value(t));
         auto new_ci = m_solver.lra().add_var_bound(ti, k, rhs);
@@ -369,7 +377,8 @@ namespace nla {
     // record new monomials that are created and recursively down-saturate with respect to these.
     // this is a simplistic pass
     void stellensatz::saturate_constraints() {
-        vector<svector<lp::constraint_index>> var2cs; 
+        vector<svector<lp::constraint_index>> var2cs;  // cs contain a term using v
+        vector<svector<lp::constraint_index>> vars2cs; // cs contain a term with a monomial using v
 
         // current approach: only resolve against var2cs, which is initialized
         // with monomials in the input.
@@ -380,10 +389,30 @@ namespace nla {
                 if (v >= var2cs.size())
                     var2cs.resize(v + 1);
                 var2cs[v].push_back(ci);
+                if (m_mon2vars.contains(v)) {
+                    for (auto w : m_mon2vars[v]) {
+                        if (w >= vars2cs.size())
+                            vars2cs.resize(w + 1);
+                        vars2cs[w].push_back(ci);
+                    }
+                }
             }
             // insert monomials to be refined
             insert_monomials_from_constraint(ci);            
         }
+
+        auto is_subset = [&](svector<lpvar> const &a, svector<lpvar> const& b) {
+            if (a.size() >= b.size())
+                return false;
+            // check if a is a subset of b, counting multiplicies, assume a, b are sorted
+            unsigned i = 0, j = 0;
+            while (i < a.size() && j < b.size()) {
+                if (a[i] == b[j]) 
+                    ++i;
+                ++j;
+            }
+            return i == a.size();           
+        };
 
         for (unsigned it = 0; it < m_to_refine.size(); ++it) {
             auto j = m_to_refine[it];
@@ -391,12 +420,22 @@ namespace nla {
             for (auto v : vars) {
                 if (v >= var2cs.size())
                     continue;
-                auto cs = var2cs[v];
-                for (auto ci : cs) {
+                svector<lpvar> _vars;
+                _vars.push_back(v);
+                for (auto ci : var2cs[v]) {
                     for (auto [coeff, u] : m_solver.lra().constraints()[ci].coeffs()) {
                         if (u == v)
-                            saturate_constraint(ci, j, v);
+                            saturate_constraint(ci, j, _vars);
                     }
+                }
+            }
+            for (auto v : vars) {
+                if (v >= vars2cs.size())
+                    continue;
+                for (auto ci : vars2cs[v]) {
+                    for (auto [coeff, u] : m_solver.lra().constraints()[ci].coeffs())
+                        if (m_mon2vars.contains(u) && is_subset(m_mon2vars[u], vars))
+                            saturate_constraint(ci, j, m_mon2vars[u]);
                 }
             }
         }
@@ -407,8 +446,8 @@ namespace nla {
     }
 
     // multiply by remaining vars
-    void stellensatz::saturate_constraint(lp::constraint_index old_ci, lpvar mi, lpvar x) {
-        resolvent r = {old_ci, mi, x};
+    void stellensatz::saturate_constraint(lp::constraint_index old_ci, lpvar mi, svector<lpvar> const& xs) {
+        resolvent r = {old_ci, mi, xs};
         if (m_resolvents.contains(r))
             return;
         m_resolvents.insert(r);
@@ -419,15 +458,14 @@ namespace nla {
         if (k == lp::lconstraint_kind::NE || k == lp::lconstraint_kind::EQ)
             return;  // not supported
 
-        svector<lpvar> vars;
-        bool first = true;
-        for (auto v : m_mon2vars[mi]) {
-            if (v != x || !first)
-                vars.push_back(v);
-            else
-                first = false;
+
+        // xs is a proper subset of vars in mi
+        svector<lpvar> vars(m_mon2vars[mi]);
+        for (auto x : xs) {
+            SASSERT(vars.contains(x));
+            vars.erase(x);
         }
-        SASSERT(!first); // v was a member and was removed
+        SASSERT(!vars.empty());
 
         bound_justifications bounds;
         // compute bounds constraints and sign of vars
