@@ -231,19 +231,19 @@ namespace nla {
             bound_justifications bounds;
             lbool sign = add_bounds(vars, bounds);
             VERIFY(sign == l_undef);
-            add_ineq(bounds, j, lp::lconstraint_kind::EQ, rational(0));
+            add_ineq("signs = 0", bounds, j, lp::lconstraint_kind::EQ, rational(0));
         } 
         else if (val_j <= 0 && 0 < val_vars) {
             bound_justifications bounds;
             lbool sign = add_bounds(vars, bounds);
             VERIFY(sign == l_false);
-            add_ineq(bounds, j, lp::lconstraint_kind::GT, rational(0));
+            add_ineq("signs > 0", bounds, j, lp::lconstraint_kind::GT, rational(0));
         } 
         else if (val_j >= 0 && 0 > val_vars) {
             bound_justifications bounds;
             lbool sign = add_bounds(vars, bounds);
             VERIFY(sign == l_true);
-            add_ineq(bounds, j, lp::lconstraint_kind::LT, rational(0));
+            add_ineq("signs < 0", bounds, j, lp::lconstraint_kind::LT, rational(0));
         }
     }
 
@@ -277,7 +277,7 @@ namespace nla {
         lp::lar_term lhs;
         lhs.add_monomial(rational(1), j);
         lhs.add_monomial(rational(sign ? 1 : -1), non_unit);
-        add_ineq(bounds, lhs, lp::lconstraint_kind::EQ, rational(0));
+        add_ineq("unit mul", bounds, lhs, lp::lconstraint_kind::EQ, rational(0));
     }
 
     // Monotonicity axioms:
@@ -313,6 +313,7 @@ namespace nla {
     }
 
     // x > 1, y > 0 => xy > y
+    // x > 1, y < 1 => -xy > -y
     void stellensatz::saturate_monotonicity(lpvar j, rational const& val_j, lpvar x, int sign_x, lpvar y, int sign_y) {
         bound_justifications bounds;
         bound b1(x, sign_x < 0 ? lp::lconstraint_kind::LT : lp::lconstraint_kind::GT, rational(sign_x));
@@ -321,8 +322,8 @@ namespace nla {
         bounds.push_back(b2);
         lp::lar_term lhs;
         lhs.add_monomial(rational(sign_x * sign_y), j);
-        lhs.add_monomial(rational(sign_y), y);
-        add_ineq(bounds, lhs, lp::lconstraint_kind::GT, rational(0));
+        lhs.add_monomial(rational(-sign_y), y);
+        add_ineq("monotonicity", bounds, lhs, lp::lconstraint_kind::GT, rational(0));
     }
 
     void stellensatz::saturate_squares(lpvar j, rational const& val_j, svector<lpvar> const& vars) {
@@ -336,7 +337,7 @@ namespace nla {
         }
         // it is a square.
         bound_justifications bounds;
-        add_ineq(bounds, j, lp::lconstraint_kind::GE, rational(0));
+        add_ineq("squares", bounds, j, lp::lconstraint_kind::GE, rational(0));
     }
 
     rational stellensatz::value(lp::lar_term const &t) const {
@@ -353,20 +354,24 @@ namespace nla {
         return p;
     }
 
-    lp::constraint_index stellensatz::add_ineq(bound_justifications const& bounds,
+    lp::constraint_index stellensatz::add_ineq(char const* rule, 
+        bound_justifications const& bounds,
         lp::lar_term const& t, lp::lconstraint_kind k,
         rational const& rhs) {
         SASSERT(!t.coeffs_as_vector().empty());
         auto ti = m_solver.lra().add_term(t.coeffs_as_vector(), m_solver.lra().number_of_vars());
         m_values.push_back(value(t));
         auto new_ci = m_solver.lra().add_var_bound(ti, k, rhs);
+        TRACE(arith, 
+            display_constraint(tout << rule << ": ", new_ci) << "\n"; 
+            if (!bounds.empty()) display(tout << "\t <- ", bounds) << "\n";);
         SASSERT(m_values.size() - 1 == ti);
         m_new_bounds.insert(new_ci, bounds);
         m_ci2dep.setx(new_ci, nullptr, nullptr);
         return new_ci;
     }
 
-    lp::constraint_index stellensatz::add_ineq(bound_justifications const& bounds, lpvar j, lp::lconstraint_kind k,
+    lp::constraint_index stellensatz::add_ineq(char const* rule, bound_justifications const& bounds, lpvar j, lp::lconstraint_kind k,
         rational const& rhs) {
         auto new_ci = m_solver.lra().add_var_bound(j, k, rhs);
         m_new_bounds.insert(new_ci, bounds);
@@ -422,13 +427,15 @@ namespace nla {
                     continue;
                 svector<lpvar> _vars;
                 _vars.push_back(v);
-                for (auto ci : var2cs[v]) {
+                auto cs = var2cs[v];
+                for (auto ci : cs) {
                     for (auto [coeff, u] : m_solver.lra().constraints()[ci].coeffs()) {
                         if (u == v)
                             saturate_constraint(ci, j, _vars);
                     }
                 }
             }
+            #if 0
             for (auto v : vars) {
                 if (v >= vars2cs.size())
                     continue;
@@ -438,6 +445,7 @@ namespace nla {
                             saturate_constraint(ci, j, m_mon2vars[u]);
                 }
             }
+            #endif
         }
         IF_VERBOSE(5,
                    c().lra_solver().display(verbose_stream() << "original\n");
@@ -461,11 +469,13 @@ namespace nla {
 
         // xs is a proper subset of vars in mi
         svector<lpvar> vars(m_mon2vars[mi]);
+
         for (auto x : xs) {
             SASSERT(vars.contains(x));
             vars.erase(x);
         }
         SASSERT(!vars.empty());
+        SASSERT(vars.size() + xs.size() == m_mon2vars[mi].size());
 
         bound_justifications bounds;
         // compute bounds constraints and sign of vars
@@ -503,7 +513,7 @@ namespace nla {
             }
         }
 
-        auto new_ci = add_ineq(bounds, new_lhs, k, new_rhs);
+        auto new_ci = add_ineq("superpose", bounds, new_lhs, k, new_rhs);
         IF_VERBOSE(4, display_constraint(verbose_stream(), old_ci) << " -> ";
                    display_constraint(verbose_stream(), new_lhs.coeffs_as_vector(), k, new_rhs) << "\n");
         insert_monomials_from_constraint(new_ci);
@@ -595,7 +605,7 @@ namespace nla {
             return;
         auto const& con = m_solver.lra().constraints()[ci];
         for (auto [coeff, v] : con.coeffs())
-            if (m_mon2vars.contains(v))
+            if (c().emons().is_monic_var(v))
                 m_to_refine.insert(v);        
     }
 
@@ -629,6 +639,35 @@ namespace nla {
             out << "j" << v << " := ";
             display_product(out, vars);
             out << "\n";
+        }
+        for (auto ci : m_solver.lra().constraints().indices()) {
+            lp::constraint_index old_ci;
+            out << "(" << ci << ") ";
+            display_constraint(out, ci);
+            if (m_old_constraints.find(ci, old_ci))
+                out << " [parent (" << old_ci << ")] ";
+            out << "\n";
+            if (!m_new_bounds.contains(ci))
+                continue;            
+            out << "\t<- ";
+            display(out, m_new_bounds[ci]);
+            out << "\n";
+        }
+        return out;
+    }
+
+    std::ostream& stellensatz::display(std::ostream& out, bound_justifications const& bounds) const {
+        for (auto b : bounds) {
+            if (std::holds_alternative<u_dependency *>(b)) {
+                auto dep = *std::get_if<u_dependency *>(&b);
+                unsigned_vector cs;
+                c().lra_solver().dep_manager().linearize(dep, cs);
+                for (auto c : cs)
+                    out << "[o " << c << "] ";  // constraint index from c().lra_solver.
+            } else {
+                auto [v, k, rhs] = *std::get_if<bound>(&b);
+                out << "[j" << v << " " << k << " " << rhs << "] ";
+            }
         }
         return out;
     }
@@ -687,10 +726,12 @@ namespace nla {
             r = solve_lia(ex);
             if (r != l_true)
                 return r;
+            unsigned sz = lra_solver->number_of_vars();
             if (update_values())
                 return l_true;
-            unsigned sz = lra_solver->number_of_vars();
-            saturate_basic_linearize();
+
+            TRACE(arith, s.display(tout));
+            // return l_undef;
             // s.saturate_constraints(); ?
             if (sz == lra_solver->number_of_vars())
                 return l_undef;
@@ -698,15 +739,14 @@ namespace nla {
     }
 
     lbool stellensatz::solver::solve_lra(lp::explanation &ex) {
-        auto st = lra_solver->solve();
-        if (st == lp::lp_status::INFEASIBLE) {
+        auto status = lra_solver->find_feasible_solution();;
+        if (lra_solver->is_feasible())
+            return l_true;
+        if (status == lp::lp_status::INFEASIBLE) {
             lra_solver->get_infeasibility_explanation(ex);
             return l_false;
-        } 
-        else if (lra_solver->is_feasible())
-            return l_true;
-        else
-            return l_undef;
+        }
+        return l_undef;
     }
 
     lbool stellensatz::solver::solve_lia(lp::explanation &ex) {
@@ -751,16 +791,15 @@ namespace nla {
             for (auto v : s.m_coi.vars()) 
                 s.c().lra_solver().set_column_value(v, lp::impq(s.m_values[v], rational(0)));            
         }
-        return satisfies_products;
-    }
-
-    void stellensatz::solver::saturate_basic_linearize() {
+        #if 1
         for (auto j : s.m_to_refine) {
-            auto val_j = lra_solver->get_value(j);
+            auto val_j = values[j];
             auto const &vars = s.m_mon2vars[j];
             auto val_vars = s.m_values[j];
             if (val_j != val_vars)
                 s.saturate_basic_linearize(j, val_j, vars, val_vars);
         }
+        #endif
+        return satisfies_products;
     }
 }

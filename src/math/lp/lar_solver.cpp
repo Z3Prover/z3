@@ -1554,6 +1554,7 @@ namespace lp {
 
     mpq lar_solver::get_value(lpvar j) const {
         SASSERT(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE);
+        SASSERT(m_imp->m_columns_with_changed_bounds.empty());   
         VERIFY(m_imp->m_columns_with_changed_bounds.empty());       
         numeric_pair<mpq> const& rp = get_column_value(j);
         return from_model_in_impq_to_mpq(rp);        

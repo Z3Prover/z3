@@ -82,8 +82,8 @@ namespace nla {
 
         // additional variables and monomials and constraints
         lpvar add_monomial(svector<lp::lpvar> const& vars);
-        lp::constraint_index add_ineq(bound_justifications const& bounds, lp::lar_term const &t, lp::lconstraint_kind k, rational const &rhs);
-        lp::constraint_index add_ineq(bound_justifications const &bounds, lpvar j, lp::lconstraint_kind k,
+        lp::constraint_index add_ineq(char const* rule, bound_justifications const& bounds, lp::lar_term const &t, lp::lconstraint_kind k, rational const &rhs);
+        lp::constraint_index add_ineq(char const* rule, bound_justifications const &bounds, lpvar j, lp::lconstraint_kind k,
                                       rational const &rhs);
 
         bool is_int(svector<lp::lpvar> const& vars) const;
@@ -115,6 +115,7 @@ namespace nla {
         std::ostream& display_constraint(std::ostream& out, lp::constraint_index ci) const;
         std::ostream& display_constraint(std::ostream& out, vector<std::pair<rational, lpvar>> const& lhs,
                                          lp::lconstraint_kind k, rational const& rhs) const;
+        std::ostream& display(std::ostream &out, bound_justifications const &bounds) const;
 
     public:
         stellensatz(core* core);
