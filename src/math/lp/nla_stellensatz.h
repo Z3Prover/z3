@@ -6,6 +6,7 @@
 
 #include "math/lp/nla_coi.h"
 #include "math/lp/int_solver.h"
+#include "math/polynomial/polynomial.h"
 #include <variant>
 
 namespace nla {
@@ -55,6 +56,10 @@ namespace nla {
         map<unsigned_vector, unsigned, svector_hash<unsigned_hash>, eq> m_vars2mon;
         u_map<unsigned_vector> m_mon2vars;
 
+        small_object_allocator m_allocator;
+        unsynch_mpq_manager m_qm;
+        polynomial::manager m_pm;
+
         struct resolvent {
             lp::constraint_index old_ci;
             lpvar mi;
@@ -101,9 +106,15 @@ namespace nla {
         void saturate_monotonicity(lpvar j, rational const &val_j, svector<lpvar> const &vars, rational const &val_vars);
         void saturate_monotonicity(lpvar j, rational const & val_j, lpvar x, int sign_x, lpvar y, int sign_y);
         void saturate_monotonicity(lpvar j, rational const &val_j, lpvar x, lpvar y);
-
         void saturate_squares(lpvar j, rational const &val_j, svector<lpvar> const &vars);
 
+        // polynomial tricks
+        using term_offset = std::pair<lp::lar_term, rational>;  // term and its offset
+        uint_set m_factored_constraints;
+        bool get_factors(term_offset &t, vector<term_offset> &factors);
+        polynomial::polynomial_ref to_poly(term_offset const &t);
+        term_offset to_term(polynomial::polynomial const &p);
+        void saturate_factors(lp::constraint_index ci);
 
         // lemmas
         void add_lemma(lp::explanation const& ex);

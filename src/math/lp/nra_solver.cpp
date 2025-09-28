@@ -120,7 +120,7 @@ struct solver::imp {
             }
         }
         m_nlsat->collect_statistics(st);
-        TRACE(nra,
+        CTRACE(nra, false,
               m_nlsat->display(tout << r << "\n");
               display(tout);
               for (auto [j, x] : m_lp2nl) tout << "j" << j << " := x" << x << "\n";);
@@ -150,11 +150,11 @@ struct solver::imp {
             for (auto c : core) {
                 unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
                 ex.push_back(idx);
-                TRACE(nra, lra.display_constraint(tout << "ex: " << idx << ": ", idx) << "\n";);
             }
             nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
             lemma &= ex;
             m_nla_core.set_use_nra_model(true);
+            TRACE(nra, tout << lemma << "\n");
             break;
         }
         case l_undef:
@@ -342,6 +342,7 @@ struct solver::imp {
                 ex.push_back(ci);
             nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
             lemma &= ex;
+            TRACE(nra, tout << lemma << "\n");
             break;
         }
         case l_undef:
