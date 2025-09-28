@@ -36,7 +36,10 @@
 
 namespace nla {
 
-    stellensatz::stellensatz(core* core) : common(core), m_solver(*this), m_coi(*core) {}
+    stellensatz::stellensatz(core* core) : 
+        common(core), 
+        m_solver(*this), 
+        m_coi(*core) {}
 
     lbool stellensatz::saturate() {
         lp::explanation ex;
@@ -55,7 +58,8 @@ namespace nla {
         m_mon2vars.reset();
         m_values.reset();
         m_resolvents.reset();
-        m_new_mul_constraints.reset();
+        m_old_constraints.reset();
+        m_new_bounds.reset();
         m_to_refine.reset();
         m_coi.init();
         init_vars();
@@ -123,40 +127,51 @@ namespace nla {
         auto& lra = c().lra_solver();
         lp::explanation ex2;
         lemma_builder new_lemma(c(), "stellensatz");
-        for (auto p : ex1) {
-            auto dep = m_ci2dep.get(p.ci(), nullptr);
-            m_solver.lra().push_explanation(dep, ex2);
-            if (!m_new_mul_constraints.contains(p.ci()))
-                continue;
-            
-            auto const& bounds = m_new_mul_constraints[p.ci()];
-            for (auto const& b : bounds) {
-                if (std::holds_alternative<u_dependency*>(b)) {
-                    auto dep = *std::get_if<u_dependency*>(&b);
-                    m_solver.lra().push_explanation(dep, ex2);
-                } 
-                else {
-                    auto [v, k, rhs] = *std::get_if<bound>(&b); 
-                    k = negate(k);
-                    if (m_solver.lra().var_is_int(v)) {
-                        if (k == lp::lconstraint_kind::GT) {
-                            rhs += 1;
-                            k = lp::lconstraint_kind::GE;
-                        }
-                        if (k == lp::lconstraint_kind::LT) {
-                            rhs -= 1;
-                            k = lp::lconstraint_kind::LE;
-                        }
-                    }
-                    new_lemma |= ineq(v, k, rhs);
-                }
-            }
-        }
-
+        m_processed_constraints.reset();
+        for (auto p : ex1) 
+            explain_constraint(new_lemma, p.ci(), ex2);        
         new_lemma &= ex2;
         IF_VERBOSE(5, verbose_stream() << "unsat \n" << new_lemma << "\n");
         TRACE(arith, tout << "unsat\n" << new_lemma << "\n");
         c().lra_solver().settings().stats().m_nla_stellensatz++;
+    }
+
+    //
+    // a constraint can be explained by a set of bounds used as assumptions for the constraint
+    // and by an original constraint.
+    // 
+    void stellensatz::explain_constraint(lemma_builder& new_lemma, lp::constraint_index ci, lp::explanation& ex) {
+        if (m_processed_constraints.contains(ci))
+            return;
+        m_processed_constraints.insert(ci);
+        auto dep = m_ci2dep[ci];
+        m_solver.lra().push_explanation(dep, ex);        
+        lp::constraint_index old_ci;
+        if (m_old_constraints.find(ci, old_ci))
+            explain_constraint(new_lemma, old_ci, ex);
+        if (!m_new_bounds.contains(ci))
+            return;
+        auto const &bounds = m_new_bounds[ci];
+        for (auto const &b : bounds) {
+            if (std::holds_alternative<u_dependency *>(b)) {
+                auto dep = *std::get_if<u_dependency *>(&b);
+                m_solver.lra().push_explanation(dep, ex);
+            } else {
+                auto [v, k, rhs] = *std::get_if<bound>(&b);
+                k = negate(k);
+                if (m_solver.lra().var_is_int(v)) {
+                    if (k == lp::lconstraint_kind::GT) {
+                        rhs += 1;
+                        k = lp::lconstraint_kind::GE;
+                    }
+                    if (k == lp::lconstraint_kind::LT) {
+                        rhs -= 1;
+                        k = lp::lconstraint_kind::LE;
+                    }
+                }
+                new_lemma |= ineq(v, k, rhs);
+            }
+        }
     }
 
     //
@@ -338,7 +353,7 @@ namespace nla {
         m_values.push_back(value(t));
         auto new_ci = m_solver.lra().add_var_bound(ti, k, rhs);
         SASSERT(m_values.size() - 1 == ti);
-        m_new_mul_constraints.insert(new_ci, bounds);
+        m_new_bounds.insert(new_ci, bounds);
         m_ci2dep.setx(new_ci, nullptr, nullptr);
         return new_ci;
     }
@@ -346,7 +361,7 @@ namespace nla {
     lp::constraint_index stellensatz::add_ineq(bound_justifications const& bounds, lpvar j, lp::lconstraint_kind k,
         rational const& rhs) {
         auto new_ci = m_solver.lra().add_var_bound(j, k, rhs);
-        m_new_mul_constraints.insert(new_ci, bounds);
+        m_new_bounds.insert(new_ci, bounds);
         m_ci2dep.setx(new_ci, nullptr, nullptr);
         return new_ci;
     }
@@ -454,7 +469,8 @@ namespace nla {
         IF_VERBOSE(4, display_constraint(verbose_stream(), old_ci) << " -> ";
                    display_constraint(verbose_stream(), new_lhs.coeffs_as_vector(), k, new_rhs) << "\n");
         insert_monomials_from_constraint(new_ci);
-        m_ci2dep.setx(new_ci, m_ci2dep.get(old_ci, nullptr), nullptr);
+        m_ci2dep.setx(new_ci, nullptr, nullptr);
+        m_old_constraints.insert(new_ci, old_ci);
     }
 
     //
@@ -541,7 +557,7 @@ namespace nla {
             return;
         auto const& con = m_solver.lra().constraints()[ci];
         for (auto [coeff, v] : con.coeffs())
-            if (c().is_monic_var(v))
+            if (m_mon2vars.contains(v))
                 m_to_refine.insert(v);        
     }
 

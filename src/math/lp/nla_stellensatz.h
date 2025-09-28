@@ -42,7 +42,8 @@ namespace nla {
         using bound_justifications = vector<bound_justification>;
 
         coi m_coi;
-        u_map<bound_justifications> m_new_mul_constraints;
+        u_map<bound_justifications> m_new_bounds;
+        u_map<lp::constraint_index> m_old_constraints;
         indexed_uint_set m_to_refine;
         ptr_vector<u_dependency> m_ci2dep;
         vector<rational> m_values;
@@ -106,6 +107,8 @@ namespace nla {
 
         // lemmas
         void add_lemma(lp::explanation const& ex);
+        indexed_uint_set m_processed_constraints;
+        void explain_constraint(lemma_builder& new_lemma, lp::constraint_index ci, lp::explanation &ex);
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_product(std::ostream& out, svector<lpvar> const& vars) const;
