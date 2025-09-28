@@ -184,6 +184,7 @@ struct solver::imp {
         lbool r = l_undef;
         statistics& st = m_nla_core.lp_settings().stats().m_st;
         try {
+            //verbose_stream() << m_limit.
             r = m_nlsat->check();
         }
         catch (z3_exception&) {

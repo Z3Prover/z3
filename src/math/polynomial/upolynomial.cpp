@@ -3094,6 +3094,9 @@ namespace upolynomial {
                 A.swap(D);
                 // D is of the form             P_{j+1} * P_{j+2}   * ... * P_k
                 j++;
+                if (j > 10000) {
+                    display(verbose_stream(), A) << "\n";
+                }
             }
             TRACE(factor_bug, tout << "A: "; display(tout, A); tout << "\n";);
             SASSERT(A.size() == 1 && m().is_one(A[0]));
