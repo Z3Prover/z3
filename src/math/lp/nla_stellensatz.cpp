@@ -49,11 +49,13 @@ Currently missed lemma:
 (46) - j5 + j23 + j27 >= 0
 (44) j4 - j7 - j25 >= 0
 
-j4 - j7 - j27 >= 1
+j4 - j7 - j27 >= 1       (from (51) + (46))
 j4 - j5 - j7 + j23 >= 1  (from (46))
-j4 - j5 + j23 >= 2
-j4 - j5 + j11 >= 2
-j4 - j5 >= 3
+j4 - j5 + j23 >= 2       (from (12))
+j4 - j5 + j11 >= 2       (from (38))
+j4j4 - j4j5 + j4j11 >= 2j4  (multiply by j4)
+j4j11 >= 2j4             (subtract 10 multiplied by j4)
+..
 ..
 
   */
