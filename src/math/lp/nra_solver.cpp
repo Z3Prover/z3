@@ -355,7 +355,8 @@ struct solver::imp {
             m_nla_core.set_use_nra_model(true);
             break;
         case l_false:
-            return add_lemma(clause);
+            r = add_lemma(clause);
+            break;
         default:
             break;
         }
@@ -397,13 +398,14 @@ struct solver::imp {
                 UNREACHABLE();
                 return l_undef;
             }
-            // NSB review: what is this???
+            // Ignore a lemma which is satisfied
             if (m_nla_core.ineq_holds(inq))
                 return l_undef;
             lemma |= inq;
-            IF_VERBOSE(1, verbose_stream() << "linear lemma: " << lemma << "\n");
-            return l_false;
         }
+        IF_VERBOSE(1, verbose_stream() << "linear lemma: " << lemma << "\n");
+        m_nla_core.set_use_nra_model(true);
+        return l_false;
     }
 
     void constraint_core2ex(lp::explanation& ex) {
