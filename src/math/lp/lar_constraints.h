@@ -40,8 +40,8 @@ inline std::string lconstraint_kind_string(lconstraint_kind t) {
 class lar_base_constraint {
     lconstraint_kind m_kind;
     mpq              m_right_side;
-    bool             m_active;
-    bool             m_is_auxiliary;
+    bool             m_active = false;
+    bool             m_is_auxiliary = false;
     unsigned         m_j;
     u_dependency*    m_dep;
 
@@ -49,7 +49,7 @@ public:
 
     virtual vector<std::pair<mpq, lpvar>> coeffs() const = 0;
     lar_base_constraint(unsigned j, lconstraint_kind kind, u_dependency* dep, const mpq& right_side) :
-        m_kind(kind), m_right_side(right_side), m_active(false), m_is_auxiliary(false), m_j(j), m_dep(dep) {}
+        m_kind(kind), m_right_side(right_side), m_j(j), m_dep(dep) {}
     virtual ~lar_base_constraint() = default;
 
     lconstraint_kind kind() const { return m_kind; }
@@ -66,9 +66,13 @@ public:
 
     virtual unsigned size() const = 0;
     virtual mpq get_free_coeff_of_left_side() const { return zero_of_type<mpq>();}
+    virtual lar_term const &lhs() const = 0;
+
 };
 
 class lar_var_constraint: public lar_base_constraint {
+    mutable lar_term * m_lhs = nullptr;
+
 public:
     lar_var_constraint(unsigned j, lconstraint_kind kind, u_dependency* dep, const mpq& right_side) : 
         lar_base_constraint(j, kind, dep, right_side) {}
@@ -79,6 +83,11 @@ public:
         return ret;
     }
     unsigned size() const override { return 1;}
+    lar_term const &lhs() const override {
+        if (!m_lhs) 
+            m_lhs = alloc(lar_term, rational::one(), column());        
+        return *m_lhs;
+    }
 };
 
 
@@ -90,13 +99,14 @@ public:
 
     vector<std::pair<mpq, lpvar>> coeffs() const override { return m_term->coeffs_as_vector(); }
     unsigned size() const override { return m_term->size();}
+    lar_term const &lhs() const override { return *m_term; }
 };
 
 class constraint_set {
     region                         m_region;
     column_namer&                  m_namer;
     u_dependency_manager&          m_dep_manager;
-    vector<lar_base_constraint*>   m_constraints;
+    ptr_vector<lar_base_constraint>  m_constraints;
     stacked_value<unsigned>        m_constraint_count;
     unsigned_vector                m_active;
     stacked_value<unsigned>        m_active_lim;    

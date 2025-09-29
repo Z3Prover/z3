@@ -39,14 +39,13 @@ namespace nla {
             lp::lconstraint_kind k;
             rational rhs;           
         };
-        using bound_justification = std::variant<u_dependency*, bound>;
-        using bound_justifications = vector<bound_justification>;
+        using assumption = std::variant<u_dependency*, bound, lp::constraint_index>;
+        using assumptions = vector<assumption>;
 
         coi m_coi;
-        u_map<bound_justifications> m_new_bounds;
-        u_map<lp::constraint_index> m_old_constraints;
-        indexed_uint_set m_to_refine;
-        ptr_vector<u_dependency> m_ci2dep;
+        u_map<assumptions> m_assumptions;  // map from constraint to set of assumptions
+        indexed_uint_set m_monomials_to_refine;
+        indexed_uint_set m_false_constraints;  // constraints that are false in the current model
         vector<rational> m_values;
         struct eq {
             bool operator()(unsigned_vector const& a, unsigned_vector const& b) const {
@@ -55,6 +54,8 @@ namespace nla {
         };
         map<unsigned_vector, unsigned, svector_hash<unsigned_hash>, eq> m_vars2mon;
         u_map<unsigned_vector> m_mon2vars;
+        bool is_mon_var(lpvar v) const { return m_mon2vars.contains(v); }
+        
         unsigned m_max_monomial_degree = 0;
 
         vector<svector<lp::constraint_index>> m_occurs; // map from variable to constraints they occur. 
@@ -88,24 +89,27 @@ namespace nla {
         void init_occurs();
         void init_occurs(lp::constraint_index ci);
 
-        bool constraint_is_true(lp::constraint_index ci);
+        bool constraint_is_true(lp::constraint_index ci) const;
         void insert_monomials_from_constraint(lp::constraint_index ci);
 
         // additional variables and monomials and constraints
         using term_offset = std::pair<lp::lar_term, rational>;  // term and its offset
         lpvar add_monomial(svector<lp::lpvar> const& vars);
         lpvar add_term(term_offset &t);
-        lp::constraint_index add_ineq(char const* rule, bound_justifications const& bounds, lp::lar_term const &t, lp::lconstraint_kind k, rational const &rhs);
-        lp::constraint_index add_ineq(char const* rule, bound_justifications const &bounds, lpvar j, lp::lconstraint_kind k,
+        lp::constraint_index add_ineq(char const* rule, assumptions const& bounds, lp::lar_term const &t, lp::lconstraint_kind k, rational const &rhs);
+        lp::constraint_index add_ineq(char const* rule, assumptions const &bounds, lpvar j, lp::lconstraint_kind k,
                                       rational const &rhs);
 
         bool is_int(svector<lp::lpvar> const& vars) const;
         rational value(lp::lar_term const &t) const;
         rational value(svector<lpvar> const &prod) const;
         lpvar add_var(bool is_int);
-        lbool add_bounds(svector<lpvar> const &vars, bound_justifications &bounds);
+        lbool add_bounds(svector<lpvar> const &vars, assumptions &bounds);
         void saturate_constraints();
-        void saturate_constraint(lp::constraint_index con_id, lp::lpvar mi, svector<lpvar> const & xs);
+        lp::constraint_index saturate_constraint(lp::constraint_index con_id, lp::lpvar mi, svector<lpvar> const & xs);
+        bool is_resolvable(lp::constraint_index ci1, rational const& c1, lp::constraint_index ci2, rational const& c2) const;
+        
+        void resolve(lpvar j, lp::constraint_index ci1, lp::constraint_index ci2);
         void saturate_basic_linearize();
         void saturate_basic_linearize(lpvar j, rational const &val_j, svector<lpvar> const &vars,
                                       rational const &val_vars);
@@ -132,10 +136,10 @@ namespace nla {
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_product(std::ostream& out, svector<lpvar> const& vars) const;
         std::ostream& display_constraint(std::ostream& out, lp::constraint_index ci) const;
-        std::ostream& display_constraint(std::ostream& out, vector<std::pair<rational, lpvar>> const& lhs,
+        std::ostream& display_constraint(std::ostream& out, lp::lar_term const& lhs,
                                          lp::lconstraint_kind k, rational const& rhs) const;
         std::ostream& display(std::ostream &out, term_offset const &t) const;
-        std::ostream& display(std::ostream &out, bound_justifications const &bounds) const;
+        std::ostream& display(std::ostream &out, assumptions const &bounds) const;
 
     public:
         stellensatz(core* core);
