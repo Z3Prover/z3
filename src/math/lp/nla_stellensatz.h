@@ -55,6 +55,9 @@ namespace nla {
         };
         map<unsigned_vector, unsigned, svector_hash<unsigned_hash>, eq> m_vars2mon;
         u_map<unsigned_vector> m_mon2vars;
+        unsigned m_max_monomial_degree = 0;
+
+        vector<svector<lp::constraint_index>> m_occurs; // map from variable to constraints they occur. 
 
         // for factoring
         small_object_allocator m_allocator;
@@ -82,6 +85,8 @@ namespace nla {
         void init_solver();
         void init_vars();
         void init_monomial(unsigned mon_var);
+        void init_occurs();
+        void init_occurs(lp::constraint_index ci);
 
         bool constraint_is_true(lp::constraint_index ci);
         void insert_monomials_from_constraint(lp::constraint_index ci);

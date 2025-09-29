@@ -96,8 +96,10 @@ namespace nla {
         m_new_bounds.reset();
         m_to_refine.reset();
         m_factored_constraints.reset();
+        m_max_monomial_degree = 0;
         m_coi.init();
         init_vars();
+        init_occurs();
     }
 
     void stellensatz::init_vars() {
@@ -141,6 +143,8 @@ namespace nla {
                 m_ci2dep.setx(ci, dep, nullptr);
             }
         }
+        for (auto const &[v, vars] : m_mon2vars) 
+            m_max_monomial_degree = std::max(m_max_monomial_degree, vars.size());        
     }
 
     void stellensatz::init_monomial(unsigned mon_var) {
@@ -404,6 +408,7 @@ namespace nla {
         SASSERT(m_values.size() - 1 == ti);
         m_new_bounds.insert(new_ci, bounds);
         m_ci2dep.setx(new_ci, nullptr, nullptr);
+        init_occurs(new_ci);
         return new_ci;
     }
 
@@ -412,35 +417,39 @@ namespace nla {
         auto new_ci = m_solver.lra().add_var_bound(j, k, rhs);
         m_new_bounds.insert(new_ci, bounds);
         m_ci2dep.setx(new_ci, nullptr, nullptr);
+        init_occurs(new_ci);
         return new_ci;
+    }
+
+    void stellensatz::init_occurs() {
+        m_occurs.reset();
+        for (auto ci : m_solver.lra().constraints().indices())
+            init_occurs(ci);        
+    }
+
+    void stellensatz::init_occurs(lp::constraint_index ci) {
+        auto const &con = m_solver.lra().constraints()[ci];
+        for (auto [coeff, v] : con.coeffs()) {
+            if (m_mon2vars.contains(v)) {
+                for (auto w : m_mon2vars[v]) {
+                    if (w >= m_occurs.size())
+                        m_occurs.resize(w + 1);
+                    m_occurs[w].push_back(ci);
+                }
+                continue;
+            }
+            if (v >= m_occurs.size())
+                m_occurs.resize(v + 1);
+            m_occurs[v].push_back(ci);
+        }
     }
 
     // record new monomials that are created and recursively down-saturate with respect to these.
     // this is a simplistic pass
     void stellensatz::saturate_constraints() {
-        vector<svector<lp::constraint_index>> var2cs;  // cs contain a term using v
-        vector<svector<lp::constraint_index>> vars2cs; // cs contain a term with a monomial using v
 
-        // current approach: only resolve against var2cs, which is initialized
-        // with monomials in the input.
-
-        for (auto ci : m_solver.lra().constraints().indices()) {
-            auto const& con = m_solver.lra().constraints()[ci];
-            for (auto [coeff, v] : con.coeffs()) {
-                if (v >= var2cs.size())
-                    var2cs.resize(v + 1);
-                var2cs[v].push_back(ci);
-                if (m_mon2vars.contains(v)) {
-                    for (auto w : m_mon2vars[v]) {
-                        if (w >= vars2cs.size())
-                            vars2cs.resize(w + 1);
-                        vars2cs[w].push_back(ci);
-                    }
-                }
-            }
-            // insert monomials to be refined
-            insert_monomials_from_constraint(ci);            
-        }
+        for (auto ci : m_solver.lra().constraints().indices()) 
+            insert_monomials_from_constraint(ci);                    
 
         auto is_subset = [&](svector<lpvar> const &a, svector<lpvar> const& b) {
             if (a.size() >= b.size())
@@ -459,24 +468,19 @@ namespace nla {
             auto j = m_to_refine[it];
             auto vars = m_mon2vars[j];
             for (auto v : vars) {
-                if (v >= var2cs.size())
+                if (v >= m_occurs.size())
                     continue;
                 svector<lpvar> _vars;
                 _vars.push_back(v);
-                for (auto ci : var2cs[v]) {
-                    for (auto [coeff, u] : m_solver.lra().constraints()[ci].coeffs()) {
+                for (unsigned cidx = 0; cidx < m_occurs[v].size(); ++cidx) {
+                    auto ci = m_occurs[v][cidx];
+                    for (unsigned uidx = 0; uidx < m_solver.lra().constraints()[ci].coeffs().size(); ++uidx) {
+                        auto const &[coeff, u] = m_solver.lra().constraints()[ci].coeffs()[uidx];
                         if (u == v)
                             saturate_constraint(ci, j, _vars);
-                    }
-                }
-            }
-            for (auto v : vars) {
-                if (v >= vars2cs.size())
-                    continue;
-                for (auto ci : vars2cs[v]) {
-                    for (auto [coeff, u] : m_solver.lra().constraints()[ci].coeffs())
-                        if (m_mon2vars.contains(u) && is_subset(m_mon2vars[u], vars))
+                        else if (m_mon2vars.contains(u) && is_subset(m_mon2vars[u], vars)) 
                             saturate_constraint(ci, j, m_mon2vars[u]);
+                    }
                 }
             }
         }
@@ -550,7 +554,6 @@ namespace nla {
         IF_VERBOSE(4, display_constraint(verbose_stream(), old_ci) << " -> ";
                    display_constraint(verbose_stream(), new_lhs.coeffs_as_vector(), k, new_rhs) << "\n");
         insert_monomials_from_constraint(new_ci);
-        m_ci2dep.setx(new_ci, nullptr, nullptr);
         m_old_constraints.insert(new_ci, old_ci);
         m_factored_constraints.insert(new_ci); // don't bother to factor this because it comes from factors already
     }
@@ -822,12 +825,13 @@ namespace nla {
 
     // if a constraint is false, then insert _all_ monomials from that constraint.
     // other approach: use a lex ordering on monomials and insert the lex leading monomial.   
+    // to avoid blowup, only insert monomials up to a certain degree.
     void stellensatz::insert_monomials_from_constraint(lp::constraint_index ci) {
         if (constraint_is_true(ci))
             return;
         auto const& con = m_solver.lra().constraints()[ci];
         for (auto [coeff, v] : con.coeffs())
-            if (c().emons().is_monic_var(v))
+            if (m_mon2vars.contains(v) && m_mon2vars[v].size() <= m_max_monomial_degree)
                 m_to_refine.insert(v);        
     }
 
