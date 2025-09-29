@@ -27,7 +27,7 @@ namespace nla {
         public:  
             solver(stellensatz &s) : s(s) {};                
             void init();
-            lbool solve(lp::explanation &ex);
+            lbool solve(lp::explanation &ex, vector<ineq>& ineqs);
             lp::lar_solver &lra() { return *lra_solver; }
             lp::lar_solver const &lra() const { return *lra_solver; }
         };
@@ -56,6 +56,7 @@ namespace nla {
         map<unsigned_vector, unsigned, svector_hash<unsigned_hash>, eq> m_vars2mon;
         u_map<unsigned_vector> m_mon2vars;
 
+        // for factoring
         small_object_allocator m_allocator;
         unsynch_mpq_manager m_qm;
         polynomial::manager m_pm;
@@ -86,7 +87,9 @@ namespace nla {
         void insert_monomials_from_constraint(lp::constraint_index ci);
 
         // additional variables and monomials and constraints
+        using term_offset = std::pair<lp::lar_term, rational>;  // term and its offset
         lpvar add_monomial(svector<lp::lpvar> const& vars);
+        lpvar add_term(term_offset &t);
         lp::constraint_index add_ineq(char const* rule, bound_justifications const& bounds, lp::lar_term const &t, lp::lconstraint_kind k, rational const &rhs);
         lp::constraint_index add_ineq(char const* rule, bound_justifications const &bounds, lpvar j, lp::lconstraint_kind k,
                                       rational const &rhs);
@@ -109,16 +112,16 @@ namespace nla {
         void saturate_squares(lpvar j, rational const &val_j, svector<lpvar> const &vars);
 
         // polynomial tricks
-        using term_offset = std::pair<lp::lar_term, rational>;  // term and its offset
         uint_set m_factored_constraints;
-        bool get_factors(term_offset &t, vector<term_offset> &factors);
+        bool get_factors(term_offset &t, vector<std::pair<term_offset, unsigned>> &factors);
         polynomial::polynomial_ref to_poly(term_offset const &t);
         term_offset to_term(polynomial::polynomial const &p);
-        void saturate_factors(lp::constraint_index ci);
+        bool saturate_factors(lp::constraint_index ci, lp::explanation& ex, vector<ineq>& ineqs);
+        bool saturate_factors(lp::explanation& ex, vector<ineq>& ineqs);
 
         // lemmas
-        void add_lemma(lp::explanation const& ex);
-        indexed_uint_set m_processed_constraints;
+        void add_lemma(lp::explanation const& ex, vector<ineq> const& ineqs);
+        indexed_uint_set m_constraints_in_conflict;
         void explain_constraint(lemma_builder& new_lemma, lp::constraint_index ci, lp::explanation &ex);
 
         std::ostream& display(std::ostream& out) const;
@@ -126,6 +129,7 @@ namespace nla {
         std::ostream& display_constraint(std::ostream& out, lp::constraint_index ci) const;
         std::ostream& display_constraint(std::ostream& out, vector<std::pair<rational, lpvar>> const& lhs,
                                          lp::lconstraint_kind k, rational const& rhs) const;
+        std::ostream& display(std::ostream &out, term_offset const &t) const;
         std::ostream& display(std::ostream &out, bound_justifications const &bounds) const;
 
     public:

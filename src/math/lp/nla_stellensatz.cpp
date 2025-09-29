@@ -27,29 +27,34 @@
               necessarily derivable with the old constraints.
   Strategy 3: The lemma uses the new constraints.
 
+Auxiliary methods:
+- basic lemmas
+- factoring
 
-Add also factoring:
+Potential auxiliary methods:
+- tangent, ordering lemmas (lemmas that use values from the current model)
+- with internal bounded backtracking.
 
-(16) - 16384*j6 - j8 + j10 >= 0
-(65) j32 - j36 >= 1
-(18) j8 >= 0
-(66) j34 - 16384*j36 - j38 <= 0
-(52) - j18 + j30 <= 0
-(72) j38 <= 16383
-(58) j4 - j12 - j32 >= 0
-(139) - 32769*j4 + j4*j18 <= -1
-(12) j4 - j6 <= 0
-(108) 2*j10 - j10*j12 <= 0
-(60) j10 - j30 - j34 <= 0
-(111) j4 >= 6
- ==> false
+Currently missed lemma:
 
- Note that: 
-j10 > 0 => 2 - j12 <= 0
-j10 < 0 => 2 - j12 >= 0
-Then add assumption j10 > 0 or j10 < 0
+(30) j17 >= 0
+(15) j4 - j7 >= 1
+(51) j25 - j27 >= 1
+(38) j11 - j23 >= 0
+(9) j4 >= 1
+(26) j5*j7 - j4*j11_ - j17 >= 0
+(57) j11 >= 1
+(10) j5 - j4 >= 0
+(12) j7 >= 1
+(46) - j5 + j23 + j27 >= 0
+(44) j4 - j7 - j25 >= 0
 
-p <= 0, factor into p*q <= 0, then assume p <= 0, q >= 0 
+j4 - j7 - j27 >= 1
+j4 - j5 - j7 + j23 >= 1  (from (46))
+j4 - j5 + j23 >= 2
+j4 - j5 + j11 >= 2
+j4 - j5 >= 3
+..
 
   */
 
@@ -68,13 +73,14 @@ namespace nla {
 
     lbool stellensatz::saturate() {
         lp::explanation ex;
+        vector<ineq> ineqs;
         init_solver();
         saturate_constraints();
         saturate_basic_linearize();
         TRACE(arith, display(tout << "stellensatz after saturation\n"));
-        lbool r = m_solver.solve(ex);
+        lbool r = m_solver.solve(ex, ineqs);
         if (r == l_false)
-            add_lemma(ex);
+            add_lemma(ex, ineqs);
         return r;
     }
 
@@ -150,14 +156,16 @@ namespace nla {
     // 1. constraints that are obtained by multiplication are explained from the original constraint
     // 2. bounds assumptions are added as assumptions to the lemma.
     // 
-    void stellensatz::add_lemma(lp::explanation const& ex1) {
+    void stellensatz::add_lemma(lp::explanation const& ex1, vector<ineq> const& ineqs) {
         auto& lra = c().lra_solver();
         lp::explanation ex2;
         lemma_builder new_lemma(c(), "stellensatz");
-        m_processed_constraints.reset();
+        m_constraints_in_conflict.reset();
         for (auto p : ex1) 
             explain_constraint(new_lemma, p.ci(), ex2);        
         new_lemma &= ex2;
+        for (auto const &ineq : ineqs)
+            new_lemma |= ineq;
         IF_VERBOSE(5, verbose_stream() << "unsat \n" << new_lemma << "\n");
         TRACE(arith, tout << "unsat\n" << new_lemma << "\n");
         c().lra_solver().settings().stats().m_nla_stellensatz++;
@@ -168,9 +176,9 @@ namespace nla {
     // and by an original constraint.
     // 
     void stellensatz::explain_constraint(lemma_builder& new_lemma, lp::constraint_index ci, lp::explanation& ex) {
-        if (m_processed_constraints.contains(ci))
+        if (m_constraints_in_conflict.contains(ci))
             return;
-        m_processed_constraints.insert(ci);
+        m_constraints_in_conflict.insert(ci);
         auto dep = m_ci2dep[ci];
         m_solver.lra().push_explanation(dep, ex);        
         lp::constraint_index old_ci;
@@ -542,6 +550,7 @@ namespace nla {
         insert_monomials_from_constraint(new_ci);
         m_ci2dep.setx(new_ci, nullptr, nullptr);
         m_old_constraints.insert(new_ci, old_ci);
+        m_factored_constraints.insert(new_ci); // don't bother to factor this because it comes from factors already
     }
     
     // call polynomial factorization using the polynomial manager
@@ -550,67 +559,111 @@ namespace nla {
     // term -> polynomial translation
     // polynomial -> term translation
     // the call to factorization
-    bool stellensatz::get_factors(term_offset& t, vector<term_offset>& factors) {        
+    bool stellensatz::get_factors(term_offset& t, vector<std::pair<term_offset, unsigned>>& factors) {        
         auto p = to_poly(t);
         polynomial::factors fs(m_pm);
         m_pm.factor(p, fs);
-        if (fs.distinct_factors() <= 1)
+        if (fs.total_factors() <= 1)
             return false;
         unsigned df = fs.distinct_factors();
         for (unsigned i = 0; i < df; ++i) {
             auto f = fs[i];
             auto degree = fs.get_degree(i);
-            term_offset tf = to_term(*f);
-            for (unsigned j = 0; j < degree; ++j)
-                factors.push_back(tf);
+            factors.push_back({to_term(*f), degree});
         }        
+        SASSERT(!factors.empty());
         return true;
     }
 
     polynomial::polynomial_ref stellensatz::to_poly(term_offset const& t) {
-
         ptr_vector<polynomial::monomial> ms;
-        vector<rational> coeffs;
+        polynomial::scoped_numeral_vector coeffs(m_pm.m());
         rational den(1);
         for (lp::lar_term::ival kv : t.first) {
-            // TODO add to ms
+            auto v = kv.j();
+            while (v >= m_pm.num_vars())
+                m_pm.mk_var();
+            if (m_mon2vars.contains(v)) {
+                auto const &vars = m_mon2vars[v];
+                ms.push_back(m_pm.mk_monomial(vars.size(), vars.data()));
+            } 
+            else
+                ms.push_back(m_pm.mk_monomial(v));
             den = lcm(den, denominator(kv.coeff()));
         }
         
         for (auto kv : t.first) 
-            coeffs.push_back(den * kv.coeff());
-        coeffs.push_back(den * t.second);
-                
+            coeffs.push_back((den * kv.coeff()).to_mpq().numerator());
+        coeffs.push_back((den * t.second).to_mpq().numerator());
+        ms.push_back(m_pm.mk_monomial(0, nullptr));                
         polynomial::polynomial_ref p(m_pm);
         p = m_pm.mk_polynomial(ms.size(), coeffs.data(), ms.data()); 
         return p;
     }
 
     stellensatz::term_offset stellensatz::to_term(polynomial::polynomial const& p) {
-        throw nullptr;
+        term_offset t;
+        auto sz = m_pm.size(&p);
+        for (unsigned i = 0; i < sz; ++i) {
+            auto m = m_pm.get_monomial(&p, i);
+            auto const &c = m_pm.coeff(&p, i);
+            svector<lpvar> vars;
+            for (unsigned j = 0; j < m_pm.size(m); ++j)
+                vars.push_back(m_pm.get_var(m, j));
+            if (vars.empty())
+                t.second += c;
+            else 
+                t.first.add_monomial(c, add_monomial(vars));            
+        }
+        return t;
     }
 
-    void stellensatz::saturate_factors(lp::constraint_index ci) {
+    bool stellensatz::saturate_factors(lp::explanation &ex, vector<ineq> &ineqs) {
+        auto indices = m_solver.lra().constraints().indices();
+        return all_of(indices, [&](auto ci) { return saturate_factors(ci, ex, ineqs); });      
+    }
+
+    bool stellensatz::saturate_factors(lp::constraint_index ci, lp::explanation& ex, vector<ineq>& ineqs) {
         if (m_factored_constraints.contains(ci))
-            return;
+            return true;
         m_factored_constraints.insert(ci);
         auto const &con = m_solver.lra().constraints()[ci];
         if (all_of(con.coeffs(), [&](auto const& cv) { return !m_mon2vars.contains(cv.second); }))
-            return;
+            return true;
         term_offset t;
         // ignore nested terms and nested polynomials..
         for (auto const& [coeff, v] : con.coeffs()) 
             t.first.add_monomial(coeff, v);
         t.second = -con.rhs();
         
-        vector<term_offset> factors;
-        if (get_factors(t, factors))
-            return;
+        vector<std::pair<term_offset, unsigned>> factors;
+        if (!get_factors(t, factors))
+            return true;
 
         vector<rational> values;
-        for (auto const &t : factors) 
+        rational prod(1);
+        for (auto const & [t, degree] : factors) {
             values.push_back(value(t.first) + t.second);
+            prod *= values.back();
+            if (degree % 2 == 0)
+                prod *= values.back();
+        }
+
+        bool is_square = all_of(factors, [&](auto const &f) { return f.second % 2 == 0; });
+        if (is_square) {
+            auto v = add_term(t);
+            bound_justifications bounds;
+            add_ineq("squares", bounds, v, lp::lconstraint_kind::GE, rational(0));
+        }
         
+        IF_VERBOSE(
+            3, display_constraint(verbose_stream() << "factored ", ci) << "\n";
+            for (auto const &[t, degree] : factors) {
+                display(verbose_stream() << "  factor ", t)
+                    << " ^ " << degree << " = " << (value(t.first) + t.second) << "\n";
+            });
+
+        //
         // p * q >= 0 => (p >= 0 & q >= 0) or (p <= 0 & q <= 0)
         // assert both factors with bound assumptions, and reference to original constraint
         //    p >= 0 <- q >= 0 and 
@@ -618,9 +671,60 @@ namespace nla {
         // the values of p, q in the current interpretation may not satisfy p*q >= 0
         // therefore, assume all but one polynomial satisfies the bound (ignoring multiplicities in this argument).
         // Then derive the bound on the remaining polynomial from the others.
+        //
+        // prod > 0 and k is <=, <: pick random entry to flip value and sign.
+        // prod = 0 and k is <=, >=, pick random 0 entry and assert it
+        // prod = 0 and k is >, <, revert 0s from values, recalculate prod, flip random entry if needed.
+        //
+        auto k = con.kind(); 
 
+        if (prod == 0 && (k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::GE || k == lp::lconstraint_kind::EQ)) {
+            unsigned n = 0, k = factors.size();
+            for (unsigned i = 0; i < factors.size(); ++i)
+                if (values[i] == 0 && rand() % (++n) == 0)
+                    k = i;
+            SASSERT(k < factors.size());
 
+            auto v = add_term(factors[k].first);
+            bound_justifications bounds;
+            bound b(v, lp::lconstraint_kind::EQ, rational(0));
+            bounds.push_back(b);
+            add_ineq("factor = 0", bounds, v, lp::lconstraint_kind::EQ, rational(0));
+            return true;
+        }
 
+        if ((prod > 0 && k == lp::lconstraint_kind::GE) || (prod < 0 && k == lp::lconstraint_kind::LE)) {
+            // the current evaluation is consistent with inequalities.
+            // add factors that enforce the current evaluation.
+            for (auto & f : factors)  {               
+                if (f.second % 2 == 0)
+                    continue;
+                bound_justifications bounds;
+                auto v = add_term(f.first);
+                auto k = m_values[v] > 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
+                bounds.push_back(bound(v, k, rational(0)));
+                add_ineq("factor >= 0", bounds, v, k, rational(0));
+            }
+            return true;
+        }
+
+        if ((prod > 0 && k == lp::lconstraint_kind::LE) || (prod < 0 && k == lp::lconstraint_kind::GE)) {
+            // this is a conflict with the current evaluation. Produce a lemma that blocks
+            ex.push_back(ci);
+            for (auto &f : factors) {
+                auto [t, offset] = f.first;
+                auto val = value(t) + offset;
+                auto k = val > 0 ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GE;
+                ineqs.push_back(ineq(t, k, -offset));
+            }
+            TRACE(arith, tout << "factor conflict\n";
+                  for (auto const &f : factors) display(tout, f.first) << "; "; tout << "\n";
+                );
+            return false;
+        }
+
+        verbose_stream() << "still todo\n";
+        return true;
     }
 
     //
@@ -687,6 +791,20 @@ namespace nla {
         SASSERT(m_values.size() == v);
         m_values.push_back(value(vars));
         return v;
+    }
+
+    lpvar stellensatz::add_term(term_offset& t) {
+        if (t.second != 0) {            
+            auto w = add_var(t.second.is_int()); // or reuse the constant 1 that is already there.
+            m_values.push_back(t.second);
+            m_solver.lra().add_var_bound(w, lp::lconstraint_kind::GE, t.second);
+            m_solver.lra().add_var_bound(w, lp::lconstraint_kind::LE, t.second);
+            t.first.add_monomial(rational(1), w);
+            t.second = 0;
+        }
+        auto ti = m_solver.lra().add_term(t.first.coeffs_as_vector(), m_solver.lra().number_of_vars());
+        m_values.push_back(value(t.first));
+        return ti;
     }
 
     bool stellensatz::is_int(svector<lp::lpvar> const& vars) const {
@@ -786,6 +904,21 @@ namespace nla {
         return out;
     }
 
+    std::ostream& stellensatz::display(std::ostream& out, term_offset const& t) const {
+        bool first = true;
+        for (auto [v, coeff] : t.first) {
+            c().display_coeff(out, first, coeff);
+            first = false;
+            if (m_mon2vars.contains(v))
+                display_product(out, m_mon2vars[v]);
+            else
+                out << "j" << v;
+        }
+        if (t.second != 0)
+            out << " + " << t.second;
+        return out;
+    }
+
     std::ostream& stellensatz::display_constraint(std::ostream& out, lp::constraint_index ci) const {
         auto const& con = m_solver.lra().constraints()[ci];
         return display_constraint(out, con.coeffs(), con.kind(), con.rhs());
@@ -820,7 +953,7 @@ namespace nla {
         int_solver = alloc(lp::int_solver, *lra_solver);
     }
 
-    lbool stellensatz::solver::solve(lp::explanation &ex) {
+    lbool stellensatz::solver::solve(lp::explanation &ex, vector<ineq>& ineqs) {
         while (true) {
             lbool r = solve_lra(ex);
             if (r != l_true)
@@ -833,7 +966,8 @@ namespace nla {
                 return l_true;
 
             TRACE(arith, s.display(tout));
-            // return l_undef;
+            if (!s.saturate_factors(ex, ineqs))
+                return l_false;
             // s.saturate_constraints(); ?
             if (sz == lra_solver->number_of_vars())
                 return l_undef;
