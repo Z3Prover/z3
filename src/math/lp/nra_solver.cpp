@@ -404,7 +404,6 @@ struct solver::imp {
             lemma |= inq;
         }
         IF_VERBOSE(1, verbose_stream() << "linear lemma: " << lemma << "\n");
-        //m_nla_core.set_use_nra_model(true);
         return l_false;
     }
 
