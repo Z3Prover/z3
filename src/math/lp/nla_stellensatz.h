@@ -20,17 +20,21 @@ namespace nla {
             stellensatz &s;
             scoped_ptr<lp::lar_solver> lra_solver;
             scoped_ptr<lp::int_solver> int_solver;
-            lbool solve_lra(lp::explanation &ex);
-            lbool solve_lia(lp::explanation &ex); 
+            lp::explanation m_ex;
+            vector<ineq> m_ineqs;
+            lbool solve_lra();
+            lbool solve_lia(); 
             bool update_values();
             vector<std::pair<lpvar, rational>> m_to_refine;
             void saturate_basic_linearize();
         public:  
             solver(stellensatz &s) : s(s) {};                
             void init();
-            lbool solve(lp::explanation &ex, vector<ineq>& ineqs);
+            lbool solve();
             lp::lar_solver &lra() { return *lra_solver; }
             lp::lar_solver const &lra() const { return *lra_solver; }
+            lp::explanation &ex() { return m_ex; }
+            vector<ineq> &ineqs() { return m_ineqs; }
         };
 
         solver m_solver;
@@ -156,11 +160,11 @@ namespace nla {
         bool get_factors(term_offset &t, vector<std::pair<term_offset, unsigned>> &factors);
         polynomial::polynomial_ref to_poly(term_offset const &t);
         term_offset to_term(polynomial::polynomial const &p);
-        bool saturate_factors(lp::constraint_index ci, lp::explanation& ex, vector<ineq>& ineqs);
-        bool saturate_factors(lp::explanation& ex, vector<ineq>& ineqs);
+        bool saturate_factors(lp::constraint_index ci);
+        bool saturate_factors();
 
         // lemmas
-        void add_lemma(lp::explanation const& ex, vector<ineq> const& ineqs);
+        void add_lemma();
         indexed_uint_set m_constraints_in_conflict;
         void explain_constraint(lemma_builder& new_lemma, lp::constraint_index ci, lp::explanation &ex);
 

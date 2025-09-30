@@ -51,15 +51,13 @@ namespace nla {
     {}
 
     lbool stellensatz::saturate() {
-        lp::explanation ex;
-        vector<ineq> ineqs;
         init_solver();
         saturate_constraints();
         saturate_basic_linearize();
         TRACE(arith, display(tout << "stellensatz after saturation\n"));
-        lbool r = m_solver.solve(ex, ineqs);
+        lbool r = m_solver.solve();
         if (r == l_false)
-            add_lemma(ex, ineqs);
+            add_lemma();
         return r;
     }
 
@@ -139,7 +137,9 @@ namespace nla {
     // 1. constraints that are obtained by multiplication are explained from the original constraint
     // 2. bounds justifications are added as justifications to the lemma.
     // 
-    void stellensatz::add_lemma(lp::explanation const& ex1, vector<ineq> const& ineqs) {
+    void stellensatz::add_lemma() {
+        lp::explanation const &ex1 = m_solver.ex();
+        vector<ineq> const &ineqs = m_solver.ineqs();
         TRACE(arith, display(tout); display_lemma(tout, ex1, ineqs));
         auto& lra = c().lra_solver();
         lp::explanation ex2;
@@ -390,20 +390,18 @@ namespace nla {
         return p;
     }
 
+    // TODO add gcd reduce.
     lp::constraint_index stellensatz::add_ineq( 
-        justification const& bounds,
-        lp::lar_term const& t, lp::lconstraint_kind k,
+        justification const& just, lp::lar_term const& t, lp::lconstraint_kind k,
         rational const& rhs) {
         SASSERT(!t.coeffs_as_vector().empty());
-        auto ti = m_solver.lra().add_term(t.coeffs_as_vector(), m_solver.lra().number_of_vars());
+        auto coeffs = t.coeffs_as_vector();
+        auto ti = m_solver.lra().add_term(coeffs, m_solver.lra().number_of_vars());
         m_values.push_back(value(t));
         auto new_ci = m_solver.lra().add_var_bound(ti, k, rhs);
-        TRACE(arith, 
-            // display_constraint(tout << bounds.rule << ": ", new_ci) << "\n"; 
-            // if (!bounds.empty()) display(tout << "\t <- ", bounds) << "\n";
-            );
+        TRACE(arith, display(tout, just) << "\n");
         SASSERT(m_values.size() - 1 == ti);
-        add_justification(new_ci, bounds);
+        add_justification(new_ci, just);
         init_occurs(new_ci);
         return new_ci;
     }
@@ -463,7 +461,7 @@ namespace nla {
         auto &constraints = m_solver.lra().constraints();
         unsigned initial_false_constraints = m_false_constraints.size();
         for (unsigned it = 0; it < m_false_constraints.size(); ++it) {
-            if (it > 5 * initial_false_constraints)
+            if (it > 10 * initial_false_constraints)
                 break;
             auto ci1 = m_false_constraints[it];
             auto const &con = constraints[ci1];
@@ -477,7 +475,8 @@ namespace nla {
             for (auto v : vars) {
                 if (v >= m_occurs.size())
                     continue;
-                for (unsigned cidx = 0; cidx < m_occurs[v].size(); ++cidx) {
+                unsigned sz = m_occurs[v].size();
+                for (unsigned cidx = 0; cidx < sz; ++cidx) {
                     auto ci2 = m_occurs[v][cidx];
                     if (ci1 == ci2)
                         continue;
@@ -490,7 +489,9 @@ namespace nla {
                     }
                 }
             }
-        }        
+        }
+        IF_VERBOSE(1, verbose_stream() << "stsz " << initial_false_constraints << " -> " << m_false_constraints.size()
+                                       << " false constraints\n");
         IF_VERBOSE(5,
                    c().lra_solver().display(verbose_stream() << "original\n");
                    c().display(verbose_stream());
@@ -526,7 +527,7 @@ namespace nla {
     }
 
     void stellensatz::resolve(lpvar j, lp::constraint_index ci1, lp::constraint_index ci2) {
-        // resolut of saturate_constraint could swap inequality, 
+        // resolut of saturate_constraint could swap inequality,
         // so the premise of is_resolveable may not hold.
         auto const &constraints = m_solver.lra().constraints();
         if (!constraints.valid_index(ci1))
@@ -540,14 +541,14 @@ namespace nla {
                 return;
         for (auto const &cv : con2.lhs())
             if (is_mon_var(cv.j()) && m_mon2vars[cv.j()].size() > m_max_monomial_degree)
-                return;  
+                return;
 
         auto k1 = con1.kind();
         auto k2 = con2.kind();
-        auto const & lhs1 = con1.lhs();
-        auto const & lhs2 = con2.lhs();
-        auto const& c1 = lhs1.get_coeff(j);
-        auto const& c2 = lhs2.get_coeff(j);
+        auto const &lhs1 = con1.lhs();
+        auto const &lhs2 = con2.lhs();
+        auto const &c1 = lhs1.get_coeff(j);
+        auto const &c2 = lhs2.get_coeff(j);
         rational mul1, mul2;
         bool is_le1 = (k1 == lp::lconstraint_kind::LE || k1 == lp::lconstraint_kind::LT);
         bool is_le2 = (k2 == lp::lconstraint_kind::LE || k2 == lp::lconstraint_kind::LT);
@@ -555,17 +556,17 @@ namespace nla {
         if (k1 == lp::lconstraint_kind::EQ) {
             mul1 = (c1 > 0 ? -1 : 1) * c2;
             mul2 = (c1 > 0 ? c1 : -c1);
-        } 
+        }
         else if (k2 == lp::lconstraint_kind::EQ) {
             mul1 = (c2 > 0 ? c2 : -c2);
             mul2 = (c2 > 0 ? -1 : 1) * c1;
-        } 
+        }
         else if (is_le1 == is_le2) {
             if (c1.is_pos() == c2.is_pos())
-                return; 
+                return;
             mul1 = abs(c2);
             mul2 = abs(c1);
-        } 
+        }
         else {
             if (c1.is_pos() != c2.is_pos())
                 return;
@@ -574,8 +575,11 @@ namespace nla {
         }
         auto lhs = mul1 * lhs1 + mul2 * lhs2;
         auto rhs = mul1 * con1.rhs() + mul2 * con2.rhs();
-        if (lhs.size() == 0) // trivial conflict, will be found using LIA
+        if (lhs.size() == 0) {  // trivial conflict, will be found using LIA
+            IF_VERBOSE(0, verbose_stream() << "trivial conflict\n");
+            TRACE(arith, tout << "trivial conflict\n");
             return;
+        }
         resolvent r = {ci1, ci2, j};
         auto new_ci = add_ineq(r, lhs, k1, rhs);
         insert_monomials_from_constraint(new_ci);
@@ -619,6 +623,13 @@ namespace nla {
         multiplication_justification just{old_ci, mi, j2}; 
         // compute bounds constraints and sign of vars
         lbool sign = add_bounds(vars, just.assumptions);
+
+        #if 1
+        // just skip vacuous lemmas?
+        if (l_undef == sign)
+            return lp::null_ci;
+        #endif
+
         lp::lar_term new_lhs;
         rational new_rhs(rhs);
         for (auto const & cv : lhs) {
@@ -637,25 +648,26 @@ namespace nla {
             new_rhs = 0;
         }
 
-        if (sign == l_true) 
-            k = swap_side(k);
-        
         if (sign == l_undef) {
-            // x = 0 => x*y >= 0
-            switch (k) {
+            switch (k) { 
+            case lp::lconstraint_kind::LT:
+                k = lp::lconstraint_kind::LE;
+                break;
             case lp::lconstraint_kind::GT:
                 k = lp::lconstraint_kind::GE;
                 break;
-            case lp::lconstraint_kind::LT:
-                k = lp::lconstraint_kind::LE;
+            default:
                 break;
             }
         }
 
+        if (sign == l_true) 
+            k = swap_side(k);       
+
         auto new_ci = add_ineq(just, new_lhs, k, new_rhs);
         IF_VERBOSE(4, display_constraint(verbose_stream(), old_ci) << " -> ";
                    display_constraint(verbose_stream(), new_lhs.coeffs_as_vector(), k, new_rhs) << "\n");
-        insert_monomials_from_constraint(new_ci);
+        //insert_monomials_from_constraint(new_ci);
         m_factored_constraints.insert(new_ci); // don't bother to factor this because it comes from factors already
         return new_ci;
     }
@@ -725,13 +737,13 @@ namespace nla {
         return t;
     }
 
-    bool stellensatz::saturate_factors(lp::explanation &ex, vector<ineq> &ineqs) {
+    bool stellensatz::saturate_factors() {
         return true;
         auto indices = m_solver.lra().constraints().indices();
-        return all_of(indices, [&](auto ci) { return saturate_factors(ci, ex, ineqs); });      
+        return all_of(indices, [&](auto ci) { return saturate_factors(ci); });      
     }
 
-    bool stellensatz::saturate_factors(lp::constraint_index ci, lp::explanation& ex, vector<ineq>& ineqs) {
+    bool stellensatz::saturate_factors(lp::constraint_index ci) {
         if (m_factored_constraints.contains(ci))
             return true;
         m_factored_constraints.insert(ci);
@@ -820,12 +832,12 @@ namespace nla {
             return true;
             // this is a conflict with the current evaluation. Produce a lemma that blocks
             // TODO, need to check if variables use fresh monomials
-            ex.push_back(ci);
+            m_solver.ex().push_back(ci);
             for (auto &f : factors) {
                 auto [t, offset] = f.first;
                 auto val = value(t) + offset;
                 auto k = val > 0 ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GE;
-                ineqs.push_back(ineq(t, k, -offset));
+                m_solver.ineqs().push_back(ineq(t, k, -offset));
             }
             TRACE(arith, tout << "factor conflict\n";
                   for (auto const &f : factors) display(tout, f.first) << "; "; tout << "\n";
@@ -1123,14 +1135,16 @@ namespace nla {
     void stellensatz::solver::init() {
         lra_solver = alloc(lp::lar_solver);
         int_solver = alloc(lp::int_solver, *lra_solver);
+        m_ex.clear();
+        m_ineqs.reset();
     }
 
-    lbool stellensatz::solver::solve(lp::explanation &ex, vector<ineq>& ineqs) {
+    lbool stellensatz::solver::solve() {
         while (true) {
-            lbool r = solve_lra(ex);
+            lbool r = solve_lra();
             if (r != l_true)
                 return r;
-            r = solve_lia(ex);
+            r = solve_lia();
             if (r != l_true)
                 return r;
             unsigned sz = lra_solver->number_of_vars();
@@ -1144,7 +1158,7 @@ namespace nla {
             // this can be fixed by asserting the value justifications as bounds directly and 
             // making them depend on themselves.
             TRACE(arith, s.display(tout));
-            if (!s.saturate_factors(ex, ineqs))
+            if (!s.saturate_factors())
                 return l_false;
             // s.saturate_constraints(); ?
             if (sz == lra_solver->number_of_vars())
@@ -1152,19 +1166,19 @@ namespace nla {
         }
     }
 
-    lbool stellensatz::solver::solve_lra(lp::explanation &ex) {
+    lbool stellensatz::solver::solve_lra() {
         auto status = lra_solver->find_feasible_solution();;
         if (lra_solver->is_feasible())
             return l_true;
         if (status == lp::lp_status::INFEASIBLE) {
-            lra_solver->get_infeasibility_explanation(ex);
+            lra_solver->get_infeasibility_explanation(m_ex);
             return l_false;
         }
         return l_undef;
     }
 
-    lbool stellensatz::solver::solve_lia(lp::explanation &ex) {
-        switch (int_solver->check(&ex)) {
+    lbool stellensatz::solver::solve_lia() {
+        switch (int_solver->check(&m_ex)) {
         case lp::lia_move::sat:
             return l_true;
         case lp::lia_move::conflict:
