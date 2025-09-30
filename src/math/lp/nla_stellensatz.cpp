@@ -469,97 +469,72 @@ namespace nla {
 
         unsigned initial_false_constraints = m_false_constraints.size();
         for (unsigned it = 0; it < m_false_constraints.size(); ++it) {
-            if (it > 5*initial_false_constraints)
+            if (it > 5 * initial_false_constraints)
                 break;
             auto ci1 = m_false_constraints[it];
             auto const &con = m_solver.lra().constraints()[ci1];
-            for (auto const &cv1 : con.lhs()) {
-                auto j = cv1.j();
-                if (!is_mon_var(j))
-                    continue;
-                auto vars = m_mon2vars[j];
-                if (vars.size() > m_max_monomial_degree)
-                    continue;
-                for (auto v : vars) {
-                    if (v >= m_occurs.size())
-                        continue;
-                    svector<lpvar> _vars;
-                    _vars.push_back(v);
-                    for (unsigned cidx = 0; cidx < m_occurs[v].size(); ++cidx) {
-                        auto ci2 = m_occurs[v][cidx]; 
-                        for (auto const & cv2 : m_solver.lra().constraints()[ci2].lhs()) {
-                            auto u = cv2.j();
-                            if (u == v && is_resolvable(ci1, cv1.coeff(), ci2, cv2.coeff()))
-                                resolve(j, ci1, saturate_constraint(ci2, j, _vars));
-                            else if (is_mon_var(u) && is_subset(m_mon2vars[u], vars) &&
-                                     is_resolvable(ci1, cv1.coeff(), ci2, cv2.coeff()))
-                                resolve(j, ci1, saturate_constraint(ci2, j, m_mon2vars[u]));
-                        }
-                    }
-                }
-            }
-        }
-        #if 0
-        for (unsigned it = 0; it < m_monomials_to_refine.size(); ++it) {
-            auto j = m_monomials_to_refine[it];
+            lpvar j = find_max_lex_monomial(con.lhs());
+            if (j == lp::null_lpvar)
+                continue;
             auto vars = m_mon2vars[j];
-            TRACE(arith, tout << "j" << j << " " << vars << "\n");
+            if (vars.size() > m_max_monomial_degree)
+                continue;
             for (auto v : vars) {
                 if (v >= m_occurs.size())
                     continue;
                 svector<lpvar> _vars;
                 _vars.push_back(v);
                 for (unsigned cidx = 0; cidx < m_occurs[v].size(); ++cidx) {
-                    auto ci = m_occurs[v][cidx];                   
-                    for (auto const &cv1 : m_solver.lra().constraints()[ci].lhs()) {
-                        auto u = cv1.j();
+                    auto ci2 = m_occurs[v][cidx];
+                    if (ci1 == ci2)
+                        continue;
+                    for (auto const &cv2 : m_solver.lra().constraints()[ci2].lhs()) {
+                        auto u = cv2.j();
                         if (u == v)
-                            saturate_constraint(ci, j, _vars);
-                        else if (is_mon_var(u) && is_subset(m_mon2vars[u], vars)) 
-                            saturate_constraint(ci, j, m_mon2vars[u]);
+                            resolve(j, ci1, saturate_constraint(ci2, j, _vars));
+                        else if (is_mon_var(u) && is_subset(m_mon2vars[u], vars))
+                            resolve(j, ci1, saturate_constraint(ci2, j, m_mon2vars[u]));
                     }
                 }
             }
-        }
-        #endif
+        }        
         IF_VERBOSE(5,
                    c().lra_solver().display(verbose_stream() << "original\n");
                    c().display(verbose_stream());
                    display(verbose_stream() << "saturated\n"));
     }
 
-    bool stellensatz::is_resolvable(lp::constraint_index ci1, rational const& c1, lp::constraint_index ci2,
-        rational const& c2) const {
-        SASSERT(c1 != 0);
-        SASSERT(c2 != 0);
-        auto const &con1 = m_solver.lra().constraints()[ci1];
-        auto const &con2 = m_solver.lra().constraints()[ci2];
-        auto k1 = con1.kind();
-        auto k2 = con2.kind();
-        for (auto const& cv : con1.lhs()) 
-            if (is_mon_var(cv.j()) && m_mon2vars[cv.j()].size() > m_max_monomial_degree)
-                return false;
-        for (auto const &cv : con2.lhs())
-            if (is_mon_var(cv.j()) && m_mon2vars[cv.j()].size() > m_max_monomial_degree)
-                return false;        
-        bool same_sign = (c1.is_pos() == c2.is_pos());
-        if (k1 == lp::lconstraint_kind::EQ)
-            return true;
-        if (k2 == lp::lconstraint_kind::EQ)
-            return true;
-        bool is_le1 = (k1 == lp::lconstraint_kind::LE || k1 == lp::lconstraint_kind::LT);
-        bool is_le2 = (k2 == lp::lconstraint_kind::LE || k2 == lp::lconstraint_kind::LT);
-        if ((is_le1 == is_le2) && !same_sign)
-            return true;
-        if ((is_le1 != is_le2) && same_sign)
-            return true;
+    lpvar stellensatz::find_max_lex_monomial(lp::lar_term const& t) const {
+        lpvar result = lp::null_lpvar;
+        for (auto const &cv : t) {
+            auto j = cv.j();
+            if (!is_mon_var(j))
+                continue;
+            auto const &vars = m_mon2vars[j];
+            if (result == lp::null_lpvar)
+                result = j;
+            else if (std::lexicographical_compare(m_mon2vars[result].begin(), m_mon2vars[result].end(), vars.begin(),
+                                                  vars.end()))
+                result = j;
+            else if (false && is_lex_greater(vars, m_mon2vars[result]))
+                result = j;            
+        }
+        return result;
+    }
+
+    bool stellensatz::is_lex_greater(svector<lpvar> const& a, svector<lpvar> const& b) const {
+       if (a.size() != b.size())
+            return a.size() > b.size();
+        for (unsigned i = a.size(); i-- > 0;) {
+            if (a[i] != b[i])
+                return a[i] > b[i];
+        }
         return false;
     }
 
     void stellensatz::resolve(lpvar j, lp::constraint_index ci1, lp::constraint_index ci2) {
         // resolut of saturate_constraint could swap inequality, 
         // so the premise of is_resolveable may not hold.
-        return;
         auto const &constraints = m_solver.lra().constraints();
         if (!constraints.valid_index(ci1))
             return;
@@ -567,15 +542,19 @@ namespace nla {
             return;
         auto const &con1 = constraints[ci1];
         auto const &con2 = constraints[ci2];
+        for (auto const &cv : con1.lhs())
+            if (is_mon_var(cv.j()) && m_mon2vars[cv.j()].size() > m_max_monomial_degree)
+                return;
+        for (auto const &cv : con2.lhs())
+            if (is_mon_var(cv.j()) && m_mon2vars[cv.j()].size() > m_max_monomial_degree)
+                return;  
+
         auto k1 = con1.kind();
         auto k2 = con2.kind();
         auto const & lhs1 = con1.lhs();
         auto const & lhs2 = con2.lhs();
         auto const& c1 = lhs1.get_coeff(j);
         auto const& c2 = lhs2.get_coeff(j);
-        verbose_stream() << "resolve on " << m_mon2vars[j] << " c1: " << c1 << " c2: " << c2 << "\n";
-        display_constraint(verbose_stream(), ci1) << "\n";
-        display_constraint(verbose_stream(), ci2) << "\n";
         rational mul1, mul2;
         bool is_le1 = (k1 == lp::lconstraint_kind::LE || k1 == lp::lconstraint_kind::LT);
         bool is_le2 = (k2 == lp::lconstraint_kind::LE || k2 == lp::lconstraint_kind::LT);
@@ -589,23 +568,30 @@ namespace nla {
             mul2 = (c2 > 0 ? -1 : 1) * c1;
         } 
         else if (is_le1 == is_le2) {
-            SASSERT(c1.is_pos() != c2.is_pos());
+            if (c1.is_pos() == c2.is_pos())
+                return; 
             mul1 = abs(c2);
             mul2 = abs(c1);
         } 
         else {
-            SASSERT(c1.is_pos() == c2.is_pos());
+            if (c1.is_pos() != c2.is_pos())
+                return;
             mul1 = abs(c2);
             mul2 = -abs(c1);
         }
         auto lhs = mul1 * lhs1 + mul2 * lhs2;
         auto rhs = mul1 * con1.rhs() + mul2 * con2.rhs();
+        if (lhs.size() == 0) // trivial conflict, will be found using LIA
+            return;
         assumptions bounds;
         bounds.push_back(ci1);
         bounds.push_back(ci2);
         auto new_ci = add_ineq("resolve", bounds, lhs, k1, rhs);
         insert_monomials_from_constraint(new_ci);
-        display_constraint(verbose_stream(), new_ci) << "\n";
+        IF_VERBOSE(3, verbose_stream() << "resolve on " << m_mon2vars[j] << " c1: " << c1 << " c2: " << c2 << "\n";
+                   display_constraint(verbose_stream(), ci1) << "\n";
+                   display_constraint(verbose_stream(), ci2) << "\n";
+                   display_constraint(verbose_stream(), new_ci) << "\n");
     }
 
     // multiply by remaining vars

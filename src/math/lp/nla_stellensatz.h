@@ -55,6 +55,8 @@ namespace nla {
         map<unsigned_vector, unsigned, svector_hash<unsigned_hash>, eq> m_vars2mon;
         u_map<unsigned_vector> m_mon2vars;
         bool is_mon_var(lpvar v) const { return m_mon2vars.contains(v); }
+        lpvar find_max_lex_monomial(lp::lar_term const &t) const;
+        bool is_lex_greater(svector<lpvar> const &a, svector<lpvar> const &b) const;
         
         unsigned m_max_monomial_degree = 0;
 
@@ -107,7 +109,6 @@ namespace nla {
         lbool add_bounds(svector<lpvar> const &vars, assumptions &bounds);
         void saturate_constraints();
         lp::constraint_index saturate_constraint(lp::constraint_index con_id, lp::lpvar mi, svector<lpvar> const & xs);
-        bool is_resolvable(lp::constraint_index ci1, rational const& c1, lp::constraint_index ci2, rational const& c2) const;
         
         void resolve(lpvar j, lp::constraint_index ci1, lp::constraint_index ci2);
         void saturate_basic_linearize();
