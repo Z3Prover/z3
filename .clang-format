@@ -35,6 +35,7 @@ BraceWrapping:
    AfterControlStatement: false
    AfterNamespace: false
    AfterStruct: false
+   BeforeElse : true
 # Spacing
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
