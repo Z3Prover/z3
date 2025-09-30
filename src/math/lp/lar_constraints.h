@@ -77,6 +77,10 @@ public:
     lar_var_constraint(unsigned j, lconstraint_kind kind, u_dependency* dep, const mpq& right_side) : 
         lar_base_constraint(j, kind, dep, right_side) {}
 
+    ~lar_var_constraint() override {
+        dealloc(m_lhs);
+    }
+
     vector<std::pair<mpq, lpvar>> coeffs() const override {
         vector<std::pair<mpq, lpvar>> ret;
         ret.push_back(std::make_pair(one_of_type<mpq>(), column()));
