@@ -41,6 +41,7 @@ namespace search_tree {
         literal m_literal;
         node* m_left = nullptr, * m_right = nullptr, * m_parent = nullptr;
         status m_status;
+        vector<literal> m_core;
     public:
         node(literal const& l, node* parent) :
             m_literal(l), m_parent(parent), m_status(status::open) {}
@@ -96,6 +97,14 @@ namespace search_tree {
             if (m_right)
                 m_right->display(out, indent + 2);
         }
+
+        bool has_core() const { return !m_core.empty(); }
+        void set_core(vector<literal> const &core) { 
+            m_core = core;  // just copy the Z3 vector
+            // no sort, no deduplication
+        }
+        vector<literal> const & get_core() const { return m_core; }
+        void clear_core() { m_core.clear(); }
     };
 
     template<typename Config>
@@ -154,6 +163,80 @@ namespace search_tree {
             }
         }
 
+        vector<literal> compute_resolvent(node<Config>* left, node<Config>* right) {
+          vector<literal> res;
+
+          if (!left->has_core() || !right->has_core()) return res;
+
+          bool are_sibling_complements = left->parent() == right->parent();
+          if (!are_sibling_complements)
+              return res;
+
+          auto &core_l = left->get_core();
+          auto &core_r = right->get_core();
+
+          // Helper to check if a literal is already in the vector
+          auto contains = [](vector<literal> const &v, literal const &l) {
+              for (unsigned i = 0; i < v.size(); ++i)
+                  if (v[i] == l) return true;
+              return false;
+          };
+
+          auto lit_l = left->get_literal();
+          auto lit_r = right->get_literal();
+
+          // Add literals from left core, skipping lit_l
+          for (unsigned i = 0; i < core_l.size(); ++i) {
+              if (core_l[i] != lit_l && !contains(res, core_l[i]))
+                  res.push_back(core_l[i]);
+          }
+
+          // Add literals from right core, skipping lit_r
+          for (unsigned i = 0; i < core_r.size(); ++i) {
+              if (core_r[i] != lit_r && !contains(res, core_r[i]))
+                  res.push_back(core_r[i]);
+          }
+
+          return res;
+      }
+
+      void try_resolve_upwards(node<Config>* p) {
+        while (p) {
+            auto left = p->left();
+            auto right = p->right();
+            if (!left || !right) return;
+            // only attempt when both children are closed and at least one has a core
+            if (left->get_status() != status::closed || right->get_status() != status::closed) return;
+            if (!left->has_core() || !right->has_core()) return;
+
+            // compute resolvent
+            auto resolvent = compute_resolvent(left, right);
+            if (resolvent.empty()) {
+                // resolvent empty => unsat at root-subtree under p
+                p->set_core(resolvent); // empty core
+                close_node(p);
+                // mark root closed if p == m_root?
+                if (p == m_root.get()) {
+                    m_root->set_status(status::closed);
+                }
+                // continue upward in case parent's sibling can now resolve
+                p = p->parent();
+                continue;
+            }
+            // If resolvent is identical to existing core at p we are done.
+            if (p->has_core()) {
+                // if new core doesn't strengthen, stop.
+                if (resolvent == p->get_core()) return;
+                // if new core subsumes old, replace; else maybe keep both (choose policy).
+            }
+            // attach resolvent to parent p and close p
+            p->set_core(resolvent);
+            close_node(p);
+            // continue upward to see if parent can further resolve
+            p = p->parent();
+      }
+    }
+
     public:
 
         tree(literal const& null_literal) : m_null_literal(null_literal) {
@@ -181,6 +264,10 @@ namespace search_tree {
             if (conflict.empty()) {
                 close_node(m_root.get());
                 m_root->set_status(status::closed);
+                
+                // store empty core at root to signal global unsat if you like
+                m_root->set_core(vector<literal>()); // optional
+                
                 return;
             }           
             SASSERT(n != m_root.get());
@@ -199,12 +286,19 @@ namespace search_tree {
                 SASSERT(all_of(conflict, [&](auto const& a) { return on_path(a); }));
             );
             
-            while (n) {
-                if (any_of(conflict, [&](auto const& a) { return a == n->get_literal(); })) {
-                    close_node(n);
+            // find the node on the path whose literal is in conflict
+            node<Config>* target = n;
+            while (target) {
+                if (any_of(conflict, [&](auto const& a) { return a == target->get_literal(); })) {
+                    // store the conflict on the node that closes
+                    target->set_core(conflict);
+                    // close the subtree under target (preserves core on target)
+                    close_node(target);
+                    // now attempt to resolve upwards (recursive collapse)
+                    try_resolve_upwards(target->parent());
                     return;
                 }
-                n = n->parent();
+                target = target->parent();
             }
             UNREACHABLE();
         }
