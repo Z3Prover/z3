@@ -146,6 +146,7 @@ namespace nla {
         lpvar add_var(bool is_int);
         lbool add_bounds(svector<lpvar> const &vars, vector<bound_assumption> &bounds);
         void saturate_constraints();
+
         void saturate_constraints2();
         lp::constraint_index saturate_multiply(lp::constraint_index con_id, lpvar j1, lpvar j2);
         

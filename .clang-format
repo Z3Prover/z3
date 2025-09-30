@@ -40,6 +40,9 @@ BraceWrapping:
    BeforeElse : true
    AfterCaseLabel: false
 
+
+
+# Spacing
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
 SpaceBeforeParens: ControlStatements
