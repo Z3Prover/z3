@@ -2150,7 +2150,7 @@ public class Expr<R extends Sort> extends AST
         Z3_ast_kind k = Z3_ast_kind.fromInt(Native.getAstKind(ctx.nCtx(), obj));
         if (k == Z3_ast_kind.Z3_QUANTIFIER_AST) {
 			// a quantifier AST is a lambda iff it is neither a forall nor an exists. 
-            boolean isLambda = !Native.isQuantifierExists(ctx, obj) && !Native.isQuantifierForall(ctx, obj);
+            boolean isLambda = !Native.isQuantifierExists(ctx.nCtx(), obj) && !Native.isQuantifierForall(ctx.nCtx(), obj);
             if (isLambda) {
                return new Lambda(ctx, obj);
             } else {

@@ -209,7 +209,7 @@ public class AST extends Z3Object implements Comparable<AST>
             return new FuncDecl<>(ctx, obj);
         case Z3_QUANTIFIER_AST:
             // a quantifier AST is a lambda iff it is neither a forall nor an exists. 
-            boolean isLambda = !Native.isQuantifierExists(ctx, obj) && !Native.isQuantifierForall(ctx, obj);
+            boolean isLambda = !Native.isQuantifierExists(ctx.nCtx(), obj) && !Native.isQuantifierForall(ctx.nCtx(), obj);
             if (isLambda) {
                return new Lambda(ctx, obj);
             } else {
