@@ -135,6 +135,7 @@ namespace nla {
             external_justification, 
             internal_justification,
             multiplication_justification,
+
             resolvent_justification,
             bound_assumptions>;
 
@@ -171,6 +172,7 @@ namespace nla {
         polynomial::manager m_pm;
 
         hashtable<multiplication, multiplication::hash, multiplication::eq> m_multiplications;
+
         hashtable<resolvent, resolvent::hash, resolvent::eq> m_resolvents;
         hashtable<ineq_sig, ineq_sig::hash, ineq_sig::eq> m_inequality_table;
 
@@ -189,12 +191,14 @@ namespace nla {
 
         // additional variables and monomials and constraints
         using term_offset = std::pair<lp::lar_term, rational>;  // term and its offset
+
         lpvar mk_monomial(svector<lp::lpvar> const& vars);
         lpvar mk_monomial(svector<lp::lpvar> const &vars, lp::lpvar j);
         lpvar mk_term(term_offset &t);
 
         void gcd_normalize(vector<std::pair<rational, lpvar>> &t, lp::lconstraint_kind k, rational &rhs);
         lp::constraint_index add_ineq(justification const& just, lp::lar_term &t, lp::lconstraint_kind k, rational const &rhs);
+
         lp::constraint_index add_ineq(justification const &just, lpvar j, lp::lconstraint_kind k,
                                       rational const &rhs);
 
@@ -206,10 +210,12 @@ namespace nla {
         lpvar add_var(bool is_int);
         lbool add_bounds(svector<lpvar> const &vars, vector<bound_assumption> &bounds);
         void saturate_constraints();
+
         void saturate_constraints2();
         void eliminate(lpvar mi);
         void ext_resolve(lpvar j, lp::constraint_index lo, lp::constraint_index hi);
         std::tuple<rational, bool, bool> compute_bound(svector<lpvar> const &vars, svector<lpvar>& quot, lpvar j, rational const& coeff, lp::constraint_index ci);
+
         lp::constraint_index saturate_multiply(lp::constraint_index con_id, lpvar j1, lpvar j2);
         
         void resolve(lpvar j, lp::constraint_index ci1, lp::constraint_index ci2);

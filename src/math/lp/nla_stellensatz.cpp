@@ -547,13 +547,14 @@ namespace nla {
             insert_monomials_from_constraint(ci);                    
 
 
+        auto &constraints = m_solver.lra().constraints();
         unsigned initial_false_constraints = m_false_constraints.size();
         for (unsigned it = 0; it < m_false_constraints.size(); ++it) {
             if (it > 10 * initial_false_constraints)
                 break;
             auto ci1 = m_false_constraints[it];
             auto const &con = constraints[ci1];
-            auto [j, coeff] = find_max_lex_monomial(con.lhs());
+            lpvar j = find_max_lex_monomial(con.lhs());
             if (j == lp::null_lpvar)
                 continue;
             auto vars = m_mon2vars[j];
@@ -987,13 +988,6 @@ namespace nla {
         multiplication_justification just{old_ci, mi, j2}; 
         // compute bounds constraints and sign of vars
         lbool sign = add_bounds(vars, just.assumptions);
-
-        #if 1
-        // just skip vacuous lemmas?
-        if (l_undef == sign)
-            return lp::null_ci;
-        #endif
-
         lp::lar_term new_lhs;
         rational new_rhs(rhs);
         for (auto const & cv : lhs) {
@@ -1168,6 +1162,7 @@ namespace nla {
             SASSERT(k < factors.size());
 
             auto v = mk_term(factors[k].first);
+
             bound_assumptions bounds{"factor = 0"};        
             bound_assumption b(v, lp::lconstraint_kind::EQ, rational(0));
             bounds.bounds.push_back(b);
