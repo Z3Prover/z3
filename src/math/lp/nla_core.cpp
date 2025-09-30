@@ -1577,7 +1577,10 @@ lbool core::check() {
         lp_settings().stats().m_nra_calls++;
     }
     
-    if (ret == l_undef && !no_effect() && m_reslim.inc()) 
+    if (ret == l_undef)
+        return l_undef;
+
+    if (!no_effect() && m_reslim.inc()) 
         ret = l_false;
 
     lp_settings().stats().m_nla_lemmas += m_lemmas.size();

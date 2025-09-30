@@ -94,6 +94,8 @@ class core {
     emonics                  m_emons;
     svector<lpvar>           m_add_buffer;
     mutable indexed_uint_set m_active_var_set;
+    // hook installed by theory_lra for creating a multiplication definition
+    std::function<lpvar(unsigned, lpvar const*)> m_add_mul_def_hook;
 
     reslimit                 m_nra_lim;
 
@@ -208,6 +210,8 @@ public:
     void add_idivision(lpvar q, lpvar x, lpvar y) { m_divisions.add_idivision(q, x, y); }
     void add_rdivision(lpvar q, lpvar x, lpvar y) { m_divisions.add_rdivision(q, x, y); }
     void add_bounded_division(lpvar q, lpvar x, lpvar y) { m_divisions.add_bounded_division(q, x, y); }
+    void set_add_mul_def_hook(std::function<lpvar(unsigned, lpvar const*)> const& f) { m_add_mul_def_hook = f; }
+    lpvar add_mul_def(unsigned sz, lpvar const* vs) { SASSERT(m_add_mul_def_hook); lpvar v = m_add_mul_def_hook(sz, vs); add_monic(v, sz, vs); return v; }
 
     void set_relevant(std::function<bool(lpvar)>& is_relevant) { m_relevant = is_relevant; }
     bool is_relevant(lpvar v) const { return !m_relevant || m_relevant(v); }

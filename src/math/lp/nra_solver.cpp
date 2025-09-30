@@ -289,17 +289,9 @@ struct solver::imp {
                 if (mon) 
                     v = mon->var();                                
                 else {
-                    NOT_IMPLEMENTED_YET();
-                    // this one is for Lev Nachmanson: lar_solver relies on internal variables
-                    // to have terms from outside. The solver doesn't get to create
-                    // its own monomials. 
-                    // v = ...
-                    // It is not a use case if the nlsat solver only provides linear
-                    // polynomials so punt for now.
-                    m_nla_core.add_monic(v, vars.size(), vars.data());
+                    v = m_nla_core.add_mul_def(vars.size(), vars.data());
                 }
                 TRACE(nra,
-                      tout << "process_polynomial_check_assignment:"; 
                       tout << " vars="; 
                       for (auto _w : vars) tout << _w << ' '; 
                       tout << " s=" << s
@@ -323,9 +315,8 @@ struct solver::imp {
         IF_VERBOSE(1, verbose_stream() << "nra::solver::check_assignment\n";);
         setup_solver();
         lbool r = l_undef;
-        statistics &st = m_nla_core.lp_settings().stats().m_st;
-        nlsat::literal_vector clause;
-        polynomial::manager &pm = m_nlsat->pm();
+    statistics &st = m_nla_core.lp_settings().stats().m_st;
+    nlsat::literal_vector clause;
         try {
             nlsat::assignment rvalues(m_nlsat->am());
             for (auto [j, x] : m_lp2nl) {
@@ -373,7 +364,10 @@ struct solver::imp {
             SASSERT(!a->is_root_atom());
             SASSERT(a->is_ineq_atom());
             auto &ia = *to_ineq_atom(a);
-            VERIFY(ia.size() == 1);  // deal with factored polynomials later
+            if (ia.size() != 1) {
+                return l_undef; // levnach: not sure what to do here
+            }
+            // VERIFY(ia.size() == 1);  // deal with factored polynomials later
             // a is an inequality atom, i.e., p > 0, p < 0, or p = 0.
             polynomial::polynomial const *p = ia.p(0);
             TRACE(nra, tout << "polynomial: "; pm.display(tout, p); tout << "\n";);
@@ -404,6 +398,7 @@ struct solver::imp {
             lemma |= inq;
         }
         IF_VERBOSE(1, verbose_stream() << "linear lemma: " << lemma << "\n");
+        this->m_nla_core.m_check_feasible = true;
         return l_false;
     }
 
