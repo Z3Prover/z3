@@ -8,6 +8,7 @@ BasedOnStyle: LLVM
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
+IndentCaseLabels: false
 
 
 
@@ -41,7 +42,7 @@ BraceWrapping:
    AfterStruct: false
    BeforeElse : true
    AfterCaseLabel: false
-# Spacing
+
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
 SpaceBeforeParens: ControlStatements
@@ -49,7 +50,6 @@ SpaceInEmptyParentheses: false
 SpacesInCStyleCastParentheses: false
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
-IndentCaseLabels: false
 
 # Alignment
 AlignConsecutiveAssignments: false
