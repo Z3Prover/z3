@@ -2148,8 +2148,15 @@ public class Expr<R extends Sort> extends AST
     static Expr<?> create(Context ctx, long obj)
     {
         Z3_ast_kind k = Z3_ast_kind.fromInt(Native.getAstKind(ctx.nCtx(), obj));
-        if (k == Z3_ast_kind.Z3_QUANTIFIER_AST)
-            return new Quantifier(ctx, obj);
+        if (k == Z3_ast_kind.Z3_QUANTIFIER_AST) {
+			// a quantifier AST is a lambda iff it is neither a forall nor an exists. 
+            boolean isLambda = !Native.isQuantifierExists(ctx.nCtx(), obj) && !Native.isQuantifierForall(ctx.nCtx(), obj);
+            if (isLambda) {
+               return new Lambda(ctx, obj);
+            } else {
+               return new Quantifier(ctx, obj);
+            }
+		}
         long s = Native.getSort(ctx.nCtx(), obj);
         Z3_sort_kind sk = Z3_sort_kind
                 .fromInt(Native.getSortKind(ctx.nCtx(), s));
