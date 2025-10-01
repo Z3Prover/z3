@@ -11,13 +11,7 @@
 #include "nlsat_common.h"
 #include <queue>
 
-// Helper to iterate over a std::priority_queue by dumping to a vector and restoring
-
 namespace nlsat {
-
-    
-// Local enums reused from previous scaffolding
-    enum class property_mapping_case : unsigned { case1 = 0, case2 = 1, case3 = 2 };    
     
     enum prop_enum {
         ir_ord,
@@ -33,8 +27,6 @@ namespace nlsat {
         _count 
     };
 
-    unsigned prop_count() { return static_cast<unsigned>(_count);}
-    
     struct levelwise::impl {
         // Utility: call fn for each distinct irreducible factor of poly
         template<typename Func>
@@ -80,7 +72,7 @@ namespace nlsat {
             return result;
         }
         
-        solver& m_solver;
+        solver&                      m_solver;
         polynomial_ref_vector const& m_P;
         unsigned                     m_n; // the max of max_var(p) of all the polynomials, the level of the conflict
         unsigned                     m_level;// the current level while refining the properties
@@ -321,9 +313,11 @@ namespace nlsat {
                 apply_pre(p, have_representation);
                 if (m_fail) break;
             }
+            if (m_fail)
+               return false;
             for (auto & p : avoided)
                 q.push(p);
-            return !m_fail;
+            return true;
         }
 
          // Part B of construct_interval: build (I, E, ≼) representation for level i
@@ -331,7 +325,7 @@ namespace nlsat {
              std::vector<const poly*> p_non_null;
              for (const auto & pr: to_vector(m_Q[m_level])) {
                  SASSERT(max_var(pr.poly) == m_level);
-                 if (pr.prop_tag == prop_enum::sgn_inv &&  !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
+                 if (pr.prop_tag == prop_enum::sgn_inv && !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
                      p_non_null.push_back(pr.poly.get());
              }
              std::vector<root_function> E;
@@ -349,6 +343,7 @@ namespace nlsat {
          void collect_E(std::vector<const poly*> const& P_non_null,
                                   // works on m_level,
                                   std::vector<root_function>& E) {
+             std::cout << "coll\n";
              for (auto const* p0 : P_non_null) {
                  auto* p = const_cast<poly*>(p0);
                  if (m_pm.max_var(p) != m_level)
@@ -383,11 +378,11 @@ namespace nlsat {
          }
         
         // construct_interval: compute representation for level i and apply post rules.
-        // Returns true on failure.
+        // Returns false on failure.
         // works on m_level
         bool construct_interval() {
             if (!apply_property_rules(prop_enum::sgn_inv, false)) {
-                return true;
+                return false;
             }
 
             TRACE(lws, display(tout << "m_Q:") << std::endl;);
@@ -446,9 +441,8 @@ namespace nlsat {
             }
             // If p is nullified on the sample for its level we must abort (Rule 4.1)
             if (coeffs_are_zeroes_on_sample(p.poly, m_pm, sample(), m_am)) {
-                TRACE(lws, tout << "Rule 4.1: polynomial nullified at sample -> failing" << std::endl;);
+                TRACE(lws, display(tout << "p:", p) << "\n"; tout << "Rule 4.1: polynomial nullified at sample -> failing" << std::endl;);
                 m_fail = true;
-                NOT_IMPLEMENTED_YET();
                 return false;
             }
             return true;
@@ -642,26 +636,30 @@ or
             add_to_Q_if_new(property(pe, poly, root_index), level);
         }
 
-/*  Rule 4.6. Let i ∈ N, R ⊆ Ri, s ∈ R_{i−1}, and realRoots(p(s, xi )) = ∅. */
         void apply_pre_sgn_inv(const property& p, bool have_representation) {
             SASSERT(is_irreducible(p.poly));
             scoped_anum_vector roots(m_am);
             SASSERT(max_var(p.poly) == m_level);
             m_am.isolate_roots(p.poly, undef_var_assignment(sample(), m_level), roots);
             if (roots.size() == 0) {
-                //Rule 4.6 sample(s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R)
+                /*  Rule 4.6. Let i ∈ N, R ⊆ Ri, s ∈ R_{i−1}, and realRoots(p(s, xi )) = ∅. 
+                sample(s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R) */
                 mk_prop(sample_holds, m_level - 1);
                 mk_prop(prop_enum::an_del, p.poly, m_level);
-            } 
+                return;
+            }
+            // now we have some roots at s
+            const auto &I = m_I[m_level];
+            TRACE(lws, display(tout << "I:", I) << std::endl;);
+            if (I.section) {
             /* Rule 4.8. Let i ∈ N>0 , R ⊆ Ri
                , s ∈ R_{i−1}
                , p ∈ Q[x1, . . . , xi ], level(p) = i, and I be a symbolic interval
                of level i. Assume that p is irreducible, and I = (section, b).
                Let Q := an_sub(i − 1)(R) ∧ connected(i − 1)(R) ∧ repr(I, s)(R) ∧ an_del(b.p)(R).
                Q, b.p= p ⊢ sgn_inv(p)(R)
-               Q, b.p ̸= p, ord_inv(resxi (b.p, p))(R) ⊢ sgn_inv(p)(R)*/
-            const auto &I = m_I[m_level];
-            if (I.section == true) {
+               Q, b.p ̸= p, ord_inv(resxi (b.p, p))(R) ⊢ sgn_inv(p)(R)
+            */
                 mk_prop(prop_enum::an_sub, m_level - 1);
                 mk_prop(prop_enum::connected, m_level - 1);
                 mk_prop(prop_enum::repr, m_level - 1); // is it correct?
@@ -672,6 +670,16 @@ or
                     mk_prop(prop_enum::ord_inv, resultant(polynomial_ref(I.l, m_pm), p.poly, m_level));
                 }
             } else {
+            /*
+              Rule 4.10. Let i ∈ N>0 , R ⊆ Ri
+              , s ∈ Ri−1
+              , p ∈ Q[x1, . . . , xi ], level(p) = i, I be a symbolic interval of
+              level i, ≼ be an indexed root ordering of level i, and ≼t be the reflexive and transitive closure of ≼.
+              We choose l, u such that either I = (sector, l, u) or (I = (section, b) for b = l = u).
+              Assume that p is irreducible, irExpr(p, s) ̸= ∅, ξ.p is irreducible for all ξ ∈ dom(≼), ≼ matches s,
+              and for all ξ ∈ irExpr(p, s) it holds either ξ ≼t l or u ≼t ξ.
+              sample(s)(R), repr(I, s)(R), ir_ord(≼, s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R)
+            */
                 NOT_IMPLEMENTED_YET();
             }
         }
@@ -814,7 +822,7 @@ or
         std::ostream& display(std::ostream& out, const indexed_root_expr& ire ) const {
             out << "RootExpr: p=";
             ::nlsat::display(out, m_solver, ire.p);
-            out << ", i=" << ire.i;
+            out << ", root_index:" << ire.i;
             return out;
         }
 
@@ -834,6 +842,8 @@ or
         return m_impl->single_cell();
     }
 
+    bool levelwise::failed() const { return m_impl->m_fail; }
+    
 } // namespace nlsat
 
 // Free pretty-printer for symbolic_interval
@@ -844,7 +854,7 @@ std::ostream& nlsat::display(std::ostream& out, solver& s, levelwise::symbolic_i
             out << "(undef)";
         else {
             ::nlsat::display(out, s, I.l);
-            out << "[root_index=" << I.l_index << "]";
+            out << "[root_index:" << I.l_index << "]";
         }
     }
     else {
@@ -853,14 +863,14 @@ std::ostream& nlsat::display(std::ostream& out, solver& s, levelwise::symbolic_i
             out << "-oo";
         else {
             ::nlsat::display(out, s, I.l);
-            out << "[i=" << I.l_index << "]";
+            out << "[root_index:" << I.l_index << "]";
         }
         out << ", ";
         if (I.u_inf())
             out << "+oo";
         else {
             ::nlsat::display(out, s, I.u);
-            out << "[i=" << I.u_index << "]";
+            out << "[root_index:" << I.u_index << "]";
         }
         out << ")";
     }
