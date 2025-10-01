@@ -42,6 +42,8 @@ namespace nlsat {
             factor(poly, factors);
             fn(factors[0]);            
         }
+
+        // todo: consider to keey polynomials in a set by using m_pm.eq
         struct property {
             prop_enum prop_tag;
             polynomial_ref   poly;
@@ -322,11 +324,21 @@ namespace nlsat {
 
          // Part B of construct_interval: build (I, E, ≼) representation for level i
          void build_representation() {
-             std::vector<const poly*> p_non_null;
-             for (const auto & pr: to_vector(m_Q[m_level])) {
+             // collect non-null polynomials (up to polynomial_manager equality)
+             std::vector<const poly*> p_non_null;            
+             for (auto & pr: to_vector(m_Q[m_level])) {
                  SASSERT(max_var(pr.poly) == m_level);
-                 if (pr.prop_tag == prop_enum::sgn_inv && !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
-                     p_non_null.push_back(pr.poly.get());
+                 if (pr.prop_tag == prop_enum::sgn_inv
+                     && !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am )) {
+                     TRACE(lws, tout << "adding:" << pr.poly.get() << "\n";);
+                     poly* new_p = pr.poly.get();
+                     auto it = std::find_if(p_non_null.begin(), p_non_null.end(),
+                                            [this, new_p](const poly* q){
+                                                return m_pm.eq(q, new_p);
+                                            });
+                     if (it == p_non_null.end())
+                         p_non_null.push_back(new_p);
+                 }
              }
 
              collect_E(p_non_null);
@@ -341,6 +353,9 @@ namespace nlsat {
 
          // Step 1a: collect E the set of root functions on m_level
          void collect_E(std::vector<const poly*> const& p_non_null) {
+             TRACE(lws, tout << "enter\n";);
+             m_E.clear();
+             
              for (auto const* p0 : p_non_null) {
                  auto* p = const_cast<poly*>(p0);
                  if (m_pm.max_var(p) != m_level) {
@@ -361,6 +376,7 @@ namespace nlsat {
                  for (unsigned k = 0; k < num_roots; ++k) 
                      m_E.emplace_back(m_am, p, k + 1, roots[k]);
              }
+             TRACE(lws, tout << "exit\n";);
          }
 
          // add a property to m_Q if an equivalent one is not already present.
