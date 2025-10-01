@@ -1107,6 +1107,34 @@ namespace nlsat {
             }
         }
 
+        bool levelwise_single_cell(polynomial_ref_vector & ps, var max_x) {
+            levelwise lws(m_solver, ps, max_x, sample(), m_pm, m_am);
+            auto cell = lws.single_cell();
+            if (lws.failed()) {
+                return false;
+            }
+            TRACE(lws, for (unsigned i = 0; i < cell.size(); i++)  
+                                 display(tout << "I[" << i << "]:", m_solver, cell[i]) << "\n";);
+            // Enumerate all intervals in the computed cell and add literals for each non-trivial interval.
+            // Non-trivial = section, or sector with at least one finite bound (ignore (-oo,+oo)).
+            for (auto const & I : cell) {
+                if (I.is_section()) {
+                    if (I.l && I.l_index) // root indices start at 1
+                        add_root_literal(atom::ROOT_EQ, max_var(I.l.get()), I.l_index, I.l.get());
+                    continue;
+                }
+                if (I.l_inf() && I.u_inf())
+                    continue; // skip whole-line sector
+                if (!I.l_inf() && I.l_index)
+                    add_root_literal(m_full_dimensional ? atom::ROOT_GE : 
+                        atom::ROOT_GT, max_var(I.l.get()), I.l_index, I.l.get());
+                if (!I.u_inf() && I.u_index && I.u)
+                    add_root_literal(m_full_dimensional ? atom::ROOT_LE : 
+                        atom::ROOT_LT, max_var(I.u.get()), I.u_index, I.u.get());
+            }
+            return true;
+        }
+
         /**
          * Sample Projection
          * Reference:
@@ -1130,8 +1158,10 @@ namespace nlsat {
             for (auto p: m_todo.m_set)
                 ps.push_back(p);
             
-            m_todo.extract_max_polys(ps);
-            // Remark: after vanishing coefficients are eliminated, ps may not contain max_x anymore
+            var x = m_todo.extract_max_polys(ps);
+
+            if (!levelwise_single_cell(ps, max_x)) { // on levelwise_single_cell failure continue with cdcac
+                polynomial_ref_vector samples(m_pm);
             
             polynomial_ref_vector samples(m_pm);
             if (x < max_x)

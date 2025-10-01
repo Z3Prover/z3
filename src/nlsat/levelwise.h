@@ -14,9 +14,9 @@ namespace nlsat {
         struct symbolic_interval {
             bool section = false;
             polynomial_ref l;
-            unsigned l_index; // the root index
+            unsigned l_index; // the low bound root index
             polynomial_ref u;
-            unsigned u_index; // the root index
+            unsigned u_index; // the upper bound root index
             bool l_inf() const { return l == nullptr; }
             bool u_inf() const { return u == nullptr; }
             bool is_section() const { return section; }
@@ -44,7 +44,8 @@ namespace nlsat {
 
         levelwise(levelwise const&) = delete;
         levelwise& operator=(levelwise const&) = delete;
-        std::vector<symbolic_interval> single_cell();        
+        std::vector<symbolic_interval> single_cell();
+        bool failed() const;
     };
 
     //
