@@ -72,6 +72,17 @@ namespace nlsat {
             return result;
         }
         
+        struct root_function {
+            scoped_anum val;
+            indexed_root_expr ire;
+            root_function(anum_manager& am, poly* p, unsigned idx, anum const& v)
+                : val(am), ire{ p, idx } { am.set(val, v); }
+            root_function(root_function&& other) noexcept : val(other.val.m()), ire(other.ire) { val = other.val; }
+            root_function(root_function const&) = delete;
+            root_function& operator=(root_function const&) = delete;
+            // allow move-assignment so we can sort a vector<root_function>
+            root_function& operator=(root_function&& other) noexcept { val = other.val; ire = other.ire; return *this; }
+        };
         solver&                      m_solver;
         polynomial_ref_vector const& m_P;
         unsigned                     m_n; // the max of max_var(p) of all the polynomials, the level of the conflict
@@ -82,11 +93,12 @@ namespace nlsat {
         std::vector<property>        m_to_refine; 
         std::vector<symbolic_interval> m_I; // intervals per level (indexed by variable/level)
         bool                         m_fail = false; 
-
+        std::vector<root_function>   m_E; // the ordered root functions on a level
         assignment const & sample() const { return m_solver.sample();}
         assignment & sample() { return m_solver.sample(); }
 
        // max_x plays the role of n in algorith 1 of the levelwise paper.
+
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am)
             : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am) {
             TRACE(lws, tout  << "m_n:" << m_n << "\n";);
@@ -239,18 +251,6 @@ namespace nlsat {
                 m_fail = true;
         }
         
-        // Internal carrier to keep root value paired with indexed root expr
-        struct root_function {
-            scoped_anum val;
-            indexed_root_expr ire;
-            root_function(anum_manager& am, poly* p, unsigned idx, anum const& v)
-                : val(am), ire{ p, idx } { am.set(val, v); }
-            root_function(root_function&& other) noexcept : val(other.val.m()), ire(other.ire) { val = other.val; }
-            root_function(root_function const&) = delete;
-            root_function& operator=(root_function const&) = delete;
-            // allow move-assignment so we can sort a vector<root_function>
-            root_function& operator=(root_function&& other) noexcept { val = other.val; ire = other.ire; return *this; }
-        };
 
         // Compute symbolic interval from sorted roots. Assumes roots are sorted.
         void compute_interval_from_sorted_roots( // works on m_level
@@ -328,31 +328,30 @@ namespace nlsat {
                  if (pr.prop_tag == prop_enum::sgn_inv && !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am ))
                      p_non_null.push_back(pr.poly.get());
              }
-             std::vector<root_function> E;
-             collect_E(p_non_null, E);
+
+             collect_E(p_non_null);
              // Ensure m_I can hold interval for this level
              SASSERT(m_I.size() > m_level);
-             std::sort(E.begin(), E.end(), [&](root_function const& a, root_function const& b){
+             std::sort(m_E.begin(), m_E.end(), [&](root_function const& a, root_function const& b){
                  return m_am.lt(a.val, b.val);
              });
-             compute_interval_from_sorted_roots(E, m_I[m_level]);
+             compute_interval_from_sorted_roots(m_E, m_I[m_level]);
              TRACE(lws, display(tout << "m_I[" << m_level << "]:", m_I[m_level]) << std::endl;);
          }
 
-         // Step 1a: collect E the set of root functions 
-         void collect_E(std::vector<const poly*> const& P_non_null,
-                                  // works on m_level,
-                                  std::vector<root_function>& E) {
-             std::cout << "coll\n";
-             for (auto const* p0 : P_non_null) {
+         // Step 1a: collect E the set of root functions on m_level
+         void collect_E(std::vector<const poly*> const& p_non_null) {
+             for (auto const* p0 : p_non_null) {
                  auto* p = const_cast<poly*>(p0);
-                 if (m_pm.max_var(p) != m_level)
+                 if (m_pm.max_var(p) != m_level) {
+                     TRACE(lws, ::nlsat::display(tout << "strange, skipping p:", m_solver, p) << "\n";);
                      continue;
+                 }
                  scoped_anum_vector roots(m_am);
                  m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_level), roots);
 
                  unsigned num_roots = roots.size();
-                 TRACE(lws,
+                 TRACE(lws, ::nlsat::display(tout << "p:", m_solver, p) << ",";
                        tout << "roots (" << num_roots << "):";
                        for (unsigned kk = 0; kk < num_roots; ++kk) {
                            tout << " "; m_am.display(tout, roots[kk]);
@@ -360,7 +359,7 @@ namespace nlsat {
                        tout << std::endl;
                  );
                  for (unsigned k = 0; k < num_roots; ++k) 
-                     E.emplace_back(m_am, p, k + 1, roots[k]);
+                     m_E.emplace_back(m_am, p, k + 1, roots[k]);
              }
          }
 
@@ -395,7 +394,7 @@ namespace nlsat {
          void add_ord_inv_discriminant_for(const property& p) {
             polynomial::polynomial_ref disc(m_pm);
             disc = discriminant(p.poly, max_var(p.poly));
-            TRACE(lws, tout << "p:"; display(tout, p) << "\n";
+            TRACE(lws, display(tout << "p:", p) << "\n";
                   ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
             if (!is_const(disc)) {
                 for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
