@@ -100,8 +100,7 @@ namespace search_tree {
 
         bool has_core() const { return !m_core.empty(); }
         void set_core(vector<literal> const &core) { 
-            m_core = core;  // just copy the Z3 vector
-            // no sort, no deduplication
+            m_core = core;
         }
         vector<literal> const & get_core() const { return m_core; }
         void clear_core() { m_core.clear(); }
@@ -163,7 +162,11 @@ namespace search_tree {
             }
         }
 
-        vector<literal> compute_resolvent(node<Config>* left, node<Config>* right) {
+        // Given complementary sibling nodes for literals x and ¬x, sibling resolvent = (core_left ∪ core_right) \ {x, ¬x}
+        // if there are other complements in the union of the cores, they are not removed, but that is ok, because the core is
+        // strengthened, and these complements came from a higher-up branch, which will be resolved away recursively as we move up the tree
+        // in conclusion: the sibling resolvent only promises to eliminate the split variable’s literal/complement.Other complements may still appear, which is ok since they just reflect conflicts from higher up the path.
+        vector<literal> compute_sibling_resolvent(node<Config>* left, node<Config>* right) {
           vector<literal> res;
 
           if (!left->has_core() || !right->has_core()) return res;
@@ -175,7 +178,6 @@ namespace search_tree {
           auto &core_l = left->get_core();
           auto &core_r = right->get_core();
 
-          // Helper to check if a literal is already in the vector
           auto contains = [](vector<literal> const &v, literal const &l) {
               for (unsigned i = 0; i < v.size(); ++i)
                   if (v[i] == l) return true;
@@ -205,40 +207,37 @@ namespace search_tree {
             auto left = p->left();
             auto right = p->right();
             if (!left || !right) return;
+            
             // only attempt when both children are closed and at least one has a core
             if (left->get_status() != status::closed || right->get_status() != status::closed) return;
             if (!left->has_core() || !right->has_core()) return;
 
-            // compute resolvent
-            auto resolvent = compute_resolvent(left, right);
+            auto resolvent = compute_sibling_resolvent(left, right);
             if (resolvent.empty()) {
-                // resolvent empty => unsat at root-subtree under p
+                // sibling resolvent empty => p and its subtree are unsat
                 p->set_core(resolvent); // empty core
                 close_node(p);
-                // mark root closed if p == m_root?
-                if (p == m_root.get()) {
-                    m_root->set_status(status::closed);
-                }
+
                 // continue upward in case parent's sibling can now resolve
                 p = p->parent();
+
                 continue;
             }
-            // If resolvent is identical to existing core at p we are done.
             if (p->has_core()) {
-                // if new core doesn't strengthen, stop.
+                // if new core is same as existing core, stop (skip the more complicated subsumption check for now)
                 if (resolvent == p->get_core()) return;
-                // if new core subsumes old, replace; else maybe keep both (choose policy).
             }
-            // attach resolvent to parent p and close p
+
+            // attach sibling resolvent to parent p and close p
             p->set_core(resolvent);
             close_node(p);
+
             // continue upward to see if parent can further resolve
             p = p->parent();
       }
     }
 
     public:
-
         tree(literal const& null_literal) : m_null_literal(null_literal) {
             reset();
         }
@@ -285,20 +284,18 @@ namespace search_tree {
                 };
                 SASSERT(all_of(conflict, [&](auto const& a) { return on_path(a); }));
             );
-            
-            // find the node on the path whose literal is in conflict
-            node<Config>* target = n;
-            while (target) {
-                if (any_of(conflict, [&](auto const& a) { return a == target->get_literal(); })) {
-                    // store the conflict on the node that closes
-                    target->set_core(conflict);
-                    // close the subtree under target (preserves core on target)
-                    close_node(target);
-                    // now attempt to resolve upwards (recursive collapse)
-                    try_resolve_upwards(target->parent());
+
+            while (n) {
+                if (any_of(conflict, [&](auto const& a) { return a == n->get_literal(); })) {
+                    n->set_core(conflict);
+
+                    // close the subtree under n (preserves core attached to n), and attempt to resolve upwards
+                    close_node(n);
+                    try_resolve_upwards(n->parent());
                     return;
                 }
-                target = target->parent();
+
+                n = n->parent();
             }
             UNREACHABLE();
         }
