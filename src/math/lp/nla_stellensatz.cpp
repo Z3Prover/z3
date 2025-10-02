@@ -118,6 +118,7 @@ namespace nla {
                 add_justification(ci, external_justification(dep));
             }
         }
+        m_occurs.reserve(sz);
         for (auto const &[v, vars] : m_mon2vars) 
             m_max_monomial_degree = std::max(m_max_monomial_degree, vars.size());        
     }
@@ -128,7 +129,7 @@ namespace nla {
         std::sort(vars.begin(), vars.end());
         m_vars2mon.insert(vars, mon_var);
         m_mon2vars.insert(mon_var, vars);
-        m_values.push_back(value(vars));
+        m_values.push_back(cvalue(vars));
     }
 
     //
@@ -288,9 +289,9 @@ namespace nla {
         lpvar non_unit = lp::null_lpvar;
         int sign = 1;
         for (auto v : vars) {
-            if (m_values[v] == 1)
+            if (c().val(v) == 1)
                 continue;
-            if (m_values[v] == -1) {
+            if (c().val(v) == -1) {
                 sign = -sign;
                 continue;
             }
@@ -300,8 +301,8 @@ namespace nla {
         }
         bound_assumptions bounds{"units"};
         for (auto v : vars) {
-            if (m_values[v] == 1 || m_values[v] == -1) {
-                bound_assumption b(v, lp::lconstraint_kind::EQ, m_values[v]);
+            if (c().val(v) == 1 || c().val(v) == -1) {
+                bound_assumption b(v, lp::lconstraint_kind::EQ, c().val(v));
                 bounds.bounds.push_back(b);
             }
         }
@@ -327,17 +328,17 @@ namespace nla {
             return;
         lpvar x = vars[0];
         lpvar y = vars[1];
-        if (m_values[x] == 0 || m_values[y] == 0)
+        if (c().val(x) == 0 || c().val(y) == 0)
             return;
-        if (abs(m_values[x]) <= 1 && abs(m_values[y]) <= 1)
+        if (abs(c().val(x)) <= 1 && abs(c().val(y)) <= 1)
             return;
         saturate_monotonicity(j, val_j, x, y);
         saturate_monotonicity(j, val_j, y, x);
     }
 
     void stellensatz::saturate_monotonicity(lpvar j, rational const &val_j, lpvar x, lpvar y) {
-        auto valx = m_values[x];
-        auto valy = m_values[y];
+        auto valx = c().val(x);
+        auto valy = c().val(y);
         if (valx > 1 && valy > 0 && val_j <= valy)
             saturate_monotonicity(j, val_j, x, 1, y, 1);
         else if (valx > 1 && valy < 0 && -val_j <= -valy)
@@ -376,28 +377,97 @@ namespace nla {
         add_ineq(bounds, j, lp::lconstraint_kind::GE, rational(0));
     }
 
-    rational stellensatz::value(lp::lar_term const &t) const {
+    rational stellensatz::cvalue(lp::lar_term const &t) const {
         rational r(0);
         for (auto cv : t)
-            r += m_values[cv.j()] * cv.coeff();
+            r += c().val(cv.j()) * cv.coeff();
         return r;
     }
 
-    rational stellensatz::value(svector<lpvar> const &prod) const {
+    rational stellensatz::cvalue(svector<lpvar> const &prod) const {
         rational p(1);
         for (auto v : prod)
-            p *= m_values[v];
+            p *= c().val(v);
         return p;
     }
 
-    // TODO add gcd reduce.
+    rational stellensatz::mvalue(svector<lpvar> const &prod) const {
+        rational p(1);
+            for (auto v : prod)
+                p *= m_values[v];
+        return p;
+    }
+
+    void stellensatz::gcd_normalize(vector<std::pair<rational, lpvar>> &t, lp::lconstraint_kind k, rational &rhs) {
+        rational d(1);
+        for (auto &[c,v] : t)
+            d = lcm(d, denominator(c));
+        d = lcm(d, denominator(rhs));
+        if (d != 1) {
+            for (auto &[c, v] : t)
+                c *= d;
+            rhs *= d;
+        }
+        rational g(0);
+        for (auto &[c, v] : t)
+            g = gcd(g, c);
+        bool is_int = true;
+        for (auto &[c, v] : t)
+            is_int &= m_solver.lra().var_is_int(v);
+        if (!is_int)
+            g = gcd(g, rhs);
+        if (g == 1 || g == 0)
+            return;
+        switch (k) {
+        case lp::lconstraint_kind::GE:
+            for (auto &[c, v] : t)
+                c /= g;
+            rhs /= g;
+            rhs = ceil(rhs);
+            break;
+        case lp::lconstraint_kind::GT:
+            for (auto &[c, v] : t)
+                c /= g;
+            if (is_int)
+                rhs += 1;
+            rhs /= g;
+            rhs = ceil(rhs);
+            break;
+        case lp::lconstraint_kind::LE:
+            for (auto &[c, v] : t)
+                c /= g;
+            rhs /= g;
+            rhs = floor(rhs);
+            break;
+        case lp::lconstraint_kind::LT:
+            for (auto &[c, v] : t)
+                c /= g;
+            if (is_int)
+                rhs -= 1;
+            rhs /= g;
+            rhs = floor(rhs);
+            break;
+        case lp::lconstraint_kind::EQ:
+        case lp::lconstraint_kind::NE:
+            if (!divides(g, rhs))
+                break;
+            for (auto &[c, v] : t)
+                c /= g;
+            rhs /= g;
+            break;
+        }    
+    }
+
     lp::constraint_index stellensatz::add_ineq( 
-        justification const& just, lp::lar_term const& t, lp::lconstraint_kind k,
-        rational const& rhs) {
-        SASSERT(!t.coeffs_as_vector().empty());
+        justification const& just, lp::lar_term & t, lp::lconstraint_kind k,
+        rational const & rhs_) {
+        rational rhs(rhs_);
         auto coeffs = t.coeffs_as_vector();
+        gcd_normalize(coeffs, k, rhs);
+        SASSERT(!coeffs.empty());
         auto ti = m_solver.lra().add_term(coeffs, m_solver.lra().number_of_vars());
-        m_values.push_back(value(t));
+        m_occurs.reserve(m_solver.lra().number_of_vars());
+        m_values.push_back(cvalue(t));
         auto new_ci = m_solver.lra().add_var_bound(ti, k, rhs);
         TRACE(arith, display(tout, just) << "\n");
         SASSERT(m_values.size() - 1 == ti);
@@ -416,6 +486,7 @@ namespace nla {
 
     void stellensatz::init_occurs() {
         m_occurs.reset();
+        m_occurs.reserve(c().lra_solver().number_of_vars());
         for (auto ci : m_solver.lra().constraints().indices())
             init_occurs(ci);        
     }
@@ -425,16 +496,11 @@ namespace nla {
         for (auto cv : con.lhs()) {
             auto v = cv.j();
             if (is_mon_var(v)) {
-                for (auto w : m_mon2vars[v]) {
-                    if (w >= m_occurs.size())
-                        m_occurs.resize(w + 1);
-                    m_occurs[w].push_back(ci);
-                }
-                continue;
+                for (auto w : m_mon2vars[v]) 
+                    m_occurs[w].push_back(ci);                
             }
-            if (v >= m_occurs.size())
-                m_occurs.resize(v + 1);
-            m_occurs[v].push_back(ci);
+            else 
+                m_occurs[v].push_back(ci);
         }
     }
 
@@ -444,19 +510,6 @@ namespace nla {
 
         for (auto ci : m_solver.lra().constraints().indices()) 
             insert_monomials_from_constraint(ci);                    
-
-        auto is_subset = [&](svector<lpvar> const &a, svector<lpvar> const& b) {
-            if (a.size() >= b.size())
-                return false;
-            // check if a is a subset of b, counting multiplicies, assume a, b are sorted
-            unsigned i = 0, j = 0;
-            while (i < a.size() && j < b.size()) {
-                if (a[i] == b[j]) 
-                    ++i;
-                ++j;
-            }
-            return i == a.size();           
-        };
 
         auto &constraints = m_solver.lra().constraints();
         unsigned initial_false_constraints = m_false_constraints.size();
@@ -473,8 +526,6 @@ namespace nla {
                 continue;
 
             for (auto v : vars) {
-                if (v >= m_occurs.size())
-                    continue;
                 unsigned sz = m_occurs[v].size();
                 for (unsigned cidx = 0; cidx < sz; ++cidx) {
                     auto ci2 = m_occurs[v][cidx];
@@ -498,6 +549,20 @@ namespace nla {
                    display(verbose_stream() << "saturated\n"));
     }
 
+    void stellensatz::saturate_constraints2() {
+        // pick lex leading monomial mx in to_refine, with x being leading variable and with maximal degree d.
+        // find lub and glb constraints with respect to mx, and subsets of mx, and superset of x.
+        // glb/lub are computed based on coefficents and divisions of remaing of polynomials with current model.
+        // resolve glb with all upper bounds and resolve lub with all lower bounds.
+        // mark polynomials used for resolvents as processed.
+        // repeat until to_refine is empty.
+
+        // Saturation can be called repeatedly for different glb/lub solutions by the LIA solver.
+        // Eventually it can saturate to full pseudo-elimination of mx.
+        // or better: a conflict or a solution.
+
+    }
+
     lpvar stellensatz::find_max_lex_monomial(lp::lar_term const& t) const {
         lpvar result = lp::null_lpvar;
         for (auto const &cv : t) {
@@ -515,6 +580,19 @@ namespace nla {
         }
         return result;
     }
+
+    bool stellensatz::is_subset(svector<lpvar> const &a, svector<lpvar> const &b) const {
+        if (a.size() >= b.size())
+            return false;
+        // check if a is a subset of b, counting multiplicies, assume a, b are sorted
+        unsigned i = 0, j = 0;
+        while (i < a.size() && j < b.size()) {
+            if (a[i] == b[j])
+                ++i;
+            ++j;
+        }
+        return i == a.size();
+    };
 
     bool stellensatz::is_lex_greater(svector<lpvar> const& a, svector<lpvar> const& b) const {
        if (a.size() != b.size())
@@ -649,15 +727,10 @@ namespace nla {
         }
 
         if (sign == l_undef) {
-            switch (k) { 
-            case lp::lconstraint_kind::LT:
-                k = lp::lconstraint_kind::LE;
-                break;
-            case lp::lconstraint_kind::GT:
-                k = lp::lconstraint_kind::GE;
-                break;
-            default:
-                break;
+            switch (k) {
+            case lp::lconstraint_kind::LT: k = lp::lconstraint_kind::LE; break;
+            case lp::lconstraint_kind::GT: k = lp::lconstraint_kind::GE; break;
+            default: break;
             }
         }
 
@@ -763,7 +836,7 @@ namespace nla {
         vector<rational> values;
         rational prod(1);
         for (auto const & [t, degree] : factors) {
-            values.push_back(value(t.first) + t.second);
+            values.push_back(cvalue(t.first) + t.second);
             prod *= values.back();
             if (degree % 2 == 0)
                 prod *= values.back();
@@ -780,7 +853,7 @@ namespace nla {
             3, display_constraint(verbose_stream() << "factored ", ci) << "\n";
             for (auto const &[t, degree] : factors) {
                 display(verbose_stream() << "  factor ", t)
-                    << " ^ " << degree << " = " << (value(t.first) + t.second) << "\n";
+                    << " ^ " << degree << " = " << (cvalue(t.first) + t.second) << "\n";
             });
 
         //
@@ -821,7 +894,7 @@ namespace nla {
                     continue;
                 bound_assumptions bounds{"factor >= 0"};
                 auto v = add_term(f.first);
-                auto k = m_values[v] > 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
+                auto k = c().val(v) > 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
                 bounds.bounds.push_back(bound_assumption(v, k, rational(0)));
                 add_ineq(bounds, v, k, rational(0));
             }
@@ -835,7 +908,7 @@ namespace nla {
             m_solver.ex().push_back(ci);
             for (auto &f : factors) {
                 auto [t, offset] = f.first;
-                auto val = value(t) + offset;
+                auto val = cvalue(t) + offset;
                 auto k = val > 0 ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GE;
                 m_solver.ineqs().push_back(ineq(t, k, -offset));
             }
@@ -899,7 +972,7 @@ namespace nla {
         m_vars2mon.insert(_vars, v);
         m_mon2vars.insert(v, _vars);
         SASSERT(m_values.size() == v);
-        m_values.push_back(value(vars));
+        m_values.push_back(cvalue(vars));
         return v;
     }
 
@@ -915,7 +988,8 @@ namespace nla {
             t.second = 0;
         }
         auto ti = m_solver.lra().add_term(t.first.coeffs_as_vector(), m_solver.lra().number_of_vars());
-        m_values.push_back(value(t.first));
+        m_values.push_back(cvalue(t.first));
+        m_occurs.reserve(m_solver.lra().number_of_vars());
         return ti;
     }
 
@@ -927,6 +1001,7 @@ namespace nla {
         auto v = m_solver.lra().number_of_vars();
         auto w = m_solver.lra().add_var(v, is_int);
         SASSERT(v == w);
+        m_occurs.reserve(m_solver.lra().number_of_vars());
         return w;
     }
 
@@ -949,21 +1024,13 @@ namespace nla {
         for (auto const& cv : con.lhs())
             lhs += cv.coeff() * m_values[cv.j()];
         switch (con.kind()) {
-            case lp::lconstraint_kind::GT:
-                return lhs > 0;
-            case lp::lconstraint_kind::GE:
-                return lhs >= 0;
-            case lp::lconstraint_kind::LE:
-                return lhs <= 0;
-            case lp::lconstraint_kind::LT:
-                return lhs < 0;
-            case lp::lconstraint_kind::EQ:
-                return lhs == 0;
-            case lp::lconstraint_kind::NE:
-                return lhs != 0;
-            default:
-                UNREACHABLE();
-                return false;        
+        case lp::lconstraint_kind::GT: return lhs > 0;
+        case lp::lconstraint_kind::GE: return lhs >= 0;
+        case lp::lconstraint_kind::LE: return lhs <= 0;
+        case lp::lconstraint_kind::LT: return lhs < 0;
+        case lp::lconstraint_kind::EQ: return lhs == 0;
+        case lp::lconstraint_kind::NE: return lhs != 0;
+        default: UNREACHABLE(); return false;
         }
     }
 
@@ -1179,10 +1246,8 @@ namespace nla {
 
     lbool stellensatz::solver::solve_lia() {
         switch (int_solver->check(&m_ex)) {
-        case lp::lia_move::sat:
-            return l_true;
-        case lp::lia_move::conflict:
-            return l_false;
+        case lp::lia_move::sat: return l_true;
+        case lp::lia_move::conflict: return l_false;
         default:  // TODO: an option is to perform (bounded) search here to get an LIA verdict.
             return l_undef;
         }
@@ -1201,7 +1266,7 @@ namespace nla {
             bool is_int = lra_solver->var_is_int(i); 
             SASSERT(!is_int || value.is_int());
             if (s.is_mon_var(i)) 
-                s.m_values[i] = s.value(s.m_mon2vars[i]);             
+                s.m_values[i] = s.mvalue(s.m_mon2vars[i]);             
             else
                 s.m_values[i] = value;
         }

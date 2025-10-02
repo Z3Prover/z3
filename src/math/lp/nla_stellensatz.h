@@ -106,6 +106,7 @@ namespace nla {
         bool is_mon_var(lpvar v) const { return m_mon2vars.contains(v); }
         lpvar find_max_lex_monomial(lp::lar_term const &t) const;
         bool is_lex_greater(svector<lpvar> const &a, svector<lpvar> const &b) const;
+        bool is_subset(svector<lpvar> const &a, svector<lpvar> const &b) const;
         
         unsigned m_max_monomial_degree = 0;
 
@@ -132,16 +133,20 @@ namespace nla {
         using term_offset = std::pair<lp::lar_term, rational>;  // term and its offset
         lpvar add_monomial(svector<lp::lpvar> const& vars);
         lpvar add_term(term_offset &t);
-        lp::constraint_index add_ineq(justification const& just, lp::lar_term const &t, lp::lconstraint_kind k, rational const &rhs);
+
+        void gcd_normalize(vector<std::pair<rational, lpvar>> &t, lp::lconstraint_kind k, rational &rhs);
+        lp::constraint_index add_ineq(justification const& just, lp::lar_term &t, lp::lconstraint_kind k, rational const &rhs);
         lp::constraint_index add_ineq(justification const &just, lpvar j, lp::lconstraint_kind k,
                                       rational const &rhs);
 
         bool is_int(svector<lp::lpvar> const& vars) const;
-        rational value(lp::lar_term const &t) const;
-        rational value(svector<lpvar> const &prod) const;
+        rational cvalue(lp::lar_term const &t) const;
+        rational cvalue(svector<lpvar> const &prod) const;
+        rational mvalue(svector<lpvar> const &prod) const;
         lpvar add_var(bool is_int);
         lbool add_bounds(svector<lpvar> const &vars, vector<bound_assumption> &bounds);
         void saturate_constraints();
+        void saturate_constraints2();
         lp::constraint_index saturate_multiply(lp::constraint_index con_id, lpvar j1, lpvar j2);
         
         void resolve(lpvar j, lp::constraint_index ci1, lp::constraint_index ci2);
