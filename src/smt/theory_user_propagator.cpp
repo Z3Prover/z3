@@ -209,61 +209,36 @@ void theory_user_propagator::decide(bool_var& var, bool& is_pos) {
     if (!m_decide_eh)
         return;
 
-    const bool_var_data& d = ctx.get_bdata(var);
+    expr *e = ctx.bool_var2expr(var);
+    if (!e)
+        e = m.mk_true(); // use a dummy case split atom.
 
-    if (!d.is_enode() && !d.is_theory_atom())
-        return;
-
-    enode* original_enode = nullptr;
-    unsigned original_bit = 0;
-    bv_util bv(m);
-    theory* th = nullptr;
-    theory_var v = null_theory_var;
-
-    // get the associated theory
-    if (!d.is_enode()) {
-        // it might be a value that does not have an enode
-        th = ctx.get_theory(d.get_theory());
-    }
-    else {
-        original_enode = ctx.bool_var2enode(var);
-        v = original_enode->get_th_var(get_family_id());
-        if (v == null_theory_var) {
-            // it is not a registered boolean expression
-            th = ctx.get_theory(d.get_theory());
+    unsigned bit = 0;
+    // determine if case split is a bit-position in a bit-vector
+    {
+        bv_util bv(m);
+        auto th = ctx.get_theory(bv.get_fid());
+        if (th) {
+            // it is then n'th bit of a bit-vector n.
+            auto [n, nbit] = static_cast<theory_bv *>(th)->get_bv_with_theory(var, get_family_id());
+            if (n) {
+                e = n->get_expr();
+                bit = nbit;
+            }
         }
     }
 
-    if (v == null_theory_var && !th)
-        return;
-
-    if (v == null_theory_var && th->get_family_id() != bv.get_fid())
-        return;
-
-    if (v == null_theory_var) {
-        // it is not a registered boolean value but it is a bitvector
-        auto registered_bv = ((theory_bv*) th)->get_bv_with_theory(var, get_family_id());
-        if (!registered_bv.first)
-            // there is no registered bv associated with the bit
-            return;
-        original_enode = registered_bv.first;
-        original_bit = registered_bv.second;
-        v = original_enode->get_th_var(get_family_id());
-    }
-
-    // call the registered callback
-    unsigned new_bit = original_bit;
-
     force_push();
-    expr *e = var2expr(v);
-    m_decide_eh(m_user_context, this, e, new_bit, is_pos);
+    m_decide_eh(m_user_context, this, e, bit, is_pos);
 
     bool_var new_var;
     if (!get_case_split(new_var, is_pos) || new_var == var)
         // The user did not interfere
         return;
+    TRACE(user_propagate,
+          tout << "decide: " << ctx.bool_var2expr(var) << " -> " << ctx.bool_var2expr(new_var) << "\n");
     var = new_var;
-
+                    
     // check if the new variable is unassigned
     if (ctx.get_assignment(var) != l_undef)
         throw default_exception("expression in \"decide\" is already assigned");
