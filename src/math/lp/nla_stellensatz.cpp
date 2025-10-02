@@ -138,13 +138,9 @@ namespace nla {
     // 1. constraints that are obtained by multiplication are explained from the original constraint
     // 2. bounds justifications are added as justifications to the lemma.
     // 
-<<<<<<< HEAD
     void stellensatz::add_lemma() {
         lp::explanation const &ex1 = m_solver.ex();
         vector<ineq> const &ineqs = m_solver.ineqs();
-=======
-    void stellensatz::add_lemma(lp::explanation const& ex1, vector<ineq> const& ineqs) {
->>>>>>> f2ec21024 (generate more proper proof format)
         TRACE(arith, display(tout); display_lemma(tout, ex1, ineqs));
         auto& lra = c().lra_solver();
         lp::explanation ex2;
@@ -305,13 +301,8 @@ namespace nla {
         }
         bound_assumptions bounds{"units"};
         for (auto v : vars) {
-<<<<<<< HEAD
-            if (c().val(v) == 1 || c().val(v) == -1) {
-                bound_assumption b(v, lp::lconstraint_kind::EQ, c().val(v));
-=======
             if (m_values[v] == 1 || m_values[v] == -1) {
                 bound_assumption b(v, lp::lconstraint_kind::EQ, m_values[v]);
->>>>>>> f2ec21024 (generate more proper proof format)
                 bounds.bounds.push_back(b);
             }
         }
@@ -400,7 +391,6 @@ namespace nla {
         return p;
     }
 
-<<<<<<< HEAD
     rational stellensatz::mvalue(svector<lpvar> const &prod) const {
         rational p(1);
             for (auto v : prod)
@@ -482,22 +472,6 @@ namespace nla {
         TRACE(arith, display(tout, just) << "\n");
         SASSERT(m_values.size() - 1 == ti);
         add_justification(new_ci, just);
-=======
-    lp::constraint_index stellensatz::add_ineq( 
-        justification const& bounds,
-        lp::lar_term const& t, lp::lconstraint_kind k,
-        rational const& rhs) {
-        SASSERT(!t.coeffs_as_vector().empty());
-        auto ti = m_solver.lra().add_term(t.coeffs_as_vector(), m_solver.lra().number_of_vars());
-        m_values.push_back(value(t));
-        auto new_ci = m_solver.lra().add_var_bound(ti, k, rhs);
-        TRACE(arith, 
-            // display_constraint(tout << bounds.rule << ": ", new_ci) << "\n"; 
-            // if (!bounds.empty()) display(tout << "\t <- ", bounds) << "\n";
-            );
-        SASSERT(m_values.size() - 1 == ti);
-        add_justification(new_ci, bounds);
->>>>>>> f2ec21024 (generate more proper proof format)
         init_occurs(new_ci);
         return new_ci;
     }
@@ -537,22 +511,6 @@ namespace nla {
         for (auto ci : m_solver.lra().constraints().indices()) 
             insert_monomials_from_constraint(ci);                    
 
-<<<<<<< HEAD
-=======
-        auto is_subset = [&](svector<lpvar> const &a, svector<lpvar> const& b) {
-            if (a.size() >= b.size())
-                return false;
-            // check if a is a subset of b, counting multiplicies, assume a, b are sorted
-            unsigned i = 0, j = 0;
-            while (i < a.size() && j < b.size()) {
-                if (a[i] == b[j]) 
-                    ++i;
-                ++j;
-            }
-            return i == a.size();           
-        };
-
->>>>>>> f2ec21024 (generate more proper proof format)
         auto &constraints = m_solver.lra().constraints();
         unsigned initial_false_constraints = m_false_constraints.size();
         for (unsigned it = 0; it < m_false_constraints.size(); ++it) {
@@ -568,14 +526,9 @@ namespace nla {
                 continue;
 
             for (auto v : vars) {
-<<<<<<< HEAD
-                unsigned sz = m_occurs[v].size();
-                for (unsigned cidx = 0; cidx < sz; ++cidx) {
-=======
                 if (v >= m_occurs.size())
                     continue;
                 for (unsigned cidx = 0; cidx < m_occurs[v].size(); ++cidx) {
->>>>>>> f2ec21024 (generate more proper proof format)
                     auto ci2 = m_occurs[v][cidx];
                     if (ci1 == ci2)
                         continue;
@@ -944,10 +897,14 @@ namespace nla {
                 bound_assumptions bounds{"factor >= 0"};
                 auto v = add_term(f.first);
 <<<<<<< HEAD
+<<<<<<< HEAD
                 auto k = c().val(v) > 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
 =======
                 auto k = m_values[v] > 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
 >>>>>>> f2ec21024 (generate more proper proof format)
+=======
+                auto k = c().val(v) > 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
+>>>>>>> 35e781c58 (gcd reduce and use c().val for sign constraints)
                 bounds.bounds.push_back(bound_assumption(v, k, rational(0)));
                 add_ineq(bounds, v, k, rational(0));
             }
