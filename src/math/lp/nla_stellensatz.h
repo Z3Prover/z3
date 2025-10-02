@@ -211,6 +211,7 @@ namespace nla {
         lbool add_bounds(svector<lpvar> const &vars, vector<bound_assumption> &bounds);
         void saturate_constraints();
 
+
         void saturate_constraints2();
         void eliminate(lpvar mi);
         void ext_resolve(lpvar j, lp::constraint_index lo, lp::constraint_index hi);

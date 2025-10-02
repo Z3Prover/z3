@@ -308,8 +308,8 @@ namespace nla {
         }
         bound_assumptions bounds{"units"};
         for (auto v : vars) {
-            if (m_values[v] == 1 || m_values[v] == -1) {
-                bound_assumption b(v, lp::lconstraint_kind::EQ, m_values[v]);
+            if (c().val(v) == 1 || c().val(v) == -1) {
+                bound_assumption b(v, lp::lconstraint_kind::EQ, c().val(v));
                 bounds.bounds.push_back(b);
             }
         }
@@ -396,7 +396,7 @@ namespace nla {
     rational stellensatz::mvalue(lp::lar_term const &t) const {
         rational r(0);
         for (auto cv : t)
-            r += m_values[cv.j()] * cv.coeff();
+            r += c().val(cv.j()) * cv.coeff();
         return r;
     }
 
@@ -474,6 +474,7 @@ namespace nla {
         }    
     }
 
+
     bool stellensatz::is_new_inequality(vector<std::pair<rational, lpvar>> lhs, lp::lconstraint_kind k,
                                         rational const &rhs) {
         std::stable_sort(lhs.begin(), lhs.end(),
@@ -487,12 +488,14 @@ namespace nla {
         return true;
     }
 
+
     lp::constraint_index stellensatz::add_ineq( 
         justification const& just, lp::lar_term & t, lp::lconstraint_kind k,
         rational const & rhs_) {
         rational rhs(rhs_);
         auto coeffs = t.coeffs_as_vector();
         gcd_normalize(coeffs, k, rhs);
+
 
         if (!is_new_inequality(coeffs, k, rhs))
             return lp::null_ci;
@@ -546,7 +549,6 @@ namespace nla {
         for (auto ci : constraints.indices()) 
             insert_monomials_from_constraint(ci);                    
 
-
         auto &constraints = m_solver.lra().constraints();
         unsigned initial_false_constraints = m_false_constraints.size();
         for (unsigned it = 0; it < m_false_constraints.size(); ++it) {
@@ -562,6 +564,7 @@ namespace nla {
                 continue;
 
             for (auto v : vars) {
+
                 if (v >= m_occurs.size())
                     continue;
                 for (unsigned cidx = 0; cidx < m_occurs[v].size(); ++cidx) {
@@ -597,6 +600,7 @@ namespace nla {
         // Saturation can be called repeatedly for different glb/lub solutions by the LIA solver.
         // Eventually it can saturate to full pseudo-elimination of mx.
         // or better: a conflict or a solution.
+
 
         IF_VERBOSE(3, verbose_stream() << "saturate2\n");
         auto &constraints = m_solver.lra().constraints();
