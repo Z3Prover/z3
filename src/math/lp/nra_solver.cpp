@@ -177,7 +177,7 @@ struct solver::imp {
     }
 
     // 
-    // This setup 
+    // This setup is for check_assignment which is better suitated for working with input polynomials diretly.
     svector<lp::constraint_index> m_literal2constraint;
     void setup_assignment_solver() {
         SASSERT(need_check());
