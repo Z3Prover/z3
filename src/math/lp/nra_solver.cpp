@@ -178,11 +178,22 @@ struct solver::imp {
 
     // 
     // This setup is for check_assignment which is better suitated for working with input polynomials diretly.
+    // First slice the set of constraints to remove clusters that are satisfied by the current assignment.
+    // Then initialize each variable as either a polynomial variable or as a definition for a term or monomial.
+    // Finally process all constraints and use the definitions to represent these into the nlsat solver.
+    //
     svector<lp::constraint_index> m_literal2constraint;
+    struct eq {
+        bool operator()(unsigned_vector const &a, unsigned_vector const &b) const {
+            return a == b;
+        }
+    };
+    map<unsigned_vector, unsigned, svector_hash<unsigned_hash>, eq> m_vars2mon;
     void setup_assignment_solver() {
         SASSERT(need_check());
         reset();
         m_literal2constraint.reset();
+        m_vars2mon.reset();
 
         init_cone_of_influence();
         auto &pm = m_nlsat->pm();
@@ -190,14 +201,17 @@ struct solver::imp {
         for (unsigned v = 0; v < lra.number_of_vars(); ++v) {
             auto j = m_nlsat->mk_var(lra.var_is_int(v));
             VERIFY(j == v);
-            m_lp2nl.insert(v, j);
+            m_lp2nl.insert(v, j); // we don't really need this. It is going to be the identify map.
             scoped_anum a(am());
             am().set(a, m_nla_core.val(v).to_mpq());
             m_values->set(j, a);
             if (m_nla_core.emons().is_monic_var(v)) {
                 auto const &m = m_nla_core.emons()[v];
+                auto vars = m.vars();
+                std::sort(vars.begin(), vars.end());
+                m_vars2mon.insert(vars, v);
                 polynomial::polynomial_ref p(pm);                
-                for (auto v : m.vars()) {
+                for (auto v : vars) {
                     auto pv = definitions.get(v);
                     if (!p)
                         p = pv;
@@ -328,9 +342,9 @@ struct solver::imp {
         return r;
     }
 
-    void process_polynomial_check_assignment(unsigned num_mon, polynomial::polynomial const* p, rational& bound,                 const u_map<lp::lpvar>& nl2lp, lp::lar_term& t) {
-        polynomial::manager& pm = m_nlsat->pm();
-        for (unsigned i = 0; i < num_mon; ++i) {
+    void process_polynomial_check_assignment(polynomial::polynomial const* p, rational& bound, const u_map<lp::lpvar>& nl2lp, lp::lar_term& t) {
+        polynomial::manager& pm = m_nlsat->pm();       
+        for (unsigned i = 0; i < pm.size(p); ++i) {
             polynomial::monomial* m = pm.get_monomial(p, i);
             TRACE(nra, tout << "monomial: "; pm.display(tout, m); tout << "\n";);
             auto& coeff = pm.coeff(p, i);
@@ -344,36 +358,20 @@ struct solver::imp {
                 bound -= coeff;
                 break;
             case 1: {
-                unsigned mon_var = pm.get_var(m, 0);
-                auto v = nl2lp[mon_var];
-                TRACE(nra, tout << "nl2lp[" << mon_var << "]:" << v << std::endl;);
-                rational s;
-                SASSERT(v != (unsigned)-1);
-                v = m_nla_core.reduce_var_to_rooted(v, s);
-                t.add_monomial(s * coeff, v);
-            }
+                auto v = nl2lp[pm.get_var(m, 0)];
+                t.add_monomial(coeff, v);
                 break;
+            }
             default: {
+                IF_VERBOSE(0, verbose_stream() << "Valentin! we don't really expect non-linear literals here\n");
                 svector<lp::lpvar> vars;
                 for (unsigned j = 0; j < num_vars; ++j)
                     vars.push_back(nl2lp[pm.get_var(m, j)]);
-                rational s;    
-                vars = m_nla_core.reduce_monic_to_rooted(vars, s);
-                auto mon = m_nla_core.emons().find_canonical(vars);
-                TRACE(nra, tout << "canonical mon: "; if (mon) tout << *mon; else tout << "null"; tout << "\n";);
-                
-                if (mon) 
-                    v = mon->var();                                
-                else {
-                    v = m_nla_core.add_mul_def(vars.size(), vars.data());
-                }
-                TRACE(nra,
-                      tout << " vars="; 
-                      for (auto _w : vars) tout << _w << ' '; 
-                      tout << " s=" << s
-                           << " mon=" << (mon ? static_cast<int>(mon->var()) : -1)
-                           << " v=" << v << "\n";);
-                t.add_monomial(s * coeff, v);
+                std::sort(vars.begin(), vars.end());
+                SASSERT(m_vars2mon.contains(vars));
+                auto v = m_vars2mon[vars];
+                TRACE(nra, tout << " vars=" << vars << "\n");
+                t.add_monomial(coeff, v);
                 break;
             }
             }                      
@@ -435,6 +433,13 @@ struct solver::imp {
         polynomial::manager &pm = m_nlsat->pm();
         nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
         for (nlsat::literal l : clause) {
+            if (m_literal2constraint.get((~l).index(), lp::null_ci) != lp::null_ci) {
+                auto ci = m_literal2constraint[(~l).index()];
+                lp::explanation ex;
+                ex.push_back(ci);
+                lemma &= ex;
+                continue;
+            }
             nlsat::atom *a = m_nlsat->bool_var2atom(l.var());
             TRACE(nra, tout << "atom: "; m_nlsat->display(tout, *a); tout << "\n";);
             SASSERT(!a->is_root_atom());
@@ -450,7 +455,7 @@ struct solver::imp {
             unsigned num_mon = pm.size(p);
             rational bound(0);
             lp::lar_term t;
-            process_polynomial_check_assignment(num_mon, p, bound, nl2lp, t);
+            process_polynomial_check_assignment(p, bound, nl2lp, t);
 
             // Introduce a single ineq variable and assign it per case; common handling after switch.
             nla::ineq inq(lp::lconstraint_kind::EQ, t, bound);  // initial value overwritten in cases below
