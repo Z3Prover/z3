@@ -387,10 +387,10 @@ struct solver::imp {
     
     lbool check_assignment() {
         IF_VERBOSE(1, verbose_stream() << "nra::solver::check_assignment\n";);
-        setup_solver();
+        setup_assignment_solver();
         lbool r = l_undef;
-    statistics &st = m_nla_core.lp_settings().stats().m_st;
-    nlsat::literal_vector clause;
+        statistics &st = m_nla_core.lp_settings().stats().m_st;
+        nlsat::literal_vector clause;
         try {
             nlsat::assignment rvalues(m_nlsat->am());
             for (auto [j, x] : m_lp2nl) {
