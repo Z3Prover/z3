@@ -334,6 +334,52 @@ public:
     }    
 };
 
+class prefer_cmd : public cmd {
+    expr *m_formula = nullptr;
+
+public:
+    prefer_cmd() : cmd("prefer") {}
+    char const *get_usage() const override {
+        return "<formula>";
+    }
+    char const *get_descr(cmd_context &ctx) const override {
+        return "set a preferred formula for the solver";
+    }
+    unsigned get_arity() const override {
+        return 1;
+    }
+    void prepare(cmd_context &ctx) override {
+        m_formula = nullptr;
+    }
+    cmd_arg_kind next_arg_kind(cmd_context &ctx) const override {
+        return CPK_EXPR;
+    }
+    void set_next_arg(cmd_context &ctx, expr *e) override {
+        m_formula = e;
+    }
+    void execute(cmd_context &ctx) override {
+        SASSERT(m_formula);
+        ctx.set_preferred(m_formula);
+    }
+};
+
+class reset_preferences_cmd : public cmd {
+    public:
+    reset_preferences_cmd() : cmd("reset-preferences") {}
+    char const *get_usage() const override {
+        return "";
+    }
+    char const *get_descr(cmd_context &ctx) const override {
+        return "reset all preferred formulas";
+    }
+    unsigned get_arity() const override {
+        return 0;
+    }
+    void execute(cmd_context &ctx) override {
+        ctx.reset_preferred();
+    }
+};
+
 class set_get_option_cmd : public cmd {
 protected:
     symbol      m_true;
@@ -926,6 +972,8 @@ void install_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(get_info_cmd));
     ctx.insert(alloc(set_info_cmd));
     ctx.insert(alloc(set_initial_value_cmd));
+    ctx.insert(alloc(prefer_cmd));
+    ctx.insert(alloc(reset_preferences_cmd));
     ctx.insert(alloc(get_consequences_cmd));
     ctx.insert(alloc(builtin_cmd, "assert", "<term>", "assert term."));
     ctx.insert(alloc(builtin_cmd, "check-sat", "<boolean-constants>*", "check if the current context is satisfiable. If a list of boolean constants B is provided, then check if the current context is consistent with assigning every constant in B to true."));

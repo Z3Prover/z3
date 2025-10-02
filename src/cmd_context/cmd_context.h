@@ -39,6 +39,7 @@ Notes:
 #include "solver/check_logic.h"
 #include "solver/progress_callback.h"
 #include "solver/simplifier_solver.h"
+#include "solver/preferred_value_propagator.h"
 #include "cmd_context/pdecl.h"
 #include "cmd_context/tactic_manager.h"
 #include "params/context_params.h"
@@ -265,6 +266,7 @@ protected:
     dictionary<object_ref*>      m_object_refs; // anything that can be named.
     dictionary<sexpr*>           m_user_tactic_decls;
     vector<std::pair<expr_ref, expr_ref>> m_var2values;
+    scoped_ptr<preferred_value_propagator> m_preferred;
 
     dictionary<func_decls>       m_func_decls;
     obj_map<func_decl, symbol>   m_func_decl2alias;
@@ -429,6 +431,8 @@ public:
     void set_solver(solver* s) { m_solver = s; }
     void set_proof_cmds(proof_cmds* pc) { m_proof_cmds = pc; }
     void set_initial_value(expr* var, expr* value);
+    void set_preferred(expr *fmla);
+    void reset_preferred();
 
     void set_solver_factory(solver_factory * s);
     void set_simplifier_factory(simplifier_factory& sf) { m_simplifier_factory = sf; }

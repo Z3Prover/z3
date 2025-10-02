@@ -1890,6 +1890,8 @@ namespace smt {
 
     theory_bv::var_enode_pos theory_bv::get_bv_with_theory(bool_var v, theory_id id) const {
         atom* a      = get_bv2a(v);
+        if (!a)
+            return var_enode_pos(nullptr, UINT32_MAX);
         svector<var_enode_pos> vec;
         if (!a->is_bit())
             return var_enode_pos(nullptr, UINT32_MAX);

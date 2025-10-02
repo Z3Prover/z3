@@ -628,6 +628,7 @@ cmd_context::~cmd_context() {
     finalize_tactic_manager();
     m_proof_cmds = nullptr;
     m_var2values.reset();
+    m_preferred = nullptr;
     reset(true);
     m_mcs.reset();
     m_solver = nullptr;
@@ -1518,6 +1519,8 @@ void cmd_context::reset(bool finalize) {
     m_dt_eh  = nullptr;
     m_std_subst = nullptr;
     m_rev_subst = nullptr;
+    m_preferred = nullptr;
+    m_var2values.reset();
     if (m_manager) {
         dealloc(m_pmanager);
         m_pmanager = nullptr;
@@ -1882,6 +1885,29 @@ void cmd_context::set_initial_value(expr* var, expr* value) {
     if (get_solver()) 
         get_solver()->user_propagate_initialize_value(var, value);
     m_var2values.push_back({expr_ref(var, m()), expr_ref(value, m())});    
+}
+
+void cmd_context::set_preferred(expr* fmla) {
+    if (!m_preferred) {
+        auto p = alloc(preferred_value_propagator, m());
+        m_preferred = p;
+        if (get_solver()) {
+            get_solver()->user_propagate_init(p, p->push_eh, p->pop_eh, p->fresh_eh);
+            get_solver()->user_propagate_register_decide(p->decide_eh);
+        }
+    }
+    m_preferred->set_preferred(fmla);
+    if (get_opt()) {
+        throw default_exception("setting preferred on optimization context is not supported yet");
+        return;
+    }
+}
+
+void cmd_context::reset_preferred() {
+    if (!m_scopes.empty())
+        throw default_exception("reset-preferred can only be invoked at base level");
+    if (m_preferred) 
+        m_preferred->reset_preferred();   
 }
 
 
@@ -2261,8 +2287,13 @@ void cmd_context::mk_solver() {
     m_params.get_solver_params(p, proofs_enabled, models_enabled, unsat_core_enabled);
     m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
     m_solver = mk_slice_solver(m_solver.get());
-    if (m_simplifier_factory) 
+    if (m_simplifier_factory)
         m_solver = mk_simplifier_solver(m_solver.get(), &m_simplifier_factory);
+    if (m_preferred) {
+        auto p = m_preferred.get();
+        m_solver->user_propagate_init(p, p->push_eh, p->pop_eh, p->fresh_eh);
+        m_solver->user_propagate_register_decide(p->decide_eh);
+    }
 }
 
 
