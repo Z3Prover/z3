@@ -154,6 +154,10 @@ struct solver::imp {
 
         TRACE(nra, m_nlsat->display(tout));
 
+        log_nl();
+    }
+
+    void log_nl() {
         smt_params_helper p(m_params);
         if (p.arith_nl_log()) {
             static unsigned id = 0;
@@ -170,6 +174,78 @@ struct solver::imp {
             out << "(check-sat)\n";
             out.close();
         }
+    }
+
+    // 
+    // This setup 
+    svector<lp::constraint_index> m_literal2constraint;
+    void setup_assignment_solver() {
+        SASSERT(need_check());
+        reset();
+        m_literal2constraint.reset();
+
+        init_cone_of_influence();
+        auto &pm = m_nlsat->pm();
+        polynomial_ref_vector definitions(pm);
+        for (unsigned v = 0; v < lra.number_of_vars(); ++v) {
+            auto j = m_nlsat->mk_var(lra.var_is_int(v));
+            VERIFY(j == v);
+            m_lp2nl.insert(v, j);
+            scoped_anum a(am());
+            am().set(a, m_nla_core.val(v).to_mpq());
+            m_values->set(j, a);
+            if (m_nla_core.emons().is_monic_var(v)) {
+                auto const &m = m_nla_core.emons()[v];
+                polynomial::polynomial_ref p(pm);                
+                for (auto v : m.vars()) {
+                    auto pv = definitions.get(v);
+                    if (!p)
+                        p = pv;
+                    else
+                        p = pm.mul(p, pv);
+                }
+                definitions.push_back(p);
+            }
+            else if (lra.column_has_term(v)) {
+                polynomial::polynomial_ref p(pm);
+                for (auto const& [w, coeff] : lra.get_term(v)) {
+                    auto pw = definitions.get(w);
+                    if (!p)
+                        p = pm.mul(coeff, pw);
+                    else
+                        p = pm.add(p, pm.mul(coeff, pw));
+                }
+                definitions.push_back(p);
+            } 
+            else
+                definitions.push_back(pm.mk_polynomial(j));
+        }
+
+        // we rely on that all information encoded into the tableau is present as a constraint.
+        for (auto ci : m_constraint_set) {
+            auto &c = lra.constraints()[ci];
+            auto &pm = m_nlsat->pm();
+            auto k = c.kind();
+            auto rhs = c.rhs();
+            auto lhs = c.coeffs();
+            auto sz = lhs.size();
+
+            rational den = denominator(rhs);
+            for (auto [coeff, v] : lhs) 
+                den = lcm(den, denominator(coeff));
+            polynomial::polynomial_ref p(pm);
+            p = pm.mk_const(-den * rhs);
+
+            for (auto [coeff, v] : lhs) {
+                polynomial_ref poly(pm);
+                poly = pm.mul(den * coeff, definitions.get(v));
+                p = p + poly;
+            }
+            auto lit = add_constraint(p, ci, k);
+            m_literal2constraint.setx(lit.index(), ci, lp::null_ci);
+        }
+
+        log_nl();
     }
 
     void validate_constraints() {
@@ -452,8 +528,8 @@ struct solver::imp {
     }
 
     void add_constraint(unsigned idx) {
-        auto& c = lra.constraints()[idx];
-        auto& pm = m_nlsat->pm();
+        auto &c = lra.constraints()[idx];
+        auto &pm = m_nlsat->pm();
         auto k = c.kind();
         auto rhs = c.rhs();
         auto lhs = c.coeffs();
@@ -470,6 +546,10 @@ struct solver::imp {
         }
         rhs *= den;
         polynomial::polynomial_ref p(pm.mk_linear(sz, coeffs.data(), vars.data(), -rhs), pm);
+        add_constraint(p, idx, k);
+    }
+       
+    nlsat::literal add_constraint(polynomial::polynomial* p, unsigned idx, lp::lconstraint_kind k) {
         polynomial::polynomial* ps[1] = { p };
         bool is_even[1] = { false };
         nlsat::literal lit;
@@ -494,6 +574,7 @@ struct solver::imp {
             UNREACHABLE(); // unreachable
         }
         m_nlsat->mk_clause(1, &lit, a);
+        return lit;
     }
 
     bool check_monic(mon_eq const& m) {
