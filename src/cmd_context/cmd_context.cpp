@@ -657,6 +657,8 @@ void cmd_context::set_opt(opt_wrapper* opt) {
     for (auto const& [var, value] : m_var2values)
         m_opt->initialize_value(var, value);
     m_opt->set_logic(m_logic);
+    if (m_preferred)
+        m_opt->set_preferred(m_preferred.get());
 }
 
 void cmd_context::global_params_updated() {
@@ -1896,11 +1898,9 @@ void cmd_context::set_preferred(expr* fmla) {
             get_solver()->user_propagate_register_decide(p->decide_eh);
         }
     }
+    if (get_opt())
+        get_opt()->set_preferred(m_preferred.get());  
     m_preferred->set_preferred(fmla);
-    if (get_opt()) {
-        throw default_exception("setting preferred on optimization context is not supported yet");
-        return;
-    }
 }
 
 void cmd_context::reset_preferred() {

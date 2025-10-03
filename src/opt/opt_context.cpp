@@ -316,6 +316,11 @@ namespace opt {
             m_model_converter->convert_initialize_value(m_scoped_state.m_values);
         for (auto & [var, value] : m_scoped_state.m_values) 
             s.user_propagate_initialize_value(var, value);
+        if (m_preferred) {
+            auto p = m_preferred;
+            s.user_propagate_init(p, p->push_eh, p->pop_eh, p->fresh_eh);
+            s.user_propagate_register_decide(p->decide_eh);
+        }
         
         opt_params optp(m_params);
         symbol pri = optp.priority();

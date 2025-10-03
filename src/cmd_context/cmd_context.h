@@ -164,6 +164,9 @@ struct builtin_decl {
 };
 
 class opt_wrapper : public check_sat_result {
+protected:
+    preferred_value_propagator *m_preferred = nullptr;
+
 public:
     opt_wrapper(ast_manager& m): check_sat_result(m) {}
     virtual bool empty() = 0;
@@ -177,7 +180,7 @@ public:
     virtual void get_box_model(model_ref& mdl, unsigned index) = 0;
     virtual void updt_params(params_ref const& p) = 0;
     virtual void initialize_value(expr* var, expr* value) = 0;
-
+    void set_preferred(preferred_value_propagator *p) { m_preferred = p; }
 };
 
 class ast_context_params : public context_params { 
