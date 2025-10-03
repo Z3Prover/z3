@@ -203,58 +203,71 @@ namespace search_tree {
       }
 
       void try_resolve_upwards(node<Config>* p) {
-        while (p) {
-            auto left = p->left();
-            auto right = p->right();
-            if (!left || !right) return;
-            
-            // only attempt when both children are closed and at least one has a core
-            if (left->get_status() != status::closed || right->get_status() != status::closed) return;
-            if (!left->has_core() || !right->has_core()) return;
+          while (p) {
+              auto left = p->left();
+              auto right = p->right();
+              if (!left || !right) return;
 
-            auto resolvent = compute_sibling_resolvent(left, right);
-            if (resolvent.empty()) {
-                // sibling resolvent empty => p and its subtree are unsat
-                p->set_core(resolvent); // empty core
-                close_node(p);
+              // only attempt when both children are closed and each has a core
+              if (left->get_status() != status::closed || right->get_status() != status::closed) return;
+              if (!left->has_core() || !right->has_core()) return;
 
-                // continue upward in case parent's sibling can now resolve
-                p = p->parent();
+              auto resolvent = compute_sibling_resolvent(left, right);
 
-                continue;
-            }
-            if (p->has_core()) {
-                // if new core is same as existing core, stop (skip the more complicated subsumption check for now)
-                if (resolvent == p->get_core()) return;
-            }
+              // empty resolvent → subtree is UNSAT
+              if (resolvent.empty()) {
+                  p->set_core(resolvent);  // empty core
+                  close_node(p);
+                  p = p->parent();
+                  continue;
+              }
 
-            node<Config>* bubble = p;
+              // if p already has the same core, nothing more to do
+              if (p->has_core() && resolvent == p->get_core())
+                  return;
 
-            // is every literal in resolvent on the path from bubble up to root?
-            // If yes, move bubble up. If not, stop.
-            // Eventually, the resolvent is attached at the lowest ancestor that “covers” all those literals.
-            bool can_bubble = true;
-            while (bubble) {
-                for (auto const& l : resolvent) {
-                    bool found = false;
-                    for (node<Config>* q = bubble; q; q = q->parent()) {
-                        if (q->get_literal() == l) { found = true; break; }
-                    }
-                    if (!found) { can_bubble = false; break; }
-                }
-                if (!can_bubble) break;
-                bubble = bubble->parent();
-            }
-            if (!bubble) bubble = p; // fallback in case nothing bubbled
+              //
+              // Bubble to the highest ancestor where ALL literals in the resolvent
+              // are present somewhere on the path from that ancestor to root
+              //
+              node<Config>* candidate = p;
+              node<Config>* attach_here = p; // fallback
 
-            // attach resolvent to the bubbled node and close it
-            bubble->set_core(resolvent);
-            close_node(bubble);
+              while (candidate) {
+                  bool all_found = true;
 
-            // continue upward from parent of bubbled node
-            p = bubble->parent();
+                  for (auto const& r : resolvent) {
+                      bool found = false;
+                      for (node<Config>* q = candidate; q; q = q->parent()) {
+                          if (q->get_literal() == r) {
+                              found = true;
+                              break;
+                          }
+                      }
+                      if (!found) {
+                          all_found = false;
+                          break;
+                      }
+                  }
+
+                  if (all_found) {
+                      attach_here = candidate;  // bubble up to this node
+                  }
+
+                  candidate = candidate->parent();
+              }
+
+              // attach the resolvent and close the subtree at attach_here
+              if (!attach_here->has_core() || attach_here->get_core() != resolvent) {
+                  attach_here->set_core(resolvent);
+                  close_node(attach_here);
+              }
+
+              // continue upward from parent of attach_here
+              p = attach_here->parent();
+          }
       }
-    }
+
 
     public:
         tree(literal const& null_literal) : m_null_literal(null_literal) {
