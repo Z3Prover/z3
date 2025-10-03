@@ -194,7 +194,7 @@ struct solver::imp {
     map<unsigned_vector, unsigned, svector_hash<unsigned_hash>, eq> m_vars2mon;
     // Create polynomial definition for variable v used in setup_assignment_solver.
     // Side-effects: updates m_vars2mon when v is a monic variable.
-    polynomial::polynomial_ref mk_definition(unsigned v, polynomial_ref_vector const& definitions) {
+    void mk_definition(unsigned v, polynomial_ref_vector& definitions) {
         auto &pm = m_nlsat->pm();
         polynomial::polynomial_ref p(pm);
         if (m_nla_core.emons().is_monic_var(v)) {
@@ -209,19 +209,22 @@ struct solver::imp {
                 else
                     p = pm.mul(p, pv);
             }
-        } else if (lra.column_has_term(v)) {
-            for (auto const& [w, coeff] : lra.get_term(v)) {
+        }
+        else if (lra.column_has_term(v)) {
+            for (auto const &[w, coeff] : lra.get_term(v)) {
                 auto pw = definitions.get(w);
                 if (!p)
                     p = pm.mul(coeff, pw);
                 else
                     p = pm.add(p, pm.mul(coeff, pw));
             }
-        } else {
-            p = pm.mk_polynomial(v); // nlsat var index equals v (verified above when created)
         }
-        return p;
+        else {
+            p = pm.mk_polynomial(v);  // nlsat var index equals v (verified above when created)
+        }
+        definitions.push_back(p);
     }
+
     void setup_assignment_solver() {
         SASSERT(need_check());
         reset();
@@ -238,7 +241,7 @@ struct solver::imp {
             scoped_anum a(am());
             am().set(a, m_nla_core.val(v).to_mpq());
             m_values->push_back(a);
-            definitions.push_back(mk_definition(v, definitions));
+            mk_definition(v, definitions);
         }
 
         // we rely on that all information encoded into the tableau is present as a constraint.
