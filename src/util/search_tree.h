@@ -228,12 +228,31 @@ namespace search_tree {
                 if (resolvent == p->get_core()) return;
             }
 
-            // attach sibling resolvent to parent p and close p
-            p->set_core(resolvent);
-            close_node(p);
+            node<Config>* bubble = p;
 
-            // continue upward to see if parent can further resolve
-            p = p->parent();
+            // is every literal in resolvent on the path from bubble up to root?
+            // If yes, move bubble up. If not, stop.
+            // Eventually, the resolvent is attached at the lowest ancestor that “covers” all those literals.
+            bool can_bubble = true;
+            while (bubble) {
+                for (auto const& l : resolvent) {
+                    bool found = false;
+                    for (node<Config>* q = bubble; q; q = q->parent()) {
+                        if (q->get_literal() == l) { found = true; break; }
+                    }
+                    if (!found) { can_bubble = false; break; }
+                }
+                if (!can_bubble) break;
+                bubble = bubble->parent();
+            }
+            if (!bubble) bubble = p; // fallback in case nothing bubbled
+
+            // attach resolvent to the bubbled node and close it
+            bubble->set_core(resolvent);
+            close_node(bubble);
+
+            // continue upward from parent of bubbled node
+            p = bubble->parent();
       }
     }
 
