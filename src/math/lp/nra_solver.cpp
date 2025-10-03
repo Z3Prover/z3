@@ -188,7 +188,40 @@ struct solver::imp {
             return a == b;
         }
     };
+
+    
+
     map<unsigned_vector, unsigned, svector_hash<unsigned_hash>, eq> m_vars2mon;
+    // Create polynomial definition for variable v used in setup_assignment_solver.
+    // Side-effects: updates m_vars2mon when v is a monic variable.
+    polynomial::polynomial_ref mk_definition(unsigned v, polynomial_ref_vector const& definitions) {
+        auto &pm = m_nlsat->pm();
+        polynomial::polynomial_ref p(pm);
+        if (m_nla_core.emons().is_monic_var(v)) {
+            auto const &m = m_nla_core.emons()[v];
+            auto vars = m.vars();
+            std::sort(vars.begin(), vars.end());
+            m_vars2mon.insert(vars, v);
+            for (auto v2 : vars) {
+                auto pv = definitions.get(v2);
+                if (!p)
+                    p = pv;
+                else
+                    p = pm.mul(p, pv);
+            }
+        } else if (lra.column_has_term(v)) {
+            for (auto const& [w, coeff] : lra.get_term(v)) {
+                auto pw = definitions.get(w);
+                if (!p)
+                    p = pm.mul(coeff, pw);
+                else
+                    p = pm.add(p, pm.mul(coeff, pw));
+            }
+        } else {
+            p = pm.mk_polynomial(v); // nlsat var index equals v (verified above when created)
+        }
+        return p;
+    }
     void setup_assignment_solver() {
         SASSERT(need_check());
         reset();
@@ -204,35 +237,8 @@ struct solver::imp {
             m_lp2nl.insert(v, j); // we don't really need this. It is going to be the identify map.
             scoped_anum a(am());
             am().set(a, m_nla_core.val(v).to_mpq());
-            m_values->set(j, a);
-            if (m_nla_core.emons().is_monic_var(v)) {
-                auto const &m = m_nla_core.emons()[v];
-                auto vars = m.vars();
-                std::sort(vars.begin(), vars.end());
-                m_vars2mon.insert(vars, v);
-                polynomial::polynomial_ref p(pm);                
-                for (auto v : vars) {
-                    auto pv = definitions.get(v);
-                    if (!p)
-                        p = pv;
-                    else
-                        p = pm.mul(p, pv);
-                }
-                definitions.push_back(p);
-            }
-            else if (lra.column_has_term(v)) {
-                polynomial::polynomial_ref p(pm);
-                for (auto const& [w, coeff] : lra.get_term(v)) {
-                    auto pw = definitions.get(w);
-                    if (!p)
-                        p = pm.mul(coeff, pw);
-                    else
-                        p = pm.add(p, pm.mul(coeff, pw));
-                }
-                definitions.push_back(p);
-            } 
-            else
-                definitions.push_back(pm.mk_polynomial(j));
+            m_values->push_back(a);
+            definitions.push_back(mk_definition(v, definitions));
         }
 
         // we rely on that all information encoded into the tableau is present as a constraint.
@@ -242,8 +248,6 @@ struct solver::imp {
             auto k = c.kind();
             auto rhs = c.rhs();
             auto lhs = c.coeffs();
-            auto sz = lhs.size();
-
             rational den = denominator(rhs);
             for (auto [coeff, v] : lhs) 
                 den = lcm(den, denominator(coeff));
@@ -318,10 +322,7 @@ struct solver::imp {
             }
         }
         m_nlsat->collect_statistics(st);
-        TRACE(nra,
-              m_nlsat->display(tout << r << "\n");
-              display(tout);
-              for (auto [j, x] : m_lp2nl) tout << "j" << j << " := x" << x << "\n";);
+        TRACE(nra, m_nlsat->display(tout << r << "\n"););
         switch (r) {
         case l_true:
             m_nla_core.set_use_nra_model(true);
@@ -351,7 +352,6 @@ struct solver::imp {
             TRACE(nra, tout << "coeff:";  pm.m().display(tout, coeff);); 
                  
             unsigned num_vars = pm.size(m);
-            lp::lpvar v = lp::null_lpvar;
             // add mon * coeff to t;
             switch (num_vars) {                            
             case 0:
@@ -452,7 +452,6 @@ struct solver::imp {
             // a is an inequality atom, i.e., p > 0, p < 0, or p = 0.
             polynomial::polynomial const *p = ia.p(0);
             TRACE(nra, tout << "polynomial: "; pm.display(tout, p); tout << "\n";);
-            unsigned num_mon = pm.size(p);
             rational bound(0);
             lp::lar_term t;
             process_polynomial_check_assignment(p, bound, nl2lp, t);
