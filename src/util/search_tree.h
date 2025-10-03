@@ -163,9 +163,6 @@ namespace search_tree {
         }
 
         // Given complementary sibling nodes for literals x and ¬x, sibling resolvent = (core_left ∪ core_right) \ {x, ¬x}
-        // if there are other complements in the union of the cores, they are not removed, but that is ok, because the core is
-        // strengthened, and these complements came from a higher-up branch, which will be resolved away recursively as we move up the tree
-        // in conclusion: the sibling resolvent only promises to eliminate the split variable’s literal/complement.Other complements may still appear, which is ok since they just reflect conflicts from higher up the path.
         vector<literal> compute_sibling_resolvent(node<Config>* left, node<Config>* right) {
           vector<literal> res;
 
@@ -216,7 +213,7 @@ namespace search_tree {
 
               // empty resolvent → subtree is UNSAT
               if (resolvent.empty()) {
-                  p->set_core(resolvent);  // empty core
+                  p->set_core(resolvent); // empty core
                   close_node(p);
                   p = p->parent();
                   continue;
@@ -226,10 +223,8 @@ namespace search_tree {
               if (p->has_core() && resolvent == p->get_core())
                   return;
 
-              //
               // Bubble to the highest ancestor where ALL literals in the resolvent
               // are present somewhere on the path from that ancestor to root
-              //
               node<Config>* candidate = p;
               node<Config>* attach_here = p; // fallback
 
