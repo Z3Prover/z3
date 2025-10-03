@@ -9,6 +9,7 @@ IndentWidth: 4
 TabWidth: 4
 UseTab: Never
 
+
 # Column width
 ColumnLimit: 120
 
@@ -34,6 +35,8 @@ BraceWrapping:
    AfterControlStatement: false
    AfterNamespace: false
    AfterStruct: false
+   BeforeElse : true
+   AfterCaseLabel: false
 # Spacing
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
@@ -42,7 +45,6 @@ SpaceInEmptyParentheses: false
 SpacesInCStyleCastParentheses: false
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
-IndentCaseLabels: false
 
 # Alignment
 AlignConsecutiveAssignments: false
@@ -56,12 +58,18 @@ BinPackArguments: true
 BinPackParameters: true
 BreakBeforeBinaryOperators: None
 BreakBeforeTernaryOperators: true
+# BreakBeforeElse: true
 
 # Includes
 SortIncludes: false  # Z3 has specific include ordering conventions
 
 # Namespaces
 NamespaceIndentation: All
+
+# Switch statements
+IndentCaseLabels: false
+AllowShortCaseLabelsOnASingleLine: true
+IndentCaseBlocks: false
 
 # Comments and documentation
 ReflowComments: true
