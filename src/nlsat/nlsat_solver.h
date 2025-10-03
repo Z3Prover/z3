@@ -246,7 +246,7 @@ namespace nlsat {
         static void collect_param_descrs(param_descrs & d);
         const assignment& sample() const;
         assignment& sample(); 
-
+        bool apply_levelwise() const;
         void reset();
         void collect_statistics(statistics & st);
         void reset_statistics();

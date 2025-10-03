@@ -155,12 +155,9 @@ namespace nlsat {
           - For factors with level == m_n: add an_del(p) and isolate their indexed roots over the sample;
           sort those roots and for each adjacent pair coming from distinct polynomials add
           ord_inv(resultant(p_j, p_{j+1})) to Q.
-          - If any constructed polynomial (resultant, discriminant, etc.) is nullified on the sample,
-          fail immediately.
+          - If any constructed polynomial is nullified on the sample, that is all coefficients are zeroes, then fail.
 
-          Result: Q = { sgn_inv(p) | level(p) < m_n }
-          ∪ { an_del(p)  | level(p) == m_n }
-          ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent roots }.
+          Result: Q = { sgn_inv(p) | level(p) < m_n } ∪ { an_del(p)  | level(p) == m_n } ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent roots }.
         */
         // Helper 1: scan input polynomials, add sgn_inv / an_del properties and collect polynomials at level m_n
         void collect_level_properties(std::vector<poly*> & ps_of_n_level) {
@@ -342,8 +339,6 @@ namespace nlsat {
              }
 
              collect_E(p_non_null);
-             // Ensure m_I can hold interval for this level
-             SASSERT(m_I.size() > m_level);
              std::sort(m_E.begin(), m_E.end(), [&](root_function const& a, root_function const& b){
                  return m_am.lt(a.val, b.val);
              });
