@@ -41,6 +41,7 @@ namespace search_tree {
         literal m_literal;
         node* m_left = nullptr, * m_right = nullptr, * m_parent = nullptr;
         status m_status;
+        vector<literal> m_core;
     public:
         node(literal const& l, node* parent) :
             m_literal(l), m_parent(parent), m_status(status::open) {}
@@ -96,6 +97,13 @@ namespace search_tree {
             if (m_right)
                 m_right->display(out, indent + 2);
         }
+
+        bool has_core() const { return !m_core.empty(); }
+        void set_core(vector<literal> const &core) { 
+            m_core = core;
+        }
+        vector<literal> const & get_core() const { return m_core; }
+        void clear_core() { m_core.clear(); }
     };
 
     template<typename Config>
@@ -154,8 +162,108 @@ namespace search_tree {
             }
         }
 
-    public:
+        // Given complementary sibling nodes for literals x and ¬x, sibling resolvent = (core_left ∪ core_right) \ {x, ¬x}
+        vector<literal> compute_sibling_resolvent(node<Config>* left, node<Config>* right) {
+          vector<literal> res;
 
+          if (!left->has_core() || !right->has_core()) return res;
+
+          bool are_sibling_complements = left->parent() == right->parent();
+          if (!are_sibling_complements)
+              return res;
+
+          auto &core_l = left->get_core();
+          auto &core_r = right->get_core();
+
+          auto contains = [](vector<literal> const &v, literal const &l) {
+              for (unsigned i = 0; i < v.size(); ++i)
+                  if (v[i] == l) return true;
+              return false;
+          };
+
+          auto lit_l = left->get_literal();
+          auto lit_r = right->get_literal();
+
+          // Add literals from left core, skipping lit_l
+          for (unsigned i = 0; i < core_l.size(); ++i) {
+              if (core_l[i] != lit_l && !contains(res, core_l[i]))
+                  res.push_back(core_l[i]);
+          }
+
+          // Add literals from right core, skipping lit_r
+          for (unsigned i = 0; i < core_r.size(); ++i) {
+              if (core_r[i] != lit_r && !contains(res, core_r[i]))
+                  res.push_back(core_r[i]);
+          }
+
+          return res;
+      }
+
+      void try_resolve_upwards(node<Config>* p) {
+          while (p) {
+              auto left = p->left();
+              auto right = p->right();
+              if (!left || !right) return;
+
+              // only attempt when both children are closed and each has a core
+              if (left->get_status() != status::closed || right->get_status() != status::closed) return;
+              if (!left->has_core() || !right->has_core()) return;
+
+              auto resolvent = compute_sibling_resolvent(left, right);
+
+              // empty resolvent of sibling complement (i.e. tautology) -> global UNSAT
+              if (resolvent.empty()) {
+                  m_root->set_core(resolvent);
+                  close_node(m_root.get());
+                  return;
+              }
+
+              // if p already has the same core, nothing more to do
+              if (p->has_core() && resolvent == p->get_core())
+                  return;
+
+              // Bubble to the highest ancestor where ALL literals in the resolvent
+              // are present somewhere on the path from that ancestor to root
+              node<Config>* candidate = p;
+              node<Config>* attach_here = p; // fallback
+
+              while (candidate) {
+                  bool all_found = true;
+
+                  for (auto const& r : resolvent) {
+                      bool found = false;
+                      for (node<Config>* q = candidate; q; q = q->parent()) {
+                          if (q->get_literal() == r) {
+                              found = true;
+                              break;
+                          }
+                      }
+                      if (!found) {
+                          all_found = false;
+                          break;
+                      }
+                  }
+
+                  if (all_found) {
+                      attach_here = candidate;  // bubble up to this node
+                  }
+
+                  candidate = candidate->parent();
+              }
+
+              // attach the resolvent and close the subtree at attach_here
+              if (!attach_here->has_core() || attach_here->get_core() != resolvent) {
+                  attach_here->set_core(resolvent);
+                  close_node(attach_here);
+              }
+
+              // continue upward from parent of attach_here
+              p = attach_here->parent();
+          }
+      }
+
+
+    public:
         tree(literal const& null_literal) : m_null_literal(null_literal) {
             reset();
         }
@@ -179,8 +287,8 @@ namespace search_tree {
         // they are a subset of literals on the path from root to n
         void backtrack(node<Config>* n, vector<literal> const& conflict) {
             if (conflict.empty()) {
+                m_root->set_core(conflict);
                 close_node(m_root.get());
-                m_root->set_status(status::closed);
                 return;
             }           
             SASSERT(n != m_root.get());
@@ -198,12 +306,17 @@ namespace search_tree {
                 };
                 SASSERT(all_of(conflict, [&](auto const& a) { return on_path(a); }));
             );
-            
+
             while (n) {
                 if (any_of(conflict, [&](auto const& a) { return a == n->get_literal(); })) {
+                    n->set_core(conflict);
+
+                    // close the subtree under n (preserves core attached to n), and attempt to resolve upwards
                     close_node(n);
+                    try_resolve_upwards(n->parent());
                     return;
                 }
+
                 n = n->parent();
             }
             UNREACHABLE();
