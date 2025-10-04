@@ -93,7 +93,7 @@ namespace nlsat {
         anum_manager&                m_am;
         std::vector<property_queue>  m_Q; // the set of properties to prove
         std::vector<property>        m_to_refine; 
-        std::vector<symbolic_interval> m_I; // intervals per level (indexed by variable/level)
+        std::vector<root_function_interval> m_I; // intervals per level (indexed by variable/level)
         bool                         m_fail = false; 
         std::vector<root_function>   m_E; // the ordered root functions on a level
         assignment const & sample() const { return m_solver.sample();}
@@ -104,14 +104,10 @@ namespace nlsat {
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am)
             : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am) {
             TRACE(lws, tout  << "m_n:" << m_n << "\n";);
-            // m_I holds one symbolic_interval per level. symbolic_interval is not default
-            // constructible (it requires a polynomial::manager), so using resize() would
-            // attempt to default-construct elements and fail to compile. Instead we
-            // explicitly emplace objects initialized with the polynomial manager.
-            m_I.reserve(m_n);
+            m_I.reserve(m_n); // cannot just resize bcs of the absence of the default constructor of root_function_interval
             for (unsigned i = 0; i < m_n; ++i)
                 m_I.emplace_back(m_pm);
-            m_Q.resize(m_n+1);
+            m_Q.resize(m_n + 1);
         }
         // end constructor
 
@@ -237,11 +233,12 @@ namespace nlsat {
         }
 
         /*
+          See comment 7.1 Generating explanation for MCSAT.
           Return Q = { sgn_inv(p) | level(p) < m_n }
           ∪ { an_del(p)  | level(p) == m_n }
           ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent root functions }.
         */
-        void seed_properties() {
+        void init_properties() {
             std::vector<poly*> ps_of_n_level;
             collect_level_properties(ps_of_n_level);
             std::vector<std::pair<scoped_anum, poly*>> root_vals;
@@ -251,10 +248,10 @@ namespace nlsat {
         }
         
 
-        // Compute symbolic interval from sorted roots. Assumes roots are sorted.
+        // Compute root function interval from sorted roots. Assumes roots are sorted.
         void compute_interval_from_sorted_roots( // works on m_level
                                                 std::vector<root_function>& roots,
-                                                symbolic_interval& I) {
+                                                root_function_interval& I) {
             // default: whole line sector (-inf, +inf)
             I.section = false;
             I.l = nullptr; I.u = nullptr; I.l_index = 0; I.u_index = 0;
@@ -401,12 +398,11 @@ namespace nlsat {
             SASSERT(invariant());
             return apply_property_rules(prop_enum::holds, true);
         }
-         // Extracted helper: handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
+         // handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
          void add_ord_inv_discriminant_for(const property& p) {
             polynomial::polynomial_ref disc(m_pm);
             disc = discriminant(p.poly, max_var(p.poly));
-            TRACE(lws, display(tout << "p:", p) << "\n";
-                  ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
+            TRACE(lws, display(tout << "p:", p) << "\n"; ::nlsat::display(tout << "discriminant by x" << max_var(p.poly)<< ": ", m_solver, disc) << "\n";);
             if (!is_const(disc)) {
                 for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
                     if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
@@ -420,7 +416,7 @@ namespace nlsat {
             }
          }
 
-        // Extracted helper: handle sgn_inv(leading_coefficient_{x_{i+1}}(p)) for an_del pre-processing
+        //  handle sgn_inv(leading_coefficient_{x_{i+1}}(p)) for an_del pre-processing
         void add_sgn_inv_leading_coeff_for(const property& p) {
             poly * pp = p.poly.get();
             unsigned lvl = max_var(p.poly);
@@ -431,12 +427,12 @@ namespace nlsat {
                 if (!is_const(lc)) {
                     for_each_distinct_factor(lc, [&](polynomial::polynomial_ref f) {
                         if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
-                            NOT_IMPLEMENTED_YET(); // leading coeff vanished as polynomial -- not handled yet
+                            m_fail = true;
+                            return;
                         }
-                        else {
-                            unsigned lvl = max_var(f);
-                            mk_prop(prop_enum::sgn_inv, f, lvl);
-                        }
+                        else
+                            mk_prop(prop_enum::sgn_inv, f, max_var(f));
+                        
                     });
                 }
             }
@@ -664,7 +660,7 @@ or
             if (I.section) {
             /* Rule 4.8. Let i ∈ N>0 , R ⊆ Ri
                , s ∈ R_{i−1}
-               , p ∈ Q[x1, . . . , xi ], level(p) = i, and I be a symbolic interval
+               , p ∈ Q[x1, . . . , xi ], level(p) = i, and I be a root function interval
                of level i. Assume that p is irreducible, and I = (section, b).
                Let Q := an_sub(i − 1)(R) ∧ connected(i − 1)(R) ∧ repr(I, s)(R) ∧ an_del(b.p)(R).
                Q, b.p= p ⊢ sgn_inv(p)(R)
@@ -683,14 +679,16 @@ or
             /*
               Rule 4.10. Let i ∈ N>0 , R ⊆ Ri
               , s ∈ Ri−1
-              , p ∈ Q[x1, . . . , xi ], level(p) = i, I be a symbolic interval of
+              , p ∈ Q[x1, . . . , xi ], level(p) = i, I be a root function interval of
               level i, ≼ be an indexed root ordering of level i, and ≼t be the reflexive and transitive closure of ≼.
               We choose l, u such that either I = (sector, l, u) or (I = (section, b) for b = l = u).
               Assume that p is irreducible, irExpr(p, s) ̸= ∅, ξ.p is irreducible for all ξ ∈ dom(≼), ≼ matches s,
               and for all ξ ∈ irExpr(p, s) it holds either ξ ≼t l or u ≼t ξ.
               sample(s)(R), repr(I, s)(R), ir_ord(≼, s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R)
             */
-                NOT_IMPLEMENTED_YET();
+                mk_prop(sample_holds, m_level - 1); 
+                mk_prop(repr, m_level - 1);
+                mk_prop(an_del, p.poly, m_level);
             }
         }
 
@@ -768,23 +766,15 @@ or
         }
 
         // return an empty vector on failure, otherwise returns the cell representations with intervals
-        std::vector<symbolic_interval> single_cell() {
-            TRACE(lws,
-                   m_solver.display_assignment(tout << "sample()") << std::endl;
-                   tout << "m_P:\n";
-                   for (const auto & p: m_P) {
-                       ::nlsat::display(tout, m_solver, polynomial_ref(p, m_pm)) << std::endl;
-                       tout << "max_var:" << m_pm.max_var(p) << std::endl;
-                   }
-                 );
+        std::vector<root_function_interval> single_cell() {
+            TRACE(lws, m_solver.display_assignment(tout << "sample()") << std::endl; ::nlsat::display(tout << "m_P:\n", m_solver, m_P) << "\n";);
             m_level = m_n;
-            seed_properties(); // initializes m_Q as the set of properties on levels <= m_n            
+            init_properties(); // initializes m_Q as a queue of properties on levels <= m_n           
             apply_property_rules(prop_enum::_count, false); // reduce the level by one to be consumed by construct_interval
-            while (--m_level > 0) {
+            while (--m_level > 0) 
                 if (!construct_interval())
-                    return std::vector<symbolic_interval>(); // return empty
-            }
-            
+                    return std::vector<root_function_interval>(); // return empty
+                       
             return m_I; // the order of intervals is reversed
         }
         
@@ -812,8 +802,7 @@ or
             }
             return out;
         }
-        
-
+ 
         std::ostream& display(std::ostream& out, const property & pr) const {
             out << "{prop:" << prop_name(pr.prop_tag);
             if (pr.s_idx != -1) out   << ", s_idx:" << pr.s_idx;
@@ -827,8 +816,7 @@ or
             out << "}";
             return out;
         }
-
-        
+       
         std::ostream& display(std::ostream& out, const indexed_root_expr& ire ) const {
             out << "RootExpr: p=";
             ::nlsat::display(out, m_solver, ire.p);
@@ -836,11 +824,9 @@ or
             return out;
         }
 
-        std::ostream& display(std::ostream& out, const symbolic_interval& I) const {
+        std::ostream& display(std::ostream& out, const root_function_interval& I) const {
             return ::nlsat::display(out, m_solver, I);
         }
-
-
     };
 // constructor
     levelwise::levelwise(nlsat::solver& solver, polynomial_ref_vector const& ps, var n, assignment const& s, pmanager& pm, anum_manager& am)
@@ -848,16 +834,15 @@ or
 
     levelwise::~levelwise() { delete m_impl; }
 
-    std::vector<levelwise::symbolic_interval> levelwise::single_cell() {
+    std::vector<levelwise::root_function_interval> levelwise::single_cell() {
         return m_impl->single_cell();
     }
 
     bool levelwise::failed() const { return m_impl->m_fail; }
-    
 } // namespace nlsat
 
 // Free pretty-printer for symbolic_interval
-std::ostream& nlsat::display(std::ostream& out, solver& s, levelwise::symbolic_interval const& I) {
+std::ostream& nlsat::display(std::ostream& out, solver& s, levelwise::root_function_interval const& I) {
     if (I.section) {
         out << "Section: ";
         if (I.l == nullptr)
