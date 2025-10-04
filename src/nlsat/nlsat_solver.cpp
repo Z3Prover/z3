@@ -2523,6 +2523,7 @@ namespace nlsat {
                                 resolve_clause(b, *(jst.get_clause()));
                                 break;
                             case justification::LAZY:
+                                m_apply_lws = m_stats.m_conflicts == 2;
                                 resolve_lazy_justification(b, *(jst.get_lazy()));
                                 break;
                             case justification::DECISION:
