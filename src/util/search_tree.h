@@ -211,12 +211,11 @@ namespace search_tree {
 
               auto resolvent = compute_sibling_resolvent(left, right);
 
-              // empty resolvent → subtree is UNSAT
+              // empty resolvent of sibling complement (i.e. tautology) -> global UNSAT
               if (resolvent.empty()) {
-                  p->set_core(resolvent); // empty core
-                  close_node(p);
-                  p = p->parent();
-                  continue;
+                  m_root->set_core(resolvent);
+                  close_node(m_root.get());
+                  return;
               }
 
               // if p already has the same core, nothing more to do
@@ -288,12 +287,8 @@ namespace search_tree {
         // they are a subset of literals on the path from root to n
         void backtrack(node<Config>* n, vector<literal> const& conflict) {
             if (conflict.empty()) {
+                m_root->set_core(conflict);
                 close_node(m_root.get());
-                m_root->set_status(status::closed);
-                
-                // store empty core at root to signal global unsat if you like
-                m_root->set_core(vector<literal>()); // optional
-                
                 return;
             }           
             SASSERT(n != m_root.get());
