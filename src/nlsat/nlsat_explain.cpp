@@ -498,6 +498,7 @@ namespace nlsat {
            Remark: root atoms are not normalized
         */
         literal normalize(literal l, var max) {
+            TRACE(nlsat_explain, display(tout << "l:", m_solver, l) << '\n';);
             bool_var b = l.var();
             if (b == true_bool_var)
                 return l;
@@ -587,6 +588,7 @@ namespace nlsat {
            stages) from (arithmetic) literals,
         */
         void normalize(scoped_literal_vector & C, var max) {
+            TRACE(nlsat_explain, display(tout << "C:\n", m_solver, C) << '\n';);
             unsigned sz = C.size();
             unsigned j  = 0;
             for (unsigned i = 0; i < sz; ++i) {
@@ -1146,6 +1148,7 @@ namespace nlsat {
             bool first = true;
             if (ps.empty())
                 return;
+            }
 
             m_todo.reset();
             for (unsigned i = 0; i < ps.size(); ++i) {
@@ -1160,6 +1163,7 @@ namespace nlsat {
             
             var x = m_todo.extract_max_polys(ps);
 
+            TRACE(nlsat_explain, tout << "m_solver.apply_levelwise():" << m_solver.apply_levelwise() << "\n";);
             if (m_solver.apply_levelwise() && levelwise_single_cell(ps, max_x))
                 return;
 
@@ -1592,8 +1596,10 @@ namespace nlsat {
            \brief Main procedure. The explain the given unsat core, and store the result in m_result
         */
         void main(unsigned num, literal const * ls) {
-            if (num == 0)
+            if (num == 0) {
+                TRACE(nlsat_explain, tout << "num:" << num << "\n";);
                 return;
+            }
             collect_polys(num, ls, m_ps);
             var max_x = max_var(m_ps);
             TRACE(nlsat_explain, tout << "polynomials in the conflict:\n"; display(tout, m_solver, m_ps); tout << "\n";);
@@ -1605,6 +1611,7 @@ namespace nlsat {
 
         void process2(unsigned num, literal const * ls) {
             if (m_simplify_cores) {
+                TRACE(nlsat_explain, tout << "m_simplify_cores is true\n";);
                 m_core2.reset();
                 m_core2.append(num, ls);
                 var max = max_var(num, ls);
@@ -1694,12 +1701,14 @@ namespace nlsat {
 
         void process(unsigned num, literal const * ls) {
             if (m_minimize_cores && num > 1) {
+                TRACE(nlsat_explain, tout << "m_minimize_cores:" << m_minimize_cores << ", num:" << num;);
                 m_core1.reset();
                 minimize(num, ls, m_core1);
                 process2(m_core1.size(), m_core1.data());
                 m_core1.reset();
             }
             else {
+                TRACE(nlsat_explain, tout << "directly to process2\n";);
                 process2(num, ls);
             }
         }

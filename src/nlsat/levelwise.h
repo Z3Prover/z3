@@ -11,7 +11,7 @@ namespace nlsat {
             poly* p;
             unsigned i;
         };
-        struct symbolic_interval {
+        struct root_function_interval {
             bool section = false;
             polynomial_ref l;
             unsigned l_index; // the low bound root index
@@ -25,12 +25,12 @@ namespace nlsat {
                 SASSERT(is_section());                
                 return l;
             }
-            symbolic_interval(polynomial::manager & pm):l(pm), u(pm) {}
+            root_function_interval(polynomial::manager & pm):l(pm), u(pm) {}
         };
         // Free pretty-printer declared here so external modules (e.g., nlsat_explain) can
         // display intervals without depending on levelwise internals.
         // Implemented in levelwise.cpp
-        friend std::ostream& display(std::ostream& out, solver& s, symbolic_interval const& I);
+        friend std::ostream& display(std::ostream& out, solver& s, root_function_interval const& I);
             
     private:
 
@@ -44,12 +44,12 @@ namespace nlsat {
 
         levelwise(levelwise const&) = delete;
         levelwise& operator=(levelwise const&) = delete;
-        std::vector<symbolic_interval> single_cell();
+        std::vector<root_function_interval> single_cell();
         bool failed() const;
     };
 
     //
     // Free pretty-printer (non-member) for levelwise::symbolic_interval
-    std::ostream& display(std::ostream& out, solver& s, levelwise::symbolic_interval const& I);
+    std::ostream& display(std::ostream& out, solver& s, levelwise::root_function_interval const& I);
 
 } // namespace nlsat
