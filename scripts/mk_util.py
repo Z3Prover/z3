@@ -2686,8 +2686,6 @@ def mk_config():
             CPPFLAGS     = '%s -DZ3DEBUG -D_DEBUG' % CPPFLAGS
         else:
             CXXFLAGS     = '%s -O3' % CXXFLAGS
-            if GPROF:
-                CXXFLAGS     += '-fomit-frame-pointer'
             CPPFLAGS     = '%s -DNDEBUG -D_EXTERNAL_RELEASE' % CPPFLAGS
         if is_CXX_clangpp():
             CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
