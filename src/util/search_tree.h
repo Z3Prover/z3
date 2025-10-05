@@ -139,7 +139,41 @@ namespace search_tree {
             return nullptr;
         }
 
-        // Given complementary sibling nodes for literals x and ¬x, sibling resolvent = (core_left ∪ core_right) \ {x, ¬x}
+      // Invariants: 
+      // Cores labeling nodes are subsets of the literals on the path to the node and the (external) assumption literals.
+      // If a parent is open, then the one of the children is open.
+      void close_with_core(node<Config>* n, vector<literal> const &C, bool allow_resolve = true) {
+          if (!n || n->get_status() == status::closed)
+              return;
+
+          n->set_core(C);
+          n->set_status(status::closed);
+
+          close_with_core(n->left(), C, false);
+          close_with_core(n->right(), C, false);
+
+          // stop at root
+          if (!n->parent()) return;
+
+          node<Config>* p = n->parent();
+          if (!p) return; // root reached
+
+          auto is_literal_in_core = [](literal const& l, vector<literal> const& C) {
+              for (unsigned i = 0; i < C.size(); ++i)
+                  if (C[i] == l) return true;
+              return false;
+          };
+
+          // case 1: current splitting literal not in the conflict core
+          if (!is_literal_in_core(n->get_literal(), C)) {
+              close_with_core(p, C);
+          // case 2: both siblings closed -> resolve
+          } else if (allow_resolve && p->left()->get_status() == status::closed && p->right()->get_status() == status::closed) {
+              try_resolve_upwards(p);
+          }
+      }
+
+      // Given complementary sibling nodes for literals x and ¬x, sibling resolvent = (core_left ∪ core_right) \ {x, ¬x}
         vector<literal> compute_sibling_resolvent(node<Config>* left, node<Config>* right) {
           vector<literal> res;
 
@@ -175,89 +209,67 @@ namespace search_tree {
 
           return res;
       }
-
-      // Invariants: 
-      // Cores labeling nodes are subsets of the literals on the path to the node and the (external) assumption literals.
-      // If a parent is open, then the one of the children is open.
-      void propagate_and_close(node<Config>* n, vector<literal> const &C) {
-          if (!n || n->get_status() == status::closed)
-              return;
-
-          n->set_core(C);
-          n->set_status(status::closed);
-
-          // Mark children closed as well (propagate same core for now)
-          // this may result in redundant calls to propagate_and_close thru the subsequent bubbling up of resolutions,
-          // but such calls should terminate immediately since the nodes are already closed, something like:
-          // close(n)
-          // ├─> close(p)
-          // │     ├─> while-loop resolving upward from p
-          // │     │     ├─> close(attach_here)
-          // │     │     │     ├─> while-loop resolving upward from attach_here
-          // │     │     │     ...
-          // │     │     └─> continue upward
-          // │     └─> return
-          // └─> resume child’s while-loop (but ancestors already closed)
-          propagate_and_close(n->left(), C);
-          propagate_and_close(n->right(), C);
-
-          node<Config>* p = n->parent();
-          if (!p) return;
-
-          auto is_literal_in_core = [](literal const& l, vector<literal> const& C) {
-              return std::find(C.begin(), C.end(), l) != C.end();
-          };
-
-          // If current split literal not in conflict core → propagate closure upward
-          if (!is_literal_in_core(n->get_literal(), C)) {
-              propagate_and_close(p, C);
-              return;
-          }
-
+      
+      void try_resolve_upwards(node<Config>* p) {
           while (p) {
-              // Otherwise, check if we can resolve with the sibling
               auto left = p->left();
               auto right = p->right();
-
               if (!left || !right) return;
+
+              // only attempt when both children are closed and each has a core
               if (left->get_status() != status::closed || right->get_status() != status::closed) return;
+              if (!left->has_core() || !right->has_core()) return;
 
               auto resolvent = compute_sibling_resolvent(left, right);
 
-              // empty resolvent = global UNSAT
+              // empty resolvent of sibling complement (i.e. tautology) -> global UNSAT
               if (resolvent.empty()) {
-                  propagate_and_close(m_root.get(), resolvent);
+                  close_with_core(m_root.get(), resolvent, false);
                   return;
               }
+
+              // if p already has the same core, nothing more to do
+              if (p->has_core() && resolvent == p->get_core())
+                  return;
 
               // Bubble to the highest ancestor where ALL literals in the resolvent
               // are present somewhere on the path from that ancestor to root
               node<Config>* candidate = p;
-              node<Config>* attach_here = p;
+              node<Config>* attach_here = p; // fallback
+
               while (candidate) {
                   bool all_found = true;
+
                   for (auto const& r : resolvent) {
                       bool found = false;
                       for (node<Config>* q = candidate; q; q = q->parent()) {
-                          if (q->get_literal() == r) { found = true; break; }
+                          if (q->get_literal() == r) {
+                              found = true;
+                              break;
+                          }
                       }
-                      if (!found) { all_found = false; break; }
+                      if (!found) {
+                          all_found = false;
+                          break;
+                      }
                   }
-                  if (all_found)
-                      attach_here = candidate;
+
+                  if (all_found) {
+                      attach_here = candidate;  // bubble up to this node
+                  }
+
                   candidate = candidate->parent();
               }
 
               // attach the resolvent and close the subtree at attach_here
               if (!attach_here->has_core() || attach_here->get_core() != resolvent) {
-                  propagate_and_close(attach_here, resolvent);
+                  close_with_core(attach_here, resolvent, false);
               }
 
               // continue upward from parent of attach_here
               p = attach_here->parent();
           }
       }
-
 
     public:
         tree(literal const& null_literal) : m_null_literal(null_literal) {
@@ -283,8 +295,7 @@ namespace search_tree {
         // they are subsets of the literals on the path from root to n AND the external assumption literals
         void backtrack(node<Config>* n, vector<literal> const& conflict) {
             if (conflict.empty()) {
-                // close(m_root.get(), conflict);
-                propagate_and_close(m_root.get(), conflict);
+                close_with_core(m_root.get(), conflict);
                 return;
             }           
             SASSERT(n != m_root.get());
@@ -306,9 +317,7 @@ namespace search_tree {
             while (n) {
                 if (any_of(conflict, [&](auto const& a) { return a == n->get_literal(); })) {
                     // close the subtree under n (preserves core attached to n), and attempt to resolve upwards
-                    // close(n, conflict);
-                    // try_resolve_upwards(n->parent());
-                    propagate_and_close(n, conflict);
+                    close_with_core(n, conflict);
                     return;
                 }
 
