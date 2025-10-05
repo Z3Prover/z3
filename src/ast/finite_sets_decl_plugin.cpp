@@ -19,20 +19,132 @@ Revision History:
 #include<sstream>
 #include "ast/finite_sets_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 #include "util/warning.h"
 
 finite_sets_decl_plugin::finite_sets_decl_plugin():
-    m_empty_sym("set.empty"),
-    m_singleton_sym("set.singleton"),
-    m_union_sym("set.union"),
-    m_intersect_sym("set.intersect"),
-    m_difference_sym("set.difference"),
-    m_in_sym("set.in"),
-    m_size_sym("set.size"),
-    m_subset_sym("set.subset"),
-    m_map_sym("set.map"),
-    m_filter_sym("set.filter"),
-    m_range_sym("set.range") {
+    m_init(false) {
+}
+
+finite_sets_decl_plugin::~finite_sets_decl_plugin() {
+    for (psig* s : m_sigs) 
+        dealloc(s);
+}
+
+bool finite_sets_decl_plugin::is_sort_param(sort* s, unsigned& idx) {
+    return
+        s->get_name().is_numerical() &&
+        (idx = s->get_name().get_num(), true);
+}
+
+bool finite_sets_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
+    if (s == sP) return true;
+    unsigned idx;
+    if (is_sort_param(sP, idx)) {
+        if (binding.size() <= idx) binding.resize(idx+1);
+        if (binding[idx] && (binding[idx] != s)) return false;
+        binding[idx] = s;
+        return true;
+    }
+
+    if (s->get_family_id() == sP->get_family_id() &&
+        s->get_decl_kind() == sP->get_decl_kind() &&
+        s->get_num_parameters() == sP->get_num_parameters()) {
+        for (unsigned i = 0, sz = s->get_num_parameters(); i < sz; ++i) {
+            parameter const& p = s->get_parameter(i);
+            if (p.is_ast() && is_sort(p.get_ast())) {
+                parameter const& p2 = sP->get_parameter(i);
+                if (!match(binding, to_sort(p.get_ast()), to_sort(p2.get_ast()))) return false;
+            }
+        }
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+void finite_sets_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
+    m_binding.reset();
+    ast_manager& m = *m_manager;
+    
+    if (dsz != sig.m_dom.size()) {
+        std::ostringstream strm;
+        strm << "Incorrect number of arguments to '" << sig.m_name << "' ";
+        strm << "expected " << sig.m_dom.size() << " given " << dsz;
+        m.raise_exception(strm.str());
+    }
+    
+    bool is_match = true;
+    for (unsigned i = 0; is_match && i < dsz; ++i) {
+        SASSERT(dom[i]);
+        is_match = match(m_binding, dom[i], sig.m_dom.get(i));
+    }
+    if (range && is_match) {
+        is_match = match(m_binding, range, sig.m_range);
+    }
+    if (!is_match) {
+        std::ostringstream strm;
+        strm << "Sort mismatch for function '" << sig.m_name << "'";
+        m.raise_exception(strm.str());
+    }
+    
+    // Compute range_out by substituting binding into sig.m_range
+    range_out = sig.m_range;
+    unsigned idx;
+    if (is_sort_param(sig.m_range, idx) && idx < m_binding.size() && m_binding[idx]) {
+        range_out = m_binding[idx];
+    }
+    else if (sig.m_range->get_family_id() == m_family_id && 
+             sig.m_range->get_decl_kind() == FINITE_SET_SORT) {
+        parameter const& p = sig.m_range->get_parameter(0);
+        if (p.is_ast() && is_sort(p.get_ast())) {
+            sort* elem_sort = to_sort(p.get_ast());
+            if (is_sort_param(elem_sort, idx) && idx < m_binding.size() && m_binding[idx]) {
+                parameter new_param(m_binding[idx]);
+                range_out = m.mk_sort(m_family_id, FINITE_SET_SORT, 1, &new_param);
+            }
+        }
+    }
+}
+
+void finite_sets_decl_plugin::init() {
+    if (m_init) return;
+    ast_manager& m = *m_manager;
+    array_util autil(m);
+    m_init = true;
+    
+    sort* A = m.mk_uninterpreted_sort(symbol(0u));
+    sort* B = m.mk_uninterpreted_sort(symbol(1u));
+    parameter paramA(A);
+    parameter paramB(B);
+    sort* setA = m.mk_sort(m_family_id, FINITE_SET_SORT, 1, &paramA);
+    sort* setB = m.mk_sort(m_family_id, FINITE_SET_SORT, 1, &paramB);
+    sort* boolT = m.mk_bool_sort();
+    sort* intT = arith_util(m).mk_int();
+    parameter paramInt(intT);
+    sort* setInt = m.mk_sort(m_family_id, FINITE_SET_SORT, 1, &paramInt);
+    sort* arrAB = autil.mk_array_sort(A, B);
+    sort* arrABool = autil.mk_array_sort(A, boolT);
+    
+    sort* setAsetA[2] = { setA, setA };
+    sort* AsetA[2] = { A, setA };
+    sort* arrABsetA[2] = { arrAB, setA };
+    sort* arrABoolsetA[2] = { arrABool, setA };
+    sort* intintT[2] = { intT, intT };
+    
+    m_sigs.resize(LAST_FINITE_SET_OP);
+    m_sigs[OP_FINITE_SET_EMPTY]      = alloc(psig, m, "set.empty",      1, 0, nullptr, setA);
+    m_sigs[OP_FINITE_SET_SINGLETON]  = alloc(psig, m, "set.singleton",  1, 1, &A, setA);
+    m_sigs[OP_FINITE_SET_UNION]      = alloc(psig, m, "set.union",      1, 2, setAsetA, setA);
+    m_sigs[OP_FINITE_SET_INTERSECT]  = alloc(psig, m, "set.intersect",  1, 2, setAsetA, setA);
+    m_sigs[OP_FINITE_SET_DIFFERENCE]  = alloc(psig, m, "set.difference", 1, 2, setAsetA, setA);
+    m_sigs[OP_FINITE_SET_IN]         = alloc(psig, m, "set.in",         1, 2, AsetA, boolT);
+    m_sigs[OP_FINITE_SET_SIZE]       = alloc(psig, m, "set.size",       1, 1, &setA, intT);
+    m_sigs[OP_FINITE_SET_SUBSET]     = alloc(psig, m, "set.subset",     1, 2, setAsetA, boolT);
+    m_sigs[OP_FINITE_SET_MAP]        = alloc(psig, m, "set.map",        2, 2, arrABsetA, setB);
+    m_sigs[OP_FINITE_SET_FILTER]     = alloc(psig, m, "set.filter",     1, 2, arrABoolsetA, setA);
+    m_sigs[OP_FINITE_SET_RANGE]      = alloc(psig, m, "set.range",      0, 2, intintT, setInt);
 }
 
 sort * finite_sets_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
@@ -66,242 +178,27 @@ sort * finite_sets_decl_plugin::get_element_sort(sort* finite_set_sort) const {
     return to_sort(params[0].get_ast());
 }
 
-bool finite_sets_decl_plugin::check_finite_set_arguments(unsigned arity, sort * const * domain) {
-    if (arity == 0) {
-        return true;
-    }
-    
-    sort* first_sort = domain[0];
-    if (first_sort->get_family_id() != m_family_id || 
-        first_sort->get_decl_kind() != FINITE_SET_SORT) {
-        m_manager->raise_exception("argument is not of FiniteSet sort");
-        return false;
-    }
-    
-    for (unsigned i = 1; i < arity; ++i) {
-        if (domain[i] != first_sort) {
-            std::ostringstream buffer;
-            buffer << "arguments " << 1 << " and " << (i+1) << " have different sorts";
-            m_manager->raise_exception(buffer.str());
-            return false;
-        }
-    }
-    return true;
-}
-
 func_decl * finite_sets_decl_plugin::mk_empty(sort* element_sort) {
     parameter param(element_sort);
     sort * finite_set_sort = m_manager->mk_sort(m_family_id, FINITE_SET_SORT, 1, &param);
     sort * const * no_domain = nullptr;
-    return m_manager->mk_func_decl(m_empty_sym, 0u, no_domain, finite_set_sort,
+    return m_manager->mk_func_decl(m_sigs[OP_FINITE_SET_EMPTY]->m_name, 0u, no_domain, finite_set_sort,
                                    func_decl_info(m_family_id, OP_FINITE_SET_EMPTY, 1, &param));
 }
 
-func_decl * finite_sets_decl_plugin::mk_singleton(unsigned arity, sort * const * domain) {
-    if (arity != 1) {
-        m_manager->raise_exception("set.singleton takes exactly one argument");
-        return nullptr;
-    }
-    
-    // The element sort is the domain
-    sort* element_sort = domain[0];
-    
-    // Create the result sort: FiniteSet of the element type
-    parameter param(element_sort);
-    sort* finite_set_sort = m_manager->mk_sort(m_family_id, FINITE_SET_SORT, 1, &param);
-    
-    return m_manager->mk_func_decl(m_singleton_sym, arity, domain, finite_set_sort,
-                                   func_decl_info(m_family_id, OP_FINITE_SET_SINGLETON));
-}
-
-func_decl * finite_sets_decl_plugin::mk_union(unsigned arity, sort * const * domain) {
-    if (arity != 2) {
-        m_manager->raise_exception("set.union takes exactly two arguments");
-        return nullptr;
-    }
-    if (!check_finite_set_arguments(arity, domain)) {
-        return nullptr;
-    }
-    return m_manager->mk_func_decl(m_union_sym, arity, domain, domain[0],
-                                   func_decl_info(m_family_id, OP_FINITE_SET_UNION));
-}
-
-func_decl * finite_sets_decl_plugin::mk_intersect(unsigned arity, sort * const * domain) {
-    if (arity != 2) {
-        m_manager->raise_exception("set.intersect takes exactly two arguments");
-        return nullptr;
-    }
-    if (!check_finite_set_arguments(arity, domain)) {
-        return nullptr;
-    }
-    return m_manager->mk_func_decl(m_intersect_sym, arity, domain, domain[0],
-                                   func_decl_info(m_family_id, OP_FINITE_SET_INTERSECT));
-}
-
-func_decl * finite_sets_decl_plugin::mk_difference(unsigned arity, sort * const * domain) {
-    if (arity != 2) {
-        m_manager->raise_exception("set.difference takes exactly two arguments");
-        return nullptr;
-    }
-    if (!check_finite_set_arguments(arity, domain)) {
-        return nullptr;
-    }
-    return m_manager->mk_func_decl(m_difference_sym, arity, domain, domain[0],
-                                   func_decl_info(m_family_id, OP_FINITE_SET_DIFFERENCE));
-}
-
-func_decl * finite_sets_decl_plugin::mk_in(unsigned arity, sort * const * domain) {
-    if (arity != 2) {
-        m_manager->raise_exception("set.in takes exactly two arguments");
-        return nullptr;
-    }
-    if (domain[1]->get_family_id() != m_family_id ||
-        domain[1]->get_decl_kind() != FINITE_SET_SORT) {
-        m_manager->raise_exception("second argument of set.in must be a FiniteSet");
-        return nullptr;
-    }
-    
-    sort* element_sort = get_element_sort(domain[1]);
-    if (!element_sort) {
-        m_manager->raise_exception("invalid FiniteSet sort");
-        return nullptr;
-    }
-    
-    if (domain[0] != element_sort) {
-        m_manager->raise_exception("element type does not match set element type");
-        return nullptr;
-    }
-    
-    sort* bool_sort = m_manager->mk_bool_sort();
-    return m_manager->mk_func_decl(m_in_sym, arity, domain, bool_sort,
-                                   func_decl_info(m_family_id, OP_FINITE_SET_IN));
-}
-
-func_decl * finite_sets_decl_plugin::mk_size(unsigned arity, sort * const * domain) {
-    if (arity != 1) {
-        m_manager->raise_exception("set.size takes exactly one argument");
-        return nullptr;
-    }
-    if (!check_finite_set_arguments(arity, domain)) {
-        return nullptr;
-    }
-    
-    arith_util arith(*m_manager);
-    sort * int_sort = arith.mk_int();
-    return m_manager->mk_func_decl(m_size_sym, arity, domain, int_sort,
-                                   func_decl_info(m_family_id, OP_FINITE_SET_SIZE));
-}
-
-func_decl * finite_sets_decl_plugin::mk_subset(unsigned arity, sort * const * domain) {
-    if (arity != 2) {
-        m_manager->raise_exception("set.subset takes exactly two arguments");
-        return nullptr;
-    }
-    if (!check_finite_set_arguments(arity, domain)) {
-        return nullptr;
-    }
-    
-    sort* bool_sort = m_manager->mk_bool_sort();
-    return m_manager->mk_func_decl(m_subset_sym, arity, domain, bool_sort,
-                                   func_decl_info(m_family_id, OP_FINITE_SET_SUBSET));
-}
-
-func_decl * finite_sets_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const* domain) {
-    if (arity != 1) {
-        m_manager->raise_exception("set.map takes exactly one set argument");
-        return nullptr;
-    }
-    if (!check_finite_set_arguments(arity, domain)) {
-        return nullptr;
-    }
-    
-    // Get the element sort of the input set
-    sort* input_element_sort = get_element_sort(domain[0]);
-    if (!input_element_sort) {
-        m_manager->raise_exception("invalid FiniteSet sort");
-        return nullptr;
-    }
-    
-    // Check that the function has correct signature
-    if (f->get_arity() != 1) {
-        m_manager->raise_exception("set.map function must take exactly one argument");
-        return nullptr;
-    }
-    if (f->get_domain(0) != input_element_sort) {
-        m_manager->raise_exception("set.map function domain must match set element type");
-        return nullptr;
-    }
-    
-    // Create output set sort with the function's range as element type
-    sort* output_element_sort = f->get_range();
-    parameter param(output_element_sort);
-    sort* output_set_sort = m_manager->mk_sort(m_family_id, FINITE_SET_SORT, 1, &param);
-    
-    parameter func_param(f);
-    return m_manager->mk_func_decl(m_map_sym, arity, domain, output_set_sort,
-                                   func_decl_info(m_family_id, OP_FINITE_SET_MAP, 1, &func_param));
-}
-
-func_decl * finite_sets_decl_plugin::mk_filter(func_decl* f, unsigned arity, sort* const* domain) {
-    if (arity != 1) {
-        m_manager->raise_exception("set.filter takes exactly one set argument");
-        return nullptr;
-    }
-    if (!check_finite_set_arguments(arity, domain)) {
-        return nullptr;
-    }
-    
-    // Get the element sort of the set
-    sort* element_sort = get_element_sort(domain[0]);
-    if (!element_sort) {
-        m_manager->raise_exception("invalid FiniteSet sort");
-        return nullptr;
-    }
-    
-    // Check that the function has correct signature (S -> Bool)
-    if (f->get_arity() != 1) {
-        m_manager->raise_exception("set.filter function must take exactly one argument");
-        return nullptr;
-    }
-    if (f->get_domain(0) != element_sort) {
-        m_manager->raise_exception("set.filter function domain must match set element type");
-        return nullptr;
-    }
-    if (!m_manager->is_bool(f->get_range())) {
-        m_manager->raise_exception("set.filter function must return Bool");
-        return nullptr;
-    }
-    
-    parameter func_param(f);
-    return m_manager->mk_func_decl(m_filter_sym, arity, domain, domain[0],
-                                   func_decl_info(m_family_id, OP_FINITE_SET_FILTER, 1, &func_param));
-}
-
-func_decl * finite_sets_decl_plugin::mk_range(unsigned arity, sort * const * domain) {
-    if (arity != 2) {
-        m_manager->raise_exception("set.range takes exactly two arguments");
-        return nullptr;
-    }
-    
-    arith_util arith(*m_manager);
-    sort * int_sort = arith.mk_int();
-    
-    if (domain[0] != int_sort || domain[1] != int_sort) {
-        m_manager->raise_exception("set.range arguments must be Int");
-        return nullptr;
-    }
-    
-    parameter param(int_sort);
-    sort* output_set_sort = m_manager->mk_sort(m_family_id, FINITE_SET_SORT, 1, &param);
-    
-    return m_manager->mk_func_decl(m_range_sym, arity, domain, output_set_sort,
-                                   func_decl_info(m_family_id, OP_FINITE_SET_RANGE));
+func_decl * finite_sets_decl_plugin::mk_finite_set_op(decl_kind k, unsigned arity, sort * const * domain, sort* range) {
+    ast_manager& m = *m_manager;
+    sort_ref rng(m);
+    match(*m_sigs[k], arity, domain, range, rng);
+    return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 }
 
 func_decl * finite_sets_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
                                                    parameter const * parameters,
                                                    unsigned arity, sort * const * domain, 
                                                    sort * range) {
+    init();
+    
     switch (k) {
     case OP_FINITE_SET_EMPTY:
         if (num_parameters != 1 || !parameters[0].is_ast() || !is_sort(parameters[0].get_ast())) {
@@ -310,50 +207,27 @@ func_decl * finite_sets_decl_plugin::mk_func_decl(decl_kind k, unsigned num_para
         }
         return mk_empty(to_sort(parameters[0].get_ast()));
     case OP_FINITE_SET_SINGLETON:
-        return mk_singleton(arity, domain);
     case OP_FINITE_SET_UNION:
-        return mk_union(arity, domain);
     case OP_FINITE_SET_INTERSECT:
-        return mk_intersect(arity, domain);
     case OP_FINITE_SET_DIFFERENCE:
-        return mk_difference(arity, domain);
     case OP_FINITE_SET_IN:
-        return mk_in(arity, domain);
     case OP_FINITE_SET_SIZE:
-        return mk_size(arity, domain);
     case OP_FINITE_SET_SUBSET:
-        return mk_subset(arity, domain);
     case OP_FINITE_SET_MAP:
-        if (num_parameters != 1 || !parameters[0].is_ast() || !is_func_decl(parameters[0].get_ast())) {
-            m_manager->raise_exception("set.map requires one function parameter");
-            return nullptr;
-        }
-        return mk_map(to_func_decl(parameters[0].get_ast()), arity, domain);
     case OP_FINITE_SET_FILTER:
-        if (num_parameters != 1 || !parameters[0].is_ast() || !is_func_decl(parameters[0].get_ast())) {
-            m_manager->raise_exception("set.filter requires one function parameter");
-            return nullptr;
-        }
-        return mk_filter(to_func_decl(parameters[0].get_ast()), arity, domain);
     case OP_FINITE_SET_RANGE:
-        return mk_range(arity, domain);
+        return mk_finite_set_op(k, arity, domain, range);
     default:
         return nullptr;
     }
 }
 
 void finite_sets_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
-    op_names.push_back(builtin_name("set.empty", OP_FINITE_SET_EMPTY));
-    op_names.push_back(builtin_name("set.singleton", OP_FINITE_SET_SINGLETON));
-    op_names.push_back(builtin_name("set.union", OP_FINITE_SET_UNION));
-    op_names.push_back(builtin_name("set.intersect", OP_FINITE_SET_INTERSECT));
-    op_names.push_back(builtin_name("set.difference", OP_FINITE_SET_DIFFERENCE));
-    op_names.push_back(builtin_name("set.in", OP_FINITE_SET_IN));
-    op_names.push_back(builtin_name("set.size", OP_FINITE_SET_SIZE));
-    op_names.push_back(builtin_name("set.subset", OP_FINITE_SET_SUBSET));
-    op_names.push_back(builtin_name("set.map", OP_FINITE_SET_MAP));
-    op_names.push_back(builtin_name("set.filter", OP_FINITE_SET_FILTER));
-    op_names.push_back(builtin_name("set.range", OP_FINITE_SET_RANGE));
+    init();
+    for (unsigned i = 0; i < m_sigs.size(); ++i) {
+        if (m_sigs[i])
+            op_names.push_back(builtin_name(m_sigs[i]->m_name.str(), i));
+    }
 }
 
 void finite_sets_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {

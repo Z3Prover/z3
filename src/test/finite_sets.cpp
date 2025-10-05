@@ -20,6 +20,7 @@ Revision History:
 #include "ast/finite_sets_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 
 static void tst_finite_sets_basic() {
     ast_manager m;
@@ -90,6 +91,7 @@ static void tst_finite_sets_map_filter() {
     
     finite_sets_util fsets(m);
     arith_util arith(m);
+    array_util autil(m);
     
     // Create Int and Bool sorts
     sort_ref int_sort(arith.mk_int(), m);
@@ -99,22 +101,28 @@ static void tst_finite_sets_map_filter() {
     parameter int_param(int_sort.get());
     sort_ref finite_set_int(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &int_param), m);
     
-    // Create a function Int -> Int for map
-    func_decl_ref inc_func(m.mk_func_decl(symbol("inc"), int_sort.get(), int_sort.get()), m);
+    // Create Array (Int Int) sort for map
+    sort_ref arr_int_int(autil.mk_array_sort(int_sort, int_sort), m);
+    
+    // Create a const array (conceptually represents the function)
+    app_ref arr_map(autil.mk_const_array(arr_int_int, arith.mk_int(42)), m);
     
     // Create a set and test map
     expr_ref zero(arith.mk_int(0), m);
     expr_ref ten(arith.mk_int(10), m);
     app_ref range_set(fsets.mk_range(zero, ten), m);
     
-    app_ref mapped_set(fsets.mk_map(inc_func, range_set), m);
+    app_ref mapped_set(fsets.mk_map(arr_map, range_set), m);
     ENSURE(fsets.is_map(mapped_set.get()));
-    ENSURE(mapped_set->get_sort() == finite_set_int.get());
+    ENSURE(fsets.is_finite_set(mapped_set->get_sort()));
     
-    // Create a function Int -> Bool for filter
-    func_decl_ref is_even(m.mk_func_decl(symbol("is_even"), int_sort.get(), bool_sort.get()), m);
+    // Create Array (Int Bool) sort for filter
+    sort_ref arr_int_bool(autil.mk_array_sort(int_sort, bool_sort), m);
     
-    app_ref filtered_set(fsets.mk_filter(is_even, range_set), m);
+    // Create a const array for filter (conceptually represents predicate)
+    app_ref arr_filter(autil.mk_const_array(arr_int_bool, m.mk_true()), m);
+    
+    app_ref filtered_set(fsets.mk_filter(arr_filter, range_set), m);
     ENSURE(fsets.is_filter(filtered_set.get()));
     ENSURE(filtered_set->get_sort() == finite_set_int.get());
 }

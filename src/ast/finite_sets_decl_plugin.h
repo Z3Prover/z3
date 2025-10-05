@@ -49,38 +49,45 @@ enum finite_sets_op_kind {
 };
 
 class finite_sets_decl_plugin : public decl_plugin {
-    symbol m_empty_sym;
-    symbol m_singleton_sym;
-    symbol m_union_sym;
-    symbol m_intersect_sym;
-    symbol m_difference_sym;
-    symbol m_in_sym;
-    symbol m_size_sym;
-    symbol m_subset_sym;
-    symbol m_map_sym;
-    symbol m_filter_sym;
-    symbol m_range_sym;
+    struct psig {
+        symbol          m_name;
+        unsigned        m_num_params;
+        sort_ref_vector m_dom;
+        sort_ref        m_range;
+        psig(ast_manager& m, char const* name, unsigned n, unsigned dsz, sort* const* dom, sort* rng):
+            m_name(name),
+            m_num_params(n),
+            m_dom(m),
+            m_range(rng, m)
+        {
+            m_dom.append(dsz, dom);
+        }
+    };
 
+    ptr_vector<psig>   m_sigs;
+    ptr_vector<sort>   m_binding;
+    bool               m_init;
+
+    void init();
+    bool is_sort_param(sort* s, unsigned& idx);
+    bool match(ptr_vector<sort>& binding, sort* s, sort* sP);
+    void match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out);
     func_decl * mk_empty(sort* element_sort);
-    func_decl * mk_singleton(unsigned arity, sort * const * domain);
-    func_decl * mk_union(unsigned arity, sort * const * domain);
-    func_decl * mk_intersect(unsigned arity, sort * const * domain);
-    func_decl * mk_difference(unsigned arity, sort * const * domain);
-    func_decl * mk_in(unsigned arity, sort * const * domain);
-    func_decl * mk_size(unsigned arity, sort * const * domain);
-    func_decl * mk_subset(unsigned arity, sort * const * domain);
-    func_decl * mk_map(func_decl* f, unsigned arity, sort* const* domain);
-    func_decl * mk_filter(func_decl* f, unsigned arity, sort* const* domain);
-    func_decl * mk_range(unsigned arity, sort * const * domain);
-
-    bool check_finite_set_arguments(unsigned arity, sort * const * domain);
+    func_decl * mk_finite_set_op(decl_kind k, unsigned arity, sort * const * domain, sort* range);
     sort * get_element_sort(sort* finite_set_sort) const;
 
 public:
     finite_sets_decl_plugin();
+    ~finite_sets_decl_plugin() override;
 
     decl_plugin * mk_fresh() override {
         return alloc(finite_sets_decl_plugin);
+    }
+    
+    void finalize() override {
+        for (psig* s : m_sigs) 
+            dealloc(s);
+        m_sigs.reset();
     }
 
     //
@@ -173,14 +180,12 @@ public:
         return m_manager.mk_app(m_fid, OP_FINITE_SET_SUBSET, s1, s2);
     }
 
-    app * mk_map(func_decl* f, expr* set) {
-        parameter param(f);
-        return m_manager.mk_app(m_fid, OP_FINITE_SET_MAP, 1, &param, 1, &set);
+    app * mk_map(expr* arr, expr* set) {
+        return m_manager.mk_app(m_fid, OP_FINITE_SET_MAP, arr, set);
     }
 
-    app * mk_filter(func_decl* f, expr* set) {
-        parameter param(f);
-        return m_manager.mk_app(m_fid, OP_FINITE_SET_FILTER, 1, &param, 1, &set);
+    app * mk_filter(expr* arr, expr* set) {
+        return m_manager.mk_app(m_fid, OP_FINITE_SET_FILTER, arr, set);
     }
 
     app * mk_range(expr* low, expr* high) {
