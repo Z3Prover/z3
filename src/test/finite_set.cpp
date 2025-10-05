@@ -3,7 +3,7 @@ Copyright (c) 2025 Microsoft Corporation
 
 Module Name:
 
-    tst_finite_sets.cpp
+    tst_finite_set.cpp
 
 Abstract:
 
@@ -17,16 +17,16 @@ Revision History:
 
 --*/
 #include "ast/ast.h"
-#include "ast/finite_sets_decl_plugin.h"
+#include "ast/finite_set_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 
-static void tst_finite_sets_basic() {
+static void tst_finite_set_basic() {
     ast_manager m;
     reg_decl_plugins(m);
     
-    finite_sets_util fsets(m);
+    finite_set_util fsets(m);
     arith_util arith(m);
     
     // Test creating a finite set sort
@@ -85,11 +85,11 @@ static void tst_finite_sets_basic() {
     ENSURE(m.is_bool(subset_expr->get_sort()));
 }
 
-static void tst_finite_sets_map_filter() {
+static void tst_finite_set_map_filter() {
     ast_manager m;
     reg_decl_plugins(m);
     
-    finite_sets_util fsets(m);
+    finite_set_util fsets(m);
     arith_util arith(m);
     array_util autil(m);
     
@@ -127,7 +127,7 @@ static void tst_finite_sets_map_filter() {
     ENSURE(filtered_set->get_sort() == finite_set_int.get());
 }
 
-void tst_finite_sets() {
-    tst_finite_sets_basic();
-    tst_finite_sets_map_filter();
+void tst_finite_set() {
+    tst_finite_set_basic();
+    tst_finite_set_map_filter();
 }

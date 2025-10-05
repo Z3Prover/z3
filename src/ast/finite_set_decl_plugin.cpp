@@ -3,7 +3,7 @@ Copyright (c) 2025 Microsoft Corporation
 
 Module Name:
 
-    finite_sets_decl_plugin.cpp
+    finite_set_decl_plugin.cpp
 
 Abstract:
 
@@ -17,27 +17,27 @@ Revision History:
 
 --*/
 #include<sstream>
-#include "ast/finite_sets_decl_plugin.h"
+#include "ast/finite_set_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "util/warning.h"
 
-finite_sets_decl_plugin::finite_sets_decl_plugin():
+finite_set_decl_plugin::finite_set_decl_plugin():
     m_init(false) {
 }
 
-finite_sets_decl_plugin::~finite_sets_decl_plugin() {
+finite_set_decl_plugin::~finite_set_decl_plugin() {
     for (psig* s : m_sigs) 
         dealloc(s);
 }
 
-bool finite_sets_decl_plugin::is_sort_param(sort* s, unsigned& idx) {
+bool finite_set_decl_plugin::is_sort_param(sort* s, unsigned& idx) {
     return
         s->get_name().is_numerical() &&
         (idx = s->get_name().get_num(), true);
 }
 
-bool finite_sets_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
+bool finite_set_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
     if (s == sP) return true;
     unsigned idx;
     if (is_sort_param(sP, idx)) {
@@ -64,7 +64,7 @@ bool finite_sets_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP
     }
 }
 
-void finite_sets_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
+void finite_set_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
     m_binding.reset();
     ast_manager& m = *m_manager;
     
@@ -108,7 +108,7 @@ void finite_sets_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, s
     }
 }
 
-void finite_sets_decl_plugin::init() {
+void finite_set_decl_plugin::init() {
     if (m_init) return;
     ast_manager& m = *m_manager;
     array_util autil(m);
@@ -147,7 +147,7 @@ void finite_sets_decl_plugin::init() {
     m_sigs[OP_FINITE_SET_RANGE]      = alloc(psig, m, "set.range",      0, 2, intintT, setInt);
 }
 
-sort * finite_sets_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
+sort * finite_set_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
     if (k == FINITE_SET_SORT) {
         if (num_parameters != 1) {
             m_manager->raise_exception("FiniteSet sort expects exactly one parameter (element sort)");
@@ -166,7 +166,7 @@ sort * finite_sets_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, pa
     return nullptr;
 }
 
-sort * finite_sets_decl_plugin::get_element_sort(sort* finite_set_sort) const {
+sort * finite_set_decl_plugin::get_element_sort(sort* finite_set_sort) const {
     if (finite_set_sort->get_family_id() != m_family_id ||
         finite_set_sort->get_decl_kind() != FINITE_SET_SORT) {
         return nullptr;
@@ -178,7 +178,7 @@ sort * finite_sets_decl_plugin::get_element_sort(sort* finite_set_sort) const {
     return to_sort(params[0].get_ast());
 }
 
-func_decl * finite_sets_decl_plugin::mk_empty(sort* element_sort) {
+func_decl * finite_set_decl_plugin::mk_empty(sort* element_sort) {
     parameter param(element_sort);
     sort * finite_set_sort = m_manager->mk_sort(m_family_id, FINITE_SET_SORT, 1, &param);
     sort * const * no_domain = nullptr;
@@ -186,14 +186,14 @@ func_decl * finite_sets_decl_plugin::mk_empty(sort* element_sort) {
                                    func_decl_info(m_family_id, OP_FINITE_SET_EMPTY, 1, &param));
 }
 
-func_decl * finite_sets_decl_plugin::mk_finite_set_op(decl_kind k, unsigned arity, sort * const * domain, sort* range) {
+func_decl * finite_set_decl_plugin::mk_finite_set_op(decl_kind k, unsigned arity, sort * const * domain, sort* range) {
     ast_manager& m = *m_manager;
     sort_ref rng(m);
     match(*m_sigs[k], arity, domain, range, rng);
     return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 }
 
-func_decl * finite_sets_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
+func_decl * finite_set_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
                                                    parameter const * parameters,
                                                    unsigned arity, sort * const * domain, 
                                                    sort * range) {
@@ -222,7 +222,7 @@ func_decl * finite_sets_decl_plugin::mk_func_decl(decl_kind k, unsigned num_para
     }
 }
 
-void finite_sets_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
+void finite_set_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
     init();
     for (unsigned i = 0; i < m_sigs.size(); ++i) {
         if (m_sigs[i])
@@ -230,11 +230,11 @@ void finite_sets_decl_plugin::get_op_names(svector<builtin_name>& op_names, symb
     }
 }
 
-void finite_sets_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {
+void finite_set_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {
     sort_names.push_back(builtin_name("FiniteSet", FINITE_SET_SORT));
 }
 
-expr * finite_sets_decl_plugin::get_some_value(sort * s) {
+expr * finite_set_decl_plugin::get_some_value(sort * s) {
     if (s->get_family_id() == m_family_id && s->get_decl_kind() == FINITE_SET_SORT) {
         // Return empty set for the given sort
         sort* element_sort = get_element_sort(s);
@@ -246,16 +246,16 @@ expr * finite_sets_decl_plugin::get_some_value(sort * s) {
     return nullptr;
 }
 
-bool finite_sets_decl_plugin::is_fully_interp(sort * s) const {
+bool finite_set_decl_plugin::is_fully_interp(sort * s) const {
     return s->get_family_id() == m_family_id && s->get_decl_kind() == FINITE_SET_SORT;
 }
 
-bool finite_sets_decl_plugin::is_value(app * e) const {
+bool finite_set_decl_plugin::is_value(app * e) const {
     // Empty set is a value
     return is_app_of(e, m_family_id, OP_FINITE_SET_EMPTY);
 }
 
-bool finite_sets_decl_plugin::is_unique_value(app* e) const {
+bool finite_set_decl_plugin::is_unique_value(app* e) const {
     // Empty set is a unique value for its sort
     return is_value(e);
 }

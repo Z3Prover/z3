@@ -3,7 +3,7 @@ Copyright (c) 2025 Microsoft Corporation
 
 Module Name:
 
-    finite_sets_decl_plugin.h
+    finite_set_decl_plugin.h
 
 Abstract:
     Declaration plugin for finite sets signatures
@@ -29,11 +29,11 @@ Operators:
 
 #include "ast/ast.h"
 
-enum finite_sets_sort_kind {
+enum finite_set_sort_kind {
     FINITE_SET_SORT
 };
 
-enum finite_sets_op_kind {
+enum finite_set_op_kind {
     OP_FINITE_SET_EMPTY,
     OP_FINITE_SET_SINGLETON,
     OP_FINITE_SET_UNION,
@@ -48,7 +48,7 @@ enum finite_sets_op_kind {
     LAST_FINITE_SET_OP
 };
 
-class finite_sets_decl_plugin : public decl_plugin {
+class finite_set_decl_plugin : public decl_plugin {
     struct psig {
         symbol          m_name;
         unsigned        m_num_params;
@@ -77,11 +77,11 @@ class finite_sets_decl_plugin : public decl_plugin {
     sort * get_element_sort(sort* finite_set_sort) const;
 
 public:
-    finite_sets_decl_plugin();
-    ~finite_sets_decl_plugin() override;
+    finite_set_decl_plugin();
+    ~finite_set_decl_plugin() override;
 
     decl_plugin * mk_fresh() override {
-        return alloc(finite_sets_decl_plugin);
+        return alloc(finite_set_decl_plugin);
     }
     
     void finalize() override {
@@ -118,11 +118,11 @@ public:
     bool is_unique_value(app* e) const override;
 };
 
-class finite_sets_recognizers {
+class finite_set_recognizers {
 protected:
     family_id m_fid;
 public:
-    finite_sets_recognizers(family_id fid):m_fid(fid) {}
+    finite_set_recognizers(family_id fid):m_fid(fid) {}
     family_id get_family_id() const { return m_fid; }
     bool is_finite_set(sort* s) const { return is_sort_of(s, m_fid, FINITE_SET_SORT); }
     bool is_finite_set(expr* n) const { return is_finite_set(n->get_sort()); }
@@ -139,11 +139,11 @@ public:
     bool is_range(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_RANGE); }
 };
 
-class finite_sets_util : public finite_sets_recognizers {
+class finite_set_util : public finite_set_recognizers {
     ast_manager& m_manager;
 public:
-    finite_sets_util(ast_manager& m):
-        finite_sets_recognizers(m.mk_family_id("finite_sets")), m_manager(m) {}
+    finite_set_util(ast_manager& m):
+        finite_set_recognizers(m.mk_family_id("finite_set")), m_manager(m) {}
     
     ast_manager& get_manager() const { return m_manager; }
 
