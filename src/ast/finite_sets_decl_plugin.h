@@ -13,6 +13,7 @@ Sort:
 
 Operators:
     set.empty : (FiniteSet S)
+    set.singleton : S -> (FiniteSet S)
     set.union : (FiniteSet S) (FiniteSet S) -> (FiniteSet S)
     set.intersect : (FiniteSet S) (FiniteSet S) -> (FiniteSet S)
     set.difference : (FiniteSet S) (FiniteSet S) -> (FiniteSet S)
@@ -34,6 +35,7 @@ enum finite_sets_sort_kind {
 
 enum finite_sets_op_kind {
     OP_FINITE_SET_EMPTY,
+    OP_FINITE_SET_SINGLETON,
     OP_FINITE_SET_UNION,
     OP_FINITE_SET_INTERSECT,
     OP_FINITE_SET_DIFFERENCE,
@@ -48,6 +50,7 @@ enum finite_sets_op_kind {
 
 class finite_sets_decl_plugin : public decl_plugin {
     symbol m_empty_sym;
+    symbol m_singleton_sym;
     symbol m_union_sym;
     symbol m_intersect_sym;
     symbol m_difference_sym;
@@ -59,6 +62,7 @@ class finite_sets_decl_plugin : public decl_plugin {
     symbol m_range_sym;
 
     func_decl * mk_empty(sort* element_sort);
+    func_decl * mk_singleton(unsigned arity, sort * const * domain);
     func_decl * mk_union(unsigned arity, sort * const * domain);
     func_decl * mk_intersect(unsigned arity, sort * const * domain);
     func_decl * mk_difference(unsigned arity, sort * const * domain);
@@ -116,6 +120,7 @@ public:
     bool is_finite_set(sort* s) const { return is_sort_of(s, m_fid, FINITE_SET_SORT); }
     bool is_finite_set(expr* n) const { return is_finite_set(n->get_sort()); }
     bool is_empty(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_EMPTY); }
+    bool is_singleton(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SINGLETON); }
     bool is_union(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_UNION); }
     bool is_intersect(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_INTERSECT); }
     bool is_difference(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_DIFFERENCE); }
@@ -138,6 +143,10 @@ public:
     app * mk_empty(sort* element_sort) {
         parameter param(element_sort);
         return m_manager.mk_app(m_fid, OP_FINITE_SET_EMPTY, 1, &param, 0, nullptr);
+    }
+
+    app * mk_singleton(expr* elem) {
+        return m_manager.mk_app(m_fid, OP_FINITE_SET_SINGLETON, elem);
     }
 
     app * mk_union(expr* s1, expr* s2) {

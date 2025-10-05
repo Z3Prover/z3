@@ -23,6 +23,7 @@ Revision History:
 
 finite_sets_decl_plugin::finite_sets_decl_plugin():
     m_empty_sym("set.empty"),
+    m_singleton_sym("set.singleton"),
     m_union_sym("set.union"),
     m_intersect_sym("set.intersect"),
     m_difference_sym("set.difference"),
@@ -94,6 +95,23 @@ func_decl * finite_sets_decl_plugin::mk_empty(sort* element_sort) {
     sort * const * no_domain = nullptr;
     return m_manager->mk_func_decl(m_empty_sym, 0u, no_domain, finite_set_sort,
                                    func_decl_info(m_family_id, OP_FINITE_SET_EMPTY, 1, &param));
+}
+
+func_decl * finite_sets_decl_plugin::mk_singleton(unsigned arity, sort * const * domain) {
+    if (arity != 1) {
+        m_manager->raise_exception("set.singleton takes exactly one argument");
+        return nullptr;
+    }
+    
+    // The element sort is the domain
+    sort* element_sort = domain[0];
+    
+    // Create the result sort: FiniteSet of the element type
+    parameter param(element_sort);
+    sort* finite_set_sort = m_manager->mk_sort(m_family_id, FINITE_SET_SORT, 1, &param);
+    
+    return m_manager->mk_func_decl(m_singleton_sym, arity, domain, finite_set_sort,
+                                   func_decl_info(m_family_id, OP_FINITE_SET_SINGLETON));
 }
 
 func_decl * finite_sets_decl_plugin::mk_union(unsigned arity, sort * const * domain) {
@@ -291,6 +309,8 @@ func_decl * finite_sets_decl_plugin::mk_func_decl(decl_kind k, unsigned num_para
             return nullptr;
         }
         return mk_empty(to_sort(parameters[0].get_ast()));
+    case OP_FINITE_SET_SINGLETON:
+        return mk_singleton(arity, domain);
     case OP_FINITE_SET_UNION:
         return mk_union(arity, domain);
     case OP_FINITE_SET_INTERSECT:
@@ -324,6 +344,7 @@ func_decl * finite_sets_decl_plugin::mk_func_decl(decl_kind k, unsigned num_para
 
 void finite_sets_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
     op_names.push_back(builtin_name("set.empty", OP_FINITE_SET_EMPTY));
+    op_names.push_back(builtin_name("set.singleton", OP_FINITE_SET_SINGLETON));
     op_names.push_back(builtin_name("set.union", OP_FINITE_SET_UNION));
     op_names.push_back(builtin_name("set.intersect", OP_FINITE_SET_INTERSECT));
     op_names.push_back(builtin_name("set.difference", OP_FINITE_SET_DIFFERENCE));

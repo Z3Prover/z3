@@ -40,6 +40,12 @@ static void tst_finite_sets_basic() {
     ENSURE(fsets.is_empty(empty_set.get()));
     ENSURE(empty_set->get_sort() == finite_set_int.get());
     
+    // Test set.singleton
+    expr_ref five(arith.mk_int(5), m);
+    app_ref singleton_set(fsets.mk_singleton(five), m);
+    ENSURE(fsets.is_singleton(singleton_set.get()));
+    ENSURE(singleton_set->get_sort() == finite_set_int.get());
+    
     // Test set.range
     expr_ref zero(arith.mk_int(0), m);
     expr_ref ten(arith.mk_int(10), m);
@@ -63,7 +69,6 @@ static void tst_finite_sets_basic() {
     ENSURE(diff_set->get_sort() == finite_set_int.get());
     
     // Test set.in
-    expr_ref five(arith.mk_int(5), m);
     app_ref in_expr(fsets.mk_in(five, range_set), m);
     ENSURE(fsets.is_in(in_expr.get()));
     ENSURE(m.is_bool(in_expr->get_sort()));
