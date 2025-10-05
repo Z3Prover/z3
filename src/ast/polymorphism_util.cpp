@@ -350,4 +350,31 @@ namespace polymorphism {
         proc proc(m, tvs);
         for_each_ast(proc, e, true);
     }
+
+    void util::match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& range_out) {
+        if (dsz != sig.m_dom.size()) {
+            std::ostringstream strm;
+            strm << "Incorrect number of arguments to '" << sig.m_name << "' ";
+            strm << "expected " << sig.m_dom.size() << " given " << dsz;
+            m.raise_exception(strm.str());
+        }
+        
+        substitution sub(m);
+        bool is_match = true;
+        for (unsigned i = 0; is_match && i < dsz; ++i) {
+            SASSERT(dom[i]);
+            is_match = sub.match(sig.m_dom.get(i), dom[i]);
+        }
+        if (range && is_match) {
+            is_match = sub.match(sig.m_range, range);
+        }
+        if (!is_match) {
+            std::ostringstream strm;
+            strm << "Sort mismatch for function '" << sig.m_name << "'";
+            m.raise_exception(strm.str());
+        }
+        
+        // Apply substitution to get the range
+        range_out = sub(sig.m_range);
+    }
 }

@@ -77,6 +77,24 @@ namespace polymorphism {
     };
 
     typedef hashtable<substitution*, substitution::hash, substitution::eq> substitutions;
+
+    /**
+     * Polymorphic signature for operators
+     */
+    struct psig {
+        symbol          m_name;
+        unsigned        m_num_params;
+        sort_ref_vector m_dom;
+        sort_ref        m_range;
+        psig(ast_manager& m, char const* name, unsigned n, unsigned dsz, sort* const* dom, sort* rng):
+            m_name(name),
+            m_num_params(n),
+            m_dom(m),
+            m_range(rng, m)
+        {
+            m_dom.append(dsz, dom);
+        }
+    };
     
     class util {
         ast_manager&         m;
@@ -99,6 +117,13 @@ namespace polymorphism {
                    substitution& sub);
 
         bool match(substitution& sub, sort* s1, sort* s_ground);
+
+        /**
+         * Match a polymorphic signature against concrete argument sorts.
+         * Raises exception if arity mismatch or type mismatch.
+         * Returns the instantiated range sort via range_out.
+         */
+        void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& range_out);
                         
         // collect instantiations of polymorphic functions
         void collect_poly_instances(expr* e, ptr_vector<func_decl>& instances);

@@ -28,37 +28,8 @@ finite_set_decl_plugin::finite_set_decl_plugin():
 }
 
 finite_set_decl_plugin::~finite_set_decl_plugin() {
-    for (psig* s : m_sigs) 
+    for (polymorphism::psig* s : m_sigs) 
         dealloc(s);
-}
-
-void finite_set_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
-    ast_manager& m = *m_manager;
-    
-    if (dsz != sig.m_dom.size()) {
-        std::ostringstream strm;
-        strm << "Incorrect number of arguments to '" << sig.m_name << "' ";
-        strm << "expected " << sig.m_dom.size() << " given " << dsz;
-        m.raise_exception(strm.str());
-    }
-    
-    polymorphism::substitution sub(m);
-    bool is_match = true;
-    for (unsigned i = 0; is_match && i < dsz; ++i) {
-        SASSERT(dom[i]);
-        is_match = sub.match(sig.m_dom.get(i), dom[i]);
-    }
-    if (range && is_match) {
-        is_match = sub.match(sig.m_range, range);
-    }
-    if (!is_match) {
-        std::ostringstream strm;
-        strm << "Sort mismatch for function '" << sig.m_name << "'";
-        m.raise_exception(strm.str());
-    }
-    
-    // Apply substitution to get the range
-    range_out = sub(sig.m_range);
 }
 
 void finite_set_decl_plugin::init() {
@@ -87,17 +58,17 @@ void finite_set_decl_plugin::init() {
     sort* intintT[2] = { intT, intT };
     
     m_sigs.resize(LAST_FINITE_SET_OP);
-    m_sigs[OP_FINITE_SET_EMPTY]      = alloc(psig, m, "set.empty",      1, 0, nullptr, setA);
-    m_sigs[OP_FINITE_SET_SINGLETON]  = alloc(psig, m, "set.singleton",  1, 1, &A, setA);
-    m_sigs[OP_FINITE_SET_UNION]      = alloc(psig, m, "set.union",      1, 2, setAsetA, setA);
-    m_sigs[OP_FINITE_SET_INTERSECT]  = alloc(psig, m, "set.intersect",  1, 2, setAsetA, setA);
-    m_sigs[OP_FINITE_SET_DIFFERENCE]  = alloc(psig, m, "set.difference", 1, 2, setAsetA, setA);
-    m_sigs[OP_FINITE_SET_IN]         = alloc(psig, m, "set.in",         1, 2, AsetA, boolT);
-    m_sigs[OP_FINITE_SET_SIZE]       = alloc(psig, m, "set.size",       1, 1, &setA, intT);
-    m_sigs[OP_FINITE_SET_SUBSET]     = alloc(psig, m, "set.subset",     1, 2, setAsetA, boolT);
-    m_sigs[OP_FINITE_SET_MAP]        = alloc(psig, m, "set.map",        2, 2, arrABsetA, setB);
-    m_sigs[OP_FINITE_SET_SELECT]     = alloc(psig, m, "set.select",     1, 2, arrABoolsetA, setA);
-    m_sigs[OP_FINITE_SET_RANGE]      = alloc(psig, m, "set.range",      0, 2, intintT, setInt);
+    m_sigs[OP_FINITE_SET_EMPTY]      = alloc(polymorphism::psig, m, "set.empty",      1, 0, nullptr, setA);
+    m_sigs[OP_FINITE_SET_SINGLETON]  = alloc(polymorphism::psig, m, "set.singleton",  1, 1, &A, setA);
+    m_sigs[OP_FINITE_SET_UNION]      = alloc(polymorphism::psig, m, "set.union",      1, 2, setAsetA, setA);
+    m_sigs[OP_FINITE_SET_INTERSECT]  = alloc(polymorphism::psig, m, "set.intersect",  1, 2, setAsetA, setA);
+    m_sigs[OP_FINITE_SET_DIFFERENCE]  = alloc(polymorphism::psig, m, "set.difference", 1, 2, setAsetA, setA);
+    m_sigs[OP_FINITE_SET_IN]         = alloc(polymorphism::psig, m, "set.in",         1, 2, AsetA, boolT);
+    m_sigs[OP_FINITE_SET_SIZE]       = alloc(polymorphism::psig, m, "set.size",       1, 1, &setA, intT);
+    m_sigs[OP_FINITE_SET_SUBSET]     = alloc(polymorphism::psig, m, "set.subset",     1, 2, setAsetA, boolT);
+    m_sigs[OP_FINITE_SET_MAP]        = alloc(polymorphism::psig, m, "set.map",        2, 2, arrABsetA, setB);
+    m_sigs[OP_FINITE_SET_SELECT]     = alloc(polymorphism::psig, m, "set.select",     1, 2, arrABoolsetA, setA);
+    m_sigs[OP_FINITE_SET_RANGE]      = alloc(polymorphism::psig, m, "set.range",      0, 2, intintT, setInt);
 }
 
 sort * finite_set_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
@@ -141,8 +112,9 @@ func_decl * finite_set_decl_plugin::mk_empty(sort* element_sort) {
 
 func_decl * finite_set_decl_plugin::mk_finite_set_op(decl_kind k, unsigned arity, sort * const * domain, sort* range) {
     ast_manager& m = *m_manager;
+    polymorphism::util poly_util(m);
     sort_ref rng(m);
-    match(*m_sigs[k], arity, domain, range, rng);
+    poly_util.match(*m_sigs[k], arity, domain, range, rng);
     return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 }
 

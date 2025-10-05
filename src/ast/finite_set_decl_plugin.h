@@ -28,6 +28,7 @@ Operators:
 #pragma once
 
 #include "ast/ast.h"
+#include "ast/polymorphism_util.h"
 
 enum finite_set_sort_kind {
     FINITE_SET_SORT
@@ -49,26 +50,10 @@ enum finite_set_op_kind {
 };
 
 class finite_set_decl_plugin : public decl_plugin {
-    struct psig {
-        symbol          m_name;
-        unsigned        m_num_params;
-        sort_ref_vector m_dom;
-        sort_ref        m_range;
-        psig(ast_manager& m, char const* name, unsigned n, unsigned dsz, sort* const* dom, sort* rng):
-            m_name(name),
-            m_num_params(n),
-            m_dom(m),
-            m_range(rng, m)
-        {
-            m_dom.append(dsz, dom);
-        }
-    };
-
-    ptr_vector<psig>   m_sigs;
-    bool               m_init;
+    ptr_vector<polymorphism::psig>   m_sigs;
+    bool                             m_init;
 
     void init();
-    void match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out);
     func_decl * mk_empty(sort* element_sort);
     func_decl * mk_finite_set_op(decl_kind k, unsigned arity, sort * const * domain, sort* range);
     sort * get_element_sort(sort* finite_set_sort) const;
@@ -82,7 +67,7 @@ public:
     }
     
     void finalize() override {
-        for (psig* s : m_sigs) 
+        for (polymorphism::psig* s : m_sigs) 
             dealloc(s);
         m_sigs.reset();
     }
