@@ -115,10 +115,6 @@ namespace smt {
                     b.set_unsat(m_l2g, unsat_core);
                     return;
                 }
-                // report assumptions used in unsat core, so they can be used in final core
-                for (expr *e : unsat_core)
-                    if (asms.contains(e))
-                        b.report_assumption_used(m_l2g, e);  
 
                 LOG_WORKER(1, " found unsat cube\n");
                 b.backtrack(m_l2g, unsat_core, node);
@@ -260,8 +256,7 @@ namespace smt {
         vector<cube_config::literal> g_core;
         for (auto c : core) {
             expr_ref g_c(l2g(c), m);
-            if (!is_assumption(g_c))
-                g_core.push_back(expr_ref(l2g(c), m));
+            g_core.push_back(expr_ref(l2g(c), m));
         }
         m_search_tree.backtrack(node, g_core);
 
@@ -411,11 +406,6 @@ namespace smt {
         cancel_workers();
     }
 
-    void parallel::batch_manager::report_assumption_used(ast_translation &l2g, expr *assumption) {
-        std::scoped_lock lock(mux);
-        p.m_assumptions_used.insert(l2g(assumption));
-    }
-
     lbool parallel::batch_manager::get_result() const {
         if (m.limit().is_canceled())
             return l_undef;  // the main context was cancelled, so we return undef.
@@ -424,11 +414,12 @@ namespace smt {
                                  // means all cubes were unsat
             if (!m_search_tree.is_closed())
                 throw default_exception("inconsistent end state");
-            if (!p.m_assumptions_used.empty()) {
-                // collect unsat core from assumptions used, if any --> case when all cubes were unsat, but depend on
-                // nonempty asms, so we need to add these asms to final unsat core
-                SASSERT(p.ctx.m_unsat_core.empty());
-                for (auto a : p.m_assumptions_used)
+
+            // case when all cubes were unsat, but depend on nonempty asms, so we need to add these asms to final unsat core
+            // these asms are stored in the cube tree, at the root node
+            if (p.ctx.m_unsat_core.empty()) {
+                SASSERT(root && root->is_closed());
+                for (auto a : m_search_tree.get_core_from_root())
                     p.ctx.m_unsat_core.push_back(a);
             }
             return l_false;
@@ -496,16 +487,12 @@ namespace smt {
             scoped_clear(parallel &p) : p(p) {}
             ~scoped_clear() {
                 p.m_workers.reset();
-                p.m_assumptions_used.reset();
-                p.m_assumptions.reset();
             }
         };
         scoped_clear clear(*this);
 
         m_batch_manager.initialize();
         m_workers.reset();
-        for (auto e : asms)
-            m_assumptions.insert(e);
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
         SASSERT(num_threads > 1);

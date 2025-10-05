@@ -139,26 +139,43 @@ namespace search_tree {
             return nullptr;
         }
 
-        void close_node(node<Config>* n) {
+        // Invariants: 
+        // Cores labeling nodes are subsets of the literals on the path to the node and the (external) assumption literals.
+        // If a parent is open, then the one of the children is open.
+        void close(node<Config>* n, vector<literal> const &C) {
             if (!n)
                 return;
             if (n->get_status() == status::closed)
                 return;
+
+            n->set_core(C);
+
+            // label n and its children as closed
             n->set_status(status::closed);
-            close_node(n->left());
-            close_node(n->right());
-            while (n) {
-                auto p = n->parent();
-                if (!p)
-                    return;
-                if (p->get_status() != status::open)
-                    return;
-                if (p->left()->get_status() != status::closed)
-                    return;
-                if (p->right()->get_status() != status::closed)
-                    return;
-                p->set_status(status::closed);
-                n = p;
+
+            // is it ok to pass C here? I think it should work, but semantically it may attach an irrelevant core to children that never actually produced that conflict
+            close(n->left(), C); 
+            close(n->right(), C);
+
+            // stop at root
+            if (!n->parent())
+                return;
+
+            node<Config>* p = n->parent();
+
+            auto is_literal_in_core = [](literal const& l, vector<literal> const& C) {
+                for (unsigned i = 0; i < C.size(); ++i)
+                    if (C[i] == l) return true;
+                return false;
+            };
+
+            // case 1: current splitting literal not in the conflict core
+            if (!is_literal_in_core(n->get_literal(), C)) {
+                close(p, C);
+            // case 2: both siblings closed -> resolve
+            } else if (p->left()->get_status() == status::closed && p->right()->get_status() == status::closed) {
+                auto Cp = compute_sibling_resolvent(p->left(), p->right());
+                close(p, Cp);
             }
         }
 
@@ -213,8 +230,7 @@ namespace search_tree {
 
               // empty resolvent of sibling complement (i.e. tautology) -> global UNSAT
               if (resolvent.empty()) {
-                  m_root->set_core(resolvent);
-                  close_node(m_root.get());
+                  close(m_root.get(), resolvent);
                   return;
               }
 
@@ -253,8 +269,7 @@ namespace search_tree {
 
               // attach the resolvent and close the subtree at attach_here
               if (!attach_here->has_core() || attach_here->get_core() != resolvent) {
-                  attach_here->set_core(resolvent);
-                  close_node(attach_here);
+                  close(attach_here, resolvent);
               }
 
               // continue upward from parent of attach_here
@@ -284,11 +299,10 @@ namespace search_tree {
         }
 
         // conflict is given by a set of literals.
-        // they are a subset of literals on the path from root to n
+        // they are subsets of the literals on the path from root to n AND the external assumption literals
         void backtrack(node<Config>* n, vector<literal> const& conflict) {
             if (conflict.empty()) {
-                m_root->set_core(conflict);
-                close_node(m_root.get());
+                close(m_root.get(), conflict);
                 return;
             }           
             SASSERT(n != m_root.get());
@@ -309,10 +323,8 @@ namespace search_tree {
 
             while (n) {
                 if (any_of(conflict, [&](auto const& a) { return a == n->get_literal(); })) {
-                    n->set_core(conflict);
-
                     // close the subtree under n (preserves core attached to n), and attempt to resolve upwards
-                    close_node(n);
+                    close(n, conflict);
                     try_resolve_upwards(n->parent());
                     return;
                 }
@@ -363,6 +375,10 @@ namespace search_tree {
 
         node<Config>* find_active_node() {
             return m_root->find_active_node();
+        }
+
+        vector<literal> const& get_core_from_root() const {
+            return m_root->get_core();
         }
 
         bool is_closed() const {
