@@ -16,6 +16,7 @@ Operators:
     set.union : (FiniteSet S) (FiniteSet S) -> (FiniteSet S)
     set.intersect : (FiniteSet S) (FiniteSet S) -> (FiniteSet S)
     set.difference : (FiniteSet S) (FiniteSet S) -> (FiniteSet S)
+    set.singleton : S -> (FiniteSet S)
     set.in : S (FiniteSet S) -> Bool
     set.size : (FiniteSet S) -> Int
     set.subset : (FiniteSet S) (FiniteSet S) -> Bool
