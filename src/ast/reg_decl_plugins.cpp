@@ -29,6 +29,7 @@ Revision History:
 #include "ast/pb_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
 #include "ast/special_relations_decl_plugin.h"
+#include "ast/finite_sets_decl_plugin.h"
 
 void reg_decl_plugins(ast_manager & m) {
     if (!m.get_plugin(m.mk_family_id(symbol("arith")))) {
@@ -63,5 +64,8 @@ void reg_decl_plugins(ast_manager & m) {
     }
     if (!m.get_plugin(m.mk_family_id(symbol("specrels")))) {
         m.register_plugin(symbol("specrels"), alloc(special_relations_decl_plugin));
+    }
+    if (!m.get_plugin(m.mk_family_id(symbol("finite_sets")))) {
+        m.register_plugin(symbol("finite_sets"), alloc(finite_sets_decl_plugin));
     }
 }
