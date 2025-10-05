@@ -65,12 +65,9 @@ class finite_set_decl_plugin : public decl_plugin {
     };
 
     ptr_vector<psig>   m_sigs;
-    ptr_vector<sort>   m_binding;
     bool               m_init;
 
     void init();
-    bool is_sort_param(sort* s, unsigned& idx);
-    bool match(ptr_vector<sort>& binding, sort* s, sort* sP);
     void match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out);
     func_decl * mk_empty(sort* element_sort);
     func_decl * mk_finite_set_op(decl_kind k, unsigned arity, sort * const * domain, sort* range);

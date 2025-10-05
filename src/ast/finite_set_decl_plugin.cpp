@@ -20,6 +20,7 @@ Revision History:
 #include "ast/finite_set_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/polymorphism_util.h"
 #include "util/warning.h"
 
 finite_set_decl_plugin::finite_set_decl_plugin():
@@ -31,41 +32,7 @@ finite_set_decl_plugin::~finite_set_decl_plugin() {
         dealloc(s);
 }
 
-bool finite_set_decl_plugin::is_sort_param(sort* s, unsigned& idx) {
-    return
-        s->get_name().is_numerical() &&
-        (idx = s->get_name().get_num(), true);
-}
-
-bool finite_set_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
-    if (s == sP) return true;
-    unsigned idx;
-    if (is_sort_param(sP, idx)) {
-        if (binding.size() <= idx) binding.resize(idx+1);
-        if (binding[idx] && (binding[idx] != s)) return false;
-        binding[idx] = s;
-        return true;
-    }
-
-    if (s->get_family_id() == sP->get_family_id() &&
-        s->get_decl_kind() == sP->get_decl_kind() &&
-        s->get_num_parameters() == sP->get_num_parameters()) {
-        for (unsigned i = 0, sz = s->get_num_parameters(); i < sz; ++i) {
-            parameter const& p = s->get_parameter(i);
-            if (p.is_ast() && is_sort(p.get_ast())) {
-                parameter const& p2 = sP->get_parameter(i);
-                if (!match(binding, to_sort(p.get_ast()), to_sort(p2.get_ast()))) return false;
-            }
-        }
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-
 void finite_set_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
-    m_binding.reset();
     ast_manager& m = *m_manager;
     
     if (dsz != sig.m_dom.size()) {
@@ -75,13 +42,14 @@ void finite_set_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, so
         m.raise_exception(strm.str());
     }
     
+    polymorphism::substitution sub(m);
     bool is_match = true;
     for (unsigned i = 0; is_match && i < dsz; ++i) {
         SASSERT(dom[i]);
-        is_match = match(m_binding, dom[i], sig.m_dom.get(i));
+        is_match = sub.match(sig.m_dom.get(i), dom[i]);
     }
     if (range && is_match) {
-        is_match = match(m_binding, range, sig.m_range);
+        is_match = sub.match(sig.m_range, range);
     }
     if (!is_match) {
         std::ostringstream strm;
@@ -89,23 +57,8 @@ void finite_set_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, so
         m.raise_exception(strm.str());
     }
     
-    // Compute range_out by substituting binding into sig.m_range
-    range_out = sig.m_range;
-    unsigned idx;
-    if (is_sort_param(sig.m_range, idx) && idx < m_binding.size() && m_binding[idx]) {
-        range_out = m_binding[idx];
-    }
-    else if (sig.m_range->get_family_id() == m_family_id && 
-             sig.m_range->get_decl_kind() == FINITE_SET_SORT) {
-        parameter const& p = sig.m_range->get_parameter(0);
-        if (p.is_ast() && is_sort(p.get_ast())) {
-            sort* elem_sort = to_sort(p.get_ast());
-            if (is_sort_param(elem_sort, idx) && idx < m_binding.size() && m_binding[idx]) {
-                parameter new_param(m_binding[idx]);
-                range_out = m.mk_sort(m_family_id, FINITE_SET_SORT, 1, &new_param);
-            }
-        }
-    }
+    // Apply substitution to get the range
+    range_out = sub(sig.m_range);
 }
 
 void finite_set_decl_plugin::init() {
@@ -114,8 +67,8 @@ void finite_set_decl_plugin::init() {
     array_util autil(m);
     m_init = true;
     
-    sort* A = m.mk_uninterpreted_sort(symbol(0u));
-    sort* B = m.mk_uninterpreted_sort(symbol(1u));
+    sort* A = m.mk_type_var(symbol("A"));
+    sort* B = m.mk_type_var(symbol("B"));
     parameter paramA(A);
     parameter paramB(B);
     sort* setA = m.mk_sort(m_family_id, FINITE_SET_SORT, 1, &paramA);
