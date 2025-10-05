@@ -3,7 +3,7 @@ Copyright (c) 2025 Microsoft Corporation
 
 Module Name:
 
-    finite_sets_rewriter.h
+    finite_set_rewriter.h
 
 Abstract:
     Rewriting Simplification for finite sets
