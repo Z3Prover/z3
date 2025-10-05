@@ -27,13 +27,8 @@ Abstract:
      -----------------------------------------------
            x in v1 <=> x in v4 or x in v5    
  
-
-    set.in : S (FiniteSet S) -> Bool
     set.size : (FiniteSet S) -> Int
     set.subset : (FiniteSet S) (FiniteSet S) -> Bool
-    set.map : (S -> T) (FiniteSet S) -> (FiniteSet T)
-    set.select : (S -> Bool) (FiniteSet S) -> (FiniteSet S)
-    set.range : Int Int -> (FiniteSet Int)
        
 --*/
 
@@ -75,11 +70,19 @@ public:
     void in_range_axiom(expr *x, expr *a);
 
     // a := set.map(f, b)
-    // (x in a) <=> set.map_inverse(f, x, b)
+    // (x in a) <=> set.map_inverse(f, x, b) in b
     void in_map_axiom(expr *x, expr *a);
+
+    // a := set.map(f, b)
+    // (x in b) => f(x) in a
+    void in_map_image_axiom(expr *x, expr *a);
 
     // a := set.select(p, b)
     // (x in a) <=> (x in b) and p(x)
     void in_select_axiom(expr *x, expr *a);
+
+    // a := set.singleton(b)
+    // set.size(a) = 1
+    void size_singleton_axiom(expr *a);
 
 };
