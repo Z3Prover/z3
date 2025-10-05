@@ -143,7 +143,7 @@ void finite_set_decl_plugin::init() {
     m_sigs[OP_FINITE_SET_SIZE]       = alloc(psig, m, "set.size",       1, 1, &setA, intT);
     m_sigs[OP_FINITE_SET_SUBSET]     = alloc(psig, m, "set.subset",     1, 2, setAsetA, boolT);
     m_sigs[OP_FINITE_SET_MAP]        = alloc(psig, m, "set.map",        2, 2, arrABsetA, setB);
-    m_sigs[OP_FINITE_SET_FILTER]     = alloc(psig, m, "set.filter",     1, 2, arrABoolsetA, setA);
+    m_sigs[OP_FINITE_SET_SELECT]     = alloc(psig, m, "set.select",     1, 2, arrABoolsetA, setA);
     m_sigs[OP_FINITE_SET_RANGE]      = alloc(psig, m, "set.range",      0, 2, intintT, setInt);
 }
 
@@ -214,7 +214,7 @@ func_decl * finite_set_decl_plugin::mk_func_decl(decl_kind k, unsigned num_param
     case OP_FINITE_SET_SIZE:
     case OP_FINITE_SET_SUBSET:
     case OP_FINITE_SET_MAP:
-    case OP_FINITE_SET_FILTER:
+    case OP_FINITE_SET_SELECT:
     case OP_FINITE_SET_RANGE:
         return mk_finite_set_op(k, arity, domain, range);
     default:

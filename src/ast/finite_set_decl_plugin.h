@@ -21,7 +21,7 @@ Operators:
     set.size : (FiniteSet S) -> Int
     set.subset : (FiniteSet S) (FiniteSet S) -> Bool
     set.map : (S -> T) (FiniteSet S) -> (FiniteSet T)
-    set.filter : (S -> Bool) (FiniteSet S) -> (FiniteSet S)
+    set.select : (S -> Bool) (FiniteSet S) -> (FiniteSet S)
     set.range : Int Int -> (FiniteSet Int)
    
 --*/
@@ -43,7 +43,7 @@ enum finite_set_op_kind {
     OP_FINITE_SET_SIZE,
     OP_FINITE_SET_SUBSET,
     OP_FINITE_SET_MAP,
-    OP_FINITE_SET_FILTER,
+    OP_FINITE_SET_SELECT,
     OP_FINITE_SET_RANGE,
     LAST_FINITE_SET_OP
 };
@@ -135,7 +135,7 @@ public:
     bool is_size(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SIZE); }
     bool is_subset(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SUBSET); }
     bool is_map(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_MAP); }
-    bool is_filter(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_FILTER); }
+    bool is_select(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SELECT); }
     bool is_range(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_RANGE); }
 };
 
@@ -184,8 +184,8 @@ public:
         return m_manager.mk_app(m_fid, OP_FINITE_SET_MAP, arr, set);
     }
 
-    app * mk_filter(expr* arr, expr* set) {
-        return m_manager.mk_app(m_fid, OP_FINITE_SET_FILTER, arr, set);
+    app * mk_select(expr* arr, expr* set) {
+        return m_manager.mk_app(m_fid, OP_FINITE_SET_SELECT, arr, set);
     }
 
     app * mk_range(expr* low, expr* high) {
