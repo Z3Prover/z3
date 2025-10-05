@@ -43,7 +43,7 @@ namespace nlsat {
             fn(factors[0]);            
         }
 
-        // todo: consider to keey polynomials in a set by using m_pm.eq
+        // todo: consider to key polynomials in a set by using m_pm.eq
         struct property {
             prop_enum prop_tag;
             polynomial_ref   poly;
