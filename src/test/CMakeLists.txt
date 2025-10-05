@@ -54,6 +54,7 @@ add_executable(test-z3
   expr_substitution.cpp
   ext_numeral.cpp
   f2n.cpp
+  finite_sets.cpp
   factor_rewriter.cpp
   finder.cpp
   fixed_bit_vector.cpp
