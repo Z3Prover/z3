@@ -55,7 +55,8 @@ expr_ref sym_expr::accept(expr* e) {
             result = m.mk_bool_val((r1 <= r2) && (r2 <= r3));            
         }
         else {
-            result = m.mk_and(u.mk_le(m_t, e), u.mk_le(e, m_s));
+            auto a = u.mk_le(m_t, e);
+            result = m.mk_and(a, u.mk_le(e, m_s));
         }
         break;
     }
@@ -190,7 +191,9 @@ br_status seq_rewriter::mk_eq_helper(expr* a, expr* b, expr_ref& result) {
     // sa in (ra n rb) u (C(ra) n C(rb))
     if (is_not)
         rb = re().mk_complement(rb);
-    expr* r = re().mk_union(re().mk_inter(ra, rb), re().mk_inter(re().mk_complement(ra), re().mk_complement(rb)));
+    auto a_ = re().mk_inter(ra, rb);
+    auto b_ = re().mk_complement(ra);
+    expr* r = re().mk_union(a_, re().mk_inter(b_, re().mk_complement(rb)));
     result = re().mk_in_re(sa, r);
     return BR_REWRITE_FULL;
 }
@@ -620,10 +623,14 @@ expr_ref seq_rewriter::mk_seq_rest(expr* t) {
     expr_ref result(m());
     expr* s, * j, * k;
     rational jv;
-    if (str().is_extract(t, s, j, k) &&  m_autil.is_numeral(j, jv) && jv >= 0) 
-        result = str().mk_substr(s, m_autil.mk_int(jv + 1), mk_sub(k, 1));
-    else 
-        result = str().mk_substr(t, one(), mk_sub(str().mk_length(t), 1));
+    if (str().is_extract(t, s, j, k) &&  m_autil.is_numeral(j, jv) && jv >= 0) {
+        auto a = m_autil.mk_int(jv + 1);
+        result = str().mk_substr(s, a, mk_sub(k, 1));
+    }
+    else {
+        auto a = one();
+        result = str().mk_substr(t, a, mk_sub(str().mk_length(t), 1));
+    }
     return result;
 }
 
