@@ -2332,7 +2332,6 @@ bool mpz_manager<SYNCH>::is_perfect_square(mpz const & a, mpz & root) {
     set(sq_lo, 1);    
 
     bool result = false;
-    bool first = true;
     // lo*lo <= *this < hi*hi
 
     // first find small interval lo*lo <= a <<= hi*hi
