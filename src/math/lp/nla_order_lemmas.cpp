@@ -10,6 +10,7 @@
 #include "math/lp/nla_core.h"
 #include "math/lp/nla_common.h"
 #include "math/lp/factorization_factory_imp.h"
+#include "util/util.h"
 
 namespace nla {
 
@@ -42,7 +43,7 @@ void order::order_lemma_on_monic(const monic& m) {
             continue;
         if (ac.is_mon())
             order_lemma_on_binomial(ac.mon());
-        else
+        else if (c().params().arith_nl_linearize())
             order_lemma_on_factorization(m, ac);
         if (done())
             break;
@@ -81,6 +82,11 @@ void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int 
     if (!c().var_is_int(x) && val(x).is_big())
         return;
     
+    auto vx = val(x);
+    // only allow limitted set of values of a
+    if (c().var_is_int(x) && !(vx.is_zero() || vx.is_one() || vx.is_minus_one() || vx.is_power_of_two()))
+        if (!c().m_params.arith_nl_linearize())
+            return;
 
     SASSERT(!_().mon_has_zero(xy.vars()));
     int sy = rat_sign(val(y));
@@ -219,7 +225,7 @@ void order::order_lemma_on_factorization(const monic& m, const factorization& ab
     TRACE(nla_solver,
           tout << "ab.size()=" << ab.size() << "\n";
           tout << "we should have mv =" << mv << " = " << fv << " = fv\n";
-          tout << "m = "; _().print_monic_with_vars(m, tout); tout << "\nab ="; _().print_factorization(ab, tout););
+          tout << "m = "; _().print_monic_with_vars(m, tout); tout << "\nab ="; _().print_factorization(ab, tout) << "\n";);
 
     if (mv != fv && !c().has_real(m)) {            
         bool gt = mv > fv;
@@ -239,7 +245,7 @@ void order::order_lemma_on_ac_explore(const monic& rm, const factorization& ac, 
     const factor c = ac[k];
     TRACE(nla_solver, tout << "c = "; _().print_factor_with_vars(c, tout); );
     if (c.is_var()) {
-        TRACE(nla_solver, tout << "var(c) = " << var(c););
+        TRACE(nla_solver, tout << "var(c) = " << var(c) << "\n";);
         for (monic const& bc : _().emons().get_use_list(c.var())) {
             if (order_lemma_on_ac_and_bc(rm, ac, k, bc)) 
                 return;

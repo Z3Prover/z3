@@ -187,11 +187,11 @@ public:
 
     // returns true if the combination of the Horner's schema and Grobner Basis should be called
     bool need_run_horner() const { 
-        return params().arith_nl_horner() && lp_settings().stats().m_nla_calls % params().arith_nl_horner_frequency() == 0; 
+        return params().arith_nl_linearize() && params().arith_nl_horner() && lp_settings().stats().m_nla_calls % params().arith_nl_horner_frequency() == 0; 
     }
 
     bool need_run_grobner() const {
-        return params().arith_nl_grobner();         
+        return params().arith_nl_linearize() && params().arith_nl_grobner();         
     }
 
     void set_active_vars_weights(nex_creator&);

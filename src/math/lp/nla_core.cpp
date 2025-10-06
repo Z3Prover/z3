@@ -313,7 +313,7 @@ bool core::explain_by_equiv(const lp::lar_term& t, lp::explanation& e) const {
         return false;
             
     m_evars.explain(signed_var(i, false), signed_var(j, sign), e);
-    TRACE(nla_solver, tout << "explained :"; lra.print_term_as_indices(t, tout););
+    TRACE(nla_solver, tout << "explained :"; lra.print_term_as_indices(t, tout) << "\n";);
     return true;            
 }
 
@@ -1342,7 +1342,7 @@ lbool core::check() {
     if (no_effect()) 
         m_basics.basic_lemma(true); 
 
-    if (no_effect()) 
+    if (no_effect() && m_params.arith_nl_linearize()) 
         m_basics.basic_lemma(false);
 
     if (no_effect()) 
@@ -1358,21 +1358,19 @@ lbool core::check() {
         if (!conflict_found() && params().arith_nl_nra() && num_calls % 50 == 0 && num_calls > 500)
             ret = bounded_nlsat();
 
-        // both tangent and monotonicity are expensive
-        std::function<void(void)> check1 = [&]() { m_monotone.monotonicity_lemma();
-        };
-        std::function<void(void)> check2 = [&]() { m_tangents.tangent_lemma();
-        };
+        if (m_params.arith_nl_linearize()) {
+            // both tangent and monotonicity are expensive
+            std::function<void(void)> check1 = [&]() { m_monotone.monotonicity_lemma();
+            };
+            std::function<void(void)> check2 = [&]() { m_tangents.tangent_lemma();
+            };
 
-
-        
-        std::pair<unsigned, std::function<void(void)>> checks[] = 
-            { 
-              { 2, check1 }, 
-              { 1, check2 }};
-        check_weighted(2, checks);
-
-
+            std::pair<unsigned, std::function<void(void)>> checks[] = 
+             { 
+               { 2, check1 }, 
+               { 1, check2 }};
+            check_weighted(2, checks);
+        }
     }
 
     if (no_effect() && params().arith_nl_nra()) {
