@@ -172,7 +172,7 @@ expr * finite_set_decl_plugin::get_some_value(sort * s) {
 }
 
 bool finite_set_decl_plugin::is_fully_interp(sort * s) const {
-    return s->get_family_id() == m_family_id && s->get_decl_kind() == FINITE_SET_SORT;
+    return false;
 }
 
 bool finite_set_decl_plugin::is_value(app * e) const {

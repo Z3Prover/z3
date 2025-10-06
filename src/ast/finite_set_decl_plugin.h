@@ -107,18 +107,29 @@ public:
     finite_set_recognizers(family_id fid):m_fid(fid) {}
     family_id get_family_id() const { return m_fid; }
     bool is_finite_set(sort* s) const { return is_sort_of(s, m_fid, FINITE_SET_SORT); }
-    bool is_finite_set(expr* n) const { return is_finite_set(n->get_sort()); }
-    bool is_empty(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_EMPTY); }
-    bool is_singleton(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SINGLETON); }
-    bool is_union(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_UNION); }
-    bool is_intersect(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_INTERSECT); }
-    bool is_difference(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_DIFFERENCE); }
-    bool is_in(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_IN); }
-    bool is_size(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SIZE); }
-    bool is_subset(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SUBSET); }
-    bool is_map(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_MAP); }
-    bool is_select(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SELECT); }
-    bool is_range(expr* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_RANGE); }
+    bool is_finite_set(expr const* n) const { return is_finite_set(n->get_sort()); }
+    bool is_empty(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_EMPTY); }
+    bool is_singleton(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SINGLETON); }
+    bool is_union(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_UNION); }
+    bool is_intersect(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_INTERSECT); }
+    bool is_difference(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_DIFFERENCE); }
+    bool is_in(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_IN); }
+    bool is_size(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SIZE); }
+    bool is_subset(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SUBSET); }
+    bool is_map(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_MAP); }
+    bool is_select(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SELECT); }
+    bool is_range(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_RANGE); }
+
+    MATCH_UNARY(is_singleton);
+    MATCH_UNARY(is_size);
+    MATCH_BINARY(is_union);
+    MATCH_BINARY(is_intersect);
+    MATCH_BINARY(is_difference);
+    MATCH_BINARY(is_in);
+    MATCH_BINARY(is_subset);
+    MATCH_BINARY(is_map);
+    MATCH_BINARY(is_select);
+    MATCH_BINARY(is_range);
 };
 
 class finite_set_util : public finite_set_recognizers {
