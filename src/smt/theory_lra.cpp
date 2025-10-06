@@ -276,7 +276,7 @@ class theory_lra::imp {
         }
     }
 
-    lpvar add_mul_def(unsigned sz, lpvar const* vs) { // under 10 lines
+    lpvar add_mul_def(unsigned sz, lpvar const* vs) {
         bool is_int = true;
         for (unsigned i = 0; i < sz; ++i) {
             theory_var tv = lp().local_to_external(vs[i]);

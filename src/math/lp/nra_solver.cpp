@@ -194,7 +194,7 @@ struct solver::imp {
     map<unsigned_vector, unsigned, svector_hash<unsigned_hash>, eq> m_vars2mon;
     // Create polynomial definition for variable v used in setup_assignment_solver.
     // Side-effects: updates m_vars2mon when v is a monic variable.
-    void mk_definition(unsigned v, polynomial_ref_vector& definitions) {
+    void mk_definition(unsigned v, polynomial_ref_vector & definitions) {
         auto &pm = m_nlsat->pm();
         polynomial::polynomial_ref p(pm);
         if (m_nla_core.emons().is_monic_var(v)) {
@@ -209,22 +209,25 @@ struct solver::imp {
                 else
                     p = pm.mul(p, pv);
             }
-        }
-        else if (lra.column_has_term(v)) {
-            for (auto const &[w, coeff] : lra.get_term(v)) {
+        } 
+		else if (lra.column_has_term(v)) {
+            // Scale coefficients by a common denominator so that they become integers.
+            rational den(1);
+            for (auto const& [w, coeff] : lra.get_term(v))
+                den = lcm(den, denominator(coeff));
+            for (auto const& [w, coeff] : lra.get_term(v)) {
                 auto pw = definitions.get(w);
                 if (!p)
-                    p = pm.mul(coeff, pw);
+                    p = pm.mul(den*coeff, pw);
                 else
-                    p = pm.add(p, pm.mul(coeff, pw));
+                    p = pm.add(p, pm.mul(den*coeff, pw));
             }
-        }
-        else {
-            p = pm.mk_polynomial(v);  // nlsat var index equals v (verified above when created)
+        } 
+		else {
+            p = pm.mk_polynomial(v); // nlsat var index equals v (verified above when created)
         }
         definitions.push_back(p);
     }
-
     void setup_assignment_solver() {
         SASSERT(need_check());
         reset();
@@ -366,13 +369,15 @@ struct solver::imp {
                 break;
             }
             default: {
-                IF_VERBOSE(0, verbose_stream() << "Valentin! we don't really expect non-linear literals here\n");
                 svector<lp::lpvar> vars;
                 for (unsigned j = 0; j < num_vars; ++j)
                     vars.push_back(nl2lp[pm.get_var(m, j)]);
                 std::sort(vars.begin(), vars.end());
-                SASSERT(m_vars2mon.contains(vars));
-                auto v = m_vars2mon[vars];
+                lp::lpvar v;
+                if (m_vars2mon.contains(vars)) 
+                   v = m_vars2mon[vars];
+                else 
+                   v = m_nla_core.add_mul_def(vars.size(), vars.data());  
                 TRACE(nra, tout << " vars=" << vars << "\n");
                 t.add_monomial(coeff, v);
                 break;
