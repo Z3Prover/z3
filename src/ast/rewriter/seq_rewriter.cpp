@@ -661,7 +661,10 @@ expr_ref seq_rewriter::mk_seq_last(expr* t) {
 *  No: if k > |s| then substring(s,0,k) = substring(s,0,k-1)
 */
 expr_ref seq_rewriter::mk_seq_butlast(expr* t) {
-    return expr_ref(str().mk_substr(t, zero(), m_autil.mk_sub(str().mk_length(t), one())), m());
+    auto b = zero();
+    auto c = str().mk_length(t);
+    auto a = str().mk_substr(t, b, m_autil.mk_sub(c, one()));
+    return expr_ref(a, m());
 }
 
 /*
