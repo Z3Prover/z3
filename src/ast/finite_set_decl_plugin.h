@@ -57,6 +57,7 @@ class finite_set_decl_plugin : public decl_plugin {
     func_decl * mk_empty(sort* element_sort);
     func_decl * mk_finite_set_op(decl_kind k, unsigned arity, sort * const * domain, sort* range);
     sort * get_element_sort(sort* finite_set_sort) const;
+    bool is_finite_set(sort* s) const;
 
 public:
     finite_set_decl_plugin();

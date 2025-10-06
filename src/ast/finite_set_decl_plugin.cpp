@@ -90,9 +90,15 @@ sort * finite_set_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, par
     return nullptr;
 }
 
+bool finite_set_decl_plugin::is_finite_set(sort* s) const {
+    return s->get_family_id() == m_family_id && s->get_decl_kind() == FINITE_SET_SORT;
+}
+
 sort * finite_set_decl_plugin::get_element_sort(sort* finite_set_sort) const {
-    if (finite_set_sort->get_family_id() != m_family_id ||
-        finite_set_sort->get_decl_kind() != FINITE_SET_SORT) {
+    if (!is_finite_set(finite_set_sort)) {
+        return nullptr;
+    }
+    if (finite_set_sort->get_num_parameters() != 1) {
         return nullptr;
     }
     parameter const* params = finite_set_sort->get_parameters();
@@ -160,7 +166,7 @@ void finite_set_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, s
 }
 
 expr * finite_set_decl_plugin::get_some_value(sort * s) {
-    if (s->get_family_id() == m_family_id && s->get_decl_kind() == FINITE_SET_SORT) {
+    if (is_finite_set(s)) {
         // Return empty set for the given sort
         sort* element_sort = get_element_sort(s);
         if (element_sort) {
