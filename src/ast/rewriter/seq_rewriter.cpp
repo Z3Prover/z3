@@ -4359,9 +4359,11 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         (re().is_union(b, b1, eps) && re().is_epsilon(eps)) ||
         (re().is_union(b, eps, b1) && re().is_epsilon(eps)))
     {
-        result = m().mk_ite(m().mk_eq(str().mk_length(a), zero()),
-            m().mk_true(),
-            re().mk_in_re(a, b1));
+        // deterministic evaluation order: build sub-expressions first
+        auto len_a = str().mk_length(a);
+        auto is_empty = m().mk_eq(len_a, zero());
+        auto in_b1 = re().mk_in_re(a, b1);
+        result = m().mk_ite(is_empty, m().mk_true(), in_b1);
         return BR_REWRITE_FULL;
     }
     if (str().is_empty(a)) {
