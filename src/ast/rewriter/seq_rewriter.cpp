@@ -1557,17 +1557,20 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     }
 
     if (str().is_empty(b)) {
-        result = m().mk_ite(m().mk_and(m_autil.mk_le(zero(), c),
-                                       m_autil.mk_le(c, str().mk_length(a))),
-                            c,
-                            minus_one());
+        // enforce deterministic evaluation order for bounds checks
+        auto a1 = m_autil.mk_le(zero(), c);
+        auto b1 = m_autil.mk_le(c, str().mk_length(a));
+        auto cond = m().mk_and(a1, b1);
+        result = m().mk_ite(cond, c, minus_one());
         return BR_REWRITE2;
     }
 
     
     if (str().is_empty(a)) {
         expr* emp = str().mk_is_empty(b);
-        result = m().mk_ite(m().mk_and(m().mk_eq(c, zero()), emp), zero(), minus_one());
+        auto a1 = m().mk_eq(c, zero());
+        auto cond = m().mk_and(a1, emp);
+        result = m().mk_ite(cond, zero(), minus_one());
         return BR_REWRITE2;
     }
 
@@ -2732,11 +2735,15 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         return BR_REWRITE2;
     }
     else if (re().is_intersection(r, r1, r2)) {
-        result = re().mk_inter(re().mk_reverse(r1), re().mk_reverse(r2));
+        auto a = re().mk_reverse(r1);
+        auto b = re().mk_reverse(r2);
+        result = re().mk_inter(a, b);
         return BR_REWRITE2;
     }
     else if (re().is_diff(r, r1, r2)) {
-        result = re().mk_diff(re().mk_reverse(r1), re().mk_reverse(r2));
+        auto a = re().mk_reverse(r1);
+        auto b = re().mk_reverse(r2);
+        result = re().mk_diff(a, b);
         return BR_REWRITE2;
     }
     else if (m().is_ite(r, p, r1, r2)) {
@@ -3031,7 +3038,11 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             // SASSERT(u().is_char(c1));
             // SASSERT(u().is_char(c2));
             // case: c1 <= e <= c2
-            range = simplify_path(e, m().mk_and(u().mk_le(c1, e), u().mk_le(e, c2)));
+            // deterministic evaluation for range bounds
+            auto a_le = u().mk_le(c1, e);
+            auto b_le = u().mk_le(e, c2);
+            auto rng_cond = m().mk_and(a_le, b_le);
+            range = simplify_path(e, rng_cond);
             psi = simplify_path(e, m().mk_and(path, range));
         }
         else if (!str().is_string(r1) && str().is_unit_string(r2, c2)) {
@@ -4005,8 +4016,13 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             // if ((isdigit ele) and (ele = (hd r1))) then (to_re (tl r1)) else []
             //
             hd = mk_seq_first(r1);
-            m_br.mk_and(u().mk_le(m_util.mk_char('0'), ele), u().mk_le(ele, m_util.mk_char('9')), 
-                m().mk_and(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m().mk_eq(hd, ele)), result);
+            // isolate nested conjunction for deterministic evaluation
+            auto a0 = u().mk_le(m_util.mk_char('0'), ele);
+            auto a1 = u().mk_le(ele, m_util.mk_char('9'));
+            auto a2 = m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort)));
+            auto a3 = m().mk_eq(hd, ele);
+            auto inner = m().mk_and(a2, a3);
+            m_br.mk_and(a0, a1, inner, result);
             tl = re().mk_to_re(mk_seq_rest(r1));            
             return re_and(result, tl);
         }
@@ -5040,7 +5056,9 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
         rep.insert(elem, solution);
         rep(cond);
         if (!is_uninterp_const(elem)) { 
-            cond = m().mk_and(m().mk_eq(elem, solution), cond);
+            // ensure deterministic evaluation order when augmenting condition
+            auto eq_sol = m().mk_eq(elem, solution);
+            cond = m().mk_and(eq_sol, cond);
         }
     }    
     else if (all_ranges) {
