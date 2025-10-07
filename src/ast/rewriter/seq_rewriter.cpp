@@ -1890,7 +1890,10 @@ br_status seq_rewriter::mk_seq_map(expr* f, expr* seqA, expr_ref& result) {
         return BR_REWRITE2;
     }
     if (str().is_concat(seqA, s1, s2)) {
-        result = str().mk_concat(str().mk_map(f, s1), str().mk_map(f, s2));
+        // introduce temporaries to ensure deterministic evaluation order of recursive map calls
+        auto m1 = str().mk_map(f, s1);
+        auto m2 = str().mk_map(f, s2);
+        result = str().mk_concat(m1, m2);
         return BR_REWRITE2;
     }
     return BR_FAILED;
@@ -1910,8 +1913,9 @@ br_status seq_rewriter::mk_seq_mapi(expr* f, expr* i, expr* seqA, expr_ref& resu
     }
     if (str().is_concat(seqA, s1, s2)) {
         expr_ref j(m_autil.mk_add(i, str().mk_length(s1)), m());
-        auto a = str().mk_mapi(f, i, s1);
-        result = str().mk_concat(a, str().mk_mapi(f, j, s2));
+        auto left  = str().mk_mapi(f, i, s1);
+        auto right = str().mk_mapi(f, j, s2);
+        result = str().mk_concat(left, right);
         return BR_REWRITE2;
     }
     return BR_FAILED;
