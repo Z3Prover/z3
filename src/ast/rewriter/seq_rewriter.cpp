@@ -4082,7 +4082,10 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
                 // tl = rest of reverse(r2) i.e. butlast of r2
                 //hd = str().mk_nth_i(r2, m_autil.mk_sub(str().mk_length(r2), one()));
                 hd = mk_seq_last(r2);
-                m_br.mk_and(m().mk_not(m().mk_eq(r2, str().mk_empty(seq_sort))), m().mk_eq(hd, ele), result);
+                // factor nested constructor calls to enforce deterministic argument evaluation order
+                auto a_non_empty = m().mk_not(m().mk_eq(r2, str().mk_empty(seq_sort)));
+                auto a_eq        = m().mk_eq(hd, ele);
+                m_br.mk_and(a_non_empty, a_eq, result);
                 tl = re().mk_to_re(mk_seq_butlast(r2));
                 return re_and(result, re().mk_reverse(tl));
             }
