@@ -1910,7 +1910,8 @@ br_status seq_rewriter::mk_seq_mapi(expr* f, expr* i, expr* seqA, expr_ref& resu
     }
     if (str().is_concat(seqA, s1, s2)) {
         expr_ref j(m_autil.mk_add(i, str().mk_length(s1)), m());
-        result = str().mk_concat(str().mk_mapi(f, i, s1), str().mk_mapi(f, j, s2));
+        auto a = str().mk_mapi(f, i, s1);
+        result = str().mk_concat(a, str().mk_mapi(f, j, s2));
         return BR_REWRITE2;
     }
     return BR_FAILED;
