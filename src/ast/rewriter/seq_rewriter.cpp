@@ -2725,7 +2725,10 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         return BR_REWRITE2;
     }
     else if (re().is_union(r, r1, r2)) {
-        result = re().mk_union(re().mk_reverse(r1), re().mk_reverse(r2));
+        // ensure deterministic evaluation order of parameters
+        auto a = re().mk_reverse(r1);
+        auto b = re().mk_reverse(r2);
+        result = re().mk_union(a, b);
         return BR_REWRITE2;
     }
     else if (re().is_intersection(r, r1, r2)) {
@@ -4624,11 +4627,17 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
 br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
     expr *e1 = nullptr, *e2 = nullptr;
     if (re().is_intersection(a, e1, e2)) {
-        result = re().mk_union(re().mk_complement(e1), re().mk_complement(e2));
+        // enforce deterministic evaluation order for nested complement arguments
+        auto a1 = re().mk_complement(e1);
+        auto b1 = re().mk_complement(e2);
+        result = re().mk_union(a1, b1);
         return BR_REWRITE2;
     }
     if (re().is_union(a, e1, e2)) {
-        result = re().mk_inter(re().mk_complement(e1), re().mk_complement(e2));
+        // enforce deterministic evaluation order for nested complement arguments
+        auto a1 = re().mk_complement(e1);
+        auto b1 = re().mk_complement(e2);
+        result = re().mk_inter(a1, b1);
         return BR_REWRITE2;
     }
     if (re().is_empty(a)) {
