@@ -4393,9 +4393,10 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         expr_ref len_hd(m_autil.mk_int(re().min_length(hd)), m()); 
         expr_ref len_a(str().mk_length(a), m());
         expr_ref len_tl(m_autil.mk_sub(len_a, len_hd), m());
-        result = m().mk_and(m_autil.mk_ge(len_a, len_hd),
-                            re().mk_in_re(str().mk_substr(a, zero(), len_hd), hd),
-                            re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl));
+        auto ge_len = m_autil.mk_ge(len_a, len_hd);
+        auto prefix = re().mk_in_re(str().mk_substr(a, zero(), len_hd), hd);
+        auto suffix = re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl);
+        result = m().mk_and(ge_len, prefix, suffix);
         return BR_REWRITE_FULL;
     }
     if (get_re_head_tail_reversed(b, hd, tl)) {
@@ -4404,10 +4405,11 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         expr_ref len_a(str().mk_length(a), m());
         expr_ref len_hd(m_autil.mk_sub(len_a, len_tl), m());
         expr* s = nullptr;
-        result = m().mk_and(m_autil.mk_ge(len_a, len_tl),
-            re().mk_in_re(str().mk_substr(a, zero(), len_hd), hd),
-            (re().is_to_re(tl, s) ? m().mk_eq(s, str().mk_substr(a, len_hd, len_tl)) :
-                re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl)));
+        auto ge_len = m_autil.mk_ge(len_a, len_tl);
+        auto prefix = re().mk_in_re(str().mk_substr(a, zero(), len_hd), hd);
+        auto tail_seq = str().mk_substr(a, len_hd, len_tl);
+        auto tail = (re().is_to_re(tl, s) ? m().mk_eq(s, tail_seq) : re().mk_in_re(tail_seq, tl));
+        result = m().mk_and(ge_len, prefix, tail);
         return BR_REWRITE_FULL;
     }
 
