@@ -2404,7 +2404,8 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     }
     expr* b;
     if (str().is_itos(a, b)) {
-        result = m().mk_ite(m_autil.mk_ge(b, zero()), b, minus_one());
+        auto a = m_autil.mk_ge(b, zero());
+        result = m().mk_ite(a, b, minus_one());
         return BR_DONE;
     }
     if (str().is_ubv2s(a, b)) {
@@ -2415,7 +2416,8 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     
     expr* c = nullptr, *t = nullptr, *e = nullptr;
     if (m().is_ite(a, c, t, e)) {
-        result = m().mk_ite(c, str().mk_stoi(t), str().mk_stoi(e));
+        auto a = str().mk_stoi(t);
+        result = m().mk_ite(c, a, str().mk_stoi(e));
         return BR_REWRITE_FULL;
     }
 
