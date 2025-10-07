@@ -1384,9 +1384,16 @@ br_status seq_rewriter::mk_seq_nth(expr* a, expr* b, expr_ref& result) {
     }    
 
     expr* la = str().mk_length(a);
-    result = m().mk_ite(m().mk_and(m_autil.mk_ge(b, zero()), m().mk_not(m_autil.mk_le(la, b))), 
-                        str().mk_nth_i(a, b),
-                        str().mk_nth_u(a, b));
+    {
+        // deterministic evaluation order for guard components
+        auto ge0 = m_autil.mk_ge(b, zero());
+        auto le_la = m_autil.mk_le(la, b);
+        auto not_le = m().mk_not(le_la);
+        auto guard = m().mk_and(ge0, not_le);
+        auto t1 = str().mk_nth_i(a, b);
+        auto e1 = str().mk_nth_u(a, b);
+        result = m().mk_ite(guard, t1, e1);
+    }
     return BR_REWRITE_FULL;
 }
 
@@ -2716,7 +2723,10 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
     zstring zs;
     unsigned lo = 0, hi = 0;
     if (re().is_concat(r, r1, r2)) {
-        result = re().mk_concat(re().mk_reverse(r2), re().mk_reverse(r1));
+        // deterministic evaluation order for reverse operands
+        auto a_rev = re().mk_reverse(r2);
+        auto b_rev = re().mk_reverse(r1);
+        result = re().mk_concat(a_rev, b_rev);
         return BR_REWRITE2;
     }
     else if (re().is_star(r, r1)) {
@@ -2787,8 +2797,9 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         return BR_DONE;
     }
     else if (re().is_to_re(r, s) && str().is_concat(s, s1, s2)) {
-        result = re().mk_concat(re().mk_reverse(re().mk_to_re(s2)), 
-                                re().mk_reverse(re().mk_to_re(s1)));
+        auto a_rev = re().mk_reverse(re().mk_to_re(s2));
+        auto b_rev = re().mk_reverse(re().mk_to_re(s1));
+        result = re().mk_concat(a_rev, b_rev);
         return BR_REWRITE3;
     }
     else {
@@ -3022,8 +3033,15 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             result = mk_antimirov_deriv_union(c1, re().mk_ite_simplify(r1nullable, mk_antimirov_deriv(e, r2, path), nothing()));
     }
     else if (m().is_ite(r, c, r1, r2)) {
-        c1 = simplify_path(e, m().mk_and(c, path));
-        c2 = simplify_path(e, m().mk_and(m().mk_not(c), path));
+        {
+            auto cp = m().mk_and(c, path);
+            c1 = simplify_path(e, cp);
+        }
+        {
+            auto notc = m().mk_not(c);
+            auto np = m().mk_and(notc, path);
+            c2 = simplify_path(e, np);
+        }
         if (m().is_false(c1))
             result = mk_antimirov_deriv(e, r2, c2);
         else if (m().is_false(c2))
