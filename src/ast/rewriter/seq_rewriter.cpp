@@ -2071,8 +2071,8 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
                 SASSERT(bs.size() > 1);
                 s1 = s1.extract(s2.length(), s1.length() - s2.length());
                 as[0] = str().mk_string(s1);
-                result = str().mk_prefix(str().mk_concat(as.size(), as.data(), sort_a),
-                                              str().mk_concat(bs.size()-1, bs.data()+1, sort_a));
+                auto a = str().mk_concat(as.size(), as.data(), sort_a);
+                result = str().mk_prefix(a, str().mk_concat(bs.size()-1, bs.data()+1, sort_a));
                 TRACE(seq, tout << s1 << " " << s2 << " " << result << "\n";);
                 return BR_REWRITE_FULL;                
             }
