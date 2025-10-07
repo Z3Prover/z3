@@ -2988,7 +2988,11 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         }
         else {
             // observe that the precondition |r1|>0 is is implied by c1 for use of mk_seq_first
-            m_br.mk_and(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m().mk_eq(mk_seq_first(r1), e), c1);
+            {
+                auto is_non_empty = m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort)));
+                auto eq_first = m().mk_eq(mk_seq_first(r1), e);
+                m_br.mk_and(is_non_empty, eq_first, c1);
+            }
             m_br.mk_and(path, c1, c2);
             if (m().is_false(c2))
                 result = nothing();
@@ -3001,7 +3005,11 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         if (re().is_to_re(r2, r1)) {
             // here r1 is a sequence
             // observe that the precondition |r1|>0 of mk_seq_last is implied by c1
-            m_br.mk_and(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m().mk_eq(mk_seq_last(r1), e), c1);
+            {
+                auto is_non_empty = m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort)));
+                auto eq_last = m().mk_eq(mk_seq_last(r1), e);
+                m_br.mk_and(is_non_empty, eq_last, c1);
+            }
             m_br.mk_and(path, c1, c2);
             if (m().is_false(c2))
                 result = nothing();
