@@ -3412,12 +3412,22 @@ expr_ref seq_rewriter::mk_regex_reverse(expr* r) {
         result = mk_regex_concat(mk_regex_reverse(r2), mk_regex_reverse(r1));
     else if (m().is_ite(r, c, r1, r2))
         result = m().mk_ite(c, mk_regex_reverse(r1), mk_regex_reverse(r2));
-    else if (re().is_union(r, r1, r2))
-        result = re().mk_union(mk_regex_reverse(r1), mk_regex_reverse(r2));
-    else if (re().is_intersection(r, r1, r2))
-        result = re().mk_inter(mk_regex_reverse(r1), mk_regex_reverse(r2));
-    else if (re().is_diff(r, r1, r2))
-        result = re().mk_diff(mk_regex_reverse(r1), mk_regex_reverse(r2));
+    else if (re().is_union(r, r1, r2)) {
+        // enforce deterministic evaluation order
+        auto a1 = mk_regex_reverse(r1);
+        auto b1 = mk_regex_reverse(r2);
+        result = re().mk_union(a1, b1);
+    }
+    else if (re().is_intersection(r, r1, r2)) {
+        auto a1 = mk_regex_reverse(r1);
+        auto b1 = mk_regex_reverse(r2);
+        result = re().mk_inter(a1, b1);
+    }
+    else if (re().is_diff(r, r1, r2)) {
+        auto a1 = mk_regex_reverse(r1);
+        auto b1 = mk_regex_reverse(r2);
+        result = re().mk_diff(a1, b1);
+    }
     else if (re().is_star(r, r1))
         result = re().mk_star(mk_regex_reverse(r1));
     else if (re().is_plus(r, r1))
@@ -5093,11 +5103,16 @@ br_status seq_rewriter::reduce_re_is_empty(expr* r, expr_ref& result) {
     }
     // Partial DNF expansion:
     else if (re().is_intersection(r, r1, r2) && re().is_union(r1, r3, r4)) {
-        result = eq_empty(re().mk_union(re().mk_inter(r3, r2), re().mk_inter(r4, r2)));
+        // enforce deterministic order for nested intersections inside union
+        auto a1 = re().mk_inter(r3, r2);
+        auto b1 = re().mk_inter(r4, r2);
+        result = eq_empty(re().mk_union(a1, b1));
         return BR_REWRITE3;
     }
     else if (re().is_intersection(r, r1, r2) && re().is_union(r2, r3, r4)) {
-        result = eq_empty(re().mk_union(re().mk_inter(r3, r1), re().mk_inter(r4, r1)));
+        auto a1 = re().mk_inter(r3, r1);
+        auto b1 = re().mk_inter(r4, r1);
+        result = eq_empty(re().mk_union(a1, b1));
         return BR_REWRITE3;
     }
     return BR_FAILED;
