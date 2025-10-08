@@ -118,7 +118,7 @@ namespace nlsat {
 
         // Helper to print out m_Q
         std::ostream& display(std::ostream& out) {
-            out << "[\n";
+            out << "{\n";
             unsigned level = 0;    
             for (auto &q: m_Q) {
                 if (q.empty()) { level++; continue; }
@@ -131,7 +131,7 @@ namespace nlsat {
                 out << "]\n";   
                 level ++; 
             }
-            out << "]\n";
+            out << "}\n";
             return out;
         }
 
@@ -173,17 +173,21 @@ namespace nlsat {
             }
         }
 
-        // Helper 2: isolate and collect algebraic roots for the given polynomials
+        // isolate and collect algebraic roots for the given polynomials
         void collect_roots_for_ps(std::vector<poly*> const & ps_of_n_level, std::vector<std::pair<scoped_anum, poly*>> & root_vals) {
             for (poly * p : ps_of_n_level) {
                 scoped_anum_vector roots(m_am);
                 m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_n), roots);
+                TRACE(lws,  
+                     ::nlsat::display(tout << "roots of ", m_solver, p) << ": ";
+                     ::nlsat::display(tout, roots);
+                );
                 unsigned num_roots = roots.size();
                 for (unsigned k = 0; k < num_roots; ++k) {
                     scoped_anum v(m_am);
                     m_am.set(v, roots[k]);
                     root_vals.emplace_back(std::move(v), p);
-                }
+                }                
             }
         }
 
@@ -255,12 +259,10 @@ namespace nlsat {
             // default: whole line sector (-inf, +inf)
             I.section = false;
             I.l = nullptr; I.u = nullptr; I.l_index = 0; I.u_index = 0;
-
-            if (!sample().is_assigned(m_level))
-                return;
-            anum const& y_val = sample().value(m_level);
             if (roots.empty()) return;
-
+            if (!sample().is_assigned(m_level)) return;
+            anum const& y_val = sample().value(m_level);
+            
             // find first index where roots[idx].val >= y_val
             size_t idx = 0;
             while (idx < roots.size() && m_am.compare(roots[idx].val, y_val) < 0) ++idx;
@@ -374,6 +376,7 @@ namespace nlsat {
          // add a property to m_Q if an equivalent one is not already present.
          // Equivalence: same prop_tag and same level; require the same poly as well.
         void add_to_Q_if_new(const property & pr, unsigned level) {
+             
              for (auto const & q : to_vector(m_Q[level])) {
                  if (q.prop_tag != pr.prop_tag) continue;
                  if (q.poly != pr.poly) continue;
@@ -381,6 +384,7 @@ namespace nlsat {
                  TRACE(lws, display(tout << "matched q:", q) << std::endl;);
                  return;
              }
+             SASSERT(!pr.poly || is_irreducible(pr.poly));
              m_Q[level].push(pr);
          }
         
@@ -460,8 +464,10 @@ namespace nlsat {
             // Pre-conditions for an_del(p) per Rule 4.1
             
             unsigned p_lvl = max_var(p.poly);
-            mk_prop(prop_enum::an_sub, p_lvl - 1);
-            mk_prop(prop_enum::connected, p_lvl - 1);
+            if (p_lvl > 0) {
+                mk_prop(prop_enum::an_sub, level_t(p_lvl - 1));
+                mk_prop(prop_enum::connected, level_t(p_lvl - 1));
+            }
             mk_prop(prop_enum::non_null, p.poly, p.s_idx, p_lvl);
             
             add_ord_inv_discriminant_for(p);
@@ -482,11 +488,11 @@ namespace nlsat {
             // Rule 4.11 precondition: when processing connected(i) we must ensure the next lower level
             // has connected(i-1) and repr(I,s) available. Add those markers to m_Q so they propagate.
 
-            mk_prop(prop_enum::connected, m_level - 1);
-            mk_prop(prop_enum::repr, m_level - 1);            
-            if (!have_representation) { 
+            mk_prop(prop_enum::connected, level_t(m_level - 1));
+            mk_prop(prop_enum::repr, level_t(m_level - 1));            
+            if (!have_representation) 
                return; // no change since the cell representation is not available            
-            }
+            
             NOT_IMPLEMENTED_YET();
             // todo!!!! add missing preconditions
             // connected property has been processed
@@ -590,8 +596,8 @@ namespace nlsat {
         // Rule 4.7
         void apply_pre_an_sub(const property& p) {
             if (m_level > 0) {
-                mk_prop(prop_enum::repr, m_level) ;
-                mk_prop(prop_enum::an_sub, m_level -1);
+                mk_prop(prop_enum::repr, level_t(m_level)) ;
+                mk_prop(prop_enum::an_sub, level_t(m_level -1));
             }  
             // if level == 0 then an_sub holds - bcs an empty set is an analytical submanifold 
         }
@@ -611,8 +617,8 @@ or
         void apply_pre_repr(const property& p) {
             const auto& I = m_I[m_level];
             TRACE(lws, display(tout << "interval m_I[" << m_level << "]\n", I) << "\n";);
-            mk_prop(prop_enum::holds, m_level -1);
-            mk_prop(sample_holds, m_level -1);
+            mk_prop(prop_enum::holds, level_t(m_level - 1));
+            mk_prop(sample_holds, level_t(m_level - 1));
             if (I.is_section()) {
                 NOT_IMPLEMENTED_YET();
             } else {
@@ -626,19 +632,33 @@ or
         void apply_pre_sample(const property& p, bool have_representation) {
             if (m_level == 0)
                 return;
-            mk_prop(sample_holds, m_level - 1);
-            mk_prop(prop_enum::repr, m_level - 1);
+            mk_prop(sample_holds, level_t(m_level - 1));
+            mk_prop(prop_enum::repr, level_t(m_level - 1));
         }
 
-        void mk_prop(prop_enum pe, unsigned level) {
-            add_to_Q_if_new(property(pe, m_pm), level);
+        struct level_t {
+            unsigned val;
+            explicit level_t(unsigned lvl) { val = lvl; }
+        };
+
+        void mk_prop(prop_enum pe, level_t level) {
+            SASSERT(level.val != static_cast<unsigned>(-1));
+            SASSERT(pe != ord_inv);
+            add_to_Q_if_new(property(pe, m_pm), level.val);
         }
 
+        void mk_prop(prop_enum pe, const polynomial_ref& poly) {
+            SASSERT(poly || pe != ord_inv);
+            add_to_Q_if_new(property(pe, poly), max_var(poly));
+        }
         void mk_prop(prop_enum pe, const polynomial_ref& poly, unsigned level) {
+            SASSERT((int)level != -1);
+            SASSERT(poly || pe != ord_inv);
             add_to_Q_if_new(property(pe, poly), level);
         }
 
         void mk_prop(prop_enum pe, const polynomial_ref& poly, unsigned root_index, unsigned level) {
+            SASSERT(poly || pe != ord_inv);
             add_to_Q_if_new(property(pe, poly, root_index), level);
         }
 
@@ -650,7 +670,7 @@ or
             if (roots.size() == 0) {
                 /*  Rule 4.6. Let i ∈ N, R ⊆ Ri, s ∈ R_{i−1}, and realRoots(p(s, xi )) = ∅. 
                 sample(s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R) */
-                mk_prop(sample_holds, m_level - 1);
+                mk_prop(sample_holds, level_t(m_level - 1));
                 mk_prop(prop_enum::an_del, p.poly, m_level);
                 return;
             }
@@ -666,14 +686,20 @@ or
                Q, b.p= p ⊢ sgn_inv(p)(R)
                Q, b.p ̸= p, ord_inv(resxi (b.p, p))(R) ⊢ sgn_inv(p)(R)
             */
-                mk_prop(prop_enum::an_sub, m_level - 1);
-                mk_prop(prop_enum::connected, m_level - 1);
-                mk_prop(prop_enum::repr, m_level - 1); // is it correct?
+                mk_prop(prop_enum::an_sub, level_t(m_level - 1));
+                mk_prop(prop_enum::connected, level_t(m_level - 1));
+                mk_prop(prop_enum::repr, level_t(m_level - 1)); // is it correct?
                 mk_prop(prop_enum::an_del, polynomial_ref(m_I[m_level].l, m_pm));
                 if (I.l == p.poly.get()) {
                     // nothing is added
                 } else {
-                    mk_prop(prop_enum::ord_inv, resultant(polynomial_ref(I.l, m_pm), p.poly, m_level));
+                    polynomial_ref res = resultant(polynomial_ref(I.l, m_pm), p.poly, m_level);
+                    if (res) {
+                        // Factor the resultant and add ord_inv for each distinct non-constant factor
+                        for_each_distinct_factor(res, [&](polynomial::polynomial_ref f) {
+                            mk_prop(prop_enum::ord_inv, f);
+                        });
+                    }
                 }
             } else {
             /*
@@ -686,9 +712,9 @@ or
               and for all ξ ∈ irExpr(p, s) it holds either ξ ≼t l or u ≼t ξ.
               sample(s)(R), repr(I, s)(R), ir_ord(≼, s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R)
             */
-                mk_prop(sample_holds, m_level - 1); 
-                mk_prop(repr, m_level - 1);
-                mk_prop(an_del, p.poly, m_level);
+                mk_prop(sample_holds, level_t(m_level - 1)); 
+                mk_prop(repr, level_t(m_level - 1));
+                mk_prop(an_del, p.poly);
             }
         }
 
@@ -704,12 +730,12 @@ or
             unsigned level = max_var(p.poly);
             auto sign_on_sample = sign(p.poly, sample(), m_am);
             if (sign_on_sample) {
-                mk_prop(sample_holds, level);
-                mk_prop(prop_enum::sgn_inv, p.poly, level);
+                mk_prop(sample_holds, level_t(level));
+                mk_prop(prop_enum::sgn_inv, p.poly);
             } else { // sign is zero
-                mk_prop(sample_holds, level);
-                mk_prop(prop_enum::an_sub, level - 1);
-                mk_prop(prop_enum::connected, level);                
+                mk_prop(sample_holds, level_t(level));
+                mk_prop(prop_enum::an_sub, level_t(level - 1));
+                mk_prop(prop_enum::connected, level_t(level));                
                 mk_prop(prop_enum::sgn_inv, p.poly, p.s_idx, level);
                 mk_prop(prop_enum::an_del, p.poly, p.s_idx, level);
             }
@@ -757,8 +783,14 @@ or
         bool invariant() {
             for (unsigned i = 0; i < m_Q.size(); i++) {
                 auto qv = to_vector(m_Q[i]);
-                bool level_is_ok = std::all_of(qv.begin(), qv.end(), [&](const property& p){
-                    return !(p.poly) || (max_var(p.poly) == i); });
+                bool level_is_ok = std::all_of(qv.begin(), qv.end(), [this, i](const property& p){
+                    
+                    bool r = !(p.poly) || (max_var(p.poly) == i); 
+                    if (!r) {
+                        display(std::cout << "bad property:", p) << std::endl;
+                    }
+                    return r;
+                });
                 if (! level_is_ok)
                     return false;
             }
@@ -767,11 +799,13 @@ or
 
         // return an empty vector on failure, otherwise returns the cell representations with intervals
         std::vector<root_function_interval> single_cell() {
-            TRACE(lws, m_solver.display_assignment(tout << "sample()") << std::endl; ::nlsat::display(tout << "m_P:\n", m_solver, m_P) << "\n";);
+            TRACE(lws, m_solver.display_assignment(tout << "sample():\n") << std::endl; ::nlsat::display(tout << "m_P:\n", m_solver, m_P) << "\n";);
+            if (m_n == 0) return m_I; // we have an empty sample
             m_level = m_n;
+            
             init_properties(); // initializes m_Q as a queue of properties on levels <= m_n           
             apply_property_rules(prop_enum::_count, false); // reduce the level by one to be consumed by construct_interval
-            while (--m_level > 0) 
+            while (-- m_level > 0)
                 if (!construct_interval())
                     return std::vector<root_function_interval>(); // return empty
                        
