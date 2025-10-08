@@ -89,4 +89,35 @@ namespace nlsat {
         return true;
     }
 
+    /**
+     * \brief Display a vector of algebraic numbers in several commonly useful formats.
+     *
+     * This mirrors the ad-hoc helper that existed in `src/test/algebraic.cpp` so that
+     * solver / explanation code can conveniently dump root sets while debugging.
+     *
+     * For each algebraic number it prints (in order):
+     *  - a decimal approximation (10 digits)
+     *  - the root object representation (defining polynomial & isolating interval)
+     *  - the isolating interval alone
+     *
+     */
+    inline void display(std::ostream & out, scoped_anum_vector const & rs) {
+        algebraic_numbers::manager & m = rs.m();
+        out << "numbers in decimal:\n";
+        for (const auto & r : rs) {
+            m.display_decimal(out, r, 10);
+            out << '\n';
+        }
+        out << "numbers as root objects\n";
+        for (const auto & r : rs) {
+            m.display_root(out, r);
+            out << '\n';
+        }
+        out << "numbers as intervals\n";
+        for (const auto & r : rs) {
+            m.display_interval(out, r);
+            out << '\n';
+        }
+    }
+
 } // namespace nlsat
