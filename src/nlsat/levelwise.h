@@ -1,5 +1,6 @@
 #pragma once
 #include "nlsat_types.h"
+#include "math/polynomial/polynomial_cache.h"
 
 namespace nlsat {
 
@@ -39,7 +40,7 @@ namespace nlsat {
         impl* m_impl;
     public:
     // Construct with polynomials ps, maximal variable max_x, current sample s, polynomial manager pm, and algebraic-number manager am
-        levelwise(nlsat::solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am);
+        levelwise(nlsat::solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am, polynomial::cache & cache);
         ~levelwise();
 
         levelwise(levelwise const&) = delete;
