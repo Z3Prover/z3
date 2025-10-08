@@ -1,6 +1,7 @@
 z3_add_component(nlsat
   SOURCES
     nlsat_clause.cpp
+    nlsat_common.cpp
     nlsat_evaluator.cpp
     nlsat_explain.cpp
     nlsat_interval_set.cpp
