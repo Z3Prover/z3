@@ -314,7 +314,7 @@ namespace nlsat {
         }
 
         //works on m_level
-        bool apply_property_rules(prop_enum prop_to_avoid, bool have_representation) {
+        bool apply_property_rules(prop_enum prop_to_avoid) {
             SASSERT (!m_fail);
             std::vector<property> avoided;
             auto& q = m_Q[m_level];
@@ -324,7 +324,7 @@ namespace nlsat {
                     avoided.push_back(p);
                     continue;
                 }
-                apply_pre(p, have_representation);
+                apply_pre(p);
                 if (m_fail) break;
             }
             if (m_fail)
@@ -409,7 +409,8 @@ namespace nlsat {
         // Returns false on failure.
         // works on m_level
         bool construct_interval() {
-            if (!apply_property_rules(prop_enum::sgn_inv, false)) {
+            m_E.clear();
+            if (!apply_property_rules(prop_enum::sgn_inv)) {
                 return false;
             }
 
@@ -417,7 +418,7 @@ namespace nlsat {
 
             build_representation();
             SASSERT(invariant());
-            return apply_property_rules(prop_enum::holds, true);
+            return apply_property_rules(prop_enum::holds);
         }
          // handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
          void add_ord_inv_discriminant_for(const property& p) {
@@ -492,7 +493,7 @@ namespace nlsat {
         }
 
         // Pre-processing for connected(i) (Rule 4.11)
-        void apply_pre_connected(const property & p, bool have_representation) {
+        void apply_pre_connected(const property & p) {
             // Rule 4.11 special-case: if the connected property refers to level 0 there's nothing to refine
             // further; just remove the property from Q and return.
             if (m_level == 0) {
@@ -502,16 +503,24 @@ namespace nlsat {
 
             // p.level > 0
             // Rule 4.11 precondition: when processing connected(i) we must ensure the next lower level
-            // has connected(i-1) and repr(I,s) available. Add those markers to m_Q so they propagate.
-
+            // has connected(i-1) and repr(I,s) available. 
+            /*
+               Let Q := connected(i − 1)(R) ∧ repr(I, s)(R).
+               Q, I = (sector, l, u), l ̸= −∞, u ̸= ∞, l (≼t) u, add ir_ord(≼, s)
+               Q, I = (sector, l, u), l= −∞ ∨ u = ∞ 
+               Q, I = (section, b) ⊢ connected(i)(R)
+            */
             mk_prop(prop_enum::connected, level_t(m_level - 1));
             mk_prop(prop_enum::repr, level_t(m_level - 1));            
-            if (!have_representation) 
+            if (!have_representation()) 
                return; // no change since the cell representation is not available            
-            
-            NOT_IMPLEMENTED_YET();
-            // todo!!!! add missing preconditions
-            // connected property has been processed
+
+            const auto& I = m_I[m_level];
+            TRACE(lws, display(tout << "interval m_I[" << m_level << "]\n", I) << "\n";);
+            SASSERT(I.is_sector());
+            if (!I.l_inf() && !I.u_inf()) {
+                mk_prop(ir_ord, level_t(m_level));
+            }
         }
 
         void apply_pre_non_null(const property& p) {
@@ -645,7 +654,7 @@ or
             }
         }
 
-        void apply_pre_sample(const property& p, bool have_representation) {
+        void apply_pre_sample(const property& p) {
             if (m_level == 0)
                 return;
             mk_prop(sample_holds, level_t(m_level - 1));
@@ -678,7 +687,7 @@ or
             add_to_Q_if_new(property(pe, poly, root_index), level);
         }
 
-        void apply_pre_sgn_inv(const property& p, bool have_representation) {
+        void apply_pre_sgn_inv(const property& p) {
             SASSERT(is_irreducible(p.poly));
             scoped_anum_vector roots(m_am);
             SASSERT(max_var(p.poly) == m_level);
@@ -742,7 +751,7 @@ or
           p(s) ̸= 0, sample(s)(R), sgn_inv(p)(R) ⊢ ord_inv(p)(R)
           p(s)= 0, sample(s)(R), an_sub(i− 1)(R), connected(i)(R), sgn_inv(p)(R), an_del(p)(R) ⊢ ord_inv(p)(R)
         */
-        void apply_pre_ord_inv(const property& p, bool have_representation) {
+        void apply_pre_ord_inv(const property& p) {
             SASSERT(p.prop_tag == prop_enum::ord_inv && is_irreducible(p.poly));
             unsigned level = max_var(p.poly);
             auto sign_on_sample = sign(p.poly, sample(), m_am);
@@ -758,7 +767,7 @@ or
             }
         }
         
-        void apply_pre(const property& p, bool have_representation) {
+        void apply_pre(const property& p) {
             TRACE(lws, tout << "apply_pre BEGIN m_Q:"; display(tout) << std::endl; 
                   display(tout << "pre p:", p) << std::endl;);
             switch (p.prop_tag) {
@@ -766,7 +775,7 @@ or
                 apply_pre_an_del(p);
                 break;
             case prop_enum::connected:
-                apply_pre_connected(p, have_representation);
+                apply_pre_connected(p);
                 break;
             case prop_enum::non_null:
                 apply_pre_non_null(p);
@@ -780,15 +789,19 @@ or
             case prop_enum::holds:
                 break; // ignore the bottom of refinement
             case sample_holds:
-                apply_pre_sample(p, have_representation);
+                apply_pre_sample(p);
                 break;
             case prop_enum::sgn_inv:
-                apply_pre_sgn_inv(p, have_representation);
+                apply_pre_sgn_inv(p);
                 break;
             case prop_enum::ord_inv:
-                apply_pre_ord_inv(p, have_representation);
+                apply_pre_ord_inv(p);
+                break;
+            case prop_enum::ir_ord:
+                apply_pre_ir_ord(p);
                 break;
             default:
+                display(std::cout << "not impl: p", p);
                 TRACE(lws, display(tout << "not impl: p", p));
                 NOT_IMPLEMENTED_YET();
                 break;
@@ -797,6 +810,12 @@ or
             SASSERT(invariant());
         }
 
+        bool have_representation() const { return m_E.size() > 0; }
+        
+        void apply_pre_ir_ord(const property&) {
+            NOT_IMPLEMENTED_YET();
+        }
+        
         bool invariant() {
             for (unsigned i = 0; i < m_Q.size(); i++) {
                 auto qv = to_vector(m_Q[i]);
@@ -820,8 +839,9 @@ or
             if (m_n == 0) return m_I; // we have an empty sample
             m_level = m_n;
             
-            init_properties(); // initializes m_Q as a queue of properties on levels <= m_n           
-            apply_property_rules(prop_enum::_count, false); // reduce the level by one to be consumed by construct_interval
+            init_properties(); // initializes m_Q as a queue of properties on levels <= m_n
+            SASSERT(m_E.size() == 0);
+            apply_property_rules(prop_enum::_count); // reduce the level by one to be consumed by construct_interval
             while (-- m_level > 0)
                 if (!construct_interval())
                     return std::vector<root_function_interval>(); // return empty
