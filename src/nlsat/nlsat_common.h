@@ -13,8 +13,11 @@
   --*/
 #pragma once
 
+#include "nlsat/nlsat_assignment.h"
 #include "nlsat/nlsat_solver.h"
 #include "nlsat/nlsat_scoped_literal_vector.h"
+#include "math/polynomial/polynomial_cache.h"
+
 namespace nlsat {
 
     inline std::ostream& display(std::ostream& out, pmanager& pm, polynomial_ref const& p, display_var_proc const& proc) {
@@ -119,5 +122,9 @@ namespace nlsat {
             out << '\n';
         }
     }
+        /**
+           \brief Wrapper for factorization
+        */
+    void factor(polynomial_ref & p, polynomial::cache& cache, polynomial_ref_vector & fs);
 
 } // namespace nlsat

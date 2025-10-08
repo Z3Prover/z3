@@ -10,6 +10,8 @@
 #include "math/polynomial/algebraic_numbers.h"
 #include "nlsat_common.h"
 #include <queue>
+#include "math/polynomial/polynomial_cache.h"
+#include "math/polynomial/polynomial.h"
 
 namespace nlsat {
     
@@ -30,17 +32,22 @@ namespace nlsat {
     struct levelwise::impl {
         // Utility: call fn for each distinct irreducible factor of poly
         template<typename Func>
-        void for_each_distinct_factor(const polynomial::polynomial_ref& poly, Func&& fn) {
-            polynomial::factors factors(m_pm);
-            factor(poly, factors);
-            for (unsigned i = 0; i < factors.distinct_factors(); ++i) 
-                fn(factors[i]);            
+        void for_each_distinct_factor(polynomial::polynomial_ref& poly, Func&& fn) {
+            polynomial::polynomial_ref_vector factors(m_pm);
+            ::nlsat::factor(poly, m_cache, factors);
+            for (unsigned i = 0; i < factors.size(); i++) {
+                polynomial_ref pr(m_pm);
+                pr = factors.get(i);
+                fn(pr);
+            }
         }
         template<typename Func>
-        void for_first_distinct_factor(const polynomial::polynomial_ref& poly, Func&& fn) {
-            polynomial::factors factors(m_pm);
-            factor(poly, factors);
-            fn(factors[0]);            
+        void for_first_distinct_factor(polynomial::polynomial_ref& poly, Func&& fn) {
+            polynomial::polynomial_ref_vector factors(m_pm);
+            ::nlsat::factor(poly, m_cache, factors);
+            polynomial_ref pr(m_pm);
+            pr = factors.get(0);
+            fn(pr);
         }
 
         // todo: consider to key polynomials in a set by using m_pm.eq
@@ -98,11 +105,11 @@ namespace nlsat {
         std::vector<root_function>   m_E; // the ordered root functions on a level
         assignment const & sample() const { return m_solver.sample();}
         assignment & sample() { return m_solver.sample(); }
-
+        polynomial::cache &          m_cache; 
        // max_x plays the role of n in algorith 1 of the levelwise paper.
 
-        impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am)
-            : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am) {
+        impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am, polynomial::cache & cache)
+            : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am), m_cache(cache) {
             TRACE(lws, tout  << "m_n:" << m_n << "\n";);
             m_I.reserve(m_n); // cannot just resize bcs of the absence of the default constructor of root_function_interval
             for (unsigned i = 0; i < m_n; ++i)
@@ -136,9 +143,18 @@ namespace nlsat {
         }
 
         bool is_irreducible(poly* p) {
-            polynomial::factors factors(m_pm);
-            factor(polynomial_ref(p, m_pm), factors);
-            return factors.total_factors() == 1;            
+            polynomial_ref_vector factors(m_pm);
+            polynomial_ref pref(p, m_pm);
+            ::nlsat::factor(pref, m_cache, factors);
+            unsigned num_factors = factors.size();
+            CTRACE(lws, num_factors != 1, ::nlsat::display(tout, m_solver, p) << std::endl;
+                   tout << "{";
+                   tout << "num_factors:" << num_factors << "\n";
+                   ::nlsat::display(tout, m_solver, factors);
+                   tout << "}\n";
+                );
+            
+            return factors.size() == 1;            
         }
         
         /*
@@ -338,6 +354,7 @@ namespace nlsat {
              }
 
              collect_E(p_non_null);
+
              std::sort(m_E.begin(), m_E.end(), [&](root_function const& a, root_function const& b){
                  return m_am.lt(a.val, b.val);
              });
@@ -411,7 +428,6 @@ namespace nlsat {
                 for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
                     if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
                         m_fail = true; // ambiguous multiplicity -- not handled yet
-                        NOT_IMPLEMENTED_YET();
                         return;
                     }
                     unsigned lvl = max_var(f);
@@ -714,6 +730,7 @@ or
             */
                 mk_prop(sample_holds, level_t(m_level - 1)); 
                 mk_prop(repr, level_t(m_level - 1));
+                mk_prop(ir_ord, level_t(m_level));
                 mk_prop(an_del, p.poly);
             }
         }
@@ -863,8 +880,8 @@ or
         }
     };
 // constructor
-    levelwise::levelwise(nlsat::solver& solver, polynomial_ref_vector const& ps, var n, assignment const& s, pmanager& pm, anum_manager& am)
-        : m_impl(new impl(solver, ps, n, s, pm, am)) {}
+    levelwise::levelwise(nlsat::solver& solver, polynomial_ref_vector const& ps, var n, assignment const& s, pmanager& pm, anum_manager& am, polynomial::cache& cache)
+        : m_impl(new impl(solver, ps, n, s, pm, am, cache)) {}
 
     levelwise::~levelwise() { delete m_impl; }
 
