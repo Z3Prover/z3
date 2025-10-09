@@ -358,6 +358,10 @@ namespace nlsat {
              std::sort(m_E.begin(), m_E.end(), [&](root_function const& a, root_function const& b){
                  return m_am.lt(a.val, b.val);
              });
+             TRACE(lws, tout << "sorted m_E:\n";
+                   for (unsigned kk = 0; kk < m_E.size(); ++kk) {
+                       display(tout, m_E[kk]) << std::endl;
+                   });
              compute_interval_from_sorted_roots(m_E, m_I[m_level]);
              TRACE(lws, display(tout << "m_I[" << m_level << "]:", m_I[m_level]) << std::endl;);
          }
@@ -603,7 +607,6 @@ namespace nlsat {
             if (sign(disc, sample(), m_am) == 0) {
                 TRACE(lws, tout << "apply_pre_non_null_fallback: discriminant vanishes at sample -> failing" << std::endl;);
                 m_fail = true;
-                NOT_IMPLEMENTED_YET();
                 return;
             }
             // If discriminant is non-constant, add sign-invariance requirement for it
@@ -739,7 +742,7 @@ or
             */
                 mk_prop(sample_holds, level_t(m_level - 1)); 
                 mk_prop(repr, level_t(m_level - 1));
-                mk_prop(ir_ord, level_t(m_level - 1));
+                mk_prop(ir_ord, level_t(m_level));
                 mk_prop(an_del, p.poly);
             }
         }
@@ -822,9 +825,10 @@ or
              mk_prop(connected, level_t(m_level - 1));
              for (unsigned i = 0; i + 1 < m_E.size(); i++) {
                  SASSERT(max_var(m_E[i].ire.p) == max_var(m_E[i + 1].ire.p));
-                 polynomial_ref r(m_pm);                 
+                 SASSERT(max_var(m_E[i].ire.p) == m_level);
+                 polynomial_ref r(m_pm);
                  r = resultant(polynomial_ref(m_E[i].ire.p, m_pm), polynomial_ref(m_E[i+1].ire.p, m_pm), max_var(m_E[i].ire.p));
-                 mk_prop(ord_inv, r);
+                 for_each_distinct_factor(r, [this](const polynomial_ref& f) {mk_prop(ord_inv, f);});                 
              }
         }
         
@@ -907,6 +911,17 @@ or
             return out;
         }
 
+        // Print the indexed root function's value. If print_approx is true print a decimal
+        // approximation, otherwise print the full representation.
+        std::ostream& display(std::ostream& out, const root_function& f, bool print_approx = true ) const {
+            display(out << "indexed_root_function:", f.ire) << "\n" << "val:\n";
+            if (print_approx)
+                m_am.display_decimal(out, f.val);
+            else
+                m_am.display(out, f.val);
+            return out;
+        }
+        
         std::ostream& display(std::ostream& out, const root_function_interval& I) const {
             return ::nlsat::display(out, m_solver, I);
         }
