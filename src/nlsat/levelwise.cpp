@@ -519,7 +519,7 @@ namespace nlsat {
             TRACE(lws, display(tout << "interval m_I[" << m_level << "]\n", I) << "\n";);
             SASSERT(I.is_sector());
             if (!I.l_inf() && !I.u_inf()) {
-                mk_prop(ir_ord, level_t(m_level));
+                mk_prop(ir_ord, level_t(m_level - 1));
             }
         }
 
@@ -739,7 +739,7 @@ or
             */
                 mk_prop(sample_holds, level_t(m_level - 1)); 
                 mk_prop(repr, level_t(m_level - 1));
-                mk_prop(ir_ord, level_t(m_level));
+                mk_prop(ir_ord, level_t(m_level - 1));
                 mk_prop(an_del, p.poly);
             }
         }
@@ -812,8 +812,20 @@ or
 
         bool have_representation() const { return m_E.size() > 0; }
         
-        void apply_pre_ir_ord(const property&) {
-            NOT_IMPLEMENTED_YET();
+        void apply_pre_ir_ord(const property& p) {
+            /*Rule 4.9. Let i ∈ N, R ⊆ Ri, s ∈ Ri, and ≼ be an indexed root ordering of level i + 1.
+              Assume that ξ.p is irreducible for all ξ ∈ dom(≼), and that ≼ matches s.
+              sample(s)(R), an_sub(i)(R), connected(i)(R), ∀ξ ∈ dom(≼). an_del(ξ.p)(R), ∀(ξ,ξ′) ∈≼. ord_inv(resx_{i+1} (ξ.p, ξ′.p))(R) ⊢ ir_ord(≼, s)(R)
+             */
+             mk_prop(sample_holds, level_t(m_level -1 ));
+             mk_prop(an_sub, level_t(m_level - 1));
+             mk_prop(connected, level_t(m_level - 1));
+             for (unsigned i = 0; i + 1 < m_E.size(); i++) {
+                 SASSERT(max_var(m_E[i].ire.p) == max_var(m_E[i + 1].ire.p));
+                 polynomial_ref r(m_pm);                 
+                 r = resultant(polynomial_ref(m_E[i].ire.p, m_pm), polynomial_ref(m_E[i+1].ire.p, m_pm), max_var(m_E[i].ire.p));
+                 mk_prop(ord_inv, r);
+             }
         }
         
         bool invariant() {
