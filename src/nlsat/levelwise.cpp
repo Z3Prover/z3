@@ -863,7 +863,7 @@ or
             SASSERT(m_E.size() == 0);
             apply_property_rules(prop_enum::_count); // reduce the level by one to be consumed by construct_interval
             while (-- m_level > 0)
-                if (!construct_interval())
+                if (m_fail || !construct_interval())
                     return std::vector<root_function_interval>(); // return empty
                        
             return m_I; // the order of intervals is reversed
