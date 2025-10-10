@@ -79,6 +79,7 @@ struct common {
     std::ostream& print_rooted_monic_with_vars(const monic&, std::ostream& out) const;
     bool check_monic(const monic&) const;
     unsigned random();
+    unsigned random(unsigned n);
     void add_deps_of_fixed(lpvar j, u_dependency*& dep);
         
     nex* nexvar(const rational& coeff, lpvar j, nex_creator&, u_dependency*&);

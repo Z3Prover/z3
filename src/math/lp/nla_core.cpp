@@ -515,6 +515,8 @@ const lp::lp_settings& core::lp_settings() const {
 }
     
 unsigned core::random() { return lp_settings().random_next(); }
+
+unsigned core::random(unsigned n) { return lp_settings().random_next() % n; }
     
 
 // we look for octagon constraints here, with a left part  +-x +- y 

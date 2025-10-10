@@ -360,6 +360,7 @@ public:
     lp::lp_settings& lp_settings();
     const lp::lp_settings& lp_settings() const;
     unsigned random();
+    unsigned random(unsigned n);
 
     // we look for octagon constraints here, with a left part  +-x +- y 
     void collect_equivs();

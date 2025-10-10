@@ -59,6 +59,10 @@ unsigned common::random() {
     return c().random();
 }
 
+unsigned common::random(unsigned n) {
+    return c().random(n);
+}
+
 void common::add_deps_of_fixed(lpvar j, u_dependency*& dep) {
     auto& dm = c().lra.dep_manager();  
     auto* deps = c().lra.get_bound_constraint_witnesses_for_column(j);

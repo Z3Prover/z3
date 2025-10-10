@@ -74,6 +74,19 @@ namespace nla {
             lp::constraint_index ci1 = lp::null_ci;
             lp::constraint_index ci2 = lp::null_ci;
             lpvar j = lp::null_lpvar;  // variable being resolved on
+            struct eq {
+                bool operator()(resolvent const &a, resolvent const &b) const {
+                    return a.ci1 == b.ci1 && a.ci2 == b.ci2 && a.j == b.j;
+                }
+            };
+            struct hash {
+                unsigned operator()(resolvent const &a) const {
+                    return hash_u_u(a.ci1, hash_u_u(a.ci2, a.j));
+                }
+            };
+        };
+        struct resolvent_justification : public resolvent {
+            vector<bound_assumption> assumptions;
         };
         struct bound_assumptions {
             char const *rule = nullptr;
@@ -84,7 +97,7 @@ namespace nla {
             external_justification, 
             internal_justification,
             multiplication_justification,
-            resolvent,
+            resolvent_justification,
             bound_assumptions>;
 
         coi m_coi;
@@ -104,9 +117,11 @@ namespace nla {
         map<unsigned_vector, unsigned, svector_hash<unsigned_hash>, eq> m_vars2mon;
         u_map<unsigned_vector> m_mon2vars;
         bool is_mon_var(lpvar v) const { return m_mon2vars.contains(v); }
-        lpvar find_max_lex_monomial(lp::lar_term const &t) const;
+        std::pair<lpvar, rational> find_max_lex_monomial(lp::lar_term const &t) const;
+        std::pair<lpvar, rational> find_max_lex_term(lp::lar_term const &t) const;
         bool is_lex_greater(svector<lpvar> const &a, svector<lpvar> const &b) const;
         bool is_subset(svector<lpvar> const &a, svector<lpvar> const &b) const;
+        bool is_subset_eq(svector<lpvar> const &a, svector<lpvar> const &b) const;
         
         unsigned m_max_monomial_degree = 0;
 
@@ -118,6 +133,7 @@ namespace nla {
         polynomial::manager m_pm;
 
         hashtable<multiplication, multiplication::hash, multiplication::eq> m_multiplications;
+        hashtable<resolvent, resolvent::hash, resolvent::eq> m_resolvents;
 
         // initialization
         void init_solver();
@@ -131,8 +147,9 @@ namespace nla {
 
         // additional variables and monomials and constraints
         using term_offset = std::pair<lp::lar_term, rational>;  // term and its offset
-        lpvar add_monomial(svector<lp::lpvar> const& vars);
-        lpvar add_term(term_offset &t);
+        lpvar mk_monomial(svector<lp::lpvar> const& vars);
+        lpvar mk_monomial(svector<lp::lpvar> const &vars, lp::lpvar j);
+        lpvar mk_term(term_offset &t);
 
         void gcd_normalize(vector<std::pair<rational, lpvar>> &t, lp::lconstraint_kind k, rational &rhs);
         lp::constraint_index add_ineq(justification const& just, lp::lar_term &t, lp::lconstraint_kind k, rational const &rhs);
@@ -141,6 +158,7 @@ namespace nla {
 
         bool is_int(svector<lp::lpvar> const& vars) const;
         rational cvalue(lp::lar_term const &t) const;
+        rational mvalue(lp::lar_term const &t) const;
         rational cvalue(svector<lpvar> const &prod) const;
         rational mvalue(svector<lpvar> const &prod) const;
         lpvar add_var(bool is_int);
@@ -151,6 +169,9 @@ namespace nla {
 =======
 >>>>>>> 35e781c58 (gcd reduce and use c().val for sign constraints)
         void saturate_constraints2();
+        void eliminate(lpvar mi);
+        void ext_resolve(lpvar j, lp::constraint_index lo, lp::constraint_index hi);
+        std::tuple<rational, bool, bool> compute_bound(svector<lpvar> const &vars, svector<lpvar>& quot, lpvar j, rational const& coeff, lp::constraint_index ci);
         lp::constraint_index saturate_multiply(lp::constraint_index con_id, lpvar j1, lpvar j2);
         
         void resolve(lpvar j, lp::constraint_index ci1, lp::constraint_index ci2);

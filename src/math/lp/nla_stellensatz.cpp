@@ -37,6 +37,7 @@ Potential auxiliary methods:
 
   */
 
+#include "util/heap.h"
 #include "math/lp/nla_core.h"
 #include "math/lp/nla_coi.h"
 #include "math/lp/nla_stellensatz.h"
@@ -52,7 +53,8 @@ namespace nla {
 
     lbool stellensatz::saturate() {
         init_solver();
-        saturate_constraints();
+        saturate_constraints2();
+        // saturate_constraints();
         saturate_basic_linearize();
         TRACE(arith, display(tout << "stellensatz after saturation\n"));
         lbool r = m_solver.solve();
@@ -67,6 +69,7 @@ namespace nla {
         m_mon2vars.reset();
         m_values.reset();
         m_multiplications.reset();
+        m_resolvents.reset();
         m_justifications.reset();
         m_monomials_to_refine.reset();
         m_false_constraints.reset();
@@ -200,10 +203,12 @@ namespace nla {
             for (auto const &i : m.assumptions)
                 add_ineq(i);
         } 
-        else if (std::holds_alternative<resolvent>(b)) {
-            auto m = *std::get_if<resolvent>(&b);
+        else if (std::holds_alternative<resolvent_justification>(b)) {
+            auto m = *std::get_if<resolvent_justification>(&b);
             explain_constraint(new_lemma, m.ci1, ex);
             explain_constraint(new_lemma, m.ci2, ex);
+            for (auto const &i : m.assumptions)
+                add_ineq(i);
         } 
         else if (std::holds_alternative<bound_assumptions>(b)) {
             auto ba = *std::get_if<bound_assumptions>(&b);
@@ -384,6 +389,13 @@ namespace nla {
         return r;
     }
 
+    rational stellensatz::mvalue(lp::lar_term const &t) const {
+        rational r(0);
+        for (auto cv : t)
+            r += m_values[cv.j()] * cv.coeff();
+        return r;
+    }
+
     rational stellensatz::cvalue(svector<lpvar> const &prod) const {
         rational p(1);
         for (auto v : prod)
@@ -467,7 +479,7 @@ namespace nla {
         SASSERT(!coeffs.empty());
         auto ti = m_solver.lra().add_term(coeffs, m_solver.lra().number_of_vars());
         m_occurs.reserve(m_solver.lra().number_of_vars());
-        m_values.push_back(cvalue(t));
+        m_values.push_back(mvalue(t));
         auto new_ci = m_solver.lra().add_var_bound(ti, k, rhs);
         TRACE(arith, display(tout, just) << "\n");
         SASSERT(m_values.size() - 1 == ti);
@@ -507,18 +519,18 @@ namespace nla {
     // record new monomials that are created and recursively down-saturate with respect to these.
     // this is a simplistic pass
     void stellensatz::saturate_constraints() {
-
-        for (auto ci : m_solver.lra().constraints().indices()) 
+        auto &constraints = m_solver.lra().constraints();
+        for (auto ci : constraints.indices()) 
             insert_monomials_from_constraint(ci);                    
 
-        auto &constraints = m_solver.lra().constraints();
+
         unsigned initial_false_constraints = m_false_constraints.size();
         for (unsigned it = 0; it < m_false_constraints.size(); ++it) {
             if (it > 10 * initial_false_constraints)
                 break;
             auto ci1 = m_false_constraints[it];
             auto const &con = constraints[ci1];
-            lpvar j = find_max_lex_monomial(con.lhs());
+            auto [j, coeff] = find_max_lex_monomial(con.lhs());
             if (j == lp::null_lpvar)
                 continue;
             auto vars = m_mon2vars[j];
@@ -555,35 +567,264 @@ namespace nla {
         // find lub and glb constraints with respect to mx, and subsets of mx, and superset of x.
         // glb/lub are computed based on coefficents and divisions of remaing of polynomials with current model.
         // resolve glb with all upper bounds and resolve lub with all lower bounds.
-        // mark polynomials used for resolvents as processed.
+        // mark polynomias used for resolvents as processed.
         // repeat until to_refine is empty.
 
         // Saturation can be called repeatedly for different glb/lub solutions by the LIA solver.
         // Eventually it can saturate to full pseudo-elimination of mx.
         // or better: a conflict or a solution.
 
+        IF_VERBOSE(3, verbose_stream() << "saturate2\n");
+        auto &constraints = m_solver.lra().constraints();
+        for (auto ci : constraints.indices())
+            insert_monomials_from_constraint(ci);
+
+        struct lt {
+            stellensatz &s;
+            lt(stellensatz &s) : s(s) {}
+            bool operator()(lpvar a, lpvar b) const {
+                auto const &v1 = s.m_mon2vars[a];
+                auto const &v2 = s.m_mon2vars[b];
+                return std::lexicographical_compare(v2.begin(), v2.end(), v1.begin(), v1.end());
+            }
+        };
+        unsigned max_index = m_monomials_to_refine.max_var() + 1;
+
+        lt lt_op(*this);
+        heap<lt> to_refine(max_index, lt_op);
+        for (auto j : m_monomials_to_refine)
+            to_refine.insert(j);
+
+        while (!to_refine.empty()) {
+            lpvar j = to_refine.erase_min();            
+            IF_VERBOSE(2, verbose_stream() << "refining " << m_mon2vars[j] << "\n");
+            unsigned sz = m_monomials_to_refine.size();
+            eliminate(j);
+            for (unsigned i = sz; i < m_monomials_to_refine.size(); ++i) {
+                auto e = m_monomials_to_refine.elem_at(i);
+                IF_VERBOSE(2, display_product(verbose_stream() << "next monomial  ", m_mon2vars[j]) << " >= ";
+                display_product(verbose_stream(), m_mon2vars[e]) << "\n");
+                SASSERT(!lt_op(e, j));
+                to_refine.reserve(e + 1);
+                to_refine.insert(e);
+            }
+        }
     }
 
-    lpvar stellensatz::find_max_lex_monomial(lp::lar_term const& t) const {
+    void stellensatz::eliminate(lpvar mi) {
+        auto const& vars = m_mon2vars[mi];
+        if (vars.size() > m_max_monomial_degree)
+            return;
+        auto &constraints = m_solver.lra().constraints();
+
+        unsigned_vector los, his;
+        uint_set visited;
+        lp::constraint_index lo_ci = lp::null_ci, hi_ci = lp::null_ci;
+        bool lo_strict = false, hi_strict = false;
+        rational lo_value, hi_value;
+        unsigned lo_n = 0, hi_n = 0;
+        svector<lpvar> quot;
+        for (auto v : vars) {
+            for (auto ci : m_occurs[v]) {
+                if (visited.contains(ci))
+                    continue;
+                visited.insert(ci);
+                auto const &con = constraints[ci];
+                auto [j, coeff] = find_max_lex_term(con.lhs());
+                // verbose_stream() << "lex-max " << j << " " << coeff << " vars: " << vars << ":= j" << mi << "\n";
+                // display_constraint(verbose_stream() << ci << ": ", ci) << "\n";
+                // filter out constraints with lex-leading monomials that can resolve with vars
+                if (j == lp::null_lpvar)
+                    continue;
+                if (!vars.contains(j) && (!is_mon_var(j) || !is_subset_eq(m_mon2vars[j], vars)))
+                    continue;
+                auto [bound, is_lower, is_strict] = compute_bound(vars, quot, j, coeff, ci);
+                if (is_lower) {
+                    if (lo_ci == lp::null_ci || lo_value < bound || (lo_value == bound && !lo_strict && is_strict))
+                        lo_value = bound, lo_strict = is_strict, lo_ci = ci;
+                    else if (lo_ci != lp::null_ci && lo_value == bound && (is_strict == lo_strict) &&
+                             random(++lo_n) == 0)
+                        lo_ci = ci;
+                    los.push_back(ci);
+                }
+                else {
+                    if (hi_ci == lp::null_ci || hi_value > bound || (hi_value == bound && !hi_strict && is_strict))
+                        hi_value = bound, hi_strict = is_strict, hi_ci = ci;
+                    else if (hi_ci != lp::null_ci && hi_value == bound && (is_strict == hi_strict) &&
+                             random(++hi_n) == 0)
+                        hi_ci = ci;
+                    his.push_back(ci);
+                }
+                // punt on equality constraints for now
+            }
+        }
+        if (los.empty() || his.empty())
+            return;
+        for (auto lo : los) 
+            ext_resolve(mi, lo, hi_ci);
+        for (auto hi : his)
+            ext_resolve(mi, lo_ci, hi);
+    }
+
+    void stellensatz::ext_resolve(lpvar mi, lp::constraint_index lo, lp::constraint_index hi) {
+        resolvent r = {lo, hi, mi};
+        if (m_resolvents.contains(r))
+            return;
+        m_resolvents.insert(r);
+        svector<lpvar> quot_lo, quot_hi;
+        auto &constraints = m_solver.lra().constraints();
+        auto const &vars = m_mon2vars[mi];
+        auto const &con_lo = constraints[lo];
+        auto [j_lo, coeff_lo] = find_max_lex_term(con_lo.lhs());
+        auto [bound_lo, is_lo, lo_is_strict] = compute_bound(vars, quot_lo, j_lo, coeff_lo, lo);
+        auto const &con_hi = constraints[hi];
+        auto [j_hi, coeff_hi] = find_max_lex_term(con_hi.lhs());
+        auto [bound_hi, is_lo2, hi_is_strict] = compute_bound(vars, quot_hi, j_hi, coeff_hi, hi);
+
+        SASSERT(is_lo);
+        SASSERT(!is_lo2);
+        bool is_strict = lo_is_strict || hi_is_strict;
+        lp::lar_term lhs;
+        rational rhs;
+        for (auto const& cv : con_lo.lhs()) {
+            auto j = mk_monomial(quot_lo, cv.j());
+            auto coeff = cv.coeff() / coeff_lo;
+            lhs.add_monomial(coeff, j);
+        }
+        if (quot_lo.empty()) {
+            rhs += con_lo.rhs() / coeff_lo;
+        }
+        else {
+            auto j = mk_monomial(quot_lo);
+            lhs.add_monomial(rational(-1) / coeff_lo, j);
+        }
+        for (auto const &cv : con_hi.lhs()) {
+            auto j = mk_monomial(quot_hi, cv.j());
+            auto coeff = -cv.coeff() / coeff_hi;
+            lhs.add_monomial(coeff, j);
+        }
+        if (quot_hi.empty()) {
+            rhs -= con_hi.rhs() / coeff_hi;
+        }
+        else {
+            auto j = mk_monomial(quot_hi);
+            lhs.add_monomial(rational(1) / coeff_hi, j);
+        }
+
+
+        IF_VERBOSE(3, verbose_stream() << "resolve on " << m_mon2vars[mi] << " lo: " << lo << " hi: " << hi << "\n";
+                   display_constraint(verbose_stream(), lo) << "\n"; display_constraint(verbose_stream(), hi) << "\n";);
+        if (lhs.size() == 0) {
+            IF_VERBOSE(2, verbose_stream() << rhs << " " << "empty\n");
+            return;
+        }
+        resolvent_justification just(r);
+        add_bounds(quot_lo, just.assumptions);
+        add_bounds(quot_hi, just.assumptions);
+
+        // lo-bound: (quot_lo * p_lo - quot_lo * rhs_lo) / coeff_lo
+        //           <= (quot_hi * p_hi - quot_hi * rhs_hi) / coeff_hi
+        // mul(quot_lo, con_lo.lhs())/coeff_lo - mul(quot_lo, con_lo.rhs())/coeff_lo ;
+        lp::lconstraint_kind k = is_strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE;
+
+        auto new_ci = add_ineq(just, lhs, k, rhs);
+        insert_monomials_from_constraint(new_ci);
+        IF_VERBOSE(3, display_constraint(verbose_stream(), new_ci) << "\n");
+    }
+
+    std::tuple<rational, bool, bool> stellensatz::compute_bound(svector<lpvar> const& vars, svector<lpvar>& quot, lpvar j, rational const& coeff, lp::constraint_index ci) {
+        auto const &con = m_solver.lra().constraints()[ci];
+        quot.reset();
+        quot.append(vars);          
+        if (is_mon_var(j)) {
+            auto const &vars2 = m_mon2vars[j];
+            SASSERT(is_subset_eq(vars2, vars));
+            for (auto v : vars2)
+                quot.erase(v);    
+        }
+        else {
+            SASSERT(vars.contains(j));
+            quot.erase(j);
+        }
+        rational alpha = coeff;
+        for (auto v : quot)
+            alpha *= m_values[v];
+        if (alpha == 0)
+            return {rational::zero(), false, false};
+        SASSERT(alpha != 0);
+        int flip = (alpha >= 0) != (coeff >= 0);
+        
+        // quot * j = vars
+        // 
+        // coeff * j + p <= r
+        // coeff * j <= r - p
+        // coeff * quot * j <= alpha * (r - p)
+        // quot * j <= alpha * (r - p) / coeff    if coeff > 0
+        // 
+        rational r_val = alpha * (con.rhs() - mvalue(con.lhs())) / coeff;       
+        switch (con.kind()) {
+        case lp::lconstraint_kind::LE:
+            return {r_val, flip, false};
+        case lp::lconstraint_kind::LT: 
+            return {r_val, flip, true};
+        case lp::lconstraint_kind::GE: 
+            return {r_val, !flip, false};
+        case lp::lconstraint_kind::GT: 
+            return {r_val, !flip, true};
+        case lp::lconstraint_kind::EQ: 
+            NOT_IMPLEMENTED_YET(); 
+            return {r_val, false, false};
+        default: 
+            NOT_IMPLEMENTED_YET(); 
+            break;
+        }
+        return {r_val, false, false};
+    }
+
+    std::pair<lpvar, rational> stellensatz::find_max_lex_monomial(lp::lar_term const &t) const {
         lpvar result = lp::null_lpvar;
+        rational r(0);
         for (auto const &cv : t) {
             auto j = cv.j();
             if (!is_mon_var(j))
                 continue;
             auto const &vars = m_mon2vars[j];
             if (result == lp::null_lpvar)
-                result = j;
+                result = j, r = cv.coeff();
             else if (std::lexicographical_compare(m_mon2vars[result].begin(), m_mon2vars[result].end(), vars.begin(),
                                                   vars.end()))
-                result = j;
-            else if (false && is_lex_greater(vars, m_mon2vars[result]))
-                result = j;            
+                result = j, r = cv.coeff();
         }
-        return result;
+        return {result, r};
+    }
+
+    std::pair<lpvar, rational> stellensatz::find_max_lex_term(lp::lar_term const& t) const {
+        lpvar result = lp::null_lpvar;
+        rational r(0);
+        for (auto const &cv : t) {
+            auto j = cv.j();
+            if (result == lp::null_lpvar)
+                result = j, r = cv.coeff();
+            else if (!is_mon_var(j)) {
+                if (!is_mon_var(result) && j > result)
+                    result = j, r = cv.coeff();
+            } 
+            else if (is_mon_var(result)) {
+                auto const &vars = m_mon2vars[j];
+                if (std::lexicographical_compare(m_mon2vars[result].begin(), m_mon2vars[result].end(), vars.begin(),
+                                                 vars.end()))
+                    result = j, r = cv.coeff();
+            }
+        }
+        return {result, r};
     }
 
     bool stellensatz::is_subset(svector<lpvar> const &a, svector<lpvar> const &b) const {
-        if (a.size() >= b.size())
+        return a.size() < b.size() && is_subset_eq(a, b);
+    };
+
+    bool stellensatz::is_subset_eq(svector<lpvar> const &a, svector<lpvar> const &b) const {
+        if (a.size() > b.size())
             return false;
         // check if a is a subset of b, counting multiplicies, assume a, b are sorted
         unsigned i = 0, j = 0;
@@ -606,7 +847,7 @@ namespace nla {
     }
 
     void stellensatz::resolve(lpvar j, lp::constraint_index ci1, lp::constraint_index ci2) {
-        // resolut of saturate_constraint could swap inequality,
+        // resolution of saturate_constraint could swap inequality,
         // so the premise of is_resolveable may not hold.
         auto const &constraints = m_solver.lra().constraints();
         if (!constraints.valid_index(ci1))
@@ -659,7 +900,7 @@ namespace nla {
             TRACE(arith, tout << "trivial conflict\n");
             return;
         }
-        resolvent r = {ci1, ci2, j};
+        resolvent_justification r = {ci1, ci2, j};
         auto new_ci = add_ineq(r, lhs, k1, rhs);
         insert_monomials_from_constraint(new_ci);
         IF_VERBOSE(3, verbose_stream() << "resolve on " << m_mon2vars[j] << " c1: " << c1 << " c2: " << c2 << "\n";
@@ -717,12 +958,12 @@ namespace nla {
                 vars.append(m_mon2vars[cv.j()]);
             else
                 vars.push_back(cv.j());
-            lpvar new_monic_var = add_monomial(vars);
+            lpvar new_monic_var = mk_monomial(vars);
             new_lhs.add_monomial(cv.coeff(), new_monic_var);
             vars.shrink(old_sz);
         }
         if (rhs != 0) {
-            lpvar new_monic_var = add_monomial(vars);
+            lpvar new_monic_var = mk_monomial(vars);
             new_lhs.add_monomial(-rhs, new_monic_var);
             new_rhs = 0;
         }
@@ -807,7 +1048,7 @@ namespace nla {
             if (vars.empty())
                 t.second += c;
             else 
-                t.first.add_monomial(c, add_monomial(vars));            
+                t.first.add_monomial(c, mk_monomial(vars));            
         }
         return t;
     }
@@ -846,7 +1087,7 @@ namespace nla {
 
         bool is_square = all_of(factors, [&](auto const &f) { return f.second % 2 == 0; });
         if (is_square) {
-            auto v = add_term(t);
+            auto v = mk_term(t);
             bound_assumptions bounds{"square >= 0"};                
             add_ineq(bounds, v, lp::lconstraint_kind::GE, rational(0));
         }
@@ -876,11 +1117,11 @@ namespace nla {
         if (prod == 0 && (k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::GE || k == lp::lconstraint_kind::EQ)) {
             unsigned n = 0, k = factors.size();
             for (unsigned i = 0; i < factors.size(); ++i)
-                if (values[i] == 0 && rand() % (++n) == 0)
+                if (values[i] == 0 && random(++n) == 0)
                     k = i;
             SASSERT(k < factors.size());
 
-            auto v = add_term(factors[k].first);
+            auto v = mk_term(factors[k].first);
             bound_assumptions bounds{"factor = 0"};        
             bound_assumption b(v, lp::lconstraint_kind::EQ, rational(0));
             bounds.bounds.push_back(b);
@@ -895,16 +1136,8 @@ namespace nla {
                 if (f.second % 2 == 0)
                     continue;
                 bound_assumptions bounds{"factor >= 0"};
-                auto v = add_term(f.first);
-<<<<<<< HEAD
-<<<<<<< HEAD
-                auto k = c().val(v) > 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
-=======
+                auto v = mk_term(f.first);
                 auto k = m_values[v] > 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
->>>>>>> f2ec21024 (generate more proper proof format)
-=======
-                auto k = c().val(v) > 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
->>>>>>> 35e781c58 (gcd reduce and use c().val for sign constraints)
                 bounds.bounds.push_back(bound_assumption(v, k, rational(0)));
                 add_ineq(bounds, v, k, rational(0));
             }
@@ -969,7 +1202,7 @@ namespace nla {
     // if the same monomial was previous defined, return the previously defined monomial.
     // otherwise create a fresh variable representing the monomial.
     // todo: if _vars is a square, then add bound axiom.
-    lpvar stellensatz::add_monomial(svector<lpvar> const& vars) {
+    lpvar stellensatz::mk_monomial(svector<lpvar> const& vars) {
         lpvar v;
         if (vars.size() == 1)
             return vars[0];
@@ -986,7 +1219,16 @@ namespace nla {
         return v;
     }
 
-    lpvar stellensatz::add_term(term_offset& t) {
+    lpvar stellensatz::mk_monomial(svector<lp::lpvar> const &_vars, lp::lpvar j) {
+        svector<lpvar> vars(_vars);
+        if (is_mon_var(j))
+            vars.append(m_mon2vars[j]);
+        else
+            vars.push_back(j);
+        return mk_monomial(vars);
+    }
+
+    lpvar stellensatz::mk_term(term_offset& t) {
         if (t.second != 0) {            
             auto w = add_var(t.second.is_int()); // or reuse the constant 1 that is already there.
             m_values.push_back(t.second);
@@ -1019,7 +1261,7 @@ namespace nla {
     // other approach: use a lex ordering on monomials and insert the lex leading monomial.   
     // to avoid blowup, only insert monomials up to a certain degree.
     void stellensatz::insert_monomials_from_constraint(lp::constraint_index ci) {
-        if (/*false && */ constraint_is_true(ci))
+        if (constraint_is_true(ci))
             return;
         m_false_constraints.insert(ci);
         auto const& con = m_solver.lra().constraints()[ci];
@@ -1067,6 +1309,12 @@ namespace nla {
     }
 
     std::ostream& stellensatz::display(std::ostream& out, justification const& b) const {
+        auto display_assumptions = [&](vector<bound_assumption> const &asms) {
+            for (auto const &ineq : asms) {
+                auto [v, k, rhs] = ineq;
+                out << "[j" << v << " " << k << " " << rhs << "] ";
+            }
+        };
         if (std::holds_alternative<external_justification>(b)) {
             auto dep = *std::get_if<external_justification>(&b);
             unsigned_vector cs;
@@ -1084,22 +1332,17 @@ namespace nla {
         else if (std::holds_alternative<multiplication_justification>(b)) {
             auto m = *std::get_if<multiplication_justification>(&b);
             out << "[(" << m.ci << ") *= " << pp_j(*this, m.j1) << " / " << pp_j(*this, m.j2) << "] ";
-            for (auto const &ineq : m.assumptions) {
-                auto [v, k, rhs] = ineq;
-                out << "[j" << v << " " << k << " " << rhs << "] ";
-            }
+            display_assumptions(m.assumptions);
         } 
-        else if (std::holds_alternative<resolvent>(b)) {
-            auto m = *std::get_if<resolvent>(&b);
+        else if (std::holds_alternative<resolvent_justification>(b)) {
+            auto m = *std::get_if<resolvent_justification>(&b);
             out << "[resolve (" << m.ci1 << ") (" << m.ci2 << ") on " << pp_j(*this, m.j) << "] ";
+            display_assumptions(m.assumptions);
         } 
         else if (std::holds_alternative<bound_assumptions>(b)) {
             auto ba = *std::get_if<bound_assumptions>(&b);
             out << ba.rule << " ";
-            for (auto const &ineq : ba.bounds) {
-                auto [v, k, rhs] = ineq;
-                out << "[j" << v << " " << k << " " << rhs << "] ";
-            }
+            display_assumptions(ba.bounds);
         } else
             UNREACHABLE();
         return out;
@@ -1179,10 +1422,10 @@ namespace nla {
                 auto m = *std::get_if<multiplication_justification>(j);
                 todo.push_back(m.ci);
             }
-            else if (std::holds_alternative<resolvent>(*j)) {
-                auto m = *std::get_if<resolvent>(j);
+            else if (std::holds_alternative<resolvent_justification>(*j)) {
+                auto m = *std::get_if<resolvent_justification>(j);
                 todo.push_back(m.ci1);
-                todo.push_back(m.ci2);
+                todo.push_back(m.ci2);                
             }
             else if (std::holds_alternative<internal_justification>(*j)) {
                 auto m = *std::get_if<internal_justification>(j);

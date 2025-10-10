@@ -200,10 +200,10 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     ineq i0(lp_ac, llc::NE, 1);
     lp::lar_term t1, t2;
     t1.add_var(lp_bde);
-    t1.add_monomial(-rational(1), lp_abcde);
+    t1.mk_monomial(-rational(1), lp_abcde);
     ineq i1(llc::EQ, t1, rational(0));
     t2.add_var(lp_abcde);
-    t2.add_monomial(-rational(1), lp_bde);
+    t2.mk_monomial(-rational(1), lp_bde);
     ineq i2(llc::EQ, t2, rational(0));
     bool found0 = false;
     bool found1 = false;
