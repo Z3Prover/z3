@@ -12,7 +12,6 @@
 #include <queue>
 #include "math/polynomial/polynomial_cache.h"
 #include "math/polynomial/polynomial.h"
-
 namespace nlsat {
     
     enum prop_enum {
@@ -358,7 +357,7 @@ namespace nlsat {
              std::sort(m_E.begin(), m_E.end(), [&](root_function const& a, root_function const& b){
                  return m_am.lt(a.val, b.val);
              });
-             TRACE(lws, tout << "sorted m_E:\n";
+             CTRACE(lws, m_E.size() > 1, tout << "sorted m_E:\n";
                    for (unsigned kk = 0; kk < m_E.size(); ++kk) {
                        display(tout, m_E[kk]) << std::endl;
                    });
@@ -428,6 +427,7 @@ namespace nlsat {
          void add_ord_inv_discriminant_for(const property& p) {
             polynomial::polynomial_ref disc(m_pm);
             disc = discriminant(p.poly, max_var(p.poly));
+            SASSERT(disc);
             TRACE(lws, display(tout << "p:", p) << "\n"; ::nlsat::display(tout << "discriminant by x" << max_var(p.poly)<< ": ", m_solver, disc) << "\n";);
             if (!is_const(disc)) {
                 for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
@@ -435,8 +435,7 @@ namespace nlsat {
                         m_fail = true; // ambiguous multiplicity -- not handled yet
                         return;
                     }
-                    unsigned lvl = max_var(f);
-                    mk_prop(prop_enum::ord_inv, f, lvl);
+                    mk_prop(prop_enum::ord_inv, f);
                 });
             }
          }
@@ -459,11 +458,14 @@ namespace nlsat {
                             mk_prop(prop_enum::sgn_inv, f, max_var(f));
                         
                     });
+                } else {                    
+                    SASSERT(sign(lc, sample(), m_am));
                 }
             }
         }
 
         // Extracted helper: check preconditions for an_del property; returns true if ok, false otherwise.
+        // Pre-conditions for an_del(p) per Rule 4.1
         bool precondition_on_an_del(const property& p) {
             if (!p.poly) {
                 TRACE(lws, tout << "apply_pre: an_del with null poly -> fail" << std::endl;);
@@ -481,15 +483,12 @@ namespace nlsat {
 
         void apply_pre_an_del(const property& p) {
             if (!precondition_on_an_del(p)) return;
-
-            // Pre-conditions for an_del(p) per Rule 4.1
-            
             unsigned p_lvl = max_var(p.poly);
             if (p_lvl > 0) {
                 mk_prop(prop_enum::an_sub, level_t(p_lvl - 1));
                 mk_prop(prop_enum::connected, level_t(p_lvl - 1));
             }
-            mk_prop(prop_enum::non_null, p.poly, p.s_idx, p_lvl);
+            mk_prop(prop_enum::non_null, p.poly);
             
             add_ord_inv_discriminant_for(p);
             if (m_fail) return;
@@ -820,6 +819,7 @@ or
               Assume that ξ.p is irreducible for all ξ ∈ dom(≼), and that ≼ matches s.
               sample(s)(R), an_sub(i)(R), connected(i)(R), ∀ξ ∈ dom(≼). an_del(ξ.p)(R), ∀(ξ,ξ′) ∈≼. ord_inv(resx_{i+1} (ξ.p, ξ′.p))(R) ⊢ ir_ord(≼, s)(R)
              */
+             
              mk_prop(sample_holds, level_t(m_level -1 ));
              mk_prop(an_sub, level_t(m_level - 1));
              mk_prop(connected, level_t(m_level - 1));
@@ -828,6 +828,8 @@ or
                  SASSERT(max_var(m_E[i].ire.p) == m_level);
                  polynomial_ref r(m_pm);
                  r = resultant(polynomial_ref(m_E[i].ire.p, m_pm), polynomial_ref(m_E[i+1].ire.p, m_pm), max_var(m_E[i].ire.p));
+                 TRACE(lws, tout << "resultant of m_E[" << i<< "] and m_E[" << i+1 << "]\n"; display(tout, m_E[i]) << "\n"; display(tout, m_E[i+1])<< "\nresultant:"; 
+                       ::nlsat::display(tout, m_solver, r) << "\n");
                  for_each_distinct_factor(r, [this](const polynomial_ref& f) {mk_prop(ord_inv, f);});                 
              }
         }
@@ -914,7 +916,7 @@ or
         // Print the indexed root function's value. If print_approx is true print a decimal
         // approximation, otherwise print the full representation.
         std::ostream& display(std::ostream& out, const root_function& f, bool print_approx = true ) const {
-            display(out << "indexed_root_function:", f.ire) << "\n" << "val:\n";
+            display(out << "indexed_root_function:", f.ire) << "\n" << "val:";
             if (print_approx)
                 m_am.display_decimal(out, f.val);
             else
