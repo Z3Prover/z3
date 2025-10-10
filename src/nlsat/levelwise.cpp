@@ -174,17 +174,19 @@ namespace nlsat {
         void collect_level_properties(std::vector<poly*> & ps_of_n_level) {
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 poly* p = m_P[i];
-                SASSERT(is_irreducible(p));
-                unsigned level = max_var(p);
-                if (level < m_n)
-                    m_Q[level].push(property(prop_enum::sgn_inv, polynomial_ref(p, m_pm)));
-                else if (level == m_n){
-                    m_Q[level].push(property(prop_enum::an_del, polynomial_ref(p, m_pm)));
-                    ps_of_n_level.push_back(p);
-                }
-                else {
-                    UNREACHABLE();
-                }
+                polynomial_ref pref(p, m_pm);
+                for_each_distinct_factor( pref, [&](const polynomial_ref& f) {
+                    unsigned level = max_var(f);
+                    if (level < m_n)
+                        m_Q[level].push(property(prop_enum::sgn_inv, f));
+                    else if (level == m_n){
+                        m_Q[level].push(property(prop_enum::an_del, f));
+                        ps_of_n_level.push_back(f.get());
+                    }
+                    else {
+                        UNREACHABLE();
+                    }
+                });
             }
         }
 
