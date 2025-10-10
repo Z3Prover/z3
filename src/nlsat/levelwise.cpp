@@ -157,21 +157,10 @@ namespace nlsat {
         }
         
         /*
-          Short: build the initial property set Q so the one-cell algorithm can generalize the
-          conflict around the current sample. The main goal is to eliminate raw input polynomials
-          whose main variable is x_{m_n} (i.e. level == m_n) by replacing them with properties.
-
-          Strategy:
-          - For factors with level < m_n: add sgn_inv(p) to Q (sign-invariance).
-          - For factors with level == m_n: add an_del(p) and isolate their indexed roots over the sample;
-          sort those roots and for each adjacent pair coming from distinct polynomials add
-          ord_inv(resultant(p_j, p_{j+1})) to Q.
-          - If any constructed polynomial is nullified on the sample, that is all coefficients are zeroes, then fail.
-
-          Result: Q = { sgn_inv(p) | level(p) < m_n } ∪ { an_del(p)  | level(p) == m_n } ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent roots }.
+          prepare the initial properties
         */
         // Helper 1: scan input polynomials, add sgn_inv / an_del properties and collect polynomials at level m_n
-        void collect_level_properties(std::vector<poly*> & ps_of_n_level) {
+        void collect_top_level_properties(std::vector<poly*> & ps_of_n_level) {
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 poly* p = m_P[i];
                 polynomial_ref pref(p, m_pm);
@@ -261,7 +250,7 @@ namespace nlsat {
         */
         void init_properties() {
             std::vector<poly*> ps_of_n_level;
-            collect_level_properties(ps_of_n_level);
+            collect_top_level_properties(ps_of_n_level);
             std::vector<std::pair<scoped_anum, poly*>> root_vals;
             collect_roots_for_ps(ps_of_n_level, root_vals);
             if (!add_adjacent_resultants(root_vals))
