@@ -50,18 +50,18 @@ namespace nlsat {
 
         // todo: consider to key polynomials in a set by using m_pm.eq
         struct property {
-            prop_enum prop_tag;
-            polynomial_ref   poly;
-            unsigned         s_idx = -1; // index of the root function, if applicable; -1 means unspecified
-            property(prop_enum pr, polynomial_ref const & pp, int si = -1) : prop_tag(pr), poly(pp), s_idx(si) {}
-            property(prop_enum pr, polynomial_ref const & pp, polynomial::manager& pm) : prop_tag(pr), poly(pp), s_idx(-1) {}
+            prop_enum m_prop_tag;
+            polynomial_ref   m_poly;
+            unsigned         m_root_index = -1; // index of the root function, if applicable; -1 means unspecified
+            property(prop_enum pr, polynomial_ref const & pp, int si = -1) : m_prop_tag(pr), m_poly(pp), m_root_index(si) {}
+            property(prop_enum pr, polynomial_ref const & pp, polynomial::manager& pm) : m_prop_tag(pr), m_poly(pp), m_root_index(-1) {}
             // have to pass polynomial::manager& to create a polynomial_ref even with a null object
-            property(prop_enum pr, polynomial::manager& pm) : prop_tag(pr), poly(polynomial_ref(pm)), s_idx(-1) {}
+            property(prop_enum pr, polynomial::manager& pm) : m_prop_tag(pr), m_poly(polynomial_ref(pm)), m_root_index(-1) {}
             
         };
         struct compare_prop_tags {
             bool operator()(const property& a, const property& b) const {
-                return a.prop_tag < b.prop_tag; // ir_ord dequed first
+                return a.m_prop_tag < b.m_prop_tag; // ir_ord dequed first
             }
         };
         typedef std::priority_queue<property, std::vector<property>, compare_prop_tags> property_queue;
@@ -310,7 +310,7 @@ namespace nlsat {
             auto& q = m_Q[m_level];
             while(!q.empty()) {
                 property p = pop(q);
-                if (p.prop_tag == prop_to_avoid) {
+                if (p.m_prop_tag == prop_to_avoid) {
                     avoided.push_back(p);
                     continue;
                 }
@@ -329,11 +329,11 @@ namespace nlsat {
              // collect non-null polynomials (up to polynomial_manager equality)
              std::vector<const poly*> p_non_null;            
              for (auto & pr: to_vector(m_Q[m_level])) {
-                 SASSERT(max_var(pr.poly) == m_level);
-                 if (pr.prop_tag == prop_enum::sgn_inv
-                     && !coeffs_are_zeroes_on_sample(pr.poly, m_pm, sample(), m_am )) {
-                     TRACE(lws, tout << "adding:" << pr.poly.get() << "\n";);
-                     poly* new_p = pr.poly.get();
+                 SASSERT(max_var(pr.m_poly) == m_level);
+                 if (pr.m_prop_tag == prop_enum::sgn_inv
+                     && !coeffs_are_zeroes_on_sample(pr.m_poly, m_pm, sample(), m_am )) {
+                     TRACE(lws, tout << "adding:" << pr.m_poly.get() << "\n";);
+                     poly* new_p = pr.m_poly.get();
                      auto it = std::find_if(p_non_null.begin(), p_non_null.end(),
                                             [this, new_p](const poly* q){
                                                 return m_pm.eq(q, new_p);
@@ -385,17 +385,17 @@ namespace nlsat {
          }
 
          // add a property to m_Q if an equivalent one is not already present.
-         // Equivalence: same prop_tag and same level; require the same poly as well.
+         // Equivalence: same m_prop_tag and same level; require the same poly as well.
         void add_to_Q_if_new(const property & pr, unsigned level) {
              
              for (auto const & q : to_vector(m_Q[level])) {
-                 if (q.prop_tag != pr.prop_tag) continue;
-                 if (q.poly != pr.poly) continue;
-                 if (q.s_idx != pr.s_idx) continue;
+                 if (q.m_prop_tag != pr.m_prop_tag) continue;
+                 if (q.m_poly != pr.m_poly) continue;
+                 if (q.m_root_index != pr.m_root_index) continue;
                  TRACE(lws, display(tout << "matched q:", q) << std::endl;);
                  return;
              }
-             SASSERT(!pr.poly || is_irreducible(pr.poly));
+             SASSERT(!pr.m_poly || is_irreducible(pr.m_poly));
              m_Q[level].push(pr);
          }
         
@@ -417,9 +417,9 @@ namespace nlsat {
          // handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
          void add_ord_inv_discriminant_for(const property& p) {
             polynomial::polynomial_ref disc(m_pm);
-            disc = discriminant(p.poly, max_var(p.poly));
+            disc = discriminant(p.m_poly, max_var(p.m_poly));
             SASSERT(disc);
-            TRACE(lws, display(tout << "p:", p) << "\n"; ::nlsat::display(tout << "discriminant by x" << max_var(p.poly)<< ": ", m_solver, disc) << "\n";);
+            TRACE(lws, display(tout << "p:", p) << "\n"; ::nlsat::display(tout << "discriminant by x" << max_var(p.m_poly)<< ": ", m_solver, disc) << "\n";);
             if (!is_const(disc)) {
                 for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
                     if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
@@ -433,9 +433,9 @@ namespace nlsat {
 
         //  handle sgn_inv(leading_coefficient_{x_{i+1}}(p)) for an_del pre-processing
         void add_sgn_inv_leading_coeff_for(const property& p) {
-            poly * pp = p.poly.get();
-            unsigned lvl = max_var(p.poly);
-            unsigned deg = m_pm.degree(pp, max_var(p.poly));
+            poly * pp = p.m_poly.get();
+            unsigned lvl = max_var(p.m_poly);
+            unsigned deg = m_pm.degree(pp, max_var(p.m_poly));
             if (deg > 0) {
                 polynomial_ref lc(m_pm);
                 lc = m_pm.coeff(pp, lvl, deg);
@@ -458,13 +458,13 @@ namespace nlsat {
         // Extracted helper: check preconditions for an_del property; returns true if ok, false otherwise.
         // Pre-conditions for an_del(p) per Rule 4.1
         bool precondition_on_an_del(const property& p) {
-            if (!p.poly) {
+            if (!p.m_poly) {
                 TRACE(lws, tout << "apply_pre: an_del with null poly -> fail" << std::endl;);
                 m_fail = true;
                 return false;
             }
             // If p is nullified on the sample for its level we must abort (Rule 4.1)
-            if (coeffs_are_zeroes_on_sample(p.poly, m_pm, sample(), m_am)) {
+            if (coeffs_are_zeroes_on_sample(p.m_poly, m_pm, sample(), m_am)) {
                 TRACE(lws, display(tout << "p:", p) << "\n"; tout << "Rule 4.1: polynomial nullified at sample -> failing" << std::endl;);
                 m_fail = true;
                 return false;
@@ -474,12 +474,12 @@ namespace nlsat {
 
         void apply_pre_an_del(const property& p) {
             if (!precondition_on_an_del(p)) return;
-            unsigned p_lvl = max_var(p.poly);
+            unsigned p_lvl = max_var(p.m_poly);
             if (p_lvl > 0) {
                 mk_prop(prop_enum::an_sub, level_t(p_lvl - 1));
                 mk_prop(prop_enum::connected, level_t(p_lvl - 1));
             }
-            mk_prop(prop_enum::non_null, p.poly);
+            mk_prop(prop_enum::non_null, p.m_poly);
             
             add_ord_inv_discriminant_for(p);
             if (m_fail) return;
@@ -541,13 +541,13 @@ namespace nlsat {
         // then non_null(p) holds on the region represented by 'rs' (if provided).
         // Returns true if non_null was established and the property p was removed.
         bool try_non_null_via_coeffs(const property& p) {
-            unsigned level = max_var(p.poly);
-            if (have_non_zero_const(p.poly, level)) {
+            unsigned level = max_var(p.m_poly);
+            if (have_non_zero_const(p.m_poly, level)) {
                 TRACE(lws, tout << "have a non-zero const coefficient\n";);
                 return true;
             }
     
-            poly* pp = p.poly.get();
+            poly* pp = p.m_poly.get();
             unsigned deg = m_pm.degree(pp, level);
             for (unsigned j = 0; j <= deg; ++j) {
                 polynomial_ref coeff(m_pm);
@@ -574,22 +574,22 @@ namespace nlsat {
         // sample(s)(R), degx_{i+1} (p) > 1, disc(x_{i+1} (p)(s)) ̸= 0, sgn_inv(disc(x_{i+1} (p))(R) 
         void apply_pre_non_null_fallback(const property& p) {
             // basic sanity checks
-            if (!p.poly) {
+            if (!p.m_poly) {
                 TRACE(lws, tout << "apply_pre_non_null_fallback: null poly -> fail" << std::endl;);
                 m_fail = true;
                 return;
             }
 
-            unsigned level = max_var(p.poly);
+            unsigned level = max_var(p.m_poly);
 
-            poly * pp = p.poly.get();
+            poly * pp = p.m_poly.get();
             unsigned deg = m_pm.degree(pp, level);
             // fallback applies only for degree > 1
             if (deg <= 1) return;
 
             // compute discriminant w.r.t. the variable at p.level
             polynomial_ref disc(m_pm);
-            disc = discriminant(p.poly, level);
+            disc = discriminant(p.m_poly, level);
             TRACE(lws, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
 
             // If discriminant evaluates to zero at the sample, we cannot proceed
@@ -678,15 +678,15 @@ or
         }
 
         void apply_pre_sgn_inv(const property& p) {
-            SASSERT(is_irreducible(p.poly));
+            SASSERT(is_irreducible(p.m_poly));
             scoped_anum_vector roots(m_am);
-            SASSERT(max_var(p.poly) == m_level);
-            m_am.isolate_roots(p.poly, undef_var_assignment(sample(), m_level), roots);
+            SASSERT(max_var(p.m_poly) == m_level);
+            m_am.isolate_roots(p.m_poly, undef_var_assignment(sample(), m_level), roots);
             if (roots.size() == 0) {
                 /*  Rule 4.6. Let i ∈ N, R ⊆ Ri, s ∈ R_{i−1}, and realRoots(p(s, xi )) = ∅. 
                 sample(s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R) */
                 mk_prop(sample_holds, level_t(m_level - 1));
-                mk_prop(prop_enum::an_del, p.poly, m_level);
+                mk_prop(prop_enum::an_del, p.m_poly, m_level);
                 return;
             }
             // now we have some roots at s
@@ -705,10 +705,10 @@ or
                 mk_prop(prop_enum::connected, level_t(m_level - 1));
                 mk_prop(prop_enum::repr, level_t(m_level - 1)); 
                 mk_prop(prop_enum::an_del, polynomial_ref(m_I[m_level].l, m_pm));
-                if (I.l == p.poly.get()) {
+                if (I.l == p.m_poly.get()) {
                     // nothing is added
                 } else {
-                    polynomial_ref res = resultant(polynomial_ref(I.l, m_pm), p.poly, m_level);
+                    polynomial_ref res = resultant(polynomial_ref(I.l, m_pm), p.m_poly, m_level);
                     if (res) {
                         // Factor the resultant and add ord_inv for each distinct non-constant factor
                         for_each_distinct_factor(res, [&](polynomial::polynomial_ref f) {
@@ -730,7 +730,7 @@ or
                 mk_prop(sample_holds, level_t(m_level - 1)); 
                 mk_prop(repr, level_t(m_level - 1));
                 mk_prop(ir_ord, level_t(m_level));
-                mk_prop(an_del, p.poly);
+                mk_prop(an_del, p.m_poly);
             }
         }
 
@@ -742,24 +742,24 @@ or
           p(s)= 0, sample(s)(R), an_sub(i− 1)(R), connected(i)(R), sgn_inv(p)(R), an_del(p)(R) ⊢ ord_inv(p)(R)
         */
         void apply_pre_ord_inv(const property& p) {
-            SASSERT(p.prop_tag == prop_enum::ord_inv && is_irreducible(p.poly));
-            unsigned level = max_var(p.poly);
-            auto sign_on_sample = sign(p.poly, sample(), m_am);
+            SASSERT(p.m_prop_tag == prop_enum::ord_inv && is_irreducible(p.m_poly));
+            unsigned level = max_var(p.m_poly);
+            auto sign_on_sample = sign(p.m_poly, sample(), m_am);
             mk_prop(sample_holds, level_t(level));
             if (sign_on_sample) {
-                mk_prop(prop_enum::sgn_inv, p.poly);
+                mk_prop(prop_enum::sgn_inv, p.m_poly);
             } else { // sign is zero
                 mk_prop(prop_enum::an_sub, level_t(level - 1));
                 mk_prop(prop_enum::connected, level_t(level));                
-                mk_prop(prop_enum::sgn_inv, p.poly);
-                mk_prop(prop_enum::an_del, p.poly);
+                mk_prop(prop_enum::sgn_inv, p.m_poly);
+                mk_prop(prop_enum::an_del, p.m_poly);
             }
         }
         
         void apply_pre(const property& p) {
             TRACE(lws, tout << "apply_pre BEGIN m_Q:"; display(tout) << std::endl; 
                   display(tout << "pre p:", p) << std::endl;);
-            switch (p.prop_tag) {
+            switch (p.m_prop_tag) {
             case prop_enum::an_del:
                 apply_pre_an_del(p);
                 break;
@@ -825,7 +825,7 @@ or
                 auto qv = to_vector(m_Q[i]);
                 bool level_is_ok = std::all_of(qv.begin(), qv.end(), [this, i](const property& p){
                     
-                    bool r = !(p.poly) || (max_var(p.poly) == i); 
+                    bool r = !(p.m_poly) || (max_var(p.m_poly) == i); 
                     if (!r) {
                         display(std::cout << "bad property:", p) << std::endl;
                     }
@@ -880,11 +880,11 @@ or
         }
  
         std::ostream& display(std::ostream& out, const property & pr) const {
-            out << "{prop:" << prop_name(pr.prop_tag);
-            if (pr.s_idx != -1) out   << ", s_idx:" << pr.s_idx;
-            if (pr.poly) {
+            out << "{prop:" << prop_name(pr.m_prop_tag);
+            if ((int)pr.m_root_index != -1) out   << ", m_root_index:" << pr.m_root_index;
+            if (pr.m_poly) {
                 out << ", poly:";
-                ::nlsat::display(out, m_solver, pr.poly);
+                ::nlsat::display(out, m_solver, pr.m_poly);
             }
             else {
                 out << ", p:null";
