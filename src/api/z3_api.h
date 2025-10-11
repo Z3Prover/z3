@@ -2136,9 +2136,14 @@ extern "C" {
        Forward references can replace the use sort references, that are unsigned integers
        in the \c Z3_mk_constructor call
 
-       def_API('Z3_mk_datatype_sort', SORT, (_in(CONTEXT), _in(SYMBOL)))
+       \param c logical context
+       \param name name of the datatype
+       \param num_params number of sort parameters  
+       \param params array of sort parameters
+
+       def_API('Z3_mk_datatype_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SORT)))
      */
-    Z3_sort Z3_API Z3_mk_datatype_sort(Z3_context c, Z3_symbol name);
+    Z3_sort Z3_API Z3_mk_datatype_sort(Z3_context c, Z3_symbol name, unsigned num_params, Z3_sort const params[]);
 
     /**
        \brief Create list of constructors.

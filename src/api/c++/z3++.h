@@ -343,6 +343,14 @@ namespace z3 {
         */
         sort datatype_sort(symbol const& name);
 
+        /**
+           \brief a reference to a recursively defined parametric datatype.
+           Expect that it gets defined as a \ref datatype.
+           \param name name of the datatype
+           \param params sort parameters
+        */
+        sort datatype_sort(symbol const& name, sort_vector const& params);
+
             
         /**
            \brief create an uninterpreted sort with the name given by the string or symbol.
@@ -3625,7 +3633,14 @@ namespace z3 {
 
 
     inline sort context::datatype_sort(symbol const& name) {
-        Z3_sort s = Z3_mk_datatype_sort(*this, name);
+        Z3_sort s = Z3_mk_datatype_sort(*this, name, 0, nullptr);
+        check_error();
+        return sort(*this, s);            
+    }
+
+    inline sort context::datatype_sort(symbol const& name, sort_vector const& params) {
+        array<Z3_sort> _params(params);
+        Z3_sort s = Z3_mk_datatype_sort(*this, name, _params.size(), _params.ptr());
         check_error();
         return sort(*this, s);            
     }
