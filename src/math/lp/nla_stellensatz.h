@@ -164,10 +164,6 @@ namespace nla {
         lpvar add_var(bool is_int);
         lbool add_bounds(svector<lpvar> const &vars, vector<bound_assumption> &bounds);
         void saturate_constraints();
-<<<<<<< HEAD
-
-=======
->>>>>>> 35e781c58 (gcd reduce and use c().val for sign constraints)
         void saturate_constraints2();
         void eliminate(lpvar mi);
         void ext_resolve(lpvar j, lp::constraint_index lo, lp::constraint_index hi);

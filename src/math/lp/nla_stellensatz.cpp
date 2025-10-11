@@ -660,6 +660,7 @@ namespace nla {
         }
         if (los.empty() || his.empty())
             return;
+        IF_VERBOSE(3, verbose_stream() << "lo " << los << " hi " << his << "\n");
         for (auto lo : los) 
             ext_resolve(mi, lo, hi_ci);
         for (auto hi : his)
@@ -713,7 +714,8 @@ namespace nla {
 
 
         IF_VERBOSE(3, verbose_stream() << "resolve on " << m_mon2vars[mi] << " lo: " << lo << " hi: " << hi << "\n";
-                   display_constraint(verbose_stream(), lo) << "\n"; display_constraint(verbose_stream(), hi) << "\n";);
+                   display_constraint(verbose_stream() << lo << ": ", lo) << "\n";
+                   display_constraint(verbose_stream() << hi << ": ", hi) << "\n";);
         if (lhs.size() == 0) {
             IF_VERBOSE(2, verbose_stream() << rhs << " " << "empty\n");
             return;
@@ -729,7 +731,7 @@ namespace nla {
 
         auto new_ci = add_ineq(just, lhs, k, rhs);
         insert_monomials_from_constraint(new_ci);
-        IF_VERBOSE(3, display_constraint(verbose_stream(), new_ci) << "\n");
+        IF_VERBOSE(3, display_constraint(verbose_stream() << new_ci << ": ", new_ci) << "\n");
     }
 
     std::tuple<rational, bool, bool> stellensatz::compute_bound(svector<lpvar> const& vars, svector<lpvar>& quot, lpvar j, rational const& coeff, lp::constraint_index ci) {
@@ -746,14 +748,15 @@ namespace nla {
             SASSERT(vars.contains(j));
             quot.erase(j);
         }
-        rational alpha = coeff;
+        rational alpha(1);
         for (auto v : quot)
             alpha *= m_values[v];
         if (alpha == 0)
             return {rational::zero(), false, false};
         SASSERT(alpha != 0);
         int flip = (alpha >= 0) != (coeff >= 0);
-        
+        IF_VERBOSE(3, verbose_stream() << "alpha " << alpha << " coeff " << coeff << " flip: " << flip << " " << con.kind() << "\n");
+        IF_VERBOSE(3, display_constraint(verbose_stream(), ci) << "\n");
         // quot * j = vars
         // 
         // coeff * j + p <= r
