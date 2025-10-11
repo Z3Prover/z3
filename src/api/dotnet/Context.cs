@@ -479,16 +479,16 @@ namespace Microsoft.Z3
         /// This is useful for creating recursive datatypes or parametric datatypes.
         /// </summary>
         /// <param name="name">name of the datatype sort</param>
-        /// <param name="params">optional array of sort parameters for parametric datatypes</param>
-        public DatatypeSort MkDatatypeSortRef(Symbol name, Sort[] params = null)
+        /// <param name="parameters">optional array of sort parameters for parametric datatypes</param>
+        public DatatypeSort MkDatatypeSortRef(Symbol name, Sort[] parameters = null)
         {
             Debug.Assert(name != null);
             CheckContextMatch(name);
-            if (params != null)
-                CheckContextMatch<Sort>(params);
+            if (parameters != null)
+                CheckContextMatch<Sort>(parameters);
             
-            var numParams = (params == null) ? 0 : (uint)params.Length;
-            var paramsNative = (params == null) ? null : AST.ArrayToNative(params);
+            var numParams = (parameters == null) ? 0 : (uint)parameters.Length;
+            var paramsNative = (parameters == null) ? null : AST.ArrayToNative(parameters);
             return new DatatypeSort(this, Native.Z3_mk_datatype_sort(nCtx, name.NativeObject, numParams, paramsNative));
         }
 
@@ -497,11 +497,11 @@ namespace Microsoft.Z3
         /// This is useful for creating recursive datatypes or parametric datatypes.
         /// </summary>
         /// <param name="name">name of the datatype sort</param>
-        /// <param name="params">optional array of sort parameters for parametric datatypes</param>
-        public DatatypeSort MkDatatypeSortRef(string name, Sort[] params = null)
+        /// <param name="parameters">optional array of sort parameters for parametric datatypes</param>
+        public DatatypeSort MkDatatypeSortRef(string name, Sort[] parameters = null)
         {
             using var symbol = MkSymbol(name);
-            return MkDatatypeSortRef(symbol, params);
+            return MkDatatypeSortRef(symbol, parameters);
         }
 
         /// <summary>
