@@ -79,10 +79,6 @@ namespace smt {
 
             void init_parameters_state();
 
-            bool is_assumption(expr* e) const {
-                return p.m_assumptions.contains(e);
-            }
-
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)) { }
 
@@ -98,7 +94,6 @@ namespace smt {
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
             void split(ast_translation& l2g, unsigned id, node* n, expr* atom);
 
-            void report_assumption_used(ast_translation& l2g, expr* assumption);
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
 
@@ -162,8 +157,6 @@ namespace smt {
 
         };
 
-        obj_hashtable<expr> m_assumptions_used; // assumptions used in unsat cores, to be used in final core
-        obj_hashtable<expr> m_assumptions;       // all assumptions
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
 
