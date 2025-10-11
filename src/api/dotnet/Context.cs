@@ -475,6 +475,36 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create a forward reference to a datatype sort.
+        /// This is useful for creating recursive datatypes or parametric datatypes.
+        /// </summary>
+        /// <param name="name">name of the datatype sort</param>
+        /// <param name="params">optional array of sort parameters for parametric datatypes</param>
+        public DatatypeSort MkDatatypeSortRef(Symbol name, Sort[] params = null)
+        {
+            Debug.Assert(name != null);
+            CheckContextMatch(name);
+            if (params != null)
+                CheckContextMatch<Sort>(params);
+            
+            var numParams = (params == null) ? 0 : (uint)params.Length;
+            var paramsNative = (params == null) ? null : AST.ArrayToNative(params);
+            return new DatatypeSort(this, Native.Z3_mk_datatype_sort(nCtx, name.NativeObject, numParams, paramsNative));
+        }
+
+        /// <summary>
+        /// Create a forward reference to a datatype sort.
+        /// This is useful for creating recursive datatypes or parametric datatypes.
+        /// </summary>
+        /// <param name="name">name of the datatype sort</param>
+        /// <param name="params">optional array of sort parameters for parametric datatypes</param>
+        public DatatypeSort MkDatatypeSortRef(string name, Sort[] params = null)
+        {
+            using var symbol = MkSymbol(name);
+            return MkDatatypeSortRef(symbol, params);
+        }
+
+        /// <summary>
         /// Create mutually recursive datatypes.
         /// </summary>
         /// <param name="names">names of datatype sorts</param>
