@@ -54,7 +54,7 @@ namespace nla {
     lbool stellensatz::saturate() {
         init_solver();
         saturate_constraints2();
-        // saturate_constraints();
+//        saturate_constraints();
         saturate_basic_linearize();
         TRACE(arith, display(tout << "stellensatz after saturation\n"));
         lbool r = m_solver.solve();
@@ -682,40 +682,53 @@ namespace nla {
         auto [j_hi, coeff_hi] = find_max_lex_term(con_hi.lhs());
         auto [bound_hi, is_lo2, hi_is_strict] = compute_bound(vars, quot_hi, j_hi, coeff_hi, hi);
 
+        // lo.lhs() ~ lo.rhs() - a lower bound for mi
+        // hi.lhs() ~ hi.rhs() - an upper bound for mi
+        // 
         SASSERT(is_lo);
         SASSERT(!is_lo2);
         bool is_strict = lo_is_strict || hi_is_strict;
+        int lo_sign = (con_lo.kind() == lp::lconstraint_kind::LE || con_lo.kind() == lp::lconstraint_kind::LT) ? 1 : -1;
+        if (coeff_lo < 0)
+            lo_sign = -lo_sign;
+        int hi_sign = (con_hi.kind() == lp::lconstraint_kind::LE || con_hi.kind() == lp::lconstraint_kind::LT) ? 1 : -1;
+        if (coeff_hi < 0)
+            hi_sign = -hi_sign;       
         lp::lar_term lhs;
         rational rhs;
         for (auto const& cv : con_lo.lhs()) {
             auto j = mk_monomial(quot_lo, cv.j());
-            auto coeff = cv.coeff() / coeff_lo;
+            auto coeff = lo_sign * cv.coeff() / coeff_lo;
             lhs.add_monomial(coeff, j);
         }
         if (quot_lo.empty()) {
-            rhs += con_lo.rhs() / coeff_lo;
+            auto coeff = -lo_sign * con_lo.rhs() / coeff_lo;
+            rhs += coeff;
         }
-        else {
+        else if (con_lo.rhs() != 0) {
             auto j = mk_monomial(quot_lo);
-            lhs.add_monomial(rational(-1) / coeff_lo, j);
+            auto coeff = -lo_sign * con_lo.rhs() / coeff_lo;
+            lhs.add_monomial(coeff, j);
         }
         for (auto const &cv : con_hi.lhs()) {
             auto j = mk_monomial(quot_hi, cv.j());
-            auto coeff = -cv.coeff() / coeff_hi;
+            auto coeff = hi_sign * cv.coeff() / coeff_hi;
             lhs.add_monomial(coeff, j);
         }
         if (quot_hi.empty()) {
-            rhs -= con_hi.rhs() / coeff_hi;
+            auto coeff = -hi_sign * con_hi.rhs() / coeff_hi;
+            rhs += coeff;
         }
-        else {
+        else if (con_hi.rhs() != 0) {
             auto j = mk_monomial(quot_hi);
-            lhs.add_monomial(rational(1) / coeff_hi, j);
+            auto coeff = -hi_sign * con_hi.rhs() / coeff_hi;
+            lhs.add_monomial(coeff, j);
         }
-
 
         IF_VERBOSE(3, verbose_stream() << "resolve on " << m_mon2vars[mi] << " lo: " << lo << " hi: " << hi << "\n";
                    display_constraint(verbose_stream() << lo << ": ", lo) << "\n";
-                   display_constraint(verbose_stream() << hi << ": ", hi) << "\n";);
+                   display_constraint(verbose_stream() << hi << ": ", hi) << "\n";
+                   verbose_stream() << "rhs " << con_lo.rhs() << " " << con_hi.rhs() << "\n");
         if (lhs.size() == 0) {
             IF_VERBOSE(2, verbose_stream() << rhs << " " << "empty\n");
             return;
