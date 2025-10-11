@@ -24,7 +24,6 @@ namespace nlsat {
         an_sub,
         sample_holds,
         repr,
-        holds,
         _count 
     };
 
@@ -272,12 +271,13 @@ namespace nlsat {
             // find first index where roots[idx].val >= y_val
             size_t idx = 0;
             while (idx < roots.size() && m_am.compare(roots[idx].val, y_val) < 0) ++idx;
-
             if (idx < roots.size() && m_am.compare(roots[idx].val, y_val) == 0) {
+                TRACE(lws, tout << "exact match at idx=" << idx << ", it's a section\n";);
                 auto const& ire = roots[idx].ire;
                 I.section = true;
                 I.l = ire.p; I.l_index = ire.i;
                 I.u = nullptr; I.u_index = -1; // the section is defined by the I.l
+                TRACE(lws, tout << "section bound -> p="; if (I.l) m_pm.display(tout, I.l); tout << ", index=" << I.l_index << "\n";);
                 return;
             }
 
@@ -412,7 +412,7 @@ namespace nlsat {
 
             build_representation();
             SASSERT(invariant());
-            return apply_property_rules(prop_enum::holds);
+            return apply_property_rules(prop_enum::_count);
         }
          // handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
          void add_ord_inv_discriminant_for(const property& p) {
@@ -563,7 +563,7 @@ namespace nlsat {
                     continue;
 
                 for_first_distinct_factor(coeff, [&](const polynomial::polynomial_ref & f) {
-                    mk_prop(prop_enum::sgn_inv, f, -1, max_var(f));
+                    mk_prop(prop_enum::sgn_inv, f);
                 });
                 return true;
             }
@@ -601,9 +601,8 @@ namespace nlsat {
             }
             // If discriminant is non-constant, add sign-invariance requirement for it
             if (!is_const(disc)) {
-                unsigned lvl = max_var(disc);
                 for_each_distinct_factor(disc, [&](const polynomial::polynomial_ref & f) {
-                    mk_prop(prop_enum::sgn_inv, f, /*s_idx*/ -1, lvl);
+                    mk_prop(prop_enum::sgn_inv, f);
                 });
             }
 
@@ -621,7 +620,7 @@ namespace nlsat {
         }
 
         /*
-        Rule 4.13
+        Rule 4.13 : the precondition holds by construction
 The property repr(I, s) holds on R if and only if I.l ∈ irExpr(I.l.p, s) (if I.l ̸= −∞), I.u ∈ irExpr(I.u.p, s)
 (if I.u ̸= ∞) respectively I.b ∈ irExpr(I.b.p, s) and one of the following holds:
 • I = (sector, l, u), dom(θl,s ) ∩ dom(θu,s ) ⊇ R ↓[i−1] and R = {(r, r′) | r ∈ R ↓[i−1], r′ ∈ (θl,s (r), θu,s (r))};
@@ -635,16 +634,19 @@ or
         void apply_pre_repr(const property& p) {
             const auto& I = m_I[m_level];
             TRACE(lws, display(tout << "interval m_I[" << m_level << "]\n", I) << "\n";);
-            mk_prop(prop_enum::holds, level_t(m_level - 1));
             mk_prop(sample_holds, level_t(m_level - 1));
             if (I.is_section()) {
-                NOT_IMPLEMENTED_YET();
+                /*sample(s)(R), holds(I)(R), I = (section, b), an_del(b.p)(R) */
+                mk_prop(an_del, I.l);
             } else {
+                /* sample(s)(R), holds(I)(R), I = (sector, l, u), l= −∞ ∨ an_del(l.p)(R), u = ∞ ∨ an_del(u.p)(R*/
                 SASSERT(I.is_sector());
-                if (!I.l_inf() || !I.u_inf()) {
-                    NOT_IMPLEMENTED_YET();
-                }
-            }
+                
+                if (!I.l_inf())
+                   mk_prop(an_del, I.l);
+                if (!I.u_inf())
+                   mk_prop(an_del, I.u);
+            }                
         }
 
         void apply_pre_sample(const property& p) {
@@ -660,7 +662,7 @@ or
         };
 
         void mk_prop(prop_enum pe, level_t level) {
-            SASSERT(level.val != static_cast<unsigned>(-1));
+            if ((int)level.val == -1) return; // ignore this property
             SASSERT(pe != ord_inv);
             add_to_Q_if_new(property(pe, m_pm), level.val);
         }
@@ -673,11 +675,6 @@ or
             SASSERT((int)level != -1);
             SASSERT(poly || pe != ord_inv);
             add_to_Q_if_new(property(pe, poly), level);
-        }
-
-        void mk_prop(prop_enum pe, const polynomial_ref& poly, unsigned root_index, unsigned level) {
-            SASSERT(poly || pe != ord_inv);
-            add_to_Q_if_new(property(pe, poly, root_index), level);
         }
 
         void apply_pre_sgn_inv(const property& p) {
@@ -706,7 +703,7 @@ or
             */
                 mk_prop(prop_enum::an_sub, level_t(m_level - 1));
                 mk_prop(prop_enum::connected, level_t(m_level - 1));
-                mk_prop(prop_enum::repr, level_t(m_level - 1)); // is it correct?
+                mk_prop(prop_enum::repr, level_t(m_level - 1)); 
                 mk_prop(prop_enum::an_del, polynomial_ref(m_I[m_level].l, m_pm));
                 if (I.l == p.poly.get()) {
                     // nothing is added
@@ -748,15 +745,14 @@ or
             SASSERT(p.prop_tag == prop_enum::ord_inv && is_irreducible(p.poly));
             unsigned level = max_var(p.poly);
             auto sign_on_sample = sign(p.poly, sample(), m_am);
+            mk_prop(sample_holds, level_t(level));
             if (sign_on_sample) {
-                mk_prop(sample_holds, level_t(level));
                 mk_prop(prop_enum::sgn_inv, p.poly);
             } else { // sign is zero
-                mk_prop(sample_holds, level_t(level));
                 mk_prop(prop_enum::an_sub, level_t(level - 1));
                 mk_prop(prop_enum::connected, level_t(level));                
-                mk_prop(prop_enum::sgn_inv, p.poly, p.s_idx, level);
-                mk_prop(prop_enum::an_del, p.poly, p.s_idx, level);
+                mk_prop(prop_enum::sgn_inv, p.poly);
+                mk_prop(prop_enum::an_del, p.poly);
             }
         }
         
@@ -779,8 +775,6 @@ or
             case prop_enum::repr:
                 apply_pre_repr(p);
                 break;
-            case prop_enum::holds:
-                break; // ignore the bottom of refinement
             case sample_holds:
                 apply_pre_sample(p);
                 break;
@@ -810,10 +804,11 @@ or
               Assume that ξ.p is irreducible for all ξ ∈ dom(≼), and that ≼ matches s.
               sample(s)(R), an_sub(i)(R), connected(i)(R), ∀ξ ∈ dom(≼). an_del(ξ.p)(R), ∀(ξ,ξ′) ∈≼. ord_inv(resx_{i+1} (ξ.p, ξ′.p))(R) ⊢ ir_ord(≼, s)(R)
              */
-             
-             mk_prop(sample_holds, level_t(m_level -1 ));
-             mk_prop(an_sub, level_t(m_level - 1));
-             mk_prop(connected, level_t(m_level - 1));
+             if (m_level > 0) {
+                mk_prop(sample_holds, level_t(m_level -1 ));
+                mk_prop(an_sub, level_t(m_level - 1));
+                mk_prop(connected, level_t(m_level - 1));
+             }
              for (unsigned i = 0; i + 1 < m_E.size(); i++) {
                  SASSERT(max_var(m_E[i].ire.p) == max_var(m_E[i + 1].ire.p));
                  SASSERT(max_var(m_E[i].ire.p) == m_level);
@@ -850,11 +845,13 @@ or
             
             init_properties(); // initializes m_Q as a queue of properties on levels <= m_n
             SASSERT(m_E.size() == 0);
-            apply_property_rules(prop_enum::_count); // reduce the level by one to be consumed by construct_interval
-            while (-- m_level > 0)
+            apply_property_rules(prop_enum::_count); // reduce the level from m_n to m_n - 1 to be consumed by construct_interval
+            SASSERT(m_level == m_n); 
+            do {  // m_level changes from m_n - 1 to 0
+                m_level--;
                 if (m_fail || !construct_interval())
                     return std::vector<root_function_interval>(); // return empty
-                       
+            } while (m_level != 0);
             return m_I; // the order of intervals is reversed
         }
         
@@ -870,7 +867,6 @@ or
             case prop_enum::an_sub:               return "an_sub";
             case sample_holds:                    return "sample";
             case prop_enum::repr:                 return "repr";
-            case prop_enum::holds:                return "holds";
             case prop_enum::_count:               return "_count";
             }
             return "?";
