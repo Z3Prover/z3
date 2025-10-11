@@ -387,14 +387,18 @@ extern "C" {
         Z3_CATCH;
     }
 
-    Z3_sort Z3_API Z3_mk_datatype_sort(Z3_context c, Z3_symbol name) {
+    Z3_sort Z3_API Z3_mk_datatype_sort(Z3_context c, Z3_symbol name, unsigned num_params, Z3_sort const params[]) {
         Z3_TRY;
-        LOG_Z3_mk_datatype_sort(c, name);
+        LOG_Z3_mk_datatype_sort(c, name, num_params, params);
         RESET_ERROR_CODE();
         ast_manager& m = mk_c(c)->m();
         datatype_util adt_util(m);
-        parameter p(to_symbol(name));
-        sort * s = m.mk_sort(adt_util.get_family_id(), DATATYPE_SORT, 1, &p);
+        vector<parameter> ps;
+        ps.push_back(parameter(to_symbol(name)));
+        for (unsigned i = 0; i < num_params; ++i) {
+            ps.push_back(parameter(to_sort(params[i])));
+        }
+        sort * s = m.mk_sort(adt_util.get_family_id(), DATATYPE_SORT, ps.size(), ps.data());
         mk_c(c)->save_ast_trail(s);
         RETURN_Z3(of_sort(s));
         Z3_CATCH_RETURN(nullptr);

@@ -389,6 +389,54 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Create a forward reference to a datatype sort.
+     * This is useful for creating recursive datatypes or parametric datatypes.
+     * @param name name of the datatype sort
+     * @param params optional array of sort parameters for parametric datatypes
+     **/
+    public <R> DatatypeSort<R> mkDatatypeSortRef(Symbol name, Sort[] params)
+    {
+        checkContextMatch(name);
+        if (params != null)
+            checkContextMatch(params);
+        
+        int numParams = (params == null) ? 0 : params.length;
+        long[] paramsNative = (params == null) ? new long[0] : AST.arrayToNative(params);
+        return new DatatypeSort<>(this, Native.mkDatatypeSort(nCtx(), name.getNativeObject(), numParams, paramsNative));
+    }
+
+    /**
+     * Create a forward reference to a datatype sort (non-parametric).
+     * This is useful for creating recursive datatypes.
+     * @param name name of the datatype sort
+     **/
+    public <R> DatatypeSort<R> mkDatatypeSortRef(Symbol name)
+    {
+        return mkDatatypeSortRef(name, null);
+    }
+
+    /**
+     * Create a forward reference to a datatype sort.
+     * This is useful for creating recursive datatypes or parametric datatypes.
+     * @param name name of the datatype sort
+     * @param params optional array of sort parameters for parametric datatypes
+     **/
+    public <R> DatatypeSort<R> mkDatatypeSortRef(String name, Sort[] params)
+    {
+        return mkDatatypeSortRef(mkSymbol(name), params);
+    }
+
+    /**
+     * Create a forward reference to a datatype sort (non-parametric).
+     * This is useful for creating recursive datatypes.
+     * @param name name of the datatype sort
+     **/
+    public <R> DatatypeSort<R> mkDatatypeSortRef(String name)
+    {
+        return mkDatatypeSortRef(name, null);
+    }
+
+    /**
      * Create mutually recursive datatypes. 
      * @param names names of datatype sorts 
      * @param c list of constructors, one list per sort.

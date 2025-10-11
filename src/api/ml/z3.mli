@@ -1087,6 +1087,12 @@ sig
   (* [mk_sort_ref_s ctx s] is [mk_sort_ref ctx (Symbol.mk_string ctx s)] *)
   val mk_sort_ref_s : context -> string -> Sort.sort
 
+  (** Create a forward reference to a parametric datatype sort. *)
+  val mk_sort_ref_p : context -> Symbol.symbol -> Sort.sort list -> Sort.sort
+
+  (** Create a forward reference to a parametric datatype sort. *)
+  val mk_sort_ref_ps : context -> string -> Sort.sort list -> Sort.sort
+
   (** Create a new datatype sort. *)
   val mk_sort : context -> Symbol.symbol -> Constructor.constructor list -> Sort.sort
 
