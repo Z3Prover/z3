@@ -173,8 +173,7 @@ namespace search_tree {
                 return;
             node<Config> *p = n->parent();
           if (p && any_of(C, [n](auto const& l) {
-                return l == n->get_literal(); }
-        })) {
+                return l == n->get_literal(); })) {
             close_with_core(p, C);
             return;
         }
