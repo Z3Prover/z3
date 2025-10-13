@@ -231,7 +231,7 @@ namespace nlsat {
                 if (is_const(r)) continue;
                 TRACE(lws, tout << "resultant: "; ::nlsat::display(tout, m_solver, r); tout << std::endl;);
                 if (is_zero(r)) {
-                    NOT_IMPLEMENTED_YET();// ambiguous resultant - not handled yet
+                    m_fail = true;
                     return false;
                 }
                 for_each_distinct_factor(r, [&](const polynomial::polynomial_ref &f) {
@@ -612,10 +612,9 @@ namespace nlsat {
         // an_sub(R) iff R is an analitical manifold
         // Rule 4.7
         void apply_pre_an_sub(const property& p) {
-            if (m_level > 0) {
-                mk_prop(prop_enum::repr, level_t(m_level)) ;
+            mk_prop(prop_enum::repr, level_t(m_level)) ;
+            if (m_level > 0) 
                 mk_prop(prop_enum::an_sub, level_t(m_level -1));
-            }  
             // if level == 0 then an_sub holds - bcs an empty set is an analytical submanifold 
         }
 
@@ -846,6 +845,7 @@ or
             init_properties(); // initializes m_Q as a queue of properties on levels <= m_n
             SASSERT(m_E.size() == 0);
             apply_property_rules(prop_enum::_count); // reduce the level from m_n to m_n - 1 to be consumed by construct_interval
+            SASSERT(m_Q[m_n].size() == 0);
             SASSERT(m_level == m_n); 
             do {  // m_level changes from m_n - 1 to 0
                 m_level--;
