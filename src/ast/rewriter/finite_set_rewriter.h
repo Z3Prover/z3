@@ -6,8 +6,8 @@ Module Name:
     finite_set_rewriter.h
 
 Abstract:
-    Rewriting Simplification for finite sets
 
+    Rewriting Simplification for finite sets
 
 Sample rewrite rules:
     set.union s set.empty -> s
@@ -17,6 +17,7 @@ Sample rewrite rules:
     set.union(x, x) -> x
     set.intersect(x, x) -> x
     set.difference(x, x) -> set.empty
+
 
 Generally this module implements basic algebraic simplification rules for finite sets
 where the signature is defined in finite_set_decl_plugin.h.
@@ -50,3 +51,4 @@ public:
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     
 };
+
