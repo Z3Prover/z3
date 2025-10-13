@@ -32,6 +32,7 @@ Notes:
 #include "ast/pb_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
 #include "ast/special_relations_decl_plugin.h"
+#include "ast/finite_set_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/pp.h"
 #include "ast/ast_smt2_pp.h"
@@ -829,6 +830,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
         register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
         register_plugin(symbol("specrels"), alloc(special_relations_decl_plugin), !has_logic());
+        register_plugin(symbol("finite_set"), alloc(finite_set_decl_plugin), !has_logic());
     }
     else {
         // the manager was created by an external module
@@ -845,6 +847,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
         load_plugin(symbol("pb"),       logic_has_pb(), fids);
+        load_plugin(symbol("finite_set"), !has_logic(), fids);
 
         for (family_id fid : fids) {
             decl_plugin * p = m_manager->get_plugin(fid);
