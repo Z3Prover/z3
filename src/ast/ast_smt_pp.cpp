@@ -304,7 +304,6 @@ class smt_printer {
 
     void visit_sort(sort* s, bool bool2int = false) {
         symbol sym;
-        verbose_stream() << "visit sort " << s->get_name() << "\n";
         if (s->is_sort_of(m_bv_fid, BV_SORT)) {
             sym = symbol("BitVec");
         }
