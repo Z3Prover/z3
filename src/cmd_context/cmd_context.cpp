@@ -533,6 +533,7 @@ protected:
     fpa_util      m_futil;
     seq_util      m_sutil;
     datatype_util m_dtutil;
+    finite_set_util m_fsutil;
 
     datalog::dl_decl_util m_dlutil;
 
@@ -554,7 +555,8 @@ protected:
     }
 
 public:
-    pp_env(cmd_context & o):m_owner(o), m_autil(o.m()), m_bvutil(o.m()), m_arutil(o.m()), m_futil(o.m()), m_sutil(o.m()), m_dtutil(o.m()), m_dlutil(o.m()) {}
+    pp_env(cmd_context & o):m_owner(o), m_autil(o.m()), m_bvutil(o.m()), m_arutil(o.m()), m_futil(o.m()), 
+        m_sutil(o.m()), m_dtutil(o.m()), m_fsutil(o.m()), m_dlutil(o.m()) {}
     ast_manager & get_manager() const override { return m_owner.m(); }
     arith_util & get_autil() override { return m_autil; }
     bv_util & get_bvutil() override { return m_bvutil; }
@@ -562,6 +564,7 @@ public:
     fpa_util & get_futil() override { return m_futil; }
     seq_util & get_sutil() override { return m_sutil; }
     datatype_util & get_dtutil() override { return m_dtutil; }
+    finite_set_util &get_fsutil() override { return m_fsutil; }
 
     datalog::dl_decl_util& get_dlutil() override { return m_dlutil; }
     bool uses(symbol const & s) const override {

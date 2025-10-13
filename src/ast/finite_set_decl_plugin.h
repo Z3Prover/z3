@@ -99,6 +99,9 @@ public:
     bool is_value(app * e) const override;
 
     bool is_unique_value(app* e) const override;
+
+    bool are_distinct(app *e1, app *e2) const override;
+
 };
 
 class finite_set_recognizers {

@@ -21,6 +21,7 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/polymorphism_util.h"
+#include "ast/ast_pp.h"
 #include "util/warning.h"
 
 finite_set_decl_plugin::finite_set_decl_plugin():
@@ -108,9 +109,10 @@ sort * finite_set_decl_plugin::get_element_sort(sort* finite_set_sort) const {
     return to_sort(params[0].get_ast());
 }
 
-func_decl * finite_set_decl_plugin::mk_empty(sort* element_sort) {
-    parameter param(element_sort);
-    sort * finite_set_sort = m_manager->mk_sort(m_family_id, FINITE_SET_SORT, 1, &param);
+func_decl * finite_set_decl_plugin::mk_empty(sort* finite_set_sort) {
+    parameter param(finite_set_sort);
+    if (!is_finite_set(finite_set_sort)) 
+        m_manager->raise_exception("set.empty range must be a finite set sort");    
     sort * const * no_domain = nullptr;
     return m_manager->mk_func_decl(m_sigs[OP_FINITE_SET_EMPTY]->m_name, 0u, no_domain, finite_set_sort,
                                    func_decl_info(m_family_id, OP_FINITE_SET_EMPTY, 1, &param));
@@ -132,11 +134,14 @@ func_decl * finite_set_decl_plugin::mk_func_decl(decl_kind k, unsigned num_param
     
     switch (k) {
     case OP_FINITE_SET_EMPTY:
-        if (num_parameters != 1 || !parameters[0].is_ast() || !is_sort(parameters[0].get_ast())) {
-            m_manager->raise_exception("set.empty requires one sort parameter");
-            return nullptr;
-        }
-        return mk_empty(to_sort(parameters[0].get_ast()));
+        if (!range) {
+            if ((num_parameters != 1 || !parameters[0].is_ast() || !is_sort(parameters[0].get_ast()))) {
+                m_manager->raise_exception("set.empty requires one sort parameter");
+                return nullptr;
+            }
+            range = to_sort(parameters[0].get_ast());
+        }        
+        return mk_empty(range);
     case OP_FINITE_SET_SINGLETON:
     case OP_FINITE_SET_UNION:
     case OP_FINITE_SET_INTERSECT:
@@ -182,11 +187,24 @@ bool finite_set_decl_plugin::is_fully_interp(sort * s) const {
 }
 
 bool finite_set_decl_plugin::is_value(app * e) const {
-    // Empty set is a value
-    return is_app_of(e, m_family_id, OP_FINITE_SET_EMPTY);
+    return is_unique_value(e);
 }
 
 bool finite_set_decl_plugin::is_unique_value(app* e) const {
-    // Empty set is a unique value for its sort
-    return is_value(e);
+    // Empty set is a value
+    return is_app_of(e, m_family_id, OP_FINITE_SET_EMPTY) ||
+           (is_app_of(e, m_family_id, OP_FINITE_SET_SINGLETON) && is_unique_value(to_app(e->get_arg(0))));
+}
+
+bool finite_set_decl_plugin::are_distinct(app* e1, app* e2) const {
+    if (is_unique_value(e1) && is_unique_value(e2))
+        return e1 != e2;
+    finite_set_recognizers r(get_family_id());   
+    if (r.is_empty(e1) && r.is_singleton(e2))
+        return true;
+    if (r.is_singleton(e1) && r.is_empty(e2))
+        return true;
+    // TODO: could be extended to cases where we can prove the sets are different by containing one element
+    // that the other doesn't contain. Such as (union (singleton a) (singleton b)) and (singleton c) where c is different from a, b.
+    return false;
 }
