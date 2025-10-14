@@ -830,7 +830,7 @@ public:
 
     bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r) override {
         switch (f->get_decl_kind()) {
-        case OP_SET_UNION:
+        case OP_FINITE_SET_UNION:
             // x union y -> fresh
             // x := fresh, y := empty
             if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
