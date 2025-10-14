@@ -21,6 +21,7 @@ Revision History:
 #include "ast/ast.h"
 #include "ast/finite_set_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/rewriter/finite_set_axioms.h"
 
 // a ~ set.empty => not (x in a)
@@ -208,9 +209,9 @@ void finite_set_axioms::in_map_image_axiom(expr *x, expr *a) {
     
     expr_ref x_in_b(u.mk_in(x, b), m);
     
-    // Apply function f to x
-    app* f_app = to_app(f);
-    expr_ref fx(m.mk_app(f_app->get_decl(), x), m);
+    // Apply function f to x using array select
+    array_util autil(m);
+    expr_ref fx(autil.mk_select(f, x), m);
     expr_ref fx_in_a(u.mk_in(fx, a), m);
     
     // (x in b) => f(x) in a
@@ -230,9 +231,9 @@ void finite_set_axioms::in_select_axiom(expr *x, expr *a) {
     expr_ref x_in_a(u.mk_in(x, a), m);
     expr_ref x_in_b(u.mk_in(x, b), m);
     
-    // Apply predicate p to x
-    app* p_app = to_app(p);
-    expr_ref px(m.mk_app(p_app->get_decl(), x), m);
+    // Apply predicate p to x using array select
+    array_util autil(m);
+    expr_ref px(autil.mk_select(p, x), m);
     
     // (x in a) => (x in b)
     expr_ref_vector clause1(m);
