@@ -63,10 +63,15 @@ br_status finite_set_rewriter::mk_intersect(unsigned num_args, expr * const * ar
 
 br_status finite_set_rewriter::mk_difference(expr * arg1, expr * arg2, expr_ref & result) {
     // set.difference(x, x) -> set.empty
-    // Note: This simplification is currently disabled due to issues with mk_empty
-    // in finite_set_decl_plugin. The mk_empty utility function expects an element_sort
-    // but the plugin's mk_empty expects a finite_set_sort, causing conflicts.
-    // TODO: Re-enable once finite_set_decl_plugin is fixed
+    if (arg1 == arg2) {
+        // Get the set sort directly from the argument
+        sort* set_sort = arg1->get_sort();
+        SASSERT(m_util.is_finite_set(set_sort));
+        
+        // Call mk_empty with set_sort directly as suggested
+        result = m_util.mk_empty(set_sort);
+        return BR_DONE;
+    }
     
     return BR_FAILED;
 }

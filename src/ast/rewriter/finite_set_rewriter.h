@@ -16,7 +16,7 @@ Sample rewrite rules:
     set.subset(x,y) -> set.intersect(x,y) = x
     set.union(x, x) -> x
     set.intersect(x, x) -> x
-    set.difference(x, x) -> set.empty (currently disabled due to mk_empty issues)
+    set.difference(x, x) -> set.empty
 
 Generally this module implements basic algebraic simplification rules for finite sets
 where the signature is defined in finite_set_decl_plugin.h.
