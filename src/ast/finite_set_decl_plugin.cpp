@@ -139,7 +139,10 @@ func_decl * finite_set_decl_plugin::mk_func_decl(decl_kind k, unsigned num_param
                 m_manager->raise_exception("set.empty requires one sort parameter");
                 return nullptr;
             }
-            range = to_sort(parameters[0].get_ast());
+            sort* element_sort = to_sort(parameters[0].get_ast());
+            // Create finite_set_sort from element_sort
+            parameter set_param(element_sort);
+            range = m_manager->mk_sort(m_family_id, FINITE_SET_SORT, 1, &set_param);
         }        
         return mk_empty(range);
     case OP_FINITE_SET_SINGLETON:

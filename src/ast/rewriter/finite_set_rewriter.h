@@ -26,6 +26,7 @@ where the signature is defined in finite_set_decl_plugin.h.
 
 #include "ast/finite_set_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
+#include "util/params.h"
 
 /**
    \brief Cheap rewrite rules for finite sets
