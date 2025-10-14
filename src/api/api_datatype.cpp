@@ -323,21 +323,6 @@ extern "C" {
                 params.push_back(to_sort(parameters[i]));
             }
         }
-        else {
-            // Otherwise, collect type variables from field sorts in order of first appearance
-            obj_hashtable<sort> seen;
-            for (unsigned i = 0; i < num_constructors; ++i) {
-                constructor* cn = reinterpret_cast<constructor*>(constructors[i]);
-                for (unsigned j = 0; j < cn->m_sorts.size(); ++j) {
-                    if (cn->m_sorts[j].get() && m.is_type_var(cn->m_sorts[j].get())) {
-                        if (!seen.contains(cn->m_sorts[j].get())) {
-                            params.push_back(cn->m_sorts[j].get());
-                            seen.insert(cn->m_sorts[j].get());
-                        }
-                    }
-                }
-            }
-        }
         
         ptr_vector<constructor_decl> constrs;
         for (unsigned i = 0; i < num_constructors; ++i) {
