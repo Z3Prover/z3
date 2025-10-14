@@ -828,16 +828,28 @@ class finite_set_inverter : public iexpr_inverter {
 public:
     finite_set_inverter(ast_manager& m): iexpr_inverter(m), fs(m) {}
 
+    family_id get_fid() const override { return fs.get_family_id(); }
+
     bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r) override {
         switch (f->get_decl_kind()) {
         case OP_FINITE_SET_UNION:
-            // x union y -> fresh
-            // x := fresh, y := empty
+            // x union y -> x
+            // y := x
             if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
-                mk_fresh_uncnstr_var_for(f, r);
+                r = args[0];
                 if (m_mc) {
-                    add_def(args[0], r);
-                    add_def(args[1], fs.mk_empty(args[1]->get_sort()));
+                    add_def(args[1], r);
+                }
+                return true;
+            }
+            return false;
+        case OP_FINITE_SET_INTERSECT:
+            // x intersect y -> x
+            // y := x
+            if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
+                r = args[0];
+                if (m_mc) {
+                    add_def(args[1], r);
                 }
                 return true;
             }
@@ -1001,6 +1013,7 @@ expr_inverter::expr_inverter(ast_manager& m): iexpr_inverter(m) {
     add(alloc(basic_expr_inverter, m, *this));
     add(alloc(seq_expr_inverter, m));
     //add(alloc(pb_expr_inverter, m));
+    add(alloc(finite_set_inverter, m));
 }
 
 
