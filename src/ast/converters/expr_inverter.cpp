@@ -637,16 +637,6 @@ public:
                 return true;
             }
             return false;
-        case OP_SET_COMPLEMENT:
-            // complement(x) -> fresh
-            // x := complement(fresh)
-            if (num == 1 && uncnstr(args[0])) {
-                mk_fresh_uncnstr_var_for(f, r);
-                if (m_mc)
-                    add_def(args[0], m.mk_app(a.get_family_id(), OP_SET_COMPLEMENT, r.get()));
-                return true;
-            }
-            return false;
         default:
             return false;
         }
