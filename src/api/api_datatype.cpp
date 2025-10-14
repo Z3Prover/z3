@@ -317,12 +317,12 @@ extern "C" {
         
         sort_ref_vector params(m);
         
-        // If parameters are provided explicitly, use them
-        if (num_parameters > 0 && parameters) {
-            for (unsigned i = 0; i < num_parameters; ++i) {
+        // A correct use of the API is to always provide parameters explicitly.
+        // implicit parameters through polymorphic type variables does not work
+        // because the order of polymorphic variables in the parameters is ambiguous.
+        if (num_parameters > 0 && parameters) 
+            for (unsigned i = 0; i < num_parameters; ++i) 
                 params.push_back(to_sort(parameters[i]));
-            }
-        }
         
         ptr_vector<constructor_decl> constrs;
         for (unsigned i = 0; i < num_constructors; ++i) {
