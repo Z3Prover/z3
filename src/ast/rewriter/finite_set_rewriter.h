@@ -39,6 +39,8 @@ class finite_set_rewriter {
     br_status mk_intersect(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_difference(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_subset(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_singleton(expr * arg, expr_ref & result);
+    br_status mk_in(expr * elem, expr * set, expr_ref & result);
 public:
     finite_set_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m) {
