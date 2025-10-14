@@ -637,6 +637,56 @@ public:
                 return true;
             }
             return false;
+        case OP_SET_UNION:
+            // x union y -> fresh
+            // x := fresh, y := empty
+            if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
+                mk_fresh_uncnstr_var_for(f, r);
+                if (m_mc) {
+                    add_def(args[0], r);
+                    add_def(args[1], a.mk_empty_set(args[1]->get_sort()));
+                }
+                return true;
+            }
+            return false;
+        case OP_SET_INTERSECT:
+            // x intersect y -> fresh
+            // x := if fresh = empty then empty else y
+            // This handles the case where x = intersect(x, y)
+            if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
+                mk_fresh_uncnstr_var_for(f, r);
+                if (m_mc) {
+                    sort* s = args[0]->get_sort();
+                    expr_ref empty_set(a.mk_empty_set(s), m);
+                    expr_ref is_empty(m.mk_eq(r, empty_set), m);
+                    add_def(args[0], m.mk_ite(is_empty, empty_set, args[1]));
+                    add_def(args[1], r);
+                }
+                return true;
+            }
+            return false;
+        case OP_SET_DIFFERENCE:
+            // x difference y -> fresh
+            // x := fresh union y, y := empty
+            if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
+                mk_fresh_uncnstr_var_for(f, r);
+                if (m_mc) {
+                    add_def(args[0], a.mk_union(r, args[1]));
+                    add_def(args[1], a.mk_empty_set(args[1]->get_sort()));
+                }
+                return true;
+            }
+            return false;
+        case OP_SET_COMPLEMENT:
+            // complement(x) -> fresh
+            // x := complement(fresh)
+            if (num == 1 && uncnstr(args[0])) {
+                mk_fresh_uncnstr_var_for(f, r);
+                if (m_mc)
+                    add_def(args[0], m.mk_app(a.get_family_id(), OP_SET_COMPLEMENT, r.get()));
+                return true;
+            }
+            return false;
         default:
             return false;
         }
