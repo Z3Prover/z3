@@ -54,7 +54,7 @@ class finite_set_decl_plugin : public decl_plugin {
     bool                             m_init;
 
     void init();
-    func_decl * mk_empty(sort* element_sort);
+    func_decl * mk_empty(sort* set_sort);
     func_decl * mk_finite_set_op(decl_kind k, unsigned arity, sort * const * domain, sort* range);
     sort * get_element_sort(sort* finite_set_sort) const;
     bool is_finite_set(sort* s) const;
@@ -144,8 +144,8 @@ public:
     
     ast_manager& get_manager() const { return m_manager; }
 
-    app * mk_empty(sort* element_sort) {
-        parameter param(element_sort);
+    app * mk_empty(sort* set_sort) {
+        parameter param(set_sort);
         return m_manager.mk_app(m_fid, OP_FINITE_SET_EMPTY, 1, &param, 0, nullptr);
     }
 
