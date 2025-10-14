@@ -637,46 +637,6 @@ public:
                 return true;
             }
             return false;
-        case OP_SET_UNION:
-            // x union y -> fresh
-            // x := fresh, y := empty
-            if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
-                mk_fresh_uncnstr_var_for(f, r);
-                if (m_mc) {
-                    add_def(args[0], r);
-                    add_def(args[1], a.mk_empty_set(args[1]->get_sort()));
-                }
-                return true;
-            }
-            return false;
-        case OP_SET_INTERSECT:
-            // x intersect y -> fresh
-            // x := if fresh = empty then empty else y
-            // This handles the case where x = intersect(x, y)
-            if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
-                mk_fresh_uncnstr_var_for(f, r);
-                if (m_mc) {
-                    sort* s = args[0]->get_sort();
-                    expr_ref empty_set(a.mk_empty_set(s), m);
-                    expr_ref is_empty(m.mk_eq(r, empty_set), m);
-                    add_def(args[0], m.mk_ite(is_empty, empty_set, args[1]));
-                    add_def(args[1], r);
-                }
-                return true;
-            }
-            return false;
-        case OP_SET_DIFFERENCE:
-            // x difference y -> fresh
-            // x := fresh union y, y := empty
-            if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
-                mk_fresh_uncnstr_var_for(f, r);
-                if (m_mc) {
-                    add_def(args[0], a.mk_union(r, args[1]));
-                    add_def(args[1], a.mk_empty_set(args[1]->get_sort()));
-                }
-                return true;
-            }
-            return false;
         case OP_SET_COMPLEMENT:
             // complement(x) -> fresh
             // x := complement(fresh)
@@ -873,6 +833,35 @@ public:
 };
 #endif
 
+class finite_set_inverter : public iexpr_inverter {
+    finite_set_util fs;
+public:
+    finite_set_inverter(ast_manager& m): iexpr_inverter(m), fs(m) {}
+
+    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r) override {
+        switch (f->get_decl_kind()) {
+        case OP_SET_UNION:
+            // x union y -> fresh
+            // x := fresh, y := empty
+            if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
+                mk_fresh_uncnstr_var_for(f, r);
+                if (m_mc) {
+                    add_def(args[0], r);
+                    add_def(args[1], fs.mk_empty_set(args[1]->get_sort()));
+                }
+                return true;
+            }
+            return false;
+        default:
+            break;
+        }
+        return false;
+    }
+    
+    bool mk_diff(expr* t, expr_ref& r) override {
+        return false;
+    }
+};
 
 class seq_expr_inverter : public iexpr_inverter {
     seq_util seq;
