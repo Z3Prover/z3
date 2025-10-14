@@ -24,11 +24,15 @@ Revision History:
 #include "ast/rewriter/finite_set_axioms.h"
 
 // a ~ set.empty => not (x in a)
+// x is an element, generate axiom that x is not in any empty set of x's type
 void finite_set_axioms::in_empty_axiom(expr *x) {
-    expr_ref_vector clause(m);
-    sort* s = x->get_sort();
-    expr_ref empty_set(u.mk_empty(s), m);
+    // Generate: not (x in empty_set)
+    // where empty_set is the empty set of x's type
+    sort* elem_sort = x->get_sort();
+    expr_ref empty_set(u.mk_empty(elem_sort), m);
     expr_ref x_in_empty(u.mk_in(x, empty_set), m);
+    
+    expr_ref_vector clause(m);
     clause.push_back(m.mk_not(x_in_empty));
     m_add_clause(clause);
 }
