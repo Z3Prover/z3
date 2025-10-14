@@ -837,7 +837,7 @@ public:
                 mk_fresh_uncnstr_var_for(f, r);
                 if (m_mc) {
                     add_def(args[0], r);
-                    add_def(args[1], fs.mk_empty_set(args[1]->get_sort()));
+                    add_def(args[1], fs.mk_empty(args[1]->get_sort()));
                 }
                 return true;
             }
