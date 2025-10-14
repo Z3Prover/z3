@@ -22,6 +22,8 @@ z3_add_component(rewriter
     expr_safe_replace.cpp
     factor_equivs.cpp
     factor_rewriter.cpp
+    finite_set_axioms.cpp
+    finite_set_rewriter.cpp
     fpa_rewriter.cpp
     func_decl_replace.cpp
     inj_axiom.cpp
