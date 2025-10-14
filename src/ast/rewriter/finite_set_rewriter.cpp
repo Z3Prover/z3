@@ -176,23 +176,23 @@ br_status finite_set_rewriter::mk_singleton(expr * arg, expr_ref & result) {
 }
 
 br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result) {
-    // set.in(x, singleton(y)) -> x = y
-    expr* singleton_elem;
-    if (m_util.is_singleton(set, singleton_elem)) {
-        result = m().mk_eq(elem, singleton_elem);
-        return BR_REWRITE1;
-    }
-    
     // set.in(x, empty) -> false
     if (m_util.is_empty(set)) {
         result = m().mk_false();
         return BR_DONE;
     }
     
-    // set.in(x, singleton(x)) -> true (when x is the same)
-    if (m_util.is_singleton(set, singleton_elem) && elem == singleton_elem) {
-        result = m().mk_true();
-        return BR_DONE;
+    // set.in(x, singleton(y)) checks
+    expr* singleton_elem;
+    if (m_util.is_singleton(set, singleton_elem)) {
+        // set.in(x, singleton(x)) -> true (when x is the same)
+        if (elem == singleton_elem) {
+            result = m().mk_true();
+            return BR_DONE;
+        }
+        // set.in(x, singleton(y)) -> x = y (when x != y)
+        result = m().mk_eq(elem, singleton_elem);
+        return BR_REWRITE1;
     }
     
     return BR_FAILED;
