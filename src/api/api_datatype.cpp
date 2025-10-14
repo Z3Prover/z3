@@ -306,23 +306,34 @@ extern "C" {
         Z3_CATCH;
     }
 
-    static datatype_decl* mk_datatype_decl(Z3_context c,
-                                           Z3_symbol name,
-                                           unsigned num_constructors,
-                                           Z3_constructor constructors[]) {
+    static datatype_decl* api_datatype_decl(Z3_context c,
+                                            Z3_symbol name,
+                                            unsigned num_parameters,
+                                            Z3_sort const parameters[],
+                                            unsigned num_constructors,
+                                            Z3_constructor constructors[]) {
         datatype_util& dt_util = mk_c(c)->dtutil();
         ast_manager& m = mk_c(c)->m();
         
-        // Collect type variables from field sorts in order of first appearance
         sort_ref_vector params(m);
-        obj_hashtable<sort> seen;
-        for (unsigned i = 0; i < num_constructors; ++i) {
-            constructor* cn = reinterpret_cast<constructor*>(constructors[i]);
-            for (unsigned j = 0; j < cn->m_sorts.size(); ++j) {
-                if (cn->m_sorts[j].get() && m.is_type_var(cn->m_sorts[j].get())) {
-                    if (!seen.contains(cn->m_sorts[j].get())) {
-                        params.push_back(cn->m_sorts[j].get());
-                        seen.insert(cn->m_sorts[j].get());
+        
+        // If parameters are provided explicitly, use them
+        if (num_parameters > 0 && parameters) {
+            for (unsigned i = 0; i < num_parameters; ++i) {
+                params.push_back(to_sort(parameters[i]));
+            }
+        }
+        else {
+            // Otherwise, collect type variables from field sorts in order of first appearance
+            obj_hashtable<sort> seen;
+            for (unsigned i = 0; i < num_constructors; ++i) {
+                constructor* cn = reinterpret_cast<constructor*>(constructors[i]);
+                for (unsigned j = 0; j < cn->m_sorts.size(); ++j) {
+                    if (cn->m_sorts[j].get() && m.is_type_var(cn->m_sorts[j].get())) {
+                        if (!seen.contains(cn->m_sorts[j].get())) {
+                            params.push_back(cn->m_sorts[j].get());
+                            seen.insert(cn->m_sorts[j].get());
+                        }
                     }
                 }
             }
@@ -357,7 +368,7 @@ extern "C" {
 
         sort_ref_vector sorts(m);
         {
-            datatype_decl * data = mk_datatype_decl(c, name, num_constructors, constructors);
+            datatype_decl * data = api_datatype_decl(c, name, 0, nullptr, num_constructors, constructors);
             bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &data, 0, nullptr, sorts);
             del_datatype_decl(data);
 
@@ -376,6 +387,42 @@ extern "C" {
             cn->m_constructor = cnstrs[i];
         }
         RETURN_Z3_mk_datatype(of_sort(s));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_sort Z3_API Z3_mk_polymorphic_datatype(Z3_context c,
+                                              Z3_symbol name,
+                                              unsigned num_parameters,
+                                              Z3_sort parameters[],
+                                              unsigned num_constructors,
+                                              Z3_constructor constructors[]) {
+        Z3_TRY;
+        LOG_Z3_mk_polymorphic_datatype(c, name, num_parameters, parameters, num_constructors, constructors);
+        RESET_ERROR_CODE();
+        ast_manager& m = mk_c(c)->m();
+        datatype_util data_util(m);
+
+        sort_ref_vector sorts(m);
+        {
+            datatype_decl * data = api_datatype_decl(c, name, num_parameters, parameters, num_constructors, constructors);
+            bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &data, 0, nullptr, sorts);
+            del_datatype_decl(data);
+
+            if (!is_ok) {
+                SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+                RETURN_Z3(nullptr);
+            }
+        }
+        sort * s = sorts.get(0);
+
+        mk_c(c)->save_ast_trail(s);
+        ptr_vector<func_decl> const& cnstrs = *data_util.get_datatype_constructors(s);
+
+        for (unsigned i = 0; i < num_constructors; ++i) {
+            constructor* cn = reinterpret_cast<constructor*>(constructors[i]);
+            cn->m_constructor = cnstrs[i];
+        }
+        RETURN_Z3_mk_polymorphic_datatype(of_sort(s));
         Z3_CATCH_RETURN(nullptr);
     }
 
@@ -436,7 +483,7 @@ extern "C" {
         ptr_vector<datatype_decl> datas;
         for (unsigned i = 0; i < num_sorts; ++i) {
             constructor_list* cl = reinterpret_cast<constructor_list*>(constructor_lists[i]);
-            datas.push_back(mk_datatype_decl(c, sort_names[i], cl->size(), reinterpret_cast<Z3_constructor*>(cl->data())));
+            datas.push_back(api_datatype_decl(c, sort_names[i], 0, nullptr, cl->size(), reinterpret_cast<Z3_constructor*>(cl->data())));
         }
         sort_ref_vector _sorts(m);
         bool ok = mk_c(c)->get_dt_plugin()->mk_datatypes(datas.size(), datas.data(), 0, nullptr, _sorts);
