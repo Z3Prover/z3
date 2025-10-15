@@ -12,7 +12,7 @@ Abstract:
 --*/
 #include "model/finite_set_value_factory.h"
 #include "model/model_core.h"
-#include "ast/finite_set_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 
 finite_set_value_factory::finite_set_value_factory(ast_manager & m, family_id fid, model_core & md):
     struct_factory(m, fid, md),
@@ -25,9 +25,14 @@ expr * finite_set_value_factory::get_some_value(sort * s) {
     if (m_sort2value_set.find(s, set) && !set->empty()) 
         return *(set->begin());
 
-    expr * empty = m_util.mk_empty(s);
-    register_value(empty);
-    return empty;
+    // For sets, return an empty set
+    if (m_util.is_array(s)) {
+        expr * empty = m_util.mk_empty_set(s);
+        register_value(empty);
+        return empty;
+    }
+
+    return nullptr;
 }
 
 expr * finite_set_value_factory::get_fresh_value(sort * s) {
@@ -37,7 +42,24 @@ expr * finite_set_value_factory::get_fresh_value(sort * s) {
     // If no values have been generated yet, use get_some_value
     if (set->empty()) 
         return get_some_value(s);
-    // TODO: finite_set singleton with fresh values
+
+    // For sets represented as arrays
+    if (m_util.is_array(s)) {
+        // Get the element sort (domain of the array)
+        sort * elem_sort = get_array_domain(s, 0);
+        
+        // Try to get a fresh value from the element domain
+        expr * fresh_elem = m_model.get_fresh_value(elem_sort);
+        if (fresh_elem != nullptr) {
+            // Create a singleton set with the fresh element
+            // Start with an empty set and add the element
+            expr * empty = m_util.mk_empty_set(s);
+            expr * args[3] = { empty, fresh_elem, m_manager.mk_true() };
+            expr * singleton = m_util.mk_store(3, args);
+            register_value(singleton);
+            return singleton;
+        }
+    }
 
     // For finite domains, we may not be able to generate fresh values
     // if all values have been exhausted
