@@ -5474,10 +5474,30 @@ class DatatypeRef(ExprRef):
         """Return the datatype sort of the datatype expression `self`."""
         return DatatypeSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
 
-def DatatypeSort(name, ctx = None):
-    """Create a reference to a sort that was declared, or will be declared, as a recursive datatype"""
+def DatatypeSort(name, params=None, ctx=None):
+    """Create a reference to a sort that was declared, or will be declared, as a recursive datatype.
+    
+    Args:
+        name: name of the datatype sort
+        params: optional list/tuple of sort parameters for parametric datatypes
+        ctx: Z3 context (optional)
+    
+    Example:
+        >>> # Non-parametric datatype
+        >>> TreeRef = DatatypeSort('Tree')
+        >>> # Parametric datatype with one parameter
+        >>> ListIntRef = DatatypeSort('List', [IntSort()])
+        >>> # Parametric datatype with multiple parameters
+        >>> PairRef = DatatypeSort('Pair', [IntSort(), BoolSort()])
+    """
     ctx = _get_ctx(ctx)
-    return DatatypeSortRef(Z3_mk_datatype_sort(ctx.ref(), to_symbol(name, ctx)), ctx)
+    if params is None or len(params) == 0:
+        return DatatypeSortRef(Z3_mk_datatype_sort(ctx.ref(), to_symbol(name, ctx), 0, (Sort * 0)()), ctx)
+    else:
+        _params = (Sort * len(params))()
+        for i in range(len(params)):
+            _params[i] = params[i].ast
+        return DatatypeSortRef(Z3_mk_datatype_sort(ctx.ref(), to_symbol(name, ctx), len(params), _params), ctx)
 
 def TupleSort(name, sorts, ctx=None):
     """Create a named tuple sort base on a set of underlying sorts
