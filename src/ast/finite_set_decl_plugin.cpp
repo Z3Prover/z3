@@ -204,6 +204,13 @@ bool finite_set_decl_plugin::are_distinct(app* e1, app* e2) const {
         return true;
     if (r.is_singleton(e1) && r.is_empty(e2))
         return true;
+    if(r.is_union(e1) && r.is_empty(e2))
+        return true;
+    if(r.is_empty(e1) && r.is_union(e2))
+        return true;
+    if(r.is_singleton(e1) && r.is_singleton(e2))
+        return e1 != e2;
+    
     // TODO: could be extended to cases where we can prove the sets are different by containing one element
     // that the other doesn't contain. Such as (union (singleton a) (singleton b)) and (singleton c) where c is different from a, b.
     return false;
