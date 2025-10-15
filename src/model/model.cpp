@@ -26,7 +26,6 @@ Revision History:
 #include "ast/array_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
-#include "ast/dl_decl_plugin.h"
 #include "ast/well_sorted.h"
 #include "ast/used_symbols.h"
 #include "ast/for_each_expr.h"
@@ -106,7 +105,6 @@ value_factory* model::get_factory(sort* s) {
     if (m_factories.plugins().empty()) {
         seq_util su(m);
         fpa_util fu(m);
-        datalog::dl_decl_plugin dl_plugin;
         m_factories.register_plugin(alloc(basic_factory, m, 0));
         m_factories.register_plugin(alloc(array_factory, m, *this));
         m_factories.register_plugin(alloc(datatype_factory, m, *this));
