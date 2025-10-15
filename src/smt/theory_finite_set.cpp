@@ -43,14 +43,14 @@ namespace smt {
 
         internalize_term(atom);
         
-        // Track membership atoms (set.in)
+        // Track membership elements (set.in)
         expr* elem = nullptr, *set = nullptr;
         if (u.is_in(atom, elem, set)) {
-            auto n = get_enode(elem);
-            if (m_elements.contains(n))
-                continue;
-            m_elements.insert(n);
-            ctx.trail().push(insert_obj_trail(n));
+            auto n = ctx.get_enode(elem);
+            if (!m_elements.contains(n)) {
+                m_elements.insert(n);
+                ctx.push_trail(insert_obj_trail(n));
+            }
         }
         
         return true;
