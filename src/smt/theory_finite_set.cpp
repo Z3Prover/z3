@@ -202,4 +202,8 @@ namespace smt {
         return nullptr;
     }
 
+    void theory_finite_set::instantiate_false_lemma() {}
+    void theory_finite_set::instantiate_unit_propagation() {}
+    void theory_finite_set::instantiate_free_lemma() {}
+
 }  // namespace smt
