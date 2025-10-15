@@ -40,33 +40,15 @@ namespace smt {
 
     bool theory_finite_set::internalize_atom(app * atom, bool gate_ctx) {
         TRACE("finite_set", tout << "internalize_atom: " << mk_pp(atom, m) << "\n";);
-        
-        // Internalize all arguments first
-        for (expr* arg : *atom) {
-            ctx.internalize(arg, false);
-        }
-        
-        // Create boolean variable for the atom
-        if (!ctx.b_internalized(atom)) {
-            bool_var bv = ctx.mk_bool_var(atom);
-            ctx.set_var_theory(bv, get_id());
-            ctx.mark_as_relevant(bv);
-        }
+
+        itnernalize_term(atom);
         
         // Track membership atoms (set.in)
-        if (u.is_in(atom)) {
-            m_membership_atoms.insert(atom);
-            expr* elem = atom->get_arg(0);
-            expr* set = atom->get_arg(1);
-            
-            // Map set to its elements
-            if (!m_set_to_elements.contains(set)) {
-                m_set_to_elements.insert(set, ptr_vector<expr>());
-            }
-            ptr_vector<expr>& elems = m_set_to_elements[set];
-            if (!elems.contains(elem)) {
-                elems.push_back(elem);
-            }
+        expr* elem = nullptr, *set = nullptr;
+        if (u.is_in(atom, elem, set)) {
+            // add elem to a list of elements if it not there already.
+            // ctx.trail().push(insert(m_elems, elem));
+            // ctx.trail().push(push_back_vector(m_elems));
         }
         
         return true;
@@ -76,24 +58,26 @@ namespace smt {
         TRACE("finite_set", tout << "internalize_term: " << mk_pp(term, m) << "\n";);
         
         // Internalize all arguments first
-        for (expr* arg : *term) {
+        for (expr* arg : *term) 
             ctx.internalize(arg, false);
+        
+        // Create boolean variable for Boolean terms
+        if (m.is_bool(term) && !ctx.b_internalized(term)) {
+            bool_var bv = ctx.mk_bool_var(term);
+            ctx.set_var_theory(bv, get_id());
         }
         
         // Create enode for the term if needed
         enode* e = nullptr;
-        if (ctx.e_internalized(term)) {
-            e = ctx.get_enode(term);
-        } else {
-            e = ctx.mk_enode(term, false, m.is_bool(term), true);
-        }
+        if (ctx.e_internalized(term)) 
+            e = ctx.get_enode(term);         
+        else 
+            e = ctx.mk_enode(term, false, m.is_bool(term), true);        
         
         // Attach theory variable if this is a set
-        if (u.is_finite_set(term) && !is_attached_to_var(e)) {
-            theory_var v = mk_var(e);
-            ctx.attach_th_var(e, this, v);
-        }
-        
+        if (!is_attached_to_var(e))             
+            ctx.attach_th_var(e, this, mk_var(e));
+                
         return true;
     }
 
@@ -111,28 +95,18 @@ namespace smt {
 
     final_check_status theory_finite_set::final_check_eh() {
         TRACE("finite_set", tout << "final_check_eh\n";);
-        
-        // Instantiate axioms for all membership atoms
-        for (expr* atom : m_membership_atoms) {
-            if (!u.is_in(atom))
-                continue;
-                
-            app* in_app = to_app(atom);
-            expr* elem = in_app->get_arg(0);
-            expr* set = in_app->get_arg(1);
-            
-            // Get the root of the set in the congruence closure
-            enode* set_node = ctx.get_enode(set);
-            if (!set_node)
-                continue;
-            enode* set_root = set_node->get_root();
-            expr* root_expr = set_root->get_expr();
-            
-            // Instantiate axioms based on the structure of the set
-            instantiate_axioms(elem, root_expr);
+
+        bool new_clause = false;
+        #if 0
+        for (auto elem : m_elements) {
+            // walk all parents of elem in congruence table.
+            // if a parent is of the form elem' in S u T, or similar.
+            // create clauses for elem = elem' => clause.
+            // if a new clause was added, return FC_CONTINUE
         }
+        #endif
         
-        return FC_DONE;
+        return new_clause ? FC_CONTINUE : FC_DONE;
     }
 
     void theory_finite_set::instantiate_axioms(expr* elem, expr* set) {
@@ -166,6 +140,7 @@ namespace smt {
         }
         
         // Instantiate size axioms for singleton sets
+        // TODO, such axioms don't belong here
         if (u.is_singleton(set)) {
             m_axioms.size_singleton_axiom(set);
         }
@@ -173,18 +148,12 @@ namespace smt {
 
     void theory_finite_set::add_clause(expr_ref_vector const& clause) {
         TRACE("finite_set", 
-            tout << "add_clause: ";
-            for (expr* e : clause) {
-                tout << mk_pp(e, m) << " ";
-            }
-            tout << "\n";
-        );
+            tout << "add_clause: " << clause << "\n");
         
         // Convert expressions to literals and assert the clause
         literal_vector lits;
         for (expr* e : clause) {
-            expr_ref lit_expr(e, m);
-            ctx.internalize(lit_expr, false);
+            ctx.internalize(e, false);
             literal lit = ctx.get_literal(lit_expr);
             lits.push_back(lit);
         }
@@ -201,8 +170,6 @@ namespace smt {
 
     void theory_finite_set::display(std::ostream & out) const {
         out << "theory_finite_set:\n";
-        out << "  membership_atoms: " << m_membership_atoms.size() << "\n";
-        out << "  sets tracked: " << m_set_to_elements.size() << "\n";
     }
 
     void theory_finite_set::init_model(model_generator & mg) {
