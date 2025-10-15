@@ -88,6 +88,7 @@ theory_finite_set.cpp.
 #include "ast/ast_pp.h"
 #include "ast/finite_set_decl_plugin.h"
 #include "ast/rewriter/finite_set_axioms.h"
+#include "util/obj_pair_hashtable.h"
 #include "smt/smt_theory.h"
 
 namespace smt {
@@ -97,6 +98,7 @@ namespace smt {
         finite_set_axioms         m_axioms;
         obj_hashtable<enode>      m_elements;             // set of all 'x' where there is an 'x in S' atom
         vector<expr_ref_vector>   m_lemmas;
+        obj_pair_hashtable<expr, expr> m_lemma_exprs;
         
     protected:
         // Override relevant methods from smt::theory
@@ -115,9 +117,11 @@ namespace smt {
         // Helper methods for axiom instantiation
         void instantiate_axioms(expr* elem, expr* set);
         void add_clause(expr_ref_vector const& clause);
+        void assert_clause(expr_ref_vector const &clause);
         bool instantiate_false_lemma();
         bool instantiate_unit_propagation();
         bool instantiate_free_lemma();
+        lbool truth_value(expr *e);
         
     public:
         theory_finite_set(context& ctx);

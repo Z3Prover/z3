@@ -33,13 +33,13 @@ namespace smt {
         // Setup the add_clause callback for axioms
         std::function<void(expr_ref_vector const &)> add_clause_fn = 
             [this](expr_ref_vector const& clause) {
-                this->m_lemmas.push_back(clause);
+                this->add_clause(clause);
             };
         m_axioms.set_add_clause(add_clause_fn);
     }
 
     bool theory_finite_set::internalize_atom(app * atom, bool gate_ctx) {
-        // TRACE(finite_set, tout << "internalize_atom: " << mk_pp(atom, m) << "\n";);
+        TRACE(finite_set, tout << "internalize_atom: " << mk_pp(atom, m) << "\n";);
 
         internalize_term(atom);
         
@@ -57,7 +57,7 @@ namespace smt {
     }
 
     bool theory_finite_set::internalize_term(app * term) {
-        // TRACE("finite_set", tout << "internalize_term: " << mk_pp(term, m) << "\n";);
+        TRACE(finite_set, tout << "internalize_term: " << mk_pp(term, m) << "\n";);
         
         // Internalize all arguments first
         for (expr* arg : *term) 
@@ -84,32 +84,35 @@ namespace smt {
     }
 
     void theory_finite_set::new_eq_eh(theory_var v1, theory_var v2) {
-        // TRACE("finite_set", tout << "new_eq_eh: v" << v1 << " = v" << v2 << "\n";);
+        TRACE(finite_set, tout << "new_eq_eh: v" << v1 << " = v" << v2 << "\n";);
         // When two sets are equal, propagate membership constraints
         // This is handled by congruence closure, so no additional work needed here
     }
 
     void theory_finite_set::new_diseq_eh(theory_var v1, theory_var v2) {
-        // TRACE("finite_set", tout << "new_diseq_eh: v" << v1 << " != v" << v2 << "\n";);
+        TRACE(finite_set, tout << "new_diseq_eh: v" << v1 << " != v" << v2 << "\n";);
         // Disequalities could trigger extensionality axioms
         // For now, we rely on the final_check to handle this
     }
 
     final_check_status theory_finite_set::final_check_eh() {
-        // TRACE("finite_set", tout << "final_check_eh\n";);
+        TRACE(finite_set, tout << "final_check_eh\n";);
 
         // walk all parents of elem in congruence table.
         // if a parent is of the form elem' in S u T, or similar.
         // create clauses for elem in S u T.
 
         expr* elem1 = nullptr, *set1 = nullptr;
-        m_lemmas.reset();
         for (auto elem : m_elements) {
+            if (!ctx.is_relevant(elem))
+                continue;
             for (auto p : enode::parents(elem)) {
                 if (!u.is_in(p->get_expr(), elem1, set1)) 
                     continue;
                 if (elem->get_root() != p->get_arg(0)->get_root())                    
                     continue; // elem is then equal to set1 but not elem1. This is a different case.
+                if (!ctx.is_relevant(p))
+                    continue;
                 for (auto sib : *p->get_arg(1))
                     instantiate_axioms(elem->get_expr(), sib->get_expr());
             }
@@ -125,8 +128,21 @@ namespace smt {
     }
 
     void theory_finite_set::instantiate_axioms(expr* elem, expr* set) {
-        // TRACE("finite_set", tout << "instantiate_axioms: " << mk_pp(elem, m) << " in " << mk_pp(set, m) << "\n";);
+        TRACE(finite_set, tout << "instantiate_axioms: " << mk_pp(elem, m) << " in " << mk_pp(set, m) << "\n";);
         
+        struct insert_obj_pair_table : public trail {
+            obj_pair_hashtable<expr, expr> &table;
+            expr *a, *b;
+            insert_obj_pair_table(obj_pair_hashtable<expr, expr> &t, expr *a, expr *b) : 
+                table(t), a(a), b(b) {}
+            void undo() override {
+                table.erase({a, b});
+            }
+        };
+        if (m_lemma_exprs.contains({elem, set}))
+            return;
+        m_lemma_exprs.insert({elem, set});
+        ctx.push_trail(insert_obj_pair_table(m_lemma_exprs, elem, set));
         // Instantiate appropriate axiom based on set structure
         if (u.is_empty(set)) {
             m_axioms.in_empty_axiom(elem);
@@ -162,21 +178,9 @@ namespace smt {
     }
 
     void theory_finite_set::add_clause(expr_ref_vector const& clause) {
-        //TRACE("finite_set", 
-        //    tout << "add_clause: " << clause << "\n");
-        
-        // Convert expressions to literals and assert the clause
-        literal_vector lits;
-        for (expr* e : clause) {
-            ctx.internalize(e, false);
-            literal lit = ctx.get_literal(e);
-            lits.push_back(lit);
-        }
-        
-        if (!lits.empty()) {
-            scoped_trace_stream _sts(*this, lits);
-            ctx.mk_th_axiom(get_id(), lits);
-        }
+        TRACE(finite_set, tout << "add_clause: " << clause << "\n");
+        ctx.push_trail(push_back_vector(m_lemmas));
+        m_lemmas.push_back(clause);        
     }
 
     theory * theory_finite_set::mk_fresh(context * new_ctx) {
@@ -188,13 +192,13 @@ namespace smt {
     }
 
     void theory_finite_set::init_model(model_generator & mg) {
-        // TRACE("finite_set", tout << "init_model\n";);
+        TRACE(finite_set, tout << "init_model\n";);
         // Model generation will use default interpretation for sets
         // The model will be constructed based on the membership literals that are true
     }
 
     model_value_proc * theory_finite_set::mk_value(enode * n, model_generator & mg) {
-        // TRACE("finite_set", tout << "mk_value: " << mk_pp(n->get_expr(), m) << "\n";);
+        TRACE(finite_set, tout << "mk_value: " << mk_pp(n->get_expr(), m) << "\n";);
         
         // For now, return nullptr to use default model construction
         // A complete implementation would construct explicit set values
@@ -203,16 +207,56 @@ namespace smt {
     }
 
     bool theory_finite_set::instantiate_false_lemma() {
-        // Implementation for instantiating false lemma
+        for (auto const& clause : m_lemmas) {
+            bool all_false = all_of(clause, [&](expr *e) { return ctx.find_assignment(e) == l_false; });
+            if (!all_false)
+                continue;
+            assert_clause(clause);
+            return true;
+        }
         return false;
     }
+
     bool theory_finite_set::instantiate_unit_propagation() {
-        // Implementation for instantiating unit propagation
+        for (auto const &clause : m_lemmas) {
+            expr *undef = nullptr;
+            bool is_unit_propagating = true;
+            for (auto e : clause) {
+                switch (ctx.find_assignment(e)) {
+                case l_false: continue;
+                case l_true: is_unit_propagating = false; break;
+                case l_undef:
+                    if (undef != nullptr) 
+                        is_unit_propagating = false;                    
+                    undef = e;
+                    break;
+                }
+                if (!is_unit_propagating)
+                    break;
+            }
+            if (!is_unit_propagating || undef == nullptr)
+                continue;      
+            assert_clause(clause);
+            return true;
+        }
         return false;
     }
+
     bool theory_finite_set::instantiate_free_lemma() {
-        // Implementation for instantiating free lemma
+        for (auto const& clause : m_lemmas) {
+            if (any_of(clause, [&](expr *e) { return ctx.find_assignment(e) == l_true; }))
+                continue;
+            assert_clause(clause);
+            return true;
+        }
         return false;
+    }
+
+    void theory_finite_set::assert_clause(expr_ref_vector const &clause) {
+        literal_vector lclause;
+        for (auto e : clause)
+            lclause.push_back(mk_literal(e));
+        ctx.mk_th_axiom(get_id(), lclause);
     }
 
 }  // namespace smt
