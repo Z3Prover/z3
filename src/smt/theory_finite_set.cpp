@@ -46,9 +46,11 @@ namespace smt {
         // Track membership atoms (set.in)
         expr* elem = nullptr, *set = nullptr;
         if (u.is_in(atom, elem, set)) {
-            // add elem to a list of elements if it not there already.
-            // ctx.trail().push(insert(m_elems, elem));
-            // ctx.trail().push(push_back_vector(m_elems));
+            auto n = get_enode(elem);
+            if (m_elements.contains(n))
+                continue;
+            m_elements.insert(n);
+            ctx.trail().push(insert_obj_trail(n));
         }
         
         return true;
@@ -97,14 +99,15 @@ namespace smt {
         TRACE("finite_set", tout << "final_check_eh\n";);
 
         bool new_clause = false;
-        #if 0
         for (auto elem : m_elements) {
+            for (auto p : enode::parents(elem)) {
+
+            }
             // walk all parents of elem in congruence table.
             // if a parent is of the form elem' in S u T, or similar.
             // create clauses for elem = elem' => clause.
             // if a new clause was added, return FC_CONTINUE
         }
-        #endif
         
         return new_clause ? FC_CONTINUE : FC_DONE;
     }
