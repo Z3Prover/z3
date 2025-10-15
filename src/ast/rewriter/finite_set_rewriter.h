@@ -33,7 +33,17 @@ where the signature is defined in finite_set_decl_plugin.h.
    \brief Cheap rewrite rules for finite sets
 */
 class finite_set_rewriter {
+    friend class finite_set_rewriter_test;
     finite_set_util  m_util;
+
+    // Rewrite rules for set operations
+    br_status mk_union(unsigned num_args, expr *const *args, expr_ref &result);
+    br_status mk_intersect(unsigned num_args, expr *const *args, expr_ref &result);
+    br_status mk_difference(expr *arg1, expr *arg2, expr_ref &result);
+    br_status mk_subset(expr *arg1, expr *arg2, expr_ref &result);
+    br_status mk_singleton(expr *arg1, expr_ref &result);
+    br_status mk_in(expr *arg1, expr *arg2, expr_ref &result);
+
 public:
     finite_set_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m) {
@@ -43,15 +53,6 @@ public:
     family_id get_fid() const { return m_util.get_family_id(); }
     finite_set_util& util() { return m_util; }
 
-    br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
-    
-    // Rewrite rules for set operations
-    br_status mk_union(unsigned num_args, expr * const * args, expr_ref & result);
-    br_status mk_intersect(unsigned num_args, expr * const * args, expr_ref & result);
-    br_status mk_difference(expr * arg1, expr * arg2, expr_ref & result);
-    br_status mk_subset(expr * arg1, expr * arg2, expr_ref & result);
-    br_status mk_singleton(expr *arg1, expr_ref &result);
-    br_status mk_in(expr *arg1, expr *arg2, expr_ref &result);
-
+    br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);   
 };
 
