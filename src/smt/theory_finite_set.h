@@ -95,6 +95,7 @@ namespace smt {
         finite_set_util           u;
         finite_set_axioms         m_axioms;
         obj_hashtable<enode>      m_elements;             // set of all 'x' where there is an 'x in S' atom
+        vector<expr_ref_vector>   m_lemmas;
         
     protected:
         // Override relevant methods from smt::theory
