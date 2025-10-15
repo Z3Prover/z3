@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2006 Microsoft Corporation
+Copyright (c) 2025 Microsoft Corporation
 
 Module Name:
 
@@ -8,12 +8,6 @@ Module Name:
 Abstract:
 
     Factory for creating finite set values
-
-Author:
-
-    Leonardo de Moura (leonardo) 2008-11-06.
-
-Revision History:
 
 --*/
 #pragma once
