@@ -34,14 +34,7 @@ where the signature is defined in finite_set_decl_plugin.h.
 */
 class finite_set_rewriter {
     finite_set_util  m_util;
-    // Rewrite rules for set operations
-    br_status mk_union(unsigned num_args, expr * const * args, expr_ref & result);
-    br_status mk_intersect(unsigned num_args, expr * const * args, expr_ref & result);
-    br_status mk_difference(expr * arg1, expr * arg2, expr_ref & result);
-    br_status mk_subset(expr * arg1, expr * arg2, expr_ref & result);
-    br_status mk_singleton(expr * arg, expr_ref & result);
-    br_status mk_in(expr * elem, expr * set, expr_ref & result);
-public:
+    public:
     finite_set_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m) {
     }
@@ -52,5 +45,11 @@ public:
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     
+    // Rewrite rules for set operations
+    br_status mk_union(unsigned num_args, expr * const * args, expr_ref & result);
+    br_status mk_intersect(unsigned num_args, expr * const * args, expr_ref & result);
+    br_status mk_difference(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_subset(expr * arg1, expr * arg2, expr_ref & result);
+
 };
 
