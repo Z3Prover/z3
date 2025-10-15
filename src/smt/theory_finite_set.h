@@ -115,9 +115,9 @@ namespace smt {
         // Helper methods for axiom instantiation
         void instantiate_axioms(expr* elem, expr* set);
         void add_clause(expr_ref_vector const& clause);
-        void instantiate_false_lemma();
-        void instantiate_unit_propagation();
-        void instantiate_free_lemma();
+        bool instantiate_false_lemma();
+        bool instantiate_unit_propagation();
+        bool instantiate_free_lemma();
         
     public:
         theory_finite_set(context& ctx);
