@@ -909,10 +909,16 @@ struct
     mk_sort ctx (Symbol.mk_string ctx name) constructors
 
   let mk_sort_ref (ctx: context) (name:Symbol.symbol) =
-    Z3native.mk_datatype_sort ctx name
+    Z3native.mk_datatype_sort ctx name 0 []
 
   let mk_sort_ref_s (ctx: context) (name: string) =
     mk_sort_ref ctx (Symbol.mk_string ctx name)
+
+  let mk_sort_ref_p (ctx: context) (name:Symbol.symbol) (params:Sort.sort list) =
+    Z3native.mk_datatype_sort ctx name (List.length params) params
+
+  let mk_sort_ref_ps (ctx: context) (name: string) (params:Sort.sort list) =
+    mk_sort_ref_p ctx (Symbol.mk_string ctx name) params
 
   let mk_sorts (ctx:context) (names:Symbol.symbol list) (c:Constructor.constructor list list) =
     let n = List.length names in

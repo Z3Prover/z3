@@ -2128,6 +2128,33 @@ extern "C" {
                                   Z3_constructor constructors[]);
 
     /**
+       \brief Create a parametric datatype with explicit type parameters.
+       
+       This function is similar to #Z3_mk_datatype, except it takes an explicit set of type parameters.
+       The parameters can be type variables created with #Z3_mk_type_variable, allowing the definition
+       of polymorphic datatypes that can be instantiated with different concrete types.
+
+       \param c logical context
+       \param name name of the datatype
+       \param num_parameters number of type parameters (can be 0)
+       \param parameters array of type parameters (type variables or concrete sorts)
+       \param num_constructors number of constructors
+       \param constructors array of constructor specifications
+
+       \sa Z3_mk_datatype
+       \sa Z3_mk_type_variable
+       \sa Z3_mk_datatype_sort
+
+       def_API('Z3_mk_polymorphic_datatype', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SORT), _in(UINT), _inout_array(4, CONSTRUCTOR)))
+     */
+    Z3_sort Z3_API Z3_mk_polymorphic_datatype(Z3_context c,
+                                              Z3_symbol name,
+                                              unsigned num_parameters,
+                                              Z3_sort parameters[],
+                                              unsigned num_constructors,
+                                              Z3_constructor constructors[]);
+
+    /**
        \brief create a forward reference to a recursive datatype being declared.
        The forward reference can be used in a nested occurrence: the range of an array
        or as element sort of a sequence. The forward reference should only be used when
@@ -2136,9 +2163,14 @@ extern "C" {
        Forward references can replace the use sort references, that are unsigned integers
        in the \c Z3_mk_constructor call
 
-       def_API('Z3_mk_datatype_sort', SORT, (_in(CONTEXT), _in(SYMBOL)))
+       \param c logical context
+       \param name name of the datatype
+       \param num_params number of sort parameters  
+       \param params array of sort parameters
+
+       def_API('Z3_mk_datatype_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SORT)))
      */
-    Z3_sort Z3_API Z3_mk_datatype_sort(Z3_context c, Z3_symbol name);
+    Z3_sort Z3_API Z3_mk_datatype_sort(Z3_context c, Z3_symbol name, unsigned num_params, Z3_sort const params[]);
 
     /**
        \brief Create list of constructors.
