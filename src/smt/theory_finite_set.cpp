@@ -98,15 +98,20 @@ namespace smt {
     final_check_status theory_finite_set::final_check_eh() {
         TRACE("finite_set", tout << "final_check_eh\n";);
 
+        // walk all parents of elem in congruence table.
+        // if a parent is of the form elem' in S u T, or similar.
+        // create clauses for elem = elem' => clause.
+        // if a new clause was added, return FC_CONTINUE        
         bool new_clause = false;
+        expr* elem1 = nullptr, *set1 = nullptr;
         for (auto elem : m_elements) {
             for (auto p : enode::parents(elem)) {
-
+                if (!u.is_in(p->get_expr(), elem1, set1)) 
+                    continue;
+                if (elem->get_root() != p->get_arg(0)->get_root())
+                    continue; // elem is then equal to set1 but not elem1. This is a different case.
+                instantiate_axioms(elem->get_expr(), set1->get_expr());
             }
-            // walk all parents of elem in congruence table.
-            // if a parent is of the form elem' in S u T, or similar.
-            // create clauses for elem = elem' => clause.
-            // if a new clause was added, return FC_CONTINUE
         }
         
         return new_clause ? FC_CONTINUE : FC_DONE;
