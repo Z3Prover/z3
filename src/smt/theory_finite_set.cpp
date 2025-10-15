@@ -33,7 +33,7 @@ namespace smt {
         // Setup the add_clause callback for axioms
         std::function<void(expr_ref_vector const &)> add_clause_fn = 
             [this](expr_ref_vector const& clause) {
-                this->add_clause(clause);
+                this->m_lemmas.push_back(clause);
             };
         m_axioms.set_add_clause(add_clause_fn);
     }
@@ -100,21 +100,28 @@ namespace smt {
 
         // walk all parents of elem in congruence table.
         // if a parent is of the form elem' in S u T, or similar.
-        // create clauses for elem = elem' => clause.
-        // if a new clause was added, return FC_CONTINUE        
-        bool new_clause = false;
+        // create clauses for elem in S u T.
+
         expr* elem1 = nullptr, *set1 = nullptr;
+        m_lemmas.reset();
         for (auto elem : m_elements) {
             for (auto p : enode::parents(elem)) {
                 if (!u.is_in(p->get_expr(), elem1, set1)) 
                     continue;
-                if (elem->get_root() != p->get_arg(0)->get_root())
+                if (elem->get_root() != p->get_arg(0)->get_root())                    
                     continue; // elem is then equal to set1 but not elem1. This is a different case.
-                instantiate_axioms(elem->get_expr(), set1->get_expr());
+                for (auto sib : *p->get_arg(1))
+                    instantiate_axioms(elem->get_expr(), sib->get_expr());
             }
         }
+        if (instantiate_false_lemma())
+            return FC_CONTINUE;
+        if (instantiate_unit_propagation())
+            return FC_CONTINUE;
+        if (instantiate_free_lemma())
+            return FC_CONTINUE;
         
-        return new_clause ? FC_CONTINUE : FC_DONE;
+        return FC_DONE;
     }
 
     void theory_finite_set::instantiate_axioms(expr* elem, expr* set) {
