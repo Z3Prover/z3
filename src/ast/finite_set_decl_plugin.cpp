@@ -187,7 +187,60 @@ bool finite_set_decl_plugin::is_fully_interp(sort * s) const {
 }
 
 bool finite_set_decl_plugin::is_value(app * e) const {
-    return is_unique_value(e);
+    // Check if e is a union of either empty sets or singleton sets, 
+    // where the singleton member is a value.
+    // Use ptr_buffer and expr_fast_mark1 to avoid exponential overhead.
+    
+    ptr_buffer<expr> todo;
+    expr_fast_mark1 visited;
+    
+    todo.push_back(e);
+    
+    while (!todo.empty()) {
+        expr* current = todo.back();
+        todo.pop_back();
+        
+        // Skip if already visited
+        if (visited.is_marked(current))
+            continue;
+        visited.mark(current);
+        
+        // Check if current is an app
+        if (!is_app(current))
+            return false;
+            
+        app* a = to_app(current);
+        
+        // Check if it's an empty set
+        if (is_app_of(a, m_family_id, OP_FINITE_SET_EMPTY))
+            continue;
+        
+        // Check if it's a singleton with a value element
+        if (is_app_of(a, m_family_id, OP_FINITE_SET_SINGLETON)) {
+            if (a->get_num_args() != 1)
+                return false;
+            expr* elem = a->get_arg(0);
+            if (!is_app(elem))
+                return false;
+            if (!m_manager->is_value(elem))
+                return false;
+            continue;
+        }
+        
+        // Check if it's a union
+        if (is_app_of(a, m_family_id, OP_FINITE_SET_UNION)) {
+            // Add arguments to todo list
+            for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                todo.push_back(a->get_arg(i));
+            }
+            continue;
+        }
+        
+        // If it's none of the above, it's not a value
+        return false;
+    }
+    
+    return true;
 }
 
 bool finite_set_decl_plugin::is_unique_value(app* e) const {

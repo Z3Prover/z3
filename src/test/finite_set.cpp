@@ -127,7 +127,70 @@ static void tst_finite_set_map_select() {
     ENSURE(selected_set->get_sort() == finite_set_int.get());
 }
 
+static void tst_finite_set_is_value() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    
+    finite_set_util fsets(m);
+    arith_util arith(m);
+    finite_set_decl_plugin* plugin = static_cast<finite_set_decl_plugin*>(m.get_plugin(fsets.get_family_id()));
+    
+    // Create Int sort and finite set sort
+    sort_ref int_sort(arith.mk_int(), m);
+    parameter int_param(int_sort.get());
+    sort_ref finite_set_int(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &int_param), m);
+    
+    // Test 1: Empty set is a value
+    app_ref empty_set(fsets.mk_empty(finite_set_int), m);
+    ENSURE(plugin->is_value(empty_set.get()));
+    
+    // Test 2: Singleton with value element is a value
+    expr_ref five(arith.mk_int(5), m);
+    app_ref singleton_five(fsets.mk_singleton(five), m);
+    ENSURE(plugin->is_value(singleton_five.get()));
+    
+    // Test 3: Union of empty and singleton is a value
+    app_ref union_empty_singleton(fsets.mk_union(empty_set, singleton_five), m);
+    ENSURE(plugin->is_value(union_empty_singleton.get()));
+    
+    // Test 4: Union of two singletons with value elements is a value
+    expr_ref seven(arith.mk_int(7), m);
+    app_ref singleton_seven(fsets.mk_singleton(seven), m);
+    app_ref union_two_singletons(fsets.mk_union(singleton_five, singleton_seven), m);
+    ENSURE(plugin->is_value(union_two_singletons.get()));
+    
+    // Test 5: Nested union of singletons and empty sets is a value
+    app_ref union_nested(fsets.mk_union(union_empty_singleton, singleton_seven), m);
+    ENSURE(plugin->is_value(union_nested.get()));
+    
+    // Test 6: Union with empty set is a value
+    app_ref union_empty_empty(fsets.mk_union(empty_set, empty_set), m);
+    ENSURE(plugin->is_value(union_empty_empty.get()));
+    
+    // Test 7: Triple union is a value
+    expr_ref nine(arith.mk_int(9), m);
+    app_ref singleton_nine(fsets.mk_singleton(nine), m);
+    app_ref union_temp(fsets.mk_union(singleton_five, singleton_seven), m);
+    app_ref union_triple(fsets.mk_union(union_temp, singleton_nine), m);
+    ENSURE(plugin->is_value(union_triple.get()));
+    
+    // Test 8: Range is NOT a value (it's not a union of empty/singletons)
+    expr_ref zero(arith.mk_int(0), m);
+    expr_ref ten(arith.mk_int(10), m);
+    app_ref range_set(fsets.mk_range(zero, ten), m);
+    ENSURE(!plugin->is_value(range_set.get()));
+    
+    // Test 9: Union with range is NOT a value
+    app_ref union_with_range(fsets.mk_union(singleton_five, range_set), m);
+    ENSURE(!plugin->is_value(union_with_range.get()));
+    
+    // Test 10: Intersect is NOT a value
+    app_ref intersect_set(fsets.mk_intersect(singleton_five, singleton_seven), m);
+    ENSURE(!plugin->is_value(intersect_set.get()));
+}
+
 void tst_finite_set() {
     tst_finite_set_basic();
     tst_finite_set_map_select();
+    tst_finite_set_is_value();
 }
