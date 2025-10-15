@@ -183,12 +183,9 @@ expr * finite_set_decl_plugin::get_some_value(sort * s) {
 }
 
 bool finite_set_decl_plugin::is_fully_interp(sort * s) const {
-    if (!is_finite_set(s))
-        return false;
+    SASSERT(is_finite_set(s));
     sort* element_sort = get_element_sort(s);
-    if (!element_sort)
-        return false;
-    return m_manager->is_fully_interp(element_sort);
+    return element_sort && m_manager->is_fully_interp(element_sort);
 }
 
 bool finite_set_decl_plugin::is_value(app * e) const {
