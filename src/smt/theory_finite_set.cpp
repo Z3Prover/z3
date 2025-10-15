@@ -41,7 +41,7 @@ namespace smt {
     bool theory_finite_set::internalize_atom(app * atom, bool gate_ctx) {
         TRACE("finite_set", tout << "internalize_atom: " << mk_pp(atom, m) << "\n";);
 
-        itnernalize_term(atom);
+        internalize_term(atom);
         
         // Track membership atoms (set.in)
         expr* elem = nullptr, *set = nullptr;
