@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2006 Microsoft Corporation
+Copyright (c) 2025 Microsoft Corporation
 
 Module Name:
 
@@ -8,12 +8,6 @@ Module Name:
 Abstract:
 
     Factory for creating finite set values
-
-Author:
-
-    Leonardo de Moura (leonardo) 2008-11-06.
-
-Revision History:
 
 --*/
 #include "model/finite_set_value_factory.h"
@@ -26,18 +20,12 @@ finite_set_value_factory::finite_set_value_factory(ast_manager & m, family_id fi
 expr * finite_set_value_factory::get_some_value(sort * s) {
     // Check if we already have a value for this sort
     value_set * set = nullptr;
-    if (m_sort2value_set.find(s, set) && !set->empty()) {
+    if (m_sort2value_set.find(s, set) && !set->empty()) 
         return *(set->begin());
-    }
-    
-    // For finite sets, we can start with an empty set representation
-    // This is a placeholder - the actual implementation would depend on
-    // how finite sets are represented in the specific theory
-    expr * r = m_model.get_some_value(s);
-    if (r != nullptr) {
-        register_value(r);
-    }
-    return r;
+
+    // TODO add handling here
+
+    return nullptr;
 }
 
 expr * finite_set_value_factory::get_fresh_value(sort * s) {
@@ -45,17 +33,13 @@ expr * finite_set_value_factory::get_fresh_value(sort * s) {
     value_set * set = get_value_set(s);
     
     // If no values have been generated yet, use get_some_value
-    if (set->empty()) {
+    if (set->empty()) 
         return get_some_value(s);
-    }
-    
-    // Try to generate a fresh value using the model's get_fresh_value
-    expr * fresh = m_model.get_fresh_value(s);
-    if (fresh != nullptr) {
-        register_value(fresh);
-        return fresh;
-    }
-    
+
+    // TODO add handling here: create a fresh value for the element sort.
+    // if it fails, then traverse set to add a new value to a set such that
+    // the new set hasn't been created before.
+
     // For finite domains, we may not be able to generate fresh values
     // if all values have been exhausted
     return nullptr;
