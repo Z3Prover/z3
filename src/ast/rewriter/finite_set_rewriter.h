@@ -34,7 +34,7 @@ where the signature is defined in finite_set_decl_plugin.h.
 */
 class finite_set_rewriter {
     finite_set_util  m_util;
-    public:
+public:
     finite_set_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m) {
     }
@@ -50,6 +50,8 @@ class finite_set_rewriter {
     br_status mk_intersect(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_difference(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_subset(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_singleton(expr *arg1, expr_ref &result);
+    br_status mk_in(expr *arg1, expr *arg2, expr_ref &result);
 
 };
 
