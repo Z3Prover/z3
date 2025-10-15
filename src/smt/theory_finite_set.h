@@ -92,6 +92,7 @@ theory_finite_set.cpp.
 
 namespace smt {
     class theory_finite_set : public theory {
+        friend class theory_finite_set_test;
         finite_set_util           u;
         finite_set_axioms         m_axioms;
         obj_hashtable<enode>      m_elements;             // set of all 'x' where there is an 'x in S' atom
@@ -114,6 +115,9 @@ namespace smt {
         // Helper methods for axiom instantiation
         void instantiate_axioms(expr* elem, expr* set);
         void add_clause(expr_ref_vector const& clause);
+        void instantiate_false_lemma();
+        void instantiate_unit_propagation();
+        void instantiate_free_lemma();
         
     public:
         theory_finite_set(context& ctx);
