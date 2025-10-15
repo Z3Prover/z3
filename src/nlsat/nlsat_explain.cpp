@@ -1245,8 +1245,6 @@ namespace nlsat {
             // Remark: after vanishing coefficients are eliminated, ps may not contain max_x anymore
             
             polynomial_ref_vector samples(m_pm);
-
-            
             if (x < max_x)
                 cac_add_cell_lits(ps, x, samples);
 
@@ -1257,7 +1255,8 @@ namespace nlsat {
                 }
                 TRACE(nlsat_explain, tout << "project loop, processing var "; display_var(tout, x); tout << "\npolynomials\n";
                       display(tout, ps); tout << "\n";);
-                if (first) {
+                if (first) { // The first run is special because x is not constrained by the sample, we cannot surround it by the root functions.
+                    // we make the polynomials in ps delinable
                     add_lcs(ps, x);
                     psc_discriminant(ps, x);
                     psc_resultant(ps, x);
