@@ -13,11 +13,13 @@ Abstract:
 #pragma once
 
 #include "model/struct_factory.h"
+#include "ast/array_decl_plugin.h"
 
 /**
    \brief Factory for finite set values.
 */
 class finite_set_value_factory : public struct_factory {
+    array_util m_util;
 public:
     finite_set_value_factory(ast_manager & m, family_id fid, model_core & md);
     
