@@ -22,6 +22,7 @@ Author:
 #include "ast/rewriter/finite_set_rewriter.h"
 
 class finite_set_rewriter_test {
+public:
     void test_union_idempotent() {
         ast_manager m;
         reg_decl_plugins(m);
