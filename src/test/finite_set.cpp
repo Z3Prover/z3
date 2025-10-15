@@ -37,16 +37,16 @@ static void tst_finite_set_basic() {
     ENSURE(fsets.is_finite_set(finite_set_int.get()));
     
     // Test creating empty set
-    app_ref empty_set(fsets.mk_empty(int_sort), m);
+    app_ref empty_set(fsets.mk_empty(finite_set_int), m);
     ENSURE(fsets.is_empty(empty_set.get()));
     ENSURE(empty_set->get_sort() == finite_set_int.get());
-    
+
     // Test set.singleton
     expr_ref five(arith.mk_int(5), m);
     app_ref singleton_set(fsets.mk_singleton(five), m);
     ENSURE(fsets.is_singleton(singleton_set.get()));
     ENSURE(singleton_set->get_sort() == finite_set_int.get());
-    
+
     // Test set.range
     expr_ref zero(arith.mk_int(0), m);
     expr_ref ten(arith.mk_int(10), m);
