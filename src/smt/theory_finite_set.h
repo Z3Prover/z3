@@ -94,8 +94,7 @@ namespace smt {
     class theory_finite_set : public theory {
         finite_set_util           u;
         finite_set_axioms         m_axioms;
-        obj_hashtable<expr>       m_membership_elements;          // set of all 'x' where there is an 'x in S' atom
-        ptr_vector<expr>          m_elements;                     // list of added x in m_membership_elements
+        obj_hashtable<enode>      m_elements;             // set of all 'x' where there is an 'x in S' atom
         
     protected:
         // Override relevant methods from smt::theory
