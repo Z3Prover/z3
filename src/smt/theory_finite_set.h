@@ -86,12 +86,37 @@ theory_finite_set.cpp.
 
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
+#include "ast/finite_set_decl_plugin.h"
+#include "ast/rewriter/finite_set_axioms.h"
 #include "smt/smt_theory.h"
 
 namespace smt {
     class theory_finite_set : public theory {
+        finite_set_util           u;
+        finite_set_axioms         m_axioms;
+        obj_hashtable<expr>       m_membership_atoms;          // set of all 'x in S' atoms
+        obj_map<expr, ptr_vector<expr>>  m_set_to_elements;        // map from set S to elements x such that 'x in S' exists
+        
+    protected:
+        // Override relevant methods from smt::theory
+        bool internalize_atom(app * atom, bool gate_ctx) override;
+        bool internalize_term(app * term) override;
+        void new_eq_eh(theory_var v1, theory_var v2) override;
+        void new_diseq_eh(theory_var v1, theory_var v2) override;
+        final_check_status final_check_eh() override;
+        
+        theory * mk_fresh(context * new_ctx) override;
+        char const * get_name() const override { return "finite_set"; }
+        void display(std::ostream & out) const override;
+        void init_model(model_generator & mg) override;
+        model_value_proc * mk_value(enode * n, model_generator & mg) override;
+
+        // Helper methods for axiom instantiation
+        void instantiate_axioms(expr* elem, expr* set);
+        void add_clause(expr_ref_vector const& clause);
+        
     public:
-        theory_finite_set(ast_manager & m);
+        theory_finite_set(context& ctx);
         ~theory_finite_set() override {}
     };
 
