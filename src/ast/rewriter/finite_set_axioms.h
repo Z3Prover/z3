@@ -61,6 +61,10 @@ public:
     // (x in a) <=> (x in b) and p(x)
     void in_select_axiom(expr *x, expr *a);
 
+    // a := set.subset(b, c)
+    // (a) <=> (set.intersect(b, c) = b)
+    void subset_axiom(expr *a);
+
     // a := set.singleton(b)
     // set.size(a) = 1
     void size_singleton_axiom(expr *a);

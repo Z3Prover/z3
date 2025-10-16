@@ -115,13 +115,16 @@ namespace smt {
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
 
         // Helper methods for axiom instantiation
-        void instantiate_axioms(expr* elem, expr* set);
+        void add_membership_axioms(expr* elem, expr* set);
         void add_clause(expr_ref_vector const& clause);
         void assert_clause(expr_ref_vector const &clause);
         bool instantiate_false_lemma();
         bool instantiate_unit_propagation();
         bool instantiate_free_lemma();
         lbool truth_value(expr *e);
+        void add_immediate_axioms(app *atom);
+        bool add_membership_axioms();
+        bool add_extensionality_axioms();
         
     public:
         theory_finite_set(context& ctx);

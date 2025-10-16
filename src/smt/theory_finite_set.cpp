@@ -53,11 +53,7 @@ namespace smt {
     * The second effect is to set up tracking and assert axioms.
     * Tracking:
     *    For every occurrence (set.in x_i S_i) we track x_i. 
-    * Axioms:
-    *    We can immediately assert some axioms because they are unit literals:
-    *    - (set.in x set.empty) is false
-    *    - (set.subset S T) <=> (= (set.union S T) T)  (or (= (set.intersect S T) S))
-    *    Axioms can be deffered to when the atomic formulas become "relevant" for the theory solver.
+    * Axioms that can be added immediately.
     *    
     */
     bool theory_finite_set::internalize_atom(app * atom, bool gate_ctx) {
@@ -76,7 +72,8 @@ namespace smt {
         }
 
         // Assert immediate axioms
-        // add_immediate_axioms(atom);
+        // if (!ctx.relevancy())
+        add_immediate_axioms(atom);
         
         return true;
     }
@@ -135,51 +132,96 @@ namespace smt {
      * It is responsible for asserting any remaining axioms and checking for inconsistencies.
      * 
      * It ensures saturation with respect to the theory axioms:
-     * - Set membership is saturated with respect to set operations.
-     *    For every (set.in x S) where S is a union, assert (or propagate) (set.in x S1) or (set.in x S2)
-     * - It saturates with respect to extensionality:
-     *   Sets corresponding to shared variables having the same interpretation should also be congruent
+     * - membership axioms
+     * - extensionality axioms
     */
     final_check_status theory_finite_set::final_check_eh() {
         TRACE(finite_set, tout << "final_check_eh\n";);
+
+        if (add_membership_axioms())
+            return FC_CONTINUE;
+
+        if (add_extensionality_axioms())
+            return FC_CONTINUE;
+        
+        return FC_DONE;
+    }
+
+
+    /**
+     * Add immediate axioms that can be asserted when the atom is created.
+     * These are unit clauses that can be added immediately.
+     * - (set.in x set.empty) is false
+     * - (set.subset S T) <=> (= (set.union S T) T)  (or (= (set.intersect S T) S))
+     * 
+     * Other axioms:
+     * - (set.singleton x) -> (set.in x (set.singleton x))
+     * - (set.singleton x) -> (set.size (set.singleton x)) = 1
+     * - (set.empty)       -> (set.size (set.empty)) = 0
+     */
+    void theory_finite_set::add_immediate_axioms(app* term) {
+        expr *elem = nullptr, *set = nullptr;
+        unsigned sz = m_lemmas.size();
+        if (u.is_in(term, elem, set) && u.is_empty(set))
+            add_membership_axioms(elem, set);
+        else if (u.is_subset(term))
+            m_axioms.subset_axiom(term);
+        else if (u.is_singleton(term, elem))
+            m_axioms.in_singleton_axiom(elem, term);
+
+        // Assert all new lemmas as clauses
+        for (unsigned i = sz; i < m_lemmas.size(); ++i) 
+            assert_clause(m_lemmas[i]);
+    }
+
+    /**
+     *   Set membership is saturated with respect to set operations.
+     *    For every (set.in x S) where S is a union, assert (or propagate) (set.in x S1) or (set.in x S2)
+     */
+    bool theory_finite_set::add_membership_axioms() {
+        expr *elem1 = nullptr, *set1 = nullptr;
 
         // walk all parents of elem in congruence table.
         // if a parent is of the form elem' in S u T, or similar.
         // create clauses for elem in S u T.
 
-        // Saturate membership constraints
-        expr* elem1 = nullptr, *set1 = nullptr;
         for (auto elem : m_elements) {
             if (!ctx.is_relevant(elem))
                 continue;
             for (auto p : enode::parents(elem)) {
-                if (!u.is_in(p->get_expr(), elem1, set1)) 
+                if (!u.is_in(p->get_expr(), elem1, set1))
                     continue;
-                if (elem->get_root() != p->get_arg(0)->get_root())                    
-                    continue; // elem is then equal to set1 but not elem1. This is a different case.
+                if (elem->get_root() != p->get_arg(0)->get_root())
+                    continue;  // elem is then equal to set1 but not elem1. This is a different case.
                 if (!ctx.is_relevant(p))
                     continue;
                 for (auto sib : *p->get_arg(1))
-                    instantiate_axioms(elem->get_expr(), sib->get_expr());
+                    add_membership_axioms(elem->get_expr(), sib->get_expr());
             }
         }
         if (instantiate_false_lemma())
-            return FC_CONTINUE;
+            return true;
         if (instantiate_unit_propagation())
-            return FC_CONTINUE;
+            return true;
         if (instantiate_free_lemma())
-            return FC_CONTINUE;
-        
-        // TODO: Extensionality axioms for sets
-        return FC_DONE;
+            return true;
+        return false;
+    }
+
+    /**
+     *  Saturate with respect to extensionality:
+     *  - Sets corresponding to shared variables having the same interpretation should also be congruent
+    */
+    bool theory_finite_set::add_extensionality_axioms() {
+        return false;
     }
 
     /**
     * Instantiate axioms for a given element in a set.
     */
-    void theory_finite_set::instantiate_axioms(expr* elem, expr* set) {
-        TRACE(finite_set, tout << "instantiate_axioms: " << mk_pp(elem, m) << " in " << mk_pp(set, m) << "\n";);
-        
+    void theory_finite_set::add_membership_axioms(expr *elem, expr *set) {
+        TRACE(finite_set, tout << "add_membership_axioms: " << mk_pp(elem, m) << " in " << mk_pp(set, m) << "\n";);
+
         struct insert_obj_pair_table : public trail {
             obj_pair_hashtable<expr, expr> &table;
             expr *a, *b;
@@ -218,13 +260,7 @@ namespace smt {
         }
         else if (u.is_select(set)) {
             m_axioms.in_select_axiom(elem, set);
-        }
-        
-        // Instantiate size axioms for singleton sets
-        // TODO, such axioms don't belong here
-        if (u.is_singleton(set)) {
-            m_axioms.size_singleton_axiom(set);
-        }
+        }        
     }
 
     void theory_finite_set::add_clause(expr_ref_vector const& clause) {
@@ -281,7 +317,7 @@ namespace smt {
      * A theory axiom is also removed during backtracking.
     */
     bool theory_finite_set::instantiate_unit_propagation() {
-        bool propagaed = false;
+        bool propagated = false;
         for (auto const &clause : m_lemmas) {
             expr *undef = nullptr;
             bool is_unit_propagating = true;

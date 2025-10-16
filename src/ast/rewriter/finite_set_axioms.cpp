@@ -140,6 +140,15 @@ void finite_set_axioms::in_singleton_axiom(expr *x, expr *a) {
         return;
     
     expr_ref x_in_a(u.mk_in(x, a), m);
+
+    if (x == b) {
+        // If x and b are syntactically identical, then (x in a) is always true
+        expr_ref_vector clause(m);
+        clause.push_back(x_in_a);
+        m_add_clause(clause);
+        return;
+    }
+
     expr_ref x_eq_b(m.mk_eq(x, b), m);
     
     // (x in a) => (x == b)
@@ -270,4 +279,23 @@ void finite_set_axioms::size_singleton_axiom(expr *a) {
     expr_ref_vector clause(m);
     clause.push_back(eq);
     m_add_clause(clause);
+}
+
+void finite_set_axioms::subset_axiom(expr* a) {
+    expr *b = nullptr, *c = nullptr;
+    if (!u.is_subset(a, b, c))
+        return;
+    
+    expr_ref intersect_bc(u.mk_intersect(b, c), m);
+    expr_ref eq(m.mk_eq(intersect_bc, b), m);
+    
+    expr_ref_vector clause1(m);
+    clause1.push_back(m.mk_not(a));
+    clause1.push_back(eq);
+    m_add_clause(clause1);
+    
+    expr_ref_vector clause2(m);
+    clause2.push_back(a);
+    clause2.push_back(m.mk_not(eq));
+    m_add_clause(clause2);
 }
