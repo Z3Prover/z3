@@ -19,7 +19,7 @@ Abstract:
    \brief Factory for finite set values.
 */
 class finite_set_value_factory : public struct_factory {
-    finite_set_util m_util;
+    finite_set_util u;
 public:
     finite_set_value_factory(ast_manager & m, family_id fid, model_core & md);
     
