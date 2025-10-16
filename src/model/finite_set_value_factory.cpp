@@ -36,13 +36,13 @@ expr * finite_set_value_factory::get_fresh_value(sort * s) {
     // If no values have been generated yet, use get_some_value
     if (set->empty()) {
         auto r = u.mk_empty(s);
-        set->insert(r);
+        register_value(r);
         return r;
     }
     auto e = md.get_fresh_value(elem_sort);
     if (e) {
         auto r = u.mk_singleton(e);
-        set->insert(r);
+        register_value(r);
         return r;
     }
 
