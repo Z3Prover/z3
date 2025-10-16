@@ -111,6 +111,13 @@ public:
     finite_set_recognizers(family_id fid):m_fid(fid) {}
     family_id get_family_id() const { return m_fid; }
     bool is_finite_set(sort* s) const { return is_sort_of(s, m_fid, FINITE_SET_SORT); }
+    bool is_finite_set(sort* s, sort*& elem_sort) const {
+        if (is_finite_set(s)) {
+            elem_sort = to_sort(s->get_parameter(0).get_ast());
+            return true;
+        }
+        return false;
+    }
     bool is_finite_set(expr const* n) const { return is_finite_set(n->get_sort()); }
     bool is_empty(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_EMPTY); }
     bool is_singleton(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_SINGLETON); }
