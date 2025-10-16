@@ -50,6 +50,7 @@ expr * finite_set_value_factory::get_fresh_value(sort * s) {
     auto& [set_e, values_e] = get_value_set(elem_sort);
     unsigned next_index = values.size();
 
+    // Course Task of 10-16-25:
     // For finite domains, we may not be able to generate fresh values
     // if all values have been exhausted
     // create sets based on next_index
