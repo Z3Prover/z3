@@ -90,6 +90,7 @@ theory_finite_set.cpp.
 #include "ast/rewriter/finite_set_axioms.h"
 #include "util/obj_pair_hashtable.h"
 #include "smt/smt_theory.h"
+#include "model/finite_set_value_factory.h"
 
 namespace smt {
     class theory_finite_set : public theory {
@@ -99,6 +100,8 @@ namespace smt {
         obj_hashtable<enode>      m_elements;             // set of all 'x' where there is an 'x in S' atom
         vector<expr_ref_vector>   m_lemmas;
         obj_pair_hashtable<expr, expr> m_lemma_exprs;
+        finite_set_value_factory *m_factory = nullptr;
+        obj_map<enode, obj_hashtable<enode> *> m_set_members;
         
     protected:
         // Override relevant methods from smt::theory
@@ -106,6 +109,7 @@ namespace smt {
         bool internalize_term(app * term) override;
         void new_eq_eh(theory_var v1, theory_var v2) override;
         void new_diseq_eh(theory_var v1, theory_var v2) override;
+        void apply_sort_cnstr(enode *n, sort *s) override; 
         final_check_status final_check_eh() override;
         
         theory * mk_fresh(context * new_ctx) override;
@@ -125,10 +129,14 @@ namespace smt {
         void add_immediate_axioms(app *atom);
         bool add_membership_axioms();
         bool add_extensionality_axioms();
+
+        // model construction
+        void collect_members();
+        void reset_set_members();
         
     public:
         theory_finite_set(context& ctx);
-        ~theory_finite_set() override {}
+        ~theory_finite_set() override;
     };
 
 }  // namespace smt 

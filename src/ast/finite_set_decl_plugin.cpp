@@ -173,11 +173,8 @@ void finite_set_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, s
 expr * finite_set_decl_plugin::get_some_value(sort * s) {
     if (is_finite_set(s)) {
         // Return empty set for the given sort
-        sort* element_sort = get_element_sort(s);
-        if (element_sort) {
-            parameter param(element_sort);
-            return m_manager->mk_app(m_family_id, OP_FINITE_SET_EMPTY, 1, &param, 0, nullptr);
-        }
+        parameter param(s);
+        return m_manager->mk_app(m_family_id, OP_FINITE_SET_EMPTY, 1, &param, 0, nullptr);
     }
     return nullptr;
 }

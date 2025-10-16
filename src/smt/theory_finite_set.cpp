@@ -36,6 +36,16 @@ namespace smt {
         m_axioms.set_add_clause(add_clause_fn);
     }
 
+    theory_finite_set::~theory_finite_set() {
+        reset_set_members();
+    }
+
+    void theory_finite_set::reset_set_members() {
+        for (auto [k, s] : m_set_members)
+            dealloc(s);
+        m_set_members.reset();
+    }
+
     /**
     * Boolean atomic formulas for finite sets are one of:
     * (set.in x S)
@@ -106,6 +116,12 @@ namespace smt {
             ctx.attach_th_var(e, this, mk_var(e));
                 
         return true;
+    }
+
+    void theory_finite_set::apply_sort_cnstr(enode* n, sort* s) {
+        SASSERT(u.is_finite_set(s));
+        if (!is_attached_to_var(n))
+            ctx.attach_th_var(n, this, mk_var(n));
     }
 
     void theory_finite_set::new_eq_eh(theory_var v1, theory_var v2) {
@@ -275,15 +291,78 @@ namespace smt {
         TRACE(finite_set, tout << "init_model\n";);
         // Model generation will use default interpretation for sets
         // The model will be constructed based on the membership literals that are true
+        m_factory = alloc(finite_set_value_factory, m, u.get_family_id(), mg.get_model());
+        mg.register_factory(m_factory);
+        collect_members();
     }
 
+
+
+    void theory_finite_set::collect_members() {
+        // This method can be used to collect all elements that are members of sets
+        // and ensure that the model factory has values for them.
+        // For now, we rely on the default model construction.
+        reset_set_members();
+        for (auto x : m_elements) {
+            if (!ctx.is_relevant(x))
+                continue;
+            x = x->get_root();
+            // TODO: use marking of x to avoid duplicate work
+            for (auto p : enode::parents(x)) {
+                if (!ctx.is_relevant(p))
+                    continue;
+                if (!u.is_in(p->get_expr()))
+                    continue;
+                if (ctx.get_assignment(p->get_expr()) != l_true)
+                    continue;
+                enode *elem = nullptr, *set = nullptr;
+                set = p->get_arg(1)->get_root();
+                elem = p->get_arg(0)->get_root();
+                if (elem != x)
+                    continue; 
+                if (!m_set_members.contains(set)) 
+                    m_set_members.insert(set, alloc(obj_hashtable<enode>));                
+                m_set_members.find(set)->insert(x);
+            }
+        }
+    }
+
+    struct finite_set_value_proc : model_value_proc {    
+        finite_set_util& u;
+        sort *s = nullptr;
+        obj_hashtable<enode>* m_elements = nullptr;
+
+        finite_set_value_proc(finite_set_util& u, sort* s, obj_hashtable<enode>* elements) : 
+            u(u), s(s),
+            m_elements(elements) {}
+
+        void get_dependencies(buffer<model_value_dependency> &result) override {
+            if (!m_elements)
+                return;
+            for (auto v : *m_elements)
+                result.push_back(model_value_dependency(v));
+        }
+
+        app *mk_value(model_generator &mg, expr_ref_vector const &values) override {            
+            SASSERT(values.size() == m_elements->size());
+            if (values.empty()) 
+                return u.mk_empty(s);
+            SASSERT(m_elements);
+            app *r = nullptr;
+            for (auto v : values) {
+                app *e = u.mk_singleton(v);
+                r = r ? u.mk_union(r, e) : e;
+            }
+            return r;
+        }
+    };
+
     model_value_proc * theory_finite_set::mk_value(enode * n, model_generator & mg) {
-        TRACE(finite_set, tout << "mk_value: " << mk_pp(n->get_expr(), m) << "\n";);
-        
-        // For now, return nullptr to use default model construction
-        // A complete implementation would construct explicit set values
-        // based on true membership literals
-        return nullptr;
+        TRACE(finite_set, tout << "mk_value: " << mk_pp(n->get_expr(), m) << "\n";);       
+        obj_hashtable<enode>*elements = nullptr;
+        sort *s = n->get_expr()->get_sort();
+        m_set_members.find(n->get_root(), elements); 
+        return alloc(finite_set_value_proc, u, s, elements);
     }
 
     /**
