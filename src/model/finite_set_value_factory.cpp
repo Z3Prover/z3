@@ -40,9 +40,10 @@ expr * finite_set_value_factory::get_fresh_value(sort * s) {
         register_value(r);
         return r;
     }
-    auto e = md.get_fresh_value(elem_sort);
+    auto e = m_model.get_fresh_value(elem_sort);
     if (e) {
         auto r = u.mk_singleton(e);
+        register_value(e); // register e so we can access the finite domain within this class
         register_value(r);
         return r;
     }
