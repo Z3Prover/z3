@@ -10,12 +10,6 @@ Abstract:
     Theory solver for finite sets.
     Implements axiom schemas for finite set operations.
 
-Author:
-
-    GitHub Copilot Agent 2025
-
-Revision History:
-
 --*/
 
 #include "smt/theory_finite_set.h"
