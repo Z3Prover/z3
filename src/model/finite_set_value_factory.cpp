@@ -48,13 +48,12 @@ expr * finite_set_value_factory::get_fresh_value(sort * s) {
             // the element values_e[next_index] is in the set
             expr* element = nullptr;
             if(num_shifts > values_e.size()) {
-                // the element we are trying to add does not yet exist
+                // create a fresh element for the element sort
                 element = m_model.get_fresh_value(elem_sort);
                 if (!element) {
-                    // we cannot generate a fresh value for the element sort
+                    // we cannot generate a new fresh value for s
                     return nullptr;
                 }
-                // element is fresh for sort s
                 register_value(element);
             }else{
                 //retrieve previously generated element
