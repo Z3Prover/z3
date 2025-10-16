@@ -61,7 +61,7 @@ namespace nlsat {
         };
         struct compare_prop_tags {
             bool operator()(const property& a, const property& b) const {
-                return a.m_prop_tag < b.m_prop_tag; // ir_ord dequed first
+                return (int)a.m_prop_tag > (int)b.m_prop_tag; // ir_ord dequed first
             }
         };
         typedef std::priority_queue<property, std::vector<property>, compare_prop_tags> property_queue;
@@ -100,7 +100,23 @@ namespace nlsat {
         std::vector<property>        m_to_refine; 
         std::vector<root_function_interval> m_I; // intervals per level (indexed by variable/level)
         bool                         m_fail = false; 
-        std::vector<root_function>   m_E; // the ordered root functions on a level
+        struct relation_E {
+            std::vector<root_function> m_rfunc; // the root functions on a level
+            std::vector<std::pair<unsigned, unsigned>> m_pairs; // of the relation
+            bool empty() const { return m_pairs.size() == 0; }
+            void clear() {
+                m_pairs.clear();
+                m_rfunc.clear();
+            }
+            bool section() const { return (int)m_l_start != -1 && (int)m_u_start == -1; }
+            // the indices point te the m_rfunc vector
+            size_t m_l_start = -1;
+            size_t m_l_end = -1;
+            size_t m_u_start = -1;
+            size_t m_u_end = -1;
+            
+        };
+        relation_E m_rel;
         assignment const & sample() const { return m_solver.sample();}
         assignment & sample() { return m_solver.sample(); }
         polynomial::cache &          m_cache; 
@@ -257,20 +273,26 @@ namespace nlsat {
         }
         
 
-        // Compute root function interval from sorted roots. Assumes roots are sorted.
-        void compute_interval_from_sorted_roots( // works on m_level
-                                                std::vector<root_function>& roots,
-                                                root_function_interval& I) {
+        // Compute root function interval from sorted roots.
+        void compute_interval_from_sorted_roots() {
+            root_function_interval & I = m_I[m_level];
             // default: whole line sector (-inf, +inf)
             I.section = false;
             I.l = nullptr; I.u = nullptr; I.l_index = 0; I.u_index = 0;
-            if (roots.empty()) return;
+            if (m_rel.empty()) return;
             if (!sample().is_assigned(m_level)) return;
             anum const& y_val = sample().value(m_level);
             
             // find first index where roots[idx].val >= y_val
+            const auto & roots = m_rel.m_rfunc;
+            if (roots.size() > 0) {
+                std::cout << roots.size() << "\n";
+            }
             size_t idx = 0;
-            while (idx < roots.size() && m_am.compare(roots[idx].val, y_val) < 0) ++idx;
+            while (idx < roots.size() && m_am.compare(roots[idx].val, y_val) < 0) {
+                TRACE(lws, tout << "idx=" << idx << ", val="; m_am.display_decimal(tout, roots[idx].val); tout << "\n";);
+                ++idx;
+            }
             if (idx < roots.size() && m_am.compare(roots[idx].val, y_val) == 0) {
                 TRACE(lws, tout << "exact match at idx=" << idx << ", it's a section\n";);
                 auto const& ire = roots[idx].ire;
@@ -278,21 +300,37 @@ namespace nlsat {
                 I.l = ire.p; I.l_index = ire.i;
                 I.u = nullptr; I.u_index = -1; // the section is defined by the I.l
                 TRACE(lws, tout << "section bound -> p="; if (I.l) m_pm.display(tout, I.l); tout << ", index=" << I.l_index << "\n";);
+                m_rel.m_l_start = m_rel.m_l_end = idx;
+                while (++idx < roots.size() && m_am.compare(roots[idx].val, y_val) == 0) {
+                    m_rel.m_l_end = idx;
+                    TRACE(lws, tout << "idx=" << idx << ", val="; m_am.display_decimal(tout, roots[idx].val); tout << "\n";);
+                }
                 return;
             }
 
             // sector: lower bound is last root with val < y, upper bound is first root with val > y
             if (idx > 0) {
-                // find start of equal-valued group for lower bound
+                // find start,end of equal-valued group for lower bound
                 size_t start = idx - 1;
-                while (start > 0 && m_am.compare(roots[start-1].val, roots[start].val) == 0) --start;
+                m_rel.m_l_end = start;
+                while (start > 0 && m_am.compare(roots[start-1].val, roots[start].val) == 0) {
+                    --start;
+                    TRACE(lws, tout << "start=" << start << ", val="; m_am.display_decimal(tout, roots[start].val); tout << "\n";);
+                }
+                m_rel.m_l_start = start;
                 auto const& ire = roots[start].ire;
                 I.l = ire.p; I.l_index = ire.i;
-            }
+            } 
             if (idx < roots.size()) {
+                // find start, end of equal-valued group for upper bound
                 size_t start = idx;
-                while (start > 0 && m_am.compare(roots[start-1].val, roots[start].val) == 0) --start;
+                m_rel.m_u_start = idx;
+                while (start + 1 < roots.size() && m_am.compare(roots[start].val, roots[start + 1].val) == 0) {
+                    ++start;
+                    TRACE(lws, tout << "start=" << start << ", val="; m_am.display_decimal(tout, roots[start].val); tout << "\n";);
+                }
                 auto const& ire = roots[start].ire;
+                m_rel.m_u_end = start;
                 I.u = ire.p; I.u_index = ire.i;
             }
         }
@@ -306,21 +344,18 @@ namespace nlsat {
         //works on m_level
         bool apply_property_rules(prop_enum prop_to_avoid) {
             SASSERT (!m_fail);
-            std::vector<property> avoided;
             auto& q = m_Q[m_level];
             while(!q.empty()) {
-                property p = pop(q);
+                property p = pop(q); // there is a choice here of what property to pop
                 if (p.m_prop_tag == prop_to_avoid) {
-                    avoided.push_back(p);
-                    continue;
+                    q.push(p);
+                    break;
                 }
                 apply_pre(p);
                 if (m_fail) break;
             }
             if (m_fail)
                return false;
-            for (auto & p : avoided)
-                q.push(p);
             return true;
         }
 
@@ -329,6 +364,7 @@ namespace nlsat {
              // collect non-null polynomials (up to polynomial_manager equality)
              std::vector<const poly*> p_non_null;            
              for (auto & pr: to_vector(m_Q[m_level])) {
+                 if (!pr.m_poly) continue;
                  SASSERT(max_var(pr.m_poly) == m_level);
                  if (pr.m_prop_tag == prop_enum::sgn_inv
                      && !coeffs_are_zeroes_on_sample(pr.m_poly, m_pm, sample(), m_am )) {
@@ -345,21 +381,27 @@ namespace nlsat {
 
              collect_E(p_non_null);
 
-             std::sort(m_E.begin(), m_E.end(), [&](root_function const& a, root_function const& b){
+             // todo: this order needs to be abstracted: it does not have to be linear.
+             // We need a boolean function E_rel(a, b)
+             std::sort(m_rel.m_rfunc.begin(), m_rel.m_rfunc.end(), [&](root_function const& a, root_function const& b){
                  return m_am.lt(a.val, b.val);
              });
-             CTRACE(lws, m_E.size() > 1, tout << "sorted m_E:\n";
-                   for (unsigned kk = 0; kk < m_E.size(); ++kk) {
-                       display(tout, m_E[kk]) << std::endl;
+             TRACE(lws,
+                   if (m_rel.empty()) tout << "E is empty\n";
+                   else { tout << "E:\n";
+                       for (unsigned kk = 0; kk < m_rel.m_pairs.size(); ++kk) {
+                           auto pair = m_rel.m_pairs[kk];
+                           display(tout, m_rel.m_rfunc[pair.first]) << "<<<" ; display(tout, m_rel.m_rfunc[pair.second])<< "\n"; 
+                       }
                    });
-             compute_interval_from_sorted_roots(m_E, m_I[m_level]);
+             compute_interval_from_sorted_roots();
              TRACE(lws, display(tout << "m_I[" << m_level << "]:", m_I[m_level]) << std::endl;);
          }
 
          // Step 1a: collect E the set of root functions on m_level
          void collect_E(std::vector<const poly*> const& p_non_null) {
              TRACE(lws, tout << "enter\n";);
-             m_E.clear();
+             m_rel.clear();
              
              for (auto const* p0 : p_non_null) {
                  auto* p = const_cast<poly*>(p0);
@@ -379,7 +421,7 @@ namespace nlsat {
                        tout << std::endl;
                  );
                  for (unsigned k = 0; k < num_roots; ++k) 
-                     m_E.emplace_back(m_am, p, k + 1, roots[k]);
+                     m_rel.m_rfunc.emplace_back(m_am, p, k + 1, roots[k]);
              }
              TRACE(lws, tout << "exit\n";);
          }
@@ -403,7 +445,7 @@ namespace nlsat {
         // Returns false on failure.
         // works on m_level
         bool construct_interval() {
-            m_E.clear();
+            m_rel.clear();
             if (!apply_property_rules(prop_enum::sgn_inv)) {
                 return false;
             }
@@ -511,6 +553,7 @@ namespace nlsat {
 
             const auto& I = m_I[m_level];
             TRACE(lws, display(tout << "interval m_I[" << m_level << "]\n", I) << "\n";);
+            if (I.is_section()) return;
             SASSERT(I.is_sector());
             if (!I.l_inf() && !I.u_inf()) {
                 mk_prop(ir_ord, level_t(m_level - 1));
@@ -519,7 +562,6 @@ namespace nlsat {
 
         void apply_pre_non_null(const property& p) {
             TRACE(lws, tout << "p:"; display(tout, p) << std::endl;);
-            // First try subrule 1 of Rule 4.2. If it succeeds we do not apply the fallback (subrule 2).
             if (try_non_null_via_coeffs(p))
                 return;
             // fallback: apply the first subrule
@@ -726,11 +768,24 @@ or
               and for all ξ ∈ irExpr(p, s) it holds either ξ ≼t l or u ≼t ξ.
               sample(s)(R), repr(I, s)(R), ir_ord(≼, s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R)
             */
+           // todo - read the preconditions on p it needs to be diff
+                if (!precondition_on_sign_inv(p)) return;
                 mk_prop(sample_holds, level_t(m_level - 1)); 
                 mk_prop(repr, level_t(m_level - 1));
                 mk_prop(ir_ord, level_t(m_level));
                 mk_prop(an_del, p.m_poly);
             }
+        }
+
+
+        /*Assume that p is irreducible, irExpr(p, s) ̸= ∅, ξ.p is irreducible for all ξ ∈ dom(≼), ≼ matches s,
+              and for all ξ ∈ irExpr(p, s) it holds either ξ ≼t l or u ≼t ξ.*/
+        bool precondition_on_sign_inv(const property &p) {
+            SASSERT(is_irreducible(p.m_poly));
+            SASSERT(max_var(p.m_poly) == m_level);
+
+            return true;
+
         }
 
         /*
@@ -796,7 +851,7 @@ or
             SASSERT(invariant());
         }
 
-        bool have_representation() const { return m_E.size() > 0; }
+        bool have_representation() const { return m_rel.empty() == false; }
         
         void apply_pre_ir_ord(const property& p) {
             /*Rule 4.9. Let i ∈ N, R ⊆ Ri, s ∈ Ri, and ≼ be an indexed root ordering of level i + 1.
@@ -808,13 +863,13 @@ or
                 mk_prop(an_sub, level_t(m_level - 1));
                 mk_prop(connected, level_t(m_level - 1));
              }
-             for (unsigned i = 0; i + 1 < m_E.size(); i++) {
-                 SASSERT(max_var(m_E[i].ire.p) == max_var(m_E[i + 1].ire.p));
-                 SASSERT(max_var(m_E[i].ire.p) == m_level);
+             for (const auto & pair: m_rel.m_pairs) {
+                 poly *a = m_rel.m_rfunc[pair.first].ire.p;
+                 poly *b = m_rel.m_rfunc[pair.second].ire.p;
+                 SASSERT(max_var(a) == max_var(b) && max_var(b) == m_level) ;
                  polynomial_ref r(m_pm);
-                 r = resultant(polynomial_ref(m_E[i].ire.p, m_pm), polynomial_ref(m_E[i+1].ire.p, m_pm), max_var(m_E[i].ire.p));
-                 TRACE(lws, tout << "resultant of m_E[" << i<< "] and m_E[" << i+1 << "]\n"; display(tout, m_E[i]) << "\n"; display(tout, m_E[i+1])<< "\nresultant:"; 
-                       ::nlsat::display(tout, m_solver, r) << "\n");
+                 r = resultant(polynomial_ref(a, m_pm), polynomial_ref(b, m_pm), m_level);
+                 TRACE(lws, tout << "resultant of (" << pair.first << "," << pair.second << "):"; ::nlsat::display(tout, m_solver, a) << "\n"; ::nlsat::display(tout,m_solver, b)<< "\nresultant:"; ::nlsat::display(tout, m_solver, r) << "\n");
                  for_each_distinct_factor(r, [this](const polynomial_ref& f) {mk_prop(ord_inv, f);});                 
              }
         }
@@ -843,7 +898,7 @@ or
             m_level = m_n;
             
             init_properties(); // initializes m_Q as a queue of properties on levels <= m_n
-            SASSERT(m_E.size() == 0);
+            SASSERT(m_rel.empty());
             apply_property_rules(prop_enum::_count); // reduce the level from m_n to m_n - 1 to be consumed by construct_interval
             SASSERT(m_Q[m_n].size() == 0);
             SASSERT(m_level == m_n); 
