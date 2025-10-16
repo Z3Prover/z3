@@ -222,8 +222,6 @@ bool finite_set_decl_plugin::is_value(app * e) const {
             if (a->get_num_args() != 1)
                 return false;
             expr* elem = a->get_arg(0);
-            if (!is_app(elem))
-                return false;
             if (!m_manager->is_value(elem))
                 return false;
             continue;
@@ -232,11 +230,12 @@ bool finite_set_decl_plugin::is_value(app * e) const {
         // Check if it's a union
         if (is_app_of(a, m_family_id, OP_FINITE_SET_UNION)) {
             // Add arguments to todo list
-            for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                todo.push_back(a->get_arg(i));
-            }
+            for (auto arg : *a) 
+                todo.push_back(arg);            
             continue;
         }
+
+        // can add also ranges where lo and hi are values.
         
         // If it's none of the above, it's not a value
         return false;
