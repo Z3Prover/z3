@@ -131,16 +131,21 @@ static void tst_finite_set_is_value() {
     ast_manager m;
     reg_decl_plugins(m);
     
+
+    
     finite_set_util fsets(m);
     arith_util arith(m);
     finite_set_decl_plugin* plugin = static_cast<finite_set_decl_plugin*>(m.get_plugin(fsets.get_family_id()));
+  
+      // Create Int sort and finite set sort
     
-    // Create Int sort and finite set sort
+    // Test with Int sort (should be fully interpreted)
     sort_ref int_sort(arith.mk_int(), m);
     parameter int_param(int_sort.get());
     sort_ref finite_set_int(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &int_param), m);
     
-    // Test 1: Empty set is a value
+    
+  // Test 1: Empty set is a value
     app_ref empty_set(fsets.mk_empty(finite_set_int), m);
     ENSURE(plugin->is_value(empty_set.get()));
     
@@ -187,10 +192,34 @@ static void tst_finite_set_is_value() {
     // Test 10: Intersect is NOT a value
     app_ref intersect_set(fsets.mk_intersect(singleton_five, singleton_seven), m);
     ENSURE(!plugin->is_value(intersect_set.get()));
+    ENSURE(m.is_fully_interp(int_sort));
+    ENSURE(m.is_fully_interp(finite_set_int));
+}
+
+static void tst_finite_set_is_fully_interp() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    
+    // Test with Bool sort (should be fully interpreted)
+    sort_ref bool_sort(m.mk_bool_sort(), m);
+    parameter bool_param(bool_sort.get());
+    sort_ref finite_set_bool(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &bool_param), m);
+    
+    ENSURE(m.is_fully_interp(bool_sort));
+    ENSURE(m.is_fully_interp(finite_set_bool));
+    
+    // Test with uninterpreted sort (should not be fully interpreted)
+    sort_ref uninterp_sort(m.mk_uninterpreted_sort(symbol("U")), m);
+    parameter uninterp_param(uninterp_sort.get());
+    sort_ref finite_set_uninterp(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &uninterp_param), m);
+    
+    ENSURE(!m.is_fully_interp(uninterp_sort));
+    ENSURE(!m.is_fully_interp(finite_set_uninterp));
 }
 
 void tst_finite_set() {
     tst_finite_set_basic();
     tst_finite_set_map_select();
     tst_finite_set_is_value();
+    tst_finite_set_is_fully_interp();
 }
