@@ -200,6 +200,8 @@ static void tst_finite_set_is_fully_interp() {
     ast_manager m;
     reg_decl_plugins(m);
     
+    finite_set_util fsets(m);
+    
     // Test with Bool sort (should be fully interpreted)
     sort_ref bool_sort(m.mk_bool_sort(), m);
     parameter bool_param(bool_sort.get());
