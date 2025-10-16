@@ -38,7 +38,7 @@ expr * finite_set_value_factory::get_fresh_value(sort * s) {
 
     // take the bitmask of next_index to determine which elements to include
     // i.e. if next_index = 13 = 1101_2, then we include elements values_e[0], values_e[2], and values_e[3]
-    // new elements for sort s are created on the fly
+    // new elements for element sort are created on the fly
     int num_shifts = 0;
     auto r = u.mk_empty(s);
     // check the rightmost bit of next_index
