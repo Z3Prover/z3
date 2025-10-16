@@ -20,10 +20,10 @@ finite_set_value_factory::finite_set_value_factory(ast_manager & m, family_id fi
 
 expr * finite_set_value_factory::get_some_value(sort * s) {
     // Check if we already have a value for this sort
-    value_set * set = nullptr;
+    value_set * vset = nullptr;
     SASSERT(u.is_finite_set(s));
-    if (m_sort2value_set.find(s, set) && !set->set.empty()) 
-        return *(set->set.begin());
+    if (m_sort2value_set.find(s, vset) && !vset->set.empty()) 
+        return *(vset->set.begin());
     return u.mk_empty(s);
 }
 
@@ -49,6 +49,7 @@ expr * finite_set_value_factory::get_fresh_value(sort * s) {
     }
     auto& [set_e, values_e] = get_value_set(elem_sort);
     unsigned next_index = values.size();
+    SASSERT(next_index >= 1 + values_e.size());  // we already generated the empty set and all singletons   
 
     // Course Task of 10-16-25:
     // For finite domains, we may not be able to generate fresh values
