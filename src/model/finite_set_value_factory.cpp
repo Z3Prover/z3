@@ -33,31 +33,38 @@ expr * finite_set_value_factory::get_fresh_value(sort * s) {
     // Get a fresh value for a finite set sort
 
     auto& [set, values] = get_value_set(s);
-    
-    // If no values have been generated yet, use get_some_value
-    if (set.empty()) {
-        auto r = u.mk_empty(s);
-        register_value(r);
-        return r;
-    }
-    auto e = m_model.get_fresh_value(elem_sort);
-    if (e) {
-        auto r = u.mk_singleton(e);
-        register_value(e); // register e so we can access the finite domain within this class
-        register_value(r);
-        return r;
-    }
     auto& [set_e, values_e] = get_value_set(elem_sort);
     unsigned next_index = values.size();
-    SASSERT(next_index >= 1 + values_e.size());  // we already generated the empty set and all singletons   
 
-    // Course Task of 10-16-25:
-    // For finite domains, we may not be able to generate fresh values
-    // if all values have been exhausted
-    // create sets based on next_index
-    // assume that values_e contains all the values of the element sort
-    // and they have already been generated.
-    // Figure out if we are creating two, three, or more element sets
-    // and map next_index into the elements in a uniqe way.
-    return nullptr;
+    // take the bitmask of next_index to determine which elements to include
+    // i.e. if next_index = 13 = 1101_2, then we include elements values_e[0], values_e[2], and values_e[3]
+    // new elements for sort s are created on the fly
+    int num_shifts = 0;
+    auto r = u.mk_empty(s);
+    // check the rightmost bit of next_index
+    while ( next_index > 0)
+    {
+        if (next_index & 1) {
+            // the element values_e[next_index] is in the set
+            expr* element = nullptr;
+            if(num_shifts > values_e.size()) {
+                // the element we are trying to add does not yet exist
+                element = m_model.get_fresh_value(elem_sort);
+                if (!element) {
+                    // we cannot generate a fresh value for the element sort
+                    return nullptr;
+                }
+                // element is fresh for sort s
+                register_value(element);
+            }else{
+                //retrieve previously generated element
+                element = values_e[num_shifts].get();
+            }
+            r = u.mk_union(r, u.mk_singleton(element));
+        }
+        num_shifts++;
+        next_index = next_index >> 1;
+    }
+    register_value(r);
+    return r;
 }
