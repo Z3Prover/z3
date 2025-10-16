@@ -365,6 +365,35 @@ build type when invoking ``cmake`` by passing ``-DCMAKE_BUILD_TYPE=<build_type>`
 For multi-configuration generators (e.g. Visual Studio) you don't set the build type
 when invoking CMake and instead set the build type within Visual Studio itself.
 
+## MSVC Security Features
+
+When building with Microsoft Visual C++ (MSVC), Z3 automatically enables several security features by default:
+
+### Control Flow Guard (CFG)
+- **CMake Option**: `Z3_ENABLE_CFG` - Defaults to `ON` for MSVC builds
+- **Compiler flag**: `/guard:cf` - Automatically enabled when `Z3_ENABLE_CFG=ON`
+- **Linker flag**: `/GUARD:CF` - Automatically enabled when `Z3_ENABLE_CFG=ON`
+- **Purpose**: Control Flow Guard analyzes control flow for indirect call targets at compile time and inserts runtime verification code to detect attempts to compromise your code by redirecting control flow to attacker-controlled locations
+- **Note**: Automatically enables `/DYNAMICBASE` as required by `/GUARD:CF`
+
+### Address Space Layout Randomization (ASLR)
+- **Linker flag**: `/DYNAMICBASE` - Enabled when Control Flow Guard is active
+- **Purpose**: Randomizes memory layout to make exploitation more difficult
+- **Note**: Required for Control Flow Guard to function properly
+
+### Incompatibilities
+Control Flow Guard is incompatible with:
+- `/ZI` (Edit and Continue debug information format)
+- `/clr` (Common Language Runtime compilation)
+
+When these incompatible options are detected, Control Flow Guard will be automatically disabled with a warning message.
+
+### Disabling Control Flow Guard
+To disable Control Flow Guard, set the CMake option:
+```bash
+cmake -DZ3_ENABLE_CFG=OFF ../
+```
+
 ## Useful options
 
 The following useful options can be passed to CMake whilst configuring.
@@ -404,8 +433,11 @@ The following useful options can be passed to CMake whilst configuring.
 * ``Z3_ALWAYS_BUILD_DOCS`` - BOOL. If set to ``TRUE`` and ``Z3_BUILD_DOCUMENTATION`` is ``TRUE`` then documentation for API bindings will always be built.
     Disabling this is useful for faster incremental builds. The documentation can be manually built by invoking the ``api_docs`` target.
 * ``Z3_LINK_TIME_OPTIMIZATION`` - BOOL. If set to ``TRUE`` link time optimization will be enabled.
-* ``Z3_ENABLE_CFI`` - BOOL. If set to ``TRUE`` will enable Control Flow Integrity security checks. This is only supported by MSVC and Clang and will
+* ``Z3_ENABLE_CFI`` - BOOL. If set to ``TRUE`` will enable Control Flow Integrity security checks. This is only supported by Clang and will
     fail on other compilers. This requires Z3_LINK_TIME_OPTIMIZATION to also be enabled.
+* ``Z3_ENABLE_CFG`` - BOOL. If set to ``TRUE`` will enable Control Flow Guard security checks. This is only supported by MSVC and will
+    fail on other compilers. This does not require link time optimization. Control Flow Guard is enabled by default for MSVC builds.
+    Note: Control Flow Guard is incompatible with ``/ZI`` (Edit and Continue debug information) and ``/clr`` (Common Language Runtime compilation).
 * ``Z3_API_LOG_SYNC`` - BOOL. If set to ``TRUE`` will enable experimental API log sync feature.
 * ``WARNINGS_AS_ERRORS`` - STRING. If set to ``ON`` compiler warnings will be treated as errors. If set to ``OFF`` compiler warnings will not be treated as errors.
     If set to ``SERIOUS_ONLY`` a subset of compiler warnings will be treated as errors.
