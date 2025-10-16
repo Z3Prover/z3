@@ -12,7 +12,6 @@ Abstract:
 --*/
 #include "model/finite_set_value_factory.h"
 #include "model/model_core.h"
-#include "ast/array_decl_plugin.h"
 
 finite_set_value_factory::finite_set_value_factory(ast_manager & m, family_id fid, model_core & md):
     struct_factory(m, fid, md),
@@ -22,6 +21,7 @@ finite_set_value_factory::finite_set_value_factory(ast_manager & m, family_id fi
 expr * finite_set_value_factory::get_some_value(sort * s) {
     // Check if we already have a value for this sort
     value_set * set = nullptr;
+    SASSERT(u.is_finite_set(s));
     if (m_sort2value_set.find(s, set) && !set->empty()) 
         return *(set->begin());
 
