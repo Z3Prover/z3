@@ -42,6 +42,7 @@ Revision History:
 #include "model/char_factory.h"
 #include "model/finite_set_factory.h"
 
+
 model::model(ast_manager & m):
     model_core(m),
     m_mev(*this),
