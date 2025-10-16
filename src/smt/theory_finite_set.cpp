@@ -25,6 +25,10 @@ Revision History:
 
 namespace smt {
 
+    /**
+    Constructor.
+    Set up callback that adds axiom instantiations as clauses. 
+    **/
     theory_finite_set::theory_finite_set(context& ctx):
         theory(ctx, ctx.get_manager().mk_family_id("finite_set")),
         u(m),
@@ -38,6 +42,24 @@ namespace smt {
         m_axioms.set_add_clause(add_clause_fn);
     }
 
+    /**
+    * Boolean atomic formulas for finite sets are one of:
+    * (set.in x S)
+    * (set.subset S T)
+    * When an atomic formula is first created it is to be registered with the solver.
+    * The internalize_atom method takes care of this.
+    * Atomic formulas are special cases of terms (of non-Boolean type) so the first 
+    * effect is to register the atom as a term.
+    * The second effect is to set up tracking and assert axioms.
+    * Tracking:
+    *    For every occurrence (set.in x_i S_i) we track x_i. 
+    * Axioms:
+    *    We can immediately assert some axioms because they are unit literals:
+    *    - (set.in x set.empty) is false
+    *    - (set.subset S T) <=> (= (set.union S T) T)  (or (= (set.intersect S T) S))
+    *    Axioms can be deffered to when the atomic formulas become "relevant" for the theory solver.
+    *    
+    */
     bool theory_finite_set::internalize_atom(app * atom, bool gate_ctx) {
         TRACE(finite_set, tout << "internalize_atom: " << mk_pp(atom, m) << "\n";);
 
@@ -52,10 +74,22 @@ namespace smt {
                 ctx.push_trail(insert_obj_trail(m_elements, n));
             }
         }
+
+        // Assert immediate axioms
+        // add_immediate_axioms(atom);
         
         return true;
     }
 
+    /**
+     * When terms are registered with the solver , we need to ensure that:
+     * - All subterms have an associated E-node
+     * - Boolean terms are registered as boolean variables
+     *   Registering a Boolean variable ensures that the solver will be notified about its truth value.
+     * - Non-Boolean terms have an associated theory variable
+     *   Registering a theory variable ensures that the solver will be notified about equalities and disequalites.
+     *   The solver can use the theory variable to track auxiliary information about E-nodes.    
+    */
     bool theory_finite_set::internalize_term(app * term) {
         TRACE(finite_set, tout << "internalize_term: " << mk_pp(term, m) << "\n";);
         
@@ -95,6 +129,17 @@ namespace smt {
         // For now, we rely on the final_check to handle this
     }
 
+    /**
+    * Final check for the finite set theory.
+     * The Final Check method is called when the solver has assigned truth values to all Boolean variables.
+     * It is responsible for asserting any remaining axioms and checking for inconsistencies.
+     * 
+     * It ensures saturation with respect to the theory axioms:
+     * - Set membership is saturated with respect to set operations.
+     *    For every (set.in x S) where S is a union, assert (or propagate) (set.in x S1) or (set.in x S2)
+     * - It saturates with respect to extensionality:
+     *   Sets corresponding to shared variables having the same interpretation should also be congruent
+    */
     final_check_status theory_finite_set::final_check_eh() {
         TRACE(finite_set, tout << "final_check_eh\n";);
 
@@ -102,6 +147,7 @@ namespace smt {
         // if a parent is of the form elem' in S u T, or similar.
         // create clauses for elem in S u T.
 
+        // Saturate membership constraints
         expr* elem1 = nullptr, *set1 = nullptr;
         for (auto elem : m_elements) {
             if (!ctx.is_relevant(elem))
@@ -124,9 +170,13 @@ namespace smt {
         if (instantiate_free_lemma())
             return FC_CONTINUE;
         
+        // TODO: Extensionality axioms for sets
         return FC_DONE;
     }
 
+    /**
+    * Instantiate axioms for a given element in a set.
+    */
     void theory_finite_set::instantiate_axioms(expr* elem, expr* set) {
         TRACE(finite_set, tout << "instantiate_axioms: " << mk_pp(elem, m) << " in " << mk_pp(set, m) << "\n";);
         
@@ -206,6 +256,12 @@ namespace smt {
         return nullptr;
     }
 
+    /**
+    * Lemmas that are currently assinged to false are conflicts. 
+    * They should be asserted as soon as possible.
+    * Only the first conflict needs to be asserted.
+    * 
+    */
     bool theory_finite_set::instantiate_false_lemma() {
         for (auto const& clause : m_lemmas) {
             bool all_false = all_of(clause, [&](expr *e) { return ctx.find_assignment(e) == l_false; });
@@ -217,7 +273,15 @@ namespace smt {
         return false;
     }
 
+    /**
+     * Lemmas that are unit propagating should be asserted as possible and can be asserted in a batch.
+     * It is possible to assert a unit propagating lemma as a clause.
+     * A more efficient approach is to add a Theory propagation with the solver.
+     * A theory propagation gets recorded on the assignment trail and the overhead of undoing it is baked in to backtracking.
+     * A theory axiom is also removed during backtracking.
+    */
     bool theory_finite_set::instantiate_unit_propagation() {
+        bool propagaed = false;
         for (auto const &clause : m_lemmas) {
             expr *undef = nullptr;
             bool is_unit_propagating = true;
@@ -237,11 +301,17 @@ namespace smt {
             if (!is_unit_propagating || undef == nullptr)
                 continue;      
             assert_clause(clause);
-            return true;
+            propagated = true;
         }
-        return false;
+        return propagated;
     }
 
+    /**
+     * We assume the lemmas in the queue are necessary for completeness.
+     * So they all have to be enforced through case analysis.
+     * Lemmas with more than one unassigned literal are asserted here.
+     * The solver will case split on the unassigned literals to satisfy the lemma.
+    */
     bool theory_finite_set::instantiate_free_lemma() {
         for (auto const& clause : m_lemmas) {
             if (any_of(clause, [&](expr *e) { return ctx.find_assignment(e) == l_true; }))
