@@ -30,34 +30,40 @@ expr * finite_set_value_factory::get_some_value(sort * s) {
 expr * finite_set_value_factory::get_fresh_value(sort * s) {
     sort* elem_sort = nullptr;
     VERIFY(u.is_finite_set(s, elem_sort));
-    // Get a fresh value for a finite set sort
-
+    
     auto& [set, values] = get_value_set(s);
     
-    // If no values have been generated yet, use get_some_value
-    if (set.empty()) {
+    // Case 1: If no values have been generated yet, return empty set
+    if (values.size() == 0) {
         auto r = u.mk_empty(s);
         register_value(r);
         return r;
     }
-    auto e = m_model.get_fresh_value(elem_sort);
-    if (e) {
+    
+    // Helper lambda to check if a number is a power of 2
+    auto is_power_of_2 = [](unsigned n) {
+        return n > 0 && (n & (n - 1)) == 0;
+    };
+    
+    // Case 2: If values.size() is a power of 2, create a fresh singleton
+    if (is_power_of_2(values.size())) {
+        auto e = m_model.get_fresh_value(elem_sort);
+        if (!e)
+            return nullptr;
+        register_value(e);
         auto r = u.mk_singleton(e);
-        register_value(e); // register e so we can access the finite domain within this class
         register_value(r);
         return r;
     }
-    auto& [set_e, values_e] = get_value_set(elem_sort);
-    unsigned next_index = values.size();
-    SASSERT(next_index >= 1 + values_e.size());  // we already generated the empty set and all singletons   
-
-    // Course Task of 10-16-25:
-    // For finite domains, we may not be able to generate fresh values
-    // if all values have been exhausted
-    // create sets based on next_index
-    // assume that values_e contains all the values of the element sort
-    // and they have already been generated.
-    // Figure out if we are creating two, three, or more element sets
-    // and map next_index into the elements in a uniqe way.
-    return nullptr;
+    
+    // Case 3: Find greatest power of 2 N < values.size() and create union
+    // Find the greatest N that is a power of 2 and N < values.size()
+    unsigned N = 1;
+    while (N * 2 < values.size()) {
+        N *= 2;
+    }
+    
+    auto r = u.mk_union(values.get(values.size() - N), values.get(N));
+    register_value(r);
+    return r;
 }
