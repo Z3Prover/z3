@@ -402,9 +402,6 @@ namespace nlsat {
              std::sort(m_rel.m_rfunc.begin(), m_rel.m_rfunc.end(), [&](root_function const& a, root_function const& b){
                  return m_am.lt(a.val, b.val);
              });
-             if (m_rel.m_rfunc.size() >= 2) {
-                enable_trace("lws");
-             }
              TRACE(lws,
                    if (m_rel.empty()) tout << "E is empty\n";
                    else { tout << "E:\n";
@@ -433,6 +430,11 @@ namespace nlsat {
             if (is_set(u)) 
                 for (unsigned j = u + 1; j < m_rel.m_rfunc.size(); j++)
                     m_rel.add_pair(u, j);
+
+            if (is_set(l) && is_set(u)) {
+                SASSERT(l + 1 == u);
+                m_rel.add_pair(l, u);        
+            }
          }
 
          void fill_relation_pairs() {
