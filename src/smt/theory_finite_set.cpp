@@ -126,8 +126,14 @@ namespace smt {
 
     void theory_finite_set::new_eq_eh(theory_var v1, theory_var v2) {
         TRACE(finite_set, tout << "new_eq_eh: v" << v1 << " = v" << v2 << "\n";);
-        // When two sets are equal, propagate membership constraints
-        // This is handled by congruence closure, so no additional work needed here
+        //    x = y, y in S
+        // -------------------
+        //  axioms for x in S
+
+        auto n1 = get_enode(v1);
+        auto n2 = get_enode(v2);
+        auto e1 = n1->get_expr();
+        auto e2 = n2->get_expr();
     }
 
     void theory_finite_set::new_diseq_eh(theory_var v1, theory_var v2) {
@@ -191,6 +197,10 @@ namespace smt {
         // Assert all new lemmas as clauses
         for (unsigned i = sz; i < m_theory_axioms.size(); ++i) 
             assert_clause(m_theory_axioms[i]);
+
+
+        // TODO also add axioms for x in S u T, x in S n T, etc to the stack of m_theory_axioms.
+        // The axioms are then instantiated if they are propagating.
     }
 
     /**
@@ -363,6 +373,9 @@ namespace smt {
             if (!ctx.is_relevant(x))
                 continue;
             x = x->get_root();
+            if (x->is_marked())
+                continue;
+            x->set_mark();  // make sure we only do this once per element
             // TODO: use marking of x to avoid duplicate work
             for (auto p : enode::parents(x)) {
                 if (!ctx.is_relevant(p))
@@ -380,6 +393,11 @@ namespace smt {
                     m_set_members.insert(set, alloc(obj_hashtable<enode>));                
                 m_set_members.find(set)->insert(x);
             }
+        }
+        for (auto x : m_elements) {
+            x = x->get_root();
+            if (x->is_marked())
+                x->unset_mark();
         }
     }
 
