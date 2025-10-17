@@ -63,7 +63,7 @@ expr * finite_set_value_factory::get_fresh_value(sort * s) {
         N *= 2;
     }
     
-    auto r = u.mk_union(values.get(values.size() - N), values.back());
+    auto r = u.mk_union(values.get(values.size() - N), values.get(N));
     register_value(r);
     return r;
 }
