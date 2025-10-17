@@ -103,17 +103,18 @@ namespace nlsat {
         struct relation_E {
             std::vector<root_function> m_rfunc; // the root functions on a level
             std::vector<std::pair<unsigned, unsigned>> m_pairs; // of the relation
-            bool empty() const { return m_pairs.size() == 0; }
+            bool empty() const { return m_rfunc.size() == 0 && m_pairs.size() == 0; }
             void clear() {
                 m_pairs.clear();
                 m_rfunc.clear();
+                m_l_start = m_l_end = m_u_start = m_u_end = -1;
             }
             bool section() const { return (int)m_l_start != -1 && (int)m_u_start == -1; }
             // the indices point te the m_rfunc vector
-            size_t m_l_start = -1;
-            size_t m_l_end = -1;
-            size_t m_u_start = -1;
-            size_t m_u_end = -1;
+            unsigned m_l_start = -1;
+            unsigned m_l_end = -1;
+            unsigned m_u_start = -1;
+            unsigned m_u_end = -1;
             
         };
         relation_E m_rel;
@@ -232,7 +233,7 @@ namespace nlsat {
                 }
                 tout << std::endl;
             );
-            for (size_t j = 0; j + 1 < root_vals.size(); ++j) {
+            for (unsigned j = 0; j + 1 < root_vals.size(); ++j) {
                 poly* p1 = root_vals[j].second;
                 poly* p2 = root_vals[j+1].second;
                 if (p1 == p2) continue; // delineability of p1 handled by an_del
@@ -278,61 +279,61 @@ namespace nlsat {
             root_function_interval & I = m_I[m_level];
             // default: whole line sector (-inf, +inf)
             I.section = false;
-            I.l = nullptr; I.u = nullptr; I.l_index = 0; I.u_index = 0;
+            I.l = nullptr; I.u = nullptr; 
             if (m_rel.empty()) return;
             if (!sample().is_assigned(m_level)) return;
             anum const& y_val = sample().value(m_level);
-            
+            TRACE(lws, tout << "sample val:";  m_am.display_decimal(tout, y_val); tout << "\n";);
+                        
             // find first index where roots[idx].val >= y_val
-            const auto & roots = m_rel.m_rfunc;
-            if (roots.size() > 0) {
-                std::cout << roots.size() << "\n";
-            }
-            size_t idx = 0;
-            while (idx < roots.size() && m_am.compare(roots[idx].val, y_val) < 0) {
-                TRACE(lws, tout << "idx=" << idx << ", val="; m_am.display_decimal(tout, roots[idx].val); tout << "\n";);
+            const auto & rfs = m_rel.m_rfunc;
+            unsigned idx = 0;
+            while (idx < rfs.size() && m_am.compare(rfs[idx].val, y_val) < 0) {
+                TRACE(lws, tout << "idx:" << idx << ", val:"; m_am.display_decimal(tout, rfs[idx].val); tout << "\n";);
                 ++idx;
             }
-            if (idx < roots.size() && m_am.compare(roots[idx].val, y_val) == 0) {
-                TRACE(lws, tout << "exact match at idx=" << idx << ", it's a section\n";);
-                auto const& ire = roots[idx].ire;
+            if (idx < rfs.size() && m_am.compare(rfs[idx].val, y_val) == 0) {
+                TRACE(lws, tout << "exact match at idx:" << idx << ", it's a section\n";);
+                auto const& ire = rfs[idx].ire;
                 I.section = true;
                 I.l = ire.p; I.l_index = ire.i;
                 I.u = nullptr; I.u_index = -1; // the section is defined by the I.l
-                TRACE(lws, tout << "section bound -> p="; if (I.l) m_pm.display(tout, I.l); tout << ", index=" << I.l_index << "\n";);
+                TRACE(lws, tout << "section bound -> p:"; if (I.l) m_pm.display(tout, I.l); tout << ", index:" << I.l_index << "\n";);
                 m_rel.m_l_start = m_rel.m_l_end = idx;
-                while (++idx < roots.size() && m_am.compare(roots[idx].val, y_val) == 0) {
+                while (++idx < rfs.size() && m_am.compare(rfs[idx].val, y_val) == 0) {
                     m_rel.m_l_end = idx;
-                    TRACE(lws, tout << "idx=" << idx << ", val="; m_am.display_decimal(tout, roots[idx].val); tout << "\n";);
+                    TRACE(lws, tout << "idx:" << idx << ", val:"; m_am.display_decimal(tout, rfs[idx].val); tout << "\n";);
                 }
+                TRACE(lws, display_relation(tout););
                 return;
             }
 
             // sector: lower bound is last root with val < y, upper bound is first root with val > y
             if (idx > 0) {
                 // find start,end of equal-valued group for lower bound
-                size_t start = idx - 1;
+                unsigned start = idx - 1;
                 m_rel.m_l_end = start;
-                while (start > 0 && m_am.compare(roots[start-1].val, roots[start].val) == 0) {
+                while (start > 0 && m_am.compare(rfs[start-1].val, rfs[start].val) == 0) {
                     --start;
-                    TRACE(lws, tout << "start=" << start << ", val="; m_am.display_decimal(tout, roots[start].val); tout << "\n";);
+                    TRACE(lws, tout << "start:" << start << ", val:"; m_am.display_decimal(tout, rfs[start].val); tout << "\n";);
                 }
                 m_rel.m_l_start = start;
-                auto const& ire = roots[start].ire;
+                auto const& ire = rfs[start].ire;
                 I.l = ire.p; I.l_index = ire.i;
             } 
-            if (idx < roots.size()) {
+            if (idx < rfs.size()) {
                 // find start, end of equal-valued group for upper bound
-                size_t start = idx;
+                unsigned start = idx;
                 m_rel.m_u_start = idx;
-                while (start + 1 < roots.size() && m_am.compare(roots[start].val, roots[start + 1].val) == 0) {
+                while (start + 1 < rfs.size() && m_am.compare(rfs[start].val, rfs[start + 1].val) == 0) {
                     ++start;
-                    TRACE(lws, tout << "start=" << start << ", val="; m_am.display_decimal(tout, roots[start].val); tout << "\n";);
+                    TRACE(lws, tout << "start:" << start << ", val:"; m_am.display_decimal(tout, rfs[start].val); tout << "\n";);
                 }
-                auto const& ire = roots[start].ire;
+                auto const& ire = rfs[start].ire;
                 m_rel.m_u_end = start;
                 I.u = ire.p; I.u_index = ire.i;
             }
+            TRACE(lws, display_relation(tout) << std::endl;);
         }
 
         property pop(property_queue & q) {
@@ -386,16 +387,29 @@ namespace nlsat {
              std::sort(m_rel.m_rfunc.begin(), m_rel.m_rfunc.end(), [&](root_function const& a, root_function const& b){
                  return m_am.lt(a.val, b.val);
              });
+             if (m_rel.m_rfunc.size() >= 2) {
+                enable_trace("lws");
+             }
              TRACE(lws,
                    if (m_rel.empty()) tout << "E is empty\n";
                    else { tout << "E:\n";
+                       tout << "roots:\n";
+                       for (const auto& rf: m_rel.m_rfunc) {
+                          display(tout, rf) << "\n";
+                       } 
+                       tout << "pairs:\n";
                        for (unsigned kk = 0; kk < m_rel.m_pairs.size(); ++kk) {
                            auto pair = m_rel.m_pairs[kk];
                            display(tout, m_rel.m_rfunc[pair.first]) << "<<<" ; display(tout, m_rel.m_rfunc[pair.second])<< "\n"; 
                        }
                    });
              compute_interval_from_sorted_roots();
+             fill_relation_pairs();
              TRACE(lws, display(tout << "m_I[" << m_level << "]:", m_I[m_level]) << std::endl;);
+         }
+
+         void fill_relation_pairs() {
+            NOT_IMPLEMENTED_YET();
          }
 
          // Step 1a: collect E the set of root functions on m_level
@@ -934,6 +948,27 @@ or
             return out;
         }
  
+        std::ostream& display_relation(std::ostream& out) const {
+            out << "Relation_E:\n";
+            if (m_rel.empty()) {
+                out << "  (empty)\n";
+                return out;
+            }
+            out << "  Root functions:\n";
+            for (size_t i = 0; i < m_rel.m_rfunc.size(); ++i) {
+                out << "    [" << i << "]: ";
+                display(out, m_rel.m_rfunc[i], true) << "\n";
+            }
+            out << "  Pairs:\n";
+            for (const auto& pair : m_rel.m_pairs) {
+                out << "    (" << pair.first << ", " << pair.second << ")\n";
+            }
+            out << "  Indices:\n";
+            out << "    m_l_start:" << (int)m_rel.m_l_start << ", m_l_end:" << (int)m_rel.m_l_end << "\n";
+            out << "    m_u_start:" << (int)m_rel.m_u_start << ", m_u_end:" << (int)m_rel.m_u_end << "\n";
+            return out;
+        }
+
         std::ostream& display(std::ostream& out, const property & pr) const {
             out << "{prop:" << prop_name(pr.m_prop_tag);
             if ((int)pr.m_root_index != -1) out   << ", m_root_index:" << pr.m_root_index;
@@ -949,7 +984,7 @@ or
         }
        
         std::ostream& display(std::ostream& out, const indexed_root_expr& ire ) const {
-            out << "RootExpr: p=";
+            out << "RootExpr: p:";
             ::nlsat::display(out, m_solver, ire.p);
             out << ", root_index:" << ire.i;
             return out;
