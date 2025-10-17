@@ -125,7 +125,12 @@ func_decl * finite_set_decl_plugin::mk_finite_set_op(decl_kind k, unsigned arity
     polymorphism::util poly_util(m);
     sort_ref rng(m);
     poly_util.match(*m_sigs[k], arity, domain, range, rng);
-    return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
+    func_decl_info info(m_family_id, k);
+    if (k == OP_FINITE_SET_UNION || k == OP_FINITE_SET_INTERSECT) {
+        info.set_commutative(true);
+        info.set_associative(true);
+    }
+    return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, info);
 }
 
 func_decl * finite_set_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
@@ -144,9 +149,10 @@ func_decl * finite_set_decl_plugin::mk_func_decl(decl_kind k, unsigned num_param
             range = to_sort(parameters[0].get_ast());
         }        
         return mk_empty(range);
-    case OP_FINITE_SET_SINGLETON:
     case OP_FINITE_SET_UNION:
-    case OP_FINITE_SET_INTERSECT:
+    case OP_FINITE_SET_INTERSECT:         
+        return mk_finite_set_op(k, 2, domain, range);
+    case OP_FINITE_SET_SINGLETON:
     case OP_FINITE_SET_DIFFERENCE:
     case OP_FINITE_SET_IN:
     case OP_FINITE_SET_SIZE:
