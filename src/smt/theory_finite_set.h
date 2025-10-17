@@ -128,7 +128,8 @@ namespace smt {
         lbool truth_value(expr *e);
         void add_immediate_axioms(app *atom);
         bool add_membership_axioms();
-        bool add_extensionality_axioms();
+        bool assume_eqs();
+        bool is_new_axiom(expr *a, expr *b);
 
         // model construction
         void collect_members();

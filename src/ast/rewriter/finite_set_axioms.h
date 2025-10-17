@@ -69,4 +69,7 @@ public:
     // set.size(a) = 1
     void size_singleton_axiom(expr *a);
 
+    // a != b => set.in (set.diff(a, b) a) != set.in (set.diff(a, b) b)
+    void extensionality_axiom(expr *a, expr *b);
+
 };

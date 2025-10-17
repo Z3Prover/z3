@@ -131,9 +131,18 @@ namespace smt {
     }
 
     void theory_finite_set::new_diseq_eh(theory_var v1, theory_var v2) {
-        TRACE(finite_set, tout << "new_diseq_eh: v" << v1 << " != v" << v2 << "\n";);
-        // Disequalities could trigger extensionality axioms
-        // For now, we rely on the final_check to handle this
+        TRACE(finite_set, tout << "new_diseq_eh: v" << v1 << " != v" << v2 << "\n");
+        auto n1 = get_enode(v1);
+        auto n2 = get_enode(v2);
+        auto e1 = n1->get_expr();
+        auto e2 = n2->get_expr();
+        if (u.is_finite_set(e1) && u.is_finite_set(e2)) {
+            if (e1->get_id() > e2->get_id())
+                std::swap(e1, e2);
+            if (!is_new_axiom(e1, e2))
+                return;
+            m_axioms.extensionality_axiom(e1, e2);
+        }
     }
 
     /**
@@ -143,7 +152,7 @@ namespace smt {
      * 
      * It ensures saturation with respect to the theory axioms:
      * - membership axioms
-     * - extensionality axioms
+     * - assume eqs axioms
     */
     final_check_status theory_finite_set::final_check_eh() {
         TRACE(finite_set, tout << "final_check_eh\n";);
@@ -151,7 +160,7 @@ namespace smt {
         if (add_membership_axioms())
             return FC_CONTINUE;
 
-        if (add_extensionality_axioms())
+        if (assume_eqs())
             return FC_CONTINUE;
         
         return FC_DONE;
@@ -219,11 +228,65 @@ namespace smt {
     }
 
     /**
-     *  Saturate with respect to extensionality:
+     *  Saturate with respect to equality sharing:
      *  - Sets corresponding to shared variables having the same interpretation should also be congruent
     */
-    bool theory_finite_set::add_extensionality_axioms() {
+    bool theory_finite_set::assume_eqs() {
+        collect_members();
+        expr_ref_vector trail(m); // make sure reference counts to union expressions are valid in this scope
+        obj_map<expr, enode*> set_reprs;
+
+        auto start = ctx.get_random_value();
+        auto sz = get_num_vars();
+        for (unsigned w = 0; w < sz; ++w) {
+            auto v = (w + start) % sz;
+            enode* n = get_enode(v);
+            if (!u.is_finite_set(n->get_expr()))
+                continue;
+            if (!is_relevant_and_shared(n))
+                continue;
+            auto r = n->get_root();
+            // Create a union expression that is canonical (sorted)
+            auto& set = *m_set_members[r];
+            ptr_vector<expr> elems;
+            for (auto e : set)
+                elems.push_back(e->get_expr());
+            std::sort(elems.begin(), elems.end(), [](expr *a, expr *b) { return a->get_id() < b->get_id(); });
+            expr* s = nullptr;
+            for (auto v : elems)
+                s = s ? u.mk_union(s, v) : v;
+            trail.push_back(s);
+            enode *n2 = nullptr;
+            if (!set_reprs.find(s, n2)) {
+                set_reprs.insert(s, n2);
+                continue;
+            }
+            if (n2->get_root() == r)
+                continue;
+            if (is_new_axiom(n->get_expr(), n2->get_expr()) && assume_eq(n, n2)) {
+                TRACE(finite_set,
+                      tout << "assume " << mk_pp(n->get_expr(), m) << " = " << mk_pp(n2->get_expr(), m) << "\n";);
+                return true;
+            }
+        }
         return false;
+    }
+
+
+    bool theory_finite_set::is_new_axiom(expr* a, expr* b) {
+        struct insert_obj_pair_table : public trail {
+            obj_pair_hashtable<expr, expr> &table;
+            expr *a, *b;
+            insert_obj_pair_table(obj_pair_hashtable<expr, expr> &t, expr *a, expr *b) : table(t), a(a), b(b) {}
+            void undo() override {
+                table.erase({a, b});
+            }
+        };
+        if (m_lemma_exprs.contains({a, b}))
+            return false;
+        m_lemma_exprs.insert({a, b});
+        ctx.push_trail(insert_obj_pair_table(m_lemma_exprs, a, b));
+        return true;
     }
 
     /**
@@ -232,19 +295,9 @@ namespace smt {
     void theory_finite_set::add_membership_axioms(expr *elem, expr *set) {
         TRACE(finite_set, tout << "add_membership_axioms: " << mk_pp(elem, m) << " in " << mk_pp(set, m) << "\n";);
 
-        struct insert_obj_pair_table : public trail {
-            obj_pair_hashtable<expr, expr> &table;
-            expr *a, *b;
-            insert_obj_pair_table(obj_pair_hashtable<expr, expr> &t, expr *a, expr *b) : 
-                table(t), a(a), b(b) {}
-            void undo() override {
-                table.erase({a, b});
-            }
-        };
-        if (m_lemma_exprs.contains({elem, set}))
+        if (!is_new_axiom(elem, set))
             return;
-        m_lemma_exprs.insert({elem, set});
-        ctx.push_trail(insert_obj_pair_table(m_lemma_exprs, elem, set));
+
         // Instantiate appropriate axiom based on set structure
         if (u.is_empty(set)) {
             m_axioms.in_empty_axiom(elem);
@@ -295,8 +348,6 @@ namespace smt {
         mg.register_factory(m_factory);
         collect_members();
     }
-
-
 
     void theory_finite_set::collect_members() {
         // This method can be used to collect all elements that are members of sets

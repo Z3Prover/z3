@@ -299,3 +299,18 @@ void finite_set_axioms::subset_axiom(expr* a) {
     clause2.push_back(m.mk_not(eq));
     m_add_clause(clause2);
 }
+
+void finite_set_axioms::extensionality_axiom(expr *a, expr* b) {
+    // a != b => set.in (set.diff(a, b) a) != set.in (set.diff(a, b) b)
+    expr_ref diff_ab(u.mk_difference(a, b), m);
+
+    expr_ref a_eq_b(m.mk_eq(a, b), m);
+    expr_ref diff_in_a(u.mk_in(diff_ab, a), m);
+    expr_ref diff_in_b(u.mk_in(diff_ab, b), m);
+    
+    // (a != b) => (x in diff_ab != x in diff_ba)
+    expr_ref_vector clause(m);
+    clause.push_back(a_eq_b);
+    clause.push_back(m.mk_not(m.mk_iff(diff_in_a, diff_in_b)));
+    m_add_clause(clause);   
+}

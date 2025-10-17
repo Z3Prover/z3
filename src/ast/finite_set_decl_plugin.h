@@ -23,6 +23,7 @@ Operators:
     set.map : (S -> T) (FiniteSet S) -> (FiniteSet T)
     set.select : (S -> Bool) (FiniteSet S) -> (FiniteSet S)
     set.range : Int Int -> (FiniteSet Int)
+    set.diff : (FiniteSet S) (FiniteSet S) -> S
    
 --*/
 #pragma once
@@ -46,6 +47,8 @@ enum finite_set_op_kind {
     OP_FINITE_SET_MAP,
     OP_FINITE_SET_SELECT,
     OP_FINITE_SET_RANGE,
+    OP_FINITE_SET_DIFF,
+    OP_FINITE_SET_MAP_INVERSE,
     LAST_FINITE_SET_OP
 };
 
