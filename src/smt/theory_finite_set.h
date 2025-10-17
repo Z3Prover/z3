@@ -90,17 +90,18 @@ theory_finite_set.cpp.
 #include "ast/rewriter/finite_set_axioms.h"
 #include "util/obj_pair_hashtable.h"
 #include "smt/smt_theory.h"
-#include "model/finite_set_value_factory.h"
+#include "model/finite_set_factory.h"
 
 namespace smt {
     class theory_finite_set : public theory {
         friend class theory_finite_set_test;
+        friend struct finite_set_value_proc;
         finite_set_util           u;
         finite_set_axioms         m_axioms;
         obj_hashtable<enode>      m_elements;             // set of all 'x' where there is an 'x in S' atom
-        vector<expr_ref_vector>   m_lemmas;
-        obj_pair_hashtable<expr, expr> m_lemma_exprs;
-        finite_set_value_factory *m_factory = nullptr;
+        vector<expr_ref_vector>   m_theory_axioms;
+        obj_pair_hashtable<expr, expr> m_theory_axiom_exprs;
+        finite_set_factory *m_factory = nullptr;
         obj_map<enode, obj_hashtable<enode> *> m_set_members;
         
     protected:
@@ -130,6 +131,7 @@ namespace smt {
         bool add_membership_axioms();
         bool assume_eqs();
         bool is_new_axiom(expr *a, expr *b);
+        app *mk_union(unsigned num_elems, expr *const *elems, sort* set_sort);
 
         // model construction
         void collect_members();

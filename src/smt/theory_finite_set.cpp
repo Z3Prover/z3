@@ -180,7 +180,7 @@ namespace smt {
      */
     void theory_finite_set::add_immediate_axioms(app* term) {
         expr *elem = nullptr, *set = nullptr;
-        unsigned sz = m_lemmas.size();
+        unsigned sz = m_theory_axioms.size();
         if (u.is_in(term, elem, set) && u.is_empty(set))
             add_membership_axioms(elem, set);
         else if (u.is_subset(term))
@@ -189,8 +189,8 @@ namespace smt {
             m_axioms.in_singleton_axiom(elem, term);
 
         // Assert all new lemmas as clauses
-        for (unsigned i = sz; i < m_lemmas.size(); ++i) 
-            assert_clause(m_lemmas[i]);
+        for (unsigned i = sz; i < m_theory_axioms.size(); ++i) 
+            assert_clause(m_theory_axioms[i]);
     }
 
     /**
@@ -252,9 +252,7 @@ namespace smt {
             for (auto e : set)
                 elems.push_back(e->get_expr());
             std::sort(elems.begin(), elems.end(), [](expr *a, expr *b) { return a->get_id() < b->get_id(); });
-            expr* s = nullptr;
-            for (auto v : elems)
-                s = s ? u.mk_union(s, v) : v;
+            expr *s = mk_union(elems.size(), elems.data(), n->get_expr()->get_sort());
             trail.push_back(s);
             enode *n2 = nullptr;
             if (!set_reprs.find(s, n2)) {
@@ -272,6 +270,13 @@ namespace smt {
         return false;
     }
 
+    app* theory_finite_set::mk_union(unsigned num_elems, expr* const* elems, sort* set_sort) {
+        app *s = nullptr;
+        for (unsigned i = 0; i < num_elems; ++i)
+            s = s ? u.mk_union(s, u.mk_singleton(elems[i])) : u.mk_singleton(elems[i]);
+        return s ? s : u.mk_empty(set_sort);
+    }
+
 
     bool theory_finite_set::is_new_axiom(expr* a, expr* b) {
         struct insert_obj_pair_table : public trail {
@@ -282,10 +287,10 @@ namespace smt {
                 table.erase({a, b});
             }
         };
-        if (m_lemma_exprs.contains({a, b}))
+        if (m_theory_axiom_exprs.contains({a, b}))
             return false;
-        m_lemma_exprs.insert({a, b});
-        ctx.push_trail(insert_obj_pair_table(m_lemma_exprs, a, b));
+        m_theory_axiom_exprs.insert({a, b});
+        ctx.push_trail(insert_obj_pair_table(m_theory_axiom_exprs, a, b));
         return true;
     }
 
@@ -328,8 +333,8 @@ namespace smt {
 
     void theory_finite_set::add_clause(expr_ref_vector const& clause) {
         TRACE(finite_set, tout << "add_clause: " << clause << "\n");
-        ctx.push_trail(push_back_vector(m_lemmas));
-        m_lemmas.push_back(clause);        
+        ctx.push_trail(push_back_vector(m_theory_axioms));
+        m_theory_axioms.push_back(clause);        
     }
 
     theory * theory_finite_set::mk_fresh(context * new_ctx) {
@@ -344,7 +349,7 @@ namespace smt {
         TRACE(finite_set, tout << "init_model\n";);
         // Model generation will use default interpretation for sets
         // The model will be constructed based on the membership literals that are true
-        m_factory = alloc(finite_set_value_factory, m, u.get_family_id(), mg.get_model());
+        m_factory = alloc(finite_set_factory, m, u.get_family_id(), mg.get_model());
         mg.register_factory(m_factory);
         collect_members();
     }
@@ -379,13 +384,12 @@ namespace smt {
     }
 
     struct finite_set_value_proc : model_value_proc {    
-        finite_set_util& u;
+        theory_finite_set &th;        
         sort *s = nullptr;
         obj_hashtable<enode>* m_elements = nullptr;
 
-        finite_set_value_proc(finite_set_util& u, sort* s, obj_hashtable<enode>* elements) : 
-            u(u), s(s),
-            m_elements(elements) {}
+        finite_set_value_proc(theory_finite_set &th, sort *s, obj_hashtable<enode> *elements)
+            : th(th), s(s), m_elements(elements) {}
 
         void get_dependencies(buffer<model_value_dependency> &result) override {
             if (!m_elements)
@@ -397,14 +401,9 @@ namespace smt {
         app *mk_value(model_generator &mg, expr_ref_vector const &values) override {            
             SASSERT(values.size() == m_elements->size());
             if (values.empty()) 
-                return u.mk_empty(s);
+                return th.u.mk_empty(s);
             SASSERT(m_elements);
-            app *r = nullptr;
-            for (auto v : values) {
-                app *e = u.mk_singleton(v);
-                r = r ? u.mk_union(r, e) : e;
-            }
-            return r;
+            return th.mk_union(values.size(), values.data(), s);
         }
     };
 
@@ -413,7 +412,7 @@ namespace smt {
         obj_hashtable<enode>*elements = nullptr;
         sort *s = n->get_expr()->get_sort();
         m_set_members.find(n->get_root(), elements); 
-        return alloc(finite_set_value_proc, u, s, elements);
+        return alloc(finite_set_value_proc, *this, s, elements);
     }
 
     /**
@@ -423,7 +422,7 @@ namespace smt {
     * 
     */
     bool theory_finite_set::instantiate_false_lemma() {
-        for (auto const& clause : m_lemmas) {
+        for (auto const& clause : m_theory_axioms) {
             bool all_false = all_of(clause, [&](expr *e) { return ctx.find_assignment(e) == l_false; });
             if (!all_false)
                 continue;
@@ -442,7 +441,7 @@ namespace smt {
     */
     bool theory_finite_set::instantiate_unit_propagation() {
         bool propagated = false;
-        for (auto const &clause : m_lemmas) {
+        for (auto const &clause : m_theory_axioms) {
             expr *undef = nullptr;
             bool is_unit_propagating = true;
             for (auto e : clause) {
@@ -473,7 +472,7 @@ namespace smt {
      * The solver will case split on the unassigned literals to satisfy the lemma.
     */
     bool theory_finite_set::instantiate_free_lemma() {
-        for (auto const& clause : m_lemmas) {
+        for (auto const& clause : m_theory_axioms) {
             if (any_of(clause, [&](expr *e) { return ctx.find_assignment(e) == l_true; }))
                 continue;
             assert_clause(clause);

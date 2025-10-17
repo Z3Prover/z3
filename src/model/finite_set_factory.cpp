@@ -3,22 +3,22 @@ Copyright (c) 2025 Microsoft Corporation
 
 Module Name:
 
-    finite_set_value_factory.cpp
+    finite_set_factory.cpp
 
 Abstract:
 
     Factory for creating finite set values
 
 --*/
-#include "model/finite_set_value_factory.h"
+#include "model/finite_set_factory.h"
 #include "model/model_core.h"
 
-finite_set_value_factory::finite_set_value_factory(ast_manager & m, family_id fid, model_core & md):
+finite_set_factory::finite_set_factory(ast_manager & m, family_id fid, model_core & md):
     struct_factory(m, fid, md),
     u(m) {
 }
 
-expr * finite_set_value_factory::get_some_value(sort * s) {
+expr * finite_set_factory::get_some_value(sort * s) {
     // Check if we already have a value for this sort
     value_set * vset = nullptr;
     SASSERT(u.is_finite_set(s));
@@ -30,7 +30,7 @@ expr * finite_set_value_factory::get_some_value(sort * s) {
 /**
  * create sets {}, {a}, {b}, {a,b}, {c}, {a,c}, {b,c}, {a,b,c}, {d}, ...
  */
-expr * finite_set_value_factory::get_fresh_value(sort * s) {
+expr * finite_set_factory::get_fresh_value(sort * s) {
     sort* elem_sort = nullptr;
     VERIFY(u.is_finite_set(s, elem_sort));
     
