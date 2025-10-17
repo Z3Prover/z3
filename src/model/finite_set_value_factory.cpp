@@ -27,6 +27,9 @@ expr * finite_set_value_factory::get_some_value(sort * s) {
     return u.mk_empty(s);
 }
 
+/**
+ * create sets {}, {a}, {b}, {a,b}, {c}, {a,c}, {b,c}, {a,b,c}, {d}, ...
+ */
 expr * finite_set_value_factory::get_fresh_value(sort * s) {
     sort* elem_sort = nullptr;
     VERIFY(u.is_finite_set(s, elem_sort));
@@ -50,7 +53,6 @@ expr * finite_set_value_factory::get_fresh_value(sort * s) {
         auto e = m_model.get_fresh_value(elem_sort);
         if (!e)
             return nullptr;
-        register_value(e);
         auto r = u.mk_singleton(e);
         register_value(r);
         return r;
@@ -59,9 +61,8 @@ expr * finite_set_value_factory::get_fresh_value(sort * s) {
     // Case 3: Find greatest power of 2 N < values.size() and create union
     // Find the greatest N that is a power of 2 and N < values.size()
     unsigned N = 1;
-    while (N * 2 < values.size()) {
-        N *= 2;
-    }
+    while (N * 2 < values.size()) 
+        N *= 2;    
     
     auto r = u.mk_union(values.get(values.size() - N), values.get(N));
     register_value(r);
