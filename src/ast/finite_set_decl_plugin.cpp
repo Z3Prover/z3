@@ -68,7 +68,7 @@ void finite_set_decl_plugin::init() {
     m_sigs[OP_FINITE_SET_SIZE]       = alloc(polymorphism::psig, m, "set.size",       1, 1, &setA, intT);
     m_sigs[OP_FINITE_SET_SUBSET]     = alloc(polymorphism::psig, m, "set.subset",     1, 2, setAsetA, boolT);
     m_sigs[OP_FINITE_SET_MAP]        = alloc(polymorphism::psig, m, "set.map",        2, 2, arrABsetA, setB);
-    m_sigs[OP_FINITE_SET_SELECT]     = alloc(polymorphism::psig, m, "set.select",     1, 2, arrABoolsetA, setA);
+    m_sigs[OP_FINITE_SET_FILTER]     = alloc(polymorphism::psig, m, "set.filter",     1, 2, arrABoolsetA, setA);
     m_sigs[OP_FINITE_SET_RANGE]      = alloc(polymorphism::psig, m, "set.range",      0, 2, intintT, setInt);
     m_sigs[OP_FINITE_SET_DIFF]       = alloc(polymorphism::psig, m, "set.diff", 1, 2, setAsetA, A);
 //    m_sigs[OP_FINITE_SET_MAP_INVERSE] = alloc(polymorphism::psig, m, "set.map_inverse", 2, 3, arrABsetBsetA, A);
@@ -158,7 +158,7 @@ func_decl * finite_set_decl_plugin::mk_func_decl(decl_kind k, unsigned num_param
     case OP_FINITE_SET_SIZE:
     case OP_FINITE_SET_SUBSET:
     case OP_FINITE_SET_MAP:
-    case OP_FINITE_SET_SELECT:
+    case OP_FINITE_SET_FILTER:
     case OP_FINITE_SET_RANGE:
     case OP_FINITE_SET_DIFF:
         return mk_finite_set_op(k, arity, domain, range);
