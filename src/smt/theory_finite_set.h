@@ -98,7 +98,6 @@ namespace smt {
         using th_union_find = union_find<theory_finite_set>;
         friend class theory_finite_set_test;
         friend struct finite_set_value_proc;
-        friend class th_union_find;
 
         struct var_data {
             ptr_vector<enode> m_setops;
@@ -188,16 +187,18 @@ namespace smt {
         // manage union-find of theory variables
         theory_var find(theory_var v) const { return m_find.find(v); }        
         bool is_root(theory_var v) const { return m_find.is_root(v); }
-        trail_stack &get_trail_stack();
-        void merge_eh(theory_var v1, theory_var v2, theory_var, theory_var);
-        void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
-        void unmerge_eh(theory_var v1, theory_var v2) {}
 
         std::ostream &display_var(std::ostream &out, theory_var v) const;
         
     public:
         theory_finite_set(context& ctx);
         ~theory_finite_set() override;
+
+        // for union-find
+        trail_stack &get_trail_stack();
+        void merge_eh(theory_var v1, theory_var v2, theory_var, theory_var);
+        void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
+        void unmerge_eh(theory_var v1, theory_var v2) {}
     };
 
 }  // namespace smt 
