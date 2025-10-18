@@ -73,19 +73,63 @@ namespace nlsat {
         };
         typedef std::priority_queue<property, std::vector<property>, compare_prop_tags> property_queue;
 
-        std::vector<property> to_vector(property_queue& pq) {
-            std::vector<property> result;
-            while (!pq.empty()) {
-                result.push_back(pq.top());
-                pq.pop();
+        // p_q_plus: Enhanced property queue that allows iteration without modification
+        class p_q_plus {
+        private:
+            property_queue m_queue;
+            std::vector<property> m_elements; // Maintains all enqueued elements for iteration
+            
+        public:
+            p_q_plus() = default;
+            
+            // Push a property to the queue and maintain the elements vector
+            void push(const property& p) {
+                m_queue.push(p);
+                m_elements.push_back(p);
             }
-            // Restore the queue
-            for (const auto& item : result) {
-                pq.push(item);
+
+            size_t size() const { return m_queue.size(); }
+            
+            // Pop and return the top element
+            property pop() {
+                property p = m_queue.top();
+                m_queue.pop();
+                // Remove from elements vector
+                auto it = std::find_if(m_elements.begin(), m_elements.end(),
+                    [&p](const property& elem) {
+                        return elem.m_prop_tag == p.m_prop_tag && 
+                               elem.m_poly == p.m_poly &&
+                               elem.m_root_index == p.m_root_index;
+                    });
+                if (it != m_elements.end()) {
+                    m_elements.erase(it);
+                }
+                return p;
             }
-            return result;
-        }
-        
+            
+            // Check if queue is empty
+            bool empty() const {
+                return m_queue.empty();
+            }
+            
+            // Get reference to underlying elements for iteration
+            const std::vector<property>& elements() const {
+                return m_elements;
+            }
+            
+            // Iterator interface
+            auto begin() const { return m_elements.begin(); }
+            auto end() const { return m_elements.end(); }
+            
+            // Clear the queue and elements
+            void clear() {
+                while (!m_queue.empty()) {
+                    m_queue.pop();
+                }
+                m_elements.clear();
+            }
+        };
+
         struct root_function {
             scoped_anum val;
             indexed_root_expr ire;
@@ -103,7 +147,7 @@ namespace nlsat {
         unsigned                     m_level;// the current level while refining the properties
         pmanager&                    m_pm;
         anum_manager&                m_am;
-        std::vector<property_queue>  m_Q; // the set of properties to prove
+        std::vector<p_q_plus>        m_Q; // the set of properties to prove
         std::vector<property>        m_to_refine; 
         std::vector<root_function_interval> m_I; // intervals per level (indexed by variable/level)
         bool                         m_fail = false; 
@@ -159,10 +203,8 @@ namespace nlsat {
             unsigned level = 0;    
             for (auto &q: m_Q) {
                 if (q.empty()) { level++; continue; }
-                auto q_dump = to_vector(q);
-                
                 out << "level:" << level << "[\n";
-                for (const auto& pr : q_dump) {
+                for (const auto& pr : q) {
                     display(out, pr) << "\n";
                 }
                 out << "]\n";   
@@ -351,10 +393,8 @@ namespace nlsat {
             TRACE(lws, display_relation(tout) << std::endl;);
         }
 
-        property pop(property_queue & q) {
-            property r = q.top();
-            q.pop();
-            return r;
+        property pop(p_q_plus& q) {
+            return q.pop();
         }
 
         //works on m_level
@@ -379,7 +419,7 @@ namespace nlsat {
          void build_representation() {
              // collect non-null polynomials (up to polynomial_manager equality)
              std::vector<const poly*> p_non_null;            
-             for (auto & pr: to_vector(m_Q[m_level])) {
+             for (auto & pr: m_Q[m_level]) {
                  if (!pr.m_poly) continue;
                  SASSERT(max_var(pr.m_poly) == m_level);
                  if (pr.m_prop_tag == prop_enum::sgn_inv
@@ -476,7 +516,7 @@ namespace nlsat {
          // Equivalence: same m_prop_tag and same level; require the same poly as well.
         void add_to_Q_if_new(const property & pr, unsigned level) {
              SASSERT(pr.m_prop_tag != ord_inv || (pr.m_poly && !m_pm.is_zero(pr.m_poly)));
-             for (auto const & q : to_vector(m_Q[level])) {
+             for (auto const & q : m_Q[level]) {
                  if (q.m_prop_tag != pr.m_prop_tag) continue;
                  if (q.m_poly != pr.m_poly) continue;
                  if (q.m_root_index != pr.m_root_index) continue;
@@ -933,8 +973,7 @@ or
         
         bool invariant() {
             for (unsigned i = 0; i < m_Q.size(); i++) {
-                auto qv = to_vector(m_Q[i]);
-                bool level_is_ok = std::all_of(qv.begin(), qv.end(), [this, i](const property& p){
+                bool level_is_ok = std::all_of(m_Q[i].begin(), m_Q[i].end(), [this, i](const property& p){
                     
                     bool r = !(p.m_poly) || (max_var(p.m_poly) == i); 
                     if (!r) {
