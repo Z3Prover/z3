@@ -1939,7 +1939,8 @@ namespace smt {
             m.trace_stream() << "[push] " << m_scope_lvl << "\n";
 
         m_scope_lvl++;
-        get_region().push_scope();
+        m_region.push_scope();
+        get_trail_stack().push_scope();
         m_scopes.push_back(scope());
         scope & s = m_scopes.back();
         // TRACE(context, tout << "push " << m_scope_lvl << "\n";);
@@ -2447,20 +2448,23 @@ namespace smt {
             m_relevancy_propagator->pop(num_scopes);
 
             m_fingerprints.pop_scope(num_scopes);
+
+
+
             unassign_vars(s.m_assigned_literals_lim);
             m_trail_stack.pop_scope(num_scopes);
 
             for (theory* th : m_theory_set) 
                 th->pop_scope_eh(num_scopes);
-
             del_justifications(m_justifications, s.m_justifications_lim);
-
             m_asserted_formulas.pop_scope(num_scopes);
 
             CTRACE(propagate_atoms, !m_atom_propagation_queue.empty(), tout << m_atom_propagation_queue << "\n";);
 
+
             m_eq_propagation_queue.reset();
             m_th_eq_propagation_queue.reset();
+            m_region.pop_scope(num_scopes);
             m_th_diseq_propagation_queue.reset();
             m_atom_propagation_queue.reset();
             m_scopes.shrink(new_lvl);

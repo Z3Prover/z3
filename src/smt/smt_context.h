@@ -101,6 +101,7 @@ namespace smt {
         setup                       m_setup;
         unsigned                    m_relevancy_lvl;
         timer                       m_timer;
+        region                      m_region;
         asserted_formulas           m_asserted_formulas;
         th_rewriter                 m_rewriter;
         scoped_ptr<quantifier_manager>   m_qmanager;
@@ -152,6 +153,7 @@ namespace smt {
         vector<enode_vector>        m_decl2enodes;  // decl -> enode (for decls with arity > 0)
         enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
+
         struct new_eq {
             enode *                 m_lhs;
             enode *                 m_rhs;
@@ -303,7 +305,7 @@ namespace smt {
         }
 
         region & get_region() {
-            return m_trail_stack.get_region();
+            return m_region;
         }
 
         bool relevancy() const {
