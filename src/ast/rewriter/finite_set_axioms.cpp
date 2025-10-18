@@ -230,11 +230,11 @@ void finite_set_axioms::in_map_image_axiom(expr *x, expr *a) {
     m_add_clause(clause);
 }
 
-// a := set.select(p, b)
+// a := set.filter(p, b)
 // (x in a) <=> (x in b) and p(x)
-void finite_set_axioms::in_select_axiom(expr *x, expr *a) {
+void finite_set_axioms::in_filter_axiom(expr *x, expr *a) {
     expr* p = nullptr, *b = nullptr;
-    if (!u.is_select(a, p, b))
+    if (!u.is_filter(a, p, b))
         return;
     
     expr_ref x_in_a(u.mk_in(x, a), m);

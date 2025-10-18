@@ -57,9 +57,9 @@ public:
     // (x in b) => f(x) in a
     void in_map_image_axiom(expr *x, expr *a);
 
-    // a := set.select(p, b)
+    // a := set.filter(p, b)
     // (x in a) <=> (x in b) and p(x)
-    void in_select_axiom(expr *x, expr *a);
+    void in_filter_axiom(expr *x, expr *a);
 
     // a := set.subset(b, c)
     // (a) <=> (set.intersect(b, c) = b)

@@ -85,7 +85,7 @@ static void tst_finite_set_basic() {
     ENSURE(m.is_bool(subset_expr->get_sort()));
 }
 
-static void tst_finite_set_map_select() {
+static void tst_finite_set_map_filter() {
     ast_manager m;
     reg_decl_plugins(m);
     
@@ -116,15 +116,15 @@ static void tst_finite_set_map_select() {
     ENSURE(fsets.is_map(mapped_set.get()));
     ENSURE(fsets.is_finite_set(mapped_set->get_sort()));
     
-    // Create Array (Int Bool) sort for select
+    // Create Array (Int Bool) sort for filter
     sort_ref arr_int_bool(autil.mk_array_sort(int_sort, bool_sort), m);
     
-    // Create a const array for select (conceptually represents predicate)
-    app_ref arr_select(autil.mk_const_array(arr_int_bool, m.mk_true()), m);
+    // Create a const array for filter (conceptually represents predicate)
+    app_ref arr_filter(autil.mk_const_array(arr_int_bool, m.mk_true()), m);
     
-    app_ref selected_set(fsets.mk_select(arr_select, range_set), m);
-    ENSURE(fsets.is_select(selected_set.get()));
-    ENSURE(selected_set->get_sort() == finite_set_int.get());
+    app_ref filtered_set(fsets.mk_filter(arr_filter, range_set), m);
+    ENSURE(fsets.is_filter(filtered_set.get()));
+    ENSURE(filtered_set->get_sort() == finite_set_int.get());
 }
 
 static void tst_finite_set_is_value() {
@@ -221,7 +221,7 @@ static void tst_finite_set_is_fully_interp() {
 
 void tst_finite_set() {
     tst_finite_set_basic();
-    tst_finite_set_map_select();
+    tst_finite_set_map_filter();
     tst_finite_set_is_value();
     tst_finite_set_is_fully_interp();
 }

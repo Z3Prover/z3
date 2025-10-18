@@ -53,7 +53,8 @@ Abstract:
    -----------------------------------------------
         x in v4 => f(x) in v3
 
-   x in v1 a tern, v1 ~ v3, v3 := (set.select p v4)
+
+   x in v1 is a term, v1 ~ v3, v3 == (set.filter p v4)
    -----------------------------------------------
         x in v3 <=> p(x) and x in v4
 

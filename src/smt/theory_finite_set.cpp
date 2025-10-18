@@ -561,8 +561,8 @@ namespace smt {
             m_axioms.in_map_axiom(elem, set);
             m_axioms.in_map_image_axiom(elem, set);
         }
-        else if (u.is_select(set)) {
-            m_axioms.in_select_axiom(elem, set);
+        else if (u.is_filter(set)) {
+            m_axioms.in_filter_axiom(elem, set);
         }        
     }
 
