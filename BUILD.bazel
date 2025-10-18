@@ -27,7 +27,7 @@ cmake(
     out_shared_libs = select({
         "@platforms//os:linux": ["libz3.so"],
         # "@platforms//os:osx": ["libz3.dylib"],    # FIXME: this is not working, libz3<version>.dylib is not copied
-        # "@platforms//os:windows": ["z3.dll"],     # TODO: test this
+        "@platforms//os:windows": ["libz3.dll"],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     visibility = ["//visibility:public"],
@@ -45,7 +45,7 @@ cmake(
     out_static_libs = select({
         "@platforms//os:linux": ["libz3.a"],
         "@platforms//os:osx": ["libz3.a"],
-        # "@platforms//os:windows": ["z3.lib"],     # TODO: test this
+        "@platforms//os:windows": ["libz3.lib"],     # MSVC with Control Flow Guard enabled by default
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     visibility = ["//visibility:public"],
