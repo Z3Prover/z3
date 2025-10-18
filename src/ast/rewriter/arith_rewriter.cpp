@@ -720,7 +720,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
     }
     expr* c = nullptr, *t = nullptr, *e = nullptr;
     if (m.is_ite(arg1, c, t, e) && is_numeral(t, a1) && is_numeral(arg2, a2)) {
-        auto a = m.mk_not(c);
+        expr_ref a(m.mk_not(c), m);
         switch (kind) {
         case LE: result = a1 <= a2 ? m.mk_or(c, m_util.mk_le(e, arg2)) : m.mk_and(a, m_util.mk_le(e, arg2)); return BR_REWRITE2;
         case GE: result = a1 >= a2 ? m.mk_or(c, m_util.mk_ge(e, arg2)) : m.mk_and(a, m_util.mk_ge(e, arg2)); return BR_REWRITE2;
@@ -728,7 +728,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         }
     }
     if (m.is_ite(arg1, c, t, e) && is_numeral(e, a1) && is_numeral(arg2, a2)) {
-        auto a = m.mk_not(c);
+        expr_ref a(m.mk_not(c), m);
         switch (kind) {
         case LE: result = a1 <= a2 ? m.mk_or(a, m_util.mk_le(t, arg2)) : m.mk_and(c, m_util.mk_le(t, arg2)); return BR_REWRITE2;
         case GE: result = a1 >= a2 ? m.mk_or(a, m_util.mk_ge(t, arg2)) : m.mk_and(c, m_util.mk_ge(t, arg2)); return BR_REWRITE2;
