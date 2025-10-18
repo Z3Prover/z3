@@ -1072,7 +1072,7 @@ namespace nlsat {
                     m_todo.reset();
                     break;
                 }
-            TRACE(nlsat_explain, tout << "project loop, processing var "; display_var(tout, m_solver, x); 
+                TRACE(nlsat_explain, tout << "project loop, processing var "; display_var(tout, m_solver, x); 
                 tout << "\npolynomials\n";
                 display(tout, m_solver, ps); tout << "\n";);
                 add_lcs(ps, x);
