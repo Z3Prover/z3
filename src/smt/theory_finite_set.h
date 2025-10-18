@@ -107,7 +107,7 @@ namespace smt {
         };
 
         struct theory_clauses {
-            vector<expr_ref_vector> axioms;            // vector of created theory axioms
+            vector<theory_axiom>    axioms;            // vector of created theory axioms
             unsigned                aqhead = 0;        // queue head of created axioms
             unsigned_vector         squeue;            // propagation queue of axioms to be added to the solver
             unsigned                sqhead = 0;        // head into propagation queue axioms to be added to solver
@@ -172,8 +172,8 @@ namespace smt {
 
         // Helper methods for axiom instantiation
         void add_membership_axioms(expr* elem, expr* set);
-        void add_clause(expr_ref_vector const& clause);
-        bool assert_clause(expr_ref_vector const &clause);
+        void add_clause(theory_axiom const& ax);
+        bool assert_clause(theory_axiom const &ax);
         void activate_clause(unsigned index);
         bool activate_unasserted_clause();
         void add_immediate_axioms(app *atom);

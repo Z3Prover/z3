@@ -29,9 +29,9 @@ namespace smt {
         m_axioms(m), m_find(*this)
     {
         // Setup the add_clause callback for axioms
-        std::function<void(expr_ref_vector const &)> add_clause_fn = 
-            [this](expr_ref_vector const& clause) {
-                this->add_clause(clause);
+        std::function<void(theory_axiom const &)> add_clause_fn =
+            [this](theory_axiom const &ax) {
+                this->add_clause(ax);
             };
         m_axioms.set_add_clause(add_clause_fn);
     }
@@ -101,7 +101,7 @@ namespace smt {
                 ctx.push_trail(push_back_trail(m_var_data[v]->m_parent_setops));
             }
         }
-        else if (u.is_map(e) || u.is_select(e)) {
+        else if (u.is_map(e) || u.is_filter(e)) {
             NOT_IMPLEMENTED_YET();
         }
         return r;
@@ -322,7 +322,8 @@ namespace smt {
         for (unsigned i = 0; i < m_clauses.watch[idx].size(); ++i) {
             TRACE(finite_set, tout << " watch[" << i << "] size: " << m_clauses.watch[i].size() << "\n";);
             auto clause_idx = m_clauses.watch[idx][i];
-            auto &clause = m_clauses.axioms[clause_idx];
+            auto &ax = m_clauses.axioms[clause_idx];
+            auto &clause = ax.clause;
             if (any_of(clause, [&](expr *lit) { return ctx.find_assignment(lit) == l_true; })) {
                 TRACE(finite_set, tout << "  satisfied\n";);
                 m_clauses.watch[idx][j++] = clause_idx;
@@ -398,7 +399,8 @@ namespace smt {
 
     void theory_finite_set::activate_clause(unsigned clause_idx) {
         TRACE(finite_set, tout << "activate_clause: " << clause_idx << "\n";);
-        auto &clause = m_clauses.axioms[clause_idx];
+        auto &ax = m_clauses.axioms[clause_idx];
+        auto &clause = ax.clause;
         if (any_of(clause, [&](expr *e) { return ctx.find_assignment(e) == l_true; }))
             return;
         if (clause.size() <= 1) {
@@ -444,7 +446,8 @@ namespace smt {
             unsigned index;
             unwatch_clause(theory_finite_set &th, unsigned index) : th(th), index(index) {}
             void undo() override {
-                auto &clause = th.m_clauses.axioms[index];
+                auto &ax = th.m_clauses.axioms[index];
+                auto &clause = ax.clause;
                 expr *w1 = clause.get(0);
                 expr *w2 = clause.get(1);
                 bool w1neg = th.m.is_not(w1, w1);
@@ -566,10 +569,10 @@ namespace smt {
         }        
     }
 
-    void theory_finite_set::add_clause(expr_ref_vector const& clause) {
-        TRACE(finite_set, tout << "add_clause: " << clause << "\n");
+    void theory_finite_set::add_clause(theory_axiom const& ax) {
+        TRACE(finite_set, tout << "add_clause: " << ax << "\n");
         ctx.push_trail(push_back_vector(m_clauses.axioms));
-        m_clauses.axioms.push_back(clause);
+        m_clauses.axioms.push_back(ax);
         m_stats.m_num_axioms_created++;
     }
 
@@ -689,7 +692,8 @@ namespace smt {
         return false;
     }
 
-    bool theory_finite_set::assert_clause(expr_ref_vector const &clause) {
+    bool theory_finite_set::assert_clause(theory_axiom const &ax) {
+        auto const &clause = ax.clause;
         expr *unit = nullptr;
         unsigned undef_count = 0;
         for (auto e : clause) {
@@ -708,14 +712,28 @@ namespace smt {
         if (undef_count == 1) {
             TRACE(finite_set, tout << " propagate unit: " << mk_pp(unit, m) << "\n" << clause << "\n";);
             auto lit = mk_literal(unit);
-            literal_vector core;
+            literal_vector antecedent;
             for (auto e : clause) {
                 if (e != unit)
-                    core.push_back(~mk_literal(e));
+                    antecedent.push_back(~mk_literal(e));
             }
             m_stats.m_num_axioms_propagated++;
-            ctx.assign(lit, ctx.mk_justification(
-                                theory_propagation_justification(get_id(), ctx, core.size(), core.data(), lit)));
+            enode_pair_vector eqs;
+            auto just = ext_theory_propagation_justification(get_id(), ctx, antecedent.size(), antecedent.data(), eqs.size(), eqs.data(), lit, ax.params.size(),
+                                                       ax.params.data());
+            auto bjust = ctx.mk_justification(just);
+            if (ctx.clause_proof_active()) {
+                // assume all justifications is a non-empty list of symbol parameters
+                proof_ref pr(m);
+                expr_ref_vector args(m);
+                for (unsigned i = 1; i < ax.params.size(); ++i) 
+                    args.push_back(m.mk_app(ax.params[i].get_symbol(), 0, nullptr, m.mk_proof_sort()));                    
+                pr = m.mk_app(ax.params[0].get_symbol(), args.size(), args.data(), m.mk_proof_sort());
+                justification_proof_wrapper jp(ctx, pr.get(), false);
+                ctx.get_clause_proof().propagate(lit, jp, antecedent);
+                jp.del_eh(m);
+            }
+            ctx.assign(lit, bjust);                                
             return true;
         }
         bool is_conflict = (undef_count == 0);
@@ -727,7 +745,7 @@ namespace smt {
         literal_vector lclause;
         for (auto e : clause)
             lclause.push_back(mk_literal(e));
-        ctx.mk_th_axiom(get_id(), lclause);
+        ctx.mk_th_axiom(get_id(), lclause, ax.params.size(), ax.params.data());
         return true;
     }
 

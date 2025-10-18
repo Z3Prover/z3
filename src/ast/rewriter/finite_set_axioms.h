@@ -12,17 +12,39 @@ Abstract:
        
 --*/
 
+struct theory_axiom {
+    expr_ref_vector   clause;
+    vector<parameter> params;
+    unsigned          weight = 0; // can be used to prioritize instantiation of axioms
+    theory_axiom(ast_manager& m, symbol const& th): clause(m) {
+        params.push_back(parameter(th));
+    }
+    theory_axiom(ast_manager &m, symbol const &th, symbol const& rule) : clause(m) {
+        params.push_back(parameter(th));
+        params.push_back(parameter(rule));
+    }
+    theory_axiom(ast_manager &m, char const *th, char const *rule) : clause(m) {
+        params.push_back(parameter(symbol(th)));
+        params.push_back(parameter(symbol(rule)));
+    }
+    theory_axiom(ast_manager &m) : clause(m) {
+    }
+};
+
+std::ostream &operator<<(std::ostream &out, theory_axiom const &ax);
+
+
 class finite_set_axioms {
     ast_manager&    m;
     finite_set_util u;
 
-    std::function<void(expr_ref_vector const &)> m_add_clause;
+    std::function<void(theory_axiom const &)> m_add_clause;
 
 public:
 
     finite_set_axioms(ast_manager &m) : m(m), u(m) {}
 
-    void set_add_clause(std::function<void(expr_ref_vector const &)> &ac) {
+    void set_add_clause(std::function<void(theory_axiom const &)> &ac) {
         m_add_clause = ac;
     }
 

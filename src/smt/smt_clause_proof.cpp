@@ -158,8 +158,10 @@ namespace smt {
         for (literal l : ante)
             m_lits.push_back(ctx.literal2expr(~l));
         m_lits.push_back(ctx.literal2expr(lit));
-        proof_ref pr(m.mk_app(symbol("smt"), 0, nullptr, m.mk_proof_sort()), m);
-        update(clause_proof::status::th_lemma, m_lits, pr);
+        auto st = clause_proof::status::th_lemma;
+        auto pr = justification2proof(st, &const_cast<justification &>(jst));
+        // proof_ref pr(m.mk_app(symbol("smt"), 0, nullptr, m.mk_proof_sort()), m);
+        update(st, m_lits, pr);
     }
 
     void clause_proof::del(clause& c) {
