@@ -1019,14 +1019,14 @@ or
             init_properties(); // initializes m_Q as a queue of properties on levels <= m_n
             SASSERT(m_rel.empty());
             apply_property_rules(prop_enum::_count); // reduce the level from m_n to m_n - 1 to be consumed by construct_interval
-            SASSERT(m_Q[m_n].size() == 0);
+            SASSERT(m_Q[m_n].size() == 0 || m_fail);
             SASSERT(m_level == m_n); 
             do {  // m_level changes from m_n - 1 to 0
                 m_level--;
                 if (m_fail || !construct_interval())
                     return std::vector<root_function_interval>(); // return empty
             } while (m_level != 0);
-            return m_I; // the order of intervals is reversed
+            return m_I;
         }
         
         // Pretty-print helpers
