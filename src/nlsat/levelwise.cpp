@@ -475,7 +475,7 @@ namespace nlsat {
          // add a property to m_Q if an equivalent one is not already present.
          // Equivalence: same m_prop_tag and same level; require the same poly as well.
         void add_to_Q_if_new(const property & pr, unsigned level) {
-             
+             SASSERT(pr.m_prop_tag != ord_inv || (pr.m_poly && !m_pm.is_zero(pr.m_poly)));
              for (auto const & q : to_vector(m_Q[level])) {
                  if (q.m_prop_tag != pr.m_prop_tag) continue;
                  if (q.m_poly != pr.m_poly) continue;
@@ -800,12 +800,9 @@ or
                     // nothing is added
                 } else {
                     polynomial_ref res = resultant(polynomial_ref(I.l, m_pm), p.m_poly, m_level);
-                    if (res) {
+                    if (m_pm.is_zero(res)) { m_fail = true; return;}
                         // Factor the resultant and add ord_inv for each distinct non-constant factor
-                        for_each_distinct_factor(res, [&](polynomial::polynomial_ref f) {
-                            mk_prop(prop_enum::ord_inv, f);
-                        });
-                    }
+                    for_each_distinct_factor(res, [&](polynomial::polynomial_ref f) { mk_prop(prop_enum::ord_inv, f);});
                 }
             } else {
             /*
@@ -920,8 +917,13 @@ or
                  poly *a = m_rel.m_rfunc[pair.first].ire.p;
                  poly *b = m_rel.m_rfunc[pair.second].ire.p;
                  SASSERT(max_var(a) == max_var(b) && max_var(b) == m_level) ;
+                 
                  polynomial_ref r(m_pm);
                  r = resultant(polynomial_ref(a, m_pm), polynomial_ref(b, m_pm), m_level);
+                 if (m_pm.is_zero(r)) {
+                     m_fail = true;
+                     return;
+                 }
                  TRACE(lws, tout << "resultant of (" << pair.first << "," << pair.second << "):"; 
                        ::nlsat::display(tout, m_solver, a) << "\n";
                        ::nlsat::display(tout,m_solver, b)<< "\nresultant:"; ::nlsat::display(tout, m_solver, r) << "\n");

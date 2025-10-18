@@ -1,3 +1,4 @@
+// int tttt = 0;
 /*++
 Copyright (c) 2012 Microsoft Corporation
 
