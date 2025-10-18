@@ -238,12 +238,14 @@ namespace nlsat {
                 poly* p = m_P[i];
                 polynomial_ref pref(p, m_pm);
                 for_each_distinct_factor( pref, [&](const polynomial_ref& f) {
-                    unsigned level = max_var(f);
+                    // Normalize to primitive form for consistent comparison
+                    polynomial_ref prim = to_primitive(f);
+                    unsigned level = max_var(prim);
                     if (level < m_n)
-                        m_Q[level].push(property(prop_enum::sgn_inv, f));
+                        m_Q[level].push(property(prop_enum::sgn_inv, prim));
                     else if (level == m_n){
-                        m_Q[level].push(property(prop_enum::an_del, f));
-                        ps_of_n_level.push_back(f.get());
+                        m_Q[level].push(property(prop_enum::an_del, prim));
+                        ps_of_n_level.push_back(prim.get());
                     }
                     else {
                         UNREACHABLE();
@@ -309,7 +311,9 @@ namespace nlsat {
                     return false;
                 }
                 for_each_distinct_factor(r, [&](const polynomial::polynomial_ref &f) {
-                    m_Q[max_var(f)].push(property(prop_enum::ord_inv, f, m_pm));
+                    // Normalize to primitive form for consistent comparison
+                    polynomial_ref prim = to_primitive(f);
+                    m_Q[max_var(prim)].push(property(prop_enum::ord_inv, prim, m_pm));
                 });
             }
             return true;
@@ -512,14 +516,29 @@ namespace nlsat {
              TRACE(lws, tout << "exit\n";);
          }
 
+         // Helper: convert polynomial to its primitive form (content-free version).
+         // Returns a polynomial_ref to the primitive form of p.
+         // All polynomials stored in properties will be in primitive form for consistent comparison.
+         polynomial_ref to_primitive(polynomial_ref const & p) {
+             if (m_pm.is_zero(p) || m_pm.is_const(p)) {
+                 return p;
+             }
+             polynomial_ref result(m_pm);
+             var x = max_var(p);
+             m_pm.primitive(p.get(), x, result);
+             return result;
+         }
+
+
          // add a property to m_Q if an equivalent one is not already present.
-         // Equivalence: same m_prop_tag and same level; require the same poly as well.
+         // Equivalence: same m_prop_tag and same level; polynomials checked for equality
+         // (polynomials are already in primitive form, so constant multipliers are normalized away).
         void add_to_Q_if_new(const property & pr, unsigned level) {
              SASSERT(pr.m_prop_tag != ord_inv || (pr.m_poly && !m_pm.is_zero(pr.m_poly)));
              for (auto const & q : m_Q[level]) {
                  if (q.m_prop_tag != pr.m_prop_tag) continue;
-                 if (q.m_poly != pr.m_poly) continue;
                  if (q.m_root_index != pr.m_root_index) continue;
+                 if (!m_pm.eq(q.m_poly.get(), pr.m_poly.get())) continue;
                  TRACE(lws, display(tout << "matched q:", q) << std::endl;);
                  return;
              }
@@ -798,11 +817,15 @@ or
         }
 
         void mk_prop(prop_enum pe, const polynomial_ref& poly) {
-            add_to_Q_if_new(property(pe, poly), max_var(poly));
+            // Normalize polynomial to primitive form before storing in property
+            polynomial_ref prim = to_primitive(poly);
+            add_to_Q_if_new(property(pe, prim), max_var(prim));
         }
         void mk_prop(prop_enum pe, const polynomial_ref& poly, unsigned level) {
             SASSERT(is_set(level));
-            add_to_Q_if_new(property(pe, poly), level);
+            // Normalize polynomial to primitive form before storing in property
+            polynomial_ref prim = to_primitive(poly);
+            add_to_Q_if_new(property(pe, prim), level);
         }
 
         void apply_pre_sgn_inv(const property& p) {
