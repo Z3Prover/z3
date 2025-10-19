@@ -58,6 +58,9 @@ public:
     struct key_data {
         Key *  m_key = nullptr;
         Value  m_value;
+        key_data() {}
+        key_data(Key *key) : m_key(key) {}
+        key_data(Key *k, Value const &v) : m_key(k), m_value(v) {}
         Value const & get_value() const { return m_value; }
         Key & get_key () const { return *m_key; }
         unsigned hash() const { return m_key->hash(); }
