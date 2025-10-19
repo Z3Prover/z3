@@ -3338,15 +3338,25 @@ proof * ast_manager::mk_th_lemma(
     if (proofs_disabled())
         return nullptr;
 
+    proof_ref pr(*this);
     ptr_buffer<expr> args;
-    vector<parameter> parameters;
-    parameters.push_back(parameter(get_family_name(tid)));
     for (unsigned i = 0; i < num_params; ++i) {
-        parameters.push_back(params[i]);
+        auto const &p = params[i];
+        if (p.is_symbol())
+            args.push_back(mk_app(p.get_symbol(), 0, nullptr, mk_proof_sort()));
+        else if (p.is_ast() && is_expr(p.get_ast()))
+            args.push_back(to_expr(p.get_ast()));
+        else if (p.is_rational()) {
+            arith_util autil(*this);
+            args.push_back(autil.mk_real(p.get_rational()));
+        }     
     }
+    pr = mk_app(get_family_name(tid), args.size(), args.data(), mk_proof_sort());
+    args.reset();
+    args.push_back(pr.get());
     args.append(num_proofs, (expr**) proofs);
     args.push_back(fact);
-    return mk_app(basic_family_id, PR_TH_LEMMA, num_params+1, parameters.data(), args.size(), args.data());
+    return mk_app(basic_family_id, PR_TH_LEMMA, 0, nullptr, args.size(), args.data());
 }
 
 proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premises, expr* concl,

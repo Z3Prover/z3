@@ -724,13 +724,16 @@ namespace smt {
             auto bjust = ctx.mk_justification(just);
             if (ctx.clause_proof_active()) {
                 // assume all justifications is a non-empty list of symbol parameters
+                // proof logging is basically broken: it doesn't log propagations, but instead
+                // only propagations that are processed by conflict resolution. 
+                // this misses conflicts at base level.
                 proof_ref pr(m);
                 expr_ref_vector args(m);
-                for (unsigned i = 1; i < ax.params.size(); ++i) 
-                    args.push_back(m.mk_app(ax.params[i].get_symbol(), 0, nullptr, m.mk_proof_sort()));                    
-                pr = m.mk_app(ax.params[0].get_symbol(), args.size(), args.data(), m.mk_proof_sort());
+                for (auto const& p : ax.params)
+                    args.push_back(m.mk_const(p.get_symbol(), m.mk_proof_sort()));                  
+                pr = m.mk_app(m.get_family_name(get_family_id()), args.size(), args.data(), m.mk_proof_sort());
                 justification_proof_wrapper jp(ctx, pr.get(), false);
-                ctx.get_clause_proof().propagate(lit, jp, antecedent);
+                ctx.get_clause_proof().propagate(lit, &jp, antecedent);
                 jp.del_eh(m);
             }
             ctx.assign(lit, bjust);                                

@@ -19,12 +19,7 @@ struct theory_axiom {
     theory_axiom(ast_manager& m, symbol const& th): clause(m) {
         params.push_back(parameter(th));
     }
-    theory_axiom(ast_manager &m, symbol const &th, symbol const& rule) : clause(m) {
-        params.push_back(parameter(th));
-        params.push_back(parameter(rule));
-    }
-    theory_axiom(ast_manager &m, char const *th, char const *rule) : clause(m) {
-        params.push_back(parameter(symbol(th)));
+    theory_axiom(ast_manager &m, char const* rule) : clause(m) {
         params.push_back(parameter(symbol(rule)));
     }
     theory_axiom(ast_manager &m) : clause(m) {
