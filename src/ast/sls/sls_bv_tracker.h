@@ -42,8 +42,37 @@ class sls_tracker {
     struct value_score {
         value_score() : value(unsynch_mpz_manager::mk_z(0)) {};
         value_score(value_score&&) noexcept = default;
+        value_score(const value_score &other) {
+            m = other.m;
+            if (other.m && !unsynch_mpz_manager::is_zero(other.value)) {
+                m->set(value, other.value);
+            }
+            score = other.score;
+            score_prune = other.score_prune;
+            has_pos_occ = other.has_pos_occ;
+            has_neg_occ = other.has_neg_occ;
+            distance = other.distance;
+            touched = other.touched;
+        }
         ~value_score() { if (m) m->del(value); }
         value_score& operator=(value_score&&) = default;
+        value_score &operator=(const value_score &other) {
+            if (this != &other) {
+                if (m)
+                    m->del(value);
+                m = other.m;
+                if (other.m && !unsynch_mpz_manager::is_zero(other.value)) {
+                    m->set(value, other.value);
+                }
+                score = other.score;
+                score_prune = other.score_prune;
+                has_pos_occ = other.has_pos_occ;
+                has_neg_occ = other.has_neg_occ;
+                distance = other.distance;
+                touched = other.touched;
+            }
+            return *this;
+        }
         unsynch_mpz_manager * m = nullptr;
         mpz value;
         double score = 0.0;
