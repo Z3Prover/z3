@@ -1,7 +1,7 @@
 import os
 from more_itertools import iterate
 from z3 import *
-import threading
+from multiprocessing import Process
 import math, random
 
 MAX_CONFLICTS = 1000
@@ -208,32 +208,27 @@ def prefix_probe_thread(filepath, manager):
 # Main
 # --------------------------
 
+def run_main_solver(filepath):
+    set_param("parallel.enable", True)
+    main_solver = solver_from_file(filepath)
+    apply_param_state(main_solver, BASE_PARAM_CANDIDATES)
+    print(f"[Main] Started main solver on {os.path.basename(filepath)} with parallel.enable=True")
+    r = main_solver.check()
+    print(f"[Main] {os.path.basename(filepath)} → {r}")
+
 def main():
     manager = BatchManager()
-
     for benchmark in os.listdir(bench_dir):
         if benchmark != "From_T2__hqr.t2_fixed__term_unfeasibility_1_0.smt2":
             continue
 
         filepath = os.path.join(bench_dir, benchmark)
-
-        # --- start prefix probing thread ---
-        prefix_thread = threading.Thread(target=prefix_probe_thread, args=(filepath, manager))
-        prefix_thread.start()
-
-        # --- start main solver (same formula, in parallel mode, uses cube search tree) ---
-        set_param("parallel.enable", True)
-        main_solver = solver_from_file(filepath)
-        main_solver.set("smt.auto_config", False)
-        apply_param_state(main_solver, BASE_PARAM_CANDIDATES)
-        print(f"[Main] Started main solver on {os.path.basename(filepath)} with parallel.enable=True")
-
-        # --- run main solver on full formula (need to enable live param injection in z3 internals) ---
-        r = main_solver.check()
-        print(f"[Main] {os.path.basename(filepath)} → {r}")
-
-        # --- wait for prefix thread to finish ---
-        prefix_thread.join()
+        prefix_proc = Process(target=prefix_probe_thread, args=(filepath, manager))
+        main_proc = Process(target=run_main_solver, args=(filepath,))
+        prefix_proc.start()
+        main_proc.start()
+        prefix_proc.join()
+        main_proc.join()
 
     if manager.best_param_state:
         print(f"\n[GLOBAL] Best parameter state: {manager.best_param_state} with score {manager.best_score}")
