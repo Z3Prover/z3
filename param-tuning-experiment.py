@@ -1,7 +1,8 @@
 import os
+from more_itertools import iterate
 from z3 import *
 import threading
-import math
+import math, random
 
 MAX_CONFLICTS = 1000
 MAX_EXAMPLES = 5
@@ -82,7 +83,6 @@ def replay_prefix_on_pps(PPS_solver, clauses, param_state, budget):
 
     asms = []
     for Cj in clauses:
-      PPS_solver.set("smt.max_conflicts", budget)
       asms.append(Not(Cj))
 
     PPS_solver.check(asms)
@@ -108,20 +108,26 @@ def replay_proof_prefixes(clauses, param_states, PPS_solvers, K, eps=200):
 
     return best_param_state, best_score
 
-
-def next_perturbations(around_state):
-    outs = []
-    for name, val in around_state:
+# return a variant of the given param state
+def perturbate(param_state):
+    new_state = []
+    for name, val in param_state:
         if isinstance(val, (int, float)) and "restart_factor" in name:
-            outs.append([(name, float(val) * 0.9)])
-            outs.append([(name, float(val) * 1.1)])
+            # perturb multiplicatively +/-10%
+            factor = random.choice([0.9, 1.1])
+            new_state.append((name, round(val * factor, 3)))
         elif isinstance(val, int) and "phase_caching" in name:
-            k = max(1, int(val))
-            outs.append([(name, k // 2)])
-            outs.append([(name, k * 2)])
+            # pick half or double
+            new_val = random.choice([max(1, val // 2), val * 2])
+            new_state.append((name, new_val))
         elif name == "smt.relevancy":
-            outs.extend([[(name, 0)], [(name, 1)], [(name, 2)]])
-    return outs or [around_state]
+            # pick random alternative from {0,1,2}
+            new_val = random.choice([0, 1, 2])
+            new_state.append((name, new_val))
+        else:
+            # unchanged
+            new_state.append((name, val))
+    return new_state
 
 # --------------------------
 # Protocol iteration
@@ -157,10 +163,10 @@ def protocol_iteration(filepath, manager, S, PPS_solvers, PPS_states, K, eps=200
 
     # Update PPS_0 to use P (if it changed), and update all PPS_i > 0 with new perturbations of P
     PPS_states[0] = P
-    new_perturb = next_perturbations(P)
+    new_perturbations = perturbate(P)
     for i in range(1, len(PPS_states)):
-        PPS_states[i] = new_perturb[i - 1]
-    print(f"[Dispatch] PPS_0 := {PPS_states[0]}, new perturbations: {new_perturb}")
+        PPS_states[i] = new_perturbations[i - 1]
+    print(f"[Dispatch] PPS_0 := {PPS_states[0]}, new perturbations: {new_perturbations}")
 
 
 # --------------------------
@@ -175,9 +181,10 @@ def prefix_probe_thread(filepath, manager):
     PPS_solvers = []
     PPS_states = []
     PPS_states.append(list(BASE_PARAM_CANDIDATES))
-    perturbations = next_perturbations(BASE_PARAM_CANDIDATES)
+    perturbations = perturbate(BASE_PARAM_CANDIDATES)
 
-    for i in range(4):
+    # set up 5 parameter probe solvers PPS_0 ... PPS_4
+    for i in range(5):
         st = perturbations[i] if i < len(perturbations) else BASE_PARAM_CANDIDATES
         PPS_solver = Solver()
         apply_param_state(PPS_solver, st)
@@ -186,11 +193,11 @@ def prefix_probe_thread(filepath, manager):
         print(f"[Init] PPS_{i} initialized with params={st}")
 
     # Reuse the same solvers each iteration
-    for iteration in range(3):  # run a few iterations
-        if manager.search_complete:
-            break
+    iteration = 0
+    while not manager.search_complete:
         print(f"\n[PrefixThread] Iteration {iteration}")
         protocol_iteration(filepath, manager, S, PPS_solvers, PPS_states, K=MAX_CONFLICTS, eps=200)
+        iteration += 1
 
 
 # --------------------------
