@@ -151,6 +151,7 @@ stages:
     pool:
       vmImage: "ubuntu-latest"
     container: "quay.io/pypa/manylinux2014_x86_64:latest"
+    condition: eq(0, 1)
     steps:
     - script: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
     - script: 'echo "##vso[task.prependpath]$PWD/env/bin"'
@@ -365,17 +366,17 @@ stages:
       inputs:
         artifactName: 'WindowsBuild-x86'
         targetPath: $(Agent.TempDirectory)	
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download ManyLinux Build'    
-      inputs:
-        artifactName: 'ManyLinuxPythonBuildAMD64'
-        targetPath: $(Agent.TempDirectory)
+#    - task: DownloadPipelineArtifact@2
+#      displayName: 'Download ManyLinux Build'    
+#      inputs:
+#        artifactName: 'ManyLinuxPythonBuildAMD64'
+#        targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download ManyLinux Arm64 Build'
       inputs:
         artifactName: 'ManyLinuxPythonBuildArm64'
         targetPath: $(Agent.TempDirectory)
-    - script: cd $(Agent.TempDirectory); mkdir osx-x64-bin; cd osx-x64-bin; unzip ../*x64-osx*.zip
+#   - script: cd $(Agent.TempDirectory); mkdir osx-x64-bin; cd osx-x64-bin; unzip ../*x64-osx*.zip
     - script: cd $(Agent.TempDirectory); mkdir osx-arm64-bin; cd osx-arm64-bin; unzip ../*arm64-osx*.zip
 #    - script: cd $(Agent.TempDirectory); mkdir musl-bin; cd musl-bin; unzip ../*-linux.zip
     - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
