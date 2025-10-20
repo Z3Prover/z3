@@ -56,41 +56,58 @@ def apply_param_state(s, param_state):
 
 
 def stats_tuple(st):
-    return (
-        int(st.get_key_value("conflicts")),
-        int(st.get_key_value("decisions")),
-        int(st.get_key_value("rlimit count")),
-    )
+    def get(key):
+        return int(st.get_key_value(key)) if key in st.keys() else 0
+    return (get("conflicts"), get("decisions"), get("rlimit count"))
 
 
 # --------------------------
 # Protocol steps
 # --------------------------
 
-def run_prefix_step(S, K):
+def run_prefix_step(S, K, clause_limit):
+    clauses = []
+
+    def on_clause(premises, deps, clause):
+        if len(clauses) < clause_limit:
+            clauses.append(clause)
+
+    OnClause(S, on_clause)
     S.set("max_conflicts", K)
     r = S.check()
-    return r, S.statistics()
-
-
-def collect_conflict_clauses_placeholder(S, limit=4):
-    return []
+    return r, clauses
 
 # Replay proof prefix on an existing PPS_solver (no solver recreation)
 # Solver continues from its current state.
 def replay_prefix_on_pps(PPS_solver, clauses, param_state, budget):
     print(f"[Replaying] on PPS with params={param_state} and budget={budget}")
     apply_param_state(PPS_solver, param_state)
-    PPS_solver.set("max_conflicts", budget)
 
-    asms = []
-    for Cj in clauses:
-      asms.append(Not(Cj))
+    total_conflicts = total_decisions = total_rlimit = 0
 
-    PPS_solver.check(asms)
-    st = PPS_solver.statistics()
+    # For each learned clause Cj = [l1, l2, ...], check ¬(l1 ∨ l2 ∨ ...)
+    for idx, Cj in enumerate(clauses):
+        if isinstance(Cj, AstVector):
+            lits = [Cj[i].translate(PPS_solver.ctx) for i in range(len(Cj))]
+        else:
+            lits = [l.translate(PPS_solver.ctx) for l in Cj]
 
-    return stats_tuple(st)
+        negated_lits = []
+        for l in lits:
+            negated_lits.append(Not(l))
+
+        PPS_solver.set("max_conflicts", budget)
+        r = PPS_solver.check(negated_lits)
+        st = PPS_solver.statistics()
+
+        c, d, rl = stats_tuple(st)
+        total_conflicts += c
+        total_decisions += d
+        total_rlimit += rl
+
+        print(f"  [C{idx}] result={r}, conflicts={c}, decisions={d}, rlimit={rl}")
+
+    return (total_conflicts, total_decisions, total_rlimit)
 
 
 # For each PPS_i, replay the proof prefix of S
@@ -141,8 +158,10 @@ def protocol_iteration(filepath, manager, S, PPS_solvers, PPS_states, K, eps=200
     apply_param_state(S, P)
 
     # Run S with max conflicts K
+    # Simultaneously, collect subset of conflict clauses from the bounded run of S. 
+    # Right now clause collection is pretty naive as we just take the first clause_limit clauses from OnClause
     print(f"[S] Running proof prefix solver with params={P} and max_conflicts={K}")
-    r, st = run_prefix_step(S, K)
+    r, C_list = run_prefix_step(S, K, clause_limit=MAX_EXAMPLES)
 
     # If S returns SAT or UNSAT we have a verdict
     # Tell the central dispatch that search is complete and exit
@@ -150,10 +169,6 @@ def protocol_iteration(filepath, manager, S, PPS_solvers, PPS_states, K, eps=200
         print(f"[S] {os.path.basename(filepath)} → {r} (within max_conflicts={K}). Search complete.")
         manager.mark_complete()
         return
-
-    # Collect subset of conflict clauses from the bounded run of S. Call these clauses C1...Cl
-    print(f"[S] collecting conflict clauses for replay")
-    C_list = collect_conflict_clauses_placeholder(S)
 
     # For each PPS_i, replay the proof prefix of S
     print(f"[Replaying] Replaying proof prefix on PPS solvers with budget={K + eps}")
