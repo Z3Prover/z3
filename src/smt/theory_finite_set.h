@@ -101,13 +101,15 @@ namespace smt {
         friend struct finite_set_value_proc;
 
         struct var_data {
-            ptr_vector<enode> m_setops;
-            ptr_vector<enode> m_parent_in;
-            ptr_vector<enode> m_parent_setops;
+            ptr_vector<enode> m_setops;                // set operations equivalent to this
+            ptr_vector<enode> m_parent_in;             // x in A expressions
+            ptr_vector<enode> m_parent_setops;         // set of set expressions where this appears as sub-expression
+            expr_ref_vector   m_range_local;           // set of range local variables associated with range
+            var_data(ast_manager &m) : m_range_local(m) {}
         };
 
         struct theory_clauses {
-            vector<theory_axiom>    axioms;            // vector of created theory axioms
+            ptr_vector<theory_axiom>    axioms;            // vector of created theory axioms
             unsigned                aqhead = 0;        // queue head of created axioms
             unsigned_vector         squeue;            // propagation queue of axioms to be added to the solver
             unsigned                sqhead = 0;        // head into propagation queue axioms to be added to solver
@@ -133,12 +135,16 @@ namespace smt {
             }
         };
 
+        struct range {
+            rational lo, hi;
+        };
+
         finite_set_util           u;
         finite_set_axioms         m_axioms;
         th_union_find             m_find;
         theory_clauses            m_clauses;
         finite_set_factory *m_factory = nullptr;
-        obj_map<enode, obj_hashtable<enode> *> m_set_members;
+        obj_map<enode, obj_map<enode, bool> *> m_set_members;
         ptr_vector<func_decl> m_set_in_decls;
         ptr_vector<var_data> m_var_data;
         stats m_stats;
@@ -172,11 +178,13 @@ namespace smt {
 
         // Helper methods for axiom instantiation
         void add_membership_axioms(expr* elem, expr* set);
-        void add_clause(theory_axiom const& ax);
-        bool assert_clause(theory_axiom const &ax);
+        void add_clause(theory_axiom * ax);
+        bool assert_clause(theory_axiom const *ax);
         void activate_clause(unsigned index);
         bool activate_unasserted_clause();
         void add_immediate_axioms(app *atom);
+        bool activate_range_local_axioms();
+        bool activate_range_local_axioms(expr *elem, enode *range);
         bool assume_eqs();
         bool is_new_axiom(expr *a, expr *b);
         app *mk_union(unsigned num_elems, expr *const *elems, sort* set_sort);
@@ -184,6 +192,7 @@ namespace smt {
         // model construction
         void collect_members();
         void reset_set_members();
+        void add_range_interpretation(enode *s);
 
         // manage union-find of theory variables
         theory_var find(theory_var v) const { return m_find.find(v); }        

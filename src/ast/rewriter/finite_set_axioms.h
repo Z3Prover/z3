@@ -12,6 +12,8 @@ Abstract:
        
 --*/
 
+#include "ast/rewriter/th_rewriter.h"
+
 struct theory_axiom {
     expr_ref_vector   clause;
     vector<parameter> params;
@@ -32,14 +34,15 @@ std::ostream &operator<<(std::ostream &out, theory_axiom const &ax);
 class finite_set_axioms {
     ast_manager&    m;
     finite_set_util u;
+    th_rewriter m_rewriter;
 
-    std::function<void(theory_axiom const &)> m_add_clause;
+    std::function<void(theory_axiom *)> m_add_clause;
 
 public:
 
-    finite_set_axioms(ast_manager &m) : m(m), u(m) {}
+    finite_set_axioms(ast_manager &m) : m(m), u(m), m_rewriter(m) {}
 
-    void set_add_clause(std::function<void(theory_axiom const &)> &ac) {
+    void set_add_clause(std::function<void(theory_axiom*)> &ac) {
         m_add_clause = ac;
     }
 
@@ -62,9 +65,22 @@ public:
     // (x in a) <=> (x == b)
     void in_singleton_axiom(expr *x, expr *a);
 
+    // a := set.singleton(b)
+    // b in a
+    // b-1 not in a
+    // b+1 not in a
+    void in_singleton_axiom(expr *a);
+
     // a := set.range(lo, hi)
     // (x in a) <=> (lo <= x <= hi)
     void in_range_axiom(expr *x, expr *a);
+
+    // a := set.range(lo, hi)
+    // (not (set.in (- lo 1) a))
+    // (not (set.in (+ hi 1) a))
+    // (set.in lo a)
+    // (set.in hi a)
+    void in_range_axiom(expr *a);
 
     // a := set.map(f, b)
     // (x in a) <=> set.map_inverse(f, x, b) in b

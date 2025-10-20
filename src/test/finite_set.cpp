@@ -130,14 +130,12 @@ static void tst_finite_set_map_filter() {
 static void tst_finite_set_is_value() {
     ast_manager m;
     reg_decl_plugins(m);
-    
-
-    
+        
     finite_set_util fsets(m);
     arith_util arith(m);
     finite_set_decl_plugin* plugin = static_cast<finite_set_decl_plugin*>(m.get_plugin(fsets.get_family_id()));
   
-      // Create Int sort and finite set sort
+    // Create Int sort and finite set sort
     
     // Test with Int sort (should be fully interpreted)
     sort_ref int_sort(arith.mk_int(), m);
@@ -145,7 +143,7 @@ static void tst_finite_set_is_value() {
     sort_ref finite_set_int(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &int_param), m);
     
     
-  // Test 1: Empty set is a value
+    // Test 1: Empty set is a value
     app_ref empty_set(fsets.mk_empty(finite_set_int), m);
     ENSURE(plugin->is_value(empty_set.get()));
     
@@ -179,19 +177,19 @@ static void tst_finite_set_is_value() {
     app_ref union_triple(fsets.mk_union(union_temp, singleton_nine), m);
     ENSURE(plugin->is_value(union_triple.get()));
     
-    // Test 8: Range is NOT a value (it's not a union of empty/singletons)
+    // Test 8: Range is a value
     expr_ref zero(arith.mk_int(0), m);
     expr_ref ten(arith.mk_int(10), m);
     app_ref range_set(fsets.mk_range(zero, ten), m);
-    ENSURE(!plugin->is_value(range_set.get()));
+    ENSURE(plugin->is_value(range_set.get()));
     
-    // Test 9: Union with range is NOT a value
+    // Test 9: Union with range is  a value
     app_ref union_with_range(fsets.mk_union(singleton_five, range_set), m);
-    ENSURE(!plugin->is_value(union_with_range.get()));
+    ENSURE(plugin->is_value(union_with_range.get()));
     
-    // Test 10: Intersect is NOT a value
+    // Test 10: Intersect is a value
     app_ref intersect_set(fsets.mk_intersect(singleton_five, singleton_seven), m);
-    ENSURE(!plugin->is_value(intersect_set.get()));
+    ENSURE(plugin->is_value(intersect_set.get()));
     ENSURE(m.is_fully_interp(int_sort));
     ENSURE(m.is_fully_interp(finite_set_int));
 }

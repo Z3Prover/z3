@@ -19,6 +19,7 @@ Revision History:
 --*/
 
 #include "ast/ast.h"
+#include "ast/ast_pp.h"
 #include "ast/finite_set_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
@@ -38,8 +39,8 @@ void finite_set_axioms::in_empty_axiom(expr *x) {
     expr_ref empty_set(u.mk_empty(elem_sort), m);
     expr_ref x_in_empty(u.mk_in(x, empty_set), m);
     
-    theory_axiom ax(m, "in-empty");
-    ax.clause.push_back(m.mk_not(x_in_empty));
+    theory_axiom* ax = alloc(theory_axiom, m, "in-empty");
+    ax->clause.push_back(m.mk_not(x_in_empty));
     m_add_clause(ax);
 }
 
@@ -50,27 +51,28 @@ void finite_set_axioms::in_union_axiom(expr *x, expr *a) {
     if (!u.is_union(a, b, c))
         return;
 
-    theory_axiom ax(m, "in-union");
+
     expr_ref x_in_a(u.mk_in(x, a), m);
     expr_ref x_in_b(u.mk_in(x, b), m);
     expr_ref x_in_c(u.mk_in(x, c), m);
     
     // (x in a) => (x in b) or (x in c)
-    ax.clause.push_back(m.mk_not(x_in_a));
-    ax.clause.push_back(x_in_b);
-    ax.clause.push_back(x_in_c);
-    m_add_clause(ax);
+    theory_axiom *ax1 = alloc(theory_axiom, m, "in-union");
+    ax1->clause.push_back(m.mk_not(x_in_a));
+    ax1->clause.push_back(x_in_b);
+    ax1->clause.push_back(x_in_c);
+    m_add_clause(ax1);
 
     // (x in b) => (x in a)
-    theory_axiom ax2(m, "in-union");
-    ax2.clause.push_back(m.mk_not(x_in_b));
-    ax2.clause.push_back(x_in_a);
+    theory_axiom* ax2 = alloc(theory_axiom, m, "in-union");
+    ax2->clause.push_back(m.mk_not(x_in_b));
+    ax2->clause.push_back(x_in_a);
     m_add_clause(ax2);
 
     // (x in c) => (x in a)
-    theory_axiom ax3(m, "in-union");
-    ax3.clause.push_back(m.mk_not(x_in_c));
-    ax3.clause.push_back(x_in_a);
+    theory_axiom* ax3 = alloc(theory_axiom, m, "in-union");
+    ax3->clause.push_back(m.mk_not(x_in_c));
+    ax3->clause.push_back(x_in_a);
     m_add_clause(ax3);
 }
 
@@ -86,22 +88,22 @@ void finite_set_axioms::in_intersect_axiom(expr *x, expr *a) {
     expr_ref x_in_c(u.mk_in(x, c), m);
     
     // (x in a) => (x in b)
-    theory_axiom ax1(m, "in-intersect");
-    ax1.clause.push_back(m.mk_not(x_in_a));
-    ax1.clause.push_back(x_in_b);
+    theory_axiom* ax1 = alloc(theory_axiom, m, "in-intersect");
+    ax1->clause.push_back(m.mk_not(x_in_a));
+    ax1->clause.push_back(x_in_b);
     m_add_clause(ax1);
 
     // (x in a) => (x in c)
-    theory_axiom ax2(m, "in-intersect");
-    ax2.clause.push_back(m.mk_not(x_in_a));
-    ax2.clause.push_back(x_in_c);
+    theory_axiom* ax2 = alloc(theory_axiom, m, "in-intersect");
+    ax2->clause.push_back(m.mk_not(x_in_a));
+    ax2->clause.push_back(x_in_c);
     m_add_clause(ax2);
 
     // (x in b) and (x in c) => (x in a)
-    theory_axiom ax3(m, "in-intersect");
-    ax3.clause.push_back(m.mk_not(x_in_b));
-    ax3.clause.push_back(m.mk_not(x_in_c));
-    ax3.clause.push_back(x_in_a);
+    theory_axiom* ax3 = alloc(theory_axiom, m, "in-intersect");
+    ax3->clause.push_back(m.mk_not(x_in_b));
+    ax3->clause.push_back(m.mk_not(x_in_c));
+    ax3->clause.push_back(x_in_a);
     m_add_clause(ax3);
 }
 
@@ -117,22 +119,22 @@ void finite_set_axioms::in_difference_axiom(expr *x, expr *a) {
     expr_ref x_in_c(u.mk_in(x, c), m);
     
     // (x in a) => (x in b)
-    theory_axiom ax1(m, "in-difference");
-    ax1.clause.push_back(m.mk_not(x_in_a));
-    ax1.clause.push_back(x_in_b);
+    theory_axiom* ax1 = alloc(theory_axiom, m, "in-difference");
+    ax1->clause.push_back(m.mk_not(x_in_a));
+    ax1->clause.push_back(x_in_b);
     m_add_clause(ax1);
     
     // (x in a) => not (x in c)
-    theory_axiom ax2(m, "in-difference");
-    ax2.clause.push_back(m.mk_not(x_in_a));
-    ax2.clause.push_back(m.mk_not(x_in_c));
+    theory_axiom* ax2 = alloc(theory_axiom, m, "in-difference");
+    ax2->clause.push_back(m.mk_not(x_in_a));
+    ax2->clause.push_back(m.mk_not(x_in_c));
     m_add_clause(ax2);
 
     // (x in b) and not (x in c) => (x in a)
-    theory_axiom ax3(m, "in-difference");
-    ax3.clause.push_back(m.mk_not(x_in_b));
-    ax3.clause.push_back(x_in_c);
-    ax3.clause.push_back(x_in_a);
+    theory_axiom* ax3 = alloc(theory_axiom, m, "in-difference");
+    ax3->clause.push_back(m.mk_not(x_in_b));
+    ax3->clause.push_back(x_in_c);
+    ax3->clause.push_back(x_in_a);
     m_add_clause(ax3);
 }
 
@@ -145,11 +147,11 @@ void finite_set_axioms::in_singleton_axiom(expr *x, expr *a) {
     
     expr_ref x_in_a(u.mk_in(x, a), m);
 
-    theory_axiom ax(m, "in-singleton");
+    theory_axiom* ax = alloc(theory_axiom, m, "in-singleton");
     if (x == b) {
         // If x and b are syntactically identical, then (x in a) is always true
 
-        ax.clause.push_back(x_in_a);
+        ax->clause.push_back(x_in_a);
         m_add_clause(ax);
         return;
     }
@@ -157,16 +159,41 @@ void finite_set_axioms::in_singleton_axiom(expr *x, expr *a) {
     expr_ref x_eq_b(m.mk_eq(x, b), m);
     
     // (x in a) => (x == b)
-    ax.clause.push_back(m.mk_not(x_in_a));
-    ax.clause.push_back(x_eq_b);
+    ax->clause.push_back(m.mk_not(x_in_a));
+    ax->clause.push_back(x_eq_b);
     m_add_clause(ax);
-    ax.clause.reset();
+    ax = alloc(theory_axiom, m, "in-singleton");
 
     // (x == b) => (x in a)
-    ax.clause.push_back(m.mk_not(x_eq_b));
-    ax.clause.push_back(x_in_a);
+    ax->clause.push_back(m.mk_not(x_eq_b));
+    ax->clause.push_back(x_in_a);
     m_add_clause(ax);
 }
+
+void finite_set_axioms::in_singleton_axiom(expr* a) {
+    expr *b = nullptr;
+    if (!u.is_singleton(a, b))
+        return;
+    
+    arith_util arith(m);
+
+    expr_ref b_in_a(u.mk_in(b, a), m);
+
+    auto ax = alloc(theory_axiom, m, "in-singleton");
+    ax->clause.push_back(b_in_a);
+    m_add_clause(ax);
+
+    ax = alloc(theory_axiom, m, "in-singleton");
+    expr_ref bm1_in_a(u.mk_in(arith.mk_add(b, arith.mk_int(-1)), a), m);
+    ax->clause.push_back(m.mk_not(bm1_in_a));
+    m_add_clause(ax);
+    
+    ax = alloc(theory_axiom, m, "in-singleton");
+    expr_ref bp1_in_a(u.mk_in(arith.mk_add(b, arith.mk_int(1)), a), m);
+    ax->clause.push_back(m.mk_not(bp1_in_a));
+}
+
+
 
 // a := set.range(lo, hi)
 // (x in a) <=> (lo <= x <= hi)
@@ -177,27 +204,56 @@ void finite_set_axioms::in_range_axiom(expr *x, expr *a) {
     
     arith_util arith(m);
     expr_ref x_in_a(u.mk_in(x, a), m);
-    expr_ref lo_le_x(arith.mk_le(lo, x), m);
-    expr_ref x_le_hi(arith.mk_le(x, hi), m);
+    expr_ref lo_le_x(arith.mk_le(arith.mk_sub(lo, x), arith.mk_int(0)), m);
+    expr_ref x_le_hi(arith.mk_le(arith.mk_sub(x, hi), arith.mk_int(0)), m);
+    m_rewriter(lo_le_x);
+    m_rewriter(x_le_hi);
     
     // (x in a) => (lo <= x)
-    theory_axiom ax1(m, "in-range");
-    ax1.clause.push_back(m.mk_not(x_in_a));
-    ax1.clause.push_back(lo_le_x);
+    theory_axiom* ax1 = alloc(theory_axiom, m, "in-range");
+    ax1->clause.push_back(m.mk_not(x_in_a));
+    ax1->clause.push_back(lo_le_x);
     m_add_clause(ax1);
 
     // (x in a) => (x <= hi)
-    theory_axiom ax2(m, "in-range");
-    ax2.clause.push_back(m.mk_not(x_in_a));
-    ax2.clause.push_back(x_le_hi);
+    theory_axiom* ax2 = alloc(theory_axiom, m, "in-range");
+    ax2->clause.push_back(m.mk_not(x_in_a));
+    ax2->clause.push_back(x_le_hi);
     m_add_clause(ax2);
 
     // (lo <= x) and (x <= hi) => (x in a)
-    theory_axiom ax3(m, "in-range");
-    ax3.clause.push_back(m.mk_not(lo_le_x));
-    ax3.clause.push_back(m.mk_not(x_le_hi));
-    ax3.clause.push_back(x_in_a);
+    theory_axiom* ax3 = alloc(theory_axiom, m, "in-range");
+    ax3->clause.push_back(m.mk_not(lo_le_x));
+    ax3->clause.push_back(m.mk_not(x_le_hi));
+    ax3->clause.push_back(x_in_a);
     m_add_clause(ax3);
+}
+
+// a := set.range(lo, hi)
+// (not (set.in (- lo 1) r))
+// (not (set.in (+ hi 1) r))
+// (set.in lo r)
+// (set.in hi r)
+void finite_set_axioms::in_range_axiom(expr* r) {
+    expr *lo = nullptr, *hi = nullptr;
+    if (!u.is_range(r, lo, hi))
+        return;
+    theory_axiom* ax = alloc(theory_axiom, m, "range-bounds");
+    ax->clause.push_back(u.mk_in(lo, r));
+    m_add_clause(ax);
+
+    ax = alloc(theory_axiom, m, "range-bounds");
+    ax->clause.push_back(u.mk_in(hi, r));
+    m_add_clause(ax);
+
+    arith_util a(m);
+    ax = alloc(theory_axiom, m, "range-bounds");
+    ax->clause.push_back(m.mk_not(u.mk_in(a.mk_add(hi, a.mk_int(1)), r)));
+    m_add_clause(ax);
+
+    ax = alloc(theory_axiom, m, "range-bounds");
+    ax->clause.push_back(m.mk_not(u.mk_in(a.mk_add(lo, a.mk_int(-1)), r)));
+    m_add_clause(ax);
 }
 
 // a := set.map(f, b)
@@ -228,9 +284,9 @@ void finite_set_axioms::in_map_image_axiom(expr *x, expr *a) {
     expr_ref fx_in_a(u.mk_in(fx, a), m);
     
     // (x in b) => f(x) in a
-    theory_axiom ax(m, "in-map-image");
-    ax.clause.push_back(m.mk_not(x_in_b));
-    ax.clause.push_back(fx_in_a);
+    theory_axiom* ax = alloc(theory_axiom, m, "in-map-image");
+    ax->clause.push_back(m.mk_not(x_in_b));
+    ax->clause.push_back(fx_in_a);
     m_add_clause(ax);
 }
 
@@ -249,22 +305,22 @@ void finite_set_axioms::in_filter_axiom(expr *x, expr *a) {
     expr_ref px(autil.mk_select(p, x), m);
     
     // (x in a) => (x in b)
-    theory_axiom ax1(m, "in-filter");
-    ax1.clause.push_back(m.mk_not(x_in_a));
-    ax1.clause.push_back(x_in_b);
+    theory_axiom* ax1 = alloc(theory_axiom, m, "in-filter");
+    ax1->clause.push_back(m.mk_not(x_in_a));
+    ax1->clause.push_back(x_in_b);
     m_add_clause(ax1);
 
     // (x in a) => p(x)
-    theory_axiom ax2(m, "in-filter");
-    ax2.clause.push_back(m.mk_not(x_in_a));
-    ax2.clause.push_back(px);
+    theory_axiom* ax2 = alloc(theory_axiom, m, "in-filter");
+    ax2->clause.push_back(m.mk_not(x_in_a));
+    ax2->clause.push_back(px);
     m_add_clause(ax2);
 
     // (x in b) and p(x) => (x in a)
-    theory_axiom ax3(m, "in-filter");
-    ax3.clause.push_back(m.mk_not(x_in_b));
-    ax3.clause.push_back(m.mk_not(px));
-    ax3.clause.push_back(x_in_a);
+    theory_axiom* ax3 = alloc(theory_axiom, m, "in-filter");
+    ax3->clause.push_back(m.mk_not(x_in_b));
+    ax3->clause.push_back(m.mk_not(px));
+    ax3->clause.push_back(x_in_a);
     m_add_clause(ax3);
 }
 
@@ -280,8 +336,8 @@ void finite_set_axioms::size_singleton_axiom(expr *a) {
     expr_ref one(arith.mk_int(1), m);
     expr_ref eq(m.mk_eq(size_a, one), m);
 
-    theory_axiom ax(m, "size-singleton");
-    ax.clause.push_back(eq);
+    theory_axiom* ax = alloc(theory_axiom, m, "size-singleton");
+    ax->clause.push_back(eq);
     m_add_clause(ax);
 }
 
@@ -293,14 +349,14 @@ void finite_set_axioms::subset_axiom(expr* a) {
     expr_ref intersect_bc(u.mk_intersect(b, c), m);
     expr_ref eq(m.mk_eq(intersect_bc, b), m);
 
-    theory_axiom ax1(m,  "subset");
-    ax1.clause.push_back(m.mk_not(a));
-    ax1.clause.push_back(eq);
+    theory_axiom* ax1 = alloc(theory_axiom, m,  "subset");
+    ax1->clause.push_back(m.mk_not(a));
+    ax1->clause.push_back(eq);
     m_add_clause(ax1);
 
-    theory_axiom ax2(m,  "subset");
-    ax2.clause.push_back(a);
-    ax2.clause.push_back(m.mk_not(eq));
+    theory_axiom* ax2 = alloc(theory_axiom, m,  "subset");
+    ax2->clause.push_back(a);
+    ax2->clause.push_back(m.mk_not(eq));
     m_add_clause(ax2);
 }
 
@@ -313,15 +369,15 @@ void finite_set_axioms::extensionality_axiom(expr *a, expr* b) {
     expr_ref diff_in_b(u.mk_in(diff_ab, b), m);
     
     // (a != b) => (x in diff_ab != x in diff_ba)
-    theory_axiom ax(m, "extensionality");
-    ax.clause.push_back(a_eq_b);
-    ax.clause.push_back(m.mk_not(diff_in_a));
-    ax.clause.push_back(m.mk_not(diff_in_b));
+    theory_axiom* ax = alloc(theory_axiom, m, "extensionality");
+    ax->clause.push_back(a_eq_b);
+    ax->clause.push_back(m.mk_not(diff_in_a));
+    ax->clause.push_back(m.mk_not(diff_in_b));
     m_add_clause(ax);
 
-    theory_axiom ax2(m, "extensionality");
-    ax2.clause.push_back(m.mk_not(a_eq_b));
-    ax2.clause.push_back(diff_in_a);
-    ax2.clause.push_back(diff_in_b);
+    theory_axiom* ax2 = alloc(theory_axiom, m, "extensionality");
+    ax2->clause.push_back(m.mk_not(a_eq_b));
+    ax2->clause.push_back(diff_in_a);
+    ax2->clause.push_back(diff_in_b);
     m_add_clause(ax2);
 }

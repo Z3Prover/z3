@@ -1525,16 +1525,24 @@ namespace smt {
     }
 
     lbool context::find_assignment(expr * n) const {
-        if (m.is_false(n))
-            return l_false;
+
         expr* arg = nullptr;
         if (m.is_not(n, arg)) {
+
             if (b_internalized(arg))
                 return ~get_assignment_core(arg);
+            if (m.is_false(arg))
+                return l_true;
+            if (m.is_true(arg))
+                return l_false;
             return l_undef;
         }
         if (b_internalized(n))
             return get_assignment(n);
+        if (m.is_false(n))
+            return l_false;
+        if (m.is_true(n))
+            return l_true;
         return l_undef;
     }
 

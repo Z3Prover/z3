@@ -195,6 +195,8 @@ public:
         return m_manager.mk_app(m_fid, OP_FINITE_SET_FILTER, arr, set);
     }
 
+    func_decl *mk_range_decl();
+
     app * mk_range(expr* low, expr* high) {
         return m_manager.mk_app(m_fid, OP_FINITE_SET_RANGE, low, high);
     }

@@ -15,6 +15,7 @@ Abstract:
 #include "smt/theory_finite_set.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
+#include "smt/smt_arith_value.h"
 #include "ast/ast_pp.h"
 
 namespace smt {
@@ -29,8 +30,8 @@ namespace smt {
         m_axioms(m), m_find(*this)
     {
         // Setup the add_clause callback for axioms
-        std::function<void(theory_axiom const &)> add_clause_fn =
-            [this](theory_axiom const &ax) {
+        std::function<void(theory_axiom *)> add_clause_fn =
+            [this](theory_axiom* ax) {
                 this->add_clause(ax);
             };
         m_axioms.set_add_clause(add_clause_fn);
@@ -67,7 +68,7 @@ namespace smt {
         theory_var r = theory::mk_var(n);
         VERIFY(r == static_cast<theory_var>(m_find.mk_var()));
         SASSERT(r == static_cast<int>(m_var_data.size()));
-        m_var_data.push_back(alloc(var_data));
+        m_var_data.push_back(alloc(var_data, m));
         ctx.push_trail(push_back_vector<ptr_vector<var_data>>(m_var_data));
         ctx.push_trail(new_obj_trail(m_var_data.back()));
         expr *e = n->get_expr();
@@ -90,7 +91,8 @@ namespace smt {
             m_var_data[r]->m_setops.push_back(n);
             ctx.push_trail(push_back_trail(m_var_data[r]->m_setops));
             for (auto arg : enode::args(n)) {
-                if (!u.is_finite_set(arg->get_expr()))
+                expr *e = arg->get_expr();
+                if (!u.is_finite_set(e))
                     continue;
                 auto v = arg->get_root()->get_th_var(get_id());
                 SASSERT(v != null_theory_var);
@@ -103,6 +105,9 @@ namespace smt {
         }
         else if (u.is_map(e) || u.is_filter(e)) {
             NOT_IMPLEMENTED_YET();
+        }
+        else if (u.is_range(e)) {
+            
         }
         return r;
     }
@@ -157,6 +162,7 @@ namespace smt {
      *  for each T := (set.op U V) in d2->setops
      *         then S ~ T by construction
      *              add axioms for (set.in x T)
+     * 
     */
 
     void theory_finite_set::add_in_axioms(enode *in, var_data *d) {
@@ -276,6 +282,9 @@ namespace smt {
         if (activate_unasserted_clause())
             return FC_CONTINUE;
 
+        if (false && activate_range_local_axioms())
+            return FC_CONTINUE;
+
         if (assume_eqs())
             return FC_CONTINUE;
         
@@ -293,20 +302,38 @@ namespace smt {
      * - (set.singleton x) -> (set.in x (set.singleton x))
      * - (set.singleton x) -> (set.size (set.singleton x)) = 1
      * - (set.empty)       -> (set.size (set.empty)) = 0
+     * - (set.range lo hi) -> lo-1,hi+1 not in range, lo, hi in range
      */
     void theory_finite_set::add_immediate_axioms(app* term) {
         expr *elem = nullptr, *set = nullptr;
+        expr *lo = nullptr, *hi = nullptr;
         unsigned sz = m_clauses.axioms.size();
         if (u.is_in(term, elem, set) && u.is_empty(set))
             add_membership_axioms(elem, set);
         else if (u.is_subset(term))
             m_axioms.subset_axiom(term);
-        else if (u.is_singleton(term, elem))
-            m_axioms.in_singleton_axiom(elem, term);
+        else if (u.is_singleton(term))
+            m_axioms.in_singleton_axiom(term);
+        else if (u.is_range(term, lo, hi)) {
+            m_axioms.in_range_axiom(term);
+            auto range = ctx.get_enode(term);
+            auto v = range->get_th_var(get_id());
+            // declare lo-1, lo, hi, hi+1 as range local.
+            // we don't have to add additional range local variables for them.
+            auto &range_local = m_var_data[v]->m_range_local;
+            ctx.push_trail(push_back_vector(range_local));
+            arith_util a(m);
+            range_local.push_back(lo);
+            range_local.push_back(hi);
+            range_local.push_back(a.mk_add(lo, a.mk_int(-1)));
+            range_local.push_back(a.mk_add(hi, a.mk_int(1)));
+        }
        
         // Assert all new lemmas as clauses
-        for (unsigned i = sz; i < m_clauses.axioms.size(); ++i)
+        for (unsigned i = sz; i < m_clauses.axioms.size(); ++i) {
             m_clauses.squeue.push_back(i);
+            ctx.push_trail(push_back_vector(m_clauses.squeue));
+        }
     }
 
     void theory_finite_set::assign_eh(bool_var v, bool is_true) {
@@ -322,8 +349,8 @@ namespace smt {
         for (unsigned i = 0; i < m_clauses.watch[idx].size(); ++i) {
             TRACE(finite_set, tout << " watch[" << i << "] size: " << m_clauses.watch[i].size() << "\n";);
             auto clause_idx = m_clauses.watch[idx][i];
-            auto &ax = m_clauses.axioms[clause_idx];
-            auto &clause = ax.clause;
+            auto* ax = m_clauses.axioms[clause_idx];
+            auto &clause = ax->clause;
             if (any_of(clause, [&](expr *lit) { return ctx.find_assignment(lit) == l_true; })) {
                 TRACE(finite_set, tout << "  satisfied\n";);
                 m_clauses.watch[idx][j++] = clause_idx;
@@ -365,6 +392,7 @@ namespace smt {
                 continue;  // the clause is removed from this watch list
             // either all literals are false, or the other watch literal is propagating.
             m_clauses.squeue.push_back(clause_idx);
+            ctx.push_trail(push_back_vector(m_clauses.squeue));
             TRACE(finite_set, tout << "  propagate clause\n";);
             m_clauses.watch[idx][j++] = clause_idx;
             ++i;
@@ -390,21 +418,22 @@ namespace smt {
 
             // empty the propagation queue of clauses to assert
             while (m_clauses.sqhead < m_clauses.squeue.size() && !ctx.inconsistent()) {
-                auto index = m_clauses.squeue[m_clauses.sqhead++];
-                auto const &clause = m_clauses.axioms[index];
-                assert_clause(clause);
+                auto clause_idx = m_clauses.squeue[m_clauses.sqhead++];
+                auto ax = m_clauses.axioms[clause_idx];
+                assert_clause(ax);
             }
         }      
     }
 
     void theory_finite_set::activate_clause(unsigned clause_idx) {
         TRACE(finite_set, tout << "activate_clause: " << clause_idx << "\n";);
-        auto &ax = m_clauses.axioms[clause_idx];
-        auto &clause = ax.clause;
+        auto* ax = m_clauses.axioms[clause_idx];
+        auto &clause = ax->clause;
         if (any_of(clause, [&](expr *e) { return ctx.find_assignment(e) == l_true; }))
             return;
         if (clause.size() <= 1) {
             m_clauses.squeue.push_back(clause_idx);
+            ctx.push_trail(push_back_vector(m_clauses.squeue));
             return;
         }
         expr *w1 = nullptr, *w2 = nullptr;
@@ -430,6 +459,7 @@ namespace smt {
         }
         if (!w2) {
             m_clauses.squeue.push_back(clause_idx);
+            ctx.push_trail(push_back_vector(m_clauses.squeue));
             return;
         }
         bool w1neg = m.is_not(w1, w1);
@@ -446,8 +476,8 @@ namespace smt {
             unsigned index;
             unwatch_clause(theory_finite_set &th, unsigned index) : th(th), index(index) {}
             void undo() override {
-                auto &ax = th.m_clauses.axioms[index];
-                auto &clause = ax.clause;
+                auto* ax = th.m_clauses.axioms[index];
+                auto &clause = ax->clause;
                 expr *w1 = clause.get(0);
                 expr *w2 = clause.get(1);
                 bool w1neg = th.m.is_not(w1, w1);
@@ -487,8 +517,9 @@ namespace smt {
             // Create a union expression that is canonical (sorted)
             auto& set = *m_set_members[r];
             ptr_vector<expr> elems;
-            for (auto e : set)
-                elems.push_back(e->get_expr());
+            for (auto [e,b] : set)
+                if (b)  
+                    elems.push_back(e->get_expr());
             std::sort(elems.begin(), elems.end(), [](expr *a, expr *b) { return a->get_id() < b->get_id(); });
             expr *s = mk_union(elems.size(), elems.data(), n->get_expr()->get_sort());
             trail.push_back(s);
@@ -569,9 +600,10 @@ namespace smt {
         }        
     }
 
-    void theory_finite_set::add_clause(theory_axiom const& ax) {
+    void theory_finite_set::add_clause(theory_axiom* ax) {
         TRACE(finite_set, tout << "add_clause: " << ax << "\n");
         ctx.push_trail(push_back_vector(m_clauses.axioms));
+        ctx.push_trail(new_obj_trail(ax));
         m_clauses.axioms.push_back(ax);
         m_stats.m_num_axioms_created++;
     }
@@ -601,19 +633,19 @@ namespace smt {
         mg.register_factory(m_factory);
         collect_members();
     }
-
+   
     void theory_finite_set::collect_members() {
         // This method can be used to collect all elements that are members of sets
         // and ensure that the model factory has values for them.
         // For now, we rely on the default model construction.
         reset_set_members();
+
         for (auto f : m_set_in_decls) {
             for (auto n : ctx.enodes_of(f)) {
-                SASSERT(u.is_in(n->get_expr()));
-                auto x = n->get_arg(0);
-                if (!ctx.is_relevant(x))
+                if (!ctx.is_relevant(n))
                     continue;
-                x = x->get_root();
+                SASSERT(u.is_in(n->get_expr()));
+                auto x = n->get_arg(0)->get_root();
                 if (x->is_marked())
                     continue;
                 x->set_mark();  // make sure we only do this once per element
@@ -622,61 +654,139 @@ namespace smt {
                         continue;
                     if (!u.is_in(p->get_expr()))
                         continue;
-                    if (ctx.get_assignment(p->get_expr()) != l_true)
-                        continue;
+                    bool b = ctx.find_assignment(p->get_expr()) == l_true;
                     auto set = p->get_arg(1)->get_root();
                     auto elem = p->get_arg(0)->get_root();
                     if (elem != x)
                         continue;
-                    if (!m_set_members.contains(set))
-                        m_set_members.insert(set, alloc(obj_hashtable<enode>));
-                    m_set_members.find(set)->insert(x);
+                    if (!m_set_members.contains(set)) {
+                        using om = obj_map<enode, bool>;
+                        auto m = alloc(om);
+                        m_set_members.insert(set, m);
+                    }
+                    m_set_members.find(set)->insert(x, b);
                 }
             }
         }
         for (auto f : m_set_in_decls) {
             for (auto n : ctx.enodes_of(f)) {
                 SASSERT(u.is_in(n->get_expr()));
-                auto x = n->get_arg(0);
-                x = x->get_root();
+                auto x = n->get_arg(0)->get_root();     
                 if (x->is_marked())
                     x->unset_mark();
             }
         }
     }
 
+    // to collect range interpretations for S:
+    // walk parents of S that are (set.in x S)
+    // evaluate truth value of (set.in x S), evaluate x
+    // add (eval(x), eval(set.in x S)) into a vector.
+    // sort the vector by eval(x)
+    // [(v1, b1), (v2, b2), ..., (vn, bn)]
+    // for the first i, with b_i true, add the range [vi, v_{i+1}-1].
+    // the last bn should be false by construction.
+
+    void theory_finite_set::add_range_interpretation(enode* s) {
+        vector<std::tuple<rational, enode *, bool>> elements;
+        arith_value av(m);
+        av.init(&ctx);
+        for (auto p : enode::parents(s)) {
+            if (!ctx.is_relevant(p))
+                continue;
+            if (u.is_in(p->get_expr())) {
+                rational val;
+                auto x = p->get_arg(0)->get_root();
+                VERIFY(av.get_value_equiv(x->get_expr(), val) && val.is_int());
+                elements.push_back({val, x, ctx.find_assignment(p->get_expr()) == l_true});
+            }
+        }
+        std::stable_sort(elements.begin(), elements.end(),
+                         [](auto const &a, auto const &b) { return std::get<0>(a) < std::get<0>(b); });
+
+
+    }
+
     struct finite_set_value_proc : model_value_proc {    
         theory_finite_set &th;        
-        sort *s = nullptr;
-        obj_hashtable<enode>* m_elements = nullptr;
+        enode *n = nullptr;
+        obj_map<enode, bool>* m_elements = nullptr;
 
-        finite_set_value_proc(theory_finite_set &th, sort *s, obj_hashtable<enode> *elements)
-            : th(th), s(s), m_elements(elements) {}
+        // use range interpretations if there is a range constraint and the base sort is integer
+        bool use_range() {
+            auto &m = th.m;
+            sort *base_s = nullptr;
+            VERIFY(th.u.is_finite_set(n->get_expr()->get_sort(), base_s));
+            arith_util a(m);
+            if (!a.is_int(base_s))
+                return false;
+            func_decl_ref range_fn(th.u.mk_range_decl(), m);
+            return th.ctx.get_num_enodes_of(range_fn.get()) > 0;
+        }
+
+        finite_set_value_proc(theory_finite_set &th, enode *n, obj_map<enode, bool> *elements)
+            : th(th), n(n), m_elements(elements) {}
 
         void get_dependencies(buffer<model_value_dependency> &result) override {
             if (!m_elements)
                 return;
-            for (auto v : *m_elements)
-                result.push_back(model_value_dependency(v));
+            bool ur = use_range();
+            for (auto [n, b] : *m_elements)
+                if (!ur || b)
+                    result.push_back(model_value_dependency(n));
         }
 
         app *mk_value(model_generator &mg, expr_ref_vector const &values) override {            
             SASSERT(values.empty() == !m_elements);
-            if (values.empty()) 
+            auto s = n->get_sort();
+            if (values.empty())
                 return th.u.mk_empty(s);
 
-            SASSERT(m_elements);
-            SASSERT(values.size() == m_elements->size());
-            return th.mk_union(values.size(), values.data(), s);
+            SASSERT(m_elements);            
+            if (use_range())
+                return mk_range_value(mg, values);
+            else 
+                return th.mk_union(values.size(), values.data(), s);
+        }
+
+        app *mk_range_value(model_generator &mg, expr_ref_vector const &values) {
+            unsigned i = 0;
+            arith_value av(th.m);
+            av.init(&th.ctx);
+            vector<std::tuple<rational, enode *, bool>> elems;
+            for (auto [n, b] : *m_elements) {
+                rational r;
+                av.get_value(n->get_expr(), r);               
+                elems.push_back({r, n, b});
+            }
+            std::stable_sort(elems.begin(), elems.end(),
+                             [](auto const &a, auto const &b) { return std::get<0>(a) < std::get<0>(b); });
+            app *range = nullptr;
+            arith_util a(th.m);
+
+            for (unsigned j = 0; j < elems.size(); ++j) {
+                auto [r, n, b] = elems[j];
+                if (!b)
+                    continue;
+                rational lo = r;
+                rational hi = j + 1 < elems.size() ? std::get<0>(elems[j + 1]) - rational(1) : r;
+                while (j + 1 < elems.size() && std::get<0>(elems[j + 1]) == hi + rational(1) && std::get<2>(elems[j + 1])) {
+                    hi = std::get<0>(elems[j + 1]);
+                    ++j;
+                }
+                auto new_range = th.u.mk_range(a.mk_int(lo), a.mk_int(hi));
+                range = range ? th.u.mk_union(range, new_range) : new_range;
+            }
+            return range ? range : th.u.mk_empty(n->get_sort());        
         }
     };
 
     model_value_proc * theory_finite_set::mk_value(enode * n, model_generator & mg) {
-        TRACE(finite_set, tout << "mk_value: " << mk_pp(n->get_expr(), m) << "\n";);       
-        obj_hashtable<enode>*elements = nullptr;
-        sort *s = n->get_expr()->get_sort();
-        m_set_members.find(n->get_root(), elements); 
-        return alloc(finite_set_value_proc, *this, s, elements);
+        TRACE(finite_set, tout << "mk_value: " << mk_pp(n->get_expr(), m) << "\n";);
+        obj_map<enode, bool>*elements = nullptr;
+        n = n->get_root();
+        m_set_members.find(n, elements); 
+        return alloc(finite_set_value_proc, *this, n, elements);
     }
 
 
@@ -692,10 +802,62 @@ namespace smt {
         return false;
     }
 
-    bool theory_finite_set::assert_clause(theory_axiom const &ax) {
-        auto const &clause = ax.clause;
+    /*
+     * Add x-1, x+1 in range axioms for every x in setop(range, S)
+     * then x-1, x+1 will also propagate against setop(range, S).
+     */
+    bool theory_finite_set::activate_range_local_axioms() {
+        bool new_axiom = false;
+        func_decl_ref range_fn(u.mk_range_decl(), m);
+        for (auto range : ctx.enodes_of(range_fn.get())) {
+            SASSERT(u.is_range(range->get_expr()));
+            auto v = range->get_th_var(get_id());
+            for (auto p : m_var_data[v]->m_parent_setops) {
+                auto w = p->get_th_var(get_id());
+                for (auto in : m_var_data[w]->m_parent_in) {
+                    if (activate_range_local_axioms(in->get_arg(0)->get_expr(), range))
+                        new_axiom = true;
+                }
+            }
+        }
+        return new_axiom;
+    }
+
+
+    bool theory_finite_set::activate_range_local_axioms(expr* elem, enode* range) {
+        auto v = range->get_th_var(get_id());
+        auto &range_local = m_var_data[v]->m_range_local;
+        auto &parent_in = m_var_data[v]->m_parent_in;
+        if (range_local.contains(elem))
+            return false;
+        arith_util a(m);
+        expr_ref lo(a.mk_add(elem, a.mk_int(-1)), m);
+        expr_ref hi(a.mk_add(elem, a.mk_int(1)), m);
+        bool new_axiom = false;
+        if (!range_local.contains(lo) && all_of(parent_in, [lo](enode* in) { return in->get_arg(0)->get_expr() != lo; })) {
+            // lo is not range local and lo is not already in an expression (lo in range)
+            // checking that lo is not in range_local is actually redundant because we will instantiate 
+            // membership expressions for every range local expression.
+            // but we keep this set and check for now in case we want to change the saturation strategy.
+            ctx.push_trail(push_back_vector(range_local));
+            range_local.push_back(lo);
+            m_axioms.in_range_axiom(lo, range->get_expr());
+            new_axiom = true;
+        }
+        if (!range_local.contains(hi) &&
+            all_of(parent_in, [&hi](enode *in) { return in->get_arg(0)->get_expr() != hi; })) {
+            ctx.push_trail(push_back_vector(range_local));
+            range_local.push_back(hi);
+            m_axioms.in_range_axiom(hi, range->get_expr());
+            new_axiom = true;
+        }
+        return new_axiom;
+    }
+
+    bool theory_finite_set::assert_clause(theory_axiom const *ax) {
         expr *unit = nullptr;
         unsigned undef_count = 0;
+        auto &clause = ax->clause;
         for (auto e : clause) {
             switch (ctx.find_assignment(e)) {
             case l_true:
@@ -719,8 +881,8 @@ namespace smt {
             }
             m_stats.m_num_axioms_propagated++;
             enode_pair_vector eqs;
-            auto just = ext_theory_propagation_justification(get_id(), ctx, antecedent.size(), antecedent.data(), eqs.size(), eqs.data(), lit, ax.params.size(),
-                                                       ax.params.data());
+            auto just = ext_theory_propagation_justification(get_id(), ctx, antecedent.size(), antecedent.data(), eqs.size(), eqs.data(), 
+                lit, ax->params.size(), ax->params.data());
             auto bjust = ctx.mk_justification(just);
             if (ctx.clause_proof_active()) {
                 // assume all justifications is a non-empty list of symbol parameters
@@ -729,8 +891,8 @@ namespace smt {
                 // this misses conflicts at base level.
                 proof_ref pr(m);
                 expr_ref_vector args(m);
-                for (auto const& p : ax.params)
-                    args.push_back(m.mk_const(p.get_symbol(), m.mk_proof_sort()));                  
+                for (auto const& p : ax->params)
+                    args.push_back(m.mk_const(p.get_symbol(), m.mk_proof_sort()));
                 pr = m.mk_app(m.get_family_name(get_family_id()), args.size(), args.data(), m.mk_proof_sort());
                 justification_proof_wrapper jp(ctx, pr.get(), false);
                 ctx.get_clause_proof().propagate(lit, &jp, antecedent);
@@ -748,7 +910,7 @@ namespace smt {
         literal_vector lclause;
         for (auto e : clause)
             lclause.push_back(mk_literal(e));
-        ctx.mk_th_axiom(get_id(), lclause, ax.params.size(), ax.params.data());
+        ctx.mk_th_axiom(get_id(), lclause, ax->params.size(), ax->params.data());
         return true;
     }
 

@@ -233,11 +233,22 @@ bool finite_set_decl_plugin::is_value(app * e) const {
             continue;
         }
         
+        bool is_setop = 
+            is_app_of(a, m_family_id, OP_FINITE_SET_UNION) 
+            || is_app_of(a, m_family_id, OP_FINITE_SET_INTERSECT)
+            || is_app_of(a, m_family_id, OP_FINITE_SET_DIFFERENCE);
         // Check if it's a union
-        if (is_app_of(a, m_family_id, OP_FINITE_SET_UNION)) {
+        if (is_setop) {
             // Add arguments to todo list
             for (auto arg : *a) 
                 todo.push_back(arg);            
+            continue;
+        }
+
+        if (is_app_of(a, m_family_id, OP_FINITE_SET_RANGE)) {
+            for (auto arg : *a)
+                if (!m_manager->is_value(arg))
+                    return false;
             continue;
         }
 
@@ -270,4 +281,11 @@ bool finite_set_decl_plugin::are_distinct(app* e1, app* e2) const {
     // TODO: could be extended to cases where we can prove the sets are different by containing one element
     // that the other doesn't contain. Such as (union (singleton a) (singleton b)) and (singleton c) where c is different from a, b.
     return false;
+}
+
+func_decl *finite_set_util::mk_range_decl() {
+    arith_util a(m_manager);
+    sort *i = a.mk_int();
+    sort *domain[2] = {i, i};
+    return m_manager.mk_func_decl(m_fid, OP_FINITE_SET_RANGE, 0, nullptr, 2, domain, nullptr);
 }
