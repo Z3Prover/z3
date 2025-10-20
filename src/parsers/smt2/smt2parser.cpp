@@ -1621,7 +1621,7 @@ namespace smt2 {
             if (curr_id_is_underscore()) {
                 has_as = false;
                 return parse_indexed_identifier_core();
-            }
+            } 
             else {
                 SASSERT(curr_id_is_as());
                 has_as   = true;
@@ -1638,8 +1638,10 @@ namespace smt2 {
         //    '(' 'as' <identifier> <sort> ')'
         //    '(' '_'  <identifier> <num>+ ')'
         //    '(' 'as' <identifier '(' '_' <identifier> (<num>|<func-decl-ref>)+ ')' <sort> ')'
-        symbol parse_qualified_identifier(bool & has_as) {
+        //    '(' lambda (...) <expr> ')'
+        symbol parse_qualified_identifier(bool & has_as, bool & is_lambda) {
             SASSERT(curr_is_lparen() || curr_is_identifier());
+            is_lambda = false;
             if (curr_is_identifier()) {
                 has_as   = false;
                 symbol r = curr_id();
@@ -1648,6 +1650,12 @@ namespace smt2 {
             }
             SASSERT(curr_is_lparen());
             next();
+            if (curr_id_is_lambda()) {
+                is_lambda = true;
+                has_as = false;
+                return symbol("select");
+            }
+                           
             if (!curr_is_identifier() || (!curr_id_is_underscore() && !curr_id_is_as()))
                 throw parser_exception("invalid qualified/indexed identifier, '_' or 'as' expected");
             return parse_qualified_identifier_core(has_as);
@@ -1860,11 +1868,14 @@ namespace smt2 {
             SASSERT(curr_is_lparen() || curr_is_identifier());
             unsigned param_spos  = m_param_stack.size();
             unsigned expr_spos  = expr_stack().size();
-            bool     has_as;
-            symbol   f = parse_qualified_identifier(has_as);
-            void * mem      = m_stack.allocate(sizeof(quant_frame));
+            bool has_as, is_lambda;
+            auto f = parse_qualified_identifier(has_as, is_lambda);
+
+            void * mem      = m_stack.allocate(sizeof(app_frame));
             new (mem) app_frame(f, expr_spos, param_spos, has_as);
             m_num_expr_frames++;
+            if (is_lambda) 
+                push_quant_frame(lambda_k);            
         }
 
         void push_expr_frame(expr_frame * curr) {

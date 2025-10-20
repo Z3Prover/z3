@@ -343,6 +343,14 @@ namespace z3 {
         */
         sort datatype_sort(symbol const& name);
 
+        /**
+           \brief a reference to a recursively defined parametric datatype.
+           Expect that it gets defined as a \ref datatype.
+           \param name name of the datatype
+           \param params sort parameters
+        */
+        sort datatype_sort(symbol const& name, sort_vector const& params);
+
             
         /**
            \brief create an uninterpreted sort with the name given by the string or symbol.
@@ -2173,7 +2181,15 @@ namespace z3 {
     inline expr ugt(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvugt(a.ctx(), a, b)); }
     inline expr ugt(expr const & a, int b) { return ugt(a, a.ctx().num_val(b, a.get_sort())); }
     inline expr ugt(int a, expr const & b) { return ugt(b.ctx().num_val(a, b.get_sort()), b); }
+
     /**
+       \brief signed division operator for bitvectors.
+    */
+    inline expr sdiv(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvsdiv(a.ctx(), a, b)); }
+    inline expr sdiv(expr const & a, int b) { return sdiv(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr sdiv(int a, expr const & b) { return sdiv(b.ctx().num_val(a, b.get_sort()), b); }
+
+/**
        \brief unsigned division operator for bitvectors.
     */
     inline expr udiv(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvudiv(a.ctx(), a, b)); }
@@ -3617,7 +3633,14 @@ namespace z3 {
 
 
     inline sort context::datatype_sort(symbol const& name) {
-        Z3_sort s = Z3_mk_datatype_sort(*this, name);
+        Z3_sort s = Z3_mk_datatype_sort(*this, name, 0, nullptr);
+        check_error();
+        return sort(*this, s);            
+    }
+
+    inline sort context::datatype_sort(symbol const& name, sort_vector const& params) {
+        array<Z3_sort> _params(params);
+        Z3_sort s = Z3_mk_datatype_sort(*this, name, _params.size(), _params.ptr());
         check_error();
         return sort(*this, s);            
     }
