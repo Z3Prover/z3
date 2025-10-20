@@ -4,7 +4,7 @@ from z3 import *
 from multiprocessing import Process
 import math, random
 
-MAX_CONFLICTS = 1000
+MAX_CONFLICTS = 100
 MAX_EXAMPLES = 5
 bench_dir = "../z3-poly-testing/inputs/QF_NIA_small"
 
@@ -50,15 +50,16 @@ def solver_from_file(filepath):
 
 
 def apply_param_state(s, param_state):
+    print(f"Applying param state: {param_state}")
     for name, value in param_state:
         s.set(name, value)
 
 
 def stats_tuple(st):
     return (
-        int(st["conflicts"]),
-        int(st["decisions"]),
-        int(st["rlimit count"]),
+        int(st.get_key_value("conflicts")),
+        int(st.get_key_value("decisions")),
+        int(st.get_key_value("rlimit count")),
     )
 
 
@@ -78,6 +79,7 @@ def collect_conflict_clauses_placeholder(S, limit=4):
 # Replay proof prefix on an existing PPS_solver (no solver recreation)
 # Solver continues from its current state.
 def replay_prefix_on_pps(PPS_solver, clauses, param_state, budget):
+    print(f"[Replaying] on PPS with params={param_state} and budget={budget}")
     apply_param_state(PPS_solver, param_state)
     PPS_solver.set("max_conflicts", budget)
 
@@ -99,7 +101,7 @@ def replay_proof_prefixes(clauses, param_states, PPS_solvers, K, eps=200):
     # PPS_0 (baseline)
     score0 = replay_prefix_on_pps(PPS_solvers[0], clauses, base_param_state, budget)
     best_param_state, best_score = base_param_state, score0
-
+    
     # PPS_i, i > 0
     for i, p_state in enumerate(candidate_param_states, start=1):
         score = replay_prefix_on_pps(PPS_solvers[i], clauses, p_state, budget)
@@ -152,12 +154,10 @@ def protocol_iteration(filepath, manager, S, PPS_solvers, PPS_states, K, eps=200
     # Collect subset of conflict clauses from the bounded run of S. Call these clauses C1...Cl
     print(f"[S] collecting conflict clauses for replay")
     C_list = collect_conflict_clauses_placeholder(S)
-    print(f"[S] collected {len(C_list)} conflict clauses for replay")
 
     # For each PPS_i, replay the proof prefix of S
     print(f"[Replaying] Replaying proof prefix on PPS solvers with budget={K + eps}")
     best_state, best_score = replay_proof_prefixes(C_list, PPS_states, PPS_solvers, K, eps)
-    print(f"[Done replaying] best={best_state} score(conf, dec, rlim)={best_score}")
 
     if best_state != P:
         print(f"[Dispatch] updating best param state")
@@ -165,11 +165,11 @@ def protocol_iteration(filepath, manager, S, PPS_solvers, PPS_states, K, eps=200
         P = best_state
 
     # Update PPS_0 to use P (if it changed), and update all PPS_i > 0 with new perturbations of P
-    PPS_states[0] = P
-    new_perturbations = perturbate(P)
+    PPS_states[0] = P 
     for i in range(1, len(PPS_states)):
-        PPS_states[i] = new_perturbations[i - 1]
-    print(f"[Dispatch] PPS_0 := {PPS_states[0]}, new perturbations: {new_perturbations}")
+        PPS_states[i] = perturbate(P)
+        
+    return PPS_states
 
 
 # --------------------------
@@ -183,12 +183,10 @@ def prefix_probe_thread(filepath, manager):
 
     PPS_solvers = []
     PPS_states = []
-    PPS_states.append(list(BASE_PARAM_CANDIDATES))
-    perturbations = perturbate(BASE_PARAM_CANDIDATES)
 
-    # set up 5 parameter probe solvers PPS_0 ... PPS_4 as new contexts on the proof prefix solver S
-    for i in range(5):
-        st = perturbations if i < len(perturbations) else BASE_PARAM_CANDIDATES
+    # set up the 4 variant parameter probe solvers PPS_1 ... PPS_4 as new contexts on the proof prefix solver S
+    for i in range(4):
+        st = BASE_PARAM_CANDIDATES if i == 0 else perturbate(BASE_PARAM_CANDIDATES) # PPS_0 uses base params
         ctx = Context()
         PPS_solver = S.translate(ctx)  # clone S (proof prefix) into new context
         apply_param_state(PPS_solver, st)
@@ -200,7 +198,7 @@ def prefix_probe_thread(filepath, manager):
     iteration = 0
     while not manager.search_complete:
         print(f"\n[PrefixThread] Iteration {iteration}")
-        protocol_iteration(filepath, manager, S, PPS_solvers, PPS_states, K=MAX_CONFLICTS, eps=200)
+        PPS_states = protocol_iteration(filepath, manager, S, PPS_solvers, PPS_states, K=MAX_CONFLICTS, eps=200)
         iteration += 1
 
 
