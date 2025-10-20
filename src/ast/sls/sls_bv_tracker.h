@@ -55,7 +55,7 @@ class sls_tracker {
             touched = other.touched;
         }
         ~value_score() { if (m) m->del(value); }
-        value_score& operator=(value_score&&) = default;
+        value_score& operator=(value_score&&) noexcept = default;
         value_score &operator=(const value_score &other) {
             if (this != &other) {
                 if (m)
