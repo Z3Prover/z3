@@ -393,12 +393,18 @@ endif()
 ################################################################################
 # Control Flow Guard (MSVC only)
 ################################################################################
-option(Z3_ENABLE_CFG "Enable Control Flow Guard security checks" ON)
+# Default CFG to ON for MSVC, OFF for other compilers.
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  option(Z3_ENABLE_CFG "Enable Control Flow Guard security checks" ON)
+else()
+  option(Z3_ENABLE_CFG "Enable Control Flow Guard security checks" OFF)
+endif()
+
 if (Z3_ENABLE_CFG)
   if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     message(FATAL_ERROR "Z3_ENABLE_CFG is only supported with MSVC compiler. "
       "Current compiler: ${CMAKE_CXX_COMPILER_ID}. "
-      "You should set Z3_ENABLE_CFG to OFF or use MSVC to compile.")
+      "You should remove Z3_ENABLE_CFG or set it to OFF or use MSVC to compile.")
   endif()
 
   # Check for incompatible options (handle both / and - forms for robustness)
