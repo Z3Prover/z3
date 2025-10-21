@@ -645,7 +645,8 @@ if os.name == 'nt':
     IS_WINDOWS=True
     # Visual Studio already displays the files being compiled
     SHOW_CPPS=False
-    # Enable Control Flow Guard by default on Windows
+    # Enable Control Flow Guard by default on Windows with MSVC
+    # Note: Python build system on Windows assumes MSVC (cl.exe) compiler
     GUARD_CF = True
 elif os.name == 'posix':
     if os.uname()[0] == 'Darwin':
@@ -2538,6 +2539,8 @@ def mk_config():
     config = open(os.path.join(BUILD_DIR, 'config.mk'), 'w')
     global CXX, CC, GMP, GUARD_CF, STATIC_BIN, GIT_HASH, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, LOG_SYNC, SINGLE_THREADED, IS_ARCH_ARM64
     if IS_WINDOWS:
+        # On Windows, Python build system assumes MSVC (cl.exe) compiler
+        # GUARD_CF is only supported with MSVC, which is the default on Windows
         CXXFLAGS = '/nologo /Zi /D WIN32 /D _WINDOWS /EHsc /GS /Gd /std:c++20 -D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR'
         config.write(
             'CC=cl\n'
