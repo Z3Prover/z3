@@ -678,6 +678,8 @@ def is_sort(s : Any) -> bool:
 def _to_sort_ref(s, ctx):
     if z3_debug():
         _z3_assert(isinstance(s, Sort), "Z3 Sort expected")
+    if Z3_is_finite_set_sort(ctx.ref(), s):
+        return FiniteSetSortRef(s, ctx)
     k = _sort_kind(ctx, s)
     if k == Z3_BOOL_SORT:
         return BoolSortRef(s, ctx)
@@ -1184,7 +1186,11 @@ def _to_expr_ref(a, ctx):
     k = Z3_get_ast_kind(ctx_ref, a)
     if k == Z3_QUANTIFIER_AST:
         return QuantifierRef(a, ctx)
-    sk = Z3_get_sort_kind(ctx_ref, Z3_get_sort(ctx_ref, a))
+    # Check for finite set sort before checking sort kind
+    s = Z3_get_sort(ctx_ref, a)
+    if Z3_is_finite_set_sort(ctx_ref, s):
+        return FiniteSetRef(a, ctx)
+    sk = Z3_get_sort_kind(ctx_ref, s)
     if sk == Z3_BOOL_SORT:
         return BoolRef(a, ctx)
     if sk == Z3_INT_SORT:
@@ -5145,6 +5151,217 @@ def IsSubset(a, b):
     """
     ctx = _ctx_from_ast_arg_list([a, b])
     return BoolRef(Z3_mk_set_subset(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
+
+
+#########################################
+#
+# Finite Sets
+#
+#########################################
+
+
+class FiniteSetSortRef(SortRef):
+    """Finite set sort."""
+
+    def element_sort(self):
+        """Return the element sort of this finite set sort."""
+        return _to_sort_ref(Z3_get_finite_set_sort_basis(self.ctx_ref(), self.ast), self.ctx)
+
+    def cast(self, val):
+        """Try to cast val as a finite set expression."""
+        if is_expr(val):
+            if self.eq(val.sort()):
+                return val
+            else:
+                _z3_assert(False, "Cannot cast to finite set sort")
+        if isinstance(val, set):
+            elem_sort = self.element_sort()
+            result = FiniteSetEmpty(self)
+            for e in val:
+                result = FiniteSetUnion(result, FiniteSetSingleton(_py2expr(e, self.ctx, elem_sort)))
+            return result
+        _z3_assert(False, "Cannot cast to finite set sort")
+
+    def subsort(self, other):
+        return False
+
+    def is_int(self):
+        return False
+
+    def is_bool(self):
+        return False
+
+    def is_datatype(self):
+        return False
+
+    def is_array(self):
+        return False
+
+    def is_bv(self):
+        return False
+
+
+def is_finite_set(a):
+    """Return True if a is a Z3 finite set expression.
+    >>> s = FiniteSetSort(IntSort())
+    >>> is_finite_set(FiniteSetEmpty(s))
+    True
+    >>> is_finite_set(IntVal(1))
+    False
+    """
+    return isinstance(a, FiniteSetRef)
+
+
+def is_finite_set_sort(s):
+    """Return True if s is a Z3 finite set sort.
+    >>> is_finite_set_sort(FiniteSetSort(IntSort()))
+    True
+    >>> is_finite_set_sort(IntSort())
+    False
+    """
+    return isinstance(s, FiniteSetSortRef)
+
+
+class FiniteSetRef(ExprRef):
+    """Finite set expression."""
+
+    def sort(self):
+        return FiniteSetSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def __or__(self, other):
+        """Return the union of self and other."""
+        return FiniteSetUnion(self, other)
+
+    def __and__(self, other):
+        """Return the intersection of self and other."""
+        return FiniteSetIntersect(self, other)
+
+    def __sub__(self, other):
+        """Return the set difference of self and other."""
+        return FiniteSetDifference(self, other)
+
+
+def FiniteSetSort(elem_sort):
+    """Create a finite set sort over element sort elem_sort.
+    >>> s = FiniteSetSort(IntSort())
+    >>> s
+    FiniteSet(Int)
+    """
+    return FiniteSetSortRef(Z3_mk_finite_set_sort(elem_sort.ctx_ref(), elem_sort.ast), elem_sort.ctx)
+
+
+def FiniteSetEmpty(set_sort):
+    """Create an empty finite set of the given sort.
+    >>> s = FiniteSetSort(IntSort())
+    >>> FiniteSetEmpty(s)
+    set.empty
+    """
+    ctx = set_sort.ctx
+    return FiniteSetRef(Z3_mk_finite_set_empty(ctx.ref(), set_sort.ast), ctx)
+
+
+def FiniteSetSingleton(elem):
+    """Create a singleton finite set containing elem.
+    >>> FiniteSetSingleton(IntVal(1))
+    set.singleton(1)
+    """
+    ctx = elem.ctx
+    return FiniteSetRef(Z3_mk_finite_set_singleton(ctx.ref(), elem.as_ast()), ctx)
+
+
+def FiniteSetUnion(s1, s2):
+    """Create the union of two finite sets.
+    >>> a = Const('a', FiniteSetSort(IntSort()))
+    >>> b = Const('b', FiniteSetSort(IntSort()))
+    >>> FiniteSetUnion(a, b)
+    set.union(a, b)
+    """
+    ctx = _ctx_from_ast_arg_list([s1, s2])
+    return FiniteSetRef(Z3_mk_finite_set_union(ctx.ref(), s1.as_ast(), s2.as_ast()), ctx)
+
+
+def FiniteSetIntersect(s1, s2):
+    """Create the intersection of two finite sets.
+    >>> a = Const('a', FiniteSetSort(IntSort()))
+    >>> b = Const('b', FiniteSetSort(IntSort()))
+    >>> FiniteSetIntersect(a, b)
+    set.intersect(a, b)
+    """
+    ctx = _ctx_from_ast_arg_list([s1, s2])
+    return FiniteSetRef(Z3_mk_finite_set_intersect(ctx.ref(), s1.as_ast(), s2.as_ast()), ctx)
+
+
+def FiniteSetDifference(s1, s2):
+    """Create the set difference of two finite sets.
+    >>> a = Const('a', FiniteSetSort(IntSort()))
+    >>> b = Const('b', FiniteSetSort(IntSort()))
+    >>> FiniteSetDifference(a, b)
+    set.difference(a, b)
+    """
+    ctx = _ctx_from_ast_arg_list([s1, s2])
+    return FiniteSetRef(Z3_mk_finite_set_difference(ctx.ref(), s1.as_ast(), s2.as_ast()), ctx)
+
+
+def FiniteSetMember(elem, set):
+    """Check if elem is a member of the finite set.
+    >>> a = Const('a', FiniteSetSort(IntSort()))
+    >>> FiniteSetMember(IntVal(1), a)
+    set.in(1, a)
+    """
+    ctx = _ctx_from_ast_arg_list([elem, set])
+    return BoolRef(Z3_mk_finite_set_member(ctx.ref(), elem.as_ast(), set.as_ast()), ctx)
+
+
+def FiniteSetSize(set):
+    """Get the size (cardinality) of a finite set.
+    >>> a = Const('a', FiniteSetSort(IntSort()))
+    >>> FiniteSetSize(a)
+    set.size(a)
+    """
+    ctx = set.ctx
+    return ArithRef(Z3_mk_finite_set_size(ctx.ref(), set.as_ast()), ctx)
+
+
+def FiniteSetSubset(s1, s2):
+    """Check if s1 is a subset of s2.
+    >>> a = Const('a', FiniteSetSort(IntSort()))
+    >>> b = Const('b', FiniteSetSort(IntSort()))
+    >>> FiniteSetSubset(a, b)
+    set.subset(a, b)
+    """
+    ctx = _ctx_from_ast_arg_list([s1, s2])
+    return BoolRef(Z3_mk_finite_set_subset(ctx.ref(), s1.as_ast(), s2.as_ast()), ctx)
+
+
+def FiniteSetMap(f, set):
+    """Apply function f to all elements of the finite set.
+    >>> f = Function('f', IntSort(), IntSort())
+    >>> a = Const('a', FiniteSetSort(IntSort()))
+    >>> FiniteSetMap(f, a)
+    set.map(f, a)
+    """
+    ctx = _ctx_from_ast_arg_list([f, set])
+    return FiniteSetRef(Z3_mk_finite_set_map(ctx.ref(), f.as_ast(), set.as_ast()), ctx)
+
+
+def FiniteSetFilter(f, set):
+    """Filter a finite set using predicate f.
+    >>> f = Function('f', IntSort(), BoolSort())
+    >>> a = Const('a', FiniteSetSort(IntSort()))
+    >>> FiniteSetFilter(f, a)
+    set.filter(f, a)
+    """
+    ctx = _ctx_from_ast_arg_list([f, set])
+    return FiniteSetRef(Z3_mk_finite_set_filter(ctx.ref(), f.as_ast(), set.as_ast()), ctx)
+
+
+def FiniteSetRange(low, high):
+    """Create a finite set of integers in the range [low, high).
+    >>> FiniteSetRange(IntVal(0), IntVal(5))
+    set.range(0, 5)
+    """
+    ctx = _ctx_from_ast_arg_list([low, high])
+    return FiniteSetRef(Z3_mk_finite_set_range(ctx.ref(), low.as_ast(), high.as_ast()), ctx)
 
 
 #########################################
