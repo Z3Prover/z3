@@ -1,8 +1,14 @@
-import os
-from more_itertools import iterate
-from z3 import *
 from multiprocessing import Process
 import math, random
+
+import sys, os
+sys.path.insert(0, os.path.abspath("build/python"))
+os.environ["Z3_LIBRARY_PATH"] = os.path.abspath("build")
+
+# import z3
+# print("Using z3 from:", z3.__file__)
+
+from z3 import *
 
 MAX_CONFLICTS = 100
 MAX_EXAMPLES = 5
@@ -68,7 +74,8 @@ def stats_tuple(st):
 def run_prefix_step(S, K, clause_limit):
     clauses = []
 
-    def on_clause(premises, deps, clause):
+    def on_clause(premises, deps, clause, status):
+        print(f"  [OnClause] collected clause status: {status}, clause: {clause}")
         if len(clauses) < clause_limit:
             clauses.append(clause)
 
@@ -87,10 +94,7 @@ def replay_prefix_on_pps(PPS_solver, clauses, param_state, budget):
 
     # For each learned clause Cj = [l1, l2, ...], check ¬(l1 ∨ l2 ∨ ...)
     for idx, Cj in enumerate(clauses):
-        if isinstance(Cj, AstVector):
-            lits = [Cj[i].translate(PPS_solver.ctx) for i in range(len(Cj))]
-        else:
-            lits = [l.translate(PPS_solver.ctx) for l in Cj]
+        lits = [l.translate(PPS_solver.ctx) for l in Cj]
 
         negated_lits = []
         for l in lits:

@@ -11697,12 +11697,12 @@ def to_AstVectorObj(ptr,):
 # for UserPropagator we use a global dictionary, which isn't great code.
 
 _my_hacky_class = None
-def on_clause_eh(ctx, p, n, dep, clause):
+def on_clause_eh(ctx, p, n, dep, clause, status):
     onc = _my_hacky_class
     p = _to_expr_ref(to_Ast(p), onc.ctx)
     clause = AstVector(to_AstVectorObj(clause), onc.ctx)
     deps = [dep[i] for i in range(n)]
-    onc.on_clause(p, deps, clause)
+    onc.on_clause(p, deps, clause, status)
     
 _on_clause_eh = Z3_on_clause_eh(on_clause_eh)
 
