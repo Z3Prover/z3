@@ -412,17 +412,7 @@ namespace smt {
         switch (m_state) {
         case state::is_running:  // batch manager is still running, but all threads have processed their cubes, which
                                  // means all cubes were unsat
-            if (!m_search_tree.is_closed())
-                throw default_exception("inconsistent end state");
-
-            // case when all cubes were unsat, but depend on nonempty asms, so we need to add these asms to final unsat core
-            // these asms are stored in the cube tree, at the root node
-            if (p.ctx.m_unsat_core.empty()) {
-                SASSERT(root && root->is_closed());
-                for (auto a : m_search_tree.get_core_from_root())
-                    p.ctx.m_unsat_core.push_back(a);
-            }
-            return l_false;
+            throw default_exception("inconsistent end state");
         case state::is_unsat:
             return l_false;
         case state::is_sat:
