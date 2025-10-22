@@ -102,7 +102,7 @@ sort * finite_set_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, par
         }
         else {
             // If element sort is infinite or very_big, the finite_set is also very_big
-            sz = sort_size::mk_very_big();
+            sz = elem_sz;
         }
         
         sort_info info(m_family_id, FINITE_SET_SORT, sz, num_parameters, parameters);
