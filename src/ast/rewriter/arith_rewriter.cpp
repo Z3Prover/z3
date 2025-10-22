@@ -720,24 +720,36 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
     }
     expr* c = nullptr, *t = nullptr, *e = nullptr;
     if (m.is_ite(arg1, c, t, e) && is_numeral(t, a1) && is_numeral(arg2, a2)) {
+        expr_ref a(m.mk_not(c), m);
         switch (kind) {
-        case LE: result = a1 <= a2 ? m.mk_or(c, m_util.mk_le(e, arg2)) : m.mk_and(m.mk_not(c), m_util.mk_le(e, arg2)); return BR_REWRITE2;
-        case GE: result = a1 >= a2 ? m.mk_or(c, m_util.mk_ge(e, arg2)) : m.mk_and(m.mk_not(c), m_util.mk_ge(e, arg2)); return BR_REWRITE2;
-        case EQ: result = a1 == a2 ? m.mk_or(c, m.mk_eq(e, arg2))    : m.mk_and(m.mk_not(c), m_util.mk_eq(e, arg2)); return BR_REWRITE2;
+        case LE: result = a1 <= a2 ? m.mk_or(c, m_util.mk_le(e, arg2)) : m.mk_and(a, m_util.mk_le(e, arg2)); return BR_REWRITE2;
+        case GE: result = a1 >= a2 ? m.mk_or(c, m_util.mk_ge(e, arg2)) : m.mk_and(a, m_util.mk_ge(e, arg2)); return BR_REWRITE2;
+        case EQ: result = a1 == a2 ? m.mk_or(c, m.mk_eq(e, arg2))    : m.mk_and(a, m_util.mk_eq(e, arg2)); return BR_REWRITE2;
         }
     }
     if (m.is_ite(arg1, c, t, e) && is_numeral(e, a1) && is_numeral(arg2, a2)) {
+        expr_ref a(m.mk_not(c), m);
         switch (kind) {
-        case LE: result = a1 <= a2 ? m.mk_or(m.mk_not(c), m_util.mk_le(t, arg2)) : m.mk_and(c, m_util.mk_le(t, arg2)); return BR_REWRITE2;
-        case GE: result = a1 >= a2 ? m.mk_or(m.mk_not(c), m_util.mk_ge(t, arg2)) : m.mk_and(c, m_util.mk_ge(t, arg2)); return BR_REWRITE2;
-        case EQ: result = a1 == a2 ? m.mk_or(m.mk_not(c), m.mk_eq(t, arg2))    : m.mk_and(c, m_util.mk_eq(t, arg2)); return BR_REWRITE2;
+        case LE: result = a1 <= a2 ? m.mk_or(a, m_util.mk_le(t, arg2)) : m.mk_and(c, m_util.mk_le(t, arg2)); return BR_REWRITE2;
+        case GE: result = a1 >= a2 ? m.mk_or(a, m_util.mk_ge(t, arg2)) : m.mk_and(c, m_util.mk_ge(t, arg2)); return BR_REWRITE2;
+        case EQ: result = a1 == a2 ? m.mk_or(a, m.mk_eq(t, arg2))    : m.mk_and(c, m_util.mk_eq(t, arg2)); return BR_REWRITE2;
         }
     }
     if (m.is_ite(arg1, c, t, e) && arg1->get_ref_count() == 1) {
         switch (kind) {
-        case LE: result = m.mk_ite(c, m_util.mk_le(t, arg2), m_util.mk_le(e, arg2)); return BR_REWRITE2;
-        case GE: result = m.mk_ite(c, m_util.mk_ge(t, arg2), m_util.mk_ge(e, arg2)); return BR_REWRITE2;
-        case EQ: result = m.mk_ite(c, m.mk_eq(t, arg2), m.mk_eq(e, arg2)); return BR_REWRITE2;
+        case LE:
+        {
+            auto a = m_util.mk_le(t, arg2);
+            result = m.mk_ite(c, a, m_util.mk_le(e, arg2)); return BR_REWRITE2;
+        }
+        case GE: {
+            auto a = m_util.mk_ge(t, arg2);
+            result = m.mk_ite(c, a, m_util.mk_ge(e, arg2)); return BR_REWRITE2;
+        }
+        case EQ:{
+            auto a = m.mk_eq(t, arg2);
+            result = m.mk_ite(c, a, m.mk_eq(e, arg2)); return BR_REWRITE2;
+        }
         }
     }
     if (m_util.is_to_int(arg2) && is_numeral(arg1)) {        

@@ -1245,6 +1245,18 @@ def _coerce_expr_merge(s, a):
     else:
         return s
 
+def _check_same_sort(a, b, ctx=None):
+    if not isinstance(a, ExprRef):
+        return False
+    if not isinstance(b, ExprRef):
+        return False
+    if ctx is None:
+        ctx = a.ctx
+
+    a_sort = Z3_get_sort(ctx.ctx, a.ast)
+    b_sort = Z3_get_sort(ctx.ctx, b.ast)
+    return Z3_is_eq_sort(ctx.ctx, a_sort, b_sort)
+
 
 def _coerce_exprs(a, b, ctx=None):
     if not is_expr(a) and not is_expr(b):
@@ -1258,6 +1270,9 @@ def _coerce_exprs(a, b, ctx=None):
         a = RealVal(a, b.ctx)
     if isinstance(b, float) and isinstance(a, ArithRef):
         b = RealVal(b, a.ctx)
+
+    if _check_same_sort(a, b, ctx):
+        return (a, b)
 
     s = None
     s = _coerce_expr_merge(s, a)
@@ -5474,10 +5489,30 @@ class DatatypeRef(ExprRef):
         """Return the datatype sort of the datatype expression `self`."""
         return DatatypeSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
 
-def DatatypeSort(name, ctx = None):
-    """Create a reference to a sort that was declared, or will be declared, as a recursive datatype"""
+def DatatypeSort(name, params=None, ctx=None):
+    """Create a reference to a sort that was declared, or will be declared, as a recursive datatype.
+    
+    Args:
+        name: name of the datatype sort
+        params: optional list/tuple of sort parameters for parametric datatypes
+        ctx: Z3 context (optional)
+    
+    Example:
+        >>> # Non-parametric datatype
+        >>> TreeRef = DatatypeSort('Tree')
+        >>> # Parametric datatype with one parameter
+        >>> ListIntRef = DatatypeSort('List', [IntSort()])
+        >>> # Parametric datatype with multiple parameters
+        >>> PairRef = DatatypeSort('Pair', [IntSort(), BoolSort()])
+    """
     ctx = _get_ctx(ctx)
-    return DatatypeSortRef(Z3_mk_datatype_sort(ctx.ref(), to_symbol(name, ctx)), ctx)
+    if params is None or len(params) == 0:
+        return DatatypeSortRef(Z3_mk_datatype_sort(ctx.ref(), to_symbol(name, ctx), 0, (Sort * 0)()), ctx)
+    else:
+        _params = (Sort * len(params))()
+        for i in range(len(params)):
+            _params[i] = params[i].ast
+        return DatatypeSortRef(Z3_mk_datatype_sort(ctx.ref(), to_symbol(name, ctx), len(params), _params), ctx)
 
 def TupleSort(name, sorts, ctx=None):
     """Create a named tuple sort base on a set of underlying sorts
@@ -11677,12 +11712,12 @@ def to_AstVectorObj(ptr,):
 # for UserPropagator we use a global dictionary, which isn't great code.
 
 _my_hacky_class = None
-def on_clause_eh(ctx, p, n, dep, clause):
+def on_clause_eh(ctx, p, n, dep, clause, status):
     onc = _my_hacky_class
     p = _to_expr_ref(to_Ast(p), onc.ctx)
     clause = AstVector(to_AstVectorObj(clause), onc.ctx)
     deps = [dep[i] for i in range(n)]
-    onc.on_clause(p, deps, clause)
+    onc.on_clause(p, deps, clause, status)
     
 _on_clause_eh = Z3_on_clause_eh(on_clause_eh)
 

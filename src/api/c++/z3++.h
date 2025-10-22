@@ -343,6 +343,14 @@ namespace z3 {
         */
         sort datatype_sort(symbol const& name);
 
+        /**
+           \brief a reference to a recursively defined parametric datatype.
+           Expect that it gets defined as a \ref datatype.
+           \param name name of the datatype
+           \param params sort parameters
+        */
+        sort datatype_sort(symbol const& name, sort_vector const& params);
+
             
         /**
            \brief create an uninterpreted sort with the name given by the string or symbol.
@@ -3625,7 +3633,14 @@ namespace z3 {
 
 
     inline sort context::datatype_sort(symbol const& name) {
-        Z3_sort s = Z3_mk_datatype_sort(*this, name);
+        Z3_sort s = Z3_mk_datatype_sort(*this, name, 0, nullptr);
+        check_error();
+        return sort(*this, s);            
+    }
+
+    inline sort context::datatype_sort(symbol const& name, sort_vector const& params) {
+        array<Z3_sort> _params(params);
+        Z3_sort s = Z3_mk_datatype_sort(*this, name, _params.size(), _params.ptr());
         check_error();
         return sort(*this, s);            
     }
@@ -4273,20 +4288,20 @@ namespace z3 {
         return expr(ctx(), r);
     }
 
-    typedef std::function<void(expr const& proof, std::vector<unsigned> const& deps, expr_vector const& clause)> on_clause_eh_t;
+    typedef std::function<void(expr const& proof, std::vector<unsigned> const& deps, expr_vector const& clause, unsigned const status)> on_clause_eh_t;
 
     class on_clause {
         context& c;
         on_clause_eh_t m_on_clause;
 
-        static void _on_clause_eh(void* _ctx, Z3_ast _proof, unsigned n, unsigned const* dep, Z3_ast_vector _literals) {
+        static void _on_clause_eh(void* _ctx, Z3_ast _proof, unsigned n, unsigned const* dep, Z3_ast_vector _literals, unsigned const status) {
             on_clause* ctx = static_cast<on_clause*>(_ctx);
             expr_vector lits(ctx->c, _literals);
             expr proof(ctx->c, _proof);
             std::vector<unsigned> deps;
             for (unsigned i = 0; i < n; ++i)
                 deps.push_back(dep[i]);
-            ctx->m_on_clause(proof, deps, lits);
+            ctx->m_on_clause(proof, deps, lits, status);
         }
     public:
         on_clause(solver& s, on_clause_eh_t& on_clause_eh): c(s.ctx()) {
