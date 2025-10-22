@@ -255,14 +255,14 @@ static void tst_finite_set_sort_size() {
     sort_size const& bv5_set_sz = finite_set_bv5->get_num_elements();
     ENSURE(bv5_set_sz.is_very_big());
     
-    // Test 4: Int sort (infinite) -> FiniteSet(Int) should be very_big
+    // Test 4: Int sort (infinite) -> FiniteSet(Int) should be infinite
     arith_util arith(m);
     sort_ref int_sort(arith.mk_int(), m);
     parameter int_param(int_sort.get());
     sort_ref finite_set_int(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &int_param), m);
     
     sort_size const& int_set_sz = finite_set_int->get_num_elements();
-    ENSURE(int_set_sz.is_very_big());
+    ENSURE(int_set_sz.is_infinite());
     
     // Test 5: BV with size 4 -> BV[4] has 2^4 = 16 elements
     // FiniteSet(BV[4]) should have 2^16 = 65536 elements
