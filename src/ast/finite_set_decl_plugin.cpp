@@ -85,7 +85,26 @@ sort * finite_set_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, par
             return nullptr;
         }
         sort * element_sort = to_sort(parameters[0].get_ast());
-        sort_size sz = sort_size::mk_very_big();
+        sort_size sz;
+        
+        // Compute the size of the finite_set sort based on the element sort
+        sort_size const& elem_sz = element_sort->get_num_elements();
+        if (elem_sz.is_finite() && !elem_sz.is_very_big()) {
+            uint64_t elem_size = elem_sz.size();
+            // If elem_size > 30, the powerset would be > 2^30, so mark as very_big
+            if (elem_size > 30) {
+                sz = sort_size::mk_very_big();
+            }
+            else {
+                // Compute 2^elem_size
+                sz = sort_size(rational::power_of_two(static_cast<unsigned>(elem_size)));
+            }
+        }
+        else {
+            // If element sort is infinite or very_big, the finite_set has the same size
+            sz = elem_sz;
+        }
+        
         sort_info info(m_family_id, FINITE_SET_SORT, sz, num_parameters, parameters);
         return m_manager->mk_sort(symbol("FiniteSet"), info);
     }

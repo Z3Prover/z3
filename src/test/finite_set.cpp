@@ -217,9 +217,70 @@ static void tst_finite_set_is_fully_interp() {
     ENSURE(!m.is_fully_interp(finite_set_uninterp));
 }
 
+static void tst_finite_set_sort_size() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    
+    finite_set_util fsets(m);
+    
+    // Test 1: Bool sort (size 2) -> FiniteSet(Bool) should have size 2^2 = 4
+    sort_ref bool_sort(m.mk_bool_sort(), m);
+    parameter bool_param(bool_sort.get());
+    sort_ref finite_set_bool(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &bool_param), m);
+    
+    sort_size const& bool_set_sz = finite_set_bool->get_num_elements();
+    ENSURE(bool_set_sz.is_finite());
+    ENSURE(!bool_set_sz.is_very_big());
+    ENSURE(bool_set_sz.size() == 4); // 2^2 = 4
+    
+    // Test 2: Create a finite sort with known size (e.g., BV with size 3)
+    // BV[3] has 2^3 = 8 elements, so FiniteSet(BV[3]) should have 2^8 = 256 elements
+    parameter bv_param(3);
+    sort_ref bv3_sort(m.mk_sort(m.mk_family_id("bv"), 0, 1, &bv_param), m);
+    parameter bv3_param(bv3_sort.get());
+    sort_ref finite_set_bv3(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &bv3_param), m);
+    
+    sort_size const& bv3_set_sz = finite_set_bv3->get_num_elements();
+    ENSURE(bv3_set_sz.is_finite());
+    ENSURE(!bv3_set_sz.is_very_big());
+    ENSURE(bv3_set_sz.size() == 256); // 2^8 = 256
+    
+    // Test 3: BV with size 5 -> BV[5] has 2^5 = 32 elements
+    // Since 32 > 30, FiniteSet(BV[5]) should be marked as very_big
+    parameter bv5_param(5);
+    sort_ref bv5_sort(m.mk_sort(m.mk_family_id("bv"), 0, 1, &bv5_param), m);
+    parameter bv5_set_param(bv5_sort.get());
+    sort_ref finite_set_bv5(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &bv5_set_param), m);
+    
+    sort_size const& bv5_set_sz = finite_set_bv5->get_num_elements();
+    ENSURE(bv5_set_sz.is_very_big());
+    
+    // Test 4: Int sort (infinite) -> FiniteSet(Int) should be infinite
+    arith_util arith(m);
+    sort_ref int_sort(arith.mk_int(), m);
+    parameter int_param(int_sort.get());
+    sort_ref finite_set_int(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &int_param), m);
+    
+    sort_size const& int_set_sz = finite_set_int->get_num_elements();
+    ENSURE(int_set_sz.is_infinite());
+    
+    // Test 5: BV with size 4 -> BV[4] has 2^4 = 16 elements
+    // FiniteSet(BV[4]) should have 2^16 = 65536 elements
+    parameter bv4_param(4);
+    sort_ref bv4_sort(m.mk_sort(m.mk_family_id("bv"), 0, 1, &bv4_param), m);
+    parameter bv4_set_param(bv4_sort.get());
+    sort_ref finite_set_bv4(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &bv4_set_param), m);
+    
+    sort_size const& bv4_set_sz = finite_set_bv4->get_num_elements();
+    ENSURE(bv4_set_sz.is_finite());
+    ENSURE(!bv4_set_sz.is_very_big());
+    ENSURE(bv4_set_sz.size() == 65536); // 2^16 = 65536
+}
+
 void tst_finite_set() {
     tst_finite_set_basic();
     tst_finite_set_map_filter();
     tst_finite_set_is_value();
     tst_finite_set_is_fully_interp();
+    tst_finite_set_sort_size();
 }
