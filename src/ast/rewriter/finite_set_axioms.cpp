@@ -175,22 +175,13 @@ void finite_set_axioms::in_singleton_axiom(expr* a) {
     if (!u.is_singleton(a, b))
         return;
     
-    arith_util arith(m);
+
 
     expr_ref b_in_a(u.mk_in(b, a), m);
 
     auto ax = alloc(theory_axiom, m, "in-singleton");
     ax->clause.push_back(b_in_a);
     m_add_clause(ax);
-
-    ax = alloc(theory_axiom, m, "in-singleton");
-    expr_ref bm1_in_a(u.mk_in(arith.mk_add(b, arith.mk_int(-1)), a), m);
-    ax->clause.push_back(m.mk_not(bm1_in_a));
-    m_add_clause(ax);
-    
-    ax = alloc(theory_axiom, m, "in-singleton");
-    expr_ref bp1_in_a(u.mk_in(arith.mk_add(b, arith.mk_int(1)), a), m);
-    ax->clause.push_back(m.mk_not(bp1_in_a));
 }
 
 

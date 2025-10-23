@@ -282,7 +282,7 @@ namespace smt {
         if (activate_unasserted_clause())
             return FC_CONTINUE;
 
-        if (false && activate_range_local_axioms())
+        if (activate_range_local_axioms())
             return FC_CONTINUE;
 
         if (assume_eqs())

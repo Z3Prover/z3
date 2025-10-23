@@ -3340,8 +3340,11 @@ proof * ast_manager::mk_th_lemma(
 
     proof_ref pr(*this);
     ptr_buffer<expr> args;
+    vector<parameter> parameters;
+    parameters.push_back(parameter(get_family_name(tid)));
     for (unsigned i = 0; i < num_params; ++i) {
         auto const &p = params[i];
+        parameters.push_back(p);
         if (p.is_symbol())
             args.push_back(mk_app(p.get_symbol(), 0, nullptr, mk_proof_sort()));
         else if (p.is_ast() && is_expr(p.get_ast()))
@@ -3356,7 +3359,7 @@ proof * ast_manager::mk_th_lemma(
     args.push_back(pr.get());
     args.append(num_proofs, (expr**) proofs);
     args.push_back(fact);
-    return mk_app(basic_family_id, PR_TH_LEMMA, 0, nullptr, args.size(), args.data());
+    return mk_app(basic_family_id, PR_TH_LEMMA, parameters.size(), parameters.data(), args.size(), args.data());
 }
 
 proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premises, expr* concl,
