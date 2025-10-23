@@ -891,8 +891,13 @@ namespace smt {
                 // this misses conflicts at base level.
                 proof_ref pr(m);
                 expr_ref_vector args(m);
-                for (auto const& p : ax->params)
-                    args.push_back(m.mk_const(p.get_symbol(), m.mk_proof_sort()));
+                for (auto const &p : ax->params) {
+                    if (p.is_ast())
+                        args.push_back(to_expr(p.get_ast()));
+                    else
+                        args.push_back(m.mk_const(p.get_symbol(), m.mk_proof_sort()));
+                }
+                
                 pr = m.mk_app(m.get_family_name(get_family_id()), args.size(), args.data(), m.mk_proof_sort());
                 justification_proof_wrapper jp(ctx, pr.get(), false);
                 ctx.get_clause_proof().propagate(lit, &jp, antecedent);

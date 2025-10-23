@@ -26,6 +26,13 @@ struct theory_axiom {
     }
     theory_axiom(ast_manager &m) : clause(m) {
     }
+
+    theory_axiom(ast_manager &m, char const *rule, expr* x, expr* y = nullptr) : clause(m) {
+        params.push_back(parameter(symbol(rule)));
+        params.push_back(parameter(x));
+        if (y)
+            params.push_back(parameter(y));
+    }
 };
 
 std::ostream &operator<<(std::ostream &out, theory_axiom const &ax);
