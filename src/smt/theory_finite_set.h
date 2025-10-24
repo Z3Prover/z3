@@ -160,6 +160,7 @@ namespace smt {
         bool can_propagate() override;
         void propagate() override;
         void assign_eh(bool_var v, bool is_true) override;
+        void relevant_eh(app *n) override;
         
         theory * mk_fresh(context * new_ctx) override;
         char const * get_name() const override { return "finite_set"; }
@@ -199,6 +200,8 @@ namespace smt {
         bool is_root(theory_var v) const { return m_find.is_root(v); }
 
         std::ostream &display_var(std::ostream &out, theory_var v) const;
+
+        bool are_forced_distinct(enode *a, enode *b);
         
     public:
         theory_finite_set(context& ctx);

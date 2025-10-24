@@ -230,14 +230,18 @@ void finite_set_axioms::in_range_axiom(expr* r) {
     if (!u.is_range(r, lo, hi))
         return;
     theory_axiom* ax = alloc(theory_axiom, m, "range-bounds");
+    arith_util a(m);
+    expr_ref lo_le_hi(a.mk_le(a.mk_sub(lo, hi), a.mk_int(0)), m);
+    m_rewriter(lo_le_hi);
+    ax->clause.push_back(m.mk_not(lo_le_hi));
     ax->clause.push_back(u.mk_in(lo, r));
     m_add_clause(ax);
 
     ax = alloc(theory_axiom, m, "range-bounds", r);
+    ax->clause.push_back(m.mk_not(lo_le_hi));
     ax->clause.push_back(u.mk_in(hi, r));
     m_add_clause(ax);
 
-    arith_util a(m);
     ax = alloc(theory_axiom, m, "range-bounds", r);
     ax->clause.push_back(m.mk_not(u.mk_in(a.mk_add(hi, a.mk_int(1)), r)));
     m_add_clause(ax);

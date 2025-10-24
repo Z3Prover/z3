@@ -228,10 +228,14 @@ namespace smt {
             ctx.attach_th_var(e, this, mk_var(e));
 
         // Assert immediate axioms
-        // if (!ctx.relevancy())
-        add_immediate_axioms(term);
+        if (!ctx.relevancy())
+            add_immediate_axioms(term);
                 
         return true;
+    }
+
+    void theory_finite_set::relevant_eh(app* t) {
+        add_immediate_axioms(t);
     }
 
     void theory_finite_set::apply_sort_cnstr(enode* n, sort* s) {
@@ -248,9 +252,6 @@ namespace smt {
     /**
     * Every dissequality has to be supported by at distinguishing element.
     * 
-    * TODO: we can avoid instantiating the extensionality axiom if we know statically that e1, e2
-    * can never be equal (say, they have different cardinalities or they are finite sets by construction
-    * with elements that can differentiate the sets)
     */
     void theory_finite_set::new_diseq_eh(theory_var v1, theory_var v2) {
         TRACE(finite_set, tout << "new_diseq_eh: v" << v1 << " != v" << v2 << "\n");
@@ -263,8 +264,21 @@ namespace smt {
                 std::swap(e1, e2);
             if (!is_new_axiom(e1, e2))
                 return;
+            if (are_forced_distinct(n1, n2))
+                return;
             m_axioms.extensionality_axiom(e1, e2);
         }
+    }
+
+    //
+    // TODO: add implementation that detects sets that are known to be distinct.
+    // for example, 
+    // . x in a is assigned to true and y in b is assigned to false and x ~ y
+    // . or upper-bound(set.size(a)) < lower-bound(set.size(b))
+    //   where upper and lower bounds can be queried using arith_value
+    // 
+    bool theory_finite_set::are_forced_distinct(enode* a, enode* b) {
+        return false;
     }
 
     /**
@@ -297,12 +311,13 @@ namespace smt {
      * These are unit clauses that can be added immediately.
      * - (set.in x set.empty) is false
      * - (set.subset S T) <=> (= (set.union S T) T)  (or (= (set.intersect S T) S))
-     * 
-     * Other axioms:
      * - (set.singleton x) -> (set.in x (set.singleton x))
+     * - (set.range lo hi) -> lo-1,hi+1 not in range, lo, hi in range if lo <= hi     * 
+     *
+     * Other axioms:
      * - (set.singleton x) -> (set.size (set.singleton x)) = 1
      * - (set.empty)       -> (set.size (set.empty)) = 0
-     * - (set.range lo hi) -> lo-1,hi+1 not in range, lo, hi in range
+
      */
     void theory_finite_set::add_immediate_axioms(app* term) {
         expr *elem = nullptr, *set = nullptr;
