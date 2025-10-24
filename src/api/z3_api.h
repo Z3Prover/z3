@@ -3483,7 +3483,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_finite_set_filter(Z3_context c, Z3_ast f, Z3_ast set);
 
     /**
-       \brief Create a finite set of integers in the range [low, high).
+       \brief Create a finite set of integers in the range [low, high].
 
        def_API('Z3_mk_finite_set_range', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */

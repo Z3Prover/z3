@@ -32,7 +32,7 @@ All functions are declared in `src/api/z3_api.h` and implemented in `src/api/api
 - `Z3_ast Z3_mk_finite_set_subset(Z3_context c, Z3_ast s1, Z3_ast s2)` - Check subset relation
 - `Z3_ast Z3_mk_finite_set_map(Z3_context c, Z3_ast f, Z3_ast set)` - Apply function to all elements
 - `Z3_ast Z3_mk_finite_set_filter(Z3_context c, Z3_ast f, Z3_ast set)` - Filter set with predicate
-- `Z3_ast Z3_mk_finite_set_range(Z3_context c, Z3_ast low, Z3_ast high)` - Create range [low, high)
+- `Z3_ast Z3_mk_finite_set_range(Z3_context c, Z3_ast low, Z3_ast high)` - Create range [low .. high]
 
 ## Python API
 
@@ -56,7 +56,7 @@ All functions are available in `z3.py`:
 - `FiniteSetSubset(s1, s2)` - Subset test
 - `FiniteSetMap(f, set)` - Map function over set
 - `FiniteSetFilter(f, set)` - Filter set
-- `FiniteSetRange(low, high)` - Create range
+- `FiniteSetRange(low, high)` - Create range [low..high]
 - `is_finite_set(expr)` - Check if expression is a finite set
 - `is_finite_set_sort(sort)` - Check if sort is a finite set sort
 
