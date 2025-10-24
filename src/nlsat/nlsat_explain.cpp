@@ -176,6 +176,26 @@ namespace nlsat {
         std::ostream& display(std::ostream & out, unsigned sz, literal const * ls) const { return m_solver.display(out, sz, ls); }
         std::ostream& display(std::ostream & out, literal_vector const & ls) const { return display(out, ls.size(), ls.data()); }
         std::ostream& display(std::ostream & out, scoped_literal_vector const & ls) const { return display(out, ls.size(), ls.data()); }
+        std::ostream& display_assignment(std::ostream& out, polynomial_ref const& p) const {
+            var_vector vars;
+            m_pm.vars(p, vars);
+            polynomial::display_var_proc default_proc;
+            bool printed = false;
+            for (unsigned i = 0; i < vars.size(); ++i) {
+                var x = vars[i];
+                if (!m_assignment.is_assigned(x))
+                    continue;
+                printed = true;
+                default_proc(out, x);
+                out << " -> ";
+                m_am.display_decimal(out, m_assignment.value(x));
+                out << "\n";
+            }
+            if (!printed) {
+                out << "(no assigned variables)\n";
+            }
+            return out;
+        }
 
         /**
            \brief Add literal to the result vector.
@@ -618,42 +638,40 @@ namespace nlsat {
             }
         }
 
-// The monomials have to be square free according to
-//"An improved projection operation for cylindrical algebraic decomposition of three-dimensional space", by McCallum, Scott
+
+        bool is_square_free(poly * p, var x) {
+            if (!p)
+                return true;
+            polynomial_ref disc_poly(m_pm);
+            polynomial_ref p_ref(p , m_pm);
             
+            disc_poly = discriminant(p_ref, x);
+            if (sign(disc_poly) == 0) {
+                TRACE(nlsat_explain,
+                      tout << "p is not square free:\n";
+                      display(tout, p_ref);
+                      tout << "\ndiscriminant: ";
+                      display(tout, disc_poly) << "\n";
+                      m_solver.display_assignment(tout) << '\n';
+                      m_solver.display_var(tout << "x:", x) << '\n';);
+                return false;
+            }
+            return true;
+        }
+
         bool is_square_free(polynomial_ref_vector &ps, var x) {
-            polynomial_ref p(m_pm);
-            polynomial_ref lc_poly(m_pm);
-            polynomial_ref disc_poly(m_pm); 
-
             for (unsigned i = 0; i < ps.size(); i++) {
-                p = ps.get(i);
-                unsigned k_deg = m_pm.degree(p, x); 
-                if (k_deg == 0)
-                    continue;
-                // p depends on x
-                disc_poly = discriminant(p, x); // Use global helper
-                if (sign(disc_poly) == 0) { // Discriminant is zero
-                    TRACE(nlsat_explain, tout << "p is not square free:\n ";
-                          display(tout, p); tout << "\ndiscriminant: "; display(tout, disc_poly) << "\n";
-                          m_solver.display_assignment(tout) << '\n';
-                          m_solver.display_var(tout << "x:", x) << '\n';
-                        );
-
+                if (!is_square_free(ps.get(i), x))
                     return false;
-                }
             }
             return true;
         }
         
-     	// If each p from ps is square-free then add the leading coefficents to the projection. 
-	// Otherwise, add each coefficient of each p to the projection.
-        void add_lcs(polynomial_ref_vector &ps, var x) {
+        // If add_first_only is true, add only the leading coefficients of each polynomial.
+        // Otherwise add every coefficient of each polynomial to the projection.
+        void add_lcs(polynomial_ref_vector &ps, var x, bool add_first_only) {
             polynomial_ref p(m_pm);
             polynomial_ref coeff(m_pm);
-
-            bool sqf = is_square_free(ps, x);
-            // Add the leading or all coeffs, depening on being square-free
             for (unsigned i = 0; i < ps.size(); i++) {
                 p = ps.get(i);
                 unsigned k_deg = m_pm.degree(p, x);
@@ -664,7 +682,7 @@ namespace nlsat {
                     coeff = m_pm.coeff(p, x, j_coeff_deg);
                     TRACE(nlsat_explain, tout << "    coeff deg " << j_coeff_deg << ": "; display(tout, coeff) << "\n";);
                     insert_fresh_factors_in_todo(coeff);
-                    if (sqf)
+                    if (add_first_only)
                         break;
                 }
             }
@@ -686,77 +704,40 @@ namespace nlsat {
             }
         }
         
-        void add_zero_assumption_on_factor(polynomial_ref& f) {
-            display(std::cout << "zero factors \n", f); 
-        }
-        // this function also explains the value 0, if met
-        bool coeffs_are_zeroes(polynomial_ref &s) {
-            restore_factors _restore(m_factors, m_factors_save);
-            factor(s, m_factors);
-            unsigned num_factors = m_factors.size();
-            m_zero_fs.reset();
-            m_is_even.reset();
-            polynomial_ref f(m_pm);
-            bool have_zero = false;
-            for (unsigned i = 0; i < num_factors; i++) {
-                f = m_factors.get(i);
-                if (coeffs_are_zeroes_in_factor(f)) {
-                    have_zero = true;
-                    break;
-                } 
-            }
-            if (!have_zero)
-                return false;
-            var x = max_var(f);
-            unsigned n = degree(f, x);
-            auto c = polynomial_ref(this->m_pm);
-            for (unsigned j = 0; j <= n; j++) {
-                c = m_pm.coeff(s, x, j);
-                SASSERT(sign(c) == 0);
-                ensure_sign(c);
-            }
-            return true;
-        }
-    
-
-        bool coeffs_are_zeroes_in_factor(polynomial_ref & s) {
-            var x = max_var(s);
-            unsigned n = degree(s, x);
-            auto c = polynomial_ref(this->m_pm);
-            for (unsigned j = 0; j <= n; j++) {
-                c = m_pm.coeff(s, x, j);
-                if (sign(c) != 0)
-                    return false;
-            }
-            return true;
-        }
+       
 
         /**
            \brief Add v-psc(p, q, x) into m_todo
+		   psc stands for principal subresultant coefficient:
+		   Subresaltant is a multiple of the resultant, principal coefficient means the first non-vanishing coefficient.
+		   Resultant of p and q is r, where p = t*q + r. 
+           Returns true iff p and q are not relatively prime, that is they have a non-constant GCD
         */
-        void psc(polynomial_ref & p, polynomial_ref & q, var x) {
+        bool psc(polynomial_ref & p, polynomial_ref & q, var x) {
             polynomial_ref_vector & S = m_psc_tmp;
             polynomial_ref s(m_pm);
 
             psc_chain(p, q, x, S);
-            unsigned sz = S.size();
+            bool ret = false;
+
             TRACE(nlsat_explain, tout << "computing psc of\n"; display(tout, p); tout << "\n"; display(tout, q); tout << "\n";
-                  for (unsigned i = 0; i < sz; ++i) {
+                  for (unsigned i = 0; i < S.size(); ++i) {
                       s = S.get(i);
                       tout << "psc: " << s << "\n";
                   });
 
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < S.size(); i++) {
                 s = S.get(i);
                 TRACE(nlsat_explain, display(tout << "processing psc(" << i << ")\n", s) << "\n";); 
                 if (is_zero(s)) {
-                    TRACE(nlsat_explain, tout << "skipping psc is the zero polynomial\n";);
+                    TRACE(nlsat_explain, tout << "skipping zero psc\n";);
                     continue;
                 }
                 if (is_const(s)) {
                     TRACE(nlsat_explain, tout << "done, psc is a constant\n";);
-                    return;
+                    return ret;
                 }
+                ret = true; // the first non-trivial subresultant is a multiple of GCD, we have a non constant coefficient in a GCD!
                 if (is_zero(sign(s))) {
                     TRACE(nlsat_explain, tout << "psc vanished, adding zero assumption\n";);
                     add_zero_assumption(s);
@@ -772,29 +753,34 @@ namespace nlsat {
                       tout << "\n";);
                 // s did not vanish completely, but its leading coefficient may have vanished
                 insert_fresh_factors_in_todo(s);
-                return; 
+                return ret;
             }
+            return ret;
         }
         
         /**
            \brief For each p in ps, add v-psc(x, p, p') into m_todo
 
-           \pre all polynomials in ps contain x
+           \pre all polynomials in ps contain x as the max_var
 
            Remark: the leading coefficients do not vanish in the current model,
            since all polynomials in ps were pre-processed using elim_vanishing.
+           The return value is true iff each polynomial in ps is square free.
         */
-        void psc_discriminant(polynomial_ref_vector & ps, var x) {
+        bool psc_discriminant(polynomial_ref_vector & ps, var x) {
             polynomial_ref p(m_pm);
             polynomial_ref p_prime(m_pm);
             unsigned sz = ps.size();
+            bool sqf = true;
             for (unsigned i = 0; i < sz; i++) {
                 p = ps.get(i);
                 if (degree(p, x) < 2)
                     continue;
                 p_prime = derivative(p, x);
-                psc(p, p_prime, x);
+                bool p_is_sqf = !psc(p, p_prime, x);
+                sqf = sqf && p_is_sqf;
             }
+            return sqf;
         }
 
         /**
@@ -1208,8 +1194,9 @@ namespace nlsat {
                 TRACE(nlsat_explain,  tout << "project loop, processing var "; display_var(tout, x);
                       tout << "\npolynomials\n";
                       display(tout, ps); tout << "\n";);
-                add_lcs(ps, x);
-                psc_discriminant(ps, x);
+                bool sqf = psc_discriminant(ps, x);
+                VERIFY(sqf == is_square_free(ps, x));
+                add_lcs(ps, x, sqf);
                 psc_resultant(ps, x);
                 if (m_todo.empty())
                     break;
@@ -1257,14 +1244,14 @@ namespace nlsat {
                       display(tout, ps); tout << "\n";);
                 if (first) { // The first run is special because x is not constrained by the sample, we cannot surround it by the root functions.
                     // we make the polynomials in ps delinable
-                    add_lcs(ps, x);
-                    psc_discriminant(ps, x);
+                    bool sqf = psc_discriminant(ps, x);
+                    add_lcs(ps, x, sqf);
                     psc_resultant(ps, x);
                     first = false;
                 }
                 else {
-                    add_lcs(ps, x);
-                    psc_discriminant(ps, x);
+                    bool sqf = psc_discriminant(ps, x);
+                    add_lcs(ps, x, sqf);
                     psc_resultant_sample(ps, x, samples);
                 }
                 
@@ -2185,4 +2172,3 @@ void pp_lit(nlsat::explain::imp & ex, nlsat::literal l) {
     std::cout << std::endl;
 }
 #endif
-
