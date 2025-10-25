@@ -19,5 +19,6 @@ def_module_params('nlsat',
                           ('inline_vars', BOOL, False, "inline variables that can be isolated from equations (not supported in incremental mode)"),
                           ('seed', UINT, 0, "random seed."),
                           ('factor', BOOL, True, "factor polynomials produced during conflict resolution."),
+                          ('add_all_coeffs', BOOL, False, "add all polynomial coefficients during projection."),
                           ('known_sat_assignment_file_name', STRING, "", "the file name of a known solution: used for debugging only")
                           ))         

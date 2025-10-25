@@ -44,6 +44,7 @@ namespace nlsat {
         bool                    m_full_dimensional;
         bool                    m_minimize_cores;
         bool                    m_factor;
+        bool                    m_add_all_coeffs;
         bool                    m_signed_project;
         bool                    m_cell_sample;
 
@@ -154,6 +155,7 @@ namespace nlsat {
             m_simplify_cores   = false;
             m_full_dimensional = false;
             m_minimize_cores   = false;
+            m_add_all_coeffs   = true;
             m_signed_project   = false;
         }
 
@@ -622,6 +624,8 @@ namespace nlsat {
 //"An improved projection operation for cylindrical algebraic decomposition of three-dimensional space", by McCallum, Scott
             
         bool is_square_free(polynomial_ref_vector &ps, var x) {
+            if (m_add_all_coeffs)
+                return false;
             polynomial_ref p(m_pm);
             polynomial_ref lc_poly(m_pm);
             polynomial_ref disc_poly(m_pm); 
@@ -2135,6 +2139,10 @@ namespace nlsat {
         m_imp->m_factor = f;
     }
 
+    void explain::set_add_all_coeffs(bool f) {
+        m_imp->m_add_all_coeffs = f;
+    }
+
     void explain::set_signed_project(bool f) {
         m_imp->m_signed_project = f;
     }
@@ -2185,4 +2193,3 @@ void pp_lit(nlsat::explain::imp & ex, nlsat::literal l) {
     std::cout << std::endl;
 }
 #endif
-
