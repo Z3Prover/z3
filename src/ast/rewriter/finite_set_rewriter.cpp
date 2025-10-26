@@ -16,6 +16,7 @@ Author:
 --*/
 
 #include "ast/rewriter/finite_set_rewriter.h"
+#include "ast/arith_decl_plugin.h"
 
 br_status finite_set_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
@@ -37,6 +38,9 @@ br_status finite_set_rewriter::mk_app_core(func_decl * f, unsigned num_args, exp
     case OP_FINITE_SET_IN:
         SASSERT(num_args == 2);
         return mk_in(args[0], args[1], result);
+    case OP_FINITE_SET_SIZE:
+        // Size is already in normal form, no simplifications
+        return mk_size(args[0], result);
     default:
         return BR_FAILED;
     }
@@ -147,26 +151,26 @@ br_status finite_set_rewriter::mk_difference(expr * arg1, expr * arg2, expr_ref 
 br_status finite_set_rewriter::mk_subset(expr * arg1, expr * arg2, expr_ref & result) {
     // set.subset(x, x) -> true
     if (arg1 == arg2) {
-        result = m().mk_true();
+        result = m.mk_true();
         return BR_DONE;
     }
     
     // set.subset(empty, x) -> true
     if (m_util.is_empty(arg1)) {
-        result = m().mk_true();
+        result = m.mk_true();
         return BR_DONE;
     }
     
     // set.subset(x, empty) -> x = empty
     if (m_util.is_empty(arg2)) {
-        result = m().mk_eq(arg1, arg2);
+        result = m.mk_eq(arg1, arg2);
         return BR_REWRITE1;
     }
     
     // General case: set.subset(x, y) -> set.intersect(x, y) = x
-    expr_ref intersect(m());
+    expr_ref intersect(m);
     intersect = m_util.mk_intersect(arg1, arg2);
-    result = m().mk_eq(intersect, arg1);
+    result = m.mk_eq(intersect, arg1);
     return BR_REWRITE3;
 }
 
@@ -175,10 +179,34 @@ br_status finite_set_rewriter::mk_singleton(expr * arg, expr_ref & result) {
     return BR_FAILED;
 }
 
+br_status finite_set_rewriter::mk_size(expr * arg, expr_ref & result) {
+    arith_util a(m);
+    if (m_util.is_empty(arg)) {
+        // size(empty) -> 0
+        result = a.mk_int(0);
+        return BR_DONE;
+    }
+    if (m_util.is_singleton(arg)) {
+        // size(singleton(x)) -> 1
+        result = a.mk_int(1);
+        return BR_DONE;
+    }
+    expr *lower, *upper;
+    if (m_util.is_range(arg, lower, upper)) {
+        // size(range(a, b)) -> b - a + 1
+        expr_ref size_expr(m);
+        size_expr = a.mk_add(a.mk_sub(upper, lower), a.mk_int(1));
+        result = m.mk_ite(a.mk_gt(lower, upper), a.mk_int(0), size_expr);
+        return BR_REWRITE3;
+    }
+    // Size is already in normal form, no simplifications
+    return BR_FAILED;
+}
+
 br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result) {
     // set.in(x, empty) -> false
     if (m_util.is_empty(set)) {
-        result = m().mk_false();
+        result = m.mk_false();
         return BR_DONE;
     }
     
@@ -187,11 +215,11 @@ br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result)
     if (m_util.is_singleton(set, singleton_elem)) {
         // set.in(x, singleton(x)) -> true (when x is the same)
         if (elem == singleton_elem) {
-            result = m().mk_true();
+            result = m.mk_true();
             return BR_DONE;
         }
         // set.in(x, singleton(y)) -> x = y (when x != y)
-        result = m().mk_eq(elem, singleton_elem);
+        result = m.mk_eq(elem, singleton_elem);
         return BR_REWRITE1;
     }
     

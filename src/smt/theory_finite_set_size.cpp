@@ -391,17 +391,14 @@ namespace smt {
     }
 
     /**
-    * Introduce an assumption literal to manage incremental search for solutions
+    * Placeholder to introduce an assumption literal to manage incremental search for solutions
     */
     void theory_finite_set_size::add_theory_assumptions(expr_ref_vector &assumptions) {
-        if (m_set_size_decls.empty())
-            return;
-        m_assumption = m.mk_fresh_const(symbol("set.size.solver"), m.mk_bool_sort());
-        assumptions.push_back(m_assumption);
+        
     }
 
     bool theory_finite_set_size::should_research(expr_ref_vector& unsat_core) {
-        return unsat_core.contains(m_assumption);
+        return false;
     }
 
     std::ostream& theory_finite_set_size::display(std::ostream& out) {

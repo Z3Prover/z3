@@ -34,6 +34,7 @@ where the signature is defined in finite_set_decl_plugin.h.
 */
 class finite_set_rewriter {
     friend class finite_set_rewriter_test;
+    ast_manager &m;
     finite_set_util  m_util;
 
     // Rewrite rules for set operations
@@ -43,13 +44,13 @@ class finite_set_rewriter {
     br_status mk_subset(expr *arg1, expr *arg2, expr_ref &result);
     br_status mk_singleton(expr *arg1, expr_ref &result);
     br_status mk_in(expr *arg1, expr *arg2, expr_ref &result);
+    br_status mk_size(expr *arg, expr_ref &result);
 
 public:
     finite_set_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m) {
+        m(m), m_util(m) {
     }
     
-    ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
     finite_set_util& util() { return m_util; }
 
