@@ -75,12 +75,6 @@ When introducing select and map, decidability can be lost.
 For Boolean lattice constraints given by equality, subset, strict subset and union, intersections, 
 the theory solver uses a stand-alone satisfiability checker for Boolean algebras to close branches.
 
-Instructions for copilot:
-
-1. Override relevant methods for smt::theory. Add them to the signature and add stubs or implementations in
-theory_finite_set.cpp.
-2. In final_check_eh add instantiation of theory axioms following the outline in the inference rules above.
-   An example of how to instantiate axioms is in theory_arrays_base.cpp and theroy_datatypes.cpp and other theory files.
 --*/
 
 #pragma once
@@ -92,12 +86,16 @@ theory_finite_set.cpp.
 #include "util/obj_pair_hashtable.h"
 #include "util/union_find.h"
 #include "smt/smt_theory.h"
+#include "smt/theory_finite_set_size.h"
 #include "model/finite_set_factory.h"
 
 namespace smt {
+    class context;
+
     class theory_finite_set : public theory {
         using th_union_find = union_find<theory_finite_set>;
         friend class theory_finite_set_test;
+        friend class theory_finite_set_size;
         friend struct finite_set_value_proc;
 
         struct var_data {
@@ -135,18 +133,16 @@ namespace smt {
             }
         };
 
-        struct range {
-            rational lo, hi;
-        };
-
         finite_set_util           u;
         finite_set_axioms         m_axioms;
         th_union_find             m_find;
         theory_clauses            m_clauses;
+        theory_finite_set_size m_cardinality_solver;
         finite_set_factory *m_factory = nullptr;
         obj_map<enode, obj_map<enode, bool> *> m_set_members;
         ptr_vector<func_decl> m_set_in_decls;
         ptr_vector<var_data> m_var_data;
+        svector<std::pair<theory_var, theory_var>> m_diseqs, m_eqs;
         stats m_stats;
                
     protected:
@@ -172,6 +168,13 @@ namespace smt {
         void collect_statistics(::statistics & st) const override {
             m_stats.collect_statistics(st);
         }
+        void add_theory_assumptions(expr_ref_vector& assumptions) override {
+            m_cardinality_solver.add_theory_assumptions(assumptions);
+        }
+
+        bool should_research(expr_ref_vector& unsat_core) override {
+            return m_cardinality_solver.should_research(unsat_core);
+        }
 
 
         void add_in_axioms(theory_var v1, theory_var v2);
@@ -189,6 +192,7 @@ namespace smt {
         bool assume_eqs();
         bool is_new_axiom(expr *a, expr *b);
         app *mk_union(unsigned num_elems, expr *const *elems, sort* set_sort);
+        bool is_fully_solved();
 
         // model construction
         void collect_members();

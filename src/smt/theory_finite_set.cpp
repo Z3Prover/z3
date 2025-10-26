@@ -27,7 +27,8 @@ namespace smt {
     theory_finite_set::theory_finite_set(context& ctx):
         theory(ctx, ctx.get_manager().mk_family_id("finite_set")),
         u(m),
-        m_axioms(m), m_find(*this)
+        m_axioms(m), m_find(*this),
+        m_cardinality_solver(*this)
     {
         // Setup the add_clause callback for axioms
         std::function<void(theory_axiom *)> add_clause_fn =
@@ -108,6 +109,10 @@ namespace smt {
         }
         else if (u.is_range(e)) {
             
+        }
+        else if (u.is_size(e)) {
+            auto f = to_app(e)->get_decl();
+            m_cardinality_solver.add_set_size(f);
         }
         return r;
     }
@@ -246,7 +251,13 @@ namespace smt {
 
     void theory_finite_set::new_eq_eh(theory_var v1, theory_var v2) {
         TRACE(finite_set, tout << "new_eq_eh: v" << v1 << " = v" << v2 << "\n";);
-        m_find.merge(v1, v2); // triggers merge_eh, which triggers incremental generation of theory axioms
+        auto n1 = get_enode(v1);
+        auto n2 = get_enode(v2);
+        if (u.is_finite_set(n1->get_expr()) && u.is_finite_set(n2->get_expr())) {
+            m_eqs.push_back({v1, v2});
+            ctx.push_trail(push_back_vector(m_eqs));
+            m_find.merge(v1, v2);  // triggers merge_eh, which triggers incremental generation of theory axioms
+        }
     }
 
     /**
@@ -266,6 +277,8 @@ namespace smt {
                 return;
             if (are_forced_distinct(n1, n2))
                 return;
+            m_diseqs.push_back({v1, v2});
+            ctx.push_trail(push_back_vector(m_diseqs));
             m_axioms.extensionality_axiom(e1, e2);
         }
     }
@@ -301,8 +314,41 @@ namespace smt {
 
         if (assume_eqs())
             return FC_CONTINUE;
+
+        switch (m_cardinality_solver.final_check()) {
+        case l_true: break;
+        case l_false: return FC_CONTINUE;
+        case l_undef: return FC_GIVEUP;
+        }
         
-        return FC_DONE;
+        return is_fully_solved() ? FC_DONE : FC_GIVEUP;
+    }
+
+    /**
+    * Determine if the constraints are fully solved.
+    * They can be fully solved if:
+    * - the model that is going to be produced satisfies all constraints
+    * The model will always satisfy the constraints if:
+    * - there is no occurrence of set.map
+    * - there is not both set.size and set.filter
+    */
+    bool theory_finite_set::is_fully_solved() {
+        bool has_map = false, has_filter = false, has_size = false;
+        for (unsigned v = 0; v < get_num_vars(); ++v) {
+            auto n = get_enode(v);
+            auto e = n->get_expr();
+            if (u.is_filter(e))
+                has_filter = true;
+            if (u.is_map(e))
+                has_map = true;
+            if (u.is_size(e))
+                has_size = true;
+        }
+        if (has_map)
+            return false; // todo use more expensive model check here
+        if (has_filter && has_size)
+            return false; // tood use more expensive model check here
+        return true;
     }
 
 

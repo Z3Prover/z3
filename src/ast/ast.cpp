@@ -3356,8 +3356,8 @@ proof * ast_manager::mk_th_lemma(
     }
     pr = mk_app(get_family_name(tid), args.size(), args.data(), mk_proof_sort());
     args.reset();
-    args.push_back(pr.get());
     args.append(num_proofs, (expr**) proofs);
+    args.push_back(pr.get());
     args.push_back(fact);
     return mk_app(basic_family_id, PR_TH_LEMMA, parameters.size(), parameters.data(), args.size(), args.data());
 }

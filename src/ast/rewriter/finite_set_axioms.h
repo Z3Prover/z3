@@ -12,6 +12,7 @@ Abstract:
        
 --*/
 
+#pragma once
 #include "ast/rewriter/th_rewriter.h"
 
 struct theory_axiom {
