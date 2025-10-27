@@ -201,6 +201,10 @@ public:
         return m_manager.mk_app(m_fid, OP_FINITE_SET_MAP, arr, set);
     }
 
+    app *mk_map_inverse(expr *arr, expr *a, expr *b) {
+        return m_manager.mk_app(m_fid, OP_FINITE_SET_MAP_INVERSE, arr, b, a);
+    }
+
     app * mk_filter(expr* arr, expr* set) {
         return m_manager.mk_app(m_fid, OP_FINITE_SET_FILTER, arr, set);
     }

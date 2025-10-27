@@ -27,7 +27,7 @@ Revision History:
 finite_set_decl_plugin::finite_set_decl_plugin():
     m_init(false) {
     m_names.resize(LAST_FINITE_SET_OP, nullptr);
-    m_names[OP_FINITE_SET_EMPTY] = "set.empty ";
+    m_names[OP_FINITE_SET_EMPTY] = "set.empty";
     m_names[OP_FINITE_SET_SINGLETON] = "set.singleton";
     m_names[OP_FINITE_SET_UNION] = "set.union";
     m_names[OP_FINITE_SET_INTERSECT] = "set.intersect";
@@ -39,6 +39,7 @@ finite_set_decl_plugin::finite_set_decl_plugin():
     m_names[OP_FINITE_SET_FILTER] = "set.filter";
     m_names[OP_FINITE_SET_RANGE] = "set.range";
     m_names[OP_FINITE_SET_EXT] = "set.diff";
+    m_names[OP_FINITE_SET_MAP_INVERSE] = "set.map.inverse";
 }
 
 finite_set_decl_plugin::~finite_set_decl_plugin() {
@@ -70,6 +71,7 @@ void finite_set_decl_plugin::init() {
     sort* arrABsetA[2] = { arrAB, setA };
     sort* arrABoolsetA[2] = { arrABool, setA };
     sort* intintT[2] = { intT, intT };
+    sort *arrABsetBsetA[3] = {arrAB, setB, setA};
     
     m_sigs.resize(LAST_FINITE_SET_OP);
     m_sigs[OP_FINITE_SET_EMPTY]      = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_EMPTY],      1, 0, nullptr, setA);
@@ -84,7 +86,7 @@ void finite_set_decl_plugin::init() {
     m_sigs[OP_FINITE_SET_FILTER]     = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_FILTER], 1, 2, arrABoolsetA, setA);
     m_sigs[OP_FINITE_SET_RANGE]      = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_RANGE],      0, 2, intintT, setInt);
     m_sigs[OP_FINITE_SET_EXT]        = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_EXT], 1, 2, setAsetA, A);
-//    m_sigs[OP_FINITE_SET_MAP_INVERSE] = alloc(polymorphism::psig, m, "set.map_inverse", 2, 3, arrABsetBsetA, A);
+    m_sigs[OP_FINITE_SET_MAP_INVERSE] = alloc(polymorphism::psig, m, "set.map_inverse", 2, 3, arrABsetBsetA, A);
 }
 
 sort * finite_set_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
@@ -190,6 +192,7 @@ func_decl * finite_set_decl_plugin::mk_func_decl(decl_kind k, unsigned num_param
     case OP_FINITE_SET_SIZE:
     case OP_FINITE_SET_SUBSET:
     case OP_FINITE_SET_MAP:
+    case OP_FINITE_SET_MAP_INVERSE:
     case OP_FINITE_SET_FILTER:
     case OP_FINITE_SET_RANGE:
     case OP_FINITE_SET_EXT:
@@ -322,3 +325,4 @@ func_decl *finite_set_util::mk_range_decl() {
     sort *domain[2] = {i, i};
     return m_manager.mk_func_decl(m_fid, OP_FINITE_SET_RANGE, 0, nullptr, 2, domain, nullptr);
 }
+

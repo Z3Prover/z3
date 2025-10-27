@@ -46,6 +46,10 @@ class finite_set_axioms {
 
     std::function<void(theory_axiom *)> m_add_clause;
 
+    void add_unit(char const* name, expr* x, expr *e);
+
+    void add_binary(char const *name, expr *x, expr *y, expr *f1, expr *f2);
+
 public:
 
     finite_set_axioms(ast_manager &m) : m(m), u(m), m_rewriter(m) {}
@@ -86,8 +90,8 @@ public:
     // a := set.range(lo, hi)
     // (not (set.in (- lo 1) a))
     // (not (set.in (+ hi 1) a))
-    // (set.in lo a)
-    // (set.in hi a)
+    // lo <= hi => (set.in lo a)
+    // lo <= hi => (set.in hi a)
     void in_range_axiom(expr *a);
 
     // a := set.map(f, b)
@@ -106,9 +110,20 @@ public:
     // (a) <=> (set.intersect(b, c) = b)
     void subset_axiom(expr *a);
 
-    // a := set.singleton(b)
-    // set.size(a) = 1
-    void size_singleton_axiom(expr *a);
+
+    // set.size(empty) = 0
+    // set.size(set.singleton(b)) = 1
+    // set.size(a u b) <= set.size(a) + set.size(b)
+    // set.size(a n b) <= min(set.size(a), set.size(b))
+    // set.size(a \ b) <= set.size(a)
+    // set.size(set.map(f, b)) <= set.size(b)
+    // set.size(set.filter(p, b)) <= set.size(b)
+    // set.size([l..u]) = if(l <= u, u - l + 1, 0)    
+    void size_ub_axiom(expr *a);
+
+    // 0 <= set.size(e)
+    void size_lb_axiom(expr *e);
+
 
     // a != b => set.in (set.diff(a, b) a) != set.in (set.diff(a, b) b)
     void extensionality_axiom(expr *a, expr *b);

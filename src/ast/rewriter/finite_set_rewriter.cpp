@@ -47,78 +47,87 @@ br_status finite_set_rewriter::mk_app_core(func_decl * f, unsigned num_args, exp
 }
 
 br_status finite_set_rewriter::mk_union(unsigned num_args, expr * const * args, expr_ref & result) {
+    VERIFY(num_args == 2);
     // Idempotency: set.union(x, x) -> x
-    if (num_args == 2 && args[0] == args[1]) {
+    if (args[0] == args[1]) {
         result = args[0];
         return BR_DONE;
     }
     
     // Identity: set.union(x, empty) -> x or set.union(empty, x) -> x
-    if (num_args == 2) {
-        if (u.is_empty(args[0])) {
-            result = args[1];
-            return BR_DONE;
-        }
-        if (u.is_empty(args[1])) {
+    if (u.is_empty(args[0])) {
+        result = args[1];
+        return BR_DONE;
+    }
+    if (u.is_empty(args[1])) {
+        result = args[0];
+        return BR_DONE;
+    }
+
+    // Absorption: set.union(x, set.intersect(x, y)) -> x
+    expr *a1, *a2;
+    if (u.is_intersect(args[1], a1, a2)) {
+        if (args[0] == a1 || args[0] == a2) {
             result = args[0];
             return BR_DONE;
         }
-        
-        // Absorption: set.union(x, set.intersect(x, y)) -> x
-        expr* a1, *a2;
-        if (u.is_intersect(args[1], a1, a2)) {
-            if (args[0] == a1 || args[0] == a2) {
-                result = args[0];
-                return BR_DONE;
-            }
-        }
-        
-        // Absorption: set.union(set.intersect(x, y), x) -> x
-        if (u.is_intersect(args[0], a1, a2)) {
-            if (args[1] == a1 || args[1] == a2) {
-                result = args[1];
-                return BR_DONE;
-            }
+    }
+
+    // Absorption: set.union(set.intersect(x, y), x) -> x
+    if (u.is_intersect(args[0], a1, a2)) {
+        if (args[1] == a1 || args[1] == a2) {
+            result = args[1];
+            return BR_DONE;
         }
     }
+    
     
     return BR_FAILED;
 }
 
 br_status finite_set_rewriter::mk_intersect(unsigned num_args, expr * const * args, expr_ref & result) {
+    if (num_args != 2)
+        return BR_FAILED;
+
     // Idempotency: set.intersect(x, x) -> x
-    if (num_args == 2 && args[0] == args[1]) {
+    if (args[0] == args[1]) {
         result = args[0];
         return BR_DONE;
     }
     
     // Annihilation: set.intersect(x, empty) -> empty or set.intersect(empty, x) -> empty
-    if (num_args == 2) {
-        if (u.is_empty(args[0])) {
+    if (u.is_empty(args[0])) {
+        result = args[0];
+        return BR_DONE;
+    }
+    if (u.is_empty(args[1])) {
+        result = args[1];
+        return BR_DONE;
+    }
+
+    // Absorption: set.intersect(x, set.union(x, y)) -> x
+    expr *a1, *a2;
+    if (u.is_union(args[1], a1, a2)) {
+        if (args[0] == a1 || args[0] == a2) {
             result = args[0];
             return BR_DONE;
         }
-        if (u.is_empty(args[1])) {
+    }
+
+    // Absorption: set.intersect(set.union(x, y), x) -> x
+    if (u.is_union(args[0], a1, a2)) {
+        if (args[1] == a1 || args[1] == a2) {
             result = args[1];
             return BR_DONE;
         }
-        
-        // Absorption: set.intersect(x, set.union(x, y)) -> x
-        expr* a1, *a2;
-        if (u.is_union(args[1], a1, a2)) {
-            if (args[0] == a1 || args[0] == a2) {
-                result = args[0];
-                return BR_DONE;
-            }
-        }
-        
-        // Absorption: set.intersect(set.union(x, y), x) -> x
-        if (u.is_union(args[0], a1, a2)) {
-            if (args[1] == a1 || args[1] == a2) {
-                result = args[1];
-                return BR_DONE;
-            }
-        }
+    }
+    expr *l1, *l2, *u1, *u2;
+    if (u.is_range(args[0], l1, u1) && u.is_range(args[1], l2, u2)) {
+        arith_util a(m);
+        auto max_l = m.mk_ite(a.mk_ge(l1, l2), l1, l2);
+        auto min_u = m.mk_ite(a.mk_ge(u1, u2), u2, u1);
+        result = u.mk_range(max_l, min_u);
+        return BR_REWRITE_FULL;
     }
     
     return BR_FAILED;

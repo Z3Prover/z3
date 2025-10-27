@@ -41,11 +41,8 @@ void finite_set_axioms::in_empty_axiom(expr *x) {
     sort* elem_sort = x->get_sort();
     sort *set_sort = u.mk_finite_set_sort(elem_sort);
     expr_ref empty_set(u.mk_empty(set_sort), m);
-    expr_ref x_in_empty(u.mk_in(x, empty_set), m);
-    
-    theory_axiom* ax = alloc(theory_axiom, m, "in-empty", x);
-    ax->clause.push_back(m.mk_not(x_in_empty));
-    m_add_clause(ax);
+    expr_ref x_in_empty(u.mk_in(x, empty_set), m);    
+    add_unit("in-empty", x, m.mk_not(x_in_empty));
 }
 
 // a := set.union(b, c) 
@@ -54,7 +51,6 @@ void finite_set_axioms::in_union_axiom(expr *x, expr *a) {
     expr* b = nullptr, *c = nullptr;
     if (!u.is_union(a, b, c))
         return;
-
 
     expr_ref x_in_a(u.mk_in(x, a), m);
     expr_ref x_in_b(u.mk_in(x, b), m);
@@ -151,10 +147,10 @@ void finite_set_axioms::in_singleton_axiom(expr *x, expr *a) {
     
     expr_ref x_in_a(u.mk_in(x, a), m);
 
-    theory_axiom* ax = alloc(theory_axiom, m, "in-singleton", x, a);
-    if (x == b) {
-        // If x and b are syntactically identical, then (x in a) is always true
 
+    if (x == b) {
+        // If x and b are syntactically identical, then (x in a) is always true  
+        theory_axiom* ax = alloc(theory_axiom, m, "in-singleton", x, a);     
         ax->clause.push_back(x_in_a);
         m_add_clause(ax);
         return;
@@ -163,35 +159,28 @@ void finite_set_axioms::in_singleton_axiom(expr *x, expr *a) {
     expr_ref x_eq_b(m.mk_eq(x, b), m);
     
     // (x in a) => (x == b)
-    ax->clause.push_back(m.mk_not(x_in_a));
-    ax->clause.push_back(x_eq_b);
-    m_add_clause(ax);
-    ax = alloc(theory_axiom, m, "in-singleton", x, a);
+    add_binary("in-singleton", x, a, m.mk_not(x_in_a), x_eq_b);
 
     // (x == b) => (x in a)
-    ax->clause.push_back(m.mk_not(x_eq_b));
-    ax->clause.push_back(x_in_a);
-    m_add_clause(ax);
+    add_binary("in-singleton", x, a, m.mk_not(x_eq_b), x_in_a);
 }
 
 void finite_set_axioms::in_singleton_axiom(expr* a) {
     expr *b = nullptr;
     if (!u.is_singleton(a, b))
-        return;
-    
-
-
-    expr_ref b_in_a(u.mk_in(b, a), m);
-
-    auto ax = alloc(theory_axiom, m, "in-singleton");
-    ax->clause.push_back(b_in_a);
-    m_add_clause(ax);
+        return;    
+    add_unit("in-singleton", a, u.mk_in(b, a));
 }
-
-
 
 // a := set.range(lo, hi)
 // (x in a) <=> (lo <= x <= hi)
+// we use the rewriter to simplify inequalitiess because the arithmetic solver
+// makes some assumptions that inequalities are in normal form.
+// this complicates proof checking. 
+// Options are to include a proof of the rewrite within the justification
+// fix the arithmetic solver to use the inequalities without rewriting (it really should)
+// the same issue applies to everywhere we apply rewriting when adding theory axioms.
+
 void finite_set_axioms::in_range_axiom(expr *x, expr *a) {
     expr* lo = nullptr, *hi = nullptr;
     if (!u.is_range(a, lo, hi))
@@ -205,16 +194,10 @@ void finite_set_axioms::in_range_axiom(expr *x, expr *a) {
     m_rewriter(x_le_hi);
     
     // (x in a) => (lo <= x)
-    theory_axiom* ax1 = alloc(theory_axiom, m, "in-range", x, a);
-    ax1->clause.push_back(m.mk_not(x_in_a));
-    ax1->clause.push_back(lo_le_x);
-    m_add_clause(ax1);
+    add_binary("in-range", x, a, m.mk_not(x_in_a), lo_le_x);
 
     // (x in a) => (x <= hi)
-    theory_axiom* ax2 = alloc(theory_axiom, m, "in-range", x, a);
-    ax2->clause.push_back(m.mk_not(x_in_a));
-    ax2->clause.push_back(x_le_hi);
-    m_add_clause(ax2);
+    add_binary("in-range", x, a, m.mk_not(x_in_a), x_le_hi);
 
     // (lo <= x) and (x <= hi) => (x in a)
     theory_axiom* ax3 = alloc(theory_axiom, m, "in-range", x, a);
@@ -246,13 +229,8 @@ void finite_set_axioms::in_range_axiom(expr* r) {
     ax->clause.push_back(u.mk_in(hi, r));
     m_add_clause(ax);
 
-    ax = alloc(theory_axiom, m, "range-bounds", r);
-    ax->clause.push_back(m.mk_not(u.mk_in(a.mk_add(hi, a.mk_int(1)), r)));
-    m_add_clause(ax);
-
-    ax = alloc(theory_axiom, m, "range-bounds", r);
-    ax->clause.push_back(m.mk_not(u.mk_in(a.mk_add(lo, a.mk_int(-1)), r)));
-    m_add_clause(ax);
+    add_unit("range-bounds", r, m.mk_not(u.mk_in(a.mk_add(hi, a.mk_int(1)), r)));
+    add_unit("range-bounds", r, m.mk_not(u.mk_in(a.mk_add(lo, a.mk_int(-1)), r)));
 }
 
 // a := set.map(f, b)
@@ -262,6 +240,11 @@ void finite_set_axioms::in_map_axiom(expr *x, expr *a) {
     if (!u.is_map(a, f, b))
         return;
     
+    expr_ref inv(u.mk_map_inverse(x, f, b), m);
+    expr_ref f1(u.mk_in(x, a), m);
+    expr_ref f2(u.mk_in(inv, b), m);
+    add_binary("map-inverse", x, a, m.mk_not(f1), f2);
+    add_binary("map-inverse", x, b, f1, m.mk_not(f2));
     // For now, we provide a placeholder implementation
     // The full implementation would require skolemization
     // to express the inverse relationship properly.
@@ -281,12 +264,10 @@ void finite_set_axioms::in_map_image_axiom(expr *x, expr *a) {
     array_util autil(m);
     expr_ref fx(autil.mk_select(f, x), m);
     expr_ref fx_in_a(u.mk_in(fx, a), m);
+    m_rewriter(fx);
     
     // (x in b) => f(x) in a
-    theory_axiom* ax = alloc(theory_axiom, m, "in-map-image", x, a);
-    ax->clause.push_back(m.mk_not(x_in_b));
-    ax->clause.push_back(fx_in_a);
-    m_add_clause(ax);
+    add_binary("in-map", x, a, m.mk_not(x_in_b), fx_in_a);
 }
 
 // a := set.filter(p, b)
@@ -304,16 +285,10 @@ void finite_set_axioms::in_filter_axiom(expr *x, expr *a) {
     expr_ref px(autil.mk_select(p, x), m);
     
     // (x in a) => (x in b)
-    theory_axiom* ax1 = alloc(theory_axiom, m, "in-filter", x, a);
-    ax1->clause.push_back(m.mk_not(x_in_a));
-    ax1->clause.push_back(x_in_b);
-    m_add_clause(ax1);
+    add_binary("in-filter", x, a, m.mk_not(x_in_a), x_in_b);
 
     // (x in a) => p(x)
-    theory_axiom* ax2 = alloc(theory_axiom, m, "in-filter", x, a);
-    ax2->clause.push_back(m.mk_not(x_in_a));
-    ax2->clause.push_back(px);
-    m_add_clause(ax2);
+    add_binary("in-filter", x, a, m.mk_not(x_in_a), px);
 
     // (x in b) and p(x) => (x in a)
     theory_axiom* ax3 = alloc(theory_axiom, m, "in-filter", x, a);
@@ -323,21 +298,72 @@ void finite_set_axioms::in_filter_axiom(expr *x, expr *a) {
     m_add_clause(ax3);
 }
 
-// a := set.singleton(b)
-// set.size(a) = 1
-void finite_set_axioms::size_singleton_axiom(expr *a) {
-    expr* b = nullptr;
-    if (!u.is_singleton(a, b))
-        return;
-    
-    arith_util arith(m);
-    expr_ref size_a(u.mk_size(a), m);
-    expr_ref one(arith.mk_int(1), m);
-    expr_ref eq(m.mk_eq(size_a, one), m);
-
-    theory_axiom* ax = alloc(theory_axiom, m, "size-singleton", a);
-    ax->clause.push_back(eq);
+void finite_set_axioms::add_unit(char const* name, expr* e, expr* unit) {
+    theory_axiom *ax = alloc(theory_axiom, m, name, e);
+    ax->clause.push_back(unit);
     m_add_clause(ax);
+}
+
+void finite_set_axioms::add_binary(char const* name, expr* x, expr* y, expr* f1, expr* f2) {
+    theory_axiom *ax = alloc(theory_axiom, m, name, x, y);
+    ax->clause.push_back(f1);
+    ax->clause.push_back(f2);
+    m_add_clause(ax);
+}
+
+// Auxiliary algebraic axioms to ease reasoning about set.size
+// The axioms are not required for completenss for the base fragment
+// as they are handled by creating semi-linear sets.
+void finite_set_axioms::size_ub_axiom(expr *e) {
+    expr *b = nullptr, *x = nullptr, *y = nullptr;
+    arith_util a(m);
+    expr_ref ineq(m);
+
+    if (u.is_singleton(e, b)) 
+        add_unit("size", e, m.mk_eq(u.mk_size(e), a.mk_int(1)));    
+    else if (u.is_empty(e)) 
+        add_unit("size", e, m.mk_eq(u.mk_size(e), a.mk_int(0)));    
+    else if (u.is_union(e, x, y)) {
+        ineq = a.mk_le(u.mk_size(e), a.mk_add(u.mk_size(x), u.mk_size(y)));
+        m_rewriter(ineq);
+        add_unit("size", e, ineq);
+    }
+    else if (u.is_intersect(e, x, y)) {        
+        ineq = a.mk_le(u.mk_size(e), u.mk_size(x));
+        m_rewriter(ineq);
+        add_unit("size", e, ineq);
+        ineq = a.mk_le(u.mk_size(e), u.mk_size(y));
+        m_rewriter(ineq);
+        add_unit("size", e, ineq);
+    }
+    else if (u.is_difference(e, x, y)) {
+        ineq = a.mk_le(u.mk_size(e), u.mk_size(x));
+        m_rewriter(ineq);
+        add_unit("size", e, ineq);
+    }
+    else if (u.is_filter(e, x, y)) {
+        ineq = a.mk_le(u.mk_size(e), u.mk_size(y));
+        m_rewriter(ineq);
+        add_unit("size", e, ineq);
+    }
+    else if (u.is_map(e, x, y)) {
+        ineq = a.mk_le(u.mk_size(e), u.mk_size(y));
+        m_rewriter(ineq);
+        add_unit("size", e, ineq);
+    }
+    else if (u.is_range(e, x, y)) {
+        ineq = a.mk_eq(u.mk_size(e), m.mk_ite(a.mk_le(x, y), a.mk_add(a.mk_sub(y, x), a.mk_int(1)), a.mk_int(0)));
+        m_rewriter(ineq);
+        add_unit("size", e, ineq);
+    }    
+}
+
+void finite_set_axioms::size_lb_axiom(expr* e) {
+    arith_util a(m);
+    expr_ref ineq(m);
+    ineq = a.mk_le(a.mk_int(0), u.mk_size(e));
+    m_rewriter(ineq);
+    add_unit("size-lb", e, ineq);
 }
 
 void finite_set_axioms::subset_axiom(expr* a) {
@@ -367,7 +393,7 @@ void finite_set_axioms::extensionality_axiom(expr *a, expr* b) {
     expr_ref diff_in_a(u.mk_in(diff_ab, a), m);
     expr_ref diff_in_b(u.mk_in(diff_ab, b), m);
     
-    // (a != b) => (x in diff_ab != x in diff_ba)
+    // (a != b) => (x in diff_ab != x in diff_ba) 
     theory_axiom* ax = alloc(theory_axiom, m, "extensionality", a, b);
     ax->clause.push_back(a_eq_b);
     ax->clause.push_back(m.mk_not(diff_in_a));

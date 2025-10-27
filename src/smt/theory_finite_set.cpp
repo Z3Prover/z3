@@ -122,12 +122,12 @@ namespace smt {
     }
 
     /*
-    * Merge the equivalence classes of two variables.
+     * Merge the equivalence classes of two variables.
      * parent_in := vector of (set.in x S) terms where S is in the equivalence class of r.
      * parent_setops := vector of (set.op S T) where S or T is in the equivalence class of r.
      * setops := vector of (set.op S T) where (set.op S T) is in the equivalence class of r.
      * 
-    */
+     */
     void theory_finite_set::merge_eh(theory_var root, theory_var other, theory_var, theory_var) {
         // r is the new root
         TRACE(finite_set, tout << "merging v" << root << " v" << other << "\n"; display_var(tout, root);
