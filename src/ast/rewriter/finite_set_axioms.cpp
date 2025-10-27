@@ -27,7 +27,10 @@ Revision History:
 
 
 std::ostream& operator<<(std::ostream& out, theory_axiom const& ax) {
-    return out << "axiom";
+    auto &m = ax.clause.get_manager();
+    for (auto e : ax.clause)
+        out << mk_pp(e, m) << " ";
+    return out;
 }
 
 // a ~ set.empty => not (x in a)
@@ -36,7 +39,8 @@ void finite_set_axioms::in_empty_axiom(expr *x) {
     // Generate: not (x in empty_set)
     // where empty_set is the empty set of x's type
     sort* elem_sort = x->get_sort();
-    expr_ref empty_set(u.mk_empty(elem_sort), m);
+    sort *set_sort = u.mk_finite_set_sort(elem_sort);
+    expr_ref empty_set(u.mk_empty(set_sort), m);
     expr_ref x_in_empty(u.mk_in(x, empty_set), m);
     
     theory_axiom* ax = alloc(theory_axiom, m, "in-empty", x);
@@ -357,7 +361,7 @@ void finite_set_axioms::subset_axiom(expr* a) {
 
 void finite_set_axioms::extensionality_axiom(expr *a, expr* b) {
     // a != b => set.in (set.diff(a, b) a) != set.in (set.diff(a, b) b)
-    expr_ref diff_ab(u.mk_difference(a, b), m);
+    expr_ref diff_ab(u.mk_ext(a, b), m);
 
     expr_ref a_eq_b(m.mk_eq(a, b), m);
     expr_ref diff_in_a(u.mk_in(diff_ab, a), m);
@@ -370,9 +374,9 @@ void finite_set_axioms::extensionality_axiom(expr *a, expr* b) {
     ax->clause.push_back(m.mk_not(diff_in_b));
     m_add_clause(ax);
 
-    theory_axiom* ax2 = alloc(theory_axiom, m, "extensionality", a, b);
-    ax2->clause.push_back(m.mk_not(a_eq_b));
-    ax2->clause.push_back(diff_in_a);
-    ax2->clause.push_back(diff_in_b);
-    m_add_clause(ax2);
+    ax = alloc(theory_axiom, m, "extensionality", a, b);
+    ax->clause.push_back(a_eq_b);
+    ax->clause.push_back(diff_in_a);
+    ax->clause.push_back(diff_in_b);
+    m_add_clause(ax);
 }

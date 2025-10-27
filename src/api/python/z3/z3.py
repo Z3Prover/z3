@@ -843,7 +843,7 @@ class FuncDeclRef(AstRef):
             elif k == Z3_PARAMETER_RATIONAL:
                 result[i] = Z3_get_decl_rational_parameter(self.ctx_ref(), self.ast, i)
             elif k == Z3_PARAMETER_SYMBOL:
-                result[i] = Z3_get_decl_symbol_parameter(self.ctx_ref(), self.ast, i)
+                result[i] = _symbol2py(ctx, Z3_get_decl_symbol_parameter(self.ctx_ref(), self.ast, i))
             elif k == Z3_PARAMETER_SORT:
                 result[i] = SortRef(Z3_get_decl_sort_parameter(self.ctx_ref(), self.ast, i), ctx)
             elif k == Z3_PARAMETER_AST:

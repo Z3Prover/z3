@@ -11,7 +11,7 @@ Abstract:
 
 Author:
 
-    GitHub Copilot Agent 2025
+    Nikolaj Bjorner (nbjorner) - October 2025
 
 --*/
 
@@ -222,6 +222,44 @@ br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result)
         result = m.mk_eq(elem, singleton_elem);
         return BR_REWRITE1;
     }
-    
+    // NB we don't rewrite (set.in x (set.union s t)) to (or (set.in x s) (set.in x t))
+    // because it creates two new sub-expressions. The expression (set.union s t) could
+    // be shared with other expressions so the net effect of this rewrite could be to create
+    // a larger formula for the solver.
+    return BR_FAILED;
+}
+
+
+/**
+* if a, b are set expressions we can create an on-the-fly heap for their min-elements
+* a, b are normalized to the form (set.union s t) or (set.empty) where 
+* s is a singleton or range expression such that every element in t are above s.
+* we distinguish numerical values from value expressions:
+* - for numerical values we use the ordering over numerals to pick minimal ranges
+* - for unique value expressions ranging over non-numerals use expression identifiers
+* - for other expressions use identifiers to sort expressions, but make sure to be inconclusive
+*   for set difference
+* We want mk_eq_core to produce a result true/false if the arguments are both (unique) values.
+* This allows to evaluate models for being well-formed conclusively.
+* 
+* A way to convert a set expression to a heap is as follows:
+* 
+* min({s}) = {s} u {}
+* min({}) = {}
+* min([l..u]) = [l..u] u {}
+* min(s u t) = 
+*   let range_s u s1 = min(s)
+*   let range_t u t1 = min(t)
+*   if range_s < range_t: 
+*        range_s u (t u s1)
+*   if range_t < range_t:
+*        range_t u (s u t1)
+*   if range_t n range_s != {}:
+*        min(range_t, range_s) u the rest ...
+*   etc.
+*/
+
+br_status finite_set_rewriter::mk_eq_core(expr* a, expr* b, expr_ref& result) {
+
     return BR_FAILED;
 }

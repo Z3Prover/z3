@@ -2328,7 +2328,7 @@ public:
     unsigned get_num_parents(proof const * p) const {
         SASSERT(is_proof(p));
         unsigned n = p->get_num_args();
-        return p->get_decl()->get_decl_kind() == PR_TH_LEMMA ? n - 2 : !has_fact(p) ? n : n - 1;
+        return !has_fact(p) ? n : n - 1;
     }
     proof * get_parent(proof const * p, unsigned idx) const { SASSERT(is_proof(p)); return to_app(p->get_arg(idx)); }
     proof * mk_true_proof();

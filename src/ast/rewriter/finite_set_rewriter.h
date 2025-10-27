@@ -55,5 +55,7 @@ public:
     finite_set_util& util() { return m_util; }
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);   
+
+    br_status mk_eq_core(expr *a, expr *b, expr_ref &result);
 };
 

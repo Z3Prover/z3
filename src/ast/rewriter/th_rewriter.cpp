@@ -688,6 +688,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             st = m_ar_rw.mk_eq_core(a, b, result);
         else if (s_fid == m_seq_rw.get_fid())
             st = m_seq_rw.mk_eq_core(a, b, result);
+        else if (s_fid == m_fs_rw.get_fid())
+            st = m_fs_rw.mk_eq_core(a, b, result);
         if (st != BR_FAILED)
             return st;
         st = extended_bv_eq(a, b, result);

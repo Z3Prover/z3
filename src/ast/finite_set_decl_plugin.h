@@ -47,7 +47,7 @@ enum finite_set_op_kind {
     OP_FINITE_SET_MAP,
     OP_FINITE_SET_FILTER,
     OP_FINITE_SET_RANGE,
-    OP_FINITE_SET_DIFF,
+    OP_FINITE_SET_EXT,
     OP_FINITE_SET_MAP_INVERSE,
     LAST_FINITE_SET_OP
 };
@@ -154,6 +154,11 @@ public:
     
     ast_manager& get_manager() const { return m_manager; }
 
+    sort *mk_finite_set_sort(sort *elem_sort) {
+        parameter param(elem_sort);
+        return m_manager.mk_sort(m_fid, FINITE_SET_SORT, 1, &param);
+    }
+
     app * mk_empty(sort* set_sort) {
         parameter param(set_sort);
         return m_manager.mk_app(m_fid, OP_FINITE_SET_EMPTY, 1, &param, 0, nullptr);
@@ -173,6 +178,10 @@ public:
 
     app * mk_difference(expr* s1, expr* s2) {
         return m_manager.mk_app(m_fid, OP_FINITE_SET_DIFFERENCE, s1, s2);
+    }
+
+    app *mk_ext(expr *s1, expr *s2) {
+        return m_manager.mk_app(m_fid, OP_FINITE_SET_EXT, s1, s2);
     }
 
     app * mk_in(expr* elem, expr* set) {

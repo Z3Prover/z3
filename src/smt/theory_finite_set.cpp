@@ -344,6 +344,7 @@ namespace smt {
             if (u.is_size(e))
                 has_size = true;
         }
+        TRACE(finite_set, tout << "has-map " << has_map << " has-filter-size " << has_filter << has_size << "\n");
         if (has_map)
             return false; // todo use more expensive model check here
         if (has_filter && has_size)
@@ -408,12 +409,12 @@ namespace smt {
         // walk the watch list and try to find new watches or propagate
         unsigned j = 0;
         for (unsigned i = 0; i < m_clauses.watch[idx].size(); ++i) {
-            TRACE(finite_set, tout << " watch[" << i << "] size: " << m_clauses.watch[i].size() << "\n";);
+            TRACE(finite_set, tout << "watch[" << i << "] size: " << m_clauses.watch[i].size() << "\n";);
             auto clause_idx = m_clauses.watch[idx][i];
             auto* ax = m_clauses.axioms[clause_idx];
             auto &clause = ax->clause;
             if (any_of(clause, [&](expr *lit) { return ctx.find_assignment(lit) == l_true; })) {
-                TRACE(finite_set, tout << "  satisfied\n";);
+                TRACE(finite_set, tout << "satisfied\n";);
                 m_clauses.watch[idx][j++] = clause_idx;
                 continue; // clause is already satisfied
             }
@@ -445,7 +446,7 @@ namespace smt {
                 auto litid = 2 * lit->get_id() + litneg;              
                 m_clauses.watch.reserve(litid + 1);
                 m_clauses.watch[litid].push_back(clause_idx);
-                TRACE(finite_set, tout << "  new watch for " << mk_pp(lit, m) << "\n";);
+                TRACE(finite_set, tout << "new watch for " << mk_pp(lit, m) << "\n";);
                 found_swap = true;
                 break;
             }
@@ -454,7 +455,7 @@ namespace smt {
             // either all literals are false, or the other watch literal is propagating.
             m_clauses.squeue.push_back(clause_idx);
             ctx.push_trail(push_back_vector(m_clauses.squeue));
-            TRACE(finite_set, tout << "  propagate clause\n";);
+            TRACE(finite_set, tout << "propagate clause\n";);
             m_clauses.watch[idx][j++] = clause_idx;
             ++i;
             for (; i < m_clauses.watch[idx].size(); ++i)
@@ -630,39 +631,44 @@ namespace smt {
     void theory_finite_set::add_membership_axioms(expr *elem, expr *set) {
         TRACE(finite_set, tout << "add_membership_axioms: " << mk_pp(elem, m) << " in " << mk_pp(set, m) << "\n";);
 
-        if (!is_new_axiom(elem, set))
-            return;
-
-        // Instantiate appropriate axiom based on set structure
-        if (u.is_empty(set)) {
-            m_axioms.in_empty_axiom(elem);
+        try {
+            // Instantiate appropriate axiom based on set structure
+            if (!is_new_axiom(elem, set))
+                ;
+            else if (u.is_empty(set)) {
+                m_axioms.in_empty_axiom(elem);
+            }
+            else if (u.is_singleton(set)) {
+                m_axioms.in_singleton_axiom(elem, set);
+            }
+            else if (u.is_union(set)) {
+                m_axioms.in_union_axiom(elem, set);
+            }
+            else if (u.is_intersect(set)) {
+                m_axioms.in_intersect_axiom(elem, set);
+            }
+            else if (u.is_difference(set)) {
+                m_axioms.in_difference_axiom(elem, set);
+            }
+            else if (u.is_range(set)) {
+                m_axioms.in_range_axiom(elem, set);
+            }
+            else if (u.is_map(set)) {
+                m_axioms.in_map_axiom(elem, set);
+                m_axioms.in_map_image_axiom(elem, set);
+            }
+            else if (u.is_filter(set)) {
+                m_axioms.in_filter_axiom(elem, set);
+            }
+        } catch (...) {
+            TRACE(finite_set, tout << "exception\n");
+            throw;
         }
-        else if (u.is_singleton(set)) {
-            m_axioms.in_singleton_axiom(elem, set);
-        }
-        else if (u.is_union(set)) {
-            m_axioms.in_union_axiom(elem, set);
-        }
-        else if (u.is_intersect(set)) {
-            m_axioms.in_intersect_axiom(elem, set);
-        }
-        else if (u.is_difference(set)) {
-            m_axioms.in_difference_axiom(elem, set);
-        }
-        else if (u.is_range(set)) {
-            m_axioms.in_range_axiom(elem, set);
-        }
-        else if (u.is_map(set)) {
-            m_axioms.in_map_axiom(elem, set);
-            m_axioms.in_map_image_axiom(elem, set);
-        }
-        else if (u.is_filter(set)) {
-            m_axioms.in_filter_axiom(elem, set);
-        }        
+        TRACE(finite_set, tout << "after add_membership_axioms: " << mk_pp(elem, m) << " in " << mk_pp(set, m) << "\n";);
     }
 
     void theory_finite_set::add_clause(theory_axiom* ax) {
-        TRACE(finite_set, tout << "add_clause: " << ax << "\n");
+        TRACE(finite_set, tout << "add_clause: " << *ax << "\n");
         ctx.push_trail(push_back_vector(m_clauses.axioms));
         ctx.push_trail(new_obj_trail(ax));
         m_clauses.axioms.push_back(ax);
@@ -933,7 +939,7 @@ namespace smt {
         }
 
         if (undef_count == 1) {
-            TRACE(finite_set, tout << " propagate unit: " << mk_pp(unit, m) << "\n" << clause << "\n";);
+            TRACE(finite_set, tout << "propagate unit: " << mk_pp(unit, m) << "\n" << clause << "\n";);
             auto lit = mk_literal(unit);
             literal_vector antecedent;
             for (auto e : clause) {
@@ -951,15 +957,10 @@ namespace smt {
                 // only propagations that are processed by conflict resolution. 
                 // this misses conflicts at base level.
                 proof_ref pr(m);
-                expr_ref_vector args(m);
-                for (auto const &p : ax->params) {
-                    if (p.is_ast())
-                        args.push_back(to_expr(p.get_ast()));
-                    else
-                        args.push_back(m.mk_const(p.get_symbol(), m.mk_proof_sort()));
-                }
-                
-                pr = m.mk_app(m.get_family_name(get_family_id()), args.size(), args.data(), m.mk_proof_sort());
+                proof_ref_vector args(m);
+                for (auto a : antecedent) 
+                    args.push_back(m.mk_hypothesis(ctx.literal2expr(a)));          
+                pr = m.mk_th_lemma(get_id(), unit, args.size(), args.data(), ax->params.size(), ax->params.data());
                 justification_proof_wrapper jp(ctx, pr.get(), false);
                 ctx.get_clause_proof().propagate(lit, &jp, antecedent);
                 jp.del_eh(m);
@@ -972,7 +973,7 @@ namespace smt {
             m_stats.m_num_axioms_conflicts++;
         else
             m_stats.m_num_axioms_case_splits++;
-        TRACE(finite_set, tout << " assert " << (is_conflict ? "conflict" : "case split") << clause << "\n";);
+        TRACE(finite_set, tout << "assert " << (is_conflict ? "conflict" : "case split") << clause << "\n";);
         literal_vector lclause;
         for (auto e : clause)
             lclause.push_back(mk_literal(e));
