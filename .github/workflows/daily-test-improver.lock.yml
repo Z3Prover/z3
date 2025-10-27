@@ -2996,7 +2996,7 @@ jobs:
     steps:
       - name: Download patch artifact
         continue-on-error: true
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: aw.patch
           path: /tmp/
