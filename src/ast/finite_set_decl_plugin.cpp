@@ -71,7 +71,7 @@ void finite_set_decl_plugin::init() {
     sort* arrABsetA[2] = { arrAB, setA };
     sort* arrABoolsetA[2] = { arrABool, setA };
     sort* intintT[2] = { intT, intT };
-    sort *arrABsetBsetA[3] = {arrAB, setB, setA};
+    sort *arrABBsetA[3] = {arrAB, B, setA};
     
     m_sigs.resize(LAST_FINITE_SET_OP);
     m_sigs[OP_FINITE_SET_EMPTY]      = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_EMPTY],      1, 0, nullptr, setA);
@@ -86,7 +86,7 @@ void finite_set_decl_plugin::init() {
     m_sigs[OP_FINITE_SET_FILTER]     = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_FILTER], 1, 2, arrABoolsetA, setA);
     m_sigs[OP_FINITE_SET_RANGE]      = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_RANGE],      0, 2, intintT, setInt);
     m_sigs[OP_FINITE_SET_EXT]        = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_EXT], 1, 2, setAsetA, A);
-    m_sigs[OP_FINITE_SET_MAP_INVERSE] = alloc(polymorphism::psig, m, "set.map_inverse", 2, 3, arrABsetBsetA, A);
+    m_sigs[OP_FINITE_SET_MAP_INVERSE] = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_MAP_INVERSE], 2, 3, arrABBsetA, A);
 }
 
 sort * finite_set_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {

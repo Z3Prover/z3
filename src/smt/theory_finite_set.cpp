@@ -66,6 +66,7 @@ namespace smt {
     *         (set.in (f x) (set.map f S))
     */
     theory_var theory_finite_set::mk_var(enode *n) {
+        TRACE(finite_set, tout << "mk_var: " << enode_pp(n, ctx) << "\n");
         theory_var r = theory::mk_var(n);
         VERIFY(r == static_cast<theory_var>(m_find.mk_var()));
         SASSERT(r == static_cast<int>(m_var_data.size()));
@@ -88,7 +89,7 @@ namespace smt {
         }
         else if (u.is_union(e) || u.is_intersect(e) || 
             u.is_difference(e) || u.is_singleton(e) ||
-            u.is_empty(e) || u.is_range(e)) {            
+            u.is_empty(e) || u.is_range(e) || u.is_filter(e) || u.is_map(e)) {            
             m_var_data[r]->m_setops.push_back(n);
             ctx.push_trail(push_back_trail(m_var_data[r]->m_setops));
             for (auto arg : enode::args(n)) {
@@ -103,9 +104,6 @@ namespace smt {
                 m_var_data[v]->m_parent_setops.push_back(n);
                 ctx.push_trail(push_back_trail(m_var_data[v]->m_parent_setops));
             }
-        }
-        else if (u.is_map(e) || u.is_filter(e)) {
-            NOT_IMPLEMENTED_YET();
         }
         else if (u.is_range(e)) {
             
@@ -362,9 +360,7 @@ namespace smt {
      * - (set.range lo hi) -> lo-1,hi+1 not in range, lo, hi in range if lo <= hi     * 
      *
      * Other axioms:
-     * - (set.singleton x) -> (set.size (set.singleton x)) = 1
-     * - (set.empty)       -> (set.size (set.empty)) = 0
-
+     * - (set.size s)       -> 0 <= (set.size s) <= upper-bound(s)
      */
     void theory_finite_set::add_immediate_axioms(app* term) {
         expr *elem = nullptr, *set = nullptr;
@@ -389,6 +385,10 @@ namespace smt {
             range_local.push_back(hi);
             range_local.push_back(a.mk_add(lo, a.mk_int(-1)));
             range_local.push_back(a.mk_add(hi, a.mk_int(1)));
+        }
+        else if (u.is_size(term)) {
+            m_axioms.size_lb_axiom(term);
+            m_axioms.size_ub_axiom(term);
         }
        
         // Assert all new lemmas as clauses
@@ -631,38 +631,34 @@ namespace smt {
     void theory_finite_set::add_membership_axioms(expr *elem, expr *set) {
         TRACE(finite_set, tout << "add_membership_axioms: " << mk_pp(elem, m) << " in " << mk_pp(set, m) << "\n";);
 
-        try {
             // Instantiate appropriate axiom based on set structure
-            if (!is_new_axiom(elem, set))
-                ;
-            else if (u.is_empty(set)) {
-                m_axioms.in_empty_axiom(elem);
-            }
-            else if (u.is_singleton(set)) {
-                m_axioms.in_singleton_axiom(elem, set);
-            }
-            else if (u.is_union(set)) {
-                m_axioms.in_union_axiom(elem, set);
-            }
-            else if (u.is_intersect(set)) {
-                m_axioms.in_intersect_axiom(elem, set);
-            }
-            else if (u.is_difference(set)) {
-                m_axioms.in_difference_axiom(elem, set);
-            }
-            else if (u.is_range(set)) {
-                m_axioms.in_range_axiom(elem, set);
-            }
-            else if (u.is_map(set)) {
-                m_axioms.in_map_axiom(elem, set);
-                m_axioms.in_map_image_axiom(elem, set);
-            }
-            else if (u.is_filter(set)) {
-                m_axioms.in_filter_axiom(elem, set);
-            }
-        } catch (...) {
-            TRACE(finite_set, tout << "exception\n");
-            throw;
+        if (!is_new_axiom(elem, set))
+            ;
+        else if (u.is_empty(set)) {
+            m_axioms.in_empty_axiom(elem);
+        }
+        else if (u.is_singleton(set)) {
+            m_axioms.in_singleton_axiom(elem, set);
+        }
+        else if (u.is_union(set)) {
+            m_axioms.in_union_axiom(elem, set);
+        }
+        else if (u.is_intersect(set)) {
+            m_axioms.in_intersect_axiom(elem, set);
+        }
+        else if (u.is_difference(set)) {
+            m_axioms.in_difference_axiom(elem, set);
+        }
+        else if (u.is_range(set)) {
+            m_axioms.in_range_axiom(elem, set);
+        }
+        else if (u.is_map(set)) {
+            // TODO type of elem could be from the pre-image
+            m_axioms.in_map_axiom(elem, set);
+            m_axioms.in_map_image_axiom(elem, set);
+        }
+        else if (u.is_filter(set)) {            
+            m_axioms.in_filter_axiom(elem, set);
         }
         TRACE(finite_set, tout << "after add_membership_axioms: " << mk_pp(elem, m) << " in " << mk_pp(set, m) << "\n";);
     }

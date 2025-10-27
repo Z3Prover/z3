@@ -206,11 +206,15 @@ void finite_set_axioms::in_range_axiom(expr* r) {
 // a := set.map(f, b)
 // (x in a) <=> set.map_inverse(f, x, b) in b
 void finite_set_axioms::in_map_axiom(expr *x, expr *a) {
-    expr* f = nullptr, *b = nullptr;
+    expr *f = nullptr, *b = nullptr;
+    sort *elem_sort = nullptr;
+    VERIFY(u.is_finite_set(a->get_sort(), elem_sort));
+    if (x->get_sort() != elem_sort)
+        return;
     if (!u.is_map(a, f, b))
         return;
     
-    expr_ref inv(u.mk_map_inverse(x, f, b), m);
+    expr_ref inv(u.mk_map_inverse(f, x, b), m);
     expr_ref f1(u.mk_in(x, a), m);
     expr_ref f2(u.mk_in(inv, b), m);
     add_binary("map-inverse", x, a, m.mk_not(f1), f2);
@@ -221,7 +225,11 @@ void finite_set_axioms::in_map_axiom(expr *x, expr *a) {
 // (x in b) => f(x) in a
 void finite_set_axioms::in_map_image_axiom(expr *x, expr *a) {
     expr* f = nullptr, *b = nullptr;
+    sort *elem_sort = nullptr;
     if (!u.is_map(a, f, b))
+        return;
+    VERIFY(u.is_finite_set(b->get_sort(), elem_sort));
+    if (x->get_sort() != elem_sort)
         return;
     
     expr_ref x_in_b(u.mk_in(x, b), m);
@@ -286,56 +294,59 @@ void finite_set_axioms::add_ternary(char const *name, expr *p1, expr *p2, expr *
 // Auxiliary algebraic axioms to ease reasoning about set.size
 // The axioms are not required for completenss for the base fragment
 // as they are handled by creating semi-linear sets.
-void finite_set_axioms::size_ub_axiom(expr *e) {
-    expr *b = nullptr, *x = nullptr, *y = nullptr;
+void finite_set_axioms::size_ub_axiom(expr *sz) {
+    expr *b = nullptr, *e = nullptr, *x = nullptr, *y = nullptr;
+    if (!u.is_size(sz, e))
+        return;
     arith_util a(m);
     expr_ref ineq(m);
 
     if (u.is_singleton(e, b)) 
-        add_unit("size", e, m.mk_eq(u.mk_size(e), a.mk_int(1)));    
+        add_unit("size", e, m.mk_eq(sz, a.mk_int(1)));    
     else if (u.is_empty(e)) 
-        add_unit("size", e, m.mk_eq(u.mk_size(e), a.mk_int(0)));    
+        add_unit("size", e, m.mk_eq(sz, a.mk_int(0)));    
     else if (u.is_union(e, x, y)) {
-        ineq = a.mk_le(u.mk_size(e), a.mk_add(u.mk_size(x), u.mk_size(y)));
+        ineq = a.mk_le(sz, a.mk_add(u.mk_size(x), u.mk_size(y)));
         m_rewriter(ineq);
         add_unit("size", e, ineq);
     }
     else if (u.is_intersect(e, x, y)) {        
-        ineq = a.mk_le(u.mk_size(e), u.mk_size(x));
+        ineq = a.mk_le(sz, u.mk_size(x));
         m_rewriter(ineq);
         add_unit("size", e, ineq);
-        ineq = a.mk_le(u.mk_size(e), u.mk_size(y));
+        ineq = a.mk_le(sz, u.mk_size(y));
         m_rewriter(ineq);
         add_unit("size", e, ineq);
     }
     else if (u.is_difference(e, x, y)) {
-        ineq = a.mk_le(u.mk_size(e), u.mk_size(x));
+        ineq = a.mk_le(sz, u.mk_size(x));
         m_rewriter(ineq);
         add_unit("size", e, ineq);
     }
     else if (u.is_filter(e, x, y)) {
-        ineq = a.mk_le(u.mk_size(e), u.mk_size(y));
+        ineq = a.mk_le(sz, u.mk_size(y));
         m_rewriter(ineq);
         add_unit("size", e, ineq);
     }
     else if (u.is_map(e, x, y)) {
-        ineq = a.mk_le(u.mk_size(e), u.mk_size(y));
+        ineq = a.mk_le(sz, u.mk_size(y));
         m_rewriter(ineq);
         add_unit("size", e, ineq);
     }
     else if (u.is_range(e, x, y)) {
-        ineq = a.mk_eq(u.mk_size(e), m.mk_ite(a.mk_le(x, y), a.mk_add(a.mk_sub(y, x), a.mk_int(1)), a.mk_int(0)));
+        ineq = a.mk_eq(sz, m.mk_ite(a.mk_le(x, y), a.mk_add(a.mk_sub(y, x), a.mk_int(1)), a.mk_int(0)));
         m_rewriter(ineq);
         add_unit("size", e, ineq);
     }    
 }
 
 void finite_set_axioms::size_lb_axiom(expr* e) {
+    VERIFY(u.is_size(e));
     arith_util a(m);
     expr_ref ineq(m);
-    ineq = a.mk_le(a.mk_int(0), u.mk_size(e));
+    ineq = a.mk_le(a.mk_int(0), e);
     m_rewriter(ineq);
-    add_unit("size-lb", e, ineq);
+    add_unit("size", e, ineq);
 }
 
 void finite_set_axioms::subset_axiom(expr* a) {

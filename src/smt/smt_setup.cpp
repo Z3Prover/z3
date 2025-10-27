@@ -845,6 +845,7 @@ namespace smt {
             setup_bv();
             setup_dl();
             setup_seq_str(st);
+            setup_finite_set();
             setup_fpa();
             setup_recfuns();
             setup_special_relations();
