@@ -631,36 +631,33 @@ namespace smt {
     void theory_finite_set::add_membership_axioms(expr *elem, expr *set) {
         TRACE(finite_set, tout << "add_membership_axioms: " << mk_pp(elem, m) << " in " << mk_pp(set, m) << "\n";);
 
-            // Instantiate appropriate axiom based on set structure
+        // Instantiate appropriate axiom based on set structure
         if (!is_new_axiom(elem, set))
             ;
-        else if (u.is_empty(set)) {
-            m_axioms.in_empty_axiom(elem);
-        }
-        else if (u.is_singleton(set)) {
-            m_axioms.in_singleton_axiom(elem, set);
-        }
-        else if (u.is_union(set)) {
-            m_axioms.in_union_axiom(elem, set);
-        }
-        else if (u.is_intersect(set)) {
-            m_axioms.in_intersect_axiom(elem, set);
-        }
-        else if (u.is_difference(set)) {
-            m_axioms.in_difference_axiom(elem, set);
-        }
-        else if (u.is_range(set)) {
-            m_axioms.in_range_axiom(elem, set);
-        }
+        else if (u.is_empty(set))
+            m_axioms.in_empty_axiom(elem);        
+        else if (u.is_singleton(set)) 
+            m_axioms.in_singleton_axiom(elem, set);        
+        else if (u.is_union(set)) 
+            m_axioms.in_union_axiom(elem, set);        
+        else if (u.is_intersect(set)) 
+            m_axioms.in_intersect_axiom(elem, set);        
+        else if (u.is_difference(set)) 
+            m_axioms.in_difference_axiom(elem, set);        
+        else if (u.is_range(set))
+            m_axioms.in_range_axiom(elem, set);        
         else if (u.is_map(set)) {
-            // TODO type of elem could be from the pre-image
+            // sort *elem_sort = u.finte_set_elem_sort(set->get_sort());
+            
+            // set.map_inverse can loop. need to check instance generation.
             m_axioms.in_map_axiom(elem, set);
+            
+            // this can also loop:
             m_axioms.in_map_image_axiom(elem, set);
         }
-        else if (u.is_filter(set)) {            
+        else if (u.is_filter(set)) {
             m_axioms.in_filter_axiom(elem, set);
         }
-        TRACE(finite_set, tout << "after add_membership_axioms: " << mk_pp(elem, m) << " in " << mk_pp(set, m) << "\n";);
     }
 
     void theory_finite_set::add_clause(theory_axiom* ax) {

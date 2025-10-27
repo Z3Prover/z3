@@ -32,6 +32,27 @@ std::ostream& operator<<(std::ostream& out, theory_axiom const& ax) {
     return out;
 }
 
+void finite_set_axioms::add_unit(char const *name, expr *p1, expr *unit) {
+    theory_axiom *ax = alloc(theory_axiom, m, name, p1);
+    ax->clause.push_back(unit);
+    m_add_clause(ax);
+}
+
+void finite_set_axioms::add_binary(char const *name, expr *p1, expr *p2, expr *f1, expr *f2) {
+    theory_axiom *ax = alloc(theory_axiom, m, name, p1, p2);
+    ax->clause.push_back(f1);
+    ax->clause.push_back(f2);
+    m_add_clause(ax);
+}
+
+void finite_set_axioms::add_ternary(char const *name, expr *p1, expr *p2, expr *f1, expr *f2, expr *f3) {
+    theory_axiom *ax = alloc(theory_axiom, m, name, p1, p2);
+    ax->clause.push_back(f1);
+    ax->clause.push_back(f2);
+    ax->clause.push_back(f3);
+    m_add_clause(ax);
+}
+
 // a ~ set.empty => not (x in a)
 // x is an element, generate axiom that x is not in any empty set of x's type
 void finite_set_axioms::in_empty_axiom(expr *x) {
@@ -205,6 +226,7 @@ void finite_set_axioms::in_range_axiom(expr* r) {
 
 // a := set.map(f, b)
 // (x in a) <=> set.map_inverse(f, x, b) in b
+// 
 void finite_set_axioms::in_map_axiom(expr *x, expr *a) {
     expr *f = nullptr, *b = nullptr;
     sort *elem_sort = nullptr;
@@ -268,27 +290,6 @@ void finite_set_axioms::in_filter_axiom(expr *x, expr *a) {
 
     // (x in b) and p(x) => (x in a)
     add_ternary("in-filter", x, a, m.mk_not(x_in_b), npx, x_in_a);
-}
-
-void finite_set_axioms::add_unit(char const* name, expr* p1, expr* unit) {
-    theory_axiom *ax = alloc(theory_axiom, m, name, p1);
-    ax->clause.push_back(unit);
-    m_add_clause(ax);
-}
-
-void finite_set_axioms::add_binary(char const* name, expr* p1, expr* p2, expr* f1, expr* f2) {
-    theory_axiom *ax = alloc(theory_axiom, m, name, p1, p2);
-    ax->clause.push_back(f1);
-    ax->clause.push_back(f2);
-    m_add_clause(ax);
-}
-
-void finite_set_axioms::add_ternary(char const *name, expr *p1, expr *p2, expr *f1, expr *f2, expr *f3) {
-    theory_axiom *ax = alloc(theory_axiom, m, name, p1, p2);
-    ax->clause.push_back(f1);
-    ax->clause.push_back(f2);
-    ax->clause.push_back(f3);
-    m_add_clause(ax);
 }
 
 // Auxiliary algebraic axioms to ease reasoning about set.size
