@@ -46,9 +46,11 @@ class finite_set_axioms {
 
     std::function<void(theory_axiom *)> m_add_clause;
 
-    void add_unit(char const* name, expr* x, expr *e);
+    void add_unit(char const* name, expr* p1, expr *e);
 
-    void add_binary(char const *name, expr *x, expr *y, expr *f1, expr *f2);
+    void add_binary(char const *name, expr *p1, expr *p2, expr *f1, expr *f2);
+
+    void add_ternary(char const *name, expr *p1, expr *p2, expr *f1, expr *f2, expr *f3);
 
 public:
 

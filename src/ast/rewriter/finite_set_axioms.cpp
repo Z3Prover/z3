@@ -12,14 +12,13 @@ Abstract:
 
 Author:
 
-    GitHub Copilot Agent 2025
-
-Revision History:
+    nbjorner October 2025
 
 --*/
 
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 #include "ast/finite_set_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
@@ -64,16 +63,10 @@ void finite_set_axioms::in_union_axiom(expr *x, expr *a) {
     m_add_clause(ax1);
 
     // (x in b) => (x in a)
-    theory_axiom* ax2 = alloc(theory_axiom, m, "in-union", x, a);
-    ax2->clause.push_back(m.mk_not(x_in_b));
-    ax2->clause.push_back(x_in_a);
-    m_add_clause(ax2);
+    add_binary("in-union", x, a, m.mk_not(x_in_b), x_in_a);
 
     // (x in c) => (x in a)
-    theory_axiom* ax3 = alloc(theory_axiom, m, "in-union", x, a);
-    ax3->clause.push_back(m.mk_not(x_in_c));
-    ax3->clause.push_back(x_in_a);
-    m_add_clause(ax3);
+    add_binary("in-union", x, a, m.mk_not(x_in_c), x_in_a);
 }
 
 // a := set.intersect(b, c)
@@ -86,25 +79,18 @@ void finite_set_axioms::in_intersect_axiom(expr *x, expr *a) {
     expr_ref x_in_a(u.mk_in(x, a), m);
     expr_ref x_in_b(u.mk_in(x, b), m);
     expr_ref x_in_c(u.mk_in(x, c), m);
+    expr_ref nx_in_a(m.mk_not(x_in_a), m);
+    expr_ref nx_in_b(m.mk_not(x_in_b), m);
+    expr_ref nx_in_c(m.mk_not(x_in_c), m);
     
     // (x in a) => (x in b)
-    theory_axiom* ax1 = alloc(theory_axiom, m, "in-intersect", x, a);
-    ax1->clause.push_back(m.mk_not(x_in_a));
-    ax1->clause.push_back(x_in_b);
-    m_add_clause(ax1);
+    add_binary("in-intersect", x, a, nx_in_a, x_in_b);
 
     // (x in a) => (x in c)
-    theory_axiom* ax2 = alloc(theory_axiom, m, "in-intersect", x, a);
-    ax2->clause.push_back(m.mk_not(x_in_a));
-    ax2->clause.push_back(x_in_c);
-    m_add_clause(ax2);
+    add_binary("in-intersect", x, a, nx_in_a, x_in_c);
 
     // (x in b) and (x in c) => (x in a)
-    theory_axiom* ax3 = alloc(theory_axiom, m, "in-intersect", x, a);
-    ax3->clause.push_back(m.mk_not(x_in_b));
-    ax3->clause.push_back(m.mk_not(x_in_c));
-    ax3->clause.push_back(x_in_a);
-    m_add_clause(ax3);
+    add_ternary("in-intersect", x, a, nx_in_b, nx_in_c, x_in_a);
 }
 
 // a := set.difference(b, c)
@@ -117,25 +103,18 @@ void finite_set_axioms::in_difference_axiom(expr *x, expr *a) {
     expr_ref x_in_a(u.mk_in(x, a), m);
     expr_ref x_in_b(u.mk_in(x, b), m);
     expr_ref x_in_c(u.mk_in(x, c), m);
+    expr_ref nx_in_a(m.mk_not(x_in_a), m);
+    expr_ref nx_in_b(m.mk_not(x_in_b), m);
+    expr_ref nx_in_c(m.mk_not(x_in_c), m);
     
     // (x in a) => (x in b)
-    theory_axiom* ax1 = alloc(theory_axiom, m, "in-difference", x, a);
-    ax1->clause.push_back(m.mk_not(x_in_a));
-    ax1->clause.push_back(x_in_b);
-    m_add_clause(ax1);
+    add_binary("in-difference", x, a, nx_in_a, x_in_b);
     
     // (x in a) => not (x in c)
-    theory_axiom* ax2 = alloc(theory_axiom, m, "in-difference", x, a);
-    ax2->clause.push_back(m.mk_not(x_in_a));
-    ax2->clause.push_back(m.mk_not(x_in_c));
-    m_add_clause(ax2);
+    add_binary("in-difference", x, a, nx_in_a, nx_in_c);
 
     // (x in b) and not (x in c) => (x in a)
-    theory_axiom* ax3 = alloc(theory_axiom, m, "in-difference", x, a);
-    ax3->clause.push_back(m.mk_not(x_in_b));
-    ax3->clause.push_back(x_in_c);
-    ax3->clause.push_back(x_in_a);
-    m_add_clause(ax3);
+    add_ternary("in-difference", x, a, nx_in_b, x_in_c, x_in_a);
 }
 
 // a := set.singleton(b)
@@ -146,7 +125,6 @@ void finite_set_axioms::in_singleton_axiom(expr *x, expr *a) {
         return;
     
     expr_ref x_in_a(u.mk_in(x, a), m);
-
 
     if (x == b) {
         // If x and b are syntactically identical, then (x in a) is always true  
@@ -192,6 +170,8 @@ void finite_set_axioms::in_range_axiom(expr *x, expr *a) {
     expr_ref x_le_hi(arith.mk_le(arith.mk_sub(x, hi), arith.mk_int(0)), m);
     m_rewriter(lo_le_x);
     m_rewriter(x_le_hi);
+    expr_ref nx_le_hi(m.mk_not(x_le_hi), m);
+    expr_ref nlo_le_x(m.mk_not(lo_le_x), m);
     
     // (x in a) => (lo <= x)
     add_binary("in-range", x, a, m.mk_not(x_in_a), lo_le_x);
@@ -200,11 +180,7 @@ void finite_set_axioms::in_range_axiom(expr *x, expr *a) {
     add_binary("in-range", x, a, m.mk_not(x_in_a), x_le_hi);
 
     // (lo <= x) and (x <= hi) => (x in a)
-    theory_axiom* ax3 = alloc(theory_axiom, m, "in-range", x, a);
-    ax3->clause.push_back(m.mk_not(lo_le_x));
-    ax3->clause.push_back(m.mk_not(x_le_hi));
-    ax3->clause.push_back(x_in_a);
-    m_add_clause(ax3);
+    add_ternary("in-range", x, a, nlo_le_x, nx_le_hi, x_in_a);
 }
 
 // a := set.range(lo, hi)
@@ -216,19 +192,13 @@ void finite_set_axioms::in_range_axiom(expr* r) {
     expr *lo = nullptr, *hi = nullptr;
     if (!u.is_range(r, lo, hi))
         return;
-    theory_axiom* ax = alloc(theory_axiom, m, "range-bounds");
+
     arith_util a(m);
     expr_ref lo_le_hi(a.mk_le(a.mk_sub(lo, hi), a.mk_int(0)), m);
     m_rewriter(lo_le_hi);
-    ax->clause.push_back(m.mk_not(lo_le_hi));
-    ax->clause.push_back(u.mk_in(lo, r));
-    m_add_clause(ax);
 
-    ax = alloc(theory_axiom, m, "range-bounds", r);
-    ax->clause.push_back(m.mk_not(lo_le_hi));
-    ax->clause.push_back(u.mk_in(hi, r));
-    m_add_clause(ax);
-
+    add_binary("range-bounds", r, nullptr, m.mk_not(lo_le_hi), u.mk_in(lo, r));
+    add_binary("range-bounds", r, nullptr, m.mk_not(lo_le_hi), u.mk_in(hi, r));
     add_unit("range-bounds", r, m.mk_not(u.mk_in(a.mk_add(hi, a.mk_int(1)), r)));
     add_unit("range-bounds", r, m.mk_not(u.mk_in(a.mk_add(lo, a.mk_int(-1)), r)));
 }
@@ -245,10 +215,6 @@ void finite_set_axioms::in_map_axiom(expr *x, expr *a) {
     expr_ref f2(u.mk_in(inv, b), m);
     add_binary("map-inverse", x, a, m.mk_not(f1), f2);
     add_binary("map-inverse", x, b, f1, m.mk_not(f2));
-    // For now, we provide a placeholder implementation
-    // The full implementation would require skolemization
-    // to express the inverse relationship properly.
-    // This would be: exists y. f(y) = x and y in b
 }
 
 // a := set.map(f, b)
@@ -283,6 +249,8 @@ void finite_set_axioms::in_filter_axiom(expr *x, expr *a) {
     // Apply predicate p to x using array select
     array_util autil(m);
     expr_ref px(autil.mk_select(p, x), m);
+    m_rewriter(px);
+    expr_ref npx(mk_not(m, px), m);
     
     // (x in a) => (x in b)
     add_binary("in-filter", x, a, m.mk_not(x_in_a), x_in_b);
@@ -291,23 +259,27 @@ void finite_set_axioms::in_filter_axiom(expr *x, expr *a) {
     add_binary("in-filter", x, a, m.mk_not(x_in_a), px);
 
     // (x in b) and p(x) => (x in a)
-    theory_axiom* ax3 = alloc(theory_axiom, m, "in-filter", x, a);
-    ax3->clause.push_back(m.mk_not(x_in_b));
-    ax3->clause.push_back(m.mk_not(px));
-    ax3->clause.push_back(x_in_a);
-    m_add_clause(ax3);
+    add_ternary("in-filter", x, a, m.mk_not(x_in_b), npx, x_in_a);
 }
 
-void finite_set_axioms::add_unit(char const* name, expr* e, expr* unit) {
-    theory_axiom *ax = alloc(theory_axiom, m, name, e);
+void finite_set_axioms::add_unit(char const* name, expr* p1, expr* unit) {
+    theory_axiom *ax = alloc(theory_axiom, m, name, p1);
     ax->clause.push_back(unit);
     m_add_clause(ax);
 }
 
-void finite_set_axioms::add_binary(char const* name, expr* x, expr* y, expr* f1, expr* f2) {
-    theory_axiom *ax = alloc(theory_axiom, m, name, x, y);
+void finite_set_axioms::add_binary(char const* name, expr* p1, expr* p2, expr* f1, expr* f2) {
+    theory_axiom *ax = alloc(theory_axiom, m, name, p1, p2);
     ax->clause.push_back(f1);
     ax->clause.push_back(f2);
+    m_add_clause(ax);
+}
+
+void finite_set_axioms::add_ternary(char const *name, expr *p1, expr *p2, expr *f1, expr *f2, expr *f3) {
+    theory_axiom *ax = alloc(theory_axiom, m, name, p1, p2);
+    ax->clause.push_back(f1);
+    ax->clause.push_back(f2);
+    ax->clause.push_back(f3);
     m_add_clause(ax);
 }
 
@@ -369,20 +341,10 @@ void finite_set_axioms::size_lb_axiom(expr* e) {
 void finite_set_axioms::subset_axiom(expr* a) {
     expr *b = nullptr, *c = nullptr;
     if (!u.is_subset(a, b, c))
-        return;
-    
-    expr_ref intersect_bc(u.mk_intersect(b, c), m);
-    expr_ref eq(m.mk_eq(intersect_bc, b), m);
-
-    theory_axiom* ax1 = alloc(theory_axiom, m,  "subset", a);
-    ax1->clause.push_back(m.mk_not(a));
-    ax1->clause.push_back(eq);
-    m_add_clause(ax1);
-
-    theory_axiom* ax2 = alloc(theory_axiom, m,  "subset", a);
-    ax2->clause.push_back(a);
-    ax2->clause.push_back(m.mk_not(eq));
-    m_add_clause(ax2);
+        return;    
+    expr_ref eq(m.mk_eq(u.mk_intersect(b, c), b), m);
+    add_binary("subset", a, nullptr, m.mk_not(a), eq);
+    add_binary("subset", a, nullptr, a, m.mk_not(eq));
 }
 
 void finite_set_axioms::extensionality_axiom(expr *a, expr* b) {
@@ -392,17 +354,10 @@ void finite_set_axioms::extensionality_axiom(expr *a, expr* b) {
     expr_ref a_eq_b(m.mk_eq(a, b), m);
     expr_ref diff_in_a(u.mk_in(diff_ab, a), m);
     expr_ref diff_in_b(u.mk_in(diff_ab, b), m);
+    expr_ref ndiff_in_a(m.mk_not(diff_in_a), m);
+    expr_ref ndiff_in_b(m.mk_not(diff_in_b), m);
     
     // (a != b) => (x in diff_ab != x in diff_ba) 
-    theory_axiom* ax = alloc(theory_axiom, m, "extensionality", a, b);
-    ax->clause.push_back(a_eq_b);
-    ax->clause.push_back(m.mk_not(diff_in_a));
-    ax->clause.push_back(m.mk_not(diff_in_b));
-    m_add_clause(ax);
-
-    ax = alloc(theory_axiom, m, "extensionality", a, b);
-    ax->clause.push_back(a_eq_b);
-    ax->clause.push_back(diff_in_a);
-    ax->clause.push_back(diff_in_b);
-    m_add_clause(ax);
+    add_ternary("extensionality", a, b, a_eq_b, ndiff_in_a, ndiff_in_b);
+    add_ternary("extensionality", a, b, a_eq_b, diff_in_a, diff_in_b);
 }
