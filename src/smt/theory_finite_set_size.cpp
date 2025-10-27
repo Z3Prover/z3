@@ -470,6 +470,7 @@ namespace smt {
         }
     }
 
+
     std::ostream& theory_finite_set_size::display(std::ostream& out) const {
         if (m_solver)
             m_solver->display(out << "set.size-solver\n");
