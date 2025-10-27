@@ -171,11 +171,8 @@ namespace smt {
         for (auto [a, b] : th.m_diseqs) {
             auto x = th.get_enode(a);
             auto y = th.get_enode(b);
+            diseq d = {a, b};
             if (n2b.contains(x) && n2b.contains(y)) {
-                diseq d = {a, b};
-                auto b = m.mk_const(symbol("!="), m.mk_bool_sort());
-                m_assumptions.insert(b, d);
-                m_solver->assert_expr(m.mk_implies(b, m.mk_not(m.mk_iff(n2b[x], n2b[y]))));
                 arith_util a(m);
                 auto d1 = mk_diff(x, y);
                 auto d2 = mk_diff(y, x);
