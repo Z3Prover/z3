@@ -68,6 +68,6 @@ namespace smt {
         void add_theory_assumptions(expr_ref_vector &assumptions); 
         bool should_research(expr_ref_vector &unsat_core);
         lbool final_check(); 
-        std::ostream &display(std::ostream &out);
+        std::ostream &display(std::ostream &out) const;
     };
 }

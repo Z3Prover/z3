@@ -35,7 +35,15 @@ where the signature is defined in finite_set_decl_plugin.h.
 class finite_set_rewriter {
     friend class finite_set_rewriter_test;
     ast_manager &m;
-    finite_set_util  m_util;
+    finite_set_util  u;
+    expr_ref_vector m_pinned;
+    expr_mark m_is_min;
+    
+    expr * min(expr *a);
+    std::pair<expr *, expr *> get_min(expr *a);
+    bool is_less(expr *a, expr *b);
+    expr *mk_union(expr *a, expr *b);
+    bool from_unique_values(expr *a);
 
     // Rewrite rules for set operations
     br_status mk_union(unsigned num_args, expr *const *args, expr_ref &result);
@@ -48,11 +56,11 @@ class finite_set_rewriter {
 
 public:
     finite_set_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m(m), m_util(m) {
+        m(m), u(m), m_pinned(m) {
     }
     
-    family_id get_fid() const { return m_util.get_family_id(); }
-    finite_set_util& util() { return m_util; }
+    family_id get_fid() const { return u.get_family_id(); }
+    finite_set_util& util() { return u; }
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);   
 

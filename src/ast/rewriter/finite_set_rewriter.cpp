@@ -17,6 +17,7 @@ Author:
 
 #include "ast/rewriter/finite_set_rewriter.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/ast_pp.h"
 
 br_status finite_set_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
@@ -39,7 +40,6 @@ br_status finite_set_rewriter::mk_app_core(func_decl * f, unsigned num_args, exp
         SASSERT(num_args == 2);
         return mk_in(args[0], args[1], result);
     case OP_FINITE_SET_SIZE:
-        // Size is already in normal form, no simplifications
         return mk_size(args[0], result);
     default:
         return BR_FAILED;
@@ -55,18 +55,18 @@ br_status finite_set_rewriter::mk_union(unsigned num_args, expr * const * args, 
     
     // Identity: set.union(x, empty) -> x or set.union(empty, x) -> x
     if (num_args == 2) {
-        if (m_util.is_empty(args[0])) {
+        if (u.is_empty(args[0])) {
             result = args[1];
             return BR_DONE;
         }
-        if (m_util.is_empty(args[1])) {
+        if (u.is_empty(args[1])) {
             result = args[0];
             return BR_DONE;
         }
         
         // Absorption: set.union(x, set.intersect(x, y)) -> x
         expr* a1, *a2;
-        if (m_util.is_intersect(args[1], a1, a2)) {
+        if (u.is_intersect(args[1], a1, a2)) {
             if (args[0] == a1 || args[0] == a2) {
                 result = args[0];
                 return BR_DONE;
@@ -74,7 +74,7 @@ br_status finite_set_rewriter::mk_union(unsigned num_args, expr * const * args, 
         }
         
         // Absorption: set.union(set.intersect(x, y), x) -> x
-        if (m_util.is_intersect(args[0], a1, a2)) {
+        if (u.is_intersect(args[0], a1, a2)) {
             if (args[1] == a1 || args[1] == a2) {
                 result = args[1];
                 return BR_DONE;
@@ -94,18 +94,18 @@ br_status finite_set_rewriter::mk_intersect(unsigned num_args, expr * const * ar
     
     // Annihilation: set.intersect(x, empty) -> empty or set.intersect(empty, x) -> empty
     if (num_args == 2) {
-        if (m_util.is_empty(args[0])) {
+        if (u.is_empty(args[0])) {
             result = args[0];
             return BR_DONE;
         }
-        if (m_util.is_empty(args[1])) {
+        if (u.is_empty(args[1])) {
             result = args[1];
             return BR_DONE;
         }
         
         // Absorption: set.intersect(x, set.union(x, y)) -> x
         expr* a1, *a2;
-        if (m_util.is_union(args[1], a1, a2)) {
+        if (u.is_union(args[1], a1, a2)) {
             if (args[0] == a1 || args[0] == a2) {
                 result = args[0];
                 return BR_DONE;
@@ -113,7 +113,7 @@ br_status finite_set_rewriter::mk_intersect(unsigned num_args, expr * const * ar
         }
         
         // Absorption: set.intersect(set.union(x, y), x) -> x
-        if (m_util.is_union(args[0], a1, a2)) {
+        if (u.is_union(args[0], a1, a2)) {
             if (args[1] == a1 || args[1] == a2) {
                 result = args[1];
                 return BR_DONE;
@@ -128,19 +128,19 @@ br_status finite_set_rewriter::mk_difference(expr * arg1, expr * arg2, expr_ref 
     // set.difference(x, x) -> set.empty
     if (arg1 == arg2) {
         sort* set_sort = arg1->get_sort();
-        SASSERT(m_util.is_finite_set(set_sort));
-        result = m_util.mk_empty(set_sort);
+        SASSERT(u.is_finite_set(set_sort));
+        result = u.mk_empty(set_sort);
         return BR_DONE;
     }
     
     // Identity: set.difference(x, empty) -> x
-    if (m_util.is_empty(arg2)) {
+    if (u.is_empty(arg2)) {
         result = arg1;
         return BR_DONE;
     }
     
     // Annihilation: set.difference(empty, x) -> empty
-    if (m_util.is_empty(arg1)) {
+    if (u.is_empty(arg1)) {
         result = arg1;
         return BR_DONE;
     }
@@ -156,20 +156,20 @@ br_status finite_set_rewriter::mk_subset(expr * arg1, expr * arg2, expr_ref & re
     }
     
     // set.subset(empty, x) -> true
-    if (m_util.is_empty(arg1)) {
+    if (u.is_empty(arg1)) {
         result = m.mk_true();
         return BR_DONE;
     }
     
     // set.subset(x, empty) -> x = empty
-    if (m_util.is_empty(arg2)) {
+    if (u.is_empty(arg2)) {
         result = m.mk_eq(arg1, arg2);
         return BR_REWRITE1;
     }
     
     // General case: set.subset(x, y) -> set.intersect(x, y) = x
     expr_ref intersect(m);
-    intersect = m_util.mk_intersect(arg1, arg2);
+    intersect = u.mk_intersect(arg1, arg2);
     result = m.mk_eq(intersect, arg1);
     return BR_REWRITE3;
 }
@@ -181,18 +181,18 @@ br_status finite_set_rewriter::mk_singleton(expr * arg, expr_ref & result) {
 
 br_status finite_set_rewriter::mk_size(expr * arg, expr_ref & result) {
     arith_util a(m);
-    if (m_util.is_empty(arg)) {
+    if (u.is_empty(arg)) {
         // size(empty) -> 0
         result = a.mk_int(0);
         return BR_DONE;
     }
-    if (m_util.is_singleton(arg)) {
+    if (u.is_singleton(arg)) {
         // size(singleton(x)) -> 1
         result = a.mk_int(1);
         return BR_DONE;
     }
     expr *lower, *upper;
-    if (m_util.is_range(arg, lower, upper)) {
+    if (u.is_range(arg, lower, upper)) {
         // size(range(a, b)) -> b - a + 1
         expr_ref size_expr(m);
         size_expr = a.mk_add(a.mk_sub(upper, lower), a.mk_int(1));
@@ -205,14 +205,14 @@ br_status finite_set_rewriter::mk_size(expr * arg, expr_ref & result) {
 
 br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result) {
     // set.in(x, empty) -> false
-    if (m_util.is_empty(set)) {
+    if (u.is_empty(set)) {
         result = m.mk_false();
         return BR_DONE;
     }
     
     // set.in(x, singleton(y)) checks
     expr* singleton_elem;
-    if (m_util.is_singleton(set, singleton_elem)) {
+    if (u.is_singleton(set, singleton_elem)) {
         // set.in(x, singleton(x)) -> true (when x is the same)
         if (elem == singleton_elem) {
             result = m.mk_true();
@@ -221,6 +221,12 @@ br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result)
         // set.in(x, singleton(y)) -> x = y (when x != y)
         result = m.mk_eq(elem, singleton_elem);
         return BR_REWRITE1;
+    }
+    expr *lo = nullptr, *hi = nullptr;
+    if (u.is_range(set, lo, hi)) {
+        arith_util a(m);
+        result = m.mk_and(a.mk_le(lo, elem), a.mk_le(elem, hi));
+        return BR_REWRITE2;
     }
     // NB we don't rewrite (set.in x (set.union s t)) to (or (set.in x s) (set.in x t))
     // because it creates two new sub-expressions. The expression (set.union s t) could
@@ -248,18 +254,169 @@ br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result)
 * min({}) = {}
 * min([l..u]) = [l..u] u {}
 * min(s u t) = 
-*   let range_s u s1 = min(s)
-*   let range_t u t1 = min(t)
-*   if range_s < range_t: 
-*        range_s u (t u s1)
-*   if range_t < range_t:
-*        range_t u (s u t1)
-*   if range_t n range_s != {}:
-*        min(range_t, range_s) u the rest ...
-*   etc.
+*   let {x} u s1 = min(s)
+*   let {y} u t1 = min(t)
+*   if x = y then
+*        { x } u (s1 u t1)
+*   else  if x < y then 
+*        {x} u (s1 u ({y} u t1)
+*   else // x > y 
+*        {y} u (t1 u ({x} u s1)
+*   
+*  Handling ranges is TBD
+*  For proper range handling we have to change is_less on numeric singleton sets
+*  to use the numerical value, not the expression identifier. Then the ordering
+*  has to make all numeric values less than symbolic values.
 */
 
-br_status finite_set_rewriter::mk_eq_core(expr* a, expr* b, expr_ref& result) {
+bool finite_set_rewriter::is_less(expr *a, expr *b) {
+    return a->get_id() < b->get_id();
+}
 
-    return BR_FAILED;
+expr* finite_set_rewriter::mk_union(expr* a, expr* b) {
+    if (u.is_empty(a))
+        return b;
+    if (u.is_empty(b))
+        return a;
+    if (a == b)
+        return a;
+    return u.mk_union(a, b);
+}
+
+expr* finite_set_rewriter::min(expr* e) {
+    if (m_is_min.is_marked(e))
+        return e;
+    expr *a = nullptr, *b = nullptr;
+    if (u.is_union(e, a, b)) {
+        a = min(a);
+        b = min(b);
+        if (u.is_empty(a))
+            return b;
+        if (u.is_empty(b))
+            return a;
+        auto [x,a1] = get_min(a);
+        auto [y,b1] = get_min(b);
+        if (x == y)
+            a = mk_union(x, mk_union(a1, b1));
+        else if (is_less(x, y))
+            a = mk_union(x, mk_union(a1, b));
+        else
+            a = mk_union(y, mk_union(a, b1));
+        m_pinned.push_back(a);
+        m_is_min.mark(a);
+        return a;
+    }
+    if (u.is_intersect(e, a, b)) {
+        if (!from_unique_values(a) || !from_unique_values(b)) {
+            m_pinned.push_back(e);
+            m_is_min.mark(e);
+            return e;
+        }
+        while (true) {
+            a = min(a);
+            b = min(b);
+            if (u.is_empty(a))
+                return a;
+            if (u.is_empty(b))
+                return b;
+            auto [x, a1] = get_min(a);
+            auto [y, b1] = get_min(b);
+            if (x == y) {
+                a = mk_union(x, u.mk_intersect(a1, b1));
+                m_pinned.push_back(a);
+                m_is_min.mark(a);
+                return a;
+            }
+            else if (is_less(x, y))
+                a = a1;
+            else
+                b = b1;
+        }
+    }
+    if (u.is_difference(e, a, b)) {
+        if (!from_unique_values(a) || !from_unique_values(b)) {
+            m_pinned.push_back(e);
+            m_is_min.mark(e);
+            return e;
+        }
+        while (true) {
+            a = min(a);
+            b = min(b);
+            if (u.is_empty(a) || u.is_empty(b))
+                return a;
+            auto [x, a1] = get_min(a);
+            auto [y, b1] = get_min(b);
+            if (x == y) {
+                a = a1;
+                b = b1;
+            }
+            else if (is_less(x, y)) {
+                a = mk_union(x, u.mk_difference(a1, b));
+                m_pinned.push_back(a);
+                m_is_min.mark(a);
+                return a;
+            }
+            else {
+                b = b1;
+            }
+        }
+    }
+    // set.filter, set.map don't have decompositions
+    m_pinned.push_back(e);
+    m_is_min.mark(e);
+    return e;
+}
+
+std::pair<expr*, expr*> finite_set_rewriter::get_min(expr* a) {
+    expr *x = nullptr, *y = nullptr;
+    if (u.is_union(a, x, y))
+        return {x, y};
+    auto empty = u.mk_empty(a->get_sort());
+    m_pinned.push_back(empty);
+    return {a, empty};
+}
+
+br_status finite_set_rewriter::mk_eq_core(expr *a, expr *b, expr_ref &result) {
+    m_is_min.reset();
+    m_pinned.reset();
+    bool are_unique = true;
+    while (true) {
+        if (a == b) {
+            result = m.mk_true();
+            return BR_DONE;
+        }
+        TRACE(finite_set, tout << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n");
+        a = min(a);
+        b = min(b);
+        auto [x, a1] = get_min(a);
+        auto [y, b1] = get_min(b);
+
+        // only empty sets and singletons of unique values are unique.
+        // ranges are not counted as unique.
+        are_unique &= m.is_unique_value(x) && m.is_unique_value(y);
+        a = a1;
+        b = b1;
+        if (x == y)
+            continue;
+
+        if (m.are_distinct(x, y) && are_unique) {
+            are_unique &= from_unique_values(a);
+            are_unique &= from_unique_values(b);
+            if (are_unique) {
+                result = m.mk_false();
+                return BR_DONE;
+            }
+        }
+        return BR_FAILED;
+    }
+}
+
+bool finite_set_rewriter::from_unique_values(expr *a) {
+    while (!u.is_empty(a)) {
+        auto [x, a1] = get_min(min(a));
+        if (!m.is_unique_value(x))
+            return false;
+        a = a1;
+    }
+    return true;
 }

@@ -65,7 +65,7 @@ namespace smt {
         expr_ref_vector bs(m);
         for (auto n : ns) {
             std::ostringstream strm;
-            strm << enode_pp(n, ctx);
+            strm << "|" << enode_pp(n, ctx) << "|";
             symbol name = symbol(strm.str());
             expr_ref b(m.mk_const(name, m.mk_bool_sort()), m);
             bs.push_back(b);
@@ -401,7 +401,7 @@ namespace smt {
         return false;
     }
 
-    std::ostream& theory_finite_set_size::display(std::ostream& out) {
+    std::ostream& theory_finite_set_size::display(std::ostream& out) const {
         if (m_solver)
             m_solver->display(out);
         return out;

@@ -690,6 +690,7 @@ namespace smt {
                 continue;
             out << "watch[" << i << "] := " << m_clauses.watch[i] << "\n";
         }
+        m_cardinality_solver.display(out);
     }
 
     void theory_finite_set::init_model(model_generator & mg) {

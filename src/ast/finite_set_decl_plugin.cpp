@@ -26,6 +26,19 @@ Revision History:
 
 finite_set_decl_plugin::finite_set_decl_plugin():
     m_init(false) {
+    m_names.resize(LAST_FINITE_SET_OP, nullptr);
+    m_names[OP_FINITE_SET_EMPTY] = "set.empty ";
+    m_names[OP_FINITE_SET_SINGLETON] = "set.singleton";
+    m_names[OP_FINITE_SET_UNION] = "set.union";
+    m_names[OP_FINITE_SET_INTERSECT] = "set.intersect";
+    m_names[OP_FINITE_SET_DIFFERENCE] = "set.difference";
+    m_names[OP_FINITE_SET_IN] = "set.in";
+    m_names[OP_FINITE_SET_SIZE] = "set.size";
+    m_names[OP_FINITE_SET_SUBSET] = "set.subset";
+    m_names[OP_FINITE_SET_MAP] = "set.map";
+    m_names[OP_FINITE_SET_FILTER] = "set.filter";
+    m_names[OP_FINITE_SET_RANGE] = "set.range";
+    m_names[OP_FINITE_SET_EXT] = "set.diff";
 }
 
 finite_set_decl_plugin::~finite_set_decl_plugin() {
@@ -59,18 +72,18 @@ void finite_set_decl_plugin::init() {
     sort* intintT[2] = { intT, intT };
     
     m_sigs.resize(LAST_FINITE_SET_OP);
-    m_sigs[OP_FINITE_SET_EMPTY]      = alloc(polymorphism::psig, m, "set.empty",      1, 0, nullptr, setA);
-    m_sigs[OP_FINITE_SET_SINGLETON]  = alloc(polymorphism::psig, m, "set.singleton",  1, 1, &A, setA);
-    m_sigs[OP_FINITE_SET_UNION]      = alloc(polymorphism::psig, m, "set.union",      1, 2, setAsetA, setA);
-    m_sigs[OP_FINITE_SET_INTERSECT]  = alloc(polymorphism::psig, m, "set.intersect",  1, 2, setAsetA, setA);
-    m_sigs[OP_FINITE_SET_DIFFERENCE]  = alloc(polymorphism::psig, m, "set.difference", 1, 2, setAsetA, setA);
-    m_sigs[OP_FINITE_SET_IN]         = alloc(polymorphism::psig, m, "set.in",         1, 2, AsetA, boolT);
-    m_sigs[OP_FINITE_SET_SIZE]       = alloc(polymorphism::psig, m, "set.size",       1, 1, &setA, intT);
-    m_sigs[OP_FINITE_SET_SUBSET]     = alloc(polymorphism::psig, m, "set.subset",     1, 2, setAsetA, boolT);
-    m_sigs[OP_FINITE_SET_MAP]        = alloc(polymorphism::psig, m, "set.map",        2, 2, arrABsetA, setB);
-    m_sigs[OP_FINITE_SET_FILTER]     = alloc(polymorphism::psig, m, "set.filter",     1, 2, arrABoolsetA, setA);
-    m_sigs[OP_FINITE_SET_RANGE]      = alloc(polymorphism::psig, m, "set.range",      0, 2, intintT, setInt);
-    m_sigs[OP_FINITE_SET_EXT]       = alloc(polymorphism::psig, m, "set.diff", 1, 2, setAsetA, A);
+    m_sigs[OP_FINITE_SET_EMPTY]      = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_EMPTY],      1, 0, nullptr, setA);
+    m_sigs[OP_FINITE_SET_SINGLETON]  = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_SINGLETON], 1, 1, &A, setA);
+    m_sigs[OP_FINITE_SET_UNION]      = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_UNION], 1, 2, setAsetA, setA);
+    m_sigs[OP_FINITE_SET_INTERSECT]  = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_INTERSECT], 1, 2, setAsetA, setA);
+    m_sigs[OP_FINITE_SET_DIFFERENCE] = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_DIFFERENCE], 1, 2, setAsetA, setA);
+    m_sigs[OP_FINITE_SET_IN]         = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_IN], 1, 2, AsetA, boolT);
+    m_sigs[OP_FINITE_SET_SIZE]       = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_SIZE], 1, 1, &setA, intT);
+    m_sigs[OP_FINITE_SET_SUBSET]     = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_SUBSET], 1, 2, setAsetA, boolT);
+    m_sigs[OP_FINITE_SET_MAP]        = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_MAP], 2, 2, arrABsetA, setB);
+    m_sigs[OP_FINITE_SET_FILTER]     = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_FILTER], 1, 2, arrABoolsetA, setA);
+    m_sigs[OP_FINITE_SET_RANGE]      = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_RANGE],      0, 2, intintT, setInt);
+    m_sigs[OP_FINITE_SET_EXT]        = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_EXT], 1, 2, setAsetA, A);
 //    m_sigs[OP_FINITE_SET_MAP_INVERSE] = alloc(polymorphism::psig, m, "set.map_inverse", 2, 3, arrABsetBsetA, A);
 }
 
@@ -187,11 +200,9 @@ func_decl * finite_set_decl_plugin::mk_func_decl(decl_kind k, unsigned num_param
 }
 
 void finite_set_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
-    init();
-    for (unsigned i = 0; i < m_sigs.size(); ++i) {
-        if (m_sigs[i])
-            op_names.push_back(builtin_name(m_sigs[i]->m_name.str(), i));
-    }
+    for (unsigned i = 0; i < m_names.size(); ++i) 
+        if (m_names[i])
+            op_names.push_back(builtin_name(std::string(m_names[i]), i));    
 }
 
 void finite_set_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {
@@ -282,8 +293,10 @@ bool finite_set_decl_plugin::is_value(app * e) const {
 
 bool finite_set_decl_plugin::is_unique_value(app* e) const {
     // Empty set is a value
+    // A singleton of a unique value is tagged as unique
+    // ranges are not considered unique even if the bounds are values
     return is_app_of(e, m_family_id, OP_FINITE_SET_EMPTY) ||
-           (is_app_of(e, m_family_id, OP_FINITE_SET_SINGLETON) && is_unique_value(to_app(e->get_arg(0))));
+           (is_app_of(e, m_family_id, OP_FINITE_SET_SINGLETON) && m_manager->is_unique_value(to_app(e->get_arg(0))));
 }
 
 bool finite_set_decl_plugin::are_distinct(app* e1, app* e2) const {
@@ -294,8 +307,9 @@ bool finite_set_decl_plugin::are_distinct(app* e1, app* e2) const {
         return true;
     if (r.is_singleton(e1) && r.is_empty(e2))
         return true;
-    if(r.is_singleton(e1) && r.is_singleton(e2))
-        return m_manager->are_distinct(e1, e2);
+    expr *x = nullptr, *y = nullptr;
+    if(r.is_singleton(e1, x) && r.is_singleton(e2, y))
+        return m_manager->are_distinct(x, y);
     
     // TODO: could be extended to cases where we can prove the sets are different by containing one element
     // that the other doesn't contain. Such as (union (singleton a) (singleton b)) and (singleton c) where c is different from a, b.
