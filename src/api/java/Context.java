@@ -2227,6 +2227,15 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Extract the last index of sub-string.
+     */
+    public final <R extends Sort> IntExpr mkLastIndexOf(Expr<SeqSort<R>> s, Expr<SeqSort<R>> substr)
+    {
+        checkContextMatch(s, substr);
+        return (IntExpr)Expr.create(this, Native.mkSeqLastIndex(nCtx(), s.getNativeObject(), substr.getNativeObject()));
+    }
+
+    /**
      * Replace the first occurrence of src by dst in s.
      */
     public final <R extends Sort> SeqExpr<R> mkReplace(Expr<SeqSort<R>> s, Expr<SeqSort<R>> src, Expr<SeqSort<R>> dst)
