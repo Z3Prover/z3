@@ -120,6 +120,9 @@ namespace smt {
         if (!m_setup.already_configured()) {
             m_fparams.updt_params(p);
         }
+        for (auto th : m_theory_set)
+            if (th)
+                th->updt_params();
     }
 
     unsigned context::relevancy_lvl() const {

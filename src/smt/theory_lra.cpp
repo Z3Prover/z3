@@ -870,15 +870,10 @@ public:
         get_zero(true);
         get_zero(false);
 
+
         lp().updt_params(ctx().get_params());
         lp().settings().set_resource_limit(m_resource_limit);
         lp().settings().bound_propagation() = bound_prop_mode::BP_NONE != propagation_mode();
-
-        // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
-        unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
-        lp().set_cut_strategy(branch_cut_ratio);
-        
-        lp().settings().set_run_gcd_test(ctx().get_fparams().m_arith_gcd_test);
         lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
         m_lia = alloc(lp::int_solver, *m_solver.get());
     }
@@ -4199,6 +4194,13 @@ public:
         m_bound_predicate = nullptr;
     }
 
+    void updt_params() {
+        if (m_solver)
+            m_solver->updt_params(ctx().get_params());
+        if (m_nla)
+            m_nla->updt_params(ctx().get_params());
+    }
+
 
     void validate_model(proto_model& mdl) {
 
@@ -4357,6 +4359,10 @@ expr_ref theory_lra::mk_ge(generic_model_converter& fm, theory_var v, inf_ration
 
 void theory_lra::setup() {
     m_imp->setup();
+}
+
+void theory_lra::updt_params() {
+    m_imp->updt_params();
 }
 
 void theory_lra::validate_model(proto_model& mdl) {
