@@ -13,7 +13,7 @@ Abstract:
 
 Author:
 
-    GitHub Copilot 2025-10-28
+    Z3Prover Contributors 2025-10-28
 
 Notes:
     
