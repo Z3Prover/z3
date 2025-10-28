@@ -99,6 +99,7 @@ namespace smt {
         bool get_upper(enode* n, rational& r, bool& is_strict);
         void solve_for(vector<solution>& s) override;
 
+
         // check if supplied set of linear constraints are LP feasible within current backtracking context
         // identify core by setting Boolean flags to true for constraints used in the proof of infeasibility
         // and return l_false if infeasible.
