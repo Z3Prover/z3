@@ -100,6 +100,20 @@ namespace smt {
             lbool get_result() const;
         };
 
+        // life cycle of 
+        // 1. proof prefix with cubes
+        // 2. restart N separate contexts to check N new permutations of parameters.
+        //    - one of the contexts uses the current configuration.
+        // 3. pick winner configuration if any are better than current.
+        // 4. update current configuration with the winner
+
+        class parameter_generator_thread {
+            unsigned N; // number of prefix permutation testers
+            scoped_ptr<context> prefix_solver;
+            scoped_ptr_vector<context> testers; // N testers
+
+        };
+
         class worker {
             struct config {
                 unsigned m_threads_max_conflicts = 1000;
