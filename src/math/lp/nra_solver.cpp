@@ -120,6 +120,7 @@ struct solver::imp {
             }
         }
         m_nlsat->collect_statistics(st);
+        TRACE(nra, tout << "nra result " << r << "\n");
         CTRACE(nra, false,
               m_nlsat->display(tout << r << "\n");
               display(tout);

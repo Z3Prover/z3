@@ -702,7 +702,7 @@ namespace nla {
             lhs.add_monomial(coeff, j);
         }
         if (quot_lo.empty()) {
-            auto coeff = -lo_sign * con_lo.rhs() / coeff_lo;
+            auto coeff = lo_sign * con_lo.rhs() / coeff_lo;
             rhs += coeff;
         }
         else if (con_lo.rhs() != 0) {
@@ -716,7 +716,7 @@ namespace nla {
             lhs.add_monomial(coeff, j);
         }
         if (quot_hi.empty()) {
-            auto coeff = -hi_sign * con_hi.rhs() / coeff_hi;
+            auto coeff = hi_sign * con_hi.rhs() / coeff_hi;
             rhs += coeff;
         }
         else if (con_hi.rhs() != 0) {
