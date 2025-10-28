@@ -195,7 +195,6 @@ namespace smt {
         if (m_on_clause_eh) {
             // Encode status as an integer flag for simplicity.
             unsigned st_code = 0;
-            IF_VERBOSE(0, if (status::assumption != st) verbose_stream() << "status " << st << "\n");
             switch (st) {
                 case status::assumption:    st_code = 1; break;
                 case status::lemma:         st_code = 2; break;
