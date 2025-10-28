@@ -3469,6 +3469,7 @@ public:
     }
 
     void set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
+        IF_VERBOSE(0, verbose_stream() << "set conflict or lemma " << core << "\n");
         reset_evidence();
         for (literal lit : core) {
             m_core.push_back(lit);

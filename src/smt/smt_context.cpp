@@ -4386,6 +4386,8 @@ namespace smt {
                 }
             }
 #endif
+            IF_VERBOSE(0, verbose_stream() << "(smt.learned-clause"; verbose_stream() << " :size " << num_lits;
+                       verbose_stream() << " :conflicts " << m_num_conflicts << ")\n";);
             mk_clause(num_lits, lits, js, CLS_LEARNED);
             if (delay_forced_restart) {
                 SASSERT(num_lits == 1);
