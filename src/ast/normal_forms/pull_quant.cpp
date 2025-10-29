@@ -265,9 +265,10 @@ struct pull_quant::imp {
                 return BR_FAILED;
 
             if (m.proofs_enabled()) {
-                // TODO: non-deterministic parameter evaluation
-                result_pr = m.mk_pull_quant(m.mk_app(f, num, args), 
-                                                    to_quantifier(result.get()));
+                expr_ref f_app(m);
+                f_app = m.mk_app(f, num, args);
+                quantifier* q = to_quantifier(result.get());
+                result_pr = m.mk_pull_quant(f_app, q);
             }
             return BR_DONE;
         }
@@ -392,5 +393,4 @@ void pull_nested_quant::operator()(expr * n, expr_ref & r, proof_ref & p) {
 void pull_nested_quant::reset() {
     m_imp->m_rw.reset();
 }
-
 

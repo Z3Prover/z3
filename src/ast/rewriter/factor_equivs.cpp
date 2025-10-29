@@ -136,8 +136,11 @@ bool equiv_to_expr_full(expr_equiv_class &equiv, expr_ref_vector &out) {
         for (auto a = eq_class.begin(), end = eq_class.end(); a != end; ++a) {
             expr_equiv_class::iterator b(a);
             for (++b; b != end; ++b) {
-                // TODO: non-deterministic parameter evaluation
-                out.push_back(m.mk_eq(*a, *b));
+                expr* lhs = *a;
+                expr* rhs = *b;
+                expr_ref eq(m);
+                eq = m.mk_eq(lhs, rhs);
+                out.push_back(eq);
                 dirty = true;
             }
         }

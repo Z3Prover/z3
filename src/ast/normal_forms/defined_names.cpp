@@ -191,9 +191,21 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
         bound_vars(var_sorts, var_names, MK_OR(n, MK_NOT(e)), n, defs);
     }
     else if (m.is_term_ite(e)) {
-        // TODO: non-deterministic parameter evaluation
-        bound_vars(var_sorts, var_names, MK_OR(MK_NOT(to_app(e)->get_arg(0)), MK_EQ(n, to_app(e)->get_arg(1))), n, defs);
-        bound_vars(var_sorts, var_names, MK_OR(to_app(e)->get_arg(0),         MK_EQ(n, to_app(e)->get_arg(2))), n, defs);
+        expr* cond = to_app(e)->get_arg(0);
+        expr* then_branch = to_app(e)->get_arg(1);
+        expr* else_branch = to_app(e)->get_arg(2);
+        expr_ref not_cond(m);
+        expr_ref eq_then(m);
+        expr_ref eq_else(m);
+        expr_ref disj1(m);
+        expr_ref disj2(m);
+        not_cond = m.mk_not(cond);
+        eq_then = m.mk_eq(n, then_branch);
+        eq_else = m.mk_eq(n, else_branch);
+        disj1 = m.mk_or(not_cond, eq_then);
+        disj2 = m.mk_or(cond, eq_else);
+        bound_vars(var_sorts, var_names, disj1, n, defs);
+        bound_vars(var_sorts, var_names, disj2, n, defs);
     }
     else if (is_lambda(e)) {
         //    n(y) = \x . M[x,y]
@@ -369,7 +381,6 @@ func_decl * defined_names::get_name_decl(unsigned i) const {
     unsigned n1 = m_impl->get_num_names();
     return i < n1 ? m_impl->get_name_decl(i) : m_pos_impl->get_name_decl(i - n1);
 }
-
 
 
 

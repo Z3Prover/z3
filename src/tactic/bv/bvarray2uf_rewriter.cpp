@@ -149,8 +149,12 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
             var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
             expr_ref body(m_manager);
-            // TODO: non-deterministic parameter evaluation
-            body = m_manager.mk_eq(m_manager.mk_app(f_t, x.get()), m_manager.mk_app(f_s, x.get()));
+            expr* x_arg = x.get();
+            app_ref ft_app(m_manager);
+            app_ref fs_app(m_manager);
+            ft_app = m_manager.mk_app(f_t, x_arg);
+            fs_app = m_manager.mk_app(f_s, x_arg);
+            body = m_manager.mk_eq(ft_app, fs_app);
 
             result = m_manager.mk_forall(1, sorts, names, body);
             res = BR_DONE;
@@ -296,9 +300,12 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                         new_args.push_back(m_manager.mk_app(ss[i].get(), x.get()));
 
                     expr_ref body(m_manager);
-                    // TODO: non-deterministic parameter evaluation
-                    body = m_manager.mk_eq(m_manager.mk_app(f_t, x.get()),
-                                           m_manager.mk_app(map_f, num, new_args.data()));
+                    expr* x_arg = x.get();
+                    app_ref ft_app(m_manager);
+                    ft_app = m_manager.mk_app(f_t, x_arg);
+                    app_ref map_app(m_manager);
+                    map_app = m_manager.mk_app(map_f, num, new_args.data());
+                    body = m_manager.mk_eq(ft_app, map_app);
 
                     expr_ref frllx(m_manager.mk_forall(1, sorts, names, body), m_manager);
                     extra_assertions.push_back(frllx);
@@ -332,11 +339,16 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                         var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
                         expr_ref body(m_manager);
-                        // TODO: non-deterministic parameter evaluation
-                        body = m_manager.mk_or(m_manager.mk_eq(x, i),
-                                               // TODO: non-deterministic parameter evaluation
-                                               m_manager.mk_eq(m_manager.mk_app(f_t, x.get()),
-                                                               m_manager.mk_app(f_s, x.get())));
+                        expr_ref eq_x_i(m_manager);
+                        eq_x_i = m_manager.mk_eq(x, i);
+                        expr* x_arg = x.get();
+                        app_ref ft_app(m_manager);
+                        app_ref fs_app(m_manager);
+                        ft_app = m_manager.mk_app(f_t, x_arg);
+                        fs_app = m_manager.mk_app(f_s, x_arg);
+                        expr_ref funcs_eq(m_manager);
+                        funcs_eq = m_manager.mk_eq(ft_app, fs_app);
+                        body = m_manager.mk_or(eq_x_i, funcs_eq);
 
                         expr_ref frllx(m_manager.mk_forall(1, sorts, names, body), m_manager);
                         extra_assertions.push_back(frllx);

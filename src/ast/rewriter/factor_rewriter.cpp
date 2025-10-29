@@ -141,10 +141,16 @@ void factor_rewriter::mk_is_negative(expr_ref& result, expr_ref_vector& eqs) {
                 pos0 = pos;
             }
             else {
-                // TODO: non-deterministic parameter evaluation
-                tmp = m().mk_or(m().mk_and(pos, pos0), m().mk_and(neg, neg0));
-                // TODO: non-deterministic parameter evaluation
-                neg0 = m().mk_or(m().mk_and(neg, pos0), m().mk_and(pos, neg0));
+                expr_ref pos_and_pos0(m());
+                expr_ref neg_and_neg0(m());
+                expr_ref neg_and_pos0(m());
+                expr_ref pos_and_neg0(m());
+                pos_and_pos0 = m().mk_and(pos, pos0);
+                neg_and_neg0 = m().mk_and(neg, neg0);
+                tmp = m().mk_or(pos_and_pos0, neg_and_neg0);
+                neg_and_pos0 = m().mk_and(neg, pos0);
+                pos_and_neg0 = m().mk_and(pos, neg0);
+                neg0 = m().mk_or(neg_and_pos0, pos_and_neg0);
                 pos0 = tmp;
             }
         }

@@ -161,8 +161,15 @@ namespace sls {
 
                 if (r == 0 || sx.length() == 0)
                     // create lemma: len(x) = 0 <=> x = ""
-                    // TODO: non-deterministic parameter evaluation
-                    ctx.add_constraint(m.mk_eq(m.mk_eq(e, a.mk_int(0)), m.mk_eq(x, seq.str.mk_string(""))));
+                {
+                    expr_ref len_zero(m);
+                    expr_ref eq_empty(m);
+                    expr_ref bicond(m);
+                    len_zero = m.mk_eq(e, a.mk_int(0));
+                    eq_empty = m.mk_eq(x, seq.str.mk_string(""));
+                    bicond = m.mk_eq(len_zero, eq_empty);
+                    ctx.add_constraint(bicond);
+                }
 
                 if (ctx.rand(2) == 0 && update(e, rational(sx.length())))
                     return false;

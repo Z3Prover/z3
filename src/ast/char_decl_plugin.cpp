@@ -66,8 +66,8 @@ func_decl* char_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             msg << "incorrect number of arguments passed. Expected one character, received " << arity;
         else {
             arith_util a(m);
-            // TODO: non-deterministic parameter evaluation
-            return m.mk_func_decl(symbol("char.to_int"), arity, domain, a.mk_int(), func_decl_info(m_family_id, k, 0, nullptr));
+            sort* int_sort = a.mk_int();
+            return m.mk_func_decl(symbol("char.to_int"), arity, domain, int_sort, func_decl_info(m_family_id, k, 0, nullptr));
         }
         m.raise_exception(msg.str());
     case OP_CHAR_TO_BV:
@@ -80,8 +80,8 @@ func_decl* char_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         else {
             bv_util b(m);
             unsigned sz = num_bits();
-            // TODO: non-deterministic parameter evaluation
-            return m.mk_func_decl(symbol("char.to_bv"), arity, domain, b.mk_sort(sz), func_decl_info(m_family_id, k, 0, nullptr));
+            sort* bv_sort = b.mk_sort(sz);
+            return m.mk_func_decl(symbol("char.to_bv"), arity, domain, bv_sort, func_decl_info(m_family_id, k, 0, nullptr));
         }
         m.raise_exception(msg.str());
     case OP_CHAR_FROM_BV: {

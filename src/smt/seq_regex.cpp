@@ -396,8 +396,13 @@ namespace smt {
         else if (re().is_empty(r2))
             r = r1;
         else 
-            // TODO: non-deterministic parameter evaluation
-            r = re().mk_union(re().mk_diff(r1, r2), re().mk_diff(r2, r1));
+        {
+            expr_ref diff12(m);
+            expr_ref diff21(m);
+            diff12 = re().mk_diff(r1, r2);
+            diff21 = re().mk_diff(r2, r1);
+            r = re().mk_union(diff12, diff21);
+        }
         rewrite(r);
         return r;
     }
