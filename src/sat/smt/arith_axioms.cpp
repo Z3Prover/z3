@@ -261,10 +261,11 @@ namespace arith {
         
         // x mod 2^{i + 1} >= 2^i means the i'th bit is 1.
         auto bitof = [&](expr* x, unsigned i) { 
-            expr_ref r(m);
-            // TODO: non-deterministic parameter evaluation
-            r = a.mk_ge(a.mk_mod(x, a.mk_int(rational::power_of_two(i+1))), a.mk_int(rational::power_of_two(i)));
-            return mk_literal(r);
+            expr* pow_hi = a.mk_int(rational::power_of_two(i + 1));
+            expr* pow_lo = a.mk_int(rational::power_of_two(i));
+            expr* mod_expr = a.mk_mod(x, pow_hi);
+            expr* ge_expr = a.mk_ge(mod_expr, pow_lo);
+            return mk_literal(ge_expr);
         };
 
         if (a.is_band(n)) {
@@ -390,13 +391,18 @@ namespace arith {
             // y >= sz & x < 2^{sz-1} => n = 0
             // y >= sz & x >= 2^{sz-1} => n = -1
             // y = 0 => n = x
-            auto signx = mk_literal(a.mk_ge(x, a.mk_int(N/2)));
-            // TODO: non-deterministic parameter evaluation
-            add_clause(~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), signx, mk_literal(m.mk_eq(n, a.mk_int(0))));
-            // TODO: non-deterministic parameter evaluation
-            add_clause(~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), ~signx, mk_literal(m.mk_eq(n, a.mk_int(N-1))));
-            // TODO: non-deterministic parameter evaluation
-            add_clause(~mk_literal(a.mk_eq(a.mk_mod(y, a.mk_int(N)), a.mk_int(0))), mk_literal(m.mk_eq(n, x)));            
+            expr_ref half(a.mk_int(N/2), m);
+            expr_ref sign_expr(a.mk_ge(x, half), m);
+            auto signx = mk_literal(sign_expr);
+            expr_ref modulus(a.mk_mod(y, a.mk_int(N)), m);
+            expr_ref ge_sz(a.mk_ge(modulus, a.mk_int(sz)), m);
+            expr_ref eq_zero(m.mk_eq(n, a.mk_int(0)), m);
+            expr_ref eq_minus_one(m.mk_eq(n, a.mk_int(N - 1)), m);
+            expr_ref mod_zero(a.mk_eq(modulus, a.mk_int(0)), m);
+            expr_ref eq_x(m.mk_eq(n, x), m);
+            add_clause(~mk_literal(ge_sz), signx, mk_literal(eq_zero));
+            add_clause(~mk_literal(ge_sz), ~signx, mk_literal(eq_minus_one));
+            add_clause(~mk_literal(mod_zero), mk_literal(eq_x));            
         }
         else
             UNREACHABLE();

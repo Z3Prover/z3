@@ -375,9 +375,9 @@ namespace datalog {
         relation_signature const& sig = get_signature();
         for (unsigned i = 0; i < sig.size(); ++i) {
             if (i != find(i)) {
-                // TODO: non-deterministic parameter evaluation
-                conjs.push_back(m.mk_eq(m.mk_var(i, sig[i]), 
-                                        m.mk_var(find(i), sig[find(i)])));
+                expr_ref lhs(m.mk_var(i, sig[i]), m);
+                expr_ref rhs(m.mk_var(find(i), sig[find(i)]), m);
+                conjs.push_back(m.mk_eq(lhs, rhs));
                 continue;
             }            
             interval const& iv = (*this)[i];
@@ -650,4 +650,3 @@ namespace datalog {
     }
 
 };
-

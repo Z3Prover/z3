@@ -622,17 +622,40 @@ br_status arith_rewriter::factor_le_ge_eq(expr * arg1, expr * arg2, op_kind kind
             return BR_FAILED;
         expr_ref f2 = remove_factor(f, arg1);
         expr* z = m_util.mk_numeral(rational(0), m_util.is_int(arg1));
-        // TODO: non-deterministic parameter evaluation
-        result = m.mk_or(m_util.mk_eq(f, z), m_util.mk_eq(f2, z));
+        expr_ref eq_f(m);
+        expr_ref eq_f2(m);
+        expr_ref disj(m);
+        eq_f = m_util.mk_eq(f, z);
+        eq_f2 = m_util.mk_eq(f2, z);
+        disj = m.mk_or(eq_f, eq_f2);
         switch (kind) {
         case EQ: 
+            result = disj;
             break;
         case GE:
-            result = m.mk_or(m.mk_iff(m_util.mk_ge(f, z), m_util.mk_ge(f2, z)), result);
+        {
+            expr_ref ge_f(m);
+            expr_ref ge_f2(m);
+            expr_ref iff(m);
+            ge_f = m_util.mk_ge(f, z);
+            ge_f2 = m_util.mk_ge(f2, z);
+            iff = m.mk_iff(ge_f, ge_f2);
+            result = m.mk_or(iff, disj);
             break;
+        }
         case LE:
-            result = m.mk_or(m.mk_not(m.mk_iff(m_util.mk_ge(f, z), m_util.mk_ge(f2, z))), result);
+        {
+            expr_ref ge_f(m);
+            expr_ref ge_f2(m);
+            expr_ref iff(m);
+            expr_ref not_iff(m);
+            ge_f = m_util.mk_ge(f, z);
+            ge_f2 = m_util.mk_ge(f2, z);
+            iff = m.mk_iff(ge_f, ge_f2);
+            not_iff = m.mk_not(iff);
+            result = m.mk_or(not_iff, disj);
             break;            
+        }
         }
         return BR_REWRITE3;                    
     }
@@ -869,9 +892,13 @@ bool arith_rewriter::mk_eq_mod(expr* arg1, expr* arg2, expr_ref& result) {
         rational g = gcd(p, k, a, b);
         if (g == 1) {
             expr_ref nb(m_util.mk_numeral(b, true), m);
-            // TODO: non-deterministic parameter evaluation
-            result = m.mk_eq(m_util.mk_mod(u, y),
-                             m_util.mk_mod(m_util.mk_mul(nb, arg2), y));
+            expr_ref lhs(m);
+            expr_ref rhs_mul(m);
+            expr_ref rhs(m);
+            lhs = m_util.mk_mod(u, y);
+            rhs_mul = m_util.mk_mul(nb, arg2);
+            rhs = m_util.mk_mod(rhs_mul, y);
+            result = m.mk_eq(lhs, rhs);
             return true;            
         }
     }
@@ -1204,8 +1231,11 @@ br_status arith_rewriter::mk_div_core(expr * arg1, expr * arg2, expr_ref & resul
 }
 
 br_status arith_rewriter::mk_idivides(unsigned k, expr * arg, expr_ref & result) {
-    // TODO: non-deterministic parameter evaluation
-    result = m.mk_eq(m_util.mk_mod(arg, m_util.mk_int(k)), m_util.mk_int(0));
+    expr_ref modulus(m);
+    expr_ref zero(m);
+    modulus = m_util.mk_mod(arg, m_util.mk_int(k));
+    zero = m_util.mk_int(0);
+    result = m.mk_eq(modulus, zero);
     return BR_REWRITE2;
 }
 
@@ -1232,8 +1262,13 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
     } 
     if (arg1 == arg2) { 
         expr_ref zero(m_util.mk_int(0), m); 
-        // TODO: non-deterministic parameter evaluation
-        result = m.mk_ite(m.mk_eq(arg1, zero), m_util.mk_idiv(zero, zero), m_util.mk_int(1)); 
+        expr_ref condition(m);
+        expr_ref idiv_zero(m);
+        expr_ref one(m);
+        condition = m.mk_eq(arg1, zero);
+        idiv_zero = m_util.mk_idiv(zero, zero);
+        one = m_util.mk_int(1);
+        result = m.mk_ite(condition, idiv_zero, one); 
         return BR_REWRITE3; 
     } 
     if (is_num2 && v2.is_pos() && m_util.is_add(arg1)) { 
@@ -1331,14 +1366,18 @@ expr_ref arith_rewriter::remove_divisor(expr* arg, expr* num, expr* den) {
     den = args2.empty() ? m_util.mk_int(1) : m_util.mk_mul(args2.size(), args2.data()); 
     expr_ref d(m_util.mk_idiv(num, den), m);
     expr_ref nd(m_util.mk_idiv(m_util.mk_uminus(num), m_util.mk_uminus(den)), m);
-    // TODO: non-deterministic parameter evaluation
-    return expr_ref(m.mk_ite(m.mk_eq(zero, arg), 
-                               m_util.mk_idiv(zero, zero), 
-                               m.mk_ite(m_util.mk_ge(arg, zero), 
-                                          d,
-                                          nd)),
-                    m);
-} 
+    expr_ref cond_zero(m);
+    expr_ref cond_ge(m);
+    expr_ref zero_div(m);
+    expr_ref inner(m);
+    expr_ref outer(m);
+    cond_zero = m.mk_eq(zero, arg);
+    cond_ge = m_util.mk_ge(arg, zero);
+    zero_div = m_util.mk_idiv(zero, zero);
+    inner = m.mk_ite(cond_ge, d, nd);
+    outer = m.mk_ite(cond_zero, zero_div, inner);
+    return expr_ref(outer, m);
+}
  
 void arith_rewriter::flat_mul(expr* e, ptr_buffer<expr>& args) { 
     args.push_back(e); 
@@ -1432,8 +1471,11 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
 
     expr* x = nullptr, * y = nullptr, * z = nullptr;
     if (is_num2 && v2.is_pos() && m_util.is_mul(arg1, x, y) && m_util.is_numeral(x, v1, is_int) && v1 > 0 && divides(v1, v2)) {
-        // TODO: non-deterministic parameter evaluation
-        result = m_util.mk_mul(m_util.mk_int(v1), m_util.mk_mod(y, m_util.mk_int(v2/v1)));        
+        expr_ref coeff(m);
+        expr_ref modulus(m);
+        coeff = m_util.mk_int(v1);
+        modulus = m_util.mk_mod(y, m_util.mk_int(v2 / v1));
+        result = m_util.mk_mul(coeff, modulus);        
         return BR_REWRITE1;
     }
 
@@ -2083,21 +2125,29 @@ expr * arith_rewriter::mk_sin_value(rational const & k) {
     if (k_prime == rational(1, 3) || k_prime == rational(2, 3)) {
         // sin(pi/3)   == sin(2/3 pi) ==   Sqrt(3)/2
         // sin(4/3 pi) == sin(5/3 pi) == - Sqrt(3)/2
-        expr * result = m_util.mk_div(mk_sqrt(rational(3)), m_util.mk_numeral(rational(2), false));
+        expr_ref numerator(mk_sqrt(rational(3)), m);
+        expr_ref denom(m_util.mk_numeral(rational(2), false), m);
+        expr * result = m_util.mk_div(numerator, denom);
         return neg ? m_util.mk_uminus(result) : result;
     }
     if (k_prime == rational(1, 12) || k_prime == rational(11, 12)) {
         // sin(1/12 pi)  == sin(11/12 pi)  ==  [sqrt(6) - sqrt(2)]/4
         // sin(13/12 pi) == sin(23/12 pi)  == -[sqrt(6) - sqrt(2)]/4
-        // TODO: non-deterministic parameter evaluation
-        expr * result = m_util.mk_div(m_util.mk_sub(mk_sqrt(rational(6)), mk_sqrt(rational(2))), m_util.mk_numeral(rational(4), false));
+        expr_ref sqrt6(mk_sqrt(rational(6)), m);
+        expr_ref sqrt2(mk_sqrt(rational(2)), m);
+        expr_ref diff(m_util.mk_sub(sqrt6, sqrt2), m);
+        expr_ref denom(m_util.mk_numeral(rational(4), false), m);
+        expr * result = m_util.mk_div(diff, denom);
         return neg ? m_util.mk_uminus(result) : result;
     }
     if (k_prime == rational(5, 12) || k_prime == rational(7, 12)) {
         // sin(5/12 pi)  == sin(7/12 pi)   == [sqrt(6) + sqrt(2)]/4
         // sin(17/12 pi) == sin(19/12 pi)  == -[sqrt(6) + sqrt(2)]/4
-        // TODO: non-deterministic parameter evaluation
-        expr * result = m_util.mk_div(m_util.mk_add(mk_sqrt(rational(6)), mk_sqrt(rational(2))), m_util.mk_numeral(rational(4), false));
+        expr_ref sqrt6(mk_sqrt(rational(6)), m);
+        expr_ref sqrt2(mk_sqrt(rational(2)), m);
+        expr_ref sum(m_util.mk_add(sqrt6, sqrt2), m);
+        expr_ref denom(m_util.mk_numeral(rational(4), false), m);
+        expr * result = m_util.mk_div(sum, denom);
         return neg ? m_util.mk_uminus(result) : result;
     }
     return nullptr;
@@ -2273,10 +2323,11 @@ br_status arith_rewriter::mk_tan_core(expr * arg, expr_ref & result) {
         return BR_REWRITE2;
     }
 
- end:
+end:
     if (m_expand_tan) {
-        // TODO: non-deterministic parameter evaluation
-        result = m_util.mk_div(m_util.mk_sin(arg), m_util.mk_cos(arg));
+        expr* num = m_util.mk_sin(arg);
+        expr* den = m_util.mk_cos(arg);
+        result = m_util.mk_div(num, den);
         return BR_REWRITE2;
     }
     return BR_FAILED;

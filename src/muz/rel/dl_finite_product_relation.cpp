@@ -2363,8 +2363,9 @@ namespace datalog {
             unsigned rel_idx = static_cast<unsigned>(fact[fact_sz-1]);
             m_others[rel_idx]->to_formula(tmp);
             for (unsigned i = 0; i + 1 < fact_sz; ++i) {
-                // TODO: non-deterministic parameter evaluation
-                conjs.push_back(m.mk_eq(m.mk_var(i, sig[i]), util.mk_numeral(fact[i], sig[i])));
+                expr_ref lhs(m.mk_var(i, sig[i]), m);
+                expr_ref rhs(util.mk_numeral(fact[i], sig[i]), m);
+                conjs.push_back(m.mk_eq(lhs, rhs));
             }
             sh(tmp, fact_sz-1, tmp);
             conjs.push_back(tmp);

@@ -253,8 +253,9 @@ struct sat2goal::imp {
         s.collect_bin_clauses(bin_clauses, m_learned, false);
         for (sat::solver::bin_clause const& bc : bin_clauses) {
             checkpoint();
-            // TODO: non-deterministic parameter evaluation
-            r.assert_expr(m.mk_or(lit2expr(mc, bc.first), lit2expr(mc, bc.second)));
+        expr* lhs = lit2expr(mc, bc.first);
+        expr* rhs = lit2expr(mc, bc.second);
+        r.assert_expr(m.mk_or(lhs, rhs));
         }
         // collect clauses
         assert_clauses(mc, s, s.clauses(), r, true);

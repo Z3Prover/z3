@@ -454,8 +454,9 @@ namespace datalog {
             r.get_fact(fact);
             conjs.reset();
             for (unsigned i = 0; i < fact.size(); ++i) {
-                // TODO: non-deterministic parameter evaluation
-                conjs.push_back(m.mk_eq(m.mk_var(i, sig[i]), util.mk_numeral(fact[i], sig[i])));
+                expr_ref lhs(m.mk_var(i, sig[i]), m);
+                expr_ref rhs(util.mk_numeral(fact[i], sig[i]), m);
+                conjs.push_back(m.mk_eq(lhs, rhs));
             }
             brw.mk_and(conjs.size(), conjs.data(), fml);
             disjs.push_back(fml);
