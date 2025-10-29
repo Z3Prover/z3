@@ -64,8 +64,47 @@ namespace smt {
 
 namespace smt {
 
-    void parallel::param_generator::run() {
-        
+    lbool parallel::param_generator::run_prefix_step() {
+        IF_VERBOSE(1, verbose_stream() << " Param generator running prefix step\n");
+        ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
+        lbool r = l_undef;
+        try {
+            r = ctx->check();
+        } catch (z3_error &err) {
+            b.set_exception(err.error_code());
+        } catch (z3_exception &ex) {
+            b.set_exception(ex.what());
+        } catch (...) {
+            b.set_exception("unknown exception");
+        }
+        return r;
+    }
+
+    void parallel::param_generator::protocol_iteration() {
+        IF_VERBOSE(1, verbose_stream() << " Param generator running protocol iteration\n");
+        ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
+        lbool r = run_prefix_step();
+
+        switch (r) {
+            case l_undef: {
+                return;
+            }
+            case l_true: {
+                IF_VERBOSE(1, verbose_stream() << " Param tuning thread found formula sat\n");
+                model_ref mdl;
+                ctx->get_model(mdl);
+                b.set_sat(m_l2g, *mdl);
+                return;
+            }
+            case l_false: {
+                expr_ref_vector const &unsat_core = ctx->unsat_core();
+                IF_VERBOSE(2, verbose_stream() << " unsat core:\n";
+                           for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
+                IF_VERBOSE(1, verbose_stream() << " Param tuning thread determined formula unsat\n");
+                b.set_unsat(m_l2g, unsat_core);
+                return;
+            }
+        }
     }
 
     void parallel::worker::run() {
@@ -148,8 +187,8 @@ namespace smt {
     }
 
     parallel::param_generator::param_generator(parallel& p)
-        : p(p), b(p.m_batch_manager), m_params(p.ctx.get_fparams()), m_p(p.ctx.get_params()) {
-        ctx = alloc(context, m, m_params, m_p);
+        : p(p), b(p.m_batch_manager), m_best_param_state(p.ctx.get_fparams()), m_p(p.ctx.get_params()), m_l2g(m, p.ctx.m) {
+        ctx = alloc(context, m, m_best_param_state, m_p);
         context::copy(p.ctx, *ctx, true);
         // don't share initial units
         ctx->pop_to_base_lvl();
@@ -515,7 +554,7 @@ namespace smt {
             threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
         }
         // the final thread runs the parameter generator
-        threads[num_threads - 1] = std::thread([&]() { m_param_generator.run(); });
+        threads[num_threads - 1] = std::thread([&]() { m_param_generator.protocol_iteration(); });
 
         // Wait for all threads to finish
         for (auto &th : threads)

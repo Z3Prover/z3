@@ -109,32 +109,38 @@ namespace smt {
             parallel& p;
             batch_manager& b;
             ast_manager m;
+            scoped_ptr<context> ctx;
+            ast_translation m_l2g;
+            
             unsigned N = 4; // number of prefix permutation testers
+            unsigned m_max_prefix_conflicts = 1000;
+            
             scoped_ptr<context> m_prefix_solver;
             scoped_ptr_vector<context> m_testers; // N testers
-            smt_params m_params;
+            smt_params m_best_param_state;
             params_ref m_p;
-            scoped_ptr<context> ctx;
             
             private:
                 void init_param_state() {
-                    m_params.m_nl_arith_branching = true;
-                    m_params.m_nl_arith_cross_nested = true;
-                    m_params.m_nl_arith_delay = 10;
-                    m_params.m_nl_arith_expensive_patching = false;
-                    m_params.m_nl_arith_gb = true;
-                    m_params.m_nl_arith_horner = true;
-                    m_params.m_nl_arith_horner_frequency = 4;
-                    m_params.m_nl_arith_optimize_bounds = true;
-                    m_params.m_nl_arith_propagate_linear_monomials = true;
-                    m_params.m_nl_arith_tangents = true;
+                    m_best_param_state.m_nl_arith_branching = true;
+                    m_best_param_state.m_nl_arith_cross_nested = true;
+                    m_best_param_state.m_nl_arith_delay = 10;
+                    m_best_param_state.m_nl_arith_expensive_patching = false;
+                    m_best_param_state.m_nl_arith_gb = true;
+                    m_best_param_state.m_nl_arith_horner = true;
+                    m_best_param_state.m_nl_arith_horner_frequency = 4;
+                    m_best_param_state.m_nl_arith_optimize_bounds = true;
+                    m_best_param_state.m_nl_arith_propagate_linear_monomials = true;
+                    m_best_param_state.m_nl_arith_tangents = true;
 
-                    m_params.updt_params(m_p);
+                    m_best_param_state.updt_params(m_p);
                     ctx->updt_params(m_p);
                 };
             public:
                 param_generator(parallel& p);
-                void run();
+                lbool run_prefix_step();
+                void protocol_iteration();
+                void replay_proof_prefixes();
 
                 reslimit& limit() {
                     return m.limit();
