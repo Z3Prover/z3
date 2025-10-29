@@ -1002,9 +1002,9 @@ typedef enum
 
    - Z3_OP_FINITE_SET_RANGE: Range operation for finite sets of integers.
 
-   - Z3_OP_FINITE_SET_EXT: Finite set extensionality.
+   - Z3_OP_FINITE_SET_EXT: Finite set extensionality. Returns a witness element that is in one set but not the other, demonstrating that two sets are different.
 
-   - Z3_OP_FINITE_SET_MAP_INVERSE: Inverse of a finite set map operation.
+   - Z3_OP_FINITE_SET_MAP_INVERSE: Inverse image under a finite set map operation. Related to reasoning about the pre-image of elements under set mappings.
 
    - Z3_OP_INTERNAL: internal (often interpreted) symbol, but no additional
         information is exposed. Tools may use the string representation of the
