@@ -87,26 +87,28 @@ namespace format_ns {
                elem_n)
     */
     template<typename It, typename ToDoc>
-    format * mk_seq1(ast_manager & m, It const & begin, It const & end, ToDoc proc, char const * header, 
+        format * mk_seq1(ast_manager & m, It const & begin, It const & end, ToDoc proc, char const * header, 
                      char const * lp = "(", char const * rp = ")") {
         if (begin == end)
-            // TODO: non-deterministic parameter evaluation
-            return mk_compose(m, mk_string(m, lp), mk_string(m, header), mk_string(m, rp));
+            {
+                format * lp_fmt = mk_string(m, lp);
+                format * header_fmt = mk_string(m, header);
+                format * rp_fmt = mk_string(m, rp);
+                return mk_compose(m, lp_fmt, header_fmt, rp_fmt);
+            }
         unsigned indent = static_cast<unsigned>(strlen(lp) + strlen(header) + 1);
         It it = begin;
         format * first  = proc(*it);
         ++it;
-        // TODO: non-deterministic parameter evaluation
-        return mk_group(m, mk_compose(m, 
-                                      mk_string(m, lp), 
-                                      mk_string(m, header), 
-                                      mk_indent(m, indent, 
-                                                // TODO: non-deterministic parameter evaluation
-                                                mk_compose(m, 
-                                                           mk_string(m, " "),
-                                                           first,
-                                                           mk_seq(m, it, end, proc),
-                                                           mk_string(m, rp)))));
+        format * lp_fmt = mk_string(m, lp);
+        format * header_fmt = mk_string(m, header);
+        format * space_fmt = mk_string(m, " ");
+        format * seq_fmt = mk_seq(m, it, end, proc);
+        format * rp_fmt = mk_string(m, rp);
+        format * tail_comp = mk_compose(m, space_fmt, first, seq_fmt, rp_fmt);
+        format * indented = mk_indent(m, indent, tail_comp);
+        format * composed = mk_compose(m, lp_fmt, header_fmt, indented);
+        return mk_group(m, composed);
     }
 
     template<typename It, typename ToDoc>
@@ -149,8 +151,12 @@ namespace format_ns {
                      unsigned indent = FORMAT_DEFAULT_INDENT, char const * lp = "(", char const * rp = ")") {
         SASSERT(i >= 1);
         if (begin == end)
-            // TODO: non-deterministic parameter evaluation
-            return mk_compose(m, mk_string(m, lp), mk_string(m, header), mk_string(m, rp));
+            {
+                format * lp_fmt = mk_string(m, lp);
+                format * header_fmt = mk_string(m, header);
+                format * rp_fmt = mk_string(m, rp);
+                return mk_compose(m, lp_fmt, header_fmt, rp_fmt);
+            }
         unsigned idx = 0;
         It end1 = begin;
         for (;end1 != end && idx < i; ++end1, ++idx)
@@ -158,17 +164,19 @@ namespace format_ns {
         It it = begin;
         format * first = proc(*it);
         ++it;
-        return mk_group(m, 
-                        // TODO: non-deterministic parameter evaluation
-                        mk_compose(m, 
-                                   // TODO: non-deterministic parameter evaluation
-                                   mk_compose(m, mk_string(m, lp), mk_string(m, header)),
-                                   mk_group(m, mk_indent(m, static_cast<unsigned>(strlen(header) + strlen(lp) + 1),
-                                                         // TODO: non-deterministic parameter evaluation
-                                                         mk_compose(m, mk_string(m, " "), first, 
-                                                                    mk_seq(m, it, end1, proc)))),
-                                   mk_indent(m, indent, mk_seq(m, end1, end, proc)),
-                                   mk_string(m, rp)));
+        unsigned header_indent = static_cast<unsigned>(strlen(header) + strlen(lp) + 1);
+        format * lp_fmt = mk_string(m, lp);
+        format * header_fmt = mk_string(m, header);
+        format * header_compose = mk_compose(m, lp_fmt, header_fmt);
+        format * space_fmt = mk_string(m, " ");
+        format * prefix_seq = mk_seq(m, it, end1, proc);
+        format * prefix_comp = mk_compose(m, space_fmt, first, prefix_seq);
+        format * indent_prefix = mk_group(m, mk_indent(m, header_indent, prefix_comp));
+        format * suffix_seq = mk_seq(m, end1, end, proc);
+        format * suffix_indent = mk_indent(m, indent, suffix_seq);
+        format * rp_fmt = mk_string(m, rp);
+        format * composed = mk_compose(m, header_compose, indent_prefix, suffix_indent, rp_fmt);
+        return mk_group(m, composed);
     }
 
     /**
@@ -181,19 +189,23 @@ namespace format_ns {
     format * mk_seq4(ast_manager & m, It const & begin, It const & end, ToDoc proc, unsigned indent = FORMAT_DEFAULT_INDENT, 
                      char const * lp = "(", char const * rp = ")") {
         if (begin == end)
-            // TODO: non-deterministic parameter evaluation
-            return mk_compose(m, mk_string(m, lp), mk_string(m, rp));
+            {
+                format * lp_fmt = mk_string(m, lp);
+                format * rp_fmt = mk_string(m, rp);
+                return mk_compose(m, lp_fmt, rp_fmt);
+            }
         unsigned indent1 = static_cast<unsigned>(strlen(lp));
         It it = begin;
         format * first = proc(*it);
         ++it;
-        // TODO: non-deterministic parameter evaluation
-        return mk_group(m, mk_compose(m,
-                                      mk_indent(m, indent1, mk_compose(m, mk_string(m, lp), first)),
-                                      // TODO: non-deterministic parameter evaluation
-                                      mk_indent(m, indent, mk_compose(m, 
-                                                                      mk_seq(m, it, end, proc), 
-                                                                      mk_string(m, rp)))));
+        format * lp_fmt = mk_string(m, lp);
+        format * first_comp = mk_compose(m, lp_fmt, first);
+        format * first_indent = mk_indent(m, indent1, first_comp);
+        format * seq_rest = mk_seq(m, it, end, proc);
+        format * rp_fmt = mk_string(m, rp);
+        format * tail_comp = mk_compose(m, seq_rest, rp_fmt);
+        format * tail_indent = mk_indent(m, indent, tail_comp);
+        return mk_group(m, mk_compose(m, first_indent, tail_indent));
     }
 
     /**
@@ -209,5 +221,3 @@ namespace format_ns {
     }
   
 };
-
-

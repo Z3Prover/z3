@@ -254,8 +254,10 @@ namespace sls {
                     expr_ref_vector args(m);
                     for (auto a : acc)
                         args.push_back(m.mk_app(a, t));
-                    // TODO: non-deterministic parameter evaluation
-                    m_axioms.push_back(m.mk_iff(m.mk_app(r, t), m.mk_eq(t, m.mk_app(c, args))));
+                    expr_ref cons(m.mk_app(c, args), m);
+                    expr* is_c = m.mk_app(r, t);
+                    expr_ref eq_term(m.mk_eq(t, cons), m);
+                    m_axioms.push_back(m.mk_iff(is_c, eq_term));
                 }
             }
         }

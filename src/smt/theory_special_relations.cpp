@@ -803,8 +803,9 @@ namespace smt {
         r.pop(1);
         fi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(fn, fi);
-        // TODO: non-deterministic parameter evaluation
-        result = arith.mk_le(m.mk_app(fn,m.mk_var(0, *ty)), m.mk_app(fn, m.mk_var(1, *ty)));
+        expr* arg0 = m.mk_app(fn, m.mk_var(0, *ty));
+        expr* arg1 = m.mk_app(fn, m.mk_var(1, *ty));
+        result = arith.mk_le(arg0, arg1);
         return result;
     }
 
@@ -824,8 +825,9 @@ namespace smt {
         }
         fi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(fn, fi);
-        // TODO: non-deterministic parameter evaluation
-        result = m.mk_eq(m.mk_app(fn, m.mk_var(0, *ty)), m.mk_app(fn, m.mk_var(1, *ty)));
+        expr* cls0 = m.mk_app(fn, m.mk_var(0, *ty));
+        expr* cls1 = m.mk_app(fn, m.mk_var(1, *ty));
+        result = m.mk_eq(cls0, cls1);
         return result;
     }
 
@@ -850,10 +852,14 @@ namespace smt {
         hifi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(lofn, lofi);
         mg.get_model().register_decl(hifn, hifi);
-        // TODO: non-deterministic parameter evaluation
-        result = m.mk_and(arith.mk_le(m.mk_app(lofn, m.mk_var(0, *ty)), m.mk_app(lofn, m.mk_var(1, *ty))),
-                          // TODO: non-deterministic parameter evaluation
-                          arith.mk_le(m.mk_app(hifn, m.mk_var(1, *ty)), m.mk_app(hifn, m.mk_var(0, *ty))));
+        expr* lo_arg0 = m.mk_app(lofn, m.mk_var(0, *ty));
+        expr* lo_arg1 = m.mk_app(lofn, m.mk_var(1, *ty));
+        expr* hi_arg0 = m.mk_app(hifn, m.mk_var(0, *ty));
+        expr* hi_arg1 = m.mk_app(hifn, m.mk_var(1, *ty));
+        expr* lo_constraint = arith.mk_le(lo_arg0, lo_arg1);
+        expr* hi_constraint = arith.mk_le(hi_arg1, hi_arg0);
+        expr* conjuncts[2] = { lo_constraint, hi_constraint };
+        result = m.mk_and(2, conjuncts);
         return result;
     }
 
@@ -927,13 +933,13 @@ namespace smt {
             
             expr* x = xV, *S = SV;
             expr_ref mem_body(m);
-            // TODO: non-deterministic parameter evaluation
-            mem_body = m.mk_ite(m.mk_app(is_nil, S), 
-                                F,
-                                // TODO: non-deterministic parameter evaluation
-                                m.mk_ite(m.mk_eq(m.mk_app(hd, S), x), 
-                                         T,
-                                         m.mk_app(memf, x, m.mk_app(tl, S))));            
+            expr* is_nil_S = m.mk_app(is_nil, S);
+            expr* hd_S = m.mk_app(hd, S);
+            expr* eq_hd_x = m.mk_eq(hd_S, x);
+            expr* tl_S = m.mk_app(tl, S);
+            expr* rec_call = m.mk_app(memf, x, tl_S);
+            expr* inner_ite = m.mk_ite(eq_hd_x, T, rec_call);
+            mem_body = m.mk_ite(is_nil_S, F, inner_ite);
             recfun_replace rep(m);
             var* vars[2] = { xV, SV };
             p.set_definition(rep, mem, false, 2, vars, mem_body);
@@ -953,11 +959,16 @@ namespace smt {
             var_ref SV(m.mk_var(1, listS), m);
             var_ref tupV(m.mk_var(0, tup), m);
             expr* a = aV, *b = bV, *A = AV, *S = SV, *t = tupV;
-            // TODO: non-deterministic parameter evaluation
-            // TODO: non-deterministic parameter evaluation
-            next_body = m.mk_ite(m.mk_and(m.mk_app(memf, a, A), m.mk_not(m.mk_app(memf, b, S))), 
-                                 m.mk_app(pair, m.mk_app(cons, b, m.mk_app(fst, t)), m.mk_app(cons, b, m.mk_app(snd, t))),
-                                 t);
+            expr* mem_a_A = m.mk_app(memf, a, A);
+            expr* mem_b_S = m.mk_app(memf, b, S);
+            expr* not_mem_b_S = m.mk_not(mem_b_S);
+            expr* guard = m.mk_and(mem_a_A, not_mem_b_S);
+            expr* fst_t = m.mk_app(fst, t);
+            expr* snd_t = m.mk_app(snd, t);
+            expr* cons_fst = m.mk_app(cons, b, fst_t);
+            expr* cons_snd = m.mk_app(cons, b, snd_t);
+            expr* pair_term = m.mk_app(pair, cons_fst, cons_snd);
+            next_body = m.mk_ite(guard, pair_term, t);
 
             recfun_replace rep(m);
             var* vars[5] = { aV, bV, AV, SV, tupV };
@@ -989,11 +1000,11 @@ namespace smt {
             expr_ref Ap(m.mk_app(fst, connected_body.get()), m);
             expr_ref Sp(m.mk_app(snd, connected_body.get()), m);
 
-            // TODO: non-deterministic parameter evaluation
-            connected_body = m.mk_ite(m.mk_eq(Ap, nilc), F, 
-                                      // TODO: non-deterministic parameter evaluation
-                                      m.mk_ite(m.mk_app(memf, dst, Ap), T,
-                                               m.mk_app(connectedf, Ap, dst, Sp)));
+            expr* eq_Ap_nilc = m.mk_eq(Ap, nilc);
+            expr* mem_dst_Ap = m.mk_app(memf, dst, Ap);
+            expr* rec_call = m.mk_app(connectedf, Ap, dst, Sp);
+            expr* inner_ite = m.mk_ite(mem_dst_Ap, T, rec_call);
+            connected_body = m.mk_ite(eq_Ap_nilc, F, inner_ite);
             
             TRACE(special_relations, tout << connected_body << "\n";);
             recfun_replace rep(m);

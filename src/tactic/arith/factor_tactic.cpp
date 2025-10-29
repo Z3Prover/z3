@@ -63,8 +63,9 @@ class factor_tactic : public tactic {
                 m_expr2poly.to_expr(fs[i], true, arg);
                 args.push_back(arg);
             }
-            // TODO: non-deterministic parameter evaluation
-            result = m.mk_eq(mk_mul(args.size(), args.data()), mk_zero_for(arg));
+            expr* product = mk_mul(args.size(), args.data());
+            expr* zero = mk_zero_for(arg);
+            result = m.mk_eq(product, zero);
         }
 
         // p1^k1 * p2^k2 = 0 --> p1 = 0 or p2 = 0
@@ -333,6 +334,5 @@ public:
 tactic * mk_factor_tactic(ast_manager & m, params_ref const & p) {
     return clean(alloc(factor_tactic, m, p));
 }
-
 
 

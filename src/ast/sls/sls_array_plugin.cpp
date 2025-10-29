@@ -413,9 +413,10 @@ namespace sls {
             args2.push_back(k);
         }
         expr_ref sel1(a.mk_select(args1), m);
-        expr_ref sel2(a.mk_select(args2), m);
-        // TODO: non-deterministic parameter evaluation
-        bool r = ctx.add_constraint(m.mk_implies(m.mk_eq(sel1, sel2), m.mk_eq(x, y)));
+       expr_ref sel2(a.mk_select(args2), m);
+        expr* eq_select = m.mk_eq(sel1, sel2);
+        expr* eq_arrays = m.mk_eq(x, y);
+        bool r = ctx.add_constraint(m.mk_implies(eq_select, eq_arrays));
         if (r)
             ++m_stats.m_num_axioms;        
         return r;

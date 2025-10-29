@@ -559,9 +559,8 @@ class arith_project_util {
                   tout << "lcm of divs: " << lcm_divs << "\n";);
         }
 
-        // TODO: non-deterministic parameter evaluation
-        expr_ref z(a.mk_numeral(rational::zero(), a.mk_int()), m);
-        expr_ref x_term_val(m);
+        expr_ref z(a.mk_numeral(rational::zero(), true), m);
+	    expr_ref x_term_val(m);
 
         // use equality term
         if (eq_idx < lits.size()) {
@@ -627,9 +626,9 @@ class arith_project_util {
                 // (lcm_coeffs * var_val) % lcm_divs instead
                 rational var_val_num;
                 VERIFY(a.is_numeral(var_val, var_val_num));
-                // TODO: non-deterministic parameter evaluation
-                x_term_val = a.mk_numeral(
-                    mod(lcm_coeffs * var_val_num, lcm_divs), a.mk_int());
+                rational mod_val =  mod(lcm_coeffs * var_val_num, lcm_divs);
+                x_term_val = a.mk_numeral(mod_val, true);
+				std::cout << "t";
                 TRACE(qe, tout << "Substitution for (lcm_coeffs * x): "
                                  << mk_pp(x_term_val, m) << "\n";);
             }
@@ -649,10 +648,9 @@ class arith_project_util {
                     // XXX Rewrite before applying divisibility to preserve
                     // syntactic structure
                     m_rw(new_lit);
-                    new_lit = m.mk_eq(
-                        // TODO: non-deterministic parameter evaluation
-                        a.mk_mod(new_lit, a.mk_numeral(m_divs[i], a.mk_int())),
-                        z);
+                    expr* mod_val = a.mk_numeral(m_divs[i], true);
+                    expr* mod_expr = a.mk_mod(new_lit, mod_val);
+                    new_lit = m.mk_eq(mod_expr, z);
                 } else if (m_eq[i] || (num_pos == 0 && m_coeffs[i].is_pos()) ||
                            (num_neg == 0 && m_coeffs[i].is_neg())) {
                     new_lit = m.mk_false();
@@ -737,12 +735,11 @@ class arith_project_util {
             // (t+offset)
             //
             // for positive term, subtract from 0
-            x_term_val =
-                mk_add(m_terms.get(max_t), a.mk_numeral(offset, a.mk_int()));
+            expr* offset_expr = a.mk_numeral(offset, true);
+            x_term_val = mk_add(m_terms.get(max_t), offset_expr);
             if (m_strict[max_t]) {
-                x_term_val = a.mk_add(
-                    // TODO: non-deterministic parameter evaluation
-                    x_term_val, a.mk_numeral(rational::one(), a.mk_int()));
+                expr* one = a.mk_numeral(rational::one(), true);
+                x_term_val = a.mk_add(x_term_val, one);
             }
             if (m_coeffs[max_t].is_pos()) {
                 x_term_val = a.mk_uminus(x_term_val);
@@ -757,9 +754,9 @@ class arith_project_util {
 
             if (!lcm_coeffs.is_one()) {
                 // new div constraint: lcm_coeffs | x_term_val
-                div_lit = m.mk_eq(
-                    a.mk_mod(x_term_val, a.mk_numeral(lcm_coeffs, a.mk_int())),
-                    z);
+                expr* mod_val = a.mk_numeral(lcm_coeffs, true);
+                expr* mod_expr = a.mk_mod(x_term_val, mod_val);
+                div_lit = m.mk_eq(mod_expr, z);
             }
         }
         return true;
@@ -980,8 +977,7 @@ class arith_project_util {
             return;
         }
 
-        // TODO: non-deterministic parameter evaluation
-        expr_ref z(a.mk_numeral(rational::zero(), a.mk_int()), m);
+        expr_ref z(a.mk_numeral(rational::zero(), true), m);
         bool is_mod_eq = false;
 
         expr *e1, *e2, *num;
@@ -1013,21 +1009,21 @@ class arith_project_util {
             if (a.is_numeral(t2, t2_num) && t2_num.is_zero()) {
                 // already in the desired form;
                 // new_fml is (num_val | t1)
-                new_fml =
-                    m.mk_eq(a.mk_mod(t1, a.mk_numeral(num_val, a.mk_int())), z);
+                expr* mod_val = a.mk_numeral(num_val, true);
+                expr* mod_expr = a.mk_mod(t1, mod_val);
+                new_fml = m.mk_eq(mod_expr, z);
             } else {
                 expr_ref_vector lits(m);
                 // num_val | (t1 - t2)
                 lits.push_back(
                     m.mk_eq(a.mk_mod(a.mk_sub(t1, t2),
-                                     a.mk_numeral(num_val, a.mk_int())),
+                                     a.mk_numeral(num_val, true)),
                             z));
                 // 0 <= t2
                 lits.push_back(a.mk_le(z, t2));
                 // t2 < abs (num_val)
-                lits.push_back(
-                    // TODO: non-deterministic parameter evaluation
-                    a.mk_lt(t2, a.mk_numeral(abs(num_val), a.mk_int())));
+                expr* abs_val = a.mk_numeral(abs(num_val), true);
+                lits.push_back(a.mk_lt(t2, abs_val));
 
                 new_fml = m.mk_and(lits.size(), lits.data());
             }
@@ -1079,8 +1075,7 @@ class arith_project_util {
      */
     void mk_lit_substitutes(expr_ref const &x_term_val, expr_map &map,
                             unsigned idx) {
-        // TODO: non-deterministic parameter evaluation
-        expr_ref z(a.mk_numeral(rational::zero(), a.mk_int()), m);
+        expr_ref z(a.mk_numeral(rational::zero(), true), m);
         expr_ref cxt(m), new_lit(m);
         for (unsigned i = 0; i < m_lits.size(); ++i) {
             if (i == idx) {
@@ -1107,9 +1102,9 @@ class arith_project_util {
                     // XXX rewrite before applying mod to ensure mod is the
                     // top-level operator
                     m_rw(cxt);
-                    new_lit = m.mk_eq(
-                        // TODO: non-deterministic parameter evaluation
-                        a.mk_mod(cxt, a.mk_numeral(m_divs[i], a.mk_int())), z);
+                    expr* mod_val = a.mk_numeral(m_divs[i], true);
+                    expr* mod_expr = a.mk_mod(cxt, mod_val);
+                    new_lit = m.mk_eq(mod_expr, z);
                 }
             }
             map.insert(m_lits.get(i), new_lit, nullptr);

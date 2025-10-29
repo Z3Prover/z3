@@ -1066,8 +1066,9 @@ namespace opt {
         expr_ref_vector soft(m);
         for (unsigned k = 1; k <= min_cardinality; ++k) {
             auto p_k = m.mk_fresh_const("p", m.mk_bool_sort());
-            // TODO: non-deterministic parameter evaluation
-            soft.push_back(m.mk_ite(p_k, a.mk_int(1), a.mk_int(0)));
+            expr* one = a.mk_int(1);
+            expr* zero = a.mk_int(0);
+            soft.push_back(m.mk_ite(p_k, one, zero));
             for (auto c : cardinalities)
                 // p_k => c >= k
                 if (is_max)

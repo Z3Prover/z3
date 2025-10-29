@@ -260,8 +260,9 @@ public:
             return m_pb.mk_eq(sz, weights, args, w);
         }
         else {
-            // TODO: non-deterministic parameter evaluation
-            return m.mk_and(mk_ge(sz, weights, args, w), mk_le(sz, weights, args, w));
+            expr* ge_expr = mk_ge(sz, weights, args, w);
+            expr* le_expr = mk_le(sz, weights, args, w);
+            return m.mk_and(ge_expr, le_expr);
         }
     }
 

@@ -343,8 +343,8 @@ Notes:
                         return mk_not(out[k]);
                     }
                     else {
-                        // TODO: non-deterministic parameter evaluation
-                        return mk_min(out[k-1], mk_not(out[k]));
+                        literal not_out_k = mk_not(out[k]);
+                        return mk_min(out[k-1], not_out_k);
                     }
                 case sorting_network_encoding::unate_at_most:
                     return unate_eq(k, n, xs);              
@@ -385,8 +385,9 @@ Notes:
         }
 
         literal eq(unsigned k, unsigned n, unsigned const* ws, literal const* xs) {
-            // TODO: non-deterministic parameter evaluation
-            return mk_and(ge(k, n, ws, xs), le(k, n, ws, xs));
+            literal ge_res = ge(k, n, ws, xs);
+            literal le_res = le(k, n, ws, xs);
+            return mk_and(ge_res, le_res);
 #if 0
             m_t = EQ;
             return cmp(k, n, ws, xs);
@@ -481,8 +482,8 @@ Notes:
                 for (unsigned j = last; j-- > 0; ) {
                     // c'[j] <-> (xs[i] & c[j-1]) | c[j]
                     literal c0 = j > 0 ? carry[j-1] : ctx.mk_true();
-                    // TODO: non-deterministic parameter evaluation
-                    carry[j] = mk_or(mk_and(xs[i], c0), carry[j]);
+                    literal and_term = mk_and(xs[i], c0);
+                    carry[j] = mk_or(and_term, carry[j]);
                 }
             }
             switch (cmp) {
@@ -493,8 +494,10 @@ Notes:
             case GE_FULL:
                 return carry[k-1];
             case EQ:
-                // TODO: non-deterministic parameter evaluation
-                return mk_and(mk_not(carry[k]), carry[k-1]);
+                {
+                    literal not_carry_k = mk_not(carry[k]);
+                    return mk_and(not_carry_k, carry[k-1]);
+                }
             default:
                 UNREACHABLE();
                 return xs[0];
@@ -526,10 +529,12 @@ Notes:
                 // out[i] = c + x[i] + y[i]
                 // c' = c&x[i] | c&y[i] | x[i]&y[i];
                 literal_vector ors; 
-                // TODO: non-deterministic parameter evaluation
-                ors.push_back(mk_and(c,    mk_not(x[i]), mk_not(y[i]))); 
-                ors.push_back(mk_and(x[i], mk_not(c),    mk_not(y[i])));
-                ors.push_back(mk_and(y[i], mk_not(c),    mk_not(x[i])));
+                literal not_x = mk_not(x[i]);
+                literal not_y = mk_not(y[i]);
+                literal not_c = mk_not(c);
+                ors.push_back(mk_and(c,    not_x, not_y)); 
+                ors.push_back(mk_and(x[i], not_c, not_y));
+                ors.push_back(mk_and(y[i], not_c, not_x));
                 ors.push_back(mk_and(c, x[i], y[i]));
                 literal o = mk_or(4, ors.data());
                 out.push_back(o);
@@ -583,10 +588,12 @@ Notes:
                 literal_vector eqs;
                 SASSERT(kvec.size() == out.size());
                 for (unsigned i = 0; i < num_bits; ++i) {
-                    // TODO: non-deterministic parameter evaluation
-                    eqs.push_back(mk_or(mk_not(kvec[i]), out[i]));
-                    // TODO: non-deterministic parameter evaluation
-                    eqs.push_back(mk_or(kvec[i], mk_not(out[i])));
+                    literal not_k = mk_not(kvec[i]);
+                    literal clause1 = mk_or(not_k, out[i]);
+                    literal not_out = mk_not(out[i]);
+                    literal clause2 = mk_or(kvec[i], not_out);
+                    eqs.push_back(clause1);
+                    eqs.push_back(clause2);
                 }
                 eqs.push_back(mk_not(ovfl));
                 return mk_and(eqs);
@@ -601,8 +608,13 @@ Notes:
             literal r = ctx.mk_true();
             literal g = ctx.mk_false();
             for (unsigned j = x.size(); j-- > 0; ) {
-                g = mk_or(g, mk_and(r, mk_and(x[j], mk_not(y[j]))));
-                r = mk_or(g, mk_and(r, mk_or( x[j], mk_not(y[j]))));
+                literal not_y = mk_not(y[j]);
+                literal and_x_not_y = mk_and(x[j], not_y);
+                literal and_r_x = mk_and(r, and_x_not_y);
+                g = mk_or(g, and_r_x);
+                literal or_x_not_y = mk_or(x[j], not_y);
+                literal and_r_or = mk_and(r, or_x_not_y);
+                r = mk_or(g, and_r_or);
             }
             return r;
         }
@@ -693,8 +705,10 @@ Notes:
             case 1:
                 return ands[0];
             case 2:
-                // TODO: non-deterministic parameter evaluation
-                return mk_min(ands[0], ands[1]);
+                {
+                    literal min_ab = mk_min(ands[0], ands[1]);
+                    return min_ab;
+                }
             default: {
                 return ctx.mk_min(ands.size(), ands.data());
             }
@@ -1505,4 +1519,3 @@ Notes:
             }
         }
     };
-

@@ -259,8 +259,9 @@ namespace smt {
         unsigned p = 0;
         arith_util a(m);
         for (auto b : bits) {
-            // TODO: non-deterministic parameter evaluation
-            sum.push_back(m.mk_ite(b, a.mk_int(1 << p), a.mk_int(0)));
+            expr* one = a.mk_int(1 << p);
+            expr* zero = a.mk_int(0);
+            sum.push_back(m.mk_ite(b, one, zero));
             p++;
         }
         expr_ref sum_bits(a.mk_add(sum), m);
@@ -457,4 +458,3 @@ namespace smt {
         st.update("seq char2bit",      m_stats.m_num_blast);
     }
 }
-

@@ -331,16 +331,30 @@ struct purify_arith_proc {
             expr * x = args[0];
             expr * y = args[1];
             // y = 0 \/ y*k = x
-            // TODO: non-deterministic parameter evaluation
-            push_cnstr(OR(EQ(y, mk_real_zero()),
-                          EQ(u().mk_mul(y, k), x)));
+            expr_ref y_is_zero(m());
+            expr_ref mul_term(m());
+            expr_ref mul_eq_x(m());
+            expr_ref disj_y_zero_or_mul(m());
+            expr_ref zero_val(m());
+            zero_val = mk_real_zero();
+            y_is_zero = EQ(y, zero_val);
+            mul_term = u().mk_mul(y, k);
+            mul_eq_x = EQ(mul_term, x);
+            disj_y_zero_or_mul = OR(y_is_zero, mul_eq_x);
+            push_cnstr(disj_y_zero_or_mul);
             push_cnstr_pr(result_pr);
             rational r;
             if (complete()) {
                 // y != 0 \/ k = div-0(x)
-                // TODO: non-deterministic parameter evaluation
-                push_cnstr(OR(NOT(EQ(y, mk_real_zero())),
-                              EQ(k, u().mk_div(x, mk_real_zero()))));
+                expr_ref not_y_zero(m());
+                expr_ref div_zero(m());
+                expr_ref k_eq_div_zero(m());
+                expr_ref disj_nonzero_or_def(m());
+                not_y_zero = NOT(y_is_zero);
+                div_zero = u().mk_div(x, zero_val);
+                k_eq_div_zero = EQ(k, div_zero);
+                disj_nonzero_or_def = OR(not_y_zero, k_eq_div_zero);
+                push_cnstr(disj_nonzero_or_def);
                 push_cnstr_pr(result_pr);
             }
             m_divs.push_back(bin_def(x, y, k));
@@ -377,27 +391,68 @@ struct purify_arith_proc {
             //       y < 0 implies k2 < -y  --->  y >= 0 \/ k2 < -y
             //     
             expr * zero = mk_int_zero();
-            // TODO: non-deterministic parameter evaluation
-            push_cnstr(OR(EQ(y, zero), EQ(x, u().mk_add(u().mk_mul(k1, y), k2))));
+            expr_ref y_eq_zero(m());
+            expr_ref mul_k1_y(m());
+            expr_ref sum_expr(m());
+            expr_ref x_eq_sum(m());
+            expr_ref or_y_zero_or_sum(m());
+            y_eq_zero = EQ(y, zero);
+            mul_k1_y = u().mk_mul(k1, y);
+            sum_expr = u().mk_add(mul_k1_y, k2);
+            x_eq_sum = EQ(x, sum_expr);
+            or_y_zero_or_sum = OR(y_eq_zero, x_eq_sum);
+            push_cnstr(or_y_zero_or_sum);
             push_cnstr_pr(result_pr, mod_pr);
 
-            push_cnstr(OR(EQ(y, zero), u().mk_le(zero, k2)));
+            expr_ref zero_le_k2(m());
+            expr_ref or_y_zero_or_le(m());
+            zero_le_k2 = u().mk_le(zero, k2);
+            or_y_zero_or_le = OR(y_eq_zero, zero_le_k2);
+            push_cnstr(or_y_zero_or_le);
             push_cnstr_pr(mod_pr);
 
-            push_cnstr(OR(u().mk_le(y, zero), u().mk_lt(k2, y)));
+            expr_ref y_le_zero(m());
+            expr_ref k2_lt_y(m());
+            expr_ref or_y_le_or_lt(m());
+            y_le_zero = u().mk_le(y, zero);
+            k2_lt_y = u().mk_lt(k2, y);
+            or_y_le_or_lt = OR(y_le_zero, k2_lt_y);
+            push_cnstr(or_y_le_or_lt);
             push_cnstr_pr(mod_pr);
 
-            push_cnstr(OR(u().mk_ge(y, zero), u().mk_lt(k2, u().mk_mul(u().mk_numeral(rational(-1), true), y))));
+            expr_ref y_ge_zero(m());
+            expr_ref neg_one(m());
+            expr_ref neg_y(m());
+            expr_ref k2_lt_neg_y(m());
+            expr_ref or_y_ge_or_lt(m());
+            y_ge_zero = u().mk_ge(y, zero);
+            neg_one = u().mk_numeral(rational(-1), true);
+            neg_y = u().mk_mul(neg_one, y);
+            k2_lt_neg_y = u().mk_lt(k2, neg_y);
+            or_y_ge_or_lt = OR(y_ge_zero, k2_lt_neg_y);
+            push_cnstr(or_y_ge_or_lt);
             push_cnstr_pr(mod_pr);
 
             rational r;
             if (complete() && (!u().is_numeral(y, r) || r.is_zero())) {
-                // TODO: non-deterministic parameter evaluation
-                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k1, u().mk_idiv(x, zero))));
+                expr_ref not_y_zero(m());
+                expr_ref idiv_zero(m());
+                expr_ref k1_eq_idiv_zero(m());
+                expr_ref or_nonzero_or_idiv(m());
+                not_y_zero = NOT(y_eq_zero);
+                idiv_zero = u().mk_idiv(x, zero);
+                k1_eq_idiv_zero = EQ(k1, idiv_zero);
+                or_nonzero_or_idiv = OR(not_y_zero, k1_eq_idiv_zero);
+                push_cnstr(or_nonzero_or_idiv);
                 push_cnstr_pr(result_pr);
 
-                // TODO: non-deterministic parameter evaluation
-                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, u().mk_mod(x, zero))));
+                expr_ref mod_zero(m());
+                expr_ref k2_eq_mod_zero(m());
+                expr_ref or_nonzero_or_mod(m());
+                mod_zero = u().mk_mod(x, zero);
+                k2_eq_mod_zero = EQ(k2, mod_zero);
+                or_nonzero_or_mod = OR(not_y_zero, k2_eq_mod_zero);
+                push_cnstr(or_nonzero_or_mod);
                 push_cnstr_pr(mod_pr);
             }
             m_idivs.push_back(bin_def(x, y, k1));
@@ -468,11 +523,21 @@ struct purify_arith_proc {
                 }
 
                 // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
-                // TODO: non-deterministic parameter evaluation
-                push_cnstr(OR(EQ(x, zero), EQ(k, one)));
+                expr_ref x_eq_zero(m());
+                expr_ref k_eq_one(m());
+                expr_ref disj_zero_or_one(m());
+                x_eq_zero = EQ(x, zero);
+                k_eq_one = EQ(k, one);
+                disj_zero_or_one = OR(x_eq_zero, k_eq_one);
+                push_cnstr(disj_zero_or_one);
                 push_cnstr_pr(result_pr);
-                // TODO: non-deterministic parameter evaluation
-                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, p0)));
+                expr_ref not_x_eq_zero(m());
+                expr_ref k_eq_p0(m());
+                expr_ref disj_nonzero_or_p0(m());
+                not_x_eq_zero = NOT(x_eq_zero);
+                k_eq_p0 = EQ(k, p0);
+                disj_nonzero_or_p0 = OR(not_x_eq_zero, k_eq_p0);
+                push_cnstr(disj_nonzero_or_p0);
                 push_cnstr_pr(result_pr);
             }
             else if (!is_int) {
@@ -489,14 +554,30 @@ struct purify_arith_proc {
                     SASSERT(n.is_even());
                     // (^ x (/ 1 n)) --> k  |  x >= 0 implies (x = k^n and k >= 0), x < 0 implies k = neg-root(x, n)   
                     // when n is even
-                    // TODO: non-deterministic parameter evaluation
-                    push_cnstr(OR(NOT(u().mk_ge(x, zero)),
-                                  AND(EQ(x, u().mk_power(k, u().mk_numeral(n, false))),
-                                      u().mk_ge(k, zero))));
+                    expr_ref ge_x_zero(m());
+                    expr_ref not_ge_x_zero(m());
+                    expr_ref power_arg(m());
+                    expr_ref x_eq_power(m());
+                    expr_ref ge_k_zero(m());
+                    expr_ref conj_eq_and_ge(m());
+                    expr_ref disj_even_case(m());
+                    ge_x_zero = u().mk_ge(x, zero);
+                    not_ge_x_zero = NOT(ge_x_zero);
+                    power_arg = u().mk_numeral(n, false);
+                    x_eq_power = EQ(x, u().mk_power(k, power_arg));
+                    ge_k_zero = u().mk_ge(k, zero);
+                    conj_eq_and_ge = AND(x_eq_power, ge_k_zero);
+                    disj_even_case = OR(not_ge_x_zero, conj_eq_and_ge);
+                    push_cnstr(disj_even_case);
                     push_cnstr_pr(result_pr);
 
-                    push_cnstr(OR(u().mk_ge(x, zero),
-                                  EQ(k, u().mk_neg_root(x, u().mk_numeral(n, false)))));
+                    expr_ref neg_root_arg(m());
+                    expr_ref k_eq_neg_root(m());
+                    expr_ref or_ge_or_neg_root(m());
+                    neg_root_arg = u().mk_numeral(n, false);
+                    k_eq_neg_root = EQ(k, u().mk_neg_root(x, neg_root_arg));
+                    or_ge_or_neg_root = OR(ge_x_zero, k_eq_neg_root);
+                    push_cnstr(or_ge_or_neg_root);
                     push_cnstr_pr(result_pr);
                 }
 //                else {
@@ -608,23 +689,50 @@ struct purify_arith_proc {
             expr * pi2   = u().mk_mul(u().mk_numeral(rational(1,2), false), u().mk_pi());
             expr * mpi2  = u().mk_mul(u().mk_numeral(rational(-1,2), false), u().mk_pi());
             // -1 <= x <= 1 implies sin(k) = x, -pi/2 <= k <= pi/2
-            // TODO: non-deterministic parameter evaluation
-            // TODO: non-deterministic parameter evaluation
-            push_cnstr(OR(OR(NOT(u().mk_ge(x, mone)),
-                             NOT(u().mk_le(x, one))),
-                          // TODO: non-deterministic parameter evaluation
-                          AND(EQ(x, u().mk_sin(k)),
-                              AND(u().mk_ge(k, mpi2),
-                                  u().mk_le(k, pi2)))));
+            expr_ref ge_x_mone(m());
+            expr_ref le_x_one(m());
+            expr_ref not_ge_x_mone(m());
+            expr_ref not_le_x_one(m());
+            expr_ref sin_k(m());
+            expr_ref eq_x_sin(m());
+            expr_ref ge_k_mpi2(m());
+            expr_ref le_k_pi2(m());
+            expr_ref bounds_conj(m());
+            expr_ref sin_conj(m());
+            expr_ref interval_disj(m());
+            ge_x_mone = u().mk_ge(x, mone);
+            le_x_one = u().mk_le(x, one);
+            not_ge_x_mone = NOT(ge_x_mone);
+            not_le_x_one = NOT(le_x_one);
+            sin_k = u().mk_sin(k);
+            eq_x_sin = EQ(x, sin_k);
+            ge_k_mpi2 = u().mk_ge(k, mpi2);
+            le_k_pi2 = u().mk_le(k, pi2);
+            bounds_conj = AND(ge_k_mpi2, le_k_pi2);
+            sin_conj = AND(eq_x_sin, bounds_conj);
+            interval_disj = OR(OR(not_ge_x_mone, not_le_x_one), sin_conj);
+            push_cnstr(interval_disj);
             push_cnstr_pr(result_pr);
             if (complete()) {
                 // x < -1       implies k = asin_u(x) 
                 // x >  1       implies k = asin_u(x) 
-                push_cnstr(OR(u().mk_ge(x, mone),
-                              EQ(k, u().mk_u_asin(x))));
+                expr_ref ge_x_mone_guard(m());
+                expr_ref asin_val(m());
+                expr_ref k_eq_asin(m());
+                expr_ref ge_guard_or_eq(m());
+                ge_x_mone_guard = u().mk_ge(x, mone);
+                asin_val = u().mk_u_asin(x);
+                k_eq_asin = EQ(k, asin_val);
+                ge_guard_or_eq = OR(ge_x_mone_guard, k_eq_asin);
+                push_cnstr(ge_guard_or_eq);
                 push_cnstr_pr(result_pr);
-                push_cnstr(OR(u().mk_le(x, one),
-                              EQ(k, u().mk_u_asin(x))));
+                expr_ref le_x_one_guard(m());
+                expr_ref k_eq_asin_upper(m());
+                expr_ref le_guard_or_eq(m());
+                le_x_one_guard = u().mk_le(x, one);
+                k_eq_asin_upper = EQ(k, asin_val);
+                le_guard_or_eq = OR(le_x_one_guard, k_eq_asin_upper);
+                push_cnstr(le_guard_or_eq);
                 push_cnstr_pr(result_pr);
             }
             return BR_DONE;
@@ -653,23 +761,50 @@ struct purify_arith_proc {
             expr * pi    = u().mk_pi();
             expr * zero  = u().mk_numeral(rational(0), false);
             // -1 <= x <= 1 implies cos(k) = x, 0 <= k <= pi
-            // TODO: non-deterministic parameter evaluation
-            // TODO: non-deterministic parameter evaluation
-            push_cnstr(OR(OR(NOT(u().mk_ge(x, mone)),
-                             NOT(u().mk_le(x, one))),
-                          // TODO: non-deterministic parameter evaluation
-                          AND(EQ(x, u().mk_cos(k)),
-                              AND(u().mk_ge(k, zero),
-                                  u().mk_le(k, pi)))));
+            expr_ref ge_x_mone(m());
+            expr_ref le_x_one(m());
+            expr_ref not_ge_x_mone(m());
+            expr_ref not_le_x_one(m());
+            expr_ref cos_k(m());
+            expr_ref eq_x_cos(m());
+            expr_ref ge_k_zero(m());
+            expr_ref le_k_pi(m());
+            expr_ref bounds_conj(m());
+            expr_ref cos_conj(m());
+            expr_ref interval_disj(m());
+            ge_x_mone = u().mk_ge(x, mone);
+            le_x_one = u().mk_le(x, one);
+            not_ge_x_mone = NOT(ge_x_mone);
+            not_le_x_one = NOT(le_x_one);
+            cos_k = u().mk_cos(k);
+            eq_x_cos = EQ(x, cos_k);
+            ge_k_zero = u().mk_ge(k, zero);
+            le_k_pi = u().mk_le(k, pi);
+            bounds_conj = AND(ge_k_zero, le_k_pi);
+            cos_conj = AND(eq_x_cos, bounds_conj);
+            interval_disj = OR(OR(not_ge_x_mone, not_le_x_one), cos_conj);
+            push_cnstr(interval_disj);
             push_cnstr_pr(result_pr);
             if (complete()) {
                 // x < -1       implies k = acos_u(x) 
                 // x >  1       implies k = acos_u(x) 
-                push_cnstr(OR(u().mk_ge(x, mone),
-                              EQ(k, u().mk_u_acos(x))));
+                expr_ref ge_x_mone_guard(m());
+                expr_ref acos_val(m());
+                expr_ref k_eq_acos(m());
+                expr_ref ge_guard_or_eq(m());
+                ge_x_mone_guard = u().mk_ge(x, mone);
+                acos_val = u().mk_u_acos(x);
+                k_eq_acos = EQ(k, acos_val);
+                ge_guard_or_eq = OR(ge_x_mone_guard, k_eq_acos);
+                push_cnstr(ge_guard_or_eq);
                 push_cnstr_pr(result_pr);
-                push_cnstr(OR(u().mk_le(x, one),
-                              EQ(k, u().mk_u_acos(x))));
+                expr_ref le_x_one_guard(m());
+                expr_ref k_eq_acos_upper(m());
+                expr_ref le_guard_or_eq(m());
+                le_x_one_guard = u().mk_le(x, one);
+                k_eq_acos_upper = EQ(k, acos_val);
+                le_guard_or_eq = OR(le_x_one_guard, k_eq_acos_upper);
+                push_cnstr(le_guard_or_eq);
                 push_cnstr_pr(result_pr);
             }
             return BR_DONE;
@@ -692,10 +827,17 @@ struct purify_arith_proc {
             // tan(k) = x, -pi/2 < k < pi/2
             expr * pi2   = u().mk_mul(u().mk_numeral(rational(1,2), false), u().mk_pi());
             expr * mpi2  = u().mk_mul(u().mk_numeral(rational(-1,2), false), u().mk_pi());
-            // TODO: non-deterministic parameter evaluation
-            push_cnstr(AND(EQ(x, u().mk_tan(k)),
-                           AND(u().mk_gt(k, mpi2),
-                               u().mk_lt(k, pi2))));
+            expr_ref eq_x_tan(m());
+            expr_ref gt_k_mpi2(m());
+            expr_ref lt_k_pi2(m());
+            expr_ref bounds_conj(m());
+            expr_ref tan_conj(m());
+            eq_x_tan = EQ(x, u().mk_tan(k));
+            gt_k_mpi2 = u().mk_gt(k, mpi2);
+            lt_k_pi2 = u().mk_lt(k, pi2);
+            bounds_conj = AND(gt_k_mpi2, lt_k_pi2);
+            tan_conj = AND(eq_x_tan, bounds_conj);
+            push_cnstr(tan_conj);
             push_cnstr_pr(result_pr);
             return BR_DONE;
         }
@@ -819,33 +961,51 @@ struct purify_arith_proc {
             auto const& p1 = divs[i];
             for (unsigned j = i + 1; j < divs.size(); ++j) {
                 auto const& p2 = divs[j];
-                // TODO: non-deterministic parameter evaluation
-                m_goal.assert_expr(m().mk_implies(
-                                       // TODO: non-deterministic parameter evaluation
-                                       m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
-                                       m().mk_eq(p1.d, p2.d)));
+                expr_ref eq_x(m());
+                expr_ref eq_y(m());
+                expr_ref antecedent(m());
+                expr_ref consequent(m());
+                expr_ref implication(m());
+                eq_x = m().mk_eq(p1.x, p2.x);
+                eq_y = m().mk_eq(p1.y, p2.y);
+                antecedent = m().mk_and(eq_x, eq_y);
+                consequent = m().mk_eq(p1.d, p2.d);
+                implication = m().mk_implies(antecedent, consequent);
+                m_goal.assert_expr(implication);
             }
         }
         for (unsigned i = 0; i < mods.size(); ++i) {
             auto const& p1 = mods[i];
             for (unsigned j = i + 1; j < mods.size(); ++j) {
                 auto const& p2 = mods[j];
-                // TODO: non-deterministic parameter evaluation
-                m_goal.assert_expr(m().mk_implies(
-                                       // TODO: non-deterministic parameter evaluation
-                                       m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
-                                       m().mk_eq(p1.d, p2.d)));
+                expr_ref eq_x(m());
+                expr_ref eq_y(m());
+                expr_ref antecedent(m());
+                expr_ref consequent(m());
+                expr_ref implication(m());
+                eq_x = m().mk_eq(p1.x, p2.x);
+                eq_y = m().mk_eq(p1.y, p2.y);
+                antecedent = m().mk_and(eq_x, eq_y);
+                consequent = m().mk_eq(p1.d, p2.d);
+                implication = m().mk_implies(antecedent, consequent);
+                m_goal.assert_expr(implication);
             }
         }
         for (unsigned i = 0; i < idivs.size(); ++i) {
             auto const& p1 = idivs[i];
             for (unsigned j = i + 1; j < idivs.size(); ++j) {
                 auto const& p2 = idivs[j];
-                // TODO: non-deterministic parameter evaluation
-                m_goal.assert_expr(m().mk_implies(
-                                       // TODO: non-deterministic parameter evaluation
-                                       m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
-                                       m().mk_eq(p1.d, p2.d)));
+                expr_ref eq_x(m());
+                expr_ref eq_y(m());
+                expr_ref antecedent(m());
+                expr_ref consequent(m());
+                expr_ref implication(m());
+                eq_x = m().mk_eq(p1.x, p2.x);
+                eq_y = m().mk_eq(p1.y, p2.y);
+                antecedent = m().mk_and(eq_x, eq_y);
+                consequent = m().mk_eq(p1.d, p2.d);
+                implication = m().mk_implies(antecedent, consequent);
+                m_goal.assert_expr(implication);
             }
         }
         
@@ -864,8 +1024,15 @@ struct purify_arith_proc {
                 expr_ref v0(m().mk_var(0, u().mk_real()), m());
                 expr_ref v1(m().mk_var(1, u().mk_real()), m());
                 for (auto const& p : divs) {
-                    // TODO: non-deterministic parameter evaluation
-                    body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
+                    expr_ref eq_v0_x(m());
+                    expr_ref eq_v1_y(m());
+                    expr_ref guard(m());
+                    expr_ref new_body(m());
+                    eq_v0_x = m().mk_eq(v0, p.x);
+                    eq_v1_y = m().mk_eq(v1, p.y);
+                    guard = m().mk_and(eq_v0_x, eq_v1_y);
+                    new_body = m().mk_ite(guard, p.d, body);
+                    body = new_body;
                 }
                 fmc->add(u().mk_div0(), body);
             }
@@ -874,8 +1041,15 @@ struct purify_arith_proc {
                 expr_ref v0(m().mk_var(0, u().mk_int()), m());
                 expr_ref v1(m().mk_var(1, u().mk_int()), m());
                 for (auto const& p : mods) {
-                    // TODO: non-deterministic parameter evaluation
-                    body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
+                    expr_ref eq_v0_x(m());
+                    expr_ref eq_v1_y(m());
+                    expr_ref guard(m());
+                    expr_ref new_body(m());
+                    eq_v0_x = m().mk_eq(v0, p.x);
+                    eq_v1_y = m().mk_eq(v1, p.y);
+                    guard = m().mk_and(eq_v0_x, eq_v1_y);
+                    new_body = m().mk_ite(guard, p.d, body);
+                    body = new_body;
                 }
                 
                 fmc->add(u().mk_mod0(), body);
@@ -887,8 +1061,15 @@ struct purify_arith_proc {
                 expr_ref v0(m().mk_var(0, u().mk_int()), m());
                 expr_ref v1(m().mk_var(1, u().mk_int()), m());
                 for (auto const& p : idivs) {
-                    // TODO: non-deterministic parameter evaluation
-                    body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
+                    expr_ref eq_v0_x(m());
+                    expr_ref eq_v1_y(m());
+                    expr_ref guard(m());
+                    expr_ref new_body(m());
+                    eq_v0_x = m().mk_eq(v0, p.x);
+                    eq_v1_y = m().mk_eq(v1, p.y);
+                    guard = m().mk_and(eq_v0_x, eq_v1_y);
+                    new_body = m().mk_ite(guard, p.d, body);
+                    body = new_body;
                 }
                 fmc->add(u().mk_idiv0(), body);
             }
@@ -903,10 +1084,17 @@ struct purify_arith_proc {
             generic_model_converter* emc = alloc(generic_model_converter, m(), "purify_sin_cos");
             mc = concat(mc.get(), emc);
             for (auto const& kv : m_sin_cos) {
-                emc->add(kv.m_key->get_decl(), 
-                            m().mk_ite(u().mk_ge(kv.m_value.first, mk_real_zero()), u().mk_acos(kv.m_value.second), 
-                                       // TODO: non-deterministic parameter evaluation
-                                       u().mk_add(u().mk_acos(u().mk_uminus(kv.m_value.second)), u().mk_pi())));
+                expr_ref ge_nonneg(m());
+                expr_ref acos_val(m());
+                expr_ref neg_acos_val(m());
+                expr_ref pi_sum(m());
+                expr_ref ite_expr(m());
+                ge_nonneg = u().mk_ge(kv.m_value.first, mk_real_zero());
+                acos_val = u().mk_acos(kv.m_value.second);
+                neg_acos_val = u().mk_acos(u().mk_uminus(kv.m_value.second));
+                pi_sum = u().mk_add(neg_acos_val, u().mk_pi());
+                ite_expr = m().mk_ite(ge_nonneg, acos_val, pi_sum);
+                emc->add(kv.m_key->get_decl(), ite_expr);
             }
 
         }

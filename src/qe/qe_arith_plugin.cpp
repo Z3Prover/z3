@@ -468,8 +468,10 @@ namespace qe {
 
         // ax + t = 0
         void mk_eq(rational const& a, app* x, expr* t, expr_ref& result) {
-            // TODO: non-deterministic parameter evaluation
-            result = m_arith.mk_eq(mk_add(mk_mul(a, x), t), mk_zero(x));
+            expr_ref ax(mk_mul(a, x), m);
+            expr_ref sum(mk_add(ax, t), m);
+            expr* zero = mk_zero(x);
+            result = m_arith.mk_eq(sum, zero);
         }
 
         void mk_and(unsigned sz, expr*const* args, expr_ref& result) {

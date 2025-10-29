@@ -879,12 +879,15 @@ struct aig_manager::imp {
             }
             expr * r;
             if (m.is_not_eq(t, e)) {
-                // TODO: non-deterministic parameter evaluation
-                r = ast_mng.mk_iff(get_cached(c), get_cached(t));
+                expr* c_expr = get_cached(c);
+                expr* t_expr = get_cached(t);
+                r = ast_mng.mk_iff(c_expr, t_expr);
             }
             else { 
-                // TODO: non-deterministic parameter evaluation
-                r = ast_mng.mk_ite(get_cached(c), get_cached(t), get_cached(e));
+                expr* c_expr = get_cached(c);
+                expr* t_expr = get_cached(t);
+                expr* e_expr = get_cached(e);
+                r = ast_mng.mk_ite(c_expr, t_expr, e_expr);
             }
             cache_result(n, r);
             TRACE(aig2expr, tout << "caching ITE/IFF "; m.display_ref(tout, n); tout << "\n";);
@@ -1748,6 +1751,5 @@ void aig_manager::display_smt2(std::ostream & out, aig_ref const & r) const {
 unsigned aig_manager::get_num_aigs() const {
     return m_imp->get_num_aigs();
 }
-
 
 

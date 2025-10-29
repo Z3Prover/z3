@@ -287,10 +287,12 @@ namespace mbp {
             };
 
             // `first` is a value, different from 0
-            // TODO: non-deterministic parameter evaluation
-            res = m.mk_and(m.mk_eq(second, a.mk_idiv(lhs, first)),
-                           // TODO: non-deterministic parameter evaluation
-                           m.mk_eq(a.mk_int(0), a.mk_mod(lhs, first)));
+            expr* div_expr = a.mk_idiv(lhs, first);
+            expr* eq_div = m.mk_eq(second, div_expr);
+            expr* mod_expr = a.mk_mod(lhs, first);
+            expr* eq_mod = m.mk_eq(a.mk_int(0), mod_expr);
+            expr* conjuncts[2] = { eq_div, eq_mod };
+            res = m.mk_and(2, conjuncts);
 
             return true;
         }

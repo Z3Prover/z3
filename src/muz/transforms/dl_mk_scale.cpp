@@ -52,11 +52,11 @@ namespace datalog {
 					TRACE(dl, tout << new_p->get_name() << " has no value in the current model\n";);
 					continue;
 				}
-				for (unsigned i = 0; i < old_p->get_arity(); ++i) {
-					subst.push_back(m.mk_var(i, old_p->get_domain(i)));
-				}
-				// TODO: non-deterministic parameter evaluation
-				subst.push_back(a.mk_numeral(rational(1), a.mk_real()));
+			for (unsigned i = 0; i < old_p->get_arity(); ++i) {
+				subst.push_back(m.mk_var(i, old_p->get_domain(i)));
+			}
+			// add scaling factor 1 for the new parameter
+			subst.push_back(a.mk_numeral(rational(1), false));
 
 				SASSERT(!new_fi->is_partial() && new_fi->num_entries() == 0);
 				tmp = vs(new_fi->get_else(), subst.size(), subst.data());

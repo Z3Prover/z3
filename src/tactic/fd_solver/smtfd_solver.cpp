@@ -314,15 +314,18 @@ namespace smtfd {
                     }
                     family_id fid = a->get_family_id();
                     if (m.is_eq(a)) {
-                        // TODO: non-deterministic parameter evaluation
-                        r = m.mk_eq(m_args.get(0), m_args.get(1));
+                        expr* lhs = m_args.get(0);
+                        expr* rhs = m_args.get(1);
+                        r = m.mk_eq(lhs, rhs);
                     }
                     else if (m.is_distinct(a)) {
                         r = m.mk_distinct(m_args.size(), m_args.data());
                     }
                     else if (m.is_ite(a)) {
-                        // TODO: non-deterministic parameter evaluation
-                        r = m.mk_ite(m_args.get(0), m_args.get(1), m_args.get(2));
+                        expr* cond = m_args.get(0);
+                        expr* then_branch = m_args.get(1);
+                        expr* else_branch = m_args.get(2);
+                        r = m.mk_ite(cond, then_branch, else_branch);
                     }
                     else if (bvfid == fid || bfid == fid || pbfid == fid) {
                         r = m.mk_app(a->get_decl(), m_args.size(), m_args.data());
@@ -1159,8 +1162,9 @@ namespace smtfd {
             expr_ref a1(m_autil.mk_select(args), m);
             args[0] = b;
             expr_ref b1(m_autil.mk_select(args), m);
-            // TODO: non-deterministic parameter evaluation
-            expr_ref ext(m.mk_iff(m.mk_eq(a1, b1), m.mk_eq(a, b)), m);
+            expr* eq_ab = m.mk_eq(a, b);
+            expr* eq_select = m.mk_eq(a1, b1);
+            expr_ref ext(m.mk_iff(eq_select, eq_ab), m);
             if (!m.is_true(eval_abs(ext))) {
                 TRACE(smtfd, tout << mk_bounded_pp(a, m, 2) << " " << mk_bounded_pp(b, m, 2) << "\n";);
                 m_context.add(ext, __FUNCTION__);            

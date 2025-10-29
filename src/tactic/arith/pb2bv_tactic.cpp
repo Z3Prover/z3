@@ -623,9 +623,9 @@ private:
                 if (is_uninterp_const(lhs) && is_uninterp_const(rhs)) {
                     add_bounds_dependencies(lhs);
                     add_bounds_dependencies(rhs);
-                    // TODO: non-deterministic parameter evaluation
-                    r = m.mk_iff(mon_lit2lit(lit(lhs, false)),
-                                 mon_lit2lit(lit(rhs, !pos)));
+                    expr* lhs_lit = mon_lit2lit(lit(lhs, false));
+                    expr* rhs_lit = mon_lit2lit(lit(rhs, !pos));
+                    r = m.mk_iff(lhs_lit, rhs_lit);
                     return;
                 }
                 k = EQ;
@@ -808,8 +808,10 @@ private:
                     for (unsigned i = 0; i < sz; i += 2) {
                         app * x_i = to_app(m_p[i].m_lit.var());
                         app * y_i = to_app(m_p[i+1].m_lit.var());
-                        // TODO: non-deterministic parameter evaluation
-                        eqs.push_back(m.mk_eq(int2lit(x_i), int2lit(y_i)));
+                        expr_ref x_lit(int2lit(x_i), m);
+                        expr_ref y_lit(int2lit(y_i), m);
+                        expr_ref eq_expr(m.mk_eq(x_lit, y_lit), m);
+                        eqs.push_back(eq_expr);
                     }
                     m_b_rw.mk_and(eqs.size(), eqs.data(), r);
                     if (!pos)

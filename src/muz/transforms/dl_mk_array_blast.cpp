@@ -225,11 +225,12 @@ namespace datalog {
                 get_select_args(a1, args1);
                 get_select_args(a2, args2);
                 for (unsigned j = 0; j < args1.size(); ++j) {
-                    // TODO: non-deterministic parameter evaluation
-                    eqs.push_back(m.mk_eq(args1[j], args2[j]));
+                    expr_ref eq_expr(m.mk_eq(args1[j], args2[j]), m);
+                    eqs.push_back(eq_expr);
                 }
-                // TODO: non-deterministic parameter evaluation
-                conjs.push_back(m.mk_implies(m.mk_and(eqs.size(), eqs.data()), m.mk_eq(v1, v2)));
+                expr_ref antecedent(m.mk_and(eqs.size(), eqs.data()), m);
+                expr_ref consequent(m.mk_eq(v1, v2), m);
+                conjs.push_back(m.mk_implies(antecedent, consequent));
             }
         }
         body = m.mk_and(conjs.size(), conjs.data());        
@@ -336,5 +337,4 @@ namespace datalog {
     }
 
 };
-
 

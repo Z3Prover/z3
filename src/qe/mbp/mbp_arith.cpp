@@ -577,8 +577,12 @@ namespace mbp {
                 case opt::t_le: t = a.mk_le(t, s); break;
                 case opt::t_eq: t = a.mk_eq(t, s); break;
                 case opt::t_divides:
-                    // TODO: non-deterministic parameter evaluation
-                    t = a.mk_eq(a.mk_mod(t, a.mk_int(r.m_mod)), a.mk_int(0));
+                    {
+                        expr* mod_val = a.mk_int(r.m_mod);
+                        expr* mod_expr = a.mk_mod(t, mod_val);
+                        expr* zero = a.mk_int(0);
+                        t = a.mk_eq(mod_expr, zero);
+                    }
                     break;
                 default:
                     UNREACHABLE();
