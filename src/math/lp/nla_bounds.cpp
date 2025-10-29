@@ -25,18 +25,50 @@ namespace nla {
         for (lpvar i : c().to_refine()) {
             auto const &m = c().emons()[i];
             for (lpvar j : m.vars()) {
-                if (!c().var_is_free(j))
-                    continue;
-                if (m.is_bound_propagated())
-                    continue;
-                c().emons().set_bound_propagated(m);
-                // split the free variable (j <= 0, or j > 0), and return
-                auto i(ineq(j, lp::lconstraint_kind::LE, rational::zero()));
-                c().add_literal(i);
-                TRACE(nla_solver, c().print_ineq(i, tout) << "\n");
-                ++c().lp_settings().stats().m_nla_add_bounds;
-                return;
+                if (add_bounds_to_free_variable(m, j) ||
+                    add_bounds_to_variable_at_value(j, 0) ||
+                    add_bounds_to_variable_at_value(j, 1) ||
+                    add_bounds_to_variable_at_value(j, -1)) {
+                    ++c().lp_settings().stats().m_nla_add_bounds;
+                    return;
+                }
             }
         }
     }
+
+    bool bounds::add_bounds_to_free_variable(monic const& m, lp::lpvar j) {
+        if (!c().var_is_free(j))
+            return false;
+        if (m.is_bound_propagated())
+            return false;
+        c().emons().set_bound_propagated(m);
+        // split the free variable (j <= 0, or j > 0), and return
+        auto i(ineq(j, lp::lconstraint_kind::LE, rational::zero()));
+        c().add_literal(i);
+        TRACE(nla_solver, c().print_ineq(i, tout) << "\n");
+        return true;
+    }
+
+    bool bounds::add_bounds_to_variable_at_value(lp::lpvar j, int value) {
+        // disable new functionality
+        return false;
+        auto v = c().val(j);
+        if (v != value)
+            return false;
+        if (c().var_is_fixed(j))
+            return false;
+        // fix a bound that hasn't already been fixed.
+        if (c().has_lower_bound(j) && c().get_lower_bound(j) == value) {
+            auto i(ineq(j, lp::lconstraint_kind::LE, rational(value)));
+            TRACE(nla_solver, c().print_ineq(i, tout) << "\n");
+            c().add_literal(i);
+        }
+        else {
+            auto i(ineq(j, lp::lconstraint_kind::GE, rational(value)));
+            TRACE(nla_solver, c().print_ineq(i, tout) << "\n");
+            c().add_literal(i);
+        }
+        return true;
+    }
+
 }  // namespace nla

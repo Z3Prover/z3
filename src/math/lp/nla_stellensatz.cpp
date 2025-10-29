@@ -58,6 +58,7 @@ namespace nla {
         saturate_basic_linearize();
         TRACE(arith, display(tout << "stellensatz after saturation\n"));
         lbool r = m_solver.solve();
+        // IF_VERBOSE(0, verbose_stream() << "stellensatz " << r << "\n");
         if (r == l_false)
             add_lemma();
         return r;
@@ -1507,9 +1508,11 @@ namespace nla {
     lbool stellensatz::solver::solve() {
         while (true) {
             lbool r = solve_lra();
+            // IF_VERBOSE(0, verbose_stream() << "solve lra " << r << "\n");
             if (r != l_true)
                 return r;
             r = solve_lia();
+            // IF_VERBOSE(0, verbose_stream() << "solve lia " << r << "\n");
             if (r != l_true)
                 return r;
             unsigned sz = lra_solver->number_of_vars();

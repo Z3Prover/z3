@@ -18,19 +18,16 @@
 --*/
 #pragma once
 
-
-
 #include "math/lp/nla_common.h"
-#include "math/lp/nla_intervals.h"
-#include "math/lp/nex.h"
-#include "math/lp/cross_nested.h"
-#include "util/uint_set.h"
-#include "math/grobner/pdd_solver.h"
+
 
 namespace nla {
     class core;
 
     class bounds : common {
+
+        bool add_bounds_to_free_variable(monic const& m, lp::lpvar j);
+        bool add_bounds_to_variable_at_value(lp::lpvar j, int i);
     public:
         bounds(core *core);
         void operator()();
