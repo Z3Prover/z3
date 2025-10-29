@@ -77,8 +77,6 @@ namespace smt {
                     w->cancel();
             }
 
-            void init_parameters_state();
-
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)) { }
 
@@ -107,11 +105,40 @@ namespace smt {
         // 3. pick winner configuration if any are better than current.
         // 4. update current configuration with the winner
 
-        class parameter_generator_thread {
-            unsigned N; // number of prefix permutation testers
-            scoped_ptr<context> prefix_solver;
-            scoped_ptr_vector<context> testers; // N testers
+        class param_generator {
+            parallel& p;
+            batch_manager& b;
+            ast_manager m;
+            unsigned N = 4; // number of prefix permutation testers
+            scoped_ptr<context> m_prefix_solver;
+            scoped_ptr_vector<context> m_testers; // N testers
+            smt_params m_params;
+            params_ref m_p;
+            scoped_ptr<context> ctx;
+            
+            private:
+                void init_param_state() {
+                    m_params.m_nl_arith_branching = true;
+                    m_params.m_nl_arith_cross_nested = true;
+                    m_params.m_nl_arith_delay = 10;
+                    m_params.m_nl_arith_expensive_patching = false;
+                    m_params.m_nl_arith_gb = true;
+                    m_params.m_nl_arith_horner = true;
+                    m_params.m_nl_arith_horner_frequency = 4;
+                    m_params.m_nl_arith_optimize_bounds = true;
+                    m_params.m_nl_arith_propagate_linear_monomials = true;
+                    m_params.m_nl_arith_tangents = true;
 
+                    m_params.updt_params(m_p);
+                    ctx->updt_params(m_p);
+                };
+            public:
+                param_generator(parallel& p);
+                void run();
+
+                reslimit& limit() {
+                    return m.limit();
+                }
         };
 
         class worker {
@@ -173,6 +200,7 @@ namespace smt {
 
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
+        param_generator m_param_generator;
 
     public:
         parallel(context& ctx) : 
@@ -180,7 +208,8 @@ namespace smt {
             num_threads(std::min(
                 (unsigned)std::thread::hardware_concurrency(),
                 ctx.get_fparams().m_threads)),
-            m_batch_manager(ctx.m, *this) {}
+            m_batch_manager(ctx.m, *this),
+            m_param_generator(*this) {}
 
         lbool operator()(expr_ref_vector const& asms);
     };

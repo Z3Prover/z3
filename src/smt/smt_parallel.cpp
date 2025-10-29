@@ -64,6 +64,10 @@ namespace smt {
 
 namespace smt {
 
+    void parallel::param_generator::run() {
+        
+    }
+
     void parallel::worker::run() {
         search_tree::node<cube_config> *node = nullptr;
         expr_ref_vector cube(m);
@@ -141,6 +145,16 @@ namespace smt {
         ctx->pop_to_base_lvl();
         m_num_shared_units = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
+    }
+
+    parallel::param_generator::param_generator(parallel& p)
+        : p(p), b(p.m_batch_manager), m_params(p.ctx.get_fparams()), m_p(p.ctx.get_params()) {
+        ctx = alloc(context, m, m_params, m_p);
+        context::copy(p.ctx, *ctx, true);
+        // don't share initial units
+        ctx->pop_to_base_lvl();
+        init_param_state();
+        IF_VERBOSE(1, verbose_stream() << "Initialized parameter generator\n");
     }
 
     void parallel::worker::share_units() {
@@ -489,15 +503,19 @@ namespace smt {
         SASSERT(num_threads > 1);
         for (unsigned i = 0; i < num_threads; ++i)
             m_workers.push_back(alloc(worker, i, *this, asms));
-
+         
         for (auto w : m_workers)
             sl.push_child(&(w->limit()));
+        
+        sl.push_child(&(m_param_generator.limit()));
 
         // Launch threads
-        vector<std::thread> threads(num_threads);
-        for (unsigned i = 0; i < num_threads; ++i) {
+        vector<std::thread> threads(num_threads + 1); // +1 for parameter generator
+        for (unsigned i = 0; i < num_threads - 1; ++i) {
             threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
         }
+        // the final thread runs the parameter generator
+        threads[num_threads - 1] = std::thread([&]() { m_param_generator.run(); });
 
         // Wait for all threads to finish
         for (auto &th : threads)
