@@ -82,7 +82,8 @@ namespace smt {
         m_mk_bool_var_trail(*this),
         m_mk_enode_trail(*this),
         m_mk_lambda_trail(*this),
-        m_lemma_visitor(m) {
+        m_lemma_visitor(m),
+        m_recorded_clauses(m) {
 
         SASSERT(m_scope_lvl == 0);
         SASSERT(m_base_lvl == 0);

@@ -936,6 +936,7 @@ namespace smt {
         m_lit_scores[0].reserve(v + 1);
         m_lit_scores[1].reserve(v + 1);
         m_lit_scores[0][v] = m_lit_scores[1][v] = 0.0;
+        m_recorded_clauses.reserve(v + 1);
 
         literal l(v, false);
         literal not_l(v, true);
@@ -963,6 +964,19 @@ namespace smt {
         m_stats.m_num_mk_bool_var++;
         SASSERT(check_bool_var_vector_sizes());
         return v;
+    }
+
+    // following the pattern of solver::persist_clause in src/sat/smt/user_solver.cpp
+    void context::record_clause(clause const* cls) {
+        expr_ref_vector clause(m);
+        for (unsigned i = 0; i < cls->get_num_literals(); ++i) {
+            literal lit = cls->get_literal(i);
+            clause.push_back(literal2expr(~lit));
+        }
+        if (!clause.empty() && m.is_false(clause.back()))
+            clause.pop_back();
+        expr_ref disj(m.mk_or(clause.size(), clause.data()), m);
+        m_recorded_clauses.push_back(disj);
     }
 
     void context::add_scores(unsigned n, literal const *lits) {
@@ -1492,6 +1506,7 @@ namespace smt {
                 if (k == CLS_LEARNED) {
                     int w2_idx  = select_learned_watch_lit(cls);
                     cls->swap_lits(1, w2_idx);
+                    record_clause(cls);
                 }
                 else {
                     SASSERT(k == CLS_TH_LEMMA);
