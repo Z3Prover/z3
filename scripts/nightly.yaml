@@ -151,7 +151,6 @@ stages:
     pool:
       vmImage: "ubuntu-latest"
     container: "quay.io/pypa/manylinux2014_x86_64:latest"
-    condition: eq(0, 1)
     steps:
     - script: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
     - script: 'echo "##vso[task.prependpath]$PWD/env/bin"'
