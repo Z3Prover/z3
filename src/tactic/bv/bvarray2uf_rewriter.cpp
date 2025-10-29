@@ -149,6 +149,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
             var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
             expr_ref body(m_manager);
+            // TODO: non-deterministic parameter evaluation
             body = m_manager.mk_eq(m_manager.mk_app(f_t, x.get()), m_manager.mk_app(f_s, x.get()));
 
             result = m_manager.mk_forall(1, sorts, names, body);
@@ -295,6 +296,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                         new_args.push_back(m_manager.mk_app(ss[i].get(), x.get()));
 
                     expr_ref body(m_manager);
+                    // TODO: non-deterministic parameter evaluation
                     body = m_manager.mk_eq(m_manager.mk_app(f_t, x.get()),
                                            m_manager.mk_app(map_f, num, new_args.data()));
 
@@ -330,7 +332,9 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                         var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
                         expr_ref body(m_manager);
+                        // TODO: non-deterministic parameter evaluation
                         body = m_manager.mk_or(m_manager.mk_eq(x, i),
+                                               // TODO: non-deterministic parameter evaluation
                                                m_manager.mk_eq(m_manager.mk_app(f_t, x.get()),
                                                                m_manager.mk_app(f_s, x.get())));
 

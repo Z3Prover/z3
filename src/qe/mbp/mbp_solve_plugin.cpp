@@ -287,7 +287,9 @@ namespace mbp {
             };
 
             // `first` is a value, different from 0
+            // TODO: non-deterministic parameter evaluation
             res = m.mk_and(m.mk_eq(second, a.mk_idiv(lhs, first)),
+                           // TODO: non-deterministic parameter evaluation
                            m.mk_eq(a.mk_int(0), a.mk_mod(lhs, first)));
 
             return true;

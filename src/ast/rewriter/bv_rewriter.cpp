@@ -384,6 +384,7 @@ br_status bv_rewriter::rw_leq_overflow(bool is_signed, expr * a, expr * b, expr_
     }
     else {
         SASSERT(lower.is_pos());
+        // TODO: non-deterministic parameter evaluation
         result = m.mk_and(m_util.mk_ule(mk_numeral(lower, sz), common),
                             m_util.mk_ule(common, mk_numeral(upper, sz)));
     }
@@ -447,6 +448,7 @@ br_status bv_rewriter::rw_leq_concats(bool is_signed, expr * _a, expr * _b, expr
             return BR_DONE;
         }
         if (common > 0) {
+            // TODO: non-deterministic parameter evaluation
             result = m_util.mk_ule(concat(numa - common, a->get_args() + common),
                                    concat(numb - common, b->get_args() + common));
             return BR_REWRITE2;
@@ -469,7 +471,9 @@ br_status bv_rewriter::rw_leq_concats(bool is_signed, expr * _a, expr * _b, expr
             return BR_DONE;
         }
         if (new_numa != numa) {
+            // TODO: non-deterministic parameter evaluation
             result = is_signed ? m_util.mk_sle(concat(new_numa, a->get_args()), concat(new_numb, b->get_args()))
+                               // TODO: non-deterministic parameter evaluation
                                : m_util.mk_ule(concat(new_numa, a->get_args()), concat(new_numb, b->get_args()));
             return BR_REWRITE2;
         }
@@ -870,6 +874,7 @@ br_status bv_rewriter::mk_extract(unsigned high, unsigned low, expr * arg, expr_
     expr* c = nullptr, *t = nullptr, *e = nullptr;
     if (m.is_ite(arg, c, t, e) &&
         (t->get_ref_count() == 1 || e->get_ref_count() == 1 || !m.is_ite(t) || !m.is_ite(e))) {
+        // TODO: non-deterministic parameter evaluation
         result = m.mk_ite(c, m_mk_extract(high, low, t), m_mk_extract(high, low, e));
         return BR_REWRITE2;
     }
@@ -1083,6 +1088,7 @@ br_status bv_rewriter::mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result) {
         // (bvlshr x k) -> (concat bv0:k (extract [n-1:k] x))
 
         unsigned k = r2.get_unsigned();
+        // TODO: non-deterministic parameter evaluation
         result = m_util.mk_concat(mk_zero(k), m_mk_extract(bv_size - 1, k, arg1));
         return BR_REWRITE2;
     }
@@ -1120,6 +1126,7 @@ br_status bv_rewriter::mk_bv_sdiv_core(expr * arg1, expr * arg2, bool hi_div0, e
             }
             else {
                 // The "hardware interpretation" for (bvsdiv x 0) is (ite (bvslt x #x0000) #x0001 #xffff)
+                // TODO: non-deterministic parameter evaluation
                 result = m.mk_ite(m.mk_app(get_fid(), OP_SLT, arg1, mk_zero(bv_size)),
                                     mk_one(bv_size),
                                     mk_numeral(rational::power_of_two(bv_size) - numeral(1), bv_size));
@@ -1250,6 +1257,7 @@ br_status bv_rewriter::mk_bv_srem_core(expr * arg1, expr * arg2, bool hi_div0, e
     }
 
     bv_size = get_bv_size(arg2);
+    // TODO: non-deterministic parameter evaluation
     result = m.mk_ite(m.mk_eq(arg2, mk_zero(bv_size)),
                         m.mk_app(get_fid(), OP_BSREM0, arg1),
                         m.mk_app(get_fid(), OP_BSREM_I, arg1, arg2));
@@ -1467,6 +1475,7 @@ br_status bv_rewriter::mk_bv_smod_core(expr * arg1, expr * arg2, bool hi_div0, e
     }
 
     bv_size = get_bv_size(arg2);
+    // TODO: non-deterministic parameter evaluation
     result = m.mk_ite(m.mk_eq(arg2, mk_zero(bv_size)),
                         m.mk_app(get_fid(), OP_BSMOD0, arg1),
                         m.mk_app(get_fid(), OP_BSMOD_I, arg1, arg2));
@@ -1686,6 +1695,7 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
                 ptr_buffer<expr> args1, args2;
                 for (unsigned i = 0; i < new_args.size(); ++i)
                     args1.push_back(y), args2.push_back(z);
+                // TODO: non-deterministic parameter evaluation
                 result = m.mk_ite(x, m_util.mk_concat(args1), m_util.mk_concat(args2));
                 return BR_REWRITE2;
             }
@@ -2336,6 +2346,7 @@ br_status bv_rewriter::mk_bv_comp(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
 
+    // TODO: non-deterministic parameter evaluation
     result = m.mk_ite(m.mk_eq(arg1, arg2),
                         mk_one(1),
                         mk_zero(1));
@@ -2618,6 +2629,7 @@ br_status bv_rewriter::mk_blast_eq_value(expr * lhs, expr * rhs, expr_ref & resu
     ptr_buffer<expr> new_args;
     for (unsigned i = 0; i < sz; i++) {
         bool bit0 = (v % two).is_zero();
+        // TODO: non-deterministic parameter evaluation
         new_args.push_back(m.mk_eq(m_mk_extract(i,i, lhs),
                                      mk_numeral(bit0 ? 0 : 1, 1)));
         div(v, two, v);
@@ -2663,6 +2675,7 @@ br_status bv_rewriter::mk_eq_concat(expr * lhs, expr * rhs, expr_ref & result) {
         unsigned rsz1 = sz1 - low1;
         unsigned rsz2 = sz2 - low2;
         if (rsz1 == rsz2) {
+            // TODO: non-deterministic parameter evaluation
             new_eqs.push_back(m.mk_eq(m_mk_extract(sz1 - 1, low1, arg1),
                                       m_mk_extract(sz2 - 1, low2, arg2)));
             low1 = 0;
@@ -2672,6 +2685,7 @@ br_status bv_rewriter::mk_eq_concat(expr * lhs, expr * rhs, expr_ref & result) {
             continue;
         }
         else if (rsz1 < rsz2) {
+            // TODO: non-deterministic parameter evaluation
             new_eqs.push_back(m.mk_eq(m_mk_extract(sz1  - 1, low1, arg1),
                                       m_mk_extract(rsz1 + low2 - 1, low2, arg2)));
             low1  = 0;
@@ -2679,6 +2693,7 @@ br_status bv_rewriter::mk_eq_concat(expr * lhs, expr * rhs, expr_ref & result) {
             --i1;
         }
         else {
+            // TODO: non-deterministic parameter evaluation
             new_eqs.push_back(m.mk_eq(m_mk_extract(rsz2 + low1 - 1, low1, arg1),
                                       m_mk_extract(sz2  - 1, low2, arg2)));
             low1 += rsz2;
@@ -3110,6 +3125,7 @@ br_status bv_rewriter::mk_distinct(unsigned num_args, expr * const * args, expr_
 
 br_status bv_rewriter::mk_bvsmul_overflow(unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
+    // TODO: non-deterministic parameter evaluation
     result = m.mk_or(
             m.mk_not(m_util.mk_bvsmul_no_ovfl(args[0], args[1])),
             m.mk_not(m_util.mk_bvsmul_no_udfl(args[0], args[1]))
@@ -3279,6 +3295,7 @@ br_status bv_rewriter::mk_bvsdiv_overflow(unsigned num, expr * const * args, exp
     auto sz = get_bv_size(args[1]);
     auto minSigned = mk_numeral(rational::power_of_two(sz-1), sz);
     auto minusOne = mk_numeral(rational::power_of_two(sz) - 1, sz);
+    // TODO: non-deterministic parameter evaluation
     result = m.mk_and(m.mk_eq(args[0], minSigned), m.mk_eq(args[1], minusOne));
     return BR_REWRITE_FULL;
 }

@@ -344,6 +344,7 @@ namespace seq {
 
         if (ctx.expr2rep(xs[0]) == ctx.expr2rep(ys[0]))
             return false;
+        // TODO: non-deterministic parameter evaluation
         expr_ref eq(m.mk_eq(xs[0], ys[0]), m);
         expr* veq = ctx.expr2rep(eq);
         if (m.is_true(veq))

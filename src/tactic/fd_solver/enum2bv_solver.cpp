@@ -178,6 +178,7 @@ public:
                 expr_ref head(m);
                 ptr_vector<func_decl> const& enums = *dt.get_datatype_constructors(f->get_range());
                 if (enums.size() > num.get_unsigned()) {
+                    // TODO: non-deterministic parameter evaluation
                     head = m.mk_eq(m.mk_const(f), m.mk_const(enums[num.get_unsigned()]));
                     consequences[i] = m.mk_implies(a, head);
                 }

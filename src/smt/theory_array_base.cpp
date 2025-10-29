@@ -360,6 +360,7 @@ namespace smt {
         ctx.mark_as_relevant(sel1_eq_sel2);
         if (m.has_trace_stream()) {
             app_ref body(m);
+            // TODO: non-deterministic parameter evaluation
             body = m.mk_implies(m.mk_not(ctx.bool_var2expr(n1_eq_n2.var())), m.mk_not(ctx.bool_var2expr(sel1_eq_sel2.var())));
             log_axiom_instantiation(body);
         }

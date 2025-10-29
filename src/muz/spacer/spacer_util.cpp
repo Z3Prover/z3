@@ -359,6 +359,7 @@ void expand_literals(ast_manager &m, expr_ref_vector &conjs) {
             rational two(2);
             for (unsigned j = 0; j < bv_size; ++j) {
                 parameter p(j);
+                // TODO: non-deterministic parameter evaluation
                 expr *e = m.mk_eq(m.mk_app(bv.get_family_id(), OP_BIT1),
                                   bv.mk_extract(j, j, c));
                 if ((r % two).is_zero()) { e = m.mk_not(e); }

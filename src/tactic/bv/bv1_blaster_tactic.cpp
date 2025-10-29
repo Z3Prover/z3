@@ -142,6 +142,7 @@ class bv1_blaster_tactic : public tactic {
             unsigned i = bits1.size();
             while (i > 0) {
                 --i;
+                // TODO: non-deterministic parameter evaluation
                 new_eqs.push_back(m().mk_eq(bits1[i], bits2[i]));
             }
             result = mk_and(m(), new_eqs.size(), new_eqs.data());
@@ -156,6 +157,7 @@ class bv1_blaster_tactic : public tactic {
             bit_buffer new_ites;
             unsigned num = t_bits.size();
             for (unsigned i = 0; i < num; i++)             
+                // TODO: non-deterministic parameter evaluation
                 new_ites.push_back(t_bits[i] == e_bits[i] ? t_bits[i] : m().mk_ite(c, t_bits[i], e_bits[i]));
             result = butil().mk_concat(new_ites.size(), new_ites.data());
         }
@@ -216,6 +218,7 @@ class bv1_blaster_tactic : public tactic {
             bit_buffer new_bits;
             unsigned num = bits1.size();
             for (unsigned i = 0; i < num; i++) {
+                // TODO: non-deterministic parameter evaluation
                 new_bits.push_back(m().mk_ite(m().mk_eq(bits1[i], bits2[i]), m_bit0, m_bit1));
             }
             result = butil().mk_concat(new_bits.size(), new_bits.data());

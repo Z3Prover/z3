@@ -1759,6 +1759,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
             for (unsigned i = 0; i < sz; ++i) {
                 if (m_assertion_names.size() > i && m_assertion_names[i]) {
                     asms.push_back(m_assertion_names[i]);
+                    // TODO: non-deterministic parameter evaluation
                     assertions.push_back(m().mk_implies(m_assertion_names[i], m_assertions[i]));
                 }
                 else {

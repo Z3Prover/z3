@@ -389,6 +389,7 @@ namespace nlarith {
         };
 
         expr* mk_abs(expr* e) { 
+            // TODO: non-deterministic parameter evaluation
             return m().mk_ite(mk_lt(e), mk_uminus(e), e);
         }
 
@@ -405,6 +406,7 @@ namespace nlarith {
             }
             else {
                 expr* half = A.mk_numeral(rational(1,2), false);
+                // TODO: non-deterministic parameter evaluation
                 result = A.mk_div(mk_add(s.m_a, mk_mul(num(s.m_b), A.mk_power(mk_abs(s.m_c), half))), s.m_d);
             }
             return result;
@@ -439,10 +441,13 @@ namespace nlarith {
             expr* result = to_expr(s);
             if (is_strict(cmp)) {
                 if (p.m_a == z()) {
+                    // TODO: non-deterministic parameter evaluation
+                    // TODO: non-deterministic parameter evaluation
                     result = mk_add(result, mk_mul(mk_epsilon(), m().mk_ite(mk_lt(p.m_b),num(1),num(-1))));
                 }
                 else {
                     if (s.m_b > 0) {
+                        // TODO: non-deterministic parameter evaluation
                         result = mk_add(result, mk_mul(num(-1),mk_epsilon()));
                     }
                     else {
@@ -481,6 +486,7 @@ namespace nlarith {
         }
 
         app* sq1(expr * e) { 
+            // TODO: non-deterministic parameter evaluation
             return mk_add(num(1), sq(e)); 
         }
 
@@ -591,6 +597,7 @@ namespace nlarith {
             app_ref  t1(m()), a2(m()), d(m());
             expr_ref cond(m()), t2(m()), branch(m());
             expr_ref_vector es(m()), subst(m());
+            // TODO: non-deterministic parameter evaluation
             d = mk_sub(mk_mul(b,b), mk_mul(num(4), a, c));
             a2 = mk_mul(a, num(2));            
 
@@ -1054,8 +1061,13 @@ namespace nlarith {
                    r = I.mk_lt(ad);
                 }
                 else {
+                    // TODO: non-deterministic parameter evaluation
                     aabbc = I.mk_sub(I.mk_mul(a,a), I.mk_mul(b,b,c));
+                    // TODO: non-deterministic parameter evaluation
+                    // TODO: non-deterministic parameter evaluation
                     r = I.mk_or(I.mk_and(I.mk_lt(ad), I.mk_gt(aabbc)),
+                                // TODO: non-deterministic parameter evaluation
+                                // TODO: non-deterministic parameter evaluation
                                 I.mk_and(I.mk_le(bd), I.mk_or(I.mk_lt(ad), I.mk_lt(aabbc))));
                 }
             }
@@ -1071,7 +1083,9 @@ namespace nlarith {
                     r = I.mk_eq(a);
                 }
                 else {
+                    // TODO: non-deterministic parameter evaluation
                     aabbc = I.mk_sub(I.mk_mul(a, a), I.mk_mul(b, b, c));
+                    // TODO: non-deterministic parameter evaluation
                     r = I.mk_and(I.mk_le(I.mk_mul(a, b)), I.mk_eq(aabbc));
                 }
             }
@@ -1091,8 +1105,12 @@ namespace nlarith {
                     r = I.mk_le(ad);
                 }
                 else {
+                    // TODO: non-deterministic parameter evaluation
                     aabbc = I.mk_sub(I.mk_mul(a, a), I.mk_mul(b, b, c));
+                    // TODO: non-deterministic parameter evaluation
+                    // TODO: non-deterministic parameter evaluation
                     r = I.mk_or(I.mk_and(I.mk_le(ad), I.mk_ge(aabbc)),
+                                // TODO: non-deterministic parameter evaluation
                                 I.mk_and(I.mk_le(bd), I.mk_le(aabbc)));
                 }
             }
@@ -1203,6 +1221,7 @@ namespace nlarith {
                     return e;
                 }
                 else {
+                    // TODO: non-deterministic parameter evaluation
                     return I.mk_or(e, I.mk_and(I.mk_eq(t), mk_lt(p, i)));
                 }            
             }
@@ -1233,6 +1252,7 @@ namespace nlarith {
                     return e;
                 }
                 else {
+                    // TODO: non-deterministic parameter evaluation
                     return I.mk_or(e, I.mk_and(I.mk_eq(t), mk_lt(p, i)));
                 }            
             }
@@ -1311,7 +1331,9 @@ namespace nlarith {
                 // = 
                 //   (d*dr*p[i] + a*ar + b*br*c + (a*br + ar*b)*sqrt(c))/d*dr
                 // 
+                // TODO: non-deterministic parameter evaluation
                 app_ref tmp1(mk_add(mk_mul(d, dr, p[i]), mk_mul(a, ar), mk_mul(b, br, c)), m());
+                // TODO: non-deterministic parameter evaluation
                 br = mk_add(mk_mul(a, br), mk_mul(ar, b));
                 dr = mk_mul(d, dr);
                 ar = tmp1;

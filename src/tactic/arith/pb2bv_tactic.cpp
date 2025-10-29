@@ -623,6 +623,7 @@ private:
                 if (is_uninterp_const(lhs) && is_uninterp_const(rhs)) {
                     add_bounds_dependencies(lhs);
                     add_bounds_dependencies(rhs);
+                    // TODO: non-deterministic parameter evaluation
                     r = m.mk_iff(mon_lit2lit(lit(lhs, false)),
                                  mon_lit2lit(lit(rhs, !pos)));
                     return;
@@ -807,6 +808,7 @@ private:
                     for (unsigned i = 0; i < sz; i += 2) {
                         app * x_i = to_app(m_p[i].m_lit.var());
                         app * y_i = to_app(m_p[i+1].m_lit.var());
+                        // TODO: non-deterministic parameter evaluation
                         eqs.push_back(m.mk_eq(int2lit(x_i), int2lit(y_i)));
                     }
                     m_b_rw.mk_and(eqs.size(), eqs.data(), r);

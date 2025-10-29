@@ -494,6 +494,7 @@ br_status fpa_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
     }
     if (m_util.is_ninf(arg1)) {
         // -oo < arg2 -->  not(arg2 = -oo) and not(arg2 = NaN)
+        // TODO: non-deterministic parameter evaluation
         result = m().mk_and(m().mk_not(m().mk_eq(arg2, arg1)), mk_neq_nan(arg2));
         return BR_REWRITE3;
     }
@@ -509,6 +510,7 @@ br_status fpa_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
     }
     if (m_util.is_pinf(arg2)) {
         // arg1 < +oo --> not(arg1 = +oo) and not(arg1 = NaN)
+        // TODO: non-deterministic parameter evaluation
         result = m().mk_and(m().mk_not(m().mk_eq(arg1, arg2)), mk_neq_nan(arg1));
         return BR_REWRITE3;
     }

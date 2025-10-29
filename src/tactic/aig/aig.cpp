@@ -879,9 +879,11 @@ struct aig_manager::imp {
             }
             expr * r;
             if (m.is_not_eq(t, e)) {
+                // TODO: non-deterministic parameter evaluation
                 r = ast_mng.mk_iff(get_cached(c), get_cached(t));
             }
             else { 
+                // TODO: non-deterministic parameter evaluation
                 r = ast_mng.mk_ite(get_cached(c), get_cached(t), get_cached(e));
             }
             cache_result(n, r);

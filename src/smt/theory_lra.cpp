@@ -2569,6 +2569,7 @@ public:
             if (ctx().get_assignment(eq) == l_true)
                 return true;            
             ctx().mk_th_axiom(get_id(), ~th.mk_eq(y, a.mk_int(k), false), eq);
+            // TODO: non-deterministic parameter evaluation
             IF_VERBOSE(2, verbose_stream() << "shl: " << mk_bounded_pp(n, m) << " " << valn << " := " << valx << " << " << valy << "\n");
             return false;
         }
@@ -2694,8 +2695,11 @@ public:
             
         for (api_bound* other : bounds) {
             if (other == &b) continue;
+            // TODO: non-deterministic parameter evaluation
             if (b.get_lit() == other->get_lit()) continue;
+            // TODO: non-deterministic parameter evaluation
             lp_api::bound_kind kind2 = other->get_bound_kind();
+            // TODO: non-deterministic parameter evaluation
             rational const& k2 = other->get_value();
             if (k1 == k2 && kind1 == kind2) {
                 // the bounds are equivalent.
@@ -3770,6 +3774,7 @@ public:
         }
         solutions.shrink(j);
 
+        // TODO: non-deterministic parameter evaluation
         expr_ref term(m), guard(m);
         vector<lp::lar_solver::solution> sols;
         lp().solve_for(vars, sols);

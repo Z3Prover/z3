@@ -314,12 +314,14 @@ namespace smtfd {
                     }
                     family_id fid = a->get_family_id();
                     if (m.is_eq(a)) {
+                        // TODO: non-deterministic parameter evaluation
                         r = m.mk_eq(m_args.get(0), m_args.get(1));
                     }
                     else if (m.is_distinct(a)) {
                         r = m.mk_distinct(m_args.size(), m_args.data());
                     }
                     else if (m.is_ite(a)) {
+                        // TODO: non-deterministic parameter evaluation
                         r = m.mk_ite(m_args.get(0), m_args.get(1), m_args.get(2));
                     }
                     else if (bvfid == fid || bfid == fid || pbfid == fid) {
@@ -1157,6 +1159,7 @@ namespace smtfd {
             expr_ref a1(m_autil.mk_select(args), m);
             args[0] = b;
             expr_ref b1(m_autil.mk_select(args), m);
+            // TODO: non-deterministic parameter evaluation
             expr_ref ext(m.mk_iff(m.mk_eq(a1, b1), m.mk_eq(a, b)), m);
             if (!m.is_true(eval_abs(ext))) {
                 TRACE(smtfd, tout << mk_bounded_pp(a, m, 2) << " " << mk_bounded_pp(b, m, 2) << "\n";);

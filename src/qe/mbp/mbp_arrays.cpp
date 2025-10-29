@@ -866,6 +866,7 @@ namespace mbp {
             SASSERT(xs.size() == ys.size() && !xs.empty());
             expr_ref result(mk_lt(xs.back(), ys.back()), m);
             for (unsigned i = xs.size()-1; i-- > 0; ) {
+                // TODO: non-deterministic parameter evaluation
                 result = m.mk_or(mk_lt(xs[i], ys[i]),
                                  m.mk_and(m.mk_eq(xs[i], ys[i]), result));
             }

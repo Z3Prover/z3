@@ -58,6 +58,7 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
             for (unsigned j = i + 1; j < num_args; j++) {
                 if (contains(f, _args[i], _args[j])) {
                     TRACE(ac_sharing_detail, tout << "reusing args: " << i << " " << j << "\n";);
+                    // TODO: non-deterministic parameter evaluation
                     _args[i] = m.mk_app(f, _args[i], _args[j]);
                     SASSERT(num_args > 1);
                     for (unsigned w = j; w + 1 < num_args; w++) {
@@ -81,6 +82,7 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
             }
             else {
                 insert(f, _args[i], _args[i+1]);
+                // TODO: non-deterministic parameter evaluation
                 _args[j] = m.mk_app(f, _args[i], _args[i+1]);
             }
         }

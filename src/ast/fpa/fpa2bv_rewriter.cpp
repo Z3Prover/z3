@@ -258,6 +258,7 @@ bool fpa2bv_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & res
         unsigned ebits = m_conv.fu().get_ebits(s);
         unsigned sbits = m_conv.fu().get_sbits(s);
         new_var = m().mk_var(t->get_idx(), m_conv.bu().mk_sort(sbits+ebits));
+        // TODO: non-deterministic parameter evaluation
         new_exp = m_conv.fu().mk_fp(m_conv.bu().mk_extract(sbits+ebits-1, sbits+ebits-1, new_var),
                                     m_conv.bu().mk_extract(ebits - 1, 0, new_var),
                                     m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var));

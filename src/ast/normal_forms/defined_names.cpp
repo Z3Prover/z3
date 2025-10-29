@@ -191,6 +191,7 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
         bound_vars(var_sorts, var_names, MK_OR(n, MK_NOT(e)), n, defs);
     }
     else if (m.is_term_ite(e)) {
+        // TODO: non-deterministic parameter evaluation
         bound_vars(var_sorts, var_names, MK_OR(MK_NOT(to_app(e)->get_arg(0)), MK_EQ(n, to_app(e)->get_arg(1))), n, defs);
         bound_vars(var_sorts, var_names, MK_OR(to_app(e)->get_arg(0),         MK_EQ(n, to_app(e)->get_arg(2))), n, defs);
     }

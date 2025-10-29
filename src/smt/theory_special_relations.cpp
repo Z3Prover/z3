@@ -803,6 +803,7 @@ namespace smt {
         r.pop(1);
         fi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(fn, fi);
+        // TODO: non-deterministic parameter evaluation
         result = arith.mk_le(m.mk_app(fn,m.mk_var(0, *ty)), m.mk_app(fn, m.mk_var(1, *ty)));
         return result;
     }
@@ -823,6 +824,7 @@ namespace smt {
         }
         fi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(fn, fi);
+        // TODO: non-deterministic parameter evaluation
         result = m.mk_eq(m.mk_app(fn, m.mk_var(0, *ty)), m.mk_app(fn, m.mk_var(1, *ty)));
         return result;
     }
@@ -848,7 +850,9 @@ namespace smt {
         hifi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(lofn, lofi);
         mg.get_model().register_decl(hifn, hifi);
+        // TODO: non-deterministic parameter evaluation
         result = m.mk_and(arith.mk_le(m.mk_app(lofn, m.mk_var(0, *ty)), m.mk_app(lofn, m.mk_var(1, *ty))),
+                          // TODO: non-deterministic parameter evaluation
                           arith.mk_le(m.mk_app(hifn, m.mk_var(1, *ty)), m.mk_app(hifn, m.mk_var(0, *ty))));
         return result;
     }
@@ -923,8 +927,10 @@ namespace smt {
             
             expr* x = xV, *S = SV;
             expr_ref mem_body(m);
+            // TODO: non-deterministic parameter evaluation
             mem_body = m.mk_ite(m.mk_app(is_nil, S), 
                                 F,
+                                // TODO: non-deterministic parameter evaluation
                                 m.mk_ite(m.mk_eq(m.mk_app(hd, S), x), 
                                          T,
                                          m.mk_app(memf, x, m.mk_app(tl, S))));            
@@ -947,6 +953,8 @@ namespace smt {
             var_ref SV(m.mk_var(1, listS), m);
             var_ref tupV(m.mk_var(0, tup), m);
             expr* a = aV, *b = bV, *A = AV, *S = SV, *t = tupV;
+            // TODO: non-deterministic parameter evaluation
+            // TODO: non-deterministic parameter evaluation
             next_body = m.mk_ite(m.mk_and(m.mk_app(memf, a, A), m.mk_not(m.mk_app(memf, b, S))), 
                                  m.mk_app(pair, m.mk_app(cons, b, m.mk_app(fst, t)), m.mk_app(cons, b, m.mk_app(snd, t))),
                                  t);
@@ -981,7 +989,9 @@ namespace smt {
             expr_ref Ap(m.mk_app(fst, connected_body.get()), m);
             expr_ref Sp(m.mk_app(snd, connected_body.get()), m);
 
+            // TODO: non-deterministic parameter evaluation
             connected_body = m.mk_ite(m.mk_eq(Ap, nilc), F, 
+                                      // TODO: non-deterministic parameter evaluation
                                       m.mk_ite(m.mk_app(memf, dst, Ap), T,
                                                m.mk_app(connectedf, Ap, dst, Sp)));
             

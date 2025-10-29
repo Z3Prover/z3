@@ -923,6 +923,7 @@ bool poly_rewriter<Config>::hoist_multiplication(expr_ref& som) {
             }
             if (mul_map.find(e, j) && valid[j] && j != k) {
                 m_curr_sort = adds[k]->get_sort();
+                // TODO: non-deterministic parameter evaluation
                 adds[j]  = merge_muls(adds[j], adds[k]);
                 adds[k]  = mk_numeral(rational(0)); 
                 valid[j] = false;
@@ -1065,6 +1066,7 @@ template<typename Config>
 expr* poly_rewriter<Config>::apply_hoist(expr* a, numeral const& g, obj_hashtable<expr> const& shared) {
     expr* c = nullptr, *t = nullptr, *e = nullptr;
     if (M().is_ite(a, c, t, e)) {
+        // TODO: non-deterministic parameter evaluation
         return M().mk_ite(c, apply_hoist(t, g, shared), apply_hoist(e, g, shared));
     }
     rational k;

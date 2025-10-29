@@ -63,6 +63,7 @@ class factor_tactic : public tactic {
                 m_expr2poly.to_expr(fs[i], true, arg);
                 args.push_back(arg);
             }
+            // TODO: non-deterministic parameter evaluation
             result = m.mk_eq(mk_mul(args.size(), args.data()), mk_zero_for(arg));
         }
 

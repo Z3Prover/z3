@@ -259,6 +259,7 @@ namespace smt {
         unsigned p = 0;
         arith_util a(m);
         for (auto b : bits) {
+            // TODO: non-deterministic parameter evaluation
             sum.push_back(m.mk_ite(b, a.mk_int(1 << p), a.mk_int(0)));
             p++;
         }

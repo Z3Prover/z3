@@ -300,6 +300,7 @@ void fpa2bv_converter::mk_uf(func_decl * f, unsigned num, expr * const * args, e
         bv_rng = m_bv_util.mk_sort(bv_sz);
         func_decl * bv_f = mk_bv_uf(f, f->get_domain(), bv_rng);
         bv_app = m.mk_app(bv_f, num, args);
+        // TODO: non-deterministic parameter evaluation
         flt_app = m_util.mk_fp(m_bv_util.mk_extract(bv_sz-1, bv_sz-1, bv_app),
                                m_bv_util.mk_extract(sbits+ebits-2, sbits-1, bv_app),
                                m_bv_util.mk_extract(sbits-2, 0, bv_app));
@@ -1245,6 +1246,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     dbg_decouple("fpa2bv_rem_y_sig_eq_rndd_sig", y_sig_eq_rndd_sig);
 
     expr_ref adj_cnd(m);
+    // TODO: non-deterministic parameter evaluation
     adj_cnd = m.mk_or(m.mk_and(rndd_exp_eq_y_exp, y_sig_le_rndd_sig),
                       m.mk_and(rndd_exp_eq_y_exp_m1, y_sig_le_rndd_sig, m.mk_not(y_sig_eq_rndd_sig)),
                       m.mk_and(rndd_exp_eq_y_exp_m1, y_sig_eq_rndd_sig, m.mk_not(huge_div_is_even)));
@@ -1646,6 +1648,7 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     // Alignment shift with sticky bit computation.
     expr_ref shifted_big(m), shifted_f_sig(m);
     expr_ref alignment_sticky_raw(m), alignment_sticky(m);
+    // TODO: non-deterministic parameter evaluation
     shifted_big = m_bv_util.mk_bv_lshr(
         m_bv_util.mk_concat(f_sig, m_bv_util.mk_numeral(0, sbits)),
         m_bv_util.mk_zero_extend((3*sbits+3)-(ebits+2), exp_delta));
@@ -1876,6 +1879,7 @@ void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args,
     res_sgn = zero1;
 
     expr_ref real_exp(m);
+    // TODO: non-deterministic parameter evaluation
     real_exp = m_bv_util.mk_bv_sub(m_bv_util.mk_sign_extend(1, a_exp), m_bv_util.mk_zero_extend(1, a_lz));
     res_exp = m_bv_util.mk_sign_extend(2, m_bv_util.mk_extract(ebits, 1, real_exp));
 
@@ -1907,6 +1911,7 @@ void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args,
         S = m_bv_util.mk_concat(zero1, m_bv_util.mk_extract(sbits+4, 1, S));
 
         expr_ref twoQ_plus_S(m);
+        // TODO: non-deterministic parameter evaluation
         twoQ_plus_S = m_bv_util.mk_bv_add(m_bv_util.mk_concat(Q, zero1), m_bv_util.mk_concat(zero1, S));
         T = m_bv_util.mk_bv_sub(m_bv_util.mk_concat(R, zero1), twoQ_plus_S);
 
@@ -2098,6 +2103,7 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     expr_ref shift(m), shifted_sig(m), div(m), rem(m);
     shift = m_bv_util.mk_bv_sub(m_bv_util.mk_numeral(sbits - 1, sbits),
                                 m_bv_util.mk_sign_extend(sbits-ebits, a_exp));
+    // TODO: non-deterministic parameter evaluation
     shifted_sig = m_bv_util.mk_bv_lshr(m_bv_util.mk_concat(a_sig, zero_s),
                                        m_bv_util.mk_concat(zero_s, shift));
     div = m_bv_util.mk_extract(2*sbits-1, sbits, shifted_sig);
@@ -2451,6 +2457,7 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
         (void)to_sbits;
         SASSERT((unsigned)sz == to_sbits + to_ebits);
 
+        // TODO: non-deterministic parameter evaluation
         result = m_util.mk_fp(m_bv_util.mk_extract(sz - 1, sz - 1, bv),
                               m_bv_util.mk_extract(sz - 2, sz - to_ebits - 1, bv),
                               m_bv_util.mk_extract(sz - to_ebits - 2, 0, bv));
@@ -2611,6 +2618,7 @@ void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_r
 
             // subtract lz for subnormal numbers.
             expr_ref exp_sub_lz(m);
+            // TODO: non-deterministic parameter evaluation
             exp_sub_lz = m_bv_util.mk_bv_sub(m_bv_util.mk_sign_extend(2, exp), m_bv_util.mk_sign_extend(2, lz));
             dbg_decouple("fpa2bv_to_float_exp_sub_lz", exp_sub_lz);
 
@@ -2844,6 +2852,8 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         expr_ref pzero(m), nzero(m);
         mk_pzero(result->get_sort(), pzero);
         mk_nzero(result->get_sort(), nzero);
+        // TODO: non-deterministic parameter evaluation
+        // TODO: non-deterministic parameter evaluation
         m_extra_assertions.push_back(m.mk_implies(m.mk_eq(x, zero), m.mk_or(m.mk_eq(result, pzero), m.mk_eq(result, nzero))));
     }
 
@@ -3398,6 +3408,7 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     // x is of the form +- [1].[sig][r][g][s] ... and at least bv_sz + 3 long
 
     expr_ref exp_m_lz(m), e_m_lz_m_bv_sz(m), shift(m), is_neg_shift(m), big_sig(m);
+    // TODO: non-deterministic parameter evaluation
     exp_m_lz = m_bv_util.mk_bv_sub(m_bv_util.mk_sign_extend(2, exp),
                                    m_bv_util.mk_zero_extend(2, lz));
 
@@ -3465,6 +3476,8 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     expr_ref ul(m), in_range(m);
     if (!is_signed) {
         ul = m_bv_util.mk_zero_extend(3, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, bv_sz)));
+        // TODO: non-deterministic parameter evaluation
+        // TODO: non-deterministic parameter evaluation
         in_range = m.mk_and(m.mk_or(m.mk_not(x_is_neg),
                                     m.mk_eq(pre_rounded, m_bv_util.mk_numeral(0, bv_sz+3))),
                             m.mk_not(ovfl),
@@ -3482,6 +3495,7 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
             ul = m_bv_util.mk_numeral(0, 4);
         ovfl = m.mk_or(ovfl, m_bv_util.mk_sle(pre_rounded, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, bv_sz + 3))));
         pre_rounded = m.mk_ite(x_is_neg, m_bv_util.mk_bv_neg(pre_rounded), pre_rounded);
+        // TODO: non-deterministic parameter evaluation
         in_range = m.mk_and(m.mk_not(ovfl),
                             m_bv_util.mk_sle(ll, pre_rounded),
                             m_bv_util.mk_sle(pre_rounded, ul));
@@ -4188,6 +4202,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     SASSERT(m_bv_util.get_bv_size(inc) == 1 && is_well_sorted(m, inc));
     dbg_decouple("fpa2bv_rnd_inc", inc);
 
+    // TODO: non-deterministic parameter evaluation
     sig = m_bv_util.mk_bv_add(m_bv_util.mk_zero_extend(1, sig),
         m_bv_util.mk_zero_extend(sbits, inc));
     SASSERT(is_well_sorted(m, sig));
@@ -4367,6 +4382,7 @@ void fpa2bv_converter_wrapped::mk_const(func_decl* f, expr_ref& result) {
         unsigned bv_sz = m_bv_util.get_bv_size(bv);
         unsigned sbits = m_util.get_sbits(s);
         SASSERT(bv_sz == m_util.get_ebits(s) + sbits);
+        // TODO: non-deterministic parameter evaluation
         result = m_util.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv),
             m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv),
             m_bv_util.mk_extract(sbits - 2, 0, bv));
@@ -4419,9 +4435,13 @@ app_ref fpa2bv_converter_wrapped::unwrap(expr* e, sort* s) {
 
     if (m_util.is_rm(s)) {
         SASSERT(bv_sz == 3);
+        // TODO: non-deterministic parameter evaluation
         res = m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TIES_TO_AWAY, 3)), m_util.mk_round_nearest_ties_to_away(),
+            // TODO: non-deterministic parameter evaluation
             m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3)), m_util.mk_round_nearest_ties_to_even(),
+                // TODO: non-deterministic parameter evaluation
                 m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TO_NEGATIVE, 3)), m_util.mk_round_toward_negative(),
+                    // TODO: non-deterministic parameter evaluation
                     m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3)), m_util.mk_round_toward_positive(),
                         m_util.mk_round_toward_zero()))));
     }
@@ -4429,6 +4449,7 @@ app_ref fpa2bv_converter_wrapped::unwrap(expr* e, sort* s) {
         SASSERT(m_util.is_float(s));
         unsigned sbits = m_util.get_sbits(s);
         SASSERT(bv_sz == m_util.get_ebits(s) + sbits);
+        // TODO: non-deterministic parameter evaluation
         res = m_util.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, e),
             m_bv_util.mk_extract(bv_sz - 2, sbits - 1, e),
             m_bv_util.mk_extract(sbits - 2, 0, e));

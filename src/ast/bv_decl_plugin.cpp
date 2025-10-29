@@ -47,7 +47,9 @@ void bv_decl_plugin::set_manager(ast_manager * m, family_id id) {
     for (unsigned i = 1; i <= 64; i++) 
         mk_bv_sort(i);
 
+    // TODO: non-deterministic parameter evaluation
     m_bit0 = m->mk_const_decl(symbol("bit0"), get_bv_sort(1), func_decl_info(m_family_id, OP_BIT0));
+    // TODO: non-deterministic parameter evaluation
     m_bit1 = m->mk_const_decl(symbol("bit1"), get_bv_sort(1), func_decl_info(m_family_id, OP_BIT1));
     m->inc_ref(m_bit0);
     m->inc_ref(m_bit1);
@@ -509,6 +511,7 @@ func_decl * bv_decl_plugin::mk_mkbv(unsigned arity, sort * const * domain) {
     unsigned bv_size = arity;
     m_mkbv.reserve(bv_size+1);
     if (m_mkbv[bv_size] == 0) {
+        // TODO: non-deterministic parameter evaluation
         m_mkbv[bv_size] = m_manager->mk_func_decl(m_mkbv_sym, arity, domain, get_bv_sort(bv_size), func_decl_info(m_family_id, OP_MKBV));
         m_manager->inc_ref(m_mkbv[bv_size]);
     }
@@ -578,21 +581,25 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case OP_CONCAT:
         if (!get_concat_size(arity, domain, r_size))
             m_manager->raise_exception("invalid concat application");
+        // TODO: non-deterministic parameter evaluation
         return m_manager->mk_func_decl(m_concat_sym, arity, domain, get_bv_sort(r_size),
                                        func_decl_info(m_family_id, k));
     case OP_SIGN_EXT:
         if (!get_extend_size(num_parameters, parameters, arity, domain, r_size))
             m_manager->raise_exception("invalid sign_extend application");
+        // TODO: non-deterministic parameter evaluation
         return m_manager->mk_func_decl(m_sign_extend_sym, arity, domain, get_bv_sort(r_size),
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_ZERO_EXT:
         if (!get_extend_size(num_parameters, parameters, arity, domain, r_size))
             m_manager->raise_exception("invalid zero_extend application");
+        // TODO: non-deterministic parameter evaluation
         return m_manager->mk_func_decl(m_zero_extend_sym, arity, domain, get_bv_sort(r_size),
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_EXTRACT:
         if (!get_extract_size(num_parameters, parameters, arity, domain, r_size))
             m_manager->raise_exception("invalid extract application");
+        // TODO: non-deterministic parameter evaluation
         return m_manager->mk_func_decl(m_extract_sym, arity, domain, get_bv_sort(r_size),
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_ROTATE_LEFT:
@@ -616,6 +623,7 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
             m_manager->raise_exception("repeat expects one nonzero integer parameter");
         if (!get_bv_size(domain[0], bv_size))
             m_manager->raise_exception("repeat expects an argument with bit-vector sort");
+        // TODO: non-deterministic parameter evaluation
         return m_manager->mk_func_decl(m_repeat_sym, arity, domain, get_bv_sort(bv_size * parameters[0].get_int()),
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     default:

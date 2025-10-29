@@ -247,6 +247,7 @@ namespace smt {
             assert_eq_axiom(arg, acc_own, is_con); 
         }
         // update_field is identity if 'n' is not created by a matching constructor.        
+        // TODO: non-deterministic parameter evaluation
         app_ref imp(m.mk_implies(m.mk_not(rec_app), m.mk_eq(n->get_expr(), arg1)), m);
         assert_eq_axiom(n, arg1, ~is_con);
 
