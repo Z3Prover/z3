@@ -360,13 +360,7 @@ namespace smt {
         ctx.mark_as_relevant(sel1_eq_sel2);
         if (m.has_trace_stream()) {
             app_ref body(m);
-            //non-deterministic order change start
-            {
-                auto mk_not_1 = m.mk_not(ctx.bool_var2expr(n1_eq_n2.var()));
-                auto mk_not_2 = m.mk_not(ctx.bool_var2expr(sel1_eq_sel2.var()));
-                body = m.mk_implies(mk_not_1, mk_not_2);
-            }
-            //non-deterministic order change end
+            body = m.mk_implies(m.mk_not(ctx.bool_var2expr(n1_eq_n2.var())), m.mk_not(ctx.bool_var2expr(sel1_eq_sel2.var())));
             log_axiom_instantiation(body);
         }
         assert_axiom(n1_eq_n2, ~sel1_eq_sel2);

@@ -656,7 +656,6 @@ namespace qe {
                     expr_ref den_is0(m.mk_eq(divs[i].den, arith.mk_real(0)), m);
                     paxioms.push_back(m.mk_or(den_is0, m.mk_eq(divs[i].num, arith.mk_mul(divs[i].den, divs[i].name))));
                     for (unsigned j = i + 1; j < divs.size(); ++j) {
-                        //non-deterministic order no change: too complex
                         paxioms.push_back(m.mk_or(m.mk_not(m.mk_eq(divs[i].den, divs[j].den)),
                                                   m.mk_not(m.mk_eq(divs[i].num, divs[j].num)), 
                                                   m.mk_eq(divs[i].name, divs[j].name)));
@@ -666,7 +665,6 @@ namespace qe {
                 expr_ref v0(m.mk_var(0, arith.mk_real()), m);
                 expr_ref v1(m.mk_var(1, arith.mk_real()), m);
                 for (auto const& p : divs) {
-                    //non-deterministic order no change: too complex
                     body = m.mk_ite(m.mk_and(m.mk_eq(v0, p.num), m.mk_eq(v1, p.den)), p.name, body);
                 }
                 m_div_mc->add(arith.mk_div0(), body);

@@ -378,13 +378,7 @@ void convex_closure::cc_1dim(const expr_ref &var, expr_ref_vector &out) {
 expr *convex_closure::mk_eq_mod(expr *v, rational d, rational r) {
     expr *res = nullptr;
     if (m_arith.is_int(v)) {
-        //non-deterministic order change start
-        {
-            auto mk_mod_1 = m_arith.mk_mod(v, m_arith.mk_int(d));
-            auto mk_int_2 = m_arith.mk_int(r);
-            res = m.mk_eq(mk_mod_1, mk_int_2);
-        }
-        //non-deterministic order change end
+        res = m.mk_eq(m_arith.mk_mod(v, m_arith.mk_int(d)), m_arith.mk_int(r));
     } else if (m_bv.is_bv(v)) {
         res = m.mk_eq(m_bv.mk_bv_urem(v, m_bv.mk_numeral(d, m_bv_sz)),
                       m_bv.mk_numeral(r, m_bv_sz));

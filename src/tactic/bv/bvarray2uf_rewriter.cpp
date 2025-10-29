@@ -149,13 +149,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
             var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
             expr_ref body(m_manager);
-            //non-deterministic order change start
-            {
-                auto mk_app_1 = m_manager.mk_app(f_t, x.get());
-                auto mk_app_2 = m_manager.mk_app(f_s, x.get());
-                body = m_manager.mk_eq(mk_app_1, mk_app_2);
-            }
-            //non-deterministic order change end
+            body = m_manager.mk_eq(m_manager.mk_app(f_t, x.get()), m_manager.mk_app(f_s, x.get()));
 
             result = m_manager.mk_forall(1, sorts, names, body);
             res = BR_DONE;
@@ -301,14 +295,8 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                         new_args.push_back(m_manager.mk_app(ss[i].get(), x.get()));
 
                     expr_ref body(m_manager);
-                    //non-deterministic order change start
-                    {
-                        auto mk_app_1 = m_manager.mk_app(f_t, x.get());
-                        auto mk_app_2 = m_manager.mk_app(map_f, num, new_args.data());
-                        body = m_manager.mk_eq(mk_app_1,
-                                           mk_app_2);
-                    }
-                    //non-deterministic order change end
+                    body = m_manager.mk_eq(m_manager.mk_app(f_t, x.get()),
+                                           m_manager.mk_app(map_f, num, new_args.data()));
 
                     expr_ref frllx(m_manager.mk_forall(1, sorts, names, body), m_manager);
                     extra_assertions.push_back(frllx);
@@ -342,15 +330,9 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                         var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
                         expr_ref body(m_manager);
-                        //non-deterministic order change start
-                        {
-                            auto mk_eq_1 = m_manager.mk_eq(x, i);
-                            body = m_manager.mk_or(mk_eq_1,
-                                               //non-deterministic order no change: too complex
+                        body = m_manager.mk_or(m_manager.mk_eq(x, i),
                                                m_manager.mk_eq(m_manager.mk_app(f_t, x.get()),
                                                                m_manager.mk_app(f_s, x.get())));
-                        }
-                        //non-deterministic order change end
 
                         expr_ref frllx(m_manager.mk_forall(1, sorts, names, body), m_manager);
                         extra_assertions.push_back(frllx);

@@ -343,7 +343,6 @@ Notes:
                         return mk_not(out[k]);
                     }
                     else {
-                        //non-deterministic order no change: too complex
                         return mk_min(out[k-1], mk_not(out[k]));
                     }
                 case sorting_network_encoding::unate_at_most:
@@ -385,7 +384,6 @@ Notes:
         }
 
         literal eq(unsigned k, unsigned n, unsigned const* ws, literal const* xs) {
-            //non-deterministic order no change: too complex
             return mk_and(ge(k, n, ws, xs), le(k, n, ws, xs));
 #if 0
             m_t = EQ;
@@ -481,12 +479,7 @@ Notes:
                 for (unsigned j = last; j-- > 0; ) {
                     // c'[j] <-> (xs[i] & c[j-1]) | c[j]
                     literal c0 = j > 0 ? carry[j-1] : ctx.mk_true();
-                    //non-deterministic order change start
-                    {
-                        auto mk_and_1 = mk_and(xs[i], c0);
-                        carry[j] = mk_or(mk_and_1, carry[j]);
-                    }
-                    //non-deterministic order change end
+                    carry[j] = mk_or(mk_and(xs[i], c0), carry[j]);
                 }
             }
             switch (cmp) {
@@ -497,7 +490,6 @@ Notes:
             case GE_FULL:
                 return carry[k-1];
             case EQ:
-                //non-deterministic order no change: too complex
                 return mk_and(mk_not(carry[k]), carry[k-1]);
             default:
                 UNREACHABLE();
@@ -530,7 +522,6 @@ Notes:
                 // out[i] = c + x[i] + y[i]
                 // c' = c&x[i] | c&y[i] | x[i]&y[i];
                 literal_vector ors; 
-                //non-deterministic order no change: too complex
                 ors.push_back(mk_and(c,    mk_not(x[i]), mk_not(y[i]))); 
                 ors.push_back(mk_and(x[i], mk_not(c),    mk_not(y[i])));
                 ors.push_back(mk_and(y[i], mk_not(c),    mk_not(x[i])));
@@ -587,9 +578,7 @@ Notes:
                 literal_vector eqs;
                 SASSERT(kvec.size() == out.size());
                 for (unsigned i = 0; i < num_bits; ++i) {
-                    //non-deterministic order no change: too complex
                     eqs.push_back(mk_or(mk_not(kvec[i]), out[i]));
-                    //non-deterministic order no change: too complex
                     eqs.push_back(mk_or(kvec[i], mk_not(out[i])));
                 }
                 eqs.push_back(mk_not(ovfl));
@@ -697,7 +686,6 @@ Notes:
             case 1:
                 return ands[0];
             case 2:
-                //non-deterministic order no change: too complex
                 return mk_min(ands[0], ands[1]);
             default: {
                 return ctx.mk_min(ands.size(), ands.data());

@@ -55,7 +55,6 @@ namespace datalog {
 				for (unsigned i = 0; i < old_p->get_arity(); ++i) {
 					subst.push_back(m.mk_var(i, old_p->get_domain(i)));
 				}
-				//non-deterministic order no change: too complex
 				subst.push_back(a.mk_numeral(rational(1), a.mk_real()));
 
 				SASSERT(!new_fi->is_partial() && new_fi->num_entries() == 0);

@@ -574,7 +574,6 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
         num_no_pats = j;
     }
     if (ProofGen) {
-        //non-deterministic order no change: too complex
         quantifier_ref new_q(m().update_quantifier(q, num_pats, new_pats.data(), num_no_pats, new_no_pats.data(), new_body), m());
         m_pr = nullptr;
         if (q != new_q) {
@@ -600,7 +599,6 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
         TRACE(reduce_quantifier_bug, tout << mk_ismt2_pp(q, m()) << " " << mk_ismt2_pp(new_body, m()) << "\n";);
         if (!m_cfg.reduce_quantifier(q, new_body, new_pats.data(), new_no_pats.data(), m_r, m_pr)) {
             if (fr.m_new_child) {
-                //non-deterministic order no change: too complex
                 m_r = m().update_quantifier(q, num_pats, new_pats.data(), num_no_pats, new_no_pats.data(), new_body);
             }
             else {

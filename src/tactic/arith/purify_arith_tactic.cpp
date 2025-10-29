@@ -331,14 +331,12 @@ struct purify_arith_proc {
             expr * x = args[0];
             expr * y = args[1];
             // y = 0 \/ y*k = x
-            //non-deterministic order no change: too complex
             push_cnstr(OR(EQ(y, mk_real_zero()),
                           EQ(u().mk_mul(y, k), x)));
             push_cnstr_pr(result_pr);
             rational r;
             if (complete()) {
                 // y != 0 \/ k = div-0(x)
-                //non-deterministic order no change: too complex
                 push_cnstr(OR(NOT(EQ(y, mk_real_zero())),
                               EQ(k, u().mk_div(x, mk_real_zero()))));
                 push_cnstr_pr(result_pr);
@@ -377,7 +375,6 @@ struct purify_arith_proc {
             //       y < 0 implies k2 < -y  --->  y >= 0 \/ k2 < -y
             //     
             expr * zero = mk_int_zero();
-            //non-deterministic order no change: too complex
             push_cnstr(OR(EQ(y, zero), EQ(x, u().mk_add(u().mk_mul(k1, y), k2))));
             push_cnstr_pr(result_pr, mod_pr);
 
@@ -392,11 +389,9 @@ struct purify_arith_proc {
 
             rational r;
             if (complete() && (!u().is_numeral(y, r) || r.is_zero())) {
-                //non-deterministic order no change: too complex
                 push_cnstr(OR(NOT(EQ(y, zero)), EQ(k1, u().mk_idiv(x, zero))));
                 push_cnstr_pr(result_pr);
 
-                //non-deterministic order no change: too complex
                 push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, u().mk_mod(x, zero))));
                 push_cnstr_pr(mod_pr);
             }
@@ -468,10 +463,8 @@ struct purify_arith_proc {
                 }
 
                 // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
-                //non-deterministic order no change: too complex
                 push_cnstr(OR(EQ(x, zero), EQ(k, one)));
                 push_cnstr_pr(result_pr);
-                //non-deterministic order no change: too complex
                 push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, p0)));
                 push_cnstr_pr(result_pr);
             }
@@ -489,7 +482,6 @@ struct purify_arith_proc {
                     SASSERT(n.is_even());
                     // (^ x (/ 1 n)) --> k  |  x >= 0 implies (x = k^n and k >= 0), x < 0 implies k = neg-root(x, n)   
                     // when n is even
-                    //non-deterministic order no change: too complex
                     push_cnstr(OR(NOT(u().mk_ge(x, zero)),
                                   AND(EQ(x, u().mk_power(k, u().mk_numeral(n, false))),
                                       u().mk_ge(k, zero))));
@@ -608,11 +600,8 @@ struct purify_arith_proc {
             expr * pi2   = u().mk_mul(u().mk_numeral(rational(1,2), false), u().mk_pi());
             expr * mpi2  = u().mk_mul(u().mk_numeral(rational(-1,2), false), u().mk_pi());
             // -1 <= x <= 1 implies sin(k) = x, -pi/2 <= k <= pi/2
-            //non-deterministic order no change: too complex
-            //non-deterministic order no change: too complex
             push_cnstr(OR(OR(NOT(u().mk_ge(x, mone)),
                              NOT(u().mk_le(x, one))),
-                          //non-deterministic order no change: too complex
                           AND(EQ(x, u().mk_sin(k)),
                               AND(u().mk_ge(k, mpi2),
                                   u().mk_le(k, pi2)))));
@@ -653,11 +642,8 @@ struct purify_arith_proc {
             expr * pi    = u().mk_pi();
             expr * zero  = u().mk_numeral(rational(0), false);
             // -1 <= x <= 1 implies cos(k) = x, 0 <= k <= pi
-            //non-deterministic order no change: too complex
-            //non-deterministic order no change: too complex
             push_cnstr(OR(OR(NOT(u().mk_ge(x, mone)),
                              NOT(u().mk_le(x, one))),
-                          //non-deterministic order no change: too complex
                           AND(EQ(x, u().mk_cos(k)),
                               AND(u().mk_ge(k, zero),
                                   u().mk_le(k, pi)))));
@@ -692,7 +678,6 @@ struct purify_arith_proc {
             // tan(k) = x, -pi/2 < k < pi/2
             expr * pi2   = u().mk_mul(u().mk_numeral(rational(1,2), false), u().mk_pi());
             expr * mpi2  = u().mk_mul(u().mk_numeral(rational(-1,2), false), u().mk_pi());
-            //non-deterministic order no change: too complex
             push_cnstr(AND(EQ(x, u().mk_tan(k)),
                            AND(u().mk_gt(k, mpi2),
                                u().mk_lt(k, pi2))));
@@ -819,9 +804,7 @@ struct purify_arith_proc {
             auto const& p1 = divs[i];
             for (unsigned j = i + 1; j < divs.size(); ++j) {
                 auto const& p2 = divs[j];
-                //non-deterministic order no change: too complex
                 m_goal.assert_expr(m().mk_implies(
-                                       //non-deterministic order no change: too complex
                                        m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
                                        m().mk_eq(p1.d, p2.d)));
             }
@@ -830,9 +813,7 @@ struct purify_arith_proc {
             auto const& p1 = mods[i];
             for (unsigned j = i + 1; j < mods.size(); ++j) {
                 auto const& p2 = mods[j];
-                //non-deterministic order no change: too complex
                 m_goal.assert_expr(m().mk_implies(
-                                       //non-deterministic order no change: too complex
                                        m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
                                        m().mk_eq(p1.d, p2.d)));
             }
@@ -841,9 +822,7 @@ struct purify_arith_proc {
             auto const& p1 = idivs[i];
             for (unsigned j = i + 1; j < idivs.size(); ++j) {
                 auto const& p2 = idivs[j];
-                //non-deterministic order no change: too complex
                 m_goal.assert_expr(m().mk_implies(
-                                       //non-deterministic order no change: too complex
                                        m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
                                        m().mk_eq(p1.d, p2.d)));
             }
@@ -864,7 +843,6 @@ struct purify_arith_proc {
                 expr_ref v0(m().mk_var(0, u().mk_real()), m());
                 expr_ref v1(m().mk_var(1, u().mk_real()), m());
                 for (auto const& p : divs) {
-                    //non-deterministic order no change: too complex
                     body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
                 }
                 fmc->add(u().mk_div0(), body);
@@ -874,7 +852,6 @@ struct purify_arith_proc {
                 expr_ref v0(m().mk_var(0, u().mk_int()), m());
                 expr_ref v1(m().mk_var(1, u().mk_int()), m());
                 for (auto const& p : mods) {
-                    //non-deterministic order no change: too complex
                     body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
                 }
                 
@@ -887,7 +864,6 @@ struct purify_arith_proc {
                 expr_ref v0(m().mk_var(0, u().mk_int()), m());
                 expr_ref v1(m().mk_var(1, u().mk_int()), m());
                 for (auto const& p : idivs) {
-                    //non-deterministic order no change: too complex
                     body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
                 }
                 fmc->add(u().mk_idiv0(), body);
@@ -905,7 +881,6 @@ struct purify_arith_proc {
             for (auto const& kv : m_sin_cos) {
                 emc->add(kv.m_key->get_decl(), 
                             m().mk_ite(u().mk_ge(kv.m_value.first, mk_real_zero()), u().mk_acos(kv.m_value.second), 
-                                       //non-deterministic order no change: too complex
                                        u().mk_add(u().mk_acos(u().mk_uminus(kv.m_value.second)), u().mk_pi())));
             }
 

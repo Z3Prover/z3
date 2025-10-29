@@ -658,19 +658,16 @@ namespace datalog {
         relation_signature const& sig = get_signature();
         for (unsigned i = 0; i < sig.size(); ++i) {
             if (i != find(i)) {
-                //non-deterministic order no change: too complex
                 conjs.push_back(m.mk_eq(m.mk_var(i, sig[i]), m.mk_var(find(i), sig[find(i)])));
                 continue;
             }
             uint_set2 const& upper = (*this)[i];
             uint_set::iterator it = upper.lt.begin(), end = upper.lt.end();
             for (; it != end; ++it) {
-                //non-deterministic order no change: too complex
                 conjs.push_back(arith.mk_lt(m.mk_var(i, sig[i]), m.mk_var(*it, sig[*it])));
             }
             it = upper.le.begin(), end = upper.le.end();
             for (; it != end; ++it) {
-                //non-deterministic order no change: too complex
                 conjs.push_back(arith.mk_le(m.mk_var(i, sig[i]), m.mk_var(*it, sig[*it])));
             }
         }

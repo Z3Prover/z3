@@ -253,7 +253,6 @@ struct sat2goal::imp {
         s.collect_bin_clauses(bin_clauses, m_learned, false);
         for (sat::solver::bin_clause const& bc : bin_clauses) {
             checkpoint();
-            //non-deterministic order no change: too complex
             r.assert_expr(m.mk_or(lit2expr(mc, bc.first), lit2expr(mc, bc.second)));
         }
         // collect clauses

@@ -803,13 +803,7 @@ namespace smt {
         r.pop(1);
         fi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(fn, fi);
-        //non-deterministic order change start
-        {
-            auto mk_app_1 = m.mk_app(fn,m.mk_var(0, *ty));
-            auto mk_app_2 = m.mk_app(fn, m.mk_var(1, *ty));
-            result = arith.mk_le(mk_app_1, mk_app_2);
-        }
-        //non-deterministic order change end
+        result = arith.mk_le(m.mk_app(fn,m.mk_var(0, *ty)), m.mk_app(fn, m.mk_var(1, *ty)));
         return result;
     }
 
@@ -829,13 +823,7 @@ namespace smt {
         }
         fi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(fn, fi);
-        //non-deterministic order change start
-        {
-            auto mk_app_1 = m.mk_app(fn, m.mk_var(0, *ty));
-            auto mk_app_2 = m.mk_app(fn, m.mk_var(1, *ty));
-            result = m.mk_eq(mk_app_1, mk_app_2);
-        }
-        //non-deterministic order change end
+        result = m.mk_eq(m.mk_app(fn, m.mk_var(0, *ty)), m.mk_app(fn, m.mk_var(1, *ty)));
         return result;
     }
 
@@ -860,9 +848,7 @@ namespace smt {
         hifi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(lofn, lofi);
         mg.get_model().register_decl(hifn, hifi);
-        //non-deterministic order no change: too complex
         result = m.mk_and(arith.mk_le(m.mk_app(lofn, m.mk_var(0, *ty)), m.mk_app(lofn, m.mk_var(1, *ty))),
-                          //non-deterministic order no change: too complex
                           arith.mk_le(m.mk_app(hifn, m.mk_var(1, *ty)), m.mk_app(hifn, m.mk_var(0, *ty))));
         return result;
     }
@@ -937,17 +923,11 @@ namespace smt {
             
             expr* x = xV, *S = SV;
             expr_ref mem_body(m);
-            //non-deterministic order change start
-            {
-                auto mk_app_1 = m.mk_app(is_nil, S);
-                mem_body = m.mk_ite(mk_app_1, 
+            mem_body = m.mk_ite(m.mk_app(is_nil, S), 
                                 F,
-                                //non-deterministic order no change: too complex
                                 m.mk_ite(m.mk_eq(m.mk_app(hd, S), x), 
                                          T,
-                                         m.mk_app(memf, x, m.mk_app(tl, S))));
-            }
-            //non-deterministic order change end            
+                                         m.mk_app(memf, x, m.mk_app(tl, S))));            
             recfun_replace rep(m);
             var* vars[2] = { xV, SV };
             p.set_definition(rep, mem, false, 2, vars, mem_body);
@@ -967,16 +947,9 @@ namespace smt {
             var_ref SV(m.mk_var(1, listS), m);
             var_ref tupV(m.mk_var(0, tup), m);
             expr* a = aV, *b = bV, *A = AV, *S = SV, *t = tupV;
-            //non-deterministic order no change: too complex
-            //non-deterministic order change start
-            {
-                auto mk_and_1 = m.mk_and(m.mk_app(memf, a, A), m.mk_not(m.mk_app(memf, b, S)));
-                auto mk_app_2 = m.mk_app(pair, m.mk_app(cons, b, m.mk_app(fst, t)), m.mk_app(cons, b, m.mk_app(snd, t)));
-                next_body = m.mk_ite(mk_and_1, 
-                                 mk_app_2,
+            next_body = m.mk_ite(m.mk_and(m.mk_app(memf, a, A), m.mk_not(m.mk_app(memf, b, S))), 
+                                 m.mk_app(pair, m.mk_app(cons, b, m.mk_app(fst, t)), m.mk_app(cons, b, m.mk_app(snd, t))),
                                  t);
-            }
-            //non-deterministic order change end
 
             recfun_replace rep(m);
             var* vars[5] = { aV, bV, AV, SV, tupV };
@@ -1008,15 +981,9 @@ namespace smt {
             expr_ref Ap(m.mk_app(fst, connected_body.get()), m);
             expr_ref Sp(m.mk_app(snd, connected_body.get()), m);
 
-            //non-deterministic order change start
-            {
-                auto mk_eq_1 = m.mk_eq(Ap, nilc);
-                connected_body = m.mk_ite(mk_eq_1, F, 
-                                      //non-deterministic order no change: too complex
+            connected_body = m.mk_ite(m.mk_eq(Ap, nilc), F, 
                                       m.mk_ite(m.mk_app(memf, dst, Ap), T,
                                                m.mk_app(connectedf, Ap, dst, Sp)));
-            }
-            //non-deterministic order change end
             
             TRACE(special_relations, tout << connected_body << "\n";);
             recfun_replace rep(m);

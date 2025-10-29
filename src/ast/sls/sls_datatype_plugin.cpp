@@ -254,7 +254,6 @@ namespace sls {
                     expr_ref_vector args(m);
                     for (auto a : acc)
                         args.push_back(m.mk_app(a, t));
-                    //non-deterministic order no change: too complex
                     m_axioms.push_back(m.mk_iff(m.mk_app(r, t), m.mk_eq(t, m.mk_app(c, args))));
                 }
             }

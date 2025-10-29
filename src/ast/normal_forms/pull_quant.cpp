@@ -265,14 +265,8 @@ struct pull_quant::imp {
                 return BR_FAILED;
 
             if (m.proofs_enabled()) {
-                //non-deterministic order change start
-                {
-                    auto mk_app_1 = m.mk_app(f, num, args);
-                    auto get_2 = to_quantifier(result.get());
-                    result_pr = m.mk_pull_quant(mk_app_1, 
-                                                    get_2);
-                }
-                //non-deterministic order change end
+                result_pr = m.mk_pull_quant(m.mk_app(f, num, args), 
+                                                    to_quantifier(result.get()));
             }
             return BR_DONE;
         }

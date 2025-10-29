@@ -1066,7 +1066,6 @@ namespace opt {
         expr_ref_vector soft(m);
         for (unsigned k = 1; k <= min_cardinality; ++k) {
             auto p_k = m.mk_fresh_const("p", m.mk_bool_sort());
-            //non-deterministic order no change: too complex
             soft.push_back(m.mk_ite(p_k, a.mk_int(1), a.mk_int(0)));
             for (auto c : cardinalities)
                 // p_k => c >= k

@@ -2363,7 +2363,6 @@ namespace datalog {
             unsigned rel_idx = static_cast<unsigned>(fact[fact_sz-1]);
             m_others[rel_idx]->to_formula(tmp);
             for (unsigned i = 0; i + 1 < fact_sz; ++i) {
-                //non-deterministic order no change: too complex
                 conjs.push_back(m.mk_eq(m.mk_var(i, sig[i]), util.mk_numeral(fact[i], sig[i])));
             }
             sh(tmp, fact_sz-1, tmp);

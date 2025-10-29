@@ -262,7 +262,6 @@ expr_ref generic_model_converter::simplify_def(entry const& e) {
         rep.apply_substitution(c, m.mk_true(),  result1);
         rep.apply_substitution(c, m.mk_false(), result2);
         th_rewriter rw(m);
-        //non-deterministic order no change: too complex
         expr_ref result(m.mk_and(m.mk_implies(result2, c), m.mk_implies(c, result1)), m);
         rw(result);
         return result;
