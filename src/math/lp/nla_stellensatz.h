@@ -85,6 +85,44 @@ namespace nla {
                 }
             };
         };
+        struct ineq_sig {
+            vector<std::pair<rational, lpvar>> lhs;
+            lp::lconstraint_kind k;
+            rational rhs;
+
+            struct eq {
+                bool operator()(ineq_sig const &a, ineq_sig const &b) const {
+                    return a.lhs == b.lhs && a.k == b.k && a.rhs == b.rhs;
+                }
+            };
+            struct hash {
+
+                using composite = vector<std::pair<rational, unsigned>>;
+
+                struct khasher {
+                    unsigned operator()(composite const& ) const {
+                        return 12;
+                    }
+                };
+
+                struct chasher {
+                    unsigned operator()(composite const& c, unsigned idx) const {
+                        return hash_u_u(c[idx].first.hash(), c[idx].second);
+                    }
+                };
+
+                struct hash_proc {
+                    unsigned operator()(composite const& c) const {
+                        return get_composite_hash<composite, khasher, chasher>(c, c.size(), khasher(), chasher());
+                    }
+                };
+                
+                unsigned operator()(ineq_sig const &a) const {
+                    auto h = combine_hash((unsigned)a.k, a.rhs.hash());
+                    return combine_hash(h, hash_proc()(a.lhs));
+                }
+            };            
+        };
         struct resolvent_justification : public resolvent {
             vector<bound_assumption> assumptions;
         };
@@ -134,6 +172,10 @@ namespace nla {
 
         hashtable<multiplication, multiplication::hash, multiplication::eq> m_multiplications;
         hashtable<resolvent, resolvent::hash, resolvent::eq> m_resolvents;
+        hashtable<ineq_sig, ineq_sig::hash, ineq_sig::eq> m_inequality_table;
+
+        bool is_new_inequality(vector<std::pair<rational, lpvar>> lhs, lp::lconstraint_kind k, rational const &rhs);
+
 
         // initialization
         void init_solver();

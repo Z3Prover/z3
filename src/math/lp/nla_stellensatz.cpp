@@ -70,6 +70,7 @@ namespace nla {
         m_values.reset();
         m_multiplications.reset();
         m_resolvents.reset();
+        m_inequality_table.reset();
         m_justifications.reset();
         m_monomials_to_refine.reset();
         m_false_constraints.reset();
@@ -470,12 +471,29 @@ namespace nla {
         }    
     }
 
+    bool stellensatz::is_new_inequality(vector<std::pair<rational, lpvar>> lhs, lp::lconstraint_kind k,
+                                        rational const &rhs) {
+        std::stable_sort(lhs.begin(), lhs.end(),
+                         [](std::pair<rational, lpvar> const &a, std::pair<rational, lpvar> const &b) {
+                             return a.second < b.second;
+                         });
+        ineq_sig sig{lhs, k, rhs};
+        if (m_inequality_table.contains(sig))
+            return false;
+        m_inequality_table.insert(sig);
+        return true;
+    }
+
     lp::constraint_index stellensatz::add_ineq( 
         justification const& just, lp::lar_term & t, lp::lconstraint_kind k,
         rational const & rhs_) {
         rational rhs(rhs_);
         auto coeffs = t.coeffs_as_vector();
         gcd_normalize(coeffs, k, rhs);
+
+        if (!is_new_inequality(coeffs, k, rhs))
+            return lp::null_ci;
+
         SASSERT(!coeffs.empty());
         auto ti = m_solver.lra().add_term(coeffs, m_solver.lra().number_of_vars());
         m_occurs.reserve(m_solver.lra().number_of_vars());
@@ -504,6 +522,8 @@ namespace nla {
     }
 
     void stellensatz::init_occurs(lp::constraint_index ci) {
+        if (ci == lp::null_ci)
+            return;
         auto const &con = m_solver.lra().constraints()[ci];
         for (auto cv : con.lhs()) {
             auto v = cv.j();
@@ -743,6 +763,8 @@ namespace nla {
         lp::lconstraint_kind k = is_strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE;
 
         auto new_ci = add_ineq(just, lhs, k, rhs);
+        if (new_ci == lp::null_ci)
+            return;
         insert_monomials_from_constraint(new_ci);
         IF_VERBOSE(3, display_constraint(verbose_stream() << new_ci << ": ", new_ci) << "\n");
     }
@@ -918,6 +940,8 @@ namespace nla {
         }
         resolvent_justification r = {ci1, ci2, j};
         auto new_ci = add_ineq(r, lhs, k1, rhs);
+        if (new_ci == lp::null_ci)
+            return;
         insert_monomials_from_constraint(new_ci);
         IF_VERBOSE(3, verbose_stream() << "resolve on " << m_mon2vars[j] << " c1: " << c1 << " c2: " << c2 << "\n";
                    display_constraint(verbose_stream(), ci1) << "\n";
@@ -997,6 +1021,8 @@ namespace nla {
             k = swap_side(k);       
 
         auto new_ci = add_ineq(just, new_lhs, k, new_rhs);
+        if (new_ci == lp::null_ci)
+            return lp::null_ci;
         IF_VERBOSE(4, display_constraint(verbose_stream(), old_ci) << " -> ";
                    display_constraint(verbose_stream(), new_lhs.coeffs_as_vector(), k, new_rhs) << "\n");
         //insert_monomials_from_constraint(new_ci);
