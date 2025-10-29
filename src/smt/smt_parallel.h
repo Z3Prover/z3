@@ -20,11 +20,29 @@ Revision History:
 
 #include "smt/smt_context.h"
 #include "util/search_tree.h"
+// #include "util/util.h"
 #include <thread>
 #include <mutex>
 
 
 namespace smt {
+
+  inline bool operator==(const smt_params& a, const smt_params& b) {
+      return a.m_nl_arith_branching == b.m_nl_arith_branching &&
+            a.m_nl_arith_cross_nested == b.m_nl_arith_cross_nested &&
+            a.m_nl_arith_delay == b.m_nl_arith_delay &&
+            a.m_nl_arith_expensive_patching == b.m_nl_arith_expensive_patching &&
+            a.m_nl_arith_gb == b.m_nl_arith_gb &&
+            a.m_nl_arith_horner == b.m_nl_arith_horner &&
+            a.m_nl_arith_horner_frequency == b.m_nl_arith_horner_frequency &&
+            a.m_nl_arith_optimize_bounds == b.m_nl_arith_optimize_bounds &&
+            a.m_nl_arith_propagate_linear_monomials == b.m_nl_arith_propagate_linear_monomials &&
+            a.m_nl_arith_tangents == b.m_nl_arith_tangents;
+  }
+
+  inline bool operator!=(const smt_params& a, const smt_params& b) {
+      return !(a == b);
+  }
 
     struct cube_config {
         using literal = expr_ref;
@@ -112,35 +130,64 @@ namespace smt {
             scoped_ptr<context> ctx;
             ast_translation m_l2g;
             
-            unsigned N = 4; // number of prefix permutation testers
+            unsigned N = 4; // number of prefix permutations to test (including current)
             unsigned m_max_prefix_conflicts = 1000;
             
             scoped_ptr<context> m_prefix_solver;
-            scoped_ptr_vector<context> m_testers; // N testers
-            smt_params m_best_param_state;
+            scoped_ptr_vector<context> m_param_probe_contexts;
+            smt_params m_param_state;
             params_ref m_p;
             
             private:
                 void init_param_state() {
-                    m_best_param_state.m_nl_arith_branching = true;
-                    m_best_param_state.m_nl_arith_cross_nested = true;
-                    m_best_param_state.m_nl_arith_delay = 10;
-                    m_best_param_state.m_nl_arith_expensive_patching = false;
-                    m_best_param_state.m_nl_arith_gb = true;
-                    m_best_param_state.m_nl_arith_horner = true;
-                    m_best_param_state.m_nl_arith_horner_frequency = 4;
-                    m_best_param_state.m_nl_arith_optimize_bounds = true;
-                    m_best_param_state.m_nl_arith_propagate_linear_monomials = true;
-                    m_best_param_state.m_nl_arith_tangents = true;
+                    m_param_state.m_nl_arith_branching = true;
+                    m_param_state.m_nl_arith_cross_nested = true;
+                    m_param_state.m_nl_arith_delay = 10;
+                    m_param_state.m_nl_arith_expensive_patching = false;
+                    m_param_state.m_nl_arith_gb = true;
+                    m_param_state.m_nl_arith_horner = true;
+                    m_param_state.m_nl_arith_horner_frequency = 4;
+                    m_param_state.m_nl_arith_optimize_bounds = true;
+                    m_param_state.m_nl_arith_propagate_linear_monomials = true;
+                    m_param_state.m_nl_arith_tangents = true;
 
-                    m_best_param_state.updt_params(m_p);
+                    m_param_state.updt_params(m_p);
                     ctx->updt_params(m_p);
                 };
+
+                smt_params mutate_param_state() {
+                    smt_params p = m_param_state;
+                    random_gen m_rand;
+
+                    auto flip_bool = [&](bool &x) {
+                        if ((m_rand() % 2) == 0)
+                            x = !x;
+                    };
+
+                    auto mutate_uint = [&](unsigned &x, unsigned lo, unsigned hi) {
+                        if ((m_rand() % 2) == 0)
+                            x = lo + (m_rand() % (hi - lo + 1));
+                    };
+
+                    flip_bool(p.m_nl_arith_branching);
+                    flip_bool(p.m_nl_arith_cross_nested);
+                    mutate_uint(p.m_nl_arith_delay, 5, 20);
+                    flip_bool(p.m_nl_arith_expensive_patching);
+                    flip_bool(p.m_nl_arith_gb);
+                    flip_bool(p.m_nl_arith_horner);
+                    mutate_uint(p.m_nl_arith_horner_frequency, 2, 6);
+                    flip_bool(p.m_nl_arith_optimize_bounds);
+                    flip_bool(p.m_nl_arith_propagate_linear_monomials);
+                    flip_bool(p.m_nl_arith_tangents);
+
+                    return p;
+                }
+
             public:
                 param_generator(parallel& p);
                 lbool run_prefix_step();
                 void protocol_iteration();
-                void replay_proof_prefixes();
+                void replay_proof_prefixes(unsigned max_conflicts_epsilon);
 
                 reslimit& limit() {
                     return m.limit();

@@ -80,17 +80,42 @@ namespace smt {
         return r;
     }
 
+    void parallel::param_generator::replay_proof_prefixes(unsigned max_conflicts_epsilon=200) {
+        unsigned conflict_budget = m_max_prefix_conflicts + max_conflicts_epsilon;
+
+    }
+
     void parallel::param_generator::protocol_iteration() {
-        IF_VERBOSE(1, verbose_stream() << " Param generator running protocol iteration\n");
+        IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running protocol iteration\n");
         ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
+
+        // copy current param state to all param probe contexts, before running the next prefix step
+        // this ensures that each param probe context replays the prefix from the same configuration
+        for (unsigned i = 0; i < m_param_probe_contexts.size(); ++i) {
+            context::copy(*ctx, *m_param_probe_contexts[i], true);
+        }
+        
         lbool r = run_prefix_step();
 
         switch (r) {
             case l_undef: {
-                return;
+                smt_params best_param_state = m_param_state;
+                vector<smt_params> candidate_param_states;
+
+                candidate_param_states.push_back(best_param_state); // first candidate param state is current best
+                while (candidate_param_states.size() <= N) {
+                    candidate_param_states.push_back(mutate_param_state());
+                }
+
+                replay_proof_prefixes();
+
+                if (best_param_state != m_param_state) {
+                    IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: no parameter mutation occurred, skipping update\n");
+                    return;
+                }
             }
             case l_true: {
-                IF_VERBOSE(1, verbose_stream() << " Param tuning thread found formula sat\n");
+                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found formula sat\n");
                 model_ref mdl;
                 ctx->get_model(mdl);
                 b.set_sat(m_l2g, *mdl);
@@ -100,7 +125,7 @@ namespace smt {
                 expr_ref_vector const &unsat_core = ctx->unsat_core();
                 IF_VERBOSE(2, verbose_stream() << " unsat core:\n";
                            for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
-                IF_VERBOSE(1, verbose_stream() << " Param tuning thread determined formula unsat\n");
+                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER determined formula unsat\n");
                 b.set_unsat(m_l2g, unsat_core);
                 return;
             }
@@ -187,9 +212,14 @@ namespace smt {
     }
 
     parallel::param_generator::param_generator(parallel& p)
-        : p(p), b(p.m_batch_manager), m_best_param_state(p.ctx.get_fparams()), m_p(p.ctx.get_params()), m_l2g(m, p.ctx.m) {
-        ctx = alloc(context, m, m_best_param_state, m_p);
+        : p(p), b(p.m_batch_manager), m_param_state(p.ctx.get_fparams()), m_p(p.ctx.get_params()), m_l2g(m, p.ctx.m) {
+        ctx = alloc(context, m, m_param_state, m_p);
         context::copy(p.ctx, *ctx, true);
+
+        for (unsigned i = 0; i < N; ++i) {
+            m_param_probe_contexts.push_back(alloc(context, m, m_param_state, m_p));
+        }
+
         // don't share initial units
         ctx->pop_to_base_lvl();
         init_param_state();
