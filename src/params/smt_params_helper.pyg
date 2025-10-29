@@ -80,6 +80,7 @@ def_module_params(module_name='smt',
                           ('arith.nl.grobner_cnfl_to_report', UINT, 1, 'grobner\'s maximum number of conflicts to report'),
                           ('arith.nl.grobner_propagate_quotients', BOOL, True, 'detect conflicts x*y + z = 0 where x doesn\'t divide z'),
                           ('arith.nl.grobner_gcd_test', BOOL, True, 'detect gcd conflicts for polynomial powers x^k - y = 0'),
+                          ('arith.nl.grobner_exp_delay', BOOL, True, 'use exponential delay between grobner basis attempts'),
                           ('arith.nl.gr_q', UINT, 10, 'grobner\'s quota'),
                           ('arith.nl.grobner_subs_fixed', UINT, 1, '0 - no subs, 1 - substitute, 2 - substitute fixed zeros only'),   
                           ('arith.nl.grobner_expand_terms', BOOL, True, 'expand terms before computing grobner basis'),
@@ -138,4 +139,3 @@ def_module_params(module_name='smt',
                           ('dt_lazy_splits', UINT, 1, 'How lazy datatype splits are performed: 0- eager, 1- lazy for infinite types, 2- lazy'),
                           ('qsat_use_qel', BOOL, True, 'Use QEL for lite quantifier elimination and model-based projection in QSAT')
                           ))
-

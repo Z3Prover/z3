@@ -362,34 +362,75 @@ endif()
 include(${PROJECT_SOURCE_DIR}/cmake/compiler_lto.cmake)
 
 ################################################################################
-# Control flow integrity
+# Control flow integrity (Clang only)
 ################################################################################
-option(Z3_ENABLE_CFI "Enable control flow integrity checking" OFF)
+option(Z3_ENABLE_CFI "Enable Control Flow Integrity security checks" OFF)
 if (Z3_ENABLE_CFI)
-  set(build_types_with_cfi "RELEASE" "RELWITHDEBINFO")
+  if (NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(FATAL_ERROR "Z3_ENABLE_CFI is only supported with Clang compiler. "
+      "Current compiler: ${CMAKE_CXX_COMPILER_ID}. "
+      "You should set Z3_ENABLE_CFI to OFF or use Clang to compile.")
+  endif()
+  
   if (NOT Z3_LINK_TIME_OPTIMIZATION)
-    message(FATAL_ERROR "Cannot enable control flow integrity checking without link-time optimization."
+    message(FATAL_ERROR "Cannot enable Control Flow Integrity without link-time optimization. "
       "You should set Z3_LINK_TIME_OPTIMIZATION to ON or Z3_ENABLE_CFI to OFF.")
   endif()
+  
+  set(build_types_with_cfi "RELEASE" "RELWITHDEBINFO")
   if (DEFINED CMAKE_CONFIGURATION_TYPES)
     # Multi configuration generator
     message(STATUS "Note CFI is only enabled for the following configurations: ${build_types_with_cfi}")
     # No need for else because this is the same as the set that LTO requires.
   endif()
-  if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-    z3_add_cxx_flag("-fsanitize=cfi" REQUIRED)
-    z3_add_cxx_flag("-fsanitize-cfi-cross-dso" REQUIRED)
-  elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    z3_add_cxx_flag("/guard:cf" REQUIRED)
-    message(STATUS "Enabling CFI for MSVC")
-    foreach (_build_type ${build_types_with_cfi})
-      message(STATUS "Enabling CFI for MSVC")
-      string(APPEND CMAKE_EXE_LINKER_FLAGS_${_build_type} " /GUARD:CF")
-      string(APPEND CMAKE_SHARED_LINKER_FLAGS_${_build_type} " /GUARD:CF")
-    endforeach()
+  
+  message(STATUS "Enabling Control Flow Integrity (CFI) for Clang")
+  z3_add_cxx_flag("-fsanitize=cfi" REQUIRED)
+  z3_add_cxx_flag("-fsanitize-cfi-cross-dso" REQUIRED)
+endif()
+# End CFI section
+
+################################################################################
+# Control Flow Guard (MSVC only)
+################################################################################
+# Default CFG to ON for MSVC, OFF for other compilers.
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  option(Z3_ENABLE_CFG "Enable Control Flow Guard security checks" ON)
+else()
+  option(Z3_ENABLE_CFG "Enable Control Flow Guard security checks" OFF)
+endif()
+
+if (Z3_ENABLE_CFG)
+  if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    message(FATAL_ERROR "Z3_ENABLE_CFG is only supported with MSVC compiler. "
+      "Current compiler: ${CMAKE_CXX_COMPILER_ID}. "
+      "You should remove Z3_ENABLE_CFG or set it to OFF or use MSVC to compile.")
+  endif()
+
+  # Check for incompatible options (handle both / and - forms for robustness)
+  string(REGEX MATCH "[-/]ZI" _has_ZI "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} ${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${CMAKE_CXX_FLAGS_MINSIZEREL}")
+  string(REGEX MATCH "[-/]clr" _has_clr "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} ${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${CMAKE_CXX_FLAGS_MINSIZEREL}")
+  
+  if(_has_ZI)
+    message(WARNING "/guard:cf is incompatible with /ZI (Edit and Continue debug information). "
+                   "Control Flow Guard will be disabled due to /ZI option.")
+  elseif(_has_clr)
+    message(WARNING "/guard:cf is incompatible with /clr (Common Language Runtime compilation). "
+                   "Control Flow Guard will be disabled due to /clr option.")
   else()
-    message(FATAL_ERROR "Can't enable control flow integrity for compiler \"${CMAKE_CXX_COMPILER_ID}\"."
-      "You should set Z3_ENABLE_CFI to OFF or use Clang or MSVC to compile.")
+    # Enable Control Flow Guard if no incompatible options are present
+    message(STATUS "Enabling Control Flow Guard (/guard:cf) and ASLR (/DYNAMICBASE) for MSVC")
+    z3_add_cxx_flag("/guard:cf" REQUIRED)
+    string(APPEND CMAKE_EXE_LINKER_FLAGS " /GUARD:CF /DYNAMICBASE")
+    string(APPEND CMAKE_SHARED_LINKER_FLAGS " /GUARD:CF /DYNAMICBASE")
+  endif()
+else()
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    # Explicitly disable Control Flow Guard when Z3_ENABLE_CFG is OFF
+    message(STATUS "Disabling Control Flow Guard (/guard:cf-) for MSVC")
+    z3_add_cxx_flag("/guard:cf-" REQUIRED)
+    string(APPEND CMAKE_EXE_LINKER_FLAGS " /GUARD:NO")
+    string(APPEND CMAKE_SHARED_LINKER_FLAGS " /GUARD:NO")
   endif()
 endif()
 
