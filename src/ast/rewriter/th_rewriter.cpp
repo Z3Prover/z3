@@ -143,13 +143,23 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         expr * x;
         unsigned val;
         if (m_bv_rw.is_eq_bit(lhs, x, val)) {
-            // TODO: non-deterministic parameter evaluation
-            result = m().mk_eq(x, m().mk_ite(rhs, m_bv_rw.mk_numeral(val, 1), m_bv_rw.mk_numeral(1-val, 1)));
+            expr_ref then_val(m());
+            expr_ref else_val(m());
+            then_val = m_bv_rw.mk_numeral(val, 1);
+            else_val = m_bv_rw.mk_numeral(1 - val, 1);
+            expr_ref ite_branch(m());
+            ite_branch = m().mk_ite(rhs, then_val, else_val);
+            result = m().mk_eq(x, ite_branch);
             return BR_REWRITE2;
         }
         if (m_bv_rw.is_eq_bit(rhs, x, val)) {
-            // TODO: non-deterministic parameter evaluation
-            result = m().mk_eq(x, m().mk_ite(lhs, m_bv_rw.mk_numeral(val, 1), m_bv_rw.mk_numeral(1-val, 1)));
+            expr_ref then_val(m());
+            expr_ref else_val(m());
+            then_val = m_bv_rw.mk_numeral(val, 1);
+            else_val = m_bv_rw.mk_numeral(1 - val, 1);
+            expr_ref ite_branch(m());
+            ite_branch = m().mk_ite(lhs, then_val, else_val);
+            result = m().mk_eq(x, ite_branch);
             return BR_REWRITE2;
         }
         return BR_FAILED;

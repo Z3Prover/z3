@@ -123,11 +123,19 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
             f_cond = f_conds[0];
         format_ref f_s(fm(m));
         ctx.pp(s, f_s);
-        // TODO: non-deterministic parameter evaluation
-        format * f_args[2] = { mk_compose(m, 
-                                          mk_string(m, "((x "),
-                                          mk_indent(m, 4, mk_compose(m, f_s.get(), mk_string(m, "))")))),
-                               f_cond };
+        format * prefix_kw = mk_string(m, "((x ");
+        format * suffix_kw = mk_string(m, "))");
+        format * seq_args[2] = { f_s.get(), suffix_kw };
+        format_ref seq_block(fm(m));
+        seq_block = mk_compose(m, 2, seq_args);
+        format_ref indented_block(fm(m));
+        indented_block = mk_indent(m, 4, seq_block.get());
+        format * indented_ptr = indented_block.get();
+        format * compose_args[2] = { prefix_kw, indented_ptr };
+        format_ref head_block(fm(m));
+        head_block = mk_compose(m, 2, compose_args);
+        format * head_ptr = head_block.get();
+        format * f_args[2] = { head_ptr, f_cond };
         format_ref f_card(fm(m));
         f_card = mk_indent(m, indent, mk_seq1<format**, f2f>(m, f_args, f_args+2, f2f(), "forall"));
         pp_indent(out, indent);
@@ -253,13 +261,22 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
                 ctx.pp(e->get_result(), f_result);
                 if (i > 0)
                     f_entries.push_back(mk_line_break(m));
-                // TODO: non-deterministic parameter evaluation
-                f_entries.push_back(mk_group(m, mk_compose(m, 
-                                                           mk_string(m, "(ite "),
-                                                           mk_indent(m, 5, f_entry_cond),
-                                                           mk_indent(m, TAB_SZ, mk_compose(m, 
-                                                                                           mk_line_break(m),
-                                                                                           f_result.get())))));
+                format * ite_kw = mk_string(m, "(ite ");
+                format_ref guard_indent(fm(m));
+                guard_indent = mk_indent(m, 5, f_entry_cond);
+                format * entry_line_break = mk_line_break(m);
+                format * result_ptr = f_result.get();
+                format * result_nodes[2] = { entry_line_break, result_ptr };
+                format_ref result_compose(fm(m));
+                result_compose = mk_compose(m, 2, result_nodes);
+                format_ref result_indent(fm(m));
+                result_indent = mk_indent(m, TAB_SZ, result_compose.get());
+                format * guard_ptr = guard_indent.get();
+                format * result_indent_ptr = result_indent.get();
+                format * ite_args[3] = { ite_kw, guard_ptr, result_indent_ptr };
+                format_ref ite_body(fm(m));
+                ite_body = mk_compose(m, 3, ite_args);
+                f_entries.push_back(mk_group(m, ite_body.get()));
             }
             f_entries.push_back(mk_indent(m, TAB_SZ, mk_compose(m,
                                                                 mk_line_break(m),
@@ -274,21 +291,30 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
             fname = mk_smt2_quoted_symbol(f->get_name());
         else
             fname = f->get_name().str();
-        // TODO: non-deterministic parameter evaluation
-        def = mk_indent(m, indent, mk_compose(m, 
-                                              // TODO: non-deterministic parameter evaluation
-                                              mk_compose(m, 
-                                                         mk_string(m, "(define-fun "),
-                                                         mk_string(m, fname),
-                                                         mk_string(m, " "),
-                                                         mk_compose(m, 
-                                                                    f_domain,
-                                                                    mk_string(m, " "),
-                                                                    f_range)),
-                                              mk_indent(m, TAB_SZ, mk_compose(m, 
-                                                                              mk_line_break(m),
-                                                                              body.get(),
-                                                                              mk_string(m, ")")))));
+        format * define_kw = mk_string(m, "(define-fun ");
+        format * fname_fmt = mk_string(m, fname);
+        format * space_fmt = mk_string(m, " ");
+        format * domain_range_args[3] = { f_domain, space_fmt, f_range };
+        format_ref domain_range(fm(m));
+        domain_range = mk_compose(m, 3, domain_range_args);
+        format * domain_range_ptr = domain_range.get();
+        format * header_args[4] = { define_kw, fname_fmt, space_fmt, domain_range_ptr };
+        format_ref header(fm(m));
+        header = mk_compose(m, 4, header_args);
+        format * def_line_break = mk_line_break(m);
+        format * body_ptr = body.get();
+        format * rp_fmt = mk_string(m, ")");
+        format * tail_args[3] = { def_line_break, body_ptr, rp_fmt };
+        format_ref tail_block(fm(m));
+        tail_block = mk_compose(m, 3, tail_args);
+        format_ref body_indent(fm(m));
+        body_indent = mk_indent(m, TAB_SZ, tail_block.get());
+        format * header_ptr = header.get();
+        format * body_indent_ptr = body_indent.get();
+        format * def_args[2] = { header_ptr, body_indent_ptr };
+        format_ref def_body(fm(m));
+        def_body = mk_compose(m, 2, def_args);
+        def = mk_indent(m, indent, def_body.get());
         pp_indent(out, indent);
         pp(out, def.get(), m);
         out << "\n";

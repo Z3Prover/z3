@@ -2764,8 +2764,11 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         return BR_REWRITE2;
     }
     else if (m().is_ite(r, p, r1, r2)) {
-        // TODO: non-deterministic parameter evaluation
-        result = m().mk_ite(p, re().mk_reverse(r1), re().mk_reverse(r2));
+        expr_ref then_branch(m());
+        expr_ref else_branch(m());
+        then_branch = re().mk_reverse(r1);
+        else_branch = re().mk_reverse(r2);
+        result = m().mk_ite(p, then_branch, else_branch);
         return BR_REWRITE2;
     }
     else if (re().is_opt(r, r1)) {
@@ -4283,9 +4286,13 @@ bool seq_rewriter::rewrite_contains_pattern(expr* a, expr* b, expr_ref& result) 
                 suffix = re().mk_concat(suffix, re().mk_to_re(e));
             suffix = re().mk_concat(suffix, full);
         }
-        // TODO: non-deterministic parameter evaluation
-        fmls.push_back(m().mk_and(re().mk_in_re(x, prefix),
-                                  re().mk_in_re(y, suffix)));
+        expr_ref in_prefix(m());
+        expr_ref in_suffix(m());
+        in_prefix = re().mk_in_re(x, prefix);
+        in_suffix = re().mk_in_re(y, suffix);
+        expr_ref conjunct(m());
+        conjunct = m().mk_and(in_prefix, in_suffix);
+        fmls.push_back(conjunct);
     }
     result = mk_or(fmls);
     return true;    
@@ -6178,4 +6185,3 @@ bool seq_rewriter::get_bounds(expr* e, unsigned& low, unsigned& high) {
     }
     return low <= high;
 }
-

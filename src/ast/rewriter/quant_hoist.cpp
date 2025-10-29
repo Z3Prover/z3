@@ -249,8 +249,11 @@ private:
                     pull_quantifier(t1, qt, vars, tt1, use_fresh, rewrite_ok);
                     nt1 = m.mk_not(t1);
                     pull_quantifier(nt1, qt, vars, ntt1, use_fresh, rewrite_ok);
-                    // TODO: non-deterministic parameter evaluation
-                    result = m.mk_and(m.mk_or(ntt1, tt2), m.mk_or(tt1, tt3));
+                    expr_ref disj1(m);
+                    expr_ref disj2(m);
+                    disj1 = m.mk_or(ntt1, tt2);
+                    disj2 = m.mk_or(tt1, tt3);
+                    result = m.mk_and(disj1, disj2);
                 }
                 else {
                     result = m.mk_ite(t1, tt2, tt3);
@@ -264,8 +267,11 @@ private:
                 nt2 = m.mk_not(t2);
                 pull_quantifier(nt1, qt, vars, ntt1, use_fresh, rewrite_ok);
                 pull_quantifier(nt2, qt, vars, ntt2, use_fresh, rewrite_ok);
-                // TODO: non-deterministic parameter evaluation
-                result = m.mk_and(m.mk_or(ntt1, tt2), m.mk_or(ntt2, tt1));
+                expr_ref disj1(m);
+                expr_ref disj2(m);
+                disj1 = m.mk_or(ntt1, tt2);
+                disj2 = m.mk_or(ntt2, tt1);
+                result = m.mk_and(disj1, disj2);
             }
             else {
                 // the formula contains a quantifier, but it is "inaccessible"

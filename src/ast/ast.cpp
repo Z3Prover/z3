@@ -2240,10 +2240,9 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
             r = mk_app_core(decl, args[j-1], args[j]);
             -- j;
             while (j > 0) {
-                // TODO: non-deterministic parameter evaluation
                 --j;
-                r = mk_app_core(decl, args[j], r);
-            // TODO: non-deterministic parameter evaluation
+                expr * arg = args[j];
+                r = mk_app_core(decl, arg, r);
             }
         }
         else if (decl->is_left_associative()) {

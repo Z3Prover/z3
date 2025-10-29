@@ -241,9 +241,17 @@ namespace smt {
         expr_ref eq(m.mk_eq(e1, e2), m);
         literal l       = ~mk_literal(eq);
         std::function<expr*(void)> logfn = [&]() {
-            // TODO: non-deterministic parameter evaluation
-            // TODO: non-deterministic parameter evaluation
-            return m.mk_implies(m.mk_eq(mk_bit2bool(e1, idx), m.mk_not(mk_bit2bool(e2, idx))), m.mk_not(eq));
+            expr_ref bit1(m);
+            expr_ref bit2(m);
+            bit1 = mk_bit2bool(e1, idx);
+            bit2 = mk_bit2bool(e2, idx);
+            expr_ref not_bit2(m);
+            not_bit2 = m.mk_not(bit2);
+            expr_ref antecedent(m);
+            antecedent = m.mk_eq(bit1, not_bit2);
+            expr_ref consequent(m);
+            consequent = m.mk_not(eq);
+            return m.mk_implies(antecedent, consequent);
         };
         scoped_trace_stream ts(*this, logfn);
         ctx.mk_th_axiom(get_id(), 1, &l);
@@ -458,8 +466,13 @@ namespace smt {
             e2 = mk_bit2bool(o2, i);
             literal eq = mk_eq(e1, e2, true);
             std::function<expr*()> logfn = [&]() {
-                // TODO: non-deterministic parameter evaluation
-                return m.mk_implies(m.mk_not(ctx.bool_var2expr(eq.var())), m.mk_not(ctx.bool_var2expr(oeq.var())));
+                expr_ref eq_expr(ctx.bool_var2expr(eq.var()), m);
+                expr_ref neq_expr(m);
+                neq_expr = m.mk_not(eq_expr);
+                expr_ref oeq_expr(ctx.bool_var2expr(oeq.var()), m);
+                expr_ref not_oeq(m);
+                not_oeq = m.mk_not(oeq_expr);
+                return m.mk_implies(neq_expr, not_oeq);
             };
             scoped_trace_stream st(*this, logfn);
             ctx.mk_th_axiom(get_id(),  l1, ~l2, ~eq);
