@@ -100,14 +100,14 @@ namespace euf {
 
     class match_goals {
     protected:
-        ast_manager &m;
         ho_matcher& ho;
+        ast_manager &m;
         
         match_goal* m_expensive = nullptr, *m_cheap = nullptr;
         match_goal* pop(match_goal*& q);
         
     public:
-        match_goals(ho_matcher& em, ast_manager &m) : m(m), ho(em) {}
+        match_goals(ho_matcher& em, ast_manager& m) : ho(em), m(m) {}
         bool empty() const { return m_cheap == nullptr && m_expensive == nullptr; }
         void reset() { m_cheap = m_expensive = nullptr; }
         void push(unsigned level, unsigned offset, expr_ref const& pat, expr_ref const& t);
@@ -158,7 +158,6 @@ namespace euf {
     };
 
     class unitary_patterns {
-        ast_manager& m;
         array_util a;
         vector<expr_ref_vector> m_patterns;
         vector<svector<lbool>>  m_is_unitary;
@@ -181,7 +180,7 @@ namespace euf {
         }
 
     public:
-        unitary_patterns(ast_manager& m) : m(m), a(m) {}
+        unitary_patterns(ast_manager& m) : a(m) {}
 
         bool is_unitary(unsigned offset, expr* p) const {
             return find(offset, p) == l_true;
