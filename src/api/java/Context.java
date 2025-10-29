@@ -2053,6 +2053,145 @@ public class Context implements AutoCloseable {
 
 
     /**
+     * Finite Sets
+     */
+
+    /**
+     * Create a finite set sort over the given element sort.
+     **/
+    public final FiniteSetSort mkFiniteSetSort(Sort elemSort)
+    {
+        checkContextMatch(elemSort);
+        return new FiniteSetSort(this, elemSort);
+    }
+
+    /**
+     * Check if a sort is a finite set sort.
+     **/
+    public final boolean isFiniteSetSort(Sort s)
+    {
+        checkContextMatch(s);
+        return Native.isFiniteSetSort(nCtx(), s.getNativeObject());
+    }
+
+    /**
+     * Get the element sort (basis) of a finite set sort.
+     **/
+    public final Sort getFiniteSetSortBasis(Sort s)
+    {
+        checkContextMatch(s);
+        return Sort.create(this, Native.getFiniteSetSortBasis(nCtx(), s.getNativeObject()));
+    }
+
+    /**
+     * Create an empty finite set.
+     **/
+    public final Expr mkFiniteSetEmpty(Sort setSort)
+    {
+        checkContextMatch(setSort);
+        return Expr.create(this, Native.mkFiniteSetEmpty(nCtx(), setSort.getNativeObject()));
+    }
+
+    /**
+     * Create a singleton finite set.
+     **/
+    public final Expr mkFiniteSetSingleton(Expr elem)
+    {
+        checkContextMatch(elem);
+        return Expr.create(this, Native.mkFiniteSetSingleton(nCtx(), elem.getNativeObject()));
+    }
+
+    /**
+     * Create the union of two finite sets.
+     **/
+    public final Expr mkFiniteSetUnion(Expr s1, Expr s2)
+    {
+        checkContextMatch(s1);
+        checkContextMatch(s2);
+        return Expr.create(this, Native.mkFiniteSetUnion(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+    }
+
+    /**
+     * Create the intersection of two finite sets.
+     **/
+    public final Expr mkFiniteSetIntersect(Expr s1, Expr s2)
+    {
+        checkContextMatch(s1);
+        checkContextMatch(s2);
+        return Expr.create(this, Native.mkFiniteSetIntersect(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+    }
+
+    /**
+     * Create the difference of two finite sets.
+     **/
+    public final Expr mkFiniteSetDifference(Expr s1, Expr s2)
+    {
+        checkContextMatch(s1);
+        checkContextMatch(s2);
+        return Expr.create(this, Native.mkFiniteSetDifference(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+    }
+
+    /**
+     * Check for membership in a finite set.
+     **/
+    public final BoolExpr mkFiniteSetMember(Expr elem, Expr set)
+    {
+        checkContextMatch(elem);
+        checkContextMatch(set);
+        return (BoolExpr) Expr.create(this, Native.mkFiniteSetMember(nCtx(), elem.getNativeObject(), set.getNativeObject()));
+    }
+
+    /**
+     * Get the cardinality of a finite set.
+     **/
+    public final Expr mkFiniteSetSize(Expr set)
+    {
+        checkContextMatch(set);
+        return Expr.create(this, Native.mkFiniteSetSize(nCtx(), set.getNativeObject()));
+    }
+
+    /**
+     * Check if one finite set is a subset of another.
+     **/
+    public final BoolExpr mkFiniteSetSubset(Expr s1, Expr s2)
+    {
+        checkContextMatch(s1);
+        checkContextMatch(s2);
+        return (BoolExpr) Expr.create(this, Native.mkFiniteSetSubset(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+    }
+
+    /**
+     * Map a function over all elements in a finite set.
+     **/
+    public final Expr mkFiniteSetMap(Expr f, Expr set)
+    {
+        checkContextMatch(f);
+        checkContextMatch(set);
+        return Expr.create(this, Native.mkFiniteSetMap(nCtx(), f.getNativeObject(), set.getNativeObject()));
+    }
+
+    /**
+     * Filter a finite set with a predicate.
+     **/
+    public final Expr mkFiniteSetFilter(Expr f, Expr set)
+    {
+        checkContextMatch(f);
+        checkContextMatch(set);
+        return Expr.create(this, Native.mkFiniteSetFilter(nCtx(), f.getNativeObject(), set.getNativeObject()));
+    }
+
+    /**
+     * Create a finite set containing integers in the range [low, high].
+     **/
+    public final Expr mkFiniteSetRange(Expr low, Expr high)
+    {
+        checkContextMatch(low);
+        checkContextMatch(high);
+        return Expr.create(this, Native.mkFiniteSetRange(nCtx(), low.getNativeObject(), high.getNativeObject()));
+    }
+
+
+    /**
      * Sequences, Strings and regular expressions.
      */
 
