@@ -533,8 +533,9 @@ namespace datalog {
             unsigned c1 = m_cols[0];
             for (unsigned i = 1; i < m_cols.size(); ++i) {
                 unsigned c2 = m_cols[i];
-                // TODO: non-deterministic parameter evaluation
-                conds.push_back(m.mk_eq(m.mk_var(c1, sig[c1]), m.mk_var(c2, sig[c2])));
+                expr* v1 = m.mk_var(c1, sig[c1]);
+                expr* v2 = m.mk_var(c2, sig[c2]);
+                conds.push_back(m.mk_eq(v1, v2));
             }
             cond = mk_and(m, conds.size(), conds.data());
             r.consistent_formula();

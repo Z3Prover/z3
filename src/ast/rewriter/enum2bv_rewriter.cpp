@@ -74,9 +74,11 @@ struct enum2bv_rewriter::imp {
             if (is_unate(s)) {
                 expr_ref one(m_bv.mk_numeral(rational::one(), 1), m);
                 for (unsigned i = 0; i + 2 < domain_size; ++i) {                    
-                    // TODO: non-deterministic parameter evaluation
-                    bounds.push_back(m.mk_implies(m.mk_eq(one, m_bv.mk_extract(i + 1, i + 1, x)),
-                                                          m.mk_eq(one, m_bv.mk_extract(i, i, x))));
+                    expr* hi_bit = m_bv.mk_extract(i + 1, i + 1, x);
+                    expr* lo_bit = m_bv.mk_extract(i, i, x);
+                    expr* eq_hi = m.mk_eq(one, hi_bit);
+                    expr* eq_lo = m.mk_eq(one, lo_bit);
+                    bounds.push_back(m.mk_implies(eq_hi, eq_lo));
                 }
             }
             else {
