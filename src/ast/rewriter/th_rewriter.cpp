@@ -143,10 +143,12 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         expr * x;
         unsigned val;
         if (m_bv_rw.is_eq_bit(lhs, x, val)) {
+            //non-deterministic order no change: too complex
             result = m().mk_eq(x, m().mk_ite(rhs, m_bv_rw.mk_numeral(val, 1), m_bv_rw.mk_numeral(1-val, 1)));
             return BR_REWRITE2;
         }
         if (m_bv_rw.is_eq_bit(rhs, x, val)) {
+            //non-deterministic order no change: too complex
             result = m().mk_eq(x, m().mk_ite(lhs, m_bv_rw.mk_numeral(val, 1), m_bv_rw.mk_numeral(1-val, 1)));
             return BR_REWRITE2;
         }

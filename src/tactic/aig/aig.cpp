@@ -879,10 +879,23 @@ struct aig_manager::imp {
             }
             expr * r;
             if (m.is_not_eq(t, e)) {
-                r = ast_mng.mk_iff(get_cached(c), get_cached(t));
+                //non-deterministic order change start
+                {
+                    auto get_cached_1 = get_cached(c);
+                    auto get_cached_2 = get_cached(t);
+                    r = ast_mng.mk_iff(get_cached_1, get_cached_2);
+                }
+                //non-deterministic order change end
             }
             else { 
-                r = ast_mng.mk_ite(get_cached(c), get_cached(t), get_cached(e));
+                //non-deterministic order change start
+                {
+                    auto get_cached_1 = get_cached(c);
+                    auto get_cached_2 = get_cached(t);
+                    auto get_cached_3 = get_cached(e);
+                    r = ast_mng.mk_ite(get_cached_1, get_cached_2, get_cached_3);
+                }
+                //non-deterministic order change end
             }
             cache_result(n, r);
             TRACE(aig2expr, tout << "caching ITE/IFF "; m.display_ref(tout, n); tout << "\n";);

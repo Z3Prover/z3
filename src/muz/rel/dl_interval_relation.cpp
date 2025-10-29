@@ -375,6 +375,7 @@ namespace datalog {
         relation_signature const& sig = get_signature();
         for (unsigned i = 0; i < sig.size(); ++i) {
             if (i != find(i)) {
+                //non-deterministic order no change: too complex
                 conjs.push_back(m.mk_eq(m.mk_var(i, sig[i]), 
                                         m.mk_var(find(i), sig[find(i)])));
                 continue;

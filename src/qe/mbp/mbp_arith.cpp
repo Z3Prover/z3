@@ -577,7 +577,13 @@ namespace mbp {
                 case opt::t_le: t = a.mk_le(t, s); break;
                 case opt::t_eq: t = a.mk_eq(t, s); break;
                 case opt::t_divides:
-                    t = a.mk_eq(a.mk_mod(t, a.mk_int(r.m_mod)), a.mk_int(0));
+                    //non-deterministic order change start
+                    {
+                        auto mk_mod_1 = a.mk_mod(t, a.mk_int(r.m_mod));
+                        auto mk_int_2 = a.mk_int(0);
+                        t = a.mk_eq(mk_mod_1, mk_int_2);
+                    }
+                    //non-deterministic order change end
                     break;
                 default:
                     UNREACHABLE();

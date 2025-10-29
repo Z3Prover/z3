@@ -249,7 +249,13 @@ private:
                     pull_quantifier(t1, qt, vars, tt1, use_fresh, rewrite_ok);
                     nt1 = m.mk_not(t1);
                     pull_quantifier(nt1, qt, vars, ntt1, use_fresh, rewrite_ok);
-                    result = m.mk_and(m.mk_or(ntt1, tt2), m.mk_or(tt1, tt3));
+                    //non-deterministic order change start
+                    {
+                        auto mk_or_1 = m.mk_or(ntt1, tt2);
+                        auto mk_or_2 = m.mk_or(tt1, tt3);
+                        result = m.mk_and(mk_or_1, mk_or_2);
+                    }
+                    //non-deterministic order change end
                 }
                 else {
                     result = m.mk_ite(t1, tt2, tt3);
@@ -263,7 +269,13 @@ private:
                 nt2 = m.mk_not(t2);
                 pull_quantifier(nt1, qt, vars, ntt1, use_fresh, rewrite_ok);
                 pull_quantifier(nt2, qt, vars, ntt2, use_fresh, rewrite_ok);
-                result = m.mk_and(m.mk_or(ntt1, tt2), m.mk_or(ntt2, tt1));
+                //non-deterministic order change start
+                {
+                    auto mk_or_1 = m.mk_or(ntt1, tt2);
+                    auto mk_or_2 = m.mk_or(ntt2, tt1);
+                    result = m.mk_and(mk_or_1, mk_or_2);
+                }
+                //non-deterministic order change end
             }
             else {
                 // the formula contains a quantifier, but it is "inaccessible"

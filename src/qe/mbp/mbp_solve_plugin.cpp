@@ -287,8 +287,14 @@ namespace mbp {
             };
 
             // `first` is a value, different from 0
-            res = m.mk_and(m.mk_eq(second, a.mk_idiv(lhs, first)),
+            //non-deterministic order change start
+            {
+                auto mk_eq_1 = m.mk_eq(second, a.mk_idiv(lhs, first));
+                res = m.mk_and(mk_eq_1,
+                           //non-deterministic order no change: too complex
                            m.mk_eq(a.mk_int(0), a.mk_mod(lhs, first)));
+            }
+            //non-deterministic order change end
 
             return true;
         }

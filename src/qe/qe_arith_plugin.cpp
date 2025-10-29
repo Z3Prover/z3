@@ -468,7 +468,13 @@ namespace qe {
 
         // ax + t = 0
         void mk_eq(rational const& a, app* x, expr* t, expr_ref& result) {
-            result = m_arith.mk_eq(mk_add(mk_mul(a, x), t), mk_zero(x));
+            //non-deterministic order change start
+            {
+                auto mk_add_1 = mk_add(mk_mul(a, x), t);
+                auto mk_zero_2 = mk_zero(x);
+                result = m_arith.mk_eq(mk_add_1, mk_zero_2);
+            }
+            //non-deterministic order change end
         }
 
         void mk_and(unsigned sz, expr*const* args, expr_ref& result) {

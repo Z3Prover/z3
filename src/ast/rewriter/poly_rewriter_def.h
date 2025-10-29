@@ -1065,6 +1065,7 @@ template<typename Config>
 expr* poly_rewriter<Config>::apply_hoist(expr* a, numeral const& g, obj_hashtable<expr> const& shared) {
     expr* c = nullptr, *t = nullptr, *e = nullptr;
     if (M().is_ite(a, c, t, e)) {
+        //non-deterministic order no change: too complex
         return M().mk_ite(c, apply_hoist(t, g, shared), apply_hoist(e, g, shared));
     }
     rational k;

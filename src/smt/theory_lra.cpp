@@ -2589,6 +2589,7 @@ public:
             if (valy >= sz || valy == 0)
                 return true;
             unsigned k = valy.get_unsigned();
+            //non-deterministic order no change: too complex
             sat::literal signx = mk_literal(a.mk_ge(x, a.mk_int(N/2)));
             sat::literal eq;
             expr* xdiv2k;
@@ -3371,7 +3372,13 @@ public:
               tout << " ==> " << pp(x) << " = " << pp(y) << "\n";
               );
         
-        std::function<expr*(void)> fn = [&]() { return m.mk_eq(x->get_expr(), y->get_expr()); };
+        std::function<expr*(void)> fn = [&]() {         //non-deterministic order change start
+        {
+            auto get_expr_1 = x->get_expr();
+            auto get_expr_2 = y->get_expr();
+            return m.mk_eq(get_expr_1, get_expr_2);
+        }
+        //non-deterministic order change end };
         scoped_trace_stream _sts(th, fn);
 
         if (params().m_arith_validate)
@@ -3871,6 +3878,7 @@ public:
         flet<bool> _svalid(s_validating, true);
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         add_background(nctx);
+        //non-deterministic order no change: too complex
         expr_ref neq(m.mk_not(m.mk_eq(x->get_expr(), y->get_expr())), m);
         nctx.assert_expr(neq);
         cancel_eh<reslimit> eh(m.limit());

@@ -559,6 +559,7 @@ class arith_project_util {
                   tout << "lcm of divs: " << lcm_divs << "\n";);
         }
 
+        //non-deterministic order no change: too complex
         expr_ref z(a.mk_numeral(rational::zero(), a.mk_int()), m);
         expr_ref x_term_val(m);
 
@@ -626,8 +627,14 @@ class arith_project_util {
                 // (lcm_coeffs * var_val) % lcm_divs instead
                 rational var_val_num;
                 VERIFY(a.is_numeral(var_val, var_val_num));
-                x_term_val = a.mk_numeral(
-                    mod(lcm_coeffs * var_val_num, lcm_divs), a.mk_int());
+                //non-deterministic order change start
+                {
+                    auto mod_1 = mod(lcm_coeffs * var_val_num, lcm_divs);
+                    auto mk_int_2 = a.mk_int();
+                    x_term_val = a.mk_numeral(
+                    mod_1, mk_int_2);
+                }
+                //non-deterministic order change end
                 TRACE(qe, tout << "Substitution for (lcm_coeffs * x): "
                                  << mk_pp(x_term_val, m) << "\n";);
             }
@@ -648,6 +655,7 @@ class arith_project_util {
                     // syntactic structure
                     m_rw(new_lit);
                     new_lit = m.mk_eq(
+                        //non-deterministic order no change: too complex
                         a.mk_mod(new_lit, a.mk_numeral(m_divs[i], a.mk_int())),
                         z);
                 } else if (m_eq[i] || (num_pos == 0 && m_coeffs[i].is_pos()) ||
@@ -738,6 +746,7 @@ class arith_project_util {
                 mk_add(m_terms.get(max_t), a.mk_numeral(offset, a.mk_int()));
             if (m_strict[max_t]) {
                 x_term_val = a.mk_add(
+                    //non-deterministic order no change: too complex
                     x_term_val, a.mk_numeral(rational::one(), a.mk_int()));
             }
             if (m_coeffs[max_t].is_pos()) {
@@ -976,6 +985,7 @@ class arith_project_util {
             return;
         }
 
+        //non-deterministic order no change: too complex
         expr_ref z(a.mk_numeral(rational::zero(), a.mk_int()), m);
         bool is_mod_eq = false;
 
@@ -1021,6 +1031,7 @@ class arith_project_util {
                 lits.push_back(a.mk_le(z, t2));
                 // t2 < abs (num_val)
                 lits.push_back(
+                    //non-deterministic order no change: too complex
                     a.mk_lt(t2, a.mk_numeral(abs(num_val), a.mk_int())));
 
                 new_fml = m.mk_and(lits.size(), lits.data());
@@ -1073,6 +1084,7 @@ class arith_project_util {
      */
     void mk_lit_substitutes(expr_ref const &x_term_val, expr_map &map,
                             unsigned idx) {
+        //non-deterministic order no change: too complex
         expr_ref z(a.mk_numeral(rational::zero(), a.mk_int()), m);
         expr_ref cxt(m), new_lit(m);
         for (unsigned i = 0; i < m_lits.size(); ++i) {
@@ -1101,6 +1113,7 @@ class arith_project_util {
                     // top-level operator
                     m_rw(cxt);
                     new_lit = m.mk_eq(
+                        //non-deterministic order no change: too complex
                         a.mk_mod(cxt, a.mk_numeral(m_divs[i], a.mk_int())), z);
                 }
             }

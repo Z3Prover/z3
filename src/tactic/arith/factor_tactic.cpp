@@ -63,7 +63,13 @@ class factor_tactic : public tactic {
                 m_expr2poly.to_expr(fs[i], true, arg);
                 args.push_back(arg);
             }
-            result = m.mk_eq(mk_mul(args.size(), args.data()), mk_zero_for(arg));
+            //non-deterministic order change start
+            {
+                auto size_1 = mk_mul(args.size(), args.data());
+                auto mk_zero_for_2 = mk_zero_for(arg);
+                result = m.mk_eq(size_1, mk_zero_for_2);
+            }
+            //non-deterministic order change end
         }
 
         // p1^k1 * p2^k2 = 0 --> p1 = 0 or p2 = 0

@@ -123,6 +123,7 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
             f_cond = f_conds[0];
         format_ref f_s(fm(m));
         ctx.pp(s, f_s);
+        //non-deterministic order no change: too complex
         format * f_args[2] = { mk_compose(m, 
                                           mk_string(m, "((x "),
                                           mk_indent(m, 4, mk_compose(m, f_s.get(), mk_string(m, "))")))),
@@ -252,6 +253,7 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
                 ctx.pp(e->get_result(), f_result);
                 if (i > 0)
                     f_entries.push_back(mk_line_break(m));
+                //non-deterministic order no change: too complex
                 f_entries.push_back(mk_group(m, mk_compose(m, 
                                                            mk_string(m, "(ite "),
                                                            mk_indent(m, 5, f_entry_cond),
@@ -272,7 +274,9 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
             fname = mk_smt2_quoted_symbol(f->get_name());
         else
             fname = f->get_name().str();
+        //non-deterministic order no change: too complex
         def = mk_indent(m, indent, mk_compose(m, 
+                                              //non-deterministic order no change: too complex
                                               mk_compose(m, 
                                                          mk_string(m, "(define-fun "),
                                                          mk_string(m, fname),

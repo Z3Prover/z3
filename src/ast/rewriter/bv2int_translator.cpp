@@ -222,6 +222,7 @@ void bv2int_translator::translate_bv(app* e) {
             auto A = rational::power_of_two(sz - n);
             auto B = rational::power_of_two(n);
             auto hi = mul(r, a.mk_int(A));
+            //non-deterministic order no change: too complex
             auto lo = amod(e, a.mk_idiv(umod(e, 0), a.mk_int(B)), A);
             r = add(hi, lo);
         }
@@ -364,7 +365,13 @@ void bv2int_translator::translate_bv(app* e) {
             rational N = bv_size(e);
             expr* x = umod(e, 0), * y = umod(e, 1);
             expr* signx = a.mk_ge(x, a.mk_int(N / 2));
-            r = m.mk_ite(signx, a.mk_int(-1), a.mk_int(0));
+            //non-deterministic order change start
+            {
+                auto mk_int_1 = a.mk_int(-1);
+                auto mk_int_2 = a.mk_int(0);
+                r = m.mk_ite(signx, mk_int_1, mk_int_2);
+            }
+            //non-deterministic order change end
             IF_VERBOSE(4, verbose_stream() << "ashr " << mk_bounded_pp(e, m) << " " << bv.get_bv_size(e) << "\n");
             for (unsigned i = 0; i < sz; ++i) {
                 expr* d = a.mk_idiv(x, a.mk_int(rational::power_of_two(i)));
@@ -431,7 +438,15 @@ void bv2int_translator::translate_bv(app* e) {
         break;
     case OP_BCOMP:
         bv_expr = e->get_arg(0);
-        r = m.mk_ite(m.mk_eq(umod(bv_expr, 0), umod(bv_expr, 1)), a.mk_int(1), a.mk_int(0));
+        //non-deterministic order no change: too complex
+        //non-deterministic order change start
+        {
+            auto mk_eq_1 = m.mk_eq(umod(bv_expr, 0), umod(bv_expr, 1));
+            auto mk_int_2 = a.mk_int(1);
+            auto mk_int_3 = a.mk_int(0);
+            r = m.mk_ite(mk_eq_1, mk_int_2, mk_int_3);
+        }
+        //non-deterministic order change end
         break;
     case OP_BSMOD_I:
     case OP_BSMOD: {
@@ -449,6 +464,7 @@ void bv2int_translator::translate_bv(app* e) {
         r = a.mk_uminus(u);
         r = m.mk_ite(m.mk_and(m.mk_not(signx), signy), add(u, y), r);
         r = m.mk_ite(m.mk_and(signx, m.mk_not(signy)), a.mk_sub(y, u), r);
+        //non-deterministic order no change: too complex
         r = m.mk_ite(m.mk_and(m.mk_not(signx), m.mk_not(signy)), u, r);
         r = if_eq(u, 0, a.mk_int(0), r);
         r = if_eq(y, 0, x, r);
@@ -472,6 +488,7 @@ void bv2int_translator::translate_bv(app* e) {
         y = m.mk_ite(signy, a.mk_sub(a.mk_int(N), y), y);
         expr* d = a.mk_idiv(x, y);
         r = m.mk_ite(m.mk_iff(signx, signy), d, a.mk_uminus(d));
+        //non-deterministic order no change: too complex
         r = if_eq(y, 0, m.mk_ite(signx, a.mk_int(1), a.mk_int(-1)), r);
         break;
     }
@@ -566,17 +583,27 @@ void bv2int_translator::translate_basic(app* e) {
             rational N = rational::power_of_two(bv.get_bv_size(bv_expr));
             if (a.is_numeral(arg(0)) || a.is_numeral(arg(1)) ||
                 is_bounded(arg(0), N) || is_bounded(arg(1), N)) {
+                //non-deterministic order no change: too complex
                 set_translated(e, m.mk_eq(umod(bv_expr, 0), umod(bv_expr, 1)));
             }
             else {
-                m_args[0] = a.mk_sub(arg(0), arg(1));
+                //non-deterministic order change start
+                {
+                    auto arg_1 = arg(0);
+                    auto arg_2 = arg(1);
+                    m_args[0] = a.mk_sub(arg_1, arg_2);
+                }
+                //non-deterministic order change end
+                //non-deterministic order no change: too complex
                 set_translated(e, m.mk_eq(umod(bv_expr, 0), a.mk_int(0)));
             }
         }
         else
+            //non-deterministic order no change: too complex
             set_translated(e, m.mk_eq(arg(0), arg(1)));
     }
     else if (m.is_ite(e))
+        //non-deterministic order no change: too complex
         set_translated(e, m.mk_ite(arg(0), arg(1), arg(2)));
     else if (m_is_plugin)
         set_translated(e, e);
@@ -661,7 +688,13 @@ expr* bv2int_translator::amod(expr* bv_expr, expr* x, rational const& N) {
     rational v;
     expr* r = nullptr, * c = nullptr, * t = nullptr, * e = nullptr;
     if (m.is_ite(x, c, t, e))
-        r = m.mk_ite(c, amod(bv_expr, t, N), amod(bv_expr, e, N));
+        //non-deterministic order change start
+        {
+            auto amod_1 = amod(bv_expr, t, N);
+            auto amod_2 = amod(bv_expr, e, N);
+            r = m.mk_ite(c, amod_1, amod_2);
+        }
+        //non-deterministic order change end
     else if (a.is_idiv(x, t, e) && a.is_numeral(t, v) && 0 <= v && v < N && is_non_negative(bv_expr, e))
         r = x;
     else if (a.is_mod(x, t, e) && a.is_numeral(t, v) && 0 <= v && v < N)
@@ -684,6 +717,7 @@ void bv2int_translator::translate_eq(expr* e) {
         ensure_translated(y);
         m_args.reset();
         m_args.push_back(a.mk_sub(translated(x), translated(y)));
+        //non-deterministic order no change: too complex
         set_translated(e, m.mk_eq(umod(x, 0), a.mk_int(0)));
     }
     m_preds.push_back(e);

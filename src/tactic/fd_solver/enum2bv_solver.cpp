@@ -178,7 +178,13 @@ public:
                 expr_ref head(m);
                 ptr_vector<func_decl> const& enums = *dt.get_datatype_constructors(f->get_range());
                 if (enums.size() > num.get_unsigned()) {
-                    head = m.mk_eq(m.mk_const(f), m.mk_const(enums[num.get_unsigned()]));
+                    //non-deterministic order change start
+                    {
+                        auto mk_const_1 = m.mk_const(f);
+                        auto mk_const_2 = m.mk_const(enums[num.get_unsigned()]);
+                        head = m.mk_eq(mk_const_1, mk_const_2);
+                    }
+                    //non-deterministic order change end
                     consequences[i] = m.mk_implies(a, head);
                 }
             }

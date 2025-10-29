@@ -227,6 +227,7 @@ namespace datalog {
                 for (unsigned j = 0; j < args1.size(); ++j) {
                     eqs.push_back(m.mk_eq(args1[j], args2[j]));
                 }
+                //non-deterministic order no change: too complex
                 conjs.push_back(m.mk_implies(m.mk_and(eqs.size(), eqs.data()), m.mk_eq(v1, v2)));
             }
         }

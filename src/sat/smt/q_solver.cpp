@@ -341,7 +341,13 @@ namespace q {
         }
         if (m.is_not(arg, z) && m.is_iff(z, x, y) && is_literal(x) && is_literal(y)) {
             e1 = m.mk_or(x, y);
-            e2 = m.mk_or(mk_not(m, x), mk_not(m, y));
+            //non-deterministic order change start
+            {
+                auto mk_not_1 = mk_not(m, x);
+                auto mk_not_2 = mk_not(m, y);
+                e2 = m.mk_or(mk_not_1, mk_not_2);
+            }
+            //non-deterministic order change end
             return true;
         }
         return false;

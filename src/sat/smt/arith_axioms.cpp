@@ -262,7 +262,13 @@ namespace arith {
         // x mod 2^{i + 1} >= 2^i means the i'th bit is 1.
         auto bitof = [&](expr* x, unsigned i) { 
             expr_ref r(m);
-            r = a.mk_ge(a.mk_mod(x, a.mk_int(rational::power_of_two(i+1))), a.mk_int(rational::power_of_two(i)));
+            //non-deterministic order change start
+            {
+                auto mk_mod_1 = a.mk_mod(x, a.mk_int(rational::power_of_two(i+1)));
+                auto mk_int_2 = a.mk_int(rational::power_of_two(i));
+                r = a.mk_ge(mk_mod_1, mk_int_2);
+            }
+            //non-deterministic order change end
             return mk_literal(r);
         };
 
@@ -390,8 +396,11 @@ namespace arith {
             // y >= sz & x >= 2^{sz-1} => n = -1
             // y = 0 => n = x
             auto signx = mk_literal(a.mk_ge(x, a.mk_int(N/2)));
+            //non-deterministic order no change: too complex
             add_clause(~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), signx, mk_literal(m.mk_eq(n, a.mk_int(0))));
+            //non-deterministic order no change: too complex
             add_clause(~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), ~signx, mk_literal(m.mk_eq(n, a.mk_int(N-1))));
+            //non-deterministic order no change: too complex
             add_clause(~mk_literal(a.mk_eq(a.mk_mod(y, a.mk_int(N)), a.mk_int(0))), mk_literal(m.mk_eq(n, x)));            
         }
         else

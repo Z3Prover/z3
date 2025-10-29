@@ -2764,6 +2764,7 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         return BR_REWRITE2;
     }
     else if (m().is_ite(r, p, r1, r2)) {
+        //non-deterministic order no change: too complex
         result = m().mk_ite(p, re().mk_reverse(r1), re().mk_reverse(r2));
         return BR_REWRITE2;
     }
@@ -4282,6 +4283,7 @@ bool seq_rewriter::rewrite_contains_pattern(expr* a, expr* b, expr_ref& result) 
                 suffix = re().mk_concat(suffix, re().mk_to_re(e));
             suffix = re().mk_concat(suffix, full);
         }
+        //non-deterministic order no change: too complex
         fmls.push_back(m().mk_and(re().mk_in_re(x, prefix),
                                   re().mk_in_re(y, suffix)));
     }

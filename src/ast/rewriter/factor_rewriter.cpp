@@ -141,7 +141,9 @@ void factor_rewriter::mk_is_negative(expr_ref& result, expr_ref_vector& eqs) {
                 pos0 = pos;
             }
             else {
+                //non-deterministic order no change: too complex
                 tmp = m().mk_or(m().mk_and(pos, pos0), m().mk_and(neg, neg0));
+                //non-deterministic order no change: too complex
                 neg0 = m().mk_or(m().mk_and(neg, pos0), m().mk_and(pos, neg0));
                 pos0 = tmp;
             }

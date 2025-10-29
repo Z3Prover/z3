@@ -622,7 +622,13 @@ br_status arith_rewriter::factor_le_ge_eq(expr * arg1, expr * arg2, op_kind kind
             return BR_FAILED;
         expr_ref f2 = remove_factor(f, arg1);
         expr* z = m_util.mk_numeral(rational(0), m_util.is_int(arg1));
-        result = m.mk_or(m_util.mk_eq(f, z), m_util.mk_eq(f2, z));
+        //non-deterministic order change start
+        {
+            auto mk_eq_1 = m_util.mk_eq(f, z);
+            auto mk_eq_2 = m_util.mk_eq(f2, z);
+            result = m.mk_or(mk_eq_1, mk_eq_2);
+        }
+        //non-deterministic order change end
         switch (kind) {
         case EQ: 
             break;
@@ -868,8 +874,14 @@ bool arith_rewriter::mk_eq_mod(expr* arg1, expr* arg2, expr_ref& result) {
         rational g = gcd(p, k, a, b);
         if (g == 1) {
             expr_ref nb(m_util.mk_numeral(b, true), m);
-            result = m.mk_eq(m_util.mk_mod(u, y),
-                             m_util.mk_mod(m_util.mk_mul(nb, arg2), y));
+            //non-deterministic order change start
+            {
+                auto mk_mod_1 = m_util.mk_mod(u, y);
+                auto mk_mod_2 = m_util.mk_mod(m_util.mk_mul(nb, arg2), y);
+                result = m.mk_eq(mk_mod_1,
+                             mk_mod_2);
+            }
+            //non-deterministic order change end
             return true;            
         }
     }
@@ -1202,7 +1214,13 @@ br_status arith_rewriter::mk_div_core(expr * arg1, expr * arg2, expr_ref & resul
 }
 
 br_status arith_rewriter::mk_idivides(unsigned k, expr * arg, expr_ref & result) {
-    result = m.mk_eq(m_util.mk_mod(arg, m_util.mk_int(k)), m_util.mk_int(0));
+    //non-deterministic order change start
+    {
+        auto mk_mod_1 = m_util.mk_mod(arg, m_util.mk_int(k));
+        auto mk_int_2 = m_util.mk_int(0);
+        result = m.mk_eq(mk_mod_1, mk_int_2);
+    }
+    //non-deterministic order change end
     return BR_REWRITE2;
 }
 
@@ -1229,7 +1247,14 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
     } 
     if (arg1 == arg2) { 
         expr_ref zero(m_util.mk_int(0), m); 
-        result = m.mk_ite(m.mk_eq(arg1, zero), m_util.mk_idiv(zero, zero), m_util.mk_int(1)); 
+        //non-deterministic order change start
+        {
+            auto mk_eq_1 = m.mk_eq(arg1, zero);
+            auto mk_idiv_2 = m_util.mk_idiv(zero, zero);
+            auto mk_int_3 = m_util.mk_int(1);
+            result = m.mk_ite(mk_eq_1, mk_idiv_2, mk_int_3);
+        }
+        //non-deterministic order change end 
         return BR_REWRITE3; 
     } 
     if (is_num2 && v2.is_pos() && m_util.is_add(arg1)) { 
@@ -1327,6 +1352,7 @@ expr_ref arith_rewriter::remove_divisor(expr* arg, expr* num, expr* den) {
     den = args2.empty() ? m_util.mk_int(1) : m_util.mk_mul(args2.size(), args2.data()); 
     expr_ref d(m_util.mk_idiv(num, den), m);
     expr_ref nd(m_util.mk_idiv(m_util.mk_uminus(num), m_util.mk_uminus(den)), m);
+    //non-deterministic order no change: too complex
     return expr_ref(m.mk_ite(m.mk_eq(zero, arg), 
                                m_util.mk_idiv(zero, zero), 
                                m.mk_ite(m_util.mk_ge(arg, zero), 
@@ -1427,7 +1453,13 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
 
     expr* x = nullptr, * y = nullptr, * z = nullptr;
     if (is_num2 && v2.is_pos() && m_util.is_mul(arg1, x, y) && m_util.is_numeral(x, v1, is_int) && v1 > 0 && divides(v1, v2)) {
-        result = m_util.mk_mul(m_util.mk_int(v1), m_util.mk_mod(y, m_util.mk_int(v2/v1)));        
+        //non-deterministic order change start
+        {
+            auto mk_int_1 = m_util.mk_int(v1);
+            auto mk_mod_2 = m_util.mk_mod(y, m_util.mk_int(v2/v1));
+            result = m_util.mk_mul(mk_int_1, mk_mod_2);
+        }
+        //non-deterministic order change end        
         return BR_REWRITE1;
     }
 
@@ -2083,12 +2115,14 @@ expr * arith_rewriter::mk_sin_value(rational const & k) {
     if (k_prime == rational(1, 12) || k_prime == rational(11, 12)) {
         // sin(1/12 pi)  == sin(11/12 pi)  ==  [sqrt(6) - sqrt(2)]/4
         // sin(13/12 pi) == sin(23/12 pi)  == -[sqrt(6) - sqrt(2)]/4
+        //non-deterministic order no change: too complex
         expr * result = m_util.mk_div(m_util.mk_sub(mk_sqrt(rational(6)), mk_sqrt(rational(2))), m_util.mk_numeral(rational(4), false));
         return neg ? m_util.mk_uminus(result) : result;
     }
     if (k_prime == rational(5, 12) || k_prime == rational(7, 12)) {
         // sin(5/12 pi)  == sin(7/12 pi)   == [sqrt(6) + sqrt(2)]/4
         // sin(17/12 pi) == sin(19/12 pi)  == -[sqrt(6) + sqrt(2)]/4
+        //non-deterministic order no change: too complex
         expr * result = m_util.mk_div(m_util.mk_add(mk_sqrt(rational(6)), mk_sqrt(rational(2))), m_util.mk_numeral(rational(4), false));
         return neg ? m_util.mk_uminus(result) : result;
     }
@@ -2267,7 +2301,13 @@ br_status arith_rewriter::mk_tan_core(expr * arg, expr_ref & result) {
 
  end:
     if (m_expand_tan) {
-        result = m_util.mk_div(m_util.mk_sin(arg), m_util.mk_cos(arg));
+        //non-deterministic order change start
+        {
+            auto mk_sin_1 = m_util.mk_sin(arg);
+            auto mk_cos_2 = m_util.mk_cos(arg);
+            result = m_util.mk_div(mk_sin_1, mk_cos_2);
+        }
+        //non-deterministic order change end
         return BR_REWRITE2;
     }
     return BR_FAILED;

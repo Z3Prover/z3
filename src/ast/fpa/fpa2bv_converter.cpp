@@ -300,9 +300,16 @@ void fpa2bv_converter::mk_uf(func_decl * f, unsigned num, expr * const * args, e
         bv_rng = m_bv_util.mk_sort(bv_sz);
         func_decl * bv_f = mk_bv_uf(f, f->get_domain(), bv_rng);
         bv_app = m.mk_app(bv_f, num, args);
-        flt_app = m_util.mk_fp(m_bv_util.mk_extract(bv_sz-1, bv_sz-1, bv_app),
-                               m_bv_util.mk_extract(sbits+ebits-2, sbits-1, bv_app),
-                               m_bv_util.mk_extract(sbits-2, 0, bv_app));
+        //non-deterministic order change start
+        {
+            auto mk_extract_1 = m_bv_util.mk_extract(bv_sz-1, bv_sz-1, bv_app);
+            auto mk_extract_2 = m_bv_util.mk_extract(sbits+ebits-2, sbits-1, bv_app);
+            auto mk_extract_3 = m_bv_util.mk_extract(sbits-2, 0, bv_app);
+            flt_app = m_util.mk_fp(mk_extract_1,
+                               mk_extract_2,
+                               mk_extract_3);
+        }
+        //non-deterministic order change end
         new_eq = m.mk_eq(fapp, flt_app);
         m_extra_assertions.push_back(extra_quantify(new_eq));
         result = flt_app;
@@ -1245,9 +1252,16 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     dbg_decouple("fpa2bv_rem_y_sig_eq_rndd_sig", y_sig_eq_rndd_sig);
 
     expr_ref adj_cnd(m);
-    adj_cnd = m.mk_or(m.mk_and(rndd_exp_eq_y_exp, y_sig_le_rndd_sig),
-                      m.mk_and(rndd_exp_eq_y_exp_m1, y_sig_le_rndd_sig, m.mk_not(y_sig_eq_rndd_sig)),
-                      m.mk_and(rndd_exp_eq_y_exp_m1, y_sig_eq_rndd_sig, m.mk_not(huge_div_is_even)));
+    //non-deterministic order change start
+    {
+        auto mk_and_1 = m.mk_and(rndd_exp_eq_y_exp, y_sig_le_rndd_sig);
+        auto mk_and_2 = m.mk_and(rndd_exp_eq_y_exp_m1, y_sig_le_rndd_sig, m.mk_not(y_sig_eq_rndd_sig));
+        auto mk_and_3 = m.mk_and(rndd_exp_eq_y_exp_m1, y_sig_eq_rndd_sig, m.mk_not(huge_div_is_even));
+        adj_cnd = m.mk_or(mk_and_1,
+                      mk_and_2,
+                      mk_and_3);
+    }
+    //non-deterministic order change end
     dbg_decouple("fpa2bv_rem_adj_cnd", adj_cnd);
 
     expr_ref rndd(m), rounded_sub_y(m), rounded_add_y(m), add_cnd(m), adjusted(m);
@@ -1646,9 +1660,15 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     // Alignment shift with sticky bit computation.
     expr_ref shifted_big(m), shifted_f_sig(m);
     expr_ref alignment_sticky_raw(m), alignment_sticky(m);
-    shifted_big = m_bv_util.mk_bv_lshr(
-        m_bv_util.mk_concat(f_sig, m_bv_util.mk_numeral(0, sbits)),
-        m_bv_util.mk_zero_extend((3*sbits+3)-(ebits+2), exp_delta));
+    //non-deterministic order change start
+    {
+        auto mk_concat_1 = m_bv_util.mk_concat(f_sig, m_bv_util.mk_numeral(0, sbits));
+        auto mk_zero_extend_2 = m_bv_util.mk_zero_extend((3*sbits+3)-(ebits+2), exp_delta);
+        shifted_big = m_bv_util.mk_bv_lshr(
+        mk_concat_1,
+        mk_zero_extend_2);
+    }
+    //non-deterministic order change end
     shifted_f_sig = m_bv_util.mk_extract(3*sbits+2, sbits, shifted_big);
     alignment_sticky_raw = m_bv_util.mk_extract(sbits-1, 0, shifted_big);
     alignment_sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, alignment_sticky_raw.get());
@@ -1876,7 +1896,13 @@ void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args,
     res_sgn = zero1;
 
     expr_ref real_exp(m);
-    real_exp = m_bv_util.mk_bv_sub(m_bv_util.mk_sign_extend(1, a_exp), m_bv_util.mk_zero_extend(1, a_lz));
+    //non-deterministic order change start
+    {
+        auto mk_sign_extend_1 = m_bv_util.mk_sign_extend(1, a_exp);
+        auto mk_zero_extend_2 = m_bv_util.mk_zero_extend(1, a_lz);
+        real_exp = m_bv_util.mk_bv_sub(mk_sign_extend_1, mk_zero_extend_2);
+    }
+    //non-deterministic order change end
     res_exp = m_bv_util.mk_sign_extend(2, m_bv_util.mk_extract(ebits, 1, real_exp));
 
     expr_ref e_is_odd(m);
@@ -1907,7 +1933,13 @@ void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args,
         S = m_bv_util.mk_concat(zero1, m_bv_util.mk_extract(sbits+4, 1, S));
 
         expr_ref twoQ_plus_S(m);
-        twoQ_plus_S = m_bv_util.mk_bv_add(m_bv_util.mk_concat(Q, zero1), m_bv_util.mk_concat(zero1, S));
+        //non-deterministic order change start
+        {
+            auto mk_concat_1 = m_bv_util.mk_concat(Q, zero1);
+            auto mk_concat_2 = m_bv_util.mk_concat(zero1, S);
+            twoQ_plus_S = m_bv_util.mk_bv_add(mk_concat_1, mk_concat_2);
+        }
+        //non-deterministic order change end
         T = m_bv_util.mk_bv_sub(m_bv_util.mk_concat(R, zero1), twoQ_plus_S);
 
         dbg_decouple("fpa2bv_sqrt_T", T);
@@ -2098,8 +2130,14 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     expr_ref shift(m), shifted_sig(m), div(m), rem(m);
     shift = m_bv_util.mk_bv_sub(m_bv_util.mk_numeral(sbits - 1, sbits),
                                 m_bv_util.mk_sign_extend(sbits-ebits, a_exp));
-    shifted_sig = m_bv_util.mk_bv_lshr(m_bv_util.mk_concat(a_sig, zero_s),
-                                       m_bv_util.mk_concat(zero_s, shift));
+    //non-deterministic order change start
+    {
+        auto mk_concat_1 = m_bv_util.mk_concat(a_sig, zero_s);
+        auto mk_concat_2 = m_bv_util.mk_concat(zero_s, shift);
+        shifted_sig = m_bv_util.mk_bv_lshr(mk_concat_1,
+                                       mk_concat_2);
+    }
+    //non-deterministic order change end
     div = m_bv_util.mk_extract(2*sbits-1, sbits, shifted_sig);
     rem = m_bv_util.mk_extract(sbits-1, 0, shifted_sig);
 
@@ -2451,9 +2489,16 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
         (void)to_sbits;
         SASSERT((unsigned)sz == to_sbits + to_ebits);
 
-        result = m_util.mk_fp(m_bv_util.mk_extract(sz - 1, sz - 1, bv),
-                              m_bv_util.mk_extract(sz - 2, sz - to_ebits - 1, bv),
-                              m_bv_util.mk_extract(sz - to_ebits - 2, 0, bv));
+        //non-deterministic order change start
+        {
+            auto mk_extract_1 = m_bv_util.mk_extract(sz - 1, sz - 1, bv);
+            auto mk_extract_2 = m_bv_util.mk_extract(sz - 2, sz - to_ebits - 1, bv);
+            auto mk_extract_3 = m_bv_util.mk_extract(sz - to_ebits - 2, 0, bv);
+            result = m_util.mk_fp(mk_extract_1,
+                              mk_extract_2,
+                              mk_extract_3);
+        }
+        //non-deterministic order change end
     }
     else if (num == 2 &&
         m_util.is_rm(args[0]) &&
@@ -2611,7 +2656,13 @@ void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_r
 
             // subtract lz for subnormal numbers.
             expr_ref exp_sub_lz(m);
-            exp_sub_lz = m_bv_util.mk_bv_sub(m_bv_util.mk_sign_extend(2, exp), m_bv_util.mk_sign_extend(2, lz));
+            //non-deterministic order change start
+            {
+                auto mk_sign_extend_1 = m_bv_util.mk_sign_extend(2, exp);
+                auto mk_sign_extend_2 = m_bv_util.mk_sign_extend(2, lz);
+                exp_sub_lz = m_bv_util.mk_bv_sub(mk_sign_extend_1, mk_sign_extend_2);
+            }
+            //non-deterministic order change end
             dbg_decouple("fpa2bv_to_float_exp_sub_lz", exp_sub_lz);
 
             // check whether exponent is within roundable (to_ebits+2) range.
@@ -2844,6 +2895,8 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         expr_ref pzero(m), nzero(m);
         mk_pzero(result->get_sort(), pzero);
         mk_nzero(result->get_sort(), nzero);
+        //non-deterministic order no change: too complex
+        //non-deterministic order no change: too complex
         m_extra_assertions.push_back(m.mk_implies(m.mk_eq(x, zero), m.mk_or(m.mk_eq(result, pzero), m.mk_eq(result, nzero))));
     }
 
@@ -3398,8 +3451,14 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     // x is of the form +- [1].[sig][r][g][s] ... and at least bv_sz + 3 long
 
     expr_ref exp_m_lz(m), e_m_lz_m_bv_sz(m), shift(m), is_neg_shift(m), big_sig(m);
-    exp_m_lz = m_bv_util.mk_bv_sub(m_bv_util.mk_sign_extend(2, exp),
-                                   m_bv_util.mk_zero_extend(2, lz));
+    //non-deterministic order change start
+    {
+        auto mk_sign_extend_1 = m_bv_util.mk_sign_extend(2, exp);
+        auto mk_zero_extend_2 = m_bv_util.mk_zero_extend(2, lz);
+        exp_m_lz = m_bv_util.mk_bv_sub(mk_sign_extend_1,
+                                   mk_zero_extend_2);
+    }
+    //non-deterministic order change end
 
     // big_sig is +- [... bv_sz+2 bits ...][1].[r][ ... sbits-1  ... ]
     big_sig = m_bv_util.mk_concat(m_bv_util.mk_zero_extend(bv_sz + 2, sig), bv0);
@@ -3465,10 +3524,18 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     expr_ref ul(m), in_range(m);
     if (!is_signed) {
         ul = m_bv_util.mk_zero_extend(3, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, bv_sz)));
-        in_range = m.mk_and(m.mk_or(m.mk_not(x_is_neg),
-                                    m.mk_eq(pre_rounded, m_bv_util.mk_numeral(0, bv_sz+3))),
-                            m.mk_not(ovfl),
-                            m_bv_util.mk_ule(pre_rounded, ul));
+        //non-deterministic order no change: too complex
+        //non-deterministic order change start
+        {
+            auto mk_or_1 = m.mk_or(m.mk_not(x_is_neg),
+                                    m.mk_eq(pre_rounded, m_bv_util.mk_numeral(0, bv_sz+3)));
+            auto mk_not_2 = m.mk_not(ovfl);
+            auto mk_ule_3 = m_bv_util.mk_ule(pre_rounded, ul);
+            in_range = m.mk_and(mk_or_1,
+                            mk_not_2,
+                            mk_ule_3);
+        }
+        //non-deterministic order change end
     }
     else {
         expr_ref ll(m);
@@ -3482,9 +3549,16 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
             ul = m_bv_util.mk_numeral(0, 4);
         ovfl = m.mk_or(ovfl, m_bv_util.mk_sle(pre_rounded, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, bv_sz + 3))));
         pre_rounded = m.mk_ite(x_is_neg, m_bv_util.mk_bv_neg(pre_rounded), pre_rounded);
-        in_range = m.mk_and(m.mk_not(ovfl),
-                            m_bv_util.mk_sle(ll, pre_rounded),
-                            m_bv_util.mk_sle(pre_rounded, ul));
+        //non-deterministic order change start
+        {
+            auto mk_not_1 = m.mk_not(ovfl);
+            auto mk_sle_2 = m_bv_util.mk_sle(ll, pre_rounded);
+            auto mk_sle_3 = m_bv_util.mk_sle(pre_rounded, ul);
+            in_range = m.mk_and(mk_not_1,
+                            mk_sle_2,
+                            mk_sle_3);
+        }
+        //non-deterministic order change end
         dbg_decouple("fpa2bv_to_bv_in_range_ll", ll);
     }
     dbg_decouple("fpa2bv_to_bv_in_range_ovfl", ovfl);
@@ -4188,8 +4262,14 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     SASSERT(m_bv_util.get_bv_size(inc) == 1 && is_well_sorted(m, inc));
     dbg_decouple("fpa2bv_rnd_inc", inc);
 
-    sig = m_bv_util.mk_bv_add(m_bv_util.mk_zero_extend(1, sig),
-        m_bv_util.mk_zero_extend(sbits, inc));
+    //non-deterministic order change start
+    {
+        auto mk_zero_extend_1 = m_bv_util.mk_zero_extend(1, sig);
+        auto mk_zero_extend_2 = m_bv_util.mk_zero_extend(sbits, inc);
+        sig = m_bv_util.mk_bv_add(mk_zero_extend_1,
+        mk_zero_extend_2);
+    }
+    //non-deterministic order change end
     SASSERT(is_well_sorted(m, sig));
     dbg_decouple("fpa2bv_rnd_sig_plus_inc", sig);
 
@@ -4367,9 +4447,16 @@ void fpa2bv_converter_wrapped::mk_const(func_decl* f, expr_ref& result) {
         unsigned bv_sz = m_bv_util.get_bv_size(bv);
         unsigned sbits = m_util.get_sbits(s);
         SASSERT(bv_sz == m_util.get_ebits(s) + sbits);
-        result = m_util.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv),
-            m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv),
-            m_bv_util.mk_extract(sbits - 2, 0, bv));
+        //non-deterministic order change start
+        {
+            auto mk_extract_1 = m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv);
+            auto mk_extract_2 = m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv);
+            auto mk_extract_3 = m_bv_util.mk_extract(sbits - 2, 0, bv);
+            result = m_util.mk_fp(mk_extract_1,
+            mk_extract_2,
+            mk_extract_3);
+        }
+        //non-deterministic order change end
         SASSERT(m_util.is_float(result));
         m_const2bv.insert(f, result);
         m.inc_ref(f);
@@ -4419,19 +4506,35 @@ app_ref fpa2bv_converter_wrapped::unwrap(expr* e, sort* s) {
 
     if (m_util.is_rm(s)) {
         SASSERT(bv_sz == 3);
-        res = m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TIES_TO_AWAY, 3)), m_util.mk_round_nearest_ties_to_away(),
+        //non-deterministic order change start
+        {
+            auto mk_eq_1 = m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TIES_TO_AWAY, 3));
+            auto mk_round_nearest_ties_to_away_2 = m_util.mk_round_nearest_ties_to_away();
+            res = m.mk_ite(mk_eq_1, mk_round_nearest_ties_to_away_2,
+            //non-deterministic order no change: too complex
             m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3)), m_util.mk_round_nearest_ties_to_even(),
+                //non-deterministic order no change: too complex
                 m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TO_NEGATIVE, 3)), m_util.mk_round_toward_negative(),
+                    //non-deterministic order no change: too complex
                     m.mk_ite(m.mk_eq(e, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3)), m_util.mk_round_toward_positive(),
                         m_util.mk_round_toward_zero()))));
+        }
+        //non-deterministic order change end
     }
     else {
         SASSERT(m_util.is_float(s));
         unsigned sbits = m_util.get_sbits(s);
         SASSERT(bv_sz == m_util.get_ebits(s) + sbits);
-        res = m_util.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, e),
-            m_bv_util.mk_extract(bv_sz - 2, sbits - 1, e),
-            m_bv_util.mk_extract(sbits - 2, 0, e));
+        //non-deterministic order change start
+        {
+            auto mk_extract_1 = m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, e);
+            auto mk_extract_2 = m_bv_util.mk_extract(bv_sz - 2, sbits - 1, e);
+            auto mk_extract_3 = m_bv_util.mk_extract(sbits - 2, 0, e);
+            res = m_util.mk_fp(mk_extract_1,
+            mk_extract_2,
+            mk_extract_3);
+        }
+        //non-deterministic order change end
     }
 
     return res;

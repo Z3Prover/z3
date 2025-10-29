@@ -260,6 +260,7 @@ public:
             return m_pb.mk_eq(sz, weights, args, w);
         }
         else {
+            //non-deterministic order no change: too complex
             return m.mk_and(mk_ge(sz, weights, args, w), mk_le(sz, weights, args, w));
         }
     }
