@@ -980,6 +980,32 @@ typedef enum
             3 = 011 = Z3_OP_FPA_RM_TOWARD_NEGATIVE,
             4 = 100 = Z3_OP_FPA_RM_TOWARD_ZERO.
 
+   - Z3_OP_FINITE_SET_EMPTY: Empty finite set.
+
+   - Z3_OP_FINITE_SET_SINGLETON: Finite set containing a single element.
+
+   - Z3_OP_FINITE_SET_UNION: Union of two finite sets.
+
+   - Z3_OP_FINITE_SET_INTERSECT: Intersection of two finite sets.
+
+   - Z3_OP_FINITE_SET_DIFFERENCE: Difference of two finite sets.
+
+   - Z3_OP_FINITE_SET_IN: Membership predicate for finite sets.
+
+   - Z3_OP_FINITE_SET_SIZE: Cardinality of a finite set.
+
+   - Z3_OP_FINITE_SET_SUBSET: Subset predicate for finite sets.
+
+   - Z3_OP_FINITE_SET_MAP: Map operation on finite sets.
+
+   - Z3_OP_FINITE_SET_FILTER: Filter operation on finite sets.
+
+   - Z3_OP_FINITE_SET_RANGE: Range operation for finite sets of integers.
+
+   - Z3_OP_FINITE_SET_EXT: Finite set extensionality.
+
+   - Z3_OP_FINITE_SET_MAP_INVERSE: Inverse of a finite set map operation.
+
    - Z3_OP_INTERNAL: internal (often interpreted) symbol, but no additional
         information is exposed. Tools may use the string representation of the
         function declaration to obtain more information.
@@ -1314,6 +1340,21 @@ typedef enum {
 
     Z3_OP_FPA_BVWRAP,
     Z3_OP_FPA_BV2RM,
+
+    // Finite Sets
+    Z3_OP_FINITE_SET_EMPTY = 0xc000,
+    Z3_OP_FINITE_SET_SINGLETON,
+    Z3_OP_FINITE_SET_UNION,
+    Z3_OP_FINITE_SET_INTERSECT,
+    Z3_OP_FINITE_SET_DIFFERENCE,
+    Z3_OP_FINITE_SET_IN,
+    Z3_OP_FINITE_SET_SIZE,
+    Z3_OP_FINITE_SET_SUBSET,
+    Z3_OP_FINITE_SET_MAP,
+    Z3_OP_FINITE_SET_FILTER,
+    Z3_OP_FINITE_SET_RANGE,
+    Z3_OP_FINITE_SET_EXT,
+    Z3_OP_FINITE_SET_MAP_INVERSE,
 
     Z3_OP_INTERNAL,
     Z3_OP_RECURSIVE,
