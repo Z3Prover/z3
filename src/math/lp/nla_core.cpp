@@ -37,7 +37,8 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
     m_monomial_bounds(this),
     m_stellensatz(this),
     m_horner(this),
-    m_grobner(this),
+    m_grobner(this), 
+    m_bounds(this),
     m_emons(m_evars),
     m_use_nra_model(false),
     m_nra(s, m_nra_lim, *this, p),
@@ -1268,24 +1269,6 @@ void core::check_bounded_divisions() {
     clear();
     m_divisions.check_bounded_divisions();
 }
-// looking for a free variable inside of a monic to split
-void core::add_bounds() {
-    for (auto i : m_to_refine) {
-        auto const& m = m_emons[i];
-        for (lpvar j : m.vars()) {
-            if (!var_is_free(j))
-                continue;
-	    if (m.is_bound_propagated())
-                continue;
-	    m_emons.set_bound_propagated(m);
-            // split the free variable (j <= 0, or j > 0), and return
-            m_literals.push_back(ineq(j, lp::lconstraint_kind::EQ, rational::zero()));
-            TRACE(nla_solver, print_ineq(m_literals.back(), tout) << "\n");                  
-            ++lp_settings().stats().m_nla_add_bounds;
-            return;
-        }
-    }    
-}
 
 lbool core::check() {
     lp_settings().stats().m_nla_calls++;
@@ -1321,7 +1304,7 @@ lbool core::check() {
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
         std::function<void(void)> check2 = [&]() { if (no_effect() && run_grobner) m_grobner(); };
-        std::function<void(void)> check3 = [&]() { if (no_effect() && run_bounds) add_bounds(); };
+        std::function<void(void)> check3 = [&]() { if (no_effect() && run_bounds) m_bounds(); };
 
         std::pair<unsigned, std::function<void(void)>> checks[] =
             { {1, check1},

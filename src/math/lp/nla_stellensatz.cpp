@@ -317,9 +317,11 @@ namespace nla {
         lhs.add_monomial(rational(1), j);
         if (non_unit != lp::null_lpvar) {
             lhs.add_monomial(rational(-sign), non_unit);
-            add_ineq(bounds, lhs, lp::lconstraint_kind::EQ, rational(0));
+            add_ineq(bounds, lhs, lp::lconstraint_kind::GE, rational(0));
+            add_ineq(bounds, lhs, lp::lconstraint_kind::LE, rational(0));
         } else {
-            add_ineq(bounds, lhs, lp::lconstraint_kind::EQ, rational(sign));
+            add_ineq(bounds, lhs, lp::lconstraint_kind::GE, rational(sign));
+            add_ineq(bounds, lhs, lp::lconstraint_kind::LE, rational(sign));
         }
     }
 
@@ -617,8 +619,8 @@ namespace nla {
 
         while (!to_refine.empty()) {
             lpvar j = to_refine.erase_min();            
-            IF_VERBOSE(2, verbose_stream() << "refining " << m_mon2vars[j] << "\n");
             unsigned sz = m_monomials_to_refine.size();
+            TRACE(arith, tout << "refining " << m_mon2vars[j] << " sz " << sz << "\n");
             eliminate(j);
             for (unsigned i = sz; i < m_monomials_to_refine.size(); ++i) {
                 auto e = m_monomials_to_refine.elem_at(i);
@@ -678,6 +680,7 @@ namespace nla {
                 // punt on equality constraints for now
             }
         }
+        TRACE(arith, tout << "eliminate " << m_mon2vars[mi] << " los: " << los << " his: " << his << "\n");
         if (los.empty() || his.empty())
             return;
         IF_VERBOSE(3, verbose_stream() << "lo " << los << " hi " << his << "\n");
@@ -1522,7 +1525,7 @@ namespace nla {
             TRACE(arith, s.display(tout));
             if (!s.saturate_factors())
                 return l_false;
-            // s.saturate_constraints(); ?
+            s.saturate_constraints2();
             if (sz == lra_solver->number_of_vars())
                 return l_undef;
         }

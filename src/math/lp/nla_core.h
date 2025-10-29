@@ -14,14 +14,15 @@
 #include "math/lp/factorization.h"
 #include "math/lp/lp_types.h"
 #include "math/lp/var_eqs.h"
-#include "math/lp/nla_tangent_lemmas.h"
 #include "math/lp/nla_basics_lemmas.h"
-#include "math/lp/nla_order_lemmas.h"
-#include "math/lp/nla_monotone_lemmas.h"
-#include "math/lp/nla_grobner.h"
-#include "math/lp/nla_powers.h"
+#include "math/lp/nla_bounds.h"
 #include "math/lp/nla_divisions.h"
+#include "math/lp/nla_grobner.h"
+#include "math/lp/nla_monotone_lemmas.h"
+#include "math/lp/nla_order_lemmas.h"
+#include "math/lp/nla_powers.h"
 #include "math/lp/nla_stellensatz.h"
+#include "math/lp/nla_tangent_lemmas.h"
 #include "math/lp/emonics.h"
 #include "math/lp/nex.h"
 #include "math/lp/horner.h"
@@ -95,6 +96,7 @@ class core {
     bool                     m_check_feasible = false;
     horner                   m_horner;
     grobner                  m_grobner;
+    bounds                   m_bounds;
     emonics                  m_emons;
     svector<lpvar>           m_add_buffer;
     mutable indexed_uint_set m_active_var_set;
@@ -113,7 +115,6 @@ class core {
 
 
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
-    void add_bounds();
 
     bool refine_pseudo_linear();
     bool is_pseudo_linear(monic const& m) const;    
@@ -454,6 +455,9 @@ public:
     bool use_nra_model() const { return m_use_nra_model; }
     vector<nla::lemma> const& lemmas() const { return m_lemmas; }
     vector<nla::ineq> const& literals() const { return m_literals; }
+    void add_literal(const ineq &n) {
+        m_literals.push_back(n);
+    }
     vector<lp::equality> const& equalities() const { return m_equalities; }
     vector<lp::fixed_equality> const& fixed_equalities() const { return m_fixed_equalities; }
     bool should_check_feasible() const { return m_check_feasible; }

@@ -24,6 +24,7 @@ z3_add_component(lp
     monomial_bounds.cpp
     nex_creator.cpp
     nla_basics_lemmas.cpp
+    nla_bounds.cpp
     nla_coi.cpp
     nla_common.cpp
     nla_core.cpp
