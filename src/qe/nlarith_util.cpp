@@ -555,8 +555,16 @@ namespace nlarith {
                       tout << " 0 [-oo] --> " << mk_pp(t1.get(), m()) << "\n";);
             }
             TRACE(nlarith, tout << "inf-branch\n";);
-            // TODO: non-deterministic parameter evaluation
-            bc.add_branch(mk_and(es.size(), es.data()), m().mk_true(), subst, mk_inf(bc), z(), z(), z());
+            expr_ref branch_expr(m());
+            branch_expr = mk_and(es.size(), es.data());
+            expr_ref true_expr(m());
+            true_expr = m().mk_true();
+            expr_ref inf_branch_expr(m());
+            inf_branch_expr = mk_inf(bc);
+            expr* z1 = z();
+            expr* z2 = z();
+            expr* z3 = z();
+            bc.add_branch(branch_expr, true_expr, subst, inf_branch_expr, z1, z2, z3);
         }
 
         void create_branch_l(unsigned j, unsigned i, polys const& polys, comps const& comps, 
@@ -588,8 +596,13 @@ namespace nlarith {
                     es.push_back(m().mk_implies(bc.preds(k), t2));
                     subst.push_back(t1);
                 }
-                // TODO: non-deterministic parameter evaluation
-                bc.add_branch(mk_and(es.size(), es.data()), cond, subst, mk_def(cmp, abc_poly(*this, z(), b, c), e0), a, b, c);
+                expr_ref branch_expr(m());
+                branch_expr = mk_and(es.size(), es.data());
+                app* z_val = z();
+                abc_poly abc1(*this, z_val, b, c);
+                expr_ref def_expr(m());
+                def_expr = mk_def(cmp, abc1, e0);
+                bc.add_branch(branch_expr, cond, subst, def_expr, a, b, c);
             }
 
             if (i == j && a != z()) {
@@ -608,8 +621,13 @@ namespace nlarith {
                     es.push_back(m().mk_implies(bc.preds(k), t1));
                     subst.push_back(t1);
                 }
-                // TODO: non-deterministic parameter evaluation
-                bc.add_branch(mk_and(es.size(), es.data()), cond, subst, mk_def(cmp, abc_poly(*this, a2, b, z()),e1), a, b, c);
+                expr_ref branch_expr2(m());
+                branch_expr2 = mk_and(es.size(), es.data());
+                app* z_val2 = z();
+                abc_poly abc2(*this, a2, b, z_val2);
+                expr_ref def_expr2(m());
+                def_expr2 = mk_def(cmp, abc2, e1);
+                bc.add_branch(branch_expr2, cond, subst, def_expr2, a, b, c);
             }
         }
 
