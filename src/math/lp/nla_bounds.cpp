@@ -57,6 +57,13 @@ namespace nla {
             return false;
         if (c().var_is_fixed(j))
             return false;
+        u_dependency *d = nullptr;
+        lp::mpq bound;
+        bool is_strict;
+        if (c().has_lower_bound(j, d, bound, is_strict) && (bound > value || (bound == value && is_strict)))
+            return false;
+        if (c().has_upper_bound(j, d, bound, is_strict) && (bound < value || (bound == value && is_strict)))
+            return false;
         // fix a bound that hasn't already been fixed.
         if (c().has_lower_bound(j) && c().get_lower_bound(j) == value) {
             auto i(ineq(j, lp::lconstraint_kind::LE, rational(value)));
