@@ -285,11 +285,28 @@ namespace smt {
     *    Associate tracking literal C_i with current assignment.
     *    Assume C_i
     *    Assert !C_0, .. , !C_{i-1}, C_i => /\_i |s_i| = sum_j n_ij and /\ n_j >= 0
-    * Incremental algorithm with blocking clauses (sketch)
-    *    If /\_i |s_i| = sum_j n_ij and /\ n_j >= 0 is unsat
-    *    Then, instead of asserting sum constraint assert
-    *    C_i <=> \/_j core_j
-    *    where core_j come from covering of LRA conflict 
+    * Incremental algorithm with blocking clauses
+    *    Enumerate N assignments at a time.
+    *    use smt_arith_value::check_lp_feasiable to check if current assignment is feasible.
+    *    if it is, then yield the current assignment. Assume there is a filter that avoids future
+    *      calls to find more models if the current model satisfies all cardinality terms.
+    *      In other words, for every |s| the model produces a set with |s| elements, 
+    *      where |s| is the value assigned by the arithmetic solver.
+    *   if it is not feasible, extract the infeasible core from call:
+    *     - card_core: a set of cardinality atoms
+    *     - lit_core:  a set of literals asserted into the arithmetic solver
+    *     - eq_core:  a set of equations asserte into the arithmetic solver
+    *   First take the card_core atoms and enumerate Boolean models for m_solver that 
+    *   satisfy the disjunction of those atoms.
+    *   - Infeasibility of the current model meant that there was no linear assignment to
+    *     the subset in card_core that satisfied lit_core & eq_core. So the query to extend the
+    *     set of assignments is to fix this.
+     *   If there is some model for the disjunction of card_core atoms, then
+     *     add new slacks for the models an continue, possibly querying the arithmetic solver if the new set of 
+     *     linear relaxation to the subset is feasible.
+     *   If there is no model to the disjunction of card_core atoms, then
+     *     it means that size_core & lit_core & eq_core is unsat.
+     *     where size_core is the unsat core for m_solver.
     */
     lbool theory_finite_set_size::run_solver() {
         expr_ref_vector asms(m);

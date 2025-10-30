@@ -1624,6 +1624,61 @@ public:
             return FC_DONE;
         return FC_GIVEUP;
     }
+
+    /**
+    * Check if a set of equalities are lp feasible.
+    * push local scope
+    * internalize ineqs
+    * assert ineq constraints
+    * check lp feasibility
+    * extract core
+    * pop local scope
+    * return verdict
+    */
+
+    lbool check_lp_feasible(vector<std::pair<bool, expr_ref>> &ineqs, literal_vector& lit_core, enode_pair_vector& eq_core) {
+        lbool st = l_undef;
+        push_scope_eh(); // pushes an arithmetic scope
+        u_map<unsigned> ci2index;
+        unsigned index = 0;        
+        for (auto &[in_core, f] : ineqs) {
+            expr *x, *y;
+            rational r;
+            in_core = false;
+            if (m.is_eq(f, x, y) && a.is_numeral(y, r)) {
+                internalize_term(to_app(x));                
+                auto j = get_lpvar(th.get_th_var(x));
+                auto ci = lp().add_var_bound(j, lp::EQ, r);
+                ci2index.insert(ci, index);
+                lp().activate(ci);
+                if (is_infeasible()) {
+                    st = l_false;
+                    break;
+                }
+            }
+            else {
+                NOT_IMPLEMENTED_YET();
+            }
+            ++index;
+        }
+        if (st != l_false) {
+            st = make_feasible();
+            SASSERT(st != l_false || is_infeasible());
+        }
+        if (st == l_false) {
+            m_explanation.clear();
+            lp().get_infeasibility_explanation(m_explanation);
+            for (auto ev : m_explanation) {
+                unsigned index;
+                if (ci2index.find(ev.ci(), index)) 
+                    ineqs[index].first = true;   
+                else
+                    set_evidence(ev.ci(), lit_core, eq_core);
+            }
+        }
+        pop_scope_eh(1);
+        return st;
+    }
     
     final_check_status final_check_eh() {
         if (propagate_core())
@@ -4367,6 +4422,10 @@ void theory_lra::updt_params() {
 
 void theory_lra::validate_model(proto_model& mdl) {
     m_imp->validate_model(mdl);
+}
+
+lbool theory_lra::check_lp_feasible(vector<std::pair<bool, expr_ref>>& ineqs, literal_vector& lit_core, enode_pair_vector& eq_core) {
+    return m_imp->check_lp_feasible(ineqs, lit_core, eq_core);
 }
 
 }
