@@ -213,18 +213,25 @@ interval theory_arith<Ext>::mk_interval_for(theory_var v) {
     bound * l = lower(v);
     bound * u = upper(v);
     if (l && u) {
+        auto const& l_val = l->get_value();
+        auto const& u_val = u->get_value();
         // optimization may introduce non-standard bounds.
-        if (l->get_value() == u->get_value() && !l->get_value().get_infinitesimal().to_rational().is_zero()) {
+        if (l_val == u_val && !l_val.get_infinitesimal().to_rational().is_zero()) {
             return interval(m_dep_manager);
         }
-        // TODO: non-deterministic parameter evaluation
+        rational l_rat = l_val.get_rational().to_rational();
+        bool l_open = l_val.get_infinitesimal().to_rational().is_pos();
+        v_dependency* l_dep = m_dep_manager.mk_leaf(l);
+        rational u_rat = u_val.get_rational().to_rational();
+        bool u_open = u_val.get_infinitesimal().to_rational().is_neg();
+        v_dependency* u_dep = m_dep_manager.mk_leaf(u);
         return interval(m_dep_manager,
-                        l->get_value().get_rational().to_rational(),
-                        l->get_value().get_infinitesimal().to_rational().is_pos(),
-                        m_dep_manager.mk_leaf(l),
-                        u->get_value().get_rational().to_rational(),
-                        u->get_value().get_infinitesimal().to_rational().is_neg(),
-                        m_dep_manager.mk_leaf(u));
+                        l_rat,
+                        l_open,
+                        l_dep,
+                        u_rat,
+                        u_open,
+                        u_dep);
     }
     else if (l) {
         return interval(m_dep_manager,
@@ -1712,8 +1719,12 @@ grobner::monomial * theory_arith<Ext>::mk_gb_monomial(rational const & _coeff, e
         if (is_fixed(_var)) {
             if (!already_found.contains(_var)) {                        
                 already_found.insert(_var);                             
-                // TODO: non-deterministic parameter evaluation
-                dep = m_dep_manager.mk_join(dep, m_dep_manager.mk_join(m_dep_manager.mk_leaf(lower(_var)), m_dep_manager.mk_leaf(upper(_var)))); 
+                bound* lower_b = lower(_var);
+                bound* upper_b = upper(_var);
+                v_dependency* lower_dep = m_dep_manager.mk_leaf(lower_b);
+                v_dependency* upper_dep = m_dep_manager.mk_leaf(upper_b);
+                v_dependency* joined_bounds = m_dep_manager.mk_join(lower_dep, upper_dep);
+                dep = m_dep_manager.mk_join(dep, joined_bounds); 
             }                                                           
             coeff *= lower_bound(_var).get_rational().to_rational();    
         }                                                               
@@ -1779,8 +1790,12 @@ void theory_arith<Ext>::add_monomial_def_to_gb(theory_var v, grobner & gb) {
         monomials.push_back(new_m);
     rational coeff(-1);
     if (is_fixed(v)) {
-        // TODO: non-deterministic parameter evaluation
-        dep = m_dep_manager.mk_join(dep, m_dep_manager.mk_join(m_dep_manager.mk_leaf(lower(v)), m_dep_manager.mk_leaf(upper(v))));
+        bound* lower_b = lower(v);
+        bound* upper_b = upper(v);
+        v_dependency* lower_dep = m_dep_manager.mk_leaf(lower_b);
+        v_dependency* upper_dep = m_dep_manager.mk_leaf(upper_b);
+        v_dependency* joined_bounds = m_dep_manager.mk_join(lower_dep, upper_dep);
+        dep = m_dep_manager.mk_join(dep, joined_bounds);
         coeff *= lower_bound(v).get_rational().to_rational();
         if (!coeff.is_zero())
             monomials.push_back(gb.mk_monomial(coeff, 0, nullptr));
@@ -2414,6 +2429,3 @@ final_check_status theory_arith<Ext>::process_non_linear() {
 
 
 };
-
-
-

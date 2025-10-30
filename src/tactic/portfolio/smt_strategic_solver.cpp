@@ -185,10 +185,9 @@ public:
         if (!t) {
             t = mk_tactic_for_logic(m, p, l);
         }
-        // TODO: non-deterministic parameter evaluation
-        return mk_combined_solver(mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l),
-                                  mk_solver_for_logic(m, p, l), 
-                                  p);
+        solver* tactic_solver = mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l);
+        solver* logic_solver = mk_solver_for_logic(m, p, l);
+        return mk_combined_solver(tactic_solver, logic_solver, p);
     }
     
     solver_factory* translate(ast_manager& m) override {
@@ -199,5 +198,3 @@ public:
 solver_factory * mk_smt_strategic_solver_factory(symbol const & logic) {
     return alloc(smt_strategic_solver_factory, logic);
 }
-
-
