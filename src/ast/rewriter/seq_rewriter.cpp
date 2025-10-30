@@ -1642,6 +1642,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
         break;
     case same_length_c:
         result = m().mk_ite(m_autil.mk_le(c, minus_one()), minus_one(), 
+                            // TODO: non-deterministic parameter evaluation
                             m().mk_ite(m().mk_eq(c, zero()), 
                                        m().mk_ite(m().mk_eq(a, b), zero(), minus_one()),
                                        minus_one()));
@@ -2995,6 +2996,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             else if (neq_char(e, h))
                 result = nothing();
             else
+                // TODO: non-deterministic parameter evaluation
                 result = re().mk_ite_simplify(m().mk_eq(e, h), re().mk_to_re(t), nothing());
         }
         else {
@@ -4067,6 +4069,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             // recall: [] denotes the empty language (nothing) regex, () denotes epsilon or empty sequence
             // construct the term (if (r1 != () and (ele = (first r1)) then (to_re (rest r1)) else []))
             hd = mk_seq_first(r1);
+            // TODO: non-deterministic parameter evaluation
             m_br.mk_and(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m().mk_eq(hd, ele), result);
             tl = re().mk_to_re(mk_seq_rest(r1));
             return re_and(result, tl);

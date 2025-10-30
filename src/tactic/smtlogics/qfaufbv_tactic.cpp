@@ -38,6 +38,7 @@ static tactic * mk_qfaufbv_preamble(ast_manager & m, params_ref const & p) {
     simp2_p.set_uint("local_ctx_limit", 10000000);
 
 
+    // TODO: non-deterministic parameter evaluation
     return and_then(mk_simplify_tactic(m),
                     mk_propagate_values_tactic(m),
                     mk_solve_eqs_tactic(m),
@@ -59,6 +60,7 @@ tactic * mk_qfaufbv_tactic(ast_manager & m, params_ref const & p) {
 
     tactic * st = using_params(
         and_then(preamble_st, 
+                 // TODO: non-deterministic parameter evaluation
                  cond(mk_is_qfbv_probe(), mk_qfbv_tactic(m), mk_smt_tactic(m, p))), main_p);
     
     st->updt_params(p);

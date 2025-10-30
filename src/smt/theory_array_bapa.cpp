@@ -388,6 +388,7 @@ namespace smt {
             expr_ref le(m_arith.mk_le(sz->get_arg(1), nV), m);
             expr_ref fr(m.mk_app(fg.second, result), m);
             // set-has-size(a, k) => k <= n or g(f(a,n)) = n 
+            // TODO: non-deterministic parameter evaluation
             mk_th_axiom(~mk_literal(sz), mk_literal(le), mk_eq(nV, fr));
             return result;
         }

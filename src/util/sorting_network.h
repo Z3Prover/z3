@@ -786,6 +786,7 @@ Notes:
             // result => xs[0] + ... + xs[n-1] <= 1
             for (unsigned i = 0; i < n; ++i) {
                 for (unsigned j = i + 1; j < n; ++j) {
+                    // TODO: non-deterministic parameter evaluation
                     add_clause(mk_not(result), mk_not(xs[i]), mk_not(xs[j]));
                 }
             }            
@@ -877,6 +878,7 @@ Notes:
             }
             for (unsigned i = 0; i + 1 < n; ++i) {
                 add_clause(mk_not(xs[i]), ys[i]);
+                // TODO: non-deterministic parameter evaluation
                 add_clause(mk_not(r), mk_not(ys[i]), mk_not(xs[i + 1]));
             }
 
@@ -901,7 +903,9 @@ Notes:
                 }
                 if (is_eq) {
                     literal zero = fresh("zero");
+                    // TODO: non-deterministic parameter evaluation
                     add_clause(mk_not(zero), mk_not(xs[n-1]));
+                    // TODO: non-deterministic parameter evaluation
                     add_clause(mk_not(zero), mk_not(ys[n-2]));
                     add_clause(r, zero, twos.back());
                 }
@@ -939,6 +943,7 @@ Notes:
             for (unsigned i = 0; i < ors.size(); ++i) {
                 for (unsigned k = 0; k < nbits; ++k) {
                     bool bit_set = (i & (static_cast<unsigned>(1 << k))) != 0;
+                    // TODO: non-deterministic parameter evaluation
                     add_clause(mk_not(result), mk_not(ors[i]), bit_set ? bits[k] : mk_not(bits[k]));
                 }
             }            
@@ -1036,6 +1041,7 @@ Notes:
         void cmp_le(literal x1, literal x2, literal y1, literal y2) {
             add_clause(mk_not(x1), y1);
             add_clause(mk_not(x2), y1);
+            // TODO: non-deterministic parameter evaluation
             add_clause(mk_not(x1), mk_not(x2), y2);
         }
 
@@ -1415,6 +1421,7 @@ Notes:
                 }
                 for (unsigned i = 1; i <= a; ++i) {
                     for (unsigned j = 1; j <= b && i + j <= c; ++j) {
+                        // TODO: non-deterministic parameter evaluation
                         add_clause(mk_not(as[i-1]),mk_not(bs[j-1]),out[i+j-1]);
                     }
                 }

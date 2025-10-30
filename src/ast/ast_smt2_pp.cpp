@@ -592,17 +592,20 @@ class smt2_printer {
     }
 
     format * pp_attribute(char const * attr, format * f) {
+        // TODO: non-deterministic parameter evaluation
         return mk_compose(m(),
                           mk_string(m(), attr),
                           mk_indent(m(), static_cast<unsigned>(strlen(attr)), f));
     }
 
     format * pp_simple_attribute(char const * attr, int v) {
+        // TODO: non-deterministic parameter evaluation
         return mk_compose(m(), mk_string(m(), attr), mk_int(m(), v));
     }
 
     format * pp_simple_attribute(char const * attr, symbol const & s) {
         std::string str = ensure_quote(s);
+        // TODO: non-deterministic parameter evaluation
         return mk_compose(m(), mk_string(m(), attr), mk_string(m(), str));
     }
 
@@ -762,8 +765,10 @@ class smt2_printer {
             SASSERT(it < end);
             format * fname = m_env.pp_fdecl(t->get_decl(), len);
             if (len > MAX_INDENT) {
+                // TODO: non-deterministic parameter evaluation
                 f = mk_group(m(), mk_compose(m(),
                                              mk_indent(m(), 1, mk_compose(m(), mk_string(m(), "("), fname)),
+                                             // TODO: non-deterministic parameter evaluation
                                              mk_indent(m(), SMALL_INDENT, mk_compose(m(),
                                                                                      mk_seq<format**, f2f>(m(), it, end, f2f()),
                                                                                      mk_string(m(), ")")))));
@@ -771,8 +776,10 @@ class smt2_printer {
             else {
                 format * first = *it;
                 ++it;
+                // TODO: non-deterministic parameter evaluation
                 f = mk_group(m(), mk_compose(m(),
                                              mk_indent(m(), 1, mk_compose(m(), mk_string(m(), "("), fname)),
+                                             // TODO: non-deterministic parameter evaluation
                                              mk_indent(m(), len + 2, mk_compose(m(),
                                                                                 mk_string(m(), " "),
                                                                                 first,

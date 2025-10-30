@@ -2995,6 +2995,7 @@ namespace polynomial {
 
         polynomial * add(polynomial const * p1, polynomial const * p2) {
             numeral one(1);
+            // TODO: non-deterministic parameter evaluation
             return addmul(one, mk_unit(), p1, one, mk_unit(), p2);
         }
 
@@ -3002,6 +3003,7 @@ namespace polynomial {
             numeral one(1);
             numeral minus_one; // It is incorrect to initialize with -1 when numeral_manager is GF_2
             m_manager.set(minus_one, -1);
+            // TODO: non-deterministic parameter evaluation
             return addmul(one, mk_unit(), p1, minus_one, mk_unit(), p2);
         }
 

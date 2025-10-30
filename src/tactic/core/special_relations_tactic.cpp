@@ -77,6 +77,7 @@ void special_relations_tactic::initialize() {
     expr* pats[1] = { pat };
     expr* pats0[1] = { pat0 };
 
+    // TODO: non-deterministic parameter evaluation
     fml = m.mk_or(m.mk_not(Rxy), m.mk_not(Ryz), Rxz);
     q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_transitive);

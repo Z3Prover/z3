@@ -1303,8 +1303,17 @@ public:
 
             mk_axiom(eqz, eq);
             mk_axiom(eqz, mod_ge_0);
-            mk_axiom(mk_literal(a.mk_le(q, zero)), mk_literal(a.mk_le(a.mk_add(mod, minus_q), mone)));
-            mk_axiom(mk_literal(a.mk_ge(q, zero)), mk_literal(a.mk_le(a.mk_add(mod, q), mone)));
+            literal q_le_zero = mk_literal(a.mk_le(q, zero));
+            expr_ref mod_minus_q(a.mk_add(mod, minus_q), m);
+            expr_ref mod_minus_q_le_mone(a.mk_le(mod_minus_q, mone), m);
+            literal mod_minus_q_le_mone_lit = mk_literal(mod_minus_q_le_mone);
+            mk_axiom(q_le_zero, mod_minus_q_le_mone_lit);
+
+            literal q_ge_zero = mk_literal(a.mk_ge(q, zero));
+            expr_ref mod_plus_q(a.mk_add(mod, q), m);
+            expr_ref mod_plus_q_le_mone(a.mk_le(mod_plus_q, mone), m);
+            literal mod_plus_q_le_mone_lit = mk_literal(mod_plus_q_le_mone);
+            mk_axiom(q_ge_zero, mod_plus_q_le_mone_lit);
 
                 
             expr* x = nullptr, * y = nullptr;
@@ -2538,9 +2547,11 @@ public:
         
         // x mod 2^{i + 1} >= 2^i means the i'th bit is 1.
         auto bitof = [&](expr* x, unsigned i) { 
-            expr_ref r(m);
-            r = a.mk_ge(a.mk_mod(x, a.mk_int(rational::power_of_two(i+1))), a.mk_int(rational::power_of_two(i)));
-            return mk_literal(r);
+            expr_ref pow_i1(a.mk_int(rational::power_of_two(i + 1)), m);
+            expr_ref pow_i(a.mk_int(rational::power_of_two(i)), m);
+            expr_ref mod_expr(a.mk_mod(x, pow_i1), m);
+            expr_ref ge_expr(a.mk_ge(mod_expr, pow_i), m);
+            return mk_literal(ge_expr);
         };
 
         if (a.is_band(n)) {
@@ -2668,9 +2679,28 @@ public:
             // y >= sz & x >= 2^{sz-1} => n = -1
             // y = 0 => n = x
             auto signx = mk_literal(a.mk_ge(x, a.mk_int(N/2)));
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), signx, mk_literal(m.mk_eq(n, a.mk_int(0))));
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), ~signx, mk_literal(m.mk_eq(n, a.mk_int(N-1))));
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_eq(a.mk_mod(y, a.mk_int(N)), a.mk_int(0))), mk_literal(m.mk_eq(n, x)));            
+            expr_ref int_N(a.mk_int(N), m);
+            expr_ref int_sz(a.mk_int(sz), m);
+            expr_ref int_zero(a.mk_int(0), m);
+            expr_ref int_N_minus_one(a.mk_int(N - 1), m);
+
+            expr_ref y_mod_N(a.mk_mod(y, int_N), m);
+            expr_ref y_mod_N_ge_sz(a.mk_ge(y_mod_N, int_sz), m);
+            literal y_mod_N_ge_sz_lit = mk_literal(y_mod_N_ge_sz);
+
+            expr_ref n_eq_zero(m.mk_eq(n, int_zero), m);
+            literal n_eq_zero_lit = mk_literal(n_eq_zero);
+            ctx().mk_th_axiom(get_id(), ~y_mod_N_ge_sz_lit, signx, n_eq_zero_lit);
+
+            expr_ref n_eq_N_minus_one(m.mk_eq(n, int_N_minus_one), m);
+            literal n_eq_N_minus_one_lit = mk_literal(n_eq_N_minus_one);
+            ctx().mk_th_axiom(get_id(), ~y_mod_N_ge_sz_lit, ~signx, n_eq_N_minus_one_lit);
+
+            expr_ref y_mod_N_eq_zero(m.mk_eq(y_mod_N, int_zero), m);
+            literal y_mod_N_eq_zero_lit = mk_literal(y_mod_N_eq_zero);
+            expr_ref n_eq_x(m.mk_eq(n, x), m);
+            literal n_eq_x_lit = mk_literal(n_eq_x);
+            ctx().mk_th_axiom(get_id(), ~y_mod_N_eq_zero_lit, n_eq_x_lit);
         }
         else
             UNREACHABLE();
@@ -3744,8 +3774,12 @@ public:
             return;
         }
         expr_ref lce(a.mk_numeral(lc, is_int), m);
-        if (all_int) 
-            guards.push_back(m.mk_eq(a.mk_mod(term, lce), a.mk_int(0)));
+        if (all_int) {
+            expr_ref term_mod_lce(a.mk_mod(term, lce), m);
+            expr_ref zero_int(a.mk_int(0), m);
+            expr_ref mod_eq_zero(m.mk_eq(term_mod_lce, zero_int), m);
+            guards.push_back(mod_eq_zero);
+        }
         else if (is_int) 
             guards.push_back(a.mk_is_int(a.mk_div(term, lce)));
         if (is_int)

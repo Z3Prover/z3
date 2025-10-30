@@ -1207,6 +1207,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     lshift = edr_tmp;
     rshift = nedr_tmp;
 
+    // TODO: non-deterministic parameter evaluation
     shifted = m.mk_ite(exp_diff_is_neg, m_bv_util.mk_bv_ashr(a_sig_ext, rshift),
                                         m_bv_util.mk_bv_shl(a_sig_ext, lshift));
     huge_rem = m_bv_util.mk_bv_urem(shifted, b_sig_ext);
@@ -3460,6 +3461,7 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     dbg_decouple("fpa2bv_to_bv_shift", shift);
 
     expr_ref big_sig_shifted(m), int_part(m), last(m), round(m), stickies(m), sticky(m);
+    // TODO: non-deterministic parameter evaluation
     big_sig_shifted = m.mk_ite(is_neg_shift, m_bv_util.mk_bv_lshr(big_sig, shift),
                                              m_bv_util.mk_bv_shl(big_sig, shift));
     int_part = m_bv_util.mk_extract(big_sig_sz-1, big_sig_sz-(bv_sz+3), big_sig_shifted);

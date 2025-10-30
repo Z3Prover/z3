@@ -573,6 +573,7 @@ expr_ref theory_seq::mk_nth(expr* s, expr* idx) {
 void theory_seq::mk_decompose(expr* e, expr_ref& head, expr_ref& tail) {
     m_sk.decompose(e, head, tail);
     add_axiom(~mk_eq_empty(e), mk_eq_empty(tail));;
+    // TODO: non-deterministic parameter evaluation
     add_axiom(mk_eq_empty(e), mk_eq(e, mk_concat(head, tail), false));
 }
 

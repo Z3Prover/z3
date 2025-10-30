@@ -655,10 +655,12 @@ public:
         sat_params sp(m_params);
         if (sp.euf()) 
             m_preprocess =
+                // TODO: non-deterministic parameter evaluation
                 and_then(mk_simplify_tactic(m),
                          mk_propagate_values_tactic(m));
         else 
             m_preprocess =
+                // TODO: non-deterministic parameter evaluation
                 and_then(mk_simplify_tactic(m),
                          mk_propagate_values_tactic(m),
                          mk_card2bv_tactic(m, m_params),                  // updates model converter

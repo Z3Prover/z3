@@ -125,6 +125,7 @@ struct goal2nlsat::imp {
         m_qm.div(lcm, d2, d2);
         m_qm.neg(d2);
         polynomial_ref p(m_pm);
+        // TODO: non-deterministic parameter evaluation
         p = m_pm.addmul(d1, m_pm.mk_unit(), p1, d2, m_pm.mk_unit(), p2);
         TRACE(goal2nlsat_bug, tout << mk_pp(f, m) << " p: " << p << "\nk: " << k << "\n";);
         if (is_const(p)) {

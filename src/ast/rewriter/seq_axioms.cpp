@@ -747,6 +747,7 @@ namespace seq {
         VERIFY (seq.str.is_stoi(e, _s));
         expr_ref s(_s, m);
         m_rewrite(s);
+        // TODO: non-deterministic parameter evaluation
         auto stoi2 = [&](unsigned j) { return m_sk.mk("seq.stoi", s, a.mk_int(j), a.mk_int()); }; 
         auto digit = [&](unsigned j) { return mk_digit2int(mk_nth(s, j)); };
         auto is_digit_ = [&](unsigned j) { return is_digit(mk_nth(s, j)); };
@@ -754,7 +755,9 @@ namespace seq {
         expr_ref ge0 = mk_ge(e, 0);
         expr_ref lek = mk_le(len, k);
         add_clause(~lek, mk_eq(e, stoi2(k-1)));                                    // len(s) <= k  => stoi(s) = stoi(s, k-1)
+        // TODO: non-deterministic parameter evaluation
         add_clause(mk_le(len, 0), ~is_digit_(0), mk_eq(stoi2(0), digit(0)));       // len(s) > 0, is_digit(nth(s, 0)) => stoi(s,0) = digit(s,0)
+        // TODO: non-deterministic parameter evaluation
         add_clause(mk_le(len, 0), is_digit_(0),  mk_eq(stoi2(0), a.mk_int(-1)));   // len(s) > 0, ~is_digit(nth(s, 0)) => stoi(s,0) = -1
         for (unsigned i = 1; i < k; ++i) {
 
@@ -766,8 +769,11 @@ namespace seq {
             // len(s) > i, stoi(s, i - 1) < 0 => stoi(s, i) = -1
             // len(s) > i, ~is_digit(nth(s, i)) => stoi(s, i) = -1
 
+            // TODO: non-deterministic parameter evaluation
             add_clause(mk_le(len, i), ~mk_ge(stoi2(i-1), 0), ~is_digit_(i), mk_eq(stoi2(i), a.mk_add(a.mk_mul(a.mk_int(10), stoi2(i-1)), digit(i))));
+            // TODO: non-deterministic parameter evaluation
             add_clause(mk_le(len, i), is_digit_(i),                         mk_eq(stoi2(i), a.mk_int(-1)));
+            // TODO: non-deterministic parameter evaluation
             add_clause(mk_le(len, i), mk_ge(stoi2(i-1), 0),                 mk_eq(stoi2(i), a.mk_int(-1)));
 
             // stoi(s) >= 0, i < len(s) => is_digit(nth(s, i))
@@ -906,12 +912,16 @@ namespace seq {
         expr* e = nullptr;
         VERIFY(seq.str.is_itos(s, e));
         expr_ref len = mk_len(s);
+        // TODO: non-deterministic parameter evaluation
         add_clause(mk_ge(e, 10), mk_le(len, 1));
+        // TODO: non-deterministic parameter evaluation
         add_clause(mk_le(e, -1), mk_ge(len, 1));
         rational lo(1);
         for (unsigned i = 1; i <= k; ++i) {
             lo *= rational(10);
+            // TODO: non-deterministic parameter evaluation
             add_clause(mk_ge(e, lo), mk_le(len, i));
+            // TODO: non-deterministic parameter evaluation
             add_clause(mk_le(e, lo - 1), mk_ge(len, i + 1));
         }
     }

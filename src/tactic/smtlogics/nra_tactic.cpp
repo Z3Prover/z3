@@ -35,6 +35,7 @@ tactic * mk_nra_tactic(ast_manager & m, params_ref const& p) {
     p2.set_uint("seed", 13);
     p2.set_bool("factor", false);
 
+    // TODO: non-deterministic parameter evaluation
     return and_then(
         mk_simplify_tactic(m, p),
         mk_propagate_values_tactic(m, p),
@@ -44,6 +45,7 @@ tactic * mk_nra_tactic(ast_manager & m, params_ref const& p) {
              or_else(try_for(mk_qfnra_nlsat_tactic(m, p), 5000),
                      try_for(mk_qfnra_nlsat_tactic(m, p1), 10000),
                      mk_qfnra_nlsat_tactic(m, p2)),
+             // TODO: non-deterministic parameter evaluation
              or_else(mk_nlqsat_tactic(m, p),
                      mk_smt_tactic(m, p))
              ));

@@ -33,6 +33,7 @@ tactic * mk_qfauflia_tactic(ast_manager & m, params_ref const & p) {
     params_ref solver_p;
     solver_p.set_bool("array.simplify", false); // disable array simplifications at old_simplify module
 
+    // TODO: non-deterministic parameter evaluation
     tactic * preamble_st = and_then(mk_simplify_tactic(m),
                                     mk_propagate_values_tactic(m),
                                     mk_solve_eqs_tactic(m),

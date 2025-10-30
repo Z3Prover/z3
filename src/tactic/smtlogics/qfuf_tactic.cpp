@@ -29,6 +29,7 @@ tactic * mk_qfuf_tactic(ast_manager & m, params_ref const & p) {
     s2_p.set_bool("pull_cheap_ite", true);
     s2_p.set_bool("local_ctx", true);
     s2_p.set_uint("local_ctx_limit", 10000000);
+    // TODO: non-deterministic parameter evaluation
     return and_then(mk_simplify_tactic(m, p),
                     mk_propagate_values_tactic(m, p),
                     mk_solve_eqs_tactic(m, p),

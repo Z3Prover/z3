@@ -82,6 +82,7 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
     simp_p.set_bool("arith_lhs", true);
     simp_p.set_bool("elim_and", true);
 
+    // TODO: non-deterministic parameter evaluation
     tactic * preamble = and_then(mk_simplify_tactic(m, simp_p),
                                  mk_propagate_values_tactic(m, p),
                                  mk_fpa2bv_tactic(m, p),
@@ -93,9 +94,11 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
                            mk_bit_blaster_tactic(m, p),
                            using_params(mk_simplify_tactic(m, p), simp_p),
                            cond(mk_is_propositional_probe(),
+                                // TODO: non-deterministic parameter evaluation
                                 cond(mk_produce_proofs_probe(),
                                      mk_smt_tactic(m, p), // `sat' does not support proofs.
                                      mk_psat_tactic(m, p)),
+                                // TODO: non-deterministic parameter evaluation
                                 cond(mk_is_fp_qfnra_probe(),
                                      mk_qfnra_tactic(m, p),
                                      mk_smt_tactic(m, p))));

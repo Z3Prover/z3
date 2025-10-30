@@ -185,6 +185,7 @@ public:
         if (!t) {
             t = mk_tactic_for_logic(m, p, l);
         }
+        // TODO: non-deterministic parameter evaluation
         return mk_combined_solver(mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l),
                                   mk_solver_for_logic(m, p, l), 
                                   p);

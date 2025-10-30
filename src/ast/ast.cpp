@@ -1714,7 +1714,7 @@ ast * ast_manager::register_node_core(ast * n) {
     }
 
     n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();        
-
+    
   //  track_id(*this, n, 9213);
     
 //    TRACE(ast, tout << (s_count++) << " Object " << n->m_id << " was created.\n";);
@@ -2131,8 +2131,10 @@ expr* ast_manager::coerce_to(expr* e, sort* s) {
     if (s != se && s->get_family_id() == arith_family_id && is_bool(e)) {
         arith_util au(*this);
         if (s->get_decl_kind() == REAL_SORT) 
+            // TODO: non-deterministic parameter evaluation
             return mk_ite(e, au.mk_real(1), au.mk_real(0));
         else 
+            // TODO: non-deterministic parameter evaluation
             return mk_ite(e, au.mk_int(1), au.mk_int(0));
     }
     else {

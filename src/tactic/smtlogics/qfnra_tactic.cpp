@@ -39,6 +39,7 @@ tactic * mk_qfnra_very_small_solver(ast_manager& m, params_ref const& p) {
         params_ref p_sc = p;
         p_sc.set_bool("simple_check", true);
         // p_sc.set_uint("seed", 997);
+        // TODO: non-deterministic parameter evaluation
         ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 10 * 1000));
     }
     {
@@ -95,6 +96,7 @@ tactic * mk_qfnra_small_solver(ast_manager& m, params_ref const& p) {
         params_ref p_sc = p;
         p_sc.set_bool("simple_check", true);
         // p_sc.set_uint("seed", 997);
+        // TODO: non-deterministic parameter evaluation
         ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 20 * 1000));
     }
     {
@@ -152,6 +154,7 @@ tactic * mk_qfnra_middle_solver(ast_manager& m, params_ref const& p) {
     {
         params_ref p_sc = p;
         p_sc.set_bool("simple_check", true);
+        // TODO: non-deterministic parameter evaluation
         ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 30 * 1000));
     }
     {
@@ -210,6 +213,7 @@ tactic * mk_qfnra_large_solver(ast_manager& m, params_ref const& p) {
     {
         params_ref p_sc = p;
         p_sc.set_bool("simple_check", true);
+        // TODO: non-deterministic parameter evaluation
         ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 50 * 1000));
     }
     {
@@ -264,6 +268,7 @@ tactic * mk_qfnra_very_large_solver(ast_manager& m, params_ref const& p) {
     {
         params_ref p_sc = p;
         p_sc.set_bool("simple_check", true);
+        // TODO: non-deterministic parameter evaluation
         ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 100 * 1000));
     }
     {
@@ -305,12 +310,16 @@ tactic * mk_qfnra_mixed_solver(ast_manager& m, params_ref const& p) {
     auto middle_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_middle_solver(m, p); });
     auto large_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_large_solver(m, p); });
     auto very_large_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_very_large_solver(m, p); });
+    // TODO: non-deterministic parameter evaluation
     return cond(mk_lt(mk_memory_probe(), mk_const_probe(VERY_SMALL_THRESHOLD)), 
         very_small_t,
+                // TODO: non-deterministic parameter evaluation
                 cond(mk_lt(mk_memory_probe(), mk_const_probe(SMALL_THRESHOLD)), 
                     small_t,
+                     // TODO: non-deterministic parameter evaluation
                      cond(mk_lt(mk_memory_probe(), mk_const_probe(MIDDLE_THRESHOLD)),
                          middle_t,
+                          // TODO: non-deterministic parameter evaluation
                           cond(mk_lt(mk_memory_probe(), mk_const_probe(LARGE_THRESHOLD)),
                              large_t,
                              very_large_t
@@ -322,6 +331,7 @@ tactic * mk_qfnra_mixed_solver(ast_manager& m, params_ref const& p) {
 
 tactic * mk_qfnra_tactic(ast_manager & m, params_ref const& p) {
 
+    // TODO: non-deterministic parameter evaluation
     return and_then(mk_simplify_tactic(m, p), 
                     mk_propagate_values_tactic(m, p),
                     mk_qfnra_mixed_solver(m, p)

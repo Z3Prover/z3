@@ -58,6 +58,7 @@ static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
     hoist_p.set_bool("flat_and_or", false);
 
     return
+        // TODO: non-deterministic parameter evaluation
         and_then(
             using_params(mk_simplify_tactic(m), flat_and_or_p),
             using_params(mk_propagate_values_tactic(m), flat_and_or_p),
@@ -107,7 +108,9 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
                                                 using_params(smt, solver_p)),
                                        cond(mk_is_qfbv_probe(),
                                             and_then(mk_bit_blaster_tactic(m),
+                                                     // TODO: non-deterministic parameter evaluation
                                                      when(mk_lt(mk_memory_probe(), mk_const_probe(MEMLIMIT)),
+                                                          // TODO: non-deterministic parameter evaluation
                                                           and_then(using_params(and_then(mk_simplify_tactic(m),
                                                                                          mk_solve_eqs_tactic(m)),
                                                                                 local_ctx_p),
@@ -122,7 +125,9 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
 
 
 tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
+    // TODO: non-deterministic parameter evaluation
     tactic * new_sat = cond(mk_produce_proofs_probe(),
+                            // TODO: non-deterministic parameter evaluation
                             and_then(mk_simplify_tactic(m), mk_smt_tactic(m, p)),
                             mk_psat_tactic(m, p));
     return mk_qfbv_tactic(m, p, new_sat, mk_smt_tactic(m, p));

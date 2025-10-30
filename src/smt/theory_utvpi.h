@@ -171,6 +171,7 @@ namespace smt {
         struct var_value_eq {
             theory_utvpi & m_th;
             var_value_eq(theory_utvpi & th):m_th(th) {}
+            // TODO: non-deterministic parameter evaluation
             bool operator()(theory_var v1, theory_var v2) const { return m_th.mk_value(v1, false) == m_th.mk_value(v2, false) && m_th.is_int(v1) == m_th.is_int(v2); }
         };
 

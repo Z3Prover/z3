@@ -43,10 +43,12 @@ static tactic * mk_quant_preprocessor(ast_manager & m, bool disable_gaussian = f
         solve_eqs = mk_skip_tactic();
     }
     else {
+        // TODO: non-deterministic parameter evaluation
         solve_eqs = when(mk_not(mk_has_pattern_probe()), mk_solve_eqs_tactic(m));
     }
  
     // remark: investigate if gaussian elimination is useful when patterns are not provided.
+    // TODO: non-deterministic parameter evaluation
     return and_then(mk_simplify_tactic(m), 
                     mk_propagate_values_tactic(m),
                     using_params(mk_ctx_simplify_tactic(m), ctx_simp_p),
@@ -61,6 +63,7 @@ static tactic * mk_no_solve_eq_preprocessor(ast_manager & m) {
 }
 
 tactic * mk_ufnia_tactic(ast_manager & m, params_ref const & p) {
+    // TODO: non-deterministic parameter evaluation
     tactic * st = and_then(mk_no_solve_eq_preprocessor(m),
                            mk_qe_lite_tactic(m, p),
                            mk_smt_tactic(m));
@@ -69,6 +72,7 @@ tactic * mk_ufnia_tactic(ast_manager & m, params_ref const & p) {
 }
 
 tactic * mk_uflra_tactic(ast_manager & m, params_ref const & p) {
+    // TODO: non-deterministic parameter evaluation
     tactic * st = and_then(mk_quant_preprocessor(m),
                            mk_smt_tactic(m));
     st->updt_params(p);
@@ -80,6 +84,7 @@ tactic * mk_auflia_tactic(ast_manager & m, params_ref const & p) {
     qi_p.set_str("qi.cost", "0");
     TRACE(qi_cost, qi_p.display(tout); tout << "\n" << qi_p.get_str("qi.cost", "<null>") << "\n";);
     tactic * st = and_then(mk_no_solve_eq_preprocessor(m),
+                           // TODO: non-deterministic parameter evaluation
                            or_else(and_then(fail_if(mk_gt(mk_num_exprs_probe(), mk_const_probe(static_cast<double>(128)))),
                                             using_params(mk_smt_tactic(m), qi_p),
                                             mk_fail_if_undecided_tactic()),
@@ -89,6 +94,7 @@ tactic * mk_auflia_tactic(ast_manager & m, params_ref const & p) {
 }
 
 tactic * mk_auflira_tactic(ast_manager & m, params_ref const & p) {
+    // TODO: non-deterministic parameter evaluation
     tactic * st = and_then(mk_quant_preprocessor(m),
                            mk_smt_tactic(m));
     st->updt_params(p);
@@ -96,6 +102,7 @@ tactic * mk_auflira_tactic(ast_manager & m, params_ref const & p) {
 }
 
 tactic * mk_aufnira_tactic(ast_manager & m, params_ref const & p) {
+    // TODO: non-deterministic parameter evaluation
     tactic * st = and_then(mk_quant_preprocessor(m),
                            mk_smt_tactic(m));
     st->updt_params(p);
@@ -103,10 +110,14 @@ tactic * mk_aufnira_tactic(ast_manager & m, params_ref const & p) {
 }
 
 tactic * mk_lra_tactic(ast_manager & m, params_ref const & p) {
+    // TODO: non-deterministic parameter evaluation
     tactic * st = and_then(mk_quant_preprocessor(m),
                            mk_qe_lite_tactic(m, p),
+                           // TODO: non-deterministic parameter evaluation
                            cond(mk_has_quantifier_probe(), 
+                                // TODO: non-deterministic parameter evaluation
                                 cond(mk_is_lira_probe(),
+                                     // TODO: non-deterministic parameter evaluation
                                      or_else(mk_qsat_tactic(m, p), mk_smt_tactic(m)),
                                      mk_smt_tactic(m)),
                                 mk_smt_tactic(m)));

@@ -48,6 +48,7 @@ static tactic * mk_qfnia_bv_solver(ast_manager & m, params_ref const & p_ref) {
     mem_p.set_uint("max_conflicts", 500);
 
     
+    // TODO: non-deterministic parameter evaluation
     tactic * r = using_params(and_then(mk_simplify_tactic(m),
                                        mk_propagate_values_tactic(m),
                                        using_params(mk_simplify_tactic(m), simp2_p),
@@ -73,6 +74,7 @@ static tactic * mk_qfnia_preamble(ast_manager & m, params_ref const & p_ref) {
     elim_p.set_uint("max_memory",20);
     
     return
+        // TODO: non-deterministic parameter evaluation
         and_then(mk_simplify_tactic(m), 
                  mk_propagate_values_tactic(m),
                  using_params(mk_ctx_simplify_tactic(m), ctx_simp_p),
@@ -89,6 +91,7 @@ static tactic * mk_qfnia_sat_solver(ast_manager & m, params_ref const & p) {
     params_ref simp_p = p;
     simp_p.set_bool("hoist_mul", true); // hoist multipliers to create smaller circuits.
 
+    // TODO: non-deterministic parameter evaluation
     return and_then(using_params(mk_simplify_tactic(m), simp_p),
                     mk_nla2bv_tactic(m, nia2sat_p),
                     skip_if_failed(mk_qfnia_bv_solver(m, p)),
@@ -114,9 +117,11 @@ static tactic * mk_qfnia_smt_solver(ast_manager& m, params_ref const& p) {
 }
 
 tactic * mk_qfnia_tactic(ast_manager & m, params_ref const & p) {
+    // TODO: non-deterministic parameter evaluation
     return and_then(
         mk_report_verbose_tactic("(qfnia-tactic)", 10),
         mk_qfnia_preamble(m, p),
+        // TODO: non-deterministic parameter evaluation
         or_else(mk_qfnia_sat_solver(m, p),
                 try_for(mk_qfnia_smt_solver(m, p), 2000),
                 mk_qfnia_nlsat_solver(m, p),        

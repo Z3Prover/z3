@@ -1295,6 +1295,7 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
     } 
     if (get_divides(arg1, arg2, result)) { 
         expr_ref zero(m_util.mk_int(0), m); 
+        // TODO: non-deterministic parameter evaluation
         result = m.mk_ite(m.mk_eq(zero, arg2), m_util.mk_idiv(arg1, zero), result);
         return BR_REWRITE_FULL; 
     }
@@ -1428,6 +1429,7 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
 
     if (arg1 == arg2 && !is_num2) {
         expr_ref zero(m_util.mk_int(0), m);
+        // TODO: non-deterministic parameter evaluation
         result = m.mk_ite(m.mk_eq(arg2, zero), m_util.mk_mod(zero, zero), zero);
         return BR_DONE;
     }
@@ -1767,6 +1769,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
 
     if (is_num_y && y.is_minus_one()) {        
         result = m_util.mk_div(m_util.mk_real(1), ensure_real(arg1));
+        // TODO: non-deterministic parameter evaluation
         result = m.mk_ite(m.mk_eq(arg1, m_util.mk_numeral(rational(0), m_util.is_int(arg1))),
                             m_util.mk_real(0),
                             result);        
@@ -1777,6 +1780,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         // (^ t -k) --> (^ (/ 1 t) k)
         result = m_util.mk_power(m_util.mk_div(m_util.mk_numeral(rational(1), false), arg1),
                                  m_util.mk_numeral(-y, false));
+        // TODO: non-deterministic parameter evaluation
         result = m.mk_ite(m.mk_eq(arg1, m_util.mk_numeral(rational(0), m_util.is_int(arg1))),
                             m_util.mk_real(0),
                             result);

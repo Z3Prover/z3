@@ -44,6 +44,7 @@ tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p) {
 
     return and_then(
         mk_report_verbose_tactic("(qfnra-nlsat-tactic)", 10),
+        // TODO: non-deterministic parameter evaluation
         and_then(using_params(mk_simplify_tactic(m, p),
                               main_p),
                  using_params(mk_purify_arith_tactic(m, p),
@@ -54,6 +55,7 @@ tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p) {
                  mk_elim_term_ite_tactic(m, p),
                  using_params(mk_purify_arith_tactic(m, p),
                               purify_p)),
+        // TODO: non-deterministic parameter evaluation
         and_then(/* mk_degree_shift_tactic(m, p), */ // may affect full dimensionality detection
             factor,
             mk_solve_eqs_tactic(m, p),

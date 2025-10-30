@@ -892,6 +892,7 @@ namespace opt {
         for (expr * a : asms) 
             g->assert_expr(a, a);
         tactic_ref tac0 = 
+            // TODO: non-deterministic parameter evaluation
             and_then(mk_simplify_tactic(m, m_params), 
                      mk_propagate_values_tactic(m),
                      m_incremental ? mk_skip_tactic() : mk_solve_eqs_tactic(m),

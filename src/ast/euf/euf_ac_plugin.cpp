@@ -1411,6 +1411,7 @@ namespace euf {
                 m_monomial_table.insert(s1.m, s1);
             else if (s2.n->get_root() != s1.n->get_root()) {
                 TRACE(plugin, tout << "merge shared " << g.bpp(s1.n->get_root()) << " and " << g.bpp(s2.n->get_root()) << "\n");
+                // TODO: non-deterministic parameter evaluation
                 push_merge(s1.n, s2.n, justification::dependent(m_dep_manager.mk_join(m_dep_manager.mk_leaf(s1.j), m_dep_manager.mk_leaf(s2.j))));
             }
         }
@@ -1463,6 +1464,7 @@ namespace euf {
     }
 
     justification ac_plugin::join(justification j, eq const& eq) {
+        // TODO: non-deterministic parameter evaluation
         return justification::dependent(m_dep_manager.mk_join(m_dep_manager.mk_leaf(j), m_dep_manager.mk_leaf(eq.j)));
     }
 

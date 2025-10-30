@@ -80,6 +80,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, u_depende
     
     if (!c().is_monic_var(j)) {
         c().insert_to_active_var_set(j);
+        // TODO: non-deterministic parameter evaluation
         return cn.mk_mul(cn.mk_scalar(coeff), cn.mk_var(j));
     }
     const monic& m = c().emons()[j];

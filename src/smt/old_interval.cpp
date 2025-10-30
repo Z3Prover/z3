@@ -274,6 +274,7 @@ interval & interval::operator-=(interval const & other) {
 }
 
 v_dependency * interval::join(v_dependency * d1, v_dependency * d2, v_dependency * d3, v_dependency * d4) {
+    // TODO: non-deterministic parameter evaluation
     return m_manager.mk_join(m_manager.mk_join(d1, d2), m_manager.mk_join(d3,d4));
 }
 

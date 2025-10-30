@@ -625,6 +625,7 @@ void model::add_rec_funs() {
         expr_safe_replace subst(m);
         unsigned arity = f->get_arity();
         for (unsigned i = 0; i < arity; ++i) {
+            // TODO: non-deterministic parameter evaluation
             subst.insert(m.mk_var(arity - i - 1, f->get_domain(i)), m.mk_var(i, f->get_domain(i)));            
         }
         expr_ref bodyr(m);

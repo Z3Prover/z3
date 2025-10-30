@@ -157,6 +157,7 @@ class factor_tactic : public tactic {
                 }
             }
             else {
+                // TODO: non-deterministic parameter evaluation
                 args.push_back(m.mk_app(m_util.get_family_id(), k, mk_mul(odd_factors.size(), odd_factors.data()), mk_zero_for(odd_factors[0])));
             }
             SASSERT(!args.empty());
@@ -188,6 +189,7 @@ class factor_tactic : public tactic {
             m_qm.div(lcm, d2, d2);
             m_qm.neg(d2);
             polynomial_ref p(m_pm);
+            // TODO: non-deterministic parameter evaluation
             p = m_pm.addmul(d1, m_pm.mk_unit(), p1, d2, m_pm.mk_unit(), p2);
             if (is_const(p))
                 return BR_FAILED;

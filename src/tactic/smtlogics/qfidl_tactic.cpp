@@ -55,11 +55,13 @@ tactic * mk_qfidl_tactic(ast_manager & m, params_ref const & p) {
     pull_ite_p.set_bool("local_ctx", true);
     pull_ite_p.set_uint("local_ctx_limit", 10000000);
 
+    // TODO: non-deterministic parameter evaluation
     tactic * preamble_st = and_then(and_then(mk_simplify_tactic(m),
                                              mk_fix_dl_var_tactic(m),
                                              mk_propagate_values_tactic(m),
                                              mk_elim_uncnstr_tactic(m)
                                              ),
+                                    // TODO: non-deterministic parameter evaluation
                                     and_then(mk_solve_eqs_tactic(m),
                                              using_params(mk_simplify_tactic(m), lhs_p),
                                              mk_propagate_values_tactic(m),
@@ -76,6 +78,7 @@ tactic * mk_qfidl_tactic(ast_manager & m, params_ref const & p) {
     // dynamic psm seems to work well.
     bv_solver_p.set_sym("gc", symbol("dyn_psm"));
 
+    // TODO: non-deterministic parameter evaluation
     tactic * bv_solver = using_params(and_then(mk_simplify_tactic(m),
                                                mk_propagate_values_tactic(m),
                                                mk_solve_eqs_tactic(m),
@@ -95,7 +98,11 @@ tactic * mk_qfidl_tactic(ast_manager & m, params_ref const & p) {
     params_ref diff_neq_p;
     diff_neq_p.set_uint("diff_neq_max_k", 25);
 
+    // TODO: non-deterministic parameter evaluation
+    // TODO: non-deterministic parameter evaluation
+    // TODO: non-deterministic parameter evaluation
     tactic * st = cond(mk_and(mk_lt(mk_num_consts_probe(), mk_const_probe(static_cast<double>(BIG_PROBLEM))),
+                              // TODO: non-deterministic parameter evaluation
                               mk_and(mk_not(mk_produce_proofs_probe()),
                                      mk_not(mk_produce_unsat_cores_probe()))),
                        using_params(and_then(preamble_st,

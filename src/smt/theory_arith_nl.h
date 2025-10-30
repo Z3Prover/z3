@@ -217,6 +217,7 @@ interval theory_arith<Ext>::mk_interval_for(theory_var v) {
         if (l->get_value() == u->get_value() && !l->get_value().get_infinitesimal().to_rational().is_zero()) {
             return interval(m_dep_manager);
         }
+        // TODO: non-deterministic parameter evaluation
         return interval(m_dep_manager,
                         l->get_value().get_rational().to_rational(),
                         l->get_value().get_infinitesimal().to_rational().is_pos(),
@@ -1711,6 +1712,7 @@ grobner::monomial * theory_arith<Ext>::mk_gb_monomial(rational const & _coeff, e
         if (is_fixed(_var)) {
             if (!already_found.contains(_var)) {                        
                 already_found.insert(_var);                             
+                // TODO: non-deterministic parameter evaluation
                 dep = m_dep_manager.mk_join(dep, m_dep_manager.mk_join(m_dep_manager.mk_leaf(lower(_var)), m_dep_manager.mk_leaf(upper(_var)))); 
             }                                                           
             coeff *= lower_bound(_var).get_rational().to_rational();    
@@ -1777,6 +1779,7 @@ void theory_arith<Ext>::add_monomial_def_to_gb(theory_var v, grobner & gb) {
         monomials.push_back(new_m);
     rational coeff(-1);
     if (is_fixed(v)) {
+        // TODO: non-deterministic parameter evaluation
         dep = m_dep_manager.mk_join(dep, m_dep_manager.mk_join(m_dep_manager.mk_leaf(lower(v)), m_dep_manager.mk_leaf(upper(v))));
         coeff *= lower_bound(v).get_rational().to_rational();
         if (!coeff.is_zero())

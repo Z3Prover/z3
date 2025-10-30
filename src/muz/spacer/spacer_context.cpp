@@ -714,6 +714,7 @@ pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     m_extend_lit0(m), m_extend_lit(m),
     m_all_init(false), m_has_quantified_frame(false)
 {
+    // TODO: non-deterministic parameter evaluation
     m_solver = alloc(prop_solver, m, ctx.mk_solver0(), ctx.mk_solver1(),
                      ctx.get_params(), head->get_name());
     init_sig ();

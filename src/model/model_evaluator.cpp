@@ -457,6 +457,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 if (interp) {
                     var_subst vs(m, false);
                     result = vs(fi->get_interp(), num, args);
+                    // TODO: non-deterministic parameter evaluation
                     result = m.mk_ite(m.mk_eq(m_au.mk_numeral(rational(0), args[1]->get_sort()), args[1]), result, m.mk_app(f, num, args));
                     return BR_DONE;
                 }

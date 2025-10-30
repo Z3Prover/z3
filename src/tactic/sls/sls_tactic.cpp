@@ -245,6 +245,7 @@ static tactic * mk_preamble(ast_manager & m, params_ref const & p, bool add_nnf)
     gaussian_p.set_uint("gaussian_max_occs", 2); 
 
     return and_then(
+        // TODO: non-deterministic parameter evaluation
         and_then(mk_simplify_tactic(m, p),
             mk_propagate_values_tactic(m),
             using_params(mk_solve_eqs_tactic(m), gaussian_p),
@@ -258,6 +259,7 @@ static tactic * mk_preamble(ast_manager & m, params_ref const & p, bool add_nnf)
 }
 
 tactic * mk_qfbv_sls_tactic(ast_manager & m, params_ref const & p) {
+    // TODO: non-deterministic parameter evaluation
     tactic * t = and_then(mk_preamble(m, p, true), mk_sls_tactic(m, p));
     t->updt_params(p);
     return t;

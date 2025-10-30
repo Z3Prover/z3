@@ -86,6 +86,7 @@ static tactic * mk_bv2sat_tactic(ast_manager & m) {
     // dynamic psm seems to work well.
     solver_p.set_sym("gc", symbol("dyn_psm"));
     
+    // TODO: non-deterministic parameter evaluation
     return using_params(and_then(mk_simplify_tactic(m),
                                  mk_propagate_values_tactic(m),
                                  mk_solve_eqs_tactic(m),
@@ -110,6 +111,7 @@ static tactic * mk_pb_tactic(ast_manager & m) {
         and_then(fail_if_not(mk_is_pb_probe()),
                  fail_if(mk_produce_proofs_probe()),
                  fail_if(mk_produce_unsat_cores_probe()),
+                 // TODO: non-deterministic parameter evaluation
                  or_else(and_then(fail_if(mk_ge(mk_num_exprs_probe(), mk_const_probe(SMALL_SIZE))),
                                   fail_if_not(mk_is_ilp_probe()),
                                   // try_for(mk_mip_tactic(m), 8000),
@@ -129,6 +131,7 @@ static tactic * mk_lia2sat_tactic(ast_manager & m) {
     
     return annotate_tactic(
         "lia2sat-tactic",
+        // TODO: non-deterministic parameter evaluation
         and_then(fail_if(mk_is_unbounded_probe()),
                  fail_if(mk_produce_proofs_probe()),
                  fail_if(mk_produce_unsat_cores_probe()),
@@ -152,6 +155,8 @@ static tactic * mk_ilp_model_finder_tactic(ast_manager & m) {
 
     return annotate_tactic(
         "ilp-model-finder-tactic",
+        // TODO: non-deterministic parameter evaluation
+        // TODO: non-deterministic parameter evaluation
         and_then(fail_if_not(mk_and(mk_is_ilp_probe(), mk_is_unbounded_probe())),
                  fail_if(mk_produce_proofs_probe()),
                  fail_if(mk_produce_unsat_cores_probe()),
@@ -198,6 +203,7 @@ tactic * mk_preamble_tactic(ast_manager& m) {
     lia2card_p.set_uint("lia2card.max_ite_nesting", 1);
 
     return
+        // TODO: non-deterministic parameter evaluation
         and_then(
             mk_simplify_tactic(m),
             mk_propagate_values_tactic(m),
@@ -228,6 +234,7 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
         and_then(
             mk_preamble_tactic(m),
             using_params(mk_simplify_tactic(m), lhs_p),
+            // TODO: non-deterministic parameter evaluation
             or_else(mk_ilp_model_finder_tactic(m),
                 mk_pb_tactic(m),
                 and_then(fail_if_not(mk_is_quasi_pb_probe()),

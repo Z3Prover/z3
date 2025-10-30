@@ -150,6 +150,7 @@ static tactic * mk_qfufbv_preamble1(ast_manager & m, params_ref const & p) {
     ctx_simp_p.set_uint("max_depth", 32);
     ctx_simp_p.set_uint("max_steps", 5000000);
 
+    // TODO: non-deterministic parameter evaluation
     return and_then(
         using_params(mk_simplify_tactic(m), flat_and_or_p),
         using_params(mk_propagate_values_tactic(m), flat_and_or_p),
@@ -166,6 +167,7 @@ static tactic * mk_qfufbv_preamble1(ast_manager & m, params_ref const & p) {
 static tactic * mk_qfufbv_preamble(ast_manager & m, params_ref const & p) {
     params_ref simp2_p = p, flat_and_or_p = p;
     flat_and_or_p.set_bool("flat_and_or", false);
+    // TODO: non-deterministic parameter evaluation
     return and_then(using_params(mk_simplify_tactic(m), flat_and_or_p),
                     using_params(mk_propagate_values_tactic(m), flat_and_or_p),
                     mk_solve_eqs_tactic(m),
@@ -186,6 +188,7 @@ tactic * mk_qfufbv_tactic(ast_manager & m, params_ref const & p) {
 
     tactic * st = using_params(
         and_then(preamble_st,
+                 // TODO: non-deterministic parameter evaluation
                  cond(mk_is_qfbv_probe(), 
                       mk_qfbv_tactic(m), 
                       mk_smt_tactic(m, p))),
@@ -200,5 +203,6 @@ tactic * mk_qfufbv_ackr_tactic(ast_manager & m, params_ref const & p) {
 
     tactic * const actual_tactic = alloc(qfufbv_ackr_tactic, m, p);
     return and_then(preamble_t,
+                    // TODO: non-deterministic parameter evaluation
                     cond(mk_is_qfufbv_probe(), actual_tactic, mk_smt_tactic(m, p)));
 }

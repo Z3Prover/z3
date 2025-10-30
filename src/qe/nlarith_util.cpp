@@ -555,6 +555,7 @@ namespace nlarith {
                       tout << " 0 [-oo] --> " << mk_pp(t1.get(), m()) << "\n";);
             }
             TRACE(nlarith, tout << "inf-branch\n";);
+            // TODO: non-deterministic parameter evaluation
             bc.add_branch(mk_and(es.size(), es.data()), m().mk_true(), subst, mk_inf(bc), z(), z(), z());
         }
 
@@ -587,6 +588,7 @@ namespace nlarith {
                     es.push_back(m().mk_implies(bc.preds(k), t2));
                     subst.push_back(t1);
                 }
+                // TODO: non-deterministic parameter evaluation
                 bc.add_branch(mk_and(es.size(), es.data()), cond, subst, mk_def(cmp, abc_poly(*this, z(), b, c), e0), a, b, c);
             }
 
@@ -606,6 +608,7 @@ namespace nlarith {
                     es.push_back(m().mk_implies(bc.preds(k), t1));
                     subst.push_back(t1);
                 }
+                // TODO: non-deterministic parameter evaluation
                 bc.add_branch(mk_and(es.size(), es.data()), cond, subst, mk_def(cmp, abc_poly(*this, a2, b, z()),e1), a, b, c);
             }
         }

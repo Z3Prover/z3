@@ -585,6 +585,7 @@ br_status bv2real_rewriter::mk_ite(expr* c, expr* s, expr* t, expr_ref& result) 
         u().align_divisors(s1, s2, t1, t2, d1, d2);
         u().align_sizes(s1, t1);
         u().align_sizes(s2, t2);
+        // TODO: non-deterministic parameter evaluation
         if (u().mk_bv2real(m().mk_ite(c, s1, t1), m().mk_ite(c, s2, t2), d1, r1, result)) {
             return BR_DONE;
         }
@@ -614,6 +615,7 @@ br_status bv2real_rewriter::mk_uminus(expr * s, expr_ref & result) {
     if (u().is_bv2real(s, s1, s2, d1, r1)) {
         s1 = u().mk_extend(1, s1);
         s2 = u().mk_extend(1, s2);
+        // TODO: non-deterministic parameter evaluation
         if (u().mk_bv2real(m_bv.mk_bv_neg(s1), m_bv.mk_bv_neg(s2), d1, r1, result)) {
             return BR_DONE;
         }
@@ -636,6 +638,7 @@ br_status bv2real_rewriter::mk_add(expr* s, expr* t, expr_ref& result) {
     rational d1, d2, r1, r2;
     if (u().is_bv2real(s, s1, s2, d1, r1) && u().is_bv2real(t, t1, t2, d2, r2) && r1 == r2) {
         u().align_divisors(s1, s2, t1, t2, d1, d2);
+        // TODO: non-deterministic parameter evaluation
         if (u().mk_bv2real(u().mk_bv_add(s1, t1), u().mk_bv_add(t2, s2), d1, r1, result)) {
             return BR_DONE;
         }
@@ -696,6 +699,7 @@ br_status bv2real_rewriter::mk_sub(expr* s, expr* t, expr_ref& result) {
     rational d1, d2, r1, r2;
     if (u().is_bv2real(s, s1, s2, d1, r1) && u().is_bv2real(t, t1, t2, d2, r2) && r1 == r2) {
         u().align_divisors(s1, s2, t1, t2, d1, d2);
+        // TODO: non-deterministic parameter evaluation
         if (u().mk_bv2real(u().mk_bv_sub(s1, t1), u().mk_bv_sub(s2, t2), d1, r1, result)) {
             return BR_DONE;
         }
