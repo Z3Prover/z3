@@ -187,7 +187,7 @@ namespace smt {
                 param_generator(parallel& p);
                 lbool run_prefix_step();
                 void protocol_iteration();
-                void replay_proof_prefixes(unsigned max_conflicts_epsilon);
+                unsigned replay_proof_prefixes(vector<smt_params> candidate_param_states, unsigned max_conflicts_epsilon);
 
                 reslimit& limit() {
                     return m.limit();
