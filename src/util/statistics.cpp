@@ -81,6 +81,21 @@ struct str_lt {
 typedef map<char const *, unsigned, str_hash_proc, str_eq_proc> key2val;
 typedef map<char const *, double, str_hash_proc, str_eq_proc> key2dval;
 
+double statistics::get_val(char const * key) const {
+    key2val m_u;
+    key2dval m_d;
+    mk_map(m_stats, m_u);
+    mk_map(m_d_stats, m_d);
+
+    unsigned val = 0;
+    double dval = 0.0;
+    if (m_u.find(key, val))
+        return static_cast<double>(val);
+    if (m_d.find(key, dval))
+        return dval;
+    return 0.0;
+}
+
 unsigned get_max_len(ptr_buffer<char> & keys) {
     unsigned max = 0;
     for (unsigned i = 0; i < static_cast<unsigned>(keys.size()); i++) {

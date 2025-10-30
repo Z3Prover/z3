@@ -113,11 +113,9 @@ namespace smt {
                 ::statistics st;
                 probe_ctx->collect_statistics(st);
                 unsigned conflicts = 0, decisions = 0, rlimit = 0;
-
-                // I can't figure out how to access the statistics fields, I only see an update method
-                // st.get_uint("conflicts", conflicts);
-                // st.get_uint("decisions", decisions);
-                // st.get_uint("rlimit count", rlimit);
+                conflicts = st.get_val("conflicts");
+                decisions = st.get_val("decisions");
+                rlimit = st.get_val("rlimit count");
                 score += conflicts + decisions + rlimit;
             }
 
