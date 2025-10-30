@@ -70,11 +70,14 @@ namespace smt {
         lbool r = l_undef;
         try {
             r = ctx->check();
-        } catch (z3_error &err) {
+        } 
+        catch (z3_error &err) {
             b.set_exception(err.error_code());
-        } catch (z3_exception &ex) {
+        } 
+        catch (z3_exception &ex) {
             b.set_exception(ex.what());
-        } catch (...) {
+        } 
+        catch (...) {
             b.set_exception("unknown exception");
         }
         return r;
@@ -130,6 +133,52 @@ namespace smt {
         return best_param_state_idx;
     }
 
+    void parallel::param_generator::init_param_state() {
+        // param_descrs smt_desc;
+        // smt_params_helper::collect_param_descrs(smt_desc);
+        smt_params_helper smtp(m_p);
+        m_my_param_state.insert(symbol("smt.arith.nl.branching"), smtp.arith_nl_branching());
+        m_my_param_state.insert(symbol("smt.arith.nl.cross_nested"), smtp.arith_nl_cross_nested());
+        m_my_param_state.insert(symbol("smt.arith.nl.delay"), smtp.arith_nl_delay());
+        m_my_param_state.insert(symbol("smt.arith.nl.expensive_patching"), smtp.arith_nl_expensive_patching());
+        m_my_param_state.insert(symbol("smt.arith.nl.gb"), smtp.arith_nl_gb());
+        m_my_param_state.insert(symbol("smt.arith.nl.horner"), smtp.arith_nl_horner());
+        m_my_param_state.insert(symbol("smt.arith.nl.horner_frequency"), smtp.arith_nl_horner_frequency());
+        m_my_param_state.insert(symbol("smt.arith.nl.optimize_bounds"), smtp.arith_nl_optimize_bounds());
+        m_my_param_state.insert(symbol("smt.arith.nl.propagate_linear_monomials"), smtp.arith_nl_propagate_linear_monomials());
+        m_my_param_state.insert(symbol("smt.arith.nl.tangents"), smtp.arith_nl_tangents());
+    };
+
+    // TODO: this should mutate only one field at a time an mutate it based on m_my_param_state to keep it generic.
+
+    smt_params parallel::param_generator::mutate_param_state() {
+        smt_params p = m_param_state;
+        random_gen m_rand;
+
+        auto flip_bool = [&](bool &x) {
+            if (m_rand(2) == 0)
+                x = !x;
+        };
+
+        auto mutate_uint = [&](unsigned &x, unsigned lo, unsigned hi) {
+            if ((m_rand() % 2) == 0)
+                x = lo + (m_rand((hi - lo + 1)));
+        };
+
+        flip_bool(p.m_nl_arith_branching);
+        flip_bool(p.m_nl_arith_cross_nested);
+        mutate_uint(p.m_nl_arith_delay, 5, 20);
+        flip_bool(p.m_nl_arith_expensive_patching);
+        flip_bool(p.m_nl_arith_gb);
+        flip_bool(p.m_nl_arith_horner);
+        mutate_uint(p.m_nl_arith_horner_frequency, 2, 6);
+        flip_bool(p.m_nl_arith_optimize_bounds);
+        flip_bool(p.m_nl_arith_propagate_linear_monomials);
+        flip_bool(p.m_nl_arith_tangents);
+
+        return p;
+    }
+
     void parallel::param_generator::protocol_iteration() {
         IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running protocol iteration\n");
         ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
@@ -144,6 +193,8 @@ namespace smt {
 
         switch (r) {
             case l_undef: {
+            // TODO, change from smt_params to a generic param state representation based on params_ref
+                // only params_ref have effect on updates.
                 smt_params best_param_state = m_param_state;
                 vector<smt_params> candidate_param_states;
 

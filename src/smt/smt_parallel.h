@@ -20,6 +20,7 @@ Revision History:
 
 #include "smt/smt_context.h"
 #include "util/search_tree.h"
+#include <variant>
 // #include "util/util.h"
 #include <thread>
 #include <mutex>
@@ -127,74 +128,37 @@ namespace smt {
         // 4. update current configuration with the winner
 
         class param_generator {
-            parallel& p;
-            batch_manager& b;
+            parallel &p;
+            batch_manager &b;
             ast_manager m;
             scoped_ptr<context> ctx;
             ast_translation m_l2g;
-            
-            unsigned N = 4; // number of prefix permutations to test (including current)
+
+            unsigned N = 4;  // number of prefix permutations to test (including current)
             unsigned m_max_prefix_conflicts = 1000;
-            
+
             scoped_ptr<context> m_prefix_solver;
             scoped_ptr_vector<context> m_param_probe_contexts;
             smt_params m_param_state;
             params_ref m_p;
-            
-            private:
-                void init_param_state() {
-                    m_param_state.m_nl_arith_branching = true;
-                    m_param_state.m_nl_arith_cross_nested = true;
-                    m_param_state.m_nl_arith_delay = 10;
-                    m_param_state.m_nl_arith_expensive_patching = false;
-                    m_param_state.m_nl_arith_gb = true;
-                    m_param_state.m_nl_arith_horner = true;
-                    m_param_state.m_nl_arith_horner_frequency = 4;
-                    m_param_state.m_nl_arith_optimize_bounds = true;
-                    m_param_state.m_nl_arith_propagate_linear_monomials = true;
-                    m_param_state.m_nl_arith_tangents = true;
 
-                    m_param_state.updt_params(m_p);
-                    ctx->updt_params(m_p);
-                };
+            using param_value = std::variant<unsigned, bool, double>;
+            symbol_table<param_value> m_my_param_state;
 
-                smt_params mutate_param_state() {
-                    smt_params p = m_param_state;
-                    random_gen m_rand;
+        private:
+            void init_param_state();
 
-                    auto flip_bool = [&](bool &x) {
-                        if ((m_rand() % 2) == 0)
-                            x = !x;
-                    };
+            smt_params mutate_param_state();
 
-                    auto mutate_uint = [&](unsigned &x, unsigned lo, unsigned hi) {
-                        if ((m_rand() % 2) == 0)
-                            x = lo + (m_rand() % (hi - lo + 1));
-                    };
+        public:
+            param_generator(parallel &p);
+            lbool run_prefix_step();
+            void protocol_iteration();
+            unsigned replay_proof_prefixes(vector<smt_params> candidate_param_states, unsigned max_conflicts_epsilon);
 
-                    flip_bool(p.m_nl_arith_branching);
-                    flip_bool(p.m_nl_arith_cross_nested);
-                    mutate_uint(p.m_nl_arith_delay, 5, 20);
-                    flip_bool(p.m_nl_arith_expensive_patching);
-                    flip_bool(p.m_nl_arith_gb);
-                    flip_bool(p.m_nl_arith_horner);
-                    mutate_uint(p.m_nl_arith_horner_frequency, 2, 6);
-                    flip_bool(p.m_nl_arith_optimize_bounds);
-                    flip_bool(p.m_nl_arith_propagate_linear_monomials);
-                    flip_bool(p.m_nl_arith_tangents);
-
-                    return p;
-                }
-
-            public:
-                param_generator(parallel& p);
-                lbool run_prefix_step();
-                void protocol_iteration();
-                unsigned replay_proof_prefixes(vector<smt_params> candidate_param_states, unsigned max_conflicts_epsilon);
-
-                reslimit& limit() {
-                    return m.limit();
-                }
+            reslimit &limit() {
+                return m.limit();
+            }
         };
 
         class worker {
