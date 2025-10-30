@@ -167,8 +167,11 @@ namespace euf {
         unsigned lo, hi;
         for (enode* p : enode_parents(x)) {
             if (is_concat(p, a, b) && is_value(a) && is_value(b))
-                // TODO: non-deterministic parameter evaluation
-                push_merge(mk_concat(a->get_interpreted(), b->get_interpreted()), mk_value_concat(a, b));
+            {
+                enode* concat_interp = mk_concat(a->get_interpreted(), b->get_interpreted());
+                enode* concat_value = mk_value_concat(a, b);
+                push_merge(concat_interp, concat_value);
+            }
 
             if (is_extract(p, lo, hi)) {
                 auto val_p = mod2k(machine_div2k(val_x, lo), hi - lo + 1);
@@ -182,8 +185,8 @@ namespace euf {
             if (is_concat(sib, a, b)) {
                 auto val_a = machine_div2k(val_x, width(b));
                 auto val_b = mod2k(val_x, width(b));
-                // TODO: non-deterministic parameter evaluation
-                push_merge(mk_concat(mk_value(val_a, width(a)), mk_value(val_b, width(b))), x->get_interpreted());
+                enode* concat_value = mk_concat(mk_value(val_a, width(a)), mk_value(val_b, width(b)));
+                push_merge(concat_value, x->get_interpreted());
             }
         }
     }
@@ -216,9 +219,11 @@ namespace euf {
                 if (is_extract(p1, lo_, hi_) && lo_ == lo && hi_ == hi && p1->get_arg(0)->get_root() == arg_r)
                     return;
             // add the axiom instead of merge(p, mk_extract(arg, lo, hi)), which would require tracking justifications
-            // TODO: non-deterministic parameter evaluation
-            // TODO: non-deterministic parameter evaluation
-            push_merge(mk_concat(mk_extract(arg, mid + 1, hi), mk_extract(arg, lo, mid)), mk_extract(arg, lo, hi));
+            enode* high = mk_extract(arg, mid + 1, hi);
+            enode* low = mk_extract(arg, lo, mid);
+            enode* concat = mk_concat(high, low);
+            enode* whole = mk_extract(arg, lo, hi);
+            push_merge(concat, whole);
         };
 
         auto propagate_above = [&](enode* b) {

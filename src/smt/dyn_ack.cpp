@@ -482,11 +482,13 @@ namespace smt {
         clause_del_eh * del_eh = alloc(dyn_ack_clause_del_eh, *this);
         justification * js = nullptr;
         if (m.proofs_enabled()) {
-            // TODO: non-deterministic parameter evaluation
+            app_ref eq_n1_r(m.mk_eq(n1, r), m);
+            app_ref eq_n2_r(m.mk_eq(n2, r), m);
+            app_ref eq_n1_n2(m.mk_eq(n1, n2), m);
             js = alloc(dyn_ack_eq_justification, n1, n2, r, 
-                       m.mk_eq(n1, r),
-                       m.mk_eq(n2, r),
-                       m.mk_eq(n1, n2));
+                       eq_n1_r.get(),
+                       eq_n2_r.get(),
+                       eq_n1_n2.get());
         }
         ctx.mark_as_relevant(eq1);
         ctx.mark_as_relevant(eq2);

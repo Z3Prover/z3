@@ -57,26 +57,40 @@ static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
     hoist_p.set_bool("som", false);
     hoist_p.set_bool("flat_and_or", false);
 
-    return
-        // TODO: non-deterministic parameter evaluation
-        and_then(
-            using_params(mk_simplify_tactic(m), flat_and_or_p),
-            using_params(mk_propagate_values_tactic(m), flat_and_or_p),
-            using_params(mk_solve_eqs_tactic(m), solve_eq_p),
-            mk_elim_uncnstr_tactic(m),
-            if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
-            using_params(mk_simplify_tactic(m), simp2_p),
+    tactic* simplify1 = mk_simplify_tactic(m);
+    tactic* simplify1_param = using_params(simplify1, flat_and_or_p);
+    tactic* propagate = mk_propagate_values_tactic(m);
+    tactic* propagate_param = using_params(propagate, flat_and_or_p);
+    tactic* solve_eqs = mk_solve_eqs_tactic(m);
+    tactic* solve_eqs_param = using_params(solve_eqs, solve_eq_p);
+    tactic* elim_unc = mk_elim_uncnstr_tactic(m);
+    tactic* size_reduction = mk_bv_size_reduction_tactic(m);
+    tactic* guarded_size = if_no_proofs(if_no_unsat_cores(size_reduction));
+    tactic* simplify2 = mk_simplify_tactic(m);
+    tactic* simplify2_param = using_params(simplify2, simp2_p);
+    tactic* simplify3 = mk_simplify_tactic(m);
+    tactic* simplify3_param = using_params(simplify3, hoist_p);
+    tactic* max_sharing = mk_max_bv_sharing_tactic(m);
+    tactic* ackermann = mk_ackermannize_bv_tactic(m,p);
+    tactic* guarded_ackermann = if_no_proofs(if_no_unsat_cores(ackermann));
 
-            //
-            // Z3 can solve a couple of extra benchmarks by using hoist_mul
-            // but the timeout in SMT-COMP is too small.
-            // Moreover, it impacted negatively some easy benchmarks.
-            // We should decide later, if we keep it or not.
-            //
-            using_params(mk_simplify_tactic(m), hoist_p),
-            mk_max_bv_sharing_tactic(m),
-            if_no_proofs(if_no_unsat_cores(mk_ackermannize_bv_tactic(m,p)))
-            );
+    //
+    // Z3 can solve a couple of extra benchmarks by using hoist_mul
+    // but the timeout in SMT-COMP is too small.
+    // Moreover, it impacted negatively some easy benchmarks.
+    // We should decide later, if we keep it or not.
+    //
+    return and_then(
+        simplify1_param,
+        propagate_param,
+        solve_eqs_param,
+        elim_unc,
+        guarded_size,
+        simplify2_param,
+        simplify3_param,
+        max_sharing,
+        guarded_ackermann
+        );
 }
 
 static tactic * main_p(tactic* t) {
@@ -99,24 +113,32 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
     solver_p.set_bool("preprocess", false); // preprocessor of smt::context is not needed.
 
     tactic* preamble_st = mk_qfbv_preamble(m, p);
-    tactic * st = main_p(and_then(preamble_st,
-                                  // If the user sets HI_DIV0=false, then the formula may contain uninterpreted function
-                                  // symbols. In this case, we should not use the `sat', but instead `smt'. Alternatively,
-                                  // the UFs can be eliminated by eager ackermannization in the preamble.
-                                  cond(mk_is_qfbv_eq_probe(),
-                                       and_then(mk_bv1_blaster_tactic(m),
-                                                using_params(smt, solver_p)),
-                                       cond(mk_is_qfbv_probe(),
-                                            and_then(mk_bit_blaster_tactic(m),
-                                                     // TODO: non-deterministic parameter evaluation
-                                                     when(mk_lt(mk_memory_probe(), mk_const_probe(MEMLIMIT)),
-                                                          // TODO: non-deterministic parameter evaluation
-                                                          and_then(using_params(and_then(mk_simplify_tactic(m),
-                                                                                         mk_solve_eqs_tactic(m)),
-                                                                                local_ctx_p),
-                                                                   if_no_proofs(mk_aig_tactic()))),
-                                                     sat),
-                                            smt))));
+    tactic* bv1_blaster = mk_bv1_blaster_tactic(m);
+    tactic* smt_with_solver = using_params(smt, solver_p);
+    tactic* eq_branch = and_then(bv1_blaster, smt_with_solver);
+
+    tactic* bit_blaster = mk_bit_blaster_tactic(m);
+    probe* memory_probe = mk_memory_probe();
+    probe* mem_limit = mk_const_probe(MEMLIMIT);
+    probe* memory_ok = mk_lt(memory_probe, mem_limit);
+
+    tactic* simplify4 = mk_simplify_tactic(m);
+    tactic* solve_eqs4 = mk_solve_eqs_tactic(m);
+    tactic* simplify_and_solve = and_then(simplify4, solve_eqs4);
+    tactic* simplify_and_solve_with_params = using_params(simplify_and_solve, local_ctx_p);
+    tactic* aig = mk_aig_tactic();
+    tactic* guarded_aig = if_no_proofs(aig);
+    tactic* memory_branch = and_then(simplify_and_solve_with_params, guarded_aig);
+    tactic* when_memory = when(memory_ok, memory_branch);
+
+    tactic* bit_branch = and_then(bit_blaster, when_memory, sat);
+    tactic* standard_branch = cond(mk_is_qfbv_probe(), bit_branch, smt);
+
+    tactic* combined = cond(mk_is_qfbv_eq_probe(),
+                            eq_branch,
+                            standard_branch);
+
+    tactic * st = main_p(and_then(preamble_st, combined));
 
     st->updt_params(p);
     return st;
@@ -125,11 +147,14 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
 
 
 tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
-    // TODO: non-deterministic parameter evaluation
-    tactic * new_sat = cond(mk_produce_proofs_probe(),
-                            // TODO: non-deterministic parameter evaluation
-                            and_then(mk_simplify_tactic(m), mk_smt_tactic(m, p)),
-                            mk_psat_tactic(m, p));
+    tactic* simplify = mk_simplify_tactic(m);
+    tactic* smt = mk_smt_tactic(m, p);
+    tactic* simplify_then_smt = and_then(simplify, smt);
+    probe* produce_proofs = mk_produce_proofs_probe();
+    tactic* psat = mk_psat_tactic(m, p);
+    tactic * new_sat = cond(produce_proofs,
+                            simplify_then_smt,
+                            psat);
     return mk_qfbv_tactic(m, p, new_sat, mk_smt_tactic(m, p));
 
 }

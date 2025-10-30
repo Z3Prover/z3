@@ -29,16 +29,20 @@ tactic * mk_qfauflia_tactic(ast_manager & m, params_ref const & p) {
     main_p.set_bool("elim_and", true);
     main_p.set_bool("som", true);
     main_p.set_bool("sort_store", true);
-    
+
     params_ref solver_p;
     solver_p.set_bool("array.simplify", false); // disable array simplifications at old_simplify module
 
-    // TODO: non-deterministic parameter evaluation
-    tactic * preamble_st = and_then(mk_simplify_tactic(m),
-                                    mk_propagate_values_tactic(m),
-                                    mk_solve_eqs_tactic(m),
-                                    mk_elim_uncnstr_tactic(m),
-                                    mk_simplify_tactic(m)
+    tactic* simplify1 = mk_simplify_tactic(m);
+    tactic* propagate = mk_propagate_values_tactic(m);
+    tactic* solve_eqs = mk_solve_eqs_tactic(m);
+    tactic* elim_unc = mk_elim_uncnstr_tactic(m);
+    tactic* simplify2 = mk_simplify_tactic(m);
+    tactic * preamble_st = and_then(simplify1,
+                                    propagate,
+                                    solve_eqs,
+                                    elim_unc,
+                                    simplify2
                                     );
     
     tactic * st = and_then(using_params(preamble_st, main_p),
