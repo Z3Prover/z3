@@ -139,7 +139,7 @@ namespace smt {
         m_my_param_state.insert(symbol("smt.arith.nl.cross_nested"), smtp.arith_nl_cross_nested());
         m_my_param_state.insert(symbol("smt.arith.nl.delay"), smtp.arith_nl_delay());
         m_my_param_state.insert(symbol("smt.arith.nl.expensive_patching"), smtp.arith_nl_expensive_patching());
-        m_my_param_state.insert(symbol("smt.arith.nl.gb"), smtp.arith_nl_gb());
+        // m_my_param_state.insert(symbol("smt.arith.nl.gb"), smtp.arith_nl_gb());
         m_my_param_state.insert(symbol("smt.arith.nl.horner"), smtp.arith_nl_horner());
         m_my_param_state.insert(symbol("smt.arith.nl.horner_frequency"), smtp.arith_nl_horner_frequency());
         m_my_param_state.insert(symbol("smt.arith.nl.optimize_bounds"), smtp.arith_nl_optimize_bounds());
