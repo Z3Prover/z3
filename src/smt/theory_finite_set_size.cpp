@@ -302,7 +302,7 @@ namespace smt {
     *    Enumerate all satisfying assignments to m_solver for atoms based on |s|
     *    Extract Core from enumeration
     *    Assert Core => |s_i| = sum_ij n_ij for each |s_i| cardinality expression
-    *    NB. Soundness of using Core has not been rigorously established.    
+    *    NB. Soundness of using Core has not been rigorously established.   
     * 2. We can check with theory_lra if slack_sums constraints are linear
     *    feasible. If they are we can possibly terminate by extracting a model
     *    If they are infeasible, temporarily strengthen m_solver using the negation of unsat core
