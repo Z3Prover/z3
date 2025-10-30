@@ -784,10 +784,12 @@ Notes:
             }
             
             // result => xs[0] + ... + xs[n-1] <= 1
+            literal not_result = mk_not(result);
             for (unsigned i = 0; i < n; ++i) {
                 for (unsigned j = i + 1; j < n; ++j) {
-                    // TODO: non-deterministic parameter evaluation
-                    add_clause(mk_not(result), mk_not(xs[i]), mk_not(xs[j]));
+                    literal not_xi = mk_not(xs[i]);
+                    literal not_xj = mk_not(xs[j]);
+                    add_clause(not_result, not_xi, not_xj);
                 }
             }            
 
@@ -876,10 +878,12 @@ Notes:
             for (unsigned i = 0; i + 2 < n; ++i) {
                 add_clause(mk_not(ys[i]), ys[i + 1]);
             }
+            literal not_r = mk_not(r);
             for (unsigned i = 0; i + 1 < n; ++i) {
                 add_clause(mk_not(xs[i]), ys[i]);
-                // TODO: non-deterministic parameter evaluation
-                add_clause(mk_not(r), mk_not(ys[i]), mk_not(xs[i + 1]));
+                literal not_yi = mk_not(ys[i]);
+                literal not_x_next = mk_not(xs[i + 1]);
+                add_clause(not_r, not_yi, not_x_next);
             }
 
             if (is_eq) {
@@ -903,10 +907,11 @@ Notes:
                 }
                 if (is_eq) {
                     literal zero = fresh("zero");
-                    // TODO: non-deterministic parameter evaluation
-                    add_clause(mk_not(zero), mk_not(xs[n-1]));
-                    // TODO: non-deterministic parameter evaluation
-                    add_clause(mk_not(zero), mk_not(ys[n-2]));
+                    literal not_zero = mk_not(zero);
+                    literal not_x_last = mk_not(xs[n-1]);
+                    literal not_y_last = mk_not(ys[n-2]);
+                    add_clause(not_zero, not_x_last);
+                    add_clause(not_zero, not_y_last);
                     add_clause(r, zero, twos.back());
                 }
                 else {
@@ -940,11 +945,13 @@ Notes:
             for (unsigned k = 0; k < nbits; ++k) {
                 bits.push_back(fresh("bit"));
             }
+            literal not_result = mk_not(result);
             for (unsigned i = 0; i < ors.size(); ++i) {
                 for (unsigned k = 0; k < nbits; ++k) {
                     bool bit_set = (i & (static_cast<unsigned>(1 << k))) != 0;
-                    // TODO: non-deterministic parameter evaluation
-                    add_clause(mk_not(result), mk_not(ors[i]), bit_set ? bits[k] : mk_not(bits[k]));
+                    literal not_or = mk_not(ors[i]);
+                    literal bit_lit = bit_set ? bits[k] : mk_not(bits[k]);
+                    add_clause(not_result, not_or, bit_lit);
                 }
             }            
             return result;
@@ -1041,8 +1048,9 @@ Notes:
         void cmp_le(literal x1, literal x2, literal y1, literal y2) {
             add_clause(mk_not(x1), y1);
             add_clause(mk_not(x2), y1);
-            // TODO: non-deterministic parameter evaluation
-            add_clause(mk_not(x1), mk_not(x2), y2);
+            literal not_x1 = mk_not(x1);
+            literal not_x2 = mk_not(x2);
+            add_clause(not_x1, not_x2, y2);
         }
 
         void cmp_eq(literal x1, literal x2, literal y1, literal y2) {
@@ -1421,8 +1429,10 @@ Notes:
                 }
                 for (unsigned i = 1; i <= a; ++i) {
                     for (unsigned j = 1; j <= b && i + j <= c; ++j) {
-                        // TODO: non-deterministic parameter evaluation
-                        add_clause(mk_not(as[i-1]),mk_not(bs[j-1]),out[i+j-1]);
+                        literal not_ai = mk_not(as[i-1]);
+                        literal not_bj = mk_not(bs[j-1]);
+                        literal out_lit = out[i + j - 1];
+                        add_clause(not_ai, not_bj, out_lit);
                     }
                 }
             }

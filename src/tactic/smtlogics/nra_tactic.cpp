@@ -35,20 +35,30 @@ tactic * mk_nra_tactic(ast_manager & m, params_ref const& p) {
     p2.set_uint("seed", 13);
     p2.set_bool("factor", false);
 
-    // TODO: non-deterministic parameter evaluation
-    return and_then(
-        mk_simplify_tactic(m, p),
-        mk_propagate_values_tactic(m, p),
-        mk_qe_lite_tactic(m),
-        mk_simplify_tactic(m, p),
-        cond(mk_is_qfnra_probe(),
-             or_else(try_for(mk_qfnra_nlsat_tactic(m, p), 5000),
-                     try_for(mk_qfnra_nlsat_tactic(m, p1), 10000),
-                     mk_qfnra_nlsat_tactic(m, p2)),
-             // TODO: non-deterministic parameter evaluation
-             or_else(mk_nlqsat_tactic(m, p),
-                     mk_smt_tactic(m, p))
-             ));
-}
+    tactic* simplify1 = mk_simplify_tactic(m, p);
+    tactic* propagate = mk_propagate_values_tactic(m, p);
+    tactic* qe_lite = mk_qe_lite_tactic(m);
+    tactic* simplify2 = mk_simplify_tactic(m, p);
 
+    tactic* qfnra_main = mk_qfnra_nlsat_tactic(m, p);
+    tactic* try_qfnra_main = try_for(qfnra_main, 5000);
+    tactic* qfnra_alt1 = mk_qfnra_nlsat_tactic(m, p1);
+    tactic* try_qfnra_alt1 = try_for(qfnra_alt1, 10000);
+    tactic* qfnra_alt2 = mk_qfnra_nlsat_tactic(m, p2);
+    tactic* qfnra_branch = or_else(try_qfnra_main, try_qfnra_alt1, qfnra_alt2);
+
+    tactic* nlqsat = mk_nlqsat_tactic(m, p);
+    tactic* smt = mk_smt_tactic(m, p);
+    tactic* fallback_branch = or_else(nlqsat, smt);
+
+    probe* qfnra_probe = mk_is_qfnra_probe();
+    tactic* conditional = cond(qfnra_probe, qfnra_branch, fallback_branch);
+
+    return and_then(
+        simplify1,
+        propagate,
+        qe_lite,
+        simplify2,
+        conditional);
+}
 
