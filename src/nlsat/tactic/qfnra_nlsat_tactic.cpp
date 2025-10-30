@@ -42,30 +42,47 @@ tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p) {
     else
         factor = mk_skip_tactic();
 
-    return and_then(
-        mk_report_verbose_tactic("(qfnra-nlsat-tactic)", 10),
-        // TODO: non-deterministic parameter evaluation
-        and_then(using_params(mk_simplify_tactic(m, p),
-                              main_p),
-                 using_params(mk_purify_arith_tactic(m, p),
-                              purify_p),
-                 mk_propagate_values_tactic(m, p),
-                 mk_solve_eqs_tactic(m, p),
-                 mk_elim_uncnstr_tactic(m, p),
-                 mk_elim_term_ite_tactic(m, p),
-                 using_params(mk_purify_arith_tactic(m, p),
-                              purify_p)),
-        // TODO: non-deterministic parameter evaluation
-        and_then(/* mk_degree_shift_tactic(m, p), */ // may affect full dimensionality detection
-            factor,
-            mk_solve_eqs_tactic(m, p),
-            using_params(mk_purify_arith_tactic(m, p),
-                         purify_p),
-            using_params(mk_simplify_tactic(m, p),
-                         main_p),
-            mk_tseitin_cnf_core_tactic(m, p),
-            using_params(mk_simplify_tactic(m, p),
-                         main_p),
-            mk_nlsat_tactic(m, p)));
-}
+    tactic * report = mk_report_verbose_tactic("(qfnra-nlsat-tactic)", 10);
 
+    tactic * simplify_base1 = mk_simplify_tactic(m, p);
+    tactic * simplify_main1 = using_params(simplify_base1, main_p);
+    tactic * purify_base1 = mk_purify_arith_tactic(m, p);
+    tactic * purify_main1 = using_params(purify_base1, purify_p);
+    tactic * propagate_values = mk_propagate_values_tactic(m, p);
+    tactic * solve_eqs1 = mk_solve_eqs_tactic(m, p);
+    tactic * elim_unc = mk_elim_uncnstr_tactic(m, p);
+    tactic * elim_term_ite = mk_elim_term_ite_tactic(m, p);
+    tactic * purify_base2 = mk_purify_arith_tactic(m, p);
+    tactic * purify_main2 = using_params(purify_base2, purify_p);
+
+    tactic * preprocessing = and_then(
+        simplify_main1,
+        purify_main1,
+        propagate_values,
+        solve_eqs1,
+        elim_unc,
+        elim_term_ite,
+        purify_main2);
+
+    tactic * solve_eqs2 = mk_solve_eqs_tactic(m, p);
+    tactic * purify_base3 = mk_purify_arith_tactic(m, p);
+    tactic * purify_main3 = using_params(purify_base3, purify_p);
+    tactic * simplify_base2 = mk_simplify_tactic(m, p);
+    tactic * simplify_main2 = using_params(simplify_base2, main_p);
+    tactic * tseitin = mk_tseitin_cnf_core_tactic(m, p);
+    tactic * simplify_base3 = mk_simplify_tactic(m, p);
+    tactic * simplify_main3 = using_params(simplify_base3, main_p);
+    tactic * nlsat = mk_nlsat_tactic(m, p);
+
+    tactic * post = and_then(
+        /* mk_degree_shift_tactic(m, p), */ // may affect full dimensionality detection
+        factor,
+        solve_eqs2,
+        purify_main3,
+        simplify_main2,
+        tseitin,
+        simplify_main3,
+        nlsat);
+
+    return and_then(report, preprocessing, post);
+}

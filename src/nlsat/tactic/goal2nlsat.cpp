@@ -125,8 +125,9 @@ struct goal2nlsat::imp {
         m_qm.div(lcm, d2, d2);
         m_qm.neg(d2);
         polynomial_ref p(m_pm);
-        // TODO: non-deterministic parameter evaluation
-        p = m_pm.addmul(d1, m_pm.mk_unit(), p1, d2, m_pm.mk_unit(), p2);
+        polynomial::monomial * unit1 = m_pm.mk_unit();
+        polynomial::monomial * unit2 = m_pm.mk_unit();
+        p = m_pm.addmul(d1, unit1, p1, d2, unit2, p2);
         TRACE(goal2nlsat_bug, tout << mk_pp(f, m) << " p: " << p << "\nk: " << k << "\n";);
         if (is_const(p)) {
             int sign;
@@ -443,5 +444,4 @@ nlsat2goal::~nlsat2goal() {
 expr_ref nlsat2goal::operator()(nlsat::solver& s, u_map<expr*> const& b2a, u_map<expr*> const& x2t, nlsat::literal l) {
     return (*m_imp)(s, b2a, x2t, l);
 }
-
 

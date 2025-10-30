@@ -244,23 +244,35 @@ static tactic * mk_preamble(ast_manager & m, params_ref const & p, bool add_nnf)
     // conservative gaussian elimination. 
     gaussian_p.set_uint("gaussian_max_occs", 2); 
 
-    return and_then(
-        // TODO: non-deterministic parameter evaluation
-        and_then(mk_simplify_tactic(m, p),
-            mk_propagate_values_tactic(m),
-            using_params(mk_solve_eqs_tactic(m), gaussian_p),
-            mk_elim_uncnstr_tactic(m),
-            mk_bv_size_reduction_tactic(m),
-            using_params(mk_simplify_tactic(m), simp2_p)),
-        using_params(mk_simplify_tactic(m), hoist_p),
-        mk_max_bv_sharing_tactic(m),
-        add_nnf ? mk_nnf_tactic(m, p) : mk_skip_tactic()
-    );
+    tactic* simplify_primary = mk_simplify_tactic(m, p);
+    tactic* propagate_values = mk_propagate_values_tactic(m);
+    tactic* solve_eqs_base = mk_solve_eqs_tactic(m);
+    tactic* solve_eqs_gaussian = using_params(solve_eqs_base, gaussian_p);
+    tactic* elim_unc = mk_elim_uncnstr_tactic(m);
+    tactic* size_reduction = mk_bv_size_reduction_tactic(m);
+    tactic* simplify_secondary_base = mk_simplify_tactic(m);
+    tactic* simplify_secondary = using_params(simplify_secondary_base, simp2_p);
+
+    tactic* inner = and_then(
+        simplify_primary,
+        propagate_values,
+        solve_eqs_gaussian,
+        elim_unc,
+        size_reduction,
+        simplify_secondary);
+
+    tactic* simplify_hoist_base = mk_simplify_tactic(m);
+    tactic* simplify_hoist = using_params(simplify_hoist_base, hoist_p);
+    tactic* max_sharing = mk_max_bv_sharing_tactic(m);
+    tactic* nnf = add_nnf ? mk_nnf_tactic(m, p) : mk_skip_tactic();
+
+    return and_then(inner, simplify_hoist, max_sharing, nnf);
 }
 
 tactic * mk_qfbv_sls_tactic(ast_manager & m, params_ref const & p) {
-    // TODO: non-deterministic parameter evaluation
-    tactic * t = and_then(mk_preamble(m, p, true), mk_sls_tactic(m, p));
+    tactic * preamble = mk_preamble(m, p, true);
+    tactic * sls = mk_sls_tactic(m, p);
+    tactic * t = and_then(preamble, sls);
     t->updt_params(p);
     return t;
 }

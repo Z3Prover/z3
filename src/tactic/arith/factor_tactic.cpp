@@ -157,8 +157,10 @@ class factor_tactic : public tactic {
                 }
             }
             else {
-                // TODO: non-deterministic parameter evaluation
-                args.push_back(m.mk_app(m_util.get_family_id(), k, mk_mul(odd_factors.size(), odd_factors.data()), mk_zero_for(odd_factors[0])));
+                expr_ref odd_product(mk_mul(odd_factors.size(), odd_factors.data()), m);
+                expr* zero = mk_zero_for(odd_factors[0]);
+                expr_ref comparison(m.mk_app(m_util.get_family_id(), k, odd_product, zero), m);
+                args.push_back(comparison);
             }
             SASSERT(!args.empty());
             if (args.size() == 1)
@@ -186,11 +188,12 @@ class factor_tactic : public tactic {
             scoped_mpz lcm(m_qm);
             m_qm.lcm(d1, d2, lcm);
             m_qm.div(lcm, d1, d1);
-            m_qm.div(lcm, d2, d2);
-            m_qm.neg(d2);
-            polynomial_ref p(m_pm);
-            // TODO: non-deterministic parameter evaluation
-            p = m_pm.addmul(d1, m_pm.mk_unit(), p1, d2, m_pm.mk_unit(), p2);
+        m_qm.div(lcm, d2, d2);
+        m_qm.neg(d2);
+        polynomial_ref p(m_pm);
+        polynomial::monomial* unit1 = m_pm.mk_unit();
+        polynomial::monomial* unit2 = m_pm.mk_unit();
+        p = m_pm.addmul(d1, unit1, p1, d2, unit2, p2);
             if (is_const(p))
                 return BR_FAILED;
             polynomial::factors fs(m_pm);
@@ -336,5 +339,4 @@ public:
 tactic * mk_factor_tactic(ast_manager & m, params_ref const & p) {
     return clean(alloc(factor_tactic, m, p));
 }
-
 
