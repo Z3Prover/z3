@@ -81,7 +81,7 @@ namespace smt {
             std::mutex mux;
             state m_state = state::is_running;
             stats m_stats;
-            smt_params m_param_state;
+            params_ref m_param_state;
             using node = search_tree::node<cube_config>;
             search_tree::tree<cube_config> m_search_tree;
             
@@ -106,10 +106,10 @@ namespace smt {
             void set_sat(ast_translation& l2g, model& m);
             void set_exception(std::string const& msg);
             void set_exception(unsigned error_code);
-            void set_param_state(smt_params const& p) { m_param_state = p; }
+            void set_param_state(params_ref const& p) { m_param_state.copy(p); }
             void collect_statistics(::statistics& st) const;
             
-            smt_params get_best_param_state();
+            params_ref get_best_param_state();
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
             void split(ast_translation& l2g, unsigned id, node* n, expr* atom);
@@ -139,22 +139,32 @@ namespace smt {
 
             scoped_ptr<context> m_prefix_solver;
             scoped_ptr_vector<context> m_param_probe_contexts;
-            smt_params m_param_state;
             params_ref m_p;
 
-            using param_value = std::variant<unsigned, bool, double>;
-            symbol_table<param_value> m_my_param_state;
+            struct unsigned_value {
+                unsigned value;
+                unsigned min_value;
+                unsigned max_value;
+            };
+            using param_value = std::variant<unsigned_value, bool>;
+            using param_values = vector<std::pair<symbol, param_value>>;
+            param_values m_param_state;
+
+            params_ref apply_param_values(param_values const &pv) {
+                return m_p;
+            }
+            // todo
 
         private:
             void init_param_state();
 
-            smt_params mutate_param_state();
+            param_values mutate_param_state();
 
         public:
             param_generator(parallel &p);
             lbool run_prefix_step();
             void protocol_iteration();
-            unsigned replay_proof_prefixes(vector<smt_params> candidate_param_states, unsigned max_conflicts_epsilon);
+            unsigned replay_proof_prefixes(vector<param_values> const& candidate_param_states, unsigned max_conflicts_epsilon);
 
             reslimit &limit() {
                 return m.limit();
