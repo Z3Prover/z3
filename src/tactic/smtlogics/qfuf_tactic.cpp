@@ -29,13 +29,20 @@ tactic * mk_qfuf_tactic(ast_manager & m, params_ref const & p) {
     s2_p.set_bool("pull_cheap_ite", true);
     s2_p.set_bool("local_ctx", true);
     s2_p.set_uint("local_ctx_limit", 10000000);
-    // TODO: non-deterministic parameter evaluation
-    return and_then(mk_simplify_tactic(m, p),
-                    mk_propagate_values_tactic(m, p),
-                    mk_solve_eqs_tactic(m, p),
-                    using_params(mk_simplify_tactic(m, p), s2_p),
-                    if_no_proofs(if_no_unsat_cores(mk_symmetry_reduce_tactic(m, p))),
-                    mk_smt_tactic(m, p));
+    tactic* simplify = mk_simplify_tactic(m, p);
+    tactic* propagate = mk_propagate_values_tactic(m, p);
+    tactic* solve_eqs = mk_solve_eqs_tactic(m, p);
+    tactic* simplify2 = mk_simplify_tactic(m, p);
+    tactic* simplify_with_pull = using_params(simplify2, s2_p);
+    tactic* symmetry = mk_symmetry_reduce_tactic(m, p);
+    tactic* guarded_symmetry = if_no_proofs(if_no_unsat_cores(symmetry));
+    tactic* smt = mk_smt_tactic(m, p);
+    return and_then(simplify,
+                    propagate,
+                    solve_eqs,
+                    simplify_with_pull,
+                    guarded_symmetry,
+                    smt);
 }
 
                     

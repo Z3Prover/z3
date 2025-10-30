@@ -39,8 +39,11 @@ tactic * mk_qfnra_very_small_solver(ast_manager& m, params_ref const& p) {
         params_ref p_sc = p;
         p_sc.set_bool("simple_check", true);
         // p_sc.set_uint("seed", 997);
-        // TODO: non-deterministic parameter evaluation
-        ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 10 * 1000));
+        tactic* nlsat = mk_qfnra_nlsat_tactic(m, p_sc);
+        tactic* fail_if_undecided = mk_fail_if_undecided_tactic();
+        tactic* seq = and_then(nlsat, fail_if_undecided);
+        tactic* limited = try_for(seq, 10 * 1000);
+        ts.push_back(limited);
     }
     {
         params_ref p_heuristic = p;
@@ -74,7 +77,11 @@ tactic * mk_qfnra_very_small_solver(ast_manager& m, params_ref const& p) {
     {
         params_ref p_l = p;
         p_l.set_bool("arith.greatest_error_pivot", true);
-        ts.push_back(and_then(try_for(using_params(mk_smt_tactic(m), p_l), 300 * 1000), mk_fail_if_undecided_tactic()));
+        tactic* smt = mk_smt_tactic(m);
+        tactic* smt_with_params = using_params(smt, p_l);
+        tactic* smt_limited = try_for(smt_with_params, 300 * 1000);
+        tactic* fail_if_undecided = mk_fail_if_undecided_tactic();
+        ts.push_back(and_then(smt_limited, fail_if_undecided));
     }
     for (unsigned i = 0; i < 200; ++i) { // 3s * 200 = 600s
         params_ref p_i = p;
@@ -96,8 +103,11 @@ tactic * mk_qfnra_small_solver(ast_manager& m, params_ref const& p) {
         params_ref p_sc = p;
         p_sc.set_bool("simple_check", true);
         // p_sc.set_uint("seed", 997);
-        // TODO: non-deterministic parameter evaluation
-        ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 20 * 1000));
+        tactic* nlsat = mk_qfnra_nlsat_tactic(m, p_sc);
+        tactic* fail_if_undecided = mk_fail_if_undecided_tactic();
+        tactic* seq = and_then(nlsat, fail_if_undecided);
+        tactic* limited = try_for(seq, 20 * 1000);
+        ts.push_back(limited);
     }
     {
         params_ref p_heuristic = p;
@@ -133,7 +143,11 @@ tactic * mk_qfnra_small_solver(ast_manager& m, params_ref const& p) {
     {
         params_ref p_l = p;
         p_l.set_bool("arith.greatest_error_pivot", true);
-        ts.push_back(and_then(try_for(using_params(mk_smt_tactic(m), p_l), 350 * 1000), mk_fail_if_undecided_tactic()));
+        tactic* smt = mk_smt_tactic(m);
+        tactic* smt_with_params = using_params(smt, p_l);
+        tactic* smt_limited = try_for(smt_with_params, 350 * 1000);
+        tactic* fail_if_undecided = mk_fail_if_undecided_tactic();
+        ts.push_back(and_then(smt_limited, fail_if_undecided));
     }
     for (unsigned i = 0; i < 100; ++i) { // 5s * 100 = 500s
         params_ref p_i = p;
@@ -154,8 +168,11 @@ tactic * mk_qfnra_middle_solver(ast_manager& m, params_ref const& p) {
     {
         params_ref p_sc = p;
         p_sc.set_bool("simple_check", true);
-        // TODO: non-deterministic parameter evaluation
-        ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 30 * 1000));
+        tactic* nlsat = mk_qfnra_nlsat_tactic(m, p_sc);
+        tactic* fail_if_undecided = mk_fail_if_undecided_tactic();
+        tactic* seq = and_then(nlsat, fail_if_undecided);
+        tactic* limited = try_for(seq, 30 * 1000);
+        ts.push_back(limited);
     }
     {
         params_ref p_heuristic = p;
@@ -192,7 +209,11 @@ tactic * mk_qfnra_middle_solver(ast_manager& m, params_ref const& p) {
     {
         params_ref p_l = p;
         p_l.set_bool("arith.greatest_error_pivot", true);
-        ts.push_back(and_then(try_for(using_params(mk_smt_tactic(m), p_l), 375 * 1000), mk_fail_if_undecided_tactic()));
+        tactic* smt = mk_smt_tactic(m);
+        tactic* smt_with_params = using_params(smt, p_l);
+        tactic* smt_limited = try_for(smt_with_params, 375 * 1000);
+        tactic* fail_if_undecided = mk_fail_if_undecided_tactic();
+        ts.push_back(and_then(smt_limited, fail_if_undecided));
     }
     for (unsigned i = 0; i < 40; ++i) { // 10s * 40 = 400s
         params_ref p_i = p;
@@ -213,8 +234,11 @@ tactic * mk_qfnra_large_solver(ast_manager& m, params_ref const& p) {
     {
         params_ref p_sc = p;
         p_sc.set_bool("simple_check", true);
-        // TODO: non-deterministic parameter evaluation
-        ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 50 * 1000));
+        tactic* nlsat = mk_qfnra_nlsat_tactic(m, p_sc);
+        tactic* fail_if_undecided = mk_fail_if_undecided_tactic();
+        tactic* seq = and_then(nlsat, fail_if_undecided);
+        tactic* limited = try_for(seq, 50 * 1000);
+        ts.push_back(limited);
     }
     {
 
@@ -247,7 +271,11 @@ tactic * mk_qfnra_large_solver(ast_manager& m, params_ref const& p) {
     {
         params_ref p_l = p;
         p_l.set_bool("arith.greatest_error_pivot", true);
-        ts.push_back(and_then(try_for(using_params(mk_smt_tactic(m), p_l), 400 * 1000), mk_fail_if_undecided_tactic()));
+        tactic* smt = mk_smt_tactic(m);
+        tactic* smt_with_params = using_params(smt, p_l);
+        tactic* smt_limited = try_for(smt_with_params, 400 * 1000);
+        tactic* fail_if_undecided = mk_fail_if_undecided_tactic();
+        ts.push_back(and_then(smt_limited, fail_if_undecided));
     }
     for (unsigned i = 0; i < 10; ++i) { // 20s * 10 = 200s
         params_ref p_i = p;
@@ -268,8 +296,11 @@ tactic * mk_qfnra_very_large_solver(ast_manager& m, params_ref const& p) {
     {
         params_ref p_sc = p;
         p_sc.set_bool("simple_check", true);
-        // TODO: non-deterministic parameter evaluation
-        ts.push_back(try_for(and_then(mk_qfnra_nlsat_tactic(m, p_sc), mk_fail_if_undecided_tactic()), 100 * 1000));
+        tactic* nlsat = mk_qfnra_nlsat_tactic(m, p_sc);
+        tactic* fail_if_undecided = mk_fail_if_undecided_tactic();
+        tactic* seq = and_then(nlsat, fail_if_undecided);
+        tactic* limited = try_for(seq, 100 * 1000);
+        ts.push_back(limited);
     }
     {
         params_ref p_order_1 = p;
@@ -292,7 +323,11 @@ tactic * mk_qfnra_very_large_solver(ast_manager& m, params_ref const& p) {
     {
         params_ref p_l = p;
         p_l.set_bool("arith.greatest_error_pivot", true);
-        ts.push_back(and_then(try_for(using_params(mk_smt_tactic(m), p_l), 425 * 1000), mk_fail_if_undecided_tactic()));
+        tactic* smt = mk_smt_tactic(m);
+        tactic* smt_with_params = using_params(smt, p_l);
+        tactic* smt_limited = try_for(smt_with_params, 425 * 1000);
+        tactic* fail_if_undecided = mk_fail_if_undecided_tactic();
+        ts.push_back(and_then(smt_limited, fail_if_undecided));
     }
     {
         ts.push_back(mk_qfnra_nlsat_tactic(m, p));
@@ -307,33 +342,34 @@ const double LARGE_THRESHOLD = 600.0;
 tactic * mk_qfnra_mixed_solver(ast_manager& m, params_ref const& p) {
     auto very_small_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_very_small_solver(m, p); });
     auto small_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_small_solver(m, p); });
-    auto middle_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_middle_solver(m, p); });
-    auto large_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_large_solver(m, p); });
-    auto very_large_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_very_large_solver(m, p); });
-    // TODO: non-deterministic parameter evaluation
-    return cond(mk_lt(mk_memory_probe(), mk_const_probe(VERY_SMALL_THRESHOLD)), 
-        very_small_t,
-                // TODO: non-deterministic parameter evaluation
-                cond(mk_lt(mk_memory_probe(), mk_const_probe(SMALL_THRESHOLD)), 
-                    small_t,
-                     // TODO: non-deterministic parameter evaluation
-                     cond(mk_lt(mk_memory_probe(), mk_const_probe(MIDDLE_THRESHOLD)),
-                         middle_t,
-                          // TODO: non-deterministic parameter evaluation
-                          cond(mk_lt(mk_memory_probe(), mk_const_probe(LARGE_THRESHOLD)),
-                             large_t,
-                             very_large_t
-                        )
-                    )
-                )
-           );
+   auto middle_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_middle_solver(m, p); });
+   auto large_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_large_solver(m, p); });
+   auto very_large_t = mk_lazy_tactic(m, p, [&](ast_manager& m, params_ref const& p) {return mk_qfnra_very_large_solver(m, p); });
+    probe* memory_usage = mk_memory_probe();
+    probe* very_small_limit = mk_const_probe(VERY_SMALL_THRESHOLD);
+    probe* small_limit = mk_const_probe(SMALL_THRESHOLD);
+    probe* middle_limit = mk_const_probe(MIDDLE_THRESHOLD);
+    probe* large_limit = mk_const_probe(LARGE_THRESHOLD);
+
+    probe* very_small_check = mk_lt(memory_usage, very_small_limit);
+    probe* small_check = mk_lt(memory_usage, small_limit);
+    probe* middle_check = mk_lt(memory_usage, middle_limit);
+    probe* large_check = mk_lt(memory_usage, large_limit);
+
+    tactic* large_branch = cond(large_check, large_t, very_large_t);
+    tactic* middle_branch = cond(middle_check, middle_t, large_branch);
+    tactic* small_branch = cond(small_check, small_t, middle_branch);
+    return cond(very_small_check, very_small_t, small_branch);
 }
 
 tactic * mk_qfnra_tactic(ast_manager & m, params_ref const& p) {
 
-    // TODO: non-deterministic parameter evaluation
-    return and_then(mk_simplify_tactic(m, p), 
-                    mk_propagate_values_tactic(m, p),
-                    mk_qfnra_mixed_solver(m, p)
+    tactic* simplify = mk_simplify_tactic(m, p);
+    tactic* propagate = mk_propagate_values_tactic(m, p);
+    tactic* mixed_solver = mk_qfnra_mixed_solver(m, p);
+
+    return and_then(simplify, 
+                    propagate,
+                    mixed_solver
                 );
 }
