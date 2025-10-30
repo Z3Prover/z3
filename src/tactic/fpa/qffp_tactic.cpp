@@ -82,26 +82,39 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
     simp_p.set_bool("arith_lhs", true);
     simp_p.set_bool("elim_and", true);
 
-    // TODO: non-deterministic parameter evaluation
-    tactic * preamble = and_then(mk_simplify_tactic(m, simp_p),
-                                 mk_propagate_values_tactic(m, p),
-                                 mk_fpa2bv_tactic(m, p),
-                                 mk_propagate_values_tactic(m, p),
-                                 using_params(mk_simplify_tactic(m, p), simp_p),
-                                 if_no_proofs(if_no_unsat_cores(mk_ackermannize_bv_tactic(m, p))));
+    tactic* simplify_simp = mk_simplify_tactic(m, simp_p);
+    tactic* propagate1 = mk_propagate_values_tactic(m, p);
+    tactic* fpa2bv = mk_fpa2bv_tactic(m, p);
+    tactic* propagate2 = mk_propagate_values_tactic(m, p);
+    tactic* simplify_for_params = mk_simplify_tactic(m, p);
+    tactic* simplify_with_params = using_params(simplify_for_params, simp_p);
+    tactic* ackermann = mk_ackermannize_bv_tactic(m, p);
+    tactic* ackermann_guard = if_no_proofs(if_no_unsat_cores(ackermann));
+    tactic * preamble = and_then(simplify_simp,
+                                 propagate1,
+                                 fpa2bv,
+                                 propagate2,
+                                 simplify_with_params,
+                                 ackermann_guard);
+
+    tactic* bit_blaster = mk_bit_blaster_tactic(m, p);
+    tactic* simplify_post_bb = mk_simplify_tactic(m, p);
+    tactic* simplify_post_bb_params = using_params(simplify_post_bb, simp_p);
+    probe* propositional_probe = mk_is_propositional_probe();
+    probe* produce_proofs_probe = mk_produce_proofs_probe();
+    tactic* smt_with_proofs = mk_smt_tactic(m, p); // `sat' does not support proofs.
+    tactic* psat = mk_psat_tactic(m, p);
+    tactic* proofs_branch = cond(produce_proofs_probe, smt_with_proofs, psat);
+    probe* fp_qfnra_probe = mk_is_fp_qfnra_probe();
+    tactic* qfnra = mk_qfnra_tactic(m, p);
+    tactic* smt_default = mk_smt_tactic(m, p);
+    tactic* fp_branch = cond(fp_qfnra_probe, qfnra, smt_default);
+    tactic* top_branch = cond(propositional_probe, proofs_branch, fp_branch);
 
     tactic * st = and_then(preamble,
-                           mk_bit_blaster_tactic(m, p),
-                           using_params(mk_simplify_tactic(m, p), simp_p),
-                           cond(mk_is_propositional_probe(),
-                                // TODO: non-deterministic parameter evaluation
-                                cond(mk_produce_proofs_probe(),
-                                     mk_smt_tactic(m, p), // `sat' does not support proofs.
-                                     mk_psat_tactic(m, p)),
-                                // TODO: non-deterministic parameter evaluation
-                                cond(mk_is_fp_qfnra_probe(),
-                                     mk_qfnra_tactic(m, p),
-                                     mk_smt_tactic(m, p))));
+                           bit_blaster,
+                           simplify_post_bb_params,
+                           top_branch);
 
     st->updt_params(p);
     return st;

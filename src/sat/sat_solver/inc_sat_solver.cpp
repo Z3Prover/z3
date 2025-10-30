@@ -653,22 +653,29 @@ public:
         simp2_p.set_bool("flat", false);
 
         sat_params sp(m_params);
-        if (sp.euf()) 
-            m_preprocess =
-                // TODO: non-deterministic parameter evaluation
-                and_then(mk_simplify_tactic(m),
-                         mk_propagate_values_tactic(m));
-        else 
-            m_preprocess =
-                // TODO: non-deterministic parameter evaluation
-                and_then(mk_simplify_tactic(m),
-                         mk_propagate_values_tactic(m),
-                         mk_card2bv_tactic(m, m_params),                  // updates model converter
-                         using_params(mk_simplify_tactic(m), simp1_p),
-                         mk_max_bv_sharing_tactic(m),
-                         mk_bit_blaster_tactic(m, m_bb_rewriter.get()),
-                         using_params(mk_simplify_tactic(m), simp2_p)
-                         );
+        if (sp.euf()) {
+            tactic* simplify = mk_simplify_tactic(m);
+            tactic* propagate = mk_propagate_values_tactic(m);
+            m_preprocess = and_then(simplify, propagate);
+        }
+        else {
+            tactic* simplify1 = mk_simplify_tactic(m);
+            tactic* propagate = mk_propagate_values_tactic(m);
+            tactic* card2bv = mk_card2bv_tactic(m, m_params);                  // updates model converter
+            tactic* simplify_param1 = mk_simplify_tactic(m);
+            tactic* simplify_with_params1 = using_params(simplify_param1, simp1_p);
+            tactic* max_sharing = mk_max_bv_sharing_tactic(m);
+            tactic* bit_blaster = mk_bit_blaster_tactic(m, m_bb_rewriter.get());
+            tactic* simplify_param2 = mk_simplify_tactic(m);
+            tactic* simplify_with_params2 = using_params(simplify_param2, simp2_p);
+            m_preprocess = and_then(simplify1,
+                                    propagate,
+                                    card2bv,
+                                    simplify_with_params1,
+                                    max_sharing,
+                                    bit_blaster,
+                                    simplify_with_params2);
+        }
         while (m_bb_rewriter->get_num_scopes() < m_num_scopes) {
             m_bb_rewriter->push();
         }

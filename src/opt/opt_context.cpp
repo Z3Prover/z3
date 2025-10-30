@@ -891,12 +891,14 @@ namespace opt {
             g->assert_expr(fml);
         for (expr * a : asms) 
             g->assert_expr(a, a);
-        tactic_ref tac0 = 
-            // TODO: non-deterministic parameter evaluation
-            and_then(mk_simplify_tactic(m, m_params), 
-                     mk_propagate_values_tactic(m),
-                     m_incremental ? mk_skip_tactic() : mk_solve_eqs_tactic(m),
-                     mk_simplify_tactic(m));   
+        tactic* simplify_with_params = mk_simplify_tactic(m, m_params);
+        tactic* propagate_values = mk_propagate_values_tactic(m);
+        tactic* solve_or_skip = m_incremental ? mk_skip_tactic() : mk_solve_eqs_tactic(m);
+        tactic* simplify_plain = mk_simplify_tactic(m);
+        tactic_ref tac0 = and_then(simplify_with_params, 
+                                   propagate_values,
+                                   solve_or_skip,
+                                   simplify_plain);   
         opt_params optp(m_params);
         tactic_ref tac1, tac2, tac3, tac4;
         bool has_dep = false;

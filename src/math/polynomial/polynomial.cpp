@@ -2995,16 +2995,18 @@ namespace polynomial {
 
         polynomial * add(polynomial const * p1, polynomial const * p2) {
             numeral one(1);
-            // TODO: non-deterministic parameter evaluation
-            return addmul(one, mk_unit(), p1, one, mk_unit(), p2);
+            monomial* unit1 = mk_unit();
+            monomial* unit2 = mk_unit();
+            return addmul(one, unit1, p1, one, unit2, p2);
         }
 
         polynomial * sub(polynomial const * p1, polynomial const * p2) {
             numeral one(1);
             numeral minus_one; // It is incorrect to initialize with -1 when numeral_manager is GF_2
             m_manager.set(minus_one, -1);
-            // TODO: non-deterministic parameter evaluation
-            return addmul(one, mk_unit(), p1, minus_one, mk_unit(), p2);
+            monomial* unit1 = mk_unit();
+            monomial* unit2 = mk_unit();
+            return addmul(one, unit1, p1, minus_one, unit2, p2);
         }
 
         
