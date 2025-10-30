@@ -64,6 +64,122 @@ namespace smt {
 
 namespace smt {
 
+    lbool parallel::param_generator::run_prefix_step() {
+        IF_VERBOSE(1, verbose_stream() << " Param generator running prefix step\n");
+        ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
+        lbool r = l_undef;
+        try {
+            r = ctx->check();
+        } catch (z3_error &err) {
+            b.set_exception(err.error_code());
+        } catch (z3_exception &ex) {
+            b.set_exception(ex.what());
+        } catch (...) {
+            b.set_exception("unknown exception");
+        }
+        return r;
+    }
+
+    unsigned parallel::param_generator::replay_proof_prefixes(vector<smt_params> candidate_param_states, unsigned max_conflicts_epsilon=200) {
+        unsigned conflict_budget = m_max_prefix_conflicts + max_conflicts_epsilon;
+        unsigned best_param_state_idx;
+        double best_score;
+
+        for (unsigned i = 0; i < m_param_probe_contexts.size(); ++i) {
+            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: replaying proof prefix in param probe context " << i << "\n");
+            context *probe_ctx = m_param_probe_contexts[i];
+            probe_ctx->get_fparams().m_max_conflicts = conflict_budget;
+            double score = 0.0;
+
+            // apply the ith param state to probe_ctx
+            smt_params params = candidate_param_states[i];
+            params_ref p;
+            params.updt_params(p);
+            probe_ctx->updt_params(p);
+
+            for (auto const& clause : probe_ctx->m_recorded_clauses) {
+                expr_ref_vector negated_lits(probe_ctx->m);
+                for (literal lit : clause) {
+                    expr* e = probe_ctx->bool_var2expr(lit.var());
+                    if (!e) continue;  // skip if var not yet mapped
+                    if (!lit.sign())
+                        e = probe_ctx->m.mk_not(e); // since bool_var2expr discards sign
+                    negated_lits.push_back(e);
+                }
+
+                // Replay the negated clause
+                lbool r = probe_ctx->check(negated_lits.size(), negated_lits.data());
+
+                ::statistics st;
+                probe_ctx->collect_statistics(st);
+                unsigned conflicts = 0, decisions = 0, rlimit = 0;
+
+                // I can't figure out how to access the statistics fields, I only see an update method
+                // st.get_uint("conflicts", conflicts);
+                // st.get_uint("decisions", decisions);
+                // st.get_uint("rlimit count", rlimit);
+                score += conflicts + decisions + rlimit;
+            }
+
+            if (i == 0 || score < best_score) {
+                best_score = score;
+                best_param_state_idx = i;
+            }
+        }
+
+        return best_param_state_idx;
+    }
+
+    void parallel::param_generator::protocol_iteration() {
+        IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running protocol iteration\n");
+        ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
+
+        // copy current param state to all param probe contexts, before running the next prefix step
+        // this ensures that each param probe context replays the prefix from the same configuration
+        for (unsigned i = 0; i < m_param_probe_contexts.size(); ++i) {
+            context::copy(*ctx, *m_param_probe_contexts[i], true);
+        }
+        
+        lbool r = run_prefix_step();
+
+        switch (r) {
+            case l_undef: {
+                smt_params best_param_state = m_param_state;
+                vector<smt_params> candidate_param_states;
+
+                candidate_param_states.push_back(best_param_state); // first candidate param state is current best
+                while (candidate_param_states.size() <= N) {
+                    candidate_param_states.push_back(mutate_param_state());
+                }
+
+                unsigned best_param_state_idx = replay_proof_prefixes(candidate_param_states);
+
+                if (best_param_state_idx != 0) {
+                    m_param_state = candidate_param_states[best_param_state_idx];
+                    b.set_param_state(m_param_state);
+                    IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found better param state at index " << best_param_state_idx << "\n");
+                } else {
+                    IF_VERBOSE(1, verbose_stream() << " PARAM TUNER retained current param state\n");
+                }
+            }
+            case l_true: {
+                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found formula sat\n");
+                model_ref mdl;
+                ctx->get_model(mdl);
+                b.set_sat(m_l2g, *mdl);
+                return;
+            }
+            case l_false: {
+                expr_ref_vector const &unsat_core = ctx->unsat_core();
+                IF_VERBOSE(2, verbose_stream() << " unsat core:\n";
+                           for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
+                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER determined formula unsat\n");
+                b.set_unsat(m_l2g, unsat_core);
+                return;
+            }
+        }
+    }
+
     void parallel::worker::run() {
         search_tree::node<cube_config> *node = nullptr;
         expr_ref_vector cube(m);
@@ -77,6 +193,13 @@ namespace smt {
 
         check_cube_start:
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
+            
+            // apply current best param state from batch manager
+            smt_params params = b.get_best_param_state();
+            params_ref p;
+            params.updt_params(p);
+            ctx->updt_params(p);
+
             lbool r = check_cube(cube);
 
             if (!m.inc()) {
@@ -141,6 +264,21 @@ namespace smt {
         ctx->pop_to_base_lvl();
         m_num_shared_units = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
+    }
+
+    parallel::param_generator::param_generator(parallel& p)
+        : p(p), b(p.m_batch_manager), m_param_state(p.ctx.get_fparams()), m_p(p.ctx.get_params()), m_l2g(m, p.ctx.m) {
+        ctx = alloc(context, m, m_param_state, m_p);
+        context::copy(p.ctx, *ctx, true);
+
+        for (unsigned i = 0; i < N; ++i) {
+            m_param_probe_contexts.push_back(alloc(context, m, m_param_state, m_p));
+        }
+
+        // don't share initial units
+        ctx->pop_to_base_lvl();
+        init_param_state();
+        IF_VERBOSE(1, verbose_stream() << "Initialized parameter generator\n");
     }
 
     void parallel::worker::share_units() {
@@ -292,6 +430,11 @@ namespace smt {
             shared_clause sc{source_worker_id, expr_ref(g_clause, m)};
             shared_clause_trail.push_back(sc);
         }
+    }
+
+    smt_params parallel::batch_manager::get_best_param_state() {
+        std::scoped_lock lock(mux);
+        return m_param_state;
     }
 
     void parallel::worker::collect_shared_clauses() {
@@ -489,15 +632,19 @@ namespace smt {
         SASSERT(num_threads > 1);
         for (unsigned i = 0; i < num_threads; ++i)
             m_workers.push_back(alloc(worker, i, *this, asms));
-
+         
         for (auto w : m_workers)
             sl.push_child(&(w->limit()));
+        
+        sl.push_child(&(m_param_generator.limit()));
 
         // Launch threads
-        vector<std::thread> threads(num_threads);
-        for (unsigned i = 0; i < num_threads; ++i) {
+        vector<std::thread> threads(num_threads + 1); // +1 for parameter generator
+        for (unsigned i = 0; i < num_threads - 1; ++i) {
             threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
         }
+        // the final thread runs the parameter generator
+        threads[num_threads - 1] = std::thread([&]() { m_param_generator.protocol_iteration(); });
 
         // Wait for all threads to finish
         for (auto &th : threads)

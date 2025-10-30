@@ -22,6 +22,11 @@ Revision History:
 
 void theory_arith_params::updt_params(params_ref const & _p) {
     smt_params_helper p(_p);
+    m_nl_arith_delay = p.arith_nl_delay();
+    m_nl_arith_expensive_patching = p.arith_nl_expensive_patching();
+    m_nl_arith_horner = p.arith_nl_horner();
+    m_nl_arith_horner_frequency = p.arith_nl_horner_frequency();
+    m_nl_arith_tangents = p.arith_nl_tangents();
     m_arith_random_initial_value = p.arith_random_initial_value();
     m_arith_random_seed = p.random_seed();
     m_arith_mode = static_cast<arith_solver_id>(p.arith_solver());
@@ -102,4 +107,9 @@ void theory_arith_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_arith_validate);
     DISPLAY_PARAM(m_arith_dump_lemmas);
     DISPLAY_PARAM(m_arith_epsilon);
+    DISPLAY_PARAM(m_nl_arith_delay);
+    DISPLAY_PARAM(m_nl_arith_expensive_patching);
+    DISPLAY_PARAM(m_nl_arith_horner);
+    DISPLAY_PARAM(m_nl_arith_horner_frequency);
+    DISPLAY_PARAM(m_nl_arith_tangents);
 }

@@ -137,6 +137,7 @@ namespace smt {
         scoped_ptr<base_dependent_expr_state> m_fmls;
 
         svector<double> m_lit_scores[2];
+        vector<literal_vector> m_recorded_clauses;
 
 
         // -----------------------------------
@@ -1300,6 +1301,8 @@ namespace smt {
         virtual bool resolve_conflict();
 
         void add_scores(unsigned n, literal const *lits);
+
+        void record_clause(unsigned n, literal const * lits);
 
 
         // -----------------------------------

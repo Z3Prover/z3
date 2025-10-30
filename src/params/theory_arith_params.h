@@ -112,6 +112,11 @@ struct theory_arith_params {
     bool                    m_nl_arith_propagate_linear_monomials = true;
     bool                    m_nl_arith_optimize_bounds = true;
     bool                    m_nl_arith_cross_nested = true;
+    unsigned                m_nl_arith_delay = 10;
+    bool                    m_nl_arith_expensive_patching = false;
+    bool                    m_nl_arith_horner = true;
+    unsigned                m_nl_arith_horner_frequency = 4;
+    bool                    m_nl_arith_tangents = true;
 
     theory_arith_params(params_ref const & p = params_ref()) {
         updt_params(p);

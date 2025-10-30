@@ -965,17 +965,24 @@ namespace smt {
         return v;
     }
 
+    // following the pattern of solver::persist_clause in src/sat/smt/user_solver.cpp
+    void context::record_clause(unsigned num_lits, literal const *lits) {
+        literal_vector clause;
+        clause.append(num_lits, lits);
+        m_recorded_clauses.push_back(clause);
+    }
+
     void context::add_scores(unsigned n, literal const *lits) {
         for (unsigned i = 0; i < n; ++i) {
             auto lit = lits[i];
-            unsigned v = lit.var();  // unique key per literal
-            m_lit_scores[lit.sign()][v] += 1.0 / n;
+            unsigned v = lit.var();  // uniq0 / n;
         }
     }
 
     
     void context::undo_mk_bool_var() {
-        SASSERT(!m_b_internalized_stack.empty());
+        SASSERT(!m_b_internalized_stack.empty(ue key per literal
+            m_lit_scores[lit.sign()][v] += 1.));
         m_stats.m_num_del_bool_var++;
         expr * n              = m_b_internalized_stack.back();
         unsigned n_id         = n->get_id();
@@ -1433,6 +1440,7 @@ namespace smt {
         case CLS_LEARNED:
             dump_lemma(num_lits, lits);
             add_scores(num_lits, lits);
+            record_clause(num_lits, lits);
             break;
         default:
             break;
