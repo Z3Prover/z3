@@ -171,8 +171,11 @@ namespace smt {
         struct var_value_eq {
             theory_utvpi & m_th;
             var_value_eq(theory_utvpi & th):m_th(th) {}
-            // TODO: non-deterministic parameter evaluation
-            bool operator()(theory_var v1, theory_var v2) const { return m_th.mk_value(v1, false) == m_th.mk_value(v2, false) && m_th.is_int(v1) == m_th.is_int(v2); }
+            bool operator()(theory_var v1, theory_var v2) const {
+                auto value1 = m_th.mk_value(v1, false);
+                auto value2 = m_th.mk_value(v2, false);
+                return value1 == value2 && m_th.is_int(v1) == m_th.is_int(v2);
+            }
         };
 
         typedef int_hashtable<var_value_hash, var_value_eq> var_value_table;
@@ -360,7 +363,6 @@ namespace smt {
     typedef theory_utvpi<rdl_ext>  theory_rutvpi;
     typedef theory_utvpi<idl_ext>  theory_iutvpi;
 };
-
 
 
 

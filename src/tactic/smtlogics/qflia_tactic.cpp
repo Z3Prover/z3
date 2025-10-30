@@ -86,15 +86,21 @@ static tactic * mk_bv2sat_tactic(ast_manager & m) {
     // dynamic psm seems to work well.
     solver_p.set_sym("gc", symbol("dyn_psm"));
     
-    // TODO: non-deterministic parameter evaluation
-    return using_params(and_then(mk_simplify_tactic(m),
-                                 mk_propagate_values_tactic(m),
-                                 mk_solve_eqs_tactic(m),
-                                 mk_max_bv_sharing_tactic(m),
-                                 mk_bit_blaster_tactic(m),
-                                 mk_aig_tactic(),
-                                 mk_sat_tactic(m, solver_p)),
-                        solver_p);
+    tactic* simplify = mk_simplify_tactic(m);
+    tactic* propagate = mk_propagate_values_tactic(m);
+    tactic* solve_eqs = mk_solve_eqs_tactic(m);
+    tactic* max_sharing = mk_max_bv_sharing_tactic(m);
+    tactic* bit_blaster = mk_bit_blaster_tactic(m);
+    tactic* aig = mk_aig_tactic();
+    tactic* sat = mk_sat_tactic(m, solver_p);
+    tactic* core = and_then(simplify,
+                            propagate,
+                            solve_eqs,
+                            max_sharing,
+                            bit_blaster,
+                            aig,
+                            sat);
+    return using_params(core, solver_p);
 }
 
 #define SMALL_SIZE 80000
@@ -106,19 +112,31 @@ static tactic * mk_pb_tactic(ast_manager & m) {
     params_ref bv2sat_p;
     bv2sat_p.set_bool("ite_extra", true);
     
-    return annotate_tactic(
-        "pb-tactic",
-        and_then(fail_if_not(mk_is_pb_probe()),
-                 fail_if(mk_produce_proofs_probe()),
-                 fail_if(mk_produce_unsat_cores_probe()),
-                 // TODO: non-deterministic parameter evaluation
-                 or_else(and_then(fail_if(mk_ge(mk_num_exprs_probe(), mk_const_probe(SMALL_SIZE))),
-                                  fail_if_not(mk_is_ilp_probe()),
-                                  // try_for(mk_mip_tactic(m), 8000),
-                                  mk_fail_if_undecided_tactic()),
-                         and_then(using_params(mk_pb2bv_tactic(m), pb2bv_p),
-                                  fail_if_not(mk_is_qfbv_probe()),
-                                  using_params(mk_bv2sat_tactic(m), bv2sat_p)))));
+    probe* num_exprs = mk_num_exprs_probe();
+    probe* size_limit = mk_const_probe(SMALL_SIZE);
+    probe* too_large = mk_ge(num_exprs, size_limit);
+    tactic* fail_large = fail_if(too_large);
+    tactic* fail_not_ilp = fail_if_not(mk_is_ilp_probe());
+    tactic* fail_undecided = mk_fail_if_undecided_tactic();
+    tactic* branch1 = and_then(fail_large,
+                               fail_not_ilp,
+                               fail_undecided);
+
+    tactic* pb2bv = mk_pb2bv_tactic(m);
+    tactic* pb2bv_with_params = using_params(pb2bv, pb2bv_p);
+    tactic* fail_not_qfbv = fail_if_not(mk_is_qfbv_probe());
+    tactic* bv2sat = mk_bv2sat_tactic(m);
+    tactic* bv2sat_with_params = using_params(bv2sat, bv2sat_p);
+    tactic* branch2 = and_then(pb2bv_with_params,
+                               fail_not_qfbv,
+                               bv2sat_with_params);
+
+    tactic* core = and_then(fail_if_not(mk_is_pb_probe()),
+                            fail_if(mk_produce_proofs_probe()),
+                            fail_if(mk_produce_unsat_cores_probe()),
+                            or_else(branch1, branch2));
+
+    return annotate_tactic("pb-tactic", core);
 }
 
 
@@ -129,18 +147,29 @@ static tactic * mk_lia2sat_tactic(ast_manager & m) {
     params_ref bv2sat_p;
     bv2sat_p.set_bool("ite_extra", true);
     
-    return annotate_tactic(
-        "lia2sat-tactic",
-        // TODO: non-deterministic parameter evaluation
-        and_then(fail_if(mk_is_unbounded_probe()),
-                 fail_if(mk_produce_proofs_probe()),
-                 fail_if(mk_produce_unsat_cores_probe()),
-                 mk_propagate_ineqs_tactic(m),
-                 mk_normalize_bounds_tactic(m),
-                 mk_lia2pb_tactic(m),
-                 using_params(mk_pb2bv_tactic(m), pb2bv_p),
-                 fail_if_not(mk_is_qfbv_probe()),                    
-                 using_params(mk_bv2sat_tactic(m), bv2sat_p)));
+    tactic* fail_unbounded = fail_if(mk_is_unbounded_probe());
+    tactic* fail_proofs = fail_if(mk_produce_proofs_probe());
+    tactic* fail_unsat = fail_if(mk_produce_unsat_cores_probe());
+    tactic* propagate_ineqs = mk_propagate_ineqs_tactic(m);
+    tactic* normalize_bounds = mk_normalize_bounds_tactic(m);
+    tactic* lia2pb = mk_lia2pb_tactic(m);
+    tactic* pb2bv = mk_pb2bv_tactic(m);
+    tactic* pb2bv_with_params = using_params(pb2bv, pb2bv_p);
+    tactic* fail_not_qfbv = fail_if_not(mk_is_qfbv_probe());
+    tactic* bv2sat = mk_bv2sat_tactic(m);
+    tactic* bv2sat_with_params = using_params(bv2sat, bv2sat_p);
+
+    tactic* core = and_then(fail_unbounded,
+                            fail_proofs,
+                            fail_unsat,
+                            propagate_ineqs,
+                            normalize_bounds,
+                            lia2pb,
+                            pb2bv_with_params,
+                            fail_not_qfbv,
+                            bv2sat_with_params);
+
+    return annotate_tactic("lia2sat-tactic", core);
 }
 
 // Try to find a model for an unbounded ILP problem.
@@ -153,24 +182,41 @@ static tactic * mk_ilp_model_finder_tactic(ast_manager & m) {
     add_bounds_p2.set_rat("add_bound_lower", rational(-32));
     add_bounds_p2.set_rat("add_bound_upper", rational(31));
 
-    return annotate_tactic(
-        "ilp-model-finder-tactic",
-        // TODO: non-deterministic parameter evaluation
-        // TODO: non-deterministic parameter evaluation
-        and_then(fail_if_not(mk_and(mk_is_ilp_probe(), mk_is_unbounded_probe())),
-                 fail_if(mk_produce_proofs_probe()),
-                 fail_if(mk_produce_unsat_cores_probe()),
-                 mk_propagate_ineqs_tactic(m),
-                 or_else(// try_for(mk_mip_tactic(m), 5000),
-                     try_for(mk_no_cut_smt_tactic(m, 100), 2000),
-                     and_then(using_params(mk_add_bounds_tactic(m), add_bounds_p1),
-                              try_for(mk_lia2sat_tactic(m), 5000)),
-                     try_for(mk_no_cut_smt_tactic(m, 200), 5000),
-                     and_then(using_params(mk_add_bounds_tactic(m), add_bounds_p2),
-                              try_for(mk_lia2sat_tactic(m), 10000))
-                     // , mk_mip_tactic(m)
-                         ),
-                 mk_fail_if_undecided_tactic()));
+    probe* is_ilp = mk_is_ilp_probe();
+    probe* is_unbounded = mk_is_unbounded_probe();
+    probe* ilp_unbounded = mk_and(is_ilp, is_unbounded);
+    tactic* fail_not_ilp_unbounded = fail_if_not(ilp_unbounded);
+    tactic* fail_proofs = fail_if(mk_produce_proofs_probe());
+    tactic* fail_unsat = fail_if(mk_produce_unsat_cores_probe());
+    tactic* propagate_ineqs = mk_propagate_ineqs_tactic(m);
+
+    tactic* add_bounds1 = mk_add_bounds_tactic(m);
+    tactic* add_bounds1_params = using_params(add_bounds1, add_bounds_p1);
+    tactic* lia2sat1 = try_for(mk_lia2sat_tactic(m), 5000);
+    tactic* branch_bounds1 = and_then(add_bounds1_params, lia2sat1);
+
+    tactic* add_bounds2 = mk_add_bounds_tactic(m);
+    tactic* add_bounds2_params = using_params(add_bounds2, add_bounds_p2);
+    tactic* lia2sat2 = try_for(mk_lia2sat_tactic(m), 10000);
+    tactic* branch_bounds2 = and_then(add_bounds2_params, lia2sat2);
+
+    tactic* branch_no_cut1 = try_for(mk_no_cut_smt_tactic(m, 100), 2000);
+    tactic* branch_no_cut2 = try_for(mk_no_cut_smt_tactic(m, 200), 5000);
+    tactic* or_branch = or_else(branch_no_cut1,
+                                branch_bounds1,
+                                branch_no_cut2,
+                                branch_bounds2);
+
+    tactic* fail_undecided = mk_fail_if_undecided_tactic();
+
+    tactic* core = and_then(fail_not_ilp_unbounded,
+                            fail_proofs,
+                            fail_unsat,
+                            propagate_ineqs,
+                            or_branch,
+                            fail_undecided);
+
+    return annotate_tactic("ilp-model-finder-tactic", core);
 }
 
 static tactic * mk_bounded_tactic(ast_manager & m) {
@@ -202,16 +248,24 @@ tactic * mk_preamble_tactic(ast_manager& m) {
     lia2card_p.set_uint("lia2card.max_range", 1);
     lia2card_p.set_uint("lia2card.max_ite_nesting", 1);
 
-    return
-        // TODO: non-deterministic parameter evaluation
-        and_then(
-            mk_simplify_tactic(m),
-            mk_propagate_values_tactic(m),
-            using_params(mk_ctx_simplify_tactic(m), ctx_simp_p),
-            using_params(mk_simplify_tactic(m), pull_ite_p),
-            mk_solve_eqs_tactic(m),
-            mk_lia2card_tactic(m, lia2card_p),
-            mk_elim_uncnstr_tactic(m));
+    tactic* simplify = mk_simplify_tactic(m);
+    tactic* propagate = mk_propagate_values_tactic(m);
+    tactic* ctx_simplify = mk_ctx_simplify_tactic(m);
+    tactic* ctx_simplify_with_params = using_params(ctx_simplify, ctx_simp_p);
+    tactic* simplify2 = mk_simplify_tactic(m);
+    tactic* simplify_with_pull = using_params(simplify2, pull_ite_p);
+    tactic* solve_eqs = mk_solve_eqs_tactic(m);
+    tactic* lia2card = mk_lia2card_tactic(m, lia2card_p);
+    tactic* elim_unc = mk_elim_uncnstr_tactic(m);
+
+    return and_then(
+        simplify,
+        propagate,
+        ctx_simplify_with_params,
+        simplify_with_pull,
+        solve_eqs,
+        lia2card,
+        elim_unc);
 }
 
 tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
@@ -230,22 +284,34 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
     params_ref lhs_p;
     lhs_p.set_bool("arith_lhs", true);
 
-    tactic* st = using_params(
-        and_then(
-            mk_preamble_tactic(m),
-            using_params(mk_simplify_tactic(m), lhs_p),
-            // TODO: non-deterministic parameter evaluation
-            or_else(mk_ilp_model_finder_tactic(m),
-                mk_pb_tactic(m),
-                and_then(fail_if_not(mk_is_quasi_pb_probe()),
-                    using_params(mk_lia2sat_tactic(m), quasi_pb_p),
-                    mk_fail_if_undecided_tactic()),
-                mk_bounded_tactic(m),
-                mk_smt_tactic(m))),
-        main_p);
+    tactic* preamble = mk_preamble_tactic(m);
+    tactic* simplify_lhs = using_params(mk_simplify_tactic(m), lhs_p);
+
+    tactic* ilp_finder = mk_ilp_model_finder_tactic(m);
+    tactic* pb_tac = mk_pb_tactic(m);
+    tactic* fail_not_quasi = fail_if_not(mk_is_quasi_pb_probe());
+    tactic* lia2sat = mk_lia2sat_tactic(m);
+    tactic* lia2sat_with_params = using_params(lia2sat, quasi_pb_p);
+    tactic* fail_undecided = mk_fail_if_undecided_tactic();
+    tactic* quasi_branch = and_then(fail_not_quasi,
+                                    lia2sat_with_params,
+                                    fail_undecided);
+    tactic* bounded = mk_bounded_tactic(m);
+    tactic* smt = mk_smt_tactic(m);
+
+    tactic* branches = or_else(ilp_finder,
+                               pb_tac,
+                               quasi_branch,
+                               bounded,
+                               smt);
+
+    tactic* core = and_then(preamble,
+                            simplify_lhs,
+                            branches);
+
+    tactic* st = using_params(core, main_p);
 
     
     st->updt_params(p);
     return st;
 }
-

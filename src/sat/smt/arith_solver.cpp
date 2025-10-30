@@ -751,8 +751,9 @@ namespace arith {
         reset_evidence();
         m_explanation.clear();
         auto& dm = lp().dep_manager();
-        // TODO: non-deterministic parameter evaluation
-        auto* d = dm.mk_join(dm.mk_join(ci1, ci2), dm.mk_join(ci3, ci4));
+        auto* join12 = dm.mk_join(ci1, ci2);
+        auto* join34 = dm.mk_join(ci3, ci4);
+        auto* d = dm.mk_join(join12, join34);
         for (auto ci : lp().flatten(d))
             consume(rational::one(), ci);
         enode* x = var2enode(v1);

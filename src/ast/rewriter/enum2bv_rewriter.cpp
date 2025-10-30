@@ -170,8 +170,9 @@ struct enum2bv_rewriter::imp {
                 ptr_vector<func_decl> const& cs = *m_dt.get_datatype_constructors(s);
                 f_def = m.mk_const(cs[nc-1]);
                 for (unsigned i = nc - 1; i-- > 0; ) {
-                    // TODO: non-deterministic parameter evaluation
-                    f_def = m.mk_ite(m.mk_eq(result, value2bv(i, s)), m.mk_const(cs[i]), f_def);
+                    expr_ref eq_expr(m.mk_eq(result, value2bv(i, s)), m);
+                    expr_ref ctor_expr(m.mk_const(cs[i]), m);
+                    f_def = m.mk_ite(eq_expr, ctor_expr, f_def);
                 }
                 m_imp.m_enum2def.insert(f, f_def);
                 m_imp.m_enum2bv.insert(f, f_fresh);

@@ -747,34 +747,47 @@ namespace seq {
         VERIFY (seq.str.is_stoi(e, _s));
         expr_ref s(_s, m);
         m_rewrite(s);
-        // TODO: non-deterministic parameter evaluation
         auto stoi2 = [&](unsigned j) { return m_sk.mk("seq.stoi", s, a.mk_int(j), a.mk_int()); }; 
         auto digit = [&](unsigned j) { return mk_digit2int(mk_nth(s, j)); };
         auto is_digit_ = [&](unsigned j) { return is_digit(mk_nth(s, j)); };
         expr_ref len = mk_len(s);
         expr_ref ge0 = mk_ge(e, 0);
         expr_ref lek = mk_le(len, k);
-        add_clause(~lek, mk_eq(e, stoi2(k-1)));                                    // len(s) <= k  => stoi(s) = stoi(s, k-1)
-        // TODO: non-deterministic parameter evaluation
-        add_clause(mk_le(len, 0), ~is_digit_(0), mk_eq(stoi2(0), digit(0)));       // len(s) > 0, is_digit(nth(s, 0)) => stoi(s,0) = digit(s,0)
-        // TODO: non-deterministic parameter evaluation
-        add_clause(mk_le(len, 0), is_digit_(0),  mk_eq(stoi2(0), a.mk_int(-1)));   // len(s) > 0, ~is_digit(nth(s, 0)) => stoi(s,0) = -1
+        expr_ref stoi_k_1(stoi2(k-1), m);
+        add_clause(~lek, mk_eq(e, stoi_k_1));                                    // len(s) <= k  => stoi(s) = stoi(s, k-1)
+
+        expr_ref len_le0(mk_le(len, 0), m);
+        expr_ref digit0(digit(0), m);
+        expr_ref is_digit0(is_digit_(0), m);
+        expr_ref not_is_digit0(m.mk_not(is_digit0), m);
+        expr_ref stoi0(stoi2(0), m);
+        add_clause(len_le0, not_is_digit0, mk_eq(stoi0, digit0));       // len(s) > 0, is_digit(nth(s, 0)) => stoi(s,0) = digit(s,0)
+        expr_ref minus_one_int(a.mk_int(-1), m);
+        add_clause(len_le0, is_digit0,  mk_eq(stoi0, minus_one_int));   // len(s) > 0, ~is_digit(nth(s, 0)) => stoi(s,0) = -1
         for (unsigned i = 1; i < k; ++i) {
 
             // len(s) <= i => stoi(s, i) = stoi(s, i - 1)
 
-            add_clause(~mk_le(len, i),  mk_eq(stoi2(i), stoi2(i-1)));
+            expr_ref len_le_i(mk_le(len, i), m);
+            expr_ref stoi_i(stoi2(i), m);
+            expr_ref stoi_prev(stoi2(i-1), m);
+            add_clause(~len_le_i,  mk_eq(stoi_i, stoi_prev));
 
             // len(s) > i, stoi(s, i - 1) >= 0, is_digit(nth(s, i)) => stoi(s, i) = 10*stoi(s, i - 1) + digit(i)
             // len(s) > i, stoi(s, i - 1) < 0 => stoi(s, i) = -1
             // len(s) > i, ~is_digit(nth(s, i)) => stoi(s, i) = -1
 
-            // TODO: non-deterministic parameter evaluation
-            add_clause(mk_le(len, i), ~mk_ge(stoi2(i-1), 0), ~is_digit_(i), mk_eq(stoi2(i), a.mk_add(a.mk_mul(a.mk_int(10), stoi2(i-1)), digit(i))));
-            // TODO: non-deterministic parameter evaluation
-            add_clause(mk_le(len, i), is_digit_(i),                         mk_eq(stoi2(i), a.mk_int(-1)));
-            // TODO: non-deterministic parameter evaluation
-            add_clause(mk_le(len, i), mk_ge(stoi2(i-1), 0),                 mk_eq(stoi2(i), a.mk_int(-1)));
+            expr_ref ge_stoi_prev(mk_ge(stoi_prev, 0), m);
+            expr_ref not_ge_stoi_prev(m.mk_not(ge_stoi_prev), m);
+            expr_ref is_digit_i(is_digit_(i), m);
+            expr_ref not_is_digit_i(m.mk_not(is_digit_i), m);
+            expr_ref digit_i(digit(i), m);
+            expr_ref ten(a.mk_int(10), m);
+            expr_ref mul_expr(a.mk_mul(ten, stoi_prev), m);
+            expr_ref sum_expr(a.mk_add(mul_expr, digit_i), m);
+            add_clause(len_le_i, not_ge_stoi_prev, not_is_digit_i, mk_eq(stoi_i, sum_expr));
+            add_clause(len_le_i, is_digit_i, mk_eq(stoi_i, minus_one_int));
+            add_clause(len_le_i, ge_stoi_prev, mk_eq(stoi_i, minus_one_int));
 
             // stoi(s) >= 0, i < len(s) => is_digit(nth(s, i))
 
@@ -912,17 +925,21 @@ namespace seq {
         expr* e = nullptr;
         VERIFY(seq.str.is_itos(s, e));
         expr_ref len = mk_len(s);
-        // TODO: non-deterministic parameter evaluation
-        add_clause(mk_ge(e, 10), mk_le(len, 1));
-        // TODO: non-deterministic parameter evaluation
-        add_clause(mk_le(e, -1), mk_ge(len, 1));
+        expr_ref ge_e_10(mk_ge(e, 10), m);
+        expr_ref len_le1(mk_le(len, 1), m);
+        add_clause(ge_e_10, len_le1);
+        expr_ref le_e_minus1(mk_le(e, -1), m);
+        expr_ref len_ge1(mk_ge(len, 1), m);
+        add_clause(le_e_minus1, len_ge1);
         rational lo(1);
         for (unsigned i = 1; i <= k; ++i) {
             lo *= rational(10);
-            // TODO: non-deterministic parameter evaluation
-            add_clause(mk_ge(e, lo), mk_le(len, i));
-            // TODO: non-deterministic parameter evaluation
-            add_clause(mk_le(e, lo - 1), mk_ge(len, i + 1));
+            expr_ref ge_e_lo(mk_ge(e, lo), m);
+            expr_ref len_le_i(mk_le(len, i), m);
+            add_clause(ge_e_lo, len_le_i);
+            expr_ref le_e_lo_minus(mk_le(e, lo - 1), m);
+            expr_ref len_ge_ip1(mk_ge(len, i + 1), m);
+            add_clause(le_e_lo_minus, len_ge_ip1);
         }
     }
 

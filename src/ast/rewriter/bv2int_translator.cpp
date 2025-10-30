@@ -320,8 +320,9 @@ void bv2int_translator::translate_bv(app* e) {
     case OP_BUDIV:
     case OP_BUDIV_I: {
         expr* x = umod(e, 0), * y = umod(e, 1);
-        // TODO: non-deterministic parameter evaluation
-        r = if_eq(y, 0, a.mk_int(-1), a.mk_idiv(x, y));
+        expr_ref minus_one(a.mk_int(-1), m);
+        expr_ref div_expr(a.mk_idiv(x, y), m);
+        r = if_eq(y, 0, minus_one.get(), div_expr.get());
         break;
     }
     case OP_BUMUL_NO_OVFL: {
@@ -399,10 +400,12 @@ void bv2int_translator::translate_bv(app* e) {
         unsigned sz = bv.get_bv_size(e);
         IF_VERBOSE(4, verbose_stream() << "bxor " << bv.get_bv_size(e) << "\n");
         r = arg(0);
+        expr_ref two(a.mk_int(2), m);
         for (unsigned i = 1; i < args.size(); ++i) {
             expr* q = arg(i);
-            // TODO: non-deterministic parameter evaluation
-            r = a.mk_sub(add(r, q), mul(a.mk_int(2), a.mk_band(sz, r, q)));
+            expr_ref band_expr(a.mk_band(sz, r, q), m);
+            expr_ref mul_expr(mul(two.get(), band_expr.get()), m);
+            r = a.mk_sub(add(r, q), mul_expr.get());
         }
         if (e->get_decl_kind() == OP_BXNOR)
             r = bnot(r);
@@ -440,8 +443,9 @@ void bv2int_translator::translate_bv(app* e) {
         expr* lhs = umod(bv_expr, 0);
         expr* rhs = umod(bv_expr, 1);
         expr* eq = m.mk_eq(lhs, rhs);
-        // TODO: non-deterministic parameter evaluation
-        r = m.mk_ite(eq, a.mk_int(1), a.mk_int(0));
+        expr_ref one(a.mk_int(1), m);
+        expr_ref zero(a.mk_int(0), m);
+        r = m.mk_ite(eq, one.get(), zero.get());
         break;
     }
     case OP_BSMOD_I:
@@ -460,7 +464,6 @@ void bv2int_translator::translate_bv(app* e) {
         r = a.mk_uminus(u);
         expr* pos_neg = m.mk_and(m.mk_not(signx), signy);
         expr* neg_pos = m.mk_and(signx, m.mk_not(signy));
-        // TODO: non-deterministic parameter evaluation
         expr* pos_pos = m.mk_and(m.mk_not(signx), m.mk_not(signy));
         expr_ref add_u_y(m);
         add_u_y = add(u, y);
@@ -489,9 +492,10 @@ void bv2int_translator::translate_bv(app* e) {
         y = m.mk_ite(signy, a.mk_sub(a.mk_int(N), y), y);
         expr* d = a.mk_idiv(x, y);
         r = m.mk_ite(m.mk_iff(signx, signy), d, a.mk_uminus(d));
-        // TODO: non-deterministic parameter evaluation
-        expr* zero_case = m.mk_ite(signx, a.mk_int(1), a.mk_int(-1));
-        r = if_eq(y, 0, zero_case, r);
+        expr_ref pos_case(a.mk_int(1), m);
+        expr_ref neg_case(a.mk_int(-1), m);
+        expr_ref zero_case(m.mk_ite(signx, pos_case.get(), neg_case.get()), m);
+        r = if_eq(y, 0, zero_case.get(), r);
         break;
     }
     case OP_BSREM_I:

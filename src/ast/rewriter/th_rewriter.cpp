@@ -258,25 +258,25 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     template<bool SWAP>
     br_status pull_ite_core(func_decl * p, app * ite, app * value, expr_ref & result) {
         if (m().is_eq(p)) {
-            // TODO: non-deterministic parameter evaluation
-            result = m().mk_ite(ite->get_arg(0),
-                                mk_eq_value(ite->get_arg(1), value),
-                                mk_eq_value(ite->get_arg(2), value));
+            expr* cond = ite->get_arg(0);
+            expr* then_branch = mk_eq_value(ite->get_arg(1), value);
+            expr* else_branch = mk_eq_value(ite->get_arg(2), value);
+            result = m().mk_ite(cond, then_branch, else_branch);
             return BR_REWRITE2;
         }
         else {
             if (SWAP) {
-                // TODO: non-deterministic parameter evaluation
-                result = m().mk_ite(ite->get_arg(0),
-                                    m().mk_app(p, value, ite->get_arg(1)),
-                                    m().mk_app(p, value, ite->get_arg(2)));
+                expr* cond = ite->get_arg(0);
+                expr* then_branch = m().mk_app(p, value, ite->get_arg(1));
+                expr* else_branch = m().mk_app(p, value, ite->get_arg(2));
+                result = m().mk_ite(cond, then_branch, else_branch);
                 return BR_REWRITE2;
             }
             else {
-                // TODO: non-deterministic parameter evaluation
-                result = m().mk_ite(ite->get_arg(0),
-                                    m().mk_app(p, ite->get_arg(1), value),
-                                    m().mk_app(p, ite->get_arg(2), value));
+                expr* cond = ite->get_arg(0);
+                expr* then_branch = m().mk_app(p, ite->get_arg(1), value);
+                expr* else_branch = m().mk_app(p, ite->get_arg(2), value);
+                result = m().mk_ite(cond, then_branch, else_branch);
                 return BR_REWRITE2;
             }
         }
@@ -320,10 +320,12 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                     return pull_ite_core<false>(f, to_app(args[0]), to_app(args[1]), result);
                 if (m().is_ite(args[1]) && to_app(args[0])->get_arg(0) == to_app(args[1])->get_arg(0)) {
                     // (p (ite C A1 B1) (ite C A2 B2)) --> (ite (p A1 A2) (p B1 B2))
-                    // TODO: non-deterministic parameter evaluation
-                    result = m().mk_ite(to_app(args[0])->get_arg(0),
-                                        m().mk_app(f, to_app(args[0])->get_arg(1), to_app(args[1])->get_arg(1)),
-                                        m().mk_app(f, to_app(args[0])->get_arg(2), to_app(args[1])->get_arg(2)));
+                    expr* cond = to_app(args[0])->get_arg(0);
+                    expr* then_branch = m().mk_app(f, to_app(args[0])->get_arg(1), to_app(args[1])->get_arg(1));
+                    expr* else_branch = m().mk_app(f, to_app(args[0])->get_arg(2), to_app(args[1])->get_arg(2));
+                    result = m().mk_ite(cond,
+                                        then_branch,
+                                        else_branch);
                     return BR_REWRITE2;
                 }
             }

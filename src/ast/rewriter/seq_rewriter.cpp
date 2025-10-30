@@ -1640,13 +1640,17 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
             return BR_DONE;
         }
         break;
-    case same_length_c:
-        result = m().mk_ite(m_autil.mk_le(c, minus_one()), minus_one(), 
-                            // TODO: non-deterministic parameter evaluation
-                            m().mk_ite(m().mk_eq(c, zero()), 
-                                       m().mk_ite(m().mk_eq(a, b), zero(), minus_one()),
-                                       minus_one()));
+    case same_length_c: {
+        expr* zero_ptr = zero();
+        expr* minus_one_ptr = minus_one();
+        expr* cond_le = m_autil.mk_le(c, minus_one_ptr);
+        expr* cond_eq_c = m().mk_eq(c, zero_ptr);
+        expr* cond_eq_ab = m().mk_eq(a, b);
+        expr* inner = m().mk_ite(cond_eq_ab, zero_ptr, minus_one_ptr);
+        expr* middle = m().mk_ite(cond_eq_c, inner, minus_one_ptr);
+        result = m().mk_ite(cond_le, minus_one_ptr, middle);
         return BR_REWRITE_FULL;
+    }
     default:
         break;
     }
@@ -2996,8 +3000,12 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             else if (neq_char(e, h))
                 result = nothing();
             else
-                // TODO: non-deterministic parameter evaluation
-                result = re().mk_ite_simplify(m().mk_eq(e, h), re().mk_to_re(t), nothing());
+            {
+                expr_ref cond(m().mk_eq(e, h), m());
+                expr_ref to_re_expr(re().mk_to_re(t), m());
+                expr_ref nothing_expr = nothing();
+                result = re().mk_ite_simplify(cond, to_re_expr, nothing_expr);
+            }
         }
         else {
             // observe that the precondition |r1|>0 is is implied by c1 for use of mk_seq_first
@@ -4069,8 +4077,9 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             // recall: [] denotes the empty language (nothing) regex, () denotes epsilon or empty sequence
             // construct the term (if (r1 != () and (ele = (first r1)) then (to_re (rest r1)) else []))
             hd = mk_seq_first(r1);
-            // TODO: non-deterministic parameter evaluation
-            m_br.mk_and(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m().mk_eq(hd, ele), result);
+            expr_ref not_empty(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m());
+            expr_ref eq_head(m().mk_eq(hd, ele), m());
+            m_br.mk_and(not_empty, eq_head, result);
             tl = re().mk_to_re(mk_seq_rest(r1));
             return re_and(result, tl);
         }

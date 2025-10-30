@@ -945,10 +945,11 @@ br_status bv_rewriter::mk_bv_shl(expr * arg1, expr * arg2, expr_ref & result) {
     if (m_util.is_bv_shl(arg1, x, y)) {
         expr_ref sum(m_util.mk_bv_add(y, arg2), m);
         expr_ref cond(m_util.mk_ule(y, sum), m);
-        // TODO: non-deterministic parameter evaluation
+        expr_ref shl_expr(m_util.mk_bv_shl(x, sum), m);
+        expr* zero = mk_zero(bv_size);
         result = m.mk_ite(cond, 
-                            m_util.mk_bv_shl(x, sum),
-                            mk_zero(bv_size));
+                          shl_expr,
+                          zero);
         return BR_REWRITE3;
     }
 

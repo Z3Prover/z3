@@ -487,8 +487,9 @@ namespace smt {
         expr_ref emp(re().mk_empty(r->get_sort()), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m);
         expr_ref is_non_empty = sk().mk_is_non_empty(r, r, n);
-        // TODO: non-deterministic parameter evaluation
-        th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_non_empty));
+        literal eq_lit = th.mk_eq(r1, r2, false);
+        literal non_empty_lit = th.mk_literal(is_non_empty);
+        th.add_axiom(eq_lit, non_empty_lit);
     }
 
     bool seq_regex::is_member(expr* r, expr* u) {

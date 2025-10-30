@@ -77,11 +77,11 @@ void special_relations_tactic::initialize() {
     expr* pats[1] = { pat };
     expr* pats0[1] = { pat0 };
 
-    // TODO: non-deterministic parameter evaluation
     fml = m.mk_or(m.mk_not(Rxy), m.mk_not(Ryz), Rxz);
     q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_transitive);
-    fml = m.mk_or(mk_not(Rxy & Ryz), Rxz);
+    expr_ref trans_cond(mk_not(Rxy & Ryz), m);
+    fml = m.mk_or(trans_cond, Rxz);
     q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_transitive);
 
@@ -92,7 +92,8 @@ void special_relations_tactic::initialize() {
     fml = m.mk_or(nRxy, nRyx, m.mk_eq(x, y));
     q = m.mk_forall(2, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_antisymmetric);
-    fml = m.mk_or(mk_not(Rxy & Ryx), m.mk_eq(x, y));
+    expr_ref antisym_cond(mk_not(Rxy & Ryx), m);
+    fml = m.mk_or(antisym_cond, m.mk_eq(x, y));
     q = m.mk_forall(2, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_antisymmetric);
 
@@ -179,4 +180,3 @@ void special_relations_tactic::operator()(goal_ref const & g, goal_ref_buffer & 
 tactic * mk_special_relations_tactic(ast_manager & m, params_ref const & p) {
     return alloc(special_relations_tactic, m, p);
 }
-
