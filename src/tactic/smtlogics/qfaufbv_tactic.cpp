@@ -38,17 +38,26 @@ static tactic * mk_qfaufbv_preamble(ast_manager & m, params_ref const & p) {
     simp2_p.set_uint("local_ctx_limit", 10000000);
 
 
-    // TODO: non-deterministic parameter evaluation
-    return and_then(mk_simplify_tactic(m),
-                    mk_propagate_values_tactic(m),
-                    mk_solve_eqs_tactic(m),
-                    mk_elim_uncnstr_tactic(m),
-                    // sound to use? if_no_proofs(if_no_unsat_cores(mk_reduce_args_tactic(m))),
-                    if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
-                    using_params(mk_simplify_tactic(m), simp2_p),
-                    mk_max_bv_sharing_tactic(m),
-                    if_no_proofs(if_no_unsat_cores(mk_ackermannize_bv_tactic(m, p)))
-                    );
+    tactic* simplify1 = mk_simplify_tactic(m);
+    tactic* propagate = mk_propagate_values_tactic(m);
+    tactic* solve_eqs = mk_solve_eqs_tactic(m);
+    tactic* elim_unc = mk_elim_uncnstr_tactic(m);
+    tactic* size_reduction = mk_bv_size_reduction_tactic(m);
+    tactic* guarded_size_reduction = if_no_proofs(if_no_unsat_cores(size_reduction));
+    tactic* simplify2 = mk_simplify_tactic(m);
+    tactic* simplify_with_params = using_params(simplify2, simp2_p);
+    tactic* max_sharing = mk_max_bv_sharing_tactic(m);
+    tactic* ackermann = mk_ackermannize_bv_tactic(m, p);
+    tactic* guarded_ackermann = if_no_proofs(if_no_unsat_cores(ackermann));
+
+    return and_then(simplify1,
+                    propagate,
+                    solve_eqs,
+                    elim_unc,
+                    guarded_size_reduction,
+                    simplify_with_params,
+                    max_sharing,
+                    guarded_ackermann);
 }
 
 tactic * mk_qfaufbv_tactic(ast_manager & m, params_ref const & p) {
@@ -58,10 +67,12 @@ tactic * mk_qfaufbv_tactic(ast_manager & m, params_ref const & p) {
 
     tactic * preamble_st = mk_qfaufbv_preamble(m, p);
 
-    tactic * st = using_params(
-        and_then(preamble_st, 
-                 // TODO: non-deterministic parameter evaluation
-                 cond(mk_is_qfbv_probe(), mk_qfbv_tactic(m), mk_smt_tactic(m, p))), main_p);
+    tactic* qfbv = mk_qfbv_tactic(m);
+    tactic* smt = mk_smt_tactic(m, p);
+    probe* qfbv_probe = mk_is_qfbv_probe();
+    tactic* branch = cond(qfbv_probe, qfbv, smt);
+
+    tactic * st = using_params(and_then(preamble_st, branch), main_p);
     
     st->updt_params(p);
     return st;
