@@ -155,7 +155,8 @@ namespace smt {
                 unsigned best_param_state_idx = replay_proof_prefixes(candidate_param_states);
 
                 if (best_param_state_idx != 0) {
-                    best_param_state = candidate_param_states[best_param_state_idx];
+                    m_param_state = candidate_param_states[best_param_state_idx];
+                    b.set_param_state(m_param_state);
                     IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found better param state at index " << best_param_state_idx << "\n");
                 } else {
                     IF_VERBOSE(1, verbose_stream() << " PARAM TUNER retained current param state\n");
@@ -192,6 +193,13 @@ namespace smt {
 
         check_cube_start:
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
+            
+            // apply current best param state from batch manager
+            smt_params params = b.get_best_param_state();
+            params_ref p;
+            params.updt_params(p);
+            ctx->updt_params(p);
+
             lbool r = check_cube(cube);
 
             if (!m.inc()) {
@@ -422,6 +430,11 @@ namespace smt {
             shared_clause sc{source_worker_id, expr_ref(g_clause, m)};
             shared_clause_trail.push_back(sc);
         }
+    }
+
+    smt_params parallel::batch_manager::get_best_param_state() {
+        std::scoped_lock lock(mux);
+        return m_param_state;
     }
 
     void parallel::worker::collect_shared_clauses() {

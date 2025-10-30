@@ -80,6 +80,7 @@ namespace smt {
             std::mutex mux;
             state m_state = state::is_running;
             stats m_stats;
+            smt_params m_param_state;
             using node = search_tree::node<cube_config>;
             search_tree::tree<cube_config> m_search_tree;
             
@@ -104,8 +105,10 @@ namespace smt {
             void set_sat(ast_translation& l2g, model& m);
             void set_exception(std::string const& msg);
             void set_exception(unsigned error_code);
+            void set_param_state(smt_params const& p) { m_param_state = p; }
             void collect_statistics(::statistics& st) const;
-
+            
+            smt_params get_best_param_state();
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
             void split(ast_translation& l2g, unsigned id, node* n, expr* atom);
