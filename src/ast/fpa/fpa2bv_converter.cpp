@@ -1207,9 +1207,9 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     lshift = edr_tmp;
     rshift = nedr_tmp;
 
-    // TODO: non-deterministic parameter evaluation
-    shifted = m.mk_ite(exp_diff_is_neg, m_bv_util.mk_bv_ashr(a_sig_ext, rshift),
-                                        m_bv_util.mk_bv_shl(a_sig_ext, lshift));
+    expr_ref ashr_expr(m_bv_util.mk_bv_ashr(a_sig_ext, rshift), m);
+    expr_ref shl_expr(m_bv_util.mk_bv_shl(a_sig_ext, lshift), m);
+    shifted = m.mk_ite(exp_diff_is_neg, ashr_expr.get(), shl_expr.get());
     huge_rem = m_bv_util.mk_bv_urem(shifted, b_sig_ext);
     huge_div = m.mk_app(m_bv_util.get_fid(), OP_BUDIV_I, shifted, b_sig_ext);
     huge_div_is_even = m.mk_eq(m_bv_util.mk_extract(0, 0, huge_div), m_bv_util.mk_numeral(0, 1));
@@ -3461,9 +3461,9 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     dbg_decouple("fpa2bv_to_bv_shift", shift);
 
     expr_ref big_sig_shifted(m), int_part(m), last(m), round(m), stickies(m), sticky(m);
-    // TODO: non-deterministic parameter evaluation
-    big_sig_shifted = m.mk_ite(is_neg_shift, m_bv_util.mk_bv_lshr(big_sig, shift),
-                                             m_bv_util.mk_bv_shl(big_sig, shift));
+    expr_ref lshr_expr(m_bv_util.mk_bv_lshr(big_sig, shift), m);
+    expr_ref shl_expr(m_bv_util.mk_bv_shl(big_sig, shift), m);
+    big_sig_shifted = m.mk_ite(is_neg_shift, lshr_expr.get(), shl_expr.get());
     int_part = m_bv_util.mk_extract(big_sig_sz-1, big_sig_sz-(bv_sz+3), big_sig_shifted);
     SASSERT(m_bv_util.get_bv_size(int_part) == bv_sz+3);
     last     = m_bv_util.mk_extract(big_sig_sz-(bv_sz+3), big_sig_sz-(bv_sz+3), big_sig_shifted);

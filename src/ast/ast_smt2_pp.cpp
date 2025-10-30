@@ -592,21 +592,22 @@ class smt2_printer {
     }
 
     format * pp_attribute(char const * attr, format * f) {
-        // TODO: non-deterministic parameter evaluation
-        return mk_compose(m(),
-                          mk_string(m(), attr),
-                          mk_indent(m(), static_cast<unsigned>(strlen(attr)), f));
+        format * attr_fmt = mk_string(m(), attr);
+        format * indented = mk_indent(m(), static_cast<unsigned>(strlen(attr)), f);
+        return mk_compose(m(), attr_fmt, indented);
     }
 
     format * pp_simple_attribute(char const * attr, int v) {
-        // TODO: non-deterministic parameter evaluation
-        return mk_compose(m(), mk_string(m(), attr), mk_int(m(), v));
+        format * attr_fmt = mk_string(m(), attr);
+        format * int_fmt = mk_int(m(), v);
+        return mk_compose(m(), attr_fmt, int_fmt);
     }
 
     format * pp_simple_attribute(char const * attr, symbol const & s) {
         std::string str = ensure_quote(s);
-        // TODO: non-deterministic parameter evaluation
-        return mk_compose(m(), mk_string(m(), attr), mk_string(m(), str));
+        format * attr_fmt = mk_string(m(), attr);
+        format * sym_fmt = mk_string(m(), str);
+        return mk_compose(m(), attr_fmt, sym_fmt);
     }
 
     format * pp_labels(bool is_pos, buffer<symbol> const & names, format * f) {
@@ -765,26 +766,31 @@ class smt2_printer {
             SASSERT(it < end);
             format * fname = m_env.pp_fdecl(t->get_decl(), len);
             if (len > MAX_INDENT) {
-                // TODO: non-deterministic parameter evaluation
-                f = mk_group(m(), mk_compose(m(),
-                                             mk_indent(m(), 1, mk_compose(m(), mk_string(m(), "("), fname)),
-                                             // TODO: non-deterministic parameter evaluation
-                                             mk_indent(m(), SMALL_INDENT, mk_compose(m(),
-                                                                                     mk_seq<format**, f2f>(m(), it, end, f2f()),
-                                                                                     mk_string(m(), ")")))));
+                format * open_paren = mk_string(m(), "(");
+                format * head = mk_compose(m(), open_paren, fname);
+                format * indented_head = mk_indent(m(), 1, head);
+                format * arg_seq = mk_seq<format**, f2f>(m(), it, end, f2f());
+                format * close_paren = mk_string(m(), ")");
+                format * body = mk_compose(m(), arg_seq, close_paren);
+                format * indented_body = mk_indent(m(), SMALL_INDENT, body);
+                format * combined = mk_compose(m(), indented_head, indented_body);
+                f = mk_group(m(), combined);
             }
             else {
                 format * first = *it;
                 ++it;
-                // TODO: non-deterministic parameter evaluation
-                f = mk_group(m(), mk_compose(m(),
-                                             mk_indent(m(), 1, mk_compose(m(), mk_string(m(), "("), fname)),
-                                             // TODO: non-deterministic parameter evaluation
-                                             mk_indent(m(), len + 2, mk_compose(m(),
-                                                                                mk_string(m(), " "),
-                                                                                first,
-                                                                                mk_seq<format**, f2f>(m(), it, end, f2f()),
-                                                                                mk_string(m(), ")")))));
+                format * open_paren = mk_string(m(), "(");
+                format * head = mk_compose(m(), open_paren, fname);
+                format * indented_head = mk_indent(m(), 1, head);
+                format * space = mk_string(m(), " ");
+                format * first_part = mk_compose(m(), space, first);
+                format * rest_seq = mk_seq<format**, f2f>(m(), it, end, f2f());
+                format * with_rest = mk_compose(m(), first_part, rest_seq);
+                format * close_paren = mk_string(m(), ")");
+                format * body = mk_compose(m(), with_rest, close_paren);
+                format * indented_body = mk_indent(m(), len + 2, body);
+                format * combined = mk_compose(m(), indented_head, indented_body);
+                f = mk_group(m(), combined);
             }
         }
         info f_info(0, 1, 1);
