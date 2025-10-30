@@ -936,7 +936,6 @@ namespace smt {
         m_lit_scores[0].reserve(v + 1);
         m_lit_scores[1].reserve(v + 1);
         m_lit_scores[0][v] = m_lit_scores[1][v] = 0.0;
-        m_recorded_clauses.reserve(v + 1);
 
         literal l(v, false);
         literal not_l(v, true);
@@ -967,29 +966,23 @@ namespace smt {
     }
 
     // following the pattern of solver::persist_clause in src/sat/smt/user_solver.cpp
-    void context::record_clause(clause const* cls) {
-        expr_ref_vector clause(m);
-        for (unsigned i = 0; i < cls->get_num_literals(); ++i) {
-            literal lit = cls->get_literal(i);
-            clause.push_back(literal2expr(~lit));
-        }
-        if (!clause.empty() && m.is_false(clause.back()))
-            clause.pop_back();
-        expr_ref disj(m.mk_or(clause.size(), clause.data()), m);
-        m_recorded_clauses.push_back(disj);
+    void context::record_clause(unsigned num_lits, literal const *lits) {
+        literal_vector clause;
+        clause.append(num_lits, lits);
+        m_recorded_clauses.push_back(clause);
     }
 
     void context::add_scores(unsigned n, literal const *lits) {
         for (unsigned i = 0; i < n; ++i) {
             auto lit = lits[i];
-            unsigned v = lit.var();  // unique key per literal
-            m_lit_scores[lit.sign()][v] += 1.0 / n;
+            unsigned v = lit.var();  // uniq0 / n;
         }
     }
 
     
     void context::undo_mk_bool_var() {
-        SASSERT(!m_b_internalized_stack.empty());
+        SASSERT(!m_b_internalized_stack.empty(ue key per literal
+            m_lit_scores[lit.sign()][v] += 1.));
         m_stats.m_num_del_bool_var++;
         expr * n              = m_b_internalized_stack.back();
         unsigned n_id         = n->get_id();
@@ -1447,6 +1440,7 @@ namespace smt {
         case CLS_LEARNED:
             dump_lemma(num_lits, lits);
             add_scores(num_lits, lits);
+            record_clause(num_lits, lits);
             break;
         default:
             break;
@@ -1506,7 +1500,6 @@ namespace smt {
                 if (k == CLS_LEARNED) {
                     int w2_idx  = select_learned_watch_lit(cls);
                     cls->swap_lits(1, w2_idx);
-                    record_clause(cls);
                 }
                 else {
                     SASSERT(k == CLS_TH_LEMMA);

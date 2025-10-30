@@ -82,7 +82,26 @@ namespace smt {
 
     void parallel::param_generator::replay_proof_prefixes(unsigned max_conflicts_epsilon=200) {
         unsigned conflict_budget = m_max_prefix_conflicts + max_conflicts_epsilon;
+        // loop through m_param_probe_contexts
+        for (unsigned i = 0; i < m_param_probe_contexts.size(); ++i) {
+            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: replaying proof prefix in param probe context " << i << "\n");
+            context *probe_ctx = m_param_probe_contexts[i];
+            probe_ctx->get_fparams().m_max_conflicts = conflict_budget;
+            
+            for (auto const& clause : probe_ctx->m_recorded_clauses) {
+                expr_ref_vector negated_lits(probe_ctx->m);
+                for (literal lit : clause) {
+                    expr* e = probe_ctx->bool_var2expr(lit.var());
+                    if (!e) continue;  // skip if var not yet mapped
+                    if (!lit.sign())
+                        e = probe_ctx->m.mk_not(e); // since bool_var2expr discards sign
+                    negated_lits.push_back(e);
+                }
 
+                // Replay the negated clause
+                lbool r = probe_ctx->check(negated_lits.size(), negated_lits.data());
+            }
+        }
     }
 
     void parallel::param_generator::protocol_iteration() {
