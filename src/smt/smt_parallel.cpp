@@ -67,6 +67,8 @@ namespace smt {
     lbool parallel::param_generator::run_prefix_step() {
         IF_VERBOSE(1, verbose_stream() << " Param generator running prefix step\n");
         ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
+        m_recorded_cubes.reset();
+        ctx->m_recorded_cubes = &m_recorded_cubes;
         lbool r = l_undef;
         try {
             r = ctx->check();
@@ -110,7 +112,7 @@ namespace smt {
             double score = 0.0;
 
             // replay the cube (negation of the clause)
-            for (expr_ref_vector const& cube : probe_ctx->m_recorded_cubes) {
+            for (expr_ref_vector const& cube : m_recorded_cubes) {
                 lbool r = probe_ctx->check(cube.size(), cube.data());               
                 unsigned conflicts = probe_ctx->m_stats.m_num_conflicts;                
                 unsigned decisions = probe_ctx->m_stats.m_num_decisions;

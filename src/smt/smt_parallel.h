@@ -128,6 +128,7 @@ namespace smt {
             unsigned m_max_prefix_conflicts = 1000;
 
             scoped_ptr<context> m_prefix_solver;
+            vector<expr_ref_vector> m_recorded_cubes;
             params_ref m_p;
             param_values m_param_state;
 
