@@ -966,10 +966,17 @@ namespace smt {
     }
 
     // following the pattern of solver::persist_clause in src/sat/smt/user_solver.cpp
-    void context::record_clause(unsigned num_lits, literal const *lits) {
-        literal_vector clause;
-        clause.append(num_lits, lits);
-        m_recorded_clauses.push_back(clause);
+    void context::record_cube(unsigned num_lits, literal const *lits) {
+        expr_ref_vector cube(m);
+        for (unsigned i = 0; i < num_lits; ++i) {
+            literal lit = lits[i];
+            expr* e = bool_var2expr(lit.var());
+            if (!e) continue;
+            if (!lit.sign())
+                e = m.mk_not(e);  // only negate positive literal
+            cube.push_back(e);
+        }
+        m_recorded_cubes.push_back(cube);
     }
 
     void context::add_scores(unsigned n, literal const *lits) {
@@ -981,7 +988,8 @@ namespace smt {
 
     
     void context::undo_mk_bool_var() {
-        SASSERT(!m_b_internalized_stack.empty());
+        SASSERT(!m_b_internalized_stack.empty(ue key per literal
+            m_lit_scores[lit.sign()][v] += 1.));
         m_stats.m_num_del_bool_var++;
         expr * n              = m_b_internalized_stack.back();
         unsigned n_id         = n->get_id();
@@ -1439,7 +1447,7 @@ namespace smt {
         case CLS_LEARNED:
             dump_lemma(num_lits, lits);
             add_scores(num_lits, lits);
-            record_clause(num_lits, lits);
+            record_cube(num_lits, lits);
             break;
         default:
             break;
