@@ -194,16 +194,7 @@ namespace smt {
             m_trail.push_back(info(st, v, p));
         if (m_on_clause_eh) {
             // Encode status as an integer flag for simplicity.
-            unsigned st_code = 0;
-            switch (st) {
-                case status::assumption:    st_code = 1; break;
-                case status::lemma:         st_code = 2; break;
-                case status::th_lemma:      st_code = 3; break;
-                case status::th_assumption: st_code = 4; break;
-                case status::deleted:       st_code = 5; break;
-                default:                    st_code = 0; break;
-            }
-            m_on_clause_eh(m_on_clause_ctx, p, 0, nullptr, v.size(), v.data(), st_code);
+            m_on_clause_eh(m_on_clause_ctx, p, 0, nullptr, v.size(), v.data());
         }
         
         if (m_has_log) {
