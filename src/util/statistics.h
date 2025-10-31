@@ -40,7 +40,6 @@ public:
     char const * get_key(unsigned idx) const;
     unsigned get_uint_value(unsigned idx) const;
     double get_double_value(unsigned idx) const;
-    double get_val(char const * key) const;
 };
 
 inline std::ostream& operator<<(std::ostream& out, statistics const& st) { return st.display(out); }
