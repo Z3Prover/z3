@@ -110,17 +110,15 @@ namespace smt {
             }
 
             probe_ctx->get_fparams().m_max_conflicts = conflict_budget;
-            double score = 0.0;
 
             // replay the cube (negation of the clause)
             for (expr_ref_vector const& cube : m_recorded_cubes) {
                 lbool r = probe_ctx->check(cube.size(), cube.data());               
-                unsigned conflicts = probe_ctx->m_stats.m_num_conflicts;                
-                unsigned decisions = probe_ctx->m_stats.m_num_decisions;
-                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER " << i << ": cube replay result " << r << 
-                    ", conflicts = " << conflicts << ", decisions = " << decisions << "\n");
-                score += conflicts + decisions;
+                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER " << i << ": cube replay result " << r << "\n");                
             }
+            unsigned conflicts = probe_ctx->m_stats.m_num_conflicts;
+            unsigned decisions = probe_ctx->m_stats.m_num_decisions;
+            double score = conflicts + decisions;
 
             if (i == 0) {
                 best_score = score;
@@ -183,17 +181,27 @@ namespace smt {
         unsigned index = ctx->get_random_value() % new_param_values.size();
         auto &param = new_param_values[index];
         if (std::holds_alternative<bool>(param.second)) {
-            bool value = *std::get_if<bool>(&param.second);
-            param.second = !value;
+            bool& value = std::get<bool>(param.second);
+            value = !value;
         } 
         else if (std::holds_alternative<unsigned_value>(param.second)) {
-            auto [value, lo, hi] = *std::get_if<unsigned_value>(&param.second);
+            auto [value, lo, hi] = std::get<unsigned_value>(param.second);
             unsigned new_value = value;
             while (new_value == value) {
                 new_value = lo + ctx->get_random_value() % (hi - lo + 1);
             }
-            std::get_if<unsigned_value>(&param.second)->value = new_value;
+            std::get<unsigned_value>(param.second).value = new_value;
         }
+        IF_VERBOSE(0, 
+            for (auto const &[name, val] : new_param_values) {
+                if (std::holds_alternative<bool>(val)) {
+                    verbose_stream() << name << " = " << std::get<bool>(val) << "\n";
+                } 
+                else if (std::holds_alternative<unsigned_value>(val)) {
+                    verbose_stream() << name << " = " << std::get<unsigned_value>(val).value << "\n";
+                }
+            }
+            );
         return new_param_values;
     }
 
