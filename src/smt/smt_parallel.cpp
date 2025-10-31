@@ -207,13 +207,14 @@ namespace smt {
         switch (r) {
             case l_undef: {
                 replay_proof_prefixes();
+                break;
             }
             case l_true: {
                 IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found formula sat\n");
                 model_ref mdl;
                 ctx->get_model(mdl);
                 b.set_sat(m_l2g, *mdl);
-                return;
+                break;
             }
             case l_false: {
                 expr_ref_vector const &unsat_core = ctx->unsat_core();
@@ -221,7 +222,7 @@ namespace smt {
                            for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
                 IF_VERBOSE(1, verbose_stream() << " PARAM TUNER determined formula unsat\n");
                 b.set_unsat(m_l2g, unsat_core);
-                return;
+                break;
             }
         }
     }
