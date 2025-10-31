@@ -89,9 +89,9 @@ namespace smt {
             void set_exception(std::string const& msg);
             void set_exception(unsigned error_code);
             void set_param_state(params_ref const& p) { m_param_state.copy(p); }
-            void collect_statistics(::statistics& st) const;
-            
-            params_ref get_best_param_state();
+            void get_param_state(params_ref &p);
+            void collect_statistics(::statistics& st) const;            
+
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
             void split(ast_translation& l2g, unsigned id, node* n, expr* atom);
@@ -110,6 +110,14 @@ namespace smt {
         // 4. update current configuration with the winner
 
         class param_generator {
+            struct unsigned_value {
+                unsigned value;
+                unsigned min_value;
+                unsigned max_value;
+            };
+            using param_value = std::variant<unsigned_value, bool>;
+            using param_values = vector<std::pair<symbol, param_value>>;
+
             parallel &p;
             batch_manager &b;
             ast_manager m;
@@ -120,42 +128,18 @@ namespace smt {
             unsigned m_max_prefix_conflicts = 1000;
 
             scoped_ptr<context> m_prefix_solver;
-            scoped_ptr_vector<context> m_param_probe_contexts;
             params_ref m_p;
-
-            struct unsigned_value {
-                unsigned value;
-                unsigned min_value;
-                unsigned max_value;
-            };
-            using param_value = std::variant<unsigned_value, bool>;
-            using param_values = vector<std::pair<symbol, param_value>>;
             param_values m_param_state;
 
-            params_ref apply_param_values(param_values const &pv) {
-                params_ref p = m_p;
-                for (auto const& [k, v] : pv) {
-                    if (std::holds_alternative<unsigned_value>(v)) {
-                        unsigned_value uv = std::get<unsigned_value>(v);
-                        p.set_uint(k, uv.value);
-                    } else if (std::holds_alternative<bool>(v)) {
-                        bool bv = std::get<bool>(v);
-                        p.set_bool(k, bv);
-                    }
-                }
-                return p;
-            }
-
-        private:
+            params_ref apply_param_values(param_values const &pv);
             void init_param_state();
-
             param_values mutate_param_state();
 
         public:
             param_generator(parallel &p);
             lbool run_prefix_step();
             void protocol_iteration();
-            std::pair<parallel::param_generator::param_values, bool> replay_proof_prefixes(unsigned max_conflicts_epsilon);
+            void replay_proof_prefixes(unsigned max_conflicts_epsilon);
 
             reslimit &limit() {
                 return m.limit();
