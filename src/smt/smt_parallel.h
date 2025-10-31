@@ -27,23 +27,6 @@ Revision History:
 
 namespace smt {
 
-  inline bool operator==(const smt_params& a, const smt_params& b) {
-      return a.m_nl_arith_branching == b.m_nl_arith_branching &&
-            a.m_nl_arith_cross_nested == b.m_nl_arith_cross_nested &&
-            a.m_nl_arith_delay == b.m_nl_arith_delay &&
-            a.m_nl_arith_expensive_patching == b.m_nl_arith_expensive_patching &&
-            a.m_nl_arith_gb == b.m_nl_arith_gb &&
-            a.m_nl_arith_horner == b.m_nl_arith_horner &&
-            a.m_nl_arith_horner_frequency == b.m_nl_arith_horner_frequency &&
-            a.m_nl_arith_optimize_bounds == b.m_nl_arith_optimize_bounds &&
-            a.m_nl_arith_propagate_linear_monomials == b.m_nl_arith_propagate_linear_monomials &&
-            a.m_nl_arith_tangents == b.m_nl_arith_tangents;
-  }
-
-  inline bool operator!=(const smt_params& a, const smt_params& b) {
-      return !(a == b);
-  }
-
     struct cube_config {
         using literal = expr_ref;
         static bool literal_is_null(expr_ref const& l) { return l == nullptr; }
@@ -150,9 +133,18 @@ namespace smt {
             param_values m_param_state;
 
             params_ref apply_param_values(param_values const &pv) {
-                return m_p;
+                params_ref p = m_p;
+                for (auto const& [k, v] : pv) {
+                    if (std::holds_alternative<unsigned_value>(v)) {
+                        unsigned_value uv = std::get<unsigned_value>(v);
+                        p.set_uint(k, uv.value);
+                    } else if (std::holds_alternative<bool>(v)) {
+                        bool bv = std::get<bool>(v);
+                        p.set_bool(k, bv);
+                    }
+                }
+                return p;
             }
-            // todo
 
         private:
             void init_param_state();
@@ -163,7 +155,7 @@ namespace smt {
             param_generator(parallel &p);
             lbool run_prefix_step();
             void protocol_iteration();
-            unsigned replay_proof_prefixes(vector<param_values> const& candidate_param_states, unsigned max_conflicts_epsilon);
+            std::pair<parallel::param_generator::param_values, bool> replay_proof_prefixes(unsigned max_conflicts_epsilon);
 
             reslimit &limit() {
                 return m.limit();
