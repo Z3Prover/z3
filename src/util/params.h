@@ -49,6 +49,7 @@ public:
     // copy params from src
     void copy(params_ref const & src);
     void append(params_ref const & src) { copy(src); }
+    params_ref clone() const;
 
     bool get_bool(symbol const & k, bool _default) const;
     bool get_bool(char const * k, bool _default) const;

@@ -163,9 +163,7 @@ namespace smt {
     };
 
     params_ref parallel::param_generator::apply_param_values(param_values const &pv) {
-        params_ref p;
-        p.copy(m_p);
-        p.copy(m_p); // hack to break default sharing of parameters
+        params_ref p = m_p.clone();
         for (auto const &[k, v] : pv) {
             if (std::holds_alternative<unsigned_value>(v)) {
                 unsigned_value uv = std::get<unsigned_value>(v);

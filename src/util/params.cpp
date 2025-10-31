@@ -550,6 +550,13 @@ params_ref::params_ref(params_ref const & p) {
     set(p);
 }
 
+params_ref params_ref::clone() const {
+    params_ref p;
+    p.init();
+    p.copy_core(m_params);
+    return p;
+}
+
 void params_ref::display(std::ostream & out) const {
     if (m_params)
         m_params->display(out);
