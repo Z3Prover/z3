@@ -111,7 +111,6 @@ value_factory* model::get_factory(sort* s) {
         m_factories.register_plugin(alloc(arith_factory, m));
         m_factories.register_plugin(alloc(seq_factory, m, su.get_family_id(), *this));
         m_factories.register_plugin(alloc(fpa_value_factory, m, fu.get_family_id()));
-
         m_factories.register_plugin(alloc(finite_set_factory, m, m.get_family_id("finite_set"), *this));
         //m_factories.register_plugin(alloc(char_factory, m, char_decl_plugin(m).get_family_id());
     }
