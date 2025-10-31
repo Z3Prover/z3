@@ -25,7 +25,8 @@ Author:
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
 #include "solver/solver_preprocess.h"
-// #include "params/smt_parallel_params.hpp"
+#include "params/smt_parallel_params.hpp"
+
 
 #include <cmath>
 #include <mutex>
@@ -67,6 +68,8 @@ namespace smt {
     lbool parallel::param_generator::run_prefix_step() {
         IF_VERBOSE(1, verbose_stream() << " Param generator running prefix step\n");
         ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
+        m_recorded_cubes.reset();
+        ctx->m_recorded_cubes = &m_recorded_cubes;
         lbool r = l_undef;
         try {
             r = ctx->check();
@@ -83,17 +86,18 @@ namespace smt {
         return r;
     }
 
-    std::pair<parallel::param_generator::param_values, bool> parallel::param_generator::replay_proof_prefixes(unsigned max_conflicts_epsilon=200) {
+    void parallel::param_generator::replay_proof_prefixes(unsigned max_conflicts_epsilon=200) {
         unsigned conflict_budget = m_max_prefix_conflicts + max_conflicts_epsilon;
         param_values best_param_state;
-        double best_score;
+        double best_score = 0;
         bool found_better_params = false;
 
-        for (unsigned i = 0; i < N; ++i) {
+        for (unsigned i = 0; i <= N; ++i) {
             IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: replaying proof prefix in param probe context " << i << "\n");
 
             // copy prefix solver context to a new probe_ctx for next replay with candidate mutation
-            scoped_ptr<context> probe_ctx = alloc(context, m, ctx->get_fparams(), m_p);
+            smt_params smtp(m_p);
+            scoped_ptr<context> probe_ctx = alloc(context, m, smtp, m_p);
             context::copy(*ctx, *probe_ctx, true);
 
             // apply a candidate (mutated) param state to probe_ctx
@@ -109,25 +113,35 @@ namespace smt {
             double score = 0.0;
 
             // replay the cube (negation of the clause)
-            for (expr_ref_vector const& cube : probe_ctx->m_recorded_cubes) {
-                lbool r = probe_ctx->check(cube.size(), cube.data());
-
+            for (expr_ref_vector const& cube : m_recorded_cubes) {
+                lbool r = probe_ctx->check(cube.size(), cube.data());               
                 unsigned conflicts = probe_ctx->m_stats.m_num_conflicts;                
                 unsigned decisions = probe_ctx->m_stats.m_num_decisions;
-
+                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER " << i << ": cube replay result " << r << 
+                    ", conflicts = " << conflicts << ", decisions = " << decisions << "\n");
                 score += conflicts + decisions;
             }
 
-            if (i > 0 && score < best_score) {
-                found_better_params = true;
-                best_param_state = mutated_param_state;
+            if (i == 0) {
                 best_score = score;
-            } else {
+                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: baseline score = " << best_score << "\n");
+            }
+            else if (score < best_score) {
+                found_better_params = true;
+                best_param_state = mutated_param_state;                
                 best_score = score;
             }
         }
-
-        return {best_param_state, found_better_params};
+        
+        if (found_better_params) {
+            m_param_state = best_param_state;
+            auto p = apply_param_values(m_param_state);
+            b.set_param_state(p);
+            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found better param state\n");
+        }
+        else {
+            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER retained current param state\n");
+        }
     }
 
     void parallel::param_generator::init_param_state() {
@@ -144,8 +158,22 @@ namespace smt {
         m_param_state.push_back(
             {symbol("smt.arith.nl.propagate_linear_monomials"), smtp.arith_nl_propagate_linear_monomials()});
         m_param_state.push_back({symbol("smt.arith.nl.tangents"), smtp.arith_nl_tangents()});
-
     };
+
+    params_ref parallel::param_generator::apply_param_values(param_values const &pv) {
+        params_ref p = m_p.clone();
+        for (auto const &[k, v] : pv) {
+            if (std::holds_alternative<unsigned_value>(v)) {
+                unsigned_value uv = std::get<unsigned_value>(v);
+                p.set_uint(k, uv.value);
+            }
+            else if (std::holds_alternative<bool>(v)) {
+                bool bv = std::get<bool>(v);
+                p.set_bool(k, bv);
+            }
+        }
+        return p;
+    }
 
     parallel::param_generator::param_values parallel::param_generator::mutate_param_state() {
         param_values new_param_values(m_param_state);
@@ -161,7 +189,7 @@ namespace smt {
             while (new_value == value) {
                 new_value = lo + ctx->get_random_value() % (hi - lo + 1);
             }
-            std::get<unsigned_value>(param.second).value = new_value;
+            std::get_if<unsigned_value>(&param.second)->value = new_value;
         }
         return new_param_values;
     }
@@ -174,27 +202,15 @@ namespace smt {
 
         switch (r) {
             case l_undef: {
-                auto [best_param_state, found_better_params] = replay_proof_prefixes();
-
-                // NOTE: we either need to return a pair from replay_proof_prefixes so we can return a boolean flag indicating whether better params were found.
-                // or, we have to implement a comparison operator for param_values
-                // or, we update the param state every single time even if it hasn't changed
-                // for now, I went with option 1
-                if (found_better_params) {
-                    m_param_state = best_param_state;
-                    auto p = apply_param_values(m_param_state);
-                    b.set_param_state(p);
-                    IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found better param state\n");
-                } else {
-                    IF_VERBOSE(1, verbose_stream() << " PARAM TUNER retained current param state\n");
-                }
+                replay_proof_prefixes();
+                break;
             }
             case l_true: {
                 IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found formula sat\n");
                 model_ref mdl;
                 ctx->get_model(mdl);
                 b.set_sat(m_l2g, *mdl);
-                return;
+                break;
             }
             case l_false: {
                 expr_ref_vector const &unsat_core = ctx->unsat_core();
@@ -202,7 +218,7 @@ namespace smt {
                            for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
                 IF_VERBOSE(1, verbose_stream() << " PARAM TUNER determined formula unsat\n");
                 b.set_unsat(m_l2g, unsat_core);
-                return;
+                break;
             }
         }
     }
@@ -222,9 +238,8 @@ namespace smt {
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
             
             // apply current best param state from batch manager
-            smt_params params = b.get_best_param_state();
             params_ref p;
-            params.updt_params(p);
+            b.get_param_state(p);           
             ctx->updt_params(p);
 
             lbool r = check_cube(cube);
@@ -454,10 +469,9 @@ namespace smt {
         }
     }
 
-    // todo make this thread safe by not using reference counts implicit in params ref but instead copying the entire structure.
-    params_ref parallel::batch_manager::get_best_param_state() {
+    void parallel::batch_manager::get_param_state(params_ref& p) {
         std::scoped_lock lock(mux);
-        return m_param_state;
+        p.copy(m_param_state);
     }
 
     void parallel::worker::collect_shared_clauses() {
