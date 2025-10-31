@@ -476,7 +476,7 @@ stages:
 
      
   - job: NuGetPublish
-    condition: eq(1,1)
+    condition: eq(0,1)
     displayName: "Publish to NuGet.org"
     steps:
     - task: DownloadPipelineArtifact@2
