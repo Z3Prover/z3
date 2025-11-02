@@ -1031,14 +1031,14 @@ extern "C" {
         Z3_TRY;
         RESET_ERROR_CODE();
         init_solver(c, s);     
-        user_propagator::on_clause_eh_t _on_clause = [=](void* user_ctx, expr* proof, unsigned nd, unsigned const* deps, unsigned n, expr* const* _literals, unsigned const status) {
+        user_propagator::on_clause_eh_t _on_clause = [=](void* user_ctx, expr* proof, unsigned nd, unsigned const* deps, unsigned n, expr* const* _literals) {
             Z3_ast_vector_ref * literals = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
             mk_c(c)->save_object(literals);
             expr_ref pr(proof, mk_c(c)->m());
             scoped_ast_vector _sc(literals);
             for (unsigned i = 0; i < n; ++i)
                 literals->m_ast_vector.push_back(_literals[i]);
-            on_clause_eh(user_ctx, of_expr(pr.get()), nd, deps, of_ast_vector(literals), status);
+            on_clause_eh(user_ctx, of_expr(pr.get()), nd, deps, of_ast_vector(literals));
         };
         to_solver_ref(s)->register_on_clause(user_context, _on_clause);
         auto& solver = *to_solver(s);

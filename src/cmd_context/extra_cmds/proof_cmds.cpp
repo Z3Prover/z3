@@ -314,7 +314,7 @@ public:
         if (m_trim)
             trim().assume(m_lits);
         if (m_on_clause_eh)
-            m_on_clause_eh(m_on_clause_ctx, assumption(), m_deps.size(), m_deps.data(), m_lits.size(), m_lits.data(), 0u);
+            m_on_clause_eh(m_on_clause_ctx, assumption(), m_deps.size(), m_deps.data(), m_lits.size(), m_lits.data());
         m_lits.reset();
         m_proof_hint.reset();
         m_deps.reset();
@@ -328,7 +328,7 @@ public:
         if (m_trim)
             trim().infer(m_lits, m_proof_hint);
         if (m_on_clause_eh)
-            m_on_clause_eh(m_on_clause_ctx, m_proof_hint, m_deps.size(), m_deps.data(), m_lits.size(), m_lits.data(), 0u);
+            m_on_clause_eh(m_on_clause_ctx, m_proof_hint, m_deps.size(), m_deps.data(), m_lits.size(), m_lits.data());
         m_lits.reset();
         m_proof_hint.reset();
         m_deps.reset();
@@ -342,7 +342,7 @@ public:
         if (m_trim)
             trim().del(m_lits);
         if (m_on_clause_eh)
-            m_on_clause_eh(m_on_clause_ctx, del(), m_deps.size(), m_deps.data(), m_lits.size(), m_lits.data(), 0u);
+            m_on_clause_eh(m_on_clause_ctx, del(), m_deps.size(), m_deps.data(), m_lits.size(), m_lits.data());
         m_lits.reset();
         m_proof_hint.reset();
         m_deps.reset();
