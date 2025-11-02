@@ -967,11 +967,8 @@ namespace smt {
 
     // following the pattern of solver::persist_clause in src/sat/smt/user_solver.cpp
     void context::record_cube(unsigned num_lits, literal const *lits) {
-<<<<<<< HEAD
-=======
         if (!m_recorded_cubes)
             return;
->>>>>>> e3c715ce37c4064587a55077d89f90ed5c89007c
         expr_ref_vector cube(m);
         for (unsigned i = 0; i < num_lits; ++i) {
             literal lit = lits[i];
@@ -981,11 +978,7 @@ namespace smt {
                 e = m.mk_not(e);  // only negate positive literal
             cube.push_back(e);
         }
-<<<<<<< HEAD
-        m_recorded_cubes.push_back(cube);
-=======
         m_recorded_cubes->push_back(cube);
->>>>>>> e3c715ce37c4064587a55077d89f90ed5c89007c
     }
 
     void context::add_scores(unsigned n, literal const *lits) {

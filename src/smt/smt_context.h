@@ -137,11 +137,7 @@ namespace smt {
         scoped_ptr<base_dependent_expr_state> m_fmls;
 
         svector<double> m_lit_scores[2];
-<<<<<<< HEAD
-        vector<expr_ref_vector> m_recorded_cubes;
-=======
         vector<expr_ref_vector>* m_recorded_cubes = nullptr;
->>>>>>> e3c715ce37c4064587a55077d89f90ed5c89007c
 
 
         // -----------------------------------
