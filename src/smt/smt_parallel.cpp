@@ -317,7 +317,11 @@ namespace smt {
     }
 
     parallel::param_generator::param_generator(parallel& p)
-        : p(p), b(p.m_batch_manager), m_p(p.ctx.get_params()), m_l2g(m, p.ctx.m) {
+        : b(p.m_batch_manager), m_p(p.ctx.get_params()), m_l2g(m, p.ctx.m) {
+        // patch fix so that ctx = alloc(context, m, p.ctx.get_fparams(), m_p); doesn't crash due to some issue with default construction of m
+        ast_translation m_g2l(p.ctx.m, m);
+        m_g2l(p.ctx.m.mk_true());
+
         ctx = alloc(context, m, p.ctx.get_fparams(), m_p);
         context::copy(p.ctx, *ctx, true);
         // don't share initial units

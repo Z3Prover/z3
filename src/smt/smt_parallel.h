@@ -118,11 +118,9 @@ namespace smt {
             using param_value = std::variant<unsigned_value, bool>;
             using param_values = vector<std::pair<symbol, param_value>>;
 
-            parallel &p;
             batch_manager &b;
             ast_manager m;
             scoped_ptr<context> ctx;
-            ast_translation m_l2g;
 
             unsigned N = 4;  // number of prefix permutations to test (including current)
             unsigned m_max_prefix_conflicts = 1000;
@@ -131,6 +129,7 @@ namespace smt {
             vector<expr_ref_vector> m_recorded_cubes;
             params_ref m_p;
             param_values m_param_state;
+            ast_translation m_l2g;
 
             params_ref apply_param_values(param_values const &pv);
             void init_param_state();
