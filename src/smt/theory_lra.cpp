@@ -3477,9 +3477,6 @@ public:
             set_evidence(ev.ci(), m_core, m_eqs);
         if (m_eqs.empty() && all_of(m_core, [&](literal l) { return ctx().get_assignment(l) == l_false; }))
             is_conflict = true;
-        for (auto l : m_core) {
-            IF_VERBOSE(1, verbose_stream() << l << " " << ctx().get_assignment(l) << "\n");
-        }
 
         TRACE(arith_conflict,
               tout << "@" << ctx().get_scope_level() << (is_conflict ? " conflict":" lemma");

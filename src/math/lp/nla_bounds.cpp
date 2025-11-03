@@ -69,12 +69,13 @@ namespace nla {
             auto i(ineq(j, lp::lconstraint_kind::LE, rational(value)));
             TRACE(nla_solver, c().print_ineq(i, tout) << "\n");
             c().add_literal(i);
-        }
+        } 
         else {
             auto i(ineq(j, lp::lconstraint_kind::GE, rational(value)));
             TRACE(nla_solver, c().print_ineq(i, tout) << "\n");
             c().add_literal(i);
         }
+        IF_VERBOSE(2, verbose_stream() << "unit bound j" << j << " = " << value << "\n");
         return true;
     }
 

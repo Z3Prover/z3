@@ -156,7 +156,7 @@ namespace nla {
         new_lemma &= ex2;
         for (auto const &ineq : ineqs)
             new_lemma |= ineq;
-        IF_VERBOSE(5, verbose_stream() << "unsat \n" << new_lemma << "\n");
+        IF_VERBOSE(2, verbose_stream() << "stellensatz unsat \n" << new_lemma << "\n");
         TRACE(arith, tout << "unsat\n" << new_lemma << "\n");
         c().lra_solver().settings().stats().m_nla_stellensatz++;
     }
@@ -396,7 +396,7 @@ namespace nla {
     rational stellensatz::mvalue(lp::lar_term const &t) const {
         rational r(0);
         for (auto cv : t)
-            r += c().val(cv.j()) * cv.coeff();
+            r += m_values[cv.j()] * cv.coeff();
         return r;
     }
 
@@ -549,14 +549,13 @@ namespace nla {
         for (auto ci : constraints.indices()) 
             insert_monomials_from_constraint(ci);                    
 
-        auto &constraints = m_solver.lra().constraints();
         unsigned initial_false_constraints = m_false_constraints.size();
         for (unsigned it = 0; it < m_false_constraints.size(); ++it) {
             if (it > 10 * initial_false_constraints)
                 break;
             auto ci1 = m_false_constraints[it];
             auto const &con = constraints[ci1];
-            lpvar j = find_max_lex_monomial(con.lhs());
+            auto [j, coeff] = find_max_lex_monomial(con.lhs());
             if (j == lp::null_lpvar)
                 continue;
             auto vars = m_mon2vars[j];
@@ -564,7 +563,6 @@ namespace nla {
                 continue;
 
             for (auto v : vars) {
-
                 if (v >= m_occurs.size())
                     continue;
                 for (unsigned cidx = 0; cidx < m_occurs[v].size(); ++cidx) {
@@ -725,6 +723,8 @@ namespace nla {
             hi_sign = -hi_sign;       
         lp::lar_term lhs;
         rational rhs;
+        VERIFY(coeff_lo != 0);
+        VERIFY(coeff_hi != 0);
         for (auto const& cv : con_lo.lhs()) {
             auto j = mk_monomial(quot_lo, cv.j());
             auto coeff = lo_sign * cv.coeff() / coeff_lo;
@@ -759,7 +759,7 @@ namespace nla {
                    display_constraint(verbose_stream() << hi << ": ", hi) << "\n";
                    verbose_stream() << "rhs " << con_lo.rhs() << " " << con_hi.rhs() << "\n");
         if (lhs.size() == 0) {
-            IF_VERBOSE(2, verbose_stream() << rhs << " " << "empty\n");
+            IF_VERBOSE(2, verbose_stream() << "0 <= " << rhs << "\n");
             return;
         }
         resolvent_justification just(r);

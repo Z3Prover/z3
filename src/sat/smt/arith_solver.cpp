@@ -1039,7 +1039,7 @@ namespace arith {
             break;
         }
 
-        if (!check_delayed_eqs())
+        if (false && !check_delayed_eqs())
             return sat::check_result::CR_CONTINUE;
 
         switch (check_nla()) {
