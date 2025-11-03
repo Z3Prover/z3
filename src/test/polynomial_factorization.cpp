@@ -207,7 +207,189 @@ void test_factorization_gcd() {
     VERIFY(nm.eq(gcd_result[1], mpz(1)));
 }
 
+void test_factorization_large_multivariate_missing_factors() {
+    std::cout << "test_factorization_large_multivariate_missing_factors\n";
+
+    reslimit rl;
+    numeral_manager nm;
+    manager m(rl, nm);
+
+    polynomial_ref x0(m);
+    polynomial_ref x1(m);
+    polynomial_ref x2(m);
+    x0 = m.mk_polynomial(m.mk_var());
+    x1 = m.mk_polynomial(m.mk_var());
+    x2 = m.mk_polynomial(m.mk_var());
+
+    struct term_t {
+        int coeff;
+        unsigned e0;
+        unsigned e1;
+        unsigned e2;
+    };
+
+    /*
+    - x2^8 - x1 x2^7 - x0 x2^7 + 48 x2^7 + 2 x1^2 x2^6 + x0 x1 x2^6 + 132 x1 x2^6 + 2 x0^2 x2^6 + 132 x0 x2^6 
+    - 144 x2^6 + 2 x1^3 x2^5 + 6 x0 x1^2 x2^5 + 180 x1^2 x2^5 + 6 x0^2 x1 x2^5 + 432 x0 x1 x2^5 - 
+    864 x1 x2^5 + 2 x0^3 x2^5 + 180 x0^2 x2^5 - 864 x0 x2^5 - x1^4 x2^4 + 2 x0 x1^3 x2^4 + 
+    156 x1^3 x2^4 + 3 x0^2 x1^2 x2^4 + 684 x0 x1^2 x2^4 - 1620 x1^2 x2^4 + 2 x0^3 x1 x2^4 + 684 x0^2 x1 x2^4 - 
+    4536 x0 x1 x2^4 - x0^4 x2^4 + 156 x0^3 x2^4 - 1620 x0^2 x2^4 - x1^5 x2^3 - 5 x0 x1^4 x2^3 + 60 x1^4 x2^3 - 
+    7 x0^2 x1^3 x2^3 + 600 x0 x1^3 x2^3 - 900 x1^3 x2^3 - 7 x0^3 x1^2 x2^3 + 1080 x0^2 x1^2 x2^3 - 7452 x0 x1^2 x2^3 - 
+    5 x0^4 x1 x2^3 + 600 x0^3 x1 x2^3 - 7452 x0^2 x1 x2^3 - x0^5 x2^3 + 60 x0^4 x2^3 - 900 x0^3 x2^3 - 3 x0 x1^5 x2^2 -
+     9 x0^2 x1^4 x2^2 + 216 x0 x1^4 x2^2 - 13 x0^3 x1^3 x2^2 + 828 x0^2 x1^3 x2^2 - 3780 x0 x1^3 x2^2 - 9 x0^4 x1^2 x2^2 + 
+     828 x0^3 x1^2 x2^2 - 11016 x0^2 x1^2 x2^2 - 3 x0^5 x1 x2^2 + 216 x0^4 x1 x2^2 - 3780 x0^3 x1 x2^2 - 3 x0^2 x1^5 x2 - 
+     7 x0^3 x1^4 x2 + 252 x0^2 x1^4 x2 - 7 x0^4 x1^3 x2 + 480 x0^3 x1^3 x2 - 5184 x0^2 x1^3 x2 - 3 x0^5 x1^2 x2 + 
+     252 x0^4 x1^2 x2 - 5184 x0^3 x1^2 x2 - x0^3 x1^5 - 2 x0^4 x1^4 + 96 x0^3 x1^4 - x0^5 x1^3 + 96 x0^4 x1^3 - 2304 x0^3 x1^3
+     */ 
+    static const term_t terms[] = {
+        { -1, 0u, 0u, 8u },
+        { -1, 0u, 1u, 7u },
+        { -1, 1u, 0u, 7u },
+        { 48, 0u, 0u, 7u },
+        { 2, 0u, 2u, 6u },
+        { 1, 1u, 1u, 6u },
+        { 132, 0u, 1u, 6u },
+        { 2, 2u, 0u, 6u },
+        { 132, 1u, 0u, 6u },
+        { -144, 0u, 0u, 6u },
+        { 2, 0u, 3u, 5u },
+        { 6, 1u, 2u, 5u },
+        { 180, 0u, 2u, 5u },
+        { 6, 2u, 1u, 5u },
+        { 432, 1u, 1u, 5u },
+        { -864, 0u, 1u, 5u },
+        { 2, 3u, 0u, 5u },
+        { 180, 2u, 0u, 5u },
+        { -864, 1u, 0u, 5u },
+        { -1, 0u, 4u, 4u },
+        { 2, 1u, 3u, 4u },
+        { 156, 0u, 3u, 4u },
+        { 3, 2u, 2u, 4u },
+        { 684, 1u, 2u, 4u },
+        { -1620, 0u, 2u, 4u },
+        { 2, 3u, 1u, 4u },
+        { 684, 2u, 1u, 4u },
+        { -4536, 1u, 1u, 4u },
+        { -1, 4u, 0u, 4u },
+        { 156, 3u, 0u, 4u },
+        { -1620, 2u, 0u, 4u },
+        { -1, 0u, 5u, 3u },
+        { -5, 1u, 4u, 3u },
+        { 60, 0u, 4u, 3u },
+        { -7, 2u, 3u, 3u },
+        { 600, 1u, 3u, 3u },
+        { -900, 0u, 3u, 3u },
+        { -7, 3u, 2u, 3u },
+        { 1080, 2u, 2u, 3u },
+        { -7452, 1u, 2u, 3u },
+        { -5, 4u, 1u, 3u },
+        { 600, 3u, 1u, 3u },
+        { -7452, 2u, 1u, 3u },
+        { -1, 5u, 0u, 3u },
+        { 60, 4u, 0u, 3u },
+        { -900, 3u, 0u, 3u },
+        { -3, 1u, 5u, 2u },
+        { -9, 2u, 4u, 2u },
+        { 216, 1u, 4u, 2u },
+        { -13, 3u, 3u, 2u },
+        { 828, 2u, 3u, 2u },
+        { -3780, 1u, 3u, 2u },
+        { -9, 4u, 2u, 2u },
+        { 828, 3u, 2u, 2u },
+        { -11016, 2u, 2u, 2u },
+        { -3, 5u, 1u, 2u },
+        { 216, 4u, 1u, 2u },
+        { -3780, 3u, 1u, 2u },
+        { -3, 2u, 5u, 1u },
+        { -7, 3u, 4u, 1u },
+        { 252, 2u, 4u, 1u },
+        { -7, 4u, 3u, 1u },
+        { 480, 3u, 3u, 1u },
+        { -5184, 2u, 3u, 1u },
+        { -3, 5u, 2u, 1u },
+        { 252, 4u, 2u, 1u },
+        { -5184, 3u, 2u, 1u },
+        { -1, 3u, 5u, 0u },
+        { -2, 4u, 4u, 0u },
+        { 96, 3u, 4u, 0u },
+        { -1, 5u, 3u, 0u },
+        { 96, 4u, 3u, 0u },
+        { -2304, 3u, 3u, 0u },
+    };
+
+    polynomial_ref p(m);
+    p = m.mk_zero();
+
+    for (const auto & term : terms) {
+        polynomial_ref t(m);
+        t = m.mk_const(rational(term.coeff));
+        if (term.e0 != 0) {
+            t = t * (x0 ^ term.e0);
+        }
+        if (term.e1 != 0) {
+            t = t * (x1 ^ term.e1);
+        }
+        if (term.e2 != 0) {
+            t = t * (x2 ^ term.e2);
+        }
+        p = p + t;
+    }
+
+    factors fs(m);
+    factor(p, fs);
+    VERIFY(fs.distinct_factors() == 2); // indeed there are 3 factors, that is demonstrated by the loop  
+    for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+        polynomial_ref f(m);
+        f = fs[i];
+        if (degree(f, x1)<= 1) continue;
+        factors fs0(m);
+        factor(f, fs0);
+        VERIFY(fs0.distinct_factors() >= 2);
+    }
+
+    polynomial_ref reconstructed(m);
+    fs.multiply(reconstructed);
+    VERIFY(eq(reconstructed, p));
+}
+
+void test_factorization_multivariate_missing_factors() {
+    std::cout << "test_factorization_multivariate_missing_factors\n";
+
+    reslimit rl;
+    numeral_manager nm;
+    manager m(rl, nm);
+
+    polynomial_ref x0(m);
+    polynomial_ref x1(m);
+    x0 = m.mk_polynomial(m.mk_var());
+    x1 = m.mk_polynomial(m.mk_var());
+
+    polynomial_ref p(m);
+    p = (x0 + x1) * (x0 + (2 * x1)) * (x0 + (3 * x1));
+
+    factors fs(m);
+    factor(p, fs);
+
+    // Multivariate factorization stops after returning the whole polynomial.
+    VERIFY(fs.distinct_factors() == 1);
+    VERIFY(m.degree(fs[0], 0) == 3);
+
+    factors fs_refined(m);
+    polynomial_ref residual = fs[0];
+    factor(residual, fs_refined);
+
+    // A second attempt still fails to expose the linear factors.
+    VERIFY(fs_refined.distinct_factors() == 1); // actually we need 3 factors
+    VERIFY(m.degree(fs_refined[0], 0) == 3); // actually we need degree 1
+
+    polynomial_ref reconstructed(m);
+    fs.multiply(reconstructed);
+    VERIFY(eq(reconstructed, p));
+}
+
 void test_polynomial_factorization() {
+    test_factorization_large_multivariate_missing_factors();
+    test_factorization_multivariate_missing_factors();
     test_factorization_basic();
     test_factorization_irreducible();
     test_factorization_cubic();
