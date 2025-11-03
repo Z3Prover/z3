@@ -1627,7 +1627,6 @@ br_status arith_rewriter::mk_lshr_core(unsigned sz, expr* arg1, expr* arg2, expr
     
     if (is_num_y) {        
         result = m_util.mk_mod(arg1, m_util.mk_int(N));
-        //result = arg1; // unsound
         result = m_util.mk_idiv(result, m_util.mk_int(rational::power_of_two(y.get_unsigned())));
         return BR_DONE;
     }

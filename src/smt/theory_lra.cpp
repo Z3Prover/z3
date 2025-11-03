@@ -2702,7 +2702,13 @@ public:
         api_bound* lo_inf = end, *lo_sup = end;
         api_bound* hi_inf = end, *hi_sup = end;
             
-        for (api_bound* other : bounds) {
+        // todo: use a different data-structure for bounds that makes indexing fast?
+        // for example a B-tree.
+        unsigned count = 0;
+        unsigned start = ctx().get_random_value();
+        for (unsigned i = 0; i < bounds.size(); ++i) {
+            auto j = (i + start) % bounds.size();
+            auto other = bounds[j];
             if (other == &b) continue;
             if (b.get_lit() == other->get_lit()) continue;
             lp_api::bound_kind kind2 = other->get_bound_kind();
@@ -2711,6 +2717,9 @@ public:
                 // the bounds are equivalent.
                 continue;
             }
+            ++count;
+            if (count > 10)
+                break;
 
             SASSERT(k1 != k2 || kind1 != kind2);
             if (kind2 == lp_api::lower_t) {
@@ -2732,6 +2741,7 @@ public:
                 hi_sup = other;
             }
         }        
+        // verbose_stream() << bounds.size() << "\n";
         if (lo_inf != end) mk_bound_axiom(b, *lo_inf);
         if (lo_sup != end) mk_bound_axiom(b, *lo_sup);
         if (hi_inf != end) mk_bound_axiom(b, *hi_inf);
