@@ -636,6 +636,10 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("/0",OP_DIV0));
         op_names.push_back(builtin_name("div0",OP_IDIV0));
         op_names.push_back(builtin_name("mod0",OP_MOD0));
+        op_names.push_back(builtin_name(bv_symbol(OP_ARITH_BAND).bare_str(), OP_ARITH_BAND));
+        op_names.push_back(builtin_name(bv_symbol(OP_ARITH_SHL).bare_str(), OP_ARITH_SHL));
+        op_names.push_back(builtin_name(bv_symbol(OP_ARITH_LSHR).bare_str(), OP_ARITH_LSHR));
+        op_names.push_back(builtin_name(bv_symbol(OP_ARITH_ASHR).bare_str(), OP_ARITH_ASHR));
     }
 }
 
@@ -643,7 +647,7 @@ bool arith_decl_plugin::is_value(app * e) const {
     return
         is_app_of(e, m_family_id, OP_NUM) ||
         is_app_of(e, m_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM) ||
-        is_app_of(e, m_family_id, OP_PI) ||
+           is_app_of(e, m_family_id, OP_PI) || 
         is_app_of(e, m_family_id, OP_E);
 }
 

@@ -2522,11 +2522,15 @@ public:
             found_unsupported(n);
             return true;
         }
-        rational N = rational::power_of_two(sz);
+        rational N = rational::power_of_two(sz), r;
         valx = mod(valx, N);
         valy = mod(valy, N);
         expr_ref x(a.mk_mod(_x, a.mk_int(N)), m);
         expr_ref y(a.mk_mod(_y, a.mk_int(N)), m);
+        if (a.is_numeral(_x, r))
+            x = a.mk_int(mod(r, N));
+        if (a.is_numeral(_y, r))
+            y = a.mk_int(mod(r, N));
         SASSERT(0 <= valn && valn < N);
         
         // x mod 2^{i + 1} >= 2^i means the i'th bit is 1.
@@ -2559,9 +2563,12 @@ public:
                 return true;
             unsigned k = valy.get_unsigned();
             sat::literal eq = th.mk_eq(n, a.mk_mod(a.mk_mul(_x, a.mk_int(rational::power_of_two(k))), a.mk_int(N)), false);
+            ctx().mark_as_relevant(eq);
             if (ctx().get_assignment(eq) == l_true)
                 return true;            
-            ctx().mk_th_axiom(get_id(), ~th.mk_eq(y, a.mk_int(k), false), eq);
+            sat::literal y_eq_k = th.mk_eq(y, a.mk_int(k), false);
+            ctx().mark_as_relevant(y_eq_k);
+            ctx().mk_th_axiom(get_id(), ~y_eq_k, eq);
             IF_VERBOSE(2, verbose_stream() << "shl: " << mk_bounded_pp(n, m) << " " << valn << " := " << valx << " << " << valy << "\n");
             return false;
         }
@@ -2571,10 +2578,12 @@ public:
                 return true;
             unsigned k = valy.get_unsigned();
             sat::literal eq = th.mk_eq(n, a.mk_idiv(x, a.mk_int(rational::power_of_two(k))), false);
+            ctx().mark_as_relevant(eq);
             if (ctx().get_assignment(eq) == l_true)
                 return true;            
-            ctx().mk_th_axiom(get_id(), ~th.mk_eq(y, a.mk_int(k), false), eq);
-            IF_VERBOSE(2, verbose_stream() << "lshr: " << mk_bounded_pp(n, m) << " " << valn << " := " << valx << " >>l " << valy << "\n");
+            sat::literal y_eq_k = th.mk_eq(y, a.mk_int(k), false);
+            ctx().mark_as_relevant(y_eq_k);
+            ctx().mk_th_axiom(get_id(), ~y_eq_k, eq);
             return false;
         }
         if (a.is_ashr(n)) {
@@ -2590,6 +2599,7 @@ public:
                 // x < 0 & y = k -> n = (x div 2^k - 2^{N-k}) mod 2^N
                 xdiv2k = a.mk_idiv(x, a.mk_int(rational::power_of_two(k)));
                 eq = th.mk_eq(n, a.mk_mod(a.mk_add(xdiv2k, a.mk_int(-rational::power_of_two(sz - k))), a.mk_int(N)), false);
+                ctx().mark_as_relevant(eq);
                 if (ctx().get_assignment(eq) == l_true)
                     return true;
                 break;
@@ -2597,6 +2607,7 @@ public:
                 // x >= 0 & y = k -> n = x div 2^k
                 xdiv2k = a.mk_idiv(x, a.mk_int(rational::power_of_two(k)));
                 eq = th.mk_eq(n, xdiv2k, false);
+                ctx().mark_as_relevant(eq);
                 if (ctx().get_assignment(eq) == l_true)
                     return true;
                 break;
@@ -2604,7 +2615,9 @@ public:
                 ctx().mark_as_relevant(signx);
                 return false;
             }
-            ctx().mk_th_axiom(get_id(), ~th.mk_eq(y, a.mk_int(k), false), ~signx, eq); 
+            sat::literal y_eq_k = th.mk_eq(y, a.mk_int(k), false);
+            ctx().mark_as_relevant(y_eq_k);
+            ctx().mk_th_axiom(get_id(), ~y_eq_k, ~signx, eq); 
             return false;
         }
         return true;
@@ -2622,9 +2635,13 @@ public:
         unsigned sz = 0;
         expr* _x = nullptr, * _y = nullptr;
         VERIFY(a.is_band(n, sz, _x, _y) || a.is_shl(n, sz, _x, _y) || a.is_ashr(n, sz, _x, _y) || a.is_lshr(n, sz, _x, _y));
-        rational N = rational::power_of_two(sz);
+        rational N = rational::power_of_two(sz), r;
         expr_ref x(a.mk_mod(_x, a.mk_int(N)), m);
         expr_ref y(a.mk_mod(_y, a.mk_int(N)), m);
+        if (a.is_numeral(_x, r))
+            x = a.mk_int(mod(r, N));
+        if (a.is_numeral(_y, r))
+            y = a.mk_int(mod(r, N));
 
         // 0 <= n < 2^sz
         
@@ -2657,9 +2674,9 @@ public:
             // y >= sz & x >= 2^{sz-1} => n = -1
             // y = 0 => n = x
             auto signx = mk_literal(a.mk_ge(x, a.mk_int(N/2)));
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), signx, mk_literal(m.mk_eq(n, a.mk_int(0))));
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), ~signx, mk_literal(m.mk_eq(n, a.mk_int(N-1))));
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_eq(a.mk_mod(y, a.mk_int(N)), a.mk_int(0))), mk_literal(m.mk_eq(n, x)));            
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(y, a.mk_int(sz))), signx, mk_literal(m.mk_eq(n, a.mk_int(0))));
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(y, a.mk_int(sz))), ~signx, mk_literal(m.mk_eq(n, a.mk_int(N-1))));
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_eq(y, a.mk_int(0))), mk_literal(m.mk_eq(n, x)));            
         }
         else
             UNREACHABLE();
