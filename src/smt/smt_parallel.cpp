@@ -66,13 +66,16 @@ namespace smt {
 namespace smt {
 
     lbool parallel::param_generator::run_prefix_step() {
-        IF_VERBOSE(1, verbose_stream() << " Param generator running prefix step\n");
+        if (m.limit().is_canceled())
+            return l_undef;
+        IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running prefix step\n");
         ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
         m_recorded_cubes.reset();
         ctx->m_recorded_cubes = &m_recorded_cubes;
         lbool r = l_undef;
         try {
-            r = ctx->check();
+            r = ctx->check(0, nullptr, true, false);
+            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: prefix step result " << r << "\n");
         } 
         catch (z3_error &err) {
             b.set_exception(err.error_code());
@@ -93,8 +96,11 @@ namespace smt {
         bool found_better_params = false;
 
         for (unsigned i = 0; i <= N; ++i) {
-            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: replaying proof prefix in param probe context " << i << "\n");
+            if (m.limit().is_canceled())
+              return;
 
+            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: replaying proof prefix in param probe context " << i << "\n");
+            
             // copy prefix solver context to a new probe_ctx for next replay with candidate mutation
             smt_params smtp(m_p);
             scoped_ptr<context> probe_ctx = alloc(context, m, smtp, m_p);
@@ -112,8 +118,12 @@ namespace smt {
             probe_ctx->get_fparams().m_max_conflicts = conflict_budget;
 
             // replay the cube (negation of the clause)
+            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: begin replay of " << m_recorded_cubes.size() << " cubes\n");
             for (expr_ref_vector const& cube : m_recorded_cubes) {
-                lbool r = probe_ctx->check(cube.size(), cube.data());               
+                if (m.limit().is_canceled())
+                  return;
+                // the conflicts and decisions are cumulative over all cube replays inside the probe_ctx
+                lbool r = probe_ctx->check(cube.size(), cube.data(), true, false);               
                 IF_VERBOSE(1, verbose_stream() << " PARAM TUNER " << i << ": cube replay result " << r << "\n");                
             }
             unsigned conflicts = probe_ctx->m_stats.m_num_conflicts;
@@ -189,7 +199,8 @@ namespace smt {
             }
             std::get<unsigned_value>(param.second).value = new_value;
         }
-        IF_VERBOSE(0, 
+        IF_VERBOSE(1, 
+            verbose_stream() << "Mutating param: ";
             for (auto const &[name, val] : new_param_values) {
                 if (std::holds_alternative<bool>(val)) {
                     verbose_stream() << name << " = " << std::get<bool>(val) << "\n";
@@ -207,6 +218,9 @@ namespace smt {
         
         ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
         lbool r = run_prefix_step();
+
+        if (m.limit().is_canceled())
+            return;
 
         switch (r) {
             case l_undef: {
@@ -231,6 +245,11 @@ namespace smt {
         }
     }
 
+    void parallel::param_generator::cancel() {
+        IF_VERBOSE(1, verbose_stream() << " PARAM TUNER cancelling\n");
+        m.limit().cancel();
+    }
+
     void parallel::worker::run() {
         search_tree::node<cube_config> *node = nullptr;
         expr_ref_vector cube(m);
@@ -252,7 +271,7 @@ namespace smt {
 
             lbool r = check_cube(cube);
 
-            if (!m.inc()) {
+            if (m.limit().is_canceled()) {
                 b.set_exception("context cancelled");
                 return;
             }
@@ -451,7 +470,7 @@ namespace smt {
         IF_VERBOSE(1, m_search_tree.display(verbose_stream() << bounded_pp_exprs(core) << "\n"););
         if (m_search_tree.is_closed()) {
             m_state = state::is_unsat;
-            cancel_workers();
+            cancel_background_threads();
         }
     }
 
@@ -517,7 +536,7 @@ namespace smt {
                                        << bounded_pp_exprs(cube)
                                        << "with max_conflicts: " << ctx->get_fparams().m_max_conflicts << "\n";);
         try {
-            r = ctx->check(asms.size(), asms.data());
+            r = ctx->check(asms.size(), asms.data(), true, false);
         } catch (z3_error &err) {
             b.set_exception(err.error_code());
         } catch (z3_exception &ex) {
@@ -562,7 +581,7 @@ namespace smt {
             return;
         m_state = state::is_sat;
         p.ctx.set_model(m.translate(l2g));
-        cancel_workers();
+        cancel_background_threads();
     }
 
     void parallel::batch_manager::set_unsat(ast_translation &l2g, expr_ref_vector const &unsat_core) {
@@ -576,7 +595,7 @@ namespace smt {
         SASSERT(p.ctx.m_unsat_core.empty());
         for (expr *e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
-        cancel_workers();
+        cancel_background_threads();
     }
 
     void parallel::batch_manager::set_exception(unsigned error_code) {
@@ -586,7 +605,7 @@ namespace smt {
             return;
         m_state = state::is_exception_code;
         m_exception_code = error_code;
-        cancel_workers();
+        cancel_background_threads();
     }
 
     void parallel::batch_manager::set_exception(std::string const &msg) {
@@ -596,7 +615,7 @@ namespace smt {
             return;
         m_state = state::is_exception_msg;
         m_exception_msg = msg;
-        cancel_workers();
+        cancel_background_threads();
     }
 
     lbool parallel::batch_manager::get_result() const {
@@ -676,6 +695,7 @@ namespace smt {
 
         m_batch_manager.initialize();
         m_workers.reset();
+        
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
         SASSERT(num_threads > 1);
@@ -685,15 +705,16 @@ namespace smt {
         for (auto w : m_workers)
             sl.push_child(&(w->limit()));
         
-        sl.push_child(&(m_param_generator.limit()));
+        sl.push_child(&(m_param_generator->limit()));
 
         // Launch threads
-        vector<std::thread> threads(num_threads + 1); // +1 for parameter generator
-        for (unsigned i = 0; i < num_threads - 1; ++i) {
+        vector<std::thread> threads(m_enable_param_tuner ? num_threads + 1 : num_threads); // +1 for param generator
+        for (unsigned i = 0; i < num_threads; ++i) {
             threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
         }
         // the final thread runs the parameter generator
-        threads[num_threads - 1] = std::thread([&]() { m_param_generator.protocol_iteration(); });
+        if (m_enable_param_tuner)
+            threads[num_threads] = std::thread([&]() { m_param_generator->protocol_iteration(); });
 
         // Wait for all threads to finish
         for (auto &th : threads)
