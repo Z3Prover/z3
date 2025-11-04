@@ -1642,14 +1642,7 @@ br_status arith_rewriter::mk_band_core(unsigned sz, expr* arg1, expr* arg2, expr
         x = mod(x, N);      
     if (is_num_y)
         y = mod(y, N);
-    if (is_num_x && x.is_zero()) {
-        result = m_util.mk_int(0);
-        return BR_DONE;
-    }
-    if (is_num_y && y.is_zero()) {
-        result = m_util.mk_int(0);
-        return BR_DONE;
-    }
+
     if (is_num_x && is_num_y) {
         rational r(0);
         for (unsigned i = 0; i < sz; ++i)
@@ -1658,13 +1651,42 @@ br_status arith_rewriter::mk_band_core(unsigned sz, expr* arg1, expr* arg2, expr
         result = m_util.mk_int(r);
         return BR_DONE;
     }
+    if (is_num_y) {
+        std::swap(is_num_x, is_num_y);
+        std::swap(x, y);
+        std::swap(arg1, arg2);
+    }
+    if (is_num_x && x.is_zero()) {
+        result = m_util.mk_int(0);
+        return BR_DONE;
+    }
+
     if (is_num_x && (x + 1).is_power_of_two()) {
         result = m_util.mk_mod(arg2, m_util.mk_int(x + 1));
         return BR_REWRITE1;
     }
-    if (is_num_y && (y + 1).is_power_of_two()) {
-        result = m_util.mk_mod(arg1, m_util.mk_int(y + 1));
-        return BR_REWRITE1;
+
+    // x = 2^k*(2^m-1)
+    // result := y mod 2^{k+m} - y mod 2^k
+    if (is_num_x) {
+        unsigned k = x.trailing_zeros();
+        numeral x1 = div(x, rational::power_of_two(k));
+        if ((x1 + 1).is_power_of_two()) {
+            unsigned m = (x1 + 1).trailing_zeros();
+            rational km = rational::power_of_two(k + m);
+            result = m_util.mk_mod(arg2, m_util.mk_int(km));
+            result = m_util.mk_sub(result, m_util.mk_mod(arg2, m_util.mk_int(rational::power_of_two(k))));
+            return BR_REWRITE3;
+        }    
+    }
+
+    if (arg1 == arg2) {
+        result = arg1;
+        return BR_DONE;
+    }
+    if (!is_num_x && arg1->get_id() > arg2->get_id()) {
+        result = m_util.mk_band(sz, arg2, arg1);
+        return BR_DONE;
     }
     return BR_FAILED;
 }
