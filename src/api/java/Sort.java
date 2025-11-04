@@ -144,6 +144,8 @@ public class Sort extends AST
             return new SeqSort<>(ctx, obj);
         case Z3_RE_SORT:
             return new ReSort<>(ctx, obj);
+        case Z3_CHAR_SORT:
+            return new CharSort(ctx, obj);
         default:
             throw new Z3Exception("Unknown sort kind");
         }

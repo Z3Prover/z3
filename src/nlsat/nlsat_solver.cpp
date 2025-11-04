@@ -1116,7 +1116,7 @@ namespace nlsat {
 
         void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid) {
             ++m_lemma_count;
-            out << "(set-logic NRA)\n";
+            out << "(set-logic ALL)\n";
             if (is_valid) {
                 display_smt2_bool_decls(out);
                 display_smt2_arith_decls(out);

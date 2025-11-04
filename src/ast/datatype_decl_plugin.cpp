@@ -300,18 +300,12 @@ namespace datatype {
                         TRACE(datatype, tout << "expected sort parameter at position " << i << " got: " << s << "\n";);
                         throw invalid_datatype();
                     }
-                    // Allow type variables as parameters for polymorphic datatypes
-                    sort* param_sort = to_sort(s.get_ast());
-                    if (!m_manager->is_type_var(param_sort) && param_sort->get_family_id() == null_family_id) {
-                        // Type variables and concrete sorts are allowed, but not other uninterpreted sorts
-                        // Actually, all sorts should be allowed including uninterpreted ones
-                    }
                 }
                                 
                 sort* s = m_manager->mk_sort(name.get_symbol(),
                                              sort_info(m_family_id, k, num_parameters, parameters, true));
                 def* d = nullptr;
-                if (m_defs.find(s->get_name(), d) && d->sort_size()) {
+                if (m_defs.find(s->get_name(), d) && d->sort_size() && d->params().size() == num_parameters - 1) {
                     obj_map<sort, sort_size> S;
                     for (unsigned i = 0; i + 1 < num_parameters; ++i) {
                         sort* r = to_sort(parameters[i + 1].get_ast());

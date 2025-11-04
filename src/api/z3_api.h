@@ -3801,6 +3801,27 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_seq_replace(Z3_context c, Z3_ast s, Z3_ast src, Z3_ast dst);
 
     /**
+       \brief Replace all occurrences of \c src with \c dst in \c s.
+
+       def_API('Z3_mk_seq_replace_all', AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_seq_replace_all(Z3_context c, Z3_ast s, Z3_ast src, Z3_ast dst);
+
+    /**
+       \brief Replace the first occurrence of regular expression \c re with \c dst in \c s.
+
+       def_API('Z3_mk_seq_replace_re', AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_seq_replace_re(Z3_context c, Z3_ast s, Z3_ast re, Z3_ast dst);
+
+    /**
+       \brief Replace all occurrences of regular expression \c re with \c dst in \c s.
+
+       def_API('Z3_mk_seq_replace_re_all', AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_seq_replace_re_all(Z3_context c, Z3_ast s, Z3_ast re, Z3_ast dst);
+
+    /**
        \brief Retrieve from \c s the unit sequence positioned at position \c index.
        The sequence is empty if the index is out of bounds.
 
