@@ -36,6 +36,7 @@ namespace smt {
     class parallel {
         context& ctx;
         unsigned num_threads;
+        bool m_enable_param_tuner;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -57,7 +58,6 @@ namespace smt {
                 unsigned m_num_cubes = 0;
             };
 
-
             ast_manager& m;
             parallel& p;
             std::mutex mux;
@@ -72,11 +72,21 @@ namespace smt {
             vector<shared_clause> shared_clause_trail; // store all shared clauses with worker IDs
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
+            void cancel_background_threads() {
+                cancel_workers();
+                cancel_param_generator();
+            }
+
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
                 IF_VERBOSE(1, verbose_stream() << "Canceling workers\n");
                 for (auto& w : p.m_workers) 
                     w->cancel();
+            }
+
+            void cancel_param_generator() {
+                IF_VERBOSE(1, verbose_stream() << "Canceling param generator\n");
+                p.m_param_generator->cancel();
             }
 
         public:
@@ -88,7 +98,10 @@ namespace smt {
             void set_sat(ast_translation& l2g, model& m);
             void set_exception(std::string const& msg);
             void set_exception(unsigned error_code);
-            void set_param_state(params_ref const& p) { m_param_state.copy(p); }
+            void set_param_state(params_ref const& p) { 
+              m_param_state.copy(p); 
+              IF_VERBOSE(1, verbose_stream() << "Batch manager updated param state\n");
+            }
             void get_param_state(params_ref &p);
             void collect_statistics(::statistics& st) const;            
 
@@ -118,11 +131,9 @@ namespace smt {
             using param_value = std::variant<unsigned_value, bool>;
             using param_values = vector<std::pair<symbol, param_value>>;
 
-            parallel &p;
             batch_manager &b;
             ast_manager m;
             scoped_ptr<context> ctx;
-            ast_translation m_l2g;
 
             unsigned N = 4;  // number of prefix permutations to test (including current)
             unsigned m_max_prefix_conflicts = 1000;
@@ -131,6 +142,7 @@ namespace smt {
             vector<expr_ref_vector> m_recorded_cubes;
             params_ref m_p;
             param_values m_param_state;
+            ast_translation m_l2g;
 
             params_ref apply_param_values(param_values const &pv);
             void init_param_state();
@@ -141,6 +153,7 @@ namespace smt {
             lbool run_prefix_step();
             void protocol_iteration();
             void replay_proof_prefixes(unsigned max_conflicts_epsilon);
+            void cancel();
 
             reslimit &limit() {
                 return m.limit();
@@ -206,16 +219,17 @@ namespace smt {
 
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
-        param_generator m_param_generator;
+        scoped_ptr<param_generator> m_param_generator;
 
     public:
-        parallel(context& ctx) : 
+        parallel(context& ctx, bool enable_param_tuner = true) : 
             ctx(ctx),
             num_threads(std::min(
                 (unsigned)std::thread::hardware_concurrency(),
                 ctx.get_fparams().m_threads)),
+            m_enable_param_tuner(enable_param_tuner),
             m_batch_manager(ctx.m, *this),
-            m_param_generator(*this) {}
+            m_param_generator(enable_param_tuner ? alloc(param_generator, *this) : nullptr) {}
 
         lbool operator()(expr_ref_vector const& asms);
     };
