@@ -70,6 +70,8 @@ namespace smt {
             return l_undef;
         IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running prefix step\n");
         ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
+        ctx->get_fparams().m_threads = 1;
+
         m_recorded_cubes.reset();
         ctx->m_recorded_cubes = &m_recorded_cubes;
         lbool r = l_undef;
@@ -116,6 +118,7 @@ namespace smt {
             }
 
             probe_ctx->get_fparams().m_max_conflicts = conflict_budget;
+            probe_ctx->get_fparams().m_threads = 1;
 
             // replay the cube (negation of the clause)
             IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: begin replay of " << m_recorded_cubes.size() << " cubes\n");
@@ -124,7 +127,7 @@ namespace smt {
                   return;
                 // the conflicts and decisions are cumulative over all cube replays inside the probe_ctx
                 lbool r = probe_ctx->check(cube.size(), cube.data(), true, false);               
-                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER " << i << ": cube replay result " << r << "\n");                
+                IF_VERBOSE(2, verbose_stream() << " PARAM TUNER " << i << ": cube replay result " << r << "\n");                
             }
             unsigned conflicts = probe_ctx->m_stats.m_num_conflicts;
             unsigned decisions = probe_ctx->m_stats.m_num_decisions;
