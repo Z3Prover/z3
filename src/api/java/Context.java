@@ -2384,6 +2384,33 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Replace all occurrences of src by dst in s.
+     */
+    public final <R extends Sort> SeqExpr<R> mkReplaceAll(Expr<SeqSort<R>> s, Expr<SeqSort<R>> src, Expr<SeqSort<R>> dst)
+    {
+        checkContextMatch(s, src, dst);
+        return (SeqExpr<R>) Expr.create(this, Native.mkSeqReplaceAll(nCtx(), s.getNativeObject(), src.getNativeObject(), dst.getNativeObject()));
+    }
+
+    /**
+     * Replace the first occurrence of regular expression re with dst in s.
+     */
+    public final <R extends Sort> SeqExpr<R> mkReplaceRe(Expr<SeqSort<R>> s, ReExpr<SeqSort<R>> re, Expr<SeqSort<R>> dst)
+    {
+        checkContextMatch(s, re, dst);
+        return (SeqExpr<R>) Expr.create(this, Native.mkSeqReplaceRe(nCtx(), s.getNativeObject(), re.getNativeObject(), dst.getNativeObject()));
+    }
+
+    /**
+     * Replace all occurrences of regular expression re with dst in s.
+     */
+    public final <R extends Sort> SeqExpr<R> mkReplaceReAll(Expr<SeqSort<R>> s, ReExpr<SeqSort<R>> re, Expr<SeqSort<R>> dst)
+    {
+        checkContextMatch(s, re, dst);
+        return (SeqExpr<R>) Expr.create(this, Native.mkSeqReplaceReAll(nCtx(), s.getNativeObject(), re.getNativeObject(), dst.getNativeObject()));
+    }
+
+    /**
      * Convert a regular expression that accepts sequence s.
      */
     public final <R extends Sort> ReExpr<SeqSort<R>> mkToRe(Expr<SeqSort<R>> s)
