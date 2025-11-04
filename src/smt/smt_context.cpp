@@ -3617,7 +3617,7 @@ namespace smt {
        \remark A logical context can only be configured at scope level 0,
        and before internalizing any formulas.
     */
-    lbool context::setup_and_check(bool reset_cancel, bool enable_parallel_param_tuning) {
+    lbool context::setup_and_check(bool reset_cancel) {
         if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(m_scope_lvl == 0);
         SASSERT(!m_setup.already_configured());
@@ -3625,7 +3625,7 @@ namespace smt {
 
         if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {
             expr_ref_vector asms(m);
-            parallel p(*this, enable_parallel_param_tuning);
+            parallel p(*this);
             return p(asms);
         }
 
@@ -3685,15 +3685,15 @@ namespace smt {
         }
     }
 
-    lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel, bool enable_parallel_param_tuning) {
+    lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel) {
         if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(at_base_level());
         setup_context(false);
         search_completion sc(*this);
         if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {            
             expr_ref_vector asms(m, num_assumptions, assumptions);
-            IF_VERBOSE(1, verbose_stream() << "Starting parallel check with " << asms.size() << " assumptions and param tuning enabled: " << enable_parallel_param_tuning << "\n");
-            parallel p(*this, enable_parallel_param_tuning);
+            IF_VERBOSE(1, verbose_stream() << "Starting parallel check with " << asms.size() << " assumptions\n");
+            parallel p(*this);
             return p(asms);
         }
         lbool r = l_undef;

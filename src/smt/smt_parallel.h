@@ -36,7 +36,6 @@ namespace smt {
     class parallel {
         context& ctx;
         unsigned num_threads;
-        bool m_enable_param_tuner;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -136,7 +135,7 @@ namespace smt {
             scoped_ptr<context> ctx;
 
             unsigned N = 4;  // number of prefix permutations to test (including current)
-            unsigned m_max_prefix_conflicts = 1000;
+            unsigned m_max_prefix_conflicts = 1000; // todo- maybe make this adaptive to grow up to 1000 but start with a smaller base
 
             scoped_ptr<context> m_prefix_solver;
             vector<expr_ref_vector> m_recorded_cubes;
@@ -222,14 +221,12 @@ namespace smt {
         scoped_ptr<param_generator> m_param_generator;
 
     public:
-        parallel(context& ctx, bool enable_param_tuner = true) : 
+        parallel(context& ctx) : 
             ctx(ctx),
             num_threads(std::min(
                 (unsigned)std::thread::hardware_concurrency(),
                 ctx.get_fparams().m_threads)),
-            m_enable_param_tuner(enable_param_tuner),
-            m_batch_manager(ctx.m, *this),
-            m_param_generator(enable_param_tuner ? alloc(param_generator, *this) : nullptr) {}
+            m_batch_manager(ctx.m, *this) {}
 
         lbool operator()(expr_ref_vector const& asms);
     };

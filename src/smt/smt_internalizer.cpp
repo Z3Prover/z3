@@ -990,8 +990,7 @@ namespace smt {
 
     
     void context::undo_mk_bool_var() {
-        SASSERT(!m_b_internalized_stack.empty(ue key per literal
-            m_lit_scores[lit.sign()][v] += 1.));
+        SASSERT(!m_b_internalized_stack.empty());
         m_stats.m_num_del_bool_var++;
         expr * n              = m_b_internalized_stack.back();
         unsigned n_id         = n->get_id();

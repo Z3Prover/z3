@@ -1690,7 +1690,7 @@ namespace smt {
 
         void pop(unsigned num_scopes);
 
-        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true, bool enable_parallel_param_tuning = true);
+        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true);
 
         lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses);
 
@@ -1700,7 +1700,7 @@ namespace smt {
 
         lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
 
-        lbool setup_and_check(bool reset_cancel = true, bool enable_parallel_param_tuning = true);
+        lbool setup_and_check(bool reset_cancel = true);
 
         void reduce_assertions();
 
