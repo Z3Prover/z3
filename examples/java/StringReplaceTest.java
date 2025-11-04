@@ -9,10 +9,6 @@ Abstract:
 
     Z3 Java API: Test for string replace operations
 
-Author:
-
-    GitHub Copilot 2024-11-04
-
 Notes:
     
 --*/
