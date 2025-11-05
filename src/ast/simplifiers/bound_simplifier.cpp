@@ -136,10 +136,11 @@ bool bound_simplifier::reduce_arg(expr* arg, expr_ref& result) {
 
 void bound_simplifier::reduce() {
 
+    #if 0
     smt_params_helper sp(p);
     if (!sp.bound_simplifier())
         return;
-    
+    #endif
     bool updated = true, found_bound = false;
     for (unsigned i = 0; i < 5 && updated; ++i) {
         updated = false;
