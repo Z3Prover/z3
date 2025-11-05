@@ -68,7 +68,7 @@ namespace smt {
     lbool parallel::param_generator::run_prefix_step() {
         if (m.limit().is_canceled())
             return l_undef;
-        IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running prefix step\n");
+        IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running prefix step with conflicts " << m_max_prefix_conflicts <<"\n");
         ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
         ctx->get_fparams().m_threads = 1;
 
@@ -76,7 +76,7 @@ namespace smt {
         ctx->m_recorded_cubes = &m_recorded_cubes;
         lbool r = l_undef;
         try {
-            r = ctx->check(0, nullptr, true, false);
+            r = ctx->check(0, nullptr, true);
             IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: prefix step result " << r << "\n");
         } 
         catch (z3_error &err) {
@@ -126,7 +126,7 @@ namespace smt {
                 if (m.limit().is_canceled())
                   return;
                 // the conflicts and decisions are cumulative over all cube replays inside the probe_ctx
-                lbool r = probe_ctx->check(cube.size(), cube.data(), true, false);               
+                lbool r = probe_ctx->check(cube.size(), cube.data(), true);               
                 IF_VERBOSE(2, verbose_stream() << " PARAM TUNER " << i << ": cube replay result " << r << "\n");                
             }
             unsigned conflicts = probe_ctx->m_stats.m_num_conflicts;
@@ -340,10 +340,9 @@ namespace smt {
 
     parallel::param_generator::param_generator(parallel& p)
         : b(p.m_batch_manager), m_p(p.ctx.get_params()), m_l2g(m, p.ctx.m) {
-        // patch fix so that ctx = alloc(context, m, p.ctx.get_fparams(), m_p); doesn't crash due to some issue with default construction of m
-        ast_translation m_g2l(p.ctx.m, m);
-        m_g2l(p.ctx.m.mk_true());
 
+        m.copy_families_plugins(p.ctx.m);
+        SASSERT(p.ctx.get_fparams().m_threads == 1);
         ctx = alloc(context, m, p.ctx.get_fparams(), m_p);
         context::copy(p.ctx, *ctx, true);
         // don't share initial units
@@ -539,7 +538,7 @@ namespace smt {
                                        << bounded_pp_exprs(cube)
                                        << "with max_conflicts: " << ctx->get_fparams().m_max_conflicts << "\n";);
         try {
-            r = ctx->check(asms.size(), asms.data(), true, false);
+            r = ctx->check(asms.size(), asms.data(), true);
         } catch (z3_error &err) {
             b.set_exception(err.error_code());
         } catch (z3_exception &ex) {
@@ -692,6 +691,7 @@ namespace smt {
             scoped_clear(parallel &p) : p(p) {}
             ~scoped_clear() {
                 p.m_workers.reset();
+                p.m_param_generator = nullptr;
             }
         };
         scoped_clear clear(*this);
@@ -701,6 +701,8 @@ namespace smt {
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
+
+        m_param_generator = alloc(param_generator, *this);
         SASSERT(num_threads > 1);
         for (unsigned i = 0; i < num_threads; ++i)
             m_workers.push_back(alloc(worker, i, *this, asms));
@@ -711,13 +713,12 @@ namespace smt {
         sl.push_child(&(m_param_generator->limit()));
 
         // Launch threads
-        vector<std::thread> threads(m_enable_param_tuner ? num_threads + 1 : num_threads); // +1 for param generator
+        vector<std::thread> threads(num_threads + 1); // +1 for param generator
         for (unsigned i = 0; i < num_threads; ++i) {
             threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
         }
         // the final thread runs the parameter generator
-        if (m_enable_param_tuner)
-            threads[num_threads] = std::thread([&]() { m_param_generator->protocol_iteration(); });
+        threads[num_threads] = std::thread([&]() { m_param_generator->protocol_iteration(); });
 
         // Wait for all threads to finish
         for (auto &th : threads)
