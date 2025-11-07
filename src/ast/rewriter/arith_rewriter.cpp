@@ -1037,7 +1037,38 @@ br_status arith_rewriter::mk_add_core(unsigned num_args, expr * const * args, ex
     }
 }
 
+// k * (div x k) = x - (mod x k)
+br_status arith_rewriter::mk_mul_div(unsigned num_args, expr *const *args, expr_ref &result) {
+    if (num_args <= 1)
+        return BR_FAILED;
+    expr* x = nullptr, *y = nullptr;
+    rational r, q;
+    for (unsigned i = 0; i < num_args; ++i) {
+        auto arg = args[i];
+        if (m_util.is_idiv(arg, x, y) && m_util.is_numeral(y, r) && r > 0) {
+            for (unsigned j = 0; j < num_args; ++j) {
+                if (m_util.is_numeral(args[j], q) && q == r) {
+                    // r * div(x, r) = (x - mod(x, r))
+                    expr_ref_buffer new_args(m);
+                    for (unsigned k = 0; k < num_args; ++k) {
+                        if (k != i && k != j)
+                            new_args.push_back(args[i]);
+                    }
+                    new_args.push_back(m_util.mk_sub(x, m_util.mk_mod(x, y)));
+                    result = m.mk_app(get_fid(), OP_MUL, new_args.size(), new_args.data());
+                    return BR_REWRITE2;
+                }
+            }
+        }
+    }
+    return BR_FAILED;
+}
+
+
 br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, expr_ref & result) {
+    br_status st = mk_mul_div(num_args, args, result);
+    if (st != BR_FAILED)
+        return st;
     if (is_anum_simp_target(num_args, args)) {
         expr_ref_buffer new_args(m);
         anum_manager & am = m_util.am();
@@ -1074,7 +1105,7 @@ br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, ex
         }
         new_args.push_back(m_util.mk_numeral(am, r, false));
 
-        br_status st = poly_rewriter<arith_rewriter_core>::mk_mul_core(new_args.size(), new_args.data(), result);
+        st = poly_rewriter<arith_rewriter_core>::mk_mul_core(new_args.size(), new_args.data(), result);
         if (st == BR_FAILED) {
             result = m.mk_app(get_fid(), OP_MUL, new_args.size(), new_args.data());
             return BR_DONE;

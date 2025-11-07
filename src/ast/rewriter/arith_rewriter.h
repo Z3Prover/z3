@@ -113,6 +113,7 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     bool get_divides(expr* d, expr* n, expr_ref& result);
     expr_ref remove_divisor(expr* arg, expr* num, expr* den); 
     void flat_mul(expr* e, ptr_buffer<expr>& args); 
+    br_status mk_mul_div(unsigned num_args, expr * const * args, expr_ref & result);
     void remove_divisor(expr* d, ptr_buffer<expr>& args);
 
     bool mk_eq_mod(expr* arg1, expr* arg2, expr_ref& result);
@@ -140,6 +141,7 @@ public:
 
     br_status mk_add_core(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_mul_core(unsigned num_args, expr * const * args, expr_ref & result);
+
 
     void mk_eq(expr * arg1, expr * arg2, expr_ref & result) {
         if (mk_eq_core(arg1, arg2, result) == BR_FAILED)
