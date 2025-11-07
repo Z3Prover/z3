@@ -1012,10 +1012,30 @@ public:
         return true;
     }
 
+    
+    svector<std::pair<theory_var, theory_var>> m_delayed_diseqs;
+
     void new_diseq_eh(theory_var v1, theory_var v2) {
         TRACE(arith, tout << "v" << v1 << " != " << "v" << v2 << "\n";);
+#if 1
+        m_delayed_diseqs.push_back({v1, v2});
+        ctx().push_trail(push_back_vector(m_delayed_diseqs));
+#else
         ++m_stats.m_assert_diseq;
         m_arith_eq_adapter.new_diseq_eh(v1, v2);
+#endif
+    }
+
+    bool check_delayed_diseqs() {
+        bool found_eq = false;
+        for (auto [v1, v2] : m_delayed_diseqs) {
+            if (is_eq(v1, v2)) {
+                found_eq = true;
+                ++m_stats.m_assert_diseq;
+                m_arith_eq_adapter.new_diseq_eh(v1, v2);
+            }
+        }
+        return found_eq;
     }
 
     void apply_sort_cnstr(enode* n, sort*) {
@@ -1666,7 +1686,11 @@ public:
                 TRACE(arith, tout << "check-nra giveup\n";);
                 st = FC_GIVEUP;
                 break;
-            }                        
+            }       
+            
+            if (check_delayed_diseqs())
+                return FC_CONTINUE;
+                        
                         
             if (assume_eqs()) {
                 ++m_stats.m_assume_eqs;
