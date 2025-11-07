@@ -806,6 +806,7 @@ namespace euf {
 
     // callback when mam finds a binding
     void completion::on_binding(quantifier* q, app* pat, enode* const* binding, unsigned max_global, unsigned min_top, unsigned max_top) {
+        verbose_stream() << "on-binding\n";
         if (should_stop())
             return;
         if (max_top >= m_max_generation)
@@ -863,6 +864,8 @@ namespace euf {
             pr = m.mk_quant_inst(m.mk_or(m.mk_not(q), r), s.size(), s.data());
         m_consequences.push_back(r);
         TRACE(euf_completion, tout << "new instantiation: " << r << " q: " << mk_pp(q, m) << "\n");
+        verbose_stream() << mk_pp(q, m) << " " << r
+                         << "\n ";
         add_constraint(r, pr, d);
         propagate_rules();
         m_egraph.propagate();
@@ -1131,6 +1134,7 @@ namespace euf {
         }
         enode* n = m_egraph.find(f);
         if (!n) n = mk_enode(f);
+
         enode* r = n->get_root();
         d = m.mk_join(d, explain_eq(n, r));
         d = m.mk_join(d, m_deps.get(r->get_id(), nullptr));

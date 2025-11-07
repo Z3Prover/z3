@@ -37,6 +37,7 @@ z3_add_component(core_tactics
     elim_uncnstr_tactic.h
     elim_uncnstr2_tactic.h
     eliminate_predicates_tactic.h
+    fold_unfold_tactic.h
     injectivity_tactic.h
     nnf_tactic.h
     occf_tactic.h
