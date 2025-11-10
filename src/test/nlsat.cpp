@@ -717,6 +717,104 @@ static void tst10() {
     std::cout << "\n";
 }
 
+void tst_nlsat_mv() {
+    params_ref      ps;
+    reslimit        rlim;
+    nlsat::solver s(rlim, ps, false);
+    anum_manager & am     = s.am();
+    nlsat::pmanager & pm  = s.pm();
+    nlsat::assignment assignment(am);
+    nlsat::explain& ex    = s.get_explain();
+
+    // Regression: reproduce lemma 114 where main_operator adds spurious bounds.
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+
+    polynomial_ref _x0(pm), _x1(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+
+    polynomial_ref x0_sq(pm), x0_cu(pm), x0_4(pm), x0_5(pm);
+    x0_sq = _x0 * _x0;
+    x0_cu = x0_sq * _x0;
+    x0_4 = x0_cu * _x0;
+    x0_5 = x0_4 * _x0;
+
+    polynomial_ref x1_sq(pm), x1_cu(pm), x1_4(pm), x1_5(pm);
+    x1_sq = _x1 * _x1;
+    x1_cu = x1_sq * _x1;
+    x1_4 = x1_cu * _x1;
+    x1_5 = x1_4 * _x1;
+
+    polynomial_ref root_arg(pm);
+    root_arg =
+        x1_5 +
+        (_x0 * x1_4) -
+        (18 * x1_4) -
+        (2 * x0_sq * x1_cu) -
+        (2 * x0_cu * x1_sq) +
+        (36 * x0_sq * x1_sq) +
+        (1296 * _x0 * x1_sq) +
+        (864 * x1_sq) +
+        (x0_4 * _x1) +
+        (1296 * x0_sq * _x1) +
+        (6048 * _x0 * _x1) +
+        x0_5 -
+        (18 * x0_4) +
+        (864 * x0_sq);
+    // should be (x1^5 + x0 x1^4 - 18 x1^4 - 2 x0^2 x1^3 - 2 x0^3 x1^2 + 36 x0^2 x1^2 + 1296 x0 x1^2 + 864 x1^2 + x0^4 x1 + 1296 x0^2 x1 + 6048 x0 x1 + x0^5 - 18 x0^4 + 864 x0^2)
+    std::cout << "big poly:" <<  root_arg << std::endl;
+    nlsat::literal x1_gt_0 = mk_gt(s, _x1);
+    nlsat::bool_var root_gt = s.mk_root_atom(nlsat::atom::ROOT_GT, x1, 3, root_arg.get());
+    nlsat::literal x1_gt_root(root_gt, false);
+
+    nlsat::scoped_literal_vector lits(s);
+    lits.push_back(x1_gt_0);
+    lits.push_back(~x1_gt_root); // !(x1 > root[3](root_arg))
+
+    scoped_anum one(am), one_dup(am);
+    am.set(one, 1);
+    assignment.set(x0, one);
+    s.set_rvalues(assignment);
+
+    nlsat::scoped_literal_vector result(s);
+    ex.main_operator(lits.size(), lits.data(), result);
+
+    std::cout << "main_operator root regression core:\n";
+    s.display(std::cout, lits.size(), lits.data());
+    s.display(std::cout << "\n==>\n", result.size(), result.data());
+    std::cout << "\n";
+
+    // Assign x1 only after the lemma is produced.
+    am.set(one_dup, 1);
+    assignment.set(x1, one_dup);
+    s.set_rvalues(assignment);
+
+    small_object_allocator allocator;
+    nlsat::evaluator eval(s, assignment, pm, allocator);
+    std::cout << "input literal values at x0 = 1, x1 = 1:\n";
+    for (nlsat::literal l : lits) {
+        nlsat::atom* a = s.bool_var2atom(l.var());
+        if (!a) {
+            std::cout << "conversion bug\n";
+        }
+        bool value = a ? eval.eval(a, l.sign()) : false;
+        s.display(std::cout << "  ", l);
+        std::cout << " -> " << (value ? "true" : "false") << "\n";
+    }
+    std::cout << "new literal values at x0 = 1, x1 = 1:\n";
+    for (nlsat::literal l : result) {
+        nlsat::atom* a = s.bool_var2atom(l.var());
+        bool value = a ? eval.eval(a, l.sign()) : false;
+        if (!a) {
+            std::cout << "conversion bug\n";
+        }
+        s.display(std::cout << "  ", l);
+        std::cout << " -> " << (value ? "true" : "false") << "\n";
+    }
+    std::cout << "\n";
+}
+
 static void tst11() {
     params_ref      ps;
     reslimit        rlim;
@@ -791,6 +889,8 @@ x7 := 1
 }
 
 void tst_nlsat() {
+    std::cout << "tst_mv\n"; exit(1);
+    std::cout << "------------------\n";
     tst11();
     std::cout << "------------------\n";
     return;

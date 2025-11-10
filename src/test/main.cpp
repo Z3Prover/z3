@@ -227,6 +227,7 @@ int main(int argc, char ** argv) {
     TST(prime_generator);
     TST(permutation);
     TST(nlsat);
+    TST(nlsat_mv);
     TST(zstring);
     if (test_all) return 0;
     TST(ext_numeral);
