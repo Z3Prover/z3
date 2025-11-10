@@ -40,6 +40,8 @@ Revision History:
 #include "nlsat/nlsat_simple_checker.h"
 #include "nlsat/nlsat_variable_ordering_strategy.h"
 
+int ttt = 0;
+
 #define NLSAT_EXTRA_VERBOSE
 
 #ifdef NLSAT_EXTRA_VERBOSE
@@ -750,6 +752,14 @@ namespace nlsat {
             m_atoms[b] = new_atom;
             new_atom->m_bool_var = b;
             m_pm.inc_ref(new_atom->p());
+            TRACE(nlsat_solver,
+                  tout << "created root literal b" << b << ": ";
+                  display(tout, literal(b, false)) << "\n";
+                  tout << "    kind: " << k << ", index: " << i << ", variable: x" << x << "\n";
+                  tout << "    polynomial: ";
+                  display_polynomial(tout, new_atom->p(), m_display_var);
+                  tout << "\n";
+                );
             return b;
         }
 
@@ -1115,20 +1125,47 @@ namespace nlsat {
         }
 
         void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid) {
-            ++m_lemma_count;
-            out << "(set-logic ALL)\n";
-            if (is_valid) {
-                display_smt2_bool_decls(out);
-                display_smt2_arith_decls(out);
+            if (!is_valid)
+                return;
+            if (false && ttt != 219)
+                return;
+
+            // Collect arithmetic variables referenced by cls.
+            std::vector<unsigned> arith_vars = collect_vars_on_clause(n, cls);
+
+            // Collect uninterpreted Boolean variables referenced by cls.
+            bool_vector seen_bool;
+            svector<bool_var> bool_vars;
+            for (unsigned i = 0; i < n; ++i) {
+                bool_var b = cls[i].var();
+                if (seen_bool.get(b, false))
+                    continue;
+                seen_bool.setx(b, true, false);
+                if (b != 0 && m_atoms[b] == nullptr)
+                    bool_vars.push_back(b);
             }
-            else             
-                display_smt2(out);            
+
+            out << "(set-logic ALL)\n";
+
+            for (bool_var b : bool_vars) {
+                out << "(declare-fun b" << b << " () Bool)\n";
+            }
+            for (unsigned x : arith_vars) {
+                out << "(declare-fun ";
+                m_display_var(out, x);
+                out << " () " << (is_int(x) ? "Int" : "Real") << ")\n";
+            }
+
             for (unsigned i = 0; i < n; ++i) 
                 display_smt2(out << "(assert ", ~cls[i]) << ")\n";
-            display(out << "(echo \"#" << m_lemma_count << " ", n, cls) << "\")\n";
+            display(out << "(echo \"#" << ttt << " ", n, cls) << "\")\n";
             out << "(check-sat)\n(reset)\n";
 
-            TRACE(nlsat, display(tout << "(echo \"#" << m_lemma_count << " ", n, cls) << "\")\n");
+            TRACE(nlsat, display(tout << "(echo \"#" << ttt << " ", n, cls) << "\")\n");
+            if (false && ttt == 219) {
+                std::cout << "early exit()\n";
+                exit(0);
+            }
         }
 
         clause * mk_clause_core(unsigned num_lits, literal const * lits, bool learned, _assumption_set a) {
@@ -1599,7 +1636,16 @@ namespace nlsat {
                     TRACE(nlsat_inf_set, tout << "infeasible set + current set = R, skip literal\n";
                           display(tout, cls) << "\n";
                           display_assignment_for_clause(tout, cls);
-                          m_ism.display(tout, tmp); tout << "\n";
+                          m_ism.display(tout, tmp) << "\n";
+                          literal_vector inf_lits;
+                          ptr_vector<clause> inf_clauses;
+                          m_ism.get_justifications(tmp, inf_lits, inf_clauses);
+                          if (!inf_lits.empty()) {
+                              tout << "Interval witnesses:\n";
+                              for (literal inf_lit : inf_lits) {
+                                  display(tout << "  ", inf_lit) << "\n";
+                              }
+                          }
                         );
                     R_propagate(~l, tmp, false);
                     continue;
@@ -2408,6 +2454,15 @@ namespace nlsat {
             unsigned top = m_trail.size();
             bool found_decision;
             while (true) {
+                if (ttt >= 10) {
+                   enable_trace("nlsat_explain");
+                   enable_trace("nlsat");
+                   enable_trace("nlsat_resolve");
+                   enable_trace("nlsat_interval");
+                   enable_trace("nlsat_solver");
+                   enable_trace("nlsat_mathematica");
+                   enable_trace("nlsat_inf_set");
+                }
                 found_decision = false;
                 while (m_num_marks > 0) {
                     checkpoint();
@@ -2427,6 +2482,10 @@ namespace nlsat {
                                 break;
                             case justification::LAZY:
                                 resolve_lazy_justification(b, *(jst.get_lazy()));
+                                if (ttt == 48) {
+                                    TRACE(nlsat_solver, tout << "early exit\n";);
+                                    exit(0);
+                                }
                                 break;
                             case justification::DECISION:
                                 SASSERT(m_num_marks == 0);
