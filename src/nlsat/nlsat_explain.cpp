@@ -21,6 +21,7 @@ Revision History:
 #include "nlsat/nlsat_evaluator.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/ref_buffer.h"
+extern int ttt;
 
 namespace nlsat {
 
@@ -839,7 +840,6 @@ namespace nlsat {
                 !mk_quadratic_root(k, y, i, p)) {
                 bool_var b = m_solver.mk_root_atom(k, y, i, p);
                 literal l(b, true);
-                TRACE(nlsat_explain, tout << "adding literal\n"; display(tout, l); tout << "\n";);
                 add_literal(l);
             }
         }
@@ -1013,6 +1013,13 @@ namespace nlsat {
                 // Otherwise, the isolate_roots procedure will assume p is a constant polynomial.
                 m_am.isolate_roots(p, undef_var_assignment(m_assignment, y), roots);
                 unsigned num_roots = roots.size();
+                TRACE(nlsat_explain,
+                      tout << "isolated roots for "; display_var(tout, y);
+                      tout << " with polynomial: " << p << "\n";
+                      for (unsigned ri = 0; ri < num_roots; ++ri) {
+                          m_am.display_decimal(tout << "  root[" << (ri+1) << "] = ", roots[ri]);
+                          tout << "\n";
+                      });
                 bool all_lt = true;
                 for (unsigned i = 0; i < num_roots; i++) {
                     int s = m_am.compare(y_val, roots[i]);
@@ -1648,7 +1655,7 @@ namespace nlsat {
             var max_x = max_var(m_ps);
             TRACE(nlsat_explain, tout << "polynomials in the conflict:\n"; display(tout, m_ps); tout << "\n";);
             elim_vanishing(m_ps);
-            TRACE(nlsat_explain, tout << "elim vanishing\n"; display(tout, m_ps); tout << "\n";);
+            TRACE(nlsat_explain, tout << "after elim_vanishing m_ps:\n"; display(tout, m_ps); tout << "\n";);
             project(m_ps, max_x);
             TRACE(nlsat_explain, tout << "after projection\n"; display(tout, m_ps); tout << "\n";);
         }
@@ -1659,6 +1666,7 @@ namespace nlsat {
                 m_core2.append(num, ls);
                 var max = max_var(num, ls);
                 SASSERT(max != null_var);
+                TRACE(nlsat_explain, display(tout << "core before normalization\n", m_core2) << "\n";);
                 normalize(m_core2, max);
                 TRACE(nlsat_explain, display(tout << "core after normalization\n", m_core2) << "\n";);
                 simplify(m_core2, max);
@@ -1667,6 +1675,7 @@ namespace nlsat {
                 m_core2.reset();
             }
             else {
+                TRACE(nlsat_explain, display(tout << "core befor normalization\n", m_core2) << "\n";);
                 main(num, ls);
             }
         }
@@ -1751,8 +1760,9 @@ namespace nlsat {
                 process2(num, ls);
             }
         }
-      
+
         void operator()(unsigned num, literal const * ls, scoped_literal_vector & result) {
+            ttt++;
             SASSERT(check_already_added());
             SASSERT(num > 0);
             TRACE(nlsat_explain, 
@@ -1760,6 +1770,11 @@ namespace nlsat {
                   display(tout, num, ls) << "\n";
                   m_solver.display_assignment(tout);
                   );
+            if (max_var(num, ls) == 0 && !m_assignment.is_assigned(0)) {
+                TRACE(nlsat_explain, tout << "all literals use unassigned max var; returning justification\n";);
+                result.reset();
+                return;
+            }
             m_result = &result;
             process(num, ls);
             reset_already_added();
