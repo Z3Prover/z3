@@ -36,6 +36,7 @@ namespace smt {
     class parallel {
         context& ctx;
         unsigned num_threads;
+        bool m_should_tune_params;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -73,7 +74,7 @@ namespace smt {
 
             void cancel_background_threads() {
                 cancel_workers();
-                cancel_param_generator();
+                if (p.m_should_tune_params) cancel_param_generator();
             }
 
             // called from batch manager to cancel other workers if we've reached a verdict
