@@ -109,6 +109,22 @@ namespace nla {
         vector<constraint> m_constraints;
         monomial_factory m_monomial_factory;
 
+        struct constraint_key {
+            unsigned pdd;
+            lp::lconstraint_kind k;
+            struct eq {
+                bool operator()(constraint_key const &a, constraint_key const &b) const {
+                    return a.pdd == b.pdd && a.k == b.k;
+                }
+            };
+            struct hash {
+                unsigned operator()(constraint_key const &c) const {
+                    return hash_u_u(c.pdd, static_cast<unsigned>(c.k));
+                }            
+            };
+        };
+        map<constraint_key, lp::constraint_index, constraint_key::hash, constraint_key::eq> m_constraint_index;
+
 
         dd::pdd to_pdd(lpvar v);
         void init_monomial(unsigned mon_var); 

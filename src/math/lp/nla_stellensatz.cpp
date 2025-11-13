@@ -46,8 +46,6 @@ namespace nla {
         UNREACHABLE();
         return k1;
     }
-
-
     
     lpvar stellensatz::monomial_factory::mk_monomial(lp::lar_solver &lra, svector<lpvar> const &vars) {
         lpvar v = lp::null_lpvar;
@@ -112,6 +110,7 @@ namespace nla {
         m_constraints.reset();
         m_monomial_factory.reset();
         m_coi.init();
+        m_constraint_index.reset();
         init_vars();
         init_occurs();
     }
@@ -204,8 +203,13 @@ namespace nla {
             k = lp::lconstraint_kind::GE;
             p += rational(1);
         }
+        lp::constraint_index ci = lp::null_ci;
+        if (m_constraint_index.find({p.index(), k}, ci))
+            return ci;
+        ci = m_constraints.size();
         m_constraints.push_back({p, k, j });
-        return m_constraints.size() - 1;
+        m_constraint_index.insert({p.index(), k}, ci);
+        return ci;
     }
 
     // initialize active set of constraints that evaluate to false in the current model
@@ -327,7 +331,7 @@ namespace nla {
                     ci_a = multiply(ci, add_constraint(g_p, lp::lconstraint_kind::GT, aj));
 
                 auto new_ci = add(ci_a, ci_b);
-                if (m_constraints[new_ci].p.degree() < 3)
+                if (m_constraints[new_ci].p.degree() <= 3)
                     init_occurs(new_ci);        
                 TRACE(arith, tout << "eliminate j" << x << ":\n"; 
                     display_constraint(tout << "ci: ", ci) << "\n";
@@ -349,7 +353,7 @@ namespace nla {
                         c().lra_solver().settings().stats().m_nla_stellensatz++;
                         return l_false;
                     }
-                    if (m_constraints[new_ci].p.degree() < 3) {
+                    if (m_constraints[new_ci].p.degree() <= 3 && !m_constraints[new_ci].p.free_vars().contains(x)) {
                         uint_set new_tabu(tabu), fv;
                         for (auto v : new_p.free_vars())
                             fv.insert(v);
