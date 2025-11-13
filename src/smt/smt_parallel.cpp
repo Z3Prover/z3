@@ -148,7 +148,8 @@ namespace smt {
             m_param_state = best_param_state;
             auto p = apply_param_values(m_param_state);
             b.set_param_state(p);
-            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found better param state\n");
+            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found better param state:\n");
+            print_param_values(m_param_state);
         }
         else {
             IF_VERBOSE(1, verbose_stream() << " PARAM TUNER retained current param state\n");
@@ -215,33 +216,35 @@ namespace smt {
     }
 
     void parallel::param_generator::protocol_iteration() {
-        IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running protocol iteration\n");
-        
-        ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
-        lbool r = run_prefix_step();
+        while (!m.limit().is_canceled()) {
+            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running protocol iteration\n");
+            
+            ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
+            lbool r = run_prefix_step();
 
-        if (m.limit().is_canceled())
-            return;
+            if (m.limit().is_canceled())
+                return;
 
-        switch (r) {
-            case l_undef: {
-                replay_proof_prefixes();
-                break;
-            }
-            case l_true: {
-                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found formula sat\n");
-                model_ref mdl;
-                ctx->get_model(mdl);
-                b.set_sat(m_l2g, *mdl);
-                break;
-            }
-            case l_false: {
-                expr_ref_vector const &unsat_core = ctx->unsat_core();
-                IF_VERBOSE(2, verbose_stream() << " unsat core:\n";
-                           for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
-                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER determined formula unsat\n");
-                b.set_unsat(m_l2g, unsat_core);
-                break;
+            switch (r) {
+                case l_undef: {
+                    replay_proof_prefixes();
+                    break;
+                }
+                case l_true: {
+                    IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found formula sat\n");
+                    model_ref mdl;
+                    ctx->get_model(mdl);
+                    b.set_sat(m_l2g, *mdl);
+                    break;
+                }
+                case l_false: {
+                    expr_ref_vector const &unsat_core = ctx->unsat_core();
+                    IF_VERBOSE(2, verbose_stream() << " unsat core:\n";
+                              for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
+                    IF_VERBOSE(1, verbose_stream() << " PARAM TUNER determined formula unsat\n");
+                    b.set_unsat(m_l2g, unsat_core);
+                    break;
+                }
             }
         }
     }
@@ -699,16 +702,19 @@ namespace smt {
 
         smt_parallel_params pp(ctx.m_params);
         m_should_tune_params = pp.param_tuning();
+        m_should_run_parallel = pp.enable_parallel_smt();
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
 
-        SASSERT(num_threads > 1);
-        for (unsigned i = 0; i < num_threads; ++i)
-            m_workers.push_back(alloc(worker, i, *this, asms));
-        
-        for (auto w : m_workers)
-            sl.push_child(&(w->limit()));
+        if (m_should_run_parallel) {
+            SASSERT(num_threads > 1);
+            for (unsigned i = 0; i < num_threads; ++i)
+                m_workers.push_back(alloc(worker, i, *this, asms));
+            
+            for (auto w : m_workers)
+                sl.push_child(&(w->limit()));
+        }
 
         if (m_should_tune_params) {
             m_param_generator = alloc(param_generator, *this);
@@ -757,13 +763,22 @@ namespace smt {
         }
 
         // Launch threads
-        vector<std::thread> threads(m_should_tune_params ? num_threads + 1 : num_threads); // +1 for param generator
-        for (unsigned i = 0; i < num_threads; ++i) {
-            threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
-        }
-        // the final thread runs the parameter generator
-        if (m_should_tune_params) {
-            threads[num_threads] = std::thread([&]() { m_param_generator->protocol_iteration(); });
+        // threads must live beyond the branch scope so we declare them here.
+        vector<std::thread> threads;
+        if (m_should_run_parallel) {
+            threads.resize(m_should_tune_params ? num_threads + 1 : num_threads); // +1 for param generator
+            for (unsigned i = 0; i < num_threads; ++i) {
+                threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
+            }
+            // the final thread runs the parameter generator
+            if (m_should_tune_params) {
+                threads[num_threads] = std::thread([&]() { m_param_generator->protocol_iteration(); });
+            }
+        } else { // just do param tuning (if requested)
+            if (m_should_tune_params) {
+              threads.resize(1);
+              threads[0] = std::thread([&]() { m_param_generator->protocol_iteration(); });
+            }
         }
 
         // Wait for all threads to finish
