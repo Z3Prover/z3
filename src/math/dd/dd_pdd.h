@@ -483,6 +483,8 @@ namespace dd {
          * \brief factor out variables
          */
         std::pair<unsigned_vector, pdd> var_factors() const;
+        static void merge(unsigned_vector &lo, unsigned_vector &hi, unsigned_vector& common);
+        pdd mul(unsigned_vector const &vars) const;
 
         pdd subst_val0(vector<std::pair<unsigned, rational>> const& s) const { return m->subst_val0(*this, s); }
         pdd subst_val(pdd const& s) const { VERIFY_EQ(m, s.m); return m->subst_val(*this, s); }
