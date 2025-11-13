@@ -744,10 +744,9 @@ namespace smt {
                 else if (std::all_of(val.begin(), val.end(), ::isdigit)) {
                     ctx.m_params.set_uint(symbol(key.c_str()),
                         static_cast<unsigned>(std::stoul(val)));
-                }
-                else {
-                    // if non-numeric and non-bool, just store as string/symbol
-                    ctx.m_params.set_str(symbol(key.c_str()), val.c_str());
+                } else {
+                  IF_VERBOSE(1, 
+                    verbose_stream() << "Ignoring invalid parameter override: " << kv << "\n";);
                 }
             }
 
