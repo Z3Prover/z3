@@ -47,32 +47,70 @@ namespace nla {
         return k1;
     }
 
+
+    
+    lpvar stellensatz::monomial_factory::mk_monomial(lp::lar_solver &lra, svector<lpvar> const &vars) {
+        lpvar v = lp::null_lpvar;
+        if (vars.empty())
+            return v;
+        if (vars.size() == 1)
+            return vars[0];
+        svector<lpvar> _vars(vars);
+        std::sort(_vars.begin(), _vars.end());
+        if (m_vars2mon.find(_vars, v))
+            return v;
+        auto is_int = all_of(vars, [&](lpvar v) { return lra.var_is_int(v); });
+        auto nv = lra.number_of_vars();
+        v = lra.add_var(nv, is_int);
+        m_vars2mon.insert(_vars, v);
+        m_mon2vars.insert(v, _vars);
+        return v;
+    }
+
+    lpvar stellensatz::monomial_factory::get_monomial(svector<lpvar> const &vars) {
+        lpvar v = lp::null_lpvar;
+        if (vars.empty())
+            return v;
+        if (vars.size() == 1)
+            return vars[0];
+        svector<lpvar> _vars(vars);
+        std::sort(_vars.begin(), _vars.end());
+        if (m_vars2mon.find(_vars, v))
+            return v;
+        NOT_IMPLEMENTED_YET();
+        return lp::null_lpvar;
+    }
+
+    void stellensatz::monomial_factory::init(lpvar v, svector<lpvar> const &_vars) {
+        svector<lpvar> vars(_vars);
+        std::sort(vars.begin(), vars.end());
+        m_vars2mon.insert(vars, v);
+        m_mon2vars.insert(v, vars);
+    }
+
     stellensatz::stellensatz(core* core) : 
         common(core), 
         m_solver(*this), 
-        m_coi(*core),
-        pddm(m_solver.lra().number_of_vars())
+        m_coi(*core), 
+        pddm(core->lra_solver().number_of_vars())
     {}
 
     lbool stellensatz::saturate() {
         init_solver();
         TRACE(arith, display(tout << "stellensatz before saturation\n"));
-        eliminate_variables();
+        auto r = eliminate_variables();
+        if (r == l_false)
+            return r;
         // TODO: populate solver
         TRACE(arith, display(tout << "stellensatz after saturation\n"));
-        return l_undef;
-        lbool r = m_solver.solve();
+        r = m_solver.solve();
         // IF_VERBOSE(0, verbose_stream() << "stellensatz " << r << "\n");
-        if (r == l_false)
-            add_lemma();
         return r;
     }
 
     void stellensatz::init_solver() {
-        m_solver.init();
-        m_vars2mon.reset();
-        m_mon2vars.reset();
         m_constraints.reset();
+        m_monomial_factory.reset();
         m_coi.init();
         init_vars();
         init_occurs();
@@ -82,7 +120,9 @@ namespace nla {
         auto const& src = c().lra_solver();
         auto sz = src.number_of_vars();
         for (unsigned v = 0; v < sz; ++v) {
-            if (m_coi.mons().contains(v))
+            if (!m_coi.vars().contains(v))
+                continue;
+            if (c().is_monic_var(v))
                 init_monomial(v);
             // assert bounds on v in the new solver.
             if (src.column_has_lower_bound(v)) {
@@ -119,7 +159,7 @@ namespace nla {
             dd::pdd sum(pddm);
             sum = 0;
             for (auto cv : t) 
-                sum *= to_pdd(cv.j())*cv.coeff();
+                sum += to_pdd(cv.j())*cv.coeff();
             return sum;
         }
         return pddm.mk_var(v);
@@ -131,33 +171,14 @@ namespace nla {
             if (vars.empty())
                 to.second += coeff;
             else
-                to.first.add_monomial(coeff, mk_monomial(vars));                
+                to.first.add_monomial(coeff, m_monomial_factory.get_monomial(vars));                
         }        
         return to;
     }
 
-    lpvar stellensatz::mk_monomial(svector<lpvar> const &vars) {
-        lpvar v;
-        if (vars.size() == 1)
-            return vars[0];
-        svector<lpvar> _vars(vars);
-        std::sort(_vars.begin(), _vars.end());
-        if (m_vars2mon.find(_vars, v))
-            return v;
-
-        v = add_var(is_int(vars));
-        m_vars2mon.insert(_vars, v);
-        m_mon2vars.insert(v, _vars);
-        SASSERT(m_values.size() == v);
-        return v;
-    }
-
     void stellensatz::init_monomial(unsigned mon_var) {
         auto &mon = c().emons()[mon_var];
-        svector<lpvar> vars(mon.vars());
-        std::sort(vars.begin(), vars.end());
-        m_vars2mon.insert(vars, mon_var);
-        m_mon2vars.insert(mon_var, vars);
+        m_monomial_factory.init(mon_var, mon.vars());
     }
 
     lp::constraint_index stellensatz::add_var_bound(lp::lpvar v, lp::lconstraint_kind k, rational const& rhs, justification j) {
@@ -179,13 +200,17 @@ namespace nla {
             k = lp::lconstraint_kind::GT;
             p = -p;
         }
+        if (k == lp::lconstraint_kind::GT && is_int(p)) {
+            k = lp::lconstraint_kind::GE;
+            p += rational(1);
+        }
         m_constraints.push_back({p, k, j });
         return m_constraints.size() - 1;
     }
 
     // initialize active set of constraints that evaluate to false in the current model
     // loop over active set to eliminate variables.
-    void stellensatz::eliminate_variables() {
+    lbool stellensatz::eliminate_variables() {
         vector<std::pair<lp::constraint_index, uint_set>> active;
         for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {
             if (!constraint_is_true(ci))
@@ -200,17 +225,24 @@ namespace nla {
             auto [ci, tabu] = active.back();               
             active.pop_back();           
             auto x = select_variable_to_eliminate(ci);
+            if (x == lp::null_lpvar)
+                continue;
             auto f = factor(x, ci);
+            TRACE(arith, tout << "factor " << m_constraints[ci].p << " -> j" << x << "^" << f.degree << " * " << f.p << "  +  "
+                              << f.q << "\n");
             auto p_value = cvalue(f.p);
             if (!f.p.is_zero() && p_value == 0) {
                 // add p = 0 as assumption and reduce to q.
                 auto p_is_0 = assume(f.p, lp::lconstraint_kind::EQ);
                 if (!f.q.is_zero()) {
                     // ci & -p_is_0*x^f.degree  => new_ci
-                    p_is_0 = multiply(p_is_0, rational(-1));             
+                    dd::pdd r = pddm.mk_val(rational(-1));           
                     for (unsigned i = 0; i < f.degree; ++i)
-                        p_is_0 = multiply_var(p_is_0, x);                  
+                        r = r * pddm.mk_var(x);
+                    p_is_0 = multiply(p_is_0, r);
                     auto new_ci = add(ci, p_is_0);
+                    TRACE(arith, 
+                        display_constraint(tout << "reduced", new_ci) << "\n");
                     init_occurs(new_ci);
                     uint_set new_tabu(tabu);
                     uint_set q_vars;
@@ -223,7 +255,13 @@ namespace nla {
                 }
                 continue;
             }
-            for (auto other_ci : m_occurs[x]) {
+            unsigned num_x = m_occurs[x].size();
+            for (unsigned i = 0; i < f.degree; ++i)
+                f.p *= to_pdd(x);
+            auto [_m1, _f_p] = f.p.var_factors();
+
+            for (unsigned cx = 0; cx < num_x; ++cx) {
+                auto other_ci = m_occurs[x][cx]; 
                 if (other_ci == ci)
                     continue;
                 auto const &other_ineq = m_constraints[other_ci];
@@ -236,6 +274,8 @@ namespace nla {
                 SASSERT(g.degree > 0);
                 if (g.degree > f.degree) // future: could handle this too by considering tabu to be a map into degrees.
                     continue;
+                if (p_value2 == 0)
+                    continue;
                 if (p_value > 0 && p_value2 > 0)
                     continue;
                 if (p_value < 0 && p_value2 < 0)
@@ -243,18 +283,24 @@ namespace nla {
                 if (any_of(other_ineq.p.free_vars(), [&](unsigned j) { return tabu.contains(j); }))
                     continue;
 
-                for (unsigned i = 0; i < f.degree; ++i)
-                    f.p *= to_pdd(x);
+                TRACE(arith, tout << "factor " << other_ineq.p << " -> j" << x << "^" << g.degree << " * " << g.p
+                                  << "  +  " << g.q << "\n");
+
+
                 for (unsigned i = 0; i < g.degree; ++i)
                     g.p *= to_pdd(x);
 
-                auto [m1, f_p] = f.p.var_factors();
+
                 auto [m2, g_p] = g.p.var_factors();
                 unsigned_vector m1m2;
+                auto m1(_m1);
+                auto f_p(_f_p);
                 dd::pdd::merge(m1, m2, m1m2);
                 SASSERT(m1m2.contains(x));
                 f_p = f_p.mul(m1);
                 g_p = g_p.mul(m2);
+
+                TRACE(arith, tout << "m1 " << m1 << " m2 " << m2 << " m1m2: " << m1m2 << "\n");
                 
                 auto sign_f = cvalue(f_p) < 0;
                 SASSERT(sign_f != cvalue(g_p) < 0);
@@ -264,38 +310,58 @@ namespace nla {
                 // m1m2 * f_p + f.q >= 0
                 // m1m2 * g_p + g.q >= 0
                 // 
-                auto ci_a = ci;
-                auto ci_b = other_ci;
+                lp::constraint_index ci_a, ci_b;
                 auto aj = assumption_justification();
                 if (f_p.is_val())
-                    ci_a = multiply(other_ci, f_p.val());
+                    ci_b = multiply(other_ci, pddm.mk_val(f_p.val()));
                 else if (sign_f)
-                    ci_a = multiply(other_ci, add_constraint(f_p, lp::lconstraint_kind::LT, aj));
+                    ci_b = multiply(other_ci, add_constraint(f_p, lp::lconstraint_kind::LT, aj));
                 else
-                    ci_a = multiply(other_ci, add_constraint(f_p, lp::lconstraint_kind::GT, aj));
+                    ci_b = multiply(other_ci, add_constraint(f_p, lp::lconstraint_kind::GT, aj));
                 
                 if (g_p.is_val())
-                    ci_b = multiply(ci, g_p.val());
+                    ci_a = multiply(ci, pddm.mk_val(g_p.val()));
                 else if (!sign_f)
-                    ci_b = multiply(ci, add_constraint(g_p, lp::lconstraint_kind::LT, aj));
+                    ci_a = multiply(ci, add_constraint(g_p, lp::lconstraint_kind::LT, aj));
                 else
-                    ci_b = multiply(ci, add_constraint(g_p, lp::lconstraint_kind::GT, aj));
+                    ci_a = multiply(ci, add_constraint(g_p, lp::lconstraint_kind::GT, aj));
 
                 auto new_ci = add(ci_a, ci_b);
-                init_occurs(new_ci);
+                if (m_constraints[new_ci].p.degree() < 3)
+                    init_occurs(new_ci);        
+                TRACE(arith, tout << "eliminate j" << x << ":\n"; 
+                    display_constraint(tout << "ci: ", ci) << "\n";
+                      display_constraint(tout << "other_ci: ", other_ci) << "\n";
+                      display_constraint(tout << "ci_a: ", ci_a) << "\n"; 
+                      display_constraint(tout << "ci_b: ", ci_b) << "\n";
+                      display_constraint(tout << "new_ci: ", new_ci) << "\n");
                 if (!constraint_is_true(new_ci)) {
                     auto const &p = m_constraints[ci].p;
                     auto const &[new_p, new_k, new_j] = m_constraints[new_ci];
-                    uint_set new_tabu(tabu), fv;                 
-                    for (auto v : new_p.free_vars())
-                        fv.insert(v);
-                    for (auto v : p.free_vars())
-                        if (!fv.contains(v))
-                            new_tabu.insert(v);
-                    active.push_back({new_ci, new_tabu});
+                    if (new_p.is_val()) {
+                        lp::explanation ex;
+                        lemma_builder new_lemma(c(), "stellensatz");
+                        m_constraints_in_conflict.reset();
+                        explain_constraint(new_lemma, new_ci, ex);
+                        new_lemma &= ex;
+                        IF_VERBOSE(2, verbose_stream() << "stellensatz unsat \n" << new_lemma << "\n");
+                        TRACE(arith, tout << "unsat\n" << new_lemma << "\n");
+                        c().lra_solver().settings().stats().m_nla_stellensatz++;
+                        return l_false;
+                    }
+                    if (m_constraints[new_ci].p.degree() < 3) {
+                        uint_set new_tabu(tabu), fv;
+                        for (auto v : new_p.free_vars())
+                            fv.insert(v);
+                        for (auto v : p.free_vars())
+                            if (!fv.contains(v))
+                                new_tabu.insert(v);
+                        active.push_back({new_ci, new_tabu});
+                    }
                 }                
             }          
         }
+        return l_undef;
     }
 
     lp::lpvar stellensatz::select_variable_to_eliminate(lp::constraint_index ci) {
@@ -319,29 +385,7 @@ namespace nla {
         return {degree, lc, rest};
     }
 
-    //
-    // convert a conflict from m_solver.lra()/lia() into
-    // a conflict for c().lra_solver()
-    // 1. constraints that are obtained by multiplication are explained from the original constraint
-    // 2. bounds justifications are added as justifications to the lemma.
-    // 
-    void stellensatz::add_lemma() {
-        lp::explanation const &ex1 = m_solver.ex();
-        vector<ineq> const &ineqs = m_solver.ineqs();
-        TRACE(arith, display(tout); display_lemma(tout, ex1, ineqs));
-        auto& lra = c().lra_solver();
-        lp::explanation ex2;
-        lemma_builder new_lemma(c(), "stellensatz");
-        m_constraints_in_conflict.reset();
-        for (auto p : ex1) 
-            explain_constraint(new_lemma, p.ci(), ex2);        
-        new_lemma &= ex2;
-        for (auto const &ineq : ineqs)
-            new_lemma |= ineq;
-        IF_VERBOSE(2, verbose_stream() << "stellensatz unsat \n" << new_lemma << "\n");
-        TRACE(arith, tout << "unsat\n" << new_lemma << "\n");
-        c().lra_solver().settings().stats().m_nla_stellensatz++;
-    }
+
 
     //
     // a constraint can be explained by a set of bounds used as justifications
@@ -354,7 +398,7 @@ namespace nla {
         auto &[p, k, b] = m_constraints[ci];
         if (std::holds_alternative<external_justification>(b)) {
             auto dep = std::get<external_justification>(b);
-            m_solver.lra().push_explanation(dep.dep, ex);
+            c().lra_solver().push_explanation(dep.dep, ex);
         } 
         else if (std::holds_alternative<multiplication_justification>(b)) {
             auto& m = std::get<multiplication_justification>(b);
@@ -366,8 +410,8 @@ namespace nla {
             explain_constraint(new_lemma, m.left, ex);
             explain_constraint(new_lemma, m.right, ex);
         } 
-        else if (std::holds_alternative<multiplication_const_justification>(b)) {
-            auto& m = std::get<multiplication_const_justification>(b);
+        else if (std::holds_alternative<multiplication_poly_justification>(b)) {
+            auto& m = std::get<multiplication_poly_justification>(b);
             explain_constraint(new_lemma, m.ci, ex);
         } 
         else if (std::holds_alternative<assumption_justification>(b)) {
@@ -384,16 +428,16 @@ namespace nla {
  
     rational stellensatz::cvalue(dd::pdd const& p) const {
         dd::pdd_eval eval;
-        // eval.var2val() = [&](unsigned v) -> void { return c().val(v); };
+        eval.var2val() = [&](unsigned v) -> rational { return c().val(v); };
         return eval(p);
     }
 
     lp::constraint_index stellensatz::gcd_normalize(lp::constraint_index ci) {
         auto [p, k, j] = m_constraints[ci];
         rational g(0);
-        bool is_int = all_of(p.free_vars(), [&](unsigned v) { return c().lra_solver().var_is_int(v); });
+        bool _is_int = is_int(p);
         for (auto const& [c, is_constant] : p.coefficients()) 
-            if (!is_constant || !is_int)
+            if (!is_constant || !_is_int)
                 g = gcd(g, c);
         if (g == 0 || g == 1)
             return ci;
@@ -405,7 +449,7 @@ namespace nla {
         }
         case lp::lconstraint_kind::GT: {
             auto q = p;
-            if (is_int) {
+            if (_is_int) {
                 q += rational(1);
                 k = lp::lconstraint_kind::GE;                
             }
@@ -439,11 +483,15 @@ namespace nla {
         return gcd_normalize(add_constraint(p + q, k, addition_justification{left, right}));
     }
 
-    // p >= lo  =>  a * p >= a * lo if a > 0
-    lp::constraint_index stellensatz::multiply(lp::constraint_index ci, rational const& mul) {
-        SASSERT(mul != 0);
+    // p >= 0  =>  a * p >= 0 if a > 0,
+    // p = 0   => p * q = 0  no matter what q
+    lp::constraint_index stellensatz::multiply(lp::constraint_index ci, dd::pdd q) {        
         auto const& [p, k, j] = m_constraints[ci];
-        return add_constraint(p * mul, mul > 0 ? k : swap_side(k), multiplication_const_justification{ci, mul});
+        auto k1 = k;
+        if (q.is_val() && q.val() < 0)
+            k1 = swap_side(k1);
+        SASSERT(q.is_val() || k1 == lp::lconstraint_kind::EQ);
+        return add_constraint(p * q, k1, multiplication_poly_justification{ci, q});
     }
 
     lp::constraint_index stellensatz::multiply(lp::constraint_index left, lp::constraint_index right) {
@@ -451,13 +499,6 @@ namespace nla {
         auto const &[q, k2, j2] = m_constraints[right];
         lp::lconstraint_kind k = meet(k1, k2);
         return add_constraint(p*q, k, multiplication_justification{left, right});
-    }
-
-    lp::constraint_index stellensatz::multiply_var(lp::constraint_index ci, lpvar x) {
-        auto const& [p, k, j] = m_constraints[ci];
-        SASSERT(k == lp::lconstriant_kind::EQ);        
-        SASSERT(p.offset() == 0);
-        return add_constraint(to_pdd(x) * p, k, multiplication_var_justification{ci, x});          
     }
 
     void stellensatz::init_occurs() {
@@ -477,15 +518,11 @@ namespace nla {
     }
 
     bool stellensatz::is_int(svector<lp::lpvar> const& vars) const {
-        return all_of(vars, [&](lpvar v) { return m_solver.lra().var_is_int(v); });
+        return all_of(vars, [&](lpvar v) { return c().lra_solver().var_is_int(v); });
     }
 
-    lpvar stellensatz::add_var(bool is_int) {
-        auto v = m_solver.lra().number_of_vars();
-        auto w = m_solver.lra().add_var(v, is_int);
-        SASSERT(v == w);
-        m_occurs.reserve(m_solver.lra().number_of_vars());
-        return w;
+    bool stellensatz::is_int(dd::pdd const &p) const {
+        return is_int(p.free_vars());
     }
 
     bool stellensatz::constraint_is_true(lp::constraint_index ci) const {
@@ -503,12 +540,14 @@ namespace nla {
     }
 
     std::ostream& stellensatz::display(std::ostream& out) const {
-        m_solver.lra().display(out);
+        #if 0
+//        m_solver.lra().display(out);
         for (auto const& [vars, v] : m_vars2mon) {
             out << "j" << v << " := ";
             display_product(out, vars);
             out << "\n";
         }
+        #endif
         for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {      
             out << "(" << ci << ") ";
             display_constraint(out, ci);
@@ -546,14 +585,10 @@ namespace nla {
     }
 
     std::ostream& stellensatz::display_var(std::ostream& out, lpvar j) const {
-        if (is_mon_var(j)) {
-//            display_product(out, c().emons()[j]);
-        }
-        else {
-            out << "j" << j;
-        }
-
-        return out;
+        if (c().is_monic_var(j)) 
+            return display_product(out, c().emon(j).vars());        
+        else 
+            return out << "j" << j;
     }
 
     std::ostream& stellensatz::display_constraint(std::ostream& out, lp::constraint_index ci) const {
@@ -582,9 +617,9 @@ namespace nla {
             auto m = std::get<addition_justification>(j);
             out << "(" << m.left << ") + (" << m.right << ")";
         }
-        else if (std::holds_alternative<multiplication_const_justification>(j)) {
-            auto m = std::get<multiplication_const_justification>(j);
-            out << m.mul << " * (" << m.ci << ")";
+        else if (std::holds_alternative<multiplication_poly_justification>(j)) {
+            auto m = std::get<multiplication_poly_justification>(j);
+            out << m.p << " * (" << m.ci << ")";
         }
         else if (std::holds_alternative<assumption_justification>(j)) {
             out << "assumption";
@@ -598,8 +633,7 @@ namespace nla {
         return out;
     }
 
-    std::ostream& stellensatz::display_lemma(std::ostream& out, lp::explanation const& ex,
-        vector<ineq> const& ineqs) {
+    std::ostream &stellensatz::display_lemma(std::ostream &out, lp::explanation const &ex) {
         m_constraints_in_conflict.reset();
         svector<lp::constraint_index> todo;
         for (auto c : ex) 
@@ -624,14 +658,14 @@ namespace nla {
                 todo.push_back(m.left);
                 todo.push_back(m.right);
             }
-            else if (std::holds_alternative<multiplication_const_justification>(j)) {
-                auto m = std::get<multiplication_const_justification>(j);
+            else if (std::holds_alternative<multiplication_poly_justification>(j)) {
+                auto m = std::get<multiplication_poly_justification>(j);
                 todo.push_back(m.ci);
             }
             else if (std::holds_alternative<external_justification>(j)) {
                 // do nothing
             }
-            else if (std::holds_alternative<assumption_justification>(j)) {
+            else if (std::holds_alternative<assumption_justification>(j)) {                                
                 // do nothing
             }
             else if (std::holds_alternative<gcd_justification>(j)) {
@@ -641,10 +675,6 @@ namespace nla {
             else 
                 NOT_IMPLEMENTED_YET();
 
-        }
-        for (auto ineq : ineqs) {
-            term_offset t(ineq.term(), rational(0));
-            display(out, t) << " " << ineq.cmp() << " " << ineq.rs() << "\n";
         }
         return out;
     }
@@ -659,14 +689,63 @@ namespace nla {
     // option: detect squares and add axioms for violated squares
     // option: add NIA filters (non-linear divisbility axioms)    
 
+
     void stellensatz::solver::init() {
         lra_solver = alloc(lp::lar_solver);
         int_solver = alloc(lp::int_solver, *lra_solver);
         m_ex.clear();
-        m_ineqs.reset();
+        m_internal2external_constraints.reset();
+        m_monomial_factory.reset();
+        auto &src = s.c().lra_solver();
+        auto &dst = *lra_solver;
+        for (unsigned v = 0; v < src.number_of_vars(); ++v)
+            dst.add_var(v, src.var_is_int(v));                   
+        
+        for (lp::constraint_index ci = 0; ci < s.m_constraints.size(); ++ci) {
+            auto const &[p, k, j] = s.m_constraints[ci];
+            auto [t, offset] = to_term_offset(p);
+            auto coeffs = t.coeffs_as_vector();
+            if (coeffs.empty())
+                continue;
+            SASSERT(!coeffs.empty());
+            auto ti = dst.add_term(coeffs, dst.number_of_vars());
+            auto new_ci = dst.add_var_bound(ti, k, -offset);
+            m_internal2external_constraints.setx(new_ci, ci, ci);
+        }
+    }
+
+    stellensatz::term_offset stellensatz::solver::to_term_offset(dd::pdd const &p) {
+        term_offset to;
+        for (auto const &[coeff, vars] : p) {
+            if (vars.empty())
+                to.second += coeff;
+            else
+                to.first.add_monomial(coeff, m_monomial_factory.mk_monomial(*lra_solver, vars));
+        }
+        return to;
+    }
+
+
+    //
+    // convert a conflict from m_solver.lra()/lia() into
+    // a conflict for c().lra_solver()
+    //
+    void stellensatz::solver::add_lemma() {
+        TRACE(arith, s.display(tout); s.display_lemma(tout, m_ex));
+        auto &src = s.c().lra_solver();
+        lp::explanation ex2;
+        lemma_builder new_lemma(s.c(), "stellensatz");
+        s.m_constraints_in_conflict.reset();
+        for (auto p : m_ex)
+            s.explain_constraint(new_lemma, m_internal2external_constraints[p.ci()], ex2);
+        new_lemma &= ex2;
+        IF_VERBOSE(2, verbose_stream() << "stellensatz unsat \n" << new_lemma << "\n");
+        TRACE(arith, tout << "unsat\n" << new_lemma << "\n");
+        s.c().lra_solver().settings().stats().m_nla_stellensatz++;
     }
 
     lbool stellensatz::solver::solve() {
+        init();
         lbool r = solve_lra();
         // IF_VERBOSE(0, verbose_stream() << "solve lra " << r << "\n");
         if (r != l_true)
@@ -675,6 +754,7 @@ namespace nla {
         // IF_VERBOSE(0, verbose_stream() << "solve lia " << r << "\n");
         if (r != l_true)
             return r;
+        return l_undef;
         if (update_values())
             return l_true;
 
@@ -687,6 +767,7 @@ namespace nla {
             return l_true;
         if (status == lp::lp_status::INFEASIBLE) {
             lra_solver->get_infeasibility_explanation(m_ex);
+            add_lemma();
             return l_false;
         }
         return l_undef;
@@ -694,8 +775,11 @@ namespace nla {
 
     lbool stellensatz::solver::solve_lia() {
         switch (int_solver->check(&m_ex)) {
-        case lp::lia_move::sat: return l_true;
-        case lp::lia_move::conflict: return l_false;
+        case lp::lia_move::sat: 
+            return l_true;
+        case lp::lia_move::conflict: 
+            add_lemma();
+            return l_false;
         default:  // TODO: an option is to perform (bounded) search here to get an LIA verdict.
             return l_undef;
         }
@@ -706,6 +790,8 @@ namespace nla {
     // return true if the new assignment satisfies the products.
     // return false if value constraints are not satisfied on monomials and there is a false constaint.
     bool stellensatz::solver::update_values() {
+        return false;
+        #if 0
         std::unordered_map<lpvar, rational> values;
         lra_solver->get_model(values);
         unsigned sz = lra_solver->number_of_vars();
@@ -731,5 +817,6 @@ namespace nla {
                 s.c().lra_solver().set_column_value(v, lp::impq(values[v], rational(0)));            
         }
         return satisfies_products;
+        #endif
     }
 }
