@@ -21,5 +21,8 @@ def_module_params('smt_parallel',
                         ('cubetree', BOOL, False, 'use cube tree data structure for storing cubes'),
                         ('searchtree', BOOL, False, 'use search tree implementation (parallel2)'),
                         ('inprocessing', BOOL, False, 'integrate in-processing as a heuristic simplification'),
-                        ('inprocessing_delay', UINT, 0, 'number of undef before invoking simplification')
+                        ('inprocessing_delay', UINT, 0, 'number of undef before invoking simplification'),
+                        ('param_tuning', BOOL, False, 'whether to tune params online during solving'),
+                        ('enable_parallel_smt', BOOL, True, 'whether to run the parallel solver (set to FALSE to test param tuning only)'),
+                        ('tunable_params', STRING, '', 'comma-separated key=value list for online param tuning, e.g. \"smt.arith.nl.horner=false,smt.arith.nl.delay=8\"')
               ))

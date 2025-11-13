@@ -2227,12 +2227,48 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Extract the last index of sub-string.
+     */
+    public final <R extends Sort> IntExpr mkLastIndexOf(Expr<SeqSort<R>> s, Expr<SeqSort<R>> substr)
+    {
+        checkContextMatch(s, substr);
+        return (IntExpr)Expr.create(this, Native.mkSeqLastIndex(nCtx(), s.getNativeObject(), substr.getNativeObject()));
+    }
+
+    /**
      * Replace the first occurrence of src by dst in s.
      */
     public final <R extends Sort> SeqExpr<R> mkReplace(Expr<SeqSort<R>> s, Expr<SeqSort<R>> src, Expr<SeqSort<R>> dst)
     {
         checkContextMatch(s, src, dst);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqReplace(nCtx(), s.getNativeObject(), src.getNativeObject(), dst.getNativeObject()));
+    }
+
+    /**
+     * Replace all occurrences of src by dst in s.
+     */
+    public final <R extends Sort> SeqExpr<R> mkReplaceAll(Expr<SeqSort<R>> s, Expr<SeqSort<R>> src, Expr<SeqSort<R>> dst)
+    {
+        checkContextMatch(s, src, dst);
+        return (SeqExpr<R>) Expr.create(this, Native.mkSeqReplaceAll(nCtx(), s.getNativeObject(), src.getNativeObject(), dst.getNativeObject()));
+    }
+
+    /**
+     * Replace the first occurrence of regular expression re with dst in s.
+     */
+    public final <R extends Sort> SeqExpr<R> mkReplaceRe(Expr<SeqSort<R>> s, ReExpr<SeqSort<R>> re, Expr<SeqSort<R>> dst)
+    {
+        checkContextMatch(s, re, dst);
+        return (SeqExpr<R>) Expr.create(this, Native.mkSeqReplaceRe(nCtx(), s.getNativeObject(), re.getNativeObject(), dst.getNativeObject()));
+    }
+
+    /**
+     * Replace all occurrences of regular expression re with dst in s.
+     */
+    public final <R extends Sort> SeqExpr<R> mkReplaceReAll(Expr<SeqSort<R>> s, ReExpr<SeqSort<R>> re, Expr<SeqSort<R>> dst)
+    {
+        checkContextMatch(s, re, dst);
+        return (SeqExpr<R>) Expr.create(this, Native.mkSeqReplaceReAll(nCtx(), s.getNativeObject(), re.getNativeObject(), dst.getNativeObject()));
     }
 
     /**

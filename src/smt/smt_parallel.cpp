@@ -148,7 +148,8 @@ namespace smt {
             m_param_state = best_param_state;
             auto p = apply_param_values(m_param_state);
             b.set_param_state(p);
-            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found better param state\n");
+            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found better param state:\n");
+            print_param_values(m_param_state);
         }
         else {
             IF_VERBOSE(1, verbose_stream() << " PARAM TUNER retained current param state\n");
@@ -163,11 +164,9 @@ namespace smt {
         m_param_state.push_back({symbol("smt.arith.nl.expensive_patching"), smtp.arith_nl_expensive_patching()});
         m_param_state.push_back({symbol("smt.arith.nl.gb"), smtp.arith_nl_grobner()});
         m_param_state.push_back({symbol("smt.arith.nl.horner"), smtp.arith_nl_horner()});
-        m_param_state.push_back({symbol("smt.arith.nl.horner_frequency"), unsigned_value({smtp.arith_nl_horner_frequency(), 2, 6})
-        });
+        m_param_state.push_back({symbol("smt.arith.nl.horner_frequency"), unsigned_value({smtp.arith_nl_horner_frequency(), 2, 6})});
         m_param_state.push_back({symbol("smt.arith.nl.optimize_bounds"), smtp.arith_nl_optimize_bounds()});
-        m_param_state.push_back(
-            {symbol("smt.arith.nl.propagate_linear_monomials"), smtp.arith_nl_propagate_linear_monomials()});
+        m_param_state.push_back({symbol("smt.arith.nl.propagate_linear_monomials"), smtp.arith_nl_propagate_linear_monomials()});
         m_param_state.push_back({symbol("smt.arith.nl.tangents"), smtp.arith_nl_tangents()});
     };
 
@@ -217,33 +216,35 @@ namespace smt {
     }
 
     void parallel::param_generator::protocol_iteration() {
-        IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running protocol iteration\n");
-        
-        ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
-        lbool r = run_prefix_step();
+        while (!m.limit().is_canceled()) {
+            IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running protocol iteration\n");
+            
+            ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
+            lbool r = run_prefix_step();
 
-        if (m.limit().is_canceled())
-            return;
+            if (m.limit().is_canceled())
+                return;
 
-        switch (r) {
-            case l_undef: {
-                replay_proof_prefixes();
-                break;
-            }
-            case l_true: {
-                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found formula sat\n");
-                model_ref mdl;
-                ctx->get_model(mdl);
-                b.set_sat(m_l2g, *mdl);
-                break;
-            }
-            case l_false: {
-                expr_ref_vector const &unsat_core = ctx->unsat_core();
-                IF_VERBOSE(2, verbose_stream() << " unsat core:\n";
-                           for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
-                IF_VERBOSE(1, verbose_stream() << " PARAM TUNER determined formula unsat\n");
-                b.set_unsat(m_l2g, unsat_core);
-                break;
+            switch (r) {
+                case l_undef: {
+                    replay_proof_prefixes();
+                    break;
+                }
+                case l_true: {
+                    IF_VERBOSE(1, verbose_stream() << " PARAM TUNER found formula sat\n");
+                    model_ref mdl;
+                    ctx->get_model(mdl);
+                    b.set_sat(m_l2g, *mdl);
+                    break;
+                }
+                case l_false: {
+                    expr_ref_vector const &unsat_core = ctx->unsat_core();
+                    IF_VERBOSE(2, verbose_stream() << " unsat core:\n";
+                              for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
+                    IF_VERBOSE(1, verbose_stream() << " PARAM TUNER determined formula unsat\n");
+                    b.set_unsat(m_l2g, unsat_core);
+                    break;
+                }
             }
         }
     }
@@ -698,27 +699,87 @@ namespace smt {
 
         m_batch_manager.initialize();
         m_workers.reset();
+
+        smt_parallel_params pp(ctx.m_params);
+        m_should_tune_params = pp.param_tuning();
+        m_should_run_parallel = pp.enable_parallel_smt();
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
 
-        m_param_generator = alloc(param_generator, *this);
-        SASSERT(num_threads > 1);
-        for (unsigned i = 0; i < num_threads; ++i)
-            m_workers.push_back(alloc(worker, i, *this, asms));
-         
-        for (auto w : m_workers)
-            sl.push_child(&(w->limit()));
-        
-        sl.push_child(&(m_param_generator->limit()));
+        if (m_should_run_parallel) {
+            SASSERT(num_threads > 1);
+            for (unsigned i = 0; i < num_threads; ++i)
+                m_workers.push_back(alloc(worker, i, *this, asms));
+            
+            for (auto w : m_workers)
+                sl.push_child(&(w->limit()));
+        }
+
+        if (m_should_tune_params) {
+            m_param_generator = alloc(param_generator, *this);
+            sl.push_child(&(m_param_generator->limit()));
+        }
+
+        std::string tuned = pp.tunable_params();
+        if (!tuned.empty()) {
+            auto trim = [](std::string &s) {
+                s.erase(0, s.find_first_not_of(" \t\n\r"));
+                s.erase(s.find_last_not_of(" \t\n\r") + 1);
+            };
+
+            std::stringstream ss(tuned);
+            std::string kv;
+
+            while (std::getline(ss, kv, ',')) {
+                size_t eq = kv.find('=');
+                if (eq == std::string::npos)
+                    continue;
+
+                std::string key = kv.substr(0, eq);
+                std::string val = kv.substr(eq + 1);
+                trim(key);
+                trim(val);
+
+                if (val == "true" || val == "1") {
+                    ctx.m_params.set_bool(symbol(key.c_str()), true);
+                }
+                else if (val == "false" || val == "0") {
+                    ctx.m_params.set_bool(symbol(key.c_str()), false);
+                }
+                else if (std::all_of(val.begin(), val.end(), ::isdigit)) {
+                    ctx.m_params.set_uint(symbol(key.c_str()),
+                        static_cast<unsigned>(std::stoul(val)));
+                } else {
+                  IF_VERBOSE(1, 
+                    verbose_stream() << "Ignoring invalid parameter override: " << kv << "\n";);
+                }
+            }
+
+            IF_VERBOSE(1, 
+                verbose_stream() << "Applied parameter overrides:\n";
+                ctx.m_params.display(verbose_stream());
+            );
+        }
 
         // Launch threads
-        vector<std::thread> threads(num_threads + 1); // +1 for param generator
-        for (unsigned i = 0; i < num_threads; ++i) {
-            threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
+        // threads must live beyond the branch scope so we declare them here.
+        vector<std::thread> threads;
+        if (m_should_run_parallel) {
+            threads.resize(m_should_tune_params ? num_threads + 1 : num_threads); // +1 for param generator
+            for (unsigned i = 0; i < num_threads; ++i) {
+                threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
+            }
+            // the final thread runs the parameter generator
+            if (m_should_tune_params) {
+                threads[num_threads] = std::thread([&]() { m_param_generator->protocol_iteration(); });
+            }
+        } else { // just do param tuning (if requested)
+            if (m_should_tune_params) {
+              threads.resize(1);
+              threads[0] = std::thread([&]() { m_param_generator->protocol_iteration(); });
+            }
         }
-        // the final thread runs the parameter generator
-        threads[num_threads] = std::thread([&]() { m_param_generator->protocol_iteration(); });
 
         // Wait for all threads to finish
         for (auto &th : threads)

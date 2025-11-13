@@ -36,6 +36,8 @@ namespace smt {
     class parallel {
         context& ctx;
         unsigned num_threads;
+        bool m_should_tune_params;
+        bool m_should_run_parallel;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -72,8 +74,8 @@ namespace smt {
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
             void cancel_background_threads() {
-                cancel_workers();
-                cancel_param_generator();
+                if (p.m_should_run_parallel) cancel_workers();
+                if (p.m_should_tune_params) cancel_param_generator();
             }
 
             // called from batch manager to cancel other workers if we've reached a verdict
@@ -146,6 +148,19 @@ namespace smt {
             params_ref apply_param_values(param_values const &pv);
             void init_param_state();
             param_values mutate_param_state();
+            void print_param_values(param_values const &pv) {
+                for (auto const &kv : pv) {
+                    std::visit([&](auto&& arg) {
+                        using T = std::decay_t<decltype(arg)>;
+                        if constexpr (std::is_same_v<T, unsigned_value>) {
+                            IF_VERBOSE(1, verbose_stream() << kv.first << "=" << arg.value << " ");
+                        } else if constexpr (std::is_same_v<T, bool>) {
+                            IF_VERBOSE(1, verbose_stream() << kv.first << "=" << (arg ? "true" : "false") << " ");
+                        }
+                    }, kv.second);
+                }
+                IF_VERBOSE(1, verbose_stream() << "\n");
+            }
 
         public:
             param_generator(parallel &p);

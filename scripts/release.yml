@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.15.4'  # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
+  ReleaseVersion: '4.15.5'  # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
 
 stages:
 
@@ -476,7 +476,7 @@ stages:
 
      
   - job: NuGetPublish
-    condition: eq(1,1)
+    condition: eq(0,1)
     displayName: "Publish to NuGet.org"
     steps:
     - task: DownloadPipelineArtifact@2

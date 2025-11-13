@@ -1024,14 +1024,17 @@ void polymorphic_datatype_example() {
     symbol is_pair_name = ctx.str_symbol("is-pair");
     symbol first_name = ctx.str_symbol("first");
     symbol second_name = ctx.str_symbol("second");
-    
+ 
     symbol field_names[2] = {first_name, second_name};
-    sort field_sorts[2] = {alpha, beta};  // Use type variables
+    sort _field_sorts[2] = {alpha, beta};
+    sort_vector field_sorts(ctx);
+    field_sorts.push_back(alpha);  // Use type variables
+    field_sorts.push_back(beta);   // Use type variables   
     
     constructors cs(ctx);
-    cs.add(mk_pair_name, is_pair_name, 2, field_names, field_sorts);
-    sort pair = ctx.datatype(pair_name, cs);
-    
+    cs.add(mk_pair_name, is_pair_name, 2, field_names, _field_sorts);
+    sort pair = ctx.datatype(pair_name, field_sorts, cs);
+
     std::cout << "Created parametric datatype: " << pair << "\n";
     
     // Instantiate Pair with concrete types: (Pair Int Real)
