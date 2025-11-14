@@ -3346,24 +3346,50 @@ namespace nlsat {
         //
         // -----------------------
         
-        std::ostream& display_num_assignment(std::ostream & out, display_var_proc const & proc, const bool_vector* used_vars=nullptr) const {
+        std::ostream& display_num_assignment(std::ostream & out, display_var_proc const & proc, bool_vector const* used_vars = nullptr) const {
+            bool restrict = used_vars != nullptr;
             for (var x = 0; x < num_vars(); x++) {
-                if (used_vars && (*used_vars)[x])
-                    if (m_assignment.is_assigned(x)) {
-                        proc(out, x);
-                        out << " -> ";
-                        m_am.display_decimal(out, m_assignment.value(x));
-                        out << "\n";
-                    }
+                if (restrict && (x >= used_vars->size() || !(*used_vars)[x]))
+                    continue;
+                if (!m_assignment.is_assigned(x))
+                    continue;
+                if (restrict) {
+                    out << "(assert (= ";
+                    proc(out, x);
+                    out << " ";
+                    mpq q;
+                    m_am.to_rational(m_assignment.value(x), q);
+                    m_am.qm().display_smt2(out, q, false);
+                    out << "))\n";
+                }
+                else {
+                    proc(out, x);
+                    out << " -> ";
+                    m_am.display_decimal(out, m_assignment.value(x));
+                    out << "\n";
+                }
             }
             return out;
         }
 
-        std::ostream& display_bool_assignment(std::ostream & out, bool eval_atoms, const bool_vector* used) const {
+        std::ostream& display_bool_assignment(std::ostream & out, bool eval_atoms = false, bool_vector const* used = nullptr) const {
             unsigned sz = usize(m_atoms);
+            if (used != nullptr) {
+                for (bool_var b = 0; b < sz; b++) {
+                    if (b >= used->size() || !(*used)[b])
+                        continue;
+                    if (m_atoms[b] != nullptr)
+                        continue;
+                    lbool val = m_bvalues[b];
+                    if (val == l_undef)
+                        continue;
+                    out << "(assert (= b" << b << " " << (val == l_true ? "true" : "false") << "))\n";
+                }
+                return out;
+            }
             if (!eval_atoms) {
                 for (bool_var b = 0; b < sz; b++) {
-                    if (m_bvalues[b] == l_undef || (used && !(*used)[b]))
+                    if (m_bvalues[b] == l_undef)
                         continue;
                     if (m_atoms[b] == nullptr) 
                         out << "b" << b << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << " @" << m_levels[b] << "pure \n";
