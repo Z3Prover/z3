@@ -132,6 +132,7 @@ namespace smt {
             using param_value = std::variant<unsigned_value, bool>;
             using param_values = vector<std::pair<symbol, param_value>>;
 
+            parallel &p;
             batch_manager &b;
             ast_manager m;
             scoped_ptr<context> ctx;
@@ -147,6 +148,7 @@ namespace smt {
 
             params_ref apply_param_values(param_values const &pv);
             void init_param_state();
+            void init_rdl_param_state();
             param_values mutate_param_state();
             void print_param_values(param_values const &pv) {
                 for (auto const &kv : pv) {
