@@ -1139,6 +1139,7 @@ namespace nlsat {
                         used_vars[v] = true;            
             }
             TRACE(nlsat, display(tout << "(echo \"#" << ++ttt << " expl lemma ", n, cls) << "\")\n");
+            display(out << "(echo \"#" << ttt << " ", n, cls) << "\")\n";
             out << "(set-logic ALL)\n";
             if (is_valid) {
                 display_smt2_bool_decls(out, used_bools);
@@ -1147,7 +1148,6 @@ namespace nlsat {
 
             for (unsigned i = 0; i < n; ++i) 
                 display_smt2(out << "(assert ", ~cls[i]) << ")\n";
-            display(out << "(echo \"#" << ttt << " ", n, cls) << "\")\n";
             out << "(check-sat)\n(reset)\n";
 
             if (false && ttt == 219) {
