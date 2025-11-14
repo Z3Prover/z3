@@ -1139,7 +1139,7 @@ namespace nlsat {
                         used_vars[v] = true;            
             }
             TRACE(nlsat, display(tout << "(echo \"#" << ++ttt << " expl lemma ", n, cls) << "\")\n");
-            display(out << "(echo \"#" << ttt << " ", n, cls) << "\")\n";
+            display(out << "(echo \"#" << ttt << (is_valid?" learned " : " conflict ") , n, cls) << "\")\n";
             out << "(set-logic ALL)\n";
             if (is_valid) {
                 display_smt2_bool_decls(out, used_bools);
@@ -2249,12 +2249,8 @@ namespace nlsat {
                 for (var v : vars)
                     used_vars[v] = true;
             }
-            out << "(echo \"assignment lemma " << ttt << "\")\n";
+            out << "(echo \"#" << ttt<< " assignment lemma\")\n";
             out << "(set-logic ALL)\n";
-            for (var x = 0; x < num_vars(); ++x) {
-                if (m_assignment.is_assigned(x))
-                    used_vars.setx(x, true, false);
-            }
             display_smt2_bool_decls(out, used_bools);
             display_smt2_arith_decls(out, used_vars); 
             display_bool_assignment(out, false, &used_bools);
