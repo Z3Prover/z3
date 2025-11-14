@@ -1121,7 +1121,7 @@ namespace nlsat {
         }
 
         void log_lemma(std::ostream& out, clause const& cls) {
-            log_lemma(out, cls.size(), cls.data(), false);
+            log_lemma(out, cls.size(), cls.data(), true);
         }
 
         void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid) {
@@ -2251,8 +2251,12 @@ namespace nlsat {
             }
             out << "(echo \"assignment lemma " << ttt << "\")\n";
             out << "(set-logic ALL)\n";
+            for (var x = 0; x < num_vars(); ++x) {
+                if (m_assignment.is_assigned(x))
+                    used_vars.setx(x, true, false);
+            }
             display_smt2_bool_decls(out, used_bools);
-            display_smt2_arith_decls(out, used_vars);
+            display_smt2_arith_decls(out, used_vars); 
             display_bool_assignment(out, false, &used_bools);
             display_num_assignment(out, &used_vars);
             for (literal lit : core) {
