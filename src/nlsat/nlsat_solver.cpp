@@ -1125,11 +1125,7 @@ namespace nlsat {
         }
 
         void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid) {
-            if (!is_valid)
-                return;
-            if (false && ttt != 219)
-                return;
-
+           
             // Collect arithmetic variables referenced by cls.
             std::vector<unsigned> arith_vars = collect_vars_on_clause(n, cls);
 
@@ -1144,7 +1140,7 @@ namespace nlsat {
                 if (b != 0 && m_atoms[b] == nullptr)
                     bool_vars.push_back(b);
             }
-
+            TRACE(nlsat, display(tout << "(echo \"#" << ++ttt << " expl lemma ", n, cls) << "\")\n");
             out << "(set-logic ALL)\n";
 
             for (bool_var b : bool_vars) {
@@ -1161,7 +1157,6 @@ namespace nlsat {
             display(out << "(echo \"#" << ttt << " ", n, cls) << "\")\n";
             out << "(check-sat)\n(reset)\n";
 
-            TRACE(nlsat, display(tout << "(echo \"#" << ttt << " ", n, cls) << "\")\n");
             if (false && ttt == 219) {
                 std::cout << "early exit()\n";
                 exit(0);
@@ -1189,12 +1184,6 @@ namespace nlsat {
             TRACE(nlsat_sort, display(tout << "mk_clause:\n", *cls) << "\n";);
             std::sort(cls->begin(), cls->end(), lit_lt(*this));
             TRACE(nlsat, display(tout << " after sort:\n", *cls) << "\n";);
-            if (learned && m_log_lemmas) {
-                log_lemma(verbose_stream(), *cls);
-            }
-            if (learned && m_check_lemmas) {
-                check_lemma(cls->size(), cls->data(), false, cls->assumptions());
-            }
             if (learned)
                 m_learned.push_back(cls);
             else
@@ -1590,7 +1579,7 @@ namespace nlsat {
             unsigned first_undef = UINT_MAX;         // position of the first undefined literal
             interval_set_ref first_undef_set(m_ism); // infeasible region of the first undefined literal
             interval_set * xk_set = m_infeasible[m_xk]; // current set of infeasible interval for current variable
-            TRACE(nlsat_inf_set, tout << "m_infeasible["<< debug_get_var_name(m_xk) << "]:";
+            TRACE(nlsat_inf_set, tout << "m_infeasible[x"<< m_xk << "]:";
                   m_ism.display(tout, xk_set) << "\n";);
             SASSERT(!m_ism.is_full(xk_set));
             for (unsigned idx = 0; idx < cls.size(); ++idx) {
@@ -1610,7 +1599,7 @@ namespace nlsat {
                 SASSERT(a != nullptr);
                 interval_set_ref curr_set(m_ism);
                 curr_set = m_evaluator.infeasible_intervals(a, l.sign(), &cls);           
-				TRACE(nlsat_inf_set, 
+		TRACE(nlsat_inf_set, 
                       tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";
                       display(tout << "cls: " , cls) << "\n";
                       tout << "m_xk:" << m_xk << "(" << debug_get_var_name(m_xk) << ")"<< "\n";);
@@ -2243,33 +2232,71 @@ namespace nlsat {
             display_mathematica_lemma(out, core.size(), core.data(), true);
             return out;
         }
+
+        void log_assignment_lemma_smt2(std::ostream& out, lazy_justification const & jst) {
+            literal_vector core;
+            bool_vector used_vars(num_vars(), false);
+            bool_vector used_bools(usize(m_atoms), false);
+            var_vector vars;
+            for (unsigned i = 0; i < jst.num_lits(); ++i) {
+                literal lit = ~jst.lit(i);
+                core.push_back(lit);
+                bool_var b = lit.var();
+                if (b != null_bool_var && b < used_bools.size())
+                    used_bools[b] = true;
+                vars.reset();
+                this->vars(lit, vars);
+                for (var v : vars)
+                    used_vars[v] = true;
+            }
+            out << "(echo \"assignment lemma " << ttt << "\")\n";
+            out << "(set-logic ALL)\n";
+            display_smt2_bool_decls(out, used_bools);
+            display_smt2_arith_decls(out, used_vars); 
+            display_assignment_smt2(out, used_vars);
+            for (literal lit : core) {
+                literal asserted = ~lit;
+                bool is_root = asserted.var() != null_bool_var &&
+                    m_atoms[asserted.var()] != nullptr &&
+                    m_atoms[asserted.var()]->is_root_atom();
+                if (is_root) {
+                    display_root_literal_block(out, asserted, m_display_var);
+                }
+                else {
+                    out << "(assert ";
+                    display_smt2(out, asserted);
+                    out << ")\n";
+                }
+            }
+            out << "(check-sat)\n";
+            out << "(reset)\n";
+        }
         
         void resolve_lazy_justification(bool_var b, lazy_justification const & jst) {
+            // ++ttt;
             TRACE(nlsat_resolve, tout << "resolving lazy_justification for b" << b << "\n";);
             unsigned sz = jst.num_lits();
 
             // Dump lemma as Mathematica formula that must be true,
             // if the current interpretation (really) makes the core in jst infeasible.
-            TRACE(nlsat_mathematica, tout << "assignment lemma\n"; print_out_as_math(tout, jst););
+            TRACE(nlsat_mathematica,
+                  tout << "assignment lemma\n"; print_out_as_math(tout, jst) << "\nassignment lemas as smt2\n";
+                  log_assignment_lemma_smt2(tout, jst);  );
             if (m_dump_mathematica) {
 //                verbose_stream() << "assignment lemma in matematica\n";
                 print_out_as_math(verbose_stream(), jst) << std::endl;
 //                verbose_stream() << "\nend of assignment lemma\n";
             }
-
-            
-            
-            
             m_lazy_clause.reset();
             m_explain.main_operator(jst.num_lits(), jst.lits(), m_lazy_clause);
             for (unsigned i = 0; i < sz; i++)
                 m_lazy_clause.push_back(~jst.lit(i));
             
             // lazy clause is a valid clause
-            TRACE(nlsat_mathematica, display_mathematica_lemma(tout, m_lazy_clause.size(), m_lazy_clause.data()););
+            TRACE(nlsat_mathematica, tout << "ttt:" << ttt << "\n"; display_mathematica_lemma(tout, m_lazy_clause.size(), m_lazy_clause.data()););
             if (m_dump_mathematica) {
 //                verbose_stream() << "lazy clause\n";
-                display_mathematica_lemma(verbose_stream(), m_lazy_clause.size(), m_lazy_clause.data()) << std::endl;
+                display_mathematica_lemma(std::cout, m_lazy_clause.size(), m_lazy_clause.data()) << std::endl;
 //                verbose_stream() << "\nend of lazy\n";
             }
             
@@ -2280,8 +2307,10 @@ namespace nlsat {
                   display(tout, m_lazy_clause.size(), m_lazy_clause.data()) << "\n";);
 
             
-            if (m_log_lemmas)
+            if (m_log_lemmas) {
+                log_assignment_lemma_smt2(std::cout, jst);
                 log_lemma(verbose_stream(), m_lazy_clause.size(), m_lazy_clause.data(), true);
+            }
 
             if (m_check_lemmas) {
                 check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), false, nullptr);
@@ -2454,14 +2483,14 @@ namespace nlsat {
             unsigned top = m_trail.size();
             bool found_decision;
             while (true) {
-                if (ttt >= 10) {
-                   enable_trace("nlsat_explain");
-                   enable_trace("nlsat");
-                   enable_trace("nlsat_resolve");
-                   enable_trace("nlsat_interval");
-                   enable_trace("nlsat_solver");
-                   enable_trace("nlsat_mathematica");
-                   enable_trace("nlsat_inf_set");
+                if (ttt >= 0) {
+                    enable_trace("nlsat_mathematica");
+                    enable_trace("nlsat_explain");
+                    enable_trace("nlsat");
+                    enable_trace("nlsat_resolve");
+                    enable_trace("nlsat_interval");
+                    enable_trace("nlsat_solver");
+                    enable_trace("nlsat_inf_set");
                 }
                 found_decision = false;
                 while (m_num_marks > 0) {
@@ -2482,7 +2511,7 @@ namespace nlsat {
                                 break;
                             case justification::LAZY:
                                 resolve_lazy_justification(b, *(jst.get_lazy()));
-                                if (ttt == 48) {
+                                if (ttt == 4800) {
                                     TRACE(nlsat_solver, tout << "early exit\n";);
                                     exit(0);
                                 }
@@ -2545,8 +2574,8 @@ namespace nlsat {
                 check_lemma(m_lemma.size(), m_lemma.data(), false, m_lemma_assumptions.get());
             }
 
-            if (m_log_lemmas) 
-                log_lemma(verbose_stream(), m_lemma.size(), m_lemma.data(), false);
+            // if (m_log_lemmas) 
+            //    log_lemma(std::cout, m_lemma.size(), m_lemma.data(), false);
     
             // There are two possibilities:
             // 1) m_lemma contains only literals from previous stages, and they
@@ -3388,6 +3417,30 @@ namespace nlsat {
             return out;
         }
 
+        std::ostream& display_assignment_smt2(std::ostream& out, bool_vector const& used_vars) const {
+            bool has = false;
+            for (var x = 0; x < num_vars(); ++x) {
+                if (!used_vars.get(x, false))
+                    continue;
+                if (!m_assignment.is_assigned(x))
+                    continue;
+                if (!has) {
+                    out << "(assert (and\n";
+                    has = true;
+                }
+                out << "  (= ";
+                m_display_var(out, x);
+                out << " ";
+                m_am.display_root_smt2(out, m_assignment.value(x));
+                out << ")\n";
+            }
+            if (has)
+                out << "))\n";
+            else
+                out << "(assert true)\n";
+            return out;
+        }
+
         std::ostream& display_assignment_for_clause(std::ostream& out, const clause& c) const {
             // Print literal assignments
             out << "Literals:\n";
@@ -3536,16 +3589,6 @@ namespace nlsat {
             return out;
         }
 
-        std::ostream& display_poly_root(std::ostream& out, char const* y, root_atom const& a, display_var_proc const& proc) const {
-            out << "(exists (("; proc(out,a.x()); out << " Real))\n";
-            out << "(and (= " << y << " ";
-            proc(out, a.x());
-            out << ") (= 0 ";
-            display_polynomial_smt2(out, a.p(), proc);
-            out << ")))\n";
-            return out;
-        }
-
         std::ostream& display_binary_smt2(std::ostream& out,  poly const* p1, char const* rel, poly const* p2, display_var_proc const& proc) const {
             out << "(" << rel << " ";
             display_polynomial_smt2(out, p1, proc);
@@ -3588,44 +3631,61 @@ namespace nlsat {
         }
 
 
-        std::ostream& display_root_smt2(std::ostream& out, root_atom const& a, display_var_proc const& proc) const {
+        struct root_poly_subst : public display_var_proc {
+            display_var_proc const& m_proc;
+            var m_var;
+            char const* m_name;
+            root_poly_subst(display_var_proc const& p, var v, char const* name):
+                m_proc(p), m_var(v), m_name(name) {}
+            std::ostream& operator()(std::ostream& dst, var x) const override {
+                if (x == m_var)
+                    return dst << m_name;
+                return m_proc(dst, x);
+            }
+        };
+
+        template<typename Printer>
+        std::ostream& display_root_quantified(std::ostream& out, root_atom const& a, display_var_proc const& proc, Printer const& printer) const {
             if (a.i() == 1 && m_pm.degree(a.p(), a.x()) == 1)
-                return display_linear_root_smt2(out, a, proc); 
-#if 1
+                return display_linear_root_smt2(out, a, proc);
+
+            auto mk_y_name = [](unsigned j) {
+                return std::string("y") + std::to_string(j);
+            };
+
+            unsigned idx = a.i();
+            SASSERT(idx > 0);
+
             out << "(exists (";
-            for (unsigned j = 0; j < a.i(); ++j) {
-                std::string y = std::string("y") + std::to_string(j);
+            for (unsigned j = 0; j < idx; ++j) {
+                auto y = mk_y_name(j);
                 out << "(" << y << " Real) ";
             }
-            out << ")\n";
-            out << "(and\n";
-            for (unsigned j = 0; j < a.i(); ++j) {
-                std::string y = std::string("y") + std::to_string(j);
-                display_poly_root(out, y.c_str(), a, proc);
-            }
-            for (unsigned j = 0; j + 1 < a.i(); ++j) {
-                std::string y1 = std::string("y") + std::to_string(j);
-                std::string y2 = std::string("y") + std::to_string(j+1);
-                out << "(< " << y1 << " " << y2 << ")\n";
+            out << ")\n  (and\n";
+
+            for (unsigned j = 0; j < idx; ++j) {
+                auto y = mk_y_name(j);
+                out << "    (= ";
+                printer(out, y.c_str());
+                out << " 0)\n";
             }
 
-            std::string yn = "y" + std::to_string(a.i() - 1);
+            for (unsigned j = 0; j + 1 < idx; ++j) {
+                auto y1 = mk_y_name(j);
+                auto y2 = mk_y_name(j + 1);
+                out << "    (< " << y1 << " " << y2 << ")\n";
+            }
 
-            // TODO we need (forall z : z < yn . p(z) => z = y1 or ... z = y_{n-1})
-            // to say y1, .., yn are the first n distinct roots.
-            //
-            out << "(forall ((z Real)) (=> (and (< z " << yn << ") "; display_poly_root(out, "z", a, proc) << ") ";
-            if (a.i() == 1) {
-                out << "false))\n";
+            for (unsigned j = 0; j + 1 < idx; ++j) {
+                auto y1 = mk_y_name(j);
+                auto y2 = mk_y_name(j + 1);
+                out << "    (forall ((y Real)) (=> (and (< " << y1 << " y) (< y " << y2 << ")) (not (= ";
+                printer(out, "y");
+                out << " 0))))\n";
             }
-            else {
-                out << "(or ";
-                for (unsigned j = 0; j + 1 < a.i(); ++j) {
-                    std::string y1 = std::string("y") + std::to_string(j);
-                    out << "(= z " << y1 << ") ";
-                }
-                out << ")))\n";
-            }
+
+            std::string yn = mk_y_name(idx - 1);
+            out << "    ";
             switch (a.get_kind()) {
             case atom::ROOT_LT: out << "(< "; proc(out, a.x()); out << " " << yn << ")"; break;
             case atom::ROOT_GT: out << "(> "; proc(out, a.x()); out << " " << yn << ")"; break;
@@ -3634,12 +3694,35 @@ namespace nlsat {
             case atom::ROOT_EQ: out << "(= "; proc(out, a.x()); out << " " << yn << ")"; break;
             default: UNREACHABLE(); break;
             }
-            out << "))";
+            out << "\n  )\n)";
             return out;
-#endif
+        }
 
+        std::ostream& display_root_smt2(std::ostream& out, root_atom const& a, display_var_proc const& proc) const {
+            auto inline_printer = [&](std::ostream& dst, char const* y) -> std::ostream& {
+                root_poly_subst poly_proc(proc, a.x(), y);
+                return display_polynomial_smt2(dst, a.p(), poly_proc);
+            };
+            return display_root_quantified(out, a, proc, inline_printer);
+        }
 
-            return display_root(out, a, proc);
+        std::ostream& display_root_literal_block(std::ostream& out, literal lit, display_var_proc const& proc) const {
+            bool_var b = lit.var();
+            SASSERT(m_atoms[b] != nullptr && m_atoms[b]->is_root_atom());
+            auto const& a = *to_root_atom(m_atoms[b]);
+
+            out << "(assert ";
+            if (lit.sign())
+                out << "(not ";
+            auto inline_printer = [&](std::ostream& dst, char const* y) -> std::ostream& {
+                root_poly_subst poly_proc(proc, a.x(), y);
+                return display_polynomial_smt2(dst, a.p(), poly_proc);
+            };
+            display_root_quantified(out, a, proc, inline_printer);
+            if (lit.sign())
+                out << ")";
+            out << ")\n";
+            return out;
         }
 
         std::ostream& display_root(std::ostream & out, root_atom const & a, display_var_proc const & proc) const {
@@ -4057,9 +4140,10 @@ namespace nlsat {
             return m_display_var(out, j);
         }
         
-        std::ostream& display_smt2_arith_decls(std::ostream & out) const {
+        std::ostream& display_smt2_arith_decls(std::ostream & out, bool_vector& used_vars) const {
             unsigned sz = m_is_int.size();
             for (unsigned i = 0; i < sz; i++) {
+                if (!used_vars[i]) continue;
                 if (is_int(i)) {
                     out << "(declare-fun "; m_display_var(out, i) << " () Int)\n";
                 }
@@ -4070,18 +4154,33 @@ namespace nlsat {
             return out;
         }
 
-        std::ostream& display_smt2_bool_decls(std::ostream & out) const {
+        std::ostream& display_smt2_bool_decls(std::ostream & out, bool_vector& used_bools) const {
             unsigned sz = usize(m_atoms);
             for (unsigned i = 0; i < sz; i++) {
-                if (m_atoms[i] == nullptr)
+                if (m_atoms[i] == nullptr && used_bools[i])
                     out << "(declare-fun b" << i << " () Bool)\n";
             }
             return out;
         }
 
         std::ostream& display_smt2(std::ostream & out) const {
-            display_smt2_bool_decls(out);
-            display_smt2_arith_decls(out);
+            bool_vector used_vars(num_vars(), false);
+            bool_vector used_bools(usize(m_atoms), false);
+            var_vector vars;
+            for (clause* c: m_clauses) {
+                for (literal lit : *c) {
+                    bool_var b = lit.var();
+                    if (b != null_bool_var && b < used_bools.size())
+                        used_bools[b] = true;
+                    vars.reset();
+                    this->vars(lit, vars);
+                    for (var v : vars)
+                        used_vars[v] = true;
+                }
+            }
+
+            display_smt2_bool_decls(out, used_bools);
+            display_smt2_arith_decls(out, used_vars);
             out << "(assert (and true\n";
             for (clause* c : m_clauses) {
                 display_smt2(out, *c, m_display_var) << "\n";

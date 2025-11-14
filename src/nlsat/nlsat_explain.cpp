@@ -21,7 +21,7 @@ Revision History:
 #include "nlsat/nlsat_evaluator.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/ref_buffer.h"
-extern int ttt;
+#include "util/mpq.h"
 
 namespace nlsat {
 
@@ -657,7 +657,7 @@ namespace nlsat {
             polynomial_ref p(m_pm);
             polynomial_ref coeff(m_pm);
 
-            bool sqf = is_square_free(ps, x);
+            bool sqf = !m_add_all_coeffs && is_square_free(ps, x);
             // Add the leading or all coeffs, depening on being square-free
             for (unsigned i = 0; i < ps.size(); i++) {
                 p = ps.get(i);
@@ -840,6 +840,7 @@ namespace nlsat {
                 !mk_quadratic_root(k, y, i, p)) {
                 bool_var b = m_solver.mk_root_atom(k, y, i, p);
                 literal l(b, true);
+                TRACE(nlsat_explain, tout << "adding literal\n"; display(tout, l); tout << "\n";);
                 add_literal(l);
             }
         }
@@ -1760,9 +1761,8 @@ namespace nlsat {
                 process2(num, ls);
             }
         }
-
+      
         void operator()(unsigned num, literal const * ls, scoped_literal_vector & result) {
-            ttt++;
             SASSERT(check_already_added());
             SASSERT(num > 0);
             TRACE(nlsat_explain, 
