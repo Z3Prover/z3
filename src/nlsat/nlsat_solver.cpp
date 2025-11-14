@@ -40,8 +40,6 @@ Revision History:
 #include "nlsat/nlsat_simple_checker.h"
 #include "nlsat/nlsat_variable_ordering_strategy.h"
 
-int ttt = 0;
-
 #define NLSAT_EXTRA_VERBOSE
 
 #ifdef NLSAT_EXTRA_VERBOSE
@@ -272,7 +270,7 @@ namespace nlsat {
             reset_statistics();
             mk_true_bvar();
             m_lemma_count = 0;
-            m_lemma_rlimit = 10 * 1000;
+            m_lemma_rlimit = 100 * 1000; // one hundred seconds
         }
         
         ~imp() {
@@ -1122,11 +1120,11 @@ namespace nlsat {
             }
         }
 
-        void log_lemma(std::ostream& out, clause const& cls) {
-            log_lemma(out, cls.size(), cls.data(), true);
+        void log_lemma(std::ostream& out, clause const& cls, std::string annotation) {
+            log_lemma(out, cls.size(), cls.data(), true, annotation);
         }
 
-        void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid) {
+        void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid, std::string annotation) {
             bool_vector used_vars(num_vars(), false);
             bool_vector used_bools(usize(m_atoms), false);
             var_vector vars;
@@ -1140,8 +1138,7 @@ namespace nlsat {
                 for (var v : vars)
                         used_vars[v] = true;            
             }
-            TRACE(nlsat, display(tout << "(echo \"#" << ++ttt << " expl lemma ", n, cls) << "\")\n");
-            display(out << "(echo \"#" << ttt << (is_valid ? " learned " : " conflict "), n, cls) << "\")\n";
+            display(out << "(echo \"#" << m_lemma_count++ << ":" << annotation << "\n", n, cls) << "\")\n";
             out << "(set-logic ALL)\n";
             out << "(set-option :rlimit " << m_lemma_rlimit << ")\n";
             if (is_valid) {
@@ -1153,10 +1150,6 @@ namespace nlsat {
                 display_smt2(out << "(assert ", ~cls[i]) << ")\n";
             out << "(check-sat)\n(reset)\n";
 
-            if (false && ttt == 219) {
-                std::cout << "early exit()\n";
-                exit(0);
-            }
         }
 
         clause * mk_clause_core(unsigned num_lits, literal const * lits, bool learned, _assumption_set a) {
@@ -2230,6 +2223,9 @@ namespace nlsat {
         }
 
         void log_assignment_lemma_smt2(std::ostream& out, lazy_justification const & jst) {
+            // This lemma is written down only for debug purposes, it does not participate in the algorithm.
+            // We need to be sure that lazy certifacation is sound on the sample
+            // In this lemma we do not use literals created by projection
             literal_vector core;
             bool_vector used_vars(num_vars(), false);
             bool_vector used_bools(usize(m_atoms), false);
@@ -2246,7 +2242,7 @@ namespace nlsat {
                 for (var v : vars)
                     used_vars[v] = true;
             }
-            out << "(echo \"#" << ttt << " assignment lemma\")\n";
+            out << "(echo \"#" << m_lemma_count++ << ":assignment lemma\")\n";
             out << "(set-logic ALL)\n";
             out << "(set-option :rlimit " << m_lemma_rlimit << ")\n";
             display_smt2_bool_decls(out, used_bools);
@@ -2277,38 +2273,32 @@ namespace nlsat {
             unsigned sz = jst.num_lits();
 
             // Dump lemma as Mathematica formula that must be true,
-            // if the current interpretation (really) makes the core in jst infeasible.
+            // if the current interpretation, the sample, makes the core in jst infeasible.
             TRACE(nlsat_mathematica,
-                  tout << "assignment lemma\n"; print_out_as_math(tout, jst) << "\nassignment lemas as smt2\n";
-                  log_assignment_lemma_smt2(tout, jst);  );
-            if (m_dump_mathematica) {
-//                verbose_stream() << "assignment lemma in matematica\n";
+                  tout << "assignment lemma\n"; print_out_as_math(tout, jst) << "\n:assignment lemas as smt2\n";
+                  log_assignment_lemma_smt2(tout, jst););
+            if (m_dump_mathematica) 
                 print_out_as_math(verbose_stream(), jst) << std::endl;
-//                verbose_stream() << "\nend of assignment lemma\n";
-            }
+            
             m_lazy_clause.reset();
             m_explain.main_operator(jst.num_lits(), jst.lits(), m_lazy_clause);
             for (unsigned i = 0; i < sz; i++)
                 m_lazy_clause.push_back(~jst.lit(i));
             
             // lazy clause is a valid clause
-            TRACE(nlsat_mathematica, tout << "ttt:" << ttt << "\n"; display_mathematica_lemma(tout, m_lazy_clause.size(), m_lazy_clause.data()););
-            if (m_dump_mathematica) {
-//                verbose_stream() << "lazy clause\n";
+            TRACE(nlsat_mathematica, tout << "ttt:" << m_lemma_count << "\n"; display_mathematica_lemma(tout, m_lazy_clause.size(), m_lazy_clause.data()););
+            if (m_dump_mathematica)
                 display_mathematica_lemma(std::cout, m_lazy_clause.size(), m_lazy_clause.data()) << std::endl;
-//                verbose_stream() << "\nend of lazy\n";
-            }
             
             TRACE(nlsat_proof_sk, tout << "theory lemma\n"; display_abst(tout, m_lazy_clause.size(), m_lazy_clause.data()); tout << "\n";); 
             TRACE(nlsat_resolve, 
                   tout << "m_xk: " << m_xk << ", "; m_display_var(tout, m_xk) << "\n";
                   tout << "new valid clause:\n";
                   display(tout, m_lazy_clause.size(), m_lazy_clause.data()) << "\n";);
-
             
             if (m_log_lemmas) {
                 log_assignment_lemma_smt2(std::cout, jst);
-                log_lemma(verbose_stream(), m_lazy_clause.size(), m_lazy_clause.data(), true);
+                log_lemma(verbose_stream(), m_lazy_clause.size(), m_lazy_clause.data(), true, "conflict");
             }
 
             if (m_check_lemmas) {
@@ -2482,15 +2472,6 @@ namespace nlsat {
             unsigned top = m_trail.size();
             bool found_decision;
             while (true) {
-                if (ttt >= 0) {
-                    enable_trace("nlsat_mathematica");
-                    enable_trace("nlsat_explain");
-                    enable_trace("nlsat");
-                    enable_trace("nlsat_resolve");
-                    enable_trace("nlsat_interval");
-                    enable_trace("nlsat_solver");
-                    enable_trace("nlsat_inf_set");
-                }
                 found_decision = false;
                 while (m_num_marks > 0) {
                     checkpoint();
