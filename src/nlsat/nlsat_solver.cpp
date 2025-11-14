@@ -3685,6 +3685,11 @@ namespace nlsat {
                 out << "    (< " << y1 << " " << y2 << ")\n";
             }
 
+            auto y0 = mk_y_name(0);
+            out << "    (forall ((y Real)) (=> (< y " << y0 << ") (not (= ";
+            printer(out, "y");
+            out << " 0))))\n";
+
             for (unsigned j = 0; j + 1 < idx; ++j) {
                 auto y1 = mk_y_name(j);
                 auto y2 = mk_y_name(j + 1);
