@@ -1177,12 +1177,6 @@ namespace nlsat {
             TRACE(nlsat_sort, display(tout << "mk_clause:\n", *cls) << "\n";);
             std::sort(cls->begin(), cls->end(), lit_lt(*this));
             TRACE(nlsat, display(tout << " after sort:\n", *cls) << "\n";);
-            if (learned && m_log_lemmas) {
-                log_lemma(verbose_stream(), *cls);
-            }
-            if (learned && m_check_lemmas) {
-                check_lemma(cls->size(), cls->data(), false, cls->assumptions());
-            }
             if (learned)
                 m_learned.push_back(cls);
             else
