@@ -1125,31 +1125,24 @@ namespace nlsat {
         }
 
         void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid) {
-           
-            // Collect arithmetic variables referenced by cls.
-            std::vector<unsigned> arith_vars = collect_vars_on_clause(n, cls);
-
-            // Collect uninterpreted Boolean variables referenced by cls.
-            bool_vector seen_bool;
-            svector<bool_var> bool_vars;
-            for (unsigned i = 0; i < n; ++i) {
-                bool_var b = cls[i].var();
-                if (seen_bool.get(b, false))
-                    continue;
-                seen_bool.setx(b, true, false);
-                if (b != 0 && m_atoms[b] == nullptr)
-                    bool_vars.push_back(b);
+            bool_vector used_vars(num_vars(), false);
+            bool_vector used_bools(usize(m_atoms), false);
+            var_vector vars;
+            for (unsigned j = 0; j < n; j++) {
+                literal lit = cls[j];
+                bool_var b = lit.var();
+                if (b != null_bool_var && b < used_bools.size())
+                    used_bools[b] = true;
+                vars.reset();
+                this->vars(lit, vars);
+                for (var v : vars)
+                        used_vars[v] = true;            
             }
             TRACE(nlsat, display(tout << "(echo \"#" << ++ttt << " expl lemma ", n, cls) << "\")\n");
             out << "(set-logic ALL)\n";
-
-            for (bool_var b : bool_vars) {
-                out << "(declare-fun b" << b << " () Bool)\n";
-            }
-            for (unsigned x : arith_vars) {
-                out << "(declare-fun ";
-                m_display_var(out, x);
-                out << " () " << (is_int(x) ? "Int" : "Real") << ")\n";
+            if (is_valid) {
+                display_smt2_bool_decls(out, used_bools);
+                display_smt2_arith_decls(out, used_vars);
             }
 
             for (unsigned i = 0; i < n; ++i) 
@@ -1184,6 +1177,12 @@ namespace nlsat {
             TRACE(nlsat_sort, display(tout << "mk_clause:\n", *cls) << "\n";);
             std::sort(cls->begin(), cls->end(), lit_lt(*this));
             TRACE(nlsat, display(tout << " after sort:\n", *cls) << "\n";);
+            if (learned && m_log_lemmas) {
+                log_lemma(verbose_stream(), *cls);
+            }
+            if (learned && m_check_lemmas) {
+                check_lemma(cls->size(), cls->data(), false, cls->assumptions());
+            }
             if (learned)
                 m_learned.push_back(cls);
             else
@@ -2237,6 +2236,7 @@ namespace nlsat {
             literal_vector core;
             bool_vector used_vars(num_vars(), false);
             bool_vector used_bools(usize(m_atoms), false);
+           
             var_vector vars;
             for (unsigned i = 0; i < jst.num_lits(); ++i) {
                 literal lit = ~jst.lit(i);
@@ -2252,8 +2252,9 @@ namespace nlsat {
             out << "(echo \"assignment lemma " << ttt << "\")\n";
             out << "(set-logic ALL)\n";
             display_smt2_bool_decls(out, used_bools);
-            display_smt2_arith_decls(out, used_vars); 
-            display_assignment_smt2(out, used_vars);
+            display_smt2_arith_decls(out, used_vars);
+            display_bool_assignment(out, false, &used_bools);
+            display_num_assignment(out, &used_vars);
             for (literal lit : core) {
                 literal asserted = ~lit;
                 bool is_root = asserted.var() != null_bool_var &&
@@ -2511,10 +2512,6 @@ namespace nlsat {
                                 break;
                             case justification::LAZY:
                                 resolve_lazy_justification(b, *(jst.get_lazy()));
-                                if (ttt == 4800) {
-                                    TRACE(nlsat_solver, tout << "early exit\n";);
-                                    exit(0);
-                                }
                                 break;
                             case justification::DECISION:
                                 SASSERT(m_num_marks == 0);
@@ -2896,7 +2893,7 @@ namespace nlsat {
             // verbose_stream() << "\npermutation: " << p[0] << " count " << count << " " << m_rlimit.is_canceled() << "\n";
             reinit_cache();
             SASSERT(num_vars() == sz);
-            TRACE(nlsat_bool_assignment_bug, tout << "before reset watches\n"; display_bool_assignment(tout););
+            TRACE(nlsat_bool_assignment_bug, tout << "before reset watches\n"; display_bool_assignment(tout, false, nullptr););
             reset_watches();
             assignment new_assignment(m_am);
             for (var x = 0; x < num_vars(); x++) {
@@ -2938,7 +2935,7 @@ namespace nlsat {
             m_pm.rename(sz, p);
             for (auto& b : m_bounds) 
                 b.x = p[b.x];                                   
-            TRACE(nlsat_bool_assignment_bug, tout << "before reinit cache\n"; display_bool_assignment(tout););
+            TRACE(nlsat_bool_assignment_bug, tout << "before reinit cache\n"; display_bool_assignment(tout, false, nullptr););
             reinit_cache();
             m_assignment.swap(new_assignment);
             reattach_arith_clauses(m_clauses);
@@ -3349,23 +3346,24 @@ namespace nlsat {
         //
         // -----------------------
         
-        std::ostream& display_num_assignment(std::ostream & out, display_var_proc const & proc) const {
+        std::ostream& display_num_assignment(std::ostream & out, display_var_proc const & proc, const bool_vector* used_vars=nullptr) const {
             for (var x = 0; x < num_vars(); x++) {
-                if (m_assignment.is_assigned(x)) {
-                    proc(out, x);
-                    out << " -> ";
-                    m_am.display_decimal(out, m_assignment.value(x));
-                    out << "\n";
-                }
+                if (used_vars && (*used_vars)[x])
+                    if (m_assignment.is_assigned(x)) {
+                        proc(out, x);
+                        out << " -> ";
+                        m_am.display_decimal(out, m_assignment.value(x));
+                        out << "\n";
+                    }
             }
             return out;
         }
 
-        std::ostream& display_bool_assignment(std::ostream & out, bool eval_atoms = false) const {
+        std::ostream& display_bool_assignment(std::ostream & out, bool eval_atoms, const bool_vector* used) const {
             unsigned sz = usize(m_atoms);
             if (!eval_atoms) {
                 for (bool_var b = 0; b < sz; b++) {
-                    if (m_bvalues[b] == l_undef)
+                    if (m_bvalues[b] == l_undef || (used && !(*used)[b]))
                         continue;
                     if (m_atoms[b] == nullptr) 
                         out << "b" << b << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << " @" << m_levels[b] << "pure \n";
@@ -3407,37 +3405,13 @@ namespace nlsat {
             return !first;
         }
 
-        std::ostream& display_num_assignment(std::ostream & out) const { 
-            return display_num_assignment(out, m_display_var);
+        std::ostream& display_num_assignment(std::ostream & out, const bool_vector* used_vars=nullptr) const { 
+            return display_num_assignment(out, m_display_var, used_vars);
         }
 
         std::ostream& display_assignment(std::ostream& out, bool eval_atoms = false) const {
-            display_bool_assignment(out, eval_atoms);
-            display_num_assignment(out);
-            return out;
-        }
-
-        std::ostream& display_assignment_smt2(std::ostream& out, bool_vector const& used_vars) const {
-            bool has = false;
-            for (var x = 0; x < num_vars(); ++x) {
-                if (!used_vars.get(x, false))
-                    continue;
-                if (!m_assignment.is_assigned(x))
-                    continue;
-                if (!has) {
-                    out << "(assert (and\n";
-                    has = true;
-                }
-                out << "  (= ";
-                m_display_var(out, x);
-                out << " ";
-                m_am.display_root_smt2(out, m_assignment.value(x));
-                out << ")\n";
-            }
-            if (has)
-                out << "))\n";
-            else
-                out << "(assert true)\n";
+            display_bool_assignment(out, eval_atoms, nullptr);
+            display_num_assignment(out, nullptr);
             return out;
         }
 
@@ -3586,6 +3560,16 @@ namespace nlsat {
             if (sz > 1)
                 out << ")";
             out << " 0)";
+            return out;
+        }
+
+        std::ostream& display_poly_root(std::ostream& out, char const* y, root_atom const& a, display_var_proc const& proc) const {
+            out << "(exists (("; proc(out,a.x()); out << " Real))\n";
+            out << "(and (= " << y << " ";
+            proc(out, a.x());
+            out << ") (= 0 ";
+            display_polynomial_smt2(out, a.p(), proc);
+            out << ")))\n";
             return out;
         }
 
@@ -4154,7 +4138,7 @@ namespace nlsat {
             return out;
         }
 
-        std::ostream& display_smt2_bool_decls(std::ostream & out, bool_vector& used_bools) const {
+        std::ostream& display_smt2_bool_decls(std::ostream & out, const bool_vector& used_bools) const {
             unsigned sz = usize(m_atoms);
             for (unsigned i = 0; i < sz; i++) {
                 if (m_atoms[i] == nullptr && used_bools[i])
