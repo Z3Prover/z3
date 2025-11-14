@@ -3357,9 +3357,14 @@ namespace nlsat {
                     out << "(assert (= ";
                     proc(out, x);
                     out << " ";
-                    mpq q;
-                    m_am.to_rational(m_assignment.value(x), q);
-                    m_am.qm().display_smt2(out, q, false);
+                    if (m_am.is_rational(m_assignment.value(x))) {
+                        mpq q;
+                        m_am.to_rational(m_assignment.value(x), q);
+                        m_am.qm().display_smt2(out, q, false);
+                    }
+                    else {
+                        m_am.display_root_smt2(out, m_assignment.value(x));
+                    }
                     out << "))\n";
                 }
                 else {
