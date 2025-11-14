@@ -224,6 +224,7 @@ namespace nlsat {
         bool                   m_dump_mathematica;
         bool                   m_check_lemmas;
         unsigned               m_max_conflicts;
+        unsigned               m_lemma_rlimit;
         unsigned               m_lemma_count;
         unsigned m_variable_ordering_strategy;
         bool m_set_0_more;
@@ -271,6 +272,7 @@ namespace nlsat {
             reset_statistics();
             mk_true_bvar();
             m_lemma_count = 0;
+            m_lemma_rlimit = 10 * 1000;
         }
         
         ~imp() {
@@ -1139,8 +1141,9 @@ namespace nlsat {
                         used_vars[v] = true;            
             }
             TRACE(nlsat, display(tout << "(echo \"#" << ++ttt << " expl lemma ", n, cls) << "\")\n");
-            display(out << "(echo \"#" << ttt << (is_valid?" learned " : " conflict ") , n, cls) << "\")\n";
+            display(out << "(echo \"#" << ttt << (is_valid ? " learned " : " conflict "), n, cls) << "\")\n";
             out << "(set-logic ALL)\n";
+            out << "(set-option :rlimit " << m_lemma_rlimit << ")\n";
             if (is_valid) {
                 display_smt2_bool_decls(out, used_bools);
                 display_smt2_arith_decls(out, used_vars);
@@ -2243,8 +2246,9 @@ namespace nlsat {
                 for (var v : vars)
                     used_vars[v] = true;
             }
-            out << "(echo \"#" << ttt<< " assignment lemma\")\n";
+            out << "(echo \"#" << ttt << " assignment lemma\")\n";
             out << "(set-logic ALL)\n";
+            out << "(set-option :rlimit " << m_lemma_rlimit << ")\n";
             display_smt2_bool_decls(out, used_bools);
             display_smt2_arith_decls(out, used_vars); 
             display_bool_assignment(out, false, &used_bools);
