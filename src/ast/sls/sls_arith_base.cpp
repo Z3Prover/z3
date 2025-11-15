@@ -2707,6 +2707,8 @@ namespace sls {
     void arith_base<num_t>::update_unchecked(var_t v, num_t const& new_value) {
         auto& vi = m_vars[v];
         auto old_value = value(v);
+        if (old_value == new_value)
+            return;
         IF_VERBOSE(5, verbose_stream() << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
         TRACE(arith, tout << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
         vi.set_value(new_value);
