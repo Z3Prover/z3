@@ -212,22 +212,39 @@ namespace nla {
         return ci;
     }
 
+    void stellensatz::add_active(lp::constraint_index ci, uint_set const &tabu) {
+        if (m_active.contains(ci))
+            return;
+        m_active.insert(ci);
+        m_tabu.reserve(ci + 1);
+        m_tabu[ci] = tabu;
+    }
+
     // initialize active set of constraints that evaluate to false in the current model
     // loop over active set to eliminate variables.
     lbool stellensatz::eliminate_variables() {
-        vector<std::pair<lp::constraint_index, uint_set>> active;
+        m_active.reset();
+        m_tabu.reset();
         for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {
             if (!constraint_is_true(ci))
-                active.push_back({ci, uint_set()});
+                add_active(ci, uint_set());
         } 
-        while (!active.empty()) {
+        while (!m_active.empty()) {
             // factor ci into x*p + q <= rhs, where degree(x, q) < degree(x, p) + 1
             // if p is vanishing (evaluates to 0), then add p = 0 as assumption and reduce to q.
             // otherwise
             // find complementary constraints that contain x^k for k = 0 .. degree -1
             // eliminate x (and other variables) by combining ci with complementary constraints. 
-            auto [ci, tabu] = active.back();               
-            active.pop_back();           
+            auto ci = m_active.elem_at(0);
+            auto tabu = m_tabu[ci];        
+            m_active.remove(ci);     
+
+            switch (factor(ci)) {
+            case l_undef: break; 
+            case l_false: return l_false;
+            case l_true: continue;
+            }
+
             auto x = select_variable_to_eliminate(ci);
             if (x == lp::null_lpvar)
                 continue;
@@ -235,30 +252,8 @@ namespace nla {
             TRACE(arith, tout << "factor " << m_constraints[ci].p << " -> j" << x << "^" << f.degree << " * " << f.p << "  +  "
                               << f.q << "\n");
             auto p_value = cvalue(f.p);
-            if (!f.p.is_zero() && p_value == 0) {
-                // add p = 0 as assumption and reduce to q.
-                auto p_is_0 = assume(f.p, lp::lconstraint_kind::EQ);
-                if (!f.q.is_zero()) {
-                    // ci & -p_is_0*x^f.degree  => new_ci
-                    dd::pdd r = pddm.mk_val(rational(-1));           
-                    for (unsigned i = 0; i < f.degree; ++i)
-                        r = r * pddm.mk_var(x);
-                    p_is_0 = multiply(p_is_0, r);
-                    auto new_ci = add(ci, p_is_0);
-                    TRACE(arith, 
-                        display_constraint(tout << "reduced", new_ci) << "\n");
-                    init_occurs(new_ci);
-                    uint_set new_tabu(tabu);
-                    uint_set q_vars;
-                    for (auto j : f.q.free_vars())
-                        q_vars.insert(j);
-                    for (auto j : f.p.free_vars())
-                        if (!q_vars.contains(j))
-                            new_tabu.insert(j);
-                    active.push_back({new_ci, new_tabu});
-                }
+            if (vanishing(x, f, ci))
                 continue;
-            }
             unsigned num_x = m_occurs[x].size();
             for (unsigned i = 0; i < f.degree; ++i)
                 f.p *= to_pdd(x);
@@ -287,7 +282,8 @@ namespace nla {
                 if (any_of(other_ineq.p.free_vars(), [&](unsigned j) { return tabu.contains(j); }))
                     continue;
 
-                TRACE(arith, tout << "factor " << other_ineq.p << " -> j" << x << "^" << g.degree << " * " << g.p
+                TRACE(arith, tout << "factor (" << other_ci << ") " << other_ineq.p << " -> j" << x << "^" << g.degree
+                                  << " * " << g.p
                                   << "  +  " << g.q << "\n");
 
 
@@ -303,6 +299,11 @@ namespace nla {
                 SASSERT(m1m2.contains(x));
                 f_p = f_p.mul(m1);
                 g_p = g_p.mul(m2);
+
+                if (!f_p.is_linear())
+                    continue;
+                if (!g_p.is_linear())
+                    continue;
 
                 TRACE(arith, tout << "m1 " << m1 << " m2 " << m2 << " m1m2: " << m1m2 << "\n");
                 
@@ -331,6 +332,9 @@ namespace nla {
                     ci_a = multiply(ci, add_constraint(g_p, lp::lconstraint_kind::GT, aj));
 
                 auto new_ci = add(ci_a, ci_b);
+                CTRACE(arith, !is_new_constraint(new_ci), display_constraint(tout << "not new ", new_ci) << "\n");
+                if (!is_new_constraint(new_ci))
+                    continue;
                 if (m_constraints[new_ci].p.degree() <= 3)
                     init_occurs(new_ci);        
                 TRACE(arith, tout << "eliminate j" << x << ":\n"; 
@@ -339,33 +343,128 @@ namespace nla {
                       display_constraint(tout << "ci_a: ", ci_a) << "\n"; 
                       display_constraint(tout << "ci_b: ", ci_b) << "\n";
                       display_constraint(tout << "new_ci: ", new_ci) << "\n");
+
+                if (conflict(new_ci))
+                    return l_false;
+
                 if (!constraint_is_true(new_ci)) {
                     auto const &p = m_constraints[ci].p;
                     auto const &[new_p, new_k, new_j] = m_constraints[new_ci];
-                    if (new_p.is_val()) {
-                        lp::explanation ex;
-                        lemma_builder new_lemma(c(), "stellensatz");
-                        m_constraints_in_conflict.reset();
-                        explain_constraint(new_lemma, new_ci, ex);
-                        new_lemma &= ex;
-                        IF_VERBOSE(2, verbose_stream() << "stellensatz unsat \n" << new_lemma << "\n");
-                        TRACE(arith, tout << "unsat\n" << new_lemma << "\n");
-                        c().lra_solver().settings().stats().m_nla_stellensatz++;
-                        return l_false;
-                    }
-                    if (m_constraints[new_ci].p.degree() <= 3 && !m_constraints[new_ci].p.free_vars().contains(x)) {
+                    if (new_p.degree() <= 3 && !new_p.free_vars().contains(x)) {
                         uint_set new_tabu(tabu), fv;
                         for (auto v : new_p.free_vars())
                             fv.insert(v);
                         for (auto v : p.free_vars())
                             if (!fv.contains(v))
                                 new_tabu.insert(v);
-                        active.push_back({new_ci, new_tabu});
+                        add_active(new_ci, new_tabu);
                     }
                 }                
             }          
         }
         return l_undef;
+    }
+
+    bool stellensatz::conflict(lp::constraint_index ci) {
+        auto const &[new_p, new_k, new_j] = m_constraints[ci];
+        if (new_p.is_val() && ((new_p.val() < 0 && new_k == lp::lconstraint_kind::GE) || (new_p.val() <= 0 && new_k == lp::lconstraint_kind::GT))) {
+            lp::explanation ex;
+            lemma_builder new_lemma(c(), "stellensatz");
+            m_constraints_in_conflict.reset();
+            explain_constraint(new_lemma, ci, ex);
+            new_lemma &= ex;
+            IF_VERBOSE(2, verbose_stream() << "stellensatz unsat \n" << new_lemma << "\n");
+            TRACE(arith, tout << "unsat\n" << new_lemma << "\n");
+            c().lra_solver().settings().stats().m_nla_stellensatz++;
+            return true;
+        }
+        return false;
+    }
+
+    bool stellensatz::vanishing(lpvar x, factorization const &f, lp::constraint_index ci) {
+        auto p_value = cvalue(f.p);
+        if (!f.p.is_zero() && p_value == 0) {
+            // add p = 0 as assumption and reduce to q.
+            auto p_is_0 = assume(f.p, lp::lconstraint_kind::EQ);
+            if (!f.q.is_zero()) {
+                // ci & -p_is_0*x^f.degree  => new_ci
+                dd::pdd r = pddm.mk_val(rational(-1));
+                for (unsigned i = 0; i < f.degree; ++i)
+                    r = r * pddm.mk_var(x);
+                p_is_0 = multiply(p_is_0, r);
+                auto new_ci = add(ci, p_is_0);
+
+                TRACE(arith, display_constraint(tout << "reduced", new_ci) << "\n");
+                if (!is_new_constraint(new_ci))
+                    return false;
+                init_occurs(new_ci);
+                uint_set new_tabu(m_tabu[ci]);
+                uint_set q_vars;
+                for (auto j : f.q.free_vars())
+                    q_vars.insert(j);
+                for (auto j : f.p.free_vars())
+                    if (!q_vars.contains(j))
+                        new_tabu.insert(j);
+                add_active(new_ci, new_tabu);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    lbool stellensatz::factor(lp::constraint_index ci) {
+        auto const &[p, k, j] = m_constraints[ci];
+        auto [vars, q] = p.var_factors();
+
+        auto add_new = [&](lp::constraint_index new_ci) {
+            SASSERT(!constraint_is_true(new_ci));
+            TRACE(arith, display_constraint(tout << "factor ", new_ci) << "\n");
+            if (conflict(new_ci))
+                return l_false;
+            init_occurs(new_ci);
+            auto new_tabu(m_tabu[ci]);
+            add_active(new_ci, new_tabu);
+            return l_true;
+        };
+
+        auto subst = [&](lpvar v, dd::pdd p) { 
+            auto q = pddm.mk_var(v) - p;
+            auto new_ci = substitute(ci, assume(q, lp::lconstraint_kind::EQ), v, p);
+            return add_new(new_ci);
+        };
+
+        TRACE(arith, tout << "factor (" << ci << ") " << p << " q: " << q << " vars: " << vars << "\n");
+        if (vars.empty()) {
+            for (auto v : p.free_vars()) {
+                if (c().val(v) == 0)
+                    return subst(v, pddm.mk_val(0));
+                if (c().val(v) == 1)
+                    return subst(v, pddm.mk_val(1));
+                if (c().val(v) == -1)
+                    return subst(v, pddm.mk_val(-1));
+            }
+            return l_undef;
+        }
+        for (auto v : vars) {
+            if (c().val(v) == 0)
+                return subst(v, pddm.mk_val(0));
+        }
+        vector<dd::pdd> muls;
+        muls.push_back(q);
+        for (auto v : vars)
+            muls.push_back(muls.back() * pddm.mk_var(v));
+        auto new_ci = ci;
+        SASSERT(muls.back() == p);
+        for (unsigned i = vars.size(); i-- > 0;) {
+            auto pv = pddm.mk_var(vars[i]);
+            auto k = c().val(vars[i]) > 0 ? lp::lconstraint_kind::GT : lp::lconstraint_kind::LT;
+            new_ci = divide(new_ci, assume(pv, k), muls[i]);
+        }
+        return add_new(new_ci);
+    }
+
+    bool stellensatz::is_new_constraint(lp::constraint_index ci) const {
+        return ci == m_constraints.size() - 1;
     }
 
     lp::lpvar stellensatz::select_variable_to_eliminate(lp::constraint_index ci) {
@@ -408,6 +507,16 @@ namespace nla {
             auto& m = std::get<multiplication_justification>(b);
             explain_constraint(new_lemma, m.left, ex);
             explain_constraint(new_lemma, m.right, ex);
+        } 
+        else if (std::holds_alternative<division_justification>(b)) {
+            auto &m = std::get<division_justification>(b);
+            explain_constraint(new_lemma, m.ci, ex);
+            explain_constraint(new_lemma, m.divisor, ex);
+        } 
+        else if (std::holds_alternative<substitute_justification>(b)) {
+            auto &m = std::get<substitute_justification>(b);
+            explain_constraint(new_lemma, m.ci, ex);
+            explain_constraint(new_lemma, m.ci_eq, ex);
         } 
         else if (std::holds_alternative<addition_justification>(b)) {
             auto& m = std::get<addition_justification>(b);
@@ -503,6 +612,22 @@ namespace nla {
         auto const &[q, k2, j2] = m_constraints[right];
         lp::lconstraint_kind k = meet(k1, k2);
         return add_constraint(p*q, k, multiplication_justification{left, right});
+    }
+
+    // p k 0, d > 0 -> p/d k 0, where q := d / d
+    // q is the quotient obtained by dividing the divisor constraint, which is of the form d - 1 >= 0 or d > 0
+    lp::constraint_index stellensatz::divide(lp::constraint_index ci, lp::constraint_index divisor, dd::pdd q) {
+        auto const &[p, k, j] = m_constraints[ci];
+        return add_constraint(q, k, division_justification{ci, divisor});
+    }
+
+    lp::constraint_index stellensatz::substitute(lp::constraint_index ci, lp::constraint_index ci_eq, lpvar v,
+                                                 dd::pdd p) {
+        auto const &[p1, k1, j1] = m_constraints[ci];
+        auto const &[p2, k2, j2] = m_constraints[ci_eq];    
+        SASSERT(k2 == lp::lconstraint_kind::EQ);
+        auto q = p1.subst_pdd(v, p);
+        return add_constraint(q, k1, substitute_justification{ci, ci_eq, v, p});        
     }
 
     void stellensatz::init_occurs() {
@@ -613,18 +738,26 @@ namespace nla {
             for (auto c : cs)
                 out << "[o " << c << "] ";  // constraint index from c().lra_solver.
         }
-        else if (std::holds_alternative<multiplication_justification>(j)) {
-            auto m = std::get<multiplication_justification>(j);
-            out << "(" << m.left << ") * (" << m.right << ")";
-        }
         else if (std::holds_alternative<addition_justification>(j)) {
             auto m = std::get<addition_justification>(j);
             out << "(" << m.left << ") + (" << m.right << ")";
+        }
+        else if (std::holds_alternative<substitute_justification>(j)) {
+            auto m = std::get<substitute_justification>(j);
+            out << "(" << m.ci << ") (" << m.ci_eq << ") by j" << m.v << " := " << m.p;
+        }
+        else if (std::holds_alternative<multiplication_justification>(j)) {
+            auto m = std::get<multiplication_justification>(j);
+            out << "(" << m.left << ") * (" << m.right << ")";
         }
         else if (std::holds_alternative<multiplication_poly_justification>(j)) {
             auto m = std::get<multiplication_poly_justification>(j);
             out << m.p << " * (" << m.ci << ")";
         }
+        else if (std::holds_alternative<division_justification>(j)) {
+            auto &m = std::get<division_justification>(j);
+            out << "(" << m.ci << ") / (" << m.divisor << ")";
+        } 
         else if (std::holds_alternative<assumption_justification>(j)) {
             out << "assumption";
         }
@@ -656,6 +789,16 @@ namespace nla {
                 auto m = std::get<multiplication_justification>(j);
                 todo.push_back(m.left);
                 todo.push_back(m.right);
+            }
+            else if (std::holds_alternative<substitute_justification>(j)) {
+                auto m = std::get<substitute_justification>(j);
+                todo.push_back(m.ci);
+                todo.push_back(m.ci_eq);
+            }
+            else if (std::holds_alternative<division_justification>(j)) {
+                auto m = std::get<division_justification>(j);
+                todo.push_back(m.ci);
+                todo.push_back(m.divisor);
             }
             else if (std::holds_alternative<addition_justification>(j)) {
                 auto m = std::get<addition_justification>(j);

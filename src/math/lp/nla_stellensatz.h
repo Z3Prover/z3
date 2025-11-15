@@ -31,6 +31,16 @@ namespace nla {
         struct multiplication_justification {
             lp::constraint_index left, right;
         };
+        struct division_justification {
+            lp::constraint_index ci;
+            lp::constraint_index divisor;
+        };
+        struct substitute_justification {
+            lp::constraint_index ci;
+            lp::constraint_index ci_eq;            
+            lpvar   v;
+            dd::pdd p;
+        };
         struct gcd_justification {
             lp::constraint_index ci;
         };
@@ -39,7 +49,9 @@ namespace nla {
             external_justification, 
             assumption_justification, 
             gcd_justification, 
+            substitute_justification,
             addition_justification,
+            division_justification,
             multiplication_poly_justification, 
             multiplication_justification>;
 
@@ -108,6 +120,8 @@ namespace nla {
         dd::pdd_manager pddm;
         vector<constraint> m_constraints;
         monomial_factory m_monomial_factory;
+        indexed_uint_set m_active;
+        vector<uint_set> m_tabu;
 
         struct constraint_key {
             unsigned pdd;
@@ -143,21 +157,29 @@ namespace nla {
         void init_occurs(lp::constraint_index ci);
 
         lbool eliminate_variables();
+        lbool factor(lp::constraint_index ci);
+        bool conflict(lp::constraint_index ci);
+        bool vanishing(lpvar x, factorization const& f, lp::constraint_index ci);
         lp::lpvar select_variable_to_eliminate(lp::constraint_index ci);
         unsigned degree_of_var_in_constraint(lpvar v, lp::constraint_index ci) const;
         factorization factor(lpvar v, lp::constraint_index ci);    
 
         bool constraint_is_true(lp::constraint_index ci) const;
+        bool is_new_constraint(lp::constraint_index ci) const;
 
         lp::constraint_index gcd_normalize(lp::constraint_index ci);
         lp::constraint_index assume(dd::pdd const& p, lp::lconstraint_kind k);
         lp::constraint_index add(lp::constraint_index left, lp::constraint_index right);
         lp::constraint_index multiply(lp::constraint_index ci, dd::pdd p);
         lp::constraint_index multiply(lp::constraint_index left, lp::constraint_index right);
+        lp::constraint_index divide(lp::constraint_index ci, lp::constraint_index divisor, dd::pdd d);
+        lp::constraint_index substitute(lp::constraint_index ci, lp::constraint_index ci_eq, lpvar v, dd::pdd p);
 
         bool is_int(svector<lp::lpvar> const& vars) const;
         bool is_int(dd::pdd const &p) const;
         rational cvalue(dd::pdd const& p) const;
+
+        void add_active(lp::constraint_index ci, uint_set const &tabu);
 
         // lemmas
         indexed_uint_set m_constraints_in_conflict;
