@@ -1138,7 +1138,7 @@ namespace nlsat {
                 for (var v : vars)
                         used_vars[v] = true;            
             }
-            display(out << "(echo \"#" << m_lemma_count++ << ":" << annotation << "\n", n, cls) << "\")\n";
+            display(out << "(echo \"#" << m_lemma_count++ << ":" << annotation << ":", n, cls) << "\")\n";
             out << "(set-logic ALL)\n";
             out << "(set-option :rlimit " << m_lemma_rlimit << ")\n";
             if (is_valid) {
@@ -3640,8 +3640,8 @@ namespace nlsat {
 
         template<typename Printer>
         std::ostream& display_root_quantified(std::ostream& out, root_atom const& a, display_var_proc const& proc, Printer const& printer) const {
-            if (a.i() == 1 && m_pm.degree(a.p(), a.x()) == 1)
-                return display_linear_root_smt2(out, a, proc);
+            // if (a.i() == 1 && m_pm.degree(a.p(), a.x()) == 1)
+            //  return display_linear_root_smt2(out, a, proc);
 
             auto mk_y_name = [](unsigned j) {
                 return std::string("y") + std::to_string(j);
