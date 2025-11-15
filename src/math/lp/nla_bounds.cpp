@@ -51,7 +51,7 @@ namespace nla {
 
     bool bounds::add_bounds_to_variable_at_value(lp::lpvar j, int value) {
         // disable new functionality
-        // return false;
+        return false;
         auto v = c().val(j);
         if (v != value)
             return false;
