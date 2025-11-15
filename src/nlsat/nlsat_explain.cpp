@@ -1475,16 +1475,50 @@ namespace nlsat {
                 
                 if (max_var(new_lit) < max) {
                     if (m_solver.value(new_lit) == l_true) {
-                        new_lit = l;
+                        TRACE(nlsat_simplify_bug,
+                              tout << "literal normalized away because it is already true after rewriting:\n";
+                              display(tout << "  original: ", l) << "\n";
+                              display(tout << "  rewritten: ", new_lit) << "\n";
+                              if (info.m_eq) {
+                                  polynomial_ref eq_ref(const_cast<poly*>(info.m_eq), m_pm);
+                                  m_pm.display(tout << "  equation used: ", eq_ref, m_solver.display_proc());
+                                  tout << " = 0\n";
+                              });
+                        new_lit = l; // SIMP_BUG
                     }
                     else {
-                        add_literal(new_lit);
-                        new_lit = true_literal;
+                        literal assumption = new_lit;
+                        TRACE(nlsat_simplify_bug,
+                              tout << "literal replaced by lower-stage assumption due to rewriting:\n";
+                              display(tout << "  original: ", l) << "\n";
+                              display(tout << "  assumption: ", assumption) << "\n";
+                              if (info.m_eq) {
+                                  polynomial_ref eq_ref(const_cast<poly*>(info.m_eq), m_pm);
+                                  m_pm.display(tout << "  equation used: ", eq_ref, m_solver.display_proc());
+                                  tout << " = 0\n";
+                              });
+                        add_literal(assumption);
+                        new_lit = true_literal; // SIMP_BUG
                     }
                 }
                 else {
+                    literal before = new_lit;
+                    (void)before;
                     new_lit = normalize(new_lit, max);
                     TRACE(nlsat_simplify_core, tout << "simplified literal after normalization:\n"; display(tout, new_lit); tout << " " << m_solver.value(new_lit) << "\n";);
+                    if (new_lit == true_literal || new_lit == false_literal) {
+                        TRACE(nlsat_simplify_bug,
+                              tout << "normalize() turned rewritten literal into constant value:\n";
+                              display(tout << "  original: ", l) << "\n";
+                              display(tout << "  rewritten: ", before) << "\n";
+                              tout << "  result: " << (new_lit == true_literal ? "true" : "false") << "\n";
+                              if (info.m_eq) {
+                                  polynomial_ref eq_ref(const_cast<poly*>(info.m_eq), m_pm);
+                                  m_pm.display(tout << "  equation used: ", eq_ref, m_solver.display_proc());
+                                  tout << " = 0\n";
+                              });
+                        // SIMP_BUG
+                    }
                 }
             }
             else {
@@ -1814,12 +1848,7 @@ namespace nlsat {
                           m_solver.display(tout););
                 }
                 elim_vanishing(m_ps);
-                if (m_signed_project) {
-                    signed_project(m_ps, mx_var);
-                }
-                else {
-                    project(m_ps, mx_var);
-                }
+                project(m_ps, mx_var);
                 reset_already_added();
                 m_result = nullptr;
                 if (x != mx_var) {
@@ -1855,183 +1884,8 @@ namespace nlsat {
                 }
             }
         }
-
-        /**
-           Signed projection. 
-
-           Assumptions:
-           - any variable in ps is at most x.
-           - root expressions are satisfied (positive literals)
-           
-           Effect:
-           - if x not in p, then
-              - if sign(p) < 0:   p < 0
-              - if sign(p) = 0:   p = 0
-              - if sign(p) > 0:   p > 0
-           else:
-           - let roots_j be the roots of p_j or roots_j[i] 
-           - let L = { roots_j[i] | M(roots_j[i]) < M(x) }
-           - let U = { roots_j[i] | M(roots_j[i]) > M(x) }
-           - let E = { roots_j[i] | M(roots_j[i]) = M(x) }
-           - let glb in L, s.t. forall l in L . M(glb) >= M(l)
-           - let lub in U, s.t. forall u in U . M(lub) <= M(u)
-           - if root in E, then 
-              - add E x . x = root & x > lb  for lb in L
-              - add E x . x = root & x < ub  for ub in U
-              - add E x . x = root & x = root2  for root2 in E \ { root }
-           - else 
-             - assume |L| <= |U| (other case is symmetric)
-             - add E x . lb <= x & x <= glb for lb in L
-             - add E x . x = glb & x < ub  for ub in U
-         */
-
-
-        void signed_project(polynomial_ref_vector& ps, var x) {
-            
-            TRACE(nlsat_explain, tout << "Signed projection\n";);
-            polynomial_ref p(m_pm);
-            unsigned eq_index = 0;
-            bool eq_valid = false;
-            unsigned eq_degree = 0;
-            for (unsigned i = 0; i < ps.size(); ++i) {
-                p = ps.get(i);
-                int s = sign(p);
-                if (max_var(p) != x) {
-                    atom::kind k = (s == 0)?(atom::EQ):((s < 0)?(atom::LT):(atom::GT));
-                    add_simple_assumption(k, p, false);
-                    ps[i] = ps.back();
-                    ps.pop_back();
-                    --i;
-                }
-                else if (s == 0) {
-                    if (!eq_valid || degree(p, x) < eq_degree) {
-                        eq_index = i;
-                        eq_valid = true;
-                        eq_degree = degree(p, x);
-                    }
-                }
-            }
-
-            if (ps.empty()) {
-                return;
-            }
-
-            if (ps.size() == 1) {
-                project_single(x, ps.get(0));
-                return;
-            }
-
-            // ax + b = 0, p(x) > 0 -> 
-
-            if (eq_valid) {
-                p = ps.get(eq_index);
-                if (degree(p, x) == 1) {
-                    // ax + b = 0
-                    // let d be maximal degree of x in p.
-                    // p(x) -> a^d*p(-b/a), a
-                    // perform virtual substitution with equality.
-                    solve_eq(x, eq_index, ps);
-                }
-                else {
-                    add_zero_assumption(p);
-
-                    for (unsigned j = 0; j < ps.size(); ++j) {
-                        if (j == eq_index)
-                            continue;
-                        p = ps.get(j);
-                        int s = sign(p);
-                        atom::kind k = (s == 0)?(atom::EQ):((s < 0)?(atom::LT):(atom::GT));
-                        add_simple_assumption(k, p, false);
-                    }
-                }
-                return;
-            }
-            
-            unsigned num_lub = 0, num_glb = 0;
-            unsigned glb_index = 0, lub_index = 0;
-            scoped_anum lub(m_am), glb(m_am), x_val(m_am);
-            x_val = m_assignment.value(x);
-            bool glb_valid = false, lub_valid = false;
-            for (unsigned i = 0; i < ps.size(); ++i) {
-                p = ps.get(i);
-                scoped_anum_vector & roots = m_roots_tmp;
-                roots.reset();
-                m_am.isolate_roots(p, undef_var_assignment(m_assignment, x), roots);
-                for (auto const& r : roots) {
-                    int s = m_am.compare(x_val, r);
-                    SASSERT(s != 0);
-
-                    if (s < 0 && (!lub_valid || m_am.lt(r, lub))) {
-                        lub_index = i;
-                        m_am.set(lub, r);
-                        lub_valid = true;
-                    }
-
-                    if (s > 0 && (!glb_valid || m_am.lt(glb, r))) {
-                        glb_index = i;
-                        m_am.set(glb, r);
-                        glb_valid = true;
-                    }
-                    if (s < 0) ++num_lub;
-                    if (s > 0) ++num_glb;
-                }
-            }
-            TRACE(nlsat_explain, tout << "glb: " << num_glb << " lub: " << num_lub << "\n" << lub_index << "\n" << glb_index << "\n" << ps << "\n";);
-
-            if (num_lub == 0) {
-                project_plus_infinity(x, ps);
-                return;
-            }
-                
-            if (num_glb == 0) {
-                project_minus_infinity(x, ps);
-                return;
-            }
-
-            if (num_lub <= num_glb) {
-                glb_index = lub_index;
-            }
-
-            project_pairs(x, glb_index, ps);
-        }
-
-        void project_plus_infinity(var x, polynomial_ref_vector const& ps) {
-            polynomial_ref p(m_pm), lc(m_pm);
-            for (unsigned i = 0; i < ps.size(); ++i) {
-                p = ps.get(i);
-                unsigned d = degree(p, x);
-                lc = m_pm.coeff(p, x, d);
-                if (!is_const(lc)) {                    
-                    int s = sign(p);
-                    SASSERT(s != 0);
-                    atom::kind k = (s > 0)?(atom::GT):(atom::LT);
-                    add_simple_assumption(k, lc);
-                }
-            }
-        }
-
-        void project_minus_infinity(var x, polynomial_ref_vector const& ps) {
-            polynomial_ref p(m_pm), lc(m_pm);
-            for (unsigned i = 0; i < ps.size(); ++i) {
-                p = ps.get(i);
-                unsigned d = degree(p, x);
-                lc = m_pm.coeff(p, x, d);
-                if (!is_const(lc)) {
-                    int s = sign(p);
-                    TRACE(nlsat_explain, tout << "degree: " << d << " " << lc << " sign: " << s << "\n";);
-                    SASSERT(s != 0);
-                    atom::kind k;
-                    if (s > 0) {
-                        k = (d % 2 == 0)?(atom::GT):(atom::LT);
-                    }
-                    else {
-                        k = (d % 2 == 0)?(atom::LT):(atom::GT);
-                    }
-                    add_simple_assumption(k, lc);
-                }
-            }
-        }
-
+        
+        
         void project_pairs(var x, unsigned idx, polynomial_ref_vector const& ps) {
             TRACE(nlsat_explain, tout << "project pairs\n";);
             polynomial_ref p(m_pm);
@@ -2056,49 +1910,7 @@ namespace nlsat {
             project(m_ps2, x);
         }
 
-        void solve_eq(var x, unsigned idx, polynomial_ref_vector const& ps) {
-            polynomial_ref p(m_pm), A(m_pm), B(m_pm), C(m_pm), D(m_pm), E(m_pm), q(m_pm), r(m_pm);
-            polynomial_ref_vector As(m_pm), Bs(m_pm);
-            p = ps.get(idx);
-            SASSERT(degree(p, x) == 1);
-            A = m_pm.coeff(p, x, 1);
-            B = m_pm.coeff(p, x, 0);
-            As.push_back(m_pm.mk_const(rational(1)));
-            Bs.push_back(m_pm.mk_const(rational(1)));
-            B = neg(B);
-            TRACE(nlsat_explain, tout << "p: " << p << " A: " << A << " B: " << B << "\n";);
-            // x = B/A
-            for (unsigned i = 0; i < ps.size(); ++i) {
-                if (i != idx) {
-                    q = ps.get(i);
-                    unsigned d = degree(q, x);
-                    D = m_pm.mk_const(rational(1));
-                    E = D;
-                    r = m_pm.mk_zero();
-                    for (unsigned j = As.size(); j <= d; ++j) {
-                        D = As.back(); As.push_back(A * D);
-                        D = Bs.back(); Bs.push_back(B * D);
-                    }
-                    for (unsigned j = 0; j <= d; ++j) {
-                        // A^d*p0 + A^{d-1}*B*p1 + ... + B^j*A^{d-j}*pj + ... + B^d*p_d
-                        C = m_pm.coeff(q, x, j);
-                        TRACE(nlsat_explain, tout << "coeff: q" << j << ": " << C << "\n";);
-                        if (!is_zero(C)) {
-                            D = As.get(d - j);
-                            E = Bs.get(j);
-                            r = r + D*E*C;
-                        }
-                    }
-                    TRACE(nlsat_explain, tout << "p: " << p << " q: " << q << " r: " << r << "\n";);
-                    ensure_sign(r);
-                }
-                else {
-                    ensure_sign(A);
-                }
-            }
-
-        }
-
+        
         void maximize(var x, unsigned num, literal const * ls, scoped_anum& val, bool& unbounded) {
             svector<literal> lits;
             polynomial_ref p(m_pm);
