@@ -211,7 +211,7 @@ namespace search_tree {
                 if (lit != lit_l && !res.contains(lit))
                     res.push_back(lit);
             for (auto const &lit : core_r)
-                if (lit != lit_l && !res.contains(lit))
+                if (lit != lit_r && !res.contains(lit))
                     res.push_back(lit);
             return res;
         }
