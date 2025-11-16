@@ -120,11 +120,13 @@ protected:
     func_decl * m_i_mod_decl;
     func_decl * m_i_rem_decl;
 
-    func_decl * m_to_real_decl;
-    func_decl * m_to_int_decl;
-    func_decl * m_is_int_decl;
-    func_decl * m_r_power_decl;
-    func_decl * m_i_power_decl;
+    func_decl * m_to_real_decl = nullptr;
+    func_decl * m_to_int_decl = nullptr;
+    func_decl * m_r_to_real_decl = nullptr;
+    func_decl * m_i_to_int_decl = nullptr;
+    func_decl * m_is_int_decl = nullptr;
+    func_decl * m_r_power_decl = nullptr;
+    func_decl * m_i_power_decl = nullptr;
 
     func_decl * m_r_abs_decl;
     func_decl * m_i_abs_decl;

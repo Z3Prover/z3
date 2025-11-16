@@ -1829,6 +1829,10 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
 br_status arith_rewriter::mk_to_int_core(expr * arg, expr_ref & result) {
     numeral a;
     expr* x = nullptr;
+    if (m_util.is_int(arg)) {
+        result = arg;
+        return BR_DONE;
+    }
     if (m_util.convert_int_numerals_to_real())
         return BR_FAILED;
 
@@ -1837,7 +1841,7 @@ br_status arith_rewriter::mk_to_int_core(expr * arg, expr_ref & result) {
         return BR_DONE;
     }
 
-    if (m_util.is_to_real(arg, x)) {
+    if (m_util.is_to_real(arg, x) && m_util.is_int(x)) {
         result = x;
         return BR_DONE;
     }
@@ -1885,6 +1889,10 @@ br_status arith_rewriter::mk_to_real_core(expr * arg, expr_ref & result) {
         result = m_util.mk_numeral(a, false);
         return BR_DONE;
     }
+    if (m_util.is_real(arg)) {
+        result = arg;
+        return BR_DONE;
+    }
     // push to_real over OP_ADD, OP_MUL
     if (m_push_to_real) {
         if (m_util.is_add(arg) || m_util.is_mul(arg)) {
@@ -1909,7 +1917,7 @@ br_status arith_rewriter::mk_is_int(expr * arg, expr_ref & result) {
         return BR_DONE;
     }
     
-    if (m_util.is_to_real(arg)) {
+    if (m_util.is_to_real(arg) && m_util.is_int(to_app(arg)->get_arg(0))) {
         result = m.mk_true();
         return BR_DONE;
     }
