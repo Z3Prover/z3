@@ -156,7 +156,30 @@ namespace smt {
         }
     }
 
+    void parallel::param_generator::init_rdl_param_state() {
+        smt_params_helper smtp(m_p);
+        m_param_state.push_back({symbol("smt.arith.auto_config_simplex"), smtp.arith_auto_config_simplex()});
+        m_param_state.push_back({symbol("smt.arith.bprop_on_pivoted_rows"), smtp.arith_bprop_on_pivoted_rows()});
+        m_param_state.push_back({symbol("smt.arith.eager_eq_axioms"), smtp.arith_eager_eq_axioms()});
+        m_param_state.push_back({symbol("smt.arith.greatest_error_pivot"), smtp.arith_greatest_error_pivot()});
+        m_param_state.push_back({symbol("smt.arith.propagate_eqs"), smtp.arith_propagate_eqs()});
+        m_param_state.push_back(
+            {symbol("smt.arith.propagation_mode"), unsigned_value({smtp.arith_propagation_mode(), 0, 2})});
+        m_param_state.push_back({symbol("smt.arith.random_initial_value"), smtp.arith_random_initial_value()});
+        m_param_state.push_back({symbol("smt.arith.rep_freq"), unsigned_value({smtp.arith_rep_freq(), 0, 100})});
+        m_param_state.push_back(
+            {symbol("smt.arith.simplex_strategy"), unsigned_value({smtp.arith_simplex_strategy(), 0, 2})});
+        m_param_state.push_back({symbol("smt.delay_units"), smtp.delay_units()});
+        m_param_state.push_back(
+            {symbol("smt.delay_units_threshold"), unsigned_value({smtp.delay_units_threshold(), 16, 64})});
+        m_param_state.push_back({symbol("smt.lemma_gc_strategy"), unsigned_value({smtp.lemma_gc_strategy(), 0, 3})});
+    };
+
     void parallel::param_generator::init_param_state() {
+        if (p.ctx.m_setup.get_logic() == "QF_RDL") {
+            init_rdl_param_state();
+            return;
+        }
         smt_params_helper smtp(m_p);
         m_param_state.push_back({symbol("smt.arith.nl.branching"), smtp.arith_nl_branching()});
         m_param_state.push_back({symbol("smt.arith.nl.cross_nested"), smtp.arith_nl_cross_nested()});
@@ -340,7 +363,7 @@ namespace smt {
     }
 
     parallel::param_generator::param_generator(parallel& p)
-        : b(p.m_batch_manager), m_p(p.ctx.get_params()), m_l2g(m, p.ctx.m) {
+        : p(p), b(p.m_batch_manager), m_p(p.ctx.get_params()), m_l2g(m, p.ctx.m) {
 
         m.copy_families_plugins(p.ctx.m);
         SASSERT(p.ctx.get_fparams().m_threads == 1);
