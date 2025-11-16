@@ -122,6 +122,7 @@ namespace nla {
         monomial_factory m_monomial_factory;
         indexed_uint_set m_active;
         vector<uint_set> m_tabu;
+        vector<rational> m_values;
 
         struct constraint_key {
             unsigned pdd;
@@ -157,7 +158,7 @@ namespace nla {
         void init_occurs();
         void init_occurs(lp::constraint_index ci);
 
-        lbool eliminate_variables();
+        lbool conflict_saturation();
         lbool factor(lp::constraint_index ci);
         bool conflict(lp::constraint_index ci);
         bool vanishing(lpvar x, factorization const& f, lp::constraint_index ci);
@@ -181,7 +182,8 @@ namespace nla {
 
         bool is_int(svector<lp::lpvar> const& vars) const;
         bool is_int(dd::pdd const &p) const;
-        rational cvalue(dd::pdd const& p) const;
+        rational value(dd::pdd const& p) const;
+        rational value(lp::lpvar v) const { return m_values[v]; }
 
         void add_active(lp::constraint_index ci, uint_set const &tabu);
 

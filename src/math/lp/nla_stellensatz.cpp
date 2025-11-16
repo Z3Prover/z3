@@ -95,7 +95,7 @@ namespace nla {
     lbool stellensatz::saturate() {
         init_solver();
         TRACE(arith, display(tout << "stellensatz before saturation\n"));
-        auto r = eliminate_variables();
+        auto r = conflict_saturation();
         if (r == l_false)
             return r;
         TRACE(arith, display(tout << "stellensatz after saturation\n"));
@@ -109,6 +109,7 @@ namespace nla {
         m_monomial_factory.reset();
         m_coi.init();
         m_constraint_index.reset();
+        m_values.reset();
         init_vars();
         init_occurs();
     }
@@ -117,6 +118,7 @@ namespace nla {
         auto const& src = c().lra_solver();
         auto sz = src.number_of_vars();
         for (unsigned v = 0; v < sz; ++v) {
+            m_values.push_back(c().val(v));
             if (!m_coi.vars().contains(v))
                 continue;
             if (c().is_monic_var(v))
@@ -227,7 +229,7 @@ namespace nla {
 
     // initialize active set of constraints that evaluate to false in the current model
     // loop over active set to eliminate variables.
-    lbool stellensatz::eliminate_variables() {
+    lbool stellensatz::conflict_saturation() {
         m_active.reset();
         m_tabu.reset();
         for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {
@@ -251,8 +253,6 @@ namespace nla {
             case l_true: continue;
             }
 
-            auto p = m_constraints[ci].p;
-
             auto x = select_variable_to_eliminate(ci);
             if (x == lp::null_lpvar)
                 continue;
@@ -272,9 +272,11 @@ namespace nla {
         auto f = factor(x, ci);
         TRACE(arith, tout << "factor " << m_constraints[ci].p << " -> j" << x << "^" << f.degree << " * " << f.p
                           << "  +  " << f.q << "\n");
-        auto p_value = cvalue(f.p);
+        auto p_value = value(f.p);
         if (vanishing(x, f, ci))
             return l_true;
+        if (p_value == 0)
+            return l_undef;
         unsigned num_x = m_occurs[x].size();
         for (unsigned i = 0; i < f.degree; ++i)
             f.p *= to_pdd(x);
@@ -299,16 +301,15 @@ namespace nla {
         auto const &[other_p, other_k, other_j] = m_constraints[other_ci];
         auto const &[p, k, j] = m_constraints[ci];
         auto g = factor(x, other_ci);
-        auto p_value2 = cvalue(g.p);
+        auto p_value2 = value(g.p);
         // check that p_value and p_value2 have different signs
         // check that other_p is disjoint from tabu
         // compute overlaps extending x
         //
         TRACE(arith, display_constraint(tout << "resolve with " << p_value << " " << p_value2 << " ", other_ci) << "\n");
         SASSERT(g.degree > 0);
+        SASSERT(p_value != 0);
         if (g.degree > f.degree)  // future: could handle this too by considering tabu to be a map into degrees.
-            return l_undef;
-        if (p_value == 0)
             return l_undef;
         if (p_value > 0 && p_value2 > 0)
             return l_undef;
@@ -339,8 +340,8 @@ namespace nla {
 
         TRACE(arith, tout << "m1 " << m1 << " m2 " << m2 << " m1m2: " << m1m2 << "\n");
 
-        auto sign_f = cvalue(f_p) < 0;       
-        SASSERT(cvalue(f_p) != 0);
+        auto sign_f = value(f_p) < 0;       
+        SASSERT(value(f_p) != 0);
 
         // m1m2 * f_p + f.q >= 0
         // m1m2 * g_p + g.q >= 0
@@ -383,7 +384,6 @@ namespace nla {
             return l_false;
 
         if (!constraint_is_true(new_ci)) {
-            auto const &p = m_constraints[ci].p;
             auto const &[new_p, new_k, new_j] = m_constraints[new_ci];
             if (new_p.degree() <= 3 && !new_p.free_vars().contains(x)) {
                 uint_set new_tabu(m_tabu[ci]);
@@ -415,7 +415,7 @@ namespace nla {
             return false;
         if (f.p.is_zero())
             return false;
-        auto p_value = cvalue(f.p);
+        auto p_value = value(f.p);
         if (p_value != 0)
             return false;
 
@@ -464,17 +464,17 @@ namespace nla {
         TRACE(arith, tout << "factor (" << ci << ") " << p << " q: " << q << " vars: " << vars << "\n");
         if (vars.empty()) {
             for (auto v : p.free_vars()) {
-                if (c().val(v) == 0)
+                if (value(v) == 0)
                     return subst(v, pddm.mk_val(0));
-                if (c().val(v) == 1)
+                if (value(v) == 1)
                     return subst(v, pddm.mk_val(1));
-                if (c().val(v) == -1)
+                if (value(v) == -1)
                     return subst(v, pddm.mk_val(rational(-1)));
             }
             return l_undef;
         }
         for (auto v : vars) {
-            if (c().val(v) == 0)
+            if (value(v) == 0)
                 return subst(v, pddm.mk_val(0));
         }
         vector<dd::pdd> muls;
@@ -485,7 +485,7 @@ namespace nla {
         SASSERT(muls.back() == p);
         for (unsigned i = vars.size(); i-- > 0;) {
             auto pv = pddm.mk_var(vars[i]);
-            auto k = c().val(vars[i]) > 0 ? lp::lconstraint_kind::GT : lp::lconstraint_kind::LT;
+            auto k = value(vars[i]) > 0 ? lp::lconstraint_kind::GT : lp::lconstraint_kind::LT;
             new_ci = divide(new_ci, assume(pv, k), muls[i]);
         }
         return add_new(new_ci);
@@ -567,9 +567,9 @@ namespace nla {
             UNREACHABLE();
     }
  
-    rational stellensatz::cvalue(dd::pdd const& p) const {
+    rational stellensatz::value(dd::pdd const& p) const {
         dd::pdd_eval eval;
-        eval.var2val() = [&](unsigned v) -> rational { return c().val(v); };
+        eval.var2val() = [&](unsigned v) -> rational { return value(v); };
         return eval(p);
     }
 
@@ -684,7 +684,7 @@ namespace nla {
 
     bool stellensatz::constraint_is_true(lp::constraint_index ci) const {
         auto const& [p, k, j] = m_constraints[ci];
-        auto lhs = cvalue(p);
+        auto lhs = value(p);
         switch (k) {
         case lp::lconstraint_kind::GT: return lhs > 0;
         case lp::lconstraint_kind::GE: return lhs >= 0;
