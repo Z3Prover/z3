@@ -68,6 +68,15 @@ namespace search_tree {
         node* left() const { return m_left; }
         node* right() const { return m_right; }
         node* parent() const { return m_parent; }
+        unsigned depth() const {
+            unsigned d = 0;
+            node* p = m_parent;
+            while (p) {
+                ++d;
+                p = p->parent();
+            }
+            return d;
+        }
 
         node* find_active_node() {
             if (m_status == status::active)
