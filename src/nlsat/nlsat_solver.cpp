@@ -2242,7 +2242,24 @@ namespace nlsat {
                 for (var v : vars)
                     used_vars[v] = true;
             }
-            out << "(echo \"#" << m_lemma_count++ << ":assignment lemma\")\n";
+            std::ostringstream comment;            
+            bool any_var = false;
+            display_num_assignment(comment, &used_vars);
+            if (!any_var)
+                comment << " (none)";
+            comment << "; literals:";
+            if (jst.num_lits() == 0) {
+                comment << " (none)";
+            }
+            else {
+                for (unsigned i = 0; i < jst.num_lits(); ++i) {
+                    comment << " ";
+                    display(comment, jst.lit(i));
+                    if (i < jst.num_lits() - 1)
+                        comment << " /\\";
+                }
+            }
+            out << "(echo \"#" << m_lemma_count++ << ":assignment lemma " << comment.str() << "\")\n";
             out << "(set-logic ALL)\n";
             out << "(set-option :rlimit " << m_lemma_rlimit << ")\n";
             display_smt2_bool_decls(out, used_bools);
