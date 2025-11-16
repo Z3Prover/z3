@@ -331,7 +331,7 @@ endif()
 ################################################################################
 cmake_dependent_option(Z3_BUILD_EXECUTABLE
     "Build the z3 executable" ON
-    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR" OFF)
+    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR;Z3_BUILD_LIBZ3_CORE" OFF)
 
 if (Z3_BUILD_EXECUTABLE)
     add_subdirectory(shell)
@@ -343,7 +343,7 @@ endif()
 
 cmake_dependent_option(Z3_BUILD_TEST_EXECUTABLES
     "Build test executables" ON
-    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR" OFF)
+    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR;Z3_BUILD_LIBZ3_CORE" OFF)
 
 
 if (Z3_BUILD_TEST_EXECUTABLES)
