@@ -1090,6 +1090,22 @@ extern "C" {
     unsigned Z3_API Z3_fpa_get_sbits(Z3_context c, Z3_sort s);
 
     /**
+        \brief Checks whether a given ast is a floating-point numeral.
+
+        \param c logical context
+        \param t an ast
+
+        \sa Z3_fpa_is_numeral_nan
+        \sa Z3_fpa_is_numeral_inf
+        \sa Z3_fpa_is_numeral_normal
+        \sa Z3_fpa_is_numeral_subnormal
+        \sa Z3_fpa_is_numeral_zero
+
+        def_API('Z3_fpa_is_numeral', BOOL, (_in(CONTEXT), _in(AST)))
+    */
+    bool Z3_API Z3_fpa_is_numeral(Z3_context c, Z3_ast t);
+
+    /**
         \brief Checks whether a given floating-point numeral is a NaN.
 
         \param c logical context
