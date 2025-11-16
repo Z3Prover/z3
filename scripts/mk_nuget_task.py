@@ -47,7 +47,8 @@ def replace(src, dst):
     try:
         os.remove(dst)
     except:
-        shutil.move(src, dst)
+        pass
+    shutil.move(src, dst)
     
 def unpack(packages, symbols, arch):
     # unzip files in packages
