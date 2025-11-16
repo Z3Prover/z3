@@ -559,10 +559,15 @@ add_subdirectory(src)
 # use Z3 via CMake.
 ################################################################################
 include(CMakePackageConfigHelpers)
-export(EXPORT Z3_EXPORTED_TARGETS
-   NAMESPACE z3::
-   FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
-)
+
+# Only export targets if we built libz3
+if (Z3_BUILD_LIBZ3_CORE)
+  export(EXPORT Z3_EXPORTED_TARGETS
+     NAMESPACE z3::
+     FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
+  )
+endif()
+
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${PROJECT_BINARY_DIR}/src/api")
 set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api")
 set(Z3_CXX_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api/c++")
@@ -593,12 +598,15 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/z3.pc.cmake.in"
 # Create `Z3Config.cmake` and related files for install tree so clients can use
 # Z3 via CMake.
 ################################################################################
-install(EXPORT
-  Z3_EXPORTED_TARGETS
-  FILE "Z3Targets.cmake"
-  NAMESPACE z3::
-  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
-)
+# Only install targets if we built libz3
+if (Z3_BUILD_LIBZ3_CORE)
+  install(EXPORT
+    Z3_EXPORTED_TARGETS
+    FILE "Z3Targets.cmake"
+    NAMESPACE z3::
+    DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+  )
+endif()
 set(Z3_INSTALL_TREE_CMAKE_CONFIG_FILE "${PROJECT_BINARY_DIR}/cmake/Z3Config.cmake")
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}")
 set(Z3_SECOND_INCLUDE_DIR "")
