@@ -1484,7 +1484,7 @@ namespace nlsat {
                                   m_pm.display(tout << "  equation used: ", eq_ref, m_solver.display_proc());
                                   tout << " = 0\n";
                               });
-                        new_lit = l; // SIMP_BUG
+                        new_lit = l;
                     }
                     else {
                         literal assumption = new_lit;
@@ -1498,7 +1498,7 @@ namespace nlsat {
                                   tout << " = 0\n";
                               });
                         add_literal(assumption);
-                        new_lit = true_literal; // SIMP_BUG
+                        new_lit = true_literal;
                     }
                 }
                 else {
@@ -1517,7 +1517,6 @@ namespace nlsat {
                                   m_pm.display(tout << "  equation used: ", eq_ref, m_solver.display_proc());
                                   tout << " = 0\n";
                               });
-                        // SIMP_BUG
                     }
                 }
             }
