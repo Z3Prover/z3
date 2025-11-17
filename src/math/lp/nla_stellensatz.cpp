@@ -407,6 +407,114 @@ namespace nla {
         return false;
     }
 
+    lbool stellensatz::model_repair() {
+        m_active.reset();
+        unsigned num_vars = m_values.size();
+        for (lp::constraint_index ci = 0; ci < m_constraints.size(); ++ci)
+            m_active.insert(ci);
+        for (lpvar v = 0; v < num_vars; ++v) {
+            if (!model_repair(v))
+                return l_false;
+        }
+        return l_undef;
+    }
+
+    bool stellensatz::model_repair(lp::lpvar v) {
+        auto bounds = find_bounds(v);
+        auto &[lo, inf, infs] = bounds.first;
+        auto &[hi, sup, sups] = bounds.second;
+        auto has_false = any_of(infs, [&](lp::constraint_index ci) { return !constraint_is_true(ci); }) ||
+                         any_of(sups, [&](lp::constraint_index ci) { return !constraint_is_true(ci); });
+        if (!has_false && (infs.empty() || sups.empty()))
+            return true;
+        if (infs.empty()) {
+            // repair v by setting it below sup
+            auto f = factor(v, sup);
+            auto new_value = floor(-value(f.q) / value(f.p));
+            m_values[v] = new_value;
+            return true;            
+        }
+        if (sups.empty()) {
+            // repair v by setting it above inf
+            auto f = factor(v, inf);
+            auto new_value = ceil(-value(f.q) / value(f.p));
+            m_values[v] = new_value;
+            return true;
+        }
+        if (lo <= hi && (!is_int(v) || ceil(lo) <= floor(hi))) {            
+            // repair v by setting it between lo and hi assuming it is integral when v is integer
+            if (is_int(v))
+                m_values[v] = ceil(lo);
+            else
+                m_values[v] = lo;
+        }
+        // lo > hi - pick a side and assume inf or sup and enforce order between sup and inf.
+        // maybe just add constraints that are false and skip the rest?
+        // remove sups and infs from active because we computed resolvents
+        if (infs.size() < sups.size()) {
+            auto f = factor(v, inf);
+            SASSERT(f.degree == 1);
+            auto p_value = value(f.p);
+            f.p *= pddm.mk_var(v);
+            auto [m1, f_p] = f.p.var_factors();            
+            for (auto s : sups) 
+                resolve_variable(v, inf, s, p_value, f, m1, f_p);            
+            for (auto i : infs) {
+                // assume_ge(v, i, inf)
+            }
+        }
+        else {
+            auto f = factor(v, sup);
+            SASSERT(f.degree == 1);
+            auto p_value = value(f.p);
+            f.p *= pddm.mk_var(v);
+            auto [m1, f_p] = f.p.var_factors(); 
+            for (auto i : infs)
+                resolve_variable(v, sup, i, p_value, f, m1, f_p);
+            for (auto s : sups) {
+                // assume_ge(v, sup, s);
+            }
+        }
+        return true;
+    }
+
+    std::pair<stellensatz::bound_info, stellensatz::bound_info> stellensatz::find_bounds(lpvar v) {
+        std::pair<bound_info, bound_info> result;
+        auto &[lo, inf, infs] = result.first;
+        auto &[hi, sup, sups] = result.second;
+        for (auto ci : m_occurs[v]) {
+            if (!m_active.contains(ci))
+                continue;
+            auto f = factor(v, ci);
+            auto p_value = value(f.p);
+            auto q_value = value(f.q);
+            if (p_value == 0)  // it is vanishing
+                continue;
+            if (f.degree > 1)
+                continue;
+            SASSERT(f.degree == 1);
+            auto quot = -q_value / p_value;
+            // TODO: ignore strict inequalities for now.
+            if (p_value < 0) {
+                // p*x + q >= 0  =>  x <= -q / p if p < 0
+                if (sups.empty() || hi > quot) {
+                    hi = quot;
+                    sup = ci;
+                }
+                sups.push_back(ci);
+            }
+            else {
+                // p*x + q >= 0  =>  x >= -q / p if p > 0
+                if (infs.empty() || lo < quot) {
+                    lo = quot;
+                    inf = ci;
+                }
+                infs.push_back(ci);
+            }
+        }
+        return result;
+    }
+
     bool stellensatz::vanishing(lpvar x, factorization const &f, lp::constraint_index ci) {
         if (f.q.is_zero())
             return false;

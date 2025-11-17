@@ -785,9 +785,9 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         (kind == LE || kind == GE)) {
         // e > 0 => t div e ~ arg2 <=> e * (t div e) ~ e * arg2 <=> t - mod t e ~ e * arg2
         switch (kind) {
-        case LE: result = m_util.mk_le(result, m_util.mk_mul(e, arg2)); return BR_REWRITE3;
-        case GE: result = m_util.mk_ge(result, m_util.mk_mul(e, arg2)); return BR_REWRITE3;
-        case EQ: result = m.mk_eq(result, m_util.mk_mul(e, arg2)); return BR_REWRITE3;
+        case LE: result = m_util.mk_le(t, arg2); return BR_REWRITE3;
+        case GE: result = m_util.mk_ge(t, arg2); return BR_REWRITE3;
+        default: break;
         }
     }
     if (st == BR_DONE && arg1 == orig_arg1 && arg2 == orig_arg2) {

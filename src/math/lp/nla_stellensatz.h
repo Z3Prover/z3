@@ -169,6 +169,15 @@ namespace nla {
         bool resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci, rational const& p_value, 
             factorization const& f, unsigned_vector const& m1, dd::pdd _f_p);
 
+        lbool model_repair();
+        bool model_repair(lp::lpvar v);
+        struct bound_info {
+            rational value;
+            lp::constraint_index bound;
+            svector<lp::constraint_index> bounds;
+        };
+        std::pair<bound_info, bound_info> find_bounds(lpvar v);
+
         bool constraint_is_true(lp::constraint_index ci) const;
         bool is_new_constraint(lp::constraint_index ci) const;
 
