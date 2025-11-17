@@ -166,7 +166,7 @@ namespace nla {
         unsigned degree_of_var_in_constraint(lpvar v, lp::constraint_index ci) const;
         factorization factor(lpvar v, lp::constraint_index ci);  
         lbool resolve_variable(lpvar x, lp::constraint_index ci);
-        lbool resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci, rational const& p_value, 
+        bool resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci, rational const& p_value, 
             factorization const& f, unsigned_vector const& m1, dd::pdd _f_p);
 
         bool constraint_is_true(lp::constraint_index ci) const;
