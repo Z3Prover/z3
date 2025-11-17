@@ -781,17 +781,17 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         case EQ: result = m_util.mk_eq(new_arg1, new_arg2); return BR_DONE;
         }
     }
-    else if (st == BR_DONE && arg1 == orig_arg1 && arg2 == orig_arg2) {
+    if (m_util.is_idiv(arg1, t, e) && is_numeral(e, a1) && a1 > 0 && is_numeral(arg2, a2) && a2 == 0 &&
+        (kind == LE || kind == GE)) {
         // e > 0 => t div e ~ arg2 <=> e * (t div e) ~ e * arg2 <=> t - mod t e ~ e * arg2
-        if (m_util.is_idiv(arg1, t, e) && is_numeral(e, a1) && a1 > 0) {
-            if (is_numeral(arg2, a2) && a2 == 0 && (kind == LE || kind == GE)) {
-                switch (kind) {
-                case LE: result = m_util.mk_le(result, m_util.mk_mul(e, arg2)); return BR_REWRITE3;
-                case GE: result = m_util.mk_ge(result, m_util.mk_mul(e, arg2)); return BR_REWRITE3;
-                case EQ: result = m.mk_eq(result, m_util.mk_mul(e, arg2)); return BR_REWRITE3;
-                }
-            }
+        switch (kind) {
+        case LE: result = m_util.mk_le(result, m_util.mk_mul(e, arg2)); return BR_REWRITE3;
+        case GE: result = m_util.mk_ge(result, m_util.mk_mul(e, arg2)); return BR_REWRITE3;
+        case EQ: result = m.mk_eq(result, m_util.mk_mul(e, arg2)); return BR_REWRITE3;
         }
+    }
+    if (st == BR_DONE && arg1 == orig_arg1 && arg2 == orig_arg2) {
+        
         // Nothing new; return BR_FAILED to avoid rewriting loops.
         return BR_FAILED;
     }
