@@ -47,8 +47,6 @@ struct solver::imp {
         return m_nla_core.m_to_refine.size() != 0;
     }
 
- 
-
     void reset() {
         m_values = nullptr;
         m_tmp1 = nullptr; m_tmp2 = nullptr;
@@ -57,14 +55,6 @@ struct solver::imp {
         m_lp2nl.reset();
     }
 
-
-    struct eq {
-        bool operator()(unsigned_vector const &a, unsigned_vector const &b) const {
-            return a == b;
-        }
-    };
-
-    map<unsigned_vector, unsigned, svector_hash<unsigned_hash>, eq> m_vars2mon;
     // Create polynomial definition for variable v used in setup_assignment_solver.
     // Side-effects: updates m_vars2mon when v is a monic variable.
     void mk_definition(unsigned v, polynomial_ref_vector &definitions) {
@@ -72,10 +62,7 @@ struct solver::imp {
         polynomial::polynomial_ref p(pm);
         if (m_nla_core.emons().is_monic_var(v)) {
             auto const &m = m_nla_core.emons()[v];
-            auto vars = m.vars();
-            std::sort(vars.begin(), vars.end());
-            m_vars2mon.insert(vars, v);
-            for (auto v2 : vars) {
+            for (auto v2 : m.vars()) {
                 auto pv = definitions.get(v2);
                 if (!p)
                     p = pv;
@@ -99,7 +86,6 @@ struct solver::imp {
     }
 
     void setup_solver_poly() {
-        m_vars2mon.reset();
         m_coi.init();
         auto &pm = m_nlsat->pm();
         polynomial_ref_vector definitions(pm);
