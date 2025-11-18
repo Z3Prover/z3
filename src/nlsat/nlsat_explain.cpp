@@ -350,20 +350,12 @@ namespace nlsat {
                 }
                 lc = m_pm.coeff(p, x, k, reduct);
                 TRACE(nlsat_explain, tout << "lc: " << lc << " reduct: " << reduct << "\n";);
-                if (!is_zero(lc)) {
-                    if (!::is_zero(sign(lc))) {
-                        TRACE(nlsat_explain, tout << "lc does no vaninsh\n";);
-                        return;
-                    }
-                    TRACE(nlsat_explain, tout << "got a zero sign on lc\n";);
-
-
-                    // lc is not the zero polynomial, but it vanished in the current interpretation.
-                    // so we keep searching...
-                    TRACE(nlsat_explain, tout << "adding zero assumption for var:"; m_solver.display_var(tout, x); tout << ", degree k:" << k << ", p:" ; display(tout, p) << "\n";);
-
-                    add_zero_assumption(lc);
+                insert_fresh_factors_in_todo(lc);
+                if (!is_zero(lc) && sign(lc)) {
+                    TRACE(nlsat_explain, tout << "lc does no vaninsh\n";);
+                    return;
                 }
+                add_zero_assumption(lc);
                 if (k == 0) {
                     // all coefficients of p vanished in the current interpretation,
                     // and were added as assumptions.
