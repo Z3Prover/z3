@@ -691,9 +691,6 @@ namespace nlsat {
             }
         }
         
-        void add_zero_assumption_on_factor(polynomial_ref& f) {
-            display(std::cout << "zero factors \n", f); 
-        }
         // this function also explains the value 0, if met
         bool coeffs_are_zeroes(polynomial_ref &s) {
             restore_factors _restore(m_factors, m_factors_save);
