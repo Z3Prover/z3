@@ -95,12 +95,20 @@ namespace nla {
     lbool stellensatz::saturate() {
         init_solver();
         TRACE(arith, display(tout << "stellensatz before saturation\n"));
-        auto r = conflict_saturation();
+        lbool r;
+        #if 1
+        r = conflict_saturation();
         if (r == l_false)
             return r;
-        TRACE(arith, display(tout << "stellensatz after saturation\n"));
+        #else
+        r = model_repair();
+        if (r == l_false)
+            return r;
+        #endif
+        
         r = m_solver.solve();
         // IF_VERBOSE(0, verbose_stream() << "stellensatz " << r << "\n");
+        TRACE(arith, display(tout << "stellensatz after saturation " << r << "\n"));
         return r;
     }
 
@@ -245,6 +253,8 @@ namespace nla {
             // eliminate x (and other variables) by combining ci with complementary constraints. 
             auto ci = m_active.elem_at(0);   
             m_active.remove(ci);   
+            if (constraint_is_true(ci))
+                continue;
 
             TRACE(arith, display_constraint(tout << "process (" << ci << ") ", ci) << " " << m_tabu[ci] << "\n");
 
@@ -285,9 +295,9 @@ namespace nla {
         return true;
     }
 
-    bool stellensatz::resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci, 
-        rational const& p_value, 
-        factorization const &f, unsigned_vector const &_m1, dd::pdd _f_p) {
+    bool stellensatz::resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci,
+                                       rational const &p_value, factorization const &f, unsigned_vector const &_m1,
+                                       dd::pdd _f_p) {
         if (ci == other_ci)
             return true;
         auto const &[other_p, other_k, other_j] = m_constraints[other_ci];
@@ -298,7 +308,8 @@ namespace nla {
         // check that other_p is disjoint from tabu
         // compute overlaps extending x
         //
-        TRACE(arith, display_constraint(tout << "resolve with " << p_value << " " << p_value2 << " ", other_ci) << "\n");
+        TRACE(arith, display_constraint(tout << "resolve with " << p_value << " " << p_value2 << " ", other_ci)
+                         << "\n");
         SASSERT(g.degree > 0);
         SASSERT(p_value != 0);
         if (g.degree > f.degree)  // future: could handle this too by considering tabu to be a map into degrees.
@@ -332,7 +343,7 @@ namespace nla {
 
         TRACE(arith, tout << "m1 " << m1 << " m2 " << m2 << " m1m2: " << m1m2 << "\n");
 
-        auto sign_f = value(f_p) < 0;       
+        auto sign_f = value(f_p) < 0;
         SASSERT(value(f_p) != 0);
 
         // m1m2 * f_p + f.q >= 0
@@ -375,14 +386,12 @@ namespace nla {
         if (conflict(new_ci))
             return false;
 
-        if (!constraint_is_true(new_ci)) {
-            auto const &[new_p, new_k, new_j] = m_constraints[new_ci];
-            if (new_p.degree() <= 3 && !new_p.free_vars().contains(x)) {
-                uint_set new_tabu(m_tabu[ci]);
-                new_tabu.insert(x);
-                add_active(new_ci, new_tabu);
-            }
-        }           
+        auto const &[new_p, new_k, new_j] = m_constraints[new_ci];
+        if (new_p.degree() <= 3 && !new_p.free_vars().contains(x)) {
+            uint_set new_tabu(m_tabu[ci]);
+            new_tabu.insert(x);
+            add_active(new_ci, new_tabu);
+        }
         return true;    
     }
 
@@ -403,12 +412,16 @@ namespace nla {
     }
 
     lbool stellensatz::model_repair() {
-        m_inactive.reset();
-        unsigned num_vars = m_values.size();
-        for (lpvar v = 0; v < num_vars; ++v) {
+        for (lp::constraint_index ci = 0; ci < m_constraints.size(); ++ci)
+            m_active.insert(ci);
+        svector<lpvar> vars;
+        for (unsigned v = 0; v < m_values.size(); ++v)
+            vars.push_back(v);
+        random_gen rand(c().random());
+        shuffle(vars.size(), vars.begin(), rand);
+        for (auto v : vars)
             if (!model_repair(v))
-                return l_false;
-        }
+                return l_false;        
         return l_undef;
     }
 
@@ -418,6 +431,7 @@ namespace nla {
         auto const &[hi, sup, sups] = bounds.second;
         auto has_false = any_of(infs, [&](lp::constraint_index ci) { return !constraint_is_true(ci); }) ||
                          any_of(sups, [&](lp::constraint_index ci) { return !constraint_is_true(ci); });
+        TRACE(arith, tout << "j" << v << " " << infs.size() << " " << sups.size() << "\n");
         if (!has_false)
             return true;
         SASSERT(!infs.empty() || !sups.empty());
@@ -468,9 +482,9 @@ namespace nla {
                 assume_ge(v, sup, s);            
         }
         for (auto ci : infs)
-            m_inactive.insert(ci);
+            m_active.remove(ci);
         for (auto ci : sups)
-            m_inactive.insert(ci);
+            m_active.remove(ci);
         return true;
     }
 
@@ -489,30 +503,23 @@ namespace nla {
         SASSERT(fp_value != 0);
         SASSERT(gp_value != 0);
         SASSERT((fp_value > 0) == (gp_value > 0));
-        if (fp_value > 0) {
-            //
-            // f.p x + f.q >= 0
-            // <=>
-            // x >= - f.q / f.p
-            // 
-            // - f.q / f.p <= - g.q / g.p
-            // <=> 
-            //    f.q / f.p >= g.q / g.p
-            // <=>
-            //    f.q * g.p >= g.q * f.p
-            //
-            auto r = (f.q * g.p) - (g.q * f.p);
-            SASSERT(value(r) >= 0);
-            auto new_ci = assume(r, join(klo, khi));
-        }
-        else {
-            //
-            // f.p x + f.q >= 0 <=> f.p x >= - f.q <=> x <= - f.q / f.p
-            // 
-            auto r = (g.q * f.p) - (f.q * g.p);
-            SASSERT(value(r) >= 0);
-            auto new_ci = assume(r, join(klo, khi));
-        }
+        //
+        // f.p x + f.q >= 0 <=> f.p x >= - f.q <=> x <= - f.q / f.p
+        // - f.q / f.p <= - g.q / g.p
+        // f.p x + f.q >= 0
+        // <=>
+        // x >= - f.q / f.p
+        //
+        // - f.q / f.p <= - g.q / g.p
+        // <=>
+        //    f.q / f.p >= g.q / g.p
+        // <=>
+        //    f.q * g.p >= g.q * f.p
+        //
+        auto r = (f.q * g.p) - (g.q * f.p);
+        SASSERT(value(r) >= 0);
+        auto new_ci = assume(r, join(klo, khi));
+        m_active.insert(new_ci);
     }
 
     std::pair<stellensatz::bound_info, stellensatz::bound_info> stellensatz::find_bounds(lpvar v) {
@@ -520,7 +527,7 @@ namespace nla {
         auto &[lo, inf, infs] = result.first;
         auto &[hi, sup, sups] = result.second;
         for (auto ci : m_occurs[v]) {
-            if (m_inactive.contains(ci))
+            if (!m_active.contains(ci))
                 continue;
             auto f = factor(v, ci);
             auto p_value = value(f.p);

@@ -120,7 +120,7 @@ namespace nla {
         dd::pdd_manager pddm;
         vector<constraint> m_constraints;
         monomial_factory m_monomial_factory;
-        indexed_uint_set m_active, m_inactive;
+        indexed_uint_set m_active;
         vector<uint_set> m_tabu;
         vector<rational> m_values;
 
