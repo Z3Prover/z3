@@ -120,7 +120,7 @@ namespace nla {
         dd::pdd_manager pddm;
         vector<constraint> m_constraints;
         monomial_factory m_monomial_factory;
-        indexed_uint_set m_active;
+        indexed_uint_set m_active, m_inactive;
         vector<uint_set> m_tabu;
         vector<rational> m_values;
 
@@ -165,7 +165,7 @@ namespace nla {
         lp::lpvar select_variable_to_eliminate(lp::constraint_index ci);
         unsigned degree_of_var_in_constraint(lpvar v, lp::constraint_index ci) const;
         factorization factor(lpvar v, lp::constraint_index ci);  
-        lbool resolve_variable(lpvar x, lp::constraint_index ci);
+        bool resolve_variable(lpvar x, lp::constraint_index ci);
         bool resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci, rational const& p_value, 
             factorization const& f, unsigned_vector const& m1, dd::pdd _f_p);
 
@@ -177,6 +177,7 @@ namespace nla {
             svector<lp::constraint_index> bounds;
         };
         std::pair<bound_info, bound_info> find_bounds(lpvar v);
+        void assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi);
 
         bool constraint_is_true(lp::constraint_index ci) const;
         bool is_new_constraint(lp::constraint_index ci) const;

@@ -257,27 +257,21 @@ namespace nla {
             auto x = select_variable_to_eliminate(ci);
             if (x == lp::null_lpvar)
                 continue;
-
-            switch (resolve_variable(x, ci)) { 
-            case l_false: 
-                return l_false;
-            default: 
-                break;
-            }
-         
+            if (!resolve_variable(x, ci))
+                return l_false;         
         }
         return l_undef;
     }
 
-    lbool stellensatz::resolve_variable(lpvar x, lp::constraint_index ci) {
+    bool stellensatz::resolve_variable(lpvar x, lp::constraint_index ci) {
         auto f = factor(x, ci);
         TRACE(arith, tout << "factor " << m_constraints[ci].p << " -> j" << x << "^" << f.degree << " * " << f.p
                           << "  +  " << f.q << "\n");
         auto p_value = value(f.p);
         if (vanishing(x, f, ci))
-            return l_true;
+            return true;
         if (p_value == 0)
-            return l_undef;
+            return true;
         unsigned num_x = m_occurs[x].size();
         for (unsigned i = 0; i < f.degree; ++i)
             f.p *= to_pdd(x);
@@ -286,9 +280,9 @@ namespace nla {
         for (unsigned cx = 0; cx < num_x; ++cx) {
             auto other_ci = m_occurs[x][cx];
             if (!resolve_variable(x, ci, other_ci, p_value, f, _m1, _f_p))
-                return l_false;
+                return false;
         } 
-        return l_undef;
+        return true;
     }
 
     bool stellensatz::resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci, 
@@ -409,10 +403,8 @@ namespace nla {
     }
 
     lbool stellensatz::model_repair() {
-        m_active.reset();
+        m_inactive.reset();
         unsigned num_vars = m_values.size();
-        for (lp::constraint_index ci = 0; ci < m_constraints.size(); ++ci)
-            m_active.insert(ci);
         for (lpvar v = 0; v < num_vars; ++v) {
             if (!model_repair(v))
                 return l_false;
@@ -422,32 +414,31 @@ namespace nla {
 
     bool stellensatz::model_repair(lp::lpvar v) {
         auto bounds = find_bounds(v);
-        auto &[lo, inf, infs] = bounds.first;
-        auto &[hi, sup, sups] = bounds.second;
+        auto const &[lo, inf, infs] = bounds.first;
+        auto const &[hi, sup, sups] = bounds.second;
         auto has_false = any_of(infs, [&](lp::constraint_index ci) { return !constraint_is_true(ci); }) ||
                          any_of(sups, [&](lp::constraint_index ci) { return !constraint_is_true(ci); });
-        if (!has_false && (infs.empty() || sups.empty()))
+        if (!has_false)
             return true;
+        SASSERT(!infs.empty() || !sups.empty());
         if (infs.empty()) {
+            SASSERT(!sups.empty());
             // repair v by setting it below sup
             auto f = factor(v, sup);
-            auto new_value = floor(-value(f.q) / value(f.p));
-            m_values[v] = new_value;
+            m_values[v] = floor(-value(f.q) / value(f.p));
             return true;            
         }
         if (sups.empty()) {
+            SASSERT(!infs.empty());
             // repair v by setting it above inf
             auto f = factor(v, inf);
-            auto new_value = ceil(-value(f.q) / value(f.p));
-            m_values[v] = new_value;
+            m_values[v] = ceil(-value(f.q) / value(f.p));
             return true;
         }
         if (lo <= hi && (!is_int(v) || ceil(lo) <= floor(hi))) {            
             // repair v by setting it between lo and hi assuming it is integral when v is integer
-            if (is_int(v))
-                m_values[v] = ceil(lo);
-            else
-                m_values[v] = lo;
+            m_values[v] = is_int(v) ? ceil(lo) : lo;
+            return true;
         }
         // lo > hi - pick a side and assume inf or sup and enforce order between sup and inf.
         // maybe just add constraints that are false and skip the rest?
@@ -457,26 +448,71 @@ namespace nla {
             SASSERT(f.degree == 1);
             auto p_value = value(f.p);
             f.p *= pddm.mk_var(v);
-            auto [m1, f_p] = f.p.var_factors();            
-            for (auto s : sups) 
-                resolve_variable(v, inf, s, p_value, f, m1, f_p);            
-            for (auto i : infs) {
-                // assume_ge(v, i, inf)
-            }
+            auto [m, f_p] = f.p.var_factors();            
+            for (auto s : sups)
+                if (!resolve_variable(v, inf, s, p_value, f, m, f_p))
+                    return false;
+            for (auto i : infs)
+                assume_ge(v, i, inf);           
         }
         else {
             auto f = factor(v, sup);
             SASSERT(f.degree == 1);
             auto p_value = value(f.p);
             f.p *= pddm.mk_var(v);
-            auto [m1, f_p] = f.p.var_factors(); 
+            auto [m, f_p] = f.p.var_factors(); 
             for (auto i : infs)
-                resolve_variable(v, sup, i, p_value, f, m1, f_p);
-            for (auto s : sups) {
-                // assume_ge(v, sup, s);
-            }
+                if (!resolve_variable(v, sup, i, p_value, f, m, f_p))
+                    return false;
+            for (auto s : sups) 
+                assume_ge(v, sup, s);            
         }
+        for (auto ci : infs)
+            m_inactive.insert(ci);
+        for (auto ci : sups)
+            m_inactive.insert(ci);
         return true;
+    }
+
+    // lo <= hi
+    void stellensatz::assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi) {
+        if (lo == hi)
+            return;
+        auto const &[plo, klo, jlo] = m_constraints[lo];
+        auto const &[phi, khi, jhi] = m_constraints[hi];
+        auto f = factor(v, lo);
+        auto g = factor(v, hi);
+        SASSERT(f.degree == 1);
+        SASSERT(g.degree == 1);
+        auto fp_value = value(f.p);
+        auto gp_value = value(g.p);
+        SASSERT(fp_value != 0);
+        SASSERT(gp_value != 0);
+        SASSERT((fp_value > 0) == (gp_value > 0));
+        if (fp_value > 0) {
+            //
+            // f.p x + f.q >= 0
+            // <=>
+            // x >= - f.q / f.p
+            // 
+            // - f.q / f.p <= - g.q / g.p
+            // <=> 
+            //    f.q / f.p >= g.q / g.p
+            // <=>
+            //    f.q * g.p >= g.q * f.p
+            //
+            auto r = (f.q * g.p) - (g.q * f.p);
+            SASSERT(value(r) >= 0);
+            auto new_ci = assume(r, join(klo, khi));
+        }
+        else {
+            //
+            // f.p x + f.q >= 0 <=> f.p x >= - f.q <=> x <= - f.q / f.p
+            // 
+            auto r = (g.q * f.p) - (f.q * g.p);
+            SASSERT(value(r) >= 0);
+            auto new_ci = assume(r, join(klo, khi));
+        }
     }
 
     std::pair<stellensatz::bound_info, stellensatz::bound_info> stellensatz::find_bounds(lpvar v) {
@@ -484,7 +520,7 @@ namespace nla {
         auto &[lo, inf, infs] = result.first;
         auto &[hi, sup, sups] = result.second;
         for (auto ci : m_occurs[v]) {
-            if (!m_active.contains(ci))
+            if (m_inactive.contains(ci))
                 continue;
             auto f = factor(v, ci);
             auto p_value = value(f.p);
