@@ -224,6 +224,7 @@ namespace nla {
         if (m_active.contains(ci))
             return;
         m_active.insert(ci);
+        m_tabu.reserve(ci + 1);
         m_tabu[ci] = tabu;
     }
 
@@ -544,7 +545,7 @@ namespace nla {
 
     lbool stellensatz::factor(lp::constraint_index ci) {
         auto const &[p, k, j] = m_constraints[ci];
-        auto [vars, q] = p.var_factors();
+        auto [vars, q] = p.var_factors(); // p = vars * q
 
         auto add_new = [&](lp::constraint_index new_ci) {
             SASSERT(!constraint_is_true(new_ci));
@@ -567,7 +568,7 @@ namespace nla {
         };
 
         TRACE(arith, tout << "factor (" << ci << ") " << p << " q: " << q << " vars: " << vars << "\n");
-        if (vars.empty()) {
+        if (false && vars.empty()) {
             for (auto v : p.free_vars()) {
                 if (value(v) == 0)
                     return subst(v, pddm.mk_val(0));
@@ -577,10 +578,13 @@ namespace nla {
                     return subst(v, pddm.mk_val(rational(-1)));
             }
             return l_undef;
-        }
+        }        
+        if (vars.empty())
+            return l_undef;
         for (auto v : vars) {
             if (value(v) == 0)
-                return subst(v, pddm.mk_val(0));
+                return l_undef;
+//                return subst(v, pddm.mk_val(0));
         }
         vector<dd::pdd> muls;
         muls.push_back(q);
@@ -661,7 +665,7 @@ namespace nla {
             explain_constraint(new_lemma, m.ci, ex);
         } 
         else if (std::holds_alternative<assumption_justification>(b)) {
-            auto [t, coeff] = to_term_offset(p);
+            auto [t, coeff] = to_term_offset(p);            
             new_lemma |= ineq(t, negate(k), -coeff);
         }
         else if (std::holds_alternative<gcd_justification>(b)) {

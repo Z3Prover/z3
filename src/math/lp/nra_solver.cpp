@@ -57,6 +57,99 @@ struct solver::imp {
         m_lp2nl.reset();
     }
 
+
+    struct eq {
+        bool operator()(unsigned_vector const &a, unsigned_vector const &b) const {
+            return a == b;
+        }
+    };
+
+    map<unsigned_vector, unsigned, svector_hash<unsigned_hash>, eq> m_vars2mon;
+    // Create polynomial definition for variable v used in setup_assignment_solver.
+    // Side-effects: updates m_vars2mon when v is a monic variable.
+    void mk_definition(unsigned v, polynomial_ref_vector &definitions) {
+        auto &pm = m_nlsat->pm();
+        polynomial::polynomial_ref p(pm);
+        if (m_nla_core.emons().is_monic_var(v)) {
+            auto const &m = m_nla_core.emons()[v];
+            auto vars = m.vars();
+            std::sort(vars.begin(), vars.end());
+            m_vars2mon.insert(vars, v);
+            for (auto v2 : vars) {
+                auto pv = definitions.get(v2);
+                if (!p)
+                    p = pv;
+                else
+                    p = pm.mul(p, pv);
+            }
+        }
+        else if (lra.column_has_term(v)) {
+            for (auto const &[w, coeff] : lra.get_term(v)) {
+                auto pw = definitions.get(w);
+                if (!p)
+                    p = pm.mul(coeff, pw);
+                else
+                    p = pm.add(p, pm.mul(coeff, pw));
+            }
+        }
+        else {
+            p = pm.mk_polynomial(v);  // nlsat var index equals v (verified above when created)
+        }
+        definitions.push_back(p);
+    }
+
+    void setup_solver_poly() {
+        m_vars2mon.reset();
+        m_coi.init();
+        auto &pm = m_nlsat->pm();
+        polynomial_ref_vector definitions(pm);
+        for (unsigned v = 0; v < lra.number_of_vars(); ++v) {
+            auto j = m_nlsat->mk_var(lra.var_is_int(v));
+            VERIFY(j == v);
+            m_lp2nl.insert(v, j);  // we don't really need this. It is going to be the identify map.
+            scoped_anum a(am());
+            am().set(a, m_nla_core.val(v).to_mpq());
+            m_values->push_back(a);
+            mk_definition(v, definitions);
+        }
+
+        // we rely on that all information encoded into the tableau is present as a constraint.
+        for (auto ci : m_coi.constraints()) {
+            auto &c = lra.constraints()[ci];
+            auto &pm = m_nlsat->pm();
+            auto k = c.kind();
+            auto rhs = c.rhs();
+            auto lhs = c.coeffs();
+            rational den = denominator(rhs);
+            for (auto [coeff, v] : lhs)
+                den = lcm(den, denominator(coeff));
+            polynomial::polynomial_ref p(pm);
+            p = pm.mk_const(-den * rhs);
+
+            for (auto [coeff, v] : lhs) {
+                polynomial_ref poly(pm);
+                poly = pm.mul(den * coeff, definitions.get(v));
+                p = p + poly;
+            }
+            auto lit = add_constraint(p, ci, k);
+        }
+    }
+
+    void setup_solver_terms() {
+        m_coi.init();
+        // add linear inequalities from lra_solver
+        for (auto ci : m_coi.constraints())
+            add_constraint(ci);
+
+        // add polynomial definitions.
+        for (auto const &m : m_coi.mons())
+            add_monic_eq(m_nla_core.emons()[m]);
+
+        // add term definitions.
+        for (unsigned i : m_coi.terms())
+            add_term(i);
+    }
+
     /**
        \brief one-shot nlsat check.
        A one shot checker is the least functionality that can 
@@ -73,22 +166,17 @@ struct solver::imp {
         reset();
         vector<nlsat::assumption, false> core;
 
-        m_coi.init();
-        // add linear inequalities from lra_solver
-        for (auto ci : m_coi.constraints())
-            add_constraint(ci);
-        
-        // add polynomial definitions.
-        for (auto const& m : m_coi.mons())
-            add_monic_eq(m_nla_core.emons()[m]);
 
-        // add term definitions.
-        for (unsigned i : m_coi.terms())
-            add_term(i);
+        
+        smt_params_helper p(m_params);
+
+        if (p.arith_nl_nra_poly())
+            setup_solver_poly();
+        else 
+            setup_solver_terms();
 
         TRACE(nra, m_nlsat->display(tout));
 
-        smt_params_helper p(m_params);
         if (p.arith_nl_log()) {
             static unsigned id = 0;
             std::stringstream strm;
@@ -246,6 +334,23 @@ struct solver::imp {
             UNREACHABLE(); // unreachable
         }
         m_nlsat->mk_clause(1, &lit, a);
+    }
+
+    nlsat::literal add_constraint(polynomial::polynomial *p, unsigned idx, lp::lconstraint_kind k) {
+        polynomial::polynomial *ps[1] = {p};
+        bool is_even[1] = {false};
+        nlsat::literal lit;
+        nlsat::assumption a = this + idx;
+        switch (k) {
+        case lp::lconstraint_kind::LE: lit = ~m_nlsat->mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even); break;
+        case lp::lconstraint_kind::GE: lit = ~m_nlsat->mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even); break;
+        case lp::lconstraint_kind::LT: lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even); break;
+        case lp::lconstraint_kind::GT: lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even); break;
+        case lp::lconstraint_kind::EQ: lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even); break;
+        default: UNREACHABLE();  // unreachable
+        }
+        m_nlsat->mk_clause(1, &lit, a);
+        return lit;
     }
 
     bool check_monic(mon_eq const& m) {
