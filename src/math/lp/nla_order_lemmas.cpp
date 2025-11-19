@@ -24,6 +24,8 @@ void order::order_lemma() {
         TRACE(nla_solver, tout << "not generating order lemmas\n";);
         return;
     }
+    if (!c().params().arith_nl_linearize())
+        return;
    
     for (auto j : c().m_to_refine) {
         if (done()) break; 

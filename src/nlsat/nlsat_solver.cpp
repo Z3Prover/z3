@@ -1871,6 +1871,7 @@ namespace nlsat {
 
 
         lbool search_check() {
+            verbose_stream() << "search check\n";
             lbool r = l_undef;
             m_stats.m_conflicts = 0;
             m_stats.m_restarts = 0;
@@ -1880,8 +1881,15 @@ namespace nlsat {
                 if (r != l_true) 
                     break; 
                 ++m_stats.m_restarts;
-                vector<std::pair<var, rational>> bounds;                
 
+                gc();
+                if (m_stats.m_restarts % 10 == 0) {
+                    if (m_reordered)
+                        restore_order();
+                    apply_reorder();
+                }
+
+                vector<std::pair<var, rational>> bounds;                
                 for (var x = 0; x < num_vars(); x++) {
                     if (is_int(x) && m_assignment.is_assigned(x) && !m_am.is_int(m_assignment.value(x))) {
                         scoped_anum v(m_am), vlo(m_am);
@@ -1905,13 +1913,6 @@ namespace nlsat {
                 if (bounds.empty()) 
                     break;
 
-                gc();
-                if (m_stats.m_restarts % 10 == 0) {
-                    if (m_reordered)
-                        restore_order();
-                    apply_reorder();
-                }
-
                 init_search();
                 IF_VERBOSE(2, verbose_stream() << "(nlsat-b&b :conflicts " << m_stats.m_conflicts 
                            << " :decisions " << m_stats.m_decisions 
@@ -1925,15 +1926,18 @@ namespace nlsat {
                 if (!m_model_values.empty()) {
                     bool found = false;
                     random_gen r(++m_random_seed);
-                    auto const &[x, bound] = bounds[r(bounds.size())];
-                        for (auto const &[mx, mvalue, lo, hi] : m_model_values) {
-                        if (mx == x) {
+                    auto const &[x, value] = bounds[r(bounds.size())];
+                    for (auto const &[ext_x, mvalue, lo, hi] : m_model_values) {
+                        if (ext_x == m_perm[x]) {
+                            verbose_stream() << x << " " << ext_x << " bound: " << mvalue << " value " << value
+                                             << "\n ";
+                            TRACE(nla_solver, tout << "x" << ext_x << " bound " << mvalue << "\n");
                             polynomial_ref p(m_pm);
                             rational one(1);
                             bool is_even = false;
                             p = m_pm.mk_linear(1, &one, &x, -mvalue);  // x - mvalue
                             auto *p1 = p.get();
-                            if (mvalue < bound) {
+                            if (mvalue < value) {
                                 // assert x <= mvalue
                                 // <=>
                                 // ~ (x > mvalue)

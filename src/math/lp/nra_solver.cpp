@@ -129,6 +129,7 @@ struct solver::imp {
             }
             auto lit = add_constraint(p, ci, k);
         }
+        definitions.reset();
     }
 
     void setup_solver_terms() {
@@ -153,10 +154,10 @@ struct solver::imp {
                 continue;
             auto value = m_nla_core.val(v);
             SASSERT(value.is_int());
-            unsigned sz = m_model_bounds.size();
+            unsigned offset = m_model_bounds.size() + m_max_constraint_index;
             m_model_bounds.push_back({v, value, true});
             m_model_bounds.push_back({v, value, false});
-            m_nlsat->track_model_value(lp2nl(v), value, this + sz, this + sz + 1);
+            m_nlsat->track_model_value(lp2nl(v), value, this + offset, this + offset + 1);
         }
     }
 
@@ -174,7 +175,7 @@ struct solver::imp {
     lbool check() {
         SASSERT(need_check());
         reset();
-        vector<nlsat::assumption, false> core;
+        vector<nlsat::assumption, false> core;        
         
         smt_params_helper p(m_params);
 
@@ -250,6 +251,7 @@ struct solver::imp {
             nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
             for (auto c : core) {
                 unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
+                TRACE(nra, tout << "core index " << idx << " " << m_max_constraint_index << "\n");
                 if (idx <= m_max_constraint_index)
                     ex.push_back(idx);
                 else {
@@ -360,6 +362,7 @@ struct solver::imp {
     }
 
     nlsat::literal add_constraint(polynomial::polynomial *p, unsigned idx, lp::lconstraint_kind k) {
+        m_max_constraint_index = std::max(m_max_constraint_index, idx);
         polynomial::polynomial *ps[1] = {p};
         bool is_even[1] = {false};
         nlsat::literal lit;
