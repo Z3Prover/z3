@@ -41,8 +41,15 @@ namespace nla {
             lpvar   v;
             dd::pdd p;
         };
+        struct eq_justification {
+            lp::constraint_index left;
+            lp::constraint_index right;
+        };
         struct gcd_justification {
             lp::constraint_index ci;
+        };
+        struct propagation_justification {
+            svector<lp::constraint_index> cs;
         };
 
         using justification = std::variant<
@@ -52,6 +59,8 @@ namespace nla {
             substitute_justification,
             addition_justification,
             division_justification,
+            eq_justification,
+            propagation_justification,
             multiplication_poly_justification, 
             multiplication_justification>;
 
@@ -97,13 +106,13 @@ namespace nla {
             monomial_factory m_monomial_factory;
             lbool solve_lra();
             lbool solve_lia(); 
-            bool update_values();
+
             void init();
-            void add_lemma();
             term_offset to_term_offset(dd::pdd const &p);
         public:  
             solver(stellensatz &s) : s(s) {};                
-            lbool solve();
+            lbool solve(svector<lp::constraint_index>& core);
+            void update_values(vector<rational>& values);
         };
 
         solver m_solver;
@@ -123,6 +132,7 @@ namespace nla {
         indexed_uint_set m_active;
         vector<uint_set> m_tabu;
         vector<rational> m_values;
+        svector<lp::constraint_index> m_core, m_occurs_trail;
 
         struct constraint_key {
             unsigned pdd;
@@ -157,10 +167,12 @@ namespace nla {
         void init_vars();
         void init_occurs();
         void init_occurs(lp::constraint_index ci);
+        void remove_occurs(lp::constraint_index ci);
 
         lbool conflict_saturation();
         lbool factor(lp::constraint_index ci);
         bool conflict(lp::constraint_index ci);
+        void conflict(svector<lp::constraint_index> const& core);
         bool vanishing(lpvar x, factorization const& f, lp::constraint_index ci);
         lp::lpvar select_variable_to_eliminate(lp::constraint_index ci);
         unsigned degree_of_var_in_constraint(lpvar v, lp::constraint_index ci) const;
@@ -173,11 +185,11 @@ namespace nla {
         bool model_repair(lp::lpvar v);
         struct bound_info {
             rational value;
-            lp::constraint_index bound;
+            lp::constraint_index bound = lp::null_ci;
             svector<lp::constraint_index> bounds;
         };
         std::pair<bound_info, bound_info> find_bounds(lpvar v);
-        void assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi);
+        bool assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi);
 
         bool constraint_is_true(lp::constraint_index ci) const;
         bool is_new_constraint(lp::constraint_index ci) const;
@@ -200,6 +212,9 @@ namespace nla {
         // lemmas
         indexed_uint_set m_constraints_in_conflict;
         void explain_constraint(lemma_builder& new_lemma, lp::constraint_index ci, lp::explanation &ex);
+        void explain_constraint(lp::constraint_index ci, svector<lp::constraint_index> &external,
+                                svector<lp::constraint_index> &assumptions);
+        bool backtrack(svector<lp::constraint_index> const& core);
 
         struct pp_j {
             stellensatz const &s;

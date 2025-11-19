@@ -133,6 +133,10 @@ namespace nlsat {
         */
         void mk_clause(unsigned num_lits, literal * lits, assumption a = nullptr);
 
+        void track_model_value(var x, rational const &v, assumption lo, assumption hi);
+
+        void reset_model_values();
+
         // -----------------------
         //
         // Basic

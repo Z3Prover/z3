@@ -1918,6 +1918,36 @@ namespace nlsat {
                            << " :propagations " << m_stats.m_propagations 
                            << " :clauses " << m_clauses.size() 
                            << " :learned " << m_learned.size() << ")\n");
+
+
+                #if 0
+                // todo, review, test
+                // cut on the first model value
+                if (!m_model_values.empty()) {
+                    bool found = false;
+                    for (auto const &[x, bound] : bounds) {
+                        for (auto const &[mx, mvalue, lo, hi] : m_model_values) {
+                            if (mx == x) {
+                                polynomial_ref p(m_pm);
+                                rational one(1);
+                                bool is_even = false;
+                                p = m_pm.mk_linear(1, &one, &x, mvalue);
+                                auto* p1 = p.get();
+                                if (mvalue < bound) {
+                                    mk_external_clause(1, &mk_ineq_literal(atom::GT, 1, &p1, &is_even), assumption(lo));
+                                }
+                                else {
+                                    mk_external_clause(1, &mk_ineq_literal(atom::LT, 1, &p1, &is_even), assumption(hi));
+                                }
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found)
+                            break;
+                    }
+                }
+                #endif
                 for (auto const& b : bounds) {
                     var x = b.first;
                     rational lo = b.second;
@@ -1942,6 +1972,19 @@ namespace nlsat {
                 }
             }
             return r;
+        }
+
+        struct model_value {
+            var x;
+            rational v;
+            _assumption_set lo, hi;
+        };
+        vector<model_value> m_model_values;
+        void track_model_value(var x, rational const &v, _assumption_set lo, _assumption_set hi) {
+            m_model_values.push_back(model_value{x, v, lo, hi});
+        }
+        void reset_model_values() {
+            m_model_values.reset();
         }
 
         bool m_reordered = false;
@@ -4387,6 +4430,14 @@ namespace nlsat {
 
     assumption solver::join(assumption a, assumption b) {
         return (m_imp->m_asm.mk_join(static_cast<imp::_assumption_set>(a), static_cast<imp::_assumption_set>(b)));
+    }
+
+    void solver::track_model_value(var x, rational const& v, assumption lo, assumption hi) {
+        m_imp->track_model_value(x, v, static_cast<imp::_assumption_set>(lo), static_cast<imp::_assumption_set>(hi));
+    }
+
+    void solver::reset_model_values() {
+        m_imp->reset_model_values();
     }
     
         

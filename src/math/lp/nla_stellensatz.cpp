@@ -95,20 +95,32 @@ namespace nla {
     lbool stellensatz::saturate() {
         init_solver();
         TRACE(arith, display(tout << "stellensatz before saturation\n"));
+        start_saturate:
         lbool r;
         #if 1
         r = conflict_saturation();
-        if (r == l_false)
-            return r;
         #else
         r = model_repair();
-        if (r == l_false)
-            return r;
         #endif
         
-        r = m_solver.solve();
-        // IF_VERBOSE(0, verbose_stream() << "stellensatz " << r << "\n");
+        if (r != l_false)
+            r = m_solver.solve(m_core);
         TRACE(arith, display(tout << "stellensatz after saturation " << r << "\n"));
+        if (r == l_false) {
+            while (backtrack(m_core)) {
+                lbool rb = m_solver.solve(m_core);
+                if (rb == l_false)
+                    continue;
+                if (rb == l_undef) // TODO: if there is a core that doesn't depend on new monomials we could use this for conflicts
+                    return rb;
+                
+                m_solver.update_values(m_values);
+                goto start_saturate;
+            }
+            conflict(m_core);
+        }
+        if (r == l_true)
+            r = l_undef;
         return r;
     }
 
@@ -282,6 +294,8 @@ namespace nla {
             return true;
         if (p_value == 0)
             return true;
+        if (m_tabu[ci].contains(x))
+            return true;
         unsigned num_x = m_occurs[x].size();
         for (unsigned i = 0; i < f.degree; ++i)
             f.p *= to_pdd(x);
@@ -289,6 +303,8 @@ namespace nla {
 
         for (unsigned cx = 0; cx < num_x; ++cx) {
             auto other_ci = m_occurs[x][cx];
+            if (m_tabu[other_ci].contains(x))
+                continue;
             if (!resolve_variable(x, ci, other_ci, p_value, f, _m1, _f_p))
                 return false;
         } 
@@ -336,10 +352,12 @@ namespace nla {
         f_p = f_p.mul(m1);
         g_p = g_p.mul(m2);
 
+        #if 0
         if (!has_term_offset(f_p))
             return true;
         if (!has_term_offset(g_p))
             return true;
+        #endif
 
         TRACE(arith, tout << "m1 " << m1 << " m2 " << m2 << " m1m2: " << m1m2 << "\n");
 
@@ -378,37 +396,42 @@ namespace nla {
             return true;
         if (m_constraints[new_ci].p.degree() <= 3)
             init_occurs(new_ci);
-        TRACE(arith, tout << "eliminate j" << x << ":\n"; display_constraint(tout << "ci: ", ci) << "\n";
+        TRACE(arith, tout << "eliminate j" << x << ":\n"; 
+              display_constraint(tout << "ci: ", ci) << "\n";
               display_constraint(tout << "other_ci: ", other_ci) << "\n";
-              display_constraint(tout << "ci_a: ", ci_a) << "\n"; display_constraint(tout << "ci_b: ", ci_b) << "\n";
+              display_constraint(tout << "ci_a: ", ci_a) << "\n"; 
+              display_constraint(tout << "ci_b: ", ci_b) << "\n";
               display_constraint(tout << "new_ci: ", new_ci) << "\n");
 
         if (conflict(new_ci))
             return false;
 
-        auto const &[new_p, new_k, new_j] = m_constraints[new_ci];
-        if (new_p.degree() <= 3 && !new_p.free_vars().contains(x)) {
-            uint_set new_tabu(m_tabu[ci]);
-            new_tabu.insert(x);
-            add_active(new_ci, new_tabu);
-        }
-        return true;    
+        uint_set new_tabu(m_tabu[ci]);
+        new_tabu.insert(x);
+        add_active(new_ci, new_tabu);
+        return factor(new_ci) != l_false;  
     }
 
     bool stellensatz::conflict(lp::constraint_index ci) {
         auto const &[new_p, new_k, new_j] = m_constraints[ci];
         if (new_p.is_val() && ((new_p.val() < 0 && new_k == lp::lconstraint_kind::GE) || (new_p.val() <= 0 && new_k == lp::lconstraint_kind::GT))) {
-            lp::explanation ex;
-            lemma_builder new_lemma(c(), "stellensatz");
-            m_constraints_in_conflict.reset();
-            explain_constraint(new_lemma, ci, ex);
-            new_lemma &= ex;
-            IF_VERBOSE(2, verbose_stream() << "stellensatz unsat \n" << new_lemma << "\n");
-            TRACE(arith, tout << "unsat\n" << new_lemma << "\n");
-            c().lra_solver().settings().stats().m_nla_stellensatz++;
+            m_core.reset();
+            m_core.push_back(ci);
             return true;
         }
         return false;
+    }
+
+    void stellensatz::conflict(svector<lp::constraint_index> const& core) {
+        lp::explanation ex;
+        lemma_builder new_lemma(c(), "stellensatz");
+        m_constraints_in_conflict.reset();
+        for (auto ci : core)
+            explain_constraint(new_lemma, ci, ex);
+        new_lemma &= ex;
+        IF_VERBOSE(2, verbose_stream() << "stellensatz unsat \n" << new_lemma << "\n");
+        TRACE(arith, tout << "unsat\n" << new_lemma << "\n");
+        c().lra_solver().settings().stats().m_nla_stellensatz++;
     }
 
     lbool stellensatz::model_repair() {
@@ -467,7 +490,8 @@ namespace nla {
                 if (!resolve_variable(v, inf, s, p_value, f, m, f_p))
                     return false;
             for (auto i : infs)
-                assume_ge(v, i, inf);           
+                if (!assume_ge(v, i, inf))
+                    return false;
         }
         else {
             auto f = factor(v, sup);
@@ -478,20 +502,23 @@ namespace nla {
             for (auto i : infs)
                 if (!resolve_variable(v, sup, i, p_value, f, m, f_p))
                     return false;
-            for (auto s : sups) 
-                assume_ge(v, sup, s);            
+            for (auto s : sups)
+                if (!assume_ge(v, sup, s))
+                    return false;
         }
         for (auto ci : infs)
-            m_active.remove(ci);
+            if (m_active.contains(ci))
+                m_active.remove(ci);
         for (auto ci : sups)
-            m_active.remove(ci);
+            if (m_active.contains(ci))
+                m_active.remove(ci);
         return true;
     }
 
     // lo <= hi
-    void stellensatz::assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi) {
+    bool stellensatz::assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi) {
         if (lo == hi)
-            return;
+            return true;
         auto const &[plo, klo, jlo] = m_constraints[lo];
         auto const &[phi, khi, jhi] = m_constraints[hi];
         auto f = factor(v, lo);
@@ -520,6 +547,7 @@ namespace nla {
         SASSERT(value(r) >= 0);
         auto new_ci = assume(r, join(klo, khi));
         m_active.insert(new_ci);
+        return factor(new_ci) != l_false;   
     }
 
     std::pair<stellensatz::bound_info, stellensatz::bound_info> stellensatz::find_bounds(lpvar v) {
@@ -560,8 +588,6 @@ namespace nla {
     }
 
     bool stellensatz::vanishing(lpvar x, factorization const &f, lp::constraint_index ci) {
-        if (f.q.is_zero())
-            return false;
         if (f.p.is_zero())
             return false;
         auto p_value = value(f.p);
@@ -591,7 +617,6 @@ namespace nla {
         auto [vars, q] = p.var_factors(); // p = vars * q
 
         auto add_new = [&](lp::constraint_index new_ci) {
-            SASSERT(!constraint_is_true(new_ci));
             TRACE(arith, display_constraint(tout << "factor ", new_ci) << "\n");
             if (conflict(new_ci))
                 return l_false;
@@ -601,33 +626,12 @@ namespace nla {
             return l_true;
         };
 
-        auto subst = [&](lpvar v, dd::pdd p) { 
-            auto q = pddm.mk_var(v) - p;
-            auto new_ci = substitute(ci, assume(q, lp::lconstraint_kind::EQ), v, p);
-            TRACE(arith, tout << "j" << v << " " << p << "\n"; 
-                display_constraint(tout, ci) << "\n";
-                  display_constraint(tout, new_ci) << "\n");
-            return add_new(new_ci);
-        };
-
-        TRACE(arith, tout << "factor (" << ci << ") " << p << " q: " << q << " vars: " << vars << "\n");
-        if (false && vars.empty()) {
-            for (auto v : p.free_vars()) {
-                if (value(v) == 0)
-                    return subst(v, pddm.mk_val(0));
-                if (value(v) == 1)
-                    return subst(v, pddm.mk_val(1));
-                if (value(v) == -1)
-                    return subst(v, pddm.mk_val(rational(-1)));
-            }
-            return l_undef;
-        }        
+        TRACE(arith, tout << "factor (" << ci << ") " << p << " q: " << q << " vars: " << vars << "\n");     
         if (vars.empty())
             return l_undef;
         for (auto v : vars) {
             if (value(v) == 0)
                 return l_undef;
-//                return subst(v, pddm.mk_val(0));
         }
         vector<dd::pdd> muls;
         muls.push_back(q);
@@ -640,6 +644,8 @@ namespace nla {
             auto k = value(vars[i]) > 0 ? lp::lconstraint_kind::GT : lp::lconstraint_kind::LT;
             new_ci = divide(new_ci, assume(pv, k), muls[i]);
         }
+        if (m_active.contains(ci))
+            m_active.remove(ci);
         return add_new(new_ci);
     }
 
@@ -669,54 +675,132 @@ namespace nla {
     }
 
 
+    //
+    // check if core depends on an assumption
+    // identify the maximal assumption
+    // undo m_constraints down to max_ci.
+    // negate max_ci
+    // propagate it using remaining external and assumptions.
+    // find a new satisfying assignment (if any) before continuing.
+    // 
+    bool stellensatz::backtrack(svector<lp::constraint_index> const &core) {
+        m_constraints_in_conflict.reset();
+        svector<lp::constraint_index> external, assumptions;
+        for (auto ci : core)
+            explain_constraint(ci, external, assumptions);
+        if (assumptions.empty())
+            return false;
+        lp::constraint_index max_ci = 0;
+        for (auto ci : assumptions)
+            max_ci = std::max(ci, max_ci);
+        TRACE(arith, tout << "max " << max_ci << " external " << external << " assumptions " << assumptions << "\n";
+              display_constraint(tout, max_ci););
+        // TODO, we can in reality replay all constraints that don't depend on max_ci
+        vector<constraint> replay;
+        unsigned i = 0;
+        for (auto ci : external) {
+            if (ci > max_ci)
+                replay.push_back(m_constraints[ci]);
+            else
+                external[i++] = ci;
+        }
+        external.shrink(i);
+        auto [p, k, j] = m_constraints[max_ci];
+        while (m_constraints.size() > max_ci) {
+            auto const& [_p, _k, _j] = m_constraints.back();
+            m_constraint_index.erase({_p.index(), _k});
+            m_constraints.pop_back();
+            auto ci = m_constraints.size();
+            if (!m_occurs_trail.empty() && m_occurs_trail.back() == ci) {
+                remove_occurs(ci);
+                m_occurs_trail.pop_back();
+            }
+        }
+        for (auto const &[_p, _k, _j] : replay) {
+            auto ci = add_constraint(_p, _k, _j);
+            init_occurs(ci);
+            external.push_back(ci);
+        }
+        assumptions.erase(max_ci);
+        external.append(assumptions);
+        propagation_justification prop{external};
+        auto new_ci = add_constraint(p, negate(k), prop);
+        TRACE(arith, display_constraint(tout << "backtrack ", new_ci) << "\n");
+        init_occurs(new_ci);
+        return true;
+    }
+
+    void stellensatz::explain_constraint(lp::constraint_index ci, svector<lp::constraint_index> &external,
+                                         svector<lp::constraint_index> &assumptions) {
+        if (m_constraints_in_conflict.contains(ci))
+            return;
+        m_constraints_in_conflict.insert(ci);
+        auto &[p, k, b] = m_constraints[ci];
+        if (std::holds_alternative<external_justification>(b)) {
+            external.push_back(ci);
+        }
+        else if (std::holds_alternative<multiplication_justification>(b)) {
+            auto &m = std::get<multiplication_justification>(b);
+            explain_constraint(m.left, external, assumptions);
+            explain_constraint(m.right, external, assumptions);
+        }
+        else if (std::holds_alternative<eq_justification>(b)) {
+            auto &m = std::get<eq_justification>(b);
+            explain_constraint(m.left, external, assumptions);
+            explain_constraint(m.right, external, assumptions);
+        }
+        else if (std::holds_alternative<division_justification>(b)) {
+            auto &m = std::get<division_justification>(b);
+            explain_constraint(m.ci, external, assumptions);
+            explain_constraint(m.divisor, external, assumptions);
+        }
+        else if (std::holds_alternative<substitute_justification>(b)) {
+            auto &m = std::get<substitute_justification>(b);
+            explain_constraint(m.ci, external, assumptions);
+            explain_constraint(m.ci_eq, external, assumptions);
+        }
+        else if (std::holds_alternative<propagation_justification>(b)) {
+            auto &m = std::get<propagation_justification>(b);
+            for (auto c : m.cs)
+                explain_constraint(c, external, assumptions);
+        }
+        else if (std::holds_alternative<addition_justification>(b)) {
+            auto &m = std::get<addition_justification>(b);
+            explain_constraint(m.left, external, assumptions);
+            explain_constraint(m.right, external, assumptions);
+        }
+        else if (std::holds_alternative<multiplication_poly_justification>(b)) {
+            auto &m = std::get<multiplication_poly_justification>(b);
+            explain_constraint(m.ci, external, assumptions);
+        }
+        else if (std::holds_alternative<assumption_justification>(b)) {
+            assumptions.push_back(ci);
+        }
+        else if (std::holds_alternative<gcd_justification>(b)) {
+            auto &m = std::get<gcd_justification>(b);
+            explain_constraint(m.ci, external, assumptions);
+        }
+        else
+            UNREACHABLE();
+    }
 
     //
     // a constraint can be explained by a set of bounds used as justifications
     // and by an original constraint.
     // 
     void stellensatz::explain_constraint(lemma_builder &new_lemma, lp::constraint_index ci, lp::explanation &ex) {
-        if (m_constraints_in_conflict.contains(ci))
-            return;
-        m_constraints_in_conflict.insert(ci);
-        auto &[p, k, b] = m_constraints[ci];
-        if (std::holds_alternative<external_justification>(b)) {
+        svector<lp::constraint_index> external, assumptions;
+        explain_constraint(ci, external, assumptions);
+        for (auto ci : external) {
+            auto &[p, k, b] = m_constraints[ci];
             auto dep = std::get<external_justification>(b);
             c().lra_solver().push_explanation(dep.dep, ex);
-        } 
-        else if (std::holds_alternative<multiplication_justification>(b)) {
-            auto& m = std::get<multiplication_justification>(b);
-            explain_constraint(new_lemma, m.left, ex);
-            explain_constraint(new_lemma, m.right, ex);
-        } 
-        else if (std::holds_alternative<division_justification>(b)) {
-            auto &m = std::get<division_justification>(b);
-            explain_constraint(new_lemma, m.ci, ex);
-            explain_constraint(new_lemma, m.divisor, ex);
-        } 
-        else if (std::holds_alternative<substitute_justification>(b)) {
-            auto &m = std::get<substitute_justification>(b);
-            explain_constraint(new_lemma, m.ci, ex);
-            explain_constraint(new_lemma, m.ci_eq, ex);
-        } 
-        else if (std::holds_alternative<addition_justification>(b)) {
-            auto& m = std::get<addition_justification>(b);
-            explain_constraint(new_lemma, m.left, ex);
-            explain_constraint(new_lemma, m.right, ex);
-        } 
-        else if (std::holds_alternative<multiplication_poly_justification>(b)) {
-            auto& m = std::get<multiplication_poly_justification>(b);
-            explain_constraint(new_lemma, m.ci, ex);
-        } 
-        else if (std::holds_alternative<assumption_justification>(b)) {
-            auto [t, coeff] = to_term_offset(p);            
+        }
+        for (auto ci : assumptions) {
+            auto &[p, k, b] = m_constraints[ci];
+            auto [t, coeff] = to_term_offset(p);
             new_lemma |= ineq(t, negate(k), -coeff);
         }
-        else if (std::holds_alternative<gcd_justification>(b)) {
-            auto& m = std::get<gcd_justification>(b);
-            explain_constraint(new_lemma, m.ci, ex);
-        }
-        else
-            UNREACHABLE();
     }
  
     rational stellensatz::value(dd::pdd const& p) const {
@@ -765,6 +849,37 @@ namespace nla {
     }
     
     lp::constraint_index stellensatz::assume(dd::pdd const& p, lp::lconstraint_kind k) {
+        if (k == lp::lconstraint_kind::EQ) {
+            auto left = assume(p, lp::lconstraint_kind::GE);
+            auto right = assume(-p, lp::lconstraint_kind::GE);
+            return add_constraint(p, k, eq_justification{left, right});
+        }
+        u_dependency *d = nullptr;
+        auto has_bound = [&](rational a, lpvar x, rational b) {
+            rational bound;
+            bool is_strict = false;
+            if (a == 1 && k == lp::lconstraint_kind::GE && c().lra_solver().has_lower_bound(x, d, bound, is_strict) &&
+                bound >= -b) {
+                return true;
+            }
+            if (a == 1 && k == lp::lconstraint_kind::GT && c().lra_solver().has_lower_bound(x, d, bound, is_strict) &&
+                (bound > -b || (is_strict && bound >= -b))) {
+                return true;
+            }
+            if (a == -1 && k == lp::lconstraint_kind::GE && c().lra_solver().has_upper_bound(x, d, bound, is_strict) &&
+                bound <= -b) {
+                return true;
+            }
+            if (a == -1 && k == lp::lconstraint_kind::GT && c().lra_solver().has_upper_bound(x, d, bound, is_strict) &&
+                (bound < -b || (is_strict && bound <= -b))) {
+                return true;
+            }
+            return false;
+        };
+
+        if (p.is_unilinear() && has_bound(p.hi().val(), p.var(), p.lo().val()))
+            // ax + b ~k~ 0
+            return add_constraint(p, k, external_justification(d));        
         return add_constraint(p, k, assumption_justification());
     }
     
@@ -820,10 +935,17 @@ namespace nla {
     void stellensatz::init_occurs(lp::constraint_index ci) {
         if (ci == lp::null_ci)
             return;
+        m_occurs_trail.push_back(ci);
         auto const &con = m_constraints[ci];
         for (auto v : con.p.free_vars())
             m_occurs[v].push_back(ci);
         
+    }
+
+    void stellensatz::remove_occurs(lp::constraint_index ci) {
+        auto const &con = m_constraints[ci];
+        for (auto v : con.p.free_vars())
+            m_occurs[v].pop_back();
     }
 
     bool stellensatz::is_int(svector<lp::lpvar> const& vars) const {
@@ -922,9 +1044,19 @@ namespace nla {
             auto m = std::get<addition_justification>(j);
             out << "(" << m.left << ") + (" << m.right << ")";
         }
+        else if (std::holds_alternative<eq_justification>(j)) {
+            auto &m = std::get<eq_justification>(j);
+            out << "(" << m.left << ") & (" << m.right << ")";
+        } 
         else if (std::holds_alternative<substitute_justification>(j)) {
             auto m = std::get<substitute_justification>(j);
             out << "(" << m.ci << ") (" << m.ci_eq << ") by j" << m.v << " := " << m.p;
+        }
+        else if (std::holds_alternative<propagation_justification>(j)) {
+            auto &m = std::get<propagation_justification>(j);
+            out << "propagate ";
+            for (auto c : m.cs)
+                out << "(" << c << ") ";
         }
         else if (std::holds_alternative<multiplication_justification>(j)) {
             auto m = std::get<multiplication_justification>(j);
@@ -969,6 +1101,15 @@ namespace nla {
                 auto m = std::get<multiplication_justification>(j);
                 todo.push_back(m.left);
                 todo.push_back(m.right);
+            }
+            if (std::holds_alternative<eq_justification>(j)) {
+                auto m = std::get<eq_justification>(j);
+                todo.push_back(m.left);
+                todo.push_back(m.right);
+            }
+            if (std::holds_alternative<propagation_justification>(j)) {
+                auto m = std::get<propagation_justification>(j);
+                todo.append(m.cs);
             }
             else if (std::holds_alternative<substitute_justification>(j)) {
                 auto m = std::get<substitute_justification>(j);
@@ -1052,40 +1193,19 @@ namespace nla {
         return to;
     }
 
-
-    //
-    // convert a conflict from m_solver.lra()/lia() into
-    // a conflict for c().lra_solver()
-    //
-    void stellensatz::solver::add_lemma() {
-        TRACE(arith, s.display(tout); s.display_lemma(tout, m_ex));
-        auto &src = s.c().lra_solver();
-        lp::explanation ex2;
-        lemma_builder new_lemma(s.c(), "stellensatz");
-        s.m_constraints_in_conflict.reset();
-        for (auto p : m_ex)
-            s.explain_constraint(new_lemma, m_internal2external_constraints[p.ci()], ex2);
-        new_lemma &= ex2;
-        IF_VERBOSE(2, verbose_stream() << "stellensatz unsat \n" << new_lemma << "\n");
-        TRACE(arith, tout << "unsat\n" << new_lemma << "\n");
-        s.c().lra_solver().settings().stats().m_nla_stellensatz++;
-    }
-
-    lbool stellensatz::solver::solve() {
+    lbool stellensatz::solver::solve(svector<lp::constraint_index>& core) {
         init();
         lbool r = solve_lra();
-        // IF_VERBOSE(0, verbose_stream() << "solve lra " << r << "\n");
-        if (r != l_true)
-            return r;
-        r = solve_lia();
-        // IF_VERBOSE(0, verbose_stream() << "solve lia " << r << "\n");
-        if (r != l_true)
-            return r;
-        return l_undef;
-        if (update_values())
-            return l_true;
-
-        return l_undef;
+        if (r == l_true) 
+            r = solve_lia();
+        
+        if (r == l_false) { 
+            core.reset();
+            for (auto p : m_ex)
+                core.push_back(m_internal2external_constraints[p.ci()]);
+            return l_false;
+        }
+        return r;
     }
 
     lbool stellensatz::solver::solve_lra() {
@@ -1094,7 +1214,6 @@ namespace nla {
             return l_true;
         if (status == lp::lp_status::INFEASIBLE) {
             lra_solver->get_infeasibility_explanation(m_ex);
-            add_lemma();
             return l_false;
         }
         return l_undef;
@@ -1105,7 +1224,6 @@ namespace nla {
         case lp::lia_move::sat: 
             return l_true;
         case lp::lia_move::conflict: 
-            add_lemma();
             return l_false;
         default:  // TODO: an option is to perform (bounded) search here to get an LIA verdict.
             return l_undef;
@@ -1113,37 +1231,12 @@ namespace nla {
         return l_undef;
     }
 
-    // update m_values
-    // return true if the new assignment satisfies the products.
-    // return false if value constraints are not satisfied on monomials and there is a false constaint.
-    bool stellensatz::solver::update_values() {
-        return false;
-        #if 0
-        std::unordered_map<lpvar, rational> values;
-        lra_solver->get_model(values);
-        unsigned sz = lra_solver->number_of_vars();
-        for (unsigned i = 0; i < sz; ++i) {
-            auto const &value = values[i];
-            bool is_int = lra_solver->var_is_int(i); 
-            SASSERT(!is_int || value.is_int());
-            if (!s.is_mon_var(i))
-                continue;
-            rational val(1);
-            for (auto w : s.c().emons()[i])
-                val *= values[w];
-            values[i] = val;
-        }
-        auto indices = lra_solver->constraints().indices();
-        bool satisfies_products = all_of(indices, [&](auto ci) {
-            NOT_IMPLEMENTED_YET();
-            // todo: wrong, needs to be at level of lra constraint evaluation
-            return s.constraint_is_true(ci);});
-        if (satisfies_products) {
-            TRACE(arith, tout << "found satisfying model\n");
-            for (auto v : s.m_coi.vars()) 
-                s.c().lra_solver().set_column_value(v, lp::impq(values[v], rational(0)));            
-        }
-        return satisfies_products;
-        #endif
+    // update values using the model
+    void stellensatz::solver::update_values(vector<rational>& values) {
+        std::unordered_map<lpvar, rational> _values;
+        lra_solver->get_model(_values);
+        unsigned sz = values.size();
+        for (unsigned i = 0; i < sz; ++i) 
+            values[i] = _values[i];
     }
 }

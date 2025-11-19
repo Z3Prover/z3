@@ -26,6 +26,12 @@ typedef nla::mon_eq mon_eq;
 typedef nla::variable_map_type variable_map_type;
 
 struct solver::imp {
+    struct model_bound {
+        lp::lpvar v;
+        rational r;
+        bool is_lower;
+    };
+
     lp::lar_solver&           lra;
     reslimit&                 m_limit;  
     params_ref                m_params; 
@@ -35,6 +41,8 @@ struct solver::imp {
     scoped_ptr<scoped_anum> m_tmp1, m_tmp2;
     nla::coi                  m_coi;
     nla::core&                m_nla_core;
+    unsigned                  m_max_constraint_index = 0;
+    vector<model_bound>       m_model_bounds;
     
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p, nla::core& nla_core): 
         lra(s), 
@@ -53,6 +61,8 @@ struct solver::imp {
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_values = alloc(scoped_anum_vector, am());
         m_lp2nl.reset();
+        m_model_bounds.reset();
+        m_max_constraint_index = 0;
     }
 
     // Create polynomial definition for variable v used in setup_assignment_solver.
@@ -136,6 +146,20 @@ struct solver::imp {
             add_term(i);
     }
 
+
+    void setup_model_bounds() {
+        for (unsigned v = 0; v < lra.number_of_vars(); ++v) {
+            if (!lra.column_is_int(v))
+                continue;
+            auto value = m_nla_core.val(v);
+            SASSERT(value.is_int());
+            unsigned sz = m_model_bounds.size();
+            m_model_bounds.push_back({v, value, true});
+            m_model_bounds.push_back({v, value, false});
+            m_nlsat->track_model_value(v, value, this + sz, this + sz + 1);
+        }
+    }
+
     /**
        \brief one-shot nlsat check.
        A one shot checker is the least functionality that can 
@@ -151,8 +175,6 @@ struct solver::imp {
         SASSERT(need_check());
         reset();
         vector<nlsat::assumption, false> core;
-
-
         
         smt_params_helper p(m_params);
 
@@ -160,6 +182,9 @@ struct solver::imp {
             setup_solver_poly();
         else 
             setup_solver_terms();
+
+        if (p.arith_nl_nra_model_bounds())
+            setup_model_bounds();
 
         TRACE(nra, m_nlsat->display(tout));
 
@@ -222,11 +247,21 @@ struct solver::imp {
         case l_false: {
             lp::explanation ex;
             m_nlsat->get_core(core);
+            nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
             for (auto c : core) {
                 unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
-                ex.push_back(idx);
+                if (idx <= m_max_constraint_index)
+                    ex.push_back(idx);
+                else {
+                    idx -= m_max_constraint_index;
+                    auto const& [v, bound, is_lower] = m_model_bounds[idx];
+                    if (is_lower)
+                        lemma |= nla::ineq(v, lp::lconstraint_kind::LE, bound - 1);
+                    else
+                        lemma |= nla::ineq(v, lp::lconstraint_kind::GE, bound + 1);
+                }
             }
-            nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
+
             lemma &= ex;
             m_nla_core.set_use_nra_model(true);
             TRACE(nra, tout << lemma << "\n");
@@ -278,6 +313,7 @@ struct solver::imp {
     }
 
     void add_constraint(unsigned idx) {
+        m_max_constraint_index = std::max(m_max_constraint_index, idx);
         auto& c = lra.constraints()[idx];
         auto& pm = m_nlsat->pm();
         auto k = c.kind();
