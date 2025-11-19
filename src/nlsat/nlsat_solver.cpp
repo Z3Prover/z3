@@ -219,6 +219,7 @@ namespace nlsat {
         unsigned               m_random_seed;
         bool                   m_inline_vars;
         bool                   m_log_lemmas;
+        bool                   m_log_lemma_smtrat;
         bool                   m_dump_mathematica;
         bool                   m_check_lemmas;
         unsigned               m_max_conflicts;
@@ -297,6 +298,7 @@ namespace nlsat {
             m_random_seed    = p.seed();
             m_inline_vars    = p.inline_vars();
             m_log_lemmas     = p.log_lemmas();
+            m_log_lemma_smtrat = p.log_lemma_smtrat();
             m_dump_mathematica= p.dump_mathematica();
             m_check_lemmas   = p.check_lemmas();
             m_variable_ordering_strategy = p.variable_ordering_strategy();
@@ -3642,6 +3644,33 @@ namespace nlsat {
         }
 
 
+        std::ostream& display_root_term_smtrat(std::ostream& out, root_atom const& a, display_var_proc const& proc) const {
+            out << "(root ";
+            display_polynomial_smt2(out, a.p(), proc);
+            out << " " << a.i() << " ";
+            proc(out, a.x());
+            out << ")";
+            return out;
+        }
+
+        std::ostream& display_root_atom_smtrat(std::ostream& out, root_atom const& a, display_var_proc const& proc) const {
+            char const* rel = "=";
+            switch (a.get_kind()) {
+            case atom::ROOT_LT: rel = "<"; break;
+            case atom::ROOT_GT: rel = ">"; break;
+            case atom::ROOT_LE: rel = "<="; break;
+            case atom::ROOT_GE: rel = ">="; break;
+            case atom::ROOT_EQ: rel = "="; break;
+            default: UNREACHABLE(); break;
+            }
+            out << "(" << rel << " ";
+            proc(out, a.x());
+            out << " ";
+            display_root_term_smtrat(out, a, proc);
+            out << ")";
+            return out;
+        }
+
         struct root_poly_subst : public display_var_proc {
             display_var_proc const& m_proc;
             var m_var;
@@ -3715,6 +3744,8 @@ namespace nlsat {
         }
 
         std::ostream& display_root_smt2(std::ostream& out, root_atom const& a, display_var_proc const& proc) const {
+            if (m_log_lemma_smtrat)
+                return display_root_atom_smtrat(out, a, proc);
             auto inline_printer = [&](std::ostream& dst, char const* y) -> std::ostream& {
                 root_poly_subst poly_proc(proc, a.x(), y);
                 return display_polynomial_smt2(dst, a.p(), poly_proc);
@@ -3730,11 +3761,7 @@ namespace nlsat {
             out << "(assert ";
             if (lit.sign())
                 out << "(not ";
-            auto inline_printer = [&](std::ostream& dst, char const* y) -> std::ostream& {
-                root_poly_subst poly_proc(proc, a.x(), y);
-                return display_polynomial_smt2(dst, a.p(), poly_proc);
-            };
-            display_root_quantified(out, a, proc, inline_printer);
+            display_root_smt2(out, a, proc);
             if (lit.sign())
                 out << ")";
             out << ")\n";
@@ -4160,12 +4187,16 @@ namespace nlsat {
             unsigned sz = m_is_int.size();
             for (unsigned i = 0; i < sz; i++) {
                 if (!used_vars[i]) continue;
-                if (is_int(i)) {
-                    out << "(declare-fun "; m_display_var(out, i) << " () Int)\n";
+                out << "(declare-fun ";
+                m_display_var(out, i);
+                out << " () ";
+                if (!m_log_lemma_smtrat && is_int(i)) {
+                    out << "Int";
                 }
                 else {
-                    out << "(declare-fun "; m_display_var(out, i) << " () Real)\n";
+                    out << "Real";
                 }
+                out << ")\n";
             }
             return out;
         }
