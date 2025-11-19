@@ -156,7 +156,7 @@ struct solver::imp {
             unsigned sz = m_model_bounds.size();
             m_model_bounds.push_back({v, value, true});
             m_model_bounds.push_back({v, value, false});
-            m_nlsat->track_model_value(v, value, this + sz, this + sz + 1);
+            m_nlsat->track_model_value(lp2nl(v), value, this + sz, this + sz + 1);
         }
     }
 
@@ -255,6 +255,7 @@ struct solver::imp {
                 else {
                     idx -= m_max_constraint_index;
                     auto const& [v, bound, is_lower] = m_model_bounds[idx];
+                    TRACE(nra, tout << "bound violated for v" << v << (is_lower ? " >= " : " <= ") << bound << "\n");
                     if (is_lower)
                         lemma |= nla::ineq(v, lp::lconstraint_kind::LE, bound - 1);
                     else

@@ -1920,34 +1920,37 @@ namespace nlsat {
                            << " :learned " << m_learned.size() << ")\n");
 
 
-                #if 0
                 // todo, review, test
                 // cut on the first model value
                 if (!m_model_values.empty()) {
                     bool found = false;
-                    for (auto const &[x, bound] : bounds) {
+                    random_gen r(++m_random_seed);
+                    auto const &[x, bound] = bounds[r(bounds.size())];
                         for (auto const &[mx, mvalue, lo, hi] : m_model_values) {
-                            if (mx == x) {
-                                polynomial_ref p(m_pm);
-                                rational one(1);
-                                bool is_even = false;
-                                p = m_pm.mk_linear(1, &one, &x, mvalue);
-                                auto* p1 = p.get();
-                                if (mvalue < bound) {
-                                    mk_external_clause(1, &mk_ineq_literal(atom::GT, 1, &p1, &is_even), assumption(lo));
-                                }
-                                else {
-                                    mk_external_clause(1, &mk_ineq_literal(atom::LT, 1, &p1, &is_even), assumption(hi));
-                                }
-                                found = true;
-                                break;
+                        if (mx == x) {
+                            polynomial_ref p(m_pm);
+                            rational one(1);
+                            bool is_even = false;
+                            p = m_pm.mk_linear(1, &one, &x, -mvalue);  // x - mvalue
+                            auto *p1 = p.get();
+                            if (mvalue < bound) {
+                                // assert x <= mvalue
+                                // <=>
+                                // ~ (x > mvalue)
+                                // assumption hi
+                                auto lit = ~mk_ineq_literal(atom::GT, 1, &p1, &is_even);
+                                mk_external_clause(1, &lit, assumption(hi));
                             }
-                        }
-                        if (found)
+                            else {
+                                auto lit = ~mk_ineq_literal(atom::LT, 1, &p1, &is_even);
+                                mk_external_clause(1, &lit, assumption(lo));
+                            }
+                            found = true;
                             break;
+                        }                        
                     }
+                    continue;
                 }
-                #endif
                 for (auto const& b : bounds) {
                     var x = b.first;
                     rational lo = b.second;
