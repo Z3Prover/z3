@@ -1141,7 +1141,10 @@ namespace nlsat {
                         used_vars[v] = true;            
             }
             display(out << "(echo \"#" << m_lemma_count++ << ":" << annotation << ":", n, cls) << "\")\n";
-            out << "(set-logic NRA)\n";
+            if (m_log_lemma_smtrat)
+                out << "(set-logic NRA)\n";
+            else 
+                out << "(set-logic ALL)\n";
             out << "(set-option :rlimit " << m_lemma_rlimit << ")\n";
             if (is_valid) {
                 display_smt2_bool_decls(out, used_bools);
@@ -2262,7 +2265,11 @@ namespace nlsat {
                 }
             }
             out << "(echo \"#" << m_lemma_count++ << ":assignment lemma " << comment.str() << "\")\n";
-            out << "(set-logic NRA)\n";
+            if (m_log_lemma_smtrat)
+                out << "(set-logic NRA)\n";
+            else 
+                out << "(set-logic ALL)\n";
+
             out << "(set-option :rlimit " << m_lemma_rlimit << ")\n";
             display_smt2_bool_decls(out, used_bools);
             display_smt2_arith_decls(out, used_vars); 
@@ -2300,6 +2307,7 @@ namespace nlsat {
                 print_out_as_math(verbose_stream(), jst) << std::endl;
             
             m_lazy_clause.reset();
+            
             m_explain.main_operator(jst.num_lits(), jst.lits(), m_lazy_clause);
             for (unsigned i = 0; i < sz; i++)
                 m_lazy_clause.push_back(~jst.lit(i));
