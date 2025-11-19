@@ -1139,7 +1139,7 @@ namespace nlsat {
                         used_vars[v] = true;            
             }
             display(out << "(echo \"#" << m_lemma_count++ << ":" << annotation << ":", n, cls) << "\")\n";
-            out << "(set-logic ALL)\n";
+            out << "(set-logic NRA)\n";
             out << "(set-option :rlimit " << m_lemma_rlimit << ")\n";
             if (is_valid) {
                 display_smt2_bool_decls(out, used_bools);
@@ -2260,7 +2260,7 @@ namespace nlsat {
                 }
             }
             out << "(echo \"#" << m_lemma_count++ << ":assignment lemma " << comment.str() << "\")\n";
-            out << "(set-logic ALL)\n";
+            out << "(set-logic NRA)\n";
             out << "(set-option :rlimit " << m_lemma_rlimit << ")\n";
             display_smt2_bool_decls(out, used_bools);
             display_smt2_arith_decls(out, used_vars); 
