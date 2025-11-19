@@ -281,30 +281,49 @@ namespace nlsat {
         };
 
         void add_zero_assumption(polynomial_ref& p) {
-            // If p is of the form p1^n1 * ... * pk^nk,
-            // then only the factors that are zero in the current interpretation needed to be considered.
-            // I don't want to create a nested conjunction in the clause. 
-            // Then, I assert p_i1 * ... * p_im  != 0
-            {
-                restore_factors _restore(m_factors, m_factors_save);
-                factor(p, m_factors);
-                unsigned num_factors = m_factors.size();
-                m_zero_fs.reset();
-                m_is_even.reset();
-                polynomial_ref f(m_pm);
-                for (unsigned i = 0; i < num_factors; i++) {
-                    f = m_factors.get(i);
-                    if (is_zero(sign(f))) {
-                        m_zero_fs.push_back(m_factors.get(i));
-                        m_is_even.push_back(false);
-                    }
-                }
+            // Build a square-free representative of p so that we can speak about
+            // a specific root that coincides with the current assignment.
+            polynomial_ref q(m_pm);
+            m_pm.square_free(p, q);
+            if (is_zero(q) || is_const(q)) {
+                SASSERT(!sign(q));
+                TRACE(nlsat_explain, tout << "cannot form zero assumption from constant polynomial " << q << "\n";);
+                return;
             }
-            SASSERT(!m_zero_fs.empty()); // one of the factors must be zero in the current interpretation, since p is zero in it.
-            literal l = m_solver.mk_ineq_literal(atom::EQ, m_zero_fs.size(), m_zero_fs.data(), m_is_even.data());
-            l.neg();
-            TRACE(nlsat_explain, tout << "adding (zero assumption) literal:\n"; display(tout, l); tout << "\n";);
-            add_literal(l);
+            var y = max_var(q);
+            SASSERT(y != null_var);
+            if (y == null_var)
+                return;
+            SASSERT(m_assignment.is_assigned(y));
+
+            // Substitute all assigned variables except y to obtain qsub
+            // and make sure its discriminant does not vanish at the model.
+            polynomial_ref disc(m_pm);
+            disc = discriminant(q, y);
+            int const disc_sign = sign(disc);
+            SASSERT(disc_sign != 0);
+            if (disc_sign == 0)
+                NOT_IMPLEMENTED_YET();
+            
+            scoped_anum_vector & roots = m_roots_tmp;
+            roots.reset();
+            // Isolate the roots of qsub by providing the assignment with y unassigned.
+            m_am.isolate_roots(q, undef_var_assignment(m_assignment, y), roots);
+
+            anum const & y_val = m_assignment.value(y);
+            unsigned root_idx = 0;
+            for (unsigned i = 0; i < roots.size(); ++i) 
+                if (m_am.compare(y_val, roots[i]) == 0) {
+                    root_idx = i + 1; // roots are 1-based
+                    break;
+                }
+            
+            VERIFY(root_idx > 0);
+           
+            TRACE(nlsat_explain,
+                  tout << "adding zero-assumption root literal for ";
+                  display_var(tout, y); tout << " using root[" << root_idx << "] of " << q << "\n";);
+            add_root_literal(atom::ROOT_EQ, y, root_idx, q);
         }
 
         void add_simple_assumption(atom::kind k, poly * p, bool sign = false) {
