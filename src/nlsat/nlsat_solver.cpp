@@ -1871,7 +1871,6 @@ namespace nlsat {
 
 
         lbool search_check() {
-            verbose_stream() << "search check\n";
             lbool r = l_undef;
             m_stats.m_conflicts = 0;
             m_stats.m_restarts = 0;

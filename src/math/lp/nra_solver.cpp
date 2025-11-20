@@ -161,13 +161,32 @@ struct solver::imp {
         }
     }
 
+    polynomial::polynomial_ref sub(polynomial::polynomial *a, polynomial::polynomial *b) {
+        return polynomial_ref(m_nlsat->pm().sub(a, b), m_nlsat->pm());
+    }
+    polynomial::polynomial_ref add(polynomial::polynomial *a, polynomial::polynomial *b) {
+        return polynomial_ref(m_nlsat->pm().add(a, b), m_nlsat->pm());
+    }
+    polynomial::polynomial_ref mul(polynomial::polynomial *a, polynomial::polynomial *b) {
+        return polynomial_ref(m_nlsat->pm().mul(a, b), m_nlsat->pm());
+    }
+    polynomial::polynomial_ref var(lp::lpvar v) {
+        return polynomial_ref(m_nlsat->pm().mk_polynomial(lp2nl(v)), m_nlsat->pm());
+    }
+    polynomial::polynomial_ref constant(rational const& r) {
+        return polynomial_ref(m_nlsat->pm().mk_const(r), m_nlsat->pm());
+    }
+
     void add_tangent_lemmas() {
-        for (auto const mi : m_nla_core.to_refine()) {
-            auto const& m = m_nla_core.emon(mi);
+        for (auto const xy : m_nla_core.to_refine()) {
+
+            auto const& m = m_nla_core.emon(xy);
             if (m.size() != 2)
                 continue;
             auto x = m.vars()[0];
             auto y = m.vars()[1];
+            if (!m_nla_core.var_is_int(x) || !m_nla_core.var_is_int(y))
+                continue;
             rational xv = m_nla_core.val(x);
             rational yv = m_nla_core.val(y);
             rational mv = m_nla_core.val(m.var());
@@ -177,7 +196,7 @@ struct solver::imp {
             // (x - a)(y - b) = 1
             // (x - a)(y - b) = xy - bx - ay + ab = 1
             // mv - bx - ay + ab < 1
-            // lemma: x > a, y > b  => xy - bx - ay + ab >= 1
+            // lemma: x >= a + 1, y >=  b + 1  => xy - bx - ay + ab >= 1
             // 
             // mv > xv * yv
             // a := xv - 1, b := yv + 1
@@ -185,8 +204,45 @@ struct solver::imp {
             // 
             // other lemmas around a < x, b < y and a < x, b > y
             //
+            auto x_ge_xv = mk_literal(sub(var(x), constant(xv)), lp::lconstraint_kind::GE);
+            auto y_ge_yv = mk_literal(sub(var(y), constant(yv)), lp::lconstraint_kind::GE);
+            auto yv_ge_y = mk_literal(sub(constant(yv), var(y)), lp::lconstraint_kind::GE);
+            auto xv_ge_x = mk_literal(sub(constant(xv), var(x)), lp::lconstraint_kind::GE);
 
+            {
+                auto ineq = mk_literal(
+                    sub(mul(sub(var(x), constant(xv - 1)), sub(var(y), constant(yv - 1))), constant(rational(1))),
+                    lp::lconstraint_kind::GE);
+                nlsat::literal lits[3] = {~x_ge_xv, ~y_ge_yv, ineq};
+                m_nlsat->mk_clause(3, lits, nullptr);
+            }
+            
+            {
+                // x >= a + 1, y <= b - 1 => (x - a)(y - b) = xy -bx - ay +ab <= -1
+                auto ineq =
+                    mk_literal(sub(mul(sub(var(x), constant(xv - 1)), sub(var(y), constant(yv + 1))), constant(rational(-1))),
+                               lp::lconstraint_kind::LE);
+                nlsat::literal lits[3] = {~x_ge_xv, ~yv_ge_y, ineq};
+                m_nlsat->mk_clause(3, lits, nullptr);
+            }
 
+            {
+                // x <= a - 1, y >= b + 1 => (x - a)(y - b) = xy - bx - ay + ab <= -1
+                auto ineq = mk_literal(
+                    sub(mul(sub(var(x), constant(xv + 1)), sub(var(y), constant(yv - 1))), constant(rational(-1))),
+                    lp::lconstraint_kind::LE);
+                nlsat::literal lits[3] = {~xv_ge_x, ~y_ge_yv, ineq};
+                m_nlsat->mk_clause(3, lits, nullptr);
+            }
+
+            {
+                // x <= a - 1, y <= b - 1 => (x - a)(y - b) = xy - bx - ay + ab >= 1
+                auto ineq = mk_literal(
+                    sub(mul(sub(var(x), constant(xv + 1)), sub(var(y), constant(yv + 1))), constant(rational(1))),
+                    lp::lconstraint_kind::GE);
+                nlsat::literal lits[3] = {~xv_ge_x, ~yv_ge_y, ineq};
+                m_nlsat->mk_clause(3, lits, nullptr);
+            }
         }
     }
 
@@ -215,6 +271,9 @@ struct solver::imp {
 
         if (p.arith_nl_nra_model_bounds())
             setup_model_bounds();
+
+        if (p.arith_nl_nra_tangents())
+            add_tangent_lemmas();
 
         TRACE(nra, m_nlsat->display(tout));
 
@@ -338,10 +397,23 @@ struct solver::imp {
         coeffs.push_back(mpz(1));
         coeffs.push_back(mpz(-1));
         polynomial::polynomial_ref p(pm.mk_polynomial(2, coeffs.data(), mls),  pm);
-        polynomial::polynomial* ps[1] = { p };
-        bool even[1] = { false };
-        nlsat::literal lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, even);
+        auto lit = mk_literal(p.get(), lp::lconstraint_kind::EQ);
+        nlsat::assumption a = nullptr;
         m_nlsat->mk_clause(1, &lit, nullptr);
+    }
+
+    nlsat::literal mk_literal(polynomial::polynomial *p, lp::lconstraint_kind k) {
+        polynomial::polynomial *ps[1] = { p };
+        bool is_even[1] = { false };
+        switch (k) {
+        case lp::lconstraint_kind::LE: return ~m_nlsat->mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even);
+        case lp::lconstraint_kind::GE: return ~m_nlsat->mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even);
+        case lp::lconstraint_kind::LT: return m_nlsat->mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even);
+        case lp::lconstraint_kind::GT: return m_nlsat->mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even);
+        case lp::lconstraint_kind::EQ: return m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);
+        default: UNREACHABLE();  // unreachable
+        }
+        throw default_exception("uexpected operator");
     }
 
     void add_constraint(unsigned idx) {
@@ -364,29 +436,8 @@ struct solver::imp {
         }
         rhs *= den;
         polynomial::polynomial_ref p(pm.mk_linear(sz, coeffs.data(), vars.data(), -rhs), pm);
-        polynomial::polynomial* ps[1] = { p };
-        bool is_even[1] = { false };
-        nlsat::literal lit;
+        nlsat::literal lit = mk_literal(p.get(), k);
         nlsat::assumption a = this + idx;
-        switch (k) {
-        case lp::lconstraint_kind::LE:
-            lit = ~m_nlsat->mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even);
-            break;
-        case lp::lconstraint_kind::GE:
-            lit = ~m_nlsat->mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even);
-            break;
-        case lp::lconstraint_kind::LT:
-            lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even);
-            break;
-        case lp::lconstraint_kind::GT:
-            lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even);
-            break;
-        case lp::lconstraint_kind::EQ:
-            lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);                
-            break;
-        default:
-            UNREACHABLE(); // unreachable
-        }
         m_nlsat->mk_clause(1, &lit, a);
     }
 
