@@ -95,7 +95,7 @@ struct solver::imp {
             }
         }
         else {
-            p = pm.mk_polynomial(v);  // nlsat var index equals v (verified above when created)
+            p = pm.mk_polynomial(lp2nl(v));  // nlsat var index equals v (verified above when created)
         }
         definitions.push_back(p);
         denominators.push_back(den);
@@ -107,10 +107,15 @@ struct solver::imp {
         polynomial_ref_vector definitions(pm);
         vector<rational> denominators;
         for (unsigned v = 0; v < lra.number_of_vars(); ++v) {
-            auto j = m_nlsat->mk_var(lra.var_is_int(v));
-            VERIFY(j == v);
-            m_lp2nl.insert(v, j);  // we don't really need this. It is going to be the identify map.
-            mk_definition(v, definitions, denominators);
+            if (m_coi.vars().contains(v)) {
+                auto j = m_nlsat->mk_var(lra.var_is_int(v));
+                m_lp2nl.insert(v, j);  // we don't really need this. It is going to be the identify map.
+                mk_definition(v, definitions, denominators);
+            }
+            else {
+                definitions.push_back(nullptr);
+                denominators.push_back(rational(0));
+            }
         }
 
         // we rely on that all information encoded into the tableau is present as a constraint.
@@ -725,17 +730,41 @@ struct solver::imp {
         m_nlsat->mk_clause(1, &lit, nullptr);
     }
 
-    nlsat::anum const& value(lp::lpvar v)  {
-        polynomial::var pv;
-        if (m_lp2nl.find(v, pv))
-            return m_nlsat->value(pv);
-        else {
-            for (unsigned w = m_values->size(); w <= v; ++w) {
-                scoped_anum a(am());
-                am().set(a, m_nla_core.val(w).to_mpq());
+    nlsat::anum const &value(lp::lpvar v) {
+        init_values(v + 1);
+        return (*m_values)[v];
+    }
+
+    void init_values(unsigned sz) {
+        if (m_values->size() >= sz)
+            return;
+        unsigned w;
+        scoped_anum a(am());
+        for (unsigned v = m_values->size(); v < sz; ++v) {
+            if (m_nla_core.emons().is_monic_var(v)) {
+                am().set(a, 1);
+                auto &m = m_nla_core.emon(v);
+                for (auto x : m.vars()) 
+                    am().mul(a, (*m_values)[x], a);
                 m_values->push_back(a);
-            }           
-            return (*m_values)[v];
+            }      
+            else if (lra.column_has_term(v)) {
+                scoped_anum b(am());
+                am().set(a, 0);
+                for (auto const &[w, coeff] : lra.get_term(v)) {
+                    am().set(b, coeff.to_mpq());
+                    am().mul(b, (*m_values)[w], b);
+                    am().add(a, b, a);
+                }
+                m_values->push_back(a);
+            }
+            else if (m_lp2nl.find(v, w)) {
+                m_values->push_back(m_nlsat->value(w));
+            }
+            else {
+                am().set(a, m_nla_core.val(v).to_mpq());
+                m_values->push_back(a);
+            }
         }
     }
 
