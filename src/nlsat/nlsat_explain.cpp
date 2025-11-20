@@ -295,14 +295,6 @@ namespace nlsat {
             if (maxx == null_var)
                 return;
             SASSERT(m_assignment.is_assigned(maxx));
-
-            // Make sure its discriminant does not vanish at the model.
-            polynomial_ref disc(m_pm);
-            disc = discriminant(q, maxx);
-            int const disc_sign = sign(disc);
-            SASSERT(disc_sign != 0);
-            if (disc_sign == 0)
-                NOT_IMPLEMENTED_YET();
             
             undef_var_assignment partial(m_assignment, maxx);
             scoped_anum_vector & roots = m_roots_tmp;
@@ -319,7 +311,7 @@ namespace nlsat {
                 }
             if (root_idx == 0) 
                 return; // there are no root functions and therefore no constraints aer generated
-            
+
             TRACE(nlsat_explain,
                   tout << "adding zero-assumption root literal for ";
                   display_var(tout, maxx); tout << " using root[" << root_idx << "] of " << q << "\n";);

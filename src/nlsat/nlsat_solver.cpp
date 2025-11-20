@@ -3368,6 +3368,12 @@ namespace nlsat {
                         m_am.to_rational(m_assignment.value(x), q);
                         m_am.qm().display_smt2(out, q, false);
                     }
+                    else if (m_log_lemma_smtrat) {
+                        std::ostringstream var_name;
+                        proc(var_name, x);
+                        std::string name = var_name.str();
+                        m_am.display_root_smtrat(out, m_assignment.value(x), name.c_str());
+                    }
                     else {
                         m_am.display_root_smt2(out, m_assignment.value(x));
                     }
