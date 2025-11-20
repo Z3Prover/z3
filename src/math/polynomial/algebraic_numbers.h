@@ -346,6 +346,12 @@ namespace algebraic_numbers {
         std::ostream& display_root_smt2(std::ostream & out, numeral const & a) const;
 
         /**
+           \brief Display algebraic number using an SMT-RAT style root expression: (root p i x)
+           where the final argument denotes the variable bound to this root.
+        */
+        std::ostream& display_root_smtrat(std::ostream & out, numeral const & a, char const* var_name) const;
+
+        /**
            \brief Display algebraic number in Mathematica format.
         */
         std::ostream& display_mathematica(std::ostream & out, numeral const & a) const;
@@ -495,4 +501,3 @@ inline std::ostream & operator<<(std::ostream & out, interval_pp const & n) {
     n.m.display_interval(out, n.n);
     return out;
 }
-
