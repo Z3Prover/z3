@@ -67,46 +67,50 @@ struct solver::imp {
 
     // Create polynomial definition for variable v used in setup_assignment_solver.
     // Side-effects: updates m_vars2mon when v is a monic variable.
-    void mk_definition(unsigned v, polynomial_ref_vector &definitions) {
+    void mk_definition(unsigned v, polynomial_ref_vector &definitions, vector<rational>& denominators) {
         auto &pm = m_nlsat->pm();
         polynomial::polynomial_ref p(pm);
+        rational den(1);
         if (m_nla_core.emons().is_monic_var(v)) {
             auto const &m = m_nla_core.emons()[v];
             for (auto v2 : m.vars()) {
-                auto pv = definitions.get(v2);
+                polynomial_ref pw(definitions.get(v2), m_nlsat->pm());
                 if (!p)
-                    p = pv;
+                    p = pw;
                 else
-                    p = pm.mul(p, pv);
+                    p = p * pw;
             }
         }
         else if (lra.column_has_term(v)) {
             for (auto const &[w, coeff] : lra.get_term(v)) {
-                auto pw = definitions.get(w);
+                den = lcm(denominator(coeff), den);
+            }
+            for (auto const &[w, coeff] : lra.get_term(v)) {
+                auto coeff1 = den * coeff;
+                polynomial_ref pw(definitions.get(w), m_nlsat->pm());
                 if (!p)
-                    p = pm.mul(coeff, pw);
+                    p = constant(coeff1) * pw;
                 else
-                    p = pm.add(p, pm.mul(coeff, pw));
+                    p = p + (constant(coeff1) * pw);
             }
         }
         else {
             p = pm.mk_polynomial(v);  // nlsat var index equals v (verified above when created)
         }
         definitions.push_back(p);
+        denominators.push_back(den);
     }
 
     void setup_solver_poly() {
         m_coi.init();
         auto &pm = m_nlsat->pm();
         polynomial_ref_vector definitions(pm);
+        vector<rational> denominators;
         for (unsigned v = 0; v < lra.number_of_vars(); ++v) {
             auto j = m_nlsat->mk_var(lra.var_is_int(v));
             VERIFY(j == v);
             m_lp2nl.insert(v, j);  // we don't really need this. It is going to be the identify map.
-            scoped_anum a(am());
-            am().set(a, m_nla_core.val(v).to_mpq());
-            m_values->push_back(a);
-            mk_definition(v, definitions);
+            mk_definition(v, definitions, denominators);
         }
 
         // we rely on that all information encoded into the tableau is present as a constraint.
@@ -118,13 +122,14 @@ struct solver::imp {
             auto lhs = c.coeffs();
             rational den = denominator(rhs);
             for (auto [coeff, v] : lhs)
-                den = lcm(den, denominator(coeff));
+                den = lcm(lcm(den, denominator(coeff)), denominators[v]);
             polynomial::polynomial_ref p(pm);
             p = pm.mk_const(-den * rhs);
 
             for (auto [coeff, v] : lhs) {
                 polynomial_ref poly(pm);
-                poly = pm.mul(den * coeff, definitions.get(v));
+                poly = definitions.get(v);
+                poly = poly * constant(den * coeff / denominators[v]);
                 p = p + poly;
             }
             auto lit = add_constraint(p, ci, k);
@@ -164,9 +169,6 @@ struct solver::imp {
     polynomial::polynomial_ref sub(polynomial::polynomial *a, polynomial::polynomial *b) {
         return polynomial_ref(m_nlsat->pm().sub(a, b), m_nlsat->pm());
     }
-    polynomial::polynomial_ref add(polynomial::polynomial *a, polynomial::polynomial *b) {
-        return polynomial_ref(m_nlsat->pm().add(a, b), m_nlsat->pm());
-    }
     polynomial::polynomial_ref mul(polynomial::polynomial *a, polynomial::polynomial *b) {
         return polynomial_ref(m_nlsat->pm().mul(a, b), m_nlsat->pm());
     }
@@ -204,14 +206,14 @@ struct solver::imp {
             // 
             // other lemmas around a < x, b < y and a < x, b > y
             //
-            auto x_ge_xv = mk_literal(sub(var(x), constant(xv)), lp::lconstraint_kind::GE);
-            auto y_ge_yv = mk_literal(sub(var(y), constant(yv)), lp::lconstraint_kind::GE);
-            auto yv_ge_y = mk_literal(sub(constant(yv), var(y)), lp::lconstraint_kind::GE);
-            auto xv_ge_x = mk_literal(sub(constant(xv), var(x)), lp::lconstraint_kind::GE);
+            auto x_ge_xv = mk_literal(var(x) - constant(xv), lp::lconstraint_kind::GE);
+            auto y_ge_yv = mk_literal(var(y) - constant(yv), lp::lconstraint_kind::GE);
+            auto yv_ge_y = mk_literal(constant(yv) - var(y), lp::lconstraint_kind::GE);
+            auto xv_ge_x = mk_literal(constant(xv) - var(x), lp::lconstraint_kind::GE);
 
             {
                 auto ineq = mk_literal(
-                    sub(mul(sub(var(x), constant(xv - 1)), sub(var(y), constant(yv - 1))), constant(rational(1))),
+                    ((var(x) - constant(xv - 1)) * (var(y) - constant(yv - 1))) - constant(rational(1)),
                     lp::lconstraint_kind::GE);
                 nlsat::literal lits[3] = {~x_ge_xv, ~y_ge_yv, ineq};
                 m_nlsat->mk_clause(3, lits, nullptr);
