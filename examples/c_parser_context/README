@@ -1,0 +1,18 @@
+Example demonstrating Z3_parser_context for incremental SMTLIB2 parsing.
+
+To build the example using the Python build system, execute:
+   make examples
+in the build directory.
+
+This will create the executable c_parser_context_example.
+
+To build using CMake, from the examples/c_parser_context directory:
+   mkdir build
+   cd build
+   cmake -DZ3_DIR=<path-to-z3-build> ..
+   make
+
+On Windows, you can just execute the binary.
+On macOS and Linux, you must install z3 first using
+   sudo make install
+OR update LD_LIBRARY_PATH (Linux) or DYLD_LIBRARY_PATH (macOS) with the build directory to find the Z3 shared library.
