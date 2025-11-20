@@ -290,40 +290,40 @@ namespace nlsat {
                 TRACE(nlsat_explain, tout << "cannot form zero assumption from constant polynomial " << q << "\n";);
                 return;
             }
-            var y = max_var(q);
-            SASSERT(y != null_var);
-            if (y == null_var)
+            var maxx = max_var(q);
+            SASSERT(maxx != null_var);
+            if (maxx == null_var)
                 return;
-            SASSERT(m_assignment.is_assigned(y));
+            SASSERT(m_assignment.is_assigned(maxx));
 
-            // Substitute all assigned variables except y to obtain qsub
-            // and make sure its discriminant does not vanish at the model.
+            // Make sure its discriminant does not vanish at the model.
             polynomial_ref disc(m_pm);
-            disc = discriminant(q, y);
+            disc = discriminant(q, maxx);
             int const disc_sign = sign(disc);
             SASSERT(disc_sign != 0);
             if (disc_sign == 0)
                 NOT_IMPLEMENTED_YET();
             
+            undef_var_assignment partial(m_assignment, maxx);
             scoped_anum_vector & roots = m_roots_tmp;
             roots.reset();
-            // Isolate the roots of qsub by providing the assignment with y unassigned.
-            m_am.isolate_roots(q, undef_var_assignment(m_assignment, y), roots);
+            // Isolate the roots of providing the assignment with maxx unassigned.
+            m_am.isolate_roots(q, partial, roots);
 
-            anum const & y_val = m_assignment.value(y);
+            anum const & maxx_val = m_assignment.value(maxx);
             unsigned root_idx = 0;
             for (unsigned i = 0; i < roots.size(); ++i) 
-                if (m_am.compare(y_val, roots[i]) == 0) {
+                if (m_am.compare(maxx_val, roots[i]) == 0) {
                     root_idx = i + 1; // roots are 1-based
                     break;
                 }
+            if (root_idx == 0) 
+                return; // there are no root functions and therefore no constraints aer generated
             
-            VERIFY(root_idx > 0);
-           
             TRACE(nlsat_explain,
                   tout << "adding zero-assumption root literal for ";
-                  display_var(tout, y); tout << " using root[" << root_idx << "] of " << q << "\n";);
-            add_root_literal(atom::ROOT_EQ, y, root_idx, q);
+                  display_var(tout, maxx); tout << " using root[" << root_idx << "] of " << q << "\n";);
+            add_root_literal(atom::ROOT_EQ, maxx, root_idx, q);
         }
 
         void add_simple_assumption(atom::kind k, poly * p, bool sign = false) {
