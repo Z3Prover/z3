@@ -709,12 +709,9 @@ namespace nla {
         while (m_constraints.size() > max_ci) {
             auto const& [_p, _k, _j] = m_constraints.back();
             m_constraint_index.erase({_p.index(), _k});
+            auto ci = m_constraints.size() - 1;            
+            remove_occurs(ci);            
             m_constraints.pop_back();
-            auto ci = m_constraints.size();
-            if (!m_occurs_trail.empty() && m_occurs_trail.back() == ci) {
-                remove_occurs(ci);
-                m_occurs_trail.pop_back();
-            }
         }
         for (auto const &[_p, _k, _j] : replay) {
             auto ci = add_constraint(_p, _k, _j);
@@ -937,13 +934,18 @@ namespace nla {
             return;
         m_occurs_trail.push_back(ci);
         auto const &con = m_constraints[ci];
+        verbose_stream() << "init-occurs " << ci << " vars: " << con.p.free_vars() << "\n"; 
         for (auto v : con.p.free_vars())
             m_occurs[v].push_back(ci);
         
     }
 
     void stellensatz::remove_occurs(lp::constraint_index ci) {
+        if (m_occurs_trail.empty() || m_occurs_trail.back() != ci)
+            return;
+        m_occurs_trail.pop_back();
         auto const &con = m_constraints[ci];
+        verbose_stream() << "remove-occurs " << ci << " vars: " << con.p.free_vars() << "\n"; 
         for (auto v : con.p.free_vars())
             m_occurs[v].pop_back();
     }

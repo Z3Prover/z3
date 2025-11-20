@@ -161,6 +161,35 @@ struct solver::imp {
         }
     }
 
+    void add_tangent_lemmas() {
+        for (auto const mi : m_nla_core.to_refine()) {
+            auto const& m = m_nla_core.emon(mi);
+            if (m.size() != 2)
+                continue;
+            auto x = m.vars()[0];
+            auto y = m.vars()[1];
+            rational xv = m_nla_core.val(x);
+            rational yv = m_nla_core.val(y);
+            rational mv = m_nla_core.val(m.var());
+            SASSERT(xv * yv != mv);
+            // a := xv - 1, b := yv - 1
+            // mv < xv * yv
+            // (x - a)(y - b) = 1
+            // (x - a)(y - b) = xy - bx - ay + ab = 1
+            // mv - bx - ay + ab < 1
+            // lemma: x > a, y > b  => xy - bx - ay + ab >= 1
+            // 
+            // mv > xv * yv
+            // a := xv - 1, b := yv + 1
+            // x > a, y < b => xy - by - ax + ab <= -1
+            // 
+            // other lemmas around a < x, b < y and a < x, b > y
+            //
+
+
+        }
+    }
+
     /**
        \brief one-shot nlsat check.
        A one shot checker is the least functionality that can 

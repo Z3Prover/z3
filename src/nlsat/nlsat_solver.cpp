@@ -1876,6 +1876,7 @@ namespace nlsat {
             m_stats.m_conflicts = 0;
             m_stats.m_restarts = 0;
             m_next_conflict = 0;
+            random_gen rand(++m_random_seed);
             while (true) {
                 r = search();
                 if (r != l_true) 
@@ -1925,12 +1926,10 @@ namespace nlsat {
                 // cut on the first model value
                 if (!m_model_values.empty()) {
                     bool found = false;
-                    random_gen r(++m_random_seed);
-                    auto const &[x, value] = bounds[r(bounds.size())];
+
+                    auto const &[x, value] = bounds[rand(bounds.size())];
                     for (auto const &[ext_x, mvalue, lo, hi] : m_model_values) {
                         if (ext_x == m_perm[x]) {
-                            verbose_stream() << x << " " << ext_x << " bound: " << mvalue << " value " << value
-                                             << "\n ";
                             TRACE(nla_solver, tout << "x" << ext_x << " bound " << mvalue << "\n");
                             polynomial_ref p(m_pm);
                             rational one(1);
@@ -1955,20 +1954,32 @@ namespace nlsat {
                     }
                     continue;
                 }
-                for (auto const& b : bounds) {
-                    var x = b.first;
-                    rational lo = b.second;
+                for (auto const& [x, lo] : bounds) {
                     rational hi = lo + 1; // rational::one();
                     bool is_even = false;                        
                     polynomial_ref p(m_pm);
                     rational one(1);
                     m_lemma.reset();
-                    p = m_pm.mk_linear(1, &one, &x, -lo);
-                    poly* p1 = p.get();
-                    m_lemma.push_back(~mk_ineq_literal(atom::GT, 1, &p1, &is_even));
-                    p = m_pm.mk_linear(1, &one, &x, -hi);
-                    poly* p2 = p.get();
-                    m_lemma.push_back(~mk_ineq_literal(atom::LT, 1, &p2, &is_even));
+                    auto add_gt = [&]() {
+                        p = m_pm.mk_linear(1, &one, &x, -lo);
+                        poly *p1 = p.get();
+                        m_lemma.push_back(~mk_ineq_literal(atom::GT, 1, &p1, &is_even));
+                    };
+                    auto add_lt = [&]() {
+                        p = m_pm.mk_linear(1, &one, &x, -hi);
+                        poly *p2 = p.get();
+                        m_lemma.push_back(~mk_ineq_literal(atom::LT, 1, &p2, &is_even));
+                    };
+
+
+                    if (rand(2) == 0) {
+                        add_gt();
+                        add_lt();
+                    }
+                    else {
+                        add_lt();
+                        add_gt();
+                    }
                     
                     // perform branch and bound
                     clause * cls = mk_clause(m_lemma.size(), m_lemma.data(), true, nullptr);
