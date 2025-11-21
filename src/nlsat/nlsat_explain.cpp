@@ -921,27 +921,6 @@ namespace nlsat {
         }
 
         int ensure_sign(polynomial_ref & p) {
-#if 0
-            polynomial_ref f(m_pm);
-            factor(p, m_factors);
-            m_is_even.reset();
-            unsigned num_factors = m_factors.size();
-            int s = 1;
-            for (unsigned i = 0; i < num_factors; i++) {
-                f = m_factors.get(i);
-                s *= sign(f);
-                m_is_even.push_back(false);
-            } 
-            if (num_factors > 0) {
-                atom::kind k = atom::EQ;
-                if (s == 0) k = atom::EQ;
-                if (s < 0)  k = atom::LT;
-                if (s > 0)  k = atom::GT;
-                bool_var b = m_solver.mk_ineq_atom(k, num_factors, m_factors.c_ptr(), m_is_even.c_ptr());
-                add_literal(literal(b, true));
-            }
-            return s;
-#else
             int s = sign(p);
             if (!is_const(p)) {
                 TRACE(nlsat_explain, tout << p << "\n";);
