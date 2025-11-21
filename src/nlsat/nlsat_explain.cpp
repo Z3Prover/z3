@@ -310,7 +310,7 @@ namespace nlsat {
                     break;
                 }
             if (root_idx == 0) 
-                return; // there are no root functions and therefore no constraints aer generated
+                return; // there are no root functions and therefore no constraints are generated
 
             TRACE(nlsat_explain,
                   tout << "adding zero-assumption root literal for ";
@@ -318,7 +318,7 @@ namespace nlsat {
             add_root_literal(atom::ROOT_EQ, maxx, root_idx, q);
         }
 
-        void add_simple_assumption(atom::kind k, poly * p, bool sign = false) {
+        void add_assumption(atom::kind k, poly * p, bool sign = false) {
             SASSERT(k == atom::EQ || k == atom::LT || k == atom::GT);
             bool is_even = false;
             bool_var b = m_solver.mk_ineq_atom(k, 1, &p, &is_even);
@@ -326,10 +326,6 @@ namespace nlsat {
             add_literal(l);
         }
 
-        void add_assumption(atom::kind k, poly * p, bool sign = false) {
-            // TODO: factor
-            add_simple_assumption(k, p, sign);
-        }
         
         /**
            \brief Eliminate "vanishing leading coefficients" of p.
@@ -372,6 +368,7 @@ namespace nlsat {
                     // and were added as assumptions.
                     p = m_pm.mk_zero();
                     TRACE(nlsat_explain, tout << "all coefficients of p vanished\n";);
+                    VERIFY(m_add_all_coeffs); // need to fall back to Collins projection otherwise
                     return;
                 }
                 k--;
@@ -448,13 +445,13 @@ namespace nlsat {
                             SASSERT(max_var(p) < max);
                             // factor p is a lower stage polynomial, so we should add assumption to justify p being eliminated
                             if (s == 0)
-                                add_simple_assumption(atom::EQ, p);  // add assumption p = 0
+                                add_assumption(atom::EQ, p);  // add assumption p = 0
                             else if (a->is_even(i))
-                                add_simple_assumption(atom::EQ, p, true); // add assumption p != 0 
+                                add_assumption(atom::EQ, p, true); // add assumption p != 0 
                             else if (s < 0)
-                                add_simple_assumption(atom::LT, p); // add assumption p < 0
+                                add_assumption(atom::LT, p); // add assumption p < 0
                             else
-                                add_simple_assumption(atom::GT, p); // add assumption p > 0
+                                add_assumption(atom::GT, p); // add assumption p > 0
                         }
                         if (s == 0) {
                             bool atom_val = a->get_kind() == atom::EQ;
@@ -660,7 +657,7 @@ namespace nlsat {
             polynomial_ref p(m_pm);
             polynomial_ref coeff(m_pm);
 
-            bool sqf = !m_add_all_coeffs && is_square_free(ps, x);
+            bool only_lc = !m_add_all_coeffs && is_square_free(ps, x);
             // Add the leading or all coeffs, depening on being square-free
             for (unsigned i = 0; i < ps.size(); i++) {
                 p = ps.get(i);
@@ -668,11 +665,11 @@ namespace nlsat {
                 if (k_deg == 0) continue;
                 // p depends on x
                 TRACE(nlsat_explain, tout << "processing poly of degree " << k_deg << " w.r.t x" << x << ": "; display(tout, p) << "\n";);
-                for (unsigned j_coeff_deg = k_deg; j_coeff_deg >= 1; j_coeff_deg--) { 
+                for (int j_coeff_deg = k_deg; j_coeff_deg >= 0; j_coeff_deg--) { 
                     coeff = m_pm.coeff(p, x, j_coeff_deg);
                     TRACE(nlsat_explain, tout << "    coeff deg " << j_coeff_deg << ": "; display(tout, coeff) << "\n";);
                     insert_fresh_factors_in_todo(coeff);
-                    if (sqf)
+                    if (only_lc)
                         break;
                 }
             }
@@ -761,11 +758,6 @@ namespace nlsat {
                 if (is_const(s)) {
                     TRACE(nlsat_explain, tout << "done, psc is a constant\n";);
                     return;
-                }
-                if (is_zero(sign(s))) {
-                    TRACE(nlsat_explain, tout << "psc vanished, adding zero assumption\n";);
-                    add_zero_assumption(s);
-                    continue;
                 }
                 TRACE(nlsat_explain, 
                       tout << "adding v-psc of\n";
@@ -953,7 +945,7 @@ namespace nlsat {
             int s = sign(p);
             if (!is_const(p)) {
                 TRACE(nlsat_explain, tout << p << "\n";);
-                add_simple_assumption(s == 0 ? atom::EQ : (s < 0 ? atom::LT : atom::GT), p);
+                add_assumption(s == 0 ? atom::EQ : (s < 0 ? atom::LT : atom::GT), p);
             }
             return s;
 #endif
@@ -985,7 +977,7 @@ namespace nlsat {
                 UNREACHABLE();
                 break;
             }
-            add_simple_assumption(k, p, lsign);
+            add_assumption(k, p, lsign);
         }
 
         void cac_add_cell_lits(polynomial_ref_vector & ps, var y, polynomial_ref_vector & res) {
