@@ -11,6 +11,7 @@ namespace nla {
       m_term_set.reset();
       m_mon_set.reset();
       m_constraint_set.reset();
+      m_var_set.reset();
       auto& lra = c.lra_solver();
 
       for (auto ci : lra.constraints().indices()) {
