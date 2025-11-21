@@ -1875,6 +1875,7 @@ namespace nlsat {
             m_stats.m_conflicts = 0;
             m_stats.m_restarts = 0;
             m_next_conflict = 0;
+            unsigned_vector frequency;
             random_gen rand(++m_random_seed);
             while (true) {
                 r = search();
@@ -1908,6 +1909,8 @@ namespace nlsat {
                             }
                         }
                         bounds.push_back(std::make_pair(x, lo));
+                        frequency.reserve(x+1);
+                        ++frequency[x];
                     }
                 }
                 if (bounds.empty()) 
@@ -1923,10 +1926,20 @@ namespace nlsat {
 
                 // todo, review, test
                 // cut on the first model value
-                if (!m_model_values.empty()) {
+                if (!m_model_values.empty() && m_stats.m_restarts % 10 == 0) {
                     bool found = false;
 
-                    auto const &[x, value] = bounds[rand(bounds.size())];
+                    unsigned i = 1, choice = 0;
+                    unsigned f = frequency[bounds[0].first];
+                    for (; i < bounds.size(); ++i) {
+                        auto const &[x, value] = bounds[i];
+                        frequency.reserve(x + 1);
+                        if (frequency[x] > f) {
+                            f = frequency[x];
+                            choice = i;                           
+                        }
+                    }
+                    auto const &[x, value] = bounds[choice];
                     for (auto const &[ext_x, mvalue, lo, hi] : m_model_values) {
                         if (ext_x == m_perm[x]) {
                             TRACE(nla_solver, tout << "x" << ext_x << " bound " << mvalue << "\n");
