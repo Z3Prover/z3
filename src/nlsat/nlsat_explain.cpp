@@ -25,6 +25,8 @@ Revision History:
 
 namespace nlsat {
 
+    struct add_all_coeffs_restart {};
+
     typedef polynomial::polynomial_ref_vector polynomial_ref_vector;
     typedef ref_buffer<poly, pmanager> polynomial_ref_buffer;
 
@@ -463,8 +465,12 @@ namespace nlsat {
                     // and were added as assumptions.
                     p = m_pm.mk_zero();
                     TRACE(nlsat_explain, tout << "all coefficients of p vanished\n";);
-                    VERIFY(m_add_all_coeffs); // need to fall back to Collins projection otherwise
-                    return;
+                    if (m_add_all_coeffs) {
+                        return;
+                    }
+                    TRACE(nlsat_explain, tout << "falling back to add-all-coeffs projection\n";);
+                    m_add_all_coeffs = true;
+                    throw add_all_coeffs_restart();
                 }
                 k--;
                 p = reduct;
@@ -716,35 +722,6 @@ namespace nlsat {
             }
         }
 
-// The monomials have to be square free according to
-//"An improved projection operation for cylindrical algebraic decomposition of three-dimensional space", by McCallum, Scott
-            
-        bool is_square_free(polynomial_ref_vector &ps, var x) {
-            if (m_add_all_coeffs)
-                return false;
-            polynomial_ref p(m_pm);
-            polynomial_ref lc_poly(m_pm);
-            polynomial_ref disc_poly(m_pm); 
-
-            for (unsigned i = 0; i < ps.size(); i++) {
-                p = ps.get(i);
-                unsigned k_deg = m_pm.degree(p, x); 
-                if (k_deg == 0)
-                    continue;
-                // p depends on x
-                disc_poly = discriminant(p, x); // Use global helper
-                if (sign(disc_poly) == 0) { // Discriminant is zero
-                    TRACE(nlsat_explain, tout << "p is not square free:\n ";
-                          display(tout, p); tout << "\ndiscriminant: "; display(tout, disc_poly) << "\n";
-                          m_solver.display_assignment(tout) << '\n';
-                          m_solver.display_var(tout << "x:", x) << '\n';
-                        );
-
-                    return false;
-                }
-            }
-            return true;
-        }
         
      	// If each p from ps is square-free then add the leading coefficents to the projection. 
 	// Otherwise, add each coefficient of each p to the projection.
@@ -752,7 +729,6 @@ namespace nlsat {
             polynomial_ref p(m_pm);
             polynomial_ref coeff(m_pm);
 
-            bool only_lc = !m_add_all_coeffs && is_square_free(ps, x);
             // Add the leading or all coeffs, depening on being square-free
             for (unsigned i = 0; i < ps.size(); i++) {
                 p = ps.get(i);
@@ -764,7 +740,7 @@ namespace nlsat {
                     coeff = m_pm.coeff(p, x, j_coeff_deg);
                     TRACE(nlsat_explain, tout << "    coeff deg " << j_coeff_deg << ": "; display(tout, coeff) << "\n";);
                     insert_fresh_factors_in_todo(coeff);
-                    if (only_lc)
+                    if (!m_add_all_coeffs)
                         break;
                 }
             }
@@ -1731,66 +1707,95 @@ namespace nlsat {
                 result.reset();
                 return;
             }
-            m_result = &result;
-            process(num, ls);
-            reset_already_added();
-            m_result = nullptr;
-            TRACE(nlsat_explain, display(tout << "[explain] result\n", result) << "\n";);
-            CASSERT("nlsat", check_already_added());
+            unsigned base = result.size();
+            while (true) {
+                try {
+                    m_result = &result;
+                    process(num, ls);
+                    reset_already_added();
+                    m_result = nullptr;
+                    TRACE(nlsat_explain, display(tout << "[explain] result\n", result) << "\n";);
+                    CASSERT("nlsat", check_already_added());
+                    break;
+                }
+                catch (add_all_coeffs_restart const&) {
+                    TRACE(nlsat_explain, tout << "restarting explanation with all coefficients\n";);
+                    reset_already_added();
+                    result.shrink(base);
+                    m_result = nullptr;
+                }
+            }
         }
 
 
         void project(var x, unsigned num, literal const * ls, scoped_literal_vector & result) {
-            
-            m_result = &result;
-            svector<literal> lits;
-            TRACE(nlsat, tout << "project x" << x << "\n"; 
-                  m_solver.display(tout, num, ls);
-                  m_solver.display(tout););
-                  
-#ifdef Z3DEBUG
-            for (unsigned i = 0; i < num; ++i) {
-                SASSERT(m_solver.value(ls[i]) == l_true);
-                atom* a = m_atoms[ls[i].var()];
-                SASSERT(!a || m_evaluator.eval(a, ls[i].sign()));
-            }
-#endif   
-            split_literals(x, num, ls, lits);
-            collect_polys(lits.size(), lits.data(), m_ps);
-            var mx_var = max_var(m_ps);
-            if (!m_ps.empty()) {                
-                svector<var> renaming;
-                if (x != mx_var) {
-                    for (var i = 0; i < m_solver.num_vars(); ++i) {
-                        renaming.push_back(i);
-                    }
-                    std::swap(renaming[x], renaming[mx_var]);
-                    m_solver.reorder(renaming.size(), renaming.data());
-                    TRACE(qe, tout << "x: " << x << " max: " << mx_var << " num_vars: " << m_solver.num_vars() << "\n";
+            unsigned base = result.size();
+            while (true) {
+                bool reordered = false;
+                try {
+                    m_result = &result;
+                    svector<literal> lits;
+                    TRACE(nlsat, tout << "project x" << x << "\n"; 
+                          m_solver.display(tout, num, ls);
                           m_solver.display(tout););
-                }
-                elim_vanishing(m_ps);
-                project(m_ps, mx_var);
-                reset_already_added();
-                m_result = nullptr;
-                if (x != mx_var) {
-                    m_solver.restore_order();
-                }
-            }
-            else {
-                reset_already_added();
-                m_result = nullptr;
-            }
-            for (unsigned i = 0; i < result.size(); ++i) {
-                result.set(i, ~result[i]);
-            }
+                    
 #ifdef Z3DEBUG
-            TRACE(nlsat, m_solver.display(tout, result.size(), result.data()) << "\n"; );
-            for (literal l : result) {
-                CTRACE(nlsat, l_true != m_solver.value(l), m_solver.display(tout, l) << " " << m_solver.value(l) << "\n";);
-                SASSERT(l_true == m_solver.value(l));
-            }
+                    for (unsigned i = 0; i < num; ++i) {
+                        SASSERT(m_solver.value(ls[i]) == l_true);
+                        atom* a = m_atoms[ls[i].var()];
+                        SASSERT(!a || m_evaluator.eval(a, ls[i].sign()));
+                    }
+#endif   
+                    split_literals(x, num, ls, lits);
+                    collect_polys(lits.size(), lits.data(), m_ps);
+                    var mx_var = max_var(m_ps);
+                    if (!m_ps.empty()) {                
+                        svector<var> renaming;
+                        if (x != mx_var) {
+                            for (var i = 0; i < m_solver.num_vars(); ++i) {
+                                renaming.push_back(i);
+                            }
+                            std::swap(renaming[x], renaming[mx_var]);
+                            m_solver.reorder(renaming.size(), renaming.data());
+                            reordered = true;
+                            TRACE(qe, tout << "x: " << x << " max: " << mx_var << " num_vars: " << m_solver.num_vars() << "\n";
+                                  m_solver.display(tout););
+                        }
+                        elim_vanishing(m_ps);
+                        project(m_ps, mx_var);
+                        reset_already_added();
+                        m_result = nullptr;
+                        if (reordered) {
+                            m_solver.restore_order();
+                        }
+                    }
+                    else {
+                        reset_already_added();
+                        m_result = nullptr;
+                    }
+                    for (unsigned i = 0; i < result.size(); ++i) {
+                        result.set(i, ~result[i]);
+                    }
+#ifdef Z3DEBUG
+                    TRACE(nlsat, m_solver.display(tout, result.size(), result.data()) << "\n"; );
+                    for (literal l : result) {
+                        CTRACE(nlsat, l_true != m_solver.value(l), m_solver.display(tout, l) << " " << m_solver.value(l) << "\n";);
+                        SASSERT(l_true == m_solver.value(l));
+                    }
 #endif                
+                    break;
+                }
+                catch (add_all_coeffs_restart const&) {
+                    TRACE(nlsat_explain, tout << "restarting projection with all coefficients\n";);
+                    reset_already_added();
+                    if (reordered) {
+                        m_solver.restore_order();
+                    }
+                    result.shrink(base);
+                    m_result = nullptr;
+                    std::cout << "switch\n";
+                }
+            }
         }
 
         void split_literals(var x, unsigned n, literal const* ls, svector<literal>& lits) {
