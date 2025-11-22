@@ -46,6 +46,7 @@ namespace smt {
         scoped_ptr<context> m_solver;
         bool m_solver_ran = false;
         ptr_vector<func_decl> m_set_size_decls;
+        expr_ref_vector bs;
         obj_map<enode, expr *> n2b;
         obj_map<expr, tracking_literal> m_assumptions;
         expr_ref m_assumption;

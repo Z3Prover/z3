@@ -23,7 +23,7 @@ Abstract:
 namespace smt {
 
     theory_finite_set_size::theory_finite_set_size(theory_finite_set& th): 
-        m(th.m), ctx(th.ctx), th(th), u(m), m_assumption(m) {}
+        m(th.m), ctx(th.ctx), th(th), u(m), bs(m), m_assumption(m) {}
 
     void theory_finite_set_size::add_set_size(func_decl* f) {
         if (!m_set_size_decls.contains(f)) {
@@ -41,6 +41,7 @@ namespace smt {
                 s.m_solver = nullptr;
                 s.n2b.reset();
                 s.m_assumptions.reset();
+                s.bs.reset();
             }
         };
         ctx.push_trail(clear_solver(*this));
@@ -62,7 +63,6 @@ namespace smt {
         // we now got all subexpressions from equalities, disequalities, set.in
         //        
         // associate a Boolean variable with every set enode
-        expr_ref_vector bs(m);
         for (auto n : ns) {
             std::ostringstream strm;
             strm << "|" << enode_pp(n, ctx) << "|";
@@ -70,6 +70,7 @@ namespace smt {
             expr_ref b(m.mk_const(name, m.mk_bool_sort()), m);
             bs.push_back(b);
             n2b.insert(n, b);
+            TRACE(finite_set, tout << "assoc " << name << " to " << enode_pp(n, ctx) << " " << enode_pp(n->get_root(), ctx) << "\n";);
         }
 
         add_def_axioms(ns);
@@ -133,14 +134,17 @@ namespace smt {
                 if (v == l_undef)
                     continue;
                 auto e = p->get_arg(0)->get_root();
+                TRACE(finite_set, tout << "singleton axiom for " << enode_pp(e, ctx) << " in " << enode_pp(p, ctx) 
+                      << " is " << v << "\n";);
                 auto s = mk_singleton(e);
-                SASSERT(n2b.contains(e));
+                SASSERT(n2b.contains(p->get_arg(1)));
                 SASSERT(n2b.contains(s));
                 auto is_in = m.mk_implies(n2b[s], n2b[p->get_arg(1)]);
                 if (v == l_false)
                     is_in = m.mk_not(is_in);
                 in lit(p, v == l_true);
                 expr* b = m.mk_const(symbol("set.in"), m.mk_bool_sort());
+                bs.push_back(b);
                 m_assumptions.insert(b, lit);
                 m_solver->assert_expr(is_in);
             }
@@ -157,6 +161,7 @@ namespace smt {
             if (n2b.contains(x) && n2b.contains(y)) {
                 eq e = {a, b};
                 auto t = m.mk_const(symbol("eq"), m.mk_bool_sort());
+                bs.push_back(t);
                 m_assumptions.insert(t, e);
                 m_solver->assert_expr(m.mk_implies(t, m.mk_iff(n2b[x], n2b[y])));
             }
@@ -316,29 +321,31 @@ namespace smt {
         expr_ref_vector slack_exprs(m);
         obj_map<expr, expr *> slack_sums;
         arith_util a(m);
-        for (auto f : m_set_size_decls) {
-            for (auto n : ctx.enodes_of(f)) {
-                slack_sums.insert(n->get_expr(), a.mk_int(0));
-            }
-        }
-
+        expr_ref z(a.mk_int(0), m);
+        for (auto f : m_set_size_decls) 
+            for (auto n : ctx.enodes_of(f)) 
+                slack_sums.insert(n->get_expr(), z);
+                   
         while (true) {
             lbool r = m_solver->check(asms.size(), asms.data());
             if (r == l_false) {
                 auto const& core = m_solver->unsat_core();
                 literal_vector lits;
+                #if 1
                 for (auto c : core) {
                     auto exp = m_assumptions[c];
                     if (std::holds_alternative<eq>(exp)) {
-                        auto [a, b] = *std::get_if<eq>(&exp);
-                        lits.push_back(~th.mk_literal(m.mk_eq(th.get_expr(a), th.get_expr(b))));
+                        auto [a, b] = std::get<eq>(exp);
+                        expr_ref eq(m.mk_eq(th.get_expr(a), th.get_expr(b)), m);
+                        lits.push_back(~th.mk_literal(eq));
                     }
                     else if (std::holds_alternative<diseq>(exp)) {
-                        auto [a, b] = *std::get_if<diseq>(&exp);
-                        lits.push_back(th.mk_literal(m.mk_eq(th.get_expr(a), th.get_expr(b))));
+                        auto [a, b] = std::get<diseq>(exp);
+                        expr_ref eq(m.mk_eq(th.get_expr(a), th.get_expr(b)), m);
+                        lits.push_back(th.mk_literal(eq));
                     }
                     else if (std::holds_alternative<in>(exp)) {
-                        auto [n, is_pos] = *std::get_if<in>(&exp);
+                        auto [n, is_pos] = std::get<in>(exp);
                         auto lit = th.mk_literal(n->get_expr());
                         lits.push_back(is_pos ? ~lit : lit);
                     }
@@ -352,6 +359,7 @@ namespace smt {
                         ctx.mk_th_axiom(th.get_id(), lemma);
                     }
                 }
+                #endif
                 ctx.push_trail(value_trail(m_solver_ran));
                 TRACE(finite_set, ctx.display(tout));
                 m_solver_ran = true;
