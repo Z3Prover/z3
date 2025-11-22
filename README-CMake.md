@@ -410,9 +410,10 @@ The following useful options can be passed to CMake whilst configuring.
 * ``Python3_EXECUTABLE`` - STRING. The python executable to use during the build.
 * ``Z3_ENABLE_TRACING_FOR_NON_DEBUG`` - BOOL. If set to ``TRUE`` enable tracing in non-debug builds, if set to ``FALSE`` disable tracing in non-debug builds. Note in debug builds tracing is always enabled.
 * ``Z3_BUILD_LIBZ3_SHARED`` - BOOL. If set to ``TRUE`` build libz3 as a shared library otherwise build as a static library.
+* ``Z3_BUILD_LIBZ3_CORE`` - BOOL. If set to ``TRUE`` (default) build the core libz3 library. If set to ``FALSE``, skip building libz3 and look for a pre-installed library instead. This is useful when building only Python bindings on top of an already-installed libz3.
 * ``Z3_ENABLE_EXAMPLE_TARGETS`` - BOOL. If set to ``TRUE`` add the build targets for building the API examples.
 * ``Z3_USE_LIB_GMP`` - BOOL. If set to ``TRUE`` use the GNU multiple precision library. If set to ``FALSE`` use an internal implementation.
-* ``Z3_BUILD_PYTHON_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's python bindings will be built.
+* ``Z3_BUILD_PYTHON_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's python bindings will be built. When ``Z3_BUILD_LIBZ3_CORE`` is ``FALSE``, this will build only the Python bindings using a pre-installed libz3.
 * ``Z3_INSTALL_PYTHON_BINDINGS`` - BOOL. If set to ``TRUE`` and ``Z3_BUILD_PYTHON_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's Python bindings.
 * ``Z3_BUILD_DOTNET_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's .NET bindings will be built.
 * ``Z3_INSTALL_DOTNET_BINDINGS`` - BOOL. If set to ``TRUE`` and ``Z3_BUILD_DOTNET_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's .NET bindings.
@@ -463,6 +464,49 @@ cmake -DCMAKE_BUILD_TYPE=Release -DZ3_ENABLE_TRACING_FOR_NON_DEBUG=FALSE ../
 
 Z3 exposes various language bindings for its API. Below are some notes on building
 and/or installing these bindings when building Z3 with CMake.
+
+### Python bindings
+
+#### Building Python bindings with libz3
+
+The default behavior when ``Z3_BUILD_PYTHON_BINDINGS=ON`` is to build both the libz3 library
+and the Python bindings together:
+
+```
+mkdir build
+cd build
+cmake -DZ3_BUILD_PYTHON_BINDINGS=ON -DZ3_BUILD_LIBZ3_SHARED=ON ../
+make
+```
+
+#### Building only Python bindings (using pre-installed libz3)
+
+For package managers like conda-forge that want to avoid rebuilding libz3 for each Python version,
+you can build only the Python bindings by setting ``Z3_BUILD_LIBZ3_CORE=OFF``. This assumes
+libz3 is already installed on your system:
+
+```
+# First, build and install libz3 (once)
+mkdir build-libz3
+cd build-libz3
+cmake -DZ3_BUILD_LIBZ3_SHARED=ON -DCMAKE_INSTALL_PREFIX=/path/to/prefix ../
+make
+make install
+
+# Then, build Python bindings for each Python version (quickly, without rebuilding libz3)
+cd ..
+mkdir build-py310
+cd build-py310
+cmake -DZ3_BUILD_LIBZ3_CORE=OFF \
+      -DZ3_BUILD_PYTHON_BINDINGS=ON \
+      -DCMAKE_INSTALL_PREFIX=/path/to/prefix \
+      -DPython3_EXECUTABLE=/path/to/python3.10 ../
+make
+make install
+```
+
+This approach significantly reduces build time when packaging for multiple Python versions,
+as the expensive libz3 compilation happens only once.
 
 ### Java bindings
 
