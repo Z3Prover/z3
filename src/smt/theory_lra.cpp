@@ -885,6 +885,9 @@ public:
             mk_is_int_axiom(n);        
     }
 
+    ptr_vector<expr> m_delay_ineqs;
+    unsigned m_delay_ineqs_qhead = 0;
+
     bool internalize_atom(app * atom, bool gate_ctx) {
         TRACE(arith_internalize, tout << bpp(atom) << "\n";);
         SASSERT(!ctx().b_internalized(atom));
@@ -913,6 +916,11 @@ public:
         }
         else if (a.is_is_int(atom)) {
             internalize_is_int(atom);
+            return true;
+        }
+        else if (a.is_le(atom) || a.is_ge(atom)) {
+            m_delay_ineqs.push_back(atom);   
+            ctx().push_trail(push_back_vector<ptr_vector<expr>>(m_delay_ineqs));
             return true;
         }
         else {
@@ -2176,6 +2184,8 @@ public:
         unsigned total_conflicts = ctx().get_num_conflicts();
         if (total_conflicts < 10)
             return true;
+        if (m_delay_ineqs_qhead < m_delay_ineqs.size())
+            return true;
         double f = static_cast<double>(m_num_conflicts)/static_cast<double>(total_conflicts);
         return f >= adaptive_assertion_threshold();
     }
@@ -2185,7 +2195,8 @@ public:
     }
     
     bool can_propagate_core() {
-        return m_asserted_atoms.size() > m_asserted_qhead || m_new_def || lp().has_changed_columns();
+        return m_asserted_atoms.size() > m_asserted_qhead || m_new_def || lp().has_changed_columns() ||
+               m_delay_ineqs_qhead < m_delay_ineqs.size();
     }
 
     bool propagate() {
@@ -2200,6 +2211,29 @@ public:
             return true;
         if (!can_propagate_core()) 
             return false;
+
+        for (; m_delay_ineqs_qhead < m_delay_ineqs.size() && !ctx().inconsistent() && m.inc(); ++m_delay_ineqs_qhead) {
+            auto atom = m_delay_ineqs[m_delay_ineqs_qhead];
+            ctx().push_trail(value_trail(m_delay_ineqs_qhead));
+            if (!ctx().is_relevant(atom))
+                continue;
+            expr *x, *y;
+            if (a.is_le(atom, x, y)) {
+                auto lit1 = mk_literal(atom);
+                auto lit2 = mk_literal(a.mk_le(a.mk_sub(x, y), a.mk_numeral(rational(0), a.is_int(x->get_sort()))));
+                mk_axiom(~lit1, lit2);
+                mk_axiom(lit1, ~lit2);                
+            }
+            else if (a.is_ge(atom, x, y)) {
+                auto lit1 = mk_literal(atom);
+                auto lit2 = mk_literal(a.mk_ge(a.mk_sub(x, y), a.mk_numeral(rational(0), a.is_int(x->get_sort()))));
+                mk_axiom(~lit1, lit2);
+                mk_axiom(lit1, ~lit2);                
+            }
+            else {
+                UNREACHABLE();
+            }
+        }
         
         m_new_def = false;        
         while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent() && m.inc()) {
