@@ -1316,7 +1316,15 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
 }
 
 void ast_manager::update_fresh_id(ast_manager const& m) {
-    m_fresh_id = std::max(m_fresh_id, m.m_fresh_id);
+    unsigned other_id = m.m_fresh_id.load(std::memory_order_relaxed);
+    unsigned current_id = m_fresh_id.load(std::memory_order_relaxed);
+    while (other_id > current_id) {
+        if (m_fresh_id.compare_exchange_weak(current_id, other_id, 
+                                              std::memory_order_relaxed,
+                                              std::memory_order_relaxed)) {
+            break;
+        }
+    }
 }
 
 

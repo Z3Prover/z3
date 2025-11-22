@@ -48,6 +48,7 @@ Revision History:
 #include "util/dependency.h"
 #include "util/rlimit.h"
 #include <variant>
+#include <atomic>
 
 #define RECYCLE_FREE_AST_INDICES
 
@@ -1518,7 +1519,7 @@ protected:
     app *                     m_true;
     app *                     m_false;
     proof *                   m_undef_proof;
-    unsigned                  m_fresh_id;
+    std::atomic<unsigned>     m_fresh_id;
     bool                      m_debug_ref_count;
     u_map<unsigned>           m_debug_free_indices;
     std::fstream*             m_trace_stream = nullptr;
