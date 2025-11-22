@@ -280,6 +280,110 @@ namespace nlsat {
             
         };
 
+        struct cell_root_info {
+            polynomial_ref m_eq;
+            polynomial_ref m_lower;
+            polynomial_ref m_upper;
+            unsigned       m_eq_idx;
+            unsigned       m_lower_idx;
+            unsigned       m_upper_idx;
+            bool           m_has_eq;
+            bool           m_has_lower;
+            bool           m_has_upper;
+            cell_root_info(pmanager & pm): m_eq(pm), m_lower(pm), m_upper(pm) {
+                reset();
+            }
+            void reset() {
+                m_eq = nullptr;
+                m_lower = nullptr;
+                m_upper = nullptr;
+                m_eq_idx = m_lower_idx = m_upper_idx = UINT_MAX;
+                m_has_eq = m_has_lower = m_has_upper = false;
+            }
+        };
+
+        void find_cell_roots(polynomial_ref_vector & ps, var y, cell_root_info & info) {
+            info.reset();
+            SASSERT(m_assignment.is_assigned(y));
+            bool lower_inf = true;
+            bool upper_inf = true;
+            scoped_anum_vector & roots = m_roots_tmp;
+            scoped_anum lower(m_am);
+            scoped_anum upper(m_am);
+            anum const & y_val = m_assignment.value(y);
+            TRACE(nlsat_explain, tout << "adding literals for "; display_var(tout, y); tout << " -> ";
+                  m_am.display_decimal(tout, y_val); tout << "\n";);
+            polynomial_ref p(m_pm);
+            unsigned sz = ps.size();
+            for (unsigned k = 0; k < sz; k++) {
+                p = ps.get(k);
+                if (max_var(p) != y)
+                    continue;
+                roots.reset();
+                // Variable y is assigned in m_assignment. We must temporarily unassign it.
+                // Otherwise, the isolate_roots procedure will assume p is a constant polynomial.
+                m_am.isolate_roots(p, undef_var_assignment(m_assignment, y), roots);
+                unsigned num_roots = roots.size();
+                TRACE(nlsat_explain,
+                      tout << "isolated roots for "; display_var(tout, y);
+                      tout << " with polynomial: " << p << "\n";
+                      for (unsigned ri = 0; ri < num_roots; ++ri) {
+                          m_am.display_decimal(tout << "  root[" << (ri+1) << "] = ", roots[ri]);
+                          tout << "\n";
+                      });
+                bool all_lt = true;
+                for (unsigned i = 0; i < num_roots; i++) {
+                    int s = m_am.compare(y_val, roots[i]);
+                    TRACE(nlsat_explain,
+                          m_am.display_decimal(tout << "comparing root: ", roots[i]); tout << "\n";
+                          m_am.display_decimal(tout << "with y_val:", y_val);
+                          tout << "\nsign " << s << "\n";
+                          tout << "poly: " << p << "\n";
+                          );
+                    if (s == 0) {
+                        info.m_eq = p;
+                        info.m_eq_idx = i + 1;
+                        info.m_has_eq = true;
+                        return;
+                    }
+                    else if (s < 0) {
+                        if (i > 0) {
+                            int j = i - 1;
+                            if (lower_inf || m_am.lt(lower, roots[j])) {
+                                lower_inf = false;
+                                m_am.set(lower, roots[j]);
+                                info.m_lower = p;
+                                info.m_lower_idx = j + 1;
+                            }
+                        }
+                        if (upper_inf || m_am.lt(roots[i], upper)) {
+                            upper_inf = false;
+                            m_am.set(upper, roots[i]);
+                            info.m_upper = p;
+                            info.m_upper_idx = i + 1;
+                        }
+                        all_lt = false;
+                        break;
+                    }
+                }
+                if (all_lt && num_roots > 0) {
+                    int j = num_roots - 1;
+                    if (lower_inf || m_am.lt(lower, roots[j])) {
+                        lower_inf = false;
+                        m_am.set(lower, roots[j]);
+                        info.m_lower = p;
+                        info.m_lower_idx = j + 1;
+                    }
+                }
+            }
+            if (!lower_inf) {
+                info.m_has_lower = true;
+            }
+            if (!upper_inf) {
+                info.m_has_upper = true;
+            }
+        }
+
         void add_zero_assumption(polynomial_ref& p) {
             // Build a square-free representative of p so that we can speak about
             // a specific root that coincides with the current assignment.
@@ -296,26 +400,17 @@ namespace nlsat {
                 return;
             SASSERT(m_assignment.is_assigned(maxx));
             
-            undef_var_assignment partial(m_assignment, maxx);
-            scoped_anum_vector & roots = m_roots_tmp;
-            roots.reset();
-            // Isolate the roots of providing the assignment with maxx unassigned.
-            m_am.isolate_roots(q, partial, roots);
-
-            anum const & maxx_val = m_assignment.value(maxx);
-            unsigned root_idx = 0;
-            for (unsigned i = 0; i < roots.size(); ++i) 
-                if (m_am.compare(maxx_val, roots[i]) == 0) {
-                    root_idx = i + 1; // roots are 1-based
-                    break;
-                }
-            if (root_idx == 0) 
+            polynomial_ref_vector singleton(m_pm);
+            singleton.push_back(q);
+            cell_root_info info(m_pm);
+            find_cell_roots(singleton, maxx, info);
+            if (!info.m_has_eq)
                 return; // there are no root functions and therefore no constraints are generated
 
             TRACE(nlsat_explain,
                   tout << "adding zero-assumption root literal for ";
-                  display_var(tout, maxx); tout << " using root[" << root_idx << "] of " << q << "\n";);
-            add_root_literal(atom::ROOT_EQ, maxx, root_idx, q);
+                  display_var(tout, maxx); tout << " using root[" << info.m_eq_idx << "] of " << q << "\n";);
+            add_root_literal(atom::ROOT_EQ, maxx, info.m_eq_idx, info.m_eq);
         }
 
         void add_assumption(atom::kind k, poly * p, bool sign = false) {
@@ -927,7 +1022,6 @@ namespace nlsat {
                 add_assumption(s == 0 ? atom::EQ : (s < 0 ? atom::LT : atom::GT), p);
             }
             return s;
-#endif
         }
 
         /**
@@ -958,99 +1052,25 @@ namespace nlsat {
             }
             add_assumption(k, p, lsign);
         }
-
         void cac_add_cell_lits(polynomial_ref_vector & ps, var y, polynomial_ref_vector & res) {
             res.reset();
-            SASSERT(m_assignment.is_assigned(y));
-            bool lower_inf = true;
-            bool upper_inf = true;
-            scoped_anum_vector & roots = m_roots_tmp;
-            scoped_anum lower(m_am);
-            scoped_anum upper(m_am);
-            anum const & y_val = m_assignment.value(y);
-            TRACE(nlsat_explain, tout << "adding literals for "; display_var(tout, y); tout << " -> ";
-                  m_am.display_decimal(tout, y_val); tout << "\n";);
-            polynomial_ref p_lower(m_pm);
-            unsigned i_lower = UINT_MAX;
-            polynomial_ref p_upper(m_pm);
-            unsigned i_upper = UINT_MAX;
-            polynomial_ref p(m_pm);
-            unsigned sz = ps.size();
-            for (unsigned k = 0; k < sz; k++) {
-                p = ps.get(k);
-                if (max_var(p) != y)
-                    continue;
-                roots.reset();
-                // Variable y is assigned in m_assignment. We must temporarily unassign it.
-                // Otherwise, the isolate_roots procedure will assume p is a constant polynomial.
-                m_am.isolate_roots(p, undef_var_assignment(m_assignment, y), roots);
-                unsigned num_roots = roots.size();
-                TRACE(nlsat_explain,
-                      tout << "isolated roots for "; display_var(tout, y);
-                      tout << " with polynomial: " << p << "\n";
-                      for (unsigned ri = 0; ri < num_roots; ++ri) {
-                          m_am.display_decimal(tout << "  root[" << (ri+1) << "] = ", roots[ri]);
-                          tout << "\n";
-                      });
-                bool all_lt = true;
-                for (unsigned i = 0; i < num_roots; i++) {
-                    int s = m_am.compare(y_val, roots[i]);
-                    TRACE(nlsat_explain, 
-                        m_am.display_decimal(tout << "comparing root: ", roots[i]); tout << "\n";
-                        m_am.display_decimal(tout << "with y_val:", y_val); 
-                        tout << "\nsign " << s << "\n";
-                        tout << "poly: " << p << "\n";
-                        );
-                    if (s == 0) {
-                        // y_val == roots[i]
-                        // add literal
-                        // ! (y = root_i(p))
-                        add_root_literal(atom::ROOT_EQ, y, i+1, p);
-                        res.push_back(p);
-                        return;
-                    }
-                    else if (s < 0) {
-                        // y_val < roots[i]
-                        if (i > 0) {
-                            // y_val > roots[j]
-                            int j = i - 1;
-                            if (lower_inf || m_am.lt(lower, roots[j])) {
-                                lower_inf = false;
-                                m_am.set(lower, roots[j]);
-                                p_lower = p;
-                                i_lower = j + 1;
-                            }
-                        }
-                        if (upper_inf || m_am.lt(roots[i], upper)) {
-                            upper_inf = false;
-                            m_am.set(upper, roots[i]);
-                            p_upper = p;
-                            i_upper = i + 1;
-                        }
-                        all_lt = false;
-                        break;
-                    }
-                }
-                if (all_lt && num_roots > 0) {
-                    int j = num_roots - 1;
-                    if (lower_inf || m_am.lt(lower, roots[j])) {
-                        lower_inf = false;
-                        m_am.set(lower, roots[j]);
-                        p_lower = p;
-                        i_lower = j + 1;
-                    }
-                }
+            cell_root_info info(m_pm);
+            find_cell_roots(ps, y, info);
+            if (info.m_has_eq) {
+                res.push_back(info.m_eq);
+                add_root_literal(atom::ROOT_EQ, y, info.m_eq_idx, info.m_eq);
+                return;
             }
-
-            if (!lower_inf) {
-                res.push_back(p_lower);
-                add_root_literal(m_full_dimensional ? atom::ROOT_GE : atom::ROOT_GT, y, i_lower, p_lower);
+            if (info.m_has_lower) {
+                res.push_back(info.m_lower);
+                add_root_literal(m_full_dimensional ? atom::ROOT_GE : atom::ROOT_GT, y, info.m_lower_idx, info.m_lower);
             }
-            if (!upper_inf) {
-                res.push_back(p_upper);
-                add_root_literal(m_full_dimensional ? atom::ROOT_LE : atom::ROOT_LT, y, i_upper, p_upper);
+            if (info.m_has_upper) {
+                res.push_back(info.m_upper);
+                add_root_literal(m_full_dimensional ? atom::ROOT_LE : atom::ROOT_LT, y, info.m_upper_idx, info.m_upper);
             }
         }
+
 
         /**
            Add one or two literals that specify in which cell of variable y the current interpretation is.
@@ -1071,87 +1091,19 @@ namespace nlsat {
                     ! (y > root_i(p1)) or !(y < root_j(p2))
         */
         void add_cell_lits(polynomial_ref_vector & ps, var y) {
-            SASSERT(m_assignment.is_assigned(y));
-            bool lower_inf = true;
-            bool upper_inf = true;
-            scoped_anum_vector & roots = m_roots_tmp;
-            scoped_anum lower(m_am);
-            scoped_anum upper(m_am);
-            anum const & y_val = m_assignment.value(y);
-            TRACE(nlsat_explain, tout << "adding literals for "; display_var(tout, y); tout << " -> ";
-                  m_am.display_decimal(tout, y_val); tout << "\n";);
-            polynomial_ref p_lower(m_pm);
-            unsigned i_lower = UINT_MAX;
-            polynomial_ref p_upper(m_pm);
-            unsigned i_upper = UINT_MAX;
-            polynomial_ref p(m_pm);
-            unsigned sz = ps.size();
-            for (unsigned k = 0; k < sz; k++) {
-                p = ps.get(k);
-                if (max_var(p) != y)
-                    continue;
-                roots.reset();
-                // Variable y is assigned in m_assignment. We must temporarily unassign it.
-                // Otherwise, the isolate_roots procedure will assume p is a constant polynomial.
-                m_am.isolate_roots(p, undef_var_assignment(m_assignment, y), roots);
-                unsigned num_roots = roots.size();
-                bool all_lt = true;
-                for (unsigned i = 0; i < num_roots; i++) {
-                    int s = m_am.compare(y_val, roots[i]);
-                    TRACE(nlsat_explain, 
-                          m_am.display_decimal(tout << "comparing root: ", roots[i]); tout << "\n";
-                          m_am.display_decimal(tout << "with y_val:", y_val); 
-                          tout << "\nsign " << s << "\n";
-                          tout << "poly: " << p << "\n";
-                          );
-                    if (s == 0) {
-                        // y_val == roots[i]
-                        // add literal
-                        // ! (y = root_i(p))
-                        add_root_literal(atom::ROOT_EQ, y, i+1, p);
-                        return;
-                    }
-                    else if (s < 0) {
-                        // y_val < roots[i]
-                        if (i > 0) {
-                            // y_val > roots[j]
-                            int j = i - 1;
-                            if (lower_inf || m_am.lt(lower, roots[j])) {
-                                lower_inf = false;
-                                m_am.set(lower, roots[j]);
-                                p_lower = p;
-                                i_lower = j + 1;
-                            }
-                        }
-                        if (upper_inf || m_am.lt(roots[i], upper)) {
-                            upper_inf = false;
-                            m_am.set(upper, roots[i]);
-                            p_upper = p;
-                            i_upper = i + 1;
-                        }
-                        all_lt = false;
-                        break;
-                    }
-                }
-                if (all_lt && num_roots > 0) {
-                    int j = num_roots - 1;
-                    if (lower_inf || m_am.lt(lower, roots[j])) {
-                        lower_inf = false;
-                        m_am.set(lower, roots[j]);
-                        p_lower = p;
-                        i_lower = j + 1;
-                    }
-                }
+            cell_root_info info(m_pm);
+            find_cell_roots(ps, y, info);
+            if (info.m_has_eq) {
+                add_root_literal(atom::ROOT_EQ, y, info.m_eq_idx, info.m_eq);
+                return;
             }
-
-            if (!lower_inf) {
-                add_root_literal(m_full_dimensional ? atom::ROOT_GE : atom::ROOT_GT, y, i_lower, p_lower);
+            if (info.m_has_lower) {
+                add_root_literal(m_full_dimensional ? atom::ROOT_GE : atom::ROOT_GT, y, info.m_lower_idx, info.m_lower);
             }
-            if (!upper_inf) {
-                add_root_literal(m_full_dimensional ? atom::ROOT_LE : atom::ROOT_LT, y, i_upper, p_upper);
+            if (info.m_has_upper) {
+                add_root_literal(m_full_dimensional ? atom::ROOT_LE : atom::ROOT_LT, y, info.m_upper_idx, info.m_upper);
             }
         }
-
 
         /**
            \brief Return true if all polynomials in ps are univariate in x.
