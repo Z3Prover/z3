@@ -93,27 +93,32 @@ namespace nla {
     {}
 
     lbool stellensatz::saturate() {
+        unsigned num_constraints = 0;
         init_solver();
         TRACE(arith, display(tout << "stellensatz before saturation\n"));
-        start_saturate:
+    start_saturate:
+        num_constraints = m_constraints.size();
         lbool r;
         #if 1
         r = conflict_saturation();
         #else
         r = model_repair();
         #endif
+        if (m_constraints.size() == num_constraints)
+            return l_undef;
         
         if (r != l_false)
             r = m_solver.solve(m_core);
         TRACE(arith, display(tout << "stellensatz after saturation " << r << "\n"));
         if (r == l_false) {
+            IF_VERBOSE(2, verbose_stream() << "(nla.stellensatz.backtrack)\n");
             while (backtrack(m_core)) {
+                ++c().lp_settings().stats().m_stellensatz.m_num_backtracks;
                 lbool rb = m_solver.solve(m_core);
                 if (rb == l_false)
                     continue;
                 if (rb == l_undef) // TODO: if there is a core that doesn't depend on new monomials we could use this for conflicts
-                    return rb;
-                
+                    return rb;                
                 m_solver.update_values(m_values);
                 goto start_saturate;
             }
@@ -124,11 +129,16 @@ namespace nla {
         return r;
     }
 
+    void stellensatz::pop_constraint() {
+        auto const &[p, k, j] = m_constraints.back();
+        m_constraint_index.erase({p.index(), k});             
+        m_constraints.pop_back();       
+    }
+
     void stellensatz::init_solver() {
-        m_constraints.reset();
+        m_trail.reset();
         m_monomial_factory.reset();
         m_coi.init();
-        m_constraint_index.reset();
         m_values.reset();
         init_vars();
         init_occurs();
@@ -236,7 +246,20 @@ namespace nla {
         ci = m_constraints.size();
         m_constraints.push_back({p, k, j });
         m_constraint_index.insert({p.index(), k}, ci);
+        ++c().lp_settings().stats().m_stellensatz.m_num_constraints;
+        
         m_tabu.reserve(ci + 1);
+        m_tabu[ci].reset();
+        m_has_occurs.reserve(ci + 1);
+        struct undo_constraint : public trail {
+            stellensatz &s;
+            undo_constraint(stellensatz& s): s(s) {}
+            void undo() override {
+                s.pop_constraint();
+            }
+        };
+        m_trail.push_scope();
+        m_trail.push(undo_constraint(*this));
         return ci;
     }
 
@@ -244,7 +267,6 @@ namespace nla {
         if (m_active.contains(ci))
             return;
         m_active.insert(ci);
-        m_tabu.reserve(ci + 1);
         m_tabu[ci] = tabu;
     }
 
@@ -252,7 +274,6 @@ namespace nla {
     // loop over active set to eliminate variables.
     lbool stellensatz::conflict_saturation() {
         m_active.reset();
-        m_tabu.reset();
         for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {
             if (!constraint_is_true(ci))
                 add_active(ci, uint_set());
@@ -316,15 +337,19 @@ namespace nla {
                                        dd::pdd _f_p) {
         if (ci == other_ci)
             return true;
+        if (f.degree != 1)
+            return true; // future - could handle this
         auto const &[other_p, other_k, other_j] = m_constraints[other_ci];
         auto const &[p, k, j] = m_constraints[ci];
         auto g = factor(x, other_ci);
+        if (g.degree != 1)
+            return true; // not handling degree > 1
         auto p_value2 = value(g.p);
         // check that p_value and p_value2 have different signs
         // check that other_p is disjoint from tabu
         // compute overlaps extending x
         //
-        TRACE(arith, display_constraint(tout << "resolve with " << p_value << " " << p_value2 << " ", other_ci)
+        TRACE(arith, display_constraint(tout << "(" << other_ci << ") resolve with x" << x << " " << p_value << " " << p_value2 << " ", other_ci)
                          << "\n");
         SASSERT(g.degree > 0);
         SASSERT(p_value != 0);
@@ -351,13 +376,6 @@ namespace nla {
         SASSERT(m1m2.contains(x));
         f_p = f_p.mul(m1);
         g_p = g_p.mul(m2);
-
-        #if 0
-        if (!has_term_offset(f_p))
-            return true;
-        if (!has_term_offset(g_p))
-            return true;
-        #endif
 
         TRACE(arith, tout << "m1 " << m1 << " m2 " << m2 << " m1m2: " << m1m2 << "\n");
 
@@ -392,6 +410,7 @@ namespace nla {
 
         auto new_ci = add(ci_a, ci_b);
         CTRACE(arith, !is_new_constraint(new_ci), display_constraint(tout << "not new ", new_ci) << "\n");
+        ++c().lp_settings().stats().m_stellensatz.m_num_resolutions;
         if (!is_new_constraint(new_ci))
             return true;
         if (m_constraints[new_ci].p.degree() <= 3)
@@ -444,7 +463,11 @@ namespace nla {
         shuffle(vars.size(), vars.begin(), rand);
         for (auto v : vars)
             if (!model_repair(v))
-                return l_false;        
+                return l_false;    
+        #if 0
+        for (unsigned i = vars.size(); i-- > 0;)
+            set_value(vars[i]);
+        #endif
         return l_undef;
     }
 
@@ -477,31 +500,33 @@ namespace nla {
             m_values[v] = is_int(v) ? ceil(lo) : lo;
             return true;
         }
-        // lo > hi - pick a side and assume inf or sup and enforce order between sup and inf.
-        // maybe just add constraints that are false and skip the rest?
-        // remove sups and infs from active because we computed resolvents
-        if (infs.size() < sups.size()) {
+
+        auto resolve = [&](unsigned inf, unsigned_vector const &sups) {
             auto f = factor(v, inf);
             SASSERT(f.degree == 1);
             auto p_value = value(f.p);
             f.p *= pddm.mk_var(v);
-            auto [m, f_p] = f.p.var_factors();            
-            for (auto s : sups)
-                if (!resolve_variable(v, inf, s, p_value, f, m, f_p))
-                    return false;
+            auto [m, f_p] = f.p.var_factors();
+            return all_of(sups, [&](auto s) { return resolve_variable(v, inf, s, p_value, f, m, f_p); });
+        };
+        // lo > hi - pick a side and assume inf or sup and enforce order between sup and inf.
+        // maybe just add constraints that are false and skip the rest?
+        // remove sups and infs from active because we computed resolvents
+        if (infs.size() <= 3 && sups.size() <= 3 && (infs.size() <= 2 || sups.size() <= 2)) {
+            for (auto inf : infs) 
+                if (!resolve(inf, sups))
+                    return false;            
+        }
+        else if (infs.size() < sups.size()) {
+            if (!resolve(inf, sups))
+                return false;
             for (auto i : infs)
                 if (!assume_ge(v, i, inf))
                     return false;
         }
         else {
-            auto f = factor(v, sup);
-            SASSERT(f.degree == 1);
-            auto p_value = value(f.p);
-            f.p *= pddm.mk_var(v);
-            auto [m, f_p] = f.p.var_factors(); 
-            for (auto i : infs)
-                if (!resolve_variable(v, sup, i, p_value, f, m, f_p))
-                    return false;
+            if (!resolve(sup, infs))
+                return false;
             for (auto s : sups)
                 if (!assume_ge(v, sup, s))
                     return false;
@@ -609,6 +634,7 @@ namespace nla {
         uint_set new_tabu(m_tabu[ci]);
         new_tabu.insert(x);
         add_active(new_ci, new_tabu);
+        ++c().lp_settings().stats().m_stellensatz.m_num_vanishings;
         return true;
     }
 
@@ -694,7 +720,7 @@ namespace nla {
         for (auto ci : assumptions)
             max_ci = std::max(ci, max_ci);
         TRACE(arith, tout << "max " << max_ci << " external " << external << " assumptions " << assumptions << "\n";
-              display_constraint(tout, max_ci););
+              display_constraint(tout, max_ci) << "\n";);
         // TODO, we can in reality replay all constraints that don't depend on max_ci
         vector<constraint> replay;
         unsigned i = 0;
@@ -706,13 +732,9 @@ namespace nla {
         }
         external.shrink(i);
         auto [p, k, j] = m_constraints[max_ci];
-        while (m_constraints.size() > max_ci) {
-            auto const& [_p, _k, _j] = m_constraints.back();
-            m_constraint_index.erase({_p.index(), _k});
-            auto ci = m_constraints.size() - 1;            
-            remove_occurs(ci);            
-            m_constraints.pop_back();
-        }
+        while (m_constraints.size() > max_ci)
+            m_trail.pop_scope(1);
+        
         for (auto const &[_p, _k, _j] : replay) {
             auto ci = add_constraint(_p, _k, _j);
             init_occurs(ci);
@@ -932,20 +954,28 @@ namespace nla {
     void stellensatz::init_occurs(lp::constraint_index ci) {
         if (ci == lp::null_ci)
             return;
-        m_occurs_trail.push_back(ci);
+        if (m_has_occurs[ci])
+            return;
+        struct undo_occurs : public trail {
+            stellensatz & s;
+            lp::constraint_index ci;
+            undo_occurs(stellensatz & s, lp::constraint_index ci) : s(s), ci(ci) {}
+            void undo() override {
+                s.remove_occurs(ci);
+            }
+        };
+        m_trail.push(undo_occurs(*this, ci));
+        m_has_occurs[ci] = true;
         auto const &con = m_constraints[ci];
-        verbose_stream() << "init-occurs " << ci << " vars: " << con.p.free_vars() << "\n"; 
         for (auto v : con.p.free_vars())
             m_occurs[v].push_back(ci);
         
     }
 
     void stellensatz::remove_occurs(lp::constraint_index ci) {
-        if (m_occurs_trail.empty() || m_occurs_trail.back() != ci)
-            return;
-        m_occurs_trail.pop_back();
+        SASSERT(m_has_occurs[ci]);
+        m_has_occurs[ci] = false;            
         auto const &con = m_constraints[ci];
-        verbose_stream() << "remove-occurs " << ci << " vars: " << con.p.free_vars() << "\n"; 
         for (auto v : con.p.free_vars())
             m_occurs[v].pop_back();
     }
@@ -1240,5 +1270,6 @@ namespace nla {
         unsigned sz = values.size();
         for (unsigned i = 0; i < sz; ++i) 
             values[i] = _values[i];
+        TRACE(arith, for (unsigned i = 0; i < sz; ++i) tout << "j" << i << " := " << values[i] << "\n";);
     }
 }

@@ -125,6 +125,8 @@ namespace nla {
         };
 
 
+
+        trail_stack m_trail;
         coi m_coi;
         dd::pdd_manager pddm;
         vector<constraint> m_constraints;
@@ -132,7 +134,9 @@ namespace nla {
         indexed_uint_set m_active;
         vector<uint_set> m_tabu;
         vector<rational> m_values;
-        svector<lp::constraint_index> m_core, m_occurs_trail;
+        svector<lp::constraint_index> m_core;
+        vector<svector<lp::constraint_index>> m_occurs;  // map from variable to constraints they occur.
+        bool_vector m_has_occurs;
 
         struct constraint_key {
             unsigned pdd;
@@ -160,13 +164,14 @@ namespace nla {
         
         lp::constraint_index add_var_bound(lp::lpvar v, lp::lconstraint_kind k, rational const &rhs, justification j);
         
-        vector<svector<lp::constraint_index>> m_occurs; // map from variable to constraints they occur. 
+
 
         // initialization
         void init_solver();
         void init_vars();
         void init_occurs();
         void init_occurs(lp::constraint_index ci);
+        void pop_constraint();
         void remove_occurs(lp::constraint_index ci);
 
         lbool conflict_saturation();

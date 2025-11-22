@@ -138,6 +138,16 @@ struct statistics {
     unsigned m_bounds_tightenings = 0;
     unsigned m_nla_throttled_lemmas = 0;
     unsigned m_nla_stellensatz = 0;
+    struct stellensatz {
+        unsigned m_num_constraints = 0;
+        unsigned m_num_conflicts = 0;
+        unsigned m_num_factorings = 0;
+        unsigned m_num_resolutions = 0;
+        unsigned m_num_vanishings = 0;
+        unsigned m_num_model_repairs = 0;
+        unsigned m_num_backtracks = 0;
+    };
+    stellensatz m_stellensatz;
 
     ::statistics m_st = {};
 
@@ -178,6 +188,13 @@ struct statistics {
         st.update("arith-bounds-tightenings", m_bounds_tightenings);
         st.update("arith-nla-throttled-lemmas", m_nla_throttled_lemmas);
         st.update("arith-nla-stellensatz", m_nla_stellensatz);
+        st.update("arith-nla-stellensatz-conflicts", m_stellensatz.m_num_conflicts);
+        st.update("arith-nla-stellensatz-vanishing", m_stellensatz.m_num_vanishings);
+        st.update("arith-nla-stellensatz-factorings", m_stellensatz.m_num_factorings);
+        st.update("arith-nla-stellensatz-resolutions", m_stellensatz.m_num_resolutions);
+        st.update("arith-nla-stellensatz-model-repairs", m_stellensatz.m_num_model_repairs);
+        st.update("arith-nla-stellensatz-backtracks", m_stellensatz.m_num_backtracks);
+        st.update("arith-nla-stellensatz-constraints", m_stellensatz.m_num_constraints);
         st.copy(m_st);
     }
 };
