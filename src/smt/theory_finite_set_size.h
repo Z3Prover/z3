@@ -52,11 +52,11 @@ namespace smt {
         expr_ref m_assumption;
 
         void collect_subexpressions(enode_vector& ns);
-        void create_singleton_sets_from_membership(enode_vector& ns);
         void add_def_axioms(enode_vector const &ns);
         void add_singleton_axioms(enode_vector const &ns);
         void add_eq_axioms(enode_vector const &ns);
         void add_diseq_axioms(enode_vector const &ns);
+        void add_not_in_axioms(enode_vector const &ns);
         enode *mk_singleton(enode* n);
         enode *mk_diff(enode *a, enode *b);
         void initialize_solver();

@@ -58,7 +58,7 @@ namespace smt {
 
         enode_vector ns;
         collect_subexpressions(ns);
-        create_singleton_sets_from_membership(ns);
+
         //
         // we now got all subexpressions from equalities, disequalities, set.in
         //        
@@ -76,6 +76,7 @@ namespace smt {
         add_def_axioms(ns);
         add_singleton_axioms(ns); // (set.in x s) -> |{x}| = 1
         add_diseq_axioms(ns);     // |x\y| > 0 or |y\x| > 0
+        add_not_in_axioms(ns);    // not (x in s) -> |{x}\s| = 1
         add_eq_axioms(ns);
 
         TRACE(finite_set, display(tout));
@@ -131,7 +132,7 @@ namespace smt {
                 if (!ctx.is_relevant(p))
                     continue;
                 auto v = ctx.get_assignment(p);
-                if (v == l_undef)
+                if (v != l_true)
                     continue;
                 auto e = p->get_arg(0)->get_root();
                 TRACE(finite_set, tout << "singleton axiom for " << enode_pp(e, ctx) << " in " << enode_pp(p, ctx) 
@@ -140,13 +141,38 @@ namespace smt {
                 SASSERT(n2b.contains(p->get_arg(1)));
                 SASSERT(n2b.contains(s));
                 auto is_in = m.mk_implies(n2b[s], n2b[p->get_arg(1)]);
-                if (v == l_false)
-                    is_in = m.mk_not(is_in);
                 in lit(p, v == l_true);
-                expr* b = m.mk_const(symbol("set.in"), m.mk_bool_sort());
-                bs.push_back(b);
-                m_assumptions.insert(b, lit);
-                m_solver->assert_expr(is_in);
+                std::ostringstream strm;
+                strm << "|" << enode_pp(p, ctx) << "|";
+                symbol name = symbol(strm.str());
+                expr* t = m.mk_const(name, m.mk_bool_sort());
+                bs.push_back(t);
+                m_assumptions.insert(t, lit);
+                m_solver->assert_expr(m.mk_implies(t, is_in));
+            }
+        }
+    }
+
+    /*
+     * For every x not in S include the assertion
+     * x in S or |{x} \ S| = 1
+     */
+    void theory_finite_set_size::add_not_in_axioms(enode_vector const &ns) {
+        for (auto n : ns) {
+            for (auto p : enode::parents(n)) {
+                if (!u.is_in(p->get_expr()))
+                    continue;
+                auto v = ctx.get_assignment(p);
+                if (v != l_false)
+                    continue;
+                arith_util a(m);
+                auto x = p->get_arg(0);
+                auto S = p->get_arg(1);
+                auto X = mk_singleton(x);
+                auto X_minus_S = mk_diff(X, S);
+                auto l1 = th.mk_literal(p->get_expr());
+                auto l2 = th.mk_literal(m.mk_eq(u.mk_size(X_minus_S->get_expr()), a.mk_int(1)));
+                ctx.mk_th_axiom(th.get_id(), l1, l2);
             }
         }
     }
@@ -160,7 +186,10 @@ namespace smt {
             auto y = th.get_enode(b);
             if (n2b.contains(x) && n2b.contains(y)) {
                 eq e = {a, b};
-                auto t = m.mk_const(symbol("eq"), m.mk_bool_sort());
+                std::ostringstream strm;
+                strm << "|" << enode_pp(x, ctx) << " == " << enode_pp(y, ctx) << "|";
+                symbol name = symbol(strm.str());
+                auto t = m.mk_const(name, m.mk_bool_sort());
                 bs.push_back(t);
                 m_assumptions.insert(t, e);
                 m_solver->assert_expr(m.mk_implies(t, m.mk_iff(n2b[x], n2b[y])));
@@ -191,11 +220,12 @@ namespace smt {
         }
     }
 
+
+
     /**
     * Walk the cone of influence of expresions that depend on ns
     */
-    void theory_finite_set_size::collect_subexpressions(enode_vector& ns) {
-
+    void theory_finite_set_size::collect_subexpressions(enode_vector &ns) {
         // initialize disequality watch list
         u_map<unsigned_vector> v2diseqs, v2eqs;
         for (auto [a, b] : th.m_diseqs) {
@@ -235,49 +265,48 @@ namespace smt {
                     add_expression(arg);
             // add parents that are operations and use n
             for (auto p : enode::parents(n))
-                if (is_setop(p) && any_of(enode::args(p), [n](auto a){
-                    return a == n;}))
+                if (is_setop(p) && any_of(enode::args(p), [n](auto a) { return a == n; }))
                     add_expression(p);
             // add equalities and disequalities
             auto v = th.get_th_var(n);
             if (v2eqs.contains(v)) {
                 auto const &other = v2eqs[v];
-                for (auto w : other) 
-                    add_expression(th.get_enode(w));                
+                for (auto w : other)
+                    add_expression(th.get_enode(w));
             }
             if (v2diseqs.contains(v)) {
                 auto const &other = v2diseqs[v];
                 for (auto w : other) {
                     auto n2 = th.get_enode(w);
                     add_expression(n2);
-                    add_expression(mk_diff(n, n2));
-                    add_expression(mk_diff(n2, n));
+                    auto D1 = mk_diff(n, n2);
+                    auto D2 = mk_diff(n2, n);
+                    ctx.mark_as_relevant(D1->get_expr());
+                    ctx.mark_as_relevant(D2->get_expr());
+                    add_expression(D1);
+                    add_expression(D2);
                 }
+            }
+            for (auto p : enode::parents(n)) {
+                if (!u.is_in(p->get_expr()))
+                    continue;
+                if (!ctx.is_relevant(p))
+                    continue;
+                if (ctx.get_assignment(p) != l_false)
+                    continue;
+                auto x = p->get_arg(0)->get_root();
+                auto X = mk_singleton(x);
+                ctx.mark_as_relevant(X->get_expr());
+                add_expression(X);
+                auto D = mk_diff(X, p->get_arg(1));
+                ctx.mark_as_relevant(D);
+                add_expression(D);
             }
         }
         for (auto n : ns)
             n->unset_mark();
     }
-
-    void theory_finite_set_size::create_singleton_sets_from_membership(enode_vector& ns) {
-        unsigned sz = ns.size();
-        enode_vector to_unmark;
-        for (unsigned i = 0; i < sz; ++i) {
-            auto n = ns[i];
-            for (auto p : enode::parents(n)) {
-                if (!u.is_in(p->get_expr()))
-                    continue;
-                auto e = p->get_arg(0)->get_root();
-                if (e->is_marked())
-                    continue;
-                e->set_mark();
-                to_unmark.push_back(e);
-                ns.push_back(mk_singleton(e));
-            }
-        }
-        for (auto n : to_unmark)
-            n->unset_mark();
-    }
+    
 
     /**
     * Base implementation:
@@ -331,7 +360,6 @@ namespace smt {
             if (r == l_false) {
                 auto const& core = m_solver->unsat_core();
                 literal_vector lits;
-                #if 1
                 for (auto c : core) {
                     auto exp = m_assumptions[c];
                     if (std::holds_alternative<eq>(exp)) {
@@ -356,12 +384,13 @@ namespace smt {
                         auto lit = th.mk_literal(eq);
                         literal_vector lemma(lits);
                         lemma.push_back(lit);
+                        TRACE(finite_set, tout << "Asserting cardinality lemma\n";
+                              for (auto lit : lemma) tout << ctx.literal2expr(lit) << "\n";);
                         ctx.mk_th_axiom(th.get_id(), lemma);
                     }
                 }
-                #endif
                 ctx.push_trail(value_trail(m_solver_ran));
-                TRACE(finite_set, ctx.display(tout));
+                TRACE(finite_set, ctx.display(tout << "Core " << core << "\n"));
                 m_solver_ran = true;
                 return l_false;
             }
@@ -372,7 +401,7 @@ namespace smt {
             ctx.mk_th_axiom(th.get_id(), th.mk_literal(a.mk_ge(slack, a.mk_int(0))));  // slack is non-negative
             model_ref mdl;
             m_solver->get_model(mdl);
-            TRACE(finite_set, tout << *mdl);
+
             expr_ref_vector props(m);
             for (auto f : m_set_size_decls) {
                 for (auto n : ctx.enodes_of(f)) {
@@ -382,12 +411,13 @@ namespace smt {
                     props.push_back(b_is_true ? b : m.mk_not(b));
                     if (b_is_true) {
                         auto s = slack_sums[n->get_expr()];
-                        s = a.mk_add(s, slack);
+                        s = s == z ? slack : a.mk_add(s, slack);
                         slack_exprs.push_back(s);
                         slack_sums.insert(n->get_expr(), s);
                     }
                 }
             }
+            TRACE(finite_set, tout << *mdl << "\nPropositional model:\n" << props << "\n");
             m_solver->assert_expr(m.mk_not(m.mk_and(props)));           
         }
         return l_undef;
@@ -425,7 +455,7 @@ namespace smt {
 
     std::ostream& theory_finite_set_size::display(std::ostream& out) const {
         if (m_solver)
-            m_solver->display(out);
+            m_solver->display(out << "set.size-solver\n");
         return out;
     }
 }  // namespace smt

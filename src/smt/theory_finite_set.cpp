@@ -470,7 +470,7 @@ namespace smt {
     }
 
     void theory_finite_set::propagate() {
-        TRACE(finite_set, tout << "propagate\n";);
+        // TRACE(finite_set, tout << "propagate\n";);
         ctx.push_trail(value_trail(m_clauses.aqhead));
         ctx.push_trail(value_trail(m_clauses.sqhead));
         while (can_propagate() && !ctx.inconsistent()) {
@@ -675,7 +675,7 @@ namespace smt {
     void theory_finite_set::display(std::ostream & out) const {
         out << "theory_finite_set:\n";
         for (unsigned i = 0; i < m_clauses.axioms.size(); ++i)
-            out << "[" << i << "]: " << m_clauses.axioms[i] << "\n";
+            out << "[" << i << "]: " << *m_clauses.axioms[i] << "\n";
         for (unsigned v = 0; v < get_num_vars(); ++v)
             display_var(out, v);
         for (unsigned i = 0; i < m_clauses.watch.size(); ++i) {
@@ -933,7 +933,7 @@ namespace smt {
         }
 
         if (undef_count == 1) {
-            TRACE(finite_set, tout << "propagate unit: " << mk_pp(unit, m) << "\n" << clause << "\n";);
+            TRACE(finite_set, tout << "propagate unit:" << clause << "\n";);
             auto lit = mk_literal(unit);
             literal_vector antecedent;
             for (auto e : clause) {
