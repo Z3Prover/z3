@@ -450,6 +450,12 @@ public:
     nla_throttle& throttle() { return m_throttle; }
     const nla_throttle& throttle() const { return m_throttle; }
 
+    lp::lar_solver& lra_solver() { return lra; }
+
+    indexed_uint_set const& to_refine() const {
+        return m_to_refine;
+    }
+
 };  // end of core
 
 struct pp_mon {
