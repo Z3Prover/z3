@@ -59,6 +59,8 @@ namespace nra {
 
         nlsat::anum_manager& am();        
 
+        void set_value(lp::lpvar v, rational const &value);
+
         scoped_anum& tmp1();
 
         scoped_anum& tmp2();

@@ -2620,8 +2620,10 @@ namespace sls {
                 display(out, ad) << "\n";
             }
         };
-        for (var_t v = 0; v < m_vars.size(); ++v) {
+        for (var_t v = 0; v < m_vars.size(); ++v) {            
             if (!eval_is_correct(v)) {
+//                if (m.rlimit().is_canceled())
+//                    return;
                 report_error(verbose_stream(), v);
                 TRACE(arith, report_error(tout, v));
                 UNREACHABLE();
