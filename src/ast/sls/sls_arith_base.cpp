@@ -2588,6 +2588,8 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::invariant() {
+        if (m.limit().is_canceled())
+            return;
         for (unsigned v = 0; v < ctx.num_bool_vars(); ++v) {
             auto ineq = get_ineq(v);
             if (ineq)
@@ -2620,10 +2622,10 @@ namespace sls {
                 display(out, ad) << "\n";
             }
         };
-        for (var_t v = 0; v < m_vars.size(); ++v) {            
+        for (var_t v = 0; v < m_vars.size(); ++v) {
             if (!eval_is_correct(v)) {
-//                if (m.rlimit().is_canceled())
-//                    return;
+                if (m.limit().is_canceled())
+                    return;
                 report_error(verbose_stream(), v);
                 TRACE(arith, report_error(tout, v));
                 UNREACHABLE();
