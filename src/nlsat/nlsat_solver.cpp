@@ -311,6 +311,7 @@ namespace nlsat {
             m_explain.set_minimize_cores(min_cores);
             m_explain.set_factor(p.factor());
             m_explain.set_add_all_coeffs(p.add_all_coeffs());
+            m_explain.set_add_zero_disc(p.zero_disc());            
             m_am.updt_params(p.p);
         }
 

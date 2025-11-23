@@ -48,6 +48,7 @@ namespace nlsat {
         bool                    m_minimize_cores;
         bool                    m_factor;
         bool                    m_add_all_coeffs;
+        bool                    m_add_zero_disc;
         bool                    m_signed_project;
         bool                    m_cell_sample;
 
@@ -159,6 +160,7 @@ namespace nlsat {
             m_full_dimensional = false;
             m_minimize_cores   = false;
             m_add_all_coeffs   = true;
+            m_add_zero_disc = true;
             m_signed_project   = false;
         }
 
@@ -456,6 +458,7 @@ namespace nlsat {
                 TRACE(nlsat_explain, tout << "lc: " << lc << " reduct: " << reduct << "\n";);
                 insert_fresh_factors_in_todo(lc);
                 if (!is_zero(lc) && sign(lc)) {
+                    insert_fresh_factors_in_todo(lc);
                     TRACE(nlsat_explain, tout << "lc does no vaninsh\n";);
                     return;
                 }
@@ -829,6 +832,9 @@ namespace nlsat {
                 if (is_const(s)) {
                     TRACE(nlsat_explain, tout << "done, psc is a constant\n";);
                     return;
+                }
+                if (m_add_zero_disc && !sign(s)) {                    
+                    add_zero_assumption(s);
                 }
                 TRACE(nlsat_explain, 
                       tout << "adding v-psc of\n";
@@ -1895,6 +1901,10 @@ namespace nlsat {
 
     void explain::set_add_all_coeffs(bool f) {
         m_imp->m_add_all_coeffs = f;
+    }
+
+    void explain::set_add_zero_disc(bool f) {
+        m_imp->m_add_zero_disc = f;
     }
 
     void explain::set_signed_project(bool f) {
