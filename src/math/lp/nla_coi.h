@@ -1,4 +1,17 @@
 
+/*++
+  Copyright (c) 2025 Microsoft Corporation
+
+  Abstract:
+    Class for computing the cone of influence for NL constraints.
+    It includes variables that come from monomials that have incorrect evaluation and
+    transitively all constraints and variables that are connected.
+
+  Author:
+    Lev Nachmanson (levnach)
+    Nikolaj Bjorner (nbjorner)
+  --*/
+
 #pragma once
 
 namespace nla {

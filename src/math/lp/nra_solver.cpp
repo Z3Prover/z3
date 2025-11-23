@@ -26,11 +26,6 @@ typedef nla::mon_eq mon_eq;
 typedef nla::variable_map_type variable_map_type;
 
 struct solver::imp {
-    struct model_bound {
-        lp::lpvar v;
-        rational r;
-        bool is_lower;
-    };
 
     lp::lar_solver&           lra;
     reslimit&                 m_limit;  
@@ -41,8 +36,6 @@ struct solver::imp {
     scoped_ptr<scoped_anum> m_tmp1, m_tmp2;
     nla::coi                  m_coi;
     nla::core&                m_nla_core;
-    unsigned                  m_max_constraint_index = 0;
-    vector<model_bound>       m_model_bounds;
     
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p, nla::core& nla_core): 
         lra(s), 
@@ -61,8 +54,6 @@ struct solver::imp {
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_values = alloc(scoped_anum_vector, am());
         m_lp2nl.reset();
-        m_model_bounds.reset();
-        m_max_constraint_index = 0;
     }
 
     // Create polynomial definition for variable v used in setup_assignment_solver.
@@ -255,19 +246,8 @@ struct solver::imp {
             m_nlsat->get_core(core);
             nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
             for (auto c : core) {
-                unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
-                TRACE(nra, tout << "core index " << idx << " " << m_max_constraint_index << "\n");
-                if (idx <= m_max_constraint_index)
-                    ex.push_back(idx);
-                else {
-                    idx -= m_max_constraint_index;
-                    auto const& [v, bound, is_lower] = m_model_bounds[idx];
-                    TRACE(nra, tout << "bound violated for v" << v << (is_lower ? " >= " : " <= ") << bound << "\n");
-                    if (is_lower)
-                        lemma |= nla::ineq(v, lp::lconstraint_kind::LE, bound - 1);
-                    else
-                        lemma |= nla::ineq(v, lp::lconstraint_kind::GE, bound + 1);
-                }
+                unsigned idx = static_cast<unsigned>(static_cast<imp *>(c) - this);
+                ex.push_back(idx);
             }
 
             lemma &= ex;
@@ -334,7 +314,6 @@ struct solver::imp {
     }
 
     void add_constraint(unsigned idx) {
-        m_max_constraint_index = std::max(m_max_constraint_index, idx);
         auto& c = lra.constraints()[idx];
         auto& pm = m_nlsat->pm();
         auto k = c.kind();
@@ -359,7 +338,6 @@ struct solver::imp {
     }
 
     nlsat::literal add_constraint(polynomial::polynomial *p, unsigned idx, lp::lconstraint_kind k) {
-        m_max_constraint_index = std::max(m_max_constraint_index, idx);
         polynomial::polynomial *ps[1] = {p};
         bool is_even[1] = {false};
         nlsat::literal lit;

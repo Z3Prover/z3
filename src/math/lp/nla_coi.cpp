@@ -1,4 +1,12 @@
 
+/*++
+  Copyright (c) 2025 Microsoft Corporation
+
+  Author:
+    Lev Nachmanson (levnach)
+    Nikolaj Bjorner (nbjorner)
+  --*/
+
 #include "math/lp/nla_core.h"
 #include "math/lp/nla_coi.h"
 
