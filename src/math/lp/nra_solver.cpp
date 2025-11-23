@@ -768,6 +768,17 @@ struct solver::imp {
         }
     }
 
+
+    void set_value(lp::lpvar v, rational const& value) {
+        if (!m_values)
+            m_values = alloc(scoped_anum_vector, am());
+        scoped_anum a(am());
+        am().set(a, value.to_mpq());
+        while (m_values->size() <= v)
+            m_values->push_back(a);
+        am().set((*m_values)[v], a);
+    }
+
     nlsat::anum_manager& am() {
         return m_nlsat->am();
     }
@@ -846,6 +857,10 @@ scoped_anum& solver::tmp2() { return m_imp->tmp2(); }
 
 void solver::updt_params(params_ref& p) {
     m_imp->updt_params(p);
+}
+
+void solver::set_value(lp::lpvar v, rational const& value) {
+    m_imp->set_value(v, value);
 }
 
 }

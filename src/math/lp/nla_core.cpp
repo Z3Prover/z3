@@ -57,6 +57,7 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
 
 void core::updt_params(params_ref const& p) {
     m_grobner.updt_params(p);
+    m_stellensatz.updt_params(p);
 }
     
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {

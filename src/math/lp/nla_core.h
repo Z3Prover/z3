@@ -62,6 +62,8 @@ class core {
     friend class monomial_bounds;
     friend class nra::solver;
     friend class divisions;
+    friend class stellensatz;
+
 
     unsigned m_nlsat_delay = 0;
     unsigned m_nlsat_delay_bound = 0;

@@ -124,11 +124,19 @@ namespace nla {
             dd::pdd p, q;
         };
 
+        struct config {
+            unsigned max_degree = 3;
+            unsigned max_conflicts = UINT_MAX;
+            unsigned max_constraints = UINT_MAX;
+            unsigned strategy = 0;
+        };
+
 
 
         trail_stack m_trail;
         coi m_coi;
         dd::pdd_manager pddm;
+        config m_config;
         vector<constraint> m_constraints;
         monomial_factory m_monomial_factory;
         indexed_uint_set m_active;
@@ -186,6 +194,7 @@ namespace nla {
         bool resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci, rational const& p_value, 
             factorization const& f, unsigned_vector const& m1, dd::pdd _f_p);
 
+        svector<std::pair<lp::constraint_index, lp::constraint_index>> m_sup_inf;
         lbool model_repair();
         bool model_repair(lp::lpvar v);
         struct bound_info {
@@ -197,6 +206,7 @@ namespace nla {
         bool assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi);
 
         bool constraint_is_true(lp::constraint_index ci) const;
+        bool constraint_is_true(constraint const &c) const;
         bool is_new_constraint(lp::constraint_index ci) const;
 
         lp::constraint_index gcd_normalize(lp::constraint_index ci);
@@ -211,6 +221,8 @@ namespace nla {
         bool is_int(dd::pdd const &p) const;
         rational value(dd::pdd const& p) const;
         rational value(lp::lpvar v) const { return m_values[v]; }
+        bool set_model();
+        void set_value(lp::lpvar v);
 
         void add_active(lp::constraint_index ci, uint_set const &tabu);
 
@@ -220,6 +232,7 @@ namespace nla {
         void explain_constraint(lp::constraint_index ci, svector<lp::constraint_index> &external,
                                 svector<lp::constraint_index> &assumptions);
         bool backtrack(svector<lp::constraint_index> const& core);
+        bool core_is_linear(svector<lp::constraint_index> const &core);
 
         struct pp_j {
             stellensatz const &s;
@@ -244,6 +257,8 @@ namespace nla {
     public:
         stellensatz(core* core);
         lbool saturate();
+
+        void updt_params(params_ref const &p);
     };
 
 }

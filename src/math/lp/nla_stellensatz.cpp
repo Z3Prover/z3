@@ -1,11 +1,10 @@
 /*++
   Copyright (c) 2025 Microsoft Corporation
 
-
-
-  */
+  --*/
 
 #include "util/heap.h"
+#include "params/smt_params_helper.hpp"
 #include "math/dd/pdd_eval.h"
 #include "math/lp/nla_core.h"
 #include "math/lp/nla_coi.h"
@@ -89,42 +88,48 @@ namespace nla {
         common(core), 
         m_solver(*this), 
         m_coi(*core), 
-        pddm(core->lra_solver().number_of_vars())
-    {}
+        pddm(core->lra_solver().number_of_vars()) {
+    }
 
     lbool stellensatz::saturate() {
-        unsigned num_constraints = 0;
+        unsigned num_constraints = 0, num_conflicts = 0;
         init_solver();
         TRACE(arith, display(tout << "stellensatz before saturation\n"));
     start_saturate:
         num_constraints = m_constraints.size();
         lbool r;
-        #if 1
-        r = conflict_saturation();
-        #else
-        r = model_repair();
-        #endif
+        if (m_config.strategy == 0)
+            r = conflict_saturation();
+        else
+            r = model_repair();
+        
         if (m_constraints.size() == num_constraints)
             return l_undef;
         
-        if (r != l_false)
+        if (r == l_undef)
             r = m_solver.solve(m_core);
         TRACE(arith, display(tout << "stellensatz after saturation " << r << "\n"));
         if (r == l_false) {
-            IF_VERBOSE(2, verbose_stream() << "(nla.stellensatz.backtrack)\n");
+            ++num_conflicts;            
+            IF_VERBOSE(2, verbose_stream() << "(nla.stellensatz :conflicts " << num_conflicts << ":constraints " << m_constraints.size() << ")\n");
+            if (num_conflicts >= m_config.max_conflicts)
+                return l_undef;
             while (backtrack(m_core)) {
                 ++c().lp_settings().stats().m_stellensatz.m_num_backtracks;
                 lbool rb = m_solver.solve(m_core);
                 if (rb == l_false)
                     continue;
-                if (rb == l_undef) // TODO: if there is a core that doesn't depend on new monomials we could use this for conflicts
-                    return rb;                
+                if (rb == l_undef) {
+                    if (core_is_linear(m_core))
+                        break;
+                    return rb;
+                }
                 m_solver.update_values(m_values);
                 goto start_saturate;
             }
             conflict(m_core);
         }
-        if (r == l_true)
+        if (r == l_true && !set_model())
             r = l_undef;
         return r;
     }
@@ -172,6 +177,39 @@ namespace nla {
             }
         }
         m_occurs.reserve(sz);
+    }
+
+    // set the model based on m_values computed by the solver
+    bool stellensatz::set_model() {
+        if (any_of(m_constraints, [&](auto const &c) { return !constraint_is_true(c); }))
+            return false;
+        auto &src = c().lra_solver();
+        c().m_use_nra_model = true;
+        m_values.reserve(src.number_of_vars());
+        for (unsigned v = 0; v < src.number_of_vars(); ++v) {
+            if (c().is_monic_var(v)) {
+                auto& mon = c().emons()[v];
+                rational val(1);
+                for (auto w : mon.vars())
+                    val *= m_values[w];
+                m_values[v] = val;
+            }
+            else if (src.column_has_term(v)) {
+                auto const& t = src.get_term(v);
+                rational val(0);
+                for (auto cv : t) 
+                    val += m_values[cv.j()] * cv.coeff();
+                m_values[v] = val;
+            }
+            else if (m_coi.vars().contains(v)) {
+                // variable is in coi, m_values[v] is set.
+            }
+            else {
+                m_values[v] = c().val(v);
+            }
+            c().m_nra.set_value(v, m_values[v]);
+        }          
+        return true;
     }
 
     dd::pdd stellensatz::to_pdd(lpvar v) {
@@ -279,6 +317,8 @@ namespace nla {
                 add_active(ci, uint_set());
         } 
         while (!m_active.empty() && c().reslim().inc()) {
+            if (m_constraints.size() >= m_config.max_constraints)
+                break;
             // factor ci into x*p + q <= rhs, where degree(x, q) < degree(x, p) + 1
             // if p is vanishing (evaluates to 0), then add p = 0 as assumption and reduce to q.
             // otherwise
@@ -288,6 +328,7 @@ namespace nla {
             m_active.remove(ci);   
             if (constraint_is_true(ci))
                 continue;
+            
 
             TRACE(arith, display_constraint(tout << "process (" << ci << ") ", ci) << " " << m_tabu[ci] << "\n");
 
@@ -345,6 +386,7 @@ namespace nla {
         if (g.degree != 1)
             return true; // not handling degree > 1
         auto p_value2 = value(g.p);
+        //
         // check that p_value and p_value2 have different signs
         // check that other_p is disjoint from tabu
         // compute overlaps extending x
@@ -413,7 +455,7 @@ namespace nla {
         ++c().lp_settings().stats().m_stellensatz.m_num_resolutions;
         if (!is_new_constraint(new_ci))
             return true;
-        if (m_constraints[new_ci].p.degree() <= 3)
+        if (m_constraints[new_ci].p.degree() <= m_config.max_degree)
             init_occurs(new_ci);
         TRACE(arith, tout << "eliminate j" << x << ":\n"; 
               display_constraint(tout << "ci: ", ci) << "\n";
@@ -464,14 +506,13 @@ namespace nla {
         for (auto v : vars)
             if (!model_repair(v))
                 return l_false;    
-        #if 0
         for (unsigned i = vars.size(); i-- > 0;)
-            set_value(vars[i]);
-        #endif
-        return l_undef;
+            set_value(vars[i]);      
+        return all_of(m_constraints, [&](constraint const& c) { return constraint_is_true(c); }) ? l_true : l_undef;
     }
 
     bool stellensatz::model_repair(lp::lpvar v) {
+        m_sup_inf.reserve(v + 1);
         auto bounds = find_bounds(v);
         auto const &[lo, inf, infs] = bounds.first;
         auto const &[hi, sup, sups] = bounds.second;
@@ -480,6 +521,7 @@ namespace nla {
         TRACE(arith, tout << "j" << v << " " << infs.size() << " " << sups.size() << "\n");
         if (!has_false)
             return true;
+        m_sup_inf[v] = {inf, sup};
         SASSERT(!infs.empty() || !sups.empty());
         if (infs.empty()) {
             SASSERT(!sups.empty());
@@ -540,6 +582,39 @@ namespace nla {
         return true;
     }
 
+    void stellensatz::set_value(lp::lpvar v) {
+        auto [inf, sup] = m_sup_inf[v];
+        if (inf == lp::null_ci && sup == lp::null_ci)
+            return;
+        else if (inf != lp::null_ci) {
+            auto f = factor(v, inf);
+            SASSERT(f.degree == 1);
+            auto quot = -value(f.q) / value(f.p);
+            bool is_strict = m_constraints[inf].k == lp::lconstraint_kind::GT;
+            if (is_strict) {
+                if (sup != lp::null_ci) {
+                    auto g = factor(v, sup);
+                    SASSERT(g.degree == 1);
+                    auto quot2 = -value(g.q) / value(g.p);
+                    quot = (quot + quot2) / rational(2);
+                }
+                else {
+                    quot += rational(1);
+                }
+            }
+            m_values[v] = is_int(v) ? ceil(quot) : quot;
+        }
+        else if (sup != lp::null_ci) {
+            auto f = factor(v, sup);
+            SASSERT(f.degree == 1);
+            auto quot = -value(f.q) / value(f.p);
+            bool is_strict = m_constraints[sup].k == lp::lconstraint_kind::GT;
+            if (is_strict)
+                quot -= rational(1);
+            m_values[v] = is_int(v) ? floor(quot) : quot;
+        }
+    }
+
     // lo <= hi
     bool stellensatz::assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi) {
         if (lo == hi)
@@ -583,19 +658,22 @@ namespace nla {
             if (!m_active.contains(ci))
                 continue;
             auto f = factor(v, ci);
-            auto p_value = value(f.p);
-            auto q_value = value(f.q);
-            if (p_value == 0)  // it is vanishing
+            if (vanishing(v, f, ci))  
                 continue;
+           
             if (f.degree > 1)
                 continue;
             SASSERT(f.degree == 1);
+            auto p_value = value(f.p);
+            auto q_value = value(f.q);
             auto quot = -q_value / p_value;
-            // TODO: ignore strict inequalities for now.
             if (p_value < 0) {
                 // p*x + q >= 0  =>  x <= -q / p if p < 0
                 if (sups.empty() || hi > quot) {
                     hi = quot;
+                    sup = ci;
+                }
+                else if (hi == quot && m_constraints[ci].k == lp::lconstraint_kind::GT) {
                     sup = ci;
                 }
                 sups.push_back(ci);
@@ -604,6 +682,9 @@ namespace nla {
                 // p*x + q >= 0  =>  x >= -q / p if p > 0
                 if (infs.empty() || lo < quot) {
                     lo = quot;
+                    inf = ci;
+                }
+                else if (lo == quot && m_constraints[ci].k == lp::lconstraint_kind::GT) {
                     inf = ci;
                 }
                 infs.push_back(ci);
@@ -628,12 +709,12 @@ namespace nla {
         p_is_0 = multiply(p_is_0, r);
         auto new_ci = add(ci, p_is_0);
         TRACE(arith, display_constraint(tout << "reduced", new_ci) << "\n");
-        if (!is_new_constraint(new_ci))
-            return false;
-        init_occurs(new_ci);
-        uint_set new_tabu(m_tabu[ci]);
-        new_tabu.insert(x);
-        add_active(new_ci, new_tabu);
+        if (is_new_constraint(new_ci)) {
+            init_occurs(new_ci);
+            uint_set new_tabu(m_tabu[ci]);
+            new_tabu.insert(x);
+            add_active(new_ci, new_tabu);
+        }
         ++c().lp_settings().stats().m_stellensatz.m_num_vanishings;
         return true;
     }
@@ -676,7 +757,7 @@ namespace nla {
     }
 
     bool stellensatz::is_new_constraint(lp::constraint_index ci) const {
-        return ci == m_constraints.size() - 1;
+        return ci + 1 == m_constraints.size();
     }
 
     lp::lpvar stellensatz::select_variable_to_eliminate(lp::constraint_index ci) {
@@ -747,6 +828,14 @@ namespace nla {
         TRACE(arith, display_constraint(tout << "backtrack ", new_ci) << "\n");
         init_occurs(new_ci);
         return true;
+    }
+
+    bool stellensatz::core_is_linear(svector<lp::constraint_index> const &core) {
+        m_constraints_in_conflict.reset();
+        svector<lp::constraint_index> external, assumptions;
+        for (auto ci : core)
+            explain_constraint(ci, external, assumptions);
+        return all_of(assumptions, [&](auto ci) { return has_term_offset(m_constraints[ci].p); });
     }
 
     void stellensatz::explain_constraint(lp::constraint_index ci, svector<lp::constraint_index> &external,
@@ -874,7 +963,7 @@ namespace nla {
             return add_constraint(p, k, eq_justification{left, right});
         }
         u_dependency *d = nullptr;
-        auto has_bound = [&](rational a, lpvar x, rational b) {
+        auto has_bound = [&](rational const& a, lpvar x, rational const& b) {
             rational bound;
             bool is_strict = false;
             if (a == 1 && k == lp::lconstraint_kind::GE && c().lra_solver().has_lower_bound(x, d, bound, is_strict) &&
@@ -989,7 +1078,11 @@ namespace nla {
     }
 
     bool stellensatz::constraint_is_true(lp::constraint_index ci) const {
-        auto const& [p, k, j] = m_constraints[ci];
+        return constraint_is_true(m_constraints[ci]);
+    }
+
+    bool stellensatz::constraint_is_true(constraint const &c) const {
+        auto const& [p, k, j] = c;
         auto lhs = value(p);
         switch (k) {
         case lp::lconstraint_kind::GT: return lhs > 0;
@@ -1177,6 +1270,14 @@ namespace nla {
 
         }
         return out;
+    }
+
+    void stellensatz::updt_params(params_ref const& p) {
+        smt_params_helper sp(p);
+        m_config.max_degree = sp.arith_nl_stellensatz_max_degree();
+        m_config.max_conflicts = sp.arith_nl_stellensatz_max_conflicts();
+        m_config.max_constraints = sp.arith_nl_stellensatz_max_constraints();
+        m_config.strategy = sp.arith_nl_stellensatz_strategy();
     }
 
 
