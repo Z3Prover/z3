@@ -294,38 +294,16 @@ namespace smt {
     
 
     /**
-    * Base implementation:
+    * 1. Base implementation:
     *    Enumerate all satisfying assignments to m_solver for atoms based on |s|
     *    Extract Core from enumeration
     *    Assert Core => |s_i| = sum_ij n_ij for each |s_i| cardinality expression
     *    NB. Soundness of using Core has not been rigorously established.    
-    * Incremental algorithm:
-    *    Enumerate N assignments at a time. 
-    *    Associate tracking literal C_i with current assignment.
-    *    Assume C_i
-    *    Assert !C_0, .. , !C_{i-1}, C_i => /\_i |s_i| = sum_j n_ij and /\ n_j >= 0
-    * Incremental algorithm with blocking clauses
-    *    Enumerate N assignments at a time.
-    *    use smt_arith_value::check_lp_feasiable to check if current assignment is feasible.
-    *    if it is, then yield the current assignment. Assume there is a filter that avoids future
-    *      calls to find more models if the current model satisfies all cardinality terms.
-    *      In other words, for every |s| the model produces a set with |s| elements, 
-    *      where |s| is the value assigned by the arithmetic solver.
-    *   if it is not feasible, extract the infeasible core from call:
-    *     - card_core: a set of cardinality atoms
-    *     - lit_core:  a set of literals asserted into the arithmetic solver
-    *     - eq_core:  a set of equations asserte into the arithmetic solver
-    *   First take the card_core atoms and enumerate Boolean models for m_solver that 
-    *   satisfy the disjunction of those atoms.
-    *   - Infeasibility of the current model meant that there was no linear assignment to
-    *     the subset in card_core that satisfied lit_core & eq_core. So the query to extend the
-    *     set of assignments is to fix this.
-     *   If there is some model for the disjunction of card_core atoms, then
-     *     add new slacks for the models an continue, possibly querying the arithmetic solver if the new set of 
-     *     linear relaxation to the subset is feasible.
-     *   If there is no model to the disjunction of card_core atoms, then
-     *     it means that size_core & lit_core & eq_core is unsat.
-     *     where size_core is the unsat core for m_solver.
+    * 2. We can check with theory_lra if slack_sums constraints are linear
+    *    feasible. If they are we can possibly terminate by extracting a model
+    *    If they are infeasible, temporarily strengthen m_solver using the negation of unsat core
+    *    that comes from infeasible slack propositions. Then the next model releaxes at least one
+    *    slack variable that is part of the infeasible subset.
     */
     lbool theory_finite_set_size::run_solver() {
         expr_ref_vector asms(m);
@@ -418,6 +396,7 @@ namespace smt {
         if (!m_solver_ran)
             return run_solver();
 
+        //
         // at this point we assume that 
         // cardinality constraints are satisfied 
         // by arithmetic solver.

@@ -577,6 +577,8 @@ namespace smt {
                 continue;
             auto r = n->get_root();
             // Create a union expression that is canonical (sorted)
+            if (!m_set_members.contains(r))
+                continue;
             auto& set = *m_set_members[r];
             ptr_vector<expr> elems;
             for (auto [e,b] : set)
@@ -587,7 +589,7 @@ namespace smt {
             trail.push_back(s);
             enode *n2 = nullptr;
             if (!set_reprs.find(s, n2)) {
-                set_reprs.insert(s, n2);
+                set_reprs.insert(s, r);
                 continue;
             }
             if (n2->get_root() == r)
