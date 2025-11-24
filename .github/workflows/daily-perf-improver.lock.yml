@@ -25,7 +25,7 @@ jobs:
       output: ${{ steps.collect_output.outputs.output }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - id: check_build_steps_file
         name: Check if action.yml exists
         run: |
@@ -3026,7 +3026,7 @@ jobs:
           name: aw.patch
           path: /tmp/
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Configure Git credentials

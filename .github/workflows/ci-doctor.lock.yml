@@ -36,7 +36,7 @@ jobs:
       output: ${{ steps.collect_output.outputs.output }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       # Cache configuration from frontmatter processed below
       - name: Cache (investigation-memory-${{ github.repository }})
         uses: actions/cache@v4
