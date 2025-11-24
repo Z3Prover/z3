@@ -964,7 +964,6 @@ x7 := 1
 }
 
 void tst_nlsat() {
-    std::cout << "tst_mv\n"; exit(1);
     std::cout << "------------------\n";
     tst11();
     std::cout << "------------------\n";
