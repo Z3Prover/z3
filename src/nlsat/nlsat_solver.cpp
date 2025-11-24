@@ -214,7 +214,6 @@ namespace nlsat {
         unsigned               m_lazy;  // how lazy the solver is: 0 - satisfy all learned clauses, 1 - process only unit and empty learned clauses, 2 - use only conflict clauses for resolving conflicts
         bool                   m_simplify_cores;
         bool                   m_reorder;
-        bool                   m_correct_order;
         bool                   m_randomize;
         bool                   m_random_order;
         unsigned               m_random_seed;
@@ -293,7 +292,6 @@ namespace nlsat {
             m_simplify_cores = p.simplify_conflicts();
             bool min_cores   = p.minimize_conflicts();
             m_reorder        = p.reorder();
-            m_correct_order  = p.correct_order();
             m_randomize      = p.randomize();
             m_max_conflicts  = p.max_conflicts();
             m_random_order   = p.shuffle_vars();
@@ -1901,6 +1899,14 @@ namespace nlsat {
                        << " :learned " << m_learned.size() << ")\n");
         }
 
+        void try_reorder() {
+            gc();
+            if (m_stats.m_restarts % 10)
+                return;
+            if (m_reordered)
+                restore_order();
+            apply_reorder();            
+        }
 
         lbool search_check() {
             lbool r = l_undef;
@@ -1912,17 +1918,8 @@ namespace nlsat {
                 if (r != l_true) 
                     break; 
                 ++m_stats.m_restarts;
-                auto reorder_restart = [&]() {
-                    gc();
-                    if (m_stats.m_restarts % 10 == 0) {
-                        if (m_reordered)
-                            restore_order();
-                        apply_reorder();
-                    }
-                };
 
-                if (m_correct_order)
-                    reorder_restart();
+                try_reorder();
 
                 vector<std::pair<var, rational>> bounds;                
 
@@ -1948,9 +1945,6 @@ namespace nlsat {
                 }
                 if (bounds.empty()) 
                     break;
-
-                if (!m_correct_order)
-                    reorder_restart();
 
                 init_search();
                 IF_VERBOSE(2, verbose_stream() << "(nlsat-b&b :conflicts " << m_stats.m_conflicts 
