@@ -1799,7 +1799,6 @@ namespace nlsat {
                     }
                     result.shrink(base);
                     m_result = nullptr;
-                    std::cout << "switch\n";
                 }
             }
         }
