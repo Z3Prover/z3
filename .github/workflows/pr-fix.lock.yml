@@ -569,7 +569,7 @@ jobs:
       output: ${{ steps.collect_output.outputs.output }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Configure Git credentials
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -3376,7 +3376,7 @@ jobs:
           name: aw.patch
           path: /tmp/
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Configure Git credentials
