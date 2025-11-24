@@ -113,7 +113,12 @@ class core {
     void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
     void add_bounds();
 
+    bool refine_pseudo_linear();
+    bool is_pseudo_linear(monic const& m) const;    
+    void refine_pseudo_linear(monic const& m);
 
+    std::ostream& display_constraint_smt(std::ostream& out, unsigned id, lp::lar_base_constraint const& c) const;
+    std::ostream& display_declarations_smt(std::ostream& out) const;
 
 public:    
     // constructor
@@ -121,6 +126,8 @@ public:
     const auto& monics_with_changed_bounds() const { return m_monics_with_changed_bounds; }
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
+
+    void updt_params(params_ref const& p);
     
     const indexed_uint_set&  active_var_set () const { return m_active_var_set;}
     bool active_var_set_contains(unsigned j) const { return m_active_var_set.contains(j); }
@@ -228,6 +235,9 @@ public:
     bool check_monic(const monic& m) const;
    
 
+    std::ostream & display_row(std::ostream& out, lp::row_strip<lp::mpq> const& row) const;
+    std::ostream & display(std::ostream& out);
+    std::ostream& display_smt(std::ostream& out);
     std::ostream & print_ineq(const ineq & in, std::ostream & out) const;
     std::ostream & print_var(lpvar j, std::ostream & out) const;
     std::ostream & print_monics(std::ostream & out) const;    
@@ -285,12 +295,8 @@ public:
 
     svector<lpvar> reduce_monic_to_rooted(const svector<lpvar> & vars, rational & sign) const;
 
-    // Reduce a single variable to its canonical root under current equalities
-    // and return the convertion 	sign as either 1 or -1
-    lpvar reduce_var_to_rooted(lpvar v, rational & sign) const;
-
     monic_coeff canonize_monic(monic const& m) const;
-    
+
     int vars_sign(const svector<lpvar>& v);
     bool has_upper_bound(lpvar j) const; 
     bool has_lower_bound(lpvar j) const;
@@ -364,6 +370,10 @@ public:
 
     template <typename T>
     bool vars_are_roots(const T& v) const;
+
+    void register_monic_in_tables(unsigned i_mon);
+
+    void register_monics_in_tables();
 
     void clear();
     
@@ -444,6 +454,12 @@ public:
     nla_throttle& throttle() { return m_throttle; }
     const nla_throttle& throttle() const { return m_throttle; }
 
+    lp::lar_solver& lra_solver() { return lra; }
+
+    indexed_uint_set const& to_refine() const {
+        return m_to_refine;
+    }
+
 };  // end of core
 
 struct pp_mon {
@@ -466,4 +482,3 @@ inline std::ostream& operator<<(std::ostream& out, pp_factorization const& f) { 
 inline std::ostream& operator<<(std::ostream& out, pp_var const& v) { return v.c.print_var(v.v, out); }
 
 } // end of namespace nla
-

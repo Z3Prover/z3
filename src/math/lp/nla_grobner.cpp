@@ -98,6 +98,10 @@ namespace nla {
         return m_solver.equations();
     }
 
+    void grobner::updt_params(params_ref const&) {
+        // placeholder: nl2lin branch does not expose grobner-specific params from master
+    }
+
     bool grobner::is_conflicting() {
         for (auto eq : m_solver.equations()) {
             if (is_conflicting(*eq)) {
