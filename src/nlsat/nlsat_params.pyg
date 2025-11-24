@@ -21,7 +21,7 @@ def_module_params('nlsat',
                           ('seed', UINT, 0, "random seed."),
                           ('factor', BOOL, True, "factor polynomials produced during conflict resolution."),
                           ('add_all_coeffs', BOOL, False, "add all polynomial coefficients during projection."),
-                          ('zero_disc', BOOL, True, "add_zero_assumption to the vanishing discriminant."),
+                          ('zero_disc', BOOL, False, "add_zero_assumption to the vanishing discriminant."),
                           ('known_sat_assignment_file_name', STRING, "", "the file name of a known solution: used for debugging only")
                           
                           ))         
