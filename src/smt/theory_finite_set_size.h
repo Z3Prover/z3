@@ -56,7 +56,6 @@ namespace smt {
         void add_singleton_axioms(enode_vector const &ns);
         void add_eq_axioms(enode_vector const &ns);
         void add_diseq_axioms(enode_vector const &ns);
-        void add_not_in_axioms(enode_vector const &ns);
         enode *mk_singleton(enode* n);
         enode *mk_diff(enode *a, enode *b);
         void initialize_solver();

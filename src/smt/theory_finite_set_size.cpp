@@ -73,11 +73,13 @@ namespace smt {
             TRACE(finite_set, tout << "assoc " << name << " to " << enode_pp(n, ctx) << " " << enode_pp(n->get_root(), ctx) << "\n";);
         }
 
-        add_def_axioms(ns);
-        add_singleton_axioms(ns); // (set.in x s) -> |{x}| = 1
-        add_diseq_axioms(ns);     // |x\y| > 0 or |y\x| > 0
-        add_not_in_axioms(ns);    // not (x in s) -> |{x}\s| = 1
-        add_eq_axioms(ns);
+        add_def_axioms(ns);  
+        // b_{s u t} <-> b_{s} or b_{t}, 
+        // b_{s n t} <-> b_{s} and b_{t}, 
+        // b_{s\t}   <-> b_{s} and not b_{t}
+        add_singleton_axioms(ns);  // (set.in x s) -> b_{x} => b_s          - for occurrences of (set.in x s)
+        add_diseq_axioms(ns);      // s = t or |s\t| > 0 or |t\s| > 0       - for disqualities
+        add_eq_axioms(ns);         // s = t -> b_{s} <=> b_{t}              - for equalities
 
         TRACE(finite_set, display(tout));
     }
@@ -121,7 +123,12 @@ namespace smt {
     }
 
     /**
-     * For every set membership (set.in x s) add axiom for (set.subset (set.singleton x) s)
+     * For every set membership (set.in x s) track propositional 
+     * (set.in x S) => b_{x} => b_S
+     * ~(set.in x S) => b_{x} => not b_S
+     * 
+     * Constrain singletons with cardinality constraints:
+     * |{x}| = 1
      */
 
     void theory_finite_set_size::add_singleton_axioms(enode_vector const &ns) {
@@ -132,7 +139,7 @@ namespace smt {
                 if (!ctx.is_relevant(p))
                     continue;
                 auto v = ctx.get_assignment(p);
-                if (v != l_true)
+                if (v == l_undef)
                     continue;
                 auto e = p->get_arg(0)->get_root();
                 TRACE(finite_set, tout << "singleton axiom for " << enode_pp(e, ctx) << " in " << enode_pp(p, ctx) 
@@ -140,39 +147,24 @@ namespace smt {
                 auto s = mk_singleton(e);
                 SASSERT(n2b.contains(p->get_arg(1)));
                 SASSERT(n2b.contains(s));
-                auto is_in = m.mk_implies(n2b[s], n2b[p->get_arg(1)]);
+                auto X = n2b[s];
+                auto S = n2b[p->get_arg(1)];
+                if (v == l_false)
+                    S = m.mk_not(S);
+                auto is_in = m.mk_implies(X, S);
                 in lit(p, v == l_true);
                 std::ostringstream strm;
-                strm << "|" << enode_pp(p, ctx) << "|";
+                strm << "|" << (v == l_false ? "~":"") << enode_pp(p, ctx) << "|";
                 symbol name = symbol(strm.str());
                 expr* t = m.mk_const(name, m.mk_bool_sort());
                 bs.push_back(t);
                 m_assumptions.insert(t, lit);
                 m_solver->assert_expr(m.mk_implies(t, is_in));
-            }
-        }
-    }
 
-    /*
-     * For every x not in S include the assertion
-     * x in S or |{x} \ S| = 1
-     */
-    void theory_finite_set_size::add_not_in_axioms(enode_vector const &ns) {
-        for (auto n : ns) {
-            for (auto p : enode::parents(n)) {
-                if (!u.is_in(p->get_expr()))
-                    continue;
-                auto v = ctx.get_assignment(p);
-                if (v != l_false)
-                    continue;
+                // add size axiom |s| = 1
                 arith_util a(m);
-                auto x = p->get_arg(0);
-                auto S = p->get_arg(1);
-                auto X = mk_singleton(x);
-                auto X_minus_S = mk_diff(X, S);
-                auto l1 = th.mk_literal(p->get_expr());
-                auto l2 = th.mk_literal(m.mk_eq(u.mk_size(X_minus_S->get_expr()), a.mk_int(1)));
-                ctx.mk_th_axiom(th.get_id(), l1, l2);
+                auto l = th.mk_literal(m.mk_eq(u.mk_size(s->get_expr()), a.mk_int(1)));
+                ctx.mk_th_axiom(th.get_id(), l);
             }
         }
     }
@@ -219,8 +211,6 @@ namespace smt {
             }
         }
     }
-
-
 
     /**
     * Walk the cone of influence of expresions that depend on ns
@@ -292,15 +282,10 @@ namespace smt {
                     continue;
                 if (!ctx.is_relevant(p))
                     continue;
-                if (ctx.get_assignment(p) != l_false)
-                    continue;
                 auto x = p->get_arg(0)->get_root();
                 auto X = mk_singleton(x);
                 ctx.mark_as_relevant(X->get_expr());
                 add_expression(X);
-                auto D = mk_diff(X, p->get_arg(1));
-                ctx.mark_as_relevant(D);
-                add_expression(D);
             }
         }
         for (auto n : ns)
