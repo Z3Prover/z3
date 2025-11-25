@@ -76,6 +76,14 @@ namespace nla {
         find_nl_cluster();        
         if (!configure())
             return;
+
+        try {
+            if (propagate_gcd_test())
+                return;
+        }
+        catch (...) {
+            
+        }
         m_solver.saturate();
         TRACE(grobner, m_solver.display(tout));
 
