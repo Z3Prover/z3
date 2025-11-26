@@ -131,7 +131,7 @@ namespace smt {
     }
 
     parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms)
-        : id(id), p(p), b(p.m_batch_manager), m_smt_params(p.ctx.get_fparams()), asms(m), m_g2l(p.ctx.m, m),
+        : id(id), p(p), b(p.m_batch_manager), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m),
           m_l2g(m, p.ctx.m) {
         for (auto e : _asms)
             asms.push_back(m_g2l(e));

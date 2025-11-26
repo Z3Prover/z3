@@ -984,8 +984,7 @@ namespace nlsat {
 
                 lbool val = l_undef;
                 // Arithmetic atom: evaluate directly
-                var max = a->max_var();
-                SASSERT(debug_assignment.is_assigned(max));
+                SASSERT(debug_assignment.is_assigned(a->max_var()));
                 val = to_lbool(debug_evaluator.eval(a, l.sign()));
                 SASSERT(val != l_undef);
                 if (val == l_true)
