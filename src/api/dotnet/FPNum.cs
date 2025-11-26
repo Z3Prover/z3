@@ -50,10 +50,10 @@ namespace Microsoft.Z3
         {
             get
             {
-                bool res = false;
-                if (!Native.Z3_fpa_get_numeral_sign(Context.nCtx, NativeObject, ref res))
+                byte res = 0;
+                if (0 == Native.Z3_fpa_get_numeral_sign(Context.nCtx, NativeObject, ref res))
                     throw new Z3Exception("Sign is not a Boolean value");
-                return res;
+                return res != 0;
             }
         }
 
