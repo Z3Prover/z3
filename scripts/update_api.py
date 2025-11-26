@@ -1086,6 +1086,9 @@ def def_API(name, result, params):
             elif ty == INT64:
                 log_c.write("  I(0);\n")
                 exe_c.write("in.get_int64_addr(%s)" % i)
+            elif ty == BOOL:
+                log_c.write("  I(0);\n")
+                exe_c.write("in.get_bool_addr(%s)" % i)
             elif ty == VOID_PTR:
                 log_c.write("  P(0);\n")
                 exe_c.write("in.get_obj_addr(%s)" % i)

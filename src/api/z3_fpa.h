@@ -1236,12 +1236,12 @@ extern "C" {
         \param sgn the retrieved sign
         \returns true if \c t corresponds to a floating point numeral, otherwise invokes exception handler or returns false
 
-        Remarks: sets \c sgn to 0 if `t' is positive and to 1 otherwise, except for
+        Remarks: sets \c sgn to \c false if `t' is positive and to \c true otherwise, except for
         NaN, which is an invalid argument.
 
-        def_API('Z3_fpa_get_numeral_sign', BOOL, (_in(CONTEXT), _in(AST), _out(INT)))
+        def_API('Z3_fpa_get_numeral_sign', BOOL, (_in(CONTEXT), _in(AST), _out(BOOL)))
     */
-    bool Z3_API Z3_fpa_get_numeral_sign(Z3_context c, Z3_ast t, int * sgn);
+    bool Z3_API Z3_fpa_get_numeral_sign(Z3_context c, Z3_ast t, bool * sgn);
 
     /**
         \brief Return the significand value of a floating-point numeral as a string.
