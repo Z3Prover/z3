@@ -115,18 +115,16 @@ namespace nla {
             if (num_conflicts >= m_config.max_conflicts)
                 return l_undef;
             while (backtrack(m_core)) {
-                ++c().lp_settings().stats().m_stellensatz.m_num_backtracks;
+                ++c().lp_settings().stats().m_stellensatz.m_num_backtracks;               
                 lbool rb = m_solver.solve(m_core);
                 if (rb == l_false)
                     continue;
-                if (rb == l_undef) {
-                    if (core_is_linear(m_core))
-                        break;
-                    return rb;
-                }
+                if (rb == l_undef) 
+                    return rb;                
                 m_solver.update_values(m_values);
                 goto start_saturate;
             }
+            ++c().lp_settings().stats().m_stellensatz.m_num_conflicts;
             conflict(m_core);
         }
         if (r == l_true && !set_model())
@@ -1336,7 +1334,6 @@ namespace nla {
             core.reset();
             for (auto p : m_ex)
                 core.push_back(m_internal2external_constraints[p.ci()]);
-            return l_false;
         }
         return r;
     }
