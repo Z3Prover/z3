@@ -343,7 +343,7 @@ std::ostream& core::display_declarations_smt(std::ostream& out) const {
             out << "); " << val(v) << " = ";
             rational p(1);
             for (auto w : m.vars())
-                p *= val(v);
+                p *= val(w);
             out << p;
             out << "\n";
         } 
@@ -360,7 +360,6 @@ std::ostream& core::display_constraint_smt(std::ostream& out, unsigned id, lp::l
     auto k = c.kind();
     auto rhs = c.rhs();
     auto lhs = c.coeffs();
-    auto sz = lhs.size();
     rational den = denominator(rhs);
     for (auto [coeff, v] : lhs) 
         den = lcm(den, denominator(coeff));
