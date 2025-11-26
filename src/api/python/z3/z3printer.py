@@ -831,7 +831,7 @@ class Formatter:
             else:
                 _z3_assert(z3.is_fp_value(a), "expecting FP num ast")
                 r = []
-                sgn = c_int(0)
+                sgn = c_bool(0)
                 sgnb = Z3_fpa_get_numeral_sign(a.ctx_ref(), a.ast, byref(sgn))
                 exp = Z3_fpa_get_numeral_exponent_string(a.ctx_ref(), a.ast, False)
                 sig = Z3_fpa_get_numeral_significand_string(a.ctx_ref(), a.ast)
