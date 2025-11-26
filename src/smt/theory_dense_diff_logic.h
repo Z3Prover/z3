@@ -230,7 +230,7 @@ namespace smt {
         
         void restart_eh() override;
         void init_search_eh() override;
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
         
         bool can_propagate() override;
         void propagate() override;

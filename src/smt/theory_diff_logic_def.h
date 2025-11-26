@@ -368,7 +368,7 @@ void theory_diff_logic<Ext>::pop_scope_eh(unsigned num_scopes) {
 }
 
 template<typename Ext>
-final_check_status theory_diff_logic<Ext>::final_check_eh() {
+final_check_status theory_diff_logic<Ext>::final_check_eh(unsigned level) {
 
     if (can_propagate()) {
         propagate_core();

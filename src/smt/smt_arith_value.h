@@ -47,6 +47,6 @@ namespace smt {
         expr_ref get_lo(expr* e) const;
         expr_ref get_up(expr* e) const;
         expr_ref get_fixed(expr* e) const;
-        final_check_status final_check();
+        final_check_status final_check(unsigned );
     };
 };

@@ -269,7 +269,7 @@ namespace smt {
             m_arith_eq_adapter.init_search_eh();
         }
 
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
 
         bool is_shared(theory_var v) const override {
             return false;

@@ -476,7 +476,7 @@ namespace smt {
         SASSERT(m_find.get_num_vars() == get_num_vars());
     }
 
-    final_check_status theory_datatype::final_check_eh() {
+    final_check_status theory_datatype::final_check_eh(unsigned level) {
         force_push();
         int num_vars = get_num_vars();
         final_check_status r = FC_DONE;

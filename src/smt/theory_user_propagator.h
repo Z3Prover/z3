@@ -152,7 +152,7 @@ namespace smt {
         void new_diseq_eh(theory_var v1, theory_var v2) override { if (m_diseq_eh) force_push(), m_diseq_eh(m_user_context, this, var2expr(v1), var2expr(v2)); }
         bool use_diseqs() const override { return ((bool)m_diseq_eh); }
         bool build_models() const override { return false; }
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
         void reset_eh() override {}
         void assign_eh(bool_var v, bool is_true) override { }
         void init_search_eh() override {}

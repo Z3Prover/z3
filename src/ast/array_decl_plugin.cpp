@@ -35,9 +35,7 @@ array_decl_plugin::array_decl_plugin():
     m_set_complement_sym("complement"),
     m_set_subset_sym("subset"),
     m_array_ext_sym("array-ext"),
-    m_as_array_sym("as-array"),
-    m_set_has_size_sym("set-has-size"),
-    m_set_card_sym("card") {
+    m_as_array_sym("as-array") {
 }
 
 #define ARRAY_SORT_STR "Array"
@@ -442,40 +440,6 @@ func_decl * array_decl_plugin::mk_set_subset(unsigned arity, sort * const * doma
                                    func_decl_info(m_family_id, OP_SET_SUBSET));
 }
 
-func_decl * array_decl_plugin::mk_set_card(unsigned arity, sort * const* domain) {
-    if (arity != 1) {
-        m_manager->raise_exception("card takes only one argument");
-        return nullptr;
-    }    
-
-    arith_util arith(*m_manager);
-    if (!is_array_sort(domain[0]) || !m_manager->is_bool(get_array_range(domain[0]))) {
-        m_manager->raise_exception("card expects an array of Booleans");
-    }
-    sort * int_sort = arith.mk_int();
-    return m_manager->mk_func_decl(m_set_card_sym, arity, domain, int_sort,
-                                   func_decl_info(m_family_id, OP_SET_CARD));
-}
-
-func_decl * array_decl_plugin::mk_set_has_size(unsigned arity, sort * const* domain) {
-    if (arity != 2) {
-        m_manager->raise_exception("set-has-size takes two arguments");
-        return nullptr;
-    }    
-    m_manager->raise_exception("set-has-size is not supported");
-    // domain[0] is a Boolean array,
-    // domain[1] is Int
-    arith_util arith(*m_manager);
-    if (!arith.is_int(domain[1])) {
-        m_manager->raise_exception("set-has-size expects second argument to be an integer");
-    }
-    if (!is_array_sort(domain[0]) || !m_manager->is_bool(get_array_range(domain[0]))) {
-        m_manager->raise_exception("set-has-size expects first argument to be an array of Booleans");
-    }
-    sort * bool_sort = m_manager->mk_bool_sort();
-    return m_manager->mk_func_decl(m_set_has_size_sym, arity, domain, bool_sort,
-                                   func_decl_info(m_family_id, OP_SET_HAS_SIZE));
-}
 
 func_decl * array_decl_plugin::mk_as_array(func_decl * f) {
     vector<parameter> parameters;
@@ -541,10 +505,6 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return mk_set_complement(arity, domain);
     case OP_SET_SUBSET:
         return mk_set_subset(arity, domain);
-    case OP_SET_HAS_SIZE:
-        return mk_set_has_size(arity, domain);
-    case OP_SET_CARD:
-        return mk_set_card(arity, domain);
     case OP_AS_ARRAY: {
         if (num_parameters != 1 ||
             !parameters[0].is_ast() || 

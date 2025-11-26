@@ -54,7 +54,7 @@ namespace smt {
 
         char const* get_name() const override { return "bv-intblast"; }
         smt::theory* mk_fresh(context* new_ctx) override { return alloc(theory_intblast, *new_ctx); }
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
         void display(std::ostream& out) const override {}
         bool can_propagate() override;
         void propagate() override;

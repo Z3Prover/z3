@@ -359,7 +359,7 @@ namespace smt {
         SASSERT(m_find.get_num_vars() == get_num_vars());
     }
     
-    final_check_status theory_array::final_check_eh() {
+    final_check_status theory_array::final_check_eh(unsigned) {
         m_final_check_idx++;
         final_check_status r = FC_DONE;
         if (m_params.m_array_lazy_ieq) {

@@ -66,7 +66,7 @@ namespace smt {
             ctx.internalize_assertions();
         }
 
-        final_check_status final_check_eh() override {
+        final_check_status final_check_eh(unsigned) override {
             if (m_inst.pending()) 
                 ctx.assign(~mk_literal(m_assumption), nullptr);
             return FC_DONE;
