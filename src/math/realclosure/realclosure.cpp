@@ -3429,7 +3429,7 @@ namespace realclosure {
             }
         }
 
-        bool get_interval(numeral const & a, int & lower_is_inf, int & lower_is_open, numeral & lower, int & upper_is_inf, int & upper_is_open, numeral & upper)
+        bool get_interval(numeral const & a, bool & lower_is_inf, bool & lower_is_open, numeral & lower, bool & upper_is_inf, bool & upper_is_open, numeral & upper)
         {
             if (!is_algebraic(a))
                 return false;
@@ -6475,7 +6475,7 @@ namespace realclosure {
         return m_imp->get_sign_condition_sign(a, i);
     }
 
-    bool manager::get_interval(numeral const & a, int & lower_is_inf, int & lower_is_open, numeral & lower, int & upper_is_inf, int & upper_is_open, numeral & upper)
+    bool manager::get_interval(numeral const & a, bool & lower_is_inf, bool & lower_is_open, numeral & lower, bool & upper_is_inf, bool & upper_is_open, numeral & upper)
     {
         return m_imp->get_interval(a, lower_is_inf, lower_is_open, lower, upper_is_inf, upper_is_open, upper);
     }
