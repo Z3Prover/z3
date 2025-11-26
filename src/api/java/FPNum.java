@@ -27,10 +27,10 @@ public class FPNum extends FPExpr
      * @throws Z3Exception 
      */
     public boolean getSign() {
-        Native.IntPtr res = new Native.IntPtr();
+        Native.BoolPtr res = new Native.BoolPtr();
         if (!Native.fpaGetNumeralSign(getContext().nCtx(), getNativeObject(), res))
             throw new Z3Exception("Sign is not a Boolean value");
-        return res.value != 0;
+        return res.value;
     }
 
     /**
