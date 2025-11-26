@@ -128,7 +128,7 @@ struct solver::imp {
                 poly = poly * constant(den * coeff / denominators[v]);
                 p = p + poly;
             }
-            auto lit = add_constraint(p, ci, k);
+           add_constraint(p, ci, k);
         }
         definitions.reset();
     }
@@ -295,7 +295,6 @@ struct solver::imp {
         coeffs.push_back(mpz(-1));
         polynomial::polynomial_ref p(pm.mk_polynomial(2, coeffs.data(), mls),  pm);
         auto lit = mk_literal(p.get(), lp::lconstraint_kind::EQ);
-        nlsat::assumption a = nullptr;
         m_nlsat->mk_clause(1, &lit, nullptr);
     }
 
