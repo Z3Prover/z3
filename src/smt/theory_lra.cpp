@@ -1688,7 +1688,7 @@ public:
         return st;
     }
     
-    final_check_status final_check_eh() {
+    final_check_status final_check_eh(unsigned level) {
         if (propagate_core())
             return FC_CONTINUE;
         m_model_is_initialized = false;
@@ -1716,7 +1716,7 @@ public:
                 break;
             }
 
-            switch (check_nla()) {
+            switch (check_nla(level)) {
             case FC_DONE:
                 break;
             case FC_CONTINUE:
@@ -2105,11 +2105,11 @@ public:
         ctx().set_true_first_flag(lit.var());
     }
     
-    final_check_status check_nla_continue() {
+    final_check_status check_nla_continue(unsigned level) {
 #if Z3DEBUG
         flet f(lp().validate_blocker(), true);
 #endif
-        lbool r = m_nla->check();
+        lbool r = m_nla->check(level);
         switch (r) {
         case l_false:
             add_lemmas();
@@ -2121,7 +2121,7 @@ public:
         }
     }
 
-    final_check_status check_nla() {
+    final_check_status check_nla(unsigned level) {
         // TODO - enable or remove if found useful internals are corrected:
         // lp::lar_solver::scoped_auxiliary _sa(lp()); // new atoms are auxilairy and are not used in nra_solver
         if (!m.inc()) {
@@ -2133,7 +2133,7 @@ public:
             return FC_DONE;        
         if (!m_nla->need_check()) 
             return FC_DONE;
-        return check_nla_continue();
+        return check_nla_continue(level);
     }
 
     /**
@@ -3984,6 +3984,7 @@ public:
     }
 
     theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
+        unsigned level = 2;
         lp::impq term_max;
         lp::lp_status st;
         lpvar vi = 0;
@@ -4010,7 +4011,7 @@ public:
                 lp().restore_x();
             }
             if (m_nla && (st == lp::lp_status::OPTIMAL || st == lp::lp_status::UNBOUNDED)) {
-                switch (check_nla()) {
+                switch (check_nla(level)) {
                 case FC_DONE:
                     st = lp::lp_status::FEASIBLE;
                     break;
@@ -4377,8 +4378,8 @@ void theory_lra::relevant_eh(app* e) {
 void theory_lra::init_search_eh() {
     m_imp->init_search_eh();
 }
-final_check_status theory_lra::final_check_eh() {
-    return m_imp->final_check_eh();
+final_check_status theory_lra::final_check_eh(unsigned level) {
+    return m_imp->final_check_eh(level);
 }
 bool theory_lra::is_shared(theory_var v) const {
     return m_imp->is_shared(v);

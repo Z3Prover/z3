@@ -1282,7 +1282,7 @@ void core::add_bounds() {
     }    
 }
 
-lbool core::check() {
+lbool core::check(unsigned level) {
     lp_settings().stats().m_nla_calls++;
     TRACE(nla_solver, tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
     lra.get_rid_of_inf_eps();
@@ -1363,7 +1363,7 @@ lbool core::check() {
             ret = bounded_nlsat();
     }
 
-    if (no_effect() && params().arith_nl_nra()) {
+    if (no_effect() && params().arith_nl_nra() && level >= 2) {
         scoped_limits sl(m_reslim);
         sl.push_child(&m_nra_lim);
         params_ref p;
@@ -1432,7 +1432,7 @@ bool core::no_lemmas_hold() const {
     
 lbool core::test_check() {
     lra.set_status(lp::lp_status::OPTIMAL);
-    return check();
+    return check(2);
 }
 
 std::unordered_set<lpvar> core::get_vars_of_expr_with_opening_terms(const nex *e ) {

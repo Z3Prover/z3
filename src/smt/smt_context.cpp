@@ -4129,16 +4129,18 @@ namespace smt {
         unsigned old_idx          = m_final_check_idx;
         unsigned num_th           = m_theory_set.size();
         unsigned range            = num_th + 1;
+        unsigned level = 1, max_level = 1;
         final_check_status result = FC_DONE;
         failure  f                = OK;
 
-        do {
+        while (true) {
             TRACE(final_check_step, tout << "processing: " << m_final_check_idx << ", result: " << result << "\n";);
             final_check_status ok;
             if (m_final_check_idx < num_th) {
                 theory * th = m_theory_set[m_final_check_idx];
                 IF_VERBOSE(100, verbose_stream() << "(smt.final-check \"" << th->get_name() << "\")\n";);
-                ok = th->final_check_eh();
+                ok = th->final_check_eh(level);
+                max_level = std::max(max_level, th->num_final_check_levels());
                 TRACE(final_check_step, tout << "final check '" << th->get_name() << " ok: " << ok << " inconsistent " << inconsistent() << "\n";);
                 if (get_cancel_flag()) {
                     f = CANCELED;
@@ -4167,8 +4169,12 @@ namespace smt {
                 return FC_CONTINUE;
                 break;
             }
+            if (m_final_check_idx == old_idx) {
+                if (level >= max_level)
+                    break;
+                ++level;
+            }
         }
-        while (m_final_check_idx != old_idx);
 
         TRACE(final_check_step, tout << "result: " << result << "\n";);
 

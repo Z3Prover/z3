@@ -19,14 +19,12 @@ Revision History:
 #pragma once
 
 #include "smt/smt_theory.h"
-#include "smt/theory_array_bapa.h"
 #include "ast/array_decl_plugin.h"
 #include "model/array_factory.h"
 
 namespace smt {
 
     class theory_array_base : public theory {
-        friend class theory_array_bapa;
     protected:
         bool m_found_unsupported_op;
         unsigned m_array_weak_head;
@@ -47,8 +45,6 @@ namespace smt {
         bool is_as_array(app const * n) const { return n->is_app_of(get_id(), OP_AS_ARRAY); }
         bool is_array_sort(sort const* s) const { return s->is_sort_of(get_id(), ARRAY_SORT); }
         bool is_array_sort(app const* n) const { return is_array_sort(n->get_sort()); }
-        bool is_set_has_size(app const* n) const { return n->is_app_of(get_id(), OP_SET_HAS_SIZE); }
-        bool is_set_card(app const* n) const { return n->is_app_of(get_id(), OP_SET_CARD); }
 
         bool is_store(enode const * n) const { return is_store(n->get_expr()); }
         bool is_map(enode const* n) const { return is_map(n->get_expr()); }
@@ -57,8 +53,6 @@ namespace smt {
         bool is_as_array(enode const * n) const { return is_as_array(n->get_expr()); }
         bool is_default(enode const* n) const { return is_default(n->get_expr()); }
         bool is_array_sort(enode const* n) const { return is_array_sort(n->get_expr()); }
-        bool is_set_has_size(enode const* n) const { return is_set_has_size(n->get_expr()); }
-        bool is_set_carde(enode const* n) const { return is_set_card(n->get_expr()); }
         bool is_select_arg(enode* r);
 
         app * mk_select(unsigned num_args, expr * const * args);
@@ -74,7 +68,6 @@ namespace smt {
         enode_pair_vector                   m_axiom2_todo;
         enode_pair_vector                   m_extensionality_todo;
         enode_pair_vector                   m_congruent_todo;
-        scoped_ptr<theory_array_bapa>       m_bapa;
 
         void assert_axiom(unsigned num_lits, literal * lits);
         void assert_axiom(literal l1, literal l2);

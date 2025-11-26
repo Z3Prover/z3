@@ -679,7 +679,7 @@ namespace smt {
         */
         bool    m_liberal_final_check = true; 
         final_check_status final_check_core();
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
         
         bool can_propagate() override;
         void propagate() override;

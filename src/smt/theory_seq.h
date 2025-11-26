@@ -379,7 +379,7 @@ namespace smt {
         obj_hashtable<expr>            m_fixed;            // string variables that are fixed length.
         obj_hashtable<expr>            m_is_digit;         // expressions that have been constrained to be digits
 
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
         bool internalize_atom(app* atom, bool) override;
         bool internalize_term(app*) override;
         void internalize_eq_eh(app * atom, bool_var v) override;

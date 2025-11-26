@@ -38,7 +38,7 @@ namespace smt {
     
     theory_intblast::~theory_intblast() {}
         
-    final_check_status theory_intblast::final_check_eh() {
+    final_check_status theory_intblast::final_check_eh(unsigned) {
         for (auto e : m_translator.bv2int()) {
             auto* n = ctx.get_enode(e);
             auto* r1 = n->get_arg(0)->get_root();

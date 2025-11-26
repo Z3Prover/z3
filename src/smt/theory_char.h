@@ -75,7 +75,7 @@ namespace smt {
         bool internalize_atom(app * atom, bool gate_ctx) override;
         bool internalize_term(app * term) override;
         void display(std::ostream& out) const override {}
-        final_check_status final_check_eh() override { return final_check() ? FC_DONE : FC_CONTINUE; }
+        final_check_status final_check_eh(unsigned) override { return final_check() ? FC_DONE : FC_CONTINUE; }
         void init_model(model_generator & mg) override;
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
         void collect_statistics(::statistics& st) const override;

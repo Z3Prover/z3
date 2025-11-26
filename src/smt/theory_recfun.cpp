@@ -405,7 +405,7 @@ namespace smt {
         ctx.mk_th_axiom(get_id(), clause);
     }
     
-    final_check_status theory_recfun::final_check_eh() {
+    final_check_status theory_recfun::final_check_eh(unsigned level) {
         if (can_propagate()) {
             TRACEFN("final\n");
             propagate();

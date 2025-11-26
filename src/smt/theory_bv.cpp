@@ -1450,7 +1450,7 @@ namespace smt {
                                    << num_scopes << " = " << (ctx.get_scope_level() - num_scopes) << "\n"););
     }
 
-    final_check_status theory_bv::final_check_eh() {
+    final_check_status theory_bv::final_check_eh(unsigned level) {
         SASSERT(check_invariant());
         if (m_approximates_large_bvs) {
             return FC_GIVEUP;

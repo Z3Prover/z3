@@ -62,7 +62,7 @@ namespace smt {
         theory::reset_eh();
     }
 
-    final_check_status theory_dummy::final_check_eh() {
+    final_check_status theory_dummy::final_check_eh(unsigned) {
         return m_theory_exprs ? FC_GIVEUP : FC_DONE;
     }
 
