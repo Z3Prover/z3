@@ -4101,7 +4101,7 @@ def BV2Int(a, is_signed=False):
     >>> x > BV2Int(b, is_signed=True)
     x > If(b < 0, BV2Int(b) - 8, BV2Int(b))
     >>> solve(x > BV2Int(b), b == 1, x < 3)
-    [b = 1, x = 2]
+    [x = 2, b = 1]
     """
     if z3_debug():
         _z3_assert(is_bv(a), "First argument must be a Z3 bit-vector expression")
@@ -10276,7 +10276,7 @@ class FPNumRef(FPRef):
     """
 
     def sign(self):
-        num = (ctypes.c_int)()
+        num = (ctypes.c_bool)()
         nsign = Z3_fpa_get_numeral_sign(self.ctx.ref(), self.as_ast(), byref(num))
         if nsign is False:
             raise Z3Exception("error retrieving the sign of a numeral.")
