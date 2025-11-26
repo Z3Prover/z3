@@ -5877,7 +5877,7 @@ extern "C" {
        \sa Z3_append_log
        \sa Z3_close_log
 
-       extra_API('Z3_open_log', INT, (_in(STRING),))
+       extra_API('Z3_open_log', BOOL, (_in(STRING),))
     */
     bool Z3_API Z3_open_log(Z3_string filename);
 
