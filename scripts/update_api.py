@@ -558,6 +558,8 @@ def param2java(p):
             return "LongPtr"
         elif param_type(p) == STRING:
             return "StringPtr"
+        elif param_type(p) == BOOL:
+            return "BoolPtr"
         else:
             print("ERROR: unreachable code")
             assert(False)
@@ -623,6 +625,7 @@ def mk_java(java_src, java_dir, package_name):
     java_native.write('  public static class StringPtr { public String value; }\n')
     java_native.write('  public static class ObjArrayPtr { public long[] value; }\n')
     java_native.write('  public static class UIntArrayPtr { public int[] value; }\n')
+    java_native.write('  public static class BoolPtr { public boolean[] value; }\n')
     java_native.write('  public static native void setInternalErrorHandler(long ctx);\n\n')
 
     java_native.write('  static {\n')
