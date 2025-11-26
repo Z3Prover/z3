@@ -272,9 +272,9 @@ extern "C" {
 
        \pre Z3_rcf_is_algebraic(ctx, a);
 
-       def_API('Z3_rcf_interval', INT, (_in(CONTEXT), _in(RCF_NUM), _out(INT), _out(INT), _out(RCF_NUM), _out(INT), _out(INT), _out(RCF_NUM)))
+       def_API('Z3_rcf_interval', INT, (_in(CONTEXT), _in(RCF_NUM), _out(BOOL), _out(BOOL), _out(RCF_NUM), _out(BOOL), _out(BOOL), _out(RCF_NUM)))
    */
-   int Z3_API Z3_rcf_interval(Z3_context c, Z3_rcf_num a, int * lower_is_inf, int * lower_is_open, Z3_rcf_num * lower, int * upper_is_inf, int * upper_is_open, Z3_rcf_num * upper);
+   int Z3_API Z3_rcf_interval(Z3_context c, Z3_rcf_num a, bool * lower_is_inf, bool * lower_is_open, Z3_rcf_num * lower, bool * upper_is_inf, bool * upper_is_open, Z3_rcf_num * upper);
 
    /**
        \brief Return the number of sign conditions of an algebraic number.
