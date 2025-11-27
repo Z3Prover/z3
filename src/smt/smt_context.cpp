@@ -4141,7 +4141,8 @@ namespace smt {
                 }
                 else if (ok == FC_GIVEUP) {
                     f  = THEORY;
-                    m_incomplete_theories.push_back(th);
+                    if (!m_incomplete_theories.contains(th))
+                        m_incomplete_theories.push_back(th);
                 }
             }
             else {
