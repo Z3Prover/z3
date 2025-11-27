@@ -4168,10 +4168,9 @@ namespace smt {
                 break;
             case FC_CONTINUE:
                 return FC_CONTINUE;
-                break;
             }
             if (m_final_check_idx == old_idx) {
-                if (level >= max_level)
+                if (level >= max_level || result == FC_DONE || can_propagate())
                     break;
                 ++level;
             }
