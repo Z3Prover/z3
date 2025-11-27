@@ -3285,7 +3285,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       SetUnion,
       SetIntersect,
       SetDifference,
-      SetHasSize,
       SetAdd,
       SetDel,
       SetComplement,
