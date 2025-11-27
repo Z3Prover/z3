@@ -1307,10 +1307,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new SetImpl<ElemSort>(check(Z3.mk_set_difference(contextPtr, a.ast, b.ast)));
     }
     
-    function SetHasSize<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, size: bigint | number | string | IntNum<Name>): Bool<Name> {
-      const a = typeof size === 'object'? Int.sort().cast(size) : Int.sort().cast(size);
-      return new BoolImpl(check(Z3.mk_set_has_size(contextPtr, set.ast, a.ast)));
-    }
 
     function SetAdd<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort> {
       const arg = set.elemSort().cast(elem as any);
