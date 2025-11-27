@@ -2640,9 +2640,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       diff(b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort> {
         return SetDifference(this, b);
       }
-      hasSize(size: string | number | bigint | IntNum<Name>): Bool<Name> {
-        return SetHasSize(this, size);
-      }
       add(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort> {
         return SetAdd(this, elem);
       }
