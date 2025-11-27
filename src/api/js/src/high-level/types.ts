@@ -629,9 +629,6 @@ export interface Context<Name extends string = 'main'> {
   
   /** @category Operations */
   SetDifference<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
-  
-  /** @category Operations */
-  SetHasSize<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, size: bigint | number | string | IntNum<Name>): Bool<Name>;
 
   /** @category Operations */
   SetAdd<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
@@ -1649,7 +1646,6 @@ export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<N
   intersect(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
   diff(b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
   
-  hasSize(size: bigint | number | string | IntNum<Name>): Bool<Name>;
 
   add(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
   del(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
