@@ -63,7 +63,7 @@ class bool_rewriter {
     bool           m_elim_ite;
     ptr_vector<expr> m_todo1, m_todo2;
     unsigned_vector m_counts1, m_counts2;
-    expr_fast_mark1 m_marked;
+    expr_mark       m_marked;
 
     br_status mk_flat_and_core(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_flat_or_core(unsigned num_args, expr * const * args, expr_ref & result);
