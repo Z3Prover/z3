@@ -146,6 +146,8 @@ namespace nla {
         vector<svector<lp::constraint_index>> m_occurs;  // map from variable to constraints they occur.
         bool_vector m_has_occurs;
 
+        unsigned_vector m_var2level, m_level2var;
+
         struct constraint_key {
             unsigned pdd;
             lp::lconstraint_kind k;
@@ -183,30 +185,32 @@ namespace nla {
         void remove_occurs(lp::constraint_index ci);
 
         lbool conflict_saturation();
-        lbool factor(lp::constraint_index ci);
+        lp::constraint_index factor(lp::constraint_index ci);
         bool conflict(lp::constraint_index ci);
         void conflict(svector<lp::constraint_index> const& core);
-        bool vanishing(lpvar x, factorization const& f, lp::constraint_index ci);
+        lp::constraint_index vanishing(lpvar x, factorization const& f, lp::constraint_index ci);
         lp::lpvar select_variable_to_eliminate(lp::constraint_index ci);
         unsigned degree_of_var_in_constraint(lpvar v, lp::constraint_index ci) const;
         factorization factor(lpvar v, lp::constraint_index ci);  
         bool resolve_variable(lpvar x, lp::constraint_index ci);
-        bool resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci, rational const& p_value, 
+        lp::constraint_index resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci, rational const& p_value, 
             factorization const& f, unsigned_vector const& m1, dd::pdd _f_p);
 
-        svector<std::pair<lp::constraint_index, lp::constraint_index>> m_sup_inf;
         lbool model_repair();
-        bool model_repair(lp::lpvar v);
+        lbool model_repair_loop();
+        lp::constraint_index model_repair(lp::lpvar v);
         struct bound_info {
-            rational value;
-            lp::constraint_index bound = lp::null_ci;
-            svector<lp::constraint_index> bounds;
+            rational lo_value, hi_value;
+            lp::constraint_index lo = lp::null_ci, hi = lp::null_ci, vanishing = lp::null_ci;
         };
-        std::pair<bound_info, bound_info> find_bounds(lpvar v);
-        bool assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi);
+        bound_info find_bounds(lpvar v);
+        unsigned max_level(constraint const &c) const;
+        void assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi);
 
         bool constraint_is_true(lp::constraint_index ci) const;
         bool constraint_is_true(constraint const &c) const;
+        bool constraint_is_conflict(lp::constraint_index ci) const;
+        bool constraint_is_conflict(constraint const &c) const;
         bool is_new_constraint(lp::constraint_index ci) const;
 
         lp::constraint_index gcd_normalize(lp::constraint_index ci);
@@ -222,7 +226,6 @@ namespace nla {
         rational value(dd::pdd const& p) const;
         rational value(lp::lpvar v) const { return m_values[v]; }
         bool set_model();
-        void set_value(lp::lpvar v);
 
         void add_active(lp::constraint_index ci, uint_set const &tabu);
 

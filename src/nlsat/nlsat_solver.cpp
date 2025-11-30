@@ -4417,8 +4417,9 @@ namespace nlsat {
     }
 
     anum const & solver::value(var x) const {
-        if (m_imp->m_assignment.is_assigned(x))
-            return m_imp->m_assignment.value(x);
+        auto y = m_imp->m_inv_perm[x];
+        if (m_imp->m_assignment.is_assigned(y))
+            return m_imp->m_assignment.value(y);
         return m_imp->m_zero;
     }
     
