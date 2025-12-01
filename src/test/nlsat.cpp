@@ -683,11 +683,6 @@ static void tst9() {
 }
 
 
-#if 0
-
-
-#endif
-
 static void test_root_literal(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, nlsat::atom::kind k, unsigned i, nlsat::poly* p) {
     nlsat::scoped_literal_vector result(s);
     ex.test_root_literal(k, x, 1, p, result);

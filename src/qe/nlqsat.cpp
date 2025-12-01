@@ -34,6 +34,7 @@ Revision History:
 #include "nlsat/nlsat_solver.h"
 #include "nlsat/nlsat_explain.h"
 #include "nlsat/nlsat_assignment.h"
+#include "nlsat/nlsat_params.hpp"
 #include "nlsat/tactic/goal2nlsat.h"
 #include "tactic/core/tseitin_cnf_tactic.h"
 
@@ -833,7 +834,8 @@ namespace qe {
             m_answer_simplify(m),
             m_trail(m),
             m_div_mc(nullptr) {
-            s.m_solver.get_explain().set_signed_project(true);
+            nlsat_params ns_params(m_params);
+            s.m_solver.get_explain().set_signed_project(ns_params.use_signed_projection());
             m_nftactic = mk_tseitin_cnf_tactic(m);
         }
 
