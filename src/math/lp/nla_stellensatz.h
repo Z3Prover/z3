@@ -208,6 +208,7 @@ namespace nla {
         void assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi);
 
         bool constraint_is_true(lp::constraint_index ci) const;
+        bool constraint_is_false(lp::constraint_index ci) const;
         bool constraint_is_true(constraint const &c) const;
         bool constraint_is_conflict(lp::constraint_index ci) const;
         bool constraint_is_conflict(constraint const &c) const;
