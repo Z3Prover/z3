@@ -406,6 +406,7 @@ namespace nla {
     lp::constraint_index stellensatz::resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci,
                                        rational const &p_value, factorization const &f, unsigned_vector const &_m1,
                                        dd::pdd _f_p) {
+        TRACE(arith, tout << "resolve j" << x << " between ci " << ci << " and other_ci " << other_ci << "\n");
         if (ci == other_ci)
             return lp::null_ci;
         if (f.degree != 1)
@@ -471,17 +472,20 @@ namespace nla {
             ci_b = multiply(other_ci, assume(f_p, g_strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE));
 
         auto new_ci = add(ci_a, ci_b);
-        CTRACE(arith, !is_new_constraint(new_ci), display_constraint(tout << "not new ", new_ci) << "\n");
+
         ++c().lp_settings().stats().m_stellensatz.m_num_resolutions;
-        if (!is_new_constraint(new_ci))
-            return new_ci;
+
 
         TRACE(arith, tout << "eliminate j" << x << ":\n"; 
-              display_constraint(tout << "ci: ", ci) << "\n";
-              display_constraint(tout << "other_ci: ", other_ci) << "\n";
-              display_constraint(tout << "ci_a: ", ci_a) << "\n"; 
-              display_constraint(tout << "ci_b: ", ci_b) << "\n";
-              display_constraint(tout << "(" << new_ci << ") ", new_ci) << "\n");
+              display_constraint(tout, ci) << "\n";
+              display_constraint(tout, other_ci) << "\n";
+              display_constraint(tout, new_ci) << "\n");
+
+        CTRACE(arith, !is_new_constraint(new_ci),
+               display_constraint(tout << "not new ", new_ci) << "\n");
+                
+        if (!is_new_constraint(new_ci))
+            return new_ci;
 
         if (constraint_is_conflict(new_ci))
             return new_ci;
@@ -583,6 +587,7 @@ namespace nla {
             m_values[v] = floor(-value(f.q) / value(f.p));
             if (lp::lconstraint_kind::GT == m_constraints[sup].k)
                 m_values[v]--;
+            CTRACE(arith, constraint_is_false(sup), display_constraint(tout << m_values[v] << " ", sup) << "\n");
             return lp::null_ci;
         }
         if (sup == lp::null_ci) {
@@ -592,12 +597,20 @@ namespace nla {
             m_values[v] = ceil(-value(f.q) / value(f.p));
             if (lp::lconstraint_kind::GT == m_constraints[inf].k)
                 m_values[v]++;
+            CTRACE(arith, constraint_is_false(inf), display_constraint(tout << m_values[v] << " ", inf) << "\n");
             return lp::null_ci;
         }
 
-        if (lo <= hi && (!is_int(v) || ceil(lo) <= floor(hi))) {
+        bool strict_lo = m_constraints[inf].k == lp::lconstraint_kind::GT;
+        bool strict_hi = m_constraints[sup].k == lp::lconstraint_kind::GT;
+        bool strict = strict_lo || strict_hi;
+        if (((!strict && lo <= hi) || lo < hi) && (!is_int(v) || ceil(lo) <= floor(hi))) {
             // repair v by setting it between lo and hi assuming it is integral when v is integer
-            m_values[v] = is_int(v) ? ceil(lo) : (hi - lo) / 2;
+            m_values[v] = is_int(v) ? ceil(lo) : ((hi - lo) / 2);
+            CTRACE(arith, constraint_is_false(sup) || constraint_is_false(inf), 
+                tout << m_values[v] << " " << " between " << lo << " and " << hi << "\n";
+                display_constraint(tout, sup) << "\n";
+                   display_constraint(tout, inf) << "\n";);
             return lp::null_ci;
         }
 
@@ -710,7 +723,8 @@ namespace nla {
             r = r * pddm.mk_var(x);
         p_is_0 = multiply(p_is_0, r);
         auto new_ci = add(ci, p_is_0);
-        TRACE(arith, display_constraint(tout << "reduced ", new_ci) << "\n";
+        TRACE(arith, display_constraint(tout << "j" << x << " ", ci) << "\n";
+            display_constraint(tout << "reduced ", new_ci) << "\n";
         display_constraint(tout, p_is_0) << "\n");
         if (is_new_constraint(new_ci)) {
             init_occurs(new_ci);
@@ -1118,10 +1132,7 @@ namespace nla {
         }
         #endif
         for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {      
-            out << "(" << ci << ") ";
-            display_constraint(out, ci);
-            bool is_true = constraint_is_true(ci);
-            out << (is_true ? " [true]" : " [false]") << "\n";
+            display_constraint(out, ci) << "\n";
             out << "\t<- ";
             display(out, m_constraints[ci].j);
             out << "\n";
@@ -1161,7 +1172,8 @@ namespace nla {
     }
 
     std::ostream& stellensatz::display_constraint(std::ostream& out, lp::constraint_index ci) const {
-        return display_constraint(out, m_constraints[ci]);
+        bool is_true = constraint_is_true(ci);
+        return display_constraint(out << "(" << ci << ") ", m_constraints[ci]) << (is_true ? " [true]" : " [false]");
     }
 
     std::ostream& stellensatz::display_constraint(std::ostream& out, constraint const &c) const {
