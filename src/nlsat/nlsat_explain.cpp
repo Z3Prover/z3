@@ -49,7 +49,6 @@ namespace nlsat {
         bool                    m_factor;
         bool                    m_add_all_coeffs;
         bool                    m_add_zero_disc;
-        bool                    m_signed_project;
         bool                    m_cell_sample;
 
 
@@ -161,7 +160,6 @@ namespace nlsat {
             m_minimize_cores   = false;
             m_add_all_coeffs   = true;
             m_add_zero_disc = true;
-            m_signed_project   = false;
         }
 
         std::ostream& display(std::ostream & out, polynomial_ref const & p) const {
@@ -1904,10 +1902,6 @@ namespace nlsat {
 
     void explain::set_add_zero_disc(bool f) {
         m_imp->m_add_zero_disc = f;
-    }
-
-    void explain::set_signed_project(bool f) {
-        m_imp->m_signed_project = f;
     }
 
     void explain::main_operator(unsigned n, literal const * ls, scoped_literal_vector & result) {
