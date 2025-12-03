@@ -2315,7 +2315,7 @@ namespace nlsat {
             
             m_lazy_clause.reset();
             
-            m_explain.main_operator(jst.num_lits(), jst.lits(), m_lazy_clause);
+            m_explain.compute_conflict_explanation(jst.num_lits(), jst.lits(), m_lazy_clause);
             for (unsigned i = 0; i < sz; i++)
                 m_lazy_clause.push_back(~jst.lit(i));
             

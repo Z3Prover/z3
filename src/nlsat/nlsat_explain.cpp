@@ -269,14 +269,14 @@ namespace nlsat {
 
         void find_cell_roots(polynomial_ref_vector & ps, var y, cell_root_info & info) {
             info.reset();
-            SASSERT(m_assignment.is_assigned(y));
+            SASSERT(m_solver.sample().is_assigned(y));
             bool lower_inf = true;
             bool upper_inf = true;
             scoped_anum_vector & roots = m_roots_tmp;
             scoped_anum lower(m_am);
             scoped_anum upper(m_am);
-            anum const & y_val = m_assignment.value(y);
-            TRACE(nlsat_explain, tout << "adding literals for "; display_var(tout, y); tout << " -> ";
+            anum const & y_val = m_solver.sample().value(y);
+            TRACE(nlsat_explain, tout << "adding literals for "; m_solver.display_var(tout, y); tout << " -> ";
                   m_am.display_decimal(tout, y_val); tout << "\n";);
             polynomial_ref p(m_pm);
             unsigned sz = ps.size();
@@ -285,12 +285,12 @@ namespace nlsat {
                 if (max_var(p) != y)
                     continue;
                 roots.reset();
-                // Variable y is assigned in m_assignment. We must temporarily unassign it.
+                // Variable y is assigned in m_solver.sample(). We must temporarily unassign it.
                 // Otherwise, the isolate_roots procedure will assume p is a constant polynomial.
-                m_am.isolate_roots(p, undef_var_assignment(m_assignment, y), roots);
+                m_am.isolate_roots(p, undef_var_assignment(m_solver.sample(), y), roots);
                 unsigned num_roots = roots.size();
                 TRACE(nlsat_explain,
-                      tout << "isolated roots for "; display_var(tout, y);
+                      tout << "isolated roots for "; m_solver.display_var(tout, y);
                       tout << " with polynomial: " << p << "\n";
                       for (unsigned ri = 0; ri < num_roots; ++ri) {
                           m_am.display_decimal(tout << "  root[" << (ri+1) << "] = ", roots[ri]);
@@ -349,6 +349,11 @@ namespace nlsat {
             }
         }
 
+         ::sign sign(polynomial_ref const & p) {
+             return ::nlsat::sign(p, m_solver.sample(), m_am);
+        }
+        
+        
         void add_zero_assumption(polynomial_ref& p) {
             // Build a square-free representative of p so that we can speak about
             // a specific root that coincides with the current assignment.
@@ -363,7 +368,7 @@ namespace nlsat {
             SASSERT(maxx != null_var);
             if (maxx == null_var)
                 return;
-            SASSERT(m_assignment.is_assigned(maxx));
+            SASSERT(m_solver.sample().is_assigned(maxx));
             
             polynomial_ref_vector singleton(m_pm);
             singleton.push_back(q);
@@ -374,7 +379,7 @@ namespace nlsat {
 
             TRACE(nlsat_explain,
                   tout << "adding zero-assumption root literal for ";
-                  display_var(tout, maxx); tout << " using root[" << info.m_eq_idx << "] of " << q << "\n";);
+                  m_solver.display_var(tout, maxx); tout << " using root[" << info.m_eq_idx << "] of " << q << "\n";);
             add_root_literal(atom::ROOT_EQ, maxx, info.m_eq_idx, info.m_eq);
         }
 
@@ -505,7 +510,7 @@ namespace nlsat {
                     if (max_var(p) == max)
                         elim_vanishing(p); // eliminate vanishing coefficients of max
                     if (is_const(p) || max_var(p) < max) {
-                        int s = sign(p, m_solver.sample(), m_am); 
+                        int s = sign(p); 
                         if (!is_const(p)) {
                             SASSERT(max_var(p) != null_var);
                             SASSERT(max_var(p) < max);
@@ -701,7 +706,7 @@ namespace nlsat {
                 unsigned k_deg = m_pm.degree(p, x);
                 if (k_deg == 0) continue;
                 // p depends on x
-                TRACE(nlsat_explain, tout << "processing poly of degree " << k_deg << " w.r.t x" << x << ": "; display(tout, p) << "\n";);
+                TRACE(nlsat_explain, tout << "processing poly of degree " << k_deg << " w.r.t x" << x << ": "; m_solver.display(tout, p) << "\n";);
                 for (int j_coeff_deg = k_deg; j_coeff_deg >= 0; j_coeff_deg--) { 
                     coeff = m_pm.coeff(p, x, j_coeff_deg);
                     TRACE(nlsat_explain, tout << "    coeff deg " << j_coeff_deg << ": "; display(tout, m_solver, coeff) << "\n";);
@@ -751,7 +756,7 @@ namespace nlsat {
             auto c = polynomial_ref(this->m_pm);
             for (unsigned j = 0; j <= n; j++) {
                 c = m_pm.coeff(s, x, j);
-                SASSERT(sign(c, sample(), m_am) == 0);
+                SASSERT(sign(c) == 0);
                 ensure_sign(c);
             }
             return true;
@@ -887,7 +892,7 @@ namespace nlsat {
             }
             polynomial_ref c(m_pm);
             c = m_pm.coeff(p, y, 1);
-            int s = sign(c, sample(), m_am);
+            int s = sign(c);
             if (s == 0) {
                 return false;
             }
@@ -965,7 +970,7 @@ namespace nlsat {
            
          */
         void mk_linear_root(atom::kind k, var y, unsigned i, poly * p, bool mk_neg) {
-            TRACE(nlsat_explain, display_var(tout, m_solver, y); m_pm.display(tout << ": ", p, m_solver.display_proc()); tout << "\n");
+            TRACE(nlsat_explain, m_solver.display_var(tout, y); m_pm.display(tout << ": ", p, m_solver.display_proc()); tout << "\n");
             polynomial_ref p_prime(m_pm);
             p_prime = p;
             bool lsign = false;
@@ -1072,7 +1077,7 @@ namespace nlsat {
                     m_todo.reset();
                     break;
                 }
-                TRACE(nlsat_explain, tout << "project loop, processing var "; display_var(tout, m_solver, x); 
+                TRACE(nlsat_explain, tout << "project loop, processing var "; m_solver.display_var(tout, x); 
                 tout << "\npolynomials\n";
                 display(tout, m_solver, ps); tout << "\n";);
                 add_lcs(ps, x);
@@ -1124,7 +1129,6 @@ namespace nlsat {
             bool first = true;
             if (ps.empty())
                 return;
-            }
 
             m_todo.reset();
             for (unsigned i = 0; i < ps.size(); i++) {
@@ -1147,17 +1151,16 @@ namespace nlsat {
             std::cout << "f";
             polynomial_ref_vector samples(m_pm);
             
-            polynomial_ref_vector samples(m_pm);
             if (x < max_x)
-                cac_add_cell_lits(ps, x);
+                cac_add_cell_lits(ps, x, samples);
 
             while (true) {
                 if (all_univ(ps, x) && m_todo.empty()) {
                     m_todo.reset();
                     break;
                 }
-                TRACE(nlsat_explain, tout << "project loop, processing var "; display_var(tout, x); tout << "\npolynomials\n";
-                      display(tout, ps); tout << "\n";);
+                TRACE(nlsat_explain, tout << "project loop, processing var "; m_solver.display_var(tout, x); tout << "\npolynomials\n";
+                      display(tout, m_solver, ps); tout << "\n";);
                 if (first) { // The first run is special because x is not constrained by the sample, we cannot surround it by the root functions.
                     // we make the polynomials in ps delinable
                     add_lcs(ps, x);
@@ -1174,7 +1177,7 @@ namespace nlsat {
                 if (m_todo.empty())
                     break;
                 x = m_todo.extract_max_polys(ps);
-                cac_add_cell_lits(ps, x);
+                cac_add_cell_lits(ps, x, samples);
             }
         }
 
@@ -1309,7 +1312,7 @@ namespace nlsat {
                 }
                 if (is_const(new_factor)) {
                     TRACE(nlsat_simplify_core, tout << "new factor is const\n";);
-                    auto s = sign(new_factor, sample(), m_am); 
+                    auto s = sign(new_factor); 
                     if (is_zero(s)) {
                         bool atom_val = a->get_kind() == atom::EQ;
                         bool lit_val  = l.sign() ? !atom_val : atom_val;
@@ -1368,8 +1371,8 @@ namespace nlsat {
                     if (m_solver.value(new_lit) == l_true) {
                         TRACE(nlsat_simplify_bug,
                               tout << "literal normalized away because it is already true after rewriting:\n";
-                              display(tout << "  original: ", l) << "\n";
-                              display(tout << "  rewritten: ", new_lit) << "\n";
+                              m_solver.display(tout << "  original: ", l) << "\n";
+                              m_solver.display(tout << "  rewritten: ", new_lit) << "\n";
                               if (info.m_eq) {
                                   polynomial_ref eq_ref(const_cast<poly*>(info.m_eq), m_pm);
                                   m_pm.display(tout << "  equation used: ", eq_ref, m_solver.display_proc());
@@ -1381,8 +1384,8 @@ namespace nlsat {
                         literal assumption = new_lit;
                         TRACE(nlsat_simplify_bug,
                               tout << "literal replaced by lower-stage assumption due to rewriting:\n";
-                              display(tout << "  original: ", l) << "\n";
-                              display(tout << "  assumption: ", assumption) << "\n";
+                              m_solver.display(tout << "  original: ", l) << "\n";
+                              m_solver.display(tout << "  assumption: ", assumption) << "\n";
                               if (info.m_eq) {
                                   polynomial_ref eq_ref(const_cast<poly*>(info.m_eq), m_pm);
                                   m_pm.display(tout << "  equation used: ", eq_ref, m_solver.display_proc());
@@ -1396,12 +1399,12 @@ namespace nlsat {
                     literal before = new_lit;
                     (void)before;
                     new_lit = normalize(new_lit, max);
-                    TRACE(nlsat_simplify_core, tout << "simplified literal after normalization:\n"; display(tout, new_lit); tout << " " << m_solver.value(new_lit) << "\n";);
+                    TRACE(nlsat_simplify_core, tout << "simplified literal after normalization:\n"; m_solver.display(tout, new_lit); tout << " " << m_solver.value(new_lit) << "\n";);
                     if (new_lit == true_literal || new_lit == false_literal) {
                         TRACE(nlsat_simplify_bug,
                               tout << "normalize() turned rewritten literal into constant value:\n";
-                              display(tout << "  original: ", l) << "\n";
-                              display(tout << "  rewritten: ", before) << "\n";
+                              m_solver.display(tout << "  original: ", l) << "\n";
+                              m_solver.display(tout << "  rewritten: ", before) << "\n";
                               tout << "  result: " << (new_lit == true_literal ? "true" : "false") << "\n";
                               if (info.m_eq) {
                                   polynomial_ref eq_ref(const_cast<poly*>(info.m_eq), m_pm);
@@ -1425,7 +1428,7 @@ namespace nlsat {
             polynomial_ref lc_eq(m_pm);
             lc_eq           = m_pm.coeff(eq, info.m_x, info.m_k);
             info.m_lc       = lc_eq.get();
-            info.m_lc_sign  = sign(lc_eq, sample(), m_am);
+            info.m_lc_sign  = sign(lc_eq);
             info.m_lc_add   = false;
             info.m_lc_add_ineq = false;
             info.m_lc_const = m_pm.is_const(lc_eq);
@@ -1582,7 +1585,7 @@ namespace nlsat {
             var max_x = max_var(m_ps);
             TRACE(nlsat_explain, tout << "polynomials in the conflict:\n"; display(tout, m_solver, m_ps); tout << "\n";);
             elim_vanishing(m_ps);
-            TRACE(nlsat_explain, tout << "after elim_vanishing m_ps:\n"; display(tout, m_ps); tout << "\n";);
+            TRACE(nlsat_explain, tout << "after elim_vanishing m_ps:\n"; display(tout, m_solver, m_ps); tout << "\n";);
             project(m_ps, max_x);
             TRACE(nlsat_explain, tout << "after projection\n"; display(tout, m_solver, m_ps); tout << "\n";);
         }
@@ -1594,7 +1597,7 @@ namespace nlsat {
                 m_core2.append(num, ls);
                 var max = max_var(num, ls);
                 SASSERT(max != null_var);
-                TRACE(nlsat_explain, display(tout << "core before normalization\n", m_core2) << "\n";);
+                TRACE(nlsat_explain, display(tout << "core before normalization\n", m_solver, m_core2) << "\n";);
                 normalize(m_core2, max);
                 TRACE(nlsat_explain, display(tout << "core after normalization\n", m_solver, m_core2) << "\n";);
                 simplify(m_core2, max);
@@ -1603,7 +1606,7 @@ namespace nlsat {
                 m_core2.reset();
             }
             else {
-                TRACE(nlsat_explain, display(tout << "core befor normalization\n", m_core2) << "\n";);
+                TRACE(nlsat_explain, display(tout << "core befor normalization\n", m_solver, m_core2) << "\n";);
                 main(num, ls);
             }
         }
@@ -1700,7 +1703,7 @@ namespace nlsat {
                   
                   m_solver.display_assignment(tout << "assignment:\n");
                   );
-            if (max_var(num, ls) == 0 && !m_assignment.is_assigned(0)) {
+            if (max_var(num, ls) == 0 && !m_solver.sample().is_assigned(0)) {
                 TRACE(nlsat_explain, tout << "all literals use unassigned max var; returning justification\n";);
                 result.reset();
                 return;
@@ -1712,7 +1715,7 @@ namespace nlsat {
                     process(num, ls);
                     reset_already_added();
                     m_result = nullptr;
-                    TRACE(nlsat_explain, display(tout << "[explain] result\n", result) << "\n";);
+                    TRACE(nlsat_explain, display(tout << "[explain] result\n", m_solver, result) << "\n";);
                     CASSERT("nlsat", check_already_added());
                     break;
                 }
