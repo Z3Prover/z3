@@ -139,12 +139,12 @@ namespace nla {
         config m_config;
         vector<constraint> m_constraints;
         monomial_factory m_monomial_factory;
-        indexed_uint_set m_active;
-        vector<uint_set> m_tabu;
+        indexed_uint_set m_active, m_processed;
         vector<rational> m_values;
         svector<lp::constraint_index> m_core;
         vector<svector<lp::constraint_index>> m_occurs;  // map from variable to constraints they occur.
         bool_vector m_has_occurs;
+        lp::constraint_index m_last_constraint = lp::null_ci;
 
         unsigned_vector m_var2level, m_level2var;
 
@@ -184,7 +184,6 @@ namespace nla {
         void pop_constraint();
         void remove_occurs(lp::constraint_index ci);
 
-        lbool conflict_saturation();
         lp::constraint_index factor(lp::constraint_index ci);
         bool conflict(lp::constraint_index ci);
         void conflict(svector<lp::constraint_index> const& core);
@@ -192,7 +191,6 @@ namespace nla {
         lp::lpvar select_variable_to_eliminate(lp::constraint_index ci);
         unsigned degree_of_var_in_constraint(lpvar v, lp::constraint_index ci) const;
         factorization factor(lpvar v, lp::constraint_index ci);  
-        bool resolve_variable(lpvar x, lp::constraint_index ci);
         lp::constraint_index resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci, rational const& p_value, 
             factorization const& f, unsigned_vector const& m1, dd::pdd _f_p);
 
@@ -205,7 +203,6 @@ namespace nla {
         };
         bound_info find_bounds(lpvar v);
         unsigned max_level(constraint const &c) const;
-        void assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi);
 
         bool constraint_is_true(lp::constraint_index ci) const;
         bool constraint_is_false(lp::constraint_index ci) const;
@@ -224,11 +221,12 @@ namespace nla {
 
         bool is_int(svector<lp::lpvar> const& vars) const;
         bool is_int(dd::pdd const &p) const;
+        bool var_is_int(lp::lpvar v) const;
         rational value(dd::pdd const& p) const;
         rational value(lp::lpvar v) const { return m_values[v]; }
         bool set_model();
 
-        void add_active(lp::constraint_index ci, uint_set const &tabu);
+        void add_active(lp::constraint_index ci);
 
         // lemmas
         indexed_uint_set m_constraints_in_conflict;

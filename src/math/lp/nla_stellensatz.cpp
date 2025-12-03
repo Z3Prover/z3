@@ -121,18 +121,15 @@ namespace nla {
     }
 
     lbool stellensatz::saturate() {
-        unsigned num_constraints = 0, num_conflicts = 0;
+        unsigned num_conflicts = 0, num_constraints = 0;
         init_solver();
         TRACE(arith, display(tout << "stellensatz before saturation\n"));
     start_saturate:
+        m_last_constraint = lp::null_ci;
         num_constraints = m_constraints.size();
-        lbool r;
-        if (m_config.strategy == 1)
-            r = conflict_saturation();
-        else
-            r = model_repair();
+        lbool r = model_repair();
         
-        if (m_constraints.size() == num_constraints)
+        if (num_constraints == m_constraints.size())
             return l_undef;
         
         if (r == l_undef)
@@ -313,8 +310,6 @@ namespace nla {
         m_constraint_index.insert({p.index(), k}, ci);
         ++c().lp_settings().stats().m_stellensatz.m_num_constraints;
         
-        m_tabu.reserve(ci + 1);
-        m_tabu[ci].reset();
         m_has_occurs.reserve(ci + 1);
         struct undo_constraint : public trail {
             stellensatz &s;
@@ -328,79 +323,12 @@ namespace nla {
         return ci;
     }
 
-    void stellensatz::add_active(lp::constraint_index ci, uint_set const &tabu) {
+    void stellensatz::add_active(lp::constraint_index ci) {
         if (m_active.contains(ci))
             return;
         if (m_constraints[ci].p.degree() > m_config.max_degree)
             return;
         m_active.insert(ci);
-        m_tabu[ci] = tabu;
-    }
-
-    // initialize active set of constraints that evaluate to false in the current model
-    // loop over active set to eliminate variables.
-    lbool stellensatz::conflict_saturation() {
-        m_active.reset();
-        for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {
-            if (!constraint_is_true(ci))
-                add_active(ci, uint_set());
-        } 
-        while (!m_active.empty() && c().reslim().inc()) {
-            if (m_constraints.size() >= m_config.max_constraints)
-                break;
-            // factor ci into x*p + q <= rhs, where degree(x, q) < degree(x, p) + 1
-            // if p is vanishing (evaluates to 0), then add p = 0 as assumption and reduce to q.
-            // otherwise
-            // find complementary constraints that contain x^k for k = 0 .. degree -1
-            // eliminate x (and other variables) by combining ci with complementary constraints. 
-            auto ci = m_active.elem_at(0);   
-            m_active.remove(ci);   
-            if (constraint_is_true(ci))
-                continue;
-            
-
-            TRACE(arith, display_constraint(tout << "process (" << ci << ") ", ci) << " " << m_tabu[ci] << "\n");
-
-            ci = factor(ci);
-
-            if (constraint_is_conflict(ci))
-                return l_false;
-
-            auto x = select_variable_to_eliminate(ci);
-            if (x == lp::null_lpvar)
-                continue;
-            if (!resolve_variable(x, ci))
-                return l_false;         
-        }
-        return l_undef;
-    }
-
-    bool stellensatz::resolve_variable(lpvar x, lp::constraint_index ci) {
-        auto f = factor(x, ci);
-        TRACE(arith, tout << "factor " << m_constraints[ci].p << " -> j" << x << "^" << f.degree << " * " << f.p
-                          << "  +  " << f.q << "\n");
-        auto p_value = value(f.p);
-        auto q_ge_0 = vanishing(x, f, ci);
-        if (q_ge_0 != lp::null_ci)
-            return true;
-        if (p_value == 0)
-            return true;
-        if (m_tabu[ci].contains(x))
-            return true;
-        unsigned num_x = m_occurs[x].size();
-        for (unsigned i = 0; i < f.degree; ++i)
-            f.p *= to_pdd(x);
-        auto [_m1, _f_p] = f.p.var_factors();
-
-        for (unsigned cx = 0; cx < num_x; ++cx) {
-            auto other_ci = m_occurs[x][cx];
-            if (m_tabu[other_ci].contains(x))
-                continue;
-            auto resolved_ci = resolve_variable(x, ci, other_ci, p_value, f, _m1, _f_p);
-            if (conflict(resolved_ci))
-                return false;
-        } 
-        return true;
     }
 
     lp::constraint_index stellensatz::resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci,
@@ -429,8 +357,6 @@ namespace nla {
         if (p_value > 0 && p_value2 > 0)
             return lp::null_ci;
         if (p_value < 0 && p_value2 < 0)
-            return lp::null_ci;
-        if (any_of(other_p.free_vars(), [&](unsigned j) { return m_tabu[ci].contains(j); }))
             return lp::null_ci;
 
         for (unsigned i = 0; i < g.degree; ++i)
@@ -478,27 +404,20 @@ namespace nla {
 
         TRACE(arith, tout << "eliminate j" << x << ":\n"; 
               display_constraint(tout, ci) << "\n";
-              display_constraint(tout, other_ci) << "\n";
+              display_constraint(tout, other_ci) << "\n"; 
+              display_constraint(tout, ci_a) << "\n";
+              display_constraint(tout, ci_b) << "\n";
               display_constraint(tout, new_ci) << "\n");
-
-        CTRACE(arith, !is_new_constraint(new_ci),
-               display_constraint(tout << "not new ", new_ci) << "\n");
                 
-        if (!is_new_constraint(new_ci))
-            return new_ci;
-
         if (constraint_is_conflict(new_ci))
             return new_ci;
 
         new_ci = factor(new_ci);
 
-        if (m_constraints[new_ci].p.degree() > m_config.max_degree)
-            return new_ci;
+        init_occurs(new_ci); 
 
-        init_occurs(new_ci);
-        uint_set new_tabu(m_tabu[ci]);
-        new_tabu.insert(x);
-        add_active(new_ci, new_tabu);        
+        CTRACE(arith, !is_new_constraint(new_ci), display_constraint(tout << "not new ", new_ci) << "\n");
+        CTRACE(arith, is_new_constraint(new_ci), display_constraint(tout << "new ", new_ci) << "\n");
         return new_ci;  
     }
 
@@ -523,6 +442,8 @@ namespace nla {
     }
 
     lbool stellensatz::model_repair() {
+        m_active.reset();
+        m_processed.reset();
         for (lp::constraint_index ci = 0; ci < m_constraints.size(); ++ci)
             m_active.insert(ci);
         m_level2var.reset();
@@ -542,13 +463,17 @@ namespace nla {
         while (c().reslim().inc()) {
             if (level >= m_level2var.size())
                 break;
-            auto num_c = m_constraints.size();
+            m_last_constraint = lp::null_ci;
             auto ci = model_repair(m_level2var[level]);
+            TRACE(arith,
+                  display_constraint(tout << "after repairing j" << m_level2var[level] << " @ " << level << " ", ci)
+                      << "\nconflict "
+                      << conflict(ci) << "\n");
             if (ci == lp::null_ci) 
                 ++level;            
             else if (conflict(ci))
                 return l_false;
-            else if (ci < num_c)
+            else if (m_processed.contains(ci))
                 ++level;
             else
                 level = max_level(m_constraints[ci]);
@@ -568,7 +493,10 @@ namespace nla {
 
     lp::constraint_index stellensatz::model_repair(lp::lpvar v) {
         auto [lo, hi, inf, sup, vanishing] = find_bounds(v);
-
+        TRACE(arith, tout << "bounds for v" << v << " @ " << m_var2level[v] << " : " << lo << " to " << hi << "\n";
+              display_constraint(tout << " inf ", inf) << "\n";
+              display_constraint(tout << " sup ", sup) << "\n";
+              display_constraint(tout << " vanishing ", vanishing) << "\n";);
         if (vanishing != lp::null_ci)
             return vanishing;
 
@@ -604,9 +532,9 @@ namespace nla {
         bool strict_lo = m_constraints[inf].k == lp::lconstraint_kind::GT;
         bool strict_hi = m_constraints[sup].k == lp::lconstraint_kind::GT;
         bool strict = strict_lo || strict_hi;
-        if (((!strict && lo <= hi) || lo < hi) && (!is_int(v) || ceil(lo) <= floor(hi))) {
+        if (((!strict && lo <= hi) || lo < hi) && (!var_is_int(v) || ceil(lo) <= floor(hi))) {
             // repair v by setting it between lo and hi assuming it is integral when v is integer
-            m_values[v] = is_int(v) ? ceil(lo) : ((hi - lo) / 2);
+            m_values[v] = var_is_int(v) ? ceil(lo) : ((lo + hi) / 2);
             CTRACE(arith, constraint_is_false(sup) || constraint_is_false(inf), 
                 tout << m_values[v] << " " << " between " << lo << " and " << hi << "\n";
                 display_constraint(tout, sup) << "\n";
@@ -614,6 +542,8 @@ namespace nla {
             return lp::null_ci;
         }
 
+        TRACE(arith, tout << "cannot repair v" << v << " between " << lo << " and " << hi << " " << (lo > hi) << " is int " << var_is_int(v) << "\n";
+              display_constraint(tout, inf) << "\n"; display_constraint(tout, sup) << "\n";);
         auto f = factor(v, inf);
         SASSERT(f.degree == 1);
         auto p_value = value(f.p);
@@ -622,63 +552,35 @@ namespace nla {
         return resolve_variable(v, inf, sup, p_value, f, m, f_p);
     }
 
-    // lo <= hi
-    void stellensatz::assume_ge(lpvar v, lp::constraint_index lo, lp::constraint_index hi) {
-        if (lo == hi)
-            return;
-        auto const &[plo, klo, jlo] = m_constraints[lo];
-        auto const &[phi, khi, jhi] = m_constraints[hi];
-        auto f = factor(v, lo);
-        auto g = factor(v, hi);
-        SASSERT(f.degree == 1);
-        SASSERT(g.degree == 1);
-        auto fp_value = value(f.p);
-        auto gp_value = value(g.p);
-        SASSERT(fp_value != 0);
-        SASSERT(gp_value != 0);
-        SASSERT((fp_value > 0) == (gp_value > 0));
-        //
-        // f.p x + f.q >= 0 <=> f.p x >= - f.q <=> x <= - f.q / f.p
-        // - f.q / f.p <= - g.q / g.p
-        // f.p x + f.q >= 0
-        // <=>
-        // x >= - f.q / f.p
-        //
-        // - f.q / f.p <= - g.q / g.p
-        // <=>
-        //    f.q / f.p >= g.q / g.p
-        // <=>
-        //    f.q * g.p >= g.q * f.p
-        //
-        auto r = (f.q * g.p) - (g.q * f.p);
-        SASSERT(value(r) >= 0);
-        auto new_ci = assume(r, join(klo, khi));
-        m_active.insert(new_ci);
-        factor(new_ci);
-    }
-
     stellensatz::bound_info stellensatz::find_bounds(lpvar v) {
         bound_info result;
         auto &[lo, hi, inf, sup, van] = result;
         for (auto ci : m_occurs[v]) {
+            CTRACE(arith_verbose, !m_active.contains(ci), display_constraint(tout << "skip inactive ", ci) << "\n");
             if (!m_active.contains(ci))
                 continue;
+            m_processed.insert(ci);
             // consider only constraints where v is maximal
             auto const &p = m_constraints[ci].p;
             auto const &vars = p.free_vars();
-            if (any_of(vars, [&](unsigned j) { return p.degree(j) == 1 && m_var2level[j] > m_var2level[v]; }))
-                continue;            
+            if (any_of(vars, [&](unsigned j) { return p.degree(j) == 1 && m_var2level[j] > m_var2level[v]; })) {
+                TRACE(arith_verbose, display_constraint(tout << "skip non-maximal ", ci) << "\n");
+                continue;
+            }
             auto f = factor(v, ci);
             auto q_ge_0 = vanishing(v, f, ci);
             if (q_ge_0 != lp::null_ci) {
-                if (is_new_constraint(q_ge_0) && !constraint_is_true(q_ge_0)) {
+                if (!constraint_is_true(q_ge_0)) {
                     van = q_ge_0;
                     return result;
                 }
+                TRACE(arith_verbose, display_constraint(tout << "vanished j" << v << " in ", ci) << "\n";
+                      display_constraint(tout << " to ", q_ge_0) << "\n";);
                 continue;
             }
             if (f.degree > 1)
                 continue;
+            TRACE(arith_verbose, display_constraint(tout << "process maximal ", ci) << "\n");
             auto p_value = value(f.p);
             auto q_value = value(f.q);
             SASSERT(f.degree == 1);
@@ -715,6 +617,7 @@ namespace nla {
         if (p_value != 0)
             return lp::null_ci;
 
+        ++c().lp_settings().stats().m_stellensatz.m_num_vanishings;
         // add p = 0 as assumption and reduce to q.
         auto p_is_0 = assume(f.p, lp::lconstraint_kind::EQ);
         // ci & -p_is_0*x^f.degree  => new_ci
@@ -726,13 +629,7 @@ namespace nla {
         TRACE(arith, display_constraint(tout << "j" << x << " ", ci) << "\n";
             display_constraint(tout << "reduced ", new_ci) << "\n";
         display_constraint(tout, p_is_0) << "\n");
-        if (is_new_constraint(new_ci)) {
-            init_occurs(new_ci);
-            uint_set new_tabu(m_tabu[ci]);
-            new_tabu.insert(x);
-            add_active(new_ci, new_tabu);
-        }
-        ++c().lp_settings().stats().m_stellensatz.m_num_vanishings;
+        init_occurs(new_ci);        
         return new_ci;
     }
 
@@ -750,6 +647,12 @@ namespace nla {
         vars.shrink(i);
         if (vars.empty())
             return ci;         
+        if (vars.size() == 1 && q.is_val())
+            return ci;
+        if (q.is_val()) {
+            q *= pddm.mk_var(vars.back());
+            vars.pop_back();
+        }
         
         vector<dd::pdd> muls;
         muls.push_back(q);
@@ -757,20 +660,22 @@ namespace nla {
             muls.push_back(muls.back() * pddm.mk_var(v));
         auto new_ci = ci;
         SASSERT(muls.back() == p);
+        int sign = 1;
         for (unsigned i = vars.size(); i-- > 0;) {
             auto pv = pddm.mk_var(vars[i]);
             auto val = value(vars[i]);
             auto k1 = val == 0 ? lp::lconstraint_kind::GE : (val > 0 ? lp::lconstraint_kind::GT : lp::lconstraint_kind::LT);
-            new_ci = divide(new_ci, assume(pv, k1), muls[i]);
+            if (val < 0)
+                sign = -sign;
+            new_ci = divide(new_ci, assume(pv, k1), sign * muls[i]);
+            TRACE(arith_verbose, display_constraint(tout, new_ci) << "\n"; display_constraint(tout, assume(pv, k1)) << "\n";);
         }
-        if (m_active.contains(ci))
-            m_active.remove(ci);
         TRACE(arith, display_constraint(tout << "factor ", new_ci) << "\n");
         return new_ci;
     }
 
     bool stellensatz::is_new_constraint(lp::constraint_index ci) const {
-        return ci + 1 == m_constraints.size();
+        return ci == m_last_constraint;
     }
 
     lp::lpvar stellensatz::select_variable_to_eliminate(lp::constraint_index ci) {
@@ -1065,8 +970,10 @@ namespace nla {
                 s.remove_occurs(ci);
             }
         };
+        add_active(ci);
         m_trail.push(undo_occurs(*this, ci));
         m_has_occurs[ci] = true;
+        m_last_constraint = ci;
         auto const &con = m_constraints[ci];
         for (auto v : con.p.free_vars())
             m_occurs[v].push_back(ci);
@@ -1082,11 +989,15 @@ namespace nla {
     }
 
     bool stellensatz::is_int(svector<lp::lpvar> const& vars) const {
-        return all_of(vars, [&](lpvar v) { return c().lra_solver().var_is_int(v); });
+        return all_of(vars, [&](lpvar v) { return var_is_int(v); });
     }
 
     bool stellensatz::is_int(dd::pdd const &p) const {
         return is_int(p.free_vars());
+    }
+
+    bool stellensatz::var_is_int(lp::lpvar v) const {
+        return c().lra_solver().var_is_int(v);
     }
 
     bool stellensatz::constraint_is_true(lp::constraint_index ci) const {
@@ -1172,6 +1083,8 @@ namespace nla {
     }
 
     std::ostream& stellensatz::display_constraint(std::ostream& out, lp::constraint_index ci) const {
+        if (ci == lp::null_ci)
+            return out << "(null) ";
         bool is_true = constraint_is_true(ci);
         return display_constraint(out << "(" << ci << ") ", m_constraints[ci]) << (is_true ? " [true]" : " [false]");
     }
@@ -1217,7 +1130,7 @@ namespace nla {
             out << m.p << " * (" << m.ci << ")";
         }
         else if (std::holds_alternative<division_justification>(j)) {
-            auto &m = std::get<division_justification>(j);
+            auto m = std::get<division_justification>(j);
             out << "(" << m.ci << ") / (" << m.divisor << ")";
         } 
         else if (std::holds_alternative<assumption_justification>(j)) {
