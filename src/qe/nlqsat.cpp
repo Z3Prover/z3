@@ -20,6 +20,7 @@ Revision History:
 
 #include "util/uint_set.h"
 #include "util/scoped_ptr_vector.h"
+#include "util/trace.h"
 #include "ast/expr2var.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/expr_safe_replace.h"
@@ -253,6 +254,7 @@ namespace qe {
         solver_state           s;
         qsat_mode_t            m_mode;
         params_ref             m_params;
+        bool                   m_log_mbp;
         tactic_ref             m_nftactic;
         stats                  m_stats;
         statistics             m_st;
@@ -392,12 +394,24 @@ namespace qe {
                 result.swap(new_result);
             }
             negate_clause(result);
+            if (m_log_mbp) {
+                log_mbp_clause(result);
+            }
         }
 
         void negate_clause(clause& result) {
             for (unsigned i = 0; i < result.size(); ++i) {
                 result.set(i, ~result[i]);
             }
+        }
+
+        void log_mbp_clause(clause const& result) {
+            nlsat::literal_vector clause_ast;
+            clause_ast.append(result.size(), result.data());
+            for (unsigned i = 0; i < clause_ast.size(); ++i) {
+                clause_ast[i] = ~clause_ast[i];
+            }
+            s.m_solver.log_lemma(verbose_stream(), s.m_asms, clause_ast, true, "mbp");
         }
 
         unsigned level() const { 
@@ -829,6 +843,7 @@ namespace qe {
             s(m, p),
             m_mode(mode),
             m_params(p),
+            m_log_mbp(false),
             m_nftactic(nullptr),
             m_answer(m),
             m_answer_simplify(m),
@@ -836,6 +851,7 @@ namespace qe {
             m_div_mc(nullptr) {
             nlsat_params ns_params(m_params);
             s.m_solver.get_explain().set_signed_project(ns_params.use_signed_projection());
+            m_log_mbp = ns_params.log_mbp();
             m_nftactic = mk_tseitin_cnf_tactic(m);
         }
 
@@ -845,6 +861,7 @@ namespace qe {
             params_ref p2(p);
             p2.set_bool("factor", false);
             s.m_solver.updt_params(p2);
+            m_log_mbp = nlsat_params(p2).log_mbp();
         }
         
         void collect_param_descrs(param_descrs & r) override {
@@ -968,5 +985,3 @@ tactic * mk_nlqsat_tactic(ast_manager & m, params_ref const& p) {
 tactic * mk_nlqe_tactic(ast_manager & m, params_ref const& p) {
     return alloc(qe::nlqsat, m, qe::elim_t, p);
 }
-
-

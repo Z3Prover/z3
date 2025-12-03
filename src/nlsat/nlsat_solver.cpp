@@ -1122,24 +1122,52 @@ namespace nlsat {
             }
         }
 
-        void log_lemma(std::ostream& out, clause const& cls, std::string annotation) {
-            log_lemma(out, cls.size(), cls.data(), true, annotation);
+        void collect_log_vars(bool_vector& used_vars, bool_vector& used_bools, literal lit, var_vector& vars) const {
+            bool_var b = lit.var();
+            if (b != null_bool_var && b < used_bools.size())
+                used_bools[b] = true;
+            vars.reset();
+            this->vars(lit, vars);
+            for (var v : vars)
+                used_vars[v] = true;
         }
 
-        void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid, std::string annotation) {
+        void collect_log_vars(bool_vector& used_vars, bool_vector& used_bools, unsigned n, literal const* cls, var_vector& vars) const {
+            for (unsigned j = 0; j < n; j++)
+                collect_log_vars(used_vars, used_bools, cls[j], vars);
+        }
+
+        void collect_log_vars(bool_vector& used_vars, bool_vector& used_bools, literal_vector const& lits, var_vector& vars) const {
+            for (literal lit : lits)
+                collect_log_vars(used_vars, used_bools, lit, vars);
+        }
+
+        std::ostream& display_smt2_and(std::ostream& out, literal_vector const& lits) const {
+            if (lits.empty())
+                return out << "true";
+            if (lits.size() == 1)
+                return display_smt2(out, lits[0]);
+            out << "(and";
+            for (literal lit : lits) {
+                out << " ";
+                display_smt2(out, lit);
+            }
+            out << ")";
+            return out;
+        }
+
+        void log_lemma(std::ostream& out, clause const& cls, std::string annotation) {
+            log_lemma(out, literal_vector(), cls.size(), cls.data(), true, annotation);
+        }
+
+        void log_lemma(std::ostream& out, literal_vector const& assumptions, unsigned n, literal const* cls, bool is_valid, std::string annotation) {
             bool_vector used_vars(num_vars(), false);
             bool_vector used_bools(usize(m_atoms), false);
             var_vector vars;
-            for (unsigned j = 0; j < n; j++) {
-                literal lit = cls[j];
-                bool_var b = lit.var();
-                if (b != null_bool_var && b < used_bools.size())
-                    used_bools[b] = true;
-                vars.reset();
-                this->vars(lit, vars);
-                for (var v : vars)
-                        used_vars[v] = true;            
-            }
+
+            collect_log_vars(used_vars, used_bools, assumptions, vars);
+            collect_log_vars(used_vars, used_bools, n, cls, vars);
+
             display(out << "(echo \"#" << m_lemma_count++ << ":" << annotation << ":", n, cls) << "\")\n";
             if (m_log_lemma_smtrat)
                 out << "(set-logic NRA)\n";
@@ -1151,10 +1179,19 @@ namespace nlsat {
                 display_smt2_arith_decls(out, used_vars);
             }
 
+            if (!assumptions.empty()) {
+                out << "(assert ";
+                display_smt2_and(out, assumptions) << ")\n";
+            }
+
             for (unsigned i = 0; i < n; ++i) 
                 display_smt2(out << "(assert ", ~cls[i]) << ")\n";
             out << "(check-sat)\n(reset)\n";
 
+        }
+
+        void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid, std::string annotation) {
+            log_lemma(out, literal_vector(), n, cls, is_valid, annotation);
         }
 
         clause * mk_clause_core(unsigned num_lits, literal const * lits, bool learned, _assumption_set a) {
@@ -4552,6 +4589,14 @@ namespace nlsat {
 
     std::ostream& solver::display_smt2(std::ostream & out, literal_vector const& ls) const {
         return display_smt2(out, ls.size(), ls.data());
+    }
+
+    void solver::log_lemma(std::ostream& out, literal_vector const& assumptions, unsigned n, literal const* cls, bool is_valid, std::string annotation) {
+        m_imp->log_lemma(out, assumptions, n, cls, is_valid, annotation);
+    }
+
+    void solver::log_lemma(std::ostream& out, literal_vector const& assumptions, literal_vector const& cls, bool is_valid, std::string annotation) {
+        log_lemma(out, assumptions, cls.size(), cls.data(), is_valid, annotation);
     }
 
     std::ostream& solver::display(std::ostream & out, var x) const {

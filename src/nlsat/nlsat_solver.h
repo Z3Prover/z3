@@ -20,6 +20,7 @@ Revision History:
 --*/
 #pragma once
 
+#include <string>
 #include "nlsat/nlsat_types.h"
 #include "util/params.h"
 #include "util/statistics.h"
@@ -285,6 +286,13 @@ namespace nlsat {
         std::ostream& display_smt2(std::ostream & out) const;
 
         /**
+           \brief Log lemma as SMT-LIB including optional assumptions.
+         */
+        void log_lemma(std::ostream& out, literal_vector const& assumptions, unsigned n, literal const* cls, bool is_valid, std::string annotation);
+
+        void log_lemma(std::ostream& out, literal_vector const& assumptions, literal_vector const& cls, bool is_valid, std::string annotation);
+
+        /**
            \brief Display variable
         */
         std::ostream& display(std::ostream & out, var x) const;
@@ -298,4 +306,3 @@ namespace nlsat {
     };
 
 };
-
