@@ -849,7 +849,7 @@ void tst_nlsat_mv() {
     s.set_rvalues(assignment);
 
     nlsat::scoped_literal_vector result(s);
-    ex.main_operator(lits.size(), lits.data(), result);
+    ex.compute_conflict_explanation(lits.size(), lits.data(), result);
 
     std::cout << "main_operator root regression core:\n";
     s.display(std::cout, lits.size(), lits.data());
