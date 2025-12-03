@@ -632,16 +632,12 @@ static void tst9() {
 
 #define TEST_ON_OFF()                                   \
     std::cout << "Off ";                                \
-    ex.set_signed_project(false);                       \
     project(s, ex, _x, lits.size()-1, lits.data());    \
     std::cout << "On ";                                 \
-    ex.set_signed_project(true);                        \
     project(s, ex, _x, lits.size()-1, lits.data());    \
     std::cout << "Off ";                                \
-    ex.set_signed_project(false);                       \
     project(s, ex, _x, lits.size(), lits.data());      \
     std::cout << "On ";                                 \
-    ex.set_signed_project(true);                        \
     project(s, ex, _x, lits.size(), lits.data())       \
 
     TEST_ON_OFF();
