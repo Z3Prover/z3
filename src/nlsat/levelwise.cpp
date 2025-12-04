@@ -297,6 +297,7 @@ namespace nlsat {
                 if (is_const(r)) continue;
                 TRACE(lws, tout << "resultant: "; ::nlsat::display(tout, m_solver, r); tout << std::endl;);
                 if (is_zero(r)) {
+                    TRACE(lws, tout << "fail\n";);
                     m_fail = true;
                     return false;
                 }
@@ -320,8 +321,10 @@ namespace nlsat {
             collect_top_level_properties(ps_of_n_level);
             std::vector<std::pair<scoped_anum, poly*>> root_vals;
             collect_roots_for_ps(ps_of_n_level, root_vals);
-            if (!add_adjacent_resultants(root_vals))
+            if (!add_adjacent_resultants(root_vals)) {
+                TRACE(lws, tout << "fail\n";);
                 m_fail = true;
+            }
         }
         
 
@@ -560,6 +563,7 @@ namespace nlsat {
             if (!is_const(disc)) {
                 for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
                     if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
+                        TRACE(lws, tout << "fail\n";);                
                         m_fail = true; // ambiguous multiplicity -- not handled yet
                         return;
                     }
@@ -579,6 +583,7 @@ namespace nlsat {
                 if (!is_const(lc)) {
                     for_each_distinct_factor(lc, [&](polynomial::polynomial_ref f) {
                         if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
+                            TRACE(lws, tout << "fail\n";);                
                             m_fail = true;
                             return;
                         }
@@ -702,11 +707,12 @@ namespace nlsat {
                 if (sign(coeff, sample(), m_am) == 0)
                     continue;
 
-                for_first_distinct_factor(coeff, [&](const polynomial::polynomial_ref & f) {
+                for_each_distinct_factor(coeff, [&](const polynomial::polynomial_ref & f) {
                     mk_prop(prop_enum::sgn_inv, f);
                 });
                 return true;
             }
+            TRACE(lws, tout << "false\n";);
             return false;
         }
 
@@ -860,7 +866,11 @@ or
                     // nothing is added
                 } else {
                     polynomial_ref res = resultant(polynomial_ref(I.l, m_pm), p.m_poly, m_level);
-                    if (m_pm.is_zero(res)) { m_fail = true; return;}
+                    if (m_pm.is_zero(res)) { 
+                        TRACE(lws, tout << "fail\n";);                
+                        m_fail = true; 
+                        return;
+                    }
                         // Factor the resultant and add ord_inv for each distinct non-constant factor
                     for_each_distinct_factor(res, [&](polynomial::polynomial_ref f) { mk_prop(prop_enum::ord_inv, f);});
                 }
@@ -981,6 +991,7 @@ or
                  polynomial_ref r(m_pm);
                  r = resultant(polynomial_ref(a, m_pm), polynomial_ref(b, m_pm), m_level);
                  if (m_pm.is_zero(r)) {
+                     TRACE(lws, tout << "fail\n";);
                      m_fail = true;
                      return;
                  }
