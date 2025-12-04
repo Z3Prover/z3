@@ -12,6 +12,7 @@
 #include <queue>
 #include "math/polynomial/polynomial_cache.h"
 #include "math/polynomial/polynomial.h"
+#include "util/z3_exception.h"
 
 bool is_set(unsigned k) { return static_cast<int>(k) != -1; }
 
@@ -821,7 +822,14 @@ or
             SASSERT(is_square_free(p.m_poly));
             scoped_anum_vector roots(m_am);
             SASSERT(max_var(p.m_poly) == m_level);
-            m_am.isolate_roots(p.m_poly, undef_var_assignment(sample(), m_level), roots);
+            try {
+                m_am.isolate_roots(p.m_poly, undef_var_assignment(sample(), m_level), roots);
+            }
+            catch (z3_exception const& ex) {
+                TRACE(lws, tout << "isolate_roots failed: " << ex.what() << "\n";);
+                m_fail = true;
+                return;
+            }
             if (roots.size() == 0) {
                 /*  Rule 4.6. Let i ∈ N, R ⊆ Ri, s ∈ R_{i−1}, and realRoots(p(s, xi )) = ∅. 
                 sample(s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R) */
