@@ -214,19 +214,8 @@ namespace nlsat {
             return out;
         }
 
-        bool is_irreducible(poly* p) {
-            polynomial_ref_vector factors(m_pm);
-            polynomial_ref pref(p, m_pm);
-            ::nlsat::factor(pref, m_cache, factors);
-            unsigned num_factors = factors.size();
-            CTRACE(lws, num_factors != 1, ::nlsat::display(tout, m_solver, p) << std::endl;
-                   tout << "{";
-                   tout << "num_factors:" << num_factors << "\n";
-                   ::nlsat::display(tout, m_solver, factors);
-                   tout << "}\n";
-                );
-            
-            return factors.size() == 1;            
+        bool is_square_free(poly* p) {
+            return m_pm.is_square_free(p);            
         }
         
         /*
@@ -533,7 +522,7 @@ namespace nlsat {
          // add a property to m_Q if an equivalent one is not already present.
          // Equivalence: same m_prop_tag and same level; polynomials checked for equality
          // (polynomials are already in primitive form, so constant multipliers are normalized away).
-        void add_to_Q_if_new(const property & pr, unsigned level) {
+        void add_to_Q_if_new(const property & pr, unsigned level) {            
              SASSERT(pr.m_prop_tag != ord_inv || (pr.m_poly && !m_pm.is_zero(pr.m_poly)));
              for (auto const & q : m_Q[level]) {
                  if (q.m_prop_tag != pr.m_prop_tag) continue;
@@ -542,7 +531,7 @@ namespace nlsat {
                  TRACE(lws, display(tout << "matched q:", q) << std::endl;);
                  return;
              }
-             SASSERT(!pr.m_poly || is_irreducible(pr.m_poly));
+             SASSERT(!pr.m_poly || is_square_free(pr.m_poly));
              m_Q[level].push(pr);
          }
         
@@ -829,7 +818,7 @@ or
         }
 
         void apply_pre_sgn_inv(const property& p) {
-            SASSERT(is_irreducible(p.m_poly));
+            SASSERT(is_square_free(p.m_poly));
             scoped_anum_vector roots(m_am);
             SASSERT(max_var(p.m_poly) == m_level);
             m_am.isolate_roots(p.m_poly, undef_var_assignment(sample(), m_level), roots);
@@ -893,7 +882,7 @@ or
         /*Assume that p is irreducible, irExpr(p, s) ̸= ∅, ξ.p is irreducible for all ξ ∈ dom(≼), ≼ matches s,
               and for all ξ ∈ irExpr(p, s) it holds either ξ ≼t l or u ≼t ξ.*/
         bool precondition_on_sign_inv(const property &p) {
-            SASSERT(is_irreducible(p.m_poly));
+            SASSERT(is_square_free(p.m_poly));
             SASSERT(max_var(p.m_poly) == m_level);
 
             return true;
@@ -908,7 +897,7 @@ or
           p(s)= 0, sample(s)(R), an_sub(i− 1)(R), connected(i)(R), sgn_inv(p)(R), an_del(p)(R) ⊢ ord_inv(p)(R)
         */
         void apply_pre_ord_inv(const property& p) {
-            SASSERT(p.m_prop_tag == prop_enum::ord_inv && is_irreducible(p.m_poly));
+            SASSERT(p.m_prop_tag == prop_enum::ord_inv && is_square_free(p.m_poly));
             unsigned level = max_var(p.m_poly);
             auto sign_on_sample = sign(p.m_poly, sample(), m_am);
             mk_prop(sample_holds, level_t(level));

@@ -1158,11 +1158,13 @@ namespace nlsat {
             var x = m_todo.extract_max_polys(ps);
 
             TRACE(nlsat_explain, tout << "m_solver.apply_levelwise():" << m_solver.apply_levelwise() << "\n";);
-            if (m_solver.apply_levelwise() && levelwise_single_cell(ps, max_x, m_cache)) {
-                std::cout << "s";
-                return;
+            if (m_solver.apply_levelwise()) {
+                bool levelwise_ok = levelwise_single_cell(ps, max_x, m_cache);
+                m_solver.record_levelwise_result(levelwise_ok);
+                if (levelwise_ok)
+                    return;
+
             }
-            std::cout << "f";
             polynomial_ref_vector samples(m_pm);
             
             if (x < max_x)
