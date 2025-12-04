@@ -473,7 +473,7 @@ namespace nla {
                 ++level;            
             else if (conflict(ci))
                 return l_false;
-            else if (m_processed.contains(ci))
+            else if (m_processed.contains(ci) || constraint_is_trivial(ci))
                 ++level;
             else
                 level = max_level(m_constraints[ci]);
@@ -559,17 +559,21 @@ namespace nla {
             CTRACE(arith_verbose, !m_active.contains(ci), display_constraint(tout << "skip inactive ", ci) << "\n");
             if (!m_active.contains(ci))
                 continue;
-            m_processed.insert(ci);
+            
             // consider only constraints where v is maximal
             auto const &p = m_constraints[ci].p;
             auto const &vars = p.free_vars();
             if (any_of(vars, [&](unsigned j) { return p.degree(j) == 1 && m_var2level[j] > m_var2level[v]; })) {
+                m_processed.insert(ci);
                 TRACE(arith_verbose, display_constraint(tout << "skip non-maximal ", ci) << "\n");
                 continue;
             }
             auto f = factor(v, ci);
             auto q_ge_0 = vanishing(v, f, ci);
             if (q_ge_0 != lp::null_ci) {
+                if (m_processed.contains(ci))
+                    continue;
+                m_processed.insert(ci);
                 if (!constraint_is_true(q_ge_0)) {
                     van = q_ge_0;
                     return result;
@@ -578,6 +582,7 @@ namespace nla {
                       display_constraint(tout << " to ", q_ge_0) << "\n";);
                 continue;
             }
+            m_processed.insert(ci);
             if (f.degree > 1)
                 continue;
             TRACE(arith_verbose, display_constraint(tout << "process maximal ", ci) << "\n");
@@ -1020,6 +1025,22 @@ namespace nla {
         case lp::lconstraint_kind::NE: return lhs != 0;
         default: UNREACHABLE();  return false;
         }
+    }
+
+    bool stellensatz::constraint_is_trivial(lp::constraint_index ci) const {
+        return ci != lp::null_ci && constraint_is_trivial(m_constraints[ci]);
+    }
+
+    bool stellensatz::constraint_is_trivial(constraint const &c) const {
+        auto const &[p, k, j] = c;
+        if (!p.is_val())
+            return false;
+        if (p.val() > 0)
+            return k == lp::lconstraint_kind::GE || k == lp::lconstraint_kind::GT || k == lp::lconstraint_kind::NE;
+        else if (p.val() == 0)
+            return k == lp::lconstraint_kind::EQ || k == lp::lconstraint_kind::GE || k == lp::lconstraint_kind::LE;
+        else // p.val() < 0
+            return k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::LT || k == lp::lconstraint_kind::NE;
     }
 
     bool stellensatz::constraint_is_conflict(lp::constraint_index ci) const {

@@ -209,6 +209,8 @@ namespace nla {
         bool constraint_is_true(constraint const &c) const;
         bool constraint_is_conflict(lp::constraint_index ci) const;
         bool constraint_is_conflict(constraint const &c) const;
+        bool constraint_is_trivial(lp::constraint_index ci) const;
+        bool constraint_is_trivial(constraint const& c) const;
         bool is_new_constraint(lp::constraint_index ci) const;
 
         lp::constraint_index gcd_normalize(lp::constraint_index ci);
