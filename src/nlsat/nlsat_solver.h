@@ -194,6 +194,7 @@ namespace nlsat {
         assumption join(assumption a, assumption b);
 
         void inc_simplify();
+        void record_levelwise_result(bool success);
         void add_bound(bound_constraint const& c);
 
         /**
@@ -300,4 +301,3 @@ namespace nlsat {
     };
 
 };
-
