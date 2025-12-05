@@ -1170,14 +1170,14 @@ namespace nlsat {
                     used_bools[b] = true;
                 vars.reset();
                 this->vars(lit, vars);
-                for (var v : vars)
+            for (var v : vars)
                         used_vars[v] = true;            
             }
-            display(out << "(echo \"#" << m_lemma_count++ << ":" << annotation << ":", n, cls) << "\")\n";
-            /*  if (m_lemma_count == 60) {
+            if (m_lemma_count >= 7 && false) {
                 enable_trace("lws");
-                enable_trace("nlsat_explain");
-                }*/
+                enable_trace("nlsat_explain");                
+            }
+            display(out << "(echo \"#" << m_lemma_count++ << ":" << annotation << ":", n, cls) << "\")\n";
             if (m_log_lemma_smtrat)
                 out << "(set-logic NRA)\n";
             else 
@@ -1191,10 +1191,10 @@ namespace nlsat {
             for (unsigned i = 0; i < n; ++i) 
                 display_smt2(out << "(assert ", ~cls[i]) << ")\n";
             out << "(check-sat)\n(reset)\n";
-            /*  if (m_lemma_count == 62) {                
+            if (m_lemma_count == 10 && false) {                
                 std::cout << "early exit\n";
                 exit(1);
-                } */  
+            }
         }
 
         clause * mk_clause_core(unsigned num_lits, literal const * lits, bool learned, _assumption_set a) {

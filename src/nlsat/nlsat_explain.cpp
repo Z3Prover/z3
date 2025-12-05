@@ -1143,7 +1143,7 @@ namespace nlsat {
             bool first = true;
             if (ps.empty())
                 return;
-
+            TRACE(nlsat_explain, ::nlsat::display(tout << "ps:", m_solver, ps)<< "\n";);            
             m_todo.reset();
             for (unsigned i = 0; i < ps.size(); ++i) {
                 polynomial_ref p(m_pm);
@@ -1154,19 +1154,18 @@ namespace nlsat {
             ps.reset();
             for (auto p: m_todo.m_set)
                 ps.push_back(p);
-            
-            var x = m_todo.extract_max_polys(ps);
 
-            TRACE(nlsat_explain, tout << "m_solver.apply_levelwise():" << m_solver.apply_levelwise() << "\n";);
             if (m_solver.apply_levelwise()) {
                 bool levelwise_ok = levelwise_single_cell(ps, max_x, m_cache);
                 m_solver.record_levelwise_result(levelwise_ok);
                 if (levelwise_ok)
                     return;
-
             }
+            TRACE(nlsat_explain, ::nlsat::display(tout << "ps before extract:", m_solver, ps)<< "\n";);
+            var x = m_todo.extract_max_polys(ps);
+
+            TRACE(nlsat_explain, ::nlsat::display(tout << "ps:", m_solver, ps)<< "\n";);
             polynomial_ref_vector samples(m_pm);
-            
             if (x < max_x)
                 cac_add_cell_lits(ps, x, samples);
 
