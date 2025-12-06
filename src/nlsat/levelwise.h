@@ -9,7 +9,7 @@ namespace nlsat {
     class levelwise {
     public:
         struct indexed_root_expr {
-            poly* p;
+            polynomial_ref p;
             unsigned i;
         };
         struct root_function_interval {

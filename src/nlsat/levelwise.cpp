@@ -134,7 +134,7 @@ namespace nlsat {
         struct root_function {
             scoped_anum val;
             indexed_root_expr ire;
-            root_function(anum_manager& am, poly* p, unsigned idx, anum const& v)
+            root_function(anum_manager& am, polynomial_ref p, unsigned idx, anum const& v)
                 : val(am), ire{ p, idx } { am.set(val, v); }
             root_function(root_function&& other) noexcept : val(other.val.m()), ire(other.ire) { val = other.val; }
             root_function(root_function const&) = delete;
@@ -223,7 +223,7 @@ namespace nlsat {
           prepare the initial properties
         */
         // Helper 1: scan input polynomials, add sgn_inv / an_del properties and collect polynomials at level m_n
-        void collect_top_level_properties(std::vector<poly*> & ps_of_n_level) {
+        void collect_top_level_properties(polynomial_ref_vector & ps_of_n_level) {
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 poly* p = m_P[i];
                 polynomial_ref pref(p, m_pm);
@@ -245,7 +245,7 @@ namespace nlsat {
         }
 
         // isolate and collect algebraic roots for the given polynomials
-        void collect_roots_for_ps(std::vector<poly*> const & ps_of_n_level, std::vector<std::pair<scoped_anum, poly*>> & root_vals) {
+        void collect_roots_for_ps(polynomial_ref_vector & ps_of_n_level, std::vector<std::pair<scoped_anum, poly*>> & root_vals) {
             for (poly * p : ps_of_n_level) {
                 scoped_anum_vector roots(m_am);
                 m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_n), roots);
@@ -317,7 +317,7 @@ namespace nlsat {
           ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent root functions }.
         */
         void init_properties() {
-            std::vector<poly*> ps_of_n_level;
+            polynomial_ref_vector ps_of_n_level(m_pm);
             collect_top_level_properties(ps_of_n_level);
             std::vector<std::pair<scoped_anum, poly*>> root_vals;
             collect_roots_for_ps(ps_of_n_level, root_vals);
@@ -415,7 +415,7 @@ namespace nlsat {
          // Part B of construct_interval: build (I, E, ≼) representation for level i
          void build_representation() {
              // collect non-null polynomials (up to polynomial_manager equality)
-             std::vector<const poly*> p_non_null;            
+             polynomial::polynomial_ref_vector p_non_null(m_pm);
              for (auto & pr: m_Q[m_level]) {
                  if (!pr.m_poly) continue;
                  SASSERT(max_var(pr.m_poly) == m_level);
@@ -482,12 +482,14 @@ namespace nlsat {
          }
 
          // Step 1a: collect E the set of root functions on m_level
-         void collect_E(std::vector<const poly*> const& p_non_null) {
+         void collect_E(polynomial_ref_vector & p_non_null) {
              TRACE(lws, tout << "enter\n";);
              m_rel.clear();
              
-             for (auto const* p0 : p_non_null) {
-                 auto* p = const_cast<poly*>(p0);
+             for (unsigned i = 0; i < p_non_null.size(); i++) {
+                 
+                 polynomial_ref p(m_pm);
+                 p = p_non_null.get(i);
                  if (m_pm.max_var(p) != m_level) {
                      TRACE(lws, ::nlsat::display(tout << "strange, skipping p:", m_solver, p) << "\n";);
                      continue;
