@@ -27,7 +27,7 @@ namespace smt {
     theory_finite_set::theory_finite_set(context& ctx):
         theory(ctx, ctx.get_manager().mk_family_id("finite_set")),
         u(m),
-        m_axioms(m), m_find(*this),
+        m_axioms(m), m_rw(m), m_find(*this),
         m_cardinality_solver(*this)
     {
         // Setup the add_clause callback for axioms
@@ -891,11 +891,20 @@ namespace smt {
         auto v = range->get_th_var(get_id());
         auto &range_local = m_var_data[v]->m_range_local;
         auto &parent_in = m_var_data[v]->m_parent_in;
-        if (range_local.contains(elem))
+
+        // simplify elem to canonical form (e.g., (1+1) -> 2)
+        expr_ref elem_simplified(elem, m);
+        m_rw(elem_simplified);
+
+        if (range_local.contains(elem_simplified))
             return false;
         arith_util a(m);
-        expr_ref lo(a.mk_add(elem, a.mk_int(-1)), m);
-        expr_ref hi(a.mk_add(elem, a.mk_int(1)), m);
+        expr_ref lo(a.mk_add(elem_simplified, a.mk_int(-1)), m);
+        expr_ref hi(a.mk_add(elem_simplified, a.mk_int(1)), m);
+        
+        // simplify lo and hi to avoid nested expressions like ((1+1)+1)
+        m_rw(lo);
+        m_rw(hi);
         bool new_axiom = false;
         if (!range_local.contains(lo) && all_of(parent_in, [lo](enode* in) { return in->get_arg(0)->get_expr() != lo; })) {
             // lo is not range local and lo is not already in an expression (lo in range)
