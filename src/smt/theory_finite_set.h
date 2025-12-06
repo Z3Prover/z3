@@ -135,6 +135,7 @@ namespace smt {
 
         finite_set_util           u;
         finite_set_axioms         m_axioms;
+        th_rewriter               m_rw;
         th_union_find             m_find;
         theory_clauses            m_clauses;
         theory_finite_set_size m_cardinality_solver;
