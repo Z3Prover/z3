@@ -33,23 +33,55 @@ std::ostream& operator<<(std::ostream& out, theory_axiom const& ax) {
 }
 
 void finite_set_axioms::add_unit(char const *name, expr *p1, expr *unit) {
+    expr_ref _f1(unit, m);
+    if (is_true(unit))
+        return;
     theory_axiom *ax = alloc(theory_axiom, m, name, p1);
     ax->clause.push_back(unit);
     m_add_clause(ax);
 }
 
+
+bool finite_set_axioms::is_true(expr *f) {
+    if (m.is_true(f))
+        return true;
+    if (m.is_not(f, f) && m.is_false(f))
+        return true;
+    return false;
+}
+
+
+bool finite_set_axioms::is_false(expr* f) {
+    if (m.is_false(f))
+        return true;
+    if (m.is_not(f, f) && m.is_true(f))
+        return true;
+    return false;
+}
+
 void finite_set_axioms::add_binary(char const *name, expr *p1, expr *p2, expr *f1, expr *f2) {
+    expr_ref _f1(f1, m), _f2(f2, m);
+    if (is_true(f1) || is_true(f2))
+        return;    
     theory_axiom *ax = alloc(theory_axiom, m, name, p1, p2);
-    ax->clause.push_back(f1);
-    ax->clause.push_back(f2);
+    if (!is_false(f1))
+        ax->clause.push_back(f1);
+    if (!is_false(f2))
+        ax->clause.push_back(f2);
     m_add_clause(ax);
 }
 
 void finite_set_axioms::add_ternary(char const *name, expr *p1, expr *p2, expr *f1, expr *f2, expr *f3) {
+    expr_ref _f1(f1, m), _f2(f2, m), _f3(f3, m);
+    if (is_true(f1) || is_true(f2) || is_true(f3))
+        return;
     theory_axiom *ax = alloc(theory_axiom, m, name, p1, p2);
-    ax->clause.push_back(f1);
-    ax->clause.push_back(f2);
-    ax->clause.push_back(f3);
+    if (!is_false(f1))
+        ax->clause.push_back(f1);
+    if (!is_false(f2))
+        ax->clause.push_back(f2);
+    if (!is_false(f3))
+        ax->clause.push_back(f3);
     m_add_clause(ax);
 }
 

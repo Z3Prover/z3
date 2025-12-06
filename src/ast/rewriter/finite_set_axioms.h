@@ -52,6 +52,10 @@ class finite_set_axioms {
 
     void add_ternary(char const *name, expr *p1, expr *p2, expr *f1, expr *f2, expr *f3);
 
+    bool is_true(expr *f);
+
+    bool is_false(expr *f);
+
 public:
 
     finite_set_axioms(ast_manager &m) : m(m), u(m), m_rewriter(m) {}

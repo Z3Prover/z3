@@ -331,7 +331,7 @@ namespace smt {
     * - there is not both set.size and set.filter
     */
     bool theory_finite_set::is_fully_solved() {
-        bool has_map = false, has_filter = false, has_size = false;
+        bool has_map = false, has_filter = false, has_size = false, has_range = false;
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             auto n = get_enode(v);
             auto e = n->get_expr();
@@ -341,12 +341,16 @@ namespace smt {
                 has_map = true;
             if (u.is_size(e))
                 has_size = true;
+            if (u.is_range(e))
+                has_range = true;
         }
         TRACE(finite_set, tout << "has-map " << has_map << " has-filter-size " << has_filter << has_size << "\n");
         if (has_map)
             return false; // todo use more expensive model check here
         if (has_filter && has_size)
-            return false; // tood use more expensive model check here
+            return false; // todo use more expensive model check here
+        if (has_range && has_size)
+            return false; // todo use more expensive model check here or even ensure range expressions are handled natively by size.
         return true;
     }
 
@@ -799,8 +803,7 @@ namespace smt {
                     result.push_back(model_value_dependency(n));
         }
 
-        app *mk_value(model_generator &mg, expr_ref_vector const &values) override {            
-            SASSERT(values.empty() == !m_elements);
+        app *mk_value(model_generator &mg, expr_ref_vector const &values) override {   
             auto s = n->get_sort();
             if (values.empty())
                 return th.u.mk_empty(s);
