@@ -1226,32 +1226,65 @@ bool cmd_context::try_mk_builtin_app(symbol const & s, unsigned num_args, expr *
     return nullptr != result.get();
 }
 
-bool cmd_context::try_mk_declared_app(symbol const & s, unsigned num_args, expr * const * args, 
-                                      unsigned num_indices, parameter const * indices, sort * range,
-                                      expr_ref & result)  {
+bool cmd_context::try_mk_declared_app(symbol const &s, unsigned num_args, expr *const *args, unsigned num_indices,
+                                      parameter const *indices, sort *range, expr_ref &result) {
     if (!m_func_decls.contains(s))
         return false;
-    func_decls& fs = m_func_decls.find(s);
+    func_decls &fs = m_func_decls.find(s);
 
     if (num_args == 0 && !range) {
         if (fs.more_than_one())
-            throw cmd_exception("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disambiguate ", s);
-        func_decl * f = fs.first();
+            throw cmd_exception("ambiguous constant reference, more than one constant with the same sort, use a "
+                                "qualified expression (as <symbol> <sort>) to disambiguate ",
+                                s);
+        func_decl *f = fs.first();
         if (!f)
             return false;
-        if (f->get_arity() != 0) 
+        if (f->get_arity() != 0)
             result = array_util(m()).mk_as_array(f);
-        else 
+        else
             result = m().mk_const(f);
         return true;
     }
-    func_decl * f = fs.find(m(), num_args, args, range);
-    if (!f) 
-        return false;
-    if (well_sorted_check_enabled())
-        m().check_sort(f, num_args, args);
-    result = m().mk_app(f, num_args, args);
-    return true;
+    func_decl *f = fs.find(m(), num_args, args, range);
+
+    if (f) {
+        if (f && well_sorted_check_enabled())
+            m().check_sort(f, num_args, args);
+        result = m().mk_app(f, num_args, args);
+        return true;
+    }
+
+    // f could be declared as an array and applied without explicit select
+    if (num_args > 0 && !range) {
+        if (fs.more_than_one())
+            throw cmd_exception("ambiguous constant reference, more than one constant with the same sort, use a "
+                                "qualified expression (as <symbol> <sort>) to disambiguate ",
+                                s);
+
+        func_decl *f = fs.first();
+        if (!f)
+            return false;
+        if (f->get_arity() != 0)
+            return false;
+        array_util au(m());
+        auto s = f->get_range();
+        if (!au.is_array(s))
+            return false;
+        unsigned sz = get_array_arity(s);
+        if (sz != num_args)
+            return false;
+        for (unsigned i = 0; i < sz; i++) 
+            if (args[i]->get_sort() != get_array_domain(s, i))
+                return false;        
+        expr_ref_vector new_args(m());
+        new_args.push_back(m().mk_const(f));
+        for (unsigned i = 0; i < num_args; i++)
+            new_args.push_back(args[i]);
+        result = au.mk_select(new_args.size(), new_args.data());
+        return true;
+    }
+    return false;
 }
 
 bool cmd_context::try_mk_macro_app(symbol const & s, unsigned num_args, expr * const * args, 
