@@ -20,6 +20,29 @@
 
 namespace nlsat {
 
+    // Lightweight set of polynomials that keeps elements unique (by cache id) and
+    // supports extracting all polynomials whose maximal variable is maximal.
+    // Optional canonicalization (primitive + sign) can be enabled per instance.
+    struct todo_set {
+        polynomial::cache&    m_cache;
+        polynomial_ref_vector m_set;
+        svector<char>         m_in_set;
+        bool                  m_canonicalize;
+
+        todo_set(polynomial::cache& u, bool canonicalize = false);
+
+        void reset();
+        void insert(poly* p);
+        bool empty() const;
+        // Return max variable in todo_set
+        var max_var() const;
+        /**
+           \brief Remove the maximal polynomials from the set and store
+           them in max_polys. Return the maximal variable
+         */
+        var extract_max_polys(polynomial_ref_vector& max_polys);
+    };
+
     inline std::ostream& display(std::ostream& out, pmanager& pm, polynomial_ref const& p, display_var_proc const& proc) {
         pm.display(out, p, proc);
         return out;

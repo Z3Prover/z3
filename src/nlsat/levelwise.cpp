@@ -220,10 +220,10 @@ namespace nlsat {
         }
         
         /*
-          prepare the initial properties
-        */
-        // Helper 1: scan input polynomials, add sgn_inv / an_del properties and collect polynomials at level m_n
-        void collect_top_level_properties(polynomial_ref_vector & ps_of_n_level) {
+          prepare the initial properties:         
+          scan input polynomials, add sgn_inv / an_del properties and collect polynomials at level m_n
+        */ 
+        void collect_top_level_properties(todo_set& ps_of_n_level) {
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 poly* p = m_P[i];
                 polynomial_ref pref(p, m_pm);
@@ -235,7 +235,7 @@ namespace nlsat {
                         m_Q[level].push(property(prop_enum::sgn_inv, prim));
                     else if (level == m_n){
                         m_Q[level].push(property(prop_enum::an_del, prim));
-                        ps_of_n_level.push_back(prim.get());
+                        ps_of_n_level.insert(f.get());
                     }
                     else {
                         UNREACHABLE();
@@ -245,8 +245,8 @@ namespace nlsat {
         }
 
         // isolate and collect algebraic roots for the given polynomials
-        void collect_roots_for_ps(polynomial_ref_vector & ps_of_n_level, std::vector<std::pair<scoped_anum, poly*>> & root_vals) {
-            for (poly * p : ps_of_n_level) {
+        void collect_roots_for_ps(todo_set const& ps_of_n_level, std::vector<std::pair<scoped_anum, poly*>> & root_vals) {
+            for (poly * p : ps_of_n_level.m_set) {
                 scoped_anum_vector roots(m_am);
                 m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_n), roots);
                 TRACE(lws,  
@@ -262,7 +262,7 @@ namespace nlsat {
             }
         }
 
-        // Helper 3: given collected roots (possibly unsorted), sort them, and add ord_inv(resultant(...))
+        // Given collected roots (possibly unsorted), sort them, and add ord_inv(resultant(...))
         // for adjacent roots coming from different polynomials. Avoid adding the same unordered pair twice.
         // Returns false on failure (e.g. when encountering an ambiguous zero resultant).
         bool add_adjacent_resultants(std::vector<std::pair<scoped_anum, poly*>> & root_vals) {
@@ -317,7 +317,7 @@ namespace nlsat {
           ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent root functions }.
         */
         void init_properties() {
-            polynomial_ref_vector ps_of_n_level(m_pm);
+            todo_set ps_of_n_level(m_cache, true);
             collect_top_level_properties(ps_of_n_level);
             std::vector<std::pair<scoped_anum, poly*>> root_vals;
             collect_roots_for_ps(ps_of_n_level, root_vals);
@@ -414,25 +414,19 @@ namespace nlsat {
 
          // Part B of construct_interval: build (I, E, ≼) representation for level i
          void build_representation() {
-             // collect non-null polynomials (up to polynomial_manager equality)
-             polynomial::polynomial_ref_vector p_non_null(m_pm);
+             // collect non-null polynomials (up to polynomial_manager equality and canonicalization)
+             todo_set p_non_null(m_cache, true);
              for (auto & pr: m_Q[m_level]) {
                  if (!pr.m_poly) continue;
                  SASSERT(max_var(pr.m_poly) == m_level);
                  if (pr.m_prop_tag == prop_enum::sgn_inv
                      && !coeffs_are_zeroes_on_sample(pr.m_poly, m_pm, sample(), m_am )) {
                      TRACE(lws, tout << "adding:" << pr.m_poly.get() << "\n";);
-                     poly* new_p = pr.m_poly.get();
-                     auto it = std::find_if(p_non_null.begin(), p_non_null.end(),
-                                            [this, new_p](const poly* q){
-                                                return m_pm.eq(q, new_p);
-                                            });
-                     if (it == p_non_null.end())
-                         p_non_null.push_back(new_p);
+                     p_non_null.insert(pr.m_poly.get());
                  }
              }
 
-             collect_E(p_non_null);
+             collect_E(p_non_null.m_set);
 
              // todo: this order needs to be abstracted: it does not have to be linear.
              // We need a boolean function E_rel(a, b)
@@ -995,12 +989,10 @@ or
                  SASSERT(max_var(a) == max_var(b) && max_var(b) == m_level) ;
                  
                  polynomial_ref r(m_pm);
-                 enable_trace("lws");
                  r = resultant(polynomial_ref(a, m_pm), polynomial_ref(b, m_pm), m_level);
                  TRACE(lws, tout << "resultant of (" << pair.first << "," << pair.second << "):"; 
                        ::nlsat::display(tout, m_solver, a) << "\n";
                        ::nlsat::display(tout,m_solver, b)<< "\nresultant:"; ::nlsat::display(tout, m_solver, r) << "\n");
-                 disable_trace("lws");
                  if (m_pm.is_zero(r)) {
                      TRACE(lws, tout << "fail\n";);
                      fail();
