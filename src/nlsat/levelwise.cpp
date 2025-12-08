@@ -298,7 +298,7 @@ namespace nlsat {
                 TRACE(lws, tout << "resultant: "; ::nlsat::display(tout, m_solver, r); tout << std::endl;);
                 if (is_zero(r)) {
                     TRACE(lws, tout << "fail\n";);
-                    m_fail = true;
+                    fail();
                     return false;
                 }
                 for_each_distinct_factor(r, [&](const polynomial::polynomial_ref &f) {
@@ -323,7 +323,7 @@ namespace nlsat {
             collect_roots_for_ps(ps_of_n_level, root_vals);
             if (!add_adjacent_resultants(root_vals)) {
                 TRACE(lws, tout << "fail\n";);
-                m_fail = true;
+                fail();
             }
         }
         
@@ -566,7 +566,7 @@ namespace nlsat {
                 for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
                     if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
                         TRACE(lws, tout << "fail\n";);                
-                        m_fail = true; // ambiguous multiplicity -- not handled yet
+                        fail(); // ambiguous multiplicity -- not handled yet
                         return;
                     }
                     mk_prop(prop_enum::ord_inv, f);
@@ -586,7 +586,7 @@ namespace nlsat {
                     for_each_distinct_factor(lc, [&](polynomial::polynomial_ref f) {
                         if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
                             TRACE(lws, tout << "fail\n";);                
-                            m_fail = true;
+                            fail();
                             return;
                         }
                         else
@@ -604,13 +604,13 @@ namespace nlsat {
         bool precondition_on_an_del(const property& p) {
             if (!p.m_poly) {
                 TRACE(lws, tout << "apply_pre: an_del with null poly -> fail" << std::endl;);
-                m_fail = true;
+                fail();
                 return false;
             }
             // If p is nullified on the sample for its level we must abort (Rule 4.1)
             if (coeffs_are_zeroes_on_sample(p.m_poly, m_pm, sample(), m_am)) {
                 TRACE(lws, display(tout << "p:", p) << "\n"; tout << "Rule 4.1: polynomial nullified at sample -> failing" << std::endl;);
-                m_fail = true;
+                fail();
                 return false;
             }
             return true;
@@ -724,7 +724,7 @@ namespace nlsat {
             // basic sanity checks
             if (!p.m_poly) {
                 TRACE(lws, tout << "apply_pre_non_null_fallback: null poly -> fail" << std::endl;);
-                m_fail = true;
+                fail();
                 return;
             }
 
@@ -744,7 +744,7 @@ namespace nlsat {
             // (ambiguous multiplicity) -> fail per instruction
             if (sign(disc, sample(), m_am) == 0) {
                 TRACE(lws, tout << "apply_pre_non_null_fallback: discriminant vanishes at sample -> failing" << std::endl;);
-                m_fail = true;
+                fail();
                 return;
             }
             // If discriminant is non-constant, add sign-invariance requirement for it
@@ -835,7 +835,7 @@ or
             }
             catch (z3_exception const& ex) {
                 TRACE(lws, tout << "isolate_roots failed: " << ex.what() << "\n";);
-                m_fail = true;
+                fail();
                 return;
             }
             if (roots.size() == 0) {
@@ -870,7 +870,7 @@ or
                     polynomial_ref res = resultant(polynomial_ref(I.l, m_pm), p.m_poly, m_level);
                     if (m_pm.is_zero(res)) { 
                         TRACE(lws, tout << "fail\n";);                
-                        m_fail = true; 
+                        fail(); 
                         return;
                     }
                         // Factor the resultant and add ord_inv for each distinct non-constant factor
@@ -974,7 +974,11 @@ or
         }
 
         bool have_representation() const { return m_rel.empty() == false; }
-        
+
+        void fail() {
+            m_fail = true;
+        }
+
         void apply_pre_ir_ord(const property& p) {
             /*Rule 4.9. Let i ∈ N, R ⊆ Ri, s ∈ Ri, and ≼ be an indexed root ordering of level i + 1.
               Assume that ξ.p is irreducible for all ξ ∈ dom(≼), and that ≼ matches s.
@@ -991,15 +995,17 @@ or
                  SASSERT(max_var(a) == max_var(b) && max_var(b) == m_level) ;
                  
                  polynomial_ref r(m_pm);
+                 enable_trace("lws");
                  r = resultant(polynomial_ref(a, m_pm), polynomial_ref(b, m_pm), m_level);
-                 if (m_pm.is_zero(r)) {
-                     TRACE(lws, tout << "fail\n";);
-                     m_fail = true;
-                     return;
-                 }
                  TRACE(lws, tout << "resultant of (" << pair.first << "," << pair.second << "):"; 
                        ::nlsat::display(tout, m_solver, a) << "\n";
                        ::nlsat::display(tout,m_solver, b)<< "\nresultant:"; ::nlsat::display(tout, m_solver, r) << "\n");
+                 disable_trace("lws");
+                 if (m_pm.is_zero(r)) {
+                     TRACE(lws, tout << "fail\n";);
+                     fail();
+                     return;
+                 }
                  for_each_distinct_factor(r, [this](const polynomial_ref& f) {mk_prop(ord_inv, f);});                 
              }
         }
