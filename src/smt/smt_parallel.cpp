@@ -136,14 +136,15 @@ namespace smt {
         for (auto e : _asms)
             asms.push_back(m_g2l(e));
         LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");
-        m_smt_params.m_preprocess = false;
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
+        ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
         ctx->set_random_seed(id + m_smt_params.m_random_seed);
         // don't share initial units
         ctx->pop_to_base_lvl();
         m_num_shared_units = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
+        ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
     }
 
     void parallel::worker::share_units() {
