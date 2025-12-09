@@ -43,7 +43,7 @@ namespace nlsat {
             ::nlsat::factor(poly, m_cache, factors);
             for (unsigned i = 0; i < factors.size(); i++) {
                 polynomial_ref pr(m_pm);
-                pr = factors.get(i);
+                pr = m_cache.mk_unique(factors.get(i));
                 fn(pr);
             }
         }
@@ -52,7 +52,7 @@ namespace nlsat {
             polynomial::polynomial_ref_vector factors(m_pm);
             ::nlsat::factor(poly, m_cache, factors);
             polynomial_ref pr(m_pm);
-            pr = factors.get(0);
+            pr = m_cache.mk_unique(factors.get(0));
             fn(pr);
         }
 
@@ -228,13 +228,12 @@ namespace nlsat {
                 poly* p = m_P[i];
                 polynomial_ref pref(p, m_pm);
                 for_each_distinct_factor( pref, [&](const polynomial_ref& f) {
-                    // Normalize to primitive form for consistent comparison
-                    polynomial_ref prim = to_primitive(f);
-                    unsigned level = max_var(prim);
+                    polynomial_ref canon = canonicalize(f);
+                    unsigned level = max_var(canon);
                     if (level < m_n)
-                        m_Q[level].push(property(prop_enum::sgn_inv, prim));
+                        m_Q[level].push(property(prop_enum::sgn_inv, canon));
                     else if (level == m_n){
-                        m_Q[level].push(property(prop_enum::an_del, prim));
+                        m_Q[level].push(property(prop_enum::an_del, canon));
                         ps_of_n_level.insert(f.get());
                     }
                     else {
@@ -302,8 +301,7 @@ namespace nlsat {
                     return false;
                 }
                 for_each_distinct_factor(r, [&](const polynomial::polynomial_ref &f) {
-                    // Normalize to primitive form for consistent comparison
-                    polynomial_ref prim = to_primitive(f);
+                    polynomial_ref prim = canonicalize(f);
                     m_Q[max_var(prim)].push(property(prop_enum::ord_inv, prim, m_pm));
                 });
             }
@@ -505,29 +503,33 @@ namespace nlsat {
              TRACE(lws, tout << "exit\n";);
          }
 
-         // Helper: convert polynomial to its primitive form (content-free version).
-         // Returns a polynomial_ref to the primitive form of p.
-         // All polynomials stored in properties will be in primitive form for consistent comparison.
-         polynomial_ref to_primitive(polynomial_ref const & p) {
+         // Canonicalize polynomial the same way todo_set does when enabled (primitive + sign fix).
+         polynomial_ref canonicalize(polynomial_ref const & p) {
              if (m_pm.is_zero(p) || m_pm.is_const(p)) {
                  return p;
              }
-             polynomial_ref result(m_pm);
+             polynomial_ref prim(m_pm);
              var x = max_var(p);
-             m_pm.primitive(p.get(), x, result);
-             return result;
+             m_pm.primitive(p.get(), x, prim);
+             prim = m_pm.flip_sign_if_lm_neg(prim);
+             prim = m_cache.mk_unique(prim.get());
+             return prim;
          }
 
 
          // add a property to m_Q if an equivalent one is not already present.
          // Equivalence: same m_prop_tag and same level; polynomials checked for equality
          // (polynomials are already in primitive form, so constant multipliers are normalized away).
-        void add_to_Q_if_new(const property & pr, unsigned level) {            
+        void add_to_Q_if_new(property pr, unsigned level) {            
+             if (pr.m_poly)
+                 pr.m_poly = canonicalize(pr.m_poly);
              SASSERT(pr.m_prop_tag != ord_inv || (pr.m_poly && !m_pm.is_zero(pr.m_poly)));
              for (auto const & q : m_Q[level]) {
                  if (q.m_prop_tag != pr.m_prop_tag) continue;
                  if (q.m_root_index != pr.m_root_index) continue;
-                 if (!m_pm.eq(q.m_poly.get(), pr.m_poly.get())) continue;
+                 if ((q.m_poly && !pr.m_poly) || (!q.m_poly && pr.m_poly)) continue;
+                 if (!q.m_poly && !pr.m_poly) return;
+                 if (m_pm.id(q.m_poly.get()) != m_pm.id(pr.m_poly.get())) continue;
                  TRACE(lws, display(tout << "matched q:", q) << std::endl;);
                  return;
              }
@@ -618,7 +620,7 @@ namespace nlsat {
                 mk_prop(prop_enum::connected, level_t(p_lvl - 1));
             }
             mk_prop(prop_enum::non_null, p.m_poly);
-            
+            apply_pre_non_null(p);
             add_ord_inv_discriminant_for(p);
             if (m_fail) return;
             add_sgn_inv_leading_coeff_for(p);
@@ -809,15 +811,13 @@ or
         }
 
         void mk_prop(prop_enum pe, const polynomial_ref& poly) {
-            // Normalize polynomial to primitive form before storing in property
-            polynomial_ref prim = to_primitive(poly);
-            add_to_Q_if_new(property(pe, prim), max_var(prim));
+            polynomial_ref norm = canonicalize(poly);
+            add_to_Q_if_new(property(pe, norm), max_var(norm));
         }
         void mk_prop(prop_enum pe, const polynomial_ref& poly, unsigned level) {
             SASSERT(is_set(level));
-            // Normalize polynomial to primitive form before storing in property
-            polynomial_ref prim = to_primitive(poly);
-            add_to_Q_if_new(property(pe, prim), level);
+            polynomial_ref norm = canonicalize(poly);
+            add_to_Q_if_new(property(pe, norm), level);
         }
 
         void apply_pre_sgn_inv(const property& p) {
@@ -862,6 +862,9 @@ or
                     // nothing is added
                 } else {
                     polynomial_ref res = resultant(polynomial_ref(I.l, m_pm), p.m_poly, m_level);
+                    TRACE(lws,
+                          tout << "m_level:" << m_level<< "\nresultant of (" << I.l << "," << p.m_poly << "):"; 
+                          tout << "\nresultant:"; ::nlsat::display(tout, m_solver, res) << "\n");
                     if (m_pm.is_zero(res)) { 
                         TRACE(lws, tout << "fail\n";);                
                         fail(); 
