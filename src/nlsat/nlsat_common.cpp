@@ -30,7 +30,7 @@ namespace nlsat {
         m_set.reset();
     }
 
-    void todo_set::insert(poly* p) {
+    poly* todo_set::insert(poly* p) {
         pmanager& pm = m_set.m();
         polynomial_ref pinned(pm); // keep canonicalized polynomial alive until it is stored
         if (m_canonicalize) {
@@ -47,12 +47,17 @@ namespace nlsat {
         }
         p = m_cache.mk_unique(p);
         unsigned pid = pm.id(p);
-        if (m_in_set.get(pid, false))
-            return;
-        m_in_set.setx(pid, true, false);
-        m_set.push_back(p);
+        if (!m_in_set.get(pid, false)) {
+            m_in_set.setx(pid, true, false);
+            m_set.push_back(p);
+        }
+        return p;
     }
 
+    bool todo_set::contains(poly* p) const {
+        return m_cache.contains(p);
+    }
+    
     bool todo_set::empty() const { return m_set.empty(); }
 
     // Return max variable in todo_set

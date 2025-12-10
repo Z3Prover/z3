@@ -32,7 +32,9 @@ namespace nlsat {
         todo_set(polynomial::cache& u, bool canonicalize);
 
         void reset();
-        void insert(poly* p);
+        // Insert polynomial (canonicalizing if requested) and return the cached representative.
+        poly* insert(poly* p);
+        bool contains(poly *) const;
         bool empty() const;
         // Return max variable in todo_set
         var max_var() const;

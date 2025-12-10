@@ -34,6 +34,7 @@ namespace polynomial {
         manager & m() const;
         manager & pm() const { return m(); }
         polynomial * mk_unique(polynomial * p);
+        bool contains(const polynomial * p) const;
         void psc_chain(polynomial const * p, polynomial const * q, var x, polynomial_ref_vector & S);
         void factor(polynomial const * p, polynomial_ref_vector & distinct_factors);
         void reset();

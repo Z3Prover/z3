@@ -128,7 +128,7 @@ namespace polynomial {
             m_factor_cache.reset();
         }
 
-        unsigned pid(polynomial * p) const { return m.id(p); }
+        unsigned pid(const polynomial * p) const { return m.id(p); }
         
         polynomial * mk_unique(polynomial * p) {
             if (m_in_cache.get(pid(p), false))
@@ -139,6 +139,10 @@ namespace polynomial {
                 m_in_cache.setx(pid(p_prime), true, false);
             }
             return p_prime;
+        }
+
+        bool contains(const polynomial * p) const {
+            return m_in_cache.get(pid(p), false);
         }
 
         void psc_chain(polynomial * p, polynomial * q, var x, polynomial_ref_vector & S) {
@@ -211,6 +215,10 @@ namespace polynomial {
 
     polynomial * cache::mk_unique(polynomial * p) {
         return m_imp->mk_unique(p);
+    }
+
+    bool cache::contains(const polynomial * p) const {
+        return m_imp->contains(p);
     }
 
     void cache::psc_chain(polynomial const * p, polynomial const * q, var x, polynomial_ref_vector & S) {
