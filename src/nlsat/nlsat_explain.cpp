@@ -50,7 +50,7 @@ namespace nlsat {
         bool                    m_factor;
         bool                    m_add_all_coeffs;
         bool                    m_add_zero_disc;
-        bool                    m_cell_sample;
+        bool                    m_sample_cell_project;
 
         assignment const &      sample() const { return m_solver.sample(); }
         assignment &            sample() { return m_solver.sample(); }
@@ -139,7 +139,7 @@ namespace nlsat {
         evaluator &             m_evaluator;
 
         imp(solver & s, assignment const & x2v, polynomial::cache & u, atom_vector const & atoms, atom_vector const & x2eq,
-            evaluator & ev, bool is_sample):
+            evaluator & ev, bool sample_cell_project, bool canonicalize):
             m_solver(s),
             m_atoms(atoms),
             m_x2eq(x2eq),
@@ -152,8 +152,8 @@ namespace nlsat {
             m_factors(m_pm),
             m_factors_save(m_pm),
             m_roots_tmp(m_am),
-            m_cell_sample(is_sample),
-            m_todo(u),
+            m_sample_cell_project(sample_cell_project),
+            m_todo(u, canonicalize),
             m_core1(s),
             m_core2(s),
             m_evaluator(ev) {
@@ -1193,7 +1193,7 @@ namespace nlsat {
         }
 
         void project(polynomial_ref_vector & ps, var max_x) {
-            if (m_cell_sample) {
+            if (m_sample_cell_project) {
                 project_cdcac(ps, max_x);
             }
             else {
@@ -1875,8 +1875,8 @@ namespace nlsat {
     };
 
     explain::explain(solver & s, assignment const & x2v, polynomial::cache & u, 
-                     atom_vector const& atoms, atom_vector const& x2eq, evaluator & ev, bool use_cell_sample) {
-        m_imp = alloc(imp, s, x2v, u, atoms, x2eq, ev, use_cell_sample);
+                     atom_vector const& atoms, atom_vector const& x2eq, evaluator & ev, bool use_cell_sample, bool canonicalize) {
+        m_imp = alloc(imp, s, x2v, u, atoms, x2eq, ev, use_cell_sample, canonicalize);
     }
 
     explain::~explain() {

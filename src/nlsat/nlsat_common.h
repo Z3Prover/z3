@@ -29,7 +29,7 @@ namespace nlsat {
         svector<char>         m_in_set;
         bool                  m_canonicalize;
 
-        todo_set(polynomial::cache& u, bool canonicalize = false);
+        todo_set(polynomial::cache& u, bool canonicalize);
 
         void reset();
         void insert(poly* p);

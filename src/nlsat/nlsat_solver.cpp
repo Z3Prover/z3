@@ -268,7 +268,7 @@ namespace nlsat {
             m_simplify(s, m_atoms, m_clauses, m_learned, m_pm),
             m_display_var(m_perm),
             m_display_assumption(nullptr),
-            m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator, nlsat_params(c.m_params).cell_sample()),
+            m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator, nlsat_params(c.m_params).cell_sample(), nlsat_params(c.m_params).canonicalize()),
             m_scope_lvl(0),
             m_lemma(s),
             m_lazy_clause(s),
@@ -4661,5 +4661,6 @@ namespace nlsat {
     }
 
     bool solver::apply_levelwise() const { return m_imp->m_apply_lws; }
+
         
 };
