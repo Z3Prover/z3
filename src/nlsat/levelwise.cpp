@@ -836,7 +836,7 @@ or
                     mk_prop(prop_enum::connected, level_t(m_level - 1));
                     mk_prop(prop_enum::repr, level_t(m_level - 1)); 
                 }
-                mk_prop(prop_enum::an_del, polynomial_ref(m_I[m_level].l, m_pm));
+                mk_prop(prop_enum::an_del, m_I[m_level].l);
                 if (I.l == p.m_poly.get()) {
                     // nothing is added
                 } else {
