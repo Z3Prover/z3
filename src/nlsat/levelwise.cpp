@@ -227,7 +227,7 @@ namespace nlsat {
         void collect_top_level_properties(todo_set& ps_of_n_level) {
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 polynomial_ref pi(m_P[i], m_pm);
-                for_each_distinct_factor(pi, [&](const polynomial_ref& f) {
+                for_each_distinct_factor(pi, [&](polynomial_ref f) {
                     unsigned level = max_var(f);
                     normalize(f);
                     if (level < m_n)
@@ -300,7 +300,7 @@ namespace nlsat {
                     fail();
                     return false;
                 }
-                for_each_distinct_factor(r, [&](const polynomial::polynomial_ref &f) {
+                for_each_distinct_factor(r, [&](polynomial::polynomial_ref f) {
                     normalize(f);
                     m_Q[max_var(f)].push(property(prop_enum::ord_inv, f, m_pm));
                 });
@@ -501,9 +501,10 @@ namespace nlsat {
              TRACE(lws, tout << "exit\n";);
          }
 
-         void normalize(polynomial_ref const & p) {
-             SASSERT(! (is_zero(p) || is_const(p)));
-             m_todo_set.insert(p);
+         void normalize(polynomial_ref & p) {
+             SASSERT(!(is_zero(p) || is_const(p)));
+             poly* np = m_todo_set.insert(p);
+             p = np;
         }
 
 
@@ -559,9 +560,11 @@ namespace nlsat {
                 });
             }
          }
-
+        
+        
         //  handle sgn_inv(leading_coefficient_{x_{i+1}}(p)) for an_del pre-processing
         void add_sgn_inv_leading_coeff_for(const property& p) {
+            TRACE(lws, tout << "p:"; display(tout, p) << "\n";);
             poly * pp = p.m_poly.get();
             unsigned lvl = max_var(p.m_poly);
             unsigned deg = m_pm.degree(pp, lvl);
@@ -572,11 +575,12 @@ namespace nlsat {
             for (int d = static_cast<int>(deg); d >= 0; --d) {
                 coeff = m_pm.coeff(pp, lvl, d);
                 if (!is_const(coeff)) {
-                    for_each_distinct_factor(coeff, [&](const polynomial::polynomial_ref & f) {
+                    for_each_distinct_factor(coeff, [&](polynomial::polynomial_ref f) {
                         normalize(f);
                         mk_prop(prop_enum::sgn_inv, f, max_var(f));
                     });
                 }
+                TRACE(lws, tout << "coeff:" << coeff << "\n";);
 
                 if (sign(coeff, sample(), m_am))
                     return;
@@ -789,11 +793,11 @@ or
             add_to_Q_if_new(property(pe, m_pm), level.val);
         }
 
-        void mk_prop(prop_enum pe, const polynomial_ref& poly) {
+        void mk_prop(prop_enum pe, polynomial_ref poly) {
             normalize(poly);
             add_to_Q_if_new(property(pe, poly), max_var(poly));
         }
-        void mk_prop(prop_enum pe, const polynomial_ref& poly, unsigned level) {
+        void mk_prop(prop_enum pe, polynomial_ref poly, unsigned level) {
             SASSERT(is_set(level));
             normalize(poly);
             add_to_Q_if_new(property(pe, poly), level);
@@ -840,7 +844,8 @@ or
                 if (I.l == p.m_poly.get()) {
                     // nothing is added
                 } else {
-                    polynomial_ref res = resultant(polynomial_ref(I.l, m_pm), p.m_poly, m_level);
+                    polynomial_ref res = resultant(I.l, p.m_poly, m_level);
+                    SASSERT(m_todo_set.contains(I.l) && m_todo_set.contains(p.m_poly));
                     TRACE(lws,
                           tout << "m_level:" << m_level<< "\nresultant of (" << I.l << "," << p.m_poly << "):"; 
                           tout << "\nresultant:"; ::nlsat::display(tout, m_solver, res) << "\n");
@@ -909,6 +914,7 @@ or
         void apply_pre(const property& p) {
             TRACE(lws, tout << "apply_pre BEGIN m_Q:"; display(tout) << std::endl; 
                   display(tout << "pre p:", p) << std::endl;);
+            SASSERT(!p.m_poly || m_todo_set.contains(p.m_poly));
             switch (p.m_prop_tag) {
             case prop_enum::an_del:
                 apply_pre_an_del(p);
