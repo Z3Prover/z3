@@ -184,7 +184,7 @@ namespace nlsat {
        // max_x plays the role of n in algorith 1 of the levelwise paper.
 
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am, polynomial::cache & cache)
-            : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am), m_cache(cache), m_todo_set(cache) {
+            : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am), m_cache(cache), m_todo_set(cache, true) {
             TRACE(lws, tout  << "m_n:" << m_n << "\n";);
             m_I.reserve(m_n); // cannot just resize bcs of the absence of the default constructor of root_function_interval
             for (unsigned i = 0; i < m_n; ++i)
