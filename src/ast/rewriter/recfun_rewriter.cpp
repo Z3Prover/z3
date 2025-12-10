@@ -34,6 +34,9 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
         for (unsigned i = 0; i < num_args; ++i) 
             if (!m.is_value(args[i]))
                 safe_to_subst = false;
+        for (auto t : subterms::all(expr_ref(r, m)))
+            if (is_uninterp(t))
+                return BR_FAILED;
 
         // check if there is an argument that is a constructor
         // such that the recursive function can be partially evaluated.
