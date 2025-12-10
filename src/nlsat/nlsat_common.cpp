@@ -32,15 +32,18 @@ namespace nlsat {
 
     void todo_set::insert(poly* p) {
         pmanager& pm = m_set.m();
+        polynomial_ref pinned(pm); // keep canonicalized polynomial alive until it is stored
         if (m_canonicalize) {
             // Canonicalize content+sign so scalar multiples share the same representative.
             if (!pm.is_zero(p) && !pm.is_const(p)) {
-                polynomial_ref prim(pm);
                 var x = pm.max_var(p);
-                pm.primitive(p, x, prim);
-                p = prim.get();
+                pm.primitive(p, x, pinned);
+                p = pinned.get();
             }
+            else
+                pinned = p;
             p = pm.flip_sign_if_lm_neg(p);
+            pinned = p;
         }
         p = m_cache.mk_unique(p);
         unsigned pid = pm.id(p);
