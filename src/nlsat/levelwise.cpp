@@ -42,8 +42,7 @@ namespace nlsat {
             polynomial::polynomial_ref_vector factors(m_pm);
             ::nlsat::factor(poly, m_cache, factors);
             for (unsigned i = 0; i < factors.size(); i++) {
-                polynomial_ref pr(m_pm);
-                pr = m_cache.mk_unique(factors.get(i));
+                polynomial_ref pr(factors.get(i), m_pm);
                 fn(pr);
             }
         }
@@ -52,7 +51,7 @@ namespace nlsat {
             polynomial::polynomial_ref_vector factors(m_pm);
             ::nlsat::factor(poly, m_cache, factors);
             polynomial_ref pr(m_pm);
-            pr = m_cache.mk_unique(factors.get(0));
+            pr = factors.get(0);
             fn(pr);
         }
 
@@ -181,15 +180,17 @@ namespace nlsat {
         assignment const & sample() const { return m_solver.sample();}
         assignment & sample() { return m_solver.sample(); }
         polynomial::cache &          m_cache; 
+        todo_set                     m_todo_set;
        // max_x plays the role of n in algorith 1 of the levelwise paper.
 
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am, polynomial::cache & cache)
-            : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am), m_cache(cache) {
+            : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am), m_cache(cache), m_todo_set(cache) {
             TRACE(lws, tout  << "m_n:" << m_n << "\n";);
             m_I.reserve(m_n); // cannot just resize bcs of the absence of the default constructor of root_function_interval
             for (unsigned i = 0; i < m_n; ++i)
                 m_I.emplace_back(m_pm);
             m_Q.resize(m_n + 1);
+            m_todo_set.reset();
         }
         // end constructor
 
@@ -225,16 +226,15 @@ namespace nlsat {
         */ 
         void collect_top_level_properties(todo_set& ps_of_n_level) {
             for (unsigned i = 0; i < m_P.size(); ++i) {
-                poly* p = m_P[i];
-                polynomial_ref pref(p, m_pm);
-                for_each_distinct_factor( pref, [&](const polynomial_ref& f) {
-                    polynomial_ref canon = canonicalize(f);
-                    unsigned level = max_var(canon);
+                polynomial_ref pi(m_P[i], m_pm);
+                for_each_distinct_factor(pi, [&](const polynomial_ref& f) {
+                    unsigned level = max_var(f);
+                    normalize(f);
                     if (level < m_n)
-                        m_Q[level].push(property(prop_enum::sgn_inv, canon));
+                        m_Q[level].push(property(prop_enum::sgn_inv, f));
                     else if (level == m_n){
-                        m_Q[level].push(property(prop_enum::an_del, canon));
-                        ps_of_n_level.insert(f.get());
+                        m_Q[level].push(property(prop_enum::an_del, f));
+                        ps_of_n_level.insert(f);
                     }
                     else {
                         UNREACHABLE();
@@ -301,8 +301,8 @@ namespace nlsat {
                     return false;
                 }
                 for_each_distinct_factor(r, [&](const polynomial::polynomial_ref &f) {
-                    polynomial_ref prim = canonicalize(f);
-                    m_Q[max_var(prim)].push(property(prop_enum::ord_inv, prim, m_pm));
+                    normalize(f);
+                    m_Q[max_var(f)].push(property(prop_enum::ord_inv, f, m_pm));
                 });
             }
             return true;
@@ -405,9 +405,7 @@ namespace nlsat {
                 apply_pre(p);
                 if (m_fail) break;
             }
-            if (m_fail)
-               return false;
-            return true;
+            return !m_fail;
         }
 
          // Part B of construct_interval: build (I, E, ≼) representation for level i
@@ -419,7 +417,7 @@ namespace nlsat {
                  SASSERT(max_var(pr.m_poly) == m_level);
                  if (pr.m_prop_tag == prop_enum::sgn_inv
                      && !coeffs_are_zeroes_on_sample(pr.m_poly, m_pm, sample(), m_am )) {
-                     TRACE(lws, tout << "adding:" << pr.m_poly.get() << "\n";);
+                     TRACE(lws, tout << "adding:" << pr.m_poly << "\n";);
                      p_non_null.insert(pr.m_poly.get());
                  }
              }
@@ -503,18 +501,10 @@ namespace nlsat {
              TRACE(lws, tout << "exit\n";);
          }
 
-         // Canonicalize polynomial the same way todo_set does when enabled (primitive + sign fix).
-         polynomial_ref canonicalize(polynomial_ref const & p) {
-             if (m_pm.is_zero(p) || m_pm.is_const(p)) {
-                 return p;
-             }
-             polynomial_ref prim(m_pm);
-             var x = max_var(p);
-             m_pm.primitive(p.get(), x, prim);
-             prim = m_pm.flip_sign_if_lm_neg(prim);
-             prim = m_cache.mk_unique(prim.get());
-             return prim;
-         }
+         void normalize(polynomial_ref const & p) {
+             SASSERT(! (is_zero(p) || is_const(p)));
+             m_todo_set.insert(p);
+        }
 
 
          // add a property to m_Q if an equivalent one is not already present.
@@ -522,8 +512,8 @@ namespace nlsat {
          // (polynomials are already in primitive form, so constant multipliers are normalized away).
         void add_to_Q_if_new(property pr, unsigned level) {            
              if (pr.m_poly)
-                 pr.m_poly = canonicalize(pr.m_poly);
-             SASSERT(pr.m_prop_tag != ord_inv || (pr.m_poly && !m_pm.is_zero(pr.m_poly)));
+                 normalize(pr.m_poly);
+             SASSERT(pr.m_prop_tag != ord_inv || (pr.m_poly && !is_zero(pr.m_poly)));
              for (auto const & q : m_Q[level]) {
                  if (q.m_prop_tag != pr.m_prop_tag) continue;
                  if (q.m_root_index != pr.m_root_index) continue;
@@ -562,7 +552,7 @@ namespace nlsat {
                 for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
                     if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
                         TRACE(lws, tout << "fail\n";);                
-                        fail(); // ambiguous multiplicity -- not handled yet
+                        fail();
                         return;
                     }
                     mk_prop(prop_enum::ord_inv, f);
@@ -574,25 +564,25 @@ namespace nlsat {
         void add_sgn_inv_leading_coeff_for(const property& p) {
             poly * pp = p.m_poly.get();
             unsigned lvl = max_var(p.m_poly);
-            unsigned deg = m_pm.degree(pp, max_var(p.m_poly));
-            if (deg > 0) {
-                polynomial_ref lc(m_pm);
-                lc = m_pm.coeff(pp, lvl, deg);
-                if (!is_const(lc)) {
-                    for_each_distinct_factor(lc, [&](polynomial::polynomial_ref f) {
-                        if (coeffs_are_zeroes_on_sample(f, m_pm, sample(), m_am)) {
-                            TRACE(lws, tout << "fail\n";);                
-                            fail();
-                            return;
-                        }
-                        else
-                            mk_prop(prop_enum::sgn_inv, f, max_var(f));
-                        
+            unsigned deg = m_pm.degree(pp, lvl);
+            // Per Levelwise, only project the first (from the top) coefficient
+            // that is non-zero on the current sample; later coefficients matter
+            // only if the earlier ones vanish.
+            polynomial_ref coeff(m_pm);
+            for (int d = static_cast<int>(deg); d >= 0; --d) {
+                coeff = m_pm.coeff(pp, lvl, d);
+                if (!is_const(coeff)) {
+                    for_each_distinct_factor(coeff, [&](const polynomial::polynomial_ref & f) {
+                        normalize(f);
+                        mk_prop(prop_enum::sgn_inv, f, max_var(f));
                     });
-                } else {                    
-                    SASSERT(sign(lc, sample(), m_am));
                 }
-            }
+
+                if (sign(coeff, sample(), m_am))
+                    return;
+             }
+            // All coefficients vanish at the sample, so delineability cannot be established.
+            fail();
         }
 
         // Extracted helper: check preconditions for an_del property; returns true if ok, false otherwise.
@@ -613,7 +603,6 @@ namespace nlsat {
         }
 
         void apply_pre_an_del(const property& p) {
-            if (!precondition_on_an_del(p)) return;
             unsigned p_lvl = max_var(p.m_poly);
             if (p_lvl > 0) {
                 mk_prop(prop_enum::an_sub, level_t(p_lvl - 1));
@@ -717,13 +706,6 @@ namespace nlsat {
         // Helper for Rule 4.2, subrule 1: fallback when subrule 2 does not apply.
         // sample(s)(R), degx_{i+1} (p) > 1, disc(x_{i+1} (p)(s)) ̸= 0, sgn_inv(disc(x_{i+1} (p))(R) 
         void apply_pre_non_null_fallback(const property& p) {
-            // basic sanity checks
-            if (!p.m_poly) {
-                TRACE(lws, tout << "apply_pre_non_null_fallback: null poly -> fail" << std::endl;);
-                fail();
-                return;
-            }
-
             unsigned level = max_var(p.m_poly);
 
             poly * pp = p.m_poly.get();
@@ -734,15 +716,12 @@ namespace nlsat {
             // compute discriminant w.r.t. the variable at p.level
             polynomial_ref disc(m_pm);
             disc = discriminant(p.m_poly, level);
-            TRACE(lws, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
-
-            // If discriminant evaluates to zero at the sample, we cannot proceed
-            // (ambiguous multiplicity) -> fail per instruction
-            if (sign(disc, sample(), m_am) == 0) {
-                TRACE(lws, tout << "apply_pre_non_null_fallback: discriminant vanishes at sample -> failing" << std::endl;);
+            if (is_zero(disc)) {
                 fail();
                 return;
             }
+            TRACE(lws, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
+
             // If discriminant is non-constant, add sign-invariance requirement for it
             if (!is_const(disc)) {
                 for_each_distinct_factor(disc, [&](const polynomial::polynomial_ref & f) {
@@ -811,13 +790,13 @@ or
         }
 
         void mk_prop(prop_enum pe, const polynomial_ref& poly) {
-            polynomial_ref norm = canonicalize(poly);
-            add_to_Q_if_new(property(pe, norm), max_var(norm));
+            normalize(poly);
+            add_to_Q_if_new(property(pe, poly), max_var(poly));
         }
         void mk_prop(prop_enum pe, const polynomial_ref& poly, unsigned level) {
             SASSERT(is_set(level));
-            polynomial_ref norm = canonicalize(poly);
-            add_to_Q_if_new(property(pe, norm), level);
+            normalize(poly);
+            add_to_Q_if_new(property(pe, poly), level);
         }
 
         void apply_pre_sgn_inv(const property& p) {
@@ -865,7 +844,7 @@ or
                     TRACE(lws,
                           tout << "m_level:" << m_level<< "\nresultant of (" << I.l << "," << p.m_poly << "):"; 
                           tout << "\nresultant:"; ::nlsat::display(tout, m_solver, res) << "\n");
-                    if (m_pm.is_zero(res)) { 
+                    if (is_zero(res)) { 
                         TRACE(lws, tout << "fail\n";);                
                         fail(); 
                         return;
@@ -885,7 +864,7 @@ or
               sample(s)(R), repr(I, s)(R), ir_ord(≼, s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R)
             */
            // todo - read the preconditions on p it needs to be diff
-                if (!precondition_on_sign_inv(p)) return;
+                SASSERT(precondition_on_sign_inv(p));
                 if (m_level) {
                     mk_prop(sample_holds, level_t(m_level - 1)); 
                     mk_prop(repr, level_t(m_level - 1));
@@ -901,9 +880,7 @@ or
         bool precondition_on_sign_inv(const property &p) {
             SASSERT(is_square_free(p.m_poly));
             SASSERT(max_var(p.m_poly) == m_level);
-
             return true;
-
         }
 
         /*
@@ -996,7 +973,7 @@ or
                  TRACE(lws, tout << "resultant of (" << pair.first << "," << pair.second << "):"; 
                        ::nlsat::display(tout, m_solver, a) << "\n";
                        ::nlsat::display(tout,m_solver, b)<< "\nresultant:"; ::nlsat::display(tout, m_solver, r) << "\n");
-                 if (m_pm.is_zero(r)) {
+                 if (is_zero(r)) {
                      TRACE(lws, tout << "fail\n";);
                      fail();
                      return;
