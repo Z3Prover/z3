@@ -662,6 +662,11 @@ struct z3_replayer::imp {
         return v.data();
     }
 
+    bool * get_bool_addr(unsigned pos) {
+        check_arg(pos, INT64);
+        return reinterpret_cast<bool*>(&(m_args[pos].m_int));
+    }
+
     int * get_int_addr(unsigned pos) {
         check_arg(pos, INT64);
         return reinterpret_cast<int*>(&(m_args[pos].m_int));
@@ -788,6 +793,10 @@ Z3_symbol * z3_replayer::get_symbol_array(unsigned pos) const {
 
 void ** z3_replayer::get_obj_array(unsigned pos) const {
     return m_imp->get_obj_array(pos);
+}
+
+bool * z3_replayer::get_bool_addr(unsigned pos) {
+    return m_imp->get_bool_addr(pos);
 }
 
 int * z3_replayer::get_int_addr(unsigned pos) {

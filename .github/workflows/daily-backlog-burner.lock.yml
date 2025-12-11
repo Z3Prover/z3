@@ -25,7 +25,7 @@ jobs:
       output: ${{ steps.collect_output.outputs.output }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Configure Git credentials
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -747,7 +747,7 @@ jobs:
               .write();
       - name: Upload agentic run info
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: aw_info.json
           path: /tmp/aw_info.json
@@ -856,7 +856,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
       - name: Upload agentic output file
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: safe_output.jsonl
           path: ${{ env.GITHUB_AW_SAFE_OUTPUTS }}
@@ -1804,7 +1804,7 @@ jobs:
             await main();
       - name: Upload sanitized agent output
         if: always() && env.GITHUB_AW_AGENT_OUTPUT
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: agent_output.json
           path: ${{ env.GITHUB_AW_AGENT_OUTPUT }}
@@ -2341,7 +2341,7 @@ jobs:
             main();
       - name: Upload agent logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: daily-backlog-burner.log
           path: /tmp/daily-backlog-burner.log
@@ -2435,7 +2435,7 @@ jobs:
           fi
       - name: Upload git patch
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: aw.patch
           path: /tmp/aw.patch
@@ -2946,12 +2946,12 @@ jobs:
     steps:
       - name: Download patch artifact
         continue-on-error: true
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: aw.patch
           path: /tmp/
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Configure Git credentials

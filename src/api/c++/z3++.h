@@ -328,6 +328,15 @@ namespace z3 {
         sort datatype(symbol const& name, constructors const& cs);
 
         /**
+           \brief Create a parametric recursive datatype.
+           \c name is the name of the recursive datatype
+           \c params - the sort parameters of the datatype
+           \c cs - the \c n constructors used to define the datatype
+           References to the datatype and mutually recursive datatypes can be created using \ref datatype_sort.
+         */ 
+        sort datatype(symbol const &name, sort_vector const &params, constructors const &cs);
+
+        /**
            \brief Create a set of mutually recursive datatypes.
            \c n - number of recursive datatypes
            \c names - array of names of length n
@@ -342,6 +351,14 @@ namespace z3 {
            Expect that it gets defined as a \ref datatype.
         */
         sort datatype_sort(symbol const& name);
+
+        /**
+           \brief a reference to a recursively defined parametric datatype.
+           Expect that it gets defined as a \ref datatype.
+           \param name name of the datatype
+           \param params sort parameters
+        */
+        sort datatype_sort(symbol const& name, sort_vector const& params);
 
             
         /**
@@ -3608,6 +3625,16 @@ namespace z3 {
         return sort(*this, s);
     }
 
+    inline sort context::datatype(symbol const &name, sort_vector const& params, constructors const &cs) {
+        array<Z3_sort> _params(params);
+        array<Z3_constructor> _cs(cs.size());
+        for (unsigned i = 0; i < cs.size(); ++i)
+            _cs[i] = cs[i];
+        Z3_sort s = Z3_mk_polymorphic_datatype(*this, name, _params.size(), _params.ptr(), cs.size(), _cs.ptr());
+        check_error();
+        return sort(*this, s);
+    }
+
     inline sort_vector context::datatypes(
         unsigned n, symbol const* names,
         constructor_list *const* cons) {
@@ -3625,7 +3652,14 @@ namespace z3 {
 
 
     inline sort context::datatype_sort(symbol const& name) {
-        Z3_sort s = Z3_mk_datatype_sort(*this, name);
+        Z3_sort s = Z3_mk_datatype_sort(*this, name, 0, nullptr);
+        check_error();
+        return sort(*this, s);            
+    }
+
+    inline sort context::datatype_sort(symbol const& name, sort_vector const& params) {
+        array<Z3_sort> _params(params);
+        Z3_sort s = Z3_mk_datatype_sort(*this, name, _params.size(), _params.ptr());
         check_error();
         return sort(*this, s);            
     }

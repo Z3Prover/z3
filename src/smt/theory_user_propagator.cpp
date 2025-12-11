@@ -157,7 +157,7 @@ theory * theory_user_propagator::mk_fresh(context * new_ctx) {
     return th;
 }
 
-final_check_status theory_user_propagator::final_check_eh() {
+final_check_status theory_user_propagator::final_check_eh(unsigned level) {
     if (!(bool)m_final_eh)
         return FC_DONE;
     force_push();

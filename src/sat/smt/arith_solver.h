@@ -407,7 +407,7 @@ namespace arith {
         lbool make_feasible();
         bool  check_delayed_eqs();
         lbool check_lia();
-        lbool check_nla();
+        lbool check_nla(unsigned level);
         bool check_bv_terms();
         bool check_bv_term(app* n);
         void add_lemmas();

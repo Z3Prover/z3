@@ -179,6 +179,7 @@ int main(int argc, char ** argv) {
     TST(api_polynomial);
     TST(api_pb);
     TST(api_datalog);
+    TST(parametric_datatype);
     TST(cube_clause);
     TST(old_interval);
     TST(get_implied_equalities);
@@ -226,6 +227,7 @@ int main(int argc, char ** argv) {
     TST(prime_generator);
     TST(permutation);
     TST(nlsat);
+    TST(nlsat_mv);
     TST(zstring);
     if (test_all) return 0;
     TST(ext_numeral);

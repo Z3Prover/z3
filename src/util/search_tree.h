@@ -73,14 +73,17 @@ namespace search_tree {
             m_status = status::open;
         }
 
-        node *left() const {
-            return m_left;
-        }
-        node *right() const {
-            return m_right;
-        }
-        node *parent() const {
-            return m_parent;
+        node* left() const { return m_left; }
+        node* right() const { return m_right; }
+        node* parent() const { return m_parent; }
+        unsigned depth() const {
+            unsigned d = 0;
+            node* p = m_parent;
+            while (p) {
+                ++d;
+                p = p->parent();
+            }
+            return d;
         }
 
         node *find_active_node() {
@@ -211,7 +214,7 @@ namespace search_tree {
                 if (lit != lit_l && !res.contains(lit))
                     res.push_back(lit);
             for (auto const &lit : core_r)
-                if (lit != lit_l && !res.contains(lit))
+                if (lit != lit_r && !res.contains(lit))
                     res.push_back(lit);
             return res;
         }

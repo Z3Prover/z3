@@ -47,9 +47,22 @@ namespace nla {
         if (m_quota == 0)
             m_quota = c().params().arith_nl_gr_q();                    
 
+        bool const use_exp_delay = c().params().arith_nl_grobner_exp_delay();
+
         if (m_quota == 1) {
-            m_delay_base++;
-            m_delay = m_delay_base;
+            if (use_exp_delay) {
+                constexpr unsigned delay_cap = 1000000;
+                if (m_delay_base == 0)
+                    m_delay_base = 1;
+                else if (m_delay_base < delay_cap) {
+                    m_delay_base *= 2;
+                    if (m_delay_base > delay_cap)
+                        m_delay_base = delay_cap;
+                }
+                m_delay = m_delay_base;
+            }
+            else
+                m_delay = ++m_delay_base;
             m_quota = c().params().arith_nl_gr_q();
         }
 
@@ -63,6 +76,14 @@ namespace nla {
         find_nl_cluster();        
         if (!configure())
             return;
+
+        try {
+            if (propagate_gcd_test())
+                return;
+        }
+        catch (...) {
+            
+        }
         m_solver.saturate();
         TRACE(grobner, m_solver.display(tout));
 

@@ -53,6 +53,7 @@ public:
     Z3_symbol * get_symbol_array(unsigned pos) const;
     void ** get_obj_array(unsigned pos) const;
 
+    bool * get_bool_addr(unsigned pos);
     int * get_int_addr(unsigned pos);
     int64_t * get_int64_addr(unsigned pos);
     unsigned * get_uint_addr(unsigned pos);

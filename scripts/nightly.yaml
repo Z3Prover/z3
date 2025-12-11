@@ -2,7 +2,7 @@ variables:
   # Version components read from VERSION.txt (updated manually when VERSION.txt changes)
   Major: '4'
   Minor: '15'
-  Patch: '4'
+  Patch: '5'
   ReleaseVersion: $(Major).$(Minor).$(Patch)
   NightlyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
   # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
@@ -365,17 +365,17 @@ stages:
       inputs:
         artifactName: 'WindowsBuild-x86'
         targetPath: $(Agent.TempDirectory)	
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download ManyLinux Build'    
-      inputs:
-        artifactName: 'ManyLinuxPythonBuildAMD64'
-        targetPath: $(Agent.TempDirectory)
+#    - task: DownloadPipelineArtifact@2
+#      displayName: 'Download ManyLinux Build'    
+#      inputs:
+#        artifactName: 'ManyLinuxPythonBuildAMD64'
+#        targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download ManyLinux Arm64 Build'
       inputs:
         artifactName: 'ManyLinuxPythonBuildArm64'
         targetPath: $(Agent.TempDirectory)
-    - script: cd $(Agent.TempDirectory); mkdir osx-x64-bin; cd osx-x64-bin; unzip ../*x64-osx*.zip
+#   - script: cd $(Agent.TempDirectory); mkdir osx-x64-bin; cd osx-x64-bin; unzip ../*x64-osx*.zip
     - script: cd $(Agent.TempDirectory); mkdir osx-arm64-bin; cd osx-arm64-bin; unzip ../*arm64-osx*.zip
 #    - script: cd $(Agent.TempDirectory); mkdir musl-bin; cd musl-bin; unzip ../*-linux.zip
     - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip

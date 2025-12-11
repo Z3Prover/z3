@@ -394,7 +394,7 @@ public:
 
     bool  conflict_found() const;
     
-    lbool check();
+    lbool check(unsigned level);
     lbool check_power(lpvar r, lpvar x, lpvar y);
     void check_bounded_divisions();
 
@@ -449,6 +449,12 @@ public:
     bool throttle_enabled() const { return m_throttle_enabled; }
     nla_throttle& throttle() { return m_throttle; }
     const nla_throttle& throttle() const { return m_throttle; }
+
+    lp::lar_solver& lra_solver() { return lra; }
+
+    indexed_uint_set const& to_refine() const {
+        return m_to_refine;
+    }
 
 };  // end of core
 

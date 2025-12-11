@@ -385,7 +385,6 @@ namespace smt {
             case l_undef:
                 break;
             case l_true: {
-                expr* true_arg = nullptr;
                 auto arg0 = n->get_arg(0);
                 auto arg1 = n->get_arg(1);
                 if (m_context.find_assignment(arg0) == l_false) {

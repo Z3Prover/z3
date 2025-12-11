@@ -25,6 +25,7 @@ Notes:
 #include "math/polynomial/polynomial_cache.h"
 #include "util/rlimit.h"
 #include <iostream>
+#include <vector>
 
 nlsat::interval_set_ref tst_interval(nlsat::interval_set_ref const & s1,
                                      nlsat::interval_set_ref const & s2,
@@ -330,6 +331,16 @@ static void project_fa(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsig
     std::cout << ")\n";
 }
 
+static bool literal_holds(nlsat::solver& s, nlsat::evaluator& eval, nlsat::literal l) {
+    if (l == nlsat::true_literal)
+        return true;
+    if (l == nlsat::false_literal)
+        return false;
+    nlsat::atom* a = s.bool_var2atom(l.var());
+    ENSURE(a != nullptr);
+    return eval.eval(a, l.sign());
+}
+
 static nlsat::literal mk_gt(nlsat::solver& s, nlsat::poly* p) {
     nlsat::poly * _p[1] = { p };
     bool is_even[1] = { false };
@@ -348,6 +359,67 @@ static nlsat::literal mk_eq(nlsat::solver& s, nlsat::poly* p) {
     bool is_even[1] = { false };
     return s.mk_ineq_literal(nlsat::atom::EQ, 1, _p, is_even);
 }
+
+static void set_assignment_value(nlsat::assignment& as, anum_manager& am, nlsat::var v, rational const& val) {
+    scoped_anum tmp(am);
+    am.set(tmp, val.to_mpq());
+    as.set(v, tmp);
+}
+
+static void tst_vandermond() {
+    params_ref      ps;
+    reslimit        rlim;
+    nlsat::solver   s(rlim, ps, false);
+    nlsat::pmanager& pm = s.pm();
+    anum_manager & am     = s.am();
+    nlsat::assignment as(am);
+    scoped_anum zero(am), one(am), two(am), three(am);
+    nlsat::explain& ex    = s.get_explain();
+    
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+    nlsat::var x2 = s.mk_var(false);
+    nlsat::var x3 = s.mk_var(false);
+    am.set(one, 1);
+    am.set(two, 2);
+    as.set(x0, one);
+    as.set(x1, two);
+    as.set(x2, three);
+    polynomial_ref _x0(pm), _x1(pm), _x2(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+    _x2 = pm.mk_polynomial(x2);
+
+    polynomial_ref x0_sq(pm), x1_sq(pm), x2_sq(pm);
+    x0_sq = _x0 * _x0;
+    x1_sq = _x1 * _x1;
+    x2_sq = _x2 * _x2;
+
+    polynomial_ref vandermonde_flat(pm);
+    vandermonde_flat =
+        (_x1 * x2_sq) -
+        (x1_sq * _x2) +
+        (_x0 * x1_sq) -
+        (x0_sq * _x1) +
+        (x0_sq * _x2) -
+        (_x0 * x2_sq);
+
+    polynomial_ref vandermonde_factored(pm);
+    vandermonde_factored = (_x1 - _x0) * (_x2 - _x0) * (_x2 - _x1);
+    std::cout << "vandermonde_factored:" << vandermonde_factored << "\n";
+    polynomial_ref diff(pm);
+    diff = vandermonde_flat - vandermonde_factored;
+    ENSURE(pm.is_zero(diff.get()));
+
+    pm.display(std::cout << "vandermonde(flat): ", vandermonde_flat);
+    std::cout << "\n";
+    nlsat::scoped_literal_vector lits(s);
+    lits.push_back(mk_gt(s, vandermonde_flat));
+    s.set_rvalues(as);
+    project(s, ex, x2, lits.size(), lits.data());
+    as.set(x2, (one + two)/2);
+    std::cout << am.eval_sign_at(vandermonde_flat, as) << "\n";
+;}
 
 static void tst6() {
     params_ref      ps;
@@ -560,16 +632,12 @@ static void tst9() {
 
 #define TEST_ON_OFF()                                   \
     std::cout << "Off ";                                \
-    ex.set_signed_project(false);                       \
     project(s, ex, _x, lits.size()-1, lits.data());    \
     std::cout << "On ";                                 \
-    ex.set_signed_project(true);                        \
     project(s, ex, _x, lits.size()-1, lits.data());    \
     std::cout << "Off ";                                \
-    ex.set_signed_project(false);                       \
     project(s, ex, _x, lits.size(), lits.data());      \
     std::cout << "On ";                                 \
-    ex.set_signed_project(true);                        \
     project(s, ex, _x, lits.size(), lits.data())       \
 
     TEST_ON_OFF();
@@ -717,6 +785,107 @@ static void tst10() {
     std::cout << "\n";
 }
 
+void tst_nlsat_mv() {
+    params_ref      ps;
+    reslimit        rlim;
+    nlsat::solver s(rlim, ps, false);
+    anum_manager & am     = s.am();
+    nlsat::pmanager & pm  = s.pm();
+    nlsat::assignment assignment(am);
+    nlsat::explain& ex    = s.get_explain();
+
+    tst_vandermond();
+    return;
+
+    // Regression: reproduce lemma 114 where main_operator adds spurious bounds.
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+
+    polynomial_ref _x0(pm), _x1(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+
+    polynomial_ref x0_sq(pm), x0_cu(pm), x0_4(pm), x0_5(pm);
+    x0_sq = _x0 * _x0;
+    x0_cu = x0_sq * _x0;
+    x0_4 = x0_cu * _x0;
+    x0_5 = x0_4 * _x0;
+
+    polynomial_ref x1_sq(pm), x1_cu(pm), x1_4(pm), x1_5(pm);
+    x1_sq = _x1 * _x1;
+    x1_cu = x1_sq * _x1;
+    x1_4 = x1_cu * _x1;
+    x1_5 = x1_4 * _x1;
+
+    polynomial_ref root_arg(pm);
+    root_arg =
+        x1_5 +
+        (_x0 * x1_4) -
+        (18 * x1_4) -
+        (2 * x0_sq * x1_cu) -
+        (2 * x0_cu * x1_sq) +
+        (36 * x0_sq * x1_sq) +
+        (1296 * _x0 * x1_sq) +
+        (864 * x1_sq) +
+        (x0_4 * _x1) +
+        (1296 * x0_sq * _x1) +
+        (6048 * _x0 * _x1) +
+        x0_5 -
+        (18 * x0_4) +
+        (864 * x0_sq);
+    // should be (x1^5 + x0 x1^4 - 18 x1^4 - 2 x0^2 x1^3 - 2 x0^3 x1^2 + 36 x0^2 x1^2 + 1296 x0 x1^2 + 864 x1^2 + x0^4 x1 + 1296 x0^2 x1 + 6048 x0 x1 + x0^5 - 18 x0^4 + 864 x0^2)
+    std::cout << "big poly:" <<  root_arg << std::endl;
+    nlsat::literal x1_gt_0 = mk_gt(s, _x1);
+    nlsat::bool_var root_gt = s.mk_root_atom(nlsat::atom::ROOT_GT, x1, 3, root_arg.get());
+    nlsat::literal x1_gt_root(root_gt, false);
+
+    nlsat::scoped_literal_vector lits(s);
+    lits.push_back(x1_gt_0);
+    lits.push_back(~x1_gt_root); // !(x1 > root[3](root_arg))
+
+    scoped_anum one(am), one_dup(am);
+    am.set(one, 1);
+    assignment.set(x0, one);
+    s.set_rvalues(assignment);
+
+    nlsat::scoped_literal_vector result(s);
+    ex.main_operator(lits.size(), lits.data(), result);
+
+    std::cout << "main_operator root regression core:\n";
+    s.display(std::cout, lits.size(), lits.data());
+    s.display(std::cout << "\n==>\n", result.size(), result.data());
+    std::cout << "\n";
+
+    // Assign x1 only after the lemma is produced.
+    am.set(one_dup, 1);
+    assignment.set(x1, one_dup);
+    s.set_rvalues(assignment);
+
+    small_object_allocator allocator;
+    nlsat::evaluator eval(s, assignment, pm, allocator);
+    std::cout << "input literal values at x0 = 1, x1 = 1:\n";
+    for (nlsat::literal l : lits) {
+        nlsat::atom* a = s.bool_var2atom(l.var());
+        if (!a) {
+            std::cout << "conversion bug\n";
+        }
+        bool value = a ? eval.eval(a, l.sign()) : false;
+        s.display(std::cout << "  ", l);
+        std::cout << " -> " << (value ? "true" : "false") << "\n";
+    }
+    std::cout << "new literal values at x0 = 1, x1 = 1:\n";
+    for (nlsat::literal l : result) {
+        nlsat::atom* a = s.bool_var2atom(l.var());
+        bool value = a ? eval.eval(a, l.sign()) : false;
+        if (!a) {
+            std::cout << "conversion bug\n";
+        }
+        s.display(std::cout << "  ", l);
+        std::cout << " -> " << (value ? "true" : "false") << "\n";
+    }
+    std::cout << "\n";
+}
+
 static void tst11() {
     params_ref      ps;
     reslimit        rlim;
@@ -791,6 +960,7 @@ x7 := 1
 }
 
 void tst_nlsat() {
+    std::cout << "------------------\n";
     tst11();
     std::cout << "------------------\n";
     return;

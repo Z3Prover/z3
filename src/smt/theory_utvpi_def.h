@@ -394,7 +394,7 @@ namespace smt {
     }
     
     template<typename Ext>
-    final_check_status theory_utvpi<Ext>::final_check_eh() {
+    final_check_status theory_utvpi<Ext>::final_check_eh(unsigned level) {
         SASSERT(is_consistent());
         if (can_propagate()) {
             propagate();

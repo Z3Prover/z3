@@ -62,8 +62,6 @@ enum array_op_kind {
     OP_SET_DIFFERENCE,
     OP_SET_COMPLEMENT,
     OP_SET_SUBSET,
-    OP_SET_HAS_SIZE,
-    OP_SET_CARD,
     OP_AS_ARRAY, // used for model construction
     LAST_ARRAY_OP
 };
@@ -81,8 +79,6 @@ class array_decl_plugin : public decl_plugin {
     symbol m_set_subset_sym;
     symbol m_array_ext_sym;
     symbol m_as_array_sym;
-    symbol m_set_has_size_sym;
-    symbol m_set_card_sym;
 
     bool check_set_arguments(unsigned arity, sort * const * domain);
 
@@ -109,10 +105,6 @@ class array_decl_plugin : public decl_plugin {
     func_decl * mk_set_subset(unsigned arity, sort * const * domain);
 
     func_decl * mk_as_array(func_decl * f);
-
-    func_decl* mk_set_has_size(unsigned arity, sort * const* domain);
-
-    func_decl* mk_set_card(unsigned arity, sort * const* domain);
 
     bool is_array_sort(sort* s) const;
  public:
@@ -173,8 +165,6 @@ public:
     bool is_complement(expr* n) const { return is_app_of(n, m_fid, OP_SET_COMPLEMENT); }
     bool is_as_array(expr * n) const { return is_app_of(n, m_fid, OP_AS_ARRAY); }
     bool is_as_array(expr * n, func_decl*& f) const { return is_as_array(n) && (f = get_as_array_func_decl(n), true); }
-    bool is_set_has_size(expr* e) const { return is_app_of(e, m_fid, OP_SET_HAS_SIZE); }
-    bool is_set_card(expr* e) const { return is_app_of(e, m_fid, OP_SET_CARD); }
     bool is_select(func_decl* f) const { return is_decl_of(f, m_fid, OP_SELECT); }
     bool is_store(func_decl* f) const { return is_decl_of(f, m_fid, OP_STORE); }
     bool is_const(func_decl* f) const { return is_decl_of(f, m_fid, OP_CONST_ARRAY); }
@@ -182,8 +172,6 @@ public:
     bool is_union(func_decl* f) const { return is_decl_of(f, m_fid, OP_SET_UNION); }
     bool is_intersect(func_decl* f) const { return is_decl_of(f, m_fid, OP_SET_INTERSECT); }
     bool is_as_array(func_decl* f) const { return is_decl_of(f, m_fid, OP_AS_ARRAY); }
-    bool is_set_has_size(func_decl* f) const { return is_decl_of(f, m_fid, OP_SET_HAS_SIZE); }
-    bool is_set_card(func_decl* f) const { return is_decl_of(f, m_fid, OP_SET_CARD); }
     bool is_default(func_decl* f) const { return is_decl_of(f, m_fid, OP_ARRAY_DEFAULT); }
     bool is_default(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_DEFAULT); }
     bool is_subset(expr const* n) const { return is_app_of(n, m_fid, OP_SET_SUBSET); }
@@ -305,14 +293,6 @@ public:
 
     app * mk_union(expr* s1, expr* s2) {
         return m_manager.mk_app(m_fid, OP_SET_UNION, s1, s2);
-    }
-
-    app* mk_has_size(expr* set, expr* n) {
-        return m_manager.mk_app(m_fid, OP_SET_HAS_SIZE, set, n);
-    }
-
-    app* mk_card(expr* set) {
-        return m_manager.mk_app(m_fid, OP_SET_CARD, set);
     }
 
     func_decl * mk_array_ext(sort* domain, unsigned i);

@@ -1245,6 +1245,18 @@ def _coerce_expr_merge(s, a):
     else:
         return s
 
+def _check_same_sort(a, b, ctx=None):
+    if not isinstance(a, ExprRef):
+        return False
+    if not isinstance(b, ExprRef):
+        return False
+    if ctx is None:
+        ctx = a.ctx
+
+    a_sort = Z3_get_sort(ctx.ctx, a.ast)
+    b_sort = Z3_get_sort(ctx.ctx, b.ast)
+    return Z3_is_eq_sort(ctx.ctx, a_sort, b_sort)
+
 
 def _coerce_exprs(a, b, ctx=None):
     if not is_expr(a) and not is_expr(b):
@@ -1258,6 +1270,9 @@ def _coerce_exprs(a, b, ctx=None):
         a = RealVal(a, b.ctx)
     if isinstance(b, float) and isinstance(a, ArithRef):
         b = RealVal(b, a.ctx)
+
+    if _check_same_sort(a, b, ctx):
+        return (a, b)
 
     s = None
     s = _coerce_expr_merge(s, a)
@@ -4995,13 +5010,6 @@ def Ext(a, b):
         _z3_assert(is_array_sort(a) and (is_array(b) or b.is_lambda()), "arguments must be arrays")
     return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
 
-
-def SetHasSize(a, k):
-    ctx = a.ctx
-    k = _py2expr(k, ctx)
-    return _to_expr_ref(Z3_mk_set_has_size(ctx.ref(), a.as_ast(), k.as_ast()), ctx)
-
-
 def is_select(a):
     """Return `True` if `a` is a Z3 array select application.
 
@@ -5474,10 +5482,30 @@ class DatatypeRef(ExprRef):
         """Return the datatype sort of the datatype expression `self`."""
         return DatatypeSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
 
-def DatatypeSort(name, ctx = None):
-    """Create a reference to a sort that was declared, or will be declared, as a recursive datatype"""
+def DatatypeSort(name, params=None, ctx=None):
+    """Create a reference to a sort that was declared, or will be declared, as a recursive datatype.
+    
+    Args:
+        name: name of the datatype sort
+        params: optional list/tuple of sort parameters for parametric datatypes
+        ctx: Z3 context (optional)
+    
+    Example:
+        >>> # Non-parametric datatype
+        >>> TreeRef = DatatypeSort('Tree')
+        >>> # Parametric datatype with one parameter
+        >>> ListIntRef = DatatypeSort('List', [IntSort()])
+        >>> # Parametric datatype with multiple parameters
+        >>> PairRef = DatatypeSort('Pair', [IntSort(), BoolSort()])
+    """
     ctx = _get_ctx(ctx)
-    return DatatypeSortRef(Z3_mk_datatype_sort(ctx.ref(), to_symbol(name, ctx)), ctx)
+    if params is None or len(params) == 0:
+        return DatatypeSortRef(Z3_mk_datatype_sort(ctx.ref(), to_symbol(name, ctx), 0, (Sort * 0)()), ctx)
+    else:
+        _params = (Sort * len(params))()
+        for i in range(len(params)):
+            _params[i] = params[i].ast
+        return DatatypeSortRef(Z3_mk_datatype_sort(ctx.ref(), to_symbol(name, ctx), len(params), _params), ctx)
 
 def TupleSort(name, sorts, ctx=None):
     """Create a named tuple sort base on a set of underlying sorts
@@ -10004,7 +10032,7 @@ class FPNumRef(FPRef):
     """
 
     def sign(self):
-        num = (ctypes.c_int)()
+        num = ctypes.c_bool()
         nsign = Z3_fpa_get_numeral_sign(self.ctx.ref(), self.as_ast(), byref(num))
         if nsign is False:
             raise Z3Exception("error retrieving the sign of a numeral.")

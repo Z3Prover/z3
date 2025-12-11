@@ -1006,6 +1006,98 @@ void datatype_example() {
 
 }
 
+void polymorphic_datatype_example() {
+    std::cout << "polymorphic datatype example\n";
+    context ctx;
+
+    // Create type variables alpha and beta for polymorphic datatype using C API
+    Z3_symbol alpha_sym = Z3_mk_string_symbol(ctx, "alpha");
+    Z3_symbol beta_sym = Z3_mk_string_symbol(ctx, "beta");
+    sort alpha(ctx, Z3_mk_type_variable(ctx, alpha_sym));
+    sort beta(ctx, Z3_mk_type_variable(ctx, beta_sym));
+    
+    std::cout << "Type variables: " << alpha << ", " << beta << "\n";
+
+    // Define parametric Pair datatype with constructor mk-pair(first: alpha, second: beta)
+    symbol pair_name = ctx.str_symbol("Pair");
+    symbol mk_pair_name = ctx.str_symbol("mk-pair");
+    symbol is_pair_name = ctx.str_symbol("is-pair");
+    symbol first_name = ctx.str_symbol("first");
+    symbol second_name = ctx.str_symbol("second");
+ 
+    symbol field_names[2] = {first_name, second_name};
+    sort _field_sorts[2] = {alpha, beta};
+    sort_vector field_sorts(ctx);
+    field_sorts.push_back(alpha);  // Use type variables
+    field_sorts.push_back(beta);   // Use type variables   
+    
+    constructors cs(ctx);
+    cs.add(mk_pair_name, is_pair_name, 2, field_names, _field_sorts);
+    sort pair = ctx.datatype(pair_name, field_sorts, cs);
+
+    std::cout << "Created parametric datatype: " << pair << "\n";
+    
+    // Instantiate Pair with concrete types: (Pair Int Real)
+    sort_vector params_int_real(ctx);
+    params_int_real.push_back(ctx.int_sort());
+    params_int_real.push_back(ctx.real_sort());
+    sort pair_int_real = ctx.datatype_sort(pair_name, params_int_real);
+    
+    std::cout << "Instantiated with Int and Real: " << pair_int_real << "\n";
+    
+    // Instantiate Pair with concrete types: (Pair Real Int)
+    sort_vector params_real_int(ctx);
+    params_real_int.push_back(ctx.real_sort());
+    params_real_int.push_back(ctx.int_sort());
+    sort pair_real_int = ctx.datatype_sort(pair_name, params_real_int);
+    
+    std::cout << "Instantiated with Real and Int: " << pair_real_int << "\n";
+    
+    // Get constructors and accessors for (Pair Int Real) using C API
+    func_decl mk_pair_ir(ctx, Z3_get_datatype_sort_constructor(ctx, pair_int_real, 0));
+    func_decl first_ir(ctx, Z3_get_datatype_sort_constructor_accessor(ctx, pair_int_real, 0, 0));
+    func_decl second_ir(ctx, Z3_get_datatype_sort_constructor_accessor(ctx, pair_int_real, 0, 1));
+    
+    std::cout << "Constructors and accessors for (Pair Int Real):\n";
+    std::cout << "  Constructor: " << mk_pair_ir << "\n";
+    std::cout << "  first accessor: " << first_ir << "\n";
+    std::cout << "  second accessor: " << second_ir << "\n";
+    
+    // Get constructors and accessors for (Pair Real Int) using C API
+    func_decl mk_pair_ri(ctx, Z3_get_datatype_sort_constructor(ctx, pair_real_int, 0));
+    func_decl first_ri(ctx, Z3_get_datatype_sort_constructor_accessor(ctx, pair_real_int, 0, 0));
+    func_decl second_ri(ctx, Z3_get_datatype_sort_constructor_accessor(ctx, pair_real_int, 0, 1));
+    
+    std::cout << "Constructors and accessors for (Pair Real Int):\n";
+    std::cout << "  Constructor: " << mk_pair_ri << "\n";
+    std::cout << "  first accessor: " << first_ri << "\n";
+    std::cout << "  second accessor: " << second_ri << "\n";
+    
+    // Create constants of these types
+    expr p1 = ctx.constant("p1", pair_int_real);
+    expr p2 = ctx.constant("p2", pair_real_int);
+    
+    std::cout << "Created constants: " << p1 << " : " << p1.get_sort() << "\n";
+    std::cout << "                   " << p2 << " : " << p2.get_sort() << "\n";
+    
+    // Create expressions using accessors
+    expr first_p1 = first_ir(p1);   // first(p1) has type Int
+    expr second_p2 = second_ri(p2); // second(p2) has type Int
+    
+    std::cout << "first(p1) = " << first_p1 << " : " << first_p1.get_sort() << "\n";
+    std::cout << "second(p2) = " << second_p2 << " : " << second_p2.get_sort() << "\n";
+    
+    // Create equality term: (= (first p1) (second p2))
+    expr eq = first_p1 == second_p2;
+    std::cout << "Equality term: " << eq << "\n";
+    
+    // Verify both sides have the same type (Int)
+    assert(first_p1.get_sort().id() == ctx.int_sort().id());
+    assert(second_p2.get_sort().id() == ctx.int_sort().id());
+    
+    std::cout << "Successfully created and verified polymorphic datatypes!\n";
+}
+
 void expr_vector_example() {
     std::cout << "expr_vector example\n";
     context c;
@@ -1394,6 +1486,7 @@ int main() {
         enum_sort_example(); std::cout << "\n";
         tuple_example(); std::cout << "\n";
         datatype_example(); std::cout << "\n";
+        polymorphic_datatype_example(); std::cout << "\n";
         expr_vector_example(); std::cout << "\n";
         exists_expr_vector_example(); std::cout << "\n";
         substitute_example(); std::cout << "\n";

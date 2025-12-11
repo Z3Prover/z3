@@ -127,23 +127,25 @@ namespace smt {
     }
 
     parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms)
-        : id(id), p(p), b(p.m_batch_manager), m_smt_params(p.ctx.get_fparams()), asms(m), m_g2l(p.ctx.m, m),
+        : id(id), p(p), b(p.m_batch_manager), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m),
           m_l2g(m, p.ctx.m) {
         for (auto e : _asms)
             asms.push_back(m_g2l(e));
         LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");
-        m_smt_params.m_preprocess = false;
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
+        ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
         ctx->set_random_seed(id + m_smt_params.m_random_seed);
         // don't share initial units
         ctx->pop_to_base_lvl();
         m_num_shared_units = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
+        ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
     }
 
     void parallel::worker::share_units() {
         // Collect new units learned locally by this worker and send to batch manager
+        
         ctx->pop_to_base_lvl();
         unsigned sz = ctx->assigned_literals().size();
         for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
@@ -152,7 +154,7 @@ namespace smt {
                 continue;
 
             if (m_config.m_share_units_initial_only && lit.var() >= m_num_initial_atoms) {
-                LOG_WORKER(2, " Skipping non-initial unit: " << lit.var() << "\n");
+                LOG_WORKER(4, " Skipping non-initial unit: " << lit.var() << "\n");
                 continue;  // skip non-iniial atoms if configured to do so
             }
 
@@ -280,6 +282,8 @@ namespace smt {
         // node->get_status() == status::active
         // and depth is 'high' enough
         // then ignore split, and instead set the status of node to open.
+        ++m_stats.m_num_cubes;
+        m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, node->depth() + 1);
         m_search_tree.split(node, lit, nlit);
     }
 
@@ -298,7 +302,7 @@ namespace smt {
         // iterate over new clauses and assert them in the local context
         for (expr *e : new_clauses) {
             ctx->assert_expr(e);
-            LOG_WORKER(2, " asserting shared clause: " << mk_bounded_pp(e, m, 3) << "\n");
+            LOG_WORKER(4, " asserting shared clause: " << mk_bounded_pp(e, m, 3) << "\n");
         }
     }
 

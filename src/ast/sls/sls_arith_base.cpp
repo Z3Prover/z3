@@ -2588,6 +2588,8 @@ namespace sls {
 
     template<typename num_t>
     void arith_base<num_t>::invariant() {
+        if (m.limit().is_canceled())
+            return;
         for (unsigned v = 0; v < ctx.num_bool_vars(); ++v) {
             auto ineq = get_ineq(v);
             if (ineq)
@@ -2622,6 +2624,8 @@ namespace sls {
         };
         for (var_t v = 0; v < m_vars.size(); ++v) {
             if (!eval_is_correct(v)) {
+                if (m.limit().is_canceled())
+                    return;
                 report_error(verbose_stream(), v);
                 TRACE(arith, report_error(tout, v));
                 UNREACHABLE();
@@ -2707,6 +2711,8 @@ namespace sls {
     void arith_base<num_t>::update_unchecked(var_t v, num_t const& new_value) {
         auto& vi = m_vars[v];
         auto old_value = value(v);
+        if (old_value == new_value)
+            return;
         IF_VERBOSE(5, verbose_stream() << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
         TRACE(arith, tout << "update: v" << v << " " << mk_bounded_pp(vi.m_expr, m) << " := " << old_value << " -> " << new_value << "\n");
         vi.set_value(new_value);

@@ -83,7 +83,7 @@ namespace smt {
 
         void init_search_eh() override;
         void assign_eh(bool_var v, bool is_true) override;
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned level) override;
         bool use_diseqs() const override {
             return false;
         }

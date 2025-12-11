@@ -36,7 +36,7 @@ public final class Log
     public static boolean open(String filename)
     {
         m_is_open = true;
-        return Native.openLog(filename) == 1;
+        return Native.openLog(filename);
     }
 
     /**

@@ -1000,6 +1000,7 @@ namespace arith {
     }
 
     sat::check_result solver::check() {
+        unsigned level = 2;
         force_push();
         m_model_is_initialized = false;
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
@@ -1042,7 +1043,7 @@ namespace arith {
         if (!check_delayed_eqs())
             return sat::check_result::CR_CONTINUE;
 
-        switch (check_nla()) {
+        switch (check_nla(level)) {
         case l_true:
             m_use_nra_model = true;
             break;
@@ -1498,7 +1499,7 @@ namespace arith {
     }
 
 
-    lbool solver::check_nla() {
+    lbool solver::check_nla(unsigned level) {
         if (!m.inc()) {
             TRACE(arith, tout << "canceled\n";);
             return l_undef;
@@ -1509,7 +1510,7 @@ namespace arith {
         if (!m_nla->need_check())
             return l_true;
 
-        lbool r = m_nla->check();
+        lbool r = m_nla->check(level);
         switch (r) {
         case l_false:
             add_lemmas();

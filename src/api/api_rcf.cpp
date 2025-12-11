@@ -385,7 +385,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    int Z3_API Z3_rcf_interval(Z3_context c, Z3_rcf_num a, int * lower_is_inf, int * lower_is_open, Z3_rcf_num * lower, int * upper_is_inf, int * upper_is_open, Z3_rcf_num * upper) {
+    int Z3_API Z3_rcf_interval(Z3_context c, Z3_rcf_num a, bool * lower_is_inf, bool * lower_is_open, Z3_rcf_num * lower, bool * upper_is_inf, bool * upper_is_open, Z3_rcf_num * upper) {
         Z3_TRY;
         LOG_Z3_rcf_interval(c, a, lower_is_inf, lower_is_open, lower, upper_is_inf, upper_is_open, upper);
         RESET_ERROR_CODE();

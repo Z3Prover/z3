@@ -105,17 +105,42 @@ static const tag_info* get_tag_infos() {
 }
 
 
-static bool has_overlap(char const* s, char const* t) {
-    if (s[0] == t[0])
-        return true;
-    return false;
+static size_t levenshtein_distance(const char* s, const char* t) {
+    size_t len_s = strlen(s);
+    size_t len_t = strlen(t);
+    std::vector<size_t> prev(len_t + 1), curr(len_t + 1);
+
+    for (size_t j = 0; j <= len_t; ++j)
+        prev[j] = j;
+
+    for (size_t i = 1; i <= len_s; ++i) {
+        curr[0] = i;
+        for (size_t j = 1; j <= len_t; ++j) {
+            size_t cost = s[i - 1] == t[j - 1] ? 0 : 1;
+            curr[j] = std::min({ prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost });
+        }
+        prev.swap(curr);
+    }
+    return prev[len_t];
+}
+
+static bool has_overlap(char const* s, char const* t, size_t k) {
+    // Consider overlap if Levenshtein distance is <= k
+    return levenshtein_distance(s, t) <= k;
 }
 
 void enable_trace(const char * tag_str) {
     TraceTag tag = find_trace_tag_by_string(tag_str);
+    size_t k = strlen(tag_str);
+
+
+  
     if (tag == TraceTag::Count) {
         warning_msg("trace tag '%s' does not exist", tag_str);
-#define X(tag_class, tag, desc) if (has_overlap(#tag, tag_str)) warning_msg("did you mean '%s'?", #tag);
+#define X(tag_class, tag, desc) k = std::min(levenshtein_distance(#tag, tag_str), k);
+#include "util/trace_tags.def"
+#undef X
+#define X(tag_class, tag, desc) if (has_overlap(#tag, tag_str, k + 2)) warning_msg("did you mean '%s'?", #tag);
 #include "util/trace_tags.def"
 #undef X           
         return;
