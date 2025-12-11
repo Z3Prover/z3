@@ -28,7 +28,7 @@ AccessModifierOffset: -4
 
 # Function definitions
 AlwaysBreakAfterReturnType: None
-AllowShortFunctionsOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 # Ensure function-opening brace is attached to the signature
