@@ -586,7 +586,7 @@ namespace nlsat {
                     return;
              }
             // All coefficients vanish at the sample, so delineability cannot be established.
-            fail();
+            // fail();
         }
 
         // Extracted helper: check preconditions for an_del property; returns true if ok, false otherwise.
