@@ -20,8 +20,10 @@ Notes:
 --*/
 #include <typeinfo>
 #include "ast/reg_decl_plugins.h"
+#include "ast/ast_translation.h"
 #include "opt/opt_solver.h"
 #include "smt/smt_context.h"
+#include "smt/smt_kernel.h"
 #include "smt/theory_arith.h"
 #include "smt/theory_diff_logic.h"
 #include "smt/theory_dense_diff_logic.h"
@@ -67,9 +69,35 @@ namespace opt {
         m_params.m_arith_auto_config_simplex = true;
     }
 
-    solver* opt_solver::translate(ast_manager& m, params_ref const& p) {
-        UNREACHABLE();
-        return nullptr;
+    solver* opt_solver::translate(ast_manager& target_m, params_ref const& p) {
+        // Create translator for AST objects
+        ast_translation translator(get_manager(), target_m);
+        
+        // Create a new generic model converter for the target manager
+        generic_model_converter_ref new_fm = alloc(generic_model_converter, target_m, "opt");
+        
+        // Translate the existing model converter if present
+        if (mc0()) {
+            new_fm = mc0()->translate(translator);
+        }
+        
+        // Create a new opt_solver in the target manager
+        opt_solver* result = alloc(opt_solver, target_m, p, *new_fm);
+        
+        // Copy the smt kernel state
+        smt::kernel::copy(m_context, result->m_context, true);
+        
+        // Set the logic if it was set
+        if (m_logic != symbol::null) {
+            result->set_logic(m_logic);
+        }
+        
+        // Translate objective terms
+        for (expr* term : m_objective_terms) {
+            result->m_objective_terms.push_back(translator(term));
+        }
+        
+        return result;
     }
 
     void opt_solver::collect_param_descrs(param_descrs & r) {
