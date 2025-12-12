@@ -67,6 +67,14 @@ class maximize_ac_sharing : public default_rewriter_cfg {
 
 protected:
     void register_kind(decl_kind k);
+    void init() {
+        if (!m_init) {
+            init_core();
+            m_init = true;
+        }
+    }
+    virtual void init_core() = 0; 
+    virtual bool is_numeral(expr * n) const = 0;
 
 private:
     ast_manager &     m;
@@ -80,15 +88,6 @@ private:
     bool contains(func_decl * f, expr * arg1, expr * arg2);
     void insert(func_decl * f, expr * arg1, expr * arg2);
     void restore_entries(unsigned old_lim);
-    void init() {
-        if (!m_init) {
-            init_core();
-            m_init = true;
-        }
-    }
-protected:
-    virtual void init_core() = 0; 
-    virtual bool is_numeral(expr * n) const = 0;
 public:
     maximize_ac_sharing(ast_manager & m);
     virtual ~maximize_ac_sharing();
