@@ -229,9 +229,6 @@ namespace sat {
             literal r  = roots[v];
             SASSERT(v != r.var());
 
-            if (m_solver.m_cut_simplifier)
-                m_solver.m_cut_simplifier->set_root(v, r);
-
             bool set_root = m_solver.set_root(l, r);
             TRACE(elim_eqs, tout << l << " " << r << "\n";);
             if (m_solver.is_assumption(v) || (m_solver.is_external(v) && (m_solver.is_incremental() || !set_root))) {

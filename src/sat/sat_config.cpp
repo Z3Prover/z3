@@ -109,15 +109,6 @@ namespace sat {
         m_anf_simplify      = p.anf();
         m_anf_delay         = p.anf_delay();
         m_anf_exlin         = p.anf_exlin();
-        m_cut_simplify      = p.cut();
-        m_cut_delay         = p.cut_delay();
-        m_cut_aig           = p.cut_aig();
-        m_cut_lut           = p.cut_lut();
-        m_cut_xor           = p.cut_xor();
-        m_cut_npn3          = p.cut_npn3();
-        m_cut_dont_cares    = p.cut_dont_cares();
-        m_cut_redundancies  = p.cut_redundancies();
-        m_cut_force         = p.cut_force();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_double = p.lookahead_double();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();

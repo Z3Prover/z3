@@ -38,7 +38,6 @@ Notes:
 #include "model/model_v2_pp.h"
 #include "tactic/tactic.h"
 #include "ast/converters/generic_model_converter.h"
-#include "sat/sat_cut_simplifier.h"
 #include "sat/sat_drat.h"
 #include "sat/tactic/sat2goal.h"
 #include "sat/smt/pb_solver.h"
