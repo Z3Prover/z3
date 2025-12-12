@@ -21,7 +21,8 @@ Notes:
 --*/
 #pragma once
 
-#include "sat_types.h"
+#include "sat/sat_types.h"
+#include "sat/sat_clause.h"
 
 namespace sat {
     class justification;

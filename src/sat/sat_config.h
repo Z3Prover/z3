@@ -119,15 +119,6 @@ namespace sat {
         bool               m_local_search;
         local_search_mode  m_local_search_mode;
         bool               m_local_search_dbg_flips;
-        bool               m_cut_simplify;
-        unsigned           m_cut_delay;
-        bool               m_cut_aig;
-        bool               m_cut_lut;
-        bool               m_cut_xor;
-        bool               m_cut_npn3;
-        bool               m_cut_dont_cares;
-        bool               m_cut_redundancies;
-        bool               m_cut_force;
         bool               m_anf_simplify;
         unsigned           m_anf_delay;
         bool               m_anf_exlin;

@@ -16,6 +16,7 @@ Author:
 --*/
 #pragma once
 
+#include "util/union_find.h"
 #include "ast/ast_trail.h"
 #include "sat/smt/sat_th.h"
 #include "ast/array_decl_plugin.h"

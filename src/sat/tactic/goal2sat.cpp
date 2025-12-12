@@ -38,7 +38,6 @@ Notes:
 #include "model/model_v2_pp.h"
 #include "tactic/tactic.h"
 #include "ast/converters/generic_model_converter.h"
-#include "sat/sat_cut_simplifier.h"
 #include "sat/sat_drat.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/smt/pb_solver.h"
@@ -76,7 +75,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     bool                        m_default_external;
     bool                        m_euf = false;
     bool                        m_top_level = false;
-    sat::literal_vector         aig_lits;
     
     imp(ast_manager & _m, params_ref const & p, sat::solver_core & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
@@ -89,10 +87,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_unhandled_funs(m),
         m_default_external(default_external) {
         updt_params(p);
-    }
-
-    sat::cut_simplifier* aig() {
-        return m_solver.get_cut_simplifier();
     }
 
     void updt_params(params_ref const & p) {
@@ -440,16 +434,11 @@ struct goal2sat::imp : public sat::sat_internalizer {
                        
             m_result_stack.push_back(~l);
             lits = m_result_stack.end() - num - 1;
-            if (aig()) {
-                aig_lits.reset();
-                aig_lits.append(num, lits);
-            }
+
             // remark: mk_clause may perform destructive updated to lits.
             // I have to execute it after the binary mk_clause above.
             mk_clause(num+1, lits, mk_tseitin(num+1, lits));
-            if (aig()) 
-                aig()->add_or(l, num, aig_lits.data());
-                        
+     
             m_solver.set_phase(~l);               
             m_result_stack.shrink(old_sz);
             if (sign)
@@ -497,14 +486,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }
             m_result_stack.push_back(l);
             lits = m_result_stack.end() - num - 1;
-            if (aig()) {
-                aig_lits.reset();
-                aig_lits.append(num, lits);
-            }
-            mk_clause(num+1, lits, mk_tseitin(num+1, lits));
-            if (aig()) {
-                aig()->add_and(l, num, aig_lits.data());
-            }        
+            mk_clause(num+1, lits, mk_tseitin(num+1, lits));      
             m_solver.set_phase(l);               
             if (sign)
                 l.neg();
@@ -546,7 +528,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 mk_clause(~t, ~e, l, mk_tseitin(~t, ~e, l));
                 mk_clause(t,  e, ~l, mk_tseitin(t, e, ~l));
             }
-            if (aig()) aig()->add_ite(l, c, t, e);
             if (sign)
                 l.neg();
 
@@ -645,7 +626,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
             mk_clause(~l, ~l1,  l2, mk_tseitin(~l, ~l1, l2));
             mk_clause(l,   l1,  l2, mk_tseitin(l, l1, l2));
             mk_clause(l,  ~l1, ~l2, mk_tseitin(l, ~l1, ~l2));
-            if (aig()) aig()->add_iff(l, l1, l2);
 
             cache(t, l);
             if (sign)

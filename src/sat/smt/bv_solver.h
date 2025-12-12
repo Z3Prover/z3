@@ -16,6 +16,7 @@ Author:
 --*/
 #pragma once
 
+#include "util/union_find.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/bv_ackerman.h"
 #include "ast/rewriter/bit_blaster/bit_blaster.h"
