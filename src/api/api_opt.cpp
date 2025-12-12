@@ -481,9 +481,9 @@ extern "C" {
         Z3_CATCH;        
     }
 
-    Z3_optimize Z3_API Z3_optimize_translate(Z3_context source, Z3_optimize o, Z3_context target) {
+    Z3_optimize Z3_API Z3_optimize_translate(Z3_context c, Z3_optimize o, Z3_context target) {
         Z3_TRY;
-        LOG_Z3_optimize_translate(source, o, target);
+        LOG_Z3_optimize_translate(c, o, target);
         RESET_ERROR_CODE();
         
         // Translate the opt::context to the target manager

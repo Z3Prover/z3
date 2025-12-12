@@ -386,7 +386,7 @@ extern "C" {
        to another. This is useful when working with multiple contexts and needing to
        transfer optimization problems between them.
        
-       \param source Source context containing the optimization context to translate
+       \param c Source context containing the optimization context to translate
        \param o The optimization context to translate from the source context
        \param target Target context where the optimization context will be created
        
@@ -394,7 +394,7 @@ extern "C" {
        
        def_API('Z3_optimize_translate', OPTIMIZE, (_in(CONTEXT), _in(OPTIMIZE), _in(CONTEXT)))
      */
-    Z3_optimize Z3_API Z3_optimize_translate(Z3_context source, Z3_optimize o, Z3_context target);
+    Z3_optimize Z3_API Z3_optimize_translate(Z3_context c, Z3_optimize o, Z3_context target);
 
 
     /**@}*/

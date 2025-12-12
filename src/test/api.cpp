@@ -107,8 +107,62 @@ static void test_mk_distinct() {
     
 }
 
+void test_optimize_translate() {
+    Z3_config cfg1 = Z3_mk_config();
+    Z3_context ctx1 = Z3_mk_context(cfg1);
+    Z3_del_config(cfg1);
+    
+    // Create optimization context in first context
+    Z3_optimize opt1 = Z3_mk_optimize(ctx1);
+    Z3_optimize_inc_ref(ctx1, opt1);
+    
+    // Add some constraints
+    Z3_sort int_sort = Z3_mk_int_sort(ctx1);
+    Z3_symbol x_sym = Z3_mk_string_symbol(ctx1, "x");
+    Z3_ast x = Z3_mk_const(ctx1, x_sym, int_sort);
+    
+    Z3_ast zero = Z3_mk_int(ctx1, 0, int_sort);
+    Z3_ast constraint = Z3_mk_gt(ctx1, x, zero);  // x > 0
+    
+    Z3_optimize_assert(ctx1, opt1, constraint);
+    
+    // Add an objective to maximize x
+    Z3_optimize_maximize(ctx1, opt1, x);
+    
+    // Create second context
+    Z3_config cfg2 = Z3_mk_config();
+    Z3_context ctx2 = Z3_mk_context(cfg2);
+    Z3_del_config(cfg2);
+    
+    // Translate optimize context to second context
+    Z3_optimize opt2 = Z3_optimize_translate(ctx1, opt1, ctx2);
+    Z3_optimize_inc_ref(ctx2, opt2);
+    
+    // Check sat in the translated context
+    Z3_lbool result = Z3_optimize_check(ctx2, opt2, 0, nullptr);
+    
+    ENSURE(result == Z3_L_TRUE);
+    
+    // Verify we can get assertions from translated context
+    Z3_ast_vector assertions = Z3_optimize_get_assertions(ctx2, opt2);
+    unsigned num_assertions = Z3_ast_vector_size(ctx2, assertions);
+    ENSURE(num_assertions == 1);
+    
+    // Verify we can get objectives from translated context
+    Z3_ast_vector objectives = Z3_optimize_get_objectives(ctx2, opt2);
+    unsigned num_objectives = Z3_ast_vector_size(ctx2, objectives);
+    ENSURE(num_objectives == 1);
+    
+    // Clean up
+    Z3_optimize_dec_ref(ctx2, opt2);
+    Z3_optimize_dec_ref(ctx1, opt1);
+    Z3_del_context(ctx2);
+    Z3_del_context(ctx1);
+}
+
 void tst_api() {
     test_apps();
     test_bvneg();
     test_mk_distinct();
+    test_optimize_translate();
 }

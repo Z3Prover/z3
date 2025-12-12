@@ -76,16 +76,16 @@ namespace opt {
         // Create a new generic model converter for the target manager
         generic_model_converter_ref new_fm = alloc(generic_model_converter, target_m, "opt");
         
-        // Translate the existing model converter if present
-        if (mc0()) {
-            new_fm = mc0()->translate(translator);
-        }
-        
         // Create a new opt_solver in the target manager
         opt_solver* result = alloc(opt_solver, target_m, p, *new_fm);
         
         // Copy the smt kernel state
         smt::kernel::copy(m_context, result->m_context, true);
+        
+        // Translate the existing model converter if present
+        if (mc0()) {
+            result->set_model_converter(mc0()->translate(translator));
+        }
         
         // Set the logic if it was set
         if (m_logic != symbol::null) {
