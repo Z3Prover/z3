@@ -200,7 +200,6 @@ namespace nla {
         //   
         unsigned_vector m_lower, m_upper;               // var -> index into m_bounds
         vector<bound_info> m_bounds;                    // bound index -> bound meta-data
-        unsigned m_level = 0;
 
         unsigned           m_prop_qhead = 0;            // head into propagation queue
         lp::constraint_index m_conflict = lp::null_ci;
@@ -313,7 +312,6 @@ namespace nla {
         void remove_occurs(lp::constraint_index ci);
 
         lp::constraint_index factor(lp::constraint_index ci);
-        bool conflict(lp::constraint_index ci);
         void conflict(svector<lp::constraint_index> const& core);
         lp::constraint_index vanishing(lpvar x, factorization const& f, lp::constraint_index ci);
         unsigned degree_of_var_in_constraint(lpvar v, lp::constraint_index ci) const;

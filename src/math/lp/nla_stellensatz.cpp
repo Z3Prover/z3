@@ -122,12 +122,10 @@ namespace nla {
     }
 
     lbool stellensatz::saturate() {
-        // TODO: set up initial bounds
-        unsigned num_conflicts = 0, num_constraints = 0;
+        unsigned num_conflicts = 0;
         init_solver();
         TRACE(arith, display(tout << "stellensatz before saturation\n"));
     start_saturate:
-        num_constraints = m_constraints.size();
         lbool r = search();
 
         if (r == l_undef)
@@ -165,6 +163,8 @@ namespace nla {
     }
 
     void stellensatz::init_solver() {
+        while (!m_bounds.empty())
+            pop_bound();
         m_ctrail.reset();
         m_vtrail.reset();
         m_monomial_factory.reset();
@@ -206,6 +206,7 @@ namespace nla {
     }
 
     void stellensatz::init_bounds() {
+        unsigned level = m_vtrail.get_num_scopes();
         for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {
             auto [p, k, j] = m_constraints[ci];
             if (!p.is_unilinear())
@@ -220,7 +221,7 @@ namespace nla {
                     lb = floor(lb);
                 if (!has_lo(x) ||
                     lo_val(x) < lb || (!lo_is_strict(x) && k == lp::lconstraint_kind::GT && lo_val(x) == lb)) {
-                    bound_info bi(x, k, lb, m_level, m_lower[x]);
+                    bound_info bi(x, k, lb, level, m_lower[x]);
                     m_lower[x] = m_bounds.size();
                     m_bounds.push_back(bi);
                 }
@@ -233,7 +234,7 @@ namespace nla {
                     (!hi_is_strict(x) && k == lp::lconstraint_kind::GT && hi_val(x) == ub)) {
                     bound_info bi(x,
                                   k == lp::lconstraint_kind::GT ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE,
-                                  ub, m_level, m_upper[x]);
+                                  ub, level, m_upper[x]);
                     m_upper[x] = m_bounds.size();
                     m_bounds.push_back(bi);
                 }
@@ -444,14 +445,6 @@ namespace nla {
         CTRACE(arith, new_ci == m_constraints.size() - 1, display_constraint(tout << "not new ", new_ci) << "\n");
         CTRACE(arith, new_ci != m_constraints.size() - 1, display_constraint(tout << "new ", new_ci) << "\n");
         return new_ci;
-    }
-
-    bool stellensatz::conflict(lp::constraint_index ci) {
-        if (!constraint_is_conflict(ci))
-            return false;
-        m_core.reset();
-        m_core.push_back(ci);
-        return true;
     }
 
     void stellensatz::conflict(svector<lp::constraint_index> const& core) {
@@ -677,6 +670,9 @@ namespace nla {
         return eval(p);
     }
 
+    //
+    // normalize constraint by dividing by gcd of coefficients
+    //
     lp::constraint_index stellensatz::gcd_normalize(lp::constraint_index ci) {
         auto [p, k, j] = m_constraints[ci];
         rational g(0);
@@ -686,20 +682,26 @@ namespace nla {
                 g = gcd(g, c);
         if (g == 0 || g == 1)
             return ci;
+        // g := gcd of non-constant coefficients, or all coefficients if not integer
         switch (k) {
         case lp::lconstraint_kind::GE: {
+            // p + k >= 0
+            // -> (p + k) / g >= 0
+            // -> p / g + k/g + floor(k/g) - k/g >= 0
+            // -> p / g + floor(k/g) >= 0
             auto q = p * (1/ g);
-            q += (ceil(q.offset()) - q.offset());
+            q += (floor(q.offset()) - q.offset());
             return add_constraint(q, k, gcd_justification(ci));
         }
         case lp::lconstraint_kind::GT: {
-            auto q = p;
+            // p + k > 0
+            // p / g + floor(k/g) > 0
+            auto q = p * (1 / g);                          
+            q += (floor(q.offset()) - q.offset());
             if (_is_int) {
-                q += rational(1);
-                k = lp::lconstraint_kind::GE;                
+                k = lp::lconstraint_kind::GE;
+                q -= rational(1);
             }
-            q *= (1 / g);
-            q += (ceil(q.offset()) - q.offset());
             return add_constraint(q, k, gcd_justification(ci));
         }
         case lp::lconstraint_kind::LT:
@@ -817,8 +819,7 @@ namespace nla {
         m_has_occurs[ci] = true;
         auto const &con = m_constraints[ci];
         for (auto v : con.p.free_vars())
-            m_occurs[v].push_back(ci);
-        
+            m_occurs[v].push_back(ci);        
     }
 
     void stellensatz::remove_occurs(lp::constraint_index ci) {
@@ -899,6 +900,7 @@ namespace nla {
         if (iv->m_upper > 0)
             return false;
         bool is_negative = iv->m_upper < 0 || iv->m_upper_open;
+        SASSERT(!is_negative || iv->m_upper == 0);
         bool is_conflict = k == lp::lconstraint_kind::GT || (k == lp::lconstraint_kind::GE && is_negative);
         if (!is_conflict)
             return false;
@@ -970,6 +972,8 @@ namespace nla {
             else if (!decide())
                 is_sat = l_true;
         }
+        if (is_sat == l_true) 
+            return all_of(m_constraints, [&](auto const &c) { return constraint_is_true(c); }) ? l_true : l_undef;        
         return is_sat;
     }
 
@@ -994,6 +998,8 @@ namespace nla {
 
     // walk m_bounds based on the propagated bounds
     lbool stellensatz::resolve_conflict() { 
+        TRACE(arith, 
+              tout << "resolving conflict: "; display_constraint(tout, m_conflict) << "\n"; display(tout););
         SASSERT(is_conflict());
         m_conflict_marked.reset();
         mark_dependencies(m_conflict_dep);
@@ -1016,11 +1022,20 @@ namespace nla {
             if (conflict_level == 0 && ci != lp::null_ci)
                 m_core.push_back(ci);
             found_decision = is_decision;
+            TRACE(arith,
+                  tout << "resolving on v" << v << " at level " << level << " is_decision: " << is_decision << "\n";
+                  display_constraint(tout, ci) << "\n"; tout << "new conflict: ";
+                  display_constraint(tout, m_conflict) << "\n";
+            );
         }
         SASSERT(found_decision || conflict_level == 0);
         SASSERT(!found_decision || conflict_level != 0);
         if (conflict_level == 0)
             return l_false;
+        if (constraint_is_conflict(m_conflict)) {
+            m_core.push_back(m_conflict);
+            return l_false;
+        }
 
         auto [v, k, value, level, last_bound, is_decision, dep, ci] = m_bounds.back();
         SASSERT(is_decision);
@@ -1048,12 +1063,15 @@ namespace nla {
             break;        
         }
         dep = nullptr;
-        for (auto d : m_conflict_marked)
-            dep = m_dm.mk_join(m_dm.mk_leaf(d), dep);    
-        bool is_upper = (k == lp::lconstraint_kind::LE) || k == lp::lconstraint_kind::LT;
+        unsigned propagation_level = 0;
+        for (auto d : m_conflict_marked) {
+            dep = m_dm.mk_join(m_dm.mk_leaf(d), dep);
+            propagation_level = std::max(propagation_level, m_bounds[d].m_level);
+        }
+        bool is_upper = (k == lp::lconstraint_kind::LE) || (k == lp::lconstraint_kind::LT);
         last_bound = is_upper ? m_upper[v] : m_lower[v];
         (is_upper ? m_upper[v] : m_lower[v]) = m_bounds.size();
-        m_bounds.push_back(bound_info(v, k, value, m_level, last_bound, dep, m_conflict));
+        m_bounds.push_back(bound_info(v, k, value, propagation_level, last_bound, dep, m_conflict));
         // set the value within bounds if the bounds are consistent.
         set_in_bounds(v);
         return l_undef; 
@@ -1103,16 +1121,21 @@ namespace nla {
                 rational value;
                 lp::lconstraint_kind k;
                 unsigned_vector deps;
+                unsigned level = 0;
                 if (constraint_is_propagating(ci, d, w, value, k)) {
                     TRACE(arith, display_constraint(tout, ci) << "\n";
                           tout << "v" << w << " " << k << " " << value << "\n"; m_dm.linearize(d, deps);
                           for (auto d : deps) display_bound(tout, d););
+
+                    m_dm.linearize(d, deps);
+                    for (auto d : deps)
+                        level = std::max(level, m_bounds[d].m_level);
                     
                     bool is_upper  = k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::LT;
                     bool is_strict = k == lp::lconstraint_kind::LT || k == lp::lconstraint_kind::GT;
                     auto last_bound = is_upper ? m_upper[w] : m_lower[w];
                     (is_upper ? m_upper[w] : m_lower[w]) = m_bounds.size();
-                    m_bounds.push_back(bound_info(w, k, value, m_level, last_bound, d, ci));
+                    m_bounds.push_back(bound_info(w, k, value, level, last_bound, d, ci));
                     if (!is_strict)
                         m_values[w] = value;
                     else {
@@ -1152,12 +1175,10 @@ namespace nla {
             SASSERT(k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::GE);
             bool is_upper = k == lp::lconstraint_kind::LE;
             m_vtrail.push_scope();
-            m_vtrail.push(value_trail(m_level));
             m_dm.push_scope();
-            m_level++;
             auto last_bound = is_upper ? m_upper[w] : m_lower[w];
             (is_upper ? m_upper[w] : m_lower[w]) = m_bounds.size();
-            m_bounds.push_back(bound_info(w, k, value, m_level, last_bound));
+            m_bounds.push_back(bound_info(w, k, value, m_vtrail.get_num_scopes(), last_bound));
             m_values[w] = value;
             SASSERT(well_formed(w));
             return true;
