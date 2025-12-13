@@ -379,6 +379,23 @@ extern "C" {
         void*        ctx,
         Z3_model_eh  model_eh);
 
+    /**
+       \brief Copy an optimization context from a source to a target context.
+       
+       This function allows translating an optimization context from one Z3_context
+       to another. This is useful when working with multiple contexts and needing to
+       transfer optimization problems between them.
+       
+       \param c Source context containing the optimization context to translate
+       \param o The optimization context to translate from the source context
+       \param target Target context where the optimization context will be created
+       
+       \return A new optimization context in the target context with the same state
+       
+       def_API('Z3_optimize_translate', OPTIMIZE, (_in(CONTEXT), _in(OPTIMIZE), _in(CONTEXT)))
+     */
+    Z3_optimize Z3_API Z3_optimize_translate(Z3_context c, Z3_optimize o, Z3_context target);
+
 
     /**@}*/
     /**@}*/
