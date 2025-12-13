@@ -217,6 +217,11 @@ namespace nla {
         void pop_bound();
         void mark_dependencies(u_dependency *d);
         bool should_propagate() const { return m_prop_qhead < m_bounds.size(); }
+        bool cyclic_bound_propagation(bool is_upper, lpvar v);
+        indexed_uint_set m_cyclic_visited;
+        svector<std::pair<lp::constraint_index, lpvar>> m_cycle;
+        bool find_cycle(svector<std::pair<lp::constraint_index, lpvar>> &cycle, unsigned bound_index, unsigned top_index);
+
         // assuming variables have bounds determine if polynomial has lower/upper bounds
         void interval(dd::pdd p, scoped_dep_interval &iv);
 
@@ -279,18 +284,14 @@ namespace nla {
         
        
         struct repair_var_info {
-            rational lo_value, hi_value;
-            lp::constraint_index lo = lp::null_ci, hi = lp::null_ci, vanishing = lp::null_ci;
+            lp::constraint_index ci = lp::null_ci, vanishing = lp::null_ci;
         };
         repair_var_info find_bounds(lpvar v);
         unsigned max_level(constraint const &c) const;
         bool repair_variable(lpvar& v, rational &r, lp::lconstraint_kind& k, lp::constraint_index& ci);
         void find_split(lpvar& v, rational& r, lp::lconstraint_kind& k, lp::constraint_index ci);
         void set_in_bounds(lpvar v);
-        bool in_bounds(lpvar v) { return in_bounds(v, m_values[v]); }
-                      
-        
-        
+        bool in_bounds(lpvar v) { return in_bounds(v, m_values[v]); }                              
         bool in_bounds(lpvar v, rational const &value) const;
 
         dd::pdd to_pdd(lpvar v);
@@ -301,6 +302,8 @@ namespace nla {
         lp::constraint_index add_constraint(dd::pdd p, lp::lconstraint_kind k, justification j);        
         lp::constraint_index add_var_bound(lp::lpvar v, lp::lconstraint_kind k, rational const &rhs, justification j);
         
+        mutable unsigned_vector m_deps;
+        unsigned_vector const &antecedents(u_dependency *d) const;
 
         // initialization
         void init_solver();
@@ -357,7 +360,9 @@ namespace nla {
         bool core_is_linear(svector<lp::constraint_index> const &core);
 
         bool well_formed() const;
-        bool well_formed(lpvar v) const;
+        bool well_formed_var(lpvar v) const;
+        bool well_formed_bound(unsigned bound_index) const;
+        bool well_formed_last_bound() const { return well_formed_bound(m_bounds.size() - 1); }
 
         struct pp_j {
             stellensatz const &s;
@@ -374,7 +379,7 @@ namespace nla {
         std::ostream& display_product(std::ostream& out, svector<lpvar> const& vars) const;
         std::ostream& display_constraint(std::ostream& out, lp::constraint_index ci) const;
         std::ostream& display_constraint(std::ostream& out, constraint const& c) const;
-        std::ostream &display_bound(std::ostream &out, unsigned bound_index) const;
+        std::ostream &display_bound(std::ostream &out, unsigned bound_index, unsigned& level) const;
         std::ostream &display(std::ostream &out, justification const &j) const;
         std::ostream &display_var(std::ostream &out, lpvar j) const;
         std::ostream &display_lemma(std::ostream &out, lp::explanation const &ex);
