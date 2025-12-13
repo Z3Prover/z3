@@ -209,6 +209,13 @@ namespace opt {
     public:
         context(ast_manager& m);
         ~context() override;
+        
+        /**
+         * \brief Create a clone of the optimization context in a different ast_manager.
+         * Translates all assertions, objectives, and solver state.
+         */
+        context* translate(ast_manager& target_m);
+        
         unsigned add_soft_constraint(expr* f, rational const& w, symbol const& id);
         unsigned add_objective(app* t, bool is_max);
         void add_hard_constraint(expr* f);
