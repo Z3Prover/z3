@@ -20,6 +20,7 @@ Notes:
 #include "nlsat/nlsat_interval_set.h"
 #include "nlsat/nlsat_evaluator.h"
 #include "nlsat/nlsat_solver.h"
+#include "nlsat/levelwise.h"
 #include "util/util.h"
 #include "nlsat/nlsat_explain.h"
 #include "math/polynomial/polynomial_cache.h"
@@ -959,11 +960,61 @@ x7 := 1
 
 }
 
+static void tst_nullified_polynomial() {
+    params_ref      ps;
+    reslimit        rlim;
+    nlsat::solver s(rlim, ps, false);
+    nlsat::pmanager & pm  = s.pm();
+    anum_manager & am     = s.am();
+    polynomial::cache cache(pm);
+
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+    nlsat::var x2 = s.mk_var(false);
+    nlsat::var x3 = s.mk_var(false);
+    ENSURE(x0 < x1 && x1 < x2);
+
+    polynomial_ref _x0(pm), _x1(pm), _x2(pm), _x3(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+    _x2 = pm.mk_polynomial(x2);
+    _x3 = pm.mk_polynomial(x3);
+
+    polynomial_ref p1(pm), p2(pm);
+    p1 = _x2 * _x1;
+    p2 = _x0;
+    p1 = p1 + p2;
+    p2 = _x3;
+    polynomial_ref_vector polys(pm);
+    polys.push_back(p1);
+    polys.push_back(p2);
+    nlsat::assignment as(am);
+    scoped_anum zero(am);
+    am.set(zero, 0);
+    as.set(x0, zero);
+    as.set(x1, zero);
+    as.set(x2, zero);
+    as.set(x3, zero);
+    s.set_rvalues(as);
+
+    unsigned max_x = 0;
+    for (unsigned i = 0; i < polys.size(); ++i) {
+        unsigned lvl = pm.max_var(polys.get(i));
+        if (lvl > max_x)
+            max_x = lvl;
+    }
+    ENSURE(max_x == x3);
+
+    nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
+    auto cell = lws.single_cell();
+    ENSURE(lws.failed());
+}
+
 void tst_nlsat() {
+    tst_nullified_polynomial();
     std::cout << "------------------\n";
     tst11();
     std::cout << "------------------\n";
-    return;
     tst10();
     std::cout << "------------------\n";
     tst9();
