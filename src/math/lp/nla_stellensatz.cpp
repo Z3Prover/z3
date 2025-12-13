@@ -485,6 +485,18 @@ namespace nla {
         return new_ci;
     }
 
+    //
+    // reduce x * y * p >= 0
+    // to    
+    // p >= 0 based on assumptions x > 0, y > 0 or x < 0, y < 0
+    // -p >= 0 based on assumptions x > 0, y < 0 or x < 0, y > 0
+    // 
+    // reduce x * y * p > 0
+    // to
+    // p > 0 based on assumptions x >= 0, y >= 0 or x <= 0, y <= 0
+    // -p > 0 based on assumptions x >= 0, y <= 0 or x <= 0, y >= 0
+    //
+
     lp::constraint_index stellensatz::factor(lp::constraint_index ci) {
         auto const &[p, k, j] = m_constraints[ci];
         auto [vars, q] = p.var_factors(); // p = vars * q
@@ -1833,6 +1845,8 @@ namespace nla {
                 TRACE(arith_verbose, display_constraint(tout << "skip non-maximal ", ci) << "\n");
                 continue;
             }
+            if (!constraint_is_false(ci))
+                continue;
             auto f = factor(v, ci);
             auto q_ge_0 = vanishing(v, f, ci);
             if (q_ge_0 != lp::null_ci) {
@@ -1876,11 +1890,11 @@ namespace nla {
                 }
             }
         }
-        if (inf == lp::null_ci) 
-            bound_ci = sup;        
-        else if (sup == lp::null_ci) 
-            bound_ci = inf;        
-        else 
+        if (inf == lp::null_ci)
+            bound_ci = sup;
+        else if (sup == lp::null_ci)
+            bound_ci = inf;
+        else
             bound_ci = c().random(2) ? inf : sup;        
         return result;
     }
