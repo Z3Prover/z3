@@ -266,7 +266,7 @@ namespace smt {
         if (m_search_tree.is_closed()) {
             m_state = state::is_unsat;
             SASSERT(p.ctx.m_unsat_core.empty());
-            for (auto e : m_search_tree.get_core())
+            for (auto e : m_search_tree.get_core_from_root())
                p.ctx.m_unsat_core.push_back(e);
             cancel_workers();
         }
