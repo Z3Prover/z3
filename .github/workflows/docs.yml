@@ -1,0 +1,85 @@
+name: Documentation
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: src/api/js
+
+env:
+  EM_VERSION: 3.1.73
+
+jobs:
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "lts/*"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz
+
+      - name: Setup emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          no-install: true
+          version: ${{env.EM_VERSION}}
+          actions-cache-folder: "emsdk-cache"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Build wasm
+        run: |
+          emsdk install ${EM_VERSION}
+          emsdk activate ${EM_VERSION}
+          source $(dirname $(which emsdk))/emsdk_env.sh
+          npm run build:wasm
+
+      - name: Generate Documentation (from doc directory)
+        working-directory: doc
+        run: |
+          python3 mk_api_doc.py --js --output-dir=api
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'doc/api/html'
+
+  deploy:
+    name: Deploy to GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build-docs
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
