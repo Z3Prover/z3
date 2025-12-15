@@ -3309,6 +3309,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     setParam,
     resetParams,
 
-    Context: createContext,
+    Context: createContext as ContextCtor,
   };
 }
