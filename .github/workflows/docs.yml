@@ -34,6 +34,11 @@ jobs:
         with:
           node-version: "lts/*"
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz
+
       - name: Setup emscripten
         uses: mymindstorm/setup-emsdk@v14
         with:
@@ -54,10 +59,7 @@ jobs:
           source $(dirname $(which emsdk))/emsdk_env.sh
           npm run build:wasm
 
-      - name: Generate JS/TS Documentation
-        run: npm run docs
-
-      - name: Generate C API Documentation
+      - name: Generate Documentation
         working-directory: doc
         run: |
           python3 mk_api_doc.py --js --output-dir=api
