@@ -168,26 +168,31 @@ stages:
         targetPath: $(Build.ArtifactStagingDirectory)   
 
   - job: ManyLinuxPythonBuildArm64
-    displayName: "Python bindings (manylinux Centos ARM64 cross) build"
+    displayName: "Python bindings (manylinux Centos ARM64) build"
     timeoutInMinutes: 90    
-    variables:
-      name: ManyLinux
-      python: "/opt/python/cp37-cp37m/bin/python"
     pool:
       vmImage: "ubuntu-latest"
-    container: "quay.io/pypa/manylinux2014_x86_64:latest"
     steps:
-    - script: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/11.2-2022.02/binrel/gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu.tar.xz?rev=33c6e30e5ac64e6dba8f0431f2c35f1b&hash=9918A05BF47621B632C7A5C8D2BB438FB80A4480'
-    - script: mkdir -p /tmp/arm-toolchain/
-    - script: tar xf /tmp/arm-toolchain.tar.xz -C /tmp/arm-toolchain/ --strip-components=1
-    - script: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
-    - script: 'echo "##vso[task.prependpath]$PWD/env/bin"'
-    - script: echo '##vso[task.prependpath]/tmp/arm-toolchain/bin'
-    - script: echo '##vso[task.prependpath]/tmp/arm-toolchain/aarch64-none-linux-gnu/libc/usr/bin'
-    - script: echo $PATH
-    - script: "stat `which aarch64-none-linux-gnu-gcc`"
-    - script: "pip install build git+https://github.com/rhelmot/auditwheel"
-    - script: "cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld Z3_CROSS_COMPILING=aarch64 python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../.."
+    - script: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-user-static
+      displayName: "Install QEMU for ARM64 emulation"
+    - script: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      displayName: "Register QEMU"
+    - script: |
+        docker run --rm -v $(pwd):/workspace -w /workspace \
+          quay.io/pypa/manylinux2014_aarch64:latest \
+          bash -c "/opt/python/cp38-cp38/bin/python -m venv /workspace/env && \
+                   source /workspace/env/bin/activate && \
+                   pip install build git+https://github.com/rhelmot/auditwheel && \
+                   cd src/api/python && \
+                   python -m build && \
+                   AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && \
+                   cd ../../.. && \
+                   pip install ./src/api/python/wheelhouse/*.whl && \
+                   python - <src/api/python/z3test.py z3 && \
+                   python - <src/api/python/z3test.py z3num"
+      displayName: "Build and test ARM64 wheel"
     - task: CopyFiles@2
       inputs:
         sourceFolder: src/api/python/wheelhouse
