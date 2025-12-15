@@ -747,7 +747,7 @@ jobs:
               .write();
       - name: Upload agentic run info
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: aw_info.json
           path: /tmp/aw_info.json
@@ -856,7 +856,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
       - name: Upload agentic output file
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: safe_output.jsonl
           path: ${{ env.GITHUB_AW_SAFE_OUTPUTS }}
@@ -1804,7 +1804,7 @@ jobs:
             await main();
       - name: Upload sanitized agent output
         if: always() && env.GITHUB_AW_AGENT_OUTPUT
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: agent_output.json
           path: ${{ env.GITHUB_AW_AGENT_OUTPUT }}
@@ -2341,7 +2341,7 @@ jobs:
             main();
       - name: Upload agent logs
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: daily-backlog-burner.log
           path: /tmp/daily-backlog-burner.log
@@ -2435,7 +2435,7 @@ jobs:
           fi
       - name: Upload git patch
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: aw.patch
           path: /tmp/aw.patch
