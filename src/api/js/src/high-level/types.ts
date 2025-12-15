@@ -125,7 +125,6 @@ export type CheckSatResult = 'sat' | 'unsat' | 'unknown';
 /** @hidden */
 export interface ContextCtor {
   <Name extends string>(name: Name, options?: Record<string, any>): Context<Name>;
-  new <Name extends string>(name: Name, options?: Record<string, any>): Context<Name>;
 }
 
 export interface Context<Name extends string = 'main'> {
