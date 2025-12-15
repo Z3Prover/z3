@@ -165,7 +165,7 @@ jobs:
           python-version: '3.x'
       
       - name: Download all artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           path: packages
       
@@ -220,7 +220,7 @@ jobs:
           python-version: '3.x'
       
       - name: Download x86 artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: windows-x86
           path: packages
