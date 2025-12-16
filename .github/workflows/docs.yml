@@ -52,7 +52,16 @@ jobs:
         run: |
           emsdk install ${EM_VERSION}
           emsdk activate ${EM_VERSION}
-
+          
+      - name: Set up Emscripten
+        run: |
+          source /home/runner/work/z3/z3/emsdk/emsdk_env.sh
+          which emmake
+          
+      - name: Build WASM
+        run: |
+          emmake make -j4 libz3.a
+          
       - name: Install JS dependencies
         working-directory: src/api/js
         run: |
