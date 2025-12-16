@@ -70,13 +70,32 @@ else()
 endif()
 
 # Link libz3 into the python directory so bindings work out of the box
-add_custom_command(OUTPUT "${z3py_bindings_build_dest}/libz3${CMAKE_SHARED_MODULE_SUFFIX}"
-  COMMAND "${CMAKE_COMMAND}" "-E" "${LINK_COMMAND}"
-    "${PROJECT_BINARY_DIR}/libz3${CMAKE_SHARED_MODULE_SUFFIX}"
-    "${z3py_bindings_build_dest}/libz3${CMAKE_SHARED_MODULE_SUFFIX}"
-  DEPENDS libz3
-  COMMENT "Linking libz3 into python directory"
-)
+# Handle both built libz3 and pre-installed libz3
+if (TARGET libz3)
+  # Get the libz3 location - handle both regular and imported targets
+  get_target_property(LIBZ3_IS_IMPORTED libz3 IMPORTED)
+  if (LIBZ3_IS_IMPORTED)
+    # For imported targets, get the IMPORTED_LOCATION
+    get_target_property(LIBZ3_SOURCE_PATH libz3 IMPORTED_LOCATION)
+    # No dependency on libz3 target since it's pre-built
+    set(LIBZ3_DEPENDS "")
+  else()
+    # For regular targets, use the build output location
+    set(LIBZ3_SOURCE_PATH "${PROJECT_BINARY_DIR}/libz3${CMAKE_SHARED_MODULE_SUFFIX}")
+    set(LIBZ3_DEPENDS libz3)
+  endif()
+
+  add_custom_command(OUTPUT "${z3py_bindings_build_dest}/libz3${CMAKE_SHARED_MODULE_SUFFIX}"
+    COMMAND "${CMAKE_COMMAND}" "-E" "${LINK_COMMAND}"
+      "${LIBZ3_SOURCE_PATH}"
+      "${z3py_bindings_build_dest}/libz3${CMAKE_SHARED_MODULE_SUFFIX}"
+    DEPENDS ${LIBZ3_DEPENDS}
+    COMMENT "Linking libz3 into python directory"
+  )
+else()
+  message(FATAL_ERROR "libz3 target not found. Cannot build Python bindings.")
+endif()
+
 
 # Convenient top-level target
 add_custom_target(build_z3_python_bindings
