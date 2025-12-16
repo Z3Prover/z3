@@ -249,7 +249,7 @@ namespace nla {
                 auto ub = -b / a;
                 if (var_is_int(x))
                     ub = floor(ub);
-                k = lp::lconstraint_kind::GT ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE;
+                k = (k == lp::lconstraint_kind::GT) ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE;
                 if (!has_hi(x) || hi_val(x) > ub || (!hi_is_strict(x) && k == lp::lconstraint_kind::LT && hi_val(x) == ub)) {
                     bound_info bi(x, k, ub, level, m_upper[x]);
                     m_upper[x] = m_bounds.size();
@@ -1324,7 +1324,7 @@ namespace nla {
                 }
             }
             // p < 0
-            if (ivp->m_upper_inf && ivp->m_upper < 0 && !ivq->m_upper_inf) {
+            if (!ivp->m_upper_inf && ivp->m_upper < 0 && !ivq->m_upper_inf) {
                 // v <= -q / p
                 auto quot = ivq->m_upper / ivp->m_upper;
                 if (var_is_int(x))
@@ -1392,7 +1392,7 @@ namespace nla {
         if (var_is_bound_conflict(v))
             return true;
         auto const &value = m_values[v];
-        if (var_is_int(v) && value.is_int())
+        if (var_is_int(v) && !value.is_int())
             return false;
         
         if (has_lo(v) && value < lo_val(v))
@@ -1421,7 +1421,7 @@ namespace nla {
     }
 
     std::ostream& stellensatz::display_bound(std::ostream& out, unsigned i, unsigned& level) const { 
-        auto const &[v, k, val, last_bound, level1, is_decision, d, ci] = m_bounds[i];
+        auto const &[v, k, val, level1, last_bound, is_decision, d, ci] = m_bounds[i];
         out << i;
         if (level1 != level) {
             level = level1;
@@ -1767,6 +1767,11 @@ namespace nla {
 
 
         auto f = factor(v, bound_ci);
+        if (f.degree != 1 || value(f.p) == 0) {
+            // Cannot repair this variable due to non-linear degree or zero coefficient
+            find_split(v, r, k, bound_ci);
+            return false;
+        }
         r = -value(f.q) / value(f.p);
         auto const& c = m_constraints[bound_ci];
 
