@@ -37,9 +37,7 @@ jobs:
 
       - name: Setup emscripten
         uses: mymindstorm/setup-emsdk@v14
-        working-directory: src/api/js
         with:
-          no-install: true
           version: ${{env.EM_VERSION}}
           actions-cache-folder: "emsdk-cache"
 
@@ -53,25 +51,11 @@ jobs:
 
       - name: Build wasm
         working-directory: src/api/js
-        run: |
-          emsdk install ${EM_VERSION}
-          emsdk activate ${EM_VERSION}
-          source $(dirname $(which emsdk))/emsdk_env.sh
-          which node
-          which clang++
-          npm run build:wasm
-
-      - name: Build Z3 for ubuntu-latest x64
-        run: |
-          python3 scripts/mk_make.py
-          cd build
-          make -j$(nproc)
+        run: npm run build:wasm
 
       - name: Generate Documentation (from doc directory)
         working-directory: doc
-        run: |
-          source $(dirname $(which emsdk))/emsdk_env.sh
-          python3 mk_api_doc.py --js --output-dir=api
+        run: python3 mk_api_doc.py --js --output-dir=api
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
