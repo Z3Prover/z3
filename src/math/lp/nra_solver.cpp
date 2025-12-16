@@ -65,7 +65,7 @@ struct solver::imp {
         if (m_nla_core.emons().is_monic_var(v)) {
             auto const &m = m_nla_core.emons()[v];
             for (auto v2 : m.vars()) {
-                den = lcm(denominators[v2], den);
+                den = denominators[v2] * den;
                 polynomial_ref pw(definitions.get(v2), m_nlsat->pm());
                 if (!p)
                     p = pw;
