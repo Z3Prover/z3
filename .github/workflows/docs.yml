@@ -17,6 +17,10 @@ concurrency:
 env:
   EM_VERSION: 3.1.73
 
+defaults:
+  run:
+    working-directory: src/api/js
+
 jobs:
   build-docs:
     name: Build Documentation
