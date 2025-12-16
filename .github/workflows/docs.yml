@@ -48,27 +48,21 @@ jobs:
           version: ${{env.EM_VERSION}}
           actions-cache-folder: "emsdk-cache"
 
-      - name: Install emscripten
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Build wasm
         run: |
           emsdk install ${EM_VERSION}
           emsdk activate ${EM_VERSION}
-          
-      - name: Set up Emscripten
-        run: |
-          source /home/runner/work/z3/z3/emsdk/emsdk_env.sh
-          which emmake
-          
-      - name: Build WASM
-        run: |
-          emmake make -j4 libz3.a
-          
-      - name: Install JS dependencies
-        working-directory: src/api/js
-        run: |
-          npm ci
-          npm run build:ts
+          source $(dirname $(which emsdk))/emsdk_env.sh
+          which node
+          which clang++
           npm run build:wasm
-
+          
       - name: Generate Documentation (from doc directory)
         working-directory: doc
         run: |
