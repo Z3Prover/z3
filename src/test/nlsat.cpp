@@ -960,6 +960,52 @@ x7 := 1
 
 }
 
+static void tst_polynomial_cache_mk_unique() {
+    params_ref ps;
+    reslimit rlim;
+    nlsat::solver s(rlim, ps, false);
+    nlsat::pmanager& pm = s.pm();
+    polynomial::cache cache(pm);
+    nlsat::var x = s.mk_var(false);
+    polynomial_ref x_poly(pm);
+    x_poly = pm.mk_polynomial(x);
+
+    polynomial_ref p(pm);
+    p = 2 * x_poly;
+    pm.display(std::cout, p);
+    std::cout << "\n";
+
+    ENSURE(!cache.contains(p.get()));
+    polynomial::polynomial* unique_p = cache.mk_unique(p.get());
+    ENSURE(unique_p != nullptr);
+    ENSURE(cache.contains(unique_p));
+    pm.display(std::cout, unique_p);
+    std::cout << "\n";
+
+    polynomial_ref p_again(pm);
+    p_again = 2 * x_poly;
+    ENSURE(cache.mk_unique(p_again.get()) == unique_p);
+
+    polynomial_ref p_neg(pm);
+    p_neg = -2 * x_poly;
+    ENSURE(!cache.contains(p_neg.get()));
+    polynomial::polynomial* unique_p_neg = cache.mk_unique(p_neg.get());
+    ENSURE(unique_p_neg != nullptr);
+    ENSURE(unique_p_neg != unique_p);
+    ENSURE(cache.contains(unique_p_neg));
+
+    polynomial_ref p_neg_again(pm);
+    p_neg_again = -2 * x_poly;
+    ENSURE(cache.mk_unique(p_neg_again.get()) == unique_p_neg);
+
+    polynomial_ref ca(p, pm), cb(p_neg, pm);
+    pm.primitive(ca, x, ca);
+    pm.primitive(cb, x, cb);
+    pm.display(std::cout << "ca:", ca) << "\n";
+    pm.display(std::cout << "cb:", cb) << "\n";
+           
+}
+
 static void tst_nullified_polynomial() {
     params_ref      ps;
     reslimit        rlim;
@@ -1011,6 +1057,8 @@ static void tst_nullified_polynomial() {
 }
 
 void tst_nlsat() {
+    tst_polynomial_cache_mk_unique();
+    std::cout << "------------------\n";
     tst_nullified_polynomial();
     std::cout << "------------------\n";
     tst11();
