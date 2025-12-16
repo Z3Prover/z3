@@ -14,10 +14,6 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
-defaults:
-  run:
-    working-directory: src/api/js
-
 env:
   EM_VERSION: 3.1.73
 
@@ -37,7 +33,13 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y doxygen graphviz
+          sudo apt-get install -y doxygen graphviz python3
+
+      - name: Build Z3 for ubuntu-latest x64
+        run: |
+          python3 scripts/mk_make.py
+          cd build
+          make -j$(nproc)
 
       - name: Setup emscripten
         uses: mymindstorm/setup-emsdk@v14
@@ -46,18 +48,14 @@ jobs:
           version: ${{env.EM_VERSION}}
           actions-cache-folder: "emsdk-cache"
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build TypeScript
-        run: npm run build:ts
-
-      - name: Build wasm
+      - name: Install emscripten
         run: |
           emsdk install ${EM_VERSION}
           emsdk activate ${EM_VERSION}
-          source $(dirname $(which emsdk))/emsdk_env.sh
-          npm run build:wasm
+
+      - name: Install JS dependencies
+        working-directory: src/api/js
+        run: npm ci
 
       - name: Generate Documentation (from doc directory)
         working-directory: doc
