@@ -548,13 +548,6 @@ set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
 )
 
 ################################################################################
-# Z3 components, library and executables
-################################################################################
-include(${PROJECT_SOURCE_DIR}/cmake/z3_add_component.cmake)
-include(${PROJECT_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
-add_subdirectory(src)
-
-################################################################################
 # Create `Z3Config.cmake` and related files for the build tree so clients can
 # use Z3 via CMake.
 ################################################################################
@@ -562,6 +555,13 @@ include(CMakePackageConfigHelpers)
 
 # Only export targets if we built libz3
 if (Z3_BUILD_LIBZ3_CORE)
+  ################################################################################
+  # Z3 components, library and executables
+  ################################################################################
+  include(${PROJECT_SOURCE_DIR}/cmake/z3_add_component.cmake)
+  include(${PROJECT_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
+  add_subdirectory(src)
+
   export(EXPORT Z3_EXPORTED_TARGETS
      NAMESPACE z3::
      FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
