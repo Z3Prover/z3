@@ -60,6 +60,7 @@ jobs:
       - name: Generate Documentation (from doc directory)
         working-directory: doc
         run: |
+          source $(dirname $(which emsdk))/emsdk_env.sh
           python3 mk_api_doc.py --js --output-dir=api
 
       - name: Setup Pages
