@@ -34,7 +34,8 @@ namespace nlsat {
         void reset();
         // Insert polynomial (canonicalizing if requested) and return the cached representative.
         poly* insert(poly* p);
-        bool contains(poly *) const;
+        bool contains(poly* p) const;
+        bool contains(polynomial_ref const& p) const { return contains(p.get()); }
         bool empty() const;
         // Return max variable in todo_set
         var max_var() const;

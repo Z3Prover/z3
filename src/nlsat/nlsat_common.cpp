@@ -32,6 +32,14 @@ namespace nlsat {
 
     poly* todo_set::insert(poly* p) {
         pmanager& pm = m_set.m();
+        if (m_in_set.get(pm.id(p), false))
+            return p;
+        if (m_cache.contains(p)) {
+            // still have to insert in the set
+            m_in_set.setx(pm.id(p), true, false);
+            m_set.push_back(p);
+            return p;    
+        }
         polynomial_ref pinned(pm); // keep canonicalized polynomial alive until it is stored
         if (m_canonicalize) {
             // Canonicalize content+sign so scalar multiples share the same representative.
@@ -55,9 +63,12 @@ namespace nlsat {
     }
 
     bool todo_set::contains(poly* p) const {
-        return m_cache.contains(p);
+        if (!p)
+            return false;
+        pmanager& pm = m_set.m();
+        return m_in_set.get(pm.id(p), false);
     }
-    
+
     bool todo_set::empty() const { return m_set.empty(); }
 
     // Return max variable in todo_set
