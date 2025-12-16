@@ -548,6 +548,32 @@ set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
 )
 
 ################################################################################
+# API header files
+################################################################################
+# This lists the API header files that are scanned by
+# some of the build rules to generate some files needed
+# by the build; needs to come before add_subdirectory(src)
+set(Z3_API_HEADER_FILES_TO_SCAN
+  z3_api.h
+  z3_ast_containers.h
+  z3_algebraic.h
+  z3_polynomial.h
+  z3_rcf.h
+  z3_fixedpoint.h
+  z3_optimization.h
+  z3_fpa.h
+  z3_spacer.h
+)
+set(Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN "")
+foreach (header_file ${Z3_API_HEADER_FILES_TO_SCAN})
+  set(full_path_api_header_file "${CMAKE_CURRENT_SOURCE_DIR}/src/api/${header_file}")
+  list(APPEND Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN "${full_path_api_header_file}")
+  if (NOT EXISTS "${full_path_api_header_file}")
+    message(FATAL_ERROR "API header file \"${full_path_api_header_file}\" does not exist")
+  endif()
+endforeach()
+
+################################################################################
 # Create `Z3Config.cmake` and related files for the build tree so clients can
 # use Z3 via CMake.
 ################################################################################

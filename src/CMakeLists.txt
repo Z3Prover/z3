@@ -1,30 +1,4 @@
 ################################################################################
-# API header files
-################################################################################
-# This lists the API header files that are scanned by
-# some of the build rules to generate some files needed
-# by the build
-set(Z3_API_HEADER_FILES_TO_SCAN
-  z3_api.h
-  z3_ast_containers.h
-  z3_algebraic.h
-  z3_polynomial.h
-  z3_rcf.h
-  z3_fixedpoint.h
-  z3_optimization.h
-  z3_fpa.h
-  z3_spacer.h
-)
-set(Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN "")
-foreach (header_file ${Z3_API_HEADER_FILES_TO_SCAN})
-  set(full_path_api_header_file "${CMAKE_CURRENT_SOURCE_DIR}/api/${header_file}")
-  list(APPEND Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN "${full_path_api_header_file}")
-  if (NOT EXISTS "${full_path_api_header_file}")
-    message(FATAL_ERROR "API header file \"${full_path_api_header_file}\" does not exist")
-  endif()
-endforeach()
-
-################################################################################
 # Traverse directories each adding a Z3 component
 ################################################################################
 # I'm duplicating the order in ``mk_project.py`` for now to help us keep
