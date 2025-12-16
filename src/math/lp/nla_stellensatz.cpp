@@ -4,6 +4,22 @@
 
   vanishing(v, p) = (q, r) with q = 0, r >= 0 if p := q*v + r, M(q) = 0
 
+  TODOs:
+
+  Assumptions are added to impose sign constraints on non-linear multipliers
+  or to identify vanishing polynomials.
+  The sign of the assumption is based on the current candidate interpretation.
+  It could be that the negation of this assumption is asserted (and is 
+  false under the current candiate interpretation). 
+  The procedure could loop around refining a false assumption.
+  To handle this we could also track bounds of polynomials. 
+  Then we can check if a bound on a polynomial is already asserted, 
+  either as a case split or as an input assertion.
+  To retract consequences of temporary assumed bounds we would associate
+  levels with constraints and also undo and replay constraints during backjumping/backtracking.
+  A bound assumption corresponds to a decision. A conflict that depends on a bound assumption
+  reverts the assumptiom, and justifies it by the conflict dependencies.
+  In this way we would eliminate the double nested loop: saturate looping over the search loop.
 
   --*/
 
@@ -202,7 +218,6 @@ namespace nla {
                 add_var_bound(v, k, rhs, external_justification(dep));
             }
         }
-        m_occurs.reserve(sz);
     }
 
     void stellensatz::init_bounds() {
@@ -496,7 +511,6 @@ namespace nla {
     // p > 0 based on assumptions x >= 0, y >= 0 or x <= 0, y <= 0
     // -p > 0 based on assumptions x >= 0, y <= 0 or x <= 0, y >= 0
     //
-
     lp::constraint_index stellensatz::factor(lp::constraint_index ci) {
         auto const &[p, k, j] = m_constraints[ci];
         auto [vars, q] = p.var_factors(); // p = vars * q
@@ -815,7 +829,7 @@ namespace nla {
 
     void stellensatz::init_occurs() {
         m_occurs.reset();
-        m_occurs.reserve(c().lra_solver().number_of_vars());
+        m_occurs.reserve(num_vars());
         for (lp::constraint_index ci = 0; ci < m_constraints.size(); ++ci) 
             init_occurs(ci);        
     }
@@ -1186,6 +1200,7 @@ namespace nla {
     // y >= 1, then x >= 2, by a
     // x >= 2, then y >= 2, by b..
     // by resolving a, b we get -1 >= 0, conflict.
+    // 
     //
     bool stellensatz::cyclic_bound_propagation(bool is_upper, lpvar v) {
         unsigned bound_index = is_upper ? m_upper[v] : m_lower[v];
@@ -1216,10 +1231,10 @@ namespace nla {
                   display_constraint(tout, ci1) << "\n";
                   display_constraint(tout, ci2) << "\n"; 
                   display_constraint(tout << "gives\n", ci) << "\n";);
-            if (!constraint_is_false(ci))
-                return false;
+            if (constraint_is_false(ci))
+                init_occurs(ci);
         }
-        return true;
+        return constraint_is_false(ci);
     }
 
     bool stellensatz::find_cycle(svector<std::pair<lp::constraint_index, lpvar>>& cycle, unsigned bound_index, unsigned top_index) {
