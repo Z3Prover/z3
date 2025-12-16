@@ -1535,7 +1535,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    final_check_status theory_arith<Ext>::final_check_eh() {
+    final_check_status theory_arith<Ext>::final_check_eh(unsigned level) {
         TRACE(arith_eq_adapter_info, m_arith_eq_adapter.display_already_processed(tout););
         TRACE(arith, display(tout););
 
@@ -3174,7 +3174,8 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::compute_epsilon() {
-        m_epsilon = numeral(1);
+        auto eps = ctx.get_fparams().m_arith_epsilon;        
+        m_epsilon = numeral(eps);
         theory_var num = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
             bound * l = lower(v);

@@ -663,6 +663,8 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based(const
 // x = 0 or y = 0 -> xy = 0
 void basics::basic_lemma_for_mon_non_zero_model_based(const monic& rm, const factorization& f) {
     TRACE(nla_solver_bl, c().trace_print_monic_and_factorization(rm, f, tout););
+    if (!f.is_mon())
+        return;
     for (auto j : f) {
         if (val(j).is_zero()) {
             lemma_builder lemma(c(), "x = 0 => x*... = 0");

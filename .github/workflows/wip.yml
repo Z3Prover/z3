@@ -1,8 +1,8 @@
 name: Open Issues
 
 on:
-  push:
-    branches: [ master ]
+  schedule:
+    - cron: '0 0 */2 * *'
 
 env:
   BUILD_TYPE: Debug
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}

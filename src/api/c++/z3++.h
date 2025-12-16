@@ -328,6 +328,15 @@ namespace z3 {
         sort datatype(symbol const& name, constructors const& cs);
 
         /**
+           \brief Create a parametric recursive datatype.
+           \c name is the name of the recursive datatype
+           \c params - the sort parameters of the datatype
+           \c cs - the \c n constructors used to define the datatype
+           References to the datatype and mutually recursive datatypes can be created using \ref datatype_sort.
+         */ 
+        sort datatype(symbol const &name, sort_vector const &params, constructors const &cs);
+
+        /**
            \brief Create a set of mutually recursive datatypes.
            \c n - number of recursive datatypes
            \c names - array of names of length n
@@ -342,6 +351,14 @@ namespace z3 {
            Expect that it gets defined as a \ref datatype.
         */
         sort datatype_sort(symbol const& name);
+
+        /**
+           \brief a reference to a recursively defined parametric datatype.
+           Expect that it gets defined as a \ref datatype.
+           \param name name of the datatype
+           \param params sort parameters
+        */
+        sort datatype_sort(symbol const& name, sort_vector const& params);
 
             
         /**
@@ -2173,7 +2190,15 @@ namespace z3 {
     inline expr ugt(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvugt(a.ctx(), a, b)); }
     inline expr ugt(expr const & a, int b) { return ugt(a, a.ctx().num_val(b, a.get_sort())); }
     inline expr ugt(int a, expr const & b) { return ugt(b.ctx().num_val(a, b.get_sort()), b); }
+
     /**
+       \brief signed division operator for bitvectors.
+    */
+    inline expr sdiv(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvsdiv(a.ctx(), a, b)); }
+    inline expr sdiv(expr const & a, int b) { return sdiv(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr sdiv(int a, expr const & b) { return sdiv(b.ctx().num_val(a, b.get_sort()), b); }
+
+/**
        \brief unsigned division operator for bitvectors.
     */
     inline expr udiv(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvudiv(a.ctx(), a, b)); }
@@ -3288,6 +3313,7 @@ namespace z3 {
         Z3_optimize m_opt;
 
     public:
+        struct translate {};
         class handle final {
             unsigned m_h;
         public:
@@ -3295,6 +3321,12 @@ namespace z3 {
             unsigned h() const { return m_h; }
         };
         optimize(context& c):object(c) { m_opt = Z3_mk_optimize(c); Z3_optimize_inc_ref(c, m_opt); }
+        optimize(context & c, optimize const& src, translate): object(c) { 
+            Z3_optimize o = Z3_optimize_translate(src.ctx(), src, c); 
+            check_error(); 
+            m_opt = o; 
+            Z3_optimize_inc_ref(c, m_opt); 
+        }
         optimize(optimize const & o):object(o), m_opt(o.m_opt) {
             Z3_optimize_inc_ref(o.ctx(), o.m_opt);
         }
@@ -3600,6 +3632,16 @@ namespace z3 {
         return sort(*this, s);
     }
 
+    inline sort context::datatype(symbol const &name, sort_vector const& params, constructors const &cs) {
+        array<Z3_sort> _params(params);
+        array<Z3_constructor> _cs(cs.size());
+        for (unsigned i = 0; i < cs.size(); ++i)
+            _cs[i] = cs[i];
+        Z3_sort s = Z3_mk_polymorphic_datatype(*this, name, _params.size(), _params.ptr(), cs.size(), _cs.ptr());
+        check_error();
+        return sort(*this, s);
+    }
+
     inline sort_vector context::datatypes(
         unsigned n, symbol const* names,
         constructor_list *const* cons) {
@@ -3617,7 +3659,14 @@ namespace z3 {
 
 
     inline sort context::datatype_sort(symbol const& name) {
-        Z3_sort s = Z3_mk_datatype_sort(*this, name);
+        Z3_sort s = Z3_mk_datatype_sort(*this, name, 0, nullptr);
+        check_error();
+        return sort(*this, s);            
+    }
+
+    inline sort context::datatype_sort(symbol const& name, sort_vector const& params) {
+        array<Z3_sort> _params(params);
+        Z3_sort s = Z3_mk_datatype_sort(*this, name, _params.size(), _params.ptr());
         check_error();
         return sort(*this, s);            
     }
@@ -4295,12 +4344,14 @@ namespace z3 {
         typedef std::function<void(expr const&, expr const&)> eq_eh_t;
         typedef std::function<void(expr const&)> created_eh_t;
         typedef std::function<void(expr, unsigned, bool)> decide_eh_t;
+        typedef std::function<bool(expr const&, expr const&)> on_binding_eh_t;
 
         final_eh_t m_final_eh;
         eq_eh_t    m_eq_eh;
         fixed_eh_t m_fixed_eh;
         created_eh_t m_created_eh;
         decide_eh_t m_decide_eh;
+        on_binding_eh_t m_on_binding_eh;
         solver*    s;
         context*   c;
         std::vector<z3::context*> subcontexts;
@@ -4371,6 +4422,13 @@ namespace z3 {
             scoped_cb _cb(p, cb);
             expr val(p->ctx(), _val);
             p->m_decide_eh(val, bit, is_pos);
+        }
+
+        static bool on_binding_eh(void* _p, Z3_solver_callback cb, Z3_ast _q, Z3_ast _inst) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
+            scoped_cb _cb(p, cb);
+            expr q(p->ctx(), _q), inst(p->ctx(), _inst);
+            return p->m_on_binding_eh(q, inst);
         }
         
     public:
@@ -4498,6 +4556,14 @@ namespace z3 {
             }
         }
 
+        void register_on_binding() {
+            m_on_binding_eh = [this](expr const& q, expr const& inst) {
+                return on_binding(q, inst);
+            };
+            if (s) 
+                Z3_solver_propagate_on_binding(ctx(), *s, on_binding_eh);
+        }
+
         virtual void fixed(expr const& /*id*/, expr const& /*e*/) { }
 
         virtual void eq(expr const& /*x*/, expr const& /*y*/) { }
@@ -4507,6 +4573,8 @@ namespace z3 {
         virtual void created(expr const& /*e*/) {}
         
         virtual void decide(expr const& /*val*/, unsigned /*bit*/, bool /*is_pos*/) {}
+
+        virtual bool on_binding(expr const& /*q*/, expr const& /*inst*/) { return true; }
 
         bool next_split(expr const& e, unsigned idx, Z3_lbool phase) {
             assert(cb);

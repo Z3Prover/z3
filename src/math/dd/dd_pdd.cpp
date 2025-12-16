@@ -1208,6 +1208,35 @@ namespace dd {
         return is_binary(p.root); 
     }
 
+    /*
+    * Retrieve variables that occur as powers.
+    */
+    void pdd_manager::get_powers(pdd const& p, svector<std::pair<unsigned, unsigned>>& powers) {
+        powers.reset();
+        init_mark();
+        m_todo.push_back(p.root);
+        while (!m_todo.empty()) {
+            PDD r = m_todo.back();
+            m_todo.pop_back();
+            if (is_val(r) || is_marked(r)) 
+                continue;
+            set_mark(r);
+            unsigned v = var(r);
+            unsigned d = 1;
+            while (!is_val(r) && var(hi(r)) == v) {
+                d++;
+                m_todo.push_back(lo(r));
+                r = hi(r);
+            }
+            if (d > 1)
+                powers.push_back({ v, d });
+            if (!is_val(r)) {
+                m_todo.push_back(hi(r));
+                m_todo.push_back(lo(r));
+            }
+        }
+    }
+
     /**
        Determine if p is a monomial.
     */
@@ -1985,6 +2014,42 @@ namespace dd {
 
     pdd_iterator pdd::begin() const { return pdd_iterator(*this, true); }
     pdd_iterator pdd::end() const { return pdd_iterator(*this, false); }
+
+    pdd_coeff_iterator pdd::pdd_coeffients::begin() const { return m_pdd.begin_coeff(); }
+    pdd_coeff_iterator pdd::pdd_coeffients::end() const { return m_pdd.end_coeff(); }
+
+    void pdd_coeff_iterator::next() {
+        auto& m = m_pdd.manager();
+        while (!m_nodes.empty()) {
+            auto p = m_nodes.back();
+            m_nodes.pop_back();
+            SASSERT(!m.is_val(p));
+            unsigned n = m.lo(p);
+            if (m.is_val(n) && m.val(n).is_zero())
+                continue;                
+            while (!m.is_val(n)) {
+                m_nodes.push_back(n);
+                n = m.hi(n);
+            }
+            m_value = { m.val(n), m_nodes.empty()};
+            return;
+        }
+        at_end = true;
+    }
+
+    void pdd_coeff_iterator::first() {
+        unsigned n = m_pdd.root;
+        auto& m = m_pdd.manager();
+        while (!m.is_val(n)) {
+            m_nodes.push_back(n);
+            n = m.hi(n);
+        }
+        at_end = false;
+        m_value = { m.val(n), m_nodes.empty() };
+    }
+
+    pdd_coeff_iterator pdd::begin_coeff() const { return pdd_coeff_iterator(*this, true); }
+    pdd_coeff_iterator pdd::end_coeff() const { return pdd_coeff_iterator(*this, false); }
 
     std::ostream& operator<<(std::ostream& out, pdd_monomial const& m) {
         if (!m.coeff.is_one()) {

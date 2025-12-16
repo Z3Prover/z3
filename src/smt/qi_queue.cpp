@@ -263,6 +263,11 @@ namespace smt {
         if (stat->get_num_instances() % m_params.m_qi_profile_freq == 0) {
             m_qm.display_stats(verbose_stream(), q);
         }
+
+        if (m_on_binding && !m_on_binding(q, instance)) {
+            verbose_stream() << "qi_queue: on_binding returned false, skipping instance.\n";
+            return;
+        }
         expr_ref lemma(m);
         if (m.is_or(s_instance)) {
             ptr_vector<expr> args;

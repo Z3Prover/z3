@@ -19,6 +19,7 @@ Author:
 
 #pragma once
 
+#include "util/statistics.h"
 #include "ast/euf/euf_enode.h"
 #include "ast/euf/euf_justification.h"
 
@@ -51,8 +52,12 @@ namespace euf {
         virtual void propagate() = 0;
 
         virtual void undo() = 0;
+
+        virtual void push_scope_eh() {}
         
         virtual std::ostream& display(std::ostream& out) const = 0;
+
+        virtual void collect_statistics(statistics& st) const {}
             
     };
 }

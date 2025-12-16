@@ -398,7 +398,7 @@ public:
 
     bool  conflict_found() const;
     
-    lbool check();
+    lbool check(unsigned level);
     lbool check_power(lpvar r, lpvar x, lpvar y);
     void check_bounded_divisions();
 

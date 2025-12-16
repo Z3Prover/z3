@@ -459,7 +459,8 @@ bool theory_seq::branch_binary_variable(depeq const& e) {
     }
     if (lenX + rational(xs.size()) != lenY + rational(ys.size())) {
         // |x| - |y| = |ys| - |xs|
-        expr_ref a(mk_sub(mk_len(x), mk_len(y)), m);
+        auto p0 = mk_len(x);
+        expr_ref a(mk_sub(p0, mk_len(y)), m);
         expr_ref b(m_autil.mk_int(rational(ys.size())-rational(xs.size())), m);
         propagate_lit(e.dep(), 0, nullptr, mk_eq(a, b, false));
         return true;
@@ -702,7 +703,8 @@ bool theory_seq::branch_quat_variable(depeq const& e) {
     
     literal_vector lits;
     if (xs == ys) {
-        literal lit = mk_eq(mk_len(x1), mk_len(y1), false);
+        auto p0 = mk_len(x1);
+        literal lit = mk_eq(p0, mk_len(y1), false);
         if (ctx.get_assignment(lit) == l_undef) {
             TRACE(seq, tout << mk_pp(x1, m) << " = " << mk_pp(y1, m) << "?\n";);
             ctx.mark_as_relevant(lit);
@@ -1007,7 +1009,8 @@ bool theory_seq::propagate_length_coherence(expr* e) {
         // len(e) <= hi => len(tail) <= hi - lo
         expr_ref high1(m_autil.mk_le(len_e, m_autil.mk_numeral(hi, true)), m);
         if (hi == lo) {
-            add_axiom(~mk_literal(high1), mk_seq_eq(seq, emp));
+            auto p0 = ~mk_literal(high1);
+            add_axiom(p0, mk_seq_eq(seq, emp));
             added = true;
         }
         else {

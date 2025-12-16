@@ -38,7 +38,6 @@ Notes:
 #include "model/model_v2_pp.h"
 #include "tactic/tactic.h"
 #include "ast/converters/generic_model_converter.h"
-#include "sat/sat_cut_simplifier.h"
 #include "sat/sat_drat.h"
 #include "sat/tactic/sat2goal.h"
 #include "sat/smt/pb_solver.h"
@@ -59,7 +58,8 @@ void sat2goal::mc::flush_smc(sat::solver& s, atom2bool_var const& map) {
 void sat2goal::mc::flush_gmc() {
     sat::literal_vector updates;
     m_smc.expand(updates);    
-    if (!m_gmc) m_gmc = alloc(generic_model_converter, m, "sat2goal");
+    if (!m_gmc) 
+        m_gmc = alloc(generic_model_converter, m, "sat2goal");
     // now gmc owns the model converter
     sat::literal_vector clause;
     expr_ref_vector tail(m);
@@ -111,7 +111,7 @@ void sat2goal::mc::flush_gmc() {
 model_converter* sat2goal::mc::translate(ast_translation& translator) {
     mc* result = alloc(mc, translator.to());
     result->m_smc.copy(m_smc);
-    result->m_gmc = m_gmc ? dynamic_cast<generic_model_converter*>(m_gmc->translate(translator)) : nullptr;
+    result->m_gmc = m_gmc ? static_cast<generic_model_converter*>(m_gmc->translate(translator)) : nullptr;
     for (expr* e : m_var2expr) {
         result->m_var2expr.push_back(translator(e));
     }
@@ -124,15 +124,12 @@ void sat2goal::mc::set_env(ast_pp_util* visitor) {
 }
 
 void sat2goal::mc::display(std::ostream& out) {
-    flush_gmc();
     if (m_gmc) m_gmc->display(out);
 }
 
 void sat2goal::mc::get_units(obj_map<expr, bool>& units) {
-    flush_gmc();
     if (m_gmc) m_gmc->get_units(units);
 }
-
 
 void sat2goal::mc::operator()(sat::model& md) {
     m_smc(md);
@@ -143,12 +140,6 @@ void sat2goal::mc::operator()(model_ref & md) {
     CTRACE(sat_mc, m_gmc, m_gmc->display(tout << "before sat_mc\n"); model_v2_pp(tout, *md););
     if (m_gmc) (*m_gmc)(md);
     CTRACE(sat_mc, m_gmc, m_gmc->display(tout << "after sat_mc\n"); model_v2_pp(tout, *md););
-}
-
-
-void sat2goal::mc::operator()(expr_ref& fml) {
-    flush_gmc();
-    if (m_gmc) (*m_gmc)(fml);
 }
 
 void sat2goal::mc::insert(sat::bool_var v, expr * atom, bool aux) {
@@ -277,7 +268,7 @@ struct sat2goal::imp {
                 ba->to_formulas(l2e, fmls);
             }
             else 
-                dynamic_cast<euf::solver*>(ext)->to_formulas(l2e, fmls);            
+                static_cast<euf::solver*>(ext)->to_formulas(l2e, fmls);            
             for (expr* f : fmls)
                 r.assert_expr(f);            
         }

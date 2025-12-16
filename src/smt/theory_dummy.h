@@ -38,7 +38,7 @@ namespace smt {
         bool use_diseqs() const override;
         void new_diseq_eh(theory_var v1, theory_var v2) override;
         void reset_eh() override;
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
         bool build_models() const override {
             return false;
         }

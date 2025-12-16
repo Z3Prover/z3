@@ -196,7 +196,7 @@ namespace {
         }
 
         lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
-            TRACE(solver_na2as, tout << "smt_solver::check_sat_core: " << num_assumptions << "\n";);
+            TRACE(solver_na2as, tout << "smt_solver::check_sat_core:\n"; for (unsigned i = 0; i < num_assumptions; ++i) tout << mk_pp(assumptions[i], m) << "\n";);
             return m_context.check(num_assumptions, assumptions);
         }
 
@@ -242,6 +242,10 @@ namespace {
 
         void user_propagate_register_expr(expr* e) override { 
             m_context.user_propagate_register_expr(e);
+        }
+
+        void user_propagate_register_on_binding(user_propagator::binding_eh_t& binding_eh) override {
+            m_context.user_propagate_register_on_binding(binding_eh);
         }
 
         void user_propagate_register_created(user_propagator::created_eh_t& c) override {
@@ -522,6 +526,10 @@ class smt_solver_factory : public solver_factory {
 public:
     solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_smt_solver(m, p, logic);
+    }
+    
+    solver_factory* translate(ast_manager& m) override {
+        return alloc(smt_solver_factory);
     }
 };
 }

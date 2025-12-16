@@ -74,7 +74,6 @@ public:
     expr_dependency * get_used_dependencies();
     void reset_used_dependencies();
 
-    void set_solver(expr_solver* solver);
 
 };
 

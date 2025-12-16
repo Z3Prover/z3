@@ -191,24 +191,6 @@ struct bit_blaster_model_converter : public model_converter {
         mk_bvs(md.get(), new_model);
         md = new_model;
     }
-
-    /**
-       \brief simplisic expansion operator for formulas.
-       It just adds back bit-vector definitions to the formula whether they are used or not.
-
-     */
-    void operator()(expr_ref& fml) override {
-        unsigned sz = m_vars.size();
-        if (sz == 0) return;
-        expr_ref_vector fmls(m());
-        fmls.push_back(fml);
-        for (unsigned i = 0; i < sz; i++) {
-            fmls.push_back(m().mk_eq(m().mk_const(m_vars.get(i)), m_bits.get(i)));
-        }        
-        m_vars.reset();
-        m_bits.reset();
-        fml = mk_and(fmls);
-    }
     
     void display(std::ostream & out) override {
         for (func_decl * f : m_newbits) 

@@ -112,7 +112,7 @@ eliminate:
 --*/
 
 
-
+#include "params/smt_params_helper.hpp"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "ast/recfun_decl_plugin.h"
@@ -166,7 +166,7 @@ void elim_unconstrained::eliminate() {
         expr_ref rr(m.mk_app(t->get_decl(), t->get_num_args(), m_args.data() + sz), m);
         bool inverted = m_inverter(t->get_decl(), t->get_num_args(), m_args.data() + sz, r);
         proof_ref pr(m);
-        if (inverted && m_enable_proofs) {
+        if (inverted && m_config.m_enable_proofs) {
             expr * s    = m.mk_app(t->get_decl(), t->get_num_args(), m_args.data() + sz);
             expr * eq   = m.mk_eq(s, r);
             proof * pr1 = m.mk_def_intro(eq);
@@ -267,7 +267,7 @@ void elim_unconstrained::reset_nodes() {
  */
 void elim_unconstrained::init_nodes() {
 
-    m_enable_proofs = false;
+    m_config.m_enable_proofs = false;
     m_trail.reset();
     m_fmls.freeze_suffix();
 
@@ -276,7 +276,7 @@ void elim_unconstrained::init_nodes() {
         auto [f, p, d] = m_fmls[i]();
         terms.push_back(f);
         if (p)
-            m_enable_proofs = true;
+            m_config.m_enable_proofs = true;
     }
 
     m_heap.reset();
@@ -303,7 +303,7 @@ void elim_unconstrained::init_nodes() {
     for (expr* e : terms)
         get_node(e).set_top();      
 
-    m_inverter.set_produce_proofs(m_enable_proofs);
+    m_inverter.set_produce_proofs(m_config.m_enable_proofs);
         
 }
 
@@ -422,6 +422,8 @@ void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<
 }
 
 void elim_unconstrained::reduce() {
+    if (!m_config.m_enabled)
+        return;
     generic_model_converter_ref mc = alloc(generic_model_converter, m, "elim-unconstrained");
     m_inverter.set_model_converter(mc.get());
     m_created_compound = true;
@@ -435,4 +437,9 @@ void elim_unconstrained::reduce() {
         update_model_trail(*mc, old_fmls);
         mc->reset();        
     }
+}
+
+void elim_unconstrained::updt_params(params_ref const& p) {
+    smt_params_helper sp(p);
+    m_config.m_enabled = sp.elim_unconstrained();
 }

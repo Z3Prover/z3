@@ -22,6 +22,7 @@ Notes:
 #include "ast/bv_decl_plugin.h"
 #include "ast/converters/model_converter.h"
 #include "tactic/tactic.h"
+#include "solver/preferred_value_propagator.h"
 #include "qe/qsat.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_pareto.h"
@@ -208,6 +209,13 @@ namespace opt {
     public:
         context(ast_manager& m);
         ~context() override;
+        
+        /**
+         * \brief Create a clone of the optimization context in a different ast_manager.
+         * Translates all assertions, objectives, and solver state.
+         */
+        context* translate(ast_manager& target_m);
+        
         unsigned add_soft_constraint(expr* f, rational const& w, symbol const& id);
         unsigned add_objective(app* t, bool is_max);
         void add_hard_constraint(expr* f);
@@ -231,7 +239,7 @@ namespace opt {
         void get_labels(svector<symbol> & r) override;
         void get_unsat_core(expr_ref_vector & r) override;
         std::string reason_unknown() const override;
-        void set_reason_unknown(char const* msg) override { m_unknown = msg; }
+        void set_reason_unknown(char const* msg) override { m_unknown = msg; }        
 
         void display_assignment(std::ostream& out) override;
         bool is_pareto() override { return m_pareto.get() != nullptr; }
@@ -313,6 +321,8 @@ namespace opt {
         bool is_maxsat(expr* fml, expr_ref_vector& terms, 
                        vector<rational>& weights, rational& offset, bool& neg, 
                        symbol& id, expr_ref& orig_term, unsigned& index);
+        bool is_min_max_of_sums(expr *fml, expr_ref_vector &fmls);
+        bool simplify_min_max_of_sums(expr_ref_vector &fmls);
         void  purify(app_ref& term);
         app* purify(generic_model_converter_ref& fm, expr* e);
         bool is_mul_const(expr* e);

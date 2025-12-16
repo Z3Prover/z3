@@ -57,19 +57,14 @@ class obj_map {
 public:
     struct key_data {
         Key *  m_key = nullptr;
-        Value  m_value{};
-        key_data() = default;
-        key_data(Key * k):
-            m_key(k) {
-        }
-        key_data(Key * k, Value const & v):
-            m_key(k),
-            m_value(v) {
-        }
-        key_data(Key * k, Value && v) :
-            m_key(k),
-            m_value(std::move(v)) {
-        }
+        Value  m_value;
+        key_data() {}
+        key_data(Key *key) : m_key(key) {}
+        key_data(Key *k, Value const &v) : m_key(k), m_value(v) {}
+        key_data(key_data &&kd) noexcept = default;
+        key_data(key_data const &kd) noexcept = default;
+        key_data &operator=(key_data const &kd)  = default;
+        key_data &operator=(key_data &&kd) = default;
         Value const & get_value() const { return m_value; }
         Key & get_key () const { return *m_key; }
         unsigned hash() const { return m_key->hash(); }
@@ -97,8 +92,8 @@ public:
     table m_table;
   
 public:
-    obj_map():
-        m_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY) {}
+    obj_map(unsigned initial_capacity = DEFAULT_HASHTABLE_INITIAL_CAPACITY):
+        m_table(initial_capacity) {}
     
     typedef typename table::iterator iterator;
     typedef typename table::data data;
@@ -144,6 +139,10 @@ public:
     
     Value& insert_if_not_there(Key * k, Value const & v) {
         return m_table.insert_if_not_there2(key_data(k, v))->get_data().m_value;
+    }
+
+    bool insert_if_not_there_core(Key * k, Value const & v, obj_map_entry * & et) {
+        return m_table.insert_if_not_there_core({k, v}, et);
     }
 
     obj_map_entry * insert_if_not_there3(Key * k, Value const & v) {

@@ -67,6 +67,7 @@ inline ast * const * to_asts(Z3_ast const* a) { return reinterpret_cast<ast* con
 
 inline sort * to_sort(Z3_sort a) { return reinterpret_cast<sort*>(a); }
 inline Z3_sort of_sort(sort* s) { return reinterpret_cast<Z3_sort>(s); }
+inline bool is_sort(Z3_sort a) { return is_sort(to_sort(a)); }
 
 inline sort * const *  to_sorts(Z3_sort const* a) { return reinterpret_cast<sort* const*>(a); }
 inline Z3_sort const * of_sorts(sort* const* s) { return reinterpret_cast<Z3_sort const*>(s); }

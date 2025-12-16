@@ -379,6 +379,10 @@ public:
     void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh) override {
         m_solver2->user_propagate_register_diseq(diseq_eh);
     }
+
+    void user_propagate_register_on_binding(user_propagator::binding_eh_t& binding_eh) override {
+        m_solver2->user_propagate_register_on_binding(binding_eh);
+    }
     
     void user_propagate_register_expr(expr* e) override {
         m_solver2->user_propagate_register_expr(e);
@@ -419,6 +423,12 @@ public:
         return mk_combined_solver((*m_f1)(m, p, proofs_enabled, models_enabled, unsat_core_enabled, logic),
                                   (*m_f2)(m, p, proofs_enabled, models_enabled, unsat_core_enabled, logic),
                                   p);
+    }
+    
+    solver_factory* translate(ast_manager& m) override {
+        solver_factory* translated_f1 = m_f1->translate(m);
+        solver_factory* translated_f2 = m_f2->translate(m);
+        return alloc(combined_solver_factory, translated_f1, translated_f2);
     }
 };
 

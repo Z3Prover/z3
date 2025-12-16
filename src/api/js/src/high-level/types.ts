@@ -3,6 +3,8 @@ import {
   Z3_ast_map,
   Z3_ast_vector,
   Z3_context,
+  Z3_constructor,
+  Z3_constructor_list,
   Z3_decl_kind,
   Z3_func_decl,
   Z3_func_entry,
@@ -123,6 +125,7 @@ export type CheckSatResult = 'sat' | 'unsat' | 'unknown';
 /** @hidden */
 export interface ContextCtor {
   <Name extends string>(name: Name, options?: Record<string, any>): Context<Name>;
+  new <Name extends string>(name: Name, options?: Record<string, any>): Context<Name>;
 }
 
 export interface Context<Name extends string = 'main'> {
@@ -362,6 +365,8 @@ export interface Context<Name extends string = 'main'> {
   readonly Array: SMTArrayCreation<Name>;
   /** @category Expressions */
   readonly Set: SMTSetCreation<Name>;
+  /** @category Expressions */
+  readonly Datatype: DatatypeCreation<Name>;
 
   ////////////////
   // Operations //
@@ -625,9 +630,6 @@ export interface Context<Name extends string = 'main'> {
   
   /** @category Operations */
   SetDifference<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
-  
-  /** @category Operations */
-  SetHasSize<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, size: bigint | number | string | IntNum<Name>): Bool<Name>;
 
   /** @category Operations */
   SetAdd<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
@@ -842,7 +844,8 @@ export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
     | BoolSort['__typename']
     | ArithSort['__typename']
     | BitVecSort['__typename']
-    | SMTArraySort['__typename'];
+    | SMTArraySort['__typename']
+    | DatatypeSort['__typename'];
 
   kind(): Z3_sort_kind;
 
@@ -966,7 +969,8 @@ export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySo
     | Bool['__typename']
     | Arith['__typename']
     | BitVec['__typename']
-    | SMTArray['__typename'];
+    | SMTArray['__typename']
+    | DatatypeExpr['__typename'];
 
   get sort(): S;
 
@@ -1643,7 +1647,6 @@ export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<N
   intersect(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
   diff(b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
   
-  hasSize(size: bigint | number | string | IntNum<Name>): Bool<Name>;
 
   add(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
   del(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
@@ -1652,6 +1655,111 @@ export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<N
   contains(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): Bool<Name>;
   subsetOf(b: SMTSet<Name, ElemSort>): Bool<Name>;
 
+}
+//////////////////////////////////////////
+//
+// Datatypes
+//
+//////////////////////////////////////////
+
+/**
+ * Helper class for declaring Z3 datatypes.
+ * 
+ * Follows the same pattern as Python Z3 API for declaring constructors
+ * before creating the actual datatype sort.
+ * 
+ * @example
+ * ```typescript
+ * const List = new ctx.Datatype('List');
+ * List.declare('cons', ['car', ctx.Int.sort()], ['cdr', List]);
+ * List.declare('nil');
+ * const ListSort = List.create();
+ * ```
+ * 
+ * @category Datatypes
+ */
+export interface Datatype<Name extends string = 'main'> {
+  readonly ctx: Context<Name>;
+  readonly name: string;
+
+  /**
+   * Declare a constructor for this datatype.
+   * 
+   * @param name Constructor name
+   * @param fields Array of [field_name, field_sort] pairs
+   */
+  declare(name: string, ...fields: Array<[string, AnySort<Name> | Datatype<Name>]>): this;
+
+  /**
+   * Create the actual datatype sort from the declared constructors.
+   * For mutually recursive datatypes, use Context.createDatatypes instead.
+   */
+  create(): DatatypeSort<Name>;
+}
+
+/**
+ * @category Datatypes
+ */
+export interface DatatypeCreation<Name extends string> {
+  /**
+   * Create a new datatype declaration helper.
+   */
+  (name: string): Datatype<Name>;
+
+  /**
+   * Create mutually recursive datatypes.
+   * 
+   * @param datatypes Array of Datatype declarations
+   * @returns Array of created DatatypeSort instances
+   */
+  createDatatypes(...datatypes: Datatype<Name>[]): DatatypeSort<Name>[];
+}
+
+/**
+ * A Sort representing an algebraic datatype.
+ * 
+ * After creation, this sort will have constructor, recognizer, and accessor
+ * functions dynamically attached based on the declared constructors.
+ * 
+ * @category Datatypes
+ */
+export interface DatatypeSort<Name extends string = 'main'> extends Sort<Name> {
+  /** @hidden */
+  readonly __typename: 'DatatypeSort';
+
+  /**
+   * Number of constructors in this datatype
+   */
+  numConstructors(): number;
+
+  /**
+   * Get the idx'th constructor function declaration
+   */
+  constructorDecl(idx: number): FuncDecl<Name>;
+
+  /**
+   * Get the idx'th recognizer function declaration
+   */
+  recognizer(idx: number): FuncDecl<Name>;
+
+  /**
+   * Get the accessor function declaration for the idx_a'th field of the idx_c'th constructor
+   */
+  accessor(constructorIdx: number, accessorIdx: number): FuncDecl<Name>;
+
+  cast(other: CoercibleToExpr<Name>): DatatypeExpr<Name>;
+
+  cast(other: DatatypeExpr<Name>): DatatypeExpr<Name>;
+}
+
+/**
+ * Represents expressions of datatype sorts.
+ * 
+ * @category Datatypes  
+ */
+export interface DatatypeExpr<Name extends string = 'main'> extends Expr<Name, DatatypeSort<Name>, Z3_ast> {
+  /** @hidden */
+  readonly __typename: 'DatatypeExpr';
 }
 
 /**

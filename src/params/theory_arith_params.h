@@ -20,6 +20,7 @@ Revision History:
 
 #include<climits>
 #include "util/params.h"
+#include "util/rational.h"
 
 enum class arith_solver_id {
     AS_NO_ARITH,              // 0
@@ -76,6 +77,7 @@ struct theory_arith_params {
     unsigned                m_arith_branch_cut_ratio = 2;
     bool                    m_arith_int_eq_branching = false;
     bool                    m_arith_enum_const_mod = false;
+    rational                m_arith_epsilon = rational::one();
 
     bool                    m_arith_gcd_test = true;
     bool                    m_arith_eager_gcd = false;

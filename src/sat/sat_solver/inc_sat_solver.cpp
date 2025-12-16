@@ -139,7 +139,7 @@ public:
         if (m_mcs.back()) result->m_mcs.push_back(m_mcs.back()->translate(tr));
         if (m_sat_mc) {
             m_sat_mc->flush_smc(m_solver, m_map);
-            result->m_sat_mc = dynamic_cast<sat2goal::mc*>(m_sat_mc->translate(tr));
+            result->m_sat_mc = static_cast<sat2goal::mc*>(m_sat_mc->translate(tr));
         }
         result->m_has_uninterpreted = m_has_uninterpreted;
         // copy m_bb_rewriter?
@@ -1091,10 +1091,9 @@ private:
         CTRACE(sat, m_sat_mc, m_sat_mc->display(tout););
         sat::model ll_m = m_solver.get_model();
         mdl = alloc(model, m);
-        if (m_sat_mc) {
-            m_sat_mc->flush_smc(m_solver, m_map);
+        if (m_sat_mc) 
             (*m_sat_mc)(ll_m);
-        }        
+        
         expr_ref_vector var2expr(m);
         m_map.mk_var_inv(var2expr);
         

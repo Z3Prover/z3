@@ -2,7 +2,12 @@
 cmake_minimum_required(VERSION 3.16)
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 VERSION 4.15.3.0 LANGUAGES CXX)
+
+# Read version from VERSION.txt file
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/scripts/VERSION.txt" Z3_VERSION_FROM_FILE)
+string(STRIP "${Z3_VERSION_FROM_FILE}" Z3_VERSION_FROM_FILE)
+
+project(Z3 VERSION ${Z3_VERSION_FROM_FILE} LANGUAGES CXX)
 
 ################################################################################
 # Project version
@@ -357,34 +362,75 @@ endif()
 include(${PROJECT_SOURCE_DIR}/cmake/compiler_lto.cmake)
 
 ################################################################################
-# Control flow integrity
+# Control flow integrity (Clang only)
 ################################################################################
-option(Z3_ENABLE_CFI "Enable control flow integrity checking" OFF)
+option(Z3_ENABLE_CFI "Enable Control Flow Integrity security checks" OFF)
 if (Z3_ENABLE_CFI)
-  set(build_types_with_cfi "RELEASE" "RELWITHDEBINFO")
+  if (NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(FATAL_ERROR "Z3_ENABLE_CFI is only supported with Clang compiler. "
+      "Current compiler: ${CMAKE_CXX_COMPILER_ID}. "
+      "You should set Z3_ENABLE_CFI to OFF or use Clang to compile.")
+  endif()
+  
   if (NOT Z3_LINK_TIME_OPTIMIZATION)
-    message(FATAL_ERROR "Cannot enable control flow integrity checking without link-time optimization."
+    message(FATAL_ERROR "Cannot enable Control Flow Integrity without link-time optimization. "
       "You should set Z3_LINK_TIME_OPTIMIZATION to ON or Z3_ENABLE_CFI to OFF.")
   endif()
+  
+  set(build_types_with_cfi "RELEASE" "RELWITHDEBINFO")
   if (DEFINED CMAKE_CONFIGURATION_TYPES)
     # Multi configuration generator
     message(STATUS "Note CFI is only enabled for the following configurations: ${build_types_with_cfi}")
     # No need for else because this is the same as the set that LTO requires.
   endif()
-  if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-    z3_add_cxx_flag("-fsanitize=cfi" REQUIRED)
-    z3_add_cxx_flag("-fsanitize-cfi-cross-dso" REQUIRED)
-  elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    z3_add_cxx_flag("/guard:cf" REQUIRED)
-    message(STATUS "Enabling CFI for MSVC")
-    foreach (_build_type ${build_types_with_cfi})
-      message(STATUS "Enabling CFI for MSVC")
-      string(APPEND CMAKE_EXE_LINKER_FLAGS_${_build_type} " /GUARD:CF")
-      string(APPEND CMAKE_SHARED_LINKER_FLAGS_${_build_type} " /GUARD:CF")
-    endforeach()
+  
+  message(STATUS "Enabling Control Flow Integrity (CFI) for Clang")
+  z3_add_cxx_flag("-fsanitize=cfi" REQUIRED)
+  z3_add_cxx_flag("-fsanitize-cfi-cross-dso" REQUIRED)
+endif()
+# End CFI section
+
+################################################################################
+# Control Flow Guard (MSVC only)
+################################################################################
+# Default CFG to ON for MSVC, OFF for other compilers.
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  option(Z3_ENABLE_CFG "Enable Control Flow Guard security checks" ON)
+else()
+  option(Z3_ENABLE_CFG "Enable Control Flow Guard security checks" OFF)
+endif()
+
+if (Z3_ENABLE_CFG)
+  if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    message(FATAL_ERROR "Z3_ENABLE_CFG is only supported with MSVC compiler. "
+      "Current compiler: ${CMAKE_CXX_COMPILER_ID}. "
+      "You should remove Z3_ENABLE_CFG or set it to OFF or use MSVC to compile.")
+  endif()
+
+  # Check for incompatible options (handle both / and - forms for robustness)
+  string(REGEX MATCH "[-/]ZI" _has_ZI "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} ${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${CMAKE_CXX_FLAGS_MINSIZEREL}")
+  string(REGEX MATCH "[-/]clr" _has_clr "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} ${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${CMAKE_CXX_FLAGS_MINSIZEREL}")
+  
+  if(_has_ZI)
+    message(WARNING "/guard:cf is incompatible with /ZI (Edit and Continue debug information). "
+                   "Control Flow Guard will be disabled due to /ZI option.")
+  elseif(_has_clr)
+    message(WARNING "/guard:cf is incompatible with /clr (Common Language Runtime compilation). "
+                   "Control Flow Guard will be disabled due to /clr option.")
   else()
-    message(FATAL_ERROR "Can't enable control flow integrity for compiler \"${CMAKE_CXX_COMPILER_ID}\"."
-      "You should set Z3_ENABLE_CFI to OFF or use Clang or MSVC to compile.")
+    # Enable Control Flow Guard if no incompatible options are present
+    message(STATUS "Enabling Control Flow Guard (/guard:cf) and ASLR (/DYNAMICBASE) for MSVC")
+    z3_add_cxx_flag("/guard:cf" REQUIRED)
+    string(APPEND CMAKE_EXE_LINKER_FLAGS " /GUARD:CF /DYNAMICBASE")
+    string(APPEND CMAKE_SHARED_LINKER_FLAGS " /GUARD:CF /DYNAMICBASE")
+  endif()
+else()
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    # Explicitly disable Control Flow Guard when Z3_ENABLE_CFG is OFF
+    message(STATUS "Disabling Control Flow Guard (/guard:cf-) for MSVC")
+    z3_add_cxx_flag("/guard:cf-" REQUIRED)
+    string(APPEND CMAKE_EXE_LINKER_FLAGS " /GUARD:NO")
+    string(APPEND CMAKE_SHARED_LINKER_FLAGS " /GUARD:NO")
   endif()
 endif()
 
@@ -502,21 +548,93 @@ set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
 )
 
 ################################################################################
-# Z3 components, library and executables
+# API header files
 ################################################################################
-include(${PROJECT_SOURCE_DIR}/cmake/z3_add_component.cmake)
-include(${PROJECT_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
-add_subdirectory(src)
+# This lists the API header files that are scanned by
+# some of the build rules to generate some files needed
+# by the build; needs to come before add_subdirectory(src)
+set(Z3_API_HEADER_FILES_TO_SCAN
+  z3_api.h
+  z3_ast_containers.h
+  z3_algebraic.h
+  z3_polynomial.h
+  z3_rcf.h
+  z3_fixedpoint.h
+  z3_optimization.h
+  z3_fpa.h
+  z3_spacer.h
+)
+set(Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN "")
+foreach (header_file ${Z3_API_HEADER_FILES_TO_SCAN})
+  set(full_path_api_header_file "${CMAKE_CURRENT_SOURCE_DIR}/src/api/${header_file}")
+  list(APPEND Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN "${full_path_api_header_file}")
+  if (NOT EXISTS "${full_path_api_header_file}")
+    message(FATAL_ERROR "API header file \"${full_path_api_header_file}\" does not exist")
+  endif()
+endforeach()
 
 ################################################################################
 # Create `Z3Config.cmake` and related files for the build tree so clients can
 # use Z3 via CMake.
 ################################################################################
 include(CMakePackageConfigHelpers)
-export(EXPORT Z3_EXPORTED_TARGETS
-   NAMESPACE z3::
-   FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
-)
+
+option(Z3_BUILD_LIBZ3_CORE "Build the core libz3 library" ON)
+# Only export targets if we built libz3
+if (Z3_BUILD_LIBZ3_CORE)
+  ################################################################################
+  # Z3 components, library and executables
+  ################################################################################
+  include(${PROJECT_SOURCE_DIR}/cmake/z3_add_component.cmake)
+  include(${PROJECT_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
+  add_subdirectory(src)
+
+  export(EXPORT Z3_EXPORTED_TARGETS
+     NAMESPACE z3::
+     FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
+  )
+else()
+  # When not building libz3, we need to find it
+  message(STATUS "Not building libz3, will look for pre-installed library")
+  find_library(Z3_LIBRARY NAMES z3 libz3
+    HINTS ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
+    PATH_SUFFIXES lib lib64
+  )
+  if (NOT Z3_LIBRARY)
+    message(FATAL_ERROR "Could not find pre-installed libz3. Please ensure libz3 is installed or set Z3_BUILD_LIBZ3_CORE=ON")
+  endif()
+  message(STATUS "Found libz3: ${Z3_LIBRARY}")
+
+  # Create an imported target for the pre-installed libz3
+  add_library(libz3 SHARED IMPORTED)
+  set_target_properties(libz3 PROPERTIES
+    IMPORTED_LOCATION "${Z3_LIBRARY}"
+  )
+  # Set include directories for the imported target
+  target_include_directories(libz3 INTERFACE
+    ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}
+  )
+endif()
+
+################################################################################
+# Z3 API bindings
+################################################################################
+option(Z3_BUILD_PYTHON_BINDINGS "Build Python bindings for Z3" OFF)
+if (Z3_BUILD_PYTHON_BINDINGS)
+  # Validate configuration for Python bindings
+  if (Z3_BUILD_LIBZ3_CORE)
+    # Building libz3 together with Python bindings
+    if (NOT Z3_BUILD_LIBZ3_SHARED)
+      message(FATAL_ERROR "The python bindings will not work with a static libz3. "
+              "You either need to disable Z3_BUILD_PYTHON_BINDINGS or enable Z3_BUILD_LIBZ3_SHARED")
+    endif()
+  else()
+    # Using pre-installed libz3 for Python bindings
+    message(STATUS "Building Python bindings with pre-installed libz3")
+  endif()
+  add_subdirectory(src/api/python)
+endif()
+
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${PROJECT_BINARY_DIR}/src/api")
 set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api")
 set(Z3_CXX_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api/c++")
@@ -547,12 +665,15 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/z3.pc.cmake.in"
 # Create `Z3Config.cmake` and related files for install tree so clients can use
 # Z3 via CMake.
 ################################################################################
-install(EXPORT
-  Z3_EXPORTED_TARGETS
-  FILE "Z3Targets.cmake"
-  NAMESPACE z3::
-  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
-)
+# Only install targets if we built libz3
+if (Z3_BUILD_LIBZ3_CORE)
+  install(EXPORT
+    Z3_EXPORTED_TARGETS
+    FILE "Z3Targets.cmake"
+    NAMESPACE z3::
+    DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+  )
+endif()
 set(Z3_INSTALL_TREE_CMAKE_CONFIG_FILE "${PROJECT_BINARY_DIR}/cmake/Z3Config.cmake")
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}")
 set(Z3_SECOND_INCLUDE_DIR "")

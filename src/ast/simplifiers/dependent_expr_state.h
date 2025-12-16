@@ -33,6 +33,7 @@ Author:
 #include "util/statistics.h"
 #include "util/params.h"
 #include "util/z3_exception.h"
+#include "ast/ast_util.h"
 #include "ast/converters/model_converter.h"
 #include "ast/simplifiers/dependent_expr.h"
 #include "ast/simplifiers/model_reconstruction_trail.h"
@@ -113,8 +114,79 @@ public:
     model_reconstruction_trail& model_trail() override { throw default_exception("unexpected access to model reconstruction"); }
     bool updated() override { return false; }
     void reset_updated() override {}
-
 };
+
+
+struct base_dependent_expr_state : public dependent_expr_state {
+    ast_manager& m;
+    model_reconstruction_trail m_reconstruction_trail;
+    bool m_updated = false;
+    bool m_inconsistent = false;
+    vector<dependent_expr> m_fmls;
+    base_dependent_expr_state(ast_manager& m) :dependent_expr_state(m), m(m), m_reconstruction_trail(m, m_trail) {}
+    unsigned qtail() const override { return m_fmls.size(); }
+    dependent_expr const& operator[](unsigned i) override { return m_fmls[i]; }
+    void update(unsigned i, dependent_expr const& j) override {
+        SASSERT(j.fml());
+        check_false(j.fml());
+        m_fmls[i] = j;
+        m_updated = true;
+    }
+    void add(dependent_expr const& j) override { m_updated = true; check_false(j.fml()); m_fmls.push_back(j); }
+    bool inconsistent() override { return m_inconsistent; }
+    bool updated() override { return m_updated; }
+    void reset_updated() override { m_updated = false; }
+    model_reconstruction_trail& model_trail() override { return m_reconstruction_trail; }
+    std::ostream& display(std::ostream& out) const override {
+        unsigned i = 0;
+        for (auto const& d : m_fmls) {
+            if (i > 0 && i == qhead())
+                out << "---- head ---\n";
+            out << d << "\n";
+            ++i;
+        }
+        m_reconstruction_trail.display(out);
+        return out;
+    }
+    void check_false(expr* f) {
+        if (m.is_false(f))
+            m_inconsistent = true;
+    }
+    void replay(unsigned qhead, expr_ref_vector& assumptions) {
+        m_reconstruction_trail.replay(qhead, assumptions, *this);
+    }
+    void flatten_suffix() override {
+        expr_mark seen;
+        unsigned j = qhead();
+        expr_ref_vector pinned(m);
+        for (unsigned i = qhead(); i < qtail(); ++i) {
+            expr* f = m_fmls[i].fml(), * g = nullptr;
+            pinned.push_back(f);
+            if (seen.is_marked(f))
+                continue;
+            seen.mark(f, true);
+            if (m.is_true(f))
+                continue;
+            if (m.is_and(f)) {
+                auto* d = m_fmls[i].dep();
+                for (expr* arg : *to_app(f))
+                    add(dependent_expr(m, arg, nullptr, d));
+                continue;
+            }
+            if (m.is_not(f, g) && m.is_or(g)) {
+                auto* d = m_fmls[i].dep();
+                for (expr* arg : *to_app(g))
+                    add(dependent_expr(m, mk_not(m, arg), nullptr, d));
+                continue;
+            }
+            if (i != j)
+                m_fmls[j] = m_fmls[i];
+            ++j;
+        }
+        m_fmls.shrink(j);
+    }
+};
+
 
 inline std::ostream& operator<<(std::ostream& out, dependent_expr_state& st) {
     return st.display(out);

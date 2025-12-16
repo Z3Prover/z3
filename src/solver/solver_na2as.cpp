@@ -61,7 +61,7 @@ struct append_assumptions {
 
 lbool solver_na2as::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
     append_assumptions app(m_assumptions, num_assumptions, assumptions);
-    TRACE(solver_na2as, display(tout););
+    TRACE(solver_na2as, display(tout, m_assumptions.size(), m_assumptions.data()););
     return check_sat_core2(m_assumptions.size(), m_assumptions.data());
 }
 

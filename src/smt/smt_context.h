@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include "ast/quantifier_stat.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 #include "smt/smt_clause.h"
 #include "smt/smt_setup.h"
 #include "smt/smt_enode.h"
@@ -131,6 +132,11 @@ namespace smt {
         unsigned                    m_par_index = 0;
         bool                        m_internalizing_assertions = false;
         lbool                       m_internal_completed = l_undef;
+
+        scoped_ptr<dependent_expr_simplifier> m_simplifier;
+        scoped_ptr<base_dependent_expr_state> m_fmls;
+
+        svector<double> m_lit_scores[2];
 
 
         // -----------------------------------
@@ -263,6 +269,7 @@ namespace smt {
         // ----------------------------------
         vector<std::pair<expr_ref, expr_ref>> m_values;
         void initialize_value(expr* var, expr* value);
+        void initialize_values();
 
 
         // -----------------------------------
@@ -904,6 +911,8 @@ namespace smt {
 
         void add_or_rel_watches(app * n);
 
+        void add_implies_rel_watches(app* n);
+
         void add_ite_rel_watches(app * n);
 
         void mk_not_cnstr(app * n);
@@ -911,6 +920,8 @@ namespace smt {
         void mk_and_cnstr(app * n);
 
         void mk_or_cnstr(app * n);
+
+        void mk_implies_cnstr(app* n);
 
         void mk_iff_cnstr(app * n, bool sign);
 
@@ -1287,6 +1298,8 @@ namespace smt {
         void forget_phase_of_vars_in_current_level();
 
         virtual bool resolve_conflict();
+
+        void add_scores(unsigned n, literal const *lits);
 
 
         // -----------------------------------
@@ -1808,6 +1821,14 @@ namespace smt {
             if (!m_user_propagator)
                 throw default_exception("user propagator must be initialized");
             m_user_propagator->register_decide(r);
+        }
+
+        void user_propagate_register_on_binding(user_propagator::binding_eh_t& t) {
+            m_user_propagator->register_on_binding(t);
+        }
+
+        void register_on_binding(std::function<bool(quantifier* q, expr* inst)>& f) {
+            m_qmanager->register_on_binding(f);
         }
 
         void user_propagate_initialize_value(expr* var, expr* value);

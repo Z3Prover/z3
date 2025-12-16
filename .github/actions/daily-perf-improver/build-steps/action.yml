@@ -1,0 +1,150 @@
+name: 'Z3 Performance Development Build Steps'
+description: 'Set up Z3 build environment for performance development and testing'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        echo "Installing dependencies..." | tee -a build-steps.log
+        sudo apt-get update | tee -a build-steps.log
+        sudo apt-get install -y build-essential cmake ninja-build python3 python3-pip git | tee -a build-steps.log
+        echo "Dependencies installed successfully" | tee -a build-steps.log
+
+    - name: Verify build tools
+      shell: bash
+      run: |
+        echo "Verifying build tools..." | tee -a build-steps.log
+        echo "CMake version:" | tee -a build-steps.log
+        cmake --version | tee -a build-steps.log
+        echo "Ninja version:" | tee -a build-steps.log
+        ninja --version | tee -a build-steps.log
+        echo "Python version:" | tee -a build-steps.log
+        python3 --version | tee -a build-steps.log
+        echo "GCC version:" | tee -a build-steps.log
+        gcc --version | tee -a build-steps.log
+        echo "Build tools verified successfully" | tee -a build-steps.log
+
+    - name: Clean any polluted source tree
+      shell: bash
+      run: |
+        echo "Cleaning potentially polluted source tree..." | tee -a build-steps.log
+        git clean -fx src || echo "No files to clean in src/" | tee -a build-steps.log
+        echo "Source tree cleaned" | tee -a build-steps.log
+
+    - name: Create and configure build directory
+      shell: bash
+      run: |
+        echo "Creating build directory..." | tee -a build-steps.log
+        mkdir -p build
+        cd build
+        echo "Configuring CMake for performance development..." | tee -a ../build-steps.log
+        cmake -G "Ninja" \
+              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+              -DZ3_ENABLE_TRACING_FOR_NON_DEBUG=TRUE \
+              -DZ3_BUILD_LIBZ3_SHARED=FALSE \
+              -DZ3_BUILD_TEST_EXECUTABLES=TRUE \
+              -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer" \
+              ../ | tee -a ../build-steps.log
+        echo "CMake configuration completed" | tee -a ../build-steps.log
+
+    - name: Build Z3
+      shell: bash
+      run: |
+        echo "Building Z3..." | tee -a build-steps.log
+        cd build
+        ninja | tee -a ../build-steps.log
+        echo "Z3 build completed" | tee -a ../build-steps.log
+
+    - name: Build test executables
+      shell: bash
+      run: |
+        echo "Building test executables..." | tee -a build-steps.log
+        cd build
+        ninja test-z3 | tee -a ../build-steps.log
+        echo "Test executables built" | tee -a ../build-steps.log
+
+    - name: Verify build outputs
+      shell: bash
+      run: |
+        echo "Verifying build outputs..." | tee -a build-steps.log
+        cd build
+        ls -la z3 test-z3 libz3.a | tee -a ../build-steps.log
+        echo "Z3 executable version:" | tee -a ../build-steps.log
+        ./z3 --version | tee -a ../build-steps.log
+        echo "Build outputs verified successfully" | tee -a ../build-steps.log
+
+    - name: Clone z3test repository for benchmarks
+      shell: bash
+      run: |
+        echo "Cloning z3test repository for benchmarks..." | tee -a build-steps.log
+        if [ ! -d "z3test" ]; then
+          git clone https://github.com/z3prover/z3test z3test | tee -a build-steps.log
+        else
+          echo "z3test already exists, updating..." | tee -a build-steps.log
+          cd z3test
+          git pull | tee -a ../build-steps.log
+          cd ..
+        fi
+        echo "z3test repository ready" | tee -a build-steps.log
+
+    - name: Run quick verification tests
+      shell: bash
+      run: |
+        echo "Running quick verification tests..." | tee -a build-steps.log
+        cd build
+        echo "Running unit tests (first 10)..." | tee -a ../build-steps.log
+        timeout 60s ./test-z3 | head -20 | tee -a ../build-steps.log || echo "Unit tests running (timeout reached)" | tee -a ../build-steps.log
+        echo "Testing basic Z3 functionality..." | tee -a ../build-steps.log
+        echo "(assert (> x 0))" | ./z3 -in | tee -a ../build-steps.log
+        echo "Quick verification tests completed" | tee -a ../build-steps.log
+
+    - name: Set up performance measurement tools
+      shell: bash
+      run: |
+        echo "Setting up performance measurement tools..." | tee -a build-steps.log
+        which perf || echo "perf not available" | tee -a build-steps.log
+        which valgrind || echo "valgrind not available" | tee -a build-steps.log
+        echo "Performance measurement tools setup completed" | tee -a build-steps.log
+
+    - name: Create micro-benchmark template
+      shell: bash
+      run: |
+        echo "Creating micro-benchmark infrastructure..." | tee -a build-steps.log
+        mkdir -p perf-bench
+        cat > perf-bench/README.md << 'EOF'
+# Z3 Performance Benchmarks
+
+This directory contains micro-benchmarks for Z3 performance testing.
+
+## Quick Start
+
+1. Run unit tests: `cd build && ./test-z3 -a`
+2. Run regression tests: `python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2-extra`
+3. Basic SMT solving: `echo "(assert (> x 0))" | build/z3 -in`
+
+## Performance Measurement
+
+- Use `build/z3 -st input.smt2` to get statistics
+- Use `perf` or `valgrind` for detailed profiling
+- Time measurements: Use `scoped_timer` class in Z3 code
+
+## Build Commands
+
+- Clean rebuild: `rm -rf build && mkdir build && cd build && cmake -G "Ninja" -DCMAKE_BUILD_TYPE=RelWithDebInfo ../ && ninja`
+- Build tests only: `ninja test-z3`
+- Build with profiling: `cmake -DCMAKE_CXX_FLAGS="-pg -fno-omit-frame-pointer" ../`
+EOF
+        echo "Micro-benchmark infrastructure created" | tee -a build-steps.log
+
+    - name: Display build summary
+      shell: bash
+      run: |
+        echo "=== Z3 Performance Development Environment Ready ===" | tee -a build-steps.log
+        echo "Build directory: $(pwd)/build" | tee -a build-steps.log
+        echo "Z3 executable: $(pwd)/build/z3" | tee -a build-steps.log
+        echo "Test executable: $(pwd)/build/test-z3" | tee -a build-steps.log
+        echo "Benchmark repository: $(pwd)/z3test" | tee -a build-steps.log
+        echo "Build log: $(pwd)/build-steps.log" | tee -a build-steps.log
+        echo "=== Setup Complete ===" | tee -a build-steps.log

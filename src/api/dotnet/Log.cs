@@ -41,7 +41,7 @@ namespace Microsoft.Z3
         public static bool Open(string filename)
         {
             m_is_open = true;
-            return Native.Z3_open_log(filename) == 1;
+            return 0 != Native.Z3_open_log(filename);
         }
 
         /// <summary>

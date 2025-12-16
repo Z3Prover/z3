@@ -1568,7 +1568,7 @@ namespace smt {
         family_id fid = m.get_family_id("specrels");
         theory* th = get_theory(fid);
         if (th)
-            dynamic_cast<theory_special_relations*>(th)->get_specrels(rels);
+            static_cast<theory_special_relations*>(th)->get_specrels(rels);
     }
 
 
@@ -3602,7 +3602,7 @@ namespace smt {
         auto p = m_theories.get_plugin(tid);
         if (!p)
             return false;
-        m_model = dynamic_cast<theory_sls*>(p)->get_model();      
+        m_model = static_cast<theory_sls*>(p)->get_model();
         return m_model.get() != nullptr;
     }
 
@@ -3768,6 +3768,55 @@ namespace smt {
         TRACE(literal_occ, display_literal_num_occs(tout););
     }
 
+    void context::initialize_values() {
+        if (m_values.empty())
+            return;
+        expr_safe_replace sub(m);
+        for (auto const &[var, value] : m_values) {
+            initialize_value(var, value);
+            sub.insert(var, value);
+        }        
+        for (unsigned v = 0; v < get_num_bool_vars(); ++v) {
+            expr_ref var(bool_var2expr(v), m);
+            if (!var)
+                continue;
+            sub(var);
+            m_rewriter(var);
+
+            if (m.is_true(var)) {
+                m_bdata[v].m_phase_available = true;
+                m_bdata[v].m_phase = true;
+            }
+            else if (m.is_false(var)) {
+                m_bdata[v].m_phase_available = true;
+                m_bdata[v].m_phase = false;
+            } 
+        }
+
+        for (clause *cls : m_aux_clauses) {
+            literal undef_lit = null_literal;
+            bool is_true = false;
+            for (auto lit : *cls) {
+                auto v = lit.var();
+                if (m_bdata[v].m_phase_available) {
+                    bool phase = m_bdata[v].m_phase;
+                    if (lit.sign() != phase) {
+                        is_true = true;
+                        break;
+                    }
+                }
+                else {
+                    undef_lit = lit;
+                }
+            }
+            if (!is_true && undef_lit != null_literal) {
+                auto v = undef_lit.var();
+                m_bdata[v].m_phase_available = true;
+                m_bdata[v].m_phase = !undef_lit.sign();
+            }
+        }       
+    }
+
     void context::end_search() {
         m_case_split_queue->end_search_eh();
     }
@@ -3820,8 +3869,7 @@ namespace smt {
         TRACE(search, display(tout); display_enodes_lbls(tout););
         TRACE(search_detail, m_asserted_formulas.display(tout););
         init_search();
-        for (auto const& [var, value] : m_values)
-            initialize_value(var, value);
+        initialize_values();
             
         flet<bool> l(m_searching, true);
         TRACE(after_init_search, display(tout););
@@ -4074,16 +4122,18 @@ namespace smt {
         unsigned old_idx          = m_final_check_idx;
         unsigned num_th           = m_theory_set.size();
         unsigned range            = num_th + 1;
+        unsigned level = 1, max_level = 1;
         final_check_status result = FC_DONE;
         failure  f                = OK;
 
-        do {
+        while (true) {
             TRACE(final_check_step, tout << "processing: " << m_final_check_idx << ", result: " << result << "\n";);
             final_check_status ok;
             if (m_final_check_idx < num_th) {
                 theory * th = m_theory_set[m_final_check_idx];
                 IF_VERBOSE(100, verbose_stream() << "(smt.final-check \"" << th->get_name() << "\")\n";);
-                ok = th->final_check_eh();
+                ok = th->final_check_eh(level);
+                max_level = std::max(max_level, th->num_final_check_levels());
                 TRACE(final_check_step, tout << "final check '" << th->get_name() << " ok: " << ok << " inconsistent " << inconsistent() << "\n";);
                 if (get_cancel_flag()) {
                     f = CANCELED;
@@ -4091,7 +4141,8 @@ namespace smt {
                 }
                 else if (ok == FC_GIVEUP) {
                     f  = THEORY;
-                    m_incomplete_theories.push_back(th);
+                    if (!m_incomplete_theories.contains(th))
+                        m_incomplete_theories.push_back(th);
                 }
             }
             else {
@@ -4110,10 +4161,13 @@ namespace smt {
                 break;
             case FC_CONTINUE:
                 return FC_CONTINUE;
-                break;
+            }
+            if (m_final_check_idx == old_idx) {
+                if (level >= max_level || result == FC_DONE || can_propagate())
+                    break;
+                ++level;
             }
         }
-        while (m_final_check_idx != old_idx);
 
         TRACE(final_check_step, tout << "result: " << result << "\n";);
 
@@ -4750,6 +4804,11 @@ namespace smt {
                 }                
             }
             mdl = m_model.get();
+        }
+        if (m_fmls && mdl) {
+            auto convert = m_fmls->model_trail().get_model_converter();
+            if (convert)
+                (*convert)(mdl);
         }
     }
 

@@ -319,6 +319,8 @@ namespace smt {
         
         void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh);
 
+        void user_propagate_register_on_binding(user_propagator::binding_eh_t& binding_eh);
+
         void user_propagate_register_expr(expr* e);
         
         void user_propagate_register_created(user_propagator::created_eh_t& r);

@@ -137,6 +137,7 @@ struct statistics {
     unsigned m_bounds_tightening_conflicts = 0;
     unsigned m_bounds_tightenings = 0;
     unsigned m_nla_throttled_lemmas = 0;
+
     ::statistics m_st = {};
 
     void reset() {
@@ -221,11 +222,13 @@ public:
     unsigned     percent_of_entering_to_check = 5; // we try to find a profitable column in a percentage of the columns
     bool         use_scaling = true;
     unsigned     max_number_of_iterations_with_no_improvements = 2000000;
- double       time_limit; // the maximum time limit of the total run time in seconds
+    double       time_limit; // the maximum time limit of the total run time in seconds
     // end of dual section
     bool                   m_bound_propagation = true;
     bool                   presolve_with_double_solver_for_lar = true;
     simplex_strategy_enum  m_simplex_strategy;
+
+    unsigned         m_max_conflicts = 0;
     
     int              report_frequency = 1000;
     bool             print_statistics = false;
@@ -242,6 +245,7 @@ private:
 public:
     unsigned         limit_on_rows_for_hnf_cutter = 75;
     unsigned         limit_on_columns_for_hnf_cutter = 150;
+    mpq              m_epsilon = mpq(1);
 private:
     unsigned         m_nlsat_delay = 0;
     bool             m_enable_hnf = true;

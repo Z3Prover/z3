@@ -103,6 +103,9 @@ namespace euf {
             m_scopes.push_back(m_updates.size());
             m_region.push_scope();
             m_updates.push_back(update_record(m_new_th_eqs_qhead, update_record::new_th_eq_qhead()));
+            for (auto p : m_plugins)
+                if (p)
+                    p->push_scope_eh();
         }
         SASSERT(m_new_th_eqs_qhead <= m_new_th_eqs.size());
     }
@@ -117,6 +120,7 @@ namespace euf {
 
     enode* egraph::mk(expr* f, unsigned generation, unsigned num_args, enode *const* args) {
         SASSERT(!find(f));
+        TRACE(euf, tout << "mk: " << mk_bounded_pp(f, m) << " generation: " << generation << " num_args: " << num_args << "\n";);
         force_push();
         enode *n = mk_enode(f, generation, num_args, args);
         
@@ -157,6 +161,21 @@ namespace euf {
     }
 
     void egraph::propagate_plugins() {
+        if (m_plugins.empty())
+            return;
+        if (m_plugin_qhead < m_new_th_eqs.size())
+            m_updates.push_back(update_record(m_plugin_qhead, update_record::plugin_qhead()));
+
+        for (; m_plugin_qhead < m_new_th_eqs.size(); ++m_plugin_qhead) {
+            auto const& eq = m_new_th_eqs[m_plugin_qhead];
+            auto* p = get_plugin(eq.id());
+            if (!p)
+                continue;
+            if (eq.is_eq()) 
+                p->merge_eh(eq.child(), eq.root());            
+            else 
+                p->diseq_eh(eq.eq());
+        }
         for (auto* p : m_plugins)
             if (p)
                 p->propagate();        
@@ -167,23 +186,18 @@ namespace euf {
         m_new_th_eqs.push_back(th_eq(id, v1, v2, c, r));
         m_updates.push_back(update_record(update_record::new_th_eq()));
         ++m_stats.m_num_th_eqs;
-        auto* p = get_plugin(id);
-        if (p)
-            p->merge_eh(c, r);
     }
 
     void egraph::add_th_diseq(theory_id id, theory_var v1, theory_var v2, enode* eq) {
         if (!th_propagates_diseqs(id))
             return;
         TRACE(euf_verbose, tout << "eq: " << v1 << " != " << v2 << "\n";);
-        m_new_th_eqs.push_back(th_eq(id, v1, v2, eq->get_expr()));
+        m_new_th_eqs.push_back(th_eq(id, v1, v2, eq));
         m_updates.push_back(update_record(update_record::new_th_eq()));
-        auto* p = get_plugin(id);
-        if (p)
-            p->diseq_eh(eq);
+
         ++m_stats.m_num_th_diseqs;
     }
-
+    
     void egraph::add_literal(enode* n, enode* ante) {
         TRACE(euf, tout << "propagate " << bpp(n) << " " << bpp(ante) << "\n");
         if (!m_on_propagate_literal)
@@ -447,6 +461,9 @@ namespace euf {
             case update_record::tag_t::is_new_th_eq_qhead:
                 m_new_th_eqs_qhead = p.qhead;
                 break;
+            case update_record::tag_t::is_plugin_qhead:
+                m_plugin_qhead = p.qhead;
+                break;
             case update_record::tag_t::is_inconsistent:
                 m_inconsistent = p.m_inconsistent;
                 break;
@@ -546,16 +563,18 @@ namespace euf {
     void egraph::remove_parents(enode* r) {
         TRACE(euf_verbose, tout << bpp(r) << "\n");
         SASSERT(all_of(enode_parents(r), [&](enode* p) { return !p->is_marked1(); }));
+        TRACE(euf, tout << "remove_parents " << bpp(r) << "\n");
         for (enode* p : enode_parents(r)) {
             if (p->is_marked1())
                 continue;
             if (p->cgc_enabled()) {
                 if (!p->is_cgr())
                     continue;
+                TRACE(euf, tout << "removing " << m_table.contains_ptr(p) << " " << bpp(p) << "\n");
                 SASSERT(m_table.contains_ptr(p));
                 p->mark1();
                 erase_from_table(p);
-                CTRACE(euf_verbose, m_table.contains_ptr(p), tout << bpp(p) << "\n"; display(tout));
+                CTRACE(euf, m_table.contains_ptr(p), tout << bpp(p) << "\n"; display(tout));
                 SASSERT(!m_table.contains_ptr(p));
             }
             else if (p->is_equality())
@@ -564,15 +583,16 @@ namespace euf {
     }
 
     void egraph::reinsert_parents(enode* r1, enode* r2) {
+        TRACE(euf, tout << "reinsert_parents " << bpp(r1) << " " << bpp(r2) << "\n";);
         for (enode* p : enode_parents(r1)) {
             if (!p->is_marked1())
                 continue;
             p->unmark1();
-            TRACE(euf_verbose, tout << "reinsert " << bpp(r1) << " " << bpp(r2) << " " << bpp(p) << " " << p->cgc_enabled() << "\n";);
+            TRACE(euf, tout << "reinsert " << bpp(r1) << " " << bpp(r2) << " " << bpp(p) << " " << p->cgc_enabled() << "\n";);
             if (p->cgc_enabled()) {
                 auto [p_other, comm] = insert_table(p);
                 SASSERT(m_table.contains_ptr(p) == (p_other == p));
-                CTRACE(euf_verbose, p_other != p, tout << "reinsert " << bpp(p) << " == " << bpp(p_other) << " " << p->value() << " " << p_other->value() << "\n");
+                CTRACE(euf, p_other != p, tout << "reinsert " << bpp(p) << " == " << bpp(p_other) << " " << p->value() << " " << p_other->value() << "\n");
                 if (p_other != p) 
                     m_to_merge.push_back(to_merge(p_other, p, comm));                
                 else
@@ -903,12 +923,7 @@ namespace euf {
             out << "n";
         out << "#" << n->get_expr_id() << " := ";
         expr* f = n->get_expr();
-        if (is_app(f))
-            out << mk_bounded_pp(f, m, 1) << " ";
-        else if (is_quantifier(f))
-            out << "q:" << f->get_id() << " ";
-        else
-            out << "v:" << f->get_id() << " ";
+        out << mk_bounded_pp(f, m, 1) << " ";
         if (!n->is_root()) 
             out << "[r " << n->get_root()->get_expr_id() << "] ";
         if (!n->m_parents.empty()) {
@@ -962,6 +977,9 @@ namespace euf {
         st.update("euf propagations theory eqs", m_stats.m_num_th_eqs);
         st.update("euf propagations theory diseqs", m_stats.m_num_th_diseqs);
         st.update("euf propagations literal", m_stats.m_num_lits);
+        for (auto p : m_plugins) 
+            if (p) 
+                p->collect_statistics(st);                   
     }
 
     void egraph::copy_from(egraph const& src, std::function<void*(void*)>& copy_justification) {

@@ -1,10 +1,11 @@
 variables:
+  # Version components read from VERSION.txt (updated manually when VERSION.txt changes)
   Major: '4'
   Minor: '15'
-  Patch: '3'
+  Patch: '5'
   ReleaseVersion: $(Major).$(Minor).$(Patch)
-  AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
-  NightlyVersion: $(AssemblyVersion)-$(Build.buildId)
+  NightlyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
+  # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
 
 stages:
 - stage: Build
@@ -233,6 +234,11 @@ stages:
         artifact: 'WindowsBuild-x64'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
+      displayName: 'Download Win ARM64 Build'
+      inputs:
+        artifact: 'WindowsBuild-arm64'
+        path: $(Agent.TempDirectory)\package
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu Build'
       inputs:
         artifact: 'UbuntuBuild'
@@ -252,9 +258,9 @@ stages:
       inputs:
         artifact: 'MacArm64'
         path: $(Agent.TempDirectory)\package
-    - task: NuGetToolInstaller@0
+    - task: NuGetToolInstaller@1
       inputs:
-        versionSpec: 5.x
+        versionSpec: 6.x
         checkLatest: false        
     - task: PythonScript@0
       displayName: 'Python: assemble files'
@@ -300,9 +306,9 @@ stages:
       inputs:
         artifact: 'WindowsBuild-x86'
         path: $(Agent.TempDirectory)\package
-    - task: NuGetToolInstaller@0
+    - task: NuGetToolInstaller@1
       inputs:
-        versionSpec: 5.x
+        versionSpec: 6.x
         checkLatest: false        
     - task: PythonScript@0
       displayName: 'Python: assemble files'
@@ -359,17 +365,17 @@ stages:
       inputs:
         artifactName: 'WindowsBuild-x86'
         targetPath: $(Agent.TempDirectory)	
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download ManyLinux Build'    
-      inputs:
-        artifactName: 'ManyLinuxPythonBuildAMD64'
-        targetPath: $(Agent.TempDirectory)
+#    - task: DownloadPipelineArtifact@2
+#      displayName: 'Download ManyLinux Build'    
+#      inputs:
+#        artifactName: 'ManyLinuxPythonBuildAMD64'
+#        targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download ManyLinux Arm64 Build'
       inputs:
         artifactName: 'ManyLinuxPythonBuildArm64'
         targetPath: $(Agent.TempDirectory)
-    - script: cd $(Agent.TempDirectory); mkdir osx-x64-bin; cd osx-x64-bin; unzip ../*x64-osx*.zip
+#   - script: cd $(Agent.TempDirectory); mkdir osx-x64-bin; cd osx-x64-bin; unzip ../*x64-osx*.zip
     - script: cd $(Agent.TempDirectory); mkdir osx-arm64-bin; cd osx-arm64-bin; unzip ../*arm64-osx*.zip
 #    - script: cd $(Agent.TempDirectory); mkdir musl-bin; cd musl-bin; unzip ../*-linux.zip
     - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
@@ -471,49 +477,12 @@ stages:
         tagSource: 'userSpecifiedTag'
         tag: 'Nightly'
         title: 'Nightly'
-        releaseNotesSource: 'input'
+        releaseNotesSource: 'inline'
         releaseNotes: 'nightly build'
         assets: 'tmp/*'
         assetUploadMode: 'replace'
         isDraft: false
         isPreRelease: true
 
-- stage: NugetPublishNightly
-  jobs:
-   # Publish to nightly feed on Azure
-  - job: NuGetPublishNightly
-    displayName: "Push nuget packages to Azure Feed"
-    steps:
-    - task: NuGetAuthenticate@0
-      displayName: 'NuGet Authenticate'
-    - task: NuGetToolInstaller@0
-      inputs:
-        versionSpec: 5.x
-        checkLatest: false
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download NuGet x86 Package'
-      inputs:
-        artifact: 'NuGet32'
-        path: $(Agent.TempDirectory)/x86
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download NuGet x64 Package'
-      inputs:
-        artifact: 'NuGet'
-        path: $(Agent.TempDirectory)/x64
-    - task: NuGetCommand@2
-      displayName: 'NuGet Nightly x64 push'
-      inputs:
-        command: push
-        publishVstsFeed: 'Z3Build/Z3-Nightly-Builds'
-        packagesToPush: $(Agent.TempDirectory)/x64/*.nupkg
-        allowPackageConflicts: true
-    - task: NuGetCommand@2
-      displayName: 'NuGet Nightly x86 push'
-      inputs:
-        command: push
-        publishVstsFeed: 'Z3Build/Z3-Nightly-Builds'
-        packagesToPush: $(Agent.TempDirectory)/x86/*.nupkg
-        allowPackageConflicts: true
-    
-       
+
 # TBD: run regression tests on generated binaries.

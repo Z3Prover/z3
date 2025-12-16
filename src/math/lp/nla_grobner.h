@@ -20,6 +20,11 @@ namespace nla {
     class core;
 
     class grobner : common {
+        struct config {
+            bool m_propagate_quotients = false;
+            bool m_gcd_test = false;
+            bool m_expand_terms = false;
+        };
         dd::pdd_manager          m_pdd_manager;
         dd::solver               m_solver;
         lp::lar_solver&          lra;
@@ -28,6 +33,7 @@ namespace nla {
         unsigned                 m_delay_base = 0;
         unsigned                 m_delay = 0;
         bool                     m_add_all_eqs = false;
+        config                   m_config;
         std::unordered_map<unsigned_vector, lpvar, hash_svector> m_mon2var;
 
         lp::lp_settings& lp_settings();
@@ -44,6 +50,15 @@ namespace nla {
 
         bool propagate_linear_equations();
         bool propagate_linear_equations(dd::solver::equation const& eq);
+
+        bool propagate_quotients();
+        bool propagate_quotients(dd::solver::equation const& eq);
+
+        svector<std::pair<unsigned, unsigned>> m_powers;
+        bool propagate_gcd_test();
+        bool propagate_gcd_test(dd::solver::equation const& eq);
+
+        std::pair<lp::lar_term, rational> linear_to_term(dd::pdd q);
         
         void add_dependencies(lemma_builder& lemma, dd::solver::equation const& eq);
         void explain(dd::solver::equation const& eq, lp::explanation& exp);
@@ -65,8 +80,10 @@ namespace nla {
         void add_fixed_monic(unsigned j);
         bool is_solved(dd::pdd const& p, unsigned& v, dd::pdd& r);
         void add_eq(dd::pdd& p, u_dependency* dep);        
+        bool is_pseudo_linear(monic const& m) const;
         const rational& val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep);
-        dd::pdd pdd_expr(const rational& c, lpvar j, u_dependency*& dep);                
+        dd::pdd pdd_expr(const rational& c, lpvar j, u_dependency*& dep);  
+        dd::pdd pdd_expr(lp::lar_term const& t, u_dependency*& dep);
 
         void display_matrix_of_m_rows(std::ostream& out) const;
         std::ostream& diagnose_pdd_miss(std::ostream& out);
@@ -75,6 +92,5 @@ namespace nla {
         grobner(core *core);        
         void operator()();
         void updt_params(params_ref const& p);
-        dd::solver::equation_vector const& core_equations(bool all_eqs);
     }; 
 }

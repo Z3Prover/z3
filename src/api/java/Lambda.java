@@ -126,7 +126,7 @@ public class Lambda<R extends Sort> extends ArrayExpr<Sort, R>
    }
 
 
-    private Lambda(Context ctx, long obj)
+    Lambda(Context ctx, long obj)
     {
         super(ctx, obj);
     }

@@ -7,6 +7,27 @@ Version 4.next
     - CDCL core for SMT queries. It extends the SAT engine with theory solver plugins.
   - add global incremental pre-processing for the legacy core.
 
+Version 4.15.4
+==============
+- Add methods to create polymorphic datatype constructors over the API. The prior method was that users had to manage 
+  parametricity using their own generation of instances. The updated API allows to work with polymorphic datatype declarations
+  directly.
+- MSVC build by default respect security flags, https://github.com/Z3Prover/z3/pull/7988 
+- Using a new algorithm for smt.threads=k, k > 1 using a shared search tree. Thanks to Ilana Shapiro.
+- Thanks for several pull requests improving usability, including
+  - https://github.com/Z3Prover/z3/pull/7955
+  - https://github.com/Z3Prover/z3/pull/7995
+  - https://github.com/Z3Prover/z3/pull/7947
+
+Version 4.15.3
+==============
+- Add UserPropagator callback option for quantifier instantiations. It allows the user propagator to
+  intercept quantifier instantiations. It can then inspect these in the callback. By returning false, 
+  the callback signals that the instantiation should be discarded by the solver. The user propagator 
+  is then able to apply finer control over instantiations. It can also use this mechanism to delay
+  instantiations.
+- Deprecate z3str3
+
 Version 4.15.2
 ==============
 - #7690, #7691 - fix leak introduced in arithmetic solver.

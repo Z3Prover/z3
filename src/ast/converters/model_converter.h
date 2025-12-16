@@ -76,8 +76,6 @@ public:
     virtual void operator()(model_ref & m) = 0;
 
     virtual void operator()(labels_vec & r) {}
-
-    virtual void operator()(expr_ref& fml) { UNREACHABLE(); }
     
     virtual model_converter * translate(ast_translation & translator) = 0;
     

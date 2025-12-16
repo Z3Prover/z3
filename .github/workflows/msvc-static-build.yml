@@ -1,20 +1,20 @@
 name: MSVC Static Build
   
 on:
-  push:
-  pull_request:
+  schedule:
+    - cron: '0 0 */2 * *'
 
 permissions:
   contents: read # to fetch code (actions/checkout)
 
 jobs:
   build:
-    runs-on: windows-2019
+    runs-on: windows-latest
     env:
       BUILD_TYPE: Release
     steps:
     - name: Checkout Repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
   
     - name: Build
       run: |

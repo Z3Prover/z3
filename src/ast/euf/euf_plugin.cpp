@@ -35,7 +35,7 @@ namespace euf {
     void plugin::push_merge(enode* a, enode* b) {
         if (a->get_root() == b->get_root())
             return; // already merged
-        TRACE(plugin, tout << g.bpp(a) << " == " << g.bpp(b) << "\n");
+        TRACE(plugin, tout << "push-merge " << g.bpp(a) << " == " << g.bpp(b) << "\n");
         g.push_merge(a, b, justification::axiom(get_id()));
     }
 

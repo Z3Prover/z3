@@ -572,13 +572,6 @@ expr_ref model::operator()(expr* t) {
     return m_mev(t);
 }
 
-void model::set_solver(expr_solver* s) {
-    m_mev.set_solver(s);
-}
-
-bool model::has_solver() {
-    return m_mev.has_solver();
-}
 
 expr_ref_vector model::operator()(expr_ref_vector const& ts) {
     expr_ref_vector rs(m);

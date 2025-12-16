@@ -20,6 +20,7 @@ Notes:
 #include "util/vector.h"
 #include "util/chashtable.h"
 #include "util/small_object_allocator.h"
+#include "util/region.h"
 #include "util/id_gen.h"
 #include "util/buffer.h"
 #include "util/scoped_ptr_vector.h"
@@ -594,7 +595,18 @@ namespace polynomial {
 
         power const & get_power(unsigned idx) const { return m_ptr->m_powers[idx]; }
 
+        power const& operator[](unsigned idx) const { return get_power(idx); }
+
         power const * get_powers() const { return m_ptr->m_powers; }
+
+        bool operator==(tmp_monomial const& other) const {
+            if (size() != other.size())
+                return false;
+            for (unsigned i = 0; i < size(); ++i)
+                if (get_power(i) != other.get_power(i))
+                    return false;
+            return true;
+        }
     };
 
     /**
@@ -924,13 +936,10 @@ namespace polynomial {
             return mk_monomial(m_powers_tmp.size(), m_powers_tmp.data());
         }
 
-        monomial * mul(unsigned sz1, power const * pws1, unsigned sz2, power const * pws2) {
-            SASSERT(is_valid_power_product(sz1, pws1));
-            SASSERT(is_valid_power_product(sz2, pws2));
-            tmp_monomial & product_tmp = m_tmp1;
+        void mul(unsigned sz1, power const* pws1, unsigned sz2, power const* pws2, tmp_monomial& product_tmp) {
             product_tmp.reserve(sz1 + sz2); // product has at most sz1 + sz2 powers
             unsigned i1 = 0, i2 = 0;
-            unsigned j  = 0;
+            unsigned j = 0;
             while (true) {
                 if (i1 == sz1) {
                     // copy 2
@@ -944,8 +953,8 @@ namespace polynomial {
                         product_tmp.set_power(j, pws1[i1]);
                     break;
                 }
-                power const & pw1 = pws1[i1];
-                power const & pw2 = pws2[i2];
+                power const& pw1 = pws1[i1];
+                power const& pw2 = pws2[i2];
                 unsigned v1 = pw1.get_var();
                 unsigned v2 = pw2.get_var();
                 if (v1 == v2) {
@@ -965,6 +974,13 @@ namespace polynomial {
                 j++;
             }
             product_tmp.set_size(j);
+        }
+
+        monomial * mul(unsigned sz1, power const * pws1, unsigned sz2, power const * pws2) {
+            SASSERT(is_valid_power_product(sz1, pws1));
+            SASSERT(is_valid_power_product(sz2, pws2));
+            tmp_monomial & product_tmp = m_tmp1;
+            mul(sz1, pws1, sz2, pws2, product_tmp);
             TRACE(monomial_mul_bug,
                   tout << "before mk_monomial\n";
                   tout << "pws1: "; for (unsigned i = 0; i < sz1; i++) tout << pws1[i] << " "; tout << "\n";
@@ -973,7 +989,6 @@ namespace polynomial {
                   tout << "\n";);
             monomial * r = mk_monomial(product_tmp);
             TRACE(monomial_mul_bug,
-                  tout << "j: " << j << "\n";
                   tout << "r: "; r->display(tout); tout << "\n";
                   tout << "pws1: "; for (unsigned i = 0; i < sz1; i++) tout << pws1[i] << " "; tout << "\n";
                   tout << "pws2: "; for (unsigned i = 0; i < sz2; i++) tout << pws2[i] << " "; tout << "\n";
@@ -2314,15 +2329,168 @@ namespace polynomial {
             }
         };
 
+#if 0
+        // Buffer for multiplying large polynomials.
+        // It delays internalizing monomials, and uses sorted vectors instead of hash tables.
+        // this implementation is 10x slower on results up to 10K monomials
+        // it also has a bug as entries are not properly sorted and therefore 
+        // the same monomial can appear several times.
+        // perf tuning and debugging is required if this is to be used.
+        // it is possible this can be faster for very large polynomials by ensuring cache locality.
+        // at this point there are several cache misses: such as m_powers are pointers inside of m_monomial.
+
+        class large_mul_buffer {
+            struct entry {
+                tmp_monomial    m_monomial;                
+                numeral         m_coeff;
+
+                bool operator<(entry const& other) const {
+                    unsigned i = 0;
+                    for (; i < m_monomial.size() && i < other.m_monomial.size(); i++) {
+                        if (m_monomial[i].get_var() < other.m_monomial[i].get_var())
+                            return true;
+                        if (m_monomial[i].get_var() > other.m_monomial[i].get_var())
+                            return false;
+                        if (m_monomial[i].degree() < other.m_monomial[i].degree())
+                            return true;
+                        if (m_monomial[i].degree() > other.m_monomial[i].degree())
+                            return false;
+                    }
+                    return i < other.m_monomial.size();
+                }
+            };
+            region            m_region;
+            ptr_vector<entry> m_buffer; // or svector
+            imp* m_owner = nullptr;
+            numeral_vector     m_tmp_as;
+            monomial_vector    m_tmp_ms;
+
+            void merge(monomial const* p1, monomial const* p2, tmp_monomial& result) {                
+                unsigned sz1 = p1->size();
+                unsigned sz2 = p2->size();
+                m_owner->mm().mul(sz1, p1->get_powers(), sz2, p2->get_powers(), result);
+            }
+
+            // merge in-place
+            void merge(unsigned i, unsigned sz1, unsigned sz2) {
+                auto* buffer = m_buffer.data() + i;
+                std::inplace_merge(buffer, buffer + sz1, buffer + sz1 + sz2, [](entry const* a, entry const* b) { return *a < *b; });
+            }
+
+            void reset() {
+                for (entry* e : m_buffer) {
+                    m_owner->m_manager.del(e->m_coeff);                   
+                }
+                m_buffer.reset();
+            }
+        public:
+
+            large_mul_buffer() {}
+            ~large_mul_buffer() { reset(); }
+
+            void set_owner(imp* o) { m_owner = o; }
+
+            polynomial* mul(polynomial const* p1, polynomial const* p2) {
+                auto sz1 = p1->size();
+                auto sz2 = p2->size();
+                if (sz1 < sz2) {
+                    std::swap(sz1, sz2);
+                    std::swap(p1, p2);
+                }
+                unsigned sz = sz1 * sz2;
+                for (unsigned i = m_buffer.size(); i < sz; i++) {
+                    m_buffer.push_back(new (m_region) entry());
+                    m_owner->m_manager.set(m_buffer.back()->m_coeff, 0);
+                }
+                unsigned start = 0, index = 0;
+                for (unsigned i = 0; i < sz1; i++) {
+                    for (unsigned j = 0; j < sz2; j++) {
+                        entry& e = *m_buffer[index++];
+                        merge(p1->m(i), p2->m(j), e.m_monomial);
+                        m_owner->m().mul(p1->a(i), p2->a(j), e.m_coeff);
+                    }
+                    unsigned end = start + sz2;
+                    // sort entries between start and end
+                    std::stable_sort(m_buffer.begin() + start, m_buffer.begin() + end, [](entry const* e1, entry const* e2) {
+                        return *e1 < *e2;
+                        });
+                    start = end;
+                }
+                
+                // there are sz1 segments, each of size sz2. Merge them into a single sorted sequence.
+                unsigned span = sz2;
+
+                while (2 * span <= sz) {
+                    unsigned i = 0;
+                    for (; i + 2 * span < sz; i += 2 * span) {
+                        merge(i, span, span);
+                    }
+                    // merge left-overs
+                    // original: (a,b) (c,d) (e,f) g
+                    // after merge: (a, b, c, d) (e, f) g
+                    // after left-over merge: (a, b, c, d) (e, f, g)
+                    if (i + 2 * span > sz && i + span < sz) {
+                        SASSERT(sz - i - span < span);
+                        merge(i, span, sz - i - span);
+                    }
+                    span *= 2;
+                }
+                SASSERT(2 * span > sz);
+                if (span < sz)
+                    merge(0, span, sz - span);
+
+                for (unsigned i = 0; i < sz; ++i) {
+                    if (i > 0 && get_mon(i) == get_mon(i - 1))
+                        m_owner->m().add(get_coeff(i), get_coeff(i - 1), get_coeff(i));
+                    else if (i > 0) {
+                        auto& c = get_coeff(i - 1);
+                        if (!m_owner->m().is_zero(c)) {
+                            m_tmp_as.push_back(numeral());
+                            auto& a = m_tmp_as.back();
+                            m_owner->m().set(a, c);
+                            m_tmp_ms.push_back(m_owner->mk_monomial(get_mon(i - 1)));
+                            m_owner->inc_ref(m_tmp_ms.back());
+                        }
+                    }
+                    if (i + 1 == sz) {
+                        auto& c = get_coeff(i);
+                        if (!m_owner->m().is_zero(c)) {
+                            m_tmp_as.push_back(numeral());
+                            auto& a = m_tmp_as.back();
+                            m_owner->m().set(a, c);
+                            m_tmp_ms.push_back(m_owner->mk_monomial(get_mon(i)));
+                            m_owner->inc_ref(m_tmp_ms.back());
+                        }
+                    }
+                }
+                polynomial* p = m_owner->mk_polynomial_core(m_tmp_as.size(), m_tmp_as.data(), m_tmp_ms.data());
+                for (auto& a : m_tmp_as)
+                    m_owner->m_manager.del(a);
+                m_tmp_as.reset();
+                m_tmp_ms.reset();
+                return p;
+            }
+
+            tmp_monomial& get_mon(unsigned i) {
+                return m_buffer[i]->m_monomial;
+            }
+            numeral& get_coeff(unsigned i) {
+                return m_buffer[i]->m_coeff;
+            }
+        };
+#endif
+
         som_buffer       m_som_buffer;
         som_buffer       m_som_buffer2;
         cheap_som_buffer m_cheap_som_buffer;
         cheap_som_buffer m_cheap_som_buffer2;
+        //large_mul_buffer m_large_mul_buffer;
 
         void init() {
             m_del_eh = nullptr;
             m_som_buffer.set_owner(this);
             m_som_buffer2.set_owner(this);
+            //m_large_mul_buffer.set_owner(this);
             m_cheap_som_buffer.set_owner(this);
             m_cheap_som_buffer2.set_owner(this);
             m_zero = mk_polynomial_core(0, nullptr, nullptr);
@@ -2837,6 +3005,8 @@ namespace polynomial {
             return addmul(one, mk_unit(), p1, minus_one, mk_unit(), p2);
         }
 
+        
+
         /**
            \brief Return p1*p2 + a
         */
@@ -2853,7 +3023,26 @@ namespace polynomial {
                 m_som_buffer.addmul(a1, m1, p2);
             }
             m_som_buffer.add(a);
-            return m_som_buffer.mk();
+            auto p = m_som_buffer.mk();
+#if 0
+            unsigned sz2 = p2->size();
+            if (sz1 > 2 && sz2 > 2) {
+                auto s1 = sw.get_seconds();
+                IF_VERBOSE(0, verbose_stream() << "polynomial muladd time: " << sz1 << " " << sz2 << " " << s1 << "\n");
+                sw.start();
+                auto* new_p = m_large_mul_buffer.mul(p1, p2);
+                inc_ref(new_p);
+                 sw.stop();
+                IF_VERBOSE(0, verbose_stream() << "polynomial muladd time: " << s1 << " " << sw.get_seconds() << " " << p->size() << " " << new_p->size() << "\n";);
+                if (sz1*sz2 < 40 && new_p->size() != p->size()) {
+                    p->display(verbose_stream(), m_manager, display_var_proc(), true); verbose_stream() << "\n";
+                    new_p->display(verbose_stream(), m_manager, display_var_proc(), true); verbose_stream() << "\n";
+                    VERIFY(p->size() == new_p->size());
+                }
+                dec_ref(new_p);
+            }
+#endif
+            return p;
         }
 
         polynomial * mul(polynomial const * p1, polynomial const * p2) {
@@ -5153,6 +5342,8 @@ namespace polynomial {
                 //
                 unsigned sz = R->size();
                 for (unsigned i = 0; i < sz; i++) {
+                    if (sz > 100 && i % 100 == 0)
+                        checkpoint();
                     monomial * m      = R->m(i);
                     numeral const & a = R->a(i);
                     if (m->degree_of(x) == deg_R) {
@@ -5571,6 +5762,7 @@ namespace polynomial {
             h = mk_one();
 
             while (true) {
+                checkpoint();
                 TRACE(resultant, tout << "A: " << A << "\nB: " << B << "\n";);
                 degA = degree(A, x);
                 degB = degree(B, x);

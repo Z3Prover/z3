@@ -42,8 +42,13 @@ static unsigned pp_symbol(std::ostream & out, symbol const & s) {
         return static_cast<unsigned>(str.length());
     }
     else {
-        out << s.bare_str();
-        return static_cast<unsigned>(strlen(s.bare_str()));
+        if (s.is_null()) {
+            out << "null";
+            return 4; // length of "null"
+        } else {
+            out << s.bare_str();
+            return static_cast<unsigned>(strlen(s.bare_str()));
+        }
     }
 }
 

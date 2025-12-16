@@ -1,30 +1,4 @@
 ################################################################################
-# API header files
-################################################################################
-# This lists the API header files that are scanned by
-# some of the build rules to generate some files needed
-# by the build
-set(Z3_API_HEADER_FILES_TO_SCAN
-  z3_api.h
-  z3_ast_containers.h
-  z3_algebraic.h
-  z3_polynomial.h
-  z3_rcf.h
-  z3_fixedpoint.h
-  z3_optimization.h
-  z3_fpa.h
-  z3_spacer.h
-)
-set(Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN "")
-foreach (header_file ${Z3_API_HEADER_FILES_TO_SCAN})
-  set(full_path_api_header_file "${CMAKE_CURRENT_SOURCE_DIR}/api/${header_file}")
-  list(APPEND Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN "${full_path_api_header_file}")
-  if (NOT EXISTS "${full_path_api_header_file}")
-    message(FATAL_ERROR "API header file \"${full_path_api_header_file}\" does not exist")
-  endif()
-endforeach()
-
-################################################################################
 # Traverse directories each adding a Z3 component
 ################################################################################
 # I'm duplicating the order in ``mk_project.py`` for now to help us keep
@@ -39,7 +13,6 @@ add_subdirectory(math/polynomial)
 add_subdirectory(math/dd)
 add_subdirectory(math/hilbert)
 add_subdirectory(math/simplex)
-add_subdirectory(math/automata)
 add_subdirectory(math/interval)
 add_subdirectory(math/realclosure)
 add_subdirectory(math/subpaving)
@@ -153,6 +126,16 @@ set_target_properties(libz3 PROPERTIES
   VERSION ${Z3_VERSION}
   SOVERSION ${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR})
 
+# Set macOS-specific properties for proper .dylib versioning (fixes issue #6651)
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  set_target_properties(libz3 PROPERTIES
+    # Use @rpath for install name to make library relocatable
+    INSTALL_NAME_DIR "@rpath"
+    # Enable RPATH support
+    MACOSX_RPATH TRUE
+  )
+endif()
+
 if (NOT MSVC)
   # On UNIX like platforms if we don't change the OUTPUT_NAME
   # the library gets a name like ``liblibz3.so`` so we change it
@@ -167,6 +150,60 @@ endif()
 # shared library the dependent libraries are specified on the link command line
 # so that if those are also shared libraries they are referenced by `libz3.so`.
 target_link_libraries(libz3 PRIVATE ${Z3_DEPENDENT_LIBS})
+
+################################################################################
+# Create include directory with headers for easier developer integration
+################################################################################
+set(Z3_BUILD_INCLUDE_DIR "${CMAKE_BINARY_DIR}/include")
+file(MAKE_DIRECTORY "${Z3_BUILD_INCLUDE_DIR}")
+
+# Copy Z3 API headers to build include directory
+set(Z3_API_HEADERS
+  api/z3.h
+  api/z3_api.h
+  api/z3_algebraic.h
+  api/z3_ast_containers.h
+  api/z3_fixedpoint.h
+  api/z3_fpa.h
+  api/z3_logger.h
+  api/z3_macros.h
+  api/z3_optimization.h
+  api/z3_polynomial.h
+  api/z3_private.h
+  api/z3_rcf.h
+  api/z3_replayer.h
+  api/z3_spacer.h
+  api/z3_v1.h
+  api/c++/z3++.h
+)
+
+# Create custom target to copy headers
+#add_custom_target(z3_headers_copy ALL
+#  COMMENT "Copying Z3 API headers to build include directory"
+#)
+#
+#foreach(header_file ${Z3_API_HEADERS})
+#  get_filename_component(header_name "${header_file}" NAME)
+#  set(src_file "${CMAKE_CURRENT_SOURCE_DIR}/${header_file}")
+#  set(dst_file "${Z3_BUILD_INCLUDE_DIR}/${header_name}")
+#
+#  add_custom_command(
+#    TARGET z3_headers_copy POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#            "${src_file}"
+#            "${dst_file}"
+#    COMMENT "Copying ${header_name} to include directory"
+#    VERBATIM
+#  )
+#endforeach()
+
+# Make libz3 depend on header copying
+#add_dependencies(libz3 z3_headers_copy)
+
+# Update libz3 to also expose the build include directory
+target_include_directories(libz3 INTERFACE
+  $<BUILD_INTERFACE:${Z3_BUILD_INCLUDE_DIR}>
+)
 
 # This is currently only for the OpenMP flags. It needs to be set
 # via `target_link_libraries()` rather than `z3_append_linker_flag_list_to_target()`
@@ -242,7 +279,7 @@ endif()
 ################################################################################
 cmake_dependent_option(Z3_BUILD_EXECUTABLE
     "Build the z3 executable" ON
-    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR" OFF)
+    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR;Z3_BUILD_LIBZ3_CORE" OFF)
 
 if (Z3_BUILD_EXECUTABLE)
     add_subdirectory(shell)
@@ -254,24 +291,11 @@ endif()
 
 cmake_dependent_option(Z3_BUILD_TEST_EXECUTABLES
     "Build test executables" ON
-    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR" OFF)
+    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR;Z3_BUILD_LIBZ3_CORE" OFF)
 
 
 if (Z3_BUILD_TEST_EXECUTABLES)
     add_subdirectory(test)
-endif()
-
-
-################################################################################
-# Z3 API bindings
-################################################################################
-option(Z3_BUILD_PYTHON_BINDINGS "Build Python bindings for Z3" OFF)
-if (Z3_BUILD_PYTHON_BINDINGS)
-  if (NOT Z3_BUILD_LIBZ3_SHARED)
-    message(FATAL_ERROR "The python bindings will not work with a static libz3. "
-            "You either need to disable Z3_BUILD_PYTHON_BINDINGS or enable Z3_BUILD_LIBZ3_SHARED")
-  endif()
-  add_subdirectory(api/python)
 endif()
 
 ################################################################################

@@ -1021,7 +1021,7 @@ namespace realclosure {
         }
 
         static bool is_rational_function(numeral const & a) {
-            return is_rational_function(a.m_value);
+            return !is_zero(a) && is_rational_function(a.m_value);
         }
 
         static rational_function_value * to_rational_function(numeral const & a) {
@@ -2521,7 +2521,7 @@ namespace realclosure {
            \brief Return true if a is a rational.
         */
         bool is_rational(numeral const & a) {
-            return a.m_value->is_rational();
+            return is_zero(a) || a.m_value->is_rational();
         }
 
 
@@ -3429,7 +3429,7 @@ namespace realclosure {
             }
         }
 
-        bool get_interval(numeral const & a, int & lower_is_inf, int & lower_is_open, numeral & lower, int & upper_is_inf, int & upper_is_open, numeral & upper)
+        bool get_interval(numeral const & a, bool & lower_is_inf, bool & lower_is_open, numeral & lower, bool & upper_is_inf, bool & upper_is_open, numeral & upper)
         {
             if (!is_algebraic(a))
                 return false;
@@ -6475,7 +6475,7 @@ namespace realclosure {
         return m_imp->get_sign_condition_sign(a, i);
     }
 
-    bool manager::get_interval(numeral const & a, int & lower_is_inf, int & lower_is_open, numeral & lower, int & upper_is_inf, int & upper_is_open, numeral & upper)
+    bool manager::get_interval(numeral const & a, bool & lower_is_inf, bool & lower_is_open, numeral & lower, bool & upper_is_inf, bool & upper_is_open, numeral & upper)
     {
         return m_imp->get_interval(a, lower_is_inf, lower_is_open, lower, upper_is_inf, upper_is_open, upper);
     }

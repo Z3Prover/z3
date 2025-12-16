@@ -1,0 +1,171 @@
+name: 'Z3 Coverage Steps'
+description: 'Build Z3 with coverage instrumentation, run tests, and generate coverage reports'
+inputs:
+  working-directory:
+    description: 'Working directory for the action'
+    required: false
+    default: '.'
+outputs:
+  coverage-artifact:
+    description: 'Name of the uploaded coverage artifact'
+    value: 'coverage'
+runs:
+  using: 'composite'
+  steps:
+    # Setup environment and dependencies
+    - name: Setup Dependencies
+      shell: bash
+      run: |
+        echo "Setting up dependencies for coverage build" >> coverage-steps.log
+        sudo apt-get remove -y --purge man-db || true
+        sudo apt-get update -y
+        sudo apt-get install -y gcovr ninja-build llvm clang python3
+        echo "Dependencies installed successfully" >> coverage-steps.log
+        
+    # Configure Z3 build with coverage flags
+    - name: Configure Z3 with Coverage
+      shell: bash
+      run: |
+        echo "Configuring Z3 build with coverage instrumentation" >> coverage-steps.log
+        mkdir -p build
+        cd build
+        # Configure CMake with coverage flags similar to existing coverage.yml.disabled
+        CXXFLAGS="--coverage" CFLAGS="--coverage" LDFLAGS="-lgcov" CC=clang CXX=clang++ \
+          cmake -B . -DCMAKE_BUILD_TYPE=Debug \
+                    -DCMAKE_INSTALL_PREFIX=./install \
+                    -G "Ninja" \
+                    ../
+        echo "Z3 configured successfully with coverage instrumentation" >> ../coverage-steps.log
+        cd ..
+        
+    # Build Z3 core library and install
+    - name: Build and Install Z3
+      shell: bash
+      run: |
+        echo "Building Z3 with coverage instrumentation" >> coverage-steps.log
+        cd build
+        ninja install
+        echo "Z3 built and installed successfully" >> ../coverage-steps.log
+        cd ..
+        
+    # Build test executable
+    - name: Build test-z3
+      shell: bash
+      run: |
+        echo "Building test-z3 executable" >> coverage-steps.log
+        cd build
+        ninja test-z3
+        echo "test-z3 built successfully" >> ../coverage-steps.log
+        cd ..
+        
+    # Build examples (optional but helps with coverage)
+    - name: Build Examples
+      shell: bash
+      run: |
+        echo "Building Z3 examples for additional coverage" >> coverage-steps.log
+        cd build
+        ninja c_example || echo "c_example build failed, continuing" >> ../coverage-steps.log
+        ninja cpp_example || echo "cpp_example build failed, continuing" >> ../coverage-steps.log
+        ninja z3_tptp5 || echo "z3_tptp5 build failed, continuing" >> ../coverage-steps.log
+        ninja c_maxsat_example || echo "c_maxsat_example build failed, continuing" >> ../coverage-steps.log
+        echo "Examples build completed" >> ../coverage-steps.log
+        cd ..
+        
+    # Clone z3test repository for regression tests
+    - name: Clone z3test Repository
+      shell: bash
+      run: |
+        echo "Cloning z3test repository for regression testing" >> coverage-steps.log
+        git clone https://github.com/z3prover/z3test z3test
+        echo "z3test repository cloned successfully" >> coverage-steps.log
+        
+    # Run core unit tests
+    - name: Run Unit Tests
+      shell: bash
+      run: |
+        echo "Running Z3 unit tests" >> coverage-steps.log
+        cd build
+        ./test-z3 -a 2>&1 | tee -a ../coverage-steps.log
+        echo "Unit tests completed" >> ../coverage-steps.log
+        cd ..
+        
+    # Run regression tests (subset for coverage)
+    - name: Run Regression Tests  
+      shell: bash
+      run: |
+        echo "Running regression tests for additional coverage" >> coverage-steps.log
+        python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2 2>&1 | tee -a coverage-steps.log || echo "Some regression tests failed, continuing" >> coverage-steps.log
+        echo "Regression tests completed" >> coverage-steps.log
+        
+    # Run coverage-specific tests
+    - name: Run Coverage Tests
+      shell: bash
+      run: |
+        echo "Running coverage-specific tests" >> coverage-steps.log
+        python z3test/scripts/test_coverage_tests.py ./build/install z3test/coverage/cpp 2>&1 | tee -a coverage-steps.log || echo "Coverage tests had issues, continuing" >> coverage-steps.log
+        echo "Coverage tests completed" >> coverage-steps.log
+        
+    # Run examples if they were built successfully
+    - name: Run Examples
+      shell: bash
+      run: |
+        echo "Running built examples for additional coverage" >> coverage-steps.log
+        if [ -f "build/examples/cpp_example_build_dir/cpp_example" ]; then
+          ./build/examples/cpp_example_build_dir/cpp_example 2>&1 | tee -a coverage-steps.log || echo "cpp_example execution failed" >> coverage-steps.log
+        fi
+        if [ -f "build/examples/tptp_build_dir/z3_tptp5" ]; then
+          ./build/examples/tptp_build_dir/z3_tptp5 --help 2>&1 | tee -a coverage-steps.log || echo "z3_tptp5 execution failed" >> coverage-steps.log
+        fi
+        if [ -f "build/examples/c_maxsat_example_build_dir/c_maxsat_example" ] && [ -f "examples/maxsat/ex.smt" ]; then
+          ./build/examples/c_maxsat_example_build_dir/c_maxsat_example examples/maxsat/ex.smt 2>&1 | tee -a coverage-steps.log || echo "c_maxsat_example execution failed" >> coverage-steps.log
+        fi
+        echo "Examples execution completed" >> coverage-steps.log
+        
+    # Generate basic coverage report
+    - name: Generate Coverage Report
+      shell: bash
+      run: |
+        echo "Generating HTML coverage report" >> coverage-steps.log
+        # Generate basic HTML coverage report with merge-mode fix
+        gcovr --html coverage.html --merge-mode-functions=separate --gcov-ignore-parse-errors --gcov-executable "llvm-cov gcov" . 2>&1 | tee -a coverage-steps.log
+        echo "Basic coverage report generated as coverage.html" >> coverage-steps.log
+        
+    # Generate detailed coverage report
+    - name: Generate Detailed Coverage Report
+      shell: bash  
+      run: |
+        echo "Generating detailed HTML coverage report" >> coverage-steps.log
+        mkdir -p cov-details
+        # Generate detailed HTML coverage report focused on src directory with merge-mode fix
+        gcovr --html-details cov-details/coverage.html --merge-mode-functions=separate --gcov-ignore-parse-errors --gcov-executable "llvm-cov gcov" -r src --object-directory build 2>&1 | tee -a coverage-steps.log || echo "Detailed coverage generation had issues, basic report still available" >> coverage-steps.log
+        echo "Detailed coverage report generated in cov-details/ directory" >> coverage-steps.log
+        
+    # Generate text summary of coverage
+    - name: Generate Coverage Summary
+      shell: bash
+      run: |
+        echo "Generating text coverage summary" >> coverage-steps.log
+        gcovr --merge-mode-functions=separate --gcov-ignore-parse-errors --gcov-executable "llvm-cov gcov" . 2>&1 | tee coverage-summary.txt | tee -a coverage-steps.log
+        echo "Coverage summary saved to coverage-summary.txt" >> coverage-steps.log
+        
+    # Upload coverage reports as artifact
+    - name: Upload Coverage Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage
+        path: |
+          coverage.html
+          cov-details/
+          coverage-summary.txt
+          coverage-steps.log
+        retention-days: 30
+        
+    - name: Final Status
+      shell: bash
+      run: |
+        echo "Coverage collection and reporting completed successfully" >> coverage-steps.log
+        echo "Coverage reports uploaded as 'coverage' artifact" >> coverage-steps.log
+        if [ -f coverage-summary.txt ]; then
+          echo "Coverage Summary:" >> coverage-steps.log
+          head -20 coverage-summary.txt >> coverage-steps.log
+        fi

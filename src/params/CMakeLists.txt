@@ -10,8 +10,7 @@ z3_add_component(params
     theory_array_params.cpp
     theory_bv_params.cpp
     theory_pb_params.cpp
-    theory_seq_params.cpp
-    theory_str_params.cpp        
+    theory_seq_params.cpp       
   COMPONENT_DEPENDENCIES
     util
     ast

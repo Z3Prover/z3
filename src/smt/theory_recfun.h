@@ -92,7 +92,7 @@ namespace smt {
         void reset_eh() override;
         void relevant_eh(app * n) override;
         char const * get_name() const override;
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
         void assign_eh(bool_var v, bool is_true) override;
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;

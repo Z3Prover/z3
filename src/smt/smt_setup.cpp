@@ -39,7 +39,6 @@ Revision History:
 #include "smt/theory_sls.h"
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
-#include "smt/theory_str.h"
 #include "smt/theory_polymorphism.h"
 
 namespace smt {
@@ -561,10 +560,7 @@ namespace smt {
     }
 
     void setup::setup_QF_S() {
-        if (m_params.m_string_solver == "z3str3") {
-            setup_str();
-        }
-        else if (m_params.m_string_solver == "seq") {
+        if (m_params.m_string_solver == "seq") {
             setup_unknown();
         }
         else if (m_params.m_string_solver == "char") {
@@ -582,7 +578,7 @@ namespace smt {
             // don't register any solver.
         }
         else {
-            throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
+            throw default_exception("invalid parameter for smt.string_solver, valid options are 'seq', 'auto'");
         }
     }
 
@@ -748,10 +744,7 @@ namespace smt {
 
     void setup::setup_seq_str(static_features const & st) {
         // check params for what to do here when it's ambiguous
-        if (m_params.m_string_solver == "z3str3") {
-            setup_str();
-        } 
-        else if (m_params.m_string_solver == "seq") {
+        if (m_params.m_string_solver == "seq") {
             setup_seq();
         } 
         else if (m_params.m_string_solver == "empty") {
@@ -760,16 +753,11 @@ namespace smt {
         else if (m_params.m_string_solver == "none") {
             // don't register any solver.
         }
-        else if (m_params.m_string_solver == "auto") {
-            if (st.m_has_seq_non_str) {
+        else if (m_params.m_string_solver == "auto") {            
                 setup_seq();
-            } 
-            else {
-                setup_str();
-            }
         } 
         else {
-            throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
+            throw default_exception("invalid parameter for smt.string_solver, valid options are 'seq', 'auto'");
         }
     }
 
@@ -785,11 +773,6 @@ namespace smt {
     void setup::setup_fpa() {
         setup_bv();
         m_context.register_plugin(alloc(theory_fpa, m_context));
-    }
-
-    void setup::setup_str() {
-        setup_arith();
-        m_context.register_plugin(alloc(theory_str, m_context, m_manager, m_params));
     }
 
     void setup::setup_seq() {

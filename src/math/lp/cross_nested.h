@@ -19,6 +19,8 @@
   --*/
 #pragma once
 #include <functional>
+#include "util/util.h"
+#include "util/rlimit.h"
 #include "math/lp/nex.h"
 #include "math/lp/nex_creator.h"
 
@@ -26,10 +28,11 @@ namespace nla {
 class cross_nested {
     
     // fields
+    reslimit&                                         m_limit;
     nex *                                             m_e = nullptr;
     std::function<bool (const nex*)>                  m_call_on_result;
     std::function<bool (unsigned)>                    m_var_is_fixed;
-    std::function<unsigned ()>                        m_random;    
+    random_gen                                        m_random;
     bool                                              m_done = false;
     ptr_vector<nex>                                   m_b_split_vec;
     int                                               m_reported = 0;
@@ -45,11 +48,13 @@ public:
     
     cross_nested(std::function<bool (const nex*)> call_on_result,
                  std::function<bool (unsigned)> var_is_fixed,
-                 std::function<unsigned ()> random,
-                 nex_creator& nex_cr) :
+                 reslimit& limit,
+                 unsigned random_seed,
+                 nex_creator& nex_cr) : 
+        m_limit(limit),
         m_call_on_result(call_on_result),
         m_var_is_fixed(var_is_fixed),
-        m_random(random),
+        m_random(random_seed),
         m_done(false),
         m_reported(0),
         m_mk_scalar([this]{return m_nex_creator.mk_scalar(rational(1));}),
@@ -58,6 +63,7 @@ public:
 
     
     void run(nex *e) {
+
         TRACE(nla_cn, tout << *e << "\n";);
         SASSERT(m_nex_creator.is_simplified(*e));
         m_e = e;
@@ -278,6 +284,8 @@ public:
     void explore_of_expr_on_sum_and_var(nex** c, lpvar j, vector<nex**> front) {
         TRACE(nla_cn, tout << "m_e=" << *m_e << "\nc=" << **c << "\nj = " << nex_creator::ch(j) << "\nfront="; print_front(front, tout) << "\n";);
         if (!split_with_var(*c, j, front))
+            return;
+        if (!m_limit.inc())
             return;
         TRACE(nla_cn, tout << "after split c=" << **c << "\nfront="; print_front(front, tout) << "\n";);
         if (front.empty()) {

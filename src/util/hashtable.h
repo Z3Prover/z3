@@ -406,8 +406,7 @@ public:
     }
 
     void insert(const data & e) {
-        data tmp(e);
-        insert(std::move(tmp));
+        insert(data(e));
     }
 
 #define INSERT_LOOP_CORE_BODY() {                                               \
@@ -463,8 +462,7 @@ public:
     }
 
     bool insert_if_not_there_core(const data & e, entry * & et) {
-        data temp(e);
-        return insert_if_not_there_core(std::move(temp), et);
+        return insert_if_not_there_core(data(e), et);
     }
 
     /**

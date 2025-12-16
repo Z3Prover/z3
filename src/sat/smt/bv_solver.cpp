@@ -280,7 +280,7 @@ namespace bv {
             undef_idx--;
             sat::literal consequent = m_bits[v1][undef_idx];
             sat::literal b = m_bits[v2][undef_idx];
-            sat::literal antecedent = ~expr2literal(ne.eq());
+            sat::literal antecedent = ~expr2literal(ne.eq()->get_expr());
             SASSERT(s().value(antecedent) == l_true);
             SASSERT(s().value(consequent) == l_undef);
             SASSERT(s().value(b) != l_undef);

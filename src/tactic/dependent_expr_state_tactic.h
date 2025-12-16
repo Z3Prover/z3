@@ -168,6 +168,7 @@ public:
         m_frozen.push_back(e);
     }
 
+
     void user_propagate_clear() override {
         if (m_simp) {
             pop(1);

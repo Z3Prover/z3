@@ -2156,6 +2156,7 @@ namespace algebraic_numbers {
                 }
 
                 if (restart) {
+                    checkpoint();
                     // Some non-basic value became basic.
                     // So, restarting the whole process
                     TRACE(anum_eval_sign, tout << "restarting some algebraic_cell became basic\n";);
@@ -2771,9 +2772,12 @@ namespace algebraic_numbers {
             return out;
         }
 
-        std::ostream& display_root_smt2(std::ostream & out, numeral const & a) {
+        template<typename Printer>
+        std::ostream& display_root_common(std::ostream & out, numeral const & a, char const* var_name, bool no_power, Printer&& printer) {
+            SASSERT(var_name != nullptr);
             if (is_zero(a)) {
-                out << "(root-obj x 1)";
+                auto poly_printer = [&](std::ostream& dst) { dst << var_name; };
+                return printer(out, poly_printer, 1u);
             }
             else if (a.is_basic()) {
                 mpq const & v = basic_value(a);
@@ -2781,25 +2785,53 @@ namespace algebraic_numbers {
                 qm().set(neg_n, v.numerator());
                 qm().neg(neg_n);
                 mpz coeffs[2] = { std::move(neg_n), qm().dup(v.denominator()) };
-                out << "(root-obj ";
-                upm().display_smt2(out, 2, coeffs, "x");
-                out << " 1)"; // first root of the polynomial d*# - n
+                auto poly_printer = [&](std::ostream& dst) {
+                    if (no_power)
+                        upm().display_smt2_no_power(dst, 2, coeffs, var_name);
+                    else
+                        upm().display_smt2(dst, 2, coeffs, var_name);
+                };
+                std::ostream& r = printer(out, poly_printer, 1u); // first root of d*x - n
                 qm().del(coeffs[0]);
                 qm().del(coeffs[1]);
+                return r;
             }
             else {
                 algebraic_cell * c = a.to_algebraic();
-                out << "(root-obj ";
-                upm().display_smt2(out, c->m_p_sz, c->m_p, "x");
+                auto poly_printer = [&](std::ostream& dst) {
+                    if (no_power)
+                        upm().display_smt2_no_power(dst, c->m_p_sz, c->m_p, var_name);
+                    else
+                        upm().display_smt2(dst, c->m_p_sz, c->m_p, var_name);
+                };
                 if (c->m_i == 0) {
                     // undefined
                     c->m_i = upm().get_root_id(c->m_p_sz, c->m_p, lower(c)) + 1;
                 }
                 SASSERT(c->m_i > 0);
-                out << " " << c->m_i;
-                out << ")";
+                return printer(out, poly_printer, c->m_i);
             }
-            return out;
+        }
+
+        std::ostream& display_root_smt2(std::ostream & out, numeral const & a) {
+            auto printer = [&](std::ostream& dst, auto const& poly_printer, unsigned idx) -> std::ostream& {
+                dst << "(root-obj ";
+                poly_printer(dst);
+                dst << " " << idx << ")";
+                return dst;
+            };
+            return display_root_common(out, a, "x", false, printer);
+        }
+
+        std::ostream& display_root_smtrat(std::ostream & out, numeral const & a, char const* var_name) {
+            SASSERT(var_name != nullptr);
+            auto printer = [&](std::ostream& dst, auto const& poly_printer, unsigned idx) -> std::ostream& {
+                dst << "(root ";
+                poly_printer(dst);
+                dst << " " << idx << " " << var_name << ")";
+                return dst;
+            };
+            return display_root_common(out, a, var_name, true, printer);
         }
 
         std::ostream& display_interval(std::ostream & out, numeral const & a) {
@@ -3164,6 +3196,10 @@ namespace algebraic_numbers {
 
     std::ostream& manager::display_root_smt2(std::ostream & out, numeral const & a) const {
         return m_imp->display_root_smt2(out, a);
+    }
+
+    std::ostream& manager::display_root_smtrat(std::ostream & out, numeral const & a, char const* var_name) const {
+        return m_imp->display_root_smtrat(out, a, var_name);
     }
 
     void manager::reset_statistics() {

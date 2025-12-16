@@ -732,6 +732,8 @@ public:
 
     bool get_bit(mpz const& a, unsigned bit);
 
+    digit_t get_least_significant(mpz const& a);
+
 };
 
 #ifndef SINGLE_THREAD

@@ -62,6 +62,13 @@ namespace smt {
         void operator()(relevancy_propagator & rp) override;
     };
 
+    class implies_relevancy_eh : public relevancy_eh {
+        app* m_parent;
+    public:
+        implies_relevancy_eh(app* p) :m_parent(p) {}
+        void operator()(relevancy_propagator& rp) override;
+    };
+
     class ite_relevancy_eh : public relevancy_eh {
         app * m_parent;
     public:
@@ -106,6 +113,11 @@ namespace smt {
     relevancy_eh * relevancy_propagator::mk_or_relevancy_eh(app * n) {
         SASSERT(get_manager().is_or(n));
         return mk_relevancy_eh(or_relevancy_eh(n));
+    }
+
+    relevancy_eh* relevancy_propagator::mk_implies_relevancy_eh(app* n) {
+        SASSERT(get_manager().is_implies(n));
+        return mk_relevancy_eh(implies_relevancy_eh(n));
     }
 
     relevancy_eh * relevancy_propagator::mk_and_relevancy_eh(app * n) {
@@ -357,8 +369,37 @@ namespace smt {
                 --j;
                 mark_as_relevant(n->get_arg(j));
             }
-        }
+        } 
         
+        void propagate_relevant_implies(app* n) {
+            SASSERT(get_manager().is_implies(n));
+            lbool val = m_context.find_assignment(n);
+            // If val is l_undef, then the expression
+            // is a root, and no boolean variable was created for it.
+            if (val == l_undef)
+                val = l_true;
+            switch (val) {
+            case l_false:
+                propagate_relevant_app(n);
+                break;
+            case l_undef:
+                break;
+            case l_true: {
+                auto arg0 = n->get_arg(0);
+                auto arg1 = n->get_arg(1);
+                if (m_context.find_assignment(arg0) == l_false) {
+                    if (!is_relevant_core(arg0))
+                        mark_as_relevant(arg0);
+                    return;
+                }
+                if (m_context.find_assignment(arg1) == l_true) {
+                    if (!is_relevant_core(arg1))
+                        mark_as_relevant(arg1);
+                    return;
+                }
+            }
+            }
+        }
         /**
            \brief Propagate relevancy for an or-application.
         */
@@ -470,6 +511,9 @@ namespace smt {
                         case OP_AND:
                             propagate_relevant_and(to_app(n));
                             break;
+                        case OP_IMPLIES:
+                            propagate_relevant_implies(to_app(n));
+                            break;
                         case OP_ITE:
                             propagate_relevant_ite(to_app(n));
                             break;
@@ -505,6 +549,8 @@ namespace smt {
                     propagate_relevant_or(to_app(n));
                 else if (m.is_and(n))
                     propagate_relevant_and(to_app(n));
+                else if (m.is_implies(n))
+                    propagate_relevant_implies(to_app(n));
             }
             relevancy_ehs * ehs = get_watches(n, val);
             while (ehs != nullptr) {
@@ -642,6 +688,11 @@ namespace smt {
     void or_relevancy_eh::operator()(relevancy_propagator & rp) {
         if (rp.is_relevant(m_parent))
             static_cast<relevancy_propagator_imp&>(rp).propagate_relevant_or(m_parent);
+    }
+
+    void implies_relevancy_eh::operator()(relevancy_propagator& rp) {
+        if (rp.is_relevant(m_parent))
+            static_cast<relevancy_propagator_imp&>(rp).propagate_relevant_implies(m_parent);
     }
 
     void ite_relevancy_eh::operator()(relevancy_propagator & rp) {

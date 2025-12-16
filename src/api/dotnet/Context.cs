@@ -475,6 +475,36 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create a forward reference to a datatype sort.
+        /// This is useful for creating recursive datatypes or parametric datatypes.
+        /// </summary>
+        /// <param name="name">name of the datatype sort</param>
+        /// <param name="parameters">optional array of sort parameters for parametric datatypes</param>
+        public DatatypeSort MkDatatypeSortRef(Symbol name, Sort[] parameters = null)
+        {
+            Debug.Assert(name != null);
+            CheckContextMatch(name);
+            if (parameters != null)
+                CheckContextMatch<Sort>(parameters);
+            
+            var numParams = (parameters == null) ? 0 : (uint)parameters.Length;
+            var paramsNative = (parameters == null) ? null : AST.ArrayToNative(parameters);
+            return new DatatypeSort(this, Native.Z3_mk_datatype_sort(nCtx, name.NativeObject, numParams, paramsNative));
+        }
+
+        /// <summary>
+        /// Create a forward reference to a datatype sort.
+        /// This is useful for creating recursive datatypes or parametric datatypes.
+        /// </summary>
+        /// <param name="name">name of the datatype sort</param>
+        /// <param name="parameters">optional array of sort parameters for parametric datatypes</param>
+        public DatatypeSort MkDatatypeSortRef(string name, Sort[] parameters = null)
+        {
+            using var symbol = MkSymbol(name);
+            return MkDatatypeSortRef(symbol, parameters);
+        }
+
+        /// <summary>
         /// Create mutually recursive datatypes.
         /// </summary>
         /// <param name="names">names of datatype sorts</param>
@@ -867,7 +897,6 @@ namespace Microsoft.Z3
         {
             Debug.Assert(f != null);
             Debug.Assert(args == null || args.All(a => a != null));
-
             CheckContextMatch(f);
             CheckContextMatch<Expr>(args);
             return Expr.Create(this, f, args);
@@ -879,11 +908,7 @@ namespace Microsoft.Z3
         public Expr MkApp(FuncDecl f, IEnumerable<Expr> args)
         {
             Debug.Assert(f != null);
-            Debug.Assert(args == null || args.All(a => a != null));
-
-            CheckContextMatch(f);
-            CheckContextMatch(args);
-            return Expr.Create(this, f, args.ToArray());
+            return MkApp(f, args?.ToArray());
         }
 
         #region Propositional
@@ -892,7 +917,6 @@ namespace Microsoft.Z3
         /// </summary>
         public BoolExpr MkTrue()
         {
-
             return new BoolExpr(this, Native.Z3_mk_true(nCtx));
         }
 
@@ -901,7 +925,6 @@ namespace Microsoft.Z3
         /// </summary>
         public BoolExpr MkFalse()
         {
-
             return new BoolExpr(this, Native.Z3_mk_false(nCtx));
         }
 
@@ -910,7 +933,6 @@ namespace Microsoft.Z3
         /// </summary>
         public BoolExpr MkBool(bool value)
         {
-
             return value ? MkTrue() : MkFalse();
         }
 
@@ -935,7 +957,6 @@ namespace Microsoft.Z3
             Debug.Assert(args != null);
             Debug.Assert(args.All(a => a != null));
 
-
             CheckContextMatch<Expr>(args);
             return new BoolExpr(this, Native.Z3_mk_distinct(nCtx, (uint)args.Length, AST.ArrayToNative(args)));
         }
@@ -955,7 +976,6 @@ namespace Microsoft.Z3
         public BoolExpr MkNot(BoolExpr a)
         {
             Debug.Assert(a != null);
-
             CheckContextMatch(a);
             return new BoolExpr(this, Native.Z3_mk_not(nCtx, a.NativeObject));
         }
@@ -1020,9 +1040,10 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create an expression representing <c>t1 xor t2 xor t3 ... </c>.
         /// </summary>
-        public BoolExpr MkXor(IEnumerable<BoolExpr> ts)
+        public BoolExpr MkXor(IEnumerable<BoolExpr> args)
         {
-            Debug.Assert(ts != null);
+            Debug.Assert(args != null);
+            var ts = args.ToArray();
             Debug.Assert(ts.All(a => a != null));
             CheckContextMatch<BoolExpr>(ts);
 
@@ -1036,13 +1057,13 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create an expression representing <c>t[0] and t[1] and ...</c>.
         /// </summary>
-        public BoolExpr MkAnd(params BoolExpr[] t)
+        public BoolExpr MkAnd(params BoolExpr[] ts)
         {
-            Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
+            Debug.Assert(ts != null);
+            Debug.Assert(ts.All(a => a != null));
 
-            CheckContextMatch<BoolExpr>(t);
-            return new BoolExpr(this, Native.Z3_mk_and(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+            CheckContextMatch<BoolExpr>(ts);
+            return new BoolExpr(this, Native.Z3_mk_and(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
         }
 
         /// <summary>
@@ -1051,36 +1072,29 @@ namespace Microsoft.Z3
         public BoolExpr MkAnd(IEnumerable<BoolExpr> t)
         {
             Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
-            CheckContextMatch<BoolExpr>(t);
-            var ands = t.ToArray();
-            return new BoolExpr(this, Native.Z3_mk_and(nCtx, (uint)t.Count(), AST.ArrayToNative(ands)));
+            return MkAnd(t.ToArray());
         }
 
         /// <summary>
         /// Create an expression representing <c>t[0] or t[1] or ...</c>.
         /// </summary>
-        public BoolExpr MkOr(params BoolExpr[] t)
+        public BoolExpr MkOr(params BoolExpr[] ts)
         {
-            Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
+            Debug.Assert(ts != null);
+            Debug.Assert(ts.All(a => a != null));
 
-            CheckContextMatch<BoolExpr>(t);
-            return new BoolExpr(this, Native.Z3_mk_or(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
-        }
-
-
-        /// <summary>
-        /// Create an expression representing <c>t[0] or t[1] or ...</c>.
-        /// </summary>
-        public BoolExpr MkOr(IEnumerable<BoolExpr> t)
-        {
-            Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
-
-            CheckContextMatch(t);
-            var ts = t.ToArray();
+            CheckContextMatch<BoolExpr>(ts);
             return new BoolExpr(this, Native.Z3_mk_or(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
+        }
+
+
+        /// <summary>
+        /// Create an expression representing <c>t[0] or t[1] or ...</c>.
+        /// </summary>
+        public BoolExpr MkOr(IEnumerable<BoolExpr> ts)
+        {
+            Debug.Assert(ts != null);
+            return MkOr(ts.ToArray());
         }
 
         #endregion
@@ -1089,64 +1103,55 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create an expression representing <c>t[0] + t[1] + ...</c>.
         /// </summary>
-        public ArithExpr MkAdd(params ArithExpr[] t)
+        public ArithExpr MkAdd(params ArithExpr[] ts)
         {
-            Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
+            Debug.Assert(ts != null);
+            Debug.Assert(ts.All(a => a != null));
 
-            CheckContextMatch<ArithExpr>(t);
-            return (ArithExpr)Expr.Create(this, Native.Z3_mk_add(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+            CheckContextMatch<ArithExpr>(ts);
+            return (ArithExpr)Expr.Create(this, Native.Z3_mk_add(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
         }
 
         /// <summary>
         /// Create an expression representing <c>t[0] + t[1] + ...</c>.
         /// </summary>
-        public ArithExpr MkAdd(IEnumerable<ArithExpr> t)
+        public ArithExpr MkAdd(IEnumerable<ArithExpr> ts)
         {
-            Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
-
-            CheckContextMatch(t);
-            var ts = t.ToArray();
-            return (ArithExpr)Expr.Create(this, Native.Z3_mk_add(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
+            Debug.Assert(ts != null);
+            return MkAdd(ts.ToArray());
         }
 
         /// <summary>
         /// Create an expression representing <c>t[0] * t[1] * ...</c>.
         /// </summary>
-        public ArithExpr MkMul(params ArithExpr[] t)
+        public ArithExpr MkMul(params ArithExpr[] ts)
         {
-            Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
+            Debug.Assert(ts != null);
+            Debug.Assert(ts.All(a => a != null));
 
-            CheckContextMatch<ArithExpr>(t);
-            var ts = t.ToArray();
+            CheckContextMatch<ArithExpr>(ts);
             return (ArithExpr)Expr.Create(this, Native.Z3_mk_mul(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
         }
 
         /// <summary>
         /// Create an expression representing <c>t[0] * t[1] * ...</c>.
         /// </summary>
-        public ArithExpr MkMul(IEnumerable<ArithExpr> t)
+        public ArithExpr MkMul(IEnumerable<ArithExpr> ts)
         {
-            Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
-
-            CheckContextMatch<ArithExpr>(t);
-            var ts = t.ToArray();
-            return (ArithExpr)Expr.Create(this, Native.Z3_mk_mul(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
+            Debug.Assert(ts != null);
+            return MkMul(ts.ToArray());
         }
 
         /// <summary>
         /// Create an expression representing <c>t[0] - t[1] - ...</c>.
         /// </summary>
-        public ArithExpr MkSub(params ArithExpr[] t)
+        public ArithExpr MkSub(params ArithExpr[] ts)
         {
-            Debug.Assert(t != null);
-            Debug.Assert(t.All(a => a != null));
+            Debug.Assert(ts != null);
+            Debug.Assert(ts.All(a => a != null));
 
-            CheckContextMatch<ArithExpr>(t);
-            return (ArithExpr)Expr.Create(this, Native.Z3_mk_sub(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+            CheckContextMatch<ArithExpr>(ts);
+            return (ArithExpr)Expr.Create(this, Native.Z3_mk_sub(nCtx, (uint)ts.Length, AST.ArrayToNative(ts)));
         }
 
         /// <summary>
@@ -2843,8 +2848,8 @@ namespace Microsoft.Z3
         public BoolExpr MkAtMost(IEnumerable<BoolExpr> args, uint k)
         {
             Debug.Assert(args != null);
-            CheckContextMatch<BoolExpr>(args);
             var ts = args.ToArray();
+            CheckContextMatch<BoolExpr>(ts);
             return new BoolExpr(this, Native.Z3_mk_atmost(nCtx, (uint)ts.Length,
                                                           AST.ArrayToNative(ts), k));
         }
@@ -2855,8 +2860,8 @@ namespace Microsoft.Z3
         public BoolExpr MkAtLeast(IEnumerable<BoolExpr> args, uint k)
         {
             Debug.Assert(args != null);
-            CheckContextMatch<BoolExpr>(args);
             var ts = args.ToArray();
+            CheckContextMatch<BoolExpr>(ts);
             return new BoolExpr(this, Native.Z3_mk_atleast(nCtx, (uint)ts.Length,
                                                           AST.ArrayToNative(ts), k));
         }

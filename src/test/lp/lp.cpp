@@ -181,12 +181,15 @@ void test_nex_order() {
 void test_simplify() {
 #ifdef Z3DEBUG
     nex_creator r;
+    reslimit limit;
     cross_nested cn(
         [](const nex *n) {
             TRACE(nla_cn_test, tout << *n << "\n";);
             return false;
         },
-        [](unsigned) { return false; }, []() { return 1; },  // for random
+        [](unsigned ) { return false; },
+        limit, 
+        1,
         r);
     enable_trace("nla_cn");
     enable_trace("nla_cn_details");

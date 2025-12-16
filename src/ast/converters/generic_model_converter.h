@@ -54,8 +54,6 @@ public:
     
     void operator()(model_ref & md) override;
 
-    void operator()(expr_ref& fml) override { UNREACHABLE(); }
-
     void cancel() override {}
 
     void display(std::ostream & out) override;

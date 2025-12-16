@@ -933,9 +933,6 @@ struct th_rewriter::imp : public rewriter_tpl<th_rewriter_cfg> {
         return m_cfg.mk_eq(a, b);
     }
 
-    void set_solver(expr_solver* solver) {
-        m_cfg.m_seq_rw.set_solver(solver);
-    }
 };
 
 th_rewriter::th_rewriter(ast_manager & m, params_ref const & p):
@@ -1055,10 +1052,6 @@ expr_ref th_rewriter::mk_app(func_decl* f, unsigned num_args, expr* const* args)
 
 expr_ref th_rewriter::mk_eq(expr* a, expr* b) {
     return m_imp->mk_eq(a, b);
-}
-
-void th_rewriter::set_solver(expr_solver* solver) {
-    m_imp->set_solver(solver);
 }
 
 

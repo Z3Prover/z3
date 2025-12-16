@@ -17,6 +17,8 @@ import {
   Z3_ast_print_mode,
   Z3_ast_vector,
   Z3_context,
+  Z3_constructor,
+  Z3_constructor_list,
   Z3_decl_kind,
   Z3_error_code,
   Z3_func_decl,
@@ -88,6 +90,10 @@ import {
   FuncEntry,
   SMTSetSort,
   SMTSet,
+  Datatype,
+  DatatypeSort,
+  DatatypeExpr,
+  DatatypeCreation,
 } from './types';
 import { allSatisfy, assert, assertExhaustive } from './utils';
 
@@ -825,6 +831,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    const Datatype = Object.assign(
+      (name: string): DatatypeImpl => {
+        return new DatatypeImpl(ctx, name);
+      },
+      {
+        createDatatypes(...datatypes: DatatypeImpl[]): DatatypeSortImpl[] {
+          return createDatatypes(...datatypes);
+        }
+      }
+    );
+
     ////////////////
     // Operations //
     ////////////////
@@ -1290,10 +1307,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new SetImpl<ElemSort>(check(Z3.mk_set_difference(contextPtr, a.ast, b.ast)));
     }
     
-    function SetHasSize<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, size: bigint | number | string | IntNum<Name>): Bool<Name> {
-      const a = typeof size === 'object'? Int.sort().cast(size) : Int.sort().cast(size);
-      return new BoolImpl(check(Z3.mk_set_has_size(contextPtr, set.ast, a.ast)));
-    }
 
     function SetAdd<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort> {
       const arg = set.elemSort().cast(elem as any);
@@ -2627,9 +2640,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       diff(b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort> {
         return SetDifference(this, b);
       }
-      hasSize(size: string | number | bigint | IntNum<Name>): Bool<Name> {
-        return SetHasSize(this, size);
-      }
       add(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort> {
         return SetAdd(this, elem);
       }
@@ -2644,6 +2654,185 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
       subsetOf(b: SMTSet<Name, ElemSort>): Bool<Name> {
         return isSubset(this, b);
+      }
+    }
+
+    ////////////////////////////
+    // Datatypes
+    ////////////////////////////
+
+    class DatatypeImpl implements Datatype<Name> {
+      readonly ctx: Context<Name>;
+      readonly name: string;
+      public constructors: Array<[string, Array<[string, Sort<Name> | Datatype<Name>]>]> = [];
+
+      constructor(ctx: Context<Name>, name: string) {
+        this.ctx = ctx;
+        this.name = name;
+      }
+
+      declare(name: string, ...fields: Array<[string, Sort<Name> | Datatype<Name>]>): this {
+        this.constructors.push([name, fields]);
+        return this;
+      }
+
+      create(): DatatypeSort<Name> {
+        const datatypes = createDatatypes(this);
+        return datatypes[0];
+      }
+    }
+
+    class DatatypeSortImpl extends SortImpl implements DatatypeSort<Name> {
+      declare readonly __typename: DatatypeSort['__typename'];
+
+      numConstructors(): number {
+        return Z3.get_datatype_sort_num_constructors(contextPtr, this.ptr);
+      }
+
+      constructorDecl(idx: number): FuncDecl<Name> {
+        const ptr = Z3.get_datatype_sort_constructor(contextPtr, this.ptr, idx);
+        return new FuncDeclImpl(ptr);
+      }
+
+      recognizer(idx: number): FuncDecl<Name> {
+        const ptr = Z3.get_datatype_sort_recognizer(contextPtr, this.ptr, idx);
+        return new FuncDeclImpl(ptr);
+      }
+
+      accessor(constructorIdx: number, accessorIdx: number): FuncDecl<Name> {
+        const ptr = Z3.get_datatype_sort_constructor_accessor(contextPtr, this.ptr, constructorIdx, accessorIdx);
+        return new FuncDeclImpl(ptr);
+      }
+
+      cast(other: CoercibleToExpr<Name>): DatatypeExpr<Name>;
+      cast(other: DatatypeExpr<Name>): DatatypeExpr<Name>;
+      cast(other: CoercibleToExpr<Name> | DatatypeExpr<Name>): DatatypeExpr<Name> {
+        if (isExpr(other)) {
+          assert(this.eqIdentity(other.sort), 'Value cannot be converted to this datatype');
+          return other as DatatypeExpr<Name>;
+        }
+        throw new Error('Cannot coerce value to datatype expression');
+      }
+
+      subsort(other: Sort<Name>) {
+        _assertContext(other.ctx);
+        return this.eqIdentity(other);
+      }
+    }
+
+    class DatatypeExprImpl extends ExprImpl<Z3_ast, DatatypeSortImpl> implements DatatypeExpr<Name> {
+      declare readonly __typename: DatatypeExpr['__typename'];
+    }
+
+    function createDatatypes(...datatypes: DatatypeImpl[]): DatatypeSortImpl[] {
+      if (datatypes.length === 0) {
+        throw new Error('At least one datatype must be provided');
+      }
+
+      // All datatypes must be from the same context
+      const dtCtx = datatypes[0].ctx;
+      for (const dt of datatypes) {
+        if (dt.ctx !== dtCtx) {
+          throw new Error('All datatypes must be from the same context');
+        }
+      }
+
+      const sortNames = datatypes.map(dt => dt.name);
+      const constructorLists: Z3_constructor_list[] = [];
+      const scopedConstructors: Z3_constructor[] = [];
+
+      try {
+        // Create constructor lists for each datatype
+        for (const dt of datatypes) {
+          const constructors: Z3_constructor[] = [];
+
+          for (const [constructorName, fields] of dt.constructors) {
+            const fieldNames: string[] = [];
+            const fieldSorts: Z3_sort[] = [];
+            const fieldRefs: number[] = [];
+
+            for (const [fieldName, fieldSort] of fields) {
+              fieldNames.push(fieldName);
+              
+              if (fieldSort instanceof DatatypeImpl) {
+                // Reference to another datatype being defined
+                const refIndex = datatypes.indexOf(fieldSort);
+                if (refIndex === -1) {
+                  throw new Error(`Referenced datatype "${fieldSort.name}" not found in datatypes being created`);
+                }
+                // For recursive references, we pass null and the ref index
+                fieldSorts.push(null as any); // null will be handled by the Z3 API
+                fieldRefs.push(refIndex);
+              } else {
+                // Regular sort
+                fieldSorts.push((fieldSort as Sort<Name>).ptr);
+                fieldRefs.push(0);
+              }
+            }
+
+            const constructor = Z3.mk_constructor(
+              contextPtr,
+              Z3.mk_string_symbol(contextPtr, constructorName),
+              Z3.mk_string_symbol(contextPtr, `is_${constructorName}`),
+              fieldNames.map(name => Z3.mk_string_symbol(contextPtr, name)),
+              fieldSorts,
+              fieldRefs
+            );
+            constructors.push(constructor);
+            scopedConstructors.push(constructor);
+          }
+
+          const constructorList = Z3.mk_constructor_list(contextPtr, constructors);
+          constructorLists.push(constructorList);
+        }
+
+        // Create the datatypes
+        const sortSymbols = sortNames.map(name => Z3.mk_string_symbol(contextPtr, name));
+        const resultSorts = Z3.mk_datatypes(contextPtr, sortSymbols, constructorLists);
+
+        // Create DatatypeSortImpl instances
+        const results: DatatypeSortImpl[] = [];
+        for (let i = 0; i < resultSorts.length; i++) {
+          const sortImpl = new DatatypeSortImpl(resultSorts[i]);
+          
+          // Attach constructor, recognizer, and accessor functions dynamically
+          const numConstructors = sortImpl.numConstructors();
+          for (let j = 0; j < numConstructors; j++) {
+            const constructor = sortImpl.constructorDecl(j);
+            const recognizer = sortImpl.recognizer(j);
+            const constructorName = constructor.name().toString();
+            
+            // Attach constructor function
+            if (constructor.arity() === 0) {
+              // Nullary constructor (constant)
+              (sortImpl as any)[constructorName] = constructor.call();
+            } else {
+              (sortImpl as any)[constructorName] = constructor;
+            }
+            
+            // Attach recognizer function
+            (sortImpl as any)[`is_${constructorName}`] = recognizer;
+            
+            // Attach accessor functions
+            for (let k = 0; k < constructor.arity(); k++) {
+              const accessor = sortImpl.accessor(j, k);
+              const accessorName = accessor.name().toString();
+              (sortImpl as any)[accessorName] = accessor;
+            }
+          }
+          
+          results.push(sortImpl);
+        }
+
+        return results;
+      } finally {
+        // Clean up resources
+        for (const constructor of scopedConstructors) {
+          Z3.del_constructor(contextPtr, constructor);
+        }
+        for (const constructorList of constructorLists) {
+          Z3.del_constructor_list(contextPtr, constructorList);
+        }
       }
     }
 
@@ -3029,6 +3218,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       BitVec,
       Array,
       Set,
+      Datatype,
 
       ////////////////
       // Operations //
@@ -3095,7 +3285,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       SetUnion,
       SetIntersect,
       SetDifference,
-      SetHasSize,
       SetAdd,
       SetDel,
       SetComplement,
@@ -3120,6 +3309,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     setParam,
     resetParams,
 
-    Context: createContext,
+    Context: createContext as ContextCtor,
   };
 }

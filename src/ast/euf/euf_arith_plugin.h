@@ -43,9 +43,19 @@ namespace euf {
 
         void undo() override;
 
+        void push_scope_eh() override {
+            m_add.push_scope_eh();
+            m_mul.push_scope_eh();
+        }
+
         void propagate() override;
         
         std::ostream& display(std::ostream& out) const override;
+
+        void collect_statistics(statistics& st) const override {
+            m_add.collect_statistics(st);
+            m_mul.collect_statistics(st);
+        }
             
     };
 }

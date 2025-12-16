@@ -137,10 +137,6 @@ namespace array {
             add_equiv(eq, sub);
             break;
         }            
-        case OP_SET_HAS_SIZE:
-        case OP_SET_CARD:
-            ctx.unhandled_function(n->get_decl());
-            break;
         default:
             UNREACHABLE();
             break;
@@ -183,10 +179,6 @@ namespace array {
             set_prop_upward(find(n));
             break;
         case OP_SET_SUBSET:
-            break;
-        case OP_SET_HAS_SIZE:
-        case OP_SET_CARD:
-            ctx.unhandled_function(n->get_decl());
             break;
         default:
             UNREACHABLE();

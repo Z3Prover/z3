@@ -402,6 +402,10 @@ public:
         m_diseq_eh = diseq_eh;
     }
 
+    void user_propagate_register_on_binding(user_propagator::binding_eh_t& binding_eh) override {
+        m_ctx.load()->user_propagate_register_on_binding(binding_eh);
+    }
+
     void user_propagate_register_expr(expr* e) override {
         m_vars.push_back(e);
     }

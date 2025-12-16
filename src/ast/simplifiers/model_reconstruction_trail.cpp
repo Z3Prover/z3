@@ -80,6 +80,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
                 add_vars(v, free_vars);
                 st.add(dependent_expr(m, m.mk_eq(k, v), nullptr, nullptr));
             }
+            m_trail_stack.push(value_trail(t->m_active));
             t->m_active = false;
             continue;
         }
@@ -90,6 +91,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
                 TRACE(simplifier, tout << "replay removed " << r << "\n");
                 st.add(r);
             }
+            m_trail_stack.push(value_trail(t->m_active));
             t->m_active = false;
             continue;
         }

@@ -200,6 +200,10 @@ public:
         m_t2->user_propagate_register_diseq(diseq_eh);
     }
 
+    void user_propagate_register_on_binding(user_propagator::binding_eh_t& binding_eh) override {
+        m_t2->user_propagate_register_on_binding(binding_eh);
+    }
+
     void user_propagate_register_expr(expr* e) override {
         m_t1->user_propagate_register_expr(e);
         m_t2->user_propagate_register_expr(e);

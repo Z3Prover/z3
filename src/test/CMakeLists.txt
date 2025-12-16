@@ -12,8 +12,16 @@ endforeach()
 add_executable(test-z3
   EXCLUDE_FROM_ALL
   algebraic.cpp
+  algebraic_numbers.cpp
+  api_ast_map.cpp
   api_bug.cpp
+  api_special_relations.cpp
   api.cpp
+  api_algebraic.cpp
+  api_polynomial.cpp
+  api_pb.cpp
+  api_datalog.cpp
+  parametric_datatype.cpp
   arith_rewriter.cpp
   arith_simplifier_plugin.cpp
   ast.cpp
@@ -60,6 +68,7 @@ add_executable(test-z3
   hilbert_basis.cpp
   ho_matcher.cpp
   horn_subsume_model_converter.cpp
+  horner.cpp
   hwf.cpp
   inf_rational.cpp
   "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
@@ -75,6 +84,7 @@ add_executable(test-z3
   model_based_opt.cpp
   model_evaluator.cpp
   model_retrieval.cpp
+  monomial_bounds.cpp
   mpbq.cpp
   mpf.cpp
   mpff.cpp
@@ -82,6 +92,7 @@ add_executable(test-z3
   mpq.cpp
   mpz.cpp
   nlarith_util.cpp
+  nla_intervals.cpp
   nlsat.cpp
   no_overflow.cpp
   object_allocator.cpp
@@ -93,6 +104,7 @@ add_executable(test-z3
   pdd_solver.cpp
   permutation.cpp
   polynomial.cpp
+  polynomial_factorization.cpp
   polynorm.cpp
   prime_generator.cpp
   proof_checker.cpp

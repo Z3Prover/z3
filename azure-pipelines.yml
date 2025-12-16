@@ -49,22 +49,14 @@ jobs:
   timeoutInMinutes: 90  
   pool:
     vmImage: "ubuntu-latest"
-  container: "quay.io/pypa/manylinux2014_x86_64:latest"
+  container: "quay.io/pypa/manylinux_2_34_x86_64:latest"
+  condition: eq(1,1)     
   steps:
   - script: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
   - script: 'echo "##vso[task.prependpath]$PWD/env/bin"'
   - script: "pip install build git+https://github.com/rhelmot/auditwheel"
   - script: "cd src/api/python && python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../.."
   - script: "pip install ./src/api/python/wheelhouse/*.whl && python - <src/api/python/z3test.py z3 && python - <src/api/python/z3test.py z3num"
-  - task: CopyFiles@2
-    inputs:
-      sourceFolder: src/api/python/wheelhouse
-      contents: '*.whl'
-      targetFolder: $(Build.ArtifactStagingDirectory)
-  - task: PublishPipelineArtifact@0
-    inputs:
-      artifactName: 'ManyLinuxPythonBuildAMD64'
-      targetPath: $(Build.ArtifactStagingDirectory)   
 
 - job: ManyLinuxPythonBuildArm64
   timeoutInMinutes: 90

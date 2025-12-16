@@ -187,7 +187,7 @@ namespace smt {
         void new_diseq_eh(theory_var v1, theory_var v2) override {}
         bool use_diseqs() const override { return false; }
         bool build_models() const override { return true; }
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
         void reset_eh() override;
         void assign_eh(bool_var v, bool is_true) override;
         void init_search_eh() override {}

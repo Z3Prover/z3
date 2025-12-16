@@ -24,6 +24,10 @@ Revision History:
 #include "util/buffer.h"
 #include "util/vector.h"
 
+#ifndef SINGLE_THREAD
+#include <mutex>
+#endif
+
 #ifdef _WINDOWS
 #if defined( __MINGW32__ ) && ( defined( __GNUG__ ) || defined( __clang__ ) )
 #include <crtdbg.h>
@@ -66,6 +70,10 @@ static bool g_warning_msgs   = true;
 static bool g_use_std_stdout = false;
 static std::ostream* g_error_stream = nullptr;
 static std::ostream* g_warning_stream = nullptr;
+
+#ifndef SINGLE_THREAD
+static std::mutex g_warning_mutex;
+#endif
 
 void send_warnings_to_stdout(bool flag) {
     g_use_std_stdout = flag;
@@ -129,6 +137,9 @@ void print_msg(std::ostream * out, const char* prefix, const char* msg, va_list 
 
 void warning_msg(const char * msg, ...) {
     if (g_warning_msgs) {
+#ifndef SINGLE_THREAD
+        std::lock_guard<std::mutex> lock(g_warning_mutex);
+#endif
         va_list args;
         va_start(args, msg);
         print_msg(g_warning_stream, "WARNING: ", msg, args);

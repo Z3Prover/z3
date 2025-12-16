@@ -208,7 +208,13 @@ public class AST extends Z3Object implements Comparable<AST>
         case Z3_FUNC_DECL_AST:
             return new FuncDecl<>(ctx, obj);
         case Z3_QUANTIFIER_AST:
-            return new Quantifier(ctx, obj);
+            // a quantifier AST is a lambda iff it is neither a forall nor an exists. 
+            boolean isLambda = !Native.isQuantifierExists(ctx.nCtx(), obj) && !Native.isQuantifierForall(ctx.nCtx(), obj);
+            if (isLambda) {
+               return new Lambda(ctx, obj);
+            } else {
+               return new Quantifier(ctx, obj);
+            }
         case Z3_SORT_AST:
             return Sort.create(ctx, obj);
         case Z3_APP_AST:

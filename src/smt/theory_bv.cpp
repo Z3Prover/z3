@@ -1450,7 +1450,7 @@ namespace smt {
                                    << num_scopes << " = " << (ctx.get_scope_level() - num_scopes) << "\n"););
     }
 
-    final_check_status theory_bv::final_check_eh() {
+    final_check_status theory_bv::final_check_eh(unsigned level) {
         SASSERT(check_invariant());
         if (m_approximates_large_bvs) {
             return FC_GIVEUP;
@@ -1890,6 +1890,8 @@ namespace smt {
 
     theory_bv::var_enode_pos theory_bv::get_bv_with_theory(bool_var v, theory_id id) const {
         atom* a      = get_bv2a(v);
+        if (!a)
+            return var_enode_pos(nullptr, UINT32_MAX);
         svector<var_enode_pos> vec;
         if (!a->is_bit())
             return var_enode_pos(nullptr, UINT32_MAX);

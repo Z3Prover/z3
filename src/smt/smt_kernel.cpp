@@ -307,6 +307,10 @@ namespace smt {
     void kernel::user_propagate_register_fixed(user_propagator::fixed_eh_t& fixed_eh) {
         m_imp->m_kernel.user_propagate_register_fixed(fixed_eh);
     }
+
+    void kernel::user_propagate_register_on_binding(user_propagator::binding_eh_t& on_binding) {
+        m_imp->m_kernel.user_propagate_register_on_binding(on_binding);
+    }
     
     void kernel::user_propagate_register_final(user_propagator::final_eh_t& final_eh) {
         m_imp->m_kernel.user_propagate_register_final(final_eh);

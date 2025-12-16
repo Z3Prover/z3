@@ -26,8 +26,6 @@ Notes:
 #include "util/params.h"
 #include "util/lbool.h"
 #include "util/sign.h"
-#include "math/automata/automaton.h"
-#include "math/automata/symbolic_automata.h"
 
 
 inline std::ostream& operator<<(std::ostream& out, expr_ref_pair_vector const& es) {
@@ -81,33 +79,15 @@ public:
     void dec_ref(sym_expr* s) { if (s) s->dec_ref(); }
 };
 
+#if 0
+
 class expr_solver {
 public:
     virtual ~expr_solver() = default;
     virtual lbool check_sat(expr* e) = 0;
 };
+#endif
 
-typedef automaton<sym_expr, sym_expr_manager> eautomaton;
-class re2automaton {
-    typedef boolean_algebra<sym_expr*> boolean_algebra_t;
-    typedef symbolic_automata<sym_expr, sym_expr_manager> symbolic_automata_t;
-    ast_manager& m;
-    sym_expr_manager sm;
-    seq_util     u;     
-    scoped_ptr<expr_solver>         m_solver;
-    scoped_ptr<boolean_algebra_t>   m_ba;
-    scoped_ptr<symbolic_automata_t> m_sa;
-
-    bool is_unit_char(expr* e, expr_ref& ch);
-    eautomaton* re2aut(expr* e);
-    eautomaton* seq2aut(expr* e);
-public:
-    re2automaton(ast_manager& m);
-    eautomaton* operator()(expr* e);
-    void set_solver(expr_solver* solver);
-    bool has_solver() const { return m_solver; }
-    eautomaton* mk_product(eautomaton *a1, eautomaton *a2);
-};
 
 /**
    \brief Cheap rewrite rules for seq constraints
@@ -150,7 +130,7 @@ class seq_rewriter {
     seq_util       m_util;
     arith_util     m_autil;
     bool_rewriter  m_br;
-    re2automaton   m_re2aut;
+    // re2automaton   m_re2aut;
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
     bool           m_coalesce_chars;    
@@ -340,7 +320,7 @@ class seq_rewriter {
 
     void add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond);
     bool is_sequence(expr* e, expr_ref_vector& seq);
-    bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
+//    bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
     bool get_lengths(expr* e, expr_ref_vector& lens, rational& pos);
     bool reduce_value_clash(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
     bool reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
@@ -360,7 +340,8 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_autil(m), m_br(m, p), m_re2aut(m), m_op_cache(m), m_es(m), 
+        m_util(m), m_autil(m), m_br(m, p), // m_re2aut(m), 
+        m_op_cache(m), m_es(m), 
         m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
@@ -371,8 +352,6 @@ public:
     void updt_params(params_ref const & p);
     static void get_param_descrs(param_descrs & r);
 
-    void set_solver(expr_solver* solver) { m_re2aut.set_solver(solver); }
-    bool has_solver() { return m_re2aut.has_solver(); }
 
     bool coalesce_chars() const { return m_coalesce_chars; }
 

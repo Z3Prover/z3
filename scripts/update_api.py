@@ -558,6 +558,8 @@ def param2java(p):
             return "LongPtr"
         elif param_type(p) == STRING:
             return "StringPtr"
+        elif param_type(p) == BOOL:
+            return "BoolPtr"
         else:
             print("ERROR: unreachable code")
             assert(False)
@@ -623,6 +625,7 @@ def mk_java(java_src, java_dir, package_name):
     java_native.write('  public static class StringPtr { public String value; }\n')
     java_native.write('  public static class ObjArrayPtr { public long[] value; }\n')
     java_native.write('  public static class UIntArrayPtr { public int[] value; }\n')
+    java_native.write('  public static class BoolPtr { public boolean value; }\n')
     java_native.write('  public static native void setInternalErrorHandler(long ctx);\n\n')
 
     java_native.write('  static {\n')
@@ -641,6 +644,7 @@ def mk_java(java_src, java_dir, package_name):
   public static native void propagateRegisterEq(Object o, long ctx, long solver);
   public static native void propagateRegisterDecide(Object o, long ctx, long solver);
   public static native void propagateRegisterFinal(Object o, long ctx, long solver);
+  public static native void propagateRegisterOnBinding(Object o, long ctx, long solver);
   public static native void propagateAdd(Object o, long ctx, long solver, long javainfo, long e);
   public static native boolean propagateConsequence(Object o, long ctx, long solver, long javainfo, int num_fixed, long[] fixed, long num_eqs, long[] eq_lhs, long[] eq_rhs, long conseq);
   public static native boolean propagateNextSplit(Object o, long ctx, long solver, long javainfo, long e, long idx, int phase);
@@ -684,6 +688,10 @@ def mk_java(java_src, java_dir, package_name):
     protected final void registerFinal() {
         Native.propagateRegisterFinal(this, ctx, solver);
     }
+    
+    protected final void registerOnBinding() {
+        Native.propagateRegisterOnBinding(this, ctx, solver);
+    }
 
     protected abstract void pushWrapper();
 
@@ -700,6 +708,8 @@ def mk_java(java_src, java_dir, package_name):
     protected abstract void fixedWrapper(long lvar, long lvalue);
 
     protected abstract void decideWrapper(long lvar, int bit, boolean is_pos);
+
+    protected abstract boolean onBindingWrapper(long q, long inst);
   }
     """)
     java_native.write('\n')
@@ -1079,6 +1089,9 @@ def def_API(name, result, params):
             elif ty == INT64:
                 log_c.write("  I(0);\n")
                 exe_c.write("in.get_int64_addr(%s)" % i)
+            elif ty == BOOL:
+                log_c.write("  I(0);\n")
+                exe_c.write("in.get_bool_addr(%s)" % i)
             elif ty == VOID_PTR:
                 log_c.write("  P(0);\n")
                 exe_c.write("in.get_obj_addr(%s)" % i)
@@ -1392,6 +1405,7 @@ z3_ml_callbacks = frozenset([
     'Z3_solver_propagate_diseq',
     'Z3_solver_propagate_created',
     'Z3_solver_propagate_decide',
+    'Z3_solver_propagate_on_binding',
     'Z3_solver_register_on_clause'
     ])
 
@@ -1944,6 +1958,7 @@ Z3_eq_eh    = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_
 
 Z3_created_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 Z3_decide_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.c_int)
+Z3_on_binding_eh = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 
 _lib.Z3_solver_register_on_clause.restype = None
 _lib.Z3_solver_propagate_init.restype = None

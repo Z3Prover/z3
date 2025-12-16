@@ -149,8 +149,10 @@ class skolemizer {
         r = m_subst(body, substitution);
         p = nullptr;
         if (m_proofs_enabled) {
-            if (q->get_kind() == forall_k) 
-                p = m.mk_skolemization(mk_not(m, q), mk_not(m, r));
+            if (q->get_kind() == forall_k) {
+                auto a = mk_not(m, q); 
+                p = m.mk_skolemization(a , mk_not(m, r));
+            }
             else
                 p = m.mk_skolemization(q, r);
         }
@@ -564,7 +566,8 @@ struct nnf::imp {
         expr * _then      = rs[2];
         expr * _else      = rs[3];
 
-        app * r = m.mk_and(m.mk_or(_not_cond, _then), m.mk_or(_cond, _else));
+        expr* a = m.mk_or(_not_cond, _then);
+        app * r = m.mk_and(a, m.mk_or(_cond, _else));
         m_result_stack.shrink(fr.m_spos);
         m_result_stack.push_back(r);
         if (proofs_enabled()) {
@@ -609,10 +612,14 @@ struct nnf::imp {
         expr * not_rhs  = rs[3];
 
         app * r;
-        if (is_eq(t) == fr.m_pol) 
-            r = m.mk_and(m.mk_or(not_lhs, rhs), m.mk_or(lhs, not_rhs));
-        else
-            r = m.mk_and(m.mk_or(lhs, rhs), m.mk_or(not_lhs, not_rhs));
+        if (is_eq(t) == fr.m_pol) {
+            expr* a = m.mk_or(not_lhs, rhs);
+            r = m.mk_and(a, m.mk_or(lhs, not_rhs));
+        }
+        else {
+            expr* a = m.mk_or(lhs, rhs);
+            r = m.mk_and(a, m.mk_or(not_lhs, not_rhs));
+        }
         m_result_stack.shrink(fr.m_spos);
         m_result_stack.push_back(r);
         if (proofs_enabled()) {
@@ -684,8 +691,8 @@ struct nnf::imp {
             if (proofs_enabled()) {
                 expr_ref aux(m);
                 aux = m.mk_label(true, names.size(), names.data(), arg);
-                pr = m.mk_transitivity(mk_proof(fr.m_pol, 1, &arg_pr, t, to_app(aux)),
-                                         m.mk_iff_oeq(m.mk_rewrite(aux, r)));
+                auto a = mk_proof(fr.m_pol, 1, &arg_pr, t, to_app(aux));
+                pr = m.mk_transitivity(a, m.mk_iff_oeq(m.mk_rewrite(aux, r)));
             }
         }
         else {

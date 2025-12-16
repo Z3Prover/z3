@@ -63,7 +63,11 @@ namespace smt {
 
         void init_search_eh() override;
 
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
+
+        unsigned num_final_check_levels() const override {
+            return 2;
+        }
 
         bool is_shared(theory_var v) const override;
     

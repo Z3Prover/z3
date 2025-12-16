@@ -8,7 +8,20 @@
 from mk_util import *
 
 def init_version():
-    set_version(4, 15, 3, 0) # express a default build version or pick up ci build version
+    # Read version from VERSION.txt file
+    version_file_path = os.path.join(os.path.dirname(__file__), 'VERSION.txt')
+    try:
+        with open(version_file_path, 'r') as f:
+            version_str = f.read().strip()
+        version_parts = version_str.split('.')
+        if len(version_parts) >= 4:
+            major, minor, build, tweak = int(version_parts[0]), int(version_parts[1]), int(version_parts[2]), int(version_parts[3])
+        else:
+            major, minor, build, tweak = int(version_parts[0]), int(version_parts[1]), int(version_parts[2]), 0
+        set_version(major, minor, build, tweak)
+    except (IOError, ValueError) as e:
+        print(f"Warning: Could not read version from VERSION.txt: {e}")
+        set_version(4, 15, 4, 0)  # fallback to default version
     
 # Z3 Project definition
 def init_project_def():
@@ -19,14 +32,13 @@ def init_project_def():
     add_lib('dd', ['util', 'interval'], 'math/dd')
     add_lib('simplex', ['util'], 'math/simplex')
     add_lib('hilbert', ['util'], 'math/hilbert')
-    add_lib('automata', ['util'], 'math/automata')
     add_lib('realclosure', ['interval'], 'math/realclosure')
     add_lib('subpaving', ['interval'], 'math/subpaving')
     add_lib('ast', ['util', 'polynomial'])
     add_lib('params', ['util', 'ast'])
     add_lib('parser_util', ['ast'], 'parsers/util')
     add_lib('grobner', ['ast', 'dd', 'simplex'], 'math/grobner')    
-    add_lib('rewriter', ['ast', 'polynomial', 'interval', 'automata', 'params'], 'ast/rewriter')
+    add_lib('rewriter', ['ast', 'polynomial', 'interval', 'params'], 'ast/rewriter')
     add_lib('euf', ['ast', 'rewriter'], 'ast/euf')
     add_lib('normal_forms', ['rewriter'], 'ast/normal_forms')
     add_lib('macros', ['rewriter'], 'ast/macros')

@@ -39,6 +39,7 @@ Notes:
 #include "solver/check_logic.h"
 #include "solver/progress_callback.h"
 #include "solver/simplifier_solver.h"
+#include "solver/preferred_value_propagator.h"
 #include "cmd_context/pdecl.h"
 #include "cmd_context/tactic_manager.h"
 #include "params/context_params.h"
@@ -163,6 +164,9 @@ struct builtin_decl {
 };
 
 class opt_wrapper : public check_sat_result {
+protected:
+    preferred_value_propagator *m_preferred = nullptr;
+
 public:
     opt_wrapper(ast_manager& m): check_sat_result(m) {}
     virtual bool empty() = 0;
@@ -176,7 +180,7 @@ public:
     virtual void get_box_model(model_ref& mdl, unsigned index) = 0;
     virtual void updt_params(params_ref const& p) = 0;
     virtual void initialize_value(expr* var, expr* value) = 0;
-
+    void set_preferred(preferred_value_propagator *p) { m_preferred = p; }
 };
 
 class ast_context_params : public context_params { 
@@ -265,6 +269,7 @@ protected:
     dictionary<object_ref*>      m_object_refs; // anything that can be named.
     dictionary<sexpr*>           m_user_tactic_decls;
     vector<std::pair<expr_ref, expr_ref>> m_var2values;
+    scoped_ptr<preferred_value_propagator> m_preferred;
 
     dictionary<func_decls>       m_func_decls;
     obj_map<func_decl, symbol>   m_func_decl2alias;
@@ -429,6 +434,8 @@ public:
     void set_solver(solver* s) { m_solver = s; }
     void set_proof_cmds(proof_cmds* pc) { m_proof_cmds = pc; }
     void set_initial_value(expr* var, expr* value);
+    void set_preferred(expr *fmla);
+    void reset_preferred();
 
     void set_solver_factory(solver_factory * s);
     void set_simplifier_factory(simplifier_factory& sf) { m_simplifier_factory = sf; }
@@ -574,23 +581,4 @@ public:
 
 std::ostream & operator<<(std::ostream & out, cmd_context::status st);
 
-
-class th_solver : public expr_solver {
-    cmd_context& m_ctx;
-    params_ref   m_params;
-    ref<solver> m_solver;
-public:
-    th_solver(cmd_context& ctx): m_ctx(ctx) {}
-    
-    lbool check_sat(expr* e) override {
-        if (!m_solver) {
-            m_solver = m_ctx.get_solver_factory()(m_ctx.m(), m_params, false, true, false, symbol::null);
-        }
-        m_solver->push();
-        m_solver->assert_expr(e);
-        lbool r = m_solver->check_sat(0,nullptr);
-        m_solver->pop(1);
-        return r;
-    }
-};
 

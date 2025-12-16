@@ -73,6 +73,7 @@ struct solver::imp {
         if (m_nla_core.emons().is_monic_var(v)) {
             auto const &m = m_nla_core.emons()[v];
             for (auto v2 : m.vars()) {
+                den = lcm(denominators[v2], den);
                 polynomial_ref pw(definitions.get(v2), m_nlsat->pm());
                 if (!p)
                     p = pw;
@@ -82,7 +83,7 @@ struct solver::imp {
         }
         else if (lra.column_has_term(v)) {
             for (auto const &[w, coeff] : lra.get_term(v)) {
-                den = lcm(denominator(coeff), den);
+                den = lcm(denominators[w], lcm(denominator(coeff), den));
             }
             for (auto const &[w, coeff] : lra.get_term(v)) {
                 auto coeff1 = den * coeff;
@@ -172,7 +173,7 @@ struct solver::imp {
                 poly = poly * constant(den * coeff / denominators[v]);
                 p = p + poly;
             }
-            auto lit = add_constraint(p, ci, k);
+            add_constraint(p, ci, k);
         }
         definitions.reset();
     }
@@ -267,6 +268,7 @@ struct solver::imp {
               for (auto [j, x] : m_lp2nl) tout << "j" << j << " := x" << x << "\n";);
         switch (r) {
         case l_true:
+            m_nlsat->restore_order();
             m_nla_core.set_use_nra_model(true);
             lra.init_model();
             for (lp::constraint_index ci : lra.constraints().indices())
@@ -512,7 +514,6 @@ struct solver::imp {
         coeffs.push_back(mpz(-1));
         polynomial::polynomial_ref p(pm.mk_polynomial(2, coeffs.data(), mls),  pm);
         auto lit = mk_literal(p.get(), lp::lconstraint_kind::EQ);
-        nlsat::assumption a = nullptr;
         m_nlsat->mk_clause(1, &lit, nullptr);
     }
 
@@ -645,6 +646,7 @@ struct solver::imp {
         
         switch (r) {
         case l_true:
+            m_nlsat->restore_order();
             m_nla_core.set_use_nra_model(true);
             lra.init_model();
             for (lp::constraint_index ci : lra.constraints().indices())

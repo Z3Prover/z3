@@ -78,6 +78,8 @@ char const* reslimit::get_cancel_msg() const {
 
 void reslimit::push_child(reslimit* r) {
     lock_guard lock(*g_rlimit_mux);
+    r->m_limit = std::min(r->m_limit, m_limit - std::min(m_limit, m_count));
+    r->m_count = 0;
     m_children.push_back(r);    
 }
 

@@ -57,11 +57,10 @@ goal::goal(ast_manager & m, bool proofs_enabled, bool models_enabled, bool core_
     m_ref_count(0),
     m_depth(0),
     m_models_enabled(models_enabled),
-    m_proofs_enabled(proofs_enabled),
+    m_proofs_enabled(proofs_enabled && m.proofs_enabled()),
     m_core_enabled(core_enabled),
     m_inconsistent(false),
     m_precision(PRECISE) {
-    SASSERT(!proofs_enabled || m.proofs_enabled());
     }
 
 goal::goal(goal const & src):

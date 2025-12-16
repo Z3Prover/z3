@@ -138,9 +138,10 @@ namespace nla {
         bool use_rational = !c.use_nra_model();
         rational xval, yval, rval;
         if (use_rational) {
-            xval = c.val(x);
-            yval = c.val(y);
-            rval = c.val(r);
+
+            xval = c.lra.get_value(x);
+            yval = c.lra.get_value(y);
+            rval = c.lra.get_value(r);
         } 
         else {
             auto& am = c.m_nra.am();

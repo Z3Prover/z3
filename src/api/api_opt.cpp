@@ -154,7 +154,7 @@ extern "C" {
         bool     use_ctrl_c  = to_optimize_ptr(o)->get_params().get_bool("ctrl_c", true);
         api::context::set_interruptable si(*(mk_c(c)), eh);        
         {
-            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
+            scoped_ctrl_c ctrlc(eh, use_ctrl_c);
             scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
@@ -479,6 +479,24 @@ extern "C" {
         }
         to_optimize_ptr(o)->initialize_value(to_expr(var), to_expr(value));
         Z3_CATCH;        
+    }
+
+    Z3_optimize Z3_API Z3_optimize_translate(Z3_context c, Z3_optimize o, Z3_context target) {
+        Z3_TRY;
+        LOG_Z3_optimize_translate(c, o, target);
+        RESET_ERROR_CODE();
+        
+        // Translate the opt::context to the target manager
+        opt::context* translated_ctx = to_optimize_ptr(o)->translate(mk_c(target)->m());
+        
+        // Create a new Z3_optimize_ref in the target context
+        Z3_optimize_ref* result_ref = alloc(Z3_optimize_ref, *mk_c(target));
+        result_ref->m_opt = translated_ctx;
+        mk_c(target)->save_object(result_ref);
+        
+        Z3_optimize result = of_optimize(result_ref);
+        RETURN_Z3(result);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 };

@@ -54,7 +54,7 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
 }
 
 void core::updt_params(params_ref const& p) {
-    // grobner updt_params is a no-op on this branch
+    m_grobner.updt_params(p);
 }
     
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
@@ -1282,7 +1282,7 @@ void core::add_bounds() {
     }    
 }
 
-lbool core::check() {
+lbool core::check(unsigned level) {
     lp_settings().stats().m_nla_calls++;
     TRACE(nla_solver, tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
     lra.get_rid_of_inf_eps();
@@ -1368,9 +1368,12 @@ lbool core::check() {
             ret = bounded_nlsat();
     }
 
-    if (no_effect() && params().arith_nl_nra()) {
+    if (no_effect() && params().arith_nl_nra() && level >= 2) {
         scoped_limits sl(m_reslim);
         sl.push_child(&m_nra_lim);
+        params_ref p;
+        p.set_uint("max_conflicts", lp_settings().m_max_conflicts);
+        m_nra.updt_params(p);
         ret = m_nra.check();
         lp_settings().stats().m_nra_calls++;
     }
@@ -1397,13 +1400,18 @@ bool core::should_run_bounded_nlsat() {
 }
 
 lbool core::bounded_nlsat() {
+    params_ref p;
     lbool ret;
+    p.set_uint("max_conflicts", 100);
+    m_nra.updt_params(p);
     {
         scoped_limits sl(m_reslim);
         sl.push_child(&m_nra_lim);
         scoped_rlimit sr(m_nra_lim, 100000);
         ret = m_nra.check();
     }
+    p.set_uint("max_conflicts", lp_settings().m_max_conflicts);            
+    m_nra.updt_params(p);
     lp_settings().stats().m_nra_calls++;
     if (ret == l_undef) 
         ++m_nlsat_delay_bound;
@@ -1429,7 +1437,7 @@ bool core::no_lemmas_hold() const {
     
 lbool core::test_check() {
     lra.set_status(lp::lp_status::OPTIMAL);
-    return check();
+    return check(2);
 }
 
 std::unordered_set<lpvar> core::get_vars_of_expr_with_opening_terms(const nex *e ) {
@@ -1543,7 +1551,14 @@ bool core::is_pseudo_linear(monic const& m) const {
 }
 
 bool core::refine_pseudo_linear() {
-    // Parameter support for this optimization is unavailable in this branch.
+    if (!params().arith_nl_reduce_pseudo_linear())
+        return false;
+    for (lpvar j : m_to_refine) {
+        if (is_pseudo_linear(m_emons[j])) {
+            refine_pseudo_linear(m_emons[j]);
+            return true;
+        }
+    }
     return false;
 }
 

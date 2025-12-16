@@ -781,9 +781,10 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             m().is_value(t1) && m().is_value(e1) && m().is_value(t2) && m().is_value(e2)) {
             expr_ref_vector args(m());
             args.push_back(m().mk_or(c1, c2, m().mk_eq(e1, e2)));
-            args.push_back(m().mk_or(m().mk_not(c1), m().mk_not(c2), m().mk_eq(t1, t2)));
-            args.push_back(m().mk_or(m().mk_not(c1), c2, m().mk_eq(t1, e2)));
-            args.push_back(m().mk_or(c1, m().mk_not(c2), m().mk_eq(e1, t2)));
+            auto nc1 = m().mk_not(c1); auto nc2 = m().mk_not(c2);
+            args.push_back(m().mk_or(nc1, nc2, m().mk_eq(t1, t2)));
+            args.push_back(m().mk_or(nc1, c2, m().mk_eq(t1, e2)));
+            args.push_back(m().mk_or(c1, nc2, m().mk_eq(e1, t2)));            
             result = m().mk_and(args);
             return BR_REWRITE_FULL;
         }
