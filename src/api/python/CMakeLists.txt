@@ -84,7 +84,7 @@ if (TARGET libz3)
     set(LIBZ3_SOURCE_PATH "${PROJECT_BINARY_DIR}/libz3${CMAKE_SHARED_MODULE_SUFFIX}")
     set(LIBZ3_DEPENDS libz3)
   endif()
-  
+
   add_custom_command(OUTPUT "${z3py_bindings_build_dest}/libz3${CMAKE_SHARED_MODULE_SUFFIX}"
     COMMAND "${CMAKE_COMMAND}" "-E" "${LINK_COMMAND}"
       "${LIBZ3_SOURCE_PATH}"

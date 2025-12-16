@@ -553,6 +553,7 @@ set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
 ################################################################################
 include(CMakePackageConfigHelpers)
 
+option(Z3_BUILD_LIBZ3_CORE "Build the core libz3 library" ON)
 # Only export targets if we built libz3
 if (Z3_BUILD_LIBZ3_CORE)
   ################################################################################
@@ -565,6 +566,27 @@ if (Z3_BUILD_LIBZ3_CORE)
   export(EXPORT Z3_EXPORTED_TARGETS
      NAMESPACE z3::
      FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
+  )
+else()
+  # When not building libz3, we need to find it
+  message(STATUS "Not building libz3, will look for pre-installed library")
+  find_library(Z3_LIBRARY NAMES z3 libz3
+    HINTS ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
+    PATH_SUFFIXES lib lib64
+  )
+  if (NOT Z3_LIBRARY)
+    message(FATAL_ERROR "Could not find pre-installed libz3. Please ensure libz3 is installed or set Z3_BUILD_LIBZ3_CORE=ON")
+  endif()
+  message(STATUS "Found libz3: ${Z3_LIBRARY}")
+
+  # Create an imported target for the pre-installed libz3
+  add_library(libz3 SHARED IMPORTED)
+  set_target_properties(libz3 PROPERTIES
+    IMPORTED_LOCATION "${Z3_LIBRARY}"
+  )
+  # Set include directories for the imported target
+  target_include_directories(libz3 INTERFACE
+    ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}
   )
 endif()
 

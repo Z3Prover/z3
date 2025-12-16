@@ -106,19 +106,16 @@ add_subdirectory(api/dll)
 ################################################################################
 # libz3
 ################################################################################
-option(Z3_BUILD_LIBZ3_CORE "Build the core libz3 library" ON)
-
-if (Z3_BUILD_LIBZ3_CORE)
-  get_property(Z3_LIBZ3_COMPONENTS_LIST GLOBAL PROPERTY Z3_LIBZ3_COMPONENTS)
-  set (object_files "")
-  foreach (component ${Z3_LIBZ3_COMPONENTS_LIST})
-    list(APPEND object_files $<TARGET_OBJECTS:${component}>)
-  endforeach()
-  if (Z3_BUILD_LIBZ3_SHARED)
-    set(lib_type "SHARED")
-  else()
-    set(lib_type "STATIC")
-  endif()
+get_property(Z3_LIBZ3_COMPONENTS_LIST GLOBAL PROPERTY Z3_LIBZ3_COMPONENTS)
+set (object_files "")
+foreach (component ${Z3_LIBZ3_COMPONENTS_LIST})
+  list(APPEND object_files $<TARGET_OBJECTS:${component}>)
+endforeach()
+if (Z3_BUILD_LIBZ3_SHARED)
+  set(lib_type "SHARED")
+else()
+  set(lib_type "STATIC")
+endif()
 # Enable static msvc runtime.
 if (MSVC AND Z3_BUILD_LIBZ3_MSVC_STATIC)
     set(CompilerFlags
@@ -301,29 +298,6 @@ if (MSVC)
   )
   add_dependencies(libz3 libz3_extra_depends)
   z3_append_linker_flag_list_to_target(libz3 "/DEF:${dll_module_exports_file}")
-endif()
-
-else()
-  # When not building libz3, we need to find it
-  message(STATUS "Not building libz3, will look for pre-installed library")
-  find_library(Z3_LIBRARY NAMES z3 libz3
-    HINTS ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
-    PATH_SUFFIXES lib lib64
-  )
-  if (NOT Z3_LIBRARY)
-    message(FATAL_ERROR "Could not find pre-installed libz3. Please ensure libz3 is installed or set Z3_BUILD_LIBZ3_CORE=ON")
-  endif()
-  message(STATUS "Found libz3: ${Z3_LIBRARY}")
-  
-  # Create an imported target for the pre-installed libz3
-  add_library(libz3 SHARED IMPORTED)
-  set_target_properties(libz3 PROPERTIES
-    IMPORTED_LOCATION "${Z3_LIBRARY}"
-  )
-  # Set include directories for the imported target
-  target_include_directories(libz3 INTERFACE
-    ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}
-  )
 endif()
 
 ################################################################################
