@@ -423,15 +423,6 @@ try:
             print("ERROR: node version check failed.")
             print(e.output)
             exit(1)
-        print("Building TypeScript wrapper...")
-        if subprocess.call(['npm', 'run', '--prefix=%s' % JS_API_PATH, 'build:ts']) != 0:
-            print("ERROR: npm run build:ts failed.")
-            exit(1)
-        print("Building wasm artifact...")
-        if subprocess.call(['npm', 'run', '--prefix=%s' % JS_API_PATH, 'build:wasm']) != 0:
-            print("ERROR: npm run build:wasm failed.")
-            exit(1)
-        print("Generating Javascript documentation...")
         if subprocess.call(['npm', 'run', '--prefix=%s' % JS_API_PATH, 'docs']) != 0:
             print("ERROR: npm run docs failed.")
             exit(1)
