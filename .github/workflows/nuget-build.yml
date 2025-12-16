@@ -34,7 +34,7 @@ jobs:
           python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.15.5' }} --zip
       
       - name: Upload Windows x64 artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: windows-x64
           path: dist/*.zip
@@ -58,7 +58,7 @@ jobs:
           python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.15.5' }} --zip
       
       - name: Upload Windows x86 artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: windows-x86
           path: dist/*.zip
@@ -82,7 +82,7 @@ jobs:
           python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.15.5' }} --zip
       
       - name: Upload Windows ARM64 artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: windows-arm64
           path: build-dist\arm64\dist\*.zip
@@ -103,7 +103,7 @@ jobs:
         run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk
       
       - name: Upload Ubuntu artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ubuntu
           path: dist/*.zip
@@ -124,7 +124,7 @@ jobs:
         run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk
       
       - name: Upload macOS x64 artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: macos-x64
           path: dist/*.zip
@@ -145,7 +145,7 @@ jobs:
         run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=arm64
       
       - name: Upload macOS ARM64 artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: macos-arm64
           path: dist/*.zip
@@ -198,7 +198,7 @@ jobs:
           nuget pack out\Microsoft.Z3.sym.nuspec -OutputDirectory . -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath out
       
       - name: Upload NuGet package
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: nuget-x64
           path: |
@@ -247,7 +247,7 @@ jobs:
           nuget pack out\Microsoft.Z3.x86.sym.nuspec -OutputDirectory . -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath out
       
       - name: Upload NuGet package
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: nuget-x86
           path: |

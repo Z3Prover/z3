@@ -89,13 +89,13 @@ jobs:
       id: date
       run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
-    - uses: actions/upload-artifact@v5
+    - uses: actions/upload-artifact@v6
       with:
         name: coverage-${{steps.date.outputs.date}}
         path: ${{github.workspace}}/coverage.html
         retention-days: 4
 
-    - uses: actions/upload-artifact@v5
+    - uses: actions/upload-artifact@v6
       with:
         name: coverage-details-${{steps.date.outputs.date}}
         path: ${{env.COV_DETAILS_PATH}}
