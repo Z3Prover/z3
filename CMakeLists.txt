@@ -568,6 +568,25 @@ if (Z3_BUILD_LIBZ3_CORE)
   )
 endif()
 
+################################################################################
+# Z3 API bindings
+################################################################################
+option(Z3_BUILD_PYTHON_BINDINGS "Build Python bindings for Z3" OFF)
+if (Z3_BUILD_PYTHON_BINDINGS)
+  # Validate configuration for Python bindings
+  if (Z3_BUILD_LIBZ3_CORE)
+    # Building libz3 together with Python bindings
+    if (NOT Z3_BUILD_LIBZ3_SHARED)
+      message(FATAL_ERROR "The python bindings will not work with a static libz3. "
+              "You either need to disable Z3_BUILD_PYTHON_BINDINGS or enable Z3_BUILD_LIBZ3_SHARED")
+    endif()
+  else()
+    # Using pre-installed libz3 for Python bindings
+    message(STATUS "Building Python bindings with pre-installed libz3")
+  endif()
+  add_subdirectory(src/api/python)
+endif()
+
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${PROJECT_BINARY_DIR}/src/api")
 set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api")
 set(Z3_CXX_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api/c++")
