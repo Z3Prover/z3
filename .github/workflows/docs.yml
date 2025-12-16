@@ -35,28 +35,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y doxygen graphviz python3
 
-      - name: Build Z3 for ubuntu-latest x64
-        run: |
-          python3 scripts/mk_make.py
-          cd build
-          make -j$(nproc)
-
       - name: Setup emscripten
         uses: mymindstorm/setup-emsdk@v14
+        working-directory: src/api/js
         with:
           no-install: true
           version: ${{env.EM_VERSION}}
           actions-cache-folder: "emsdk-cache"
 
       - name: Install dependencies
-        run: npm ci
         working-directory: src/api/js
+        run: npm ci
 
       - name: Build TypeScript
-        run: npm run build:ts
         working-directory: src/api/js
+        run: npm run build:ts
 
       - name: Build wasm
+        working-directory: src/api/js
         run: |
           emsdk install ${EM_VERSION}
           emsdk activate ${EM_VERSION}
@@ -64,8 +60,13 @@ jobs:
           which node
           which clang++
           npm run build:wasm
-        working-directory: src/api/js
-          
+
+      - name: Build Z3 for ubuntu-latest x64
+        run: |
+          python3 scripts/mk_make.py
+          cd build
+          make -j$(nproc)
+
       - name: Generate Documentation (from doc directory)
         working-directory: doc
         run: |
