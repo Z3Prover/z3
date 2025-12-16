@@ -17,10 +17,6 @@ concurrency:
 env:
   EM_VERSION: 3.1.73
 
-defaults:
-  run:
-    working-directory: src/api/js
-
 jobs:
   build-docs:
     name: Build Documentation
@@ -54,9 +50,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        working-directory: src/api/js
 
       - name: Build TypeScript
         run: npm run build:ts
+        working-directory: src/api/js
 
       - name: Build wasm
         run: |
@@ -66,6 +64,7 @@ jobs:
           which node
           which clang++
           npm run build:wasm
+        working-directory: src/api/js
           
       - name: Generate Documentation (from doc directory)
         working-directory: doc
