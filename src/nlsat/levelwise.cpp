@@ -949,9 +949,6 @@ namespace nlsat {
                       ::nlsat::display(tout, m_solver, a) << "\n";
                       ::nlsat::display(tout,m_solver, b)<< "\nresultant:"; ::nlsat::display(tout, m_solver, r) << "\n");
                 if (is_zero(r)) {
-                    std::cout << "resultant of(" << pair.first << "," << pair.second << "):"; 
-                    ::nlsat::display(std::cout << "\n", m_solver, a) << "\n";
-                    ::nlsat::display(std::cout,m_solver, b)<< "\nresultant:"; ::nlsat::display(std::cout, m_solver, r) << "\n";
                     SASSERT(same_polynomial_up_to_constant(a, b));
                     continue;
                 }
