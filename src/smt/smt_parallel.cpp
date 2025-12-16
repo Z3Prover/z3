@@ -25,6 +25,7 @@ Author:
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
 #include "solver/solver_preprocess.h"
+#include "params/smt_parallel_params.hpp"
 
 #include <cmath>
 #include <mutex>
@@ -121,8 +122,10 @@ namespace smt {
                 break;
             }
             }
-            if (m_config.m_share_units)
+            if (m_config.m_share_units) {
+                IF_VERBOSE(1, verbose_stream() << " Sharing units\n");
                 share_units();
+            }
         }
     }
 
@@ -141,6 +144,9 @@ namespace smt {
         m_num_shared_units = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
+
+        smt_parallel_params pp(p.ctx.m_params);
+        m_config.m_share_units = pp.share_units();
     }
 
     void parallel::worker::share_units() {
