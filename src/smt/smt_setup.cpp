@@ -647,7 +647,7 @@ namespace smt {
                     m_context.register_plugin(alloc(smt::theory_idl, m_context));
                 else
                     m_context.register_plugin(alloc(smt::theory_rdl, m_context));
-    }
+            }
             break;
         case arith_solver_id::AS_DENSE_DIFF_LOGIC:
             m_params.m_arith_eq2ineq  = true;
