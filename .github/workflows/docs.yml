@@ -33,7 +33,16 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y doxygen graphviz python3
+          sudo apt-get install -y doxygen graphviz python3 python3-pip
+
+      - name: Build Z3 natively for Python documentation
+        run: |
+          python3 scripts/mk_make.py --python
+          cd build && make -j$(nproc)
+          cd ../src/api/python && python3 -m pip install --user .
+
+      - name: Clean build directory for WASM
+        run: rm -rf build
 
       - name: Setup emscripten
         uses: mymindstorm/setup-emsdk@v14
