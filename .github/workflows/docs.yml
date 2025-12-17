@@ -50,6 +50,7 @@ jobs:
         run: npm run build:ts
 
       - name: Build wasm
+        working-directory: src/api/js
         run: |
           emsdk install ${EM_VERSION}
           emsdk activate ${EM_VERSION}
