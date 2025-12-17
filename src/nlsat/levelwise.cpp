@@ -46,15 +46,7 @@ namespace nlsat {
                 fn(pr);
             }
         }
-        template<typename Func>
-        void for_first_distinct_factor(polynomial::polynomial_ref& poly, Func&& fn) {
-            polynomial::polynomial_ref_vector factors(m_pm);
-            ::nlsat::factor(poly, m_cache, factors);
-            polynomial_ref pr(m_pm);
-            pr = factors.get(0);
-            fn(pr);
-        }
-
+  
         // todo: consider to key polynomials in a set by using m_pm.eq
         struct property {
             prop_enum m_prop_tag;
@@ -318,19 +310,7 @@ namespace nlsat {
                 if (added_pairs.find(key) != added_pairs.end())
                     continue;
                 added_pairs.insert(key);
-                polynomial_ref r(m_pm);
-                r = resultant(polynomial_ref(p1, m_pm), polynomial_ref(p2, m_pm), m_n);
-                if (is_const(r)) continue;
-                TRACE(lws, tout << "resultant: "; ::nlsat::display(tout, m_solver, r); tout << std::endl;);
-                if (is_zero(r)) {
-                    TRACE(lws, tout << "fail\n";);
-                    SASSERT(same_polynomial_up_to_constant( p1, p2));
-                    continue;
-                }
-                for_each_distinct_factor(r, [&](polynomial_ref& f) {
-                    normalize(f);
-                    mk_prop(prop_enum::ord_inv, f);
-                });
+                add_ord_inv_resultant(p1, p2, m_n);
             }
         }
 
@@ -534,6 +514,71 @@ namespace nlsat {
             ca = m_pm.flip_sign_if_lm_neg(ca);
             cb = m_pm.flip_sign_if_lm_neg(cb);
             return m_pm.eq(ca, cb);
+        }
+
+        void add_ord_inv_resultant(poly* a, poly* b, unsigned x) {
+            polynomial_ref pa(a, m_pm);
+            polynomial_ref pb(b, m_pm);
+            polynomial_ref r(m_pm);
+            r = resultant(pa, pb, x);
+            TRACE(lws,
+                  tout << "resultant wrt x" << x << "\n";
+                  ::nlsat::display(tout << "a: ", m_solver, pa) << "\n";
+                  ::nlsat::display(tout << "b: ", m_solver, pb) << "\n";
+                  ::nlsat::display(tout << "r: ", m_solver, r) << "\n";);
+            if (is_zero(r)) {
+                TRACE(lws, tout << "zero resultant\n";);
+                polynomial_ref g(m_pm);
+                m_pm.gcd(a, b, g);
+                SASSERT (!is_const(g));
+                TRACE(lws, tout << "g:" << g << "\n;");
+              
+                polynomial_ref p(m_pm), q(m_pm);
+                p = polynomial_ref(m_pm.exact_div(pa.get(), g.get()), m_pm);
+                q = polynomial_ref(m_pm.exact_div(pb.get(), g.get()), m_pm);
+
+                polynomial_ref_vector ps(m_pm), qs(m_pm);
+                ::nlsat::factor(p, m_cache, ps);
+                ::nlsat::factor(q, m_cache, qs);
+
+                TRACE(lws,
+                      tout << "factors of p:";
+                      for (unsigned i = 0; i < ps.size(); ++i) {
+                          ::nlsat::display(tout << " ", m_solver, polynomial_ref(ps.get(i), m_pm));
+                      }
+                      tout << "\n";
+                      tout << "factors of q:";
+                      for (unsigned i = 0; i < qs.size(); ++i) {
+                          ::nlsat::display(tout << " ", m_solver, polynomial_ref(qs.get(i), m_pm));
+                      }
+                      tout << "\n";);
+
+                for (unsigned i = 0; i < ps.size(); ++i) {
+                    poly* a1 = ps.get(i);
+                    if (max_var(a1) != x)
+                        continue;
+                    for (unsigned j = 0; j < qs.size(); ++j) {
+                        poly* b1 = qs.get(j);
+                        if (max_var(b1) != x)
+                            continue;
+                        TRACE(lws,
+                              tout << "recurse add_ord_inv_resultant on factors\n";
+                              ::nlsat::display(tout << "a: ", m_solver, polynomial_ref(a1, m_pm)) << "\n";
+                              ::nlsat::display(tout << "b: ", m_solver, polynomial_ref(b1, m_pm)) << "\n";);
+                        add_ord_inv_resultant(a1, b1, x);
+                    }
+                }
+
+                for_each_distinct_factor(q, [&](polynomial_ref& f) {
+                    TRACE(lws, tout << "an_del for q factor:" << f << "\n";);
+                    mk_prop(prop_enum::an_del, f);
+                });
+                return;
+            }
+            for_each_distinct_factor(r, [&](polynomial_ref& f) {
+                TRACE(lws, tout << "f:" << f << "\n";);
+                mk_prop(prop_enum::ord_inv, f);
+            });
         }
 
 
@@ -819,14 +864,8 @@ namespace nlsat {
                 if (I.l == p.m_poly.get()) {
                     // nothing is added
                 } else {
-                    polynomial_ref res = resultant(I.l, p.m_poly, m_level);
                     SASSERT(m_unique_set.contains(I.l) && m_unique_set.contains(p.m_poly));
-                    TRACE(lws,
-                          tout << "m_level:" << m_level<< "\nresultant of (" << I.l << "," << p.m_poly << "):"; 
-                          tout << "\nresultant:"; ::nlsat::display(tout, m_solver, res) << "\n");
-                    SASSERT(!is_zero(res) || same_polynomial_up_to_constant(I.l, p.m_poly));
-                    // Factor the resultant and add ord_inv for each distinct non-constant factor
-                    for_each_distinct_factor(res, [&](polynomial::polynomial_ref f) { mk_prop(prop_enum::ord_inv, f);});
+                    add_ord_inv_resultant(I.l, p.m_poly.get(), m_level);
                 }
             } else {
                 /*
@@ -942,17 +981,8 @@ namespace nlsat {
                 poly *a = m_rel.m_rfunc[pair.first].ire.p;
                 poly *b = m_rel.m_rfunc[pair.second].ire.p;
                 SASSERT(max_var(a) == max_var(b) && max_var(b) == m_level) ;
-                 
-                polynomial_ref r(m_pm);
-                r = resultant(polynomial_ref(a, m_pm), polynomial_ref(b, m_pm), m_level);
-                TRACE(lws, tout << "resultant of (" << pair.first << "," << pair.second << "):"; 
-                      ::nlsat::display(tout, m_solver, a) << "\n";
-                      ::nlsat::display(tout,m_solver, b)<< "\nresultant:"; ::nlsat::display(tout, m_solver, r) << "\n");
-                if (is_zero(r)) {
-                    SASSERT(same_polynomial_up_to_constant(a, b));
-                    continue;
-                }
-                for_each_distinct_factor(r, [this](const polynomial_ref& f) {mk_prop(ord_inv, f);});                 
+                if (m_pm.id(a) != m_pm.id(b))
+                    add_ord_inv_resultant(a, b, m_level);
             }
         }
         
