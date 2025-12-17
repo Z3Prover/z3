@@ -33,31 +33,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y doxygen graphviz python3 python3-pip
-
-      - name: Setup emscripten
-        uses: mymindstorm/setup-emsdk@v14
-        with:
-          version: ${{env.EM_VERSION}}
-          actions-cache-folder: "emsdk-cache"
-
-      - name: Install dependencies
-        working-directory: src/api/js
-        run: npm ci
-
-      - name: Build TypeScript
-        working-directory: src/api/js
-        run: npm run build:ts
-
-      - name: Build wasm
-        working-directory: src/api/js
-        run: |
-          emsdk install ${EM_VERSION}
-          emsdk activate ${EM_VERSION}
-          source $(dirname $(which emsdk))/emsdk_env.sh
-          which node
-          which clang++
-          npm run build:wasm       
+          sudo apt-get install -y doxygen graphviz python3 python3-pip     
 
       - name: Build Z3 natively for Python documentation
         run: |
@@ -67,7 +43,7 @@ jobs:
 
       - name: Generate Documentation (from doc directory)
         working-directory: doc
-        run: python3 mk_api_doc.py --js --output-dir=api
+        run: python3 mk_api_doc.py --output-dir=api
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
