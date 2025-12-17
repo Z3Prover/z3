@@ -50,8 +50,13 @@ jobs:
         run: npm run build:ts
 
       - name: Build wasm
-        working-directory: src/api/js
-        run: npm run build:wasm          
+        run: |
+          emsdk install ${EM_VERSION}
+          emsdk activate ${EM_VERSION}
+          source $(dirname $(which emsdk))/emsdk_env.sh
+          which node
+          which clang++
+          npm run build:wasm       
 
       - name: Build Z3 natively for Python documentation
         run: |
