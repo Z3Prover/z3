@@ -510,7 +510,7 @@ namespace smt {
         TRACE(setup, tout << "AUFLIA\n";);
         m_params.setup_AUFLIA(simple_array);
         TRACE(setup, tout << "max_eager_multipatterns: " << m_params.m_qi_max_eager_multipatterns << "\n";);
-        m_context.register_plugin(alloc(smt::theory_i_arith, m_context));
+        setup_i_arith();
         setup_arrays();
     }
 
