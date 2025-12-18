@@ -37,7 +37,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y doxygen graphviz python3 python3-pip     
           sudo apt-get install -y \
-            bubblewrap m4 libgmp-dev pkg-config ninja-build ccache
+            bubblewrap m4 libgmp-dev pkg-config 
 
       - name: Install required opam packages
         run: opam install -y ocamlfind zarith
@@ -61,6 +61,7 @@ jobs:
       - name: Generate Documentation (from doc directory)
         working-directory: doc
         run: |
+           eval $(opam env)
            python3 mk_api_doc.py --mld --output-dir=api --z3py-package-path=../build/python/z3
            mkdir api/html/ml
            ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
