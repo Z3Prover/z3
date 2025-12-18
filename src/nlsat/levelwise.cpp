@@ -172,18 +172,16 @@ namespace nlsat {
         assignment const & sample() const { return m_solver.sample();}
         assignment & sample() { return m_solver.sample(); }
         polynomial::cache &          m_cache; 
-        todo_set                     m_unique_set;
         polynomial_ref_vector        m_psc_tmp;
         // max_x plays the role of n in algorith 1 of the levelwise paper.
 
         impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am, polynomial::cache & cache)
-            : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am), m_cache(cache), m_unique_set(cache, true), m_psc_tmp(m_pm) {
+            : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am), m_cache(cache),  m_psc_tmp(m_pm) {
             TRACE(lws, tout  << "m_n:" << m_n << "\n";);
             m_I.reserve(m_n); // cannot just resize bcs of the absence of the default constructor of root_function_interval
             for (unsigned i = 0; i < m_n; ++i)
                 m_I.emplace_back(m_pm);
             m_Q.resize(m_n + 1);
-            m_unique_set.reset();
         }
         // end constructor
 
@@ -198,45 +196,19 @@ namespace nlsat {
         }
 
         // Use the PSC chain of p and its derivative w.r.t x to obtain a discriminant candidate.
-        // Prefer the first non-constant PSC; fall back to zero/constant if nothing else appears,
-        // and finally to the classic discriminant if the chain is empty.
         polynomial_ref psc_discriminant(polynomial_ref const & p_in, unsigned x) {
             polynomial_ref p(p_in);
             polynomial_ref d(m_pm);
             d = derivative(p, x);
-
             polynomial_ref_vector & chain = m_psc_tmp;
             chain.reset();
             psc_chain(p, d, x, chain);
-
             polynomial_ref disc(m_pm);
-            polynomial_ref last_const(m_pm);
-            bool saw_zero = false;
-
             for (unsigned i = 0; i < chain.size(); ++i) {
-                polynomial_ref s(chain.get(i), m_pm);
-                if (is_zero(s)) {
-                    saw_zero = true;
-                    continue;
-                }
-                if (is_const(s)) {
-                    if (!last_const)
-                        last_const = s;
-                    continue;
-                }
-                disc = s;
-                break;
+                disc = polynomial_ref(chain.get(i), m_pm);
+                if (!is_const(disc)) 
+                     break;
             }
-
-            if (disc)
-                return disc;
-            if (saw_zero)
-                disc = m_pm.mk_zero();
-            if (last_const)
-                return last_const;
-
-            // Fallback to the classic discriminant if PSC chain did not yield anything usable.
-            disc = discriminant(p, x);
             return disc;
         }
 
@@ -286,7 +258,6 @@ namespace nlsat {
           scan input polynomials, add sgn_inv / an_del properties and collect polynomials at level m_n
         */ 
         void collect_top_level_properties(polynomial_ref_vector & ps_of_n_level) {
-            SASSERT(m_unique_set.empty());
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 polynomial_ref pi(m_P[i], m_pm);
                 for_each_distinct_factor(pi, [&](polynomial_ref& f) {
@@ -543,7 +514,7 @@ namespace nlsat {
 
             p = ::primitive(p, level);
             p = m_pm.flip_sign_if_lm_neg(p);
-            p = polynomial_ref(m_unique_set.insert(p), m_pm); 
+            p = m_cache.mk_unique(p); 
             TRACE(lws_norm,  tout << "normalized p:" << p << "\n";);
         }
 
@@ -573,81 +544,19 @@ namespace nlsat {
             chain.reset();
             psc_chain(pa, pb, x, chain);
 
-            polynomial_ref candidate(m_pm);
-            bool has_zero = false;
             for (unsigned i = 0; i < chain.size(); ++i) {
-                polynomial_ref s(chain.get(i), m_pm);
-                if (is_zero(s)) {
-                    has_zero = true;
+                r = polynomial_ref(chain.get(i), m_pm);
+                if (is_const(r))
                     continue;
-                }
-                if (is_const(s))
-                    continue;
-                candidate = s;
                 break;
             }
 
-            if (candidate) {
-                r = candidate;
-                TRACE(lws,
+            TRACE(lws,
                       tout << "psc resultant wrt x" << x << "\n";
                       ::nlsat::display(tout << "a: ", m_solver, pa) << "\n";
                       ::nlsat::display(tout << "b: ", m_solver, pb) << "\n";
                       ::nlsat::display(tout << "r: ", m_solver, r) << "\n";);
-            }
-            else if (has_zero) {
-                TRACE(lws, tout << "psc resultant is zero\n";);
-                polynomial_ref g(m_pm);
-                m_pm.gcd(a, b, g);
-                SASSERT (!is_const(g));
-                TRACE(lws, tout << "g:" << g << "\n;");
-              
-                polynomial_ref p(m_pm), q(m_pm);
-                p = polynomial_ref(m_pm.exact_div(pa.get(), g.get()), m_pm);
-                q = polynomial_ref(m_pm.exact_div(pb.get(), g.get()), m_pm);
-
-                polynomial_ref_vector ps(m_pm), qs(m_pm);
-                ::nlsat::factor(p, m_cache, ps);
-                ::nlsat::factor(q, m_cache, qs);
-
-                TRACE(lws,
-                      tout << "factors of p:";
-                      for (unsigned i = 0; i < ps.size(); ++i) {
-                          ::nlsat::display(tout << " ", m_solver, polynomial_ref(ps.get(i), m_pm));
-                      }
-                      tout << "\n";
-                      tout << "factors of q:";
-                      for (unsigned i = 0; i < qs.size(); ++i) {
-                          ::nlsat::display(tout << " ", m_solver, polynomial_ref(qs.get(i), m_pm));
-                      }
-                      tout << "\n";);
-
-                for (unsigned i = 0; i < ps.size(); ++i) {
-                    poly* a1 = ps.get(i);
-                    if (max_var(a1) != x)
-                        continue;
-                    for (unsigned j = 0; j < qs.size(); ++j) {
-                        poly* b1 = qs.get(j);
-                        if (max_var(b1) != x)
-                            continue;
-                        TRACE(lws,
-                              tout << "recurse add_ord_inv_resultant on factors\n";
-                              ::nlsat::display(tout << "a: ", m_solver, polynomial_ref(a1, m_pm)) << "\n";
-                              ::nlsat::display(tout << "b: ", m_solver, polynomial_ref(b1, m_pm)) << "\n";);
-                        add_ord_inv_resultant(a1, b1, x);
-                    }
-                }
-
-                for_each_distinct_factor(q, [&](polynomial_ref& f) {
-                    TRACE(lws, tout << "an_del for q factor:" << f << "\n";);
-                    mk_prop(prop_enum::an_del, f);
-                });
-                return;
-            }
-            else {
-                TRACE(lws, tout << "psc resultant is constant; skipping ord_inv\n";);
-                return;
-            }
+            
             for_each_distinct_factor(r, [&](polynomial_ref& f) {
                 TRACE(lws, tout << "f:" << f << "\n";);
                 mk_prop(prop_enum::ord_inv, f);
@@ -690,8 +599,10 @@ namespace nlsat {
         }
         // handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
         void add_ord_inv_discriminant_for(const property& p) {
+            unsigned x = max_var(p.m_poly);
+            if (degree(p.m_poly,  x) < 2) return;
             polynomial::polynomial_ref disc(m_pm);
-            disc = psc_discriminant(p.m_poly, max_var(p.m_poly));
+            disc = psc_discriminant(p.m_poly, x);
             TRACE(lws, display(tout << "p:", p) << "\n"; ::nlsat::display(tout << "discriminant by x" << max_var(p.m_poly)<< ": ", m_solver, disc) << "\n";);
             if (!is_const(disc)) {
                 for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
@@ -937,8 +848,7 @@ namespace nlsat {
                 if (I.l == p.m_poly.get()) {
                     // nothing is added
                 } else {
-                    SASSERT(m_unique_set.contains(I.l) && m_unique_set.contains(p.m_poly));
-                    add_ord_inv_resultant(I.l, p.m_poly.get(), m_level);
+                        add_ord_inv_resultant(I.l, p.m_poly.get(), m_level);
                 }
             } else {
                 /*
@@ -997,7 +907,6 @@ namespace nlsat {
         void apply_pre(const property& p) {
             TRACE(lws, tout << "apply_pre BEGIN m_Q:"; display(tout) << std::endl; 
                   display(tout << "pre p:", p) << std::endl;);
-            SASSERT(!p.m_poly || m_unique_set.contains(p.m_poly));
             switch (p.m_prop_tag) {
             case prop_enum::an_del:
                 apply_pre_an_del(p);
