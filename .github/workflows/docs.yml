@@ -50,6 +50,5 @@ jobs:
           external_repository: Z3Prover/z3prover.github.io
           publish_branch: master
           publish_dir: ./api/html
-          publish_dir: ./doc/api/html
           user_name: github-actions[bot]
           user_email: github-actions[bot]@users.noreply.github.com
