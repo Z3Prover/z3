@@ -1,8 +1,6 @@
 name: Documentation
 
 on:
-  push:
-    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -48,7 +46,8 @@ jobs:
         with:
           deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
           external_repository: Z3Prover/z3prover.github.io
+          destination_dir: ./api
           publish_branch: master
-          publish_dir: ./api/html
+          publish_dir: ./doc/api
           user_name: github-actions[bot]
           user_email: github-actions[bot]@users.noreply.github.com
