@@ -145,6 +145,24 @@ namespace polynomial {
             return m_in_cache.get(pid(p), false);
         }
 
+        bool contains_chain(polynomial * p, polynomial * q, var x) const {
+            if (!m_in_cache.get(pid(p), false)) {
+                polynomial * const * p2 = m_poly_table.find_core(p);
+                if (!p2)
+                    return false;
+                p = *p2;
+            }
+            if (!m_in_cache.get(pid(q), false)) {
+                polynomial * const * q2 = m_poly_table.find_core(q);
+                if (!q2)
+                    return false;
+                q = *q2;
+            }
+            unsigned h = hash_u_u(pid(p), pid(q));
+            psc_chain_entry key(p, q, x, h);
+            return m_psc_chain_cache.contains(&key);
+        }
+
         void psc_chain(polynomial * p, polynomial * q, var x, polynomial_ref_vector & S) {
             p = mk_unique(p);
             q = mk_unique(q);
@@ -219,6 +237,10 @@ namespace polynomial {
 
     bool cache::contains(const polynomial * p) const {
         return m_imp->contains(p);
+    }
+
+    bool cache::contains_chain(polynomial const * p, polynomial const * q, var x) const {
+        return m_imp->contains_chain(const_cast<polynomial*>(p), const_cast<polynomial*>(q), x);
     }
 
     void cache::psc_chain(polynomial const * p, polynomial const * q, var x, polynomial_ref_vector & S) {
