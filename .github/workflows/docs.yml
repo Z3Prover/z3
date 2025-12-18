@@ -44,8 +44,6 @@ jobs:
 
       - name: Build Z3 natively for Python documentation
         run: |
-          python3 scripts/mk_make.py --python --ml
-          cd build
           eval $(opam env)
           echo "CC: $CC"
           echo "CXX: $CXX"
@@ -54,12 +52,18 @@ jobs:
           echo "OCAMLOPT:     $(which ocamlopt)"
           echo "OCAML_VERSION: $(ocamlc -version)"
           echo "OCAMLLIB: $OCAMLLIB"
+          mkdir build
+          python3 scripts/mk_make.py --python --ml
+          cd build
           make -j$(nproc)
           cd ../src/api/python && python3 -m pip install --user .
 
       - name: Generate Documentation (from doc directory)
         working-directory: doc
-        run: python3 mk_api_doc.py --ml --output-dir=api
+        run: |
+           python3 mk_api_doc.py --mld --output-dir=api --z3py-package-path=../build/python/z3
+           mkdir api/html/ml
+           ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
 
       - name: Deploy to z3prover.github.io
         uses: peaceiris/actions-gh-pages@v4
