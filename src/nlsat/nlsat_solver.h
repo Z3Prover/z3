@@ -248,7 +248,6 @@ namespace nlsat {
         const assignment& sample() const;
         assignment& sample(); 
         bool apply_levelwise() const;
-        bool lws_norm() const;
         void reset();
         void collect_statistics(statistics & st);
         void reset_statistics();
