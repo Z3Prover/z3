@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: "pages"
@@ -45,22 +43,12 @@ jobs:
         working-directory: doc
         run: python3 mk_api_doc.py --output-dir=api
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to z3prover.github.io
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: 'doc/api/html'
-
-  deploy:
-    name: Deploy to GitHub Pages
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build-docs
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          external_repository: Z3Prover/z3prover.github.io
+          publish_branch: master
+          publish_dir: ./doc/api/html
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
