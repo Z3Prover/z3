@@ -508,6 +508,8 @@ namespace nlsat {
         }
 
         void normalize(polynomial_ref & p) {
+            if (!m_solver.lws_norm())
+                return;
             unsigned level = max_var(p);
             if (find_in_Q(p, level)) return;
             TRACE(lws_norm, tout << "p:" << p << std::endl;);
