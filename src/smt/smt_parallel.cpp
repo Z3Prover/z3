@@ -147,6 +147,7 @@ namespace smt {
 
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_share_units = pp.share_units();
+        m_config.m_inprocessing = pp.inprocessing();
     }
 
     void parallel::worker::share_units() {
