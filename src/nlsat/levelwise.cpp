@@ -191,7 +191,7 @@ namespace nlsat {
         unsigned  max_var(polynomial_ref const & p) { return m_pm.max_var(p); }
 
         // Wrapper to use cached PSC chain computation
-        void psc_chain(polynomial_ref & p, polynomial_ref & q, unsigned x, polynomial_ref_vector & result) {
+        void psc_chain(polynomial_ref & p, polynomial_ref & q, unsigned x, polynomial_ref_vector & result) {    
             m_cache.psc_chain(p, q, x, result);
         }
 
@@ -692,14 +692,17 @@ namespace nlsat {
             TRACE(lws, tout << "p:"; display(tout, p) << std::endl;);
             if (has_const_coeff(p.m_poly))
                 return;
-            if (!try_non_null_via_coeffs(p))
-                fail();
-            return;
-            // fallback: apply the first subrule
-            // TODO: choose between try_non_null_via_coeffs and apply_pre_non_null_fallback
-            apply_pre_non_null_fallback(p);
+            if (can_apply_pre_non_null_fallback(p)) 
+                apply_pre_non_null_fallback(p);
+            else 
+               try_non_null_via_coeffs(p);
+                
         }
 
+        bool can_apply_pre_non_null_fallback(const property & p) {
+            // TODO: using apply_pre_non_null_fallback as a template, query with m_cache.contains_chain if the discriminant chain has been cached
+
+        }
 
         // If some coefficient c_j of p is constant non-zero at the sample, or
         // if c_j evaluates non-zero at the sample and we already have sgn_inv(c_j) in m_Q,
@@ -729,9 +732,7 @@ namespace nlsat {
         // sample(s)(R), degx_{i+1} (p) > 1, disc(x_{i+1} (p)(s)) ̸= 0, sgn_inv(disc(x_{i+1} (p))(R) 
         void apply_pre_non_null_fallback(const property& p) {
             unsigned level = max_var(p.m_poly);
-
-            poly * pp = p.m_poly.get();
-            unsigned deg = m_pm.degree(pp, level);
+            unsigned deg = m_pm.degree(p.m_poly, level);
             // fallback applies only for degree > 1
             if (deg <= 1) {
                 fail();
@@ -743,12 +744,10 @@ namespace nlsat {
             SASSERT (!is_zero(disc)); // p.m_poly is supposed to be square free
             TRACE(lws, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
 
-            // If discriminant is non-constant, add sign-invariance requirement for it
-            if (!is_const(disc)) {
-                for_each_distinct_factor(disc, [&](const polynomial::polynomial_ref & f) {
-                    mk_prop(prop_enum::sgn_inv, f);
-                });
-            }
+           for_each_distinct_factor(disc, [&](const polynomial::polynomial_ref & f) {
+               mk_prop(prop_enum::sgn_inv, f);
+           });
+            
 
             // non_null is established by the discriminant being non-zero at the sample
         }
