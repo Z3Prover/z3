@@ -29,8 +29,6 @@ namespace nlsat {
         ord_inv,
         sgn_inv,
         connected,
-        an_sub,
-        sample_holds,
         repr,
         _count 
     };
@@ -187,8 +185,8 @@ namespace nlsat {
 
 
         // helper overload so callers can pass either raw poly* or polynomial_ref
-        unsigned  max_var(poly* p) { return m_pm.max_var(p); }
-        unsigned  max_var(polynomial_ref const & p) { return m_pm.max_var(p); }
+        unsigned  max_var(poly* p) const { return m_pm.max_var(p); }
+        unsigned  max_var(polynomial_ref const & p) const { return m_pm.max_var(p); }
 
         // Wrapper to use cached PSC chain computation
         void psc_chain(polynomial_ref & p, polynomial_ref & q, unsigned x, polynomial_ref_vector & result) {    
@@ -631,7 +629,6 @@ namespace nlsat {
         void apply_pre_an_del(const property& p) {
             unsigned p_lvl = max_var(p.m_poly);
             if (p_lvl > 0) {
-                mk_prop(prop_enum::an_sub, level_t(p_lvl - 1));
                 mk_prop(prop_enum::connected, level_t(p_lvl - 1));
             }
             mk_prop(prop_enum::non_null, p.m_poly);
@@ -674,15 +671,28 @@ namespace nlsat {
             }
         }
 
-        // If a polynomial has a coefficient which is non-zero constant then non_null holds
-        bool has_const_coeff(const polynomial_ref& p) {
+        bool has_sgn_inv(const polynomial_ref& p, unsigned level) const {
+            SASSERT(level == max_var(p));
+            if (level >= m_Q.size())
+                return false;
+            unsigned const pid = m_pm.id(p.get());
+            for (auto const& pr : m_Q[level]) {
+                if (pr.m_prop_tag != prop_enum::sgn_inv)
+                    continue;
+                poly* q = pr.m_poly.get();
+                if (q && m_pm.id(q) == pid)
+                    return true;
+            }
+            return false;
+        }
+        // If a polynomial has a coefficient which is a non-zero constant or a non-vanishisg coefficient  for which sgn_inv has been asserted already then non_null holds 
+        bool has_non_null_coeff(const polynomial_ref& p) {
             unsigned level = max_var(p);            
             unsigned deg = m_pm.degree(p, level);
             for (unsigned j = 0; j <= deg; ++j) {
-                polynomial_ref coeff(m_pm);
-                coeff = m_pm.coeff(p, level, j);
+                polynomial_ref coeff(m_pm.coeff(p, level, j), m_pm);
                 TRACE(lws, tout << "coeff:" << coeff << "\n";);
-                if(m_pm.nonzero_const_coeff(p, level, j)) 
+                if (is_const(coeff) || (sign(coeff, sample(), m_am) && has_sgn_inv(coeff, max_var(coeff))))
                     return true;
             }
             return false;
@@ -690,18 +700,45 @@ namespace nlsat {
         
         void apply_pre_non_null(const property& p) {
             TRACE(lws, tout << "p:"; display(tout, p) << std::endl;);
-            if (has_const_coeff(p.m_poly))
-                return;
-            if (can_apply_pre_non_null_fallback(p)) 
-                apply_pre_non_null_fallback(p);
+            if (has_non_null_coeff(p.m_poly)) 
+                return; // already satisfied
+            polynomial_ref disc(m_pm);
+            disc = can_apply_pre_non_null_fallback(p);
+            if (disc) 
+                for_each_distinct_factor(disc, [&](const polynomial::polynomial_ref & f) {
+                    mk_prop(prop_enum::sgn_inv, f);
+                });
             else 
                try_non_null_via_coeffs(p);
                 
         }
 
-        bool can_apply_pre_non_null_fallback(const property & p) {
-            // TODO: using apply_pre_non_null_fallback as a template, query with m_cache.contains_chain if the discriminant chain has been cached
+        // Rule 4.2, subrule 1:
+        // sample(s)(R), degx_{i+1} (p) > 1, disc(x_{i+1} (p)(s)) ̸= 0, sgn_inv(disc(x_{i+1} (p))(R) 
 
+        polynomial_ref can_apply_pre_non_null_fallback(const property & p) {
+            unsigned level = max_var(p.m_poly);
+            unsigned deg = m_pm.degree(p.m_poly, level);
+            if (deg <= 1)
+                return polynomial_ref(m_pm);
+
+            polynomial_ref d(m_pm);
+            d = derivative(p.m_poly, level);
+            if (!m_cache.contains_chain(p.m_poly.get(), d.get(), level))
+                return polynomial_ref(m_pm);
+
+            polynomial_ref_vector& chain = m_psc_tmp;
+            chain.reset();
+            m_cache.psc_chain(p.m_poly.get(), d.get(), level, chain);
+            polynomial_ref disc(m_pm);
+            for (unsigned i = 0; i < chain.size(); ++i) {
+                disc = polynomial_ref(chain.get(i), m_pm);
+                if (!is_const(disc))
+                    break;
+            }
+            if (sign(disc, sample(), m_am))
+                return disc;
+            return polynomial_ref(m_pm); // nullptr   
         }
 
         // If some coefficient c_j of p is constant non-zero at the sample, or
@@ -709,7 +746,7 @@ namespace nlsat {
         // then non_null(p) holds on the region represented by 'rs' (if provided).
         // Returns true if non_null was established and the property p was removed.
         // TODO: use cached non-null properties
-        bool try_non_null_via_coeffs(const property& p) {
+        void try_non_null_via_coeffs(const property& p) {
             unsigned level = max_var(p.m_poly);
             poly* pp = p.m_poly.get();
             unsigned deg = m_pm.degree(pp, level);
@@ -722,43 +759,11 @@ namespace nlsat {
                 for_each_distinct_factor(coeff, [&](const polynomial::polynomial_ref & f) {
                     mk_prop(prop_enum::sgn_inv, f);
                 });
-                return true;
-            }
-            TRACE(lws, tout << "false\n";);
-            return false;
-        }
-
-        // Helper for Rule 4.2, subrule 1: fallback when subrule 2 does not apply.
-        // sample(s)(R), degx_{i+1} (p) > 1, disc(x_{i+1} (p)(s)) ̸= 0, sgn_inv(disc(x_{i+1} (p))(R) 
-        void apply_pre_non_null_fallback(const property& p) {
-            unsigned level = max_var(p.m_poly);
-            unsigned deg = m_pm.degree(p.m_poly, level);
-            // fallback applies only for degree > 1
-            if (deg <= 1) {
-                fail();
                 return;
             }
-            // compute discriminant w.r.t. the variable at p.level
-            polynomial_ref disc(m_pm);
-            disc = psc_discriminant(p.m_poly, level);
-            SASSERT (!is_zero(disc)); // p.m_poly is supposed to be square free
-            TRACE(lws, ::nlsat::display(tout << "discriminant: ", m_solver, disc) << "\n";);
-
-           for_each_distinct_factor(disc, [&](const polynomial::polynomial_ref & f) {
-               mk_prop(prop_enum::sgn_inv, f);
-           });
-            
-
-            // non_null is established by the discriminant being non-zero at the sample
-        }
-
-        // an_sub(R) iff R is an analitical manifold
-        // Rule 4.7
-        void apply_pre_an_sub(const property& p) {
-            mk_prop(prop_enum::repr, level_t(m_level)) ;
-            if (m_level > 0) 
-                mk_prop(prop_enum::an_sub, level_t(m_level -1));
-            // if level == 0 then an_sub holds - bcs an empty set is an analytical submanifold 
+            TRACE(lws, tout << "failing in try_non_null_via_coeffs\n";);
+            // all coefficients are vanishing on the sample: we have a nullified polynomial
+            fail();
         }
 
         /*
@@ -776,8 +781,6 @@ namespace nlsat {
         void apply_pre_repr(const property& p) {
             const auto& I = m_I[m_level];
             TRACE(lws, display(tout << "interval m_I[" << m_level << "]\n", I) << "\n";);
-            if (m_level) 
-                mk_prop(sample_holds, level_t(m_level - 1));
             if (I.is_section()) {
                 /*sample(s)(R), holds(I)(R), I = (section, b), an_del(b.p)(R) */
                 mk_prop(an_del, I.l);
@@ -790,13 +793,6 @@ namespace nlsat {
                 if (!I.u_inf())
                     mk_prop(an_del, I.u);
             }                
-        }
-
-        void apply_pre_sample(const property& p) {
-            if (m_level == 0)
-                return;
-            mk_prop(sample_holds, level_t(m_level - 1));
-            mk_prop(prop_enum::repr, level_t(m_level - 1));
         }
 
         void mk_prop(prop_enum pe, level_t level) {
@@ -821,8 +817,6 @@ namespace nlsat {
             if (roots.size() == 0) {
                 /*  Rule 4.6. Let i ∈ N, R ⊆ Ri, s ∈ R_{i−1}, and realRoots(p(s, xi )) = ∅. 
                     sample(s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R) */
-                if (m_level)
-                    mk_prop(sample_holds, level_t(m_level - 1));
                 mk_prop(prop_enum::an_del, p.m_poly);
                 return;
             }
@@ -839,7 +833,6 @@ namespace nlsat {
                    Q, b.p ̸= p, ord_inv(resxi (b.p, p))(R) ⊢ sgn_inv(p)(R)
                 */ 
                 if (m_level) { 
-                    mk_prop(prop_enum::an_sub, level_t(m_level - 1));
                     mk_prop(prop_enum::connected, level_t(m_level - 1));
                     mk_prop(prop_enum::repr, level_t(m_level - 1)); 
                 }
@@ -863,7 +856,6 @@ namespace nlsat {
                 // todo - read the preconditions on p it needs to be diff
                 SASSERT(precondition_on_sign_inv(p));
                 if (m_level) {
-                    mk_prop(sample_holds, level_t(m_level - 1)); 
                     mk_prop(repr, level_t(m_level - 1));
                 }
                 mk_prop(ir_ord, level_t(m_level));
@@ -871,16 +863,7 @@ namespace nlsat {
             }
         }
 
-
-        /*Assume that p is irreducible, irExpr(p, s) ̸= ∅, ξ.p is irreducible for all ξ ∈ dom(≼), ≼ matches s,
-          and for all ξ ∈ irExpr(p, s) it holds either ξ ≼t l or u ≼t ξ.*/
-        bool precondition_on_sign_inv(const property &p) {
-            SASSERT(is_square_free(p.m_poly));
-            SASSERT(max_var(p.m_poly) == m_level);
-            return true;
-        }
-
-        /*
+      /*
           Rule 4.5. Let i ∈ N>0 , R ⊆ Ri
           , s ∈ Ri
           , and p ∈ Q[x1, . . . , xi ], level(p) = i. Assume that p is irreducible.
@@ -891,12 +874,9 @@ namespace nlsat {
             SASSERT(p.m_prop_tag == prop_enum::ord_inv && is_square_free(p.m_poly));
             unsigned level = max_var(p.m_poly);
             auto sign_on_sample = sign(p.m_poly, sample(), m_am);
-            mk_prop(sample_holds, level_t(level));
             if (sign_on_sample) {
                 mk_prop(prop_enum::sgn_inv, p.m_poly);
             } else { // sign is zero
-                if (level)
-                    mk_prop(prop_enum::an_sub, level_t(level - 1));
                 mk_prop(prop_enum::connected, level_t(level));                
                 mk_prop(prop_enum::sgn_inv, p.m_poly);
                 mk_prop(prop_enum::an_del, p.m_poly);
@@ -916,14 +896,8 @@ namespace nlsat {
             case prop_enum::non_null:
                 apply_pre_non_null(p);
                 break;
-            case prop_enum::an_sub:
-                apply_pre_an_sub(p);
-                break;
             case prop_enum::repr:
                 apply_pre_repr(p);
-                break;
-            case sample_holds:
-                apply_pre_sample(p);
                 break;
             case prop_enum::sgn_inv:
                 apply_pre_sgn_inv(p);
@@ -954,8 +928,6 @@ namespace nlsat {
               sample(s)(R), an_sub(i)(R), connected(i)(R), ∀ξ ∈ dom(≼). an_del(ξ.p)(R), ∀(ξ,ξ′) ∈≼. ord_inv(resx_{i+1} (ξ.p, ξ′.p))(R) ⊢ ir_ord(≼, s)(R)
             */
             if (m_level > 0) {
-                mk_prop(sample_holds, level_t(m_level -1 ));
-                mk_prop(an_sub, level_t(m_level - 1));
                 mk_prop(connected, level_t(m_level - 1));
             }
             for (const auto & pair: m_rel.m_pairs) {
@@ -1026,8 +998,6 @@ namespace nlsat {
             case prop_enum::ord_inv:              return "ord_inv";
             case prop_enum::sgn_inv:              return "sgn_inv";
             case prop_enum::connected:            return "connected";
-            case prop_enum::an_sub:               return "an_sub";
-            case sample_holds:                    return "sample";
             case prop_enum::repr:                 return "repr";
             case prop_enum::_count:               return "_count";
             }
