@@ -56,7 +56,6 @@ jobs:
           python3 scripts/mk_make.py --python --ml --build=build-x64
           cd build-x64
           make -j$(nproc)
-          Z3BUILD=build-x64 cd ../src/api/python && python3 -m pip install --user .
 
       - name: Generate Documentation (from doc directory)
         working-directory: doc
@@ -66,7 +65,6 @@ jobs:
            python3 mk_params_doc.py 
            mkdir api/html/ml
            ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build-x64/api/ml ../build-x64/api/ml/z3enums.mli ../build-x64/api/ml/z3.mli
-
 
       - name: Setup emscripten
         uses: mymindstorm/setup-emsdk@v14
