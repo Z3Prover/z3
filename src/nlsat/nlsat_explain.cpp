@@ -1107,9 +1107,9 @@ namespace nlsat {
         bool levelwise_single_cell(polynomial_ref_vector & ps, var max_x, polynomial::cache & cache) {
             levelwise lws(m_solver, ps, max_x, sample(), m_pm, m_am, cache);
             auto cell = lws.single_cell();
-            if (lws.failed()) {
+            if (lws.failed())
                 return false;
-            }
+
             TRACE(lws, for (unsigned i = 0; i < cell.size(); i++)  
                                  display(tout << "I[" << i << "]:", m_solver, cell[i]) << "\n";);
             // Enumerate all intervals in the computed cell and add literals for each non-trivial interval.
