@@ -48,12 +48,10 @@ namespace nlsat {
         // todo: consider to key polynomials in a set by using m_pm.eq
         struct property {
             prop_enum m_prop_tag;
-            polynomial_ref   m_poly;
-            unsigned         m_root_index = -1; // index of the root function, if applicable; -1 means unspecified
-            property(prop_enum pr, polynomial_ref const & pp, int si = -1) : m_prop_tag(pr), m_poly(pp), m_root_index(si) {}
-            property(prop_enum pr, polynomial_ref const & pp, polynomial::manager& pm) : m_prop_tag(pr), m_poly(pp), m_root_index(-1) {}
-            // have to pass polynomial::manager& to create a polynomial_ref even with a null object
-            property(prop_enum pr, polynomial::manager& pm) : m_prop_tag(pr), m_poly(polynomial_ref(pm)), m_root_index(-1) {}
+            poly*            m_poly = nullptr;
+            unsigned         m_root_index = static_cast<unsigned>(-1); // index of the root function, if applicable; -1 means unspecified
+            property(prop_enum pr, poly* pp, int si = -1) : m_prop_tag(pr), m_poly(pp), m_root_index(si) {}
+            property(prop_enum pr, polynomial::manager&) : m_prop_tag(pr), m_poly(nullptr), m_root_index(static_cast<unsigned>(-1)) {}
             
         };
         struct compare_prop_tags {
@@ -236,7 +234,7 @@ namespace nlsat {
             explicit level_t(unsigned lvl) { val = lvl; }
         };
 
-        bool find_in_Q(polynomial_ref & f, unsigned level) {
+        bool find_in_Q(polynomial_ref const & f, unsigned level) {
             if (level >= m_Q.size())
                 return false;
             poly* fp = f.get();
@@ -244,7 +242,7 @@ namespace nlsat {
                 return false;
             unsigned const fid = m_pm.id(fp);
             for (auto const& pr : m_Q[level]) {
-                poly* qp = pr.m_poly.get();
+                poly* qp = pr.m_poly;
                 if (qp && m_pm.id(qp) == fid)
                     return true;
             }
@@ -484,12 +482,11 @@ namespace nlsat {
             for (auto const& q : m_Q[m_level]) {
                 if (q.m_prop_tag != prop_enum::sgn_inv)
                     continue;
-                polynomial_ref p(m_pm);
-                p = q.m_poly;
+                polynomial_ref p(q.m_poly, m_pm);
 
                 SASSERT(max_var(p) == m_level);
                 scoped_anum_vector roots(m_am);
-                m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_level), roots);
+                m_am.isolate_roots(p, undef_var_assignment(sample(), m_level), roots);
                 
                 unsigned num_roots = roots.size();
                 TRACE(lws, ::nlsat::display(tout << "p:", m_solver, p) << ",";
@@ -514,6 +511,14 @@ namespace nlsat {
             p = m_pm.flip_sign_if_lm_neg(p);
             p = m_cache.mk_unique(p); 
             TRACE(lws_norm,  tout << "normalized p:" << p << "\n";);
+        }
+
+        void normalize(poly*& p) {
+            if (!p)
+                return;
+            polynomial_ref pref(p, m_pm);
+            normalize(pref);
+            p = pref.get();
         }
 
         bool same_polynomial_up_to_constant(poly* a, poly* b) {
@@ -568,13 +573,13 @@ namespace nlsat {
         void add_to_Q_if_new(property pr, unsigned level) {            
             if (pr.m_poly)
                 normalize(pr.m_poly);
-            SASSERT(pr.m_prop_tag != ord_inv || (pr.m_poly && !is_zero(pr.m_poly)));
+            SASSERT(pr.m_prop_tag != ord_inv || (pr.m_poly && !m_pm.is_zero(pr.m_poly)));
             for (auto const & q : m_Q[level]) {
                 if (q.m_prop_tag != pr.m_prop_tag) continue;
                 if (q.m_root_index != pr.m_root_index) continue;
                 if ((q.m_poly && !pr.m_poly) || (!q.m_poly && pr.m_poly)) continue;
                 if (!q.m_poly && !pr.m_poly) return;
-                if (m_pm.id(q.m_poly.get()) != m_pm.id(pr.m_poly.get())) continue;
+                if (m_pm.id(q.m_poly) != m_pm.id(pr.m_poly)) continue;
                 TRACE(lws, display(tout << "matched q:", q) << std::endl;);
                 return;
             }
@@ -598,9 +603,9 @@ namespace nlsat {
         // handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
         void add_ord_inv_discriminant_for(const property& p) {
             unsigned x = max_var(p.m_poly);
-            if (degree(p.m_poly,  x) < 2) return;
+            if (m_pm.degree(p.m_poly, x) < 2) return;
             polynomial::polynomial_ref disc(m_pm);
-            disc = psc_discriminant(p.m_poly, x);
+            disc = psc_discriminant(polynomial_ref(p.m_poly, m_pm), x);
             TRACE(lws, display(tout << "p:", p) << "\n"; ::nlsat::display(tout << "discriminant by x" << max_var(p.m_poly)<< ": ", m_solver, disc) << "\n";);
             if (!is_const(disc)) {
                 for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
@@ -613,7 +618,7 @@ namespace nlsat {
         //  handle sgn_inv(leading_coefficient_{x_{i+1}}(p)) for an_del pre-processing
         void add_sgn_inv_leading_coeff_for(const property& p) {
             TRACE(lws, tout << "p:"; display(tout, p) << "\n";);
-            poly * pp = p.m_poly.get();
+            poly * pp = p.m_poly;
             unsigned lvl = max_var(p.m_poly);
             unsigned deg = m_pm.degree(pp, lvl);
             polynomial_ref coeff(m_pm);
@@ -679,18 +684,19 @@ namespace nlsat {
             for (auto const& pr : m_Q[level]) {
                 if (pr.m_prop_tag != prop_enum::sgn_inv)
                     continue;
-                poly* q = pr.m_poly.get();
+                poly* q = pr.m_poly;
                 if (q && m_pm.id(q) == pid)
                     return true;
             }
             return false;
         }
         // If a polynomial has a coefficient which is a non-zero constant or a non-vanishisg coefficient  for which sgn_inv has been asserted already then non_null holds 
-        bool has_non_null_coeff(const polynomial_ref& p) {
+        bool has_non_null_coeff(poly* p) {
             unsigned level = max_var(p);            
             unsigned deg = m_pm.degree(p, level);
             for (unsigned j = 0; j <= deg; ++j) {
-                polynomial_ref coeff(m_pm.coeff(p, level, j), m_pm);
+                polynomial_ref coeff(m_pm);
+                coeff = m_pm.coeff(p, level, j);
                 TRACE(lws, tout << "coeff:" << coeff << "\n";);
                 if (is_const(coeff) || (sign(coeff, sample(), m_am) && has_sgn_inv(coeff, max_var(coeff))))
                     return true;
@@ -723,13 +729,13 @@ namespace nlsat {
                 return polynomial_ref(m_pm);
 
             polynomial_ref d(m_pm);
-            d = derivative(p.m_poly, level);
-            if (!m_cache.contains_chain(p.m_poly.get(), d.get(), level))
+            d = m_pm.derivative(p.m_poly, level);
+            if (!m_cache.contains_chain(p.m_poly, d.get(), level))
                 return polynomial_ref(m_pm);
 
             polynomial_ref_vector& chain = m_psc_tmp;
             chain.reset();
-            m_cache.psc_chain(p.m_poly.get(), d.get(), level, chain);
+            m_cache.psc_chain(p.m_poly, d.get(), level, chain);
             polynomial_ref disc(m_pm);
             for (unsigned i = 0; i < chain.size(); ++i) {
                 disc = polynomial_ref(chain.get(i), m_pm);
@@ -748,7 +754,7 @@ namespace nlsat {
         // TODO: use cached non-null properties
         void try_non_null_via_coeffs(const property& p) {
             unsigned level = max_var(p.m_poly);
-            poly* pp = p.m_poly.get();
+            poly* pp = p.m_poly;
             unsigned deg = m_pm.degree(pp, level);
             for (unsigned j = 0; j <= deg; ++j) {
                 polynomial_ref coeff(m_pm);
@@ -800,20 +806,32 @@ namespace nlsat {
             add_to_Q_if_new(property(pe, m_pm), level.val);
         }
 
-        void mk_prop(prop_enum pe, polynomial_ref poly) {            
+        void mk_prop(prop_enum pe, poly* poly) {            
             add_to_Q_if_new(property(pe, poly), max_var(poly));
         }
 
-        void mk_prop(prop_enum pe, polynomial_ref poly, level_t level) {            
+        void mk_prop(prop_enum pe, poly* poly, level_t level) {            
             add_to_Q_if_new(property(pe, poly), level.val);
         }
-        
+
+        void mk_prop(prop_enum pe, polynomial_ref const& poly) {
+            mk_prop(pe, poly.get());
+        }
+
+        void mk_prop(prop_enum pe, polynomial_ref const& poly, level_t level) {
+            mk_prop(pe, poly.get(), level);
+        }
+
+        bool precondition_on_sign_inv(const property& p) const {
+            return p.m_prop_tag == prop_enum::sgn_inv && p.m_poly != nullptr;
+        }
+
 
         void apply_pre_sgn_inv(const property& p) {
             SASSERT(is_square_free(p.m_poly));
             scoped_anum_vector roots(m_am);
             SASSERT(max_var(p.m_poly) == m_level);
-            m_am.isolate_roots(p.m_poly, undef_var_assignment(sample(), m_level), roots);
+            m_am.isolate_roots(polynomial_ref(p.m_poly, m_pm), undef_var_assignment(sample(), m_level), roots);
             if (roots.size() == 0) {
                 /*  Rule 4.6. Let i ∈ N, R ⊆ Ri, s ∈ R_{i−1}, and realRoots(p(s, xi )) = ∅. 
                     sample(s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R) */
@@ -837,10 +855,10 @@ namespace nlsat {
                     mk_prop(prop_enum::repr, level_t(m_level - 1)); 
                 }
                 mk_prop(prop_enum::an_del, m_I[m_level].l);
-                if (I.l == p.m_poly.get()) {
+                if (I.l.get() == p.m_poly) {
                     // nothing is added
                 } else {
-                        add_ord_inv_resultant(I.l, p.m_poly.get(), m_level);
+                        add_ord_inv_resultant(I.l.get(), p.m_poly, m_level);
                 }
             } else {
                 /*
@@ -873,7 +891,7 @@ namespace nlsat {
         void apply_pre_ord_inv(const property& p) {
             SASSERT(p.m_prop_tag == prop_enum::ord_inv && is_square_free(p.m_poly));
             unsigned level = max_var(p.m_poly);
-            auto sign_on_sample = sign(p.m_poly, sample(), m_am);
+            auto sign_on_sample = sign(polynomial_ref(p.m_poly, m_pm), sample(), m_am);
             if (sign_on_sample) {
                 mk_prop(prop_enum::sgn_inv, p.m_poly);
             } else { // sign is zero
