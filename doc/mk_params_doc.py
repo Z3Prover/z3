@@ -9,6 +9,7 @@ import sys
 import re
 import os
 
+build_env = dict(os.environ)
 BUILD_DIR = '../' + build_env.get('Z3BUILD', 'build')
 OUTPUT_DIRECTORY=os.path.join(os.getcwd(), 'api')
 
