@@ -64,6 +64,64 @@ namespace smt {
 
 namespace smt {
 
+    static bool is_arith_atom(ast_manager& m, expr* e) {
+        // strip negation
+        if (m.is_not(e, e))
+            ; // e updated by reference
+
+        if (!m.is_bool(e))
+            return false;
+
+        if (m.is_eq(e)) {
+            app* ap = to_app(e);
+            arith_util a(m);
+            return a.is_int(ap->get_arg(0)) || a.is_real(ap->get_arg(0));
+        }
+
+        app* ap = is_app(e) ? to_app(e) : nullptr;
+        if (!ap)
+            return false;
+
+        arith_util a(m);
+
+        switch (ap->get_decl_kind()) {
+        case OP_LE:
+        case OP_GE:
+        case OP_LT:
+        case OP_GT:
+            return a.is_int(ap->get_arg(0)) || a.is_real(ap->get_arg(0));
+        default:
+            return false;
+        }
+    }
+
+    bool contains_arith(ast_manager& m, expr* e) {
+        return false;
+        // strip not
+        if (m.is_not(e, e))
+            return contains_arith(m, e);
+
+        // direct arithmetic atom?
+        if (is_arith_atom(m, e))
+            return true;
+
+        // recurse into Boolean structure
+        if (m.is_or(e) || m.is_and(e)) {
+            app* ap = to_app(e);
+            for (expr* arg : *ap)
+                if (contains_arith(m, arg))
+                    return true;
+            return false;
+        }
+
+        // Boolean variable: UNKNOWN — treat as potentially arithmetic
+        if (m.is_bool(e) && is_app(e) && to_app(e)->get_num_args() == 0)
+            return true;
+
+        return false;
+    }
+
+
     void parallel::worker::run() {
         search_tree::node<cube_config> *node = nullptr;
         expr_ref_vector cube(m);
@@ -119,6 +177,29 @@ namespace smt {
 
                 LOG_WORKER(1, " found unsat cube\n");
                 b.backtrack(m_l2g, unsat_core, node);
+
+                // bool all_arith = true;
+                // for (expr* l : unsat_core) {
+                //     IF_VERBOSE(1, verbose_stream() << " Checking unsat core literal for arith: "
+                //                                  << mk_bounded_pp(l, m, 3) << "\n");
+                //     if (!contains_arith(m, l)) {
+                //         all_arith = false;
+                //         IF_VERBOSE(1, verbose_stream() << " Not sharing conflict due to non-arith atom: "
+                //                                      << mk_bounded_pp(l, m, 3) << "\n");
+                //         break;
+                //     }
+                // }
+
+                // if (m_config.m_share_conflicts && all_arith && unsat_core.size() <= 3) {
+                //     IF_VERBOSE(1, verbose_stream() << " Sharing conflicts\n");
+                //     b.collect_clause(m_l2g, id, mk_not(mk_and(unsat_core)));
+                // }
+
+                if (m_config.m_share_conflicts) {
+                    IF_VERBOSE(1, verbose_stream() << " Sharing conflicts\n");
+                    b.collect_clause(m_l2g, id, mk_not(mk_and(unsat_core)));
+                }
+
                 break;
             }
             }
@@ -147,6 +228,7 @@ namespace smt {
 
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_share_units = pp.share_units();
+        m_config.m_share_conflicts = pp.share_conflicts();
         m_config.m_inprocessing = pp.inprocessing();
     }
 
