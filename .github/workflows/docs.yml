@@ -52,9 +52,9 @@ jobs:
           echo "OCAMLOPT:     $(which ocamlopt)"
           echo "OCAML_VERSION: $(ocamlc -version)"
           echo "OCAMLLIB: $OCAMLLIB"
-          mkdir build
-          python3 scripts/mk_make.py --python --ml
-          cd build
+          mkdir build-x64
+          python3 scripts/mk_make.py --python --ml --build=build-x64
+          cd build-x64
           make -j$(nproc)
           cd ../src/api/python && python3 -m pip install --user .
 
@@ -62,10 +62,39 @@ jobs:
         working-directory: doc
         run: |
            eval $(opam env)
-           python3 mk_api_doc.py --mld --js --output-dir=api --z3py-package-path=../build/python/z3
+           python3 mk_api_doc.py --mld --output-dir=api --z3py-package-path=../build-x64/python/z3 --build=../build
            python3 mk_params_doc.py 
            mkdir api/html/ml
-           ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
+           ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build-x64/api/ml ../build-x64/api/ml/z3enums.mli ../build-x64/api/ml/z3.mli
+
+
+      - name: Setup emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          no-install: true
+          version: ${{env.EM_VERSION}}
+          actions-cache-folder: "emsdk-cache"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Build wasm
+        run: |
+          emsdk install ${EM_VERSION}
+          emsdk activate ${EM_VERSION}
+          source $(dirname $(which emsdk))/emsdk_env.sh
+          which node
+          which clang++
+          npm run build:wasm     
+ 
+      - name: Generate JS Documentation (from doc directory)
+        working-directory: doc
+        run: |
+           eval $(opam env)
+           python3 mk_api_doc.py --js --output-dir=api --mld --z3py-package-path=../build-x64/python/z3
 
       - name: Deploy to z3prover.github.io
         uses: peaceiris/actions-gh-pages@v4
