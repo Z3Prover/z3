@@ -24,6 +24,7 @@ ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
 SRC_DIR_LOCAL = os.path.join(ROOT_DIR, 'core')
 SRC_DIR_REPO = os.path.join(ROOT_DIR, '..', '..', '..')
 SRC_DIR = SRC_DIR_LOCAL if os.path.exists(SRC_DIR_LOCAL) else SRC_DIR_REPO
+BUILD_DIR = build_env.get('Z3BUILD', 'build')
 
 IS_SINGLE_THREADED = False
 ENABLE_LTO = True
@@ -34,7 +35,7 @@ IS_PYODIDE = 'PYODIDE_ROOT' in os.environ and os.environ.get('_PYTHON_HOST_PLATF
 # determine where binaries are
 RELEASE_DIR = os.environ.get('PACKAGE_FROM_RELEASE', None)
 if RELEASE_DIR is None:
-    BUILD_DIR = os.path.join(SRC_DIR, 'build') # implicit in configure script
+    BUILD_DIR = os.path.join(SRC_DIR, BUILD_DIR) # implicit in configure script
     HEADER_DIRS = [os.path.join(SRC_DIR, 'src', 'api'), os.path.join(SRC_DIR, 'src', 'api', 'c++')]
     RELEASE_METADATA = None
     if IS_PYODIDE:
