@@ -53,7 +53,7 @@ jobs:
           echo "OCAML_VERSION: $(ocamlc -version)"
           echo "OCAMLLIB: $OCAMLLIB"
           mkdir build
-          python3 scripts/mk_make.py --python --ml
+          python3 scripts/mk_make.py --python --ml --js
           cd build
           make -j$(nproc)
           cd ../src/api/python && python3 -m pip install --user .
