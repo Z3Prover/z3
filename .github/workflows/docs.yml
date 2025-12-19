@@ -56,7 +56,7 @@ jobs:
           python3 scripts/mk_make.py --python --ml --build=build-x64
           cd build-x64
           make -j$(nproc)
-          cd ../src/api/python && python3 -m pip install --user .
+          Z3BUILD=build-x64 cd ../src/api/python && python3 -m pip install --user .
 
       - name: Generate Documentation (from doc directory)
         working-directory: doc
