@@ -74,12 +74,15 @@ jobs:
           actions-cache-folder: "emsdk-cache"
 
       - name: Install dependencies
+        working-directory: src/api/js
         run: npm ci
 
       - name: Build TypeScript
+        working-directory: src/api/js
         run: npm run build:ts
 
       - name: Build wasm
+        working-directory: src/api/js
         run: |
           emsdk install ${EM_VERSION}
           emsdk activate ${EM_VERSION}
