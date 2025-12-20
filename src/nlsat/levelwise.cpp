@@ -375,7 +375,7 @@ namespace nlsat {
             std::sort(rfs.begin(), mid, cmp);
             std::sort(mid, rfs.end(), cmp);
             auto & I = m_I[m_level];
-            unsigned l_index = -1, u_index = -1;
+            unsigned l_index = -1, u_index = -1; // indices in rfs
             SASSERT(mid == rfs.end() || m_am.lt(v, mid->val));
             if (mid != rfs.begin()) {
                 auto& r = *(mid - 1);
@@ -394,6 +394,7 @@ namespace nlsat {
                 }
             } else { // mid == rfs.begin()
                 auto & r = *mid;
+                u_index = 0;
                 I.u = r.ire.p; I.u_index = r.ire.i;                
             }
             
