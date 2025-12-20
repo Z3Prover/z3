@@ -236,7 +236,6 @@ namespace smt {
         // Collect new units learned locally by this worker and send to batch manager
         
         ctx->pop_to_base_lvl();
-        collect_shared_clauses(); // collect shared clauses from other workers while we're ALREADY POPPED TO BASE LEVEL
         unsigned sz = ctx->assigned_literals().size();
         for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
             literal lit = ctx->assigned_literals()[j];
