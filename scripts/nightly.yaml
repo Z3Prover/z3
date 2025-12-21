@@ -195,50 +195,8 @@ stages:
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'ManyLinuxPythonBuildArm64v1'
-        targetPath: $(Build.ArtifactStagingDirectory)   
-
-  - job: ManyLinuxPythonBuildArm64V2
-    displayName: "Python bindings (manylinux Centos ARM64) build"
-    timeoutInMinutes: 90    
-    pool:
-      vmImage: "ubuntu-latest"
-    steps:
-    - script: |
-        set -e
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static
-        docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-      displayName: "Setup QEMU for ARM64 emulation"
-    - script: |
-        set -e
-        docker run --rm -v $(pwd):/workspace -w /workspace \
-          -e HOME=/tmp \
-          -e MAKEFLAGS="-j2" \
-          quay.io/pypa/manylinux2014_aarch64:latest \
-          bash -c "
-            set -e
-            /opt/python/cp38-cp38/bin/python -m venv /tmp/env
-            source /tmp/env/bin/activate
-            pip install build git+https://github.com/rhelmot/auditwheel
-            cd /workspace/src/api/python
-            python -m build
-            AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl
-            pip install wheelhouse/*.whl
-            python - <z3test.py z3
-            python - <z3test.py z3num
-          "
-      displayName: "Build and test ARM64 wheel"
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: src/api/python/wheelhouse
-        contents: '*.whl'
-        targetFolder: $(Build.ArtifactStagingDirectory)
-    - task: PublishPipelineArtifact@0
-      inputs:
         artifactName: 'ManyLinuxPythonBuildArm64'
-        targetPath: $(Build.ArtifactStagingDirectory)     
-
+        targetPath: $(Build.ArtifactStagingDirectory)   
 
   - template: build-win-signed.yml
     parameters:
