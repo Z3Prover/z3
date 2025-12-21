@@ -233,28 +233,37 @@ namespace smt {
     }
 
     void parallel::worker::share_units() {
-        // Collect new units learned locally by this worker and send to batch manager
-        
-        ctx->pop_to_base_lvl();
+        // Collect new base-level units learned locally by this worker and send to batch manager
+
         unsigned sz = ctx->assigned_literals().size();
-        for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
+        for (unsigned j = m_num_shared_units; j < sz; ++j) {
             literal lit = ctx->assigned_literals()[j];
+
+            // NEW: only share base-level assignments
+            if (ctx->get_assign_level(lit) > ctx->m_base_lvl)
+                continue;
+
             if (!ctx->is_relevant(lit.var()) && m_config.m_share_units_relevant_only)
                 continue;
 
             if (m_config.m_share_units_initial_only && lit.var() >= m_num_initial_atoms) {
                 LOG_WORKER(4, " Skipping non-initial unit: " << lit.var() << "\n");
-                continue;  // skip non-iniial atoms if configured to do so
+                continue;
             }
 
-            expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);  // turn literal into a Boolean expression
+            expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);
+            if (!e)
+                continue;
+
             if (m.is_and(e) || m.is_or(e))
                 continue;
 
             if (lit.sign())
-                e = m.mk_not(e);  // negate if literal is negative
+                e = m.mk_not(e);
+
             b.collect_clause(m_l2g, id, e);
         }
+
         m_num_shared_units = sz;
     }
 
