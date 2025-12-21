@@ -187,6 +187,7 @@ stages:
         set -e
         docker run --rm -v $(pwd):/workspace -w /workspace \
           -e HOME=/tmp \
+          -e MAKEFLAGS="-j2" \
           quay.io/pypa/manylinux2014_aarch64:latest \
           bash -c "
             set -e
