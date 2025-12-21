@@ -174,24 +174,28 @@ stages:
       vmImage: "ubuntu-latest"
     steps:
     - script: |
+        set -e
         sudo apt-get update
         sudo apt-get install -y qemu-user-static
-      displayName: "Install QEMU for ARM64 emulation"
-    - script: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-      displayName: "Register QEMU"
+        docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      displayName: "Setup QEMU for ARM64 emulation"
     - script: |
+        set -e
         docker run --rm -v $(pwd):/workspace -w /workspace \
+          -e HOME=/tmp \
           quay.io/pypa/manylinux2014_aarch64:latest \
-          bash -c "/opt/python/cp38-cp38/bin/python -m venv /workspace/env && \
-                   source /workspace/env/bin/activate && \
-                   pip install build git+https://github.com/rhelmot/auditwheel && \
-                   cd src/api/python && \
-                   python -m build && \
-                   AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && \
-                   cd ../../.. && \
-                   pip install ./src/api/python/wheelhouse/*.whl && \
-                   python - <src/api/python/z3test.py z3 && \
-                   python - <src/api/python/z3test.py z3num"
+          bash -c "
+            set -e
+            /opt/python/cp38-cp38/bin/python -m venv /tmp/env
+            source /tmp/env/bin/activate
+            pip install build git+https://github.com/rhelmot/auditwheel
+            cd /workspace/src/api/python
+            python -m build
+            AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl
+            pip install wheelhouse/*.whl
+            python - <z3test.py z3
+            python - <z3test.py z3num
+          "
       displayName: "Build and test ARM64 wheel"
     - task: CopyFiles@2
       inputs:
