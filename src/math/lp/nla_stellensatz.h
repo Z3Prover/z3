@@ -161,8 +161,9 @@ namespace nla {
                        lp::constraint_index ci)
                 : m_var(v), m_kind(k), m_value(value), m_level(level), m_last_bound(last_bound), m_is_decision(false),
                   m_bound_justifications(d), m_constraint_justification(ci) {}
-            bound_info(lpvar v, lp::lconstraint_kind k, rational const &value, unsigned level, unsigned last_bound)
-                : m_var(v), m_kind(k), m_value(value), m_level(level), m_last_bound(last_bound), m_is_decision(true) {}
+            bound_info(lpvar v, lp::lconstraint_kind k, rational const &value, unsigned level, unsigned last_bound, u_dependency* d)
+                : m_var(v), m_kind(k), m_value(value), m_level(level), m_last_bound(last_bound), m_is_decision(true),
+            m_bound_justifications(d) {}
         };
 
         struct assignment {
@@ -226,6 +227,7 @@ namespace nla {
         void interval(dd::pdd p, scoped_dep_interval &iv);
 
         void set_conflict(lp::constraint_index ci, u_dependency *d) {
+            SASSERT(d);
             m_conflict = ci;
             m_conflict_dep = d;
         }
@@ -233,8 +235,8 @@ namespace nla {
             m_conflict_dep = m_dm.mk_join(lo_dep(v), hi_dep(v));
             m_conflict = resolve_variable(v, lo_constraint(v), hi_constraint(v));
         }
-        void reset_conflict() { m_conflict = lp::null_ci; }
-        bool is_conflict() const { return m_conflict != lp::null_ci; }
+        void reset_conflict() { m_conflict = lp::null_ci; m_conflict_dep = nullptr; }
+        bool is_conflict() const { return m_conflict_dep != nullptr; }
 
         indexed_uint_set m_processed;
         unsigned_vector m_var2level, m_level2var;
@@ -380,6 +382,7 @@ namespace nla {
         std::ostream& display_constraint(std::ostream& out, lp::constraint_index ci) const;
         std::ostream& display_constraint(std::ostream& out, constraint const& c) const;
         std::ostream &display_bound(std::ostream &out, unsigned bound_index, unsigned& level) const;
+        std::ostream &display_bound(std::ostream &out, unsigned bound_index) const;
         std::ostream &display(std::ostream &out, justification const &j) const;
         std::ostream &display_var(std::ostream &out, lpvar j) const;
         std::ostream &display_lemma(std::ostream &out, lp::explanation const &ex);
