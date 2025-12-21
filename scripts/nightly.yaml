@@ -195,10 +195,10 @@ stages:
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'ManyLinuxPythonBuildArm64-v1'
+        artifactName: 'ManyLinuxPythonBuildArm64v1'
         targetPath: $(Build.ArtifactStagingDirectory)    
 
-  - job: ManyLinuxPythonBuildArm64-V2
+  - job: ManyLinuxPythonBuildArm64V2
     displayName: "Python bindings (manylinux Centos ARM64) build"
     timeoutInMinutes: 90    
     pool:
