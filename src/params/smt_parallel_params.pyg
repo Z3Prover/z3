@@ -1,0 +1,6 @@
+def_module_params('smt_parallel', 
+                  export=True,
+                  description='Experimental parameters for parallel solving',
+                  params=(
+                        ('inprocessing', BOOL, True, 'integrate in-processing as a heuristic simplification'),
+              ))

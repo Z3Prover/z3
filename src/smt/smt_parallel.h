@@ -104,6 +104,7 @@ namespace smt {
             struct config {
                 unsigned m_threads_max_conflicts = 1000;
                 bool m_share_units = true;
+                bool m_share_conflicts = true;
                 bool m_share_units_relevant_only = true;
                 bool m_share_units_initial_only = true;
                 double m_max_conflict_mul = 1.5;
