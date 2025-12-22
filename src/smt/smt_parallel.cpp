@@ -25,6 +25,7 @@ Author:
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
 #include "solver/solver_preprocess.h"
+#include "params/smt_parallel_params.hpp"
 
 #include <cmath>
 #include <mutex>
@@ -118,6 +119,10 @@ namespace smt {
 
                 LOG_WORKER(1, " found unsat cube\n");
                 b.backtrack(m_l2g, unsat_core, node);
+
+                if (m_config.m_share_conflicts)
+                    b.collect_clause(m_l2g, id, mk_not(mk_and(unsat_core)));
+
                 break;
             }
             }
@@ -141,21 +146,28 @@ namespace smt {
         m_num_shared_units = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
+
+        smt_parallel_params pp(p.ctx.m_params);
+        m_config.m_inprocessing = pp.inprocessing();
     }
 
     void parallel::worker::share_units() {
         // Collect new units learned locally by this worker and send to batch manager
         
-        ctx->pop_to_base_lvl();
         unsigned sz = ctx->assigned_literals().size();
         for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
             literal lit = ctx->assigned_literals()[j];
+
+            // filter by assign level: do not pop to base level as this destroys the current search state
+            if (ctx->get_assign_level(lit) > ctx->m_base_lvl)
+                continue;
+
             if (!ctx->is_relevant(lit.var()) && m_config.m_share_units_relevant_only)
                 continue;
 
             if (m_config.m_share_units_initial_only && lit.var() >= m_num_initial_atoms) {
                 LOG_WORKER(4, " Skipping non-initial unit: " << lit.var() << "\n");
-                continue;  // skip non-iniial atoms if configured to do so
+                continue;  // skip non-initial atoms if configured to do so
             }
 
             expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);  // turn literal into a Boolean expression
