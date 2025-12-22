@@ -155,15 +155,16 @@ namespace nla {
             unsigned m_level = 0;
             unsigned             m_last_bound = UINT_MAX;
             bool                 m_is_decision = true;
-            u_dependency*        m_bound_justifications = nullptr; // index into bounds
+            u_dependency*        m_bound_justifications = nullptr; // index into bounds or constraint index
             lp::constraint_index m_constraint_justification = lp::null_ci;
-            bound_info(lpvar v, lp::lconstraint_kind k, rational const &value, unsigned level, unsigned last_bound, u_dependency *d,
+            bound_info(lpvar v, lp::lconstraint_kind k, rational const &value, unsigned level, unsigned last_bound, u_dependency *deps,
                        lp::constraint_index ci)
                 : m_var(v), m_kind(k), m_value(value), m_level(level), m_last_bound(last_bound), m_is_decision(false),
-                  m_bound_justifications(d), m_constraint_justification(ci) {}
-            bound_info(lpvar v, lp::lconstraint_kind k, rational const &value, unsigned level, unsigned last_bound, u_dependency* d)
+                  m_bound_justifications(deps), 
+                  m_constraint_justification(ci) {}
+            bound_info(lpvar v, lp::lconstraint_kind k, rational const &value, unsigned level, unsigned last_bound, u_dependency* deps)
                 : m_var(v), m_kind(k), m_value(value), m_level(level), m_last_bound(last_bound), m_is_decision(true),
-            m_bound_justifications(d) {}
+            m_bound_justifications(deps) {}
         };
 
         struct assignment {
@@ -208,7 +209,7 @@ namespace nla {
 
         u_dependency_manager m_dm;
         dep_intervals        m_di;
-        indexed_uint_set     m_conflict_marked;
+        indexed_uint_set     m_conflict_marked_bounds, m_conflict_marked_ci;
 
         void propagate();
         bool decide(); 
@@ -237,6 +238,18 @@ namespace nla {
         }
         void reset_conflict() { m_conflict = lp::null_ci; m_conflict_dep = nullptr; }
         bool is_conflict() const { return m_conflict_dep != nullptr; }
+
+        u_dependency *constraint2dep(lp::constraint_index ci) { return m_dm.mk_leaf(2 * ci); }
+        u_dependency *bound2dep(unsigned bound_index) { return m_dm.mk_leaf(2 * bound_index + 1); }
+        bool is_constraintdep(unsigned id)   const { return id % 2 == 0; }
+        lp::constraint_index dep2constraint(unsigned id) const { 
+            SASSERT(is_constraintdep(id));
+            return id / 2; 
+        }
+        unsigned dep2bound(unsigned id) const { 
+            SASSERT(!is_constraintdep(id));
+            return id / 2; 
+        }
 
         indexed_uint_set m_processed;
         unsigned_vector m_var2level, m_level2var;
@@ -304,8 +317,7 @@ namespace nla {
         lp::constraint_index add_constraint(dd::pdd p, lp::lconstraint_kind k, justification j);        
         lp::constraint_index add_var_bound(lp::lpvar v, lp::lconstraint_kind k, rational const &rhs, justification j);
         
-        mutable unsigned_vector m_deps;
-        unsigned_vector const &antecedents(u_dependency *d) const;
+        std::pair<unsigned_vector, unsigned_vector> antecedents(u_dependency *d) const;
 
         // initialization
         void init_solver();

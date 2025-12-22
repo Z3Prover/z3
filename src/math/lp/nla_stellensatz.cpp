@@ -144,6 +144,8 @@ namespace nla {
     start_saturate:
         lbool r = search();
 
+        TRACE(arith, tout << "search " << r << ": " << m_core << "\n");
+
         if (r == l_undef)
             r = m_solver.solve(m_core);
         TRACE(arith, display(tout << "stellensatz after saturation " << r << "\n"));
@@ -239,7 +241,7 @@ namespace nla {
                 if (var_is_int(x))
                     lb = ceil(lb);
                 if (!has_lo(x) || lo_val(x) < lb || (!lo_is_strict(x) && k == lp::lconstraint_kind::GT && lo_val(x) == lb)) {
-                    auto dep = m_dm.mk_leaf(m_bounds.size());
+                    auto dep = constraint2dep(ci);
                     bound_info bi(x, k, lb, level, m_lower[x], dep, ci);
                     m_lower[x] = m_bounds.size();
                     m_bounds.push_back(bi);
@@ -252,7 +254,7 @@ namespace nla {
                     ub = floor(ub);
                 k = (k == lp::lconstraint_kind::GT) ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE;
                 if (!has_hi(x) || hi_val(x) > ub || (!hi_is_strict(x) && k == lp::lconstraint_kind::LT && hi_val(x) == ub)) {
-                    auto dep = m_dm.mk_leaf(m_bounds.size());
+                    auto dep = constraint2dep(ci);
                     bound_info bi(x, k, ub, level, m_upper[x], dep, ci);
                     m_upper[x] = m_bounds.size();
                     m_bounds.push_back(bi);
@@ -969,7 +971,7 @@ namespace nla {
             m.set_lower_is_inf(x, false);
             m.set_lower_is_open(x, lo.m_kind == lp::lconstraint_kind::GT);
             m.set_lower(x, lo.m_value);
-            m.set_lower_dep(x, m_dm.mk_leaf(lb));
+            m.set_lower_dep(x, bound2dep(lb));
         }
         auto ub = m_upper[v];
         if (ub == UINT_MAX) {
@@ -980,7 +982,7 @@ namespace nla {
             m.set_upper_is_inf(x, false);
             m.set_upper_is_open(x, hi.m_kind == lp::lconstraint_kind::LT);
             m.set_upper(x, hi.m_value);
-            m.set_upper_dep(x, m_dm.mk_leaf(ub));
+            m.set_upper_dep(x, bound2dep(ub));
         }
         interval(p.hi(), hi);
         interval(p.lo(), lo);
@@ -1029,24 +1031,26 @@ namespace nla {
         TRACE(arith, 
               tout << "resolving conflict: "; display_constraint(tout, m_conflict) << "\n"; display(tout););
         SASSERT(is_conflict());
-        m_conflict_marked.reset();
+        m_conflict_marked_bounds.reset();
+        m_conflict_marked_ci.reset();
         mark_dependencies(m_conflict_dep);
         unsigned conflict_level = 0;
         m_core.reset();
-        for (auto d : m_conflict_marked) {
+        for (auto d : m_conflict_marked_bounds) {
             auto &b = m_bounds[d];
             conflict_level = std::max(conflict_level, b.m_level);
         }
         bool found_decision = false;
-        TRACE(arith, tout << "conflict level " << conflict_level << " " << m_conflict_marked << "\n");
-        while (!found_decision && !m_bounds.empty() && !m_conflict_marked.empty()) {
-            while (!m_conflict_marked.contains(m_bounds.size() - 1))
+        TRACE(arith, tout << "conflict level " << conflict_level << " bounds: " << m_conflict_marked_bounds 
+            << " constraints: " << m_conflict_marked_ci << "\n");
+        while (!found_decision && !m_bounds.empty() && !m_conflict_marked_bounds.empty()) {
+            while (!m_conflict_marked_bounds.contains(m_bounds.size() - 1))
                 pop_bound();
 
             auto const &[v, k, value, level, last_bound, is_decision, dep, ci] = m_bounds.back();
 
             mark_dependencies(dep);
-            m_conflict_marked.remove(m_bounds.size() - 1);
+            m_conflict_marked_bounds.remove(m_bounds.size() - 1);
             m_conflict = resolve_variable(v, m_conflict, ci);  // adds assumptions..
             if (conflict_level == 0 && ci != lp::null_ci)
                 m_core.push_back(ci);
@@ -1059,16 +1063,23 @@ namespace nla {
         }
         SASSERT(found_decision || conflict_level == 0);
         SASSERT(!found_decision || conflict_level != 0);
-        if (conflict_level == 0)
+        if (conflict_level == 0) {
+            for (auto ci : m_conflict_marked_ci)
+                m_core.push_back(ci);
+            if (m_conflict != lp::null_ci)
+                m_core.push_back(m_conflict);
+            reset_conflict();
             return l_false;
+        }
         if (constraint_is_conflict(m_conflict)) {
             m_core.push_back(m_conflict);
+            reset_conflict();
             return l_false;
         }
 
         auto [v, k, value, level, last_bound, is_decision, dep, ci] = m_bounds.back();
         SASSERT(is_decision);
-        while (!m_bounds.empty() && !m_conflict_marked.contains(m_bounds.size() - 1))
+        while (!m_bounds.empty() && !m_conflict_marked_bounds.contains(m_bounds.size() - 1))
             pop_bound();
         switch (k) {
         case lp::lconstraint_kind::GE:
@@ -1092,10 +1103,12 @@ namespace nla {
         }
         dep = nullptr;
         unsigned propagation_level = 0;
-        for (auto d : m_conflict_marked) {
-            dep = m_dm.mk_join(m_dm.mk_leaf(d), dep);
+        for (auto d : m_conflict_marked_bounds) {
+            dep = m_dm.mk_join(bound2dep(d), dep);
             propagation_level = std::max(propagation_level, m_bounds[d].m_level);
-        }
+        }        
+        for (auto ci : m_conflict_marked_ci)
+            dep = m_dm.mk_join(constraint2dep(ci), dep);
         m_prop_qhead = m_bounds.size();
         bool is_upper = (k == lp::lconstraint_kind::LE) || (k == lp::lconstraint_kind::LT);
         last_bound = is_upper ? m_upper[v] : m_lower[v];
@@ -1112,8 +1125,11 @@ namespace nla {
     }   
 
     void stellensatz::mark_dependencies(u_dependency* d) { 
-        for (auto a : antecedents(d)) 
-            m_conflict_marked.insert(a);        
+        auto [bounds, cdeps] = antecedents(d);
+        for (auto a : cdeps)
+            m_conflict_marked_ci.insert(a);
+        for (auto a : bounds)
+            m_conflict_marked_bounds.insert(a);
     }
 
     void stellensatz::pop_bound() { 
@@ -1130,13 +1146,12 @@ namespace nla {
     void stellensatz::propagate() {
         if (m_prop_qhead == m_bounds.size())
             return;
-        TRACE(arith, tout << "propagate " << m_prop_qhead << "\n");
         for (; m_prop_qhead < m_bounds.size(); ++m_prop_qhead) {
             if (!c().reslim().inc())
                 return;
             auto v = m_bounds[m_prop_qhead].m_var;
-            TRACE(arith, tout << "propagate-step " << m_prop_qhead << " v" << v << "\n");
             if (var_is_bound_conflict(v)) {
+                TRACE(arith, tout << "var is bound conflict v" << v << "\n");
                 set_conflict(v);
                 return;
             }
@@ -1148,6 +1163,8 @@ namespace nla {
                 // detect conflict or propagate dep_intervals
                 u_dependency *d = nullptr;
                 if (constraint_is_bound_conflict(ci, d)) {
+                    TRACE(arith, tout << "constraint is bound conflict: "; display_constraint(tout, ci) << "\n";);
+                    d = m_dm.mk_join(constraint2dep(ci), d);
                     set_conflict(ci, d);
                     return;
                 }
@@ -1157,14 +1174,13 @@ namespace nla {
                 lp::lconstraint_kind k;
                 unsigned level = 0;
                 if (constraint_is_propagating(ci, d, w, value, k)) {
-                    TRACE(arith, display_constraint(tout, ci) << "\n";
+                    TRACE(arith, 
+                    display_constraint(tout << "constraint is propagating ", ci) << "\n";
                           tout << "v" << w << " " << k << " " << value << "\n"; 
-                          unsigned lvl = 0;
-                          for (auto a : antecedents(d)) display_bound(tout, a, lvl);
-                          tout << "\n");
+                        );
 
-
-                    for (auto a : antecedents(d))
+                    auto [bounds, cs] = antecedents(d);
+                    for (auto a : bounds)
                         level = std::max(level, m_bounds[a].m_level);
                     SASSERT(level <= m_vtrail.get_num_scopes());                    
                     bool is_upper  = k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::LT;
@@ -1176,6 +1192,7 @@ namespace nla {
                         continue;
                     
                     (is_upper ? m_upper[w] : m_lower[w]) = m_bounds.size();
+                    d = m_dm.mk_join(constraint2dep(ci), d);
                     m_bounds.push_back(bound_info(w, k, value, level, last_bound, d, ci));
 
                     if (!is_strict)
@@ -1192,10 +1209,6 @@ namespace nla {
                     CTRACE(arith, !well_formed_last_bound(), display(tout));
                     SASSERT(well_formed_last_bound());
                     SASSERT(well_formed_var(w));
-
-                    if (false && cyclic_bound_propagation(is_upper, w))
-                        return;
-                    continue;
                 }               
                 // constraint is false, but not propagating
             }
@@ -1253,9 +1266,8 @@ namespace nla {
     bool stellensatz::find_cycle(svector<std::pair<lp::constraint_index, lpvar>>& cycle, unsigned bound_index, unsigned top_index) {
         auto &b = m_bounds[bound_index];
         unsigned level = b.m_level;
-        unsigned_vector deps;
-        m_dm.linearize(b.m_bound_justifications, deps); // cannot call antecedents here because we our need own copy of deps.
-        for (auto d : deps) {           
+        auto [bounds, cs] = antecedents(b.m_bound_justifications);
+        for (auto d : bounds) {           
             auto const &bd = m_bounds[d];
             SASSERT(bd.m_level <= level);
             if (bd.m_level != level)
@@ -1296,8 +1308,8 @@ namespace nla {
             m_dm.push_scope();
             auto last_bound = is_upper ? m_upper[w] : m_lower[w];
             (is_upper ? m_upper[w] : m_lower[w]) = m_bounds.size();
-            auto dep = m_dm.mk_leaf(m_bounds.size());
-            m_bounds.push_back(bound_info(w, k, value, m_vtrail.get_num_scopes(), last_bound, dep));
+            auto bdep = bound2dep(m_bounds.size());
+            m_bounds.push_back(bound_info(w, k, value, m_vtrail.get_num_scopes(), last_bound, bdep));
             m_values[w] = value;
             TRACE(arith, tout << "decide v" << w << " " << k << " " << value << "\n");
             SASSERT(well_formed_var(w));
@@ -1324,7 +1336,7 @@ namespace nla {
             scoped_dep_interval ivp(m_di), ivq(m_di);
             interval(f.p, ivp);
             interval(-f.q, ivq); 
-            TRACE(arith, tout << "variable v" << x << " in " << p << "\n";
+            TRACE(arith_verbose, tout << "variable v" << x << " in " << p << "\n";
                   m_di.display(tout << "interval: " << f.p << ": ", ivp) << "\n";
                   m_di.display(tout << "interval: " << -f.q << ": ", ivq) << "\n";
                   display_constraint(tout, ci) << "\n");
@@ -1463,10 +1475,16 @@ namespace nla {
         return true;
     }
 
-    unsigned_vector const &stellensatz::antecedents(u_dependency *d) const { 
-        m_deps.reset();
-        m_dm.linearize(d, m_deps);
-        return m_deps;
+    std::pair<unsigned_vector, unsigned_vector> stellensatz::antecedents(u_dependency *d) const { 
+        unsigned_vector bounds, cs, deps;
+        m_dm.linearize(d, deps);
+        for (auto dep : deps) {
+            if (is_constraintdep(dep))
+                cs.push_back(dep2constraint(dep));
+            else
+                bounds.push_back(dep2bound(dep));
+        }
+        return {bounds, cs};
     }
 
     std::ostream &stellensatz::display_bound(std::ostream &out, unsigned i) const { 
@@ -1475,17 +1493,20 @@ namespace nla {
     }
 
     std::ostream& stellensatz::display_bound(std::ostream& out, unsigned i, unsigned& level) const { 
-        auto const &[v, k, val, level1, last_bound, is_decision, d, ci] = m_bounds[i];
+        auto const &[v, k, val, level1, last_bound, is_decision, dep, ci] = m_bounds[i];
         out << i;
         if (level1 != level) {
             level = level1;
             out << "@ " << level; 
         }
-        out << ": v" << v << " " << k << " " 
-            << val << " " 
-            << ((last_bound == UINT_MAX) ? -1 : (int)last_bound) 
-            << (is_decision ? " d " : " ")
-            << antecedents(d);
+        auto [bounds, cdeps] = antecedents(dep);
+        auto deps = antecedents(dep);
+        out << ": v" << v << " " << k << " " << val << " " << ((last_bound == UINT_MAX) ? -1 : (int)last_bound)
+            << (is_decision ? " d " : " ");
+        if (!bounds.empty())
+            out << "bounds: " << bounds;
+        if (!cdeps.empty())
+            out << "ci: " << cdeps;
         if (ci != lp::null_ci)
             out << " (" << ci << ")";   
         out << "\n";
