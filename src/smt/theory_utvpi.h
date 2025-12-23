@@ -245,7 +245,7 @@ namespace smt {
             m_arith_eq_adapter.init_search_eh();
         }
 
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned level) override;
 
         bool is_shared(th_var v) const override {
             return false;

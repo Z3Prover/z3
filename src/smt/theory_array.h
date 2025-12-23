@@ -62,7 +62,7 @@ namespace smt {
         void relevant_eh(app * n) override;
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
         void reset_eh() override;
         void init_search_eh() override;
 

@@ -27,7 +27,6 @@ Author:
 #include "solver/solver_preprocess.h"
 #include "params/smt_parallel_params.hpp"
 
-
 #include <cmath>
 #include <mutex>
 
@@ -338,6 +337,10 @@ namespace smt {
 
                 LOG_WORKER(1, " found unsat cube\n");
                 b.backtrack(m_l2g, unsat_core, node);
+
+                if (m_config.m_share_conflicts)
+                    b.collect_clause(m_l2g, id, mk_not(mk_and(unsat_core)));
+
                 break;
             }
             }
@@ -347,12 +350,11 @@ namespace smt {
     }
 
     parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms)
-        : id(id), p(p), b(p.m_batch_manager), m_smt_params(p.ctx.get_fparams()), asms(m), m_g2l(p.ctx.m, m),
+        : id(id), p(p), b(p.m_batch_manager), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m),
           m_l2g(m, p.ctx.m) {
         for (auto e : _asms)
             asms.push_back(m_g2l(e));
         LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");
-        m_smt_params.m_preprocess = false;
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
@@ -362,6 +364,9 @@ namespace smt {
         m_num_shared_units = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
+
+        smt_parallel_params pp(p.ctx.m_params);
+        m_config.m_inprocessing = pp.inprocessing();
     }
 
     parallel::param_generator::param_generator(parallel& p)
@@ -379,16 +384,21 @@ namespace smt {
 
     void parallel::worker::share_units() {
         // Collect new units learned locally by this worker and send to batch manager
-        ctx->pop_to_base_lvl();
+        
         unsigned sz = ctx->assigned_literals().size();
         for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
             literal lit = ctx->assigned_literals()[j];
+
+            // filter by assign level: do not pop to base level as this destroys the current search state
+            if (ctx->get_assign_level(lit) > ctx->m_base_lvl)
+                continue;
+
             if (!ctx->is_relevant(lit.var()) && m_config.m_share_units_relevant_only)
                 continue;
 
             if (m_config.m_share_units_initial_only && lit.var() >= m_num_initial_atoms) {
-                LOG_WORKER(2, " Skipping non-initial unit: " << lit.var() << "\n");
-                continue;  // skip non-iniial atoms if configured to do so
+                LOG_WORKER(4, " Skipping non-initial unit: " << lit.var() << "\n");
+                continue;  // skip non-initial atoms if configured to do so
             }
 
             expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);  // turn literal into a Boolean expression
@@ -498,6 +508,9 @@ namespace smt {
         IF_VERBOSE(1, m_search_tree.display(verbose_stream() << bounded_pp_exprs(core) << "\n"););
         if (m_search_tree.is_closed()) {
             m_state = state::is_unsat;
+            SASSERT(p.ctx.m_unsat_core.empty());
+            for (auto e : m_search_tree.get_core_from_root())
+               p.ctx.m_unsat_core.push_back(e);
             cancel_background_threads();
         }
     }
@@ -515,6 +528,8 @@ namespace smt {
         // node->get_status() == status::active
         // and depth is 'high' enough
         // then ignore split, and instead set the status of node to open.
+        ++m_stats.m_num_cubes;
+        m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, node->depth() + 1);
         m_search_tree.split(node, lit, nlit);
     }
 
@@ -538,7 +553,7 @@ namespace smt {
         // iterate over new clauses and assert them in the local context
         for (expr *e : new_clauses) {
             ctx->assert_expr(e);
-            LOG_WORKER(2, " asserting shared clause: " << mk_bounded_pp(e, m, 3) << "\n");
+            LOG_WORKER(4, " asserting shared clause: " << mk_bounded_pp(e, m, 3) << "\n");
         }
     }
 

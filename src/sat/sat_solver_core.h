@@ -23,7 +23,6 @@ Revision History:
 
 namespace sat {
 
-    class cut_simplifier;
     class extension;
 
     class solver_core {
@@ -58,8 +57,6 @@ namespace sat {
         // hooks for extension solver. really just ba_solver atm.
         virtual extension* get_extension() const { return nullptr; }
         virtual void       set_extension(extension* e) { if (e) throw default_exception("optional API not supported"); }
-
-        virtual cut_simplifier* get_cut_simplifier() { return nullptr; }
     };
 };
 

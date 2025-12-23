@@ -46,8 +46,8 @@ namespace nla {
     
     bool solver::need_check() { return m_core->has_relevant_monomial(); }
     
-    lbool solver::check() {
-        return m_core->check();
+    lbool solver::check(unsigned level) {
+        return m_core->check(level);
     }
 
     void solver::propagate() {

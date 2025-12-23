@@ -468,6 +468,7 @@ namespace upolynomial {
         std::ostream& display_smt2(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { 
             return display_smt2(out, p.size(), p.data(), var_name); 
         }
+        std::ostream& display_smt2_no_power(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x") const;
     };
 
     class scoped_set_z {
@@ -917,4 +918,3 @@ namespace upolynomial {
     };
 
 };
-

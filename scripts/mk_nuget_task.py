@@ -44,10 +44,20 @@ def classify_package(f, arch):
     return None
 
 def replace(src, dst):
+    """
+    Replace destination file with source file.
+    
+    Removes the destination file if it exists, then moves the source file to the destination.
+    This ensures that the file is always moved, whether or not the destination exists.
+    
+    Previous buggy implementation only moved when removal failed, causing files to be 
+    deleted but not replaced when the destination already existed.
+    """
     try:
         os.remove(dst)
     except:
-        shutil.move(src, dst)
+        pass
+    shutil.move(src, dst)
     
 def unpack(packages, symbols, arch):
     # unzip files in packages

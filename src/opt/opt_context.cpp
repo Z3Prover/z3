@@ -20,6 +20,7 @@ Notes:
 #include "util/gparams.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_translation.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/ast_smt_pp.h"
@@ -153,6 +154,57 @@ namespace opt {
 
     context::~context() {
         reset_maxsmts();
+    }
+
+    context* context::translate(ast_manager& target_m) {
+        // Create AST translator
+        ast_translation translator(m, target_m);
+        
+        // Create new context in target manager
+        context* result = alloc(context, target_m);
+        
+        // Copy parameters
+        result->updt_params(m_params);
+        
+        // Set logic
+        if (m_logic != symbol::null) {
+            result->set_logic(m_logic);
+        }
+        
+        // Translate hard constraints from scoped state
+        for (expr* e : m_scoped_state.m_hard) {
+            result->add_hard_constraint(translator(e));
+        }
+        
+        // Translate objectives
+        for (auto const& obj : m_scoped_state.m_objectives) {
+            if (obj.m_type == O_MAXIMIZE || obj.m_type == O_MINIMIZE) {
+                // Translate maximize/minimize objectives
+                app_ref translated_term(to_app(translator(obj.m_term.get())), target_m);
+                result->add_objective(translated_term, obj.m_type == O_MAXIMIZE);
+            }
+            else if (obj.m_type == O_MAXSMT) {
+                // Translate soft constraints for MaxSMT objectives
+                for (unsigned i = 0; i < obj.m_terms.size(); ++i) {
+                    result->add_soft_constraint(
+                        translator(obj.m_terms.get(i)),
+                        obj.m_weights[i],
+                        obj.m_id
+                    );
+                }
+            }
+        }
+        
+        // Copy configuration flags
+        result->m_enable_sat = m_enable_sat;
+        result->m_enable_sls = m_enable_sls;
+        result->m_is_clausal = m_is_clausal;
+        result->m_pp_neat = m_pp_neat;
+        result->m_pp_wcnf = m_pp_wcnf;
+        result->m_incremental = m_incremental;
+        result->m_maxsat_engine = m_maxsat_engine;
+        
+        return result;
     }
 
     void context::reset_maxsmts() {

@@ -32,7 +32,6 @@ Revision History:
 #include "sat/sat_ddfw_wrapper.h"
 #include "sat/sat_prob.h"
 #include "sat/sat_anf_simplifier.h"
-#include "sat/sat_cut_simplifier.h"
 #if defined(_MSC_VER) && !defined(_M_ARM) && !defined(_M_ARM64)
 # include <xmmintrin.h>
 #endif
@@ -2105,11 +2104,7 @@ namespace sat {
             anf();
             anf.collect_statistics(m_aux_stats);
             // TBD: throttle anf_delay based on yield
-        }
-        
-        if (m_cut_simplifier && m_simplifications > m_config.m_cut_delay && !inconsistent()) {
-            (*m_cut_simplifier)();
-        }
+        }        
 
         if (m_config.m_inprocess_out.is_non_empty_string()) {
             std::ofstream fout(m_config.m_inprocess_out.str());
@@ -3707,7 +3702,6 @@ namespace sat {
         SASSERT(new_v + 1 == m_justification.size()); // there are no active variables that have higher values
         literal lit = literal(new_v, false);
         m_user_scope_literals.push_back(lit);
-        m_cut_simplifier = nullptr; // for simplicity, wipe it out
         if (m_ext)
             m_ext->user_push();
         TRACE(sat, tout << "user_push: " << lit << "\n";);
@@ -3766,9 +3760,6 @@ namespace sat {
         m_slow_glue_backup.set_alpha(m_config.m_slow_glue_avg);
         m_trail_avg.set_alpha(m_config.m_slow_glue_avg);
 
-        if (m_config.m_cut_simplify && !m_cut_simplifier && m_user_scope_literals.empty()) {
-            m_cut_simplifier = alloc(cut_simplifier, *this);
-        }
     }
 
     void solver::collect_param_descrs(param_descrs & d) {
@@ -3788,7 +3779,6 @@ namespace sat {
         m_probing.collect_statistics(st);
         if (m_ext) m_ext->collect_statistics(st);
         if (m_local_search) m_local_search->collect_statistics(st);
-        if (m_cut_simplifier) m_cut_simplifier->collect_statistics(st);
         st.copy(m_aux_stats);
     }
 

@@ -1088,7 +1088,7 @@ namespace euf {
             verbose_stream() << mk_pp(s->get_expr(), m) << "\n";
         }
 #endif
-        auto n = m_egraph.find(q);
+        // auto n = m_egraph.find(q);
 #if 0
         verbose_stream() << "class of " << mk_pp(q, m) << "\n";
         for (auto s : euf::enode_class(n)) {

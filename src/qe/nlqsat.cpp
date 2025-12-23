@@ -833,7 +833,6 @@ namespace qe {
             m_answer_simplify(m),
             m_trail(m),
             m_div_mc(nullptr) {
-            s.m_solver.get_explain().set_signed_project(true);
             m_nftactic = mk_tseitin_cnf_tactic(m);
         }
 

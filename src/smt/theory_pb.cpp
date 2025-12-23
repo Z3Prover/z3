@@ -985,7 +985,7 @@ namespace smt {
         UNREACHABLE();
     }
     
-    final_check_status theory_pb::final_check_eh() {
+    final_check_status theory_pb::final_check_eh(unsigned level) {
         TRACE(pb, display(tout););
         DEBUG_CODE(validate_final_check(););
         return FC_DONE;

@@ -501,7 +501,7 @@ namespace smt {
         theory::reset_eh();
     }
 
-    final_check_status theory_fpa::final_check_eh() {
+    final_check_status theory_fpa::final_check_eh(unsigned level) {
         TRACE(t_fpa, tout << "final_check_eh\n";);
         SASSERT(m_converter.m_extra_assertions.empty());
         return FC_DONE;

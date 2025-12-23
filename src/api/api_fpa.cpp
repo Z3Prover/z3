@@ -896,7 +896,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    bool Z3_API Z3_fpa_get_numeral_sign(Z3_context c, Z3_ast t, int * sgn) {
+    bool Z3_API Z3_fpa_get_numeral_sign(Z3_context c, Z3_ast t, bool * sgn) {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_sign(c, t, sgn);
         RESET_ERROR_CODE();
@@ -1222,6 +1222,20 @@ extern "C" {
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
         Z3_CATCH_RETURN(nullptr);
+    }
+
+    bool Z3_API Z3_fpa_is_numeral(Z3_context c, Z3_ast t) {
+        Z3_TRY;
+        LOG_Z3_fpa_is_numeral(c, t);
+        RESET_ERROR_CODE();
+        api::context * ctx = mk_c(c);
+        fpa_util & fu = ctx->fpautil();
+        if (!is_expr(t)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            return false;
+        }
+        return fu.is_numeral(to_expr(t));
+        Z3_CATCH_RETURN(false);
     }
 
     bool Z3_API Z3_fpa_is_numeral_nan(Z3_context c, Z3_ast t) {

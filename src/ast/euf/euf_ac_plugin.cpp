@@ -1057,7 +1057,6 @@ namespace euf {
         SASSERT(is_correct_ref_count(dst, dst_counts));
         SASSERT(&src_r.m_nodes != &dst);
         unsigned sz = dst.size(), j = 0;
-        bool change = false;
         for (unsigned i = 0; i < sz; ++i) {
             auto* n = dst[i];
             unsigned id = n->id();

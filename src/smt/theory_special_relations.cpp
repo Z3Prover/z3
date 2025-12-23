@@ -186,7 +186,7 @@ namespace smt {
         }
     }
 
-    final_check_status theory_special_relations::final_check_eh() {
+    final_check_status theory_special_relations::final_check_eh(unsigned) {
         TRACE(special_relations, tout << "\n";);
         for (auto const& kv : m_relations) {
             lbool r = final_check(*kv.m_value);

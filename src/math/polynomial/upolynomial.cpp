@@ -1159,65 +1159,87 @@ namespace upolynomial {
         }
     }
 
+    static void display_smt2_var_power(std::ostream & out, char const * var_name, unsigned k, bool allow_power) {
+        SASSERT(k > 0);
+        if (k == 1) {
+            out << var_name;
+        }
+        else if (allow_power) {
+            out << "(^ " << var_name << " " << k << ")";
+        }
+        else {
+            out << "(*";
+            for (unsigned i = 0; i < k; ++i)
+                out << " " << var_name;
+            out << ")";
+        }
+    }
+
     static void display_smt2_monomial(std::ostream & out, numeral_manager & m, mpz const & n,
-                                      unsigned k, char const * var_name) {
+                                      unsigned k, char const * var_name, bool allow_power) {
         if (k == 0) {
             display_smt2_mumeral(out, m, n);
         }
         else if (m.is_one(n)) {
-            if (k == 1)
-                out << var_name;
-            else
-                out << "(^ " << var_name << " " << k << ")";
+            display_smt2_var_power(out, var_name, k, allow_power);
         }
         else {
             out << "(* ";
             display_smt2_mumeral(out, m, n);
             out << " ";
-            if (k == 1)
-                out << var_name;
-            else
-                out << "(^ " << var_name << " " << k << ")";
+            display_smt2_var_power(out, var_name, k, allow_power);
             out << ")";
         }
     }
 
-    // Display p as an s-expression
-    std::ostream& core_manager::display_smt2(std::ostream & out, unsigned sz, numeral const * p, char const * var_name) const {
+    static std::ostream& display_smt2_core(std::ostream & out, core_manager const& cm, unsigned sz, numeral const * p, char const * var_name, bool allow_power) {
         if (sz == 0) {
             out << "0";
             return out;
         }
 
         if (sz == 1) {
-            display_smt2_mumeral(out, m(), p[0]);
+            display_smt2_mumeral(out, cm.m(), p[0]);
             return out;
         }
 
         unsigned non_zero_idx  = UINT_MAX;
         unsigned num_non_zeros = 0;
         for (unsigned i = 0; i < sz; i++) {
-            if (m().is_zero(p[i]))
+            if (cm.m().is_zero(p[i]))
                 continue;
             non_zero_idx = i;
             num_non_zeros ++;
         }
 
-        if (num_non_zeros == 1) {
-            SASSERT(non_zero_idx != UINT_MAX && non_zero_idx >= 1);
-            display_smt2_monomial(out, m(), p[non_zero_idx], non_zero_idx, var_name);
+        if (num_non_zeros == 1 && non_zero_idx != UINT_MAX) {
+            if (non_zero_idx == 0) {
+                display_smt2_mumeral(out, cm.m(), p[0]);
+                return out;
+            }
+            display_smt2_monomial(out, cm.m(), p[non_zero_idx], non_zero_idx, var_name, allow_power);
+            return out;
         }
 
         out << "(+";
         unsigned i = sz;
         while (i > 0) {
             --i;
-            if (!m().is_zero(p[i])) {
+            if (!cm.m().is_zero(p[i])) {
                 out << " ";
-                display_smt2_monomial(out, m(), p[i], i, var_name);
+                display_smt2_monomial(out, cm.m(), p[i], i, var_name, allow_power);
             }
         }
         return out << ")";
+    }
+
+    // Display p as an s-expression
+    std::ostream& core_manager::display_smt2(std::ostream & out, unsigned sz, numeral const * p, char const * var_name) const {
+        return display_smt2_core(out, *this, sz, p, var_name, true);
+    }
+
+    std::ostream& core_manager::display_smt2_no_power(std::ostream & out, unsigned sz, numeral const * p, char const * var_name) const {
+        return display_smt2_core(out, *this, sz, p, var_name, false);
     }
 
     bool core_manager::eq(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2) {
@@ -3117,4 +3139,3 @@ namespace upolynomial {
         return out;
     }
 };
-

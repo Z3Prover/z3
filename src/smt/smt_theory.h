@@ -315,8 +315,19 @@ namespace smt {
            a truth value to all boolean variables and no inconsistency was 
            detected.
         */
-        virtual final_check_status final_check_eh() {
+        virtual final_check_status final_check_eh(unsigned level) {
             return FC_DONE;
+        }
+
+        /**
+        * \brief This method signals the number of priority levels a theory supports for final checks.
+        * The first level are for the cheapest final check invocations.
+        * The levels after that are for more expensive final checks.
+        * This approach emulates a priority queue of actions taken at final check where the expensive
+        * checks are deferred.
+        */
+        virtual unsigned num_final_check_levels() const {
+            return 1;
         }
 
         /**
