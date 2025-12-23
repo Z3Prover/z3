@@ -186,7 +186,8 @@ namespace opt {
         map_t               m_maxsmts;
         scoped_state        m_scoped_state;
         vector<objective>   m_objectives;
-        model_ref           m_model;         
+        model_ref           m_model;     
+        bool m_model_available = false;
         model_converter_ref          m_model_converter;
         generic_model_converter_ref  m_fm;
         sref_vector<model>           m_model_fixed;
