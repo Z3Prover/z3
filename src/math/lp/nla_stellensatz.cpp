@@ -1007,6 +1007,7 @@ namespace nla {
     }
 
     void stellensatz::init_search() {
+        m_prop_qhead = 0;
         m_processed.reset();
         m_level2var.reset();
         m_var2level.reset();
@@ -1116,11 +1117,10 @@ namespace nla {
         m_bounds.push_back(bound_info(v, k, value, propagation_level, last_bound, dep, m_conflict));
         // set the value within bounds if the bounds are consistent.
         set_in_bounds(v);
-        SASSERT(well_formed_last_bound());
-        reset_conflict();
-        unsigned lvl = 0;
         TRACE(arith, tout << "scopes " << m_vtrail.get_num_scopes() << "\n";
               display_bound(tout << "backjump ", m_bounds.size() - 1) << "\n");
+        SASSERT(well_formed_last_bound());
+        reset_conflict();
         return l_undef; 
     }   
 
@@ -1160,6 +1160,8 @@ namespace nla {
                 if (constraint_is_true(ci))
                     continue;
 
+                TRACE(arith, tout << "propagate v" << v << " (" << ci << ")\n");
+
                 // detect conflict or propagate dep_intervals
                 u_dependency *d = nullptr;
                 if (constraint_is_bound_conflict(ci, d)) {
@@ -1168,52 +1170,48 @@ namespace nla {
                     set_conflict(ci, d);
                     return;
                 }
-                
+
                 lpvar w;
                 rational value;
                 lp::lconstraint_kind k;
                 unsigned level = 0;
                 if (constraint_is_propagating(ci, d, w, value, k)) {
-                    TRACE(arith, 
-                    display_constraint(tout << "constraint is propagating ", ci) << "\n";
-                          tout << "v" << w << " " << k << " " << value << "\n"; 
-                        );
+                    TRACE(arith, display_constraint(tout << "constraint is propagating ", ci) << "\n";
+                          tout << "v" << w << " " << k << " " << value << "\n";);
 
                     auto [bounds, cs] = antecedents(d);
                     for (auto a : bounds)
                         level = std::max(level, m_bounds[a].m_level);
-                    SASSERT(level <= m_vtrail.get_num_scopes());                    
-                    bool is_upper  = k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::LT;
+                    SASSERT(level <= m_vtrail.get_num_scopes());
+                    bool is_upper = k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::LT;
                     bool is_strict = k == lp::lconstraint_kind::LT || k == lp::lconstraint_kind::GT;
                     auto last_bound = is_upper ? m_upper[w] : m_lower[w];
 
                     // block repeated bounds propagation within same level
-                    if (last_bound != UINT_MAX && m_bounds[last_bound].m_level == level)
+                    if (in_bounds(w, value) && last_bound != UINT_MAX && m_bounds[last_bound].m_level == level) {
                         continue;
-                    
+                    }
+
                     (is_upper ? m_upper[w] : m_lower[w]) = m_bounds.size();
                     d = m_dm.mk_join(constraint2dep(ci), d);
                     m_bounds.push_back(bound_info(w, k, value, level, last_bound, d, ci));
 
-                    if (!is_strict)
-                        m_values[w] = value;
-                    else {
-                        SASSERT(has_lo(w) || has_hi(w));
-                        if (!has_lo(w))
-                            m_values[w] = hi_val(w) - 1;
-                        else if (!has_hi(w))
-                            m_values[w] = lo_val(w) + 1;
-                        else
-                            m_values[w] = (lo_val(w) + hi_val(w)) / 2;
-                    }   
+                    if (var_is_bound_conflict(w)) {
+                        set_conflict(w);
+                        return;
+                    }
+
+                    set_in_bounds(w);
+
                     CTRACE(arith, !well_formed_last_bound(), display(tout));
                     SASSERT(well_formed_last_bound());
                     SASSERT(well_formed_var(w));
-                }               
+                }
                 // constraint is false, but not propagating
             }
-        }      
+        }
     }
+   
 
     //
     // detect cyclic propagation on the same variable within the same level.
@@ -1293,17 +1291,29 @@ namespace nla {
         // resume from some level?
         for (unsigned level = 0; level < m_level2var.size(); ++level) {
             auto w = m_level2var[level];
-            lp::constraint_index vanishing_ci = lp::null_ci;
-            bool is_sat = repair_variable(w, value, k, vanishing_ci);
-            if (is_sat)
+            lp::constraint_index conflict = repair_variable(w);
+            TRACE(arith, display_constraint(tout << "repair v" << w << ": ", conflict) << "\n");
+            if (conflict == lp::null_ci)
                 continue;
-            if (vanishing_ci != lp::null_ci) {
-                // backtrack decision to max variable in ci
-                level = max_level(m_constraints[vanishing_ci]) - 1;
-                continue;                
+            SASSERT(constraint_is_false(conflict));
+            if (constraint_is_conflict(conflict)) {
+                set_conflict(conflict, nullptr);
+                return true;
             }
+            auto p = m_constraints[conflict].p;
+            SASSERT(!p.free_vars().empty());
+            if (!p.free_vars().contains(w)) {
+                // backtrack decision to max variable in ci
+                level = max_level(m_constraints[conflict]) - 1;
+                continue; 
+            }
+            find_split(w, value, k, conflict);
+            if (is_fixed(w))
+                continue;
             SASSERT(k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::GE);
             bool is_upper = k == lp::lconstraint_kind::LE;
+            SASSERT(!is_upper || !has_lo(w) || lo_val(w) <= value);
+            SASSERT( is_upper || !has_hi(w) || hi_val(w) >= value);
             m_vtrail.push_scope();
             m_dm.push_scope();
             auto last_bound = is_upper ? m_upper[w] : m_lower[w];
@@ -1816,86 +1826,92 @@ namespace nla {
         TRACE(arith, for (unsigned i = 0; i < sz; ++i) tout << "j" << i << " := " << values[i] << "\n";);
     }
 
-    // 
-    // has_lo(v), has_hi(v), bounds by constraints
-    // new bound should be consistent with lo_val/hi_val
-    // such conflicts should be caught by bounds propagation already
-    // 
-    bool stellensatz::repair_variable(lp::lpvar &v, rational &r, lp::lconstraint_kind &k, lp::constraint_index &ci) {
-        auto [bound_ci, vanishing] = find_bounds(v);
+    lp::constraint_index stellensatz::repair_variable(lp::lpvar v) {
+        auto [inf, sup, conflict, lo, hi] = find_bounds(v);
 
-        CTRACE(arith, bound_ci != lp::null_ci || vanishing != lp::null_ci, tout << "bounds for v" << v << " @ " << m_var2level[v] << "\n";
-              display_constraint(tout, bound_ci) << "\n";
-              display_constraint(tout << " vanishing ", vanishing) << "\n";);
-        if (vanishing != lp::null_ci) {
-            ci = vanishing;
-            return false;
-        }
+        CTRACE(arith, inf != lp::null_ci || sup != lp::null_ci || conflict != lp::null_ci, 
+                tout << "bounds for v" << v << " @ " << m_var2level[v] << "\n";
+                display_constraint(tout << "lo: ", inf) << "\n"; 
+                display_constraint(tout << "hi: ", sup) << "\n";
+                display_constraint(tout << "conflict: ", conflict) << "\n");
 
-        if (bound_ci == lp::null_ci)
-            return true;
+        if (conflict != lp::null_ci) 
+            return conflict;        
 
-        if (!constraint_is_false(bound_ci))
-            return true;
+        if (inf == lp::null_ci && sup == lp::null_ci)
+            return inf;
+
 
         TRACE(arith, tout << "v" << v << " @ " << m_var2level[v] << "\n");
 
-        auto f = factor(v, bound_ci);
+        bool strict_lo = inf != lp::null_ci && m_constraints[inf].k == lp::lconstraint_kind::GT;
+        bool strict_hi = sup != lp::null_ci && m_constraints[sup].k == lp::lconstraint_kind::GT;
+        bool strict = strict_lo || strict_hi;
 
-        SASSERT(value(f.p) != 0);
-        if (f.degree != 1 || value(f.p) == 0) {
-            // Cannot repair this variable due to non-linear degree or zero coefficient
-            find_split(v, r, k, bound_ci);
-            return false;
-        }
-        r = -value(f.q) / value(f.p);
-        auto const& c = m_constraints[bound_ci];
-        TRACE(arith, tout << "v" << v << " " << f.p << " + " << f.q << " >= 0 value: " << value(f.p) << " r: " << r << "\n");
-        if (value(f.p) < 0) {
-            // repair v by setting it below sup                       
-            if (is_int(c.p)) 
-                r = floor(r);
-            if (c.k == lp::lconstraint_kind::GT) {            
-                if (has_lo(v) && lo_val(v) < r)
-                    r = (r + lo_val(v)) / 2;
-                if (!has_lo(v))
-                    r--;
+        if (inf == lp::null_ci) {
+            SASSERT(sup != lp::null_ci);
+            if (strict_hi) {
+                if (has_lo(v))
+                    hi = (hi + lo_val(v)) / 2;
+                else
+                    hi = hi - 1;
             }
-            k = lp::lconstraint_kind::LE;
+            if (in_bounds(v, hi)) {
+                m_values[v] = hi;               
+                return lp::null_ci;
+            }
+        }
+        else if (sup == lp::null_ci) {
+            SASSERT(inf != lp::null_ci);
+            if (strict_lo) {
+                if (has_hi(v))
+                    lo = (lo + hi_val(v)) / 2;
+                else
+                    lo = lo + 1;
+            }
+            if (in_bounds(v, lo)) {
+                m_values[v] = lo;
+                return lp::null_ci;
+            }
+        }
+        else if (((!strict && lo <= hi) || lo < hi) && (!var_is_int(v) || ceil(lo) <= hi)) {
+            // repair v by setting it between lo and hi assuming it is integral when v is integer
+            auto mid = var_is_int(v) ? ceil(lo) : ((lo + hi) / 2);
+            if (in_bounds(v, mid)) {
+                m_values[v] = mid;
+                TRACE(arith, tout << "repair v" << v << " := " << mid << "\n");
+                SASSERT(!constraint_is_false(sup));
+                SASSERT(!constraint_is_false(inf));
+                return lp::null_ci;
+            }
         }
         else {
-            // repair v by setting it above inf
-            if (is_int(c.p))
-                r = ceil(r);
-            if (c.k == lp::lconstraint_kind::GT) { // bound is strict
-                if (has_hi(v) && hi_val(v) > r)
-                    r = (r + hi_val(v)) / 2;
-                if (!has_hi(v))
-                    r++;
-            }
-            k = lp::lconstraint_kind::GE;
+            TRACE(arith, tout << "cannot repair v" << v << " between " << lo << " and " << hi << " " << (lo > hi)
+                              << " is int " << var_is_int(v) << "\n";
+                  display_constraint(tout, inf) << "\n"; display_constraint(tout, sup) << "\n";);
+            auto res = resolve_variable(v, inf, sup);
+            TRACE(arith, display_constraint(tout << "resolve ", res) << " " << constraint_is_false(res) << "\n");
+            if (constraint_is_false(res))
+                return res;
         }
-        if (in_bounds(v, r)) {
-            if (!has_hi(v) || hi_val(v) > r) {
-                k = lp::lconstraint_kind::LE;
-                return false;
-            }
-            if (!has_lo(v) || lo_val(v) < r) {
-                k = lp::lconstraint_kind::GE;
-                return false;
-            }
-        }
-        find_split(v, r, k, bound_ci);
-        return false;
+        if (!constraint_is_false(inf) && !constraint_is_false(sup))
+            return lp::null_ci;
+        if (!constraint_is_false(inf))
+            return sup;
+        if (!constraint_is_false(sup))
+            return inf;
+        return c().random(2) == 0 ? sup : inf;
     }        
 
     void stellensatz::find_split(lpvar & v, rational & r, lp::lconstraint_kind & k, lp::constraint_index ci) {
         unsigned n = 0;
         for (auto w : m_constraints[ci].p.free_vars()) {
+            TRACE(arith, tout << "v" << w << " is-fixed " << is_fixed(w) << "\n");
             if (is_fixed(w))
                 continue;
             if (c().random(++n) == 0) {
                 r = m_values[w];
+                SASSERT(in_bounds(w));
                 if (has_lo(w) && !lo_is_strict(w) && r == lo_val(w))
                     k = lp::lconstraint_kind::LE;
                 else if (has_hi(w) && !hi_is_strict(w) && r == hi_val(w))
@@ -1904,11 +1920,17 @@ namespace nla {
                     r = (lo_val(w) + hi_val(w)) / 2;
                     k = lp::lconstraint_kind::GE;
                 }
-                else if (has_hi(w) && (r < hi_val(w) || (hi_is_strict(w) && r == hi_val(w))))
+                else if (!has_lo(w)) {
                     k = lp::lconstraint_kind::GE;
-                else
+                    //r = floor(r);
+                }
+                else if (!has_hi(w)) {
                     k = lp::lconstraint_kind::LE;
-                v = w;
+                    //r = ceil(r);
+                }
+                else
+                    k = c().random(2) == 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;                
+                v = w;           
             }
         }
         TRACE(arith, tout << "find split v" << v << " " << k << " " << r << "\n");
@@ -1929,7 +1951,6 @@ namespace nla {
     }
 
     bool stellensatz::in_bounds(lpvar v, rational const& value) const {
-        TRACE(arith, display_var(tout, v) << " in-bounds " << value << "\n");
         if (has_lo(v)) {
             if (value < lo_val(v))
                 return false;
@@ -1954,9 +1975,7 @@ namespace nla {
     // 
     stellensatz::repair_var_info stellensatz::find_bounds(lpvar v) {
         repair_var_info result;
-        rational lo, hi;
-        lp::constraint_index inf = lp::null_ci, sup = lp::null_ci;
-        auto &[bound_ci, van] = result;        
+        auto &[inf, sup, van, lo, hi] = result;        
         for (auto ci : m_occurs[v]) {
             // consider only constraints where v is maximal
             auto const &p = m_constraints[ci].p;
@@ -1966,10 +1985,12 @@ namespace nla {
                 continue;
             }
             // CTRACE(arith, !constraint_is_false(ci), display_constraint(tout, ci) << "\n");
-            if (!constraint_is_false(ci))
+            if (false && !constraint_is_false(ci))
+                continue;
+            if (p.degree() > m_config.max_degree)
                 continue;
             auto f = factor(v, ci);
-            auto q_ge_0 = vanishing(v, f, ci);
+                auto q_ge_0 = vanishing(v, f, ci);
             if (q_ge_0 != lp::null_ci) {
                 if (m_processed.contains(ci))
                     continue;
@@ -1982,6 +2003,7 @@ namespace nla {
                       display_constraint(tout << " to ", q_ge_0) << "\n";);
                 continue;
             }
+            
             if (f.degree > 1)
                 continue;
             TRACE(arith_verbose, display_constraint(tout << "process maximal ", ci) << "\n");
@@ -1991,7 +2013,8 @@ namespace nla {
             SASSERT(p_value != 0);
             auto quot = -q_value / p_value;
             if (p_value < 0) {
-                TRACE(arith, tout << "sup " << quot << "\n");
+                if (var_is_int(v))
+                    quot = floor(quot);
                 // p*x + q >= 0  =>  x <= -q / p if p < 0
                 if (sup == lp::null_ci || hi > quot) {
                     hi = quot;
@@ -2002,7 +2025,8 @@ namespace nla {
                 }
             }
             else {
-                TRACE(arith, tout << "inf " << quot << "\n");
+                if (var_is_int(v))
+                    quot = ceil(quot);
                 // p*x + q >= 0  =>  x >= -q / p if p > 0
                 if (inf == lp::null_ci || lo < quot) {
                     lo = quot;
@@ -2012,17 +2036,7 @@ namespace nla {
                     inf = ci;
                 }
             }
-        }
-        //TRACE(arith, tout << lo << " <= v" << v << " <= " << hi << "\n"; 
-        //    display_constraint(tout, inf) << "\n";
-        //      display_constraint(tout, sup) << "\n");
-                         
-        if (inf == lp::null_ci)
-            bound_ci = sup;
-        else if (sup == lp::null_ci)
-            bound_ci = inf;
-        else
-            bound_ci = c().random(2) ? inf : sup;        
+        }       
         return result;
     }
 

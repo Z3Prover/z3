@@ -228,7 +228,7 @@ namespace nla {
         void interval(dd::pdd p, scoped_dep_interval &iv);
 
         void set_conflict(lp::constraint_index ci, u_dependency *d) {
-            SASSERT(d);
+            SASSERT(d || ci != lp::null_ci);
             m_conflict = ci;
             m_conflict_dep = d;
         }
@@ -237,7 +237,7 @@ namespace nla {
             m_conflict = resolve_variable(v, lo_constraint(v), hi_constraint(v));
         }
         void reset_conflict() { m_conflict = lp::null_ci; m_conflict_dep = nullptr; }
-        bool is_conflict() const { return m_conflict_dep != nullptr; }
+        bool is_conflict() const { return m_conflict_dep != nullptr || m_conflict != lp::null_ci; }
 
         u_dependency *constraint2dep(lp::constraint_index ci) { return m_dm.mk_leaf(2 * ci); }
         u_dependency *bound2dep(unsigned bound_index) { return m_dm.mk_leaf(2 * bound_index + 1); }
@@ -299,11 +299,12 @@ namespace nla {
         
        
         struct repair_var_info {
-            lp::constraint_index ci = lp::null_ci, vanishing = lp::null_ci;
+            lp::constraint_index inf = lp::null_ci, sup = lp::null_ci, vanishing = lp::null_ci;
+            rational lo, hi;
         };
         repair_var_info find_bounds(lpvar v);
         unsigned max_level(constraint const &c) const;
-        bool repair_variable(lpvar& v, rational &r, lp::lconstraint_kind& k, lp::constraint_index& ci);
+        lp::constraint_index repair_variable(lpvar v);
         void find_split(lpvar& v, rational& r, lp::lconstraint_kind& k, lp::constraint_index ci);
         void set_in_bounds(lpvar v);
         bool in_bounds(lpvar v) { return in_bounds(v, m_values[v]); }                              
