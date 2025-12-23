@@ -56,40 +56,6 @@
 #include <util/vector.h>
 
 namespace nla {
-
-    lp::lconstraint_kind join(lp::lconstraint_kind k1, lp::lconstraint_kind k2) {
-        if (k1 == k2)
-            return k1;
-        if (k1 == lp::lconstraint_kind::EQ)
-            return k2;
-        if (k2 == lp::lconstraint_kind::EQ)
-            return k1;
-        if ((k1 == lp::lconstraint_kind::LE && k2 == lp::lconstraint_kind::LT) ||
-            (k1 == lp::lconstraint_kind::LT && k2 == lp::lconstraint_kind::LE))
-            return lp::lconstraint_kind::LT;
-        if ((k1 == lp::lconstraint_kind::GE && k2 == lp::lconstraint_kind::GT) ||
-            (k1 == lp::lconstraint_kind::GT && k2 == lp::lconstraint_kind::GE))
-            return lp::lconstraint_kind::GT;
-        UNREACHABLE();
-        return k1;
-    }
-
-    lp::lconstraint_kind meet(lp::lconstraint_kind k1, lp::lconstraint_kind k2) {
-        if (k1 == k2)
-            return k1;
-        if (k1 == lp::lconstraint_kind::EQ)
-            return k1;
-        if (k2 == lp::lconstraint_kind::EQ)
-            return k2;
-        if ((k1 == lp::lconstraint_kind::LE && k2 == lp::lconstraint_kind::LT) ||
-            (k1 == lp::lconstraint_kind::LT && k2 == lp::lconstraint_kind::LE))
-            return lp::lconstraint_kind::LE;
-        if ((k1 == lp::lconstraint_kind::GE && k2 == lp::lconstraint_kind::GT) ||
-            (k1 == lp::lconstraint_kind::GT && k2 == lp::lconstraint_kind::GE))
-            return lp::lconstraint_kind::GE;
-        UNREACHABLE();
-        return k1;
-    }
     
     lpvar stellensatz::monomial_factory::mk_monomial(lp::lar_solver &lra, svector<lpvar> const &vars) {
         lpvar v = lp::null_lpvar;
@@ -184,7 +150,7 @@ namespace nla {
         while (!m_bounds.empty())
             pop_bound();
         m_ctrail.reset();
-        m_vtrail.reset();
+        m_num_scopes = 0;
         m_monomial_factory.reset();
         m_coi.init();
         m_values.reset();
@@ -227,7 +193,7 @@ namespace nla {
         m_upper.reset();
         m_lower.reserve(num_vars(), UINT_MAX);
         m_upper.reserve(num_vars(), UINT_MAX);
-        unsigned level = m_vtrail.get_num_scopes();
+        unsigned level = m_num_scopes;
         for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {
             auto [p, k, j] = m_constraints[ci];
             if (!p.is_unilinear())
@@ -479,6 +445,17 @@ namespace nla {
         c().lra_solver().settings().stats().m_nla_stellensatz++;
     }
 
+    //
+    // for px + q >= 0 
+    // If M(p) = 0, then 
+    // derive the constraint q >= 0 using the inference
+    // 
+    //  px + q >= 0    p = 0
+    //  --------------------
+    //        q >= 0
+    // 
+    // The equality p = 0 is tracked as an assumption.
+    // 
     lp::constraint_index stellensatz::vanishing(lpvar x, factorization const &f, lp::constraint_index ci) { 
         if (f.p.is_zero())
             return lp::null_ci;
@@ -954,6 +931,9 @@ namespace nla {
         return lo_is_strict(v) || hi_is_strict(v);
     }
 
+    // 
+    // Based on current bounds for variables, compute bounds of polynomial
+    // 
     void stellensatz::interval(dd::pdd p, scoped_dep_interval& iv) {
         auto &m = iv.m();
         if (p.is_val()) {
@@ -990,6 +970,10 @@ namespace nla {
         m.add<dep_intervals::with_deps>(lo, hi, iv);          
     }
 
+    //
+    // Main search loop.
+    // Resolve conflicts, propagate and case split on bounds.
+    // 
     lbool stellensatz::search() { 
         init_search();   
         lbool is_sat = l_undef;
@@ -1008,7 +992,7 @@ namespace nla {
 
     void stellensatz::init_search() {
         m_prop_qhead = 0;
-        m_processed.reset();
+        m_visited_conflicts.reset();
         m_level2var.reset();
         m_var2level.reset();
         for (unsigned v = 0; v < m_values.size(); ++v)
@@ -1019,7 +1003,6 @@ namespace nla {
         m_var2level.resize(m_values.size(), m_level2var.size());
         for (unsigned i = 0; i < m_level2var.size(); ++i)
             m_var2level[m_level2var[i]] = i;
-        // move up (or down?) variables that live in unsat constraints under monomials
         for (auto const &c : m_constraints)
             if (constraint_is_false(c))
                 for (auto v : c.p.free_vars())
@@ -1027,7 +1010,11 @@ namespace nla {
     }
 
 
+    // 
+    // Conflict resolution is similar to CDCL
     // walk m_bounds based on the propagated bounds
+    // flip the last decision and backjump to the UIP.
+    //     
     lbool stellensatz::resolve_conflict() { 
         TRACE(arith, 
               tout << "resolving conflict: "; display_constraint(tout, m_conflict) << "\n"; display(tout););
@@ -1117,7 +1104,7 @@ namespace nla {
         m_bounds.push_back(bound_info(v, k, value, propagation_level, last_bound, dep, m_conflict));
         // set the value within bounds if the bounds are consistent.
         set_in_bounds(v);
-        TRACE(arith, tout << "scopes " << m_vtrail.get_num_scopes() << "\n";
+        TRACE(arith, tout << "scopes " << m_num_scopes << "\n";
               display_bound(tout << "backjump ", m_bounds.size() - 1) << "\n");
         SASSERT(well_formed_last_bound());
         reset_conflict();
@@ -1138,7 +1125,7 @@ namespace nla {
         (is_upper ? m_upper[v] : m_lower[v]) = last_bound;
         if (is_decision) {            
             m_dm.pop_scope(1);
-            m_vtrail.pop_scope(1);
+            --m_num_scopes;
         }
         m_bounds.pop_back();
     }
@@ -1182,15 +1169,14 @@ namespace nla {
                     auto [bounds, cs] = antecedents(d);
                     for (auto a : bounds)
                         level = std::max(level, m_bounds[a].m_level);
-                    SASSERT(level <= m_vtrail.get_num_scopes());
+                    SASSERT(level <= m_num_scopes);
                     bool is_upper = k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::LT;
                     bool is_strict = k == lp::lconstraint_kind::LT || k == lp::lconstraint_kind::GT;
                     auto last_bound = is_upper ? m_upper[w] : m_lower[w];
 
                     // block repeated bounds propagation within same level
-                    if (in_bounds(w, value) && last_bound != UINT_MAX && m_bounds[last_bound].m_level == level) {
-                        continue;
-                    }
+                    if (in_bounds(w, value) && last_bound != UINT_MAX && m_bounds[last_bound].m_level == level)
+                        continue;                    
 
                     (is_upper ? m_upper[w] : m_lower[w]) = m_bounds.size();
                     d = m_dm.mk_join(constraint2dep(ci), d);
@@ -1212,83 +1198,19 @@ namespace nla {
         }
     }
    
-
     //
-    // detect cyclic propagation on the same variable within the same level.
-    // if so, then resolve explanations for propagations to check if there is a conflict.
-    // example (a) x - y - 1 >= 0, (b) -x + y > = 0
-    // x >= 1, then y >= 1, by b
-    // y >= 1, then x >= 2, by a
-    // x >= 2, then y >= 2, by b..
-    // by resolving a, b we get -1 >= 0, conflict.
+    // Attempt to repair variables in some order
+    // If hitting a variable that cannot be repaired, create a decision based on the value conflict.
+    // Attempts to repair a variable can result in a new conflict obtained from vanishing polynomials
+    // or conflicting bounds. The conflicts are assumed to contain variables of lower levels and
+    // repair of those constraints are re-attempted.
+    // If a variable is in a false constraint that cannot be repaired, pick a non-fixed
+    // variable from the constraint and tighten its bound.
     // 
-    //
-    bool stellensatz::cyclic_bound_propagation(bool is_upper, lpvar v) {
-        unsigned bound_index = is_upper ? m_upper[v] : m_lower[v];
-        auto const &b = m_bounds[bound_index];
-        unsigned last_index = b.m_last_bound;
-        if (last_index == UINT_MAX)
-            return false;
-        auto const &last_b = m_bounds[last_index];
-        if (last_b.m_level != b.m_level)
-            return false;
-        SASSERT(last_b.m_level == b.m_level); 
-        auto ci = b.m_constraint_justification; 
-        svector<std::pair<lp::constraint_index, lpvar>> cycle;        
-        m_cyclic_visited.reset();
-        m_cycle.reset();       
-        if (!find_cycle(m_cycle, bound_index, bound_index))
-            return false;
-        m_cycle.push_back({ci, v});
-        TRACE(arith, 
-              tout << "cyclic propagation detected for v" << v << " cycle:\n";
-              for (auto [ci, w] : m_cycle) {
-                  display_constraint(tout, ci) << " on v" << w << "\n"; }); 
-        for (auto [ci2, w] : m_cycle) {
-            if (ci == lp::null_ci)
-                return false;
-            auto ci1 = ci;
-            ci = resolve_variable(w, ci1, ci2);
-            v = w;
-            TRACE(arith, tout << "resolving v" << w << ":\n";
-                  display_constraint(tout, ci1) << "\n";
-                  display_constraint(tout, ci2) << "\n"; 
-                  display_constraint(tout << "gives\n", ci) << "\n";);
-            if (constraint_is_false(ci))
-                init_occurs(ci);
-        }
-        TRACE(arith, display_constraint(tout, ci) << " is-false: " << constraint_is_false(ci) << "\n");
-        return constraint_is_false(ci);
-    }
-
-    bool stellensatz::find_cycle(svector<std::pair<lp::constraint_index, lpvar>>& cycle, unsigned bound_index, unsigned top_index) {
-        auto &b = m_bounds[bound_index];
-        unsigned level = b.m_level;
-        auto [bounds, cs] = antecedents(b.m_bound_justifications);
-        for (auto d : bounds) {           
-            auto const &bd = m_bounds[d];
-            SASSERT(bd.m_level <= level);
-            if (bd.m_level != level)
-                continue;
-            if (bd.m_constraint_justification == m_bounds[top_index].m_constraint_justification)
-                return true;
-            if (m_cyclic_visited.contains(d))
-                continue;
-            m_cyclic_visited.insert(d);
-            cycle.push_back({bd.m_constraint_justification, bd.m_var});
-            if (find_cycle(cycle, d, top_index))
-                return true;
-            cycle.pop_back();
-        }
-        return false;
-    }
-
     bool stellensatz::decide() {
         rational value;
         lp::lconstraint_kind k;       
-        // first attempt to repair variables in some order
-        // then if hitting a variable that cannot be repaired, create a decision based on the value conflict.
-        // resume from some level?
+
         for (unsigned level = 0; level < m_level2var.size(); ++level) {
             auto w = m_level2var[level];
             lp::constraint_index conflict = repair_variable(w);
@@ -1314,12 +1236,12 @@ namespace nla {
             bool is_upper = k == lp::lconstraint_kind::LE;
             SASSERT(!is_upper || !has_lo(w) || lo_val(w) <= value);
             SASSERT( is_upper || !has_hi(w) || hi_val(w) >= value);
-            m_vtrail.push_scope();
+            ++m_num_scopes;
             m_dm.push_scope();
             auto last_bound = is_upper ? m_upper[w] : m_lower[w];
             (is_upper ? m_upper[w] : m_lower[w]) = m_bounds.size();
             auto bdep = bound2dep(m_bounds.size());
-            m_bounds.push_back(bound_info(w, k, value, m_vtrail.get_num_scopes(), last_bound, bdep));
+            m_bounds.push_back(bound_info(w, k, value, m_num_scopes, last_bound, bdep));
             m_values[w] = value;
             TRACE(arith, tout << "decide v" << w << " " << k << " " << value << "\n");
             SASSERT(well_formed_var(w));
@@ -1337,6 +1259,11 @@ namespace nla {
         return level;
     }
 
+    //
+    // Compute intervals for polynomials p, q, in constraint px + q >= 0
+    // Determine bounds on x implied by intervals on p, q.
+    // If a tighter bound is computed for x, produce the bound propagation.
+    // 
     bool stellensatz::constraint_is_propagating(lp::constraint_index ci, u_dependency*& d, lpvar& v, rational& value, lp::lconstraint_kind& k) {
         auto [p, ck, j] = m_constraints[ci];
         for (auto x : p.free_vars()) {
@@ -1497,233 +1424,6 @@ namespace nla {
         return {bounds, cs};
     }
 
-    std::ostream &stellensatz::display_bound(std::ostream &out, unsigned i) const { 
-        unsigned lvl = 0;
-        return display_bound(out, i, lvl);
-    }
-
-    std::ostream& stellensatz::display_bound(std::ostream& out, unsigned i, unsigned& level) const { 
-        auto const &[v, k, val, level1, last_bound, is_decision, dep, ci] = m_bounds[i];
-        out << i;
-        if (level1 != level) {
-            level = level1;
-            out << "@ " << level; 
-        }
-        auto [bounds, cdeps] = antecedents(dep);
-        auto deps = antecedents(dep);
-        out << ": v" << v << " " << k << " " << val << " " << ((last_bound == UINT_MAX) ? -1 : (int)last_bound)
-            << (is_decision ? " d " : " ");
-        if (!bounds.empty())
-            out << "bounds: " << bounds;
-        if (!cdeps.empty())
-            out << "ci: " << cdeps;
-        if (ci != lp::null_ci)
-            out << " (" << ci << ")";   
-        out << "\n";
-        return out;
-    }
-
-    std::ostream& stellensatz::display(std::ostream& out) const {
-
-        unsigned level = UINT_MAX;
-        for (unsigned i = 0; i < m_bounds.size(); ++i) 
-            display_bound(out, i, level);
-        
-        for (unsigned v = 0; v < num_vars(); ++v) {
-            out << "v" << v << " " << m_values[v] << " ";
-            if (has_lo(v)) {
-                if (lo_is_strict(v))
-                    out << "(";
-                else
-                    out << "[";
-                out << lo_val(v);
-            }
-            else
-                out << "(-oo";
-            out << ", ";
-            if (has_hi(v)) {
-                out << hi_val(v);
-                if (hi_is_strict(v))
-                    out << ")";
-                else
-                    out << "]";
-            }
-            else
-                out << "+oo)";
-            if (has_lo(v))
-                out << " " << m_lower[v];
-            if (has_hi(v))
-                out << " " << m_upper[v];
-
-            out << "\n";
-        }
-        for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {      
-            display_constraint(out, ci) << "\n";
-            display(out << "\t<- ", m_constraints[ci].j) << "\n";
-        }
-        return out;
-    }
-
-    std::ostream& stellensatz::display_product(std::ostream& out, svector<lpvar> const& vars) const {
-        bool first = true;
-        for (auto v : vars) {
-            if (first)
-                first = false;
-            else
-                out << " * ";
-            out << "j" << v;
-        }
-        return out;
-    }
-
-    std::ostream& stellensatz::display(std::ostream& out, term_offset const& t) const {
-        bool first = true;
-        for (auto [v, coeff] : t.first) {
-            c().display_coeff(out, first, coeff);
-            first = false;
-            out << pp_j(*this, v);
-        }
-        if (t.second != 0)
-            out << " + " << t.second;
-        return out;
-    }
-
-    std::ostream& stellensatz::display_var(std::ostream& out, lpvar j) const {
-        if (c().is_monic_var(j)) 
-            return display_product(out, c().emon(j).vars());        
-        else 
-            return out << "j" << j;
-    }
-
-    std::ostream& stellensatz::display_constraint(std::ostream& out, lp::constraint_index ci) const {
-        if (ci == lp::null_ci)
-            return out << "(null) ";
-        bool is_true = constraint_is_true(ci);
-        auto const& [p, k, j] = m_constraints[ci];
-        return display_constraint(out << "(" << ci << ") ", m_constraints[ci])
-               << (is_true ? " [true] " : " [false] ") << "(" << value(p) << " " << k << " 0)";
-    }
-
-    std::ostream& stellensatz::display_constraint(std::ostream& out, constraint const &c) const {
-        auto const &[p, k, j] = c;
-        p.display(out);
-        return out << " " << k << " 0";
-    }
-
-    std::ostream &stellensatz::display(std::ostream &out, justification const &j) const {
-        if (std::holds_alternative<external_justification>(j)) {
-            auto dep = std::get<external_justification>(j).dep;
-            unsigned_vector cs;
-            c().lra_solver().dep_manager().linearize(dep, cs);
-            for (auto c : cs)
-                out << "[o " << c << "] ";  // constraint index from c().lra_solver.
-        }
-        else if (std::holds_alternative<addition_justification>(j)) {
-            auto m = std::get<addition_justification>(j);
-            out << "(" << m.left << ") + (" << m.right << ")";
-        }
-        else if (std::holds_alternative<eq_justification>(j)) {
-            auto &m = std::get<eq_justification>(j);
-            out << "(" << m.left << ") & (" << m.right << ")";
-        } 
-        else if (std::holds_alternative<substitute_justification>(j)) {
-            auto m = std::get<substitute_justification>(j);
-            out << "(" << m.ci << ") (" << m.ci_eq << ") by j" << m.v << " := " << m.p;
-        }
-        else if (std::holds_alternative<propagation_justification>(j)) {
-            auto &m = std::get<propagation_justification>(j);
-            out << "propagate ";
-            for (auto c : m.cs)
-                out << "(" << c << ") ";
-        }
-        else if (std::holds_alternative<multiplication_justification>(j)) {
-            auto m = std::get<multiplication_justification>(j);
-            out << "(" << m.left << ") * (" << m.right << ")";
-        }
-        else if (std::holds_alternative<multiplication_poly_justification>(j)) {
-            auto m = std::get<multiplication_poly_justification>(j);
-            out << m.p << " * (" << m.ci << ")";
-        }
-        else if (std::holds_alternative<division_justification>(j)) {
-            auto m = std::get<division_justification>(j);
-            out << "(" << m.ci << ") / (" << m.divisor << ")";
-        } 
-        else if (std::holds_alternative<assumption_justification>(j)) {
-            out << "assumption";
-        }
-        else if (std::holds_alternative<gcd_justification>(j)) {
-            auto m = std::get<gcd_justification>(j);
-            out << " gcd (" << m.ci << ")";
-        }
-        else
-            UNREACHABLE();
-        return out;
-    }
-
-    std::ostream &stellensatz::display_lemma(std::ostream &out, lp::explanation const &ex) {
-        m_constraints_in_conflict.reset();
-        svector<lp::constraint_index> todo;
-        for (auto c : ex) 
-            todo.push_back(c.ci());
-        for (unsigned i = 0; i < todo.size(); ++i) {
-            auto ci = todo[i];
-            if (m_constraints_in_conflict.contains(ci))
-                continue;
-            m_constraints_in_conflict.insert(ci);
-            out << "(" << ci << ") ";
-            display_constraint(out, ci) << " ";
-            auto const& j = m_constraints[ci].j;
-
-            display(out, j) << "\n";
-            if (std::holds_alternative<multiplication_justification>(j)) {
-                auto m = std::get<multiplication_justification>(j);
-                todo.push_back(m.left);
-                todo.push_back(m.right);
-            }
-            if (std::holds_alternative<eq_justification>(j)) {
-                auto m = std::get<eq_justification>(j);
-                todo.push_back(m.left);
-                todo.push_back(m.right);
-            }
-            if (std::holds_alternative<propagation_justification>(j)) {
-                auto m = std::get<propagation_justification>(j);
-                todo.append(m.cs);
-            }
-            else if (std::holds_alternative<substitute_justification>(j)) {
-                auto m = std::get<substitute_justification>(j);
-                todo.push_back(m.ci);
-                todo.push_back(m.ci_eq);
-            }
-            else if (std::holds_alternative<division_justification>(j)) {
-                auto m = std::get<division_justification>(j);
-                todo.push_back(m.ci);
-                todo.push_back(m.divisor);
-            }
-            else if (std::holds_alternative<addition_justification>(j)) {
-                auto m = std::get<addition_justification>(j);
-                todo.push_back(m.left);
-                todo.push_back(m.right);
-            }
-            else if (std::holds_alternative<multiplication_poly_justification>(j)) {
-                auto m = std::get<multiplication_poly_justification>(j);
-                todo.push_back(m.ci);
-            }
-            else if (std::holds_alternative<external_justification>(j)) {
-                // do nothing
-            }
-            else if (std::holds_alternative<assumption_justification>(j)) {                                
-                // do nothing
-            }
-            else if (std::holds_alternative<gcd_justification>(j)) {
-                auto m = std::get<gcd_justification>(j);
-                todo.push_back(m.ci);
-            }
-            else 
-                NOT_IMPLEMENTED_YET();
-
-        }
-        return out;
-    }
 
     void stellensatz::updt_params(params_ref const& p) {
         smt_params_helper sp(p);
@@ -1891,8 +1591,10 @@ namespace nla {
                   display_constraint(tout, inf) << "\n"; display_constraint(tout, sup) << "\n";);
             auto res = resolve_variable(v, inf, sup);
             TRACE(arith, display_constraint(tout << "resolve ", res) << " " << constraint_is_false(res) << "\n");
-            if (constraint_is_false(res))
+            if (constraint_is_false(res) && !m_visited_conflicts.contains(res)) {
+                m_visited_conflicts.insert(res);
                 return res;
+            }
         }
         if (!constraint_is_false(inf) && !constraint_is_false(sup))
             return lp::null_ci;
@@ -1920,14 +1622,10 @@ namespace nla {
                     r = (lo_val(w) + hi_val(w)) / 2;
                     k = lp::lconstraint_kind::GE;
                 }
-                else if (!has_lo(w)) {
-                    k = lp::lconstraint_kind::GE;
-                    //r = floor(r);
-                }
-                else if (!has_hi(w)) {
-                    k = lp::lconstraint_kind::LE;
-                    //r = ceil(r);
-                }
+                else if (!has_lo(w)) 
+                    k = lp::lconstraint_kind::GE;                
+                else if (!has_hi(w)) 
+                    k = lp::lconstraint_kind::LE;                                  
                 else
                     k = c().random(2) == 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;                
                 v = w;           
@@ -1967,35 +1665,34 @@ namespace nla {
     }
 
     //
-    // lo <= lo_val, hi_val <= hi:
-    // -> m_values is unchanged
-    // 
-    // hi_val < lo or lo_val > hi:
-    // -> 
+    // Enumerate polynomial inequalities p*v + q >= 0
+    // where variables in p, q are at levels below v.
+    // If M(p) = 0 and M(q) < 0, return q >= 0 and assume p = 0
+    // Otherwise, return greatest lower and least upper bounds for v based on polynomial inequalities.
     // 
     stellensatz::repair_var_info stellensatz::find_bounds(lpvar v) {
         repair_var_info result;
         auto &[inf, sup, van, lo, hi] = result;        
         for (auto ci : m_occurs[v]) {
-            // consider only constraints where v is maximal
+            //
+            // consider only constraints where v is maximal 
+            // and where the degree of constraints is bounded
+            // for lower and upper bounds only constraints where v 
+            // occurs pseudo-linearly are considered
+            //
             auto const &p = m_constraints[ci].p;
             auto const &vars = p.free_vars();
-            if (any_of(vars, [&](unsigned j) { return p.degree(j) == 1 && m_var2level[j] > m_var2level[v]; })) {
-                // TRACE(arith, display_constraint(tout << "skip non-maximal ", ci) << "\n");
-                continue;
-            }
-            // CTRACE(arith, !constraint_is_false(ci), display_constraint(tout, ci) << "\n");
-            if (false && !constraint_is_false(ci))
-                continue;
+            if (any_of(vars, [&](unsigned j) { return p.degree(j) == 1 && m_var2level[j] > m_var2level[v]; })) 
+                continue;            
             if (p.degree() > m_config.max_degree)
                 continue;
             auto f = factor(v, ci);
-                auto q_ge_0 = vanishing(v, f, ci);
+            auto q_ge_0 = vanishing(v, f, ci);
             if (q_ge_0 != lp::null_ci) {
-                if (m_processed.contains(ci))
+                if (m_visited_conflicts.contains(ci))
                     continue;
                 if (!constraint_is_true(q_ge_0)) {
-                    m_processed.insert(ci);
+                    m_visited_conflicts.insert(ci);
                     van = q_ge_0;
                     return result;
                 }
@@ -2050,5 +1747,231 @@ namespace nla {
         m_var2level[w] = l;
         m_level2var[l0] = v;
         m_level2var[l] = w;
+    }
+    
+    std::ostream &stellensatz::display_bound(std::ostream &out, unsigned i) const {
+        unsigned lvl = 0;
+        return display_bound(out, i, lvl);
+    }
+
+    std::ostream &stellensatz::display_bound(std::ostream &out, unsigned i, unsigned &level) const {
+        auto const &[v, k, val, level1, last_bound, is_decision, dep, ci] = m_bounds[i];
+        out << i;
+        if (level1 != level) {
+            level = level1;
+            out << "@ " << level;
+        }
+        auto [bounds, cdeps] = antecedents(dep);
+        auto deps = antecedents(dep);
+        out << ": v" << v << " " << k << " " << val << " " << ((last_bound == UINT_MAX) ? -1 : (int)last_bound)
+            << (is_decision ? " d " : " ");
+        if (!bounds.empty())
+            out << "bounds: " << bounds;
+        if (!cdeps.empty())
+            out << "ci: " << cdeps;
+        if (ci != lp::null_ci)
+            out << " (" << ci << ")";
+        out << "\n";
+        return out;
+    }
+
+    std::ostream &stellensatz::display(std::ostream &out) const {
+        unsigned level = UINT_MAX;
+        for (unsigned i = 0; i < m_bounds.size(); ++i)
+            display_bound(out, i, level);
+
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            out << "v" << v << " " << m_values[v] << " ";
+            if (has_lo(v)) {
+                if (lo_is_strict(v))
+                    out << "(";
+                else
+                    out << "[";
+                out << lo_val(v);
+            }
+            else
+                out << "(-oo";
+            out << ", ";
+            if (has_hi(v)) {
+                out << hi_val(v);
+                if (hi_is_strict(v))
+                    out << ")";
+                else
+                    out << "]";
+            }
+            else
+                out << "+oo)";
+            if (has_lo(v))
+                out << " " << m_lower[v];
+            if (has_hi(v))
+                out << " " << m_upper[v];
+
+            out << "\n";
+        }
+        for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {
+            display_constraint(out, ci) << "\n";
+            display(out << "\t<- ", m_constraints[ci].j) << "\n";
+        }
+        return out;
+    }
+
+    std::ostream &stellensatz::display_product(std::ostream &out, svector<lpvar> const &vars) const {
+        bool first = true;
+        for (auto v : vars) {
+            if (first)
+                first = false;
+            else
+                out << " * ";
+            out << "j" << v;
+        }
+        return out;
+    }
+
+    std::ostream &stellensatz::display(std::ostream &out, term_offset const &t) const {
+        bool first = true;
+        for (auto [v, coeff] : t.first) {
+            c().display_coeff(out, first, coeff);
+            first = false;
+            out << pp_j(*this, v);
+        }
+        if (t.second != 0)
+            out << " + " << t.second;
+        return out;
+    }
+
+    std::ostream &stellensatz::display_var(std::ostream &out, lpvar j) const {
+        if (c().is_monic_var(j))
+            return display_product(out, c().emon(j).vars());
+        else
+            return out << "j" << j;
+    }
+
+    std::ostream &stellensatz::display_constraint(std::ostream &out, lp::constraint_index ci) const {
+        if (ci == lp::null_ci)
+            return out << "(null) ";
+        bool is_true = constraint_is_true(ci);
+        auto const &[p, k, j] = m_constraints[ci];
+        return display_constraint(out << "(" << ci << ") ", m_constraints[ci])
+               << (is_true ? " [true] " : " [false] ") << "(" << value(p) << " " << k << " 0)";
+    }
+
+    std::ostream &stellensatz::display_constraint(std::ostream &out, constraint const &c) const {
+        auto const &[p, k, j] = c;
+        p.display(out);
+        return out << " " << k << " 0";
+    }
+
+    std::ostream &stellensatz::display(std::ostream &out, justification const &j) const {
+        if (std::holds_alternative<external_justification>(j)) {
+            auto dep = std::get<external_justification>(j).dep;
+            unsigned_vector cs;
+            c().lra_solver().dep_manager().linearize(dep, cs);
+            for (auto c : cs)
+                out << "[o " << c << "] ";  // constraint index from c().lra_solver.
+        }
+        else if (std::holds_alternative<addition_justification>(j)) {
+            auto m = std::get<addition_justification>(j);
+            out << "(" << m.left << ") + (" << m.right << ")";
+        }
+        else if (std::holds_alternative<eq_justification>(j)) {
+            auto &m = std::get<eq_justification>(j);
+            out << "(" << m.left << ") & (" << m.right << ")";
+        }
+        else if (std::holds_alternative<substitute_justification>(j)) {
+            auto m = std::get<substitute_justification>(j);
+            out << "(" << m.ci << ") (" << m.ci_eq << ") by j" << m.v << " := " << m.p;
+        }
+        else if (std::holds_alternative<propagation_justification>(j)) {
+            auto &m = std::get<propagation_justification>(j);
+            out << "propagate ";
+            for (auto c : m.cs)
+                out << "(" << c << ") ";
+        }
+        else if (std::holds_alternative<multiplication_justification>(j)) {
+            auto m = std::get<multiplication_justification>(j);
+            out << "(" << m.left << ") * (" << m.right << ")";
+        }
+        else if (std::holds_alternative<multiplication_poly_justification>(j)) {
+            auto m = std::get<multiplication_poly_justification>(j);
+            out << m.p << " * (" << m.ci << ")";
+        }
+        else if (std::holds_alternative<division_justification>(j)) {
+            auto m = std::get<division_justification>(j);
+            out << "(" << m.ci << ") / (" << m.divisor << ")";
+        }
+        else if (std::holds_alternative<assumption_justification>(j)) {
+            out << "assumption";
+        }
+        else if (std::holds_alternative<gcd_justification>(j)) {
+            auto m = std::get<gcd_justification>(j);
+            out << " gcd (" << m.ci << ")";
+        }
+        else
+            UNREACHABLE();
+        return out;
+    }
+
+    std::ostream &stellensatz::display_lemma(std::ostream &out, lp::explanation const &ex) {
+        m_constraints_in_conflict.reset();
+        svector<lp::constraint_index> todo;
+        for (auto c : ex)
+            todo.push_back(c.ci());
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            auto ci = todo[i];
+            if (m_constraints_in_conflict.contains(ci))
+                continue;
+            m_constraints_in_conflict.insert(ci);
+            out << "(" << ci << ") ";
+            display_constraint(out, ci) << " ";
+            auto const &j = m_constraints[ci].j;
+
+            display(out, j) << "\n";
+            if (std::holds_alternative<multiplication_justification>(j)) {
+                auto m = std::get<multiplication_justification>(j);
+                todo.push_back(m.left);
+                todo.push_back(m.right);
+            }
+            if (std::holds_alternative<eq_justification>(j)) {
+                auto m = std::get<eq_justification>(j);
+                todo.push_back(m.left);
+                todo.push_back(m.right);
+            }
+            if (std::holds_alternative<propagation_justification>(j)) {
+                auto m = std::get<propagation_justification>(j);
+                todo.append(m.cs);
+            }
+            else if (std::holds_alternative<substitute_justification>(j)) {
+                auto m = std::get<substitute_justification>(j);
+                todo.push_back(m.ci);
+                todo.push_back(m.ci_eq);
+            }
+            else if (std::holds_alternative<division_justification>(j)) {
+                auto m = std::get<division_justification>(j);
+                todo.push_back(m.ci);
+                todo.push_back(m.divisor);
+            }
+            else if (std::holds_alternative<addition_justification>(j)) {
+                auto m = std::get<addition_justification>(j);
+                todo.push_back(m.left);
+                todo.push_back(m.right);
+            }
+            else if (std::holds_alternative<multiplication_poly_justification>(j)) {
+                auto m = std::get<multiplication_poly_justification>(j);
+                todo.push_back(m.ci);
+            }
+            else if (std::holds_alternative<external_justification>(j)) {
+                // do nothing
+            }
+            else if (std::holds_alternative<assumption_justification>(j)) {
+                // do nothing
+            }
+            else if (std::holds_alternative<gcd_justification>(j)) {
+                auto m = std::get<gcd_justification>(j);
+                todo.push_back(m.ci);
+            }
+            else
+                NOT_IMPLEMENTED_YET();
+        }
+        return out;
     }
 }

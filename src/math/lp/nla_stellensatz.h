@@ -172,7 +172,8 @@ namespace nla {
             bool     m_is_upper;           
         };
 
-        trail_stack m_ctrail, m_vtrail; // constraint and variable trail
+        trail_stack m_ctrail; // constraint and variable trail
+        unsigned    m_num_scopes = 0;
         coi m_coi;
         dd::pdd_manager pddm;
         config m_config;
@@ -219,10 +220,6 @@ namespace nla {
         void pop_bound();
         void mark_dependencies(u_dependency *d);
         bool should_propagate() const { return m_prop_qhead < m_bounds.size(); }
-        bool cyclic_bound_propagation(bool is_upper, lpvar v);
-        indexed_uint_set m_cyclic_visited;
-        svector<std::pair<lp::constraint_index, lpvar>> m_cycle;
-        bool find_cycle(svector<std::pair<lp::constraint_index, lpvar>> &cycle, unsigned bound_index, unsigned top_index);
 
         // assuming variables have bounds determine if polynomial has lower/upper bounds
         void interval(dd::pdd p, scoped_dep_interval &iv);
@@ -251,7 +248,7 @@ namespace nla {
             return id / 2; 
         }
 
-        indexed_uint_set m_processed;
+        indexed_uint_set m_visited_conflicts;
         unsigned_vector m_var2level, m_level2var;
         bool has_lo(lpvar v) const { 
             return m_lower[v] != UINT_MAX; 
