@@ -165,19 +165,61 @@ namespace search_tree {
             close(n->right());
         }
 
+        // Bubble to the highest ancestor where ALL literals in the resolvent
+        // are present somewhere on the path from that ancestor to root
+        node<Config>* find_highest_attach(node<Config>* p, vector<literal> const& resolvent) {
+            node<Config>* candidate = p;
+            node<Config>* attach_here = p;
+
+            while (candidate) {
+                bool all_found = true;
+
+                for (auto const& r : resolvent) {
+                    bool found = false;
+                    for (node<Config>* q = candidate; q; q = q->parent()) {
+                        if (q->get_literal() == r) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        all_found = false;
+                        break;
+                    }
+                }
+
+                if (all_found) {
+                    attach_here = candidate;  // bubble up to this node
+                }
+
+                candidate = candidate->parent();
+            }
+
+            return attach_here;
+        }
+
         // Invariants:
         // Cores labeling nodes are subsets of the literals on the path to the node and the (external) assumption
         // literals. If a parent is open, then the one of the children is open.
         void close_with_core(node<Config> *n, vector<literal> const &C) {
             if (!n || n->get_status() == status::closed)
                 return;
+
+            // If the node is closed AND has an identical core, we are done. Otherwise, closed nodes may still accept a 
+            // different (stronger) core to enable pruning/resolution higher in the tree.
+            if (n->get_status() == status::closed && n->get_core() == C)
+                return;
+
             node<Config> *p = n->parent();
+
+            close(n->left());
+            close(n->right());
+
             if (p && all_of(C, [n](auto const &l) { return l != n->get_literal(); })) {
                 close_with_core(p, C);
                 return;
             }
-            close(n->left());
-            close(n->right());
+            
             n->set_core(C);
             n->set_status(status::closed);
 
@@ -193,7 +235,13 @@ namespace search_tree {
                 return;
 
             auto resolvent = compute_sibling_resolvent(left, right);
-            close_with_core(p, resolvent);
+            if (resolvent.empty()) { // empty resolvent => global UNSAT
+                close_with_core(m_root.get(), resolvent);
+                return;
+            }
+
+            auto attach = find_highest_attach(p, resolvent);
+            close_with_core(attach, resolvent);
         }
 
         // Given complementary sibling nodes for literals x and ¬x, sibling resolvent = (core_left ∪ core_right) \ {x,
