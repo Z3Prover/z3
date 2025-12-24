@@ -157,12 +157,13 @@ namespace search_tree {
             return nullptr;
         }
 
-        void close(node<Config> *n) {
+        void close(node<Config> *n, vector<literal> const &C) {
             if (!n || n->get_status() == status::closed)
                 return;
             n->set_status(status::closed);
-            close(n->left());
-            close(n->right());
+            n->set_core(C);
+            close(n->left(), C);
+            close(n->right(), C);
         }
 
         // Bubble to the highest ancestor where ALL literals in the resolvent
@@ -205,9 +206,15 @@ namespace search_tree {
             if (!n || n->get_status() == status::closed)
                 return;
 
-            // If the node is closed AND has an identical core, we are done. Otherwise, closed nodes may still accept a 
-            // different (stronger) core to enable pruning/resolution higher in the tree.
-            if (n->get_status() == status::closed && n->get_core() == C)
+            // If the node is closed AND has a stronger or equal core, we are done. 
+            // Otherwise, closed nodes may still accept a different (stronger) core to enable pruning/resolution higher in the tree.
+            auto subseteq = [](vector<literal> const& A, vector<literal> const& B) {
+                for (auto const& a : A)
+                    if (!B.contains(a))
+                        return false;
+                return true;
+            };
+            if (n->get_status() == status::closed && subseteq(n->get_core(), C))
                 return;
 
             node<Config> *p = n->parent();
@@ -215,8 +222,8 @@ namespace search_tree {
                 close_with_core(p, C);
                 return;
             }
-            close(n->left());
-            close(n->right());
+            close(n->left(), C);
+            close(n->right(), C);
             n->set_core(C);
             n->set_status(status::closed);
 
