@@ -211,15 +211,12 @@ namespace search_tree {
                 return;
 
             node<Config> *p = n->parent();
-
-            close(n->left());
-            close(n->right());
-
             if (p && all_of(C, [n](auto const &l) { return l != n->get_literal(); })) {
                 close_with_core(p, C);
                 return;
             }
-            
+            close(n->left());
+            close(n->right());
             n->set_core(C);
             n->set_status(status::closed);
 
