@@ -157,15 +157,6 @@ namespace search_tree {
             return nullptr;
         }
 
-        void close(node<Config> *n, vector<literal> const &C) {
-            if (!n || n->get_status() == status::closed)
-                return;
-            n->set_status(status::closed);
-            n->set_core(C);
-            close(n->left(), C);
-            close(n->right(), C);
-        }
-
         // Bubble to the highest ancestor where ALL literals in the resolvent
         // are present somewhere on the path from that ancestor to root
         node<Config>* find_highest_attach(node<Config>* p, vector<literal> const& resolvent) {
@@ -202,8 +193,8 @@ namespace search_tree {
         // Invariants:
         // Cores labeling nodes are subsets of the literals on the path to the node and the (external) assumption
         // literals. If a parent is open, then the one of the children is open.
-        void close_with_core(node<Config> *n, vector<literal> const &C) {
-            if (!n || n->get_status() == status::closed)
+        void close_with_core(node<Config> *n, vector<literal> const &C, bool allow_resolve = true) {
+            if (!n)
                 return;
 
             // If the node is closed AND has a stronger or equal core, we are done. 
@@ -218,14 +209,23 @@ namespace search_tree {
                 return;
 
             node<Config> *p = n->parent();
+
+            // The conflict does NOT depend on the decision literal at node n, so n’s split literal is irrelevant to this conflict
+            // thus the entire subtree under n is closed regardless of the split, so the conflict should be attached higher, at the nearest ancestor that does participate
             if (p && all_of(C, [n](auto const &l) { return l != n->get_literal(); })) {
                 close_with_core(p, C);
                 return;
             }
-            close(n->left(), C);
-            close(n->right(), C);
+            
             n->set_core(C);
             n->set_status(status::closed);
+            
+            // Close descendants WITHOUT resolving
+            close_with_core(n->left(), C, false);
+            close_with_core(n->right(), C, false);
+
+            if (!allow_resolve)
+                return;
 
             if (!p)
                 return;
@@ -234,18 +234,18 @@ namespace search_tree {
             if (!left || !right)
                 return;
 
-            // only attempt when both children are closed and each has a core
-            if (left->get_status() != status::closed || right->get_status() != status::closed)
-                return;
+            // only attempt when both children are closed and each has a *non-empty* core
+            if (left->get_status() != status::closed || right->get_status() != status::closed) return;
+            if (left->get_core().empty() || right->get_core().empty()) return;
 
             auto resolvent = compute_sibling_resolvent(left, right);
             if (resolvent.empty()) { // empty resolvent => global UNSAT
-                close_with_core(m_root.get(), resolvent);
+                close_with_core(m_root.get(), resolvent, false);
                 return;
             }
 
             auto attach = find_highest_attach(p, resolvent);
-            close_with_core(attach, resolvent);
+            close_with_core(attach, resolvent, false);
         }
 
         // Given complementary sibling nodes for literals x and ¬x, sibling resolvent = (core_left ∪ core_right) \ {x,
