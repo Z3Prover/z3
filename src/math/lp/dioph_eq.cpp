@@ -988,7 +988,6 @@ namespace lp {
             if (belongs_to_s(ei)) {
                 remove_from_S(ei);
             }
-            SASSERT(entry_invariant(ei));
         }
 
         void find_changed_terms_and_more_changed_rows() {
@@ -1099,6 +1098,7 @@ namespace lp {
             m_changed_f_columns.reset();
             m_changed_rows.reset();
             m_changed_terms.reset();
+            SASSERT(entries_are_ok());
         }
 
         int get_sign_in_e_row(unsigned ei, unsigned j) const {
