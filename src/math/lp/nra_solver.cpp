@@ -64,9 +64,9 @@ struct solver::imp {
         rational den(1);
         if (m_nla_core.emons().is_monic_var(v)) {
             auto const &m = m_nla_core.emons()[v];
-            for (auto v2 : m.vars()) {
-                den = denominators[v2] * den;
-                polynomial_ref pw(definitions.get(v2), m_nlsat->pm());
+            for (auto w : m.vars()) {
+                den = denominators[w] * den;
+                polynomial_ref pw(definitions.get(w), m_nlsat->pm());
                 if (!p)
                     p = pw;
                 else
@@ -74,11 +74,10 @@ struct solver::imp {
             }
         }
         else if (lra.column_has_term(v)) {
+            for (auto const &[w, coeff] : lra.get_term(v)) 
+                den = lcm(denominator(coeff / denominators[w]), den);            
             for (auto const &[w, coeff] : lra.get_term(v)) {
-                den = lcm(denominators[w], lcm(denominator(coeff), den));
-            }
-            for (auto const &[w, coeff] : lra.get_term(v)) {
-                auto coeff1 = den * coeff;
+                auto coeff1 = den * coeff / denominators[w];
                 polynomial_ref pw(definitions.get(w), m_nlsat->pm());
                 if (!p)
                     p = constant(coeff1) * pw;
@@ -118,8 +117,19 @@ struct solver::imp {
             auto rhs = c.rhs();
             auto lhs = c.coeffs();
             rational den = denominator(rhs);
+            //
+            // let v := p / denominators[v]
+            //           
+            // sum(coeff[v] * v) k rhs
+            // ==
+            // sum(coeff[v] * (p / denominators[v])) k rhs
+            // ==
+            // sum((coeff[v] / denominators[v]) * p) k rhs
+            //
+
+
             for (auto [coeff, v] : lhs)
-                den = lcm(lcm(den, denominator(coeff)), denominators[v]);
+                den = lcm(den, denominator(coeff / denominators[v]));
             polynomial::polynomial_ref p(pm);
             p = pm.mk_const(-den * rhs);
 
@@ -130,6 +140,8 @@ struct solver::imp {
                 p = p + poly;
             }
             add_constraint(p, ci, k);
+            TRACE(nra, tout << "constraint " << ci << ": " << p << " " << k << " 0\n";
+            lra.constraints().display(tout, ci) << "\n");
         }
         definitions.reset();
     }
@@ -182,7 +194,7 @@ struct solver::imp {
         
         smt_params_helper p(m_params);
 
-	setup_solver_poly();
+	    setup_solver_poly();
 
         TRACE(nra, m_nlsat->display(tout));
 
