@@ -14,7 +14,7 @@ Abstract:
     - Closed nodes are fully explored (both children are closed).
     - Active nodes have no children and are currently being explored.
     - Open nodes either have children that are open or are leaves.
-
+    
     A node can be split if it is active. After splitting, it becomes open and has two open children.
 
     Backtracking on a conflict closes all nodes below the last node whose atom is in the conflict set.
@@ -35,33 +35,26 @@ namespace search_tree {
 
     enum class status { open, closed, active };
 
-    template <typename Config> class node {
+    template<typename Config>
+    class node {
         typedef typename Config::literal literal;
         literal m_literal;
-        node *m_left = nullptr, *m_right = nullptr, *m_parent = nullptr;
+        node* m_left = nullptr, * m_right = nullptr, * m_parent = nullptr;
         status m_status;
         vector<literal> m_core;
-
     public:
-        node(literal const &l, node *parent) : m_literal(l), m_parent(parent), m_status(status::open) {}
+        node(literal const& l, node* parent) :
+            m_literal(l), m_parent(parent), m_status(status::open) {}
         ~node() {
             dealloc(m_left);
             dealloc(m_right);
         }
 
-        status get_status() const {
-            return m_status;
-        }
-        void set_status(status s) {
-            m_status = s;
-        }
-        literal const &get_literal() const {
-            return m_literal;
-        }
-        bool literal_is_null() const {
-            return Config::is_null(m_literal);
-        }
-        void split(literal const &a, literal const &b) {
+        status get_status() const { return m_status; }
+        void set_status(status s) { m_status = s; }
+        literal const& get_literal() const { return m_literal; }
+        bool literal_is_null() const { return Config::is_null(m_literal); }
+        void split(literal const& a, literal const& b) {
             SASSERT(!Config::literal_is_null(a));
             SASSERT(!Config::literal_is_null(b));
             if (m_status != status::active)
@@ -86,12 +79,12 @@ namespace search_tree {
             return d;
         }
 
-        node *find_active_node() {
+        node* find_active_node() {
             if (m_status == status::active)
                 return this;
             if (m_status != status::open)
                 return nullptr;
-            node *nodes[2] = {m_left, m_right};
+            node* nodes[2] = { m_left, m_right };
             for (unsigned i = 0; i < 2; ++i) {
                 auto res = nodes[i] ? nodes[i]->find_active_node() : nullptr;
                 if (res)
@@ -102,7 +95,7 @@ namespace search_tree {
             return nullptr;
         }
 
-        void display(std::ostream &out, unsigned indent) const {
+        void display(std::ostream& out, unsigned indent) const {
             for (unsigned i = 0; i < indent; ++i)
                 out << " ";
             Config::display_literal(out, m_literal);
@@ -114,18 +107,16 @@ namespace search_tree {
                 m_right->display(out, indent + 2);
         }
 
-        void set_core(vector<literal> const &core) {
+        bool has_core() const { return !m_core.empty(); }
+        void set_core(vector<literal> const &core) { 
             m_core = core;
         }
-        vector<literal> const &get_core() const {
-            return m_core;
-        }
-        void clear_core() {
-            m_core.clear();
-        }
+        vector<literal> const & get_core() const { return m_core; }
+        void clear_core() { m_core.clear(); }
     };
 
-    template <typename Config> class tree {
+    template<typename Config>
+    class tree {
         typedef typename Config::literal literal;
         scoped_ptr<node<Config>> m_root = nullptr;
         literal m_null_literal;
@@ -133,7 +124,7 @@ namespace search_tree {
 
         // return an active node in the subtree rooted at n, or nullptr if there is none
         // close nodes that are fully explored (whose children are all closed)
-        node<Config> *activate_from_root(node<Config> *n) {
+        node<Config>* activate_from_root(node<Config>* n) {
             if (!n)
                 return nullptr;
             if (n->get_status() != status::open)
@@ -144,7 +135,7 @@ namespace search_tree {
                 n->set_status(status::active);
                 return n;
             }
-            node<Config> *nodes[2] = {left, right};
+            node<Config>* nodes[2] = { left, right };
             unsigned index = m_rand(2);
             auto child = activate_from_root(nodes[index]);
             if (child)
@@ -152,141 +143,146 @@ namespace search_tree {
             child = activate_from_root(nodes[1 - index]);
             if (child)
                 return child;
-            if (left && right && left->get_status() == status::closed && right->get_status() == status::closed)
-                n->set_status(status::closed);
+            if (left && right && left->get_status() == status::closed && right->get_status() == status::closed) 
+                n->set_status(status::closed);            
             return nullptr;
         }
 
-        // Bubble to the highest ancestor where ALL literals in the resolvent
-        // are present somewhere on the path from that ancestor to root
-        node<Config>* find_highest_attach(node<Config>* p, vector<literal> const& resolvent) {
-            node<Config>* candidate = p;
-            node<Config>* attach_here = p;
+      // Invariants: 
+      // Cores labeling nodes are subsets of the literals on the path to the node and the (external) assumption literals.
+      // If a parent is open, then the one of the children is open.
+      void close_with_core(node<Config>* n, vector<literal> const &C, bool allow_resolve = true) {
+          if (!n || n->get_status() == status::closed)
+              return;
 
-            while (candidate) {
-                bool all_found = true;
+          n->set_core(C);
+          n->set_status(status::closed);
 
-                for (auto const& r : resolvent) {
-                    bool found = false;
-                    for (node<Config>* q = candidate; q; q = q->parent()) {
-                        if (q->get_literal() == r) {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) {
-                        all_found = false;
-                        break;
-                    }
-                }
+          close_with_core(n->left(), C, false);
+          close_with_core(n->right(), C, false);
 
-                if (all_found) {
-                    attach_here = candidate;  // bubble up to this node
-                }
+          // stop at root
+          if (!n->parent()) return;
 
-                candidate = candidate->parent();
-            }
+          node<Config>* p = n->parent();
+          if (!p) return; // root reached
 
-            return attach_here;
-        }
+          auto is_literal_in_core = [](literal const& l, vector<literal> const& C) {
+              for (unsigned i = 0; i < C.size(); ++i)
+                  if (C[i] == l) return true;
+              return false;
+          };
 
-        // Invariants:
-        // Cores labeling nodes are subsets of the literals on the path to the node and the (external) assumption
-        // literals. If a parent is open, then the one of the children is open.
-        void close_with_core(node<Config> *n, vector<literal> const &C, bool allow_resolve = true) {
-            if (!n)
-                return;
+          // case 1: current splitting literal not in the conflict core
+          if (!is_literal_in_core(n->get_literal(), C)) {
+              close_with_core(p, C);
+          // case 2: both siblings closed -> resolve
+          } else if (allow_resolve && p->left()->get_status() == status::closed && p->right()->get_status() == status::closed) {
+              try_resolve_upwards(p);
+          }
+      }
 
-            // If the node is closed AND has a stronger or equal core, we are done. 
-            // Otherwise, closed nodes may still accept a different (stronger) core to enable pruning/resolution higher in the tree.
-            auto subseteq = [](vector<literal> const& A, vector<literal> const& B) {
-                for (auto const& a : A)
-                    if (!B.contains(a))
-                        return false;
-                return true;
-            };
-            // if (n->get_status() == status::closed && subseteq(n->get_core(), C))
-            //     return;
+      // Given complementary sibling nodes for literals x and ¬x, sibling resolvent = (core_left ∪ core_right) \ {x, ¬x}
+        vector<literal> compute_sibling_resolvent(node<Config>* left, node<Config>* right) {
+          vector<literal> res;
 
-            auto is_strictly_stronger = [&](vector<literal> const& new_core,
-                               vector<literal> const& old_core) {
-                // new_core ⊂ old_core
-                return subseteq(new_core, old_core)
-                    && !subseteq(old_core, new_core);
-            };
+          if (!left->has_core() || !right->has_core()) return res;
 
-            if (n->get_status() == status::closed) {
-                // allow replacing core ONLY at this node
-                if (is_strictly_stronger( n->get_core(), C ))
-                    n->set_core(C);
-                return;
-            }
+          bool are_sibling_complements = left->parent() == right->parent();
+          if (!are_sibling_complements)
+              return res;
 
-            node<Config> *p = n->parent();
+          auto &core_l = left->get_core();
+          auto &core_r = right->get_core();
 
-            // The conflict does NOT depend on the decision literal at node n, so n’s split literal is irrelevant to this conflict
-            // thus the entire subtree under n is closed regardless of the split, so the conflict should be attached higher, at the nearest ancestor that does participate
-            if (p && all_of(C, [n](auto const &l) { return l != n->get_literal(); })) {
-                close_with_core(p, C);
-                return;
-            }
-            
-            n->set_core(C);
-            n->set_status(status::closed);
-            
-            // Close descendants WITHOUT resolving
-            close_with_core(n->left(), C, false);
-            close_with_core(n->right(), C, false);
+          auto contains = [](vector<literal> const &v, literal const &l) {
+              for (unsigned i = 0; i < v.size(); ++i)
+                  if (v[i] == l) return true;
+              return false;
+          };
 
-            if (!allow_resolve)
-                return;
+          auto lit_l = left->get_literal();
+          auto lit_r = right->get_literal();
 
-            if (!p)
-                return;
-            auto left = p->left();
-            auto right = p->right();
-            if (!left || !right)
-                return;
+          // Add literals from left core, skipping lit_l
+          for (unsigned i = 0; i < core_l.size(); ++i) {
+              if (core_l[i] != lit_l && !contains(res, core_l[i]))
+                  res.push_back(core_l[i]);
+          }
 
-            // only attempt when both children are closed and each has a *non-empty* core
-            if (left->get_status() != status::closed || right->get_status() != status::closed) return;
-            if (left->get_core().empty() || right->get_core().empty()) return;
+          // Add literals from right core, skipping lit_r
+          for (unsigned i = 0; i < core_r.size(); ++i) {
+              if (core_r[i] != lit_r && !contains(res, core_r[i]))
+                  res.push_back(core_r[i]);
+          }
 
-            auto resolvent = compute_sibling_resolvent(left, right);
-            if (resolvent.empty()) { // empty resolvent => global UNSAT
-                close_with_core(m_root.get(), resolvent, false);
-                return;
-            }
+          return res;
+      }
+      
+      void try_resolve_upwards(node<Config>* p) {
+          while (p) {
+              auto left = p->left();
+              auto right = p->right();
+              if (!left || !right) return;
 
-            auto attach = find_highest_attach(p, resolvent);
-            close_with_core(attach, resolvent, false);
-        }
+              // only attempt when both children are closed and each has a core
+              if (left->get_status() != status::closed || right->get_status() != status::closed) return;
+              if (!left->has_core() || !right->has_core()) return;
 
-        // Given complementary sibling nodes for literals x and ¬x, sibling resolvent = (core_left ∪ core_right) \ {x,
-        // ¬x}
-        vector<literal> compute_sibling_resolvent(node<Config> *left, node<Config> *right) {
-            vector<literal> res;
+              auto resolvent = compute_sibling_resolvent(left, right);
 
-            auto &core_l = left->get_core();
-            auto &core_r = right->get_core();
+              // empty resolvent of sibling complement (i.e. tautology) -> global UNSAT
+              if (resolvent.empty()) {
+                  close_with_core(m_root.get(), resolvent, false);
+                  return;
+              }
 
-            if (core_l.empty() || core_r.empty() || left->parent() != right->parent())
-                return res;
+              // if p already has the same core, nothing more to do
+              if (p->has_core() && resolvent == p->get_core())
+                  return;
 
-            auto lit_l = left->get_literal();
-            auto lit_r = right->get_literal();
+              // Bubble to the highest ancestor where ALL literals in the resolvent
+              // are present somewhere on the path from that ancestor to root
+              node<Config>* candidate = p;
+              node<Config>* attach_here = p; // fallback
 
-            for (auto const &lit : core_l)
-                if (lit != lit_l && !res.contains(lit))
-                    res.push_back(lit);
-            for (auto const &lit : core_r)
-                if (lit != lit_r && !res.contains(lit))
-                    res.push_back(lit);
-            return res;
-        }
+              while (candidate) {
+                  bool all_found = true;
+
+                  for (auto const& r : resolvent) {
+                      bool found = false;
+                      for (node<Config>* q = candidate; q; q = q->parent()) {
+                          if (q->get_literal() == r) {
+                              found = true;
+                              break;
+                          }
+                      }
+                      if (!found) {
+                          all_found = false;
+                          break;
+                      }
+                  }
+
+                  if (all_found) {
+                      attach_here = candidate;  // bubble up to this node
+                  }
+
+                  candidate = candidate->parent();
+              }
+
+              // attach the resolvent and close the subtree at attach_here
+              if (!attach_here->has_core() || attach_here->get_core() != resolvent) {
+                  close_with_core(attach_here, resolvent, false);
+              }
+
+              // continue upward from parent of attach_here
+              p = attach_here->parent();
+          }
+      }
 
     public:
-        tree(literal const &null_literal) : m_null_literal(null_literal) {
+
+        tree(literal const& null_literal) : m_null_literal(null_literal) {
             reset();
         }
 
@@ -301,34 +297,36 @@ namespace search_tree {
 
         // Split current node if it is active.
         // After the call, n is open and has two children.
-        void split(node<Config> *n, literal const &a, literal const &b) {
+        void split(node<Config>* n, literal const& a, literal const& b) {           
             n->split(a, b);
         }
 
         // conflict is given by a set of literals.
         // they are subsets of the literals on the path from root to n AND the external assumption literals
-        void backtrack(node<Config> *n, vector<literal> const &conflict) {
+        void backtrack(node<Config>* n, vector<literal> const& conflict) {
             if (conflict.empty()) {
                 close_with_core(m_root.get(), conflict);
+
                 return;
-            }
+            }           
             SASSERT(n != m_root.get());
             // all literals in conflict are on the path from root to n
             // remove assumptions from conflict to ensure this.
-            DEBUG_CODE(auto on_path =
-                           [&](literal const &a) {
-                               node<Config> *p = n;
-                               while (p) {
-                                   if (p->get_literal() == a)
-                                       return true;
-                                   p = p->parent();
-                               }
-                               return false;
-                           };
-                       SASSERT(all_of(conflict, [&](auto const &a) { return on_path(a); })););
+            DEBUG_CODE(
+                auto on_path = [&](literal const& a) {
+                    node<Config>* p = n;
+                    while (p) {
+                        if (p->get_literal() == a)
+                            return true;
+                        p = p->parent();
+                    }
+                    return false;
+                };
+                SASSERT(all_of(conflict, [&](auto const& a) { return on_path(a); }));
+            );
 
             while (n) {
-                if (any_of(conflict, [&](auto const &a) { return a == n->get_literal(); })) {
+                if (any_of(conflict, [&](auto const& a) { return a == n->get_literal(); })) {
                     // close the subtree under n (preserves core attached to n), and attempt to resolve upwards
                     close_with_core(n, conflict);
                     return;
@@ -340,9 +338,9 @@ namespace search_tree {
         }
 
         // return an active node in the tree, or nullptr if there is none
-        // first check if there is a node to activate under n,
+        // first check if there is a node to activate under n, 
         // if not, go up the tree and try to activate a sibling subtree
-        node<Config> *activate_node(node<Config> *n) {
+        node<Config>* activate_node(node<Config>* n) {
             if (!n) {
                 if (m_root->get_status() == status::active)
                     return m_root.get();
@@ -354,10 +352,10 @@ namespace search_tree {
 
             auto p = n->parent();
             while (p) {
-                if (p->left() && p->left()->get_status() == status::closed && p->right() &&
-                    p->right()->get_status() == status::closed) {
+                if (p->left() && p->left()->get_status() == status::closed &&
+                    p->right() && p->right()->get_status() == status::closed) {
                     p->set_status(status::closed);
-                    n = p;
+                    n = p;                    
                     p = n->parent();
                     continue;
                 }
@@ -371,18 +369,18 @@ namespace search_tree {
                     res = activate_from_root(p->left());
                     if (res)
                         return res;
-                }
+                }                   
                 n = p;
                 p = n->parent();
             }
             return nullptr;
         }
 
-        node<Config> *find_active_node() {
+        node<Config>* find_active_node() {
             return m_root->find_active_node();
         }
 
-        vector<literal> const &get_core_from_root() const {
+        vector<literal> const& get_core_from_root() const {
             return m_root->get_core();
         }
 
@@ -390,9 +388,10 @@ namespace search_tree {
             return m_root->get_status() == status::closed;
         }
 
-        std::ostream &display(std::ostream &out) const {
+        std::ostream& display(std::ostream& out) const {
             m_root->display(out, 0);
             return out;
         }
+
     };
-}  // namespace search_tree
+}
