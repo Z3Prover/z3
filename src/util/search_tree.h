@@ -205,8 +205,22 @@ namespace search_tree {
                         return false;
                 return true;
             };
-            if (n->get_status() == status::closed && subseteq(n->get_core(), C))
+            // if (n->get_status() == status::closed && subseteq(n->get_core(), C))
+            //     return;
+
+            auto is_strictly_stronger = [&](vector<literal> const& new_core,
+                               vector<literal> const& old_core) {
+                // new_core ⊂ old_core
+                return subseteq(new_core, old_core)
+                    && !subseteq(old_core, new_core);
+            };
+
+            if (n->get_status() == status::closed) {
+                // allow replacing core ONLY at this node
+                if (is_strictly_stronger( n->get_core(), C ))
+                    n->set_core(C);
                 return;
+            }
 
             node<Config> *p = n->parent();
 
