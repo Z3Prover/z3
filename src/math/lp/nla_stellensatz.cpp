@@ -1247,8 +1247,8 @@ namespace nla {
                 continue; 
             }
             if (is_fixed(w) && level > num_fixed) {
-                verbose_stream() << "fixed v" << w << " cannot be repaired " << level << "\n";
-                display_constraint(verbose_stream(), conflict) << "\n";
+                IF_VERBOSE(3, verbose_stream() << "fixed v" << w << " cannot be repaired " << level << "\n";
+                display_constraint(verbose_stream(), conflict) << "\n");
                 move_up(w);
                 ++num_fixed;
                 --level;
