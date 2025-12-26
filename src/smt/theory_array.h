@@ -90,6 +90,8 @@ namespace smt {
         
         virtual final_check_status assert_delayed_axioms();
         final_check_status mk_interface_eqs_at_final_check();
+        bool has_large_domain(app *array_term, rational& domain_size);
+        bool has_unitary_domain(app *array_term);
 
         static void display_ids(std::ostream & out, unsigned n, enode * const * v);
     public:
