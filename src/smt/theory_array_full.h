@@ -82,8 +82,7 @@ namespace smt {
         bool instantiate_default_lambda_def_axiom(enode* arr);
         bool instantiate_parent_stores_default(theory_var v);
 
-        bool has_large_domain(app* array_term);
-        bool has_unitary_domain(app* array_term);
+
         std::pair<app*,func_decl*> mk_epsilon(sort* s);
         enode_vector m_as_array;
         enode_vector m_lambdas;
