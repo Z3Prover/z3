@@ -323,6 +323,7 @@ namespace nla {
         void init_occurs();
         void init_occurs(lp::constraint_index ci);
         void init_bounds();
+        void reset_bounds();
         void pop_constraint();
         void remove_occurs(lp::constraint_index ci);
 
@@ -395,6 +396,7 @@ namespace nla {
         std::ostream &display_bound(std::ostream &out, unsigned bound_index) const;
         std::ostream &display(std::ostream &out, justification const &j) const;
         std::ostream &display_var(std::ostream &out, lpvar j) const;
+        std::ostream &display_var_range(std::ostream &out, lpvar j) const;
         std::ostream &display_lemma(std::ostream &out, lp::explanation const &ex);
         std::ostream &display(std::ostream &out, term_offset const &t) const;
 

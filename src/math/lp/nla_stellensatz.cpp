@@ -129,6 +129,7 @@ namespace nla {
                 if (rb == l_undef)
                     return rb;
                 m_solver.update_values(m_values);
+                init_bounds();
                 goto start_saturate;
             }
             ++c().lp_settings().stats().m_stellensatz.m_num_conflicts;
@@ -147,8 +148,7 @@ namespace nla {
     }
 
     void stellensatz::init_solver() {
-        while (!m_bounds.empty())
-            pop_bound();
+        reset_bounds();
         m_ctrail.reset();
         m_num_scopes = 0;
         m_monomial_factory.reset();
@@ -189,6 +189,7 @@ namespace nla {
     }
 
     void stellensatz::init_bounds() {
+        reset_bounds();
         m_lower.reset();
         m_upper.reset();
         m_lower.reserve(num_vars(), UINT_MAX);
@@ -228,6 +229,11 @@ namespace nla {
                 }
             }
         }
+    }
+
+    void stellensatz::reset_bounds() { 
+        while (!m_bounds.empty())
+            pop_bound();
     }
 
     // set the model based on m_values computed by the solver
@@ -368,7 +374,8 @@ namespace nla {
         // check that other_p is disjoint from tabu
         // compute overlaps extending x
         //
-        SASSERT(p_value1 != 0);
+        if (p_value1 == 0 || p_value2 == 0) 
+            return lp::null_ci;
         if (p_value1 > 0 && p_value2 > 0)
             return lp::null_ci;
         if (p_value1 < 0 && p_value2 < 0)
@@ -552,6 +559,7 @@ namespace nla {
     // find a new satisfying assignment (if any) before continuing.
     // 
     bool stellensatz::backtrack(svector<lp::constraint_index> const &core) {
+        reset_bounds();
         m_constraints_in_conflict.reset();
         svector<lp::constraint_index> external, assumptions;
         for (auto ci : core)
@@ -1057,11 +1065,13 @@ namespace nla {
             if (m_conflict != lp::null_ci)
                 m_core.push_back(m_conflict);
             reset_conflict();
+            reset_bounds();
             return l_false;
         }
         if (constraint_is_conflict(m_conflict)) {
             m_core.push_back(m_conflict);
             reset_conflict();
+            reset_bounds();
             return l_false;
         }
 
@@ -1211,10 +1221,12 @@ namespace nla {
         rational value;
         lp::lconstraint_kind k;       
 
+        unsigned num_fixed = 0;
+        indexed_uint_set tabu;
         for (unsigned level = 0; level < m_level2var.size(); ++level) {
             auto w = m_level2var[level];
             lp::constraint_index conflict = repair_variable(w);
-            TRACE(arith, display_constraint(tout << "repair v" << w << ": ", conflict) << "\n");
+            TRACE(arith, display_constraint(tout << "repair v" << w << ": ", conflict) << " " << in_bounds(w) << "\n");
             if (conflict == lp::null_ci)
                 continue;
             SASSERT(constraint_is_false(conflict));
@@ -1222,12 +1234,25 @@ namespace nla {
                 set_conflict(conflict, nullptr);
                 return true;
             }
+            if (tabu.contains(conflict)) // already attempted to repair this constraint without success
+                continue;
+            tabu.insert(conflict);
+                
             auto p = m_constraints[conflict].p;
             SASSERT(!p.free_vars().empty());
             if (!p.free_vars().contains(w)) {
                 // backtrack decision to max variable in ci
                 level = max_level(m_constraints[conflict]) - 1;
+
                 continue; 
+            }
+            if (is_fixed(w) && level > num_fixed) {
+                verbose_stream() << "fixed v" << w << " cannot be repaired " << level << "\n";
+                display_constraint(verbose_stream(), conflict) << "\n";
+                move_up(w);
+                ++num_fixed;
+                --level;
+                continue;
             }
             find_split(w, value, k, conflict);
             if (is_fixed(w))
@@ -1244,6 +1269,8 @@ namespace nla {
             m_bounds.push_back(bound_info(w, k, value, m_num_scopes, last_bound, bdep));
             m_values[w] = value;
             TRACE(arith, tout << "decide v" << w << " " << k << " " << value << "\n");
+            IF_VERBOSE(3, verbose_stream() << "v" << w << " " << k << " " << value << "\n");
+            SASSERT(in_bounds(w));
             SASSERT(well_formed_var(w));
             SASSERT(well_formed_last_bound());
             return true;
@@ -1557,7 +1584,8 @@ namespace nla {
                     hi = hi - 1;
             }
             if (in_bounds(v, hi)) {
-                m_values[v] = hi;               
+                m_values[v] = hi;            
+                SASSERT(in_bounds(v));
                 return lp::null_ci;
             }
         }
@@ -1571,6 +1599,7 @@ namespace nla {
             }
             if (in_bounds(v, lo)) {
                 m_values[v] = lo;
+                SASSERT(in_bounds(v));
                 return lp::null_ci;
             }
         }
@@ -1580,10 +1609,16 @@ namespace nla {
             if (in_bounds(v, mid)) {
                 m_values[v] = mid;
                 TRACE(arith, tout << "repair v" << v << " := " << mid << "\n");
+                SASSERT(in_bounds(v));
                 SASSERT(!constraint_is_false(sup));
                 SASSERT(!constraint_is_false(inf));
                 return lp::null_ci;
             }
+            TRACE(arith, display_var_range(tout << "mid point is not in bounds v" << v << " mid: " << mid << " " << lo << " "
+                                          << hi << "\n",
+                                     v)
+                             << "\n");
+            return lp::null_ci;
         }
         else {
             TRACE(arith, tout << "cannot repair v" << v << " between " << lo << " and " << hi << " " << (lo > hi)
@@ -1591,7 +1626,7 @@ namespace nla {
                   display_constraint(tout, inf) << "\n"; display_constraint(tout, sup) << "\n";);
             auto res = resolve_variable(v, inf, sup);
             TRACE(arith, display_constraint(tout << "resolve ", res) << " " << constraint_is_false(res) << "\n");
-            if (constraint_is_false(res) && !m_visited_conflicts.contains(res)) {
+            if (constraint_is_false(res)) {
                 m_visited_conflicts.insert(res);
                 return res;
             }
@@ -1608,11 +1643,13 @@ namespace nla {
     void stellensatz::find_split(lpvar & v, rational & r, lp::lconstraint_kind & k, lp::constraint_index ci) {
         unsigned n = 0;
         for (auto w : m_constraints[ci].p.free_vars()) {
-            TRACE(arith, tout << "v" << w << " is-fixed " << is_fixed(w) << "\n");
+            TRACE(arith, display_var(tout << "v" << w << " is-fixed " << is_fixed(w) << "\n", w) << "\n");
             if (is_fixed(w))
                 continue;
             if (c().random(++n) == 0) {
                 r = m_values[w];
+                CTRACE(arith, !in_bounds(w), tout << "value not in bounds v" << w << " := " << r << "\n";
+                       display(tout););
                 SASSERT(in_bounds(w));
                 if (has_lo(w) && !lo_is_strict(w) && r == lo_val(w))
                     k = lp::lconstraint_kind::LE;
@@ -1646,6 +1683,7 @@ namespace nla {
             m_values[v] = (lo_val(v) + hi_val(v)) / 2;
         else
             m_values[v] = lo_val(v);
+        SASSERT(in_bounds(v));
     }
 
     bool stellensatz::in_bounds(lpvar v, rational const& value) const {
@@ -1780,38 +1818,41 @@ namespace nla {
         for (unsigned i = 0; i < m_bounds.size(); ++i)
             display_bound(out, i, level);
 
-        for (unsigned v = 0; v < num_vars(); ++v) {
-            out << "v" << v << " " << m_values[v] << " ";
-            if (has_lo(v)) {
-                if (lo_is_strict(v))
-                    out << "(";
-                else
-                    out << "[";
-                out << lo_val(v);
-            }
-            else
-                out << "(-oo";
-            out << ", ";
-            if (has_hi(v)) {
-                out << hi_val(v);
-                if (hi_is_strict(v))
-                    out << ")";
-                else
-                    out << "]";
-            }
-            else
-                out << "+oo)";
-            if (has_lo(v))
-                out << " " << m_lower[v];
-            if (has_hi(v))
-                out << " " << m_upper[v];
-
-            out << "\n";
-        }
+        for (unsigned v = 0; v < num_vars(); ++v) 
+            display_var_range(out, v) << "\n";
+        
         for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {
             display_constraint(out, ci) << "\n";
             display(out << "\t<- ", m_constraints[ci].j) << "\n";
         }
+        return out;
+    }
+
+    std::ostream &stellensatz::display_var_range(std::ostream &out, lpvar v) const {
+        out << "v" << v << " " << m_values[v] << " ";
+        if (has_lo(v)) {
+            if (lo_is_strict(v))
+                out << "(";
+            else
+                out << "[";
+            out << lo_val(v);
+        }
+        else
+            out << "(-oo";
+        out << ", ";
+        if (has_hi(v)) {
+            out << hi_val(v);
+            if (hi_is_strict(v))
+                out << ")";
+            else
+                out << "]";
+        }
+        else
+            out << "+oo)";
+        if (has_lo(v))
+            out << " " << m_lower[v];
+        if (has_hi(v))
+            out << " " << m_upper[v];
         return out;
     }
 
