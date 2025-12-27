@@ -169,4 +169,5 @@ bool maximize_bv_sharing::is_numeral(expr * n) const {
 maximize_bv_sharing::maximize_bv_sharing(ast_manager & m):
     maximize_ac_sharing(m),
     m_util(m) {
+    init();
 }
