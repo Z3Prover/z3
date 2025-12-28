@@ -435,8 +435,6 @@ namespace nla {
 
         init_occurs(new_ci);
 
-        CTRACE(arith, new_ci == m_constraints.size() - 1, display_constraint(tout << "not new ", new_ci) << "\n");
-        CTRACE(arith, new_ci != m_constraints.size() - 1, display_constraint(tout << "new ", new_ci) << "\n");
         return new_ci;
     }
 
@@ -1000,7 +998,6 @@ namespace nla {
 
     void stellensatz::init_search() {
         m_prop_qhead = 0;
-        m_visited_conflicts.reset();
         m_level2var.reset();
         m_var2level.reset();
         for (unsigned v = 0; v < m_values.size(); ++v)
@@ -1185,7 +1182,7 @@ namespace nla {
                     auto last_bound = is_upper ? m_upper[w] : m_lower[w];
 
                     // block repeated bounds propagation within same level
-                    if (in_bounds(w, value) && last_bound != UINT_MAX && m_bounds[last_bound].m_level == level)
+                    if (propagation_cycle(w, value, is_upper, level, ci)) 
                         continue;                    
 
                     (is_upper ? m_upper[w] : m_lower[w]) = m_bounds.size();
@@ -1207,6 +1204,19 @@ namespace nla {
             }
         }
     }
+
+    bool stellensatz::propagation_cycle(lpvar v, rational const &value, bool is_upper, unsigned level, lp::constraint_index ci) const {
+        if (!in_bounds(v, value))
+            return false;
+        auto last_bound = is_upper ? m_upper[v] : m_lower[v];
+        while (last_bound != UINT_MAX && m_bounds[last_bound].m_level == level) {
+            auto other_ci = m_bounds[last_bound].m_constraint_justification;
+            if (ci == other_ci)
+                return true;
+            last_bound = m_bounds[last_bound].m_last_bound;
+        }
+        return false;
+    }
    
     //
     // Attempt to repair variables in some order
@@ -1222,11 +1232,13 @@ namespace nla {
         lp::lconstraint_kind k;       
 
         unsigned num_fixed = 0;
-        indexed_uint_set tabu;
+        m_tabu.reset();
         for (unsigned level = 0; level < m_level2var.size(); ++level) {
             auto w = m_level2var[level];
             lp::constraint_index conflict = repair_variable(w);
-            TRACE(arith, display_constraint(tout << "repair v" << w << ": ", conflict) << " " << in_bounds(w) << "\n");
+            TRACE(arith, display_constraint(tout << "repair lvl:" << level << " v" << w << ": ", conflict) 
+                << " in bounds " << in_bounds(w) 
+                << " is tabu " << m_tabu.contains(conflict) << "\n");
             if (conflict == lp::null_ci)
                 continue;
             SASSERT(constraint_is_false(conflict));
@@ -1234,18 +1246,19 @@ namespace nla {
                 set_conflict(conflict, nullptr);
                 return true;
             }
-            if (tabu.contains(conflict)) // already attempted to repair this constraint without success
+            if (m_tabu.contains(conflict)) // already attempted to repair this constraint without success
                 continue;
-            tabu.insert(conflict);
                 
+            m_tabu.insert(conflict);
+
             auto p = m_constraints[conflict].p;
             SASSERT(!p.free_vars().empty());
             if (!p.free_vars().contains(w)) {
                 // backtrack decision to max variable in ci
                 level = max_level(m_constraints[conflict]) - 1;
-
                 continue; 
             }
+            
             if (is_fixed(w) && level > num_fixed) {
                 IF_VERBOSE(3, verbose_stream() << "fixed v" << w << " cannot be repaired " << level << "\n";
                 display_constraint(verbose_stream(), conflict) << "\n");
@@ -1568,6 +1581,8 @@ namespace nla {
         if (inf == lp::null_ci && sup == lp::null_ci)
             return inf;
 
+        if (!constraint_is_false(inf) && !constraint_is_false(sup))
+            return lp::null_ci;
 
         TRACE(arith, tout << "v" << v << " @ " << m_var2level[v] << "\n");
 
@@ -1614,9 +1629,13 @@ namespace nla {
                 SASSERT(!constraint_is_false(inf));
                 return lp::null_ci;
             }
-            TRACE(arith, display_var_range(tout << "mid point is not in bounds v" << v << " mid: " << mid << " " << lo << " "
-                                          << hi << "\n",
-                                     v)
+
+            auto res = resolve_variable(v, inf, sup);
+            if (constraint_is_false(res)) 
+                return res;            
+            TRACE(arith, display_var_range(tout << "mid point is not in bounds v" << v << " mid: " << mid << " " << lo
+                                                << " " << hi << "\n",
+                                           v)
                              << "\n");
             return lp::null_ci;
         }
@@ -1626,13 +1645,10 @@ namespace nla {
                   display_constraint(tout, inf) << "\n"; display_constraint(tout, sup) << "\n";);
             auto res = resolve_variable(v, inf, sup);
             TRACE(arith, display_constraint(tout << "resolve ", res) << " " << constraint_is_false(res) << "\n");
-            if (constraint_is_false(res)) {
-                m_visited_conflicts.insert(res);
-                return res;
-            }
+            if (constraint_is_false(res)) 
+                return res;            
         }
-        if (!constraint_is_false(inf) && !constraint_is_false(sup))
-            return lp::null_ci;
+
         if (!constraint_is_false(inf))
             return sup;
         if (!constraint_is_false(sup))
@@ -1713,24 +1729,22 @@ namespace nla {
         auto &[inf, sup, van, lo, hi] = result;        
         for (auto ci : m_occurs[v]) {
             //
-            // consider only constraints where v is maximal 
+            // consider only constraints where v is maximal
             // and where the degree of constraints is bounded
-            // for lower and upper bounds only constraints where v 
+            // for lower and upper bounds only constraints where v
             // occurs pseudo-linearly are considered
             //
             auto const &p = m_constraints[ci].p;
             auto const &vars = p.free_vars();
-            if (any_of(vars, [&](unsigned j) { return p.degree(j) == 1 && m_var2level[j] > m_var2level[v]; })) 
-                continue;            
+            if (any_of(vars, [&](unsigned j) { return p.degree(j) == 1 && m_var2level[j] > m_var2level[v]; }))
+                continue;
+        
             if (p.degree() > m_config.max_degree)
                 continue;
             auto f = factor(v, ci);
             auto q_ge_0 = vanishing(v, f, ci);
             if (q_ge_0 != lp::null_ci) {
-                if (m_visited_conflicts.contains(ci))
-                    continue;
                 if (!constraint_is_true(q_ge_0)) {
-                    m_visited_conflicts.insert(ci);
                     van = q_ge_0;
                     return result;
                 }
@@ -1741,7 +1755,6 @@ namespace nla {
             
             if (f.degree > 1)
                 continue;
-            TRACE(arith_verbose, display_constraint(tout << "process maximal ", ci) << "\n");
             auto p_value = value(f.p);
             auto q_value = value(f.q);
             SASSERT(f.degree == 1);

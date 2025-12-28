@@ -248,7 +248,7 @@ namespace nla {
             return id / 2; 
         }
 
-        indexed_uint_set m_visited_conflicts;
+        indexed_uint_set m_tabu;
         unsigned_vector m_var2level, m_level2var;
         bool has_lo(lpvar v) const { 
             return m_lower[v] != UINT_MAX; 
@@ -334,6 +334,7 @@ namespace nla {
         factorization factor(lpvar v, lp::constraint_index ci);  
         lp::constraint_index resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci);
 
+        bool propagation_cycle(lpvar v, rational const& value, bool is_upper, unsigned level, lp::constraint_index ci) const;
         bool constraint_is_true(lp::constraint_index ci) const;
         bool constraint_is_true(constraint const &c) const;
         bool constraint_is_false(lp::constraint_index ci) const;
