@@ -3233,7 +3233,9 @@ namespace smt {
             return true;
         if (!is_app(a))
             return false;
-        if (m.is_true(a) || m.is_false(a))
+        if (m.is_false(a))
+            return false;
+        if (m.is_true(a))
             return true;
         if (is_app(a) && to_app(a)->get_family_id() == m.get_basic_family_id())
             return false;
