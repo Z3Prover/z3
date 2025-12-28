@@ -128,9 +128,12 @@ namespace smt {
                 lbool r = probe_ctx->check(cube.size(), cube.data(), true);               
                 IF_VERBOSE(2, verbose_stream() << " PARAM TUNER " << i << ": cube replay result " << r << "\n");                
             }
-            unsigned conflicts = probe_ctx->m_stats.m_num_conflicts;
-            unsigned decisions = probe_ctx->m_stats.m_num_decisions;
-            double score = conflicts + decisions;
+            // unsigned conflicts = probe_ctx->m_stats.m_num_conflicts;
+            // unsigned decisions = probe_ctx->m_stats.m_num_decisions;
+            // double score = conflicts + decisions;
+            double score = probe_ctx->m_stats.m_num_conflicts
+                            - 0.5 * probe_ctx->m_stats.m_num_propagations
+                            - 2.0 * probe_ctx->m_stats.m_num_minimized_lits;
 
             if (i == 0) {
                 best_score = score;
