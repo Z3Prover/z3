@@ -131,9 +131,11 @@ namespace smt {
             // unsigned conflicts = probe_ctx->m_stats.m_num_conflicts;
             // unsigned decisions = probe_ctx->m_stats.m_num_decisions;
             // double score = conflicts + decisions;
-            double score = probe_ctx->m_stats.m_num_conflicts
-                            - 0.5 * probe_ctx->m_stats.m_num_propagations
-                            - 2.0 * probe_ctx->m_stats.m_num_minimized_lits;
+            auto &st = probe_ctx->m_stats;
+            double score =
+                st.m_num_conflicts
+            - 0.5 * st.m_num_propagations
+            - 2.0 * st.m_num_minimized_lits;
 
             if (i == 0) {
                 best_score = score;
@@ -379,8 +381,6 @@ namespace smt {
         SASSERT(p.ctx.get_fparams().m_threads == 1);
         ctx = alloc(context, m, p.ctx.get_fparams(), m_p);
         context::copy(p.ctx, *ctx, true);
-        // don't share initial units
-        ctx->pop_to_base_lvl();
         init_param_state();
         IF_VERBOSE(1, verbose_stream() << "Initialized parameter generator\n");
     }
