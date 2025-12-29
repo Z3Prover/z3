@@ -246,7 +246,7 @@ namespace smt {
         while (!m.limit().is_canceled()) {
             IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running protocol iteration\n");
             
-            ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
+            ctx->m_stats.reset();
             lbool r = run_prefix_step();
 
             if (m.limit().is_canceled())
@@ -254,6 +254,15 @@ namespace smt {
 
             switch (r) {
                 case l_undef: {
+                    if (p.ctx.m_setup.get_logic() == "QF_RDL") {
+                        auto &st = ctx->m_stats;
+                        if (st.m_num_propagations < 50 && m_max_prefix_conflicts < 600) {
+                            m_max_prefix_conflicts *= 2;
+                            IF_VERBOSE(1,
+                            verbose_stream() << " PARAM TUNER increasing RDL prefix conflicts to "
+                                            << m_max_prefix_conflicts << "\n");
+                        }
+}
                     replay_proof_prefixes();
                     break;
                 }
@@ -382,6 +391,9 @@ namespace smt {
         ctx = alloc(context, m, p.ctx.get_fparams(), m_p);
         context::copy(p.ctx, *ctx, true);
         init_param_state();
+        if (p.ctx.m_setup.get_logic() == "QF_RDL") {
+                m_max_prefix_conflicts = 300;
+            }
         IF_VERBOSE(1, verbose_stream() << "Initialized parameter generator\n");
     }
 
