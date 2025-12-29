@@ -23,7 +23,7 @@ Abstract:
 namespace smt {
 
     theory_finite_set_size::theory_finite_set_size(theory_finite_set& th): 
-        m(th.m), ctx(th.ctx), th(th), u(m), bs(m), m_assumption(m) {}
+        m(th.m), ctx(th.ctx), th(th), u(m), bs(m), m_assumption(m), m_slacks(m), m_pinned(m) {}
 
     void theory_finite_set_size::add_set_size(func_decl* f) {
         if (!m_set_size_decls.contains(f)) {
@@ -42,6 +42,10 @@ namespace smt {
                 s.n2b.reset();
                 s.m_assumptions.reset();
                 s.bs.reset();
+                s.m_slacks.reset();
+                s.m_slack_members.reset();
+                s.m_pinned.reset();
+                s.m_unique_values.reset();
             }
         };
         ctx.push_trail(clear_solver(*this));
@@ -310,6 +314,8 @@ namespace smt {
         for (auto [k, v] : m_assumptions)
             asms.push_back(k);
 
+        m_slacks.reset();
+        m_slack_members.reset();
         expr_ref_vector slack_exprs(m);
         obj_map<expr, expr *> slack_sums;
         arith_util a(m);
@@ -365,6 +371,7 @@ namespace smt {
             model_ref mdl;
             m_solver->get_model(mdl);
 
+
             expr_ref_vector props(m);
             for (auto f : m_set_size_decls) {
                 for (auto n : ctx.enodes_of(f)) {
@@ -380,6 +387,14 @@ namespace smt {
                     }
                 }
             }
+            m_slacks.push_back(slack);
+            ptr_vector<expr> members;
+            for (auto [n, b] : n2b) {
+                expr *e = n->get_expr();
+                if (is_uninterp_const(e) && mdl->is_true(b)) 
+                    members.push_back(e);                
+            }
+            m_slack_members.push_back(members);
             TRACE(finite_set, tout << *mdl << "\nPropositional model:\n" << props << "\n");
             m_solver->assert_expr(m.mk_not(m.mk_and(props)));           
         }
@@ -406,15 +421,53 @@ namespace smt {
         return l_true;
     }
 
-    /**
-    * Placeholder to introduce an assumption literal to manage incremental search for solutions
-    */
-    void theory_finite_set_size::add_theory_assumptions(expr_ref_vector &assumptions) {
-        
-    }
-
-    bool theory_finite_set_size::should_research(expr_ref_vector& unsat_core) {
-        return false;
+    //
+    // construct model based on set variables that have cardinality constraints
+    // In this case the model construction is not explicit. It uses unique sets
+    // to represent sets of given cardinality.
+    // 
+    void theory_finite_set_size::init_model(model_generator &mg) {
+        if (!m_solver || !m_solver_ran)
+            return;
+        TRACE(finite_set, tout << "Constructing model for finite set cardinalities\n";);
+        //
+        // construct model based on set variables that have cardinality constraints
+        // slack -> (set variable x truth assignment)*
+        // slack -> integer assignment from arithmetic solver
+        // u.mk_unique_set(unique_index, slack_value, type);
+        // add to model of set variables that are true for slack.
+        // 
+        arith_value av(m);
+        av.init(&ctx);
+        rational value;
+        arith_util a(m);
+        SASSERT(m_slacks.size() == m_slack_members.size());
+        unsigned unique_index = 0;
+        for (unsigned i = 0; i < m_slacks.size(); ++i) {
+            auto s = m_slacks.get(i);
+            //
+            // slack s is equivalent to some integer value
+            // create a unique set corresponding to this slack value.
+            // The signature of the unique set is given by the sets that are 
+            // satisfiable in the propositional assignment where the slack variable
+            // was introduced.
+            // 
+            if (av.get_value_equiv(s, value)) {
+                if (value == 0)
+                    continue;
+                if (m_slack_members[i].empty())                    
+                    continue;
+                
+                ++unique_index;
+                for (auto e : m_slack_members[i]) {
+                    app *unique_value = u.mk_unique_set(a.mk_int(unique_index), a.mk_int(value), e->get_sort());                    
+                    if (m_unique_values.contains(e)) 
+                        unique_value = u.mk_union(m_unique_values[e], unique_value);
+                    m_unique_values.insert(e, unique_value);
+                    m_pinned.push_back(unique_value);
+                }
+            }
+        }
     }
 
     std::ostream& theory_finite_set_size::display(std::ostream& out) const {

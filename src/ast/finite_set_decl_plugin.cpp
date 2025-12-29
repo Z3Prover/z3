@@ -40,6 +40,7 @@ finite_set_decl_plugin::finite_set_decl_plugin():
     m_names[OP_FINITE_SET_RANGE] = "set.range";
     m_names[OP_FINITE_SET_EXT] = "set.diff";
     m_names[OP_FINITE_SET_MAP_INVERSE] = "set.map.inverse";
+    m_names[OP_FINITE_SET_UNIQUE_SET] = "set.unique";
 }
 
 finite_set_decl_plugin::~finite_set_decl_plugin() {
@@ -87,6 +88,7 @@ void finite_set_decl_plugin::init() {
     m_sigs[OP_FINITE_SET_RANGE]      = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_RANGE],      0, 2, intintT, setInt);
     m_sigs[OP_FINITE_SET_EXT]        = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_EXT], 1, 2, setAsetA, A);
     m_sigs[OP_FINITE_SET_MAP_INVERSE] = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_MAP_INVERSE], 2, 3, arrABBsetA, A);
+    m_sigs[OP_FINITE_SET_UNIQUE_SET] = alloc(polymorphism::psig, m, m_names[OP_FINITE_SET_UNIQUE_SET], 1, 2, intintT, setA);
 }
 
 sort * finite_set_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
@@ -183,6 +185,15 @@ func_decl * finite_set_decl_plugin::mk_func_decl(decl_kind k, unsigned num_param
             range = to_sort(parameters[0].get_ast());
         }        
         return mk_empty(range);
+    case OP_FINITE_SET_UNIQUE_SET:
+        if (!range) {
+            if ((num_parameters != 1 || !parameters[0].is_ast() || !is_sort(parameters[0].get_ast()))) {
+                m_manager->raise_exception("set.unique requires one sort parameter");
+                return nullptr;
+            }
+            range = to_sort(parameters[0].get_ast());
+        }   
+        return mk_finite_set_op(k, arity, domain, range);
     case OP_FINITE_SET_UNION:
     case OP_FINITE_SET_INTERSECT:         
         return mk_finite_set_op(k, 2, domain, range);
@@ -204,7 +215,7 @@ func_decl * finite_set_decl_plugin::mk_func_decl(decl_kind k, unsigned num_param
 
 void finite_set_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
     for (unsigned i = 0; i < m_names.size(); ++i) 
-        if (m_names[i])
+        if (m_names[i] && i != OP_FINITE_SET_UNIQUE_SET)
             op_names.push_back(builtin_name(std::string(m_names[i]), i));    
 }
 
@@ -324,5 +335,11 @@ func_decl *finite_set_util::mk_range_decl() {
     sort *i = a.mk_int();
     sort *domain[2] = {i, i};
     return m_manager.mk_func_decl(m_fid, OP_FINITE_SET_RANGE, 0, nullptr, 2, domain, nullptr);
+}
+
+app* finite_set_util::mk_unique_set(expr* index, expr* cardinality, sort* s) {
+    parameter params[1] = { parameter(s) };
+    expr *args[2] = {index, cardinality};
+    return m_manager.mk_app(m_fid, OP_FINITE_SET_UNIQUE_SET, 1, params, 2, args);
 }
 

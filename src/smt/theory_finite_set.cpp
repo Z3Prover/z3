@@ -699,6 +699,7 @@ namespace smt {
         m_factory = alloc(finite_set_factory, m, u.get_family_id(), mg.get_model());
         mg.register_factory(m_factory);
         collect_members();
+        m_cardinality_solver.init_model(mg);
     }
    
     void theory_finite_set::collect_members() {
@@ -776,6 +777,7 @@ namespace smt {
 
     struct finite_set_value_proc : model_value_proc {    
         theory_finite_set &th;        
+        app_ref m_unique_value;
         enode *n = nullptr;
         obj_map<enode, bool>* m_elements = nullptr;
 
@@ -792,9 +794,14 @@ namespace smt {
         }
 
         finite_set_value_proc(theory_finite_set &th, enode *n, obj_map<enode, bool> *elements)
-            : th(th), n(n), m_elements(elements) {}
+            : th(th), m_unique_value(th.m), n(n), m_elements(elements) {}
+
+                finite_set_value_proc(theory_finite_set &th, app* value)
+            : th(th), m_unique_value(value, th.m) {}
 
         void get_dependencies(buffer<model_value_dependency> &result) override {
+            if (m_unique_value)
+                return;
             if (!m_elements)
                 return;
             bool ur = use_range();
@@ -804,6 +811,8 @@ namespace smt {
         }
 
         app *mk_value(model_generator &mg, expr_ref_vector const &values) override {   
+            if (m_unique_value)
+                return m_unique_value;
             auto s = n->get_sort();
             if (values.empty())
                 return th.u.mk_empty(s);
@@ -849,6 +858,9 @@ namespace smt {
 
     model_value_proc * theory_finite_set::mk_value(enode * n, model_generator & mg) {
         TRACE(finite_set, tout << "mk_value: " << mk_pp(n->get_expr(), m) << "\n";);
+        app *value = m_cardinality_solver.get_unique_value(n->get_expr());
+        if (value)
+            return alloc(finite_set_value_proc, *this, value);
         obj_map<enode, bool>*elements = nullptr;
         n = n->get_root();
         m_set_members.find(n, elements); 

@@ -49,6 +49,7 @@ enum finite_set_op_kind {
     OP_FINITE_SET_RANGE,
     OP_FINITE_SET_EXT,
     OP_FINITE_SET_MAP_INVERSE,
+    OP_FINITE_SET_UNIQUE_SET,
     LAST_FINITE_SET_OP
 };
 
@@ -134,6 +135,7 @@ public:
     bool is_map(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_MAP); }
     bool is_filter(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_FILTER); }
     bool is_range(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_RANGE); }
+    bool is_unique_set(expr const *n) const { return is_app_of(n, m_fid, OP_FINITE_SET_UNIQUE_SET); } 
 
     MATCH_UNARY(is_singleton);
     MATCH_UNARY(is_size);
@@ -145,6 +147,7 @@ public:
     MATCH_BINARY(is_map);
     MATCH_BINARY(is_filter);
     MATCH_BINARY(is_range);
+    MATCH_BINARY(is_unique_set);
 };
 
 class finite_set_util : public finite_set_recognizers {
@@ -211,7 +214,9 @@ public:
 
     func_decl *mk_range_decl();
 
-    app * mk_range(expr* low, expr* high) {
+    app *mk_range(expr *low, expr *high) {
         return m_manager.mk_app(m_fid, OP_FINITE_SET_RANGE, low, high);
     }
+
+    app *mk_unique_set(expr *s1, expr *s2, sort *s);
 };

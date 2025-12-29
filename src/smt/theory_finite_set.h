@@ -169,14 +169,6 @@ namespace smt {
         void collect_statistics(::statistics & st) const override {
             m_stats.collect_statistics(st);
         }
-        void add_theory_assumptions(expr_ref_vector& assumptions) override {
-            m_cardinality_solver.add_theory_assumptions(assumptions);
-        }
-
-        bool should_research(expr_ref_vector& unsat_core) override {
-            return m_cardinality_solver.should_research(unsat_core);
-        }
-
 
         void add_in_axioms(theory_var v1, theory_var v2);
         void add_in_axioms(enode *in, var_data *d);
