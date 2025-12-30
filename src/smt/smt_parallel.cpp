@@ -213,167 +213,36 @@ namespace smt {
         return p;
     }
 
-    // parallel::param_generator::param_values parallel::param_generator::mutate_param_state() {
-    //     param_values new_param_values(m_param_state);
-    //     unsigned index = ctx->get_random_value() % new_param_values.size();
-    //     auto &param = new_param_values[index];
-    //     if (std::holds_alternative<bool>(param.second)) {
-    //         bool& value = std::get<bool>(param.second);
-    //         value = !value;
-    //     } 
-    //     else if (std::holds_alternative<unsigned_value>(param.second)) {
-    //         auto [value, lo, hi] = std::get<unsigned_value>(param.second);
-    //         unsigned new_value = value;
-    //         while (new_value == value) {
-    //             new_value = lo + ctx->get_random_value() % (hi - lo + 1);
-    //         }
-    //         std::get<unsigned_value>(param.second).value = new_value;
-    //     }
-    //     IF_VERBOSE(1, 
-    //         verbose_stream() << "Mutating param: ";
-    //         for (auto const &[name, val] : new_param_values) {
-    //             if (std::holds_alternative<bool>(val)) {
-    //                 verbose_stream() << name << " = " << std::get<bool>(val) << "\n";
-    //             } 
-    //             else if (std::holds_alternative<unsigned_value>(val)) {
-    //                 verbose_stream() << name << " = " << std::get<unsigned_value>(val).value << "\n";
-    //             }
-    //         }
-    //         );
-    //     return new_param_values;
-    // }
-
     parallel::param_generator::param_values parallel::param_generator::mutate_param_state() {
-
-        param_values new_state(m_param_state);
-        SASSERT(!new_state.empty());
-
-        using pair = std::pair<symbol, symbol>;
-
-        // -----------------------------
-        // RDL-good parameter pairs ONLY
-        // -----------------------------
-        static const std::vector<pair> good_rdl_pairs = {
-            { symbol("smt.arith.eager_eq_axioms"),
-            symbol("smt.arith.bprop_on_pivoted_rows") },
-
-            { symbol("smt.arith.eager_eq_axioms"),
-            symbol("smt.delay_units") }
-        };
-
-        // -----------------------------
-        // Adaptive probability of pair mutation
-        // -----------------------------
-        double pair_prob = 0.20;
-
-        if (p.ctx.m_setup.get_logic() == "QF_RDL") {
-            auto &st = ctx->m_stats;
-            if (st.m_num_propagations < 50)
-                pair_prob = 0.15;
-            else if (st.m_num_propagations < 300)
-                pair_prob = 0.30;
-            else
-                pair_prob = 0.20;
+        param_values new_param_values(m_param_state);
+        unsigned index = ctx->get_random_value() % new_param_values.size();
+        auto &param = new_param_values[index];
+        if (std::holds_alternative<bool>(param.second)) {
+            bool& value = std::get<bool>(param.second);
+            value = !value;
+        } 
+        else if (std::holds_alternative<unsigned_value>(param.second)) {
+            auto [value, lo, hi] = std::get<unsigned_value>(param.second);
+            unsigned new_value = value;
+            while (new_value == value) {
+                new_value = lo + ctx->get_random_value() % (hi - lo + 1);
+            }
+            std::get<unsigned_value>(param.second).value = new_value;
         }
-
-        // std::random replacement for get_random_double()
-        static thread_local std::mt19937 rng{std::random_device{}()};
-        static thread_local std::uniform_real_distribution<double> dist(0.0, 1.0);
-
-        bool do_pair = false;
-        unsigned idx1 = 0, idx2 = 0;
-
-        // -----------------------------
-        // Attempt whitelisted pair mutation
-        // -----------------------------
-        if (p.ctx.m_setup.get_logic() == "QF_RDL" &&
-            new_state.size() >= 2 &&
-            dist(rng) < pair_prob) {
-
-            for (unsigned tries = 0; tries < 5; ++tries) {
-                auto const &pr =
-                    good_rdl_pairs[ctx->get_random_value() % good_rdl_pairs.size()];
-
-                int i = -1, j = -1;
-                for (unsigned k = 0; k < new_state.size(); ++k) {
-                    if (new_state[k].first == pr.first)  i = k;
-                    if (new_state[k].first == pr.second) j = k;
-                }
-
-                if (i >= 0 && j >= 0 && i != j) {
-                    idx1 = static_cast<unsigned>(i);
-                    idx2 = static_cast<unsigned>(j);
-                    do_pair = true;
-                    break;
+        IF_VERBOSE(1, 
+            verbose_stream() << "Mutating param: ";
+            for (auto const &[name, val] : new_param_values) {
+                if (std::holds_alternative<bool>(val)) {
+                    verbose_stream() << name << " = " << std::get<bool>(val) << "\n";
+                } 
+                else if (std::holds_alternative<unsigned_value>(val)) {
+                    verbose_stream() << name << " = " << std::get<unsigned_value>(val).value << "\n";
                 }
             }
-        }
-
-        // -----------------------------
-        // Fallback: single mutation
-        // -----------------------------
-        if (!do_pair) {
-            idx1 = ctx->get_random_value() % new_state.size();
-        }
-
-        // -----------------------------
-        // Mutation helper (ORIGINAL logic)
-        // -----------------------------
-        auto mutate_one = [&](unsigned idx) {
-            auto &param = new_state[idx];
-
-            if (std::holds_alternative<bool>(param.second)) {
-                bool &v = std::get<bool>(param.second);
-                v = !v;
-            }
-            else if (std::holds_alternative<unsigned_value>(param.second)) {
-                auto [value, lo, hi] =
-                    std::get<unsigned_value>(param.second);
-
-                if (lo < hi) {
-                    unsigned new_v = value;
-                    while (new_v == value) {
-                        new_v = lo +
-                            ctx->get_random_value() % (hi - lo + 1);
-                    }
-                    std::get<unsigned_value>(param.second).value = new_v;
-                }
-            }
-        };
-
-        mutate_one(idx1);
-        if (do_pair)
-            mutate_one(idx2);
-
-        // -----------------------------
-        // Macro-safe logging
-        // -----------------------------
-        IF_VERBOSE(1,
-            verbose_stream()
-                << "PARAM TUNER mutation ("
-                << (do_pair ? "pair" : "single") << ")\n";
-
-            auto &p1 = new_state[idx1];
-            verbose_stream() << "  " << p1.first << " = ";
-            if (std::holds_alternative<bool>(p1.second))
-                verbose_stream() << std::get<bool>(p1.second) << "\n";
-            else
-                verbose_stream() << std::get<unsigned_value>(p1.second).value << "\n";
-
-            if (do_pair) {
-                auto &p2 = new_state[idx2];
-                verbose_stream() << "  " << p2.first << " = ";
-                if (std::holds_alternative<bool>(p2.second))
-                    verbose_stream() << std::get<bool>(p2.second) << "\n";
-                else
-                    verbose_stream() << std::get<unsigned_value>(p2.second).value << "\n";
-            }
-        );
-
-        return new_state;
+            );
+        return new_param_values;
     }
-
-
+    
     void parallel::param_generator::protocol_iteration() {
         while (!m.limit().is_canceled()) {
             IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running protocol iteration\n");
