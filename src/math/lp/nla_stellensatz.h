@@ -323,6 +323,7 @@ namespace nla {
         void init_occurs();
         void init_occurs(lp::constraint_index ci);
         void init_bounds();
+        void init_bound(lp::constraint_index ci);
         void reset_bounds();
         void pop_constraint();
         void remove_occurs(lp::constraint_index ci);
