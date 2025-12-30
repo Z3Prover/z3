@@ -191,7 +191,7 @@ namespace lp {
         // This class represents a term with an added constant number c, in form sum
         // {x_i*a_i} + c.
         class term_o : public lar_term {
-            mpq m_c;
+            mpq m_ct;
 
         public:
             term_o clone() const {
@@ -203,16 +203,16 @@ namespace lp {
                 ret.set_j(j());
                 return ret;
             }
-            term_o(const lar_term& t) : lar_term(t), m_c(0) {
-                SASSERT(m_c.is_zero());
+            term_o(const lar_term& t) : lar_term(t), m_ct(0) {
+                SASSERT(m_ct.is_zero());
             }
             const mpq& c() const {
-                return m_c;
+                return m_ct;
             }
             mpq& c() {
-                return m_c;
+                return m_ct;
             }
-            term_o() : m_c(0) {}
+            term_o() : m_ct(0) {}
 
             friend term_o operator*(const mpq& k, const term_o& term) {
                 term_o r;
@@ -254,7 +254,7 @@ namespace lp {
                 for (const auto& p : t) {
                     add_monomial(p.coeff(), p.j());
                 }
-                m_c += t.c();
+                m_ct += t.c();
                 return *this;
             }
         };
@@ -1288,6 +1288,7 @@ namespace lp {
                   print_term_o(create_term_from_espace(), tout) << std::endl;
                   tout << "subs with e:";
                   print_entry(m_k2s[k], tout) << std::endl;);
+            SASSERT(e.is_int());
             mpq coeff = m_espace[k];  // need to copy since it will be zeroed
             m_espace.erase(k);        // m_espace[k] = 0;
 
@@ -1313,6 +1314,7 @@ namespace lp {
                     q.push(j);
             }
             m_c += coeff * e;
+            SASSERT(m_c.is_int());
             add_l_row_to_term_with_index(coeff, sub_index(k));
             TRACE(dio, tout << "after subs k:" << k << "\n";
                   print_term_o(create_term_from_espace(), tout) << std::endl;
@@ -1564,6 +1566,7 @@ namespace lp {
                         break;
                     }
                     m_c += p.coeff() * b;
+                    SASSERT(m_c.is_int());
                 }
                 else {
                     unsigned lj = lar_solver_to_local(p.j());
@@ -1592,6 +1595,7 @@ namespace lp {
             }
             for (unsigned j : fixed_vars) {
                 m_c += m_espace[j] * lra.get_lower_bound(local_to_lar_solver(j)).x;
+                SASSERT(m_c.is_int());
                 m_espace.erase(j);
             }
         }
@@ -2400,7 +2404,7 @@ namespace lp {
                 if (!q.is_zero())
                     fresh_t.add_monomial(q, i.var());
             }
-
+            TRACE(dio, print_term_o(fresh_t, tout << "fresh_t:"););
             m_fresh_k2xt_terms.add(k, xt, std::make_pair(fresh_t, h));
             SASSERT(var_is_fresh(xt));
             register_var_in_fresh_defs(h, xt);
@@ -2525,8 +2529,9 @@ namespace lp {
                 return lia_move::undef;
             }
             SASSERT(h == f_vector[ih]);
+            TRACE(dio, tout << "min_ahk:" << min_ahk<<'\n'; print_entry(h, tout););
             if (min_ahk.is_one()) {
-                TRACE(dio, tout << "push to S:\n"; print_entry(h, tout););
+                TRACE(dio, tout << "push to S:\n";);
                 move_entry_from_f_to_s(kh, h);
                 eliminate_var_in_f(h, kh, kh_sign);
                 f_vector[ih] = f_vector.back();                
