@@ -135,9 +135,8 @@ namespace smt {
             auto &st = probe_ctx->m_stats;
             double score =
                 st.m_num_conflicts
-            - 0.5 * st.m_num_propagations
-            - 2.0 * st.m_num_minimized_lits;
-
+                - 4.0 * st.m_num_minimized_lits;
+                
             if (i == 0) {
                 best_score = score;
                 IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: baseline score = " << best_score << "\n");
@@ -242,7 +241,7 @@ namespace smt {
             );
         return new_param_values;
     }
-    
+
     void parallel::param_generator::protocol_iteration() {
         while (!m.limit().is_canceled()) {
             IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running protocol iteration\n");
@@ -255,15 +254,6 @@ namespace smt {
 
             switch (r) {
                 case l_undef: {
-                    if (p.ctx.m_setup.get_logic() == "QF_RDL") {
-                        auto &st = ctx->m_stats;
-                        if (st.m_num_propagations < 50 && m_max_prefix_conflicts < 600) {
-                            m_max_prefix_conflicts *= 2;
-                            IF_VERBOSE(1,
-                            verbose_stream() << " PARAM TUNER increasing RDL prefix conflicts to "
-                                            << m_max_prefix_conflicts << "\n");
-                        }
-}
                     replay_proof_prefixes();
                     break;
                 }
