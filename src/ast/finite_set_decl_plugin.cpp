@@ -161,7 +161,9 @@ func_decl * finite_set_decl_plugin::mk_finite_set_op(decl_kind k, unsigned arity
     polymorphism::util poly_util(m);
     sort_ref rng(m);
     poly_util.match(*m_sigs[k], arity, domain, range, rng);
-    func_decl_info info(m_family_id, k);
+    unsigned np = k == OP_FINITE_SET_UNIQUE_SET ? 1 : 0;
+    parameter p(rng.get());
+    func_decl_info info(m_family_id, k, np, &p);
     if (k == OP_FINITE_SET_UNION || k == OP_FINITE_SET_INTERSECT) {
         info.set_commutative(true);
         info.set_associative(true);
