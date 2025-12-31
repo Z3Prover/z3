@@ -929,12 +929,10 @@ namespace lp {
                 unsigned j = m_q.pop_front();
                 mpq alpha = get_coeff_in_e_row(ei, j);
                 if (alpha.is_zero()) continue;
-                if (m_k2s.has_key(j)) {
+                if (m_k2s.has_key(j)) 
                     substitute_on_q_with_entry_in_S(ei, j, alpha);
-                }
-                else {
+                else
                     substitute_with_fresh_def(ei, j, alpha);
-                }
             }
         }
         bool term_is_in_range(const lar_term& t) const {
@@ -952,6 +950,7 @@ namespace lp {
 
         // adds entry i0 multiplied by coeff to entry i1
         void add_two_entries(const mpq& coeff, unsigned i0, unsigned i1) {
+            SASSERT(coeff.is_int());
             m_e_matrix.add_rows(coeff, i0, i1);
             m_l_matrix.add_rows(coeff, i0, i1);
             m_sum_of_fixed[i1] += coeff * m_sum_of_fixed[i0];
@@ -966,7 +965,7 @@ namespace lp {
         }
 
         void recalculate_entry(unsigned ei) {
-            TRACE(dio, print_entry(ei, tout) << std::endl;);
+            TRACE(dio, print_entry(ei, tout, true) << std::endl;);
             mpq& fixed_sum = m_sum_of_fixed[ei];
             fixed_sum = mpq(0);
             open_l_term_to_espace(ei, fixed_sum);
@@ -985,9 +984,10 @@ namespace lp {
                 m_l_matrix.multiply_row(ei, denom);
                 m_e_matrix.multiply_row(ei, denom);
             }
-            if (belongs_to_s(ei)) {
+            if (belongs_to_s(ei))
                 remove_from_S(ei);
-            }
+            TRACE(dio, tout << "recalculated entry:\n"; print_entry(ei, tout, true) << std::endl;);
+
         }
 
         void find_changed_terms_and_more_changed_rows() {
@@ -1220,13 +1220,13 @@ namespace lp {
         // The function returns true if and only if there is no conflict.
         bool normalize_e_by_gcd(unsigned ei, mpq& g) {
             mpq& e = m_sum_of_fixed[ei];
-            TRACE(dio, print_entry(ei, tout) << std::endl;);
-            g = gcd_of_coeffs(m_e_matrix.m_rows[ei], false);
+            TRACE(dio, print_entry(ei, tout, true) << std::endl;);
+            g = gcd_of_coeffs(m_e_matrix.m_rows[ei], true);
+            TRACE(dio, tout << "g:" << g << std::endl;);
             if (g.is_zero() || g.is_one()) {
                 SASSERT(g.is_one() || e.is_zero());
                 return true;
             }
-            TRACE(dio, tout << "g:" << g << std::endl;);
             mpq c_g = e / g;
             if (c_g.is_int()) {
                 for (auto& p : m_e_matrix.m_rows[ei]) {
@@ -1234,15 +1234,14 @@ namespace lp {
                 }
                 m_sum_of_fixed[ei] = c_g;
                 // e.m_l /= g
-                for (auto& p : m_l_matrix.m_rows[ei]) {
+                for (auto& p : m_l_matrix.m_rows[ei])
                     p.coeff() /= g;
-                }
 
-                TRACE(dio, tout << "ep_m_e:";
-                      print_entry(ei, tout) << std::endl;);
+                TRACE(dio, tout << "ep_m_e:"; print_entry(ei, tout, true) << std::endl;);
                 SASSERT(entry_invariant(ei));
                 return true;
             }
+            TRACE(dio, tout << "false\n";);
             // c_g is not integral
             return false;
         }
@@ -1459,8 +1458,6 @@ namespace lp {
             t1.add_monomial(mpq(1), j);
             term_o rs = fix_vars(t1);
             if (ls != rs) {
-                std::cout << "enabling trace dio\n";
-                enable_trace("dio");
                 TRACE(dio, tout << "ls:"; print_term_o(ls, tout) << "\n";
                       tout << "rs:"; print_term_o(rs, tout) << "\n";);
                 return false;
@@ -2167,9 +2164,10 @@ namespace lp {
                 m_sum_of_fixed[i] -= j_sign * coeff * e;
                 m_e_matrix.pivot_row_to_row_given_cell_with_sign(ei, c, j, j_sign);
                 // m_sum_of_fixed[i].m_l -= j_sign * coeff * e.m_l;
+                TRACE(dio, print_term_o(open_ml(m_l_matrix.m_rows[ei]), tout << "l row " << ei << ":") << "\n";);
                 m_l_matrix.add_rows(-j_sign * coeff, ei, i);
                 TRACE(dio, tout << "after pivoting c_row:";
-                      print_entry(i, tout););
+                      print_entry(i, tout, true););
                 CTRACE(
                     dio, !entry_invariant(i), tout << "invariant delta:"; {
                         print_term_o(get_term_from_entry(ei) -
@@ -2242,7 +2240,6 @@ namespace lp {
                     continue;
                 unsigned j = local_to_lar_solver(p.var());
                 if (is_fixed(j)) {
-                    enable_trace("dio");                    
                     TRACE(dio, tout << "x" << j << "(local: " << "x" << p.var() << ") should not be fixed\nbad entry:"; print_entry(ei, tout) << "\n";);
                     return false;
                 }
@@ -2251,8 +2248,6 @@ namespace lp {
             term_o ls = term_to_lar_solver(remove_fresh_vars(get_term_from_entry(ei)));
             mpq ls_val = get_term_value(ls);
             if (!ls_val.is_zero()) {
-                std::cout << "ls_val is not zero\n";
-                enable_trace("dio");
                 TRACE(dio, {
                         tout << "get_term_from_entry(" << ei << "):";
                         print_term_o(get_term_from_entry(ei), tout) << std::endl;
@@ -2270,7 +2265,6 @@ namespace lp {
             }
             bool ret = ls == fix_vars(open_ml(m_l_matrix.m_rows[ei]));
             if (!ret) {
-                enable_trace("dio");
                 CTRACE(dio, !ret,
                    {
                        tout << "get_term_from_entry(" << ei << "):";
@@ -2486,15 +2480,22 @@ namespace lp {
                 unsigned ei = f_vector[i];
                 SASSERT (belongs_to_f(ei));
                 if (m_e_matrix.m_rows[ei].size() == 0) {
-                    if (m_sum_of_fixed[ei].is_zero()) {
+                    if (m_sum_of_fixed[ei].is_zero()) 
                         continue;
-                    }
                     else {
+                        TRACE(dio, tout << "zero row with non_zero fixed sum conflict:\n";                              print_entry(ei, tout, true) << std::endl;);
                         set_rewrite_conflict(ei, mpq(0));
                         return lia_move::conflict;
                     }
                 }
 
+                if (!m_sum_of_fixed[ei].is_int()) {
+                        TRACE(dio, tout << "new conflict: early non-integral entry in S after move_entry_from_f_to_s\n";
+                              print_entry(ei, tout) << std::endl;);
+                        set_rewrite_conflict(ei, mpq(0));
+                        return lia_move::conflict;
+                }
+                
                 auto [ahk, k, k_sign, markovich_number] = find_minimal_abs_coeff(ei);
                 mpq gcd;
                 if (!normalize_e_by_gcd(ei, gcd)) {
