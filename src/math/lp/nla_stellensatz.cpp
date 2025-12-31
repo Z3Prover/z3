@@ -162,8 +162,10 @@ namespace nla {
         auto sz = src.number_of_vars();
         m_lower.reset();
         m_upper.reset();
+        m_split_count.reset();
         m_lower.reserve(sz, UINT_MAX);
         m_upper.reserve(sz, UINT_MAX);
+        m_split_count.reserve(sz, 0);
         for (unsigned v = 0; v < sz; ++v) {
             m_values.push_back(c().val(v));
             if (!m_coi.vars().contains(v))
@@ -411,14 +413,18 @@ namespace nla {
 
         bool g_strict = other_k == lp::lconstraint_kind::GT;
         bool f_strict = k == lp::lconstraint_kind::GT;
-        if (g_p.is_val())
+        if (g_p.is_val() && f_p.is_val() && g_p.val() == -f_p.val())
+            ci_a = ci;
+        else if (g_p.is_val())
             ci_a = multiply(ci, pddm.mk_val(g_p.val()));
         else if (!sign_f)
             ci_a = multiply(ci, assume(g_p, f_strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE));
         else
             ci_a = multiply(ci, assume(g_p, f_strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE));
 
-        if (f_p.is_val())
+        if (g_p.is_val() && f_p.is_val() && g_p.val() == -f_p.val())
+            ci_b = other_ci;
+        else if (f_p.is_val())
             ci_b = multiply(other_ci, pddm.mk_val(f_p.val()));
         else if (sign_f)
             ci_b = multiply(other_ci, assume(f_p, g_strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE));
@@ -1234,6 +1240,7 @@ namespace nla {
     bool stellensatz::decide() {
         rational value;
         lp::lconstraint_kind k;       
+        lpvar w;
 
         unsigned num_fixed = 0;
         unsigned num_levels = m_level2var.size();
@@ -1241,7 +1248,7 @@ namespace nla {
         unsigned max_rounds = num_levels * 5;
         m_tabu.reset();
         for (unsigned level = 0; level < num_levels && c().reslim().inc() && num_rounds < max_rounds; ++level) {
-            auto w = m_level2var[level];
+            w = m_level2var[level];
             ++num_rounds;
             lp::constraint_index conflict = repair_variable(w);
             TRACE(arith, display_constraint(tout << "repair lvl:" << level << " v" << w << ": ", conflict) 
@@ -1276,14 +1283,15 @@ namespace nla {
                 ++num_fixed;
                 --level;
                 continue;
-            }
-            
-            // TODO: figure out when to apply splits.
-            // they can be deferred to after repair has finished and some
-            // constraint remains false.
-            find_split(w, value, k, conflict);
-            if (is_fixed(w))
-                continue;
+            }          
+
+            // variable wasn't repaired. 
+            // Repair other variables, and then case split on variables that occur in non-repaired constraints.
+            //
+        }
+
+
+        if (find_split(w, value, k)) {        
             SASSERT(k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::GE);
             bool is_upper = k == lp::lconstraint_kind::LE;
             SASSERT(!is_upper || !has_lo(w) || lo_val(w) <= value);
@@ -1303,6 +1311,7 @@ namespace nla {
             ++c().lp_settings().stats().m_stellensatz.m_num_decisions;
             return true;
         }
+
         return false;
     }
 
@@ -1688,13 +1697,24 @@ namespace nla {
         return c().random(2) == 0 ? sup : inf;
     }        
 
-    void stellensatz::find_split(lpvar & v, rational & r, lp::lconstraint_kind & k, lp::constraint_index ci) {
+    bool stellensatz::find_split(lpvar &v, rational &r, lp::lconstraint_kind &k) { 
+        uint_set tried;        
+        bool found = false;
         unsigned n = 0;
-        for (auto w : m_constraints[ci].p.free_vars()) {
-            TRACE(arith, display_var(tout << "v" << w << " is-fixed " << is_fixed(w) << "\n", w) << "\n");
-            if (is_fixed(w))
+        for (auto ci : m_constraints) {
+            if (!constraint_is_false(ci))
                 continue;
-            if (c().random(++n) == 0) {
+            auto const &vars = ci.p.free_vars();
+            for (auto w : vars) {
+                if (tried.contains(w))
+                    continue;
+                tried.insert(w);
+                if (is_fixed(w))
+                    continue;
+                if (m_split_count[w] > m_config.max_splits_per_var)
+                    continue;
+                if (c().random(++n) != 0)
+                    continue;
                 r = m_values[w];
                 CTRACE(arith, !in_bounds(w), tout << "value not in bounds v" << w << " := " << r << "\n";
                        display(tout););
@@ -1707,17 +1727,20 @@ namespace nla {
                     r = (lo_val(w) + hi_val(w)) / 2;
                     k = lp::lconstraint_kind::GE;
                 }
-                else if (!has_lo(w)) 
-                    k = lp::lconstraint_kind::GE;                
-                else if (!has_hi(w)) 
-                    k = lp::lconstraint_kind::LE;                                  
+                else if (!has_lo(w))
+                    k = lp::lconstraint_kind::GE;
+                else if (!has_hi(w))
+                    k = lp::lconstraint_kind::LE;
                 else
-                    k = c().random(2) == 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;                
-                v = w;           
+                    k = c().random(2) == 0 ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
+                v = w;
+                found = true;
             }
         }
-        TRACE(arith, tout << "find split v" << v << " " << k << " " << r << "\n");
-        TRACE(arith, display(tout));
+        CTRACE(arith, found, tout << "split v" << v << " " << k << " " << r << "\n");
+        if (found)
+            ++m_split_count[v];
+        return found;
     }
 
     void stellensatz::set_in_bounds(lpvar v) {

@@ -131,6 +131,7 @@ namespace nla {
             unsigned max_conflicts = UINT_MAX;
             unsigned max_constraints = UINT_MAX;
             unsigned strategy = 0;
+            unsigned max_splits_per_var = 2;
         };
 
         struct constraint_key {
@@ -203,6 +204,7 @@ namespace nla {
         //   
         unsigned_vector m_lower, m_upper;               // var -> index into m_bounds
         vector<bound_info> m_bounds;                    // bound index -> bound meta-data
+        unsigned_vector m_split_count;                  // var -> number of times variable has been split
 
         unsigned           m_prop_qhead = 0;            // head into propagation queue
         lp::constraint_index m_conflict = lp::null_ci;
@@ -302,7 +304,7 @@ namespace nla {
         repair_var_info find_bounds(lpvar v);
         unsigned max_level(constraint const &c) const;
         lp::constraint_index repair_variable(lpvar v);
-        void find_split(lpvar& v, rational& r, lp::lconstraint_kind& k, lp::constraint_index ci);
+        bool find_split(lpvar &v, rational &r, lp::lconstraint_kind &k);
         void set_in_bounds(lpvar v);
         bool in_bounds(lpvar v) { return in_bounds(v, m_values[v]); }                              
         bool in_bounds(lpvar v, rational const &value) const;
