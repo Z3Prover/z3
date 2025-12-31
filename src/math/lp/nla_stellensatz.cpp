@@ -1236,9 +1236,13 @@ namespace nla {
         lp::lconstraint_kind k;       
 
         unsigned num_fixed = 0;
+        unsigned num_levels = m_level2var.size();
+        unsigned num_rounds = 0;
+        unsigned max_rounds = num_levels * 5;
         m_tabu.reset();
-        for (unsigned level = 0; level < m_level2var.size(); ++level) {
+        for (unsigned level = 0; level < num_levels && c().reslim().inc() && num_rounds < max_rounds; ++level) {
             auto w = m_level2var[level];
+            ++num_rounds;
             lp::constraint_index conflict = repair_variable(w);
             TRACE(arith, display_constraint(tout << "repair lvl:" << level << " v" << w << ": ", conflict) 
                 << " in bounds " << in_bounds(w) 
@@ -1265,6 +1269,7 @@ namespace nla {
             }
 
             if (is_fixed(w) && level > num_fixed) {
+                // swap this variable level with another so it is solved before non-fixed variables
                 IF_VERBOSE(3, verbose_stream() << "fixed v" << w << " cannot be repaired " << level << "\n";
                            display_constraint(verbose_stream(), conflict) << "\n");
                 move_up(w);
@@ -1273,6 +1278,9 @@ namespace nla {
                 continue;
             }
             
+            // TODO: figure out when to apply splits.
+            // they can be deferred to after repair has finished and some
+            // constraint remains false.
             find_split(w, value, k, conflict);
             if (is_fixed(w))
                 continue;
@@ -1292,6 +1300,7 @@ namespace nla {
             SASSERT(in_bounds(w));
             SASSERT(well_formed_var(w));
             SASSERT(well_formed_last_bound());
+            ++c().lp_settings().stats().m_stellensatz.m_num_decisions;
             return true;
         }
         return false;

@@ -146,6 +146,7 @@ struct statistics {
         unsigned m_num_vanishings = 0;
         unsigned m_num_model_repairs = 0;
         unsigned m_num_backtracks = 0;
+        unsigned m_num_decisions = 0;
     };
     stellensatz m_stellensatz;
 
@@ -195,6 +196,7 @@ struct statistics {
         st.update("arith-nla-stellensatz-model-repairs", m_stellensatz.m_num_model_repairs);
         st.update("arith-nla-stellensatz-backtracks", m_stellensatz.m_num_backtracks);
         st.update("arith-nla-stellensatz-constraints", m_stellensatz.m_num_constraints);
+        st.update("arith-nla-stellensatz-decisions", m_stellensatz.m_num_decisions);
         st.copy(m_st);
     }
 };
