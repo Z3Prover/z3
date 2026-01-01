@@ -124,6 +124,7 @@ namespace nla {
             while (backtrack(m_core)) {
                 ++c().lp_settings().stats().m_stellensatz.m_num_backtracks;
                 lbool rb = m_solver.solve(m_core);
+                TRACE(arith, tout << "backtrack search " << rb << ": " << m_core << "\n");
                 if (rb == l_false)
                     continue;
                 if (rb == l_undef)
@@ -570,6 +571,7 @@ namespace nla {
         svector<lp::constraint_index> external, assumptions;
         for (auto ci : core)
             explain_constraint(ci, external, assumptions);
+        TRACE(arith, display(tout << "backtrack core " << core << "external " << external << " assumptions " << assumptions << "\n"));
         if (assumptions.empty())
             return false;
         lp::constraint_index max_ci = 0;
@@ -619,6 +621,7 @@ namespace nla {
         if (m_constraints_in_conflict.contains(ci))
             return;
         m_constraints_in_conflict.insert(ci);
+
         auto &[p, k, b] = m_constraints[ci];
         if (std::holds_alternative<external_justification>(b)) {
             external.push_back(ci);
@@ -750,6 +753,11 @@ namespace nla {
             auto right = assume(-p, lp::lconstraint_kind::GE);
             return add_constraint(p, k, eq_justification{left, right});
         }
+        if (k == lp::lconstraint_kind::LE)            
+            return assume(-p, lp::lconstraint_kind::GE);
+        if (k == lp::lconstraint_kind::LT)
+            return assume(-p, lp::lconstraint_kind::GT);
+        
         u_dependency *d = nullptr;
         auto has_bound = [&](rational const& a, lpvar x, rational const& b) {
             rational bound;
@@ -775,7 +783,7 @@ namespace nla {
 
         if (p.is_unilinear() && has_bound(p.hi().val(), p.var(), p.lo().val()))
             // ax + b ~k~ 0
-            return add_constraint(p, k, external_justification(d));        
+            return add_constraint(p, k, external_justification(d));    
         return add_constraint(p, k, assumption_justification());
     }
     
@@ -1155,7 +1163,7 @@ namespace nla {
                 return;
             auto v = m_bounds[m_prop_qhead].m_var;
             if (var_is_bound_conflict(v)) {
-                TRACE(arith, tout << "var is bound conflict v" << v << "\n");
+                TRACE(arith, display_var_range(tout << "var is bound conflict v" << v << " ", v) << "\n");
                 set_conflict(v);
                 return;
             }
@@ -1200,6 +1208,7 @@ namespace nla {
                     m_bounds.push_back(bound_info(w, k, value, level, last_bound, d, ci));
 
                     if (var_is_bound_conflict(w)) {
+                        TRACE(arith, display_var_range(tout << "bound conflict v" << w << " ", w) << "\n");
                         set_conflict(w);
                         return;
                     }
@@ -1251,9 +1260,8 @@ namespace nla {
             w = m_level2var[level];
             ++num_rounds;
             lp::constraint_index conflict = repair_variable(w);
-            TRACE(arith, display_constraint(tout << "repair lvl:" << level << " v" << w << ": ", conflict) 
-                << " in bounds " << in_bounds(w) 
-                << " is tabu " << m_tabu.contains(conflict) << "\n");
+            TRACE(arith, display_constraint(tout << "repair lvl:" << level << " v" << w << ": ", conflict)
+                             << " in bounds " << in_bounds(w) << " is tabu " << m_tabu.contains(conflict) << "\n");
             if (conflict == lp::null_ci)
                 continue;
             SASSERT(constraint_is_false(conflict));
@@ -1283,13 +1291,12 @@ namespace nla {
                 ++num_fixed;
                 --level;
                 continue;
-            }          
+            }
 
-            // variable wasn't repaired. 
+            // variable wasn't repaired.
             // Repair other variables, and then case split on variables that occur in non-repaired constraints.
             //
         }
-
 
         if (find_split(w, value, k)) {        
             SASSERT(k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::GE);
@@ -1304,7 +1311,7 @@ namespace nla {
             m_bounds.push_back(bound_info(w, k, value, m_num_scopes, last_bound, bdep));
             m_values[w] = value;
             TRACE(arith, tout << "decide v" << w << " " << k << " " << value << "\n");
-            IF_VERBOSE(3, verbose_stream() << "v" << w << " " << k << " " << value << "\n");
+            IF_VERBOSE(3, verbose_stream() << "decide v" << w << " " << k << " " << value << "\n");
             SASSERT(in_bounds(w));
             SASSERT(well_formed_var(w));
             SASSERT(well_formed_last_bound());
@@ -1342,17 +1349,38 @@ namespace nla {
                   m_di.display(tout << "interval: " << -f.q << ": ", ivq) << "\n";
                   display_constraint(tout, ci) << "\n");
            
-            // p > 0:
-            // => x >= -q / p
-            if (!ivq->m_lower_inf && !ivp->m_lower_inf && ivp->m_lower > 0) {
+            // hi_p > 0
+            // 0 <= lo_q <= -q
+            // => x >= lo_q / hi_p
+            // 
+            if (!ivp->m_upper_inf && ivp->m_upper > 0 && !ivq->m_lower_inf && ivq->m_lower >= 0) {
                 // v >= -q / p
-                auto quot = ivq->m_lower / ivp->m_lower;
+                auto quot = ivq->m_lower / ivp->m_upper;
                 if (var_is_int(x))
                     quot = ceil(quot);
                 bool is_strict = !var_is_int(x) && (ck == lp::lconstraint_kind::GT || ivq->m_lower_open || ivp->m_lower_open);
                 if (!has_lo(x) || quot > lo_val(x) || (!lo_is_strict(x) && quot == lo_val(x) && is_strict)) {
                     TRACE(arith, tout << "new lower bound v" << x << " " << quot << "\n");
-                    d = m_dm.mk_join(ivq->m_lower_dep, ivp->m_lower_dep);
+                    d = m_dm.mk_join(ivq->m_lower_dep, ivp->m_upper_dep);
+                    k = is_strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE;
+                    v = x;
+                    value = quot;
+                    return true;
+                }
+            }
+
+            // hi_p >= p >= lo_p > 0
+            // 0 > hi_q >= -q >= lo_q
+            // => x >= lo_q / lo_p
+            if (!ivp->m_lower_inf && ivp->m_lower > 0 && !ivq->m_lower_inf && ivq->m_lower <= 0) {
+                auto quot = ivq->m_lower / ivp->m_lower;
+                if (var_is_int(x))
+                    quot = ceil(quot);
+                bool is_strict =
+                    !var_is_int(x) && (ck == lp::lconstraint_kind::GT || ivq->m_lower_open || ivp->m_lower_open);
+                if (!has_lo(x) || quot > lo_val(x) || (!lo_is_strict(x) && quot == lo_val(x) && is_strict)) {
+                    TRACE(arith, tout << "new lower bound v" << x << " " << quot << "\n");
+                    d = m_dm.mk_join(ivp->m_lower_dep, ivq->m_lower_dep);
                     k = is_strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE;
                     v = x;
                     value = quot;
