@@ -59,6 +59,7 @@ z3_add_component(smt
     theory_dense_diff_logic.cpp
     theory_finite_set.cpp
     theory_finite_set_size.cpp
+    theory_finite_set_lattice_refutation.cpp
     theory_diff_logic.cpp
     theory_dl.cpp
     theory_dummy.cpp

@@ -28,7 +28,8 @@ namespace smt {
         theory(ctx, ctx.get_manager().mk_family_id("finite_set")),
         u(m),
         m_axioms(m), m_rw(m), m_find(*this),
-        m_cardinality_solver(*this)
+        m_cardinality_solver(*this),
+        m_lattice_refutation(*this)
     {
         // Setup the add_clause callback for axioms
         std::function<void(theory_axiom *)> add_clause_fn =
@@ -256,6 +257,7 @@ namespace smt {
             ctx.push_trail(push_back_vector(m_eqs));
             m_find.merge(v1, v2);  // triggers merge_eh, which triggers incremental generation of theory axioms
         }
+        m_lattice_refutation.add_equality(v1, v2);
     }
 
     /**
