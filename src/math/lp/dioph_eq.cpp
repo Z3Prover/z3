@@ -2239,6 +2239,10 @@ namespace lp {
                 if (var_is_fresh(p.var()))
                     continue;
                 unsigned j = local_to_lar_solver(p.var());
+                if (j == UINT_MAX) {
+                    TRACE(dio, tout << "(local: " << "x" << p.var() << ") is not registered \nbad entry:"; print_entry(ei, tout) << "\n";);
+                    return false;
+                }
                 if (is_fixed(j)) {
                     TRACE(dio, tout << "x" << j << "(local: " << "x" << p.var() << ") should not be fixed\nbad entry:"; print_entry(ei, tout) << "\n";);
                     return false;
