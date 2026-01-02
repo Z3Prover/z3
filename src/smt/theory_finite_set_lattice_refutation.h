@@ -15,6 +15,8 @@ namespace smt {
         finite_set_util u;
         expr_ref_vector bs;
         expr_ref m_assumption;
+
+        svector<std::pair<expr*, expr*>> relations;
         public:
             theory_finite_set_lattice_refutation(theory_finite_set &th);
             void add_equality(theory_var v1, theory_var v2);
