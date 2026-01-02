@@ -187,6 +187,8 @@ namespace opt {
         TRACE(opt_verbose, s().display(tout << "maxsmt\n") << "\n";);
         if (!committed && optp.maxlex_enable() && is_maxlex(m_soft)) 
             m_msolver = mk_maxlex(m_c, m_index, m_soft);            
+        else if (maxsat_engine == symbol("maxresw"))
+            m_msolver = mk_maxresw(m_c, m_index, m_soft);
         else if (m_soft.empty() || maxsat_engine == symbol("maxres") || maxsat_engine == symbol::null)             
             m_msolver = mk_maxres(m_c, m_index, m_soft);            
         else if (maxsat_engine == symbol("maxres-bin"))             
