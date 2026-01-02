@@ -38,6 +38,14 @@ namespace opt {
             m_core(c), m_weight(w) {}
     };
 
+    struct weighted_soft {
+        expr_ref  soft;
+        expr_ref  def;
+        rational  weight;
+        weighted_soft(expr_ref const& s, expr_ref const& d, rational const& w): soft(s), def(d), weight(w) {}
+    };
+    using weighted_softs = vector<weighted_soft>;
+
     class maxsat_context;
 
     class maxsmt_solver {

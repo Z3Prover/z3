@@ -81,7 +81,8 @@ using namespace opt;
 class maxcore : public maxsmt_solver_base {
 public:
     enum strategy_t {
-        s_primal,
+        s_primal, 
+        s_primalw,
         s_primal_dual,
         s_primal_binary,
         s_rc2,
@@ -154,6 +155,9 @@ public:
         switch(st) {
         case s_primal:
             m_trace_id = "maxres";
+            break;
+        case s_primalw:
+            m_trace_id = "maxresw";
             break;
         case s_primal_dual:
             m_trace_id = "pd-maxres";
@@ -371,6 +375,7 @@ public:
         m_defs.reset();
         switch(m_st) {
         case s_primal:
+        case s_primalw:
         case s_primal_binary:
         case s_rc2:
         case s_primal_binary_rc2:
@@ -503,6 +508,9 @@ public:
         if (m_enable_core_rotate)
             return core_rotate();
 
+        if (m_st == s_primalw) 
+            return process_unsatw();        
+
         vector<weighted_core> cores;
         lbool is_sat = get_cores(cores);
         if (is_sat != l_true) {
@@ -515,6 +523,114 @@ public:
             process_unsat(cores);
             return l_true;
         }
+    }
+
+    lbool process_unsatw() {
+        vector<weighted_softs> cores;
+        lbool is_sat = get_cores(cores);
+        if (is_sat != l_true) {
+            return is_sat;
+        }
+        if (cores.empty()) {
+            return l_false;
+        }
+        else {
+            for (auto const &core : cores) {
+                for (unsigned i = 0; i + 1 < core.size(); ++i) {
+                    auto [f, def, w] = core[i];
+                    add(def);
+                    new_assumption(f, w);             
+                }
+                auto [f, def, w] = core.back();
+                add(def);
+                f = mk_not(f);
+                add(f);
+                m_lower += w;
+                trace();
+            }
+            return l_true;
+        }
+    }
+
+    lbool get_cores(vector<weighted_softs>& cores) {
+        lbool is_sat = l_false;
+        cores.reset();
+        exprs core;
+        while (is_sat == l_false) {
+            core.reset();
+            expr_ref_vector _core(m);
+            s().get_unsat_core(_core);
+            model_ref mdl;
+            get_mus_model(mdl);
+            is_sat = minimize_core(_core);
+            core.append(_core.size(), _core.data());
+            DEBUG_CODE(verify_core(core););
+            ++m_stats.m_num_cores;
+            if (is_sat != l_true) {
+                IF_VERBOSE(100, verbose_stream() << "(opt.maxresw minimization failed)\n";);
+                break;
+            }
+            if (core.empty()) {
+                IF_VERBOSE(100, verbose_stream() << "(opt.maxresw core is empty)\n";);
+                TRACE(opt, tout << "empty core\n";);
+                cores.reset();
+                m_lower = m_upper;
+                return l_true;
+            }
+
+            weighted_softs soft;
+            for (expr* e : core) {
+                rational w = get_weight(e);
+                expr_ref fml(m.mk_true(), m);
+                expr_ref s(e, m);
+                soft.push_back({s, fml, w});
+            }
+            std::sort(soft.begin(), soft.end(),
+                      [](auto const& a, auto const& b) {
+                          return a.weight > b.weight;
+                      });
+            remove_soft(core, m_asms);
+            expr_ref fml(m), d(m);
+            for (unsigned i = 0; i + 1 < soft.size(); ++i) {
+                rational w1 = soft[i].weight;
+                rational w2 = soft[i + 1].weight;
+                auto s1 = soft[i].soft;
+                auto s2 = soft[i + 1].soft;
+                // verbose_stream() << "processing softs of weights " << s1 << " " << w1 << " and " << s2 << " " << w2 << "\n";
+                SASSERT(w1 >= w2);
+                // s1 := s1 or s2
+                // d  => s1 & s2
+                // s2 := d
+                // assume s1, w1 - w2
+                // new soft constraints are s1 or s2 : w2, s1 & s2 or s3 : w3, ...
+                // remove soft constraint of weight w_n
+                d = mk_fresh_bool("d");
+                fml = m.mk_and(s1, s2);
+                update_model(d, fml);
+                soft[i].weight = w2;
+                soft[i].soft = m.mk_or(s1, s2);
+                soft[i + 1].soft = d;
+                soft[i + 1].def = m.mk_implies(d, fml);
+                if (w1 > w2) { 
+                    for (unsigned j = 0; j < i; ++j) {
+                        auto [s, def, w] = soft[j];
+                        if (!m.is_true(def)) {
+                            add(def);
+                            soft[j].def = m.mk_true();
+                        }
+                    }
+                    new_assumption(s1, w1 - w2);
+                }
+            }
+            cores.push_back(soft);
+
+            if (core.size() >= m_max_core_size)
+                break;
+
+            is_sat = check_sat_hill_climb(m_asms);
+        }
+
+        return is_sat;
     }
 
     lbool core_rotate() {
@@ -570,6 +686,8 @@ public:
         case strategy_t::s_primal_binary_rc2:
             max_resolve_rc2bin(core, w);
             break;
+        case strategy_t::s_primalw: 
+            UNREACHABLE();
         default:
             max_resolve(core, w);
             break;
@@ -637,16 +755,21 @@ public:
 
     rational split_core(exprs const& core) {
         rational w = core_weight(core);
-        // add fresh soft clauses for weights that are above w.
+        // add fresh soft clauses for weights that are above w.     
         for (expr* e : core) {
             rational w2 = get_weight(e);
             if (w2 > w) {
                 rational w3 = w2 - w;
-                new_assumption(e, w3);
+                new_assumption(e, w3);               
             }
         }
         return w;
     }
+
+    // (c1, w1), ... , (cn, wn), w1 <= w2 <= ... <= wn
+    // clones are (c2, w2 - w1), (c3, w3 - w2), ... , (cn, wn - w_{n-1})
+    // soft constraints are
+    // (c1 or c2, w1), (c1 & c2 or c3, w2), ..., (c1 & ... & c_{n-1} or c_n, w_{n-1})
 
     void display_vec(std::ostream& out, exprs const& exprs) {
         display_vec(out, exprs.size(), exprs.data());
@@ -1127,6 +1250,10 @@ public:
 opt::maxsmt_solver_base* opt::mk_maxres(
     maxsat_context& c, unsigned id, vector<soft>& soft) {
     return alloc(maxcore, c, id, soft, maxcore::s_primal);
+}
+
+opt::maxsmt_solver_base *opt::mk_maxresw(maxsat_context &c, unsigned id, vector<soft> &soft) {
+    return alloc(maxcore, c, id, soft, maxcore::s_primalw);
 }
 
 opt::maxsmt_solver_base* opt::mk_rc2(
