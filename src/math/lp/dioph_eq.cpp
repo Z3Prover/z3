@@ -26,7 +26,7 @@
   -- m_fresh_k2xt_terms: when a fresh definitions is created for a variable k in row s then the triple
   (k,xt,(t,s)) is added to m_fresh_k2xt_terms, where xt is the fresh variable, and t it the term defining the substitution: something like k - xt + 5z + 6y = 0.
   The set of pairs (k, xt) is a one to one mapping
-  m_row2fresh_defs[i]: is the list of all xt that were defined for row m_e_matrix[i].
+  m_row2fresh_defs[i]: is the list of all fresh xt that were defined for row m_e_matrix[i].
   Invariant: Every xt in m_row2fresh[i] must have a corresponding entry in m_fresh_k2xt_terms
 
   The mapping between the columns of lar_solver and m_e_matrix is controlled by m_var_register.
@@ -733,12 +733,20 @@ namespace lp {
             eliminate_last_term_column();
             remove_last_row_in_matrix(m_l_matrix);
             remove_last_row_in_matrix(m_e_matrix);
-            while (m_l_matrix.column_count() && m_l_matrix.m_columns.back().size() == 0) {
+            // Recalculate rows that still reference fresh vars defined by the removed row.
+            auto it = m_row2fresh_defs.find(i);
+            if (it != m_row2fresh_defs.end()) 
+                for (unsigned xt : it->second) 
+                    if (xt < m_e_matrix.column_count())
+                        for (const auto& p : m_e_matrix.m_columns[xt])
+                            m_changed_rows.insert(p.var());
+            
+            while (m_l_matrix.column_count() && m_l_matrix.m_columns.back().size() == 0)
                 m_l_matrix.m_columns.pop_back();
-            }
-            while (m_e_matrix.column_count() && m_e_matrix.m_columns.back().size() == 0) {
+
+            while (m_e_matrix.column_count() && m_e_matrix.m_columns.back().size() == 0)
                 m_e_matrix.m_columns.pop_back();
-            }
+            
             m_var_register.shrink(m_e_matrix.column_count());
 
             remove_irrelevant_fresh_defs_for_row(i);
