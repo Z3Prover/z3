@@ -40,9 +40,10 @@ namespace opt {
 
     struct weighted_soft {
         expr_ref  soft;
-        expr_ref  def;
+        expr_ref  conj;
+        expr_ref  disj;
         rational  weight;
-        weighted_soft(expr_ref const& s, expr_ref const& d, rational const& w): soft(s), def(d), weight(w) {}
+        weighted_soft(expr_ref const& s, expr_ref const& c, expr_ref const& d, rational const& w): soft(s), conj(c), disj(d), weight(w) {}
     };
     using weighted_softs = vector<weighted_soft>;
 

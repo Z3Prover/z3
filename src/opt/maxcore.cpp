@@ -193,7 +193,8 @@ public:
     }
 
     void add(expr* e) {
-        s().assert_expr(e);
+        if (!m.is_true(e))
+            s().assert_expr(e);
     }
 
     void add_soft(expr* e, rational const& w) {
@@ -536,20 +537,87 @@ public:
         }
         else {
             for (auto const &core : cores) {
-                for (unsigned i = 0; i + 1 < core.size(); ++i) {
-                    auto [f, def, w] = core[i];
-                    add(def);
-                    new_assumption(f, w);             
-                }
-                auto [f, def, w] = core.back();
-                add(def);
-                f = mk_not(f);
-                add(f);
-                m_lower += w;
-                trace();
+                process_unsatw(core);
             }
             return l_true;
         }
+    }
+
+    void process_unsatw(weighted_softs const& core) {
+        for (unsigned i = 0; i + 1 < core.size(); ++i) {
+            auto [f, c, d, w] = core[i];
+            add(c);
+            add(d);            
+            new_assumption(f, w);
+        }
+        auto [f, c, d, w] = core.back();
+        add(c);
+        add(d);
+        f = mk_not(f);
+        add(f);
+        if (core.size() <= 2)
+            m_defs.push_back(f);
+        m_lower += w;
+        IF_VERBOSE(2, verbose_stream() << "(opt.maxresw increase-lower-bound " << w << ")\n");
+        trace();
+    }
+
+    weighted_softs core2weighted_soft(exprs const& core) {
+        weighted_softs soft;
+        for (expr *e : core) {
+            rational w = get_weight(e);
+            expr_ref tt(m.mk_true(), m);
+            expr_ref s(e, m);
+            soft.push_back({s, tt, tt, w});
+        }
+        std::sort(soft.begin(), soft.end(), [](auto const &a, auto const &b) { return a.weight > b.weight; });
+        remove_soft(core, m_asms);
+        expr_ref fml(m), conj(m), disj(m), c(m), a(m);
+        IF_VERBOSE(2, verbose_stream() << "(opt.maxresw core weights:";
+                   for (auto const &[s, c, d, w] : soft) verbose_stream() << " " << w; verbose_stream() << ")\n";);
+        for (unsigned i = 0; i + 1 < soft.size(); ++i) {
+            rational w1 = soft[i].weight;
+            rational w2 = soft[i + 1].weight;
+            auto s1 = soft[i].soft;
+            auto s2 = soft[i + 1].soft;
+            SASSERT(w1 >= w2);
+            // a  => s1 | s2
+            // c  => s1 & s2
+            // s1 := a
+            // s2 := c
+            // assume s1, w1 - w2
+            // new soft constraints are s1 or s2 : w2, s1 & s2 or s3 : w3, ...
+            // remove soft constraint of weight w_n
+            c = mk_fresh_bool("c");
+            a = mk_fresh_bool("a");
+
+            conj = m.mk_and(s1, s2);
+            update_model(c, conj);
+            conj = m.mk_implies(c, conj);
+
+            disj = m.mk_or(s1, s2);
+            update_model(a, disj);
+            disj = m.mk_implies(a, disj);
+
+            soft[i].weight = w2;
+            soft[i].soft = a;
+            soft[i + 1].soft = c;
+            soft[i + 1].conj = conj;
+            soft[i + 1].disj = disj;
+            m_defs.push_back(conj);
+            m_defs.push_back(disj);
+            if (w1 > w2) {
+                for (unsigned j = 0; j < i; ++j) {
+                    auto [s, conj, disj, w] = soft[j];
+                    if (!m.is_true(conj)) {
+                        add(conj);
+                        soft[j].conj = m.mk_true();
+                    }
+                }
+                new_assumption(s1, w1 - w2);
+            }
+        }
+        return soft;
     }
 
     lbool get_cores(vector<weighted_softs>& cores) {
@@ -578,50 +646,8 @@ public:
                 return l_true;
             }
 
-            weighted_softs soft;
-            for (expr* e : core) {
-                rational w = get_weight(e);
-                expr_ref fml(m.mk_true(), m);
-                expr_ref s(e, m);
-                soft.push_back({s, fml, w});
-            }
-            std::sort(soft.begin(), soft.end(),
-                      [](auto const& a, auto const& b) {
-                          return a.weight > b.weight;
-                      });
-            remove_soft(core, m_asms);
-            expr_ref fml(m), d(m);
-            for (unsigned i = 0; i + 1 < soft.size(); ++i) {
-                rational w1 = soft[i].weight;
-                rational w2 = soft[i + 1].weight;
-                auto s1 = soft[i].soft;
-                auto s2 = soft[i + 1].soft;
-                // verbose_stream() << "processing softs of weights " << s1 << " " << w1 << " and " << s2 << " " << w2 << "\n";
-                SASSERT(w1 >= w2);
-                // s1 := s1 or s2
-                // d  => s1 & s2
-                // s2 := d
-                // assume s1, w1 - w2
-                // new soft constraints are s1 or s2 : w2, s1 & s2 or s3 : w3, ...
-                // remove soft constraint of weight w_n
-                d = mk_fresh_bool("d");
-                fml = m.mk_and(s1, s2);
-                update_model(d, fml);
-                soft[i].weight = w2;
-                soft[i].soft = m.mk_or(s1, s2);
-                soft[i + 1].soft = d;
-                soft[i + 1].def = m.mk_implies(d, fml);
-                if (w1 > w2) { 
-                    for (unsigned j = 0; j < i; ++j) {
-                        auto [s, def, w] = soft[j];
-                        if (!m.is_true(def)) {
-                            add(def);
-                            soft[j].def = m.mk_true();
-                        }
-                    }
-                    new_assumption(s1, w1 - w2);
-                }
-            }
+            weighted_softs soft = core2weighted_soft(core);
+
             cores.push_back(soft);
 
             if (core.size() >= m_max_core_size)
@@ -687,7 +713,8 @@ public:
             max_resolve_rc2bin(core, w);
             break;
         case strategy_t::s_primalw: 
-            UNREACHABLE();
+            max_resolve(core, w); 
+            break;
         default:
             max_resolve(core, w);
             break;
@@ -1067,6 +1094,18 @@ public:
     }
 
     void relax_cores(vector<expr_ref_vector> const& cores) {
+        if (m_st == s_primalw) {
+            for (auto const & core : cores) {
+                exprs _core(core.size(), core.data());
+                weighted_softs soft = core2weighted_soft(_core);
+                IF_VERBOSE(2, verbose_stream() << "(opt.maxresw relax-core weights:";
+                           for (auto const &[s, c, d, w] : soft) verbose_stream() << " " << w;
+                           verbose_stream() << ")\n";);
+                process_unsatw(soft);
+            }
+            return;
+        }
+
         vector<weighted_core> wcores;
         for (auto & core : cores) {
             exprs _core(core.size(), core.data());
