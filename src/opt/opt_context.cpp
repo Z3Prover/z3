@@ -800,7 +800,8 @@ namespace opt {
         if (!is_maxsat_query())
             return;
 
-        if (m_maxsat_engine != symbol("maxres") &&
+        if (m_maxsat_engine != symbol("maxres") && 
+            m_maxsat_engine != symbol("maxresw") &&
             m_maxsat_engine != symbol("rc2") &&
             m_maxsat_engine != symbol("rc2tot") &&
             m_maxsat_engine != symbol("rc2bin") &&

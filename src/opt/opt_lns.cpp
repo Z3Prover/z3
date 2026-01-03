@@ -262,7 +262,7 @@ namespace opt {
             bool all_assumed = true;            
             for (expr* c : core) 
                 all_assumed &= m_is_assumption.is_marked(c);
-            IF_VERBOSE(2, verbose_stream() << "core " << all_assumed << " - " << core.size() << "\n");
+            IF_VERBOSE(5, verbose_stream() << "core " << all_assumed << " - " << core.size() << "\n");
             if (all_assumed) 
                 m_cores.push_back(core);            
         }
