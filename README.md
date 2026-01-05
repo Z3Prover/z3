@@ -232,7 +232,7 @@ to Z3's C API. For more information, see [MachineArithmetic/README.md](https://g
 
 ### AIX
 
-[https://github.com/Z3Prover/z3/pull/8113](Build settings for AIX are described here.)
+[Build settings for AIX are described here.](https://github.com/Z3Prover/z3/pull/8113)
 
 ## System Overview
 
