@@ -92,6 +92,10 @@ static void tst_float_sine_core(std::ostream & out,
     out << "Sin[" << fm.to_rational_string(a) << "] <= " << fm.to_rational_string(hi) << "\n";
 }
 
+#ifdef SBITS
+#undef SBITS
+#endif
+
 const unsigned EBITS = 11;
 const unsigned SBITS = 53;
 
