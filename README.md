@@ -230,6 +230,10 @@ A WebAssembly build with associated TypeScript typings is published on npm as [z
 Project [MachineArithmetic](https://github.com/shingarov/MachineArithmetic) provides a Smalltalk interface
 to Z3's C API. For more information, see [MachineArithmetic/README.md](https://github.com/shingarov/MachineArithmetic/blob/pure-z3/MachineArithmetic/README.md).
 
+### AIX
+
+[https://github.com/Z3Prover/z3/pull/8113](Build settings for AIX are described here.)
+
 ## System Overview
 
 ![System Diagram](https://github.com/Z3Prover/doc/blob/master/programmingz3/images/Z3Overall.jpg)
