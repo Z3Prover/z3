@@ -262,6 +262,21 @@ namespace smt {
         ctx.mk_th_axiom(get_id(), 2, lits);
     }
 
+    void theory_datatype::assert_subterm_axioms(enode * n) {
+        sort * s = n->get_sort();
+        if (m_util.is_datatype(s)) {
+            func_decl * sub_decl = m_util.get_datatype_subterm(s);
+            if (sub_decl) {
+                TRACE(datatype, tout << "asserting reflexivity for #" << n->get_owner_id() << " " << mk_pp(n->get_expr(), m) << "\n";);
+                app_ref reflex(m.mk_app(sub_decl, n->get_expr(), n->get_expr()), m);
+                ctx.internalize(reflex, false);
+                literal l(ctx.get_bool_var(reflex));
+                ctx.mark_as_relevant(l);
+                ctx.mk_th_axiom(get_id(), 1, &l);
+            }
+        }
+    }
+
     theory_var theory_datatype::mk_var(enode * n) {
         theory_var r  = theory::mk_var(n);
         VERIFY(r == static_cast<theory_var>(m_find.mk_var()));
@@ -269,6 +284,9 @@ namespace smt {
         m_var_data.push_back(alloc(var_data));
         var_data * d  = m_var_data[r];
         ctx.attach_th_var(n, this, r);
+
+        assert_subterm_axioms(n);
+
         if (is_constructor(n)) {
             d->m_constructor = n;
             assert_accessor_axioms(n);
@@ -477,6 +495,8 @@ namespace smt {
         // If we are here, n is assigned true.
         SASSERT(ctx.get_assignment(n) == l_true);
 
+        TRACE(datatype, tout << "propagate_is_subterm: " << enode_pp(n, ctx) << "\n";);
+
         literal_vector lits;
         lits.push_back(literal(ctx.enode2bool_var(n), true)); // antecedent: ~n
 
@@ -489,6 +509,7 @@ namespace smt {
             // Case 1: Equality check (arg1 == s)
             // Valid if sorts are compatible.
             if (s->get_sort() == arg1->get_sort()) {
+                TRACE(datatype, tout << "adding equality case: " << mk_pp(arg1->get_expr(), m) << " == " << mk_pp(s->get_expr(), m) << "\n";);
                 lits.push_back(mk_eq(arg1->get_expr(), s->get_expr(), false));
                 found_possible = true;
             }
@@ -505,6 +526,7 @@ namespace smt {
                      // arg1 ⊑ s
                      func_decl* sub_decl = m_util.get_datatype_subterm(s->get_sort());
                      if (sub_decl) {
+                        TRACE(datatype, tout << "adding recursive case: " << mk_pp(arg1->get_expr(), m) << " \\sqsubseteq " << mk_pp(s->get_expr(), m) << "\n";);
                         app_ref sub_app(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()), m);
                         ctx.internalize(sub_app, false);
                         lits.push_back(literal(ctx.get_bool_var(sub_app)));
@@ -518,6 +540,7 @@ namespace smt {
             ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
         } else if (!found_possible) {
              // Conflict: arg1 cannot be subterm of arg2 (no path matches)
+             TRACE(datatype, tout << "conflict: no path matches\n";);
              ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
         }
     }
@@ -530,6 +553,8 @@ namespace smt {
         // If we are here, n is assigned false.
         SASSERT(ctx.get_assignment(n) == l_false);
 
+        TRACE(datatype, tout << "propagate_not_is_subterm: " << enode_pp(n, ctx) << "\n";);
+
         datatype_util util(get_manager());
         literal antecedent = literal(ctx.enode2bool_var(n), false);
 
@@ -537,6 +562,7 @@ namespace smt {
             bool is_leaf = !util.is_constructor(s->get_expr());
 
             if (s->get_sort() == arg1->get_sort()) {
+                TRACE(datatype, tout << "asserting " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
                 literal eq = mk_eq(arg1->get_expr(), s->get_expr(), true);
                 literal lits[2] = { antecedent, ~eq };
                 ctx.mk_th_axiom(get_id(), 2, lits);
@@ -550,6 +576,7 @@ namespace smt {
                 if (util.is_datatype(s->get_sort())) {
                      func_decl* sub_decl = m_util.get_datatype_subterm(s->get_sort());
                      if (sub_decl) {
+                        TRACE(datatype, tout << "asserting NOT " << mk_pp(arg1->get_expr(), m) << " \\sqsubseteq " << mk_pp(s->get_expr(), m) << "\n";);
                         app_ref sub_app(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()), m);
                         ctx.internalize(sub_app, false);
                         literal sub_lit = literal(ctx.get_bool_var(sub_app));
@@ -560,10 +587,6 @@ namespace smt {
             }
         }
     }
-
-    /// @brief Iterator over subterm
-    /// 
-    /// This lazily computes the subterm of a term. In the current term algebra. 
     
     void subterm_iterator::next() {
         m_current = nullptr;
@@ -618,7 +641,6 @@ namespace smt {
     subterm_iterator::~subterm_iterator() {
         for (enode* n : m_marked) n->unset_mark();
     }
-
     
 
     // List the subtems of `arg` up to our knowlege.
@@ -629,12 +651,6 @@ namespace smt {
             result.push_back(n);
         }
         return result;
-    }
-
-    
-    void search_subterm(enode* arg1, vector<enode*>* arg2) {
-        // 0 for false
-        
     }
 
     void theory_datatype::relevant_eh(app * n) {

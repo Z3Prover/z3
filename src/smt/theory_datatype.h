@@ -82,6 +82,7 @@ namespace smt {
         void assert_is_constructor_axiom(enode * n, func_decl * c, literal antecedent);
         void assert_accessor_axioms(enode * n);
         void assert_update_field_axioms(enode * n);
+        void assert_subterm_axioms(enode * n);
         void add_recognizer(theory_var v, enode * recognizer);
         void add_subterm_predicate(theory_var v, enode *predicate);
         void propagate_is_subterm(enode * n);
