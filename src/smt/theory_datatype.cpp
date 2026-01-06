@@ -461,8 +461,11 @@ namespace smt {
                                  << enode_pp(n, ctx) << "\n";);
             SASSERT(n->get_num_args() == 2);
 
-            SASSERT(false && "TODO: unimplemented");
-
+            if (is_true) {
+                propagate_is_subterm(n);
+            } else {
+                propagate_not_is_subterm(n);
+            }
         }
     }
 
@@ -516,6 +519,45 @@ namespace smt {
         } else if (!found_possible) {
              // Conflict: arg1 cannot be subterm of arg2 (no path matches)
              ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+        }
+    }
+
+    void theory_datatype::propagate_not_is_subterm(enode *n) {
+        SASSERT(is_subterm_predicate(n));
+        enode * arg1 = n->get_arg(0);
+        enode * arg2 = n->get_arg(1);
+
+        // If we are here, n is assigned false.
+        SASSERT(ctx.get_assignment(n) == l_false);
+
+        datatype_util util(get_manager());
+        literal antecedent = literal(ctx.enode2bool_var(n), false);
+
+        for (enode* s : iterate_subterms(get_manager(), arg2)) {
+            bool is_leaf = !util.is_constructor(s->get_expr());
+
+            if (s->get_sort() == arg1->get_sort()) {
+                literal eq = mk_eq(arg1->get_expr(), s->get_expr(), true);
+                literal lits[2] = { antecedent, ~eq };
+                ctx.mk_th_axiom(get_id(), 2, lits);
+            }
+
+            if (is_leaf) {
+                if (s->get_root() == arg2->get_root()) {
+                    continue; 
+                }
+
+                if (util.is_datatype(s->get_sort())) {
+                     func_decl* sub_decl = m_util.get_datatype_subterm(s->get_sort());
+                     if (sub_decl) {
+                        app_ref sub_app(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()), m);
+                        ctx.internalize(sub_app, false);
+                        literal sub_lit = literal(ctx.get_bool_var(sub_app));
+                        literal lits[2] = { antecedent, ~sub_lit };
+                        ctx.mk_th_axiom(get_id(), 2, lits);
+                     }
+                }
+            }
         }
     }
 

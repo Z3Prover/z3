@@ -85,6 +85,7 @@ namespace smt {
         void add_recognizer(theory_var v, enode * recognizer);
         void add_subterm_predicate(theory_var v, enode *predicate);
         void propagate_is_subterm(enode * n);
+        void propagate_not_is_subterm(enode * n);
         void propagate_recognizer(theory_var v, enode *r);
         void sign_recognizer_conflict(enode * c, enode * r);
 
