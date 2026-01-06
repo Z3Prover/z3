@@ -8,43 +8,60 @@ namespace smt {
     theory_finite_set_lattice_refutation::theory_finite_set_lattice_refutation(theory_finite_set& th): 
     m(th.m), ctx(th.ctx), th(th), u(m), bs(m), m_assumption(m) {}
 
-    void theory_finite_set_lattice_refutation::add_equality(theory_var v1, theory_var v2){
+    // determines if the two enodes capture a subset relation:
+    // checks, whether intersect_expr = intersect(subset, return_value) for some return value
+    // otherwise return null
+    enode* theory_finite_set_lattice_refutation::get_superset(enode* subset, enode* intersect_expr){
         expr* arg1 = nullptr, *arg2 = nullptr;
+        if(u.is_intersect(intersect_expr->get_expr(), arg1, arg2)){
+            if(arg1 == subset->get_expr()){
+                return ctx.get_enode(arg2);
+            }
+            if(arg2 == subset->get_expr()){
+                return ctx.get_enode(arg1);
+            }
+        }
+        return nullptr;
+    }
+
+    void theory_finite_set_lattice_refutation::add_equality(theory_var v1, theory_var v2){
         auto n1 = th.get_enode(v1);
         auto n2 = th.get_enode(v2);
-        if(u.is_intersect(n2->get_expr(), arg1, arg2)){
-            TRACE(finite_set, tout << "new_eq_eh_intersection: (v1:="<< n1->get_expr()<<") = (v2: intersect("<<arg1<<","<<arg2<<"))");
-            if(arg1 == n1->get_expr()){
-                // v2 = intersect(v2, v1) ==> v2\subseteq v1
-                relations.push_back({arg1,arg2});
-                ctx.push_trail(push_back_vector(relations));
 
-            }
-            else if(arg2 == n1->get_expr()){
-                // v1 = intersect(v2, v1) ==> v1\subseteq v2
-                relations.push_back({arg2,arg1});
-                ctx.push_trail(push_back_vector(relations));
-            }
+        enode* subset = n1;
+        enode* superset = get_superset(n1, n2);
+        if(superset == nullptr){
+            subset = n2;
+            superset = get_superset(n2, n1);
         }
-        else if(u.is_intersect(n1->get_expr(), arg1, arg2)){
-            TRACE(finite_set, tout << "new_eq_eh_intersection2: (v2:="<< n2->get_expr()<<") = (v1: intersect("<<arg1<<","<<arg2<<"))");
-            if(arg1 == n2->get_expr()){
-                // v2 = intersect(v2, v1) ==> v2\subseteq v1
-                relations.push_back({arg1,arg2});
-                ctx.push_trail(push_back_vector(relations));
-
-            }
-            else if(arg2 == n2->get_expr()){
-                // v1 = intersect(v2, v1) ==> v1\subseteq v2
-                relations.push_back({arg2,arg1});
-                ctx.push_trail(push_back_vector(relations));
-            }
+        if(superset == nullptr){
+            return;
         }
+        relations.push_back({subset, superset});
+        TRACE(finite_set, tout << "new_eq_intersection: " << enode_pp(subset, ctx) << "\\subseteq " << enode_pp(superset, ctx));
+            
     };
 
     void theory_finite_set_lattice_refutation::add_disequality(theory_var v1, theory_var v2){
         auto n1 = th.get_enode(v1);
         auto n2 = th.get_enode(v2);
-        TRACE(finite_set, tout << "new_diseq_intersection: (v1:"<< n1->get_expr()<<") = (v2:"<< n2->get_expr() <<")");
+
+        enode* subset = n1;
+        enode* superset = get_superset(n1, n2);
+        if(superset == nullptr){
+            subset = n2;
+            superset = get_superset(n2, n1);
+        }
+        if(superset == nullptr){
+            return;
+        }
+        non_relations.push_back({subset, superset});
+        TRACE(finite_set, tout << "new_diseq_intersection: " << enode_pp(subset, ctx) << "\\not\\subseteq " << enode_pp(superset, ctx));
+
+        auto eq_expr = m.mk_not(m.mk_eq(n1->get_expr(), n2->get_expr()));
+        auto is_true = ctx.get_assignment(eq_expr);
+        TRACE(finite_set, tout << "new_diseq_intersection_assignment: " << is_true);
+        ctx.display_assignment(tout);
+
     }
 }

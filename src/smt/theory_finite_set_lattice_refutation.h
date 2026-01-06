@@ -16,7 +16,9 @@ namespace smt {
         expr_ref_vector bs;
         expr_ref m_assumption;
 
-        svector<std::pair<expr*, expr*>> relations;
+        svector<std::pair<enode*, enode*>> relations;
+        svector<std::pair<enode*, enode*>> non_relations;
+        enode* get_superset(enode*, enode*);
         public:
             theory_finite_set_lattice_refutation(theory_finite_set &th);
             void add_equality(theory_var v1, theory_var v2);
