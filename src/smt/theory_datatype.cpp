@@ -493,7 +493,11 @@ namespace smt {
         ptr_vector<enode> subs(d->m_subterms);
         for (enode *n : subs) {
             lbool val = ctx.get_assignment(n);
-            propagate_subterm(n, val);
+            switch (val) {
+            case l_undef: continue;
+            case l_true: propagate_subterm(n, true); break;
+            case l_false: propagate_subterm(n, false); break;
+            }
         }
     }
 
@@ -1232,6 +1236,8 @@ namespace smt {
         if (d->m_subterms.contains(predicate)) return;
 
         TRACE(datatype, tout << "add subterm predicate\n" << enode_pp(predicate, ctx) << "\n";);
+
+        m_trail_stack.push(restore_vector(d->m_subterms));
         d->m_subterms.push_back(predicate);
     }
 
