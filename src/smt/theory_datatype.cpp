@@ -493,14 +493,12 @@ namespace smt {
         ptr_vector<enode> subs(d->m_subterms);
         for (enode *n : subs) {
             lbool val = ctx.get_assignment(n);
-            if (val == l_true)
-                propagate_is_subterm(n);
-            else if (val == l_false)
-                propagate_not_is_subterm(n);
+            propagate_subterm(n, val);
         }
     }
 
     void theory_datatype::propagate_subterm(enode *n, bool is_true) {
+        force_push(); // I am faily sure I need that here
         if (is_true) {
             propagate_is_subterm(n);
         }
@@ -531,7 +529,9 @@ namespace smt {
         bool found_possible = false;
         bool has_leaf_root = false;
 
-        for (enode *s : iterate_subterms(get_manager(), arg2)) {
+        ptr_vector<enode> candidates = list_subterms(arg2);
+
+        for (enode *s : candidates) {
             bool is_leaf = !util.is_constructor(s->get_expr());
 
             // Case 1: Equality check (arg1 == s)
@@ -606,7 +606,9 @@ namespace smt {
         literal antecedent = literal(ctx.enode2bool_var(n), false);
         bool has_leaf_root = false;
 
-        for (enode *s : iterate_subterms(get_manager(), arg2)) {
+        ptr_vector<enode> candidates = list_subterms(arg2);
+
+        for (enode *s : candidates) {
             bool is_leaf = !util.is_constructor(s->get_expr());
 
             if (s->get_sort() == arg1->get_sort()) {
@@ -710,6 +712,14 @@ namespace smt {
     subterm_iterator::~subterm_iterator() {
         for (enode *n : m_marked)
             n->unset_mark();
+    }
+
+    ptr_vector<enode> theory_datatype::list_subterms(enode* arg) {
+        ptr_vector<enode> result;
+        for (enode* n : iterate_subterms(get_manager(), arg)) {
+            result.push_back(n);
+        }
+        return result;
     }
 
     void theory_datatype::relevant_eh(app * n) {

@@ -134,6 +134,7 @@ namespace smt {
         void mk_split(theory_var v);
 
         void display_var(std::ostream & out, theory_var v) const;
+        ptr_vector<enode> list_subterms(enode* arg);
 
     protected:
         theory_var mk_var(enode * n) override;
