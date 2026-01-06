@@ -85,8 +85,11 @@ namespace smt {
         void assert_subterm_axioms(enode * n);
         void add_recognizer(theory_var v, enode * recognizer);
         void add_subterm_predicate(theory_var v, enode *predicate);
+        void propagate_subterm(enode * n, bool is_true);
         void propagate_is_subterm(enode * n);
-        void propagate_not_is_subterm(enode * n);
+        void propagate_not_is_subterm(enode *n);
+        void split_leaf_root(smt::enode *arg2);
+        void propagate_subterm_with_constructor(theory_var v);
         void propagate_recognizer(theory_var v, enode *r);
         void sign_recognizer_conflict(enode * c, enode * r);
 
@@ -204,7 +207,6 @@ namespace smt {
     inline subterm_iterator iterate_subterms(ast_manager& m, enode *arg) {
         return subterm_iterator(m, arg);
     }
-    ptr_vector<enode> list_subterms(ast_manager& m, enode* arg);
 };
 
 

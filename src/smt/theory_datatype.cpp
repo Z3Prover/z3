@@ -461,6 +461,7 @@ namespace smt {
                 if (d->m_constructor != nullptr && d->m_constructor->get_decl() == c)
                     return;  // do nothing
                 assert_is_constructor_axiom(arg, c, literal(v));
+                propagate_subterm_with_constructor(tv);
             }
             else {
                 if (d->m_constructor != nullptr) {
@@ -479,157 +480,199 @@ namespace smt {
                                  << enode_pp(n, ctx) << "\n";);
             SASSERT(n->get_num_args() == 2);
 
-            if (is_true) {
-                propagate_is_subterm(n);
-            } else {
-                propagate_not_is_subterm(n);
-            }
+            propagate_subterm(n, is_true);
         }
     }
 
-    void theory_datatype::propagate_is_subterm(enode *n){
+    void theory_datatype::propagate_subterm_with_constructor(theory_var v) {
+        v = m_find.find(v);
+        var_data *d = m_var_data[v];
+        if (!d->m_constructor)
+            return;
+
+        ptr_vector<enode> subs(d->m_subterms);
+        for (enode *n : subs) {
+            lbool val = ctx.get_assignment(n);
+            if (val == l_true)
+                propagate_is_subterm(n);
+            else if (val == l_false)
+                propagate_not_is_subterm(n);
+        }
+    }
+
+    void theory_datatype::propagate_subterm(enode *n, bool is_true) {
+        if (is_true) {
+            propagate_is_subterm(n);
+        }
+        else {
+            propagate_not_is_subterm(n);
+        }
+    }
+
+    void theory_datatype::propagate_is_subterm(enode *n) {
         SASSERT(is_subterm_predicate(n));
-        enode * arg1 = n->get_arg(0);
-        enode * arg2 = n->get_arg(1);
-        
+        enode *arg1 = n->get_arg(0);
+        enode *arg2 = n->get_arg(1);
+
         // If we are here, n is assigned true.
         SASSERT(ctx.get_assignment(n) == l_true);
 
         TRACE(datatype, tout << "propagate_is_subterm: " << enode_pp(n, ctx) << "\n";);
 
+        if (arg1->get_root() == arg2->get_root()) {
+            TRACE(datatype, tout << "subterm reflexivity, skipping " << "\n";);
+            return;
+        }
+
         literal_vector lits;
-        lits.push_back(literal(ctx.enode2bool_var(n), true)); // antecedent: ~n
+        lits.push_back(literal(ctx.enode2bool_var(n), true));  // antecedent: ~n
 
         datatype_util util(get_manager());
         bool found_possible = false;
+        bool has_leaf_root = false;
 
-        for (enode* s : iterate_subterms(get_manager(), arg2)) {
+        for (enode *s : iterate_subterms(get_manager(), arg2)) {
             bool is_leaf = !util.is_constructor(s->get_expr());
 
             // Case 1: Equality check (arg1 == s)
             // Valid if sorts are compatible.
             if (s->get_sort() == arg1->get_sort()) {
-                // we try to be a bit smart and skip obviously wrong equalities
-                bool skip_eq = false;
-                if (ctx.is_diseq(arg1, s)) {
-                    TRACE(datatype, tout << "skipping equality due to is_diseq: " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
-                    skip_eq = true;
-                } else {
-                    enode * c1 = oc_get_cstor(arg1);
-                    enode * c2 = oc_get_cstor(s);
-                    if (c1 && c2 && c1->get_decl() != c2->get_decl()) {
-                        TRACE(datatype, tout << "skipping equality due to distinct constructors: " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
-                        skip_eq = true;
-                    }
-                }
-
-                if (!skip_eq) {
-                    TRACE(datatype, tout << "adding equality case: " << mk_pp(arg1->get_expr(), m) << " == " << mk_pp(s->get_expr(), m) << "\n";);
-                    lits.push_back(mk_eq(arg1->get_expr(), s->get_expr(), false));
-                    found_possible = true;
-                }
+                // trying to be smarter about this causes other problems
+                TRACE(datatype, tout << "adding equality case: " << mk_pp(arg1->get_expr(), m)
+                                     << " == " << mk_pp(s->get_expr(), m) << "\n";);
+                lits.push_back(mk_eq(arg1->get_expr(), s->get_expr(), false));
+                found_possible = true;
             }
 
             // Case 2: Recursive subterm check (arg1 ⊑ s)
             // Only if s is a leaf (unexpanded) and not the root itself (to avoid tautology).
             if (is_leaf) {
                 if (s->get_root() == arg2->get_root()) {
-                    // If arg2 is a leaf, we learn nothing new.
-                    continue; 
+                    // If arg2 is a leaf, we haven't explored its possibilities yet.
+                    has_leaf_root = true;
+                    found_possible = true;
+                    continue;
                 }
 
                 if (util.is_datatype(s->get_sort())) {
-                     // arg1 ⊑ s
-                     func_decl* sub_decl = m_util.get_datatype_subterm(s->get_sort());
-                     if (sub_decl) {
-                        TRACE(datatype, tout << "adding recursive case: " << mk_pp(arg1->get_expr(), m) << " ⊑ " << mk_pp(s->get_expr(), m) << "\n";);
+                    // arg1 ⊑ s
+                    func_decl *sub_decl = m_util.get_datatype_subterm(s->get_sort());
+                    if (sub_decl) {
+                        TRACE(datatype, tout << "adding recursive case: " << mk_pp(arg1->get_expr(), m) << " ⊑ "
+                                             << mk_pp(s->get_expr(), m) << "\n";);
                         app_ref sub_app(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()), m);
                         ctx.internalize(sub_app, false);
                         lits.push_back(literal(ctx.get_bool_var(sub_app)));
                         found_possible = true;
-                     }
+                    }
                 }
             }
         }
-        
+
+        if (has_leaf_root) {
+            split_leaf_root(arg2);
+        }
+
         if (lits.size() > 1) {
+            if (!has_leaf_root) {
+                ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+            }
+        }
+        else if (!found_possible) {
+            // Conflict: arg1 cannot be subterm of arg2 (no path matches)
+            TRACE(datatype, tout << "conflict: no path matches\n";);
             ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
-        } else if (!found_possible) {
-             // Conflict: arg1 cannot be subterm of arg2 (no path matches)
-             TRACE(datatype, tout << "conflict: no path matches\n";);
-             ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
         }
     }
 
     void theory_datatype::propagate_not_is_subterm(enode *n) {
         SASSERT(is_subterm_predicate(n));
-        enode * arg1 = n->get_arg(0);
-        enode * arg2 = n->get_arg(1);
+        enode *arg1 = n->get_arg(0);
+        enode *arg2 = n->get_arg(1);
 
         // If we are here, n is assigned false.
         SASSERT(ctx.get_assignment(n) == l_false);
+
+        if (arg1->get_root() == arg2->get_root()) {
+            // ~ (a ⊑ a) is a conflict
+            literal l(ctx.enode2bool_var(n));
+            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), ctx, 1, &l, 0, nullptr)));
+            return;
+        }
 
         TRACE(datatype, tout << "propagate_not_is_subterm: " << enode_pp(n, ctx) << "\n";);
 
         datatype_util util(get_manager());
         literal antecedent = literal(ctx.enode2bool_var(n), false);
+        bool has_leaf_root = false;
 
-        for (enode* s : iterate_subterms(get_manager(), arg2)) {
+        for (enode *s : iterate_subterms(get_manager(), arg2)) {
             bool is_leaf = !util.is_constructor(s->get_expr());
 
             if (s->get_sort() == arg1->get_sort()) {
-                if (ctx.is_diseq(arg1, s)) {
-                    TRACE(datatype, tout << "skipping disequality axiom due to is_diseq: " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
-                } else {
-                    enode * c1 = oc_get_cstor(arg1);
-                    enode * c2 = oc_get_cstor(s);
-                    if (c1 && c2 && c1->get_decl() != c2->get_decl()) {
-                        TRACE(datatype, tout << "skipping disequality axiom due to distinct constructors: " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
-                    } else {
-                        TRACE(datatype, tout << "asserting " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
-                        literal eq = mk_eq(arg1->get_expr(), s->get_expr(), true);
-                        literal lits[2] = { antecedent, ~eq };
-                        ctx.mk_th_axiom(get_id(), 2, lits);
-                    }
-                }
+                TRACE(datatype,
+                      tout << "asserting " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
+                literal eq = mk_eq(arg1->get_expr(), s->get_expr(), true);
+                literal lits[2] = {antecedent, ~eq};
+                ctx.mk_th_axiom(get_id(), 2, lits);
             }
 
             if (is_leaf) {
                 if (s->get_root() == arg2->get_root()) {
-                    continue; 
+                    has_leaf_root = true;
+                    continue;
                 }
 
                 if (util.is_datatype(s->get_sort())) {
-                     func_decl* sub_decl = m_util.get_datatype_subterm(s->get_sort());
-                     if (sub_decl) {
-                        TRACE(datatype, tout << "asserting NOT " << mk_pp(arg1->get_expr(), m) << " ⊑ " << mk_pp(s->get_expr(), m) << "\n";);
+                    func_decl *sub_decl = m_util.get_datatype_subterm(s->get_sort());
+                    if (sub_decl) {
+                        TRACE(datatype, tout << "asserting NOT " << mk_pp(arg1->get_expr(), m) << " subterm "
+                                             << mk_pp(s->get_expr(), m) << "\n";);
                         app_ref sub_app(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()), m);
                         ctx.internalize(sub_app, false);
                         literal sub_lit = literal(ctx.get_bool_var(sub_app));
-                        literal lits[2] = { antecedent, ~sub_lit };
+                        literal lits[2] = {antecedent, ~sub_lit};
                         ctx.mk_th_axiom(get_id(), 2, lits);
-                     }
+                    }
                 }
             }
         }
+
+        if (has_leaf_root) {
+            split_leaf_root(arg2);
+        }
     }
-    
+
+    // requesting to split on arg2
+    void theory_datatype::split_leaf_root(smt::enode *arg2) {
+        TRACE(datatype, tout << "arg is a leaf: " << enode_pp(arg2, ctx) << "\n";);
+        theory_var v = arg2->get_th_var(get_id());
+        if (v != null_theory_var) {
+            v = m_find.find(v);
+            if (m_var_data[v]->m_constructor == nullptr) {
+                mk_split(v);
+            }
+        }
+    }
+
     void subterm_iterator::next() {
         m_current = nullptr;
-        if (!m_manager) return;
+        if (!m_manager)
+            return;
         datatype_util util(*m_manager);
 
         while (!m_todo.empty()) {
-            enode* curr = m_todo.back();
+            enode *curr = m_todo.back();
             m_todo.pop_back();
-            enode* root = curr->get_root();
+            enode *root = curr->get_root();
 
-            if (root->is_marked()) continue;
+            if (root->is_marked())
+                continue;
             root->set_mark();
             m_marked.push_back(root);
 
-            enode* ctor = nullptr;
-            enode* iter = root;
+            enode *ctor = nullptr;
+            enode *iter = root;
             do {
                 if (util.is_constructor(iter->get_expr())) {
                     ctor = iter;
@@ -640,24 +683,24 @@ namespace smt {
 
             if (ctor) {
                 m_current = ctor;
-                for (enode* child : enode::args(ctor)) {
+                for (enode *child : enode::args(ctor)) {
                     m_todo.push_back(child);
                 }
                 return;
-            } else {
+            }
+            else {
                 m_current = root;
                 return;
             }
         }
     }
 
-    subterm_iterator::subterm_iterator(ast_manager& m, enode* start) : m_manager(&m), m_current(nullptr) {
+    subterm_iterator::subterm_iterator(ast_manager &m, enode *start) : m_manager(&m), m_current(nullptr) {
         m_todo.push_back(start);
         next();
     }
 
-
-    subterm_iterator::subterm_iterator(subterm_iterator&& other) : m_manager(nullptr), m_current(nullptr) {
+    subterm_iterator::subterm_iterator(subterm_iterator &&other) : m_manager(nullptr), m_current(nullptr) {
         m_todo.swap(other.m_todo);
         m_marked.swap(other.m_marked);
         std::swap(m_manager, other.m_manager);
@@ -665,18 +708,8 @@ namespace smt {
     }
 
     subterm_iterator::~subterm_iterator() {
-        for (enode* n : m_marked) n->unset_mark();
-    }
-    
-
-    // List the subtems of `arg` up to our knowlege.
-    // The returned vector might therefor have variables
-    ptr_vector<enode> list_subterms(ast_manager& m, enode* arg) {
-        ptr_vector<enode> result;
-        for (enode* n : iterate_subterms(m, arg)) {
-            result.push_back(n);
-        }
-        return result;
+        for (enode *n : m_marked)
+            n->unset_mark();
     }
 
     void theory_datatype::relevant_eh(app * n) {
@@ -700,6 +733,8 @@ namespace smt {
 
             add_subterm_predicate(a, e);
             add_subterm_predicate(b, e);
+
+            // propagating potentially adds a lot of litteral, avoid it if we can
         }
     }
 
@@ -1118,11 +1153,16 @@ namespace smt {
                     }
                 }
                 d1->m_constructor = d2->m_constructor;
+                propagate_subterm_with_constructor(v1);
             }
         }
         for (enode* e : d2->m_recognizers) 
             if (e)
                 add_recognizer(v1, e);
+
+        for (enode* e : d2->m_subterms) {
+            add_subterm_predicate(v1, e);
+        }
     }
 
     void theory_datatype::unmerge_eh(theory_var v1, theory_var v2) {
@@ -1181,6 +1221,7 @@ namespace smt {
         
         if (d->m_subterms.contains(predicate)) return;
 
+        TRACE(datatype, tout << "add subterm predicate\n" << enode_pp(predicate, ctx) << "\n";);
         d->m_subterms.push_back(predicate);
     }
 
