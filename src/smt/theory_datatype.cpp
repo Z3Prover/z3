@@ -509,9 +509,25 @@ namespace smt {
             // Case 1: Equality check (arg1 == s)
             // Valid if sorts are compatible.
             if (s->get_sort() == arg1->get_sort()) {
-                TRACE(datatype, tout << "adding equality case: " << mk_pp(arg1->get_expr(), m) << " == " << mk_pp(s->get_expr(), m) << "\n";);
-                lits.push_back(mk_eq(arg1->get_expr(), s->get_expr(), false));
-                found_possible = true;
+                // we try to be a bit smart and skip obviously wrong equalities
+                bool skip_eq = false;
+                if (ctx.is_diseq(arg1, s)) {
+                    TRACE(datatype, tout << "skipping equality due to is_diseq: " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
+                    skip_eq = true;
+                } else {
+                    enode * c1 = oc_get_cstor(arg1);
+                    enode * c2 = oc_get_cstor(s);
+                    if (c1 && c2 && c1->get_decl() != c2->get_decl()) {
+                        TRACE(datatype, tout << "skipping equality due to distinct constructors: " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
+                        skip_eq = true;
+                    }
+                }
+
+                if (!skip_eq) {
+                    TRACE(datatype, tout << "adding equality case: " << mk_pp(arg1->get_expr(), m) << " == " << mk_pp(s->get_expr(), m) << "\n";);
+                    lits.push_back(mk_eq(arg1->get_expr(), s->get_expr(), false));
+                    found_possible = true;
+                }
             }
 
             // Case 2: Recursive subterm check (arg1 ⊑ s)
@@ -526,7 +542,7 @@ namespace smt {
                      // arg1 ⊑ s
                      func_decl* sub_decl = m_util.get_datatype_subterm(s->get_sort());
                      if (sub_decl) {
-                        TRACE(datatype, tout << "adding recursive case: " << mk_pp(arg1->get_expr(), m) << " \\sqsubseteq " << mk_pp(s->get_expr(), m) << "\n";);
+                        TRACE(datatype, tout << "adding recursive case: " << mk_pp(arg1->get_expr(), m) << " ⊑ " << mk_pp(s->get_expr(), m) << "\n";);
                         app_ref sub_app(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()), m);
                         ctx.internalize(sub_app, false);
                         lits.push_back(literal(ctx.get_bool_var(sub_app)));
@@ -562,10 +578,20 @@ namespace smt {
             bool is_leaf = !util.is_constructor(s->get_expr());
 
             if (s->get_sort() == arg1->get_sort()) {
-                TRACE(datatype, tout << "asserting " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
-                literal eq = mk_eq(arg1->get_expr(), s->get_expr(), true);
-                literal lits[2] = { antecedent, ~eq };
-                ctx.mk_th_axiom(get_id(), 2, lits);
+                if (ctx.is_diseq(arg1, s)) {
+                    TRACE(datatype, tout << "skipping disequality axiom due to is_diseq: " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
+                } else {
+                    enode * c1 = oc_get_cstor(arg1);
+                    enode * c2 = oc_get_cstor(s);
+                    if (c1 && c2 && c1->get_decl() != c2->get_decl()) {
+                        TRACE(datatype, tout << "skipping disequality axiom due to distinct constructors: " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
+                    } else {
+                        TRACE(datatype, tout << "asserting " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
+                        literal eq = mk_eq(arg1->get_expr(), s->get_expr(), true);
+                        literal lits[2] = { antecedent, ~eq };
+                        ctx.mk_th_axiom(get_id(), 2, lits);
+                    }
+                }
             }
 
             if (is_leaf) {
@@ -576,7 +602,7 @@ namespace smt {
                 if (util.is_datatype(s->get_sort())) {
                      func_decl* sub_decl = m_util.get_datatype_subterm(s->get_sort());
                      if (sub_decl) {
-                        TRACE(datatype, tout << "asserting NOT " << mk_pp(arg1->get_expr(), m) << " \\sqsubseteq " << mk_pp(s->get_expr(), m) << "\n";);
+                        TRACE(datatype, tout << "asserting NOT " << mk_pp(arg1->get_expr(), m) << " ⊑ " << mk_pp(s->get_expr(), m) << "\n";);
                         app_ref sub_app(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()), m);
                         ctx.internalize(sub_app, false);
                         literal sub_lit = literal(ctx.get_bool_var(sub_app));
