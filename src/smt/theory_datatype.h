@@ -164,6 +164,45 @@ namespace smt {
 
     };
 
+    class subterm_iterator {
+        ptr_vector<enode> m_todo;
+        ptr_vector<enode> m_marked;
+        ast_manager*      m_manager;
+        enode*            m_current;
+
+        void next();
+        subterm_iterator() : m_manager(nullptr), m_current(nullptr) {}
+
+    public:
+        // subterm_iterator();
+        subterm_iterator(ast_manager& m, enode *start);
+        ~subterm_iterator();
+        subterm_iterator(subterm_iterator &&other);
+        subterm_iterator(const subterm_iterator&) = delete;
+
+        subterm_iterator begin() {
+            return std::move(*this);
+        }
+        subterm_iterator end() {
+            return subterm_iterator();
+        }
+
+        bool operator!=(const subterm_iterator &other) const {
+            return m_current != other.m_current;
+        }
+
+        enode *operator*() const {
+            return m_current;
+        }
+
+        void operator++() { next(); }
+        subterm_iterator& operator=(const subterm_iterator&) = delete;
+    };
+
+    inline subterm_iterator iterate_subterms(ast_manager& m, enode *arg) {
+        return subterm_iterator(m, arg);
+    }
+    ptr_vector<enode> list_subterms(ast_manager& m, enode* arg);
 };
 
 

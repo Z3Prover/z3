@@ -29,6 +29,7 @@ Revision History:
 #include "theory_datatype.h"
 
 namespace smt {
+
     
     class dt_eq_justification : public ext_theory_eq_propagation_justification {
     public:
@@ -460,27 +461,11 @@ namespace smt {
                                  << enode_pp(n, ctx) << "\n";);
             SASSERT(n->get_num_args() == 2);
 
-            // gather variables
-            enode *arg1 = n->get_arg(0);
-            theory_var tv1 = arg1->get_th_var(get_id());
-            enode *arg2 = n->get_arg(1);
-            theory_var tv2 = arg->get_th_var(get_id());
-
-            if (is_true) {
-                
-            } else {
-
-            }
-
-
-
-
-            SASSERT(false && "TODO: Implement this function");
+            SASSERT(false && "TODO: unimplemented");
 
         }
     }
 
-    /// @brief Propagates that `arg1 ⊑ arg2`
     void theory_datatype::propagate_is_subterm(enode *n){
         SASSERT(is_subterm_predicate(n));
         enode * arg1 = n->get_arg(0);
@@ -495,7 +480,7 @@ namespace smt {
         datatype_util util(get_manager());
         bool found_possible = false;
 
-        for (enode* s : iterate_subterms(arg2)) {
+        for (enode* s : iterate_subterms(get_manager(), arg2)) {
             bool is_leaf = !util.is_constructor(s->get_expr());
 
             // Case 1: Equality check (arg1 == s)
@@ -515,8 +500,7 @@ namespace smt {
 
                 if (util.is_datatype(s->get_sort())) {
                      // arg1 ⊑ s
-                     sort* domain[] = { arg1->get_sort(), s->get_sort() };
-                     func_decl* sub_decl = m_util.plugin().mk_func_decl(OP_DT_SUBTERM, 0, nullptr, 2, domain, m.mk_bool_sort());
+                     func_decl* sub_decl = m_util.get_datatype_subterm(s->get_sort());
                      if (sub_decl) {
                         app_ref sub_app(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()), m);
                         ctx.internalize(sub_app, false);
@@ -538,99 +522,75 @@ namespace smt {
     /// @brief Iterator over subterm
     /// 
     /// This lazily computes the subterm of a term. In the current term algebra. 
-    class subterm_iterator {
-        ptr_vector<enode> m_todo;
-        ptr_vector<enode> m_marked;
-        ast_manager*      m_manager;
-        enode*            m_current;
+    
+    void subterm_iterator::next() {
+        m_current = nullptr;
+        if (!m_manager) return;
+        datatype_util util(*m_manager);
 
-        void next() {
-            m_current = nullptr;
-            if (!m_manager) return;
-            datatype_util util(*m_manager);
+        while (!m_todo.empty()) {
+            enode* curr = m_todo.back();
+            m_todo.pop_back();
+            enode* root = curr->get_root();
 
-            while (!m_todo.empty()) {
-                enode* curr = m_todo.back();
-                m_todo.pop_back();
-                enode* root = curr->get_root();
+            if (root->is_marked()) continue;
+            root->set_mark();
+            m_marked.push_back(root);
 
-                if (root->is_marked()) continue;
-                root->set_mark();
-                m_marked.push_back(root);
-
-                enode* ctor = nullptr;
-                enode* iter = root;
-                do {
-                    if (util.is_constructor(iter->get_expr())) {
-                        ctor = iter;
-                        break;
-                    }
-                    iter = iter->get_next();
-                } while (iter != root);
-
-                if (ctor) {
-                    m_current = ctor;
-                    for (enode* child : enode::args(ctor)) {
-                        m_todo.push_back(child);
-                    }
-                    return;
-                } else {
-                    m_current = root;
-                    return;
+            enode* ctor = nullptr;
+            enode* iter = root;
+            do {
+                if (util.is_constructor(iter->get_expr())) {
+                    ctor = iter;
+                    break;
                 }
+                iter = iter->get_next();
+            } while (iter != root);
+
+            if (ctor) {
+                m_current = ctor;
+                for (enode* child : enode::args(ctor)) {
+                    m_todo.push_back(child);
+                }
+                return;
+            } else {
+                m_current = root;
+                return;
             }
         }
-
-    public:
-        subterm_iterator(enode* start) : m_manager(&start->get_expr()->get_manager()), m_current(nullptr) {
-            m_todo.push_back(start);
-            next();
-        }
-
-        subterm_iterator() : m_manager(nullptr), m_current(nullptr) {}
-
-        subterm_iterator(subterm_iterator&& other) : m_manager(nullptr), m_current(nullptr) {
-            m_todo.swap(other.m_todo);
-            m_marked.swap(other.m_marked);
-            std::swap(m_manager, other.m_manager);
-            std::swap(m_current, other.m_current);
-        }
-
-        subterm_iterator& begin() { return *this; }
-        subterm_iterator end() { return subterm_iterator(); }
-
-        bool operator!=(const subterm_iterator& other) const {
-            return m_current != other.m_current;
-        }
-
-        enode* operator*() const { return m_current; }
-
-        void operator++() { next(); }
-
-        ~subterm_iterator() {
-            for (enode* n : m_marked) n->unset_mark();
-        }
-
-        subterm_iterator(const subterm_iterator&) = delete;
-        subterm_iterator& operator=(const subterm_iterator&) = delete;
-    };
-
-    subterm_iterator iterate_subterms(enode* arg) {
-        return subterm_iterator(arg);
     }
+
+    subterm_iterator::subterm_iterator(ast_manager& m, enode* start) : m_manager(&m), m_current(nullptr) {
+        m_todo.push_back(start);
+        next();
+    }
+
+
+    subterm_iterator::subterm_iterator(subterm_iterator&& other) : m_manager(nullptr), m_current(nullptr) {
+        m_todo.swap(other.m_todo);
+        m_marked.swap(other.m_marked);
+        std::swap(m_manager, other.m_manager);
+        std::swap(m_current, other.m_current);
+    }
+
+    subterm_iterator::~subterm_iterator() {
+        for (enode* n : m_marked) n->unset_mark();
+    }
+
+    
 
     // List the subtems of `arg` up to our knowlege.
     // The returned vector might therefor have variables
-    ptr_vector<enode> list_subterms(enode* arg) {
+    ptr_vector<enode> list_subterms(ast_manager& m, enode* arg) {
         ptr_vector<enode> result;
-        for (enode* n : iterate_subterms(arg)) {
+        for (enode* n : iterate_subterms(m, arg)) {
             result.push_back(n);
         }
         return result;
     }
 
     
-    void search_subterm(enode* arg1, vector<enode*>* arg2) -> uint {
+    void search_subterm(enode* arg1, vector<enode*>* arg2) {
         // 0 for false
         
     }
