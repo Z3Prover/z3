@@ -976,10 +976,14 @@ namespace smt2 {
             pconstructor_decl_ref_buffer new_ct_decls(pm());
             parse_datatype_dec(&dt_name, new_ct_decls);
             
-            parse_subterm_decl();
+            symbol subterm_name = parse_subterm_decl();
 
             d = pm().mk_pdatatype_decl(m_sort_id2param_idx.size(), dt_name, new_ct_decls.size(), new_ct_decls.data());
             
+            if (subterm_name != symbol::null) {
+                d->set_subterm(subterm_name);
+            }
+
             check_missing(d, line, pos);
             check_duplicate(d, line, pos);
 
@@ -990,30 +994,15 @@ namespace smt2 {
         }
 
         // [:subterm <subterm>]
-        void parse_subterm_decl() {
-            if (curr_is_identifier() && curr_id() == m_subterm_keyword) {
+        symbol parse_subterm_decl() {
+            symbol predicate_name = symbol::null;
+            if ((curr_is_identifier() || curr() == scanner::KEYWORD_TOKEN) && curr_id() == m_subterm_keyword) {
                 next(); // consume :subterm keyword
                 check_identifier("expected name for subterm predicate");
-                symbol predicate_name = curr_id();
+                predicate_name = curr_id();
                 next();
-
-                family_id fid = m().get_family_id("datatype");
-                
-                // for (pdatatype_decl* dt_decl : new_dt_decls) {
-                //     ptr_vector<sort> params;
-                //     for (unsigned i = 0; i < dt_decl->get_num_params(); i++) {
-                //         params.push_back(dt_decl->get_params()[i]);
-                //     }
-                //     sort_ref_vector s_params(m(), params.size(), params.data());
-                //     sort* dt_sort = dt_decl->instantiate(s_params);
-                //     sort* domain[2] = { dt_sort, dt_sort };
-                //     sort* range = m().mk_bool_sort();
-                    
-                //     parameter p(pred_name);
-                //     func_decl* f = m().mk_func_decl(fid, OP_DT_SUBTERM, 1, &p, 2, domain, range);
-                //     m_ctx.insert(f);
-                // }
             }
+            return predicate_name;
         }
 
 
@@ -1039,10 +1028,6 @@ namespace smt2 {
                 parse_constructor_decls(ct_decls);
             }
             check_rparen_next("invalid datatype declaration, ')' expected");
-        }
-
-        void parse_declare_subterm() {
-            // TODO
         }
 
         void check_missing(pdatatype_decl* d, unsigned line, unsigned pos) {

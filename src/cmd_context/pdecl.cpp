@@ -595,7 +595,11 @@ datatype_decl * pdatatype_decl::instantiate_decl(pdecl_manager & m, unsigned n, 
     for (auto c : m_constructors) 
         cs.push_back(c->instantiate_decl(m, n, s));
     datatype_util util(m.m());
-    return mk_datatype_decl(util, m_name, m_num_params, s, cs.size(), cs.data());
+    symbol subterm_name = symbol::null;
+    if (m_subterm.initialized()) {
+        subterm_name = m_subterm->get_name();
+    }
+    return mk_datatype_decl(util, m_name, m_num_params, s, cs.size(), cs.data(), subterm_name);
 }
 
 struct datatype_decl_buffer {

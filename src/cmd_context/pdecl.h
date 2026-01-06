@@ -237,6 +237,7 @@ class psubterm_decl: public pdecl {
     ptype    m_type;
     symbol const & get_name() const { return m_name; }
 public:
+    psubterm_decl(symbol const& n) : pdecl(0, 0), m_name(n) {}
     std::ostream& display(std::ostream & out) const override;
 };
 
@@ -258,6 +259,7 @@ public:
     bool has_missing_refs(symbol & missing) const;
     bool has_duplicate_accessors(symbol & repeated) const;
     bool commit(pdecl_manager& m);
+    void set_subterm(symbol const& n) { m_subterm = psubterm_decl(n); }
 };
 
 /**

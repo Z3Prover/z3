@@ -57,6 +57,23 @@ namespace datatype {
         return alloc(accessor, tr.to(), name(), to_sort(tr(m_range.get())));
     }
 
+    def const& subterm::get_def() const { return *m_def; }
+    util& subterm::u() const { return m_def->u(); }
+
+    func_decl_ref subterm::instantiate(sort_ref_vector const& ps) const {
+        ast_manager& m = ps.get_manager();
+        sort_ref dt_sort = get_def().instantiate(ps);
+        sort* domain[2] = { dt_sort, dt_sort };
+        sort_ref range(m.mk_bool_sort(), m);
+        parameter p(name());
+        return func_decl_ref(m.mk_func_decl(u().get_family_id(), OP_DT_SUBTERM, 1, &p, 2, domain, range), m);
+    }
+
+    func_decl_ref subterm::instantiate(sort* dt) const {
+        sort_ref_vector sorts = get_def().u().datatype_params(dt);
+        return instantiate(sorts);
+    }
+
     constructor::~constructor() {
         for (accessor* a : m_accessors) dealloc(a);
         m_accessors.reset();
@@ -235,6 +252,7 @@ namespace datatype {
 
         void plugin::reset() {
             m_datatype2constructors.reset();
+            m_datatype2subterm.reset();
             m_datatype2nonrec_constructor.reset();
             m_constructor2accessors.reset();
             m_constructor2recognizer.reset();
@@ -1054,6 +1072,22 @@ namespace datatype {
         return m_family_id;
     }
 
+    func_decl * util::get_datatype_subterm(sort * ty) {
+        SASSERT(is_datatype(ty));
+        func_decl * r = nullptr;
+        if (plugin().m_datatype2subterm.find(ty, r))
+            return r;
+
+        def const& d = get_def(ty);
+        if (d.has_subterm()) {
+             func_decl_ref f = d.get_subterm().instantiate(ty);
+             r = f;
+             plugin().add_ast(r);
+             plugin().m_datatype2subterm.insert(ty, r);
+        }
+        return r;
+    }
+
     ptr_vector<func_decl> const * util::get_datatype_constructors(sort * ty) {
         SASSERT(is_datatype(ty));
         ptr_vector<func_decl> * r = nullptr;
@@ -1496,11 +1530,14 @@ namespace datatype {
 
 }
 
-datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_params, sort*const* params, unsigned num_constructors, constructor_decl * const * cs) {
+datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_params, sort*const* params, unsigned num_constructors, constructor_decl * const * cs, symbol const& subterm_name) {
     datatype::decl::plugin& p = u.plugin();
     datatype::def* d = p.mk(n, num_params, params);
     for (unsigned i = 0; i < num_constructors; ++i) {
         d->add(cs[i]);
+    }
+    if (subterm_name != symbol::null) {
+        d->attach_subterm(subterm_name, u.get_manager().mk_bool_sort());
     }
     return d;
 }

@@ -55,9 +55,16 @@ namespace datatype {
     class subterm {
         symbol    m_name;
         sort_ref  m_range;
+        def*      m_def = nullptr;
     public:
+        subterm(ast_manager& m, symbol const& n, sort* r) : m_name(n), m_range(r, m) {}
         sort* range() const { return m_range; }
         symbol const& name() const { return m_name; }
+        func_decl_ref instantiate(sort_ref_vector const& ps) const;
+        func_decl_ref instantiate(sort* dt) const;
+        util& u() const;
+        void attach(def* d) { m_def = d; }
+        def const& get_def() const;
     };
  
 
@@ -197,6 +204,10 @@ namespace datatype {
             m_constructors.push_back(c);
             c->attach(this);
         }
+        void attach_subterm(symbol const& n, sort* range) {
+            m_subterm = subterm(m, n, range);
+            m_subterm->attach(this);
+        }
         symbol const& name() const { return m_name; }
         unsigned id() const { return m_class_id; }
         sort_ref instantiate(sort_ref_vector const& ps) const;
@@ -234,6 +245,8 @@ namespace datatype {
             SASSERT(result); // Post-condition: get_constructor_by_name returns a non-null result
             return result;
         }
+        bool has_subterm() const { return m_subterm.initialized(); }
+        subterm const& get_subterm() const { return *m_subterm; }
         def* translate(ast_translation& tr, util& u);
     };
 
@@ -305,6 +318,7 @@ namespace datatype {
 
 
             obj_map<sort, ptr_vector<func_decl>*>       m_datatype2constructors;
+            obj_map<sort, func_decl*>                   m_datatype2subterm;
             obj_map<sort, cnstr_depth>                  m_datatype2nonrec_constructor;
             obj_map<func_decl, ptr_vector<func_decl>*>  m_constructor2accessors;
             obj_map<func_decl, func_decl*>              m_constructor2recognizer;
@@ -417,6 +431,7 @@ namespace datatype {
         bool is_update_field(expr * f) const { return is_app(f) && is_app_of(to_app(f), fid(), OP_DT_UPDATE_FIELD); }
         app* mk_is(func_decl * c, expr *f);
         ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);
+        func_decl * get_datatype_subterm(sort * ty);
         unsigned get_datatype_num_constructors(sort * ty);
         unsigned get_datatype_num_parameter_sorts(sort * ty);
         sort*  get_datatype_parameter_sort(sort * ty, unsigned idx);
@@ -492,7 +507,7 @@ inline constructor_decl * mk_constructor_decl(symbol const & n, symbol const & r
 
 
 // Remark: the datatype becomes the owner of the constructor_decls
-datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_params, sort*const* params, unsigned num_constructors, constructor_decl * const * cs);
+datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_params, sort*const* params, unsigned num_constructors, constructor_decl * const * cs, symbol const& subterm_name = symbol::null);
 inline void del_datatype_decl(datatype_decl * d) {}
 inline void del_datatype_decls(unsigned num, datatype_decl * const * ds) {}
 
