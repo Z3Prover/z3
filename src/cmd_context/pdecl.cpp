@@ -541,6 +541,12 @@ void pconstructor_decl::display(std::ostream & out, pdatatype_decl const * const
     out << ")";
 }
 
+// ~~~~~~~~~~~~ psubterm_decl ~~~~~~~~~~~~ //
+std::ostream&  psubterm_decl::display(std::ostream & out) const {
+    return out << ":subterm " << m_name;
+}
+
+
 pdatatype_decl::pdatatype_decl(unsigned id, unsigned num_params, pdecl_manager & m,
                                symbol const & n, unsigned num_constructors, pconstructor_decl * const * constructors):
     psort_decl(id, num_params, m, n),
@@ -646,6 +652,9 @@ std::ostream& pdatatype_decl::display(std::ostream & out) const {
             c->display(out, dts);
         }
         first = false;
+    }
+    if (m_subterm.initialized()) {
+        m_subterm->display(out);
     }
     return out << ")";
 }

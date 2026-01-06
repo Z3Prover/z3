@@ -105,6 +105,7 @@ namespace smt2 {
         symbol               m_declare_type_var;
         symbol               m_declare_datatypes;
         symbol               m_declare_datatype;
+        symbol               m_subterm_keyword;
         symbol               m_par;
         symbol               m_push;
         symbol               m_pop;
@@ -955,7 +956,7 @@ namespace smt2 {
             next();
         }
 
-        // ( declare-datatype symbol datatype_dec) 
+        // ( declare-datatype symbol datatype_dec [:subterm <subterm>]) 
         void parse_declare_datatype() {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id() == m_declare_datatype);
@@ -974,6 +975,9 @@ namespace smt2 {
             pdatatype_decl_ref d(pm());                
             pconstructor_decl_ref_buffer new_ct_decls(pm());
             parse_datatype_dec(&dt_name, new_ct_decls);
+            
+            parse_subterm_decl();
+
             d = pm().mk_pdatatype_decl(m_sort_id2param_idx.size(), dt_name, new_ct_decls.size(), new_ct_decls.data());
             
             check_missing(d, line, pos);
@@ -983,6 +987,33 @@ namespace smt2 {
             check_rparen("invalid end of datatype declaration, ')' expected");
             m_ctx.print_success();
             next();
+        }
+
+        // [:subterm <subterm>]
+        void parse_subterm_decl() {
+            if (curr_is_identifier() && curr_id() == m_subterm_keyword) {
+                next(); // consume :subterm keyword
+                check_identifier("expected name for subterm predicate");
+                symbol predicate_name = curr_id();
+                next();
+
+                family_id fid = m().get_family_id("datatype");
+                
+                // for (pdatatype_decl* dt_decl : new_dt_decls) {
+                //     ptr_vector<sort> params;
+                //     for (unsigned i = 0; i < dt_decl->get_num_params(); i++) {
+                //         params.push_back(dt_decl->get_params()[i]);
+                //     }
+                //     sort_ref_vector s_params(m(), params.size(), params.data());
+                //     sort* dt_sort = dt_decl->instantiate(s_params);
+                //     sort* domain[2] = { dt_sort, dt_sort };
+                //     sort* range = m().mk_bool_sort();
+                    
+                //     parameter p(pred_name);
+                //     func_decl* f = m().mk_func_decl(fid, OP_DT_SUBTERM, 1, &p, 2, domain, range);
+                //     m_ctx.insert(f);
+                // }
+            }
         }
 
 
@@ -1008,6 +1039,10 @@ namespace smt2 {
                 parse_constructor_decls(ct_decls);
             }
             check_rparen_next("invalid datatype declaration, ')' expected");
+        }
+
+        void parse_declare_subterm() {
+            // TODO
         }
 
         void check_missing(pdatatype_decl* d, unsigned line, unsigned pos) {
@@ -3088,6 +3123,7 @@ namespace smt2 {
             m_declare_type_var("declare-type-var"),
             m_declare_datatypes("declare-datatypes"),
             m_declare_datatype("declare-datatype"),
+            m_subterm_keyword(":subterm"),
             m_par("par"),
             m_push("push"),
             m_pop("pop"),

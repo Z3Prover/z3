@@ -443,6 +443,18 @@ namespace datatype {
             return m.mk_func_decl(name, arity, domain, range, info);           
         }
 
+        func_decl * decl::plugin::mk_subterm(unsigned num_parameters, parameter const * parameters,
+                                             unsigned arity, sort * const * domain, sort* range)
+        {
+            ast_manager& m = *m_manager;
+            VALIDATE_PARAM(num_parameters == 1 && parameters[0].is_symbol());
+            VALIDATE_PARAM(arity == 2 && u().is_datatype(domain[0]) && domain[0] == domain[1] && m.is_bool(range));
+            func_decl_info info(m_family_id, OP_DT_SUBTERM, num_parameters, parameters);
+            info.m_private_parameters = true;
+            symbol name = parameters[0].get_symbol();
+            return m.mk_func_decl(name, arity, domain, range, info);
+        }
+
         func_decl * decl::plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                                unsigned arity, sort * const * domain, sort * range) {                        
             switch (k) {
@@ -453,7 +465,9 @@ namespace datatype {
             case OP_DT_IS:
                 return mk_is(num_parameters, parameters, arity, domain, range);                
             case OP_DT_ACCESSOR:
-                return mk_accessor(num_parameters, parameters, arity, domain, range);                
+                return mk_accessor(num_parameters, parameters, arity, domain, range);
+            case OP_DT_SUBTERM:
+                return mk_subterm(num_parameters, parameters, arity, domain, range);
             case OP_DT_UPDATE_FIELD: 
                 return mk_update_field(num_parameters, parameters, arity, domain, range);
             default:

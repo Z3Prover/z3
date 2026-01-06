@@ -27,6 +27,7 @@ Revision History:
 #include "util/symbol_table.h"
 #include "util/obj_hashtable.h"
 #include "util/dictionary.h"
+#include "util/optional.h"
 
 
 enum sort_kind {
@@ -39,6 +40,7 @@ enum op_kind {
     OP_DT_IS,
     OP_DT_ACCESSOR,        
     OP_DT_UPDATE_FIELD,
+    OP_DT_SUBTERM,
     LAST_DT_OP
 };
 
@@ -48,6 +50,15 @@ namespace datatype {
     class def;
     class accessor;
     class constructor;
+    class subterm;
+
+    class subterm {
+        symbol    m_name;
+        sort_ref  m_range;
+    public:
+        sort* range() const { return m_range; }
+        symbol const& name() const { return m_name; }
+    };
  
 
     class accessor {
@@ -166,6 +177,7 @@ namespace datatype {
         mutable sort_ref        m_sort;
         ptr_vector<constructor> m_constructors;
         mutable dictionary<constructor*> m_name2constructor;
+        optional<subterm>       m_subterm;
     public:
         def(ast_manager& m, util& u, symbol const& n, unsigned class_id, unsigned num_params, sort * const* params):
             m(m),
@@ -324,6 +336,16 @@ namespace datatype {
                 unsigned num_parameters, parameter const * parameters, 
                 unsigned arity, sort * const * domain, sort * range);
 
+            /**
+             *  \brief declares a subterm predicate 
+             * 
+             *  Subterms have the signature `sort -> sort -> bool` and are only
+             *  supported for non-mutually recursive datatypes
+            */
+            func_decl * mk_subterm(
+                unsigned num_parameters, parameter const * parameters, 
+                unsigned arity, sort * const * domain, sort * range);
+
             func_decl * mk_recognizer(
                 unsigned num_parameters, parameter const * parameters, 
                 unsigned arity, sort * const * domain, sort * range);
@@ -379,6 +401,8 @@ namespace datatype {
         bool is_is(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_IS); }
         bool is_accessor(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_ACCESSOR); }
         bool is_update_field(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_UPDATE_FIELD); }
+        bool is_subterm_predicate(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_SUBTERM); }
+        bool is_subterm_predicate(expr* e) const { return is_app(e) && is_subterm_predicate(to_app(e)->get_decl()); }
         bool is_constructor(app const * f) const { return is_app_of(f, fid(), OP_DT_CONSTRUCTOR); }
         bool is_constructor(expr const * e) const { return is_app(e) && is_constructor(to_app(e)); }
         bool is_recognizer0(app const* f) const { return is_app_of(f, fid(), OP_DT_RECOGNISER);} 
