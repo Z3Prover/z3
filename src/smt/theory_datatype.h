@@ -33,6 +33,18 @@ namespace smt {
         struct var_data {
             ptr_vector<enode> m_recognizers; //!< recognizers of this equivalence class that are being watched.
             enode *           m_constructor; //!< constructor of this equivalence class, 0 if there is no constructor in the eqc.
+
+            /**
+             *  \brief subterm predicates that involve this equivalence class
+             * 
+             * So all terms of the shape `a ⊑ b` where `var_data` represents either `a` or `b`.
+             * 
+             * This is more a set than a vector, but I'll use `ptr_vector`
+             * because I know the API better, it's easier to backtrack on it and
+             * it should be small enough to outperform a hasmap anyway
+            */
+            ptr_vector<enode> m_subterms;
+
             var_data():
                 m_constructor(nullptr) {
             }
@@ -56,11 +68,13 @@ namespace smt {
 
         bool is_constructor(app * f) const { return m_util.is_constructor(f); }
         bool is_recognizer(app * f) const { return m_util.is_recognizer(f); }
+        bool is_subterm_predicate(app * f) const { return m_util.is_subterm_predicate(f); }
         bool is_accessor(app * f) const { return m_util.is_accessor(f); }
         bool is_update_field(app * f) const { return m_util.is_update_field(f); }
 
         bool is_constructor(enode * n) const { return is_constructor(n->get_expr()); }
         bool is_recognizer(enode * n) const { return is_recognizer(n->get_expr()); }
+        bool is_subterm_predicate(enode * n) const { return is_subterm_predicate(n->get_expr()); }
         bool is_accessor(enode * n) const { return is_accessor(n->get_expr()); }
         bool is_update_field(enode * n) const { return m_util.is_update_field(n->get_expr()); }
 
@@ -69,7 +83,9 @@ namespace smt {
         void assert_accessor_axioms(enode * n);
         void assert_update_field_axioms(enode * n);
         void add_recognizer(theory_var v, enode * recognizer);
-        void propagate_recognizer(theory_var v, enode * r);
+        void add_subterm_predicate(theory_var v, enode *predicate);
+        void propagate_is_subterm(enode * n);
+        void propagate_recognizer(theory_var v, enode *r);
         void sign_recognizer_conflict(enode * c, enode * r);
 
         typedef enum { ENTER, EXIT } stack_op;

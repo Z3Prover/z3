@@ -26,6 +26,7 @@ Revision History:
 #include "smt/theory_array.h"
 #include "smt/smt_model_generator.h"
 #include <iostream>
+#include "theory_datatype.h"
 
 namespace smt {
     
@@ -327,7 +328,7 @@ namespace smt {
             // it.
             // Moreover, fresh variables of sort S can only be created after the
             // interpretation for each (relevant) expression of sort S in the
-            // logical context is created.  Returning to the example,
+            // logical context is created. Returning to the example,
             // to create the interpretation of x1 we need the
             // interpretation for x2.  So, x2 cannot be a fresh value,
             // since it would have to be created after x1.
@@ -349,6 +350,18 @@ namespace smt {
                 mk_var(arg);
             }
             mk_var(e);
+        }
+        else if (m_util.is_subterm_predicate(term)) {
+            SASSERT(term->get_num_args() == 2);
+            enode * arg1 = e->get_arg(0);
+            if (!is_attached_to_var(arg1))
+                mk_var(arg1);
+            enode * arg2 = e->get_arg(1);
+            if (!is_attached_to_var(arg2))
+                mk_var(arg2);
+            SASSERT(is_attached_to_var(arg1));
+            SASSERT(is_attached_to_var(arg2));
+            // Axiom generation logic for subterm can be added here.
         }
         else {
             SASSERT(is_accessor(term) || is_recognizer(term));
@@ -413,35 +426,213 @@ namespace smt {
 
     void theory_datatype::assign_eh(bool_var v, bool is_true) {
         force_push();
-        enode * n     = ctx.bool_var2enode(v);
-        if (!is_recognizer(n))
-            return;
-        TRACE(datatype, tout << "assigning recognizer: #" << n->get_owner_id() << " is_true: " << is_true << "\n" 
-              << enode_pp(n, ctx) << "\n";);
-        SASSERT(n->get_num_args() == 1);
-        enode * arg   = n->get_arg(0);
-        theory_var tv = arg->get_th_var(get_id());
-        tv = m_find.find(tv);
-        var_data * d  = m_var_data[tv];
-        func_decl * r = n->get_decl();
-        func_decl * c = m_util.get_recognizer_constructor(r);
-        if (is_true) {
-            SASSERT(tv != null_theory_var);
-            if (d->m_constructor != nullptr && d->m_constructor->get_decl() == c)
-                return; // do nothing
-            assert_is_constructor_axiom(arg, c, literal(v));
-        }
-        else {
-            if (d->m_constructor != nullptr) {
-                if (d->m_constructor->get_decl() == c) {
-                    // conflict
-                    sign_recognizer_conflict(d->m_constructor, n);
-                }
+        enode *n = ctx.bool_var2enode(v);
+        if (is_recognizer(n)) {
+            TRACE(datatype, tout << "assigning recognizer: #" << n->get_owner_id() << " is_true: " << is_true << "\n"
+                                 << enode_pp(n, ctx) << "\n";);
+            SASSERT(n->get_num_args() == 1);
+            enode *arg = n->get_arg(0);
+            theory_var tv = arg->get_th_var(get_id());
+            tv = m_find.find(tv);
+            var_data *d = m_var_data[tv];
+            func_decl *r = n->get_decl();
+            func_decl *c = m_util.get_recognizer_constructor(r);
+            if (is_true) {
+                SASSERT(tv != null_theory_var);
+                if (d->m_constructor != nullptr && d->m_constructor->get_decl() == c)
+                    return;  // do nothing
+                assert_is_constructor_axiom(arg, c, literal(v));
             }
             else {
-                propagate_recognizer(tv, n);
+                if (d->m_constructor != nullptr) {
+                    if (d->m_constructor->get_decl() == c) {
+                        // conflict
+                        sign_recognizer_conflict(d->m_constructor, n);
+                    }
+                }
+                else {
+                    propagate_recognizer(tv, n);
+                }
             }
         }
+        else if (is_subterm_predicate(n)) {
+            TRACE(datatype, tout << "assigning subterm: #" << n->get_owner_id() << " is_true: " << is_true << "\n"
+                                 << enode_pp(n, ctx) << "\n";);
+            SASSERT(n->get_num_args() == 2);
+
+            // gather variables
+            enode *arg1 = n->get_arg(0);
+            theory_var tv1 = arg1->get_th_var(get_id());
+            enode *arg2 = n->get_arg(1);
+            theory_var tv2 = arg->get_th_var(get_id());
+
+            if (is_true) {
+                
+            } else {
+
+            }
+
+
+
+
+            SASSERT(false && "TODO: Implement this function");
+
+        }
+    }
+
+    /// @brief Propagates that `arg1 ⊑ arg2`
+    void theory_datatype::propagate_is_subterm(enode *n){
+        SASSERT(is_subterm_predicate(n));
+        enode * arg1 = n->get_arg(0);
+        enode * arg2 = n->get_arg(1);
+        
+        // If we are here, n is assigned true.
+        SASSERT(ctx.get_assignment(n) == l_true);
+
+        literal_vector lits;
+        lits.push_back(literal(ctx.enode2bool_var(n), true)); // antecedent: ~n
+
+        datatype_util util(get_manager());
+        bool found_possible = false;
+
+        for (enode* s : iterate_subterms(arg2)) {
+            bool is_leaf = !util.is_constructor(s->get_expr());
+
+            // Case 1: Equality check (arg1 == s)
+            // Valid if sorts are compatible.
+            if (s->get_sort() == arg1->get_sort()) {
+                lits.push_back(mk_eq(arg1->get_expr(), s->get_expr(), false));
+                found_possible = true;
+            }
+
+            // Case 2: Recursive subterm check (arg1 ⊑ s)
+            // Only if s is a leaf (unexpanded) and not the root itself (to avoid tautology).
+            if (is_leaf) {
+                if (s->get_root() == arg2->get_root()) {
+                    // If arg2 is a leaf, we learn nothing new.
+                    continue; 
+                }
+
+                if (util.is_datatype(s->get_sort())) {
+                     // arg1 ⊑ s
+                     sort* domain[] = { arg1->get_sort(), s->get_sort() };
+                     func_decl* sub_decl = m_util.plugin().mk_func_decl(OP_DT_SUBTERM, 0, nullptr, 2, domain, m.mk_bool_sort());
+                     if (sub_decl) {
+                        app_ref sub_app(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()), m);
+                        ctx.internalize(sub_app, false);
+                        lits.push_back(literal(ctx.get_bool_var(sub_app)));
+                        found_possible = true;
+                     }
+                }
+            }
+        }
+        
+        if (lits.size() > 1) {
+            ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+        } else if (!found_possible) {
+             // Conflict: arg1 cannot be subterm of arg2 (no path matches)
+             ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+        }
+    }
+
+    /// @brief Iterator over subterm
+    /// 
+    /// This lazily computes the subterm of a term. In the current term algebra. 
+    class subterm_iterator {
+        ptr_vector<enode> m_todo;
+        ptr_vector<enode> m_marked;
+        ast_manager*      m_manager;
+        enode*            m_current;
+
+        void next() {
+            m_current = nullptr;
+            if (!m_manager) return;
+            datatype_util util(*m_manager);
+
+            while (!m_todo.empty()) {
+                enode* curr = m_todo.back();
+                m_todo.pop_back();
+                enode* root = curr->get_root();
+
+                if (root->is_marked()) continue;
+                root->set_mark();
+                m_marked.push_back(root);
+
+                enode* ctor = nullptr;
+                enode* iter = root;
+                do {
+                    if (util.is_constructor(iter->get_expr())) {
+                        ctor = iter;
+                        break;
+                    }
+                    iter = iter->get_next();
+                } while (iter != root);
+
+                if (ctor) {
+                    m_current = ctor;
+                    for (enode* child : enode::args(ctor)) {
+                        m_todo.push_back(child);
+                    }
+                    return;
+                } else {
+                    m_current = root;
+                    return;
+                }
+            }
+        }
+
+    public:
+        subterm_iterator(enode* start) : m_manager(&start->get_expr()->get_manager()), m_current(nullptr) {
+            m_todo.push_back(start);
+            next();
+        }
+
+        subterm_iterator() : m_manager(nullptr), m_current(nullptr) {}
+
+        subterm_iterator(subterm_iterator&& other) : m_manager(nullptr), m_current(nullptr) {
+            m_todo.swap(other.m_todo);
+            m_marked.swap(other.m_marked);
+            std::swap(m_manager, other.m_manager);
+            std::swap(m_current, other.m_current);
+        }
+
+        subterm_iterator& begin() { return *this; }
+        subterm_iterator end() { return subterm_iterator(); }
+
+        bool operator!=(const subterm_iterator& other) const {
+            return m_current != other.m_current;
+        }
+
+        enode* operator*() const { return m_current; }
+
+        void operator++() { next(); }
+
+        ~subterm_iterator() {
+            for (enode* n : m_marked) n->unset_mark();
+        }
+
+        subterm_iterator(const subterm_iterator&) = delete;
+        subterm_iterator& operator=(const subterm_iterator&) = delete;
+    };
+
+    subterm_iterator iterate_subterms(enode* arg) {
+        return subterm_iterator(arg);
+    }
+
+    // List the subtems of `arg` up to our knowlege.
+    // The returned vector might therefor have variables
+    ptr_vector<enode> list_subterms(enode* arg) {
+        ptr_vector<enode> result;
+        for (enode* n : iterate_subterms(arg)) {
+            result.push_back(n);
+        }
+        return result;
+    }
+
+    
+    void search_subterm(enode* arg1, vector<enode*>* arg2) -> uint {
+        // 0 for false
+        
     }
 
     void theory_datatype::relevant_eh(app * n) {
@@ -454,6 +645,17 @@ namespace smt {
             theory_var v = e->get_arg(0)->get_th_var(get_id());
             SASSERT(v != null_theory_var);
             add_recognizer(v, e);
+        }
+        else if (is_subterm_predicate(n)) {
+            SASSERT(ctx.e_internalized(n));
+            
+            enode * e = ctx.get_enode(n);
+            theory_var a = e->get_arg(0)->get_th_var(get_id()); // e is 'a ⊑ b'
+            theory_var b = e->get_arg(1)->get_th_var(get_id()); // e is 'a ⊑ b'
+            SASSERT(a != null_theory_var && b != null_theory_var);
+
+            add_subterm_predicate(a, e);
+            add_subterm_predicate(b, e);
         }
     }
 
@@ -919,6 +1121,23 @@ namespace smt {
                 propagate_recognizer(v, recognizer);
             }
         }
+    }
+
+    /** \brief register `predicate` to `v`'s `var_data`
+     *
+     * With `predicate:='a ⊑ b'` this should be called with `v:='a'` and `v:='b'`.
+     * 
+     * This doesn't handle potential propagation. The responsability for it
+     * falls on the caller.
+     */
+    void theory_datatype::add_subterm_predicate(theory_var v, enode * predicate) {
+        SASSERT(is_subterm_predicate(predicate));
+        v = m_find.find(v);
+        var_data * d = m_var_data[v];
+        
+        if (d->m_subterms.contains(predicate)) return;
+
+        d->m_subterms.push_back(predicate);
     }
 
     /**
