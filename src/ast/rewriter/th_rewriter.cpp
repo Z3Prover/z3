@@ -106,6 +106,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_ar_rw.updt_params(p);
         m_f_rw.updt_params(p);
         m_seq_rw.updt_params(p);
+        m_rec_rw.updt_params(p);
         updt_local_params(p);
     }
 
