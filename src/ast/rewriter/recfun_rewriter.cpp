@@ -21,6 +21,12 @@ Author:
 #include "ast/rewriter/var_subst.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/for_each_expr.h"
+#include "params/rewriter_params.hpp"
+
+void recfun_rewriter::updt_params(params_ref const &p) {
+    rewriter_params rp(p);
+    m_recfun_unfold = rp.unfold_recursive_functions();
+}
     
 br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     if (m_rec.is_defined(f) && num_args > 0) {
@@ -34,9 +40,11 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
         for (unsigned i = 0; i < num_args; ++i) 
             if (!m.is_value(args[i]))
                 safe_to_subst = false;
-        for (auto t : subterms::all(expr_ref(r, m)))
-            if (is_uninterp(t))
-                return BR_FAILED;
+        if (!m_recfun_unfold) {
+            for (auto t : subterms::all(expr_ref(r, m)))
+                if (is_uninterp(t))
+                    return BR_FAILED;
+        }            
 
         // check if there is an argument that is a constructor
         // such that the recursive function can be partially evaluated.

@@ -96,6 +96,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_bv_rw.set_mkbv2num(true);
         m_ar_rw.set_expand_select_store(true);
         m_ar_rw.set_expand_select_ite(true);
+        params_ref rp;
+        rp.set_bool("unfold_recursive_functions", true);
+        m_rec_rw.updt_params(rp);
         updt_params(p);
         //add_unspecified_function_models(md);
     }
