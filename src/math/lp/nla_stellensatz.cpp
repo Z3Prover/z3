@@ -125,10 +125,13 @@ namespace nla {
                 ++c().lp_settings().stats().m_stellensatz.m_num_backtracks;
                 lbool rb = m_solver.solve(m_core);
                 TRACE(arith, tout << "backtrack search " << rb << ": " << m_core << "\n");
+                // verbose_stream() << rb << " " << num_conflicts << " " << m_config.max_conflicts << "\n";
                 if (rb == l_false)
                     continue;
-                if (rb == l_undef)
-                    return rb;
+                if (rb == l_undef) {
+                    //verbose_stream() << "undetermined solve\n";
+                    // return rb;
+                }
                 m_solver.update_values(m_values);
                 goto start_saturate;
             }
@@ -137,6 +140,10 @@ namespace nla {
         }
         if (r == l_true && !set_model())
             r = l_undef;
+        if (r == l_undef) {
+            IF_VERBOSE(2, display(verbose_stream()));
+        }
+        // verbose_stream() << "result " << r << "\n";
         return r;
     }
 
@@ -154,6 +161,7 @@ namespace nla {
         m_coi.init();
         m_values.reset();
         init_vars();
+        simplify();
         init_occurs();
         init_bounds();
     }
@@ -443,6 +451,8 @@ namespace nla {
         new_ci = factor(new_ci);
 
         init_occurs(new_ci);
+
+        // display_constraint(verbose_stream(), new_ci) << "\n";
 
         return new_ci;
     }
@@ -1019,12 +1029,16 @@ namespace nla {
         m_var2level.reset();
         for (unsigned v = 0; v < m_values.size(); ++v)
             m_level2var.push_back(v);
+        init_levels();
+    }
+
+    void stellensatz::init_levels() {
         random_gen rand(c().random());
         shuffle(m_level2var.size(), m_level2var.begin(), rand);
            
         m_var2level.resize(m_values.size(), m_level2var.size());
         for (unsigned i = 0; i < m_level2var.size(); ++i)
-            m_var2level[m_level2var[i]] = i;
+            m_var2level[m_level2var[i]] = i;        
         for (auto const &c : m_constraints)
             if (constraint_is_false(c))
                 for (auto v : c.p.free_vars())
@@ -1251,6 +1265,7 @@ namespace nla {
         lp::lconstraint_kind k;       
         lpvar w;
 
+        init_levels();
         unsigned num_fixed = 0;
         unsigned num_levels = m_level2var.size();
         unsigned num_rounds = 0;
@@ -1273,6 +1288,8 @@ namespace nla {
             if (m_tabu.contains(conflict))  // already attempted to repair this constraint without success
                 continue;
 
+            //verbose_stream() << "repair v" << w << " @ " << level
+            //                 << "\n ";
             m_tabu.insert(conflict);
 
             auto p = m_constraints[conflict].p;
@@ -1298,7 +1315,7 @@ namespace nla {
             //
         }
 
-        if (find_split(w, value, k)) {        
+        if (m_num_scopes < 4 && find_split(w, value, k)) {        
             SASSERT(k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::GE);
             bool is_upper = k == lp::lconstraint_kind::LE;
             SASSERT(!is_upper || !has_lo(w) || lo_val(w) <= value);
@@ -1316,6 +1333,7 @@ namespace nla {
             SASSERT(well_formed_var(w));
             SASSERT(well_formed_last_bound());
             ++c().lp_settings().stats().m_stellensatz.m_num_decisions;
+            // verbose_stream() << "split " << m_num_scopes << "\n";
             return true;
         }
 
@@ -1613,8 +1631,11 @@ namespace nla {
         std::unordered_map<lpvar, rational> _values;
         lra_solver->get_model(_values);
         unsigned sz = values.size();
-        for (unsigned i = 0; i < sz; ++i) 
+        for (unsigned i = 0; i < sz; ++i) {
             values[i] = _values[i];
+            if (s.var_is_int(i) && !values[i].is_int())
+                values[i] = ceil(values[i]);
+        }
         TRACE(arith, for (unsigned i = 0; i < sz; ++i) tout << "j" << i << " := " << values[i] << "\n";);
     }
 
@@ -1658,7 +1679,8 @@ namespace nla {
             }
             else {
                 auto const& b = m_bounds[m_lower[v]];
-                auto res = resolve_variable(v, b.m_constraint_justification, sup);
+                auto bci = b.m_constraint_justification;
+                auto res = resolve_variable(v, bci, sup);
                 TRACE(arith, display_constraint(tout << "resolved against implied lower bound ", res) << "\n");
                 if (constraint_is_false(res))                     
                     return res;                
@@ -1872,16 +1894,20 @@ namespace nla {
                 }
             }
         }    
-        if (has_lo(v) && m_bounds[m_lower[v]].m_constraint_justification != lp::null_ci) {
-            if (inf == lp::null_ci || lo < lo_val(v)) {
+        if (has_lo(v)) {
+            auto lc = lo_constraint(v);
+            if (lc != lp::null_ci && !m_tabu.contains(lc) && (inf == lp::null_ci || lo < lo_val(v))) {
                 lo = lo_val(v);
-                inf = m_bounds[m_lower[v]].m_constraint_justification;
+                inf = lc;
+                m_tabu.insert(lc);
             }
         }
-        if (has_hi(v) && m_bounds[m_upper[v]].m_constraint_justification != lp::null_ci) {
-            if (sup == lp::null_ci || hi > hi_val(v)) {
+        if (has_hi(v)) {
+            auto hc = hi_constraint(v);
+            if (hc != lp::null_ci && !m_tabu.contains(hc) && (sup == lp::null_ci || hi > hi_val(v))) {
                 hi = hi_val(v);
-                sup = m_bounds[m_upper[v]].m_constraint_justification;
+                sup = hc;
+                m_tabu.insert(hc);
             }
         }
         return result;
@@ -2126,5 +2152,71 @@ namespace nla {
                 NOT_IMPLEMENTED_YET();
         }
         return out;
+    }
+
+    //
+    // collect variables that are defined x + p >= 0: d1, -x - p >= 0 : d2.
+    // substitute x by p elsewhere. 
+    // Accumulate dependencies from d1, d2 into substituted (can be a propagation justification)
+    //
+    void stellensatz::simplify() { 
+        using var_ci_vector = svector<std::pair<unsigned, lp::constraint_index>>; 
+        struct eq_info {
+            lpvar v;
+            dd::pdd eq;
+            lp::constraint_index ci1, ci2;
+        };
+        u_map<var_ci_vector> bounds;
+        vector<dd::pdd> pdds;
+        vector<eq_info> eqs;
+        for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {
+            auto const& [p, k, j] = m_constraints[ci];
+            bool is_le = true;
+            if (k != lp::lconstraint_kind::GE)
+                continue;
+            for (auto const &[coeff, vars] : p) {
+                if (vars.size() != 1)
+                    continue;
+                if (coeff != 1 && coeff != -1)
+                    continue;
+                auto v = vars[0];
+                auto &qs = bounds.insert_if_not_there(v, var_ci_vector());
+                auto mp = -p;
+                for (auto [q, ci2] : qs) {
+                    auto Q = pdds[q];
+                    if (mp != Q)
+                        continue;
+                    eqs.push_back({v, coeff == 1 ? -p : p, ci, ci2});                    
+                }
+                qs.push_back({pdds.size(), ci});
+                pdds.push_back(p);
+            }
+        }
+        uint_set tracked;
+        for (auto [v, p, ci1, ci2] : eqs) {
+            if (tracked.contains(ci1) || tracked.contains(ci2))
+                continue;
+            auto q = p + pddm.mk_var(v);
+            if (q.free_vars().contains(v))
+                continue;
+            tracked.insert(ci1);
+            tracked.insert(ci2);
+            unsigned sz = m_constraints.size();
+            for (unsigned ci = 0; ci < sz; ++ci) {
+                auto const &[p, k, j] = m_constraints[ci];
+                if (!p.free_vars().contains(v))
+                    continue;
+                auto r = p.subst_pdd(v, q);
+                if (r.is_val())
+                    continue;
+
+                svector<lp::constraint_index> assumptions;
+                assumptions.push_back(ci1);
+                assumptions.push_back(ci2);
+                assumptions.push_back(ci);
+                propagation_justification prop{assumptions};
+                add_constraint(r, k, prop);
+            }
+        }
     }
 }

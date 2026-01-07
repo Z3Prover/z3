@@ -770,6 +770,8 @@ struct solver::imp {
 
 
     void set_value(lp::lpvar v, rational const& value) {
+        if (!m_nlsat)
+            reset();
         if (!m_values)
             m_values = alloc(scoped_anum_vector, am());
         scoped_anum a(am());

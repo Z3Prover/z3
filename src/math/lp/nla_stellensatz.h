@@ -219,6 +219,7 @@ namespace nla {
         lbool search();
         lbool resolve_conflict();
         void init_search();
+        void init_levels();
         void pop_bound();
         void mark_dependencies(u_dependency *d);
         bool should_propagate() const { return m_prop_qhead < m_bounds.size(); }
@@ -322,6 +323,7 @@ namespace nla {
         // initialization
         void init_solver();
         void init_vars();
+        void simplify();
         void init_occurs();
         void init_occurs(lp::constraint_index ci);
         void init_bounds();

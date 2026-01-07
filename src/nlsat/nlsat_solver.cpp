@@ -1917,6 +1917,7 @@ namespace nlsat {
                     break;
 
                 init_search();
+                do_simplify();
                 IF_VERBOSE(2, verbose_stream() << "(nlsat-b&b :conflicts " << m_stats.m_conflicts 
                            << " :decisions " << m_stats.m_decisions 
                            << " :propagations " << m_stats.m_propagations 
@@ -1924,6 +1925,7 @@ namespace nlsat {
                            << " :learned " << m_learned.size() << ")\n");
 
 
+                TRACE(nlsat, display(tout << "branch and bound\n"));
                 // todo, review, test
                 // cut on the first model value
                 if (!m_model_values.empty() && m_stats.m_restarts % 10 == 0) {
