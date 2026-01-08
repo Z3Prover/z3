@@ -9,27 +9,31 @@ namespace smt {
     class theory_finite_set;
 
     class reachability_matrix{
-        // this class is a 2d matrix with a fixed initial size (to avoid reallocation) which 
-        std::vector<int> is_related;
 
         // this stores the equalities (intersections), that justify the subset relations.
-        std::vector<std::pair<theory_var, enode_pair>*> subset_relations;
-        unsigned m_max_cols;
+        std::vector<std::pair<theory_var, enode_pair>> subset_relations;
+        std::vector<enode_pair> non_subset_relations;
+        int largest_var;
 
-        unsigned m_rows;
-        unsigned m_cols;
+        int max_size;
 
         context& ctx;
 
         public:
-            reachability_matrix(unsigned max_dim);
+            reachability_matrix(int max_dim, context& ctx);
+            bool in_bounds(theory_var source, theory_var dest);
             bool is_reachable(theory_var source, theory_var dest);
+            bool is_reachability_forbidden(theory_var source, theory_var dest);
             // get_reachability_reason(i,j) returns:
-            //   - {-1, equality} when equality covers the subset relation of i and j
+            //   - {-1, equality} when equality covers the subset relation of i and j (represented as equality of term and intersection)
             //   - {intermediate, equality} when intermediate is a subset of j, and equality 
             //     covers the relation of i and intermediate (transitivity)
             std::pair<theory_var, enode_pair> get_reachability_reason(theory_var source, theory_var dest);
-            int set(theory_var source, theory_var dest, int value, theory_var intermediate, enode_pair subset_relation);
+            enode_pair get_non_reachability_reason(theory_var source, theory_var dest);
+
+            void set_reachability(theory_var source, theory_var dest, theory_var intermediate, enode_pair subset_relation);
+            void set_non_reachability(theory_var source, theory_var dest, enode_pair subset_relation);
+            int get_max_var();
     };
 
     class theory_finite_set_lattice_refutation {
@@ -41,10 +45,11 @@ namespace smt {
         expr_ref m_assumption;
         reachability_matrix reachability;
 
-        svector<std::pair<enode*, enode*>> relations;
-        svector<std::pair<enode*, enode*>> non_relations;
         enode* get_superset(enode*, enode*);
-        void check_conflict();
+        void add_subset(enode* subset, enode* superset, enode_pair justifying_equality);
+        void add_not_subset(enode* subset, enode* superset, enode_pair justifying_disequality);
+        void propagate_new_subset(theory_var v1, theory_var v2);
+        void check_conflict(theory_var v1, theory_var v2);
         public:
             theory_finite_set_lattice_refutation(theory_finite_set &th);
             void add_equality(theory_var v1, theory_var v2);
