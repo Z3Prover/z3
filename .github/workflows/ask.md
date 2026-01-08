@@ -1,6 +1,6 @@
 ---
 on:
-  command:
+  slash_command:
     name: ask
   reaction: "eyes"
   stop-after: +48h
@@ -26,7 +26,7 @@ tools:
   # By default this workflow allows all bash commands within the confine of Github Actions VM 
   bash: [ ":*" ]
 
-timeout_minutes: 20
+timeout-minutes: 20
 
 ---
 
@@ -40,19 +40,18 @@ Take heed of these instructions: "${{ needs.task.outputs.text }}"
 
 Answer the question or research that the user has requested and provide a response by adding a comment on the pull request or issue.
 
-@include agentics/shared/no-push-to-main.md
+{{#import shared/no-push-to-main.md}}
 
-@include agentics/shared/tool-refused.md
+{{#import shared/tool-refused.md}}
 
-@include agentics/shared/include-link.md
+{{#import shared/include-link.md}}
 
-@include agentics/shared/xpia.md
+{{#import shared/xpia.md}}
 
-@include agentics/shared/gh-extra-pr-tools.md
+{{#import shared/gh-extra-pr-tools.md}}
 
 <!-- You can whitelist tools in .github/workflows/build-tools.md file -->
-@include? agentics/build-tools.md
+{{#import?  agentics/build-tools.md}}
 
 <!-- You can customize prompting and tools in .github/workflows/agentics/ask.config.md -->
-@include? agentics/ask.config.md
-
+{{#import?  agentics/ask.config.md}}
