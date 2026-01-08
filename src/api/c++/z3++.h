@@ -2706,6 +2706,29 @@ namespace z3 {
             check_error();
         }
 
+        unsigned num_sorts() const {
+            unsigned r = Z3_model_get_num_sorts(ctx(), m_model);
+            check_error();
+            return r;
+        }
+
+        /**
+           \brief Return the uninterpreted sort at position \c i.
+           \pre i < num_sorts()
+        */
+        sort get_sort(unsigned i) const {
+            Z3_sort s = Z3_model_get_sort(ctx(), m_model, i);
+            check_error();
+            return sort(ctx(), s);
+        }
+
+        expr_vector sort_universe(sort const& s) const {
+            check_context(*this, s);
+            Z3_ast_vector r = Z3_model_get_sort_universe(ctx(), m_model, s);
+            check_error();
+            return expr_vector(ctx(), r);
+        }
+
         friend std::ostream & operator<<(std::ostream & out, model const & m);
 
         std::string to_string() const { return m_model ? std::string(Z3_model_to_string(ctx(), m_model)) : "null"; }
@@ -2893,6 +2916,25 @@ namespace z3 {
             Z3_solver_get_levels(ctx(), m_solver, r, sz, levels.ptr());
             check_error(); 
             return result; 
+        }
+        expr congruence_root(expr const& t) const {
+            check_context(*this, t);
+            Z3_ast r = Z3_solver_congruence_root(ctx(), m_solver, t);
+            check_error();
+            return expr(ctx(), r);
+        }
+        expr congruence_next(expr const& t) const {
+            check_context(*this, t);
+            Z3_ast r = Z3_solver_congruence_next(ctx(), m_solver, t);
+            check_error();
+            return expr(ctx(), r);
+        }
+        expr congruence_explain(expr const& a, expr const& b) const {
+            check_context(*this, a);
+            check_context(*this, b);
+            Z3_ast r = Z3_solver_congruence_explain(ctx(), m_solver, a, b);
+            check_error();
+            return expr(ctx(), r);
         }
         void set_initial_value(expr const& var, expr const& value) {
             Z3_solver_set_initial_value(ctx(), m_solver, var, value);
