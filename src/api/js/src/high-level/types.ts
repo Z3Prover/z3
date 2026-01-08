@@ -733,10 +733,99 @@ export interface Solver<Name extends string = 'main'> {
 
   fromString(s: string): void;
 
+  /**
+   * Check whether the assertions in the solver are consistent or not.
+   *
+   * Optionally, you can provide additional boolean expressions as assumptions.
+   * These assumptions are temporary and only used for this check - they are not
+   * permanently added to the solver.
+   *
+   * @param exprs - Optional assumptions to check in addition to the solver's assertions.
+   *                These are temporary and do not modify the solver state.
+   * @returns A promise resolving to:
+   *          - `'sat'` if the assertions (plus assumptions) are satisfiable
+   *          - `'unsat'` if they are unsatisfiable
+   *          - `'unknown'` if Z3 cannot determine satisfiability
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * solver.add(x.gt(0));
+   *
+   * // Check without assumptions
+   * await solver.check(); // 'sat'
+   *
+   * // Check with temporary assumption (doesn't modify solver)
+   * await solver.check(x.lt(0)); // 'unsat'
+   * await solver.check(); // still 'sat' - assumption was temporary
+   * ```
+   *
+   * @see {@link checkAssumptions} - Explicitly named variant for use with {@link unsatCore}
+   */
   check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
 
+  /**
+   * Check satisfiability with temporary assumptions.
+   *
+   * This method is functionally equivalent to {@link check}, but the name makes it
+   * explicit that you're using assumptions and may want to retrieve the unsat core
+   * via {@link unsatCore} if the result is `'unsat'`.
+   *
+   * @param assumptions - Boolean expressions to assume temporarily during this check.
+   *                      These do not modify the solver state.
+   * @returns A promise resolving to `'sat'`, `'unsat'`, or `'unknown'`
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * const y = Bool.const('y');
+   * solver.add(x.or(y));
+   *
+   * const result = await solver.checkAssumptions(x.not(), y.not());
+   * if (result === 'unsat') {
+   *   const core = solver.unsatCore();
+   *   // core contains the subset of assumptions that caused UNSAT
+   * }
+   * ```
+   *
+   * @see {@link check} - Simpler name for the same functionality
+   * @see {@link unsatCore} - Get the unsat core after an unsat result
+   */
   checkAssumptions(...assumptions: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
 
+  /**
+   * Retrieve the unsat core after a check that returned `'unsat'`.
+   *
+   * The unsat core is a (typically small) subset of the assumptions that were
+   * sufficient to determine unsatisfiability. This is useful for understanding
+   * which assumptions are conflicting.
+   *
+   * Note: To use unsat cores effectively, you should call {@link check} or
+   * {@link checkAssumptions} with assumptions (not just assertions added via {@link add}).
+   *
+   * @returns An AstVector containing the subset of assumptions that caused UNSAT
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * const y = Bool.const('y');
+   * const z = Bool.const('z');
+   * solver.add(x.or(y));
+   * solver.add(x.or(z));
+   *
+   * const result = await solver.checkAssumptions(x.not(), y.not(), z.not());
+   * if (result === 'unsat') {
+   *   const core = solver.unsatCore();
+   *   // core will contain a minimal set of conflicting assumptions
+   *   console.log('UNSAT core size:', core.length());
+   * }
+   * ```
+   *
+   * @see {@link checkAssumptions} - Check with assumptions to use with unsat core
+   */
   unsatCore(): AstVector<Name, Bool<Name>>;
 
   model(): Model<Name>;
@@ -989,8 +1078,10 @@ export interface FuncDecl<
   call(...args: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
 }
 
-export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
-  extends Ast<Name, Ptr> {
+export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown> extends Ast<
+  Name,
+  Ptr
+> {
   /** @hidden */
   readonly __typename:
     | 'Expr'
@@ -1289,8 +1380,11 @@ export interface BitVecCreation<Name extends string> {
  * Represents Bit Vector expression
  * @category Bit Vectors
  */
-export interface BitVec<Bits extends number = number, Name extends string = 'main'>
-  extends Expr<Name, BitVecSort<Bits, Name>, Z3_ast> {
+export interface BitVec<Bits extends number = number, Name extends string = 'main'> extends Expr<
+  Name,
+  BitVecSort<Bits, Name>,
+  Z3_ast
+> {
   /** @hidden */
   readonly __typename: 'BitVec' | BitVecNum['__typename'];
 
@@ -1672,8 +1766,11 @@ export interface SMTSetCreation<Name extends string> {
  * @typeParam ElemSort The sort of the element of the set
  * @category Arrays
  */
-export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>>
-  extends Expr<Name, SMTSetSort<Name, ElemSort>, Z3_ast> {
+export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>> extends Expr<
+  Name,
+  SMTSetSort<Name, ElemSort>,
+  Z3_ast
+> {
   readonly __typename: 'Array';
 
   elemSort(): ElemSort;
