@@ -813,7 +813,7 @@ describe('high-level', () => {
       expect(results).toStrictEqual([1n, 2n, 3n, 4n, 5n]);
     });
 
-    it('can use checkAssumptions and unsatCore', async () => {
+    it('can use check with assumptions and unsatCore', async () => {
       const { Solver, Bool } = api.Context('main');
       const solver = new Solver();
       const x = Bool.const('x');
@@ -825,7 +825,7 @@ describe('high-level', () => {
       solver.add(x.or(z));
 
       // Check with assumptions that create a conflict
-      const result = await solver.checkAssumptions(x.not(), y.not(), z.not());
+      const result = await solver.check(x.not(), y.not(), z.not());
       expect(result).toStrictEqual('unsat');
 
       // Get the unsat core

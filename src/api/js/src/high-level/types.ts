@@ -761,39 +761,9 @@ export interface Solver<Name extends string = 'main'> {
    * await solver.check(); // still 'sat' - assumption was temporary
    * ```
    *
-   * @see {@link checkAssumptions} - Explicitly named variant for use with {@link unsatCore}
+   * @see {@link unsatCore} - Retrieve unsat core after checking with assumptions
    */
   check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
-
-  /**
-   * Check satisfiability with temporary assumptions.
-   *
-   * This method is functionally equivalent to {@link check}, but the name makes it
-   * explicit that you're using assumptions and may want to retrieve the unsat core
-   * via {@link unsatCore} if the result is `'unsat'`.
-   *
-   * @param assumptions - Boolean expressions to assume temporarily during this check.
-   *                      These do not modify the solver state.
-   * @returns A promise resolving to `'sat'`, `'unsat'`, or `'unknown'`
-   *
-   * @example
-   * ```typescript
-   * const solver = new Solver();
-   * const x = Bool.const('x');
-   * const y = Bool.const('y');
-   * solver.add(x.or(y));
-   *
-   * const result = await solver.checkAssumptions(x.not(), y.not());
-   * if (result === 'unsat') {
-   *   const core = solver.unsatCore();
-   *   // core contains the subset of assumptions that caused UNSAT
-   * }
-   * ```
-   *
-   * @see {@link check} - Simpler name for the same functionality
-   * @see {@link unsatCore} - Get the unsat core after an unsat result
-   */
-  checkAssumptions(...assumptions: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
 
   /**
    * Retrieve the unsat core after a check that returned `'unsat'`.
@@ -802,8 +772,8 @@ export interface Solver<Name extends string = 'main'> {
    * sufficient to determine unsatisfiability. This is useful for understanding
    * which assumptions are conflicting.
    *
-   * Note: To use unsat cores effectively, you should call {@link check} or
-   * {@link checkAssumptions} with assumptions (not just assertions added via {@link add}).
+   * Note: To use unsat cores effectively, you should call {@link check} with
+   * assumptions (not just assertions added via {@link add}).
    *
    * @returns An AstVector containing the subset of assumptions that caused UNSAT
    *
@@ -816,7 +786,7 @@ export interface Solver<Name extends string = 'main'> {
    * solver.add(x.or(y));
    * solver.add(x.or(z));
    *
-   * const result = await solver.checkAssumptions(x.not(), y.not(), z.not());
+   * const result = await solver.check(x.not(), y.not(), z.not());
    * if (result === 'unsat') {
    *   const core = solver.unsatCore();
    *   // core will contain a minimal set of conflicting assumptions
@@ -824,7 +794,7 @@ export interface Solver<Name extends string = 'main'> {
    * }
    * ```
    *
-   * @see {@link checkAssumptions} - Check with assumptions to use with unsat core
+   * @see {@link check} - Check with assumptions to use with unsat core
    */
   unsatCore(): AstVector<Name, Bool<Name>>;
 
