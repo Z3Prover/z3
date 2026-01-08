@@ -332,7 +332,6 @@ namespace Microsoft.Z3
         {
             get
             {
-
                 using ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_non_units(Context.nCtx, NativeObject));
                 return assertions.ToBoolExprArray();
             }
@@ -345,7 +344,6 @@ namespace Microsoft.Z3
         {
             get
             {
-
                 using ASTVector trail = new ASTVector(Context, Native.Z3_solver_get_trail(Context.nCtx, NativeObject));
                 return trail.ToBoolExprArray();
             }
