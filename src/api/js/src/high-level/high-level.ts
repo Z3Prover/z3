@@ -808,12 +808,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       sort<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSetSort<Name, ElemSort> {
         return Array.sort(sort, Bool.sort());
       },
-      const<ElemSort extends AnySort<Name>>(name: string, sort: ElemSort) : SMTSet<Name, ElemSort> {
+      const<ElemSort extends AnySort<Name>>(name: string, sort: ElemSort): SMTSet<Name, ElemSort> {
         return new SetImpl<ElemSort>(
           check(Z3.mk_const(contextPtr, _toSymbol(name), Array.sort(sort, Bool.sort()).ptr)),
         );
       },
-      consts<ElemSort extends AnySort<Name>>(names: string | string[], sort: ElemSort) : SMTSet<Name, ElemSort>[] {
+      consts<ElemSort extends AnySort<Name>>(names: string | string[], sort: ElemSort): SMTSet<Name, ElemSort>[] {
         if (typeof names === 'string') {
           names = names.split(' ');
         }
@@ -822,14 +822,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       empty<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort> {
         return EmptySet(sort);
       },
-      val<ElemSort extends AnySort<Name>>(values: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>[], sort: ElemSort): SMTSet<Name, ElemSort> {
+      val<ElemSort extends AnySort<Name>>(
+        values: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>[],
+        sort: ElemSort,
+      ): SMTSet<Name, ElemSort> {
         var result = EmptySet(sort);
         for (const value of values) {
           result = SetAdd(result, value);
         }
         return result;
-      }
-    }
+      },
+    };
 
     const Datatype = Object.assign(
       (name: string): DatatypeImpl => {
@@ -838,8 +841,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       {
         createDatatypes(...datatypes: DatatypeImpl[]): DatatypeSortImpl[] {
           return createDatatypes(...datatypes);
-        }
-      }
+        },
+      },
     );
 
     ////////////////
@@ -1322,41 +1325,69 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     function SetUnion<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort> {
-      return new SetImpl<ElemSort>(check(Z3.mk_set_union(contextPtr, args.map(arg => arg.ast))));
+      return new SetImpl<ElemSort>(
+        check(
+          Z3.mk_set_union(
+            contextPtr,
+            args.map(arg => arg.ast),
+          ),
+        ),
+      );
     }
-    
+
     function SetIntersect<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort> {
-      return new SetImpl<ElemSort>(check(Z3.mk_set_intersect(contextPtr, args.map(arg => arg.ast))));
+      return new SetImpl<ElemSort>(
+        check(
+          Z3.mk_set_intersect(
+            contextPtr,
+            args.map(arg => arg.ast),
+          ),
+        ),
+      );
     }
-    
-    function SetDifference<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort> {
+
+    function SetDifference<ElemSort extends AnySort<Name>>(
+      a: SMTSet<Name, ElemSort>,
+      b: SMTSet<Name, ElemSort>,
+    ): SMTSet<Name, ElemSort> {
       return new SetImpl<ElemSort>(check(Z3.mk_set_difference(contextPtr, a.ast, b.ast)));
     }
-    
 
-    function SetAdd<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort> {
+    function SetAdd<ElemSort extends AnySort<Name>>(
+      set: SMTSet<Name, ElemSort>,
+      elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>,
+    ): SMTSet<Name, ElemSort> {
       const arg = set.elemSort().cast(elem as any);
       return new SetImpl<ElemSort>(check(Z3.mk_set_add(contextPtr, set.ast, arg.ast)));
     }
-    function SetDel<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort> {
+    function SetDel<ElemSort extends AnySort<Name>>(
+      set: SMTSet<Name, ElemSort>,
+      elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>,
+    ): SMTSet<Name, ElemSort> {
       const arg = set.elemSort().cast(elem as any);
       return new SetImpl<ElemSort>(check(Z3.mk_set_del(contextPtr, set.ast, arg.ast)));
     }
     function SetComplement<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort> {
       return new SetImpl<ElemSort>(check(Z3.mk_set_complement(contextPtr, set.ast)));
     }
-    
+
     function EmptySet<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort> {
       return new SetImpl<ElemSort>(check(Z3.mk_empty_set(contextPtr, sort.ptr)));
     }
     function FullSet<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort> {
       return new SetImpl<ElemSort>(check(Z3.mk_full_set(contextPtr, sort.ptr)));
     }
-    function isMember<ElemSort extends AnySort<Name>>(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>, set: SMTSet<Name, ElemSort>): Bool<Name> {
+    function isMember<ElemSort extends AnySort<Name>>(
+      elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>,
+      set: SMTSet<Name, ElemSort>,
+    ): Bool<Name> {
       const arg = set.elemSort().cast(elem as any);
       return new BoolImpl(check(Z3.mk_set_member(contextPtr, arg.ast, set.ast)));
     }
-    function isSubset<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): Bool<Name> {
+    function isSubset<ElemSort extends AnySort<Name>>(
+      a: SMTSet<Name, ElemSort>,
+      b: SMTSet<Name, ElemSort>,
+    ): Bool<Name> {
       return new BoolImpl(check(Z3.mk_set_subset(contextPtr, a.ast, b.ast)));
     }
 
@@ -2675,7 +2706,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
-    class SetImpl<ElemSort extends Sort<Name>> extends ExprImpl<Z3_ast, ArraySortImpl<[ElemSort], BoolSort<Name>>> implements SMTSet<Name, ElemSort> {
+    class SetImpl<ElemSort extends Sort<Name>>
+      extends ExprImpl<Z3_ast, ArraySortImpl<[ElemSort], BoolSort<Name>>>
+      implements SMTSet<Name, ElemSort>
+    {
       declare readonly __typename: 'Array';
 
       elemSort(): ElemSort {
@@ -2803,7 +2837,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
             for (const [fieldName, fieldSort] of fields) {
               fieldNames.push(fieldName);
-              
+
               if (fieldSort instanceof DatatypeImpl) {
                 // Reference to another datatype being defined
                 const refIndex = datatypes.indexOf(fieldSort);
@@ -2826,7 +2860,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
               Z3.mk_string_symbol(contextPtr, `is_${constructorName}`),
               fieldNames.map(name => Z3.mk_string_symbol(contextPtr, name)),
               fieldSorts,
-              fieldRefs
+              fieldRefs,
             );
             constructors.push(constructor);
             scopedConstructors.push(constructor);
@@ -2844,14 +2878,14 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         const results: DatatypeSortImpl[] = [];
         for (let i = 0; i < resultSorts.length; i++) {
           const sortImpl = new DatatypeSortImpl(resultSorts[i]);
-          
+
           // Attach constructor, recognizer, and accessor functions dynamically
           const numConstructors = sortImpl.numConstructors();
           for (let j = 0; j < numConstructors; j++) {
             const constructor = sortImpl.constructorDecl(j);
             const recognizer = sortImpl.recognizer(j);
             const constructorName = constructor.name().toString();
-            
+
             // Attach constructor function
             if (constructor.arity() === 0) {
               // Nullary constructor (constant)
@@ -2859,10 +2893,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             } else {
               (sortImpl as any)[constructorName] = constructor;
             }
-            
+
             // Attach recognizer function
             (sortImpl as any)[`is_${constructorName}`] = recognizer;
-            
+
             // Attach accessor functions
             for (let k = 0; k < constructor.arity(); k++) {
               const accessor = sortImpl.accessor(j, k);
@@ -2870,7 +2904,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
               (sortImpl as any)[accessorName] = accessor;
             }
           }
-          
+
           results.push(sortImpl);
         }
 

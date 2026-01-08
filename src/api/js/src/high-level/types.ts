@@ -73,7 +73,13 @@ export type CoercibleToBitVec<Bits extends number = number, Name extends string 
 export type CoercibleRational = { numerator: bigint | number; denominator: bigint | number };
 
 /** @hidden */
-export type CoercibleToExpr<Name extends string = 'main'> = number | string | bigint | boolean | CoercibleRational | Expr<Name>;
+export type CoercibleToExpr<Name extends string = 'main'> =
+  | number
+  | string
+  | bigint
+  | boolean
+  | CoercibleRational
+  | Expr<Name>;
 
 /** @hidden */
 export type CoercibleToArith<Name extends string = 'main'> = number | string | bigint | CoercibleRational | Arith<Name>;
@@ -627,33 +633,45 @@ export interface Context<Name extends string = 'main'> {
   substitute(t: Expr<Name>, ...substitutions: [Expr<Name>, Expr<Name>][]): Expr<Name>;
 
   simplify(expr: Expr<Name>): Promise<Expr<Name>>;
-  
+
   /** @category Operations */
   SetUnion<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
-  
+
   /** @category Operations */
   SetIntersect<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
-  
-  /** @category Operations */
-  SetDifference<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
 
   /** @category Operations */
-  SetAdd<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
+  SetDifference<ElemSort extends AnySort<Name>>(
+    a: SMTSet<Name, ElemSort>,
+    b: SMTSet<Name, ElemSort>,
+  ): SMTSet<Name, ElemSort>;
 
   /** @category Operations */
-  SetDel<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
+  SetAdd<ElemSort extends AnySort<Name>>(
+    set: SMTSet<Name, ElemSort>,
+    elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>,
+  ): SMTSet<Name, ElemSort>;
+
+  /** @category Operations */
+  SetDel<ElemSort extends AnySort<Name>>(
+    set: SMTSet<Name, ElemSort>,
+    elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>,
+  ): SMTSet<Name, ElemSort>;
 
   /** @category Operations */
   SetComplement<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
-  
+
   /** @category Operations */
   EmptySet<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort>;
 
   /** @category Operations */
   FullSet<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort>;
-  
+
   /** @category Operations */
-  isMember<ElemSort extends AnySort<Name>>(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>, set: SMTSet<Name, ElemSort>): Bool<Name>;
+  isMember<ElemSort extends AnySort<Name>>(
+    elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>,
+    set: SMTSet<Name, ElemSort>,
+  ): Bool<Name>;
 
   /** @category Operations */
   isSubset<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): Bool<Name>;
@@ -1622,12 +1640,15 @@ export interface SMTArray<
 
 /**
  * Set Implemented using Arrays
- * 
+ *
  * @typeParam ElemSort The sort of the element of the set
  * @category Sets
  */
-export type SMTSetSort<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>> = SMTArraySort<Name, [ElemSort], BoolSort<Name>>;
-
+export type SMTSetSort<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>> = SMTArraySort<
+  Name,
+  [ElemSort],
+  BoolSort<Name>
+>;
 
 /** @category Sets*/
 export interface SMTSetCreation<Name extends string> {
@@ -1636,10 +1657,13 @@ export interface SMTSetCreation<Name extends string> {
   const<ElemSort extends AnySort<Name>>(name: string, elemSort: ElemSort): SMTSet<Name, ElemSort>;
 
   consts<ElemSort extends AnySort<Name>>(names: string | string[], elemSort: ElemSort): SMTSet<Name, ElemSort>[];
-  
+
   empty<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort>;
-  
-  val<ElemSort extends AnySort<Name>>(values: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>[], sort: ElemSort): SMTSet<Name, ElemSort>;
+
+  val<ElemSort extends AnySort<Name>>(
+    values: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>[],
+    sort: ElemSort,
+  ): SMTSet<Name, ElemSort>;
 }
 
 /**
@@ -1648,23 +1672,22 @@ export interface SMTSetCreation<Name extends string> {
  * @typeParam ElemSort The sort of the element of the set
  * @category Arrays
  */
-export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>>  extends Expr<Name, SMTSetSort<Name, ElemSort>, Z3_ast> {
+export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>>
+  extends Expr<Name, SMTSetSort<Name, ElemSort>, Z3_ast> {
   readonly __typename: 'Array';
-  
+
   elemSort(): ElemSort;
 
   union(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
   intersect(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
   diff(b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
-  
 
   add(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
   del(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
   complement(): SMTSet<Name, ElemSort>;
-  
+
   contains(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): Bool<Name>;
   subsetOf(b: SMTSet<Name, ElemSort>): Bool<Name>;
-
 }
 //////////////////////////////////////////
 //
@@ -1674,10 +1697,10 @@ export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<N
 
 /**
  * Helper class for declaring Z3 datatypes.
- * 
+ *
  * Follows the same pattern as Python Z3 API for declaring constructors
  * before creating the actual datatype sort.
- * 
+ *
  * @example
  * ```typescript
  * const List = new ctx.Datatype('List');
@@ -1685,7 +1708,7 @@ export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<N
  * List.declare('nil');
  * const ListSort = List.create();
  * ```
- * 
+ *
  * @category Datatypes
  */
 export interface Datatype<Name extends string = 'main'> {
@@ -1694,7 +1717,7 @@ export interface Datatype<Name extends string = 'main'> {
 
   /**
    * Declare a constructor for this datatype.
-   * 
+   *
    * @param name Constructor name
    * @param fields Array of [field_name, field_sort] pairs
    */
@@ -1718,7 +1741,7 @@ export interface DatatypeCreation<Name extends string> {
 
   /**
    * Create mutually recursive datatypes.
-   * 
+   *
    * @param datatypes Array of Datatype declarations
    * @returns Array of created DatatypeSort instances
    */
@@ -1727,10 +1750,10 @@ export interface DatatypeCreation<Name extends string> {
 
 /**
  * A Sort representing an algebraic datatype.
- * 
+ *
  * After creation, this sort will have constructor, recognizer, and accessor
  * functions dynamically attached based on the declared constructors.
- * 
+ *
  * @category Datatypes
  */
 export interface DatatypeSort<Name extends string = 'main'> extends Sort<Name> {
@@ -1764,8 +1787,8 @@ export interface DatatypeSort<Name extends string = 'main'> extends Sort<Name> {
 
 /**
  * Represents expressions of datatype sorts.
- * 
- * @category Datatypes  
+ *
+ * @category Datatypes
  */
 export interface DatatypeExpr<Name extends string = 'main'> extends Expr<Name, DatatypeSort<Name>, Z3_ast> {
   /** @hidden */
