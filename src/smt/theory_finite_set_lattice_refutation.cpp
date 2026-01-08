@@ -141,7 +141,8 @@ namespace smt {
 
         auto j1 = ext_theory_conflict_justification(th.get_id(), ctx, 1, &disequality_literal, equalities.size(), equalities.data());
         auto justification = ctx.mk_justification(j1);
-
+        
+        TRACE(finite_set, tout << "partial_order_conflict: " << subset <<"\\subset "<<superset);
         ctx.set_conflict(justification);
     }
 
