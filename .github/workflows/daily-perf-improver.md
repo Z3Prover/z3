@@ -6,7 +6,7 @@ on:
         - cron: "0 2 * * 1-5"
     stop-after: +48h # workflow will no longer trigger after 48 hours
 
-timeout_minutes: 30
+timeout-minutes: 30
 
 permissions: read-all
 
@@ -173,18 +173,18 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
 
 6. At the end of your work, add a very, very brief comment (at most two-sentences) to the issue from step 1a, saying you have worked on the particular goal, linking to any pull request you created, and indicating whether you made any progress or not.
 
-@include agentics/shared/no-push-to-main.md
+{{#import shared/no-push-to-main.md}}
 
-@include agentics/shared/tool-refused.md
+{{#import shared/tool-refused.md}}
 
-@include agentics/shared/include-link.md
+{{#import shared/include-link.md}}
 
-@include agentics/shared/xpia.md
+{{#import shared/xpia.md}}
 
-@include agentics/shared/gh-extra-pr-tools.md
+{{#import shared/gh-extra-pr-tools.md}}
 
 <!-- You can whitelist tools in .github/workflows/build-tools.md file -->
-@include? agentics/build-tools.md
+{{#import?  agentics/build-tools.md}}
 
 <!-- You can customize prompting and tools in .github/workflows/agentics/daily-perf-improver.config -->
-@include? agentics/daily-perf-improver.config.md
+{{#import?  agentics/daily-perf-improver.config.md}}
