@@ -63,7 +63,7 @@ class core {
     friend class nra::solver;
     friend class divisions;
     friend class stellensatz;
-
+    friend class stellensatz2;
 
     unsigned m_nlsat_delay = 0;
     unsigned m_nlsat_delay_bound = 0;

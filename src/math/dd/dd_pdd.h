@@ -444,6 +444,7 @@ namespace dd {
         /** Polynomial is of the form a * x for some numeral a. */
         bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); }
         bool is_offset() const { return !is_val() && lo().is_val() && hi().is_one(); }
+        bool is_minus() const { return !is_val() && lo().is_zero() && hi().is_val() && hi().val().is_minus_one(); }
         bool is_binary() const { return m->is_binary(root); }
         void get_powers(svector<std::pair<unsigned, unsigned>>& powers) const { m->get_powers(*this, powers); }
         bool is_monomial() const { return m->is_monomial(root); }

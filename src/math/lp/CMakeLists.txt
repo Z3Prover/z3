@@ -37,6 +37,7 @@ z3_add_component(lp
     nla_pp.cpp
     nla_solver.cpp
     nla_stellensatz.cpp
+    nla_stellensatz2.cpp
     nla_tangent_lemmas.cpp
     nla_throttle.cpp
     nra_solver.cpp    
