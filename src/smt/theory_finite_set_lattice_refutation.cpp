@@ -9,7 +9,7 @@ const int INITIAL_MAX_DIMENSION = 1000;
 namespace smt {
     reachability_matrix::reachability_matrix(int max_dimensions, context& ctx):
     subset_relations(max_dimensions*max_dimensions, {null_theory_var, {nullptr, nullptr}}), 
-    non_subset_relations(max_dimensions*max_dimensions, {nullptr, nullptr}), ctx(ctx), max_size(max_dimensions), largest_var(0){}
+    non_subset_relations(max_dimensions*max_dimensions, {nullptr, nullptr}), largest_var(0), max_size(max_dimensions), ctx(ctx) {}
 
     int reachability_matrix::get_max_var(){
         return largest_var;
@@ -17,10 +17,8 @@ namespace smt {
 
     bool reachability_matrix::is_reachability_forbidden(theory_var source, theory_var dest){
         if(non_subset_relations[source*max_size+dest].first!= nullptr){
-            TRACE(finite_set, tout << "is_reachability_forbidden_true: " << source << "\\subseteq " << dest);
             return true;
         }
-        TRACE(finite_set, tout << "is_reachability_forbidden_false: " << source << "\\subseteq " << dest);
         return false;
     }
 
@@ -30,10 +28,8 @@ namespace smt {
 
     bool reachability_matrix::is_reachable(theory_var source, theory_var dest){
         if(subset_relations[source*max_size+dest].second.first!=nullptr){
-            TRACE(finite_set, tout << "is_reachable_true: " << source << "\\subseteq " << dest);
             return true;
         }
-        TRACE(finite_set, tout << "is_reachable_false: " << source << "\\subseteq " << dest);
         return false;
     }
 
@@ -121,7 +117,6 @@ namespace smt {
     };
 
     void theory_finite_set_lattice_refutation::check_conflict(theory_var subset, theory_var superset){
-        TRACE(finite_set, tout << "checking_conflict: " << subset <<"\\subset "<<superset);
         if(!reachability.is_reachable(subset, superset)){
             // if no reachability is asserted, no conflict can occur
             return;
@@ -130,6 +125,7 @@ namespace smt {
             return;
         }
         // conflict found - build justification
+
         auto diseq_nodes = reachability.get_non_reachability_reason(subset, superset);
         auto eq_expr = m.mk_not(m.mk_eq(diseq_nodes.first->get_expr(), diseq_nodes.second->get_expr()));
         auto disequality_literal = ctx.get_literal(eq_expr);
@@ -140,22 +136,40 @@ namespace smt {
         while(reachability_just.first!=null_theory_var){
             reachability_just = reachability.get_reachability_reason(reachability_just.first, superset);
             equalities.push_back(reachability_just.second);
+
         }
 
-        auto justification = ctx.mk_justification(ext_theory_conflict_justification(th.get_id(), ctx, 1, &disequality_literal, equalities.size(), equalities.data()));
+        auto j1 = ext_theory_conflict_justification(th.get_id(), ctx, 1, &disequality_literal, equalities.size(), equalities.data());
+        auto justification = ctx.mk_justification(j1);
 
-        TRACE(finite_set, tout << "partial_order_conflict: " << subset <<"\\subset "<<superset);
         ctx.set_conflict(justification);
     }
 
     void theory_finite_set_lattice_refutation::propagate_new_subset(theory_var subset, theory_var superset){
+        // TODO: this function might be the bottleneck
         check_conflict(subset, superset);
-        for (int i = 0; i < reachability.get_max_var(); i++)
+        SASSERT(reachability.is_reachable(subset, superset));
+        for (int i = 0; i <= reachability.get_max_var(); i++)
         {
-            if(reachability.is_reachable(i, subset) && !reachability.is_reachable(i, superset)){
-                // i \\subseteq superset
-                reachability.set_reachability(i, superset, subset, reachability.get_reachability_reason(i, subset).second);
-                propagate_new_subset(i, superset);
+            for(int j = 0; j <= reachability.get_max_var(); j++){
+                // check whether there is a new connection from i to j
+
+                if(reachability.is_reachable(i,j) || i == j || (i==subset && j == superset)){
+                    continue;
+                }
+                if(i==subset && reachability.is_reachable(superset, j)){
+                    reachability.set_reachability(i, j, superset, reachability.get_reachability_reason(subset,superset).second);
+                    check_conflict(subset, j);
+                }
+                if(j==superset && reachability.is_reachable(i, subset)){
+                    reachability.set_reachability(i, j, subset, reachability.get_reachability_reason(i,subset).second);
+                    check_conflict(i, superset);
+                }
+                if(reachability.is_reachable(i, subset) && reachability.is_reachable(superset, j)){
+                    reachability.set_reachability(subset, j, superset, reachability.get_reachability_reason(subset,superset).second);
+                    reachability.set_reachability(i, j, subset, reachability.get_reachability_reason(i,subset).second);
+                    check_conflict(i, j);
+                }
             }
         }
     }
@@ -168,6 +182,7 @@ namespace smt {
             return;
         }
         reachability.set_reachability(subset_t, superset_t, null_theory_var, justifying_equality);
+        SASSERT(reachability.is_reachable(subset_t, superset_t));
         propagate_new_subset(subset_t, superset_t);
     };
 
