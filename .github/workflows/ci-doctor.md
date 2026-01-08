@@ -34,7 +34,7 @@ cache:
     - investigation-memory-${{ github.repository }}
     - investigation-memory-
 
-timeout_minutes: 10
+timeout-minutes: 10
 
 ---
 

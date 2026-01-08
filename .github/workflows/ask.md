@@ -26,7 +26,7 @@ tools:
   # By default this workflow allows all bash commands within the confine of Github Actions VM 
   bash: [ ":*" ]
 
-timeout_minutes: 20
+timeout-minutes: 20
 
 ---
 

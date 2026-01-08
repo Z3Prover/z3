@@ -11,7 +11,7 @@ roles: [admin, maintainer, write]
 network: defaults
 
 safe-outputs:
-  push-to-pr-branch:
+  push-to-pull-request-branch:
   create-issue:
     title-prefix: "${{ github.workflow }}"
   add-comment:
@@ -30,7 +30,7 @@ tools:
   # By default this workflow allows all bash commands within the confine of Github Actions VM 
   bash: [ ":*" ]
 
-timeout_minutes: 20
+timeout-minutes: 20
 
 ---
 
