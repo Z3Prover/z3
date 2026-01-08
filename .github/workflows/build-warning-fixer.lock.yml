@@ -145,6 +145,19 @@ jobs:
             await determineAutomaticLockdown(github, context, core);
       - name: Downloading container images
         run: bash /opt/gh-aw/actions/download_docker_images.sh ghcr.io/github/github-mcp-server:v0.27.0
+      - name: Install gh-aw extension
+        env:
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if gh-aw extension is already installed
+          if gh extension list | grep -q "githubnext/gh-aw"; then
+            echo "gh-aw extension already installed, upgrading..."
+            gh extension upgrade gh-aw || true
+          else
+            echo "Installing gh-aw extension..."
+            gh extension install githubnext/gh-aw
+          fi
+          gh aw --version
       - name: Write Safe Outputs Config
         run: |
           mkdir -p /opt/gh-aw/safeoutputs
@@ -304,12 +317,22 @@ jobs:
           GH_AW_SAFE_OUTPUTS: ${{ env.GH_AW_SAFE_OUTPUTS }}
           GITHUB_MCP_LOCKDOWN: ${{ steps.determine-automatic-lockdown.outputs.lockdown == 'true' && '1' || '0' }}
           GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p /tmp/gh-aw/mcp-config
           mkdir -p /home/runner/.copilot
           cat > /home/runner/.copilot/mcp-config.json << EOF
           {
             "mcpServers": {
+              "agentic_workflows": {
+                "type": "local",
+                "command": "gh",
+                "args": ["aw", "mcp-server"],
+                "tools": ["*"],
+                "env": {
+                  "GITHUB_TOKEN": "\${GITHUB_TOKEN}"
+                }
+              },
               "github": {
                 "type": "local",
                 "command": "docker",
@@ -427,8 +450,10 @@ jobs:
           ## Your Task
           
           1. **Find recent build logs** from GitHub Actions workflows (look for workflows like `ubuntu-*`, `macos-*`, `Windows.yml`, etc.)
-             - Use `github-mcp-server-actions_list` to list recent workflow runs
-             - Use `github-mcp-server-get_job_logs` to fetch logs from failed or completed builds
+             - Use the GitHub Actions MCP tools to list recent workflow runs and fetch job logs:
+               - `github-mcp-server-actions_list` to list workflows
+               - `github-mcp-server-get_job_logs` to fetch logs from builds
+             - Alternative: You can also use the `agentic-workflows` tool's `logs` command
           
           2. **Extract compiler warnings** from the build logs:
              - Look for C++ compiler warnings (gcc, clang, MSVC patterns)
