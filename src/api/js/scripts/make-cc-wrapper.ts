@@ -21,17 +21,31 @@ export function makeCCWrapper() {
       // Generate custom wrapper for functions with array parameters
       const paramList = fn.params.map(p => `${p.isConst ? 'const ' : ''}${p.cType}${p.isPtr ? '*' : ''} ${p.name}${p.isArray ? '[]' : ''}`).join(', ');
       
-      // Find the size parameter for each array
+      // Find the size parameter for each array and build copy/free code
       const arrayCopies: string[] = [];
       const arrayFrees: string[] = [];
+      const arrayCopyNames: string[] = [];
+      
       for (let p of arrayParams) {
         const sizeParam = fn.params[p.sizeIndex!];
         const ptrType = p.cType.endsWith('*') ? p.cType : `${p.cType}*`;
         const copyName = `${p.name}_copy`;
+        arrayCopyNames.push(copyName);
+        
+        // Allocate and copy with null check
         arrayCopies.push(`${ptrType} ${copyName} = (${ptrType})malloc(sizeof(${p.cType}) * ${sizeParam.name});`);
+        arrayCopies.push(`if (!${copyName}) {`);
+        arrayCopies.push(`  MAIN_THREAD_ASYNC_EM_ASM({ reject_async(new Error("Memory allocation failed")); });`);
+        arrayCopies.push(`  return;`);
+        arrayCopies.push(`}`);
         arrayCopies.push(`memcpy(${copyName}, ${p.name}, sizeof(${p.cType}) * ${sizeParam.name});`);
+        
         arrayFrees.push(`free(${copyName});`);
       }
+      
+      // Build lambda capture list
+      const nonArrayParams = fn.params.filter(p => !p.isArray || p.kind !== 'in_array');
+      const captureList = [...arrayCopyNames, ...nonArrayParams.map(p => p.name)].join(', ');
       
       // Build argument list for the actual function call, using copied arrays
       const callArgs = fn.params.map(p => {
@@ -48,7 +62,7 @@ export function makeCCWrapper() {
         `
 extern "C" void async_${fn.name}(${paramList}) {
   ${arrayCopies.join('\n  ')}
-  std::thread t([${arrayParams.map(p => `${p.name}_copy`).join(', ')}${fn.params.some(p => !p.isArray || p.kind !== 'in_array') ? ', ' : ''}${fn.params.filter(p => !p.isArray || p.kind !== 'in_array').map(p => `${p.name}`).join(', ')}] {
+  std::thread t([${captureList}] {
     try {
       ${returnType} result = ${fn.name}(${callArgs});
       ${isString ? `

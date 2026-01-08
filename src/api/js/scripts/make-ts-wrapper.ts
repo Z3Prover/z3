@@ -188,6 +188,7 @@ async function makeTsWrapper() {
         const paramIdx = fn.params.indexOf(p);
         const ptrName = `${p.name}_ptr`;
         allocatedArrays.push(ptrName);
+        // Allocate memory for array of pointers (4 bytes per pointer on wasm32)
         prefix += `
         const ${ptrName} = Mod._malloc(${p.name}.length * 4);
         Mod.HEAPU32.set(${p.name} as unknown as number[], ${ptrName} / 4);
