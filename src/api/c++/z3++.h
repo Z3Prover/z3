@@ -2708,6 +2708,10 @@ namespace z3 {
             return r;
         }
 
+        /**
+           \brief Return the uninterpreted sort at position \c i.
+           \pre i < num_sorts()
+        */
         sort get_sort(unsigned i) const {
             Z3_sort s = Z3_model_get_sort(ctx(), m_model, i);
             check_error();
