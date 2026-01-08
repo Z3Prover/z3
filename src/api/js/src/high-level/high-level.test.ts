@@ -816,6 +816,7 @@ describe('high-level', () => {
     it('can use check with assumptions and unsatCore', async () => {
       const { Solver, Bool } = api.Context('main');
       const solver = new Solver();
+      solver.set('unsat_core', true);
       const x = Bool.const('x');
       const y = Bool.const('y');
       const z = Bool.const('z');
