@@ -2703,7 +2703,9 @@ namespace z3 {
         }
 
         unsigned num_sorts() const {
-            return Z3_model_get_num_sorts(ctx(), m_model);
+            unsigned r = Z3_model_get_num_sorts(ctx(), m_model);
+            check_error();
+            return r;
         }
 
         sort get_sort(unsigned i) const {
@@ -2908,16 +2910,20 @@ namespace z3 {
             return result; 
         }
         expr congruence_root(expr const& t) const {
+            check_context(*this, t);
             Z3_ast r = Z3_solver_congruence_root(ctx(), m_solver, t);
             check_error();
             return expr(ctx(), r);
         }
         expr congruence_next(expr const& t) const {
+            check_context(*this, t);
             Z3_ast r = Z3_solver_congruence_next(ctx(), m_solver, t);
             check_error();
             return expr(ctx(), r);
         }
         expr congruence_explain(expr const& a, expr const& b) const {
+            check_context(*this, a);
+            check_context(*this, b);
             Z3_ast r = Z3_solver_congruence_explain(ctx(), m_solver, a, b);
             check_error();
             return expr(ctx(), r);
