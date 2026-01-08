@@ -129,14 +129,9 @@ namespace smt {
                 lbool r = probe_ctx->check(cube.size(), cube.data(), true);               
                 IF_VERBOSE(2, verbose_stream() << " PARAM TUNER " << i << ": cube replay result " << r << "\n");                
             }
-            // unsigned conflicts = probe_ctx->m_stats.m_num_conflicts;
-            // unsigned decisions = probe_ctx->m_stats.m_num_decisions;
-            // double score = conflicts + decisions;
-            auto &st = probe_ctx->m_stats;
-            double score =
-                st.m_num_conflicts
-                - 4.0 * st.m_num_minimized_lits;
-                
+
+            double score = score_probe(*probe_ctx);
+
             if (i == 0) {
                 best_score = score;
                 IF_VERBOSE(1, verbose_stream() << " PARAM TUNER: baseline score = " << best_score << "\n");
@@ -162,39 +157,33 @@ namespace smt {
 
     void parallel::param_generator::init_rdl_param_state() {
         smt_params_helper smtp(m_p);
-        // m_param_state.push_back({symbol("smt.arith.auto_config_simplex"), smtp.arith_auto_config_simplex()});
         m_param_state.push_back({symbol("smt.arith.bprop_on_pivoted_rows"), smtp.arith_bprop_on_pivoted_rows()});
         m_param_state.push_back({symbol("smt.arith.eager_eq_axioms"), smtp.arith_eager_eq_axioms()});
-        // m_param_state.push_back({symbol("smt.arith.greatest_error_pivot"), smtp.arith_greatest_error_pivot()});
-        // m_param_state.push_back({symbol("smt.arith.propagate_eqs"), smtp.arith_propagate_eqs()});
-        // m_param_state.push_back(
-        //     {symbol("smt.arith.propagation_mode"), unsigned_value({smtp.arith_propagation_mode(), 0, 2})});
-        // m_param_state.push_back({symbol("smt.arith.random_initial_value"), smtp.arith_random_initial_value()});
-        // m_param_state.push_back({symbol("smt.arith.rep_freq"), unsigned_value({smtp.arith_rep_freq(), 0, 100})});
-        // m_param_state.push_back(
-            // {symbol("smt.arith.simplex_strategy"), unsigned_value({smtp.arith_simplex_strategy(), 0, 2})});
         m_param_state.push_back({symbol("smt.delay_units"), smtp.delay_units()});
-        // m_param_state.push_back(
-            // {symbol("smt.delay_units_threshold"), unsigned_value({smtp.delay_units_threshold(), 16, 64})});
-        // m_param_state.push_back({symbol("smt.lemma_gc_strategy"), unsigned_value({smtp.lemma_gc_strategy(), 0, 3})});
     };
+
+    void parallel::param_generator::init_nia_param_state() {
+        smt_params_helper smtp(m_p);
+        m_param_state.push_back({symbol("smt.arith.nl.delay"), unsigned_value({smtp.arith_nl_delay(), 5, 10})});
+        m_param_state.push_back({symbol("smt.arith.nl.branching"), smtp.arith_nl_branching()});
+        m_param_state.push_back({symbol("smt.arith.nl.grobner"), smtp.arith_nl_grobner()});
+    };
+
+    void parallel::param_generator::init_lia_param_state() {
+        smt_params_helper smtp(m_p);
+        m_param_state.push_back({symbol("arith.branch_cut_ratio"), unsigned_value({smtp.arith_branch_cut_ratio(), 1, 8})});
+        m_param_state.push_back({symbol("arith.int_eq_branch"), smtp.arith_int_eq_branch()});
+        m_param_state.push_back({symbol("arith.ignore_int"), smtp.arith_ignore_int()});
+    }
 
     void parallel::param_generator::init_param_state() {
         if (p.ctx.m_setup.get_logic() == "QF_RDL") {
             init_rdl_param_state();
-            return;
+        } else if (p.ctx.m_setup.get_logic() == "QF_NIA") {
+            init_nia_param_state();
+        } else if (p.ctx.m_setup.get_logic() == "QF_LIA") {
+            init_lia_param_state();
         }
-        smt_params_helper smtp(m_p);
-        m_param_state.push_back({symbol("smt.arith.nl.branching"), smtp.arith_nl_branching()});
-        m_param_state.push_back({symbol("smt.arith.nl.cross_nested"), smtp.arith_nl_cross_nested()});
-        m_param_state.push_back({symbol("smt.arith.nl.delay"), unsigned_value({smtp.arith_nl_delay(), 5, 10})});
-        m_param_state.push_back({symbol("smt.arith.nl.expensive_patching"), smtp.arith_nl_expensive_patching()});
-        m_param_state.push_back({symbol("smt.arith.nl.gb"), smtp.arith_nl_grobner()});
-        m_param_state.push_back({symbol("smt.arith.nl.horner"), smtp.arith_nl_horner()});
-        m_param_state.push_back({symbol("smt.arith.nl.horner_frequency"), unsigned_value({smtp.arith_nl_horner_frequency(), 2, 6})});
-        m_param_state.push_back({symbol("smt.arith.nl.optimize_bounds"), smtp.arith_nl_optimize_bounds()});
-        m_param_state.push_back({symbol("smt.arith.nl.propagate_linear_monomials"), smtp.arith_nl_propagate_linear_monomials()});
-        m_param_state.push_back({symbol("smt.arith.nl.tangents"), smtp.arith_nl_tangents()});
     };
 
     params_ref parallel::param_generator::apply_param_values(param_values const &pv) {
@@ -246,7 +235,6 @@ namespace smt {
         while (!m.limit().is_canceled()) {
             IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running protocol iteration\n");
             
-            ctx->m_stats.reset();
             lbool r = run_prefix_step();
 
             if (m.limit().is_canceled())
@@ -383,7 +371,7 @@ namespace smt {
         context::copy(p.ctx, *ctx, true);
         init_param_state();
         if (p.ctx.m_setup.get_logic() == "QF_RDL") {
-                m_max_prefix_conflicts = 300;
+                m_max_prefix_conflicts = 100;
             }
         IF_VERBOSE(1, verbose_stream() << "Initialized parameter generator\n");
     }
