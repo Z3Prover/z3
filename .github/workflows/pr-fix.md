@@ -1,6 +1,6 @@
 ---
 on:
-  command:
+  slash_command:
     name: pr-fix
   reaction: "eyes"
   stop-after: +48h
@@ -11,7 +11,7 @@ roles: [admin, maintainer, write]
 network: defaults
 
 safe-outputs:
-  push-to-pr-branch:
+  push-to-pull-request-branch:
   create-issue:
     title-prefix: "${{ github.workflow }}"
   add-comment:
@@ -30,7 +30,7 @@ tools:
   # By default this workflow allows all bash commands within the confine of Github Actions VM 
   bash: [ ":*" ]
 
-timeout_minutes: 20
+timeout-minutes: 20
 
 ---
 
@@ -56,19 +56,18 @@ You are an AI assistant specialized in fixing pull requests with failing CI chec
 
 8. Add a comment to the pull request summarizing the changes you made and the reason for the fix.
 
-@include agentics/shared/no-push-to-main.md
+{{#import shared/no-push-to-main.md}}
 
-@include agentics/shared/tool-refused.md
+{{#import shared/tool-refused.md}}
 
-@include agentics/shared/include-link.md
+{{#import shared/include-link.md}}
 
-@include agentics/shared/xpia.md
+{{#import shared/xpia.md}}
 
-@include agentics/shared/gh-extra-pr-tools.md
+{{#import shared/gh-extra-pr-tools.md}}
 
 <!-- You can whitelist tools in .github/workflows/build-tools.md file -->
-@include? agentics/build-tools.md
+{{#import?  agentics/build-tools.md}}
 
 <!-- You can customize prompting and tools in .github/workflows/agentics/pr-fix.config.md -->
-@include? agentics/pr-fix.config.md
-
+{{#import?  agentics/pr-fix.config.md}}

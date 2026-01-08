@@ -6,7 +6,7 @@ on:
         - cron: "0 2 * * 1-5"
     stop-after: +48h # workflow will no longer trigger after 48 hours
 
-timeout_minutes: 30
+timeout-minutes: 30
 
 network: defaults
 
@@ -96,18 +96,18 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
 6. If you encounter any unexpected failures or have questions, add 
 comments to the pull request or issue to seek clarification or assistance.
 
-@include agentics/shared/no-push-to-main.md
+{{#import shared/no-push-to-main.md}}
 
-@include agentics/shared/tool-refused.md
+{{#import shared/tool-refused.md}}
 
-@include agentics/shared/include-link.md
+{{#import shared/include-link.md}}
 
-@include agentics/shared/xpia.md
+{{#import shared/xpia.md}}
 
-@include agentics/shared/gh-extra-pr-tools.md
+{{#import shared/gh-extra-pr-tools.md}}
 
 <!-- You can whitelist tools in .github/workflows/build-tools.md file -->
-@include? agentics/build-tools.md
+{{#import?  agentics/build-tools.md}}
 
 <!-- You can customize prompting and tools in .github/workflows/agentics/daily-progress.config -->
-@include? agentics/daily-progress.config.md
+{{#import?  agentics/daily-progress.config.md}}
