@@ -801,6 +801,21 @@ export interface Solver<Name extends string = 'main'> {
   model(): Model<Name>;
 
   /**
+   * Return a string describing why the last call to {@link check} returned `'unknown'`.
+   *
+   * @returns A string explaining the reason, or an empty string if the last check didn't return unknown
+   *
+   * @example
+   * ```typescript
+   * const result = await solver.check();
+   * if (result === 'unknown') {
+   *   console.log('Reason:', solver.reasonUnknown());
+   * }
+   * ```
+   */
+  reasonUnknown(): string;
+
+  /**
    * Manually decrease the reference count of the solver
    * This is automatically done when the solver is garbage collected,
    * but calling this eagerly can help release memory sooner.

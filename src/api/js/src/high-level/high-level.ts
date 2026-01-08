@@ -1524,6 +1524,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new ModelImpl(check(Z3.solver_get_model(contextPtr, this.ptr)));
       }
 
+      reasonUnknown(): string {
+        return check(Z3.solver_get_reason_unknown(contextPtr, this.ptr));
+      }
+
       toString() {
         return check(Z3.solver_to_string(contextPtr, this.ptr));
       }

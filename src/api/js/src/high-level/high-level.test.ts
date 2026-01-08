@@ -827,6 +827,9 @@ describe('high-level', () => {
 
       // Check with assumptions that create a conflict
       const result = await solver.check(x.not(), y.not(), z.not());
+      if (result === 'unknown') {
+        console.log('Solver returned unknown. Reason:', solver.reasonUnknown());
+      }
       expect(result).toStrictEqual('unsat');
 
       // Get the unsat core
