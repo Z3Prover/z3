@@ -66,8 +66,6 @@ namespace smt {
 namespace smt {
 
     lbool parallel::param_generator::run_prefix_step() {
-        if (m.limit().is_canceled())
-            return l_undef;
         IF_VERBOSE(1, verbose_stream() << " PARAM TUNER running prefix step with conflicts " << m_max_prefix_conflicts <<"\n");
         ctx->get_fparams().m_max_conflicts = m_max_prefix_conflicts;
         ctx->get_fparams().m_threads = 1;
@@ -126,6 +124,7 @@ namespace smt {
                 if (m.limit().is_canceled())
                   return;
                 // the conflicts and decisions are cumulative over all cube replays inside the probe_ctx
+                probe_ctx->get_fparams().m_threads = 1;
                 lbool r = probe_ctx->check(cube.size(), cube.data(), true);               
                 IF_VERBOSE(2, verbose_stream() << " PARAM TUNER " << i << ": cube replay result " << r << "\n");                
             }
@@ -281,19 +280,19 @@ namespace smt {
             collect_shared_clauses();
 
         check_cube_start:
+            if (m.limit().is_canceled()) {
+                b.set_exception("context cancelled");
+                return;
+            }
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
             
             // apply current best param state from batch manager
             params_ref p;
             b.get_param_state(p);           
             ctx->updt_params(p);
+            ctx->get_fparams().m_threads = 1;
 
             lbool r = check_cube(cube);
-
-            if (m.limit().is_canceled()) {
-                b.set_exception("context cancelled");
-                return;
-            }
 
             switch (r) {
             case l_undef: {

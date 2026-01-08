@@ -36,8 +36,8 @@ namespace smt {
     class parallel {
         context& ctx;
         unsigned num_threads;
-        bool m_should_tune_params;
-        bool m_should_run_parallel;
+        bool m_should_tune_params = true;
+        bool m_should_run_parallel = true;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -62,7 +62,7 @@ namespace smt {
             ast_manager& m;
             parallel& p;
             std::mutex mux;
-            state m_state = state::is_running;
+            state m_state;
             stats m_stats;
             params_ref m_param_state;
             using node = search_tree::node<cube_config>;
