@@ -7,6 +7,7 @@ permissions: read-all
 tools:
   github:
     toolsets: [default, actions]
+  agentic-workflows:
   view: {}
   grep: {}
   glob: {}
@@ -27,8 +28,10 @@ You are an AI agent that automatically detects and fixes build warnings in the Z
 ## Your Task
 
 1. **Find recent build logs** from GitHub Actions workflows (look for workflows like `ubuntu-*`, `macos-*`, `Windows.yml`, etc.)
-   - Use `github-mcp-server-actions_list` to list recent workflow runs
-   - Use `github-mcp-server-get_job_logs` to fetch logs from failed or completed builds
+   - Use the GitHub Actions MCP tools to list recent workflow runs and fetch job logs:
+     - `github-mcp-server-actions_list` to list workflows
+     - `github-mcp-server-get_job_logs` to fetch logs from builds
+   - Alternative: You can also use the `agentic-workflows` tool's `logs` command
 
 2. **Extract compiler warnings** from the build logs:
    - Look for C++ compiler warnings (gcc, clang, MSVC patterns)
