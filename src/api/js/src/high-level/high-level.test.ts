@@ -174,6 +174,42 @@ describe('high-level', () => {
       expect(await solver.check()).toStrictEqual('unsat');
     });
 
+    it('can use AtMost constraint', async () => {
+      const { Bool, AtMost, Solver } = api.Context('main');
+      const x = Bool.const('x');
+      const y = Bool.const('y');
+      const z = Bool.const('z');
+
+      const solver = new Solver();
+      // At most 2 of x, y, z can be true
+      solver.add(AtMost([x, y, z], 2));
+      
+      // All three being true should be unsat
+      solver.add(x, y, z);
+      expect(await solver.check()).toStrictEqual('unsat');
+    });
+
+    it('can use AtLeast constraint', async () => {
+      const { Bool, AtLeast, Solver } = api.Context('main');
+      const x = Bool.const('x');
+      const y = Bool.const('y');
+      const z = Bool.const('z');
+
+      const solver = new Solver();
+      // At least 2 of x, y, z must be true
+      solver.add(AtLeast([x, y, z], 2));
+      
+      // Only one being true should be unsat
+      solver.add(x, y.not(), z.not());
+      expect(await solver.check()).toStrictEqual('unsat');
+
+      // But having 2 true should be sat
+      solver.reset();
+      solver.add(AtLeast([x, y, z], 2));
+      solver.add(x, y, z.not());
+      expect(await solver.check()).toStrictEqual('sat');
+    });
+
     it("proves De Morgan's Law", async () => {
       const { Bool, Not, And, Eq, Or } = api.Context('main');
       const [x, y] = [Bool.const('x'), Bool.const('y')];
@@ -769,6 +805,27 @@ describe('high-level', () => {
           }
         });
       expect(results).toStrictEqual([1n, 2n, 3n, 4n, 5n]);
+    });
+
+    it('can use checkAssumptions and unsatCore', async () => {
+      const { Solver, Bool } = api.Context('main');
+      const solver = new Solver();
+      const x = Bool.const('x');
+      const y = Bool.const('y');
+      const z = Bool.const('z');
+
+      // Add conflicting assertions
+      solver.add(x.or(y));
+      solver.add(x.or(z));
+
+      // Check with assumptions that create a conflict
+      const result = await solver.checkAssumptions(x.not(), y.not(), z.not());
+      expect(result).toStrictEqual('unsat');
+
+      // Get the unsat core
+      const core = solver.unsatCore();
+      expect(core.length()).toBeGreaterThan(0);
+      expect(core.length()).toBeLessThanOrEqual(3);
     });
   });
 

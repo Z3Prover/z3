@@ -448,6 +448,12 @@ export interface Context<Name extends string = 'main'> {
   /** @category Operations */
   PbLe(args: [Bool<Name>, ...Bool<Name>[]], coeffs: [number, ...number[]], k: number): Bool<Name>;
 
+  /** @category Operations */
+  AtMost(args: [Bool<Name>, ...Bool<Name>[]], k: number): Bool<Name>;
+
+  /** @category Operations */
+  AtLeast(args: [Bool<Name>, ...Bool<Name>[]], k: number): Bool<Name>;
+
   // Quantifiers
 
   /** @category Operations */
@@ -710,6 +716,10 @@ export interface Solver<Name extends string = 'main'> {
   fromString(s: string): void;
 
   check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
+
+  checkAssumptions(...assumptions: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
+
+  unsatCore(): AstVector<Name, Bool<Name>>;
 
   model(): Model<Name>;
 

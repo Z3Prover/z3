@@ -1058,6 +1058,32 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       );
     }
 
+    function AtMost(args: [Bool<Name>, ...Bool<Name>[]], k: number): Bool<Name> {
+      _assertContext(...args);
+      return new BoolImpl(
+        check(
+          Z3.mk_atmost(
+            contextPtr,
+            args.map(arg => arg.ast),
+            k,
+          ),
+        ),
+      );
+    }
+
+    function AtLeast(args: [Bool<Name>, ...Bool<Name>[]], k: number): Bool<Name> {
+      _assertContext(...args);
+      return new BoolImpl(
+        check(
+          Z3.mk_atleast(
+            contextPtr,
+            args.map(arg => arg.ast),
+            k,
+          ),
+        ),
+      );
+    }
+
     function ForAll<QVarSorts extends NonEmptySortArray<Name>>(
       quantifiers: ArrayIndexType<Name, QVarSorts>,
       body: Bool<Name>,
@@ -1457,6 +1483,30 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           default:
             assertExhaustive(result);
         }
+      }
+
+      async checkAssumptions(...assumptions: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult> {
+        const assumptionAsts = _flattenArgs(assumptions).map(expr => {
+          _assertContext(expr);
+          return expr.ast;
+        });
+        const result = await asyncMutex.runExclusive(() =>
+          check(Z3.solver_check_assumptions(contextPtr, this.ptr, assumptionAsts)),
+        );
+        switch (result) {
+          case Z3_lbool.Z3_L_FALSE:
+            return 'unsat';
+          case Z3_lbool.Z3_L_TRUE:
+            return 'sat';
+          case Z3_lbool.Z3_L_UNDEF:
+            return 'unknown';
+          default:
+            assertExhaustive(result);
+        }
+      }
+
+      unsatCore(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.solver_get_unsat_core(contextPtr, this.ptr)));
       }
 
       model() {
@@ -3239,6 +3289,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       PbEq,
       PbGe,
       PbLe,
+      AtMost,
+      AtLeast,
       ForAll,
       Exists,
       Lambda,
