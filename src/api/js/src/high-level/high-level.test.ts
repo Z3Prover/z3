@@ -174,6 +174,29 @@ describe('high-level', () => {
       expect(await solver.check()).toStrictEqual('unsat');
     });
 
+    it('can check with assumptions and get unsat core', async () => {
+      const { Bool, Solver } = api.Context('main');
+      const solver = new Solver();
+      solver.set('unsat_core', true);
+      
+      const x = Bool.const('x');
+      const y = Bool.const('y');
+      const z = Bool.const('z');
+
+      // Add conflicting assertions
+      solver.add(x.or(y));
+      solver.add(x.or(z));
+
+      // Check with assumptions that create a conflict
+      // This tests the async array parameter fix
+      const result = await solver.check(x.not(), y.not(), z.not());
+      expect(result).toStrictEqual('unsat');
+      
+      // Verify we can get the unsat core
+      const core = solver.unsatCore();
+      expect(core.length()).toBeGreaterThan(0);
+    });
+
     it("proves De Morgan's Law", async () => {
       const { Bool, Not, And, Eq, Or } = api.Context('main');
       const [x, y] = [Bool.const('x'), Bool.const('y')];

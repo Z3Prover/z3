@@ -713,6 +713,8 @@ export interface Solver<Name extends string = 'main'> {
 
   model(): Model<Name>;
 
+  unsatCore(): AstVector<Name, Bool<Name>>;
+
   /**
    * Manually decrease the reference count of the solver
    * This is automatically done when the solver is garbage collected,
