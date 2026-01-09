@@ -343,8 +343,6 @@ jobs:
                   "-e",
                   "GITHUB_PERSONAL_ACCESS_TOKEN",
                   "-e",
-                  "GITHUB_READ_ONLY=1",
-                  "-e",
                   "GITHUB_LOCKDOWN_MODE=$GITHUB_MCP_LOCKDOWN",
                   "-e",
                   "GITHUB_TOOLSETS=context,repos,issues,pull_requests,actions",
