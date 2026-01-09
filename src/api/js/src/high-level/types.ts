@@ -333,6 +333,8 @@ export interface Context<Name extends string = 'main'> {
 
   readonly Optimize: new () => Optimize<Name>;
 
+  readonly Fixedpoint: new () => Fixedpoint<Name>;
+
   /**
    * Creates an empty Model
    * @see {@link Solver.model} for common usage of Model
@@ -1007,6 +1009,153 @@ export interface Optimize<Name extends string = 'main'> {
   /**
    * Manually decrease the reference count of the optimize
    * This is automatically done when the optimize is garbage collected,
+   * but calling this eagerly can help release memory sooner.
+   */
+  release(): void;
+}
+
+export interface Fixedpoint<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'Fixedpoint';
+
+  readonly ctx: Context<Name>;
+  readonly ptr: Z3_fixedpoint;
+
+  /**
+   * Set a configuration option for the fixedpoint solver.
+   * @param key - Configuration parameter name
+   * @param value - Configuration parameter value
+   */
+  set(key: string, value: any): void;
+
+  /**
+   * Return a string describing all available options.
+   */
+  help(): string;
+
+  /**
+   * Assert a constraint (or multiple) into the fixedpoint solver as background axioms.
+   */
+  add(...constraints: Bool<Name>[]): void;
+
+  /**
+   * Register a predicate as a recursive relation.
+   * @param pred - Function declaration to register as a recursive relation
+   */
+  registerRelation(pred: FuncDecl<Name>): void;
+
+  /**
+   * Add a rule (Horn clause) to the fixedpoint solver.
+   * @param rule - The rule as a Boolean expression (implication)
+   * @param name - Optional name for the rule
+   */
+  addRule(rule: Bool<Name>, name?: string): void;
+
+  /**
+   * Add a table fact to the fixedpoint solver.
+   * @param pred - The predicate (function declaration)
+   * @param args - Arguments to the predicate as integers
+   */
+  addFact(pred: FuncDecl<Name>, ...args: number[]): void;
+
+  /**
+   * Update a named rule in the fixedpoint solver.
+   * @param rule - The rule as a Boolean expression (implication)
+   * @param name - Name of the rule to update
+   */
+  updateRule(rule: Bool<Name>, name: string): void;
+
+  /**
+   * Query the fixedpoint solver to determine if the formula is derivable.
+   * @param query - The query as a Boolean expression
+   * @returns A promise that resolves to 'sat', 'unsat', or 'unknown'
+   */
+  query(query: Bool<Name>): Promise<CheckSatResult>;
+
+  /**
+   * Query the fixedpoint solver for a set of relations.
+   * @param relations - Array of function declarations representing relations to query
+   * @returns A promise that resolves to 'sat', 'unsat', or 'unknown'
+   */
+  queryRelations(...relations: FuncDecl<Name>[]): Promise<CheckSatResult>;
+
+  /**
+   * Retrieve the answer (satisfying instance or proof of unsatisfiability) from the last query.
+   * @returns Expression containing the answer, or null if not available
+   */
+  getAnswer(): Expr<Name> | null;
+
+  /**
+   * Retrieve the reason why the fixedpoint engine returned 'unknown'.
+   * @returns A string explaining why the result was unknown
+   */
+  getReasonUnknown(): string;
+
+  /**
+   * Retrieve the number of levels explored for a given predicate.
+   * @param pred - The predicate function declaration
+   * @returns The number of levels
+   */
+  getNumLevels(pred: FuncDecl<Name>): number;
+
+  /**
+   * Retrieve the cover of a predicate at a given level.
+   * @param level - The level to query
+   * @param pred - The predicate function declaration
+   * @returns Expression representing the cover, or null if not available
+   */
+  getCoverDelta(level: number, pred: FuncDecl<Name>): Expr<Name> | null;
+
+  /**
+   * Add a property about the predicate at the given level.
+   * @param level - The level to add the property at
+   * @param pred - The predicate function declaration
+   * @param property - The property as an expression
+   */
+  addCover(level: number, pred: FuncDecl<Name>, property: Expr<Name>): void;
+
+  /**
+   * Retrieve set of rules added to the fixedpoint context.
+   * @returns Vector of rules
+   */
+  getRules(): AstVector<Name, Bool<Name>>;
+
+  /**
+   * Retrieve set of assertions added to the fixedpoint context.
+   * @returns Vector of assertions
+   */
+  getAssertions(): AstVector<Name, Bool<Name>>;
+
+  /**
+   * Set predicate representation for the Datalog engine.
+   * @param pred - The predicate function declaration
+   * @param kinds - Array of representation kinds
+   */
+  setPredicateRepresentation(pred: FuncDecl<Name>, kinds: string[]): void;
+
+  /**
+   * Convert the fixedpoint context to a string.
+   * @returns String representation of the fixedpoint context
+   */
+  toString(): string;
+
+  /**
+   * Parse an SMT-LIB2 string with fixedpoint rules and add them to the context.
+   * @param s - SMT-LIB2 string to parse
+   * @returns Vector of queries from the parsed string
+   */
+  fromString(s: string): AstVector<Name, Bool<Name>>;
+
+  /**
+   * Parse an SMT-LIB2 file with fixedpoint rules and add them to the context.
+   * @param file - Path to the file to parse
+   * @returns Vector of queries from the parsed file
+   */
+  fromFile(file: string): AstVector<Name, Bool<Name>>;
+
+  /**
+   * Manually decrease the reference count of the fixedpoint
+   * This is automatically done when the fixedpoint is garbage collected,
    * but calling this eagerly can help release memory sooner.
    */
   release(): void;

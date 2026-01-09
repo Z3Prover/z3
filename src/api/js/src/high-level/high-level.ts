@@ -38,6 +38,7 @@ import {
   Z3_params,
   Z3_func_entry,
   Z3_optimize,
+  Z3_fixedpoint,
 } from '../low-level';
 import {
   AnyAst,
@@ -66,6 +67,7 @@ import {
   Context,
   ContextCtor,
   Expr,
+  Fixedpoint,
   FuncDecl,
   FuncDeclSignature,
   FuncInterp,
@@ -1689,6 +1691,158 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       release() {
         Z3.optimize_dec_ref(contextPtr, this.ptr);
+        this._ptr = null;
+        cleanup.unregister(this);
+      }
+    }
+
+    class FixedpointImpl implements Fixedpoint<Name> {
+      declare readonly __typename: Fixedpoint['__typename'];
+
+      readonly ctx: Context<Name>;
+      private _ptr: Z3_fixedpoint | null;
+      get ptr(): Z3_fixedpoint {
+        _assertPtr(this._ptr);
+        return this._ptr;
+      }
+
+      constructor(ptr: Z3_fixedpoint = Z3.mk_fixedpoint(contextPtr)) {
+        this.ctx = ctx;
+        let myPtr: Z3_fixedpoint;
+        myPtr = ptr;
+        this._ptr = myPtr;
+        Z3.fixedpoint_inc_ref(contextPtr, myPtr);
+        cleanup.register(this, () => Z3.fixedpoint_dec_ref(contextPtr, myPtr), this);
+      }
+
+      set(key: string, value: any): void {
+        Z3.fixedpoint_set_params(contextPtr, this.ptr, _toParams(key, value));
+      }
+
+      help(): string {
+        return check(Z3.fixedpoint_get_help(contextPtr, this.ptr));
+      }
+
+      add(...constraints: Bool<Name>[]) {
+        constraints.forEach(constraint => {
+          _assertContext(constraint);
+          check(Z3.fixedpoint_assert(contextPtr, this.ptr, constraint.ast));
+        });
+      }
+
+      registerRelation(pred: FuncDecl<Name>): void {
+        _assertContext(pred);
+        check(Z3.fixedpoint_register_relation(contextPtr, this.ptr, pred.decl));
+      }
+
+      addRule(rule: Bool<Name>, name?: string): void {
+        _assertContext(rule);
+        const symbol = name ? _toSymbol(name) : 0;
+        check(Z3.fixedpoint_add_rule(contextPtr, this.ptr, rule.ast, symbol));
+      }
+
+      addFact(pred: FuncDecl<Name>, ...args: number[]): void {
+        _assertContext(pred);
+        check(Z3.fixedpoint_add_fact(contextPtr, this.ptr, pred.decl, args));
+      }
+
+      updateRule(rule: Bool<Name>, name: string): void {
+        _assertContext(rule);
+        const symbol = _toSymbol(name);
+        check(Z3.fixedpoint_update_rule(contextPtr, this.ptr, rule.ast, symbol));
+      }
+
+      async query(query: Bool<Name>): Promise<CheckSatResult> {
+        _assertContext(query);
+        const result = await asyncMutex.runExclusive(() =>
+          check(Z3.fixedpoint_query(contextPtr, this.ptr, query.ast)),
+        );
+        switch (result) {
+          case Z3_lbool.Z3_L_FALSE:
+            return 'unsat';
+          case Z3_lbool.Z3_L_TRUE:
+            return 'sat';
+          case Z3_lbool.Z3_L_UNDEF:
+            return 'unknown';
+          default:
+            assertExhaustive(result);
+        }
+      }
+
+      async queryRelations(...relations: FuncDecl<Name>[]): Promise<CheckSatResult> {
+        relations.forEach(rel => _assertContext(rel));
+        const decls = relations.map(rel => rel.decl);
+        const result = await asyncMutex.runExclusive(() =>
+          check(Z3.fixedpoint_query_relations(contextPtr, this.ptr, decls)),
+        );
+        switch (result) {
+          case Z3_lbool.Z3_L_FALSE:
+            return 'unsat';
+          case Z3_lbool.Z3_L_TRUE:
+            return 'sat';
+          case Z3_lbool.Z3_L_UNDEF:
+            return 'unknown';
+          default:
+            assertExhaustive(result);
+        }
+      }
+
+      getAnswer(): Expr<Name> | null {
+        const ans = check(Z3.fixedpoint_get_answer(contextPtr, this.ptr));
+        return ans === 0 ? null : _toExpr(ans);
+      }
+
+      getReasonUnknown(): string {
+        return check(Z3.fixedpoint_get_reason_unknown(contextPtr, this.ptr));
+      }
+
+      getNumLevels(pred: FuncDecl<Name>): number {
+        _assertContext(pred);
+        return check(Z3.fixedpoint_get_num_levels(contextPtr, this.ptr, pred.decl));
+      }
+
+      getCoverDelta(level: number, pred: FuncDecl<Name>): Expr<Name> | null {
+        _assertContext(pred);
+        const res = check(Z3.fixedpoint_get_cover_delta(contextPtr, this.ptr, level, pred.decl));
+        return res === 0 ? null : _toExpr(res);
+      }
+
+      addCover(level: number, pred: FuncDecl<Name>, property: Expr<Name>): void {
+        _assertContext(pred);
+        _assertContext(property);
+        check(Z3.fixedpoint_add_cover(contextPtr, this.ptr, level, pred.decl, property.ast));
+      }
+
+      getRules(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.fixedpoint_get_rules(contextPtr, this.ptr)));
+      }
+
+      getAssertions(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.fixedpoint_get_assertions(contextPtr, this.ptr)));
+      }
+
+      setPredicateRepresentation(pred: FuncDecl<Name>, kinds: string[]): void {
+        _assertContext(pred);
+        const symbols = kinds.map(kind => _toSymbol(kind));
+        check(Z3.fixedpoint_set_predicate_representation(contextPtr, this.ptr, pred.decl, symbols));
+      }
+
+      toString(): string {
+        return check(Z3.fixedpoint_to_string(contextPtr, this.ptr, []));
+      }
+
+      fromString(s: string): AstVector<Name, Bool<Name>> {
+        const av = check(Z3.fixedpoint_from_string(contextPtr, this.ptr, s));
+        return new AstVectorImpl(av);
+      }
+
+      fromFile(file: string): AstVector<Name, Bool<Name>> {
+        const av = check(Z3.fixedpoint_from_file(contextPtr, this.ptr, file));
+        return new AstVectorImpl(av);
+      }
+
+      release() {
+        Z3.fixedpoint_dec_ref(contextPtr, this.ptr);
         this._ptr = null;
         cleanup.unregister(this);
       }
@@ -3334,6 +3488,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       /////////////
       Solver: SolverImpl,
       Optimize: OptimizeImpl,
+      Fixedpoint: FixedpointImpl,
       Model: ModelImpl,
       Tactic: TacticImpl,
       AstVector: AstVectorImpl as AstVectorCtor<Name>,
