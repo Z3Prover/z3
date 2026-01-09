@@ -1,6 +1,6 @@
 /**
  * Demo of new TypeScript API parity features
- * 
+ *
  * This example demonstrates the solver introspection APIs, congruence closure APIs,
  * and model sort universe APIs added for API parity with other Z3 bindings.
  */
