@@ -339,6 +339,48 @@ public class Solver extends Z3Object {
     }
 
     /**
+     * Retrieve currently inferred units.
+     * Remarks: This retrieves the set of literals that the solver has inferred
+     * at the current decision level after a {@code check} call.
+     * 
+     * @return An array of Boolean expressions representing the inferred units
+     * @throws Z3Exception
+     **/
+    public BoolExpr[] getUnits()
+    {
+        ASTVector units = new ASTVector(getContext(), Native.solverGetUnits(getContext().nCtx(), getNativeObject()));
+        return units.ToBoolExprArray();
+    }
+
+    /**
+     * Retrieve non-unit atomic formulas in the solver state.
+     * Remarks: This retrieves atomic formulas that are not units after a {@code check} call.
+     * 
+     * @return An array of Boolean expressions representing the non-unit formulas
+     * @throws Z3Exception
+     **/
+    public BoolExpr[] getNonUnits()
+    {
+        ASTVector nonUnits = new ASTVector(getContext(), Native.solverGetNonUnits(getContext().nCtx(), getNativeObject()));
+        return nonUnits.ToBoolExprArray();
+    }
+
+    /**
+     * Retrieve the solver decision trail.
+     * Remarks: This retrieves the trail of decisions made by the solver after a {@code check} call.
+     * The trail represents the sequence of Boolean literals (decisions and propagations) in the order
+     * they were assigned.
+     * 
+     * @return An array of Boolean expressions representing the decision trail
+     * @throws Z3Exception
+     **/
+    public BoolExpr[] getTrail()
+    {
+        ASTVector trail = new ASTVector(getContext(), Native.solverGetTrail(getContext().nCtx(), getNativeObject()));
+        return trail.ToBoolExprArray();
+    }
+
+    /**
      * A brief justification of why the last call to {@code Check} returned
      * {@code UNKNOWN}.
      **/
