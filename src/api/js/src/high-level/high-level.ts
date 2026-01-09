@@ -3052,6 +3052,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       ): SMTArray<Name, DomainSort, RangeSort> {
         return Store(this, ...indicesAndValue);
       }
+
+      /**
+       * Access the array default value.
+       * Produces the default range value, for arrays that can be represented as
+       * finite maps with a default range value.
+       */
+      default(): SortToExprMap<RangeSort, Name> {
+        return _toExpr(check(Z3.mk_array_default(contextPtr, this.ast))) as SortToExprMap<RangeSort, Name>;
+      }
     }
 
     class AstVectorImpl<Item extends AnyAst<Name>> {
