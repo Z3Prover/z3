@@ -818,6 +818,144 @@ export interface Solver<Name extends string = 'main'> {
   reasonUnknown(): string;
 
   /**
+   * Retrieve the set of literals that were inferred by the solver as unit literals.
+   * These are boolean literals that the solver has determined must be true in all models.
+   *
+   * @returns An AstVector containing the unit literals
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * solver.add(x.or(x)); // simplifies to x
+   * await solver.check();
+   * const units = solver.units();
+   * console.log('Unit literals:', units.length());
+   * ```
+   */
+  units(): AstVector<Name, Bool<Name>>;
+
+  /**
+   * Retrieve the set of tracked boolean literals that are not unit literals.
+   * 
+   * @returns An AstVector containing the non-unit literals
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * const y = Bool.const('y');
+   * solver.add(x.or(y));
+   * await solver.check();
+   * const nonUnits = solver.nonUnits();
+   * ```
+   */
+  nonUnits(): AstVector<Name, Bool<Name>>;
+
+  /**
+   * Retrieve the trail of boolean literals assigned by the solver during solving.
+   * The trail represents the sequence of decisions and propagations made by the solver.
+   *
+   * @returns An AstVector containing the trail of assigned literals
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * const y = Bool.const('y');
+   * solver.add(x.implies(y));
+   * solver.add(x);
+   * await solver.check();
+   * const trail = solver.trail();
+   * console.log('Trail length:', trail.length());
+   * ```
+   */
+  trail(): AstVector<Name, Bool<Name>>;
+
+  /**
+   * Retrieve the root of the congruence class containing the given expression.
+   * This is useful for understanding equality reasoning in the solver.
+   * 
+   * Note: This works primarily with SimpleSolver and may not work with terms
+   * eliminated during preprocessing.
+   *
+   * @param expr - The expression to find the congruence root for
+   * @returns The root expression of the congruence class
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * const y = Int.const('y');
+   * solver.add(x.eq(y));
+   * await solver.check();
+   * const root = solver.congruenceRoot(x);
+   * ```
+   */
+  congruenceRoot(expr: Expr<Name>): Expr<Name>;
+
+  /**
+   * Retrieve the next expression in the congruence class containing the given expression.
+   * The congruence class forms a circular linked list.
+   * 
+   * Note: This works primarily with SimpleSolver and may not work with terms
+   * eliminated during preprocessing.
+   *
+   * @param expr - The expression to find the next congruent expression for
+   * @returns The next expression in the congruence class
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * const y = Int.const('y');
+   * const z = Int.const('z');
+   * solver.add(x.eq(y));
+   * solver.add(y.eq(z));
+   * await solver.check();
+   * const next = solver.congruenceNext(x);
+   * ```
+   */
+  congruenceNext(expr: Expr<Name>): Expr<Name>;
+
+  /**
+   * Explain why two expressions are congruent according to the solver's reasoning.
+   * Returns a proof term explaining the congruence.
+   * 
+   * Note: This works primarily with SimpleSolver and may not work with terms
+   * eliminated during preprocessing.
+   *
+   * @param a - First expression
+   * @param b - Second expression  
+   * @returns An expression representing the proof of congruence
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * const y = Int.const('y');
+   * solver.add(x.eq(y));
+   * await solver.check();
+   * const explanation = solver.congruenceExplain(x, y);
+   * ```
+   */
+  congruenceExplain(a: Expr<Name>, b: Expr<Name>): Expr<Name>;
+
+  /**
+   * Load SMT-LIB2 format assertions from a file into the solver.
+   *
+   * @param filename - Path to the file containing SMT-LIB2 format assertions
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * solver.fromFile('problem.smt2');
+   * const result = await solver.check();
+   * ```
+   */
+  fromFile(filename: string): void;
+
+  /**
    * Manually decrease the reference count of the solver
    * This is automatically done when the solver is garbage collected,
    * but calling this eagerly can help release memory sooner.
@@ -912,6 +1050,86 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
     decl: FuncDecl<Name, DomainSort, RangeSort>,
     defaultValue: CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>,
   ): FuncInterp<Name>;
+
+  /**
+   * Return the number of uninterpreted sorts that have an interpretation in the model.
+   *
+   * @returns The number of uninterpreted sorts
+   *
+   * @example
+   * ```typescript
+   * const { Solver, Sort } = await init();
+   * const solver = new Solver();
+   * const A = Sort.declare('A');
+   * const x = Const('x', A);
+   * solver.add(x.eq(x));
+   * await solver.check();
+   * const model = solver.model();
+   * console.log('Number of sorts:', model.numSorts());
+   * ```
+   */
+  numSorts(): number;
+
+  /**
+   * Return the uninterpreted sort at the given index.
+   *
+   * @param i - Index of the sort (must be less than numSorts())
+   * @returns The sort at the given index
+   *
+   * @example
+   * ```typescript
+   * const model = solver.model();
+   * for (let i = 0; i < model.numSorts(); i++) {
+   *   const sort = model.getSort(i);
+   *   console.log('Sort:', sort.toString());
+   * }
+   * ```
+   */
+  getSort(i: number): Sort<Name>;
+
+  /**
+   * Return all uninterpreted sorts that have an interpretation in the model.
+   *
+   * @returns An array of all uninterpreted sorts
+   *
+   * @example
+   * ```typescript
+   * const model = solver.model();
+   * const sorts = model.getSorts();
+   * for (const sort of sorts) {
+   *   console.log('Sort:', sort.toString());
+   *   const universe = model.sortUniverse(sort);
+   *   console.log('Universe size:', universe.length());
+   * }
+   * ```
+   */
+  getSorts(): Sort<Name>[];
+
+  /**
+   * Return the finite set of elements that represent the interpretation for the given sort.
+   * This is only applicable to uninterpreted sorts with finite interpretations.
+   *
+   * @param sort - The sort to get the universe for
+   * @returns An AstVector containing all elements in the sort's universe
+   *
+   * @example
+   * ```typescript
+   * const { Solver, Sort, Const } = await init();
+   * const solver = new Solver();
+   * const A = Sort.declare('A');
+   * const x = Const('x', A);
+   * const y = Const('y', A);
+   * solver.add(x.neq(y));
+   * await solver.check();
+   * const model = solver.model();
+   * const universe = model.sortUniverse(A);
+   * console.log('Universe has', universe.length(), 'elements');
+   * for (let i = 0; i < universe.length(); i++) {
+   *   console.log('Element:', universe.get(i).toString());
+   * }
+   * ```
+   */
+  sortUniverse(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
 
   /**
    * Manually decrease the reference count of the model
