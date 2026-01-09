@@ -1324,6 +1324,19 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       >;
     }
 
+    /**
+     * Create array extensionality index given two arrays with the same sort.
+     * The meaning is given by the axiom:
+     * (=> (= (select A (array-ext A B)) (select B (array-ext A B))) (= A B))
+     * Two arrays are equal if and only if they are equal on the index returned by this function.
+     */
+    function Ext<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>(
+      a: SMTArray<Name, DomainSort, RangeSort>,
+      b: SMTArray<Name, DomainSort, RangeSort>,
+    ): SortToExprMap<DomainSort[0], Name> {
+      return _toExpr(check(Z3.mk_array_ext(contextPtr, a.ast, b.ast))) as SortToExprMap<DomainSort[0], Name>;
+    }
+
     function SetUnion<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort> {
       return new SetImpl<ElemSort>(
         check(
@@ -2644,7 +2657,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new BoolImpl(check(Z3.mk_bvsub_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
 
-      subNoUndeflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name> {
+      subNoUnderflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name> {
         return new BoolImpl(check(Z3.mk_bvsub_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned)));
       }
 
@@ -2656,7 +2669,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new BoolImpl(check(Z3.mk_bvmul_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned)));
       }
 
-      mulNoUndeflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
+      mulNoUnderflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(check(Z3.mk_bvmul_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
 
@@ -2741,6 +2754,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         ]
       ): SMTArray<Name, DomainSort, RangeSort> {
         return Store(this, ...indicesAndValue);
+      }
+
+      /**
+       * Access the array default value.
+       * Produces the default range value, for arrays that can be represented as
+       * finite maps with a default range value.
+       */
+      default(): SortToExprMap<RangeSort, Name> {
+        return _toExpr(check(Z3.mk_array_default(contextPtr, this.ast))) as SortToExprMap<RangeSort, Name>;
       }
     }
 
@@ -3084,6 +3106,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       ): SMTArray<Name, DomainSort, RangeSort> {
         return Store(this, ...indicesAndValue);
       }
+
+      /**
+       * Access the array default value.
+       * Produces the default range value, for arrays that can be represented as
+       * finite maps with a default range value.
+       */
+      default(): SortToExprMap<RangeSort, Name> {
+        return _toExpr(check(Z3.mk_array_default(contextPtr, this.ast))) as SortToExprMap<RangeSort, Name>;
+      }
     }
 
     class AstVectorImpl<Item extends AnyAst<Name>> {
@@ -3396,6 +3427,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Mod,
       Select,
       Store,
+      Ext,
       Extract,
 
       substitute,

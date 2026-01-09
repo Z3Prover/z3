@@ -624,6 +624,12 @@ export interface Context<Name extends string = 'main'> {
   ): SMTArray<Name, DomainSort, RangeSort>;
 
   /** @category Operations */
+  Ext<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name> = Sort<Name>>(
+    a: SMTArray<Name, DomainSort, RangeSort>,
+    b: SMTArray<Name, DomainSort, RangeSort>,
+  ): SortToExprMap<DomainSort[0], Name>;
+
+  /** @category Operations */
   Extract<Bits extends number>(hi: number, lo: number, val: BitVec<Bits, Name>): BitVec<number, Name>;
 
   /** @category Operations */
@@ -1788,7 +1794,7 @@ export interface BitVec<Bits extends number = number, Name extends string = 'mai
   subNoOverflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
   /** @category Boolean */
-  subNoUndeflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name>;
+  subNoUnderflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name>;
 
   /** @category Boolean */
   sdivNoOverflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
@@ -1797,7 +1803,7 @@ export interface BitVec<Bits extends number = number, Name extends string = 'mai
   mulNoOverflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name>;
 
   /** @category Boolean */
-  mulNoUndeflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
+  mulNoUnderflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name>;
 
   /** @category Boolean */
   negNoOverflow(): Bool<Name>;
@@ -1928,6 +1934,13 @@ export interface SMTArray<
       CoercibleToMap<SortToExprMap<RangeSort, Name>, Name>,
     ]
   ): SMTArray<Name, DomainSort, RangeSort>;
+
+  /**
+   * Access the array default value.
+   * Produces the default range value, for arrays that can be represented as
+   * finite maps with a default range value.
+   */
+  default(): SortToExprMap<RangeSort, Name>;
 }
 
 /**
