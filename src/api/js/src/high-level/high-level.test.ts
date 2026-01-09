@@ -1196,4 +1196,323 @@ describe('high-level', () => {
       expect(typeof solver.fromFile).toBe('function');
     });
   });
+
+  describe('floating-point', () => {
+    it('can create FP sorts', () => {
+      const { Float } = api.Context('main');
+      
+      const fp16 = Float.sort16();
+      expect(fp16.ebits()).toBe(5);
+      expect(fp16.sbits()).toBe(11);
+
+      const fp32 = Float.sort32();
+      expect(fp32.ebits()).toBe(8);
+      expect(fp32.sbits()).toBe(24);
+
+      const fp64 = Float.sort64();
+      expect(fp64.ebits()).toBe(11);
+      expect(fp64.sbits()).toBe(53);
+
+      const fp128 = Float.sort128();
+      expect(fp128.ebits()).toBe(15);
+      expect(fp128.sbits()).toBe(113);
+
+      const custom = Float.sort(5, 10);
+      expect(custom.ebits()).toBe(5);
+      expect(custom.sbits()).toBe(10);
+    });
+
+    it('can create FP rounding modes', () => {
+      const { FloatRM } = api.Context('main');
+      
+      const rne = FloatRM.RNE();
+      const rna = FloatRM.RNA();
+      const rtp = FloatRM.RTP();
+      const rtn = FloatRM.RTN();
+      const rtz = FloatRM.RTZ();
+
+      expect(rne.toString()).toContain('roundNearestTiesToEven');
+    });
+
+    it('can create FP constants and values', () => {
+      const { Float, FloatRM } = api.Context('main');
+      const fp32 = Float.sort32();
+      
+      const x = Float.const('x', fp32);
+      expect(x.sort.ebits()).toBe(8);
+      expect(x.sort.sbits()).toBe(24);
+
+      const val = Float.val(3.14, fp32);
+      expect(val.value()).toBeCloseTo(3.14, 2);
+
+      const nan = Float.NaN(fp32);
+      const inf = Float.inf(fp32);
+      const negInf = Float.inf(fp32, true);
+      const zero = Float.zero(fp32);
+      const negZero = Float.zero(fp32, true);
+
+      expect(typeof nan.value()).toBe('number');
+      expect(typeof inf.value()).toBe('number');
+    });
+
+    it('can perform FP arithmetic', async () => {
+      const { Float, FloatRM, Solver } = api.Context('main');
+      const fp32 = Float.sort32();
+      const rm = FloatRM.RNE();
+      
+      const x = Float.const('x', fp32);
+      const y = Float.const('y', fp32);
+      
+      const sum = x.add(rm, y);
+      const diff = x.sub(rm, y);
+      const prod = x.mul(rm, y);
+      const quot = x.div(rm, y);
+      
+      const solver = new Solver();
+      solver.add(x.eq(Float.val(2.0, fp32)));
+      solver.add(y.eq(Float.val(3.0, fp32)));
+      solver.add(sum.eq(Float.val(5.0, fp32)));
+      
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('can perform FP comparisons', async () => {
+      const { Float, FloatRM, Solver } = api.Context('main');
+      const fp32 = Float.sort32();
+      
+      const x = Float.const('x', fp32);
+      const two = Float.val(2.0, fp32);
+      const three = Float.val(3.0, fp32);
+      
+      const solver = new Solver();
+      solver.add(x.gt(two));
+      solver.add(x.lt(three));
+      
+      const result = await solver.check();
+      expect(result).toBe('sat');
+      
+      const model = solver.model();
+      const xVal = model.eval(x);
+      expect(isFP(xVal)).toBe(true);
+    });
+
+    it('can use FP predicates', async () => {
+      const { Float, Solver, isFP } = api.Context('main');
+      const fp32 = Float.sort32();
+      
+      const x = Float.const('x', fp32);
+      const nan = Float.NaN(fp32);
+      const inf = Float.inf(fp32);
+      const zero = Float.zero(fp32);
+      
+      // Test NaN predicate
+      {
+        const solver = new Solver();
+        solver.add(x.eq(nan));
+        solver.add(x.isNaN());
+        expect(await solver.check()).toBe('sat');
+      }
+      
+      // Test infinity predicate
+      {
+        const solver = new Solver();
+        solver.add(x.eq(inf));
+        solver.add(x.isInf());
+        expect(await solver.check()).toBe('sat');
+      }
+      
+      // Test zero predicate
+      {
+        const solver = new Solver();
+        solver.add(x.eq(zero));
+        solver.add(x.isZero());
+        expect(await solver.check()).toBe('sat');
+      }
+    });
+
+    it('supports FP type checking', () => {
+      const { Float, FloatRM, isFPSort, isFP, isFPVal, isFPRMSort, isFPRM } = api.Context('main');
+      const fp32 = Float.sort32();
+      const rmSort = FloatRM.sort();
+      
+      expect(isFPSort(fp32)).toBe(true);
+      expect(isFPRMSort(rmSort)).toBe(true);
+      
+      const x = Float.const('x', fp32);
+      const val = Float.val(1.0, fp32);
+      const rm = FloatRM.RNE();
+      
+      expect(isFP(x)).toBe(true);
+      expect(isFPVal(val)).toBe(true);
+      expect(isFPRM(rm)).toBe(true);
+    });
+  });
+
+  describe('strings and sequences', () => {
+    it('can create string sort and values', () => {
+      const { String: Str } = api.Context('main');
+      
+      const strSort = Str.sort();
+      expect(strSort.isString()).toBe(true);
+      
+      const hello = Str.val('hello');
+      expect(hello.isString()).toBe(true);
+      expect(hello.asString()).toBe('hello');
+      
+      const x = Str.const('x');
+      expect(x.isString()).toBe(true);
+    });
+
+    it('can create sequence sorts', () => {
+      const { Seq, Int } = api.Context('main');
+      
+      const intSeq = Seq.sort(Int.sort());
+      expect(intSeq.basis().eq(Int.sort())).toBe(true);
+      
+      const empty = Seq.empty(Int.sort());
+      expect(empty.length().toString()).toContain('0');
+    });
+
+    it('can concatenate strings', async () => {
+      const { String: Str, Solver } = api.Context('main');
+      
+      const x = Str.const('x');
+      const y = Str.const('y');
+      
+      const hello = Str.val('hello');
+      const world = Str.val('world');
+      
+      const solver = new Solver();
+      solver.add(x.eq(hello));
+      solver.add(y.eq(world));
+      solver.add(x.concat(y).eq(Str.val('helloworld')));
+      
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('can compute string length', async () => {
+      const { String: Str, Solver, Int } = api.Context('main');
+      
+      const x = Str.const('x');
+      const hello = Str.val('hello');
+      
+      const solver = new Solver();
+      solver.add(x.eq(hello));
+      solver.add(x.length().eq(Int.val(5)));
+      
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('can extract substrings', async () => {
+      const { String: Str, Solver } = api.Context('main');
+      
+      const x = Str.const('x');
+      const hello = Str.val('hello');
+      
+      const solver = new Solver();
+      solver.add(x.eq(hello));
+      solver.add(x.extract(0, 2).eq(Str.val('he')));
+      
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('can check string containment', async () => {
+      const { String: Str, Solver } = api.Context('main');
+      
+      const x = Str.const('x');
+      const hello = Str.val('hello');
+      
+      const solver = new Solver();
+      solver.add(x.eq(hello));
+      solver.add(x.contains('ell'));
+      
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('can find substring index', async () => {
+      const { String: Str, Solver, Int } = api.Context('main');
+      
+      const x = Str.const('x');
+      const hello = Str.val('hello');
+      
+      const solver = new Solver();
+      solver.add(x.eq(hello));
+      solver.add(x.indexOf('ell').eq(Int.val(1)));
+      
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('can check string prefix and suffix', async () => {
+      const { String: Str, Solver } = api.Context('main');
+      
+      const x = Str.const('x');
+      const hello = Str.val('hello');
+      
+      const solver = new Solver();
+      solver.add(x.eq(hello));
+      solver.add(x.prefixOf('helloworld'));
+      solver.add(Str.val('lo').suffixOf(x));
+      
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('can replace substrings', async () => {
+      const { String: Str, Solver } = api.Context('main');
+      
+      const x = Str.const('x');
+      const hello = Str.val('hello');
+      
+      const solver = new Solver();
+      solver.add(x.eq(hello));
+      solver.add(x.replace('l', 'L').eq(Str.val('heLlo'))); // First occurrence
+      
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('supports string type checking', () => {
+      const { String: Str, Seq, Int, isSeqSort, isSeq, isStringSort, isString } = api.Context('main');
+      
+      const strSort = Str.sort();
+      const intSeqSort = Seq.sort(Int.sort());
+      
+      expect(isSeqSort(strSort)).toBe(true);
+      expect(isStringSort(strSort)).toBe(true);
+      expect(isSeqSort(intSeqSort)).toBe(true);
+      expect(isStringSort(intSeqSort)).toBe(false);
+      
+      const hello = Str.val('hello');
+      const x = Str.const('x');
+      
+      expect(isSeq(hello)).toBe(true);
+      expect(isString(hello)).toBe(true);
+      expect(isSeq(x)).toBe(true);
+      expect(isString(x)).toBe(true);
+    });
+
+    it('can work with sequences of integers', async () => {
+      const { Seq, Int, Solver } = api.Context('main');
+      
+      const one = Int.val(1);
+      const seq1 = Seq.unit(one);
+      
+      const two = Int.val(2);
+      const seq2 = Seq.unit(two);
+      
+      const concat = seq1.concat(seq2);
+      
+      const solver = new Solver();
+      solver.add(concat.length().eq(Int.val(2)));
+      
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+  });
 });

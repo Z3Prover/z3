@@ -1347,6 +1347,9 @@ export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySo
     | Bool['__typename']
     | Arith['__typename']
     | BitVec['__typename']
+    | FP['__typename']
+    | FPRM['__typename']
+    | Seq['__typename']
     | SMTArray['__typename']
     | DatatypeExpr['__typename'];
 
