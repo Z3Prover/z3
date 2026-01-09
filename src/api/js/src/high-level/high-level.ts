@@ -833,7 +833,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         );
       },
     };
-    
+
     const Float = {
       sort(ebits: number, sbits: number): FPSort<Name> {
         assert(Number.isSafeInteger(ebits) && ebits > 0, 'ebits must be a positive integer');
@@ -945,7 +945,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new SeqImpl<ElemSort>(check(Z3.mk_seq_unit(contextPtr, elem.ast)));
       },
     };
-    
+
     const Array = {
       sort<DomainSort extends NonEmptySortArray<Name>, RangeSort extends AnySort<Name>>(
         ...sig: [...DomainSort, RangeSort]

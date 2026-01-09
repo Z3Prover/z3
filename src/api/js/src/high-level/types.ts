@@ -84,9 +84,7 @@ export type CoercibleToBitVec<Bits extends number = number, Name extends string 
   | BitVec<Bits, Name>;
 
 /** @hidden */
-export type CoercibleToFP<Name extends string = 'main'> = 
-  | number
-  | FP<Name>;
+export type CoercibleToFP<Name extends string = 'main'> = number | FP<Name>;
 
 export type CoercibleRational = { numerator: bigint | number; denominator: bigint | number };
 
