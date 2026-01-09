@@ -4,22 +4,28 @@
 #include "smt/theory_finite_set.h"
 #include "smt/smt_context.h"
 
-const int INITIAL_MAX_DIMENSION = 1000;
+const int NUM_WORDS = 5;
 
 namespace smt {
-    reachability_matrix::reachability_matrix(int max_dimensions, context& ctx):
-    subset_relations(max_dimensions*max_dimensions, {null_theory_var, {nullptr, nullptr}}), 
-    non_subset_relations(max_dimensions*max_dimensions, {nullptr, nullptr}), largest_var(0), max_size(max_dimensions), ctx(ctx) {}
+    reachability_matrix::reachability_matrix(context& ctx):
+    reachable(NUM_WORDS*NUM_WORDS*64, 0),
+    links(NUM_WORDS*NUM_WORDS*64, 0),
+    non_links(NUM_WORDS*NUM_WORDS*64, 0), largest_var(0), max_size(NUM_WORDS*64), ctx(ctx) {}
 
     int reachability_matrix::get_max_var(){
         return largest_var;
     }
 
+    inline int reachability_matrix::get_word_index(int row, int col) const{
+        return  (row * NUM_WORDS) + (col / 64);
+    };
+
+    inline uint64_t reachability_matrix::get_bitmask(int col) const{
+        return  1ull << (col%64);
+    };
+
     bool reachability_matrix::is_reachability_forbidden(theory_var source, theory_var dest){
-        if(non_subset_relations[source*max_size+dest].first!= nullptr){
-            return true;
-        }
-        return false;
+        return non_links[get_word_index(source,dest)] & get_bitmask(dest);
     }
 
     bool reachability_matrix::in_bounds(theory_var source, theory_var dest){
@@ -27,48 +33,65 @@ namespace smt {
     }
 
     bool reachability_matrix::is_reachable(theory_var source, theory_var dest){
-        if(subset_relations[source*max_size+dest].second.first!=nullptr){
-            return true;
+        return reachable[get_word_index(source,dest)] & get_bitmask(dest);
+    }
+
+    bool reachability_matrix::bitwise_or_rows(int source_dest, int source){
+        bool changes = false;
+        for (int i = 0; i < NUM_WORDS; i++)
+        {
+            uint64_t old_value = reachable[source_dest*NUM_WORDS+i];
+            uint64_t new_value = reachable[source_dest*NUM_WORDS+i] | reachable[source*NUM_WORDS+i];
+            if(old_value == new_value){
+                continue;
+            }
+            ctx.push_trail(value_trail(reachable[source_dest*NUM_WORDS+i]));
+            reachable[source_dest*NUM_WORDS+i] = new_value;
+            changes = true;
+            TRACE(finite_set, tout << "bitwise_or_rows(" << source_dest << "," << source <<"), i:"<<i);
+            TRACE(finite_set, tout << "old_value: " << old_value << ", new_value:" << new_value <<")");
         }
-        return false;
+        return changes;
     }
 
-    std::pair<theory_var, enode_pair> reachability_matrix::get_reachability_reason(theory_var source, theory_var dest){
-        return subset_relations[source*max_size+dest];
-    }
-
-    enode_pair reachability_matrix::get_non_reachability_reason(theory_var source, theory_var dest){
-        return non_subset_relations[source*max_size+dest];
-    }
-
-    bool reachability_matrix::set_reachability(theory_var source, theory_var dest, theory_var intermediate, enode_pair subset_relation){
-        // TODO: could replace longer links by shorter links
-        if(!is_reachable(source, dest)){
-            ctx.push_trail(value_trail(largest_var));
-            largest_var = std::max({largest_var, source, dest});
-            std::pair<theory_var, enode_pair> new_value = {intermediate, subset_relation};
-            ctx.push_trail(value_trail(subset_relations[source*max_size+dest]));
-            subset_relations[source*max_size+dest] = new_value;
-            TRACE(finite_set, tout << "new_reachability: " << source << "\\subseteq " << dest);
-            return true;
+    bool reachability_matrix::set_reachability(theory_var source, theory_var dest){
+        TRACE(finite_set, tout << "set_reachability(" << source << "," << dest <<")");
+        if (is_reachable(source, dest)){
+            TRACE(finite_set, tout << "already_reachable(" << source << "," << dest <<")");
+            return false;
         }
-        return false;
+        int word_idx = get_word_index(source, dest);
+        TRACE(finite_set, tout << "reachable_nodes[first word](" << reachable[source*NUM_WORDS] << "," << reachable[dest*NUM_WORDS] <<")");
+        ctx.push_trail(value_trail(reachable[word_idx]));
+        reachable[word_idx] |= get_bitmask(dest);
+        ctx.push_trail(value_trail(links[word_idx]));
+        links[word_idx] |= get_bitmask(dest);
+        // update reachability of source
+        bitwise_or_rows(source, dest);
+        
+
+        for (int i = 0; i < largest_var; i++)
+        { //update reachability of i to the nodes reachable from dest
+            if(!is_reachable(i, source) || i == source){
+                continue;
+            }
+            bitwise_or_rows(i, source);
+        }
+        return true;
     }
 
-    bool reachability_matrix::set_non_reachability(theory_var source, theory_var dest, enode_pair subset_relation){
-        if(!is_reachability_forbidden(source, dest)){
-            ctx.push_trail(value_trail(largest_var));
-            largest_var = std::max({largest_var, source, dest});
-            ctx.push_trail(value_trail(non_subset_relations[source*max_size+dest]));
-            non_subset_relations[source*max_size+dest] = subset_relation;
-            TRACE(finite_set, tout << "new_reachability_forbidden: " << source << "\\subseteq " << dest);
-            return true;
+    bool reachability_matrix::set_non_reachability(theory_var source, theory_var dest){
+        if(is_reachability_forbidden(source, dest)){
+            return false;
         }
-        return false;
+        int word_idx = get_word_index(source, dest);
+        ctx.push_trail(value_trail(non_links[word_idx]));
+        non_links[word_idx] |= get_bitmask(dest);
+        return true;
     }
 
     theory_finite_set_lattice_refutation::theory_finite_set_lattice_refutation(theory_finite_set& th): 
-    m(th.m), ctx(th.ctx), th(th), u(m), bs(m), m_assumption(m), reachability(INITIAL_MAX_DIMENSION, th.ctx) {}
+    m(th.m), ctx(th.ctx), th(th), u(m), bs(m), m_assumption(m), reachability(th.ctx) {}
 
     // determines if the two enodes capture a subset relation:
     // checks, whether intersect_expr = intersect(subset, return_value) for some return value
@@ -121,62 +144,7 @@ namespace smt {
     };
 
     void theory_finite_set_lattice_refutation::check_conflict(theory_var subset, theory_var superset){
-        if(!reachability.is_reachable(subset, superset)){
-            // if no reachability is asserted, no conflict can occur
-            return;
-        }
-        if(!reachability.is_reachability_forbidden(subset, superset)){
-            return;
-        }
-        // conflict found - build justification
 
-        auto diseq_nodes = reachability.get_non_reachability_reason(subset, superset);
-        auto eq_expr = m.mk_not(m.mk_eq(diseq_nodes.first->get_expr(), diseq_nodes.second->get_expr()));
-        auto disequality_literal = ctx.get_literal(eq_expr);
-
-        vector<enode_pair> equalities;
-        auto reachability_just = reachability.get_reachability_reason(subset, superset);
-        equalities.push_back(reachability_just.second);
-        while(reachability_just.first!=null_theory_var){
-            reachability_just = reachability.get_reachability_reason(reachability_just.first, superset);
-            equalities.push_back(reachability_just.second);
-
-        }
-
-        auto j1 = ext_theory_conflict_justification(th.get_id(), ctx, 1, &disequality_literal, equalities.size(), equalities.data());
-        auto justification = ctx.mk_justification(j1);
-        
-        TRACE(finite_set, tout << "partial_order_conflict: " << subset <<"\\subset "<<superset);
-        ctx.set_conflict(justification);
-    }
-
-    void theory_finite_set_lattice_refutation::propagate_new_subset(theory_var subset, theory_var superset){
-        // TODO: this function might be the bottleneck
-        check_conflict(subset, superset);
-        SASSERT(reachability.is_reachable(subset, superset));
-        for (int i = 0; i <= reachability.get_max_var(); i++)
-        {
-            for(int j = 0; j <= reachability.get_max_var(); j++){
-                // check whether there is a new connection from i to j
-
-                if(reachability.is_reachable(i,j) || i == j || (i==subset && j == superset)){
-                    continue;
-                }
-                if(i==subset && reachability.is_reachable(superset, j)){
-                    reachability.set_reachability(i, j, superset, reachability.get_reachability_reason(subset,superset).second);
-                    check_conflict(subset, j);
-                }
-                if(j==superset && reachability.is_reachable(i, subset)){
-                    reachability.set_reachability(i, j, subset, reachability.get_reachability_reason(i,subset).second);
-                    check_conflict(i, superset);
-                }
-                if(reachability.is_reachable(i, subset) && reachability.is_reachable(superset, j)){
-                    reachability.set_reachability(subset, j, superset, reachability.get_reachability_reason(subset,superset).second);
-                    reachability.set_reachability(i, j, subset, reachability.get_reachability_reason(i,subset).second);
-                    check_conflict(i, j);
-                }
-            }
-        }
     }
 
     void theory_finite_set_lattice_refutation::add_subset(enode* subset, enode* superset, enode_pair justifying_equality){
@@ -186,9 +154,7 @@ namespace smt {
         if (subset_t == null_theory_var || superset_t == null_theory_var){
             return;
         }
-        if(reachability.set_reachability(subset_t, superset_t, null_theory_var, justifying_equality)){
-            propagate_new_subset(subset_t, superset_t);
-        }
+        reachability.set_reachability(subset_t, superset_t);
         SASSERT(reachability.is_reachable(subset_t, superset_t));
     };
 
@@ -198,7 +164,7 @@ namespace smt {
         if (subset_t == null_theory_var || superset_t == null_theory_var){
             return;
         }
-        reachability.set_non_reachability(subset_t, superset_t, justifying_disequality);
-        check_conflict(subset_t, superset_t);
+        reachability.set_non_reachability(subset_t, superset_t);
+        SASSERT(reachability.is_reachability_forbidden(subset_t, superset_t));
     }
 }

@@ -10,29 +10,28 @@ namespace smt {
 
     class reachability_matrix{
 
-        // this stores the equalities (intersections), that justify the subset relations.
-        std::vector<std::pair<theory_var, enode_pair>> subset_relations;
-        std::vector<enode_pair> non_subset_relations;
+        std::vector<uint64_t> reachable;
+        std::vector<uint64_t> links;
+        std::vector<uint64_t> non_links;
+
         int largest_var;
 
         int max_size;
 
         context& ctx;
 
+        // sets source_dest |= dest, and pushing the changed words to the trail
+        bool bitwise_or_rows(int source_dest, int source);
+        inline int get_word_index(int row, int col) const;
+        inline uint64_t get_bitmask(int col) const;
         public:
-            reachability_matrix(int max_dim, context& ctx);
+            reachability_matrix(context& ctx);
             bool in_bounds(theory_var source, theory_var dest);
             bool is_reachable(theory_var source, theory_var dest);
             bool is_reachability_forbidden(theory_var source, theory_var dest);
-            // get_reachability_reason(i,j) returns:
-            //   - {-1, equality} when equality covers the subset relation of i and j (represented as equality of term and intersection)
-            //   - {intermediate, equality} when intermediate is a subset of j, and equality 
-            //     covers the relation of i and intermediate (transitivity)
-            std::pair<theory_var, enode_pair> get_reachability_reason(theory_var source, theory_var dest);
-            enode_pair get_non_reachability_reason(theory_var source, theory_var dest);
 
-            bool set_reachability(theory_var source, theory_var dest, theory_var intermediate, enode_pair subset_relation);
-            bool set_non_reachability(theory_var source, theory_var dest, enode_pair subset_relation);
+            bool set_reachability(theory_var source, theory_var dest);
+            bool set_non_reachability(theory_var source, theory_var dest);
             int get_max_var();
     };
 
