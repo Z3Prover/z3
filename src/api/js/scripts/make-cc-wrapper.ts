@@ -12,26 +12,28 @@ export function makeCCWrapper() {
     if (fn == null) {
       throw new Error(`could not find definition for ${fnName}`);
     }
-    
+
     // Check if function has array parameters
     const arrayParams = fn.params.filter(p => p.isArray && p.kind === 'in_array');
     const hasArrayParams = arrayParams.length > 0;
-    
+
     if (hasArrayParams) {
       // Generate custom wrapper for functions with array parameters
-      const paramList = fn.params.map(p => `${p.isConst ? 'const ' : ''}${p.cType}${p.isPtr ? '*' : ''} ${p.name}${p.isArray ? '[]' : ''}`).join(', ');
-      
+      const paramList = fn.params
+        .map(p => `${p.isConst ? 'const ' : ''}${p.cType}${p.isPtr ? '*' : ''} ${p.name}${p.isArray ? '[]' : ''}`)
+        .join(', ');
+
       // Find the size parameter for each array and build copy/free code
       const arrayCopies: string[] = [];
       const arrayFrees: string[] = [];
       const arrayCopyNames: string[] = [];
-      
+
       for (let p of arrayParams) {
         const sizeParam = fn.params[p.sizeIndex!];
         const ptrType = p.cType.endsWith('*') ? p.cType : `${p.cType}*`;
         const copyName = `${p.name}_copy`;
         arrayCopyNames.push(copyName);
-        
+
         // Allocate and copy with null check
         arrayCopies.push(`${ptrType} ${copyName} = (${ptrType})malloc(sizeof(${p.cType}) * ${sizeParam.name});`);
         arrayCopies.push(`if (!${copyName}) {`);
@@ -39,25 +41,27 @@ export function makeCCWrapper() {
         arrayCopies.push(`  return;`);
         arrayCopies.push(`}`);
         arrayCopies.push(`memcpy(${copyName}, ${p.name}, sizeof(${p.cType}) * ${sizeParam.name});`);
-        
+
         arrayFrees.push(`free(${copyName});`);
       }
-      
+
       // Build lambda capture list
       const nonArrayParams = fn.params.filter(p => !p.isArray || p.kind !== 'in_array');
       const captureList = [...arrayCopyNames, ...nonArrayParams.map(p => p.name)].join(', ');
-      
+
       // Build argument list for the actual function call, using copied arrays
-      const callArgs = fn.params.map(p => {
-        if (p.isArray && p.kind === 'in_array') {
-          return `${p.name}_copy`;
-        }
-        return p.name;
-      }).join(', ');
-      
+      const callArgs = fn.params
+        .map(p => {
+          if (p.isArray && p.kind === 'in_array') {
+            return `${p.name}_copy`;
+          }
+          return p.name;
+        })
+        .join(', ');
+
       const isString = fn.cRet === 'Z3_string';
       const returnType = isString ? 'auto' : fn.cRet;
-      
+
       wrappers.push(
         `
 extern "C" void async_${fn.name}(${paramList}) {
@@ -65,15 +69,19 @@ extern "C" void async_${fn.name}(${paramList}) {
   std::thread t([${captureList}] {
     try {
       ${returnType} result = ${fn.name}(${callArgs});
-      ${isString ? `
+      ${
+        isString
+          ? `
       MAIN_THREAD_ASYNC_EM_ASM({
         resolve_async(UTF8ToString($0));
       }, result);
-      ` : `
+      `
+          : `
       MAIN_THREAD_ASYNC_EM_ASM({
         resolve_async($0);
       }, result);
-      `}
+      `
+      }
     } catch (std::exception& e) {
       MAIN_THREAD_ASYNC_EM_ASM({
         reject_async(new Error(UTF8ToString($0)));
