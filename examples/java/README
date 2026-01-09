@@ -1,17 +1,11 @@
-Examples using the Z3 Java bindings:
+A small example using the Z3 Java bindings.   
 
-1. JavaExample.java - Basic Z3 usage examples covering various features
-2. JavaGenericExample.java - Examples using Java generics with Z3
-3. SolverIntrospectionExample.java - Demonstrates solver introspection APIs:
-   - getUnits(): Retrieve currently inferred unit literals
-   - getNonUnits(): Retrieve non-unit atomic formulas
-   - getTrail(): Retrieve the solver decision trail
-
-To build the examples, configure Z3 with the --java option to scripts/mk_make.py, build via  
+To build the example, configure Z3 with the --java option to scripts/mk_make.py, build via  
    make examples
 in the build directory.
 
-This will create .class files in the build directory, which can be run on Windows via 
+It will create JavaExample.class in the build directory,
+which can be run on Windows via 
    java -cp com.microsoft.z3.jar;. JavaExample
 
 On Linux and FreeBSD, we must use
