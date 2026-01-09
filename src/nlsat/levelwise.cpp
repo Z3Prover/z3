@@ -149,33 +149,18 @@ namespace nlsat {
           and the corresponding statement for the upper bound.
         */
         struct relation_E {
-            std::list<root_function> m_rfunc; // the root functions on a level
+            std::vector<root_function> m_rfunc; // the root functions on a level
             std::vector<std::pair<unsigned, unsigned>> m_pairs; // of the relation
             bool empty() const { return m_rfunc.size() == 0 && m_pairs.size() == 0; }
             void clear() {
                 m_pairs.clear();
                 m_rfunc.clear();
             }
-            std::list<root_function>::iterator rfunc_it(unsigned index) {
-                auto it = m_rfunc.begin();
-                std::advance(it, index);
-                return it;
-            }
-            std::list<root_function>::const_iterator rfunc_it(unsigned index) const {
-                auto it = m_rfunc.begin();
-                std::advance(it, index);
-                return it;
-            }
-            root_function& rfunc_at(unsigned index) { return *rfunc_it(index); }
-            root_function const& rfunc_at(unsigned index) const { return *rfunc_it(index); }
-            // the indices point to list m_rfunc
-            void add_pair(unsigned j, unsigned k) {
-                if ((void*)rfunc_at(j).ire.p != (void*)rfunc_at(k).ire.p) // compare pointers
-                    m_pairs.emplace_back(j, k);
-            }
+            // the indices point te the m_rfunc vector
+            void add_pair(unsigned j, unsigned k) { m_pairs.emplace_back(j, k);}
         };
         relation_E m_rel;
-        relation_mode m_relation_mode = biggest_cell; // there are other choices as well
+        relation_mode m_relation_mode = chain; // there are other choices as well
         assignment const & sample() const { return m_solver.sample();}
         assignment & sample() { return m_solver.sample(); }
         polynomial::cache &          m_cache; 
@@ -375,105 +360,33 @@ namespace nlsat {
             }
         }
 
-        void get_el_eu(unsigned l, unsigned u, unsigned & el, unsigned & eu) {
-            auto const& rfs = m_rel.m_rfunc;
-            el = l; eu = u;
-            if (is_set(l)) {
-                auto it_l = m_rel.rfunc_it(l);
-                auto it_check = it_l;
-                while (el > 0) {
-                    auto it_prev = it_check;
-                    --it_prev;
-                    if (!m_am.eq(it_prev->val, it_l->val))
-                        break;
-                    --el;
-                    it_check = it_prev;
-                }
-            }
-
-            if (is_set(u)) {
-                auto it_u = m_rel.rfunc_it(u);
-                auto it_check = it_u;
-                while (true) {
-                    auto it_next = it_check;
-                    ++it_next;
-                    if (it_next == rfs.end() || !m_am.eq(it_next->val, it_u->val))
-                        break;
-                    ++eu;
-                    it_check = it_next;
-                }
-            }
-        }
-        void min_degrees_to_bounds(unsigned l, unsigned u_index, unsigned el, unsigned eu) {
-            if (is_set(l) && el < l) {
-                auto it_l = m_rel.rfunc_it(l);
-                auto it = it_l;
-                unsigned j = l;
-                unsigned min_deg = m_pm.degree(it_l->ire.p, m_level);
-                auto it_min = it_l;
-                while (j-- > el) {
-                    --it;
-                    unsigned deg = m_pm.degree(it->ire.p, m_level);
-                    if (deg < min_deg) {
-                        min_deg = deg;
-                        it_min = it;
-                    }
-                }
-                if (it_min != it_l)
-                    std::iter_swap(it_min, it_l);
-            }
-            if (is_set(u_index) && eu > u_index) {
-                auto it_u = m_rel.rfunc_it(u_index);
-                auto it = it_u;
-                unsigned j = u_index;
-                unsigned min_deg = m_pm.degree(it_u->ire.p, m_level);
-                auto it_min = it_u;
-                while (j++ < eu) {
-                    ++it;
-                    unsigned deg = m_pm.degree(it->ire.p, m_level);
-                    if (deg < min_deg) {
-                        min_deg = deg;
-                        it_min = it;
-                    }
-                }
-                if (it_min != it_u)
-                    std::iter_swap(it_min, it_u);
-            }
-        }
-
-        size_t find_mid_index(anum const& v) const {
-            size_t idx = 0;
-            for (auto const& rf : m_rel.m_rfunc) {
-                if (m_am.compare(rf.val, v) > 0)
-                    break;
-                ++idx;
-            }
-            return idx;
-        }
-        
         // Part B of construct_interval: build (I, E, ≼) representation for level i
         void build_representation() {
             collect_E();
             if (m_rel.m_rfunc.size() == 0)
                 return;
             anum const& v = sample().value(m_level);
+            auto cmp = [&](root_function const& a, root_function const& b) {
+                if (a.ire.p == b.ire.p)
+                    return a.ire.i < b.ire.i;
+                return m_am.lt(a.val, b.val);
+            };
             auto &rfs = m_rel.m_rfunc;
-            auto mid_index = find_mid_index(v);
-            auto mid = m_rel.rfunc_it(static_cast<unsigned>(mid_index));
+            auto mid = std::partition(rfs.begin(), rfs.end(), [&](root_function const& f) { return m_am.compare(f.val, v) <= 0; });
+            std::sort(rfs.begin(), mid, cmp);
+            std::sort(mid, rfs.end(), cmp);
             auto & I = m_I[m_level];
-            unsigned l_index = -1, u_index = -1; // indices in rfs
+            unsigned l_index = -1, u_index = -1;
             SASSERT(mid == rfs.end() || m_am.lt(v, mid->val));
             if (mid != rfs.begin()) {
-                auto it_prev = mid;
-                --it_prev;
-                auto& r = *it_prev;
+                auto& r = *(mid - 1);
                 if (m_am.eq(r.val, v)) {
-                    l_index = static_cast<unsigned>(mid_index - 1);
+                    l_index = mid - rfs.begin() - 1;
                     I.section = true;
                     I.l = r.ire.p; I.l_index = r.ire.i; 
                 } else {
                     SASSERT( m_am.lt(r.val, v));
-                    l_index = static_cast<unsigned>(mid_index - 1);
+                    l_index = mid - rfs.begin() - 1;
                     I.l = r.ire.p; I.l_index = r.ire.i;
                     if (mid != rfs.end()) {
                         u_index = l_index + 1;
@@ -482,10 +395,9 @@ namespace nlsat {
                 }
             } else { // mid == rfs.begin()
                 auto & r = *mid;
-                u_index = 0;
                 I.u = r.ire.p; I.u_index = r.ire.i;                
             }
-
+            
             fill_relation_pairs(l_index, u_index);
             TRACE(lws,
                   if (m_rel.empty()) tout << "E is empty\n";
@@ -497,17 +409,16 @@ namespace nlsat {
                       tout << "pairs:\n";
                       for (unsigned kk = 0; kk < m_rel.m_pairs.size(); ++kk) {
                           auto pair = m_rel.m_pairs[kk];
-                          display(tout, m_rel.rfunc_at(pair.first)) << "<<<" ; display(tout, m_rel.rfunc_at(pair.second))<< "\n";
+                          display(tout, m_rel.m_rfunc[pair.first]) << "<<<" ; display(tout, m_rel.m_rfunc[pair.second])<< "\n"; 
                       }
-                  }
-                  display(tout << "m_I[" << m_level << "]:", m_I[m_level]) << std::endl;);
+                  });
+TRACE(lws, display(tout << "m_I[" << m_level << "]:", m_I[m_level]) << std::endl;);
         }
 
         void fill_relation_with_biggest_cell_heuristic(unsigned l, unsigned u) {
             if (is_set(l)) 
-                for (unsigned j = 0; j < l; j++) { 
+                for (unsigned j = 0; j < l; j++) 
                     m_rel.add_pair(j, l);
-                }
             
             if (is_set(u)) 
                 for (unsigned j = u + 1; j < m_rel.m_rfunc.size(); j++)
@@ -515,7 +426,7 @@ namespace nlsat {
 
             if (is_set(l) && is_set(u)) {
                 SASSERT(l + 1 == u);
-                m_rel.add_pair(l, u);
+                m_rel.add_pair(l, u);        
             }
         }
 
@@ -534,17 +445,121 @@ namespace nlsat {
             }
         }
 
-        void fill_relation_pairs(unsigned l, unsigned u) {
-            unsigned el = l, eu = u;
-            get_el_eu(l, u, el, eu);
-            min_degrees_to_bounds(l, u, el, eu);
-            
-            if (m_relation_mode == biggest_cell) 
-                fill_relation_with_biggest_cell_heuristic(l, u);
-            else if (m_relation_mode == chain)
-                fill_relation_with_chain_heuristic(l, u);
-            else     
+        void fill_relation_with_min_degree_resultant_sum(unsigned l, unsigned u) {
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned n = rfs.size();
+            if (n == 0)
+                return;
+
+            std::vector<unsigned> degs;
+            degs.reserve(n);
+            for (unsigned i = 0; i < n; ++i)
+                degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
+
+            if (is_set(l)) {
+                unsigned min_idx = l;
+                unsigned min_deg = degs[l];
+                for (int j = static_cast<int>(l) - 1; j >= 0; --j) {
+                    unsigned jj = static_cast<unsigned>(j);
+                    m_rel.add_pair(jj, min_idx);
+                    if (degs[jj] < min_deg) {
+                        min_deg = degs[jj];
+                        min_idx = jj;
+                    }
+                }
+            }
+
+            if (is_set(u)) {
+                unsigned min_idx = u;
+                unsigned min_deg = degs[u];
+                for (unsigned j = u + 1; j < n; ++j) {
+                    m_rel.add_pair(min_idx, j);
+                    if (degs[j] < min_deg) {
+                        min_deg = degs[j];
+                        min_idx = j;
+                    }
+                }
+            }
+
+            if (is_set(l) && is_set(u)) {
+                SASSERT(l + 1 == u);
+                m_rel.add_pair(l, u);
+            }
+        }
+        
+        void fill_relation_for_section(unsigned l) {
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned n = rfs.size();
+            if (n == 0)
+                return;
+            SASSERT(is_set(l));
+            SASSERT(l < n);
+
+            switch (m_relation_mode) {
+            case biggest_cell:
+                for (unsigned j = 0; j < l; ++j)
+                    m_rel.add_pair(j, l);
+                for (unsigned j = l + 1; j < n; ++j)
+                    m_rel.add_pair(l, j);
+                break;
+            case chain:
+                for (unsigned j = 0; j < l; ++j)
+                    m_rel.add_pair(j, j + 1);
+                for (unsigned j = l + 1; j < n; ++j)
+                    m_rel.add_pair(j - 1, j);
+                break;
+            case lowest_degree: {
+                std::vector<unsigned> degs;
+                degs.reserve(n);
+                for (unsigned i = 0; i < n; ++i)
+                    degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
+
+                unsigned min_idx = l;
+                unsigned min_deg = degs[l];
+                for (int j = static_cast<int>(l) - 1; j >= 0; --j) {
+                    unsigned jj = static_cast<unsigned>(j);
+                    m_rel.add_pair(jj, min_idx);
+                    if (degs[jj] < min_deg) {
+                        min_deg = degs[jj];
+                        min_idx = jj;
+                    }
+                }
+
+                min_idx = l;
+                min_deg = degs[l];
+                for (unsigned j = l + 1; j < n; ++j) {
+                    m_rel.add_pair(min_idx, j);
+                    if (degs[j] < min_deg) {
+                        min_deg = degs[j];
+                        min_idx = j;
+                    }
+                }
+                break;
+            }
+            default:
                 NOT_IMPLEMENTED_YET();
+            }
+        }
+        void fill_relation_pairs(unsigned l, unsigned u) {
+            
+            const auto & I = m_I[m_level];
+            if (I.section) {
+                fill_relation_for_section(l);
+            } else {
+                switch(m_relation_mode) {
+                case biggest_cell: 
+                    fill_relation_with_biggest_cell_heuristic(l, u);
+                    break;
+                case chain:
+                    fill_relation_with_chain_heuristic(l, u);
+                    break;
+                case lowest_degree:     
+                    fill_relation_with_min_degree_resultant_sum(l, u);
+                    break;
+                default:
+                    NOT_IMPLEMENTED_YET();
+                }
+            }
         }
 
         // Step 1a: collect E the set of root functions on m_level
@@ -560,40 +575,17 @@ namespace nlsat {
                 SASSERT(max_var(p) == m_level);
                 scoped_anum_vector roots(m_am);
                 m_am.isolate_roots(p, undef_var_assignment(sample(), m_level), roots);
-                TRACE(lws,::nlsat::display(tout << "isolated roots for ", m_solver, p) << ": ";
-                      ::nlsat::display(tout , roots);
-                      tout << "\n";);
                 
                 unsigned num_roots = roots.size();
-                if (num_roots == 0)
-                    continue;
-                if (m_rel.m_rfunc.empty()) {
-                    for (unsigned k = 0; k < num_roots; ++k)
-                        m_rel.m_rfunc.emplace_back(m_am, p, k + 1, roots[k]);
-                    continue;
-                }
-                // Merge sorted roots into m_rfunc
-                auto it = m_rel.m_rfunc.begin();
-                unsigned k = 0;
-                while (it != m_rel.m_rfunc.end() && k < num_roots) {
-                    int cmp = m_am.compare(it->val, roots[k]);
-                    if (cmp < 0) 
-                        ++it;
-                    else if (cmp > 0) {
-                        m_rel.m_rfunc.emplace(it, m_am, p, k + 1, roots[k]);
-                        ++k;
-                    }
-                    else {
-                        m_rel.m_rfunc.emplace(it, m_am, p, k + 1, roots[k]);
-                        ++it;
-                        ++k;
-                    }
-                }
-                while (k < num_roots) {
+                TRACE(lws, ::nlsat::display(tout << "p:", m_solver, p) << ",";
+                      tout << "roots (" << num_roots << "):";
+                      for (unsigned kk = 0; kk < num_roots; ++kk) {
+                          tout << " "; m_am.display(tout, roots[kk]);
+                      }
+                      tout << std::endl;
+                );
+                for (unsigned k = 0; k < num_roots; ++k)
                     m_rel.m_rfunc.emplace_back(m_am, p, k + 1, roots[k]);
-                    ++k;
-                }
-                TRACE(lws,  tout << "m_rfunc after merge:\n"; for (auto const& rf : m_rel.m_rfunc) display(tout, rf) << "\n";);
             }
             TRACE(lws, tout << "exit\n";);
         }
@@ -644,11 +636,12 @@ namespace nlsat {
             psc_chain(pa, pb, x, chain);
 
             for (unsigned i = 0; i < chain.size(); ++i) {
-                r = polynomial_ref(chain.get(i), m_pm);                    
+                r = polynomial_ref(chain.get(i), m_pm);
                 if (is_const(r))
                     continue;
-                break;                
+                break;
             }
+
             TRACE(lws,
                       tout << "psc resultant wrt x" << x << "\n";
                       ::nlsat::display(tout << "a: ", m_solver, pa) << "\n";
@@ -1044,13 +1037,11 @@ namespace nlsat {
                 mk_prop(connected, level_t(m_level - 1));
             }
             for (const auto & pair: m_rel.m_pairs) {
-                auto& ar = m_rel.rfunc_at(pair.first);
-                auto& br = m_rel.rfunc_at(pair.second);
-                poly *a = ar.ire.p;
-                poly *b = br.ire.p;
-                if ((void*)a == (void*)b) continue;
+                poly *a = m_rel.m_rfunc[pair.first].ire.p;
+                poly *b = m_rel.m_rfunc[pair.second].ire.p;
                 SASSERT(max_var(a) == max_var(b) && max_var(b) == m_level) ;
-                add_ord_inv_resultant(a, b, m_level);
+                if (m_pm.id(a) != m_pm.id(b))
+                    add_ord_inv_resultant(a, b, m_level);
             }
         }
         
@@ -1133,11 +1124,9 @@ namespace nlsat {
                 return out;
             }
             out << "  Root functions:\n";
-            size_t idx = 0;
-            for (auto const& rf : m_rel.m_rfunc) {
-                out << "    [" << idx << "]: ";
-                display(out, rf, true) << "\n";
-                ++idx;
+            for (size_t i = 0; i < m_rel.m_rfunc.size(); ++i) {
+                out << "    [" << i << "]: ";
+                display(out, m_rel.m_rfunc[i], true) << "\n";
             }
             out << "  Pairs:\n";
             for (const auto& pair : m_rel.m_pairs) {
