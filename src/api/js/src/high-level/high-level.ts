@@ -63,9 +63,15 @@ import {
   CoercibleToBitVec,
   CoercibleToExpr,
   CoercibleFromMap,
+  CoercibleToFP,
   Context,
   ContextCtor,
   Expr,
+  FP,
+  FPNum,
+  FPSort,
+  FPRM,
+  FPRMSort,
   FuncDecl,
   FuncDeclSignature,
   FuncInterp,
@@ -77,6 +83,8 @@ import {
   Quantifier,
   BodyT,
   RatNum,
+  Seq,
+  SeqSort,
   SMTArray,
   SMTArraySort,
   Solver,
@@ -265,6 +273,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           return new ArithSortImpl(ast);
         case Z3_sort_kind.Z3_BV_SORT:
           return new BitVecSortImpl(ast);
+        case Z3_sort_kind.Z3_FLOATING_POINT_SORT:
+          return new FPSortImpl(ast);
+        case Z3_sort_kind.Z3_ROUNDING_MODE_SORT:
+          return new FPRMSortImpl(ast);
+        case Z3_sort_kind.Z3_SEQ_SORT:
+          return new SeqSortImpl(ast);
         case Z3_sort_kind.Z3_ARRAY_SORT:
           return new ArraySortImpl(ast);
         default:
@@ -299,6 +313,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             return new BitVecNumImpl(ast);
           }
           return new BitVecImpl(ast);
+        case Z3_sort_kind.Z3_FLOATING_POINT_SORT:
+          if (kind === Z3_ast_kind.Z3_NUMERAL_AST || kind === Z3_ast_kind.Z3_APP_AST) {
+            return new FPNumImpl(ast);
+          }
+          return new FPImpl(ast);
+        case Z3_sort_kind.Z3_ROUNDING_MODE_SORT:
+          return new FPRMImpl(ast);
+        case Z3_sort_kind.Z3_SEQ_SORT:
+          return new SeqImpl(ast);
         case Z3_sort_kind.Z3_ARRAY_SORT:
           return new ArrayImpl(ast);
         default:
@@ -516,6 +539,56 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function isConstArray(obj: unknown): boolean {
       return isAppOf(obj, Z3_decl_kind.Z3_OP_CONST_ARRAY);
+    }
+
+    function isFPRMSort(obj: unknown): obj is FPRMSort<Name> {
+      const r = obj instanceof FPRMSortImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isFPRM(obj: unknown): obj is FPRM<Name> {
+      const r = obj instanceof FPRMImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isFPSort(obj: unknown): obj is FPSort<Name> {
+      const r = obj instanceof FPSortImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isFP(obj: unknown): obj is FP<Name> {
+      const r = obj instanceof FPImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isFPVal(obj: unknown): obj is FPNum<Name> {
+      const r = obj instanceof FPNumImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isSeqSort(obj: unknown): obj is SeqSort<Name> {
+      const r = obj instanceof SeqSortImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isSeq(obj: unknown): obj is Seq<Name> {
+      const r = obj instanceof SeqImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isStringSort(obj: unknown): obj is SeqSort<Name> {
+      return isSeqSort(obj) && obj.isString();
+    }
+
+    function isString(obj: unknown): obj is Seq<Name> {
+      return isSeq(obj) && obj.isString();
     }
 
     function isProbe(obj: unknown): obj is Probe<Name> {
@@ -760,6 +833,119 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         );
       },
     };
+    
+    const Float = {
+      sort(ebits: number, sbits: number): FPSort<Name> {
+        assert(Number.isSafeInteger(ebits) && ebits > 0, 'ebits must be a positive integer');
+        assert(Number.isSafeInteger(sbits) && sbits > 0, 'sbits must be a positive integer');
+        return new FPSortImpl(Z3.mk_fpa_sort(contextPtr, ebits, sbits));
+      },
+
+      sort16(): FPSort<Name> {
+        return new FPSortImpl(Z3.mk_fpa_sort_16(contextPtr));
+      },
+
+      sort32(): FPSort<Name> {
+        return new FPSortImpl(Z3.mk_fpa_sort_32(contextPtr));
+      },
+
+      sort64(): FPSort<Name> {
+        return new FPSortImpl(Z3.mk_fpa_sort_64(contextPtr));
+      },
+
+      sort128(): FPSort<Name> {
+        return new FPSortImpl(Z3.mk_fpa_sort_128(contextPtr));
+      },
+
+      const(name: string, sort: FPSort<Name>): FP<Name> {
+        return new FPImpl(check(Z3.mk_const(contextPtr, _toSymbol(name), sort.ptr)));
+      },
+
+      consts(names: string | string[], sort: FPSort<Name>): FP<Name>[] {
+        if (typeof names === 'string') {
+          names = names.split(' ');
+        }
+        return names.map(name => Float.const(name, sort));
+      },
+
+      val(value: number, sort: FPSort<Name>): FPNum<Name> {
+        return new FPNumImpl(check(Z3.mk_fpa_numeral_double(contextPtr, value, sort.ptr)));
+      },
+
+      NaN(sort: FPSort<Name>): FPNum<Name> {
+        return new FPNumImpl(check(Z3.mk_fpa_nan(contextPtr, sort.ptr)));
+      },
+
+      inf(sort: FPSort<Name>, negative: boolean = false): FPNum<Name> {
+        return new FPNumImpl(check(Z3.mk_fpa_inf(contextPtr, sort.ptr, negative)));
+      },
+
+      zero(sort: FPSort<Name>, negative: boolean = false): FPNum<Name> {
+        return new FPNumImpl(check(Z3.mk_fpa_zero(contextPtr, sort.ptr, negative)));
+      },
+    };
+
+    const FloatRM = {
+      sort(): FPRMSort<Name> {
+        return new FPRMSortImpl(Z3.mk_fpa_rounding_mode_sort(contextPtr));
+      },
+
+      RNE(): FPRM<Name> {
+        return new FPRMImpl(check(Z3.mk_fpa_rne(contextPtr)));
+      },
+
+      RNA(): FPRM<Name> {
+        return new FPRMImpl(check(Z3.mk_fpa_rna(contextPtr)));
+      },
+
+      RTP(): FPRM<Name> {
+        return new FPRMImpl(check(Z3.mk_fpa_rtp(contextPtr)));
+      },
+
+      RTN(): FPRM<Name> {
+        return new FPRMImpl(check(Z3.mk_fpa_rtn(contextPtr)));
+      },
+
+      RTZ(): FPRM<Name> {
+        return new FPRMImpl(check(Z3.mk_fpa_rtz(contextPtr)));
+      },
+    };
+
+    const String = {
+      sort(): SeqSort<Name> {
+        return new SeqSortImpl(Z3.mk_string_sort(contextPtr));
+      },
+
+      const(name: string): Seq<Name> {
+        return new SeqImpl(check(Z3.mk_const(contextPtr, _toSymbol(name), String.sort().ptr)));
+      },
+
+      consts(names: string | string[]): Seq<Name>[] {
+        if (typeof names === 'string') {
+          names = names.split(' ');
+        }
+        return names.map(name => String.const(name));
+      },
+
+      val(value: string): Seq<Name> {
+        return new SeqImpl(check(Z3.mk_string(contextPtr, value)));
+      },
+    };
+
+    const Seq = {
+      sort<ElemSort extends Sort<Name>>(elemSort: ElemSort): SeqSort<Name, ElemSort> {
+        return new SeqSortImpl<ElemSort>(Z3.mk_seq_sort(contextPtr, elemSort.ptr));
+      },
+
+      empty<ElemSort extends Sort<Name>>(elemSort: ElemSort): Seq<Name, ElemSort> {
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_empty(contextPtr, Seq.sort(elemSort).ptr)));
+      },
+
+      unit<ElemSort extends Sort<Name>>(elem: Expr<Name>): Seq<Name, ElemSort> {
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_unit(contextPtr, elem.ast)));
+      },
+    };
+    
     const Array = {
       sort<DomainSort extends NonEmptySortArray<Name>, RangeSort extends AnySort<Name>>(
         ...sig: [...DomainSort, RangeSort]
@@ -2693,6 +2879,261 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    class FPRMSortImpl extends SortImpl implements FPRMSort<Name> {
+      declare readonly __typename: FPRMSort['__typename'];
+
+      cast(other: FPRM<Name>): FPRM<Name>;
+      cast(other: CoercibleToExpr<Name>): never;
+      cast(other: any): any {
+        if (isFPRM(other)) {
+          _assertContext(other);
+          return other;
+        }
+        throw new Error("Can't cast to FPRMSort");
+      }
+    }
+
+    class FPRMImpl extends ExprImpl<Z3_ast, FPRMSortImpl> implements FPRM<Name> {
+      declare readonly __typename: FPRM['__typename'];
+    }
+
+    class FPSortImpl extends SortImpl implements FPSort<Name> {
+      declare readonly __typename: FPSort['__typename'];
+
+      ebits() {
+        return Z3.fpa_get_ebits(contextPtr, this.ptr);
+      }
+
+      sbits() {
+        return Z3.fpa_get_sbits(contextPtr, this.ptr);
+      }
+
+      cast(other: CoercibleToFP<Name>): FP<Name>;
+      cast(other: CoercibleToExpr<Name>): Expr<Name>;
+      cast(other: CoercibleToExpr<Name>): Expr<Name> {
+        if (isExpr(other)) {
+          _assertContext(other);
+          return other;
+        }
+        if (typeof other === 'number') {
+          return Float.val(other, this);
+        }
+        throw new Error("Can't cast to FPSort");
+      }
+    }
+
+    class FPImpl extends ExprImpl<Z3_ast, FPSortImpl> implements FP<Name> {
+      declare readonly __typename: FP['__typename'];
+
+      add(rm: FPRM<Name>, other: CoercibleToFP<Name>): FP<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new FPImpl(check(Z3.mk_fpa_add(contextPtr, rm.ast, this.ast, otherFP.ast)));
+      }
+
+      sub(rm: FPRM<Name>, other: CoercibleToFP<Name>): FP<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new FPImpl(check(Z3.mk_fpa_sub(contextPtr, rm.ast, this.ast, otherFP.ast)));
+      }
+
+      mul(rm: FPRM<Name>, other: CoercibleToFP<Name>): FP<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new FPImpl(check(Z3.mk_fpa_mul(contextPtr, rm.ast, this.ast, otherFP.ast)));
+      }
+
+      div(rm: FPRM<Name>, other: CoercibleToFP<Name>): FP<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new FPImpl(check(Z3.mk_fpa_div(contextPtr, rm.ast, this.ast, otherFP.ast)));
+      }
+
+      neg(): FP<Name> {
+        return new FPImpl(check(Z3.mk_fpa_neg(contextPtr, this.ast)));
+      }
+
+      abs(): FP<Name> {
+        return new FPImpl(check(Z3.mk_fpa_abs(contextPtr, this.ast)));
+      }
+
+      sqrt(rm: FPRM<Name>): FP<Name> {
+        return new FPImpl(check(Z3.mk_fpa_sqrt(contextPtr, rm.ast, this.ast)));
+      }
+
+      rem(other: CoercibleToFP<Name>): FP<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new FPImpl(check(Z3.mk_fpa_rem(contextPtr, this.ast, otherFP.ast)));
+      }
+
+      fma(rm: FPRM<Name>, y: CoercibleToFP<Name>, z: CoercibleToFP<Name>): FP<Name> {
+        const yFP = isFP(y) ? y : Float.val(y, this.sort);
+        const zFP = isFP(z) ? z : Float.val(z, this.sort);
+        return new FPImpl(check(Z3.mk_fpa_fma(contextPtr, rm.ast, this.ast, yFP.ast, zFP.ast)));
+      }
+
+      lt(other: CoercibleToFP<Name>): Bool<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new BoolImpl(check(Z3.mk_fpa_lt(contextPtr, this.ast, otherFP.ast)));
+      }
+
+      gt(other: CoercibleToFP<Name>): Bool<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new BoolImpl(check(Z3.mk_fpa_gt(contextPtr, this.ast, otherFP.ast)));
+      }
+
+      le(other: CoercibleToFP<Name>): Bool<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new BoolImpl(check(Z3.mk_fpa_leq(contextPtr, this.ast, otherFP.ast)));
+      }
+
+      ge(other: CoercibleToFP<Name>): Bool<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new BoolImpl(check(Z3.mk_fpa_geq(contextPtr, this.ast, otherFP.ast)));
+      }
+
+      isNaN(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_nan(contextPtr, this.ast)));
+      }
+
+      isInf(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_infinite(contextPtr, this.ast)));
+      }
+
+      isZero(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_zero(contextPtr, this.ast)));
+      }
+
+      isNormal(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_normal(contextPtr, this.ast)));
+      }
+
+      isSubnormal(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_subnormal(contextPtr, this.ast)));
+      }
+
+      isNegative(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_negative(contextPtr, this.ast)));
+      }
+
+      isPositive(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_positive(contextPtr, this.ast)));
+      }
+    }
+
+    class FPNumImpl extends FPImpl implements FPNum<Name> {
+      declare readonly __typename: FPNum['__typename'];
+
+      value(): number {
+        // Get the numeral as a decimal string and convert to number
+        // Note: This may lose precision for values outside JavaScript number range
+        return parseFloat(Z3.get_numeral_string(contextPtr, this.ast));
+      }
+    }
+
+    class SeqSortImpl<ElemSort extends Sort<Name> = Sort<Name>> extends SortImpl implements SeqSort<Name, ElemSort> {
+      declare readonly __typename: SeqSort['__typename'];
+
+      isString(): boolean {
+        return Z3.is_string_sort(contextPtr, this.ptr);
+      }
+
+      basis(): Sort<Name> {
+        return _toSort(check(Z3.get_seq_sort_basis(contextPtr, this.ptr)));
+      }
+
+      cast(other: Seq<Name>): Seq<Name>;
+      cast(other: string): Seq<Name>;
+      cast(other: CoercibleToExpr<Name>): Expr<Name>;
+      cast(other: any): any {
+        if (isSeq(other)) {
+          _assertContext(other);
+          return other;
+        }
+        if (typeof other === 'string') {
+          return String.val(other);
+        }
+        throw new Error("Can't cast to SeqSort");
+      }
+    }
+
+    class SeqImpl<ElemSort extends Sort<Name> = Sort<Name>>
+      extends ExprImpl<Z3_ast, SeqSortImpl<ElemSort>>
+      implements Seq<Name, ElemSort>
+    {
+      declare readonly __typename: Seq['__typename'];
+
+      isString(): boolean {
+        return Z3.is_string_sort(contextPtr, Z3.get_sort(contextPtr, this.ast));
+      }
+
+      asString(): string {
+        if (!Z3.is_string(contextPtr, this.ast)) {
+          throw new Error('Not a string value');
+        }
+        return Z3.get_string(contextPtr, this.ast);
+      }
+
+      concat(other: Seq<Name, ElemSort> | string): Seq<Name, ElemSort> {
+        const otherSeq = isSeq(other) ? other : String.val(other);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_concat(contextPtr, [this.ast, otherSeq.ast])));
+      }
+
+      length(): Arith<Name> {
+        return new ArithImpl(check(Z3.mk_seq_length(contextPtr, this.ast)));
+      }
+
+      at(index: Arith<Name> | number | bigint): Seq<Name, ElemSort> {
+        const indexExpr = isArith(index) ? index : Int.val(index);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_at(contextPtr, this.ast, indexExpr.ast)));
+      }
+
+      nth(index: Arith<Name> | number | bigint): Expr<Name> {
+        const indexExpr = isArith(index) ? index : Int.val(index);
+        return _toExpr(check(Z3.mk_seq_nth(contextPtr, this.ast, indexExpr.ast)));
+      }
+
+      extract(offset: Arith<Name> | number | bigint, length: Arith<Name> | number | bigint): Seq<Name, ElemSort> {
+        const offsetExpr = isArith(offset) ? offset : Int.val(offset);
+        const lengthExpr = isArith(length) ? length : Int.val(length);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_extract(contextPtr, this.ast, offsetExpr.ast, lengthExpr.ast)));
+      }
+
+      indexOf(substr: Seq<Name, ElemSort> | string, offset?: Arith<Name> | number | bigint): Arith<Name> {
+        const substrSeq = isSeq(substr) ? substr : String.val(substr);
+        const offsetExpr = offset !== undefined ? (isArith(offset) ? offset : Int.val(offset)) : Int.val(0);
+        return new ArithImpl(check(Z3.mk_seq_index(contextPtr, this.ast, substrSeq.ast, offsetExpr.ast)));
+      }
+
+      lastIndexOf(substr: Seq<Name, ElemSort> | string): Arith<Name> {
+        const substrSeq = isSeq(substr) ? substr : String.val(substr);
+        return new ArithImpl(check(Z3.mk_seq_last_index(contextPtr, this.ast, substrSeq.ast)));
+      }
+
+      contains(substr: Seq<Name, ElemSort> | string): Bool<Name> {
+        const substrSeq = isSeq(substr) ? substr : String.val(substr);
+        return new BoolImpl(check(Z3.mk_seq_contains(contextPtr, this.ast, substrSeq.ast)));
+      }
+
+      prefixOf(s: Seq<Name, ElemSort> | string): Bool<Name> {
+        const sSeq = isSeq(s) ? s : String.val(s);
+        return new BoolImpl(check(Z3.mk_seq_prefix(contextPtr, this.ast, sSeq.ast)));
+      }
+
+      suffixOf(s: Seq<Name, ElemSort> | string): Bool<Name> {
+        const sSeq = isSeq(s) ? s : String.val(s);
+        return new BoolImpl(check(Z3.mk_seq_suffix(contextPtr, this.ast, sSeq.ast)));
+      }
+
+      replace(src: Seq<Name, ElemSort> | string, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort> {
+        const srcSeq = isSeq(src) ? src : String.val(src);
+        const dstSeq = isSeq(dst) ? dst : String.val(dst);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace(contextPtr, this.ast, srcSeq.ast, dstSeq.ast)));
+      }
+
+      replaceAll(src: Seq<Name, ElemSort> | string, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort> {
+        const srcSeq = isSeq(src) ? src : String.val(src);
+        const dstSeq = isSeq(dst) ? dst : String.val(dst);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace_all(contextPtr, this.ast, srcSeq.ast, dstSeq.ast)));
+      }
+    }
+
     class ArraySortImpl<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>
       extends SortImpl
       implements SMTArraySort<Name, DomainSort, RangeSort>
@@ -3317,6 +3758,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       isBitVecSort,
       isBitVec,
       isBitVecVal, // TODO fix ordering
+      isFPRMSort,
+      isFPRM,
+      isFPSort,
+      isFP,
+      isFPVal,
+      isSeqSort,
+      isSeq,
+      isStringSort,
+      isString,
       isArraySort,
       isArray,
       isConstArray,
@@ -3338,6 +3788,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Int,
       Real,
       BitVec,
+      Float,
+      FloatRM,
+      String,
+      Seq,
       Array,
       Set,
       Datatype,
