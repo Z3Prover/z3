@@ -1537,6 +1537,39 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         throwIfError();
       }
 
+      units(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.solver_get_units(contextPtr, this.ptr)));
+      }
+
+      nonUnits(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.solver_get_non_units(contextPtr, this.ptr)));
+      }
+
+      trail(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.solver_get_trail(contextPtr, this.ptr)));
+      }
+
+      congruenceRoot(expr: Expr<Name>): Expr<Name> {
+        _assertContext(expr);
+        return _toExpr(check(Z3.solver_congruence_root(contextPtr, this.ptr, expr.ast)));
+      }
+
+      congruenceNext(expr: Expr<Name>): Expr<Name> {
+        _assertContext(expr);
+        return _toExpr(check(Z3.solver_congruence_next(contextPtr, this.ptr, expr.ast)));
+      }
+
+      congruenceExplain(a: Expr<Name>, b: Expr<Name>): Expr<Name> {
+        _assertContext(a);
+        _assertContext(b);
+        return _toExpr(check(Z3.solver_congruence_explain(contextPtr, this.ptr, a.ast, b.ast)));
+      }
+
+      fromFile(filename: string) {
+        Z3.solver_from_file(contextPtr, this.ptr, filename);
+        throwIfError();
+      }
+
       release() {
         Z3.solver_dec_ref(contextPtr, this.ptr);
         // Mark the ptr as null to prevent double free
@@ -1822,6 +1855,27 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       private getUniverse(sort: Sort<Name>): AstVector<Name, AnyAst<Name>> {
         _assertContext(sort);
         return new AstVectorImpl(check(Z3.model_get_sort_universe(contextPtr, this.ptr, sort.ptr)));
+      }
+
+      numSorts(): number {
+        return check(Z3.model_get_num_sorts(contextPtr, this.ptr));
+      }
+
+      getSort(i: number): Sort<Name> {
+        return _toSort(check(Z3.model_get_sort(contextPtr, this.ptr, i)));
+      }
+
+      getSorts(): Sort<Name>[] {
+        const n = this.numSorts();
+        const result: Sort<Name>[] = [];
+        for (let i = 0; i < n; i++) {
+          result.push(this.getSort(i));
+        }
+        return result;
+      }
+
+      sortUniverse(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>> {
+        return this.getUniverse(sort) as AstVector<Name, AnyExpr<Name>>;
       }
 
       release() {
@@ -2905,9 +2959,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     class QuantifierImpl<
-      QVarSorts extends NonEmptySortArray<Name>,
-      QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts>,
-    >
+        QVarSorts extends NonEmptySortArray<Name>,
+        QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts>,
+      >
       extends ExprImpl<Z3_ast, QSort>
       implements Quantifier<Name, QVarSorts, QSort>
     {
