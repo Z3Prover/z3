@@ -101,12 +101,8 @@ struct levelwise::impl {
           m_cache(cache),
           m_psc_tmp(m_pm) {
         m_I.reserve(m_n);
-        for (unsigned i = 0; i < m_n; ++i) {
+        for (unsigned i = 0; i < m_n; ++i)
             m_I.emplace_back(m_pm);
-            // Avoid accidental reads of uninitialized indices.
-            m_I.back().l_index = 0;
-            m_I.back().u_index = 0;
-        }
     }
 
     void fail() { throw nullified_poly_exception(); }
