@@ -7,6 +7,7 @@ permissions: read-all
 tools:
   github:
     toolsets: [default, actions]
+    read-only: false
   agentic-workflows:
   view: {}
   grep: {}
