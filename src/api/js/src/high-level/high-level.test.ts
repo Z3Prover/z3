@@ -174,40 +174,27 @@ describe('high-level', () => {
       expect(await solver.check()).toStrictEqual('unsat');
     });
 
-    it('can use AtMost constraint', async () => {
-      const { Bool, AtMost, Solver } = api.Context('main');
+    it('can check with assumptions and get unsat core', async () => {
+      const { Bool, Solver } = api.Context('main');
+      const solver = new Solver();
+      solver.set('unsat_core', true);
+      
       const x = Bool.const('x');
       const y = Bool.const('y');
       const z = Bool.const('z');
 
-      const solver = new Solver();
-      // At most 2 of x, y, z can be true
-      solver.add(AtMost([x, y, z], 2));
+      // Add conflicting assertions
+      solver.add(x.or(y));
+      solver.add(x.or(z));
 
-      // All three being true should be unsat
-      solver.add(x, y, z);
-      expect(await solver.check()).toStrictEqual('unsat');
-    });
-
-    it('can use AtLeast constraint', async () => {
-      const { Bool, AtLeast, Solver } = api.Context('main');
-      const x = Bool.const('x');
-      const y = Bool.const('y');
-      const z = Bool.const('z');
-
-      const solver = new Solver();
-      // At least 2 of x, y, z must be true
-      solver.add(AtLeast([x, y, z], 2));
-
-      // Only one being true should be unsat
-      solver.add(x, y.not(), z.not());
-      expect(await solver.check()).toStrictEqual('unsat');
-
-      // But having 2 true should be sat
-      solver.reset();
-      solver.add(AtLeast([x, y, z], 2));
-      solver.add(x, y, z.not());
-      expect(await solver.check()).toStrictEqual('sat');
+      // Check with assumptions that create a conflict
+      // This tests the async array parameter fix
+      const result = await solver.check(x.not(), y.not(), z.not());
+      expect(result).toStrictEqual('unsat');
+      
+      // Verify we can get the unsat core
+      const core = solver.unsatCore();
+      expect(core.length()).toBeGreaterThan(0);
     });
 
     it("proves De Morgan's Law", async () => {

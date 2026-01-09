@@ -800,6 +800,8 @@ export interface Solver<Name extends string = 'main'> {
 
   model(): Model<Name>;
 
+  unsatCore(): AstVector<Name, Bool<Name>>;
+
   /**
    * Return a string describing why the last call to {@link check} returned `'unknown'`.
    *
