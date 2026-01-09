@@ -1324,6 +1324,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       >;
     }
 
+    /**
+     * Create array extensionality index given two arrays with the same sort.
+     * The meaning is given by the axiom:
+     * (=> (= (select A (array-ext A B)) (select B (array-ext A B))) (= A B))
+     * Two arrays are equal if and only if they are equal on the index returned by this function.
+     */
     function Ext<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>(
       a: SMTArray<Name, DomainSort, RangeSort>,
       b: SMTArray<Name, DomainSort, RangeSort>,
@@ -2696,6 +2702,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return Store(this, ...indicesAndValue);
       }
 
+      /**
+       * Access the array default value.
+       * Produces the default range value, for arrays that can be represented as
+       * finite maps with a default range value.
+       */
       default(): SortToExprMap<RangeSort, Name> {
         return _toExpr(check(Z3.mk_array_default(contextPtr, this.ast))) as SortToExprMap<RangeSort, Name>;
       }
