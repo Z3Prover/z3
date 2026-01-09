@@ -559,7 +559,10 @@ describe('high-level', () => {
       const set = Z3.Set.const('set', Z3.Int.sort());
       const [a, b] = Z3.Int.consts('a b');
 
-      const conjecture = set.contains(a).and(set.contains(b)).implies(Z3.Set.val([a, b], Z3.Int.sort()).subsetOf(set));
+      const conjecture = set
+        .contains(a)
+        .and(set.contains(b))
+        .implies(Z3.Set.val([a, b], Z3.Int.sort()).subsetOf(set));
       await prove(conjecture);
     });
 
@@ -569,7 +572,10 @@ describe('high-level', () => {
       const set = Z3.Set.const('set', Z3.Int.sort());
       const [a, b] = Z3.Int.consts('a b');
 
-      const conjecture = set.contains(a).and(set.contains(b)).and(Z3.Set.val([a, b], Z3.Int.sort()).eq(set));
+      const conjecture = set
+        .contains(a)
+        .and(set.contains(b))
+        .and(Z3.Set.val([a, b], Z3.Int.sort()).eq(set));
       await solve(conjecture);
     });
 
@@ -583,7 +589,7 @@ describe('high-level', () => {
       const conjecture = set.intersect(abset).subsetOf(abset);
       await prove(conjecture);
     });
-    
+
     it('Intersection 2', async () => {
       const Z3 = api.Context('main');
 
@@ -605,7 +611,7 @@ describe('high-level', () => {
       const conjecture = set.subsetOf(set.union(abset));
       await prove(conjecture);
     });
-    
+
     it('Union 2', async () => {
       const Z3 = api.Context('main');
 
@@ -616,14 +622,14 @@ describe('high-level', () => {
       const conjecture = set.union(abset).subsetOf(abset);
       await solve(conjecture);
     });
-    
+
     it('Complement 1', async () => {
       const Z3 = api.Context('main');
 
       const set = Z3.Set.const('set', Z3.Int.sort());
       const a = Z3.Int.const('a');
 
-      const conjecture = set.complement().complement().eq(set)
+      const conjecture = set.complement().complement().eq(set);
       await prove(conjecture);
     });
     it('Complement 2', async () => {
@@ -632,28 +638,28 @@ describe('high-level', () => {
       const set = Z3.Set.const('set', Z3.Int.sort());
       const a = Z3.Int.const('a');
 
-      const conjecture = set.contains(a).implies(Z3.Not(set.complement().contains(a)))
+      const conjecture = set.contains(a).implies(Z3.Not(set.complement().contains(a)));
       await prove(conjecture);
     });
-    
+
     it('Difference', async () => {
       const Z3 = api.Context('main');
 
       const [set1, set2] = Z3.Set.consts('set1 set2', Z3.Int.sort());
       const a = Z3.Int.const('a');
 
-      const conjecture = set1.contains(a).implies(Z3.Not(set2.diff(set1).contains(a)))
-      
+      const conjecture = set1.contains(a).implies(Z3.Not(set2.diff(set1).contains(a)));
+
       await prove(conjecture);
     });
-    
+
     it('FullSet', async () => {
       const Z3 = api.Context('main');
 
       const set = Z3.Set.const('set', Z3.Int.sort());
 
       const conjecture = set.complement().eq(Z3.FullSet(Z3.Int.sort()).diff(set));
-      
+
       await prove(conjecture);
     });
 
@@ -664,7 +670,7 @@ describe('high-level', () => {
       const [a, b] = Z3.Int.consts('a b');
 
       const conjecture = empty.add(a).add(b).del(a).del(b).eq(empty);
-      
+
       await prove(conjecture);
     });
   });
@@ -792,6 +798,31 @@ describe('high-level', () => {
           }
         });
       expect(results).toStrictEqual([1n, 2n, 3n, 4n, 5n]);
+    });
+
+    it('can use check with assumptions and unsatCore', async () => {
+      const { Solver, Bool } = api.Context('main');
+      const solver = new Solver();
+      solver.set('unsat_core', true);
+      const x = Bool.const('x');
+      const y = Bool.const('y');
+      const z = Bool.const('z');
+
+      // Add conflicting assertions
+      solver.add(x.or(y));
+      solver.add(x.or(z));
+
+      // Check with assumptions that create a conflict
+      const result = await solver.check(x.not(), y.not(), z.not());
+      if (result === 'unknown') {
+        console.log('Solver returned unknown. Reason:', solver.reasonUnknown());
+      }
+      expect(result).toStrictEqual('unsat');
+
+      // Get the unsat core
+      const core = solver.unsatCore();
+      expect(core.length()).toBeGreaterThan(0);
+      expect(core.length()).toBeLessThanOrEqual(3);
     });
   });
 
@@ -923,14 +954,14 @@ describe('high-level', () => {
       Color.declare('red');
       Color.declare('green');
       Color.declare('blue');
-      
+
       const ColorSort = Color.create();
-      
+
       // Test that we can access the constructors
       expect(typeof (ColorSort as any).red).not.toBe('undefined');
       expect(typeof (ColorSort as any).green).not.toBe('undefined');
       expect(typeof (ColorSort as any).blue).not.toBe('undefined');
-      
+
       // Test that we can access the recognizers
       expect(typeof (ColorSort as any).is_red).not.toBe('undefined');
       expect(typeof (ColorSort as any).is_green).not.toBe('undefined');
@@ -944,9 +975,9 @@ describe('high-level', () => {
       const List = Datatype('List');
       List.declare('cons', ['car', Int.sort()], ['cdr', List]);
       List.declare('nil');
-      
+
       const ListSort = List.create();
-      
+
       // Test that constructors and accessors exist
       expect(typeof (ListSort as any).cons).not.toBe('undefined');
       expect(typeof (ListSort as any).nil).not.toBe('undefined');
@@ -962,20 +993,20 @@ describe('high-level', () => {
       // Create mutually recursive Tree and TreeList datatypes
       const Tree = Datatype('Tree');
       const TreeList = Datatype('TreeList');
-      
+
       Tree.declare('leaf', ['value', Int.sort()]);
       Tree.declare('node', ['children', TreeList]);
       TreeList.declare('nil');
       TreeList.declare('cons', ['car', Tree], ['cdr', TreeList]);
-      
+
       const [TreeSort, TreeListSort] = Datatype.createDatatypes(Tree, TreeList);
-      
+
       // Test that both datatypes have their constructors
       expect(typeof (TreeSort as any).leaf).not.toBe('undefined');
       expect(typeof (TreeSort as any).node).not.toBe('undefined');
       expect(typeof (TreeListSort as any).nil).not.toBe('undefined');
       expect(typeof (TreeListSort as any).cons).not.toBe('undefined');
-      
+
       // Test accessors exist
       expect(typeof (TreeSort as any).value).not.toBe('undefined');
       expect(typeof (TreeSort as any).children).not.toBe('undefined');

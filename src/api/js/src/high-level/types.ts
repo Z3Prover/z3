@@ -73,7 +73,13 @@ export type CoercibleToBitVec<Bits extends number = number, Name extends string 
 export type CoercibleRational = { numerator: bigint | number; denominator: bigint | number };
 
 /** @hidden */
-export type CoercibleToExpr<Name extends string = 'main'> = number | string | bigint | boolean | CoercibleRational | Expr<Name>;
+export type CoercibleToExpr<Name extends string = 'main'> =
+  | number
+  | string
+  | bigint
+  | boolean
+  | CoercibleRational
+  | Expr<Name>;
 
 /** @hidden */
 export type CoercibleToArith<Name extends string = 'main'> = number | string | bigint | CoercibleRational | Arith<Name>;
@@ -448,6 +454,12 @@ export interface Context<Name extends string = 'main'> {
   /** @category Operations */
   PbLe(args: [Bool<Name>, ...Bool<Name>[]], coeffs: [number, ...number[]], k: number): Bool<Name>;
 
+  /** @category Operations */
+  AtMost(args: [Bool<Name>, ...Bool<Name>[]], k: number): Bool<Name>;
+
+  /** @category Operations */
+  AtLeast(args: [Bool<Name>, ...Bool<Name>[]], k: number): Bool<Name>;
+
   // Quantifiers
 
   /** @category Operations */
@@ -621,33 +633,45 @@ export interface Context<Name extends string = 'main'> {
   substitute(t: Expr<Name>, ...substitutions: [Expr<Name>, Expr<Name>][]): Expr<Name>;
 
   simplify(expr: Expr<Name>): Promise<Expr<Name>>;
-  
+
   /** @category Operations */
   SetUnion<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
-  
+
   /** @category Operations */
   SetIntersect<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
-  
-  /** @category Operations */
-  SetDifference<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
 
   /** @category Operations */
-  SetAdd<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
+  SetDifference<ElemSort extends AnySort<Name>>(
+    a: SMTSet<Name, ElemSort>,
+    b: SMTSet<Name, ElemSort>,
+  ): SMTSet<Name, ElemSort>;
 
   /** @category Operations */
-  SetDel<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
+  SetAdd<ElemSort extends AnySort<Name>>(
+    set: SMTSet<Name, ElemSort>,
+    elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>,
+  ): SMTSet<Name, ElemSort>;
+
+  /** @category Operations */
+  SetDel<ElemSort extends AnySort<Name>>(
+    set: SMTSet<Name, ElemSort>,
+    elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>,
+  ): SMTSet<Name, ElemSort>;
 
   /** @category Operations */
   SetComplement<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
-  
+
   /** @category Operations */
   EmptySet<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort>;
 
   /** @category Operations */
   FullSet<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort>;
-  
+
   /** @category Operations */
-  isMember<ElemSort extends AnySort<Name>>(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>, set: SMTSet<Name, ElemSort>): Bool<Name>;
+  isMember<ElemSort extends AnySort<Name>>(
+    elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>,
+    set: SMTSet<Name, ElemSort>,
+  ): Bool<Name>;
 
   /** @category Operations */
   isSubset<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): Bool<Name>;
@@ -709,11 +733,89 @@ export interface Solver<Name extends string = 'main'> {
 
   fromString(s: string): void;
 
+  /**
+   * Check whether the assertions in the solver are consistent or not.
+   *
+   * Optionally, you can provide additional boolean expressions as assumptions.
+   * These assumptions are temporary and only used for this check - they are not
+   * permanently added to the solver.
+   *
+   * @param exprs - Optional assumptions to check in addition to the solver's assertions.
+   *                These are temporary and do not modify the solver state.
+   * @returns A promise resolving to:
+   *          - `'sat'` if the assertions (plus assumptions) are satisfiable
+   *          - `'unsat'` if they are unsatisfiable
+   *          - `'unknown'` if Z3 cannot determine satisfiability
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * solver.add(x.gt(0));
+   *
+   * // Check without assumptions
+   * await solver.check(); // 'sat'
+   *
+   * // Check with temporary assumption (doesn't modify solver)
+   * await solver.check(x.lt(0)); // 'unsat'
+   * await solver.check(); // still 'sat' - assumption was temporary
+   * ```
+   *
+   * @see {@link unsatCore} - Retrieve unsat core after checking with assumptions
+   */
   check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
+
+  /**
+   * Retrieve the unsat core after a check that returned `'unsat'`.
+   *
+   * The unsat core is a (typically small) subset of the assumptions that were
+   * sufficient to determine unsatisfiability. This is useful for understanding
+   * which assumptions are conflicting.
+   *
+   * Note: To use unsat cores effectively, you should call {@link check} with
+   * assumptions (not just assertions added via {@link add}).
+   *
+   * @returns An AstVector containing the subset of assumptions that caused UNSAT
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * const y = Bool.const('y');
+   * const z = Bool.const('z');
+   * solver.add(x.or(y));
+   * solver.add(x.or(z));
+   *
+   * const result = await solver.check(x.not(), y.not(), z.not());
+   * if (result === 'unsat') {
+   *   const core = solver.unsatCore();
+   *   // core will contain a minimal set of conflicting assumptions
+   *   console.log('UNSAT core size:', core.length());
+   * }
+   * ```
+   *
+   * @see {@link check} - Check with assumptions to use with unsat core
+   */
+  unsatCore(): AstVector<Name, Bool<Name>>;
 
   model(): Model<Name>;
 
   unsatCore(): AstVector<Name, Bool<Name>>;
+
+  /**
+   * Return a string describing why the last call to {@link check} returned `'unknown'`.
+   *
+   * @returns A string explaining the reason, or an empty string if the last check didn't return unknown
+   *
+   * @example
+   * ```typescript
+   * const result = await solver.check();
+   * if (result === 'unknown') {
+   *   console.log('Reason:', solver.reasonUnknown());
+   * }
+   * ```
+   */
+  reasonUnknown(): string;
 
   /**
    * Manually decrease the reference count of the solver
@@ -963,8 +1065,10 @@ export interface FuncDecl<
   call(...args: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
 }
 
-export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
-  extends Ast<Name, Ptr> {
+export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown> extends Ast<
+  Name,
+  Ptr
+> {
   /** @hidden */
   readonly __typename:
     | 'Expr'
@@ -1263,8 +1367,11 @@ export interface BitVecCreation<Name extends string> {
  * Represents Bit Vector expression
  * @category Bit Vectors
  */
-export interface BitVec<Bits extends number = number, Name extends string = 'main'>
-  extends Expr<Name, BitVecSort<Bits, Name>, Z3_ast> {
+export interface BitVec<Bits extends number = number, Name extends string = 'main'> extends Expr<
+  Name,
+  BitVecSort<Bits, Name>,
+  Z3_ast
+> {
   /** @hidden */
   readonly __typename: 'BitVec' | BitVecNum['__typename'];
 
@@ -1614,12 +1721,15 @@ export interface SMTArray<
 
 /**
  * Set Implemented using Arrays
- * 
+ *
  * @typeParam ElemSort The sort of the element of the set
  * @category Sets
  */
-export type SMTSetSort<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>> = SMTArraySort<Name, [ElemSort], BoolSort<Name>>;
-
+export type SMTSetSort<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>> = SMTArraySort<
+  Name,
+  [ElemSort],
+  BoolSort<Name>
+>;
 
 /** @category Sets*/
 export interface SMTSetCreation<Name extends string> {
@@ -1628,10 +1738,13 @@ export interface SMTSetCreation<Name extends string> {
   const<ElemSort extends AnySort<Name>>(name: string, elemSort: ElemSort): SMTSet<Name, ElemSort>;
 
   consts<ElemSort extends AnySort<Name>>(names: string | string[], elemSort: ElemSort): SMTSet<Name, ElemSort>[];
-  
+
   empty<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort>;
-  
-  val<ElemSort extends AnySort<Name>>(values: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>[], sort: ElemSort): SMTSet<Name, ElemSort>;
+
+  val<ElemSort extends AnySort<Name>>(
+    values: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>[],
+    sort: ElemSort,
+  ): SMTSet<Name, ElemSort>;
 }
 
 /**
@@ -1640,23 +1753,25 @@ export interface SMTSetCreation<Name extends string> {
  * @typeParam ElemSort The sort of the element of the set
  * @category Arrays
  */
-export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>>  extends Expr<Name, SMTSetSort<Name, ElemSort>, Z3_ast> {
+export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>> extends Expr<
+  Name,
+  SMTSetSort<Name, ElemSort>,
+  Z3_ast
+> {
   readonly __typename: 'Array';
-  
+
   elemSort(): ElemSort;
 
   union(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
   intersect(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort>;
   diff(b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort>;
-  
 
   add(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
   del(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort>;
   complement(): SMTSet<Name, ElemSort>;
-  
+
   contains(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): Bool<Name>;
   subsetOf(b: SMTSet<Name, ElemSort>): Bool<Name>;
-
 }
 //////////////////////////////////////////
 //
@@ -1666,10 +1781,10 @@ export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<N
 
 /**
  * Helper class for declaring Z3 datatypes.
- * 
+ *
  * Follows the same pattern as Python Z3 API for declaring constructors
  * before creating the actual datatype sort.
- * 
+ *
  * @example
  * ```typescript
  * const List = new ctx.Datatype('List');
@@ -1677,7 +1792,7 @@ export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<N
  * List.declare('nil');
  * const ListSort = List.create();
  * ```
- * 
+ *
  * @category Datatypes
  */
 export interface Datatype<Name extends string = 'main'> {
@@ -1686,7 +1801,7 @@ export interface Datatype<Name extends string = 'main'> {
 
   /**
    * Declare a constructor for this datatype.
-   * 
+   *
    * @param name Constructor name
    * @param fields Array of [field_name, field_sort] pairs
    */
@@ -1710,7 +1825,7 @@ export interface DatatypeCreation<Name extends string> {
 
   /**
    * Create mutually recursive datatypes.
-   * 
+   *
    * @param datatypes Array of Datatype declarations
    * @returns Array of created DatatypeSort instances
    */
@@ -1719,10 +1834,10 @@ export interface DatatypeCreation<Name extends string> {
 
 /**
  * A Sort representing an algebraic datatype.
- * 
+ *
  * After creation, this sort will have constructor, recognizer, and accessor
  * functions dynamically attached based on the declared constructors.
- * 
+ *
  * @category Datatypes
  */
 export interface DatatypeSort<Name extends string = 'main'> extends Sort<Name> {
@@ -1756,8 +1871,8 @@ export interface DatatypeSort<Name extends string = 'main'> extends Sort<Name> {
 
 /**
  * Represents expressions of datatype sorts.
- * 
- * @category Datatypes  
+ *
+ * @category Datatypes
  */
 export interface DatatypeExpr<Name extends string = 'main'> extends Expr<Name, DatatypeSort<Name>, Z3_ast> {
   /** @hidden */
