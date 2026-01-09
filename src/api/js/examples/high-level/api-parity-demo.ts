@@ -8,7 +8,8 @@
 import { init } from '../../build/node';
 
 (async () => {
-  const { Solver, Bool, Int, Sort, Const } = await init();
+  const { Context } = await init();
+  const { Solver, Bool, Int, Sort, Const } = Context('main');
 
   console.log('=== Solver Introspection APIs Demo ===\n');
 

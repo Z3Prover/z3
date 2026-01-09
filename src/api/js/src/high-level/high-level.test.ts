@@ -1017,7 +1017,7 @@ describe('high-level', () => {
 
   describe('solver introspection APIs', () => {
     it('can retrieve unit literals', async () => {
-      const { Solver, Bool } = api;
+      const { Solver, Bool } = api.Context('main');
 
       const solver = new Solver();
       const x = Bool.const('x');
@@ -1035,7 +1035,7 @@ describe('high-level', () => {
     });
 
     it('can retrieve non-unit literals', async () => {
-      const { Solver, Bool } = api;
+      const { Solver, Bool } = api.Context('main');
 
       const solver = new Solver();
       const x = Bool.const('x');
@@ -1053,7 +1053,7 @@ describe('high-level', () => {
     });
 
     it('can retrieve solver trail', async () => {
-      const { Solver, Bool } = api;
+      const { Solver, Bool } = api.Context('main');
 
       const solver = new Solver();
       const x = Bool.const('x');
@@ -1074,7 +1074,7 @@ describe('high-level', () => {
 
   describe('solver congruence closure APIs', () => {
     it('can get congruence root', async () => {
-      const { Solver, Int } = api;
+      const { Solver, Int } = api.Context('main');
 
       const solver = new Solver();
       const x = Int.const('x');
@@ -1091,7 +1091,7 @@ describe('high-level', () => {
     });
 
     it('can get congruence next', async () => {
-      const { Solver, Int } = api;
+      const { Solver, Int } = api.Context('main');
 
       const solver = new Solver();
       const x = Int.const('x');
@@ -1110,7 +1110,7 @@ describe('high-level', () => {
     });
 
     it('can explain congruence', async () => {
-      const { Solver, Int } = api;
+      const { Solver, Int } = api.Context('main');
 
       const solver = new Solver();
       const x = Int.const('x');
@@ -1129,7 +1129,7 @@ describe('high-level', () => {
 
   describe('model sort universe APIs', () => {
     it('can get number of sorts', async () => {
-      const { Solver, Sort, Const } = api;
+      const { Solver, Sort, Const } = api.Context('main');
 
       const solver = new Solver();
       const A = Sort.declare('A');
@@ -1146,7 +1146,7 @@ describe('high-level', () => {
     });
 
     it('can get individual sort by index', async () => {
-      const { Solver, Sort, Const } = api;
+      const { Solver, Sort, Const } = api.Context('main');
 
       const solver = new Solver();
       const A = Sort.declare('A');
@@ -1167,7 +1167,7 @@ describe('high-level', () => {
     });
 
     it('can get all sorts', async () => {
-      const { Solver, Sort, Const } = api;
+      const { Solver, Sort, Const } = api.Context('main');
 
       const solver = new Solver();
       const A = Sort.declare('A');
@@ -1185,7 +1185,7 @@ describe('high-level', () => {
     });
 
     it('can get sort universe', async () => {
-      const { Solver, Sort, Const } = api;
+      const { Solver, Sort, Const } = api.Context('main');
 
       const solver = new Solver();
       const A = Sort.declare('A');
@@ -1206,7 +1206,7 @@ describe('high-level', () => {
 
   describe('solver file loading API', () => {
     it('has fromFile method', () => {
-      const { Solver } = api;
+      const { Solver } = api.Context('main');
       const solver = new Solver();
 
       // Just verify the method exists - we don't test actual file loading
