@@ -447,11 +447,67 @@ jobs:
           
           ## Your Task
           
-          1. **Find recent build logs** from GitHub Actions workflows (look for workflows like `ubuntu-*`, `macos-*`, `Windows.yml`, etc.)
-             - Use the GitHub Actions MCP tools to list recent workflow runs and fetch job logs:
-               - `github-mcp-server-actions_list` to list workflows
-               - `github-mcp-server-get_job_logs` to fetch logs from builds
-             - Alternative: You can also use the `agentic-workflows` tool's `logs` command
+          1. **Find recent build logs** from GitHub Actions workflows
+             
+             Target these build workflows which run regularly and may contain warnings:
+             - `msvc-static-build-clang-cl.yml` - Clang-CL MSVC static builds (runs every 2 days)
+             - `msvc-static-build.yml` - MSVC static builds
+             - `Windows.yml` - Windows builds
+             - `wip.yml` - Open issues workflow with Ubuntu builds
+             - Check for other active build workflows with `list_workflows`
+             
+             **Recommended Approach: Use the agentic-workflows tool**
+             
+             The easiest way to analyze workflow logs is using the `agentic-workflows` tool which provides high-level commands:
+             
+             ```
+             To download and analyze logs from a workflow:
+             - Tool: agentic-workflows
+             - Command: logs
+             - Parameters: workflow_name: "msvc-static-build-clang-cl" (without .yml extension)
+             ```
+             
+             This will download recent workflow run logs and provide structured analysis including:
+             - Error messages and warnings
+             - Token usage and costs
+             - Execution times
+             - Success/failure patterns
+             
+             **Alternative: Use GitHub Actions MCP tools directly**
+             
+             You can also use the GitHub Actions tools for more granular control:
+             
+             Step 1: List workflows
+             ```
+             Tool: github-mcp-server-actions_list (or actions_list)
+             Parameters:
+             - method: "list_workflows"
+             - owner: "Z3Prover"
+             - repo: "z3"
+             ```
+             
+             Step 2: List recent runs
+             ```
+             Tool: github-mcp-server-actions_list (or actions_list)  
+             Parameters:
+             - method: "list_workflow_runs"
+             - owner: "Z3Prover"
+             - repo: "z3"
+             - resource_id: "msvc-static-build-clang-cl.yml"
+             - per_page: 5
+             ```
+             
+             Step 3: Get job logs
+             ```
+             Tool: github-mcp-server-get_job_logs (or get_job_logs)
+             Parameters:
+             - owner: "Z3Prover"
+             - repo: "z3"
+             - run_id: <from step 2>
+             - failed_only: false
+             - return_content: true
+             - tail_lines: 2000
+             ```
           
           2. **Extract compiler warnings** from the build logs:
              - Look for C++ compiler warnings (gcc, clang, MSVC patterns)
