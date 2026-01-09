@@ -115,7 +115,7 @@ struct levelwise::impl {
         I.u_index = 0;
     }
 
-    // PSC-based discriminant candidate (first non-constant/non-zero PSC of p and d/dx p).
+    // PSC-based discriminant: returns the first non-zero, non-constant element from the PSC chain.
     polynomial_ref psc_discriminant(polynomial_ref const& p_in, unsigned x) {
         if (!p_in || is_zero(p_in) || is_const(p_in))
             return polynomial_ref(m_pm);
@@ -127,16 +127,19 @@ struct levelwise::impl {
         chain.reset();
         m_cache.psc_chain(p, d, x, chain);
         polynomial_ref disc(m_pm);
+        // Iterate forward: S[0] is the resultant (after reverse in psc_chain)
         for (unsigned i = 0; i < chain.size(); ++i) {
             disc = polynomial_ref(chain.get(i), m_pm);
-            if (!disc || is_zero(disc) || is_const(disc))
+            if (!disc || is_zero(disc))
                 continue;
+            if (is_const(disc))
+                return polynomial_ref(m_pm);  // constant means discriminant is non-zero constant
             return disc;
         }
         return polynomial_ref(m_pm);
     }
 
-    // PSC-based resultant candidate (first non-zero/non-constant PSC of a and b).
+    // PSC-based resultant: returns the first non-zero, non-constant element from the PSC chain.
     polynomial_ref psc_resultant(poly* a, poly* b, unsigned x) {
         if (!a || !b)
             return polynomial_ref(m_pm);
@@ -146,12 +149,13 @@ struct levelwise::impl {
         chain.reset();
         m_cache.psc_chain(pa, pb, x, chain);
         polynomial_ref r(m_pm);
+        // Iterate forward: S[0] is the resultant (after reverse in psc_chain)
         for (unsigned i = 0; i < chain.size(); ++i) {
             r = polynomial_ref(chain.get(i), m_pm);
             if (!r || is_zero(r))
                 continue;
             if (is_const(r))
-                return polynomial_ref(m_pm);
+                return polynomial_ref(m_pm);  // constant means polynomials are coprime
             return r;
         }
         return polynomial_ref(m_pm);
@@ -166,13 +170,13 @@ struct levelwise::impl {
     // Select a coefficient c of p (wrt x) such that c(s) != 0, or return null.
     polynomial_ref choose_nonzero_coeff(polynomial_ref const& p, unsigned x) {
         unsigned deg = m_pm.degree(p, x);
-        undef_var_assignment prefix(sample(), x);
         polynomial_ref coeff(m_pm);
         for (int j = static_cast<int>(deg); j >= 0; --j) {
             coeff = m_pm.coeff(p, x, static_cast<unsigned>(j));
             if (!coeff || is_zero(coeff))
                 continue;
-            if (m_am.eval_sign_at(coeff, prefix) != 0)
+
+            if (m_am.eval_sign_at(coeff, sample()) != 0)
                 return coeff;
         }
         return polynomial_ref(m_pm);
@@ -292,24 +296,26 @@ struct levelwise::impl {
             for (unsigned i = 0; i < n; ++i)
                 degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
 
-            unsigned min_idx = l;
-            unsigned min_deg = degs[l];
+            // For roots below l: connect each to the minimum-degree root seen so far
+            unsigned min_idx_below = l;
+            unsigned min_deg_below = degs[l];
             for (int j = static_cast<int>(l) - 1; j >= 0; --j) {
                 unsigned jj = static_cast<unsigned>(j);
-                m_rel.add_pair(jj, min_idx);
-                if (degs[jj] < min_deg) {
-                    min_deg = degs[jj];
-                    min_idx = jj;
+                m_rel.add_pair(jj, min_idx_below);
+                if (degs[jj] < min_deg_below) {
+                    min_deg_below = degs[jj];
+                    min_idx_below = jj;
                 }
             }
 
-            min_idx = l;
-            min_deg = degs[l];
+            // For roots above l: connect minimum-degree root to each subsequent root
+            unsigned min_idx_above = l;
+            unsigned min_deg_above = degs[l];
             for (unsigned j = l + 1; j < n; ++j) {
-                m_rel.add_pair(min_idx, j);
-                if (degs[j] < min_deg) {
-                    min_deg = degs[j];
-                    min_idx = j;
+                m_rel.add_pair(min_idx_above, j);
+                if (degs[j] < min_deg_above) {
+                    min_deg_above = degs[j];
+                    min_idx_above = j;
                 }
             }
             break;
@@ -359,25 +365,25 @@ struct levelwise::impl {
 
         anum const& v = sample().value(level);
 
+        // Comparator for sorting roots by value (with deterministic tie-breaking)
         auto cmp = [&](root_function const& a, root_function const& b) {
-            if (a.ire.p == b.ire.p)
-                return a.ire.i < b.ire.i;
-            if (m_am.lt(a.val, b.val))
-                return true;
-            if (m_am.lt(b.val, a.val))
-                return false;
-            // deterministic tie-break: same value
+            if (a.ire.p == b.ire.p) // compare pointers
+                return a.ire.i < b.ire.i; // compare root indices in the same polynomial
+            auto r = m_am.compare(a.val, b.val);
+            if (r)
+                return r == sign_neg;            
+            // Tie-break: same value - use polynomial id
             unsigned ida = m_pm.id(a.ire.p);
             unsigned idb = m_pm.id(b.ire.p);
-            if (ida != idb)
-                return ida < idb;
-            return a.ire.i < b.ire.i;
+            return ida < idb;
         };
 
+        // Partition: roots <= v come first, then roots > v
         auto& rfs = m_rel.m_rfunc;
         auto mid = std::partition(rfs.begin(), rfs.end(), [&](root_function const& f) {
             return m_am.compare(f.val, v) <= 0;
         });
+        // Sort each partition separately - O(n log n) comparisons between roots only
         std::sort(rfs.begin(), mid, cmp);
         std::sort(mid, rfs.end(), cmp);
 
@@ -481,13 +487,15 @@ struct levelwise::impl {
         // Lines 3-8: Θ + I_level + relation ≼
         build_interval_and_relation(level, level_ps);
 
-        // Lines 11-12: add projections for each p
+        // Lines 11-12 (Algorithm 1): add projections for each p
+        // Note: Algorithm 1 adds disc + ldcf for ALL polynomials (classical delineability)
+        // Algorithm 2 (projective delineability) would only add ldcf for bound-defining polys
         for (unsigned i = 0; i < level_ps.size(); ++i) {
             polynomial_ref p(level_ps.get(i), m_pm);
             add_projections_for(P, p, level, witnesses[i]);
         }
 
-        // Lines 13-14: add resultants for chosen relation pairs
+        // Line 14 (Algorithm 1): add resultants for chosen relation pairs
         add_relation_resultants(P, level);
     }
 
@@ -608,4 +616,3 @@ std::ostream& nlsat::display(std::ostream& out, solver& s, levelwise::root_funct
     }
     return out;
 }
-
