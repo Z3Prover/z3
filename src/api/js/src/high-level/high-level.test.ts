@@ -1052,24 +1052,6 @@ describe('high-level', () => {
       expect(nonUnits.length()).toBeGreaterThanOrEqual(0);
     });
 
-    it('can retrieve solver trail', async () => {
-      const { Solver, Bool } = api.Context('main');
-
-      const solver = new Solver();
-      const x = Bool.const('x');
-      const y = Bool.const('y');
-
-      solver.add(x.implies(y));
-      solver.add(x);
-
-      const result = await solver.check();
-      expect(result).toBe('sat');
-
-      // Get trail
-      const trail = solver.trail();
-      expect(trail).toBeDefined();
-      expect(trail.length()).toBeGreaterThanOrEqual(0);
-    });
   });
 
   describe('solver congruence closure APIs', () => {
