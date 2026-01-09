@@ -1278,7 +1278,7 @@ describe('high-level', () => {
     });
 
     it('can perform FP comparisons', async () => {
-      const { Float, FloatRM, Solver } = api.Context('main');
+      const { Float, FloatRM, Solver, isFP } = api.Context('main');
       const fp32 = Float.sort32();
       
       const x = Float.const('x', fp32);
@@ -1365,10 +1365,10 @@ describe('high-level', () => {
     });
 
     it('can create sequence sorts', () => {
-      const { Seq, Int } = api.Context('main');
+      const { Seq, Int, eqIdentity } = api.Context('main');
       
       const intSeq = Seq.sort(Int.sort());
-      expect(intSeq.basis().eq(Int.sort())).toBe(true);
+      expect(eqIdentity(intSeq.basis(), Int.sort())).toBe(true);
       
       const empty = Seq.empty(Int.sort());
       expect(empty.length().toString()).toContain('0');
