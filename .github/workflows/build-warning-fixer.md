@@ -28,7 +28,14 @@ You are an AI agent that automatically detects and fixes build warnings in the Z
 
 ## Your Task
 
-1. **Find recent build logs** from GitHub Actions workflows (look for workflows like `msvc-static-build-clang-cl.yml`, `Windows.yml`, etc.)
+1. **Find recent build logs** from GitHub Actions workflows
+   
+   Target these build workflows which run regularly and may contain warnings:
+   - `msvc-static-build-clang-cl.yml` - Clang-CL MSVC static builds (runs every 2 days)
+   - `msvc-static-build.yml` - MSVC static builds
+   - `Windows.yml` - Windows builds
+   - `wip.yml` - Open issues workflow with Ubuntu builds
+   - Check for other active build workflows with `list_workflows`
    
    **Recommended Approach: Use the agentic-workflows tool**
    
