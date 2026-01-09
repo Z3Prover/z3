@@ -205,7 +205,7 @@ public class Expr<R extends Sort> extends AST
         getContext().checkContextMatch(from);
         getContext().checkContextMatch(to);
         if (from.length != to.length) {
-            throw new Z3Exception("Argument sizes do not match");
+            throw new Z3Exception("Arrays 'from' and 'to' must have the same length");
         }
         return (Expr<R>) Expr.create(getContext(), Native.substituteFuns(getContext().nCtx(),
                 getNativeObject(), from.length, AST.arrayToNative(from),
