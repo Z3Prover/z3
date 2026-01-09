@@ -3287,6 +3287,32 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return _toExpr(check(Z3.substitute(contextPtr, t.ast, from, to)));
     }
 
+    function substituteVars(t: Expr<Name>, ...to: Expr<Name>[]): Expr<Name> {
+      _assertContext(t);
+      const toAsts: Z3_ast[] = [];
+      for (const expr of to) {
+        _assertContext(expr);
+        toAsts.push(expr.ast);
+      }
+      return _toExpr(check(Z3.substitute_vars(contextPtr, t.ast, toAsts)));
+    }
+
+    function substituteFuns(
+      t: Expr<Name>,
+      ...substitutions: [FuncDecl<Name>, Expr<Name>][]
+    ): Expr<Name> {
+      _assertContext(t);
+      const from: Z3_func_decl[] = [];
+      const to: Z3_ast[] = [];
+      for (const [f, body] of substitutions) {
+        _assertContext(f);
+        _assertContext(body);
+        from.push(f.decl);
+        to.push(body.ast);
+      }
+      return _toExpr(check(Z3.substitute_funs(contextPtr, t.ast, from, to)));
+    }
+
     function ast_from_string(s: string): Ast<Name> {
       const sort_names: Z3_symbol[] = [];
       const sorts: Z3_sort[] = [];
@@ -3431,6 +3457,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Extract,
 
       substitute,
+      substituteVars,
+      substituteFuns,
       simplify,
 
       /////////////
