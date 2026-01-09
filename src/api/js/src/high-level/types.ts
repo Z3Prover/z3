@@ -837,7 +837,7 @@ export interface Solver<Name extends string = 'main'> {
 
   /**
    * Retrieve the set of tracked boolean literals that are not unit literals.
-   * 
+   *
    * @returns An AstVector containing the non-unit literals
    *
    * @example
@@ -875,7 +875,7 @@ export interface Solver<Name extends string = 'main'> {
   /**
    * Retrieve the root of the congruence class containing the given expression.
    * This is useful for understanding equality reasoning in the solver.
-   * 
+   *
    * Note: This works primarily with SimpleSolver and may not work with terms
    * eliminated during preprocessing.
    *
@@ -897,7 +897,7 @@ export interface Solver<Name extends string = 'main'> {
   /**
    * Retrieve the next expression in the congruence class containing the given expression.
    * The congruence class forms a circular linked list.
-   * 
+   *
    * Note: This works primarily with SimpleSolver and may not work with terms
    * eliminated during preprocessing.
    *
@@ -921,12 +921,12 @@ export interface Solver<Name extends string = 'main'> {
   /**
    * Explain why two expressions are congruent according to the solver's reasoning.
    * Returns a proof term explaining the congruence.
-   * 
+   *
    * Note: This works primarily with SimpleSolver and may not work with terms
    * eliminated during preprocessing.
    *
    * @param a - First expression
-   * @param b - Second expression  
+   * @param b - Second expression
    * @returns An expression representing the proof of congruence
    *
    * @example
@@ -1283,10 +1283,8 @@ export interface FuncDecl<
   call(...args: CoercibleToArrayIndexType<Name, DomainSort>): SortToExprMap<RangeSort, Name>;
 }
 
-export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown> extends Ast<
-  Name,
-  Ptr
-> {
+export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySort<Name>, Ptr = unknown>
+  extends Ast<Name, Ptr> {
   /** @hidden */
   readonly __typename:
     | 'Expr'
@@ -1585,11 +1583,8 @@ export interface BitVecCreation<Name extends string> {
  * Represents Bit Vector expression
  * @category Bit Vectors
  */
-export interface BitVec<Bits extends number = number, Name extends string = 'main'> extends Expr<
-  Name,
-  BitVecSort<Bits, Name>,
-  Z3_ast
-> {
+export interface BitVec<Bits extends number = number, Name extends string = 'main'>
+  extends Expr<Name, BitVecSort<Bits, Name>, Z3_ast> {
   /** @hidden */
   readonly __typename: 'BitVec' | BitVecNum['__typename'];
 
@@ -1971,11 +1966,8 @@ export interface SMTSetCreation<Name extends string> {
  * @typeParam ElemSort The sort of the element of the set
  * @category Arrays
  */
-export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>> extends Expr<
-  Name,
-  SMTSetSort<Name, ElemSort>,
-  Z3_ast
-> {
+export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<Name> = Sort<Name>>
+  extends Expr<Name, SMTSetSort<Name, ElemSort>, Z3_ast> {
   readonly __typename: 'Array';
 
   elemSort(): ElemSort;

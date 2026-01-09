@@ -178,7 +178,7 @@ describe('high-level', () => {
       const { Bool, Solver } = api.Context('main');
       const solver = new Solver();
       solver.set('unsat_core', true);
-      
+
       const x = Bool.const('x');
       const y = Bool.const('y');
       const z = Bool.const('z');
@@ -191,7 +191,7 @@ describe('high-level', () => {
       // This tests the async array parameter fix
       const result = await solver.check(x.not(), y.not(), z.not());
       expect(result).toStrictEqual('unsat');
-      
+
       // Verify we can get the unsat core
       const core = solver.unsatCore();
       expect(core.length()).toBeGreaterThan(0);
@@ -1018,16 +1018,16 @@ describe('high-level', () => {
   describe('solver introspection APIs', () => {
     it('can retrieve unit literals', async () => {
       const { Solver, Bool } = api;
-      
+
       const solver = new Solver();
       const x = Bool.const('x');
-      
+
       // Add a constraint that makes x true
       solver.add(x);
-      
+
       const result = await solver.check();
       expect(result).toBe('sat');
-      
+
       // Get unit literals
       const units = solver.units();
       expect(units).toBeDefined();
@@ -1036,16 +1036,16 @@ describe('high-level', () => {
 
     it('can retrieve non-unit literals', async () => {
       const { Solver, Bool } = api;
-      
+
       const solver = new Solver();
       const x = Bool.const('x');
       const y = Bool.const('y');
-      
+
       solver.add(x.or(y));
-      
+
       const result = await solver.check();
       expect(result).toBe('sat');
-      
+
       // Get non-unit literals
       const nonUnits = solver.nonUnits();
       expect(nonUnits).toBeDefined();
@@ -1054,17 +1054,17 @@ describe('high-level', () => {
 
     it('can retrieve solver trail', async () => {
       const { Solver, Bool } = api;
-      
+
       const solver = new Solver();
       const x = Bool.const('x');
       const y = Bool.const('y');
-      
+
       solver.add(x.implies(y));
       solver.add(x);
-      
+
       const result = await solver.check();
       expect(result).toBe('sat');
-      
+
       // Get trail
       const trail = solver.trail();
       expect(trail).toBeDefined();
@@ -1075,16 +1075,16 @@ describe('high-level', () => {
   describe('solver congruence closure APIs', () => {
     it('can get congruence root', async () => {
       const { Solver, Int } = api;
-      
+
       const solver = new Solver();
       const x = Int.const('x');
       const y = Int.const('y');
-      
+
       solver.add(x.eq(y));
-      
+
       const result = await solver.check();
       expect(result).toBe('sat');
-      
+
       // Get congruence root
       const root = solver.congruenceRoot(x);
       expect(root).toBeDefined();
@@ -1092,18 +1092,18 @@ describe('high-level', () => {
 
     it('can get congruence next', async () => {
       const { Solver, Int } = api;
-      
+
       const solver = new Solver();
       const x = Int.const('x');
       const y = Int.const('y');
       const z = Int.const('z');
-      
+
       solver.add(x.eq(y));
       solver.add(y.eq(z));
-      
+
       const result = await solver.check();
       expect(result).toBe('sat');
-      
+
       // Get next element in congruence class
       const next = solver.congruenceNext(x);
       expect(next).toBeDefined();
@@ -1111,16 +1111,16 @@ describe('high-level', () => {
 
     it('can explain congruence', async () => {
       const { Solver, Int } = api;
-      
+
       const solver = new Solver();
       const x = Int.const('x');
       const y = Int.const('y');
-      
+
       solver.add(x.eq(y));
-      
+
       const result = await solver.check();
       expect(result).toBe('sat');
-      
+
       // Get explanation for why x and y are congruent
       const explanation = solver.congruenceExplain(x, y);
       expect(explanation).toBeDefined();
@@ -1130,16 +1130,16 @@ describe('high-level', () => {
   describe('model sort universe APIs', () => {
     it('can get number of sorts', async () => {
       const { Solver, Sort, Const } = api;
-      
+
       const solver = new Solver();
       const A = Sort.declare('A');
       const x = Const('x', A);
-      
+
       solver.add(x.eq(x));
-      
+
       const result = await solver.check();
       expect(result).toBe('sat');
-      
+
       const model = solver.model();
       const numSorts = model.numSorts();
       expect(numSorts).toBeGreaterThanOrEqual(0);
@@ -1147,19 +1147,19 @@ describe('high-level', () => {
 
     it('can get individual sort by index', async () => {
       const { Solver, Sort, Const } = api;
-      
+
       const solver = new Solver();
       const A = Sort.declare('A');
       const x = Const('x', A);
-      
+
       solver.add(x.eq(x));
-      
+
       const result = await solver.check();
       expect(result).toBe('sat');
-      
+
       const model = solver.model();
       const numSorts = model.numSorts();
-      
+
       if (numSorts > 0) {
         const sort = model.getSort(0);
         expect(sort).toBeDefined();
@@ -1168,16 +1168,16 @@ describe('high-level', () => {
 
     it('can get all sorts', async () => {
       const { Solver, Sort, Const } = api;
-      
+
       const solver = new Solver();
       const A = Sort.declare('A');
       const x = Const('x', A);
-      
+
       solver.add(x.eq(x));
-      
+
       const result = await solver.check();
       expect(result).toBe('sat');
-      
+
       const model = solver.model();
       const sorts = model.getSorts();
       expect(Array.isArray(sorts)).toBe(true);
@@ -1186,17 +1186,17 @@ describe('high-level', () => {
 
     it('can get sort universe', async () => {
       const { Solver, Sort, Const } = api;
-      
+
       const solver = new Solver();
       const A = Sort.declare('A');
       const x = Const('x', A);
       const y = Const('y', A);
-      
+
       solver.add(x.neq(y));
-      
+
       const result = await solver.check();
       expect(result).toBe('sat');
-      
+
       const model = solver.model();
       const universe = model.sortUniverse(A);
       expect(universe).toBeDefined();
@@ -1208,7 +1208,7 @@ describe('high-level', () => {
     it('has fromFile method', () => {
       const { Solver } = api;
       const solver = new Solver();
-      
+
       // Just verify the method exists - we don't test actual file loading
       // as that would require creating test files
       expect(typeof solver.fromFile).toBe('function');

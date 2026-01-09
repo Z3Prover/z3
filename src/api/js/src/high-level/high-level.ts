@@ -2959,9 +2959,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     class QuantifierImpl<
-      QVarSorts extends NonEmptySortArray<Name>,
-      QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts>,
-    >
+        QVarSorts extends NonEmptySortArray<Name>,
+        QSort extends BoolSort<Name> | SMTArraySort<Name, QVarSorts>,
+      >
       extends ExprImpl<Z3_ast, QSort>
       implements Quantifier<Name, QVarSorts, QSort>
     {
