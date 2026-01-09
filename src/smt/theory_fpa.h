@@ -89,7 +89,7 @@ namespace smt {
         bool                      m_is_initialized;
         obj_hashtable<func_decl>  m_is_added_to_model;
 
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
         bool internalize_atom(app * atom, bool gate_ctx) override;
         bool internalize_term(app * term) override;
         void apply_sort_cnstr(enode * n, sort * s) override;

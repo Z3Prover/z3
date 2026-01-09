@@ -681,7 +681,6 @@ namespace smt {
         collect_defaults();
         collect_selects();
         propagate_selects();
-        if (m_bapa) m_bapa->init_model();
     }
 
     /**
@@ -699,7 +698,7 @@ namespace smt {
             if (!ctx.is_relevant(n))
                 continue;
             
-            if (is_store(n) || is_const(n) || is_default(n) || is_set_has_size(n))
+            if (is_store(n) || is_const(n) || is_default(n))
                 return false;
         }
         return true;

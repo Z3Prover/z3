@@ -548,21 +548,93 @@ set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
 )
 
 ################################################################################
-# Z3 components, library and executables
+# API header files
 ################################################################################
-include(${PROJECT_SOURCE_DIR}/cmake/z3_add_component.cmake)
-include(${PROJECT_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
-add_subdirectory(src)
+# This lists the API header files that are scanned by
+# some of the build rules to generate some files needed
+# by the build; needs to come before add_subdirectory(src)
+set(Z3_API_HEADER_FILES_TO_SCAN
+  z3_api.h
+  z3_ast_containers.h
+  z3_algebraic.h
+  z3_polynomial.h
+  z3_rcf.h
+  z3_fixedpoint.h
+  z3_optimization.h
+  z3_fpa.h
+  z3_spacer.h
+)
+set(Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN "")
+foreach (header_file ${Z3_API_HEADER_FILES_TO_SCAN})
+  set(full_path_api_header_file "${CMAKE_CURRENT_SOURCE_DIR}/src/api/${header_file}")
+  list(APPEND Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN "${full_path_api_header_file}")
+  if (NOT EXISTS "${full_path_api_header_file}")
+    message(FATAL_ERROR "API header file \"${full_path_api_header_file}\" does not exist")
+  endif()
+endforeach()
 
 ################################################################################
 # Create `Z3Config.cmake` and related files for the build tree so clients can
 # use Z3 via CMake.
 ################################################################################
 include(CMakePackageConfigHelpers)
-export(EXPORT Z3_EXPORTED_TARGETS
-   NAMESPACE z3::
-   FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
-)
+
+option(Z3_BUILD_LIBZ3_CORE "Build the core libz3 library" ON)
+# Only export targets if we built libz3
+if (Z3_BUILD_LIBZ3_CORE)
+  ################################################################################
+  # Z3 components, library and executables
+  ################################################################################
+  include(${PROJECT_SOURCE_DIR}/cmake/z3_add_component.cmake)
+  include(${PROJECT_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
+  add_subdirectory(src)
+
+  export(EXPORT Z3_EXPORTED_TARGETS
+     NAMESPACE z3::
+     FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
+  )
+else()
+  # When not building libz3, we need to find it
+  message(STATUS "Not building libz3, will look for pre-installed library")
+  find_library(Z3_LIBRARY NAMES z3 libz3
+    HINTS ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
+    PATH_SUFFIXES lib lib64
+  )
+  if (NOT Z3_LIBRARY)
+    message(FATAL_ERROR "Could not find pre-installed libz3. Please ensure libz3 is installed or set Z3_BUILD_LIBZ3_CORE=ON")
+  endif()
+  message(STATUS "Found libz3: ${Z3_LIBRARY}")
+
+  # Create an imported target for the pre-installed libz3
+  add_library(libz3 SHARED IMPORTED)
+  set_target_properties(libz3 PROPERTIES
+    IMPORTED_LOCATION "${Z3_LIBRARY}"
+  )
+  # Set include directories for the imported target
+  target_include_directories(libz3 INTERFACE
+    ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}
+  )
+endif()
+
+################################################################################
+# Z3 API bindings
+################################################################################
+option(Z3_BUILD_PYTHON_BINDINGS "Build Python bindings for Z3" OFF)
+if (Z3_BUILD_PYTHON_BINDINGS)
+  # Validate configuration for Python bindings
+  if (Z3_BUILD_LIBZ3_CORE)
+    # Building libz3 together with Python bindings
+    if (NOT Z3_BUILD_LIBZ3_SHARED)
+      message(FATAL_ERROR "The python bindings will not work with a static libz3. "
+              "You either need to disable Z3_BUILD_PYTHON_BINDINGS or enable Z3_BUILD_LIBZ3_SHARED")
+    endif()
+  else()
+    # Using pre-installed libz3 for Python bindings
+    message(STATUS "Building Python bindings with pre-installed libz3")
+  endif()
+  add_subdirectory(src/api/python)
+endif()
+
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${PROJECT_BINARY_DIR}/src/api")
 set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api")
 set(Z3_CXX_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api/c++")
@@ -593,12 +665,15 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/z3.pc.cmake.in"
 # Create `Z3Config.cmake` and related files for install tree so clients can use
 # Z3 via CMake.
 ################################################################################
-install(EXPORT
-  Z3_EXPORTED_TARGETS
-  FILE "Z3Targets.cmake"
-  NAMESPACE z3::
-  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
-)
+# Only install targets if we built libz3
+if (Z3_BUILD_LIBZ3_CORE)
+  install(EXPORT
+    Z3_EXPORTED_TARGETS
+    FILE "Z3Targets.cmake"
+    NAMESPACE z3::
+    DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+  )
+endif()
 set(Z3_INSTALL_TREE_CMAKE_CONFIG_FILE "${PROJECT_BINARY_DIR}/cmake/Z3Config.cmake")
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}")
 set(Z3_SECOND_INCLUDE_DIR "")

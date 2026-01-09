@@ -246,39 +246,39 @@ void fpa2bv_converter::mk_var(unsigned base_inx, sort * srt, expr_ref & result) 
     result = m_util.mk_fp(sgn, e, s);
 }
 
-expr_ref fpa2bv_converter::extra_quantify(expr * e)
-{
+expr_ref fpa2bv_converter::extra_quantify(expr * e) {
     used_vars uv;
-    unsigned nv;
-
-    ptr_buffer<sort> new_decl_sorts;
-    sbuffer<symbol> new_decl_names;
-    expr_ref_buffer subst_map(m);
 
     uv(e);
-    nv = uv.get_num_vars();
-    subst_map.resize(uv.get_max_found_var_idx_plus_1());
-
-    if (nv == 0)
+    if (uv.get_num_vars() == 0)
         return expr_ref(e, m);
 
-    for (unsigned i = 0; i < nv; i++)
-    {
+    ptr_vector<sort> new_decl_sorts;
+    svector<symbol> new_decl_names;
+    expr_ref_vector subst_map(m);
+    unsigned nv = uv.get_max_found_var_idx_plus_1();
+    subst_map.resize(nv);
+
+    unsigned j = 0;
+    for (unsigned i = 0; i < nv; i++) {    
         if (uv.contains(i)) {
             TRACE(fpa2bv, tout << "uv[" << i << "] = " << mk_ismt2_pp(uv.get(i), m) << std::endl; );
             sort * s = uv.get(i);
-            var * v = m.mk_var(i, s);
+            var * v = m.mk_var(j, s);
             new_decl_sorts.push_back(s);
-            new_decl_names.push_back(symbol(i));
+            new_decl_names.push_back(symbol(j));
             subst_map.set(i, v);
+            ++j;
         }
     }
-
-    expr_ref res(m);
-    var_subst vsubst(m);
-    res = vsubst.operator()(e, nv, subst_map.data());
-    TRACE(fpa2bv, tout << "subst'd = " << mk_ismt2_pp(res, m) << std::endl; );
-    res = m.mk_forall(nv, new_decl_sorts.data(), new_decl_names.data(), res);
+    SASSERT(!new_decl_sorts.empty());
+   
+    var_subst vsubst(m, false); // use reverse order: var i is at position i.
+    auto res = vsubst(e, subst_map);
+    TRACE(fpa2bv, tout << "subst'd = " << mk_ismt2_pp(e, m) << "\n->\n" << mk_ismt2_pp(res, m) << "\n");
+    new_decl_sorts.reverse(); // var 0 is at position num_decl_sorts.size() - 1, ...
+    new_decl_names.reverse();
+    res = m.mk_forall(new_decl_sorts.size(), new_decl_sorts.data(), new_decl_names.data(), res);
     return res;
 }
 

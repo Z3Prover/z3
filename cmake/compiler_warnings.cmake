@@ -6,7 +6,13 @@ set(GCC_AND_CLANG_WARNINGS
   "-Wall"
 )
 set(GCC_ONLY_WARNINGS "")
-set(CLANG_ONLY_WARNINGS "")
+# Disable C++98 compatibility warnings to prevent excessive warning output
+# when building with clang-cl or when -Weverything is enabled.
+# These warnings are not useful for Z3 since it requires C++20.
+set(CLANG_ONLY_WARNINGS
+  "-Wno-c++98-compat"
+  "-Wno-c++98-compat-pedantic"
+)
 set(MSVC_WARNINGS "/W3")
 
 ################################################################################

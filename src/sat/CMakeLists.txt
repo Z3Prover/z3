@@ -1,7 +1,6 @@
 z3_add_component(sat
   SOURCES
     dimacs.cpp
-    sat_aig_cuts.cpp
     sat_aig_finder.cpp
     sat_anf_simplifier.cpp
     sat_asymm_branch.cpp
@@ -12,8 +11,6 @@ z3_add_component(sat
     sat_clause_use_list.cpp
     sat_cleaner.cpp
     sat_config.cpp
-    sat_cut_simplifier.cpp
-    sat_cutset.cpp
     sat_ddfw_wrapper.cpp    
     sat_drat.cpp
     sat_elim_eqs.cpp
@@ -21,7 +18,6 @@ z3_add_component(sat
     sat_integrity_checker.cpp
     sat_local_search.cpp
     sat_lookahead.cpp
-    sat_lut_finder.cpp
     sat_model_converter.cpp
     sat_mus.cpp
     sat_npn3_finder.cpp

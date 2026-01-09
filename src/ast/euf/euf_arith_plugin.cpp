@@ -59,7 +59,6 @@ namespace euf {
         expr* e = n->get_expr(), * x, * y;
         // x - y = x + (* -1 y)
         if (a.is_sub(e, x, y)) {
-            auto& m = g.get_manager();
             auto e1 = a.mk_numeral(rational(-1), a.is_int(x));
             auto n1 = g.find(e1) ? g.find(e1) : g.mk(e1, 0, 0, nullptr);
             auto e2 = a.mk_mul(e1, y);

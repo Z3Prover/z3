@@ -298,7 +298,7 @@ namespace realclosure {
 
         int get_sign_condition_sign(numeral const &a, unsigned i);
 
-        bool get_interval(numeral const & a, int & lower_is_inf, int & lower_is_open, numeral & lower, int & upper_is_inf, int & upper_is_open, numeral & upper);
+        bool get_interval(numeral const & a, bool & lower_is_inf, bool & lower_is_open, numeral & lower, bool & upper_is_inf, bool & upper_is_open, numeral & upper);
 
         unsigned num_sign_condition_coefficients(numeral const &a, unsigned i);
 

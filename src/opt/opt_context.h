@@ -186,7 +186,8 @@ namespace opt {
         map_t               m_maxsmts;
         scoped_state        m_scoped_state;
         vector<objective>   m_objectives;
-        model_ref           m_model;         
+        model_ref           m_model;     
+        bool m_model_available = false;
         model_converter_ref          m_model_converter;
         generic_model_converter_ref  m_fm;
         sref_vector<model>           m_model_fixed;
@@ -209,6 +210,13 @@ namespace opt {
     public:
         context(ast_manager& m);
         ~context() override;
+        
+        /**
+         * \brief Create a clone of the optimization context in a different ast_manager.
+         * Translates all assertions, objectives, and solver state.
+         */
+        context* translate(ast_manager& target_m);
+        
         unsigned add_soft_constraint(expr* f, rational const& w, symbol const& id);
         unsigned add_objective(app* t, bool is_max);
         void add_hard_constraint(expr* f);

@@ -241,7 +241,7 @@ namespace smt {
         }
     }
 
-    final_check_status theory_sls::final_check_eh() {
+    final_check_status theory_sls::final_check_eh(unsigned) {
         if (!m_smt_plugin)
             return FC_DONE;
         ++m_after_resolve_decide_count;

@@ -156,8 +156,15 @@ extern "C" {
     }
 
     bool Z3_API Z3_is_algebraic_number(Z3_context c, Z3_ast a) {
+        Z3_TRY;
         LOG_Z3_is_algebraic_number(c, a);
+        RESET_ERROR_CODE();
+        if (!is_expr(a)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            return false;
+        }
         return mk_c(c)->autil().is_irrational_algebraic_numeral(to_expr(a));
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_ast Z3_API Z3_get_algebraic_number_lower(Z3_context c, Z3_ast a, unsigned precision) {

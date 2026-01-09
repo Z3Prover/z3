@@ -1535,7 +1535,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    final_check_status theory_arith<Ext>::final_check_eh() {
+    final_check_status theory_arith<Ext>::final_check_eh(unsigned level) {
         TRACE(arith_eq_adapter_info, m_arith_eq_adapter.display_already_processed(tout););
         TRACE(arith, display(tout););
 

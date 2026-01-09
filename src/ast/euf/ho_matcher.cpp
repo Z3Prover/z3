@@ -293,8 +293,7 @@ namespace euf {
         // v - offset |-> t
         if (is_meta_var(p, wi.pat_offset()) && is_closed(t, 0, wi.term_offset())) {
             auto v = to_var(p);
-            auto idx = v->get_idx() - wi.pat_offset();
-            SASSERT(!m_subst.get(idx)); // reduce ensures meta variables are not in substitutions
+            SASSERT(!m_subst.get(v->get_idx() - wi.pat_offset()));  // reduce ensures meta variables are not in substitutions
             add_binding(v, wi.pat_offset(), t);
             wi.set_done();
             return true;

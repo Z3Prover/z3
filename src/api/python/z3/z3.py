@@ -5010,13 +5010,6 @@ def Ext(a, b):
         _z3_assert(is_array_sort(a) and (is_array(b) or b.is_lambda()), "arguments must be arrays")
     return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
 
-
-def SetHasSize(a, k):
-    ctx = a.ctx
-    k = _py2expr(k, ctx)
-    return _to_expr_ref(Z3_mk_set_has_size(ctx.ref(), a.as_ast(), k.as_ast()), ctx)
-
-
 def is_select(a):
     """Return `True` if `a` is a Z3 array select application.
 
@@ -10039,7 +10032,7 @@ class FPNumRef(FPRef):
     """
 
     def sign(self):
-        num = (ctypes.c_int)()
+        num = ctypes.c_bool()
         nsign = Z3_fpa_get_numeral_sign(self.ctx.ref(), self.as_ast(), byref(num))
         if nsign is False:
             raise Z3Exception("error retrieving the sign of a numeral.")

@@ -1037,8 +1037,6 @@ typedef enum {
     Z3_OP_SET_SUBSET,
     Z3_OP_AS_ARRAY,
     Z3_OP_ARRAY_EXT,
-    Z3_OP_SET_HAS_SIZE,
-    Z3_OP_SET_CARD,
 
     // Bit-vectors
     Z3_OP_BNUM = 0x400,
@@ -3316,12 +3314,6 @@ extern "C" {
      */
     Z3_ast Z3_API Z3_mk_as_array(Z3_context c, Z3_func_decl f);
 
-    /**
-       \brief Create predicate that holds if Boolean array \c set has \c k elements set to true.       
-
-       def_API('Z3_mk_set_has_size', AST, (_in(CONTEXT), _in(AST), _in(AST)))
-    */
-    Z3_ast Z3_API Z3_mk_set_has_size(Z3_context c, Z3_ast set, Z3_ast k);
 
     /**@}*/
 
@@ -5877,7 +5869,7 @@ extern "C" {
        \sa Z3_append_log
        \sa Z3_close_log
 
-       extra_API('Z3_open_log', INT, (_in(STRING),))
+       extra_API('Z3_open_log', BOOL, (_in(STRING),))
     */
     bool Z3_API Z3_open_log(Z3_string filename);
 
@@ -7140,7 +7132,7 @@ extern "C" {
        \brief retrieve the decision depth of Boolean literals (variables or their negations).
        Assumes a check-sat call and no other calls (to extract models) have been invoked.
        
-       def_API('Z3_solver_get_levels', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(UINT), _in_array(3, UINT)))
+       def_API('Z3_solver_get_levels', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(UINT), _out_array(3, UINT)))
     */
     void Z3_API Z3_solver_get_levels(Z3_context c, Z3_solver s, Z3_ast_vector literals, unsigned sz,  unsigned levels[]);
 

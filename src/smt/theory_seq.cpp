@@ -318,7 +318,7 @@ struct scoped_enable_trace {
     }
 };
 
-final_check_status theory_seq::final_check_eh() {
+final_check_status theory_seq::final_check_eh(unsigned level) {
     if (!m_has_seq) {
         return FC_DONE;
     }

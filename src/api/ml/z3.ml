@@ -15,7 +15,7 @@ type context = Z3native.context
 module Log =
 struct
   let open_ filename =
-    lbool_of_int (Z3native.open_log filename) = L_TRUE
+    (Z3native.open_log filename)
   let close = Z3native.close_log
   let append = Z3native.append_log
 end

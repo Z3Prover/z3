@@ -3313,6 +3313,7 @@ namespace z3 {
         Z3_optimize m_opt;
 
     public:
+        struct translate {};
         class handle final {
             unsigned m_h;
         public:
@@ -3320,6 +3321,12 @@ namespace z3 {
             unsigned h() const { return m_h; }
         };
         optimize(context& c):object(c) { m_opt = Z3_mk_optimize(c); Z3_optimize_inc_ref(c, m_opt); }
+        optimize(context & c, optimize const& src, translate): object(c) { 
+            Z3_optimize o = Z3_optimize_translate(src.ctx(), src, c); 
+            check_error(); 
+            m_opt = o; 
+            Z3_optimize_inc_ref(c, m_opt); 
+        }
         optimize(optimize const & o):object(o), m_opt(o.m_opt) {
             Z3_optimize_inc_ref(o.ctx(), o.m_opt);
         }

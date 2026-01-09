@@ -644,6 +644,8 @@ namespace euf {
         return m_egraph.find(m.mk_false());
     }
 
+    // NB. revisit this for interleaving qsolver with theory solvers based on priorities of
+    // activities such as calling nlsat as a final check.
     sat::check_result solver::check() { 
         ++m_stats.m_final_checks;
         TRACE(euf, s().display(tout););

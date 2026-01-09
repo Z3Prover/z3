@@ -510,7 +510,7 @@ namespace smt {
         TRACE(setup, tout << "AUFLIA\n";);
         m_params.setup_AUFLIA(simple_array);
         TRACE(setup, tout << "max_eager_multipatterns: " << m_params.m_qi_max_eager_multipatterns << "\n";);
-        m_context.register_plugin(alloc(smt::theory_i_arith, m_context));
+        setup_i_arith();
         setup_arrays();
     }
 
@@ -646,7 +646,7 @@ namespace smt {
                     m_context.register_plugin(alloc(smt::theory_idl, m_context));
                 else
                     m_context.register_plugin(alloc(smt::theory_rdl, m_context));
-    }
+            }
             break;
         case arith_solver_id::AS_DENSE_DIFF_LOGIC:
             m_params.m_arith_eq2ineq  = true;

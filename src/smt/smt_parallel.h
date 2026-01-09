@@ -36,8 +36,8 @@ namespace smt {
     class parallel {
         context& ctx;
         unsigned num_threads;
-        bool m_should_tune_params;
-        bool m_should_run_parallel;
+        bool m_should_tune_params = true;
+        bool m_should_run_parallel = true;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -62,7 +62,7 @@ namespace smt {
             ast_manager& m;
             parallel& p;
             std::mutex mux;
-            state m_state = state::is_running;
+            state m_state;
             stats m_stats;
             params_ref m_param_state;
             using node = search_tree::node<cube_config>;
@@ -137,8 +137,8 @@ namespace smt {
             ast_manager m;
             scoped_ptr<context> ctx;
 
-            unsigned N = 4;  // number of prefix permutations to test (including current)
-            unsigned m_max_prefix_conflicts = 1000; // todo- maybe make this adaptive to grow up to 1000 but start with a smaller base
+            unsigned N = 5;  // number of prefix permutations to test (including current)
+            unsigned m_max_prefix_conflicts = 1000; 
 
             scoped_ptr<context> m_prefix_solver;
             vector<expr_ref_vector> m_recorded_cubes;
@@ -148,6 +148,8 @@ namespace smt {
 
             params_ref apply_param_values(param_values const &pv);
             void init_param_state();
+            void init_nia_param_state();
+            void init_lia_param_state();
             void init_rdl_param_state();
             param_values mutate_param_state();
             void print_param_values(param_values const &pv) {
@@ -162,6 +164,35 @@ namespace smt {
                     }, kv.second);
                 }
                 IF_VERBOSE(1, verbose_stream() << "\n");
+            }
+
+            double score_probe(context& probe_ctx) {
+                auto& st = probe_ctx.m_stats;
+                auto logic = p.ctx.m_setup.get_logic();
+
+                if (logic == "QF_RDL") {
+                    return
+                        st.m_num_conflicts
+                    + 4.0 * st.m_num_final_checks
+                    - 6.0 * st.m_num_minimized_lits;
+                }
+                else if (logic == "QF_LIA") {
+                    return
+                        2.0 * st.m_num_conflicts
+                    + 1.5 * st.m_num_decisions
+                    + 0.5 * st.m_num_restarts
+                    - 1.0 * st.m_num_add_eq;
+                }
+                else if (logic == "QF_LIA") {
+                    return
+                        4.0 * st.m_num_final_checks
+                    + 2.0 * st.m_num_conflicts
+                    - 1.5 * st.m_num_minimized_lits;
+                } else {
+                    return
+                        st.m_num_conflicts
+                    + st.m_num_decisions;
+                }
             }
 
         public:
@@ -180,6 +211,7 @@ namespace smt {
             struct config {
                 unsigned m_threads_max_conflicts = 1000;
                 bool m_share_units = true;
+                bool m_share_conflicts = true;
                 bool m_share_units_relevant_only = true;
                 bool m_share_units_initial_only = true;
                 double m_max_conflict_mul = 1.5;
