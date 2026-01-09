@@ -1,1187 +1,585 @@
 #include "nlsat/levelwise.h"
 #include "nlsat/nlsat_types.h"
 #include "nlsat/nlsat_assignment.h"
-#include <iterator>
-#include <list>
-#include <vector>
-#include <unordered_map>
-#include <map>
-#include <set>
-#include <algorithm>
-#include <memory>
 #include "math/polynomial/algebraic_numbers.h"
-#include "nlsat_common.h"
-#include <queue>
-#include "math/polynomial/polynomial_cache.h"
 #include "math/polynomial/polynomial.h"
+#include "nlsat_common.h"
 #include "util/z3_exception.h"
 
-bool is_set(unsigned k) { return static_cast<int>(k) != -1; }
+#include <algorithm>
+#include <set>
+#include <utility>
+#include <vector>
+
+static bool is_set(unsigned k) { return static_cast<int>(k) != -1; }
 
 namespace nlsat {
-    enum relation_mode {
-        biggest_cell,
-        chain,
-        lowest_degree
+
+enum relation_mode {
+    biggest_cell,
+    chain,
+    lowest_degree
+};
+
+struct nullified_poly_exception {};
+
+struct levelwise::impl {
+    solver&                      m_solver;
+    polynomial_ref_vector const& m_P;
+    unsigned                     m_n;        // maximal variable we project from
+    pmanager&                    m_pm;
+    anum_manager&                m_am;
+    polynomial::cache&           m_cache;
+    std::vector<root_function_interval> m_I; // intervals for variables 0..m_n-1
+
+    unsigned               m_level = 0;      // current level being processed
+    relation_mode          m_relation_mode = chain;
+
+    polynomial_ref_vector  m_psc_tmp;        // scratch for PSC chains
+    bool                   m_fail = false;
+
+    assignment const& sample() const { return m_solver.sample(); }
+
+    // Utility: call fn for each distinct irreducible factor of poly
+    template <typename Func>
+    void for_each_distinct_factor(polynomial_ref const& poly_in, Func&& fn) {
+        if (!poly_in || is_zero(poly_in) || is_const(poly_in))
+            return;
+        polynomial_ref poly(poly_in);
+        polynomial_ref_vector factors(m_pm);
+        ::nlsat::factor(poly, m_cache, factors);
+        for (unsigned i = 0; i < factors.size(); ++i) {
+            polynomial_ref f(factors.get(i), m_pm);
+            if (!f || is_zero(f) || is_const(f))
+                continue;
+            fn(f);
+        }
+    }
+
+    struct root_function {
+        scoped_anum      val;
+        indexed_root_expr ire;
+        root_function(anum_manager& am, poly* p, unsigned idx, anum const& v)
+            : val(am), ire{ p, idx } { am.set(val, v); }
+        root_function(root_function&& other) noexcept : val(other.val.m()), ire(other.ire) { val = other.val; }
+        root_function(root_function const&) = delete;
+        root_function& operator=(root_function const&) = delete;
+        root_function& operator=(root_function&& other) noexcept {
+            val = other.val;
+            ire = other.ire;
+            return *this;
+        }
     };
-    enum prop_enum {
-        ir_ord,
-        an_del,
-        non_null,
-        ord_inv,
-        sgn_inv,
-        connected,
-        repr,
-        _count 
+
+    // Root functions (Theta) and the chosen relation (≼) on a given level.
+    struct relation_E {
+        std::vector<root_function>              m_rfunc; // Θ: root functions on current level
+        std::vector<std::pair<unsigned, unsigned>> m_pairs; // ≼ relation on indices into m_rfunc
+        bool empty() const { return m_rfunc.empty() && m_pairs.empty(); }
+        void clear() {
+            m_pairs.clear();
+            m_rfunc.clear();
+        }
+        void add_pair(unsigned j, unsigned k) { m_pairs.emplace_back(j, k); }
     };
-    struct nullified_poly_exception {};
-    struct levelwise::impl {
-        // Utility: call fn for each distinct irreducible factor of poly
-        template<typename Func>
-        void for_each_distinct_factor(polynomial_ref& poly, Func&& fn) {
-            polynomial::polynomial_ref_vector factors(m_pm);
-            ::nlsat::factor(poly, m_cache, factors);
-            for (unsigned i = 0; i < factors.size(); i++) {
-                polynomial_ref pr(factors.get(i), m_pm);
-                fn(pr);
-            }
+
+    relation_E m_rel;
+
+    impl(
+        solver& solver,
+        polynomial_ref_vector const& ps,
+        var max_x,
+        assignment const&,
+        pmanager& pm,
+        anum_manager& am,
+        polynomial::cache& cache)
+        : m_solver(solver),
+          m_P(ps),
+          m_n(max_x),
+          m_pm(pm),
+          m_am(am),
+          m_cache(cache),
+          m_psc_tmp(m_pm) {
+        m_I.reserve(m_n);
+        for (unsigned i = 0; i < m_n; ++i) {
+            m_I.emplace_back(m_pm);
+            // Avoid accidental reads of uninitialized indices.
+            m_I.back().l_index = 0;
+            m_I.back().u_index = 0;
         }
-  
-        struct property {
-            prop_enum m_prop_tag;
-            poly*            m_poly = nullptr;
-            unsigned         m_root_index = static_cast<unsigned>(-1); // index of the root function, if applicable; -1 means unspecified
-            property(prop_enum pr, poly* pp, int si = -1) : m_prop_tag(pr), m_poly(pp), m_root_index(si) {}
-            property(prop_enum pr, polynomial::manager&) : m_prop_tag(pr), m_poly(nullptr), m_root_index(static_cast<unsigned>(-1)) {}
-            
-        };
-        struct compare_prop_tags {
-            bool operator()(const property& a, const property& b) const {
-                return (int)a.m_prop_tag > (int)b.m_prop_tag; // ir_ord dequed first
-            }
-        };
-        typedef std::priority_queue<property, std::vector<property>, compare_prop_tags> property_queue;
+    }
 
-        // p_q_plus: Enhanced property queue that allows iteration without modification
-        class p_q_plus {
-        private:
-            property_queue m_queue;
-            std::vector<property> m_elements; // Maintains all enqueued elements for iteration
-            
-        public:
-            p_q_plus() = default;
-            
-            // Push a property to the queue and maintain the elements vector
-            void push(const property& p) {
-                m_queue.push(p);
-                m_elements.push_back(p);
-            }
+    void fail() { throw nullified_poly_exception(); }
 
-            size_t size() const { return m_queue.size(); }
-            
-            // Pop and return the top element
-            property pop() {
-                property p = m_queue.top();
-                m_queue.pop();
-                // Remove from elements vector
-                auto it = std::find_if(m_elements.begin(), m_elements.end(),
-                                       [&p](const property& elem) {
-                                           return elem.m_prop_tag == p.m_prop_tag && 
-                                               elem.m_poly == p.m_poly &&
-                                               elem.m_root_index == p.m_root_index;
-                                       });
-                if (it != m_elements.end()) {
-                    m_elements.erase(it);
-                }
-                return p;
-            }
-            
-            // Check if queue is empty
-            bool empty() const {
-                return m_queue.empty();
-            }
-            
-            // Get reference to underlying elements for iteration
-            const std::vector<property>& elements() const {
-                return m_elements;
-            }
-            
-            // Iterator interface
-            auto begin() const { return m_elements.begin(); }
-            auto end() const { return m_elements.end(); }
-            
-            // Clear the queue and elements
-            void clear() {
-                while (!m_queue.empty()) {
-                    m_queue.pop();
-                }
-                m_elements.clear();
-            }
-        };
+    static void reset_interval(root_function_interval& I) {
+        I.section = false;
+        I.l = nullptr;
+        I.u = nullptr;
+        I.l_index = 0;
+        I.u_index = 0;
+    }
 
-        struct root_function {
-            scoped_anum val;
-            indexed_root_expr ire;
-            root_function(anum_manager& am, polynomial_ref p, unsigned idx, anum const& v)
-                : val(am), ire{ p, idx } { am.set(val, v); }
-            root_function(root_function&& other) noexcept : val(other.val.m()), ire(other.ire) { val = other.val; }
-            root_function(root_function const&) = delete;
-            root_function& operator=(root_function const&) = delete;
-            // allow move-assignment so we can sort a vector<root_function>
-            root_function& operator=(root_function&& other) noexcept { val = other.val; ire = other.ire; return *this; }            
-        };
-        solver&                      m_solver;
-        polynomial_ref_vector const& m_P;
-        unsigned                     m_n; // the max of max_var(p) of all the polynomials, the level of the conflict
-        unsigned                     m_level;// the current level while refining the properties
-        pmanager&                    m_pm;
-        anum_manager&                m_am;
-        std::vector<p_q_plus>        m_Q; // the set of properties to prove
-        std::vector<property>        m_to_refine; 
-        std::vector<root_function_interval> m_I; // intervals per level (indexed by variable/level)
-        bool m_fail = false;
-        /*
-          Let us suppose that l = m_level, and j is such that m_rfunc[j](x_l) <= sample(x_l) and
-          m_rfunc[j](x_l) reaches the maximum of such numbers. Let k is the symmetrical definition for 
-          the upper bounds, and for simplicity assume that both j and k are defined.
-          The paper does not address it formally, but the idea is that the relation is legal 
-          if and only if for every p < j, there is a path (p, p1), (p1, p2), ...(p_n, j) inside of the relation,
-          and the corresponding statement for the upper bound.
-        */
-        struct relation_E {
-            std::vector<root_function> m_rfunc; // the root functions on a level
-            std::vector<std::pair<unsigned, unsigned>> m_pairs; // of the relation
-            bool empty() const { return m_rfunc.size() == 0 && m_pairs.size() == 0; }
-            void clear() {
-                m_pairs.clear();
-                m_rfunc.clear();
-            }
-            // the indices point te the m_rfunc vector
-            void add_pair(unsigned j, unsigned k) { m_pairs.emplace_back(j, k);}
-        };
-        relation_E m_rel;
-        relation_mode m_relation_mode = chain; // there are other choices as well
-        assignment const & sample() const { return m_solver.sample();}
-        assignment & sample() { return m_solver.sample(); }
-        polynomial::cache &          m_cache; 
-        polynomial_ref_vector        m_psc_tmp;
-        // max_x plays the role of n in algorith 1 of the levelwise paper.
-
-        impl(solver& solver, polynomial_ref_vector const& ps, var max_x, assignment const& s, pmanager& pm, anum_manager& am, polynomial::cache & cache)
-            : m_solver(solver), m_P(ps),  m_n(max_x),  m_pm(pm), m_am(am), m_cache(cache),  m_psc_tmp(m_pm) {
-            TRACE(lws, tout  << "m_n:" << m_n << "\n";);
-            m_I.reserve(m_n); // cannot just resize bcs of the absence of the default constructor of root_function_interval
-            for (unsigned i = 0; i < m_n; ++i)
-                m_I.emplace_back(m_pm);
-            m_Q.resize(m_n + 1);
-        }
-        // end constructor
-
-
-        // helper overload so callers can pass either raw poly* or polynomial_ref
-        unsigned  max_var(poly* p) const { return m_pm.max_var(p); }
-        unsigned  max_var(polynomial_ref const & p) const { return m_pm.max_var(p); }
-
-        // Wrapper to use cached PSC chain computation
-        void psc_chain(polynomial_ref & p, polynomial_ref & q, unsigned x, polynomial_ref_vector & result) {    
-            m_cache.psc_chain(p, q, x, result);
-        }
-
-        // Use the PSC chain of p and its derivative w.r.t x to obtain a discriminant candidate.
-        polynomial_ref psc_discriminant(polynomial_ref const & p_in, unsigned x) {
-            polynomial_ref p(p_in);
-            polynomial_ref d(m_pm);
-            d = derivative(p, x);
-            polynomial_ref_vector & chain = m_psc_tmp;
-            chain.reset();
-            psc_chain(p, d, x, chain);
-            polynomial_ref disc(m_pm);
-            for (unsigned i = 0; i < chain.size(); ++i) {
-                disc = polynomial_ref(chain.get(i), m_pm);
-                if (!is_const(disc)) 
-                     break;
-            }
+    // PSC-based discriminant candidate (first non-constant/non-zero PSC of p and d/dx p).
+    polynomial_ref psc_discriminant(polynomial_ref const& p_in, unsigned x) {
+        if (!p_in || is_zero(p_in) || is_const(p_in))
+            return polynomial_ref(m_pm);
+        if (m_pm.degree(p_in, x) < 2)
+            return polynomial_ref(m_pm);
+        polynomial_ref p(p_in);
+        polynomial_ref d = derivative(p, x);
+        polynomial_ref_vector& chain = m_psc_tmp;
+        chain.reset();
+        m_cache.psc_chain(p, d, x, chain);
+        polynomial_ref disc(m_pm);
+        for (unsigned i = 0; i < chain.size(); ++i) {
+            disc = polynomial_ref(chain.get(i), m_pm);
+            if (!disc || is_zero(disc) || is_const(disc))
+                continue;
             return disc;
         }
+        return polynomial_ref(m_pm);
+    }
 
-        // Helper to print out m_Q
-        std::ostream& display(std::ostream& out) {
-            out << "{\n";
-            unsigned level = 0;    
-            for (auto &q: m_Q) {
-                if (q.empty()) { level++; continue; }
-                out << "level:" << level << "[\n";
-                for (const auto& pr : q) {
-                    display(out, pr) << "\n";
+    // PSC-based resultant candidate (first non-zero/non-constant PSC of a and b).
+    polynomial_ref psc_resultant(poly* a, poly* b, unsigned x) {
+        if (!a || !b)
+            return polynomial_ref(m_pm);
+        polynomial_ref pa(a, m_pm);
+        polynomial_ref pb(b, m_pm);
+        polynomial_ref_vector& chain = m_psc_tmp;
+        chain.reset();
+        m_cache.psc_chain(pa, pb, x, chain);
+        polynomial_ref r(m_pm);
+        for (unsigned i = 0; i < chain.size(); ++i) {
+            r = polynomial_ref(chain.get(i), m_pm);
+            if (!r || is_zero(r))
+                continue;
+            if (is_const(r))
+                return polynomial_ref(m_pm);
+            return r;
+        }
+        return polynomial_ref(m_pm);
+    }
+
+    void insert_factorized(todo_set& P, polynomial_ref const& poly) {
+        for_each_distinct_factor(poly, [&](polynomial_ref const& f) {
+            P.insert(f.get());
+        });
+    }
+
+    // Select a coefficient c of p (wrt x) such that c(s) != 0, or return null.
+    polynomial_ref choose_nonzero_coeff(polynomial_ref const& p, unsigned x) {
+        unsigned deg = m_pm.degree(p, x);
+        undef_var_assignment prefix(sample(), x);
+        polynomial_ref coeff(m_pm);
+        for (int j = static_cast<int>(deg); j >= 0; --j) {
+            coeff = m_pm.coeff(p, x, static_cast<unsigned>(j));
+            if (!coeff || is_zero(coeff))
+                continue;
+            if (m_am.eval_sign_at(coeff, prefix) != 0)
+                return coeff;
+        }
+        return polynomial_ref(m_pm);
+    }
+
+    void add_projections_for(todo_set& P, polynomial_ref const& p, unsigned x, polynomial_ref const& nonzero_coeff) {
+        // Line 11 (non-null witness coefficient)
+        if (nonzero_coeff && !is_const(nonzero_coeff))
+            insert_factorized(P, nonzero_coeff);
+
+        // Line 12 (disc + leading coefficient)
+        insert_factorized(P, psc_discriminant(p, x));
+
+        unsigned deg = m_pm.degree(p, x);
+        polynomial_ref lc(m_pm);
+        lc = m_pm.coeff(p, x, deg);
+        insert_factorized(P, lc);
+    }
+
+    // Relation construction heuristics (same intent as previous implementation).
+    void fill_relation_with_biggest_cell_heuristic(unsigned l, unsigned u) {
+        if (is_set(l))
+            for (unsigned j = 0; j < l; ++j)
+                m_rel.add_pair(j, l);
+
+        if (is_set(u))
+            for (unsigned j = u + 1; j < m_rel.m_rfunc.size(); ++j)
+                m_rel.add_pair(u, j);
+
+        if (is_set(l) && is_set(u)) {
+            SASSERT(l + 1 == u);
+            m_rel.add_pair(l, u);
+        }
+    }
+
+    void fill_relation_with_chain_heuristic(unsigned l, unsigned u) {
+        if (is_set(l))
+            for (unsigned j = 0; j < l; ++j)
+                m_rel.add_pair(j, j + 1);
+
+        if (is_set(u))
+            for (unsigned j = u + 1; j < m_rel.m_rfunc.size(); ++j)
+                m_rel.add_pair(j - 1, j);
+
+        if (is_set(l) && is_set(u)) {
+            SASSERT(l + 1 == u);
+            m_rel.add_pair(l, u);
+        }
+    }
+
+    void fill_relation_with_min_degree_resultant_sum(unsigned l, unsigned u) {
+        auto const& rfs = m_rel.m_rfunc;
+        unsigned n = rfs.size();
+        if (n == 0)
+            return;
+
+        std::vector<unsigned> degs;
+        degs.reserve(n);
+        for (unsigned i = 0; i < n; ++i)
+            degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
+
+        if (is_set(l)) {
+            unsigned min_idx = l;
+            unsigned min_deg = degs[l];
+            for (int j = static_cast<int>(l) - 1; j >= 0; --j) {
+                unsigned jj = static_cast<unsigned>(j);
+                m_rel.add_pair(jj, min_idx);
+                if (degs[jj] < min_deg) {
+                    min_deg = degs[jj];
+                    min_idx = jj;
                 }
-                out << "]\n";   
-                level ++; 
-            }
-            out << "}\n";
-            return out;
-        }
-
-        bool is_square_free(poly* p) {
-            return m_pm.is_square_free(p);            
-        }
-
-        struct level_t {
-            unsigned val;
-            explicit level_t(unsigned lvl) { val = lvl; }
-        };
-
-        bool find_in_Q(polynomial_ref const & f, unsigned level) {
-            if (level >= m_Q.size())
-                return false;
-            poly* fp = f.get();
-            if (!fp)
-                return false;
-            unsigned const fid = m_pm.id(fp);
-            for (auto const& pr : m_Q[level]) {
-                poly* qp = pr.m_poly;
-                if (qp && m_pm.id(qp) == fid)
-                    return true;
-            }
-            return false;
-        }
-
-        /*
-          prepare the initial properties:         
-          scan input polynomials, add sgn_inv / an_del properties and collect polynomials at level m_n
-        */ 
-        void collect_top_level_properties(polynomial_ref_vector & ps_of_n_level) {
-            for (unsigned i = 0; i < m_P.size(); ++i) {
-                polynomial_ref pi(m_P[i], m_pm);
-                for_each_distinct_factor(pi, [&](polynomial_ref& f) {
-                    unsigned level = max_var(f);
-                    TRACE(lws, tout << "before normalize f:"  << f << "\n";);
-                    normalize(f);
-                    TRACE(lws, tout << "after normalize f:"  << f << "\n";);
-                    if (find_in_Q(f, level)) {
-                        TRACE(lws, tout << "found in Q\n";);
-                        return;
-                    }
-                    if (level < m_n)
-                        mk_prop(prop_enum::sgn_inv, f, level_t(level));
-                    else if (level == m_n) {
-                        mk_prop(prop_enum::an_del, f, level_t(level));
-                        ps_of_n_level.push_back(f);
-                    }
-                    else 
-                        UNREACHABLE();
-                });
             }
         }
 
-        // isolate and collect algebraic roots for the given polynomials
-        void collect_roots_for_ps( polynomial_ref_vector const & ps_of_n_level, std::vector<std::pair<scoped_anum, poly*>> & root_vals) {
-            for (unsigned i = 0; i < ps_of_n_level.size(); i++)  {               
-                scoped_anum_vector roots(m_am);
-                polynomial_ref p(ps_of_n_level[i], m_pm);
-                m_am.isolate_roots(p, undef_var_assignment(sample(), m_n), roots);
-                TRACE(lws,  
-                      ::nlsat::display(tout << "roots of ", m_solver, p) << ": ";
-                      ::nlsat::display(tout, roots);
-                    );
-                unsigned num_roots = roots.size();
-                for (unsigned k = 0; k < num_roots; ++k) {
-                    scoped_anum v(m_am);
-                    m_am.set(v, roots[k]);
-                    root_vals.emplace_back(std::move(v), p);
-                }                
-            }
-        }
-
-        // Given collected roots (possibly unsorted), sort them, and add ord_inv(resultant(...))
-        // for adjacent roots coming from different polynomials. Avoid adding the same unordered pair twice.
-        // Returns false on failure (e.g. when encountering an ambiguous zero resultant).
-        void add_adjacent_resultants(std::vector<std::pair<scoped_anum, poly*>> & root_vals) {
-            if (root_vals.size() < 2) return;
-            std::sort(root_vals.begin(), root_vals.end(), [&](auto const & a, auto const & b){ return m_am.lt(a.first, b.first); });
-            std::set<std::pair<unsigned,unsigned>> added_pairs;
-            TRACE(lws, 
-                  tout << "root_vals:";
-                  for (const auto& rv : root_vals) {
-                      tout << " [";
-                      m_am.display(tout, rv.first);
-                      if (rv.second) {
-                          tout << ", poly: ";
-                          ::nlsat::display(tout, m_solver, polynomial_ref(rv.second, m_pm));
-                      }
-                      tout << "]";
-                  }
-                  tout << std::endl;
-                );
-            for (unsigned j = 0; j + 1 < root_vals.size(); ++j) {
-                poly* p1 = root_vals[j].second;
-                poly* p2 = root_vals[j+1].second;
-                if (p1 == p2) continue; // delineability of p1 handled by an_del
-                unsigned id1 = polynomial::manager::id(polynomial_ref(p1, m_pm));
-                unsigned id2 = polynomial::manager::id(polynomial_ref(p2, m_pm));
-                std::pair<unsigned,unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
-                if (added_pairs.find(key) != added_pairs.end())
-                    continue;
-                added_pairs.insert(key);
-                add_ord_inv_resultant(p1, p2, m_n);
-            }
-        }
-
-        /*
-          See comment 7.1 Generating explanation for MCSAT.
-          Return Q = { sgn_inv(p) | level(p) < m_n }
-          ∪ { an_del(p)  | level(p) == m_n }
-          ∪ { ord_inv(resultant(p_j,p_{j+1})) for adjacent root functions }.
-        */
-        void init_properties() {
-            polynomial_ref_vector ps_of_n_level(m_pm);
-            collect_top_level_properties(ps_of_n_level);
-            std::vector<std::pair<scoped_anum, poly*>> root_vals;
-            collect_roots_for_ps(ps_of_n_level, root_vals);
-            add_adjacent_resultants(root_vals);
-        }
-        
-
-
-
-        property pop(p_q_plus& q) {
-            return q.pop();
-        }
-
-        //works on m_level
-        void apply_property_rules(prop_enum prop_to_avoid) {
-            auto& q = m_Q[m_level];
-            while(!q.empty()) {
-                property p = pop(q); // there is a choice here of what property to pop
-                if (p.m_prop_tag == prop_to_avoid) {
-                    q.push(p);
-                    break;
+        if (is_set(u)) {
+            unsigned min_idx = u;
+            unsigned min_deg = degs[u];
+            for (unsigned j = u + 1; j < n; ++j) {
+                m_rel.add_pair(min_idx, j);
+                if (degs[j] < min_deg) {
+                    min_deg = degs[j];
+                    min_idx = j;
                 }
-                apply_pre(p);
             }
         }
 
-        // Part B of construct_interval: build (I, E, ≼) representation for level i
-        void build_representation() {
-            collect_E();
-            if (m_rel.m_rfunc.size() == 0)
-                return;
-            anum const& v = sample().value(m_level);
-            auto cmp = [&](root_function const& a, root_function const& b) {
-                if (a.ire.p == b.ire.p)
-                    return a.ire.i < b.ire.i;
-                return m_am.lt(a.val, b.val);
-            };
-            auto &rfs = m_rel.m_rfunc;
-            auto mid = std::partition(rfs.begin(), rfs.end(), [&](root_function const& f) { return m_am.compare(f.val, v) <= 0; });
-            std::sort(rfs.begin(), mid, cmp);
-            std::sort(mid, rfs.end(), cmp);
-            auto & I = m_I[m_level];
-            unsigned l_index = -1, u_index = -1;
-            SASSERT(mid == rfs.end() || m_am.lt(v, mid->val));
-            if (mid != rfs.begin()) {
-                auto& r = *(mid - 1);
-                if (m_am.eq(r.val, v)) {
-                    l_index = mid - rfs.begin() - 1;
-                    I.section = true;
-                    I.l = r.ire.p; I.l_index = r.ire.i; 
-                } else {
-                    SASSERT( m_am.lt(r.val, v));
-                    l_index = mid - rfs.begin() - 1;
-                    I.l = r.ire.p; I.l_index = r.ire.i;
-                    if (mid != rfs.end()) {
-                        u_index = l_index + 1;
-                        I.u = mid->ire.p; I.u_index = mid->ire.i;                    
-                    }
-                }
-            } else { // mid == rfs.begin()
-                auto & r = *mid;
-                I.u = r.ire.p; I.u_index = r.ire.i;                
-            }
-            
-            fill_relation_pairs(l_index, u_index);
-            TRACE(lws,
-                  if (m_rel.empty()) tout << "E is empty\n";
-                  else { tout << "E:\n";
-                      tout << "roots:\n";
-                      for (const auto& rf: m_rel.m_rfunc) {
-                          display(tout, rf) << "\n";
-                      } 
-                      tout << "pairs:\n";
-                      for (unsigned kk = 0; kk < m_rel.m_pairs.size(); ++kk) {
-                          auto pair = m_rel.m_pairs[kk];
-                          display(tout, m_rel.m_rfunc[pair.first]) << "<<<" ; display(tout, m_rel.m_rfunc[pair.second])<< "\n"; 
-                      }
-                  });
-TRACE(lws, display(tout << "m_I[" << m_level << "]:", m_I[m_level]) << std::endl;);
+        if (is_set(l) && is_set(u)) {
+            SASSERT(l + 1 == u);
+            m_rel.add_pair(l, u);
         }
+    }
 
-        void fill_relation_with_biggest_cell_heuristic(unsigned l, unsigned u) {
-            if (is_set(l)) 
-                for (unsigned j = 0; j < l; j++) 
-                    m_rel.add_pair(j, l);
-            
-            if (is_set(u)) 
-                for (unsigned j = u + 1; j < m_rel.m_rfunc.size(); j++)
-                    m_rel.add_pair(u, j);
+    void fill_relation_for_section(unsigned l) {
+        auto const& rfs = m_rel.m_rfunc;
+        unsigned n = rfs.size();
+        if (n == 0)
+            return;
+        SASSERT(is_set(l));
+        SASSERT(l < n);
 
-            if (is_set(l) && is_set(u)) {
-                SASSERT(l + 1 == u);
-                m_rel.add_pair(l, u);        
-            }
-        }
-
-        void fill_relation_with_chain_heuristic(unsigned l, unsigned u) {
-            if (is_set(l)) 
-                for (unsigned j = 0; j < l; j++) 
-                    m_rel.add_pair(j, j+1);
-            
-            if (is_set(u)) 
-                for (unsigned j = u + 1; j < m_rel.m_rfunc.size(); j++)
-                    m_rel.add_pair(j - 1, j);
-
-            if (is_set(l) && is_set(u)) {
-                SASSERT(l + 1 == u);
-                m_rel.add_pair(l, u);        
-            }
-        }
-
-        void fill_relation_with_min_degree_resultant_sum(unsigned l, unsigned u) {
-            auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
-            if (n == 0)
-                return;
-
+        switch (m_relation_mode) {
+        case biggest_cell:
+            for (unsigned j = 0; j < l; ++j)
+                m_rel.add_pair(j, l);
+            for (unsigned j = l + 1; j < n; ++j)
+                m_rel.add_pair(l, j);
+            break;
+        case chain:
+            for (unsigned j = 0; j < l; ++j)
+                m_rel.add_pair(j, j + 1);
+            for (unsigned j = l + 1; j < n; ++j)
+                m_rel.add_pair(j - 1, j);
+            break;
+        case lowest_degree: {
             std::vector<unsigned> degs;
             degs.reserve(n);
             for (unsigned i = 0; i < n; ++i)
                 degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
 
-            if (is_set(l)) {
-                unsigned min_idx = l;
-                unsigned min_deg = degs[l];
-                for (int j = static_cast<int>(l) - 1; j >= 0; --j) {
-                    unsigned jj = static_cast<unsigned>(j);
-                    m_rel.add_pair(jj, min_idx);
-                    if (degs[jj] < min_deg) {
-                        min_deg = degs[jj];
-                        min_idx = jj;
-                    }
+            unsigned min_idx = l;
+            unsigned min_deg = degs[l];
+            for (int j = static_cast<int>(l) - 1; j >= 0; --j) {
+                unsigned jj = static_cast<unsigned>(j);
+                m_rel.add_pair(jj, min_idx);
+                if (degs[jj] < min_deg) {
+                    min_deg = degs[jj];
+                    min_idx = jj;
                 }
             }
 
-            if (is_set(u)) {
-                unsigned min_idx = u;
-                unsigned min_deg = degs[u];
-                for (unsigned j = u + 1; j < n; ++j) {
-                    m_rel.add_pair(min_idx, j);
-                    if (degs[j] < min_deg) {
-                        min_deg = degs[j];
-                        min_idx = j;
-                    }
+            min_idx = l;
+            min_deg = degs[l];
+            for (unsigned j = l + 1; j < n; ++j) {
+                m_rel.add_pair(min_idx, j);
+                if (degs[j] < min_deg) {
+                    min_deg = degs[j];
+                    min_idx = j;
                 }
             }
-
-            if (is_set(l) && is_set(u)) {
-                SASSERT(l + 1 == u);
-                m_rel.add_pair(l, u);
-            }
+            break;
         }
-        
-        void fill_relation_for_section(unsigned l) {
-            auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
-            if (n == 0)
-                return;
-            SASSERT(is_set(l));
-            SASSERT(l < n);
-
-            switch (m_relation_mode) {
-            case biggest_cell:
-                for (unsigned j = 0; j < l; ++j)
-                    m_rel.add_pair(j, l);
-                for (unsigned j = l + 1; j < n; ++j)
-                    m_rel.add_pair(l, j);
-                break;
-            case chain:
-                for (unsigned j = 0; j < l; ++j)
-                    m_rel.add_pair(j, j + 1);
-                for (unsigned j = l + 1; j < n; ++j)
-                    m_rel.add_pair(j - 1, j);
-                break;
-            case lowest_degree: {
-                std::vector<unsigned> degs;
-                degs.reserve(n);
-                for (unsigned i = 0; i < n; ++i)
-                    degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
-
-                unsigned min_idx = l;
-                unsigned min_deg = degs[l];
-                for (int j = static_cast<int>(l) - 1; j >= 0; --j) {
-                    unsigned jj = static_cast<unsigned>(j);
-                    m_rel.add_pair(jj, min_idx);
-                    if (degs[jj] < min_deg) {
-                        min_deg = degs[jj];
-                        min_idx = jj;
-                    }
-                }
-
-                min_idx = l;
-                min_deg = degs[l];
-                for (unsigned j = l + 1; j < n; ++j) {
-                    m_rel.add_pair(min_idx, j);
-                    if (degs[j] < min_deg) {
-                        min_deg = degs[j];
-                        min_idx = j;
-                    }
-                }
-                break;
-            }
-            default:
-                NOT_IMPLEMENTED_YET();
-            }
+        default:
+            NOT_IMPLEMENTED_YET();
         }
-        void fill_relation_pairs(unsigned l, unsigned u) {
-            
-            const auto & I = m_I[m_level];
-            if (I.section) {
-                fill_relation_for_section(l);
-            } else {
-                switch(m_relation_mode) {
-                case biggest_cell: 
-                    fill_relation_with_biggest_cell_heuristic(l, u);
-                    break;
-                case chain:
-                    fill_relation_with_chain_heuristic(l, u);
-                    break;
-                case lowest_degree:     
-                    fill_relation_with_min_degree_resultant_sum(l, u);
-                    break;
-                default:
-                    NOT_IMPLEMENTED_YET();
-                }
-            }
+    }
+
+    void fill_relation_pairs(unsigned l, unsigned u) {
+        auto const& I = m_I[m_level];
+        if (I.section) {
+            fill_relation_for_section(l);
+            return;
+        }
+        switch (m_relation_mode) {
+        case biggest_cell:
+            fill_relation_with_biggest_cell_heuristic(l, u);
+            break;
+        case chain:
+            fill_relation_with_chain_heuristic(l, u);
+            break;
+        case lowest_degree:
+            fill_relation_with_min_degree_resultant_sum(l, u);
+            break;
+        default:
+            NOT_IMPLEMENTED_YET();
+        }
+    }
+
+    // Build Θ (root functions), pick I_level around sample(level), and build relation ≼.
+    void build_interval_and_relation(unsigned level, polynomial_ref_vector const& level_ps) {
+        m_level = level;
+        m_rel.clear();
+        reset_interval(m_I[level]);
+
+        for (unsigned i = 0; i < level_ps.size(); ++i) {
+            poly* p = level_ps.get(i);
+            scoped_anum_vector roots(m_am);
+            m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), level), roots);
+            for (unsigned k = 0; k < roots.size(); ++k)
+                m_rel.m_rfunc.emplace_back(m_am, p, k + 1, roots[k]);
         }
 
-        // Step 1a: collect E the set of root functions on m_level
-        void collect_E() {
-            TRACE(lws, tout << "enter\n";);
-            m_rel.clear();
+        if (m_rel.m_rfunc.empty())
+            return;
 
-            for (auto const& q : m_Q[m_level]) {
-                if (q.m_prop_tag != prop_enum::sgn_inv)
-                    continue;
-                polynomial_ref p(q.m_poly, m_pm);
+        anum const& v = sample().value(level);
 
-                SASSERT(max_var(p) == m_level);
-                scoped_anum_vector roots(m_am);
-                m_am.isolate_roots(p, undef_var_assignment(sample(), m_level), roots);
-                
-                unsigned num_roots = roots.size();
-                TRACE(lws, ::nlsat::display(tout << "p:", m_solver, p) << ",";
-                      tout << "roots (" << num_roots << "):";
-                      for (unsigned kk = 0; kk < num_roots; ++kk) {
-                          tout << " "; m_am.display(tout, roots[kk]);
-                      }
-                      tout << std::endl;
-                );
-                for (unsigned k = 0; k < num_roots; ++k)
-                    m_rel.m_rfunc.emplace_back(m_am, p, k + 1, roots[k]);
-            }
-            TRACE(lws, tout << "exit\n";);
-        }
-
-        void normalize(polynomial_ref & p) {
-            unsigned level = max_var(p);
-            if (find_in_Q(p, level)) return;
-            TRACE(lws_norm, tout << "p:" << p << std::endl;);
-
-            p = ::primitive(p, level);
-            p = m_pm.flip_sign_if_lm_neg(p);
-            p = m_cache.mk_unique(p); 
-            TRACE(lws_norm,  tout << "normalized p:" << p << "\n";);
-        }
-
-        void normalize(poly*& p) {
-            if (!p)
-                return;
-            polynomial_ref pref(p, m_pm);
-            normalize(pref);
-            p = pref.get();
-        }
-
-        bool same_polynomial_up_to_constant(poly* a, poly* b) {
-            if (a == b || m_pm.id(a) == m_pm.id(b))
+        auto cmp = [&](root_function const& a, root_function const& b) {
+            if (a.ire.p == b.ire.p)
+                return a.ire.i < b.ire.i;
+            if (m_am.lt(a.val, b.val))
                 return true;
-            polynomial_ref pa(a, m_pm);
-            polynomial_ref pb(b, m_pm);
-            if (is_zero(pa) || is_zero(pb) || is_const(pa) || is_const(pb))
+            if (m_am.lt(b.val, a.val))
                 return false;
-            unsigned v = max_var(pa);
-            if (v != max_var(pb))
-                return false;
-            polynomial_ref ca(m_pm), cb(m_pm);
-            m_pm.primitive(pa, v, ca);
-            m_pm.primitive(pb, v, cb);
-            ca = m_pm.flip_sign_if_lm_neg(ca);
-            cb = m_pm.flip_sign_if_lm_neg(cb);
-            return m_pm.eq(ca, cb);
+            // deterministic tie-break: same value
+            unsigned ida = m_pm.id(a.ire.p);
+            unsigned idb = m_pm.id(b.ire.p);
+            if (ida != idb)
+                return ida < idb;
+            return a.ire.i < b.ire.i;
+        };
+
+        auto& rfs = m_rel.m_rfunc;
+        auto mid = std::partition(rfs.begin(), rfs.end(), [&](root_function const& f) {
+            return m_am.compare(f.val, v) <= 0;
+        });
+        std::sort(rfs.begin(), mid, cmp);
+        std::sort(mid, rfs.end(), cmp);
+
+        unsigned l_index = static_cast<unsigned>(-1);
+        unsigned u_index = static_cast<unsigned>(-1);
+
+        if (mid != rfs.begin()) {
+            l_index = static_cast<unsigned>((mid - rfs.begin()) - 1);
+            auto& r = *(mid - 1);
+            if (m_am.eq(r.val, v)) {
+                m_I[level].section = true;
+                m_I[level].l = r.ire.p;
+                m_I[level].l_index = r.ire.i;
+            }
+            else {
+                m_I[level].l = r.ire.p;
+                m_I[level].l_index = r.ire.i;
+                if (mid != rfs.end()) {
+                    u_index = l_index + 1;
+                    m_I[level].u = mid->ire.p;
+                    m_I[level].u_index = mid->ire.i;
+                }
+            }
+        }
+        else {
+            // sample is below all roots: I = (-oo, theta_1)
+            u_index = 0;
+            auto& r = *mid;
+            m_I[level].u = r.ire.p;
+            m_I[level].u_index = r.ire.i;
         }
 
-        void add_ord_inv_resultant(poly* a, poly* b, unsigned x) {
-            polynomial_ref pa(a, m_pm);
-            polynomial_ref pb(b, m_pm);
-            polynomial_ref r(m_pm);
-            polynomial_ref_vector & chain = m_psc_tmp;
-            chain.reset();
-            psc_chain(pa, pb, x, chain);
+        fill_relation_pairs(l_index, u_index);
+    }
 
-            for (unsigned i = 0; i < chain.size(); ++i) {
-                r = polynomial_ref(chain.get(i), m_pm);
-                if (is_const(r))
-                    continue;
-                break;
+    void add_relation_resultants(todo_set& P, unsigned level) {
+        std::set<std::pair<unsigned, unsigned>> added_pairs;
+        for (auto const& pr : m_rel.m_pairs) {
+            poly* a = m_rel.m_rfunc[pr.first].ire.p;
+            poly* b = m_rel.m_rfunc[pr.second].ire.p;
+            if (!a || !b)
+                continue;
+            unsigned id1 = m_pm.id(a);
+            unsigned id2 = m_pm.id(b);
+            if (id1 == id2)
+                continue;
+            std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
+            if (!added_pairs.insert(key).second)
+                continue;
+            insert_factorized(P, psc_resultant(a, b, level));
+        }
+    }
+
+    // Top level (m_n): add resultants between adjacent roots of different polynomials.
+    void add_adjacent_root_resultants(todo_set& P, polynomial_ref_vector const& top_ps) {
+        std::vector<std::pair<scoped_anum, poly*>> root_vals;
+        for (unsigned i = 0; i < top_ps.size(); ++i) {
+            poly* p = top_ps.get(i);
+            scoped_anum_vector roots(m_am);
+            m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_n), roots);
+            for (unsigned k = 0; k < roots.size(); ++k) {
+                scoped_anum v(m_am);
+                m_am.set(v, roots[k]);
+                root_vals.emplace_back(std::move(v), p);
             }
+        }
+        if (root_vals.size() < 2)
+            return;
+        std::sort(root_vals.begin(), root_vals.end(), [&](auto const& a, auto const& b) {
+            return m_am.lt(a.first, b.first);
+        });
+        std::set<std::pair<unsigned, unsigned>> added_pairs;
+        for (unsigned j = 0; j + 1 < root_vals.size(); ++j) {
+            poly* p1 = root_vals[j].second;
+            poly* p2 = root_vals[j + 1].second;
+            if (!p1 || !p2)
+                continue;
+            unsigned id1 = m_pm.id(p1);
+            unsigned id2 = m_pm.id(p2);
+            if (id1 == id2)
+                continue;
+            std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
+            if (!added_pairs.insert(key).second)
+                continue;
+            insert_factorized(P, psc_resultant(p1, p2, m_n));
+        }
+    }
 
-            TRACE(lws,
-                      tout << "psc resultant wrt x" << x << "\n";
-                      ::nlsat::display(tout << "a: ", m_solver, pa) << "\n";
-                      ::nlsat::display(tout << "b: ", m_solver, pb) << "\n";
-                      ::nlsat::display(tout << "r: ", m_solver, r) << "\n";);
-            
-            for_each_distinct_factor(r, [&](polynomial_ref& f) {
-                TRACE(lws, tout << "f:" << f << "\n";);
-                mk_prop(prop_enum::ord_inv, f);
+    void process_level(todo_set& P, unsigned level, polynomial_ref_vector const& level_ps) {
+        // Line 10/11: detect nullification + pick a non-zero coefficient witness per p.
+        std::vector<polynomial_ref> witnesses;
+        witnesses.reserve(level_ps.size());
+        for (unsigned i = 0; i < level_ps.size(); ++i) {
+            polynomial_ref p(level_ps.get(i), m_pm);
+            polynomial_ref w = choose_nonzero_coeff(p, level);
+            if (!w)
+                fail();
+            witnesses.push_back(w);
+        }
+
+        // Lines 3-8: Θ + I_level + relation ≼
+        build_interval_and_relation(level, level_ps);
+
+        // Lines 11-12: add projections for each p
+        for (unsigned i = 0; i < level_ps.size(); ++i) {
+            polynomial_ref p(level_ps.get(i), m_pm);
+            add_projections_for(P, p, level, witnesses[i]);
+        }
+
+        // Lines 13-14: add resultants for chosen relation pairs
+        add_relation_resultants(P, level);
+    }
+
+    void process_top_level(todo_set& P, polynomial_ref_vector const& top_ps) {
+        std::vector<polynomial_ref> witnesses;
+        witnesses.reserve(top_ps.size());
+        for (unsigned i = 0; i < top_ps.size(); ++i) {
+            polynomial_ref p(top_ps.get(i), m_pm);
+            polynomial_ref w = choose_nonzero_coeff(p, m_n);
+            if (!w)
+                fail();
+            witnesses.push_back(w);
+        }
+
+        // Resultants between adjacent root functions (a lightweight ordering for the top level).
+        add_adjacent_root_resultants(P, top_ps);
+
+        // Projections (coeff witness, disc, leading coeff).
+        for (unsigned i = 0; i < top_ps.size(); ++i) {
+            polynomial_ref p(top_ps.get(i), m_pm);
+            add_projections_for(P, p, m_n, witnesses[i]);
+        }
+    }
+
+    std::vector<root_function_interval> single_cell_work() {
+        if (m_n == 0)
+            return m_I;
+
+        todo_set P(m_cache, true);
+
+        // Initialize P with distinct irreducible factors of the input polynomials.
+        for (unsigned i = 0; i < m_P.size(); ++i) {
+            polynomial_ref pi(m_P.get(i), m_pm);
+            for_each_distinct_factor(pi, [&](polynomial_ref const& f) {
+                P.insert(f.get());
             });
         }
 
-
-        // add a property to m_Q if an equivalent one is not already present.
-        // Equivalence: same m_prop_tag and same level; polynomials checked for equality
-        // (polynomials are already in primitive form, so constant multipliers are normalized away).
-        void add_to_Q_if_new(property pr, unsigned level) {            
-            if (pr.m_poly)
-                normalize(pr.m_poly);
-            SASSERT(pr.m_prop_tag != ord_inv || (pr.m_poly && !m_pm.is_zero(pr.m_poly)));
-            for (auto const & q : m_Q[level]) {
-                if (q.m_prop_tag != pr.m_prop_tag) continue;
-                if (q.m_root_index != pr.m_root_index) continue;
-                if ((q.m_poly && !pr.m_poly) || (!q.m_poly && pr.m_poly)) continue;
-                if (!q.m_poly && !pr.m_poly) return;
-                if (m_pm.id(q.m_poly) != m_pm.id(pr.m_poly)) continue;
-                TRACE(lws, display(tout << "matched q:", q) << std::endl;);
-                return;
-            }
-            SASSERT(!pr.m_poly || is_square_free(pr.m_poly));
-            m_Q[level].push(pr);
-        }
-        
-        // construct_interval: compute representation for level i and apply post rules.
-        // Returns false on failure.
-        // works on m_level
-        void construct_interval() {
-            m_rel.clear();
-            apply_property_rules(prop_enum::sgn_inv);
-
-            TRACE(lws, display(tout << "m_Q:") << std::endl;);
-
-            build_representation();
-            SASSERT(invariant());
-            apply_property_rules(prop_enum::_count);
-        }
-        // handle ord_inv(discriminant_{x_{i+1}}(p)) for an_del pre-processing
-        void add_ord_inv_discriminant_for(const property& p) {
-            unsigned x = max_var(p.m_poly);
-            if (m_pm.degree(p.m_poly, x) < 2) return;
-            polynomial::polynomial_ref disc(m_pm);
-            disc = psc_discriminant(polynomial_ref(p.m_poly, m_pm), x);
-            TRACE(lws, display(tout << "p:", p) << "\n"; ::nlsat::display(tout << "discriminant by x" << max_var(p.m_poly)<< ": ", m_solver, disc) << "\n";);
-            if (!is_const(disc)) {
-                for_each_distinct_factor(disc, [&](polynomial::polynomial_ref f) {
-                    mk_prop(prop_enum::ord_inv, f);
-                });
-            }
-        }
-        
-        
-        //  handle sgn_inv(leading_coefficient_{x_{i+1}}(p)) for an_del pre-processing
-        void add_sgn_inv_leading_coeff_for(const property& p) {
-            TRACE(lws, tout << "p:"; display(tout, p) << "\n";);
-            poly * pp = p.m_poly;
-            unsigned lvl = max_var(p.m_poly);
-            unsigned deg = m_pm.degree(pp, lvl);
-            polynomial_ref coeff(m_pm);
-            coeff = m_pm.coeff(pp, lvl, deg);
-            if (!is_const(coeff)) {
-                for_each_distinct_factor(coeff, [&](polynomial_ref& f) {
-                    normalize(f);
-                    mk_prop(prop_enum::sgn_inv, f);
-                });
-            }
-        }
-
-        void apply_pre_an_del(const property& p) {
-            unsigned p_lvl = max_var(p.m_poly);
-            if (p_lvl > 0) {
-                mk_prop(prop_enum::connected, level_t(p_lvl - 1));
-            }
-            mk_prop(prop_enum::non_null, p.m_poly);
-            add_ord_inv_discriminant_for(p);
-            add_sgn_inv_leading_coeff_for(p);
-        }
-
-        // Pre-processing for connected(i) (Rule 4.11)
-        void apply_pre_connected(const property & p) {
-            // Rule 4.11 special-case: if the connected property refers to level 0 there's nothing to refine
-            // further; just remove the property from Q and return.
-            if (m_level == 0) {
-                TRACE(lws, tout << "apply_pre_connected: level 0 -> erasing connected property and returning" << std::endl;);
-                return;
-            }
-
-            // p.level > 0
-            // Rule 4.11 precondition: when processing connected(i) we must ensure the next lower level
-            // has connected(i-1) and repr(I,s) available. 
-            /*
-              Let Q := connected(i − 1)(R) ∧ repr(I, s)(R).
-              Q, I = (sector, l, u), l ̸= −∞, u ̸= ∞, l (≼t) u, add ir_ord(≼, s)
-              Q, I = (sector, l, u), l= −∞ ∨ u = ∞ 
-              Q, I = (section, b) ⊢ connected(i)(R)
-            */
-            if (m_level) {
-                mk_prop(prop_enum::connected, level_t(m_level - 1));
-                mk_prop(prop_enum::repr, level_t(m_level - 1));            
-            }
-            if (!have_representation()) 
-                return; // no change since the cell representation is not available            
-
-            const auto& I = m_I[m_level];
-            TRACE(lws, display(tout << "interval m_I[" << m_level << "]\n", I) << "\n";);
-            if (I.is_section()) return;
-            SASSERT(I.is_sector());
-            if (!I.l_inf() && !I.u_inf()) {
-                if (m_level)
-                    mk_prop(ir_ord, level_t(m_level - 1));
-            }
-        }
-
-        bool has_sgn_inv(const polynomial_ref& p, unsigned level) const {
-            SASSERT(level == max_var(p));
-            if (level >= m_Q.size())
-                return false;
-            unsigned const pid = m_pm.id(p.get());
-            for (auto const& pr : m_Q[level]) {
-                if (pr.m_prop_tag != prop_enum::sgn_inv)
-                    continue;
-                poly* q = pr.m_poly;
-                if (q && m_pm.id(q) == pid)
-                    return true;
-            }
-            return false;
-        }
-        // If a polynomial has a coefficient which is a non-zero constant or a non-vanishisg coefficient  for which sgn_inv has been asserted already then non_null holds 
-        bool has_non_null_coeff(poly* p) {
-            unsigned level = max_var(p);            
-            unsigned deg = m_pm.degree(p, level);
-            for (unsigned j = 0; j <= deg; ++j) {
-                polynomial_ref coeff(m_pm);
-                coeff = m_pm.coeff(p, level, j);
-                TRACE(lws, tout << "coeff:" << coeff << "\n";);
-                if (is_const(coeff) || (sign(coeff, sample(), m_am) && has_sgn_inv(coeff, max_var(coeff))))
-                    return true;
-            }
-            return false;
-        }
-        
-        void apply_pre_non_null(const property& p) {
-            TRACE(lws, tout << "p:"; display(tout, p) << std::endl;);
-            if (has_non_null_coeff(p.m_poly)) 
-                return; // already satisfied
-            polynomial_ref disc(m_pm);
-            disc = can_apply_pre_non_null_fallback(p);
-            if (disc) 
-                for_each_distinct_factor(disc, [&](const polynomial::polynomial_ref & f) {
-                    mk_prop(prop_enum::sgn_inv, f);
-                });
-            else 
-               try_non_null_via_coeffs(p);
-                
-        }
-
-        // Rule 4.2, subrule 1:
-        // sample(s)(R), degx_{i+1} (p) > 1, disc(x_{i+1} (p)(s)) ̸= 0, sgn_inv(disc(x_{i+1} (p))(R) 
-
-        polynomial_ref can_apply_pre_non_null_fallback(const property & p) {
-            unsigned level = max_var(p.m_poly);
-            unsigned deg = m_pm.degree(p.m_poly, level);
-            if (deg <= 1)
-                return polynomial_ref(m_pm);
-
-            polynomial_ref d(m_pm);
-            d = m_pm.derivative(p.m_poly, level);
-            if (!m_cache.contains_chain(p.m_poly, d.get(), level))
-                return polynomial_ref(m_pm);
-
-            polynomial_ref_vector& chain = m_psc_tmp;
-            chain.reset();
-            m_cache.psc_chain(p.m_poly, d.get(), level, chain);
-            polynomial_ref disc(m_pm);
-            for (unsigned i = 0; i < chain.size(); ++i) {
-                disc = polynomial_ref(chain.get(i), m_pm);
-                if (!is_const(disc))
-                    break;
-            }
-            if (sign(disc, sample(), m_am))
-                return disc;
-            return polynomial_ref(m_pm); // nullptr   
-        }
-
-        // If some coefficient c_j of p is constant non-zero at the sample, or
-        // if c_j evaluates non-zero at the sample and we already have sgn_inv(c_j) in m_Q,
-        // then non_null(p) holds on the region represented by 'rs' (if provided).
-        // Returns true if non_null was established and the property p was removed.
-        // TODO: use cached non-null properties
-        void try_non_null_via_coeffs(const property& p) {
-            unsigned level = max_var(p.m_poly);
-            poly* pp = p.m_poly;
-            unsigned deg = m_pm.degree(pp, level);
-            for (unsigned j = 0; j <= deg; ++j) {
-                polynomial_ref coeff(m_pm);
-                coeff = m_pm.coeff(pp, level, j);
-                if (sign(coeff, sample(), m_am) == 0)
-                    continue;
-
-                for_each_distinct_factor(coeff, [&](const polynomial::polynomial_ref & f) {
-                    mk_prop(prop_enum::sgn_inv, f);
-                });
-                return;
-            }
-            TRACE(lws, tout << "failing in try_non_null_via_coeffs\n";);
-            // all coefficients are vanishing on the sample: we have a nullified polynomial
-            fail();
-        }
-
-        /*
-          Rule 4.13 : the precondition holds by construction
-          The property repr(I, s) holds on R if and only if I.l ∈ irExpr(I.l.p, s) (if I.l ̸= −∞), I.u ∈ irExpr(I.u.p, s)
-          (if I.u ̸= ∞) respectively I.b ∈ irExpr(I.b.p, s) and one of the following holds:
-          • I = (sector, l, u), dom(θl,s ) ∩ dom(θu,s ) ⊇ R ↓[i−1] and R = {(r, r′) | r ∈ R ↓[i−1], r′ ∈ (θl,s (r), θu,s (r))};
-          or
-          • I = (sector, −∞, u), dom(θu,s ) ⊇ R ↓[i−1] and R = {(r, r′) | r ∈ R ↓[i−1], r′ ∈ (−∞, θu,s (r))}; or
-          • I = (sector, l, ∞), dom(θl,s ) ⊇ R ↓[i−1] and R = {(r, r′) | r ∈ R ↓[i−1], r′ ∈ (θl,s (r), ∞)}; or
-          • I = (sector, −∞, ∞) and R = {(r, r′) | r ∈ R ↓[i−1], r′ ∈ R}; or
-          • I = (section, b), dom(θb,s ) ⊇ R ↓[i−1] and R = {(r, r′) | r ∈ R ↓[i−1], r′
-          = θb,s (r)},
-        */
-        void apply_pre_repr(const property& p) {
-            const auto& I = m_I[m_level];
-            TRACE(lws, display(tout << "interval m_I[" << m_level << "]\n", I) << "\n";);
-            if (I.is_section()) {
-                /*sample(s)(R), holds(I)(R), I = (section, b), an_del(b.p)(R) */
-                mk_prop(an_del, I.l);
-            } else {
-                /* sample(s)(R), holds(I)(R), I = (sector, l, u), l= −∞ ∨ an_del(l.p)(R), u = ∞ ∨ an_del(u.p)(R*/
-                SASSERT(I.is_sector());
-                
-                if (!I.l_inf())
-                    mk_prop(an_del, I.l);
-                if (!I.u_inf())
-                    mk_prop(an_del, I.u);
-            }                
-        }
-
-        void mk_prop(prop_enum pe, level_t level) {
-            SASSERT(is_set(level.val));
-            add_to_Q_if_new(property(pe, m_pm), level.val);
-        }
-
-        void mk_prop(prop_enum pe, poly* poly) {            
-            add_to_Q_if_new(property(pe, poly), max_var(poly));
-        }
-
-        void mk_prop(prop_enum pe, poly* poly, level_t level) {            
-            add_to_Q_if_new(property(pe, poly), level.val);
-        }
-
-        void mk_prop(prop_enum pe, polynomial_ref const& poly) {
-            mk_prop(pe, poly.get());
-        }
-
-        void mk_prop(prop_enum pe, polynomial_ref const& poly, level_t level) {
-            mk_prop(pe, poly.get(), level);
-        }
-
-        bool precondition_on_sign_inv(const property& p) const {
-            return p.m_prop_tag == prop_enum::sgn_inv && p.m_poly != nullptr;
-        }
-
-
-        void apply_pre_sgn_inv(const property& p) {
-            SASSERT(is_square_free(p.m_poly));
-            scoped_anum_vector roots(m_am);
-            SASSERT(max_var(p.m_poly) == m_level);
-            m_am.isolate_roots(polynomial_ref(p.m_poly, m_pm), undef_var_assignment(sample(), m_level), roots);
-            if (roots.size() == 0) {
-                /*  Rule 4.6. Let i ∈ N, R ⊆ Ri, s ∈ R_{i−1}, and realRoots(p(s, xi )) = ∅. 
-                    sample(s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R) */
-                mk_prop(prop_enum::an_del, p.m_poly);
-                return;
-            }
-            // now we have some roots at s
-            const auto &I = m_I[m_level];
-            TRACE(lws, display(tout << "I:", I) << std::endl;);
-            if (I.section) {
-                /* Rule 4.8. Let i ∈ N>0 , R ⊆ Ri
-                   , s ∈ R_{i−1}
-                   , p ∈ Q[x1, . . . , xi ], level(p) = i, and I be a root function interval
-                   of level i. Assume that p is irreducible, and I = (section, b).
-                   Let Q := an_sub(i − 1)(R) ∧ connected(i − 1)(R) ∧ repr(I, s)(R) ∧ an_del(b.p)(R).
-                   Q, b.p= p ⊢ sgn_inv(p)(R)
-                   Q, b.p ̸= p, ord_inv(resxi (b.p, p))(R) ⊢ sgn_inv(p)(R)
-                */ 
-                if (m_level) { 
-                    mk_prop(prop_enum::connected, level_t(m_level - 1));
-                    mk_prop(prop_enum::repr, level_t(m_level - 1)); 
-                }
-                mk_prop(prop_enum::an_del, m_I[m_level].l);
-                if (I.l.get() == p.m_poly) {
-                    // nothing is added
-                } else {
-                        add_ord_inv_resultant(I.l.get(), p.m_poly, m_level);
-                }
-            } else {
-                /*
-                  Rule 4.10. Let i ∈ N>0 , R ⊆ Ri
-                  , s ∈ Ri−1
-                  , p ∈ Q[x1, . . . , xi ], level(p) = i, I be a root function interval of
-                  level i, ≼ be an indexed root ordering of level i, and ≼t be the reflexive and transitive closure of ≼.
-                  We choose l, u such that either I = (sector, l, u) or (I = (section, b) for b = l = u).
-                  Assume that p is irreducible, irExpr(p, s) ̸= ∅, ξ.p is irreducible for all ξ ∈ dom(≼), ≼ matches s,
-                  and for all ξ ∈ irExpr(p, s) it holds either ξ ≼t l or u ≼t ξ.
-                  sample(s)(R), repr(I, s)(R), ir_ord(≼, s)(R), an_del(p)(R) ⊢ sgn_inv(p)(R)
-                */
-                // todo - read the preconditions on p it needs to be diff
-                SASSERT(precondition_on_sign_inv(p));
-                if (m_level) {
-                    mk_prop(repr, level_t(m_level - 1));
-                }
-                mk_prop(ir_ord, level_t(m_level));
-                mk_prop(an_del, p.m_poly);
-            }
-        }
-
-      /*
-          Rule 4.5. Let i ∈ N>0 , R ⊆ Ri
-          , s ∈ Ri
-          , and p ∈ Q[x1, . . . , xi ], level(p) = i. Assume that p is irreducible.
-          p(s) ̸= 0, sample(s)(R), sgn_inv(p)(R) ⊢ ord_inv(p)(R)
-          p(s)= 0, sample(s)(R), an_sub(i− 1)(R), connected(i)(R), sgn_inv(p)(R), an_del(p)(R) ⊢ ord_inv(p)(R)
-        */
-        void apply_pre_ord_inv(const property& p) {
-            SASSERT(p.m_prop_tag == prop_enum::ord_inv && is_square_free(p.m_poly));
-            unsigned level = max_var(p.m_poly);
-            auto sign_on_sample = sign(polynomial_ref(p.m_poly, m_pm), sample(), m_am);
-            if (sign_on_sample) {
-                mk_prop(prop_enum::sgn_inv, p.m_poly);
-            } else { // sign is zero
-                mk_prop(prop_enum::connected, level_t(level));                
-                mk_prop(prop_enum::sgn_inv, p.m_poly);
-                mk_prop(prop_enum::an_del, p.m_poly);
-            }
-        }
-        
-        void apply_pre(const property& p) {
-            TRACE(lws, tout << "apply_pre BEGIN m_Q:"; display(tout) << std::endl; 
-                  display(tout << "pre p:", p) << std::endl;);
-            switch (p.m_prop_tag) {
-            case prop_enum::an_del:
-                apply_pre_an_del(p);
-                break;
-            case prop_enum::connected:
-                apply_pre_connected(p);
-                break;
-            case prop_enum::non_null:
-                apply_pre_non_null(p);
-                break;
-            case prop_enum::repr:
-                apply_pre_repr(p);
-                break;
-            case prop_enum::sgn_inv:
-                apply_pre_sgn_inv(p);
-                break;
-            case prop_enum::ord_inv:
-                apply_pre_ord_inv(p);
-                break;
-            case prop_enum::ir_ord:
-                apply_pre_ir_ord(p);
-                break;
-            default:
-                NOT_IMPLEMENTED_YET();
-                break;
-            }
-            TRACE(lws,  tout << "apply_pre END m_Q:"; display(tout) << std::endl;);
-            SASSERT (invariant());
-        }
-
-        bool have_representation() const { return m_rel.empty() == false; }
-
-        void fail() {
-            throw nullified_poly_exception();;
-        }
-
-        void apply_pre_ir_ord(const property& p) {
-            /*Rule 4.9. Let i ∈ N, R ⊆ Ri, s ∈ Ri, and ≼ be an indexed root ordering of level i + 1.
-              Assume that ξ.p is irreducible for all ξ ∈ dom(≼), and that ≼ matches s.
-              sample(s)(R), an_sub(i)(R), connected(i)(R), ∀ξ ∈ dom(≼). an_del(ξ.p)(R), ∀(ξ,ξ′) ∈≼. ord_inv(resx_{i+1} (ξ.p, ξ′.p))(R) ⊢ ir_ord(≼, s)(R)
-            */
-            if (m_level > 0) {
-                mk_prop(connected, level_t(m_level - 1));
-            }
-            for (const auto & pair: m_rel.m_pairs) {
-                poly *a = m_rel.m_rfunc[pair.first].ire.p;
-                poly *b = m_rel.m_rfunc[pair.second].ire.p;
-                SASSERT(max_var(a) == max_var(b) && max_var(b) == m_level) ;
-                if (m_pm.id(a) != m_pm.id(b))
-                    add_ord_inv_resultant(a, b, m_level);
-            }
-        }
-        
-        bool invariant() {
-            for (unsigned i = 0; i < m_Q.size(); i++) {                
-                bool level_is_ok = std::all_of(m_Q[i].begin(), m_Q[i].end(), [this, i](const property& p){
-                    if (!p.m_poly) return true;
-                    if (max_var(p.m_poly) != i) {
-                        enable_trace("lws");
-                        display(std::cout << "max_var != i in p:", p) << std::endl;
-                        return false;
-                    }
-                    if (! m_cache.contains(p.m_poly)) {
-                        enable_trace("lws");
-                        display(std::cout << "p.m_poly is not normalized:", p) << std::endl;
-                        return false;
-                    }
-                    return true;
-                });
-
-                if (! level_is_ok)
-                    return false;
-            }
-            return true;
-        }
-
-        
-        // return an empty vector on failure, otherwise returns the cell representations with intervals
-        std::vector<root_function_interval> single_cell_work() {
-            TRACE(lws, m_solver.display_assignment(tout << "sample():\n") << std::endl; ::nlsat::display(tout << "m_P:\n", m_solver, m_P) << "\n";);
-            if (m_n == 0) return m_I; // we have an empty sample
-            m_level = m_n;
-            
-            init_properties(); // initializes m_Q as a queue of properties on levels <= m_n
-            SASSERT(m_rel.empty());
-            apply_property_rules(prop_enum::_count); // reduce the level from m_n to m_n - 1 to be consumed by construct_interval
-            SASSERT(m_Q[m_n].size() == 0);
-            SASSERT(m_level == m_n); 
-            do {  // m_level changes from m_n - 1 to 0
-                m_level--;
-                construct_interval();
-            } while (m_level != 0);
+        if (P.empty())
             return m_I;
-        }
-        std::vector<root_function_interval> single_cell() {
-            try {
-                single_cell_work();
-            } catch (nullified_poly_exception &) {
-                m_fail = true;
-            }
-            return m_I;
-        }
-        
-        // Pretty-print helpers
-        static const char* prop_name(prop_enum p) {
-            switch (p) {
-            case prop_enum::ir_ord:               return "ir_ord";
-            case prop_enum::an_del:               return "an_del";
-            case prop_enum::non_null:             return "non_null";
-            case prop_enum::ord_inv:              return "ord_inv";
-            case prop_enum::sgn_inv:              return "sgn_inv";
-            case prop_enum::connected:            return "connected";
-            case prop_enum::repr:                 return "repr";
-            case prop_enum::_count:               return "_count";
-            }
-            return "?";
+
+        // Process top level m_n (we project from x_{m_n} and do not return an interval for it).
+        if (P.max_var() == m_n) {
+            polynomial_ref_vector top_ps(m_pm);
+            P.extract_max_polys(top_ps);
+            process_top_level(P, top_ps);
         }
 
-        std::ostream& display(std::ostream& out, std::vector<property> & prs) const {
-            for (const auto &pr : prs) {
-                display(out, pr) << std::endl;
-            }
-            return out;
-        }
- 
-        std::ostream& display_relation(std::ostream& out) const {
-            out << "Relation_E:\n";
-            if (m_rel.empty()) {
-                out << "  (empty)\n";
-                return out;
-            }
-            out << "  Root functions:\n";
-            for (size_t i = 0; i < m_rel.m_rfunc.size(); ++i) {
-                out << "    [" << i << "]: ";
-                display(out, m_rel.m_rfunc[i], true) << "\n";
-            }
-            out << "  Pairs:\n";
-            for (const auto& pair : m_rel.m_pairs) {
-                out << "    (" << pair.first << ", " << pair.second << ")\n";
-            }
-            return out;
+        // Now iteratively process remaining levels (descending).
+        while (!P.empty()) {
+            polynomial_ref_vector level_ps(m_pm);
+            var level = P.extract_max_polys(level_ps);
+            SASSERT(level < m_n);
+            process_level(P, level, level_ps);
         }
 
-        std::ostream& display(std::ostream& out, const property & pr) const {
-            out << "{prop:" << prop_name(pr.m_prop_tag);
-            if (is_set(pr.m_root_index)) out   << ", m_root_index:" << pr.m_root_index;
-            if (pr.m_poly) {
-                out << ", poly:";
-                ::nlsat::display(out, m_solver, pr.m_poly);
-            }
-            else {
-                out << ", p:null";
-            }
-            out << "}";
-            return out;
-        }
-       
-        std::ostream& display(std::ostream& out, const indexed_root_expr& ire ) const {
-            out << "RootExpr: p:";
-            ::nlsat::display(out, m_solver, ire.p);
-            out << ", root_index:" << ire.i;
-            return out;
-        }
-
-        // Print the indexed root function's value. If print_approx is true print a decimal
-        // approximation, otherwise print the full representation.
-        std::ostream& display(std::ostream& out, const root_function& f, bool print_approx = true ) const {
-            display(out << "indexed_root_function:", f.ire) << "\n" << "val:";
-            if (print_approx)
-                m_am.display_decimal(out, f.val);
-            else
-                m_am.display(out, f.val);
-            return out;
-        }
-        
-        std::ostream& display(std::ostream& out, const root_function_interval& I) const {
-            return ::nlsat::display(out, m_solver, I);
-        }
-    };
-// constructor
-    levelwise::levelwise(nlsat::solver& solver, polynomial_ref_vector const& ps, var n, assignment const& s, pmanager& pm, anum_manager& am, polynomial::cache& cache)
-        : m_impl(new impl(solver, ps, n, s, pm, am, cache)) {}
-
-    levelwise::~levelwise() { delete m_impl; }
-
-    std::vector<levelwise::root_function_interval> levelwise::single_cell() {
-        return m_impl->single_cell();
+        return m_I;
     }
 
-    bool levelwise::failed() const { return m_impl->m_fail; }
+    std::vector<root_function_interval> single_cell() {
+        try {
+            return single_cell_work();
+        }
+        catch (nullified_poly_exception&) {
+            m_fail = true;
+            return m_I;
+        }
+    }
+};
+
+levelwise::levelwise(
+    nlsat::solver& solver,
+    polynomial_ref_vector const& ps,
+    var n,
+    assignment const& s,
+    pmanager& pm,
+    anum_manager& am,
+    polynomial::cache& cache)
+    : m_impl(new impl(solver, ps, n, s, pm, am, cache)) {}
+
+levelwise::~levelwise() { delete m_impl; }
+
+std::vector<levelwise::root_function_interval> levelwise::single_cell() {
+    return m_impl->single_cell();
+}
+
+bool levelwise::failed() const { return m_impl->m_fail; }
+
 } // namespace nlsat
 
 // Free pretty-printer for symbolic_interval
@@ -1214,3 +612,4 @@ std::ostream& nlsat::display(std::ostream& out, solver& s, levelwise::root_funct
     }
     return out;
 }
+
