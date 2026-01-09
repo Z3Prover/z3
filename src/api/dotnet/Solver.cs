@@ -326,6 +326,66 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Non-unit literals in the solver state.
+        /// </summary>
+        public BoolExpr[] NonUnits
+        {
+            get
+            {
+                using ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_non_units(Context.nCtx, NativeObject));
+                return assertions.ToBoolExprArray();
+            }
+        }
+
+        /// <summary>
+        /// Trail of the solver state after a check() call.
+        /// </summary>
+        public BoolExpr[] Trail
+        {
+            get
+            {
+                using ASTVector trail = new ASTVector(Context, Native.Z3_solver_get_trail(Context.nCtx, NativeObject));
+                return trail.ToBoolExprArray();
+            }
+        }
+
+        /// <summary>
+        /// Retrieve congruence closure root of the term t relative to the current search state.
+        /// The function primarily works for SimpleSolver.
+        /// Terms and variables that are eliminated during pre-processing are not visible to the congruence closure.
+        /// </summary>
+        public Expr CongruenceRoot(Expr t)
+        {
+            Debug.Assert(t != null);
+            Context.CheckContextMatch(t);
+            return Expr.Create(Context, Native.Z3_solver_congruence_root(Context.nCtx, NativeObject, t.NativeObject));
+        }
+
+        /// <summary>
+        /// Retrieve congruence closure sibling of the term t relative to the current search state.
+        /// The function primarily works for SimpleSolver.
+        /// Terms and variables that are eliminated during pre-processing are not visible to the congruence closure.
+        /// </summary>
+        public Expr CongruenceNext(Expr t)
+        {
+            Debug.Assert(t != null);
+            Context.CheckContextMatch(t);
+            return Expr.Create(Context, Native.Z3_solver_congruence_next(Context.nCtx, NativeObject, t.NativeObject));
+        }
+
+        /// <summary>
+        /// Explain congruence of a and b relative to the current search state.
+        /// </summary>
+        public Expr CongruenceExplain(Expr a, Expr b)
+        {
+            Debug.Assert(a != null);
+            Debug.Assert(b != null);
+            Context.CheckContextMatch(a);
+            Context.CheckContextMatch(b);
+            return Expr.Create(Context, Native.Z3_solver_congruence_explain(Context.nCtx, NativeObject, a.NativeObject, b.NativeObject));
+        }
+
+        /// <summary>
         /// Checks whether the assertions in the solver are consistent or not.
         /// </summary>
         /// <remarks>
