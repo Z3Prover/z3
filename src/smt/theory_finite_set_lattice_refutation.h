@@ -31,8 +31,8 @@ namespace smt {
             std::pair<theory_var, enode_pair> get_reachability_reason(theory_var source, theory_var dest);
             enode_pair get_non_reachability_reason(theory_var source, theory_var dest);
 
-            void set_reachability(theory_var source, theory_var dest, theory_var intermediate, enode_pair subset_relation);
-            void set_non_reachability(theory_var source, theory_var dest, enode_pair subset_relation);
+            bool set_reachability(theory_var source, theory_var dest, theory_var intermediate, enode_pair subset_relation);
+            bool set_non_reachability(theory_var source, theory_var dest, enode_pair subset_relation);
             int get_max_var();
     };
 

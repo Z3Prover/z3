@@ -41,7 +41,7 @@ namespace smt {
         return non_subset_relations[source*max_size+dest];
     }
 
-    void reachability_matrix::set_reachability(theory_var source, theory_var dest, theory_var intermediate, enode_pair subset_relation){
+    bool reachability_matrix::set_reachability(theory_var source, theory_var dest, theory_var intermediate, enode_pair subset_relation){
         // TODO: could replace longer links by shorter links
         if(!is_reachable(source, dest)){
             ctx.push_trail(value_trail(largest_var));
@@ -50,17 +50,21 @@ namespace smt {
             ctx.push_trail(value_trail(subset_relations[source*max_size+dest]));
             subset_relations[source*max_size+dest] = new_value;
             TRACE(finite_set, tout << "new_reachability: " << source << "\\subseteq " << dest);
+            return true;
         }
+        return false;
     }
 
-    void reachability_matrix::set_non_reachability(theory_var source, theory_var dest, enode_pair subset_relation){
+    bool reachability_matrix::set_non_reachability(theory_var source, theory_var dest, enode_pair subset_relation){
         if(!is_reachability_forbidden(source, dest)){
             ctx.push_trail(value_trail(largest_var));
             largest_var = std::max({largest_var, source, dest});
             ctx.push_trail(value_trail(non_subset_relations[source*max_size+dest]));
             non_subset_relations[source*max_size+dest] = subset_relation;
             TRACE(finite_set, tout << "new_reachability_forbidden: " << source << "\\subseteq " << dest);
+            return true;
         }
+        return false;
     }
 
     theory_finite_set_lattice_refutation::theory_finite_set_lattice_refutation(theory_finite_set& th): 
@@ -182,9 +186,10 @@ namespace smt {
         if (subset_t == null_theory_var || superset_t == null_theory_var){
             return;
         }
-        reachability.set_reachability(subset_t, superset_t, null_theory_var, justifying_equality);
+        if(reachability.set_reachability(subset_t, superset_t, null_theory_var, justifying_equality)){
+            propagate_new_subset(subset_t, superset_t);
+        }
         SASSERT(reachability.is_reachable(subset_t, superset_t));
-        propagate_new_subset(subset_t, superset_t);
     };
 
     void theory_finite_set_lattice_refutation::add_not_subset(enode* subset, enode* superset, enode_pair justifying_disequality){
