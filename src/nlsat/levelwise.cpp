@@ -127,7 +127,6 @@ struct levelwise::impl {
         chain.reset();
         m_cache.psc_chain(p, d, x, chain);
         polynomial_ref disc(m_pm);
-        // Iterate forward: S[0] is the resultant (after reverse in psc_chain)
         for (unsigned i = 0; i < chain.size(); ++i) {
             disc = polynomial_ref(chain.get(i), m_pm);
             if (!disc || is_zero(disc))

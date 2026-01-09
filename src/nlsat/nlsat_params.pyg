@@ -23,6 +23,6 @@ def_module_params('nlsat',
                           ('add_all_coeffs', BOOL, False, "add all polynomial coefficients during projection."),
                           ('zero_disc', BOOL, False, "add_zero_assumption to the vanishing discriminant."),
                           ('known_sat_assignment_file_name', STRING, "", "the file name of a known solution: used for debugging only"),
-                          ('apply_levelwise', BOOL, True, "apply levelwise."),
+                          ('lws', BOOL, True, "apply levelwise."),
                           ('canonicalize', BOOL, True, "canonicalize polynomials.")
                           ))         

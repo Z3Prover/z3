@@ -309,7 +309,7 @@ namespace nlsat {
             m_check_lemmas   = p.check_lemmas();
             m_variable_ordering_strategy = p.variable_ordering_strategy();
             m_debug_known_solution_file_name = p.known_sat_assignment_file_name();
-            m_apply_lws = p.apply_levelwise();
+            m_apply_lws = p.lws();
             m_check_lemmas |= !(m_debug_known_solution_file_name.empty());
             m_cell_sample = p.cell_sample();
   
