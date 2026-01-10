@@ -1737,7 +1737,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       addRule(rule: Bool<Name>, name?: string): void {
         _assertContext(rule);
-        const symbol = name ? _toSymbol(name) : 0;
+        const symbol = _toSymbol(name ?? '');
         check(Z3.fixedpoint_add_rule(contextPtr, this.ptr, rule.ast, symbol));
       }
 
@@ -1789,7 +1789,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       getAnswer(): Expr<Name> | null {
         const ans = check(Z3.fixedpoint_get_answer(contextPtr, this.ptr));
-        return ans === 0 ? null : _toExpr(ans);
+        return ans ? _toExpr(ans) : null;
       }
 
       getReasonUnknown(): string {
@@ -1804,7 +1804,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       getCoverDelta(level: number, pred: FuncDecl<Name>): Expr<Name> | null {
         _assertContext(pred);
         const res = check(Z3.fixedpoint_get_cover_delta(contextPtr, this.ptr, level, pred.ptr));
-        return res === 0 ? null : _toExpr(res);
+        return res ? _toExpr(res) : null;
       }
 
       addCover(level: number, pred: FuncDecl<Name>, property: Expr<Name>): void {

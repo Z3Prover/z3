@@ -6,6 +6,7 @@ import {
   Z3_constructor,
   Z3_constructor_list,
   Z3_decl_kind,
+  Z3_fixedpoint,
   Z3_func_decl,
   Z3_func_entry,
   Z3_func_interp,
