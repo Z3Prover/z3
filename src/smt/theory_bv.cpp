@@ -611,6 +611,9 @@ namespace smt {
         // create the axiom:
         // n = bv2int(k) = ite(bit2bool(k[sz-1],2^{sz-1},0) + ... + ite(bit2bool(k[0],1,0))
         // 
+        SASSERT(params().m_bv_enable_int2bv2int);
+        if (!ctx.e_internalized(n))
+            internalize_term(n);
         SASSERT(ctx.e_internalized(n));
         SASSERT(m_util.is_ubv2int(n));
         TRACE(bv2int_bug, tout << "bv2int:\n" << mk_pp(n, m) << "\n";);
@@ -686,6 +689,8 @@ namespace smt {
         //   bit2bool(i,n) == ((e div 2^i) mod 2 != 0)
         // for i = 0,.., sz-1
         //
+        if (!ctx.e_internalized(n))
+            internalize_term(n);
         SASSERT(ctx.e_internalized(n));
         SASSERT(m_util.is_int2bv(n));
 
@@ -889,7 +894,7 @@ namespace smt {
 
     bool theory_bv::internalize_term_core(app * term) {
         SASSERT(term->get_family_id() == get_family_id());
-        TRACE(bv, tout << "internalizing term: " << mk_bounded_pp(term, m) << "\n";);
+        TRACE(bv, tout << "internalizing term: #" << term->get_id() << " " << mk_bounded_pp(term, m) << "\n";);
         if (approximate_term(term)) {
             return false;
         }
