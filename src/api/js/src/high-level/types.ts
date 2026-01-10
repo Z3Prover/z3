@@ -2536,7 +2536,7 @@ export interface Tactic<Name extends string = 'main'> {
   /**
    * Apply the tactic to a goal and return the resulting subgoals.
    */
-  apply(goal: Goal<Name> | Bool<Name>): ApplyResult<Name>;
+  apply(goal: Goal<Name> | Bool<Name>): Promise<ApplyResult<Name>>;
 
   /**
    * Create a solver from this tactic.

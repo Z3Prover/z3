@@ -1313,7 +1313,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       const tacticImpls = tactics.map(t => _toTactic(t));
       _assertContext(...tacticImpls);
       const tacticPtrs = tacticImpls.map(t => t.ptr);
-      return new TacticImpl(check(Z3.tactic_par_or(contextPtr, tacticPtrs.length, tacticPtrs)));
+      return new TacticImpl(check(Z3.tactic_par_or(contextPtr, tacticPtrs)));
     }
 
     function ParAndThen(t1: Tactic<Name> | string, t2: Tactic<Name> | string): Tactic<Name> {
@@ -2658,7 +2658,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         cleanup.register(this, () => Z3.tactic_dec_ref(contextPtr, myPtr), this);
       }
 
-      apply(goal: Goal<Name> | Bool<Name>): ApplyResult<Name> {
+      async apply(goal: Goal<Name> | Bool<Name>): Promise<ApplyResult<Name>> {
         let goalToUse: Goal<Name>;
         
         if (isBool(goal)) {
@@ -2670,8 +2670,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
 
         _assertContext(goalToUse);
-        const result = check(Z3.tactic_apply(contextPtr, this.ptr, goalToUse.ptr));
-        return new ApplyResultImpl(result);
+        const result = await Z3.tactic_apply(contextPtr, this.ptr, goalToUse.ptr);
+        return new ApplyResultImpl(check(result));
       }
 
       solver(): Solver<Name> {
