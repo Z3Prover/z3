@@ -1247,33 +1247,41 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return typeof t === 'string' ? new TacticImpl(t) : t;
     }
 
-    function AndThen(t1: Tactic<Name> | string, t2: Tactic<Name> | string, ...ts: (Tactic<Name> | string)[]): Tactic<Name> {
+    function AndThen(
+      t1: Tactic<Name> | string,
+      t2: Tactic<Name> | string,
+      ...ts: (Tactic<Name> | string)[]
+    ): Tactic<Name> {
       let result = _toTactic(t1);
       let current = _toTactic(t2);
       _assertContext(result, current);
       result = new TacticImpl(check(Z3.tactic_and_then(contextPtr, result.ptr, current.ptr)));
-      
+
       for (const t of ts) {
         current = _toTactic(t);
         _assertContext(result, current);
         result = new TacticImpl(check(Z3.tactic_and_then(contextPtr, result.ptr, current.ptr)));
       }
-      
+
       return result;
     }
 
-    function OrElse(t1: Tactic<Name> | string, t2: Tactic<Name> | string, ...ts: (Tactic<Name> | string)[]): Tactic<Name> {
+    function OrElse(
+      t1: Tactic<Name> | string,
+      t2: Tactic<Name> | string,
+      ...ts: (Tactic<Name> | string)[]
+    ): Tactic<Name> {
       let result = _toTactic(t1);
       let current = _toTactic(t2);
       _assertContext(result, current);
       result = new TacticImpl(check(Z3.tactic_or_else(contextPtr, result.ptr, current.ptr)));
-      
+
       for (const t of ts) {
         current = _toTactic(t);
         _assertContext(result, current);
         result = new TacticImpl(check(Z3.tactic_or_else(contextPtr, result.ptr, current.ptr)));
       }
-      
+
       return result;
     }
 
@@ -1879,9 +1887,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       async query(query: Bool<Name>): Promise<CheckSatResult> {
         _assertContext(query);
-        const result = await asyncMutex.runExclusive(() =>
-          check(Z3.fixedpoint_query(contextPtr, this.ptr, query.ast)),
-        );
+        const result = await asyncMutex.runExclusive(() => check(Z3.fixedpoint_query(contextPtr, this.ptr, query.ast)));
         switch (result) {
           case Z3_lbool.Z3_L_FALSE:
             return 'unsat';
@@ -2658,7 +2664,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       async apply(goal: Goal<Name> | Bool<Name>): Promise<ApplyResult<Name>> {
         let goalToUse: Goal<Name>;
-        
+
         if (isBool(goal)) {
           // Convert Bool expression to Goal
           goalToUse = new GoalImpl();
@@ -3753,10 +3759,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return _toExpr(check(Z3.substitute_vars(contextPtr, t.ast, toAsts)));
     }
 
-    function substituteFuns(
-      t: Expr<Name>,
-      ...substitutions: [FuncDecl<Name>, Expr<Name>][]
-    ): Expr<Name> {
+    function substituteFuns(t: Expr<Name>, ...substitutions: [FuncDecl<Name>, Expr<Name>][]): Expr<Name> {
       _assertContext(t);
       const from: Z3_func_decl[] = [];
       const to: Z3_ast[] = [];

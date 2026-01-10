@@ -1051,7 +1051,6 @@ describe('high-level', () => {
       expect(nonUnits).toBeDefined();
       expect(nonUnits.length()).toBeGreaterThanOrEqual(0);
     });
-
   });
 
   describe('solver congruence closure APIs', () => {
@@ -1227,11 +1226,11 @@ describe('high-level', () => {
       const { Int, Goal } = api.Context('main');
       const x = Int.const('x');
       const goal = new Goal();
-      
+
       expect(goal.inconsistent()).toBe(false);
       expect(goal.depth()).toBe(0);
       expect(goal.numExprs()).toBe(0);
-      
+
       goal.add(x.gt(0));
       expect(goal.size()).toBe(1);
       expect(goal.numExprs()).toBeGreaterThanOrEqual(1);
@@ -1251,14 +1250,14 @@ describe('high-level', () => {
       const { Int, Goal } = api.Context('main');
       const x = Int.const('x');
       const goal = new Goal();
-      
+
       // Empty goal should be True
       expect(goal.asExpr().sexpr()).toBe('true');
-      
+
       // Single constraint
       goal.add(x.gt(0));
       expect(goal.asExpr().sexpr()).toContain('x');
-      
+
       // Multiple constraints should be conjunction
       goal.add(x.lt(10));
       const expr = goal.asExpr();
@@ -1288,10 +1287,10 @@ describe('high-level', () => {
       const x = Int.const('x');
       const goal = new Goal();
       goal.add(x.add(1).gt(2));
-      
+
       const tactic = new Tactic('simplify');
       const result = await tactic.apply(goal);
-      
+
       expect(result).toBeDefined();
       expect(result.length()).toBeGreaterThan(0);
     });
@@ -1301,7 +1300,7 @@ describe('high-level', () => {
       const x = Int.const('x');
       const tactic = new Tactic('simplify');
       const result = await tactic.apply(x.add(1).gt(2));
-      
+
       expect(result).toBeDefined();
       expect(result.length()).toBeGreaterThan(0);
     });
@@ -1335,10 +1334,10 @@ describe('high-level', () => {
       const x = Int.const('x');
       const goal = new Goal();
       goal.add(x.gt(0), x.lt(10));
-      
+
       const tactic = new Tactic('simplify');
       const result = await tactic.apply(goal);
-      
+
       expect(result.length()).toBeGreaterThan(0);
       const subgoal = result.getSubgoal(0);
       expect(subgoal).toBeDefined();
@@ -1350,10 +1349,10 @@ describe('high-level', () => {
       const x = Int.const('x');
       const goal = new Goal();
       goal.add(x.gt(0));
-      
+
       const tactic = new Tactic('simplify');
       const result = await tactic.apply(goal);
-      
+
       // Indexer access should work
       const subgoal = result[0];
       expect(subgoal).toBeDefined();
@@ -1366,11 +1365,11 @@ describe('high-level', () => {
       const x = Int.const('x');
       const goal = new Goal();
       goal.add(x.gt(0));
-      
+
       const tactic = new Tactic('simplify');
       const result = await tactic.apply(goal);
       const str = result.toString();
-      
+
       expect(typeof str).toBe('string');
       expect(str.length).toBeGreaterThan(0);
     });
@@ -1438,7 +1437,7 @@ describe('high-level', () => {
       const { AndThen, OrElse } = api.Context('main');
       const t1 = AndThen('simplify', 'solve-eqs');
       expect(t1).toBeDefined();
-      
+
       const t2 = OrElse('simplify', 'solve-eqs');
       expect(t2).toBeDefined();
     });
@@ -1450,7 +1449,7 @@ describe('high-level', () => {
       const x = Int.const('x');
       const goal = new Goal();
       goal.add(x.gt(0), x.lt(10));
-      
+
       // Create a simple probe - we'd need to add probe creation functions
       // For now, just test that the method signature is correct
       expect(goal).toBeDefined();
@@ -1462,13 +1461,13 @@ describe('high-level', () => {
       const { Int, Goal, Tactic } = api.Context('main');
       const x = Int.const('x');
       const y = Int.const('y');
-      
+
       const goal = new Goal();
       goal.add(x.gt(0), y.gt(x), y.lt(10));
-      
+
       const tactic = new Tactic('simplify');
       const result = await tactic.apply(goal);
-      
+
       expect(result.length()).toBeGreaterThan(0);
       const subgoal = result.getSubgoal(0);
       expect(subgoal.size()).toBeGreaterThan(0);
@@ -1477,11 +1476,11 @@ describe('high-level', () => {
     it('can use tactic solver for satisfiability', async () => {
       const { Int, Tactic } = api.Context('main');
       const x = Int.const('x');
-      
+
       const tactic = new Tactic('simplify');
       const solver = tactic.solver();
       solver.add(x.gt(0), x.lt(10));
-      
+
       const result = await solver.check();
       expect(result).toBe('sat');
     });
@@ -1491,10 +1490,10 @@ describe('high-level', () => {
       const x = Int.const('x');
       const goal = new Goal();
       goal.add(x.add(1).eq(3));
-      
+
       const tactic = AndThen('simplify', 'solve-eqs');
       const result = await tactic.apply(goal);
-      
+
       expect(result).toBeDefined();
       expect(result.length()).toBeGreaterThan(0);
     });

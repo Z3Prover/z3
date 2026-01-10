@@ -473,7 +473,7 @@ export interface Context<Name extends string = 'main'> {
   AtLeast(args: [Bool<Name>, ...Bool<Name>[]], k: number): Bool<Name>;
 
   // Tactic Combinators
-  
+
   /**
    * Compose two tactics sequentially. Applies t1 to a goal, then t2 to each subgoal.
    * @category Tactics
