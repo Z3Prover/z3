@@ -1792,6 +1792,8 @@ describe('high-level', () => {
 
       expect(result).toBeDefined();
       expect(result.length()).toBeGreaterThan(0);
+    });
+    
     it('supports string type checking', () => {
       const { String: Str, Seq, Int, isSeqSort, isSeq, isStringSort, isString } = api.Context('main');
 
