@@ -1732,7 +1732,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       registerRelation(pred: FuncDecl<Name>): void {
         _assertContext(pred);
-        check(Z3.fixedpoint_register_relation(contextPtr, this.ptr, pred.decl));
+        check(Z3.fixedpoint_register_relation(contextPtr, this.ptr, pred.ptr));
       }
 
       addRule(rule: Bool<Name>, name?: string): void {
@@ -1743,7 +1743,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       addFact(pred: FuncDecl<Name>, ...args: number[]): void {
         _assertContext(pred);
-        check(Z3.fixedpoint_add_fact(contextPtr, this.ptr, pred.decl, args));
+        check(Z3.fixedpoint_add_fact(contextPtr, this.ptr, pred.ptr, args));
       }
 
       updateRule(rule: Bool<Name>, name: string): void {
@@ -1771,7 +1771,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       async queryRelations(...relations: FuncDecl<Name>[]): Promise<CheckSatResult> {
         relations.forEach(rel => _assertContext(rel));
-        const decls = relations.map(rel => rel.decl);
+        const decls = relations.map(rel => rel.ptr);
         const result = await asyncMutex.runExclusive(() =>
           check(Z3.fixedpoint_query_relations(contextPtr, this.ptr, decls)),
         );
@@ -1798,19 +1798,19 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       getNumLevels(pred: FuncDecl<Name>): number {
         _assertContext(pred);
-        return check(Z3.fixedpoint_get_num_levels(contextPtr, this.ptr, pred.decl));
+        return check(Z3.fixedpoint_get_num_levels(contextPtr, this.ptr, pred.ptr));
       }
 
       getCoverDelta(level: number, pred: FuncDecl<Name>): Expr<Name> | null {
         _assertContext(pred);
-        const res = check(Z3.fixedpoint_get_cover_delta(contextPtr, this.ptr, level, pred.decl));
+        const res = check(Z3.fixedpoint_get_cover_delta(contextPtr, this.ptr, level, pred.ptr));
         return res === 0 ? null : _toExpr(res);
       }
 
       addCover(level: number, pred: FuncDecl<Name>, property: Expr<Name>): void {
         _assertContext(pred);
         _assertContext(property);
-        check(Z3.fixedpoint_add_cover(contextPtr, this.ptr, level, pred.decl, property.ast));
+        check(Z3.fixedpoint_add_cover(contextPtr, this.ptr, level, pred.ptr, property.ast));
       }
 
       getRules(): AstVector<Name, Bool<Name>> {
@@ -1824,7 +1824,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       setPredicateRepresentation(pred: FuncDecl<Name>, kinds: string[]): void {
         _assertContext(pred);
         const symbols = kinds.map(kind => _toSymbol(kind));
-        check(Z3.fixedpoint_set_predicate_representation(contextPtr, this.ptr, pred.decl, symbols));
+        check(Z3.fixedpoint_set_predicate_representation(contextPtr, this.ptr, pred.ptr, symbols));
       }
 
       toString(): string {
@@ -3461,7 +3461,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       for (const [f, body] of substitutions) {
         _assertContext(f);
         _assertContext(body);
-        from.push(f.decl);
+        from.push(f.ptr);
         to.push(body.ast);
       }
       return _toExpr(check(Z3.substitute_funs(contextPtr, t.ast, from, to)));
