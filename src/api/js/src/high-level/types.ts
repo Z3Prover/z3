@@ -17,6 +17,9 @@ import {
   Z3_sort,
   Z3_sort_kind,
   Z3_tactic,
+  Z3_goal,
+  Z3_apply_result,
+  Z3_goal_prec,
 } from '../low-level';
 
 /** @hidden */
@@ -265,6 +268,9 @@ export interface Context<Name extends string = 'main'> {
   isTactic(obj: unknown): obj is Tactic<Name>;
 
   /** @category Functions */
+  isGoal(obj: unknown): obj is Goal<Name>;
+
+  /** @category Functions */
   isAstVector(obj: unknown): obj is AstVector<Name, AnyAst<Name>>;
 
   /**
@@ -352,6 +358,8 @@ export interface Context<Name extends string = 'main'> {
   >;
   /** @category Classes */
   readonly Tactic: new (name: string) => Tactic<Name>;
+  /** @category Classes */
+  readonly Goal: new (models?: boolean, unsat_cores?: boolean, proofs?: boolean) => Goal<Name>;
 
   /////////////
   // Objects //
@@ -462,6 +470,74 @@ export interface Context<Name extends string = 'main'> {
 
   /** @category Operations */
   AtLeast(args: [Bool<Name>, ...Bool<Name>[]], k: number): Bool<Name>;
+
+  // Tactic Combinators
+  
+  /**
+   * Compose two tactics sequentially. Applies t1 to a goal, then t2 to each subgoal.
+   * @category Tactics
+   */
+  AndThen(t1: Tactic<Name> | string, t2: Tactic<Name> | string, ...ts: (Tactic<Name> | string)[]): Tactic<Name>;
+
+  /**
+   * Create a tactic that applies t1, and if it fails, applies t2.
+   * @category Tactics
+   */
+  OrElse(t1: Tactic<Name> | string, t2: Tactic<Name> | string, ...ts: (Tactic<Name> | string)[]): Tactic<Name>;
+
+  /**
+   * Repeat a tactic up to max times (default: unbounded).
+   * @category Tactics
+   */
+  Repeat(t: Tactic<Name> | string, max?: number): Tactic<Name>;
+
+  /**
+   * Apply tactic with a timeout in milliseconds.
+   * @category Tactics
+   */
+  TryFor(t: Tactic<Name> | string, ms: number): Tactic<Name>;
+
+  /**
+   * Apply tactic only if probe condition is true.
+   * @category Tactics
+   */
+  When(p: Probe<Name>, t: Tactic<Name> | string): Tactic<Name>;
+
+  /**
+   * Create a tactic that always succeeds and does nothing (skip).
+   * @category Tactics
+   */
+  Skip(): Tactic<Name>;
+
+  /**
+   * Create a tactic that always fails.
+   * @category Tactics
+   */
+  Fail(): Tactic<Name>;
+
+  /**
+   * Create a tactic that fails if probe condition is true.
+   * @category Tactics
+   */
+  FailIf(p: Probe<Name>): Tactic<Name>;
+
+  /**
+   * Apply tactics in parallel and return first successful result.
+   * @category Tactics
+   */
+  ParOr(...tactics: (Tactic<Name> | string)[]): Tactic<Name>;
+
+  /**
+   * Compose two tactics in parallel (t1 and then t2 in parallel).
+   * @category Tactics
+   */
+  ParAndThen(t1: Tactic<Name> | string, t2: Tactic<Name> | string): Tactic<Name>;
+
+  /**
+   * Apply tactic with given parameters.
+   * @category Tactics
+   */
+  With(t: Tactic<Name> | string, params: Record<string, any>): Tactic<Name>;
 
   // Quantifiers
 
@@ -2307,12 +2383,142 @@ export interface Quantifier<
   children(): [BodyT<Name, QVarSorts, QSort>];
 }
 
+/** @hidden */
+export interface GoalCtor<Name extends string> {
+  new (models?: boolean, unsat_cores?: boolean, proofs?: boolean): Goal<Name>;
+}
+
+/**
+ * Goal is a collection of constraints we want to find a solution or show to be unsatisfiable.
+ * Goals are processed using Tactics. A Tactic transforms a goal into a set of subgoals.
+ * @category Tactics
+ */
+export interface Goal<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'Goal';
+
+  readonly ctx: Context<Name>;
+  readonly ptr: Z3_goal;
+
+  /**
+   * Add constraints to the goal.
+   */
+  add(...constraints: (Bool<Name> | boolean)[]): void;
+
+  /**
+   * Return the number of constraints in the goal.
+   */
+  size(): number;
+
+  /**
+   * Return a constraint from the goal at the given index.
+   */
+  get(i: number): Bool<Name>;
+
+  /**
+   * Return the depth of the goal (number of tactics applied).
+   */
+  depth(): number;
+
+  /**
+   * Return true if the goal contains the False constraint.
+   */
+  inconsistent(): boolean;
+
+  /**
+   * Return the precision of the goal (precise, under-approximation, over-approximation).
+   */
+  precision(): Z3_goal_prec;
+
+  /**
+   * Reset the goal to empty.
+   */
+  reset(): void;
+
+  /**
+   * Return the number of expressions in the goal.
+   */
+  numExprs(): number;
+
+  /**
+   * Return true if the goal is decided to be satisfiable.
+   */
+  isDecidedSat(): boolean;
+
+  /**
+   * Return true if the goal is decided to be unsatisfiable.
+   */
+  isDecidedUnsat(): boolean;
+
+  /**
+   * Translate/copy the goal to another context.
+   */
+  translate(target: Context<string>): Goal<string>;
+
+  /**
+   * Convert a model for the goal to a model for the original goal.
+   */
+  convertModel(model: Model<Name>): Model<Name>;
+
+  /**
+   * Convert the goal to a single Boolean expression (conjunction of all constraints).
+   */
+  asExpr(): Bool<Name>;
+
+  /**
+   * Return a string representation of the goal.
+   */
+  toString(): string;
+
+  /**
+   * Return a DIMACS string representation of the goal.
+   */
+  dimacs(includeNames?: boolean): string;
+}
+
+/**
+ * ApplyResult contains the subgoals produced by applying a tactic to a goal.
+ * @category Tactics
+ */
+export interface ApplyResult<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'ApplyResult';
+
+  readonly ctx: Context<Name>;
+  readonly ptr: Z3_apply_result;
+
+  /**
+   * Return the number of subgoals in the result.
+   */
+  length(): number;
+
+  /**
+   * Return a subgoal at the given index.
+   */
+  getSubgoal(i: number): Goal<Name>;
+
+  /**
+   * Return a string representation of the apply result.
+   */
+  toString(): string;
+
+  /**
+   * Get subgoal at index (alias for getSubgoal).
+   */
+  [index: number]: Goal<Name>;
+}
+
 export interface Probe<Name extends string = 'main'> {
   /** @hidden */
   readonly __typename: 'Probe';
 
   readonly ctx: Context<Name>;
   readonly ptr: Z3_probe;
+
+  /**
+   * Apply the probe to a goal and return the result as a number.
+   */
+  apply(goal: Goal<Name>): number;
 }
 
 /** @hidden */
@@ -2326,6 +2532,27 @@ export interface Tactic<Name extends string = 'main'> {
 
   readonly ctx: Context<Name>;
   readonly ptr: Z3_tactic;
+
+  /**
+   * Apply the tactic to a goal and return the resulting subgoals.
+   */
+  apply(goal: Goal<Name> | Bool<Name>): ApplyResult<Name>;
+
+  /**
+   * Create a solver from this tactic.
+   * The solver will always solve each check() from scratch using this tactic.
+   */
+  solver(): Solver<Name>;
+
+  /**
+   * Get help string describing the tactic.
+   */
+  help(): string;
+
+  /**
+   * Get parameter descriptions for the tactic.
+   */
+  getParamDescrs(): unknown; // TODO: Add ParamDescrs type when implemented
 }
 
 /** @hidden */

@@ -39,6 +39,9 @@ import {
   Z3_func_entry,
   Z3_optimize,
   Z3_fixedpoint,
+  Z3_goal,
+  Z3_apply_result,
+  Z3_goal_prec,
 } from '../low-level';
 import {
   AnyAst,
@@ -85,6 +88,8 @@ import {
   Sort,
   SortToExprMap,
   Tactic,
+  Goal,
+  ApplyResult,
   Z3Error,
   Z3HighLevel,
   CoercibleToArith,
@@ -528,6 +533,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function isTactic(obj: unknown): obj is Tactic<Name> {
       const r = obj instanceof TacticImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isGoal(obj: unknown): obj is Goal<Name> {
+      const r = obj instanceof GoalImpl;
       r && _assertContext(obj);
       return r;
     }
@@ -1229,6 +1240,117 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     function Cond(probe: Probe<Name>, onTrue: Tactic<Name>, onFalse: Tactic<Name>): Tactic<Name> {
       _assertContext(probe, onTrue, onFalse);
       return new TacticImpl(check(Z3.tactic_cond(contextPtr, probe.ptr, onTrue.ptr, onFalse.ptr)));
+    }
+
+    function _toTactic(t: Tactic<Name> | string): Tactic<Name> {
+      return typeof t === 'string' ? new TacticImpl(t) : t;
+    }
+
+    function AndThen(t1: Tactic<Name> | string, t2: Tactic<Name> | string, ...ts: (Tactic<Name> | string)[]): Tactic<Name> {
+      let result = _toTactic(t1);
+      let current = _toTactic(t2);
+      _assertContext(result, current);
+      result = new TacticImpl(check(Z3.tactic_and_then(contextPtr, result.ptr, current.ptr)));
+      
+      for (const t of ts) {
+        current = _toTactic(t);
+        _assertContext(result, current);
+        result = new TacticImpl(check(Z3.tactic_and_then(contextPtr, result.ptr, current.ptr)));
+      }
+      
+      return result;
+    }
+
+    function OrElse(t1: Tactic<Name> | string, t2: Tactic<Name> | string, ...ts: (Tactic<Name> | string)[]): Tactic<Name> {
+      let result = _toTactic(t1);
+      let current = _toTactic(t2);
+      _assertContext(result, current);
+      result = new TacticImpl(check(Z3.tactic_or_else(contextPtr, result.ptr, current.ptr)));
+      
+      for (const t of ts) {
+        current = _toTactic(t);
+        _assertContext(result, current);
+        result = new TacticImpl(check(Z3.tactic_or_else(contextPtr, result.ptr, current.ptr)));
+      }
+      
+      return result;
+    }
+
+    function Repeat(t: Tactic<Name> | string, max?: number): Tactic<Name> {
+      const tactic = _toTactic(t);
+      _assertContext(tactic);
+      const maxVal = max !== undefined ? max : 4294967295; // UINT_MAX
+      return new TacticImpl(check(Z3.tactic_repeat(contextPtr, tactic.ptr, maxVal)));
+    }
+
+    function TryFor(t: Tactic<Name> | string, ms: number): Tactic<Name> {
+      const tactic = _toTactic(t);
+      _assertContext(tactic);
+      return new TacticImpl(check(Z3.tactic_try_for(contextPtr, tactic.ptr, ms)));
+    }
+
+    function When(p: Probe<Name>, t: Tactic<Name> | string): Tactic<Name> {
+      const tactic = _toTactic(t);
+      _assertContext(p, tactic);
+      return new TacticImpl(check(Z3.tactic_when(contextPtr, p.ptr, tactic.ptr)));
+    }
+
+    function Skip(): Tactic<Name> {
+      return new TacticImpl(check(Z3.tactic_skip(contextPtr)));
+    }
+
+    function Fail(): Tactic<Name> {
+      return new TacticImpl(check(Z3.tactic_fail(contextPtr)));
+    }
+
+    function FailIf(p: Probe<Name>): Tactic<Name> {
+      _assertContext(p);
+      return new TacticImpl(check(Z3.tactic_fail_if(contextPtr, p.ptr)));
+    }
+
+    function ParOr(...tactics: (Tactic<Name> | string)[]): Tactic<Name> {
+      assert(tactics.length > 0, 'ParOr requires at least one tactic');
+      const tacticImpls = tactics.map(t => _toTactic(t));
+      _assertContext(...tacticImpls);
+      const tacticPtrs = tacticImpls.map(t => t.ptr);
+      return new TacticImpl(check(Z3.tactic_par_or(contextPtr, tacticPtrs.length, tacticPtrs)));
+    }
+
+    function ParAndThen(t1: Tactic<Name> | string, t2: Tactic<Name> | string): Tactic<Name> {
+      const tactic1 = _toTactic(t1);
+      const tactic2 = _toTactic(t2);
+      _assertContext(tactic1, tactic2);
+      return new TacticImpl(check(Z3.tactic_par_and_then(contextPtr, tactic1.ptr, tactic2.ptr)));
+    }
+
+    function With(t: Tactic<Name> | string, params: Record<string, any>): Tactic<Name> {
+      const tactic = _toTactic(t);
+      _assertContext(tactic);
+      // Convert params to Z3_params
+      const z3params = check(Z3.mk_params(contextPtr));
+      Z3.params_inc_ref(contextPtr, z3params);
+      try {
+        for (const [key, value] of Object.entries(params)) {
+          const sym = _toSymbol(key);
+          if (typeof value === 'boolean') {
+            Z3.params_set_bool(contextPtr, z3params, sym, value);
+          } else if (typeof value === 'number') {
+            if (Number.isInteger(value)) {
+              Z3.params_set_uint(contextPtr, z3params, sym, value);
+            } else {
+              Z3.params_set_double(contextPtr, z3params, sym, value);
+            }
+          } else if (typeof value === 'string') {
+            Z3.params_set_symbol(contextPtr, z3params, sym, _toSymbol(value));
+          } else {
+            throw new Error(`Unsupported parameter type for ${key}`);
+          }
+        }
+        const result = new TacticImpl(check(Z3.tactic_using_params(contextPtr, tactic.ptr, z3params)));
+        return result;
+      } finally {
+        Z3.params_dec_ref(contextPtr, z3params);
+      }
     }
 
     function LT(a: Arith<Name>, b: CoercibleToArith<Name>): Bool<Name> {
@@ -2362,7 +2484,158 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       constructor(readonly ptr: Z3_probe) {
         this.ctx = ctx;
       }
+
+      apply(goal: Goal<Name>): number {
+        _assertContext(goal);
+        return Z3.probe_apply(contextPtr, this.ptr, goal.ptr);
+      }
     }
+
+    class GoalImpl implements Goal<Name> {
+      declare readonly __typename: Goal['__typename'];
+      readonly ctx: Context<Name>;
+      readonly ptr: Z3_goal;
+
+      constructor(models: boolean = true, unsat_cores: boolean = false, proofs: boolean = false) {
+        this.ctx = ctx;
+        const myPtr = check(Z3.mk_goal(contextPtr, models, unsat_cores, proofs));
+        this.ptr = myPtr;
+        Z3.goal_inc_ref(contextPtr, myPtr);
+        cleanup.register(this, () => Z3.goal_dec_ref(contextPtr, myPtr), this);
+      }
+
+      add(...constraints: (Bool<Name> | boolean)[]): void {
+        for (const constraint of constraints) {
+          const boolConstraint = isBool(constraint) ? constraint : Bool.val(constraint);
+          _assertContext(boolConstraint);
+          Z3.goal_assert(contextPtr, this.ptr, boolConstraint.ast);
+        }
+      }
+
+      size(): number {
+        return Z3.goal_size(contextPtr, this.ptr);
+      }
+
+      get(i: number): Bool<Name> {
+        assert(i >= 0 && i < this.size(), 'Index out of bounds');
+        const ast = check(Z3.goal_formula(contextPtr, this.ptr, i));
+        return new BoolImpl(ast);
+      }
+
+      depth(): number {
+        return Z3.goal_depth(contextPtr, this.ptr);
+      }
+
+      inconsistent(): boolean {
+        return Z3.goal_inconsistent(contextPtr, this.ptr);
+      }
+
+      precision(): Z3_goal_prec {
+        return Z3.goal_precision(contextPtr, this.ptr);
+      }
+
+      reset(): void {
+        Z3.goal_reset(contextPtr, this.ptr);
+      }
+
+      numExprs(): number {
+        return Z3.goal_num_exprs(contextPtr, this.ptr);
+      }
+
+      isDecidedSat(): boolean {
+        return Z3.goal_is_decided_sat(contextPtr, this.ptr);
+      }
+
+      isDecidedUnsat(): boolean {
+        return Z3.goal_is_decided_unsat(contextPtr, this.ptr);
+      }
+
+      translate(target: Context<string>): Goal<string> {
+        const targetPtr = (target as any).ptr as Z3_context;
+        const translatedGoal = check(Z3.goal_translate(contextPtr, this.ptr, targetPtr));
+        // We need to return a Goal from the target context, which requires access to its GoalImpl
+        // This is a simplification - in practice would need to handle cross-context properly
+        throw new Error('Goal.translate not yet fully implemented');
+      }
+
+      convertModel(model: Model<Name>): Model<Name> {
+        _assertContext(model);
+        const convertedModel = check(Z3.goal_convert_model(contextPtr, this.ptr, model.ptr));
+        return new ModelImpl(convertedModel);
+      }
+
+      asExpr(): Bool<Name> {
+        const sz = this.size();
+        if (sz === 0) {
+          return Bool.val(true);
+        } else if (sz === 1) {
+          return this.get(0);
+        } else {
+          const constraints: Bool<Name>[] = [];
+          for (let i = 0; i < sz; i++) {
+            constraints.push(this.get(i));
+          }
+          return And(...constraints);
+        }
+      }
+
+      toString(): string {
+        return Z3.goal_to_string(contextPtr, this.ptr);
+      }
+
+      dimacs(includeNames: boolean = true): string {
+        return Z3.goal_to_dimacs_string(contextPtr, this.ptr, includeNames);
+      }
+    }
+
+    class ApplyResultImpl implements ApplyResult<Name> {
+      declare readonly __typename: ApplyResult['__typename'];
+      readonly ctx: Context<Name>;
+      readonly ptr: Z3_apply_result;
+
+      constructor(ptr: Z3_apply_result) {
+        this.ctx = ctx;
+        this.ptr = ptr;
+        Z3.apply_result_inc_ref(contextPtr, ptr);
+        cleanup.register(this, () => Z3.apply_result_dec_ref(contextPtr, ptr), this);
+      }
+
+      length(): number {
+        return Z3.apply_result_get_num_subgoals(contextPtr, this.ptr);
+      }
+
+      getSubgoal(i: number): Goal<Name> {
+        assert(i >= 0 && i < this.length(), 'Index out of bounds');
+        const goalPtr = check(Z3.apply_result_get_subgoal(contextPtr, this.ptr, i));
+        // Create a new GoalImpl with the existing Z3_goal pointer
+        // Note: This requires modifying GoalImpl to accept an existing pointer
+        const goal = Object.create(GoalImpl.prototype) as GoalImpl;
+        (goal as any).ctx = ctx;
+        (goal as any).ptr = goalPtr;
+        Z3.goal_inc_ref(contextPtr, goalPtr);
+        cleanup.register(goal, () => Z3.goal_dec_ref(contextPtr, goalPtr), goal);
+        return goal;
+      }
+
+      toString(): string {
+        return Z3.apply_result_to_string(contextPtr, this.ptr);
+      }
+
+      [index: number]: Goal<Name>;
+    }
+
+    // Add indexer support to ApplyResultImpl
+    const applyResultHandler = {
+      get(target: ApplyResultImpl, prop: string | symbol): any {
+        if (typeof prop === 'string') {
+          const index = parseInt(prop, 10);
+          if (!isNaN(index) && index >= 0 && index < target.length()) {
+            return target.getSubgoal(index);
+          }
+        }
+        return (target as any)[prop];
+      },
+    };
 
     class TacticImpl implements Tactic<Name> {
       declare readonly __typename: Tactic['__typename'];
@@ -2383,6 +2656,37 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
         Z3.tactic_inc_ref(contextPtr, myPtr);
         cleanup.register(this, () => Z3.tactic_dec_ref(contextPtr, myPtr), this);
+      }
+
+      apply(goal: Goal<Name> | Bool<Name>): ApplyResult<Name> {
+        let goalToUse: Goal<Name>;
+        
+        if (isBool(goal)) {
+          // Convert Bool expression to Goal
+          goalToUse = new GoalImpl();
+          goalToUse.add(goal);
+        } else {
+          goalToUse = goal;
+        }
+
+        _assertContext(goalToUse);
+        const result = check(Z3.tactic_apply(contextPtr, this.ptr, goalToUse.ptr));
+        return new ApplyResultImpl(result);
+      }
+
+      solver(): Solver<Name> {
+        const solverPtr = check(Z3.mk_solver_from_tactic(contextPtr, this.ptr));
+        return new SolverImpl(solverPtr);
+      }
+
+      help(): string {
+        return Z3.tactic_get_help(contextPtr, this.ptr);
+      }
+
+      getParamDescrs(): unknown {
+        const paramDescrs = check(Z3.tactic_get_param_descrs(contextPtr, this.ptr));
+        // TODO: Return proper ParamDescrs object when implemented
+        return paramDescrs;
       }
     }
 
@@ -3491,6 +3795,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Fixedpoint: FixedpointImpl,
       Model: ModelImpl,
       Tactic: TacticImpl,
+      Goal: GoalImpl,
       AstVector: AstVectorImpl as AstVectorCtor<Name>,
       AstMap: AstMapImpl as AstMapCtor<Name>,
 
@@ -3534,6 +3839,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       isConstArray,
       isProbe,
       isTactic,
+      isGoal,
       isAstVector,
       eqIdentity,
       getVarIndex,
@@ -3587,6 +3893,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Int2BV,
       Concat,
       Cond,
+      AndThen,
+      OrElse,
+      Repeat,
+      TryFor,
+      When,
+      Skip,
+      Fail,
+      FailIf,
+      ParOr,
+      ParAndThen,
+      With,
       LT,
       GT,
       LE,
