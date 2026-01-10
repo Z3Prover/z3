@@ -42,6 +42,7 @@ import {
   Z3_goal,
   Z3_apply_result,
   Z3_goal_prec,
+  Z3_param_descrs,
 } from '../low-level';
 import {
   AnyAst,
@@ -1276,10 +1277,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return result;
     }
 
+    const UINT_MAX = 4294967295;
+
     function Repeat(t: Tactic<Name> | string, max?: number): Tactic<Name> {
       const tactic = _toTactic(t);
       _assertContext(tactic);
-      const maxVal = max !== undefined ? max : 4294967295; // UINT_MAX
+      const maxVal = max !== undefined ? max : UINT_MAX;
       return new TacticImpl(check(Z3.tactic_repeat(contextPtr, tactic.ptr, maxVal)));
     }
 
@@ -2504,6 +2507,16 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         cleanup.register(this, () => Z3.goal_dec_ref(contextPtr, myPtr), this);
       }
 
+      // Factory method for creating from existing Z3_goal pointer
+      static fromPtr(goalPtr: Z3_goal): GoalImpl {
+        const goal = Object.create(GoalImpl.prototype) as GoalImpl;
+        (goal as any).ctx = ctx;
+        (goal as any).ptr = goalPtr;
+        Z3.goal_inc_ref(contextPtr, goalPtr);
+        cleanup.register(goal, () => Z3.goal_dec_ref(contextPtr, goalPtr), goal);
+        return goal;
+      }
+
       add(...constraints: (Bool<Name> | boolean)[]): void {
         for (const constraint of constraints) {
           const boolConstraint = isBool(constraint) ? constraint : Bool.val(constraint);
@@ -2548,14 +2561,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       isDecidedUnsat(): boolean {
         return Z3.goal_is_decided_unsat(contextPtr, this.ptr);
-      }
-
-      translate(target: Context<string>): Goal<string> {
-        const targetPtr = (target as any).ptr as Z3_context;
-        const translatedGoal = check(Z3.goal_translate(contextPtr, this.ptr, targetPtr));
-        // We need to return a Goal from the target context, which requires access to its GoalImpl
-        // This is a simplification - in practice would need to handle cross-context properly
-        throw new Error('Goal.translate not yet fully implemented');
       }
 
       convertModel(model: Model<Name>): Model<Name> {
@@ -2607,14 +2612,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       getSubgoal(i: number): Goal<Name> {
         assert(i >= 0 && i < this.length(), 'Index out of bounds');
         const goalPtr = check(Z3.apply_result_get_subgoal(contextPtr, this.ptr, i));
-        // Create a new GoalImpl with the existing Z3_goal pointer
-        // Note: This requires modifying GoalImpl to accept an existing pointer
-        const goal = Object.create(GoalImpl.prototype) as GoalImpl;
-        (goal as any).ctx = ctx;
-        (goal as any).ptr = goalPtr;
-        Z3.goal_inc_ref(contextPtr, goalPtr);
-        cleanup.register(goal, () => Z3.goal_dec_ref(contextPtr, goalPtr), goal);
-        return goal;
+        return GoalImpl.fromPtr(goalPtr);
       }
 
       toString(): string {
@@ -2671,7 +2669,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
         _assertContext(goalToUse);
         const result = await Z3.tactic_apply(contextPtr, this.ptr, goalToUse.ptr);
-        return new ApplyResultImpl(check(result));
+        const applyResult = new ApplyResultImpl(check(result));
+        // Wrap with Proxy to enable indexer access
+        return new Proxy(applyResult, applyResultHandler) as ApplyResult<Name>;
       }
 
       solver(): Solver<Name> {
@@ -2683,10 +2683,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return Z3.tactic_get_help(contextPtr, this.ptr);
       }
 
-      getParamDescrs(): unknown {
-        const paramDescrs = check(Z3.tactic_get_param_descrs(contextPtr, this.ptr));
-        // TODO: Return proper ParamDescrs object when implemented
-        return paramDescrs;
+      getParamDescrs(): Z3_param_descrs {
+        return check(Z3.tactic_get_param_descrs(contextPtr, this.ptr));
       }
     }
 

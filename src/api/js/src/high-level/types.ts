@@ -20,6 +20,7 @@ import {
   Z3_goal,
   Z3_apply_result,
   Z3_goal_prec,
+  Z3_param_descrs,
 } from '../low-level';
 
 /** @hidden */
@@ -2451,11 +2452,6 @@ export interface Goal<Name extends string = 'main'> {
   isDecidedUnsat(): boolean;
 
   /**
-   * Translate/copy the goal to another context.
-   */
-  translate(target: Context<string>): Goal<string>;
-
-  /**
    * Convert a model for the goal to a model for the original goal.
    */
   convertModel(model: Model<Name>): Model<Name>;
@@ -2551,8 +2547,9 @@ export interface Tactic<Name extends string = 'main'> {
 
   /**
    * Get parameter descriptions for the tactic.
+   * Returns a Z3 parameter descriptors object.
    */
-  getParamDescrs(): unknown; // TODO: Add ParamDescrs type when implemented
+  getParamDescrs(): Z3_param_descrs;
 }
 
 /** @hidden */

@@ -1357,7 +1357,8 @@ describe('high-level', () => {
       // Indexer access should work
       const subgoal = result[0];
       expect(subgoal).toBeDefined();
-      expect(subgoal.size).toBeDefined();
+      expect(typeof subgoal.size).toBe('function');
+      expect(subgoal.size()).toBeGreaterThanOrEqual(0);
     });
 
     it('can get string representation', async () => {
