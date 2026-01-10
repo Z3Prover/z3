@@ -1480,6 +1480,25 @@ describe('high-level', () => {
       const tactic = new Tactic('simplify');
       const solver = tactic.solver();
       solver.add(x.gt(0), x.lt(10));
+
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('can chain multiple tactics', async () => {
+      const { Int, Goal, AndThen } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+      goal.add(x.add(1).eq(3));
+
+      const tactic = AndThen('simplify', 'solve-eqs');
+      const result = await tactic.apply(goal);
+
+      expect(result).toBeDefined();
+      expect(result.length()).toBeGreaterThan(0);
+    });
+  });
+
   describe('floating-point', () => {
     it('can create FP sorts', () => {
       const { Float } = api.Context('main');
