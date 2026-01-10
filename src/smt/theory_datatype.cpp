@@ -748,7 +748,7 @@ namespace smt {
             add_subterm_predicate(a, e);
             add_subterm_predicate(b, e);
 
-            // propagating potentially adds a lot of litteral, avoid it if we can
+            // propagating potentially adds a lot of literals, avoid it if we can
         }
     }
 
