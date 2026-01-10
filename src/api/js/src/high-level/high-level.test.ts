@@ -1477,7 +1477,7 @@ describe('high-level', () => {
       const { Int, Tactic } = api.Context('main');
       const x = Int.const('x');
 
-      const tactic = new Tactic('simplify');
+      const tactic = new Tactic('smt');
       const solver = tactic.solver();
       solver.add(x.gt(0), x.lt(10));
 
