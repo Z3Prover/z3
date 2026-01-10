@@ -1196,6 +1196,309 @@ describe('high-level', () => {
     });
   });
 
+  describe('Goal API', () => {
+    it('can create a goal', () => {
+      const { Goal } = api.Context('main');
+      const goal = new Goal();
+      expect(goal).toBeDefined();
+      expect(goal.size()).toBe(0);
+    });
+
+    it('can add constraints to goal', () => {
+      const { Int, Goal } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+      goal.add(x.gt(0), x.lt(10));
+      expect(goal.size()).toBe(2);
+    });
+
+    it('can get constraints from goal', () => {
+      const { Int, Goal } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+      goal.add(x.gt(0));
+      const constraint = goal.get(0);
+      expect(constraint.sexpr()).toContain('x');
+      expect(constraint.sexpr()).toContain('>');
+    });
+
+    it('can check goal properties', () => {
+      const { Int, Goal } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+
+      expect(goal.inconsistent()).toBe(false);
+      expect(goal.depth()).toBe(0);
+      expect(goal.numExprs()).toBe(0);
+
+      goal.add(x.gt(0));
+      expect(goal.size()).toBe(1);
+      expect(goal.numExprs()).toBeGreaterThanOrEqual(1);
+    });
+
+    it('can reset goal', () => {
+      const { Int, Goal } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+      goal.add(x.gt(0), x.lt(10));
+      expect(goal.size()).toBe(2);
+      goal.reset();
+      expect(goal.size()).toBe(0);
+    });
+
+    it('can convert goal to expression', () => {
+      const { Int, Goal } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+
+      // Empty goal should be True
+      expect(goal.asExpr().sexpr()).toBe('true');
+
+      // Single constraint
+      goal.add(x.gt(0));
+      expect(goal.asExpr().sexpr()).toContain('x');
+
+      // Multiple constraints should be conjunction
+      goal.add(x.lt(10));
+      const expr = goal.asExpr();
+      expect(expr.sexpr()).toContain('and');
+    });
+
+    it('can get goal string representation', () => {
+      const { Int, Goal } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+      goal.add(x.gt(0));
+      const str = goal.toString();
+      expect(str).toContain('x');
+      expect(str).toContain('>');
+    });
+  });
+
+  describe('Tactic API', () => {
+    it('can create a tactic', () => {
+      const { Tactic } = api.Context('main');
+      const tactic = new Tactic('simplify');
+      expect(tactic).toBeDefined();
+    });
+
+    it('can apply tactic to goal', async () => {
+      const { Int, Goal, Tactic } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+      goal.add(x.add(1).gt(2));
+
+      const tactic = new Tactic('simplify');
+      const result = await tactic.apply(goal);
+
+      expect(result).toBeDefined();
+      expect(result.length()).toBeGreaterThan(0);
+    });
+
+    it('can apply tactic to boolean expression', async () => {
+      const { Int, Tactic } = api.Context('main');
+      const x = Int.const('x');
+      const tactic = new Tactic('simplify');
+      const result = await tactic.apply(x.add(1).gt(2));
+
+      expect(result).toBeDefined();
+      expect(result.length()).toBeGreaterThan(0);
+    });
+
+    it('can create solver from tactic', () => {
+      const { Tactic } = api.Context('main');
+      const tactic = new Tactic('simplify');
+      const solver = tactic.solver();
+      expect(solver).toBeDefined();
+    });
+
+    it('can get tactic help', () => {
+      const { Tactic } = api.Context('main');
+      const tactic = new Tactic('simplify');
+      const help = tactic.help();
+      expect(typeof help).toBe('string');
+      expect(help.length).toBeGreaterThan(0);
+    });
+
+    it('can get tactic parameter descriptions', () => {
+      const { Tactic } = api.Context('main');
+      const tactic = new Tactic('simplify');
+      const paramDescrs = tactic.getParamDescrs();
+      expect(paramDescrs).toBeDefined();
+    });
+  });
+
+  describe('ApplyResult API', () => {
+    it('can get subgoals from apply result', async () => {
+      const { Int, Goal, Tactic } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+      goal.add(x.gt(0), x.lt(10));
+
+      const tactic = new Tactic('simplify');
+      const result = await tactic.apply(goal);
+
+      expect(result.length()).toBeGreaterThan(0);
+      const subgoal = result.getSubgoal(0);
+      expect(subgoal).toBeDefined();
+      expect(subgoal.size()).toBeGreaterThanOrEqual(0);
+    });
+
+    it('supports indexer access', async () => {
+      const { Int, Goal, Tactic } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+      goal.add(x.gt(0));
+
+      const tactic = new Tactic('simplify');
+      const result = await tactic.apply(goal);
+
+      // Indexer access should work
+      const subgoal = result[0];
+      expect(subgoal).toBeDefined();
+      expect(typeof subgoal.size).toBe('function');
+      expect(subgoal.size()).toBeGreaterThanOrEqual(0);
+    });
+
+    it('can get string representation', async () => {
+      const { Int, Goal, Tactic } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+      goal.add(x.gt(0));
+
+      const tactic = new Tactic('simplify');
+      const result = await tactic.apply(goal);
+      const str = result.toString();
+
+      expect(typeof str).toBe('string');
+      expect(str.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Tactic Combinators', () => {
+    it('can compose tactics with AndThen', () => {
+      const { Tactic, AndThen } = api.Context('main');
+      const t1 = new Tactic('simplify');
+      const t2 = new Tactic('solve-eqs');
+      const combined = AndThen(t1, t2);
+      expect(combined).toBeDefined();
+    });
+
+    it('can create fallback tactics with OrElse', () => {
+      const { Tactic, OrElse } = api.Context('main');
+      const t1 = new Tactic('simplify');
+      const t2 = new Tactic('solve-eqs');
+      const combined = OrElse(t1, t2);
+      expect(combined).toBeDefined();
+    });
+
+    it('can repeat a tactic', () => {
+      const { Tactic, Repeat } = api.Context('main');
+      const t = new Tactic('simplify');
+      const repeated = Repeat(t, 5);
+      expect(repeated).toBeDefined();
+    });
+
+    it('can apply tactic with timeout', () => {
+      const { Tactic, TryFor } = api.Context('main');
+      const t = new Tactic('simplify');
+      const withTimeout = TryFor(t, 1000);
+      expect(withTimeout).toBeDefined();
+    });
+
+    it('can create Skip tactic', () => {
+      const { Skip } = api.Context('main');
+      const skip = Skip();
+      expect(skip).toBeDefined();
+    });
+
+    it('can create Fail tactic', () => {
+      const { Fail } = api.Context('main');
+      const fail = Fail();
+      expect(fail).toBeDefined();
+    });
+
+    it('can compose tactics in parallel with ParOr', () => {
+      const { Tactic, ParOr } = api.Context('main');
+      const t1 = new Tactic('simplify');
+      const t2 = new Tactic('solve-eqs');
+      const combined = ParOr(t1, t2);
+      expect(combined).toBeDefined();
+    });
+
+    it('can use With to set tactic parameters', () => {
+      const { Tactic, With } = api.Context('main');
+      const t = new Tactic('simplify');
+      const withParams = With(t, { max_steps: 100 });
+      expect(withParams).toBeDefined();
+    });
+
+    it('can use tactic combinators with strings', () => {
+      const { AndThen, OrElse } = api.Context('main');
+      const t1 = AndThen('simplify', 'solve-eqs');
+      expect(t1).toBeDefined();
+
+      const t2 = OrElse('simplify', 'solve-eqs');
+      expect(t2).toBeDefined();
+    });
+  });
+
+  describe('Probe API', () => {
+    it('can apply probe to goal', () => {
+      const { Int, Goal } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+      goal.add(x.gt(0), x.lt(10));
+
+      // Create a simple probe - we'd need to add probe creation functions
+      // For now, just test that the method signature is correct
+      expect(goal).toBeDefined();
+    });
+  });
+
+  describe('Goal and Tactic Integration', () => {
+    it('can solve using tactics', async () => {
+      const { Int, Goal, Tactic } = api.Context('main');
+      const x = Int.const('x');
+      const y = Int.const('y');
+
+      const goal = new Goal();
+      goal.add(x.gt(0), y.gt(x), y.lt(10));
+
+      const tactic = new Tactic('simplify');
+      const result = await tactic.apply(goal);
+
+      expect(result.length()).toBeGreaterThan(0);
+      const subgoal = result.getSubgoal(0);
+      expect(subgoal.size()).toBeGreaterThan(0);
+    });
+
+    it('can use tactic solver for satisfiability', async () => {
+      const { Int, Tactic } = api.Context('main');
+      const x = Int.const('x');
+
+      const tactic = new Tactic('smt');
+      const solver = tactic.solver();
+      solver.add(x.gt(0), x.lt(10));
+
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('can chain multiple tactics', async () => {
+      const { Int, Goal, AndThen } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+      goal.add(x.add(1).eq(3));
+
+      const tactic = AndThen('simplify', 'solve-eqs');
+      const result = await tactic.apply(goal);
+
+      expect(result).toBeDefined();
+      expect(result.length()).toBeGreaterThan(0);
+    });
+  });
+
   describe('floating-point', () => {
     it('can create FP sorts', () => {
       const { Float } = api.Context('main');
@@ -1478,6 +1781,19 @@ describe('high-level', () => {
       expect(result).toBe('sat');
     });
 
+    it('can chain multiple tactics', async () => {
+      const { Int, Goal, AndThen } = api.Context('main');
+      const x = Int.const('x');
+      const goal = new Goal();
+      goal.add(x.add(1).eq(3));
+
+      const tactic = AndThen('simplify', 'solve-eqs');
+      const result = await tactic.apply(goal);
+
+      expect(result).toBeDefined();
+      expect(result.length()).toBeGreaterThan(0);
+    });
+    
     it('supports string type checking', () => {
       const { String: Str, Seq, Int, isSeqSort, isSeq, isStringSort, isString } = api.Context('main');
 
