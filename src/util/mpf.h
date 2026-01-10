@@ -247,9 +247,9 @@ protected:
         }
 
         void dispose(u_map<mpz*> & map) {
-            for (u_map<mpz*>::iterator it = map.begin(); it != map.end(); it++) {
-                m.del(*it->m_value);
-                dealloc(it->m_value);
+            for (auto& kv : map) {
+                m.del(*kv.m_value);
+                dealloc(kv.m_value);
             }
         }
 
