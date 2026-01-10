@@ -716,7 +716,7 @@ namespace smt {
 
     ptr_vector<enode> theory_datatype::list_subterms(enode* arg) {
         ptr_vector<enode> result;
-        for (enode* n : iterate_subterms(get_manager(), arg)) {
+        for (enode* n : iterate_subterms(get_manager(), m_util, arg)) {
             result.push_back(n);
         }
         return result;

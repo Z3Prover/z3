@@ -212,8 +212,8 @@ namespace smt {
         subterm_iterator& operator=(const subterm_iterator&) = delete;
     };
 
-    inline subterm_iterator iterate_subterms(ast_manager& m, enode *arg) {
-        return subterm_iterator(m, arg);
+    inline subterm_iterator iterate_subterms(ast_manager& m, datatype_util& m_util, enode *arg) {
+        return subterm_iterator(m, m_util, arg);
     }
 };
 
