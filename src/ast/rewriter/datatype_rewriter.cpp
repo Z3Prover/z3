@@ -122,7 +122,7 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
         return BR_DONE;        
     }
     case OP_DT_SUBTERM:
-        // Re rewrite yet for subterms
+        // No rewrite yet for subterms
         return BR_FAILED;
     default:
         UNREACHABLE();
