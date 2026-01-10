@@ -2884,8 +2884,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return Z3.tactic_get_help(contextPtr, this.ptr);
       }
 
-      getParamDescrs(): Z3_param_descrs {
-        return check(Z3.tactic_get_param_descrs(contextPtr, this.ptr));
+      paramDescrs(): ParamDescrs<Name> {
+        const descrs = check(Z3.tactic_get_param_descrs(contextPtr, this.ptr));
+        return new ParamDescrsImpl(descrs);
+      }
+
+      usingParams(params: Params<Name>): Tactic<Name> {
+        _assertContext(params);
+        const newTactic = check(Z3.tactic_using_params(contextPtr, this.ptr, params.ptr));
+        return new TacticImpl(newTactic);
       }
     }
 

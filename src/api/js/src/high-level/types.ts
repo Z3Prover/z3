@@ -2969,9 +2969,15 @@ export interface Tactic<Name extends string = 'main'> {
 
   /**
    * Get parameter descriptions for the tactic.
-   * Returns a Z3 parameter descriptors object.
+   * Returns a ParamDescrs object for introspecting available parameters.
    */
-  getParamDescrs(): Z3_param_descrs;
+  paramDescrs(): ParamDescrs<Name>;
+
+  /**
+   * Return a tactic that uses the given configuration parameters.
+   * @param params - Parameters to configure the tactic
+   */
+  usingParams(params: Params<Name>): Tactic<Name>;
 }
 
 /**

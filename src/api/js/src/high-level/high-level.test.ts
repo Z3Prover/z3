@@ -1323,8 +1323,19 @@ describe('high-level', () => {
     it('can get tactic parameter descriptions', () => {
       const { Tactic } = api.Context('main');
       const tactic = new Tactic('simplify');
-      const paramDescrs = tactic.getParamDescrs();
+      const paramDescrs = tactic.paramDescrs();
       expect(paramDescrs).toBeDefined();
+    });
+
+    it('can configure tactic with parameters', () => {
+      const { Tactic, Params } = api.Context('main');
+      const tactic = new Tactic('simplify');
+      const params = new Params();
+      params.set('max_steps', 100);
+      
+      const configuredTactic = tactic.usingParams(params);
+      expect(configuredTactic).toBeDefined();
+      expect(configuredTactic).not.toBe(tactic);
     });
   });
 
@@ -1881,7 +1892,7 @@ describe('high-level', () => {
       const params = new Params();
       params.set('elim_and', true);
       
-      const paramDescrs = tactic.getParamDescrs();
+      const paramDescrs = tactic.paramDescrs();
       // This should not throw - validation should succeed
       expect(() => params.validate(paramDescrs)).not.toThrow();
     });
@@ -1891,14 +1902,14 @@ describe('high-level', () => {
     it('can get param descriptions from tactic', () => {
       const { Tactic } = api.Context('main');
       const tactic = new Tactic('simplify');
-      const paramDescrs = tactic.getParamDescrs();
+      const paramDescrs = tactic.paramDescrs();
       expect(paramDescrs).toBeDefined();
     });
 
     it('param descrs toString returns non-empty string', () => {
       const { Tactic } = api.Context('main');
       const tactic = new Tactic('simplify');
-      const paramDescrs = tactic.getParamDescrs();
+      const paramDescrs = tactic.paramDescrs();
       const str = paramDescrs.toString();
       expect(typeof str).toBe('string');
       expect(str.length).toBeGreaterThan(0);
