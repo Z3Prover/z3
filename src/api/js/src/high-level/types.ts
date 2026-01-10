@@ -25,7 +25,10 @@ export type AnySort<Name extends string = 'main'> =
   | BoolSort<Name>
   | ArithSort<Name>
   | BitVecSort<number, Name>
-  | SMTArraySort<Name>;
+  | SMTArraySort<Name>
+  | FPSort<Name>
+  | FPRMSort<Name>
+  | SeqSort<Name>;
 /** @hidden */
 export type AnyExpr<Name extends string = 'main'> =
   | Expr<Name>
@@ -35,7 +38,11 @@ export type AnyExpr<Name extends string = 'main'> =
   | RatNum<Name>
   | BitVec<number, Name>
   | BitVecNum<number, Name>
-  | SMTArray<Name>;
+  | SMTArray<Name>
+  | FP<Name>
+  | FPNum<Name>
+  | FPRM<Name>
+  | Seq<Name>;
 /** @hidden */
 export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
@@ -49,6 +56,12 @@ export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'>
   ? BitVec<Size, Name>
   : S extends SMTArraySort<Name, infer DomainSort, infer RangeSort>
   ? SMTArray<Name, DomainSort, RangeSort>
+  : S extends FPSort<Name>
+  ? FP<Name>
+  : S extends FPRMSort<Name>
+  ? FPRM<Name>
+  : S extends SeqSort<Name>
+  ? Seq<Name>
   : S extends Sort<Name>
   ? Expr<Name, S, Z3_ast>
   : never;
@@ -70,6 +83,9 @@ export type CoercibleToBitVec<Bits extends number = number, Name extends string 
   | bigint
   | number
   | BitVec<Bits, Name>;
+
+/** @hidden */
+export type CoercibleToFP<Name extends string = 'main'> = number | FP<Name>;
 
 export type CoercibleRational = { numerator: bigint | number; denominator: bigint | number };
 
@@ -97,6 +113,8 @@ export type CoercibleToMap<T extends AnyExpr<Name>, Name extends string = 'main'
   ? CoercibleToArith<Name>
   : T extends BitVec<infer Size, Name>
   ? CoercibleToBitVec<Size, Name>
+  : T extends FP<Name>
+  ? CoercibleToFP<Name>
   : T extends SMTArray<Name, infer DomainSort, infer RangeSort>
   ? SMTArray<Name, DomainSort, RangeSort>
   : T extends Expr<Name>
@@ -259,6 +277,33 @@ export interface Context<Name extends string = 'main'> {
   isConstArray(obj: unknown): boolean;
 
   /** @category Functions */
+  isFPSort(obj: unknown): obj is FPSort<Name>;
+
+  /** @category Functions */
+  isFP(obj: unknown): obj is FP<Name>;
+
+  /** @category Functions */
+  isFPVal(obj: unknown): obj is FPNum<Name>;
+
+  /** @category Functions */
+  isFPRMSort(obj: unknown): obj is FPRMSort<Name>;
+
+  /** @category Functions */
+  isFPRM(obj: unknown): obj is FPRM<Name>;
+
+  /** @category Functions */
+  isSeqSort(obj: unknown): obj is SeqSort<Name>;
+
+  /** @category Functions */
+  isSeq(obj: unknown): obj is Seq<Name>;
+
+  /** @category Functions */
+  isStringSort(obj: unknown): obj is SeqSort<Name>;
+
+  /** @category Functions */
+  isString(obj: unknown): obj is Seq<Name>;
+
+  /** @category Functions */
   isProbe(obj: unknown): obj is Probe<Name>;
 
   /** @category Functions */
@@ -370,6 +415,14 @@ export interface Context<Name extends string = 'main'> {
   readonly Real: RealCreation<Name>;
   /** @category Expressions */
   readonly BitVec: BitVecCreation<Name>;
+  /** @category Expressions */
+  readonly Float: FPCreation<Name>;
+  /** @category Expressions */
+  readonly FloatRM: FPRMCreation<Name>;
+  /** @category Expressions */
+  readonly String: StringCreation<Name>;
+  /** @category Expressions */
+  readonly Seq: SeqCreation<Name>;
   /** @category Expressions */
   readonly Array: SMTArrayCreation<Name>;
   /** @category Expressions */
@@ -1327,7 +1380,10 @@ export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
     | ArithSort['__typename']
     | BitVecSort['__typename']
     | SMTArraySort['__typename']
-    | DatatypeSort['__typename'];
+    | DatatypeSort['__typename']
+    | FPSort['__typename']
+    | FPRMSort['__typename']
+    | SeqSort['__typename'];
 
   kind(): Z3_sort_kind;
 
@@ -1451,6 +1507,9 @@ export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySo
     | Bool['__typename']
     | Arith['__typename']
     | BitVec['__typename']
+    | FP['__typename']
+    | FPRM['__typename']
+    | Seq['__typename']
     | SMTArray['__typename']
     | DatatypeExpr['__typename'];
 
@@ -2254,6 +2313,356 @@ export interface DatatypeSort<Name extends string = 'main'> extends Sort<Name> {
 export interface DatatypeExpr<Name extends string = 'main'> extends Expr<Name, DatatypeSort<Name>, Z3_ast> {
   /** @hidden */
   readonly __typename: 'DatatypeExpr';
+}
+
+///////////////////////
+// Floating-Point API //
+///////////////////////
+
+/**
+ * Floating-point rounding mode sort
+ * @category Floating-Point
+ */
+export interface FPRMSort<Name extends string = 'main'> extends Sort<Name> {
+  /** @hidden */
+  readonly __typename: 'FPRMSort';
+
+  cast(other: FPRM<Name>): FPRM<Name>;
+  cast(other: CoercibleToExpr<Name>): never;
+}
+
+/**
+ * Floating-point sort (IEEE 754)
+ * @category Floating-Point
+ */
+export interface FPSort<Name extends string = 'main'> extends Sort<Name> {
+  /** @hidden */
+  readonly __typename: 'FPSort';
+
+  /**
+   * Number of exponent bits
+   */
+  ebits(): number;
+
+  /**
+   * Number of significand bits (including hidden bit)
+   */
+  sbits(): number;
+
+  cast(other: CoercibleToFP<Name>): FP<Name>;
+  cast(other: CoercibleToExpr<Name>): Expr<Name>;
+}
+
+/** @category Floating-Point */
+export interface FPCreation<Name extends string> {
+  /**
+   * Create a floating-point sort with custom exponent and significand bit sizes
+   * @param ebits Number of exponent bits
+   * @param sbits Number of significand bits (including hidden bit)
+   */
+  sort(ebits: number, sbits: number): FPSort<Name>;
+
+  /**
+   * IEEE 754 16-bit floating-point sort (half precision)
+   */
+  sort16(): FPSort<Name>;
+
+  /**
+   * IEEE 754 32-bit floating-point sort (single precision)
+   */
+  sort32(): FPSort<Name>;
+
+  /**
+   * IEEE 754 64-bit floating-point sort (double precision)
+   */
+  sort64(): FPSort<Name>;
+
+  /**
+   * IEEE 754 128-bit floating-point sort (quadruple precision)
+   */
+  sort128(): FPSort<Name>;
+
+  /**
+   * Create a floating-point constant
+   */
+  const(name: string, sort: FPSort<Name>): FP<Name>;
+
+  /**
+   * Create multiple floating-point constants
+   */
+  consts(names: string | string[], sort: FPSort<Name>): FP<Name>[];
+
+  /**
+   * Create a floating-point value from a number
+   */
+  val(value: number, sort: FPSort<Name>): FPNum<Name>;
+
+  /**
+   * Create floating-point NaN
+   */
+  NaN(sort: FPSort<Name>): FPNum<Name>;
+
+  /**
+   * Create floating-point infinity
+   * @param negative If true, creates negative infinity
+   */
+  inf(sort: FPSort<Name>, negative?: boolean): FPNum<Name>;
+
+  /**
+   * Create floating-point zero
+   * @param negative If true, creates negative zero
+   */
+  zero(sort: FPSort<Name>, negative?: boolean): FPNum<Name>;
+}
+
+/** @category Floating-Point */
+export interface FPRMCreation<Name extends string> {
+  /**
+   * Get the floating-point rounding mode sort
+   */
+  sort(): FPRMSort<Name>;
+
+  /**
+   * Round nearest, ties to even (default rounding mode)
+   */
+  RNE(): FPRM<Name>;
+
+  /**
+   * Round nearest, ties to away
+   */
+  RNA(): FPRM<Name>;
+
+  /**
+   * Round toward positive infinity
+   */
+  RTP(): FPRM<Name>;
+
+  /**
+   * Round toward negative infinity
+   */
+  RTN(): FPRM<Name>;
+
+  /**
+   * Round toward zero
+   */
+  RTZ(): FPRM<Name>;
+}
+
+/**
+ * Floating-point rounding mode expression
+ * @category Floating-Point
+ */
+export interface FPRM<Name extends string = 'main'> extends Expr<Name, FPRMSort<Name>, Z3_ast> {
+  /** @hidden */
+  readonly __typename: 'FPRM';
+}
+
+/**
+ * Floating-point expression (IEEE 754)
+ * @category Floating-Point
+ */
+export interface FP<Name extends string = 'main'> extends Expr<Name, FPSort<Name>, Z3_ast> {
+  /** @hidden */
+  readonly __typename: 'FP' | FPNum['__typename'];
+
+  /** @category Arithmetic */
+  add(rm: FPRM<Name>, other: CoercibleToFP<Name>): FP<Name>;
+
+  /** @category Arithmetic */
+  sub(rm: FPRM<Name>, other: CoercibleToFP<Name>): FP<Name>;
+
+  /** @category Arithmetic */
+  mul(rm: FPRM<Name>, other: CoercibleToFP<Name>): FP<Name>;
+
+  /** @category Arithmetic */
+  div(rm: FPRM<Name>, other: CoercibleToFP<Name>): FP<Name>;
+
+  /** @category Arithmetic */
+  neg(): FP<Name>;
+
+  /** @category Arithmetic */
+  abs(): FP<Name>;
+
+  /** @category Arithmetic */
+  sqrt(rm: FPRM<Name>): FP<Name>;
+
+  /** @category Arithmetic */
+  rem(other: CoercibleToFP<Name>): FP<Name>;
+
+  /** @category Arithmetic */
+  fma(rm: FPRM<Name>, y: CoercibleToFP<Name>, z: CoercibleToFP<Name>): FP<Name>;
+
+  /** @category Comparison */
+  lt(other: CoercibleToFP<Name>): Bool<Name>;
+
+  /** @category Comparison */
+  gt(other: CoercibleToFP<Name>): Bool<Name>;
+
+  /** @category Comparison */
+  le(other: CoercibleToFP<Name>): Bool<Name>;
+
+  /** @category Comparison */
+  ge(other: CoercibleToFP<Name>): Bool<Name>;
+
+  /** @category Predicates */
+  isNaN(): Bool<Name>;
+
+  /** @category Predicates */
+  isInf(): Bool<Name>;
+
+  /** @category Predicates */
+  isZero(): Bool<Name>;
+
+  /** @category Predicates */
+  isNormal(): Bool<Name>;
+
+  /** @category Predicates */
+  isSubnormal(): Bool<Name>;
+
+  /** @category Predicates */
+  isNegative(): Bool<Name>;
+
+  /** @category Predicates */
+  isPositive(): Bool<Name>;
+}
+
+/**
+ * Floating-point numeral value
+ * @category Floating-Point
+ */
+export interface FPNum<Name extends string = 'main'> extends FP<Name> {
+  /** @hidden */
+  readonly __typename: 'FPNum';
+
+  /**
+   * Get the floating-point value as a JavaScript number
+   * Note: May lose precision for values outside JavaScript number range
+   */
+  value(): number;
+}
+
+///////////////////////
+// String/Sequence API //
+///////////////////////
+
+/**
+ * Sequence sort (can be string or sequence of any element type)
+ * @category String/Sequence
+ */
+export interface SeqSort<Name extends string = 'main', ElemSort extends Sort<Name> = Sort<Name>> extends Sort<Name> {
+  /** @hidden */
+  readonly __typename: 'SeqSort';
+
+  /**
+   * Check if this is a string sort
+   */
+  isString(): boolean;
+
+  /**
+   * Get the element sort of this sequence
+   */
+  basis(): Sort<Name>;
+
+  cast(other: Seq<Name>): Seq<Name>;
+  cast(other: string): Seq<Name>;
+  cast(other: CoercibleToExpr<Name>): Expr<Name>;
+}
+
+/** @category String/Sequence */
+export interface StringCreation<Name extends string> {
+  /**
+   * Create a string sort
+   */
+  sort(): SeqSort<Name>;
+
+  /**
+   * Create a string constant
+   */
+  const(name: string): Seq<Name>;
+
+  /**
+   * Create multiple string constants
+   */
+  consts(names: string | string[]): Seq<Name>[];
+
+  /**
+   * Create a string value
+   */
+  val(value: string): Seq<Name>;
+}
+
+/** @category String/Sequence */
+export interface SeqCreation<Name extends string> {
+  /**
+   * Create a sequence sort over the given element sort
+   */
+  sort<ElemSort extends Sort<Name>>(elemSort: ElemSort): SeqSort<Name, ElemSort>;
+
+  /**
+   * Create an empty sequence
+   */
+  empty<ElemSort extends Sort<Name>>(elemSort: ElemSort): Seq<Name, ElemSort>;
+
+  /**
+   * Create a unit sequence (sequence with single element)
+   */
+  unit<ElemSort extends Sort<Name>>(elem: Expr<Name>): Seq<Name, ElemSort>;
+}
+
+/**
+ * Sequence expression (includes strings)
+ * @category String/Sequence
+ */
+export interface Seq<Name extends string = 'main', ElemSort extends Sort<Name> = Sort<Name>>
+  extends Expr<Name, SeqSort<Name, ElemSort>, Z3_ast> {
+  /** @hidden */
+  readonly __typename: 'Seq';
+
+  /**
+   * Check if this is a string value
+   */
+  isString(): boolean;
+
+  /**
+   * Get string value if this is a concrete string
+   */
+  asString(): string;
+
+  /** @category Operations */
+  concat(other: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
+
+  /** @category Operations */
+  length(): Arith<Name>;
+
+  /** @category Operations */
+  at(index: Arith<Name> | number | bigint): Seq<Name, ElemSort>;
+
+  /** @category Operations */
+  nth(index: Arith<Name> | number | bigint): Expr<Name>;
+
+  /** @category Operations */
+  extract(offset: Arith<Name> | number | bigint, length: Arith<Name> | number | bigint): Seq<Name, ElemSort>;
+
+  /** @category Operations */
+  indexOf(substr: Seq<Name, ElemSort> | string, offset?: Arith<Name> | number | bigint): Arith<Name>;
+
+  /** @category Operations */
+  lastIndexOf(substr: Seq<Name, ElemSort> | string): Arith<Name>;
+
+  /** @category Operations */
+  contains(substr: Seq<Name, ElemSort> | string): Bool<Name>;
+
+  /** @category Operations */
+  prefixOf(s: Seq<Name, ElemSort> | string): Bool<Name>;
+
+  /** @category Operations */
+  suffixOf(s: Seq<Name, ElemSort> | string): Bool<Name>;
+
+  /** @category Operations */
+  replace(src: Seq<Name, ElemSort> | string, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
+
+  /** @category Operations */
+  replaceAll(src: Seq<Name, ElemSort> | string, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
 }
 
 /**
