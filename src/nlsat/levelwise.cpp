@@ -103,6 +103,21 @@ struct levelwise::impl {
         m_I.reserve(m_n);
         for (unsigned i = 0; i < m_n; ++i)
             m_I.emplace_back(m_pm);
+
+        switch (m_solver.lws_relation_mode()) {
+        case 0:
+            m_relation_mode = biggest_cell;
+            break;
+        case 1:
+            m_relation_mode = chain;
+            break;
+        case 2:
+            m_relation_mode = lowest_degree;
+            break;
+        default:
+            m_relation_mode = chain;
+            break;
+        }
     }
 
     void fail() { throw nullified_poly_exception(); }
@@ -289,7 +304,8 @@ struct levelwise::impl {
             for (unsigned j = l + 1; j < n; ++j)
                 m_rel.add_pair(j - 1, j);
             break;
-        case lowest_degree: {
+        case lowest_degree:
+        {
             std::vector<unsigned> degs;
             degs.reserve(n);
             for (unsigned i = 0; i < n; ++i)
