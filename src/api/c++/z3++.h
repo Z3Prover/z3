@@ -4085,6 +4085,19 @@ namespace z3 {
         return expr(f.ctx(), r);
     }
 
+    inline expr array_default(expr const & a) {
+        Z3_ast r = Z3_mk_array_default(a.ctx(), a);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+
+    inline expr array_ext(expr const & a, expr const & b) {
+        check_context(a, b);
+        Z3_ast r = Z3_mk_array_ext(a.ctx(), a, b);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+
 #define MK_EXPR1(_fn, _arg)                     \
     Z3_ast r = _fn(_arg.ctx(), _arg);           \
     _arg.check_error();                         \

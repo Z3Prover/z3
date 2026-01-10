@@ -38,6 +38,7 @@ import {
   Z3_params,
   Z3_func_entry,
   Z3_optimize,
+  Z3_fixedpoint,
 } from '../low-level';
 import {
   AnyAst,
@@ -72,6 +73,7 @@ import {
   FPSort,
   FPRM,
   FPRMSort,
+  Fixedpoint,
   FuncDecl,
   FuncDeclSignature,
   FuncInterp,
@@ -1510,6 +1512,19 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       >;
     }
 
+    /**
+     * Create array extensionality index given two arrays with the same sort.
+     * The meaning is given by the axiom:
+     * (=> (= (select A (array-ext A B)) (select B (array-ext A B))) (= A B))
+     * Two arrays are equal if and only if they are equal on the index returned by this function.
+     */
+    function Ext<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>(
+      a: SMTArray<Name, DomainSort, RangeSort>,
+      b: SMTArray<Name, DomainSort, RangeSort>,
+    ): SortToExprMap<DomainSort[0], Name> {
+      return _toExpr(check(Z3.mk_array_ext(contextPtr, a.ast, b.ast))) as SortToExprMap<DomainSort[0], Name>;
+    }
+
     function SetUnion<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort> {
       return new SetImpl<ElemSort>(
         check(
@@ -1862,6 +1877,158 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       release() {
         Z3.optimize_dec_ref(contextPtr, this.ptr);
+        this._ptr = null;
+        cleanup.unregister(this);
+      }
+    }
+
+    class FixedpointImpl implements Fixedpoint<Name> {
+      declare readonly __typename: Fixedpoint['__typename'];
+
+      readonly ctx: Context<Name>;
+      private _ptr: Z3_fixedpoint | null;
+      get ptr(): Z3_fixedpoint {
+        _assertPtr(this._ptr);
+        return this._ptr;
+      }
+
+      constructor(ptr: Z3_fixedpoint = Z3.mk_fixedpoint(contextPtr)) {
+        this.ctx = ctx;
+        let myPtr: Z3_fixedpoint;
+        myPtr = ptr;
+        this._ptr = myPtr;
+        Z3.fixedpoint_inc_ref(contextPtr, myPtr);
+        cleanup.register(this, () => Z3.fixedpoint_dec_ref(contextPtr, myPtr), this);
+      }
+
+      set(key: string, value: any): void {
+        Z3.fixedpoint_set_params(contextPtr, this.ptr, _toParams(key, value));
+      }
+
+      help(): string {
+        return check(Z3.fixedpoint_get_help(contextPtr, this.ptr));
+      }
+
+      add(...constraints: Bool<Name>[]) {
+        constraints.forEach(constraint => {
+          _assertContext(constraint);
+          check(Z3.fixedpoint_assert(contextPtr, this.ptr, constraint.ast));
+        });
+      }
+
+      registerRelation(pred: FuncDecl<Name>): void {
+        _assertContext(pred);
+        check(Z3.fixedpoint_register_relation(contextPtr, this.ptr, pred.ptr));
+      }
+
+      addRule(rule: Bool<Name>, name?: string): void {
+        _assertContext(rule);
+        const symbol = _toSymbol(name ?? '');
+        check(Z3.fixedpoint_add_rule(contextPtr, this.ptr, rule.ast, symbol));
+      }
+
+      addFact(pred: FuncDecl<Name>, ...args: number[]): void {
+        _assertContext(pred);
+        check(Z3.fixedpoint_add_fact(contextPtr, this.ptr, pred.ptr, args));
+      }
+
+      updateRule(rule: Bool<Name>, name: string): void {
+        _assertContext(rule);
+        const symbol = _toSymbol(name);
+        check(Z3.fixedpoint_update_rule(contextPtr, this.ptr, rule.ast, symbol));
+      }
+
+      async query(query: Bool<Name>): Promise<CheckSatResult> {
+        _assertContext(query);
+        const result = await asyncMutex.runExclusive(() =>
+          check(Z3.fixedpoint_query(contextPtr, this.ptr, query.ast)),
+        );
+        switch (result) {
+          case Z3_lbool.Z3_L_FALSE:
+            return 'unsat';
+          case Z3_lbool.Z3_L_TRUE:
+            return 'sat';
+          case Z3_lbool.Z3_L_UNDEF:
+            return 'unknown';
+          default:
+            assertExhaustive(result);
+        }
+      }
+
+      async queryRelations(...relations: FuncDecl<Name>[]): Promise<CheckSatResult> {
+        relations.forEach(rel => _assertContext(rel));
+        const decls = relations.map(rel => rel.ptr);
+        const result = await asyncMutex.runExclusive(() =>
+          check(Z3.fixedpoint_query_relations(contextPtr, this.ptr, decls)),
+        );
+        switch (result) {
+          case Z3_lbool.Z3_L_FALSE:
+            return 'unsat';
+          case Z3_lbool.Z3_L_TRUE:
+            return 'sat';
+          case Z3_lbool.Z3_L_UNDEF:
+            return 'unknown';
+          default:
+            assertExhaustive(result);
+        }
+      }
+
+      getAnswer(): Expr<Name> | null {
+        const ans = check(Z3.fixedpoint_get_answer(contextPtr, this.ptr));
+        return ans ? _toExpr(ans) : null;
+      }
+
+      getReasonUnknown(): string {
+        return check(Z3.fixedpoint_get_reason_unknown(contextPtr, this.ptr));
+      }
+
+      getNumLevels(pred: FuncDecl<Name>): number {
+        _assertContext(pred);
+        return check(Z3.fixedpoint_get_num_levels(contextPtr, this.ptr, pred.ptr));
+      }
+
+      getCoverDelta(level: number, pred: FuncDecl<Name>): Expr<Name> | null {
+        _assertContext(pred);
+        const res = check(Z3.fixedpoint_get_cover_delta(contextPtr, this.ptr, level, pred.ptr));
+        return res ? _toExpr(res) : null;
+      }
+
+      addCover(level: number, pred: FuncDecl<Name>, property: Expr<Name>): void {
+        _assertContext(pred);
+        _assertContext(property);
+        check(Z3.fixedpoint_add_cover(contextPtr, this.ptr, level, pred.ptr, property.ast));
+      }
+
+      getRules(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.fixedpoint_get_rules(contextPtr, this.ptr)));
+      }
+
+      getAssertions(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.fixedpoint_get_assertions(contextPtr, this.ptr)));
+      }
+
+      setPredicateRepresentation(pred: FuncDecl<Name>, kinds: string[]): void {
+        _assertContext(pred);
+        const symbols = kinds.map(kind => _toSymbol(kind));
+        check(Z3.fixedpoint_set_predicate_representation(contextPtr, this.ptr, pred.ptr, symbols));
+      }
+
+      toString(): string {
+        return check(Z3.fixedpoint_to_string(contextPtr, this.ptr, []));
+      }
+
+      fromString(s: string): AstVector<Name, Bool<Name>> {
+        const av = check(Z3.fixedpoint_from_string(contextPtr, this.ptr, s));
+        return new AstVectorImpl(av);
+      }
+
+      fromFile(file: string): AstVector<Name, Bool<Name>> {
+        const av = check(Z3.fixedpoint_from_file(contextPtr, this.ptr, file));
+        return new AstVectorImpl(av);
+      }
+
+      release() {
+        Z3.fixedpoint_dec_ref(contextPtr, this.ptr);
         this._ptr = null;
         cleanup.unregister(this);
       }
@@ -2830,7 +2997,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new BoolImpl(check(Z3.mk_bvsub_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
 
-      subNoUndeflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name> {
+      subNoUnderflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name> {
         return new BoolImpl(check(Z3.mk_bvsub_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned)));
       }
 
@@ -2842,7 +3009,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new BoolImpl(check(Z3.mk_bvmul_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned)));
       }
 
-      mulNoUndeflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
+      mulNoUnderflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(check(Z3.mk_bvmul_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
 
@@ -3182,6 +3349,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         ]
       ): SMTArray<Name, DomainSort, RangeSort> {
         return Store(this, ...indicesAndValue);
+      }
+
+      /**
+       * Access the array default value.
+       * Produces the default range value, for arrays that can be represented as
+       * finite maps with a default range value.
+       */
+      default(): SortToExprMap<RangeSort, Name> {
+        return _toExpr(check(Z3.mk_array_default(contextPtr, this.ast))) as SortToExprMap<RangeSort, Name>;
       }
     }
 
@@ -3525,6 +3701,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       ): SMTArray<Name, DomainSort, RangeSort> {
         return Store(this, ...indicesAndValue);
       }
+
+      /**
+       * Access the array default value.
+       * Produces the default range value, for arrays that can be represented as
+       * finite maps with a default range value.
+       */
+      default(): SortToExprMap<RangeSort, Name> {
+        return _toExpr(check(Z3.mk_array_default(contextPtr, this.ast))) as SortToExprMap<RangeSort, Name>;
+      }
     }
 
     class AstVectorImpl<Item extends AnyAst<Name>> {
@@ -3697,6 +3882,32 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return _toExpr(check(Z3.substitute(contextPtr, t.ast, from, to)));
     }
 
+    function substituteVars(t: Expr<Name>, ...to: Expr<Name>[]): Expr<Name> {
+      _assertContext(t);
+      const toAsts: Z3_ast[] = [];
+      for (const expr of to) {
+        _assertContext(expr);
+        toAsts.push(expr.ast);
+      }
+      return _toExpr(check(Z3.substitute_vars(contextPtr, t.ast, toAsts)));
+    }
+
+    function substituteFuns(
+      t: Expr<Name>,
+      ...substitutions: [FuncDecl<Name>, Expr<Name>][]
+    ): Expr<Name> {
+      _assertContext(t);
+      const from: Z3_func_decl[] = [];
+      const to: Z3_ast[] = [];
+      for (const [f, body] of substitutions) {
+        _assertContext(f);
+        _assertContext(body);
+        from.push(f.ptr);
+        to.push(body.ast);
+      }
+      return _toExpr(check(Z3.substitute_funs(contextPtr, t.ast, from, to)));
+    }
+
     function ast_from_string(s: string): Ast<Name> {
       const sort_names: Z3_symbol[] = [];
       const sorts: Z3_sort[] = [];
@@ -3718,6 +3929,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       /////////////
       Solver: SolverImpl,
       Optimize: OptimizeImpl,
+      Fixedpoint: FixedpointImpl,
       Model: ModelImpl,
       Tactic: TacticImpl,
       AstVector: AstVectorImpl as AstVectorCtor<Name>,
@@ -3850,9 +4062,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Mod,
       Select,
       Store,
+      Ext,
       Extract,
 
       substitute,
+      substituteVars,
+      substituteFuns,
       simplify,
 
       /////////////
