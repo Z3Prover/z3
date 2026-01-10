@@ -175,20 +175,22 @@ namespace smt {
         ptr_vector<enode> m_marked;
         ast_manager*      m_manager;
         enode*            m_current;
+        datatype_util*     m_util;
 
         void next();
-        subterm_iterator() : m_manager(nullptr), m_current(nullptr) {}
+        subterm_iterator() : m_manager(nullptr), m_current(nullptr), m_util(nullptr) {}
 
     public:
         // subterm_iterator();
-        subterm_iterator(ast_manager& m, enode *start);
+        subterm_iterator(ast_manager& m, datatype_util& m_util, enode *start);
         ~subterm_iterator();
         subterm_iterator(subterm_iterator &&other);
         subterm_iterator(const subterm_iterator& other)
             : m_todo(other.m_todo),
               m_marked(other.m_marked),
               m_manager(other.m_manager),
-              m_current(other.m_current) {
+              m_current(other.m_current),
+              m_util(other.m_util) {
         }
 
         subterm_iterator begin() const {

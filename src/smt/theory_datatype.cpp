@@ -529,14 +529,13 @@ namespace smt {
         literal_vector lits;
         lits.push_back(literal(ctx.enode2bool_var(n), true));  // antecedent: ~n
 
-        datatype_util util(get_manager());
         bool found_possible = false;
         bool has_leaf_root = false;
 
         ptr_vector<enode> candidates = list_subterms(arg2);
 
         for (enode *s : candidates) {
-            bool is_leaf = !util.is_constructor(s->get_expr());
+            bool is_leaf = !m_util.is_constructor(s->get_expr());
 
             // Case 1: Equality check (arg1 == s)
             // Valid if sorts are compatible.
@@ -558,15 +557,14 @@ namespace smt {
                     continue;
                 }
 
-                if (util.is_datatype(s->get_sort())) {
+                if (m_util.is_datatype(s->get_sort())) {
                     // arg1 ⊑ s
                     func_decl *sub_decl = m_util.get_datatype_subterm(s->get_sort());
                     if (sub_decl) {
                         TRACE(datatype, tout << "adding recursive case: " << mk_pp(arg1->get_expr(), m) << " ⊑ "
                                              << mk_pp(s->get_expr(), m) << "\n";);
-                        app_ref sub_app(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()), m);
-                        ctx.internalize(sub_app, false);
-                        lits.push_back(literal(ctx.get_bool_var(sub_app)));
+                        auto tmp = m.mk_not( m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()));
+                        lits.push_back(mk_literal(app_ref(tmp, m)));
                         found_possible = true;
                     }
                 }
@@ -606,14 +604,13 @@ namespace smt {
 
         TRACE(datatype, tout << "propagate_not_is_subterm: " << enode_pp(n, ctx) << "\n";);
 
-        datatype_util util(get_manager());
         literal antecedent = literal(ctx.enode2bool_var(n), false);
         bool has_leaf_root = false;
 
         ptr_vector<enode> candidates = list_subterms(arg2);
 
         for (enode *s : candidates) {
-            bool is_leaf = !util.is_constructor(s->get_expr());
+            bool is_leaf = !m_util.is_constructor(s->get_expr());
 
             if (s->get_sort() == arg1->get_sort()) {
                 TRACE(datatype,
@@ -629,7 +626,7 @@ namespace smt {
                     continue;
                 }
 
-                if (util.is_datatype(s->get_sort())) {
+                if (m_util.is_datatype(s->get_sort())) {
                     func_decl *sub_decl = m_util.get_datatype_subterm(s->get_sort());
                     if (sub_decl) {
                         TRACE(datatype, tout << "asserting NOT " << mk_pp(arg1->get_expr(), m) << " subterm "
@@ -665,7 +662,6 @@ namespace smt {
         m_current = nullptr;
         if (!m_manager)
             return;
-        datatype_util util(*m_manager);
 
         while (!m_todo.empty()) {
             enode *curr = m_todo.back();
@@ -680,7 +676,7 @@ namespace smt {
             enode *ctor = nullptr;
             enode *iter = root;
             do {
-                if (util.is_constructor(iter->get_expr())) {
+                if (m_util->is_constructor(iter->get_expr())) {
                     ctor = iter;
                     break;
                 }
@@ -701,12 +697,12 @@ namespace smt {
         }
     }
 
-    subterm_iterator::subterm_iterator(ast_manager &m, enode *start) : m_manager(&m), m_current(nullptr) {
+    subterm_iterator::subterm_iterator(ast_manager &m, datatype_util& m_util, enode *start) : m_manager(&m), m_current(nullptr), m_util(&m_util) {
         m_todo.push_back(start);
         next();
     }
 
-    subterm_iterator::subterm_iterator(subterm_iterator &&other) : m_manager(nullptr), m_current(nullptr) {
+    subterm_iterator::subterm_iterator(subterm_iterator &&other) : m_manager(nullptr), m_current(nullptr), m_util(nullptr) {
         m_todo.swap(other.m_todo);
         m_marked.swap(other.m_marked);
         std::swap(m_manager, other.m_manager);
