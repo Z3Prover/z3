@@ -502,7 +502,7 @@ namespace smt {
     }
 
     void theory_datatype::propagate_subterm(enode *n, bool is_true) {
-        force_push(); // I am faily sure I need that here
+        force_push(); // I am fairly sure I need that here
         if (is_true) {
             propagate_is_subterm(n);
         }
