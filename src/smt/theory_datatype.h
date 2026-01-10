@@ -184,12 +184,17 @@ namespace smt {
         subterm_iterator(ast_manager& m, enode *start);
         ~subterm_iterator();
         subterm_iterator(subterm_iterator &&other);
-        subterm_iterator(const subterm_iterator&) = delete;
-
-        subterm_iterator begin() {
-            return std::move(*this);
+        subterm_iterator(const subterm_iterator& other)
+            : m_todo(other.m_todo),
+              m_marked(other.m_marked),
+              m_manager(other.m_manager),
+              m_current(other.m_current) {
         }
-        subterm_iterator end() {
+
+        subterm_iterator begin() const {
+            return *this;
+        }
+        subterm_iterator end() const {
             return subterm_iterator();
         }
 
