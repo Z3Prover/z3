@@ -3021,9 +3021,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       declare readonly __typename: FPNum['__typename'];
 
       value(): number {
-        // Get the numeral as a decimal string and convert to number
+        // Get the floating-point numeral as a JavaScript number
         // Note: This may lose precision for values outside JavaScript number range
-        return parseFloat(Z3.get_numeral_string(contextPtr, this.ast));
+        return Z3.get_numeral_double(contextPtr, this.ast);
       }
     }
 
