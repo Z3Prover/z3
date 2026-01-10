@@ -1225,7 +1225,7 @@ namespace smt {
      *
      * With `predicate:='a ⊑ b'` this should be called with `v:='a'` and `v:='b'`.
      * 
-     * This doesn't handle potential propagation. The responsability for it
+     * This doesn't handle potential propagation. The responsibility for it
      * falls on the caller.
      */
     void theory_datatype::add_subterm_predicate(theory_var v, enode * predicate) {
