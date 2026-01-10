@@ -1332,7 +1332,7 @@ describe('high-level', () => {
       const tactic = new Tactic('simplify');
       const params = new Params();
       params.set('max_steps', 100);
-      
+
       const configuredTactic = tactic.usingParams(params);
       expect(configuredTactic).toBeDefined();
       expect(configuredTactic).not.toBe(tactic);
@@ -1685,8 +1685,8 @@ describe('high-level', () => {
 
       const empty = Seq.empty(Int.sort());
       const len_empty = empty.length();
-      // TOOD: simplify len_empty const len_empty_simplified = 
-//      expect(len_empty_simplified.toString()).toContain('0');
+      // TOOD: simplify len_empty const len_empty_simplified =
+      //      expect(len_empty_simplified.toString()).toContain('0');
     });
 
     it('can concatenate strings', async () => {
@@ -1804,7 +1804,7 @@ describe('high-level', () => {
       expect(result).toBeDefined();
       expect(result.length()).toBeGreaterThan(0);
     });
-    
+
     it('supports string type checking', () => {
       const { String: Str, Seq, Int, isSeqSort, isSeq, isStringSort, isString } = api.Context('main');
 
@@ -1891,7 +1891,7 @@ describe('high-level', () => {
       const tactic = new Tactic('simplify');
       const params = new Params();
       params.set('elim_and', true);
-      
+
       const paramDescrs = tactic.paramDescrs();
       // This should not throw - validation should succeed
       expect(() => params.validate(paramDescrs)).not.toThrow();
@@ -1944,7 +1944,7 @@ describe('high-level', () => {
       const simplifier = new Simplifier('solve-eqs');
       const params = new Params();
       params.set('som', true);
-      
+
       const configuredSimplifier = simplifier.usingParams(params);
       expect(configuredSimplifier).toBeDefined();
       expect(configuredSimplifier).not.toBe(simplifier);
@@ -1954,7 +1954,7 @@ describe('high-level', () => {
       const { Simplifier } = api.Context('main');
       const s1 = new Simplifier('solve-eqs');
       const s2 = new Simplifier('simplify');
-      
+
       const composed = s1.andThen(s2);
       expect(composed).toBeDefined();
       expect(composed).not.toBe(s1);
@@ -1965,18 +1965,18 @@ describe('high-level', () => {
       const { Simplifier, Solver, Int } = api.Context('main');
       const simplifier = new Simplifier('solve-eqs');
       const solver = new Solver();
-      
+
       // Add simplifier to solver
       solver.addSimplifier(simplifier);
-      
+
       // Add a constraint and solve
       const x = Int.const('x');
       const y = Int.const('y');
       solver.add(x.eq(y.add(1)), y.eq(5));
-      
+
       const result = await solver.check();
       expect(result).toBe('sat');
-      
+
       if (result === 'sat') {
         const model = solver.model();
         const xVal = model.eval(x);

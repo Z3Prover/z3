@@ -1,6 +1,6 @@
 /**
  * Example demonstrating the new Simplifier, Params, and ParamDescrs APIs
- * 
+ *
  * This example shows how to:
  * 1. Create and configure parameter objects
  * 2. Use simplifiers for preprocessing
@@ -77,7 +77,7 @@ import { init } from '../../build/node';
 
   const size = paramDescrs.size();
   console.log(`Number of parameters: ${size}`);
-  
+
   if (size > 0) {
     const firstParamName = paramDescrs.getName(0);
     console.log(`First parameter: ${firstParamName}`);
