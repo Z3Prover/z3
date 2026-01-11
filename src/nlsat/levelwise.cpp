@@ -5,8 +5,10 @@
 #include "math/polynomial/polynomial.h"
 #include "nlsat_common.h"
 #include "util/z3_exception.h"
+#include "util/vector.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <set>
 #include <utility>
 #include <vector>
@@ -20,6 +22,18 @@ enum relation_mode {
     chain,
     lowest_degree
 };
+
+// Tag indicating what kind of invariance we need to preserve for a polynomial on the cell:
+// - SIGN: sign-invariance is sufficient
+// - ORD:  order-invariance is required (a stronger requirement)
+//
+// This is inspired by SMT-RAT's InvarianceType and is used together with a
+// de-dup/upgrade worklist discipline (appendOnCorrectLevel()).
+enum class inv_req : uint8_t { none = 0, sign = 1, ord = 2 };
+
+static inline inv_req max_req(inv_req a, inv_req b) {
+    return static_cast<uint8_t>(a) < static_cast<uint8_t>(b) ? b : a;
+}
 
 struct nullified_poly_exception {};
 
@@ -37,6 +51,9 @@ struct levelwise::impl {
 
     polynomial_ref_vector  m_psc_tmp;        // scratch for PSC chains
     bool                   m_fail = false;
+    // Current requirement tag for polynomials stored in the todo_set, keyed by pm.id(poly*).
+    // Entries are upgraded SIGN -> ORD as needed and cleared when a polynomial is extracted.
+    svector<uint8_t>       m_req;
 
     assignment const& sample() const { return m_solver.sample(); }
 
@@ -175,39 +192,104 @@ struct levelwise::impl {
         return polynomial_ref(m_pm);
     }
 
-    void insert_factorized(todo_set& P, polynomial_ref const& poly) {
+    poly* request(todo_set& P, poly* p, inv_req req) {
+        if (!p || req == inv_req::none)
+            return p;
+        p = P.insert(p);
+        unsigned id = m_pm.id(p);
+        auto cur = static_cast<inv_req>(m_req.get(id, static_cast<uint8_t>(inv_req::none)));
+        inv_req nxt = max_req(cur, req);
+        if (nxt != cur)
+            m_req.setx(id, static_cast<uint8_t>(nxt), static_cast<uint8_t>(inv_req::none));
+        return p;
+    }
+
+    void request_factorized(todo_set& P, polynomial_ref const& poly, inv_req req) {
         for_each_distinct_factor(poly, [&](polynomial_ref const& f) {
-            P.insert(f.get());
+            request(P, f.get(), req); // inherit tag across factorization (SMT-RAT appendOnCorrectLevel)
         });
     }
 
+    using tagged_id = std::pair<unsigned, inv_req>; // <pm.id(poly), tag>
+
+    var extract_max_tagged(todo_set& P, polynomial_ref_vector& max_ps, std::vector<tagged_id>& tagged) {
+        var level = P.extract_max_polys(max_ps);
+        tagged.clear();
+        tagged.reserve(max_ps.size());
+        for (unsigned i = 0; i < max_ps.size(); ++i) {
+            poly* p = max_ps.get(i);
+            unsigned id = m_pm.id(p);
+            inv_req req = static_cast<inv_req>(m_req.get(id, static_cast<uint8_t>(inv_req::sign)));
+            if (req == inv_req::none)
+                req = inv_req::sign;
+            tagged.emplace_back(id, req);
+            // Clear: extracted polynomials are no longer part of the worklist.
+            m_req.setx(id, static_cast<uint8_t>(inv_req::none), static_cast<uint8_t>(inv_req::none));
+        }
+        return level;
+    }
+
     // Select a coefficient c of p (wrt x) such that c(s) != 0, or return null.
-    polynomial_ref choose_nonzero_coeff(polynomial_ref const& p, unsigned x) {
+    // The coefficients are polynomials in lower variables; we prefer "simpler" ones
+    // to reduce projection blow-up.
+    polynomial_ref choose_nonzero_coeff(polynomial_ref const& p, unsigned x, poly* exclude = nullptr) {
         unsigned deg = m_pm.degree(p, x);
         polynomial_ref coeff(m_pm);
-        for (int j = static_cast<int>(deg); j >= 0; --j) {
-            coeff = m_pm.coeff(p, x, static_cast<unsigned>(j));
-            if (!coeff || is_zero(coeff))
-                continue;
 
+        // First pass: any non-zero constant coefficient is ideal (no need to project it).
+        for (unsigned j = 0; j <= deg; ++j) {
+            coeff = m_pm.coeff(p, x, j);
+            if (!coeff || is_zero(coeff) || (exclude && coeff.get() == exclude))
+                continue;
+            if (!is_const(coeff))
+                continue;
             if (m_am.eval_sign_at(coeff, sample()) != 0)
                 return coeff;
         }
-        return polynomial_ref(m_pm);
+
+        // Second pass: pick the non-constant coefficient with minimal (total_degree, size, max_var).
+        polynomial_ref best(m_pm);
+        unsigned best_td = 0;
+        unsigned best_sz = 0;
+        var best_mv = null_var;
+        for (unsigned j = 0; j <= deg; ++j) {
+            coeff = m_pm.coeff(p, x, j);
+            if (!coeff || is_zero(coeff) || (exclude && coeff.get() == exclude))
+                continue;
+            if (m_am.eval_sign_at(coeff, sample()) == 0)
+                continue;
+            if (is_const(coeff))
+                continue; // handled above
+
+            unsigned td = total_degree(coeff);
+            unsigned sz = m_pm.size(coeff);
+            var mv = m_pm.max_var(coeff);
+            if (!best ||
+                td < best_td ||
+                (td == best_td && (sz < best_sz ||
+                                   (sz == best_sz && (best_mv == null_var || mv < best_mv))))) {
+                best = coeff;
+                best_td = td;
+                best_sz = sz;
+                best_mv = mv;
+            }
+        }
+        return best;
     }
 
-    void add_projections_for(todo_set& P, polynomial_ref const& p, unsigned x, polynomial_ref const& nonzero_coeff) {
+    void add_projections_for(todo_set& P, polynomial_ref const& p, unsigned x, polynomial_ref const& nonzero_coeff, bool add_leading_coeff) {
         // Line 11 (non-null witness coefficient)
         if (nonzero_coeff && !is_const(nonzero_coeff))
-            insert_factorized(P, nonzero_coeff);
+            request_factorized(P, nonzero_coeff, inv_req::sign);
 
         // Line 12 (disc + leading coefficient)
-        insert_factorized(P, psc_discriminant(p, x));
+        request_factorized(P, psc_discriminant(p, x), inv_req::ord);
 
         unsigned deg = m_pm.degree(p, x);
         polynomial_ref lc(m_pm);
         lc = m_pm.coeff(p, x, deg);
-        insert_factorized(P, lc);
+        if (add_leading_coeff && lc.get() != nonzero_coeff.get())
+            request_factorized(P, lc, inv_req::sign);
     }
 
     // Relation construction heuristics (same intent as previous implementation).
@@ -362,45 +444,118 @@ struct levelwise::impl {
     }
 
     // Build Θ (root functions), pick I_level around sample(level), and build relation ≼.
-    void build_interval_and_relation(unsigned level, polynomial_ref_vector const& level_ps) {
+    void build_interval_and_relation(unsigned level, polynomial_ref_vector const& level_ps, svector<char>& poly_has_roots) {
         m_level = level;
         m_rel.clear();
         reset_interval(m_I[level]);
 
+        poly_has_roots.reset();
+        poly_has_roots.resize(level_ps.size(), false);
+
+        anum const& v = sample().value(level);
+
         for (unsigned i = 0; i < level_ps.size(); ++i) {
             poly* p = level_ps.get(i);
             scoped_anum_vector roots(m_am);
+
+            // SMT-RAT caches isolated bound roots inside the constructed cell components
+            // (e.g., Section::isolatedRoot in OneCellCAD.h). Z3's levelwise currently
+            // recomputes root isolations on demand.
+            //
+            // Optimization: when the sample value is rational, use a closest-root isolation
+            // routine to avoid isolating all roots.
+            if (v.is_basic()) {
+                scoped_mpq s(m_am.qm());
+                m_am.to_rational(v, s);
+                svector<unsigned> idx;
+                m_am.isolate_roots_closest(polynomial_ref(p, m_pm), undef_var_assignment(sample(), level), s, roots, idx);
+                poly_has_roots[i] = !roots.empty();
+                SASSERT(roots.size() == idx.size());
+                for (unsigned k = 0; k < roots.size(); ++k)
+                    m_rel.m_rfunc.emplace_back(m_am, p, idx[k], roots[k]);
+                continue;
+            }
+
             m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), level), roots);
-            for (unsigned k = 0; k < roots.size(); ++k)
-                m_rel.m_rfunc.emplace_back(m_am, p, k + 1, roots[k]);
+            poly_has_roots[i] = !roots.empty();
+
+            // SMT-RAT style reduction: keep only the closest root below (<= v) and above (> v),
+            // or a single root if v is a root of p.
+            unsigned lower = UINT_MAX, upper = UINT_MAX;
+            for (unsigned k = 0; k < roots.size(); ++k) {
+                auto cmp = m_am.compare(roots[k], v);
+                if (cmp <= 0)
+                    lower = k;
+                else {
+                    upper = k;
+                    break;
+                }
+            }
+            if (lower != UINT_MAX) {
+                m_rel.m_rfunc.emplace_back(m_am, p, lower + 1, roots[lower]);
+                if (m_am.eq(roots[lower], v))
+                    continue; // only keep the section root for this polynomial
+            }
+            if (upper != UINT_MAX)
+                m_rel.m_rfunc.emplace_back(m_am, p, upper + 1, roots[upper]);
         }
 
         if (m_rel.m_rfunc.empty())
             return;
-
-        anum const& v = sample().value(level);
-
-        // Comparator for sorting roots by value (with deterministic tie-breaking)
-        auto cmp = [&](root_function const& a, root_function const& b) {
-            if (a.ire.p == b.ire.p) // compare pointers
-                return a.ire.i < b.ire.i; // compare root indices in the same polynomial
-            auto r = m_am.compare(a.val, b.val);
-            if (r)
-                return r == sign_neg;            
-            // Tie-break: same value - use polynomial id
-            unsigned ida = m_pm.id(a.ire.p);
-            unsigned idb = m_pm.id(b.ire.p);
-            return ida < idb;
-        };
 
         // Partition: roots <= v come first, then roots > v
         auto& rfs = m_rel.m_rfunc;
         auto mid = std::partition(rfs.begin(), rfs.end(), [&](root_function const& f) {
             return m_am.compare(f.val, v) <= 0;
         });
-        // Sort each partition separately - O(n log n) comparisons between roots only
-        std::sort(rfs.begin(), mid, cmp);
-        std::sort(mid, rfs.end(), cmp);
+
+        // Sort each partition separately.  For ties (equal root values), prefer
+        // low-degree defining polynomials as interval boundaries:
+        // - lower bound comes from the last element in the <= partition, so sort ties by degree descending
+        // - upper bound comes from the first element in the > partition, so sort ties by degree ascending
+        auto cmp_value = [&](root_function const& a, root_function const& b) {
+            auto r = m_am.compare(a.val, b.val);
+            if (r)
+                return r == sign_neg;
+            if (a.ire.p == b.ire.p)
+                return a.ire.i < b.ire.i;
+            return false;
+        };
+        auto tie_id = [&](root_function const& a, root_function const& b) {
+            unsigned ida = m_pm.id(a.ire.p);
+            unsigned idb = m_pm.id(b.ire.p);
+            if (ida != idb)
+                return ida < idb;
+            return a.ire.i < b.ire.i;
+        };
+        auto cmp_lo = [&](root_function const& a, root_function const& b) {
+            if (cmp_value(a, b))
+                return true;
+            if (cmp_value(b, a))
+                return false;
+            if (a.ire.p == b.ire.p)
+                return a.ire.i < b.ire.i;
+            unsigned dega = m_pm.degree(a.ire.p, level);
+            unsigned degb = m_pm.degree(b.ire.p, level);
+            if (dega != degb)
+                return dega > degb; // descending
+            return tie_id(a, b);
+        };
+        auto cmp_hi = [&](root_function const& a, root_function const& b) {
+            if (cmp_value(a, b))
+                return true;
+            if (cmp_value(b, a))
+                return false;
+            if (a.ire.p == b.ire.p)
+                return a.ire.i < b.ire.i;
+            unsigned dega = m_pm.degree(a.ire.p, level);
+            unsigned degb = m_pm.degree(b.ire.p, level);
+            if (dega != degb)
+                return dega < degb; // ascending
+            return tie_id(a, b);
+        };
+        std::sort(rfs.begin(), mid, cmp_lo);
+        std::sort(mid, rfs.end(), cmp_hi);
 
         unsigned l_index = static_cast<unsigned>(-1);
         unsigned u_index = static_cast<unsigned>(-1);
@@ -448,17 +603,20 @@ struct levelwise::impl {
             std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
             if (!added_pairs.insert(key).second)
                 continue;
-            insert_factorized(P, psc_resultant(a, b, level));
+            request_factorized(P, psc_resultant(a, b, level), inv_req::ord);
         }
     }
 
     // Top level (m_n): add resultants between adjacent roots of different polynomials.
-    void add_adjacent_root_resultants(todo_set& P, polynomial_ref_vector const& top_ps) {
+    void add_adjacent_root_resultants(todo_set& P, polynomial_ref_vector const& top_ps, svector<char>& poly_has_roots) {
+        poly_has_roots.reset();
+        poly_has_roots.resize(top_ps.size(), false);
         std::vector<std::pair<scoped_anum, poly*>> root_vals;
         for (unsigned i = 0; i < top_ps.size(); ++i) {
             poly* p = top_ps.get(i);
             scoped_anum_vector roots(m_am);
             m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_n), roots);
+            poly_has_roots[i] = !roots.empty();
             for (unsigned k = 0; k < roots.size(); ++k) {
                 scoped_anum v(m_am);
                 m_am.set(v, roots[k]);
@@ -483,16 +641,28 @@ struct levelwise::impl {
             std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
             if (!added_pairs.insert(key).second)
                 continue;
-            insert_factorized(P, psc_resultant(p1, p2, m_n));
+            request_factorized(P, psc_resultant(p1, p2, m_n), inv_req::ord);
         }
     }
 
-    void process_level(todo_set& P, unsigned level, polynomial_ref_vector const& level_ps) {
+    void upgrade_bounds_to_ord(unsigned level, polynomial_ref_vector const& level_ps, std::vector<tagged_id>& tags) {
+        poly* lb = m_I[level].l;
+        poly* ub = m_I[level].u;
+        for (unsigned i = 0; i < level_ps.size(); ++i) {
+            poly* p = level_ps.get(i);
+            if (p == lb || p == ub)
+                tags[i].second = inv_req::ord;
+        }
+    }
+
+    void process_level(todo_set& P, unsigned level, polynomial_ref_vector const& level_ps, std::vector<tagged_id>& level_tags) {
+        SASSERT(level_ps.size() == level_tags.size());
         // Line 10/11: detect nullification + pick a non-zero coefficient witness per p.
         std::vector<polynomial_ref> witnesses;
         witnesses.reserve(level_ps.size());
         for (unsigned i = 0; i < level_ps.size(); ++i) {
             polynomial_ref p(level_ps.get(i), m_pm);
+            SASSERT(level_tags[i].first == m_pm.id(p.get()));
             polynomial_ref w = choose_nonzero_coeff(p, level);
             if (!w)
                 fail();
@@ -500,25 +670,48 @@ struct levelwise::impl {
         }
 
         // Lines 3-8: Θ + I_level + relation ≼
-        build_interval_and_relation(level, level_ps);
+        svector<char> poly_has_roots;
+        build_interval_and_relation(level, level_ps, poly_has_roots);
+        // SMT-RAT (levelwise/OneCellCAD.h) upgrades the polynomials defining the current
+        // bounds/sections to ORD_INV. Z3's levelwise does not currently implement SMT-RAT's
+        // dedicated section/sector heuristics (sectionHeuristic/sectorHeuristic) for choosing
+        // additional resultants/leading-coefficients; it instead uses relation_mode and the
+        // closest-root reduction when building Θ.
+        upgrade_bounds_to_ord(level, level_ps, level_tags);
 
         // Lines 11-12 (Algorithm 1): add projections for each p
         // Note: Algorithm 1 adds disc + ldcf for ALL polynomials (classical delineability)
-        // Algorithm 2 (projective delineability) would only add ldcf for bound-defining polys
+        // We additionally omit leading coefficients for rootless polynomials when possible
+        // (cf. projective delineability, Lemma 3.2).
         for (unsigned i = 0; i < level_ps.size(); ++i) {
             polynomial_ref p(level_ps.get(i), m_pm);
-            add_projections_for(P, p, level, witnesses[i]);
+            bool add_lc = true;
+            polynomial_ref lc(m_pm);
+            if (i < poly_has_roots.size() && !poly_has_roots[i]) {
+                unsigned deg = m_pm.degree(p, level);
+                lc = m_pm.coeff(p, level, deg);
+                if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
+                    add_lc = false;
+            }
+            if (!add_lc && lc && witnesses[i].get() == lc.get() && !is_const(lc)) {
+                polynomial_ref alt = choose_nonzero_coeff(p, level, lc.get());
+                if (alt)
+                    witnesses[i] = alt;
+            }
+            add_projections_for(P, p, level, witnesses[i], add_lc);
         }
 
         // Line 14 (Algorithm 1): add resultants for chosen relation pairs
         add_relation_resultants(P, level);
     }
 
-    void process_top_level(todo_set& P, polynomial_ref_vector const& top_ps) {
+    void process_top_level(todo_set& P, polynomial_ref_vector const& top_ps, std::vector<tagged_id>& top_tags) {
+        SASSERT(top_ps.size() == top_tags.size());
         std::vector<polynomial_ref> witnesses;
         witnesses.reserve(top_ps.size());
         for (unsigned i = 0; i < top_ps.size(); ++i) {
             polynomial_ref p(top_ps.get(i), m_pm);
+            SASSERT(top_tags[i].first == m_pm.id(p.get()));
             polynomial_ref w = choose_nonzero_coeff(p, m_n);
             if (!w)
                 fail();
@@ -526,12 +719,30 @@ struct levelwise::impl {
         }
 
         // Resultants between adjacent root functions (a lightweight ordering for the top level).
-        add_adjacent_root_resultants(P, top_ps);
+        svector<char> poly_has_roots;
+        add_adjacent_root_resultants(P, top_ps, poly_has_roots);
 
         // Projections (coeff witness, disc, leading coeff).
+        // Note: SMT-RAT's levelwise implementation additionally has dedicated heuristics for
+        // selecting resultants and selectively adding leading coefficients (see OneCellCAD.h,
+        // sectionHeuristic/sectorHeuristic). Z3's levelwise currently uses the relation_mode
+        // ordering heuristics instead of these specialized cases.
         for (unsigned i = 0; i < top_ps.size(); ++i) {
             polynomial_ref p(top_ps.get(i), m_pm);
-            add_projections_for(P, p, m_n, witnesses[i]);
+            bool add_lc = true;
+            polynomial_ref lc(m_pm);
+            if (i < poly_has_roots.size() && !poly_has_roots[i]) {
+                unsigned deg = m_pm.degree(p, m_n);
+                lc = m_pm.coeff(p, m_n, deg);
+                if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
+                    add_lc = false;
+            }
+            if (!add_lc && lc && witnesses[i].get() == lc.get() && !is_const(lc)) {
+                polynomial_ref alt = choose_nonzero_coeff(p, m_n, lc.get());
+                if (alt)
+                    witnesses[i] = alt;
+            }
+            add_projections_for(P, p, m_n, witnesses[i], add_lc);
         }
     }
 
@@ -545,7 +756,7 @@ struct levelwise::impl {
         for (unsigned i = 0; i < m_P.size(); ++i) {
             polynomial_ref pi(m_P.get(i), m_pm);
             for_each_distinct_factor(pi, [&](polynomial_ref const& f) {
-                P.insert(f.get());
+                request(P, f.get(), inv_req::sign);
             });
         }
 
@@ -555,16 +766,18 @@ struct levelwise::impl {
         // Process top level m_n (we project from x_{m_n} and do not return an interval for it).
         if (P.max_var() == m_n) {
             polynomial_ref_vector top_ps(m_pm);
-            P.extract_max_polys(top_ps);
-            process_top_level(P, top_ps);
+            std::vector<tagged_id> top_tags;
+            extract_max_tagged(P, top_ps, top_tags);
+            process_top_level(P, top_ps, top_tags);
         }
 
         // Now iteratively process remaining levels (descending).
         while (!P.empty()) {
             polynomial_ref_vector level_ps(m_pm);
-            var level = P.extract_max_polys(level_ps);
+            std::vector<tagged_id> level_tags;
+            var level = extract_max_tagged(P, level_ps, level_tags);
             SASSERT(level < m_n);
-            process_level(P, level, level_ps);
+            process_level(P, level, level_ps, level_tags);
         }
 
         return m_I;
