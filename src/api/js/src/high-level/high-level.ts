@@ -43,6 +43,7 @@ import {
   Z3_apply_result,
   Z3_goal_prec,
   Z3_param_descrs,
+  Z3_simplifier,
 } from '../low-level';
 import {
   AnyAst,
@@ -84,6 +85,8 @@ import {
   IntNum,
   Model,
   Optimize,
+  Params,
+  ParamDescrs,
   Pattern,
   Probe,
   Quantifier,
@@ -91,6 +94,7 @@ import {
   RatNum,
   Seq,
   SeqSort,
+  Simplifier,
   SMTArray,
   SMTArraySort,
   Solver,
@@ -1826,6 +1830,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         check(Z3.solver_assert_and_track(contextPtr, this.ptr, expr.ast, constant.ast));
       }
 
+      addSimplifier(simplifier: Simplifier<Name>): void {
+        _assertContext(simplifier);
+        check(Z3.solver_add_simplifier(contextPtr, this.ptr, simplifier.ptr));
+      }
+
       assertions(): AstVector<Name, Bool<Name>> {
         return new AstVectorImpl(check(Z3.solver_get_assertions(contextPtr, this.ptr)));
       }
@@ -2875,8 +2884,136 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return Z3.tactic_get_help(contextPtr, this.ptr);
       }
 
-      getParamDescrs(): Z3_param_descrs {
-        return check(Z3.tactic_get_param_descrs(contextPtr, this.ptr));
+      paramDescrs(): ParamDescrs<Name> {
+        const descrs = check(Z3.tactic_get_param_descrs(contextPtr, this.ptr));
+        return new ParamDescrsImpl(descrs);
+      }
+
+      usingParams(params: Params<Name>): Tactic<Name> {
+        _assertContext(params);
+        const newTactic = check(Z3.tactic_using_params(contextPtr, this.ptr, params.ptr));
+        return new TacticImpl(newTactic);
+      }
+    }
+
+    class ParamsImpl implements Params<Name> {
+      declare readonly __typename: Params['__typename'];
+
+      readonly ptr: Z3_params;
+      readonly ctx: Context<Name>;
+
+      constructor(params?: Z3_params) {
+        this.ctx = ctx;
+        if (params) {
+          this.ptr = params;
+        } else {
+          this.ptr = Z3.mk_params(contextPtr);
+        }
+        Z3.params_inc_ref(contextPtr, this.ptr);
+        cleanup.register(this, () => Z3.params_dec_ref(contextPtr, this.ptr), this);
+      }
+
+      set(name: string, value: boolean | number | string): void {
+        const sym = _toSymbol(name);
+        if (typeof value === 'boolean') {
+          Z3.params_set_bool(contextPtr, this.ptr, sym, value);
+        } else if (typeof value === 'number') {
+          if (Number.isInteger(value)) {
+            check(Z3.params_set_uint(contextPtr, this.ptr, sym, value));
+          } else {
+            check(Z3.params_set_double(contextPtr, this.ptr, sym, value));
+          }
+        } else if (typeof value === 'string') {
+          check(Z3.params_set_symbol(contextPtr, this.ptr, sym, _toSymbol(value)));
+        }
+      }
+
+      validate(descrs: ParamDescrs<Name>): void {
+        _assertContext(descrs);
+        Z3.params_validate(contextPtr, this.ptr, descrs.ptr);
+      }
+
+      toString(): string {
+        return Z3.params_to_string(contextPtr, this.ptr);
+      }
+    }
+
+    class ParamDescrsImpl implements ParamDescrs<Name> {
+      declare readonly __typename: ParamDescrs['__typename'];
+
+      readonly ptr: Z3_param_descrs;
+      readonly ctx: Context<Name>;
+
+      constructor(paramDescrs: Z3_param_descrs) {
+        this.ctx = ctx;
+        this.ptr = paramDescrs;
+        Z3.param_descrs_inc_ref(contextPtr, this.ptr);
+        cleanup.register(this, () => Z3.param_descrs_dec_ref(contextPtr, this.ptr), this);
+      }
+
+      size(): number {
+        return Z3.param_descrs_size(contextPtr, this.ptr);
+      }
+
+      getName(i: number): string {
+        const sym = Z3.param_descrs_get_name(contextPtr, this.ptr, i);
+        const name = _fromSymbol(sym);
+        return typeof name === 'string' ? name : `${name}`;
+      }
+
+      getKind(name: string): number {
+        return Z3.param_descrs_get_kind(contextPtr, this.ptr, _toSymbol(name));
+      }
+
+      getDocumentation(name: string): string {
+        return Z3.param_descrs_get_documentation(contextPtr, this.ptr, _toSymbol(name));
+      }
+
+      toString(): string {
+        return Z3.param_descrs_to_string(contextPtr, this.ptr);
+      }
+    }
+
+    class SimplifierImpl implements Simplifier<Name> {
+      declare readonly __typename: Simplifier['__typename'];
+
+      readonly ptr: Z3_simplifier;
+      readonly ctx: Context<Name>;
+
+      constructor(simplifier: string | Z3_simplifier) {
+        this.ctx = ctx;
+        let myPtr: Z3_simplifier;
+        if (typeof simplifier === 'string') {
+          myPtr = check(Z3.mk_simplifier(contextPtr, simplifier));
+        } else {
+          myPtr = simplifier;
+        }
+
+        this.ptr = myPtr;
+
+        Z3.simplifier_inc_ref(contextPtr, myPtr);
+        cleanup.register(this, () => Z3.simplifier_dec_ref(contextPtr, myPtr), this);
+      }
+
+      help(): string {
+        return Z3.simplifier_get_help(contextPtr, this.ptr);
+      }
+
+      paramDescrs(): ParamDescrs<Name> {
+        const descrs = check(Z3.simplifier_get_param_descrs(contextPtr, this.ptr));
+        return new ParamDescrsImpl(descrs);
+      }
+
+      usingParams(params: Params<Name>): Simplifier<Name> {
+        _assertContext(params);
+        const newSimplifier = check(Z3.simplifier_using_params(contextPtr, this.ptr, params.ptr));
+        return new SimplifierImpl(newSimplifier);
+      }
+
+      andThen(other: Simplifier<Name>): Simplifier<Name> {
+        _assertContext(other);
+        const newSimplifier = check(Z3.simplifier_and_then(contextPtr, this.ptr, other.ptr));
+        return new SimplifierImpl(newSimplifier);
       }
     }
 
@@ -4238,6 +4375,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Model: ModelImpl,
       Tactic: TacticImpl,
       Goal: GoalImpl,
+      Params: ParamsImpl,
+      Simplifier: SimplifierImpl,
       AstVector: AstVectorImpl as AstVectorCtor<Name>,
       AstMap: AstMapImpl as AstMapCtor<Name>,
 
