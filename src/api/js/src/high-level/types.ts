@@ -852,7 +852,7 @@ export interface Context<Name extends string = 'main'> {
    * @param x Variable with respect to which subresultants are computed
    * @category Operations
    */
-  polynomialSubresultants(p: Arith<Name>, q: Arith<Name>, x: Arith<Name>): ASTVector<Name, Arith<Name>>;
+  polynomialSubresultants(p: Arith<Name>, q: Arith<Name>, x: Arith<Name>): AstVector<Name, Arith<Name>>;
 }
 
 export interface Ast<Name extends string = 'main', Ptr = unknown> {

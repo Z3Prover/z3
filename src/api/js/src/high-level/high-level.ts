@@ -1732,16 +1732,16 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new BoolImpl(check(Z3.mk_set_subset(contextPtr, a.ast, b.ast)));
     }
 
-    function mkPartialOrder(sort: Sort<Name>, index: number): FuncDeclImpl {
+    function mkPartialOrder(sort: Sort<Name>, index: number): FuncDecl<Name> {
       return new FuncDeclImpl(check(Z3.mk_partial_order(contextPtr, sort.ptr, index)));
     }
 
-    function mkTransitiveClosure(f: FuncDecl<Name>): FuncDeclImpl {
+    function mkTransitiveClosure(f: FuncDecl<Name>): FuncDecl<Name> {
       return new FuncDeclImpl(check(Z3.mk_transitive_closure(contextPtr, f.ptr)));
     }
 
-    function polynomialSubresultants(p: Arith<Name>, q: Arith<Name>, x: Arith<Name>): ASTVectorImpl<ArithImpl> {
-      return new ASTVectorImpl<ArithImpl>(
+    function polynomialSubresultants(p: Arith<Name>, q: Arith<Name>, x: Arith<Name>): AstVector<Name, Arith<Name>> {
+      return new AstVectorImpl<ArithImpl>(
         check(Z3.polynomial_subresultants(contextPtr, p.ast, q.ast, x.ast))
       );
     }
