@@ -68,10 +68,8 @@ public:
     }
 
     void reset() {
-        typename vector<Numeral>::iterator it  = m_buffer.begin();
-        typename vector<Numeral>::iterator end = m_buffer.end();
-        for (; it != end; ++it)
-            m().del(*it);
+        for (auto& numeral : m_buffer)
+            m().del(numeral);
         m_buffer.reset();
     }
 

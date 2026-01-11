@@ -40,9 +40,7 @@ void region::reset() {
 void region::pop_scope() {
     unsigned old_size = m_scopes.back();
     m_scopes.pop_back();
-    ptr_vector<char>::iterator it  = m_chunks.begin() + old_size;
-    ptr_vector<char>::iterator end = m_chunks.end();
-    for (; it != end; ++it) 
+    for (auto it = m_chunks.begin() + old_size; it != m_chunks.end(); ++it) 
         dealloc_svect(*it);    
     m_chunks.shrink(old_size);
 }

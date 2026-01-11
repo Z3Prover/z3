@@ -129,9 +129,8 @@ namespace opt {
 
         void mk_assumptions(expr_ref_vector& asms) {
             ptr_vector<expr> _asms;
-            obj_map<expr, rational>::iterator it = m_weights.begin(), end = m_weights.end();
-            for (; it != end; ++it) {
-                _asms.push_back(it->m_key);
+            for (auto const& kv : m_weights) {
+                _asms.push_back(kv.m_key);
             }
             compare_asm comp(*this);
             std::sort(_asms.begin(),_asms.end(), comp); 
