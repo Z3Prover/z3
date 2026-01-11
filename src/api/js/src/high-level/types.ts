@@ -16,6 +16,7 @@ import {
   Z3_optimize,
   Z3_sort,
   Z3_sort_kind,
+  Z3_stats,
   Z3_tactic,
   Z3_goal,
   Z3_apply_result,
