@@ -827,6 +827,32 @@ export interface Context<Name extends string = 'main'> {
 
   /** @category Operations */
   isSubset<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): Bool<Name>;
+
+  /**
+   * Create a partial order relation over a sort.
+   * @param sort The sort of the relation
+   * @param index The index of the relation
+   * @category Operations
+   */
+  mkPartialOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
+
+  /**
+   * Create the transitive closure of a binary relation.
+   * The resulting relation is recursive.
+   * @param f A binary relation represented as a function declaration
+   * @category Operations
+   */
+  mkTransitiveClosure(f: FuncDecl<Name>): FuncDecl<Name>;
+
+  /**
+   * Return the nonzero subresultants of p and q with respect to the "variable" x.
+   * Note that any subterm that cannot be viewed as a polynomial is assumed to be a variable.
+   * @param p Arithmetic term
+   * @param q Arithmetic term
+   * @param x Variable with respect to which subresultants are computed
+   * @category Operations
+   */
+  polynomialSubresultants(p: Arith<Name>, q: Arith<Name>, x: Arith<Name>): Promise<AstVector<Name, Arith<Name>>>;
 }
 
 export interface Ast<Name extends string = 'main', Ptr = unknown> {
