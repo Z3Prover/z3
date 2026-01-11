@@ -707,6 +707,7 @@ namespace smt {
         m_marked.swap(other.m_marked);
         std::swap(m_manager, other.m_manager);
         std::swap(m_current, other.m_current);
+        std::swap(m_util, other.m_util);
     }
 
     subterm_iterator::~subterm_iterator() {
