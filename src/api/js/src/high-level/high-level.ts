@@ -1732,6 +1732,20 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new BoolImpl(check(Z3.mk_set_subset(contextPtr, a.ast, b.ast)));
     }
 
+    function mkPartialOrder(sort: Sort<Name>, index: number): FuncDeclImpl {
+      return new FuncDeclImpl(check(Z3.mk_partial_order(contextPtr, sort.ptr, index)));
+    }
+
+    function mkTransitiveClosure(f: FuncDecl<Name>): FuncDeclImpl {
+      return new FuncDeclImpl(check(Z3.mk_transitive_closure(contextPtr, f.ptr)));
+    }
+
+    function polynomialSubresultants(p: Arith<Name>, q: Arith<Name>, x: Arith<Name>): ASTVectorImpl<ArithImpl> {
+      return new ASTVectorImpl<ArithImpl>(
+        check(Z3.polynomial_subresultants(contextPtr, p.ast, q.ast, x.ast))
+      );
+    }
+
     class AstImpl<Ptr extends Z3_ast> implements Ast<Name, Ptr> {
       declare readonly __typename: Ast['__typename'];
       readonly ctx: Context<Name>;
@@ -4632,6 +4646,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       FullSet,
       isMember,
       isSubset,
+      mkPartialOrder,
+      mkTransitiveClosure,
+      polynomialSubresultants,
     };
     cleanup.register(ctx, () => Z3.del_context(contextPtr));
     return ctx;

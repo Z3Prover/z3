@@ -4307,6 +4307,40 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Create the transitive closure of a binary relation.
+     * The resulting relation is recursive.
+     * @param f function declaration of a binary relation
+     */
+    public final <R extends Sort> FuncDecl<BoolSort> mkTransitiveClosure(FuncDecl<BoolSort> f) {
+        return (FuncDecl<BoolSort>) FuncDecl.create(
+                this,
+                Native.mkTransitiveClosure(
+                    nCtx(),
+                    f.getNativeObject()
+                )
+        );
+    }
+
+    /**
+     * Return the nonzero subresultants of p and q with respect to the "variable" x.
+     * Note that any subterm that cannot be viewed as a polynomial is assumed to be a variable.
+     * @param p arithmetic term
+     * @param q arithmetic term  
+     * @param x variable
+     */
+    public final <R extends Sort> ASTVector polynomialSubresultants(Expr<R> p, Expr<R> q, Expr<R> x) {
+        return new ASTVector(
+                this,
+                Native.polynomialSubresultants(
+                    nCtx(),
+                    p.getNativeObject(),
+                    q.getNativeObject(),
+                    x.getNativeObject()
+                )
+        );
+    }
+
+    /**
      * Wraps an AST.
      * Remarks: This function is used for transitions between
      * native and managed objects. Note that {@code nativeObject}
