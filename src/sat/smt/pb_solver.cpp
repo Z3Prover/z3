@@ -338,7 +338,7 @@ namespace pb {
         }
         
         SASSERT(!inconsistent());
-        DEBUG_CODE(for (auto idx : m_pb_undef) { auto [w, lit] = p[idx]; SASSERT(value(lit) == l_undef); });
+        DEBUG_CODE(for (auto idx : m_pb_undef) { SASSERT(value(p[idx].second) == l_undef); });
         
         if (slack < bound) {
             // maintain watching the literal
