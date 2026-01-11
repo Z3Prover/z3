@@ -1740,10 +1740,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new FuncDeclImpl(check(Z3.mk_transitive_closure(contextPtr, f.ptr)));
     }
 
-    function polynomialSubresultants(p: Arith<Name>, q: Arith<Name>, x: Arith<Name>): AstVector<Name, Arith<Name>> {
-      return new AstVectorImpl<ArithImpl>(
-        check(Z3.polynomial_subresultants(contextPtr, p.ast, q.ast, x.ast))
-      );
+    async function polynomialSubresultants(p: Arith<Name>, q: Arith<Name>, x: Arith<Name>): Promise<AstVector<Name, Arith<Name>>> {
+      const result = await Z3.polynomial_subresultants(contextPtr, p.ast, q.ast, x.ast);
+      return new AstVectorImpl<ArithImpl>(check(result));
     }
 
     class AstImpl<Ptr extends Z3_ast> implements Ast<Name, Ptr> {
