@@ -30,6 +30,7 @@ import {
   Z3_solver,
   Z3_sort,
   Z3_sort_kind,
+  Z3_stats,
   Z3_symbol,
   Z3_symbol_kind,
   Z3_tactic,
@@ -100,6 +101,8 @@ import {
   Solver,
   Sort,
   SortToExprMap,
+  Statistics,
+  StatisticsEntry,
   Tactic,
   Goal,
   ApplyResult,
@@ -1867,6 +1870,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new ModelImpl(check(Z3.solver_get_model(contextPtr, this.ptr)));
       }
 
+      statistics(): Statistics<Name> {
+        return new StatisticsImpl(check(Z3.solver_get_statistics(contextPtr, this.ptr)));
+      }
+
       reasonUnknown(): string {
         return check(Z3.solver_get_reason_unknown(contextPtr, this.ptr));
       }
@@ -2006,6 +2013,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       model() {
         return new ModelImpl(check(Z3.optimize_get_model(contextPtr, this.ptr)));
+      }
+
+      statistics(): Statistics<Name> {
+        return new StatisticsImpl(check(Z3.optimize_get_statistics(contextPtr, this.ptr)));
       }
 
       toString() {
@@ -2165,6 +2176,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       fromFile(file: string): AstVector<Name, Bool<Name>> {
         const av = check(Z3.fixedpoint_from_file(contextPtr, this.ptr, file));
         return new AstVectorImpl(av);
+      }
+
+      statistics(): Statistics<Name> {
+        return new StatisticsImpl(check(Z3.fixedpoint_get_statistics(contextPtr, this.ptr)));
       }
 
       release() {
@@ -2373,6 +2388,81 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       release() {
         Z3.model_dec_ref(contextPtr, this.ptr);
+        this._ptr = null;
+        cleanup.unregister(this);
+      }
+    }
+
+    class StatisticsImpl implements Statistics<Name> {
+      declare readonly __typename: Statistics['__typename'];
+      readonly ctx: Context<Name>;
+      private _ptr: Z3_stats | null;
+      get ptr(): Z3_stats {
+        _assertPtr(this._ptr);
+        return this._ptr;
+      }
+
+      constructor(ptr: Z3_stats) {
+        this.ctx = ctx;
+        this._ptr = ptr;
+        Z3.stats_inc_ref(contextPtr, ptr);
+        cleanup.register(this, () => Z3.stats_dec_ref(contextPtr, ptr), this);
+      }
+
+      size(): number {
+        return Z3.stats_size(contextPtr, this.ptr);
+      }
+
+      keys(): string[] {
+        const result: string[] = [];
+        const sz = this.size();
+        for (let i = 0; i < sz; i++) {
+          result.push(Z3.stats_get_key(contextPtr, this.ptr, i));
+        }
+        return result;
+      }
+
+      get(key: string): number {
+        const sz = this.size();
+        for (let i = 0; i < sz; i++) {
+          if (Z3.stats_get_key(contextPtr, this.ptr, i) === key) {
+            if (Z3.stats_is_uint(contextPtr, this.ptr, i)) {
+              return Z3.stats_get_uint_value(contextPtr, this.ptr, i);
+            } else {
+              return Z3.stats_get_double_value(contextPtr, this.ptr, i);
+            }
+          }
+        }
+        throw new Error(`Statistics key not found: ${key}`);
+      }
+
+      entries(): StatisticsEntry<Name>[] {
+        const result: StatisticsEntry<Name>[] = [];
+        const sz = this.size();
+        for (let i = 0; i < sz; i++) {
+          const key = Z3.stats_get_key(contextPtr, this.ptr, i);
+          const isUint = Z3.stats_is_uint(contextPtr, this.ptr, i);
+          const isDouble = Z3.stats_is_double(contextPtr, this.ptr, i);
+          const value = isUint 
+            ? Z3.stats_get_uint_value(contextPtr, this.ptr, i)
+            : Z3.stats_get_double_value(contextPtr, this.ptr, i);
+          result.push({
+            __typename: 'StatisticsEntry' as const,
+            key,
+            value,
+            isUint,
+            isDouble,
+          });
+        }
+        return result;
+      }
+
+      [Symbol.iterator](): Iterator<StatisticsEntry<Name>> {
+        return this.entries()[Symbol.iterator]();
+      }
+
+      release() {
+        Z3.stats_dec_ref(contextPtr, this.ptr);
         this._ptr = null;
         cleanup.unregister(this);
       }
