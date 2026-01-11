@@ -678,6 +678,169 @@ namespace algebraic_numbers {
             isolate_roots(up, roots);
         }
 
+        unsigned sign_variations_at_mpq(upolynomial::upolynomial_sequence const & seq, mpq const & b) {
+            unsigned sz = seq.size();
+            if (sz <= 1)
+                return 0;
+            unsigned r = 0;
+            int sign = 0, prev_sign = 0;
+            for (unsigned i = 0; i < sz; ++i) {
+                unsigned psz      = seq.size(i);
+                mpz const * p     = seq.coeffs(i);
+                sign = static_cast<int>(upm().eval_sign_at(psz, p, b));
+                if (sign == 0)
+                    continue;
+                if (prev_sign != 0 && sign != prev_sign)
+                    r++;
+                prev_sign = sign;
+            }
+            return r;
+        }
+
+        // Isolate the i-th real root of sqf_p (1-based), where sqf_p is square-free and univariate.
+        // Return the root as an algebraic number in r. The polynomial stored in the result is sqf_p.
+        void isolate_kth_root(scoped_upoly const & sqf_p, upolynomial::upolynomial_sequence const & seq, unsigned i, numeral & r) {
+            SASSERT(i > 0);
+            unsigned sz = sqf_p.size();
+            mpz const * p = sqf_p.data();
+            SASSERT(sz > 0);
+            if (sz == 2) {
+                // Linear polynomial ax + b: root is -b/a (always rational).
+                scoped_mpq q(qm());
+                qm().set(q, p[0], p[1]);
+                qm().neg(q);
+                set(r, q);
+                return;
+            }
+            unsigned pos_k = upm().knuth_positive_root_upper_bound(sz, p);
+            unsigned neg_k = upm().knuth_negative_root_upper_bound(sz, p);
+
+            scoped_mpbq lo(bqm()), hi(bqm()), mid(bqm());
+            unsigned vminus = upm().sign_variations_at_minus_inf(seq);
+            unsigned v0     = upm().sign_variations_at_zero(seq);
+            unsigned vplus  = upm().sign_variations_at_plus_inf(seq);
+            unsigned le0_cnt = vminus - v0; // roots in (-oo, 0]
+
+            unsigned vlo, vhi;
+            unsigned target;
+            if (i <= le0_cnt) {
+                // Isolate within (-2^neg_k, 0] to keep the interval on the non-positive side.
+                bqm().power(mpbq(2), neg_k, lo);
+                bqm().neg(lo);
+                bqm().set(hi, 0);
+                vlo = vminus;
+                vhi = v0;
+                target = i;
+            }
+            else {
+                // Isolate within (0, 2^pos_k] to keep the interval on the non-negative side.
+                bqm().set(lo, 0);
+                bqm().power(mpbq(2), pos_k, hi);
+                vlo = v0;
+                vhi = vplus;
+                target = i - le0_cnt;
+            }
+
+            // Sanity: sqf_p has at least i roots.
+            SASSERT(vlo >= vhi);
+            SASSERT(i <= vminus - vplus);
+            SASSERT(target > 0);
+            SASSERT(target <= vlo - vhi);
+            while (vlo > vhi + 1) {
+                checkpoint();
+                bqm().add(lo, hi, mid);
+                bqm().div2(mid);
+                unsigned vmid = upm().sign_variations_at(seq, mid);
+                unsigned left_cnt = vlo - vmid; // roots in (lo, mid]
+                if (target <= left_cnt) {
+                    bqm().set(hi, mid);
+                    vhi = vmid;
+                }
+                else {
+                    bqm().set(lo, mid);
+                    vlo = vmid;
+                    target -= left_cnt;
+                }
+            }
+            SASSERT(vlo == vhi + 1);
+
+            // If the upper endpoint is exactly a dyadic root, return it as a basic number.
+            if (upm().eval_sign_at(sz, p, hi) == 0) {
+                scoped_mpq q(qm());
+                to_mpq(qm(), hi, q);
+                set(r, q);
+                return;
+            }
+
+            // Convert the isolating interval into a refinable one (or discover a dyadic root on the way).
+            scoped_mpbq a(bqm()), b(bqm());
+            bqm().set(a, lo);
+            bqm().set(b, hi);
+            if (!upm().isolating2refinable(sz, p, bqm(), a, b)) {
+                scoped_mpq q(qm());
+                to_mpq(qm(), a, q);
+                set(r, q);
+                return;
+            }
+
+            del(r);
+            r = mk_algebraic_cell(sz, p, a, b, false /* minimal */);
+            SASSERT(acell_inv(*r.to_algebraic()));
+        }
+
+        // Closest-root isolation for an (integer) univariate polynomial.
+        void isolate_roots_closest_univariate(polynomial_ref const & p, mpq const & s, numeral_vector & roots, svector<unsigned> & indices) {
+            SASSERT(is_univariate(p));
+            SASSERT(roots.empty());
+            indices.reset();
+
+            if (::is_zero(p) || ::is_const(p))
+                return;
+
+            // Convert to dense univariate form and take the square-free part.
+            scoped_upoly & up = m_isolate_tmp1;
+            scoped_upoly & sqf_p = m_isolate_tmp3;
+            up.reset();
+            sqf_p.reset();
+            upm().to_numeral_vector(p, up);
+            if (up.empty())
+                return;
+            upm().square_free(up.size(), up.data(), sqf_p);
+            if (sqf_p.empty() || upm().degree(sqf_p) == 0)
+                return;
+
+            upolynomial::scoped_upolynomial_sequence seq(upm());
+            upm().sturm_seq(sqf_p.size(), sqf_p.data(), seq);
+            unsigned vminus = upm().sign_variations_at_minus_inf(seq);
+            unsigned vplus  = upm().sign_variations_at_plus_inf(seq);
+            if (vminus <= vplus)
+                return;
+
+            unsigned vs = sign_variations_at_mpq(seq, s);
+            unsigned total = vminus - vplus;
+            unsigned k = vminus - vs; // #roots in (-oo, s]
+
+            if (upm().eval_sign_at(sqf_p.size(), sqf_p.data(), s) == 0) {
+                roots.push_back(numeral());
+                set(roots.back(), s);
+                indices.push_back(k);
+                return;
+            }
+
+            // predecessor (<= s)
+            if (k > 0) {
+                roots.push_back(numeral());
+                isolate_kth_root(sqf_p, seq, k, roots.back());
+                indices.push_back(k);
+            }
+            // successor (> s)
+            if (k < total) {
+                roots.push_back(numeral());
+                isolate_kth_root(sqf_p, seq, k + 1, roots.back());
+                indices.push_back(k + 1);
+            }
+        }
+
         void mk_root(scoped_upoly const & up, unsigned i, numeral & r) {
             // TODO: implement version that finds i-th root without isolating all roots.
             if (i == 0)
@@ -2547,6 +2710,77 @@ namespace algebraic_numbers {
             }
         }
 
+        void isolate_roots_closest(polynomial_ref const & p, polynomial::var2anum const & x2v, mpq const & s, numeral_vector & roots, svector<unsigned> & indices) {
+            TRACE(isolate_roots, tout << "isolating closest roots of: " << p << " around " << m_qmanager.to_string(s) << "\n";);
+            SASSERT(roots.empty());
+            indices.reset();
+
+            polynomial::manager & ext_pm = p.m();
+            if (ext_pm.is_zero(p) || ext_pm.is_const(p))
+                return;
+
+            if (ext_pm.is_univariate(p)) {
+                isolate_roots_closest_univariate(p, s, roots, indices);
+                return;
+            }
+
+            // eliminate rationals
+            polynomial_ref p_prime(ext_pm);
+            var2basic x2v_basic(*this, x2v);
+            p_prime = ext_pm.substitute(p, x2v_basic);
+            if (ext_pm.is_zero(p_prime) || ext_pm.is_const(p_prime))
+                return;
+
+            if (ext_pm.is_univariate(p_prime)) {
+                polynomial::var x = ext_pm.max_var(p_prime);
+                if (x2v.contains(x)) {
+                    // The remaining variable is assigned, the actual unassigned variable vanished when we replaced rational values.
+                    // So, the polynomial does not have any roots.
+                    return;
+                }
+                isolate_roots_closest_univariate(p_prime, s, roots, indices);
+                return;
+            }
+
+            // Fallback: isolate all roots then select closest ones.
+            scoped_numeral_vector all(m_wrapper);
+            isolate_roots(p, x2v, all);
+            if (all.empty())
+                return;
+
+            scoped_numeral sv(m_wrapper);
+            set(sv, s);
+
+            unsigned lower = UINT_MAX, upper = UINT_MAX;
+            for (unsigned k = 0; k < all.size(); ++k) {
+                auto cmp = compare(all[k], sv);
+                if (cmp <= 0)
+                    lower = k;
+                else {
+                    upper = k;
+                    break;
+                }
+            }
+
+            if (lower != UINT_MAX && eq(all[lower], s)) {
+                roots.push_back(numeral());
+                set(roots.back(), all[lower]);
+                indices.push_back(lower + 1);
+                return;
+            }
+
+            if (lower != UINT_MAX) {
+                roots.push_back(numeral());
+                set(roots.back(), all[lower]);
+                indices.push_back(lower + 1);
+            }
+            if (upper != UINT_MAX) {
+                roots.push_back(numeral());
+                set(roots.back(), all[upper]);
+                indices.push_back(upper + 1);
+            }
+        }
+
         sign eval_at_mpbq(polynomial_ref const & p, polynomial::var2anum const & x2v, polynomial::var x, mpbq const & v) {
             scoped_mpq  qv(qm());
             to_mpq(qm(), v, qv);
@@ -3009,6 +3243,10 @@ namespace algebraic_numbers {
 
     void manager::isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots) {
         m_imp->isolate_roots(p, x2v, roots);
+    }
+
+    void manager::isolate_roots_closest(polynomial_ref const & p, polynomial::var2anum const & x2v, mpq const & s, numeral_vector & roots, svector<unsigned> & indices) {
+        m_imp->isolate_roots_closest(p, x2v, s, roots, indices);
     }
 
     void manager::isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, svector<sign> & signs) {
