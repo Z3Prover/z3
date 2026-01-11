@@ -154,64 +154,64 @@ namespace euf {
         for (auto arg : ns) {
             arg->shared.push_back(idx);
             m_node_trail.push_back(arg);
-            push_undo(is_add_shared_index);
+            push_undo(undo_kind::is_add_shared_index);
         }
         m_shared_nodes.setx(n->get_id(), true, false);
         sort(monomial(m));
         m_shared_todo.insert(idx);
         m_shared.push_back({ n, m, justification::axiom(get_id()) });
-        push_undo(is_register_shared);
+        push_undo(undo_kind::is_register_shared);
     }
 
     void ac_plugin::push_scope_eh() {
-        push_undo(is_push_scope);
+        push_undo(undo_kind::is_push_scope);
     }
 
     void ac_plugin::undo() {
         auto k = m_undo.back();
         m_undo.pop_back();
         switch (k) {
-        case is_queue_eq: {
+        case undo_kind::is_queue_eq: {
             m_queued.pop_back();
             break;
         }
-        case is_add_node: {
+        case undo_kind::is_add_node: {
             auto* n = m_node_trail.back();
             m_node_trail.pop_back();
             m_nodes[n->n->get_id()] = nullptr;
             n->~node();
             break;
         }
-        case is_push_scope: {
+        case undo_kind::is_push_scope: {
             m_active.reset();
             m_passive.reset();
             m_units.reset();
             m_queue_head = 0;
             break;
         }
-        case is_add_monomial: {
+        case undo_kind::is_add_monomial: {
             m_monomials.pop_back();
             break;
         }
-        case is_add_shared_index: {
+        case undo_kind::is_add_shared_index: {
             auto n = m_node_trail.back();
             m_node_trail.pop_back();
             n->shared.pop_back();
             break;
         }
-        case is_add_eq_index: {
+        case undo_kind::is_add_eq_index: {
             auto n = m_node_trail.back();
             m_node_trail.pop_back();
             n->eqs.pop_back();
             break;
         }
-        case is_register_shared: {
+        case undo_kind::is_register_shared: {
             auto s = m_shared.back();
             m_shared_nodes[s.n->get_id()] = false;
             m_shared.pop_back();
             break;
         }
-        case is_update_shared: {
+        case undo_kind::is_update_shared: {
             auto [id, s] = m_update_shared_trail.back();
             m_shared[id] = s;
             m_update_shared_trail.pop_back();
@@ -345,7 +345,7 @@ namespace euf {
         if (l == r)
             return;
         m_queued.push_back({ l, r });
-        push_undo(is_queue_eq);
+        push_undo(undo_kind::is_queue_eq);
     }
 
     bool ac_plugin::init_equation(eq eq, bool is_active) {
@@ -376,7 +376,7 @@ namespace euf {
             if (!n->n->is_marked2()) {
                 n->eqs.push_back(eq_id);
                 n->n->mark2();
-                push_undo(is_add_eq_index);
+                push_undo(undo_kind::is_add_eq_index);
                 m_node_trail.push_back(n);
                 for (auto s : n->shared)
                     m_shared_todo.insert(s);
@@ -387,7 +387,7 @@ namespace euf {
             if (!n->n->is_marked2()) {
                 n->eqs.push_back(eq_id);
                 n->n->mark2();
-                push_undo(is_add_eq_index);
+                push_undo(undo_kind::is_add_eq_index);
                 m_node_trail.push_back(n);
                 for (auto s : n->shared)
                     m_shared_todo.insert(s);
@@ -541,7 +541,7 @@ namespace euf {
     unsigned ac_plugin::to_monomial(enode* e, ptr_vector<node> const& ms) {
         unsigned id = m_monomials.size();
         m_monomials.push_back({ ms, bloom(), e });
-        push_undo(is_add_monomial);
+        push_undo(undo_kind::is_add_monomial);
         return id;
     }
 
@@ -581,7 +581,7 @@ namespace euf {
         if (m_nodes.size() > id && m_nodes[id])
             return m_nodes[id];
         auto* r = node::mk(get_region(), n);
-        push_undo(is_add_node);
+        push_undo(undo_kind::is_add_node);
         m_nodes.setx(id, r, nullptr);
         m_node_trail.push_back(r);
         if (is_op(n)) {
@@ -1137,7 +1137,7 @@ namespace euf {
                 n->eqs.push_back(eq);
                 m_node_trail.push_back(n);
                 n->n->mark2();
-                push_undo(is_add_eq_index);
+                push_undo(undo_kind::is_add_eq_index);
             }
         }
         for (auto n : old_r)
@@ -1435,13 +1435,13 @@ namespace euf {
                 n->shared.push_back(idx);
                 m_shared_todo.insert(idx);
                 m_node_trail.push_back(n);
-                push_undo(is_add_shared_index);
+                push_undo(undo_kind::is_add_shared_index);
             }
         }
         for (auto n : monomial(old_m))
             n->n->unmark2();
         m_update_shared_trail.push_back({ idx, s });
-        push_undo(is_update_shared);
+        push_undo(undo_kind::is_update_shared);
         m_shared[idx].m = new_m;
         m_shared[idx].j = j;
         TRACE(plugin_verbose, tout << "shared simplified to " << m_pp_ll(*this, monomial(new_m)) << "\n");

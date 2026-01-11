@@ -661,14 +661,14 @@ namespace euf {
             for (; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
                 auto const& w = m_to_merge[i];
                 switch (w.t) {
-                case to_merge_plain:
-                case to_merge_comm:
+                case to_merge_t::to_merge_plain:
+                case to_merge_t::to_merge_comm:
                     merge(w.a, w.b, justification::congruence(w.commutativity(), m_congruence_timestamp++));
                     break;
-                case to_justified:
+                case to_merge_t::to_justified:
                     merge(w.a, w.b, w.j);
                     break;
-                case to_add_literal:
+                case to_merge_t::to_add_literal:
                     add_literal(w.a, w.b);
                     break;
                 }                
