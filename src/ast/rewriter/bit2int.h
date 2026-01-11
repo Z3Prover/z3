@@ -27,7 +27,7 @@ class bit2int {
 protected:
     typedef rational numeral;
 
-    enum eq_type {
+    enum class eq_type {
         lt, 
         le,
         eq
