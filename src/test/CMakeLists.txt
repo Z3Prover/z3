@@ -98,6 +98,7 @@ add_executable(test-z3
   object_allocator.cpp
   old_interval.cpp
   optional.cpp
+  optional_benchmark.cpp
   parray.cpp
   pb2bv.cpp
   pdd.cpp
