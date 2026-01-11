@@ -93,7 +93,7 @@ jobs:
 
       - name: Install gh-aw
         run: |
-          curl -fsSL https://raw.githubusercontent.com/githubnext/gh-aw/main/install-gh-aw.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/githubnext/gh-aw/329844a/install-gh-aw.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Compile workflows
@@ -126,7 +126,7 @@ jobs:
 
       - name: Install gh-aw
         run: |
-          curl -fsSL https://raw.githubusercontent.com/githubnext/gh-aw/main/install-gh-aw.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/githubnext/gh-aw/329844a/install-gh-aw.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Run zizmor security scanner
