@@ -44,6 +44,8 @@ namespace smt {
     bool reachability_matrix::bitwise_or_rows(int source_dest, int source){
         bool changes = false;
         // TODO: utilize largest_var
+        TRACE(finite_set, tout << "row1: "<<reachable[source_dest*NUM_WORDS]);
+        TRACE(finite_set, tout << "row2: "<<reachable[source*NUM_WORDS]);
         for (int i = 0; i < NUM_WORDS; i++)
         {
             uint64_t old_value = reachable[source_dest*NUM_WORDS+i];
@@ -54,6 +56,8 @@ namespace smt {
             ctx.push_trail(value_trail(reachable[source_dest*NUM_WORDS+i]));
             reachable[source_dest*NUM_WORDS+i] = new_value;
             changes = true;
+            TRACE(finite_set, tout << "bitwise_or_rows(" << source_dest << "," << source <<"), i:"<<i<<", or_mask: "<<reachable[source*NUM_WORDS+i]);
+            TRACE(finite_set, tout << "old_value: " << old_value << ", new_value:" << new_value <<")");
             check_reachability_conflict_word(source_dest, i);
         }
         return changes;
@@ -62,6 +66,7 @@ namespace smt {
     bool reachability_matrix::set_reachability(theory_var source, theory_var dest, enode_pair reachability_witness){
         TRACE(finite_set, tout << "set_reachability(" << source << "," << dest <<")");
         if (is_reachable(source, dest)){
+            TRACE(finite_set, tout << "already_reachable(" << source << "," << dest <<")");
             return false;
         }
         ctx.push_trail(value_trail(largest_var));
@@ -74,14 +79,26 @@ namespace smt {
         links[source*max_size+dest] = reachability_witness;
         check_reachability_conflict(source, dest);
         // update reachability of source
-        bitwise_or_rows(source, dest);        
+        print_relations();
+        bitwise_or_rows(source, dest);
+        print_relations();
+        
 
         for (int i = 0; i <= largest_var; i++)
         { //update reachability of i to the nodes reachable from dest
             if(!is_reachable(i, source) || i == source){
+                TRACE(finite_set, tout << "skippink update(" << i << "," << source <<")");
                 continue;
             }
             bitwise_or_rows(i, source);
+        }
+        if(conflict_word>=0 && conflict_row >=0){
+            for (int i = conflict_word*64; i < conflict_word*64+64; i++)
+            {
+                check_reachability_conflict(conflict_row, i);
+            }
+            conflict_word = -1;
+            conflict_row = -1;
         }
         return true;
     }
@@ -142,10 +159,12 @@ namespace smt {
         visited[source] = true;
         while(source != dest){
             bool success = false;
+            TRACE(finite_set, tout << "get_path:source: "<<source);
             for (int i = 0; i <= largest_var; i++)
             {
                 if(!visited[i] && is_linked(source, i) && ((is_reachable(i, dest)) || i == dest)){
                     path.push_back(links[source*max_size+i]);
+                    TRACE(finite_set, tout << "get_path:link: "<<links[source*max_size+i].first<<", "<<links[source*max_size+i].second);
                     source = i;
                     visited[source] = true;
                     success = true;
@@ -154,15 +173,17 @@ namespace smt {
             }
             SASSERT(success);
         }
+        TRACE(finite_set, tout << "get_path:length: "<<path.size());
     }
 
     bool reachability_matrix::check_reachability_conflict(theory_var source, theory_var dest){
         if(is_reachable(source,dest) && is_reachability_forbidden(source, dest)){
-            TRACE(finite_set, tout << "found_conflict: "<<source<<" -> "<<dest);
+            TRACE(finite_set, tout << "found_conflict1: "<<source<<" -> "<<dest);
             vector<enode_pair> path;
             get_path(source, dest, path);
             TRACE(finite_set, tout << "found path: "<<source<<" -> "<<dest<<" length: "<<path.size());
             enode_pair diseq = non_link_justifications[source*max_size+dest];
+            TRACE(finite_set, tout << "diseq: "<<diseq.first<<" -> "<<diseq.second);
             t_lattice_refutation.trigger_conflict(path, diseq);
             return true;
         }
@@ -170,25 +191,42 @@ namespace smt {
     }
 
     bool reachability_matrix::check_reachability_conflict_word(int row, int word){
+        TRACE(finite_set, tout << "checking_conflict (row: "<<row<<",word: "<<word<<")");
         if(reachable[row*NUM_WORDS+word] & non_links[row*NUM_WORDS+word]){
+        print_relations();
 
             TRACE(finite_set, tout << "found_conflict (row: "<<row<<",word: "<<word<<")");
             // somewhere in this word there is a conflict
-            for (int i = word*64; i < word*64+64; i++)
-            {
-                if(check_reachability_conflict(row, i)){
-                    return true;
-                }
-            }
+            conflict_row = row;
+            conflict_word = word;
+            return true;
             
         }
         return false;
     }
 
+    void reachability_matrix::print_relations(){
+        // TRACE(finite_set, tout << "largest_var: "<<largest_var);
+        // for (size_t i = 0; i <  max_size; i++)
+        // {
+        //     for (size_t j = 0; j < max_size; j++)
+        //     {
+        //         if((reachable[get_word_index(i,j)]&get_bitmask(j)) || is_reachable(i,j)){
+        //             TRACE(finite_set, tout << "reachable: "<<i<<"->"<<j<<"  :"<<is_reachable(i,j));
+        //         }
+        //     }
+        // }
+        
+    }
+
     void theory_finite_set_lattice_refutation::trigger_conflict(vector<enode_pair> equalities, enode_pair clashing_disequality){
+        TRACE(finite_set, tout << "trigger_conflict1");
         auto eq_expr = m.mk_not(m.mk_eq(clashing_disequality.first->get_expr(), clashing_disequality.second->get_expr()));
+        TRACE(finite_set, tout << "trigger_conflict2, size:"<<equalities.size());
         auto disequality_literal = ctx.get_literal(eq_expr);
+        TRACE(finite_set, tout << "trigger_conflict3"<<equalities.data()[0].first);
         auto j1 = ext_theory_conflict_justification(th.get_id(), ctx, 1, &disequality_literal, equalities.size(), equalities.data());
+        TRACE(finite_set, tout << "trigger_conflict4");
         auto justification = ctx.mk_justification(j1);
         
         TRACE(finite_set, tout << "setting_partial_order_conflict");
@@ -219,7 +257,9 @@ namespace smt {
         if (subset_t == null_theory_var || superset_t == null_theory_var){
             return;
         }
-        reachability.set_reachability(subset_t, superset_t, justifying_equality);
+        if(reachability.set_reachability(subset_t, superset_t, justifying_equality)){
+            reachability.print_relations();
+        }
         SASSERT(reachability.is_reachable(subset_t, superset_t));
     };
 

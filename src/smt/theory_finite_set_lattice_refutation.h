@@ -22,6 +22,8 @@ namespace smt {
 
         context& ctx;
         theory_finite_set_lattice_refutation& t_lattice_refutation;
+        int conflict_row = -1;
+        int conflict_word = -1;
 
         // sets source_dest |= dest, and pushing the changed words to the trail
         bool bitwise_or_rows(int source_dest, int source);
@@ -41,6 +43,7 @@ namespace smt {
             bool set_reachability(theory_var source, theory_var dest, enode_pair reachability_witness);
             bool set_non_reachability(theory_var source, theory_var dest, enode_pair non_reachability_witness);
             int get_max_var();
+            void print_relations();
     };
 
     class theory_finite_set_lattice_refutation {
