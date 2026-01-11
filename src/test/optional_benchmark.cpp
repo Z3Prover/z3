@@ -48,7 +48,7 @@ double measure_time_ms(Func f, int iterations = 1000000) {
 // Prevent compiler optimization
 template<typename T>
 void do_not_optimize(T const& value) {
-    asm volatile("" : "+m"(const_cast<T&>(value)));
+    asm volatile("" : : "m"(value) : "memory");
 }
 
 void benchmark_construction() {
