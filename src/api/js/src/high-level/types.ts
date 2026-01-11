@@ -16,6 +16,7 @@ import {
   Z3_optimize,
   Z3_sort,
   Z3_sort_kind,
+  Z3_stats,
   Z3_tactic,
   Z3_goal,
   Z3_apply_result,
@@ -959,6 +960,27 @@ export interface Solver<Name extends string = 'main'> {
   model(): Model<Name>;
 
   /**
+   * Retrieve statistics for the solver.
+   * Returns performance metrics, memory usage, decision counts, and other diagnostic information.
+   *
+   * @returns A Statistics object containing solver metrics
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * solver.add(x.gt(0));
+   * await solver.check();
+   * const stats = solver.statistics();
+   * console.log('Statistics size:', stats.size());
+   * for (const entry of stats) {
+   *   console.log(`${entry.key}: ${entry.value}`);
+   * }
+   * ```
+   */
+  statistics(): Statistics<Name>;
+
+  /**
    * Return a string describing why the last call to {@link check} returned `'unknown'`.
    *
    * @returns A string explaining the reason, or an empty string if the last check didn't return unknown
@@ -1150,6 +1172,8 @@ export interface Optimize<Name extends string = 'main'> {
 
   model(): Model<Name>;
 
+  statistics(): Statistics<Name>;
+
   /**
    * Manually decrease the reference count of the optimize
    * This is automatically done when the optimize is garbage collected,
@@ -1298,6 +1322,13 @@ export interface Fixedpoint<Name extends string = 'main'> {
   fromFile(file: string): AstVector<Name, Bool<Name>>;
 
   /**
+   * Retrieve statistics for the fixedpoint solver.
+   * Returns performance metrics and diagnostic information.
+   * @returns A Statistics object containing solver metrics
+   */
+  statistics(): Statistics<Name>;
+
+  /**
    * Manually decrease the reference count of the fixedpoint
    * This is automatically done when the fixedpoint is garbage collected,
    * but calling this eagerly can help release memory sooner.
@@ -1437,6 +1468,77 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
   /**
    * Manually decrease the reference count of the model
    * This is automatically done when the model is garbage collected,
+   * but calling this eagerly can help release memory sooner.
+   */
+  release(): void;
+}
+
+/**
+ * Statistics entry representing a single key-value pair from solver statistics
+ */
+export interface StatisticsEntry<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'StatisticsEntry';
+  
+  /** The key/name of this statistic */
+  readonly key: string;
+  
+  /** The numeric value of this statistic */
+  readonly value: number;
+  
+  /** True if this statistic is stored as an unsigned integer */
+  readonly isUint: boolean;
+  
+  /** True if this statistic is stored as a double */
+  readonly isDouble: boolean;
+}
+
+export interface StatisticsCtor<Name extends string> {
+  new (): Statistics<Name>;
+}
+
+/**
+ * Statistics for solver operations
+ * 
+ * Provides access to performance metrics, memory usage, decision counts, 
+ * and other diagnostic information from solver operations.
+ */
+export interface Statistics<Name extends string = 'main'> extends Iterable<StatisticsEntry<Name>> {
+  /** @hidden */
+  readonly __typename: 'Statistics';
+
+  readonly ctx: Context<Name>;
+  readonly ptr: Z3_stats;
+
+  /**
+   * Return the number of statistical data points
+   * @returns The number of statistics entries
+   */
+  size(): number;
+
+  /**
+   * Return the keys of all statistical data
+   * @returns Array of statistic keys
+   */
+  keys(): string[];
+
+  /**
+   * Return a specific statistic value by key
+   * @param key - The key of the statistic to retrieve
+   * @returns The numeric value of the statistic
+   * @throws Error if the key doesn't exist
+   */
+  get(key: string): number;
+
+  /**
+   * Return all statistics as an array of entries
+   * @returns Array of all statistics entries
+   */
+  entries(): StatisticsEntry<Name>[];
+
+  /**
+   * Manually decrease the reference count of the statistics object
+   * This is automatically done when the statistics is garbage collected,
    * but calling this eagerly can help release memory sooner.
    */
   release(): void;

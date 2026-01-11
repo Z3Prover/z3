@@ -1242,6 +1242,16 @@ namespace z3 {
         }
 
         /**
+           \brief Update the arguments of this application.
+           Return a new expression with the same function declaration and updated arguments.
+           The number of new arguments must match the current number of arguments.
+
+           \pre is_app()
+           \pre args.size() == num_args()
+        */
+        expr update(expr_vector const& args) const;
+
+        /**
            \brief Return the 'body' of this quantifier.
 
            \pre is_quantifier()
@@ -4418,6 +4428,16 @@ namespace z3 {
             _funs[i] = funs[i];
         }
         Z3_ast r = Z3_substitute_funs(ctx(), m_ast, dst.size(), _funs.ptr(), _dst.ptr());
+        check_error();
+        return expr(ctx(), r);
+    }
+
+    inline expr expr::update(expr_vector const& args) const {
+        array<Z3_ast> _args(args.size());
+        for (unsigned i = 0; i < args.size(); ++i) {
+            _args[i] = args[i];
+        }
+        Z3_ast r = Z3_update_term(ctx(), m_ast, args.size(), _args.ptr());
         check_error();
         return expr(ctx(), r);
     }

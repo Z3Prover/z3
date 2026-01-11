@@ -1156,6 +1156,30 @@ class ExprRef(AstRef):
         else:
             return []
 
+    def update(self, *args):
+        """Update the arguments of the expression.
+        
+        Return a new expression with the same function declaration and updated arguments.
+        The number of new arguments must match the current number of arguments.
+        
+        >>> f = Function('f', IntSort(), IntSort(), IntSort())
+        >>> a = Int('a')
+        >>> b = Int('b')
+        >>> c = Int('c')
+        >>> t = f(a, b)
+        >>> t.update(c, c)
+        f(c, c)
+        """
+        if z3_debug():
+            _z3_assert(is_app(self), "Z3 application expected")
+            _z3_assert(len(args) == self.num_args(), "Number of arguments does not match")
+            _z3_assert(all([is_expr(arg) for arg in args]), "Z3 expressions expected")
+        num = len(args)
+        _args = (Ast * num)()
+        for i in range(num):
+            _args[i] = args[i].as_ast()
+        return _to_expr_ref(Z3_update_term(self.ctx_ref(), self.as_ast(), num, _args), self.ctx)
+
     def from_string(self, s):
         pass
 
