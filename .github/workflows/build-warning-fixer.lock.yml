@@ -19,7 +19,7 @@
 #   gh aw compile
 # For more information: https://github.com/githubnext/gh-aw/blob/main/.github/aw/github-agentic-workflows.md
 #
-# Automatically analyzes build warnings from CI runs and creates PRs with fixes
+# Automatically builds Z3 directly and fixes detected build warnings
 
 name: "Build Warning Fixer"
 "on":
@@ -145,19 +145,6 @@ jobs:
             await determineAutomaticLockdown(github, context, core);
       - name: Downloading container images
         run: bash /opt/gh-aw/actions/download_docker_images.sh ghcr.io/github/github-mcp-server:v0.27.0
-      - name: Install gh-aw extension
-        env:
-          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
-        run: |
-          # Check if gh-aw extension is already installed
-          if gh extension list | grep -q "githubnext/gh-aw"; then
-            echo "gh-aw extension already installed, upgrading..."
-            gh extension upgrade gh-aw || true
-          else
-            echo "Installing gh-aw extension..."
-            gh extension install githubnext/gh-aw
-          fi
-          gh aw --version
       - name: Write Safe Outputs Config
         run: |
           mkdir -p /opt/gh-aw/safeoutputs
@@ -317,22 +304,12 @@ jobs:
           GH_AW_SAFE_OUTPUTS: ${{ env.GH_AW_SAFE_OUTPUTS }}
           GITHUB_MCP_LOCKDOWN: ${{ steps.determine-automatic-lockdown.outputs.lockdown == 'true' && '1' || '0' }}
           GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p /tmp/gh-aw/mcp-config
           mkdir -p /home/runner/.copilot
           cat > /home/runner/.copilot/mcp-config.json << EOF
           {
             "mcpServers": {
-              "agentic_workflows": {
-                "type": "local",
-                "command": "gh",
-                "args": ["aw", "mcp-server"],
-                "tools": ["*"],
-                "env": {
-                  "GITHUB_TOKEN": "\${GITHUB_TOKEN}"
-                }
-              },
               "github": {
                 "type": "local",
                 "command": "docker",
@@ -343,9 +320,11 @@ jobs:
                   "-e",
                   "GITHUB_PERSONAL_ACCESS_TOKEN",
                   "-e",
+                  "GITHUB_READ_ONLY=1",
+                  "-e",
                   "GITHUB_LOCKDOWN_MODE=$GITHUB_MCP_LOCKDOWN",
                   "-e",
-                  "GITHUB_TOOLSETS=context,repos,issues,pull_requests,actions",
+                  "GITHUB_TOOLSETS=context,repos,issues,pull_requests",
                   "ghcr.io/github/github-mcp-server:v0.27.0"
                 ],
                 "tools": ["*"],
@@ -447,69 +426,57 @@ jobs:
           
           ## Your Task
           
-          1. **Find recent build logs** from GitHub Actions workflows
+          1. **Pick a random build workflow and build Z3 directly**
              
-             Target these build workflows which run regularly and may contain warnings:
-             - `msvc-static-build-clang-cl.yml` - Clang-CL MSVC static builds (runs every 2 days)
-             - `msvc-static-build.yml` - MSVC static builds
-             - `Windows.yml` - Windows builds
-             - `wip.yml` - Open issues workflow with Ubuntu builds
-             - Check for other active build workflows with `list_workflows`
+             Available build workflows that you can randomly choose from:
+             - `wip.yml` - Ubuntu CMake Debug build (simple, good default choice)
+             - `cross-build.yml` - Cross-compilation builds (aarch64, riscv64, powerpc64)
+             - `coverage.yml` - Code coverage build with Clang
              
-             **Recommended Approach: Use the agentic-workflows tool**
+             **Steps to build Z3 directly:**
              
-             The easiest way to analyze workflow logs is using the `agentic-workflows` tool which provides high-level commands:
+             a. **Pick ONE workflow randomly** from the list above. Use bash to generate a random choice if needed.
              
-             ```
-             To download and analyze logs from a workflow:
-             - Tool: agentic-workflows
-             - Command: logs
-             - Parameters: workflow_name: "msvc-static-build-clang-cl" (without .yml extension)
-             ```
+             b. **Read the workflow file** to understand its build configuration:
+                - Use `view` to read the `.github/workflows/<workflow-name>.yml` file
+                - Identify the build steps, cmake flags, compiler settings, and environment variables
+                - Note the runner type (ubuntu-latest, windows-latest, etc.)
              
-             This will download recent workflow run logs and provide structured analysis including:
-             - Error messages and warnings
-             - Token usage and costs
-             - Execution times
-             - Success/failure patterns
+             c. **Execute the build directly** using bash:
+                - Run the same cmake configuration commands from the workflow
+                - Capture the full build output including warnings
+                - Use `2>&1` to capture both stdout and stderr
+                - Save output to a log file for analysis
              
-             **Alternative: Use GitHub Actions MCP tools directly**
+             Example for wip.yml workflow:
+             ```bash
+             # Configure
+             cmake -B build -DCMAKE_BUILD_TYPE=Debug 2>&1 | tee build-config.log
              
-             You can also use the GitHub Actions tools for more granular control:
-             
-             Step 1: List workflows
-             ```
-             Tool: github-mcp-server-actions_list (or actions_list)
-             Parameters:
-             - method: "list_workflows"
-             - owner: "Z3Prover"
-             - repo: "z3"
+             # Build and capture output
+             cmake --build build --config Debug 2>&1 | tee build-output.log
              ```
              
-             Step 2: List recent runs
-             ```
-             Tool: github-mcp-server-actions_list (or actions_list)  
-             Parameters:
-             - method: "list_workflow_runs"
-             - owner: "Z3Prover"
-             - repo: "z3"
-             - resource_id: "msvc-static-build-clang-cl.yml"
-             - per_page: 5
+             Example for cross-build.yml workflow (pick one arch):
+             ```bash
+             # Pick one architecture randomly
+             ARCH=aarch64  # or riscv64, or powerpc64
+             
+             # Configure
+             mkdir build && cd build
+             cmake -DCMAKE_CXX_COMPILER=${ARCH}-linux-gnu-g++-11 ../ 2>&1 | tee ../build-config.log
+             
+             # Build and capture output
+             make -j$(nproc) 2>&1 | tee ../build-output.log
              ```
              
-             Step 3: Get job logs
-             ```
-             Tool: github-mcp-server-get_job_logs (or get_job_logs)
-             Parameters:
-             - owner: "Z3Prover"
-             - repo: "z3"
-             - run_id: <from step 2>
-             - failed_only: false
-             - return_content: true
-             - tail_lines: 2000
-             ```
+             d. **Install any necessary dependencies** before building:
+                - For cross-build: `apt update && apt install -y ninja-build cmake python3 g++-11-aarch64-linux-gnu` (or other arch)
+                - For coverage: `apt-get install -y gcovr ninja-build llvm clang`
           
-          2. **Extract compiler warnings** from the build logs:
+          2. **Extract compiler warnings** from the direct build output:
+             - Analyze the build-output.log file you created
+             - Use `grep` or `bash` to search for warning patterns
              - Look for C++ compiler warnings (gcc, clang, MSVC patterns)
              - Common warning patterns:
                - `-Wunused-variable`, `-Wunused-parameter`
@@ -544,10 +511,10 @@ jobs:
           
           6. **Create a pull request** with your fixes:
              - Use the `create-pull-request` safe output
-             - Title: "Fix build warnings detected in CI"
+             - Title: "Fix build warnings detected in direct build"
              - Body should include:
+               - Which workflow configuration was used for the build
                - List of warnings fixed
-               - Which build logs triggered this fix
                - Explanation of each change
                - Note that this is an automated fix requiring human review
           
@@ -703,7 +670,7 @@ jobs:
         # --allow-tool safeoutputs
         # --allow-tool shell
         # --allow-tool write
-        timeout-minutes: 30
+        timeout-minutes: 60
         run: |
           set -o pipefail
           sudo -E awf --env-all --container-workdir "${GITHUB_WORKSPACE}" --mount /tmp:/tmp:rw --mount "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}:rw" --mount /usr/bin/date:/usr/bin/date:ro --mount /usr/bin/gh:/usr/bin/gh:ro --mount /usr/bin/yq:/usr/bin/yq:ro --mount /usr/local/bin/copilot:/usr/local/bin/copilot:ro --mount /home/runner/.copilot:/home/runner/.copilot:rw --mount /opt/gh-aw:/opt/gh-aw:ro --allow-domains api.business.githubcopilot.com,api.enterprise.githubcopilot.com,api.github.com,api.githubcopilot.com,api.individual.githubcopilot.com,github.com,host.docker.internal,raw.githubusercontent.com,registry.npmjs.org --log-level info --proxy-logs-dir /tmp/gh-aw/sandbox/firewall/logs --image-tag 0.8.2 \
@@ -950,7 +917,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           WORKFLOW_NAME: "Build Warning Fixer"
-          WORKFLOW_DESCRIPTION: "Automatically analyzes build warnings from CI runs and creates PRs with fixes"
+          WORKFLOW_DESCRIPTION: "Automatically builds Z3 directly and fixes detected build warnings"
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
           script: |

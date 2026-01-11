@@ -1,14 +1,10 @@
 ---
-description: Automatically analyzes build warnings from CI runs and creates PRs with fixes
+description: Automatically builds Z3 directly and fixes detected build warnings
 on:
   schedule: daily
   workflow_dispatch:
 permissions: read-all
 tools:
-  github:
-    toolsets: [default, actions]
-    read-only: false
-  agentic-workflows:
   view: {}
   grep: {}
   glob: {}
@@ -19,7 +15,7 @@ safe-outputs:
     if-no-changes: ignore
   missing-tool:
     create-issue: true
-timeout-minutes: 30
+timeout-minutes: 60
 ---
 
 # Build Warning Fixer
@@ -28,69 +24,57 @@ You are an AI agent that automatically detects and fixes build warnings in the Z
 
 ## Your Task
 
-1. **Find recent build logs** from GitHub Actions workflows
+1. **Pick a random build workflow and build Z3 directly**
    
-   Target these build workflows which run regularly and may contain warnings:
-   - `msvc-static-build-clang-cl.yml` - Clang-CL MSVC static builds (runs every 2 days)
-   - `msvc-static-build.yml` - MSVC static builds
-   - `Windows.yml` - Windows builds
-   - `wip.yml` - Open issues workflow with Ubuntu builds
-   - Check for other active build workflows with `list_workflows`
+   Available build workflows that you can randomly choose from:
+   - `wip.yml` - Ubuntu CMake Debug build (simple, good default choice)
+   - `cross-build.yml` - Cross-compilation builds (aarch64, riscv64, powerpc64)
+   - `coverage.yml` - Code coverage build with Clang
    
-   **Recommended Approach: Use the agentic-workflows tool**
+   **Steps to build Z3 directly:**
    
-   The easiest way to analyze workflow logs is using the `agentic-workflows` tool which provides high-level commands:
+   a. **Pick ONE workflow randomly** from the list above. Use bash to generate a random choice if needed.
    
-   ```
-   To download and analyze logs from a workflow:
-   - Tool: agentic-workflows
-   - Command: logs
-   - Parameters: workflow_name: "msvc-static-build-clang-cl" (without .yml extension)
-   ```
+   b. **Read the workflow file** to understand its build configuration:
+      - Use `view` to read the `.github/workflows/<workflow-name>.yml` file
+      - Identify the build steps, cmake flags, compiler settings, and environment variables
+      - Note the runner type (ubuntu-latest, windows-latest, etc.)
    
-   This will download recent workflow run logs and provide structured analysis including:
-   - Error messages and warnings
-   - Token usage and costs
-   - Execution times
-   - Success/failure patterns
+   c. **Execute the build directly** using bash:
+      - Run the same cmake configuration commands from the workflow
+      - Capture the full build output including warnings
+      - Use `2>&1` to capture both stdout and stderr
+      - Save output to a log file for analysis
    
-   **Alternative: Use GitHub Actions MCP tools directly**
+   Example for wip.yml workflow:
+   ```bash
+   # Configure
+   cmake -B build -DCMAKE_BUILD_TYPE=Debug 2>&1 | tee build-config.log
    
-   You can also use the GitHub Actions tools for more granular control:
-   
-   Step 1: List workflows
-   ```
-   Tool: github-mcp-server-actions_list (or actions_list)
-   Parameters:
-   - method: "list_workflows"
-   - owner: "Z3Prover"
-   - repo: "z3"
+   # Build and capture output
+   cmake --build build --config Debug 2>&1 | tee build-output.log
    ```
    
-   Step 2: List recent runs
-   ```
-   Tool: github-mcp-server-actions_list (or actions_list)  
-   Parameters:
-   - method: "list_workflow_runs"
-   - owner: "Z3Prover"
-   - repo: "z3"
-   - resource_id: "msvc-static-build-clang-cl.yml"
-   - per_page: 5
+   Example for cross-build.yml workflow (pick one arch):
+   ```bash
+   # Pick one architecture randomly
+   ARCH=aarch64  # or riscv64, or powerpc64
+   
+   # Configure
+   mkdir build && cd build
+   cmake -DCMAKE_CXX_COMPILER=${ARCH}-linux-gnu-g++-11 ../ 2>&1 | tee ../build-config.log
+   
+   # Build and capture output
+   make -j$(nproc) 2>&1 | tee ../build-output.log
    ```
    
-   Step 3: Get job logs
-   ```
-   Tool: github-mcp-server-get_job_logs (or get_job_logs)
-   Parameters:
-   - owner: "Z3Prover"
-   - repo: "z3"
-   - run_id: <from step 2>
-   - failed_only: false
-   - return_content: true
-   - tail_lines: 2000
-   ```
+   d. **Install any necessary dependencies** before building:
+      - For cross-build: `apt update && apt install -y ninja-build cmake python3 g++-11-aarch64-linux-gnu` (or other arch)
+      - For coverage: `apt-get install -y gcovr ninja-build llvm clang`
 
-2. **Extract compiler warnings** from the build logs:
+2. **Extract compiler warnings** from the direct build output:
+   - Analyze the build-output.log file you created
+   - Use `grep` or `bash` to search for warning patterns
    - Look for C++ compiler warnings (gcc, clang, MSVC patterns)
    - Common warning patterns:
      - `-Wunused-variable`, `-Wunused-parameter`
@@ -125,10 +109,10 @@ You are an AI agent that automatically detects and fixes build warnings in the Z
 
 6. **Create a pull request** with your fixes:
    - Use the `create-pull-request` safe output
-   - Title: "Fix build warnings detected in CI"
+   - Title: "Fix build warnings detected in direct build"
    - Body should include:
+     - Which workflow configuration was used for the build
      - List of warnings fixed
-     - Which build logs triggered this fix
      - Explanation of each change
      - Note that this is an automated fix requiring human review
 
