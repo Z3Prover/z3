@@ -91,18 +91,14 @@ jobs:
           persist-credentials: false
 
 
-      - name: Setup Go
-        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Build gh-aw
-        run: make build
+      - name: Install gh-aw
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/githubnext/gh-aw/main/install-gh-aw.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Compile workflows
         run: |
-          ./gh-aw compile --validate --verbose
+          gh-aw compile --validate --verbose
           echo "✓ All workflows compiled successfully"
 
       - name: Setup Scripts
@@ -128,16 +124,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Setup Go
-        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Build gh-aw
-        run: make build
+      - name: Install gh-aw
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/githubnext/gh-aw/main/install-gh-aw.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Run zizmor security scanner
         run: |
-          ./gh-aw compile --zizmor --verbose
+          gh-aw compile --zizmor --verbose
           echo "✓ Zizmor security scan completed"
