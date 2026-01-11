@@ -1323,8 +1323,19 @@ describe('high-level', () => {
     it('can get tactic parameter descriptions', () => {
       const { Tactic } = api.Context('main');
       const tactic = new Tactic('simplify');
-      const paramDescrs = tactic.getParamDescrs();
+      const paramDescrs = tactic.paramDescrs();
       expect(paramDescrs).toBeDefined();
+    });
+
+    it('can configure tactic with parameters', () => {
+      const { Tactic, Params } = api.Context('main');
+      const tactic = new Tactic('simplify');
+      const params = new Params();
+      params.set('max_steps', 100);
+
+      const configuredTactic = tactic.usingParams(params);
+      expect(configuredTactic).toBeDefined();
+      expect(configuredTactic).not.toBe(tactic);
     });
   });
 
@@ -1674,8 +1685,8 @@ describe('high-level', () => {
 
       const empty = Seq.empty(Int.sort());
       const len_empty = empty.length();
-      // TOOD: simplify len_empty const len_empty_simplified = 
-//      expect(len_empty_simplified.toString()).toContain('0');
+      // TOOD: simplify len_empty const len_empty_simplified =
+      //      expect(len_empty_simplified.toString()).toContain('0');
     });
 
     it('can concatenate strings', async () => {
@@ -1793,7 +1804,7 @@ describe('high-level', () => {
       expect(result).toBeDefined();
       expect(result.length()).toBeGreaterThan(0);
     });
-    
+
     it('supports string type checking', () => {
       const { String: Str, Seq, Int, isSeqSort, isSeq, isStringSort, isString } = api.Context('main');
 
@@ -1830,6 +1841,147 @@ describe('high-level', () => {
 
       const result = await solver.check();
       expect(result).toBe('sat');
+    });
+  });
+
+  describe('Params API', () => {
+    it('can create params', () => {
+      const { Params } = api.Context('main');
+      const params = new Params();
+      expect(params).toBeDefined();
+    });
+
+    it('can set boolean parameter', () => {
+      const { Params } = api.Context('main');
+      const params = new Params();
+      params.set('elim_and', true);
+      const str = params.toString();
+      expect(str).toContain('elim_and');
+      expect(str).toContain('true');
+    });
+
+    it('can set integer parameter', () => {
+      const { Params } = api.Context('main');
+      const params = new Params();
+      params.set('max_steps', 100);
+      const str = params.toString();
+      expect(str).toContain('max_steps');
+      expect(str).toContain('100');
+    });
+
+    it('can set double parameter', () => {
+      const { Params } = api.Context('main');
+      const params = new Params();
+      params.set('timeout', 1.5);
+      const str = params.toString();
+      expect(str).toContain('timeout');
+    });
+
+    it('can set string parameter', () => {
+      const { Params } = api.Context('main');
+      const params = new Params();
+      params.set('logic', 'QF_LIA');
+      const str = params.toString();
+      expect(str).toContain('logic');
+      expect(str).toContain('QF_LIA');
+    });
+
+    it('can validate params against param descrs', () => {
+      const { Params, Tactic } = api.Context('main');
+      const tactic = new Tactic('simplify');
+      const params = new Params();
+      params.set('elim_and', true);
+
+      const paramDescrs = tactic.paramDescrs();
+      // This should not throw - validation should succeed
+      expect(() => params.validate(paramDescrs)).not.toThrow();
+    });
+  });
+
+  describe('ParamDescrs API', () => {
+    it('can get param descriptions from tactic', () => {
+      const { Tactic } = api.Context('main');
+      const tactic = new Tactic('simplify');
+      const paramDescrs = tactic.paramDescrs();
+      expect(paramDescrs).toBeDefined();
+    });
+
+    it('param descrs toString returns non-empty string', () => {
+      const { Tactic } = api.Context('main');
+      const tactic = new Tactic('simplify');
+      const paramDescrs = tactic.paramDescrs();
+      const str = paramDescrs.toString();
+      expect(typeof str).toBe('string');
+      expect(str.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Simplifier API', () => {
+    it('can create a simplifier', () => {
+      const { Simplifier } = api.Context('main');
+      const simplifier = new Simplifier('solve-eqs');
+      expect(simplifier).toBeDefined();
+    });
+
+    it('can get simplifier help', () => {
+      const { Simplifier } = api.Context('main');
+      const simplifier = new Simplifier('solve-eqs');
+      const help = simplifier.help();
+      expect(typeof help).toBe('string');
+      expect(help.length).toBeGreaterThan(0);
+    });
+
+    it('can get simplifier parameter descriptions', () => {
+      const { Simplifier } = api.Context('main');
+      const simplifier = new Simplifier('solve-eqs');
+      const paramDescrs = simplifier.paramDescrs();
+      expect(paramDescrs).toBeDefined();
+      expect(typeof paramDescrs.toString).toBe('function');
+    });
+
+    it('can use simplifier with parameters', () => {
+      const { Simplifier, Params } = api.Context('main');
+      const simplifier = new Simplifier('solve-eqs');
+      const params = new Params();
+      params.set('ite_solver', false);
+
+      const configuredSimplifier = simplifier.usingParams(params);
+      expect(configuredSimplifier).toBeDefined();
+      expect(configuredSimplifier).not.toBe(simplifier);
+    });
+
+    it('can compose simplifiers with andThen', () => {
+      const { Simplifier } = api.Context('main');
+      const s1 = new Simplifier('solve-eqs');
+      const s2 = new Simplifier('simplify');
+
+      const composed = s1.andThen(s2);
+      expect(composed).toBeDefined();
+      expect(composed).not.toBe(s1);
+      expect(composed).not.toBe(s2);
+    });
+
+    it('can add simplifier to solver', async () => {
+      const { Simplifier, Solver, Int } = api.Context('main');
+      const simplifier = new Simplifier('solve-eqs');
+      const solver = new Solver();
+
+      // Add simplifier to solver
+      solver.addSimplifier(simplifier);
+
+      // Add a constraint and solve
+      const x = Int.const('x');
+      const y = Int.const('y');
+      solver.add(x.eq(y.add(1)), y.eq(5));
+
+      const result = await solver.check();
+      expect(result).toBe('sat');
+
+      if (result === 'sat') {
+        const model = solver.model();
+        const xVal = model.eval(x);
+        expect(xVal.toString()).toBe('6');
+      }
     });
   });
 });

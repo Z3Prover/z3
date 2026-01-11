@@ -21,6 +21,8 @@ import {
   Z3_apply_result,
   Z3_goal_prec,
   Z3_param_descrs,
+  Z3_params,
+  Z3_simplifier,
 } from '../low-level';
 
 /** @hidden */
@@ -406,6 +408,10 @@ export interface Context<Name extends string = 'main'> {
   readonly Tactic: new (name: string) => Tactic<Name>;
   /** @category Classes */
   readonly Goal: new (models?: boolean, unsat_cores?: boolean, proofs?: boolean) => Goal<Name>;
+  /** @category Classes */
+  readonly Params: new () => Params<Name>;
+  /** @category Classes */
+  readonly Simplifier: new (name: string) => Simplifier<Name>;
 
   /////////////
   // Objects //
@@ -873,6 +879,13 @@ export interface Solver<Name extends string = 'main'> {
   add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): void;
 
   addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
+
+  /**
+   * Attach a simplifier to the solver for incremental pre-processing.
+   * The solver will use the simplifier for incremental pre-processing of assertions.
+   * @param simplifier - The simplifier to attach
+   */
+  addSimplifier(simplifier: Simplifier<Name>): void;
 
   assertions(): AstVector<Name, Bool<Name>>;
 
@@ -2956,9 +2969,130 @@ export interface Tactic<Name extends string = 'main'> {
 
   /**
    * Get parameter descriptions for the tactic.
-   * Returns a Z3 parameter descriptors object.
+   * Returns a ParamDescrs object for introspecting available parameters.
    */
-  getParamDescrs(): Z3_param_descrs;
+  paramDescrs(): ParamDescrs<Name>;
+
+  /**
+   * Return a tactic that uses the given configuration parameters.
+   * @param params - Parameters to configure the tactic
+   */
+  usingParams(params: Params<Name>): Tactic<Name>;
+}
+
+/**
+ * Params is a set of parameters used to configure Solvers, Tactics and Simplifiers in Z3.
+ * @category Tactics
+ */
+export interface Params<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'Params';
+
+  readonly ctx: Context<Name>;
+  readonly ptr: Z3_params;
+
+  /**
+   * Set a parameter with the given name and value.
+   * @param name - Parameter name
+   * @param value - Parameter value (boolean, number, or string)
+   */
+  set(name: string, value: boolean | number | string): void;
+
+  /**
+   * Validate the parameter set against a parameter description set.
+   * @param descrs - Parameter descriptions to validate against
+   */
+  validate(descrs: ParamDescrs<Name>): void;
+
+  /**
+   * Convert the parameter set to a string representation.
+   */
+  toString(): string;
+}
+
+/** @hidden */
+export interface ParamsCtor<Name extends string> {
+  new (): Params<Name>;
+}
+
+/**
+ * ParamDescrs is a set of parameter descriptions for Solvers, Tactics and Simplifiers in Z3.
+ * @category Tactics
+ */
+export interface ParamDescrs<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'ParamDescrs';
+
+  readonly ctx: Context<Name>;
+  readonly ptr: Z3_param_descrs;
+
+  /**
+   * Return the number of parameters in the description set.
+   */
+  size(): number;
+
+  /**
+   * Return the name of the parameter at the given index.
+   * @param i - Index of the parameter
+   */
+  getName(i: number): string;
+
+  /**
+   * Return the kind (type) of the parameter with the given name.
+   * @param name - Parameter name
+   */
+  getKind(name: string): number;
+
+  /**
+   * Return the documentation string for the parameter with the given name.
+   * @param name - Parameter name
+   */
+  getDocumentation(name: string): string;
+
+  /**
+   * Convert the parameter description set to a string representation.
+   */
+  toString(): string;
+}
+
+/**
+ * Simplifiers act as pre-processing utilities for solvers.
+ * Build a custom simplifier and add it to a solver for incremental preprocessing.
+ * @category Tactics
+ */
+export interface Simplifier<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'Simplifier';
+
+  readonly ctx: Context<Name>;
+  readonly ptr: Z3_simplifier;
+
+  /**
+   * Return a string containing a description of parameters accepted by this simplifier.
+   */
+  help(): string;
+
+  /**
+   * Return the parameter description set for this simplifier.
+   */
+  paramDescrs(): ParamDescrs<Name>;
+
+  /**
+   * Return a simplifier that uses the given configuration parameters.
+   * @param params - Parameters to configure the simplifier
+   */
+  usingParams(params: Params<Name>): Simplifier<Name>;
+
+  /**
+   * Return a simplifier that applies this simplifier and then another simplifier.
+   * @param other - The simplifier to apply after this one
+   */
+  andThen(other: Simplifier<Name>): Simplifier<Name>;
+}
+
+/** @hidden */
+export interface SimplifierCtor<Name extends string> {
+  new (name: string): Simplifier<Name>;
 }
 
 /** @hidden */
