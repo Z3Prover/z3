@@ -198,12 +198,10 @@ bool theory_seq::reduce_ne(unsigned idx) {
               tout << "num eqs: " << eqs.size() << "\n";
               tout << "num new eqs: " << new_eqs.size() << "\n";
               tout << eqs << "\n";
-              for (auto const& p : new_eqs) tout << p.first << " != " << p.second << "\n";
+              for (auto const& [fst, snd] : new_eqs) tout << fst << " != " << snd << "\n";
               tout << p.first << " != " << p.second << "\n";);
         
-        for (auto const& p : eqs) {
-            expr* nl = p.first;
-            expr* nr = p.second;
+        for (auto const& [nl, nr] : eqs) {
             if (m_util.is_seq(nl) || m_util.is_re(nl)) {
                 ls.reset();
                 rs.reset(); 

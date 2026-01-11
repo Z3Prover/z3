@@ -425,17 +425,17 @@ void nex_creator::sort_join_sum(nex_sum& sum) {
     rational common_scalar(0);
     fill_join_map_for_sum(sum, map, allocated_nexs, common_scalar);
 
-    TRACE(grobner_d, for (auto & p : map ) { tout << "(" << *p.first << ", " << p.second << ") ";});
+    TRACE(grobner_d, for (auto & [nex_ptr, coeff] : map ) { tout << "(" << *nex_ptr << ", " << coeff << ") ";});
     sum.m_children.reset();
-    for (auto& p : map) {
-        process_map_pair(const_cast<nex*>(p.first), p.second, sum, allocated_nexs);
+    for (auto& [nex_ptr, coeff] : map) {
+        process_map_pair(const_cast<nex*>(nex_ptr), coeff, sum, allocated_nexs);
     }
     if (!common_scalar.is_zero()) {
         sum.m_children.push_back(mk_scalar(common_scalar));
     }
     TRACE(grobner_d,
           tout << "map=";
-          for (auto & p : map ) tout << "(" << *p.first << ", " << p.second << ") "; 
+          for (auto & [nex_ptr, coeff] : map ) tout << "(" << *nex_ptr << ", " << coeff << ") "; 
           tout << "\nchildren=" << sum << "\n";);    
 }
 
