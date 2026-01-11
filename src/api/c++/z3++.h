@@ -83,6 +83,36 @@ namespace z3 {
     inline void reset_params() { Z3_global_param_reset_all(); }
 
     /**
+       \brief Return Z3 version number information.
+    */
+    inline void get_version(unsigned& major, unsigned& minor, unsigned& build_number, unsigned& revision_number) {
+        Z3_get_version(&major, &minor, &build_number, &revision_number);
+    }
+
+    /**
+       \brief Return a string that fully describes the version of Z3 in use.
+    */
+    inline std::string get_full_version() {
+        return std::string(Z3_get_full_version());
+    }
+
+    /**
+       \brief Enable tracing messages tagged as \c tag when Z3 is compiled in debug mode.
+       It is a NOOP otherwise.
+    */
+    inline void enable_trace(char const * tag) {
+        Z3_enable_trace(tag);
+    }
+
+    /**
+       \brief Disable tracing messages tagged as \c tag when Z3 is compiled in debug mode.
+       It is a NOOP otherwise.
+    */
+    inline void disable_trace(char const * tag) {
+        Z3_disable_trace(tag);
+    }
+
+    /**
        \brief Exception used to sign API usage errors.
     */
     class exception : public std::exception {
@@ -2313,6 +2343,19 @@ namespace z3 {
     }
     inline func_decl tree_order(sort const& a, unsigned index) {
         return to_func_decl(a.ctx(), Z3_mk_tree_order(a.ctx(), a, index));
+    }
+
+    /**
+       \brief Return the nonzero subresultants of p and q with respect to the "variable" x.
+       
+       \pre p, q and x are Z3 expressions where p and q are arithmetic terms.
+       Note that, any subterm that cannot be viewed as a polynomial is assumed to be a variable.
+    */
+    inline expr_vector polynomial_subresultants(expr const& p, expr const& q, expr const& x) {
+        check_context(p, q); check_context(p, x);
+        Z3_ast_vector r = Z3_polynomial_subresultants(p.ctx(), p, q, x);
+        p.check_error();
+        return expr_vector(p.ctx(), r);
     }
 
     template<> class cast_ast<ast> {
