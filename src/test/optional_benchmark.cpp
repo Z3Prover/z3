@@ -48,7 +48,7 @@ double measure_time_ms(Func f, int iterations = 1000000) {
 // Prevent compiler optimization
 template<typename T>
 void do_not_optimize(T const& value) {
-    asm volatile("" : : "r,m"(value) : "memory");
+    asm volatile("" : "+m"(const_cast<T&>(value)));
 }
 
 void benchmark_construction() {
@@ -269,7 +269,7 @@ void benchmark_access() {
         std::optional<int> std_opt(42);
         
         double custom_time = measure_time_ms([&]() {
-            volatile int sum = 0;
+            int sum = 0;
             for (int i = 0; i < iterations; i++) {
                 sum += *custom_opt;
             }
@@ -277,7 +277,7 @@ void benchmark_access() {
         });
         
         double std_time = measure_time_ms([&]() {
-            volatile int sum = 0;
+            int sum = 0;
             for (int i = 0; i < iterations; i++) {
                 sum += *std_opt;
             }
@@ -299,7 +299,7 @@ void benchmark_access() {
         std::optional<BenchData> std_opt(BenchData(1, 2, 3));
         
         double custom_time = measure_time_ms([&]() {
-            volatile int sum = 0;
+            int sum = 0;
             for (int i = 0; i < iterations; i++) {
                 sum += custom_opt->x;
             }
@@ -307,7 +307,7 @@ void benchmark_access() {
         });
         
         double std_time = measure_time_ms([&]() {
-            volatile int sum = 0;
+            int sum = 0;
             for (int i = 0; i < iterations; i++) {
                 sum += std_opt->x;
             }
@@ -329,7 +329,7 @@ void benchmark_access() {
         std::optional<int> std_opt(42);
         
         double custom_time = measure_time_ms([&]() {
-            volatile int count = 0;
+            int count = 0;
             for (int i = 0; i < iterations; i++) {
                 if (custom_opt) count++;
             }
@@ -337,7 +337,7 @@ void benchmark_access() {
         });
         
         double std_time = measure_time_ms([&]() {
-            volatile int count = 0;
+            int count = 0;
             for (int i = 0; i < iterations; i++) {
                 if (std_opt) count++;
             }
