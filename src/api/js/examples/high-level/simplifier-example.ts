@@ -37,7 +37,7 @@ import { init } from '../../build/node';
   // Example 4: Using simplifier with parameters
   console.log('\nExample 4: Configuring simplifier with parameters');
   const configParams = new Params();
-  configParams.set('som', true);
+  configParams.set('ite_solver', false);
   const configuredSimplifier = simplifier.usingParams(configParams);
   console.log('Configured simplifier created');
 

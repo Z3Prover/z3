@@ -1943,7 +1943,7 @@ describe('high-level', () => {
       const { Simplifier, Params } = api.Context('main');
       const simplifier = new Simplifier('solve-eqs');
       const params = new Params();
-      params.set('som', true);
+      params.set('ite_solver', false);
 
       const configuredSimplifier = simplifier.usingParams(params);
       expect(configuredSimplifier).toBeDefined();
