@@ -97,7 +97,7 @@ namespace opt {
         rational get_lower() const override { return m_lower; }
         rational get_upper() const override { return m_upper; }
         bool get_assignment(unsigned index) const override { return m_soft[index].is_true(); }
-        void collect_statistics(statistics& st) const override { }
+        void collect_statistics(statistics& st) const override { (void)st; }
         void get_model(model_ref& mdl, svector<symbol>& labels) override { mdl = m_model.get(); labels = m_labels;}
         virtual void commit_assignment();
         void set_model() { s().get_model(m_model); s().get_labels(m_labels); }

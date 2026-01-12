@@ -378,7 +378,7 @@ namespace opt {
         solver& get_solver() override { return *m_solver.get(); }
         ast_manager& get_manager() const override { return m_solver->get_manager(); }
         params_ref& params() override { return m_params; }
-        void enable_sls(bool force) override { } // no op
+        void enable_sls(bool force) override { (void)force; } // no op
         symbol const& maxsat_engine() const override { return m_maxsat_engine; }
         void get_base_model(model_ref& _m) override { _m = m_model; };  
         smt::context& smt_context() override { 
@@ -387,7 +387,7 @@ namespace opt {
         unsigned num_objectives() override { return 1; }
         bool verify_model(unsigned id, model* mdl, rational const& v) override { return true; };
         void set_model(model_ref& _m) override { m_model = _m; }
-        void model_updated(model* mdl) override { } // no-op
+        void model_updated(model* mdl) override { (void)mdl; } // no-op
         rational adjust(unsigned id, rational const& r) override {
             m_offsets.reserve(id+1);
             return r + m_offsets[id];

@@ -50,7 +50,7 @@ public:
 
     void add(expr * d, expr* e) { SASSERT(is_app(d) && to_app(d)->get_num_args() == 0); add(to_app(d)->get_decl(), e); }
     
-    void operator()(labels_vec & labels) override {}
+    void operator()(labels_vec & labels) override { (void)labels; }
     
     void operator()(model_ref & md) override;
 
