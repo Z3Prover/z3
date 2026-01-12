@@ -11,7 +11,6 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
     // for temporary storage
 
     std::ifstream infile(filename);
-    //if (infile == NULL) //linux
     if (!infile) {
         std::cout << "File not found " << filename << "\n";
         return false;

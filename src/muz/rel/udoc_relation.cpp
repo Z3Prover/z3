@@ -194,9 +194,8 @@ namespace datalog {
         m_disable_fast_pass(false) {
     }
     udoc_plugin::~udoc_plugin() {
-        u_map<doc_manager*>::iterator it = m_dms.begin(), end = m_dms.end();
-        for (; it != end; ++it) {
-            dealloc(it->m_value);
+        for (auto const& kv : m_dms) {
+            dealloc(kv.m_value);
         }
     }
     udoc_relation& udoc_plugin::get(relation_base& r) {
