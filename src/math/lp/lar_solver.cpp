@@ -1504,7 +1504,7 @@ namespace lp {
             variable_values[j] = get_value(j);
 
         TRACE(lar_solver_model, tout << "delta = " << m_imp->m_delta << "\nmodel:\n";
-               for (auto p : variable_values) tout << this->get_variable_name(p.first) << " = " << p.second << "\n";);
+               for (auto [var_idx, val] : variable_values) tout << this->get_variable_name(var_idx) << " = " << val << "\n";);
     }
 
     bool lar_solver::init_model() const {

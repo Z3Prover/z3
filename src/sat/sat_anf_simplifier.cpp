@@ -251,10 +251,10 @@ namespace sat {
         TRACE(anf_simplifier, 
               tout << "kept:\n";
               for (clause* cp : clauses) tout << *cp << "\n";
-              for (auto b : bins) tout << b.first << " " << b.second << "\n";
+              for (auto [l1, l2] : bins) tout << l1 << " " << l2 << "\n";
               tout << "removed:\n";
               for (clause* cp : oclauses) tout << *cp << "\n";
-              for (auto b : obins) tout << b.first << " " << b.second << "\n";);
+              for (auto [l1, l2] : obins) tout << l1 << " " << l2 << "\n";);
     }
 
     void anf_simplifier::set_relevant(solver::bin_clause const& b) {

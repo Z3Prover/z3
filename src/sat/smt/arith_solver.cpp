@@ -1260,7 +1260,7 @@ namespace arith {
         TRACE(arith_conflict,
             tout << "Lemma - " << (is_conflict ? "conflict" : "propagation") << "\n";
             for (literal c : m_core) tout << c << ": " << literal2expr(c) << " := " << s().value(c) << "\n";
-            for (auto p : m_eqs) tout << ctx.bpp(p.first) << " == " << ctx.bpp(p.second) << "\n";);
+            for (auto [n1, n2] : m_eqs) tout << ctx.bpp(n1) << " == " << ctx.bpp(n2) << "\n";);
 
         if (ctx.get_config().m_arith_validate)
             VERIFY(validate_conflict());
@@ -1268,7 +1268,7 @@ namespace arith {
         if (is_conflict) {
             DEBUG_CODE(
                 for (literal c : m_core) VERIFY(s().value(c) == l_true);
-                for (auto p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root()));                       
+                for (auto [n1, n2] : m_eqs) VERIFY(n1->get_root() == n2->get_root()));                       
             ++m_num_conflicts;
             ++m_stats.m_conflicts;
             auto* hint = explain_conflict(ty, m_core, m_eqs);

@@ -208,11 +208,10 @@ namespace smt {
 
         svector<expr_bool_pair> sorted_exprs;
         top_sort_expr(exprs, num_exprs, sorted_exprs);
-        TRACE(deep_internalize, for (auto & kv : sorted_exprs) tout << "#" << kv.first->get_id() << " " << kv.second << "\n"; );
-        for (auto & kv : sorted_exprs) {
-            expr* e = kv.first;
+        TRACE(deep_internalize, for (auto & [e, b] : sorted_exprs) tout << "#" << e->get_id() << " " << b << "\n"; );
+        for (auto & [e, b] : sorted_exprs) {
             SASSERT(should_internalize_rec(e));
-            internalize_rec(e, kv.second);
+            internalize_rec(e, b);
         }
     }
     void context::internalize_deep(expr* n) {
