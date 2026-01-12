@@ -1,6 +1,7 @@
 import {
   Z3_ast,
   Z3_ast_map,
+  Z3_ast_print_mode,
   Z3_ast_vector,
   Z3_context,
   Z3_constructor,
@@ -180,6 +181,18 @@ export interface Context<Name extends string = 'main'> {
   ///////////////
   /** @category Functions */
   interrupt(): void;
+
+  /**
+   * Set the pretty printing mode for ASTs.
+   * 
+   * @param mode - The print mode to use:
+   *   - Z3_PRINT_SMTLIB_FULL (0): Print AST nodes in SMTLIB verbose format.
+   *   - Z3_PRINT_LOW_LEVEL (1): Print AST nodes using a low-level format.
+   *   - Z3_PRINT_SMTLIB2_COMPLIANT (2): Print AST nodes in SMTLIB 2.x compliant format.
+   * 
+   * @category Functions
+   */
+  setPrintMode(mode: Z3_ast_print_mode): void;
 
   /** @category Functions */
   isModel(obj: unknown): obj is Model<Name>;
