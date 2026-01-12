@@ -183,7 +183,7 @@ namespace datatype {
         mutable sort_ref        m_sort;
         ptr_vector<constructor> m_constructors;
         mutable dictionary<constructor*> m_name2constructor;
-        std::option<subterm>       m_subterm;
+        std::optional<subterm>       m_subterm;
     public:
         def(ast_manager& m, util& u, symbol const& n, unsigned class_id, unsigned num_params, sort * const* params):
             m(m),
@@ -428,7 +428,6 @@ namespace datatype {
         bool is_accessor(expr const* e) const { return is_app(e) && is_app_of(to_app(e), fid(), OP_DT_ACCESSOR); }
         MATCH_UNARY(is_accessor);
         bool is_update_field(expr * f) const { return is_app(f) && is_app_of(to_app(f), fid(), OP_DT_UPDATE_FIELD); }
-        MATCH_BINARY(is_subterm_predicate);
         app* mk_is(func_decl * c, expr *f);
         ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);
         func_decl * get_datatype_subterm(sort * ty);
