@@ -26,7 +26,7 @@ Revision History:
 #include "util/symbol.h"
 #include "util/rational.h"
 #include "util/hash.h"
-#include "util/optional.h"
+#include <optional>
 #include "util/trace.h"
 #include "util/bit_vector.h"
 #include "util/symbol_table.h"

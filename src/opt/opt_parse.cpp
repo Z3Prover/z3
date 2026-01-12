@@ -550,7 +550,7 @@ class lp_parse {
     };
 
     struct bound {
-        optional<rational>  m_lo, m_hi;
+        std::optional<rational>  m_lo, m_hi;
         bool m_int;
         bound() : m_int(false) {}
     };

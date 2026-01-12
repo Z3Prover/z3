@@ -10,7 +10,7 @@ Author:
 #pragma once
 
 #include "util/inf_rational.h"
-#include "util/optional.h"
+#include <optional>
 
 namespace lp_api {
 
@@ -89,7 +89,7 @@ namespace lp_api {
     }
 
 
-    typedef optional<inf_rational> opt_inf_rational;
+    typedef std::optional<inf_rational> opt_inf_rational;
 
 
     struct stats {

@@ -27,7 +27,7 @@
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial.h"
 #include "util/nat_set.h"
-#include "util/optional.h"
+#include <optional>
 #include "util/inf_rational.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
