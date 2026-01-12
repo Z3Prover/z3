@@ -56,7 +56,7 @@ namespace euf {
             uint64_t m_filter = 0;
         };
 
-        enum eq_status {
+        enum class eq_status {
             is_processed_eq, is_passive_eq, is_to_simplify_eq, is_reducing_eq, is_dead_eq
         };
 
@@ -65,7 +65,7 @@ namespace euf {
             eq(unsigned l, unsigned r, justification j):
                 l(l), r(r), j(j) {}
             unsigned l, r;              // refer to monomials
-            eq_status status = is_to_simplify_eq;
+            eq_status status = eq_status::is_to_simplify_eq;
             justification j;            // justification for equality
         };
 
@@ -146,7 +146,7 @@ namespace euf {
         
 
         // backtrackable state
-        enum undo_kind {
+        enum class undo_kind {
             is_queue_eq,
             is_add_monomial,
             is_add_node,

@@ -26,7 +26,7 @@ substitution::substitution(ast_manager & m):
     m_manager(m),
     m_refs(m),
     m_new_exprs(m),
-    m_state(CLEAN) {
+    m_state(state::CLEAN) {
 }
 
 void substitution::reset() {
@@ -44,7 +44,7 @@ void substitution::reset_cache() {
 
     m_apply_cache.reset();
     m_new_exprs.reset();
-    m_state = CLEAN;
+    m_state = state::CLEAN;
 }
 
 void substitution::pop_scope(unsigned num_scopes) {
@@ -79,10 +79,10 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
 
     // It is incorrect to cache results between different calls if we are applying a substitution
     // modulo a substitution s -> t.
-    if (m_state == INSERT || s != expr_offset(nullptr,0))
+    if (m_state == state::INSERT || s != expr_offset(nullptr,0))
         reset_cache();
 
-    m_state = APPLY;
+    m_state = state::APPLY;
 
     unsigned         j;
     expr *           e = nullptr;

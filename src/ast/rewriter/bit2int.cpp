@@ -138,14 +138,14 @@ bool bit2int::mk_comp(eq_type ty, expr* e1, expr* e2, expr_ref& result) {
         align_sizes(tmp1, tmp2);
         SASSERT(m_bv_util.get_bv_size(tmp1) == m_bv_util.get_bv_size(tmp2));
         switch(ty) {
-        case lt:
+        case eq_type::lt:
             tmp3 = m_rewriter.mk_ule(tmp2, tmp1);
             result = m.mk_not(tmp3);
             break;
-        case le:
+        case eq_type::le:
             result = m_rewriter.mk_ule(tmp1, tmp2);
             break;
-        case eq:
+        case eq_type::eq:
             result = m.mk_eq(tmp1, tmp2);
             break;
         }
@@ -313,7 +313,7 @@ void bit2int::visit(app* n) {
              is_bv_poly(e2, pos2, neg2) &&
              mk_add(pos1, neg2, tmp1) &&
              mk_add(neg1, pos2, tmp2) &&
-             mk_comp(eq, tmp1, tmp2, result)) {
+             mk_comp(eq_type::eq, tmp1, tmp2, result)) {
         cache_result(n, result);
     }
     else if (m_arith_util.is_le(n) && 
@@ -321,7 +321,7 @@ void bit2int::visit(app* n) {
              is_bv_poly(e2, pos2, neg2) &&
              mk_add(pos1, neg2, tmp1) &&
              mk_add(neg1, pos2, tmp2) &&
-             mk_comp(le, tmp1, tmp2, result)) {
+             mk_comp(eq_type::le, tmp1, tmp2, result)) {
         cache_result(n, result);
     }
     else if (m_arith_util.is_lt(n) && 
@@ -329,7 +329,7 @@ void bit2int::visit(app* n) {
              is_bv_poly(e2, pos2, neg2) &&
              mk_add(pos1, neg2, tmp1) &&
              mk_add(neg1, pos2, tmp2) &&
-             mk_comp(lt, tmp1, tmp2, result)) {
+             mk_comp(eq_type::lt, tmp1, tmp2, result)) {
         cache_result(n, result);
     }
     else if (m_arith_util.is_ge(n) && 
@@ -337,7 +337,7 @@ void bit2int::visit(app* n) {
              is_bv_poly(e2, pos2, neg2) &&
              mk_add(pos1, neg2, tmp1) &&
              mk_add(neg1, pos2, tmp2) &&
-             mk_comp(le, tmp2, tmp1, result)) {
+             mk_comp(eq_type::le, tmp2, tmp1, result)) {
         cache_result(n, result);
     }
     else if (m_arith_util.is_gt(n) && 
@@ -345,7 +345,7 @@ void bit2int::visit(app* n) {
              is_bv_poly(e2, pos2, neg2) &&
              mk_add(pos1, neg2, tmp1) &&
              mk_add(neg1, pos2, tmp2) &&
-             mk_comp(lt, tmp2, tmp1, result)) {
+             mk_comp(eq_type::lt, tmp2, tmp1, result)) {
         cache_result(n, result);
     }
     else if (m_arith_util.is_mod(n) &&
