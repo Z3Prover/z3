@@ -386,9 +386,7 @@ namespace datalog {
         rule_set::pred_set_vector const & pred_sets = all_rules.get_strats();
         bool non_empty = false;
         for (unsigned i = 1; i < pred_sets.size(); ++i) {
-            func_decl_set::iterator it = pred_sets[i]->begin(), end = pred_sets[i]->end();
-            for (; it != end; ++it) {
-                func_decl* pred = *it;
+            for (func_decl* pred : *pred_sets[i]) {
                 relation_base & rel = get_relation(pred);
                 if (!rel.fast_empty()) {
                     non_empty = true;
@@ -405,9 +403,7 @@ namespace datalog {
             bool change = true;
             while (change) {
                 change = false;
-                func_decl_set::iterator it = pred_sets[i]->begin(), end = pred_sets[i]->end();
-                for (; it != end; ++it) {
-                    func_decl* pred = *it;
+                for (func_decl* pred : *pred_sets[i]) {
                     if (depends_on_negation.contains(pred)) {
                         continue;
                     }
@@ -434,9 +430,7 @@ namespace datalog {
                 }
             }
         }        
-        func_decl_set::iterator it = depends_on_negation.begin(), end = depends_on_negation.end();
-        for (; it != end; ++it) {
-            func_decl* pred = *it;
+        for (func_decl* pred : depends_on_negation) {
             relation_base & rel = get_relation(pred);
             
             if (!rel.empty()) {

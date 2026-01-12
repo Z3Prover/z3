@@ -137,15 +137,11 @@ namespace datalog {
             std::sort(specs.back().begin(), specs.back().end());
         }
 
-        vector<rel_spec>::iterator sit = specs.begin(), send = specs.end();
-
         res.reset();
         for(;;) {
             family_id next = -1;
 
-            sit = specs.begin();
-            for(; sit!=send; ++sit) {
-                rel_spec & s = *sit;
+            for (rel_spec& s : specs) {
                 if(!s.empty() && s.back()>next) {
                     next = s.back();
                 }
