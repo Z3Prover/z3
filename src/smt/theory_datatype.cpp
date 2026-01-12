@@ -26,7 +26,6 @@ Revision History:
 #include "smt/theory_array.h"
 #include "smt/smt_model_generator.h"
 #include <iostream>
-#include "theory_datatype.h"
 
 namespace smt {
 
