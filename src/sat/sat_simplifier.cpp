@@ -1766,10 +1766,10 @@ namespace sat {
         m_elim_todo.reset();
         std::stable_sort(tmp.begin(), tmp.end(), bool_var_and_cost_lt());
         TRACE(sat_simplifier,
-              for (auto& p : tmp) tout << "(" << p.first << ", " << p.second << ") ";
+              for (auto& [v, c] : tmp) tout << "(" << v << ", " << c << ") ";
               tout << "\n";);
-        for (auto& p : tmp) 
-            r.push_back(p.first);
+        for (auto& [v, c] : tmp) 
+            r.push_back(v);
     }
 
     /**

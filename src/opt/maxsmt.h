@@ -197,7 +197,7 @@ namespace opt {
             for (expr* e : soft) _soft.push_back(std::make_pair(e, rational::one()));
             lbool r = (*this)(_soft);
             soft.reset();
-            for (auto const& p : _soft) soft.push_back(p.first);
+            for (auto const& [e, w] : _soft) soft.push_back(e);
             return r;
         }
 
