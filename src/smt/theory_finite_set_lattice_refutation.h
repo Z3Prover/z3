@@ -13,6 +13,7 @@ namespace smt {
 
         std::vector<uint64_t> reachable;
         std::vector<enode_pair> links;
+        std::vector<uint64_t> link_dls;
         std::vector<uint64_t> non_links;
         std::vector<enode_pair> non_link_justifications;
 
@@ -30,7 +31,7 @@ namespace smt {
         inline int get_word_index(int row, int col) const;
         inline uint64_t get_bitmask(int col) const;
         public:
-            void get_path(theory_var source, theory_var dest, vector<enode_pair>& path);
+            void get_path(theory_var source, theory_var dest, vector<enode_pair>& path, int& num_decisions);
             reachability_matrix(context& ctx, theory_finite_set_lattice_refutation& t_lattice);
             bool in_bounds(theory_var source, theory_var dest);
             bool is_reachable(theory_var source, theory_var dest);
