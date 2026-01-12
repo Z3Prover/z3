@@ -24,7 +24,7 @@ Revision History:
 static void tst1() {
     std::optional<int> v;
     ENSURE(!v);
-    ENSURE(v == false);
+    ENSURE(!v.has_value());
     v = 10;
     ENSURE(v);
     ENSURE(*v == 10);

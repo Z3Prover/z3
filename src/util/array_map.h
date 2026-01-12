@@ -82,7 +82,7 @@ public:
     ~array_map() { really_flush(); }
 
     bool contains(Key const & k) const {
-        return get_core(k);
+        return get_core(k).has_value();
     }
 
     Data const & get(Key const & k) const {
