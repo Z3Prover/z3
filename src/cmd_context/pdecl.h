@@ -21,7 +21,6 @@ Revision History:
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
 #include "util/dictionary.h"
-#include "util/optional.h"
 #include "ast/format.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
@@ -246,7 +245,7 @@ class pdatatype_decl : public psort_decl {
     friend class pdatatypes_decl;
     ptr_vector<pconstructor_decl> m_constructors;
     pdatatypes_decl *             m_parent;
-    optional<psubterm_decl>         m_subterm;
+    std::optional<psubterm_decl>         m_subterm;
     pdatatype_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n,
                    unsigned num_constructors, pconstructor_decl * const * constructors);
     void finalize(pdecl_manager & m) override;
