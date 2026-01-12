@@ -237,7 +237,7 @@ namespace smt {
     bool network_flow<Ext>::choose_leaving_edge() {        
         node src = m_graph.get_source(m_enter_id);
         node tgt = m_graph.get_target(m_enter_id); 
-        m_delta.set_invalid();
+        m_delta.reset();
         edge_id leave_id = null_edge_id;
         svector<edge_id> path;
         bool_vector against;

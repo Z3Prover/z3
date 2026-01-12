@@ -30,6 +30,7 @@ Notes:
 #include "util/inf_rational.h"
 #include "smt/diff_logic.h"
 #include "smt/spanning_tree.h"
+#include <optional>
 
 namespace smt {
 
@@ -152,7 +153,7 @@ namespace smt {
         unsigned             m_step;
         edge_id              m_enter_id;
         edge_id              m_leave_id;
-        optional<numeral>    m_delta;
+        std::optional<numeral>    m_delta;
 
         // Initialize the network with a feasible spanning tree
         void initialize();

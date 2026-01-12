@@ -19,7 +19,7 @@ Revision History:
 #pragma once
 
 #include "util/vector.h"
-#include "util/optional.h"
+#include <optional>
 
 /**
    \brief Implements a mapping from Key to Data.
@@ -43,29 +43,30 @@ class array_map {
     unsigned                 m_garbage = 0;
     unsigned                 m_non_garbage = 0;
     static const unsigned    m_gc_threshold = 10000;
-    vector<optional<entry>, CallDestructors > m_map;
+    vector<std::optional<entry>, CallDestructors > m_map;
     Plugin                   m_plugin;
 
-    bool is_current(optional<entry> const& e) const {
+    bool is_current(std::optional<entry> const& e) const {
         return e->m_timestamp == m_timestamp;
     }
 
-    optional<entry> const & get_core(Key const & k) const {
+    std::optional<entry> const & get_core(Key const & k) const {
         unsigned id = m_plugin.to_int(k);
         if (id < m_map.size()) {
-            optional<entry> const & e = m_map[id];
+            std::optional<entry> const & e = m_map[id];
             if (e && is_current(e)) {
                 return e;
             }
         }
-        return optional<entry>::undef();
+        static const std::optional<entry> s_undef;
+        return s_undef;
     }
 
     void really_flush() {
-        for (optional<entry> & e : m_map) {
+        for (std::optional<entry> & e : m_map) {
             if (e) {
                 m_plugin.del_eh(e->m_key, e->m_data);
-                e.set_invalid();
+                e.reset();
             }
         }
         m_garbage = 0;
@@ -81,11 +82,11 @@ public:
     ~array_map() { really_flush(); }
 
     bool contains(Key const & k) const {
-        return get_core(k);
+        return get_core(k).has_value();
     }
 
     Data const & get(Key const & k) const {
-        optional<entry> const & e = get_core(k);
+        std::optional<entry> const & e = get_core(k);
         SASSERT(e);
         return e->m_data;
     }
@@ -103,11 +104,11 @@ public:
     void insert(Key const & k, Data const & d) {
         unsigned id = m_plugin.to_int(k);
         if (id >= m_map.size()) {
-            m_map.resize(id + 1, optional<entry>::undef());
+            m_map.resize(id + 1, std::nullopt);
         }
         
         m_plugin.ins_eh(k, d);
-        optional<entry> & e = m_map[id];
+        std::optional<entry> & e = m_map[id];
         if (e) {
             if (!is_current(e)) {
                 --m_garbage;
@@ -124,7 +125,7 @@ public:
     void erase(Key const & k) {
         unsigned id = m_plugin.to_int(k);
         if (id < m_map.size()) {
-            optional<entry> & e = m_map[id];
+            std::optional<entry> & e = m_map[id];
             if (e) {
                 m_plugin.del_eh(e->m_key, e->m_data);
                 if (is_current(e)) {
@@ -135,7 +136,7 @@ public:
                     SASSERT(m_garbage > 0);
                     --m_garbage;
                 }
-                e.set_invalid();
+                e.reset();
             }
         }
     }
