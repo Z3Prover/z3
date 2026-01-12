@@ -45,7 +45,6 @@ class array_map {
     static const unsigned    m_gc_threshold = 10000;
     vector<std::optional<entry>, CallDestructors > m_map;
     Plugin                   m_plugin;
-    static std::optional<entry> s_undef;
 
     bool is_current(std::optional<entry> const& e) const {
         return e->m_timestamp == m_timestamp;
@@ -59,6 +58,7 @@ class array_map {
                 return e;
             }
         }
+        static const std::optional<entry> s_undef;
         return s_undef;
     }
 
@@ -157,7 +157,3 @@ public:
     }
 
 };
-
-template<typename Key, typename Data, typename Plugin, bool CallDestructors>
-std::optional<typename array_map<Key, Data, Plugin, CallDestructors>::entry> 
-array_map<Key, Data, Plugin, CallDestructors>::s_undef;
