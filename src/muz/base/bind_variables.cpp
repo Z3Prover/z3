@@ -41,8 +41,8 @@ expr_ref bind_variables::operator()(expr* fml, bool is_forall) {
     m_cache.reset();
     m_names.reset();
     m_bound.reset();
-    for (var2bound::iterator it = m_var2bound.begin(); it != m_var2bound.end(); ++it) {
-        it->m_value = 0;
+    for (auto& kv : m_var2bound) {
+        kv.m_value = 0;
     }
     return result;
 }

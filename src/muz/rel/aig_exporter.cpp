@@ -189,9 +189,9 @@ namespace datalog {
             expr_ref_vector output(m);
             const func_decl_set& preds = m_rules.get_output_predicates();
 
-            for (func_decl_set::iterator I = preds.begin(), E = preds.end(); I != E; ++I) {
+            for (func_decl* pred : preds) {
                 exprs.reset();
-                assert_pred_id(*I, m_ruleid_var_set, exprs);
+                assert_pred_id(pred, m_ruleid_var_set, exprs);
                 output.push_back(m.mk_and(exprs.size(), exprs.data()));
             }
 

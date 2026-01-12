@@ -427,9 +427,8 @@ namespace datalog {
             counter_tail.count_vars(r->get_tail(i));
           }
 
-          rule_counter::iterator I = counter_tail.begin(), E = counter_tail.end();
-          for (; I != E; ++I) {
-            int& n = counter.get(I->m_key);
+          for (auto const& kv : counter_tail) {
+            int& n = counter.get(kv.m_key);
             if (n == 0)
               n = -1;
           }
@@ -577,11 +576,8 @@ namespace datalog {
         }
 
         //enforce equality of columns
-        int2ints::iterator vit=var_indexes.begin();
-        int2ints::iterator vend=var_indexes.end();
-        for(; vit!=vend; ++vit) {
-            int2ints::key_data & k = *vit;
-            unsigned_vector & indexes = k.m_value;
+        for (auto& kv : var_indexes) {
+            unsigned_vector & indexes = kv.m_value;
             if(indexes.size()==1) {
                 continue;
             }
@@ -688,13 +684,12 @@ namespace datalog {
             {
                 unsigned_vector var_idx_to_remove;
                 m_free_vars(r->get_head());
-                for (int2ints::iterator I = var_indexes.begin(), E = var_indexes.end();
-                    I != E; ++I) {
-                    unsigned var_idx = I->m_key;
+                for (auto const& kv : var_indexes) {
+                    unsigned var_idx = kv.m_key;
                     if (!m_free_vars.contains(var_idx)) {
-                        unsigned_vector & cols = I->m_value;
-                        for (unsigned i = 0; i < cols.size(); ++i) {
-                            remove_columns.push_back(cols[i]);
+                        unsigned_vector const& cols = kv.m_value;
+                        for (unsigned col : cols) {
+                            remove_columns.push_back(col);
                         }
                         var_idx_to_remove.push_back(var_idx);
                     }
@@ -715,9 +710,8 @@ namespace datalog {
                         }
                     }
 
-                    for (int2ints::iterator I = var_indexes.begin(), E = var_indexes.end();
-                    I != E; ++I) {
-                        unsigned_vector & cols = I->m_value;
+                    for (auto& kv : var_indexes) {
+                        unsigned_vector & cols = kv.m_value;
                         for (unsigned i = 0; i < cols.size(); ++i) {
                             cols[i] -= offsets[cols[i]];
                         }
@@ -895,10 +889,9 @@ namespace datalog {
             }
         }
         // add negative variables that are not in positive
-        u_map<expr*>::iterator it = neg_vars.begin(), end = neg_vars.end();
-        for (; it != end; ++it) {
-            unsigned v = it->m_key;
-            expr* e = it->m_value;
+        for (auto const& kv : neg_vars) {
+            unsigned v = kv.m_key;
+            expr* e = kv.m_value;
             if (!pos_vars.contains(v)) {
                 single_res_expr.push_back(e);
                 make_add_unbound_column(r, v, pred, single_res, e->get_sort(), single_res, dealloc, acc);
