@@ -596,7 +596,7 @@ datatype_decl * pdatatype_decl::instantiate_decl(pdecl_manager & m, unsigned n, 
         cs.push_back(c->instantiate_decl(m, n, s));
     datatype_util util(m.m());
     symbol subterm_name = symbol::null;
-    if (m_subterm.initialized()) {
+    if (m_subterm.has_value()) {
         subterm_name = m_subterm->get_name();
     }
     return mk_datatype_decl(util, m_name, m_num_params, s, cs.size(), cs.data(), subterm_name);
@@ -657,7 +657,7 @@ std::ostream& pdatatype_decl::display(std::ostream & out) const {
         }
         first = false;
     }
-    if (m_subterm.initialized()) {
+    if (m_subterm.has_value()) {
         m_subterm->display(out);
     }
     return out << ")";
