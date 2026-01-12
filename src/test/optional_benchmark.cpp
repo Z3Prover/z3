@@ -46,10 +46,22 @@ double measure_time_ms(Func f, int iterations = 1000000) {
 }
 
 // Prevent compiler optimization
+// Prevent compiler optimization (portable for GCC/Clang and MSVC)
+#if defined(_MSC_VER)
+#include <intrin.h>
 template<typename T>
-void do_not_optimize(T const& value) {
+inline void do_not_optimize(T const& value) {
+    // Trick MSVC into thinking value is used
+    volatile const T* volatile ptr = &value;
+    (void)ptr;
+    _ReadWriteBarrier();
+}
+#else
+template<typename T>
+inline void do_not_optimize(T const& value) {
     asm volatile("" : : "m"(value) : "memory");
 }
+#endif
 
 void benchmark_construction() {
     const int iterations = 1000000;
