@@ -240,6 +240,26 @@ class Context:
     def param_descrs(self):
         """Return the global parameter description set."""
         return ParamDescrsRef(Z3_get_global_param_descrs(self.ref()), self)
+
+    def set_ast_print_mode(self, mode):
+        """Set the pretty printing mode for ASTs.
+
+        The following modes are available:
+        - Z3_PRINT_SMTLIB_FULL (0): Print AST nodes in SMTLIB verbose format.
+        - Z3_PRINT_LOW_LEVEL (1): Print AST nodes using a low-level format.
+        - Z3_PRINT_SMTLIB2_COMPLIANT (2): Print AST nodes in SMTLIB 2.x compliant format.
+
+        Example:
+        >>> c = Context()
+        >>> c.set_ast_print_mode(Z3_PRINT_LOW_LEVEL)
+        >>> x = Int('x', c)
+        >>> print(x)
+        (Int 0)
+        >>> c.set_ast_print_mode(Z3_PRINT_SMTLIB2_COMPLIANT)
+        >>> print(x)
+        x
+        """
+        Z3_set_ast_print_mode(self.ref(), mode)
         
 
 # Global Z3 context
