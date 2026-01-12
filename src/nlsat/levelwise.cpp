@@ -15,6 +15,21 @@
 
 static bool is_set(unsigned k) { return static_cast<int>(k) != -1; }
 
+// Helper functions for std_vector to mimic svector's get/setx interface
+template<typename T>
+static inline T vec_get(const std_vector<T>& v, size_t idx, T default_val) {
+    if (idx < v.size())
+        return static_cast<T>(v[idx]);
+    return default_val;
+}
+
+template<typename T>
+static inline void vec_setx(std_vector<T>& v, size_t idx, T val, T default_val) {
+    if (idx >= v.size())
+        v.resize(idx + 1, default_val);
+    v[idx] = val;
+}
+
 namespace nlsat {
 
     enum relation_mode {
@@ -290,6 +305,87 @@ namespace nlsat {
             }
         }
 
+        // Decide which leading coefficients can be omitted based on the chosen resultant relation.
+        // Inspired by SMT-RAT's "noLdcf" optimization in OneCellCAD.h.
+        void compute_omit_lc_from_relation(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
+            omit_lc.clear();
+            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
+                return;
+
+            anum const& v = sample().value(level);
+
+            // Track whether a polynomial appears with a root function on the lower (<= v) and upper (> v) side.
+            svector<uint8_t> side_mask; // bit0: lower, bit1: upper
+            for (auto const& rf : m_rel.m_rfunc) {
+                poly* p = rf.ire.p;
+                if (!p)
+                    continue;
+                unsigned id = m_pm.id(p);
+                uint8_t mask = side_mask.get(id, static_cast<uint8_t>(0));
+                if (m_am.compare(rf.val, v) <= 0)
+                    mask |= 1;
+                else
+                    mask |= 2;
+                side_mask.setx(id, mask, static_cast<uint8_t>(0));
+            }
+
+            // Count how many distinct resultant-neighbors each polynomial has under the chosen relation.
+            svector<unsigned> deg;
+            std::set<std::pair<unsigned, unsigned>> added_pairs;
+            for (auto const& pr : m_rel.m_pairs) {
+                poly* a = m_rel.m_rfunc[pr.first].ire.p;
+                poly* b = m_rel.m_rfunc[pr.second].ire.p;
+                if (!a || !b)
+                    continue;
+                unsigned id1 = m_pm.id(a);
+                unsigned id2 = m_pm.id(b);
+                if (id1 == id2)
+                    continue;
+                std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
+                if (!added_pairs.insert(key).second)
+                    continue;
+                deg.setx(id1, deg.get(id1, 0u) + 1, 0u);
+                deg.setx(id2, deg.get(id2, 0u) + 1, 0u);
+            }
+
+            // Omit leading coefficients for polynomials that (a) occur on both sides of the sample
+            // and (b) are connected to only one distinct neighbor via resultants.
+            for (unsigned i = 0; i < level_ps.size(); ++i) {
+                poly* p = level_ps.get(i);
+                if (!p)
+                    continue;
+                unsigned id = m_pm.id(p);
+                if (side_mask.get(id, static_cast<uint8_t>(0)) == 3 && deg.get(id, 0u) == 1)
+                    vec_setx(omit_lc, id, true, false);
+            }
+
+            // Additional chain-mode omission: in SMT-RAT's chain heuristic, the extreme root functions
+            // may omit leading coefficients when their defining polynomials also occur on the other side.
+            if (m_relation_mode == chain) {
+                auto const& rfs = m_rel.m_rfunc;
+                unsigned mid_idx = 0;
+                while (mid_idx < rfs.size() && m_am.compare(rfs[mid_idx].val, v) <= 0)
+                    ++mid_idx;
+
+                if (mid_idx > 0) {
+                    poly* p0 = rfs.front().ire.p;
+                    if (p0) {
+                        unsigned id0 = m_pm.id(p0);
+                        if (side_mask.get(id0, static_cast<uint8_t>(0)) & 2)
+                            vec_setx(omit_lc, id0, true, false);
+                    }
+                }
+                if (mid_idx < rfs.size()) {
+                    poly* plast = rfs.back().ire.p;
+                    if (plast) {
+                        unsigned idl = m_pm.id(plast);
+                        if (side_mask.get(idl, static_cast<uint8_t>(0)) & 1)
+                            vec_setx(omit_lc, idl, true, false);
+                    }
+                }
+            }
+        }
+
         // Relation construction heuristics (same intent as previous implementation).
         void fill_relation_with_biggest_cell_heuristic(unsigned l, unsigned u) {
             if (is_set(l))
@@ -442,12 +538,12 @@ namespace nlsat {
         }
 
         // Build Θ (root functions), pick I_level around sample(level), and build relation ≼.
-        void build_interval_and_relation(unsigned level, polynomial_ref_vector const& level_ps, svector<char>& poly_has_roots) {
+        void build_interval_and_relation(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& poly_has_roots) {
             m_level = level;
             m_rel.clear();
             reset_interval(m_I[level]);
 
-            poly_has_roots.reset();
+            poly_has_roots.clear();
             poly_has_roots.resize(level_ps.size(), false);
 
             anum const& v = sample().value(level);
@@ -588,9 +684,10 @@ namespace nlsat {
         }
 
         // Top level (m_n): add resultants between adjacent roots of different polynomials.
-        void add_adjacent_root_resultants(todo_set& P, polynomial_ref_vector const& top_ps, svector<char>& poly_has_roots) {
-            poly_has_roots.reset();
+        void add_adjacent_root_resultants(todo_set& P, polynomial_ref_vector const& top_ps, std_vector<bool>& poly_has_roots) {
+            poly_has_roots.clear();
             poly_has_roots.resize(top_ps.size(), false);
+
             std::vector<std::pair<scoped_anum, poly*>> root_vals;
             for (unsigned i = 0; i < top_ps.size(); ++i) {
                 poly* p = top_ps.get(i);
@@ -598,13 +695,14 @@ namespace nlsat {
                 m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_n), roots);
                 poly_has_roots[i] = !roots.empty();
                 for (unsigned k = 0; k < roots.size(); ++k) {
-                    scoped_anum v(m_am);
-                    m_am.set(v, roots[k]);
-                    root_vals.emplace_back(std::move(v), p);
+                    scoped_anum root_v(m_am);
+                    m_am.set(root_v, roots[k]);
+                    root_vals.emplace_back(std::move(root_v), p);
                 }
             }
             if (root_vals.size() < 2)
                 return;
+
             std::sort(root_vals.begin(), root_vals.end(), [&](auto const& a, auto const& b) {
                 return m_am.lt(a.first, b.first);
             });
@@ -650,7 +748,7 @@ namespace nlsat {
             }
 
             // Lines 3-8: Θ + I_level + relation ≼
-            svector<char> poly_has_roots;
+            std_vector<bool> poly_has_roots;
             build_interval_and_relation(level, level_ps, poly_has_roots);
             // SMT-RAT (levelwise/OneCellCAD.h) upgrades the polynomials defining the current
             // bounds/sections to ORD_INV. Z3's levelwise does not currently implement SMT-RAT's
@@ -663,6 +761,8 @@ namespace nlsat {
             // Note: Algorithm 1 adds disc + ldcf for ALL polynomials (classical delineability)
             // We additionally omit leading coefficients for rootless polynomials when possible
             // (cf. projective delineability, Lemma 3.2).
+            std_vector<bool> omit_lc;
+            compute_omit_lc_from_relation(level, level_ps, omit_lc);
             for (unsigned i = 0; i < level_ps.size(); ++i) {
                 polynomial_ref p(level_ps.get(i), m_pm);
                 polynomial_ref lc(m_pm);
@@ -670,10 +770,14 @@ namespace nlsat {
                 lc = m_pm.coeff(p, level, deg);
 
                 bool add_lc = !(lc && witnesses[i].get() == lc.get());
-                if (add_lc && i < poly_has_roots.size() && !poly_has_roots[i]) {
+                if (add_lc && vec_get(omit_lc, m_pm.id(p.get()), false))
+                    add_lc = false;
+
+                if (add_lc && i < usize(poly_has_roots) && !poly_has_roots[i]) {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         add_lc = false;
                 }
+
                 add_projections_for(P, p, level, witnesses[i], add_lc);
             }
 
@@ -695,7 +799,7 @@ namespace nlsat {
             }
 
             // Resultants between adjacent root functions (a lightweight ordering for the top level).
-            svector<char> poly_has_roots;
+            std_vector<bool> poly_has_roots;
             add_adjacent_root_resultants(P, top_ps, poly_has_roots);
 
             // Projections (coeff witness, disc, leading coeff).
@@ -710,7 +814,7 @@ namespace nlsat {
                 lc = m_pm.coeff(p, m_n, deg);
 
                 bool add_lc = !(lc && witnesses[i].get() == lc.get());
-                if (add_lc && i < poly_has_roots.size() && !poly_has_roots[i]) {
+                if (add_lc && i < usize(poly_has_roots) && !poly_has_roots[i]) {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         add_lc = false;
                 }
