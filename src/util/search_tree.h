@@ -190,10 +190,19 @@ namespace search_tree {
             return attach_here;
         }
 
+        void close(node<Config> *n, vector<literal> const &C) {
+            if (!n || n->get_status() == status::closed)
+                return;
+            n->set_status(status::closed);
+            n->set_core(C);
+            close(n->left(), C);
+            close(n->right(), C);
+        }
+
         // Invariants:
         // Cores labeling nodes are subsets of the literals on the path to the node and the (external) assumption
         // literals. If a parent is open, then the one of the children is open.
-        void close_with_core(node<Config> *n, vector<literal> const &C, bool allow_resolve = true) {
+        void close_with_core(node<Config> *n, vector<literal> const &C) {
             if (!n)
                 return;
 
@@ -216,15 +225,9 @@ namespace search_tree {
                 close_with_core(p, C);
                 return;
             }
-            n->set_core(C);
-            n->set_status(status::closed);
             
             // Close descendants WITHOUT resolving
-            close_with_core(n->left(), C, false);
-            close_with_core(n->right(), C, false);
-
-            if (!allow_resolve)
-                return;
+            close(n, C);
 
             if (!p)
                 return;
@@ -239,12 +242,12 @@ namespace search_tree {
 
             auto resolvent = compute_sibling_resolvent(left, right);
             if (resolvent.empty()) { // empty resolvent => global UNSAT
-                close_with_core(m_root.get(), resolvent, false);
+                close(m_root.get(), resolvent);
                 return;
             }
 
             auto attach = find_highest_attach(p, resolvent);
-            close_with_core(attach, resolvent, false);
+            close(attach, resolvent);
         }
 
         // Given complementary sibling nodes for literals x and ¬x, sibling resolvent = (core_left ∪ core_right) \ {x,
