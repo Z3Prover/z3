@@ -244,7 +244,7 @@ namespace datatype {
             SASSERT(result); // Post-condition: get_constructor_by_name returns a non-null result
             return result;
         }
-        bool has_subterm() const { return m_subterm.initialized(); }
+        bool has_subterm() const { return m_subterm.has_value(); }
         subterm const& get_subterm() const { return *m_subterm; }
         def* translate(ast_translation& tr, util& u);
     };
