@@ -16,9 +16,10 @@ tools:
     - "git diff:*"
     - "git show:*"
 safe-outputs:
-  create-issue:
+  create-discussion:
     title-prefix: "Code Conventions Analysis"
-    expires: 14
+    category: "General"
+    close-older-discussions: true
   missing-tool:
     create-issue: true
 network: defaults
@@ -131,14 +132,14 @@ Look for patterns where Z3 could better leverage standard library features:
    - Identify which areas are most affected
    - Prioritize findings by impact and prevalence
 
-## Deliverable: Detailed Analysis Issue
+## Deliverable: Detailed Analysis Discussion
 
-Create a comprehensive issue with your findings structured as follows:
+Create a comprehensive discussion with your findings structured as follows:
 
-### Issue Title
+### Discussion Title
 "Code Conventions Analysis - [Date] - [Key Finding Summary]"
 
-### Issue Body Structure
+### Discussion Body Structure
 
 ```markdown
 # Code Conventions Analysis Report
@@ -318,8 +319,8 @@ grep pattern: "^[ ]*enum [^c]" glob: "src/**/*.h"
 
 ## Output Requirements
 
-- Create exactly ONE comprehensive issue with all findings
+- Create exactly ONE comprehensive discussion with all findings
 - Use the structured format above
 - Include specific file references for all examples
 - Provide actionable recommendations
-- Close any previous issues created by this workflow (using `close-older-issues: true`)
+- Previous discussions created by this workflow will be automatically closed (using `close-older-discussions: true`)
