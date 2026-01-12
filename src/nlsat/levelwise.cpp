@@ -511,28 +511,13 @@ namespace nlsat {
             // low-degree defining polynomials as interval boundaries:
             // - lower bound comes from the last element in the <= partition, so sort ties by degree descending
             // - upper bound comes from the first element in the > partition, so sort ties by degree ascending
-            auto cmp_value = [&](root_function const& a, root_function const& b) {
-                auto r = m_am.compare(a.val, b.val);
-                if (r)
-                    return r == sign_neg;
-                if (a.ire.p == b.ire.p)
-                    return a.ire.i < b.ire.i;
-                return false;
-            };
             auto tie_id = [&](root_function const& a, root_function const& b) {
-                unsigned ida = m_pm.id(a.ire.p);
-                unsigned idb = m_pm.id(b.ire.p);
-                if (ida != idb)
-                    return ida < idb;
-                return a.ire.i < b.ire.i;
+                return m_pm.id(a.ire.p) < m_pm.id(b.ire.p);
             };
             auto cmp_lo = [&](root_function const& a, root_function const& b) {
-                if (cmp_value(a, b))
-                    return true;
-                if (cmp_value(b, a))
-                    return false;
-                if (a.ire.p == b.ire.p)
-                    return a.ire.i < b.ire.i;
+                if (a.ire.p == b.ire.p) return a.ire.i < b.ire.i;
+                auto r = m_am.compare(a.val, b.val);
+                if (r) return r == sign_neg;
                 unsigned dega = m_pm.degree(a.ire.p, level);
                 unsigned degb = m_pm.degree(b.ire.p, level);
                 if (dega != degb)
@@ -540,12 +525,9 @@ namespace nlsat {
                 return tie_id(a, b);
             };
             auto cmp_hi = [&](root_function const& a, root_function const& b) {
-                if (cmp_value(a, b))
-                    return true;
-                if (cmp_value(b, a))
-                    return false;
-                if (a.ire.p == b.ire.p)
-                    return a.ire.i < b.ire.i;
+                if (a.ire.p == b.ire.p) return a.ire.i < b.ire.i;
+                auto r = m_am.compare(a.val, b.val);
+                if (r) return r == sign_neg;
                 unsigned dega = m_pm.degree(a.ire.p, level);
                 unsigned degb = m_pm.degree(b.ire.p, level);
                 if (dega != degb)
