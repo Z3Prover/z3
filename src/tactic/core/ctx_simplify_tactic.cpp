@@ -566,6 +566,8 @@ struct ctx_simplify_tactic::imp {
     }
 
     void operator()(goal & g) {
+        if (g.inconsistent())
+            return;
         m_occs.reset();
         m_occs(g);
         m_num_steps = 0;
@@ -578,6 +580,8 @@ struct ctx_simplify_tactic::imp {
                 proof_ref new_pr(m.mk_rewrite(t, r), m);
                 new_pr = m.mk_modus_ponens(pr, new_pr);
                 g.update(idx++, r, new_pr, dep);
+                if (g.inconsistent())
+                    break;
             }
         }
         else {

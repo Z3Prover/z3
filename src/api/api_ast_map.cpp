@@ -138,10 +138,8 @@ extern "C" {
         RESET_ERROR_CODE();
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), to_ast_map(m)->m);
         mk_c(c)->save_object(v);
-        obj_map<ast, ast*>::iterator it  = to_ast_map_ref(m).begin();
-        obj_map<ast, ast*>::iterator end = to_ast_map_ref(m).end();
-        for (; it != end; ++it) {
-            v->m_ast_vector.push_back(it->m_key);
+        for (auto const& kv : to_ast_map_ref(m)) {
+            v->m_ast_vector.push_back(kv.m_key);
         }
         Z3_ast_vector r       = of_ast_vector(v);
         RETURN_Z3(r);
@@ -155,10 +153,8 @@ extern "C" {
         std::ostringstream buffer;
         ast_manager & mng = to_ast_map(m)->m;
         buffer << "(ast-map";
-        obj_map<ast, ast*>::iterator it  = to_ast_map_ref(m).begin();
-        obj_map<ast, ast*>::iterator end = to_ast_map_ref(m).end();
-        for (; it != end; ++it) {
-            buffer << "\n  (" << mk_ismt2_pp(it->m_key, mng, 3) << "\n   " << mk_ismt2_pp(it->m_value, mng, 3) << ")";
+        for (auto const& kv : to_ast_map_ref(m)) {
+            buffer << "\n  (" << mk_ismt2_pp(kv.m_key, mng, 3) << "\n   " << mk_ismt2_pp(kv.m_value, mng, 3) << ")";
         }
         buffer << ')';
         return mk_c(c)->mk_external_string(std::move(buffer).str());

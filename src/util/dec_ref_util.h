@@ -25,11 +25,9 @@ Notes:
 */
 template<typename Mng, typename Map>
 void dec_ref_key_values(Mng & m, Map & map) {
-    typename Map::iterator it  = map.begin();
-    typename Map::iterator end = map.end();
-    for (; it != end; ++it) {
-        m.dec_ref(it->m_key);
-        m.dec_ref(it->m_value);
+    for (auto& kv : map) {
+        m.dec_ref(kv.m_key);
+        m.dec_ref(kv.m_value);
     }
     map.reset();
 }
@@ -40,10 +38,8 @@ void dec_ref_key_values(Mng & m, Map & map) {
 */
 template<typename Mng, typename Map>
 void dec_ref_keys(Mng & m, Map & map) {
-    typename Map::iterator it  = map.begin();
-    typename Map::iterator end = map.end();
-    for (; it != end; ++it) {
-        m.dec_ref(it->m_key);
+    for (auto& kv : map) {
+        m.dec_ref(kv.m_key);
     }
     map.reset();
 }
@@ -55,10 +51,8 @@ void dec_ref_keys(Mng & m, Map & map) {
 */
 template<typename Mng, typename Map>
 void dec_ref_values(Mng & m, Map & map) {
-    typename Map::iterator it  = map.begin();
-    typename Map::iterator end = map.end();
-    for (; it != end; ++it) {
-        m.dec_ref(it->m_value);
+    for (auto& kv : map) {
+        m.dec_ref(kv.m_value);
     }
     map.reset();
 }

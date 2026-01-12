@@ -2714,6 +2714,10 @@ def mk_config():
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -mimpure-text' % SLIBEXTRAFLAGS
+        elif sysname  == 'AIX':
+            SO_EXT         = '.so'
+            SLIBFLAGS      = '-shared'
+            SLIBEXTRAFLAGS = '%s' % LDFLAGS
         elif sysname.startswith('CYGWIN'):
             SO_EXT         = '.dll'
             SLIBFLAGS      = '-shared'

@@ -137,7 +137,7 @@ async function makeTsWrapper() {
 
     // otherwise fall back to ccall
 
-    const ctypes = fn.params.map(p =>
+    let ctypes = fn.params.map(p =>
       p.kind === 'in_array' ? 'array' : p.kind === 'out_array' ? 'number' : p.isPtr ? 'number' : toEmType(p.type),
     );
 
@@ -149,6 +149,8 @@ async function makeTsWrapper() {
     const args: (string | FuncParam)[] = fn.params;
 
     let arrayLengthParams = new Map();
+    let allocatedArrays: string[] = []; // Track allocated arrays for cleanup
+
     for (let p of inParams) {
       if (p.nullable && !p.isArray) {
         // this would be easy to implement - just map null to 0 - but nothing actually uses nullable non-array input parameters, so we can't ensure we've done it right
@@ -179,6 +181,34 @@ async function makeTsWrapper() {
       }
       args[sizeIndex] = `${p.name}.length`;
       params[sizeIndex] = null;
+
+      // For async functions, we need to manually manage array memory
+      // because ccall frees it before the async thread uses it
+      if (isAsync && p.kind === 'in_array') {
+        const paramIdx = fn.params.indexOf(p);
+        const ptrName = `${p.name}_ptr`;
+        allocatedArrays.push(ptrName);
+        // Allocate memory for array of pointers (4 bytes per pointer on wasm32)
+        prefix += `
+        const ${ptrName} = Mod._malloc(${p.name}.length * 4);
+        Mod.HEAPU32.set(${p.name} as unknown as number[], ${ptrName} / 4);
+        `.trim();
+        args[paramIdx] = ptrName;
+        ctypes[paramIdx] = 'number'; // Pass as pointer, not array
+      }
+    }
+
+    // Add try-finally for async functions with allocated arrays
+    if (isAsync && allocatedArrays.length > 0) {
+      prefix += `
+      try {
+      `.trim();
+      suffix =
+        `
+      } finally {
+        ${allocatedArrays.map(arr => `Mod._free(${arr});`).join('\n        ')}
+      }
+      `.trim() + suffix;
     }
 
     let returnType = fn.ret;

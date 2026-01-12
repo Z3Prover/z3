@@ -458,6 +458,7 @@ namespace opt {
 
     void context::set_model(model_ref& m) { 
         m_model = m;
+        m_model_available = true;
         opt_params optp(m_params);
         symbol prefix = optp.solution_prefix();
         bool model2console = optp.dump_models();
@@ -490,6 +491,8 @@ namespace opt {
 
 
     void context::get_model_core(model_ref& mdl) {
+        if (!m_model_available)
+            throw default_exception("model is not available");
         mdl = m_model;
         CTRACE(opt, mdl, tout << *mdl;);
         fix_model(mdl);
@@ -797,7 +800,8 @@ namespace opt {
         if (!is_maxsat_query())
             return;
 
-        if (m_maxsat_engine != symbol("maxres") &&
+        if (m_maxsat_engine != symbol("maxres") && 
+            m_maxsat_engine != symbol("maxresw") &&
             m_maxsat_engine != symbol("rc2") &&
             m_maxsat_engine != symbol("rc2tot") &&
             m_maxsat_engine != symbol("rc2bin") &&
@@ -1730,6 +1734,7 @@ namespace opt {
         m_model.reset();
         m_model_fixed.reset();
         m_core.reset();
+        m_model_available = false;
     }
 
     void context::set_pareto(pareto_base* p) {

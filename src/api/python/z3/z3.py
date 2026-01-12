@@ -240,6 +240,26 @@ class Context:
     def param_descrs(self):
         """Return the global parameter description set."""
         return ParamDescrsRef(Z3_get_global_param_descrs(self.ref()), self)
+
+    def set_ast_print_mode(self, mode):
+        """Set the pretty printing mode for ASTs.
+
+        The following modes are available:
+        - Z3_PRINT_SMTLIB_FULL (0): Print AST nodes in SMTLIB verbose format.
+        - Z3_PRINT_LOW_LEVEL (1): Print AST nodes using a low-level format.
+        - Z3_PRINT_SMTLIB2_COMPLIANT (2): Print AST nodes in SMTLIB 2.x compliant format.
+
+        Example:
+        >>> c = Context()
+        >>> c.set_ast_print_mode(Z3_PRINT_LOW_LEVEL)
+        >>> x = Int('x', c)
+        >>> print(x)
+        (Int 0)
+        >>> c.set_ast_print_mode(Z3_PRINT_SMTLIB2_COMPLIANT)
+        >>> print(x)
+        x
+        """
+        Z3_set_ast_print_mode(self.ref(), mode)
         
 
 # Global Z3 context
@@ -1153,6 +1173,30 @@ class ExprRef(AstRef):
             return [self.arg(i) for i in range(self.num_args())]
         else:
             return []
+
+    def update(self, *args):
+        """Update the arguments of the expression.
+        
+        Return a new expression with the same function declaration and updated arguments.
+        The number of new arguments must match the current number of arguments.
+        
+        >>> f = Function('f', IntSort(), IntSort(), IntSort())
+        >>> a = Int('a')
+        >>> b = Int('b')
+        >>> c = Int('c')
+        >>> t = f(a, b)
+        >>> t.update(c, c)
+        f(c, c)
+        """
+        if z3_debug():
+            _z3_assert(is_app(self), "Z3 application expected")
+            _z3_assert(len(args) == self.num_args(), "Number of arguments does not match")
+            _z3_assert(all([is_expr(arg) for arg in args]), "Z3 expressions expected")
+        num = len(args)
+        _args = (Ast * num)()
+        for i in range(num):
+            _args[i] = args[i].as_ast()
+        return _to_expr_ref(Z3_update_term(self.ctx_ref(), self.as_ast(), num, _args), self.ctx)
 
     def from_string(self, s):
         pass

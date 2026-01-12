@@ -83,6 +83,36 @@ namespace z3 {
     inline void reset_params() { Z3_global_param_reset_all(); }
 
     /**
+       \brief Return Z3 version number information.
+    */
+    inline void get_version(unsigned& major, unsigned& minor, unsigned& build_number, unsigned& revision_number) {
+        Z3_get_version(&major, &minor, &build_number, &revision_number);
+    }
+
+    /**
+       \brief Return a string that fully describes the version of Z3 in use.
+    */
+    inline std::string get_full_version() {
+        return std::string(Z3_get_full_version());
+    }
+
+    /**
+       \brief Enable tracing messages tagged as \c tag when Z3 is compiled in debug mode.
+       It is a NOOP otherwise.
+    */
+    inline void enable_trace(char const * tag) {
+        Z3_enable_trace(tag);
+    }
+
+    /**
+       \brief Disable tracing messages tagged as \c tag when Z3 is compiled in debug mode.
+       It is a NOOP otherwise.
+    */
+    inline void disable_trace(char const * tag) {
+        Z3_disable_trace(tag);
+    }
+
+    /**
        \brief Exception used to sign API usage errors.
     */
     class exception : public std::exception {
@@ -1238,6 +1268,16 @@ namespace z3 {
         }
 
         /**
+           \brief Update the arguments of this application.
+           Return a new expression with the same function declaration and updated arguments.
+           The number of new arguments must match the current number of arguments.
+
+           \pre is_app()
+           \pre args.size() == num_args()
+        */
+        expr update(expr_vector const& args) const;
+
+        /**
            \brief Return the 'body' of this quantifier.
 
            \pre is_quantifier()
@@ -2305,6 +2345,19 @@ namespace z3 {
         return to_func_decl(a.ctx(), Z3_mk_tree_order(a.ctx(), a, index));
     }
 
+    /**
+       \brief Return the nonzero subresultants of p and q with respect to the "variable" x.
+       
+       \pre p, q and x are Z3 expressions where p and q are arithmetic terms.
+       Note that, any subterm that cannot be viewed as a polynomial is assumed to be a variable.
+    */
+    inline expr_vector polynomial_subresultants(expr const& p, expr const& q, expr const& x) {
+        check_context(p, q); check_context(p, x);
+        Z3_ast_vector r = Z3_polynomial_subresultants(p.ctx(), p, q, x);
+        p.check_error();
+        return expr_vector(p.ctx(), r);
+    }
+
     template<> class cast_ast<ast> {
     public:
         ast operator()(context & c, Z3_ast a) { return ast(c, a); }
@@ -2702,6 +2755,29 @@ namespace z3 {
             check_error();
         }
 
+        unsigned num_sorts() const {
+            unsigned r = Z3_model_get_num_sorts(ctx(), m_model);
+            check_error();
+            return r;
+        }
+
+        /**
+           \brief Return the uninterpreted sort at position \c i.
+           \pre i < num_sorts()
+        */
+        sort get_sort(unsigned i) const {
+            Z3_sort s = Z3_model_get_sort(ctx(), m_model, i);
+            check_error();
+            return sort(ctx(), s);
+        }
+
+        expr_vector sort_universe(sort const& s) const {
+            check_context(*this, s);
+            Z3_ast_vector r = Z3_model_get_sort_universe(ctx(), m_model, s);
+            check_error();
+            return expr_vector(ctx(), r);
+        }
+
         friend std::ostream & operator<<(std::ostream & out, model const & m);
 
         std::string to_string() const { return m_model ? std::string(Z3_model_to_string(ctx(), m_model)) : "null"; }
@@ -2889,6 +2965,25 @@ namespace z3 {
             Z3_solver_get_levels(ctx(), m_solver, r, sz, levels.ptr());
             check_error(); 
             return result; 
+        }
+        expr congruence_root(expr const& t) const {
+            check_context(*this, t);
+            Z3_ast r = Z3_solver_congruence_root(ctx(), m_solver, t);
+            check_error();
+            return expr(ctx(), r);
+        }
+        expr congruence_next(expr const& t) const {
+            check_context(*this, t);
+            Z3_ast r = Z3_solver_congruence_next(ctx(), m_solver, t);
+            check_error();
+            return expr(ctx(), r);
+        }
+        expr congruence_explain(expr const& a, expr const& b) const {
+            check_context(*this, a);
+            check_context(*this, b);
+            Z3_ast r = Z3_solver_congruence_explain(ctx(), m_solver, a, b);
+            check_error();
+            return expr(ctx(), r);
         }
         void set_initial_value(expr const& var, expr const& value) {
             Z3_solver_set_initial_value(ctx(), m_solver, var, value);
@@ -4043,6 +4138,19 @@ namespace z3 {
         return expr(f.ctx(), r);
     }
 
+    inline expr array_default(expr const & a) {
+        Z3_ast r = Z3_mk_array_default(a.ctx(), a);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+
+    inline expr array_ext(expr const & a, expr const & b) {
+        check_context(a, b);
+        Z3_ast r = Z3_mk_array_ext(a.ctx(), a, b);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+
 #define MK_EXPR1(_fn, _arg)                     \
     Z3_ast r = _fn(_arg.ctx(), _arg);           \
     _arg.check_error();                         \
@@ -4310,6 +4418,16 @@ namespace z3 {
             _funs[i] = funs[i];
         }
         Z3_ast r = Z3_substitute_funs(ctx(), m_ast, dst.size(), _funs.ptr(), _dst.ptr());
+        check_error();
+        return expr(ctx(), r);
+    }
+
+    inline expr expr::update(expr_vector const& args) const {
+        array<Z3_ast> _args(args.size());
+        for (unsigned i = 0; i < args.size(); ++i) {
+            _args[i] = args[i];
+        }
+        Z3_ast r = Z3_update_term(ctx(), m_ast, args.size(), _args.ptr());
         check_error();
         return expr(ctx(), r);
     }

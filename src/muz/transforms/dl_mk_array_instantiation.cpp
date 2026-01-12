@@ -94,10 +94,10 @@ namespace datalog {
             new_tail.append(instantiate_pred(to_app(preds[i].get())));
         }
         new_tail.append(phi);
-        for(obj_map<expr, var*>::iterator it = done_selects.begin(); it!=done_selects.end(); ++it)  {
+        for (auto const& kv : done_selects)  {
             expr_ref tmp(m);
-            tmp = &it->get_key();
-            new_tail.push_back(m.mk_eq(it->get_value(), tmp));
+            tmp = kv.m_key;
+            new_tail.push_back(m.mk_eq(kv.m_value, tmp));
         }
         proof_ref pr(m);
         src_manager->mk_rule(m.mk_implies(m.mk_and(new_tail.size(), new_tail.data()), new_head), pr, dest, r.name());

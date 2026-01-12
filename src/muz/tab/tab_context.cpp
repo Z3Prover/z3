@@ -756,9 +756,7 @@ namespace tb {
         void init(rules const& rs) {
             reset();
             double_vector& scores = m_scores;
-            rules::iterator it = rs.begin(), end = rs.end();
-            for (; it != end; ++it) {
-                ref<clause> g = *it;
+            for (ref<clause> g : rs) {
                 app* p = g->get_head();
                 scores.reset();
                 basic_score_predicate(p, scores);

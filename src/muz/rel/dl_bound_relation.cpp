@@ -392,14 +392,12 @@ namespace datalog {
         if (t.lt.empty() && t.le.empty()) {
             return;
         }
-        uint_set::iterator it = t.lt.begin(), end = t.lt.end();
         unsigned_vector ltv, lev;
-        for (; it != end; ++it) {
-            ltv.push_back(renaming[*it]);
+        for (unsigned idx : t.lt) {
+            ltv.push_back(renaming[idx]);
         }
-        it = t.le.begin(), end = t.le.end();
-        for (; it != end; ++it) {
-            lev.push_back(renaming[*it]);
+        for (unsigned idx : t.le) {
+            lev.push_back(renaming[idx]);
         }
         TRACE(dl, 
               tout << "project: ";
@@ -525,9 +523,8 @@ namespace datalog {
     }
 
     void bound_relation::normalize(uint_set const& src, uint_set& dst) const {
-        uint_set::iterator it = src.begin(), end = src.end();
-        for (; it != end; ++it) {
-            dst.insert(find(*it));
+        for (unsigned idx : src) {
+            dst.insert(find(idx));
         }
     }
     void bound_relation::normalize(uint_set2 const& src, uint_set2& dst) const {
@@ -551,13 +548,11 @@ namespace datalog {
                 continue;
             }
             uint_set2& src = (*m_elems)[j];
-            uint_set::iterator it = src.lt.begin(), end = src.lt.end();
-            for(; it != end; ++it) {
-                m_todo.push_back(std::make_pair(*it, true));
+            for (unsigned idx : src.lt) {
+                m_todo.push_back(std::make_pair(idx, true));
             }
-            it = src.le.begin(), end = src.le.end();
-            for(; it != end; ++it) {
-                m_todo.push_back(std::make_pair(*it, strict));
+            for (unsigned idx : src.le) {
+                m_todo.push_back(std::make_pair(idx, strict));
             }
             if (strict) {
                 dst.lt.insert(j);
@@ -628,18 +623,16 @@ namespace datalog {
                 s.le.reset();
                 continue;
             }
-            uint_set::iterator it = s.lt.begin(), end = s.lt.end();
-            for(; it != end; ++it) {
-                ext_numeral const& hi = src[*it].inf();
+            for (unsigned idx : s.lt) {
+                ext_numeral const& hi = src[idx].inf();
                 if (hi.is_infinite() || lo.to_rational() >= hi.to_rational()) {
-                    s.lt.remove(*it);
+                    s.lt.remove(idx);
                 }
             }            
-            it = s.le.begin(), end = s.le.end();
-            for(; it != end; ++it) {
-                ext_numeral const& hi = src[*it].inf();
+            for (unsigned idx : s.le) {
+                ext_numeral const& hi = src[idx].inf();
                 if (hi.is_infinite() || lo.to_rational() > hi.to_rational()) {
-                    s.le.remove(*it);
+                    s.le.remove(idx);
                 }
             }            
         }
@@ -662,13 +655,11 @@ namespace datalog {
                 continue;
             }
             uint_set2 const& upper = (*this)[i];
-            uint_set::iterator it = upper.lt.begin(), end = upper.lt.end();
-            for (; it != end; ++it) {
-                conjs.push_back(arith.mk_lt(m.mk_var(i, sig[i]), m.mk_var(*it, sig[*it])));
+            for (unsigned idx : upper.lt) {
+                conjs.push_back(arith.mk_lt(m.mk_var(i, sig[i]), m.mk_var(idx, sig[idx])));
             }
-            it = upper.le.begin(), end = upper.le.end();
-            for (; it != end; ++it) {
-                conjs.push_back(arith.mk_le(m.mk_var(i, sig[i]), m.mk_var(*it, sig[*it])));
+            for (unsigned idx : upper.le) {
+                conjs.push_back(arith.mk_le(m.mk_var(i, sig[i]), m.mk_var(idx, sig[idx])));
             }
         }
         bsimp.mk_and(conjs.size(), conjs.data(), fml);
@@ -676,19 +667,17 @@ namespace datalog {
 
 
     void bound_relation::display_index(unsigned i, uint_set2 const& src, std::ostream & out) const {
-        uint_set::iterator it = src.lt.begin(), end = src.lt.end();
         out << "#" << i;
         if (!src.lt.empty()) {
             out << " < ";
-            for(; it != end; ++it) {
-                out << *it << " ";
+            for (unsigned idx : src.lt) {
+                out << idx << " ";
             }
         }
         if (!src.le.empty()) {
-            it = src.le.begin(), end = src.le.end();
             out << " <= ";
-            for(; it != end; ++it) {
-                out << *it << " ";
+            for (unsigned idx : src.le) {
+                out << idx << " ";
             }
         }
         if (src.lt.empty() && src.le.empty()) {

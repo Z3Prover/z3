@@ -278,6 +278,50 @@ namespace Microsoft.Z3
             => ntvContext.ToArray(Native.Z3_solver_get_units(nCtx, z3solver));
 
         /// <summary>
+        /// Non-unit literals in the solver state.
+        /// </summary>
+        public Z3_ast[] NonUnits
+            => ntvContext.ToArray(Native.Z3_solver_get_non_units(nCtx, z3solver));
+
+        /// <summary>
+        /// Trail of the solver state after a check() call.
+        /// </summary>
+        public Z3_ast[] Trail
+            => ntvContext.ToArray(Native.Z3_solver_get_trail(nCtx, z3solver));
+
+        /// <summary>
+        /// Retrieve congruence closure root of the term t relative to the current search state.
+        /// The function primarily works for SimpleSolver.
+        /// Terms and variables that are eliminated during pre-processing are not visible to the congruence closure.
+        /// </summary>
+        public Z3_ast CongruenceRoot(Z3_ast t)
+        {
+            Debug.Assert(t != IntPtr.Zero);
+            return Native.Z3_solver_congruence_root(nCtx, z3solver, t);
+        }
+
+        /// <summary>
+        /// Retrieve congruence closure sibling of the term t relative to the current search state.
+        /// The function primarily works for SimpleSolver.
+        /// Terms and variables that are eliminated during pre-processing are not visible to the congruence closure.
+        /// </summary>
+        public Z3_ast CongruenceNext(Z3_ast t)
+        {
+            Debug.Assert(t != IntPtr.Zero);
+            return Native.Z3_solver_congruence_next(nCtx, z3solver, t);
+        }
+
+        /// <summary>
+        /// Explain congruence of a and b relative to the current search state.
+        /// </summary>
+        public Z3_ast CongruenceExplain(Z3_ast a, Z3_ast b)
+        {
+            Debug.Assert(a != IntPtr.Zero);
+            Debug.Assert(b != IntPtr.Zero);
+            return Native.Z3_solver_congruence_explain(nCtx, z3solver, a, b);
+        }
+
+        /// <summary>
         /// Checks whether the assertions in the solver are consistent or not.
         /// </summary>
         /// <remarks>
