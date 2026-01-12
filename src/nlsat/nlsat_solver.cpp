@@ -242,7 +242,8 @@ namespace nlsat {
             unsigned               m_stages;
             unsigned               m_irrational_assignments; // number of irrational witnesses
             unsigned               m_levelwise_calls;
-            unsigned               m_levelwise_successes;
+            unsigned               m_levelwise_failures;
+            unsigned               m_lws_initial_fail;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };
@@ -2780,7 +2781,7 @@ namespace nlsat {
             st.update("nlsat simplifications", m_stats.m_simplifications);
             st.update("nlsat irrational assignments", m_stats.m_irrational_assignments);
             st.update("levelwise calls", m_stats.m_levelwise_calls);
-            st.update("levelwise successes", m_stats.m_levelwise_successes);
+            st.update("levelwise failures", m_stats.m_levelwise_failures);
         }
 
         void reset_statistics() {
@@ -4646,8 +4647,8 @@ namespace nlsat {
 
     void solver::record_levelwise_result(bool success) {
         m_imp->m_stats.m_levelwise_calls++;
-        if (success)
-            m_imp->m_stats.m_levelwise_successes++;
+        if (!success)
+            m_imp->m_stats.m_levelwise_failures++;
     }
 
     bool solver::has_root_atom(clause const& c) const {
