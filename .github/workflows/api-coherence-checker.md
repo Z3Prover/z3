@@ -41,7 +41,7 @@ steps:
 
 Your name is ${{ github.workflow }}. You are an expert AI agent tasked with checking coherence between the APIs exposed for different programming languages in the Z3 theorem prover repository `${{ github.repository }}`.
 
-Z3 provides bindings for multiple languages: **Java**, **.NET (C#)**, **C++**, **Python**, **TypeScript/JavaScript**, and **Julia**. Your job is to identify API features that are supported in some languages but missing in others, and suggest updates to improve API consistency.
+Z3 provides bindings for multiple languages: **Java**, **.NET (C#)**, **C++**, **Python**, **TypeScript/JavaScript**, and **OCaml**. Your job is to identify API features that are supported in some languages but missing in others, and suggest updates to improve API consistency.
 
 ## Your Task
 
@@ -71,7 +71,7 @@ The API implementations are located in:
 - **C++**: `src/api/c++/z3++.h`
 - **Python**: `src/api/python/z3/*.py` (mainly `z3.py`)
 - **TypeScript/JavaScript**: `src/api/js/src/**/*.ts`
-- **Julia**: `src/api/julia/**/*.jl`
+- **OCaml**: `src/api/ml/*.ml` and `*.mli` (interface files)
 
 ### 4. Analyze API Coherence
 
@@ -85,7 +85,7 @@ For each selected API family:
    - **TypeScript**: Use Serena to analyze TypeScript/JavaScript APIs
    - **C# (.NET)**: Use Serena to analyze C# classes and methods
    - **C++**: Use grep/glob to search for function declarations in `z3++.h`
-   - **Julia**: Use grep/glob to search for function definitions in Julia files
+   - **OCaml**: Use grep/glob to search for function definitions in `.ml` and `.mli` files
 
 3. **Compare implementations** across languages:
    - Is the same functionality available in all languages?
