@@ -223,12 +223,12 @@ namespace nla {
         unsigned_vector m_split_count;                  // var -> number of times variable has been split
 
         unsigned           m_prop_qhead = 0;            // head into propagation queue
-        lp::constraint_index m_conflict = lp::null_ci;
-        u_dependency *m_conflict_dep = nullptr;
+        lp::constraint_index m_conflict;
+        svector<lp::constraint_index> m_conflict_dep;
 
         u_dependency_manager m_dm;
         dep_intervals        m_di;
-        indexed_uint_set     m_conflict_marked_bounds, m_conflict_marked_ci;
+        indexed_uint_set     m_conflict_marked_ci;
 
         void propagate();
         bool decide(); 
@@ -238,40 +238,33 @@ namespace nla {
         void init_levels();
         void pop_bound();
         void mark_dependencies(u_dependency *d);
+        void mark_dependencies(lp::constraint_index ci);
         bool should_propagate() const { return m_prop_qhead < m_bounds1.size(); }
 
         // assuming variables have bounds determine if polynomial has lower/upper bounds
         void interval(dd::pdd p, scoped_dep_interval &iv);
 
-        void set_conflict(lp::constraint_index ci, u_dependency *d) {
-            SASSERT(d || ci != lp::null_ci);
+        void set_conflict(lp::constraint_index ci) {
             m_conflict = ci;
-            m_conflict_dep = d;
         }
-        void set_conflict(lpvar v) { 
-            m_conflict_dep = m_dm.mk_join(lo_dep(v), hi_dep(v));
+        void set_conflict_var(lpvar v) { 
+            m_conflict_dep.push_back(lo_constraint(v));
+            m_conflict_dep.push_back(hi_constraint(v));
             m_conflict = resolve_variable(v, lo_constraint(v), hi_constraint(v));
         }
-        void reset_conflict() { m_conflict = lp::null_ci; m_conflict_dep = nullptr; }
-        bool is_conflict() const { return m_conflict_dep != nullptr || m_conflict != lp::null_ci; }
+        void reset_conflict() { m_conflict = lp::null_ci; m_conflict_dep.reset(); }
+        bool is_conflict() const { return m_conflict != lp::null_ci; }
+        bool is_decision(lp::constraint_index ci) const {
+            return std::holds_alternative<assumption_justification>(m_justifications[ci]);
+        }
 
-        u_dependency *constraint2dep(lp::constraint_index ci) { return m_dm.mk_leaf(2 * ci); }
-        u_dependency *bound2dep(unsigned bound_index) { return m_dm.mk_leaf(2 * bound_index + 1); }
-        bool is_constraintdep(unsigned id)   const { return id % 2 == 0; }
-        lp::constraint_index dep2constraint(unsigned id) const { 
-            SASSERT(is_constraintdep(id));
-            return id / 2; 
-        }
-        unsigned dep2bound(unsigned id) const { 
-            SASSERT(!is_constraintdep(id));
-            return id / 2; 
-        }
+        u_dependency *constraint2dep(lp::constraint_index ci) { return m_dm.mk_leaf(ci); }
 
         indexed_uint_set m_tabu;
         unsigned_vector m_var2level, m_level2var;
 
         unsigned get_bound_index(dd::pdd const& p, lp::lconstraint_kind k) const;
-        void push_bound(dd::pdd const &p, lp::lconstraint_kind k, rational const &b, lp::constraint_index ci);
+        void push_bound(lp::constraint_index ci);
         unsigned get_lower(lpvar v) const { return m_lower[pddm.mk_var(v).index()]; }
         unsigned get_upper(lpvar v) const { return m_upper[pddm.mk_var(v).index()]; }
 
@@ -328,7 +321,7 @@ namespace nla {
         };
         repair_var_info find_bounds(lpvar v);
         unsigned max_level(constraint const &c) const;
-        unsigned get_level(justification const &j) const;
+        unsigned get_level(justification const& j) const;
         lp::constraint_index repair_variable(lpvar v);
         bool find_split(lpvar &v, rational &r, lp::lconstraint_kind &k);
         void set_in_bounds(lpvar v);
@@ -343,7 +336,11 @@ namespace nla {
         lp::constraint_index add_constraint(dd::pdd p, lp::lconstraint_kind k, justification j);        
         lp::constraint_index add_var_bound(lp::lpvar v, lp::lconstraint_kind k, rational const &rhs, justification j);
         
-        std::pair<unsigned_vector, unsigned_vector> antecedents(u_dependency *d) const;
+        unsigned_vector antecedents(u_dependency *d) const;
+
+
+        justification translate_j(std::function<lp::constraint_index(lp::constraint_index)> const &f,
+                                justification const &j) const;
 
         // initialization
         void init_solver();
@@ -351,7 +348,6 @@ namespace nla {
         void simplify();
         void init_occurs();
         void init_occurs(lp::constraint_index ci);
-        void pop_constraint();
         void remove_occurs(lp::constraint_index ci);
 
         lp::constraint_index factor(lp::constraint_index ci);
@@ -360,6 +356,7 @@ namespace nla {
         unsigned degree_of_var_in_constraint(lpvar v, lp::constraint_index ci) const;
         factorization factor(lpvar v, lp::constraint_index ci);  
         lp::constraint_index resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci);
+        lp::constraint_index resolve(lp::constraint_index c1, lp::constraint_index c2);
 
         bool propagation_cycle(lpvar v, rational const& value, bool is_upper, unsigned level, lp::constraint_index ci) const;
         bool constraint_is_true(lp::constraint_index ci) const;
@@ -383,6 +380,33 @@ namespace nla {
         lp::constraint_index multiply(lp::constraint_index left, lp::constraint_index right);
         lp::constraint_index divide(lp::constraint_index ci, lp::constraint_index divisor, dd::pdd d);
         lp::constraint_index substitute(lp::constraint_index ci, lp::constraint_index ci_eq, lpvar v, dd::pdd p);
+
+        static unsigned num_constraints(justification const &j);
+        static lp::constraint_index get_constraint_index(justification const &j, unsigned index);
+
+        struct justification_iterator {
+            justification const& j;
+            unsigned sz;
+            unsigned index;
+
+        public:
+            justification_iterator(justification const &j, unsigned index) : j(j), sz(num_constraints(j)), index(index) {}
+            bool operator==(justification_iterator const& other) const { return index == other.index; }
+            bool operator!=(justification_iterator const& other) const { return index != other.index; }
+            justification_iterator& operator++() { ++index; return *this; }
+            lp::constraint_index operator*() const { return get_constraint_index(j, index); }
+
+            static justification_iterator begin(justification const& j) { return justification_iterator(j, 0); }
+            static justification_iterator end(justification const& j) { return justification_iterator(j, num_constraints(j)); }
+        };
+
+        struct justification_range {
+            stellensatz2 const &s;
+            justification const& j;
+            justification_range(stellensatz2 const &s, justification const& j) : s(s), j(j) {}
+            justification_iterator begin() const { return justification_iterator::begin(j); }
+            justification_iterator end() const { return justification_iterator::end(j); }
+        };
 
         bool is_int(svector<lp::lpvar> const& vars) const;
         bool is_int(dd::pdd const &p) const;

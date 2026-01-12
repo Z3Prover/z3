@@ -147,22 +147,6 @@ namespace nla {
         return r;
     }
 
-    void stellensatz2::pop_constraint() {
-        auto const &[p, k] = m_constraints.back();
-        auto const &j = m_justifications.back();
-        bool is_decision = std::holds_alternative<assumption_justification>(j);
-        m_constraint_index.erase({p.index(), k});    
-        m_constraints.pop_back();       
-        m_levels.pop_back();
-        m_justifications.pop_back();
-        if (is_decision) {
-            m_dm.pop_scope(1);
-            --m_num_scopes;
-        }
-        if (k != lp::lconstraint_kind::EQ)
-            pop_bound();
-    }
-
     void stellensatz2::init_solver() {
         m_ctrail.reset(); // pops constraints
         m_num_scopes = 0;
@@ -318,33 +302,14 @@ namespace nla {
             m_dm.push_scope();            
         }
 
-        auto bound = -p.offset();
-        auto q = p + bound;
+
         m_constraints.push_back({p, k});
         m_levels.push_back(level);
-        m_justifications.push_back(j);
-        if (k != lp::lconstraint_kind::EQ) {
-            if (q.is_minus()) {
-                q = -q;
-                SASSERT(q.is_var());
-                bound = -bound;
-                k = flip_kind(k);
-            }
-            push_bound(q, k, bound, ci);
-        }
+        m_justifications.push_back(j);        
         m_constraint_index.insert({p.index(), k}, ci);
-        ++c().lp_settings().stats().m_stellensatz.m_num_constraints;
-        
+        push_bound(ci);
+        ++c().lp_settings().stats().m_stellensatz.m_num_constraints;        
         m_has_occurs.reserve(ci + 1);
-        struct undo_constraint : public trail {
-            stellensatz2 &s;
-            undo_constraint(stellensatz2& s): s(s) {}
-            void undo() override {
-                s.pop_constraint();
-            }
-        };
-        m_ctrail.push_scope();
-        m_ctrail.push(undo_constraint(*this));
         return ci;
     }
 
@@ -356,20 +321,42 @@ namespace nla {
         return bound_map[p.index()];
     }
 
-    void stellensatz2::push_bound(dd::pdd const &p, lp::lconstraint_kind k, rational const &b, lp::constraint_index ci) {
+    void stellensatz2::push_bound(lp::constraint_index ci) {
+        auto [p, k] = m_constraints[ci];
+        auto bound = -p.offset();
+        auto q = p + bound;
+        if (q.is_minus()) {
+            q = -q;
+            SASSERT(q.is_var());
+            bound = -bound;
+            k = flip_kind(k);
+        }
         bool is_lower = k == lp::lconstraint_kind::GE || k == lp::lconstraint_kind::GT;
         auto var_index = p.index();
         auto last_index = get_bound_index(p, k);
-        (is_lower ? m_lower : m_upper).reserve(var_index + 1, UINT_MAX);
-        (is_lower ? m_lower : m_upper)[var_index] = m_bounds.size();
-        m_bounds.push_back(bound_info{k, b, last_index, ci, p});
+        auto &bound_map = is_lower ? m_lower : m_upper;
+        bound_map.reserve(var_index + 1, UINT_MAX);
+        bound_map[var_index] = m_bounds.size();
+        m_bounds.push_back(bound_info{k, bound, last_index, ci, p});
     }
 
     void stellensatz2::pop_bound() {
         auto const &[k, bound, last_bound, ci, p] = m_bounds.back();
         bool is_lower = k == lp::lconstraint_kind::GE || k == lp::lconstraint_kind::GT;
-        (is_lower ? m_lower : m_upper)[p.index()] = last_bound;
+        auto &bound_map = is_lower ? m_lower : m_upper;
+        bound_map[p.index()] = last_bound;
         m_bounds.pop_back();
+    }
+
+    lp::constraint_index stellensatz2::resolve(lp::constraint_index conflict, lp::constraint_index ci) {
+        SASSERT(ci != lp::null_ci);
+        if (conflict == lp::null_ci)
+            return lp::null_ci;
+        // TODO: the variable to resolve on occurs in ci and has to be extracted from ci or the justification for ci.
+        // It is likely adequate to suppose ci is justified by bounds propagation and the variable is in the propagated
+        // bound. It could also be that ci is a decision. Note that extracting variables for resolution is optional. we
+        // will anyhow end up flipping the last decision. v is maximal variable in ci?
+        return lp::null_ci;
     }
 
     lp::constraint_index stellensatz2::resolve_variable(lpvar x, lp::constraint_index ci,
@@ -637,49 +624,13 @@ namespace nla {
         if (std::holds_alternative<external_justification>(j)) {
             external.push_back(ci);
         }
-        else if (std::holds_alternative<multiplication_justification>(j)) {
-            auto &m = std::get<multiplication_justification>(j);
-            explain_constraint(m.left, external, assumptions);
-            explain_constraint(m.right, external, assumptions);
-        }
-        else if (std::holds_alternative<eq_justification>(j)) {
-            auto &m = std::get<eq_justification>(j);
-            explain_constraint(m.left, external, assumptions);
-            explain_constraint(m.right, external, assumptions);
-        }
-        else if (std::holds_alternative<division_justification>(j)) {
-            auto &m = std::get<division_justification>(j);
-            explain_constraint(m.ci, external, assumptions);
-            explain_constraint(m.divisor, external, assumptions);
-        }
-        else if (std::holds_alternative<substitute_justification>(j)) {
-            auto &m = std::get<substitute_justification>(j);
-            explain_constraint(m.ci, external, assumptions);
-            explain_constraint(m.ci_eq, external, assumptions);
-        }
-        else if (std::holds_alternative<propagation_justification>(j)) {
-            auto &m = std::get<propagation_justification>(j);
-            for (auto c : m.cs)
-                explain_constraint(c, external, assumptions);
-        }
-        else if (std::holds_alternative<addition_justification>(j)) {
-            auto &m = std::get<addition_justification>(j);
-            explain_constraint(m.left, external, assumptions);
-            explain_constraint(m.right, external, assumptions);
-        }
-        else if (std::holds_alternative<multiplication_poly_justification>(j)) {
-            auto &m = std::get<multiplication_poly_justification>(j);
-            explain_constraint(m.ci, external, assumptions);
-        }
         else if (std::holds_alternative<assumption_justification>(j)) {
             assumptions.push_back(ci);
         }
-        else if (std::holds_alternative<gcd_justification>(j)) {
-            auto &m = std::get<gcd_justification>(j);
-            explain_constraint(m.ci, external, assumptions);
+        else {
+            for (auto cij : justification_range(*this, j))
+                explain_constraint(cij, external, assumptions);
         }
-        else
-            UNREACHABLE();
     }
 
     //
@@ -976,16 +927,27 @@ namespace nla {
         }
         scoped_dep_interval x(m), lo(m), hi(m);        
         auto v = p.var();
-        auto lb = m_lower[v];
+        auto lb = get_lower(v);
         if (lb == UINT_MAX) {
             m.set_lower_is_inf(x, true);
         }
         else {
-            auto lo = m_bounds1[lb];
+            auto const& lo = m_bounds[lb];
             m.set_lower_is_inf(x, false);
             m.set_lower_is_open(x, lo.m_kind == lp::lconstraint_kind::GT);
             m.set_lower(x, lo.m_value);
-            m.set_lower_dep(x, bound2dep(lb));
+            m.set_lower_dep(x, constraint2dep(lo.m_ci));
+        }
+        auto ub = get_upper(v);
+        if (ub == UINT_MAX) {
+            m.set_upper_is_inf(x, true);
+        }
+        else {
+            auto const& hi = m_bounds[ub];
+            m.set_upper_is_inf(x, false);
+            m.set_upper_is_open(x, hi.m_kind == lp::lconstraint_kind::LT);
+            m.set_upper(x, hi.m_value);
+            m.set_upper_dep(x, constraint2dep(hi.m_ci));
         }
         interval(p.hi(), hi);
         interval(p.lo(), lo);
@@ -1035,73 +997,79 @@ namespace nla {
                     move_up(v); 
     }
 
-
-    // 
+    //
     // Conflict resolution is similar to CDCL
     // walk m_bounds based on the propagated bounds
     // flip the last decision and backjump to the UIP.
     //     
-    lbool stellensatz2::resolve_conflict() { 
-        TRACE(arith, 
-              tout << "resolving conflict: "; display_constraint(tout, m_conflict) << "\n"; display(tout););
+    lbool stellensatz2::resolve_conflict() {
+        TRACE(arith, tout << "resolving conflict: "; display_constraint(tout, m_conflict) << "\n"; display(tout););
         SASSERT(is_conflict());
-        m_conflict_marked_bounds.reset();
+
         m_conflict_marked_ci.reset();
-        mark_dependencies(m_conflict_dep);
         unsigned conflict_level = 0;
-        m_core.reset();
-        for (auto d : m_conflict_marked_bounds) {
-            auto &b = m_bounds1[d];
-            conflict_level = std::max(conflict_level, b.m_level);
+        for (auto ci : m_conflict_dep) {
+            mark_dependencies(ci);
+            conflict_level = std::max(conflict_level, m_levels[ci]);
         }
+
         bool found_decision = false;
-        TRACE(arith, tout << "conflict level " << conflict_level << " bounds: " << m_conflict_marked_bounds 
-            << " constraints: " << m_conflict_marked_ci << "\n");
-        while (!found_decision && !m_bounds1.empty() && !m_conflict_marked_bounds.empty()) {
-            while (!m_conflict_marked_bounds.contains(m_bounds1.size() - 1))
-                pop_bound();
+        TRACE(arith, tout << "conflict level " << conflict_level << " constraints: " << m_conflict_marked_ci << "\n");
+        unsigned ci = m_constraints.size();
+        unsigned sz = ci;
+        while (!found_decision && ci > 0 && !m_conflict_marked_ci.empty()) {
+            --ci;
+            if (!m_conflict_marked_ci.contains(ci))
+                continue;
 
-            auto const &[v, k, value, level, last_bound, is_decision, dep, ci] = m_bounds1.back();
-
-            mark_dependencies(dep);
-            m_conflict_marked_bounds.remove(m_bounds1.size() - 1);
-            m_conflict = resolve_variable(v, m_conflict, ci);  // adds assumptions..
-            if (conflict_level == 0 && ci != lp::null_ci)
+            mark_dependencies(ci);
+            m_conflict_marked_ci.remove(ci);
+            m_conflict = resolve(m_conflict, ci);
+            if (conflict_level == 0)
                 m_core.push_back(ci);
-            found_decision = is_decision;
-            TRACE(arith, tout << "num bounds: " << m_bounds1.size() << "\n";
-                  tout << "resolving on v" << v << " at level " << level << " is_decision: " << is_decision << "\n";
-                  display_constraint(tout, ci) << "\n"; tout << "new conflict: ";
-                  display_constraint(tout, m_conflict) << "\n";
-            );
+
+            found_decision = is_decision(ci);
+
+            TRACE(arith, tout << "num constraints: " << m_constraints.size() << "\n";
+                  tout << "is_decision: " << found_decision << "\n"; display_constraint(tout, ci) << "\n";
+                  tout << "new conflict: "; display_constraint(tout, m_conflict) << "\n";);
         }
         SASSERT(found_decision || conflict_level == 0);
         SASSERT(!found_decision || conflict_level != 0);
         if (conflict_level == 0) {
+            m_core.reset();
             for (auto ci : m_conflict_marked_ci)
                 m_core.push_back(ci);
-            if (m_conflict != lp::null_ci)
-                m_core.push_back(m_conflict);
             reset_conflict();
-            //reset_bounds();
             return l_false;
         }
         if (constraint_is_conflict(m_conflict)) {
+            m_core.reset();
             m_core.push_back(m_conflict);
             reset_conflict();
-            //reset_bounds();
             return l_false;
         }
 
-        auto [v, k, value, level, last_bound, is_decision, dep, ci] = m_bounds1.back();
-        SASSERT(is_decision);
-        while (!m_bounds1.empty() && !m_conflict_marked_bounds.contains(m_bounds1.size() - 1))
-            pop_bound();
+        SASSERT(is_decision(ci));
+
+        svector<lp::constraint_index> deps;
+        unsigned propagation_level = 0;
+        for (auto ci : m_conflict_marked_ci) {
+            propagation_level = std::max(propagation_level, m_levels[ci]);
+            deps.push_back(ci);
+        }
+
+        // replace decision at level ci by its negation
+        // replay constraints below sz that are below propagation level
+        // replay constraint above sz.
+
+        lp::constraint_index head = ci, tail = ci + 1;
+        auto &[p, k] = m_constraints[head];
         switch (k) {
         case lp::lconstraint_kind::GE:
-            if (var_is_int(v)) {
+            if (is_int(p)) {
                 k = lp::lconstraint_kind::LE;
-                value = value - 1;
+                p = p - rational(1);
             }
             else
                 k = lp::lconstraint_kind::LT;
@@ -1109,44 +1077,179 @@ namespace nla {
         case lp::lconstraint_kind::GT: k = lp::lconstraint_kind::LE; break;
         case lp::lconstraint_kind::LT: k = lp::lconstraint_kind::GE; break;
         case lp::lconstraint_kind::LE:
-            if (var_is_int(v)) {
+            if (is_int(p)) {
                 k = lp::lconstraint_kind::GE;
-                value = value + 1;
+                p = p + rational(1);
             }
             else
                 k = lp::lconstraint_kind::GT;
-            break;        
+            break;
         }
-        dep = nullptr;
-        unsigned propagation_level = 0;
-        for (auto d : m_conflict_marked_bounds) {
-            dep = m_dm.mk_join(bound2dep(d), dep);
-            propagation_level = std::max(propagation_level, m_bounds1[d].m_level);
-        }        
-        for (auto ci : m_conflict_marked_ci)
-            dep = m_dm.mk_join(constraint2dep(ci), dep);
-        m_prop_qhead = m_bounds1.size();
-        bool is_upper = (k == lp::lconstraint_kind::LE) || (k == lp::lconstraint_kind::LT);
-        NOT_IMPLEMENTED_YET();
-        last_bound =  m_lower[v];
-        m_lower[v] = m_bounds1.size(); 
+        // propagate negated constraint
+        m_justifications[head] = propagation_justification(deps);
+        m_levels[head] = propagation_level;
+        m_num_scopes = propagation_level;
+        ++head;
+        // replay other constraints
+        svector<lp::constraint_index> tail2head;
+        tail2head.resize(m_constraints.size() - ci);
+        auto translate_ci = [&](lp::constraint_index old_ci) -> lp::constraint_index {
+            return old_ci < sz ? old_ci : tail2head[sz - old_ci];
+        };
+        for (; tail < m_constraints.size(); ++tail) {
+            auto level = get_level(m_justifications[tail]);
+            if (tail < sz && level > propagation_level)
+                continue;
+            m_constraints[head] = m_constraints[tail];
+            m_justifications[head] = translate_j(translate_ci, m_justifications[tail]);
+            m_levels[head] = get_level(m_justifications[tail]);
+            if (std::holds_alternative<assumption_justification>(m_justifications[head]))
+                m_levels[head] = ++m_num_scopes;
+            tail2head[sz - tail] = head;
+            ++head;
+        }
+        m_constraints.shrink(head);
+        m_justifications.shrink(head);
+        m_levels.shrink(head);
+        // re-insert bounds
+        for (; m_bounds.size() >= ci;)
+            pop_bound();
+        for (; m_bounds.size() < head;)
+            push_bound(m_bounds.size());
 
-        m_bounds1.push_back(bound_info1(v, k, value, propagation_level, last_bound, dep, m_conflict));
-        // set the value within bounds if the bounds are consistent.
-        set_in_bounds(v);
-        TRACE(arith, tout << "scopes " << m_num_scopes << "\n";
-              display_bound(tout << "backjump ", m_bounds1.size() - 1) << "\n");
         SASSERT(well_formed_last_bound());
         reset_conflict();
-        return l_undef; 
-    }   
+        m_prop_qhead = ci;
+        return l_undef;
+    }
+
+    stellensatz2::justification stellensatz2::translate_j(std::function<lp::constraint_index(lp::constraint_index)> const& f,
+        justification const& j) const {
+        return std::visit([&](auto const& arg) -> justification {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, bound_propagation_justification>) {
+                svector<lp::constraint_index> cs;
+                for (auto ci : arg.cs)
+                    cs.push_back(f(ci));
+                return bound_propagation_justification{f(arg.ci), cs};
+            }
+            else if constexpr (std::is_same_v<T, assumption_justification>) {
+                return assumption_justification{};
+            }
+            else if constexpr (std::is_same_v<T, external_justification>) {
+                return external_justification{arg.dep};
+            }
+            else if constexpr (std::is_same_v<T, gcd_justification>) {
+                return gcd_justification{f(arg.ci)};
+            }
+            else if constexpr (std::is_same_v<T, substitute_justification>) {
+                return substitute_justification{f(arg.ci), f(arg.ci_eq), arg.v, arg.p};
+            }
+            else if constexpr (std::is_same_v<T, addition_justification>) {
+                return addition_justification{f(arg.left), f(arg.right)};
+            }
+            else if constexpr (std::is_same_v<T, division_justification>) {
+                return division_justification{f(arg.ci), f(arg.divisor)};
+            }
+            else if constexpr (std::is_same_v<T, eq_justification>) {
+                return eq_justification{f(arg.left), f(arg.right)};
+            }
+            else if constexpr (std::is_same_v<T, multiplication_justification>) {
+                return multiplication_justification{f(arg.left), f(arg.right)};
+            }
+            else if constexpr (std::is_same_v<T, multiplication_poly_justification>) {
+                return multiplication_poly_justification{f(arg.ci), arg.p};
+            }
+            else {
+                UNREACHABLE();
+                return arg;
+            }
+        }, j);
+    }
 
     void stellensatz2::mark_dependencies(u_dependency* d) { 
-        auto [bounds, cdeps] = antecedents(d);
+        auto cdeps = antecedents(d);
         for (auto a : cdeps)
             m_conflict_marked_ci.insert(a);
-        for (auto a : bounds)
-            m_conflict_marked_bounds.insert(a);
+    }
+
+    void stellensatz2::mark_dependencies(lp::constraint_index ci) {
+        for (auto cij : justification_range(*this, m_justifications[ci]))
+            m_conflict_marked_ci.insert(cij);
+    }
+
+    lp::constraint_index stellensatz2::get_constraint_index(justification const& j, unsigned index) {
+        if (std::holds_alternative<bound_propagation_justification>(j)) {
+            auto const &bpj = std::get<bound_propagation_justification>(j);
+            return index == 0 ? bpj.ci : bpj.cs[index - 1];
+        }
+        if (std::holds_alternative<assumption_justification>(j)) {
+            UNREACHABLE();
+        }
+        if (std::holds_alternative<external_justification>(j)) {
+            UNREACHABLE();
+        }
+        if (std::holds_alternative<gcd_justification>(j)) {
+            SASSERT(index == 0);
+            return std::get<gcd_justification>(j).ci;
+        }
+        if (std::holds_alternative<substitute_justification>(j)) {
+            SASSERT(index < 2);
+            auto const &sj = std::get<substitute_justification>(j);
+            return index == 0 ? sj.ci : sj.ci_eq;
+        }
+        if (std::holds_alternative<addition_justification>(j)) {
+            SASSERT(index < 2);
+            auto const &aj = std::get<addition_justification>(j);
+            return index == 0 ? aj.left : aj.right;
+        }
+        if (std::holds_alternative<division_justification>(j)) {
+            SASSERT(index < 2);
+            auto const &dj = std::get<division_justification>(j);
+            return index == 0 ? dj.ci : dj.divisor;
+        }
+        if (std::holds_alternative<eq_justification>(j)) {
+            SASSERT(index < 2);
+            auto const &ej = std::get<eq_justification>(j);
+            return index == 0 ? ej.left : ej.right;
+        }
+        if (std::holds_alternative<multiplication_justification>(j)) {
+            SASSERT(index < 2);
+            auto const &mj = std::get<multiplication_justification>(j);
+            return index == 0 ? mj.left : mj.right;
+        }
+        if (std::holds_alternative<multiplication_poly_justification>(j)) {
+            SASSERT(index == 0);
+            return std::get<multiplication_poly_justification>(j).ci;
+        }
+        UNREACHABLE();
+        return lp::null_ci;
+    
+    }
+
+    unsigned stellensatz2::num_constraints(justification const &j) {
+        if (std::holds_alternative<bound_propagation_justification>(j)) 
+            return 1 + std::get<bound_propagation_justification>(j).cs.size();
+        if (std::holds_alternative<assumption_justification>(j))
+            return 0;
+        if (std::holds_alternative<external_justification>(j))
+            return 0;
+        if (std::holds_alternative<gcd_justification>(j)) 
+            return 1;
+        if (std::holds_alternative<substitute_justification>(j)) 
+            return 2;
+        if (std::holds_alternative<addition_justification>(j))
+            return 2;
+        if (std::holds_alternative<division_justification>(j))
+            return 2;
+        if (std::holds_alternative<eq_justification>(j))
+            return 2;
+        if (std::holds_alternative<multiplication_justification>(j))
+            return 2;
+        if (std::holds_alternative<multiplication_poly_justification>(j))
+            return 1;
+        UNREACHABLE();
+        return 0;
     }
 
     void stellensatz2::propagate() {
@@ -1159,7 +1262,7 @@ namespace nla {
             auto v = m_bounds1[m_prop_qhead].m_var;
             if (var_is_bound_conflict(v)) {
                 TRACE(arith, display_var_range(tout << "var is bound conflict v" << v << " ", v) << "\n");
-                set_conflict(v);
+                set_conflict_var(v);
                 return;
             }
             for (unsigned i = 0; i < m_occurs[v].size(); ++i) {
@@ -1174,7 +1277,8 @@ namespace nla {
                 if (constraint_is_bound_conflict(ci, d)) {
                     TRACE(arith, tout << "constraint is bound conflict: "; display_constraint(tout, ci) << "\n";);
                     d = m_dm.mk_join(constraint2dep(ci), d);
-                    set_conflict(ci, d);
+                    NOT_IMPLEMENTED_YET(); // use dep
+                    set_conflict(ci);
                     return;
                 }
 
@@ -1186,9 +1290,9 @@ namespace nla {
                     TRACE(arith, display_constraint(tout << "constraint is propagating ", ci) << "\n";
                           tout << "v" << w << " " << k << " " << value << "\n";);
 
-                    auto [bounds, cs] = antecedents(d);
-                    for (auto a : bounds)
-                        level = std::max(level, m_bounds1[a].m_level);
+                    auto cs = antecedents(d);
+                    for (auto a : cs)
+                        level = std::max(level, m_levels[a]);
                     SASSERT(level <= m_num_scopes);
                     bool is_upper = k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::LT;
                     bool is_strict = k == lp::lconstraint_kind::LT || k == lp::lconstraint_kind::GT;
@@ -1204,7 +1308,7 @@ namespace nla {
 
                     if (var_is_bound_conflict(w)) {
                         TRACE(arith, display_var_range(tout << "bound conflict v" << w << " ", w) << "\n");
-                        set_conflict(w);
+                        set_conflict_var(w);
                         return;
                     }
 
@@ -1262,7 +1366,7 @@ namespace nla {
                 continue;
             SASSERT(constraint_is_false(conflict));
             if (constraint_is_conflict(conflict)) {
-                set_conflict(conflict, nullptr);
+                set_conflict(conflict);
                 return true;
             }
 
@@ -1275,25 +1379,9 @@ namespace nla {
 
             auto p = m_constraints[conflict].p;
             SASSERT(!p.free_vars().empty());
-            if (!p.free_vars().contains(w)) {
+            if (!p.free_vars().contains(w)) 
                 // backtrack decision to max variable in ci
-                level = std::min(max_level(m_constraints[conflict]) - 1, level);
-                continue;
-            }
-
-            if (is_fixed(w) && level > num_fixed) {
-                // swap this variable level with another so it is solved before non-fixed variables
-                IF_VERBOSE(3, verbose_stream() << "fixed v" << w << " cannot be repaired " << level << "\n";
-                           display_constraint(verbose_stream(), conflict) << "\n");
-                move_up(w);
-                ++num_fixed;
-                --level;
-                continue;
-            }
-
-            // variable wasn't repaired.
-            // Repair other variables, and then case split on variables that occur in non-repaired constraints.
-            //
+                level = std::min(max_level(m_constraints[conflict]) - 1, level);           
         }
 
         if (m_num_scopes < 4 && find_split(w, value, k)) {        
@@ -1301,12 +1389,7 @@ namespace nla {
             bool is_upper = k == lp::lconstraint_kind::LE;
             SASSERT(!is_upper || !has_lo(w) || lo_val(w) <= value);
             SASSERT( is_upper || !has_hi(w) || hi_val(w) >= value);
-            ++m_num_scopes;
-            m_dm.push_scope();
-            auto last_bound = is_upper ? get_upper(w) : get_lower(w);
-             m_lower[w] = m_bounds1.size();
-            auto bdep = bound2dep(m_bounds1.size());
-            m_bounds1.push_back(bound_info1(w, k, value, m_num_scopes, last_bound, bdep));
+            add_constraint(pddm.mk_var(w) - value, k, assumption_justification());
             m_values[w] = value;
             TRACE(arith, tout << "decide v" << w << " " << k << " " << value << "\n");
             IF_VERBOSE(3, verbose_stream() << "decide v" << w << " " << k << " " << value << "\n");
@@ -1329,53 +1412,11 @@ namespace nla {
         return level;
     }
 
-    unsigned stellensatz2::get_level(justification const &j) const {
-        if (std::holds_alternative<external_justification>(j))
-            return 0;
-        if (std::holds_alternative<assumption_justification>(j))
-            return 0;
-        if (std::holds_alternative<gcd_justification>(j))
-            return m_levels[std::get<gcd_justification>(j).ci];
-        if (std::holds_alternative<substitute_justification>(j)) {
-            auto const &sj = std::get<substitute_justification>(j);
-            return std::max(m_levels[sj.ci], m_levels[sj.ci_eq]);
-        }
-        if (std::holds_alternative<addition_justification>(j)) {
-            auto const &aj = std::get<addition_justification>(j);
-            return std::max(m_levels[aj.left], m_levels[aj.right]);
-        }
-        if (std::holds_alternative<division_justification>(j)) {
-            auto const &dj = std::get<division_justification>(j);
-            return std::max(m_levels[dj.ci], m_levels[dj.divisor]);
-        }
-        if (std::holds_alternative<eq_justification>(j)) {
-            auto const &ej = std::get<eq_justification>(j);
-            return std::max(m_levels[ej.left], m_levels[ej.right]);
-        }
-        if (std::holds_alternative<propagation_justification>(j)) {
-            auto const &pj = std::get<propagation_justification>(j);
-            unsigned level = 0;
-            for (auto ci : pj.cs)
-                level = std::max(level, m_levels[ci]);
-            return level;
-        }
-        if (std::holds_alternative<bound_propagation_justification>(j)) {
-            auto const &bj = std::get<bound_propagation_justification>(j);
-            auto level = m_levels[bj.ci];
-            for (auto d : bj.cs)
-                level = std::max(level, m_levels[d]);
-            return level;
-        }
-        if (std::holds_alternative<multiplication_poly_justification>(j)) {
-            auto const &mj = std::get<multiplication_poly_justification>(j);
-            return m_levels[mj.ci];
-        }
-        if (std::holds_alternative<multiplication_justification>(j)) {
-            auto const &mj = std::get<multiplication_justification>(j);
-            return std::max(m_levels[mj.left], m_levels[mj.right]);
-        }
-        UNREACHABLE();
-        return 0;
+    unsigned stellensatz2::get_level(justification const& j) const {
+        unsigned level = 0;
+        for (auto cij : justification_range(*this, j))
+            level = std::max(level, m_levels[cij]);
+        return level;
     }
 
     //
@@ -1554,16 +1595,10 @@ namespace nla {
         return true;
     }
 
-    std::pair<unsigned_vector, unsigned_vector> stellensatz2::antecedents(u_dependency *d) const { 
-        unsigned_vector bounds, cs, deps;
-        m_dm.linearize(d, deps);
-        for (auto dep : deps) {
-            if (is_constraintdep(dep))
-                cs.push_back(dep2constraint(dep));
-            else
-                bounds.push_back(dep2bound(dep));
-        }
-        return {bounds, cs};
+    unsigned_vector stellensatz2::antecedents(u_dependency *d) const { 
+        unsigned_vector cs;
+        m_dm.linearize(d, cs);
+        return cs;
     }
 
 
@@ -1972,14 +2007,11 @@ namespace nla {
             level = level1;
             out << "@ " << level;
         }
-        auto [bounds, cdeps] = antecedents(dep);
         auto deps = antecedents(dep);
         out << ": v" << v << " " << k << " " << val << " " << ((last_bound == UINT_MAX) ? -1 : (int)last_bound)
             << (is_decision ? " d " : " ");
-        if (!bounds.empty())
-            out << "bounds: " << bounds;
-        if (!cdeps.empty())
-            out << "ci: " << cdeps;
+        if (!deps.empty())
+            out << "ci: " << deps;
         if (ci != lp::null_ci)
             out << " (" << ci << ")";
         out << "\n";
@@ -2140,51 +2172,8 @@ namespace nla {
             auto const &j = m_justifications[ci];
 
             display(out, j) << "\n";
-            if (std::holds_alternative<multiplication_justification>(j)) {
-                auto m = std::get<multiplication_justification>(j);
-                todo.push_back(m.left);
-                todo.push_back(m.right);
-            }
-            if (std::holds_alternative<eq_justification>(j)) {
-                auto m = std::get<eq_justification>(j);
-                todo.push_back(m.left);
-                todo.push_back(m.right);
-            }
-            if (std::holds_alternative<propagation_justification>(j)) {
-                auto m = std::get<propagation_justification>(j);
-                todo.append(m.cs);
-            }
-            else if (std::holds_alternative<substitute_justification>(j)) {
-                auto m = std::get<substitute_justification>(j);
-                todo.push_back(m.ci);
-                todo.push_back(m.ci_eq);
-            }
-            else if (std::holds_alternative<division_justification>(j)) {
-                auto m = std::get<division_justification>(j);
-                todo.push_back(m.ci);
-                todo.push_back(m.divisor);
-            }
-            else if (std::holds_alternative<addition_justification>(j)) {
-                auto m = std::get<addition_justification>(j);
-                todo.push_back(m.left);
-                todo.push_back(m.right);
-            }
-            else if (std::holds_alternative<multiplication_poly_justification>(j)) {
-                auto m = std::get<multiplication_poly_justification>(j);
-                todo.push_back(m.ci);
-            }
-            else if (std::holds_alternative<external_justification>(j)) {
-                // do nothing
-            }
-            else if (std::holds_alternative<assumption_justification>(j)) {
-                // do nothing
-            }
-            else if (std::holds_alternative<gcd_justification>(j)) {
-                auto m = std::get<gcd_justification>(j);
-                todo.push_back(m.ci);
-            }
-            else
-                NOT_IMPLEMENTED_YET();
+            for (auto cij : justification_range(*this, j))
+                todo.push_back(cij);
         }
         return out;
     }
