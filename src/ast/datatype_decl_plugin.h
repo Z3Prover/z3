@@ -27,7 +27,6 @@ Revision History:
 #include "util/symbol_table.h"
 #include "util/obj_hashtable.h"
 #include "util/dictionary.h"
-#include "util/optional.h"
 
 
 enum sort_kind {
@@ -184,7 +183,7 @@ namespace datatype {
         mutable sort_ref        m_sort;
         ptr_vector<constructor> m_constructors;
         mutable dictionary<constructor*> m_name2constructor;
-        optional<subterm>       m_subterm;
+        std::option<subterm>       m_subterm;
     public:
         def(ast_manager& m, util& u, symbol const& n, unsigned class_id, unsigned num_params, sort * const* params):
             m(m),
