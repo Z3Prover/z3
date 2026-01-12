@@ -151,9 +151,7 @@ namespace datalog {
                 break;
             }
             res.push_back(next);
-            sit = specs.begin();
-            for(; sit!=send; ++sit) {
-                rel_spec & s = *sit;
+            for (rel_spec& s : specs) {
                 while (!s.empty() && s.back()==next) {
                     s.pop_back();
                 }

@@ -96,7 +96,7 @@ namespace datalog {
         new_tail.append(phi);
         for (auto const& kv : done_selects)  {
             expr_ref tmp(m);
-            tmp = &kv.m_key;
+            tmp = kv.m_key;
             new_tail.push_back(m.mk_eq(kv.m_value, tmp));
         }
         proof_ref pr(m);
