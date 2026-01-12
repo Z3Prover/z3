@@ -3395,7 +3395,12 @@ namespace Microsoft.Z3
         /// <seealso cref="Sort.ToString()"/>
         public Z3_ast_print_mode PrintMode
         {
-            set { Native.Z3_set_ast_print_mode(nCtx, (uint)value); }
+            get { return m_print_mode; }
+            set 
+            { 
+                Native.Z3_set_ast_print_mode(nCtx, (uint)value);
+                m_print_mode = value;
+            }
         }
         #endregion
 
@@ -4943,6 +4948,7 @@ namespace Microsoft.Z3
         internal Native.Z3_error_handler m_n_err_handler = null;
         internal static Object creation_lock = new Object();
         internal IntPtr nCtx { get { return m_ctx; } }
+        private Z3_ast_print_mode m_print_mode = Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT;
 
         internal void NativeErrorHandler(IntPtr ctx, Z3_error_code errorCode)
         {

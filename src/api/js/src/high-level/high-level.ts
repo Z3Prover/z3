@@ -382,6 +382,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       check(Z3.interrupt(contextPtr));
     }
 
+    function setPrintMode(mode: Z3_ast_print_mode): void {
+      Z3.set_ast_print_mode(contextPtr, mode);
+    }
+
     function isModel(obj: unknown): obj is Model<Name> {
       const r = obj instanceof ModelImpl;
       r && _assertContext(obj);
@@ -4487,6 +4491,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       // Functions //
       ///////////////
       interrupt,
+      setPrintMode,
       isModel,
       isAst,
       isSort,
