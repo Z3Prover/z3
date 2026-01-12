@@ -19,10 +19,10 @@ Revision History:
 #include "util/trace.h"
 #include "util/debug.h"
 #include "util/memory_manager.h"
-#include "util/optional.h"
+#include <optional>
 
 static void tst1() {
-    optional<int> v;
+    std::optional<int> v;
     ENSURE(!v);
     ENSURE(v == false);
     v = 10;
@@ -45,7 +45,7 @@ struct OptFoo {
 };
 
 static void tst2() {
-    optional<OptFoo> v;
+    std::optional<OptFoo> v;
     ENSURE(!v);
     v = OptFoo(10, 20);
     ENSURE(v->m_x == 10);
@@ -57,7 +57,7 @@ static void tst2() {
 }
 
 static void tst3() {
-    optional<int *> v;
+    std::optional<int *> v;
     ENSURE(!v);
     int x = 10;
     v = &x;

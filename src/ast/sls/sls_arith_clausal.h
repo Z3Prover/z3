@@ -18,7 +18,7 @@ Author:
 #pragma once
 
 #include "util/checked_int64.h"
-#include "util/optional.h"
+#include <optional>
 #include "util/nat_set.h"
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
