@@ -247,32 +247,15 @@ namespace nlsat {
                 return coeff;
             }
 
-            // Second pass: pick the non-constant coefficient with minimal (total_degree, size, max_var).
-            polynomial_ref best(m_pm);
-            unsigned best_td = 0;
-            unsigned best_sz = 0;
-            var best_mv = null_var;
-            for (unsigned j = 0; j <= deg; ++j) {
+            // Second pass : pick the first non-vanishing
+            for (unsigned j = deg + 1; j-- > 0; ) {
                 coeff = m_pm.coeff(p, x, j);
                 if (!coeff || is_zero(coeff))
                     continue;
-                if (m_am.eval_sign_at(coeff, sample()) == 0)
-                    continue;
-
-                unsigned td = total_degree(coeff);
-                unsigned sz = m_pm.size(coeff);
-                var mv = m_pm.max_var(coeff);
-                if (!best ||
-                    td < best_td ||
-                    (td == best_td && (sz < best_sz ||
-                                       (sz == best_sz && (best_mv == null_var || mv < best_mv))))) {
-                    best = coeff;
-                    best_td = td;
-                    best_sz = sz;
-                    best_mv = mv;
-                }
+                if (m_am.eval_sign_at(coeff, sample()))
+                    return coeff; // prefer ldcf
             }
-            return best;
+            return coeff; // still null
         }
 
         void add_projections_for(todo_set& P, polynomial_ref const& p, unsigned x, polynomial_ref const& nonzero_coeff, bool add_leading_coeff) {
