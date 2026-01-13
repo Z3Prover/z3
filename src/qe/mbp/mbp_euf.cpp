@@ -12,9 +12,6 @@ namespace mbp {
     euf_project_plugin::euf_project_plugin(ast_manager& m): project_plugin(m) {        
     }
 
-    euf_project_plugin::~euf_project_plugin() {
-    }
-    
     bool euf_project_plugin::project1(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
         return false;
     }

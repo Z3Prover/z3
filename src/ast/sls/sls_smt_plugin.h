@@ -27,7 +27,7 @@ namespace sls {
 
     class smt_context {
     public:
-        virtual ~smt_context() {}
+        virtual ~smt_context() = default;
         virtual ast_manager& get_manager() = 0;
         virtual params_ref get_params() = 0;
         virtual void set_value(expr* t, expr* v) = 0;

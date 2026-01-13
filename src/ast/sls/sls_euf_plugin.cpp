@@ -33,8 +33,6 @@ namespace sls {
         m_values(8U, value_hash(*this), value_eq(*this)) {
         m_fid = user_sort_family_id;
     }
-    
-    euf_plugin::~euf_plugin() {}
 
     void euf_plugin::initialize() {
     }
