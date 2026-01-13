@@ -2114,6 +2114,21 @@ def _to_pattern(arg):
     else:
         return MultiPattern(arg)
 
+
+def pattern_to_string(pattern):
+    """Convert a Z3 pattern to a string representation.
+
+    >>> f = Function('f', IntSort(), IntSort())
+    >>> x = Int('x')
+    >>> p = MultiPattern(f(x))
+    >>> pattern_to_string(p)
+    '((f x))'
+    """
+    if z3_debug():
+        _z3_assert(is_pattern(pattern), "Z3 pattern expected")
+    return Z3_pattern_to_string(pattern.ctx_ref(), pattern.ast)
+
+
 #########################################
 #
 # Quantifiers
