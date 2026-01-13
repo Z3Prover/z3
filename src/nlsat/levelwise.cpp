@@ -585,6 +585,7 @@ namespace nlsat {
             }
         }
 
+        // Build relation ≼ for the current level from the chosen interval boundaries.
         void fill_relation_pairs(unsigned l, unsigned u) {
             auto const& I = m_I[m_level];
             if (I.section) {
@@ -661,14 +662,19 @@ namespace nlsat {
             return roots.size();
         }
 
-        // Build Θ (root functions), pick I_level around sample(level), and build relation ≼.
-        void build_interval_and_relation(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& poly_has_roots) {
+        // Build Θ (root functions) and pick I_level around sample(level).
+        // Returns whether any roots were found (i.e., whether a relation can be built).
+        bool build_interval(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& poly_has_roots,
+                            unsigned& l_index, unsigned& u_index) {
             m_level = level;
             m_rel.clear();
             reset_interval(m_I[level]);
 
             poly_has_roots.clear();
             poly_has_roots.resize(level_ps.size(), false);
+
+            l_index = static_cast<unsigned>(-1);
+            u_index = static_cast<unsigned>(-1);
 
             anum const& v = sample().value(level);
             std::vector<root_function> lhalf;
@@ -678,7 +684,7 @@ namespace nlsat {
                 poly_has_roots[i] = isolate_roots_around_sample(level, level_ps.get(i), i, v, lhalf, uhalf);
 
             if (lhalf.empty() && uhalf.empty())
-                return;
+                return false;
 
             auto& rfs = m_rel.m_rfunc;
             rfs.clear();
@@ -719,9 +725,6 @@ namespace nlsat {
             std::sort(rfs.begin(), mid, cmp_lo);
             std::sort(mid, rfs.end(), cmp_hi);
 
-            unsigned l_index = static_cast<unsigned>(-1);
-            unsigned u_index = static_cast<unsigned>(-1);
-
             if (mid != rfs.begin()) {
                 l_index = static_cast<unsigned>((mid - rfs.begin()) - 1);
                 auto& r = *(mid - 1);
@@ -748,8 +751,9 @@ namespace nlsat {
                 m_I[level].u_index = r.ire.i;
             }
 
-            fill_relation_pairs(l_index, u_index);
+            return true;
         }
+
 
         void add_relation_resultants(todo_set& P, unsigned level) {
             std::set<std::pair<unsigned, unsigned>> added_pairs;
@@ -835,7 +839,10 @@ namespace nlsat {
 
             // Lines 3-8: Θ + I_level + relation ≼
             std_vector<bool> poly_has_roots;
-            build_interval_and_relation(level, level_ps, poly_has_roots);
+            unsigned l_index = static_cast<unsigned>(-1);
+            unsigned u_index = static_cast<unsigned>(-1);
+            if (build_interval(level, level_ps, poly_has_roots, l_index, u_index))
+                fill_relation_pairs(l_index, u_index);
             // SMT-RAT (levelwise/OneCellCAD.h) upgrades the polynomials defining the current
             // bounds/sections to ORD_INV. Z3's levelwise does not currently implement SMT-RAT's
             // dedicated section/sector heuristics (sectionHeuristic/sectorHeuristic) for choosing
