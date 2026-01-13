@@ -153,6 +153,49 @@ namespace smt {
         void restart_eh() override { m_util.reset(); }
         bool is_shared(theory_var v) const override;
         theory_datatype_params const& params() const;
+        struct iterator_factory;
+        struct subterm_iterator {
+            iterator_factory &f;
+            ptr_vector<enode> m_todo;
+            enode *m_current = nullptr;
+
+            void next();
+
+            bool operator!=(const subterm_iterator &other) const { return m_current != other.m_current; }
+
+            enode *operator*() const { return m_current; }
+
+            void operator++() { next(); }
+
+            subterm_iterator(iterator_factory &f, enode *start) : f(f) {
+                if (start) {
+                    m_todo.push_back(start);
+                    next();
+                }
+            }
+        };
+
+        struct iterator_factory {
+            theory_datatype &th;
+            ptr_vector<enode> m_marked;
+            enode *start;
+            iterator_factory(theory_datatype &th, enode* start) : th(th), start(start) {}
+            subterm_iterator begin() {
+                return subterm_iterator(*this, start);
+            }
+            subterm_iterator end() {
+                return subterm_iterator(*this, nullptr);
+            }
+            void reset() {
+                for (enode* n : m_marked) 
+                    n->unset_mark();                
+                m_marked.reset();
+            }
+        };
+
+        iterator_factory iterate_subterms(enode *arg) {
+            return iterator_factory(*this, arg);
+        }
     public:
         theory_datatype(context& ctx);
         ~theory_datatype() override;
@@ -169,58 +212,6 @@ namespace smt {
         bool include_func_interp(func_decl* f) override;
 
     };
-
-    /**
-     * Iterator over the subterms of an enode.
-     *
-     * It only takes into account datatype terms when looking for subterms.
-     *
-     * It uses the `mark` field of the `enode` struct to mark the node visited.
-     * It will clean afterwards. *Implementation invariant*: the destructor
-     * *must* be run *exactly* once otherwise the marks might not be clean or
-     * might be clean more than once and mid search 
-     */
-    class subterm_iterator {
-        ptr_vector<enode> m_todo;
-        ptr_vector<enode> m_marked;
-        ast_manager*      m_manager;
-        enode*            m_current;
-        datatype_util*    m_util;
-
-        void next();
-        subterm_iterator() : m_manager(nullptr), m_current(nullptr), m_util(nullptr) {}
-
-    public:
-        // subterm_iterator();
-        subterm_iterator(ast_manager& m, datatype_util& m_util, enode *start);
-        ~subterm_iterator();
-        subterm_iterator(subterm_iterator &&other);
-        // need to delete this function otherwise the destructor could be ran
-        // more than once, invalidating the marks used in the dfs.
-        subterm_iterator(const subterm_iterator& other) = delete;
-
-        subterm_iterator begin() {
-            return std::move(*this);
-        }
-        subterm_iterator end() {
-            return subterm_iterator();
-        }
-
-        bool operator!=(const subterm_iterator &other) const {
-            return m_current != other.m_current;
-        }
-
-        enode *operator*() const {
-            return m_current;
-        }
-
-        void operator++() { next(); }
-        subterm_iterator& operator=(const subterm_iterator&) = delete;
-    };
-
-    inline subterm_iterator iterate_subterms(ast_manager& m, datatype_util& m_util, enode *arg) {
-        return subterm_iterator(m, m_util, arg);
-    }
 };
 
 
