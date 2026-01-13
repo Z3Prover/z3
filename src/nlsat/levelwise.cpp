@@ -393,10 +393,12 @@ namespace nlsat {
         // we do not need its discriminant for transitive root-order reasoning.
         void compute_omit_disc_from_section_relation(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_disc) {
             auto const& I = m_I[level];
+            omit_disc.clear();
+            if (!I.section)
+                return;
             poly* section_p = I.l.get();
             if (!section_p)
                 return;
-            omit_disc.clear();
             if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
                 return;
 
@@ -604,6 +606,61 @@ namespace nlsat {
             }
         }
 
+        // Extract roots of polynomial p around sample value v at the given level,
+        // partitioning them into lhalf (roots <= v) and uhalf (roots > v).
+        // Returns whether the polynomial has any roots.
+        bool isolate_roots_around_sample(unsigned level, poly* p, unsigned idx,
+                                          anum const& v, std::vector<root_function>& lhalf,
+                                          std::vector<root_function>& uhalf) {
+            scoped_anum_vector roots(m_am);
+
+            // When the sample value is rational use a closest-root isolation 
+            // returning at most two roots
+            if (v.is_basic()) {
+                scoped_mpq s(m_am.qm());
+                m_am.to_rational(v, s);
+                svector<unsigned> idx_vec;
+                m_am.isolate_roots_closest(polynomial_ref(p, m_pm), undef_var_assignment(sample(), level), s, roots, idx_vec);
+                SASSERT(roots.size() == idx_vec.size());
+                for (unsigned k = 0; k < roots.size(); ++k) {
+                    if (m_am.compare(roots[k], v) <= 0)
+                        lhalf.emplace_back(m_am, p, idx_vec[k], roots[k]);
+                    else
+                        uhalf.emplace_back(m_am, p, idx_vec[k], roots[k]);
+                }
+                return roots.size();
+            }
+
+            m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), level), roots);
+            
+            // SMT-RAT style reduction: keep only the closest to v roots: one below and one above v,
+            // or a single root at v
+            unsigned lower = UINT_MAX, upper = UINT_MAX;
+            bool section = false;
+            for (unsigned k = 0; k < roots.size(); ++k) {
+                int cmp = m_am.compare(roots[k], v);
+                if (cmp <= 0) {
+                    lower = k;
+                    if (cmp == 0) {
+                        section = true;
+                        break;
+                    }
+                }
+                else {
+                    upper = k;
+                    break;
+                }
+            }
+            if (lower != UINT_MAX) {
+                lhalf.emplace_back(m_am, p, lower + 1, roots[lower]);
+                if (section)
+                    return roots.size(); // only keep the section root for this polynomial
+            }
+            if (upper != UINT_MAX)
+                uhalf.emplace_back(m_am, p, upper + 1, roots[upper]);
+            return roots.size();
+        }
+
         // Build Θ (root functions), pick I_level around sample(level), and build relation ≼.
         void build_interval_and_relation(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& poly_has_roots) {
             m_level = level;
@@ -614,65 +671,16 @@ namespace nlsat {
             poly_has_roots.resize(level_ps.size(), false);
 
             anum const& v = sample().value(level);
-            auto& rfs = m_rel.m_rfunc;
             std::vector<root_function> lhalf;
             std::vector<root_function> uhalf;
 
-            for (unsigned i = 0; i < level_ps.size(); ++i) {
-                poly* p = level_ps.get(i);
-                scoped_anum_vector roots(m_am);
-
-                // When the sample value is rational use a closest-root isolation 
-                // returning at most two roots
-                if (v.is_basic()) {
-                    scoped_mpq s(m_am.qm());
-                    m_am.to_rational(v, s);
-                    svector<unsigned> idx;
-                    m_am.isolate_roots_closest(polynomial_ref(p, m_pm), undef_var_assignment(sample(), level), s, roots, idx);
-                    poly_has_roots[i] = !roots.empty();
-                    SASSERT(roots.size() == idx.size());
-                    for (unsigned k = 0; k < roots.size(); ++k) {
-                        if (m_am.compare(roots[k], v) <= 0)
-                            lhalf.emplace_back(m_am, p, idx[k], roots[k]);
-                        else
-                            uhalf.emplace_back(m_am, p, idx[k], roots[k]);
-                    }
-                    continue;
-                }
-
-                m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), level), roots);
-                poly_has_roots[i] = !roots.empty();
-
-                // SMT-RAT style reduction: keep only the closest to v roots: one below and one above v,
-                // or a single root at v
-                unsigned lower = UINT_MAX, upper = UINT_MAX;
-                bool section = false;
-                for (unsigned k = 0; k < roots.size(); ++k) {
-                    int cmp = m_am.compare(roots[k], v);
-                    if (cmp <= 0) {
-                        lower = k;
-                        if (cmp == 0) {
-                            section = true;
-                            break;
-                        }
-                    }
-                    else {
-                        upper = k;
-                        break;
-                    }
-                }
-                if (lower != UINT_MAX) {
-                    lhalf.emplace_back(m_am, p, lower + 1, roots[lower]);
-                    if (section)
-                        continue; // only keep the section root for this polynomial
-                }
-                if (upper != UINT_MAX)
-                    uhalf.emplace_back(m_am, p, upper + 1, roots[upper]);
-            }
+            for (unsigned i = 0; i < level_ps.size(); ++i)
+                poly_has_roots[i] = isolate_roots_around_sample(level, level_ps.get(i), i, v, lhalf, uhalf);
 
             if (lhalf.empty() && uhalf.empty())
                 return;
 
+            auto& rfs = m_rel.m_rfunc;
             rfs.clear();
             rfs.reserve(lhalf.size() + uhalf.size());
             for (auto& rf : lhalf)
