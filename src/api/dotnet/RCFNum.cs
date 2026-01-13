@@ -248,7 +248,7 @@ namespace Microsoft.Z3
         public bool Lt(RCFNum other)
         {
             CheckContext(other);
-            return Native.Z3_rcf_lt(Context.nCtx, NativeObject, other.NativeObject);
+            return 0 != Native.Z3_rcf_lt(Context.nCtx, NativeObject, other.NativeObject);
         }
 
         /// <summary>
@@ -259,7 +259,7 @@ namespace Microsoft.Z3
         public bool Gt(RCFNum other)
         {
             CheckContext(other);
-            return Native.Z3_rcf_gt(Context.nCtx, NativeObject, other.NativeObject);
+            return 0 != Native.Z3_rcf_gt(Context.nCtx, NativeObject, other.NativeObject);
         }
 
         /// <summary>
@@ -270,7 +270,7 @@ namespace Microsoft.Z3
         public bool Le(RCFNum other)
         {
             CheckContext(other);
-            return Native.Z3_rcf_le(Context.nCtx, NativeObject, other.NativeObject);
+            return 0 != Native.Z3_rcf_le(Context.nCtx, NativeObject, other.NativeObject);
         }
 
         /// <summary>
@@ -281,7 +281,7 @@ namespace Microsoft.Z3
         public bool Ge(RCFNum other)
         {
             CheckContext(other);
-            return Native.Z3_rcf_ge(Context.nCtx, NativeObject, other.NativeObject);
+            return 0 != Native.Z3_rcf_ge(Context.nCtx, NativeObject, other.NativeObject);
         }
 
         /// <summary>
@@ -292,7 +292,7 @@ namespace Microsoft.Z3
         public bool Eq(RCFNum other)
         {
             CheckContext(other);
-            return Native.Z3_rcf_eq(Context.nCtx, NativeObject, other.NativeObject);
+            return 0 != Native.Z3_rcf_eq(Context.nCtx, NativeObject, other.NativeObject);
         }
 
         /// <summary>
@@ -303,7 +303,7 @@ namespace Microsoft.Z3
         public bool Neq(RCFNum other)
         {
             CheckContext(other);
-            return Native.Z3_rcf_neq(Context.nCtx, NativeObject, other.NativeObject);
+            return 0 != Native.Z3_rcf_neq(Context.nCtx, NativeObject, other.NativeObject);
         }
 
         /// <summary>
@@ -362,7 +362,7 @@ namespace Microsoft.Z3
         /// <returns>true if this is rational</returns>
         public bool IsRational()
         {
-            return Native.Z3_rcf_is_rational(Context.nCtx, NativeObject);
+            return 0 != Native.Z3_rcf_is_rational(Context.nCtx, NativeObject);
         }
 
         /// <summary>
@@ -371,7 +371,7 @@ namespace Microsoft.Z3
         /// <returns>true if this is algebraic</returns>
         public bool IsAlgebraic()
         {
-            return Native.Z3_rcf_is_algebraic(Context.nCtx, NativeObject);
+            return 0 != Native.Z3_rcf_is_algebraic(Context.nCtx, NativeObject);
         }
 
         /// <summary>
@@ -380,7 +380,7 @@ namespace Microsoft.Z3
         /// <returns>true if this is infinitesimal</returns>
         public bool IsInfinitesimal()
         {
-            return Native.Z3_rcf_is_infinitesimal(Context.nCtx, NativeObject);
+            return 0 != Native.Z3_rcf_is_infinitesimal(Context.nCtx, NativeObject);
         }
 
         /// <summary>
@@ -389,7 +389,7 @@ namespace Microsoft.Z3
         /// <returns>true if this is transcendental</returns>
         public bool IsTranscendental()
         {
-            return Native.Z3_rcf_is_transcendental(Context.nCtx, NativeObject);
+            return 0 != Native.Z3_rcf_is_transcendental(Context.nCtx, NativeObject);
         }
 
         /// <summary>
