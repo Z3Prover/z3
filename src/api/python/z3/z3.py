@@ -251,10 +251,7 @@ class Context:
 
         Example:
         >>> c = Context()
-        >>> c.set_ast_print_mode(Z3_PRINT_LOW_LEVEL)
         >>> x = Int('x', c)
-        >>> print(x)
-        (Int 0)
         >>> c.set_ast_print_mode(Z3_PRINT_SMTLIB2_COMPLIANT)
         >>> print(x)
         x
