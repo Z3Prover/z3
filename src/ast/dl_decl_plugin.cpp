@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include<sstream>
+#include<format>
 
 #include "ast/ast_pp.h"
 #include "ast/array_decl_plugin.h"
@@ -52,9 +53,7 @@ namespace datalog {
         if (low <= val && val <= up) {
             return true;
         }
-        std::ostringstream buffer;
-        buffer << msg << ", value is not within bound " << low << " <= " << val << " <= " << up;
-        m_manager->raise_exception(buffer.str());
+        m_manager->raise_exception(std::format("{}, value is not within bound {} <= {} <= {}", msg, low, val, up));
         return false;
     }
 
