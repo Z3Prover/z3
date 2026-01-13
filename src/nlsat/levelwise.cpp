@@ -637,13 +637,19 @@ namespace nlsat {
                 m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), level), roots);
                 poly_has_roots[i] = !roots.empty();
 
-                // SMT-RAT style reduction: keep only the closest root below (<= v) and above (> v),
-                // or a single root if v is a root of p.
+                // SMT-RAT style reduction: keep only the closest to v roots: one below and one above v,
+                // or a single root at v
                 unsigned lower = UINT_MAX, upper = UINT_MAX;
+                bool section = false;
                 for (unsigned k = 0; k < roots.size(); ++k) {
-                    auto cmp = m_am.compare(roots[k], v);
-                    if (cmp <= 0)
+                    int cmp = m_am.compare(roots[k], v);
+                    if (cmp <= 0) {
                         lower = k;
+                        if (cmp == 0) {
+                            section = true;
+                            break;
+                        }
+                    }
                     else {
                         upper = k;
                         break;
@@ -651,7 +657,7 @@ namespace nlsat {
                 }
                 if (lower != UINT_MAX) {
                     m_rel.m_rfunc.emplace_back(m_am, p, lower + 1, roots[lower]);
-                    if (m_am.eq(roots[lower], v))
+                    if (section)
                         continue; // only keep the section root for this polynomial
                 }
                 if (upper != UINT_MAX)
