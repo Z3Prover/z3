@@ -29,7 +29,7 @@ namespace sat {
     class clause;
 
     struct clause_eh {
-        virtual ~clause_eh() {}
+        virtual ~clause_eh() = default;
         virtual void on_clause(unsigned, literal const*, status) = 0;        
     };
 

@@ -97,7 +97,7 @@ public:
 
 class proof_cmds {
 public:
-    virtual ~proof_cmds() {}
+    virtual ~proof_cmds() = default;
     virtual void add_literal(expr* e) = 0;
     virtual void end_assumption() = 0;
     virtual void end_infer() = 0;

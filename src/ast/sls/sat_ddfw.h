@@ -35,7 +35,7 @@ namespace sat {
 
     class local_search_plugin {
     public:
-        virtual ~local_search_plugin() {}
+        virtual ~local_search_plugin() = default;
         virtual void on_rescale() = 0;
         virtual lbool on_save_model() = 0;
         virtual void on_restart() = 0;
@@ -225,7 +225,7 @@ namespace sat {
 
         ddfw() {}
 
-        ~ddfw();
+        ~ddfw() = default;
 
         void set_plugin(local_search_plugin* p) { m_plugin = p; }
 

@@ -40,7 +40,7 @@ namespace euf {
 
     class extract_eq {
     public:
-        virtual ~extract_eq() {}
+        virtual ~extract_eq() = default;
         virtual void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) = 0;
         virtual void pre_process(dependent_expr_state& fmls) {}
         virtual void updt_params(params_ref const& p) {}
