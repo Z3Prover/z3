@@ -154,13 +154,13 @@ namespace nlsat {
 
         void fail() { throw nullified_poly_exception(); }
 
-    static void reset_interval(root_function_interval& I) {
-        I.section = false;
-        I.l = nullptr;
-        I.u = nullptr;
-        I.l_index = 0;
-        I.u_index = 0;
-    }
+        static void reset_interval(root_function_interval& I) {
+            I.section = false;
+            I.l = nullptr;
+            I.u = nullptr;
+            I.l_index = 0;
+            I.u_index = 0;
+        }
 
         // PSC-based discriminant: returns the first non-zero, non-constant element from the PSC chain.
         polynomial_ref psc_discriminant(polynomial_ref const& p_in, unsigned x) {
@@ -614,12 +614,14 @@ namespace nlsat {
             poly_has_roots.resize(level_ps.size(), false);
 
             anum const& v = sample().value(level);
+            auto& rfs = m_rel.m_rfunc;
+            std::vector<root_function> lhalf;
+            std::vector<root_function> uhalf;
 
             for (unsigned i = 0; i < level_ps.size(); ++i) {
                 poly* p = level_ps.get(i);
                 scoped_anum_vector roots(m_am);
 
-                // Cacheing roots was not helpful.
                 // When the sample value is rational use a closest-root isolation 
                 // returning at most two roots
                 if (v.is_basic()) {
@@ -629,8 +631,12 @@ namespace nlsat {
                     m_am.isolate_roots_closest(polynomial_ref(p, m_pm), undef_var_assignment(sample(), level), s, roots, idx);
                     poly_has_roots[i] = !roots.empty();
                     SASSERT(roots.size() == idx.size());
-                    for (unsigned k = 0; k < roots.size(); ++k)
-                        m_rel.m_rfunc.emplace_back(m_am, p, idx[k], roots[k]);
+                    for (unsigned k = 0; k < roots.size(); ++k) {
+                        if (m_am.compare(roots[k], v) <= 0)
+                            lhalf.emplace_back(m_am, p, idx[k], roots[k]);
+                        else
+                            uhalf.emplace_back(m_am, p, idx[k], roots[k]);
+                    }
                     continue;
                 }
 
@@ -656,22 +662,24 @@ namespace nlsat {
                     }
                 }
                 if (lower != UINT_MAX) {
-                    m_rel.m_rfunc.emplace_back(m_am, p, lower + 1, roots[lower]);
+                    lhalf.emplace_back(m_am, p, lower + 1, roots[lower]);
                     if (section)
                         continue; // only keep the section root for this polynomial
                 }
                 if (upper != UINT_MAX)
-                    m_rel.m_rfunc.emplace_back(m_am, p, upper + 1, roots[upper]);
+                    uhalf.emplace_back(m_am, p, upper + 1, roots[upper]);
             }
 
-            if (m_rel.m_rfunc.empty())
+            if (lhalf.empty() && uhalf.empty())
                 return;
 
-            // Partition: roots <= v come first, then roots > v
-            auto& rfs = m_rel.m_rfunc;
-            auto mid = std::partition(rfs.begin(), rfs.end(), [&](root_function const& f) {
-                return m_am.compare(f.val, v) <= 0;
-            });
+            rfs.clear();
+            rfs.reserve(lhalf.size() + uhalf.size());
+            for (auto& rf : lhalf)
+                rfs.emplace_back(std::move(rf));
+            auto mid = rfs.end();
+            for (auto& rf : uhalf)
+                rfs.emplace_back(std::move(rf));
 
             // Sort each partition separately.  For ties (equal root values), prefer
             // low-degree defining polynomials as interval boundaries:
