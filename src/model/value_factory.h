@@ -70,7 +70,7 @@ public:
     
     expr * get_fresh_value(sort * s) override;
 
-    void register_value(expr * n) override { }
+    void register_value(expr *) override { }
 };
 
 /**
