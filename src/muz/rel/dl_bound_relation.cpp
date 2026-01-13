@@ -399,21 +399,6 @@ namespace datalog {
         for (unsigned idx : t.le) {
             lev.push_back(renaming[idx]);
         }
-        TRACE(dl, 
-              tout << "project: ";
-              for (unsigned i = 0; i < renaming.size(); ++i) 
-                  if (renaming[i] == UINT_MAX) tout << i << " ";
-              tout << ": ";
-              it = t.lt.begin(); end = t.lt.end();
-              for (; it != end; ++it) tout << *it << " ";
-              tout << " le ";
-              it = t.le.begin(); end = t.le.end();
-              for (; it != end; ++it) tout << *it << " ";
-              tout << " => ";
-              for (unsigned i = 0; i < ltv.size(); ++i) tout << ltv[i] << " ";
-              tout << " le ";
-              for (unsigned i = 0; i < lev.size(); ++i) tout << lev[i] << " ";
-              tout << "\n";);
         t.lt.reset();
         for (unsigned i = 0; i < ltv.size(); ++i) {
             t.lt.insert(ltv[i]);
