@@ -662,21 +662,14 @@ namespace nlsat {
             return roots.size();
         }
 
-        // Build Θ (root functions) and pick I_level around sample(level).
-        // Returns whether any roots were found (i.e., whether a relation can be built).
-        bool build_interval(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& poly_has_roots,
-                            unsigned& l_index, unsigned& u_index) {
-            m_level = level;
-            m_rel.clear();
-            reset_interval(m_I[level]);
-
+        // Populate Θ (root functions) around the sample, partitioned at `mid`, and sort each partition.
+        // Returns whether any roots were found.
+        bool build_sorted_root_functions_around_sample(unsigned level, polynomial_ref_vector const& level_ps,
+                            std_vector<bool>& poly_has_roots, anum const& v,
+                            std::vector<root_function>::iterator& mid) {
             poly_has_roots.clear();
             poly_has_roots.resize(level_ps.size(), false);
 
-            l_index = static_cast<unsigned>(-1);
-            u_index = static_cast<unsigned>(-1);
-
-            anum const& v = sample().value(level);
             std::vector<root_function> lhalf;
             std::vector<root_function> uhalf;
 
@@ -691,7 +684,7 @@ namespace nlsat {
             rfs.reserve(lhalf.size() + uhalf.size());
             for (auto& rf : lhalf)
                 rfs.emplace_back(std::move(rf));
-            auto mid = rfs.end();
+            mid = rfs.end();
             for (auto& rf : uhalf)
                 rfs.emplace_back(std::move(rf));
 
@@ -725,6 +718,13 @@ namespace nlsat {
             std::sort(rfs.begin(), mid, cmp_lo);
             std::sort(mid, rfs.end(), cmp_hi);
 
+            return true;
+        }
+
+        // Pick I_level around sample(level) from sorted Θ, split at `mid`.
+        void set_interval_from_root_partition(unsigned level, anum const& v, std::vector<root_function>::iterator mid,
+                            unsigned& l_index, unsigned& u_index) {
+            auto& rfs = m_rel.m_rfunc;
             if (mid != rfs.begin()) {
                 l_index = static_cast<unsigned>((mid - rfs.begin()) - 1);
                 auto& r = *(mid - 1);
@@ -750,7 +750,24 @@ namespace nlsat {
                 m_I[level].u = r.ire.p;
                 m_I[level].u_index = r.ire.i;
             }
+        }
 
+        // Build Θ (root functions) and pick I_level around sample(level).
+        // Returns whether any roots were found (i.e., whether a relation can be built).
+        bool build_interval(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& poly_has_roots,
+                            unsigned& l_index, unsigned& u_index) {
+            m_level = level;
+            m_rel.clear();
+            reset_interval(m_I[level]);
+
+            anum const& v = sample().value(level);
+            std::vector<root_function>::iterator mid;
+            if (!build_sorted_root_functions_around_sample(level, level_ps, poly_has_roots, v, mid))
+                return false;
+
+            l_index = static_cast<unsigned>(-1);
+            u_index = static_cast<unsigned>(-1);
+            set_interval_from_root_partition(level, v, mid, l_index, u_index);
             return true;
         }
 
