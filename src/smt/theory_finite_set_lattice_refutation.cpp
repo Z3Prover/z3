@@ -68,7 +68,7 @@ namespace smt {
     }
 
     bool reachability_matrix::set_reachability(theory_var source, theory_var dest, enode_pair reachability_witness){
-        if (is_reachable(source, dest)){
+        if (!in_bounds(source, dest) || is_reachable(source, dest)){
             // TRACE(finite_set, tout << "already_reachable(" << source << "," << dest <<")");
             return false;
         }
@@ -83,7 +83,6 @@ namespace smt {
         ctx.push_trail(value_trail(link_dls[source*max_size+dest]));
         TRACE(finite_set, tout << "set_reachability(" << source << "," << dest <<"), dl: "<<ctx.get_scope_level());
         link_dls[source*max_size+dest] = ctx.get_scope_level();
-        TRACE(finite_set, tout << "set_reachability(" << source << "," << dest <<"), dl: "<<link_dls[source*max_size+dest]);
 
         check_reachability_conflict(source, dest);
         // update reachability of source
@@ -152,10 +151,11 @@ namespace smt {
             superset = get_superset(n2, n1);
         }
         if(superset == nullptr){
+            add_set_equality(n1, n2);
             return;
         }
         TRACE(finite_set, tout << "new_eq_intersection: " << enode_pp(subset, ctx) << "("<<th.get_th_var(subset)<<")" << "\\subseteq " << enode_pp(superset, ctx)<<"("<<th.get_th_var(superset)<<")");
-        add_subset(subset, superset, {n1, n2});
+        add_subset(subset->get_th_var(th.get_id()), superset->get_th_var(th.get_id()), {n1, n2});
     };
 
     void reachability_matrix::get_path(theory_var source, theory_var dest, vector<enode_pair>& path, int& num_decisions){
@@ -260,29 +260,45 @@ namespace smt {
             return;
         }
         TRACE(finite_set, tout << "new_diseq_intersection: " << enode_pp(subset, ctx) << "("<<th.get_th_var(subset)<<")" << "\\not\\subseteq " << enode_pp(superset, ctx)<<"("<<th.get_th_var(superset)<<")");
-        add_not_subset(subset, superset, {n1, n2});
+        add_not_subset(subset->get_th_var(th.get_id()), superset->get_th_var(th.get_id()), {n1, n2});
     };
 
-    void theory_finite_set_lattice_refutation::add_subset(enode* subset, enode* superset, enode_pair justifying_equality){
-        // TODO: cycle detection here for equality propagation
-        auto subset_t = subset->get_th_var(th.get_id());
-        auto superset_t = superset->get_th_var(th.get_id());
-        if (subset_t == null_theory_var || superset_t == null_theory_var){
+    void theory_finite_set_lattice_refutation::add_subset(theory_var subset_th, theory_var superset_th, enode_pair justifying_equality){
+        if(!reachability.in_bounds(subset_th, superset_th)){
             return;
         }
-        if(reachability.set_reachability(subset_t, superset_t, justifying_equality)){
+        if (subset_th == null_theory_var || superset_th == null_theory_var){
+            return;
+        }
+        // cycle detection
+        if(reachability.is_reachable(superset_th, subset_th))
+        if(reachability.set_reachability(subset_th, superset_th, justifying_equality)){
             reachability.print_relations();
         }
-        SASSERT(reachability.is_reachable(subset_t, superset_t));
+        SASSERT(reachability.is_reachable(subset_th, superset_th));
     };
 
-    void theory_finite_set_lattice_refutation::add_not_subset(enode* subset, enode* superset, enode_pair justifying_disequality){
-        auto subset_t = subset->get_th_var(th.get_id());
-        auto superset_t = superset->get_th_var(th.get_id());
-        if (subset_t == null_theory_var || superset_t == null_theory_var){
+    void theory_finite_set_lattice_refutation::add_not_subset(theory_var subset_th, theory_var superset_th, enode_pair justifying_disequality){
+        if(!reachability.in_bounds(subset_th, superset_th)){
             return;
         }
-        reachability.set_non_reachability(subset_t, superset_t, justifying_disequality);
-        SASSERT(reachability.is_reachability_forbidden(subset_t, superset_t));
+        if (subset_th == null_theory_var || superset_th == null_theory_var){
+            return;
+        }
+        reachability.set_non_reachability(subset_th, superset_th, justifying_disequality);
+        SASSERT(reachability.is_reachability_forbidden(subset_th, superset_th));
+    }
+
+    void theory_finite_set_lattice_refutation::add_set_equality(enode* set1, enode* set2){
+        theory_var set1_th = set1->get_th_var(th.get_id());
+        theory_var set2_th = set2->get_th_var(th.get_id());
+        if(!reachability.in_bounds(set1_th, set2_th)){
+            return;
+        }
+        reachability.set_reachability(set1_th, set2_th, {set1, set2});
+        SASSERT(reachability.is_reachable(set1_th, set2_th));
+    
+        reachability.set_reachability(set2_th, set1_th, {set1, set2});
+        SASSERT(reachability.is_reachable(set2_th, set1_th));
     }
 }

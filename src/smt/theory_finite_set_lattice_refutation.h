@@ -45,6 +45,7 @@ namespace smt {
             bool set_non_reachability(theory_var source, theory_var dest, enode_pair non_reachability_witness);
             int get_max_var();
             void print_relations();
+            
     };
 
     class theory_finite_set_lattice_refutation {
@@ -57,9 +58,10 @@ namespace smt {
         reachability_matrix reachability;
 
         enode* get_superset(enode*, enode*);
-        void add_subset(enode* subset, enode* superset, enode_pair justifying_equality);
-        void add_not_subset(enode* subset, enode* superset, enode_pair justifying_disequality);
+        void add_subset(theory_var subset, theory_var superset, enode_pair justifying_equality);
+        void add_not_subset(theory_var subset, theory_var superset, enode_pair justifying_disequality);
         void propagate_new_subset(theory_var v1, theory_var v2);
+        void add_set_equality(enode* set1, enode* set2);
         public:
             void trigger_conflict(vector<enode_pair> equalities, enode_pair clashing_disequality);
             theory_finite_set_lattice_refutation(theory_finite_set &th);
