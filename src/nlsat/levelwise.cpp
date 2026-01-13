@@ -68,7 +68,7 @@ namespace nlsat {
         bool                   m_fail = false;
         // Current requirement tag for polynomials stored in the todo_set, keyed by pm.id(poly*).
         // Entries are upgraded SIGN -> ORD as needed and cleared when a polynomial is extracted.
-        svector<uint8_t>       m_req;
+        std_vector<uint8_t>    m_req;
 
         assignment const& sample() const { return m_solver.sample(); }
 
@@ -212,10 +212,10 @@ namespace nlsat {
                 return p;
             p = P.insert(p);
             unsigned id = m_pm.id(p);
-            auto cur = static_cast<inv_req>(m_req.get(id, static_cast<uint8_t>(inv_req::none)));
+            auto cur = static_cast<inv_req>(vec_get(m_req, id, static_cast<uint8_t>(inv_req::none)));
             inv_req nxt = max_req(cur, req);
             if (nxt != cur)
-                m_req.setx(id, static_cast<uint8_t>(nxt), static_cast<uint8_t>(inv_req::none));
+                vec_setx(m_req, id, static_cast<uint8_t>(nxt), static_cast<uint8_t>(inv_req::none));
             return p;
         }
 
@@ -234,12 +234,12 @@ namespace nlsat {
             for (unsigned i = 0; i < max_ps.size(); ++i) {
                 poly* p = max_ps.get(i);
                 unsigned id = m_pm.id(p);
-                inv_req req = static_cast<inv_req>(m_req.get(id, static_cast<uint8_t>(inv_req::sign)));
+                inv_req req = static_cast<inv_req>(vec_get(m_req, id, static_cast<uint8_t>(inv_req::sign)));
                 if (req == inv_req::none)
                     req = inv_req::sign;
                 tagged.emplace_back(id, req);
                 // Clear: extracted polynomials are no longer part of the worklist.
-                m_req.setx(id, static_cast<uint8_t>(inv_req::none), static_cast<uint8_t>(inv_req::none));
+                vec_setx(m_req, id, static_cast<uint8_t>(inv_req::none), static_cast<uint8_t>(inv_req::none));
             }
             return level;
         }
@@ -316,22 +316,22 @@ namespace nlsat {
             anum const& v = sample().value(level);
 
             // Track whether a polynomial appears with a root function on the lower (<= v) and upper (> v) side.
-            svector<uint8_t> side_mask; // bit0: lower, bit1: upper
+            std_vector<uint8_t> side_mask; // bit0: lower, bit1: upper
             for (auto const& rf : m_rel.m_rfunc) {
                 poly* p = rf.ire.p;
                 if (!p)
                     continue;
                 unsigned id = m_pm.id(p);
-                uint8_t mask = side_mask.get(id, static_cast<uint8_t>(0));
+                uint8_t mask = vec_get(side_mask, id, static_cast<uint8_t>(0));
                 if (m_am.compare(rf.val, v) <= 0)
                     mask |= 1;
                 else
                     mask |= 2;
-                side_mask.setx(id, mask, static_cast<uint8_t>(0));
+                vec_setx(side_mask, id, mask, static_cast<uint8_t>(0));
             }
 
             // Count how many distinct resultant-neighbors each polynomial has under the chosen relation.
-            svector<unsigned> deg;
+            std_vector<unsigned> deg;
             std::set<std::pair<unsigned, unsigned>> added_pairs;
             for (auto const& pr : m_rel.m_pairs) {
                 poly* a = m_rel.m_rfunc[pr.first].ire.p;
@@ -345,8 +345,8 @@ namespace nlsat {
                 std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
                 if (!added_pairs.insert(key).second)
                     continue;
-                deg.setx(id1, deg.get(id1, 0u) + 1, 0u);
-                deg.setx(id2, deg.get(id2, 0u) + 1, 0u);
+                vec_setx(deg, id1, vec_get(deg, id1, 0u) + 1, 0u);
+                vec_setx(deg, id2, vec_get(deg, id2, 0u) + 1, 0u);
             }
 
             // Omit leading coefficients for polynomials that (a) occur on both sides of the sample
@@ -356,7 +356,7 @@ namespace nlsat {
                 if (!p)
                     continue;
                 unsigned id = m_pm.id(p);
-                if (side_mask.get(id, static_cast<uint8_t>(0)) == 3 && deg.get(id, 0u) == 1)
+                if (vec_get(side_mask, id, static_cast<uint8_t>(0)) == 3 && vec_get(deg, id, 0u) == 1)
                     vec_setx(omit_lc, id, true, false);
             }
 
@@ -372,7 +372,7 @@ namespace nlsat {
                     poly* p0 = rfs.front().ire.p;
                     if (p0) {
                         unsigned id0 = m_pm.id(p0);
-                        if (side_mask.get(id0, static_cast<uint8_t>(0)) & 2)
+                        if (vec_get(side_mask, id0, static_cast<uint8_t>(0)) & 2)
                             vec_setx(omit_lc, id0, true, false);
                     }
                 }
@@ -380,7 +380,7 @@ namespace nlsat {
                     poly* plast = rfs.back().ire.p;
                     if (plast) {
                         unsigned idl = m_pm.id(plast);
-                        if (side_mask.get(idl, static_cast<uint8_t>(0)) & 1)
+                        if (vec_get(side_mask, idl, static_cast<uint8_t>(0)) & 1)
                             vec_setx(omit_lc, idl, true, false);
                     }
                 }
@@ -405,8 +405,8 @@ namespace nlsat {
             // Track the unique (if any) resultant-neighbor for each polynomial and its degree in the
             // de-duplicated resultant graph. If deg(p) == 1 and neighbor(p) == section_id, then p is
             // a leaf connected only to the section polynomial.
-            svector<unsigned> unique_neighbor;
-            svector<unsigned> deg;
+            std_vector<unsigned> unique_neighbor;
+            std_vector<unsigned> deg;
 
             std::set<std::pair<unsigned, unsigned>> added_pairs;
             for (auto const& pr : m_rel.m_pairs) {
@@ -423,12 +423,12 @@ namespace nlsat {
                     continue;
 
                 auto add_neighbor = [&](unsigned id, unsigned other) {
-                    deg.setx(id, deg.get(id, 0u) + 1, 0u);
-                    unsigned cur = unique_neighbor.get(id, UINT_MAX);
+                    vec_setx(deg, id, vec_get(deg, id, 0u) + 1, 0u);
+                    unsigned cur = vec_get(unique_neighbor, id, UINT_MAX);
                     if (cur == UINT_MAX)
-                        unique_neighbor.setx(id, other, UINT_MAX);
+                        vec_setx(unique_neighbor, id, other, UINT_MAX);
                     else if (cur != other)
-                        unique_neighbor.setx(id, UINT_MAX - 1, UINT_MAX); // multiple neighbors
+                        vec_setx(unique_neighbor, id, UINT_MAX - 1, UINT_MAX); // multiple neighbors
                 };
                 add_neighbor(id1, id2);
                 add_neighbor(id2, id1);
@@ -441,9 +441,9 @@ namespace nlsat {
                 unsigned id = m_pm.id(p);
                 if (id == section_id)
                     continue;
-                if (deg.get(id, 0u) != 1)
+                if (vec_get(deg, id, 0u) != 1)
                     continue;
-                if (unique_neighbor.get(id, UINT_MAX) != section_id)
+                if (vec_get(unique_neighbor, id, UINT_MAX) != section_id)
                     continue;
                 // If p vanishes at the sample on the section, we may need p's delineability to
                 // reason about coinciding root functions; be conservative and keep disc(p).
@@ -619,12 +619,9 @@ namespace nlsat {
                 poly* p = level_ps.get(i);
                 scoped_anum_vector roots(m_am);
 
-                // SMT-RAT caches isolated bound roots inside the constructed cell components
-                // (e.g., Section::isolatedRoot in OneCellCAD.h). Z3's levelwise currently
-                // recomputes root isolations on demand.
-                //
-                // Optimization: when the sample value is rational, use a closest-root isolation
-                // routine to avoid isolating all roots.
+                // Cacheing roots was not helpful.
+                // When the sample value is rational use a closest-root isolation 
+                // returning at most two roots
                 if (v.is_basic()) {
                     scoped_mpq s(m_am.qm());
                     m_am.to_rational(v, s);
