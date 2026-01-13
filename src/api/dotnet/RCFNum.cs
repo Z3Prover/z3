@@ -399,7 +399,7 @@ namespace Microsoft.Z3
         /// <returns>String representation</returns>
         public string ToString(bool compact)
         {
-            return Native.Z3_rcf_num_to_string(Context.nCtx, NativeObject, compact, false);
+            return Native.Z3_rcf_num_to_string(Context.nCtx, NativeObject, compact ? 1 : 0, false);
         }
 
         /// <summary>

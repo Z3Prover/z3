@@ -562,8 +562,8 @@ namespace smt {
                     if (sub_decl) {
                         TRACE(datatype, tout << "adding recursive case: " << mk_pp(arg1->get_expr(), m) << " ⊑ "
                                              << mk_pp(s->get_expr(), m) << "\n";);
-                        auto tmp = m.mk_not( m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()));
-                        lits.push_back(mk_literal(app_ref(tmp, m)));
+                        auto tmp = m.mk_not(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()));
+                        lits.push_back(mk_literal(tmp));
                         found_possible = true;
                     }
                 }
@@ -630,9 +630,8 @@ namespace smt {
                     if (sub_decl) {
                         TRACE(datatype, tout << "asserting NOT " << mk_pp(arg1->get_expr(), m) << " subterm "
                                              << mk_pp(s->get_expr(), m) << "\n";);
-                        app_ref sub_app(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()), m);
-                        ctx.internalize(sub_app, false);
-                        literal sub_lit = literal(ctx.get_bool_var(sub_app));
+                        auto sub_app = m.mk_app(sub_decl, arg1->get_expr(), s->get_expr());
+                        literal sub_lit = mk_literal(sub_app);
                         literal lits[2] = {antecedent, ~sub_lit};
                         ctx.mk_th_axiom(get_id(), 2, lits);
                     }
@@ -1277,9 +1276,8 @@ namespace smt {
             if (!r) {
                 ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(dt);
                 func_decl * rec = m_util.get_constructor_is(constructors[unassigned_idx]);
-                app_ref rec_app(m.mk_app(rec, n->get_expr()), m);
-                ctx.internalize(rec_app, false);
-                consequent = literal(ctx.get_bool_var(rec_app));
+                auto rec_app = m.mk_app(rec, n->get_expr());
+                consequent = mk_literal(rec_app);
             }
             else {
                 consequent = literal(ctx.enode2bool_var(r));
