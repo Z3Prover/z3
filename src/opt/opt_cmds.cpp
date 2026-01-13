@@ -121,11 +121,11 @@ public:
         m_opt(opt)
     {}
 
-    void reset(cmd_context & ctx) override { }
+    void reset(cmd_context & ctx) override { (void)ctx; }
     char const * get_usage() const override { return "<term>"; }
     char const * get_descr(cmd_context & ctx) const override { return "check sat modulo objective function";}
     unsigned get_arity() const override { return 1; }
-    void prepare(cmd_context & ctx) override {}
+    void prepare(cmd_context & ctx) override { (void)ctx; }
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_EXPR; }
 
     void set_next_arg(cmd_context & ctx, expr * t) override {
@@ -152,11 +152,11 @@ public:
         m_opt(opt)
     {}
     
-    void reset(cmd_context & ctx) override { }
+    void reset(cmd_context & ctx) override { (void)ctx; }
     char const * get_usage() const override { return "(get-objectives)"; }
     char const * get_descr(cmd_context & ctx) const override { return "retrieve the objective values (after optimization)"; }
     unsigned get_arity() const override { return 0; }
-    void prepare(cmd_context & ctx) override {}
+    void prepare(cmd_context & ctx) override { (void)ctx; }
 
 
     void failure_cleanup(cmd_context & ctx) override {

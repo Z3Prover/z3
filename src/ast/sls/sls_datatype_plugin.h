@@ -92,7 +92,7 @@ namespace sls {
         void register_term(expr* e) override;
 
         bool set_value(expr* e, expr* v) override { return false; }
-        void repair_literal(sat::literal lit) override {}
+        void repair_literal(sat::literal lit) override { (void)lit; }
         bool include_func_interp(func_decl* f) const override;
         bool check_ackerman(func_decl* f) const override;
 
