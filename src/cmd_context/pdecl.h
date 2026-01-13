@@ -229,11 +229,23 @@ public:
     void display(std::ostream & out, pdatatype_decl const * const * dts) const;
 };
 
+class psubterm_decl: public pdecl {
+    friend class pdecl_manager;
+    friend class pdatatype_decl;
+    symbol                     m_name;
+    ptype    m_type;
+    symbol const & get_name() const { return m_name; }
+public:
+    psubterm_decl(symbol const& n) : pdecl(0, 0), m_name(n) {}
+    std::ostream& display(std::ostream & out) const override;
+};
+
 class pdatatype_decl : public psort_decl {
     friend class pdecl_manager;
     friend class pdatatypes_decl;
     ptr_vector<pconstructor_decl> m_constructors;
     pdatatypes_decl *             m_parent;
+    std::optional<psubterm_decl>         m_subterm;
     pdatatype_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n,
                    unsigned num_constructors, pconstructor_decl * const * constructors);
     void finalize(pdecl_manager & m) override;
@@ -246,6 +258,7 @@ public:
     bool has_missing_refs(symbol & missing) const;
     bool has_duplicate_accessors(symbol & repeated) const;
     bool commit(pdecl_manager& m);
+    void set_subterm(symbol const& n) { m_subterm = psubterm_decl(n); }
 };
 
 /**

@@ -105,6 +105,7 @@ namespace smt2 {
         symbol               m_declare_type_var;
         symbol               m_declare_datatypes;
         symbol               m_declare_datatype;
+        symbol               m_subterm_keyword;
         symbol               m_par;
         symbol               m_push;
         symbol               m_pop;
@@ -955,7 +956,7 @@ namespace smt2 {
             next();
         }
 
-        // ( declare-datatype symbol datatype_dec) 
+        // ( declare-datatype symbol datatype_dec [:subterm <subterm>]) 
         void parse_declare_datatype() {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id() == m_declare_datatype);
@@ -974,8 +975,15 @@ namespace smt2 {
             pdatatype_decl_ref d(pm());                
             pconstructor_decl_ref_buffer new_ct_decls(pm());
             parse_datatype_dec(&dt_name, new_ct_decls);
+            
+            symbol subterm_name = parse_subterm_decl();
+
             d = pm().mk_pdatatype_decl(m_sort_id2param_idx.size(), dt_name, new_ct_decls.size(), new_ct_decls.data());
             
+            if (subterm_name != symbol::null) {
+                d->set_subterm(subterm_name);
+            }
+
             check_missing(d, line, pos);
             check_duplicate(d, line, pos);
 
@@ -983,6 +991,18 @@ namespace smt2 {
             check_rparen("invalid end of datatype declaration, ')' expected");
             m_ctx.print_success();
             next();
+        }
+
+        // [:subterm <subterm>]
+        symbol parse_subterm_decl() {
+            symbol predicate_name = symbol::null;
+            if ((curr_is_identifier() || curr() == scanner::KEYWORD_TOKEN) && curr_id() == m_subterm_keyword) {
+                next(); // consume :subterm keyword
+                check_identifier("expected name for subterm predicate");
+                predicate_name = curr_id();
+                next();
+            }
+            return predicate_name;
         }
 
 
@@ -3088,6 +3108,7 @@ namespace smt2 {
             m_declare_type_var("declare-type-var"),
             m_declare_datatypes("declare-datatypes"),
             m_declare_datatype("declare-datatype"),
+            m_subterm_keyword(":subterm"),
             m_par("par"),
             m_push("push"),
             m_pop("pop"),
