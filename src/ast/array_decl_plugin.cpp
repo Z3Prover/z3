@@ -267,7 +267,7 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
         return nullptr;
     }
     if (arity != num_parameters+1) {
-        m_manager->raise_exception(std::format("store expects the first argument to be an array taking {}, instead it was passed {}arguments",
+        m_manager->raise_exception(std::format("store expects the first argument to be an array taking {}, instead it was passed {} arguments",
                                                 num_parameters+1, arity - 1));
         UNREACHABLE();
         return nullptr;
