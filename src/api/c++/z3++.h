@@ -26,6 +26,7 @@ Notes:
 #include<memory>
 #include<vector>
 #include<z3.h>
+#include<z3_rcf.h>
 #include<limits.h>
 #include<functional>
 
@@ -4759,6 +4760,223 @@ namespace z3 {
             return Z3_solver_propagate_consequence(ctx(), cb, _fixed.size(), _fixed.ptr(), lhs.size(), _lhs.ptr(), _rhs.ptr(), conseq);
         }
     };
+
+    /**
+       \brief Wrapper for Z3 Real Closed Field (RCF) numerals.
+       
+       RCF numerals can represent:
+       - Rational numbers
+       - Algebraic numbers (roots of polynomials)
+       - Transcendental extensions (e.g., pi, e)
+       - Infinitesimal extensions
+    */
+    class rcf_num {
+        Z3_context m_ctx;
+        Z3_rcf_num m_num;
+        
+        void check_context(rcf_num const& other) const {
+            if (m_ctx != other.m_ctx) {
+                throw exception("rcf_num objects from different contexts");
+            }
+        }
+        
+    public:
+        rcf_num(context& c, Z3_rcf_num n): m_ctx(c), m_num(n) {}
+        
+        rcf_num(context& c, int val): m_ctx(c) {
+            m_num = Z3_rcf_mk_small_int(c, val);
+        }
+        
+        rcf_num(context& c, char const* val): m_ctx(c) {
+            m_num = Z3_rcf_mk_rational(c, val);
+        }
+        
+        rcf_num(rcf_num const& other): m_ctx(other.m_ctx) {
+            // Create a copy by converting to string and back
+            std::string str = Z3_rcf_num_to_string(m_ctx, other.m_num, false, false);
+            m_num = Z3_rcf_mk_rational(m_ctx, str.c_str());
+        }
+        
+        rcf_num& operator=(rcf_num const& other) {
+            if (this != &other) {
+                Z3_rcf_del(m_ctx, m_num);
+                m_ctx = other.m_ctx;
+                std::string str = Z3_rcf_num_to_string(m_ctx, other.m_num, false, false);
+                m_num = Z3_rcf_mk_rational(m_ctx, str.c_str());
+            }
+            return *this;
+        }
+        
+        ~rcf_num() {
+            Z3_rcf_del(m_ctx, m_num);
+        }
+        
+        operator Z3_rcf_num() const { return m_num; }
+        Z3_context ctx() const { return m_ctx; }
+        
+        /**
+           \brief Return string representation of the RCF numeral.
+        */
+        std::string to_string(bool compact = false) const {
+            return std::string(Z3_rcf_num_to_string(m_ctx, m_num, compact, false));
+        }
+        
+        /**
+           \brief Return decimal string representation with given precision.
+        */
+        std::string to_decimal(unsigned precision = 10) const {
+            return std::string(Z3_rcf_num_to_decimal_string(m_ctx, m_num, precision));
+        }
+        
+        // Arithmetic operations
+        rcf_num operator+(rcf_num const& other) const {
+            check_context(other);
+            return rcf_num(*const_cast<context*>(reinterpret_cast<context const*>(&m_ctx)), 
+                          Z3_rcf_add(m_ctx, m_num, other.m_num));
+        }
+        
+        rcf_num operator-(rcf_num const& other) const {
+            check_context(other);
+            return rcf_num(*const_cast<context*>(reinterpret_cast<context const*>(&m_ctx)), 
+                          Z3_rcf_sub(m_ctx, m_num, other.m_num));
+        }
+        
+        rcf_num operator*(rcf_num const& other) const {
+            check_context(other);
+            return rcf_num(*const_cast<context*>(reinterpret_cast<context const*>(&m_ctx)), 
+                          Z3_rcf_mul(m_ctx, m_num, other.m_num));
+        }
+        
+        rcf_num operator/(rcf_num const& other) const {
+            check_context(other);
+            return rcf_num(*const_cast<context*>(reinterpret_cast<context const*>(&m_ctx)), 
+                          Z3_rcf_div(m_ctx, m_num, other.m_num));
+        }
+        
+        rcf_num operator-() const {
+            return rcf_num(*const_cast<context*>(reinterpret_cast<context const*>(&m_ctx)), 
+                          Z3_rcf_neg(m_ctx, m_num));
+        }
+        
+        /**
+           \brief Return the power of this number raised to k.
+        */
+        rcf_num power(unsigned k) const {
+            return rcf_num(*const_cast<context*>(reinterpret_cast<context const*>(&m_ctx)), 
+                          Z3_rcf_power(m_ctx, m_num, k));
+        }
+        
+        /**
+           \brief Return the multiplicative inverse (1/this).
+        */
+        rcf_num inv() const {
+            return rcf_num(*const_cast<context*>(reinterpret_cast<context const*>(&m_ctx)), 
+                          Z3_rcf_inv(m_ctx, m_num));
+        }
+        
+        // Comparison operations
+        bool operator<(rcf_num const& other) const {
+            check_context(other);
+            return Z3_rcf_lt(m_ctx, m_num, other.m_num);
+        }
+        
+        bool operator>(rcf_num const& other) const {
+            check_context(other);
+            return Z3_rcf_gt(m_ctx, m_num, other.m_num);
+        }
+        
+        bool operator<=(rcf_num const& other) const {
+            check_context(other);
+            return Z3_rcf_le(m_ctx, m_num, other.m_num);
+        }
+        
+        bool operator>=(rcf_num const& other) const {
+            check_context(other);
+            return Z3_rcf_ge(m_ctx, m_num, other.m_num);
+        }
+        
+        bool operator==(rcf_num const& other) const {
+            check_context(other);
+            return Z3_rcf_eq(m_ctx, m_num, other.m_num);
+        }
+        
+        bool operator!=(rcf_num const& other) const {
+            check_context(other);
+            return Z3_rcf_neq(m_ctx, m_num, other.m_num);
+        }
+        
+        // Type queries
+        bool is_rational() const {
+            return Z3_rcf_is_rational(m_ctx, m_num);
+        }
+        
+        bool is_algebraic() const {
+            return Z3_rcf_is_algebraic(m_ctx, m_num);
+        }
+        
+        bool is_infinitesimal() const {
+            return Z3_rcf_is_infinitesimal(m_ctx, m_num);
+        }
+        
+        bool is_transcendental() const {
+            return Z3_rcf_is_transcendental(m_ctx, m_num);
+        }
+        
+        friend std::ostream& operator<<(std::ostream& out, rcf_num const& n) {
+            return out << n.to_string();
+        }
+    };
+    
+    /**
+       \brief Create an RCF numeral representing pi.
+    */
+    inline rcf_num rcf_pi(context& c) {
+        return rcf_num(c, Z3_rcf_mk_pi(c));
+    }
+    
+    /**
+       \brief Create an RCF numeral representing e (Euler's constant).
+    */
+    inline rcf_num rcf_e(context& c) {
+        return rcf_num(c, Z3_rcf_mk_e(c));
+    }
+    
+    /**
+       \brief Create an RCF numeral representing an infinitesimal.
+    */
+    inline rcf_num rcf_infinitesimal(context& c) {
+        return rcf_num(c, Z3_rcf_mk_infinitesimal(c));
+    }
+    
+    /**
+       \brief Find roots of a polynomial with given coefficients.
+       
+       The polynomial is a[n-1]*x^(n-1) + ... + a[1]*x + a[0].
+       Returns a vector of RCF numerals representing the roots.
+    */
+    inline std::vector<rcf_num> rcf_roots(context& c, std::vector<rcf_num> const& coeffs) {
+        if (coeffs.empty()) {
+            throw exception("polynomial coefficients cannot be empty");
+        }
+        
+        unsigned n = static_cast<unsigned>(coeffs.size());
+        std::vector<Z3_rcf_num> a(n);
+        std::vector<Z3_rcf_num> roots(n);
+        
+        for (unsigned i = 0; i < n; i++) {
+            a[i] = coeffs[i];
+        }
+        
+        unsigned num_roots = Z3_rcf_mk_roots(c, n, a.data(), roots.data());
+        
+        std::vector<rcf_num> result;
+        result.reserve(num_roots);
+        for (unsigned i = 0; i < num_roots; i++) {
+            result.push_back(rcf_num(c, roots[i]));
+        }
+        
+        return result;
+    }
 
 }
 
