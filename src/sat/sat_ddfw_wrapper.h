@@ -37,7 +37,7 @@ namespace sat {
 
         ddfw_wrapper() {}
         
-        ~ddfw_wrapper() override {}
+        ~ddfw_wrapper() override = default;
 
         void set_plugin(local_search_plugin* p) { m_ddfw.set_plugin(p); }
 

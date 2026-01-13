@@ -136,9 +136,7 @@ public:
     void allocate_basis_heading();
     void init();
 
-    virtual ~lp_core_solver_base() {
-        
-    }
+    virtual ~lp_core_solver_base() = default;
 
     vector<unsigned> & non_basis() {
         return m_nbasis;

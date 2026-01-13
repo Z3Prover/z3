@@ -96,7 +96,7 @@ namespace sat {
 
     class proof_hint {
     public:
-        virtual ~proof_hint() {}
+        virtual ~proof_hint() = default;
     };
 
     class status {

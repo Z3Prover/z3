@@ -35,7 +35,7 @@ protected:
 
 public:
     iexpr_inverter(ast_manager& m): m(m) {}
-    virtual ~iexpr_inverter() {}
+    virtual ~iexpr_inverter() = default;
     virtual void set_is_var(std::function<bool(expr*)>& is_var) { m_is_var = is_var; }
     virtual void set_model_converter(generic_model_converter* mc) { m_mc = mc; }
     virtual void set_produce_proofs(bool p) { m_produce_proofs = true; }

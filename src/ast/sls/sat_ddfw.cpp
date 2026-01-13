@@ -32,9 +32,6 @@
 
 namespace sat {
 
-    ddfw::~ddfw() {
-    }
-
     lbool ddfw::check(unsigned sz, literal const* assumptions) {
         init(sz, assumptions);   
         if (m_plugin)

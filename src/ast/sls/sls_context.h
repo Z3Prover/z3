@@ -38,7 +38,7 @@ namespace sls {
         family_id m_fid;
     public:
         plugin(context& c);
-        virtual ~plugin() {}
+        virtual ~plugin() = default;
         virtual family_id fid() { return m_fid; }
         virtual void register_term(expr* e) = 0;
         virtual expr_ref get_value(expr* e) = 0;
@@ -65,7 +65,7 @@ namespace sls {
 
     class sat_solver_context {
     public:
-        virtual ~sat_solver_context() {}
+        virtual ~sat_solver_context() = default;
         virtual vector<sat::clause_info> const& clauses() const = 0;
         virtual sat::clause_info const& get_clause(unsigned idx) const = 0;
         virtual ptr_iterator<unsigned> get_use_list(sat::literal lit) = 0;
