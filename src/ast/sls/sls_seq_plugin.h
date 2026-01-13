@@ -185,7 +185,7 @@ namespace sls {
         bool repair_down(app* e) override;
         void repair_literal(sat::literal lit) override;
 
-        void collect_statistics(statistics& st) const override { (void)st; }
+        void collect_statistics(statistics&) const override { }
         void reset_statistics() override {}
 
     };

@@ -72,9 +72,9 @@ namespace sls {
         bool set_value(expr* e, expr* v) override { return false; }
         bool include_func_interp(func_decl* f) const override;
 
-        void repair_up(app* e) override { (void)e; }
+        void repair_up(app*) override { }
         bool repair_down(app* e) override { return false; }
-        void repair_literal(sat::literal lit) override { (void)lit; }
+        void repair_literal(sat::literal) override { }
 
         void collect_statistics(statistics& st) const override;
         void reset_statistics() override;

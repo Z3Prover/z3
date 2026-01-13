@@ -101,7 +101,7 @@ namespace euf {
 
         void merge_eh(enode* n1, enode* n2) override;
 
-        void diseq_eh(enode* eq) override { (void)eq; }
+        void diseq_eh(enode*) override { }
 
         void propagate() override;
 

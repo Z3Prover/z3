@@ -122,7 +122,7 @@ namespace sls {
         void propagate_literal(sat::literal lit) override { m_g = nullptr; }
         bool propagate() override { return false; }
         bool repair_down(app* e) override { return true; }
-        void repair_up(app* e) override { (void)e; }
+        void repair_up(app*) override { }
         void repair_literal(sat::literal lit) override { m_g = nullptr; }
         bool is_sat() override;
 

@@ -44,6 +44,6 @@ public:
 
     ast_manager& get_manager() { return m; }
 
-    void display(std::ostream & out) override { (void)out; }
+    void display(std::ostream &) override { }
 };
 
