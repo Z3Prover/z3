@@ -290,13 +290,14 @@ namespace nlsat {
             return best;
         }
 
-        void add_projections_for(todo_set& P, polynomial_ref const& p, unsigned x, polynomial_ref const& nonzero_coeff, bool add_leading_coeff) {
+        void add_projections_for(todo_set& P, polynomial_ref const& p, unsigned x, polynomial_ref const& nonzero_coeff, bool add_leading_coeff, bool add_discriminant) {
             // Line 11 (non-null witness coefficient)
             if (nonzero_coeff && !is_const(nonzero_coeff))
                 request_factorized(P, nonzero_coeff, inv_req::sign);
 
             // Line 12 (disc + leading coefficient)
-            request_factorized(P, psc_discriminant(p, x), inv_req::ord);
+            if (add_discriminant)
+                request_factorized(P, psc_discriminant(p, x), inv_req::ord);
             if (add_leading_coeff) {
                 unsigned deg = m_pm.degree(p, x);
                 polynomial_ref lc(m_pm);
@@ -383,6 +384,72 @@ namespace nlsat {
                             vec_setx(omit_lc, idl, true, false);
                     }
                 }
+            }
+        }
+
+        // Decide which discriminants can be omitted in the SECTION case based on the chosen
+        // resultant relation. Inspired by SMT-RAT's "noDisc" optimization in OneCellCAD.h:
+        // if a polynomial is only connected to the section-defining polynomial via resultants,
+        // we do not need its discriminant for transitive root-order reasoning.
+        void compute_omit_disc_from_section_relation(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_disc) {
+            auto const& I = m_I[level];
+            poly* section_p = I.l.get();
+            if (!section_p)
+                return;
+            omit_disc.clear();
+            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
+                return;
+
+            unsigned section_id = m_pm.id(section_p);
+
+            // Track the unique (if any) resultant-neighbor for each polynomial and its degree in the
+            // de-duplicated resultant graph. If deg(p) == 1 and neighbor(p) == section_id, then p is
+            // a leaf connected only to the section polynomial.
+            svector<unsigned> unique_neighbor;
+            svector<unsigned> deg;
+
+            std::set<std::pair<unsigned, unsigned>> added_pairs;
+            for (auto const& pr : m_rel.m_pairs) {
+                poly* a = m_rel.m_rfunc[pr.first].ire.p;
+                poly* b = m_rel.m_rfunc[pr.second].ire.p;
+                if (!a || !b)
+                    continue;
+                unsigned id1 = m_pm.id(a);
+                unsigned id2 = m_pm.id(b);
+                if (id1 == id2)
+                    continue;
+                std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
+                if (!added_pairs.insert(key).second)
+                    continue;
+
+                auto add_neighbor = [&](unsigned id, unsigned other) {
+                    deg.setx(id, deg.get(id, 0u) + 1, 0u);
+                    unsigned cur = unique_neighbor.get(id, UINT_MAX);
+                    if (cur == UINT_MAX)
+                        unique_neighbor.setx(id, other, UINT_MAX);
+                    else if (cur != other)
+                        unique_neighbor.setx(id, UINT_MAX - 1, UINT_MAX); // multiple neighbors
+                };
+                add_neighbor(id1, id2);
+                add_neighbor(id2, id1);
+            }
+
+            for (unsigned i = 0; i < level_ps.size(); ++i) {
+                poly* p = level_ps.get(i);
+                if (!p)
+                    continue;
+                unsigned id = m_pm.id(p);
+                if (id == section_id)
+                    continue;
+                if (deg.get(id, 0u) != 1)
+                    continue;
+                if (unique_neighbor.get(id, UINT_MAX) != section_id)
+                    continue;
+                // If p vanishes at the sample on the section, we may need p's delineability to
+                // reason about coinciding root functions; be conservative and keep disc(p).
+                if (m_am.eval_sign_at(polynomial_ref(p, m_pm), sample()) == 0)
+                    continue;
+                vec_setx(omit_disc, id, true, false);
             }
         }
 
@@ -763,6 +830,8 @@ namespace nlsat {
             // (cf. projective delineability, Lemma 3.2).
             std_vector<bool> omit_lc;
             compute_omit_lc_from_relation(level, level_ps, omit_lc);
+            std_vector<bool> omit_disc;
+            compute_omit_disc_from_section_relation(level, level_ps, omit_disc);
             for (unsigned i = 0; i < level_ps.size(); ++i) {
                 polynomial_ref p(level_ps.get(i), m_pm);
                 polynomial_ref lc(m_pm);
@@ -770,7 +839,8 @@ namespace nlsat {
                 lc = m_pm.coeff(p, level, deg);
 
                 bool add_lc = !(lc && witnesses[i].get() == lc.get());
-                if (add_lc && vec_get(omit_lc, m_pm.id(p.get()), false))
+                unsigned pid = m_pm.id(p.get());
+                if (add_lc && vec_get(omit_lc, pid, false))
                     add_lc = false;
 
                 if (add_lc && i < usize(poly_has_roots) && !poly_has_roots[i]) {
@@ -778,7 +848,13 @@ namespace nlsat {
                         add_lc = false;
                 }
 
-                add_projections_for(P, p, level, witnesses[i], add_lc);
+                bool add_disc = true;
+                // Only omit discriminants for polynomials that were not required
+                // to be order-invariant by upstream projection steps. Projection polynomials
+                // (resultants, discriminants) are requested with ORD and rely on delineability.
+                if (level_tags[i].second != inv_req::ord && vec_get(omit_disc, pid, false))
+                    add_disc = false;
+                add_projections_for(P, p, level, witnesses[i], add_lc, add_disc);
             }
 
             // Line 14 (Algorithm 1): add resultants for chosen relation pairs
@@ -818,7 +894,7 @@ namespace nlsat {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         add_lc = false;
                 }
-                add_projections_for(P, p, m_n, witnesses[i], add_lc);
+                add_projections_for(P, p, m_n, witnesses[i], add_lc, true);
             }
         }
 
