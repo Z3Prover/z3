@@ -161,9 +161,11 @@ namespace smt {
     void reachability_matrix::get_path(theory_var source, theory_var dest, vector<enode_pair>& path, int& num_decisions){
         SASSERT(is_reachable(source, dest));
         vector<bool> visited(max_size, false);
-        visited[source] = true;
+        if(source != dest){
+            visited[source] = true;
+        }
         num_decisions = 0;
-        while(source != dest){
+        do{
             bool success = false;
             // TRACE(finite_set, tout << "get_path:source: "<<source);
             for (int i = 0; i <= largest_var; i++)
@@ -181,7 +183,7 @@ namespace smt {
                 }
             }
             SASSERT(success);
-        }
+        }while(source != dest);
         TRACE(finite_set, tout << "get_path_num_decisions: "<<num_decisions);
     }
 
@@ -270,12 +272,31 @@ namespace smt {
         if (subset_th == null_theory_var || superset_th == null_theory_var){
             return;
         }
-        // cycle detection
-        if(reachability.is_reachable(superset_th, subset_th))
         if(reachability.set_reachability(subset_th, superset_th, justifying_equality)){
             reachability.print_relations();
         }
         SASSERT(reachability.is_reachable(subset_th, superset_th));
+        if(reachability.is_reachable(superset_th, subset_th)){
+            TRACE(finite_set, tout << "cycle_detected: " << subset_th << " <--> " << superset_th);
+            vector<enode_pair> path;
+            int num_decisions;
+            reachability.get_path(subset_th, subset_th, path, num_decisions);
+            // we propagate the equality
+
+            TRACE(finite_set, tout << "cycle1: " << path.size());
+            // build justification to be used by all propagated equalities
+            auto j1 = ctx.mk_justification(ext_theory_conflict_justification(th.get_id(), ctx, 0, nullptr, path.size(), path.data()));
+            TRACE(finite_set, tout << "cycle2");
+
+            for (size_t i = 0; i < path.size()-1; i++)
+            {
+                TRACE(finite_set, tout << "cycle3");
+                auto set1 = path[i].first;
+                auto set2 = path[i+1].first;
+                ctx.add_eq(set1, set2, eq_justification(j1));
+                TRACE(finite_set, tout << "added_equality: " << set1 << " == " << set2);
+            }
+        }
     };
 
     void theory_finite_set_lattice_refutation::add_not_subset(theory_var subset_th, theory_var superset_th, enode_pair justifying_disequality){
@@ -298,7 +319,7 @@ namespace smt {
         reachability.set_reachability(set1_th, set2_th, {set1, set2});
         SASSERT(reachability.is_reachable(set1_th, set2_th));
     
-        reachability.set_reachability(set2_th, set1_th, {set1, set2});
+        reachability.set_reachability(set2_th, set1_th, {set2, set1});
         SASSERT(reachability.is_reachable(set2_th, set1_th));
     }
 }
