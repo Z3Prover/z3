@@ -662,62 +662,71 @@ namespace nlsat {
             return roots.size();
         }
 
+        void init_poly_has_roots(polynomial_ref_vector const& level_ps, std_vector<bool>& poly_has_roots) {
+            poly_has_roots.clear();
+            poly_has_roots.resize(level_ps.size(), false);
+        }
+
+        bool collect_partitioned_root_functions_around_sample(unsigned level, polynomial_ref_vector const& level_ps,
+                            std_vector<bool>& poly_has_roots, anum const& v,
+                            std::vector<root_function>& lhalf, std::vector<root_function>& uhalf) {
+            for (unsigned i = 0; i < level_ps.size(); ++i)
+                poly_has_roots[i] = isolate_roots_around_sample(level, level_ps.get(i), i, v, lhalf, uhalf);
+            return !lhalf.empty() || !uhalf.empty();
+        }
+
+        std::vector<root_function>::iterator set_relation_root_functions_from_partitions(std::vector<root_function>& lhalf,
+                            std::vector<root_function>& uhalf) {
+            auto& rfs = m_rel.m_rfunc;
+            size_t mid_pos = lhalf.size();
+            rfs.clear();
+            rfs.reserve(mid_pos + uhalf.size());
+            for (auto& rf : lhalf)
+                rfs.emplace_back(std::move(rf));
+            for (auto& rf : uhalf)
+                rfs.emplace_back(std::move(rf));
+            return rfs.begin() + mid_pos;
+        }
+
+        bool root_function_lt(root_function const& a, root_function const& b, unsigned level, bool degree_desc) {
+            if (a.ire.p == b.ire.p)
+                return a.ire.i < b.ire.i;
+            auto r = m_am.compare(a.val, b.val);
+            if (r)
+                return r == sign_neg;
+            unsigned dega = m_pm.degree(a.ire.p, level);
+            unsigned degb = m_pm.degree(b.ire.p, level);
+            if (dega != degb)
+                return degree_desc ? dega > degb : dega < degb;
+            return m_pm.id(a.ire.p) < m_pm.id(b.ire.p);
+        }
+
+        void sort_root_function_partitions(unsigned level, std::vector<root_function>::iterator mid) {
+            auto& rfs = m_rel.m_rfunc;
+            std::sort(rfs.begin(), mid,
+                [&](root_function const& a, root_function const& b) { return root_function_lt(a, b, level, true); });
+            std::sort(mid, rfs.end(),
+                [&](root_function const& a, root_function const& b) { return root_function_lt(a, b, level, false); });
+        }
+
         // Populate Θ (root functions) around the sample, partitioned at `mid`, and sort each partition.
         // Returns whether any roots were found.
         bool build_sorted_root_functions_around_sample(unsigned level, polynomial_ref_vector const& level_ps,
                             std_vector<bool>& poly_has_roots, anum const& v,
                             std::vector<root_function>::iterator& mid) {
-            poly_has_roots.clear();
-            poly_has_roots.resize(level_ps.size(), false);
+            init_poly_has_roots(level_ps, poly_has_roots);
 
-            std::vector<root_function> lhalf;
-            std::vector<root_function> uhalf;
-
-            for (unsigned i = 0; i < level_ps.size(); ++i)
-                poly_has_roots[i] = isolate_roots_around_sample(level, level_ps.get(i), i, v, lhalf, uhalf);
-
-            if (lhalf.empty() && uhalf.empty())
+            std::vector<root_function> lhalf, uhalf;
+            if (!collect_partitioned_root_functions_around_sample(level, level_ps, poly_has_roots, v, lhalf, uhalf))
                 return false;
 
-            auto& rfs = m_rel.m_rfunc;
-            rfs.clear();
-            rfs.reserve(lhalf.size() + uhalf.size());
-            for (auto& rf : lhalf)
-                rfs.emplace_back(std::move(rf));
-            mid = rfs.end();
-            for (auto& rf : uhalf)
-                rfs.emplace_back(std::move(rf));
+            mid = set_relation_root_functions_from_partitions(lhalf, uhalf);
 
-            // Sort each partition separately.  For ties (equal root values), prefer
-            // low-degree defining polynomials as interval boundaries:
+            // Sort each partition separately. For ties (equal root values), prefer low-degree defining
+            // polynomials as interval boundaries:
             // - lower bound comes from the last element in the <= partition, so sort ties by degree descending
             // - upper bound comes from the first element in the > partition, so sort ties by degree ascending
-            auto tie_id = [&](root_function const& a, root_function const& b) {
-                return m_pm.id(a.ire.p) < m_pm.id(b.ire.p);
-            };
-            auto cmp_lo = [&](root_function const& a, root_function const& b) {
-                if (a.ire.p == b.ire.p) return a.ire.i < b.ire.i;
-                auto r = m_am.compare(a.val, b.val);
-                if (r) return r == sign_neg;
-                unsigned dega = m_pm.degree(a.ire.p, level);
-                unsigned degb = m_pm.degree(b.ire.p, level);
-                if (dega != degb)
-                    return dega > degb; // descending
-                return tie_id(a, b);
-            };
-            auto cmp_hi = [&](root_function const& a, root_function const& b) {
-                if (a.ire.p == b.ire.p) return a.ire.i < b.ire.i;
-                auto r = m_am.compare(a.val, b.val);
-                if (r) return r == sign_neg;
-                unsigned dega = m_pm.degree(a.ire.p, level);
-                unsigned degb = m_pm.degree(b.ire.p, level);
-                if (dega != degb)
-                    return dega < degb; // ascending
-                return tie_id(a, b);
-            };
-            std::sort(rfs.begin(), mid, cmp_lo);
-            std::sort(mid, rfs.end(), cmp_hi);
-
+            sort_root_function_partitions(level, mid);
             return true;
         }
 
@@ -856,8 +865,7 @@ namespace nlsat {
 
             // Lines 3-8: Θ + I_level + relation ≼
             std_vector<bool> poly_has_roots;
-            unsigned l_index = static_cast<unsigned>(-1);
-            unsigned u_index = static_cast<unsigned>(-1);
+            unsigned l_index = UINT_MAX, u_index = UINT_MAX;
             if (build_interval(level, level_ps, poly_has_roots, l_index, u_index))
                 fill_relation_pairs(l_index, u_index);
             // SMT-RAT (levelwise/OneCellCAD.h) upgrades the polynomials defining the current
@@ -886,10 +894,9 @@ namespace nlsat {
                 if (add_lc && vec_get(omit_lc, pid, false))
                     add_lc = false;
 
-                if (add_lc && i < usize(poly_has_roots) && !poly_has_roots[i]) {
+                if (add_lc && i < usize(poly_has_roots) && !poly_has_roots[i])
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         add_lc = false;
-                }
 
                 bool add_disc = true;
                 // Only omit discriminants for polynomials that were not required
