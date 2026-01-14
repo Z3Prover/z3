@@ -36,7 +36,6 @@ namespace sls {
             plugin(ctx) { 
             m_fid = basic_family_id;
         }
-        ~basic_plugin() override = default;
         void register_term(expr* e) override;
         expr_ref get_value(expr* e) override;
         void initialize() override;
