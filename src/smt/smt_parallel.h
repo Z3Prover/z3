@@ -32,6 +32,21 @@ namespace smt {
         static std::ostream& display_literal(std::ostream& out, expr_ref const& l) { return out << mk_bounded_pp(l, l.get_manager()); }
     };
 
+    class sls_tactic {
+        parallel &p;
+        batch_manager &b;
+        ast_manager m;
+        ast_translation m_l2g;
+
+        public:
+            sls_tactic(parallel &p);
+            void cancel();
+
+            reslimit &limit() {
+                return m.limit();
+            }
+    };
+
     class parallel {
         context& ctx;
         unsigned num_threads;
@@ -160,6 +175,7 @@ namespace smt {
 
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
+        scoped_ptr<sls_tactic> m_sls_tactic;
 
     public:
         parallel(context& ctx) : 

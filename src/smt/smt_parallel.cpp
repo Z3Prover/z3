@@ -25,7 +25,6 @@ Author:
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
 #include "solver/solver_preprocess.h"
-#include "params/smt_parallel_params.hpp"
 
 #include <cmath>
 #include <mutex>
@@ -63,6 +62,52 @@ namespace smt {
 #define LOG_WORKER(lvl, s) IF_VERBOSE(lvl, verbose_stream() << "Worker " << id << s)
 
 namespace smt {
+
+    void parallel::sls_tactic::run() {
+        IF_VERBOSE(1, verbose_stream() << "SLS portfolio thread started\n");
+
+        try {
+            // 1. Build goal
+            goal_ref g = alloc(goal, m, /*models*/ true, /*proofs*/ false, /*cores*/ false);
+
+            // 2. Copy asserted formulas from main context
+            ptr_vector<expr> assertions;
+            p.ctx.get_assertions(assertions);
+
+            for (expr* e : assertions) {
+                g->assert_expr(m_l2g(e));
+            }
+
+            // 3. Build SLS tactic (SMT-capable)
+            tactic_ref t = mk_sls_smt_tactic(m, m_params);
+
+            // 4. Run tactic
+            model_converter_ref mc;
+            goal_ref_buffer result;
+            (*t)(g, result);
+
+            if (m_limit.is_canceled())
+                return;
+
+            // 5. Interpret result
+            if (!result.empty() && result[0]->is_decided_sat()) {
+                IF_VERBOSE(1, verbose_stream() << "SLS found SAT\n");
+
+                model_ref mdl;
+                result[0]->get_model(mdl);
+
+                b.set_sat(m_l2g, *mdl);
+            }
+        }
+        catch (z3_exception& ex) {
+            b.set_exception(ex.what());
+        }
+    }
+
+    void parallel::sls_tactic::cancel() {
+        IF_VERBOSE(1, verbose_stream() << " SLS TACTIC cancelling\n");
+        m.limit().cancel();
+    }
 
     void parallel::worker::run() {
         search_tree::node<cube_config> *node = nullptr;
@@ -150,6 +195,13 @@ namespace smt {
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_inprocessing = pp.inprocessing();
     }
+
+    parallel::sls_tactic::sls_tactic(parallel& p)
+    : p(p), m(){
+
+    m.copy_families_plugins(p.ctx.m);
+    IF_VERBOSE(1, verbose_stream() << "Initialized SLS portfolio thread\n");
+}
 
     void parallel::worker::share_units() {
         // Collect new units learned locally by this worker and send to batch manager
@@ -280,7 +332,7 @@ namespace smt {
             SASSERT(p.ctx.m_unsat_core.empty());
             for (auto e : m_search_tree.get_core_from_root())
                p.ctx.m_unsat_core.push_back(e);
-            cancel_workers();
+            cancel_background_threads();
         }
     }
 
@@ -388,7 +440,7 @@ namespace smt {
             return;
         m_state = state::is_sat;
         p.ctx.set_model(m.translate(l2g));
-        cancel_workers();
+        cancel_background_threads();
     }
 
     void parallel::batch_manager::set_unsat(ast_translation &l2g, expr_ref_vector const &unsat_core) {
@@ -402,7 +454,7 @@ namespace smt {
         SASSERT(p.ctx.m_unsat_core.empty());
         for (expr *e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
-        cancel_workers();
+        cancel_background_threads();
     }
 
     void parallel::batch_manager::set_exception(unsigned error_code) {
@@ -412,7 +464,7 @@ namespace smt {
             return;
         m_state = state::is_exception_code;
         m_exception_code = error_code;
-        cancel_workers();
+        cancel_background_threads();
     }
 
     void parallel::batch_manager::set_exception(std::string const &msg) {
@@ -422,7 +474,7 @@ namespace smt {
             return;
         m_state = state::is_exception_msg;
         m_exception_msg = msg;
-        cancel_workers();
+        cancel_background_threads();
     }
 
     lbool parallel::batch_manager::get_result() const {
@@ -496,26 +548,36 @@ namespace smt {
             scoped_clear(parallel &p) : p(p) {}
             ~scoped_clear() {
                 p.m_workers.reset();
+                p.m_sls_tactic = nullptr;
             }
         };
         scoped_clear clear(*this);
 
         m_batch_manager.initialize();
         m_workers.reset();
+        
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
+
         SASSERT(num_threads > 1);
         for (unsigned i = 0; i < num_threads; ++i)
             m_workers.push_back(alloc(worker, i, *this, asms));
-
+        
         for (auto w : m_workers)
             sl.push_child(&(w->limit()));
 
+        m_sls_tactic = alloc(sls_tactic, *this);
+        sl.push_child(&(m_sls_tactic->limit()));
+
         // Launch threads
-        vector<std::thread> threads(num_threads);
+        // threads must live beyond the branch scope so we declare them here.
+        vector<std::thread> threads;
+        threads.resize(num_threads + 1); // +1 for sls tactic
         for (unsigned i = 0; i < num_threads; ++i) {
             threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
         }
+        // the final thread runs the sls tactic
+        threads[num_threads] = std::thread([&]() { m_sls_tactic->run(); });
 
         // Wait for all threads to finish
         for (auto &th : threads)
