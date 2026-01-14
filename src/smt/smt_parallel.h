@@ -32,21 +32,6 @@ namespace smt {
         static std::ostream& display_literal(std::ostream& out, expr_ref const& l) { return out << mk_bounded_pp(l, l.get_manager()); }
     };
 
-    class sls_tactic {
-        parallel &p;
-        batch_manager &b;
-        ast_manager m;
-        ast_translation m_l2g;
-
-        public:
-            sls_tactic(parallel &p);
-            void cancel();
-
-            reslimit &limit() {
-                return m.limit();
-            }
-    };
-
     class parallel {
         context& ctx;
         unsigned num_threads;
@@ -90,6 +75,16 @@ namespace smt {
                 IF_VERBOSE(1, verbose_stream() << "Canceling workers\n");
                 for (auto& w : p.m_workers) 
                     w->cancel();
+            }
+
+            void cancel_sls_tactic() {
+                IF_VERBOSE(1, verbose_stream() << "Canceling SLS tactic\n");
+                p.m_sls_tactic->cancel();
+            }
+
+            void cancel_background_threads() {
+                cancel_workers();
+                cancel_sls_tactic();
             }
 
             void init_parameters_state();
@@ -171,6 +166,22 @@ namespace smt {
                 return m.limit();
             }
 
+        };
+
+        class sls_tactic {
+            parallel &p;
+            batch_manager &b;
+            ast_manager m;
+            ast_translation m_l2g;
+
+            public:
+                sls_tactic(parallel &p);
+                void cancel();
+                void run();
+
+                reslimit &limit() {
+                    return m.limit();
+                }
         };
 
         batch_manager m_batch_manager;

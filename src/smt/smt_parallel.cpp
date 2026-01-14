@@ -25,6 +25,7 @@ Author:
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
 #include "solver/solver_preprocess.h"
+#include "params/smt_parallel_params.hpp"
 
 #include <cmath>
 #include <mutex>
@@ -66,42 +67,42 @@ namespace smt {
     void parallel::sls_tactic::run() {
         IF_VERBOSE(1, verbose_stream() << "SLS portfolio thread started\n");
 
-        try {
-            // 1. Build goal
-            goal_ref g = alloc(goal, m, /*models*/ true, /*proofs*/ false, /*cores*/ false);
+        // try {
+        //     // 1. Build goal
+        //     goal_ref g = alloc(goal, m, /*models*/ true, /*proofs*/ false, /*cores*/ false);
 
-            // 2. Copy asserted formulas from main context
-            ptr_vector<expr> assertions;
-            p.ctx.get_assertions(assertions);
+        //     // 2. Copy asserted formulas from main context
+        //     ptr_vector<expr> assertions;
+        //     p.ctx.get_assertions(assertions);
 
-            for (expr* e : assertions) {
-                g->assert_expr(m_l2g(e));
-            }
+        //     for (expr* e : assertions) {
+        //         g->assert_expr(m_l2g(e));
+        //     }
 
-            // 3. Build SLS tactic (SMT-capable)
-            tactic_ref t = mk_sls_smt_tactic(m, m_params);
+        //     // 3. Build SLS tactic (SMT-capable)
+        //     tactic_ref t = mk_sls_smt_tactic(m, m_params);
 
-            // 4. Run tactic
-            model_converter_ref mc;
-            goal_ref_buffer result;
-            (*t)(g, result);
+        //     // 4. Run tactic
+        //     model_converter_ref mc;
+        //     goal_ref_buffer result;
+        //     (*t)(g, result);
 
-            if (m_limit.is_canceled())
-                return;
+        //     if (m_limit.is_canceled())
+        //         return;
 
-            // 5. Interpret result
-            if (!result.empty() && result[0]->is_decided_sat()) {
-                IF_VERBOSE(1, verbose_stream() << "SLS found SAT\n");
+        //     // 5. Interpret result
+        //     if (!result.empty() && result[0]->is_decided_sat()) {
+        //         IF_VERBOSE(1, verbose_stream() << "SLS found SAT\n");
 
-                model_ref mdl;
-                result[0]->get_model(mdl);
+        //         model_ref mdl;
+        //         result[0]->get_model(mdl);
 
-                b.set_sat(m_l2g, *mdl);
-            }
-        }
-        catch (z3_exception& ex) {
-            b.set_exception(ex.what());
-        }
+        //         b.set_sat(m_l2g, *mdl);
+        //     }
+        // }
+        // catch (z3_exception& ex) {
+        //     b.set_exception(ex.what());
+        // }
     }
 
     void parallel::sls_tactic::cancel() {
@@ -196,12 +197,9 @@ namespace smt {
         m_config.m_inprocessing = pp.inprocessing();
     }
 
-    parallel::sls_tactic::sls_tactic(parallel& p)
-    : p(p), m(){
-
-    m.copy_families_plugins(p.ctx.m);
-    IF_VERBOSE(1, verbose_stream() << "Initialized SLS portfolio thread\n");
-}
+    parallel::sls_tactic::sls_tactic(parallel& p) : p(p), b(p.m_batch_manager), m_l2g(m, p.ctx.m) {
+        IF_VERBOSE(1, verbose_stream() << "Initialized SLS portfolio thread\n");
+    }
 
     void parallel::worker::share_units() {
         // Collect new units learned locally by this worker and send to batch manager
