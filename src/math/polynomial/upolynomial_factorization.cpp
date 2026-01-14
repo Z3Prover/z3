@@ -1038,7 +1038,7 @@ bool factor_square_free(z_manager & upm, numeral_vector const & f, factors & fs,
     
     // make sure the leading coefficient is positive
     if (!f_pp.empty() && nm.is_neg(f_pp[f_pp.size() - 1])) {
-        for (unsigned i = 0; i < f_pp.size(); i++)
+        for (unsigned i = 0; i < f_pp.size(); ++i)
             nm.neg(f_pp[i]);
         // flip sign constant if k is odd
         if (k % 2 == 1) {

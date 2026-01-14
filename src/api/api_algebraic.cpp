@@ -325,7 +325,7 @@ extern "C" {
     static bool to_anum_vector(Z3_context c, unsigned n, Z3_ast a[], scoped_anum_vector & as) {
         algebraic_numbers::manager & _am = am(c);
         scoped_anum tmp(_am);
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             if (is_rational(c, a[i])) {
                 _am.set(tmp, get_rational(c, a[i]).to_mpq());
                 as.push_back(tmp);
@@ -378,7 +378,7 @@ extern "C" {
         }
         Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(result);
-        for (unsigned i = 0; i < roots.size(); i++) {
+        for (unsigned i = 0; i < roots.size(); ++i) {
             result->m_ast_vector.push_back(au(c).mk_numeral(_am, roots.get(i), false));
         }
         RETURN_Z3(of_ast_vector(result));

@@ -140,7 +140,7 @@ extern "C" {
         LOG_Z3_tactic_par_or(c, num, ts);
         RESET_ERROR_CODE();
         ptr_buffer<tactic> _ts;
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             _ts.push_back(to_tactic_ref(ts[i]));
         }
         tactic * new_t = par(num, _ts.data());
@@ -496,7 +496,7 @@ extern "C" {
         std::ostringstream buffer;
         buffer << "(goals\n";
         unsigned sz = to_apply_result(r)->m_subgoals.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             to_apply_result(r)->m_subgoals[i]->display(buffer);
         }
         buffer << ')';

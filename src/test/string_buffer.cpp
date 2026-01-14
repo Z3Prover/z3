@@ -29,7 +29,7 @@ static void tst1() {
 
 static void tst2() {
   string_buffer<> b;
-  for (unsigned i = 0; i < 10000; i++) {
+  for (unsigned i = 0; i < 10000; ++i) {
     int r = rand() % 10;
     b << r;
   }

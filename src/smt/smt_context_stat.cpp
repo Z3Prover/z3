@@ -49,7 +49,7 @@ namespace smt {
         lit2num_occs.resize(num_lits, 0);
         acc_num_occs(m_aux_clauses, lit2num_occs);
         acc_num_occs(m_lemmas, lit2num_occs);
-        for (unsigned lidx = 0; lidx < num_lits; lidx++) {
+        for (unsigned lidx = 0; lidx < num_lits; ++lidx) {
             literal l = to_literal(lidx);
             if (lit2num_occs[lidx] > 0) {
                 out << lit2num_occs[lidx] << " ";
@@ -91,14 +91,14 @@ namespace smt {
         acc_var_num_occs(m_aux_clauses, var2num_occs);
         acc_var_num_occs(m_lemmas, var2num_occs);
         unsigned_vector histogram;
-        for (unsigned v = 0; v < num_vars; v++) {
+        for (unsigned v = 0; v < num_vars; ++v) {
             unsigned num_occs = var2num_occs[v];
             histogram.reserve(num_occs+1, 0);
             histogram[num_occs]++;
         }
         out << "number of atoms having k occs:\n"; 
         unsigned sz = histogram.size();
-        for (unsigned i = 1; i < sz; i++)
+        for (unsigned i = 1; i < sz; ++i)
             if (histogram[i] > 0)
                 out << i << ":" << histogram[i] << " ";
         out << "\n";
@@ -107,7 +107,7 @@ namespace smt {
     static void acc_var_num_min_occs(clause * cls, unsigned_vector & var2num_min_occs) {
         unsigned num_lits = cls->get_num_literals();
         bool_var min_var  = (*cls)[0].var();
-        for (unsigned i = 1; i < num_lits; i++) {
+        for (unsigned i = 1; i < num_lits; ++i) {
             bool_var v = (*cls)[i].var();
             if (v < min_var)
                 min_var = v;
@@ -128,7 +128,7 @@ namespace smt {
         acc_var_num_min_occs(m_aux_clauses, var2num_min_occs);
         acc_var_num_min_occs(m_lemmas, var2num_min_occs);
         out << "number of min occs:\n";
-        for (unsigned v = 0; v < num_vars; v++) {
+        for (unsigned v = 0; v < num_vars; ++v) {
             if (var2num_min_occs[v] > 0)
                 out << v << ":" << var2num_min_occs[v] << " ";
         }

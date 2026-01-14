@@ -180,7 +180,7 @@ namespace smt {
 
     void for_each_relevant_expr::process_app(app * n) {
         unsigned sz = n->get_num_args();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * arg = n->get_arg(i);
             if (m_cache.contains(arg))
                 continue;
@@ -197,7 +197,7 @@ namespace smt {
     void for_each_relevant_expr::process_relevant_child(app * n, lbool val) {
         unsigned sz = n->get_num_args();
         TRACE(for_each_relevant_expr, tout << val << " " << mk_bounded_pp(n, m_manager) << "\n";);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * arg = n->get_arg(i);
             if (!is_relevant(arg))
                 continue;
@@ -208,7 +208,7 @@ namespace smt {
                 return; // the current child justifies n.
             }
         }
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * arg = n->get_arg(i);
             if (!is_relevant(arg))
                 continue;

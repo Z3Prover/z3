@@ -93,7 +93,7 @@ namespace q {
     void ematch::ensure_ground_enodes(clause const& c) {
         quantifier* q = c.q();
         unsigned num_patterns = q->get_num_patterns();
-        for (unsigned i = 0; i < num_patterns; i++) 
+        for (unsigned i = 0; i < num_patterns; ++i) 
             ensure_ground_enodes(q->get_pattern(i));
         for (auto const& lit : c.m_lits) {
             ensure_ground_enodes(lit.lhs);
@@ -589,12 +589,12 @@ namespace q {
         
         bool has_unary_pattern = false;
         unsigned num_patterns = q->get_num_patterns();
-        for (unsigned i = 0; i < num_patterns && !has_unary_pattern; i++) 
+        for (unsigned i = 0; i < num_patterns && !has_unary_pattern; ++i) 
             has_unary_pattern = (1 == to_app(q->get_pattern(i))->get_num_args());
         unsigned num_eager_multi_patterns = ctx.get_config().m_qi_max_eager_multipatterns;
         if (!has_unary_pattern)
             num_eager_multi_patterns++;
-        for (unsigned i = 0, j = 0; i < num_patterns; i++) {
+        for (unsigned i = 0, j = 0; i < num_patterns; ++i) {
             app * mp = to_app(q->get_pattern(i));
             SASSERT(m.is_pattern(mp));
             bool unary = (mp->get_num_args() == 1);

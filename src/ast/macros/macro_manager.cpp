@@ -58,7 +58,7 @@ void macro_manager::pop_scope(unsigned num_scopes) {
 
 void macro_manager::restore_decls(unsigned old_sz) {
     unsigned sz         = m_decls.size();
-    for (unsigned i = old_sz; i < sz; i++) {
+    for (unsigned i = old_sz; i < sz; ++i) {
         m_decl2macro.erase(m_decls.get(i));
         m_deps.erase(m_decls.get(i));
         if (m.proofs_enabled())
@@ -74,7 +74,7 @@ void macro_manager::restore_decls(unsigned old_sz) {
 
 void macro_manager::restore_forbidden(unsigned old_sz) {
     unsigned sz         = m_forbidden.size();
-    for (unsigned i = old_sz; i < sz; i++)
+    for (unsigned i = old_sz; i < sz; ++i)
         m_forbidden_set.erase(m_forbidden.get(i));
     m_forbidden.shrink(old_sz);
 }
@@ -176,7 +176,7 @@ namespace macro_manager_ns {
 void macro_manager::mark_forbidden(unsigned n, justified_expr const * exprs) {
     expr_mark visited;
     macro_manager_ns::proc p(m_forbidden_set, m_forbidden);
-    for (unsigned i = 0; i < n; i++)
+    for (unsigned i = 0; i < n; ++i)
         for_each_expr(p, visited, exprs[i].fml());
 }
 
@@ -203,7 +203,7 @@ void macro_manager::get_head_def(quantifier * q, func_decl * d, app * & head, ex
 
 void macro_manager::display(std::ostream & out) {
     unsigned sz = m_decls.size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         func_decl * f  = m_decls.get(i);
         quantifier * q = nullptr;
         m_decl2macro.find(f, q);
@@ -267,11 +267,11 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
         // So, I'm just erasing them.
 
         bool erase_patterns = false;
-        for (unsigned i = 0; !erase_patterns && i < old_q->get_num_patterns(); i++) {
+        for (unsigned i = 0; !erase_patterns && i < old_q->get_num_patterns(); ++i) {
             if (old_q->get_pattern(i) != new_patterns[i]) 
                 erase_patterns = true;
         }
-        for (unsigned i = 0; !erase_patterns && i < old_q->get_num_no_patterns(); i++) {
+        for (unsigned i = 0; !erase_patterns && i < old_q->get_num_no_patterns(); ++i) {
             if (old_q->get_no_pattern(i) != new_no_patterns[i])
                 erase_patterns = true;
         }
@@ -301,7 +301,7 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
             TRACE(macro_manager, tout << "expanding: " << mk_pp(n, m) << "\n" << mk_pp(head, m) << " " << mk_pp(def, m) << "\n";);
             ptr_buffer<expr> subst_args;
             subst_args.resize(num, 0);
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 var * v = to_var(head->get_arg(i));
                 if (v->get_idx() >= num)
                     return false;

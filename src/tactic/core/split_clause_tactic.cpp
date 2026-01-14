@@ -28,7 +28,7 @@ class split_clause_tactic : public tactic {
         unsigned result_idx = UINT_MAX;
         unsigned len = 0;
         unsigned sz  = in->size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * f = in->form(i);
             if (m.is_or(f)) {
                 unsigned curr_len = to_app(f)->get_num_args();
@@ -61,7 +61,7 @@ class split_clause_tactic : public tactic {
             SASSERT(num_source == m_clause->get_num_args());
             proof_ref_buffer prs(m);
             prs.push_back(m_clause_pr);
-            for (unsigned i = 0; i < num_source; i++) {
+            for (unsigned i = 0; i < num_source; ++i) {
                 proof * pr_i  = source[i];
                 expr * not_li = m.mk_not(m_clause->get_arg(i));
                 prs.push_back(m.mk_lemma(pr_i, not_li));

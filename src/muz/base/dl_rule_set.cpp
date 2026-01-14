@@ -89,7 +89,7 @@ namespace datalog {
 
     void rule_dependencies::populate(unsigned n, rule * const * rules) {
         SASSERT(m_data.empty());
-        for (unsigned i=0; i<n; i++) {
+        for (unsigned i=0; i<n; ++i) {
             populate(rules[i]);
         }
     }
@@ -393,11 +393,11 @@ namespace datalog {
     bool rule_set::stratified_negation() {
         ptr_vector<rule>::const_iterator it  = m_rules.data();
         ptr_vector<rule>::const_iterator end = m_rules.data() + m_rules.size();
-        for (; it != end; it++) {
+        for (; it != end; ++it) {
             rule * r = *it;
             func_decl * head_decl = r->get_decl();
             unsigned n = r->get_uninterpreted_tail_size();
-            for (unsigned i = r->get_positive_tail_size(); i < n; i++) {
+            for (unsigned i = r->get_positive_tail_size(); i < n; ++i) {
                 SASSERT(r->is_neg_tail(i));
                 func_decl * tail_decl = r->get_decl(i);
                 unsigned neg_strat = get_predicate_strat(tail_decl);
@@ -423,7 +423,7 @@ namespace datalog {
     void rule_set::add_rules(const rule_set & src) {
         SASSERT(!is_closed());
         unsigned n = src.get_num_rules();
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             add_rule(src.get_rule(i));
         }
         inherit_predicates(src);
@@ -639,7 +639,7 @@ namespace datalog {
         // We put components whose indegree is zero to m_strats and assign its
         // m_components entry to zero.
         unsigned comp_cnt = m_components.size();
-        for (unsigned i = 0; i < comp_cnt; i++) {
+        for (unsigned i = 0; i < comp_cnt; ++i) {
             if (in_degrees[i] == 0) {
                 m_strats.push_back(m_components[i]);
                 m_components[i] = 0;
@@ -681,7 +681,7 @@ namespace datalog {
 
         SASSERT(m_pred_strat_nums.empty());
         unsigned strat_cnt = m_strats.size();
-        for (unsigned strat_index=0; strat_index < strat_cnt; strat_index++) {
+        for (unsigned strat_index=0; strat_index < strat_cnt; ++strat_index) {
             item_set * comp = m_strats[strat_index];
             for (T * el : *comp) {
                 m_pred_strat_nums.insert(el, strat_index);

@@ -427,7 +427,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                     fr.m_state = EXPAND_DEF;
                     TRACE(get_macro, tout << "f: " << f->get_name() << ", def: \n" << mk_ismt2_pp(def, m()) << "\n";
                           tout << "Args num: " << num_args << "\n";
-                          for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(new_args[i], m()) << "\n";);
+                          for (unsigned i = 0; i < num_args; ++i) tout << mk_ismt2_pp(new_args[i], m()) << "\n";);
                     unsigned sz = m_bindings.size();
                     unsigned i = num_args;
                     while (i > 0) {
@@ -535,7 +535,7 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
         begin_scope();
         m_root       = q->get_expr();
         unsigned sz = m_bindings.size();
-        for (unsigned i = 0; i < num_decls; i++) {
+        for (unsigned i = 0; i < num_decls; ++i) {
             m_bindings.push_back(nullptr);
             m_shifts.push_back(sz);
         }
@@ -561,13 +561,13 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
         expr * const * np  = it + 1;
         expr * const * nnp = np + num_pats;
         unsigned j = 0;
-        for (unsigned i = 0; i < num_pats; i++)
+        for (unsigned i = 0; i < num_pats; ++i)
             if (m_manager.is_pattern(np[i]))
                 new_pats[j++] = np[i];
         new_pats.shrink(j);
         num_pats = j;
         j = 0;
-        for (unsigned i = 0; i < num_no_pats; i++)
+        for (unsigned i = 0; i < num_no_pats; ++i)
             if (m_manager.is_pattern(nnp[i]))
                 new_no_pats[j++] = nnp[i];
         new_no_pats.shrink(j);
@@ -662,7 +662,7 @@ void rewriter_tpl<Config>::cleanup() {
 
 template<typename Config>
 void rewriter_tpl<Config>::display_bindings(std::ostream& out) {
-    for (unsigned i = 0; i < m_bindings.size(); i++) {
+    for (unsigned i = 0; i < m_bindings.size(); ++i) {
         if (m_bindings[i])
             out << i << ": " << mk_ismt2_pp(m_bindings[i], m()) << ";\n";
     }
@@ -690,7 +690,7 @@ void rewriter_tpl<Config>::set_inv_bindings(unsigned num_bindings, expr * const 
     SASSERT(not_rewriting());
     m_bindings.reset();
     m_shifts.reset();
-    for (unsigned i = 0; i < num_bindings; i++) {
+    for (unsigned i = 0; i < num_bindings; ++i) {
         m_bindings.push_back(bindings[i]);
         m_shifts.push_back(num_bindings);
     }

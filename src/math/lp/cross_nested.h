@@ -111,7 +111,7 @@ public:
         auto common_vars = get_vars_of_expr(ch[0]);
         for (lpvar j : common_vars) {
             bool divides_the_rest = true;
-            for (unsigned i = 1; i < ch.size() && divides_the_rest; i++) {
+            for (unsigned i = 1; i < ch.size() && divides_the_rest; ++i) {
                 if (!ch[i]->contains(j))
                     divides_the_rest = false;
             }
@@ -156,7 +156,7 @@ public:
 
     static void restore_front(const vector<nex*> &copy, vector<nex**>& front) {
         SASSERT(copy.size() == front.size());
-        for (unsigned i = 0; i < front.size(); i++)
+        for (unsigned i = 0; i < front.size(); ++i)
             *(front[i]) = copy[i];
     }
 

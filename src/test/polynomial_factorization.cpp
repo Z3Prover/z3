@@ -133,7 +133,7 @@ void test_factorization_repeated_factors() {
     
     // Check that factor has degree 3 (meaning (x-1)^3)
     unsigned total_degree = 0;
-    for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+    for (unsigned i = 0; i < fs.distinct_factors(); ++i) {
         total_degree += m.degree(fs[i]) * fs.get_degree(i);
     }
     VERIFY(total_degree == 3);
@@ -338,7 +338,7 @@ void test_factorization_large_multivariate_missing_factors() {
     factors fs(m);
     factor(p, fs);
     VERIFY(fs.distinct_factors() == 2); // indeed there are 3 factors, that is demonstrated by the loop  
-    for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+    for (unsigned i = 0; i < fs.distinct_factors(); ++i) {
         polynomial_ref f(m);
         f = fs[i];
         if (degree(f, x1)<= 1) continue;

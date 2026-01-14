@@ -127,7 +127,7 @@ namespace lp {
 
         bool all_columns_are_integral() const {
             return true; // otherwise it never returns true!
-            for (lpvar j = 0; j < lra.number_of_vars(); j++)
+            for (lpvar j = 0; j < lra.number_of_vars(); ++j)
                 if (!lra.column_is_int(j))
                     return false;
             return true;
@@ -449,14 +449,14 @@ namespace lp {
     
     std::ostream& int_solver::display_inf_rows(std::ostream& out) const {
         unsigned num = lra.A_r().column_count();
-        for (unsigned v = 0; v < num; v++) {
+        for (unsigned v = 0; v < num; ++v) {
             if (column_is_int(v) && !get_value(v).is_int()) {
                 display_column(out, v);
             }
         }
 
         num = 0;
-        for (unsigned i = 0; i < lra.A_r().row_count(); i++) {
+        for (unsigned i = 0; i < lra.A_r().row_count(); ++i) {
             unsigned j = lrac.m_r_basis[i];
             if (column_is_int_inf(j)) {
                 num++;

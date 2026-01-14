@@ -664,14 +664,14 @@ class tseitin_cnf_tactic : public tactic {
                 bool visited = true;
                 unsigned num = t->get_num_args();
                 unsigned blowup = 1;
-                for (unsigned i = 0; i < num; i++) {
+                for (unsigned i = 0; i < num; ++i) {
                     expr * a = t->get_arg(i);
                     expr * a0;
                     if (m_distributivity && m.is_not(a, a0) && m.is_or(a0) && !is_shared(a0)) {
                         unsigned num2 = to_app(a0)->get_num_args();
                         if (num2 < m_distributivity_blowup && blowup * num2 < m_distributivity_blowup && blowup < blowup * num2) { 
                             blowup *= num2;
-                            for (unsigned j = 0; j < num2; j++)
+                            for (unsigned j = 0; j < num2; ++j)
                                 visit(to_app(a0)->get_arg(j), visited);
                             continue;
                         }
@@ -693,7 +693,7 @@ class tseitin_cnf_tactic : public tactic {
             bool distributivity = false;
             if (m_distributivity) {
                 // check if need to apply distributivity
-                for (unsigned i = 0; i < num; i++) {
+                for (unsigned i = 0; i < num; ++i) {
                     expr * a = t->get_arg(i);
                     expr * a0;
                     if (m.is_not(a, a0) && m.is_or(a0) && !is_shared(a0) && to_app(a0)->get_num_args() < m_distributivity_blowup) {
@@ -706,7 +706,7 @@ class tseitin_cnf_tactic : public tactic {
             if (!distributivity) {
                 // easy case
                 expr_ref_buffer lits(m); expr_ref l(m);
-                for (unsigned i = 0; i < num; i++) {
+                for (unsigned i = 0; i < num; ++i) {
                     get_lit(t->get_arg(i), false, l);
                     lits.push_back(l);
                 }
@@ -714,7 +714,7 @@ class tseitin_cnf_tactic : public tactic {
                     mk_clause(lits.size(), lits.data());
                 }
                 else {
-                    for (unsigned i = 0; i < num; i++) {
+                    for (unsigned i = 0; i < num; ++i) {
                         inv(lits[i], l);
                         mk_clause(l, k);
                     }
@@ -728,7 +728,7 @@ class tseitin_cnf_tactic : public tactic {
                 sbuffer<unsigned> it;
                 sbuffer<unsigned> offsets;
                 unsigned blowup = 1;
-                for (unsigned i = 0; i < num; i++) {
+                for (unsigned i = 0; i < num; ++i) {
                     it.push_back(0);
                     offsets.push_back(buffer.size());
                     expr * a = t->get_arg(i);
@@ -739,7 +739,7 @@ class tseitin_cnf_tactic : public tactic {
                             szs.push_back(num2);
                             blowup *= num2;
                             expr_ref_buffer lits(m);
-                            for (unsigned j = 0; j < num2; j++) {
+                            for (unsigned j = 0; j < num2; ++j) {
                                 get_lit(to_app(a0)->get_arg(j), true, nl);
                                 buffer.push_back(nl);
                                 if (!root) {
@@ -766,12 +766,12 @@ class tseitin_cnf_tactic : public tactic {
                 sbuffer<expr**> arg_lits;
                 ptr_buffer<expr> lits;
                 expr ** buffer_ptr = buffer.data();
-                for (unsigned i = 0; i < num; i++) {
+                for (unsigned i = 0; i < num; ++i) {
                     arg_lits.push_back(buffer_ptr + offsets[i]);
                 }
                 do {
                     lits.reset();
-                    for (unsigned i = 0; i < num; i++) {
+                    for (unsigned i = 0; i < num; ++i) {
                         lits.push_back(arg_lits[i][it[i]]);
                     }
                     if (!root)
@@ -863,7 +863,7 @@ class tseitin_cnf_tactic : public tactic {
             g->reset();
             unsigned sz = m_clauses.size();
             expr_fast_mark1 added;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 expr * cls = m_clauses.get(i);
                 if (added.is_marked(cls))
                     continue;

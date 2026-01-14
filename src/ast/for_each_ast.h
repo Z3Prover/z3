@@ -25,7 +25,7 @@ Revision History:
 template<typename T>
 bool for_each_ast_args(ptr_vector<ast> & stack, ast_mark & visited, unsigned num_args, T * const * args) {
     bool result = true;
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         T * arg = args[i];
         if (!visited.is_marked(arg)) {
             stack.push_back(arg);

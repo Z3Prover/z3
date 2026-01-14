@@ -40,7 +40,7 @@ template <typename T, typename X>
 X dot_product(const vector<T> & a, const vector<X> & b) {
     SASSERT(a.size() == b.size());
     auto r = zero_of_type<X>();
-    for (unsigned i = 0; i < a.size(); i++) {
+    for (unsigned i = 0; i < a.size(); ++i) {
         r += a[i] * b[i];
     }
     return r;
@@ -176,7 +176,7 @@ public:
 
     bool need_to_pivot_to_basis_tableau() const {
         unsigned m = m_A.row_count();
-        for (unsigned i = 0; i < m; i++) {
+        for (unsigned i = 0; i < m; ++i) {
             unsigned bj = m_basis[i];
             SASSERT(m_A.m_columns[bj].size() > 0);
             if (m_A.m_columns[bj].size() > 1)
@@ -198,7 +198,7 @@ public:
         
             
         unsigned n = m_A.column_count();
-        for (unsigned j = 0; j < n; j++) {
+        for (unsigned j = 0; j < n; ++j) {
             if (m_basis_heading[j] >= 0) {
                 if (!is_zero(m_d[j])) {
                     return false;
@@ -337,7 +337,7 @@ public:
     bool pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w);
     void init_basic_part_of_basis_heading() {
         unsigned m = m_basis.size();
-        for (unsigned i = 0; i < m; i++) {
+        for (unsigned i = 0; i < m; ++i) {
             unsigned column = m_basis[i];
             m_basis_heading[column] = i;
         }
@@ -491,7 +491,7 @@ public:
     }
 
     bool bounds_for_boxed_are_set_correctly() const {
-        for (unsigned j = 0; j < m_column_types.size(); j++) {
+        for (unsigned j = 0; j < m_column_types.size(); ++j) {
             if (m_column_types[j] != column_type::boxed) continue;
             if (m_lower_bounds[j] > m_upper_bounds[j])
                 return false;
@@ -588,7 +588,7 @@ public:
     
     bool costs_on_nbasis_are_zeros() const {
         SASSERT(this->basis_heading_is_correct());
-        for (unsigned j = 0; j < this->m_n(); j++) {
+        for (unsigned j = 0; j < this->m_n(); ++j) {
             if (this->m_basis_heading[j] < 0)
                 SASSERT(is_zero(this->m_costs[j]));
         }

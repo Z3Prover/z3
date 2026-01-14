@@ -75,7 +75,7 @@ public:
             m_nodes.shrink(sz); 
         }
         else {
-            for (unsigned i = m_nodes.size(); i < sz; i++)
+            for (unsigned i = m_nodes.size(); i < sz; ++i)
                 push_back(d);
         }
     }

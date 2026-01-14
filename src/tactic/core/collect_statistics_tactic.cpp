@@ -70,7 +70,7 @@ public:
         collect_proc cp(m, m_stats);
         expr_mark visited;
         const unsigned sz = g->size();
-        for (unsigned i = 0; i < sz; i++)
+        for (unsigned i = 0; i < sz; ++i)
             for_each_expr(cp, visited, g->form(i));
 
         std::cout << "(\n";
@@ -157,7 +157,7 @@ protected:
         }
 
         void operator()(func_decl * f) {
-            for (unsigned i = 0; i < f->get_arity(); i++)
+            for (unsigned i = 0; i < f->get_arity(); ++i)
                 this->operator()(f->get_domain()[i]);
             this->operator()(f->get_range());
 

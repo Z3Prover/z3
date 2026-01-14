@@ -755,7 +755,7 @@ namespace smt {
         else { 
             r = theory_array::assert_delayed_axioms();
             unsigned num_vars = get_num_vars();
-            for (unsigned v = 0; v < num_vars; v++) {
+            for (unsigned v = 0; v < num_vars; ++v) {
                 var_data * d = m_var_data[v];
                 if (d->m_prop_upward && instantiate_axiom_map_for(v))
                     r = FC_CONTINUE;

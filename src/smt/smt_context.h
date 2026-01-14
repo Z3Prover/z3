@@ -1231,7 +1231,7 @@ namespace smt {
            \brief Return true if the give clause is justifying some literal.
         */
         bool is_justifying(clause * cls) const {
-            for (unsigned i = 0; i < 2; i++) {
+            for (unsigned i = 0; i < 2; ++i) {
                 b_justification js;
                 js = get_justification((*cls)[i].var());
                 if (js.get_kind() == b_justification::CLAUSE && js.get_clause() == cls)

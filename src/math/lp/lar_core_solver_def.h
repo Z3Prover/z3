@@ -66,7 +66,7 @@ void lar_core_solver::fill_not_improvable_zero_sum() {
             m_infeasible_linear_combination.push_back(std::make_pair(cost_j, j));        
     }
     // m_costs are expressed by m_d ( additional costs), substructing the latter gives 0
-    for (unsigned j = 0; j < m_r_solver.m_n(); j++) {
+    for (unsigned j = 0; j < m_r_solver.m_n(); ++j) {
         if (m_r_solver.m_basis_heading[j] >= 0) continue;
         const mpq & d_j = m_r_solver.m_d[j];
         if (!numeric_traits<mpq>::is_zero(d_j)) 

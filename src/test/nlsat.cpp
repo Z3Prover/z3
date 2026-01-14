@@ -195,7 +195,7 @@ static nlsat::interval_set_ref mk_random(nlsat::interval_set_manager & ism, anum
         prev = next;
     }
 
-    for (int i = 0; i < tries; i++) {
+    for (int i = 0; i < tries; ++i) {
         int l = prev  + (gen() % space);
         int u = l + (gen() % space);
         bool lower_open = gen() % 2 == 0;
@@ -231,7 +231,7 @@ static void check_subset_result(nlsat::interval_set_ref const & s1,
     ptr_vector<nlsat::clause> clauses;
     ism.get_justifications(r, lits, clauses);
     ENSURE(lits.size() <= 2);
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         tmp = ism.get_interval(r, i);
         ism.get_justifications(tmp, lits, clauses);
         ENSURE(lits.size() == 1);
@@ -257,14 +257,14 @@ static void tst4() {
     nlsat::literal l1(1, false);
     nlsat::literal l2(2, false);
 
-    for (unsigned i = 0; i < 100; i++) {
+    for (unsigned i = 0; i < 100; ++i) {
         s1 = mk_random(ism, am, 20, 3, 10, true, true, l1);
         s2 = mk_random(ism, am, 20, 3, 10, true, true, l2);
         r = tst_interval(s1, s2, 0, false);
         check_subset_result(s1, s2, r, l1, l2);
     }
 
-    for (unsigned i = 0; i < 100; i++) {
+    for (unsigned i = 0; i < 100; ++i) {
         s1 = mk_random(ism, am, 200, 100, 20, true, true, l1);
         s2 = mk_random(ism, am, 200, 100, 20, true, true, l2);
         r = tst_interval(s1, s2, 0, false);

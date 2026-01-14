@@ -75,7 +75,7 @@ static void tst2() {
     vector<std::pair<cell *, int> > object_coeff_pairs;
     unsigned num_resets = 0;
 
-    for (unsigned i = 0; i < 100000; i++) {
+    for (unsigned i = 0; i < 100000; ++i) {
         unsigned idx = rand() % 6;
         if (idx < 4) {
             cell * c;

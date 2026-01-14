@@ -73,13 +73,13 @@ public:
                 if (!ignore_quantifiers) {
                     found(to_quantifier(n)->get_qid());
                     unsigned num_decls = to_quantifier(n)->get_num_decls();
-                    for (unsigned i = 0; i < num_decls; i++)
+                    for (unsigned i = 0; i < num_decls; ++i)
                         found(to_quantifier(n)->get_decl_name(i));
                     unsigned num_pats = to_quantifier(n)->get_num_patterns();
-                    for (unsigned i = 0; i < num_pats; i++)
+                    for (unsigned i = 0; i < num_pats; ++i)
                         visit(to_quantifier(n)->get_pattern(i));
                     unsigned num_no_pats = to_quantifier(n)->get_num_no_patterns();
-                    for (unsigned i = 0; i < num_no_pats; i++)
+                    for (unsigned i = 0; i < num_no_pats; ++i)
                         visit(to_quantifier(n)->get_no_pattern(i));
                     visit(to_quantifier(n)->get_expr());
                 }

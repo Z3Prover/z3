@@ -39,7 +39,7 @@ private:
     struct signature_hash {
         unsigned operator()(const signature& s) const {
             unsigned hash = 0;
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < 8; ++i) {
                 hash = combine_hash(hash, s.m_values[i]);
             }
             return hash;

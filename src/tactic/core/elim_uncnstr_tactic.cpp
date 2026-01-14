@@ -82,7 +82,7 @@ class elim_uncnstr_tactic : public tactic {
         }
         
         bool uncnstr(unsigned num, expr * const * args) const {
-            for (unsigned i = 0; i < num; i++)
+            for (unsigned i = 0; i < num; ++i)
                 if (!uncnstr(args[i]))
                     return false;
             return true;
@@ -130,7 +130,7 @@ class elim_uncnstr_tactic : public tactic {
         void add_defs(unsigned num, expr * const * args, expr * u, expr * identity) {
             if (m_mc) {
                 add_def(args[0], u);
-                for (unsigned i = 1; i < num; i++)
+                for (unsigned i = 1; i < num; ++i)
                     add_def(args[i], identity);
             }
         }
@@ -155,7 +155,7 @@ class elim_uncnstr_tactic : public tactic {
                 if (m().is_uninterp(get_array_range(s)))
                     return false;
                 unsigned arity = get_array_arity(s);
-                for (unsigned i = 0; i < arity; i++)
+                for (unsigned i = 0; i < arity; ++i)
                     if (m().is_uninterp(get_array_domain(s, i)))
                         return false;
                 // building 
@@ -164,7 +164,7 @@ class elim_uncnstr_tactic : public tactic {
                 // and d is a term different from (select t i1 ... in)
                 ptr_buffer<expr> new_args;
                 new_args.push_back(t);
-                for (unsigned i = 0; i < arity; i++)
+                for (unsigned i = 0; i < arity; ++i)
                     new_args.push_back(m().get_some_value(get_array_domain(s, i)));
                 expr_ref sel(m());
                 sel = m().mk_app(fid, OP_SELECT, new_args.size(), new_args.data());
@@ -182,7 +182,7 @@ class elim_uncnstr_tactic : public tactic {
                 for (func_decl * constructor : constructors) {
                     unsigned num    = constructor->get_arity();
                     unsigned target = UINT_MAX;
-                    for (unsigned i = 0; i < num; i++) {
+                    for (unsigned i = 0; i < num; ++i) {
                         sort * s_arg = constructor->get_domain(i);
                         if (s == s_arg) {
                             target = i;
@@ -195,7 +195,7 @@ class elim_uncnstr_tactic : public tactic {
                         continue;
                     // use the constructor the distinct term constructor(...,t,...)
                     ptr_buffer<expr> new_args;
-                    for (unsigned i = 0; i < num; i++) {
+                    for (unsigned i = 0; i < num; ++i) {
                         if (i == target) {
                             new_args.push_back(t);
                         }
@@ -403,7 +403,7 @@ class elim_uncnstr_tactic : public tactic {
                 return nullptr;
             unsigned i;
             expr * v = nullptr;
-            for (i = 0; i < num; i++) {
+            for (i = 0; i < num; ++i) {
                 expr * arg = args[i];
                 if (uncnstr(arg)) {
                     v = arg;
@@ -418,7 +418,7 @@ class elim_uncnstr_tactic : public tactic {
             if (!m_mc) 
                 return u;
             ptr_buffer<expr> new_args;
-            for (unsigned j = 0; j < num; j++) {
+            for (unsigned j = 0; j < num; ++j) {
                 if (j == i)
                     continue;
                 new_args.push_back(args[j]);
@@ -775,7 +775,7 @@ class elim_uncnstr_tactic : public tactic {
                         return r;
                     }
                     func_decl * c = m_dt_util.get_accessor_constructor(f);
-                    for (unsigned i = 0; i < c->get_arity(); i++) 
+                    for (unsigned i = 0; i < c->get_arity(); ++i) 
                         if (!m().is_fully_interp(c->get_domain(i)))
                             return nullptr;
                     app * u;
@@ -783,7 +783,7 @@ class elim_uncnstr_tactic : public tactic {
                         return u;
                     ptr_vector<func_decl> const & accs = *m_dt_util.get_constructor_accessors(c);
                     ptr_buffer<expr> new_args;
-                    for (unsigned i = 0; i < accs.size(); i++) {
+                    for (unsigned i = 0; i < accs.size(); ++i) {
                         if (accs[i] == f) 
                             new_args.push_back(u);
                         else
@@ -841,7 +841,7 @@ class elim_uncnstr_tactic : public tactic {
             if (fid == null_family_id)
                 return BR_FAILED;
             
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 if (!is_ground(args[i]))
                     return BR_FAILED; // non-ground terms are not handled.
             }
@@ -932,7 +932,7 @@ class elim_uncnstr_tactic : public tactic {
         unsigned size  = g->size();
         unsigned idx   = 0;
         while (true) {
-            for (; idx < size; idx++) {
+            for (; idx < size; ++idx) {
                 expr * f = g->form(idx);
                 m_rw->operator()(f, new_f, new_pr);
                 if (f == new_f)

@@ -246,7 +246,7 @@ UNARY_CMD(used_vars_cmd, "dbg-used-vars", "<expr>", "test used_vars functor", CP
         arg = to_quantifier(arg)->get_expr();
     proc(arg);
     ctx.regular_stream() << "(vars";
-    for (unsigned i = 0; i < proc.get_max_found_var_idx_plus_1(); i++) {
+    for (unsigned i = 0; i < proc.get_max_found_var_idx_plus_1(); ++i) {
         sort * s = proc.get(i);
         ctx.regular_stream() << "\n  (" << std::left << std::setw(6) << i << " ";
         if (s != 0)

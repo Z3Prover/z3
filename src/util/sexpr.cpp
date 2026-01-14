@@ -31,7 +31,7 @@ struct sexpr_composite : public sexpr {
     sexpr_composite(unsigned num_children, sexpr * const * children, unsigned line, unsigned pos):
         sexpr(kind_t::COMPOSITE, line, pos),
         m_num_children(num_children) {
-        for (unsigned i = 0; i < num_children; i++) {
+        for (unsigned i = 0; i < num_children; ++i) {
             m_children[i] = children[i];
             children[i]->inc_ref();
         }
@@ -226,7 +226,7 @@ void sexpr_manager::del(sexpr * n) {
         switch (n->get_kind()) {
         case sexpr::kind_t::COMPOSITE: {
             unsigned num = n->get_num_children();
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 sexpr * child = n->get_child(i);
                 SASSERT(child->m_ref_count > 0);
                 child->m_ref_count--;

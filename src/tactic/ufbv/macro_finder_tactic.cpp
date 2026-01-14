@@ -58,7 +58,7 @@ class macro_finder_tactic : public tactic {
             proof_ref_vector proofs(m_manager), new_proofs(m_manager);
             expr_dependency_ref_vector deps(m_manager), new_deps(m_manager);
             unsigned size = g->size();
-            for (unsigned idx = 0; idx < size; idx++) {
+            for (unsigned idx = 0; idx < size; ++idx) {
                 forms.push_back(g->form(idx));
                 proofs.push_back(g->pr(idx));
                 deps.push_back(g->dep(idx));
@@ -67,14 +67,14 @@ class macro_finder_tactic : public tactic {
             mf(forms, proofs, deps, new_forms, new_proofs, new_deps);
 
             g->reset();
-            for (unsigned i = 0; i < new_forms.size(); i++)
+            for (unsigned i = 0; i < new_forms.size(); ++i)
                 g->assert_expr(new_forms.get(i),
                                produce_proofs ? new_proofs.get(i) : nullptr,
                                unsat_core_enabled ? new_deps.get(i) : nullptr);
 
             generic_model_converter * evmc = alloc(generic_model_converter, mm.get_manager(), "macro_finder");
             unsigned num = mm.get_num_macros();
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 expr_ref f_interp(mm.get_manager());
                 func_decl * f = mm.get_macro_interpretation(i, f_interp);
                 evmc->add(f, f_interp);

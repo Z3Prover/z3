@@ -110,7 +110,7 @@ void arith_rewriter::get_coeffs_gcd(expr * t, numeral & g, bool & first, unsigne
     expr * const * ms = get_monomials(t, sz);
     SASSERT(sz >= 1);
     numeral a;
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * arg = ms[i];
         if (is_numeral(arg, a)) {
             if (!a.is_zero())
@@ -139,7 +139,7 @@ bool arith_rewriter::div_polynomial(expr * t, numeral const & g, const_treatment
     expr * const * ms = get_monomials(t, sz);
     expr_ref_buffer new_args(m);
     numeral a;
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * arg = ms[i];
         if (is_numeral(arg, a)) {
             a /= g;
@@ -406,7 +406,7 @@ bool arith_rewriter::elim_to_real_mon(expr * monomial, expr_ref & new_monomial) 
         expr_ref_buffer new_vars(m);
         expr_ref new_var(m);
         unsigned num = to_app(monomial)->get_num_args();
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             if (!elim_to_real_var(to_app(monomial)->get_arg(i), new_var))
                 return false;
             new_vars.push_back(new_var);
@@ -453,7 +453,7 @@ bool arith_rewriter::is_reduce_power_target(expr * arg, bool is_eq) {
         sz = 1;
         args = &arg;
     }
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * arg = args[i];
         expr* arg0, *arg1;
         if (m_util.is_power(arg, arg0, arg1)) {
@@ -480,7 +480,7 @@ expr * arith_rewriter::reduce_power(expr * arg, bool is_eq) {
     }
     ptr_buffer<expr> new_args;
     rational k;
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * arg = args[i];
         expr * arg0, *arg1;
         if (m_util.is_power(arg, arg0, arg1) && m_util.is_numeral(arg1, k) && k.is_int() &&
@@ -941,7 +941,7 @@ bool arith_rewriter::is_anum_simp_target(unsigned num_args, expr * const * args)
         return false;
     unsigned num_irrat = 0;
     unsigned num_rat   = 0;
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         if (m_util.is_numeral(args[i])) {
             num_rat++;
             if (num_irrat > 0)
@@ -1746,7 +1746,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         is_num_y && y.is_unsigned() && 1 < y.get_unsigned() && y.get_unsigned() <= m_max_degree) {
         ptr_buffer<expr> args;
         unsigned k = y.get_unsigned();
-        for (unsigned i = 0; i < k; i++) {
+        for (unsigned i = 0; i < k; ++i) {
             args.push_back(arg1);
         }
         result = ensure_real(m_util.mk_mul(args.size(), args.data()));

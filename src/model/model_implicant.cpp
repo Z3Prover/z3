@@ -74,7 +74,7 @@ void model_implicant::setup_model(model_ref& model) {
     m_model = model;
     rational r;
     unsigned sz = model->get_num_constants();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         func_decl * d = model->get_constant(i); 
         expr* val = model->get_const_interp(d);
         expr* e = m.mk_const(d);
@@ -294,7 +294,7 @@ expr_ref_vector model_implicant::prune_by_cone_of_influence(ptr_vector<expr> con
     unsigned sz = m_model->get_num_constants();
     expr_ref e(m), eq(m), val(m);
     expr_ref_vector model(m);
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         e = m.mk_const(m_model->get_constant(i));
         if (m_visited.is_marked(e)) {
             val = eval(m_model, e);

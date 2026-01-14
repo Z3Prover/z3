@@ -532,7 +532,7 @@ template<typename Ext>
 bool theory_arith<Ext>::propagate_nl_bounds() {
     m_dep_manager.reset();
     bool propagated = false;
-    for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
+    for (unsigned i = 0; i < m_nl_monomials.size(); ++i) {
         theory_var v = m_nl_monomials[i];
         expr * m     = var2expr(v);
         if (!ctx.is_relevant(m))
@@ -851,7 +851,7 @@ bool theory_arith<Ext>::propagate_linear_monomial(theory_var v) {
 
     SASSERT(is_pure_monomial(m));
     bool found_zero = false;
-    for (unsigned i = 0; !found_zero && i < to_app(m)->get_num_args(); i++) {
+    for (unsigned i = 0; !found_zero && i < to_app(m)->get_num_args(); ++i) {
         expr * arg = to_app(m)->get_arg(i);
         theory_var _var = expr2var(arg);
         if (is_fixed(_var)) {
@@ -913,7 +913,7 @@ bool theory_arith<Ext>::propagate_linear_monomials() {
     bool p = false;
     // CMW: m_nl_monomials can grow during this loop, so
     // don't use iterators.
-    for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
+    for (unsigned i = 0; i < m_nl_monomials.size(); ++i) {
         if (propagate_linear_monomial(m_nl_monomials[i]))
             p = true;
     }
@@ -1195,7 +1195,7 @@ template<typename Ext>
 expr * theory_arith<Ext>::power(expr * var, unsigned power) {
     SASSERT(power > 0);
     expr * r = var;
-    for (unsigned i = 1; i < power; i++)
+    for (unsigned i = 1; i < power; ++i)
         r = m_util.mk_mul(var, r);
     m_nl_new_exprs.push_back(r);
     return r;
@@ -1275,7 +1275,7 @@ void theory_arith<Ext>::display_nested_form(std::ostream & out, expr * p) {
     else if (m_util.is_add(p)) {
         SASSERT(!has_var(p));
         out << "(";
-        for (unsigned i = 0; i < to_app(p)->get_num_args(); i++) {
+        for (unsigned i = 0; i < to_app(p)->get_num_args(); ++i) {
             if (i > 0) out << " + ";
             display_nested_form(out, to_app(p)->get_arg(i));
         }
@@ -1376,7 +1376,7 @@ expr * theory_arith<Ext>::factor(expr * m, expr * var, unsigned d) {
     }
     insert(m);
     SASSERT(idx == d);
-    TRACE(factor_bug, tout << "new_args:\n"; for(unsigned i = 0; i < new_args.size(); i++) tout << mk_pp(new_args[i], get_manager()) << "\n";);
+    TRACE(factor_bug, tout << "new_args:\n"; for(unsigned i = 0; i < new_args.size(); ++i) tout << mk_pp(new_args[i], get_manager()) << "\n";);
     expr * result = mk_nary_mul(new_args.size(), new_args.data(), m_util.is_int(var));
     m_nl_new_exprs.push_back(result);
     TRACE(factor, tout << "result: " << mk_pp(result, get_manager()) << "\n";);
@@ -1392,7 +1392,7 @@ expr_ref theory_arith<Ext>::horner(unsigned depth, buffer<coeff_expr> & p, expr 
     SASSERT(var != 0);
     unsigned d = get_min_degree(p, var);
     TRACE(horner_bug, tout << "poly:\n";
-          for (unsigned i = 0; i < p.size(); i++) { if (i > 0) tout << " + "; tout << p[i].first << "*" << mk_pp(p[i].second, get_manager()); } tout << "\n";
+          for (unsigned i = 0; i < p.size(); ++i) { if (i > 0) tout << " + "; tout << p[i].first << "*" << mk_pp(p[i].second, get_manager()); } tout << "\n";
           tout << "var: " << mk_pp(var, get_manager()) << "\n";
           tout << "min_degree: " << d << "\n";);
     buffer<coeff_expr> e; // monomials/x^d where var occurs with degree d
@@ -1460,7 +1460,7 @@ expr_ref theory_arith<Ext>::cross_nested(unsigned depth, buffer<coeff_expr> & p,
     unsigned nm = UINT_MAX;
     if (in_monovariate_monomials(p, var, i1, a, n, i2, b, nm)) {        
         CTRACE(in_monovariate_monomials, n == nm,
-               for (unsigned i = 0; i < p.size(); i++) {
+               for (unsigned i = 0; i < p.size(); ++i) {
                    if (i > 0) tout << " + "; tout << p[i].first << "*" << mk_pp(p[i].second, get_manager());
                }
                tout << "\n";
@@ -1503,7 +1503,7 @@ expr_ref theory_arith<Ext>::cross_nested(unsigned depth, buffer<coeff_expr> & p,
                 TRACE(non_linear, tout << "new_expr:\n"; display_nested_form(tout, new_expr); tout << "\n";);
                 buffer<coeff_expr> rest;
                 unsigned sz    = p.size();
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     if (i != i1 && i != i2)
                         rest.push_back(p[i]);
                 }
@@ -1815,7 +1815,7 @@ interval theory_arith<Ext>::mk_interval_for(grobner::monomial const * m) {
     expr * var     = nullptr;
     unsigned power = 0;
     unsigned num_vars = m->get_degree();
-    for (unsigned i = 0; i < num_vars; i++) {
+    for (unsigned i = 0; i < num_vars; ++i) {
         expr * curr = m->get_var(i);
         if (var == nullptr) {
             var   = curr;
@@ -1855,7 +1855,7 @@ void theory_arith<Ext>::set_conflict(v_dependency * d) {
 template<typename Ext>
 bool theory_arith<Ext>::is_inconsistent(interval const & I, unsigned num_monomials, grobner::monomial * const * monomials, v_dependency * dep) {
     interval r(I);
-    for (unsigned i = 0; i < num_monomials; i++) {
+    for (unsigned i = 0; i < num_monomials; ++i) {
         grobner::monomial const * m = monomials[i];
         r += mk_interval_for(m);
         if (r.minus_infinity() && r.plus_infinity())
@@ -1909,7 +1909,7 @@ bool is_perfect_square(grobner::monomial const * m, rational & r) {
         return false;
     expr * var     = nullptr;
     unsigned power = 0;
-    for (unsigned i = 0; i < num_vars; i++) {
+    for (unsigned i = 0; i < num_vars; ++i) {
         expr * curr = m->get_var(i);
         if (var == nullptr) {
             var   = curr;
@@ -2001,7 +2001,7 @@ bool theory_arith<Ext>::is_inconsistent2(grobner::equation const * eq, grobner &
     // since a new row must be created.
     buffer<interval> intervals;
     unsigned num = eq->get_num_monomials();
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         grobner::monomial const * m = eq->get_monomial(i);
         intervals.push_back(mk_interval_for(m));
     }
@@ -2009,7 +2009,7 @@ bool theory_arith<Ext>::is_inconsistent2(grobner::equation const * eq, grobner &
     deleted.resize(num, false);
     ptr_buffer<grobner::monomial> monomials;
     // try to eliminate monomials that form perfect squares of the form (M1 - M2)^2
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         grobner::monomial const * m1 = eq->get_monomial(i);
         rational a;
         if (deleted[i])
@@ -2021,7 +2021,7 @@ bool theory_arith<Ext>::is_inconsistent2(grobner::equation const * eq, grobner &
         TRACE(non_linear, tout << "found perfect square monomial m1: "; gb.display_monomial(tout, *m1); tout << "\n";);
         // try to find another perfect square
         unsigned j = i + 1;
-        for (; j < num; j++) {
+        for (; j < num; ++j) {
             if (deleted[j])
                 continue;
             grobner::monomial const * m2 = eq->get_monomial(j);
@@ -2032,7 +2032,7 @@ bool theory_arith<Ext>::is_inconsistent2(grobner::equation const * eq, grobner &
             // try to find -2*root(m1)*root(m2)
             // This monomial must be smaller than m1, since m2 is smaller than m1.
             unsigned k = i + 1;
-            for (; k < num; k++) {
+            for (; k < num; ++k) {
                 if (deleted[k])
                     continue;
                 grobner::monomial const * m1m2 = eq->get_monomial(k);
@@ -2081,7 +2081,7 @@ expr * theory_arith<Ext>::monomial2expr(grobner::monomial const * m, bool is_int
     ptr_buffer<expr> args;
     if (!m->get_coeff().is_one())
         args.push_back(m_util.mk_numeral(m->get_coeff(), is_int));
-    for (unsigned j = 0; j < num_vars; j++)
+    for (unsigned j = 0; j < num_vars; ++j)
         args.push_back(m->get_var(j));
     return mk_nary_mul(args.size(), args.data(), is_int);
 }
@@ -2093,7 +2093,7 @@ template<typename Ext>
 bool theory_arith<Ext>::internalize_gb_eq(grobner::equation const * eq) {
     bool is_int = false;
     unsigned num_monomials = eq->get_num_monomials();
-    for (unsigned i = 0; i < num_monomials; i++) {
+    for (unsigned i = 0; i < num_monomials; ++i) {
         grobner::monomial const * m = eq->get_monomial(i);
         unsigned degree = m->get_degree();
         if (degree > m_params.m_nl_arith_max_degree)
@@ -2103,7 +2103,7 @@ bool theory_arith<Ext>::internalize_gb_eq(grobner::equation const * eq) {
     }
     rational k;
     ptr_buffer<expr> args;
-    for (unsigned i = 0; i < num_monomials; i++) {
+    for (unsigned i = 0; i < num_monomials; ++i) {
         grobner::monomial const * m = eq->get_monomial(i);
         if (m->get_degree() == 0)
             k -= m->get_coeff();
@@ -2185,7 +2185,7 @@ bool theory_arith<Ext>::try_to_modify_eqs(ptr_vector<grobner::equation>& eqs, gr
             continue; // HACK: the equation 0 = 0, should have been discarded by the GB module.
         if (eq->get_monomial(0)->get_degree() != 1)
             continue;
-        for (unsigned j = 1; j < num_monomials; j++) {
+        for (unsigned j = 1; j < num_monomials; ++j) {
             grobner::monomial const * m = eq->get_monomial(j);
             if (m->get_degree() != 1)
                 continue;

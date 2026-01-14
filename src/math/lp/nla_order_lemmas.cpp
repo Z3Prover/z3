@@ -226,14 +226,14 @@ void order::order_lemma_on_factorization(const monic& m, const factorization& ab
 
     if (mv != fv && !c().has_real(m)) {            
         bool gt = mv > fv;
-        for (unsigned j = 0, k = 1; j < 2; j++, k--) {
+        for (unsigned j = 0, k = 1; j < 2; ++j, k--) {
             lemma_builder lemma(_(), __FUNCTION__);
             order_lemma_on_ab(lemma, m, rsign, var(ab[k]), var(ab[j]), gt);
             lemma &= ab;
             lemma &= m;
         }
     }
-    for (unsigned j = 0, k = 1; j < 2; j++, k--) {
+    for (unsigned j = 0, k = 1; j < 2; ++j, k--) {
         order_lemma_on_ac_explore(m, ab, j == 1);
     }
 }

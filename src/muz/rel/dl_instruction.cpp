@@ -73,7 +73,7 @@ namespace datalog {
         unsigned n = register_count();
         svector<std::pair<unsigned, unsigned> > sizes;
         size_t total_bytes = 0;
-        for(unsigned i = 0; i < n; i++) {
+        for(unsigned i = 0; i < n; ++i) {
             unsigned sz = reg(i) ? reg(i)->get_size_estimate_bytes() : 0;
             total_bytes += sz;
             sizes.push_back(std::make_pair(i, sz));
@@ -82,7 +82,7 @@ namespace datalog {
 
         out << "bytes " << total_bytes << "\n";
         out << "bytes\trows\tannotation\n";
-        for(unsigned i = 0; i < n; i++) {
+        for(unsigned i = 0; i < n; ++i) {
             unsigned sz = sizes[i].second;
             unsigned rg = sizes[i].first;
             unsigned rows = reg(rg) ? reg(rg)->get_size_estimate_rows() : 0;

@@ -310,7 +310,7 @@ public:
         auto it = m_coeffs.begin();
         r.add_var(it->m_key);
         it++;
-        for(;it != m_coeffs.end(); it++) {
+        for(;it != m_coeffs.end(); ++it) {
             r.add_monomial(it->m_value / a, it->m_key);
         }
         return r;        

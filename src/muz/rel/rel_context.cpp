@@ -490,7 +490,7 @@ namespace datalog {
         default: {
             rel_spec rel_kinds; // kinds of plugins that are not table plugins
             family_id rel_kind;           // the aggregate kind of non-table plugins
-            for (unsigned i = 0; i < relation_name_cnt; i++) {
+            for (unsigned i = 0; i < relation_name_cnt; ++i) {
                 relation_plugin & p = get_ordinary_relation_plugin(relation_names[i]);
                 rel_kinds.push_back(p.get_kind());                
             }

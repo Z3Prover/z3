@@ -143,7 +143,7 @@ bool macro_util::is_macro_head(expr * n, unsigned num_decls) const {
         to_app(n)->get_num_args() == num_decls) {
         sbuffer<int> var2pos;
         var2pos.resize(num_decls, -1);
-        for (unsigned i = 0; i < num_decls; i++) {
+        for (unsigned i = 0; i < num_decls; ++i) {
             expr * c = to_app(n)->get_arg(i);
             if (!is_var(c))
                 return false;
@@ -252,7 +252,7 @@ bool macro_util::poly_contains_head(expr * n, func_decl * f, expr * exception) c
         num_args = 1;
         args     = &n;
     }
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         expr * arg = args[i];
         if (arg != exception && occurs(f, arg))
             return true;
@@ -283,7 +283,7 @@ bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, ex
         lhs_num_args = 1;
         lhs_args     = &lhs;
     }
-    for (unsigned i = 0; i < lhs_num_args; i++) {
+    for (unsigned i = 0; i < lhs_num_args; ++i) {
         expr * arg = lhs_args[i];
         expr * neg_arg;
         if (h == nullptr &&
@@ -392,7 +392,7 @@ bool macro_util::is_quasi_macro_head(expr * n, unsigned num_decls) const {
         sbuffer<bool> found_vars;
         found_vars.resize(num_decls, false);
         unsigned num_found_vars = 0;
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             expr * arg = to_app(n)->get_arg(i);
             if (is_var(arg)) {
                 unsigned idx = to_var(arg)->get_idx();
@@ -429,7 +429,7 @@ bool macro_util::is_quasi_macro_ok(expr * n, unsigned num_decls, expr * def) con
         }
         if (def)
             fv.accumulate(def);
-        for (unsigned i = 0; i < fv.size(); i++) {
+        for (unsigned i = 0; i < fv.size(); ++i) {
             if (i >= num_decls || !fv.contains(i))
                 continue; // Quasi-macros may have new variables.
             if (found_vars[i] == false) {
@@ -453,7 +453,7 @@ void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decl
     ptr_buffer<expr> new_args;
     ptr_buffer<expr> new_conds;
     unsigned next_var_idx = num_decls;
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         expr * arg = qhead->get_arg(i);
         if (is_var(arg)) {
             unsigned idx = to_var(arg)->get_idx();
@@ -508,7 +508,7 @@ void macro_util::normalize_expr(app * head, unsigned num_decls, expr * t, expr_r
     TRACE(macro_util,
           tout << "head: " << mk_pp(head, m) << "\n";
           tout << "applying substitution to:\n" << mk_bounded_pp(t, m) << "\n";);
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         var * v = to_var(head->get_arg(i));
         unsigned vi = v->get_idx();
         SASSERT(vi < num_decls);
@@ -527,7 +527,7 @@ void macro_util::normalize_expr(app * head, unsigned num_decls, expr * t, expr_r
         TRACE(macro_util,
               tout << "head: " << mk_pp(head, m) << "\n";
               tout << "applying substitution to:\n" << mk_ll_pp(t, m) << "\nsubstitution:\n";
-              for (unsigned i = 0; i < var_mapping.size(); i++) {
+              for (unsigned i = 0; i < var_mapping.size(); ++i) {
                   if (var_mapping[i] != 0)
                       tout << "#" << i << " -> " << mk_ll_pp(var_mapping[i], m);
               });
@@ -652,7 +652,7 @@ bool macro_util::is_poly_hint(expr * n, app * head, expr * exception) {
         num_args = 1;
         args     = &n;
     }
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         expr * arg = args[i];
         if (arg != exception && (occurs(f, arg) || !vars_of_is_subset(arg, vars))) {
             TRACE(macro_util, tout << "failed because of:\n" << mk_pp(arg, m) << "\n";);
@@ -744,7 +744,7 @@ bool macro_util::rest_contains_decl(func_decl * f, expr * except_lit) {
         return false;
     SASSERT(is_clause(m, m_curr_clause));
     unsigned num_lits = get_clause_num_literals(m, m_curr_clause);
-    for (unsigned i = 0; i < num_lits; i++) {
+    for (unsigned i = 0; i < num_lits; ++i) {
         expr * l = get_clause_literal(m, m_curr_clause, i);
         if (l != except_lit && occurs(f, l))
             return true;
@@ -758,7 +758,7 @@ void macro_util::get_rest_clause_as_cond(expr * except_lit, expr_ref & extra_con
     SASSERT(is_clause(m, m_curr_clause));
     expr_ref_buffer neg_other_lits(m);
     unsigned num_lits = get_clause_num_literals(m, m_curr_clause);
-    for (unsigned i = 0; i < num_lits; i++) {
+    for (unsigned i = 0; i < num_lits; ++i) {
         expr * l = get_clause_literal(m, m_curr_clause, i);
         if (l != except_lit) {
             expr_ref neg_l(m);
@@ -783,7 +783,7 @@ void macro_util::collect_poly_args(expr * n, expr * exception, ptr_buffer<expr> 
         num_args = 1;
         _args     = &n;
     }
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         expr * arg = _args[i];
         if (arg != exception)
             args.push_back(arg);
@@ -811,7 +811,7 @@ void macro_util::collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * a
         lhs_num_args = 1;
         lhs_args     = &lhs;
     }
-    for (unsigned i = 0; i < lhs_num_args; i++) {
+    for (unsigned i = 0; i < lhs_num_args; ++i) {
         expr * arg = lhs_args[i];
         expr * neg_arg;
         if (!is_app(arg))
@@ -967,7 +967,7 @@ void macro_util::collect_macro_candidates(quantifier * q, macro_candidates & r) 
     if (is_clause(m, n)) {
         m_curr_clause = n;
         unsigned num_lits = get_clause_num_literals(m, n);
-        for (unsigned i = 0; i < num_lits; i++)
+        for (unsigned i = 0; i < num_lits; ++i)
             collect_macro_candidates_core(get_clause_literal(m, n, i), num_decls, r);
         m_curr_clause = nullptr;
     }

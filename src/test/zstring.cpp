@@ -8,7 +8,7 @@ static void tst_ascii_roundtrip() {
     unsigned ascii_min = 0x20; // ' '
     unsigned ascii_max = 0x7E; // '~'
 
-    for (unsigned i = ascii_min; i <= ascii_max; i++) {
+    for (unsigned i = ascii_min; i <= ascii_max; ++i) {
         zstring input(i);
         std::string expected(1, i);
         bool roundtrip_ok = input.encode() == expected;

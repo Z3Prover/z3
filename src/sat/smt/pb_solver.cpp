@@ -704,7 +704,7 @@ namespace pb {
                     }
                 }
                 unsigned sz = c.size();
-                for (; i < sz; i++)
+                for (; i < sz; ++i)
                     process_antecedent(c[i], offset);
                 break;
             }
@@ -1022,7 +1022,7 @@ namespace pb {
                 }
                 inc_bound(1);
                 unsigned sz = c.size();
-                for (; i < sz; i++)
+                for (; i < sz; ++i)
                     process_antecedent(c[i]);
                 break;
             }
@@ -1872,7 +1872,7 @@ namespace pb {
         unsigned sz     = m_learned.size();
         unsigned new_sz = sz/2;
         unsigned removed = 0;
-        for (unsigned i = new_sz; i < sz; i++) {
+        for (unsigned i = new_sz; i < sz; ++i) {
             constraint* c = m_learned[i];
             if (!m_constraint_to_reinit.contains(c)) {
                 remove_constraint(*c, "gc");

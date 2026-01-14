@@ -22,7 +22,7 @@ namespace nla {
 
 svector<lpvar> get_monic(int monic_size, int var_bound, random_gen& rand) {
     svector<lpvar> v;
-    for (int i = 0; i < monic_size; i++) {
+    for (int i = 0; i < monic_size; ++i) {
         lpvar j = rand() % var_bound;
         v.push_back(j);
     }
@@ -48,7 +48,7 @@ void test_monics_on_setup(int n_of_monics ,
                         var_eqs<emonics> & var_eqs,
                        emonics& ms, random_gen & rand) {
     int i;
-    for ( i = 0; i < n_of_monics; i++) {
+    for ( i = 0; i < n_of_monics; ++i) {
         int size = min_monic_size + rand() % (max_monic_size - min_monic_size);
         ms.add(n_of_vars + i, get_monic(size, n_of_vars, rand));
     }
@@ -56,7 +56,7 @@ void test_monics_on_setup(int n_of_monics ,
     ms.add(n_of_vars + i, ms[n_of_vars + i - 1].vars());
     int eqs_left = number_of_eqs;
     int add_max_var = 4;
-    for (int i = 0; i < number_of_pushes; i++) {
+    for (int i = 0; i < number_of_pushes; ++i) {
         ms.push();
         if (eqs_left > 0) {
             if( i < number_of_pushes - 1) {
@@ -620,7 +620,7 @@ void test_order_lemma_params(bool var_equiv, int sign) {
     lpvar lp_abef = s.add_named_var(abef, true, "abef");
     lpvar lp_cdij = s.add_named_var(cdij, true, "cdij");
 
-    for (unsigned j = 0; j < s.number_of_vars(); j++) {
+    for (unsigned j = 0; j < s.number_of_vars(); ++j) {
         s_set_column_value_test(s, j, rational(j + 2));
     }
     
@@ -752,7 +752,7 @@ void test_monotone_lemma() {
     lpvar lp_cd = s.add_named_var(cd, true, "cd");
     lpvar lp_ef = s.add_named_var(ef, true, "ef");
     lpvar lp_ij = s.add_named_var(ij, true, "ij");
-    for (unsigned j = 0; j < s.number_of_vars(); j++) {
+    for (unsigned j = 0; j < s.number_of_vars(); ++j) {
         s_set_column_value_test(s, j, rational((j + 2)*(j + 2)));
     }
     
@@ -871,7 +871,7 @@ void test_tangent_lemma_equiv() {
     // lpvar lp_j = s.add_named_var(j, true, "j");
     lpvar lp_ab = s.add_named_var(ab, true, "ab");
     int sign = 1;
-    for (unsigned j = 0; j < s.number_of_vars(); j++) {
+    for (unsigned j = 0; j < s.number_of_vars(); ++j) {
         sign *= -1;
         s_set_column_value_test(s, j, sign * rational((j + 2) * (j + 2)));
     }

@@ -100,7 +100,7 @@ struct goal2nlsat::imp {
         m_pm.factor(p, fs, m_fparams);
         TRACE(goal2nlsat_bug, tout << "factors:\n" << fs << "\n";); 
         SASSERT(fs.distinct_factors() > 0);
-        for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+        for (unsigned i = 0; i < fs.distinct_factors(); ++i) {
             ps.push_back(fs[i]);
             is_even.push_back(fs.get_degree(i) % 2 == 0);
         }
@@ -245,7 +245,7 @@ struct goal2nlsat::imp {
             lits = &f;
         }
         sbuffer<nlsat::literal> ls;
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             ls.push_back(process_literal(lits[i]));
         }
         m_solver.mk_clause(ls.size(), ls.data(), dep);
@@ -256,7 +256,7 @@ struct goal2nlsat::imp {
         if (has_term_ite(g))
             throw tactic_exception("eliminate term-ite before applying nlsat");
         unsigned sz = g.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             process(g.form(i), g.dep(i));
         }
     }

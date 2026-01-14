@@ -316,7 +316,7 @@ namespace smt {
         force_push();
         TRACE(datatype, tout << "internalizing term:\n" << mk_pp(term, m) << "\n";);
         unsigned num_args = term->get_num_args();
-        for (unsigned i = 0; i < num_args; i++)
+        for (unsigned i = 0; i < num_args; ++i)
             ctx.internalize(term->get_arg(i), m.is_bool(term) && has_quantifiers(term));
         // the internalization of the arguments may trigger the internalization of term.
         if (ctx.e_internalized(term))
@@ -351,7 +351,7 @@ namespace smt {
             // interpretation for x2.  So, x2 cannot be a fresh value,
             // since it would have to be created after x1.
             //
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 enode * arg = e->get_arg(i);
                 sort * s    = arg->get_sort();
                 if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
@@ -748,7 +748,7 @@ namespace smt {
         int num_vars = get_num_vars();
         final_check_status r = FC_DONE;
         final_check_st _guard(this); 
-        for (int v = 0; v < num_vars; v++) {
+        for (int v = 0; v < num_vars; ++v) {
             if (v == static_cast<int>(m_find.find(v))) {
                 enode * node = get_enode(v);
                 sort* s = node->get_sort();
@@ -1041,7 +1041,7 @@ namespace smt {
         unsigned num_vars = get_num_vars();
         if (num_vars == 0) return;
         out << "Theory datatype:\n";
-        for (unsigned v = 0; v < num_vars; v++) 
+        for (unsigned v = 0; v < num_vars; ++v) 
             display_var(out, v);
     }
 

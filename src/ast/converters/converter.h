@@ -90,7 +90,7 @@ protected:
 public:
     concat_star_converter(T * c1, unsigned num, T * const * c2s, unsigned * szs):
         m_c1(c1) {
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             T * c2 = c2s[i];
             if (c2)
                 c2->inc_ref();

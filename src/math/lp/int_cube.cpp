@@ -27,7 +27,7 @@ namespace lp {
     lia_move int_cube::operator()() {
         lia.settings().stats().m_cube_calls++;
         TRACE(cube,
-              for (unsigned j = 0; j < lra.number_of_vars(); j++)
+              for (unsigned j = 0; j < lra.number_of_vars(); ++j)
                   lia.display_column(tout, j);
               tout << lra.constraints();
               );

@@ -263,7 +263,7 @@ namespace smt {
     };
 
     inline void mark_literals(conflict_resolution & cr, unsigned sz, literal const * ls) {
-        for (unsigned i = 0; i < sz; i++)
+        for (unsigned i = 0; i < sz; ++i)
             cr.mark_literal(ls[i]);
     }
 

@@ -56,7 +56,7 @@ bool fpa2bv_rewriter_cfg::max_steps_exceeded(unsigned num_steps) const {
 br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
     TRACE(fpa2bv_rw, tout << "func: " << f->get_name() << std::endl;
                        tout << "args: " << std::endl;
-                       for (unsigned i = 0; i < num; i++)
+                       for (unsigned i = 0; i < num; ++i)
                            tout << mk_ismt2_pp(args[i], m()) << std::endl;);
 
     if (num == 0 && f->get_family_id() == null_family_id && m_conv.is_float(f->get_range())) {
@@ -159,7 +159,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
 
         default:
             TRACE(fpa2bv, tout << "unsupported operator: " << f->get_name() << "\n";
-                  for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);
+                  for (unsigned i = 0; i < num; ++i) tout << mk_ismt2_pp(args[i], m()) << std::endl;);
             NOT_IMPLEMENTED_YET();
         }
     }
@@ -183,7 +183,7 @@ bool fpa2bv_rewriter_cfg::pre_visit(expr * t)
         quantifier * q = to_quantifier(t);
         TRACE(fpa2bv, tout << "pre_visit quantifier [" << q->get_id() << "]: " << mk_ismt2_pp(q->get_expr(), m()) << std::endl;);
         sort_ref_vector new_bindings(m_manager);
-        for (unsigned i = 0 ; i < q->get_num_decls(); i++)
+        for (unsigned i = 0 ; i < q->get_num_decls(); ++i)
                 new_bindings.push_back(q->get_decl_sort(i));
         SASSERT(new_bindings.size() == q->get_num_decls());
         m_bindings.append(new_bindings);
@@ -209,7 +209,7 @@ bool fpa2bv_rewriter_cfg::reduce_quantifier(
     string_buffer<> name_buffer;
     ptr_buffer<sort> new_decl_sorts;
     sbuffer<symbol>  new_decl_names;
-    for (unsigned i = 0; i < num_decls; i++) {
+    for (unsigned i = 0; i < num_decls; ++i) {
         symbol const & n = old_q->get_decl_name(i);
         sort * s         = old_q->get_decl_sort(i);
         if (m_conv.is_float(s)) {

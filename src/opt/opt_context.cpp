@@ -873,7 +873,7 @@ namespace opt {
                     quick_for_each_expr(proc, visited, ms[j]);
             }
             unsigned sz = get_solver().get_num_assertions();
-            for (unsigned i = 0; i < sz; i++) 
+            for (unsigned i = 0; i < sz; ++i) 
                 quick_for_each_expr(proc, visited, get_solver().get_assertion(i));
             for (expr* f : m_hard_constraints) 
                 quick_for_each_expr(proc, visited, f);

@@ -90,7 +90,7 @@ proof_ref apply(ast_manager & m, proof_converter_ref & pc1, proof_converter_ref_
     SASSERT(pc1);
     proof_ref_buffer prs(m);
     unsigned sz = pc2s.size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         proof_ref pr(m);
         SASSERT(pc2s[i]); // proof production is enabled
         pr = pc2s[i]->operator()(m, 0, nullptr);

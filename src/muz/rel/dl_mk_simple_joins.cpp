@@ -297,7 +297,7 @@ namespace datalog {
             TRACE(dl, r->display(m_context, tout << "register ");); 
             
             unsigned pos_tail_size = r->get_positive_tail_size();
-            for (unsigned i = 0; i < pos_tail_size; i++) {
+            for (unsigned i = 0; i < pos_tail_size; ++i) {
                 app* t = r->get_tail(i);
                 if (!rule_content.contains(t))
                     rule_content.push_back(t);
@@ -305,11 +305,11 @@ namespace datalog {
                     m_modified_rules = true;
             }
             pos_tail_size = rule_content.size();
-            for (unsigned i = 0; i+1 < pos_tail_size; i++) {
+            for (unsigned i = 0; i+1 < pos_tail_size; ++i) {
                 app * t1 = rule_content[i];
                 var_idx_set t1_vars = rm.collect_vars(t1);
                 counter.count_vars(t1, -1);  //temporarily remove t1 variables from counter
-                for (unsigned j = i+1; j < pos_tail_size; j++) {
+                for (unsigned j = i+1; j < pos_tail_size; ++j) {
                     app * t2 = rule_content[j];
                     SASSERT(t1 != t2);
                     counter.count_vars(t2, -1);  //temporarily remove t2 variables from counter
@@ -416,18 +416,18 @@ namespace datalog {
 
             unsigned rt_sz = removed_tails.size();
             //remove edges between removed tails
-            for (unsigned i = 0; i < rt_sz; i++) {
-                for (unsigned j = i+1; j < rt_sz; j++) {
+            for (unsigned i = 0; i < rt_sz; ++i) {
+                for (unsigned j = i+1; j < rt_sz; ++j) {
                     app_pair pair_key = get_key(removed_tails[i], removed_tails[j]);
                     remove_rule_from_pair(pair_key, r, original_len);
                 }
             }
             //remove edges between surviving tails and removed tails
-            for (unsigned i = 0; i < len; i++) {
+            for (unsigned i = 0; i < len; ++i) {
                 if (added_tails.contains(rule_content[i])) {
                     continue;
                 }
-                for (unsigned ri = 0; ri < rt_sz; ri++) {
+                for (unsigned ri = 0; ri < rt_sz; ++ri) {
                     app_pair pair_key = get_key(rule_content[i], removed_tails[ri]);
                     remove_rule_from_pair(pair_key, r, original_len);
                 }
@@ -445,10 +445,10 @@ namespace datalog {
             unsigned tail_size = r->get_tail_size();
             unsigned pos_tail_size = r->get_positive_tail_size();
 
-            for (unsigned i = pos_tail_size; i < tail_size; i++) {
+            for (unsigned i = pos_tail_size; i < tail_size; ++i) {
                 counter.count_vars(r->get_tail(i), 1);
             }
-            for (unsigned i = 0; i < len; i++) {
+            for (unsigned i = 0; i < len; ++i) {
                 counter.count_vars(rule_content[i], 1);
             }
 
@@ -461,7 +461,7 @@ namespace datalog {
                 var_idx_set a_tail_vars = rm.collect_vars(a_tail);
                 counter.count_vars(a_tail, -1);  //temporarily remove a_tail variables from counter
 
-                for (unsigned i = 0; i < len; i++) {
+                for (unsigned i = 0; i < len; ++i) {
                     app * o_tail = rule_content[i]; //other tail
                     if (added_tails.contains(o_tail)) {
                         //this avoids adding edges between new tails twice
@@ -507,7 +507,7 @@ namespace datalog {
             func_decl * t2_pred = t2->get_decl();
             app_ref_vector removed_tails(m);
             app_ref_vector added_tails(m);
-            for (unsigned i1 = 0; i1 < len; i1++) {
+            for (unsigned i1 = 0; i1 < len; ++i1) {
                 app * rt1 = rule_content[i1];
                 if (rt1->get_decl() != t1_pred) {
                     continue;
@@ -517,7 +517,7 @@ namespace datalog {
 
                 var_idx_set t1_vars = rm.collect_vars(t1);
                 unsigned i2start = (t1_pred == t2_pred) ? (i1+1) : 0;
-                for (unsigned i2 = i2start; i2 < len; i2++) {
+                for (unsigned i2 = i2start; i2 < len; ++i2) {
                     app * rt2 = rule_content[i2];
                     if (i1 == i2 || rt2->get_decl() != t2_pred) {
                         continue;
@@ -636,7 +636,7 @@ namespace datalog {
             vi.populate(t1, t2);
             unsigned n = vi.size();
             // remove contributions from joined columns.
-            for (unsigned i = 0; i < n; i++) {
+            for (unsigned i = 0; i < n; ++i) {
                 unsigned arg_index1, arg_index2;
                 vi.get(i, arg_index1, arg_index2);
                 expr* arg = t1->get_arg(arg_index1);
@@ -718,7 +718,7 @@ namespace datalog {
                 ptr_vector<app> tail(content);
                 bool_vector negs(tail.size(), false);
                 unsigned or_len = orig_r->get_tail_size();
-                for (unsigned i = orig_r->get_positive_tail_size(); i < or_len; i++) {
+                for (unsigned i = orig_r->get_positive_tail_size(); i < or_len; ++i) {
                     tail.push_back(orig_r->get_tail(i));
                     negs.push_back(orig_r->is_neg_tail(i));
                 }

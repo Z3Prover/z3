@@ -56,7 +56,7 @@ extern "C" {
                 scoped_timer timer(mk_c(c)->params().m_timeout, &eh);
                 pm.psc_chain(_p, _q, v_x, rs);
             }
-            for (unsigned i = 0; i < rs.size(); i++) {
+            for (unsigned i = 0; i < rs.size(); ++i) {
                 r = rs.get(i);
                 converter.to_expr(r, true, _r);
                 result->m_ast_vector.push_back(_r);

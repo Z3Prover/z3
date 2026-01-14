@@ -159,7 +159,7 @@ public:
 
     void display(std::ostream & out) const {
         unsigned num = get_num_vars(); 
-        for (unsigned v = 0; v < num; v++) {
+        for (unsigned v = 0; v < num; ++v) {
             out << "v" << v << " --> v" << m_find[v] << " (" << size(v) << ")\n";
         }
     }
@@ -167,7 +167,7 @@ public:
 #ifdef Z3DEBUG
     bool check_invariant() const {
         unsigned num = get_num_vars(); 
-        for (unsigned v = 0; v < num; v++) {
+        for (unsigned v = 0; v < num; ++v) {
             if (is_root(v)) {
                 unsigned curr = v;
                 unsigned sz   = 0;

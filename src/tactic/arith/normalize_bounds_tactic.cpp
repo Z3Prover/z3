@@ -119,7 +119,7 @@ class normalize_bounds_tactic : public tactic {
             m_rw.set_substitution(&subst);
             expr_ref   new_curr(m);
             
-            for (unsigned idx = 0; !in->inconsistent() && idx < in->size(); idx++) {
+            for (unsigned idx = 0; !in->inconsistent() && idx < in->size(); ++idx) {
                 expr * curr = in->form(idx);
                 proof_ref  new_pr(m);
                 m_rw(curr, new_curr, new_pr);

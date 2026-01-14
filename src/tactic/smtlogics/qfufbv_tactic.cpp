@@ -63,7 +63,7 @@ public:
         // running implementation
         ptr_vector<expr> flas;
         const unsigned sz = g->size();
-        for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
+        for (unsigned i = 0; i < sz; ++i) flas.push_back(g->form(i));
         scoped_ptr<solver> uffree_solver = setup_sat();
         lackr imp(m, m_p, m_st, flas, uffree_solver.get());
         const lbool o = imp.operator()();

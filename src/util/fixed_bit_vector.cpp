@@ -100,21 +100,21 @@ fixed_bit_vector_manager::fill1(fixed_bit_vector& bv) const {
 
 fixed_bit_vector& 
 fixed_bit_vector_manager::set_and(fixed_bit_vector& dst, fixed_bit_vector const& src) const {
-    for (unsigned i = 0; i < m_num_words; i++) 
+    for (unsigned i = 0; i < m_num_words; ++i) 
         dst.m_data[i] &= src.m_data[i];
     return dst;
 }
 
 fixed_bit_vector& 
 fixed_bit_vector_manager::set_or(fixed_bit_vector& dst,  fixed_bit_vector const& src) const {
-    for (unsigned i = 0; i < m_num_words; i++) 
+    for (unsigned i = 0; i < m_num_words; ++i) 
         dst.m_data[i] |= src.m_data[i];
     return dst;
 }
 
 fixed_bit_vector& 
 fixed_bit_vector_manager::set_neg(fixed_bit_vector& dst) const {
-    for (unsigned i = 0; i < m_num_words; i++) 
+    for (unsigned i = 0; i < m_num_words; ++i) 
         dst.m_data[i] = ~dst.m_data[i];
     return dst;
 }
@@ -130,7 +130,7 @@ bool fixed_bit_vector_manager::equals(fixed_bit_vector const& a, fixed_bit_vecto
     unsigned n = num_words();
     if (n == 0)
         return true;
-    for (unsigned i = 0; i < n - 1; i++) {
+    for (unsigned i = 0; i < n - 1; ++i) {
         if (a.m_data[i] != b.m_data[i])
             return false;
     }
