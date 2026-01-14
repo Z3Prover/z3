@@ -115,7 +115,6 @@ namespace sls {
         
     public:
         array_plugin(context& ctx);
-        ~array_plugin() override = default;
         void register_term(expr* e) override { if (a.is_array(e->get_sort())) m_has_arrays = true; }
         expr_ref get_value(expr* e) override;
         void initialize() override { m_g = nullptr; }

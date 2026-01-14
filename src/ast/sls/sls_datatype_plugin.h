@@ -81,7 +81,6 @@ namespace sls {
 
     public:
         datatype_plugin(context& c);
-        ~datatype_plugin() override = default;
         family_id fid() override { return m_fid; }
         expr_ref get_value(expr* e) override;
         void initialize() override;
