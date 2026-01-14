@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 #include<sstream>
-#include<format>
 #include "ast/bv_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "util/warning.h"
@@ -673,11 +672,9 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         }
         for (unsigned i = 0; i < num_args; ++i) {
             if (args[i]->get_sort() != r->get_domain(i)) {
-                m.raise_exception(std::format("Argument {} at position {} has sort {} it does not match declaration {}",
-                                               to_string(mk_pp(args[i], m)),
-                                               i,
-                                               to_string(mk_pp(args[i]->get_sort(), m)),
-                                               to_string(mk_pp(r, m))));
+                std::ostringstream buffer;
+                buffer << "Argument " << mk_pp(args[i], m) << " at position " << i << " has sort " << mk_pp(args[i]->get_sort(), m) << " it does not match declaration " << mk_pp(r, m);
+                m.raise_exception(buffer.str());
                 return nullptr;
             }
         }

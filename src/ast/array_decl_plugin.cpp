@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 #include<sstream>
-#include<format>
 #include "ast/array_decl_plugin.h"
 #include "util/warning.h"
 #include "ast/ast_pp.h"
@@ -140,8 +139,10 @@ func_decl * array_decl_plugin::mk_const(sort * s, unsigned arity, sort * const *
 
 func_decl * array_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const* domain) {
     if (arity != f->get_arity()) {
-        m_manager->raise_exception(std::format("map expects to take as many arguments as the function being mapped, it was given {} but expects {}",
-                                                arity, f->get_arity()));
+        std::ostringstream buffer;
+        buffer << "map expects to take as many arguments as the function being mapped, "
+               << "it was given " << arity << " but expects " << f->get_arity();
+        m_manager->raise_exception(buffer.str());
         return nullptr;
     }
     if (arity == 0) {
@@ -156,21 +157,32 @@ func_decl * array_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const*
     unsigned dom_arity = get_array_arity(domain[0]);
     for (unsigned i = 0; i < arity; ++i) {
         if (!is_array_sort(domain[i])) {
-            m_manager->raise_exception(std::format("map expects an array sort as argument at position {}", i));
+            std::ostringstream buffer;
+            buffer << "map expects an array sort as argument at position " << i;
+            m_manager->raise_exception(buffer.str());
             return nullptr;
         }
         if (get_array_arity(domain[i]) != dom_arity) {
-            m_manager->raise_exception(std::format("map expects all arguments to have the same array domain,  this is not the case for argument {}", i));
+            std::ostringstream buffer;
+            buffer << "map expects all arguments to have the same array domain,  "
+                   << "this is not the case for argument " << i;
+            m_manager->raise_exception(buffer.str());
             return nullptr;
         }
         for (unsigned j = 0; j < dom_arity; ++j) {
             if (get_array_domain(domain[i],j) != get_array_domain(domain[0],j)) {
-                m_manager->raise_exception(std::format("map expects all arguments to have the same array domain, this is not the case for argument {}", i));
+                std::ostringstream buffer;
+                buffer << "map expects all arguments to have the same array domain, "
+                       << "this is not the case for argument " << i;
+                m_manager->raise_exception(buffer.str());
                 return nullptr;
             }
         }
         if (get_array_range(domain[i]) != f->get_domain(i)) {
-            m_manager->raise_exception(std::format("map expects the argument at position {} to have the array range the same as the function", i));
+            std::ostringstream buffer;
+            buffer << "map expects the argument at position " << i 
+                   << " to have the array range the same as the function";
+            m_manager->raise_exception(buffer.str());
             return nullptr;
         }
     }
@@ -231,8 +243,9 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
     parameter const* parameters = s->get_parameters();
  
     if (num_parameters != arity) {
-        m_manager->raise_exception(std::format("select requires {} arguments, but was provided with {} arguments", 
-                                                num_parameters, arity));
+        std::stringstream strm;
+        strm << "select requires " << num_parameters << " arguments, but was provided with " << arity << " arguments";
+        m_manager->raise_exception(strm.str());
         return nullptr;
     }
     ptr_buffer<sort> new_domain; // we need this because of coercions.
@@ -241,9 +254,10 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
         if (!parameters[i].is_ast() || 
             !is_sort(parameters[i].get_ast()) || 
             !m_manager->compatible_sorts(domain[i+1], to_sort(parameters[i].get_ast()))) {
-            m_manager->raise_exception(std::format("domain sort {} and parameter {} do not match",
-                                                    to_string(sort_ref(domain[i+1], *m_manager)),
-                                                    to_string(parameter_pp(parameters[i], *m_manager))));
+            std::stringstream strm;
+            strm << "domain sort " << sort_ref(domain[i+1], *m_manager) << " and parameter ";
+            strm << parameter_pp(parameters[i], *m_manager) << " do not match";
+            m_manager->raise_exception(strm.str());
             return nullptr;
         }
         new_domain.push_back(to_sort(parameters[i].get_ast()));
@@ -267,8 +281,10 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
         return nullptr;
     }
     if (arity != num_parameters+1) {
-        m_manager->raise_exception(std::format("store expects the first argument to be an array taking {}, instead it was passed {} arguments",
-                                                num_parameters+1, arity - 1));
+        std::ostringstream buffer;
+        buffer << "store expects the first argument to be an array taking " << num_parameters+1 
+               << ", instead it was passed " << (arity - 1) << "arguments";
+        m_manager->raise_exception(buffer.str());
         UNREACHABLE();
         return nullptr;
     }
@@ -282,9 +298,9 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
         sort* srt1 = to_sort(parameters[i].get_ast());
         sort* srt2 = domain[i+1];
         if (!m_manager->compatible_sorts(srt1, srt2)) {
-            m_manager->raise_exception(std::format("domain sort {} and parameter sort {} do not match",
-                                                    to_string(sort_ref(srt2, *m_manager)),
-                                                    to_string(sort_ref(srt1, *m_manager))));
+            std::stringstream strm;
+            strm << "domain sort " << sort_ref(srt2, *m_manager) << " and parameter sort " << sort_ref(srt1, *m_manager) << " do not match";
+            m_manager->raise_exception(strm.str());
             UNREACHABLE();
             return nullptr;
         }
@@ -317,11 +333,15 @@ func_decl * array_decl_plugin::mk_array_ext(unsigned arity, sort * const * domai
 bool array_decl_plugin::check_set_arguments(unsigned arity, sort * const * domain) {
     for (unsigned i = 0; i < arity; ++i) {
         if (domain[i] != domain[0]) {
-            m_manager->raise_exception(std::format("arguments {} and {} have different sorts", 1, i+1));
+            std::ostringstream buffer;
+            buffer << "arguments " << 1 << " and " << (i+1) << " have different sorts";
+            m_manager->raise_exception(buffer.str());
             return false;
         }
         if (domain[i]->get_family_id() != m_family_id) {
-            m_manager->raise_exception(std::format("argument {} is not of array sort", i+1));
+            std::ostringstream buffer;
+            buffer << "argument " << (i+1) << " is not of array sort";
+            m_manager->raise_exception(buffer.str());
             return false;
         }
     }

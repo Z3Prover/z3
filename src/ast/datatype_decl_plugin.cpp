@@ -17,8 +17,6 @@ Revision History:
 
 --*/
 
-#include<sstream>
-#include<format>
 #include "util/warning.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
@@ -379,9 +377,10 @@ namespace datatype {
                 return nullptr;
             }
             if (rng != domain[1]) {
-                m.raise_exception(std::format("second argument to field update should be {} instead of {}",
-                                               to_string(mk_ismt2_pp(rng, m)),
-                                               to_string(mk_ismt2_pp(domain[1], m))));
+                std::ostringstream buffer;
+                buffer << "second argument to field update should be " << mk_ismt2_pp(rng, m) 
+                       << " instead of " << mk_ismt2_pp(domain[1], m);
+                m.raise_exception(buffer.str());
                 return nullptr;
             }
             range = domain[0];
