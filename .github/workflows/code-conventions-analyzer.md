@@ -114,9 +114,21 @@ Look for patterns where Z3 could better leverage standard library features:
 Identify opportunities specific to Z3's architecture and coding patterns:
 
 **Constructor/Destructor Optimization:**
-- Empty/trivial constructors and destructors that can be removed (= default)
+- **Empty constructors**: Truly empty constructors that should use `= default`
+  - Distinguish between completely empty constructors (can use `= default`)
+  - Constructors with member initializers (may still be candidates for improvement)
+  - Constructors that only initialize members to default values
+- **Empty destructors**: Trivial destructors that can be removed or use `= default`
+  - Destructors with empty body `~Class() {}`
+  - Non-virtual destructors that don't need to be explicitly defined
+  - Virtual destructors (keep explicit even if empty for polymorphic classes)
+- **Non-virtual destructors**: Analyze consistency and correctness
+  - Classes with virtual functions but non-virtual destructors (potential issue)
+  - Base classes without virtual destructors (check if inheritance is intended)
+  - Non-virtual destructors missing `noexcept` (should be added)
+  - Leaf classes with unnecessary virtual destructors (minor overhead)
 - Missing `noexcept` on non-default constructors and destructors
-- Opportunities to use compiler-generated special members
+- Opportunities to use compiler-generated special members (`= default`, `= delete`)
 
 **Implementation Pattern Improvements:**
 - `m_imp` (implementation pointer) pattern in classes used only within one file
@@ -304,9 +316,70 @@ For each opportunity, provide:
 ## 4. Z3-Specific Code Quality Opportunities
 
 ### 4.1 Constructor/Destructor Optimization
-- **Empty Constructors/Destructors**: [Count of trivial ones that can be removed/defaulted]
-- **Missing noexcept**: [Non-default constructors/destructors without noexcept]
-- **Impact**: [Code size reduction potential]
+
+#### 4.1.1 Empty Constructor Analysis
+- **Truly Empty Constructors**: Constructors with completely empty bodies
+  - Count: [Number of `ClassName() {}` patterns]
+  - Recommendation: Replace with `= default` or remove if compiler can generate
+  - Examples: [File:line references]
+- **Constructors with Only Member Initializers**: Constructors that could use in-class initializers
+  - Pattern: `ClassName() : m_member(value) {}`
+  - Recommendation: Move initialization to class member declaration if appropriate
+  - Examples: [File:line references]
+- **Default Value Constructors**: Constructors that only set members to default values
+  - Pattern: Constructor setting pointers to nullptr, ints to 0, bools to false
+  - Recommendation: Use in-class member initializers and `= default`
+  - Examples: [File:line references]
+
+#### 4.1.2 Empty Destructor Analysis
+- **Non-Virtual Empty Destructors**: Destructors with empty bodies in non-polymorphic classes
+  - Count: [Number of `~ClassName() {}` patterns without virtual]
+  - Recommendation: Remove or use `= default` to reduce binary size
+  - Examples: [File:line references]
+- **Virtual Empty Destructors**: Empty virtual destructors in base classes
+  - Count: [Number found]
+  - Recommendation: Keep explicit (required for polymorphism), but ensure `= default` or add comment
+  - Examples: [File:line references]
+
+#### 4.1.3 Non-Virtual Destructor Safety Analysis
+- **Classes with Virtual Methods but Non-Virtual Destructors**: Potential polymorphism issues
+  - Pattern: Class has virtual methods but destructor is not virtual
+  - Risk: If used polymorphically, may cause undefined behavior
+  - Count: [Number of classes]
+  - Examples: [File:line references with class hierarchy info]
+- **Base Classes without Virtual Destructors**: Classes that might be inherited from
+  - Check: Does class have derived classes in codebase?
+  - Recommendation: Add virtual destructor if inheritance is intended, or mark class `final`
+  - Examples: [File:line references]
+- **Leaf Classes with Unnecessary Virtual Destructors**: Final classes with virtual destructors
+  - Pattern: Class marked `final` but has `virtual ~ClassName()`
+  - Recommendation: Remove `virtual` keyword (minor optimization)
+  - Examples: [File:line references]
+
+#### 4.1.4 Missing noexcept Analysis
+- **Non-Default Constructors without noexcept**: Constructors that don't throw
+  - Pattern: Explicit constructors without `noexcept` specification
+  - Recommendation: Add `noexcept` if constructor doesn't throw
+  - Count: [Number found]
+  - Examples: [File:line references]
+- **Non-Virtual Destructors without noexcept**: Destructors should be noexcept by default
+  - Pattern: Non-virtual destructors without explicit `noexcept`
+  - Recommendation: Add explicit `noexcept` for clarity (or rely on implicit)
+  - Note: Destructors are implicitly noexcept, but explicit is clearer
+  - Count: [Number found]
+  - Examples: [File:line references]
+- **Virtual Destructors without noexcept**: Virtual destructors that should be noexcept
+  - Pattern: `virtual ~ClassName()` without `noexcept`
+  - Recommendation: Add `noexcept` for exception safety guarantees
+  - Count: [Number found]
+  - Examples: [File:line references]
+
+#### 4.1.5 Compiler-Generated Special Members
+- **Classes with Explicit Rule of 3/5**: Classes that define some but not all special members
+  - Rule of 5: Constructor, Destructor, Copy Constructor, Copy Assignment, Move Constructor, Move Assignment
+  - Recommendation: Either define all or use `= default`/`= delete` appropriately
+  - Examples: [File:line references]
+- **Impact**: [Code size reduction potential, compile time improvements]
 
 ### 4.2 Implementation Pattern (m_imp) Analysis
 - **Current Usage**: [Files using m_imp pattern for internal-only classes]
@@ -468,14 +541,53 @@ grep pattern: "^[ ]*enum [^c]" glob: "src/**/*.h"
 
 **Find empty/trivial constructors and destructors:**
 ```
-grep pattern: "~[A-Za-z_]+\(\)\s*\{\s*\}" glob: "src/**/*.cpp"
-grep pattern: "[A-Za-z_]+\(\)\s*\{\s*\}" glob: "src/**/*.cpp"
+# Empty constructors in implementation files
+grep pattern: "[A-Za-z_]+::[A-Za-z_]+\(\)\s*\{\s*\}" glob: "src/**/*.cpp"
+
+# Empty constructors in header files
+grep pattern: "[A-Za-z_]+\(\)\s*\{\s*\}" glob: "src/**/*.h"
+
+# Empty destructors in implementation files
+grep pattern: "[A-Za-z_]+::~[A-Za-z_]+\(\)\s*\{\s*\}" glob: "src/**/*.cpp"
+
+# Empty destructors in header files
+grep pattern: "~[A-Za-z_]+\(\)\s*\{\s*\}" glob: "src/**/*.h"
+
+# Constructors with only member initializer lists (candidates for in-class init)
+grep pattern: "[A-Za-z_]+\(\)\s*:\s*[a-z_]+\([^)]*\)\s*\{\s*\}" glob: "src/**/*.cpp"
+
+# Virtual destructors (to distinguish from non-virtual)
+grep pattern: "virtual\s+~[A-Za-z_]+" glob: "src/**/*.h"
 ```
 
 **Find constructors/destructors without noexcept:**
 ```
-grep pattern: "~[A-Za-z_]+\(\)(?!.*noexcept)" glob: "src/**/*.h"
-grep pattern: "explicit.*\(\)(?!.*noexcept)" glob: "src/**/*.h"
+# Non-virtual destructors without noexcept in headers
+grep pattern: "~[A-Za-z_]+\(\)(?!.*noexcept)(?!.*virtual)" glob: "src/**/*.h"
+
+# Virtual destructors without noexcept
+grep pattern: "virtual\s+~[A-Za-z_]+\(\)(?!.*noexcept)" glob: "src/**/*.h"
+
+# Explicit constructors without noexcept
+grep pattern: "explicit\s+[A-Za-z_]+\([^)]*\)(?!.*noexcept)" glob: "src/**/*.h"
+
+# Non-default constructors without noexcept
+grep pattern: "[A-Za-z_]+\([^)]+\)(?!.*noexcept)(?!.*=\s*default)" glob: "src/**/*.h"
+```
+
+**Find potential non-virtual destructor safety issues:**
+```
+# Classes with virtual functions (candidates to check destructor)
+grep pattern: "class\s+[A-Za-z_]+.*\{.*virtual\s+" glob: "src/**/*.h"
+
+# Classes marked final (can have non-virtual destructors)
+grep pattern: "class\s+[A-Za-z_]+.*final" glob: "src/**/*.h"
+
+# Base classes that might need virtual destructors
+grep pattern: "class\s+[A-Za-z_]+\s*:\s*public" glob: "src/**/*.h"
+
+# Non-virtual destructors in classes with virtual methods
+grep pattern: "class.*\{.*virtual.*~[A-Za-z_]+\(\)(?!.*virtual)" multiline: true glob: "src/**/*.h"
 ```
 
 **Find m_imp pattern usage:**
