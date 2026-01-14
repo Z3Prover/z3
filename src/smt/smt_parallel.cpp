@@ -27,6 +27,13 @@ Author:
 #include "solver/solver_preprocess.h"
 #include "params/smt_parallel_params.hpp"
 
+#include "tactic/tactic.h"
+#include "tactic/sls/sls_tactic.h"
+#include "tactic/goal.h"
+#include "tactic/tactic_exception.h"
+#include "tactic/smtlogics/smt_tactic.h"
+
+
 #include <cmath>
 #include <mutex>
 
@@ -67,42 +74,89 @@ namespace smt {
     void parallel::sls_tactic::run() {
         IF_VERBOSE(1, verbose_stream() << "SLS portfolio thread started\n");
 
-        // try {
-        //     // 1. Build goal
-        //     goal_ref g = alloc(goal, m, /*models*/ true, /*proofs*/ false, /*cores*/ false);
+        try {
+            // 1) Build goal with MODELS ENABLED.
+            // NOTE: constructor order is (proofs_enabled, models_enabled, core_enabled)
+            goal_ref g = alloc(goal, m,
+                            /*proofs*/ false,
+                            /*models*/ true,
+                            /*cores*/  false);
 
-        //     // 2. Copy asserted formulas from main context
-        //     ptr_vector<expr> assertions;
-        //     p.ctx.get_assertions(assertions);
+            // 2) Copy asserted formulas from main context
+            ptr_vector<expr> assertions;
+            p.ctx.get_assertions(assertions);
+            for (expr* e : assertions) {
+                g->assert_expr(m_l2g(e));
+            }
 
-        //     for (expr* e : assertions) {
-        //         g->assert_expr(m_l2g(e));
-        //     }
+            // 3) Params
+            params_ref ps;
+            ps.append(p.ctx.m_params);
 
-        //     // 3. Build SLS tactic (SMT-capable)
-        //     tactic_ref t = mk_sls_smt_tactic(m, m_params);
+            // Optional knobs (ignored if unknown)
+            ps.set_uint("sls.random_seed", 0);
+            ps.set_uint("sls.max_steps", 200000);
+            ps.set_uint("sls.max_restarts", 50);
 
-        //     // 4. Run tactic
-        //     model_converter_ref mc;
-        //     goal_ref_buffer result;
-        //     (*t)(g, result);
+            // 4) Build tactics
+            tactic_ref prep = mk_smt_tactic(m, ps);
+            tactic_ref sls  = mk_sls_smt_tactic(m, ps);
 
-        //     if (m_limit.is_canceled())
-        //         return;
+            // 5) Run preprocessing
+            goal_ref_buffer prep_result;
+            (*prep)(g, prep_result);
 
-        //     // 5. Interpret result
-        //     if (!result.empty() && result[0]->is_decided_sat()) {
-        //         IF_VERBOSE(1, verbose_stream() << "SLS found SAT\n");
+            if (m.limit().is_canceled())
+                return;
 
-        //         model_ref mdl;
-        //         result[0]->get_model(mdl);
+            // 6) Run SLS on each preprocessed goal
+            goal_ref_buffer sls_result;
+            for (goal_ref const& g2 : prep_result) {
+                if (!g2)
+                    continue;
+                (*sls)(g2, sls_result);
+            }
 
-        //         b.set_sat(m_l2g, *mdl);
-        //     }
-        // }
-        // catch (z3_exception& ex) {
-        //     b.set_exception(ex.what());
-        // }
+            if (m.limit().is_canceled())
+                return;
+
+            // 7) Interpret results: SAT only
+            for (goal_ref const& r : sls_result) {
+                if (!r)
+                    continue;
+
+                if (!r->is_decided_sat())
+                    continue;
+
+                IF_VERBOSE(1, verbose_stream() << "SLS found SAT\n");
+
+                // In this build, goal stores a model converter (mc()).
+                model_ref mdl;
+                if (r->models_enabled()) {
+                    if (model_converter* mc = r->mc()) {
+                        mc->operator()(mdl);     // model_converter is allowed to allocate/fill mdl
+                    }
+                }
+
+                if (mdl) {
+                    b.set_sat(m_l2g, *mdl);
+                    return;
+                }
+
+                // If we get here, SLS said SAT but didn't provide a model.
+                // Treat as non-actionable and let other threads continue.
+                IF_VERBOSE(1, verbose_stream() << "SLS reported SAT but no model was produced\n");
+            }
+        }
+        catch (tactic_exception& ex) {
+            b.set_exception(ex.what());
+        }
+        catch (z3_exception& ex) {
+            b.set_exception(ex.what());
+        }
+        catch (...) {
+            b.set_exception("unknown exception in SLS portfolio thread");
+        }
     }
 
     void parallel::sls_tactic::cancel() {
