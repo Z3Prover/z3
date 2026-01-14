@@ -29,7 +29,7 @@ namespace sls {
         void init_backup();
     public:
         arith_plugin(context& ctx);
-        ~arith_plugin() override {}
+        ~arith_plugin() override = default;
         void register_term(expr* e) override;
         expr_ref get_value(expr* e) override;
         void start_propagation() override;

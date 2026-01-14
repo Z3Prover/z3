@@ -140,10 +140,7 @@ namespace sls {
 
         m_solver_ctx->updt_params(p);
     }
-    
-    smt_solver::~smt_solver() {        
-    }
-    
+
     void smt_solver::assert_expr(expr* e) {
         if (m.is_and(e)) {
             for (expr* arg : *to_app(e))

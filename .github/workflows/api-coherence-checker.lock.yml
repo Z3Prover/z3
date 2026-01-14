@@ -83,14 +83,14 @@ jobs:
       - name: Create gh-aw temp directory
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
       - name: Checkout repository
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v5.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        uses: actions/setup-dotnet@2016bd2012dba4e32de620c46fe006a3ac9f0602 # v5.0.1
         with:
           dotnet-version: '8.0'
       - name: Setup Java
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v5.1.0
         with:
           java-version: '21'
           distribution: temurin
@@ -104,7 +104,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Setup uv
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
       - name: Install Python language service
         run: pip install --quiet python-lsp-server
       - name: Install TypeScript language service
@@ -922,7 +922,7 @@ jobs:
           echo "Agent Conclusion: $AGENT_CONCLUSION"
       - name: Download agent output artifact
         continue-on-error: true
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: agent-output
           path: /tmp/gh-aw/safeoutputs/
@@ -994,13 +994,13 @@ jobs:
           destination: /opt/gh-aw/actions
       - name: Download agent artifacts
         continue-on-error: true
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: agent-artifacts
           path: /tmp/gh-aw/threat-detection/
       - name: Download agent output artifact
         continue-on-error: true
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: agent-output
           path: /tmp/gh-aw/threat-detection/
@@ -1154,7 +1154,7 @@ jobs:
           destination: /opt/gh-aw/actions
       - name: Download agent output artifact
         continue-on-error: true
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: agent-output
           path: /tmp/gh-aw/safeoutputs/
@@ -1190,7 +1190,7 @@ jobs:
         with:
           destination: /opt/gh-aw/actions
       - name: Download cache-memory artifact (default)
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         continue-on-error: true
         with:
           name: cache-memory

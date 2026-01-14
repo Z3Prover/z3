@@ -30,7 +30,7 @@ class spacer_arith_kernel {
   public:
     class plugin {
       public:
-        virtual ~plugin() {}
+        virtual ~plugin() = default;
         virtual bool compute_kernel(const spacer_matrix &in_matrix,
                                     spacer_matrix &out_kernel,
                                     vector<unsigned> &basics) = 0;

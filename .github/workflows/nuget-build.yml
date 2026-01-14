@@ -20,7 +20,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.1
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -44,7 +44,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.1
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -68,7 +68,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.1
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.1
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -113,7 +113,7 @@ jobs:
     runs-on: macos-13
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.1
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -134,7 +134,7 @@ jobs:
     runs-on: macos-13
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.1
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -157,7 +157,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.1
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -165,7 +165,7 @@ jobs:
           python-version: '3.x'
       
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v7.0.0
         with:
           path: packages
       
@@ -212,7 +212,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.1
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -220,7 +220,7 @@ jobs:
           python-version: '3.x'
       
       - name: Download x86 artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v7.0.0
         with:
           name: windows-x86
           path: packages

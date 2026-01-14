@@ -2546,6 +2546,9 @@ void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
             m_owner.insert(a);
         }
     }
+    if (func_decl * sub = m_dt_util.get_datatype_subterm(dt)) {
+        m_owner.insert(sub);
+    }
     if (!m_owner.m_scopes.empty() && !m_owner.m_global_decls) {
         m_owner.pm().inc_ref(pd);
         m_owner.m_psort_inst_stack.push_back(pd);

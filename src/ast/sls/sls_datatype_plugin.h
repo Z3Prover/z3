@@ -81,7 +81,7 @@ namespace sls {
 
     public:
         datatype_plugin(context& c);
-        ~datatype_plugin() override;
+        ~datatype_plugin() override = default;
         family_id fid() override { return m_fid; }
         expr_ref get_value(expr* e) override;
         void initialize() override;
@@ -92,7 +92,7 @@ namespace sls {
         void register_term(expr* e) override;
 
         bool set_value(expr* e, expr* v) override { return false; }
-        void repair_literal(sat::literal lit) override {}
+        void repair_literal(sat::literal) override { }
         bool include_func_interp(func_decl* f) const override;
         bool check_ackerman(func_decl* f) const override;
 
