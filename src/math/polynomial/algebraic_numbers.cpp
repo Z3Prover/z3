@@ -1821,7 +1821,7 @@ namespace algebraic_numbers {
             }
 
             if (!m_limit.inc())
-                return sign_zero;
+                throw algebraic_exception(m_limit.get_cancel_msg());
 
             // make sure that intervals of a and b have the same magnitude
             int a_m      = magnitude(a_lower, a_upper);
