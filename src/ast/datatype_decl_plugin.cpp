@@ -710,7 +710,7 @@ namespace datatype {
             SASSERT(u().is_datatype(s));
             func_decl * c = u().get_non_rec_constructor(s);
             ptr_buffer<expr> args;
-            for (unsigned i = 0; i < c->get_arity(); i++) {
+            for (unsigned i = 0; i < c->get_arity(); ++i) {
                 args.push_back(m_manager->get_some_value(c->get_domain(i)));
             }
             return m_manager->mk_app(c, args);
@@ -964,7 +964,7 @@ namespace datatype {
         ptr_vector<sort> subsorts;
         do {
             changed = false;
-            for (unsigned tid = 0; tid < num_types; tid++) {
+            for (unsigned tid = 0; tid < num_types; ++tid) {
                 if (well_founded[tid]) 
                     continue;
                 sort* s = sorts[tid];
@@ -1003,11 +1003,11 @@ namespace datatype {
         ast_mark mark;
         ptr_vector<sort> subsorts;
 
-        for (unsigned tid = 0; tid < num_types; tid++) {
+        for (unsigned tid = 0; tid < num_types; ++tid) {
             mark.mark(sorts[tid], true);
         }
         
-        for (unsigned tid = 0; tid < num_types; tid++) {
+        for (unsigned tid = 0; tid < num_types; ++tid) {
             sort* s = sorts[tid];
             def const& d = get_def(s);
             for (constructor const* c : d) {
@@ -1314,7 +1314,7 @@ namespace datatype {
             unsigned j = 0;
             unsigned max_depth = 0;
             unsigned start2 = rand();
-            for (; j < num_args; j++) {
+            for (; j < num_args; ++j) {
                 unsigned i = (start2 + j) % num_args;
                 sort * T_i = autil.get_array_range_rec(c->get_domain(i));
                 TRACE(util_bug, tout << "c: " << i << " " << sort_ref(T_i, m) << "\n";);

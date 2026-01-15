@@ -52,7 +52,7 @@ namespace sat {
         entry.m_available = true;
         entry.m_lits.reset();
         unsigned tr_sz = s.m_trail.size();
-        for (unsigned i = old_tr_sz; i < tr_sz; i++) {
+        for (unsigned i = old_tr_sz; i < tr_sz; ++i) {
             entry.m_lits.push_back(s.m_trail[i]);
             if (s.m_config.m_drat) {
                 s.m_drat.add(~l, s.m_trail[i], status::redundant());
@@ -98,7 +98,7 @@ namespace sat {
             }
             // collect literals that were assigned after assigning l
             unsigned tr_sz = s.m_trail.size();
-            for (unsigned i = old_tr_sz; i < tr_sz; i++) {
+            for (unsigned i = old_tr_sz; i < tr_sz; ++i) {
                 if (m_assigned.contains(s.m_trail[i])) {
                     m_to_assert.push_back(s.m_trail[i]);
                 }
@@ -145,7 +145,7 @@ namespace sat {
         // collect literals that were assigned after assigning l
         m_assigned.reset();
         unsigned tr_sz = s.m_trail.size();
-        for (unsigned i = old_tr_sz; i < tr_sz; i++) {
+        for (unsigned i = old_tr_sz; i < tr_sz; ++i) {
             literal lit = s.m_trail[i];
             m_assigned.insert(lit);
 
@@ -246,7 +246,7 @@ namespace sat {
         int limit = -static_cast<int>(m_probing_limit);
         unsigned i;
         unsigned num = s.num_vars();
-        for (i = 0; i < num; i++) {
+        for (i = 0; i < num; ++i) {
             bool_var v = (m_stopped_at + i) % num;
             if (m_counter < limit) {
                 m_stopped_at = v;

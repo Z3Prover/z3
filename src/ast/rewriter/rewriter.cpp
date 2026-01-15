@@ -151,14 +151,14 @@ bool rewriter_core::is_child_of_top_frame(expr * t) const {
     switch (parent->get_kind()) {
     case AST_APP:
         num = to_app(parent)->get_num_args();
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             if (to_app(parent)->get_arg(i) == t)
                 return true;
         }
         return false;
     case AST_QUANTIFIER:
         num = to_quantifier(parent)->get_num_children();
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             if (to_quantifier(parent)->get_child(i) == t)
                 return true;
         }
@@ -177,7 +177,7 @@ void rewriter_core::elim_reflex_prs(unsigned spos) {
     unsigned sz = m_result_pr_stack.size();
     SASSERT(spos <= sz);
     unsigned j = spos;
-    for (unsigned i = spos; i < sz; i++) {
+    for (unsigned i = spos; i < sz; ++i) {
         proof * pr = m_result_pr_stack.get(i);
         if (pr != nullptr) {
             if (i != j)

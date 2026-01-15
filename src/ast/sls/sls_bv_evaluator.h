@@ -76,7 +76,7 @@ public:
             switch (n->get_decl_kind()) {
             case OP_AND: {
                 m_mpz_manager.set(result, m_one);
-                for (unsigned i = 0; i < n_args; i++)
+                for (unsigned i = 0; i < n_args; ++i)
                     if (m_mpz_manager.neq(m_tracker.get_value(args[i]), result))  {
                         m_mpz_manager.set(result, m_zero);
                         break;
@@ -84,7 +84,7 @@ public:
                 break;
             }
             case OP_OR: {
-                for (unsigned i = 0; i < n_args; i++)
+                for (unsigned i = 0; i < n_args; ++i)
                     if (m_mpz_manager.neq(m_tracker.get_value(args[i]), result)) {
                         m_mpz_manager.set(result, m_one);
                         break;
@@ -102,7 +102,7 @@ public:
                 SASSERT(n_args >= 2);
                 m_mpz_manager.set(result, m_one);
                 const mpz & first = m_tracker.get_value(args[0]);
-                for (unsigned i = 1; i < n_args; i++) 
+                for (unsigned i = 1; i < n_args; ++i) 
                     if (m_mpz_manager.neq(m_tracker.get_value(args[i]), first)) {
                         m_mpz_manager.set(result, m_zero);
                         break;
@@ -111,8 +111,8 @@ public:
             }
             case OP_DISTINCT: {
                 m_mpz_manager.set(result, m_one);
-                for (unsigned i = 0; i < n_args && m_mpz_manager.is_one(result); i++) {
-                    for (unsigned j = i+1; j < n_args && m_mpz_manager.is_one(result); j++) {
+                for (unsigned i = 0; i < n_args && m_mpz_manager.is_one(result); ++i) {
+                    for (unsigned j = i+1; j < n_args && m_mpz_manager.is_one(result); ++j) {
                         if (m_mpz_manager.eq(m_tracker.get_value(args[i]), m_tracker.get_value(args[j])))
                             m_mpz_manager.set(result, m_zero);
                     }
@@ -136,7 +136,7 @@ public:
             switch(k) {
             case OP_CONCAT: {
                 SASSERT(n_args >= 2);
-                for (unsigned i = 0; i < n_args; i++) {                        
+                for (unsigned i = 0; i < n_args; ++i) {                        
                     if (i != 0) {
                         const mpz & p = m_powers(m_bv_util.get_bv_size(args[i]));
                         m_mpz_manager.mul(result, p, result);                            
@@ -157,7 +157,7 @@ public:
             }
             case OP_BADD: {
                 SASSERT(n_args >= 2);
-                for (unsigned i = 0; i < n_args; i++) {
+                for (unsigned i = 0; i < n_args; ++i) {
                     const mpz & next = m_tracker.get_value(args[i]);                    
                     m_mpz_manager.add(result, next, result);
                 }                
@@ -177,7 +177,7 @@ public:
             case OP_BMUL: {
                 SASSERT(n_args >= 2);
                 m_mpz_manager.set(result, m_tracker.get_value(args[0]));
-                for (unsigned i = 1; i < n_args; i++) {
+                for (unsigned i = 1; i < n_args; ++i) {
                     const mpz & next = m_tracker.get_value(args[i]);                    
                     m_mpz_manager.mul(result, next, result);
                 }
@@ -341,14 +341,14 @@ public:
             case OP_BAND: {
                 SASSERT(n_args >= 2);
                 m_mpz_manager.set(result, m_tracker.get_value(args[0]));
-                for (unsigned i = 1; i < n_args; i++)
+                for (unsigned i = 1; i < n_args; ++i)
                     m_mpz_manager.bitwise_and(result, m_tracker.get_value(args[i]), result);
                 break;
             }
             case OP_BOR: {
                 SASSERT(n_args >= 2);
                 m_mpz_manager.set(result, m_tracker.get_value(args[0]));
-                for (unsigned i = 1; i < n_args; i++) {
+                for (unsigned i = 1; i < n_args; ++i) {
                     m_mpz_manager.bitwise_or(result, m_tracker.get_value(args[i]), result);
                 }
                 break;
@@ -356,7 +356,7 @@ public:
             case OP_BXOR: {
                 SASSERT(n_args >= 2);
                 m_mpz_manager.set(result, m_tracker.get_value(args[0]));
-                for (unsigned i = 1; i < n_args; i++)
+                for (unsigned i = 1; i < n_args; ++i)
                     m_mpz_manager.bitwise_xor(result, m_tracker.get_value(args[i]), result);
                 break;
             }
@@ -365,7 +365,7 @@ public:
                 mpz temp;
                 unsigned bv_sz = m_bv_util.get_bv_size(n);
                 m_mpz_manager.set(result, m_tracker.get_value(args[0]));
-                for (unsigned i = 1; i < n_args; i++) {
+                for (unsigned i = 1; i < n_args; ++i) {
                     m_mpz_manager.bitwise_and(result, m_tracker.get_value(args[i]), temp);
                     m_mpz_manager.bitwise_not(bv_sz, temp, result);
                 }
@@ -377,7 +377,7 @@ public:
                 mpz temp;
                 unsigned bv_sz = m_bv_util.get_bv_size(n);
                 m_mpz_manager.set(result, m_tracker.get_value(args[0]));
-                for (unsigned i = 1; i < n_args; i++) {
+                for (unsigned i = 1; i < n_args; ++i) {
                     m_mpz_manager.bitwise_or(result, m_tracker.get_value(args[i]), temp);
                     m_mpz_manager.bitwise_not(bv_sz, temp, result);
                 }
@@ -495,7 +495,7 @@ public:
         }        
 
         TRACE(sls_eval, tout << "(" << fd->get_name();
-                            for (unsigned i = 0; i < n_args; i++)
+                            for (unsigned i = 0; i < n_args; ++i)
                                 tout << " " << m_mpz_manager.to_string(m_tracker.get_value(args[i]));
                             tout << ") ---> " <<  m_mpz_manager.to_string(result);
                             if (m_manager.is_bool(fd->get_range())) tout << " [Boolean]";
@@ -513,7 +513,7 @@ public:
 
             unsigned n_args = a->get_num_args();
             m_temp_exprs.reset();
-            for (unsigned i = 0; i < n_args; i++) {
+            for (unsigned i = 0; i < n_args; ++i) {
                 expr * arg = a->get_arg(i);
                 const mpz & v = m_tracker.get_value(arg);
                 m_temp_exprs.push_back(m_tracker.mpz2value(arg->get_sort(), v));
@@ -549,7 +549,7 @@ public:
         while (cur_depth != static_cast<unsigned>(-1)) {
             ptr_vector<expr> & cur_depth_exprs = m_traversal_stack[cur_depth];
 
-            for (unsigned i = 0; i < cur_depth_exprs.size(); i++) {
+            for (unsigned i = 0; i < cur_depth_exprs.size(); ++i) {
                 expr * cur = cur_depth_exprs[i];
 
                 (*this)(to_app(cur), new_value);
@@ -570,7 +570,7 @@ public:
 
                 if (m_tracker.has_uplinks(cur)) {
                     ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
-                    for (unsigned j = 0; j < ups.size(); j++) {
+                    for (unsigned j = 0; j < ups.size(); ++j) {
                         expr * next = ups[j];
                         unsigned next_d = m_tracker.get_distance(next);
                         SASSERT(next_d < cur_depth);
@@ -600,7 +600,7 @@ public:
         while (cur_depth != static_cast<unsigned>(-1)) {
             ptr_vector<expr> & cur_depth_exprs = m_traversal_stack[cur_depth];
 
-            for (unsigned i = 0; i < cur_depth_exprs.size(); i++) {
+            for (unsigned i = 0; i < cur_depth_exprs.size(); ++i) {
                 expr * cur = cur_depth_exprs[i];
 
                 (*this)(to_app(cur), new_value);
@@ -611,7 +611,7 @@ public:
                 m_tracker.set_score(cur, new_score);
                 if (m_tracker.has_uplinks(cur)) {
                     ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
-                    for (unsigned j = 0; j < ups.size(); j++) {
+                    for (unsigned j = 0; j < ups.size(); ++j) {
                         expr * next = ups[j];
                         unsigned next_d = m_tracker.get_distance(next);
                         SASSERT(next_d < cur_depth);
@@ -672,7 +672,7 @@ public:
  
         ptr_vector<expr> & cur_depth_exprs = m_traversal_stack_bool[cur_depth];
 
-        for (unsigned i = 0; i < cur_depth_exprs.size(); i++) {
+        for (unsigned i = 0; i < cur_depth_exprs.size(); ++i) {
             expr * cur = cur_depth_exprs[i];
 
             new_score = m_tracker.score(cur); 
@@ -689,7 +689,7 @@ public:
 
             if (m_tracker.has_uplinks(cur)) {
                 ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
-                for (unsigned j = 0; j < ups.size(); j++) {
+                for (unsigned j = 0; j < ups.size(); ++j) {
                     expr * next = ups[j];
                     unsigned next_d = m_tracker.get_distance(next);
                     SASSERT(next_d < cur_depth);
@@ -709,7 +709,7 @@ public:
             if (pot_benefits)
             {
                 unsigned cur_size = cur_depth_exprs.size();
-                for (unsigned i = 0; i < cur_size; i++) {
+                for (unsigned i = 0; i < cur_size; ++i) {
                     expr * cur = cur_depth_exprs[i];
 
                     new_score = m_tracker.score(cur); 
@@ -719,7 +719,7 @@ public:
 
                     if (m_tracker.has_uplinks(cur)) {
                         ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
-                        for (unsigned j = 0; j < ups.size(); j++) {
+                        for (unsigned j = 0; j < ups.size(); ++j) {
                             expr * next = ups[j];
                             unsigned next_d = m_tracker.get_distance(next);
                             SASSERT(next_d < cur_depth);
@@ -748,7 +748,7 @@ public:
         while (cur_depth != static_cast<unsigned>(-1)) {
             ptr_vector<expr> & cur_depth_exprs = m_traversal_stack[cur_depth];
 
-            for (unsigned i = 0; i < cur_depth_exprs.size(); i++) {
+            for (unsigned i = 0; i < cur_depth_exprs.size(); ++i) {
                 expr * cur = cur_depth_exprs[i];
 
                 (*this)(to_app(cur), new_value);
@@ -756,7 +756,7 @@ public:
                 // Andreas: Should actually always have uplinks ...
                 if (m_tracker.has_uplinks(cur)) {
                     ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
-                    for (unsigned j = 0; j < ups.size(); j++) {
+                    for (unsigned j = 0; j < ups.size(); ++j) {
                         expr * next = ups[j];
                         unsigned next_d = m_tracker.get_distance(next);
                         SASSERT(next_d < cur_depth);

@@ -345,11 +345,11 @@ public:
 
     void lazy_dec_ref(pdecl * p) { p->dec_ref(); if (p->get_ref_count() == 0) m_to_delete.push_back(p); }
     template<typename T>
-    void lazy_dec_ref(unsigned num, T * const * ps) { for (unsigned i = 0; i < num; i++) lazy_dec_ref(ps[i]); }
+    void lazy_dec_ref(unsigned num, T * const * ps) { for (unsigned i = 0; i < num; ++i) lazy_dec_ref(ps[i]); }
     void inc_ref(pdecl * p) { if (p) { p->inc_ref(); } }
     void dec_ref(pdecl * p) { if (p) { lazy_dec_ref(p); del_decls(); } }
     template<typename T>
-    void inc_ref(unsigned num, T * const * ps) { for (unsigned i = 0; i < num; i++) inc_ref(ps[i]); }
+    void inc_ref(unsigned num, T * const * ps) { for (unsigned i = 0; i < num; ++i) inc_ref(ps[i]); }
     template<typename T>
     void dec_ref(unsigned num, T * const * ps) { lazy_dec_ref(num, ps); del_decls(); }
     psort_inst_cache * mk_inst_cache(unsigned num_params);

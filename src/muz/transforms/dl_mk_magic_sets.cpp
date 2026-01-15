@@ -45,7 +45,7 @@ namespace datalog {
     void mk_magic_sets::adornment::populate(app * lit, const var_idx_set & bound_vars) {
         SASSERT(empty());
         unsigned arity = lit->get_num_args();
-        for (unsigned i = 0; i < arity; i++) {
+        for (unsigned i = 0; i < arity; ++i) {
             const expr * arg = lit->get_arg(i);
             bool bound = !is_var(arg) || bound_vars.contains(to_var(arg)->get_idx());
             push_back(bound ? AD_BOUND : AD_FREE);
@@ -65,7 +65,7 @@ namespace datalog {
     unsigned get_bound_arg_count(app * lit, const var_idx_set & bound_vars) {
         unsigned res = 0;
         unsigned n = lit->get_num_args();
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             const expr * arg = lit->get_arg(i);
             if (!is_var(arg) || bound_vars.contains(to_var(arg)->get_idx())) {
                 SASSERT(is_var(arg) || is_app(arg));
@@ -80,7 +80,7 @@ namespace datalog {
         func_decl * pred = lit->get_decl();
         float res = 1;
         unsigned n = lit->get_num_args();
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             const expr * arg = lit->get_arg(i);
             if (is_var(arg) && !bound_vars.contains(to_var(arg)->get_idx())) {
                 res *= m_context.get_sort_size_estimate(pred->get_domain(i));
@@ -100,7 +100,7 @@ namespace datalog {
         float best_cost;
         int candidate_index = -1;
         unsigned n = cont.size();
-        for (unsigned i=0; i<n; i++) {
+        for (unsigned i=0; i<n; ++i) {
             app * lit = r->get_tail(cont[i]);
             unsigned bound_cnt = get_bound_arg_count(lit, bound_vars);
             if (bound_cnt==0) {
@@ -153,7 +153,7 @@ namespace datalog {
 
         unsigned l_arity = l->get_num_args();
         ptr_vector<expr> bound_args;
-        for (unsigned i=0; i<l_arity; i++) {
+        for (unsigned i=0; i<l_arity; ++i) {
             if (adn[i]==AD_BOUND) {
                 bound_args.push_back(l->get_arg(i));
             }
@@ -164,7 +164,7 @@ namespace datalog {
             unsigned mag_arity = bound_args.size();
 
             ptr_vector<sort> mag_domain;
-            for (unsigned i=0; i<l_arity; i++) {
+            for (unsigned i=0; i<l_arity; ++i) {
                 if (adn[i]==AD_BOUND) {
                     mag_domain.push_back(l_pred->get_domain(i));
                 }
@@ -189,7 +189,7 @@ namespace datalog {
         negations.push_back(false);
         negations.append(tail_cnt, negated);
 
-        for (unsigned i=0; i<tail_cnt; i++) {
+        for (unsigned i=0; i<tail_cnt; ++i) {
             if (m_extentional.contains(tail[i]->get_decl())) {
                 continue;
             }
@@ -206,7 +206,7 @@ namespace datalog {
         SASSERT(head_len==head_adornment.size());
 
         var_idx_set bound_vars;
-        for (unsigned i=0; i<head_len; i++) {
+        for (unsigned i=0; i<head_len; ++i) {
             expr * arg = head->get_arg(i);
             if (head_adornment[i]==AD_BOUND && is_var(arg)) {
                 bound_vars.insert(to_var(arg)->get_idx());
@@ -216,7 +216,7 @@ namespace datalog {
         unsigned processed_tail_len = r->get_uninterpreted_tail_size();
         unsigned_vector exten_tails;
         unsigned_vector inten_tails;
-        for (unsigned i=0; i<processed_tail_len; i++) {
+        for (unsigned i=0; i<processed_tail_len; ++i) {
             app * t = r->get_tail(i);
             if (m_extentional.contains(t->get_decl())) {
                 exten_tails.push_back(i);
@@ -268,7 +268,7 @@ namespace datalog {
         create_magic_rules(new_head, new_tail.size(), new_tail.data(), negations.data(), result);
 
         unsigned tail_len = r->get_tail_size();
-        for (unsigned i=processed_tail_len; i<tail_len; i++) {
+        for (unsigned i=processed_tail_len; i<tail_len; ++i) {
             new_tail.push_back(r->get_tail(i));
             negations.push_back(r->is_neg_tail(i));
         }
@@ -287,7 +287,7 @@ namespace datalog {
         SASSERT(arity == d.m_pred->get_arity());
 
         ptr_vector<expr> args;
-        for (unsigned i=0; i<arity; i++) {
+        for (unsigned i=0; i<arity; ++i) {
             args.push_back(m.mk_var(i, adn_pred->get_domain(i)));
         }
 
@@ -314,7 +314,7 @@ namespace datalog {
         unsigned init_rule_cnt = source.get_num_rules();
         {
             func_decl_set intentional;
-            for (unsigned i=0; i<init_rule_cnt; i++) {
+            for (unsigned i=0; i<init_rule_cnt; ++i) {
                 func_decl* pred = source.get_rule(i)->get_decl();
                 intentional.insert(pred);
             }

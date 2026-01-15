@@ -44,7 +44,7 @@ void lp_primal_core_solver<T, X>::sort_non_basis() {
     // initialize m_non_basis_list from m_nbasis by using an iterator on m_non_basis_list
     auto it = m_non_basis_list.begin();
     unsigned j = 0;
-    for (; j < this->m_nbasis.size(); j++, ++it) {
+    for (; j < this->m_nbasis.size(); ++j, ++it) {
         unsigned col = *it = this->m_nbasis[j];
         this->m_basis_heading[col] = -static_cast<int>(j) - 1;
     }
@@ -183,7 +183,7 @@ template <typename T, typename X>   void lp_primal_core_solver<T, X>::check_Ax_e
     delete [] ls;
 }
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::check_the_bounds() {
-    for (unsigned i = 0; i < this->m_n(); i++) {
+    for (unsigned i = 0; i < this->m_n(); ++i) {
         check_bound(i);
     }
 }

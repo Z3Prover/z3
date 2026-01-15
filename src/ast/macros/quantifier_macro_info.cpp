@@ -36,7 +36,7 @@ void quantifier_macro_info::collect_macro_candidates(quantifier* q) {
         qa = m.update_quantifier(q, quantifier_kind::forall_k, m.mk_not(q->get_expr()));
     mutil.collect_macro_candidates(qa, candidates);
     unsigned num_candidates = candidates.size();
-    for (unsigned i = 0; i < num_candidates; i++) {
+    for (unsigned i = 0; i < num_candidates; ++i) {
         cond_macro* mc = alloc(cond_macro, m, candidates.get_f(i), candidates.get_def(i), candidates.get_cond(i),
                                candidates.ineq(i), candidates.satisfy_atom(i), candidates.hint(i), q->get_weight());
         insert_macro(mc);

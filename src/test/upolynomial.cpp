@@ -41,12 +41,12 @@ static void tst1() {
 
     // display coefficients of q
     std::cout << "expanded q: ";
-    for (unsigned i = 0; i < q.size(); i++)
+    for (unsigned i = 0; i < q.size(); ++i)
         std::cout << nm.to_string(q[i]) << " ";
     std::cout << "\n";
 
     // traverse coefficients of q adding 1
-    for (unsigned i = 0; i < q.size(); i++) {
+    for (unsigned i = 0; i < q.size(); ++i) {
         nm.add(q[i], mpz(1), q[i]);
     }
     // All operations in upolynomial::manager assume the leading coefficient of q is not zero.
@@ -104,7 +104,7 @@ static void tst_isolate_roots(polynomial_ref const & p, unsigned prec, mpbq_mana
     std::cout << "sign var(+oo): " << um.sign_variations_at_plus_inf(sseq) << "\n";
     ENSURE(roots.size() + lowers.size() == um.sign_variations_at_minus_inf(sseq) - um.sign_variations_at_plus_inf(sseq));
     std::cout << "roots:";
-    for (unsigned i = 0; i < roots.size(); i++) {
+    for (unsigned i = 0; i < roots.size(); ++i) {
         ENSURE(um.eval_sign_at(q.size(), q.data(), roots[i]) == 0);
         std::cout << " "; bqm.display_decimal(std::cout, roots[i], prec);
     }
@@ -112,7 +112,7 @@ static void tst_isolate_roots(polynomial_ref const & p, unsigned prec, mpbq_mana
         timeit timer(true, "interval check");
         std::cout << "\n";
         std::cout << "intervals:";
-        for (unsigned i = 0; i < lowers.size(); i++) {
+        for (unsigned i = 0; i < lowers.size(); ++i) {
             std::cout << " (";
             bqm.display_decimal(std::cout, lowers[i], prec);
             std::cout << ", ";
@@ -159,10 +159,10 @@ static void check_roots(mpbq_vector const & roots, mpbq_vector const & lowers, m
     ENSURE(expected_sz == roots.size() + lowers.size());
     bool_vector visited;
     visited.resize(expected_sz, false);
-    for (unsigned i = 0; i < expected_sz; i++) {
+    for (unsigned i = 0; i < expected_sz; ++i) {
         rational const & r = expected_roots[i];
         bool found = false;
-        for (unsigned j = 0; j < roots.size(); j++) {
+        for (unsigned j = 0; j < roots.size(); ++j) {
             if (to_rational(roots[j]) == r) {
                 ENSURE(!visited[j]);
                 VERIFY(!found);
@@ -170,7 +170,7 @@ static void check_roots(mpbq_vector const & roots, mpbq_vector const & lowers, m
                 visited[j] = true;
             }
         }
-        for (unsigned j = 0; j < lowers.size(); j++) {
+        for (unsigned j = 0; j < lowers.size(); ++j) {
             unsigned j_prime = j + roots.size();
             if (to_rational(lowers[j]) < r && r < to_rational(uppers[j])) {
                 VERIFY(!found);
@@ -889,7 +889,7 @@ static void tst_fact(polynomial_ref const & p, unsigned num_distinct_factors, up
     um.factor(_p, fs, params);
     std::cout << "factors:\n";
     std::cout << um.m().to_string(fs.get_constant()) << "\n";
-    for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+    for (unsigned i = 0; i < fs.distinct_factors(); ++i) {
         std::cout << "*("; um.display(std::cout, fs[i]); std::cout << ")^" << fs.get_degree(i) << std::endl;
     }
     std::cout << fs.distinct_factors() << " " << num_distinct_factors << "\n";

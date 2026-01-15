@@ -151,14 +151,14 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
             }
         }
     }
-    TRACE(elim_bounds, tout << "candidates:\n"; for (unsigned i = 0; i < candidates.size(); i++) tout << mk_pp(candidates[i], m) << "\n";);
+    TRACE(elim_bounds, tout << "candidates:\n"; for (unsigned i = 0; i < candidates.size(); ++i) tout << mk_pp(candidates[i], m) << "\n";);
     // remove candidates that have lower and upper bounds
 
     for (var * v : candidates) {
         if (lowers.contains(v) && uppers.contains(v))
             candidate_set.erase(v);
     }
-    TRACE(elim_bounds, tout << "candidates after filter:\n"; for (unsigned i = 0; i < candidates.size(); i++) tout << mk_pp(candidates[i], m) << "\n";);
+    TRACE(elim_bounds, tout << "candidates after filter:\n"; for (unsigned i = 0; i < candidates.size(); ++i) tout << mk_pp(candidates[i], m) << "\n";);
     if (candidate_set.empty()) {
         return false;
     }

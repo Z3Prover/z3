@@ -105,7 +105,7 @@ namespace q {
         m_vals[SCOPE]              = static_cast<float>(ctx.s().num_scopes());
         m_vals[NESTED_QUANTIFIERS] = static_cast<float>(stat->get_num_nested_quantifiers());
         m_vals[CS_FACTOR]          = static_cast<float>(stat->get_case_split_factor());
-        TRACE(q_detail, for (unsigned i = 0; i < m_vals.size(); i++) { tout << m_vals[i] << " "; } tout << "\n";);
+        TRACE(q_detail, for (unsigned i = 0; i < m_vals.size(); ++i) { tout << m_vals[i] << " "; } tout << "\n";);
     }
 
     float queue::get_cost(binding& f) {

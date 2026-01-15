@@ -104,7 +104,7 @@ namespace sat {
             TRACE(sats, tout << "processing: " << c << "\n";);
             unsigned sz    = c.size();
             unsigned i;
-            for (i = 0; i < sz; i++) {
+            for (i = 0; i < sz; ++i) {
                 literal l = c[i];
                 literal r = norm(roots, l);
                 if (l != r)
@@ -127,7 +127,7 @@ namespace sat {
             }
 
             // apply substitution
-            for (i = 0; i < sz; i++) {   
+            for (i = 0; i < sz; ++i) {   
                 literal lit = c[i];
                 c[i] = norm(roots, lit);
                 VERIFY(c[i] == norm(roots, c[i]));
@@ -145,7 +145,7 @@ namespace sat {
             // remove duplicates, and check if it is a tautology
             unsigned j = 0;
             literal l_prev = null_literal;
-            for (i = 0; i < sz; i++) {
+            for (i = 0; i < sz; ++i) {
                 literal l = c[i];
                 if (l == ~l_prev) {
                     break;

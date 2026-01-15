@@ -235,7 +235,7 @@ static void tst_ ## NAME(unsigned N, unsigned magnitude) {              \
     interval_manager<im_default_config> im(rl, nm);                     \
     interval a, b, r;                                                   \
                                                                         \
-    for (unsigned i = 0; i < N; i++) {                                  \
+    for (unsigned i = 0; i < N; ++i) {                                  \
         mk_random_interval(im, a, magnitude);                           \
         mk_random_interval(im, b, magnitude);                           \
         interval_deps_combine_rule deps;                                             \
@@ -256,7 +256,7 @@ static void tst_neg(unsigned N, unsigned magnitude) {
     interval_manager<im_default_config> im(rl, nm);
     interval a, b, r;
 
-    for (unsigned i = 0; i < N; i++) {
+    for (unsigned i = 0; i < N; ++i) {
         mk_random_interval(im, a, magnitude);
         interval_deps_combine_rule deps;
         im.neg(a, r, deps);
@@ -271,7 +271,7 @@ static void tst_pw_2(unsigned N, unsigned magnitude) {
     interval_manager<im_default_config> im(rl, nm);
     interval a, b, r;
 
-    for (unsigned i = 0; i < N; i++) {
+    for (unsigned i = 0; i < N; ++i) {
         mk_random_interval(im, a, magnitude);
         interval_deps_combine_rule deps;
         im.power(a, 2, r, deps);
@@ -286,7 +286,7 @@ static void tst_pw_3(unsigned N, unsigned magnitude) {
     interval_manager<im_default_config> im(rl, nm);
     interval a, b, r;
 
-    for (unsigned i = 0; i < N; i++) {
+    for (unsigned i = 0; i < N; ++i) {
         mk_random_interval(im, a, magnitude);
         interval_deps_combine_rule deps;
         im.power(a, 3, r, deps);
@@ -343,7 +343,7 @@ static void tst_inv(unsigned N, unsigned magnitude) {
     interval_manager<im_default_config> im(rl, nm);
     interval a, b, r;
 
-    for (unsigned i = 0; i < N; i++) {
+    for (unsigned i = 0; i < N; ++i) {
         while (true) {
             mk_random_interval(im, a, magnitude);
             if (!im.contains_zero(a))
@@ -362,7 +362,7 @@ static void tst_div(unsigned N, unsigned magnitude) {
     interval_manager<im_default_config> im(rl, nm);
     interval a, b, r;
 
-    for (unsigned i = 0; i < N; i++) {
+    for (unsigned i = 0; i < N; ++i) {
         mk_random_interval(im, a, magnitude);
         while (true) {
             mk_random_interval(im, b, magnitude);
@@ -418,7 +418,7 @@ void tst_pi() {
     unsynch_mpq_manager                 nm;
     interval_manager<im_default_config> im(rl, nm);
     interval r;
-    for (unsigned i = 0; i < 8; i++) {
+    for (unsigned i = 0; i < 8; ++i) {
         im.pi(i, r);
         nm.display_decimal(std::cout, im.lower(r), 32); std::cout << "   ";
         nm.display_decimal(std::cout, im.upper(r), 32); std::cout << "\n";
@@ -437,7 +437,7 @@ static void tst_pi_float() {
     interval_manager<im_float_config<mpf_manager> > im(rl, ifc);
     scoped_mpq q(qm);
     im_float_config<mpf_manager>::interval r;
-    for (unsigned i = 0; i < 8; i++) {
+    for (unsigned i = 0; i < 8; ++i) {
         im.pi(i, r);
         fm.to_rational(im.lower(r), q);
         qm.display_decimal(std::cout, q, 32); std::cout << " ";

@@ -56,11 +56,11 @@ struct macro_replacer::macro_replacer_cfg : public default_rewriter_cfg {
         proof_ref& result_pr) {
 
         bool erase_patterns = false;
-        for (unsigned i = 0; !erase_patterns && i < old_q->get_num_patterns(); i++) 
+        for (unsigned i = 0; !erase_patterns && i < old_q->get_num_patterns(); ++i) 
             if (old_q->get_pattern(i) != new_patterns[i])
                 erase_patterns = true;
         
-        for (unsigned i = 0; !erase_patterns && i < old_q->get_num_no_patterns(); i++) 
+        for (unsigned i = 0; !erase_patterns && i < old_q->get_num_no_patterns(); ++i) 
             if (old_q->get_no_pattern(i) != new_no_patterns[i])
                 erase_patterns = true;
         
@@ -86,7 +86,7 @@ struct macro_replacer::macro_replacer_cfg : public default_rewriter_cfg {
             unsigned num = head->get_num_args();
             ptr_buffer<expr> subst_args;
             subst_args.resize(num, 0);
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 var* v = to_var(head->get_arg(i));
                 VERIFY(v->get_idx() < num);
                 unsigned nidx = num - v->get_idx() - 1;

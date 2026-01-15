@@ -200,7 +200,7 @@ expr_ref demodulator_rewriter_util::rewrite(expr * n) {
     m_rewrite_todo.push_back(n);
     while (!m_rewrite_todo.empty()) {
         TRACE(demodulator_stack, tout << "STACK: " << std::endl;
-              for (unsigned i = 0; i < m_rewrite_todo.size(); i++)
+              for (unsigned i = 0; i < m_rewrite_todo.size(); ++i)
                   tout << std::dec << i << ": " << std::hex << (size_t)m_rewrite_todo[i] <<
                   " = " << mk_pp(m_rewrite_todo[i], m) << std::endl;
               );
@@ -495,7 +495,7 @@ expr * demodulator_rewriter::rewrite(expr * n) {
     m_rewrite_todo.push_back(n);
     while (!m_rewrite_todo.empty()) {
         TRACE(demodulator_stack, tout << "STACK: " << std::endl;
-              for (unsigned i = 0; i < m_rewrite_todo.size(); i++)
+              for (unsigned i = 0; i < m_rewrite_todo.size(); ++i)
                   tout << std::dec << i << ": " << std::hex << (size_t)m_rewrite_todo[i] <<
                   " = " << mk_pp(m_rewrite_todo[i], m) << std::endl;
               );
@@ -879,7 +879,7 @@ bool demodulator_match_subst::match_args(app * lhs, expr * const * args) {
     m_all_args_eq = true;
     unsigned num_args = lhs->get_num_args();
     if (!fill_commutative(lhs, args)) {
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             expr * t_arg = lhs->get_arg(i);
             expr * i_arg = args[i];
             if (t_arg != i_arg)

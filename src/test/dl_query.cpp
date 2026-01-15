@@ -92,10 +92,10 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
         std::cerr << "Queries on random facts...\n";
         relation_fact f_b(m);
         relation_fact f_q(m);
-        for(unsigned attempt=0; attempt<test_count; attempt++) {
+        for(unsigned attempt=0; attempt<test_count; ++attempt) {
             f_b.reset();
             f_q.reset();
-            for(unsigned col=0; col<sig_b.size(); col++) {
+            for(unsigned col=0; col<sig_b.size(); ++col) {
                 uint64_t sort_sz;
                 if(!decl_util.try_get_size(sig_q[col], sort_sz)) {
                     warning_msg("cannot get sort size");
@@ -171,7 +171,7 @@ void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
     uint64_t var_sz;
     TRUSTME( ctx.try_get_sort_constant_count(var_sort, var_sz) );
 
-    for(unsigned attempt=0; attempt<attempts; attempt++) {
+    for(unsigned attempt=0; attempt<attempts; ++attempt) {
         unsigned el1 = ran()%var_sz;
         unsigned el2 = ran()%var_sz;
         
@@ -238,12 +238,12 @@ void tst_dl_query() {
     }
     ctx_base.get_rel_context()->saturate();
 
-    for(unsigned use_restarts=0; use_restarts<=1; use_restarts++) {
+    for(unsigned use_restarts=0; use_restarts<=1; ++use_restarts) {
         params.set_uint("initial_restart_timeout", use_restarts ? 100 : 0);
-        for(unsigned use_similar=0; use_similar<=1; use_similar++) {
+        for(unsigned use_similar=0; use_similar<=1; ++use_similar) {
             params.set_uint("similarity_compressor", use_similar != 0);
 
-            for(unsigned use_magic_sets=0; use_magic_sets<=1; use_magic_sets++) {
+            for(unsigned use_magic_sets=0; use_magic_sets<=1; ++use_magic_sets) {
                 stopwatch watch;
                 if (!(use_restarts == 1 && use_similar == 0 && use_magic_sets == 1)) {
                     continue;

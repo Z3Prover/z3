@@ -108,7 +108,7 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::wf_rows() const {
         unsigned num = m_rows.size();
-        for (unsigned r_id = 0; r_id < num; r_id++) {
+        for (unsigned r_id = 0; r_id < num; ++r_id) {
             SASSERT(wf_row(r_id));
             if (m_rows[r_id].m_base_var == null_theory_var) {
                 SASSERT(std::find(m_dead_rows.begin(), m_dead_rows.end(), r_id) != m_dead_rows.end());
@@ -145,7 +145,7 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::wf_columns() const {
         int num = get_num_vars();
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             SASSERT(wf_column(v));
         }
         return true;
@@ -193,7 +193,7 @@ namespace smt {
         if (get_manager().limit().is_canceled())
             return true;
         int num = get_num_vars();
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             CTRACE(bound_bug, below_lower(v) || above_upper(v), display_var(tout, v); display(tout););
             SASSERT(!below_lower(v));
             SASSERT(!above_upper(v));
@@ -205,7 +205,7 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::satisfy_integrality() const {
         int num = get_num_vars();
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             if (is_int(v) && !get_value(v).is_int()) {
                 TRACE(bound_bug, display_var(tout, v); display(tout););
                 return false;

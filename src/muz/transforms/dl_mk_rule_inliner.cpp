@@ -98,7 +98,7 @@ namespace datalog {
         rule const& r, bool is_tgt, unsigned skipped_index,
         app_ref_vector& res, bool_vector& res_neg) {
         unsigned rule_len = r.get_tail_size();
-        for (unsigned i = 0; i < rule_len; i++) {
+        for (unsigned i = 0; i < rule_len; ++i) {
             if (i != skipped_index) { //i can never be UINT_MAX, so we'll never skip if we're not supposed to
                 app_ref new_tail_el(m);
                 apply(r.get_tail(i), is_tgt, new_tail_el);
@@ -224,7 +224,7 @@ namespace datalog {
             }
 
             unsigned ut_len = r->get_uninterpreted_tail_size();
-            for (unsigned i=0; i<ut_len; i++) {
+            for (unsigned i=0; i<ut_len; ++i) {
                 func_decl * pred = r->get_decl(i);
                 m_tail_pred_ctr.inc(pred);
 
@@ -350,7 +350,7 @@ namespace datalog {
 
 
         unsigned rule_cnt = orig.get_num_rules();
-        for (unsigned ri=0; ri<rule_cnt; ri++) {
+        for (unsigned ri=0; ri<rule_cnt; ++ri) {
             rule * r = orig.get_rule(ri);
 
             func_decl * head_pred = r->get_decl();

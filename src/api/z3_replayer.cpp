@@ -155,7 +155,7 @@ struct z3_replayer::imp {
     }
 
     void display_args(std::ostream & out) const {
-        for (unsigned i = 0; i < m_args.size(); i++) {
+        for (unsigned i = 0; i < m_args.size(); ++i) {
             if (i > 0) out << " ";
             display_arg(out, m_args[i]);
         }
@@ -348,7 +348,7 @@ struct z3_replayer::imp {
             throw z3_replayer_exception("invalid array size");
         uint64_t   aidx;
         value_kind nk;
-        for (unsigned i = asz - sz; i < asz; i++) {
+        for (unsigned i = asz - sz; i < asz; ++i) {
             if (m_args[i].m_kind != k)
                 throw z3_replayer_exception("invalid array: mixed value types");
         }
@@ -357,7 +357,7 @@ struct z3_replayer::imp {
             nk   = UINT_ARRAY;
             m_unsigned_arrays.push_back(unsigned_vector());
             unsigned_vector & v = m_unsigned_arrays.back();
-            for (unsigned i = asz - sz; i < asz; i++) {
+            for (unsigned i = asz - sz; i < asz; ++i) {
                 v.push_back(static_cast<unsigned>(m_args[i].m_uint));
             }
         }
@@ -366,7 +366,7 @@ struct z3_replayer::imp {
             nk   = INT_ARRAY;
             m_int_arrays.push_back(svector<int>());
             svector<int> & v = m_int_arrays.back();
-            for (unsigned i = asz - sz; i < asz; i++) {
+            for (unsigned i = asz - sz; i < asz; ++i) {
                 v.push_back(static_cast<int>(m_args[i].m_int));
             }
         }
@@ -375,7 +375,7 @@ struct z3_replayer::imp {
             nk   = SYMBOL_ARRAY;
             m_sym_arrays.push_back(svector<Z3_symbol>());
             svector<Z3_symbol> & v = m_sym_arrays.back();
-            for (unsigned i = asz - sz; i < asz; i++) {
+            for (unsigned i = asz - sz; i < asz; ++i) {
                 v.push_back(reinterpret_cast<Z3_symbol>(const_cast<char*>(m_args[i].m_str)));
             }
         }
@@ -383,14 +383,14 @@ struct z3_replayer::imp {
             TRACE(z3_replayer_bug,
                   tout << "args: "; display_args(tout); tout << "\n";
                   tout << "push_back, sz: " << sz << ", m_obj_arrays.size(): " << m_obj_arrays.size() << "\n";
-                  for (unsigned i = asz - sz; i < asz; i++) {
+                  for (unsigned i = asz - sz; i < asz; ++i) {
                       tout << "pushing: " << m_args[i].m_obj << "\n";
                   });
             aidx = m_obj_arrays.size();
             nk   = OBJECT_ARRAY;
             m_obj_arrays.push_back(ptr_vector<void>());
             ptr_vector<void> & v = m_obj_arrays.back();
-            for (unsigned i = asz - sz; i < asz; i++) {
+            for (unsigned i = asz - sz; i < asz; ++i) {
                 v.push_back(m_args[i].m_obj);
             }
         }
@@ -658,7 +658,7 @@ struct z3_replayer::imp {
         unsigned idx = static_cast<unsigned>(m_args[pos].m_uint);
         ptr_vector<void> const & v = m_obj_arrays[idx];
         TRACE(z3_replayer_bug, tout << "pos: " << pos << ", idx: " << idx << " size(): " << v.size() << "\n";
-              for (unsigned i = 0; i < v.size(); i++) tout << v[i] << " "; tout << "\n";);
+              for (unsigned i = 0; i < v.size(); ++i) tout << v[i] << " "; tout << "\n";);
         return v.data();
     }
 

@@ -29,7 +29,7 @@ int & counter::get(unsigned el) {
 }
 
 counter & counter::count(unsigned sz, const unsigned * els, int delta) {
-    for(unsigned i = 0; i < sz; i++) {
+    for(unsigned i = 0; i < sz; ++i) {
         update(els[i], delta);
     }
     return *this;
@@ -77,7 +77,7 @@ int counter::get_max_counter_value() const {
 
 void var_counter::count_vars(const app * pred, int coef) {
     unsigned n = pred->get_num_args();
-    for (unsigned i = 0; i < n; i++) {
+    for (unsigned i = 0; i < n; ++i) {
         m_fv(pred->get_arg(i));
         for (unsigned j = 0; j < m_fv.size(); ++j) {
             if (m_fv[j]) {

@@ -151,7 +151,7 @@ namespace polynomial {
                 entry->~psc_chain_entry();
                 m_allocator.deallocate(sizeof(psc_chain_entry), entry);
                 S.reset();
-                for (unsigned i = 0; i < old_entry->m_result_sz; i++) {
+                for (unsigned i = 0; i < old_entry->m_result_sz; ++i) {
                     S.push_back(old_entry->m_result[i]);
                 }
             }
@@ -160,7 +160,7 @@ namespace polynomial {
                 unsigned sz = S.size();
                 entry->m_result_sz = sz;
                 entry->m_result    = static_cast<polynomial**>(m_allocator.allocate(sizeof(polynomial*)*sz));
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     polynomial * h = mk_unique(S.get(i));
                     S.set(i, h);
                     entry->m_result[i] = h;
@@ -178,7 +178,7 @@ namespace polynomial {
                 entry->~factor_entry();
                 m_allocator.deallocate(sizeof(factor_entry), entry);
                 distinct_factors.reset();
-                for (unsigned i = 0; i < old_entry->m_result_sz; i++) {
+                for (unsigned i = 0; i < old_entry->m_result_sz; ++i) {
                     distinct_factors.push_back(old_entry->m_result[i]);
                 }
             }
@@ -188,7 +188,7 @@ namespace polynomial {
                 unsigned sz = fs.distinct_factors();
                 entry->m_result_sz = sz;
                 entry->m_result    = static_cast<polynomial**>(m_allocator.allocate(sizeof(polynomial*)*sz));
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     polynomial * h = mk_unique(fs[i]);
                     distinct_factors.push_back(h);
                     entry->m_result[i] = h;

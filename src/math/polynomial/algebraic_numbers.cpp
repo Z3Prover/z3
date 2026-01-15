@@ -183,7 +183,7 @@ namespace algebraic_numbers {
         }
 
         void del_poly(algebraic_cell * c) {
-            for (unsigned i = 0; i < c->m_p_sz; i++)
+            for (unsigned i = 0; i < c->m_p_sz; ++i)
                 qm().del(c->m_p[i]);
             m_allocator.deallocate(sizeof(mpz)*c->m_p_sz, c->m_p);
             c->m_p    = nullptr;
@@ -406,7 +406,7 @@ namespace algebraic_numbers {
             algebraic_cell * c = new (mem) algebraic_cell();
             c->m_p_sz = sz;
             c->m_p    = static_cast<mpz*>(m_allocator.allocate(sizeof(mpz)*sz));
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 new (c->m_p + i) mpz();
                 qm().set(c->m_p[i], p[i]);
             }
@@ -450,7 +450,7 @@ namespace algebraic_numbers {
             SASSERT(c->m_p_sz == 0);
             c->m_p_sz = sz;
             c->m_p    = static_cast<mpz*>(m_allocator.allocate(sizeof(mpz)*sz));
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 new (c->m_p + i) mpz();
                 qm().set(c->m_p[i], p[i]);
             }
@@ -618,7 +618,7 @@ namespace algebraic_numbers {
             }
 
             unsigned num_factors = fs.distinct_factors();
-            for (unsigned i = 0; i < num_factors; i++) {
+            for (unsigned i = 0; i < num_factors; ++i) {
                 upolynomial::numeral_vector const & f = fs[i];
                 // polynomial f contains the non zero roots
                 unsigned d = upm().degree(f);
@@ -641,14 +641,14 @@ namespace algebraic_numbers {
                 // collect rational/basic roots                
                 unsigned sz = m_isolate_roots.size();
                 TRACE(algebraic, tout << "isolated roots: " << sz << "\n";);
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     to_mpq(qm(), m_isolate_roots[i], r);
                     roots.push_back(numeral(mk_basic_cell(r)));
                 }
                 SASSERT(m_isolate_uppers.size() == m_isolate_lowers.size());
                 // collect non-basic roots
                 sz = m_isolate_lowers.size();
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     mpbq & lower = m_isolate_lowers[i];
                     mpbq & upper = m_isolate_uppers[i];
                     if (!upm().isolating2refinable(f.size(), f.data(), bqm(), lower, upper)) {
@@ -689,7 +689,7 @@ namespace algebraic_numbers {
             isolate_roots(up, roots);
             unsigned num_roots = roots.size();
             TRACE(algebraic, tout << "num-roots: " << num_roots << "\n";
-                  for (unsigned i = 0; i < num_roots; i++) {
+                  for (unsigned i = 0; i < num_roots; ++i) {
                       display_interval(tout, roots[i]);
                       tout << "\n";
                   });
@@ -799,7 +799,7 @@ namespace algebraic_numbers {
         }
 
         bool refine(numeral & a, unsigned k) {
-            for (unsigned i = 0; i < k; i++)
+            for (unsigned i = 0; i < k; ++i)
                 if (!refine(a))
                     return false;
             return true;
@@ -1058,7 +1058,7 @@ namespace algebraic_numbers {
             bool full_fact  = factor(p, fs);
             unsigned num_fs = fs.distinct_factors();
             scoped_ptr_vector<typename upolynomial::scoped_upolynomial_sequence> seqs;
-            for (unsigned i = 0; i < num_fs; i++) {
+            for (unsigned i = 0; i < num_fs; ++i) {
                 TRACE(anum_mk_binary, tout << "factor " << i << "\n"; upm().display(tout, fs[i]); tout << "\n";);
                 typename upolynomial::scoped_upolynomial_sequence * seq = alloc(typename upolynomial::scoped_upolynomial_sequence, upm());
                 upm().sturm_seq(fs[i].size(), fs[i].data(), *seq);
@@ -1079,7 +1079,7 @@ namespace algebraic_numbers {
                 unsigned num_rem  = 0; // number of remaining sequences
                 unsigned target_i = UINT_MAX; // index of sequence that is isolating
                 int target_lV = 0, target_uV = 0;
-                for (unsigned i = 0; i < num_fs; i++) {
+                for (unsigned i = 0; i < num_fs; ++i) {
                     if (seqs[i] == nullptr)
                         continue; // sequence was discarded because it does not contain the root.
                     TRACE(anum_mk_binary, tout << "sequence " << i << "\n"; upm().display(tout, *(seqs[i])); tout << "\n";);
@@ -1139,7 +1139,7 @@ namespace algebraic_numbers {
             bool full_fact  = factor(p, fs);
             unsigned num_fs = fs.distinct_factors();
             scoped_ptr_vector<typename upolynomial::scoped_upolynomial_sequence> seqs;
-            for (unsigned i = 0; i < num_fs; i++) {
+            for (unsigned i = 0; i < num_fs; ++i) {
                 typename upolynomial::scoped_upolynomial_sequence * seq = alloc(typename upolynomial::scoped_upolynomial_sequence, upm());
                 upm().sturm_seq(fs[i].size(), fs[i].data(), *seq);
                 seqs.push_back(seq);
@@ -1157,7 +1157,7 @@ namespace algebraic_numbers {
                 unsigned num_rem  = 0; // number of remaining sequences
                 unsigned target_i = UINT_MAX; // index of sequence that is isolating
                 int target_lV = 0, target_uV = 0;
-                for (unsigned i = 0; i < num_fs; i++) {
+                for (unsigned i = 0; i < num_fs; ++i) {
                     if (seqs[i] == nullptr)
                         continue; // sequence was discarded because it does not contain the root.
                     int lV = upm().sign_variations_at(*(seqs[i]), r_i.lower());
@@ -1334,7 +1334,7 @@ namespace algebraic_numbers {
             p.push_back(mpz());
             qm().set(p.back(), a_val.numerator());
             qm().neg(p.back());
-            for (unsigned i = 0; i < k; i++)
+            for (unsigned i = 0; i < k; ++i)
                 p.push_back(mpz());
             qm().set(p.back(), a_val.denominator());
 
@@ -1841,7 +1841,7 @@ namespace algebraic_numbers {
             }
             if (target_m > m_min_magnitude) {
                 int num_refinements = target_m - m_min_magnitude;
-                for (int i = 0; i < num_refinements; i++) {
+                for (int i = 0; i < num_refinements; ++i) {
                     if (!refine(a) || !refine(b))
                         return compare(a, b);
                     m_compare_refine++;
@@ -2131,7 +2131,7 @@ namespace algebraic_numbers {
                     }
                     // refine intervals if magnitude > m_min_magnitude
                     bool refined = false;
-                    for (unsigned i = 0; i < xs.size(); i++) {
+                    for (unsigned i = 0; i < xs.size(); ++i) {
                         polynomial::var x = xs[i];
                         SASSERT(x2v.contains(x));
                         anum const & v = x2v(x);
@@ -2220,7 +2220,7 @@ namespace algebraic_numbers {
                 // compute the resultants
                 polynomial_ref q_i(pm());
                 std::stable_sort(xs.begin(), xs.end(), var_degree_lt(*this, x2v));
-                for (unsigned i = 0; i < xs.size(); i++) {
+                for (unsigned i = 0; i < xs.size(); ++i) {
                     checkpoint();
                     polynomial::var x_i = xs[i];
                     SASSERT(x2v.contains(x_i));
@@ -2249,7 +2249,7 @@ namespace algebraic_numbers {
                 // The invervals (for the values of the variables in xs) are going to get too small.
                 // So, we save them before refining...
                 scoped_ptr_vector<save_intervals> saved_intervals;
-                for (unsigned i = 0; i < xs.size(); i++) {
+                for (unsigned i = 0; i < xs.size(); ++i) {
                     polynomial::var x_i = xs[i];
                     SASSERT(x2v.contains(x_i));
                     anum const & v_i = x2v(x_i);
@@ -2334,13 +2334,13 @@ namespace algebraic_numbers {
         // Remove from roots any solution r such that p does not evaluate to 0 at x2v extended with x->r.
         void filter_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, polynomial::var x, numeral_vector & roots) {
             TRACE(isolate_roots, tout << "before filtering roots, x: x" << x << "\n";
-                  for (unsigned i = 0; i < roots.size(); i++) {
+                  for (unsigned i = 0; i < roots.size(); ++i) {
                       display_root(tout, roots[i]); tout << "\n";
                   });
 
             unsigned sz = roots.size();
             unsigned j  = 0;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 checkpoint();
                 ext_var2num ext_x2v(m_wrapper, x2v, x, roots[i]);
                 TRACE(isolate_roots, tout << "filter_roots i: " << i << ", ext_x2v: x" << x << " -> "; display_root(tout, roots[i]); tout << "\n";);
@@ -2352,12 +2352,12 @@ namespace algebraic_numbers {
                     set(roots[j], roots[i]);
                 j++;
             }
-            for (unsigned i = j; i < sz; i++)
+            for (unsigned i = j; i < sz; ++i)
                 del(roots[i]);
             roots.shrink(j);
 
             TRACE(isolate_roots, tout << "after filtering roots:\n";
-                  for (unsigned i = 0; i < roots.size(); i++) {
+                  for (unsigned i = 0; i < roots.size(); ++i) {
                       display_root(tout, roots[i]); tout << "\n";
                   });
         }
@@ -2366,7 +2366,7 @@ namespace algebraic_numbers {
         static polynomial::var get_max_var(polynomial::var_vector const & xs) {
             SASSERT(!xs.empty());
             polynomial::var x = xs[0];
-            for (unsigned i = 1; i < xs.size(); i++) {
+            for (unsigned i = 1; i < xs.size(); ++i) {
                 if (xs[i] > x)
                     x = xs[i];
             }
@@ -2445,7 +2445,7 @@ namespace algebraic_numbers {
             polynomial_ref q(ext_pm);
             q = p_prime;
             polynomial_ref p_y(ext_pm);
-            for (unsigned i = 0; i + 1 < xs.size(); i++) {
+            for (unsigned i = 0; i + 1 < xs.size(); ++i) {
                 checkpoint();
                 polynomial::var y = xs[i];
                 SASSERT(x2v.contains(y));
@@ -2678,7 +2678,7 @@ namespace algebraic_numbers {
                 TRACE(isolate_roots_bug, tout << "p: " << p << "\n";
                       polynomial::var_vector xs;
                       p.m().vars(p, xs);
-                      for (unsigned i = 0; i < xs.size(); i++) {
+                      for (unsigned i = 0; i < xs.size(); ++i) {
                           if (x2v.contains(xs[i])) {
                               tout << "x" << xs[i] << " -> ";
                               display_root(tout, x2v(xs[i]));
@@ -2687,10 +2687,10 @@ namespace algebraic_numbers {
                               tout << "\n";
                           }
                       }
-                      for (unsigned i = 0; i < roots.size(); i++) {
+                      for (unsigned i = 0; i < roots.size(); ++i) {
                           tout << "root[i]: "; display_root(tout, roots[i]); tout << "\n";
                       });
-                for (unsigned i = 0; i < num_roots; i++)
+                for (unsigned i = 0; i < num_roots; ++i)
                     refine_until_prec(roots[i], DEFAULT_PRECISION);
 
                 scoped_anum w(m_wrapper);
@@ -2703,7 +2703,7 @@ namespace algebraic_numbers {
                     signs.push_back(s);
                 }
 
-                for (unsigned i = 1; i < num_roots; i++) {
+                for (unsigned i = 1; i < num_roots; ++i) {
                     numeral & prev = roots[i-1];
                     numeral & curr = roots[i];
                     select(prev, curr, w);

@@ -545,10 +545,10 @@ namespace smt {
     }
 
     static bool check_patterns(quantifier * q) {
-        for (unsigned i = 0; i < q->get_num_patterns(); i++) {
+        for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
             SASSERT(check_pattern(q->get_pattern(i)));
         }
-        for (unsigned i = 0; i < q->get_num_no_patterns(); i++) {
+        for (unsigned i = 0; i < q->get_num_no_patterns(); ++i) {
             SASSERT(check_pattern(q->get_no_pattern(i)));
         }
         return true;
@@ -1152,7 +1152,7 @@ namespace smt {
         std::sort(lits, lits + num_lits);
         literal prev = null_literal;
         unsigned j = 0;
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             literal curr = lits[i];
             lbool   val  = get_assignment(curr);
             switch (val) {
@@ -1210,7 +1210,7 @@ namespace smt {
         literal prev = null_literal;
         unsigned i = 0;
         unsigned j = 0;
-        for (; i < num_lits; i++) {
+        for (; i < num_lits; ++i) {
             literal curr = lits[i];
             bool_var var = curr.var();
             lbool   val  = l_undef;
@@ -1258,7 +1258,7 @@ namespace smt {
     */
     unsigned context::get_max_iscope_lvl(unsigned num_lits, literal const * lits) const {
         unsigned r = 0;
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             unsigned ilvl = get_intern_level(lits[i].var());
             if (ilvl > r)
                 r = ilvl;
@@ -1306,7 +1306,7 @@ namespace smt {
         int max_false_idx = -1;
         unsigned max_lvl  = UINT_MAX;
         int num_lits      = cls->get_num_literals();
-        for (int i = 1; i < num_lits; i++) {
+        for (int i = 1; i < num_lits; ++i) {
             literal l    = cls->get_literal(i);
             lbool val    = get_assignment(l);
             SASSERT(val == l_false || val == l_undef);
@@ -1349,7 +1349,7 @@ namespace smt {
         int max_false_idx = -1;
         int unknown_idx   = -1;
         int n = cls->get_num_literals();
-        for (int i = starting_at; i < n; i++) {
+        for (int i = starting_at; i < n; ++i) {
             literal l   = cls->get_literal(i);
             switch(get_assignment(l)) {
             case l_false:
@@ -1597,7 +1597,7 @@ namespace smt {
 
     proof * context::mk_clause_def_axiom(unsigned num_lits, literal * lits, expr * root_gate) {
         ptr_buffer<expr> new_lits;
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             literal l      = lits[i];
             bool_var v     = l.var();
             expr * atom    = m_bool_var2expr[v]; 
@@ -1619,7 +1619,7 @@ namespace smt {
         }
         else if (clause_proof_active()) {
             ptr_buffer<expr> new_lits;
-            for (unsigned i = 0; i < num_lits; i++) {
+            for (unsigned i = 0; i < num_lits; ++i) {
                 literal l      = lits[i];
                 bool_var v     = l.var();
                 expr * atom    = m_bool_var2expr[v]; 

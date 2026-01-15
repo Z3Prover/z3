@@ -74,7 +74,7 @@ namespace smt {
             unsigned num_args = m_app1->get_num_args();
             proof_ref_vector prs(m);
             expr_ref_vector lits(m);
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 expr * arg1 = m_app1->get_arg(i);
                 expr * arg2 = m_app2->get_arg(i);
                 if (arg1 != arg2) {
@@ -411,7 +411,7 @@ namespace smt {
         TRACE(dyn_ack, tout << "expanding Ackermann's rule for:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\n";);
         unsigned num_args = n1->get_num_args();
         literal_buffer lits;
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             expr * arg1 = n1->get_arg(i);
             expr * arg2 = n2->get_arg(i);
             if (arg1 != arg2)

@@ -77,7 +77,7 @@ extern "C" {
         // Create projections
         ptr_vector<func_decl> const & _accs = *dt_util.get_constructor_accessors(decl);
         SASSERT(_accs.size() == num_fields);
-        for (unsigned i = 0; i < _accs.size(); i++) {
+        for (unsigned i = 0; i < _accs.size(); ++i) {
             mk_c(c)->save_multiple_ast_trail(_accs[i]);
             proj_decls[i] = of_func_decl(_accs[i]);
         }

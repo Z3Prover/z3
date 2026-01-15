@@ -302,7 +302,7 @@ public:
     void collect_more_rows_for_lp_propagation();
     template <typename T>
     void check_missed_propagations(lp_bound_propagator<T>& bp) {
-        for (unsigned i = 0; i < A_r().row_count(); i++)
+        for (unsigned i = 0; i < A_r().row_count(); ++i)
             if (!touched_rows().contains(i))
                 if (0 < calculate_implied_bounds_for_row(i, bp)) {
                     verbose_stream() << i << ": " << get_row(i) << "\n";
@@ -522,7 +522,7 @@ public:
     bool has_int_var() const;
 
     inline bool has_inf_int() const {
-        for (unsigned j = 0; j < column_count(); j++) {
+        for (unsigned j = 0; j < column_count(); ++j) {
             if (column_is_int(j) && !column_value_is_int(j))
                 return true;
         }

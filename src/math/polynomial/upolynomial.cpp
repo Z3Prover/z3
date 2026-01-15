@@ -147,7 +147,7 @@ namespace upolynomial {
         reset(m_gcd_tmp1);
         reset(m_gcd_tmp2);
         reset(m_CRA_tmp);
-        for (unsigned i = 0; i < UPOLYNOMIAL_MGCD_TMPS; i++) reset(m_mgcd_tmp[i]);
+        for (unsigned i = 0; i < UPOLYNOMIAL_MGCD_TMPS; ++i) reset(m_mgcd_tmp[i]);
         reset(m_sqf_tmp1);
         reset(m_sqf_tmp2);
         reset(m_pw_tmp);
@@ -174,7 +174,7 @@ namespace upolynomial {
         unsigned old_sz = buffer.size();
         SASSERT(old_sz >= sz);
         // delete old entries
-        for (unsigned i = sz; i < old_sz; i++) {
+        for (unsigned i = sz; i < old_sz; ++i) {
             m().del(buffer[i]);
         }
         buffer.shrink(sz);
@@ -193,7 +193,7 @@ namespace upolynomial {
             return;
         }
         buffer.reserve(sz);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             m().set(buffer[i], p[i]);
         }
         set_size(sz, buffer);
@@ -201,7 +201,7 @@ namespace upolynomial {
 
     void core_manager::set(unsigned sz, rational const * p, numeral_vector & buffer) {
         buffer.reserve(sz);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             SASSERT(p[i].is_int());
             m().set(buffer[i], p[i].to_mpq().numerator());
         }
@@ -217,7 +217,7 @@ namespace upolynomial {
         }
         else {
             pp.reserve(f_sz);
-            for (unsigned i = 0; i < f_sz; i++) {
+            for (unsigned i = 0; i < f_sz; ++i) {
                 if (!m().is_zero(f[i])) {
                     m().div(f[i], cont, pp[i]);
                 }
@@ -231,7 +231,7 @@ namespace upolynomial {
 
     // Negate coefficients of p.
     void core_manager::neg(unsigned sz, numeral * p) {
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             m().neg(p[i]);
         }
     }
@@ -240,7 +240,7 @@ namespace upolynomial {
     void core_manager::neg_core(unsigned sz, numeral const * p, numeral_vector & buffer) {
         SASSERT(!is_alias(p, buffer));
         buffer.reserve(sz);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             m().set(buffer[i], p[i]);
             m().neg(buffer[i]);
         }
@@ -260,13 +260,13 @@ namespace upolynomial {
         unsigned max_sz = std::max(sz1, sz2);
         unsigned i = 0;
         buffer.reserve(max_sz);
-        for (; i < min_sz; i++) {
+        for (; i < min_sz; ++i) {
             m().add(p1[i], p2[i], buffer[i]);
         }
-        for (; i < sz1; i++) {
+        for (; i < sz1; ++i) {
             m().set(buffer[i], p1[i]);
         }
-        for (; i < sz2; i++) {
+        for (; i < sz2; ++i) {
             m().set(buffer[i], p2[i]);
         }
         set_size(max_sz, buffer);
@@ -285,13 +285,13 @@ namespace upolynomial {
         unsigned max_sz = std::max(sz1, sz2);
         unsigned i = 0;
         buffer.reserve(max_sz);
-        for (; i < min_sz; i++) {
+        for (; i < min_sz; ++i) {
             m().sub(p1[i], p2[i], buffer[i]);
         }
-        for (; i < sz1; i++) {
+        for (; i < sz1; ++i) {
             m().set(buffer[i], p1[i]);
         }
-        for (; i < sz2; i++) {
+        for (; i < sz2; ++i) {
             m().set(buffer[i], p2[i]);
             m().neg(buffer[i]);
         }
@@ -317,19 +317,19 @@ namespace upolynomial {
         else {
             unsigned new_sz = sz1 + sz2 - 1;
             buffer.reserve(new_sz);
-            for (unsigned i = 0; i < new_sz; i++) {
+            for (unsigned i = 0; i < new_sz; ++i) {
                 m().reset(buffer[i]);
             }
             if (sz1 < sz2) {
                 std::swap(sz1, sz2);
                 std::swap(p1, p2);
             }
-            for (unsigned i = 0; i < sz1; i++) {
+            for (unsigned i = 0; i < sz1; ++i) {
                 checkpoint();
                 numeral const & a_i = p1[i];
                 if (m().is_zero(a_i))
                     continue;
-                for (unsigned j = 0; j < sz2; j++) {
+                for (unsigned j = 0; j < sz2; ++j) {
                     numeral const & b_j = p2[j];
                     if (m().is_zero(b_j))
                         continue;
@@ -352,7 +352,7 @@ namespace upolynomial {
             return;
         }
         buffer.reserve(sz - 1);
-        for (unsigned i = 1; i < sz; i++) {
+        for (unsigned i = 1; i < sz; ++i) {
             numeral d;
             m().set(d, i);
             m().mul(p[i], d, buffer[i-1]);
@@ -375,7 +375,7 @@ namespace upolynomial {
         m().gcd(sz, p, g);
         if (m().is_one(g))
             return;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
 #ifdef Z3DEBUG
             scoped_numeral old_p_i(m());
             old_p_i = p[i];
@@ -402,7 +402,7 @@ namespace upolynomial {
         SASSERT(!m().is_zero(b));
         if (m().is_one(b))
             return;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             CTRACE(upolynomial, !m().divides(b, p[i]), tout << "b: " << m().to_string(b) << ", p[i]: " << m().to_string(p[i]) << "\n";);
             SASSERT(m().divides(b, p[i]));
             m().div(p[i], b, p[i]);
@@ -413,7 +413,7 @@ namespace upolynomial {
         SASSERT(!m().is_zero(b));
         if (m().is_one(b))
             return;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             m().mul(p[i], b, p[i]);
         }
     }
@@ -468,21 +468,21 @@ namespace upolynomial {
                 numeral & ratio = a_m;
                 m().div(r[sz1 - 1], b_n, ratio);
                 m().add(q[m_n], ratio, q[m_n]);
-                for (unsigned i = 0; i < sz2 - 1; i++) {
+                for (unsigned i = 0; i < sz2 - 1; ++i) {
                     m().submul(r[i + m_n], ratio, p2[i], r[i + m_n]);
                 }
             }
             else {
                 d++;
                 m().set(a_m, r[sz1 - 1]);
-                for (unsigned i = 0; i < sz1 - 1; i++) {
+                for (unsigned i = 0; i < sz1 - 1; ++i) {
                     m().mul(r[i], b_n, r[i]);
                 }
-                for (unsigned i = 0; i < qsz; i++) {
+                for (unsigned i = 0; i < qsz; ++i) {
                     m().mul(q[i], b_n, q[i]);
                 }
                 m().add(q[m_n], a_m, q[m_n]);
-                for (unsigned i = 0; i < sz2 - 1; i++) {
+                for (unsigned i = 0; i < sz2 - 1; ++i) {
                     m().submul(r[i + m_n], a_m, p2[i], r[i + m_n]);
                 }
             }
@@ -537,7 +537,7 @@ namespace upolynomial {
             if (field()) {
                 numeral & ratio = a_m;
                 m().div(buffer[sz1 - 1], b_n, ratio);
-                for (unsigned i = 0; i < sz2 - 1; i++) {
+                for (unsigned i = 0; i < sz2 - 1; ++i) {
                     m().submul(buffer[i + m_n], ratio, p2[i], buffer[i + m_n]);
                 }
             }
@@ -548,12 +548,12 @@ namespace upolynomial {
                 m().set(a_m, buffer[sz1 - 1]);
                 TRACE(rem_bug, tout << "a_m: " << m().to_string(a_m) << ", b_n: " << m().to_string(b_n) << "\n";);
                 // don't need to update position sz1 - 1, since it will become 0
-                for (unsigned i = 0; i < sz1 - 1; i++) {
+                for (unsigned i = 0; i < sz1 - 1; ++i) {
                     m().mul(buffer[i], b_n, buffer[i]);
                 }
                 // buffer: a_m * x^m + b_n * a_{m-1} * x^{m-1} + ... + b_n * a_0
                 // don't need to process i = sz2 - 1, because buffer[sz1 - 1] will become 0.
-                for (unsigned i = 0; i < sz2 - 1; i++) {
+                for (unsigned i = 0; i < sz2 - 1; ++i) {
                     m().submul(buffer[i + m_n], a_m, p2[i], buffer[i + m_n]);
                 }
             }
@@ -591,7 +591,7 @@ namespace upolynomial {
                 return false;
             unsigned delta = sz1 - sz2;
             m().div(_p1[sz1-1], p2[sz2-1], b);
-            for (unsigned i = 0; i < sz2 - 1; i++) {
+            for (unsigned i = 0; i < sz2 - 1; ++i) {
                 if (!m().is_zero(p2[i]))
                     m().submul(_p1[i+delta], b, p2[i], _p1[i+delta]);
             }
@@ -637,7 +637,7 @@ namespace upolynomial {
             unsigned delta = sz1 - sz2;
             numeral & a_r = _r[delta];
             m().div(_p1[sz1-1], p2[sz2-1], a_r);
-            for (unsigned i = 0; i < sz2 - 1; i++) {
+            for (unsigned i = 0; i < sz2 - 1; ++i) {
                 if (!m().is_zero(p2[i]))
                     m().submul(_p1[i+delta], a_r, p2[i], _p1[i+delta]);
             }
@@ -653,7 +653,7 @@ namespace upolynomial {
         if (sz == 0)
             return;
         if (m().is_neg(buffer[sz - 1])) {
-            for (unsigned i = 0; i < sz; i++)
+            for (unsigned i = 0; i < sz; ++i)
                 m().neg(buffer[i]);
         }
     }
@@ -705,13 +705,13 @@ namespace upolynomial {
         unsigned sz1 = C1.size();
         unsigned sz2 = C2.size();
         unsigned sz  = std::min(sz1, sz2);
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             ADD(C1[i], C2[i]);
         }
-        for (; i < sz1; i++) {
+        for (; i < sz1; ++i) {
             ADD(C1[i], zero);
         }
-        for (; i < sz2; i++) {
+        for (; i < sz2; ++i) {
             ADD(zero, C2[i]);
         }
         m().set(b2, new_bound);
@@ -745,7 +745,7 @@ namespace upolynomial {
         numeral_vector & q    = m_mgcd_tmp[4];
         numeral_vector & C    = m_mgcd_tmp[5];
 
-        for (unsigned i = 0; i < NUM_BIG_PRIMES; i++) {
+        for (unsigned i = 0; i < NUM_BIG_PRIMES; ++i) {
             m().set(p, polynomial::g_big_primes[i]);
             TRACE(mgcd, tout << "trying prime: " << p << "\n";);
             {
@@ -1005,7 +1005,7 @@ namespace upolynomial {
 
         numeral_vector & result = m_pw_tmp;
         set(sz, p, result);
-        for (unsigned i = 1; i < k; i++)
+        for (unsigned i = 1; i < k; ++i)
             mul(m_pw_tmp.size(), m_pw_tmp.data(), sz, p, m_pw_tmp);
         r.swap(result);
 #if 0
@@ -1205,7 +1205,7 @@ namespace upolynomial {
 
         unsigned non_zero_idx  = UINT_MAX;
         unsigned num_non_zeros = 0;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (cm.m().is_zero(p[i]))
                 continue;
             non_zero_idx = i;
@@ -1245,7 +1245,7 @@ namespace upolynomial {
     bool core_manager::eq(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2) {
         if (sz1 != sz2)
             return false;
-        for (unsigned i = 0; i < sz1; i++) {
+        for (unsigned i = 0; i < sz1; ++i) {
             if (!m().eq(p1[i], p2[i]))
                 return false;
         }
@@ -1255,7 +1255,7 @@ namespace upolynomial {
     void upolynomial_sequence::push(unsigned sz, numeral * p) {
         m_begins.push_back(m_seq_coeffs.size());
         m_szs.push_back(sz);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             m_seq_coeffs.push_back(numeral());
             swap(m_seq_coeffs.back(), p[i]);
         }
@@ -1264,7 +1264,7 @@ namespace upolynomial {
     void upolynomial_sequence::push(numeral_manager & m, unsigned sz, numeral const * p) {
         m_begins.push_back(m_seq_coeffs.size());
         m_szs.push_back(sz);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             m_seq_coeffs.push_back(numeral());
             m.set(m_seq_coeffs.back(), p[i]);
         }
@@ -1310,7 +1310,7 @@ namespace upolynomial {
         }
         unsigned new_sz = sz - i;
         buffer.reserve(new_sz);
-        for (unsigned j = 0; j < new_sz; j++) {
+        for (unsigned j = 0; j < new_sz; ++j) {
             m().set(buffer[j], p[j + i]);
         }
         set_size(new_sz, buffer);
@@ -1363,7 +1363,7 @@ namespace upolynomial {
         unsigned r = 0;
         auto prev_sign = sign_zero;
         unsigned i = 0;
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             auto sign = sign_of(p[i]);
             if (sign == sign_zero)
                 continue;
@@ -1390,7 +1390,7 @@ namespace upolynomial {
         // slow version
         unsigned n = Q.size() - 1;
         unsigned i;
-        for (unsigned i = 1; i <= n; i++) {
+        for (unsigned i = 1; i <= n; ++i) {
             for (unsigned k = i; k >= 1; k--) {
                 m().add(Q[k], Q[k-1], Q[k]);
             }
@@ -1404,10 +1404,10 @@ namespace upolynomial {
         //   a0 2a0+a1 3a0+2a1+a2
         //   a0 3a0+a1
         //   a0
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             checkpoint();
             unsigned k;
-            for (k = 1; k < sz - i; k++) {
+            for (k = 1; k < sz - i; ++k) {
                 m().add(Q[k], Q[k-1], Q[k]);
             }
             auto sign = sign_of(Q[k-1]);
@@ -1480,9 +1480,9 @@ namespace upolynomial {
         if (sz <= 1)
             return;
         unsigned n = sz - 1;
-        for (unsigned i = 1; i <= n; i++) {
+        for (unsigned i = 1; i <= n; ++i) {
             checkpoint();
-            for (unsigned k = n-i; k <= n-1; k++)
+            for (unsigned k = n-i; k <= n-1; ++k)
                 m().add(p[k], p[k+1], p[k]);
         }
     }
@@ -1493,9 +1493,9 @@ namespace upolynomial {
             return;
         scoped_numeral aux(m());
         unsigned n = sz - 1;
-        for (unsigned i = 1; i <= n; i++) {
+        for (unsigned i = 1; i <= n; ++i) {
             checkpoint();
-            for (unsigned k = n-i; k <= n-1; k++) {
+            for (unsigned k = n-i; k <= n-1; ++k) {
                 m().mul2k(p[k+1], k, aux);
                 m().add(p[k], aux, p[k]);
             }
@@ -1507,9 +1507,9 @@ namespace upolynomial {
         if (sz <= 1)
             return;
         unsigned n = sz - 1;
-        for (unsigned i = 1; i <= n; i++) {
+        for (unsigned i = 1; i <= n; ++i) {
             checkpoint();
-            for (unsigned k = n-i; k <= n-1; k++)
+            for (unsigned k = n-i; k <= n-1; ++k)
                 m().addmul(p[k], c, p[k+1], p[k]);
         }
     }
@@ -1564,10 +1564,10 @@ namespace upolynomial {
         // Step 2
         numeral const & c = b.numerator();
         unsigned n = sz - 1;
-        for (unsigned i = 1; i <= n; i++) {
+        for (unsigned i = 1; i <= n; ++i) {
             checkpoint();
             m().addmul(p[n - i], c, p[n - i + 1], p[n - i]);
-            for (unsigned k = n - i + 1; k <= n - 1; k++) {
+            for (unsigned k = n - i + 1; k <= n - 1; ++k) {
                 m().mul2k(p[k], b.k());
                 m().addmul(p[k], c, p[k + 1], p[k]);
             }
@@ -1586,10 +1586,10 @@ namespace upolynomial {
         // Step 2
         numeral const & c = b.numerator();
         unsigned n = sz - 1;
-        for (unsigned i = 1; i <= n; i++) {
+        for (unsigned i = 1; i <= n; ++i) {
             checkpoint();
             m().addmul(p[n - i], c, p[n - i + 1], p[n - i]);
-            for (unsigned k = n - i + 1; k <= n - 1; k++) {
+            for (unsigned k = n - i + 1; k <= n - 1; ++k) {
                 m().mul(p[k], b.denominator(), p[k]);
                 m().addmul(p[k], c, p[k + 1], p[k]);
             }
@@ -1604,7 +1604,7 @@ namespace upolynomial {
             return;
         // a_n * x^n + 2 * a_{n-1} * x^{n-1} + ... + (2^n)*a_0
         unsigned k = sz-1; // k = n
-        for (unsigned i = 0; i < sz - 1; i++) {
+        for (unsigned i = 0; i < sz - 1; ++i) {
             m().mul2k(p[i], k);
             k--;
         }
@@ -1612,7 +1612,7 @@ namespace upolynomial {
 
     // p(x) := p(-x)
     void manager::p_minus_x(unsigned sz, numeral * p) {
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (m().is_zero(p[i]))
                 continue;
             if (i % 2 == 0)
@@ -1642,7 +1642,7 @@ namespace upolynomial {
         if (sz <= 1)
             return;
         unsigned k_i = k;
-        for (unsigned i = 1; i < sz; i++) {
+        for (unsigned i = 1; i < sz; ++i) {
             m().mul2k(p[i], k_i);
             k_i += k;
         }
@@ -1659,7 +1659,7 @@ namespace upolynomial {
         if (sz <= 1)
             return;
         unsigned k_i = k*sz;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             k_i -= k;
             if (!m().is_zero(p[i]))
                 m().mul2k(p[i], k_i);
@@ -1688,7 +1688,7 @@ namespace upolynomial {
             return;
         scoped_numeral b_i(m());
         m().set(b_i, b);
-        for (unsigned i = 1; i < sz; i++) {
+        for (unsigned i = 1; i < sz; ++i) {
             if (!m().is_zero(p[i]))
                 m().mul(p[i], b_i, p[i]);
             m().mul(b_i, b, b_i);
@@ -1711,7 +1711,7 @@ namespace upolynomial {
         scoped_numeral c_i(m());
         m().set(c_i, 1);
         unsigned k_i = k*sz;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             k_i -= k;
             if (!m().is_zero(p[i])) {
                 m().mul2k(p[i], k_i);
@@ -1739,7 +1739,7 @@ namespace upolynomial {
         numeral const & c = q.denominator();
         scoped_numeral bc(m());
         m().power(c, sz-1, bc);  // bc = b^n
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (!m().is_zero(p[i]))
                 m().mul(p[i], bc, p[i]);
             if (i < sz - 1) {
@@ -1871,7 +1871,7 @@ namespace upolynomial {
         sign = 0;
         prev_sign = 0;
         unsigned i = 0;
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             // find next nonzero
             unsigned psz      = seq.size(i);
             numeral const * p = seq.coeffs(i);
@@ -1940,7 +1940,7 @@ namespace upolynomial {
         m().set(a_n, p[sz - 1]);
         m().abs(a_n);
         scoped_numeral c(m());
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (m().is_zero(p[i]))
                 continue;
             m().set(c, p[i]);
@@ -2019,7 +2019,7 @@ namespace upolynomial {
         unsigned n = sz - 1;
         bool pos_a_n = m().is_pos(p[n]);
         unsigned log2_a_n = pos_a_n ? m().log2(p[n]) : m().mlog2(p[n]);
-        for (unsigned k = 1; k <= n; k++) {
+        for (unsigned k = 1; k <= n; ++k) {
             numeral const & a_n_k = p[n - k];
             if (m().is_zero(a_n_k))
                 continue;
@@ -2116,7 +2116,7 @@ namespace upolynomial {
         SASSERT(!frame_stack.empty());
         unsigned sz = frame_stack.back().m_size;
         SASSERT(sz <= p_stack.size());
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             m().del(p_stack.back());
             p_stack.pop_back();
         }
@@ -2142,7 +2142,7 @@ namespace upolynomial {
         set(sz, p, p_aux);
         compose_2n_p_x_div_2(p_aux.size(), p_aux.data());
         normalize(p_aux);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             p_stack.push_back(numeral());
             m().set(p_stack.back(), p_aux[i]);
         }
@@ -2150,7 +2150,7 @@ namespace upolynomial {
         // right child
         translate(sz, p_stack.data() + p_stack.size() - sz, p_aux);
         normalize(p_aux);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             p_stack.push_back(numeral());
             swap(p_stack.back(), p_aux[i]);
         }
@@ -2286,14 +2286,14 @@ namespace upolynomial {
     // Foreach i in [starting_at, v.size())  v[i] := 2^k*v[i]
     static void adjust_pos(mpbq_manager & bqm, mpbq_vector & v, unsigned starting_at, unsigned k) {
         unsigned sz = v.size();
-        for (unsigned i = starting_at; i < sz; i++)
+        for (unsigned i = starting_at; i < sz; ++i)
             bqm.mul2k(v[i], k);
     }
 
     // Foreach i in [starting_at, v.size())  v[i] := -2^k*v[i]
     static void adjust_neg(mpbq_manager & bqm, mpbq_vector & v, unsigned starting_at, unsigned k) {
         unsigned sz = v.size();
-        for (unsigned i = starting_at; i < sz; i++) {
+        for (unsigned i = starting_at; i < sz; ++i) {
             bqm.mul2k(v[i], k);
             bqm.neg(v[i]);
         }
@@ -2302,7 +2302,7 @@ namespace upolynomial {
     static void swap_lowers_uppers(unsigned starting_at, mpbq_vector & lowers, mpbq_vector & uppers) {
         SASSERT(lowers.size() == uppers.size());
         unsigned sz = lowers.size();
-        for (unsigned i = starting_at; i < sz; i++) {
+        for (unsigned i = starting_at; i < sz; ++i) {
             swap(lowers[i], uppers[i]);
         }
     }
@@ -2581,7 +2581,7 @@ namespace upolynomial {
         if (sz == 0)
             return;
         unsigned degree = sz - 1;
-        for (unsigned i = 0; i < degree; i++) {
+        for (unsigned i = 0; i < degree; ++i) {
             unsigned sz = seq.size();
             derivative(seq.size(sz-1), seq.coeffs(sz-1), p_prime);
             normalize(p_prime);
@@ -3046,7 +3046,7 @@ namespace upolynomial {
         if (sz == 0)
             return;
         if (m().is_neg(p[sz - 1])) {
-            for (unsigned i = 0; i < sz; i++)
+            for (unsigned i = 0; i < sz; ++i)
                 m().neg(p[i]);
             if (k % 2 == 1)
                 flip_sign(r);
@@ -3132,7 +3132,7 @@ namespace upolynomial {
     }
 
     std::ostream& manager::display(std::ostream & out, upolynomial_sequence const & seq, char const * var_name) const {
-        for (unsigned i = 0; i < seq.size(); i++) {
+        for (unsigned i = 0; i < seq.size(); ++i) {
             display(out, seq.size(i), seq.coeffs(i), var_name);
             out << "\n";
         }

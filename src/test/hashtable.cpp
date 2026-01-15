@@ -68,7 +68,7 @@ static void tst2() {
     int_set      h1;
     safe_int_set h2;
     int N = rand() % 1000;
-    for (int i = 0; i < N; i++) {
+    for (int i = 0; i < N; ++i) {
         int v = rand()%1000;
         if (rand() % 3 == 2) {
             h1.erase(v);
@@ -221,7 +221,7 @@ void test_hashtable_operators() {
 
 void tst_hashtable() {
     tst3();
-    for (int i = 0; i < 100; i++) 
+    for (int i = 0; i < 100; ++i) 
         tst2();
     tst1();
     test_hashtable_constructors();

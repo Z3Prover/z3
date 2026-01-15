@@ -44,7 +44,7 @@ public:
     void pop_scope();
     
     void pop_scope(unsigned num_scopes) {
-        for (unsigned i = 0; i < num_scopes; i++) {
+        for (unsigned i = 0; i < num_scopes; ++i) {
             pop_scope();
         }
     }
@@ -79,7 +79,7 @@ public:
     void push_scope();
     void pop_scope();
     void pop_scope(unsigned num_scopes) {
-        for (unsigned i = 0; i < num_scopes; i++) {
+        for (unsigned i = 0; i < num_scopes; ++i) {
             pop_scope();
         }
     }

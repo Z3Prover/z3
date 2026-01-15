@@ -1132,7 +1132,7 @@ bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vect
             }
         }
         deps = mk_join(deps, lit);                
-        m_eqs.push_back(depeq(m_eq_id++, lhs, rhs, deps));
+        m_eqs.push_back(depeq(++m_eq_id, lhs, rhs, deps));
         propagate_eq(deps, l, r, true);
         TRACE(seq, tout << "propagate eq\n" << m_eqs.size() << "\nlhs: " << lhs << "\nrhs: " << rhs << "\n";);
         return true;

@@ -82,7 +82,7 @@ static void tst2b() {
 static void mk_random_num_str(unsigned buffer_sz, char * buffer) {
     unsigned sz = (rand() % (buffer_sz-2)) + 1;
     ENSURE(sz < buffer_sz);
-    for (unsigned i = 0; i < sz-1; i++) {
+    for (unsigned i = 0; i < sz-1; ++i) {
         buffer[i] = '0' + (rand() % 10);
     }
     if (rand() % 2 == 0)
@@ -328,7 +328,7 @@ unsigned g_primes[NUM_PRIMES] = { 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41
 void mk_big_num(unsynch_mpz_manager & m, unsigned ratio, unsigned max_pw, mpz & r) {
     scoped_mpz tmp(m);
     m.set(r, 1);
-    for (unsigned i = 0; i < NUM_PRIMES; i++) {
+    for (unsigned i = 0; i < NUM_PRIMES; ++i) {
         if ((rand() % ratio) == 0) {
             m.power(mpz(g_primes[i]), (rand() % max_pw) + 1, tmp);
             m.mul(r, tmp, r);
@@ -370,7 +370,7 @@ void rand_tst_gcd(unsigned num, unsigned ratio, unsigned pw) {
     scoped_mpz g1(m);
     scoped_mpz g2(m);
 
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         mk_big_num(m, ratio, pw, a);
         mk_big_num(m, ratio, pw, b);
         slow_gcd(m, a, b, g1);
@@ -398,7 +398,7 @@ void tst_gcd() {
     std::cout << "g: " << m.to_string(g) << "\n";
     m.set(a, "664877781119188360263909568610284290708591605105963082581413244598320881431041311468785283029437655134762231312337924555674674176");
     m.set(b, "21691055098083293041646678174999125628463716392747356050705870375852789453851926624107939885328471215366825649627326658281728580399051770334114658498352848410853519374962852431831492868108719406669605254329669417322836882756478295264");
-    for (unsigned i = 0; i < 50000; i++) {
+    for (unsigned i = 0; i < 50000; ++i) {
         m.del(g);
         m.gcd(a, b, g);
         // slow_gcd(m, a, b, g);
@@ -428,13 +428,13 @@ void tst_log2(unsynch_mpz_manager & m, mpz const & a) {
 
 void tst_log2() {
     unsynch_mpz_manager m;
-    for (unsigned i = 0; i <= 64; i++)
+    for (unsigned i = 0; i <= 64; ++i)
         std::cout << "log2(" << i << "): " << m.log2(mpz(i)) << "\n";
-    for (unsigned i = 0; i < 1000; i++)
+    for (unsigned i = 0; i < 1000; ++i)
         tst_log2(m, mpz(i));
     scoped_mpz a(m);
     m.set(a, "1029489380487098723984579237");
-    for (unsigned i = 0; i < 1000; i++) {
+    for (unsigned i = 0; i < 1000; ++i) {
         m.inc(a);
         tst_log2(m, a);
     }
@@ -498,7 +498,7 @@ static void tst5() {
 static void tst_pw2() {
     unsynch_mpz_manager m;
     scoped_mpz a(m);
-    for (unsigned i = 0; i < 128; i++) {
+    for (unsigned i = 0; i < 128; ++i) {
         m.power(mpz(2), i, a);
         std::cout << "i: " << i << ", a: " << a << std::endl;
     }

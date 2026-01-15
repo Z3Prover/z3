@@ -89,7 +89,7 @@ static void tst2() {
         int b[3];
         int c[3] = { 10, -2, 8 };
         std::cout << "solve: " << mm.solve(A, b, c) << "\n";
-        for (unsigned i = 0; i < 3; i++) std::cout << b[i] << " ";
+        for (unsigned i = 0; i < 3; ++i) std::cout << b[i] << " ";
         std::cout << "\n";
     }
     scoped_mpz_matrix A2(mm);
@@ -111,14 +111,14 @@ static void tst_solve(unsigned n, int _A[], int _b[], int _c[], bool solved) {
     mpz_matrix_manager mm(nm, allocator);
     scoped_mpz_matrix A(mm);
     mm.mk(n, n, A);
-    for (unsigned i = 0; i < n; i++)
-        for (unsigned j = 0; j < n; j++)
+    for (unsigned i = 0; i < n; ++i)
+        for (unsigned j = 0; j < n; ++j)
             A.set(i, j, _A[i*n + j]);
     svector<int> b;
     b.resize(n, 0);
     if (mm.solve(A, b.data(), _c)) {
         ENSURE(solved);
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             ENSURE(b[i] == _b[i]);
         }
     }
@@ -133,14 +133,14 @@ static void tst_lin_indep(unsigned m, unsigned n, int _A[], unsigned ex_sz, unsi
     mpz_matrix_manager mm(nm, allocator);
     scoped_mpz_matrix A(mm);
     mm.mk(m, n, A);
-    for (unsigned i = 0; i < m; i++)
-        for (unsigned j = 0; j < n; j++)
+    for (unsigned i = 0; i < m; ++i)
+        for (unsigned j = 0; j < n; ++j)
             A.set(i, j, _A[i*n + j]);
     unsigned_vector r;
     r.resize(A.n());
     scoped_mpz_matrix B(mm);
     mm.linear_independent_rows(A, r.data(), B);
-    for (unsigned i = 0; i < ex_sz; i++) {
+    for (unsigned i = 0; i < ex_sz; ++i) {
         ENSURE(r[i] == ex_r[i]);
     }
 }

@@ -70,7 +70,7 @@ public:
         proof_ref  new_pr(m);
         
         unsigned sz = g->size();
-        for (unsigned i = 0; !g->inconsistent() && i < sz; i++) {
+        for (unsigned i = 0; !g->inconsistent() && i < sz; ++i) {
             expr * curr = g->form(i);
             local_nnf(curr, defs, def_prs, new_curr, new_pr);
             if (produce_proofs) {
@@ -81,7 +81,7 @@ public:
         }
         
         sz = defs.size();
-        for (unsigned i = 0; !g->inconsistent() && i < sz; i++) {
+        for (unsigned i = 0; !g->inconsistent() && i < sz; ++i) {
             if (produce_proofs)
                 g->assert_expr(defs.get(i), def_prs.get(i), nullptr);
             else
@@ -93,7 +93,7 @@ public:
         if (num_extra_names > 0 && !g->inconsistent()) {
             generic_model_converter * fmc = alloc(generic_model_converter, m, "nnf");
             g->add(fmc);
-            for (unsigned i = 0; i < num_extra_names; i++)
+            for (unsigned i = 0; i < num_extra_names; ++i)
                 fmc->hide(dnames.get_name_decl(i));
         }
     }
