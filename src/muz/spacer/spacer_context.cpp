@@ -2837,7 +2837,7 @@ unsigned context::get_cex_depth()
     SASSERT (preds.size () == 1);
     pts.push_back (&(get_pred_transformer (preds[0])));
 
-    pts.push_back (NULL); // cex depth marker
+    pts.push_back (nullptr); // cex depth marker
 
     // bfs traversal of the query derivation tree
     for (unsigned curr = 0; curr < pts.size (); curr++) {
@@ -2847,7 +2847,7 @@ unsigned context::get_cex_depth()
         if (pt == nullptr) {
             ++cex_depth;
             // insert new marker if there are pts at higher depth
-            if (curr + 1 < pts.size()) { pts.push_back(NULL); }
+            if (curr + 1 < pts.size()) { pts.push_back(nullptr); }
             continue;
         }
         fact = facts.get (curr - cex_depth); // discount the number of markers
