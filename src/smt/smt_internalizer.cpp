@@ -1028,11 +1028,9 @@ namespace smt {
             }
             else {
                 if (cgc_enabled) {
-                    enode_bool_pair pair = m_cg_table.insert(e);
-                    enode * e_prime      = pair.first;
+                    auto [e_prime, used_commutativity] = m_cg_table.insert(e);
                     if (e != e_prime) {
                         e->m_cg = e_prime;
-                        bool used_commutativity = pair.second;
                         push_new_congruence(e, e_prime, used_commutativity);
                     }
                     else {

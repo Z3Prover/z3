@@ -71,9 +71,9 @@ namespace euf {
     enode_bool_pair egraph::insert_table(enode* p) {
         TRACE(euf_verbose, tout << "insert_table " << bpp(p) << "\n");
         //SASSERT(!m_table.contains_ptr(p));
-        auto rc = m_table.insert(p);
-        p->m_cg = rc.first;
-        return rc;
+        auto [cg, comm] = m_table.insert(p);
+        p->m_cg = cg;
+        return {cg, comm};
     }
 
     void egraph::erase_from_table(enode* p) {
