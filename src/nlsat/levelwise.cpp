@@ -247,21 +247,20 @@ namespace nlsat {
         // Select a coefficient c of p (wrt x) such that c(s) != 0, or return null.
         // The coefficients are polynomials in lower variables; we prefer "simpler" ones
         // to reduce projection blow-up.
-        polynomial_ref choose_nonzero_coeff(polynomial_ref const& p, unsigned x) {
+        polynomial_ref choose_nonzero_coeff(polynomial_ref const& p, unsigned x, bool & nullified) {
             unsigned deg = m_pm.degree(p, x);
             polynomial_ref coeff(m_pm);
-
+            
             // First pass: any non-zero constant coefficient is ideal (no need to project it).
             for (unsigned j = 0; j <= deg; ++j) {
                 coeff = m_pm.coeff(p, x, j);
                 if (!coeff || is_zero(coeff))
                     continue;
-                if (!is_const(coeff))
-                    continue;
-                SASSERT(m_am.eval_sign_at(coeff, sample()));
-                return coeff;
+                if (is_const(coeff))
+                    return polynomial_ref(m_pm); // return nullptr
             }
 
+            nullified = true;
             // Second pass: pick the non-constant coefficient with minimal (total_degree, size, max_var).
             polynomial_ref best(m_pm);
             unsigned best_td = 0;
@@ -274,6 +273,7 @@ namespace nlsat {
                 if (m_am.eval_sign_at(coeff, sample()) == 0)
                     continue;
 
+                nullified = false;
                 unsigned td = total_degree(coeff);
                 unsigned sz = m_pm.size(coeff);
                 var mv = m_pm.max_var(coeff);
@@ -853,14 +853,17 @@ namespace nlsat {
             SASSERT(level_ps.size() == level_tags.size());
             // Line 10/11: detect nullification + pick a non-zero coefficient witness per p.
             std::vector<polynomial_ref> witnesses;
+            bool nullified = false;
             witnesses.reserve(level_ps.size());
             for (unsigned i = 0; i < level_ps.size(); ++i) {
                 polynomial_ref p(level_ps.get(i), m_pm);
                 SASSERT(level_tags[i].first == m_pm.id(p.get()));
-                polynomial_ref w = choose_nonzero_coeff(p, level);
-                if (!w)
+                
+                polynomial_ref w = choose_nonzero_coeff(p, level, nullified);
+                if (nullified)
                     fail();
-                witnesses.push_back(w);
+                if (w)
+                    witnesses.push_back(w);
             }
 
             // Lines 3-8: Θ + I_level + relation ≼
@@ -914,14 +917,16 @@ namespace nlsat {
         void process_top_level(todo_set& P, polynomial_ref_vector const& top_ps, std::vector<tagged_id>& top_tags) {
             SASSERT(top_ps.size() == top_tags.size());
             std::vector<polynomial_ref> witnesses;
+            bool nullified = false;
             witnesses.reserve(top_ps.size());
             for (unsigned i = 0; i < top_ps.size(); ++i) {
                 polynomial_ref p(top_ps.get(i), m_pm);
                 SASSERT(top_tags[i].first == m_pm.id(p.get()));
-                polynomial_ref w = choose_nonzero_coeff(p, m_n);
-                if (!w)
+                polynomial_ref w = choose_nonzero_coeff(p, m_n, nullified);
+                if (nullified)
                     fail();
-                witnesses.push_back(w);
+                if (w)
+                    witnesses.push_back(w);
             }
 
             // Resultants between adjacent root functions (a lightweight ordering for the top level).
