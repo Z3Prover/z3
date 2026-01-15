@@ -143,21 +143,32 @@ namespace nlsat {
             for (unsigned i = 0; i < m_n; ++i)
                 m_I.emplace_back(m_pm);
 
-            switch (m_solver.lws_relation_mode()) {
+            switch (m_solver.lws_sector_relation_mode()) {
             case 0:
                 m_sector_relation_mode = biggest_cell;
-                m_section_relation_mode = section_biggest_cell;
                 break;
             case 1:
                 m_sector_relation_mode = chain;
-                m_section_relation_mode = section_chain;
                 break;
             case 2:
                 m_sector_relation_mode = lowest_degree;
-                m_section_relation_mode = section_lowest_degree;
                 break;
             default:
                 m_sector_relation_mode = chain;
+                break;
+            }
+
+            switch (m_solver.lws_section_relation_mode()) {
+            case 0:
+                m_section_relation_mode = section_biggest_cell;
+                break;
+            case 1:
+                m_section_relation_mode = section_chain;
+                break;
+            case 2:
+                m_section_relation_mode = section_lowest_degree;
+                break;
+            default:
                 m_section_relation_mode = section_chain;
                 break;
             }
@@ -358,14 +369,19 @@ namespace nlsat {
                 vec_setx(deg, id2, vec_get(deg, id2, 0u) + 1, 0u);
             }
 
-            // Omit leading coefficients for polynomials that (a) occur on both sides of the sample
-            // and (b) are connected to only one distinct neighbor via resultants.
+            // Omit leading coefficients for polynomials that occur on both sides of the sample.
+            // SMT-RAT's heuristic 1 (biggest-cell style) omits LCs for any such polynomial.
+            // For the other modes we keep the stricter condition that the polynomial is connected
+            // to only one distinct neighbor via resultants.
             for (unsigned i = 0; i < level_ps.size(); ++i) {
                 poly* p = level_ps.get(i);
                 if (!p)
                     continue;
                 unsigned id = m_pm.id(p);
-                if (vec_get(side_mask, id, static_cast<uint8_t>(0)) == 3 && vec_get(deg, id, 0u) == 1)
+                if (vec_get(side_mask, id, static_cast<uint8_t>(0)) != 3)
+                    continue;
+                bool omit_all_both_sides = (mode == biggest_cell || mode == section_biggest_cell);
+                if (omit_all_both_sides || vec_get(deg, id, 0u) == 1)
                     vec_setx(omit_lc, id, true, false);
             }
 
@@ -917,7 +933,95 @@ namespace nlsat {
                 // (resultants, discriminants) are requested with ORD and rely on delineability.
                 if (level_tags[i].second != inv_req::ord && vec_get(omit_disc, pid, false))
                     add_disc = false;
-                add_projections_for(P, p, level, witnesses[i], add_lc, add_disc);
+                // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample,
+                // we do not need to project an additional non-null coefficient witness.
+                polynomial_ref witness = witnesses[i];
+                if (witness && !is_const(witness)) {
+                    if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
+                        witness = polynomial_ref(m_pm);
+                }
+                add_projections_for(P, p, level, witness, add_lc, add_disc);
+            }
+        }
+
+        void add_level_projections_section(
+            todo_set& P,
+            unsigned level,
+            polynomial_ref_vector const& level_ps,
+            std::vector<tagged_id> const& level_tags,
+            std::vector<polynomial_ref> const& witnesses,
+            std_vector<bool> const& poly_has_roots) {
+
+            SASSERT(m_I[level].section);
+            poly* section_p = m_I[level].l.get();
+
+            // Compute omission information derived from the chosen relation (still used for heuristics 2/3).
+            std_vector<bool> omit_lc;
+            compute_omit_lc_from_relation(m_section_relation_mode, level, level_ps, omit_lc);
+            std_vector<bool> omit_disc;
+            compute_omit_disc_from_section_relation(level, level_ps, omit_disc);
+
+            for (unsigned i = 0; i < level_ps.size(); ++i) {
+                polynomial_ref p(level_ps.get(i), m_pm);
+                unsigned pid = m_pm.id(p.get());
+                bool is_section_poly = section_p && p.get() == section_p;
+                bool has_roots = i < usize(poly_has_roots) && poly_has_roots[i];
+
+                polynomial_ref lc(m_pm);
+                unsigned deg = m_pm.degree(p, level);
+                lc = m_pm.coeff(p, level, deg);
+
+                bool add_lc = !(lc && witnesses[i].get() == lc.get());
+                if (is_section_poly) {
+                    add_lc = true;
+                }
+                else if (m_section_relation_mode == section_biggest_cell) {
+                    // SMT-RAT section heuristic 1 projects leading coefficients primarily for the
+                    // defining section polynomial; keep LCs only for upstream ORD polynomials.
+                    if (level_tags[i].second != inv_req::ord)
+                        add_lc = false;
+                }
+                else {
+                    if (add_lc && vec_get(omit_lc, pid, false))
+                        add_lc = false;
+
+                    if (add_lc && !has_roots) {
+                        if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
+                            add_lc = false;
+                    }
+                }
+
+                bool add_disc = true;
+                if (is_section_poly) {
+                    add_disc = true;
+                }
+                else if (m_section_relation_mode == section_biggest_cell) {
+                    // SMT-RAT section heuristic 1 projects discriminants primarily for the defining
+                    // polynomial; keep discriminants only for upstream ORD polynomials.
+                    if (level_tags[i].second != inv_req::ord)
+                        add_disc = false;
+                }
+                else if (m_section_relation_mode == section_chain) {
+                    // In SMT-RAT's chain-style section heuristic, discriminants are projected for
+                    // polynomials that actually have roots around the sample.
+                    if (level_tags[i].second != inv_req::ord && !has_roots)
+                        add_disc = false;
+                }
+
+                // Only omit discriminants for polynomials that were not required to be order-invariant
+                // by upstream projection steps.
+                if (add_disc && level_tags[i].second != inv_req::ord && vec_get(omit_disc, pid, false))
+                    add_disc = false;
+
+                // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample,
+                // we do not need to project an additional non-null coefficient witness.
+                polynomial_ref witness = witnesses[i];
+                if (witness && !is_const(witness)) {
+                    if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
+                        witness = polynomial_ref(m_pm);
+                }
+
+                add_projections_for(P, p, level, witness, add_lc, add_disc);
             }
         }
 
@@ -936,7 +1040,7 @@ namespace nlsat {
             if (have_interval)
                 fill_relation_pairs_for_section(l_index);
             upgrade_bounds_to_ord(level, level_ps, level_tags);
-            add_level_projections(P, level, level_ps, level_tags, witnesses, poly_has_roots, m_section_relation_mode);
+            add_level_projections_section(P, level, level_ps, level_tags, witnesses, poly_has_roots);
             add_relation_resultants(P, level);
         }
 
@@ -1021,7 +1125,14 @@ namespace nlsat {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         add_lc = false;
                 }
-                add_projections_for(P, p, m_n, witnesses[i], add_lc, true);
+                // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample,
+                // we do not need to project an additional non-null coefficient witness.
+                polynomial_ref witness = witnesses[i];
+                if (witness && !is_const(witness)) {
+                    if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
+                        witness = polynomial_ref(m_pm);
+                }
+                add_projections_for(P, p, m_n, witness, add_lc, true);
             }
         }
 
