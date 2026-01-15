@@ -57,7 +57,7 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
 
     for (m_stats.m_restarts = 0;
          m_stats.m_restarts < m_max_restarts;
-         m_stats.++m_restarts)
+         ++m_stats.m_restarts)
     {
         mpz old_best;
         m_mpz_manager.set(old_best, m_best_model_score);
