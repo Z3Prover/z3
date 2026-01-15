@@ -33,9 +33,15 @@ static inline void vec_setx(std_vector<T>& v, size_t idx, T val, T default_val) 
 namespace nlsat {
 
     enum relation_mode {
+        // Sector (i.e., non-section) heuristics:
         biggest_cell,
         chain,
-        lowest_degree
+        lowest_degree,
+
+        // Section-specific heuristics:
+        section_biggest_cell,
+        section_chain,
+        section_lowest_degree
     };
 
 // Tag indicating what kind of invariance we need to preserve for a polynomial on the cell:
@@ -62,7 +68,8 @@ namespace nlsat {
         std::vector<root_function_interval> m_I; // intervals for variables 0..m_n-1
 
         unsigned               m_level = 0;      // current level being processed
-        relation_mode          m_relation_mode = chain;
+        relation_mode          m_sector_relation_mode = chain;
+        relation_mode          m_section_relation_mode = section_chain;
 
         polynomial_ref_vector  m_psc_tmp;        // scratch for PSC chains
         bool                   m_fail = false;
@@ -138,16 +145,20 @@ namespace nlsat {
 
             switch (m_solver.lws_relation_mode()) {
             case 0:
-                m_relation_mode = biggest_cell;
+                m_sector_relation_mode = biggest_cell;
+                m_section_relation_mode = section_biggest_cell;
                 break;
             case 1:
-                m_relation_mode = chain;
+                m_sector_relation_mode = chain;
+                m_section_relation_mode = section_chain;
                 break;
             case 2:
-                m_relation_mode = lowest_degree;
+                m_sector_relation_mode = lowest_degree;
+                m_section_relation_mode = section_lowest_degree;
                 break;
             default:
-                m_relation_mode = chain;
+                m_sector_relation_mode = chain;
+                m_section_relation_mode = section_chain;
                 break;
             }
         }
@@ -247,7 +258,7 @@ namespace nlsat {
         // Select a coefficient c of p (wrt x) such that c(s) != 0, or return null.
         // The coefficients are polynomials in lower variables; we prefer "simpler" ones
         // to reduce projection blow-up.
-        polynomial_ref choose_nonzero_coeff(polynomial_ref const& p, unsigned x, bool & nullified) {
+        polynomial_ref choose_nonzero_coeff(polynomial_ref const& p, unsigned x) {
             unsigned deg = m_pm.degree(p, x);
             polynomial_ref coeff(m_pm);
             
@@ -260,7 +271,6 @@ namespace nlsat {
                     return polynomial_ref(m_pm); // return nullptr
             }
 
-            nullified = true;
             // Second pass: pick the non-constant coefficient with minimal (total_degree, size, max_var).
             polynomial_ref best(m_pm);
             unsigned best_td = 0;
@@ -273,7 +283,6 @@ namespace nlsat {
                 if (m_am.eval_sign_at(coeff, sample()) == 0)
                     continue;
 
-                nullified = false;
                 unsigned td = total_degree(coeff);
                 unsigned sz = m_pm.size(coeff);
                 var mv = m_pm.max_var(coeff);
@@ -308,7 +317,7 @@ namespace nlsat {
 
         // Decide which leading coefficients can be omitted based on the chosen resultant relation.
         // Inspired by SMT-RAT's "noLdcf" optimization in OneCellCAD.h.
-        void compute_omit_lc_from_relation(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
+        void compute_omit_lc_from_relation(relation_mode mode, unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
             omit_lc.clear();
             if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
                 return;
@@ -362,7 +371,7 @@ namespace nlsat {
 
             // Additional chain-mode omission: in SMT-RAT's chain heuristic, the extreme root functions
             // may omit leading coefficients when their defining polynomials also occur on the other side.
-            if (m_relation_mode == chain) {
+            if (mode == chain || mode == section_chain) {
                 auto const& rfs = m_rel.m_rfunc;
                 unsigned mid_idx = 0;
                 while (mid_idx < rfs.size() && m_am.compare(rfs[mid_idx].val, v) <= 0)
@@ -528,7 +537,33 @@ namespace nlsat {
             }
         }
 
-        void fill_relation_for_section(unsigned l) {
+        void fill_relation_pairs_for_section_biggest_cell(unsigned l) {
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned n = rfs.size();
+            if (n == 0)
+                return;
+            SASSERT(is_set(l));
+            SASSERT(l < n);
+            for (unsigned j = 0; j < l; ++j)
+                m_rel.add_pair(j, l);
+            for (unsigned j = l + 1; j < n; ++j)
+                m_rel.add_pair(l, j);
+        }
+
+        void fill_relation_pairs_for_section_chain(unsigned l) {
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned n = rfs.size();
+            if (n == 0)
+                return;
+            SASSERT(is_set(l));
+            SASSERT(l < n);
+            for (unsigned j = 0; j < l; ++j)
+                m_rel.add_pair(j, j + 1);
+            for (unsigned j = l + 1; j < n; ++j)
+                m_rel.add_pair(j - 1, j);
+        }
+
+        void fill_relation_pairs_for_section_lowest_degree(unsigned l) {
             auto const& rfs = m_rel.m_rfunc;
             unsigned n = rfs.size();
             if (n == 0)
@@ -536,63 +571,58 @@ namespace nlsat {
             SASSERT(is_set(l));
             SASSERT(l < n);
 
-            switch (m_relation_mode) {
+            std::vector<unsigned> degs;
+            degs.reserve(n);
+            for (unsigned i = 0; i < n; ++i)
+                degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
+
+            // For roots below l: connect each to the minimum-degree root seen so far
+            unsigned min_idx_below = l;
+            unsigned min_deg_below = degs[l];
+            for (int j = static_cast<int>(l) - 1; j >= 0; --j) {
+                unsigned jj = static_cast<unsigned>(j);
+                m_rel.add_pair(jj, min_idx_below);
+                if (degs[jj] < min_deg_below) {
+                    min_deg_below = degs[jj];
+                    min_idx_below = jj;
+                }
+            }
+
+            // For roots above l: connect minimum-degree root to each subsequent root
+            unsigned min_idx_above = l;
+            unsigned min_deg_above = degs[l];
+            for (unsigned j = l + 1; j < n; ++j) {
+                m_rel.add_pair(min_idx_above, j);
+                if (degs[j] < min_deg_above) {
+                    min_deg_above = degs[j];
+                    min_idx_above = j;
+                }
+            }
+        }
+
+        void fill_relation_pairs_for_section(unsigned l) {
+            SASSERT(m_I[m_level].section);
+            switch (m_section_relation_mode) {
             case biggest_cell:
-                for (unsigned j = 0; j < l; ++j)
-                    m_rel.add_pair(j, l);
-                for (unsigned j = l + 1; j < n; ++j)
-                    m_rel.add_pair(l, j);
+            case section_biggest_cell:
+                fill_relation_pairs_for_section_biggest_cell(l);
                 break;
             case chain:
-                for (unsigned j = 0; j < l; ++j)
-                    m_rel.add_pair(j, j + 1);
-                for (unsigned j = l + 1; j < n; ++j)
-                    m_rel.add_pair(j - 1, j);
+            case section_chain:
+                fill_relation_pairs_for_section_chain(l);
                 break;
             case lowest_degree:
-            {
-                std::vector<unsigned> degs;
-                degs.reserve(n);
-                for (unsigned i = 0; i < n; ++i)
-                    degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
-
-                // For roots below l: connect each to the minimum-degree root seen so far
-                unsigned min_idx_below = l;
-                unsigned min_deg_below = degs[l];
-                for (int j = static_cast<int>(l) - 1; j >= 0; --j) {
-                    unsigned jj = static_cast<unsigned>(j);
-                    m_rel.add_pair(jj, min_idx_below);
-                    if (degs[jj] < min_deg_below) {
-                        min_deg_below = degs[jj];
-                        min_idx_below = jj;
-                    }
-                }
-
-                // For roots above l: connect minimum-degree root to each subsequent root
-                unsigned min_idx_above = l;
-                unsigned min_deg_above = degs[l];
-                for (unsigned j = l + 1; j < n; ++j) {
-                    m_rel.add_pair(min_idx_above, j);
-                    if (degs[j] < min_deg_above) {
-                        min_deg_above = degs[j];
-                        min_idx_above = j;
-                    }
-                }
+            case section_lowest_degree:
+                fill_relation_pairs_for_section_lowest_degree(l);
                 break;
-            }
             default:
                 NOT_IMPLEMENTED_YET();
             }
         }
 
-        // Build relation ≼ for the current level from the chosen interval boundaries.
-        void fill_relation_pairs(unsigned l, unsigned u) {
-            auto const& I = m_I[m_level];
-            if (I.section) {
-                fill_relation_for_section(l);
-                return;
-            }
-            switch (m_relation_mode) {
+        void fill_relation_pairs_for_sector(unsigned l, unsigned u) {
+            SASSERT(!m_I[m_level].section);
+            switch (m_sector_relation_mode) {
             case biggest_cell:
                 fill_relation_with_biggest_cell_heuristic(l, u);
                 break;
@@ -849,41 +879,21 @@ namespace nlsat {
             }
         }
 
-        void process_level(todo_set& P, unsigned level, polynomial_ref_vector const& level_ps, std::vector<tagged_id>& level_tags) {
-            SASSERT(level_ps.size() == level_tags.size());
-            // Line 10/11: detect nullification + pick a non-zero coefficient witness per p.
-            std::vector<polynomial_ref> witnesses;
-            bool nullified = false;
-            witnesses.reserve(level_ps.size());
-            for (unsigned i = 0; i < level_ps.size(); ++i) {
-                polynomial_ref p(level_ps.get(i), m_pm);
-                SASSERT(level_tags[i].first == m_pm.id(p.get()));
-                
-                polynomial_ref w = choose_nonzero_coeff(p, level, nullified);
-                if (nullified)
-                    fail();
-                if (w)
-                    witnesses.push_back(w);
-            }
-
-            // Lines 3-8: Θ + I_level + relation ≼
-            std_vector<bool> poly_has_roots;
-            unsigned l_index = UINT_MAX, u_index = UINT_MAX;
-            if (build_interval(level, level_ps, poly_has_roots, l_index, u_index))
-                fill_relation_pairs(l_index, u_index);
-            // SMT-RAT (levelwise/OneCellCAD.h) upgrades the polynomials defining the current
-            // bounds/sections to ORD_INV. Z3's levelwise does not currently implement SMT-RAT's
-            // dedicated section/sector heuristics (sectionHeuristic/sectorHeuristic) for choosing
-            // additional resultants/leading-coefficients; it instead uses relation_mode and the
-            // closest-root reduction when building Θ.
-            upgrade_bounds_to_ord(level, level_ps, level_tags);
+        void add_level_projections(
+            todo_set& P,
+            unsigned level,
+            polynomial_ref_vector const& level_ps,
+            std::vector<tagged_id> const& level_tags,
+            std::vector<polynomial_ref> const& witnesses,
+            std_vector<bool> const& poly_has_roots,
+            relation_mode mode) {
 
             // Lines 11-12 (Algorithm 1): add projections for each p
             // Note: Algorithm 1 adds disc + ldcf for ALL polynomials (classical delineability)
             // We additionally omit leading coefficients for rootless polynomials when possible
             // (cf. projective delineability, Lemma 3.2).
             std_vector<bool> omit_lc;
-            compute_omit_lc_from_relation(level, level_ps, omit_lc);
+            compute_omit_lc_from_relation(mode, level, level_ps, omit_lc);
             std_vector<bool> omit_disc;
             compute_omit_disc_from_section_relation(level, level_ps, omit_disc);
             for (unsigned i = 0; i < level_ps.size(); ++i) {
@@ -909,9 +919,72 @@ namespace nlsat {
                     add_disc = false;
                 add_projections_for(P, p, level, witnesses[i], add_lc, add_disc);
             }
+        }
 
-            // Line 14 (Algorithm 1): add resultants for chosen relation pairs
+        void process_level_section(
+            todo_set& P,
+            unsigned level,
+            polynomial_ref_vector const& level_ps,
+            std::vector<tagged_id>& level_tags,
+            std::vector<polynomial_ref> const& witnesses,
+            std_vector<bool> const& poly_has_roots,
+            bool have_interval,
+            unsigned l_index) {
+
+            SASSERT(m_I[level].section);
+            SASSERT(m_level == level);
+            if (have_interval)
+                fill_relation_pairs_for_section(l_index);
+            upgrade_bounds_to_ord(level, level_ps, level_tags);
+            add_level_projections(P, level, level_ps, level_tags, witnesses, poly_has_roots, m_section_relation_mode);
             add_relation_resultants(P, level);
+        }
+
+        void process_level_sector(
+            todo_set& P,
+            unsigned level,
+            polynomial_ref_vector const& level_ps,
+            std::vector<tagged_id>& level_tags,
+            std::vector<polynomial_ref> const& witnesses,
+            std_vector<bool> const& poly_has_roots,
+            bool have_interval,
+            unsigned l_index,
+            unsigned u_index) {
+
+            SASSERT(!m_I[level].section);
+            SASSERT(m_level == level);
+            if (have_interval)
+                fill_relation_pairs_for_sector(l_index, u_index);
+            upgrade_bounds_to_ord(level, level_ps, level_tags);
+            add_level_projections(P, level, level_ps, level_tags, witnesses, poly_has_roots, m_sector_relation_mode);
+            add_relation_resultants(P, level);
+        }
+
+        void process_level(todo_set& P, unsigned level, polynomial_ref_vector const& level_ps, std::vector<tagged_id>& level_tags) {
+            SASSERT(level_ps.size() == level_tags.size());
+            // Line 10/11: detect nullification + pick a non-zero coefficient witness per p.
+            std::vector<polynomial_ref> witnesses;
+            witnesses.reserve(level_ps.size());
+            for (unsigned i = 0; i < level_ps.size(); ++i) {
+                polynomial_ref p(level_ps.get(i), m_pm);
+                SASSERT(level_tags[i].first == m_pm.id(p.get()));
+                
+                polynomial_ref w = choose_nonzero_coeff(p, level);
+                if (!w)
+                    fail();
+                witnesses.push_back(w);
+            }
+
+            // Lines 3-8: Θ + I_level + relation ≼
+            std_vector<bool> poly_has_roots;
+            unsigned l_index = UINT_MAX, u_index = UINT_MAX;
+            bool have_interval = build_interval(level, level_ps, poly_has_roots, l_index, u_index);
+            if (m_I[level].section) {
+                process_level_section(P, level, level_ps, level_tags, witnesses, poly_has_roots, have_interval, l_index);
+            }
+            else {
+                process_level_sector(P, level, level_ps, level_tags, witnesses, poly_has_roots, have_interval, l_index, u_index);
+            }
         }
 
         void process_top_level(todo_set& P, polynomial_ref_vector const& top_ps, std::vector<tagged_id>& top_tags) {
@@ -922,11 +995,10 @@ namespace nlsat {
             for (unsigned i = 0; i < top_ps.size(); ++i) {
                 polynomial_ref p(top_ps.get(i), m_pm);
                 SASSERT(top_tags[i].first == m_pm.id(p.get()));
-                polynomial_ref w = choose_nonzero_coeff(p, m_n, nullified);
-                if (nullified)
+                polynomial_ref w = choose_nonzero_coeff(p, m_n);
+                if (!w)
                     fail();
-                if (w)
-                    witnesses.push_back(w);
+                witnesses.push_back(w);
             }
 
             // Resultants between adjacent root functions (a lightweight ordering for the top level).
