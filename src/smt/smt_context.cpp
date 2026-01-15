@@ -653,8 +653,7 @@ namespace smt {
                 }
             }
             if (parent->is_cgc_enabled()) {
-                enode_bool_pair pair = m_cg_table.insert(parent);
-                enode * parent_prime = pair.first;
+                auto [parent_prime, used_commutativity] = m_cg_table.insert(parent);
                 if (parent_prime == parent) {
                     SASSERT(parent);
                     SASSERT(parent->is_cgr());
@@ -665,7 +664,6 @@ namespace smt {
                 parent->m_cg = parent_prime;
                 SASSERT(!m_cg_table.contains_ptr(parent));
                 if (parent_prime->m_root != parent->m_root) {
-                    bool used_commutativity = pair.second;
                     TRACE(cg, tout << "found new congruence: #" << parent->get_owner_id() << " = #" << parent_prime->get_owner_id()
                           << " used_commutativity: " << used_commutativity << "\n";);
                     push_new_congruence(parent, parent_prime, used_commutativity);
@@ -972,8 +970,8 @@ namespace smt {
                     (parent == cg ||           // parent was root of the congruence class before and after the merge
                      !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
                      )) {
-                    enode_bool_pair p = m_cg_table.insert(parent);
-                    parent->m_cg = p.first;
+                    auto [parent_cg, used_commutativity] = m_cg_table.insert(parent);
+                    parent->m_cg = parent_cg;
                 }
             }
         }
