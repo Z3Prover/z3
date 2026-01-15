@@ -153,32 +153,13 @@ namespace nla {
             };
         };
 
-        struct bound_info1 {
-            unsigned             m_var;
-            lp::lconstraint_kind m_kind;
-            rational             m_value;
-            unsigned m_level = 0;
-            unsigned             m_last_bound = UINT_MAX;
-            bool                 m_is_decision = true;
-            u_dependency*        m_bound_justifications = nullptr; // index into bounds or constraint index
-            lp::constraint_index m_constraint_justification = lp::null_ci;
-            bound_info1(lpvar v, lp::lconstraint_kind k, rational const &value, unsigned level, unsigned last_bound, u_dependency *deps,
-                       lp::constraint_index ci)
-                : m_var(v), m_kind(k), m_value(value), m_level(level), m_last_bound(last_bound), m_is_decision(false),
-                  m_bound_justifications(deps), 
-                  m_constraint_justification(ci) {}
-            bound_info1(lpvar v, lp::lconstraint_kind k, rational const &value, unsigned level, unsigned last_bound, u_dependency* deps)
-                : m_var(v), m_kind(k), m_value(value), m_level(level), m_last_bound(last_bound), m_is_decision(true),
-            m_bound_justifications(deps) {}
-        };
-
-
         struct bound_info {
             lp::lconstraint_kind m_kind;
             rational m_value;
             unsigned m_last_bound = UINT_MAX;
-            lp::constraint_index m_ci = lp::null_ci;
-            dd::pdd m_p;  // polynomial from which the bound was derived
+            u_dependency *d = nullptr;
+            dd::pdd q;  // polynomial from which the bound was derived
+            dd::pdd mq; // -q
         };
 
         struct assignment {
@@ -198,7 +179,7 @@ namespace nla {
         monomial_factory m_monomial_factory;
         vector<rational> m_values;
         svector<lp::constraint_index> m_core;
-        vector<svector<lp::constraint_index>> m_occurs;  // map from variable to constraints they occur.
+        vector<svector<lp::constraint_index>> m_occurs, m_max_occurs;  // map from variable to constraints they occur.
         bool_vector m_has_occurs;                        // is the constraint indexed already
         map<constraint_key, lp::constraint_index, constraint_key::hash, constraint_key::eq> m_constraint_index;
 
@@ -216,10 +197,8 @@ namespace nla {
         // Extensions:
         // - we can assign priorities to variables to choose one variable to fix over another when repairing a
         //   constraint that is false.
-        // - we can incorporate backtracking instead of backjumping by replaying propagations 
-        //   
-        unsigned_vector m_lower, m_upper;                         // var -> index into m_bounds
-        vector<bound_info1> m_bounds1;                    // bound index -> bound meta-data
+        // - we can incorporate backtracking instead of backjumping by replaying propagations
+        unsigned_vector m_idx2bound;                    // var -> index into m_bounds
         unsigned_vector m_split_count;                  // var -> number of times variable has been split
 
         unsigned           m_prop_qhead = 0;            // head into propagation queue
@@ -234,12 +213,13 @@ namespace nla {
         bool decide(); 
         lbool search();
         lbool resolve_conflict();
+        void backtrack(lp::constraint_index ci, svector<lp::constraint_index> const &deps);
         void init_search();
         void init_levels();
         void pop_bound();
         void mark_dependencies(u_dependency *d);
         void mark_dependencies(lp::constraint_index ci);
-        bool should_propagate() const { return m_prop_qhead < m_bounds1.size(); }
+        bool should_propagate() const { return m_prop_qhead < m_constraints.size(); }
 
         // assuming variables have bounds determine if polynomial has lower/upper bounds
         void interval(dd::pdd p, scoped_dep_interval &iv);
@@ -253,67 +233,50 @@ namespace nla {
             m_conflict = resolve_variable(v, lo_constraint(v), hi_constraint(v));
         }
         void reset_conflict() { m_conflict = lp::null_ci; m_conflict_dep.reset(); }
-        bool is_conflict() const { return m_conflict != lp::null_ci; }
+        bool is_conflict() const { return !m_conflict_dep.empty(); }
         bool is_decision(lp::constraint_index ci) const {
             return std::holds_alternative<assumption_justification>(m_justifications[ci]);
         }
 
-        u_dependency *constraint2dep(lp::constraint_index ci) { return m_dm.mk_leaf(ci); }
-
         indexed_uint_set m_tabu;
         unsigned_vector m_var2level, m_level2var;
 
-        unsigned get_bound_index(dd::pdd const& p, lp::lconstraint_kind k) const;
         void push_bound(lp::constraint_index ci);
-        unsigned get_lower(lpvar v) const { return m_lower[pddm.mk_var(v).index()]; }
-        unsigned get_upper(lpvar v) const { return m_upper[pddm.mk_var(v).index()]; }
 
-        bool has_lo(lpvar v) const { 
-            return get_lower(v) != UINT_MAX; 
+        unsigned get_lower(lpvar v) const { return get_lower(pddm.mk_var(v)); }
+        unsigned get_upper(lpvar v) const { return get_upper(pddm.mk_var(v)); }
+        unsigned get_lower(dd::pdd const &p) const { return m_idx2bound[p.index()]; }
+        unsigned get_upper(dd::pdd const &p) const { return m_idx2bound[(-p).index()]; }
+
+        bool has_lo(dd::pdd const &p) const { return get_lower(p) != UINT_MAX; }
+        bool has_hi(dd::pdd const &p) const { return get_upper(p) != UINT_MAX; }
+        bool has_lo(lpvar v) const { return has_lo(pddm.mk_var(v)); }
+        bool has_hi(lpvar v) const { return has_hi(pddm.mk_var(v)); }
+        bound_info const& get_lo_bound(dd::pdd const &p) const {
+            SASSERT(has_lo(p));
+            return m_bounds[get_lower(p)];
         }
-        bool has_hi(lpvar v) const {
-            return get_upper(v) != UINT_MAX;
+        bound_info const& get_hi_bound(dd::pdd const &p) const {
+            SASSERT(has_hi(p));
+            return m_bounds[get_upper(p)];
         }
-        rational const& lo_val(lpvar v) const {
-            SASSERT(has_lo(v));
-            return m_bounds[get_lower(v)].m_value;
-        }
-        rational const& hi_val(lpvar v) const {
-            SASSERT(has_hi(v));
-            return m_bounds[get_upper(v)].m_value; 
-        }
-        lp::lconstraint_kind lo_kind(lpvar v) const { 
-            SASSERT(has_lo(v));
-            return m_bounds[get_lower(v)].m_kind;
-        }
-        lp::lconstraint_kind hi_kind(lpvar v) const {
-            SASSERT(has_hi(v));
-            return m_bounds[get_upper(v)].m_kind;
-        }
-        bool lo_is_strict(lpvar v) const {
-            SASSERT(has_lo(v));
-            return lo_kind(v) == lp::lconstraint_kind::GT;
-        }
-        bool hi_is_strict(lpvar v) const {
-            SASSERT(has_hi(v));
-            return hi_kind(v) == lp::lconstraint_kind::LT;
-        }
-        u_dependency *lo_dep(lpvar v) const { 
-            SASSERT(has_lo(v)); 
-            UNREACHABLE();
-            return nullptr;
-        }
-        u_dependency *hi_dep(lpvar v) const {
-            SASSERT(has_hi(v));
-            UNREACHABLE();
-            return nullptr;
-        }
-        lp::constraint_index lo_constraint(lpvar v) const { return m_bounds[get_lower(v)].m_ci; }
-        lp::constraint_index hi_constraint(lpvar v) const { return m_bounds[get_upper(v)].m_ci; }
+        rational lo_val(dd::pdd const &p) const { return get_lo_bound(p).m_value; }
+        rational hi_val(dd::pdd const &p) const { return -get_hi_bound(p).m_value; }
+        rational lo_val(lpvar v) const { return lo_val(pddm.mk_var(v)); }
+        rational hi_val(lpvar v) const { return hi_val(pddm.mk_var(v)); }
+        bool lo_is_strict(dd::pdd const &p) const { return get_lo_bound(p).m_kind == lp::lconstraint_kind::GT; }
+        bool hi_is_strict(dd::pdd const &p) const { return get_hi_bound(p).m_kind == lp::lconstraint_kind::GT; }
+        bool lo_is_strict(lpvar v) const { return lo_is_strict(pddm.mk_var(v)); }
+        bool hi_is_strict(lpvar v) const { return hi_is_strict(pddm.mk_var(v)); }
+        lp::constraint_index lo_constraint(dd::pdd const &p) const { return get_lower(p); }        
+        lp::constraint_index hi_constraint(dd::pdd const &p) const { return get_upper(p); }        
+        u_dependency *lo_dep(lpvar v) const { return get_lo_bound(pddm.mk_var(v)).d; }        
+        u_dependency *hi_dep(lpvar v) const { return get_hi_bound(pddm.mk_var(v)).d; }
+
+        lp::constraint_index lo_constraint(lpvar v) const { return get_lower(v); }
+        lp::constraint_index hi_constraint(lpvar v) const { return get_upper(v); }
         bool is_fixed(lpvar v) const { return has_lo(v) && has_hi(v) && lo_val(v) == hi_val(v); }
-        void move_up(lpvar v);
-                
-        
+        void move_up(lpvar v);                       
        
         struct repair_var_info {
             lp::constraint_index inf = lp::null_ci, sup = lp::null_ci, vanishing = lp::null_ci;
@@ -358,7 +321,7 @@ namespace nla {
         lp::constraint_index resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci);
         lp::constraint_index resolve(lp::constraint_index c1, lp::constraint_index c2);
 
-        bool propagation_cycle(lpvar v, rational const& value, bool is_upper, unsigned level, lp::constraint_index ci) const;
+        bool propagation_cycle(lpvar v, rational const& value, lp::lconstraint_kind k, lp::constraint_index ci, svector<lp::constraint_index>& cs) const;
         bool constraint_is_true(lp::constraint_index ci) const;
         bool constraint_is_true(constraint const &c) const;
         bool constraint_is_false(lp::constraint_index ci) const;
@@ -367,11 +330,14 @@ namespace nla {
         bool constraint_is_conflict(constraint const &c) const;
         bool constraint_is_trivial(lp::constraint_index ci) const;
         bool constraint_is_trivial(constraint const& c) const;
-        bool constraint_is_bound_conflict(constraint const &c, u_dependency*& d);
-        bool constraint_is_bound_conflict(lp::constraint_index ci, u_dependency*& d) { return constraint_is_bound_conflict(m_constraints[ci], d); }
-        bool var_is_bound_conflict(lpvar v) const;
+        bool constraint_is_bound_conflict(lp::constraint_index ci);
+        bool var_is_bound_conflict(lpvar v);
+        bool is_bound_conflict(dd::pdd const &p);
 
-        bool constraint_is_propagating(lp::constraint_index ci, u_dependency *&d, lpvar &v, rational &value, lp::lconstraint_kind& k);
+        bool constraint_is_propagating(lp::constraint_index ci, svector<lp::constraint_index> &cs, lpvar &v,
+                                       lp::lconstraint_kind &k, rational &value);
+            
+        lbool sign(dd::pdd const &p);
 
         lp::constraint_index gcd_normalize(lp::constraint_index ci);
         lp::constraint_index assume(dd::pdd const& p, lp::lconstraint_kind k);
@@ -427,7 +393,7 @@ namespace nla {
         bool well_formed() const;
         bool well_formed_var(lpvar v) const;
         bool well_formed_bound(unsigned bound_index) const;
-        bool well_formed_last_bound() const { return well_formed_bound(m_bounds1.size() - 1); }
+        bool well_formed_last_bound() const { return well_formed_bound(m_bounds.size() - 1); }
 
         struct pp_j {
             stellensatz2 const &s;
@@ -444,8 +410,6 @@ namespace nla {
         std::ostream& display_product(std::ostream& out, svector<lpvar> const& vars) const;
         std::ostream& display_constraint(std::ostream& out, lp::constraint_index ci) const;
         std::ostream& display_constraint(std::ostream& out, constraint const& c) const;
-        std::ostream &display_bound(std::ostream &out, unsigned bound_index, unsigned& level) const;
-        std::ostream &display_bound(std::ostream &out, unsigned bound_index) const;
         std::ostream &display(std::ostream &out, justification const &j) const;
         std::ostream &display_var(std::ostream &out, lpvar j) const;
         std::ostream &display_var_range(std::ostream &out, lpvar j) const;
