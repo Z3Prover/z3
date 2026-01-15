@@ -322,7 +322,7 @@ void eliminate_predicates::insert_macro(app* head, expr* def, expr_dependency* d
     ptr_buffer<expr> vars, subst_args;
     subst_args.resize(num, nullptr);
     vars.resize(num, nullptr);
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         var* v = to_var(head->get_arg(i));
         var* w = m.mk_var(i, v->get_sort());
         unsigned idx = v->get_idx();

@@ -62,7 +62,7 @@ struct pull_quant::imp {
             bool found_quantifier = false;
             bool forall_children = false;
             
-            for (unsigned i = 0; i < num_children; i++) {
+            for (unsigned i = 0; i < num_children; ++i) {
                 expr * child = children[i];
                 if (is_quantifier(child) && !is_lambda(child)) {
                     
@@ -99,7 +99,7 @@ struct pull_quant::imp {
                 unsigned          num_decls = var_sorts.size();
                 unsigned          shift_amount = 0;
                 TRACE(pull_quant, tout << "Result num decls:" << num_decls << "\n";);
-                for (unsigned i = 0; i < num_children; i++) {
+                for (unsigned i = 0; i < num_children; ++i) {
                     expr * child = children[i];
                     if (!is_quantifier(child)) {
                         // increment the free variables in child by num_decls because

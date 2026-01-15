@@ -32,7 +32,7 @@ namespace sat {
         literal_vector lits, r;
         SASSERT(num_lits == m_dag.size() && num_lits == m_roots.size());
         size_t_map<bool> seen_idx;
-        for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
+        for (unsigned l_idx = 0; l_idx < num_lits; ++l_idx) {
             literal u = to_literal(l_idx);
             if (s.was_eliminated(u.var())) 
                 continue;
@@ -122,7 +122,7 @@ namespace sat {
         }
         svector<pframe> todo;
         // retrieve literals that have no predecessors
-        for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
+        for (unsigned l_idx = 0; l_idx < num_lits; ++l_idx) {
             literal u(to_literal(l_idx));
             if (m_roots[u.index()]) {
                 todo.push_back(pframe(null_literal, u));

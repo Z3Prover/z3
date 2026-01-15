@@ -99,7 +99,7 @@ namespace nlsat {
     // Check if the intervals are valid, ordered, and are disjoint.
     bool check_interval_set(anum_manager & am, unsigned sz, interval const * ints) {
 #ifdef Z3DEBUG
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             interval const & curr = ints[i];
             SASSERT(check_interval(am, curr));
             SASSERT(i >= sz - 1 || check_no_overlap(am, curr, ints[i+1]));                
@@ -118,7 +118,7 @@ namespace nlsat {
             return;
         unsigned num    = s->m_num_intervals;
         unsigned obj_sz = interval_set::get_obj_size(num);
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             m_am.del(s->m_intervals[i].m_lower);
             m_am.del(s->m_intervals[i].m_upper);
         }
@@ -473,7 +473,7 @@ namespace nlsat {
         // Remark: we only combine adjacent intervals when they have the same justification
         unsigned j  = 0;
         unsigned sz = result.size(); 
-        for (unsigned i = 1; i < sz; i++) {
+        for (unsigned i = 1; i < sz; ++i) {
             interval & curr = result[j];
             interval & next = result[i];
             if (curr.m_justification == next.m_justification && 
@@ -498,7 +498,7 @@ namespace nlsat {
             }
         }
         j++;
-        for (unsigned i = j; i < sz; i++) {
+        for (unsigned i = j; i < sz; ++i) {
             interval & curr = result[i];
             m_am.del(curr.m_lower);
             m_am.del(curr.m_upper);
@@ -509,7 +509,7 @@ namespace nlsat {
         SASSERT(sz >= 1);
         bool found_slack  = !result[0].m_lower_inf || !result[sz-1].m_upper_inf;
         // Check if full
-        for (unsigned i = 0; i < sz - 1 && !found_slack; i++) {
+        for (unsigned i = 0; i < sz - 1 && !found_slack; ++i) {
             if (!adjacent(m_am, result[i], result[i+1]))
                 found_slack = true;
         }
@@ -635,7 +635,7 @@ namespace nlsat {
             return s1 == s2;
         if (s1->m_num_intervals != s2->m_num_intervals)
             return false;
-        for (unsigned i = 0; i < s1->m_num_intervals; i++) {
+        for (unsigned i = 0; i < s1->m_num_intervals; ++i) {
             interval const & int1 = s1->m_intervals[i];
             interval const & int2 = s2->m_intervals[i]; 
             if (int1.m_lower_inf  != int2.m_lower_inf ||
@@ -654,7 +654,7 @@ namespace nlsat {
         js.reset();
         clauses.reset();
         unsigned num = num_intervals(s);
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             literal l     = s->m_intervals[i].m_justification;
             unsigned lidx = l.index();
             if (m_already_visited.get(lidx, false))
@@ -664,7 +664,7 @@ namespace nlsat {
             if (s->m_intervals[i].m_clause) 
                 clauses.push_back(const_cast<clause*>(s->m_intervals[i].m_clause));
         }
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             literal l     = s->m_intervals[i].m_justification;
             unsigned lidx = l.index();
             m_already_visited[lidx] = false;
@@ -746,7 +746,7 @@ namespace nlsat {
         
         
         // Try to find a gap that is not an unit.
-        for (unsigned i = 1; i < num; i++) {
+        for (unsigned i = 1; i < num; ++i) {
             if (m_am.lt(s->m_intervals[i-1].m_upper, s->m_intervals[i].m_lower)) {
                 n++;
                 if (n == 1 || m_rand()%n == 0)
@@ -761,7 +761,7 @@ namespace nlsat {
         
         // Try to find a rational
         unsigned irrational_i = UINT_MAX;
-        for (unsigned i = 1; i < num; i++) {
+        for (unsigned i = 1; i < num; ++i) {
             if (s->m_intervals[i-1].m_upper_open && s->m_intervals[i].m_lower_open) {
                 SASSERT(m_am.eq(s->m_intervals[i-1].m_upper, s->m_intervals[i].m_lower)); // otherwise we would have found it in the previous step
                 if (m_am.is_rational(s->m_intervals[i-1].m_upper)) {                    
@@ -784,7 +784,7 @@ namespace nlsat {
             return out;
         }
         out << "{";
-        for (unsigned i = 0; i < s->m_num_intervals; i++) {
+        for (unsigned i = 0; i < s->m_num_intervals; ++i) {
             if (i > 0)
                 out << ", ";
             nlsat::display(out, m_am, s->m_intervals[i]);

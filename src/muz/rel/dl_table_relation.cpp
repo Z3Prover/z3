@@ -471,7 +471,7 @@ namespace datalog {
             
             out << "\t(";
 
-            for(unsigned i=0;i<arity;i++) {
+            for(unsigned i=0;i<arity;++i) {
                 if(i!=0) {
                     out << ',';
                 }

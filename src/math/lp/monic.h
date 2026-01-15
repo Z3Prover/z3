@@ -40,7 +40,7 @@ public:
     const svector<lp::lpvar>& vars() const { return m_vs; }
     bool empty() const { return m_vs.empty(); }
     bool is_sorted() const {
-        for (unsigned i = 0; i + 1 < size(); i++)
+        for (unsigned i = 0; i + 1 < size(); ++i)
             if (m_vs[i] > m_vs[i + 1])
                 return false;
         return true;

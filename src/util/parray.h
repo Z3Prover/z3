@@ -92,7 +92,7 @@ private:
 
     void dec_ref(unsigned sz, value * vs) {
         if (C::ref_count)
-            for (unsigned i = 0; i < sz; i++)
+            for (unsigned i = 0; i < sz; ++i)
                 m_vmanager.dec_ref(vs[i]);
     }
 
@@ -151,7 +151,7 @@ private:
         size_t new_capacity  = curr_capacity == 0 ? 2 : (3 * curr_capacity + 1) >> 1;
         value * new_vs       = allocate_values(new_capacity);
         if (curr_capacity > 0) {
-            for (size_t i = 0; i < curr_capacity; i++)
+            for (size_t i = 0; i < curr_capacity; ++i)
                 new_vs[i] = vs[i];
             deallocate_values(vs);
         }
@@ -197,7 +197,7 @@ private:
     void copy_values(value * s, unsigned sz, value * & t) {
         SASSERT(t == 0);
         t = allocate_values(capacity(s));
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             t[i] = s[i];
             inc_ref(t[i]);
         }

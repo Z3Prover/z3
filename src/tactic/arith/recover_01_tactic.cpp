@@ -169,13 +169,13 @@ class recover_01_tactic : public tactic {
                 return false;
             idx = 0;
             unsigned val = 1;
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 expr * lit = zero_cls->get_arg(i);
                 if (m.is_eq(lit))
                     continue;
                 // search for lit or ~lit in cls
                 unsigned j;
-                for (j = 0; j < num; j++) {
+                for (j = 0; j < num; ++j) {
                     expr * lit2 = cls->get_arg(j);
                     if (m.is_eq(lit2))
                         continue;
@@ -193,7 +193,7 @@ class recover_01_tactic : public tactic {
             
             // find k
             unsigned i;
-            for (i = 0; i < num; i++) {
+            for (i = 0; i < num; ++i) {
                 expr * lhs, * rhs;
                 if (m.is_eq(cls->get_arg(i), lhs, rhs) && (m_util.is_numeral(lhs, k) || m_util.is_numeral(rhs, k)))
                     break;
@@ -264,13 +264,13 @@ class recover_01_tactic : public tactic {
             
             unsigned num_bits = cls_size - 1;
             // check if idxs are consistent
-            for (unsigned idx = 0; idx < expected_num_clauses; idx++) {
+            for (unsigned idx = 0; idx < expected_num_clauses; ++idx) {
                 if (!found[idx]) 
                     return false; // case is missing
                 rational expected_k;
                 unsigned idx_aux = idx;
                 unsigned idx_bit = 1;
-                for (unsigned j = 0; j < num_bits; j++) {
+                for (unsigned j = 0; j < num_bits; ++j) {
                     if (idx_aux % 2 == 1) {
                         expected_k += idx2coeff[idx_bit];
                     }
@@ -285,7 +285,7 @@ class recover_01_tactic : public tactic {
             expr_ref def(m);
             bool real_ctx = m_util.is_real(x->get_range());
             unsigned idx_bit = 1;
-            for (unsigned i = 0; i < cls_size; i++) {
+            for (unsigned i = 0; i < cls_size; ++i) {
                 expr * lit = zero_cls->get_arg(i);
                 if (m.is_eq(lit))
                     continue;
@@ -322,7 +322,7 @@ class recover_01_tactic : public tactic {
             SASSERT(new_goal->prec() == g->prec());
             new_goal->inc_depth();
 
-            for (unsigned i = 0; i < g->size(); i++) {
+            for (unsigned i = 0; i < g->size(); ++i) {
                 expr * f = g->form(i);
                 if (save_clause(f)) 
                     saved = true;
@@ -367,7 +367,7 @@ class recover_01_tactic : public tactic {
             m_rw.set_substitution(subst);
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
-            for (unsigned idx = 0; idx < new_goal->size(); idx++) {
+            for (unsigned idx = 0; idx < new_goal->size(); ++idx) {
                 expr * curr = new_goal->form(idx);
                 m_rw(curr, new_curr);
                 new_goal->update(idx, new_curr);

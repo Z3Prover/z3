@@ -120,7 +120,7 @@ namespace smt {
         else
             out << "rows (expanded view):\n";
         unsigned num = m_rows.size();
-        for (unsigned r_id = 0; r_id < num; r_id++) 
+        for (unsigned r_id = 0; r_id < num; ++r_id) 
             if (m_rows[r_id].m_base_var != null_theory_var) 
                 display_row(out, r_id, compact);
     }
@@ -163,7 +163,7 @@ namespace smt {
     void theory_arith<Ext>::display_rows_shape(std::ostream & out) const {
         unsigned num = m_rows.size();
         unsigned num_trivial = 0;
-        for (unsigned r_id = 0; r_id < num; r_id++) {
+        for (unsigned r_id = 0; r_id < num; ++r_id) {
             row const & r = m_rows[r_id];
             if (r.m_base_var != null_theory_var) {
                 if (is_one_minus_one_row(r)) 
@@ -178,7 +178,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::display_rows_bignums(std::ostream & out) const {
         unsigned num = m_rows.size();
-        for (unsigned r_id = 0; r_id < num; r_id++) {
+        for (unsigned r_id = 0; r_id < num; ++r_id) {
             row const & r = m_rows[r_id];
             if (r.m_base_var != null_theory_var) {
                 for (auto const& e : r) {
@@ -206,7 +206,7 @@ namespace smt {
         unsigned num_big_ints   = 0;
         unsigned num_small_rats = 0;
         unsigned num_big_rats   = 0;
-        for (unsigned r_id = 0; r_id < m_rows.size(); r_id++) {
+        for (unsigned r_id = 0; r_id < m_rows.size(); ++r_id) {
             row const & r = m_rows[r_id];
             if (r.m_base_var != null_theory_var) {
                 num_rows++;
@@ -383,7 +383,7 @@ namespace smt {
         int n = get_num_vars();
         int inf_vars = 0;
         int int_inf_vars = 0;
-        for (theory_var v = 0; v < n; v++) {
+        for (theory_var v = 0; v < n; ++v) {
             if ((lower(v) && lower(v)->get_value() > get_value(v))
                 || (upper(v) && upper(v)->get_value() < get_value(v)))
                 inf_vars++;
@@ -391,14 +391,14 @@ namespace smt {
                 int_inf_vars++;
         }
         out << "infeasibles = " << inf_vars << " int_inf = " << int_inf_vars << std::endl;
-        for (theory_var v = 0; v < n; v++) {
+        for (theory_var v = 0; v < n; ++v) {
             display_var(out, v);
         }
     }
 
     template<typename Ext>
     void theory_arith<Ext>::display_bound(std::ostream & out, bound * b, unsigned indent) const {
-        for (unsigned i = 0; i < indent; i++) out << "  ";
+        for (unsigned i = 0; i < indent; ++i) out << "  ";
         b->display(*this, out);
         out << "\n";
     }
@@ -444,14 +444,14 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::display_asserted_atoms(std::ostream & out) const {
         out << "asserted atoms:\n";
-        for (unsigned i = 0; i < m_asserted_qhead; i++) {
+        for (unsigned i = 0; i < m_asserted_qhead; ++i) {
             bound * b = m_asserted_bounds[i];
             if (b->is_atom()) 
                 display_atom(out, static_cast<atom*>(b), true);
         }
         if (m_asserted_qhead < m_asserted_bounds.size()) {
             out << "delayed atoms:\n";
-            for (unsigned i = m_asserted_qhead; i < m_asserted_bounds.size(); i++) {
+            for (unsigned i = m_asserted_qhead; i < m_asserted_bounds.size(); ++i) {
                 bound * b = m_asserted_bounds[i];
                 if (b->is_atom()) 
                     display_atom(out, static_cast<atom*>(b), true);
@@ -483,7 +483,7 @@ namespace smt {
         ast_smt_pp pp(m);
         pp.set_benchmark_name("lemma");
         int n = get_num_vars();
-        for (theory_var v = 0; v < n; v++) {
+        for (theory_var v = 0; v < n; ++v) {
             expr * n = get_enode(v)->get_expr();
             if (is_fixed(v)) {
                 inf_numeral k_inf = lower_bound(v);

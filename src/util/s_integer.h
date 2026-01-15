@@ -101,7 +101,7 @@ public:
     friend inline s_integer ceil(const s_integer & r) { return r; }
     s_integer expt(int n) const {
         s_integer result(1);
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < n; ++i) {
             result *= *this;
         }
         return result;

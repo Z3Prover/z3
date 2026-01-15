@@ -199,7 +199,7 @@ bool decl_info::operator==(decl_info const & info) const {
 
 std::ostream & operator<<(std::ostream & out, decl_info const & info) {
     out << ":fid " << info.get_family_id() << " :decl-kind " << info.get_decl_kind() << " :parameters (";
-    for (unsigned i = 0; i < info.get_num_parameters(); i++) {
+    for (unsigned i = 0; i < info.get_num_parameters(); ++i) {
         if (i > 0) out << " ";
         out << info.get_parameter(i);
     }
@@ -315,7 +315,7 @@ app::app(func_decl * decl, unsigned num_args, expr * const * args):
     expr(AST_APP),
     m_decl(decl),
     m_num_args(num_args) {
-    for (unsigned i = 0; i < num_args; i++)
+    for (unsigned i = 0; i < num_args; ++i)
         m_args[i] = args[i];
 }
 
@@ -634,7 +634,7 @@ bool decl_plugin::log_constant_meaning_prelude(app * a) {
 func_decl * decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                         unsigned num_args, expr * const * args, sort * range) {
     ptr_buffer<sort> sorts;
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         sorts.push_back(args[i]->get_sort());
     }
     return mk_func_decl(k, num_parameters, parameters, num_args, sorts.data(), range);
@@ -652,7 +652,7 @@ bool basic_decl_plugin::check_proof_sorts(basic_op_kind k, unsigned arity, sort 
     if (arity == 0)
         return false;
     else {
-        for (unsigned i = 0; i < arity - 1; i++)
+        for (unsigned i = 0; i < arity - 1; ++i)
             if (domain[i] != m_proof_sort)
                 return false;
 #define is_array(_x_) true
@@ -666,7 +666,7 @@ bool basic_decl_plugin::check_proof_args(basic_op_kind k, unsigned num_args, exp
     if (num_args == 0)
         return false;
     else {
-        for (unsigned i = 0; i < num_args - 1; i++)
+        for (unsigned i = 0; i < num_args - 1; ++i)
             if (args[i]->get_sort() != m_proof_sort)
                 return false;
         return
@@ -679,7 +679,7 @@ bool basic_decl_plugin::check_proof_args(basic_op_kind k, unsigned num_args, exp
 func_decl * basic_decl_plugin::mk_bool_op_decl(char const * name, basic_op_kind k, unsigned num_args, bool assoc, bool comm, bool idempotent,
                                                bool flat_associative, bool chainable) {
     ptr_buffer<sort> domain;
-    for (unsigned i = 0; i < num_args; i++)
+    for (unsigned i = 0; i < num_args; ++i)
         domain.push_back(m_bool_sort);
     func_decl_info info(m_family_id, k);
     info.set_associative(assoc);
@@ -705,7 +705,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(
     char const * name, basic_op_kind k,
     unsigned num_parameters, parameter const* params, unsigned num_parents) {
     ptr_buffer<sort> domain;
-    for (unsigned i = 0; i < num_parents; i++)
+    for (unsigned i = 0; i < num_parents; ++i)
         domain.push_back(m_proof_sort);
     domain.push_back(m_bool_sort);
     func_decl_info info(m_family_id, k, num_parameters, params);
@@ -714,7 +714,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(
 
 func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, bool inc_ref) {
     ptr_buffer<sort> domain;
-    for (unsigned i = 0; i < num_parents; i++)
+    for (unsigned i = 0; i < num_parents; ++i)
         domain.push_back(m_proof_sort);
     domain.push_back(m_bool_sort);
     func_decl * d = m_manager->mk_func_decl(symbol(name), num_parents+1, domain.data(), m_proof_sort, func_decl_info(m_family_id, k));
@@ -724,7 +724,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k,
 
 func_decl * basic_decl_plugin::mk_compressed_proof_decl(char const * name, basic_op_kind k, unsigned num_parents) {
     ptr_buffer<sort> domain;
-    for (unsigned i = 0; i < num_parents; i++)
+    for (unsigned i = 0; i < num_parents; ++i)
         domain.push_back(m_proof_sort);
     func_decl * d = m_manager->mk_func_decl(symbol(name), num_parents, domain.data(), m_proof_sort, func_decl_info(m_family_id, k));
     m_manager->inc_ref(d);
@@ -1049,7 +1049,7 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         func_decl_info info(m_family_id, OP_DISTINCT);
         info.set_pairwise();
         ptr_buffer<sort> sorts;
-        for (unsigned i = 1; i < arity; i++) {
+        for (unsigned i = 1; i < arity; ++i) {
             if (domain[i] != domain[0]) {
                 sort* srt = join(arity, domain);
                 for (unsigned j = 0; j < arity; ++j) 
@@ -1144,7 +1144,7 @@ func_decl * label_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
             m_manager->raise_exception("invalid label declaration");
             return nullptr;
         }
-        for (unsigned i = 2; i < num_parameters; i++) {
+        for (unsigned i = 2; i < num_parameters; ++i) {
             if (!parameters[i].is_symbol()) {
                 m_manager->raise_exception("invalid label declaration");
                 return nullptr;
@@ -1159,7 +1159,7 @@ func_decl * label_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
             m_manager->raise_exception("invalid label literal declaration");
             return nullptr;
         }
-        for (unsigned i = 0; i < num_parameters; i++) {
+        for (unsigned i = 0; i < num_parameters; ++i) {
             if (!parameters[i].is_symbol()) {
                 m_manager->raise_exception("invalid label literal declaration");
                 return nullptr;
@@ -1355,13 +1355,13 @@ void ast_manager::init() {
 
 template<typename T>
 static void mark_array_ref(ast_mark& mark, unsigned sz, T * const * a) {
-    for(unsigned i = 0; i < sz; i++) {
+    for(unsigned i = 0; i < sz; ++i) {
         mark.mark(a[i], true);
     }
 }
 
 static void mark_array_ref(ast_mark& mark, unsigned sz, parameter const * a) {
-    for(unsigned i = 0; i < sz; i++) {
+    for(unsigned i = 0; i < sz; ++i) {
         if (a[i].is_ast()) {
             mark.mark(a[i].get_ast(), true);
         }
@@ -1508,14 +1508,14 @@ std::ostream& ast_manager::display(std::ostream& out, parameter const& p) {
 void ast_manager::copy_families_plugins(ast_manager const & from) {
     TRACE(copy_families_plugins,
           tout << "target:\n";
-          for (family_id fid = 0; m_family_manager.has_family(fid); fid++) {
+          for (family_id fid = 0; m_family_manager.has_family(fid); ++fid) {
               tout << "fid: " << fid << " fidname: " << get_family_name(fid) << "\n";
           });
     ast_translation trans(const_cast<ast_manager&>(from), *this, false);
     // Inheriting plugins can create new family ids. Since new family ids are
     // assigned in the order that they are created, this can result in differing
     // family ids. To avoid this, we first assign all family ids and only then inherit plugins.
-    for (family_id fid = 0; from.m_family_manager.has_family(fid); fid++) {
+    for (family_id fid = 0; from.m_family_manager.has_family(fid); ++fid) {
         symbol fid_name   = from.get_family_name(fid);
         if (!m_family_manager.has_family(fid)) {
             family_id new_fid = mk_family_id(fid_name);
@@ -1523,7 +1523,7 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
             TRACE(copy_families_plugins, tout << "new target fid created: " << new_fid << " fid_name: " << fid_name << "\n";);
         }
     }
-    for (family_id fid = 0; from.m_family_manager.has_family(fid); fid++) {
+    for (family_id fid = 0; from.m_family_manager.has_family(fid); ++fid) {
         SASSERT(from.is_builtin_family_id(fid) == is_builtin_family_id(fid));
         SASSERT(!from.is_builtin_family_id(fid) || m_family_manager.has_family(fid));
         symbol fid_name   = from.get_family_name(fid);
@@ -1745,7 +1745,7 @@ ast * ast_manager::register_node_core(ast * n) {
             if (is_label(t))
                 f->m_has_labels = true;
             unsigned depth = 0;
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 expr * arg = t->get_arg(i);
                 inc_ref(arg);
                 unsigned arg_depth = 0;
@@ -2017,7 +2017,7 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
 
     if (decl->is_associative()) {
         sort * expected = decl->get_domain(0);
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             sort * given = args[i]->get_sort();
             if (!compatible_sorts(expected, given)) {
                 std::ostringstream buff;
@@ -2032,7 +2032,7 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
         if (decl->get_arity() != num_args) {
             throw ast_exception("invalid function application, wrong number of arguments");
         }
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             sort * expected = decl->get_domain(i);
             sort * given    = args[i]->get_sort();
             if (!compatible_sorts(expected, given)) {
@@ -2097,7 +2097,7 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
     if (decl->is_associative()) {
         sort * d = decl->get_domain(0);
         if (d->get_family_id() == arith_family_id) {
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 if (d != args[i]->get_sort())
                     return true;
             }
@@ -2109,7 +2109,7 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
             // So, there is no point in coercing the input arguments.
             return false;
         }
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             sort * d = decl->get_domain(i);
             if (d->get_family_id() == arith_family_id && d != args[i]->get_sort())
                 return true;
@@ -2146,7 +2146,7 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
     try {
         if (m_int_real_coercions && coercion_needed(decl, num_args, args)) {
             expr_ref_buffer new_args(*this);
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 sort * d = decl->is_associative() ? decl->get_domain(0) : decl->get_domain(i);
                 new_args.push_back(coerce_to(args[i], d));
             }
@@ -2176,7 +2176,7 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
                 ast_ll_pp(*m_trace_stream, *this, r);            
             else {
                 *m_trace_stream << r->get_decl()->get_name();
-                for (unsigned i = 0; i < r->get_num_args(); i++)
+                for (unsigned i = 0; i < r->get_num_args(); ++i)
                     *m_trace_stream << " #" << r->get_arg(i)->get_id();
                 *m_trace_stream << "\n";
             }
@@ -2191,7 +2191,7 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
 }
 
 void ast_manager::check_args(func_decl* f, unsigned n, expr* const* es) {
-    for (unsigned i = 0; i < n; i++) {
+    for (unsigned i = 0; i < n; ++i) {
         sort * actual_sort   = es[i]->get_sort();
         sort * expected_sort = f->is_associative() ? f->get_domain(0) : f->get_domain(i);
         if (expected_sort != actual_sort) {
@@ -2244,14 +2244,14 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
         }
         else if (decl->is_left_associative()) {
             r = mk_app_core(decl, args[0], args[1]);
-            for (unsigned i = 2; i < num_args; i++) {
+            for (unsigned i = 2; i < num_args; ++i) {
                 r = mk_app_core(decl, r, args[i]);
             }
         }
         else if (decl->is_chainable()) {
             TRACE(chainable, tout << "chainable...\n";);
             ptr_buffer<expr> new_args;
-            for (unsigned i = 1; i < num_args; i++) {
+            for (unsigned i = 1; i < num_args; ++i) {
                 new_args.push_back(mk_app_core(decl, args[i-1], args[i]));
             }
             r = mk_and(new_args.size(), new_args.data());
@@ -2334,7 +2334,7 @@ app * ast_manager::mk_label(bool pos, unsigned num_names, symbol const * names, 
     SASSERT(n->get_sort() == m_bool_sort);
     buffer<parameter> p;
     p.push_back(parameter(static_cast<int>(pos)));
-    for (unsigned i = 0; i < num_names; i++)
+    for (unsigned i = 0; i < num_names; ++i)
         p.push_back(parameter(names[i]));
     return mk_app(label_family_id, OP_LABEL, p.size(), p.data(), 1, &n);
 }
@@ -2349,7 +2349,7 @@ bool ast_manager::is_label(expr const * n, bool & pos, buffer<symbol> & names) c
     }
     func_decl const * decl = to_app(n)->get_decl();
     pos  = decl->get_parameter(0).get_int() != 0;
-    for (unsigned i = 1; i < decl->get_num_parameters(); i++)
+    for (unsigned i = 1; i < decl->get_num_parameters(); ++i)
         names.push_back(decl->get_parameter(i).get_symbol());
     return true;
 }
@@ -2357,7 +2357,7 @@ bool ast_manager::is_label(expr const * n, bool & pos, buffer<symbol> & names) c
 app * ast_manager::mk_label_lit(unsigned num_names, symbol const * names) {
     SASSERT(num_names > 0);
     buffer<parameter> p;
-    for (unsigned i = 0; i < num_names; i++)
+    for (unsigned i = 0; i < num_names; ++i)
         p.push_back(parameter(names[i]));
     return mk_app(label_family_id, OP_LABEL_LIT, p.size(), p.data(), 0, nullptr);
 }
@@ -2471,7 +2471,7 @@ quantifier * ast_manager::mk_lambda(unsigned num_decls, sort * const * decl_sort
 static bool same_patterns(quantifier * q, unsigned num_patterns, expr * const * patterns) {
     if (num_patterns != q->get_num_patterns())
         return false;
-    for (unsigned i = 0; i < num_patterns; i++)
+    for (unsigned i = 0; i < num_patterns; ++i)
         if (q->get_pattern(i) != patterns[i])
             return false;
     return true;
@@ -2481,7 +2481,7 @@ static bool same_patterns(quantifier * q, unsigned num_patterns, expr * const * 
 static bool same_no_patterns(quantifier * q, unsigned num_no_patterns, expr * const * no_patterns) {
     if (num_no_patterns != q->get_num_no_patterns())
         return false;
-    for (unsigned i = 0; i < num_no_patterns; i++)
+    for (unsigned i = 0; i < num_no_patterns; ++i)
         if (q->get_no_pattern(i) != no_patterns[i])
             return false;
     return true;
@@ -2600,9 +2600,9 @@ app * ast_manager::mk_distinct_expanded(unsigned num_args, expr * const * args) 
     if (num_args == 2)
         return mk_not(mk_eq(args[0], args[1]));
     ptr_buffer<expr> new_args;
-    for (unsigned i = 0; i < num_args - 1; i++) {
+    for (unsigned i = 0; i < num_args - 1; ++i) {
         expr * a1 = args[i];
-        for (unsigned j = i + 1; j < num_args; j++) {
+        for (unsigned j = i + 1; j < num_args; ++j) {
             expr * a2 = args[j];
             new_args.push_back(mk_not(mk_eq(a1, a2)));
         }
@@ -2627,7 +2627,7 @@ expr_dependency * ast_manager::mk_leaf(expr * t) {
 
 expr_dependency * ast_manager::mk_join(unsigned n, expr * const * ts) {
     expr_dependency * d = nullptr;
-    for (unsigned i = 0; i < n; i++)
+    for (unsigned i = 0; i < n; ++i)
         d = mk_join(d, mk_leaf(ts[i]));
     return d;
 }
@@ -2895,7 +2895,7 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2, proof * p3, proof *
 proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs) {
     SASSERT(num_proofs > 0);
     proof * r = proofs[0];
-    for (unsigned i = 1; i < num_proofs; i++)
+    for (unsigned i = 1; i < num_proofs; ++i)
         r = mk_transitivity(r, proofs[i]);
     return r;
 }
@@ -2906,7 +2906,7 @@ proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs
     if (num_proofs == 1)
         return proofs[0];
     DEBUG_CODE({
-        for (unsigned i = 0; i < num_proofs; i++) {
+        for (unsigned i = 0; i < num_proofs; ++i) {
             SASSERT(proofs[i]);
             SASSERT(!is_reflexivity(proofs[i]));
         }
@@ -3048,7 +3048,7 @@ proof * ast_manager::mk_def_axiom(expr * ax) {
 
 proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * proofs) {
     SASSERT(num_proofs >= 2);
-    DEBUG_CODE(for (unsigned i = 0; i < num_proofs; i++) SASSERT(has_fact(proofs[i])););
+    DEBUG_CODE(for (unsigned i = 0; i < num_proofs; ++i) SASSERT(has_fact(proofs[i])););
     ptr_buffer<expr> args;
     expr * fact;
     expr * f1 = get_fact(proofs[0]);
@@ -3089,10 +3089,10 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         bool_vector found;
 #endif
         ast_mark mark;
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             bool found_complement = false;
             expr * lit = cls->get_arg(i);
-            for (unsigned j = 1; j < num_proofs; j++) {
+            for (unsigned j = 1; j < num_proofs; ++j) {
                 expr const * _fact = get_fact(proofs[j]);
                 if (is_complement(lit, _fact)) {
                     found_complement = true;
@@ -3108,9 +3108,9 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
             }
         }
         DEBUG_CODE({
-                for (unsigned i = 1; proofs_enabled() && i < num_proofs; i++) {
+                for (unsigned i = 1; proofs_enabled() && i < num_proofs; ++i) {
                 CTRACE(mk_unit_resolution_bug, !found.get(i, false),
-                       for (unsigned j = 0; j < num_proofs; j++) {
+                       for (unsigned j = 0; j < num_proofs; ++j) {
                            if (j == i) tout << "Index " << i << " was not found:\n";
                            tout << mk_ll_pp(get_fact(proofs[j]), *this);
                        });
@@ -3138,7 +3138,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
 
 proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * proofs, expr * new_fact) {
     TRACE(unit_bug,
-          for (unsigned i = 0; i < num_proofs; i++) tout << mk_pp(get_fact(proofs[i]), *this) << "\n";
+          for (unsigned i = 0; i < num_proofs; ++i) tout << mk_pp(get_fact(proofs[i]), *this) << "\n";
           tout << "===>\n";
           tout << mk_pp(new_fact, *this) << "\n";);
 
@@ -3156,7 +3156,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         app * cls            = to_app(f1);
         unsigned cls_sz      = cls->get_num_args();
         CTRACE(unit_bug, !(num_proofs == cls_sz || (num_proofs == cls_sz + 1 && is_false(new_fact))),
-          for (unsigned i = 0; i < num_proofs; i++) tout << mk_pp(get_fact(proofs[i]), *this) << "\n";
+          for (unsigned i = 0; i < num_proofs; ++i) tout << mk_pp(get_fact(proofs[i]), *this) << "\n";
           tout << "===>\n";
           tout << mk_pp(new_fact, *this) << "\n";);
         //
@@ -3164,10 +3164,10 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         // but formula could have repeated literals that are merged in the clausal representation.
         //
         unsigned num_matches = 0, num_occ = 0;
-        for (unsigned i = 0; i < cls_sz; i++) {
+        for (unsigned i = 0; i < cls_sz; ++i) {
             expr * lit = cls->get_arg(i);
             unsigned j = 1;
-            for (; j < num_proofs; j++) {
+            for (; j < num_proofs; ++j) {
                 if (is_complement(lit, get_fact(proofs[j]))) {
                     num_matches++;
                     break;
@@ -3229,7 +3229,7 @@ proof * ast_manager::mk_iff_oeq(proof * p) {
 }
 
 bool ast_manager::check_nnf_proof_parents(unsigned num_proofs, proof * const * proofs) const {
-    for (unsigned i = 0; i < num_proofs; i++) {
+    for (unsigned i = 0; i < num_proofs; ++i) {
         if (!has_fact(proofs[i]))
             return false;
         if (!is_oeq(get_fact(proofs[i])))

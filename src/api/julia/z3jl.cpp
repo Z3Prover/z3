@@ -413,7 +413,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .method("trail", [](solver &s, jlcxx::ArrayRef<unsigned> levels) {
             int sz = levels.size();
             z3::array<unsigned> _levels(sz);
-            for (int i = 0; i < sz; i++) {
+            for (int i = 0; i < sz; ++i) {
                 _levels[i] = levels[i];
             }
             return s.trail(_levels);
@@ -643,7 +643,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
             [](context& c, char const * name, jlcxx::ArrayRef<jl_value_t*,1> names, func_decl_vector &cs, func_decl_vector &ts) {
                 int sz = names.size();
                 std::vector<const char *> _names;
-                for (int i = 0; i < sz; i++) {
+                for (int i = 0; i < sz; ++i) {
                     const char *x = jl_string_data(names[i]);
                     _names.push_back(x);
                 }
@@ -654,7 +654,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
                 int sz = names.size();
                 std::vector<sort> _sorts;
                 std::vector<const char *> _names;
-                for (int i = 0; i < sz; i++) {
+                for (int i = 0; i < sz; ++i) {
                     const sort &x = jlcxx::unbox<sort&>(sorts[i]);
                     const char *y = jl_string_data(names[i]);
                     _sorts.push_back(x);

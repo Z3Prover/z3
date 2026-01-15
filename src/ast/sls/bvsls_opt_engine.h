@@ -59,7 +59,7 @@ protected:
         obj_hashtable<expr> const & top_exprs = m_obj_tracker.get_top_exprs();
         for (obj_hashtable<expr>::iterator it = top_exprs.begin();
              it != top_exprs.end();
-             it++)
+             ++it)
              m_mpz_manager.add(res, m_obj_tracker.get_value(*it), res);
         return res;
     }

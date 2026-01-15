@@ -44,7 +44,7 @@ static void test_move_after() {
 }
 
 void apply_permutation_copy(unsigned sz, unsigned const * src, unsigned const * p, unsigned * target) {
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         target[i] = src[p[i]];
     }
 }
@@ -57,16 +57,16 @@ static void test_apply_permutation(unsigned sz, unsigned num_tries, unsigned max
     p.resize(sz);
     new_data.resize(sz);
     random_gen g;
-    for (unsigned i = 0; i < sz; i++)
+    for (unsigned i = 0; i < sz; ++i)
         p[i] = i;
     // fill data with random numbers
-    for (unsigned i = 0; i < sz; i++)
+    for (unsigned i = 0; i < sz; ++i)
         data[i] = g() % max;
     for (unsigned k = 0; k < num_tries; k ++) {
         shuffle(p.size(), p.data(), g);
         apply_permutation_copy(sz, data.data(), p.data(), new_data.data());
         apply_permutation(sz, data.data(), p.data());
-        for (unsigned i = 0; i < 0; i++)
+        for (unsigned i = 0; i < 0; ++i)
             ENSURE(data[i] == new_data[i]);
     }
 }

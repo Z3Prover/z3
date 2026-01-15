@@ -159,7 +159,7 @@ class propagate_values_tactic : public tactic {
         while (true) {
             TRACE(propagate_values, tout << "while(true) loop\n"; m_goal->display_with_dependencies(tout););
             if (forward) {
-                for (; m_idx < size; m_idx++) {
+                for (; m_idx < size; ++m_idx) {
                     process_current();
                     if (m_goal->inconsistent()) 
                         goto end;

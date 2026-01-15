@@ -141,7 +141,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_optimize_check(c, o, num_assumptions, assumptions);
         RESET_ERROR_CODE();
-        for (unsigned i = 0; i < num_assumptions; i++) {
+        for (unsigned i = 0; i < num_assumptions; ++i) {
             if (!is_expr(to_ast(assumptions[i]))) {
                 SET_ERROR_CODE(Z3_INVALID_ARG, "assumption is not an expression");
                 return Z3_L_UNDEF;
@@ -432,7 +432,7 @@ extern "C" {
         unsigned n = to_optimize_ptr(o)->num_objectives();
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             v->m_ast_vector.push_back(to_optimize_ptr(o)->get_objective(i));
         }
         RETURN_Z3(of_ast_vector(v));

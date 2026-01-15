@@ -56,7 +56,7 @@ bool smaller_pattern::process(expr * p1, expr * p2) {
             unsigned num1  = app1->get_num_args();
             if (num1 != app2->get_num_args() || app1->get_decl() != app2->get_decl())
                 return false;
-            for (unsigned i = 0; i < num1; i++)
+            for (unsigned i = 0; i < num1; ++i)
                 save(app1->get_arg(i), app2->get_arg(i));
             break;
         }
@@ -84,7 +84,7 @@ bool smaller_pattern::process(expr * p1, expr * p2) {
 
 bool smaller_pattern::operator()(unsigned num_bindings, expr * p1, expr * p2) {
     m_bindings.resize(num_bindings);
-    for (unsigned i = 0; i < num_bindings; i++)
+    for (unsigned i = 0; i < num_bindings; ++i)
         m_bindings[i] = 0;
     return process(p1, p2);
 }
@@ -212,7 +212,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
         uint_set free_vars;
         unsigned size  = 1;
         unsigned num   = c->get_num_args();
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             expr * child      = c->get_arg(i);
             info * child_info = nullptr;
 #ifdef Z3DEBUG
@@ -269,7 +269,7 @@ void pattern_inference_cfg::collect::reset() {
 }
 
 void pattern_inference_cfg::add_candidate(app * n, uint_set const & free_vars, unsigned size) {
-    for (unsigned i = 0; i < m_num_no_patterns; i++) {
+    for (unsigned i = 0; i < m_num_no_patterns; ++i) {
         if (n == m_no_patterns[i])
             return;
     }
@@ -287,14 +287,14 @@ void pattern_inference_cfg::add_candidate(app * n, uint_set const & free_vars, u
 */
 void pattern_inference_cfg::filter_looping_patterns(ptr_vector<app> & result) {
     unsigned num = m_candidates.size();
-    for (unsigned i1 = 0; i1 < num; i1++) {
+    for (unsigned i1 = 0; i1 < num; ++i1) {
         app * n1 = m_candidates.get(i1);
         expr2info::obj_map_entry * e1 = m_candidates_info.find_core(n1);
         SASSERT(e1);
         uint_set const & s1 = e1->get_data().m_value.m_free_vars;
         if (m_block_loop_patterns) {
             bool smaller = false;
-            for (unsigned i2 = 0; i2 < num; i2++) {
+            for (unsigned i2 = 0; i2 < num; ++i2) {
                 if (i1 != i2) {
                     app * n2 = m_candidates.get(i2);
                     expr2info::obj_map_entry * e2 = m_candidates_info.find_core(n2);
@@ -358,7 +358,7 @@ bool pattern_inference_cfg::contains_subpattern::operator()(expr * n) {
                 }
             }
             num = to_app(curr)->get_num_args();
-            for (unsigned i = 0; i < num; i++)
+            for (unsigned i = 0; i < num; ++i)
                 save(to_app(curr)->get_arg(i));
             break;
         case AST_VAR:
@@ -481,7 +481,7 @@ void pattern_inference_cfg::candidates2multi_patterns(unsigned max_num_patterns,
     m_pre_patterns.push_back(alloc(pre_pattern));
     unsigned sz = candidate_patterns.size();
     unsigned num_splits = 0;
-    for (unsigned j = 0; j < m_pre_patterns.size(); j++) {
+    for (unsigned j = 0; j < m_pre_patterns.size(); ++j) {
         pre_pattern * curr = m_pre_patterns[j];
         if (curr->m_free_vars.num_elems() == m_num_bindings) {
             app * new_pattern = m.mk_pattern(curr->m_exprs.size(), curr->m_exprs.data());
@@ -574,7 +574,7 @@ void pattern_inference_cfg::mk_patterns(unsigned num_bindings,
           tout << mk_pp(n, m);
           tout << "\ncandidates:\n";
           unsigned num = m_candidates.size();
-          for (unsigned i = 0; i < num; i++) {
+          for (unsigned i = 0; i < num; ++i) {
               tout << mk_pp(m_candidates.get(i), m) << "\n";
           });
 
@@ -637,7 +637,7 @@ bool pattern_inference_cfg::reduce_quantifier(
         m_database.initialize(g_pattern_database);
         unsigned new_weight;
         if (m_database.match_quantifier(q, new_patterns, new_weight)) {
-            DEBUG_CODE(for (unsigned i = 0; i < new_patterns.size(); i++) { SASSERT(is_well_sorted(m, new_patterns.get(i))); });
+            DEBUG_CODE(for (unsigned i = 0; i < new_patterns.size(); ++i) { SASSERT(is_well_sorted(m, new_patterns.get(i))); });
             if (q->get_num_patterns() > 0) {
                 // just update the weight...
                 TRACE(pattern_inference, tout << "updating weight to: " << new_weight << "\n" << mk_pp(q, m) << "\n";);
@@ -760,7 +760,7 @@ bool pattern_inference_cfg::reduce_quantifier(
 
     IF_VERBOSE(10,
         verbose_stream() << "(smt.inferred-patterns :qid " << q->get_qid() << "\n";
-        for (unsigned i = 0; i < new_patterns.size(); i++)
+        for (unsigned i = 0; i < new_patterns.size(); ++i)
             verbose_stream() << "  " << mk_ismt2_pp(new_patterns[i], m, 2) << "\n";
         verbose_stream() << ")\n"; );
 

@@ -276,7 +276,7 @@ bool macro_finder::expand_macros(expr_ref_vector const& exprs, proof_ref_vector 
     unsigned num = exprs.size();
     bool deps_valid = deps.size() == exprs.size();
     SASSERT(deps_valid || deps.empty());
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         expr * n       = exprs[i];
         proof * pr     = m.proofs_enabled() ? prs[i] : nullptr;
         expr_dependency * dep = deps.get(i, nullptr);
@@ -345,7 +345,7 @@ bool macro_finder::expand_macros(unsigned num, justified_expr const * fmls, vect
     TRACE(macro_finder, tout << "starting expand_macros:\n";
           m_macro_manager.display(tout););
     bool found_new_macro = false;
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         expr * n       = fmls[i].fml();
         proof * pr     = m.proofs_enabled() ? fmls[i].pr() : nullptr;
         expr_ref new_n(m), def(m);

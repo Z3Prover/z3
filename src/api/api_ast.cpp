@@ -901,7 +901,7 @@ extern "C" {
         expr * const * from = to_exprs(num_exprs, _from);
         expr * const * to   = to_exprs(num_exprs, _to);
         expr * r = nullptr;
-        for (unsigned i = 0; i < num_exprs; i++) {
+        for (unsigned i = 0; i < num_exprs; ++i) {
             if (from[i]->get_sort() != to[i]->get_sort()) {
                 SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
                 RETURN_Z3(of_expr(nullptr));
@@ -910,7 +910,7 @@ extern "C" {
             SASSERT(to[i]->get_ref_count() > 0);
         }
         expr_safe_replace subst(m);
-        for (unsigned i = 0; i < num_exprs; i++) {
+        for (unsigned i = 0; i < num_exprs; ++i) {
             subst.insert(from[i], to[i]);
         }
         expr_ref   new_a(m);
@@ -940,7 +940,7 @@ extern "C" {
         obj_map<func_decl, expr*> rep;
         obj_map<expr, expr*> cache;
 
-        for (unsigned i = 0; i < num_funs; i++) {
+        for (unsigned i = 0; i < num_funs; ++i) {
             if (from[i]->get_range() != to[i]->get_sort()) {
                 SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
                 RETURN_Z3(of_expr(nullptr));

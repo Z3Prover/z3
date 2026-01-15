@@ -120,7 +120,7 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
         app * or_e        = to_app(to_app(e)->get_arg(0));
         unsigned num_args = or_e->get_num_args();
         expr_ref_buffer new_args(m_manager);
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             expr * arg = or_e->get_arg(i);
             expr_ref not_arg(m_manager);
             br.mk_not(arg, not_arg);

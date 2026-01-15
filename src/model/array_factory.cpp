@@ -27,7 +27,7 @@ func_decl * mk_aux_decl_for_array_sort(ast_manager & m, sort * s) {
     ptr_buffer<sort> domain;
     sort * range = get_array_range(s);
     unsigned arity = get_array_arity(s);
-    for (unsigned i = 0; i < arity; i++) {
+    for (unsigned i = 0; i < arity; ++i) {
         domain.push_back(get_array_domain(s, i));
     }
     return m.mk_fresh_func_decl(symbol::null, symbol::null, arity, domain.data(), range);
@@ -53,7 +53,7 @@ expr * array_factory::mk_array_interp(sort * s, func_interp * & fi) {
 
 void array_factory::get_some_args_for(sort * s, ptr_buffer<expr> & args) {
     unsigned arity = get_array_arity(s);
-    for (unsigned i = 0; i < arity; i++) {
+    for (unsigned i = 0; i < arity; ++i) {
         sort * d = get_array_domain(s, i);
         expr * a = m_model.get_some_value(d);
         args.push_back(a);
@@ -162,7 +162,7 @@ expr * array_factory::get_fresh_value(sort * s) {
         ptr_buffer<expr> args2;
         bool found = false;
         unsigned arity = get_array_arity(s);
-        for (unsigned i = 0; i < arity; i++) {
+        for (unsigned i = 0; i < arity; ++i) {
             sort * d    = get_array_domain(s, i);
             if (!found) {
                 expr * arg1 = m_model.get_fresh_value(d);

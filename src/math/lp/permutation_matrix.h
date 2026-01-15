@@ -92,7 +92,7 @@ class permutation_matrix
             unsigned old_size = m_permutation.size();
             m_permutation.resize(size);
             m_rev.resize(size);
-            for (unsigned i = old_size; i < size; i++) {
+            for (unsigned i = old_size; i < size; ++i) {
                 m_permutation[i] = m_rev[i] = i;
     }
         }

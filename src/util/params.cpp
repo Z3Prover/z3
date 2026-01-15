@@ -32,7 +32,7 @@ std::string norm_param_name(char const* n) {
     if (sz == 0)
         return "_";
         
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         char curr = r[i];
         if ('A' <= curr && curr <= 'Z')
             r[i] = curr - 'A' + 'a';
@@ -173,12 +173,12 @@ struct param_descrs::imp {
                    " ----------|------|-------------|--------\n";
         }
         for (symbol const& name : names) {
-            for (unsigned i = 0; i < indent; i++) out << " ";
+            for (unsigned i = 0; i < indent; ++i) out << " ";
             if (smt2_style)
                 out << ':';
             std::string s = name.str();
             unsigned n = static_cast<unsigned>(s.length());
-            for (unsigned i = 0; i < n; i++) {
+            for (unsigned i = 0; i < n; ++i) {
                 if (smt2_style && s[i] == '_')
                     out << '-';
                 else if (!smt2_style && s[i] == '-')

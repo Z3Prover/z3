@@ -113,7 +113,7 @@ unsigned ntz_core(unsigned x) {
 */
 unsigned ntz(unsigned sz, unsigned const * data) {
     unsigned r = 0;
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         unsigned d = data[i];
         if (d == 0)
             r += 32;
@@ -133,14 +133,14 @@ void copy(unsigned src_sz, unsigned const * src,
           unsigned dst_sz, unsigned * dst) {
     if (dst_sz >= src_sz) {
         unsigned i;
-        for (i = 0; i < src_sz; i++) 
+        for (i = 0; i < src_sz; ++i) 
             dst[i] = src[i];
-        for (; i < dst_sz; i++) 
+        for (; i < dst_sz; ++i) 
             dst[i] = 0;
     }
     else {
         SASSERT(dst_sz < src_sz);
-        for (unsigned i = 0; i < dst_sz; i++)
+        for (unsigned i = 0; i < dst_sz; ++i)
             dst[i] = src[i];
     }
 }
@@ -149,7 +149,7 @@ void copy(unsigned src_sz, unsigned const * src,
    \brief Return true if all words of data are zero.
 */
 bool is_zero(unsigned sz, unsigned const * data) {
-    for (unsigned i = 0; i < sz; i++) 
+    for (unsigned i = 0; i < sz; ++i) 
         if (data[i])
             return false;
     return true;
@@ -159,7 +159,7 @@ bool is_zero(unsigned sz, unsigned const * data) {
    \brief Set all words of data to zero.
 */
 void reset(unsigned sz, unsigned * data) {
-    for (unsigned i = 0; i < sz; i++)
+    for (unsigned i = 0; i < sz; ++i)
         data[i] = 0;
 }
 
@@ -189,7 +189,7 @@ void shl(unsigned src_sz, unsigned const * src, unsigned k,
             i  = dst_sz;
         }
         else if (i < dst_sz) {
-            for (unsigned r = i; r < dst_sz; r++)
+            for (unsigned r = i; r < dst_sz; ++r)
                 dst[r] = 0;
         }
         while (j > 0) {
@@ -203,7 +203,7 @@ void shl(unsigned src_sz, unsigned const * src, unsigned k,
         if (bit_shift > 0) {
             unsigned comp_shift = (8 * sizeof(unsigned)) - bit_shift;
             unsigned prev       = 0;
-            for (unsigned i = word_shift; i < dst_sz; i++) {
+            for (unsigned i = word_shift; i < dst_sz; ++i) {
                 unsigned new_prev = (dst[i] >> comp_shift);
                 dst[i] <<= bit_shift;
                 dst[i] |= prev;
@@ -216,7 +216,7 @@ void shl(unsigned src_sz, unsigned const * src, unsigned k,
         unsigned prev       = 0;
         if (src_sz > dst_sz)
             src_sz = dst_sz;
-        for (unsigned i = 0; i < src_sz; i++) {
+        for (unsigned i = 0; i < src_sz; ++i) {
             unsigned new_prev = (src[i] >> comp_shift);
             dst[i] = src[i];
             dst[i] <<= bit_shift;
@@ -225,7 +225,7 @@ void shl(unsigned src_sz, unsigned const * src, unsigned k,
         }
         if (dst_sz > src_sz) {
             dst[src_sz] = prev;
-            for (unsigned i = src_sz+1; i < dst_sz; i++)
+            for (unsigned i = src_sz+1; i < dst_sz; ++i)
                 dst[i] = 0;
         }
     }
@@ -252,7 +252,7 @@ void shr(unsigned sz, unsigned const * src, unsigned k, unsigned * dst) {
         unsigned i       = 0;
         unsigned j       = digit_shift;
         if (bit_shift != 0) {
-            for (; i < new_sz - 1; i++, j++) {
+            for (; i < new_sz - 1; ++i, ++j) {
                 dst[i] = src[j];
                 dst[i] >>= bit_shift;
                 dst[i] |= (src[j+1] << comp_shift);
@@ -261,18 +261,18 @@ void shr(unsigned sz, unsigned const * src, unsigned k, unsigned * dst) {
             dst[i] >>= bit_shift;
         }
         else {
-            for (; i < new_sz; i++, j++) {
+            for (; i < new_sz; ++i, ++j) {
                 dst[i] = src[j];
             }
         }
-        for (unsigned i = new_sz; i < sz; i++)
+        for (unsigned i = new_sz; i < sz; ++i)
             dst[i] = 0;
     }
     else {
         SASSERT(new_sz == sz);
         SASSERT(bit_shift != 0);
         unsigned i       = 0;
-        for (; i < new_sz - 1; i++) {
+        for (; i < new_sz - 1; ++i) {
             dst[i] = src[i];
             dst[i] >>= bit_shift;
             dst[i] |= (src[i+1] << comp_shift);
@@ -298,7 +298,7 @@ void shr(unsigned src_sz, unsigned const * src, unsigned k, unsigned dst_sz, uns
             unsigned sz = new_sz;
             if (new_sz > dst_sz)
                 sz = dst_sz;
-            for (; i < sz - 1; i++, j++) {
+            for (; i < sz - 1; ++i, ++j) {
                 dst[i] = src[j];
                 dst[i] >>= bit_shift;
                 dst[i] |= (src[j+1] << comp_shift);
@@ -311,7 +311,7 @@ void shr(unsigned src_sz, unsigned const * src, unsigned k, unsigned dst_sz, uns
         else {
             if (new_sz > dst_sz)
                 new_sz = dst_sz;
-            for (; i < new_sz; i++, j++) {
+            for (; i < new_sz; ++i, ++j) {
                 dst[i] = src[j];
             }
         }
@@ -323,7 +323,7 @@ void shr(unsigned src_sz, unsigned const * src, unsigned k, unsigned dst_sz, uns
         if (new_sz > dst_sz)
             sz = dst_sz;
         unsigned i       = 0;
-        for (; i < sz - 1; i++) {
+        for (; i < sz - 1; ++i) {
             dst[i] = src[i];
             dst[i] >>= bit_shift;
             dst[i] |= (src[i+1] << comp_shift);
@@ -333,7 +333,7 @@ void shr(unsigned src_sz, unsigned const * src, unsigned k, unsigned dst_sz, uns
         if (new_sz > dst_sz)
             dst[i] |= (src[i+1] << comp_shift);
     }
-    for (unsigned i = new_sz; i < dst_sz; i++)
+    for (unsigned i = new_sz; i < dst_sz; ++i)
         dst[i] = 0;
 }
 
@@ -345,7 +345,7 @@ bool has_one_at_first_k_bits(unsigned sz, unsigned const * data, unsigned k) {
     unsigned word_sz = k / (8 * sizeof(unsigned));
     if (word_sz > sz)
         word_sz = sz;
-    for (unsigned i = 0; i < word_sz; i++) {
+    for (unsigned i = 0; i < word_sz; ++i) {
         if (data[i] != 0)
             return true;
     }
@@ -358,7 +358,7 @@ bool has_one_at_first_k_bits(unsigned sz, unsigned const * data, unsigned k) {
 }
 
 bool inc(unsigned sz, unsigned * data) {
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         data[i]++;
         if (data[i] != 0)
             return true; // no overflow
@@ -367,7 +367,7 @@ bool inc(unsigned sz, unsigned * data) {
 }
 
 bool dec(unsigned sz, unsigned * data) {
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         data[i]--;
         if (data[i] != UINT_MAX)
             return true; // no underflow
@@ -389,7 +389,7 @@ bool lt(unsigned sz, unsigned * data1, unsigned * data2) {
 
 bool add(unsigned sz, unsigned const * a, unsigned const * b, unsigned * c) {
     unsigned k = 0;
-    for (unsigned j = 0; j < sz; j++) {
+    for (unsigned j = 0; j < sz; ++j) {
         unsigned r = a[j] + b[j]; 
         bool c1 = r < a[j];
         c[j] = r + k;    

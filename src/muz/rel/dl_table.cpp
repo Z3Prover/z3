@@ -66,7 +66,7 @@ namespace datalog {
                     const table_fact & row2 = *els2it;
 
                     bool match=true;
-                    for(unsigned i=0; i<m_joined_col_cnt; i++) {
+                    for(unsigned i=0; i<m_joined_col_cnt; ++i) {
                         if(row1[m_cols1[i]]!=row2[m_cols2[i]]) {
                             match=false;
                             break;

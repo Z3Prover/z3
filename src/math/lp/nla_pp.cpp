@@ -89,7 +89,7 @@ std::ostream& core::print_monic_with_vars(lpvar v, std::ostream& out) const {
 template <typename T>
 std::ostream& core::print_product_with_vars(const T& m, std::ostream& out) const {
     print_product(m, out) << "\n";
-    for (unsigned k = 0; k < m.size(); k++) {
+    for (unsigned k = 0; k < m.size(); ++k) {
         print_var(m[k], out);
     }
     return out;
@@ -153,7 +153,7 @@ std::ostream& core::print_ineqs(const lemma& l, std::ostream& out) const {
     if (l.ineqs().size() == 0) {
         out << "conflict\n";
     } else {
-        for (unsigned i = 0; i < l.ineqs().size(); i++) {
+        for (unsigned i = 0; i < l.ineqs().size(); ++i) {
             auto& in = l.ineqs()[i];
             print_ineq(in, out);
             if (i + 1 < l.ineqs().size()) out << " or ";
@@ -173,7 +173,7 @@ std::ostream& core::print_factorization(const factorization& f, std::ostream& ou
     if (f.is_mon()) {
         out << "is_mon " << pp_mon(*this, f.mon());
     } else {
-        for (unsigned k = 0; k < f.size(); k++) {
+        for (unsigned k = 0; k < f.size(); ++k) {
             out << "(" << pp(f[k]) << ")";
             if (k < f.size() - 1)
                 out << "*";
@@ -202,7 +202,7 @@ void core::trace_print_rms(const T& p, std::ostream& out) {
 void core::print_monic_stats(const monic& m, std::ostream& out) {
     if (m.size() == 2) return;
     monic_coeff mc = canonize_monic(m);
-    for (unsigned i = 0; i < mc.vars().size(); i++) {
+    for (unsigned i = 0; i < mc.vars().size(); ++i) {
         if (abs(val(mc.vars()[i])) == rational(1)) {
             auto vv = mc.vars();
             vv.erase(vv.begin() + i);

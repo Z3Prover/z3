@@ -164,7 +164,7 @@ bool unifier::operator()(unsigned num_exprs, expr ** es, substitution & s, bool 
         }
     }
 #endif
-    for (unsigned i = 0; i < num_exprs - 1; i++) {
+    for (unsigned i = 0; i < num_exprs - 1; ++i) {
         if (!unify_core(expr_offset(es[i], use_offsets ? i : 0), 
                         expr_offset(es[i+1], use_offsets ? i + 1 : 0))) {
             m_last_call_succeeded = false;

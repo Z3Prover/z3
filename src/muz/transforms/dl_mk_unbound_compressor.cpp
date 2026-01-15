@@ -62,7 +62,7 @@ namespace datalog {
         symbol const& parent_name = pred->get_name();
         unsigned arity = parent_arity-1;
         ptr_vector<sort> domain;
-        for (unsigned i = 0; i < parent_arity; i++) {
+        for (unsigned i = 0; i < parent_arity; ++i) {
             if (i != arg_index) {
                 domain.push_back(parent_domain[i]);
             }
@@ -97,7 +97,7 @@ namespace datalog {
         rm.get_counter().reset();
         rm.get_counter().count_vars(head, 1);
 
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             expr * arg = head->get_arg(i);
             unsigned var_idx;
             if (is_var(arg, var_idx) && 
@@ -128,7 +128,7 @@ namespace datalog {
         rm.get_counter().count_vars(head);
 
         unsigned arg_index;
-        for (arg_index = 0; arg_index < head_arity; arg_index++) {
+        for (arg_index = 0; arg_index < head_arity; ++arg_index) {
             expr * arg = head->get_arg(arg_index);
             unsigned var_idx;
             if (is_var(arg, var_idx) && 
@@ -148,7 +148,7 @@ namespace datalog {
         SASSERT(m_in_progress.contains(ci));
         func_decl * cpred = m_map.find(ci);
         ptr_vector<expr> cargs;
-        for (unsigned i=0; i < head_arity; i++) {
+        for (unsigned i=0; i < head_arity; ++i) {
             if (i != arg_index) {
                 cargs.push_back(head->get_arg(i));
             }
@@ -197,7 +197,7 @@ namespace datalog {
         func_decl * dtail_pred = m_map.find(ci);
         ptr_vector<expr> dtail_args;
         unsigned orig_dtail_arity = orig_dtail->get_num_args();
-        for (unsigned i = 0; i < orig_dtail_arity; i++) {
+        for (unsigned i = 0; i < orig_dtail_arity; ++i) {
             if (i != arg_index) {
                 dtail_args.push_back(orig_dtail->get_arg(i));
             }
@@ -208,7 +208,7 @@ namespace datalog {
         bool_vector tails_negated;
         app_ref_vector tails(m);
         unsigned tail_len = r->get_tail_size();
-        for (unsigned i = 0; i < tail_len; i++) {
+        for (unsigned i = 0; i < tail_len; ++i) {
             tails_negated.push_back(r->is_neg_tail(i));
             if (i == tail_index && !r->is_neg_tail(i)) {
                 tails.push_back(dtail);
@@ -355,13 +355,13 @@ namespace datalog {
 
         
         unsigned init_rule_cnt = source.get_num_rules();
-        for (unsigned i = 0; i < init_rule_cnt; i++) {
+        for (unsigned i = 0; i < init_rule_cnt; ++i) {
             rule * r = source.get_rule(i);
             m_rules.push_back(r);
             m_head_occurrence_ctr.inc(r->get_decl());
         }
 
-        for (unsigned i = 0; i < init_rule_cnt; i++) {
+        for (unsigned i = 0; i < init_rule_cnt; ++i) {
             detect_tasks(source, i);
         }
 

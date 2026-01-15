@@ -733,7 +733,7 @@ namespace bv {
         unsigned num_vars = get_num_vars();
         if (num_vars > 0)
             out << "bv-solver:\n";
-        for (unsigned v = 0; v < num_vars; v++)
+        for (unsigned v = 0; v < num_vars; ++v)
             out << pp(v);
         return out;
     }
@@ -896,7 +896,7 @@ namespace bv {
         unsigned sz = m_bits[v1].size();
         if (sz == 1)
             return;
-        for (unsigned idx = 0; !s().inconsistent() && idx < sz; idx++) {
+        for (unsigned idx = 0; !s().inconsistent() && idx < sz; ++idx) {
             literal bit1 = m_bits[v1][idx];
             literal bit2 = m_bits[v2][idx];
             CTRACE(bv, bit1 == ~bit2, tout << pp(v1) << pp(v2) << "idx: " << idx << "\n";);
@@ -1025,7 +1025,7 @@ namespace bv {
         };
         scoped_reset _sr(*this, bits1);
 
-        DEBUG_CODE(for (unsigned i = 0; i < bv_size; i++) SASSERT(m_merge_aux[0][i] == euf::null_theory_var || m_merge_aux[1][i] == euf::null_theory_var););
+        DEBUG_CODE(for (unsigned i = 0; i < bv_size; ++i) SASSERT(m_merge_aux[0][i] == euf::null_theory_var || m_merge_aux[1][i] == euf::null_theory_var););
 
         // save info about bits1
         for (auto& zo : bits1)
@@ -1046,7 +1046,7 @@ namespace bv {
                 bits1.push_back(zo);
         }
         // reset m_merge_aux vector
-        DEBUG_CODE(for (unsigned i = 0; i < bv_size; i++) { SASSERT(m_merge_aux[0][i] == euf::null_theory_var || m_merge_aux[1][i] == euf::null_theory_var); });
+        DEBUG_CODE(for (unsigned i = 0; i < bv_size; ++i) { SASSERT(m_merge_aux[0][i] == euf::null_theory_var || m_merge_aux[1][i] == euf::null_theory_var); });
         return true;
     }
 

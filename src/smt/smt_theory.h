@@ -528,7 +528,7 @@ namespace smt {
             table.reset();
             bool result   = false;
             int num       = get_num_vars();
-            for (theory_var v = 0; v < num; v++) {
+            for (theory_var v = 0; v < num; ++v) {
                 enode * n        = get_enode(v);
                 theory_var other = null_theory_var;
                 TRACE(assume_eqs,

@@ -35,7 +35,7 @@ expr * datatype_factory::get_some_value(sort * s) {
     func_decl * c = m_util.get_non_rec_constructor(s);
     ptr_vector<expr> args;
     unsigned num  = c->get_arity();
-    for (unsigned i = 0; i < num; i++) 
+    for (unsigned i = 0; i < num; ++i) 
         args.push_back(m_model.get_some_value(c->get_domain(i)));    
     expr * r = m_manager.mk_app(c, args);
     register_value(r);
@@ -95,7 +95,7 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
         bool found_fresh_arg = false;
         bool recursive       = false;
         unsigned num            = constructor->get_arity();
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             sort * s_arg        = constructor->get_domain(i);
             if (!found_fresh_arg && (!m_util.is_datatype(s_arg) || !m_util.are_siblings(s, s_arg))) {
                 expr * new_arg = m_model.get_fresh_value(s_arg);
@@ -163,7 +163,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
         expr_ref new_value(m_manager);
         bool found_fresh_arg = false;
         unsigned num            = constructor->get_arity();
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             sort * s_arg        = constructor->get_domain(i);
             if (!found_fresh_arg && 
                 !m_util.is_recursive_nested(s_arg) && 
@@ -204,7 +204,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                 bool found_sibling   = false;
                 unsigned num         = constructor->get_arity();
                 TRACE(datatype, tout << "checking constructor: " << constructor->get_name() << "\n";);
-                for (unsigned i = 0; i < num; i++) {
+                for (unsigned i = 0; i < num; ++i) {
                     sort * s_arg        = constructor->get_domain(i);
                     TRACE(datatype, tout << mk_pp(s, m_manager) << " " 
                           << mk_pp(s_arg, m_manager) << " are_siblings " 

@@ -84,7 +84,7 @@ public:
             m_nodes.shrink(sz); 
         }
         else {
-            for (unsigned i = m_nodes.size(); i < sz; i++)
+            for (unsigned i = m_nodes.size(); i < sz; ++i)
                 push_back(d);
         }
     }
@@ -167,7 +167,7 @@ public:
 
     void erase(T * elem) {
         unsigned sz = size();
-        for (unsigned idx = 0; idx < sz; idx++) {
+        for (unsigned idx = 0; idx < sz; ++idx) {
             if (m_nodes[idx] == elem) {
                 erase(idx);
                 return;
@@ -177,7 +177,7 @@ public:
 
     bool contains(T * elem) const {
         unsigned sz = size();
-        for (unsigned idx = 0; idx < sz; idx++)
+        for (unsigned idx = 0; idx < sz; ++idx)
             if (m_nodes[idx] == elem)
                 return true;
         return false;

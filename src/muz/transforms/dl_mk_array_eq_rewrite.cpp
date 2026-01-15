@@ -57,12 +57,12 @@ namespace datalog {
         expr_ref_vector new_tail(m);
         unsigned nb_predicates = r.get_uninterpreted_tail_size();
         unsigned tail_size = r.get_tail_size();
-        for (unsigned i = 0; i < nb_predicates; i++) {
+        for (unsigned i = 0; i < nb_predicates; ++i) {
             new_tail.push_back(r.get_tail(i));
         }
 
         expr_equiv_class array_eq_classes(m);
-        for(unsigned i = nb_predicates; i < tail_size; i++) {
+        for(unsigned i = nb_predicates; i < tail_size; ++i) {
             expr* cond = r.get_tail(i);
             expr* e1, *e2;
             if (m.is_eq(cond, e1, e2) && m_a.is_array(e1->get_sort())) {
@@ -82,7 +82,7 @@ namespace datalog {
                 }
             }
             for (expr * v : c_eq) {
-                for (unsigned i = 0; i < new_tail.size(); i++)
+                for (unsigned i = 0; i < new_tail.size(); ++i)
                     new_tail[i] = replace(new_tail[i].get(), representative, v);
             }
             for (expr * v : c_eq) {

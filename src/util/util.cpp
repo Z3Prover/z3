@@ -112,7 +112,7 @@ unsigned uint64_log2(uint64_t v) {
 }
 
 bool product_iterator_next(unsigned n, unsigned const * sz, unsigned * it) {
-    for (unsigned i = 0; i < n; i++) {
+    for (unsigned i = 0; i < n; ++i) {
         it[i]++;
         if (it[i] < sz[i])
             return true;
@@ -147,7 +147,7 @@ void escaped::display(std::ostream & out) const {
         }
         out << c;
         if (c == '\n') {
-            for (unsigned i = 0; i < m_indent; i++)
+            for (unsigned i = 0; i < m_indent; ++i)
                 out << " ";
         }
     }

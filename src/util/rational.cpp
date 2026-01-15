@@ -34,7 +34,7 @@ static void mk_power_up_to(vector<rational> & pws, unsigned n) {
     unsigned sz = pws.size();
     rational curr = pws[sz - 1];
     rational two(2);
-    for (unsigned i = sz; i <= n; i++) {
+    for (unsigned i = sz; i <= n; ++i) {
         curr *= two;
         pws.push_back(curr);
     }

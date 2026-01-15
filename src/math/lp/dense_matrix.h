@@ -49,10 +49,10 @@ public:
     dense_matrix operator*=(matrix<T, X> const & a) {
         SASSERT(column_count() == a.row_count());
         dense_matrix c(row_count(), a.column_count());
-        for (unsigned i = 0; i < row_count(); i++) {
-            for (unsigned j = 0; j < a.column_count(); j++) {
+        for (unsigned i = 0; i < row_count(); ++i) {
+            for (unsigned j = 0; j < a.column_count(); ++j) {
                 T v = numeric_traits<T>::zero();
-                for (unsigned k = 0; k < a.column_count(); k++) {
+                for (unsigned k = 0; k < a.column_count(); ++k) {
                     v += get_elem(i, k) * a(k, j);
                 }
                 c.set_elem(i, j, v);

@@ -96,7 +96,7 @@ private:
 
     bool has_quantifiers() const {
         unsigned sz = get_num_assertions();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (::has_quantifiers(get_assertion(i)))
                 return true;
         }

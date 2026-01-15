@@ -35,7 +35,7 @@ public:
         for (auto c: cs) {
             m_cs[i++] = c;
         }
-        for (; i < 4; i++) {
+        for (; i < 4; ++i) {
             m_cs[i] = nullptr;
         }
     }

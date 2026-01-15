@@ -151,7 +151,7 @@ namespace sat {
         }
         
         // create new vars
-        for (bool_var v = num_vars(); v < src.num_vars(); v++) {
+        for (bool_var v = num_vars(); v < src.num_vars(); ++v) {
             bool ext  = src.m_external[v];
             bool dvar = src.m_decision[v];
             VERIFY(v == mk_var(ext, dvar));
@@ -344,7 +344,7 @@ namespace sat {
             
 
         DEBUG_CODE({
-                for (unsigned i = 0; i < num_lits; i++) {
+                for (unsigned i = 0; i < num_lits; ++i) {
                     CTRACE(sat, was_eliminated(lits[i]), tout << lits[i] << " was eliminated\n";);
                     SASSERT(!was_eliminated(lits[i]));
                 }
@@ -760,7 +760,7 @@ namespace sat {
         unsigned max_false_idx = UINT_MAX;
         unsigned unknown_idx   = UINT_MAX;
         unsigned n = cls.size();
-        for (unsigned i = starting_at; i < n; i++) {
+        for (unsigned i = starting_at; i < n; ++i) {
             literal l   = cls[i];
             switch(value(l)) {
             case l_false:
@@ -799,7 +799,7 @@ namespace sat {
         SASSERT(cls.size() >= 2);
         unsigned max_false_idx = UINT_MAX;
         unsigned num_lits = cls.size();
-        for (unsigned i = 1; i < num_lits; i++) {
+        for (unsigned i = 1; i < num_lits; ++i) {
             literal l    = cls[i];
             CTRACE(sat, value(l) != l_false, tout << l << ":=" << value(l););
             SASSERT(value(l) == l_false);
@@ -815,7 +815,7 @@ namespace sat {
         literal prev = null_literal;
         unsigned i = 0;
         unsigned j = 0;
-        for (; i < num_lits; i++) {
+        for (; i < num_lits; ++i) {
             literal curr = lits[i];
             lbool val = value(curr);
             if (!lvl0 && lvl(curr) > 0)
@@ -2140,7 +2140,7 @@ namespace sat {
         m_model_is_current = true;
         unsigned num = num_vars();
         m_model.resize(num, l_undef);
-        for (bool_var v = 0; v < num; v++) {
+        for (bool_var v = 0; v < num; ++v) {
             if (!was_eliminated(v)) {
                 m_model[v] = value(v);
                 m_phase[v] = value(v) == l_true;
@@ -2150,7 +2150,7 @@ namespace sat {
         TRACE(sat_mc_bug, m_mc.display(tout););
 
 #if 0
-        IF_VERBOSE(2, for (bool_var v = 0; v < num; v++) verbose_stream() << v << ": " << m_model[v] << "\n";);
+        IF_VERBOSE(2, for (bool_var v = 0; v < num; ++v) verbose_stream() << v << ": " << m_model[v] << "\n";);
         for (auto p : big::s_del_bin) {
             if (value(p.first) != l_true && value(p.second) != l_true) {
                 IF_VERBOSE(2, verbose_stream() << "binary violation: " << p.first << " " << p.second << "\n");
@@ -2174,12 +2174,12 @@ namespace sat {
         if (m_clone && !check_clauses(m_model)) {
             IF_VERBOSE(1, verbose_stream() << "failure checking clauses on transformed model\n";);
             IF_VERBOSE(10, m_mc.display(verbose_stream()));
-            IF_VERBOSE(1, for (bool_var v = 0; v < num; v++) verbose_stream() << v << ": " << m_model[v] << "\n";);
+            IF_VERBOSE(1, for (bool_var v = 0; v < num; ++v) verbose_stream() << v << ": " << m_model[v] << "\n";);
 
             throw solver_exception("check model failed");
         }
 
-        TRACE(sat, for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
+        TRACE(sat, for (bool_var v = 0; v < num; ++v) tout << v << ": " << m_model[v] << "\n";);
 
         if (m_clone) {
             IF_VERBOSE(1, verbose_stream() << "\"checking model (on original set of clauses)\"\n";);
@@ -2529,7 +2529,7 @@ namespace sat {
                     }
                 }
                 unsigned sz = c.size();
-                for (; i < sz; i++)
+                for (; i < sz; ++i)
                     process_antecedent(~c[i], num_marks);
                 break;
             }
@@ -2699,7 +2699,7 @@ namespace sat {
                 }
             }
             unsigned sz = c.size();
-            for (; i < sz; i++)
+            for (; i < sz; ++i)
                 process_antecedent_for_unsat_core(~c[i]);
             break;
         }
@@ -2910,7 +2910,7 @@ namespace sat {
         unsigned from_lvl = m_conflict_lvl;
         unsigned head = from_lvl == 0 ? 0 : m_scopes[from_lvl - 1].m_trail_lim;
         unsigned sz   = m_trail.size();
-        for (unsigned i = head; i < sz; i++) {
+        for (unsigned i = head; i < sz; ++i) {
             bool_var v = m_trail[i].var();
             TRACE(forget_phase, tout << "forgetting phase of v" << v << "\n";);
             m_phase[v] = m_rand() % 2 == 0;
@@ -3079,7 +3079,7 @@ namespace sat {
     unsigned solver::num_diff_levels(unsigned num, literal const * lits) {
         m_diff_levels.reserve(scope_lvl() + 1, false);
         unsigned r = 0;
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             SASSERT(value(lits[i]) != l_undef);
             unsigned lit_lvl = lvl(lits[i]);
             if (!m_diff_levels[lit_lvl]) {
@@ -3088,7 +3088,7 @@ namespace sat {
             }
         }
         // reset m_diff_levels.
-        for (unsigned i = 0; i < num; i++)
+        for (unsigned i = 0; i < num; ++i)
             m_diff_levels[lvl(lits[i])] = false;
         return r;
     }
@@ -3097,7 +3097,7 @@ namespace sat {
         m_diff_levels.reserve(scope_lvl() + 1, false);
         glue = 0;
         unsigned i = 0;
-        for (; i < num && glue < max_glue; i++) {
+        for (; i < num && glue < max_glue; ++i) {
             SASSERT(value(lits[i]) != l_undef);
             unsigned lit_lvl = lvl(lits[i]);
             if (!m_diff_levels[lit_lvl]) {
@@ -3115,7 +3115,7 @@ namespace sat {
         m_diff_levels.reserve(scope_lvl() + 1, false);
         glue = 0;
         unsigned i = 0;
-        for (; i < num && glue < max_glue; i++) {
+        for (; i < num && glue < max_glue; ++i) {
             if (value(lits[i]) == l_false) {
                 unsigned lit_lvl = lvl(lits[i]);
                 if (!m_diff_levels[lit_lvl]) {
@@ -3201,7 +3201,7 @@ namespace sat {
                     i = 2;
                 }
                 unsigned sz = c.size();
-                for (; i < sz; i++) {
+                for (; i < sz; ++i) {
                     if (!process_antecedent_for_minimization(~c[i])) {
                         reset_unmark(old_size);
                         return false;
@@ -3236,7 +3236,7 @@ namespace sat {
     */
     void solver::reset_unmark(unsigned old_size) {
         unsigned curr_size = m_unmark.size();
-        for(unsigned i = old_size; i < curr_size; i++)
+        for(unsigned i = old_size; i < curr_size; ++i)
             reset_mark(m_unmark[i]);
         m_unmark.shrink(old_size);
     }
@@ -3296,7 +3296,7 @@ namespace sat {
         unsigned sz   = m_lemma.size();
         unsigned i    = 1; // the first literal is the FUIP
         unsigned j    = 1;
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             literal l = m_lemma[i];
             if (implied_by_marked(l)) {
                 m_unmark.push_back(l.var());
@@ -3380,7 +3380,7 @@ namespace sat {
     */
     bool solver::dyn_sub_res() {
         unsigned sz = m_lemma.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             mark_lit(m_lemma[i]);
         }
 
@@ -3390,7 +3390,7 @@ namespace sat {
         // In the following loop, we use unmark_lit(l) to remove a
         // literal from m_lemma.
 
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             literal l = m_lemma[i];
             if (!is_marked_lit(l))
                 continue; // literal was eliminated
@@ -3466,7 +3466,7 @@ namespace sat {
         SASSERT(is_marked_lit(m_lemma[0]));
 
         unsigned j = 0;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             literal l = m_lemma[i];
             if (is_marked_lit(l)) {
                 unmark_lit(l);
@@ -3664,7 +3664,7 @@ namespace sat {
         unsigned sz = m_clauses_to_reinit.size();
         SASSERT(old_sz <= sz);
         unsigned j = old_sz;
-        for (unsigned i = old_sz; i < sz; i++) {
+        for (unsigned i = old_sz; i < sz; ++i) {
             clause_wrapper cw = m_clauses_to_reinit[i];
             bool reinit = false;
             if (cw.is_binary()) {
@@ -3836,7 +3836,7 @@ namespace sat {
     void solver::collect_bin_clauses(svector<bin_clause> & r, bool redundant, bool learned_only) const {
         SASSERT(redundant || !learned_only);  
         unsigned sz = m_watches.size();
-        for (unsigned l_idx = 0; l_idx < sz; l_idx++) {
+        for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
             literal l = to_literal(l_idx);
             l.neg();
             for (watched const& w : m_watches[l_idx]) {
@@ -3872,7 +3872,7 @@ namespace sat {
     }
 
     bool solver::check_marks() const {
-        for (bool_var v = 0; v < num_vars(); v++) {
+        for (bool_var v = 0; v < num_vars(); ++v) {
             SASSERT(!is_marked(v));
         }
         return true;
@@ -3880,7 +3880,7 @@ namespace sat {
 
     std::ostream& solver::display_model(std::ostream& out) const {
         unsigned num = num_vars();
-        for (bool_var v = 0; v < num; v++) {
+        for (bool_var v = 0; v < num; ++v) {
             out << v << ": " << m_model[v] << "\n";
         }
         return out;
@@ -3888,7 +3888,7 @@ namespace sat {
 
     void solver::display_binary(std::ostream & out) const {
         unsigned sz = m_watches.size();
-        for (unsigned l_idx = 0; l_idx < sz; l_idx++) {
+        for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
             literal l = to_literal(l_idx);
             l.neg();
             for (watched const& w : m_watches[l_idx]) {
@@ -4002,7 +4002,7 @@ namespace sat {
             }
         }
         clause_vector const * vs[2] = { &m_clauses, &m_learned };
-        for (unsigned i = 0; i < 2; i++) {
+        for (unsigned i = 0; i < 2; ++i) {
             clause_vector const & cs = *(vs[i]);
             for (auto cp : cs) {
                 for (literal l : *cp) {
@@ -4037,7 +4037,7 @@ namespace sat {
             ++l_idx;
         }
         clause_vector const * vs[2] = { &m_clauses, &m_learned };
-        for (unsigned i = 0; i < 2; i++) {
+        for (unsigned i = 0; i < 2; ++i) {
             clause_vector const & cs = *(vs[i]);
             for (clause const* cp : cs) {
                 clause const & c = *cp;
@@ -4704,14 +4704,14 @@ namespace sat {
             }
         }
         unsigned num_elim = 0;
-        for (bool_var v = 0; v < num_vars(); v++) {
+        for (bool_var v = 0; v < num_vars(); ++v) {
             if (m_eliminated[v])
                 num_elim++;
         }
         unsigned num_ter  = 0;
         unsigned num_cls  = 0;
         clause_vector const * vs[2] = { &m_clauses, &m_learned };
-        for (unsigned i = 0; i < 2; i++) {
+        for (unsigned i = 0; i < 2; ++i) {
             clause_vector const & cs = *(vs[i]);
             for (clause* cp : cs) {
                 clause & c = *cp;

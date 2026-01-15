@@ -26,7 +26,7 @@ namespace lp {
 
 
 void print_vector_as_doubles(const vector<mpq> & t, std::ostream & out) {
-    for (unsigned i = 0; i < t.size(); i++)
+    for (unsigned i = 0; i < t.size(); ++i)
         out << t[i].get_double() << std::setprecision(3) << " ";
     out << std::endl;
 }
@@ -75,7 +75,7 @@ void indexed_vector<T>::erase(unsigned j) {
 template <typename T>
 void indexed_vector<T>::print(std::ostream & out) {
     out << "m_index " << std::endl;
-    for (unsigned i = 0; i < m_index.size(); i++) {
+    for (unsigned i = 0; i < m_index.size(); ++i) {
         out << m_index[i] << " ";
     }
     out << std::endl;

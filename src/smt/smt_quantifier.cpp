@@ -267,7 +267,7 @@ namespace smt {
 
                 // At this point all relevant equalities for the match are logged.
                 out << "[new-match] " << f->get_data_hash() << " #" << q->get_id() << " #" << pat->get_id();
-                for (unsigned i = 0; i < num_bindings; i++) {
+                for (unsigned i = 0; i < num_bindings; ++i) {
                     // I don't want to use mk_pp because it creates expressions for pretty printing.
                     // This nasty side-effect may change the behavior of Z3.
                     out << " #" << bindings[num_bindings - i - 1]->get_owner_id();
@@ -680,7 +680,7 @@ namespace smt {
             }
             bool has_unary_pattern = false;
             unsigned num_patterns = q->get_num_patterns();
-            for (unsigned i = 0; i < num_patterns; i++) {
+            for (unsigned i = 0; i < num_patterns; ++i) {
                 app * mp = to_app(q->get_pattern(i));
                 if (mp->get_num_args() == 1) {
                     has_unary_pattern = true;
@@ -690,7 +690,7 @@ namespace smt {
             unsigned num_eager_multi_patterns = m_fparams->m_qi_max_eager_multipatterns;
             if (!has_unary_pattern)
                 num_eager_multi_patterns++;
-            for (unsigned i = 0, j = 0; i < num_patterns; i++) {
+            for (unsigned i = 0, j = 0; i < num_patterns; ++i) {
                 app * mp = to_app(q->get_pattern(i));
                 SASSERT(m.is_pattern(mp));
                 bool unary = (mp->get_num_args() == 1);

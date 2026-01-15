@@ -15,7 +15,7 @@ void const_iterator_mon::init_vars_by_the_mask(unsigned_vector & k_vars, unsigne
     // the last element for m_factorization.m_rooted_vars goes to k_vars
     SASSERT(m_mask.size() + 1  == m_ff->m_vars.size());
     k_vars.push_back(m_ff->m_vars.back()); 
-    for (unsigned j = 0; j < m_mask.size(); j++) {
+    for (unsigned j = 0; j < m_mask.size(); ++j) {
         if (m_mask[j]) 
             k_vars.push_back(m_ff->m_vars[j]);         
         else 

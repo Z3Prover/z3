@@ -942,7 +942,7 @@ namespace smt2 {
                 dts->commit(pm());
                 m_ctx.insert_aux_pdecl(dts.get());
             }
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 pdatatype_decl * d = new_dt_decls[i];
                 check_duplicate(d, line, pos);
                 if (!is_smt2_6) {
@@ -2040,7 +2040,7 @@ namespace smt2 {
             unsigned begin_pats = fr->m_pat_spos;
             unsigned end_pats   = pattern_stack().size();
             unsigned j = begin_pats;
-            for (unsigned i = begin_pats; i < end_pats; i++) {
+            for (unsigned i = begin_pats; i < end_pats; ++i) {
                 expr * pat = pattern_stack().get(i);
                 if (!pat_validator()(num_decls, pat, m_scanner.get_line(), m_scanner.get_pos())) {
                     if (!ignore_bad_patterns())
@@ -2728,7 +2728,7 @@ namespace smt2 {
             expr ** expr_it  = expr_stack().data() + spos;
             expr ** expr_end = expr_it + m_cached_strings.size();
             md->compress();
-            for (unsigned i = 0; expr_it < expr_end; expr_it++, i++) {
+            for (unsigned i = 0; expr_it < expr_end; ++expr_it, ++i) {
                 model::scoped_model_completion _scm(md, true);
                 expr_ref v = (*md)(*expr_it);
                 if (i > 0)

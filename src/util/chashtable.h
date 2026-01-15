@@ -130,7 +130,7 @@ protected:
         }
 #if 0
         TRACE(chashtable, 
-              for (unsigned i = 0; i < source_capacity; i++) {
+              for (unsigned i = 0; i < source_capacity; ++i) {
                   tout << i << ":[";
                   if (source[i].m_next == 0)
                       tout << "null";
@@ -141,7 +141,7 @@ protected:
                   tout << ", " << source[i].m_data << "]\n";
               }
               tout << "\n";
-              for (unsigned i = 0; i < target_capacity; i++) {
+              for (unsigned i = 0; i < target_capacity; ++i) {
                   tout << i << ":[";
                   if (target[i].m_next == 0)
                       tout << "null";

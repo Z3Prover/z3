@@ -69,7 +69,7 @@ public:
             return;
         }
 
-        for (unsigned i = 0; i < g->size(); i++)
+        for (unsigned i = 0; i < g->size(); ++i)
             m_sls->assert_expr(g->form(i));
 
 
@@ -169,7 +169,7 @@ public:
             return;
         }        
         
-        for (unsigned i = 0; i < g->size(); i++)
+        for (unsigned i = 0; i < g->size(); ++i)
             m_engine->assert_expr(g->form(i));    
         
         lbool res = m_engine->operator()();
@@ -177,7 +177,7 @@ public:
         if (res == l_true) {
             report_tactic_progress("Number of flips:", stats.m_moves);
             
-            for (unsigned i = 0; i < g->size(); i++)
+            for (unsigned i = 0; i < g->size(); ++i)
                 if (!m_engine->get_mpz_manager().is_one(m_engine->get_value(g->form(i)))) {
                     verbose_stream() << "Terminated before all assertions were SAT!" << std::endl;
                     NOT_IMPLEMENTED_YET();

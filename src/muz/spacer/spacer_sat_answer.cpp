@@ -186,10 +186,10 @@ proof *ground_sat_answer_op::mk_proof_step(frame &fr) {
     premises.push_back(m.mk_asserted(rule_fml));
     for (auto &k : fr.m_kids) {premises.push_back(m_cache.find(k));}
 
-    for (unsigned i = 0; i < premises.size(); i++) {
+    for (unsigned i = 0; i < premises.size(); ++i) {
         positions.push_back(std::make_pair(0,i));
     }
-    for (unsigned i = 0; i <= premises.size(); i++) {
+    for (unsigned i = 0; i <= premises.size(); ++i) {
         substs.push_back(expr_ref_vector(m));
     }
     m_pinned.push_back(m.mk_hyper_resolve(premises.size(),

@@ -1267,7 +1267,7 @@ namespace z3 {
         expr_vector args() const {
           expr_vector vec(ctx());
           unsigned argCnt = num_args();
-          for (unsigned i = 0; i < argCnt; i++)
+          for (unsigned i = 0; i < argCnt; ++i)
             vec.push_back(arg(i));
           return vec;
         }
@@ -2398,7 +2398,7 @@ namespace z3 {
     template<typename T>
     template<typename T2>
     array<T>::array(ast_vector_tpl<T2> const & v):m_array(new T[v.size()]), m_size(v.size()) {
-        for (unsigned i = 0; i < m_size; i++) {
+        for (unsigned i = 0; i < m_size; ++i) {
             m_array[i] = v[i];
         }
     }
@@ -2929,7 +2929,7 @@ namespace z3 {
         check_result check() { Z3_lbool r = Z3_solver_check(ctx(), m_solver); check_error(); return to_check_result(r); }
         check_result check(unsigned n, expr * const assumptions) {
             array<Z3_ast> _assumptions(n);
-            for (unsigned i = 0; i < n; i++) {
+            for (unsigned i = 0; i < n; ++i) {
                 check_context(*this, assumptions[i]);
                 _assumptions[i] = assumptions[i];
             }
@@ -2940,7 +2940,7 @@ namespace z3 {
         check_result check(expr_vector const& assumptions) {
             unsigned n = assumptions.size();
             array<Z3_ast> _assumptions(n);
-            for (unsigned i = 0; i < n; i++) {
+            for (unsigned i = 0; i < n; ++i) {
                 check_context(*this, assumptions[i]);
                 _assumptions[i] = assumptions[i];
             }
@@ -3171,7 +3171,7 @@ namespace z3 {
                 return operator[](0u);
             else {
                 array<Z3_ast> args(n);
-                for (unsigned i = 0; i < n; i++)
+                for (unsigned i = 0; i < n; ++i)
                     args[i] = operator[](i);
                 return expr(ctx(), Z3_mk_and(ctx(), n, args.ptr()));
             }
@@ -3500,7 +3500,7 @@ namespace z3 {
         check_result check(expr_vector const& asms) {
             unsigned n = asms.size();
             array<Z3_ast> _asms(n);
-            for (unsigned i = 0; i < n; i++) {
+            for (unsigned i = 0; i < n; ++i) {
                 check_context(*this, asms[i]);
                 _asms[i] = asms[i];
             }
@@ -3642,25 +3642,25 @@ namespace z3 {
     }
     inline sort context::enumeration_sort(char const * name, unsigned n, char const * const * enum_names, func_decl_vector & cs, func_decl_vector & ts) {
         array<Z3_symbol> _enum_names(n);
-        for (unsigned i = 0; i < n; i++) { _enum_names[i] = Z3_mk_string_symbol(*this, enum_names[i]); }
+        for (unsigned i = 0; i < n; ++i) { _enum_names[i] = Z3_mk_string_symbol(*this, enum_names[i]); }
         array<Z3_func_decl> _cs(n);
         array<Z3_func_decl> _ts(n);
         Z3_symbol _name = Z3_mk_string_symbol(*this, name);
         sort s = to_sort(*this, Z3_mk_enumeration_sort(*this, _name, n, _enum_names.ptr(), _cs.ptr(), _ts.ptr()));
         check_error();
-        for (unsigned i = 0; i < n; i++) { cs.push_back(func_decl(*this, _cs[i])); ts.push_back(func_decl(*this, _ts[i])); }
+        for (unsigned i = 0; i < n; ++i) { cs.push_back(func_decl(*this, _cs[i])); ts.push_back(func_decl(*this, _ts[i])); }
         return s;
     }
     inline func_decl context::tuple_sort(char const * name, unsigned n, char const * const * names, sort const* sorts, func_decl_vector & projs) {
         array<Z3_symbol> _names(n);
         array<Z3_sort> _sorts(n);
-        for (unsigned i = 0; i < n; i++) { _names[i] = Z3_mk_string_symbol(*this, names[i]); _sorts[i] = sorts[i]; }
+        for (unsigned i = 0; i < n; ++i) { _names[i] = Z3_mk_string_symbol(*this, names[i]); _sorts[i] = sorts[i]; }
         array<Z3_func_decl> _projs(n);
         Z3_symbol _name = Z3_mk_string_symbol(*this, name);
         Z3_func_decl tuple;
         sort _ignore_s = to_sort(*this, Z3_mk_tuple_sort(*this, _name, n, _names.ptr(), _sorts.ptr(), &tuple, _projs.ptr()));
         check_error();
-        for (unsigned i = 0; i < n; i++) { projs.push_back(func_decl(*this, _projs[i])); }
+        for (unsigned i = 0; i < n; ++i) { projs.push_back(func_decl(*this, _projs[i])); }
         return func_decl(*this, tuple);
     }
 
@@ -3783,7 +3783,7 @@ namespace z3 {
 
     inline func_decl context::function(symbol const & name, unsigned arity, sort const * domain, sort const & range) {
         array<Z3_sort> args(arity);
-        for (unsigned i = 0; i < arity; i++) {
+        for (unsigned i = 0; i < arity; ++i) {
             check_context(domain[i], range);
             args[i] = domain[i];
         }
@@ -3798,7 +3798,7 @@ namespace z3 {
 
     inline func_decl context::function(symbol const& name, sort_vector const& domain, sort const& range) {
         array<Z3_sort> args(domain.size());
-        for (unsigned i = 0; i < domain.size(); i++) {
+        for (unsigned i = 0; i < domain.size(); ++i) {
             check_context(domain[i], range);
             args[i] = domain[i];
         }
@@ -3854,7 +3854,7 @@ namespace z3 {
 
     inline func_decl context::recfun(symbol const & name, unsigned arity, sort const * domain, sort const & range) {
         array<Z3_sort> args(arity);
-        for (unsigned i = 0; i < arity; i++) {
+        for (unsigned i = 0; i < arity; ++i) {
             check_context(domain[i], range);
             args[i] = domain[i];
         }
@@ -3978,7 +3978,7 @@ namespace z3 {
 
     inline expr func_decl::operator()(unsigned n, expr const * args) const {
         array<Z3_ast> _args(n);
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             check_context(*this, args[i]);
             _args[i] = args[i];
         }
@@ -3989,7 +3989,7 @@ namespace z3 {
     }
     inline expr func_decl::operator()(expr_vector const& args) const {
         array<Z3_ast> _args(args.size());
-        for (unsigned i = 0; i < args.size(); i++) {
+        for (unsigned i = 0; i < args.size(); ++i) {
             check_context(*this, args[i]);
             _args[i] = args[i];
         }
@@ -5016,7 +5016,7 @@ namespace z3 {
         std::vector<Z3_rcf_num> a(n);
         std::vector<Z3_rcf_num> roots(n);
         
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             a[i] = coeffs[i];
         }
         
@@ -5024,7 +5024,7 @@ namespace z3 {
         
         std::vector<rcf_num> result;
         result.reserve(num_roots);
-        for (unsigned i = 0; i < num_roots; i++) {
+        for (unsigned i = 0; i < num_roots; ++i) {
             result.push_back(rcf_num(c, roots[i]));
         }
         

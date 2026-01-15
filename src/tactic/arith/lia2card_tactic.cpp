@@ -205,7 +205,7 @@ public:
                 TRACE(pb, tout << "add bound " << lo << " " << hi << ": " << mk_pp(x, m) << "\n";);
             }
         }
-        for (unsigned i = 0; !g->inconsistent() && i < g->size(); i++) {
+        for (unsigned i = 0; !g->inconsistent() && i < g->size(); ++i) {
             checkpoint();
 
             expr_ref   new_curr(m), tmp(m);

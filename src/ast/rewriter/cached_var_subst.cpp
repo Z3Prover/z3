@@ -24,7 +24,7 @@ bool cached_var_subst::key_eq_proc::operator()(cached_var_subst::key * k1, cache
         return false;
     if (k1->m_num_bindings != k2->m_num_bindings)
         return false;
-    for (unsigned i = 0; i < k1->m_num_bindings; i++)
+    for (unsigned i = 0; i < k1->m_num_bindings; ++i)
         if (k1->m_bindings[i] != k2->m_bindings[i])
             return false;
     return true;
@@ -66,7 +66,7 @@ expr_ref cached_var_subst::operator()() {
         m_new_keys[num_bindings] = m_key; // recycle key
         result = entry->get_data().m_value;
         SCTRACE(bindings, is_trace_enabled(TraceTag::coming_from_quant), tout << "(cache)\n";
-                for (unsigned i = 0; i < num_bindings; i++) 
+                for (unsigned i = 0; i < num_bindings; ++i) 
                     if (m_key->m_bindings[i]) 
                         tout << i << ": " << mk_ismt2_pp(m_key->m_bindings[i], result.m()) << ";\n";
                 tout.flush(););
@@ -92,7 +92,7 @@ expr_ref cached_var_subst::operator()() {
 
     // increment reference counters
     m_refs.push_back(m_key->m_qa);
-    for (unsigned i = 0; i < m_key->m_num_bindings; i++)
+    for (unsigned i = 0; i < m_key->m_num_bindings; ++i)
         m_refs.push_back(m_key->m_bindings[i]);
     m_refs.push_back(result);
     return result;
