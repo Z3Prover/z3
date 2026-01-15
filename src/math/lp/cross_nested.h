@@ -168,7 +168,7 @@ public:
         TRACE(nla_cn, tout << "save c=" << **c << "; front:"; print_front(front, tout) << "\n";);           
         nex* copy_of_c = *c;
         auto copy_of_front = copy_front(front);
-        int alloc_size = m_nex_creator.size();
+        int alloc_size = static_cast<int>(m_nex_creator.size());
         for (lpvar j : vars) {
             if (m_var_is_fixed(j)) {
                 // it does not make sense to explore fixed multupliers
