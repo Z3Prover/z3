@@ -156,7 +156,7 @@ jobs:
           cat > /opt/gh-aw/safeoutputs/tools.json << 'EOF'
           [
             {
-              "description": "Create a GitHub discussion for announcements, Q\u0026A, reports, status updates, or community conversations. Use this for content that benefits from threaded replies, doesn't require task tracking, or serves as documentation. For actionable work items that need assignment and status tracking, use create_issue instead. CONSTRAINTS: Maximum 1 discussion(s) can be created. Title will be prefixed with \"Code Conventions Analysis\". Discussions will be created in category \"General\".",
+              "description": "Create a GitHub discussion for announcements, Q\u0026A, reports, status updates, or community conversations. Use this for content that benefits from threaded replies, doesn't require task tracking, or serves as documentation. For actionable work items that need assignment and status tracking, use create_issue instead. CONSTRAINTS: Maximum 1 discussion(s) can be created. Title will be prefixed with \"Code Conventions Analysis\". Discussions will be created in category \"Agentic Workflows\".",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -461,7 +461,7 @@ jobs:
           - Range-based for loops instead of iterator loops
           - `nullptr` instead of `NULL` or `0`
           - `override` and `final` keywords for virtual functions
-          - Smart pointers (`unique_ptr`, `shared_ptr`) instead of raw pointers
+          - Smart pointers (`unique_ptr`) instead of raw pointers
           - Move semantics and `std::move`
           - Scoped enums (`enum class`) instead of plain enums
           - `constexpr` for compile-time constants
@@ -482,7 +482,6 @@ jobs:
           - Three-way comparison operator (`<=>`)
           - Ranges library
           - Coroutines (if beneficial)
-          - `std::format` for string formatting (replace stringstream for exceptions)
           
           ### 3. Common Library Function Usage
           
@@ -498,9 +497,22 @@ jobs:
           Identify opportunities specific to Z3's architecture and coding patterns:
           
           **Constructor/Destructor Optimization:**
-          - Empty/trivial constructors and destructors that can be removed (= default)
+          - **Empty constructors**: Truly empty constructors that should use `= default`
+            - Distinguish between completely empty constructors (can use `= default`)
+            - Constructors with member initializers (may still be candidates for improvement)
+            - Constructors that only initialize members to default values
+          - **Empty destructors**: Trivial destructors that can be removed or use `= default`
+            - Destructors with empty body `~Class() {}`
+            - Non-virtual destructors that don't need to be explicitly defined
+            - Virtual destructors (keep explicit even if empty for polymorphic classes),
+              but remove empty overridden destructors since those are implicit
+          - **Non-virtual destructors**: Analyze consistency and correctness
+            - Classes with virtual functions but non-virtual destructors (potential issue)
+            - Base classes without virtual destructors (check if inheritance is intended)
+            - Non-virtual destructors missing `noexcept` (should be added)
+            - Leaf classes with unnecessary virtual destructors (minor overhead)
           - Missing `noexcept` on non-default constructors and destructors
-          - Opportunities to use compiler-generated special members
+          - Opportunities to use compiler-generated special members (`= default`, `= delete`)
           
           **Implementation Pattern Improvements:**
           - `m_imp` (implementation pointer) pattern in classes used only within one file
@@ -539,11 +551,6 @@ jobs:
           - Replace with `std::optional<T>` return values
           - Cleaner API that avoids pointer/reference output parameters
           
-          **Exception String Construction:**
-          - Using `stringstream` to build exception messages
-          - Unnecessary string copies when raising exceptions
-          - Replace with `std::format` for cleaner, more efficient code
-          
           **Bitfield Opportunities:**
           - Structs with multiple boolean flags
           - Small integer fields that could use bitfields
@@ -580,6 +587,13 @@ jobs:
              - `glob` to identify file groups for analysis
              - `view` to examine specific files in detail
              - `bash` with git commands to check file history
+             - If compile_commands.json can be generated with clang, and clang-tidy
+               is available, run a targeted checkset on the selected files:
+                 - modernize-use-nullptr
+                 - modernize-use-override
+                 - modernize-loop-convert (review carefully)
+                 - bugprone-* (selected high-signal checks)
+                 - performance-* (selected)
           
           3. **Identify patterns** by examining multiple files:
              - Look at 10-15 representative files per major area
@@ -688,9 +702,70 @@ jobs:
           ## 4. Z3-Specific Code Quality Opportunities
           
           ### 4.1 Constructor/Destructor Optimization
-          - **Empty Constructors/Destructors**: [Count of trivial ones that can be removed/defaulted]
-          - **Missing noexcept**: [Non-default constructors/destructors without noexcept]
-          - **Impact**: [Code size reduction potential]
+          
+          #### 4.1.1 Empty Constructor Analysis
+          - **Truly Empty Constructors**: Constructors with completely empty bodies
+            - Count: [Number of `ClassName() {}` patterns]
+            - Recommendation: Replace with `= default` or remove if compiler can generate
+            - Examples: [File:line references]
+          - **Constructors with Only Member Initializers**: Constructors that could use in-class initializers
+            - Pattern: `ClassName() : m_member(value) {}`
+            - Recommendation: Move initialization to class member declaration if appropriate
+            - Examples: [File:line references]
+          - **Default Value Constructors**: Constructors that only set members to default values
+            - Pattern: Constructor setting pointers to nullptr, ints to 0, bools to false
+            - Recommendation: Use in-class member initializers and `= default`
+            - Examples: [File:line references]
+          
+          #### 4.1.2 Empty Destructor Analysis
+          - **Non-Virtual Empty Destructors**: Destructors with empty bodies in non-polymorphic classes
+            - Count: [Number of `~ClassName() {}` patterns without virtual]
+            - Recommendation: Remove or use `= default` to reduce binary size
+            - Examples: [File:line references]
+          - **Virtual Empty Destructors**: Empty virtual destructors in base classes
+            - Count: [Number found]
+            - Recommendation: Keep explicit (required for polymorphism), but ensure `= default` or add comment
+            - Examples: [File:line references]
+          
+          #### 4.1.3 Non-Virtual Destructor Safety Analysis
+          - **Classes with Virtual Methods but Non-Virtual Destructors**: Potential polymorphism issues
+            - Pattern: Class has virtual methods but destructor is not virtual
+            - Risk: If used polymorphically, may cause undefined behavior
+            - Count: [Number of classes]
+            - Examples: [File:line references with class hierarchy info]
+          - **Base Classes without Virtual Destructors**: Classes that might be inherited from
+            - Check: Does class have derived classes in codebase?
+            - Recommendation: Add virtual destructor if inheritance is intended, or mark class `final`
+            - Examples: [File:line references]
+          - **Leaf Classes with Unnecessary Virtual Destructors**: Final classes with virtual destructors
+            - Pattern: Class marked `final` but has `virtual ~ClassName()`
+            - Recommendation: Remove `virtual` keyword (minor optimization)
+            - Examples: [File:line references]
+          
+          #### 4.1.4 Missing noexcept Analysis
+          - **Non-Default Constructors without noexcept**: Constructors that don't throw
+            - Pattern: Explicit constructors without `noexcept` specification
+            - Recommendation: Add `noexcept` if constructor doesn't throw
+            - Count: [Number found]
+            - Examples: [File:line references]
+          - **Non-Virtual Destructors without noexcept**: Destructors should be noexcept by default
+            - Pattern: Non-virtual destructors without explicit `noexcept`
+            - Recommendation: Add explicit `noexcept` for clarity (or rely on implicit)
+            - Note: Destructors are implicitly noexcept, but explicit is clearer
+            - Count: [Number found]
+            - Examples: [File:line references]
+          - **Virtual Destructors without noexcept**: Virtual destructors that should be noexcept
+            - Pattern: `virtual ~ClassName()` without `noexcept`
+            - Recommendation: Add `noexcept` for exception safety guarantees
+            - Count: [Number found]
+            - Examples: [File:line references]
+          
+          #### 4.1.5 Compiler-Generated Special Members
+          - **Classes with Explicit Rule of 3/5**: Classes that define some but not all special members
+            - Rule of 5: Constructor, Destructor, Copy Constructor, Copy Assignment, Move Constructor, Move Assignment
+            - Recommendation: Either define all or use `= default`/`= delete` appropriately
+            - Examples: [File:line references]
+          - **Impact**: [Code size reduction potential, compile time improvements]
           
           ### 4.2 Implementation Pattern (m_imp) Analysis
           - **Current Usage**: [Files using m_imp pattern for internal-only classes]
@@ -732,24 +807,24 @@ jobs:
           - **API Improvements**: [Specific function signatures to update]
           - **Examples**: [File:line references with before/after]
           
-          ### 4.9 Exception String Construction
-          - **Current**: [stringstream usage for building exception messages]
-          - **Modern**: [std::format opportunities]
-          - **String Copies**: [Unnecessary copies when raising exceptions]
-          - **Examples**: [Specific exception construction sites]
-          
-          ### 4.10 Array Parameter Modernization
+          PROMPT_EOF
+      - name: Append prompt (part 2)
+        env:
+          GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
+        run: |
+          cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
+          ### 4.9 Array Parameter Modernization
           - **Current**: [Pointer + size parameter pairs]
           - **Modern**: [std::span usage opportunities]
           - **Type Safety**: [How span improves API safety]
           - **Examples**: [Function signatures to update]
           
-          ### 4.11 Increment Operator Patterns
+          ### 4.10 Increment Operator Patterns
           - **Postfix Usage**: [Count of i++ where result is unused]
           - **Prefix Preference**: [Places to use ++i instead]
           - **Iterator Loops**: [Heavy iterator usage areas]
           
-          ### 4.12 Exception Control Flow
+          ### 4.11 Exception Control Flow
           - **Current Usage**: [Exceptions used for normal control flow]
           - **Modern Alternatives**: [std::expected, std::optional, error codes]
           - **Performance**: [Impact of exception-based control flow]
@@ -852,20 +927,53 @@ jobs:
           
           **Find empty/trivial constructors and destructors:**
           ```
-          grep pattern: "~[A-Za-z_]+\(\)\s*\{\s*\}" glob: "src/**/*.cpp"
-          PROMPT_EOF
-      - name: Append prompt (part 2)
-        env:
-          GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
-        run: |
-          cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
-          grep pattern: "[A-Za-z_]+\(\)\s*\{\s*\}" glob: "src/**/*.cpp"
+          # Empty constructors in implementation files
+          grep pattern: "[A-Za-z_]+::[A-Za-z_]+\(\)\s*\{\s*\}" glob: "src/**/*.cpp"
+          
+          # Empty constructors in header files
+          grep pattern: "[A-Za-z_]+\(\)\s*\{\s*\}" glob: "src/**/*.h"
+          
+          # Empty destructors in implementation files
+          grep pattern: "[A-Za-z_]+::~[A-Za-z_]+\(\)\s*\{\s*\}" glob: "src/**/*.cpp"
+          
+          # Empty destructors in header files
+          grep pattern: "~[A-Za-z_]+\(\)\s*\{\s*\}" glob: "src/**/*.h"
+          
+          # Constructors with only member initializer lists (candidates for in-class init)
+          grep pattern: "[A-Za-z_]+\(\)\s*:\s*[a-z_]+\([^)]*\)\s*\{\s*\}" glob: "src/**/*.cpp"
+          
+          # Virtual destructors (to distinguish from non-virtual)
+          grep pattern: "virtual\s+~[A-Za-z_]+" glob: "src/**/*.h"
           ```
           
           **Find constructors/destructors without noexcept:**
           ```
-          grep pattern: "~[A-Za-z_]+\(\)(?!.*noexcept)" glob: "src/**/*.h"
-          grep pattern: "explicit.*\(\)(?!.*noexcept)" glob: "src/**/*.h"
+          # Non-virtual destructors without noexcept in headers
+          grep pattern: "~[A-Za-z_]+\(\)(?!.*noexcept)(?!.*virtual)" glob: "src/**/*.h"
+          
+          # Virtual destructors without noexcept
+          grep pattern: "virtual\s+~[A-Za-z_]+\(\)(?!.*noexcept)" glob: "src/**/*.h"
+          
+          # Explicit constructors without noexcept
+          grep pattern: "explicit\s+[A-Za-z_]+\([^)]*\)(?!.*noexcept)" glob: "src/**/*.h"
+          
+          # Non-default constructors without noexcept
+          grep pattern: "[A-Za-z_]+\([^)]+\)(?!.*noexcept)(?!.*=\s*default)" glob: "src/**/*.h"
+          ```
+          
+          **Find potential non-virtual destructor safety issues:**
+          ```
+          # Classes with virtual functions (candidates to check destructor)
+          grep pattern: "class\s+[A-Za-z_]+.*\{.*virtual\s+" glob: "src/**/*.h"
+          
+          # Classes marked final (can have non-virtual destructors)
+          grep pattern: "class\s+[A-Za-z_]+.*final" glob: "src/**/*.h"
+          
+          # Base classes that might need virtual destructors
+          grep pattern: "class\s+[A-Za-z_]+\s*:\s*public" glob: "src/**/*.h"
+          
+          # Non-virtual destructors in classes with virtual methods
+          grep pattern: "class.*\{.*virtual.*~[A-Za-z_]+\(\)(?!.*virtual)" multiline: true glob: "src/**/*.h"
           ```
           
           **Find m_imp pattern usage:**
@@ -908,11 +1016,6 @@ jobs:
           ```
           grep pattern: "return.*nullptr.*&" glob: "src/**/*.{h,cpp}"
           grep pattern: "bool.*\(.*\*.*\)|bool.*\(.*&" glob: "src/**/*.h"
-          ```
-          
-          **Find stringstream usage for exceptions:**
-          ```
-          grep pattern: "stringstream.*throw|ostringstream.*throw" glob: "src/**/*.cpp"
           ```
           
           **Find pointer + size parameters:**
@@ -1491,7 +1594,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_discussion\":{\"category\":\"General\",\"close_older_discussions\":true,\"expires\":168,\"max\":1,\"title_prefix\":\"Code Conventions Analysis\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_discussion\":{\"category\":\"Agentic Workflows\",\"close_older_discussions\":true,\"expires\":168,\"max\":1,\"title_prefix\":\"Code Conventions Analysis\"}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
