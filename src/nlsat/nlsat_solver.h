@@ -249,6 +249,8 @@ namespace nlsat {
         assignment& sample(); 
         bool apply_levelwise() const;
         unsigned lws_relation_mode() const;
+        unsigned lws_sector_relation_mode() const;
+        unsigned lws_section_relation_mode() const;
         void reset();
         void collect_statistics(statistics & st);
         void reset_statistics();
