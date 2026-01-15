@@ -19,6 +19,7 @@ Notes:
 #include "util/mpbq.h"
 #include "util/basic_interval.h"
 #include "util/scoped_ptr_vector.h"
+#include "util/chashtable.h"
 #include "util/mpbqi.h"
 #include "util/timeit.h"
 #include "util/common_msgs.h"
@@ -89,12 +90,78 @@ namespace algebraic_numbers {
         bool                       m_factor;
         polynomial::factor_params  m_factor_params;
         int                        m_zero_accuracy;
+        bool                       m_cache_roots = true;
 
         // statistics
         unsigned                 m_compare_cheap;
         unsigned                 m_compare_sturm;
         unsigned                 m_compare_refine;
         unsigned                 m_compare_poly_eq;
+
+        struct roots_cache_entry {
+            poly_manager*         m_pm;
+            polynomial_ref        m_p;
+            unsigned              m_hash;
+            scoped_numeral_vector m_roots;
+
+            roots_cache_entry(poly_manager& pm, polynomial_ref const& p, manager& am):
+                m_pm(&pm),
+                m_p(p),
+                m_hash(hash_u_u(get_ptr_hash(&pm), get_ptr_hash(p.get()))),
+                m_roots(am) {}
+
+            struct hash_proc {
+                unsigned operator()(roots_cache_entry const* e) const { return e->m_hash; }
+            };
+
+            struct eq_proc {
+                bool operator()(roots_cache_entry const* a, roots_cache_entry const* b) const {
+                    return a->m_pm == b->m_pm && a->m_p.get() == b->m_p.get();
+                }
+            };
+        };
+
+        typedef chashtable<roots_cache_entry*, roots_cache_entry::hash_proc, roots_cache_entry::eq_proc> roots_cache;
+        roots_cache              m_roots_cache;
+
+        ~imp() {
+            reset_roots_cache();
+        }
+
+        roots_cache_entry* mk_roots_cache_entry(poly_manager& pm, polynomial_ref const& p) {
+            void* mem = m_allocator.allocate(sizeof(roots_cache_entry));
+            return new (mem) roots_cache_entry(pm, p, m_wrapper);
+        }
+
+        void del_roots_cache_entry(roots_cache_entry* entry) {
+            entry->~roots_cache_entry();
+            m_allocator.deallocate(sizeof(roots_cache_entry), entry);
+        }
+
+        void reset_roots_cache() {
+            for (auto* entry : m_roots_cache)
+                del_roots_cache_entry(entry);
+            m_roots_cache.reset();
+        }
+
+        static bool get_cache_roots(params_ref const& p) {
+            bool cache_roots = p.get_bool("cache_roots", true);
+            return p.get_bool("nlsat.cache_roots", cache_roots);
+        }
+
+        void set_cache_roots(bool enable) {
+            if (m_cache_roots == enable)
+                return;
+            m_cache_roots = enable;
+            if (!m_cache_roots)
+                reset_roots_cache();
+        }
+
+        roots_cache_entry* find_roots_cache_entry(polynomial_ref const& p) {
+            roots_cache_entry key(p.m(), p, m_wrapper);
+            roots_cache_entry** entry = m_roots_cache.find_core(&key);
+            return entry ? *entry : nullptr;
+        }
 
         imp(reslimit& lim, manager & w, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator & a):
             m_limit(lim),
@@ -155,6 +222,7 @@ namespace algebraic_numbers {
             m_factor_params.m_p_trials = p.factor_num_primes();
             m_factor_params.m_max_search_size = p.factor_search_size();
             m_zero_accuracy            = -static_cast<int>(p.zero_accuracy());
+            set_cache_roots(get_cache_roots(_p));
         }
 
         unsynch_mpq_manager & qm() {
@@ -670,12 +738,33 @@ namespace algebraic_numbers {
 
         void isolate_roots(polynomial_ref const & p, numeral_vector & roots) {
             SASSERT(is_univariate(p));
+            SASSERT(roots.empty());
             TRACE(algebraic, tout << "isolating roots of: " << p << "\n";);
             if (::is_zero(p))
                 return; // ignore the zero polynomial
+
+            if (m_cache_roots) {
+                if (auto* cached = find_roots_cache_entry(p)) {
+                    for (unsigned i = 0; i < cached->m_roots.size(); ++i) {
+                        roots.push_back(numeral());
+                        set(roots.back(), cached->m_roots[i]);
+                    }
+                    return;
+                }
+            }
+                    
             scoped_upoly & up     = m_isolate_tmp1;
             upm().to_numeral_vector(p, up);
             isolate_roots(up, roots);
+
+            if (m_cache_roots) {
+                roots_cache_entry* entry = mk_roots_cache_entry(p.m(), p);
+                for (unsigned i = 0; i < roots.size(); ++i)
+                    entry->m_roots.push_back(roots[i]);
+                roots_cache_entry*& existing = m_roots_cache.insert_if_not_there(entry);
+                if (existing != entry)
+                    del_roots_cache_entry(entry);
+            }
         }
 
         unsigned sign_variations_at_mpq(upolynomial::upolynomial_sequence const & seq, mpq const & b) {
@@ -796,6 +885,44 @@ namespace algebraic_numbers {
 
             if (::is_zero(p) || ::is_const(p))
                 return;
+
+            if (m_cache_roots) {
+                if (auto* cached = find_roots_cache_entry(p)) {
+                    scoped_numeral sv(m_wrapper);
+                    set(sv, s);
+
+                    unsigned n = cached->m_roots.size();
+                    unsigned lo = 0, hi = n;
+                    while (lo < hi) {
+                        unsigned mid = lo + (hi - lo) / 2;
+                        int cmp = compare(cached->m_roots[mid], sv);
+                        if (cmp < 0)
+                            lo = mid + 1;
+                        else
+                            hi = mid;
+                    }
+                    unsigned first_ge = lo;
+
+                    if (first_ge < n && compare(cached->m_roots[first_ge], sv) == 0) {
+                        roots.push_back(numeral());
+                        set(roots.back(), cached->m_roots[first_ge]);
+                        indices.push_back(first_ge + 1);
+                        return;
+                    }
+
+                    if (first_ge > 0) {
+                        roots.push_back(numeral());
+                        set(roots.back(), cached->m_roots[first_ge - 1]);
+                        indices.push_back(first_ge);
+                    }
+                    if (first_ge < n) {
+                        roots.push_back(numeral());
+                        set(roots.back(), cached->m_roots[first_ge]);
+                        indices.push_back(first_ge + 1);
+                    }
+                    return;
+                }
+            }
 
             // Convert to dense univariate form and take the square-free part.
             scoped_upoly & up = m_isolate_tmp1;
@@ -3147,10 +3274,13 @@ namespace algebraic_numbers {
     manager::~manager() {
         dealloc(m_imp);
         if (m_own_allocator)
-            dealloc(m_allocator);
+            dealloc(m_allocator);        
     }
 
     void manager::updt_params(params_ref const & p) {
+        bool cache_roots = p.get_bool("cache_roots", true);
+        cache_roots = p.get_bool("nlsat.cache_roots", cache_roots);
+        m_imp->set_cache_roots(cache_roots);
     }
 
     unsynch_mpq_manager & manager::qm() const {
