@@ -18,7 +18,7 @@ tools:
 safe-outputs:
   create-discussion:
     title-prefix: "Code Conventions Analysis"
-    category: "General"
+    category: "Agentic Workflows"
     close-older-discussions: true
   missing-tool:
     create-issue: true
