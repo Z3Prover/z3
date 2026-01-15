@@ -25,6 +25,5 @@ def_module_params('nlsat',
                           ('known_sat_assignment_file_name', STRING, "", "the file name of a known solution: used for debugging only"),
                           ('lws', BOOL, True, "apply levelwise."),
                           ('lws_rel_mode', UINT, 1, "relation mode for levelwise: 0 for biggest_cell, 1 for chain, 2 for lowest_degree"),
-                          ('canonicalize', BOOL, True, "canonicalize polynomials."),
-                          ('cache_roots', BOOL, True, "cache roots computed by algebraic_numbers::manager::isolate_roots")
+                          ('canonicalize', BOOL, True, "canonicalize polynomials.")
                           ))         
