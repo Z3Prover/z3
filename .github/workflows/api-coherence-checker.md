@@ -25,7 +25,7 @@ tools:
 safe-outputs:
   create-discussion:
     title-prefix: "[API Coherence] "
-    category: "General"
+    category: "Agentic Workflows"
     close-older-discussions: true
   github-token: ${{ secrets.GITHUB_TOKEN }}
 
