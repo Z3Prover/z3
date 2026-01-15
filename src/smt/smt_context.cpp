@@ -3622,6 +3622,7 @@ namespace smt {
         setup_context(m_fparams.m_auto_config);
 
         if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {
+            IF_VERBOSE(1, "Using parallel SMT solver\n");
             parallel p(*this);
             expr_ref_vector asms(m);
             return p(asms);
@@ -3690,6 +3691,7 @@ namespace smt {
         search_completion sc(*this);
         if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {            
             expr_ref_vector asms(m, num_assumptions, assumptions);
+            IF_VERBOSE(1, "Using parallel SMT solver\n");   
             parallel p(*this);
             return p(asms);
         }

@@ -586,6 +586,7 @@ namespace smt {
     }
 
     lbool parallel::operator()(expr_ref_vector const &asms) {
+        IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << num_threads << " threads\n";);
         ast_manager &m = ctx.m;
 
         if (m.has_trace_stream())
