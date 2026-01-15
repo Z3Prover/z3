@@ -74,68 +74,50 @@ namespace smt {
     void parallel::sls_tactic::run() {
         IF_VERBOSE(1, verbose_stream() << "SLS portfolio thread started\n");
 
+        if (!m_enabled)
+            return;
+
         try {
-            // 1) Build goal with MODELS ENABLED.
-            // NOTE: constructor order is (proofs_enabled, models_enabled, core_enabled)
+            // 1) Build goal
             goal_ref g = alloc(goal, m,
                             /*proofs*/ false,
                             /*models*/ true,
                             /*cores*/  false);
 
-            // 2) Copy asserted formulas from main context
+            // 2) Copy assertions (global → local)
             ptr_vector<expr> assertions;
             p.ctx.get_assertions(assertions);
-            for (expr* e : assertions) {
-                g->assert_expr(m_l2g(e));
-            }
+            for (expr* e : assertions)
+                g->assert_expr(m_g2l(e));
 
-            // 3) Params
-            params_ref ps;
-            ps.append(p.ctx.m_params);
-
-            // Optional knobs (ignored if unknown)
-            ps.set_uint("sls.random_seed", 0);
-            ps.set_uint("sls.max_steps", 200000);
-            ps.set_uint("sls.max_restarts", 50);
-
-            // 4) Build tactics
-            tactic_ref prep = mk_smt_tactic(m, ps);
-            tactic_ref sls  = mk_sls_smt_tactic(m, ps);
-
-            // 5) Run preprocessing
+            // 3) Preprocess
             goal_ref_buffer prep_result;
-            (*prep)(g, prep_result);
-
+            (*m_prep)(g, prep_result);
+            
             if (m.limit().is_canceled())
-                return;
+                return;;
 
-            // 6) Run SLS on each preprocessed goal
+            // 4) Run SLS
             goal_ref_buffer sls_result;
             for (goal_ref const& g2 : prep_result) {
-                if (!g2)
-                    continue;
-                (*sls)(g2, sls_result);
+                if (!g2) continue;
+                (*m_sls)(g2, sls_result);
             }
 
             if (m.limit().is_canceled())
                 return;
 
-            // 7) Interpret results: SAT only
+            // 5) Interpret results (SAT only)
             for (goal_ref const& r : sls_result) {
-                if (!r)
-                    continue;
-
-                if (!r->is_decided_sat())
+                if (!r || !r->is_decided_sat())
                     continue;
 
                 IF_VERBOSE(1, verbose_stream() << "SLS found SAT\n");
 
-                // In this build, goal stores a model converter (mc()).
                 model_ref mdl;
                 if (r->models_enabled()) {
-                    if (model_converter* mc = r->mc()) {
-                        mc->operator()(mdl);     // model_converter is allowed to allocate/fill mdl
-                    }
+                    if (model_converter* mc = r->mc())
+                        mc->operator()(mdl);
                 }
 
                 if (mdl) {
@@ -143,9 +125,8 @@ namespace smt {
                     return;
                 }
 
-                // If we get here, SLS said SAT but didn't provide a model.
-                // Treat as non-actionable and let other threads continue.
-                IF_VERBOSE(1, verbose_stream() << "SLS reported SAT but no model was produced\n");
+                IF_VERBOSE(1, verbose_stream()
+                    << "SLS reported SAT but no model produced\n");
             }
         }
         catch (tactic_exception& ex) {
@@ -251,8 +232,23 @@ namespace smt {
         m_config.m_inprocessing = pp.inprocessing();
     }
 
-    parallel::sls_tactic::sls_tactic(parallel& p) : p(p), b(p.m_batch_manager), m_l2g(m, p.ctx.m) {
+    parallel::sls_tactic::sls_tactic(parallel& p)
+        : p(p), b(p.m_batch_manager), m(), m_g2l(p.ctx.m, m), m_l2g(m, p.ctx.m) {
+
         IF_VERBOSE(1, verbose_stream() << "Initialized SLS portfolio thread\n");
+
+        // Build params ONCE (main thread)
+        m_params.append(p.ctx.m_params);
+        m_params.set_uint("sls.random_seed", 0);
+        m_params.set_uint("sls.max_steps", 200000);
+        m_params.set_uint("sls.max_restarts", 50);
+
+        // Build tactics ONCE (main thread, thread-unsafe!)
+        m_prep = mk_smt_tactic(m, m_params);
+        m_sls  = mk_sls_smt_tactic(m, m_params);
+
+        if (m_prep && m_sls)
+            m_enabled = true;
     }
 
     void parallel::worker::share_units() {

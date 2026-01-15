@@ -20,6 +20,7 @@ Revision History:
 
 #include "smt/smt_context.h"
 #include "util/search_tree.h"
+#include "tactic/tactic.h"
 #include <thread>
 #include <mutex>
 
@@ -172,7 +173,12 @@ namespace smt {
             parallel &p;
             batch_manager &b;
             ast_manager m;
-            ast_translation m_l2g;
+            ast_translation m_g2l, m_l2g;
+
+            params_ref  m_params;
+            tactic_ref  m_prep;
+            tactic_ref  m_sls;
+            bool        m_enabled = false;
 
             public:
                 sls_tactic(parallel &p);
