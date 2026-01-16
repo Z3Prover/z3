@@ -85,7 +85,7 @@ struct mbp_dt_tg::impl {
             m_dt_util.get_accessor_constructor(to_app(term)->get_decl());
         ptr_vector<func_decl> const *accessors =
             m_dt_util.get_constructor_accessors(cons);
-        for (unsigned i = 0; i < accessors->size(); i++) {
+        for (unsigned i = 0; i < accessors->size(); ++i) {
             func_decl *d = accessors->get(i);
             sel = m.mk_app(d, v);
             u = m_tg.get_const_in_class(sel);
@@ -111,7 +111,7 @@ struct mbp_dt_tg::impl {
               tout << "applying deconstruct_eq on " << expr_ref(cons, m););
         ptr_vector<func_decl> const *accessors =
             m_dt_util.get_constructor_accessors(to_app(cons)->get_decl());
-        for (unsigned i = 0; i < accessors->size(); i++) {
+        for (unsigned i = 0; i < accessors->size(); ++i) {
             expr_ref a(m.mk_app(accessors->get(i), rhs), m);
             expr *newRhs = to_app(cons)->get_arg(i);
             m_tg.add_eq(a, newRhs);
@@ -139,7 +139,7 @@ struct mbp_dt_tg::impl {
         }
         m_tg.add_lit(a);
 
-        for (unsigned i = 0; i < accessors->size(); i++) {
+        for (unsigned i = 0; i < accessors->size(); ++i) {
             expr_ref a(m.mk_app(accessors->get(i), rhs), m);
             expr *newRhs = to_app(cons)->get_arg(i);
             if (!m_mdl.are_equal(a, newRhs)) {
@@ -156,7 +156,7 @@ struct mbp_dt_tg::impl {
         TRACE(mbp_tg, tout << "Iterating over terms of tg";);
         // Not resetting terms because get_terms calls resize on terms
         m_tg.get_terms(terms, false);
-        for (unsigned i = 0; i < terms.size(); i++) {
+        for (unsigned i = 0; i < terms.size(); ++i) {
             term = terms.get(i);
             if (is_seen(term)) continue;
             if (m_tg.is_cgr(term)) continue;

@@ -234,7 +234,7 @@ bool test(goal const & g, Predicate & proc) {
     expr_fast_mark1 visited;
     try {
         unsigned sz = g.size();
-        for (unsigned i = 0; i < sz; i++)
+        for (unsigned i = 0; i < sz; ++i)
             quick_for_each_expr(proc, visited, g.form(i));
     }
     catch (const typename Predicate::found &) {

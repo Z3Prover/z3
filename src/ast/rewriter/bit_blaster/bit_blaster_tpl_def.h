@@ -38,7 +38,7 @@ void bit_blaster_tpl<Cfg>::checkpoint() {
 */
 template<typename Cfg>
 bool bit_blaster_tpl<Cfg>::is_numeral(unsigned sz, expr * const * bits) const {
-    for (unsigned i = 0; i < sz; i++)
+    for (unsigned i = 0; i < sz; ++i)
         if (!is_bool_const(bits[i])) 
             return false;
     return true;
@@ -51,7 +51,7 @@ bool bit_blaster_tpl<Cfg>::is_numeral(unsigned sz, expr * const * bits) const {
 template<typename Cfg>
 bool bit_blaster_tpl<Cfg>::is_numeral(unsigned sz, expr * const * bits, numeral & r) const {
     r.reset();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         if (m().is_true(bits[i]))
             r += power(i);
         else if (!m().is_false(bits[i]))
@@ -65,7 +65,7 @@ bool bit_blaster_tpl<Cfg>::is_numeral(unsigned sz, expr * const * bits, numeral 
 */
 template<typename Cfg>
 bool bit_blaster_tpl<Cfg>::is_minus_one(unsigned sz, expr * const * bits) const {
-    for (unsigned i = 0; i < sz; i++)
+    for (unsigned i = 0; i < sz; ++i)
         if (!m().is_true(bits[i]))
             return false;
     return true;
@@ -76,7 +76,7 @@ static void _num2bits(ast_manager & m, rational const & v, unsigned sz, expr_ref
     SASSERT(v.is_nonneg());
     rational aux = v;
     rational two(2), base32(1ull << 32ull, rational::ui64());
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         if (i + 32 < sz) {
             unsigned u = (aux % base32).get_unsigned();
             for (unsigned j = 0; j < 32; ++j) {
@@ -122,7 +122,7 @@ void bit_blaster_tpl<Cfg>::mk_neg(unsigned sz, expr * const * a_bits, expr_ref_v
     SASSERT(sz > 0);
     expr_ref cin(m()), cout(m()), out(m());
     cin = m().mk_true();
-    for (unsigned idx = 0; idx < sz; idx++) {
+    for (unsigned idx = 0; idx < sz; ++idx) {
         expr_ref not_a(m());
         mk_not(a_bits[idx], not_a);
         if (idx < sz - 1) 
@@ -139,7 +139,7 @@ void bit_blaster_tpl<Cfg>::mk_adder(unsigned sz, expr * const * a_bits, expr * c
     SASSERT(sz > 0);
     expr_ref cin(m()), cout(m()), out(m());
     cin = m().mk_false();
-    for (unsigned idx = 0; idx < sz; idx++) {
+    for (unsigned idx = 0; idx < sz; ++idx) {
         if (idx < sz - 1)
             mk_full_adder(a_bits[idx], b_bits[idx], cin, out, cout);
         else
@@ -160,7 +160,7 @@ void bit_blaster_tpl<Cfg>::mk_subtracter(unsigned sz, expr * const * a_bits, exp
     SASSERT(sz > 0);
     expr_ref cin(m()), out(m());
     cin = m().mk_true();
-    for (unsigned j = 0; j < sz; j++) {
+    for (unsigned j = 0; j < sz; ++j) {
         expr_ref not_b(m());
         mk_not(b_bits[j], not_b);
         mk_full_adder(a_bits[j], not_b, cin, out, cout);
@@ -237,7 +237,7 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
        FA denotes a full-adder.
     */
 
-    for (unsigned i = 1; i < sz; i++) {
+    for (unsigned i = 1; i < sz; ++i) {
         checkpoint();
         couts.reset();
         expr_ref i1(m()), i2(m());
@@ -246,7 +246,7 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         if (i < sz - 1) {
             mk_half_adder(i1, i2, out, cout);
             couts.push_back(cout);
-            for (unsigned j = 2; j <= i; j++) {
+            for (unsigned j = 2; j <= i; ++j) {
                 expr_ref prev_out(m());
                 prev_out = out;
                 expr_ref i3(m());
@@ -260,7 +260,7 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         else {
             // last step --> I don't need to generate/store couts.
             mk_xor(i1, i2, out);
-            for (unsigned j = 2; j <= i; j++) {
+            for (unsigned j = 2; j <= i; ++j) {
                 expr_ref i3(m());
                 mk_and(a_bits[j], b_bits[i - j], i3);
                 mk_xor3(i3, out, cins.get(j - 2), out);
@@ -390,12 +390,12 @@ void bit_blaster_tpl<Cfg>::mk_udiv_urem(unsigned sz, expr * const * a_bits, expr
 
     // init p
     p.push_back(a_bits[sz-1]);
-    for (unsigned i = 1; i < sz; i++)
+    for (unsigned i = 1; i < sz; ++i)
         p.push_back(m().mk_false());
 
     q_bits.resize(sz);
 
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         checkpoint();
         // generate p - b
         expr_ref q(m());
@@ -414,7 +414,7 @@ void bit_blaster_tpl<Cfg>::mk_udiv_urem(unsigned sz, expr * const * a_bits, expr
         }
         else {
             // last step: p contains the remainder
-            for (unsigned j = 0; j < sz; j++) {
+            for (unsigned j = 0; j < sz; ++j) {
                 expr_ref ie(m());
                 mk_ite(q, t.get(j), p.get(j), ie);
                 p.set(j, ie);
@@ -422,7 +422,7 @@ void bit_blaster_tpl<Cfg>::mk_udiv_urem(unsigned sz, expr * const * a_bits, expr
         }
     }
     DEBUG_CODE({
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             SASSERT(q_bits.get(i) != 0);
         }});
     TRACE(bit_blaster,
@@ -452,7 +452,7 @@ void bit_blaster_tpl<Cfg>::mk_urem(unsigned sz, expr * const * a_bits, expr * co
 
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_multiplexer(expr * c, unsigned sz, expr * const * t_bits, expr * const * e_bits, expr_ref_vector & out_bits) {
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr_ref t(m());
         mk_ite(c, t_bits[i], e_bits[i], t);
         out_bits.push_back(t);
@@ -768,7 +768,7 @@ void bit_blaster_tpl<Cfg>::mk_smod(unsigned sz, expr * const * a_bits, expr * co
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_eq(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref & out) {
     expr_ref_vector out_bits(m());
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         mk_iff(a_bits[i], b_bits[i], out);
         out_bits.push_back(out);
     }
@@ -784,9 +784,9 @@ void bit_blaster_tpl<Cfg>::mk_rotate_left(unsigned sz, expr * const * a_bits, un
           tout << "\n";
           );
     n = n % sz;
-    for (unsigned i = sz - n; i < sz; i++) 
+    for (unsigned i = sz - n; i < sz; ++i) 
         out_bits.push_back(a_bits[i]);
-    for (unsigned i = 0 ; i < sz - n; i++) 
+    for (unsigned i = 0 ; i < sz - n; ++i) 
         out_bits.push_back(a_bits[i]);
 }
 
@@ -798,19 +798,19 @@ void bit_blaster_tpl<Cfg>::mk_rotate_right(unsigned sz, expr * const * a_bits, u
 
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_sign_extend(unsigned sz, expr * const * a_bits, unsigned n, expr_ref_vector & out_bits) {
-    for (unsigned i = 0; i < sz; i++) 
+    for (unsigned i = 0; i < sz; ++i) 
         out_bits.push_back(a_bits[i]);
     expr * high_bit = a_bits[sz - 1];
-    for (unsigned i = sz; i < sz + n; i++)
+    for (unsigned i = sz; i < sz + n; ++i)
         out_bits.push_back(high_bit);
 }
 
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_zero_extend(unsigned sz, expr * const * a_bits, unsigned n, expr_ref_vector & out_bits) {
-    for (unsigned i = 0; i < sz; i++) 
+    for (unsigned i = 0; i < sz; ++i) 
         out_bits.push_back(a_bits[i]);
     expr * high_bit = m().mk_false();
-    for (unsigned i = sz; i < sz + n; i++)
+    for (unsigned i = sz; i < sz + n; ++i)
         out_bits.push_back(high_bit);
 }
 
@@ -821,7 +821,7 @@ template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_is_eq(unsigned sz, expr * const * a_bits, unsigned n, expr_ref & out) {
     numeral two(2);
     expr_ref_vector out_bits(m());
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         if (n % 2 == 0) {
             expr_ref not_a(m());
             mk_not(a_bits[i], not_a);
@@ -840,7 +840,7 @@ void bit_blaster_tpl<Cfg>::mk_is_eq(unsigned sz, expr * const * a_bits, unsigned
 */
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_eqs(unsigned sz, expr * const * a_bits, expr_ref_vector & eqs) {
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr_ref eq(m());
         mk_is_eq(sz, a_bits, i, eq);
         eqs.push_back(eq);
@@ -855,9 +855,9 @@ void bit_blaster_tpl<Cfg>::mk_shl(unsigned sz, expr * const * a_bits, expr * con
         unsigned n = static_cast<unsigned>(k.get_int64());
         if (n >= sz) n = sz;
         unsigned pos; 
-        for (pos = 0; pos < n; pos++)
+        for (pos = 0; pos < n; ++pos)
             out_bits.push_back(m().mk_false());
-        for (unsigned i = 0; pos < sz; pos++, i++)
+        for (unsigned i = 0; pos < sz; ++pos, ++i)
             out_bits.push_back(a_bits[i]);
     }
     else {
@@ -900,9 +900,9 @@ void bit_blaster_tpl<Cfg>::mk_lshr(unsigned sz, expr * const * a_bits, expr * co
         if (k > numeral(sz)) k = numeral(sz);
         unsigned n   = static_cast<unsigned>(k.get_int64()); 
         unsigned pos = 0;
-        for (unsigned i = n; i < sz; pos++, i++)
+        for (unsigned i = n; i < sz; ++pos, ++i)
             out_bits.push_back(a_bits[i]);
-        for (; pos < sz; pos++)
+        for (; pos < sz; ++pos)
             out_bits.push_back(m().mk_false());
     }
     else {
@@ -943,9 +943,9 @@ void bit_blaster_tpl<Cfg>::mk_ashr(unsigned sz, expr * const * a_bits, expr * co
         if (k > numeral(sz)) k = numeral(sz);
         unsigned n   = static_cast<unsigned>(k.get_int64()); 
         unsigned pos = 0;
-        for (unsigned i = n; i < sz; pos++, i++)
+        for (unsigned i = n; i < sz; ++pos, ++i)
             out_bits.push_back(a_bits[i]);
-        for (; pos < sz; pos++)
+        for (; pos < sz; ++pos)
             out_bits.push_back(a_bits[sz-1]);
     }
     else {
@@ -1034,7 +1034,7 @@ void bit_blaster_tpl<Cfg>::mk_le(unsigned sz, expr * const * a_bits, expr * cons
     expr_ref not_a(m());
     mk_not(a_bits[0], not_a);
     mk_or(not_a, b_bits[0], out);
-    for (unsigned idx = 1; idx < (Signed ? sz - 1 : sz); idx++) {
+    for (unsigned idx = 1; idx < (Signed ? sz - 1 : sz); ++idx) {
         mk_not(a_bits[idx], not_a);
         mk_ge2(not_a, b_bits[idx], out, out);
     }
@@ -1057,7 +1057,7 @@ void bit_blaster_tpl<Cfg>::mk_ule(unsigned sz, expr * const * a_bits, expr * con
 
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_not(unsigned sz, expr * const * a_bits, expr_ref_vector & out_bits) {
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr_ref t(m());
         mk_not(a_bits[i], t);
         out_bits.push_back(t);
@@ -1067,7 +1067,7 @@ void bit_blaster_tpl<Cfg>::mk_not(unsigned sz, expr * const * a_bits, expr_ref_v
 #define MK_BINARY(NAME, OP)                                                                                                     \
 template<typename Cfg>                                                                                                          \
 void bit_blaster_tpl<Cfg>::NAME(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {        \
-    for (unsigned i = 0; i < sz; i++) {                                                                                         \
+    for (unsigned i = 0; i < sz; ++i) {                                                                                         \
         expr_ref t(m());                                                                                                        \
         OP(a_bits[i], b_bits[i], t);                                                                                            \
         out_bits.push_back(t);                                                                                                  \
@@ -1105,7 +1105,7 @@ void bit_blaster_tpl<Cfg>::mk_comp(unsigned sz, expr * const * a_bits, expr * co
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_carry_save_adder(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr * const * c_bits, expr_ref_vector & sum_bits, expr_ref_vector & carry_bits) {    
     expr_ref t(m());
-    for (unsigned i = 0; i < sz; i++) {            
+    for (unsigned i = 0; i < sz; ++i) {            
         mk_xor3(a_bits[i], b_bits[i], c_bits[i], t);
         sum_bits.push_back(t);
         mk_carry(a_bits[i], b_bits[i], c_bits[i], t);

@@ -243,10 +243,7 @@ namespace search_tree {
             // If the node is closed AND has a stronger or equal core, we are done. 
             // Otherwise, closed nodes may still accept a different (stronger) core to enable pruning/resolution higher in the tree.
             auto subseteq = [](vector<literal> const& A, vector<literal> const& B) {
-                for (auto const& a : A)
-                    if (!B.contains(a))
-                        return false;
-                return true;
+                return all_of(A, [&](auto const &a) { return B.contains(a); });
             };
             if (n->get_status() == status::closed && subseteq(n->get_core(), C))
                 return;

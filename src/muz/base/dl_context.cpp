@@ -638,7 +638,7 @@ namespace datalog {
         SASSERT(is_fact(head));
         relation_fact fact(get_manager());
         unsigned n = head->get_num_args();
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             fact.push_back(to_app(head->get_arg(i)));
         }
         add_fact(head->get_decl(), fact);

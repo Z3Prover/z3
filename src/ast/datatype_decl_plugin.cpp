@@ -17,6 +17,8 @@ Revision History:
 
 --*/
 
+#include<sstream>
+#include<format>
 #include "util/warning.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
@@ -377,10 +379,9 @@ namespace datatype {
                 return nullptr;
             }
             if (rng != domain[1]) {
-                std::ostringstream buffer;
-                buffer << "second argument to field update should be " << mk_ismt2_pp(rng, m) 
-                       << " instead of " << mk_ismt2_pp(domain[1], m);
-                m.raise_exception(buffer.str());
+                m.raise_exception(std::format("second argument to field update should be {} instead of {}",
+                                               to_string(mk_ismt2_pp(rng, m)),
+                                               to_string(mk_ismt2_pp(domain[1], m))));
                 return nullptr;
             }
             range = domain[0];
@@ -710,7 +711,7 @@ namespace datatype {
             SASSERT(u().is_datatype(s));
             func_decl * c = u().get_non_rec_constructor(s);
             ptr_buffer<expr> args;
-            for (unsigned i = 0; i < c->get_arity(); i++) {
+            for (unsigned i = 0; i < c->get_arity(); ++i) {
                 args.push_back(m_manager->get_some_value(c->get_domain(i)));
             }
             return m_manager->mk_app(c, args);
@@ -964,7 +965,7 @@ namespace datatype {
         ptr_vector<sort> subsorts;
         do {
             changed = false;
-            for (unsigned tid = 0; tid < num_types; tid++) {
+            for (unsigned tid = 0; tid < num_types; ++tid) {
                 if (well_founded[tid]) 
                     continue;
                 sort* s = sorts[tid];
@@ -1003,11 +1004,11 @@ namespace datatype {
         ast_mark mark;
         ptr_vector<sort> subsorts;
 
-        for (unsigned tid = 0; tid < num_types; tid++) {
+        for (unsigned tid = 0; tid < num_types; ++tid) {
             mark.mark(sorts[tid], true);
         }
         
-        for (unsigned tid = 0; tid < num_types; tid++) {
+        for (unsigned tid = 0; tid < num_types; ++tid) {
             sort* s = sorts[tid];
             def const& d = get_def(s);
             for (constructor const* c : d) {
@@ -1296,7 +1297,7 @@ namespace datatype {
         unsigned start = rand();
         for (unsigned cj = 0; cj < constructors.size(); ++cj) {
             func_decl* c = constructors[(start + cj) % constructors.size()];
-            if (all_of(*c, [&](sort* s) { return !is_datatype(s); })) {
+            if (all_of(*c, [&](sort* s) { return !is_datatype(s) && !is_recursive_nested(s); })) {
                 TRACE(util_bug, tout << "non_rec_constructor c: " << func_decl_ref(c, m) << "\n";);
                 result.first = c;
                 result.second = 1;
@@ -1314,7 +1315,7 @@ namespace datatype {
             unsigned j = 0;
             unsigned max_depth = 0;
             unsigned start2 = rand();
-            for (; j < num_args; j++) {
+            for (; j < num_args; ++j) {
                 unsigned i = (start2 + j) % num_args;
                 sort * T_i = autil.get_array_range_rec(c->get_domain(i));
                 TRACE(util_bug, tout << "c: " << i << " " << sort_ref(T_i, m) << "\n";);

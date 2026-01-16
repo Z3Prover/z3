@@ -65,7 +65,7 @@ public:
             m_vector.shrink(sz); 
         }
         else {
-            for (unsigned i = m_vector.size(); i < sz; i++)
+            for (unsigned i = m_vector.size(); i < sz; ++i)
                 push_back(nullptr);
         }
     }

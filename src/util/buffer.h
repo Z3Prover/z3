@@ -97,7 +97,7 @@ public:
     }
 
     buffer(unsigned sz, const T & elem) {
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             push_back(elem);
         }
         SASSERT(size() == sz);
@@ -193,7 +193,7 @@ public:
     }
 
     void append(unsigned n, T const * elems) {
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             push_back(elems[i]);
         }
     }
@@ -230,12 +230,12 @@ public:
     void resize(unsigned nsz, const T & elem=T()) {
         unsigned sz = size();
         if (nsz > sz) {
-            for (unsigned i = sz; i < nsz; i++) {
+            for (unsigned i = sz; i < nsz; ++i) {
                 push_back(elem);
             }
         }
         else if (nsz < sz) {
-            for (unsigned i = nsz; i < sz; i++) {
+            for (unsigned i = nsz; i < sz; ++i) {
                 pop_back();
             }
         }
@@ -245,7 +245,7 @@ public:
     void shrink(unsigned nsz) {
         unsigned sz = size();
         SASSERT(nsz <= sz);
-        for (unsigned i = nsz; i < sz; i++)
+        for (unsigned i = nsz; i < sz; ++i)
             pop_back();
         SASSERT(size() == nsz);
     }
@@ -266,7 +266,7 @@ template<typename T, unsigned INITIAL_SIZE=16>
 class ptr_buffer : public buffer<T *, false, INITIAL_SIZE> {
 public:
     void append(unsigned n, T * const * elems) {
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             this->push_back(elems[i]);
         }
     }

@@ -85,7 +85,7 @@ namespace datalog {
     void copy_nonvariables(app * src, T& tgt)
     {
         unsigned n = src->get_num_args();
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             expr * arg = src->get_arg(i);
             if (!is_var(arg)) {
                 tgt[i] = arg;
@@ -193,7 +193,7 @@ namespace datalog {
         template<typename T>
         void fill_into_second(const app * f1, T & tgt) const {
             unsigned n = size();
-            for (unsigned i = 0; i < n; i++) {
+            for (unsigned i = 0; i < n; ++i) {
                 unsigned f1_index, tgt_index;
                 get(i, f1_index, tgt_index);
                 tgt[tgt_index] = f1->get_arg(f1_index);
@@ -216,13 +216,13 @@ namespace datalog {
             //TODO: optimize number of checks when variable occurs multiple times
             unsigned a1num = expr_cont_get_size(a1);
             unsigned a2num = expr_cont_get_size(a2);
-            for (unsigned i1 = 0; i1<a1num; i1++) {
+            for (unsigned i1 = 0; i1<a1num; ++i1) {
                 expr * e1 = expr_cont_get(a1,i1);
                 if (!is_var(e1)) {
                     continue;
                 }
                 var* v1 = to_var(e1);
-                for (unsigned i2 = 0; i2<a2num; i2++) {
+                for (unsigned i2 = 0; i2<a2num; ++i2) {
                     expr * e2 = expr_cont_get(a2,i2);
                     if (!is_var(e2)) {
                         continue;
@@ -250,7 +250,7 @@ namespace datalog {
         unsigned n = container.size();
         unsigned ofs = 1;
         unsigned r_i = 1;
-        for (unsigned i=removed_cols[0]+1; i<n; i++) {
+        for (unsigned i=removed_cols[0]+1; i<n; ++i) {
             if (r_i!=removed_col_cnt && removed_cols[r_i]==i) {
                 r_i++;
                 ofs++;
@@ -279,7 +279,7 @@ namespace datalog {
         unsigned n = container.size();
         unsigned ofs = 1;
         unsigned r_i = 1;
-        for (unsigned i=removed_cols[0]+1; i<n; i++) {
+        for (unsigned i=removed_cols[0]+1; i<n; ++i) {
             if (r_i!=removed_col_cnt && removed_cols[r_i]==i) {
                 r_i++;
                 ofs++;
@@ -324,7 +324,7 @@ namespace datalog {
         if (cycle_len < 2) 
             return;
         auto aux = container[permutation_cycle[0]];
-        for (unsigned i = 1; i < cycle_len; i++) 
+        for (unsigned i = 1; i < cycle_len; ++i) 
             container[permutation_cycle[i-1]] = container[permutation_cycle[i]];
         container[permutation_cycle[cycle_len-1]] = aux;
     }
@@ -333,7 +333,7 @@ namespace datalog {
         if (cycle_len < 2) 
             return;
         T * aux = container.get(permutation_cycle[0]);
-        for (unsigned i=1; i < cycle_len; i++) {
+        for (unsigned i=1; i < cycle_len; ++i) {
             container.set(permutation_cycle[i-1], container.get(permutation_cycle[i]));
         }
         container.set(permutation_cycle[cycle_len-1], aux);
@@ -477,7 +477,7 @@ namespace datalog {
     template<class T>
     bool remove_from_vector(T & v, const typename T::data_t & el) {
         unsigned sz = v.size();
-        for (unsigned i=0; i<sz; i++) {
+        for (unsigned i=0; i<sz; ++i) {
             if (v[i]==el) {
                 std::swap(v[i], v.back());
                 v.pop_back();
@@ -523,12 +523,12 @@ namespace datalog {
             return;
         }
         unsigned_vector numbers;
-        for (unsigned i=0; i<len; i++) {
+        for (unsigned i=0; i<len; ++i) {
             numbers.push_back(i);
         }
         aux__index_comparator<T> cmp(keys);
         std::sort(numbers.begin(), numbers.end(), cmp);
-        for (unsigned i=0; i<len; i++) {
+        for (unsigned i=0; i<len; ++i) {
             unsigned prev_i = i;
             for (;;) {
                 unsigned src_i = numbers[prev_i];
@@ -562,7 +562,7 @@ namespace datalog {
     template<class Container>
     void add_sequence_without_set(unsigned start, unsigned count, const Container & complement, unsigned_vector & v) {
         unsigned after_last = start+count;
-        for (unsigned i=start; i<after_last; i++) {
+        for (unsigned i=start; i<after_last; ++i) {
             if (!complement.contains(i)) {
                 v.push_back(i);
             }

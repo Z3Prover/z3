@@ -70,7 +70,7 @@ int int_branch::find_inf_int_base_column() {
 
     // this loop looks for a column with the most usages, but breaks when
     // a column with a small span of bounds is found
-    for (; k < lra.r_basis().size(); k++) {
+    for (; k < lra.r_basis().size(); ++k) {
         j = lra.r_basis()[k];
         if (!lia.column_is_int_inf(j))
             continue;
@@ -92,7 +92,7 @@ int int_branch::find_inf_int_base_column() {
     }
     SASSERT(k == lra.r_basis().size() || n == 1);
     // this loop looks for boxed columns with a small span
-    for (; k < lra.r_basis().size(); k++) {
+    for (; k < lra.r_basis().size(); ++k) {
         j = lra.r_basis()[k];
         if (!lia.column_is_int_inf(j) || !lia.is_boxed(j))
             continue;

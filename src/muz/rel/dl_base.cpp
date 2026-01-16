@@ -50,7 +50,7 @@ namespace datalog {
         unsigned sz = map.size();
         unsigned ofs = sz-1;
         renaming_arg.resize(sz, static_cast<expr *>(nullptr));
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (map[i] != UINT_MAX) {
                 renaming_arg.set(ofs-i, m.mk_var(map[i], orig_sig[i]));
             }
@@ -74,7 +74,7 @@ namespace datalog {
     void relation_signature::output(ast_manager & m, std::ostream & out) const {
         unsigned sz = size();
         out << "(";
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (i != 0) out << ","; 
             out << mk_pp((*this)[i], m);
         }
@@ -104,16 +104,16 @@ namespace datalog {
         unsigned s2sz=s2.size();
         unsigned s1first_func=s1sz-s1.functional_columns();
         unsigned s2first_func=s2sz-s2.functional_columns();
-        for (unsigned i=0; i<s1first_func; i++) {
+        for (unsigned i=0; i<s1first_func; ++i) {
             result.push_back(s1[i]);
         }
-        for (unsigned i=0; i<s2first_func; i++) {
+        for (unsigned i=0; i<s2first_func; ++i) {
             result.push_back(s2[i]);
         }
-        for (unsigned i=s1first_func; i<s1sz; i++) {
+        for (unsigned i=s1first_func; i<s1sz; ++i) {
             result.push_back(s1[i]);
         }
-        for (unsigned i=s2first_func; i<s2sz; i++) {
+        for (unsigned i=s2first_func; i<s2sz; ++i) {
             result.push_back(s2[i]);
         }
         result.set_functional_columns(s1.functional_columns()+s2.functional_columns());
@@ -185,20 +185,20 @@ namespace datalog {
 
         union_find_default_ctx uf_ctx;
         union_find<> uf(uf_ctx); //the numbers in uf correspond to column indexes after the join
-        for (unsigned i=0; i<join_sig_sz; i++) {
+        for (unsigned i=0; i<join_sig_sz; ++i) {
             VERIFY(uf.mk_var() == i);
         }
 
-        for (unsigned i=0; i<joined_col_cnt; i++) {
+        for (unsigned i=0; i<joined_col_cnt; ++i) {
             unsigned idx1 = (s1_first_func>cols1[i]) ? cols1[i] : (first_func_ofs+cols1[i]-s1_first_func);
             unsigned idx2 = (s2_first_func>cols2[i]) ? (second_ofs+cols2[i]) : (second_func_ofs+cols2[i]-s2_first_func);
             uf.merge(idx1, idx2);
         }
-        for (unsigned i=0; i<first_func_ofs; i++) { //we only count the non-functional columns
+        for (unsigned i=0; i<first_func_ofs; ++i) { //we only count the non-functional columns
             remaining_in_equivalence_class[uf.find(i)]++;
         }
 
-        for (unsigned i=0; i<removed_col_cnt; i++) {
+        for (unsigned i=0; i<removed_col_cnt; ++i) {
             unsigned rc = removed_cols[i];
             if (rc>=first_func_ofs) {
                 //removing functional columns won't make us merge rows
@@ -238,13 +238,13 @@ namespace datalog {
     }
     
     void table_base::remove_facts(unsigned fact_cnt, const table_fact * facts) {
-        for (unsigned i = 0; i < fact_cnt; i++) {
+        for (unsigned i = 0; i < fact_cnt; ++i) {
             remove_fact(facts[i]);
         }
     }
 
     void table_base::remove_facts(unsigned fact_cnt, const table_element * facts) {
-        for (unsigned i = 0; i < fact_cnt; i++) {
+        for (unsigned i = 0; i < fact_cnt; ++i) {
             remove_fact(facts + i*get_signature().size());
         }
     }
@@ -282,7 +282,7 @@ namespace datalog {
             for (auto& k : *this) {
                 k.get_fact(row);
                 bool differs = false;
-                for (unsigned i=0; i<non_func_cnt; i++) {
+                for (unsigned i=0; i<non_func_cnt; ++i) {
                     if (row[i]!=f[i]) {
                         differs = true;
                     }
@@ -290,7 +290,7 @@ namespace datalog {
                 if (differs) {
                     continue;
                 }
-                for (unsigned i=non_func_cnt; i<sig_sz; i++) {
+                for (unsigned i=non_func_cnt; i<sig_sz; ++i) {
                     f[i]=row[i];
                 }
                 return true;
@@ -377,7 +377,7 @@ namespace datalog {
             warning_msg("%s", str.c_str());
         }
 
-        for (table_element i = 0; i < upper_bound; i++) {
+        for (table_element i = 0; i < upper_bound; ++i) {
             fact[0] = i;
             if (empty_table || !contains_fact(fact)) {
                 res->add_fact(fact);
@@ -429,7 +429,7 @@ namespace datalog {
     void table_base::row_interface::get_fact(table_fact & result) const {
         result.reset();
         unsigned n = size();
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             result.push_back((*this)[i]);
         }
     }

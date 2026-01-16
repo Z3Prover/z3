@@ -18,7 +18,7 @@ tools:
 safe-outputs:
   create-discussion:
     title-prefix: "Code Conventions Analysis"
-    category: "General"
+    category: "Agentic Workflows"
     close-older-discussions: true
   missing-tool:
     create-issue: true
@@ -77,7 +77,7 @@ Z3 uses C++20 (as specified in `.clang-format`). Look for opportunities to use:
 - Range-based for loops instead of iterator loops
 - `nullptr` instead of `NULL` or `0`
 - `override` and `final` keywords for virtual functions
-- Smart pointers (`unique_ptr`, `shared_ptr`) instead of raw pointers
+- Smart pointers (`unique_ptr`) instead of raw pointers
 - Move semantics and `std::move`
 - Scoped enums (`enum class`) instead of plain enums
 - `constexpr` for compile-time constants
@@ -98,7 +98,6 @@ Z3 uses C++20 (as specified in `.clang-format`). Look for opportunities to use:
 - Three-way comparison operator (`<=>`)
 - Ranges library
 - Coroutines (if beneficial)
-- `std::format` for string formatting (replace stringstream for exceptions)
 
 ### 3. Common Library Function Usage
 
@@ -121,7 +120,8 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 - **Empty destructors**: Trivial destructors that can be removed or use `= default`
   - Destructors with empty body `~Class() {}`
   - Non-virtual destructors that don't need to be explicitly defined
-  - Virtual destructors (keep explicit even if empty for polymorphic classes)
+  - Virtual destructors (keep explicit even if empty for polymorphic classes),
+    but remove empty overridden destructors since those are implicit
 - **Non-virtual destructors**: Analyze consistency and correctness
   - Classes with virtual functions but non-virtual destructors (potential issue)
   - Base classes without virtual destructors (check if inheritance is intended)
@@ -167,11 +167,6 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 - Replace with `std::optional<T>` return values
 - Cleaner API that avoids pointer/reference output parameters
 
-**Exception String Construction:**
-- Using `stringstream` to build exception messages
-- Unnecessary string copies when raising exceptions
-- Replace with `std::format` for cleaner, more efficient code
-
 **Bitfield Opportunities:**
 - Structs with multiple boolean flags
 - Small integer fields that could use bitfields
@@ -208,6 +203,13 @@ Identify opportunities specific to Z3's architecture and coding patterns:
    - `glob` to identify file groups for analysis
    - `view` to examine specific files in detail
    - `bash` with git commands to check file history
+   - If compile_commands.json can be generated with clang, and clang-tidy
+     is available, run a targeted checkset on the selected files:
+       - modernize-use-nullptr
+       - modernize-use-override
+       - modernize-loop-convert (review carefully)
+       - bugprone-* (selected high-signal checks)
+       - performance-* (selected)
 
 3. **Identify patterns** by examining multiple files:
    - Look at 10-15 representative files per major area
@@ -421,24 +423,18 @@ For each opportunity, provide:
 - **API Improvements**: [Specific function signatures to update]
 - **Examples**: [File:line references with before/after]
 
-### 4.9 Exception String Construction
-- **Current**: [stringstream usage for building exception messages]
-- **Modern**: [std::format opportunities]
-- **String Copies**: [Unnecessary copies when raising exceptions]
-- **Examples**: [Specific exception construction sites]
-
-### 4.10 Array Parameter Modernization
+### 4.9 Array Parameter Modernization
 - **Current**: [Pointer + size parameter pairs]
 - **Modern**: [std::span usage opportunities]
 - **Type Safety**: [How span improves API safety]
 - **Examples**: [Function signatures to update]
 
-### 4.11 Increment Operator Patterns
+### 4.10 Increment Operator Patterns
 - **Postfix Usage**: [Count of i++ where result is unused]
 - **Prefix Preference**: [Places to use ++i instead]
 - **Iterator Loops**: [Heavy iterator usage areas]
 
-### 4.12 Exception Control Flow
+### 4.11 Exception Control Flow
 - **Current Usage**: [Exceptions used for normal control flow]
 - **Modern Alternatives**: [std::expected, std::optional, error codes]
 - **Performance**: [Impact of exception-based control flow]
@@ -630,11 +626,6 @@ grep pattern: "return [a-z_]+;" glob: "src/**/*.cpp"
 ```
 grep pattern: "return.*nullptr.*&" glob: "src/**/*.{h,cpp}"
 grep pattern: "bool.*\(.*\*.*\)|bool.*\(.*&" glob: "src/**/*.h"
-```
-
-**Find stringstream usage for exceptions:**
-```
-grep pattern: "stringstream.*throw|ostringstream.*throw" glob: "src/**/*.cpp"
 ```
 
 **Find pointer + size parameters:**

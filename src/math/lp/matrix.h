@@ -47,7 +47,7 @@ void print_matrix(matrix<T, X> const * m, std::ostream & out);
 template <typename T>
 void print_matrix(const vector<vector<T>> & A, std::ostream & out, unsigned blanks_in_front = 0) {
     vector<vector<std::string>> s(A.size());
-    for (unsigned i = 0; i < A.size(); i++) {
+    for (unsigned i = 0; i < A.size(); ++i) {
         for (const auto & v : A[i]) {
             s[i].push_back(T_to_string(v));
         }

@@ -61,7 +61,7 @@ namespace smt {
 
     void theory::display_var2enode(std::ostream & out) const {
         unsigned sz = m_var2enode.size();
-        for (unsigned v = 0; v < sz; v++) {
+        for (unsigned v = 0; v < sz; ++v) {
             out << "v" << v << " -> #" << m_var2enode[v]->get_owner_id() << "\n";
         }
     }
@@ -75,7 +75,7 @@ namespace smt {
             out << "(" << d->get_name();
             display_parameters(out, d->get_num_parameters(), d->get_parameters());
             unsigned num = n->get_num_args();
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 out << " ";
                 display_app(out, to_app(n->get_arg(i)));
             }
@@ -101,7 +101,7 @@ namespace smt {
                 n = todo.back();
                 todo.pop_back();
                 unsigned num = n->get_num_args();
-                for (unsigned i = 0; i < num; i++) {
+                for (unsigned i = 0; i < num; ++i) {
                     app * arg = to_app(n->get_arg(i));
                     if (d->is_associative() && arg->get_decl() == d) {
                         todo.push_back(arg);

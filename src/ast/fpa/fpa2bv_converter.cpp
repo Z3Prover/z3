@@ -135,8 +135,8 @@ void fpa2bv_converter::mk_distinct(func_decl * f, unsigned num, expr * const * a
     // equal, thus (distinct NaN NaN) is false, even if the two NaNs have
     // different bitwise representations (see also mk_eq).
     result = m.mk_true();
-    for (unsigned i = 0; i < num; i++) {
-        for (unsigned j = i+1; j < num; j++) {
+    for (unsigned i = 0; i < num; ++i) {
+        for (unsigned j = i+1; j < num; ++j) {
             expr_ref eq(m), neq(m);
             mk_eq(args[i], args[j], eq);
             neq = m.mk_not(eq);
@@ -260,7 +260,7 @@ expr_ref fpa2bv_converter::extra_quantify(expr * e) {
     subst_map.resize(nv);
 
     unsigned j = 0;
-    for (unsigned i = 0; i < nv; i++) {    
+    for (unsigned i = 0; i < nv; ++i) {    
         if (uv.contains(i)) {
             TRACE(fpa2bv, tout << "uv[" << i << "] = " << mk_ismt2_pp(uv.get(i), m) << std::endl; );
             sort * s = uv.get(i);
@@ -1900,7 +1900,7 @@ void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args,
     R = m_bv_util.mk_bv_sub(m_bv_util.mk_concat(sig_prime, m_bv_util.mk_numeral(0, 4)), Q);
     S = Q;
 
-    for (unsigned i = 0; i < sbits + 3; i++) {
+    for (unsigned i = 0; i < sbits + 3; ++i) {
         dbg_decouple("fpa2bv_sqrt_Q", Q);
         dbg_decouple("fpa2bv_sqrt_R", R);
 
@@ -2437,7 +2437,7 @@ void fpa2bv_converter::mk_is_positive(func_decl * f, unsigned num, expr * const 
 }
 
 void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE(fpa2bv_to_fp, for (unsigned i=0; i < num; i++)
+    TRACE(fpa2bv_to_fp, for (unsigned i=0; i < num; ++i)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl; );
 
     if (num == 1 &&
@@ -2910,7 +2910,7 @@ void fpa2bv_converter::mk_to_fp_real_int(func_decl * f, unsigned num, expr * con
 }
 
 void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE(fpa2bv_to_real, for (unsigned i = 0; i < num; i++)
+    TRACE(fpa2bv_to_real, for (unsigned i = 0; i < num; ++i)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
     SASSERT(num == 1);
     SASSERT(f->get_num_parameters() == 0);
@@ -3003,7 +3003,7 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
 }
 
 void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE(fpa2bv_to_fp_signed, for (unsigned i = 0; i < num; i++)
+    TRACE(fpa2bv_to_fp_signed, for (unsigned i = 0; i < num; ++i)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
 
     // This is a conversion from signed bitvector to float:
@@ -3146,7 +3146,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
 }
 
 void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE(fpa2bv_to_fp_unsigned, for (unsigned i = 0; i < num; i++)
+    TRACE(fpa2bv_to_fp_unsigned, for (unsigned i = 0; i < num; ++i)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
 
     // This is a conversion from unsigned bitvector to float:
@@ -3333,7 +3333,7 @@ void fpa2bv_converter::mk_to_ieee_bv_i(func_decl * f, unsigned num, expr * const
 }
 
 void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result) {
-    TRACE(fpa2bv_to_bv, for (unsigned i = 0; i < num; i++)
+    TRACE(fpa2bv_to_bv, for (unsigned i = 0; i < num; ++i)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
 
     SASSERT(num == 2);
@@ -3503,13 +3503,13 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
 }
 
 void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE(fpa2bv_to_ubv, for (unsigned i = 0; i < num; i++)
+    TRACE(fpa2bv_to_ubv, for (unsigned i = 0; i < num; ++i)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
     mk_to_bv(f, num, args, false, result);
 }
 
 void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE(fpa2bv_to_sbv, for (unsigned i = 0; i < num; i++)
+    TRACE(fpa2bv_to_sbv, for (unsigned i = 0; i < num; ++i)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
     mk_to_bv(f, num, args, true, result);
 }

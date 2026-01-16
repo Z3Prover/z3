@@ -150,7 +150,7 @@ void test_horner_high_degree() {
     
     // Test higher degree polynomial: p(x) = x^5 + x^4 + x^3 + x^2 + x + 1
     vector<rational> coeffs;
-    for (int i = 0; i <= 5; i++) {
+    for (int i = 0; i <= 5; ++i) {
         coeffs.push_back(rational(1));
     }
     

@@ -36,7 +36,7 @@ namespace smt {
         if (f1->get_num_args() != f2->get_num_args())
             return false;
         unsigned n = f1->get_num_args();
-        for(unsigned i = 0; i < n; i++)
+        for(unsigned i = 0; i < n; ++i)
             if (f1->get_arg(i) != f2->get_arg(i))
                 return false;
         return true;
@@ -86,7 +86,7 @@ namespace smt {
         fingerprint * d = mk_dummy(data, data_hash, num_args, args);
         if (m_set.contains(d)) 
             return nullptr;
-        for (unsigned i = 0; i < num_args; i++)
+        for (unsigned i = 0; i < num_args; ++i)
             d->m_args[i] = d->m_args[i]->get_root();
         if (m_set.contains(d)) {
             TRACE(fingerprint_bug, tout << "failed: " << *d;);
@@ -104,7 +104,7 @@ namespace smt {
         fingerprint * d = mk_dummy(data, data_hash, num_args, args);
         if (m_set.contains(d)) 
             return true;
-        for (unsigned i = 0; i < num_args; i++)
+        for (unsigned i = 0; i < num_args; ++i)
             d->m_args[i] = d->m_args[i]->get_root();
         if (m_set.contains(d))
             return true;
@@ -130,7 +130,7 @@ namespace smt {
         if (old_size == 0 && size > 0) 
             m_set.reset();
         else {
-            for (unsigned i = old_size; i < size; i++) 
+            for (unsigned i = old_size; i < size; ++i) 
                 m_set.erase(m_fingerprints[i]);
         }
         m_fingerprints.shrink(old_size);
@@ -158,7 +158,7 @@ namespace smt {
             if (f->get_num_args() != num_args)
                 continue;
             unsigned i = 0;
-            for (i = 0; i < num_args; i++)
+            for (i = 0; i < num_args; ++i)
                 if (f->get_arg(i)->get_root() != args[i]->get_root())
                     break;
             if (i == num_args) {

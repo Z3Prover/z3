@@ -558,7 +558,7 @@ extern "C" {
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
         unsigned sz = to_solver_ref(s)->get_num_assertions();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             v->m_ast_vector.push_back(to_solver_ref(s)->get_assertion(i));
         }
         RETURN_Z3(of_ast_vector(v));
@@ -638,7 +638,7 @@ extern "C" {
 #define TOSTRING(x) STRINGIFY(x)    
 
     static Z3_lbool _solver_check(Z3_context c, Z3_solver s, unsigned num_assumptions, Z3_ast const assumptions[]) {
-        for (unsigned i = 0; i < num_assumptions; i++) {
+        for (unsigned i = 0; i < num_assumptions; ++i) {
             if (!is_expr(to_ast(assumptions[i]))) {
                 SET_ERROR_CODE(Z3_INVALID_ARG, "assumption is not an expression");
                 return Z3_L_UNDEF;

@@ -102,7 +102,7 @@ bool contains_bv(ast_manager &m, const substitution &sub, unsigned &sz) {
     std::pair<unsigned, unsigned> v;
     expr_offset r;
     rational num;
-    for (unsigned j = 0, sz = sub.get_num_bindings(); j < sz; j++) {
+    for (unsigned j = 0, sz = sub.get_num_bindings(); j < sz; ++j) {
         sub.get_binding(j, v, r);
         if (m_bv.is_numeral(r.get_expr(), num, sz)) return true;
     }
@@ -117,7 +117,7 @@ bool all_same_sz(ast_manager &m, const substitution &sub, unsigned sz) {
     expr_offset r;
     rational num;
     unsigned n_sz;
-    for (unsigned j = 0; j < sub.get_num_bindings(); j++) {
+    for (unsigned j = 0; j < sub.get_num_bindings(); ++j) {
         sub.get_binding(j, v, r);
         if (!m_bv.is_numeral(r.get_expr(), num, n_sz) || n_sz != sz)
             return false;
@@ -169,7 +169,7 @@ void lemma_global_generalizer::subsumer::mk_col_names(const lemma_cluster &lc) {
     const substitution &sub = lemmas.get(0).get_sub();
 
     m_col_names.reserve(sub.get_num_bindings());
-    for (unsigned j = 0, sz = sub.get_num_bindings(); j < sz; j++) {
+    for (unsigned j = 0, sz = sub.get_num_bindings(); j < sz; ++j) {
         sub.get_binding(j, v, r);
         auto *sort = r.get_expr()->get_sort();
         auto i = v.first;
@@ -211,7 +211,7 @@ void lemma_global_generalizer::subsumer::setup_cvx_closure(
         }
 
         unsigned i;
-        for (unsigned j = 0; j < n_vars; j++) {
+        for (unsigned j = 0; j < n_vars; ++j) {
             sub.get_binding(j, v, r);
             i = v.first;
             SASSERT(0 <= i && i < n_vars);
@@ -238,7 +238,7 @@ void lemma_global_generalizer::subsumer::setup_cvx_closure(
         row.reserve(n_vars);
 
         const substitution &sub = lemma.get_sub();
-        for (unsigned j = 0, sz = sub.get_num_bindings(); j < sz; j++) {
+        for (unsigned j = 0, sz = sub.get_num_bindings(); j < sz; ++j) {
             sub.get_binding(j, v, r);
             i = v.first;
             VERIFY(is_numeral(r.get_expr(), num));
@@ -276,7 +276,7 @@ void lemma_global_generalizer::subsumer::skolemize_for_quic3(
     expr_fast_mark2 marks;
     for (auto *c : f_cnsts) { marks.mark(c); }
 
-    for (unsigned i = 0, sz = m_col_names.size(); i < sz; i++) {
+    for (unsigned i = 0, sz = m_col_names.size(); i < sz; ++i) {
         app *c = m_col_names.get(i);
         if (!marks.is_marked(c)) continue;
 
@@ -488,7 +488,7 @@ bool lemma_global_generalizer::subsumer::over_approximate(expr_ref_vector &a,
 
     expr_ref_buffer res(m);
     // remove all expressions whose tags are false
-    for (unsigned i = 0, sz = tags.size(); i < sz; i++) {
+    for (unsigned i = 0, sz = tags.size(); i < sz; ++i) {
         if (!m.is_not(tags.get(i))) { res.push_back(a.get(i)); }
     }
     a.reset();

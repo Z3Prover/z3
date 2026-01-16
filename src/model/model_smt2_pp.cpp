@@ -26,7 +26,7 @@ Revision History:
 using namespace format_ns;
 
 static void pp_indent(std::ostream & out, unsigned indent) {
-    for (unsigned i = 0; i < indent; i++) 
+    for (unsigned i = 0; i < indent; ++i) 
         out << " ";
 }
 
@@ -58,7 +58,7 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
     ast_manager & m = ctx.get_ast_manager();
     ptr_buffer<format> f_conds;
     unsigned num = md.get_num_uninterpreted_sorts();
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         sort * s = md.get_uninterpreted_sort(i);
         ptr_vector<expr> const & u = md.get_universe(s);
         std::ostringstream buffer;
@@ -77,7 +77,7 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
         unsigned len = static_cast<unsigned>(buffer_str.length());
         pp_indent(out, indent);
         out << ";; ";
-        for (unsigned i = 0; i < len; i++) {
+        for (unsigned i = 0; i < len; ++i) {
             char c = buffer_str[i];
             if (c == '\n') {
                 out << "\n";
@@ -139,7 +139,7 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
 
 static void pp_consts(std::ostream & out, ast_printer_context & ctx, model_core const & md, unsigned indent) {
     unsigned num = md.get_num_constants();
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         func_decl * c = md.get_constant(i);
         expr * c_i    = md.get_const_interp(c);
         pp_indent(out, indent);
@@ -158,7 +158,7 @@ void sort_fun_decls(ast_manager & m, model_core const & md, ptr_buffer<func_decl
     func_decl_set         visited;
     ptr_vector<func_decl> todo;
     unsigned sz = md.get_num_functions();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         func_decl * f = md.get_function(i);
         if (visited.contains(f))
             continue;
@@ -210,19 +210,19 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
         var_names.reset();
         if (f_i->is_partial()) {
             body = mk_string(m, "#unspecified");
-            for (unsigned j = 0; j < f->get_arity(); j++) {
+            for (unsigned j = 0; j < f->get_arity(); ++j) {
                 var_names.push_back(symbol("x!" + std::to_string(j+1)));
             }
         }
         else {
             ctx.pp(f_i->get_else(), f->get_arity(), "x", body, var_names);  
         }
-        TRACE(model_smt2_pp, for (unsigned i = 0; i < var_names.size(); i++) tout << var_names[i] << "\n";);
+        TRACE(model_smt2_pp, for (unsigned i = 0; i < var_names.size(); ++i) tout << var_names[i] << "\n";);
         f_var_names.reset();
         for (auto const& vn : var_names) 
             f_var_names.push_back(mk_string(m, vn.bare_str()));
         f_arg_decls.reset();
-        for (unsigned i = 0; i < f->get_arity(); i++) {
+        for (unsigned i = 0; i < f->get_arity(); ++i) {
             format_ref f_domain(fm(m));
             ctx.pp(f->get_domain(i), f_domain);
             format * args[2] = { f_var_names[i], f_domain.get() };
@@ -233,10 +233,10 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
         ctx.pp(f->get_range(), f_range);
         if (f_i->num_entries() > 0) {
             f_entries.reset();
-            for (unsigned i = 0; i < f_i->num_entries(); i++) {
+            for (unsigned i = 0; i < f_i->num_entries(); ++i) {
                 func_entry const * e = f_i->get_entry(i);
                 f_entry_conds.reset();
-                for (unsigned j = 0; j < f->get_arity(); j++) {
+                for (unsigned j = 0; j < f->get_arity(); ++j) {
                     format_ref f_arg(fm(m));
                     ctx.pp(e->get_arg(j), f_arg);
                     format * eq_args[2] = { f_var_names[j], f_arg.get() };
@@ -262,7 +262,7 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
             f_entries.push_back(mk_indent(m, TAB_SZ, mk_compose(m,
                                                                 mk_line_break(m),
                                                                 body.get())));
-            for (unsigned i = 0; i < f_i->num_entries(); i++)
+            for (unsigned i = 0; i < f_i->num_entries(); ++i)
                 f_entries.push_back(mk_string(m, ")"));
             body = mk_compose(m, f_entries.size(), f_entries.data());
         }

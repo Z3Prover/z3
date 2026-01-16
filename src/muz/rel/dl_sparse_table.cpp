@@ -127,7 +127,7 @@ namespace datalog {
         unsigned ofs = 0;
         unsigned sig_sz = sig.size();
         unsigned first_functional = sig_sz-m_functional_col_cnt;
-        for (unsigned i=0; i<sig_sz; i++) {
+        for (unsigned i=0; i<sig_sz; ++i) {
             uint64_t dom_size = sig[i];
             unsigned length = get_domain_length(dom_size);
             SASSERT(length>0);
@@ -331,7 +331,7 @@ namespace datalog {
             bool key_modified = true;
 
             for (; ofs!=after_last; ofs+=t.m_fact_size) {
-                for (unsigned i=0; i<key_len; i++) {
+                for (unsigned i=0; i<key_len; ++i) {
                     table_element col_val = t.get_cell(ofs, m_key_cols[i]);
                     if (key[i]!=col_val) {
                         key[i] = col_val;
@@ -399,7 +399,7 @@ namespace datalog {
             SASSERT(can_handle(key_len, key_cols, t));
             
             m_permutation.resize(key_len);
-            for (unsigned i=0; i<key_len; i++) {
+            for (unsigned i=0; i<key_len; ++i) {
                 //m_permutation[m_key_cols[i]] = i;
                 m_permutation[i] = m_key_cols[i];
             }
@@ -408,7 +408,7 @@ namespace datalog {
 
         query_result get_matching_offsets(const key_value & key) const override {
             unsigned key_len = m_key_cols.size();
-            for (unsigned i=0; i<key_len; i++) {
+            for (unsigned i=0; i<key_len; ++i) {
                 m_key_fact[m_permutation[i]] = key[i];
             }
             //We will change the content of the reserve; which does not change the 'high-level' 
@@ -534,7 +534,7 @@ namespace datalog {
                 return false;
             }
             unsigned sz = get_signature().size();
-            for (unsigned i=func_col_cnt; i<sz; i++) {
+            for (unsigned i=func_col_cnt; i<sz; ++i) {
                 if (t.get_cell(ofs, i)!=f[i]) {
                     return false;
                 }
@@ -558,7 +558,7 @@ namespace datalog {
                 return false;
             }
             unsigned sz = sig.size();
-            for (unsigned i=sig.first_functional(); i<sz; i++) {
+            for (unsigned i=sig.first_functional(); i<sz; ++i) {
                 f[i] = t.get_cell(ofs, i);
             }
             return true;
@@ -583,7 +583,7 @@ namespace datalog {
                 return;
             }
             unsigned sz = sig.size();
-            for (unsigned i=sig.first_functional(); i<sz; i++) {
+            for (unsigned i=sig.first_functional(); i<sz; ++i) {
                 set_cell(ofs, i, f[i]);
             }
         }
@@ -603,7 +603,7 @@ namespace datalog {
     void sparse_table::copy_columns(const column_layout & src_layout, const column_layout & dest_layout,
             unsigned start_index, unsigned after_last, const char * src, char * dest, 
             unsigned & dest_idx, unsigned & pre_projection_idx, const unsigned * & next_removed) {
-        for (unsigned i=start_index; i<after_last; i++, pre_projection_idx++) {
+        for (unsigned i=start_index; i<after_last; ++i, ++pre_projection_idx) {
             if (*next_removed == pre_projection_idx) {
                 next_removed++;
                 continue;
@@ -691,7 +691,7 @@ namespace datalog {
         key_indexer::query_result t2_offsets;
 
         for (; t1idx != t1end; t1idx += t1_entry_size) {
-            for (unsigned i = 0; i < joined_col_cnt; i++) {
+            for (unsigned i = 0; i < joined_col_cnt; ++i) {
                 table_element val = t1.m_column_layout.get(t1.get_at_offset(t1idx), t1_joined_cols[i]);
                 TRACE(dl_table_relation, tout << "val: " << val << " " << t1idx << " " << t1_joined_cols[i] << "\n";);
                 if (t1_key[i] != val) {
@@ -925,7 +925,7 @@ namespace datalog {
             const sparse_table::column_layout & tgt_layout) {
                 unsigned r_idx=0;
                 unsigned tgt_i=0;
-                for (unsigned i=0; i<m_inp_col_cnt; i++) {
+                for (unsigned i=0; i<m_inp_col_cnt; ++i) {
                     if (r_idx!=m_removed_col_cnt && i == m_removed_cols[r_idx]) {
                         SASSERT(r_idx<m_removed_col_cnt);
                         r_idx++;
@@ -1010,7 +1010,7 @@ namespace datalog {
                 char * res_reserve = res->m_data.get_reserve_ptr();
 
                 unsigned res_i = 0;
-                for (unsigned i=0; i<t_cols; i++) {
+                for (unsigned i=0; i<t_cols; ++i) {
                     if (i == m_col) {
                         continue;
                     }
@@ -1166,7 +1166,7 @@ namespace datalog {
             store_offset t1_after_last = t1.m_data.after_last_offset();
             for (store_offset t1_ofs=0; t1_ofs<t1_after_last; t1_ofs+=t1_entry_size) {
             
-                for (unsigned i=0; i<joined_col_cnt; i++) {
+                for (unsigned i=0; i<joined_col_cnt; ++i) {
                     table_element val = t1.get_cell(t1_ofs, cols1[i]);
                     if (t1_key[i]!=val) {
                         t1_key[i]=val;

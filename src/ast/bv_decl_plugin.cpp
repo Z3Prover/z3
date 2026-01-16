@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include<sstream>
+#include<format>
 #include "ast/bv_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "util/warning.h"
@@ -44,7 +45,7 @@ bv_decl_plugin::bv_decl_plugin():
 void bv_decl_plugin::set_manager(ast_manager * m, family_id id) {
     decl_plugin::set_manager(m, id);
 
-    for (unsigned i = 1; i <= 64; i++) 
+    for (unsigned i = 1; i <= 64; ++i) 
         mk_bv_sort(i);
 
     m_bit0 = m->mk_const_decl(symbol("bit0"), get_bv_sort(1), func_decl_info(m_family_id, OP_BIT0));
@@ -407,7 +408,7 @@ inline bool bv_decl_plugin::get_bv_size(expr * t, int & result) {
 
 bool bv_decl_plugin::get_concat_size(unsigned arity, sort * const * domain, int & result) {
     result = 0;
-    for (unsigned i = 0; i < arity; i++) {
+    for (unsigned i = 0; i < arity; ++i) {
         int sz;
         if (!get_bv_size(domain[i], sz)) {
             return false;
@@ -500,7 +501,7 @@ func_decl * bv_decl_plugin::mk_bit2bool(unsigned bv_size, unsigned num_parameter
 }
 
 func_decl * bv_decl_plugin::mk_mkbv(unsigned arity, sort * const * domain) {
-    for (unsigned i = 0; i < arity; i++) {
+    for (unsigned i = 0; i < arity; ++i) {
         if (!m_manager->is_bool(domain[i])) {
             m_manager->raise_exception("invalid mkbv operator");
             return nullptr;
@@ -672,9 +673,11 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         }
         for (unsigned i = 0; i < num_args; ++i) {
             if (args[i]->get_sort() != r->get_domain(i)) {
-                std::ostringstream buffer;
-                buffer << "Argument " << mk_pp(args[i], m) << " at position " << i << " has sort " << mk_pp(args[i]->get_sort(), m) << " it does not match declaration " << mk_pp(r, m);
-                m.raise_exception(buffer.str());
+                m.raise_exception(std::format("Argument {} at position {} has sort {} it does not match declaration {}",
+                                               to_string(mk_pp(args[i], m)),
+                                               i,
+                                               to_string(mk_pp(args[i]->get_sort(), m)),
+                                               to_string(mk_pp(r, m))));
                 return nullptr;
             }
         }

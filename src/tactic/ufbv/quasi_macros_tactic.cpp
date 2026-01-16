@@ -58,7 +58,7 @@ class quasi_macros_tactic : public tactic {
             expr_dependency_ref_vector deps(m_manager);
 
             unsigned size = g->size();
-            for (unsigned i = 0; i < size; i++) {
+            for (unsigned i = 0; i < size; ++i) {
                 forms.push_back(g->form(i));
                 proofs.push_back(g->pr(i));
                 deps.push_back(g->dep(i));
@@ -70,14 +70,14 @@ class quasi_macros_tactic : public tactic {
             while (qm(forms, proofs, deps));
 
             g->reset();
-            for (unsigned i = 0; i < forms.size(); i++)
+            for (unsigned i = 0; i < forms.size(); ++i)
                 g->assert_expr(forms.get(i),
                                produce_proofs ? proofs.get(i) : nullptr,
                                produce_unsat_cores ? deps.get(i, nullptr) : nullptr);
 
             generic_model_converter * evmc = alloc(generic_model_converter, mm.get_manager(), "quasi_macros");
             unsigned num = mm.get_num_macros();
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 expr_ref f_interp(mm.get_manager());
                 func_decl * f = mm.get_macro_interpretation(i, f_interp);
                 evmc->add(f, f_interp);

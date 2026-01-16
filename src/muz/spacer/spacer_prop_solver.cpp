@@ -109,7 +109,7 @@ unsigned prop_solver::level_cnt() const
 void prop_solver::assert_level_atoms(unsigned level)
 {
     unsigned lev_cnt = level_cnt();
-    for (unsigned i = 0; i < lev_cnt; i++) {
+    for (unsigned i = 0; i < lev_cnt; ++i) {
         bool active = m_delta_level ? i == level : i >= level;
         app * lev_atom =
             active ? m_neg_level_atoms.get(i) : m_pos_level_atoms.get(i);

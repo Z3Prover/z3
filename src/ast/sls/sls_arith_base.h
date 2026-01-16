@@ -348,7 +348,6 @@ namespace sls {
         bool update_num(var_t v, num_t const& delta);
     public:
         arith_base(context& ctx);
-        ~arith_base() override = default;
         void register_term(expr* e) override;
         bool set_value(expr* e, expr* v) override;
         expr_ref get_value(expr* e) override;

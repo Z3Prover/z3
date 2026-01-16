@@ -429,12 +429,12 @@ namespace fpa {
         for (func_decl* f : seen)
             mdl.unregister_decl(f);
 
-        for (unsigned i = 0; i < new_model.get_num_constants(); i++) {
+        for (unsigned i = 0; i < new_model.get_num_constants(); ++i) {
             func_decl* f = new_model.get_constant(i);
             mdl.register_decl(f, new_model.get_const_interp(f));
         }
 
-        for (unsigned i = 0; i < new_model.get_num_functions(); i++) {
+        for (unsigned i = 0; i < new_model.get_num_functions(); ++i) {
             func_decl* f = new_model.get_function(i);
             func_interp* fi = new_model.get_func_interp(f)->copy();
             mdl.register_decl(f, fi);

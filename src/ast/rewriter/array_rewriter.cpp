@@ -128,7 +128,7 @@ br_status array_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
 // l_false -- at least one disequal
 // l_undef -- don't know
 lbool array_rewriter::compare_args(unsigned num_args, expr * const * args1, expr * const * args2) {
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         if (args1[i] == args2[i])
             continue;
         if (m().are_distinct(args1[i], args2[i]))
@@ -367,7 +367,7 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
                 expr * v       = to_app(args[0])->get_arg(num_args);
                 ptr_buffer<expr> eqs;
                 unsigned num_indices = num_args-1;
-                for (unsigned i = 0; i < num_indices; i++) {
+                for (unsigned i = 0; i < num_indices; ++i) {
                     eqs.push_back(m().mk_eq(to_app(args[0])->get_arg(i+1), args[i+1]));
                 }
                 if (num_indices == 1) {
@@ -411,7 +411,7 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
     app* store_expr = nullptr;
     unsigned num_indices = 0;
     bool same_store = true;
-    for (unsigned i = 0; same_store && i < num_args; i++) {
+    for (unsigned i = 0; same_store && i < num_args; ++i) {
         expr* a = args[i];
         if (m_util.is_const(a)) {
             continue;
@@ -424,7 +424,7 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
             store_expr = to_app(a);
         }
         else {
-            for (unsigned j = 1; same_store && j < num_indices + 1; j++) {
+            for (unsigned j = 1; same_store && j < num_indices + 1; ++j) {
                 same_store = (store_expr->get_arg(j) == to_app(a)->get_arg(j));
             }
         }
@@ -436,7 +436,7 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
     if (same_store) {
         ptr_buffer<expr> arrays;
         ptr_buffer<expr> values;
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             expr* a = args[i];
             if (m_util.is_const(a)) {
                 arrays.push_back(a);

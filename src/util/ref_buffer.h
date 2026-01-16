@@ -115,7 +115,7 @@ public:
     }        
 
     void append(unsigned n, T * const * elems) {
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             push_back(elems[i]);
         }
     }

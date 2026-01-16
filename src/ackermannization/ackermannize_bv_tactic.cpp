@@ -39,7 +39,7 @@ public:
 
         ptr_vector<expr> flas;
         const unsigned sz = g->size();
-        for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
+        for (unsigned i = 0; i < sz; ++i) flas.push_back(g->form(i));
         lackr lackr(m, m_p, m_st, flas, nullptr);
 
         // mk result

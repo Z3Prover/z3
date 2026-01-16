@@ -217,7 +217,7 @@ namespace smt {
         bool mk_rep(app* n) {
             unsigned num_args = n->get_num_args();
             enode * e = nullptr;
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 ctx.internalize(n->get_arg(i), false);
             }
             if (ctx.e_internalized(n)) {

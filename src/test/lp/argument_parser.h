@@ -37,7 +37,7 @@ class argument_parser {
 public:
     std::string m_error_message;
     argument_parser(unsigned argn, char * const* args) {
-        for (unsigned i = 0; i < argn; i++) {
+        for (unsigned i = 0; i < argn; ++i) {
             m_args.push_back(std::string(args[i]));
         }
     }
@@ -61,7 +61,7 @@ public:
 
     bool parse() {
         bool status_is_ok = true;
-        for (unsigned i = 0; i < m_args.size(); i++) {
+        for (unsigned i = 0; i < m_args.size(); ++i) {
             std::string ar = m_args[i];
             if (m_options.find(ar) != m_options.end() )
                 m_used_options.insert(ar);

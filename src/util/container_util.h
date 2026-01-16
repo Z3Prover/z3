@@ -102,7 +102,7 @@ void print_map(const T & cont, std::ostream & out) {
 template<class It, class V> 
 unsigned find_index(const It & begin, const It & end, const V & val) {
     It it = begin;
-    for (unsigned idx = 0; it != end; it++, idx++) {
+    for (unsigned idx = 0; it != end; ++it, ++idx) {
         if (*it == val) {
             return idx;
         }

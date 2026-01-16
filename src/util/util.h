@@ -114,7 +114,7 @@ static inline unsigned get_num_1bits(unsigned v) {
 #ifdef Z3DEBUG
     unsigned c;
     unsigned v1 = v;
-    for (c = 0; v1; c++) {
+    for (c = 0; v1; ++c) {
         v1 &= v1 - 1; 
     }
 #endif
@@ -133,7 +133,7 @@ static inline unsigned get_num_1bits(uint64_t v) {
 #ifdef Z3DEBUG
     unsigned c;
     uint64_t v1 = v;
-    for (c = 0; v1; c++) {
+    for (c = 0; v1; ++c) {
         v1 &= v1 - 1; 
     }
 #endif
@@ -311,7 +311,7 @@ public:
 
 template<typename T>
 bool compare_arrays(const T * array1, const T * array2, unsigned size) {
-    for (unsigned i = 0; i < size; i++) {
+    for (unsigned i = 0; i < size; ++i) {
         if (!(array1[i] == array2[i])) {
             return false;
         }

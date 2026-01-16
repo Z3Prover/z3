@@ -64,7 +64,7 @@ public:
         proc p(g.m());
         unsigned sz = g.size();
         expr_fast_mark1 visited;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             for_each_expr_core<proc, expr_fast_mark1, true, true>(p, visited, g.form(i));
         }
         p.prune_non_select();

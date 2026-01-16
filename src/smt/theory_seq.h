@@ -168,7 +168,7 @@ namespace smt {
                 m_util.str.get_concat_units(e, ls);
             for (expr* e : r)
                 m_util.str.get_concat_units(e, rs);
-            return depeq(m_eq_id++, ls, rs, dep);
+            return depeq(++m_eq_id, ls, rs, dep);
         }        
 
         // equalities that are decomposed by conacatenations

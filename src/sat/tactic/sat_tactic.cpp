@@ -112,7 +112,7 @@ class sat_tactic : public tactic {
                 if (produce_models) {
                     model_ref md = alloc(model, m);
                     sat::model const & ll_m = m_solver->get_model();
-                    TRACE(sat_tactic, for (unsigned i = 0; i < ll_m.size(); i++) tout << i << ":" << ll_m[i] << " "; tout << "\n";);
+                    TRACE(sat_tactic, for (unsigned i = 0; i < ll_m.size(); ++i) tout << i << ":" << ll_m[i] << " "; tout << "\n";);
                     for (auto const& kv : map) {
                         expr * n   = kv.m_key;
                         sat::bool_var v = kv.m_value;

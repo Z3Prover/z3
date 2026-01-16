@@ -1010,7 +1010,7 @@ bool fpa_util::contains_floats(ast * a) {
         if (contains_floats(aa->get_decl()))
             return true;
         else
-            for (unsigned i = 0; i < aa->get_num_args(); i++)
+            for (unsigned i = 0; i < aa->get_num_args(); ++i)
                 if (contains_floats(aa->get_arg(i)))
                     return true;
         break;
@@ -1020,10 +1020,10 @@ bool fpa_util::contains_floats(ast * a) {
         break;
     case AST_QUANTIFIER: {
         quantifier * q = to_quantifier(a);
-        for (unsigned i = 0; i < q->get_num_children(); i++)
+        for (unsigned i = 0; i < q->get_num_children(); ++i)
             if (contains_floats(q->get_child(i)))
                 return true;
-        for (unsigned i = 0; i < q->get_num_decls(); i++)
+        for (unsigned i = 0; i < q->get_num_decls(); ++i)
             if (contains_floats(q->get_decl_sort(i)))
                 return true;
         if (contains_floats(q->get_expr()))
@@ -1035,7 +1035,7 @@ bool fpa_util::contains_floats(ast * a) {
         if (is_float(s) || is_rm(s))
             return true;
         else {
-            for (unsigned i = 0; i < s->get_num_parameters(); i++) {
+            for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
                 parameter const & pi = s->get_parameter(i);
                 if (pi.is_ast() && contains_floats(pi.get_ast()))
                     return true;
@@ -1045,12 +1045,12 @@ bool fpa_util::contains_floats(ast * a) {
     }
     case AST_FUNC_DECL: {
         func_decl * f = to_func_decl(a);
-        for (unsigned i = 0; i < f->get_arity(); i++)
+        for (unsigned i = 0; i < f->get_arity(); ++i)
             if (contains_floats(f->get_domain(i)))
                 return true;
         if (contains_floats(f->get_range()))
             return true;
-        for (unsigned i = 0; i < f->get_num_parameters(); i++) {
+        for (unsigned i = 0; i < f->get_num_parameters(); ++i) {
             parameter const & pi = f->get_parameter(i);
             if (pi.is_ast() && contains_floats(pi.get_ast()))
                 return true;

@@ -72,7 +72,7 @@ public:
 
         expr_ref_vector nodeps(m);
         
-        for (unsigned i = 0; i < g->size(); i++) {
+        for (unsigned i = 0; i < g->size(); ++i) {
             expr_dependency * ed = g->dep(i);
             if (!ed) {
                 nodeps.push_back(g->form(i));

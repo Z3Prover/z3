@@ -14,14 +14,14 @@ void dl_util_two_array_sort() {
     unsigned a1[num];
     unsigned a2[num];
 
-    for(unsigned i=0; i<num; i++) {
+    for(unsigned i=0; i<num; ++i) {
         a1[i]=(i*30)%num;
         a2[i]=(i*30)%num+3;
     }
 
     datalog::sort_two_arrays(num, a1, a2);
 
-    for(unsigned i=0; i<num; i++) {
+    for(unsigned i=0; i<num; ++i) {
         ENSURE(a2[i]==i+3);
     }
 }
@@ -43,7 +43,7 @@ void dl_util_cycle_from_permutation() {
     cycle.reset();
     datalog::cycle_from_permutation(perm2, cycle);
 
-    for(unsigned i=0; i<len2; i++) {
+    for(unsigned i=0; i<len2; ++i) {
         ENSURE( (cycle[i]+1)%len2==cycle[(i+1)%len2] );
     }
 }

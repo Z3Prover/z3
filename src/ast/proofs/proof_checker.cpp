@@ -577,7 +577,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                 if (!found) {
                     TRACE(pr_unit_bug,
                           tout << "Parents:\n";
-                          for (unsigned i = 0; i < proofs.size(); i++) {
+                          for (unsigned i = 0; i < proofs.size(); ++i) {
                               expr* p = nullptr;
                               match_fact(proofs.get(i), p);
                               tout << mk_pp(p, m) << "\n";
@@ -1236,7 +1236,7 @@ void proof_checker::dump_proof(proof const* pr) {
     expr * consequent = m.get_fact(pr);
     unsigned num      = m.get_num_parents(pr);
     ptr_buffer<expr> antecedents;
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         proof * a = m.get_parent(pr, i);
         SASSERT(m.has_fact(a));
         antecedents.push_back(m.get_fact(a));
@@ -1252,7 +1252,7 @@ void proof_checker::dump_proof(unsigned num_antecedents, expr * const * antecede
     pp.set_benchmark_name("lemma");
     pp.set_status("unsat");
     pp.set_logic(symbol(m_logic.c_str()));
-    for (unsigned i = 0; i < num_antecedents; i++)
+    for (unsigned i = 0; i < num_antecedents; ++i)
         pp.add_assumption(antecedents[i]);
     expr_ref n(m);
     n = m.mk_not(consequent);
@@ -1389,7 +1389,7 @@ bool proof_checker::check_arith_proof(proof* p) {
     }
 
     unsigned num_parents = m.get_num_parents(p);
-    for (unsigned i = 0; i < num_parents; i++) {
+    for (unsigned i = 0; i < num_parents; ++i) {
         proof * a = m.get_parent(p, i);
         SASSERT(m.has_fact(a));
         if (!check_arith_literal(true, to_app(m.get_fact(a)), coeffs[offset++], sum, is_strict)) {
@@ -1397,7 +1397,7 @@ bool proof_checker::check_arith_proof(proof* p) {
         }
     }
     TRACE(proof_checker, 
-          for (unsigned i = 0; i < num_parents; i++) 
+          for (unsigned i = 0; i < num_parents; ++i) 
               tout << coeffs[i] << " * " << mk_bounded_pp(m.get_fact(m.get_parent(p, i)), m) << "\n";
           tout << "fact:" << mk_bounded_pp(fact, m) << "\n";);
     

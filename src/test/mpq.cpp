@@ -70,7 +70,7 @@ static void mk_random_num_str(unsigned buffer_sz, char * buffer) {
             div_pos++;
     }
     ENSURE(sz < buffer_sz);
-    for (unsigned i = 0; i < sz-1; i++) {
+    for (unsigned i = 0; i < sz-1; ++i) {
         if (i == div_pos && i < sz-2) {
             buffer[i] = '/';
             i++;

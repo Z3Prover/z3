@@ -57,7 +57,7 @@ namespace smt {
         if (num != n2->get_num_args()) {
             return false;
         }
-        for (unsigned i = 0; i < num; i++) 
+        for (unsigned i = 0; i < num; ++i) 
             if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root())
                 return false;
         return true;
