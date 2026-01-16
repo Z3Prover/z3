@@ -21,6 +21,7 @@ Revision History:
 #include "smt/smt_context.h"
 #include "util/search_tree.h"
 #include "tactic/tactic.h"
+#include "ast/sls/sls_smt_solver.h"
 #include <thread>
 #include <mutex>
 
@@ -78,14 +79,14 @@ namespace smt {
                     w->cancel();
             }
 
-            void cancel_sls_tactic() {
-                IF_VERBOSE(1, verbose_stream() << "Canceling SLS tactic\n");
-                p.m_sls_tactic->cancel();
+            void cancel_sls_worker() {
+                IF_VERBOSE(1, verbose_stream() << "Canceling SLS worker\n");
+                p.m_sls_worker->cancel();
             }
 
             void cancel_background_threads() {
                 cancel_workers();
-                cancel_sls_tactic();
+                cancel_sls_worker();
             }
 
             void init_parameters_state();
@@ -169,19 +170,16 @@ namespace smt {
 
         };
 
-        class sls_tactic {
+        class sls_worker {
             parallel &p;
             batch_manager &b;
             ast_manager m;
             ast_translation m_g2l, m_l2g;
-
+            scoped_ptr<sls::smt_solver> m_sls;
             params_ref  m_params;
-            tactic_ref  m_prep;
-            tactic_ref  m_sls;
-            bool        m_enabled = false;
 
             public:
-                sls_tactic(parallel &p);
+                sls_worker(parallel &p);
                 void cancel();
                 void run();
 
@@ -192,7 +190,7 @@ namespace smt {
 
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
-        scoped_ptr<sls_tactic> m_sls_tactic;
+        scoped_ptr<sls_worker> m_sls_worker;
 
     public:
         parallel(context& ctx) : 

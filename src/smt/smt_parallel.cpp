@@ -32,6 +32,7 @@ Author:
 #include "tactic/goal.h"
 #include "tactic/tactic_exception.h"
 #include "tactic/smtlogics/smt_tactic.h"
+#include "ast/sls/sls_smt_solver.h"
 
 
 #include <cmath>
@@ -71,77 +72,38 @@ namespace smt {
 
 namespace smt {
 
-    void parallel::sls_tactic::run() {
-        IF_VERBOSE(1, verbose_stream() << "SLS portfolio thread started\n");
+    void parallel::sls_worker::run() {
+        // 2) Copy assertions (global → local)
+        ptr_vector<expr> assertions;
+        p.ctx.get_assertions(assertions);
+        for (expr* e : assertions)
+            m_sls->assert_expr(m_g2l(e));
 
-        if (!m_enabled)
-            return;
-
+        // m_st.reset();
+        lbool res = l_undef;
         try {
-            // 1) Build goal
-            goal_ref g = alloc(goal, m,
-                            /*proofs*/ false,
-                            /*models*/ true,
-                            /*cores*/  false);
-
-            // 2) Copy assertions (global → local)
-            ptr_vector<expr> assertions;
-            p.ctx.get_assertions(assertions);
-            for (expr* e : assertions)
-                g->assert_expr(m_g2l(e));
-
-            // 3) Preprocess
-            goal_ref_buffer prep_result;
-            (*m_prep)(g, prep_result);
-            
-            if (m.limit().is_canceled())
-                return;;
-
-            // 4) Run SLS
-            goal_ref_buffer sls_result;
-            for (goal_ref const& g2 : prep_result) {
-                if (!g2) continue;
-                (*m_sls)(g2, sls_result);
-            }
-
-            if (m.limit().is_canceled())
-                return;
-
-            // 5) Interpret results (SAT only)
-            for (goal_ref const& r : sls_result) {
-                if (!r || !r->is_decided_sat())
-                    continue;
-
-                IF_VERBOSE(1, verbose_stream() << "SLS found SAT\n");
-
-                model_ref mdl;
-                if (r->models_enabled()) {
-                    if (model_converter* mc = r->mc())
-                        mc->operator()(mdl);
-                }
-
-                if (mdl) {
-                    b.set_sat(m_l2g, *mdl);
-                    return;
-                }
-
-                IF_VERBOSE(1, verbose_stream()
-                    << "SLS reported SAT but no model produced\n");
-            }
-        }
-        catch (tactic_exception& ex) {
-            b.set_exception(ex.what());
+            res = m_sls->check();
         }
         catch (z3_exception& ex) {
-            b.set_exception(ex.what());
+            IF_VERBOSE(1, verbose_stream() << "SLS threw an exception: " << ex.what() << "\n");
+            // m_sls->collect_statistics(m_st);
+            throw;
+            // TODO: CHANGE THIS TO NOTIFY BATCH MANAGER
         }
-        catch (...) {
-            b.set_exception("unknown exception in SLS portfolio thread");
+        // m_sls->collect_statistics(m_st);
+//        report_tactic_progress("Number of flips:", m_sls->get_num_moves());
+        IF_VERBOSE(10, verbose_stream() << res << "\n");
+        IF_VERBOSE(10, m_sls->display(verbose_stream()));
+
+        if (res == l_true) {            
+            model_ref mdl = m_sls->get_model();
+            // TODO: notify batch manager of sat model!!
+            // TODO: add m_sls to header file as member variable and import relevant files
         }
     }
 
-    void parallel::sls_tactic::cancel() {
-        IF_VERBOSE(1, verbose_stream() << " SLS TACTIC cancelling\n");
+    void parallel::sls_worker::cancel() {
+        IF_VERBOSE(1, verbose_stream() << " SLS WORKER cancelling\n");
         m.limit().cancel();
     }
 
@@ -232,23 +194,16 @@ namespace smt {
         m_config.m_inprocessing = pp.inprocessing();
     }
 
-    parallel::sls_tactic::sls_tactic(parallel& p)
+    parallel::sls_worker::sls_worker(parallel& p)
         : p(p), b(p.m_batch_manager), m(), m_g2l(p.ctx.m, m), m_l2g(m, p.ctx.m) {
 
         IF_VERBOSE(1, verbose_stream() << "Initialized SLS portfolio thread\n");
 
         // Build params ONCE (main thread)
         m_params.append(p.ctx.m_params);
-        m_params.set_uint("sls.random_seed", 0);
-        m_params.set_uint("sls.max_steps", 200000);
-        m_params.set_uint("sls.max_restarts", 50);
 
         // Build tactics ONCE (main thread, thread-unsafe!)
-        m_prep = mk_smt_tactic(m, m_params);
-        m_sls  = mk_sls_smt_tactic(m, m_params);
-
-        if (m_prep && m_sls)
-            m_enabled = true;
+        m_sls = alloc(sls::smt_solver, m, m_params);
     }
 
     void parallel::worker::share_units() {
@@ -597,7 +552,7 @@ namespace smt {
             scoped_clear(parallel &p) : p(p) {}
             ~scoped_clear() {
                 p.m_workers.reset();
-                p.m_sls_tactic = nullptr;
+                p.m_sls_worker = nullptr;
             }
         };
         scoped_clear clear(*this);
@@ -615,18 +570,18 @@ namespace smt {
         for (auto w : m_workers)
             sl.push_child(&(w->limit()));
 
-        m_sls_tactic = alloc(sls_tactic, *this);
-        sl.push_child(&(m_sls_tactic->limit()));
+        m_sls_worker = alloc(sls_worker, *this);
+        sl.push_child(&(m_sls_worker->limit()));
 
         // Launch threads
         // threads must live beyond the branch scope so we declare them here.
         vector<std::thread> threads;
-        threads.resize(num_threads + 1); // +1 for sls tactic
+        threads.resize(num_threads + 1); // +1 for sls worker
         for (unsigned i = 0; i < num_threads; ++i) {
             threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
         }
-        // the final thread runs the sls tactic
-        threads[num_threads] = std::thread([&]() { m_sls_tactic->run(); });
+        // the final thread runs the sls worker
+        threads[num_threads] = std::thread([&]() { m_sls_worker->run(); });
 
         // Wait for all threads to finish
         for (auto &th : threads)
