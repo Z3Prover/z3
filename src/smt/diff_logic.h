@@ -224,7 +224,7 @@ class dl_graph {
         SASSERT(m_assignment.size() == m_parent.size());
         SASSERT(m_assignment.size() <= m_heap.get_bounds());
         SASSERT(m_in_edges.size() == m_out_edges.size());
-        int n = m_out_edges.size();
+        int n = static_cast<int>(m_out_edges.size());
         for (dl_var id = 0; id < n; ++id) {
             const edge_id_vector & e_ids = m_out_edges[id];
             for (edge_id e_id : e_ids) {
@@ -1195,7 +1195,7 @@ public:
         scc_id.reset();
         m_roots.reset();
         m_unfinished.reset();
-        int n = m_assignment.size();
+        int n = static_cast<int>(m_assignment.size());
         m_unfinished_set.resize(n, false);
         m_dfs_time.resize(n, -1);
         scc_id.resize(n, -1);
