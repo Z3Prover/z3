@@ -285,13 +285,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk
-      
-      - name: Archive build
-        shell: pwsh
-        run: |
-          $version = "${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}"
-          Compress-Archive -Path "dist\z3-$version-x64-win" -DestinationPath "dist\z3-$version-x64-win.zip"
+          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --zip
       
       - name: Upload artifact
         uses: actions/upload-artifact@v6
@@ -317,13 +311,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
-          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk
-      
-      - name: Archive build
-        shell: pwsh
-        run: |
-          $version = "${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}"
-          Compress-Archive -Path "dist\z3-$version-x86-win" -DestinationPath "dist\z3-$version-x86-win.zip"
+          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --zip
       
       - name: Upload artifact
         uses: actions/upload-artifact@v6
@@ -349,13 +337,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64_arm64
-          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}
-      
-      - name: Archive build
-        shell: pwsh
-        run: |
-          $version = "${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}"
-          Compress-Archive -Path "build-dist\arm64\dist\z3-$version-arm64-win" -DestinationPath "build-dist\arm64\dist\z3-$version-arm64-win.zip"
+          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --zip
       
       - name: Upload artifact
         uses: actions/upload-artifact@v6
