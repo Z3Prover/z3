@@ -384,8 +384,6 @@ namespace search_tree {
             while (p) {
                 if (p->left() && p->left()->get_status() == status::closed &&
                     p->right() && p->right()->get_status() == status::closed) {
-                    //     IF_VERBOSE(1, verbose_stream() << "activate_node CLOSING NODE \n";);
-                    // p->set_status(status::closed);
                     if (p->get_status() != status::closed) 
                         return nullptr; // inconsistent state
                     n = p;
