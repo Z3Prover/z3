@@ -47,9 +47,6 @@ namespace smt {
 
     bool reachability_matrix::bitwise_or_rows(int source_dest, int source){
         bool changes = false;
-        // TODO: utilize largest_var
-        // TRACE(finite_set, tout << "row1: "<<reachable[source_dest*NUM_WORDS]);
-        // TRACE(finite_set, tout << "row2: "<<reachable[source*NUM_WORDS]);
         for (int i = 0; i < NUM_WORDS; i++)
         {
             uint64_t old_value = reachable[source_dest*NUM_WORDS+i];
@@ -60,8 +57,6 @@ namespace smt {
             ctx.push_trail(value_trail(reachable[source_dest*NUM_WORDS+i]));
             reachable[source_dest*NUM_WORDS+i] = new_value;
             changes = true;
-            // TRACE(finite_set, tout << "bitwise_or_rows(" << source_dest << "," << source <<"), i:"<<i<<", or_mask: "<<reachable[source*NUM_WORDS+i]);
-            // TRACE(finite_set, tout << "old_value: " << old_value << ", new_value:" << new_value <<")");
             check_reachability_conflict_word(source_dest, i);
         }
         return changes;
@@ -69,7 +64,6 @@ namespace smt {
 
     bool reachability_matrix::set_reachability(theory_var source, theory_var dest, enode_pair reachability_witness){
         if (!in_bounds(source, dest) || is_reachable(source, dest)){
-            // TRACE(finite_set, tout << "already_reachable(" << source << "," << dest <<")");
             return false;
         }
         ctx.push_trail(value_trail(largest_var));
@@ -207,10 +201,8 @@ namespace smt {
     }
 
     bool reachability_matrix::check_reachability_conflict_word(int row, int word){
-        // TRACE(finite_set, tout << "checking_conflict (row: "<<row<<",word: "<<word<<")");
         if(reachable[row*NUM_WORDS+word] & non_links[row*NUM_WORDS+word]){
 
-        // TRACE(finite_set, tout << "found_conflict (row: "<<row<<",word: "<<word<<")");
         // somewhere in this word there is a conflict
         conflict_row = row;
         conflict_word = word;
@@ -221,26 +213,22 @@ namespace smt {
     }
 
     void reachability_matrix::print_relations(){
-        // TRACE(finite_set, tout << "largest_var: "<<largest_var);
-        // for (size_t i = 0; i <  max_size; i++)
-        // {
-        //     for (size_t j = 0; j < max_size; j++)
-        //     {
-        //         if((reachable[get_word_index(i,j)]&get_bitmask(j)) || is_reachable(i,j)){
-        //             TRACE(finite_set, tout << "reachable: "<<i<<"->"<<j<<"  :"<<is_reachable(i,j));
-        //         }
-        //     }
-        // }
+        TRACE(finite_set, tout << "largest_var: "<<largest_var);
+        for (size_t i = 0; i <  max_size; i++)
+        {
+            for (size_t j = 0; j < max_size; j++)
+            {
+                if((reachable[get_word_index(i,j)]&get_bitmask(j)) || is_reachable(i,j)){
+                    TRACE(finite_set, tout << "reachable: "<<i<<"->"<<j<<"  :"<<is_reachable(i,j));
+                }
+            }
+        }
     }
 
     void theory_finite_set_lattice_refutation::trigger_conflict(vector<enode_pair> equalities, enode_pair clashing_disequality){
-        // TRACE(finite_set, tout << "trigger_conflict1");
         auto eq_expr = m.mk_not(m.mk_eq(clashing_disequality.first->get_expr(), clashing_disequality.second->get_expr()));
-        // TRACE(finite_set, tout << "trigger_conflict2, size:"<<equalities.size());
         auto disequality_literal = ctx.get_literal(eq_expr);
-        // TRACE(finite_set, tout << "trigger_conflict3"<<equalities.data()[0].first);
         auto j1 = ext_theory_conflict_justification(th.get_id(), ctx, 1, &disequality_literal, equalities.size(), equalities.data());
-        // TRACE(finite_set, tout << "trigger_conflict4");
         auto justification = ctx.mk_justification(j1);
         TRACE(finite_set, tout << "conflict_literal: "<<disequality_literal);
         
@@ -272,9 +260,7 @@ namespace smt {
         if (subset_th == null_theory_var || superset_th == null_theory_var){
             return;
         }
-        if(reachability.set_reachability(subset_th, superset_th, justifying_equality)){
-            reachability.print_relations();
-        }
+        reachability.set_reachability(subset_th, superset_th, justifying_equality);
         SASSERT(reachability.is_reachable(subset_th, superset_th));
         if(reachability.is_reachable(superset_th, subset_th)){
             TRACE(finite_set, tout << "cycle_detected: " << subset_th << " <--> " << superset_th);
@@ -282,15 +268,11 @@ namespace smt {
             int num_decisions;
             reachability.get_path(subset_th, subset_th, path, num_decisions);
             // we propagate the equality
-
-            TRACE(finite_set, tout << "cycle1: " << path.size());
             // build justification to be used by all propagated equalities
             auto j1 = ctx.mk_justification(ext_theory_conflict_justification(th.get_id(), ctx, 0, nullptr, path.size(), path.data()));
-            TRACE(finite_set, tout << "cycle2");
 
             for (size_t i = 0; i < path.size()-1; i++)
             {
-                TRACE(finite_set, tout << "cycle3");
                 auto set1 = path[i].first;
                 auto set2 = path[i+1].first;
                 ctx.add_eq(set1, set2, eq_justification(j1));
