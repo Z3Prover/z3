@@ -20,7 +20,6 @@ Revision History:
 
 #include "smt/smt_context.h"
 #include "util/search_tree.h"
-#include "tactic/tactic.h"
 #include "ast/sls/sls_smt_solver.h"
 #include <thread>
 #include <mutex>

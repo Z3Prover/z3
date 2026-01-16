@@ -27,14 +27,6 @@ Author:
 #include "solver/solver_preprocess.h"
 #include "params/smt_parallel_params.hpp"
 
-#include "tactic/tactic.h"
-#include "tactic/sls/sls_tactic.h"
-#include "tactic/goal.h"
-#include "tactic/tactic_exception.h"
-#include "tactic/smtlogics/smt_tactic.h"
-#include "ast/sls/sls_smt_solver.h"
-
-
 #include <cmath>
 #include <mutex>
 
