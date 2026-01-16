@@ -71,3 +71,11 @@ inline std::string& operator+=(std::string& s, mk_pp const& pp) {
     return s = s + pp;
 }
 
+// Helper function to convert streamable objects (like mk_pp) to strings for use with std::format
+template<typename T>
+inline std::string to_string(T const& obj) {
+    std::ostringstream strm;
+    strm << obj;
+    return std::move(strm).str();
+}
+
