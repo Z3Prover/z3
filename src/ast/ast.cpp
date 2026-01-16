@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include <sstream>
+#include <format>
 #include <cstring>
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
@@ -1021,9 +1022,9 @@ sort* basic_decl_plugin::join(sort* s1, sort* s2) {
         return s2;
     if (s2 == m_bool_sort && s1->get_family_id() == arith_family_id)
         return s1;
-    std::ostringstream buffer;
-    buffer << "Sorts " << mk_pp(s1, *m_manager) << " and " << mk_pp(s2, *m_manager) << " are incompatible";
-    throw ast_exception(buffer.str());
+    throw ast_exception(std::format("Sorts {} and {} are incompatible", 
+                                     to_string(mk_pp(s1, *m_manager)), 
+                                     to_string(mk_pp(s2, *m_manager))));
 }
 
 
@@ -1700,10 +1701,8 @@ ast * ast_manager::register_node_core(ast * n) {
         SASSERT(contains);
         SASSERT(m_ast_table.contains(n));
         if (is_func_decl(r) && to_func_decl(r)->get_range() != to_func_decl(n)->get_range()) {
-            std::ostringstream buffer;
-            buffer << "Recycling of declaration for the same name '" << to_func_decl(r)->get_name().str()
-                   << "' and domain, but different range type is not permitted";
-            throw ast_exception(buffer.str());
+            throw ast_exception(std::format("Recycling of declaration for the same name '{}' and domain, but different range type is not permitted",
+                                             to_func_decl(r)->get_name().str()));
         }
         deallocate_node(n, ::get_node_size(n));
         return r;
@@ -2020,11 +2019,11 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
         for (unsigned i = 0; i < num_args; ++i) {
             sort * given = args[i]->get_sort();
             if (!compatible_sorts(expected, given)) {
-                std::ostringstream buff;
-                buff << "invalid function application for " << decl->get_name() << ", ";
-                buff << "sort mismatch on argument at position " << (i+1) << ", ";
-                buff << "expected " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
-                throw ast_exception(buff.str());
+                throw ast_exception(std::format("invalid function application for {}, sort mismatch on argument at position {}, expected {} but given {}",
+                                                 to_string(decl->get_name()),
+                                                 i + 1,
+                                                 to_string(mk_pp(expected, m)),
+                                                 to_string(mk_pp(given, m))));
             }
         }
     }
@@ -2036,11 +2035,11 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
             sort * expected = decl->get_domain(i);
             sort * given    = args[i]->get_sort();
             if (!compatible_sorts(expected, given)) {
-                std::ostringstream buff;
-                buff << "invalid function application for " << decl->get_name() << ", ";
-                buff << "sort mismatch on argument at position " << (i+1) << ", ";
-                buff << "expected " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
-                throw ast_exception(buff.str());
+                throw ast_exception(std::format("invalid function application for {}, sort mismatch on argument at position {}, expected {} but given {}",
+                                                 to_string(decl->get_name()),
+                                                 i + 1,
+                                                 to_string(mk_pp(expected, m)),
+                                                 to_string(mk_pp(given, m))));
             }
         }
     }
@@ -2195,12 +2194,10 @@ void ast_manager::check_args(func_decl* f, unsigned n, expr* const* es) {
         sort * actual_sort   = es[i]->get_sort();
         sort * expected_sort = f->is_associative() ? f->get_domain(0) : f->get_domain(i);
         if (expected_sort != actual_sort) {
-            std::ostringstream buffer;
-            buffer << "Sort mismatch at argument #" << (i+1)
-                   << " for function " << mk_pp(f,*this)
-                   << " supplied sort is "
-                   << mk_pp(actual_sort, *this);
-            throw ast_exception(buffer.str());
+            throw ast_exception(std::format("Sort mismatch at argument #{} for function {} supplied sort is {}",
+                                             i + 1,
+                                             to_string(mk_pp(f, *this)),
+                                             to_string(mk_pp(actual_sort, *this))));
         }
     }
 }
@@ -2221,12 +2218,13 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
                    decl->get_family_id() == basic_family_id && !decl->is_associative());
 
     if (type_error) {
-        std::ostringstream buffer;
-        buffer << "Wrong number of arguments (" << num_args
-               << ") passed to function " << mk_pp(decl, *this) << " ";
+        std::string arg_list;
         for (unsigned i = 0; i < num_args; ++i)
-            buffer << "\narg: " << mk_pp(args[i], *this) << "\n";
-        throw ast_exception(std::move(buffer).str());
+            arg_list += std::format("\narg: {}\n", to_string(mk_pp(args[i], *this)));
+        throw ast_exception(std::format("Wrong number of arguments ({}) passed to function {} {}",
+                                         num_args,
+                                         to_string(mk_pp(decl, *this)),
+                                         arg_list));
     }
     app * r = nullptr;
     if (num_args == 1 && decl->is_chainable() && decl->get_arity() == 2) {
