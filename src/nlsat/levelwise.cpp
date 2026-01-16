@@ -279,7 +279,7 @@ namespace nlsat {
                 if (!coeff || is_zero(coeff))
                     continue;
                 if (is_const(coeff))
-                    return polynomial_ref(m_pm); // return nullptr
+                    return coeff;
             }
 
             // Second pass: pick the non-constant coefficient with minimal (total_degree, size, max_var).
@@ -326,17 +326,16 @@ namespace nlsat {
             }
         }
 
-        // Decide which leading coefficients can be omitted based on the chosen resultant relation.
+        // ============================================================================
+        // noLdcf helpers - compute which leading coefficients can be omitted
         // Inspired by SMT-RAT's "noLdcf" optimization in OneCellCAD.h.
-        void compute_omit_lc_from_relation(relation_mode mode, unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
-            omit_lc.clear();
-            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
-                return;
+        // ============================================================================
 
+        // Compute side_mask: track which side(s) each polynomial appears on
+        // bit0 = lower (<= sample), bit1 = upper (> sample), 3 = both sides
+        void compute_side_mask(unsigned level, std_vector<uint8_t>& side_mask) {
+            side_mask.clear();
             anum const& v = sample().value(level);
-
-            // Track whether a polynomial appears with a root function on the lower (<= v) and upper (> v) side.
-            std_vector<uint8_t> side_mask; // bit0: lower, bit1: upper
             for (auto const& rf : m_rel.m_rfunc) {
                 poly* p = rf.ire.p;
                 if (!p)
@@ -349,9 +348,11 @@ namespace nlsat {
                     mask |= 2;
                 vec_setx(side_mask, id, mask, static_cast<uint8_t>(0));
             }
+        }
 
-            // Count how many distinct resultant-neighbors each polynomial has under the chosen relation.
-            std_vector<unsigned> deg;
+        // Compute deg: count distinct resultant-neighbors for each polynomial
+        void compute_resultant_degree(std_vector<unsigned>& deg) {
+            deg.clear();
             std::set<std::pair<unsigned, unsigned>> added_pairs;
             for (auto const& pr : m_rel.m_pairs) {
                 poly* a = m_rel.m_rfunc[pr.first].ire.p;
@@ -368,47 +369,200 @@ namespace nlsat {
                 vec_setx(deg, id1, vec_get(deg, id1, 0u) + 1, 0u);
                 vec_setx(deg, id2, vec_get(deg, id2, 0u) + 1, 0u);
             }
+        }
 
-            // Omit leading coefficients for polynomials that occur on both sides of the sample.
-            // SMT-RAT's heuristic 1 (biggest-cell style) omits LCs for any such polynomial.
-            // For the other modes we keep the stricter condition that the polynomial is connected
-            // to only one distinct neighbor via resultants.
+        // ----------------------------------------------------------------------------
+        // SECTOR heuristics
+        // ----------------------------------------------------------------------------
+
+        // Sector heuristic 1 (biggest_cell): omit lc for polynomials on both sides
+        void compute_omit_lc_sector_biggest_cell(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
+            omit_lc.clear();
+            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
+                return;
+
+            std_vector<uint8_t> side_mask;
+            compute_side_mask(level, side_mask);
+
             for (unsigned i = 0; i < level_ps.size(); ++i) {
                 poly* p = level_ps.get(i);
                 if (!p)
                     continue;
                 unsigned id = m_pm.id(p);
-                if (vec_get(side_mask, id, static_cast<uint8_t>(0)) != 3)
-                    continue;
-                bool omit_all_both_sides = (mode == biggest_cell || mode == section_biggest_cell);
-                if (omit_all_both_sides || vec_get(deg, id, 0u) == 1)
+                // Omit if polynomial appears on both sides of the sample
+                if (vec_get(side_mask, id, static_cast<uint8_t>(0)) == 3)
                     vec_setx(omit_lc, id, true, false);
             }
+        }
 
-            // Additional chain-mode omission: in SMT-RAT's chain heuristic, the extreme root functions
-            // may omit leading coefficients when their defining polynomials also occur on the other side.
-            if (mode == chain || mode == section_chain) {
-                auto const& rfs = m_rel.m_rfunc;
-                unsigned mid_idx = 0;
-                while (mid_idx < rfs.size() && m_am.compare(rfs[mid_idx].val, v) <= 0)
-                    ++mid_idx;
+        // Sector heuristic 2 (chain): omit lc for extremes of chain that appear on other side
+        void compute_omit_lc_sector_chain(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
+            omit_lc.clear();
+            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
+                return;
 
-                if (mid_idx > 0) {
-                    poly* p0 = rfs.front().ire.p;
-                    if (p0) {
-                        unsigned id0 = m_pm.id(p0);
-                        if (vec_get(side_mask, id0, static_cast<uint8_t>(0)) & 2)
-                            vec_setx(omit_lc, id0, true, false);
-                    }
+            std_vector<uint8_t> side_mask;
+            compute_side_mask(level, side_mask);
+
+            anum const& v = sample().value(level);
+            auto const& rfs = m_rel.m_rfunc;
+
+            // Find the midpoint (first element > sample)
+            unsigned mid_idx = 0;
+            while (mid_idx < rfs.size() && m_am.compare(rfs[mid_idx].val, v) <= 0)
+                ++mid_idx;
+
+            // First of lower partition: omit if also appears on upper side
+            if (mid_idx > 0) {
+                poly* p_first = rfs.front().ire.p;
+                if (p_first) {
+                    unsigned id = m_pm.id(p_first);
+                    if (vec_get(side_mask, id, static_cast<uint8_t>(0)) & 2)
+                        vec_setx(omit_lc, id, true, false);
                 }
-                if (mid_idx < rfs.size()) {
-                    poly* plast = rfs.back().ire.p;
-                    if (plast) {
-                        unsigned idl = m_pm.id(plast);
-                        if (vec_get(side_mask, idl, static_cast<uint8_t>(0)) & 1)
-                            vec_setx(omit_lc, idl, true, false);
-                    }
+            }
+
+            // Last of upper partition: omit if also appears on lower side
+            if (mid_idx < rfs.size()) {
+                poly* p_last = rfs.back().ire.p;
+                if (p_last) {
+                    unsigned id = m_pm.id(p_last);
+                    if (vec_get(side_mask, id, static_cast<uint8_t>(0)) & 1)
+                        vec_setx(omit_lc, id, true, false);
                 }
+            }
+        }
+
+        // Sector heuristic 3 (lowest_degree): omit lc for leaves (deg==1) on both sides
+        void compute_omit_lc_sector_lowest_degree(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
+            omit_lc.clear();
+            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
+                return;
+
+            std_vector<uint8_t> side_mask;
+            compute_side_mask(level, side_mask);
+
+            std_vector<unsigned> deg;
+            compute_resultant_degree(deg);
+
+            for (unsigned i = 0; i < level_ps.size(); ++i) {
+                poly* p = level_ps.get(i);
+                if (!p)
+                    continue;
+                unsigned id = m_pm.id(p);
+                // Omit if polynomial is a leaf (deg==1) and appears on both sides
+                if (vec_get(side_mask, id, static_cast<uint8_t>(0)) == 3 &&
+                    vec_get(deg, id, 0u) == 1)
+                    vec_setx(omit_lc, id, true, false);
+            }
+        }
+
+        // Dispatch to appropriate sector heuristic
+        void compute_omit_lc_sector(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
+            switch (m_sector_relation_mode) {
+            case biggest_cell:
+                compute_omit_lc_sector_biggest_cell(level, level_ps, omit_lc);
+                break;
+            case chain:
+                compute_omit_lc_sector_chain(level, level_ps, omit_lc);
+                break;
+            case lowest_degree:
+                compute_omit_lc_sector_lowest_degree(level, level_ps, omit_lc);
+                break;
+            default:
+                omit_lc.clear();
+                break;
+            }
+        }
+
+        // ----------------------------------------------------------------------------
+        // SECTION heuristics
+        // ----------------------------------------------------------------------------
+
+        // Section heuristic 1 (section_biggest_cell): no omit_lc computation needed
+        // (ldcf decision is based on ORD_INV tag, handled in add_level_projections_section)
+        void compute_omit_lc_section_biggest_cell(unsigned /*level*/, polynomial_ref_vector const& /*level_ps*/, std_vector<bool>& omit_lc) {
+            omit_lc.clear();
+            // No omit_lc for section heuristic 1 - handled differently
+        }
+
+        // Section heuristic 2 (section_chain): omit lc for extremes of chain that appear on other side
+        void compute_omit_lc_section_chain(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
+            omit_lc.clear();
+            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
+                return;
+
+            std_vector<uint8_t> side_mask;
+            compute_side_mask(level, side_mask);
+
+            anum const& v = sample().value(level);
+            auto const& rfs = m_rel.m_rfunc;
+
+            // Find the midpoint (first element > sample)
+            unsigned mid_idx = 0;
+            while (mid_idx < rfs.size() && m_am.compare(rfs[mid_idx].val, v) <= 0)
+                ++mid_idx;
+
+            // First of lower partition: omit if also appears on upper side
+            if (mid_idx > 0) {
+                poly* p_first = rfs.front().ire.p;
+                if (p_first) {
+                    unsigned id = m_pm.id(p_first);
+                    if (vec_get(side_mask, id, static_cast<uint8_t>(0)) & 2)
+                        vec_setx(omit_lc, id, true, false);
+                }
+            }
+
+            // Last of upper partition: omit if also appears on lower side
+            if (mid_idx < rfs.size()) {
+                poly* p_last = rfs.back().ire.p;
+                if (p_last) {
+                    unsigned id = m_pm.id(p_last);
+                    if (vec_get(side_mask, id, static_cast<uint8_t>(0)) & 1)
+                        vec_setx(omit_lc, id, true, false);
+                }
+            }
+        }
+
+        // Section heuristic 3 (section_lowest_degree): omit lc for leaves (deg==1) on both sides
+        void compute_omit_lc_section_lowest_degree(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
+            omit_lc.clear();
+            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
+                return;
+
+            std_vector<uint8_t> side_mask;
+            compute_side_mask(level, side_mask);
+
+            std_vector<unsigned> deg;
+            compute_resultant_degree(deg);
+
+            for (unsigned i = 0; i < level_ps.size(); ++i) {
+                poly* p = level_ps.get(i);
+                if (!p)
+                    continue;
+                unsigned id = m_pm.id(p);
+                // Omit if polynomial is a leaf (deg==1) and appears on both sides
+                if (vec_get(side_mask, id, static_cast<uint8_t>(0)) == 3 &&
+                    vec_get(deg, id, 0u) == 1)
+                    vec_setx(omit_lc, id, true, false);
+            }
+        }
+
+        // Dispatch to appropriate section heuristic
+        void compute_omit_lc_section(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
+            switch (m_section_relation_mode) {
+            case section_biggest_cell:
+                compute_omit_lc_section_biggest_cell(level, level_ps, omit_lc);
+                break;
+            case section_chain:
+                compute_omit_lc_section_chain(level, level_ps, omit_lc);
+                break;
+            case section_lowest_degree:
+                compute_omit_lc_section_lowest_degree(level, level_ps, omit_lc);
+                break;
+            default:
+                omit_lc.clear();
+                break;
             }
         }
 
@@ -895,48 +1049,41 @@ namespace nlsat {
             }
         }
 
-        void add_level_projections(
+        void add_level_projections_sector(
             todo_set& P,
             unsigned level,
             polynomial_ref_vector const& level_ps,
             std::vector<tagged_id> const& level_tags,
             std::vector<polynomial_ref> const& witnesses,
-            std_vector<bool> const& poly_has_roots,
-            relation_mode mode) {
+            std_vector<bool> const& poly_has_roots) {
 
             // Lines 11-12 (Algorithm 1): add projections for each p
             // Note: Algorithm 1 adds disc + ldcf for ALL polynomials (classical delineability)
             // We additionally omit leading coefficients for rootless polynomials when possible
             // (cf. projective delineability, Lemma 3.2).
             std_vector<bool> omit_lc;
-            compute_omit_lc_from_relation(mode, level, level_ps, omit_lc);
-            std_vector<bool> omit_disc;
-            compute_omit_disc_from_section_relation(level, level_ps, omit_disc);
+            compute_omit_lc_sector(level, level_ps, omit_lc);
             for (unsigned i = 0; i < level_ps.size(); ++i) {
                 polynomial_ref p(level_ps.get(i), m_pm);
                 polynomial_ref lc(m_pm);
                 unsigned deg = m_pm.degree(p, level);
                 lc = m_pm.coeff(p, level, deg);
 
-                bool add_lc = !(lc && witnesses[i].get() == lc.get());
+                bool add_lc = true;  // Let todo_set handle duplicates if witness == lc
                 unsigned pid = m_pm.id(p.get());
-                if (add_lc && vec_get(omit_lc, pid, false))
+                if (vec_get(omit_lc, pid, false))
                     add_lc = false;
 
                 if (add_lc && i < usize(poly_has_roots) && !poly_has_roots[i])
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         add_lc = false;
 
+                // In sector case, always add discriminant (noDisc optimization only applies to sections)
                 bool add_disc = true;
-                // Only omit discriminants for polynomials that were not required
-                // to be order-invariant by upstream projection steps. Projection polynomials
-                // (resultants, discriminants) are requested with ORD and rely on delineability.
-                if (level_tags[i].second != inv_req::ord && vec_get(omit_disc, pid, false))
-                    add_disc = false;
-                // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample,
-                // we do not need to project an additional non-null coefficient witness.
+                // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample
+                // AND we're adding lc, we do not need to project an additional non-null coefficient witness.
                 polynomial_ref witness = witnesses[i];
-                if (witness && !is_const(witness)) {
+                if (witness && !is_const(witness) && add_lc) {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
                 }
@@ -957,7 +1104,7 @@ namespace nlsat {
 
             // Compute omission information derived from the chosen relation (still used for heuristics 2/3).
             std_vector<bool> omit_lc;
-            compute_omit_lc_from_relation(m_section_relation_mode, level, level_ps, omit_lc);
+            compute_omit_lc_section(level, level_ps, omit_lc);
             std_vector<bool> omit_disc;
             compute_omit_disc_from_section_relation(level, level_ps, omit_disc);
 
@@ -971,9 +1118,9 @@ namespace nlsat {
                 unsigned deg = m_pm.degree(p, level);
                 lc = m_pm.coeff(p, level, deg);
 
-                bool add_lc = !(lc && witnesses[i].get() == lc.get());
+                bool add_lc = true;  // Let todo_set handle duplicates if witness == lc
                 if (is_section_poly) {
-                    add_lc = true;
+                    // add_lc stays true
                 }
                 else if (m_section_relation_mode == section_biggest_cell) {
                     // SMT-RAT section heuristic 1 projects leading coefficients primarily for the
@@ -1013,10 +1160,10 @@ namespace nlsat {
                 if (add_disc && level_tags[i].second != inv_req::ord && vec_get(omit_disc, pid, false))
                     add_disc = false;
 
-                // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample,
-                // we do not need to project an additional non-null coefficient witness.
+                // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample
+                // AND we're adding lc, we do not need to project an additional non-null coefficient witness.
                 polynomial_ref witness = witnesses[i];
-                if (witness && !is_const(witness)) {
+                if (witness && !is_const(witness) && add_lc) {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
                 }
@@ -1060,7 +1207,7 @@ namespace nlsat {
             if (have_interval)
                 fill_relation_pairs_for_sector(l_index, u_index);
             upgrade_bounds_to_ord(level, level_ps, level_tags);
-            add_level_projections(P, level, level_ps, level_tags, witnesses, poly_has_roots, m_sector_relation_mode);
+            add_level_projections_sector(P, level, level_ps, level_tags, witnesses, poly_has_roots);
             add_relation_resultants(P, level);
         }
 
@@ -1094,7 +1241,6 @@ namespace nlsat {
         void process_top_level(todo_set& P, polynomial_ref_vector const& top_ps, std::vector<tagged_id>& top_tags) {
             SASSERT(top_ps.size() == top_tags.size());
             std::vector<polynomial_ref> witnesses;
-            bool nullified = false;
             witnesses.reserve(top_ps.size());
             for (unsigned i = 0; i < top_ps.size(); ++i) {
                 polynomial_ref p(top_ps.get(i), m_pm);
@@ -1120,15 +1266,15 @@ namespace nlsat {
                 unsigned deg = m_pm.degree(p, m_n);
                 lc = m_pm.coeff(p, m_n, deg);
 
-                bool add_lc = !(lc && witnesses[i].get() == lc.get());
-                if (add_lc && i < usize(poly_has_roots) && !poly_has_roots[i]) {
+                bool add_lc = true;  // Let todo_set handle duplicates if witness == lc
+                if (i < usize(poly_has_roots) && !poly_has_roots[i]) {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         add_lc = false;
                 }
-                // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample,
-                // we do not need to project an additional non-null coefficient witness.
+                // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample
+                // AND we're adding lc, we do not need to project an additional non-null coefficient witness.
                 polynomial_ref witness = witnesses[i];
-                if (witness && !is_const(witness)) {
+                if (add_lc && witness && !is_const(witness) && add_lc) {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
                 }
