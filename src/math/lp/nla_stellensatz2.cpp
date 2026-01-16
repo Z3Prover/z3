@@ -23,37 +23,38 @@
 
   --*/
 
-#include "params/smt_params_helper.hpp"
-#include "math/dd/pdd_eval.h"
-#include "math/lp/nla_core.h"
-#include "math/lp/nla_coi.h"
-#include "math/lp/nla_stellensatz2.h"
 #include <algorithm>
 #include <ostream>
 #include <unordered_map>
 #include <utility>
 #include <variant>
-#include <math/dd/dd_pdd.h>
-#include "explanation.h"
-#include "int_solver.h"
-#include "lar_solver.h"
-#include "lia_move.h"
-#include "lp_settings.h"
-#include "lp_types.h"
-#include "nla_common.h"
-#include "nla_defs.h"
-#include "nla_types.h"
-#include <util/debug.h>
-#include <util/dependency.h>
-#include <util/lbool.h>
-#include <util/memory_manager.h>
-#include <util/params.h>
-#include <util/rational.h>
-#include <util/trace.h>
-#include <util/trail.h>
-#include <util/uint_set.h>
-#include <util/util.h>
-#include <util/vector.h>
+#include "util/debug.h"
+#include "util/dependency.h"
+#include "util/lbool.h"
+#include "util/memory_manager.h"
+#include "util/params.h"
+#include "util/rational.h"
+#include "util/trace.h"
+#include "util/trail.h"
+#include "util/uint_set.h"
+#include "util/util.h"
+#include "util/vector.h"
+#include "params/smt_params_helper.hpp"
+#include "math/dd/pdd_eval.h"
+#include "math/lp/nla_core.h"
+#include "math/lp/nla_coi.h"
+#include "math/lp/nla_stellensatz2.h"
+#include "math/dd/dd_pdd.h"
+#include "math/lp/explanation.h"
+#include "math/lp/int_solver.h"
+#include "math/lp/lar_solver.h"
+#include "math/lp/lia_move.h"
+#include "math/lp/lp_settings.h"
+#include "math/lp/lp_types.h"
+#include "math/lp/nla_common.h"
+#include "math/lp/nla_defs.h"
+#include "math/lp/nla_types.h"
+
 
 namespace nla {
     
@@ -387,8 +388,7 @@ namespace nla {
         return l_undef;
     }
 
-    lp::constraint_index stellensatz2::resolve_variable(
-        lpvar x, lp::constraint_index ci, lp::constraint_index other_ci) {
+    lp::constraint_index stellensatz2::resolve_variable(lpvar x, lp::constraint_index ci, lp::constraint_index other_ci) {
         TRACE(arith, tout << "resolve j" << x << " between ci " << (int)ci << " and other_ci " << (int)other_ci << "\n");
         if (ci == lp::null_ci || other_ci == lp::null_ci)
             return lp::null_ci;
@@ -514,8 +514,8 @@ namespace nla {
         p_is_0 = multiply(p_is_0, r);
         auto new_ci = add(ci, p_is_0);
         TRACE(arith, display_constraint(tout << "j" << x << " ", ci) << "\n";
-            display_constraint(tout << "reduced ", new_ci) << "\n";
-        display_constraint(tout, p_is_0) << "\n");
+                     display_constraint(tout << "reduced ", new_ci) << "\n";
+                     display_constraint(tout, p_is_0) << "\n");
         init_occurs(new_ci);        
         return new_ci;
     }
@@ -1000,7 +1000,8 @@ namespace nla {
                 for (auto v : c.p.free_vars())
                     move_up(v); 
 
-        m_max_occurs.reset();
+        for (auto &v : m_max_occurs)
+            v.reset();
         m_max_occurs.reserve(num_vars());
         for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {
             auto const &c = m_constraints[ci];
@@ -1056,8 +1057,7 @@ namespace nla {
                   tout << "is_decision: " << found_decision << "\n"; display_constraint(tout, ci) << "\n";
                   tout << "new conflict: "; display_constraint(tout, m_conflict) << "\n";);
         }
-        SASSERT(found_decision || conflict_level == 0);
-        SASSERT(!found_decision || conflict_level != 0);
+        SASSERT(found_decision == (conflict_level != 0));
         if (conflict_level == 0) {
             m_core.reset();
             for (auto ci : m_conflict_marked_ci)
@@ -1123,9 +1123,9 @@ namespace nla {
         // replay other constraints
         unsigned sz = m_constraints.size();
         svector<lp::constraint_index> tail2head;
-        tail2head.resize(m_constraints.size() - ci);
+        tail2head.resize(sz - ci);
         auto translate_ci = [&](lp::constraint_index old_ci) -> lp::constraint_index {
-            return old_ci < sz ? old_ci : tail2head[sz - old_ci];
+            return old_ci < ci ? old_ci : tail2head[sz - old_ci];
         };
         for (; tail < m_constraints.size(); ++tail) {
             auto [p, k] = m_constraints[tail];
@@ -1258,8 +1258,7 @@ namespace nla {
             return std::get<multiplication_poly_justification>(j).ci;
         }
         UNREACHABLE();
-        return lp::null_ci;
-    
+        return lp::null_ci;    
     }
 
     unsigned stellensatz2::num_constraints(justification const &j) {
@@ -1335,8 +1334,7 @@ namespace nla {
 
                 CTRACE(arith, !well_formed_last_bound(), display(tout));
                 SASSERT(well_formed_last_bound());
-                SASSERT(well_formed_var(w));
-                
+                SASSERT(well_formed_var(w));                
             }
         }
     }
@@ -1993,8 +1991,11 @@ namespace nla {
             return out << "(null) ";
         bool is_true = constraint_is_true(ci);
         auto const &[p, k] = m_constraints[ci];
-        return display_constraint(out << "(" << ci << ") ", m_constraints[ci])
-               << (is_true ? " [true] " : " [false] ") << "(" << value(p) << " " << k << " 0)";
+        auto level = m_levels[ci];
+        return display_constraint(out << "(" << ci << ") @ " << level << " ", m_constraints[ci])
+               << (is_true ? " [true] " : " [false] ") << "(" << value(p) << " " << k << " 0)\n";
+        auto const &j = m_justifications[ci];
+        display(out, j) << "\n";
     }
 
     std::ostream &stellensatz2::display_constraint(std::ostream &out, constraint const &c) const {
@@ -2002,7 +2003,7 @@ namespace nla {
         p.display(out);
         return out << " " << k << " 0";
     }
-
+    
     std::ostream &stellensatz2::display(std::ostream &out, justification const &j) const {
         if (std::holds_alternative<external_justification>(j)) {
             auto dep = std::get<external_justification>(j).dep;
@@ -2064,10 +2065,8 @@ namespace nla {
                 continue;
             m_constraints_in_conflict.insert(ci);
             out << "(" << ci << ") ";
-            display_constraint(out, ci) << " ";
-            auto const &j = m_justifications[ci];
-
-            display(out, j) << "\n";
+            display_constraint(out, ci);
+            auto const& j = m_justifications[ci];
             for (auto cij : justification_range(*this, j))
                 todo.push_back(cij);
         }
