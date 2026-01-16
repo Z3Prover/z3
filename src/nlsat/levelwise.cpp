@@ -395,13 +395,55 @@ namespace nlsat {
             }
         }
 
-        // Sector heuristic 2 (chain): omit lc for extremes of chain that appear on other side
-        // DISABLED: This optimization is unsound - see bug investigation
+        // Find the partition boundary in m_rfunc (index of first root > sample).
+        // Returns n if all roots are <= sample (i.e., no upper partition).
+        unsigned find_partition_boundary(unsigned level) {
+            anum const& v = sample().value(level);
+            unsigned n = m_rel.m_rfunc.size();
+            for (unsigned i = 0; i < n; ++i) {
+                if (m_am.compare(m_rel.m_rfunc[i].val, v) > 0)
+                    return i;
+            }
+            return n;
+        }
+
+        // Sector heuristic 2 (chain): omit lc for extremes of chain that appear on other side.
+        // SMT-RAT logic (OneCellCAD.h lines 975-985):
+        // - lower2.begin() = polynomial with smallest root below sample (extreme of lower chain)
+        // - upper2.end()-1 = polynomial with largest root above sample (extreme of upper chain)
+        // - Omit ldcf only if the polynomial appears on BOTH sides of the sample
         void compute_omit_lc_sector_chain(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
             omit_lc.clear();
-            // Disabled - the SMT-RAT noLdcf optimization for chain mode appears to be unsound
-            // or incorrectly implemented. For safety, we don't omit any leading coefficients
-            // in chain mode until the issue is fully understood.
+            if (m_rel.m_rfunc.empty())
+                return;
+
+            std_vector<uint8_t> side_mask;
+            compute_side_mask(level, side_mask);
+
+            unsigned n = m_rel.m_rfunc.size();
+            unsigned partition_idx = find_partition_boundary(level);
+
+            // Extreme of lower chain: index 0 (if lower partition exists, i.e., partition_idx > 0)
+            if (partition_idx > 0) {
+                poly* p = m_rel.m_rfunc[0].ire.p;
+                if (p) {
+                    unsigned id = m_pm.id(p);
+                    // Omit ldcf if this polynomial also appears on the upper side
+                    if (vec_get(side_mask, id, static_cast<uint8_t>(0)) & 2)
+                        vec_setx(omit_lc, id, true, false);
+                }
+            }
+
+            // Extreme of upper chain: last index (if upper partition exists, i.e., partition_idx < n)
+            if (partition_idx < n) {
+                poly* p = m_rel.m_rfunc[n - 1].ire.p;
+                if (p) {
+                    unsigned id = m_pm.id(p);
+                    // Omit ldcf if this polynomial also appears on the lower side
+                    if (vec_get(side_mask, id, static_cast<uint8_t>(0)) & 1)
+                        vec_setx(omit_lc, id, true, false);
+                }
+            }
         }
 
         // Sector heuristic 3 (lowest_degree): omit lc for leaves (deg==1) on both sides
@@ -457,13 +499,43 @@ namespace nlsat {
             // No omit_lc for section heuristic 1 - handled differently
         }
 
-        // Section heuristic 2 (section_chain): omit lc for extremes of chain that appear on other side
-        // DISABLED: This optimization is unsound - see bug investigation
+        // Section heuristic 2 (section_chain): omit lc for extremes of chain that appear on other side.
+        // SMT-RAT logic (OneCellCAD.h lines 240-252):
+        // - lower.begin() = polynomial with smallest root below sample (extreme of lower chain)
+        // - upper.end()-1 = polynomial with largest root above sample (extreme of upper chain)
+        // - Omit ldcf only if the polynomial appears on BOTH sides of the sample
         void compute_omit_lc_section_chain(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
             omit_lc.clear();
-            // Disabled - the SMT-RAT noLdcf optimization for chain mode appears to be unsound
-            // or incorrectly implemented. For safety, we don't omit any leading coefficients
-            // in chain mode until the issue is fully understood.
+            if (m_rel.m_rfunc.empty())
+                return;
+
+            std_vector<uint8_t> side_mask;
+            compute_side_mask(level, side_mask);
+
+            unsigned n = m_rel.m_rfunc.size();
+            unsigned partition_idx = find_partition_boundary(level);
+
+            // Extreme of lower chain: index 0 (if lower partition exists, i.e., partition_idx > 0)
+            if (partition_idx > 0) {
+                poly* p = m_rel.m_rfunc[0].ire.p;
+                if (p) {
+                    unsigned id = m_pm.id(p);
+                    // Omit ldcf if this polynomial also appears on the upper side
+                    if (vec_get(side_mask, id, static_cast<uint8_t>(0)) & 2)
+                        vec_setx(omit_lc, id, true, false);
+                }
+            }
+
+            // Extreme of upper chain: last index (if upper partition exists, i.e., partition_idx < n)
+            if (partition_idx < n) {
+                poly* p = m_rel.m_rfunc[n - 1].ire.p;
+                if (p) {
+                    unsigned id = m_pm.id(p);
+                    // Omit ldcf if this polynomial also appears on the lower side
+                    if (vec_get(side_mask, id, static_cast<uint8_t>(0)) & 1)
+                        vec_setx(omit_lc, id, true, false);
+                }
+            }
         }
 
         // Section heuristic 3 (section_lowest_degree): omit lc for leaves (deg==1) on both sides
