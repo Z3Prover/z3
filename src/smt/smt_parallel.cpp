@@ -318,6 +318,7 @@ namespace smt {
 
         IF_VERBOSE(1, m_search_tree.display(verbose_stream() << bounded_pp_exprs(core) << "\n"););
         if (m_search_tree.is_closed()) {
+            IF_VERBOSE(1, verbose_stream() << "Search tree closed, setting UNSAT\n");
             m_state = state::is_unsat;
             SASSERT(p.ctx.m_unsat_core.empty());
             for (auto e : m_search_tree.get_core_from_root())
