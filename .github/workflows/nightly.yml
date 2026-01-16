@@ -517,10 +517,10 @@ jobs:
         run: |
           cd artifacts
           mkdir -p osx-x64-bin osx-arm64-bin win32-bin win64-bin
-          cd osx-x64-bin && unzip ../*-x64-osx*.zip && cd ..
-          cd osx-arm64-bin && unzip ../*-arm64-osx*.zip && cd ..
-          cd win32-bin && unzip ../*-x86-win*.zip && cd ..
-          cd win64-bin && unzip ../*-x64-win*.zip && cd ..
+          cd osx-x64-bin && unzip ../z3-*-x64-osx*.zip && cd ..
+          cd osx-arm64-bin && unzip ../z3-*-arm64-osx*.zip && cd ..
+          cd win32-bin && unzip ../z3-*-x86-win*.zip && cd ..
+          cd win64-bin && unzip ../z3-*-x64-win*.zip && cd ..
       
       - name: Build Python packages
         run: |
