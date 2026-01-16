@@ -1120,7 +1120,9 @@ namespace nlsat {
             std_vector<bool> omit_lc;
             compute_omit_lc_section(level, level_ps, omit_lc);
             std_vector<bool> omit_disc;
-            compute_omit_disc_from_section_relation(level, level_ps, omit_disc);
+            // SMT-RAT only applies noDisc optimization for section_lowest_degree (heuristic 3)
+            if (m_section_relation_mode == section_lowest_degree)
+                compute_omit_disc_from_section_relation(level, level_ps, omit_disc);
 
             for (unsigned i = 0; i < level_ps.size(); ++i) {
                 polynomial_ref p(level_ps.get(i), m_pm);
