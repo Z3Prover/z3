@@ -73,7 +73,6 @@ namespace smt {
 namespace smt {
 
     void parallel::sls_worker::run() {
-        // 2) Copy assertions (global → local)
         ptr_vector<expr> assertions;
         p.ctx.get_assertions(assertions);
         for (expr* e : assertions)
@@ -83,22 +82,18 @@ namespace smt {
         lbool res = l_undef;
         try {
             res = m_sls->check();
-        }
-        catch (z3_exception& ex) {
+        } catch (z3_exception& ex) {
             IF_VERBOSE(1, verbose_stream() << "SLS threw an exception: " << ex.what() << "\n");
             // m_sls->collect_statistics(m_st);
-            throw;
-            // TODO: CHANGE THIS TO NOTIFY BATCH MANAGER
+            b.set_exception(ex.what());
         }
         // m_sls->collect_statistics(m_st);
-//        report_tactic_progress("Number of flips:", m_sls->get_num_moves());
         IF_VERBOSE(10, verbose_stream() << res << "\n");
         IF_VERBOSE(10, m_sls->display(verbose_stream()));
 
         if (res == l_true) {            
             model_ref mdl = m_sls->get_model();
-            // TODO: notify batch manager of sat model!!
-            // TODO: add m_sls to header file as member variable and import relevant files
+            b.set_sat(m_l2g, *mdl);
         }
     }
 

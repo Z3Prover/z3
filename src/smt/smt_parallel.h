@@ -176,7 +176,7 @@ namespace smt {
             ast_manager m;
             ast_translation m_g2l, m_l2g;
             scoped_ptr<sls::smt_solver> m_sls;
-            params_ref  m_params;
+            params_ref m_params;
 
             public:
                 sls_worker(parallel &p);
