@@ -148,7 +148,6 @@ namespace nla {
     }
 
     void stellensatz2::init_solver() {
-        m_ctrail.reset(); // pops constraints
         m_num_scopes = 0;
         m_monomial_factory.reset();
         m_coi.init();
@@ -296,7 +295,7 @@ namespace nla {
         ci = m_constraints.size();
 
         unsigned level = get_level(j);
-        if (std::holds_alternative<assumption_justification>(j)) {
+        if (is_decision(j)) {
             level = m_num_scopes;
             ++m_num_scopes;           
         }
@@ -336,11 +335,11 @@ namespace nla {
         SASSERT(ci != lp::null_ci);
         if (conflict == lp::null_ci)
             return lp::null_ci;
-        // TODO: the variable to resolve on occurs in ci and has to be extracted from ci or the justification for ci.
-        // It is likely adequate to suppose ci is justified by bounds propagation and the variable is in the propagated
-        // bound. It could also be that ci is a decision. Note that extracting variables for resolution is optional. we
-        // will anyhow end up flipping the last decision. v is maximal variable in ci?
-        NOT_IMPLEMENTED_YET();
+        auto const &[p, k] = m_constraints[ci];
+        if (p.is_var()) 
+            return resolve_variable(p.var(), ci, conflict);
+        if (p.is_minus())
+            return resolve_variable((-p).var(), ci, conflict);
         return lp::null_ci;
     }
 
@@ -629,7 +628,7 @@ namespace nla {
         if (std::holds_alternative<external_justification>(j)) {
             external.push_back(ci);
         }
-        else if (std::holds_alternative<assumption_justification>(j)) {
+        else if (is_decision(j)) {
             assumptions.push_back(ci);
         }
         else {
@@ -808,15 +807,6 @@ namespace nla {
             return;
         if (m_has_occurs[ci])
             return;
-        struct undo_occurs : public trail {
-            stellensatz2 & s;
-            lp::constraint_index ci;
-            undo_occurs(stellensatz2 & s, lp::constraint_index ci) : s(s), ci(ci) {}
-            void undo() override {
-                s.remove_occurs(ci);
-            }
-        };
-        m_ctrail.push(undo_occurs(*this, ci));
         m_has_occurs[ci] = true;
         auto const &con = m_constraints[ci];
         for (auto v : con.p.free_vars())
@@ -824,7 +814,8 @@ namespace nla {
     }
 
     void stellensatz2::remove_occurs(lp::constraint_index ci) {
-        SASSERT(m_has_occurs[ci]);
+        if (!m_has_occurs[ci])
+            return;
         m_has_occurs[ci] = false;            
         auto const &con = m_constraints[ci];
         for (auto v : con.p.free_vars())
@@ -1091,8 +1082,8 @@ namespace nla {
         return l_undef;
     }
 
-    void stellensatz2::backtrack(unsigned ci, svector<lp::constraint_index> const &deps) {
-        auto &[p, k] = m_constraints[ci];
+    stellensatz2::constraint stellensatz2::negate_constraint(constraint const &c) { 
+        auto [p, k] = c; 
         switch (k) {
         case lp::lconstraint_kind::GE:
             if (is_int(p)) {
@@ -1113,18 +1104,22 @@ namespace nla {
                 k = lp::lconstraint_kind::GT;
             break;
         }
-        lp::constraint_index head = ci, tail = ci + 1;
+        return {p, k};
+    }
 
+    void stellensatz2::backtrack(unsigned ci, svector<lp::constraint_index> const &deps) {
+        auto &[p, k] = m_constraints[ci];
         unsigned propagation_level = 0;
-        for (auto ci : deps) 
+        for (auto ci : deps)
             propagation_level = std::max(propagation_level, m_levels[ci]);
+        m_constraint_index.erase({p.index(), k});
         
         // propagate negated constraint
-        m_justifications[head] = propagation_justification(deps);
-        m_levels[head] = propagation_level;
-        m_constraints[head] = {p, k};
+        m_constraints[ci] = negate_constraint(m_constraints[ci]);
+        m_justifications[ci] = propagation_justification(deps);
+        m_levels[ci] = propagation_level;
         m_num_scopes = propagation_level;
-        ++head;
+        lp::constraint_index head = ci + 1, tail = ci + 1;
         // replay other constraints
         unsigned sz = m_constraints.size();
         svector<lp::constraint_index> tail2head;
@@ -1133,15 +1128,20 @@ namespace nla {
             return old_ci < sz ? old_ci : tail2head[sz - old_ci];
         };
         for (; tail < m_constraints.size(); ++tail) {
+            auto [p, k] = m_constraints[tail];
             auto level = get_level(m_justifications[tail]);
-            if (tail < sz && level > propagation_level)
-                continue;
+            auto has_occurs = m_has_occurs[tail];
+            remove_occurs(tail);
+            m_constraint_index.erase({p.index(), k});
+            if (level > m_num_scopes) 
+                continue;            
             m_constraints[head] = m_constraints[tail];
             m_justifications[head] = translate_j(translate_ci, m_justifications[tail]);
-            m_levels[head] = get_level(m_justifications[tail]);
-            if (is_decision(head))
-                m_levels[head] = ++m_num_scopes;
+            m_levels[head] = is_decision(head) ? ++m_num_scopes : get_level(m_justifications[tail]);
             tail2head[sz - tail] = head;
+            if (has_occurs)
+                init_occurs(head);
+            m_constraint_index.insert({p.index(), k}, head);
             ++head;
         }
         m_constraints.shrink(head);

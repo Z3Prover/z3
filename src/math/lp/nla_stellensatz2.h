@@ -166,8 +166,6 @@ namespace nla {
             lpvar    m_var;
             bool     m_is_upper;           
         };
-
-        trail_stack m_ctrail; // constraint and variable trail
         unsigned    m_num_scopes = 0;
         coi m_coi;
         mutable dd::pdd_manager pddm;
@@ -214,6 +212,8 @@ namespace nla {
         lbool search();
         lbool resolve_conflict();
         void backtrack(lp::constraint_index ci, svector<lp::constraint_index> const &deps);
+        constraint negate_constraint(constraint const &c);
+
         void init_search();
         void init_levels();
         void pop_bound();
@@ -234,9 +234,8 @@ namespace nla {
         }
         void reset_conflict() { m_conflict = lp::null_ci; m_conflict_dep.reset(); }
         bool is_conflict() const { return !m_conflict_dep.empty(); }
-        bool is_decision(lp::constraint_index ci) const {
-            return std::holds_alternative<assumption_justification>(m_justifications[ci]);
-        }
+        bool is_decision(justification const& j) const { return std::holds_alternative<assumption_justification>(j); }
+        bool is_decision(lp::constraint_index ci) const { return is_decision(m_justifications[ci]); }
 
         indexed_uint_set m_tabu;
         unsigned_vector m_var2level, m_level2var;
